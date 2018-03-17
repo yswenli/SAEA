@@ -1,0 +1,17 @@
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.MessageTest\bin\Debug\netcoreapp2.0\ASEA.MessageTest.deps.json
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.MessageTest\bin\Debug\netcoreapp2.0\ASEA.MessageTest.runtimeconfig.json
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.MessageTest\bin\Debug\netcoreapp2.0\ASEA.MessageTest.runtimeconfig.dev.json
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.MessageTest\bin\Debug\netcoreapp2.0\ASEA.MessageTest.dll
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.MessageTest\bin\Debug\netcoreapp2.0\ASEA.MessageTest.pdb
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.MessageTest\bin\Debug\netcoreapp2.0\ASEA.Commom.dll
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.MessageTest\bin\Debug\netcoreapp2.0\ASEA.MessageSocket.dll
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.MessageTest\bin\Debug\netcoreapp2.0\ASEA.Sockets.dll
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.MessageTest\bin\Debug\netcoreapp2.0\ASEA.MessageSocket.pdb
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.MessageTest\bin\Debug\netcoreapp2.0\ASEA.Commom.pdb
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.MessageTest\bin\Debug\netcoreapp2.0\ASEA.Sockets.pdb
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.MessageTest\obj\Debug\netcoreapp2.0\ASEA.MessageTest.csprojResolveAssemblyReference.cache
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.MessageTest\obj\Debug\netcoreapp2.0\ASEA.MessageTest.csproj.CoreCompileInputs.cache
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.MessageTest\obj\Debug\netcoreapp2.0\ASEA.MessageTest.AssemblyInfoInputs.cache
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.MessageTest\obj\Debug\netcoreapp2.0\ASEA.MessageTest.AssemblyInfo.cs
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.MessageTest\obj\Debug\netcoreapp2.0\ASEA.MessageTest.dll
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.MessageTest\obj\Debug\netcoreapp2.0\ASEA.MessageTest.pdb

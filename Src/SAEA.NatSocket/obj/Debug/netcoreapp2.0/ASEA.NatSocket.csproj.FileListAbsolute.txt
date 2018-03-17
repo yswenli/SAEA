@@ -1,0 +1,8 @@
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.NatSocket\obj\Debug\netcoreapp2.0\ASEA.NatSocket.csproj.CoreCompileInputs.cache
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.NatSocket\obj\Debug\netcoreapp2.0\ASEA.NatSocket.AssemblyInfoInputs.cache
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.NatSocket\obj\Debug\netcoreapp2.0\ASEA.NatSocket.AssemblyInfo.cs
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.NatSocket\bin\Debug\netcoreapp2.0\ASEA.NatSocket.deps.json
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.NatSocket\bin\Debug\netcoreapp2.0\ASEA.NatSocket.dll
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.NatSocket\bin\Debug\netcoreapp2.0\ASEA.NatSocket.pdb
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.NatSocket\obj\Debug\netcoreapp2.0\ASEA.NatSocket.dll
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.NatSocket\obj\Debug\netcoreapp2.0\ASEA.NatSocket.pdb

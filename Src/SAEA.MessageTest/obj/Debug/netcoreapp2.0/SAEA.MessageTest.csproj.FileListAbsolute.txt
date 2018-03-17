@@ -1,0 +1,4 @@
+E:\百度云\Develop\案例\网络类\SAEA\SAEA.MessageTest\obj\Debug\netcoreapp2.0\SAEA.MessageTest.csprojResolveAssemblyReference.cache
+E:\百度云\Develop\案例\网络类\SAEA\SAEA.MessageTest\obj\Debug\netcoreapp2.0\SAEA.MessageTest.csproj.CoreCompileInputs.cache
+E:\百度云\Develop\案例\网络类\SAEA\SAEA.MessageTest\obj\Debug\netcoreapp2.0\SAEA.MessageTest.AssemblyInfoInputs.cache
+E:\百度云\Develop\案例\网络类\SAEA\SAEA.MessageTest\obj\Debug\netcoreapp2.0\SAEA.MessageTest.AssemblyInfo.cs

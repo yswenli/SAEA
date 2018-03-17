@@ -1,0 +1,4 @@
+E:\百度云\Develop\案例\网络类\SAEA\SAEA.NatSocketTest\obj\Debug\netcoreapp2.0\SAEA.NatSocketTest.csprojResolveAssemblyReference.cache
+E:\百度云\Develop\案例\网络类\SAEA\SAEA.NatSocketTest\obj\Debug\netcoreapp2.0\SAEA.NatSocketTest.csproj.CoreCompileInputs.cache
+E:\百度云\Develop\案例\网络类\SAEA\SAEA.NatSocketTest\obj\Debug\netcoreapp2.0\SAEA.NatSocketTest.AssemblyInfoInputs.cache
+E:\百度云\Develop\案例\网络类\SAEA\SAEA.NatSocketTest\obj\Debug\netcoreapp2.0\SAEA.NatSocketTest.AssemblyInfo.cs

@@ -1,0 +1,13 @@
+E:\百度云\Develop\案例\网络类\SAEA\SAEA.TcpP2P\bin\Debug\netcoreapp2.0\SAEA.TcpP2P.deps.json
+E:\百度云\Develop\案例\网络类\SAEA\SAEA.TcpP2P\bin\Debug\netcoreapp2.0\SAEA.TcpP2P.dll
+E:\百度云\Develop\案例\网络类\SAEA\SAEA.TcpP2P\bin\Debug\netcoreapp2.0\SAEA.TcpP2P.pdb
+E:\百度云\Develop\案例\网络类\SAEA\SAEA.TcpP2P\bin\Debug\netcoreapp2.0\SAEA.Commom.dll
+E:\百度云\Develop\案例\网络类\SAEA\SAEA.TcpP2P\bin\Debug\netcoreapp2.0\SAEA.Sockets.dll
+E:\百度云\Develop\案例\网络类\SAEA\SAEA.TcpP2P\bin\Debug\netcoreapp2.0\SAEA.Sockets.pdb
+E:\百度云\Develop\案例\网络类\SAEA\SAEA.TcpP2P\bin\Debug\netcoreapp2.0\SAEA.Commom.pdb
+E:\百度云\Develop\案例\网络类\SAEA\SAEA.TcpP2P\obj\Debug\netcoreapp2.0\SAEA.TcpP2P.csproj.CoreCompileInputs.cache
+E:\百度云\Develop\案例\网络类\SAEA\SAEA.TcpP2P\obj\Debug\netcoreapp2.0\SAEA.TcpP2P.AssemblyInfoInputs.cache
+E:\百度云\Develop\案例\网络类\SAEA\SAEA.TcpP2P\obj\Debug\netcoreapp2.0\SAEA.TcpP2P.AssemblyInfo.cs
+E:\百度云\Develop\案例\网络类\SAEA\SAEA.TcpP2P\obj\Debug\netcoreapp2.0\SAEA.TcpP2P.csproj.CopyComplete
+E:\百度云\Develop\案例\网络类\SAEA\SAEA.TcpP2P\obj\Debug\netcoreapp2.0\SAEA.TcpP2P.dll
+E:\百度云\Develop\案例\网络类\SAEA\SAEA.TcpP2P\obj\Debug\netcoreapp2.0\SAEA.TcpP2P.pdb

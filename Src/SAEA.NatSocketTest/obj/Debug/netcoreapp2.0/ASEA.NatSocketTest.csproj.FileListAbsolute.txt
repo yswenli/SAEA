@@ -1,0 +1,17 @@
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.NatSocketTest\obj\Debug\netcoreapp2.0\ASEA.NatSocketTest.csproj.CoreCompileInputs.cache
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.NatSocketTest\obj\Debug\netcoreapp2.0\ASEA.NatSocketTest.AssemblyInfoInputs.cache
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.NatSocketTest\obj\Debug\netcoreapp2.0\ASEA.NatSocketTest.AssemblyInfo.cs
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.NatSocketTest\bin\Debug\netcoreapp2.0\ASEA.NatSocketTest.deps.json
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.NatSocketTest\bin\Debug\netcoreapp2.0\ASEA.NatSocketTest.runtimeconfig.json
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.NatSocketTest\bin\Debug\netcoreapp2.0\ASEA.NatSocketTest.runtimeconfig.dev.json
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.NatSocketTest\bin\Debug\netcoreapp2.0\ASEA.NatSocketTest.dll
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.NatSocketTest\bin\Debug\netcoreapp2.0\ASEA.NatSocketTest.pdb
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.NatSocketTest\bin\Debug\netcoreapp2.0\ASEA.Commom.dll
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.NatSocketTest\bin\Debug\netcoreapp2.0\ASEA.NatSocket.dll
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.NatSocketTest\bin\Debug\netcoreapp2.0\ASEA.Sockets.dll
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.NatSocketTest\bin\Debug\netcoreapp2.0\ASEA.Commom.pdb
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.NatSocketTest\bin\Debug\netcoreapp2.0\ASEA.NatSocket.pdb
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.NatSocketTest\bin\Debug\netcoreapp2.0\ASEA.Sockets.pdb
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.NatSocketTest\obj\Debug\netcoreapp2.0\ASEA.NatSocketTest.csprojResolveAssemblyReference.cache
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.NatSocketTest\obj\Debug\netcoreapp2.0\ASEA.NatSocketTest.dll
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.NatSocketTest\obj\Debug\netcoreapp2.0\ASEA.NatSocketTest.pdb

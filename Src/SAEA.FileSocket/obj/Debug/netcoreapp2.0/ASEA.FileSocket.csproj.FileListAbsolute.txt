@@ -1,0 +1,13 @@
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.FileSocket\bin\Debug\netcoreapp2.0\ASEA.FileSocket.deps.json
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.FileSocket\bin\Debug\netcoreapp2.0\ASEA.FileSocket.dll
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.FileSocket\bin\Debug\netcoreapp2.0\ASEA.FileSocket.pdb
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.FileSocket\bin\Debug\netcoreapp2.0\ASEA.Commom.dll
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.FileSocket\bin\Debug\netcoreapp2.0\ASEA.Sockets.dll
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.FileSocket\bin\Debug\netcoreapp2.0\ASEA.Commom.pdb
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.FileSocket\bin\Debug\netcoreapp2.0\ASEA.Sockets.pdb
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.FileSocket\obj\Debug\netcoreapp2.0\ASEA.FileSocket.csprojResolveAssemblyReference.cache
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.FileSocket\obj\Debug\netcoreapp2.0\ASEA.FileSocket.csproj.CoreCompileInputs.cache
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.FileSocket\obj\Debug\netcoreapp2.0\ASEA.FileSocket.AssemblyInfoInputs.cache
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.FileSocket\obj\Debug\netcoreapp2.0\ASEA.FileSocket.AssemblyInfo.cs
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.FileSocket\obj\Debug\netcoreapp2.0\ASEA.FileSocket.dll
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.FileSocket\obj\Debug\netcoreapp2.0\ASEA.FileSocket.pdb

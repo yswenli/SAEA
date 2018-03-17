@@ -1,0 +1,8 @@
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.Commom\bin\Debug\netcoreapp2.0\ASEA.Commom.deps.json
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.Commom\bin\Debug\netcoreapp2.0\ASEA.Commom.dll
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.Commom\bin\Debug\netcoreapp2.0\ASEA.Commom.pdb
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.Commom\obj\Debug\netcoreapp2.0\ASEA.Commom.csproj.CoreCompileInputs.cache
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.Commom\obj\Debug\netcoreapp2.0\ASEA.Commom.AssemblyInfoInputs.cache
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.Commom\obj\Debug\netcoreapp2.0\ASEA.Commom.AssemblyInfo.cs
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.Commom\obj\Debug\netcoreapp2.0\ASEA.Commom.dll
+F:\百度云\Develop\案例\网络类\ASEA\ASEA.Commom\obj\Debug\netcoreapp2.0\ASEA.Commom.pdb
