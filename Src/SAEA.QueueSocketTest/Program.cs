@@ -1,5 +1,5 @@
 ﻿
-using ASEA.QueueSocket;
+using SAEA.QueueSocket;
 using SAEA.Commom;
 using SAEA.QueueSocket.Model;
 using System;

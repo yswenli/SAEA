@@ -3,7 +3,7 @@
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
 *公司名称：wenli
-*命名空间：ASEA.MessageTest
+*命名空间：SAEA.MessageTest
 *文件名： Class1
 *版本号： V1.0.0.0
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
@@ -22,15 +22,15 @@
 *
 *****************************************************************************/
 
-using ASEA.MessageSocket;
-using ASEA.MessageSocket.Model.Business;
+using SAEA.MessageSocket;
+using SAEA.MessageSocket.Model.Business;
 using SAEA.Commom;
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace ASEA.MessageTest
+namespace SAEA.MessageTest
 {
     class Program
     {

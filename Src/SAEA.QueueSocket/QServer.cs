@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：wenli
-*命名空间：ASEA.QueueSocket
+*命名空间：SAEA.QueueSocket
 *文件名： QServer
 *版本号： V1.0.0.0
 *唯一标识：3d6821bb-82f1-4181-8de3-a31341caad45
@@ -33,7 +33,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace ASEA.QueueSocket
+namespace SAEA.QueueSocket
 {
     public class QServer : BaseServerSocket
     {

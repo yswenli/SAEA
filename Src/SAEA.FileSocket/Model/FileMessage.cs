@@ -3,7 +3,7 @@
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
 *公司名称：wenli
-*命名空间：ASEA.FileSocket.Model
+*命名空间：SAEA.FileSocket.Model
 *文件名： Class1
 *版本号： V1.0.0.0
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
@@ -23,7 +23,7 @@
 *****************************************************************************/
 using System;
 
-namespace ASEA.FileSocket.Model
+namespace SAEA.FileSocket.Model
 {
     /// <summary>
     /// 系统默认文件消息体

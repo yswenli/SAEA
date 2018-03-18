@@ -3,7 +3,7 @@
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
 *公司名称：wenli
-*命名空间：ASEA.NatSocket
+*命名空间：SAEA.NatSocket
 *文件名： Class1
 *版本号： V1.0.0.0
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
@@ -21,10 +21,10 @@
 *描述：
 *
 *****************************************************************************/
-using ASEA.NatSocket.Base;
-using ASEA.NatSocket.Enums;
-using ASEA.NatSocket.Exceptions;
-using ASEA.NatSocket.Utils;
+using SAEA.NatSocket.Base;
+using SAEA.NatSocket.Enums;
+using SAEA.NatSocket.Exceptions;
+using SAEA.NatSocket.Utils;
 using System;
 using System.Collections.Generic;
 using System.Net;
@@ -32,7 +32,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace ASEA.NatSocket.Pmp
+namespace SAEA.NatSocket.Pmp
 {
     internal sealed class PmpNatDevice : NatDevice
     {

@@ -3,7 +3,7 @@
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
 *公司名称：wenli
-*命名空间：ASEA.NatSocket
+*命名空间：SAEA.NatSocket
 *文件名： Class1
 *版本号： V1.0.0.0
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
@@ -21,22 +21,22 @@
 *描述：
 *
 *****************************************************************************/
-using ASEA.NatSocket.Exceptions;
-using ASEA.NatSocket.Pmp;
-using ASEA.NatSocket.Upnp;
-using ASEA.NatSocket.Utils;
+using SAEA.NatSocket.Exceptions;
+using SAEA.NatSocket.Pmp;
+using SAEA.NatSocket.Upnp;
+using SAEA.NatSocket.Utils;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace ASEA.NatSocket.Base
+namespace SAEA.NatSocket.Base
 {
     public class NatDiscoverer
     {
 
-        public readonly static TraceSource TraceSource = new TraceSource("ASEA.NatSocket");
+        public readonly static TraceSource TraceSource = new TraceSource("SAEA.NatSocket");
 
         private static readonly Dictionary<string, NatDevice> Devices = new Dictionary<string, NatDevice>();
 
@@ -141,7 +141,7 @@ namespace ASEA.NatSocket.Base
 
 
         /// <summary>
-        /// Release all ports opened by ASEA.NatSocket. 
+        /// Release all ports opened by SAEA.NatSocket. 
         /// </summary>
         /// <remarks>
         /// If ReleaseOnShutdown value is true, it release all the mappings created through the library.

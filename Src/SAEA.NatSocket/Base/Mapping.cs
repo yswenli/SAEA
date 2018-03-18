@@ -3,7 +3,7 @@
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
 *公司名称：wenli
-*命名空间：ASEA.NatSocket
+*命名空间：SAEA.NatSocket
 *文件名： Class1
 *版本号： V1.0.0.0
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
@@ -21,12 +21,12 @@
 *描述：
 *
 *****************************************************************************/
-using ASEA.NatSocket.Enums;
-using ASEA.NatSocket.Utils;
+using SAEA.NatSocket.Enums;
+using SAEA.NatSocket.Utils;
 using System;
 using System.Net;
 
-namespace ASEA.NatSocket.Base
+namespace SAEA.NatSocket.Base
 {
 
     /// <summary>
@@ -77,7 +77,7 @@ namespace ASEA.NatSocket.Base
         /// <remarks>
         /// All portmappings are release automatically as part of the shutdown process when <see cref="NatDiscoverer">NatUtility</see>.<see cref="NatUtility#releaseonshutdown">ReleaseOnShutdown</see> is true.
         /// Permanent portmappings will not be released if the process ends anormally.
-        /// Since most programs don't know the lifetime in advance, ASEA.NatSocket renew all the portmappings (except the permanents) before they expires. So, developers have to close explicitly those portmappings
+        /// Since most programs don't know the lifetime in advance, SAEA.NatSocket renew all the portmappings (except the permanents) before they expires. So, developers have to close explicitly those portmappings
         /// they don't want to remain open for the session.
         /// </remarks>
         public int Lifetime
@@ -157,10 +157,10 @@ namespace ASEA.NatSocket.Base
         /// <param name="privatePort">The private port.</param>
         /// <param name="publicPort">The public port.</param>
         /// <remarks>
-        /// This constructor initializes a Permanent mapping. The description by deafult is "ASEA.NatSocket"
+        /// This constructor initializes a Permanent mapping. The description by deafult is "SAEA.NatSocket"
         /// </remarks>
         public Mapping(Protocol protocol, int privatePort, int publicPort)
-            : this(protocol, IPAddress.None, privatePort, publicPort, 0, "ASEA.NatSocket")
+            : this(protocol, IPAddress.None, privatePort, publicPort, 0, "SAEA.NatSocket")
         {
         }
 

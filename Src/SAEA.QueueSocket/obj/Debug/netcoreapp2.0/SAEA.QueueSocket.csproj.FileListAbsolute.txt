@@ -11,17 +11,3 @@ E:\百度云\Develop\案例\网络类\SAEA\SAEA.QueueSocket\obj\Debug\netcoreapp
 E:\百度云\Develop\案例\网络类\SAEA\SAEA.QueueSocket\obj\Debug\netcoreapp2.0\SAEA.QueueSocket.csproj.CopyComplete
 E:\百度云\Develop\案例\网络类\SAEA\SAEA.QueueSocket\obj\Debug\netcoreapp2.0\SAEA.QueueSocket.dll
 E:\百度云\Develop\案例\网络类\SAEA\SAEA.QueueSocket\obj\Debug\netcoreapp2.0\SAEA.QueueSocket.pdb
-E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.QueueSocket\bin\Debug\netcoreapp2.0\SAEA.QueueSocket.deps.json
-E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.QueueSocket\bin\Debug\netcoreapp2.0\SAEA.QueueSocket.dll
-E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.QueueSocket\bin\Debug\netcoreapp2.0\SAEA.QueueSocket.pdb
-E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.QueueSocket\bin\Debug\netcoreapp2.0\SAEA.Commom.dll
-E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.QueueSocket\bin\Debug\netcoreapp2.0\SAEA.Sockets.dll
-E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.QueueSocket\bin\Debug\netcoreapp2.0\SAEA.Commom.pdb
-E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.QueueSocket\bin\Debug\netcoreapp2.0\SAEA.Sockets.pdb
-E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.QueueSocket\obj\Debug\netcoreapp2.0\SAEA.QueueSocket.csprojResolveAssemblyReference.cache
-E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.QueueSocket\obj\Debug\netcoreapp2.0\SAEA.QueueSocket.csproj.CoreCompileInputs.cache
-E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.QueueSocket\obj\Debug\netcoreapp2.0\SAEA.QueueSocket.AssemblyInfoInputs.cache
-E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.QueueSocket\obj\Debug\netcoreapp2.0\SAEA.QueueSocket.AssemblyInfo.cs
-E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.QueueSocket\obj\Debug\netcoreapp2.0\SAEA.QueueSocket.csproj.CopyComplete
-E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.QueueSocket\obj\Debug\netcoreapp2.0\SAEA.QueueSocket.dll
-E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.QueueSocket\obj\Debug\netcoreapp2.0\SAEA.QueueSocket.pdb

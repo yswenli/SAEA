@@ -3,7 +3,7 @@
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
 *公司名称：wenli
-*命名空间：ASEA.NatSocket
+*命名空间：SAEA.NatSocket
 *文件名： Class1
 *版本号： V1.0.0.0
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
@@ -24,7 +24,7 @@
 using System.Collections.Generic;
 using System.Net;
 
-namespace ASEA.NatSocket.Utils
+namespace SAEA.NatSocket.Utils
 {
     internal interface IIPAddressesProvider
     {
