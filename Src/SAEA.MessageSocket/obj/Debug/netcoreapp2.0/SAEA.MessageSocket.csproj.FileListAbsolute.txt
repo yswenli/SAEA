@@ -2,3 +2,17 @@ E:\百度云\Develop\案例\网络类\SAEA\SAEA.MessageSocket\obj\Debug\netcorea
 E:\百度云\Develop\案例\网络类\SAEA\SAEA.MessageSocket\obj\Debug\netcoreapp2.0\SAEA.MessageSocket.csproj.CoreCompileInputs.cache
 E:\百度云\Develop\案例\网络类\SAEA\SAEA.MessageSocket\obj\Debug\netcoreapp2.0\SAEA.MessageSocket.AssemblyInfoInputs.cache
 E:\百度云\Develop\案例\网络类\SAEA\SAEA.MessageSocket\obj\Debug\netcoreapp2.0\SAEA.MessageSocket.AssemblyInfo.cs
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.MessageSocket\obj\Debug\netcoreapp2.0\SAEA.MessageSocket.csprojResolveAssemblyReference.cache
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.MessageSocket\obj\Debug\netcoreapp2.0\SAEA.MessageSocket.csproj.CoreCompileInputs.cache
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.MessageSocket\obj\Debug\netcoreapp2.0\SAEA.MessageSocket.AssemblyInfoInputs.cache
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.MessageSocket\obj\Debug\netcoreapp2.0\SAEA.MessageSocket.AssemblyInfo.cs
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.MessageSocket\bin\Debug\netcoreapp2.0\SAEA.MessageSocket.deps.json
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.MessageSocket\bin\Debug\netcoreapp2.0\SAEA.MessageSocket.dll
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.MessageSocket\bin\Debug\netcoreapp2.0\SAEA.MessageSocket.pdb
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.MessageSocket\bin\Debug\netcoreapp2.0\SAEA.Commom.dll
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.MessageSocket\bin\Debug\netcoreapp2.0\SAEA.Sockets.dll
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.MessageSocket\bin\Debug\netcoreapp2.0\SAEA.Commom.pdb
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.MessageSocket\bin\Debug\netcoreapp2.0\SAEA.Sockets.pdb
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.MessageSocket\obj\Debug\netcoreapp2.0\SAEA.MessageSocket.csproj.CopyComplete
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.MessageSocket\obj\Debug\netcoreapp2.0\SAEA.MessageSocket.dll
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.MessageSocket\obj\Debug\netcoreapp2.0\SAEA.MessageSocket.pdb

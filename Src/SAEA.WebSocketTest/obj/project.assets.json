@@ -722,11 +722,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\SAEA.WebSocketTest\\SAEA.WebSocketTest.csproj",
+      "projectUniqueName": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.WebSocketTest\\SAEA.WebSocketTest.csproj",
       "projectName": "SAEA.WebSocketTest",
-      "projectPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\SAEA.WebSocketTest\\SAEA.WebSocketTest.csproj",
+      "projectPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.WebSocketTest\\SAEA.WebSocketTest.csproj",
       "packagesPath": "C:\\Users\\Walle\\.nuget\\packages\\",
-      "outputPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\SAEA.WebSocketTest\\obj\\",
+      "outputPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.WebSocketTest\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
@@ -745,8 +745,8 @@
       "frameworks": {
         "netcoreapp2.0": {
           "projectReferences": {
-            "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\SAEA.WebSocket\\SAEA.WebSocket.csproj": {
-              "projectPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\SAEA.WebSocket\\SAEA.WebSocket.csproj"
+            "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.WebSocket\\SAEA.WebSocket.csproj": {
+              "projectPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.WebSocket\\SAEA.WebSocket.csproj"
             }
           }
         }

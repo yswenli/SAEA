@@ -3757,11 +3757,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\SAEA.MessageTest\\SAEA.MessageTest.csproj",
+      "projectUniqueName": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.MessageTest\\SAEA.MessageTest.csproj",
       "projectName": "SAEA.MessageTest",
-      "projectPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\SAEA.MessageTest\\SAEA.MessageTest.csproj",
+      "projectPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.MessageTest\\SAEA.MessageTest.csproj",
       "packagesPath": "C:\\Users\\Walle\\.nuget\\packages\\",
-      "outputPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\SAEA.MessageTest\\obj\\",
+      "outputPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.MessageTest\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
@@ -3780,8 +3780,8 @@
       "frameworks": {
         "netcoreapp2.0": {
           "projectReferences": {
-            "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\SAEA.MessageSocket\\SAEA.MessageSocket.csproj": {
-              "projectPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\SAEA.MessageSocket\\SAEA.MessageSocket.csproj"
+            "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.MessageSocket\\SAEA.MessageSocket.csproj": {
+              "projectPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.MessageSocket\\SAEA.MessageSocket.csproj"
             }
           }
         }

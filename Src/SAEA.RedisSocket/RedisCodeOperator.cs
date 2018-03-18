@@ -32,7 +32,7 @@ namespace SAEA.RedisSocket
         {
             lock (_syncLocker)
             {
-                var cmd = _redisCoder.Coder(type, string.Format("{0} {1}", type.ToString(), key));
+                var cmd = _redisCoder.Coder(type, type.ToString(), key);
                 _client.Send(cmd);
                 return _redisCoder.Decoder();
             }
@@ -42,7 +42,7 @@ namespace SAEA.RedisSocket
         {
             lock (_syncLocker)
             {
-                var cmd = _redisCoder.Coder(type, string.Format("{0} {1} {2}", type.ToString(), key, value));
+                var cmd = _redisCoder.Coder(type, type.ToString(), key, value);
                 _client.Send(cmd);
                 return _redisCoder.Decoder();
             }
@@ -52,7 +52,7 @@ namespace SAEA.RedisSocket
         {
             lock (_syncLocker)
             {
-                var cmd = _redisCoder.Coder(RequestType.EXPIRE, string.Format("{0} {1} {2}", RequestType.EXPIRE.ToString(), key, seconds));
+                var cmd = _redisCoder.Coder(RequestType.EXPIRE, RequestType.EXPIRE.ToString(), key, seconds.ToString());
                 _client.Send(cmd);
                 _redisCoder.Decoder();
             }
@@ -62,7 +62,7 @@ namespace SAEA.RedisSocket
         {
             lock (_syncLocker)
             {
-                var cmd = _redisCoder.Coder(type, string.Format("{0} {1} {2}", type.ToString(), key, value));
+                var cmd = _redisCoder.Coder(type, type.ToString(), key, value);
                 _client.Send(cmd);
                 _redisCoder.Decoder();
 
@@ -76,16 +76,16 @@ namespace SAEA.RedisSocket
         {
             lock (_syncLocker)
             {
-                var cmd = _redisCoder.Coder(type, string.Format("{0} {1} {2} {3}", type.ToString(), id, key, value));
+                var cmd = _redisCoder.Coder(type, type.ToString(), id, key, value);
                 _client.Send(cmd);
                 return _redisCoder.Decoder();
             }
         }
-        public ResponseData Do(RequestType type, string id, double begin, double end)
+        public ResponseData Do(RequestType type, string id, double begin = 0, double end = -1)
         {
             lock (_syncLocker)
             {
-                var cmd = _redisCoder.Coder(type, string.Format("{0} {1} {2} {3} WITHSCORES", type.ToString(), id, begin, end));
+                var cmd = _redisCoder.Coder(type, type.ToString(), id, begin.ToString(), end.ToString(), " WITHSCORES");
                 _client.Send(cmd);
                 return _redisCoder.Decoder();
             }

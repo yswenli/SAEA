@@ -80,6 +80,11 @@ namespace SAEA.Commom
             return Now.ToString(format, System.Globalization.CultureInfo.InvariantCulture);
         }
 
+        public static string ToFString(this DateTime dt, string format = "yyyy-MM-dd HH:mm:ss.fff")
+        {
+            return dt.ToString(format, System.Globalization.CultureInfo.InvariantCulture);
+        }
+
         /// <summary>
         /// 获取unix 时间戳
         /// </summary>

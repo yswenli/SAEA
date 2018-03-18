@@ -12,3 +12,17 @@ E:\百度云\Develop\案例\网络类\SAEA\SAEA.RedisSocket\obj\Debug\netcoreapp
 E:\百度云\Develop\案例\网络类\SAEA\SAEA.RedisSocket\obj\Debug\netcoreapp2.0\SAEA.RedisSocket.csproj.CopyComplete
 E:\百度云\Develop\案例\网络类\SAEA\SAEA.RedisSocket\obj\Debug\netcoreapp2.0\SAEA.RedisSocket.dll
 E:\百度云\Develop\案例\网络类\SAEA\SAEA.RedisSocket\obj\Debug\netcoreapp2.0\SAEA.RedisSocket.pdb
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.RedisSocket\bin\Debug\netcoreapp2.0\SAEA.RedisSocket.deps.json
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.RedisSocket\bin\Debug\netcoreapp2.0\SAEA.RedisSocket.dll
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.RedisSocket\bin\Debug\netcoreapp2.0\SAEA.RedisSocket.pdb
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.RedisSocket\bin\Debug\netcoreapp2.0\SAEA.Commom.dll
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.RedisSocket\bin\Debug\netcoreapp2.0\SAEA.Sockets.dll
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.RedisSocket\bin\Debug\netcoreapp2.0\SAEA.Commom.pdb
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.RedisSocket\bin\Debug\netcoreapp2.0\SAEA.Sockets.pdb
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.RedisSocket\obj\Debug\netcoreapp2.0\SAEA.RedisSocket.csprojResolveAssemblyReference.cache
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.RedisSocket\obj\Debug\netcoreapp2.0\SAEA.RedisSocket.csproj.CoreCompileInputs.cache
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.RedisSocket\obj\Debug\netcoreapp2.0\SAEA.RedisSocket.AssemblyInfoInputs.cache
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.RedisSocket\obj\Debug\netcoreapp2.0\SAEA.RedisSocket.AssemblyInfo.cs
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.RedisSocket\obj\Debug\netcoreapp2.0\SAEA.RedisSocket.csproj.CopyComplete
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.RedisSocket\obj\Debug\netcoreapp2.0\SAEA.RedisSocket.dll
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.RedisSocket\obj\Debug\netcoreapp2.0\SAEA.RedisSocket.pdb

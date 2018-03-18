@@ -30,6 +30,9 @@ using System.Threading;
 
 namespace SAEA.RedisSocket
 {
+    /// <summary>
+    /// redis 命令编码与解析
+    /// </summary>
     public class RedisCoder : IDisposable
     {
         AutoResetEvent _autoResetEvent = new AutoResetEvent(true);
@@ -38,30 +41,16 @@ namespace SAEA.RedisSocket
 
         ConcurrentQueue<string> _queue = new ConcurrentQueue<string>();
 
-        /// <summary>
-        /// 将字符命令转成redis server可接受命令
-        /// </summary>
-        /// <param name="commandName"></param>
-        /// <param name="command"></param>
-        /// <returns></returns>
-        public string Coder(RequestType commandName, string command)
+        public string Coder(RequestType commandName, params string[] @params)
         {
             _autoResetEvent.WaitOne();
             _commandName = commandName;
-
             var sb = new StringBuilder();
-            if (!string.IsNullOrEmpty(command))
+            sb.AppendLine("*" + @params.Length);
+            foreach (var param in @params)
             {
-                var arr = command.Split(new string[] { " " }, StringSplitOptions.RemoveEmptyEntries);
-                if (arr != null)
-                {
-                    sb.AppendLine("*" + arr.Length);
-                    foreach (var item in arr)
-                    {
-                        sb.AppendLine("$" + item.Length);
-                        sb.AppendLine(item);
-                    }
-                }
+                sb.AppendLine("$" + param.Length);
+                sb.AppendLine(param);
             }
             return sb.ToString();
         }
@@ -128,7 +117,7 @@ namespace SAEA.RedisSocket
                 case RequestType.DEL:
                 case RequestType.HSET:
                 case RequestType.HDEL:
-                case RequestType.LSET:                
+                case RequestType.LSET:
                     command = BlockDequeue();
                     if (GetStatus(command, out error))
                     {
@@ -154,13 +143,13 @@ namespace SAEA.RedisSocket
                     result.Data = msg;
                     break;
                 case RequestType.GET:
+                case RequestType.GETSET:
                 case RequestType.HGET:
                 case RequestType.LPOP:
                 case RequestType.RPOP:
                 case RequestType.SRANDMEMBER:
                 case RequestType.SPOP:
-                    len = GetWordsNum(BlockDequeue());
-                    ;
+                    len = GetWordsNum(BlockDequeue());                    
                     if (len == -1)
                     {
                         result.Type = ResponseType.Empty;
@@ -206,9 +195,10 @@ namespace SAEA.RedisSocket
                     break;
                 case RequestType.DBSIZE:
                 case RequestType.EXISTS:
-                case RequestType.HEXISTS:
                 case RequestType.EXPIRE:
                 case RequestType.PERSIST:
+                case RequestType.SETNX:
+                case RequestType.HEXISTS:
                 case RequestType.HLEN:
                 case RequestType.LLEN:
                 case RequestType.LPUSH:

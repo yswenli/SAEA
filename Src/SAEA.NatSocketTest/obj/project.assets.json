@@ -702,11 +702,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\SAEA.NatSocketTest\\SAEA.NatSocketTest.csproj",
+      "projectUniqueName": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.NatSocketTest\\SAEA.NatSocketTest.csproj",
       "projectName": "SAEA.NatSocketTest",
-      "projectPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\SAEA.NatSocketTest\\SAEA.NatSocketTest.csproj",
+      "projectPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.NatSocketTest\\SAEA.NatSocketTest.csproj",
       "packagesPath": "C:\\Users\\Walle\\.nuget\\packages\\",
-      "outputPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\SAEA.NatSocketTest\\obj\\",
+      "outputPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.NatSocketTest\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
@@ -725,11 +725,11 @@
       "frameworks": {
         "netcoreapp2.0": {
           "projectReferences": {
-            "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\SAEA.Commom\\SAEA.Commom.csproj": {
-              "projectPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\SAEA.Commom\\SAEA.Commom.csproj"
+            "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Commom\\SAEA.Commom.csproj": {
+              "projectPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Commom\\SAEA.Commom.csproj"
             },
-            "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\SAEA.NatSocket\\SAEA.NatSocket.csproj": {
-              "projectPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\SAEA.NatSocket\\SAEA.NatSocket.csproj"
+            "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.NatSocket\\SAEA.NatSocket.csproj": {
+              "projectPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.NatSocket\\SAEA.NatSocket.csproj"
             }
           }
         }

@@ -12,3 +12,17 @@ E:\百度云\Develop\案例\网络类\SAEA\SAEA.FileSocket\obj\Debug\netcoreapp2
 E:\百度云\Develop\案例\网络类\SAEA\SAEA.FileSocket\obj\Debug\netcoreapp2.0\SAEA.FileSocket.csproj.CopyComplete
 E:\百度云\Develop\案例\网络类\SAEA\SAEA.FileSocket\obj\Debug\netcoreapp2.0\SAEA.FileSocket.dll
 E:\百度云\Develop\案例\网络类\SAEA\SAEA.FileSocket\obj\Debug\netcoreapp2.0\SAEA.FileSocket.pdb
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.FileSocket\bin\Debug\netcoreapp2.0\SAEA.FileSocket.deps.json
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.FileSocket\bin\Debug\netcoreapp2.0\SAEA.FileSocket.dll
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.FileSocket\bin\Debug\netcoreapp2.0\SAEA.FileSocket.pdb
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.FileSocket\bin\Debug\netcoreapp2.0\SAEA.Commom.dll
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.FileSocket\bin\Debug\netcoreapp2.0\SAEA.Sockets.dll
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.FileSocket\bin\Debug\netcoreapp2.0\SAEA.Commom.pdb
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.FileSocket\bin\Debug\netcoreapp2.0\SAEA.Sockets.pdb
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.FileSocket\obj\Debug\netcoreapp2.0\SAEA.FileSocket.csprojResolveAssemblyReference.cache
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.FileSocket\obj\Debug\netcoreapp2.0\SAEA.FileSocket.csproj.CoreCompileInputs.cache
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.FileSocket\obj\Debug\netcoreapp2.0\SAEA.FileSocket.AssemblyInfoInputs.cache
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.FileSocket\obj\Debug\netcoreapp2.0\SAEA.FileSocket.AssemblyInfo.cs
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.FileSocket\obj\Debug\netcoreapp2.0\SAEA.FileSocket.csproj.CopyComplete
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.FileSocket\obj\Debug\netcoreapp2.0\SAEA.FileSocket.dll
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.FileSocket\obj\Debug\netcoreapp2.0\SAEA.FileSocket.pdb

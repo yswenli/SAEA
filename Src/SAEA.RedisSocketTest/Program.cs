@@ -17,7 +17,7 @@ namespace SAEA.RedisSocketTest
             }
             RedisConnection redisConnection = new RedisConnection(ipPort);
             redisConnection.Connect();
-            redisConnection.Auth("yswenli");
+            redisConnection.Auth("yswenli");           
             redisConnection.GetDataBase().Suscribe((c, m) =>
             {
                 ConsoleHelper.WriteLine("channel:{0} msg:{1}", c, m);

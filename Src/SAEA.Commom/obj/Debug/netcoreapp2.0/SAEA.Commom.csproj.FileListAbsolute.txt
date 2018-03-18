@@ -7,3 +7,12 @@ E:\百度云\Develop\案例\网络类\SAEA\SAEA.Commom\obj\Debug\netcoreapp2.0\S
 E:\百度云\Develop\案例\网络类\SAEA\SAEA.Commom\obj\Debug\netcoreapp2.0\SAEA.Commom.AssemblyInfo.cs
 E:\百度云\Develop\案例\网络类\SAEA\SAEA.Commom\obj\Debug\netcoreapp2.0\SAEA.Commom.dll
 E:\百度云\Develop\案例\网络类\SAEA\SAEA.Commom\obj\Debug\netcoreapp2.0\SAEA.Commom.pdb
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.Commom\bin\Debug\netcoreapp2.0\SAEA.Commom.deps.json
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.Commom\bin\Debug\netcoreapp2.0\SAEA.Commom.dll
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.Commom\bin\Debug\netcoreapp2.0\SAEA.Commom.pdb
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.Commom\obj\Debug\netcoreapp2.0\SAEA.Commom.csprojResolveAssemblyReference.cache
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.Commom\obj\Debug\netcoreapp2.0\SAEA.Commom.csproj.CoreCompileInputs.cache
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.Commom\obj\Debug\netcoreapp2.0\SAEA.Commom.AssemblyInfoInputs.cache
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.Commom\obj\Debug\netcoreapp2.0\SAEA.Commom.AssemblyInfo.cs
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.Commom\obj\Debug\netcoreapp2.0\SAEA.Commom.dll
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.Commom\obj\Debug\netcoreapp2.0\SAEA.Commom.pdb

@@ -44,6 +44,8 @@ namespace SAEA.RedisSocket
         EXISTS,
         EXPIRE,
         PERSIST,
+        GETSET,
+        SETNX,
 
         HSET,
         HGET,

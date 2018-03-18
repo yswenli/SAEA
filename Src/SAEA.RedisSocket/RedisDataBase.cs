@@ -13,10 +13,13 @@ namespace SAEA.RedisSocket
 
         IOCPClient _client;
 
+        RedisLock _redisLock;
+
         public RedisDataBase(IOCPClient client, RedisCoder redisCoder) : base(client, redisCoder)
         {
             _client = client;
             _redisCoder = redisCoder;
+            _redisLock = new RedisLock(_client, _redisCoder);
         }
 
         #region KEY
@@ -225,7 +228,6 @@ namespace SAEA.RedisSocket
         }
         #endregion
 
-
         #region Pub/Sub
         public int Publish(string channel, string value)
         {
@@ -234,7 +236,7 @@ namespace SAEA.RedisSocket
             return result;
         }
 
-        public void Suscribe(Action<string,string> onMsg,params string[] channels)
+        public void Suscribe(Action<string, string> onMsg, params string[] channels)
         {
             base.DoSub(channels, onMsg);
         }
@@ -242,6 +244,17 @@ namespace SAEA.RedisSocket
         public void UNSUBSCRIBE(string channel)
         {
             base.Do(RequestType.UNSUBSCRIBE, channel);
+        }
+        #endregion
+
+        #region LOCK
+        public bool Lock(string key, int seconds)
+        {
+            return _redisLock.Lock(key, seconds);
+        }
+        public void Unlock(string key = "")
+        {
+            _redisLock.Unlock(key);
         }
         #endregion
 

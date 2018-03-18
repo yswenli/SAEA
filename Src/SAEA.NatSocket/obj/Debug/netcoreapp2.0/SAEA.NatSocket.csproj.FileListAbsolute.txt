@@ -1,3 +1,12 @@
 E:\百度云\Develop\案例\网络类\SAEA\SAEA.NatSocket\obj\Debug\netcoreapp2.0\SAEA.NatSocket.csproj.CoreCompileInputs.cache
 E:\百度云\Develop\案例\网络类\SAEA\SAEA.NatSocket\obj\Debug\netcoreapp2.0\SAEA.NatSocket.AssemblyInfoInputs.cache
 E:\百度云\Develop\案例\网络类\SAEA\SAEA.NatSocket\obj\Debug\netcoreapp2.0\SAEA.NatSocket.AssemblyInfo.cs
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.NatSocket\obj\Debug\netcoreapp2.0\SAEA.NatSocket.csprojResolveAssemblyReference.cache
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.NatSocket\obj\Debug\netcoreapp2.0\SAEA.NatSocket.csproj.CoreCompileInputs.cache
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.NatSocket\obj\Debug\netcoreapp2.0\SAEA.NatSocket.AssemblyInfoInputs.cache
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.NatSocket\obj\Debug\netcoreapp2.0\SAEA.NatSocket.AssemblyInfo.cs
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.NatSocket\bin\Debug\netcoreapp2.0\SAEA.NatSocket.deps.json
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.NatSocket\bin\Debug\netcoreapp2.0\SAEA.NatSocket.dll
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.NatSocket\bin\Debug\netcoreapp2.0\SAEA.NatSocket.pdb
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.NatSocket\obj\Debug\netcoreapp2.0\SAEA.NatSocket.dll
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.NatSocket\obj\Debug\netcoreapp2.0\SAEA.NatSocket.pdb
