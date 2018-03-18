@@ -68,7 +68,7 @@ namespace SAEA.RedisSocket
         private void _client_OnMessage(string command)
         {
             _redisCoder.Enqueue(command);
-            Console.WriteLine(command);
+            //Console.WriteLine(command);
         }
 
         /// <summary>
