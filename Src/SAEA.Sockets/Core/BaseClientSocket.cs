@@ -331,6 +331,10 @@ namespace SAEA.Sockets.Core
                     if (mex != null) mex = sex;
                 }
                 this.Connected = false;
+                if (mex == null)
+                {
+                    mex = new Exception("当前用户已主动断开连接！");
+                }
                 if (_userToken != null)
                     OnDisconnected?.Invoke(_userToken.ID, mex);
 

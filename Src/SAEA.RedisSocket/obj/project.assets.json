@@ -699,23 +699,26 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\Walle\\.nuget\\packages\\": {},
+    "C:\\Users\\yswenli\\.nuget\\packages\\": {},
     "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder": {}
   },
   "project": {
     "version": "1.0.0",
+    "restoreSettings": {
+      "hideWarningsAndErrors": true
+    },
     "restore": {
-      "projectUniqueName": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.RedisSocket\\SAEA.RedisSocket.csproj",
+      "projectUniqueName": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.RedisSocket\\SAEA.RedisSocket.csproj",
       "projectName": "SAEA.RedisSocket",
-      "projectPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.RedisSocket\\SAEA.RedisSocket.csproj",
-      "packagesPath": "C:\\Users\\Walle\\.nuget\\packages\\",
-      "outputPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.RedisSocket\\obj\\",
+      "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.RedisSocket\\SAEA.RedisSocket.csproj",
+      "packagesPath": "C:\\Users\\yswenli\\.nuget\\packages\\",
+      "outputPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.RedisSocket\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
       ],
       "configFilePaths": [
-        "C:\\Users\\Walle\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\yswenli\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
@@ -728,11 +731,11 @@
       "frameworks": {
         "netcoreapp2.0": {
           "projectReferences": {
-            "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Commom\\SAEA.Commom.csproj": {
-              "projectPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Commom\\SAEA.Commom.csproj"
+            "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Sockets\\SAEA.Sockets.csproj": {
+              "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Sockets\\SAEA.Sockets.csproj"
             },
-            "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Sockets\\SAEA.Sockets.csproj": {
-              "projectPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Sockets\\SAEA.Sockets.csproj"
+            "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Commom\\SAEA.Commom.csproj": {
+              "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Commom\\SAEA.Commom.csproj"
             }
           }
         }

@@ -1422,11 +1422,13 @@
       ]
     },
     "Newtonsoft.Json/10.0.3": {
-      "sha512": "hSXaFmh7hNCuEoC4XNY5DrRkLDzYHqPx/Ik23R4J86Z7PE/Y6YidhG602dFVdLBRSdG6xp9NabH3dXpcoxWvww==",
+      "sha512": "wBM7i7i3U2WX0ecor4zdVGvgrwFUjuigBoHKiL+nH39fCOpCPjBY3RDqJM32edvdyTAVdjzlccHsg41+/+zpSA==",
       "type": "package",
       "path": "newtonsoft.json/10.0.3",
       "files": [
         "LICENSE.md",
+        "Newtonsoft.Json.10.0.3.nupkg.sha512",
+        "Newtonsoft.Json.nuspec",
         "lib/net20/Newtonsoft.Json.dll",
         "lib/net20/Newtonsoft.Json.xml",
         "lib/net35/Newtonsoft.Json.dll",
@@ -1443,8 +1445,6 @@
         "lib/portable-net40+sl5+win8+wp8+wpa81/Newtonsoft.Json.xml",
         "lib/portable-net45+win8+wp8+wpa81/Newtonsoft.Json.dll",
         "lib/portable-net45+win8+wp8+wpa81/Newtonsoft.Json.xml",
-        "newtonsoft.json.10.0.3.nupkg.sha512",
-        "newtonsoft.json.nuspec",
         "tools/install.ps1"
       ]
     },
@@ -1532,7 +1532,7 @@
       ]
     },
     "System.Collections.NonGeneric/4.3.0": {
-      "sha512": "XmmC8wsEwN15sGNVx4kRPzriGnpBmEKCb5Bf4keJxOd3NnkiwyccjjxrstIG8spACqkmcXXqCDcENzYyE9fc4A==",
+      "sha512": "prtjIEMhGUnQq6RnPEYLpFt8AtLbp9yq2zxOSrY7KJJZrw25Fi97IzBqY7iqssbM61Ek5b8f3MG/sG1N2sN5KA==",
       "type": "package",
       "path": "system.collections.nongeneric/4.3.0",
       "files": [
@@ -1569,7 +1569,7 @@
       ]
     },
     "System.Collections.Specialized/4.3.0": {
-      "sha512": "fz7Oyu4eJaNcJ5PO4LQHslfmqFmGQTpeHbwUtnXxwSccrLSYedlHeovkMJNQhNLxKJ9yj9bwA1MFvWjCZdN9YA==",
+      "sha512": "Epx8PoVZR0iuOnJJDzp7pWvdfMMOAvpUo95pC4ScH2mJuXkKA2Y4aR3cG9qt2klHgSons1WFh4kcGW7cSXvrxg==",
       "type": "package",
       "path": "system.collections.specialized/4.3.0",
       "files": [
@@ -1663,7 +1663,7 @@
       ]
     },
     "System.ComponentModel.Primitives/4.3.0": {
-      "sha512": "pWhrFqK0wQC9AbZdTASsjxRqQMOwjfZpSHeuluJ1D5wJrmlQfOKZHxcMFT+J5DoRUpjGVml1pfPnG9rGu2KfLA==",
+      "sha512": "j8GUkCpM8V4d4vhLIIoBLGey2Z5bCkMVNjEZseyAlm4n5arcsJOeI3zkUP+zvZgzsbLTYh4lYeP/ZD/gdIAPrw==",
       "type": "package",
       "path": "system.componentmodel.primitives/4.3.0",
       "files": [
@@ -1700,7 +1700,7 @@
       ]
     },
     "System.ComponentModel.TypeConverter/4.3.0": {
-      "sha512": "O3vat8lfXIlyrxNGsJmDZRr8v5EYau7CoCLlIs0n3CKULWTRVuG6ELtvXzXa8dU8necMgjdCmRLd1sMhMPQ7dg==",
+      "sha512": "16pQ6P+EdhcXzPiEK4kbA953Fu0MNG2ovxTZU81/qsCd1zPRsKc3uif5NgvllCY598k6bI0KUyKW8fanlfaDQg==",
       "type": "package",
       "path": "system.componentmodel.typeconverter/4.3.0",
       "files": [
@@ -3102,7 +3102,7 @@
       ]
     },
     "System.Runtime.Serialization.Primitives/4.3.0": {
-      "sha512": "bSIgnU2tpVuR64ciGU1sIsdFIqlHclqvRsDXibjPIx/2P0czBvdJXaMmwB33wrHMmW4LhYMumfh8ESrAHvNrQw==",
+      "sha512": "Wz+0KOukJGAlXjtKr+5Xpuxf8+c8739RI1C+A2BoQZT+wMCCoMDDdO8/4IRHfaVINqL78GO8dW8G2lW/e45Mcw==",
       "type": "package",
       "path": "system.runtime.serialization.primitives/4.3.0",
       "files": [
@@ -3733,23 +3733,26 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\Walle\\.nuget\\packages\\": {},
+    "C:\\Users\\yswenli\\.nuget\\packages\\": {},
     "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder": {}
   },
   "project": {
     "version": "1.0.0",
+    "restoreSettings": {
+      "hideWarningsAndErrors": true
+    },
     "restore": {
-      "projectUniqueName": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.MessageSocket\\SAEA.MessageSocket.csproj",
+      "projectUniqueName": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.MessageSocket\\SAEA.MessageSocket.csproj",
       "projectName": "SAEA.MessageSocket",
-      "projectPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.MessageSocket\\SAEA.MessageSocket.csproj",
-      "packagesPath": "C:\\Users\\Walle\\.nuget\\packages\\",
-      "outputPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.MessageSocket\\obj\\",
+      "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.MessageSocket\\SAEA.MessageSocket.csproj",
+      "packagesPath": "C:\\Users\\yswenli\\.nuget\\packages\\",
+      "outputPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.MessageSocket\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
       ],
       "configFilePaths": [
-        "C:\\Users\\Walle\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\yswenli\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
@@ -3762,11 +3765,11 @@
       "frameworks": {
         "netcoreapp2.0": {
           "projectReferences": {
-            "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Commom\\SAEA.Commom.csproj": {
-              "projectPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Commom\\SAEA.Commom.csproj"
+            "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Sockets\\SAEA.Sockets.csproj": {
+              "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Sockets\\SAEA.Sockets.csproj"
             },
-            "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Sockets\\SAEA.Sockets.csproj": {
-              "projectPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Sockets\\SAEA.Sockets.csproj"
+            "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Commom\\SAEA.Commom.csproj": {
+              "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Commom\\SAEA.Commom.csproj"
             }
           }
         }

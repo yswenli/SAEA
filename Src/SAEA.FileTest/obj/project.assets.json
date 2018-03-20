@@ -717,23 +717,26 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\Walle\\.nuget\\packages\\": {},
+    "C:\\Users\\yswenli\\.nuget\\packages\\": {},
     "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder": {}
   },
   "project": {
     "version": "1.0.0",
+    "restoreSettings": {
+      "hideWarningsAndErrors": true
+    },
     "restore": {
-      "projectUniqueName": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.FileTest\\SAEA.FileTest.csproj",
+      "projectUniqueName": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.FileTest\\SAEA.FileTest.csproj",
       "projectName": "SAEA.FileTest",
-      "projectPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.FileTest\\SAEA.FileTest.csproj",
-      "packagesPath": "C:\\Users\\Walle\\.nuget\\packages\\",
-      "outputPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.FileTest\\obj\\",
+      "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.FileTest\\SAEA.FileTest.csproj",
+      "packagesPath": "C:\\Users\\yswenli\\.nuget\\packages\\",
+      "outputPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.FileTest\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
       ],
       "configFilePaths": [
-        "C:\\Users\\Walle\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\yswenli\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
@@ -746,8 +749,8 @@
       "frameworks": {
         "netcoreapp2.0": {
           "projectReferences": {
-            "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.FileSocket\\SAEA.FileSocket.csproj": {
-              "projectPath": "E:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.FileSocket\\SAEA.FileSocket.csproj"
+            "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.FileSocket\\SAEA.FileSocket.csproj": {
+              "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.FileSocket\\SAEA.FileSocket.csproj"
             }
           }
         }
