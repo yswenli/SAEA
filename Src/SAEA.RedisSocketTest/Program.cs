@@ -10,19 +10,17 @@ namespace SAEA.RedisSocketTest
         {
             ConsoleHelper.Title = "SAEA.RedisSocketTest";
             ConsoleHelper.WriteLine("输入ip:port连接RedisServer");
+
             var ipPort = ConsoleHelper.ReadLine();
             if (string.IsNullOrEmpty(ipPort))
             {
                 ipPort = "127.0.0.1:6379";
             }
             RedisClient redisClient = new RedisClient(ipPort);
-            redisClient.Connect("wenli");
+            redisClient.Connect(); 
+            //redisClient.Connect("wenli"); 
 
-            //redisConnection.GetDataBase().Suscribe((c, m) =>
-            //{
-            //    ConsoleHelper.WriteLine("channel:{0} msg:{1}", c, m);
-            //    redisConnection.GetDataBase().UNSUBSCRIBE(c);
-            //}, "c39654");
+
             var info = redisClient.Info();
             if (info.Contains("NOAUTH Authentication required."))
             {
@@ -45,11 +43,18 @@ namespace SAEA.RedisSocketTest
                     }
                 }
             }
+
             //redisConnection.SlaveOf();
+
             //redisConnection.Ping();
+
             redisClient.Select(1);
-            //ConsoleHelper.WriteLine(redisConnection.Type("wenli"));
+
+            //ConsoleHelper.WriteLine(redisConnection.Type("key0"));
+
             ConsoleHelper.WriteLine("dbSize:{0}", redisClient.DBSize().ToString());
+
+
             RedisOperationTest(redisClient, true);
             ConsoleHelper.ReadLine();
         }
@@ -128,6 +133,12 @@ namespace SAEA.RedisSocketTest
 
                 #endregion
 
+
+                //redisConnection.GetDataBase().Suscribe((c, m) =>
+                //{
+                //    ConsoleHelper.WriteLine("channel:{0} msg:{1}", c, m);
+                //    redisConnection.GetDataBase().UNSUBSCRIBE(c);
+                //}, "c39654");
 
 
                 ConsoleHelper.WriteLine("测试完成！");
