@@ -37,6 +37,7 @@ namespace SAEA.RedisSocket.Model
         Lines = 6,
         KeyValues = 7,
         Sub = 8,
-        UnSub = 9
+        UnSub = 9,
+        Undefined=10
     }
 }

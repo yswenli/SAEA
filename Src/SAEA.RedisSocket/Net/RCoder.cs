@@ -53,7 +53,7 @@ namespace SAEA.RedisSocket.Net
             {
                 _buffer.AddRange(data);
 
-                while (_buffer.Count > 2)
+                while (_buffer.Count > 0)
                 {
                     var buffer = new List<byte>();
                     for (int i = 0; i < _buffer.Count; i++)
@@ -72,6 +72,8 @@ namespace SAEA.RedisSocket.Net
                         _buffer.RemoveRange(0, (int)_position);
                         _position = 0;
                     }
+                    buffer.Clear();
+                    buffer = null;
                 }
             }
         }

@@ -31,12 +31,12 @@ namespace SAEA.RedisSocket.Model
     {
         public ResponseType Type
         {
-            get;set;
+            get; set;
         }
 
         public string Data
         {
-            get;set;
+            get; set;
         }
     }
 }

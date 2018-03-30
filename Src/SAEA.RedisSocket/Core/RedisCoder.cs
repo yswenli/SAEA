@@ -27,6 +27,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace SAEA.RedisSocket.Core
 {
@@ -64,8 +65,28 @@ namespace SAEA.RedisSocket.Core
             _queue.Enqueue(command);
         }
 
+        /// <summary>
+        /// 获取redis回复的内容
+        /// </summary>
+        /// <param name="timeOut">设置收取消息超时时间，默认30秒</param>
+        /// <returns></returns>
+        public string GetRedisReply(int timeOut = 30 * 1000)
+        {
+            bool stopped = false;
+            var task = Task.Factory.StartNew(() => BlockDequeue(stopped));
+            if (!Task.WaitAll(new Task[] { task }, timeOut))
+            {
+                throw new Exception("redis server reply time out!");
+            }
+            stopped = true;
+            return task.Result;
+        }
 
-        private string BlockDequeue()
+        /// <summary>
+        /// 从收到的消息本地队列中出队
+        /// </summary>
+        /// <returns></returns>
+        private string BlockDequeue(bool stopped = false)
         {
             var result = string.Empty;
             do
@@ -75,7 +96,7 @@ namespace SAEA.RedisSocket.Core
                     Thread.Sleep(0);
                 }
             }
-            while (string.IsNullOrEmpty(result));
+            while (string.IsNullOrEmpty(result) && !stopped);
             return result;
         }
 
@@ -94,7 +115,7 @@ namespace SAEA.RedisSocket.Core
             switch (_commandName)
             {
                 case RequestType.PING:
-                    command = BlockDequeue();
+                    command = GetRedisReply();
                     if (GetStatus(command, out error))
                     {
                         result.Type = ResponseType.OK;
@@ -114,7 +135,7 @@ namespace SAEA.RedisSocket.Core
                 case RequestType.HSET:
                 case RequestType.HDEL:
                 case RequestType.LSET:
-                    command = BlockDequeue();
+                    command = GetRedisReply();
                     if (GetStatus(command, out error))
                     {
                         result.Type = ResponseType.OK;
@@ -127,7 +148,7 @@ namespace SAEA.RedisSocket.Core
                     }
                     break;
                 case RequestType.TYPE:
-                    command = BlockDequeue();
+                    command = GetRedisReply();
                     if (GetStatusString(command, out string msg))
                     {
                         result.Type = ResponseType.OK;
@@ -145,8 +166,13 @@ namespace SAEA.RedisSocket.Core
                 case RequestType.RPOP:
                 case RequestType.SRANDMEMBER:
                 case RequestType.SPOP:
-                    len = GetWordsNum(BlockDequeue(), out error);
-                    if (len == -1)
+                    len = GetWordsNum(GetRedisReply(), out error);
+                    if (!string.IsNullOrEmpty(error))
+                    {
+                        result.Type = ResponseType.Error;
+                        result.Data = error;
+                    }
+                    else if (len == -1)
                     {
                         result.Type = ResponseType.Empty;
                         result.Data = error;
@@ -154,7 +180,7 @@ namespace SAEA.RedisSocket.Core
                     else
                     {
                         result.Type = ResponseType.String;
-                        result.Data += BlockDequeue();
+                        result.Data += GetRedisReply();
                     }
                     break;
                 case RequestType.KEYS:
@@ -163,7 +189,7 @@ namespace SAEA.RedisSocket.Core
                 case RequestType.SMEMBERS:
                     result.Type = ResponseType.Lines;
                     var sb = new StringBuilder();
-                    var rn = GetRowNum(BlockDequeue(), out error);
+                    var rn = GetRowNum(GetRedisReply(), out error);
                     if (!string.IsNullOrEmpty(error))
                     {
                         result.Type = ResponseType.Error;
@@ -171,7 +197,7 @@ namespace SAEA.RedisSocket.Core
                         break;
                     }
                     //再尝试读取一次，发现有回车行出现
-                    if (rn == -1) rn = GetRowNum(BlockDequeue(), out error);
+                    if (rn == -1) rn = GetRowNum(GetRedisReply(), out error);
                     if (!string.IsNullOrEmpty(error))
                     {
                         result.Type = ResponseType.Error;
@@ -182,8 +208,8 @@ namespace SAEA.RedisSocket.Core
                     {
                         for (int i = 0; i < rn; i++)
                         {
-                            len = GetWordsNum(BlockDequeue(), out error);
-                            sb.AppendLine(BlockDequeue());
+                            len = GetWordsNum(GetRedisReply(), out error);
+                            sb.AppendLine(GetRedisReply());
                         }
                     }
                     result.Data = sb.ToString();
@@ -193,7 +219,7 @@ namespace SAEA.RedisSocket.Core
                 case RequestType.ZREVRANGE:
                     result.Type = ResponseType.KeyValues;
                     sb = new StringBuilder();
-                    rn = GetRowNum(BlockDequeue(), out error);
+                    rn = GetRowNum(GetRedisReply(), out error);
                     if (!string.IsNullOrEmpty(error))
                     {
                         result.Type = ResponseType.Error;
@@ -204,8 +230,8 @@ namespace SAEA.RedisSocket.Core
                     {
                         for (int i = 0; i < rn; i++)
                         {
-                            len = GetWordsNum(BlockDequeue(), out error);
-                            sb.AppendLine(BlockDequeue());
+                            len = GetWordsNum(GetRedisReply(), out error);
+                            sb.AppendLine(GetRedisReply());
                         }
                     }
                     result.Data = sb.ToString();
@@ -230,7 +256,7 @@ namespace SAEA.RedisSocket.Core
                 case RequestType.ZCOUNT:
                 case RequestType.ZREM:
                 case RequestType.PUBLISH:
-                    var val = GetValue(BlockDequeue(), out error);
+                    var val = GetValue(GetRedisReply(), out error);
                     if (!string.IsNullOrEmpty(error))
                     {
                         result.Type = ResponseType.Error;
@@ -248,7 +274,7 @@ namespace SAEA.RedisSocket.Core
                     result.Data = val.ToString();
                     break;
                 case RequestType.INFO:
-                    var rnum = GetWordsNum(BlockDequeue(), out error);
+                    var rnum = GetWordsNum(GetRedisReply(), out error);
                     if (!string.IsNullOrEmpty(error))
                     {
                         result.Type = ResponseType.Error;
@@ -258,7 +284,7 @@ namespace SAEA.RedisSocket.Core
                     var info = "";
                     while (info.Length < rnum)
                     {
-                        info += BlockDequeue();
+                        info += GetRedisReply();
                     }
                     result.Type = ResponseType.String;
                     result.Data = info;
@@ -267,26 +293,29 @@ namespace SAEA.RedisSocket.Core
                     var r = "";
                     while (IsSubed)
                     {
-                        r = BlockDequeue();
+                        r = GetRedisReply();
                         if (r == "message\r\n")
                         {
                             result.Type = ResponseType.Sub;
-                            BlockDequeue();
-                            result.Data = BlockDequeue();
-                            BlockDequeue();
-                            result.Data += BlockDequeue();
+                            GetRedisReply();
+                            result.Data = GetRedisReply();
+                            GetRedisReply();
+                            result.Data += GetRedisReply();
                             break;
                         }
                     }
                     break;
                 case RequestType.UNSUBSCRIBE:
-                    var rNum = GetRowNum(BlockDequeue(), out error);
-                    var wNum = GetWordsNum(BlockDequeue(), out error);
-                    BlockDequeue();
-                    wNum = GetWordsNum(BlockDequeue(), out error);
-                    var channel = BlockDequeue();
-                    var vNum = GetValue(BlockDequeue(), out error);
+                    var rNum = GetRowNum(GetRedisReply(), out error);
+                    var wNum = GetWordsNum(GetRedisReply(), out error);
+                    GetRedisReply();
+                    wNum = GetWordsNum(GetRedisReply(), out error);
+                    var channel = GetRedisReply();
+                    var vNum = GetValue(GetRedisReply(), out error);
                     IsSubed = false;
+                    break;
+                default:
+                    result.Type = ResponseType.Undefined;
                     break;
             }
             _autoResetEvent.Set();
@@ -312,9 +341,9 @@ namespace SAEA.RedisSocket.Core
             }
             return result;
         }
-        private static bool GetStatusString(string command, out string msg)
+        private static bool GetStatusString(string command, out string error)
         {
-            msg = string.Empty;
+            error = string.Empty;
             var result = false;
             if (!string.IsNullOrEmpty(command) && command.Length > 0)
             {
@@ -327,14 +356,14 @@ namespace SAEA.RedisSocket.Core
                 {
                     result = false;
                 }
-                msg = command.Substring(1);
+                error = command.Substring(1);
             }
             return result;
         }
 
-        private static int GetRowNum(string command, out string msg)
+        private static int GetRowNum(string command, out string error)
         {
-            msg = "";
+            error = "";
             int num = -1;
 
             if (!string.IsNullOrEmpty(command))
@@ -345,15 +374,15 @@ namespace SAEA.RedisSocket.Core
                 }
                 if (command.Length > 2 && command.Substring(0, 1) == "-")
                 {
-                    msg = command.Substring(1);
+                    error = command.Substring(1);
                 }
             }
             return num;
         }
 
-        private static int GetWordsNum(string command, out string msg)
+        private static int GetWordsNum(string command, out string error)
         {
-            msg = "";
+            error = "";
             int num = -1;
             if (!string.IsNullOrEmpty(command))
             {
@@ -363,16 +392,16 @@ namespace SAEA.RedisSocket.Core
                 }
                 if (command.Length > 2 && command.Substring(0, 1) == "-")
                 {
-                    msg = command.Substring(1);
+                    error = command.Substring(1);
                 }
             }
 
             return num;
         }
 
-        private static int GetValue(string command, out string msg)
+        private static int GetValue(string command, out string error)
         {
-            msg = "";
+            error = "";
             int num = 0;
             if (!string.IsNullOrEmpty(command))
             {
@@ -382,7 +411,7 @@ namespace SAEA.RedisSocket.Core
                 }
                 if (command.Length > 2 && command.Substring(0, 1) == "-")
                 {
-                    msg = command.Substring(1);
+                    error = command.Substring(1);
                 }
             }
 
