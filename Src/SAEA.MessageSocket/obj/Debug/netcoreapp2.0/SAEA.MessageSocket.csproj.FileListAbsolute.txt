@@ -1,4 +1,0 @@
-E:\百度云\Develop\案例\网络类\SAEA\SAEA.MessageSocket\obj\Debug\netcoreapp2.0\SAEA.MessageSocket.csprojResolveAssemblyReference.cache
-E:\百度云\Develop\案例\网络类\SAEA\SAEA.MessageSocket\obj\Debug\netcoreapp2.0\SAEA.MessageSocket.csproj.CoreCompileInputs.cache
-E:\百度云\Develop\案例\网络类\SAEA\SAEA.MessageSocket\obj\Debug\netcoreapp2.0\SAEA.MessageSocket.AssemblyInfoInputs.cache
-E:\百度云\Develop\案例\网络类\SAEA\SAEA.MessageSocket\obj\Debug\netcoreapp2.0\SAEA.MessageSocket.AssemblyInfo.cs
