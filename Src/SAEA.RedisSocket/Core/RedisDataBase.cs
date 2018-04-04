@@ -14,15 +14,12 @@ namespace SAEA.RedisSocket.Core
 
         RedisCoder _redisCoder;
 
-        RedisConnection _cnn;
-
         RedisLock _redisLock;
 
         public RedisDataBase(RedisConnection cnn) : base(cnn)
         {
-            _cnn = cnn;
-            _redisCoder = _cnn.RedisCoder;
-            _redisLock = new RedisLock(_cnn);
+            _redisCoder = cnn.RedisCoder;
+            _redisLock = new RedisLock(cnn);
         }
 
         #region KEY

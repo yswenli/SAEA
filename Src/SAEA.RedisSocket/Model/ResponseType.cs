@@ -38,6 +38,7 @@ namespace SAEA.RedisSocket.Model
         KeyValues = 7,
         Sub = 8,
         UnSub = 9,
-        Undefined=10
+        Undefined = 10,
+        Redirect = 11,
     }
 }

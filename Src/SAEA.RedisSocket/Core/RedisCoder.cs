@@ -42,6 +42,10 @@ namespace SAEA.RedisSocket.Core
 
         ConcurrentQueue<string> _queue = new ConcurrentQueue<string>();
 
+        string _sendCommand = string.Empty;
+
+        readonly string _enter = "\r\n";
+
         public string Coder(RequestType commandName, params string[] @params)
         {
             _autoResetEvent.WaitOne();
@@ -53,7 +57,8 @@ namespace SAEA.RedisSocket.Core
                 sb.AppendLine("$" + param.Length);
                 sb.AppendLine(param);
             }
-            return sb.ToString();
+            _sendCommand = sb.ToString();
+            return _sendCommand;
         }
 
         /// <summary>
@@ -112,213 +117,228 @@ namespace SAEA.RedisSocket.Core
 
             var len = 0;
 
-            switch (_commandName)
+            command = GetRedisReply();
+
+            if (command == _enter)
             {
-                case RequestType.PING:
-                    command = GetRedisReply();
-                    if (GetStatus(command, out error))
-                    {
-                        result.Type = ResponseType.OK;
-                        result.Data = "PONG";
-                    }
-                    else
-                    {
-                        result.Type = ResponseType.Error;
-                        result.Data = error;
-                    }
-                    break;
-                case RequestType.AUTH:
-                case RequestType.SELECT:
-                case RequestType.SLAVEOF:
-                case RequestType.SET:
-                case RequestType.DEL:
-                case RequestType.HSET:
-                case RequestType.HDEL:
-                case RequestType.LSET:
-                    command = GetRedisReply();
-                    if (GetStatus(command, out error))
-                    {
-                        result.Type = ResponseType.OK;
-                        result.Data = "OK";
-                    }
-                    else
-                    {
-                        result.Type = ResponseType.Error;
-                        result.Data = error;
-                    }
-                    break;
-                case RequestType.TYPE:
-                    command = GetRedisReply();
-                    if (GetStatusString(command, out string msg))
-                    {
-                        result.Type = ResponseType.OK;
-                    }
-                    else
-                    {
-                        result.Type = ResponseType.Error;
-                    }
-                    result.Data = msg;
-                    break;
-                case RequestType.GET:
-                case RequestType.GETSET:
-                case RequestType.HGET:
-                case RequestType.LPOP:
-                case RequestType.RPOP:
-                case RequestType.SRANDMEMBER:
-                case RequestType.SPOP:
-                    len = GetWordsNum(GetRedisReply(), out error);
-                    if (!string.IsNullOrEmpty(error))
-                    {
-                        result.Type = ResponseType.Error;
-                        result.Data = error;
-                    }
-                    else if (len == -1)
-                    {
-                        result.Type = ResponseType.Empty;
-                        result.Data = error;
-                    }
-                    else
-                    {
-                        result.Type = ResponseType.String;
-                        result.Data += GetRedisReply();
-                    }
-                    break;
-                case RequestType.KEYS:
-                case RequestType.HKEYS:
-                case RequestType.LRANGE:
-                case RequestType.SMEMBERS:
-                    result.Type = ResponseType.Lines;
-                    var sb = new StringBuilder();
-                    var rn = GetRowNum(GetRedisReply(), out error);
-                    if (!string.IsNullOrEmpty(error))
-                    {
-                        result.Type = ResponseType.Error;
-                        result.Data = error;
-                        break;
-                    }
-                    //再尝试读取一次，发现有回车行出现
-                    if (rn == -1) rn = GetRowNum(GetRedisReply(), out error);
-                    if (!string.IsNullOrEmpty(error))
-                    {
-                        result.Type = ResponseType.Error;
-                        result.Data = error;
-                        break;
-                    }
-                    if (rn > 0)
-                    {
-                        for (int i = 0; i < rn; i++)
+                command = GetRedisReply();
+            }
+
+            var temp = Redirect(command);
+
+            if (temp != null)
+            {
+                result = temp;
+            }
+            else
+            {
+                switch (_commandName)
+                {
+                    case RequestType.PING:
+                        if (GetStatus(command, out error))
                         {
-                            len = GetWordsNum(GetRedisReply(), out error);
-                            sb.AppendLine(GetRedisReply());
+                            result.Type = ResponseType.OK;
+                            result.Data = "PONG";
                         }
-                    }
-                    result.Data = sb.ToString();
-                    break;
-                case RequestType.HGETALL:
-                case RequestType.ZRANGE:
-                case RequestType.ZREVRANGE:
-                    result.Type = ResponseType.KeyValues;
-                    sb = new StringBuilder();
-                    rn = GetRowNum(GetRedisReply(), out error);
-                    if (!string.IsNullOrEmpty(error))
-                    {
-                        result.Type = ResponseType.Error;
-                        result.Data = error;
-                        break;
-                    }
-                    if (rn > 0)
-                    {
-                        for (int i = 0; i < rn; i++)
+                        else
                         {
-                            len = GetWordsNum(GetRedisReply(), out error);
-                            sb.AppendLine(GetRedisReply());
+                            result.Type = ResponseType.Error;
+                            result.Data = error;
                         }
-                    }
-                    result.Data = sb.ToString();
-                    break;
-                case RequestType.DBSIZE:
-                case RequestType.EXISTS:
-                case RequestType.EXPIRE:
-                case RequestType.PERSIST:
-                case RequestType.SETNX:
-                case RequestType.HEXISTS:
-                case RequestType.HLEN:
-                case RequestType.LLEN:
-                case RequestType.LPUSH:
-                case RequestType.RPUSH:
-                case RequestType.LREM:
-                case RequestType.SADD:
-                case RequestType.SCARD:
-                case RequestType.SISMEMBER:
-                case RequestType.SREM:
-                case RequestType.ZADD:
-                case RequestType.ZCARD:
-                case RequestType.ZCOUNT:
-                case RequestType.ZREM:
-                case RequestType.PUBLISH:
-                    var val = GetValue(GetRedisReply(), out error);
-                    if (!string.IsNullOrEmpty(error))
-                    {
-                        result.Type = ResponseType.Error;
-                        result.Data = error;
                         break;
-                    }
-                    if (val == 0)
-                    {
-                        result.Type = ResponseType.Empty;
-                    }
-                    else
-                    {
-                        result.Type = ResponseType.OK;
-                    }
-                    result.Data = val.ToString();
-                    break;
-                case RequestType.INFO:
-                    var rnum = GetWordsNum(GetRedisReply(), out error);
-                    if (!string.IsNullOrEmpty(error))
-                    {
-                        result.Type = ResponseType.Error;
-                        result.Data = error;
-                        break;
-                    }
-                    var info = "";
-                    while (info.Length < rnum)
-                    {
-                        info += GetRedisReply();
-                    }
-                    result.Type = ResponseType.String;
-                    result.Data = info;
-                    break;
-                case RequestType.SUBSCRIBE:
-                    var r = "";
-                    while (IsSubed)
-                    {
-                        r = GetRedisReply();
-                        if (r == "message\r\n")
+                    case RequestType.AUTH:
+                    case RequestType.SELECT:
+                    case RequestType.SLAVEOF:
+                    case RequestType.SET:
+                    case RequestType.DEL:
+                    case RequestType.HSET:
+                    case RequestType.HDEL:
+                    case RequestType.LSET:
+                        if (GetStatus(command, out error))
                         {
-                            result.Type = ResponseType.Sub;
-                            GetRedisReply();
-                            result.Data = GetRedisReply();
-                            GetRedisReply();
+                            result.Type = ResponseType.OK;
+                            result.Data = "OK";
+                        }
+                        else
+                        {
+                            result.Type = ResponseType.Error;
+                            result.Data = error;
+                        }
+                        break;
+                    case RequestType.TYPE:
+                        if (GetStatusString(command, out string msg))
+                        {
+                            result.Type = ResponseType.OK;
+                        }
+                        else
+                        {
+                            result.Type = ResponseType.Error;
+                        }
+                        result.Data = msg;
+                        break;
+                    case RequestType.GET:
+                    case RequestType.GETSET:
+                    case RequestType.HGET:
+                    case RequestType.LPOP:
+                    case RequestType.RPOP:
+                    case RequestType.SRANDMEMBER:
+                    case RequestType.SPOP:
+                        len = GetWordsNum(command, out error);
+                        if (!string.IsNullOrEmpty(error))
+                        {
+                            result.Type = ResponseType.Error;
+                            result.Data = error;
+                        }
+                        else if (len == -1)
+                        {
+                            result.Type = ResponseType.Empty;
+                            result.Data = error;
+                        }
+                        else
+                        {
+                            result.Type = ResponseType.String;
                             result.Data += GetRedisReply();
+                        }
+                        break;
+                    case RequestType.KEYS:
+                    case RequestType.HKEYS:
+                    case RequestType.LRANGE:
+                    case RequestType.SMEMBERS:
+                        result.Type = ResponseType.Lines;
+                        var sb = new StringBuilder();
+                        var rn = GetRowNum(command, out error);
+                        if (!string.IsNullOrEmpty(error))
+                        {
+                            result.Type = ResponseType.Error;
+                            result.Data = error;
                             break;
                         }
-                    }
-                    break;
-                case RequestType.UNSUBSCRIBE:
-                    var rNum = GetRowNum(GetRedisReply(), out error);
-                    var wNum = GetWordsNum(GetRedisReply(), out error);
-                    GetRedisReply();
-                    wNum = GetWordsNum(GetRedisReply(), out error);
-                    var channel = GetRedisReply();
-                    var vNum = GetValue(GetRedisReply(), out error);
-                    IsSubed = false;
-                    break;
-                default:
-                    result.Type = ResponseType.Undefined;
-                    break;
+                        //再尝试读取一次，发现有回车行出现
+                        if (rn == -1) rn = GetRowNum(GetRedisReply(), out error);
+                        if (!string.IsNullOrEmpty(error))
+                        {
+                            result.Type = ResponseType.Error;
+                            result.Data = error;
+                            break;
+                        }
+                        if (rn > 0)
+                        {
+                            for (int i = 0; i < rn; i++)
+                            {
+                                len = GetWordsNum(GetRedisReply(), out error);
+                                sb.AppendLine(GetRedisReply());
+                            }
+                        }
+                        result.Data = sb.ToString();
+                        break;
+                    case RequestType.HGETALL:
+                    case RequestType.ZRANGE:
+                    case RequestType.ZREVRANGE:
+                        result.Type = ResponseType.KeyValues;
+                        sb = new StringBuilder();
+                        rn = GetRowNum(command, out error);
+                        if (!string.IsNullOrEmpty(error))
+                        {
+                            result.Type = ResponseType.Error;
+                            result.Data = error;
+                            break;
+                        }
+                        if (rn > 0)
+                        {
+                            for (int i = 0; i < rn; i++)
+                            {
+                                len = GetWordsNum(GetRedisReply(), out error);
+                                sb.AppendLine(GetRedisReply());
+                            }
+                        }
+                        result.Data = sb.ToString();
+                        break;
+                    case RequestType.DBSIZE:
+                    case RequestType.EXISTS:
+                    case RequestType.EXPIRE:
+                    case RequestType.PERSIST:
+                    case RequestType.SETNX:
+                    case RequestType.HEXISTS:
+                    case RequestType.HLEN:
+                    case RequestType.LLEN:
+                    case RequestType.LPUSH:
+                    case RequestType.RPUSH:
+                    case RequestType.LREM:
+                    case RequestType.SADD:
+                    case RequestType.SCARD:
+                    case RequestType.SISMEMBER:
+                    case RequestType.SREM:
+                    case RequestType.ZADD:
+                    case RequestType.ZCARD:
+                    case RequestType.ZCOUNT:
+                    case RequestType.ZREM:
+                    case RequestType.PUBLISH:
+                        var val = GetValue(command, out error);
+                        if (!string.IsNullOrEmpty(error))
+                        {
+                            result.Type = ResponseType.Error;
+                            result.Data = error;
+                            break;
+                        }
+                        if (val == 0)
+                        {
+                            result.Type = ResponseType.Empty;
+                        }
+                        else
+                        {
+                            result.Type = ResponseType.OK;
+                        }
+                        result.Data = val.ToString();
+                        break;
+                    case RequestType.INFO:
+                        var rnum = GetWordsNum(command, out error);
+                        if (!string.IsNullOrEmpty(error))
+                        {
+                            result.Type = ResponseType.Error;
+                            result.Data = error;
+                            break;
+                        }
+                        var info = "";
+                        while (info.Length < rnum)
+                        {
+                            info += GetRedisReply();
+                        }
+                        result.Type = ResponseType.String;
+                        result.Data = info;
+                        break;
+                    case RequestType.SUBSCRIBE:
+                        var r = "";
+                        while (IsSubed)
+                        {
+                            r = GetRedisReply();
+                            if (r == "message\r\n")
+                            {
+                                result.Type = ResponseType.Sub;
+                                GetRedisReply();
+                                result.Data = GetRedisReply();
+                                GetRedisReply();
+                                result.Data += GetRedisReply();
+                                break;
+                            }
+                        }
+                        break;
+                    case RequestType.UNSUBSCRIBE:
+                        var rNum = GetRowNum(command, out error);
+                        var wNum = GetWordsNum(GetRedisReply(), out error);
+                        GetRedisReply();
+                        wNum = GetWordsNum(GetRedisReply(), out error);
+                        var channel = GetRedisReply();
+                        var vNum = GetValue(GetRedisReply(), out error);
+                        IsSubed = false;
+                        break;
+                    default:
+                        result.Type = ResponseType.Undefined;
+                        break;
+                }
             }
+
             _autoResetEvent.Set();
+
             return result;
         }
 
@@ -416,6 +436,20 @@ namespace SAEA.RedisSocket.Core
             }
 
             return num;
+        }
+
+        private static ResponseData Redirect(string command)
+        {
+            ResponseData result = null;
+            if (command.IndexOf("-MOVED") == 0)
+            {
+                result = new ResponseData()
+                {
+                    Type = ResponseType.Redirect,
+                    Data = command.Split(" ")[2].Replace("\r\n", "")
+                };
+            }
+            return result;
         }
 
         public void Dispose()

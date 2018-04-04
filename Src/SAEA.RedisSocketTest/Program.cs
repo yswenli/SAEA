@@ -32,16 +32,15 @@ namespace SAEA.RedisSocketTest
         static void Main(string[] args)
         {
             ConsoleHelper.Title = "SAEA.RedisSocketTest";
-            ConsoleHelper.WriteLine("输入ip:port连接RedisServer");
+            ConsoleHelper.WriteLine("输入连接字符串连接RedisServer，格式为server=127.0.0.1:6379;password=yswenli");
 
-            var ipPort = ConsoleHelper.ReadLine();
-            if (string.IsNullOrEmpty(ipPort))
+            var cnnStr = ConsoleHelper.ReadLine();
+            if (string.IsNullOrEmpty(cnnStr))
             {
-                ipPort = "127.0.0.1:6379";
-            }
-            RedisClient redisClient = new RedisClient(ipPort);
+                cnnStr = "server=127.0.0.1:6379;password=yswenli";
+            }            
+            RedisClient redisClient = new RedisClient(cnnStr);
             redisClient.Connect();
-            //redisClient.Connect("wenli"); 
 
 
             var info = redisClient.Info();
@@ -114,9 +113,9 @@ namespace SAEA.RedisSocketTest
 
                 ConsoleHelper.WriteLine("回车开始开始kv移除操作...");
                 ConsoleHelper.ReadLine();
-                foreach (var key in keys)
+                for (int i = 0; i < 1000; i++)
                 {
-                    redisClient.GetDataBase().Del(key);
+                    redisClient.GetDataBase().Del("key" + i);
                 }
                 ConsoleHelper.WriteLine("移除kv值完成...");
                 #endregion

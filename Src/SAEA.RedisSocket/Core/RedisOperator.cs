@@ -17,6 +17,8 @@ namespace SAEA.RedisSocket.Core
         object _syncLocker = new object();
         string space = " ";
 
+        public event Func<string, RedisConnection> OnRedirect;
+
         public RedisOperator(RedisConnection cnn)
         {
             _cnn = cnn;
@@ -29,7 +31,15 @@ namespace SAEA.RedisSocket.Core
             {
                 var cmd = _redisCoder.Coder(type, string.Format("{0}", type.ToString()));
                 _cnn.Send(cmd);
-                return _redisCoder.Decoder();
+                var result = _redisCoder.Decoder();
+                if (result.Type == ResponseType.Redirect)
+                {
+                    _cnn = OnRedirect.Invoke(result.Data);
+                    _redisCoder = _cnn.RedisCoder;
+                    return Do(type);
+                }
+                else
+                    return result;
             }
         }
 
@@ -39,7 +49,15 @@ namespace SAEA.RedisSocket.Core
             {
                 var cmd = _redisCoder.Coder(type, type.ToString(), key);
                 _cnn.Send(cmd);
-                return _redisCoder.Decoder();
+                var result = _redisCoder.Decoder();
+                if (result.Type == ResponseType.Redirect)
+                {
+                    _cnn = OnRedirect.Invoke(result.Data);
+                    _redisCoder = _cnn.RedisCoder;
+                    return Do(type, key);
+                }
+                else
+                    return result;
             }
         }
 
@@ -49,7 +67,15 @@ namespace SAEA.RedisSocket.Core
             {
                 var cmd = _redisCoder.Coder(type, type.ToString(), key, value);
                 _cnn.Send(cmd);
-                return _redisCoder.Decoder();
+                var result = _redisCoder.Decoder();
+                if (result.Type == ResponseType.Redirect)
+                {
+                    _cnn = OnRedirect.Invoke(result.Data);
+                    _redisCoder = _cnn.RedisCoder;
+                    return Do(type, key, value);
+                }
+                else
+                    return result;
             }
         }
 
@@ -59,7 +85,13 @@ namespace SAEA.RedisSocket.Core
             {
                 var cmd = _redisCoder.Coder(RequestType.EXPIRE, RequestType.EXPIRE.ToString(), key, seconds.ToString());
                 _cnn.Send(cmd);
-                _redisCoder.Decoder();
+                var result = _redisCoder.Decoder();
+                if (result.Type == ResponseType.Redirect)
+                {
+                    _cnn = OnRedirect.Invoke(result.Data);
+                    _redisCoder = _cnn.RedisCoder;
+                    DoExpire(key, seconds);
+                }
             }
         }
 
@@ -69,7 +101,16 @@ namespace SAEA.RedisSocket.Core
             {
                 var cmd = _redisCoder.Coder(type, type.ToString(), key, value);
                 _cnn.Send(cmd);
-                _redisCoder.Decoder();
+                var result = _redisCoder.Decoder();
+                if (result.Type == ResponseType.Redirect)
+                {
+                    _cnn = OnRedirect.Invoke(result.Data);
+                    _redisCoder = _cnn.RedisCoder;
+
+                    cmd = _redisCoder.Coder(type, type.ToString(), key, value);
+                    _cnn.Send(cmd);
+                    _redisCoder.Decoder();
+                }
 
                 cmd = _redisCoder.Coder(RequestType.EXPIRE, string.Format("{0} {1} {2}", type.ToString(), key, seconds));
                 _cnn.Send(cmd);
@@ -83,7 +124,15 @@ namespace SAEA.RedisSocket.Core
             {
                 var cmd = _redisCoder.Coder(type, type.ToString(), id, key, value);
                 _cnn.Send(cmd);
-                return _redisCoder.Decoder();
+                var result = _redisCoder.Decoder();
+                if (result.Type == ResponseType.Redirect)
+                {
+                    _cnn = OnRedirect.Invoke(result.Data);
+                    _redisCoder = _cnn.RedisCoder;
+                    return Do(type, id, key, value);
+                }
+                else
+                    return result;
             }
         }
         public ResponseData Do(RequestType type, string id, double begin = 0, double end = -1)
@@ -92,7 +141,15 @@ namespace SAEA.RedisSocket.Core
             {
                 var cmd = _redisCoder.Coder(type, type.ToString(), id, begin.ToString(), end.ToString(), " WITHSCORES");
                 _cnn.Send(cmd);
-                return _redisCoder.Decoder();
+                var result = _redisCoder.Decoder();
+                if (result.Type == ResponseType.Redirect)
+                {
+                    _cnn = OnRedirect.Invoke(result.Data);
+                    _redisCoder = _cnn.RedisCoder;
+                    return Do(type, id, begin, end);
+                }
+                else
+                    return result;
             }
         }
 
@@ -137,7 +194,15 @@ namespace SAEA.RedisSocket.Core
                 }
                 var cmd = _redisCoder.Coder(type, sb.ToString());
                 _cnn.Send(cmd);
-                return _redisCoder.Decoder();
+                var result = _redisCoder.Decoder();
+                if (result.Type == ResponseType.Redirect)
+                {
+                    _cnn = OnRedirect.Invoke(result.Data);
+                    _redisCoder = _cnn.RedisCoder;
+                    return DoBatch(type, id, keys);
+                }
+                else
+                    return result;
             }
         }
 
@@ -156,10 +221,17 @@ namespace SAEA.RedisSocket.Core
 
                 var cmd = _redisCoder.Coder(type, sb.ToString());
                 _cnn.Send(cmd);
-                return _redisCoder.Decoder();
+                var result = _redisCoder.Decoder();
+                if (result.Type == ResponseType.Redirect)
+                {
+                    _cnn = OnRedirect.Invoke(result.Data);
+                    _redisCoder = _cnn.RedisCoder;
+                    return DoBatch<T>(type, id, dic);
+                }
+                else
+                    return result;
             }
         }
-
 
     }
 }

@@ -72,16 +72,8 @@ namespace SAEA.RedisSocket
                                 bool isReadOnly = true;
                                 for (int i = 0; i < connections; i++)
                                 {
-                                    var client = new RedisClient(ipPortStr);
-                                    client.Connect();
-                                    if (!string.IsNullOrEmpty(password))
-                                    {
-                                        var authResult = client.Auth(password);
-                                        if (authResult != "OK")
-                                        {
-                                            throw new Exception(authResult);
-                                        }
-                                    }
+                                    var client = new RedisClient(ipPortStr, password);
+                                    client.Connect();                                    
                                     if (isReadOnly)
                                         isReadOnly = client.IsMaster();
                                     queue.Enqueue(client);

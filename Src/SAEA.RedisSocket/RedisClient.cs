@@ -27,6 +27,7 @@ using SAEA.RedisSocket.Interface;
 using SAEA.RedisSocket.Model;
 using SAEA.RedisSocket.Net;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 
 namespace SAEA.RedisSocket
@@ -41,35 +42,34 @@ namespace SAEA.RedisSocket
 
         int _dbIndex = 0;
 
+        bool _debugModel = false;
+
+        Dictionary<string, RedisConnection> _clusterCnn = new Dictionary<string, RedisConnection>();
+
         public bool IsConnected { get; set; }
 
-        public RedisClient(string ipPort, bool debugModel = false)
+        public RedisConfig RedisConfig
         {
-            _cnn = new RedisConnection(ipPort, debugModel);
-
+            get;
+            set;
         }
 
-        /// <summary>
-        /// 连接到redis服务器
-        /// </summary>
-        public void Connect()
+        public RedisClient(RedisConfig config, bool debugModel = false)
         {
-            lock (_syncLocker)
-            {
-                if (!IsConnected)
-                {
-                    _cnn.Connect();
-
-                    IsConnected = _cnn.IsConnected;                    
-                }
-            }
+            _debugModel = debugModel;
+            RedisConfig = config;
+            _cnn = new RedisConnection(RedisConfig.GetIPPort(), debugModel);
         }
+
+        public RedisClient(string connectStr, bool debugModel = false) : this(new RedisConfig(connectStr), debugModel) { }
+
+        public RedisClient(string ipPort, string password, bool debugModel = false) : this(new RedisConfig(ipPort, password), debugModel) { }
+
         /// <summary>
         /// 使用密码连接到RedisServer
         /// </summary>
-        /// <param name="password"></param>
         /// <returns></returns>
-        public string Connect(string password)
+        public string Connect()
         {
             lock (_syncLocker)
             {
@@ -85,25 +85,26 @@ namespace SAEA.RedisSocket
 
                     if (infoMsg.Contains("NOAUTH Authentication required."))
                     {
-                        if (string.IsNullOrEmpty(password))
+                        if (string.IsNullOrEmpty(RedisConfig.Passwords))
                         {
                             _cnn.Quit();
                             return infoMsg;
                         }
 
-                        var authMsg = Auth(password);                        
+                        var authMsg = Auth(RedisConfig.Passwords);
 
                         if (!authMsg.Contains(ok))
                         {
                             _cnn.Quit();
                             return authMsg;
-                        }                        
-                    }                    
+                        }
+                    }
                 }
+                _cnn.KeepAlived(() => this.KeepAlive());
+                _clusterCnn.Add(RedisConfig.GetIPPort(), _cnn);
                 return ok;
             }
         }
-
 
 
         /// <summary>
@@ -113,7 +114,7 @@ namespace SAEA.RedisSocket
         {
             ThreadHelper.Run(() =>
             {
-                while (IsConnected)
+                while (_cnn.IsConnected)
                 {
                     if (_cnn.Actived <= DateTimeHelper.Now)
                     {
@@ -224,15 +225,51 @@ namespace SAEA.RedisSocket
                 if (_redisDataBase == null)
                 {
                     _redisDataBase = new RedisDataBase(_cnn);
+                    _redisDataBase.OnRedirect += _redisDataBase_OnRedirect;
                 }
                 return _redisDataBase;
             }
 
         }
 
+
+        /// <summary>
+        /// 在cluster中重置连接
+        /// </summary>
+        /// <param name="ipPort"></param>
+        /// <returns></returns>
+        private RedisConnection _redisDataBase_OnRedirect(string ipPort)
+        {
+            lock (_syncLocker)
+            {
+                if (_clusterCnn.ContainsKey(ipPort))
+                {
+                    return _clusterCnn[ipPort];
+                }
+                else
+                {
+                    this.IsConnected = false;
+                    this.RedisConfig = new RedisConfig(ipPort, this.RedisConfig.Passwords);
+                    _cnn = new RedisConnection(RedisConfig.GetIPPort(), _debugModel);
+                    this.Connect();
+                    return _cnn;
+                }
+            }
+        }
+
         public void Dispose()
         {
-            _cnn.Dispose();
+            lock (_syncLocker)
+            {
+                if (_clusterCnn != null && _clusterCnn.Count > 0)
+                {
+                    foreach (var item in _clusterCnn)
+                    {
+                        item.Value.Dispose();
+                    }
+                    _clusterCnn.Clear();
+                }
+            }
         }
     }
 }

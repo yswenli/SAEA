@@ -113,6 +113,10 @@ namespace SAEA.RedisSocket.Core
             }
         }
 
+        /// <summary>
+        /// 发送命令
+        /// </summary>
+        /// <param name="cmd"></param>
         public void Send(string cmd)
         {
             if (IsConnected)
@@ -121,6 +125,17 @@ namespace SAEA.RedisSocket.Core
             }
         }
 
+        /// <summary>
+        /// 保持连接
+        /// </summary>
+        /// <param name="action"></param>
+        public void KeepAlived(Action action)
+        {
+            action();
+        }
+        /// <summary>
+        /// 释放资源
+        /// </summary>
         public void Quit()
         {
             if (IsConnected)
@@ -128,6 +143,10 @@ namespace SAEA.RedisSocket.Core
                 _cnn.Disconnect();
             }
         }
+
+        /// <summary>
+        /// 释放资源
+        /// </summary>
         public void Dispose()
         {
             IsConnected = false;
