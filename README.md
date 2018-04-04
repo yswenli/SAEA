@@ -13,3 +13,6 @@ SAEA.Socket是一种iocp的框架，基于.net core 2.1；Src中含有其应用�
 # RedisTest
 <img src="https://github.com/yswenli/SAEA/blob/master/SAEA.RedisTest.png?raw=true" alt="SAEA.RedisSocket"/>
 
+# redis cluster test
+
+<img src="https://github.com/yswenli/SAEA/blob/master/redis%20cluster%20test.png?raw=true" alt="SAEA.RedisSocket.Cluster">
