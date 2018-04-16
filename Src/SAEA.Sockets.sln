@@ -31,9 +31,13 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAEA.TCPP2PTest", "SAEA.TCP
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAEA.QueueSocketTest", "SAEA.QueueSocketTest\SAEA.QueueSocketTest.csproj", "{B3E19C06-4627-4013-9A64-17CA314EFFC6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAEA.RedisSocket", "SAEA.RedisSocket\SAEA.RedisSocket.csproj", "{944D9640-61DF-4A94-B0F1-0400A3285131}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAEA.RedisSocket", "SAEA.RedisSocket\SAEA.RedisSocket.csproj", "{944D9640-61DF-4A94-B0F1-0400A3285131}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAEA.RedisSocketTest", "SAEA.RedisSocketTest\SAEA.RedisSocketTest.csproj", "{2324C015-2E9B-4F0E-A0BC-2207870FFA25}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAEA.RedisSocketTest", "SAEA.RedisSocketTest\SAEA.RedisSocketTest.csproj", "{2324C015-2E9B-4F0E-A0BC-2207870FFA25}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAEA.WebAPI", "SAEA.WebAPI\SAEA.WebAPI.csproj", "{8594DBE7-D67A-45ED-B039-D7FEFCCCAC04}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAEA.WebAPITest", "SAEA.WebAPITest\SAEA.WebAPITest.csproj", "{DB9FFC96-C932-407F-BFCB-97D021FE1C43}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -105,6 +109,14 @@ Global
 		{2324C015-2E9B-4F0E-A0BC-2207870FFA25}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2324C015-2E9B-4F0E-A0BC-2207870FFA25}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2324C015-2E9B-4F0E-A0BC-2207870FFA25}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8594DBE7-D67A-45ED-B039-D7FEFCCCAC04}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8594DBE7-D67A-45ED-B039-D7FEFCCCAC04}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8594DBE7-D67A-45ED-B039-D7FEFCCCAC04}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8594DBE7-D67A-45ED-B039-D7FEFCCCAC04}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DB9FFC96-C932-407F-BFCB-97D021FE1C43}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DB9FFC96-C932-407F-BFCB-97D021FE1C43}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DB9FFC96-C932-407F-BFCB-97D021FE1C43}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DB9FFC96-C932-407F-BFCB-97D021FE1C43}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -33,6 +33,12 @@ namespace SAEA.Commom
             set => Console.Title = value;
         }
 
+        public static void WriteLine(string str)
+        {
+            var writeStr = DateTimeHelper.ToString() + "  " + str;
+            Console.WriteLine(writeStr);
+        }
+
         public static void WriteLine(string str, params object[] args)
         {
             var writeStr = DateTimeHelper.ToString() + "  " + str;

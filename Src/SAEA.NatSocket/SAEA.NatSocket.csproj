@@ -2,6 +2,9 @@
 
   <PropertyGroup>
     <TargetFramework>netcoreapp2.0</TargetFramework>
+    <Authors>yswenli</Authors>
+    <Company>yswenli</Company>
+    <Copyright>yswenli</Copyright>
   </PropertyGroup>
 
 </Project>

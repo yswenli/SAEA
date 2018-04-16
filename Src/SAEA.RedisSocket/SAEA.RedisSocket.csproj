@@ -5,6 +5,9 @@
     <TargetFramework>netcoreapp2.0</TargetFramework>
     <ApplicationIcon />
     <StartupObject />
+    <Company>yswenli</Company>
+    <Authors>yswenli</Authors>
+    <Copyright>yswenli</Copyright>
   </PropertyGroup>
 
   <ItemGroup>

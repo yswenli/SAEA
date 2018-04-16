@@ -1,0 +1,192 @@
+﻿/****************************************************************************
+*Copyright (c) 2018 Microsoft All Rights Reserved.
+*CLR版本： 4.0.30319.42000
+*机器名称：WENLI-PC
+*公司名称：Microsoft
+*命名空间：SAEA.WebAPI.Http.Base
+*文件名： Headers
+*版本号： V1.0.0.0
+*唯一标识：7ac31ac9-292a-46c3-b0ac-796d1b89e067
+*当前的用户域：WENLI-PC
+*创建人： yswenli
+*电子邮箱：wenguoli_520@qq.com
+*创建时间：2018/4/13 15:25:33
+*描述：
+*
+*=====================================================================
+*修改标记
+*修改时间：2018/4/13 15:25:33
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：
+*
+*****************************************************************************/
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+
+namespace SAEA.Commom
+{
+    /// <summary>
+    /// Name/Value集合
+    /// </summary>
+    public class NameValueCollection : IEnumerable<NameValueItem>
+    {
+        List<NameValueItem> _list = new List<NameValueItem>();
+
+        public string this[string name]
+        {
+            get
+            {
+                var item = Get(name);
+                if (item == null) return null;
+                return Get(name).Value;
+            }
+            set
+            {
+                Set(name, value);
+            }
+        }
+
+        public IEnumerator<NameValueItem> GetEnumerator()
+        {
+            return _list.GetEnumerator();
+        }
+
+        IEnumerator GetEnumerator1()
+        {
+            return this.GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator1();
+        }
+
+        public void Add(string name, string value)
+        {
+            var header = new NameValueItem() { Name = name.ToLower(), Value = value };
+
+            Add(header);
+        }
+
+        public void Add(NameValueItem header)
+        {
+            _list.Add(header);
+        }
+
+        public NameValueItem Get(string name)
+        {
+            return _list.Where(b => b.Name.ToLower() == name.ToLower()).FirstOrDefault();
+        }
+
+        public bool TryGetValue(string name, out string value)
+        {
+            value = null;
+
+            var result = false;
+
+            var item = Get(name);
+
+            if (item != null)
+            {
+                value = item.Value;
+                result = true;
+            }
+            return result;
+        }
+
+        public bool ContainsName(string name)
+        {
+            return _list.Exists(b => b.Name.ToLower() == name.ToLower());
+        }
+
+        public bool Exists(NameValueItem header)
+        {
+            return _list.Exists(b => b.Name.ToLower() == header.Name.ToLower() && b.Value == header.Value);
+        }
+
+        public void Remove(string name)
+        {
+            var item = Get(name);
+            if (item != null)
+            {
+                _list.Remove(item);
+            }
+        }
+
+        public void Remove(NameValueItem header)
+        {
+            if (Exists(header))
+            {
+                _list.Remove(header);
+            }
+        }
+
+        public void Set(string name, string value)
+        {
+            var header = new NameValueItem() { Name = name.ToLower(), Value = value };
+            Set(header);
+        }
+
+        public void Set(NameValueItem header)
+        {
+            var item = Get(header.Value);
+            if (item != null)
+            {
+                Remove(item);
+            }
+            Add(header);
+        }
+
+
+        public int Count
+        {
+            get
+            {
+                return _list.Count;
+            }
+        }
+
+        public string[] Names
+        {
+            get
+            {
+                return _list.Select(b => b.Name).ToArray();
+            }
+        }
+        public string[] Values
+        {
+            get
+            {
+                return _list.Select(b => b.Value).ToArray();
+            }
+        }
+    }
+
+    public static class NameValueCollectionExtends
+    {
+        public static NameValueCollection ToNameValueCollection(this Dictionary<string, string> dic)
+        {
+            NameValueCollection result = null;
+
+            if (dic != null && dic.Count > 0)
+            {
+                result = new NameValueCollection();
+
+                foreach (var item in dic)
+                {
+                    var nv = new NameValueItem()
+                    {
+                        Name = item.Key,
+                        Value = item.Value
+                    };
+                    result.Add(nv);
+                }
+            }
+            return result;
+        }
+    }
+}
