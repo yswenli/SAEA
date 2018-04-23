@@ -25,6 +25,7 @@ using SAEA.Commom;
 using SAEA.Sockets.Interface;
 using SAEA.WebAPI.Http.Base;
 using SAEA.WebAPI.Mvc;
+using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Text;
@@ -35,38 +36,33 @@ namespace SAEA.WebAPI.Http
     {
         public HttpStatusCode Status { get; set; } = HttpStatusCode.OK;
 
-        public byte[] Content { get; private set; }
-
+        byte[] _content = null;
 
 
         internal HttpServer HttpServer { get; set; }
 
         internal IUserToken UserToken { get; set; }
-        /// <summary>
-        /// 创建一个HttpRequest实例
-        /// </summary>
-        /// <param name="httpServer"></param>
-        /// <param name="userToken"></param>
-        /// <param name="stream"></param>
-        /// <returns></returns>
-        internal static HttpResponse CreateInstance(HttpServer httpServer, IUserToken userToken)
+
+        internal HttpResponse()
         {
-            HttpResponse httpResponse = new HttpResponse("");
-            httpResponse.HttpServer = httpServer;
-            httpResponse.UserToken = userToken;
-            return httpResponse;
+
+        }
+
+        internal void Init(HttpServer httpServer, IUserToken userToken)
+        {
+            this.HttpServer = httpServer;
+            this.UserToken = userToken;
         }
 
         /// <summary>
         /// 设置回复内容
         /// </summary>
-        /// <param name="httpResponse"></param>
         /// <param name="result"></param>
-        internal static void SetResult(HttpResponse httpResponse, ActionResult result)
+        internal void SetResult(ActionResult result)
         {
-            httpResponse.Content_Encoding = result.ContentEncoding.EncodingName;
-            httpResponse.Content_Type = result.ContentType;
-            httpResponse.Status = result.Status;
+            this.Content_Encoding = result.ContentEncoding.EncodingName;
+            this.Content_Type = result.ContentType;
+            this.Status = result.Status;
 
             if (result is EmptyResult)
             {
@@ -77,31 +73,17 @@ namespace SAEA.WebAPI.Http
             {
                 var f = result as FileResult;
 
-                httpResponse.SetContent(f.Content);
+                this.SetContent(f.Content);
 
                 return;
             }
 
-            httpResponse.SetContent(result.Content);
-        }
-
-
-        public HttpResponse(string content) : this(content, "UTF-8", "application/json; charset=utf-8", HttpStatusCode.OK)
-        {
-
-        }
-
-        public HttpResponse(string content, string encoding, string contentType, HttpStatusCode status)
-        {
-            this.Content_Encoding = encoding;
-            this.Content_Type = contentType;
-            this.Status = status;
-            this.SetContent(content);
+            this.SetContent(result.Content);
         }
 
         internal HttpResponse SetContent(byte[] content, Encoding encoding = null)
         {
-            this.Content = content;
+            this._content = content;
             this.Encoding = encoding != null ? encoding : Encoding.UTF8;
             this.Content_Length = content.Length.ToString();
             return this;
@@ -160,7 +142,7 @@ namespace SAEA.WebAPI.Http
         /// <summary>
         /// 生成数据
         /// </summary>
-        private byte[] ToBytes()
+        protected byte[] ToBytes()
         {
             List<byte> list = new List<byte>();
             //发送响应头
@@ -173,34 +155,36 @@ namespace SAEA.WebAPI.Http
             list.AddRange(lineBytes);
 
             //发送内容
-            list.AddRange(Content);
+            list.AddRange(_content);
 
             return list.ToArray();
         }
 
 
-        public void Write(string str)
+        public void Write(string str, Encoding encoding = null)
         {
-            SetContent(str);
+            SetContent(str, encoding);
         }
 
-        public void BinaryWrite(byte[] data)
+        public void BinaryWrite(byte[] data, Encoding encoding = null)
         {
-            SetContent(data);
+            SetContent(data, encoding);
         }
 
         public void Clear()
         {
+            this.Headers.Clear();
             this.Write("");
         }
 
         public void End()
         {
-            HttpServer.Replay(UserToken, this.ToBytes());
-            HttpServer.Close(UserToken);
+            if (UserToken != null)
+            {
+                HttpServer.Replay(UserToken, this.ToBytes());
+                HttpServer.Close(UserToken);
+            }
         }
-
-
 
     }
 }

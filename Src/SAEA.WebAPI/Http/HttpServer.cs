@@ -25,9 +25,8 @@ using SAEA.Sockets.Interface;
 using SAEA.WebAPI.Common;
 using SAEA.WebAPI.Http.Net;
 using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Text;
+using System.Collections.Concurrent;
+using System.Threading;
 
 namespace SAEA.WebAPI.Http
 {
@@ -35,11 +34,31 @@ namespace SAEA.WebAPI.Http
     {
         ServerSocket _serverSocket;
 
-        public HttpServer()
+        ConcurrentDictionary<string, HttpContext> _dic;
+
+        ConcurrentQueue<HttpContext> _queue;
+
+        public HttpServer(int bufferSize = 1024 * 100, int count = 10000)
         {
-            _serverSocket = new ServerSocket();
+            _serverSocket = new ServerSocket(bufferSize, count);
+
+            _serverSocket.OnDisconnected += _serverSocket_OnDisconnected;
+
             _serverSocket.OnRequested += _serverSocket_OnRequested;
+
+            _serverSocket.OnError += _serverSocket_OnError;
+
+            _dic = new ConcurrentDictionary<string, HttpContext>();
+
+            _queue = new ConcurrentQueue<HttpContext>();
+
+            for (int i = 0; i < count; i++)
+            {
+                _queue.Enqueue(new HttpContext());
+            }
         }
+
+
 
         public void Start(int port = 39654)
         {
@@ -49,11 +68,29 @@ namespace SAEA.WebAPI.Http
 
         private void _serverSocket_OnRequested(IUserToken userToken, string htmlStr)
         {
-            var httpContext = HttpContext.CreateInstance(this, userToken, htmlStr);
+            while (true)
+            {
+                if (_queue.TryDequeue(out HttpContext httpContext))
+                {
+                    try
+                    {
+                        httpContext.Init(this, userToken, htmlStr);
 
-            var response = httpContext.Response;
+                        _dic.TryAdd(userToken.ID, httpContext);
 
-            response.End();
+                        httpContext.InvokeAction();
+                    }
+                    catch (Exception ex)
+                    {
+                        LogHelper.WriteError("HttpServer._serverSocket_OnRequested", ex);
+                    }
+                    break;
+                }
+                else
+                {
+                    Thread.Sleep(1);
+                }
+            }
         }
 
         internal void Replay(IUserToken userToken, byte[] data)
@@ -66,6 +103,24 @@ namespace SAEA.WebAPI.Http
             _serverSocket.Disconnected(userToken);
         }
 
+        private void _serverSocket_OnDisconnected(string ID, System.Exception ex)
+        {
+            HttpContext httpContext;
+            if (_dic.TryGetValue(ID, out httpContext))
+            {
+                httpContext.Free();
+                _queue.Enqueue(httpContext);
+            }
+            else
+            {
+                LogHelper.WriteError("_serverSocket_OnDisconnected 回收", ex);
+            }
+
+        }
+        private void _serverSocket_OnError(string ID, Exception ex)
+        {
+            LogHelper.WriteError(ID, ex);
+        }
 
     }
 }

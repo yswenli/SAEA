@@ -56,32 +56,43 @@ namespace SAEA.WebAPI.Http
             private set;
         } = new HttpServerUtilityBase();
 
-        internal static HttpContext CreateInstance(HttpServer httpServer, IUserToken userToken, string htmlStr)
+        internal HttpContext()
+        {
+            this.Request = new HttpRequest();
+            this.Response = new HttpResponse();
+        }
+
+        internal void Init(HttpServer httpServer, IUserToken userToken, string htmlStr)
         {
             var buffer = Encoding.UTF8.GetBytes(htmlStr);
 
             var ms = new MemoryStream(buffer);
 
-            var httpRequest = HttpRequest.CreateInstance(httpServer, userToken, ms);
+            this.Request.Init(httpServer, userToken, ms);
 
-            var httpContext = new HttpContext(httpRequest);
-
-            return httpContext;
+            this.Response.Init(httpServer, userToken);
         }
 
-        public HttpContext(HttpRequest request)
+        internal void InvokeAction()
         {
-            this.Request = request;
+            var result = AreaCollection.Invoke(this, this.Request.URL, this.Request.Params, this.Request.Method == "POST");
 
-            var response = HttpResponse.CreateInstance(this.Request.HttpServer, this.Request.UserToken);
-
-            this.Response = response;
-
-            var result = AreaCollection.Invoke(this, request.URL, request.Params, this.Request.Method == "POST");
-
-            if(!(result is EmptyResult))
+            if (!(result is EmptyResult))
             {
-                HttpResponse.SetResult(response, result);
+                this.Response.SetResult(result);
+            }
+            this.Response.End();
+        }
+
+        internal void Free()
+        {
+            if (this.Request != null)
+            {
+                this.Request.Clear();
+            }
+            if (this.Response != null)
+            {
+                this.Response.Clear();
             }
         }
 

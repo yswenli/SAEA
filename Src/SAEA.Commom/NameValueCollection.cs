@@ -164,6 +164,11 @@ namespace SAEA.Commom
                 return _list.Select(b => b.Value).ToArray();
             }
         }
+
+        public void Clear()
+        {
+            _list.Clear();
+        }
     }
 
     public static class NameValueCollectionExtends

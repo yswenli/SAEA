@@ -27,14 +27,21 @@ using System;
 
 namespace SAEA.WebAPI
 {
+    /// <summary>
+    /// SAEA.WebAPI.Mvc应用程序
+    /// </summary>
     public class MvcApplication
     {
         HttpServer httpServer;
 
-
-        public MvcApplication()
+        /// <summary>
+        /// 构建mvc容器
+        /// </summary>
+        /// <param name="bufferSize">http处理数据缓存大小</param>
+        /// <param name="count">http连接数上限</param>
+        public MvcApplication(int bufferSize = 1024 * 100, int count = 10000)
         {
-            httpServer = new HttpServer();
+            httpServer = new HttpServer(bufferSize, count);
         }
 
 

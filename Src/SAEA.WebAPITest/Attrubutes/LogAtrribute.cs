@@ -46,7 +46,7 @@ namespace SAEA.WebAPITest.Attrubutes
         /// <param name="result"></param>
         public override void OnActionExecuted(HttpContext httpContext, ActionResult result)
         {
-            ConsoleHelper.WriteLine($"请求地址：{httpContext.Request.Query},回复内容：{result.Content}");
+            //ConsoleHelper.WriteLine($"请求地址：{httpContext.Request.Query},回复内容：{result.Content}");
         }
     }
 }

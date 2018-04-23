@@ -27,6 +27,7 @@ using SAEA.WebAPI.Mvc;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 
@@ -57,30 +58,74 @@ namespace SAEA.WebAPI.Mvc
                 }
             }
         }
+
+        /// <summary>
+        /// Controller中处理的方法代理
+        /// </summary>
+        /// <param name="httpContext"></param>
+        /// <param name="url"></param>
+        /// <param name="nameValues"></param>
+        /// <param name="isPost"></param>
+        /// <returns></returns>
+        public static ActionResult Invoke(HttpContext httpContext, string url, NameValueCollection nameValues, bool isPost)
+        {
+            lock (_locker)
+            {
+                var arr = url.Split("/", StringSplitOptions.RemoveEmptyEntries);
+
+                if (arr.Length == 0)
+                {
+                    var d = _list.Where(b => b.Name.ToLower() == "homecontroller" || b.Name.ToLower() == "indexcontroller").FirstOrDefault();
+
+                    if (d != null)
+                    {
+                        return Invoke(httpContext, d, "index", nameValues, isPost);
+                    }
+
+                }
+                else if (arr.Length >= 2)
+                {
+                    var controllerName = arr[arr.Length - 2];
+
+                    var first = _list.Where(b => b.Name.ToLower() == controllerName.ToLower() + "controller").FirstOrDefault();
+
+                    if (first != null)
+                    {
+                        return Invoke(httpContext, first, arr[arr.Length - 1], nameValues, isPost);
+                    }
+                    else
+                    {
+                        var filePath = httpContext.Server.MapPath(httpContext.Request.URL);
+                        if (File.Exists(filePath))
+                        {
+                            return new FileResult(filePath);
+                        }
+                    }
+
+                }
+
+                return new ContentResult("NotFound", System.Net.HttpStatusCode.NotFound);
+            }
+        }
+
         /// <summary>
         /// MVC处理
         /// </summary>
         /// <param name="httpContext"></param>
-        /// <param name="controllerName"></param>
+        /// <param name="controller"></param>
         /// <param name="actionName"></param>
         /// <param name="nameValues"></param>
         /// <param name="isPost"></param>
         /// <returns></returns>
-        public static ActionResult Invoke(HttpContext httpContext, string controllerName, string actionName, NameValueCollection nameValues, bool isPost)
+        public static ActionResult Invoke(HttpContext httpContext, Type controller, string actionName, NameValueCollection nameValues, bool isPost)
         {
             lock (_locker)
             {
-                var first = _list.Where(b => b.Name.ToLower() == controllerName.ToLower()).FirstOrDefault();
-
-                if (first == null)
-                {
-                    return new ContentResult("找不到控制器", System.Net.HttpStatusCode.NotFound);
-                }
                 try
                 {
-                    var routing = RouteTable.TryGet(first, controllerName, actionName, isPost);
+                    var routing = RouteTable.TryGet(controller, controller.Name, actionName, isPost);
 
-                    var property = first.GetProperty("HttpContext");
+                    var property = controller.GetProperty("HttpContext");
 
                     property.SetValue(routing.Instance, httpContext);
 
@@ -260,33 +305,7 @@ namespace SAEA.WebAPI.Mvc
             return result;
         }
 
-        /// <summary>
-        /// Controller中处理的方法代理
-        /// </summary>
-        /// <param name="httpContext"></param>
-        /// <param name="url"></param>
-        /// <param name="nameValues"></param>
-        /// <param name="isPost"></param>
-        /// <returns></returns>
-        public static ActionResult Invoke(HttpContext httpContext, string url, NameValueCollection nameValues, bool isPost)
-        {
-            lock (_locker)
-            {
-                var arr = url.Split("/", StringSplitOptions.RemoveEmptyEntries);
-                if (arr.Length == 0)
-                {
-                    return Invoke(httpContext, "HomeController", "Index", nameValues, isPost);
-                }
-                else if (arr.Length >= 2)
-                {
-                    return Invoke(httpContext, arr[arr.Length - 2] + "Controller", arr[arr.Length - 1], nameValues, isPost);
-                }
-                else
-                {
-                    return new ContentResult("找不到页面", System.Net.HttpStatusCode.NotFound);
-                }
-            }
-        }
+
 
         private static object[] GetVals(NameValueCollection nameValues)
         {

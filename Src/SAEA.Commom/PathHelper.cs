@@ -45,5 +45,18 @@ namespace SAEA.Commom
             return path + fileName;
         }
 
+        public static string GetCurrentPath(string children)
+        {
+            var path= Path.Combine(Current, children);
+            if (!Directory.Exists(path))
+                Directory.CreateDirectory(path);
+            return path;
+        }
+
+        public static string GetFilePath(string path, string fileName)
+        {
+            return Path.Combine(path, fileName);
+        }
+
     }
 }

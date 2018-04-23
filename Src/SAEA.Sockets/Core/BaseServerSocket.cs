@@ -1,4 +1,12 @@
 ﻿/****************************************************************************
+ * 
+  ____    _    _____    _      ____             _        _   
+ / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
+ \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
+  ___) / ___ \| |___ / ___ \   ___) | (_) | (__|   <  __/ |_ 
+ |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
+                                                             
+
 *Copyright (c) 2018 Microsoft All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
@@ -106,28 +114,34 @@ namespace SAEA.Sockets.Core
 
         private void ProcessAccepted(object sender, SocketAsyncEventArgs e)
         {
-            var userToken = _contextFactory.GetUserToken(e.AcceptSocket);
-
-            var readArgs = _argsPool.GetArgs(userToken, true);
-
-            SessionManager.Add(userToken);
-
             try
             {
-                OnAccepted?.Invoke(userToken);
+                var userToken = _contextFactory.GetUserToken(e.AcceptSocket);
+
+                var readArgs = _argsPool.GetArgs(userToken, true);
+
+                SessionManager.Add(userToken);
+
+                try
+                {
+                    OnAccepted?.Invoke(userToken);
+                }
+                catch (Exception ex)
+                {
+                    OnError?.Invoke(userToken.ID, new Exception("server在接受客户端时出现异常：" + ex.Message));
+                }
+
+                Interlocked.Increment(ref _clientCounts);
+
+                if (!userToken.Socket.ReceiveAsync(readArgs))
+                {
+                    ProcessReceived(readArgs);
+                }
             }
             catch (Exception ex)
             {
-                OnError?.Invoke(userToken.ID, new Exception("server接收消息解析时出现异常：" + ex.Message));
+                OnError?.Invoke("BaseServerSocket.ProcessAccepted", new Exception("server在接受客户端时出现异常：" + ex.Message));
             }
-
-            Interlocked.Increment(ref _clientCounts);
-
-            if (!userToken.Socket.ReceiveAsync(readArgs))
-            {
-                ProcessReceived(readArgs);
-            }
-
             //接入新的请求
             ProcessAccept(e);
         }
@@ -176,11 +190,6 @@ namespace SAEA.Sockets.Core
                     Buffer.BlockCopy(readArgs.Buffer, readArgs.Offset, data, 0, readArgs.BytesTransferred);
 
                     OnServerReceiveBytes.Invoke(userToken, data);
-
-                    if (!userToken.Socket.ReceiveAsync(readArgs))
-                    {
-                        ProcessReceived(readArgs);
-                    }
                 }
                 else
                 {
@@ -193,6 +202,11 @@ namespace SAEA.Sockets.Core
                 _argsPool.Free(readArgs);
                 OnError?.Invoke(userToken.ID, ex);
                 Disconnected(userToken, ex);
+            }
+
+            if (userToken != null && userToken.Socket != null && !userToken.Socket.ReceiveAsync(readArgs))
+            {
+                ProcessReceived(readArgs);
             }
         }
 

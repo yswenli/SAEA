@@ -1,6 +1,5 @@
 ﻿using SAEA.Commom;
 using SAEA.WebAPI;
-using System;
 
 namespace SAEA.WebAPITest
 {
@@ -8,7 +7,7 @@ namespace SAEA.WebAPITest
     {
         static void Main(string[] args)
         {
-            ConsoleHelper.Title = "SAEA.WebAPITest";            
+            ConsoleHelper.Title = "SAEA.WebAPITest";
 
             MvcApplication mvcApplication = new MvcApplication();
 

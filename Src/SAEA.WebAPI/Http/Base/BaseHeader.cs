@@ -49,7 +49,7 @@ namespace SAEA.WebAPI.Http.Base
 
         public string ContentLanguage { get; set; }
 
-        public NameValueCollection Headers { get; set; }
+        public NameValueCollection Headers { get; set; } = new NameValueCollection();
         
         protected string GetHeader(Enum header)
         {

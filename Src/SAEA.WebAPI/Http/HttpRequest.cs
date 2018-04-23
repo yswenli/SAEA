@@ -58,7 +58,7 @@ namespace SAEA.WebAPI.Http
         /// <summary>
         /// 定义缓冲区
         /// </summary>
-        private const int MAX_SIZE = 1024 * 1024 * 2;
+        private const int MAX_SIZE =10* 1024;
 
         private byte[] bytes = new byte[MAX_SIZE];
 
@@ -70,23 +70,20 @@ namespace SAEA.WebAPI.Http
         internal IUserToken UserToken { get; set; }
 
         /// <summary>
-        /// 创建一个HttpRequest实例
+        /// 初始化
         /// </summary>
-        /// <param name="httpServer"></param>
-        /// <param name="userToken"></param>
-        /// <param name="stream"></param>
-        /// <returns></returns>
-        internal static HttpRequest CreateInstance(HttpServer httpServer, IUserToken userToken, Stream stream)
+        internal HttpRequest()
         {
-            var httpRequest = new HttpRequest(stream);
-            httpRequest.HttpServer = httpServer;
-            httpRequest.UserToken = userToken;
-            return httpRequest;
+
         }
 
-        public HttpRequest(Stream stream)
+        internal void Init(HttpServer httpServer, IUserToken userToken, Stream stream)
         {
+            this.HttpServer = httpServer;
+            this.UserToken = userToken;
+
             this._dataStream = stream;
+
             var data = GetRequestData(_dataStream);
             var rows = Regex.Split(data, Environment.NewLine);
 
@@ -139,11 +136,6 @@ namespace SAEA.WebAPI.Http
             }
         }
 
-        public Stream GetRequestStream()
-        {
-            return this._dataStream;
-        }
-
         public string GetHeader(RequestHeaderType header)
         {
             return base.GetHeader(header);
@@ -183,7 +175,7 @@ namespace SAEA.WebAPI.Http
             var length = target == null ? rows.Count() - 1 : target.Index;
             if (length <= 1) return null;
             var range = Enumerable.Range(1, length - 1);
-            return range.Select(e => rows.ElementAt(e)).ToDictionary(e => e.Split(':')[0], e => e.Split(':')[1].Trim()).ToNameValueCollection();
+            return range.Select(e => rows.ElementAt(e)).Distinct().ToDictionary(e => e.Split(':')[0], e => e.Split(':')[1].Trim()).ToNameValueCollection();
         }
 
         private NameValueCollection GetRequestParameters(string row)
@@ -193,6 +185,18 @@ namespace SAEA.WebAPI.Http
             if (kvs == null || kvs.Count() <= 0) return null;
 
             return kvs.ToDictionary(e => Regex.Split(e, "=")[0], e => Regex.Split(e, "=")[1]).ToNameValueCollection();
+        }
+
+        internal void Clear()
+        {
+            this.Params.Clear();
+            this.Query = this.URL = string.Empty;
+            this.Headers.Clear();
+            if (this._dataStream != null)
+            {
+                this._dataStream.Close();
+            }
+            this._dataStream = null;
         }
     }
 }
