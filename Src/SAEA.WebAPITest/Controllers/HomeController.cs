@@ -26,9 +26,10 @@ using SAEA.WebAPITest.Attrubutes;
 
 namespace SAEA.WebAPITest.Controllers
 {
-    [LogAtrribute]
+    //[LogAtrribute]
     public class HomeController : Controller
     {
+        [Log2Atrribute]
         public ActionResult Index()
         {
             return Content("Hello,I'm SAEA.WebAPI！");

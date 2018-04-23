@@ -74,41 +74,45 @@ namespace SAEA.WebAPI.Mvc
                         throw new Exception($"{controllerName}/{actionName}有多个重复的的action!");
                     }
                     else
-                    {                        
+                    {
                         routing.Instance = System.Activator.CreateInstance(controllerType);
 
                         //类上面的过滤
                         var attrs = controllerType.GetCustomAttributes(true);
 
-                        if (attrs != null)
+                        if (attrs != null && attrs.Length > 0)
                         {
-                            var attr = attrs.Where(b => b.GetType().BaseType.Name == "ActionFilterAttribute").FirstOrDefault();
+                            var actionAttrs = attrs.Where(b => b.GetType().BaseType.Name == "ActionFilterAttribute").ToList();
 
-                            routing.Atrr = attr;
+                            if (actionAttrs != null && actionAttrs.Count > 0)
+
+                                routing.Atrrs = actionAttrs;
 
                         }
                         else
                         {
-                            routing.Atrr = null;
+                            routing.Atrrs = null;
                         }
 
                         routing.Action = actions[0];
 
                         //action上面的过滤
-                        if (routing.Atrr == null)
+                        if (routing.Atrrs == null)
                         {
                             attrs = actions[0].GetCustomAttributes(true);
 
                             if (attrs != null)
                             {
-                                var attr = attrs.Where(b => b.GetType().BaseType.Name == "ActionFilterAttribute").FirstOrDefault();
+                                var actionAttrs = attrs.Where(b => b.GetType().BaseType.Name == "ActionFilterAttribute").ToList();
 
-                                routing.Atrr = attr;
+                                if (actionAttrs != null && actionAttrs.Count > 0)
+
+                                    routing.Atrrs = actionAttrs;
 
                             }
                             else
                             {
-                                routing.Atrr = null;
+                                routing.Atrrs = null;
                             }
                         }
                     }

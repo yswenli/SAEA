@@ -46,7 +46,29 @@ namespace SAEA.WebAPITest.Attrubutes
         /// <param name="result"></param>
         public override void OnActionExecuted(HttpContext httpContext, ActionResult result)
         {
-            //ConsoleHelper.WriteLine($"请求地址：{httpContext.Request.Query},回复内容：{result.Content}");
+            ConsoleHelper.WriteLine($"1请求地址：{httpContext.Request.Query},回复内容：{result.Content}");
+        }
+    }
+    public class Log2Atrribute : ActionFilterAttribute
+    {
+        /// <summary>
+        /// 执行前
+        /// </summary>
+        /// <param name="httpContext"></param>
+        /// <returns>返回值true为继续，false为终止</returns>
+        public override bool OnActionExecuting(HttpContext httpContext)
+        {
+            return true;
+        }
+
+        /// <summary>
+        /// 执行后
+        /// </summary>
+        /// <param name="httpContext"></param>
+        /// <param name="result"></param>
+        public override void OnActionExecuted(HttpContext httpContext, ActionResult result)
+        {
+            ConsoleHelper.WriteLine($"2请求地址：{httpContext.Request.Query},回复内容：{result.Content}");
         }
     }
 }

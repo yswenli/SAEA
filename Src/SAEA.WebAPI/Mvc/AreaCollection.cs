@@ -129,27 +129,35 @@ namespace SAEA.WebAPI.Mvc
 
                     property.SetValue(routing.Instance, httpContext);
 
-                    if (routing.Atrr != null)
+                    var args = GetVals(nameValues);
+
+                    var nargs = new object[] { httpContext };
+
+                    if (routing.Atrrs != null && routing.Atrrs.Count > 0)
                     {
-                        var args = GetVals(nameValues);
-
-                        var nargs = new object[] { httpContext };
-
-                        var goOn = (bool)routing.Atrr.GetType().GetMethod("OnActionExecuting").Invoke(routing.Atrr, nargs.ToArray());
-
-                        if (goOn)
+                        foreach (var arr in routing.Atrrs)
                         {
-                            var result = MethodInvoke(routing.Action, routing.Instance, nameValues);
-                            nargs = new object[] { httpContext, result };
-                            routing.Atrr.GetType().GetMethod("OnActionExecuted").Invoke(routing.Atrr, nargs);
-                            return result;
-                        }
-                        else
-                        {
-                            return new ContentResult("当前逻辑已被拦截！", System.Net.HttpStatusCode.NotAcceptable);
+                            var goOn = (bool)arr.GetType().GetMethod("OnActionExecuting").Invoke(arr, nargs.ToArray());
+
+                            if (!goOn)
+                            {
+                                return new ContentResult("当前逻辑已被拦截！", System.Net.HttpStatusCode.NotAcceptable);
+                            }
                         }
                     }
-                    return MethodInvoke(routing.Action, routing.Instance, nameValues);
+
+                    var result = MethodInvoke(routing.Action, routing.Instance, nameValues);
+
+                    nargs = new object[] { httpContext, result };
+
+                    if (routing.Atrrs != null && routing.Atrrs.Count > 0)
+                    {
+                        foreach (var arr in routing.Atrrs)
+                        {
+                            arr.GetType().GetMethod("OnActionExecuted").Invoke(arr, nargs);
+                        }
+                    }
+                    return result;
                 }
                 catch (Exception ex)
                 {
