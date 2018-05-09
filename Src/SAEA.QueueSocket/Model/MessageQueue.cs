@@ -73,7 +73,7 @@ namespace SAEA.QueueSocket.Model
         }
 
 
-        public void Enqueue(string topic, byte[] data)
+        public void Enqueue(string topic, string data)
         {
             var queue = _list.Values.FirstOrDefault(b => b.Topic.Equals(topic));
             lock (_syncLocker)
@@ -88,7 +88,7 @@ namespace SAEA.QueueSocket.Model
         }
 
 
-        public byte[] Dequeue(string topic)
+        public string Dequeue(string topic)
         {
             var queue = _list.Values.FirstOrDefault(b => b.Topic.Equals(topic));
             if (queue != null)
@@ -105,9 +105,9 @@ namespace SAEA.QueueSocket.Model
         /// <param name="maxSize"></param>
         /// <param name="maxTime"></param>
         /// <returns></returns>
-        public List<byte[]> DequeueForList(string topic, int maxSize = 500, int maxTime = 500)
+        public List<string> DequeueForList(string topic, int maxSize = 500, int maxTime = 500)
         {
-            List<byte[]> result = new List<byte[]>();
+            List<string> result = new List<string>();
             bool running = true;
             var m = 0;
             var task = Task.Factory.StartNew(() =>
@@ -135,7 +135,7 @@ namespace SAEA.QueueSocket.Model
             return result;
         }
 
-        public byte[] BlockDequeue(string topic)
+        public string BlockDequeue(string topic)
         {
             var queue = _list.Values.FirstOrDefault(b => b.Topic == topic);
             if (queue != null)

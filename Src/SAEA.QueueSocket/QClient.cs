@@ -30,6 +30,7 @@ using SAEA.Sockets.Core;
 using SAEA.Sockets.Model;
 using System;
 using System.Collections.Generic;
+using System.Text;
 using System.Threading;
 
 namespace SAEA.QueueSocket
@@ -46,7 +47,10 @@ namespace SAEA.QueueSocket
 
         object _locker = new object();
 
-        public event Action<List<byte[]>> OnMessage;
+        public event Action<QueueResult> OnMessage;
+
+
+        QueueCoder queueCoder = new QueueCoder();
 
         public QClient(string name, string ipPort) : this(name, 102400, ipPort.GetIPPort().Item1, ipPort.GetIPPort().Item2)
         {
@@ -65,27 +69,12 @@ namespace SAEA.QueueSocket
         {
             Actived = DateTimeHelper.Now;
 
-            UserToken.Coder.Pack(data, null, (s) =>
+            var qcoder = (QCoder)UserToken.Coder;
+
+            qcoder.GetQueueResult(data, (r) =>
             {
-                switch (s.Type)
-                {
-                    case (byte)QueueSocketMsgType.Ping:
-                    case (byte)QueueSocketMsgType.Pong:
-                        break;
-                    case (byte)QueueSocketMsgType.Publish:
-                        break;
-                    case (byte)QueueSocketMsgType.PublishForBatch:
-                        break;
-                    case (byte)QueueSocketMsgType.Data:
-                        OnMessage?.Invoke(s.Content.ToList());
-                        break;
-                    case (byte)QueueSocketMsgType.Unsubcribe:
-                        break;
-                    case (byte)QueueSocketMsgType.Close:
-                        this.Disconnect();
-                        break;
-                }
-            }, null);
+                OnMessage?.Invoke(r);
+            });
         }
 
         private void HeartAsync()
@@ -100,12 +89,7 @@ namespace SAEA.QueueSocket
                         {
                             if (Actived.AddMilliseconds(HeartSpan) <= DateTimeHelper.Now)
                             {
-                                var sm = new QueueSocketMsg()
-                                {
-                                    BodyLength = 0,
-                                    Type = (byte)QueueSocketMsgType.Ping
-                                };
-                                SendAsync(sm.ToBytes());
+                                SendAsync(queueCoder.Ping(_name));
                             }
                             ThreadHelper.Sleep(HeartSpan / 2);
                         }
@@ -117,104 +101,33 @@ namespace SAEA.QueueSocket
                 }
                 catch { }
             }, true, System.Threading.ThreadPriority.Highest);
+        }        
+
+
+        public void Publish(string topic, string content)
+        {
+            Send(queueCoder.Publish(_name, topic, content));
         }
 
-        private void SendBase(QueueSocketMsgType type, byte[] content)
+        public void PublishList(string topic,string[] content)
         {
-            var data = QueueSocketMsg.Parse(content, type).ToBytes();
-
-            this.Send(data);
-
-            Actived = DateTimeHelper.Now;
-        }
-
-        private void SendAsyncBase(QueueSocketMsgType type, byte[] content)
-        {
-            var data = QueueSocketMsg.Parse(content, type).ToBytes();
-
-            this.SendAsync(data);
-
-            Actived = DateTimeHelper.Now;
-        }
-
-
-        public void Publish(string topic, byte[] content)
-        {
-            var pInfo = new PublishInfo()
-            {
-                Name = _name,
-                Topic = topic,
-                Data = content
-            };
-            SendAsyncBase(QueueSocketMsgType.Publish, pInfo.ToBytes());
-        }
-
-
-
-        public void PublishAsync(string topic, byte[] content, int maxNum = 500, int maxTime = 500)
-        {
-            var pInfo = new PublishInfo()
-            {
-                Name = _name,
-                Topic = topic,
-                Data = content
-            };
-
-            var cdata = pInfo.ToBytes();
-
-            lock (_locker)
-            {
-                if (_batchProcess == null)
-                {
-                    _batchProcess = new BatchProcess<byte[]>((data) =>
-                    {
-                        SendBase(QueueSocketMsgType.PublishForBatch, data.ToBytes());
-                    }, maxNum, maxTime);
-                }
-            }
-            _batchProcess.Package(cdata);
-        }
-
-        public void PublishList(List<Tuple<string, byte[]>> data)
-        {
-            if (data == null) return;
-
-            var list = new List<byte[]>();
-
-            data.ForEach(item =>
-            {
-                var pInfo = new PublishInfo()
-                {
-                    Name = _name,
-                    Topic = item.Item1,
-                    Data = item.Item2
-                };
-                list.Add(pInfo.ToBytes());
-            });
-            SendBase(QueueSocketMsgType.PublishForBatch, list.ToBytes());
+            Send(queueCoder.PublishForBatch(_name, topic, content));
         }
 
 
         public void Subscribe(string topic)
         {
-            var sInfo = new SubscribeInfo()
-            {
-                Name = _name,
-                Topic = topic
-            };
-            var data = sInfo.ToBytes();
-            SendBase(QueueSocketMsgType.Subcribe, data);
+            SendAsync(queueCoder.Subscribe(_name, topic));
         }
 
         public void Unsubscribe(string topic)
         {
-            var sInfo = new SubscribeInfo()
-            {
-                Name = _name,
-                Topic = topic
-            };
-            var data = sInfo.ToBytes();
-            SendBase(QueueSocketMsgType.Unsubcribe, data);
+            SendAsync(queueCoder.Unsubcribe(_name, topic));
+        }
+
+        public void Close()
+        {
+            SendAsync(queueCoder.Close(_name));
         }
     }
 }

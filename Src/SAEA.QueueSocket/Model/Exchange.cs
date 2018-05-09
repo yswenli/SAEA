@@ -65,7 +65,7 @@ namespace SAEA.QueueSocket.Model
         }
 
 
-        public void AcceptPublish(string sessionID, PublishInfo pInfo)
+        public void AcceptPublish(string sessionID, QueueResult pInfo)
         {
             lock (_syncLocker)
             {
@@ -79,29 +79,22 @@ namespace SAEA.QueueSocket.Model
             }
         }
 
-        public void AcceptPublishForBatch(string sessionID, byte[] data)
+        public void AcceptPublishForBatch(string sessionID, QueueResult[] datas)
         {
-            if (data != null)
+            if (datas != null)
             {
-                var ldata = data.ToList();
-
-                if (ldata != null)
+                foreach (var data in datas)
                 {
-                    foreach (var item in ldata)
+                    if (data != null)
                     {
-                        if (item != null)
-                        {
-                            var pInfo = item.ToInstance<PublishInfo>();
-
-                            AcceptPublish(sessionID, pInfo);
-                        }
+                        AcceptPublish(sessionID, data);
                     }
                 }
             }
         }
 
 
-        public void GetSubscribeData(string sessionID, SubscribeInfo sInfo, int maxSize = 500, int maxTime = 500, Action<List<byte[]>> callBack = null)
+        public void GetSubscribeData(string sessionID, QueueResult sInfo, int maxSize = 500, int maxTime = 500, Action<List<string>> callBack = null)
         {
             lock (_syncLocker)
             {
@@ -131,7 +124,7 @@ namespace SAEA.QueueSocket.Model
             }            
         }
 
-        public void Unsubscribe(SubscribeInfo sInfo)
+        public void Unsubscribe(QueueResult sInfo)
         {
             Interlocked.Decrement(ref _cNum);
             this._binding.Del(sInfo.Name, sInfo.Topic);

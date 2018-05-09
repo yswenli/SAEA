@@ -32,7 +32,7 @@ namespace SAEA.QueueSocket.Model
 {
     public class QueueBase : ISyncBase, IDisposable
     {
-        ConcurrentQueue<byte[]> _queue;
+        ConcurrentQueue<string> _queue;
 
         AutoResetEvent _autoResetEvent;
 
@@ -70,7 +70,7 @@ namespace SAEA.QueueSocket.Model
 
         public QueueBase(string topic, int minutes = 60 * 24 * 7)
         {
-            _queue = new ConcurrentQueue<byte[]>();
+            _queue = new ConcurrentQueue<string>();
             this.Topic = topic;
             _length = 0;
             this.Created = DateTimeHelper.Now;
@@ -79,7 +79,7 @@ namespace SAEA.QueueSocket.Model
             _autoResetEvent = new AutoResetEvent(false);
         }
 
-        public void Enqueue(byte[] data)
+        public void Enqueue(string data)
         {
             _queue.Enqueue(data);
             this.Expired = DateTimeHelper.Now.AddMinutes(_minute);
@@ -87,18 +87,18 @@ namespace SAEA.QueueSocket.Model
             _autoResetEvent.Set();
         }
 
-        public byte[] Dequeue()
+        public string Dequeue()
         {
-            if (_queue.TryDequeue(out byte[] result))
+            if (_queue.TryDequeue(out string result))
             {
                 Interlocked.Decrement(ref _length);
             }
             return result;
         }
 
-        public byte[] BlockDequeue()
+        public string BlockDequeue()
         {
-            byte[] result = null;
+            string result = string.Empty;
             do
             {
                 _autoResetEvent.WaitOne();

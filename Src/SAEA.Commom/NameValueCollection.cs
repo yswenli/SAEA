@@ -165,6 +165,24 @@ namespace SAEA.Commom
             }
         }
 
+        /// <summary>
+        /// 获取object数组
+        /// </summary>
+        /// <returns></returns>
+        public object[] ToValArray()
+        {
+            List<object> args = new List<object>();
+
+            if (this.Count > 0)
+            {
+                foreach (var val in this.Values)
+                {
+                    args.Add(val);
+                }
+            }
+            return args.ToArray();
+        }
+
         public void Clear()
         {
             _list.Clear();

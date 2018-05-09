@@ -23,11 +23,13 @@
 *****************************************************************************/
 
 using SAEA.Commom;
+using SAEA.QueueSocket.Model;
 using SAEA.QueueSocket.Type;
 using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace SAEA.QueueSocket.Net
 {
@@ -42,68 +44,69 @@ namespace SAEA.QueueSocket.Net
         private List<byte> _buffer = new List<byte>();
 
         private object _locker = new object();
+
+        const string ENTER = "\r\n";
+
+        long _position = 0;
+
+        public void Pack(byte[] data, Action<DateTime> onHeart, Action<ISocketProtocal> onUnPackage, Action<byte[]> onFile)
+        {
+
+        }
+
         /// <summary>
-        /// 服务器端收包处理
+        /// 队列编解码器
+        /// </summary>
+        public QueueCoder QueueCoder { get; set; } = new QueueCoder();
+
+
+        private bool _isBegin = false;
+
+
+        /// <summary>
+        /// 包解析
         /// </summary>
         /// <param name="data"></param>
-        /// <param name="OnHeart"></param>
-        /// <param name="OnUnPackage"></param>
-        /// <param name="onFile"></param>
-        public void Pack(byte[] data, Action<DateTime> onHeart, Action<ISocketProtocal> onUnPackage, Action<byte[]> onFile)
+        /// <param name="OnQueueResult"></param>
+        public void GetQueueResult(byte[] data, Action<QueueResult> OnQueueResult)
         {
             lock (_locker)
             {
                 _buffer.AddRange(data);
 
-                while (_buffer.Count >= P_Head)
+                if (_buffer.Count > (1 + 4 + 4 + 0 + 4 + 0 + 0))
                 {
                     var buffer = _buffer.ToArray();
-
-                    var bodyLen = GetLength(buffer);
-
-                    var type = GetType(buffer);
-
-                    if (buffer.Length >= P_Head + bodyLen)
+                    var offset = 0;
+                    var list = QueueSocketMsg.Parse(buffer, out offset);
+                    if (list != null)
                     {
-                        var sm = new QueueSocketMsg()
+                        foreach (var item in list)
                         {
-                            BodyLength = bodyLen,
-                            Type = (byte)type,
-                            Content = GetContent(buffer, P_Head, bodyLen)
-                        };
-                        _buffer.RemoveRange(0, P_Head + bodyLen);
-                        onUnPackage?.Invoke(sm);
-                    }
-                    else
-                    {
-                        return;
+                            OnQueueResult?.Invoke(new QueueResult()
+                            {
+                                Type = (QueueSocketMsgType)item.Type,
+                                Name = item.Name,
+                                Topic = item.Topic,
+                                Data = item.Data
+                            });
+                        }
+                        _buffer.RemoveRange(0, offset);
                     }
                 }
             }
         }
 
-        public static int GetLength(byte[] data)
-        {
-            return data.ToInt();
-        }
 
-        public static QueueSocketMsgType GetType(byte[] data)
-        {
-            return (QueueSocketMsgType)data[P_LEN];
-        }
-
-        public static byte[] GetContent(byte[] data, int offset, int count)
-        {
-            var buffer = new byte[count];
-            Buffer.BlockCopy(data, offset, buffer, 0, count);
-            return buffer;
-        }
 
         public void Dispose()
         {
+            _isBegin = false;
             _buffer.Clear();
             _buffer = null;
         }
+
+
 
     }
 }

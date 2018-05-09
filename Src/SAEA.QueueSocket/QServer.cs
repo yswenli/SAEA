@@ -57,82 +57,69 @@ namespace SAEA.QueueSocket
 
         protected override void OnReceiveBytes(IUserToken userToken, byte[] data)
         {
-            userToken.Coder.Pack(data, null, (s) =>
+            var qcoder = (QCoder)userToken.Coder;
+
+            qcoder.GetQueueResult(data, r =>
             {
-                switch (s.Type)
+                switch (r.Type)
                 {
-                    case (byte)QueueSocketMsgType.Ping:
-                        ReplyPong(userToken, s.Content);
+                    case QueueSocketMsgType.Ping:
+                        ReplyPong(userToken, r);
                         break;
-                    case (byte)QueueSocketMsgType.Pong:
-                        ReplyPing(userToken, s.Content);
+                    case QueueSocketMsgType.Publish:
+                        ReplyPublish(userToken, r);
                         break;
-                    case (byte)QueueSocketMsgType.Publish:
-                        ReplyPublish(userToken, s.Content);
+                    case QueueSocketMsgType.PublishForBatch:
+                        ReplyPublish(userToken, r);
                         break;
-                    case (byte)QueueSocketMsgType.PublishForBatch:
-                        ReplyPublishForBatch(userToken, s.Content);
+                    case QueueSocketMsgType.Subcribe:
+                        ReplySubcribe(userToken, r);
                         break;
-                    case (byte)QueueSocketMsgType.Subcribe:
-                        ReplySubcribe(userToken, s.Content);
+                    case QueueSocketMsgType.Unsubcribe:
+                        ReplyUnsubscribe(userToken, r);
                         break;
-                    case (byte)QueueSocketMsgType.Unsubcribe:
-                        ReplyUnsubscribe(userToken, s.Content);
-                        break;
-                    case (byte)QueueSocketMsgType.Close:
-                        ReplyClose(userToken, s.Content);
+                    case QueueSocketMsgType.Close:
+                        ReplyClose(userToken, r);
                         break;
                 }
-
-            }, null);
-        }
-
-
-        private void ReplyBase(IUserToken ut, QueueSocketMsgType type, byte[] content)
-        {
-            var byts = QueueSocketMsg.Parse(content, type).ToBytes();
-            base.Send(ut, byts);
-        }
-
-        private void ReplyPong(IUserToken ut, byte[] data)
-        {
-            ReplyBase(ut, QueueSocketMsgType.Pong, data);
-        }
-        private void ReplyPing(IUserToken ut, byte[] data)
-        {
-            ReplyBase(ut, QueueSocketMsgType.Ping, data);
-        }
-
-        private void ReplyPublish(IUserToken ut, byte[] data)
-        {
-            _exchange.AcceptPublish(ut.ID, data.ToInstance<PublishInfo>());
-            ReplyBase(ut, QueueSocketMsgType.Publish, null);
-        }
-
-        private void ReplyPublishForBatch(IUserToken ut, byte[] data)
-        {
-            _exchange.AcceptPublishForBatch(ut.ID, data);
-            ReplyBase(ut, QueueSocketMsgType.PublishForBatch, null);
-        }
-
-        private void ReplySubcribe(IUserToken ut, byte[] data)
-        {
-            var sdata = data.ToInstance<SubscribeInfo>();
-            _exchange.GetSubscribeData(ut.ID, new SubscribeInfo() { Name = sdata.Name, Topic = sdata.Topic }, _maxNum, _maxTime, (r) =>
-            {
-                ReplyBase(ut, QueueSocketMsgType.Data, r.ToBytes());
             });
         }
 
-        private void ReplyUnsubscribe(IUserToken ut, byte[] data)
+        private void ReplyPong(IUserToken ut, QueueResult data)
         {
-            var udata = data.ToInstance<SubscribeInfo>();
-            _exchange.Unsubscribe(udata);
+            var qcoder = (QCoder)ut.Coder;
+            base.Send(ut, qcoder.QueueCoder.Pong(data.Name));
         }
 
-        private void ReplyClose(IUserToken ut, byte[] data)
+        private void ReplyPublish(IUserToken ut, QueueResult data)
         {
-            ReplyBase(ut, QueueSocketMsgType.Close, data);
+            _exchange.AcceptPublish(ut.ID, data);
+        }
+
+        private void ReplySubcribe(IUserToken ut, QueueResult data)
+        {
+            var qcoder = (QCoder)ut.Coder;
+            _exchange.GetSubscribeData(ut.ID, new QueueResult() { Name = data.Name, Topic = data.Topic }, _maxNum, _maxTime, (rlist) =>
+            {
+                if (rlist != null)
+                {
+                    rlist.ForEach(r =>
+                    {
+                        base.Send(ut, qcoder.QueueCoder.Data(data.Name, data.Topic, r));
+                    });
+                }
+            });
+        }
+
+        private void ReplyUnsubscribe(IUserToken ut, QueueResult data)
+        {
+            _exchange.Unsubscribe(data);
+        }
+
+        private void ReplyClose(IUserToken ut, QueueResult data)
+        {
+            var qcoder = (QCoder)ut.Coder;
+            base.Send(ut, qcoder.QueueCoder.Close(data.Name));
             _exchange.Clear(ut.ID);
             base.Disconnected(ut);
         }

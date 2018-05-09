@@ -91,11 +91,13 @@ namespace SAEA.QueueSocketTest
         {
             int pNum = 0;
 
-            string msg = "主要原因是由于在高并发环境下，由于来不及同步处理，请求往往会发生堵塞，比如说，大量的insert，update之类的请求同时到达MySQL，直接导致无数的行锁表锁，甚至最后请求会堆积过多，从而触发too many connections错误。通过使用消息队列，我们可以异步处理请求，从而缓解系统的压力。";
-
+            //string msg = "主要原因是由于在高并发环境下，由于来不及同步处理，请求往往会发生堵塞，比如说，大量的insert，update之类的请求同时到达MySQL，直接导致无数的行锁表锁，甚至最后请求会堆积过多，从而触发too many connections错误。通过使用消息队列，我们可以异步处理请求，从而缓解系统的压力。";
+            string msg = "123";
             if (string.IsNullOrEmpty(ipPort)) ipPort = "127.0.0.1:39654";
 
             QClient producer = new QClient("productor" + Guid.NewGuid().ToString("N"), ipPort);
+
+            producer.OnError += Producer_OnError;
 
             producer.OnDisconnected += Client_OnDisconnected;
 
@@ -115,30 +117,23 @@ namespace SAEA.QueueSocketTest
                 });
 
                 var list = new List<Tuple<string, byte[]>>();
-
-                var data = Encoding.UTF8.GetBytes(msg);
+                
 
                 while (producer.Connected)
                 {                   
 
-                    producer.Publish(topic, data);
+                    producer.Publish(topic, msg);
 
                     Interlocked.Increment(ref pNum);
-
-                    continue;
-
-                    list.Add(new Tuple<string, byte[]>(topic, data));
-
-                    if (list.Count > 500)
-                    {
-                        producer.PublishList(list);
-
-                        list.Clear();
-                    }
                 }
             });
 
 
+        }
+
+        private static void Producer_OnError(string ID, Exception ex)
+        {
+            ConsoleHelper.WriteLine("id:" + ID + ",error:" + ex.Message);
         }
 
         static void ConsumerInit(string ipPort, string topic)
@@ -174,10 +169,10 @@ namespace SAEA.QueueSocketTest
 
         static int _outNum = 0;
 
-        private static void Subscriber_OnMessage(System.Collections.Generic.List<byte[]> obj)
+        private static void Subscriber_OnMessage(QueueResult obj)
         {
             if (obj != null)
-                _outNum += obj.Count;
+                _outNum += 1;
         }
     }
 }

@@ -129,7 +129,7 @@ namespace SAEA.WebAPI.Mvc
 
                     property.SetValue(routing.Instance, httpContext);
 
-                    var args = GetVals(nameValues);
+                    var args = nameValues.ToValArray();
 
                     var nargs = new object[] { httpContext };
 
@@ -185,120 +185,12 @@ namespace SAEA.WebAPI.Mvc
             ActionResult result = null;
             try
             {
-                List<object> list = new List<object>();
+                var @params = action.GetParameters();
 
-                var parmas = action.GetParameters();
-
-                if (parmas != null && parmas.Length > 0)
+                if (@params != null && @params.Length > 0)
                 {
-                    foreach (var parma in parmas)
-                    {
-                        string val = string.Empty;
+                    var list = FillPamars(@params, nameValues);
 
-                        if (nameValues == null || nameValues.Count < 1)
-                        {
-                            throw new Exception($"缺少参数{parma.Name}！");
-                        }
-
-                        if (nameValues.TryGetValue(parma.Name, out val))
-                        {
-                            if (parma.ParameterType == typeof(System.Int32))
-                            {
-                                if (int.TryParse(val, out int v))
-                                {
-                                    list.Add(v);
-                                }
-                                else throw new Exception($"参数{parma.Name}值{val}不正确！");
-                            }
-                            else if (parma.ParameterType == typeof(System.Int64))
-                            {
-                                if (long.TryParse(val, out long v))
-                                {
-                                    list.Add(v);
-                                }
-                                else throw new Exception($"参数{parma.Name}值{val}不正确！");
-                            }
-                            else if (parma.ParameterType == typeof(System.Single))
-                            {
-                                if (float.TryParse(val, out float v))
-                                {
-                                    list.Add(v);
-                                }
-                                else throw new Exception($"参数{parma.Name}值{val}不正确！");
-                            }
-                            else if (parma.ParameterType == typeof(System.Double))
-                            {
-                                if (double.TryParse(val, out double v))
-                                {
-                                    list.Add(v);
-                                }
-                                else throw new Exception($"参数{parma.Name}值{val}不正确！");
-                            }
-                            else if (parma.ParameterType == typeof(System.DateTime))
-                            {
-                                if (DateTime.TryParse(val, out DateTime v))
-                                {
-                                    list.Add(v);
-                                }
-                                else throw new Exception($"参数{parma.Name}值{val}不正确！");
-                            }
-                            else if (parma.ParameterType == typeof(System.Boolean))
-                            {
-                                if (bool.TryParse(val, out bool v))
-                                {
-                                    list.Add(v);
-                                }
-                                else throw new Exception($"参数{parma.Name}值{val}不正确！");
-                            }
-                            else if (parma.ParameterType == typeof(System.Byte))
-                            {
-                                if (byte.TryParse(val, out byte v))
-                                {
-                                    list.Add(v);
-                                }
-                                else throw new Exception($"参数{parma.Name}值{val}不正确！");
-                            }
-                            else if (parma.ParameterType == typeof(System.String))
-                            {
-                                list.Add(val);
-                            }
-                        }
-                        else
-                        {
-                            if (parma.ParameterType == typeof(System.Int32))
-                            {
-                                list.Add(0);
-                            }
-                            else if (parma.ParameterType == typeof(System.Int64))
-                            {
-                                list.Add(0L);
-                            }
-                            else if (parma.ParameterType == typeof(System.Single))
-                            {
-                                list.Add(0F);
-                            }
-                            else if (parma.ParameterType == typeof(System.Double))
-                            {
-                                list.Add(0D);
-                            }
-                            else if (parma.ParameterType == typeof(System.DateTime))
-                            {
-                                list.Add(new DateTime());
-                            }
-                            else if (parma.ParameterType == typeof(System.Boolean))
-                            {
-                                list.Add(true);
-                            }
-                            else if (parma.ParameterType == typeof(System.Byte))
-                            {
-                                list.Add((byte)0);
-                            }
-                            else if (parma.ParameterType == typeof(System.String))
-                            {
-                                list.Add(string.Empty);
-                            }
-                        }
-                    }
                     result = (ActionResult)action.Invoke(obj, list.ToArray());
                 }
                 else
@@ -312,21 +204,235 @@ namespace SAEA.WebAPI.Mvc
             }
             return result;
         }
+        
 
-
-
-        private static object[] GetVals(NameValueCollection nameValues)
+        /// <summary>
+        /// 参数填充
+        /// </summary>
+        /// <param name="params"></param>
+        /// <param name="nameValues"></param>
+        /// <returns></returns>
+        private static List<object> FillPamars(ParameterInfo[] @params, NameValueCollection nameValues)
         {
-            List<object> args = new List<object>();
+            List<object> list = new List<object>();
 
-            if (nameValues != null && nameValues.Count > 0)
+            foreach (var parma in @params)
             {
-                foreach (var val in nameValues.Values)
+                string val = string.Empty;
+
+                if (nameValues == null || nameValues.Count < 1)
                 {
-                    args.Add(val);
+                    throw new Exception($"缺少参数{parma.Name}！");
+                }
+                if (nameValues.TryGetValue(parma.Name, out val))
+                {
+                    if (parma.ParameterType == typeof(System.Int32))
+                    {
+                        if (int.TryParse(val, out int v))
+                        {
+                            list.Add(v);
+                        }
+                        else throw new Exception($"参数{parma.Name}值{val}不正确！");
+                    }
+                    else if (parma.ParameterType == typeof(System.Int64))
+                    {
+                        if (long.TryParse(val, out long v))
+                        {
+                            list.Add(v);
+                        }
+                        else throw new Exception($"参数{parma.Name}值{val}不正确！");
+                    }
+                    else if (parma.ParameterType == typeof(System.Single))
+                    {
+                        if (float.TryParse(val, out float v))
+                        {
+                            list.Add(v);
+                        }
+                        else throw new Exception($"参数{parma.Name}值{val}不正确！");
+                    }
+                    else if (parma.ParameterType == typeof(System.Double))
+                    {
+                        if (double.TryParse(val, out double v))
+                        {
+                            list.Add(v);
+                        }
+                        else throw new Exception($"参数{parma.Name}值{val}不正确！");
+                    }
+                    else if (parma.ParameterType == typeof(System.DateTime))
+                    {
+                        if (DateTime.TryParse(val, out DateTime v))
+                        {
+                            list.Add(v);
+                        }
+                        else throw new Exception($"参数{parma.Name}值{val}不正确！");
+                    }
+                    else if (parma.ParameterType == typeof(System.Boolean))
+                    {
+                        if (string.IsNullOrEmpty(val)) val = "false";
+
+                        if (int.TryParse(val, out int iv))
+                        {
+                            if (iv == 0) val = "false";
+                            else val = "true";
+                        }
+
+                        if (bool.TryParse(val, out bool v))
+                        {
+                            list.Add(v);
+                        }
+                        else throw new Exception($"参数{parma.Name}值{val}不正确！");
+                    }
+                    else if (parma.ParameterType == typeof(System.Byte))
+                    {
+                        if (byte.TryParse(val, out byte v))
+                        {
+                            list.Add(v);
+                        }
+                        else throw new Exception($"参数{parma.Name}值{val}不正确！");
+                    }
+                    else if (parma.ParameterType == typeof(System.String))
+                    {
+                        list.Add(val);
+                    }
+                    else
+                    {
+                        throw new Exception($"参数{parma.Name}值{val}不正确！");
+                    }
+                }
+                else
+                {
+                    if (parma.ParameterType == typeof(System.Int32))
+                    {
+                        list.Add(0);
+                    }
+                    else if (parma.ParameterType == typeof(System.Int64))
+                    {
+                        list.Add(0L);
+                    }
+                    else if (parma.ParameterType == typeof(System.Single))
+                    {
+                        list.Add(0F);
+                    }
+                    else if (parma.ParameterType == typeof(System.Double))
+                    {
+                        list.Add(0D);
+                    }
+                    else if (parma.ParameterType == typeof(System.DateTime))
+                    {
+                        list.Add(new DateTime());
+                    }
+                    else if (parma.ParameterType == typeof(System.Boolean))
+                    {
+                        list.Add(true);
+                    }
+                    else if (parma.ParameterType == typeof(System.Byte))
+                    {
+                        list.Add((byte)0);
+                    }
+                    else if (parma.ParameterType == typeof(System.String))
+                    {
+                        list.Add(string.Empty);
+                    }
+                    else
+                    {
+                        var modelType = parma.ParameterType;
+
+                        var model = Activator.CreateInstance(modelType);
+
+                        var properties = modelType.GetProperties();
+
+                        if (properties != null)
+                        {
+                            foreach (var property in properties)
+                            {
+                                var item = nameValues.Get(property.Name);
+
+                                if (item != null)
+                                {
+                                    val = item.Value;
+
+                                    if (property.PropertyType == typeof(System.Int32))
+                                    {
+                                        if (int.TryParse(val, out int v))
+                                        {
+                                            property.SetValue(model, v);
+                                        }
+                                        else throw new Exception($"参数{property.Name}值{val}不正确！");
+                                    }
+                                    else if (property.PropertyType == typeof(System.Int64))
+                                    {
+                                        if (long.TryParse(val, out long v))
+                                        {
+                                            property.SetValue(model, v);
+                                        }
+                                        else throw new Exception($"参数{property.Name}值{val}不正确！");
+                                    }
+                                    else if (property.PropertyType == typeof(System.Single))
+                                    {
+                                        if (float.TryParse(val, out float v))
+                                        {
+                                            property.SetValue(model, v);
+                                        }
+                                        else throw new Exception($"参数{property.Name}值{val}不正确！");
+                                    }
+                                    else if (property.PropertyType == typeof(System.Double))
+                                    {
+                                        if (double.TryParse(val, out double v))
+                                        {
+                                            property.SetValue(model, v);
+                                        }
+                                        else throw new Exception($"参数{property.Name}值{val}不正确！");
+                                    }
+                                    else if (property.PropertyType == typeof(System.DateTime))
+                                    {
+                                        if (DateTime.TryParse(val, out DateTime v))
+                                        {
+                                            property.SetValue(model, v);
+                                        }
+                                        else throw new Exception($"参数{property.Name}值{val}不正确！");
+                                    }
+                                    else if (property.PropertyType == typeof(System.Boolean))
+                                    {
+                                        if (string.IsNullOrEmpty(val)) val = "false";
+
+                                        if (int.TryParse(val, out int iv))
+                                        {
+                                            if (iv == 0) val = "false";
+                                            else val = "true";
+                                        }
+
+                                        if (bool.TryParse(val, out bool v))
+                                        {
+                                            property.SetValue(model, v);
+                                        }
+                                        else throw new Exception($"参数{property.Name}值{val}不正确！");
+                                    }
+                                    else if (property.PropertyType == typeof(System.Byte))
+                                    {
+                                        if (byte.TryParse(val, out byte v))
+                                        {
+                                            property.SetValue(model, v);
+                                        }
+                                        else throw new Exception($"参数{property.Name}值{val}不正确！");
+                                    }
+                                    else if (property.PropertyType == typeof(System.String))
+                                    {
+                                        property.SetValue(model, val);
+                                    }
+                                }
+                            }
+
+                            list.Add(model);
+                        }
+                        else
+                        {
+                            list.Add(null);
+                        }                        
+                    }
                 }
             }
-            return args.ToArray();
+            if (list.Count == 0) return null;
+            return list;
         }
 
 

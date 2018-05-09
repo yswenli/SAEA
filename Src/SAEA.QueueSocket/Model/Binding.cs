@@ -127,7 +127,7 @@ namespace SAEA.QueueSocket.Model
             }
         }
 
-        public BindInfo GetBingInfo(SubscribeInfo sInfo)
+        public BindInfo GetBingInfo(QueueResult sInfo)
         {
             lock (_syncLocker)
             {
@@ -156,7 +156,7 @@ namespace SAEA.QueueSocket.Model
             }
         }
 
-        public bool Exists(SubscribeInfo sInfo)
+        public bool Exists(QueueResult sInfo)
         {
             lock (_syncLocker)
             {
