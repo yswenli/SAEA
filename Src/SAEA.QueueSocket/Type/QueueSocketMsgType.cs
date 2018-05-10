@@ -29,7 +29,6 @@ namespace SAEA.QueueSocket.Type
         Ping = 1,
         Pong = 2,
         Publish = 3,
-        PublishForBatch = 31,
         Subcribe = 4,
         Unsubcribe = 5,
         Close = 6,

@@ -69,9 +69,6 @@ namespace SAEA.QueueSocket
                     case QueueSocketMsgType.Publish:
                         ReplyPublish(userToken, r);
                         break;
-                    case QueueSocketMsgType.PublishForBatch:
-                        ReplyPublish(userToken, r);
-                        break;
                     case QueueSocketMsgType.Subcribe:
                         ReplySubcribe(userToken, r);
                         break;
@@ -103,10 +100,12 @@ namespace SAEA.QueueSocket
             {
                 if (rlist != null)
                 {
+                    var list = new List<byte>();
                     rlist.ForEach(r =>
                     {
-                        base.Send(ut, qcoder.QueueCoder.Data(data.Name, data.Topic, r));
+                        list.AddRange(qcoder.QueueCoder.Data(data.Name, data.Topic, r));
                     });
+                    base.Send(ut, list.ToArray());
                 }
             });
         }

@@ -29,9 +29,11 @@ using SAEA.QueueSocket.Type;
 using SAEA.Sockets.Core;
 using SAEA.Sockets.Model;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace SAEA.QueueSocket
 {
@@ -43,14 +45,16 @@ namespace SAEA.QueueSocket
 
         string _name;
 
-        BatchProcess<byte[]> _batchProcess = null;
-
         object _locker = new object();
 
         public event Action<QueueResult> OnMessage;
 
+        QueueCoder _queueCoder = new QueueCoder();
 
-        QueueCoder queueCoder = new QueueCoder();
+        ConcurrentQueue<Byte[]> _concurrentQueue = new ConcurrentQueue<byte[]>();
+
+
+        bool _isClosed = false;
 
         public QClient(string name, string ipPort) : this(name, 102400, ipPort.GetIPPort().Item1, ipPort.GetIPPort().Item2)
         {
@@ -60,8 +64,12 @@ namespace SAEA.QueueSocket
         public QClient(string name, int bufferSize = 100 * 1024, string ip = "127.0.0.1", int port = 39654) : base(new QContext(), ip, port, bufferSize)
         {
             _name = name;
+
             HeartSpan = 1000 * 1000;
+
             HeartAsync();
+
+            SendDataAsync();
         }
 
 
@@ -83,13 +91,13 @@ namespace SAEA.QueueSocket
             {
                 try
                 {
-                    while (true)
+                    while (!_isClosed)
                     {
                         if (this.Connected)
                         {
                             if (Actived.AddMilliseconds(HeartSpan) <= DateTimeHelper.Now)
                             {
-                                SendAsync(queueCoder.Ping(_name));
+                                SendAsync(_queueCoder.Ping(_name));
                             }
                             ThreadHelper.Sleep(HeartSpan / 2);
                         }
@@ -101,33 +109,66 @@ namespace SAEA.QueueSocket
                 }
                 catch { }
             }, true, System.Threading.ThreadPriority.Highest);
-        }        
+        }
 
+        private void SendDataAsync()
+        {
+            ThreadHelper.Run(() =>
+            {
+                try
+                {
+                    while (!_isClosed)
+                    {
+                        if (this.Connected && !_concurrentQueue.IsEmpty)
+                        {
+                            var list = new List<byte>();
+                            while (_concurrentQueue.TryDequeue(out byte[] data))
+                            {
+                                list.AddRange(data);
+                            }
+                            if (list.Count > 0)
+                                Send(list.ToArray());
+                        }
+                        else
+                            ThreadHelper.Sleep(10);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ConsoleHelper.WriteLine("SendDataAsync error:" + ex.Message);
+                }
+            }, true, System.Threading.ThreadPriority.Highest);
+        }
 
         public void Publish(string topic, string content)
         {
-            Send(queueCoder.Publish(_name, topic, content));
-        }
+            while (_concurrentQueue.Count > 5000)
+            {
+                ThreadHelper.Sleep(1);
+            }
+            _concurrentQueue.Enqueue(_queueCoder.Publish(_name, topic, content));
 
-        public void PublishList(string topic,string[] content)
-        {
-            Send(queueCoder.PublishForBatch(_name, topic, content));
+            //Send(_queueCoder.Publish(_name, topic, content));
         }
-
 
         public void Subscribe(string topic)
         {
-            SendAsync(queueCoder.Subscribe(_name, topic));
+            SendAsync(_queueCoder.Subscribe(_name, topic));
         }
 
         public void Unsubscribe(string topic)
         {
-            SendAsync(queueCoder.Unsubcribe(_name, topic));
+            SendAsync(_queueCoder.Unsubcribe(_name, topic));
         }
 
         public void Close()
         {
-            SendAsync(queueCoder.Close(_name));
+            while (!_concurrentQueue.IsEmpty)
+            {
+                ThreadHelper.Sleep(10);
+            }
+            _isClosed = true;
+            SendAsync(_queueCoder.Close(_name));
         }
     }
 }

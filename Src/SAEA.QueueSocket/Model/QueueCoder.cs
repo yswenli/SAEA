@@ -23,6 +23,7 @@
 *****************************************************************************/
 using SAEA.Commom;
 using SAEA.QueueSocket.Model;
+using SAEA.QueueSocket.Net;
 using SAEA.QueueSocket.Type;
 using System;
 using System.Collections.Concurrent;
@@ -30,17 +31,13 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 
-namespace SAEA.QueueSocket.Net
+namespace SAEA.QueueSocket.Model
 {
     /// <summary>
     /// 队列编解码器
     /// </summary>
     public class QueueCoder
     {
-        readonly string _enter = "\r\n";
-
-        readonly string _replaceEnter = "/r/n/r/n";
-
         AutoResetEvent _autoResetEvent = new AutoResetEvent(false);
 
         /// <summary>
@@ -51,7 +48,7 @@ namespace SAEA.QueueSocket.Net
         /// <returns></returns>
         public byte[] Encode(QueueSocketMsgType cmdType, string name, string topic, string data)
         {
-            return new QueueSocketMsg(cmdType, name, topic, data).ToBytes();
+            return QCoder.Encode(new QueueSocketMsg(cmdType, name, topic, data));
         }
         /// <summary>
         /// 按指定格式编码批量处理
@@ -87,11 +84,6 @@ namespace SAEA.QueueSocket.Net
         public byte[] Publish(string name, string topic, string data)
         {
             return Encode(QueueSocketMsgType.Publish, name, topic, data);
-        }
-
-        public byte[] PublishForBatch(string name, string topic, string[] data)
-        {
-            return Encode(QueueSocketMsgType.PublishForBatch, name, topic, data);
         }
 
         public byte[] Subscribe(string name, string topic)
