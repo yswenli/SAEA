@@ -142,7 +142,7 @@ namespace SAEA.QueueSocket
 
         public void Publish(string topic, string content)
         {
-            while (_concurrentQueue.Count > 5000)
+            while (_concurrentQueue.Count > 10000)
             {
                 ThreadHelper.Sleep(1);
             }

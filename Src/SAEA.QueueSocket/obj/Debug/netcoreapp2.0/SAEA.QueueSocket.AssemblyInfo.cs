@@ -16,8 +16,8 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCopyrightAttribute("yswenli")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
 [assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
-[assembly: System.Reflection.AssemblyProductAttribute("SAEA.WebAPI")]
-[assembly: System.Reflection.AssemblyTitleAttribute("SAEA.WebAPI")]
+[assembly: System.Reflection.AssemblyProductAttribute("SAEA.QueueSocket")]
+[assembly: System.Reflection.AssemblyTitleAttribute("SAEA.QueueSocket")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
 
 // 由 MSBuild WriteCodeFragment 类生成。

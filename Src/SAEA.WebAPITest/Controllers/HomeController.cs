@@ -30,7 +30,7 @@ namespace SAEA.WebAPITest.Controllers
     /// <summary>
     /// 测试实例代码
     /// </summary>
-    [LogAtrribute]
+    //[LogAtrribute]
     public class HomeController : Controller
     {
         /// <summary>
@@ -38,7 +38,7 @@ namespace SAEA.WebAPITest.Controllers
         /// 内容输出
         /// </summary>
         /// <returns></returns>
-        [Log2Atrribute]
+        //[Log2Atrribute]
         public ActionResult Index()
         {
             return Content("Hello,I'm SAEA.WebAPI！");
