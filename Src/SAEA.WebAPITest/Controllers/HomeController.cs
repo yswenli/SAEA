@@ -69,15 +69,27 @@ namespace SAEA.WebAPITest.Controllers
 
             return Empty();
         }
+
+        [HttpGet]
+        public ActionResult Update(int id)
+        {
+            return Content($"HttpGet Update id:{id}");
+        }
         /// <summary>
         /// 基本类型参数、实体混合填充
         /// </summary>
         /// <param name="isFemale"></param>
         /// <param name="userInfo"></param>
         /// <returns></returns>
+        [HttpPost]
         public ActionResult Update(bool isFemale, UserInfo userInfo = null)
         {
             return Json(userInfo);
+        }
+        [HttpPost]
+        public ActionResult Test()
+        {
+            return Content("httppost test");
         }
         /// <summary>
         /// 文件输出

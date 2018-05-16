@@ -52,17 +52,10 @@ namespace SAEA.WebAPI.Mvc
         {
             lock (_locker)
             {
-                var list = _list.Where(b => b.ControllerName.ToLower() == controllerName.ToLower() && b.ActionName.ToLower() == actionName.ToLower() && b.IsPost == isPost).ToList();
+                var list = _list.Where(b => b.ControllerName.ToLower() == controllerName.ToLower() && b.ActionName.ToLower() == actionName.ToLower()).ToList();
 
                 if (list == null || list.Count == 0)
                 {
-                    var routing = new Routing()
-                    {
-                        ControllerName = controllerName,
-                        ActionName = actionName,
-                        IsPost = isPost
-                    };
-
                     var actions = controllerType.GetMethods().Where(b => b.Name.ToLower() == actionName.ToLower()).ToList();
 
                     if (actions == null || actions.Count == 0)
@@ -75,7 +68,9 @@ namespace SAEA.WebAPI.Mvc
                     }
                     else
                     {
-                        routing.Instance = System.Activator.CreateInstance(controllerType);
+                        var instance = System.Activator.CreateInstance(controllerType);
+
+                        List<object> iAttrs = null;
 
                         //类上面的过滤
                         var attrs = controllerType.GetCustomAttributes(true);
@@ -86,44 +81,48 @@ namespace SAEA.WebAPI.Mvc
 
                             if (actionAttrs != null && actionAttrs.Count > 0)
 
-                                routing.Atrrs = actionAttrs;
+                                iAttrs = actionAttrs;
 
                         }
-                        else
+
+                        foreach (var action in actions)
                         {
-                            routing.Atrrs = null;
-                        }
-
-                        routing.Action = actions[0];
-
-                        //action上面的过滤
-                        if (routing.Atrrs == null)
-                        {
-                            attrs = actions[0].GetCustomAttributes(true);
-
-                            if (attrs != null)
+                            var routing = new Routing()
                             {
-                                var actionAttrs = attrs.Where(b => b.GetType().BaseType.Name == "ActionFilterAttribute").ToList();
+                                ControllerName = controllerName,
+                                ActionName = actionName,
+                                Instance = instance,
+                                FilterAtrrs = iAttrs,
+                                Action = action
+                            };
 
-                                if (actionAttrs != null && actionAttrs.Count > 0)
+                            //action上面的过滤
+                            var actionAttrs = action.GetCustomAttributes(true);
 
-                                    routing.Atrrs = actionAttrs;
-
-                            }
-                            else
+                            if (actionAttrs != null)
                             {
-                                routing.Atrrs = null;
+                                var dPost = actionAttrs.Where(b => b.GetType().Name == "HttpPost").FirstOrDefault();
+                                if (dPost != null)
+                                {
+                                    routing.IsPost = true;
+                                }
+                                else
+                                {
+                                    routing.IsPost = false;
+                                }
+
+                                var filterAttrs = attrs.Where(b => b.GetType().BaseType.Name == "ActionFilterAttribute").ToList();
+
+                                if (filterAttrs != null && filterAttrs.Count > 0)
+
+                                    routing.ActionFilterAtrrs = filterAttrs;
                             }
+
+                            _list.Add(routing);
                         }
                     }
-                    _list.Add(routing);
-                    return routing;
                 }
-                else if (list.Count > 1)
-                {
-                    throw new Exception("500");
-                }
-                return list.FirstOrDefault();
+                return _list.Where(b => b.ControllerName.ToLower() == controllerName.ToLower() && b.ActionName.ToLower() == actionName.ToLower() && b.IsPost == isPost).FirstOrDefault();
             }
         }
     }

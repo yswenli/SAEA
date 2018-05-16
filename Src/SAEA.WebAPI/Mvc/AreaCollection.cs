@@ -125,6 +125,11 @@ namespace SAEA.WebAPI.Mvc
                 {
                     var routing = RouteTable.TryGet(controller, controller.Name, actionName, isPost);
 
+                    if (routing == null)
+                    {
+                        throw new Exception($"当前请求为:{(isPost ? "HttpPOST" : "HttpGET")} 找不到:{controller.Name}/{actionName}");
+                    }
+
                     var property = controller.GetProperty("HttpContext");
 
                     property.SetValue(routing.Instance, httpContext);
@@ -133,9 +138,22 @@ namespace SAEA.WebAPI.Mvc
 
                     var nargs = new object[] { httpContext };
 
-                    if (routing.Atrrs != null && routing.Atrrs.Count > 0)
+                    if (routing.FilterAtrrs != null && routing.FilterAtrrs.Count > 0)
                     {
-                        foreach (var arr in routing.Atrrs)
+                        foreach (var arr in routing.FilterAtrrs)
+                        {
+                            var goOn = (bool)arr.GetType().GetMethod("OnActionExecuting").Invoke(arr, nargs.ToArray());
+
+                            if (!goOn)
+                            {
+                                return new ContentResult("当前逻辑已被拦截！", System.Net.HttpStatusCode.NotAcceptable);
+                            }
+                        }
+                    }
+
+                    if (routing.ActionFilterAtrrs != null && routing.ActionFilterAtrrs.Count > 0)
+                    {
+                        foreach (var arr in routing.ActionFilterAtrrs)
                         {
                             var goOn = (bool)arr.GetType().GetMethod("OnActionExecuting").Invoke(arr, nargs.ToArray());
 
@@ -150,9 +168,17 @@ namespace SAEA.WebAPI.Mvc
 
                     nargs = new object[] { httpContext, result };
 
-                    if (routing.Atrrs != null && routing.Atrrs.Count > 0)
+                    if (routing.FilterAtrrs != null && routing.FilterAtrrs.Count > 0)
                     {
-                        foreach (var arr in routing.Atrrs)
+                        foreach (var arr in routing.FilterAtrrs)
+                        {
+                            arr.GetType().GetMethod("OnActionExecuted").Invoke(arr, nargs);
+                        }
+                    }
+
+                    if (routing.ActionFilterAtrrs != null && routing.ActionFilterAtrrs.Count > 0)
+                    {
+                        foreach (var arr in routing.FilterAtrrs)
                         {
                             arr.GetType().GetMethod("OnActionExecuted").Invoke(arr, nargs);
                         }
@@ -204,7 +230,7 @@ namespace SAEA.WebAPI.Mvc
             }
             return result;
         }
-        
+
 
         /// <summary>
         /// 参数填充
@@ -427,7 +453,7 @@ namespace SAEA.WebAPI.Mvc
                         else
                         {
                             list.Add(null);
-                        }                        
+                        }
                     }
                 }
             }

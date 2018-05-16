@@ -52,7 +52,12 @@ namespace SAEA.WebAPI.Mvc
             get; set;
         }
 
-        public List<object> Atrrs
+        public List<object> FilterAtrrs
+        {
+            get; set;
+        }
+
+        public List<object> ActionFilterAtrrs
         {
             get; set;
         }

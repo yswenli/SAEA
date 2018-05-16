@@ -1,0 +1,14 @@
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.WebAPI\bin\Debug\netcoreapp2.0\SAEA.WebAPI.deps.json
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.WebAPI\bin\Debug\netcoreapp2.0\SAEA.WebAPI.dll
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.WebAPI\bin\Debug\netcoreapp2.0\SAEA.WebAPI.pdb
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.WebAPI\bin\Debug\netcoreapp2.0\SAEA.Commom.dll
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.WebAPI\bin\Debug\netcoreapp2.0\SAEA.Sockets.dll
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.WebAPI\bin\Debug\netcoreapp2.0\SAEA.Sockets.pdb
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.WebAPI\bin\Debug\netcoreapp2.0\SAEA.Commom.pdb
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.WebAPI\obj\Debug\netcoreapp2.0\SAEA.WebAPI.csprojResolveAssemblyReference.cache
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.WebAPI\obj\Debug\netcoreapp2.0\SAEA.WebAPI.csproj.CoreCompileInputs.cache
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.WebAPI\obj\Debug\netcoreapp2.0\SAEA.WebAPI.AssemblyInfoInputs.cache
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.WebAPI\obj\Debug\netcoreapp2.0\SAEA.WebAPI.AssemblyInfo.cs
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.WebAPI\obj\Debug\netcoreapp2.0\SAEA.WebAPI.csproj.CopyComplete
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.WebAPI\obj\Debug\netcoreapp2.0\SAEA.WebAPI.dll
+E:\百度云\Develop\案例\网络类\SAEA\Src\SAEA.WebAPI\obj\Debug\netcoreapp2.0\SAEA.WebAPI.pdb

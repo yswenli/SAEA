@@ -6,17 +6,23 @@ using System.Text;
 
 namespace SAEA.WebAPI.Common
 {
+    /// <summary>
+    /// 生成日志
+    /// </summary>
     public static class LogHelper
     {
         static string logPath = string.Empty;
-
-
+        
         private static void Write(string type, string msg)
         {
-            if (string.IsNullOrEmpty(logPath))
-                logPath = PathHelper.GetCurrentPath("Logs");
-            var fileName = PathHelper.GetFilePath(logPath, type + DateTimeHelper.ToString("yyyyMMdd") + ".log");
-            File.AppendAllTextAsync(fileName, DateTimeHelper.ToString() + "  " + msg + Environment.NewLine);
+            try
+            {
+                if (string.IsNullOrEmpty(logPath))
+                    logPath = PathHelper.GetCurrentPath("Logs");
+                var fileName = PathHelper.GetFilePath(logPath, type + DateTimeHelper.ToString("yyyyMMdd") + ".log");
+                File.AppendAllText(fileName, DateTimeHelper.ToString() + "  " + msg + Environment.NewLine, Encoding.UTF8);
+            }
+            catch { }
         }
 
 
