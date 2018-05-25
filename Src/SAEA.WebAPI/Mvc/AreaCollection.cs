@@ -130,11 +130,11 @@ namespace SAEA.WebAPI.Mvc
                         throw new Exception($"当前请求为:{(isPost ? "HttpPOST" : "HttpGET")} 找不到:{controller.Name}/{actionName}");
                     }
 
-                    var property = controller.GetProperty("HttpContext");
+                    //var property = controller.GetProperty("HttpContext");
 
-                    property.SetValue(routing.Instance, httpContext);
+                    //property.SetValue(routing.Instance, httpContext);
 
-                    var args = nameValues.ToValArray();
+                    //var args = nameValues.ToValArray();
 
                     var nargs = new object[] { httpContext };
 

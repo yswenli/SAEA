@@ -31,7 +31,8 @@ namespace SAEA.Commom
         {
             get
             {
-                return Directory.GetCurrentDirectory();
+                //return Directory.GetCurrentDirectory();
+                return Path.GetDirectoryName(AssemblyHelper.Current.Location);
             }
         }
 

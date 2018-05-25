@@ -70,6 +70,10 @@ namespace SAEA.Commom
         }
 
 
+        public static Assembly Current
+        {
+            get { return Assembly.GetCallingAssembly(); }
+        }
 
 
 

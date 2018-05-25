@@ -37,9 +37,16 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAEA.RedisSocketTest", "SAE
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAEA.WebAPI", "SAEA.WebAPI\SAEA.WebAPI.csproj", "{8594DBE7-D67A-45ED-B039-D7FEFCCCAC04}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAEA.WebAPITest", "SAEA.WebAPITest\SAEA.WebAPITest.csproj", "{DB9FFC96-C932-407F-BFCB-97D021FE1C43}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAEA.WebAPITest", "SAEA.WebAPITest\SAEA.WebAPITest.csproj", "{DB9FFC96-C932-407F-BFCB-97D021FE1C43}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAEA.RPC", "SAEA.RPC\SAEA.RPC.csproj", "{AB7621C7-FA1D-4FAE-9729-BAA3A52A2723}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAEA.RPCTest", "SAEA.RPCTest\SAEA.RPCTest.csproj", "{5E7F5C03-2372-4359-B8FF-040FA26B8947}"
 EndProject
 Global
+	GlobalSection(Performance) = preSolution
+		HasPerformanceSessions = true
+	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
@@ -117,6 +124,14 @@ Global
 		{DB9FFC96-C932-407F-BFCB-97D021FE1C43}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DB9FFC96-C932-407F-BFCB-97D021FE1C43}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DB9FFC96-C932-407F-BFCB-97D021FE1C43}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AB7621C7-FA1D-4FAE-9729-BAA3A52A2723}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AB7621C7-FA1D-4FAE-9729-BAA3A52A2723}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AB7621C7-FA1D-4FAE-9729-BAA3A52A2723}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AB7621C7-FA1D-4FAE-9729-BAA3A52A2723}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5E7F5C03-2372-4359-B8FF-040FA26B8947}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5E7F5C03-2372-4359-B8FF-040FA26B8947}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5E7F5C03-2372-4359-B8FF-040FA26B8947}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5E7F5C03-2372-4359-B8FF-040FA26B8947}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
