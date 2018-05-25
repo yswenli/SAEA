@@ -1,5 +1,6 @@
 ﻿using SAEA.Commom;
 using SAEA.RPC.Provider;
+using SAEA.RPCTest.Consumer;
 //using SAEA.RPCTest.Consumer;
 using System;
 using System.Diagnostics;
@@ -69,44 +70,44 @@ namespace SAEA.RPCTest
 
         static void ConsumerInit()
         {
-            //ConsoleHelper.Title = "SAEA.RPC.Consumer";
+            ConsoleHelper.Title = "SAEA.RPC.Consumer";
 
-            //var url = "rpc://172.31.32.85:39654";
+            var url = "rpc://172.31.32.85:39654";
 
-            //ConsoleHelper.WriteLine($"Consumer正在连接到{url}...");
+            ConsoleHelper.WriteLine($"Consumer正在连接到{url}...");
 
-            //RPCServiceProxy cp = new RPCServiceProxy(url);
+            RPCServiceProxy cp = new RPCServiceProxy(url);
 
-            //ConsoleHelper.WriteLine("Consumer连接成功");
+            ConsoleHelper.WriteLine("Consumer连接成功");
 
-            //ConsoleHelper.WriteLine("HelloService/Hello:" + cp.HelloService.Hello());
-            //ConsoleHelper.WriteLine("HelloService/Plus:" + cp.HelloService.Plus(1, 9));
-            //ConsoleHelper.WriteLine("HelloService/Update/UserName:" + cp.HelloService.Update(new Consumer.Model.UserInfo() { ID = 1, UserName = "yswenli" }).UserName);
-            //ConsoleHelper.WriteLine("HelloService/GetGroupInfo/Creator.UserName:" + cp.HelloService.GetGroupInfo(1).Creator.UserName);
-            //ConsoleHelper.WriteLine("HelloService/SendData:" + System.Text.Encoding.UTF8.GetString(cp.HelloService.SendData(System.Text.Encoding.UTF8.GetBytes("Hello Data"))));
-            //ConsoleHelper.WriteLine("回车启动性能测试！");
+            ConsoleHelper.WriteLine("HelloService/Hello:" + cp.HelloService.Hello());
+            ConsoleHelper.WriteLine("HelloService/Plus:" + cp.HelloService.Plus(1, 9));
+            ConsoleHelper.WriteLine("HelloService/Update/UserName:" + cp.HelloService.Update(new Consumer.Model.UserInfo() { ID = 1, UserName = "yswenli" }).UserName);
+            ConsoleHelper.WriteLine("HelloService/GetGroupInfo/Creator.UserName:" + cp.HelloService.GetGroupInfo(1).Creator.UserName);
+            ConsoleHelper.WriteLine("HelloService/SendData:" + System.Text.Encoding.UTF8.GetString(cp.HelloService.SendData(System.Text.Encoding.UTF8.GetBytes("Hello Data"))));
+            ConsoleHelper.WriteLine("回车启动性能测试！");
 
-            //ConsoleHelper.ReadLine();
+            ConsoleHelper.ReadLine();
 
             #region 性能测试
 
-            //Stopwatch sw = new Stopwatch();
+            Stopwatch sw = new Stopwatch();
 
-            //int count = 1000000;
+            int count = 1000000;
 
-            //ConsoleHelper.WriteLine($"{count} 次实体传输调用测试中...");
+            ConsoleHelper.WriteLine($"{count} 次实体传输调用测试中...");
 
-            //var ui = new Consumer.Model.UserInfo() { ID = 1, UserName = "yswenli" };
+            var ui = new Consumer.Model.UserInfo() { ID = 1, UserName = "yswenli" };
 
-            //sw.Start();
+            sw.Start();
 
-            //for (int i = 0; i < count; i++)
-            //{
-            //    cp.HelloService.Update(ui);
-            //}
-            //ConsoleHelper.WriteLine($"实体传输：{count * 1000 / sw.ElapsedMilliseconds} 次/秒");
+            for (int i = 0; i < count; i++)
+            {
+                cp.HelloService.Update(ui);
+            }
+            ConsoleHelper.WriteLine($"实体传输：{count * 1000 / sw.ElapsedMilliseconds} 次/秒");
 
-            //sw.Stop();
+            sw.Stop();
 
             #endregion
 
