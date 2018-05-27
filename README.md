@@ -24,3 +24,7 @@ SAEA.Socket是一种iocp的框架，基于.net core 2.1；Src中含有其应用�
 # SAEA.MVC WebAPI Pressure test
 
 <img src="https://raw.githubusercontent.com/yswenli/SAEA/master/SAEA.WebAPITest.png" alt="SAEA.MVC WebAPI Pressure test">
+
+# SAEA.RPC Pressure test
+
+<img src="https://github.com/yswenli/SAEA/blob/master/rpc.png?raw=true" alt="SAEA.MVC RPC Pressure test">
