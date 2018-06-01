@@ -58,8 +58,12 @@ namespace SAEA.RPCTest
         {
             ConsoleHelper.Title = "SAEA.RPC.Provider";
             ConsoleHelper.WriteLine("Provider正在启动HelloService。。。");
-            var sp = new ServiceProvider(new Type[] { typeof(Provider.HelloService) });
+
+            //var sp = new ServiceProvider(new Type[] { typeof(Provider.HelloService) });
+            var sp = new ServiceProvider();
+
             sp.Start();
+
             ConsoleHelper.WriteLine("Provider就绪！");
         }
 
@@ -82,9 +86,14 @@ namespace SAEA.RPCTest
 
             ConsoleHelper.WriteLine("HelloService/Hello:" + cp.HelloService.Hello());
             ConsoleHelper.WriteLine("HelloService/Plus:" + cp.HelloService.Plus(1, 9));
-            ConsoleHelper.WriteLine("HelloService/Update/UserName:" + cp.HelloService.Update(new Consumer.Model.UserInfo() { ID = 1, UserName = "yswenli" }).UserName);
-            ConsoleHelper.WriteLine("HelloService/GetGroupInfo/Creator.UserName:" + cp.HelloService.GetGroupInfo(1).Creator.UserName);
+            ConsoleHelper.WriteLine("HelloService/Update/UserName:" + cp.HelloService.Update(new Consumer.Model.UserInfo() { ID = 1, UserName = "yswenli" }).UserName);            
             ConsoleHelper.WriteLine("HelloService/SendData:" + System.Text.Encoding.UTF8.GetString(cp.HelloService.SendData(System.Text.Encoding.UTF8.GetBytes("Hello Data"))));
+
+
+            ConsoleHelper.WriteLine("GroupService/Add/ Creator.UserName:" + cp.GroupService.Add("rpc group", new Consumer.Model.UserInfo() { ID = 1, UserName = "yswenli" }).Creator.UserName);
+            ConsoleHelper.WriteLine("GroupService/Update/Count:" + cp.GroupService.Update(new System.Collections.Generic.List<Consumer.Model.UserInfo>() { new Consumer.Model.UserInfo() { ID = 1, UserName = "yswenli" } }).Count);
+            ConsoleHelper.WriteLine("GroupService/GetGroupInfo/Users.UserName:" + cp.GroupService.GetGroupInfo(1).Users[0].UserName);
+
             ConsoleHelper.WriteLine("回车启动性能测试！");
 
             ConsoleHelper.ReadLine();
@@ -105,13 +114,18 @@ namespace SAEA.RPCTest
             {
                 cp.HelloService.Update(ui);
             }
-            ConsoleHelper.WriteLine($"实体传输：{count * 1000 / sw.ElapsedMilliseconds} 次/秒");
+            ConsoleHelper.WriteLine($"单线程实体传输：{count * 1000 / sw.ElapsedMilliseconds} 次/秒");
+
+            sw.Restart();
+            Parallel.For(0, count, i =>
+            {
+                cp.HelloService.Update(ui);
+            });
+            ConsoleHelper.WriteLine($"多线程实体传输：{count * 1000 / sw.ElapsedMilliseconds} 次/秒");
 
             sw.Stop();
 
             #endregion
-
-
 
         }
     }

@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Commom;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -38,9 +39,14 @@ namespace SAEA.RPC.Model
             get; set;
         }
 
-        public MethodInfo Mothd
+        public MethodInfo Method
         {
             get;set;
+        }
+
+        public FastInvoke.FastInvokeHandler MethodInvoker
+        {
+            get; set;
         }
 
 

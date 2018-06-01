@@ -120,7 +120,7 @@ namespace SAEA.QueueSocket
             var qcoder = (QCoder)ut.Coder;
             base.Send(ut, qcoder.QueueCoder.Close(data.Name));
             _exchange.Clear(ut.ID);
-            base.Disconnected(ut);
+            base.Disconnect(ut);
         }
 
         public void Clear(string sessionID)

@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Commom;
 using SAEA.RPC.Model;
 using SAEA.RPC.Net;
 using SAEA.RPC.Serialize;
@@ -37,34 +38,33 @@ namespace SAEA.RPC.Common
     public class RPCReversal
     {
         static object _locker = new object();
-        
 
         /// <summary>
         /// 执行方法
         /// </summary>
-        /// <param name="action"></param>
+        /// <param name="method"></param>
+        /// <param name="methodInvoker"></param>
         /// <param name="obj"></param>
         /// <param name="args"></param>
         /// <returns></returns>
-        private static object ReversalMethod(MethodInfo action, object obj, object[] args)
+        private static object ReversalMethod(MethodInfo method, FastInvoke.FastInvokeHandler methodInvoker, object obj, object[] args)
         {
             object result = null;
             try
             {
-                var @params = action.GetParameters();
+                var inputs = args;
 
-                if (@params != null && @params.Length > 0)
+                var @params = method.GetParameters();
+
+                if (@params == null || @params.Length == 0)
                 {
-                    result = action.Invoke(obj, args);
+                    inputs = null;
                 }
-                else
-                {
-                    result = action.Invoke(obj, null);
-                }
+                result = methodInvoker.Invoke(obj, inputs);
             }
             catch (Exception ex)
             {
-                throw new RPCPamarsException($"{obj}/{action.Name},出现异常：{ex.Message}", ex);
+                throw new RPCPamarsException($"{obj}/{method.Name},出现异常：{ex.Message}", ex);
             }
             return result;
         }
@@ -89,7 +89,7 @@ namespace SAEA.RPC.Common
                     {
                         foreach (var arr in serviceInfo.FilterAtrrs)
                         {
-                            var goOn = (bool)arr.GetType().GetMethod("OnActionExecuting").Invoke(arr, nargs.ToArray());
+                            var goOn = (bool)FastInvoke.GetMethodInvoker(arr.GetType().GetMethod("OnActionExecuting")).Invoke(arr, nargs.ToArray());
 
                             if (!goOn)
                             {
@@ -102,7 +102,7 @@ namespace SAEA.RPC.Common
                     {
                         foreach (var arr in serviceInfo.ActionFilterAtrrs)
                         {
-                            var goOn = (bool)arr.GetType().GetMethod("OnActionExecuting").Invoke(arr, nargs.ToArray());
+                            var goOn = (bool)FastInvoke.GetMethodInvoker(arr.GetType().GetMethod("OnActionExecuting")).Invoke(arr, nargs.ToArray());
 
                             if (!goOn)
                             {
@@ -111,7 +111,7 @@ namespace SAEA.RPC.Common
                         }
                     }
 
-                    var result = ReversalMethod(serviceInfo.Mothd, serviceInfo.Instance, inputs);
+                    var result = ReversalMethod(serviceInfo.Method, serviceInfo.MethodInvoker, serviceInfo.Instance, inputs);
 
                     nargs = new object[] { userToken, serviceName, methodName, inputs, result };
 
@@ -119,7 +119,7 @@ namespace SAEA.RPC.Common
                     {
                         foreach (var arr in serviceInfo.FilterAtrrs)
                         {
-                            arr.GetType().GetMethod("OnActionExecuted").Invoke(arr, nargs);
+                            FastInvoke.GetMethodInvoker(arr.GetType().GetMethod("OnActionExecuted")).Invoke(arr, nargs);
                         }
                     }
 
@@ -127,7 +127,7 @@ namespace SAEA.RPC.Common
                     {
                         foreach (var arr in serviceInfo.FilterAtrrs)
                         {
-                            arr.GetType().GetMethod("OnActionExecuted").Invoke(arr, nargs);
+                            FastInvoke.GetMethodInvoker(arr.GetType().GetMethod("OnActionExecuted")).Invoke(arr, nargs);
                         }
                     }
                     return result;
@@ -161,9 +161,16 @@ namespace SAEA.RPC.Common
 
                 if (msg.Data != null)
                 {
-                    var ptypes = RPCMapping.Get(msg.ServiceName, msg.MethodName).Pamars.Values.ToArray();
+                    try
+                    {
+                        var ptypes = RPCMapping.Get(msg.ServiceName, msg.MethodName).Pamars.Values.ToArray();
 
-                    inputs = ParamsSerializeUtil.Deserialize(ptypes, msg.Data);
+                        inputs = ParamsSerializeUtil.Deserialize(ptypes, msg.Data);
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new RPCNotFundException("找不到此服务", ex);
+                    }
                 }
 
                 var r = Reversal(userToken, msg.ServiceName, msg.MethodName, inputs);
@@ -175,7 +182,7 @@ namespace SAEA.RPC.Common
             }
             catch (Exception ex)
             {
-                throw new RPCPamarsException("RPCInovker.Invoke error:" + ex.Message, ex);
+                throw new RPCPamarsException("RPCInovker.Reversal error:" + ex.Message, ex);
             }
             return result;
 

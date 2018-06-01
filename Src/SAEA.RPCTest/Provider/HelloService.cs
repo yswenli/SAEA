@@ -43,25 +43,7 @@ namespace SAEA.RPCTest.Provider
         public UserInfo Update(UserInfo info)
         {
             return info;
-        }
-
-        public GroupInfo GetGroupInfo(int id)
-        {
-            return new GroupInfo()
-            {
-                GroupID = 1,
-                IsTemporary = false,
-                Name = "yswenli group",
-                Created = DateTimeHelper.Now,
-                Creator = new UserInfo()
-                {
-
-                    ID = 1,
-                    Birthday = DateTimeHelper.Now.AddYears(-100),
-                    UserName = "yswenli"
-                }
-            };
-        }
+        }        
 
         public byte[] SendData(byte[] data)
         {

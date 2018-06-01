@@ -45,28 +45,19 @@ namespace SAEA.WebAPI.Http.Net
         {
             lock (_locker)
             {
-                var str = Encoding.UTF8.GetString(data);
+                var strFragment = Encoding.UTF8.GetString(data);
+
+                _result.Append(strFragment);
+
+                var str = _result.ToString();
 
                 var index = str.IndexOf(ENDSTR);
 
                 if (index > -1)
                 {
-                    var s = str.Substring(0, index);
-
-                    _result.Append(s);
-
-                    onUnpackage.Invoke(_result.ToString());
+                    onUnpackage.Invoke(str);
 
                     _result.Clear();
-
-                    if (str.Length > index + 4)
-                    {
-                        _result.Append(str.Substring(index + 4));
-                    }
-                }
-                else
-                {
-                    _result.Append(str);
                 }
             }
         }

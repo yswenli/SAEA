@@ -24,9 +24,6 @@
 using SAEA.Sockets.Core;
 using SAEA.Sockets.Interface;
 using System;
-using System.Collections.Generic;
-using System.Net;
-using System.Text;
 
 namespace SAEA.WebAPI.Http.Net
 {
@@ -52,7 +49,7 @@ namespace SAEA.WebAPI.Http.Net
         public void Reply(IUserToken userToken, byte[] data)
         {
             base.Send(userToken, data);
-            base.Disconnected(userToken);
+            base.Disconnect(userToken);
         }
     }
 }

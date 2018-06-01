@@ -40,7 +40,11 @@ namespace SAEA.RPC.Common
         /// <returns></returns>
         public static long Next()
         {
-            return Interlocked.Increment(ref sNo);
+            if (Interlocked.Increment(ref sNo) > long.MaxValue - 10000)
+            {
+                sNo = 0;
+            }
+            return sNo;
         }
     }
 }

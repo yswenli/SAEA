@@ -25,8 +25,6 @@ using SAEA.RPC.Common;
 using SAEA.RPC.Model;
 using SAEA.RPC.Net;
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.RPC.Provider
 {
@@ -55,7 +53,7 @@ namespace SAEA.RPC.Provider
         /// <summary>
         /// RPC服务提供者
         /// </summary>
-        /// <param name="serviceTypes"></param>
+        /// <param name="serviceTypes">null 自动注册全部服务</param>
         /// <param name="port"></param>
         public ServiceProvider(Type[] serviceTypes, int port = 39654)
         {
@@ -98,7 +96,7 @@ namespace SAEA.RPC.Provider
 
                     break;
                 case RSocketMsgType.Close:
-                    _RServer.Disconnected(userToken);
+                    _RServer.Disconnect(userToken);
                     break;
             }
         }

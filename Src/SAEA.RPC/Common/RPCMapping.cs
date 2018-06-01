@@ -77,7 +77,8 @@ namespace SAEA.RPC.Common
                             {
                                 Type = type,
                                 Instance = Activator.CreateInstance(type),
-                                Mothd = m,
+                                Method = m,
+                                MethodInvoker=FastInvoke.GetMethodInvoker(m),
                                 Pamars = m.GetParameters().ToDic()
                             };
 
@@ -138,7 +139,8 @@ namespace SAEA.RPC.Common
         public static void RegistAll()
         {
             StackTrace ss = new StackTrace(true);
-            MethodBase mb = ss.GetFrame(2).GetMethod();
+            //最上层调用
+            MethodBase mb = ss.GetFrames().Last().GetMethod();
             var space = mb.DeclaringType.Namespace;
             var tt = mb.DeclaringType.Assembly.GetTypes();
             Regists(tt);

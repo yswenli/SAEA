@@ -1,8 +1,9 @@
 ﻿/*******
-*此代码为SAEA.RPCGenerater生成 2018-05-25 15:34:12
+*此代码为SAEA.RPCGenerater生成 2018-05-29 20:28:05
 *******/
 
 using System;
+using System.Collections.Generic;
 using SAEA.RPC.Consumer;
 using SAEA.RPCTest.Consumer.Model;
 using SAEA.RPCTest.Consumer.Service;
@@ -16,12 +17,42 @@ namespace SAEA.RPCTest.Consumer
         public RPCServiceProxy(Uri uri)
         {
             _serviceConsumer = new ServiceConsumer(uri);
+            _groupService = new GroupService(_serviceConsumer);
             _helloService = new HelloService(_serviceConsumer);
+        }
+        GroupService _groupService;
+        public GroupService GroupService
+        {
+            get { return _groupService; }
         }
         HelloService _helloService;
         public HelloService HelloService
         {
             get { return _helloService; }
+        }
+    }
+}
+
+namespace SAEA.RPCTest.Consumer.Service
+{
+    public class GroupService
+    {
+        ServiceConsumer _serviceConsumer;
+        public GroupService(ServiceConsumer serviceConsumer)
+        {
+            _serviceConsumer = serviceConsumer;
+        }
+        public List<UserInfo> Update(List<UserInfo> users)
+        {
+            return _serviceConsumer.RemoteCall<List<UserInfo>>("GroupService", "Update", users);
+        }
+        public GroupInfo Add(String groupName, UserInfo user)
+        {
+            return _serviceConsumer.RemoteCall<GroupInfo>("GroupService", "Add", groupName, user);
+        }
+        public GroupInfo GetGroupInfo(Int32 id)
+        {
+            return _serviceConsumer.RemoteCall<GroupInfo>("GroupService", "GetGroupInfo", id);
         }
     }
 }
@@ -46,10 +77,6 @@ namespace SAEA.RPCTest.Consumer.Service
         public UserInfo Update(UserInfo info)
         {
             return _serviceConsumer.RemoteCall<UserInfo>("HelloService", "Update", info);
-        }
-        public GroupInfo GetGroupInfo(Int32 id)
-        {
-            return _serviceConsumer.RemoteCall<GroupInfo>("HelloService", "GetGroupInfo", id);
         }
         public Byte[] SendData(Byte[] data)
         {
@@ -98,6 +125,10 @@ namespace SAEA.RPCTest.Consumer.Model
             get; set;
         }
         public UserInfo Creator
+        {
+            get; set;
+        }
+        public List<UserInfo> Users
         {
             get; set;
         }

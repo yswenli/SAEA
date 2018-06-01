@@ -30,6 +30,9 @@ using System.Threading;
 
 namespace SAEA.WebAPI.Http
 {
+    /// <summary>
+    /// web api httpServer
+    /// </summary>
     class HttpServer
     {
         ServerSocket _serverSocket;
@@ -38,6 +41,12 @@ namespace SAEA.WebAPI.Http
 
         ConcurrentQueue<HttpContext> _queue;
 
+
+        /// <summary>
+        /// web api httpServer
+        /// </summary>
+        /// <param name="bufferSize"></param>
+        /// <param name="count"></param>
         public HttpServer(int bufferSize = 1024 * 100, int count = 10000)
         {
             _serverSocket = new ServerSocket(bufferSize, count);
@@ -93,27 +102,27 @@ namespace SAEA.WebAPI.Http
             }
         }
 
-        internal void Replay(IUserToken userToken, byte[] data)
+        internal void Reponse(IUserToken userToken, byte[] data)
         {
             _serverSocket.Reply(userToken, data);
         }
 
         internal void Close(IUserToken userToken)
         {
-            _serverSocket.Disconnected(userToken);
+            _serverSocket.Disconnect(userToken);
         }
 
         private void _serverSocket_OnDisconnected(string ID, System.Exception ex)
         {
             HttpContext httpContext;
-            if (_dic.TryGetValue(ID, out httpContext))
+            if (_dic.TryRemove(ID, out httpContext))
             {
                 httpContext.Free();
                 _queue.Enqueue(httpContext);
             }
-            else
+            if (ex != null)
             {
-                LogHelper.WriteError("_serverSocket_OnDisconnected 回收", ex);
+                LogHelper.WriteError("_serverSocket_OnDisconnected 断开连接", ex);
             }
 
         }

@@ -102,7 +102,7 @@ namespace SAEA.MessageSocket
                     }
                     catch (Exception ex)
                     {
-                        Disconnected(userToken, ex);
+                        Disconnect(userToken, ex);
                     }
                 }
 

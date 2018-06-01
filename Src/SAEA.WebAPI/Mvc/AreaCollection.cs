@@ -23,7 +23,6 @@
 *****************************************************************************/
 using SAEA.Commom;
 using SAEA.WebAPI.Http;
-using SAEA.WebAPI.Mvc;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -50,7 +49,7 @@ namespace SAEA.WebAPI.Mvc
                 if (_list.Count < 1)
                 {
                     StackTrace ss = new StackTrace(true);
-                    MethodBase mb = ss.GetFrame(2).GetMethod();
+                    MethodBase mb = ss.GetFrames().Last().GetMethod();
                     var space = mb.DeclaringType.Namespace;
                     var tt = mb.DeclaringType.Assembly.GetTypes().Where(b => b.FullName.Contains("Controllers")).ToList();
                     if (tt == null) throw new Exception("当前项目中找不到Controllers空间或命名不符合MVC规范！");
@@ -123,18 +122,14 @@ namespace SAEA.WebAPI.Mvc
             {
                 try
                 {
-                    var routing = RouteTable.TryGet(controller, controller.Name, actionName, isPost);
+                    var routing = RouteTable.GetOrAdd(controller, controller.Name, actionName, isPost);
 
                     if (routing == null)
                     {
                         throw new Exception($"当前请求为:{(isPost ? "HttpPOST" : "HttpGET")} 找不到:{controller.Name}/{actionName}");
                     }
 
-                    //var property = controller.GetProperty("HttpContext");
-
-                    //property.SetValue(routing.Instance, httpContext);
-
-                    //var args = nameValues.ToValArray();
+                    routing.Instance.HttpContext = httpContext;
 
                     var nargs = new object[] { httpContext };
 
@@ -155,7 +150,7 @@ namespace SAEA.WebAPI.Mvc
                     {
                         foreach (var arr in routing.ActionFilterAtrrs)
                         {
-                            var goOn = (bool)arr.GetType().GetMethod("OnActionExecuting").Invoke(arr, nargs.ToArray());
+                            var goOn = (bool)FastInvoke.GetMethodInvoker(arr.GetType().GetMethod("OnActionExecuting")).Invoke(arr, nargs.ToArray());
 
                             if (!goOn)
                             {
@@ -164,7 +159,7 @@ namespace SAEA.WebAPI.Mvc
                         }
                     }
 
-                    var result = MethodInvoke(routing.Action, routing.Instance, nameValues);
+                    var result = MethodInvoke(routing.Action, routing.ActionInvoker, routing.Instance, nameValues);
 
                     nargs = new object[] { httpContext, result };
 
@@ -172,7 +167,7 @@ namespace SAEA.WebAPI.Mvc
                     {
                         foreach (var arr in routing.FilterAtrrs)
                         {
-                            arr.GetType().GetMethod("OnActionExecuted").Invoke(arr, nargs);
+                            FastInvoke.GetMethodInvoker(arr.GetType().GetMethod("OnActionExecuted")).Invoke(arr, nargs);
                         }
                     }
 
@@ -180,7 +175,7 @@ namespace SAEA.WebAPI.Mvc
                     {
                         foreach (var arr in routing.FilterAtrrs)
                         {
-                            arr.GetType().GetMethod("OnActionExecuted").Invoke(arr, nargs);
+                            FastInvoke.GetMethodInvoker(arr.GetType().GetMethod("OnActionExecuted")).Invoke(arr, nargs);
                         }
                     }
                     return result;
@@ -206,7 +201,7 @@ namespace SAEA.WebAPI.Mvc
         /// <param name="obj"></param>
         /// <param name="nameValues"></param>
         /// <returns></returns>
-        private static ActionResult MethodInvoke(MethodInfo action, object obj, NameValueCollection nameValues)
+        private static ActionResult MethodInvoke(MethodInfo action, FastInvoke.FastInvokeHandler actionInvoker, object obj, NameValueCollection nameValues)
         {
             ActionResult result = null;
             try
@@ -217,11 +212,11 @@ namespace SAEA.WebAPI.Mvc
                 {
                     var list = FillPamars(@params, nameValues);
 
-                    result = (ActionResult)action.Invoke(obj, list.ToArray());
+                    result = (ActionResult)actionInvoker.Invoke(obj, list.ToArray());
                 }
                 else
                 {
-                    result = (ActionResult)action.Invoke(obj, null);
+                    result = (ActionResult)actionInvoker.Invoke(obj, null);
                 }
             }
             catch (Exception ex)

@@ -21,11 +21,10 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Commom;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using System.Text;
 
 namespace SAEA.WebAPI.Mvc
 {
@@ -48,7 +47,7 @@ namespace SAEA.WebAPI.Mvc
         /// <param name="actionName"></param>
         /// <param name="isPost"></param>
         /// <returns></returns>
-        public static Routing TryGet(Type controllerType, string controllerName, string actionName, bool isPost)
+        public static Routing GetOrAdd(Type controllerType, string controllerName, string actionName, bool isPost)
         {
             lock (_locker)
             {
@@ -91,9 +90,10 @@ namespace SAEA.WebAPI.Mvc
                             {
                                 ControllerName = controllerName,
                                 ActionName = actionName,
-                                Instance = instance,
+                                Instance = (Controller)instance,
                                 FilterAtrrs = iAttrs,
-                                Action = action
+                                Action = action,
+                                ActionInvoker = FastInvoke.GetMethodInvoker(action)
                             };
 
                             //action上面的过滤
@@ -120,9 +120,10 @@ namespace SAEA.WebAPI.Mvc
 
                             _list.Add(routing);
                         }
+                        return _list.Where(b => b.ControllerName.ToLower() == controllerName.ToLower() && b.ActionName.ToLower() == actionName.ToLower() && b.IsPost == isPost).FirstOrDefault();
                     }
                 }
-                return _list.Where(b => b.ControllerName.ToLower() == controllerName.ToLower() && b.ActionName.ToLower() == actionName.ToLower() && b.IsPost == isPost).FirstOrDefault();
+                return list.FirstOrDefault(b => b.IsPost == isPost);
             }
         }
     }

@@ -55,16 +55,6 @@ namespace SAEA.WebAPI.Http
 
         public string Query { get; set; }
 
-        /// <summary>
-        /// 定义缓冲区
-        /// </summary>
-        private const int MAX_SIZE =10* 1024;
-
-        private byte[] bytes = new byte[MAX_SIZE];
-
-        private Stream _dataStream;
-
-
         internal HttpServer HttpServer { get; set; }
 
         internal IUserToken UserToken { get; set; }
@@ -77,15 +67,13 @@ namespace SAEA.WebAPI.Http
 
         }
 
-        internal void Init(HttpServer httpServer, IUserToken userToken, Stream stream)
+        internal void Init(HttpServer httpServer, IUserToken userToken, string requestStr)
         {
             this.HttpServer = httpServer;
+
             this.UserToken = userToken;
-
-            this._dataStream = stream;
-
-            var data = GetRequestData(_dataStream);
-            var rows = Regex.Split(data, Environment.NewLine);
+            
+            var rows = Regex.Split(requestStr, Environment.NewLine);
 
             //Request URL & Method & Version
             var first = Regex.Split(rows[0], @"(\s+)")
@@ -120,19 +108,23 @@ namespace SAEA.WebAPI.Http
             //Request Headers
             this.Headers = GetRequestHeaders(rows);
 
+            var bodyStr = GetRequestBody(rows);
+
             //Request "GET"
             if (this.Method == "GET")
             {
-                this.Body = GetRequestBody(rows);
+                if (!string.IsNullOrEmpty(bodyStr))
+                    this.Body = Encoding.UTF8.GetBytes(bodyStr);
             }
 
             //Request "POST"
             if (this.Method == "POST")
             {
-                this.Body = GetRequestBody(rows);
+                if (!string.IsNullOrEmpty(bodyStr))
+                    this.Body = Encoding.UTF8.GetBytes(bodyStr);
                 var contentType = GetHeader(RequestHeaderType.ContentType);
                 var isUrlencoded = contentType == @"application/x-www-form-urlencoded";
-                if (isUrlencoded) this.Params = GetRequestParameters(this.Body);
+                if (isUrlencoded) this.Params = GetRequestParameters(bodyStr);
             }
         }
 
@@ -144,20 +136,6 @@ namespace SAEA.WebAPI.Http
         public void SetHeader(RequestHeaderType header, string value)
         {
             base.SetHeader(header, value);
-        }
-
-        private string GetRequestData(Stream stream)
-        {
-            var length = 0;
-            var data = string.Empty;
-
-            do
-            {
-                length = stream.Read(bytes, 0, MAX_SIZE - 1);
-                data += Encoding.UTF8.GetString(bytes, 0, length);
-            } while (length > 0 && !data.Contains(DENTER));
-
-            return data;
         }
 
         private string GetRequestBody(IEnumerable<string> rows)
@@ -183,7 +161,6 @@ namespace SAEA.WebAPI.Http
             if (string.IsNullOrEmpty(row)) return null;
             var kvs = Regex.Split(row, "&");
             if (kvs == null || kvs.Count() <= 0) return null;
-
             return kvs.ToDictionary(e => Regex.Split(e, "=")[0], e => Regex.Split(e, "=")[1]).ToNameValueCollection();
         }
 
@@ -192,11 +169,6 @@ namespace SAEA.WebAPI.Http
             this.Params.Clear();
             this.Query = this.URL = string.Empty;
             this.Headers.Clear();
-            if (this._dataStream != null)
-            {
-                this._dataStream.Close();
-            }
-            this._dataStream = null;
         }
     }
 }

@@ -25,7 +25,6 @@ using SAEA.Commom;
 using SAEA.Sockets.Interface;
 using SAEA.WebAPI.Http.Base;
 using SAEA.WebAPI.Mvc;
-using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Text;
@@ -35,9 +34,7 @@ namespace SAEA.WebAPI.Http
     public class HttpResponse : BaseHeader
     {
         public HttpStatusCode Status { get; set; } = HttpStatusCode.OK;
-
-        byte[] _content = null;
-
+        
 
         internal HttpServer HttpServer { get; set; }
 
@@ -83,7 +80,7 @@ namespace SAEA.WebAPI.Http
 
         internal HttpResponse SetContent(byte[] content, Encoding encoding = null)
         {
-            this._content = content;
+            this.Body = content;
             this.Encoding = encoding != null ? encoding : Encoding.UTF8;
             this.Content_Length = content.Length.ToString();
             return this;
@@ -155,7 +152,7 @@ namespace SAEA.WebAPI.Http
             list.AddRange(lineBytes);
 
             //发送内容
-            list.AddRange(_content);
+            list.AddRange(this.Body);
 
             return list.ToArray();
         }
@@ -181,8 +178,7 @@ namespace SAEA.WebAPI.Http
         {
             if (UserToken != null)
             {
-                HttpServer.Replay(UserToken, this.ToBytes());
-                HttpServer.Close(UserToken);
+                HttpServer.Reponse(UserToken, this.ToBytes());
             }
         }
 

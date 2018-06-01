@@ -114,81 +114,85 @@ namespace SAEA.RPC.Net
         /// <param name="onDecode"></param>
         public bool Decode(byte[] data, Action<RSocketMsg[], uint> onDecode)
         {
-            uint offset = 0;
-
-            try
+            lock (_locker)
             {
-                if (data != null && data.Length > offset + MIN)
+                uint offset = 0;
+
+                try
                 {
-                    var list = new List<RSocketMsg>();
-
-                    while (data.Length > offset + MIN)
+                    if (data != null && data.Length > offset + MIN)
                     {
-                        var total = BitConverter.ToUInt32(data, (int)offset + 1);
+                        var list = new List<RSocketMsg>();
 
-                        if (data.Length >= offset + total + 1)
+                        while (data.Length > offset + MIN)
                         {
-                            offset += 5;
+                            var total = BitConverter.ToUInt32(data, (int)offset + 1);
 
-                            var qm = new RSocketMsg((RSocketMsgType)data[0]);
-                            qm.Total = total;
-                            qm.SequenceNumber = BitConverter.ToInt64(data, (int)offset);
-
-                            offset += 8;
-
-                            qm.SLen = BitConverter.ToUInt32(data, (int)offset);
-                            offset += 4;
-
-
-                            if (qm.SLen > 0)
+                            if (data.Length >= offset + total + 1)
                             {
-                                var narr = new byte[qm.SLen];
-                                Buffer.BlockCopy(data, (int)offset, narr, 0, narr.Length);
-                                qm.ServiceName = Encoding.UTF8.GetString(narr);
+                                offset += 5;
+
+                                var qm = new RSocketMsg((RSocketMsgType)data[0]);
+                                qm.Total = total;
+                                qm.SequenceNumber = BitConverter.ToInt64(data, (int)offset);
+
+                                offset += 8;
+
+                                qm.SLen = BitConverter.ToUInt32(data, (int)offset);
+                                offset += 4;
+
+
+                                if (qm.SLen > 0)
+                                {
+                                    var narr = new byte[qm.SLen];
+                                    Buffer.BlockCopy(data, (int)offset, narr, 0, narr.Length);
+                                    qm.ServiceName = Encoding.UTF8.GetString(narr);
+                                }
+                                offset += qm.SLen;
+
+                                qm.MLen = BitConverter.ToUInt32(data, (int)offset);
+
+                                offset += 4;
+
+                                if (qm.MLen > 0)
+                                {
+                                    var tarr = new byte[qm.MLen];
+                                    Buffer.BlockCopy(data, (int)offset, tarr, 0, tarr.Length);
+                                    qm.MethodName = Encoding.UTF8.GetString(tarr);
+                                }
+                                offset += qm.MLen;
+
+                                var dlen = qm.Total - 8 - 4 - 4 - qm.SLen - 4 - qm.MLen;
+
+                                if (dlen > 0)
+                                {
+                                    var darr = new byte[dlen];
+                                    Buffer.BlockCopy(data, (int)offset, darr, 0, (int)dlen);
+                                    qm.Data = darr;
+                                    offset += dlen;
+                                }
+                                list.Add(qm);
                             }
-                            offset += qm.SLen;
-
-                            qm.MLen = BitConverter.ToUInt32(data, (int)offset);
-
-                            offset += 4;
-
-                            if (qm.MLen > 0)
+                            else
                             {
-                                var tarr = new byte[qm.MLen];
-                                Buffer.BlockCopy(data, (int)offset, tarr, 0, tarr.Length);
-                                qm.MethodName = Encoding.UTF8.GetString(tarr);
+                                break;
                             }
-                            offset += qm.MLen;
-
-                            var dlen = qm.Total - 8 - 4 - 4 - qm.SLen - 4 - qm.MLen;
-
-                            if (dlen > 0)
-                            {
-                                var darr = new byte[dlen];
-                                Buffer.BlockCopy(data, (int)offset, darr, 0, (int)dlen);
-                                qm.Data = darr;
-                                offset += dlen;
-                            }
-                            list.Add(qm);
                         }
-                        else
+                        if (list.Count > 0)
                         {
-                            break;
+                            onDecode?.Invoke(list.ToArray(), offset);
+                            return true;
                         }
-                    }
-                    if (list.Count > 0)
-                    {
-                        onDecode?.Invoke(list.ToArray(), offset);
-                        return true;
                     }
                 }
+                catch (Exception ex)
+                {
+                    ConsoleHelper.WriteLine($"RCoder.Decode error:{ex.Message} stack:{ex.StackTrace} data:{data.Length} offset:{offset}");
+                }
+                onDecode?.Invoke(null, 0);
+                return false;
             }
-            catch (Exception ex)
-            {
-                ConsoleHelper.WriteLine($"RCoder.Decode error:{ex.Message} stack:{ex.StackTrace} data:{data.Length} offset:{offset}");
-            }
-            onDecode?.Invoke(null, 0);
-            return false;
+            
         }
 
         /// <summary>

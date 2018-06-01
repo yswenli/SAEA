@@ -21,23 +21,40 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Commom;
+using SAEA.RPC.Common;
 using SAEA.RPC.Model;
 using SAEA.Sockets.Core;
+using SAEA.Sockets.Interface;
 using System;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace SAEA.RPC.Net
 {
-    internal class RClient : BaseClientSocket
+    internal class RClient : BaseClientSocket, ISyncBase, IDisposable
     {
-        #region event
+        bool _isConnected = false;
+
+        bool _isDisposed = false;
 
         /// <summary>
-        /// 收到消息
+        /// 当前连接状态
         /// </summary>
-        public event Action<RSocketMsg> OnMsg;
+        public bool IsConnected { get => _isConnected; set => _isConnected = value; }
+                
 
-        #endregion
+        SyncHelper<byte[]> _syncHelper = new SyncHelper<byte[]>();
+
+
+        object _syncLocker=new object();
+        public object SyncLocker
+        {
+            get
+            {
+                return _syncLocker;
+            }
+        }
 
         public RClient(Uri uri) : this(100 * 1024, uri.Host, uri.Port)
         {
@@ -52,7 +69,10 @@ namespace SAEA.RPC.Net
 
         }
 
-
+        /// <summary>
+        /// 连接到rpc服务
+        /// </summary>
+        /// <returns></returns>
         public bool Connect()
         {
             AutoResetEvent autoRestEvent = new AutoResetEvent(false);
@@ -61,6 +81,7 @@ namespace SAEA.RPC.Net
             {
                 if (s == System.Net.Sockets.SocketError.Success)
                 {
+                    _isConnected = true;
                     autoRestEvent.Set();
                 }
             });
@@ -70,16 +91,113 @@ namespace SAEA.RPC.Net
 
         protected override void OnReceived(byte[] data)
         {
-            ((RCoder)UserToken.Coder).Unpack(data, (r) =>
+            ((RCoder)UserToken.Coder).Unpack(data, (msg) =>
             {
-                OnMsg?.Invoke(r);
+                switch ((RSocketMsgType)msg.Type)
+                {
+                    case RSocketMsgType.Ping:
+                        break;
+                    case RSocketMsgType.Pong:
+
+                        break;
+                    case RSocketMsgType.Request:
+                        break;
+                    case RSocketMsgType.Response:
+                        _syncHelper.Set(msg.SequenceNumber, msg.Data);
+                        break;
+                    case RSocketMsgType.RequestBig:
+                        break;
+                    case RSocketMsgType.ResponseBig:
+                        break;
+                    case RSocketMsgType.Close:
+                        break;
+                }
             });
         }
 
+        /// <summary>
+        /// 发送心跳
+        /// </summary>
+        internal void KeepAlive()
+        {
+            Task.Factory.StartNew(() =>
+            {
+                while (!_isDisposed)
+                {
+                    if (_isConnected)
+                    {
+                        if (UserToken.Actived.AddSeconds(20) < DateTimeHelper.Now)
+                        {
+                            Send(new RSocketMsg(RSocketMsgType.Ping));
+                        }                        
+                    }
+                    ThreadHelper.Sleep(5 * 1000);
+                }
+            });
+        }
+        /// <summary>
+        /// 发送数据
+        /// </summary>
+        /// <param name="msg"></param>
         internal void Send(RSocketMsg msg)
         {
             var data = ((RCoder)UserToken.Coder).Encode(msg);
             SendAsync(data);
+        }
+
+        /// <summary>
+        /// 发送请求
+        /// </summary>
+        /// <param name="serviceName"></param>
+        /// <param name="method"></param>
+        /// <param name="args"></param>
+        /// <returns></returns>
+        public byte[] Request(string serviceName, string method, byte[] args)
+        {
+            lock (SyncLocker)
+            {
+                try
+                {
+                    byte[] result = null;
+
+                    var msg = new RSocketMsg(RSocketMsgType.Request, serviceName, method)
+                    {
+                        SequenceNumber = UniqueKeyHelper.Next()
+                    };
+
+                    msg.Data = args;
+
+                    this.Send(msg);
+
+                    if (_syncHelper.Wait(msg.SequenceNumber,
+                                            (r) =>
+                                            {
+                                                result = r;
+                                            },
+                                            10 * 1000))
+                    {
+                        return result;
+                    }
+                    return null;
+                }
+                catch (Exception ex)
+                {
+                    throw new RPCSocketException($"serviceName:{serviceName}/method:{method} 调用超时！", ex);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 释放资源
+        /// </summary>
+        public new void Dispose()
+        {
+            _isDisposed = true;
+            if (this._isConnected)
+            {
+                this.Disconnect();
+            }
+            base.Dispose();
         }
     }
 }

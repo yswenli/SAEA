@@ -37,7 +37,7 @@ namespace SAEA.WebAPI.Http.Base
 
         public string Protocols { get; set; } = "HTTP/1.1";
 
-        public string Body { get; set; }
+        public byte[] Body { get; set; }        
 
         public Encoding Encoding { get; set; } = Encoding.UTF8;
 

@@ -48,11 +48,21 @@ namespace SAEA.RPCTest.Provider.Model
         {
             get; set;
         }
-        
+
         public UserInfo Creator
         {
             get; set;
         }
+
+        public List<UserInfo> Users
+        {
+            get; set;
+        }
+
+        //public Dictionary<int, UserInfo> Limit
+        //{
+        //    get; set;
+        //}
 
     }
 }

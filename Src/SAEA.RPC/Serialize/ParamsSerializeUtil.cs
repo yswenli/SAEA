@@ -21,9 +21,12 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Commom;
 using SAEA.RPC.Model;
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Text;
 
 namespace SAEA.RPC.Serialize
@@ -241,18 +244,13 @@ namespace SAEA.RPC.Serialize
         public static object[] Deserialize(Type[] types, byte[] datas)
         {
             List<object> list = new List<object>();
-
-            var len = 0;
-
-            byte[] data = null;
-
+            
             int offset = 0;
 
             for (int i = 0; i < types.Length; i++)
             {
                 list.Add(Deserialize(types[i], datas, ref offset));
             }
-
             return list.ToArray();
         }
 
@@ -394,9 +392,16 @@ namespace SAEA.RPC.Serialize
 
 
         private static object DeserializeList(Type type, byte[] datas)
-        {
-            List<object> result = new List<object>();
+        {            
             var stype = type.GenericTypeArguments[0];
+
+            var gtype = type.GetGenericTypeDefinition().MakeGenericType(stype);
+
+            var result = Activator.CreateInstance(gtype);
+
+            var addMethod = gtype.GetMethod("Add");
+
+            var methodInvoker = FastInvoke.GetMethodInvoker(addMethod);
 
             var len = 0;
             var offset = 0;
@@ -422,11 +427,11 @@ namespace SAEA.RPC.Serialize
                     int lloffset = 0;
                     var sobj = Deserialize(stype, sdata, ref lloffset);
                     if (sobj != null)
-                        result.Add(sobj);
+                        methodInvoker.Invoke(result, new object[] { sobj });
                 }
                 else
                 {
-                    result.Add(null);
+                    methodInvoker.Invoke(result, null); 
                 }
             }
             return result;

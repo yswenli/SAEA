@@ -100,7 +100,7 @@ namespace SAEA.RPC.Generater
         internal static void GenerateProxy(string spaceName)
         {
             StringBuilder csStr = new StringBuilder();
-            csStr.AppendLine(Header("using SAEA.RPC.Consumer;", $"using {spaceName}.Consumer.Model;", $"using {spaceName}.Consumer.Service;"));
+            csStr.AppendLine(Header("using System.Collections.Generic;", "using SAEA.RPC.Consumer;", $"using {spaceName}.Consumer.Model;", $"using {spaceName}.Consumer.Service;"));
             csStr.AppendLine($"namespace {spaceName}.Consumer");
             csStr.AppendLine("{");
             csStr.AppendLine($"{GetSpace(1)}public class RPCServiceProxy");
@@ -169,14 +169,29 @@ namespace SAEA.RPC.Generater
 
             foreach (var item in methods)
             {
-                var rtype = item.Value.Mothd.ReturnType;
+                var rtype = item.Value.Method.ReturnType;
 
-                if (rtype != null)
+                if (rtype != null && rtype.IsClass)
                 {
-                    if (!_modelStrs.ContainsKey($"{spaceName}.Consumer.Model.{rtype.Name}"))
+                    if (rtype.IsGenericType)
                     {
-                        GenerateModel(spaceName, rtype);
+                        var t = rtype.GenericTypeArguments[0];
+
+                        if (!_modelStrs.ContainsKey($"{spaceName}.Consumer.Model.{t.Name}"))
+                        {
+                            GenerateModel(spaceName, t);
+                        }
                     }
+                    else
+                    {
+                        if (!_modelStrs.ContainsKey($"{spaceName}.Consumer.Model.{rtype.Name}"))
+                        {
+                            GenerateModel(spaceName, rtype);
+                        }
+                    }
+
+
+
                 }
 
                 var argsStr = new StringBuilder();
@@ -189,31 +204,64 @@ namespace SAEA.RPC.Generater
                     foreach (var arg in item.Value.Pamars)
                     {
                         i++;
-                        argsStr.Append(arg.Value.Name);
-                        argsStr.Append(" ");
-                        argsStr.Append(arg.Key);
+
+                        if (arg.Value.IsGenericType)
+                        {
+                            argsStr.Append($"List<{arg.Value.GenericTypeArguments[0].Name}>");
+                            argsStr.Append(" ");
+                            argsStr.Append(arg.Key);
+                        }
+                        else
+                        {
+                            argsStr.Append(arg.Value.Name);
+                            argsStr.Append(" ");
+                            argsStr.Append(arg.Key);
+                        }
+
+                        
                         if (i < item.Value.Pamars.Count)
                             argsStr.Append(", ");
 
                         if (arg.Value != null && arg.Value.IsClass)
                         {
-                            if (!_modelStrs.ContainsKey($"{spaceName}.Consumer.Model.{arg.Value.Name}"))
+                            if (arg.Value.IsGenericType)
                             {
-                                GenerateModel(spaceName, arg.Value);
+                                var t = arg.Value.GenericTypeArguments[0];
+
+                                if (!_modelStrs.ContainsKey($"{spaceName}.Consumer.Model.{t.Name}"))
+                                {
+                                    GenerateModel(spaceName, t);
+                                }
                             }
+                            else
+                            {
+                                if (!_modelStrs.ContainsKey($"{spaceName}.Consumer.Model.{arg.Value.Name}"))
+                                {
+                                    GenerateModel(spaceName, arg.Value);
+                                }
+                            }
+
+
                         }
 
                         argsInput.Append(", ");
                         argsInput.Append(arg.Key);
                     }
                 }
-
-                csStr.AppendLine(GetSpace(2) + $"public {rtype.Name} {item.Key}({argsStr.ToString()})");
-                csStr.AppendLine(GetSpace(2) + "{");
-                csStr.AppendLine(GetSpace(3) + $"return _serviceConsumer.RemoteCall<{rtype.Name}>(\"{serviceName}\", \"{item.Key}\"{argsInput.ToString()});");
-                csStr.AppendLine(GetSpace(2) + "}");
-
-
+                if (rtype.IsGenericType)
+                {
+                    csStr.AppendLine(GetSpace(2) + $"public List<{rtype.GenericTypeArguments[0].Name}> {item.Key}({argsStr.ToString()})");
+                    csStr.AppendLine(GetSpace(2) + "{");
+                    csStr.AppendLine(GetSpace(3) + $"return _serviceConsumer.RemoteCall<List<{rtype.GenericTypeArguments[0].Name}>>(\"{serviceName}\", \"{item.Key}\"{argsInput.ToString()});");
+                    csStr.AppendLine(GetSpace(2) + "}");
+                }
+                else
+                {
+                    csStr.AppendLine(GetSpace(2) + $"public {rtype.Name} {item.Key}({argsStr.ToString()})");
+                    csStr.AppendLine(GetSpace(2) + "{");
+                    csStr.AppendLine(GetSpace(3) + $"return _serviceConsumer.RemoteCall<{rtype.Name}>(\"{serviceName}\", \"{item.Key}\"{argsInput.ToString()});");
+                    csStr.AppendLine(GetSpace(2) + "}");
+                }
             }
 
             csStr.AppendLine(GetSpace(1) + "}");
@@ -238,7 +286,14 @@ namespace SAEA.RPC.Generater
             var ps = type.GetProperties();
             foreach (var p in ps)
             {
-                csStr.AppendLine($"{GetSpace(2)}public {p.PropertyType.Name} {p.Name}");
+                if (p.PropertyType.IsGenericType)
+                {
+                    csStr.AppendLine($"{GetSpace(2)}public List<{p.PropertyType.GenericTypeArguments[0].Name}> {p.Name}");
+                }
+                else
+                {
+                    csStr.AppendLine($"{GetSpace(2)}public {p.PropertyType.Name} {p.Name}");
+                }
                 csStr.AppendLine(GetSpace(2) + "{");
                 csStr.AppendLine(GetSpace(3) + "get;set;");
                 csStr.AppendLine(GetSpace(2) + "}");

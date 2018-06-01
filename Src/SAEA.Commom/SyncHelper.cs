@@ -36,15 +36,13 @@ namespace SAEA.Commom
     {
         ConcurrentDictionary<long, SyncInfo<T>> _cmdDic = new ConcurrentDictionary<long, SyncInfo<T>>();
 
-
-
         /// <summary>
         /// 设置等待点
         /// </summary>
         /// <param name="sNo"></param>
         /// <param name="action"></param>
         /// <param name="millisecondsTimeout"></param>
-        public bool WaitOne(long sNo, Action<T> action, int millisecondsTimeout = 180 * 1000)
+        public bool Wait(long sNo, Action<T> action, int millisecondsTimeout = 180 * 1000)
         {
             var result = false;
             var autoResetEvent = new AutoResetEvent(false);
@@ -56,9 +54,9 @@ namespace SAEA.Commom
 
             if (!result)
             {
-                ConsoleHelper.WriteLine($"同步失败：{sNo}");
+                throw new Exception($"操作超时：{sNo}");
             }
-
+            autoResetEvent.Close();
             return result;
         }
 

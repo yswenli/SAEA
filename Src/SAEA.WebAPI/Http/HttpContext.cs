@@ -22,19 +22,15 @@
 *
 *****************************************************************************/
 using SAEA.Sockets.Interface;
-using SAEA.WebAPI.Common;
-using SAEA.WebAPI.Http;
 using SAEA.WebAPI.Http.Base;
 using SAEA.WebAPI.Mvc;
-using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
 namespace SAEA.WebAPI.Http
 {
     /// <summary>
-    /// MVC上下文
+    /// http上下文
     /// </summary>
     public class HttpContext
     {
@@ -64,11 +60,7 @@ namespace SAEA.WebAPI.Http
 
         internal void Init(HttpServer httpServer, IUserToken userToken, string htmlStr)
         {
-            var buffer = Encoding.UTF8.GetBytes(htmlStr);
-
-            var ms = new MemoryStream(buffer);
-
-            this.Request.Init(httpServer, userToken, ms);
+            this.Request.Init(httpServer, userToken, htmlStr);
 
             this.Response.Init(httpServer, userToken);
         }

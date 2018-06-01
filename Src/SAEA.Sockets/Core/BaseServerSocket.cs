@@ -161,7 +161,7 @@ namespace SAEA.Sockets.Core
                     try
                     {
                         var userToken = (IUserToken)e.UserToken;
-                        Disconnected(userToken, new Exception("当前操作异常，SocketAsyncOperation：" + e.LastOperation));
+                        Disconnect(userToken, new Exception("当前操作异常，SocketAsyncOperation：" + e.LastOperation));
                     }
                     catch { }
                     break;
@@ -194,14 +194,14 @@ namespace SAEA.Sockets.Core
                 else
                 {
                     _argsPool.Free(readArgs);
-                    Disconnected(userToken, new Exception("远程主机已断开连接！"));
+                    Disconnect(userToken, new Exception("远程主机已断开连接！"));
                 }
             }
             catch (Exception ex)
             {
                 _argsPool.Free(readArgs);
                 OnError?.Invoke(userToken.ID, ex);
-                Disconnected(userToken, ex);
+                Disconnect(userToken, ex);
             }
 
             if (userToken != null && userToken.Socket != null && !userToken.Socket.ReceiveAsync(readArgs))
@@ -226,7 +226,7 @@ namespace SAEA.Sockets.Core
         {
             if (userToken == null || userToken.Socket == null || !userToken.Socket.Connected)
             {
-                Disconnected(userToken, new Exception("当前连接已被移除"));
+                Disconnect(userToken, new Exception("当前连接已被移除"));
                 return;
             }
 
@@ -258,7 +258,7 @@ namespace SAEA.Sockets.Core
         {
             if (userToken == null || userToken.Socket == null || !userToken.Socket.Connected)
             {
-                Disconnected(userToken, new Exception("当前连接已被移除"));
+                Disconnect(userToken, new Exception("当前连接已被移除"));
                 return;
             }
 
@@ -283,7 +283,7 @@ namespace SAEA.Sockets.Core
             }
             catch (Exception ex)
             {
-                Disconnected(userToken, ex);
+                Disconnect(userToken, ex);
             }
         }
 
@@ -291,17 +291,17 @@ namespace SAEA.Sockets.Core
         object _locker = new object();
 
         /// <summary>
-        /// 主动断开客户端连接
+        /// 断开客户端连接
         /// </summary>
         /// <param name="userToken"></param>
         /// <param name="ex"></param>
-        public void Disconnected(IUserToken userToken, Exception ex = null)
+        public void Disconnect(IUserToken userToken, Exception ex = null)
         {
             lock (_locker)
             {
                 if (userToken != null && userToken.Socket != null)
                 {
-                    OnDisconnected?.Invoke(userToken.ID, ex ?? new Exception("服务器主动断开连接！"));
+                    OnDisconnected?.Invoke(userToken.ID, ex);
                     _contextFactory.Free(userToken);
                     SessionManager.Remove(userToken.ID);
                     Interlocked.Decrement(ref _clientCounts);

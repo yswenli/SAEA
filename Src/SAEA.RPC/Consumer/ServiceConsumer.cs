@@ -37,130 +37,32 @@ namespace SAEA.RPC.Consumer
     /// </summary>
     public class ServiceConsumer
     {
-        RClient _rClient = null;
+        ConsumerMultiplexer _consumerMultiplexer = null;
 
-        SyncHelper<byte[]> _syncHelper = new SyncHelper<byte[]>();
-
-        bool _isConnected = false;
-
-        DateTime _actived = DateTimeHelper.Now;
+        int _retry = 5;
 
         public ServiceConsumer() : this(new Uri("rpc://127.0.0.1:39654")) { }
 
-        public ServiceConsumer(Uri uri)
+        /// <summary>
+        /// rpc消费者
+        /// </summary>
+        /// <param name="uri"></param>
+        /// <param name="retry"></param>
+        public ServiceConsumer(Uri uri, int retry = 5)
         {
-            _rClient = new RClient(uri);
-            _rClient.OnError += _rClient_OnError;
-            _rClient.OnMsg += _rClient_OnMsg;
-
-            AutoResetEvent autoResetEvent = new AutoResetEvent(false);
-
-            _rClient.ConnectAsync((s) =>
-            {
-                if (s == System.Net.Sockets.SocketError.Success)
-                {
-                    _isConnected = true;
-                }
-                else throw new RPCSocketException("ServiceConsumer.ConnectAsync 连接失败！");
-                autoResetEvent.Set();
-            });
-            autoResetEvent.WaitOne();
-            autoResetEvent.Close();
-            KeepAlive();
+            _retry = retry;
+            _consumerMultiplexer = ConsumerMultiplexer.Create(uri);
+            _consumerMultiplexer.OnError += _consumerMultiplexer_OnError;
         }
 
-        private void _rClient_OnMsg(RSocketMsg msg)
-        {
-            switch ((RSocketMsgType)msg.Type)
-            {
-                case RSocketMsgType.Ping:
-                    break;
-                case RSocketMsgType.Pong:
+       
 
-                    break;
-                case RSocketMsgType.Request:
-                    break;
-                case RSocketMsgType.Response:
-                    _syncHelper.Set(msg.SequenceNumber, msg.Data);
-                    break;
-                case RSocketMsgType.RequestBig:
-                    break;
-                case RSocketMsgType.ResponseBig:
-                    break;
-                case RSocketMsgType.Close:
-                    break;
-            }
-        }
-
-        private void _rClient_OnError(string ID, Exception ex)
+        private void _consumerMultiplexer_OnError(string ID, Exception ex)
         {
             throw new RPCSocketException("ServiceConsumer Socket Exception:" + ex.Message, ex);
         }
 
-
-        private void BaseSend(RSocketMsg msg)
-        {
-            _rClient.Send(msg);
-
-            _actived = DateTimeHelper.Now;
-        }
-
-        /// <summary>
-        /// 保持连接
-        /// </summary>
-        private void KeepAlive()
-        {
-            Task.Factory.StartNew(() =>
-            {
-                while (true)
-                {
-                    if (_isConnected)
-                    {
-                        if (_actived.AddMinutes(1) < DateTimeHelper.Now)
-                        {
-                            BaseSend(new RSocketMsg(RSocketMsgType.Ping));
-                        }
-                        ThreadHelper.Sleep(5 * 1000);
-                    }
-                    else
-                    {
-                        ThreadHelper.Sleep(10);
-                    }
-                }
-            });
-        }
-
-        /// <summary>
-        /// 本地rpc远程代理
-        /// </summary>
-        /// <param name="serviceName"></param>
-        /// <param name="method"></param>
-        /// <param name="args"></param>
-        /// <returns></returns>
-        public byte[] RemoteCall(string serviceName, string method, byte[] args)
-        {
-            if (!_isConnected) throw new RPCSocketException("连接到服务器失败");
-
-            byte[] result = null;
-
-            var msg = new RSocketMsg(RSocketMsgType.Request, serviceName, method)
-            {
-                SequenceNumber = UniqueKeyHelper.Next()
-            };
-
-            msg.Data = args;
-
-            BaseSend(msg);
-
-            if (_syncHelper.WaitOne(msg.SequenceNumber, (r) =>
-            {
-                result = r;
-            }, 10 * 1000))
-            {
-                return result;
-            }
-            return null;
-        }
+        
 
         /// <summary>
         /// 调用远程RPC
@@ -180,7 +82,9 @@ namespace SAEA.RPC.Consumer
             {
                 abytes = ParamsSerializeUtil.Serialize(args);
             }
-            var data = RemoteCall(serviceName, method, abytes);
+
+            var data = _consumerMultiplexer.Request(serviceName, method, abytes, _retry);
+
             if (data != null)
             {
                 int offset = 0;

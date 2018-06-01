@@ -67,7 +67,7 @@ namespace SAEA.TcpP2P.Net
                     case (byte)HolePunchingType.Logout:
                     case (byte)HolePunchingType.Close:
                     default:
-                        base.Disconnected(userToken, null);
+                        base.Disconnect(userToken, new Exception("未定义的类型"));
                         break;
                 }
             }, null);

@@ -21,16 +21,15 @@
 *描述：
 *
 *****************************************************************************/
-using System;
+using SAEA.Commom;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Text;
 
 namespace SAEA.WebAPI.Mvc
 {
     public class Routing
     {
-        public object Instance
+        public Controller Instance
         {
             get; set;
         }
@@ -42,6 +41,12 @@ namespace SAEA.WebAPI.Mvc
         {
             get; set;
         }
+
+        public FastInvoke.FastInvokeHandler ActionInvoker
+        {
+            get;set;
+        }
+
         public string ActionName
         {
             get; set;
