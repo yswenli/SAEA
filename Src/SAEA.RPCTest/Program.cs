@@ -114,14 +114,7 @@ namespace SAEA.RPCTest
             {
                 cp.HelloService.Update(ui);
             }
-            ConsoleHelper.WriteLine($"单线程实体传输：{count * 1000 / sw.ElapsedMilliseconds} 次/秒");
-
-            sw.Restart();
-            Parallel.For(0, count, i =>
-            {
-                cp.HelloService.Update(ui);
-            });
-            ConsoleHelper.WriteLine($"多线程实体传输：{count * 1000 / sw.ElapsedMilliseconds} 次/秒");
+            ConsoleHelper.WriteLine($"实体传输：{count * 1000 / sw.ElapsedMilliseconds} 次/秒");            
 
             sw.Stop();
 

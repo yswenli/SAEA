@@ -27,8 +27,10 @@ using SAEA.WebAPI.Mvc;
 
 namespace SAEA.WebAPITest.Attrubutes
 {
-    public class LogAtrribute : ActionFilterAttribute
+    public sealed class LogAtrribute : ActionFilterAttribute
     {
+        public LogAtrribute(bool isEnabled) : base(isEnabled) { }
+
         /// <summary>
         /// 执行前
         /// </summary>
@@ -51,6 +53,8 @@ namespace SAEA.WebAPITest.Attrubutes
     }
     public class Log2Atrribute : ActionFilterAttribute
     {
+        public Log2Atrribute(bool isEnabled) : base(isEnabled) { }
+
         /// <summary>
         /// 执行前
         /// </summary>

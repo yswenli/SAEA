@@ -137,7 +137,7 @@ namespace SAEA.WebAPI.Mvc
                     {
                         foreach (var arr in routing.FilterAtrrs)
                         {
-                            var goOn = (bool)arr.GetType().GetMethod("OnActionExecuting").Invoke(arr, nargs.ToArray());
+                            var goOn = (bool)FastInvoke.GetMethodInvoker(arr.GetType().GetMethod("OnActionExecuting")).Invoke(arr, nargs.ToArray());
 
                             if (!goOn)
                             {

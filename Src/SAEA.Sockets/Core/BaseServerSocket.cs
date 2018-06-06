@@ -301,8 +301,8 @@ namespace SAEA.Sockets.Core
             {
                 if (userToken != null && userToken.Socket != null)
                 {
-                    OnDisconnected?.Invoke(userToken.ID, ex);
                     _contextFactory.Free(userToken);
+                    OnDisconnected?.Invoke(userToken.ID, ex);
                     SessionManager.Remove(userToken.ID);
                     Interlocked.Decrement(ref _clientCounts);
                 }

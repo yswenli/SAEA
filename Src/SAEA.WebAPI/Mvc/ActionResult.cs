@@ -49,20 +49,20 @@ namespace SAEA.WebAPI.Mvc
         //
         // 返回结果:
         //     内容编码。
-        public Encoding ContentEncoding { get; set; }
+        public Encoding ContentEncoding { get; set; } = Encoding.UTF8;
         //
         // 摘要:
         //     获取或设置内容的类型。
         //
         // 返回结果:
         //     内容的类型。
-        public string ContentType { get; set; }
+        public string ContentType { get; set; } = "application/json";
 
 
         public HttpStatusCode Status
         {
-            get;set;
-        }
+            get; set;
+        } = HttpStatusCode.OK;
 
 
     }

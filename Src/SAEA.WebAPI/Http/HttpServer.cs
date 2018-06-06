@@ -91,7 +91,7 @@ namespace SAEA.WebAPI.Http
                     }
                     catch (Exception ex)
                     {
-                        LogHelper.WriteError("HttpServer._serverSocket_OnRequested", ex);
+                        _serverSocket.Disconnect(userToken, ex);
                     }
                     break;
                 }

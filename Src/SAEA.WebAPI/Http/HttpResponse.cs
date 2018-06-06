@@ -23,6 +23,7 @@
 *****************************************************************************/
 using SAEA.Commom;
 using SAEA.Sockets.Interface;
+using SAEA.WebAPI.Common;
 using SAEA.WebAPI.Http.Base;
 using SAEA.WebAPI.Mvc;
 using System.Collections.Generic;
@@ -34,7 +35,7 @@ namespace SAEA.WebAPI.Http
     public class HttpResponse : BaseHeader
     {
         public HttpStatusCode Status { get; set; } = HttpStatusCode.OK;
-        
+
 
         internal HttpServer HttpServer { get; set; }
 
@@ -119,6 +120,9 @@ namespace SAEA.WebAPI.Http
             if (!string.IsNullOrEmpty(this.Content_Type))
                 builder.AppendLine("Content-Type:" + this.Content_Type);
 
+            //支持gzip
+            builder.AppendLine("Content-Encoding:gzip");
+
             //支持跨域
             builder.AppendLine("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
             builder.AppendLine("Access-Control-Allow-Origin: *");
@@ -141,20 +145,27 @@ namespace SAEA.WebAPI.Http
         /// </summary>
         protected byte[] ToBytes()
         {
-            List<byte> list = new List<byte>();
-            //发送响应头
-            var header = BuildHeader();
-            byte[] headerBytes = this.Encoding.GetBytes(header);
-            list.AddRange(headerBytes);
+            List<byte> reponseDataList = new List<byte>();
 
-            //发送空行
             byte[] lineBytes = this.Encoding.GetBytes(System.Environment.NewLine);
-            list.AddRange(lineBytes);
 
+            //var bdata = this.Body;
+            var bdata = GZipHelper.Compress(this.Body);
+
+            this.SetHeader(ResponseHeaderType.ContentLength, bdata.Length.ToString());
+
+            var header = BuildHeader();
+
+            byte[] headerBytes = this.Encoding.GetBytes(header);
+
+            //发送响应头
+            reponseDataList.AddRange(headerBytes);
+            //发送空行
+            reponseDataList.AddRange(lineBytes);
             //发送内容
-            list.AddRange(this.Body);
+            reponseDataList.AddRange(bdata);
 
-            return list.ToArray();
+            return reponseDataList.ToArray();
         }
 
 

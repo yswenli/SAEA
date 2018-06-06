@@ -86,6 +86,7 @@ namespace SAEA.WebAPITest.Controllers
         {
             return Json(userInfo);
         }
+
         [HttpPost]
         public ActionResult Test()
         {

@@ -48,7 +48,7 @@ namespace SAEA.Commom
 
             foreach (var value in enumValues)
             {
-                if (@enum == value)
+                if (@enum.Equals(value))
                 {
                     MemberInfo memberInfo = typeInfo.GetMember(value.ToString()).First();
 

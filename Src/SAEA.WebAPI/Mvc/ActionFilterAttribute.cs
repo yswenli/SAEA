@@ -23,16 +23,22 @@
 *****************************************************************************/
 using SAEA.WebAPI.Http;
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.WebAPI.Mvc
 {
     /// <summary>
     /// 拦截器
     /// </summary>
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Property, AllowMultiple = true, Inherited = true)]
     public abstract class ActionFilterAttribute : Attribute
     {
+        bool _isEnabled = true;
+
+        public ActionFilterAttribute(bool isEnabled)
+        {
+            _isEnabled = true;
+        }
+
         /// <summary>
         /// 方法执行前
         /// </summary>

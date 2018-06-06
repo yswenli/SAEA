@@ -29,7 +29,7 @@ using System.Reflection.Emit;
 namespace SAEA.Commom
 {
     /// <summary>
-    /// 快速Invoke
+    /// 快速对反射方法进行Invoke
     /// </summary>
     public static class FastInvoke
     {

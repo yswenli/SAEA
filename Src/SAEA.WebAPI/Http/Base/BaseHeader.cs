@@ -37,7 +37,7 @@ namespace SAEA.WebAPI.Http.Base
 
         public string Protocols { get; set; } = "HTTP/1.1";
 
-        public byte[] Body { get; set; }        
+        public byte[] Body { get; set; }
 
         public Encoding Encoding { get; set; } = Encoding.UTF8;
 
@@ -50,7 +50,7 @@ namespace SAEA.WebAPI.Http.Base
         public string ContentLanguage { get; set; }
 
         public NameValueCollection Headers { get; set; } = new NameValueCollection();
-        
+
         protected string GetHeader(Enum header)
         {
             var fieldName = header.GetDescription();
@@ -59,14 +59,22 @@ namespace SAEA.WebAPI.Http.Base
             if (!hasKey) return null;
             return Headers[fieldName];
         }
-        
+
         protected void SetHeader(Enum header, string value)
         {
             var fieldName = header.GetDescription();
             if (fieldName == null) return;
             var hasKey = Headers.ContainsName(fieldName);
-            if (!hasKey) Headers.Add(fieldName, value);
-            Headers[fieldName] = value;
+            if (hasKey) Headers.Remove(fieldName);
+            Headers.Add(fieldName, value);
+        }
+
+        protected void RemoveHeader(Enum header, string value)
+        {
+            var fieldName = header.GetDescription();
+            if (fieldName == null) return;
+            var hasKey = Headers.ContainsName(fieldName);
+            if (hasKey) Headers.Remove(fieldName);
         }
     }
 }
