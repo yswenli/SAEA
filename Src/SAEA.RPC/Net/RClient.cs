@@ -42,12 +42,12 @@ namespace SAEA.RPC.Net
         /// 当前连接状态
         /// </summary>
         public bool IsConnected { get => _isConnected; set => _isConnected = value; }
-                
+
 
         SyncHelper<byte[]> _syncHelper = new SyncHelper<byte[]>();
 
 
-        object _syncLocker=new object();
+        object _syncLocker = new object();
         public object SyncLocker
         {
             get
@@ -129,7 +129,7 @@ namespace SAEA.RPC.Net
                         if (UserToken.Actived.AddSeconds(20) < DateTimeHelper.Now)
                         {
                             Send(new RSocketMsg(RSocketMsgType.Ping));
-                        }                        
+                        }
                     }
                     ThreadHelper.Sleep(5 * 1000);
                 }
@@ -151,8 +151,9 @@ namespace SAEA.RPC.Net
         /// <param name="serviceName"></param>
         /// <param name="method"></param>
         /// <param name="args"></param>
+        /// <param name="timeOut"></param>
         /// <returns></returns>
-        public byte[] Request(string serviceName, string method, byte[] args)
+        public byte[] Request(string serviceName, string method, byte[] args, int timeOut)
         {
             lock (SyncLocker)
             {
@@ -167,14 +168,9 @@ namespace SAEA.RPC.Net
 
                     msg.Data = args;
 
-                    this.Send(msg);
-
-                    if (_syncHelper.Wait(msg.SequenceNumber,
-                                            (r) =>
-                                            {
-                                                result = r;
-                                            },
-                                            10 * 1000))
+                    if (_syncHelper.Wait(msg.SequenceNumber, () => { this.Send(msg); },
+                                            (r) => { result = r; },
+                                            timeOut))
                     {
                         return result;
                     }

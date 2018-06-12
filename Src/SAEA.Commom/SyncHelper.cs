@@ -40,13 +40,14 @@ namespace SAEA.Commom
         /// 设置等待点
         /// </summary>
         /// <param name="sNo"></param>
-        /// <param name="action"></param>
+        /// <param name="callBack"></param>
         /// <param name="millisecondsTimeout"></param>
-        public bool Wait(long sNo, Action<T> action, int millisecondsTimeout = 180 * 1000)
+        public bool Wait(long sNo, Action work, Action<T> callBack, int millisecondsTimeout = 180 * 1000)
         {
             var result = false;
             var autoResetEvent = new AutoResetEvent(false);
-            _cmdDic.TryAdd(sNo, new SyncInfo<T>() { AutoResetEvent = autoResetEvent, Action = action });
+            _cmdDic.TryAdd(sNo, new SyncInfo<T>() { AutoResetEvent = autoResetEvent, Action = callBack });
+            work?.Invoke();
             if (millisecondsTimeout > 0)
                 result = autoResetEvent.WaitOne(millisecondsTimeout);
             else

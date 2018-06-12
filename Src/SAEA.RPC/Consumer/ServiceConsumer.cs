@@ -21,14 +21,9 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Commom;
-using SAEA.RPC.Common;
 using SAEA.RPC.Model;
-using SAEA.RPC.Net;
 using SAEA.RPC.Serialize;
 using System;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace SAEA.RPC.Consumer
 {
@@ -47,22 +42,24 @@ namespace SAEA.RPC.Consumer
         /// rpc消费者
         /// </summary>
         /// <param name="uri"></param>
+        /// <param name="links"></param>
         /// <param name="retry"></param>
-        public ServiceConsumer(Uri uri, int retry = 5)
+        /// <param name="timeOut"></param>
+        public ServiceConsumer(Uri uri, int links = 4, int retry = 5, int timeOut = 10 * 1000)
         {
             _retry = retry;
-            _consumerMultiplexer = ConsumerMultiplexer.Create(uri);
+            _consumerMultiplexer = ConsumerMultiplexer.Create(uri, links, timeOut);
             _consumerMultiplexer.OnError += _consumerMultiplexer_OnError;
         }
 
-       
+
 
         private void _consumerMultiplexer_OnError(string ID, Exception ex)
         {
             throw new RPCSocketException("ServiceConsumer Socket Exception:" + ex.Message, ex);
         }
 
-        
+
 
         /// <summary>
         /// 调用远程RPC

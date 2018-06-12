@@ -44,10 +44,12 @@ namespace SAEA.RPC.Consumer
 
         int _links = 4;
 
+        int _timeOut = 10 * 1000;
+
         ConcurrentDictionary<int, RClient> _myClients = new ConcurrentDictionary<int, RClient>();
 
 
-        object _syncLocker=new object();
+        object _syncLocker = new object();
         public object SyncLocker
         {
             get
@@ -61,15 +63,20 @@ namespace SAEA.RPC.Consumer
         /// </summary>
         /// <param name="uri"></param>
         /// <param name="links"></param>
-        ConsumerMultiplexer(Uri uri, int links = 10)
+        /// <param name="timeOut"></param>
+        ConsumerMultiplexer(Uri uri, int links = 10, int timeOut = 10 * 1000)
         {
             _uri = uri;
             _links = links;
+            _timeOut = timeOut;
+
             var dic = _hashMap.GetAll(uri.ToString());
 
             for (int i = 0; i < _links; i++)
             {
                 var rClient = dic[i];
+                rClient.OnDisconnected -= RClient_OnDisconnected;
+                rClient.OnError -= RClient_OnError;
                 rClient.OnDisconnected += RClient_OnDisconnected;
                 rClient.OnError += RClient_OnError;
                 _myClients.TryAdd(i, rClient);
@@ -81,7 +88,9 @@ namespace SAEA.RPC.Consumer
         /// </summary>
         /// <param name="uri"></param>
         /// <param name="links"></param>
-        public static ConsumerMultiplexer Create(Uri uri, int links = 4)
+        /// <param name="timeOut"></param>
+        /// <returns></returns>
+        public static ConsumerMultiplexer Create(Uri uri, int links = 4, int timeOut = 10 * 1000)
         {
             if (!_hashMap.Exits(uri.ToString()))
             {
@@ -96,7 +105,7 @@ namespace SAEA.RPC.Consumer
                     _hashMap.Set(uri.ToString(), i, rClient);
                 }
             }
-            return new ConsumerMultiplexer(uri, links);
+            return new ConsumerMultiplexer(uri, links, timeOut);
         }
 
 
@@ -135,7 +144,7 @@ namespace SAEA.RPC.Consumer
         /// <returns></returns>
         public byte[] Request(string serviceName, string method, byte[] args, int retry = 5)
         {
-            return ReTryHelper.Do(() => this.GetClient().Request(serviceName, method, args), retry);
+            return ReTryHelper.Do(() => this.GetClient().Request(serviceName, method, args, _timeOut), retry);
         }
 
         /// <summary>

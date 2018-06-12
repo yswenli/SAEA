@@ -29,6 +29,7 @@ namespace SAEA.RPC.Model
 {
     public class RPCNotFundException : Exception
     {
+        public RPCNotFundException(string message) : base(message) { }
         public RPCNotFundException(string message, Exception innerException) : base(message, innerException) { }
     }
 }

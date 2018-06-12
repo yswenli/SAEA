@@ -58,9 +58,7 @@ namespace SAEA.RPC.Provider
         public ServiceProvider(Type[] serviceTypes, int port = 39654)
         {
             _serviceTypes = serviceTypes;
-            _port = 39654;
-
-            RPCMapping.Regists(_serviceTypes);
+            _port = 39654;           
 
             _RServer = new RServer();
             _RServer.OnMsg += _RServer_OnMsg;
@@ -108,9 +106,11 @@ namespace SAEA.RPC.Provider
         {
             if (!_started)
             {
-                _started = true;
-
                 _RServer.Start(_port);
+
+                RPCMapping.Regists(_serviceTypes);
+
+                _started = true;
             }
 
         }
