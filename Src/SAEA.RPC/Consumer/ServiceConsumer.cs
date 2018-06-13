@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Commom;
 using SAEA.RPC.Model;
 using SAEA.RPC.Serialize;
 using System;
@@ -49,14 +50,18 @@ namespace SAEA.RPC.Consumer
         {
             _retry = retry;
             _consumerMultiplexer = ConsumerMultiplexer.Create(uri, links, timeOut);
+            _consumerMultiplexer.OnDisconnected += _consumerMultiplexer_OnDisconnected;
             _consumerMultiplexer.OnError += _consumerMultiplexer_OnError;
         }
 
-
+        private void _consumerMultiplexer_OnDisconnected(string ID, Exception ex)
+        {
+            ExceptionCollector.Add("Consumer", new RPCSocketException("ServiceConsumer Socket Disconnected:" + ex.Message, ex));
+        }
 
         private void _consumerMultiplexer_OnError(string ID, Exception ex)
         {
-            throw new RPCSocketException("ServiceConsumer Socket Exception:" + ex.Message, ex);
+            ExceptionCollector.Add("Consumer", new RPCSocketException("ServiceConsumer Socket Exception:" + ex.Message, ex));
         }
 
 

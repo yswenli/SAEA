@@ -1,10 +1,11 @@
 ﻿/*******
-* 此代码为IM.RPCGenerater生成
-* 尽量不要修改此代码 2018-06-11 16:26:22
+* 此代码为SAEA.RPC.Generater生成
+* 尽量不要修改此代码 2018-06-12 15:18:36
 *******/
 
 using System;
 using System.Collections.Generic;
+using SAEA.Commom;
 using SAEA.RPC.Consumer;
 using SAEA.RPCTest.Consumer.Model;
 using SAEA.RPCTest.Consumer.Service;
@@ -13,15 +14,21 @@ namespace SAEA.RPCTest.Consumer
 {
     public class RPCServiceProxy
     {
+        public event ExceptionCollector.OnErrHander OnErr;
         ServiceConsumer _serviceConsumer;
         public RPCServiceProxy(string uri = "rpc://127.0.0.1:39654") : this(new Uri(uri)) { }
         public RPCServiceProxy(Uri uri, int links = 4, int retry = 5, int timeOut = 10 * 1000)
         {
+            ExceptionCollector.OnErr += ExceptionCollector_OnErr;
             _serviceConsumer = new ServiceConsumer(uri, links, retry, timeOut);
             _groupService = new GroupService(_serviceConsumer);
             _helloService = new HelloService(_serviceConsumer);
             _dicService = new DicService(_serviceConsumer);
             _genericService = new GenericService(_serviceConsumer);
+        }
+        private void ExceptionCollector_OnErr(string name, Exception ex)
+        {
+            OnErr(name, ex);
         }
         GroupService _groupService;
         public GroupService GroupService

@@ -170,14 +170,12 @@ namespace SAEA.QueueSocket.Net
 
                         if (data.Length >= offset + total + 1)
                         {
+                            var qm = new QueueSocketMsg((QueueSocketMsgType)data[offset]);
                             offset += 5;
-
-                            var qm = new QueueSocketMsg((QueueSocketMsgType)data[0]);
                             qm.Total = total;
 
                             qm.NLen = BitConverter.ToInt32(data, offset);
                             offset += 4;
-
 
                             if (qm.NLen > 0)
                             {

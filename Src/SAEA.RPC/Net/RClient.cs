@@ -60,7 +60,8 @@ namespace SAEA.RPC.Net
         {
             if (string.IsNullOrEmpty(uri.Scheme) || uri.Scheme.ToLower() != "rpc")
             {
-                throw new RPCSocketException("当前连接协议不正确，请使用格式rpc://ip:port");
+                ExceptionCollector.Add("Consumer", new RPCSocketException("当前连接协议不正确，请使用格式rpc://ip:port"));
+                return;
             }
         }
 
@@ -93,6 +94,8 @@ namespace SAEA.RPC.Net
         {
             ((RCoder)UserToken.Coder).Unpack(data, (msg) =>
             {
+                //ConsoleHelper.WriteLine($"4 consumer receive: {msg.SequenceNumber}");
+
                 switch ((RSocketMsgType)msg.Type)
                 {
                     case RSocketMsgType.Ping:
@@ -120,20 +123,28 @@ namespace SAEA.RPC.Net
         /// </summary>
         internal void KeepAlive()
         {
-            Task.Factory.StartNew(() =>
+            ThreadHelper.Run(() =>
             {
                 while (!_isDisposed)
                 {
-                    if (_isConnected)
+                    try
                     {
-                        if (UserToken.Actived.AddSeconds(20) < DateTimeHelper.Now)
+                        if (_isConnected)
                         {
-                            Send(new RSocketMsg(RSocketMsgType.Ping));
+                            if (UserToken.Actived.AddSeconds(20) < DateTimeHelper.Now)
+                            {
+                                Send(new RSocketMsg(RSocketMsgType.Ping));
+                            }
                         }
+                        ThreadHelper.Sleep(5 * 100);
                     }
-                    ThreadHelper.Sleep(5 * 1000);
+                    catch (Exception ex)
+                    {
+                        _isConnected = false;
+                        ExceptionCollector.Add("Consumer", ex);
+                    }
                 }
-            });
+            }, true, ThreadPriority.Highest);
         }
         /// <summary>
         /// 发送数据
@@ -141,8 +152,11 @@ namespace SAEA.RPC.Net
         /// <param name="msg"></param>
         internal void Send(RSocketMsg msg)
         {
-            var data = ((RCoder)UserToken.Coder).Encode(msg);
-            SendAsync(data);
+            lock (_syncLocker)
+            {
+                var data = ((RCoder)UserToken.Coder).Encode(msg);
+                SendAsync(data);
+            }
         }
 
         /// <summary>
@@ -155,32 +169,36 @@ namespace SAEA.RPC.Net
         /// <returns></returns>
         public byte[] Request(string serviceName, string method, byte[] args, int timeOut)
         {
-            lock (SyncLocker)
+            try
             {
-                try
+                byte[] result = null;
+
+                var msg = new RSocketMsg(RSocketMsgType.Request, serviceName, method)
                 {
-                    byte[] result = null;
+                    SequenceNumber = UniqueKeyHelper.Next()
+                };
 
-                    var msg = new RSocketMsg(RSocketMsgType.Request, serviceName, method)
-                    {
-                        SequenceNumber = UniqueKeyHelper.Next()
-                    };
+                msg.Data = args;
 
-                    msg.Data = args;
-
-                    if (_syncHelper.Wait(msg.SequenceNumber, () => { this.Send(msg); },
-                                            (r) => { result = r; },
-                                            timeOut))
-                    {
-                        return result;
-                    }
-                    return null;
+                if (_syncHelper.Wait(msg.SequenceNumber, () =>
+                {
+                    this.Send(msg); //ConsoleHelper.WriteLine($"1 consumer send: {msg.SequenceNumber}");
+                },
+                                        (r) => { result = r; },
+                                        timeOut))
+                {
+                    return result;
                 }
-                catch (Exception ex)
+                else
                 {
-                    throw new RPCSocketException($"serviceName:{serviceName}/method:{method} 调用超时！", ex);
+                    ExceptionCollector.Add("Consumer", new RPCSocketException($"serviceName:{serviceName}/method:{method} 调用超时！"));
                 }
             }
+            catch (Exception ex)
+            {
+                ExceptionCollector.Add("Consumer", new RPCSocketException($"serviceName:{serviceName}/method:{method} 调用出现异常！", ex));
+            }
+            return null;
         }
 
         /// <summary>
@@ -191,6 +209,7 @@ namespace SAEA.RPC.Net
             _isDisposed = true;
             if (this._isConnected)
             {
+                _isConnected = false;
                 this.Disconnect();
             }
             base.Dispose();

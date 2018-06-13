@@ -130,9 +130,8 @@ namespace SAEA.RPC.Net
 
                             if (data.Length >= offset + total + 1)
                             {
+                                var qm = new RSocketMsg((RSocketMsgType)data[offset]);
                                 offset += 5;
-
-                                var qm = new RSocketMsg((RSocketMsgType)data[0]);
                                 qm.Total = total;
                                 qm.SequenceNumber = BitConverter.ToInt64(data, (int)offset);
 

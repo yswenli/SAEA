@@ -158,7 +158,11 @@ namespace SAEA.RPC.Consumer
                 RClient rClient;
                 do
                 {
-                    if (_index >= _links) throw new RPCSocketException("连接已断开！");
+                    if (_index >= _links)
+                    {
+                        ExceptionCollector.Add("Consumer", new RPCSocketException("连接已断开！"));
+                        return null;
+                    }
 
                     if (_myClients.TryGetValue(_index, out rClient) && rClient.IsConnected)
                     {

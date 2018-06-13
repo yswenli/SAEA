@@ -215,13 +215,12 @@ namespace SAEA.RPCTest
 
             ConsoleHelper.WriteLine($"Consumer正在连接到{url}...");
 
-            RPCServiceProxy cp = new RPCServiceProxy(url);
+            RPCServiceProxy cp = new RPCServiceProxy(new Uri(url), 1, 1);
+            cp.OnErr += Cp_OnErr;
 
             ConsoleHelper.WriteLine("Consumer连接成功");
 
-            ConsoleHelper.WriteLine("稳定性测试！");
-
-            ConsoleHelper.ReadLine();
+            ConsoleHelper.WriteLine("开始稳定性测试。。。");
 
             Random rd = new Random((int)DateTime.Now.Ticks);
 
@@ -240,11 +239,19 @@ namespace SAEA.RPCTest
 
             while (true)
             {
-                ConsoleHelper.WriteLine("GenericService/Get/UserName:" + cp.GenericService.Get(data).Data.UserName);
+                var r = cp.GenericService.Get(data);
 
-                System.Threading.Thread.Sleep(rd.Next(15000));
+                if (r != null)
+                    ConsoleHelper.WriteLine("GenericService/Get/UserName:" + r.Data.UserName);
+
+                System.Threading.Thread.Sleep(rd.Next(120000));
             }
 
+        }
+
+        private static void Cp_OnErr(string name, Exception ex)
+        {
+            ConsoleHelper.WriteLine($"{name}  {ex.Message}");
         }
     }
 }

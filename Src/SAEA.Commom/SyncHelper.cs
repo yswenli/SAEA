@@ -45,19 +45,17 @@ namespace SAEA.Commom
         public bool Wait(long sNo, Action work, Action<T> callBack, int millisecondsTimeout = 180 * 1000)
         {
             var result = false;
-            var autoResetEvent = new AutoResetEvent(false);
-            _cmdDic.TryAdd(sNo, new SyncInfo<T>() { AutoResetEvent = autoResetEvent, Action = callBack });
+
+            var si = new SyncInfo<T>() { Action = callBack };
+            _cmdDic.TryAdd(sNo, si);
+
             work?.Invoke();
             if (millisecondsTimeout > 0)
-                result = autoResetEvent.WaitOne(millisecondsTimeout);
+                result = si.AutoResetEvent.WaitOne(millisecondsTimeout);
             else
-                result = autoResetEvent.WaitOne();
-
-            if (!result)
-            {
-                throw new Exception($"操作超时：{sNo}");
-            }
-            autoResetEvent.Close();
+                result = si.AutoResetEvent.WaitOne();
+            si.AutoResetEvent.Close();
+            si.Action = null;
             return result;
         }
 
@@ -68,11 +66,10 @@ namespace SAEA.Commom
         /// <param name="t"></param>
         public void Set(long sNo, T t)
         {
-            if (_cmdDic.TryGetValue(sNo, out SyncInfo<T> si))
+            if (_cmdDic.TryRemove(sNo, out SyncInfo<T> si))
             {
                 si.Action.Invoke(t);
                 si.AutoResetEvent.Set();
-                si.Dispose();
             }
             else
             {
@@ -82,16 +79,10 @@ namespace SAEA.Commom
         }
     }
 
-    internal class SyncInfo<T> : IDisposable
+    internal class SyncInfo<T>
     {
-        public AutoResetEvent AutoResetEvent { get; set; }
+        public AutoResetEvent AutoResetEvent { get; set; } = new AutoResetEvent(false);
 
         public Action<T> Action { get; set; }
-
-        public void Dispose()
-        {
-            this.AutoResetEvent = null;
-            this.Action = null;
-        }
     }
 }
