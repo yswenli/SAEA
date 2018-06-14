@@ -210,6 +210,9 @@
       "SAEA.NatSocket/1.0.0": {
         "type": "project",
         "framework": ".NETCoreApp,Version=v2.0",
+        "dependencies": {
+          "SAEA.Commom": "1.0.0"
+        },
         "compile": {
           "bin/placeholder/SAEA.NatSocket.dll": {}
         },
@@ -701,9 +704,6 @@
   },
   "project": {
     "version": "1.0.0",
-    "restoreSettings": {
-      "hideWarningsAndErrors": true
-    },
     "restore": {
       "projectUniqueName": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.NatSocketTest\\SAEA.NatSocketTest.csproj",
       "projectName": "SAEA.NatSocketTest",
@@ -728,11 +728,11 @@
       "frameworks": {
         "netcoreapp2.0": {
           "projectReferences": {
-            "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.NatSocket\\SAEA.NatSocket.csproj": {
-              "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.NatSocket\\SAEA.NatSocket.csproj"
-            },
             "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Commom\\SAEA.Commom.csproj": {
               "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Commom\\SAEA.Commom.csproj"
+            },
+            "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.NatSocket\\SAEA.NatSocket.csproj": {
+              "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.NatSocket\\SAEA.NatSocket.csproj"
             }
           }
         }

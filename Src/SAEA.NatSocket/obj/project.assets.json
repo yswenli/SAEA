@@ -196,6 +196,16 @@
         "build": {
           "build/netstandard2.0/NETStandard.Library.targets": {}
         }
+      },
+      "SAEA.Commom/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v2.0",
+        "compile": {
+          "bin/placeholder/SAEA.Commom.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/SAEA.Commom.dll": {}
+        }
       }
     }
   },
@@ -656,11 +666,17 @@
         "netstandard.library.2.0.0.nupkg.sha512",
         "netstandard.library.nuspec"
       ]
+    },
+    "SAEA.Commom/1.0.0": {
+      "type": "project",
+      "path": "../SAEA.Commom/SAEA.Commom.csproj",
+      "msbuildProject": "../SAEA.Commom/SAEA.Commom.csproj"
     }
   },
   "projectFileDependencyGroups": {
     ".NETCoreApp,Version=v2.0": [
-      "Microsoft.NETCore.App >= 2.0.0"
+      "Microsoft.NETCore.App >= 2.0.0",
+      "SAEA.Commom >= 1.0.0"
     ]
   },
   "packageFolders": {
@@ -669,9 +685,6 @@
   },
   "project": {
     "version": "1.0.0",
-    "restoreSettings": {
-      "hideWarningsAndErrors": true
-    },
     "restore": {
       "projectUniqueName": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.NatSocket\\SAEA.NatSocket.csproj",
       "projectName": "SAEA.NatSocket",
@@ -695,7 +708,11 @@
       },
       "frameworks": {
         "netcoreapp2.0": {
-          "projectReferences": {}
+          "projectReferences": {
+            "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Commom\\SAEA.Commom.csproj": {
+              "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Commom\\SAEA.Commom.csproj"
+            }
+          }
         }
       },
       "warningProperties": {

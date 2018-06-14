@@ -23,6 +23,7 @@
 *****************************************************************************/
 using SAEA.RPC.Common;
 using SAEA.RPC.Model;
+using SAEA.RPC.Serialize;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -181,11 +182,11 @@ namespace SAEA.RPC.Generater
                 {
                     if (rtype.IsGenericType)
                     {
-                        if (rtype.Name == "List`1" || rtype.Name == "HashSet`1" || rtype.Name == "IList`1" || rtype.Name == "ISet`1" || rtype.Name == "ICollection`1" || rtype.Name == "IEnumerable`1")
+                        if (ParamsSerializeUtil.ListTypeStrs.Contains(rtype.Name))
                         {
                             var t = rtype.GetGenericArguments()[0];
 
-                            if (!t.IsSealed && !t.IsAbstract && !t.IsArray && !t.IsGenericType && t.IsClass)
+                            if (!t.IsSealed && !t.IsAbstract && !t.IsArray && t.IsClass)
                             {
                                 if (!_modelStrs.ContainsKey($"{spaceName}.Consumer.Model.{t.Name}"))
                                 {
@@ -194,19 +195,19 @@ namespace SAEA.RPC.Generater
                             }
 
                         }
-                        else if (rtype.Name == "Dictionary`2" || rtype.Name == "IDictionary`2")
+                        else if (ParamsSerializeUtil.DicTypeStrs.Contains(rtype.Name))
                         {
                             var t1 = rtype.GetGenericArguments()[0];
                             var t2 = rtype.GetGenericArguments()[1];
 
-                            if (!t1.IsSealed && !t1.IsAbstract && !t1.IsArray && !t1.IsGenericType && t1.IsClass)
+                            if (!t1.IsSealed && !t1.IsAbstract && !t1.IsArray && t1.IsClass)
                             {
                                 if (!_modelStrs.ContainsKey($"{spaceName}.Consumer.Model.{t1.Name}"))
                                 {
                                     GenerateModel(spaceName, t1);
                                 }
                             }
-                            if (!t2.IsSealed && !t2.IsAbstract && !t2.IsArray && !t2.IsGenericType && t2.IsClass)
+                            if (!t2.IsSealed && !t2.IsAbstract && !t2.IsArray && t2.IsClass)
                             {
                                 if (!_modelStrs.ContainsKey($"{spaceName}.Consumer.Model.{t2.Name}"))
                                 {
@@ -219,12 +220,12 @@ namespace SAEA.RPC.Generater
                             var t = rtype.GetGenericTypeDefinition();
                             var p = rtype.GetGenericArguments()[0];
                             if (!t.IsSealed && !t.IsAbstract && !t.IsArray && t.IsClass)
-                                if (!_modelStrs.ContainsKey($"{spaceName}.Consumer.Model.{TypeHelper.GetTypeName(t)}"))
+                                if (!_modelStrs.ContainsKey($"{spaceName}.Consumer.Model.{t.Name}"))
                                 {
                                     GenerateModel(spaceName, t);
                                 }
                             if (!p.IsSealed && !p.IsAbstract && !p.IsArray && p.IsClass)
-                                if (!_modelStrs.ContainsKey($"{spaceName}.Consumer.Model.{TypeHelper.GetTypeName(p)}"))
+                                if (!_modelStrs.ContainsKey($"{spaceName}.Consumer.Model.{p.Name}"))
                                 {
                                     GenerateModel(spaceName, t);
                                 }
@@ -271,7 +272,7 @@ namespace SAEA.RPC.Generater
                         {
                             if (arg.Value.IsGenericType)
                             {
-                                if (arg.Value.Name == "List`1")
+                                if (ParamsSerializeUtil.ListTypeStrs.Contains(arg.Value.Name))
                                 {
                                     var t = arg.Value.GetGenericArguments()[0];
 
@@ -283,7 +284,7 @@ namespace SAEA.RPC.Generater
                                         }
                                     }
                                 }
-                                else if (arg.Value.Name == "Dictionary`1")
+                                else if (ParamsSerializeUtil.DicTypeStrs.Contains(arg.Value.Name))
                                 {
                                     var t1 = arg.Value.GetGenericArguments()[0];
                                     var t2 = arg.Value.GetGenericArguments()[1];
@@ -305,13 +306,21 @@ namespace SAEA.RPC.Generater
                                 }
                                 else
                                 {
-                                    var t = arg.Value.GetGenericArguments()[0];
-
-                                    if (!t.IsSealed && !t.IsAbstract && !t.IsArray && !t.IsGenericType && t.IsClass)
+                                    if (!_modelStrs.ContainsKey($"{spaceName}.Consumer.Model.{arg.Value.Name}"))
                                     {
-                                        if (!_modelStrs.ContainsKey($"{spaceName}.Consumer.Model.{t.Name}"))
+                                        GenerateModel(spaceName, arg.Value);
+                                    }
+
+                                    var gs = arg.Value.GetGenericArguments();
+
+                                    foreach (var t in gs)
+                                    {
+                                        if (!t.IsSealed && !t.IsAbstract && !t.IsArray && t.IsClass)
                                         {
-                                            GenerateModel(spaceName, t);
+                                            if (!_modelStrs.ContainsKey($"{spaceName}.Consumer.Model.{t.Name}"))
+                                            {
+                                                GenerateModel(spaceName, t);
+                                            }
                                         }
                                     }
                                 }

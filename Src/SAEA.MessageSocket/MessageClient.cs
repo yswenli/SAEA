@@ -136,7 +136,7 @@ namespace SAEA.MessageSocket
                                      _autoResetEvent.Set();
                                      break;
                                  default:
-                                     Console.WriteLine("cm.Type", cm.Type);
+                                     ConsoleHelper.WriteLine("cm.Type", cm.Type);
                                      break;
                              }
                          }

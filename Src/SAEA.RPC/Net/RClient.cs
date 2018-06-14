@@ -154,8 +154,11 @@ namespace SAEA.RPC.Net
         {
             lock (_syncLocker)
             {
-                var data = ((RCoder)UserToken.Coder).Encode(msg);
-                SendAsync(data);
+                if (_isConnected)
+                {
+                    var data = ((RCoder)UserToken.Coder).Encode(msg);
+                    SendAsync(data);
+                }
             }
         }
 

@@ -102,7 +102,7 @@ namespace SAEA.MessageTest
 
 
             ConsoleHelper.ReadLine();
-            Console.WriteLine("单机连接测试...");
+            ConsoleHelper.WriteLine("单机连接测试...");
             List<MessageClient> slist = new List<MessageClient>();
             Task.Run(() =>
             {
@@ -121,7 +121,7 @@ namespace SAEA.MessageTest
                     if (i > 10000)
                         Thread.Sleep(1000);
                 }
-                Console.WriteLine("单机5W连接就绪...");
+                ConsoleHelper.WriteLine("单机5W连接就绪...");
             });
 
 
@@ -133,7 +133,7 @@ namespace SAEA.MessageTest
 
 
             ConsoleHelper.ReadLine();
-            Console.WriteLine("开始订阅测试...");
+            ConsoleHelper.WriteLine("开始订阅测试...");
             List<MessageClient> list = new List<MessageClient>();
             for (int i = 0; i < 100; i++)
             {
@@ -156,7 +156,7 @@ namespace SAEA.MessageTest
 
 
             ConsoleHelper.ReadLine();
-            Console.WriteLine("私信测试");
+            ConsoleHelper.WriteLine("私信测试");
 
             var cc1 = new MessageClient();
             cc1.OnPrivateMessage += Client_OnPrivateMessage;
@@ -213,7 +213,7 @@ namespace SAEA.MessageTest
 
 
             ConsoleHelper.ReadLine();
-            Console.WriteLine("群组测试");
+            ConsoleHelper.WriteLine("群组测试");
 
             cc1.OnGroupMessage += Client_OnGroupMessage;
             cc2.OnGroupMessage += Client_OnGroupMessage;
@@ -249,7 +249,7 @@ namespace SAEA.MessageTest
             client.Unsubscribe(channelName);
 
 
-            Console.WriteLine("测试完成");
+            ConsoleHelper.WriteLine("测试完成");
             ConsoleHelper.ReadLine();
         }
 

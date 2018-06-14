@@ -30,7 +30,7 @@ namespace SAEA.Commom
     {
         public static Thread Run(Action doWork, bool isBackground = true, ThreadPriority priority = ThreadPriority.Normal)
         {
-            var td = new Thread(new ThreadStart(doWork), int.MaxValue) { IsBackground = true, Priority = priority };
+            var td = new Thread(new ThreadStart(doWork)) { IsBackground = true, Priority = priority };
             td.Start();
             return td;
         }

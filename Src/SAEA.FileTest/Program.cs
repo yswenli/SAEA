@@ -42,11 +42,11 @@ namespace SAEA.FileTest
 
             _fileTransfer.OnDisplay += _fileTransfer_OnDisplay;
 
-            Console.WriteLine("FileTransfer 已启动，发送文件格式如下： send [ip] [fileName]");
+            ConsoleHelper.WriteLine("FileTransfer 已启动，发送文件格式如下： send [ip] [fileName]");
 
             do
             {
-                var input = Console.ReadLine();
+                var input = ConsoleHelper.ReadLine();
 
                 try
                 {
@@ -61,7 +61,7 @@ namespace SAEA.FileTest
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine("FileTransfer 异常：{0}", ex.Message);
+                    ConsoleHelper.WriteLine("FileTransfer 异常：{0}", ex.Message);
                 }
             }
             while (true);
@@ -69,12 +69,12 @@ namespace SAEA.FileTest
 
         private static void _fileTransfer_OnReceiveEnd(string obj)
         {
-            Console.WriteLine("文件接收完毕 {0}", obj);
+            ConsoleHelper.WriteLine("文件接收完毕 {0}", obj);
         }
 
         private static void _fileTransfer_OnDisplay(string obj)
         {
-            Console.WriteLine(obj);
+            ConsoleHelper.WriteLine(obj);
         }
     }
 }

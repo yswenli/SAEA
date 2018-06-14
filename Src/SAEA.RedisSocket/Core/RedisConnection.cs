@@ -81,7 +81,7 @@ namespace SAEA.RedisSocket.Core
         {
             _redisCoder.Enqueue(command);
             if (_debugMode)
-                Console.WriteLine(command);
+                ConsoleHelper.WriteLine(command);
         }
 
         /// <summary>

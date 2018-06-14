@@ -86,8 +86,8 @@ namespace SAEA.FileSocket
             _beginReceive = true;
 
 
-            //Console.WriteLine("收到文件传输请求，Y 为接收 其他为拒绝");
-            //var answer = Console.ReadLine();
+            //ConsoleHelper.WriteLine("收到文件传输请求，Y 为接收 其他为拒绝");
+            //var answer = ConsoleHelper.ReadLine();
             //if (!string.IsNullOrEmpty(answer) && answer.ToUpper() == "Y")
             //{
             //    _current = 0;
@@ -122,7 +122,7 @@ namespace SAEA.FileSocket
 
         private void _receiver_OnError(string ID, Exception ex)
         {
-            Console.WriteLine("接收文件过程发生异常，ID:{0} err:{1}", ID, ex.Message);
+            ConsoleHelper.WriteLine("接收文件过程发生异常，ID:{0} err:{1}", ID, ex.Message);
         }
 
         public void SendFile(string fileName, string ip)
@@ -133,7 +133,7 @@ namespace SAEA.FileSocket
             {
                 _sender = new Client(_bufferSize, ip);
 
-                Console.WriteLine("正在连接IP:{0}...", ip);
+                ConsoleHelper.WriteLine("正在连接IP:{0}...", ip);
 
                 _sender.ConnectAsync((state) =>
                 {
@@ -144,7 +144,7 @@ namespace SAEA.FileSocket
                     }
                     else
                     {
-                        Console.WriteLine("连接IP:{0}失败", ip);
+                        ConsoleHelper.WriteLine("连接IP:{0}失败", ip);
                     }
                 });
             }
@@ -156,14 +156,14 @@ namespace SAEA.FileSocket
 
         void SendFileBase(string fileName, string ip)
         {
-            Console.WriteLine("成功连接到IP:{0}，正在准备发送文件", ip);
+            ConsoleHelper.WriteLine("成功连接到IP:{0}，正在准备发送文件", ip);
             _beginSend = true;
             _sender.SendFile(fileName, 0, (d) =>
              {
                  if (d)
-                     Console.WriteLine("发送文件已完成");
+                     ConsoleHelper.WriteLine("发送文件已完成");
                  else
-                     Console.WriteLine("发送文件失败");
+                     ConsoleHelper.WriteLine("发送文件失败");
                  _beginSend = false;
              });
         }

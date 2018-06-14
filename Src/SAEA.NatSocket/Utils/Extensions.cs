@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Commom;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -57,7 +58,7 @@ namespace SAEA.NatSocket.Utils
             {
                 source.TraceEvent(TraceEventType.Information, 0, format, args);
 
-                Console.WriteLine(format, args);
+                ConsoleHelper.WriteLine(format, args);
             }
             catch (ObjectDisposedException)
             {

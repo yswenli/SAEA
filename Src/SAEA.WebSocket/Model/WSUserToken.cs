@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Commom;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
 using System;
@@ -78,7 +79,7 @@ namespace SAEA.WebSocket.Model
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.ToString());
+                ConsoleHelper.WriteLine(ex.ToString());
             }
             return result;
         }

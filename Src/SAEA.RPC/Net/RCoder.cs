@@ -207,7 +207,7 @@ namespace SAEA.RPC.Net
                 {
                     _buffer.AddRange(data);
 
-                    if (_buffer.Count > (1 + 4 + 4 + 0 + 4 + 0 + 0))
+                    if (_buffer.Count >= (1 + 4 + 4 + 0 + 4 + 0 + 0))
                     {
                         var buffer = _buffer.ToArray();
 

@@ -1,6 +1,6 @@
 ﻿/*******
 * 此代码为SAEA.RPC.Generater生成
-* 尽量不要修改此代码 2018-06-12 15:18:36
+* 尽量不要修改此代码 2018-06-14 15:06:50
 *******/
 
 using System;
@@ -133,6 +133,10 @@ namespace SAEA.RPCTest.Consumer.Service
         public ActionResult<UserInfo> Get(ActionResult<UserInfo> data)
         {
             return _serviceConsumer.RemoteCall<ActionResult<UserInfo>>("GenericService", "Get", data);
+        }
+        public List<String> GetListString()
+        {
+            return _serviceConsumer.RemoteCall<List<String>>("GenericService", "GetListString");
         }
     }
 }

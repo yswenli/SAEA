@@ -92,27 +92,34 @@ namespace SAEA.RPCTest
 
             var url = "rpc://127.0.0.1:39654";
 
+            ConsoleHelper.WriteLine("请输入url");
+            var input = ConsoleHelper.ReadLine();
+            if (string.IsNullOrEmpty(input))
+                input = url;
+
+
             ConsoleHelper.WriteLine($"Consumer正在连接到{url}...");
 
-            RPCServiceProxy cp = new RPCServiceProxy(url);
+            RPCServiceProxy cp = new RPCServiceProxy(input);
+            cp.OnErr += Cp_OnErr;
 
             ConsoleHelper.WriteLine("Consumer连接成功");
 
-            Console.WriteLine("HelloService/Hello:" + cp.HelloService.Hello());
-            Console.WriteLine("HelloService/Plus:" + cp.HelloService.Plus(1, 9));
-            Console.WriteLine("HelloService/Update/UserName:" + cp.HelloService.Update(new Consumer.Model.UserInfo() { ID = 1, UserName = "yswenli" }).UserName);
-            Console.WriteLine("HelloService/SendData:" + System.Text.Encoding.UTF8.GetString(cp.HelloService.SendData(System.Text.Encoding.UTF8.GetBytes("Hello Data"))));
-            Console.WriteLine("");
+            ConsoleHelper.WriteLine("HelloService/Hello:" + cp.HelloService.Hello().Length);
+            ConsoleHelper.WriteLine("HelloService/Plus:" + cp.HelloService.Plus(1, 9));
+            ConsoleHelper.WriteLine("HelloService/Update/UserName:" + cp.HelloService.Update(new Consumer.Model.UserInfo() { ID = 1, UserName = "yswenli" }).UserName);
+            ConsoleHelper.WriteLine("HelloService/SendData:" + System.Text.Encoding.UTF8.GetString(cp.HelloService.SendData(System.Text.Encoding.UTF8.GetBytes("Hello Data"))));
+            ConsoleHelper.WriteLine("");
 
-            Console.WriteLine("GroupService/Add/ Creator.UserName:" + cp.GroupService.Add("rpc group", new Consumer.Model.UserInfo() { ID = 1, UserName = "yswenli" }).Creator.UserName);
-            Console.WriteLine("GroupService/Update/Count:" + cp.GroupService.Update(new System.Collections.Generic.List<Consumer.Model.UserInfo>() { new Consumer.Model.UserInfo() { ID = 1, UserName = "yswenli" } }).Count);
-            Console.WriteLine("GroupService/GetGroupInfo/Users.UserName:" + cp.GroupService.GetGroupInfo(1).Users[0].UserName);
-            Console.WriteLine("");
+            ConsoleHelper.WriteLine("GroupService/Add/ Creator.UserName:" + cp.GroupService.Add("rpc group", new Consumer.Model.UserInfo() { ID = 1, UserName = "yswenli" }).Creator.UserName);
+            ConsoleHelper.WriteLine("GroupService/Update/Count:" + cp.GroupService.Update(new System.Collections.Generic.List<Consumer.Model.UserInfo>() { new Consumer.Model.UserInfo() { ID = 1, UserName = "yswenli" } }).Count);
+            ConsoleHelper.WriteLine("GroupService/GetGroupInfo/Users.UserName:" + cp.GroupService.GetGroupInfo(1).Users[0].UserName);
+            ConsoleHelper.WriteLine("");
 
             var dic = new Dictionary<int, Consumer.Model.UserInfo>();
             dic.Add(1, new Consumer.Model.UserInfo() { UserName = "yswenli" });
-            Console.WriteLine("DicService/Test/UserName:" + cp.DicService.Test(1, dic)[1].UserName);
-            Console.WriteLine("");
+            ConsoleHelper.WriteLine("DicService/Test/UserName:" + cp.DicService.Test(1, dic)[1].UserName);
+            ConsoleHelper.WriteLine("");
 
 
             ActionResult<UserInfo> data = new ActionResult<UserInfo>()
@@ -127,7 +134,10 @@ namespace SAEA.RPCTest
                     Birthday = DateTime.Now
                 }
             };
-            Console.WriteLine("GenericService/Get/UserName:" + cp.GenericService.Get(data).Data.UserName);
+            ConsoleHelper.WriteLine("GenericService/Get/UserName:" + cp.GenericService.Get(data).Data.UserName);
+            ConsoleHelper.WriteLine("GenericService/GetListString/Count:" + cp.GenericService.GetListString().Count);
+
+            ConsoleHelper.WriteLine("");
 
             ConsoleHelper.WriteLine("回车启动性能测试！");
 
@@ -209,7 +219,7 @@ namespace SAEA.RPCTest
         {
             ProviderInit();
 
-            Console.Title = "SAEA.RPC稳定性测试";
+            ConsoleHelper.Title = "SAEA.RPC稳定性测试";
 
             var url = "rpc://127.0.0.1:39654";
 

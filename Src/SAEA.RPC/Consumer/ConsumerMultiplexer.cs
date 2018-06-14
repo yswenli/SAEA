@@ -46,6 +46,8 @@ namespace SAEA.RPC.Consumer
 
         int _timeOut = 10 * 1000;
 
+        int _retry = 5;
+
         ConcurrentDictionary<int, RClient> _myClients = new ConcurrentDictionary<int, RClient>();
 
 
@@ -144,6 +146,7 @@ namespace SAEA.RPC.Consumer
         /// <returns></returns>
         public byte[] Request(string serviceName, string method, byte[] args, int retry = 5)
         {
+            _retry = retry;
             return ReTryHelper.Do(() => this.GetClient().Request(serviceName, method, args, _timeOut), retry);
         }
 
@@ -168,6 +171,20 @@ namespace SAEA.RPC.Consumer
                     {
                         break;
                     }
+
+                    var retry = 0;
+
+                    while (!rClient.IsConnected && retry < _retry)
+                    {
+                        rClient.Connect();
+
+                        ThreadHelper.Sleep(3 * 1000);
+
+                        retry++;
+
+                        ConsoleHelper.WriteLine($"ConsumerMultiplexer正在修复连接，当前是第{retry}次！");
+                    }
+
                     _index++;
                 }
                 while (!rClient.IsConnected);

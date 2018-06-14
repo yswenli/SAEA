@@ -75,7 +75,7 @@ namespace SAEA.NatSocket.Base
         /// var mappings = await device.GetAllMappingsAsync();
         /// foreach(var mapping in mappings)
         /// {
-        ///	 Console.WriteLine(mapping)
+        ///	 ConsoleHelper.WriteLine(mapping)
         /// }
         /// </example>
         /// <exception cref="MappingException">MappingException</exception>
@@ -88,7 +88,7 @@ namespace SAEA.NatSocket.Base
         /// The public IP addrees
         /// </returns>
         /// <example>
-        /// Console.WriteLine("My public IP is: {0}", await device.GetExternalIPAsync());
+        /// ConsoleHelper.WriteLine("My public IP is: {0}", await device.GetExternalIPAsync());
         /// </example>
         /// <exception cref="MappingException">MappingException</exception>
         public abstract Task<IPAddress> GetExternalIPAsync();

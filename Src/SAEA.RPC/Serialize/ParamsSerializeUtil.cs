@@ -1,7 +1,9 @@
 ﻿using SAEA.Commom;
 using SAEA.RPC.Model;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace SAEA.RPC.Serialize
@@ -11,6 +13,30 @@ namespace SAEA.RPC.Serialize
     /// </summary>
     public class ParamsSerializeUtil
     {
+        #region Cache
+
+        public static readonly string[] ListTypeStrs = { "List`1", "HashSet`1", "IList`1", "ISet`1", "ICollection`1", "IEnumerable`1" };
+
+        public static readonly string[] DicTypeStrs = { "Dictionary`2", "IDictionary`2" };
+
+
+        private static ConcurrentDictionary<string, Object> _instanceCache = new ConcurrentDictionary<string, object>();
+        /// <summary>
+        /// 添加或获取实例
+        /// </summary>
+        /// <param name="type"></param>
+        /// <returns></returns>
+        private static object GetOrAddInstance(Type type)
+        {
+            var fullName = type.FullName;
+
+            return _instanceCache.GetOrAdd(fullName, Activator.CreateInstance(type));
+        }
+
+        #endregion
+
+        #region Serialize
+
         /// <summary>
         /// len+data
         /// </summary>
@@ -21,6 +47,7 @@ namespace SAEA.RPC.Serialize
             List<byte> datas = new List<byte>();
 
             var len = 0;
+
             byte[] data = null;
 
             if (param == null)
@@ -66,6 +93,27 @@ namespace SAEA.RPC.Serialize
                     var str = "wl" + ((DateTime)param).Ticks;
                     data = Encoding.UTF8.GetBytes(str);
                 }
+                else if (param is Enum)
+                {
+                    var type = param.GetType();
+
+                    if (type.BaseType == typeof(byte))
+                    {
+                        data = new byte[] { (byte)param };
+                    }
+                    else if (type.BaseType == typeof(short))
+                    {
+                        data = BitConverter.GetBytes((Int16)param);
+                    }
+                    else if (type.BaseType == typeof(int))
+                    {
+                        data = BitConverter.GetBytes((Int32)param);
+                    }
+                    else
+                    {
+                        data = BitConverter.GetBytes((Int64)param);
+                    }
+                }
                 else if (param is byte[])
                 {
                     data = (byte[])param;
@@ -78,9 +126,9 @@ namespace SAEA.RPC.Serialize
                     {
                         if (type.IsGenericType || type.IsArray)
                         {
-                            if (type.Name == "Dictionary`2")
+                            if (DicTypeStrs.Contains(type.Name))
                                 data = SerializeDic((System.Collections.IDictionary)param);
-                            else if (type.Name == "List`1")
+                            else if (ListTypeStrs.Contains(type.Name) || type.IsArray)
                                 data = SerializeList((System.Collections.IEnumerable)param);
                             else
                                 data = SerializeClass(param);
@@ -100,7 +148,7 @@ namespace SAEA.RPC.Serialize
             return datas.Count == 0 ? null : datas.ToArray();
         }
 
-        private static byte[] SerializeClass(object param)
+        private static byte[] SerializeClass(object obj)
         {
             List<byte> datas = new List<byte>();
 
@@ -108,7 +156,7 @@ namespace SAEA.RPC.Serialize
 
             byte[] data = null;
 
-            var type = param.GetType();
+            var type = obj.GetType();
 
             var ps = type.GetProperties();
 
@@ -118,7 +166,7 @@ namespace SAEA.RPC.Serialize
 
                 foreach (var p in ps)
                 {
-                    clist.Add(p.GetValue(param, null));
+                    clist.Add(p.GetValue(obj, null));
                 }
                 data = Serialize(clist.ToArray());
 
@@ -137,33 +185,43 @@ namespace SAEA.RPC.Serialize
             {
                 List<byte> slist = new List<byte>();
 
+                var itemtype = param.AsQueryable().ElementType;
+
                 foreach (var item in param)
                 {
-                    var type = item.GetType();
-
-                    var ps = type.GetProperties();
-                    if (ps != null && ps.Length > 0)
+                    if (itemtype.IsClass && itemtype != typeof(string))
                     {
-                        List<object> clist = new List<object>();
-                        foreach (var p in ps)
+                        var ps = itemtype.GetProperties();
+
+                        if (ps != null && ps.Length > 0)
                         {
-                            clist.Add(p.GetValue(item, null));
+                            List<object> clist = new List<object>();
+                            foreach (var p in ps)
+                            {
+                                clist.Add(p.GetValue(item, null));
+                            }
+                            var clen = 0;
+                            var cdata = Serialize(clist.ToArray());
+                            if (cdata != null)
+                            {
+                                clen = cdata.Length;
+                            }
+                            slist.AddRange(BitConverter.GetBytes(clen));
+                            slist.AddRange(cdata);
                         }
-
+                    }
+                    else
+                    {
                         var clen = 0;
-
-                        var cdata = Serialize(clist.ToArray());
-
+                        var cdata = Serialize(item);
                         if (cdata != null)
                         {
                             clen = cdata.Length;
                         }
-
                         slist.AddRange(BitConverter.GetBytes(clen));
                         slist.AddRange(cdata);
                     }
                 }
-
                 if (slist.Count > 0)
                 {
                     return slist.ToArray();
@@ -225,6 +283,10 @@ namespace SAEA.RPC.Serialize
 
             return datas.Count == 0 ? null : datas.ToArray();
         }
+
+        #endregion
+
+        #region Deserialize
 
         /// <summary>
         /// 反序列化
@@ -310,17 +372,36 @@ namespace SAEA.RPC.Serialize
                     var ticks = long.Parse(dstr.Substring(2));
                     obj = (new DateTime(ticks));
                 }
+                else if (type == typeof(Enum))
+                {
+                    if (type.BaseType == typeof(byte))
+                    {
+                        obj = Enum.ToObject(type, data);
+                    }
+                    else if (type.BaseType == typeof(short))
+                    {
+                        obj = Enum.ToObject(type, BitConverter.ToInt16(data, 0));
+                    }
+                    else if (type.BaseType == typeof(int))
+                    {
+                        obj = Enum.ToObject(type, BitConverter.ToInt32(data, 0));
+                    }
+                    else
+                    {
+                        obj = Enum.ToObject(type, BitConverter.ToInt64(data, 0));
+                    }
+                }
                 else if (type == typeof(byte[]))
                 {
                     obj = (byte[])data;
                 }
                 else if (type.IsGenericType)
                 {
-                    if (type.Name == "List`1")
+                    if (ListTypeStrs.Contains(type.Name))
                     {
                         obj = DeserializeList(type, data);
                     }
-                    else if (type.Name == "Dictionary`2")
+                    else if (DicTypeStrs.Contains(type.Name))
                     {
                         obj = DeserializeDic(type, data);
                     }
@@ -348,7 +429,7 @@ namespace SAEA.RPC.Serialize
 
         private static object DeserializeClass(Type type, byte[] datas)
         {
-            var instance = Activator.CreateInstance(type);
+            var instance = GetOrAddInstance(type);
 
             var ts = new List<Type>();
 
@@ -386,7 +467,7 @@ namespace SAEA.RPC.Serialize
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine("反序列化不支持的类型：" + ex.Message);
+                        ConsoleHelper.WriteLine("反序列化不支持的类型：" + ex.Message);
                     }
                 }
             }
@@ -405,29 +486,53 @@ namespace SAEA.RPC.Serialize
 
             var methodInvoker = FastInvoke.GetMethodInvoker(addMethod);
 
-            //子项内容
-            var slen = 0;
-            var soffset = 0;
-            while (soffset < datas.Length)
+            if (stype.IsClass && stype != typeof(string))
             {
-                slen = BitConverter.ToInt32(datas, soffset);
-                var sdata = new byte[slen + 4];
-                Buffer.BlockCopy(datas, soffset, sdata, 0, slen + 4);
-                soffset += slen + 4;
-
-                if (slen > 0)
+                //子项内容
+                var slen = 0;
+                var soffset = 0;
+                while (soffset < datas.Length)
                 {
-                    int lloffset = 0;
-                    var sobj = Deserialize(stype, sdata, ref lloffset);
-                    if (sobj != null)
-                        methodInvoker.Invoke(result, new object[] { sobj });
+                    slen = BitConverter.ToInt32(datas, soffset);
+                    if (slen > 0)
+                    {
+                        var sobj = Deserialize(stype, datas, ref soffset);
+                        if (sobj != null)
+                            methodInvoker.Invoke(result, new object[] { sobj });
+                    }
+                    else
+                    {
+                        methodInvoker.Invoke(result, null);
+                    }
                 }
-                else
-                {
-                    methodInvoker.Invoke(result, null);
-                }
+                return result;
             }
-            return result;
+            else
+            {
+                //子项内容
+                var slen = 0;
+                var soffset = 0;
+                while (soffset < datas.Length)
+                {
+                    var len = BitConverter.ToInt32(datas, soffset);
+                    var data = new byte[len];
+                    Buffer.BlockCopy(datas, soffset + 4, data, 0, len);
+                    soffset += 4;
+                    slen = BitConverter.ToInt32(datas, soffset);
+                    if (slen > 0)
+                    {
+                        var sobj = Deserialize(stype, datas, ref soffset);
+                        if (sobj != null)
+                            methodInvoker.Invoke(result, new object[] { sobj });
+                    }
+                    else
+                    {
+                        methodInvoker.Invoke(result, null);
+                    }
+                }
+                return result;
+            }
+
         }
 
         private static object DeserializeArray(Type type, byte[] datas)
@@ -454,7 +559,7 @@ namespace SAEA.RPC.Serialize
             var addMethod = gtype.GetMethod("Add");
 
             var methodInvoker = FastInvoke.GetMethodInvoker(addMethod);
-                       
+
             //子项内容
             var slen = 0;
             var soffset = 0;
@@ -499,5 +604,7 @@ namespace SAEA.RPC.Serialize
             }
             return result;
         }
+
+        #endregion
     }
 }

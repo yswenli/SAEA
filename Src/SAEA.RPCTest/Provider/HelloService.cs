@@ -24,6 +24,7 @@
 using SAEA.Commom;
 using SAEA.RPC.Common;
 using SAEA.RPCTest.Provider.Model;
+using System.Text;
 
 namespace SAEA.RPCTest.Provider
 {
@@ -32,7 +33,14 @@ namespace SAEA.RPCTest.Provider
     {
         public string Hello()
         {
-            return "hello world!";
+            var sb = new StringBuilder();
+
+            for (int i = 0; i < 100000; i++)
+            {
+                sb.Append("hello world!");
+            }
+
+            return sb.ToString(); ;
         }
 
         public int Plus(int x, int y)
@@ -43,7 +51,13 @@ namespace SAEA.RPCTest.Provider
         public UserInfo Update(UserInfo info)
         {
             return info;
-        }        
+        }
+
+        [NoRpc]
+        public void TestNoRPC()
+        {
+
+        }
 
         public byte[] SendData(byte[] data)
         {

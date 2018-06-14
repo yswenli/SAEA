@@ -36,7 +36,7 @@ namespace SAEA.NatSocketTest
 
             NatBuilder.Create();
 
-            Console.ReadLine();
+            ConsoleHelper.ReadLine();
         }
     }
 }

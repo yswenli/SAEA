@@ -39,9 +39,15 @@ namespace SAEA.RPCTest.Providers
             return data;
         }
 
-        [NoRpc]
-        public void Test()
+
+        public List<string> GetListString()
         {
+            var list = new List<string>();
+            for (int i = 0; i < 10000; i++)
+            {
+                list.Add($"{i} hello");
+            }
+            return list;
 
         }
     }

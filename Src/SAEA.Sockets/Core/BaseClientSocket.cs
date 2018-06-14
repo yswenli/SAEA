@@ -192,7 +192,7 @@ namespace SAEA.Sockets.Core
                 _argsPool.Free(e);
                 OnError?.Invoke(_userToken.ID, ex);
                 Disconnect();
-                Console.WriteLine(ex.Message);
+                ConsoleHelper.WriteLine(ex.Message);
             }
         }
 
