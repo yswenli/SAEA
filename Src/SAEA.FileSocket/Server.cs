@@ -29,7 +29,7 @@ using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using System.Threading;
 using SAEA.FileSocket.Model;
-using SAEA.Commom;
+using SAEA.Common;
 
 namespace SAEA.FileSocket
 {

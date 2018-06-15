@@ -1,4 +1,4 @@
-﻿using SAEA.Commom;
+﻿using SAEA.Common;
 using SAEA.RPC.Provider;
 using SAEA.RPCTest.Consumer;
 using SAEA.RPCTest.Consumer.Model;
@@ -14,7 +14,7 @@ namespace SAEA.RPCTest
     {
         static void Main(string[] args)
         {
-            ConsoleHelper.WriteLine($"SAEA.RPC功能测试： {Environment.NewLine}   a 启动rpc provider consumer{Environment.NewLine}   p 启动rpc provider{Environment.NewLine}   c 启动rpc consumer{Environment.NewLine}   t 启动rpc 稳定性测试{Environment.NewLine}   g 启动rpc consumer代码生成器");
+            ConsoleHelper.WriteLine($"SAEA.RPC测试： {Environment.NewLine}   a 启动rpc provider consumer{Environment.NewLine}   p 启动rpc provider{Environment.NewLine}   c 启动rpc consumer{Environment.NewLine}   g 启动rpc consumer代码生成器{Environment.NewLine}   t 启动rpc稳定性测试{Environment.NewLine}   s 启动rpc序列化测试");
 
             var inputStr = ConsoleHelper.ReadLine();
 
@@ -48,9 +48,9 @@ namespace SAEA.RPCTest
             }
             else if (inputStr == "s")
             {
-                ConsoleHelper.WriteLine("正在启动序列化测试...");
+                ConsoleHelper.WriteLine("ParamsSerializeUtil序列化测试中...");
                 SerializeTest();
-                ConsoleHelper.WriteLine("代码生成完毕，回车结束！");
+                ConsoleHelper.WriteLine("ParamsSerializeUtil序列化测试完毕，回车结束！");
                 ConsoleHelper.ReadLine();
             }
             else if (inputStr == "t")
@@ -100,7 +100,7 @@ namespace SAEA.RPCTest
 
             ConsoleHelper.WriteLine($"Consumer正在连接到{url}...");
 
-            RPCServiceProxy cp = new RPCServiceProxy(input);
+            RPCServiceProxy cp = new RPCServiceProxy(new Uri(input), 1, 1, 1000000);
             cp.OnErr += Cp_OnErr;
 
             ConsoleHelper.WriteLine("Consumer连接成功");
@@ -200,19 +200,22 @@ namespace SAEA.RPCTest
             Stopwatch sw = new Stopwatch();
             sw.Start();
 
+            List<byte[]> list = new List<byte[]>();
             for (int i = 0; i < count; i++)
             {
                 var bytes = RPC.Serialize.ParamsSerializeUtil.Serialize(groupInfo);
-
+                list.Add(bytes);
+            }
+            ConsoleHelper.WriteLine($"GroupInfo实体序列化平均：{count * 1000 / sw.ElapsedMilliseconds} 次/秒");
+            sw.Restart();
+            for (int i = 0; i < count; i++)
+            {
                 int os = 0;
 
-                var obj = RPC.Serialize.ParamsSerializeUtil.Deserialize(groupInfo.GetType(), bytes, ref os);
+                var obj = RPC.Serialize.ParamsSerializeUtil.Deserialize(groupInfo.GetType(), list[i], ref os);
             }
-
-            ConsoleHelper.WriteLine($"实体传输：{count * 1000 / sw.ElapsedMilliseconds} 次/秒");
-
             sw.Stop();
-
+            ConsoleHelper.WriteLine($"GroupInfo实体反序列化平均：{count * 1000 / sw.ElapsedMilliseconds} 次/秒");
         }
 
         static void StabilityTest()

@@ -27,7 +27,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace SAEA.Commom
+namespace SAEA.Common
 {
     public class MemoryCacheHelper<T> : IDisposable
     {

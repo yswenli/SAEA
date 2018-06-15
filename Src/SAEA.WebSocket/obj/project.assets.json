@@ -197,21 +197,21 @@
           "build/netstandard2.0/NETStandard.Library.targets": {}
         }
       },
-      "SAEA.Commom/1.0.0": {
+      "SAEA.Common/1.0.0": {
         "type": "project",
         "framework": ".NETCoreApp,Version=v2.0",
         "compile": {
-          "bin/placeholder/SAEA.Commom.dll": {}
+          "bin/placeholder/SAEA.Common.dll": {}
         },
         "runtime": {
-          "bin/placeholder/SAEA.Commom.dll": {}
+          "bin/placeholder/SAEA.Common.dll": {}
         }
       },
       "SAEA.Sockets/1.0.0": {
         "type": "project",
         "framework": ".NETCoreApp,Version=v2.0",
         "dependencies": {
-          "SAEA.Commom": "1.0.0"
+          "SAEA.Common": "1.0.0"
         },
         "compile": {
           "bin/placeholder/SAEA.Sockets.dll": {}
@@ -680,10 +680,10 @@
         "netstandard.library.nuspec"
       ]
     },
-    "SAEA.Commom/1.0.0": {
+    "SAEA.Common/1.0.0": {
       "type": "project",
-      "path": "../SAEA.Commom/SAEA.Commom.csproj",
-      "msbuildProject": "../SAEA.Commom/SAEA.Commom.csproj"
+      "path": "../SAEA.Commom/SAEA.Common.csproj",
+      "msbuildProject": "../SAEA.Commom/SAEA.Common.csproj"
     },
     "SAEA.Sockets/1.0.0": {
       "type": "project",
@@ -703,9 +703,6 @@
   },
   "project": {
     "version": "1.0.0",
-    "restoreSettings": {
-      "hideWarningsAndErrors": true
-    },
     "restore": {
       "projectUniqueName": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.WebSocket\\SAEA.WebSocket.csproj",
       "projectName": "SAEA.WebSocket",

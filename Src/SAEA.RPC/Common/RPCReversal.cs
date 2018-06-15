@@ -21,7 +21,7 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Commom;
+using SAEA.Common;
 using SAEA.RPC.Model;
 using SAEA.RPC.Net;
 using SAEA.RPC.Serialize;

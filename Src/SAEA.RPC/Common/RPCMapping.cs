@@ -21,10 +21,9 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Commom;
+using SAEA.Common;
 using SAEA.RPC.Model;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -73,12 +72,14 @@ namespace SAEA.RPC.Common
                     {
                         foreach (var m in rms)
                         {
+                            var tInfo = TypeHelper.GetOrAddInstance(type, m);
+
                             var serviceInfo = new ServiceInfo()
                             {
                                 Type = type,
-                                Instance = Activator.CreateInstance(type),
+                                Instance = tInfo.Instance,
                                 Method = m,
-                                MethodInvoker=FastInvoke.GetMethodInvoker(m),
+                                MethodInvoker = tInfo.FastInvokeHandler,
                                 Pamars = m.GetParameters().ToDic()
                             };
 
@@ -186,7 +187,7 @@ namespace SAEA.RPC.Common
                     {
                         break;
                     }
-                    
+
                     isRPC = true;
                     var attrs = method.GetCustomAttributes(true);
                     if (attrs != null)

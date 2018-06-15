@@ -23,7 +23,7 @@
 *****************************************************************************/
 
 using SAEA.FileSocket.Model;
-using SAEA.Commom;
+using SAEA.Common;
 using SAEA.Sockets;
 using SAEA.Sockets.Core;
 using SAEA.Sockets.Model;

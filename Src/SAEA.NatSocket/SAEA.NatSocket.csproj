@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SAEA.Commom\SAEA.Commom.csproj" />
+    <ProjectReference Include="..\SAEA.Commom\SAEA.Common.csproj" />
   </ItemGroup>
 
 </Project>

@@ -26,7 +26,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 
-namespace SAEA.Commom
+namespace SAEA.Common
 {
     /// <summary>
     /// 方法、事件同步

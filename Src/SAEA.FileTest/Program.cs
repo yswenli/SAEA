@@ -23,7 +23,7 @@
 *****************************************************************************/
 
 using SAEA.FileSocket;
-using SAEA.Commom;
+using SAEA.Common;
 using System;
 
 namespace SAEA.FileTest

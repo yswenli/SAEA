@@ -21,7 +21,7 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Commom;
+using SAEA.Common;
 using SAEA.Sockets.Interface;
 using SAEA.WebAPI.Common;
 using SAEA.WebAPI.Http.Base;

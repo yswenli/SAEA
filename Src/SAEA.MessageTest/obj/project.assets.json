@@ -868,14 +868,14 @@
           "lib/netstandard1.3/System.Xml.XmlSerializer.dll": {}
         }
       },
-      "SAEA.Commom/1.0.0": {
+      "SAEA.Common/1.0.0": {
         "type": "project",
         "framework": ".NETCoreApp,Version=v2.0",
         "compile": {
-          "bin/placeholder/SAEA.Commom.dll": {}
+          "bin/placeholder/SAEA.Common.dll": {}
         },
         "runtime": {
-          "bin/placeholder/SAEA.Commom.dll": {}
+          "bin/placeholder/SAEA.Common.dll": {}
         }
       },
       "SAEA.MessageSocket/1.0.0": {
@@ -883,7 +883,7 @@
         "framework": ".NETCoreApp,Version=v2.0",
         "dependencies": {
           "Newtonsoft.Json": "10.0.3",
-          "SAEA.Commom": "1.0.0",
+          "SAEA.Common": "1.0.0",
           "SAEA.Sockets": "1.0.0",
           "protobuf-net": "2.3.5"
         },
@@ -898,7 +898,7 @@
         "type": "project",
         "framework": ".NETCoreApp,Version=v2.0",
         "dependencies": {
-          "SAEA.Commom": "1.0.0"
+          "SAEA.Common": "1.0.0"
         },
         "compile": {
           "bin/placeholder/SAEA.Sockets.dll": {}
@@ -3728,10 +3728,10 @@
         "system.xml.xmlserializer.nuspec"
       ]
     },
-    "SAEA.Commom/1.0.0": {
+    "SAEA.Common/1.0.0": {
       "type": "project",
-      "path": "../SAEA.Commom/SAEA.Commom.csproj",
-      "msbuildProject": "../SAEA.Commom/SAEA.Commom.csproj"
+      "path": "../SAEA.Commom/SAEA.Common.csproj",
+      "msbuildProject": "../SAEA.Commom/SAEA.Common.csproj"
     },
     "SAEA.MessageSocket/1.0.0": {
       "type": "project",
@@ -3756,9 +3756,6 @@
   },
   "project": {
     "version": "1.0.0",
-    "restoreSettings": {
-      "hideWarningsAndErrors": true
-    },
     "restore": {
       "projectUniqueName": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.MessageTest\\SAEA.MessageTest.csproj",
       "projectName": "SAEA.MessageTest",

@@ -868,21 +868,21 @@
           "lib/netstandard1.3/System.Xml.XmlSerializer.dll": {}
         }
       },
-      "SAEA.Commom/1.0.0": {
+      "SAEA.Common/1.0.0": {
         "type": "project",
         "framework": ".NETCoreApp,Version=v2.0",
         "compile": {
-          "bin/placeholder/SAEA.Commom.dll": {}
+          "bin/placeholder/SAEA.Common.dll": {}
         },
         "runtime": {
-          "bin/placeholder/SAEA.Commom.dll": {}
+          "bin/placeholder/SAEA.Common.dll": {}
         }
       },
       "SAEA.Sockets/1.0.0": {
         "type": "project",
         "framework": ".NETCoreApp,Version=v2.0",
         "dependencies": {
-          "SAEA.Commom": "1.0.0"
+          "SAEA.Common": "1.0.0"
         },
         "compile": {
           "bin/placeholder/SAEA.Sockets.dll": {}
@@ -3712,10 +3712,10 @@
         "system.xml.xmlserializer.nuspec"
       ]
     },
-    "SAEA.Commom/1.0.0": {
+    "SAEA.Common/1.0.0": {
       "type": "project",
-      "path": "../SAEA.Commom/SAEA.Commom.csproj",
-      "msbuildProject": "../SAEA.Commom/SAEA.Commom.csproj"
+      "path": "../SAEA.Commom/SAEA.Common.csproj",
+      "msbuildProject": "../SAEA.Commom/SAEA.Common.csproj"
     },
     "SAEA.Sockets/1.0.0": {
       "type": "project",
@@ -3727,7 +3727,7 @@
     ".NETCoreApp,Version=v2.0": [
       "Microsoft.NETCore.App >= 2.0.0",
       "Newtonsoft.Json >= 10.0.3",
-      "SAEA.Commom >= 1.0.0",
+      "SAEA.Common >= 1.0.0",
       "SAEA.Sockets >= 1.0.0",
       "protobuf-net >= 2.3.5"
     ]
@@ -3738,9 +3738,6 @@
   },
   "project": {
     "version": "1.0.0",
-    "restoreSettings": {
-      "hideWarningsAndErrors": true
-    },
     "restore": {
       "projectUniqueName": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.MessageSocket\\SAEA.MessageSocket.csproj",
       "projectName": "SAEA.MessageSocket",
@@ -3765,11 +3762,11 @@
       "frameworks": {
         "netcoreapp2.0": {
           "projectReferences": {
+            "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Commom\\SAEA.Common.csproj": {
+              "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Commom\\SAEA.Common.csproj"
+            },
             "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Sockets\\SAEA.Sockets.csproj": {
               "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Sockets\\SAEA.Sockets.csproj"
-            },
-            "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Commom\\SAEA.Commom.csproj": {
-              "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Commom\\SAEA.Commom.csproj"
             }
           }
         }

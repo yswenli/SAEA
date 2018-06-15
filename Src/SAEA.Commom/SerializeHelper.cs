@@ -25,7 +25,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
 
-namespace SAEA.Commom
+namespace SAEA.Common
 {
     public static class SerializeHelper
     {

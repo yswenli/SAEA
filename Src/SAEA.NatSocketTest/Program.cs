@@ -24,7 +24,7 @@
 using System;
 
 using SAEA.NatSocket;
-using SAEA.Commom;
+using SAEA.Common;
 
 namespace SAEA.NatSocketTest
 {

@@ -23,7 +23,7 @@
 *****************************************************************************/
 using System;
 
-namespace SAEA.Commom
+namespace SAEA.Common
 {
     /// <summary>
     /// 重试辅助类

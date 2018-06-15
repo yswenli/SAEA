@@ -28,21 +28,13 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Text;
 
-namespace SAEA.Commom
+namespace SAEA.Common
 {
     /// <summary>
     /// 对象属于操作类
     /// </summary>
     public static class PropertyOperation
     {
-        public delegate object InvokeHandler(object target, object[] paramters);
-
-        static object InvokeMethod(InvokeHandler invoke, object target, params object[] paramters)
-        {
-            return invoke(target, paramters);
-        }
-
-
         #region reflect
 
         /// <summary>
@@ -95,27 +87,6 @@ namespace SAEA.Commom
             return expression.Compile();
         }
 
-        /// <summary>
-        /// 表达式获取对象的属性值
-        /// </summary>
-        /// <param name="target"></param>
-        /// <param name="propertyName"></param>
-        /// <param name="params"></param>
-        /// <returns></returns>
-        public static object ExpresionGetter(object target, string propertyName, params object[] @params)
-        {
-            var type = target.GetType();
-            var property = type.GetProperty(propertyName);
-            //// 对象实例
-            var parameterExpression = Expression.Parameter(typeof(object), "obj");
-            //// 转换参数为真实类型
-            var unaryExpression = Expression.Convert(parameterExpression, type);
-            //// 调用获取属性的方法
-            var callMethod = Expression.Call(unaryExpression, property.GetGetMethod());
-            var expression = Expression.Lambda<InvokeHandler>(callMethod, parameterExpression);
-            return expression.Compile().Invoke(target, @params);
-        }
-
 
         /// <summary>
         /// 表达式设置对象的属性值
@@ -136,28 +107,7 @@ namespace SAEA.Commom
             var expression = Expression.Lambda<Action<T, object>>(body, objectParameterExpression, valueParameterExpression);
             return expression.Compile();
         }
-        /// <summary>
-        /// 表达式设置对象的属性值
-        /// </summary>
-        /// <param name="target"></param>
-        /// <param name="propertyName"></param>
-        /// <param name="params"></param>
-        public static void ExpresionSetter(object target, string propertyName, params object[] @params)
-        {
-            var type = target.GetType();
-            var property = type.GetProperty(propertyName);
-
-            var objectParameterExpression = Expression.Parameter(typeof(object), "obj");
-            var objectUnaryExpression = Expression.Convert(objectParameterExpression, type);
-            var valueParameterExpression = Expression.Parameter(typeof(object), "val");
-            var valueUnaryExpression = Expression.Convert(valueParameterExpression, property.PropertyType);
-            //// 调用给属性赋值的方法
-            var body = Expression.Call(objectUnaryExpression, property.GetSetMethod(), valueUnaryExpression);
-            var expression = Expression.Lambda<InvokeHandler>(body, objectParameterExpression, valueParameterExpression);
-            expression.Compile().Invoke(target, @params);
-        }
-
-
+        
         #endregion
 
         #region Emit
@@ -188,37 +138,7 @@ namespace SAEA.Commom
             }
             iLGenerator.Emit(OpCodes.Ret);
             return dynamicMethod.CreateDelegate(typeof(Func<T, object>)) as Func<T, object>;
-        }
-
-        /// <summary>
-        /// Emit获取对象的属性值
-        /// </summary>
-        /// <param name="target"></param>
-        /// <param name="propertyName"></param>
-        /// <param name="params"></param>
-        /// <returns></returns>
-        public static object EmitGetter(object target, string propertyName, params object[] @params)
-        {
-            var type = target.GetType();
-            var dynamicMethod = new DynamicMethod("get_" + propertyName, typeof(object), new[] { type }, type);
-            var iLGenerator = dynamicMethod.GetILGenerator();
-            iLGenerator.Emit(OpCodes.Ldarg_0);
-            var property = type.GetProperty(propertyName);
-            iLGenerator.Emit(OpCodes.Callvirt, property.GetMethod);
-            if (property.PropertyType.IsValueType)
-            {
-                // 如果是值类型，装箱
-                iLGenerator.Emit(OpCodes.Box, property.PropertyType);
-            }
-            else
-            {
-                // 如果是引用类型，转换
-                iLGenerator.Emit(OpCodes.Castclass, property.PropertyType);
-            }
-            iLGenerator.Emit(OpCodes.Ret);
-            return (dynamicMethod.CreateDelegate(typeof(InvokeHandler)) as InvokeHandler).Invoke(target, @params);
-        }
-
+        }       
 
         /// <summary>
         /// Emit设置对象的属性值
@@ -251,41 +171,7 @@ namespace SAEA.Commom
             iLGenerator.EmitCall(OpCodes.Callvirt, callMethod, null);
             iLGenerator.Emit(OpCodes.Ret);
             return dynamicMethod.CreateDelegate(typeof(Action<object, object>)) as Action<object, object>;
-        }
-
-        /// <summary>
-        /// Emit设置对象的属性值
-        /// </summary>
-        /// <param name="target"></param>
-        /// <param name="propertyName"></param>
-        /// <param name="params"></param>
-        public static void EmitSetter(object target, string propertyName, params object[] @params)
-        {
-            var type = typeof(object);
-            var dynamicMethod = new DynamicMethod("EmitCallable", null, new[] { type, typeof(object) }, type.Module);
-            var iLGenerator = dynamicMethod.GetILGenerator();
-            var callMethod = type.GetMethod("set_" + propertyName, BindingFlags.Instance | BindingFlags.IgnoreCase | BindingFlags.Public);
-            var parameterInfo = callMethod.GetParameters()[0];
-            var local = iLGenerator.DeclareLocal(parameterInfo.ParameterType, true);
-            iLGenerator.Emit(OpCodes.Ldarg_1);
-            if (parameterInfo.ParameterType.IsValueType)
-            {
-                // 如果是值类型，拆箱
-                iLGenerator.Emit(OpCodes.Unbox_Any, parameterInfo.ParameterType);
-            }
-            else
-            {
-                // 如果是引用类型，转换
-                iLGenerator.Emit(OpCodes.Castclass, parameterInfo.ParameterType);
-            }
-            iLGenerator.Emit(OpCodes.Stloc, local);
-            iLGenerator.Emit(OpCodes.Ldarg_0);
-            iLGenerator.Emit(OpCodes.Ldloc, local);
-            iLGenerator.EmitCall(OpCodes.Callvirt, callMethod, null);
-            iLGenerator.Emit(OpCodes.Ret);
-            (dynamicMethod.CreateDelegate(typeof(InvokeHandler)) as InvokeHandler).Invoke(target, @params);
-        }
-
+        }        
         #endregion
     }
 }

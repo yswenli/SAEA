@@ -21,7 +21,7 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Commom;
+using SAEA.Common;
 using System;
 using System.Collections.Generic;
 using System.Reflection;

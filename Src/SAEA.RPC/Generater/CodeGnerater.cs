@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Common;
 using SAEA.RPC.Common;
 using SAEA.RPC.Model;
 using SAEA.RPC.Serialize;
@@ -102,7 +103,7 @@ namespace SAEA.RPC.Generater
         internal static void GenerateProxy(string spaceName)
         {
             StringBuilder csStr = new StringBuilder();
-            csStr.AppendLine(Header("using System.Collections.Generic;", "using SAEA.Commom;", "using SAEA.RPC.Consumer;", $"using {spaceName}.Consumer.Model;", $"using {spaceName}.Consumer.Service;"));
+            csStr.AppendLine(Header("using System.Collections.Generic;", "using SAEA.Common;", "using SAEA.RPC.Consumer;", $"using {spaceName}.Consumer.Model;", $"using {spaceName}.Consumer.Service;"));
             csStr.AppendLine($"namespace {spaceName}.Consumer");
             csStr.AppendLine("{");
             csStr.AppendLine($"{GetSpace(1)}public class RPCServiceProxy");

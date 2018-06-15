@@ -197,21 +197,21 @@
           "build/netstandard2.0/NETStandard.Library.targets": {}
         }
       },
-      "SAEA.Commom/1.0.0": {
+      "SAEA.Common/1.0.0": {
         "type": "project",
         "framework": ".NETCoreApp,Version=v2.0",
         "compile": {
-          "bin/placeholder/SAEA.Commom.dll": {}
+          "bin/placeholder/SAEA.Common.dll": {}
         },
         "runtime": {
-          "bin/placeholder/SAEA.Commom.dll": {}
+          "bin/placeholder/SAEA.Common.dll": {}
         }
       },
       "SAEA.NatSocket/1.0.0": {
         "type": "project",
         "framework": ".NETCoreApp,Version=v2.0",
         "dependencies": {
-          "SAEA.Commom": "1.0.0"
+          "SAEA.Common": "1.0.0"
         },
         "compile": {
           "bin/placeholder/SAEA.NatSocket.dll": {}
@@ -680,10 +680,10 @@
         "netstandard.library.nuspec"
       ]
     },
-    "SAEA.Commom/1.0.0": {
+    "SAEA.Common/1.0.0": {
       "type": "project",
-      "path": "../SAEA.Commom/SAEA.Commom.csproj",
-      "msbuildProject": "../SAEA.Commom/SAEA.Commom.csproj"
+      "path": "../SAEA.Commom/SAEA.Common.csproj",
+      "msbuildProject": "../SAEA.Commom/SAEA.Common.csproj"
     },
     "SAEA.NatSocket/1.0.0": {
       "type": "project",
@@ -694,7 +694,7 @@
   "projectFileDependencyGroups": {
     ".NETCoreApp,Version=v2.0": [
       "Microsoft.NETCore.App >= 2.0.0",
-      "SAEA.Commom >= 1.0.0",
+      "SAEA.Common >= 1.0.0",
       "SAEA.NatSocket >= 1.0.0"
     ]
   },
@@ -728,8 +728,8 @@
       "frameworks": {
         "netcoreapp2.0": {
           "projectReferences": {
-            "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Commom\\SAEA.Commom.csproj": {
-              "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Commom\\SAEA.Commom.csproj"
+            "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Commom\\SAEA.Common.csproj": {
+              "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Commom\\SAEA.Common.csproj"
             },
             "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.NatSocket\\SAEA.NatSocket.csproj": {
               "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.NatSocket\\SAEA.NatSocket.csproj"

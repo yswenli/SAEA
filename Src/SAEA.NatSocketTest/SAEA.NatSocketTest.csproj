@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SAEA.Commom\SAEA.Commom.csproj" />
+    <ProjectReference Include="..\SAEA.Commom\SAEA.Common.csproj" />
     <ProjectReference Include="..\SAEA.NatSocket\SAEA.NatSocket.csproj" />
   </ItemGroup>
 

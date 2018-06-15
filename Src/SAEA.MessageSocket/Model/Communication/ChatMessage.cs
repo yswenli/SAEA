@@ -24,7 +24,7 @@
 
 using SAEA.MessageSocket.Common;
 using ProtoBuf;
-using SAEA.Commom;
+using SAEA.Common;
 using System;
 
 namespace SAEA.MessageSocket.Model.Communication

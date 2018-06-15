@@ -22,7 +22,7 @@
 *
 *****************************************************************************/
 
-using SAEA.Commom;
+using SAEA.Common;
 using SAEA.QueueSocket.Model;
 using SAEA.QueueSocket.Net;
 using SAEA.QueueSocket.Type;

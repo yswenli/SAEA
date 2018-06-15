@@ -24,7 +24,7 @@
 using System;
 using System.Threading;
 
-namespace SAEA.Commom
+namespace SAEA.Common
 {
     public static class DateTimeHelper
     {

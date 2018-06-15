@@ -23,7 +23,7 @@
 *****************************************************************************/
 using System.IO;
 
-namespace SAEA.Commom
+namespace SAEA.Common
 {
     public static class PathHelper
     {

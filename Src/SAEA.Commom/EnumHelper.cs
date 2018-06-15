@@ -29,7 +29,7 @@ using System.Net;
 using System.Reflection;
 using System.Text;
 
-namespace SAEA.Commom
+namespace SAEA.Common
 {
     public static class EnumHelper
     {

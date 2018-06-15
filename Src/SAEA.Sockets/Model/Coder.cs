@@ -29,7 +29,7 @@
 *
 *****************************************************************************/
 
-using SAEA.Commom;
+using SAEA.Common;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using System;

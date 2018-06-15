@@ -26,7 +26,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
 
-namespace SAEA.Commom
+namespace SAEA.Common
 {
     /// <summary>
     /// 快速对反射方法进行Invoke
@@ -39,8 +39,7 @@ namespace SAEA.Commom
         /// <param name="target"></param>
         /// <param name="paramters"></param>
         /// <returns></returns>
-        public delegate object FastInvokeHandler(object target, object[] paramters);
-
+        public delegate object FastInvokeHandler(object target, params object[] paramters);
 
         static object InvokeMethod(FastInvokeHandler invoke, object target, params object[] paramters)
         {
@@ -183,6 +182,66 @@ namespace SAEA.Commom
             }
         }
 
+
+        #region Property
+
+        private static object _syncRoot = new object();
+
+        private static Dictionary<string, FastInvokeHandler> _invokeInfos = new Dictionary<string, FastInvokeHandler>();
+
+        /// <summary>
+        /// 属性赋值
+        /// </summary>
+        /// <param name="type"></param>
+        /// <param name="obj"></param>
+        /// <param name="property"></param>
+        /// <param name="val"></param>
+        public static void Setter(Type type, Object obj, PropertyInfo property, object val)
+        {
+            lock (_syncRoot)
+            {
+                var name = type.FullName + property.Name + "Setter";
+
+                if (_invokeInfos.ContainsKey(name))
+                {
+                    _invokeInfos[name].Invoke(obj, val);
+                }
+                else
+                {
+                    var del = FastInvoke.GetMethodInvoker(property.GetSetMethod(true));
+                    _invokeInfos.Add(name, del);
+                    del.Invoke(obj, val);
+                }
+            }
+        }
+        /// <summary>
+        /// 属性取值
+        /// </summary>
+        /// <param name="type"></param>
+        /// <param name="obj"></param>
+        /// <param name="property"></param>
+        /// <returns></returns>
+
+        public static object Getter(Type type, Object obj, PropertyInfo property)
+        {
+            lock (_syncRoot)
+            {
+                var name = type.FullName + property.Name + "Getter";
+
+                if (_invokeInfos.ContainsKey(name))
+                {
+                    return _invokeInfos[name].Invoke(obj);
+                }
+                else
+                {
+                    var del = FastInvoke.GetMethodInvoker(property.GetGetMethod(true));
+                    _invokeInfos.Add(name, del);
+                    return del.Invoke(obj);
+                }
+            }
+        }
+
+        #endregion
 
         /// <summary>
         /// 将List~object转换成List~T

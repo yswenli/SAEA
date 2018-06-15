@@ -21,7 +21,7 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Commom;
+using SAEA.Common;
 using SAEA.Sockets.Core;
 using System;
 using System.Collections.Generic;

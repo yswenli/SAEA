@@ -22,7 +22,7 @@
 *
 *****************************************************************************/
 
-using SAEA.Commom;
+using SAEA.Common;
 using SAEA.WebSocket;
 using SAEA.WebSocket.Model;
 using System;

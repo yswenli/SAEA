@@ -27,7 +27,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace SAEA.Commom
+namespace SAEA.Common
 {
     public static class MD5Helper
     {

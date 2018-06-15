@@ -27,7 +27,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace SAEA.Commom
+namespace SAEA.Common
 {
     /// <summary>
     /// 定义一个类似redis 的 hashset结构

@@ -5,7 +5,7 @@ VisualStudioVersion = 15.0.27130.2036
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAEA.Sockets", "SAEA.Sockets\SAEA.Sockets.csproj", "{D293BABF-1F9B-4AC6-8B53-9C9296A3FAB5}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAEA.Commom", "SAEA.Commom\SAEA.Commom.csproj", "{69C28B02-5B4A-48F4-AE41-1F9BA71CCDCC}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAEA.Common", "SAEA.Commom\SAEA.Common.csproj", "{69C28B02-5B4A-48F4-AE41-1F9BA71CCDCC}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAEA.FileTest", "SAEA.FileTest\SAEA.FileTest.csproj", "{5883F88E-5708-4093-9FA6-B831D1989164}"
 EndProject
@@ -44,9 +44,6 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAEA.RPCTest", "SAEA.RPCTest\SAEA.RPCTest.csproj", "{5E7F5C03-2372-4359-B8FF-040FA26B8947}"
 EndProject
 Global
-	GlobalSection(Performance) = preSolution
-		HasPerformanceSessions = true
-	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
@@ -138,6 +135,9 @@ Global
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {83B70B6A-E224-43AF-8343-2E224D9FA68E}
+	EndGlobalSection
+	GlobalSection(Performance) = preSolution
+		HasPerformanceSessions = true
 	EndGlobalSection
 	GlobalSection(Performance) = preSolution
 		HasPerformanceSessions = true

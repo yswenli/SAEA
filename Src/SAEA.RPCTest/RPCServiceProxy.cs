@@ -5,7 +5,7 @@
 
 using System;
 using System.Collections.Generic;
-using SAEA.Commom;
+using SAEA.Common;
 using SAEA.RPC.Consumer;
 using SAEA.RPCTest.Consumer.Model;
 using SAEA.RPCTest.Consumer.Service;

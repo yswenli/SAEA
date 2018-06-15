@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 
-namespace SAEA.Commom
+namespace SAEA.Common
 {
     /// <summary>
     /// 异常收集器

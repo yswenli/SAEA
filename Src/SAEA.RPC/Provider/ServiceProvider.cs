@@ -21,7 +21,7 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Commom;
+using SAEA.Common;
 using SAEA.RPC.Common;
 using SAEA.RPC.Model;
 using SAEA.RPC.Net;
@@ -84,8 +84,12 @@ namespace SAEA.RPC.Provider
 
                     break;
                 case RSocketMsgType.Request:
-                    _RServer.Reply(userToken, new RSocketMsg(RSocketMsgType.Response, null, null, 
-                        RPCReversal.Reversal(userToken, msg)) { SequenceNumber = msg.SequenceNumber });
+
+                    var data= RPCReversal.Reversal(userToken, msg);
+
+                    var rSocketMsg = new RSocketMsg(RSocketMsgType.Response, null, null, data) { SequenceNumber = msg.SequenceNumber };
+
+                    _RServer.Reply(userToken, rSocketMsg);
                     //ConsoleHelper.WriteLine($"3 provider send: {msg.SequenceNumber}");
                     break;
                 case RSocketMsgType.Response:

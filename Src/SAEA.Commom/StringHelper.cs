@@ -24,7 +24,7 @@
 
 using System;
 
-namespace SAEA.Commom
+namespace SAEA.Common
 {
     public static class StringHelper
     {

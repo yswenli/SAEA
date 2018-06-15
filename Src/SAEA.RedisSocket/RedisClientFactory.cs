@@ -21,7 +21,7 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Commom;
+using SAEA.Common;
 using SAEA.RedisSocket.Model;
 using System;
 using System.Collections.Concurrent;
