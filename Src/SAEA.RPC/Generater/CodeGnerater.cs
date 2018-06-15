@@ -110,11 +110,11 @@ namespace SAEA.RPC.Generater
             csStr.AppendLine(GetSpace(1) + "{");
             csStr.AppendLine(GetSpace(2) + "public event ExceptionCollector.OnErrHander OnErr;");
             csStr.AppendLine(GetSpace(2) + "ServiceConsumer _serviceConsumer;");
-            csStr.AppendLine(GetSpace(2) + "public RPCServiceProxy(string uri = \"rpc://127.0.0.1:39654\") : this(new Uri(uri)){}");
-            csStr.AppendLine(GetSpace(2) + "public RPCServiceProxy(Uri uri,int links=4,int retry=5,int timeOut=10*1000)");
+            csStr.AppendLine(GetSpace(2) + "public RPCServiceProxy(string uri = \"rpc://127.0.0.1:39654\") : this(uri, 4, 5, 10 * 1000) { }");
+            csStr.AppendLine(GetSpace(2) + "public RPCServiceProxy(string uri, int links = 4, int retry = 5, int timeOut = 10 * 1000)");
             csStr.AppendLine(GetSpace(2) + "{");
             csStr.AppendLine(GetSpace(3) + "ExceptionCollector.OnErr += ExceptionCollector_OnErr;");
-            csStr.AppendLine(GetSpace(3) + "_serviceConsumer = new ServiceConsumer(uri,links,retry,timeOut);");
+            csStr.AppendLine(GetSpace(3) + "_serviceConsumer = new ServiceConsumer(new Uri(uri), links, retry, timeOut);");
 
             var names = RPCMapping.GetServiceNames();
 
@@ -179,7 +179,7 @@ namespace SAEA.RPC.Generater
             {
                 var rtype = item.Value.Method.ReturnType;
 
-                if (rtype != null && rtype.IsClass)
+                if (rtype != null && (rtype.IsClass || rtype.IsEnum))
                 {
                     if (rtype.IsGenericType)
                     {
@@ -187,7 +187,7 @@ namespace SAEA.RPC.Generater
                         {
                             var t = rtype.GetGenericArguments()[0];
 
-                            if (!t.IsSealed && !t.IsAbstract && !t.IsArray && t.IsClass)
+                            if (!t.IsSealed && !t.IsAbstract && t.IsClass)
                             {
                                 if (!_modelStrs.ContainsKey($"{spaceName}.Consumer.Model.{t.Name}"))
                                 {
@@ -269,7 +269,7 @@ namespace SAEA.RPC.Generater
                         if (i < item.Value.Pamars.Count)
                             argsStr.Append(", ");
 
-                        if (arg.Value != null && arg.Value.IsClass)
+                        if (arg.Value != null && (arg.Value.IsClass || arg.Value.IsEnum))
                         {
                             if (arg.Value.IsGenericType)
                             {
@@ -333,8 +333,6 @@ namespace SAEA.RPC.Generater
                                     GenerateModel(spaceName, arg.Value);
                                 }
                             }
-
-
                         }
 
                         argsInput.Append(", ");
@@ -369,13 +367,22 @@ namespace SAEA.RPC.Generater
         /// <typeparam name="T"></typeparam>
         /// <param name="t"></param>
         /// <returns></returns>
+        /// <summary>
+        /// 生成实体代码
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="t"></param>
+        /// <returns></returns>
         internal static void GenerateModel(string spaceName, Type type)
         {
-            if (!IsModel(type)) return;
-            StringBuilder csStr = new StringBuilder();
-            if (type.IsClass || type.IsInterface)
+            if (type.IsArray)
             {
-                var paramTypes = type.GetGenericArguments();
+                var stype = type.GetElementType();
+                GenerateModel(spaceName, stype);
+            }
+            else if ((type.IsClass && !type.IsNested && type != typeof(string)) || type.IsInterface)
+            {
+                StringBuilder csStr = new StringBuilder();
                 csStr.AppendLine($"namespace {spaceName}.Consumer.Model");
                 csStr.AppendLine("{");
                 csStr.AppendLine($"{GetSpace(1)}public class {TypeHelper.GetTypeName(type)}");
@@ -390,9 +397,78 @@ namespace SAEA.RPC.Generater
                 }
                 csStr.AppendLine(GetSpace(1) + "}");
                 csStr.AppendLine("}");
-                _modelStrs.Add($"{spaceName}.Consumer.Model.{type.Name}", csStr.ToString());
-            }
+                var modelKey = $"{spaceName}.Consumer.Model.{type.Name}";
+                if (!_modelStrs.ContainsKey(modelKey))
+                {
+                    _modelStrs.Add(modelKey, csStr.ToString());
+                }
 
+                if (type.IsGenericType)
+                {
+                    var stypes = type.GetGenericArguments();
+
+                    foreach (var item in stypes)
+                    {
+                        GenerateModel(spaceName, item);
+                    }
+                }
+            }
+            else if (type.IsEnum)
+            {
+                StringBuilder csStr = new StringBuilder();
+                var baseType = Enum.GetUnderlyingType(type);
+                csStr.AppendLine($"namespace {spaceName}.Consumer.Model");
+                csStr.AppendLine("{");
+                csStr.AppendLine($"{GetSpace(1)}public enum {type.Name}:{baseType.Name}");
+                csStr.AppendLine(GetSpace(1) + "{");
+                var values = Enum.GetValues(type);
+                foreach (var value in values)
+                {
+                    if (values.GetValue(values.Length - 1) == value)
+                    {
+                        switch (baseType.Name)
+                        {
+                            case "Byte":
+                                csStr.AppendLine($"{GetSpace(2)}{value.ToString()}={(Byte)value}");
+                                break;
+                            case "Int16":
+                                csStr.AppendLine($"{GetSpace(2)}{value.ToString()}={(Int16)value}");
+                                break;
+                            case "Int64":
+                                csStr.AppendLine($"{GetSpace(2)}{value.ToString()}={(Int64)value}");
+                                break;
+                            default:
+                                csStr.AppendLine($"{GetSpace(2)}{value.ToString()}={(int)value}");
+                                break;
+                        }
+                    }
+                    else
+                    {
+                        switch (baseType.Name)
+                        {
+                            case "Byte":
+                                csStr.AppendLine($"{GetSpace(2)}{value.ToString()}={(Byte)value},");
+                                break;
+                            case "Int16":
+                                csStr.AppendLine($"{GetSpace(2)}{value.ToString()}={(Int16)value},");
+                                break;
+                            case "Int64":
+                                csStr.AppendLine($"{GetSpace(2)}{value.ToString()}={(Int64)value},");
+                                break;
+                            default:
+                                csStr.AppendLine($"{GetSpace(2)}{value.ToString()}={(int)value},");
+                                break;
+                        }
+                    }
+                }
+                csStr.AppendLine(GetSpace(1) + "}");
+                csStr.AppendLine("}");
+                var modelKey = $"{spaceName}.Consumer.Model.{type.Name}";
+                if (!_modelStrs.ContainsKey(modelKey))
+                {
+                    _modelStrs.Add(modelKey, csStr.ToString());
+                }
+            }
         }
 
         /// <summary>

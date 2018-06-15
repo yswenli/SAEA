@@ -1,11 +1,11 @@
 ﻿/*******
 * 此代码为SAEA.RPC.Generater生成
-* 尽量不要修改此代码 2018-06-14 15:06:50
+* 尽量不要修改此代码 2018-06-15 17:56:53
 *******/
 
 using System;
 using System.Collections.Generic;
-using SAEA.Commom;
+using SAEA.Common;
 using SAEA.RPC.Consumer;
 using SAEA.RPCTest.Consumer.Model;
 using SAEA.RPCTest.Consumer.Service;
@@ -16,11 +16,11 @@ namespace SAEA.RPCTest.Consumer
     {
         public event ExceptionCollector.OnErrHander OnErr;
         ServiceConsumer _serviceConsumer;
-        public RPCServiceProxy(string uri = "rpc://127.0.0.1:39654") : this(new Uri(uri)){}
-        public RPCServiceProxy(Uri uri,int links=4,int retry=5,int timeOut=10*1000)
+        public RPCServiceProxy(string uri = "rpc://127.0.0.1:39654") : this(uri, 4, 5, 10 * 1000) { }
+        public RPCServiceProxy(string uri, int links = 4, int retry = 5, int timeOut = 10 * 1000)
         {
             ExceptionCollector.OnErr += ExceptionCollector_OnErr;
-            _serviceConsumer = new ServiceConsumer(uri,links,retry,timeOut);
+            _serviceConsumer = new ServiceConsumer(new Uri(uri), links, retry, timeOut);
             _groupService = new GroupService(_serviceConsumer);
             _helloService = new HelloService(_serviceConsumer);
             _dicService = new DicService(_serviceConsumer);

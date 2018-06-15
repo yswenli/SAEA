@@ -100,7 +100,7 @@ namespace SAEA.RPCTest
 
             ConsoleHelper.WriteLine($"Consumer正在连接到{url}...");
 
-            RPCServiceProxy cp = new RPCServiceProxy(new Uri(input), 1, 1, 1000000);
+            RPCServiceProxy cp = new RPCServiceProxy(input, 1, 1, 1000000);
             cp.OnErr += Cp_OnErr;
 
             ConsoleHelper.WriteLine("Consumer连接成功");
@@ -228,7 +228,7 @@ namespace SAEA.RPCTest
 
             ConsoleHelper.WriteLine($"Consumer正在连接到{url}...");
 
-            RPCServiceProxy cp = new RPCServiceProxy(new Uri(url), 1, 1);
+            RPCServiceProxy cp = new RPCServiceProxy(url, 1, 1);
             cp.OnErr += Cp_OnErr;
 
             ConsoleHelper.WriteLine("Consumer连接成功");
