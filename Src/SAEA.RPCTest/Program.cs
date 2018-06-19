@@ -136,8 +136,10 @@ namespace SAEA.RPCTest
             };
             ConsoleHelper.WriteLine("GenericService/Get/UserName:" + cp.GenericService.Get(data).Data.UserName);
             ConsoleHelper.WriteLine("GenericService/GetListString/Count:" + cp.GenericService.GetListString().Count);
-
             ConsoleHelper.WriteLine("");
+
+            Console.WriteLine($"{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}  EnumService/Get/GetEnum:" + cp.EnumService.GetEnum(EnumServiceType.Best).ToString());
+            Console.WriteLine("");
 
             ConsoleHelper.WriteLine("回车启动性能测试！");
 

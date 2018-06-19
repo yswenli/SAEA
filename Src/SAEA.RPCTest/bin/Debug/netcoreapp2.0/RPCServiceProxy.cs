@@ -1,6 +1,6 @@
 ﻿/*******
 * 此代码为SAEA.RPC.Generater生成
-* 尽量不要修改此代码 2018-06-15 17:56:53
+* 尽量不要修改此代码 2018-06-19 11:24:12
 *******/
 
 using System;
@@ -21,6 +21,7 @@ namespace SAEA.RPCTest.Consumer
         {
             ExceptionCollector.OnErr += ExceptionCollector_OnErr;
             _serviceConsumer = new ServiceConsumer(new Uri(uri), links, retry, timeOut);
+            _enumService = new EnumService(_serviceConsumer);
             _groupService = new GroupService(_serviceConsumer);
             _helloService = new HelloService(_serviceConsumer);
             _dicService = new DicService(_serviceConsumer);
@@ -29,6 +30,11 @@ namespace SAEA.RPCTest.Consumer
         private void ExceptionCollector_OnErr(string name, Exception ex)
         {
             OnErr(name, ex);
+        }
+        EnumService _enumService;
+        public EnumService EnumService
+        {
+             get{ return _enumService; }
         }
         GroupService _groupService;
         public GroupService GroupService
@@ -49,6 +55,22 @@ namespace SAEA.RPCTest.Consumer
         public GenericService GenericService
         {
              get{ return _genericService; }
+        }
+    }
+}
+
+namespace SAEA.RPCTest.Consumer.Service
+{
+    public class EnumService
+    {
+        ServiceConsumer _serviceConsumer;
+        public EnumService(ServiceConsumer serviceConsumer)
+        {
+            _serviceConsumer = serviceConsumer;
+        }
+        public ReturnEnum GetEnum(EnumServiceType est)
+        {
+            return _serviceConsumer.RemoteCall<ReturnEnum>("EnumService", "GetEnum", est);
         }
     }
 }
@@ -138,6 +160,26 @@ namespace SAEA.RPCTest.Consumer.Service
         {
             return _serviceConsumer.RemoteCall<List<String>>("GenericService", "GetListString");
         }
+    }
+}
+
+namespace SAEA.RPCTest.Consumer.Model
+{
+    public enum ReturnEnum:Int32
+    {
+        Big=0,
+        Bigger=1,
+        Biggest=2,
+    }
+}
+
+namespace SAEA.RPCTest.Consumer.Model
+{
+    public enum EnumServiceType:Int32
+    {
+        Good=1,
+        Better=2,
+        Best=3,
     }
 }
 

@@ -217,6 +217,7 @@ namespace SAEA.RPC.Serialize
         {
             if (param != null && param.Count > 0)
             {
+                List<byte> list = new List<byte>();
                 foreach (var item in param)
                 {
                     var type = item.GetType();
@@ -239,10 +240,11 @@ namespace SAEA.RPC.Serialize
 
                         if (clen > 0)
                         {
-                            return cdata;
+                            list.AddRange(cdata);
                         }
                     }
                 }
+                return list.ToArray();
             }
             return null;
         }
