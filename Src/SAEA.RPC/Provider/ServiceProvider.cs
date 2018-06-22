@@ -25,6 +25,7 @@ using SAEA.Common;
 using SAEA.RPC.Common;
 using SAEA.RPC.Model;
 using SAEA.RPC.Net;
+using SAEA.RPC.Serialize;
 using System;
 
 namespace SAEA.RPC.Provider
@@ -41,6 +42,10 @@ namespace SAEA.RPC.Provider
         bool _started = false;
 
         RServer _RServer;
+
+        public delegate void OnErrHander(Exception ex);
+
+        public event OnErrHander OnErr;
 
         /// <summary>
         /// RPC服务提供者
@@ -59,16 +64,23 @@ namespace SAEA.RPC.Provider
         public ServiceProvider(Type[] serviceTypes, int port = 39654)
         {
             _serviceTypes = serviceTypes;
-            _port = 39654;           
+            _port = 39654;
 
             _RServer = new RServer();
             _RServer.OnMsg += _RServer_OnMsg;
             _RServer.OnError += _RServer_OnError;
+
+            ExceptionCollector.OnErr += ExceptionCollector_OnErr;
+        }
+
+        private void ExceptionCollector_OnErr(string name, Exception ex)
+        {
+            OnErr(ex);
         }
 
         private void _RServer_OnError(string ID, Exception ex)
         {
-            throw new RPCSocketException("RPCProvider Socket Excetion", ex);
+            ExceptionCollector.Add("Provider", ex);
         }
 
         private void _RServer_OnMsg(Sockets.Interface.IUserToken userToken, RSocketMsg msg)
@@ -84,21 +96,38 @@ namespace SAEA.RPC.Provider
 
                     break;
                 case RSocketMsgType.Request:
+                    try
+                    {
+                        var data = RPCReversal.Reversal(userToken, msg);
 
-                    var data= RPCReversal.Reversal(userToken, msg);
+                        var rSocketMsg = new RSocketMsg(RSocketMsgType.Response, null, null, data) { SequenceNumber = msg.SequenceNumber };
 
-                    var rSocketMsg = new RSocketMsg(RSocketMsgType.Response, null, null, data) { SequenceNumber = msg.SequenceNumber };
+                        _RServer.Reply(userToken, rSocketMsg);
+                    }
+                    catch (Exception ex)
+                    {
+                        try
+                        {
+                            ExceptionCollector.Add("Provider", ex);
 
-                    _RServer.Reply(userToken, rSocketMsg);
+                            if (userToken.Socket != null && userToken.Socket.Connected)
+                            {
+                                var eData = ParamsSerializeUtil.Serialize(ex.Message);
+                                var eMsg = new RSocketMsg(RSocketMsgType.Error, null, null, eData) { SequenceNumber = msg.SequenceNumber };
+                                _RServer.Reply(userToken, eMsg);
+                            }
+                        }
+                        catch (Exception sex)
+                        {
+                            Console.WriteLine($"_RServer_OnMsg.Error:{sex.Message}");
+                        }
+                    }
                     //ConsoleHelper.WriteLine($"3 provider send: {msg.SequenceNumber}");
                     break;
                 case RSocketMsgType.Response:
 
                     break;
-                case RSocketMsgType.RequestBig:
-
-                    break;
-                case RSocketMsgType.ResponseBig:
+                case RSocketMsgType.Error:
 
                     break;
                 case RSocketMsgType.Close:

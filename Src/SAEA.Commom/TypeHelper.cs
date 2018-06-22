@@ -12,6 +12,9 @@ namespace SAEA.Common
     /// </summary>
     public static class TypeHelper
     {
+        public static readonly string[] ListTypeStrs = { "List`1", "HashSet`1", "IList`1", "ISet`1", "ICollection`1", "IEnumerable`1" };
+
+        public static readonly string[] DicTypeStrs = { "Dictionary`2", "IDictionary`2" };
 
         static StackTrace _stackTrace = new StackTrace(true);
 
@@ -44,7 +47,7 @@ namespace SAEA.Common
         /// <returns></returns>
         public static string GetTypeName(Type type)
         {
-            if (type.IsClass)
+            if (type.IsClass || type.IsInterface)
             {
                 if (type.IsGenericType)
                 {
@@ -82,6 +85,12 @@ namespace SAEA.Common
         {
             lock (_syncRoot)
             {
+
+                if (type.IsInterface)
+                {
+                    throw new Exception("服务方法中不能包含接口内容！");
+                }
+
                 var fullName = type.FullName + methodName;
 
                 if (!_instanceCache.TryGetValue(fullName, out TypeInfo typeInfo))
@@ -108,6 +117,11 @@ namespace SAEA.Common
         {
             lock (_syncRoot)
             {
+                if (type.IsInterface)
+                {
+                    throw new Exception("服务方法中不能包含接口内容！");
+                }
+
                 var fullName = type.FullName + mb.Name;
 
                 if (!_instanceCache.TryGetValue(fullName, out TypeInfo typeInfo))

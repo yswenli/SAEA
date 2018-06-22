@@ -183,11 +183,11 @@ namespace SAEA.RPC.Generater
                 {
                     if (rtype.IsGenericType)
                     {
-                        if (ParamsSerializeUtil.ListTypeStrs.Contains(rtype.Name))
+                        if (TypeHelper.ListTypeStrs.Contains(rtype.Name))
                         {
                             var t = rtype.GetGenericArguments()[0];
 
-                            if (!t.IsSealed && !t.IsAbstract && t.IsClass)
+                            if (!t.IsAbstract && t.IsClass)
                             {
                                 if (!_modelStrs.ContainsKey($"{spaceName}.Consumer.Model.{t.Name}"))
                                 {
@@ -196,19 +196,19 @@ namespace SAEA.RPC.Generater
                             }
 
                         }
-                        else if (ParamsSerializeUtil.DicTypeStrs.Contains(rtype.Name))
+                        else if (TypeHelper.DicTypeStrs.Contains(rtype.Name))
                         {
                             var t1 = rtype.GetGenericArguments()[0];
                             var t2 = rtype.GetGenericArguments()[1];
 
-                            if (!t1.IsSealed && !t1.IsAbstract && !t1.IsArray && t1.IsClass)
+                            if (!t1.IsAbstract && !t1.IsArray && t1.IsClass)
                             {
                                 if (!_modelStrs.ContainsKey($"{spaceName}.Consumer.Model.{t1.Name}"))
                                 {
                                     GenerateModel(spaceName, t1);
                                 }
                             }
-                            if (!t2.IsSealed && !t2.IsAbstract && !t2.IsArray && t2.IsClass)
+                            if (!t2.IsAbstract && !t2.IsArray && t2.IsClass)
                             {
                                 if (!_modelStrs.ContainsKey($"{spaceName}.Consumer.Model.{t2.Name}"))
                                 {
@@ -220,12 +220,12 @@ namespace SAEA.RPC.Generater
                         {
                             var t = rtype.GetGenericTypeDefinition();
                             var p = rtype.GetGenericArguments()[0];
-                            if (!t.IsSealed && !t.IsAbstract && !t.IsArray && t.IsClass)
+                            if (!t.IsAbstract && !t.IsArray && t.IsClass)
                                 if (!_modelStrs.ContainsKey($"{spaceName}.Consumer.Model.{t.Name}"))
                                 {
                                     GenerateModel(spaceName, t);
                                 }
-                            if (!p.IsSealed && !p.IsAbstract && !p.IsArray && p.IsClass)
+                            if (!p.IsAbstract && !p.IsArray && p.IsClass)
                                 if (!_modelStrs.ContainsKey($"{spaceName}.Consumer.Model.{p.Name}"))
                                 {
                                     GenerateModel(spaceName, t);
@@ -273,11 +273,11 @@ namespace SAEA.RPC.Generater
                         {
                             if (arg.Value.IsGenericType)
                             {
-                                if (ParamsSerializeUtil.ListTypeStrs.Contains(arg.Value.Name))
+                                if (TypeHelper.ListTypeStrs.Contains(arg.Value.Name))
                                 {
                                     var t = arg.Value.GetGenericArguments()[0];
 
-                                    if (!t.IsSealed && !t.IsAbstract && !t.IsArray && !t.IsGenericType && t.IsClass)
+                                    if (!t.IsAbstract && !t.IsArray && !t.IsGenericType && t.IsClass)
                                     {
                                         if (!_modelStrs.ContainsKey($"{spaceName}.Consumer.Model.{t.Name}"))
                                         {
@@ -285,19 +285,19 @@ namespace SAEA.RPC.Generater
                                         }
                                     }
                                 }
-                                else if (ParamsSerializeUtil.DicTypeStrs.Contains(arg.Value.Name))
+                                else if (TypeHelper.DicTypeStrs.Contains(arg.Value.Name))
                                 {
                                     var t1 = arg.Value.GetGenericArguments()[0];
                                     var t2 = arg.Value.GetGenericArguments()[1];
 
-                                    if (!t1.IsSealed && !t1.IsAbstract && !t1.IsArray && !t1.IsGenericType && t1.IsClass)
+                                    if (!t1.IsAbstract && !t1.IsArray && !t1.IsGenericType && t1.IsClass)
                                     {
                                         if (!_modelStrs.ContainsKey($"{spaceName}.Consumer.Model.{t1.Name}"))
                                         {
                                             GenerateModel(spaceName, t1);
                                         }
                                     }
-                                    if (!t2.IsSealed && !t2.IsAbstract && !t2.IsArray && !t2.IsGenericType && t2.IsClass)
+                                    if (!t2.IsAbstract && !t2.IsArray && !t2.IsGenericType && t2.IsClass)
                                     {
                                         if (!_modelStrs.ContainsKey($"{spaceName}.Consumer.Model.{t2.Name}"))
                                         {
@@ -316,7 +316,7 @@ namespace SAEA.RPC.Generater
 
                                     foreach (var t in gs)
                                     {
-                                        if (!t.IsSealed && !t.IsAbstract && !t.IsArray && t.IsClass)
+                                        if (!t.IsAbstract && !t.IsArray && t.IsClass)
                                         {
                                             if (!_modelStrs.ContainsKey($"{spaceName}.Consumer.Model.{t.Name}"))
                                             {
@@ -375,34 +375,58 @@ namespace SAEA.RPC.Generater
         /// <returns></returns>
         internal static void GenerateModel(string spaceName, Type type)
         {
+            if (type.IsInterface) throw new Exception("不支持接口：" + TypeHelper.GetTypeName(type));
+
+            var modelKey = $"{spaceName}.Consumer.Model.{type.Name}";
+            if (_modelStrs.ContainsKey(modelKey))
+            {
+                return;
+            }
+
             if (type.IsArray)
             {
                 var stype = type.GetElementType();
                 GenerateModel(spaceName, stype);
             }
-            else if ((type.IsClass && !type.IsNested && type != typeof(string)) || type.IsInterface)
+            else if ((type.IsClass && !type.IsNested && type != typeof(string) && type != typeof(object)))
             {
-                StringBuilder csStr = new StringBuilder();
-                csStr.AppendLine($"namespace {spaceName}.Consumer.Model");
-                csStr.AppendLine("{");
-                csStr.AppendLine($"{GetSpace(1)}public class {TypeHelper.GetTypeName(type)}");
-                csStr.AppendLine(GetSpace(1) + "{");
-                var ps = type.GetProperties();
-                foreach (var p in ps)
+                if (!TypeHelper.ListTypeStrs.Contains(type.Name) && !TypeHelper.DicTypeStrs.Contains(type.Name))
                 {
-                    csStr.AppendLine($"{GetSpace(2)}public {TypeHelper.GetTypeName(p.PropertyType)} {p.Name}");
-                    csStr.AppendLine(GetSpace(2) + "{");
-                    csStr.AppendLine(GetSpace(3) + "get;set;");
-                    csStr.AppendLine(GetSpace(2) + "}");
-                }
-                csStr.AppendLine(GetSpace(1) + "}");
-                csStr.AppendLine("}");
-                var modelKey = $"{spaceName}.Consumer.Model.{type.Name}";
-                if (!_modelStrs.ContainsKey(modelKey))
-                {
-                    _modelStrs.Add(modelKey, csStr.ToString());
-                }
+                    StringBuilder csStr = new StringBuilder();
+                    csStr.AppendLine($"namespace {spaceName}.Consumer.Model");
+                    csStr.AppendLine("{");
+                    csStr.AppendLine($"{GetSpace(1)}public class {TypeHelper.GetTypeName(type)}");
+                    csStr.AppendLine(GetSpace(1) + "{");
+                    var ps = type.GetProperties();
+                    foreach (var p in ps)
+                    {
+                        csStr.AppendLine($"{GetSpace(2)}public {TypeHelper.GetTypeName(p.PropertyType)} {p.Name}");
+                        csStr.AppendLine(GetSpace(2) + "{");
+                        csStr.AppendLine(GetSpace(3) + "get;set;");
+                        csStr.AppendLine(GetSpace(2) + "}");
+                    }
+                    csStr.AppendLine(GetSpace(1) + "}");
+                    csStr.AppendLine("}");
+                    if (!_modelStrs.ContainsKey(modelKey))
+                    {
+                        _modelStrs.Add(modelKey, csStr.ToString());
+                    }
 
+                    foreach (var p in ps)
+                    {
+                        GenerateModel(spaceName, p.PropertyType);
+
+                        if (p.PropertyType.IsGenericType)
+                        {
+                            var stypes = p.PropertyType.GetGenericArguments();
+
+                            foreach (var item in stypes)
+                            {
+                                GenerateModel(spaceName, item);
+                            }
+                        }
+                    }
+                }
                 if (type.IsGenericType)
                 {
                     var stypes = type.GetGenericArguments();
@@ -463,29 +487,13 @@ namespace SAEA.RPC.Generater
                 }
                 csStr.AppendLine(GetSpace(1) + "}");
                 csStr.AppendLine("}");
-                var modelKey = $"{spaceName}.Consumer.Model.{type.Name}";
                 if (!_modelStrs.ContainsKey(modelKey))
                 {
                     _modelStrs.Add(modelKey, csStr.ToString());
                 }
             }
         }
-
-        /// <summary>
-        /// 是否是实体
-        /// </summary>
-        /// <param name="type"></param>
-        /// <returns></returns>
-        internal static bool IsModel(Type type)
-        {
-            if (type.IsArray || type.IsSealed || !type.IsClass)
-            {
-                return false;
-            }
-            return true;
-        }
-
-
+        
 
 
         /// <summary>

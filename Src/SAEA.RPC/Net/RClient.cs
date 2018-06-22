@@ -24,6 +24,7 @@
 using SAEA.Common;
 using SAEA.RPC.Common;
 using SAEA.RPC.Model;
+using SAEA.RPC.Serialize;
 using SAEA.Sockets.Core;
 using SAEA.Sockets.Interface;
 using System;
@@ -108,9 +109,10 @@ namespace SAEA.RPC.Net
                     case RSocketMsgType.Response:
                         _syncHelper.Set(msg.SequenceNumber, msg.Data);
                         break;
-                    case RSocketMsgType.RequestBig:
-                        break;
-                    case RSocketMsgType.ResponseBig:
+                    case RSocketMsgType.Error:
+                        var offset = 0;
+                        ExceptionCollector.Add("Consumer", new Exception((string)ParamsSerializeUtil.Deserialize(typeof(string), msg.Data, ref offset)));
+                        _syncHelper.Set(msg.SequenceNumber, msg.Data);
                         break;
                     case RSocketMsgType.Close:
                         break;

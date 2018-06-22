@@ -21,9 +21,6 @@
 *描述：
 *
 *****************************************************************************/
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.RPC.Model
 {
@@ -36,8 +33,7 @@ namespace SAEA.RPC.Model
         Pong = 2,
         Request = 3,
         Response = 4,
-        RequestBig = 31,
-        ResponseBig = 41,
+        Error = 41,
         Close = 5
     }
 }

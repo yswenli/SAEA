@@ -29,7 +29,7 @@ namespace SAEA.Common
                     {
                         if (item.Value.TryDequeue(out Exception ex))
                         {
-                            OnErr?.BeginInvoke(item.Key, ex, null, null);
+                            OnErr?.Invoke(item.Key, ex);
                         }
                     }
                     ThreadHelper.Sleep(50);

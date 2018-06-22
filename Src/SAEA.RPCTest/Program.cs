@@ -76,9 +76,16 @@ namespace SAEA.RPCTest
             //var sp = new ServiceProvider(new Type[] { typeof(Provider.HelloService) });
             var sp = new ServiceProvider();
 
+            sp.OnErr += Sp_OnErr;
+
             sp.Start();
 
             ConsoleHelper.WriteLine("Provider就绪！");
+        }
+
+        private static void Sp_OnErr(Exception ex)
+        {
+            ConsoleHelper.WriteLine("Provider Error:" + ex.Message);
         }
 
         static void Generate()

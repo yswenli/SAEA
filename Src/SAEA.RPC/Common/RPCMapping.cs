@@ -64,7 +64,7 @@ namespace SAEA.RPC.Common
 
                 if (IsRPCService(type))
                 {
-                    var methods = type.GetMethods();
+                    var methods = type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
 
                     var rms = GetRPCMehod(methods);
 
@@ -183,7 +183,7 @@ namespace SAEA.RPC.Common
                 var isRPC = false;
                 foreach (var method in mInfos)
                 {
-                    if (method.IsAbstract || method.IsConstructor || method.IsFamily || method.IsPrivate || method.IsStatic || method.IsVirtual)
+                    if (method.IsAbstract || method.IsConstructor || method.IsFamily || method.IsPrivate || method.IsStatic)
                     {
                         break;
                     }

@@ -120,11 +120,11 @@ namespace SAEA.RPC.Net
 
                 try
                 {
-                    if (data != null && data.Length > offset + MIN)
+                    if (data != null && data.Length >= offset + MIN)
                     {
                         var list = new List<RSocketMsg>();
 
-                        while (data.Length > offset + MIN)
+                        while (data.Length >= offset + MIN)
                         {
                             var total = BitConverter.ToUInt32(data, (int)offset + 1);
 

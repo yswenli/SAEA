@@ -77,7 +77,6 @@ namespace SAEA.RPC.Consumer
         public T RemoteCall<T>(string serviceName, string method, params object[] args)
         {
             T t = default(T);
-
             byte[] abytes = null;
 
             if (args != null)
@@ -89,8 +88,15 @@ namespace SAEA.RPC.Consumer
 
             if (data != null)
             {
-                int offset = 0;
-                t = (T)ParamsSerializeUtil.Deserialize(typeof(T), data, ref offset);
+                try
+                {
+                    int offset = 0;
+                    t = (T)ParamsSerializeUtil.Deserialize(typeof(T), data, ref offset);
+                }
+                catch
+                {
+
+                }
             }
             return t;
         }

@@ -1,4 +1,5 @@
 ﻿using SAEA.Common;
+using SAEA.RPC.Model;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,13 +12,6 @@ namespace SAEA.RPC.Serialize
     /// </summary>
     public class ParamsSerializeUtil
     {
-        #region Cache
-
-        public static readonly string[] ListTypeStrs = { "List`1", "HashSet`1", "IList`1", "ISet`1", "ICollection`1", "IEnumerable`1" };
-
-        public static readonly string[] DicTypeStrs = { "Dictionary`2", "IDictionary`2" };
-
-        #endregion
 
         #region Serialize
 
@@ -106,20 +100,21 @@ namespace SAEA.RPC.Serialize
                 {
                     var type = param.GetType();
 
-                    if (type.IsClass)
+
+                    if (type.IsGenericType || type.IsArray)
                     {
-                        if (type.IsGenericType || type.IsArray)
-                        {
-                            if (DicTypeStrs.Contains(type.Name))
-                                data = SerializeDic((System.Collections.IDictionary)param);
-                            else if (ListTypeStrs.Contains(type.Name) || type.IsArray)
-                                data = SerializeList((System.Collections.IEnumerable)param);
-                            else
-                                data = SerializeClass(param, type);
-                        }
+                        if (TypeHelper.DicTypeStrs.Contains(type.Name))
+                            data = SerializeDic((System.Collections.IDictionary)param);
+                        else if (TypeHelper.ListTypeStrs.Contains(type.Name) || type.IsArray)
+                            data = SerializeList((System.Collections.IEnumerable)param);
                         else
                             data = SerializeClass(param, type);
                     }
+                    else if (type.IsClass)
+                    {
+                        data = SerializeClass(param, type);
+                    }
+
                 }
                 if (data != null)
                     len = data.Length;
@@ -134,6 +129,8 @@ namespace SAEA.RPC.Serialize
 
         private static byte[] SerializeClass(object obj, Type type)
         {
+            if (obj == null) return null;
+
             List<byte> datas = new List<byte>();
 
             var len = 0;
@@ -384,11 +381,11 @@ namespace SAEA.RPC.Serialize
                 }
                 else if (type.IsGenericType)
                 {
-                    if (ListTypeStrs.Contains(type.Name))
+                    if (TypeHelper.ListTypeStrs.Contains(type.Name))
                     {
                         obj = DeserializeList(type, data);
                     }
-                    else if (DicTypeStrs.Contains(type.Name))
+                    else if (TypeHelper.DicTypeStrs.Contains(type.Name))
                     {
                         obj = DeserializeDic(type, data);
                     }
@@ -397,17 +394,17 @@ namespace SAEA.RPC.Serialize
                         obj = DeserializeClass(type, data);
                     }
                 }
-                else if (type.IsArray)
-                {
-                    obj = DeserializeArray(type, data);
-                }
                 else if (type.IsClass)
                 {
                     obj = DeserializeClass(type, data);
                 }
+                else if (type.IsArray)
+                {
+                    obj = DeserializeArray(type, data);
+                }
                 else
                 {
-                    throw new Exception("ParamsSerializeUtil.Deserialize 未定义的类型：" + type.ToString());
+                    throw new RPCPamarsException("ParamsSerializeUtil.Deserialize 未定义的类型：" + type.ToString());
                 }
 
             }
@@ -454,9 +451,9 @@ namespace SAEA.RPC.Serialize
                             }
                         }
                     }
-                    catch (Exception ex)
+                    catch
                     {
-                        Console.WriteLine("反序列化不支持的类型：" + ex.Message);
+                        throw new RPCPamarsException("ParamsSerializeUtil.Deserialize 未定义的类型：" + type.ToString());
                     }
                 }
             }
@@ -487,11 +484,27 @@ namespace SAEA.RPC.Serialize
                     {
                         var sobj = Deserialize(stype, datas, ref soffset);
                         if (sobj != null)
-                            methodInvoker.Invoke(instance, new object[] { sobj });
+                            try
+                            {
+                                methodInvoker.Invoke(instance, new object[] { sobj });
+                            }
+                            catch
+                            {
+                                throw new RPCPamarsException("当前Model所在项目请增加[assembly: SecurityRules(SecurityRuleSet.Level1)]");
+                            }
+
                     }
                     else
                     {
-                        methodInvoker.Invoke(instance, null);
+                        try
+                        {
+                            methodInvoker.Invoke(instance, null);
+                        }
+                        catch
+                        {
+                            throw new RPCPamarsException("当前Model所在项目请增加[assembly: SecurityRules(SecurityRuleSet.Level1)]");
+                        }
+
                     }
                 }
                 return instance;
@@ -512,11 +525,25 @@ namespace SAEA.RPC.Serialize
                     {
                         var sobj = Deserialize(stype, datas, ref soffset);
                         if (sobj != null)
-                            methodInvoker.Invoke(instance, new object[] { sobj });
+                            try
+                            {
+                                methodInvoker.Invoke(instance, new object[] { sobj });
+                            }
+                            catch
+                            {
+                                throw new RPCPamarsException("当前Model所在项目请增加[assembly: SecurityRules(SecurityRuleSet.Level1)]");
+                            }
                     }
                     else
                     {
-                        methodInvoker.Invoke(instance, null);
+                        try
+                        {
+                            methodInvoker.Invoke(instance, null);
+                        }
+                        catch
+                        {
+                            throw new RPCPamarsException("当前Model所在项目请增加[assembly: SecurityRules(SecurityRuleSet.Level1)]");
+                        }
                     }
                 }
                 return instance;
@@ -588,7 +615,14 @@ namespace SAEA.RPC.Serialize
                             v = sobj;
                     }
                     val = v;
-                    methodInvoker.Invoke(instance, new object[] { key, val });
+                    try
+                    {
+                        methodInvoker.Invoke(instance, new object[] { key, val });
+                    }
+                    catch
+                    {
+                        throw new RPCPamarsException("当前Model所在项目请增加[assembly: SecurityRules(SecurityRuleSet.Level1)]");
+                    }
                 }
                 m++;
             }
