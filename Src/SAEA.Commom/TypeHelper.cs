@@ -91,25 +91,40 @@ namespace SAEA.Common
                     throw new Exception("服务方法中不能包含接口内容！");
                 }
 
-                var fullName = type.FullName + methodName;
-
-                if (!_instanceCache.TryGetValue(fullName, out TypeInfo typeInfo))
+                if (type.IsClass)
                 {
-                    var mi = type.GetMethod(methodName);
+                    var fullName = type.FullName + methodName;
 
-                    typeInfo = new TypeInfo()
+                    TypeInfo typeInfo;
+
+                    if (!_instanceCache.TryGetValue(fullName, out typeInfo))
                     {
-                        Type = type,
-                        Instance = Activator.CreateInstance(type),
-                        FastInvokeHandler = mi == null ? null : FastInvoke.GetMethodInvoker(mi)
-                    };
-                    _instanceCache.TryAdd(fullName, typeInfo);
+                        Type[] argsTypes = null;
+
+                        if (type.IsGenericType)
+                        {
+                            argsTypes = type.GetGenericArguments();
+                            type = type.GetGenericTypeDefinition().MakeGenericType(argsTypes);
+                        }
+
+                        var mi = type.GetMethod(methodName);
+
+                        typeInfo = new TypeInfo()
+                        {
+                            Type = type,
+                            Instance = Activator.CreateInstance(type),
+                            FastInvokeHandler = mi == null ? null : FastInvoke.GetMethodInvoker(mi),
+                            ArgTypes = argsTypes
+                        };
+                        _instanceCache.Add(fullName, typeInfo);
+                    }
+                    else
+                    {
+                        typeInfo.Instance = Activator.CreateInstance(type);
+                    }
+                    return typeInfo;
                 }
-                else
-                {
-                    typeInfo.Instance = Activator.CreateInstance(type);
-                }
-                return typeInfo;
+                return null;
             }
         }
 
@@ -141,10 +156,6 @@ namespace SAEA.Common
                 return typeInfo;
             }
         }
-
-
-
-
     }
 
     public class TypeInfo
@@ -152,6 +163,8 @@ namespace SAEA.Common
         public Type Type { get; set; }
 
         public Object Instance { get; set; }
+
+        public Type[] ArgTypes { get; set; }
 
         public FastInvoke.FastInvokeHandler FastInvokeHandler { get; set; }
     }

@@ -177,6 +177,34 @@ namespace SAEA.RPCTest
         }
 
 
+        public static byte[] SerializeBinary(object request)
+        {
+
+            System.Runtime.Serialization.Formatters.Binary.BinaryFormatter serializer =
+
+            new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
+
+            using (System.IO.MemoryStream memStream = new System.IO.MemoryStream())
+            {
+                serializer.Serialize(memStream, request);
+
+                return memStream.ToArray();
+            }
+        }
+
+
+        public static object DeSerializeBinary(byte[] data)
+        {
+            using (System.IO.MemoryStream memStream = new System.IO.MemoryStream(data))
+            {
+                System.Runtime.Serialization.Formatters.Binary.BinaryFormatter deserializer =
+
+                new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
+
+                return deserializer.Deserialize(memStream);
+            }
+        }
+
         static void SerializeTest()
         {
             var groupInfo = new GroupInfo()
@@ -205,6 +233,8 @@ namespace SAEA.RPCTest
             };
 
             var count = 100000;
+            var len1 = 0;
+            var len2 = 0;
 
             Stopwatch sw = new Stopwatch();
             sw.Start();
@@ -212,10 +242,29 @@ namespace SAEA.RPCTest
             List<byte[]> list = new List<byte[]>();
             for (int i = 0; i < count; i++)
             {
-                var bytes = RPC.Serialize.ParamsSerializeUtil.Serialize(groupInfo);
+                var bytes = SerializeBinary(groupInfo);
+                len1 = bytes.Length;
                 list.Add(bytes);
             }
-            ConsoleHelper.WriteLine($"GroupInfo实体序列化平均：{count * 1000 / sw.ElapsedMilliseconds} 次/秒");
+            ConsoleHelper.WriteLine($"BinaryFormatter实体序列化平均：{count * 1000 / sw.ElapsedMilliseconds} 次/秒");
+
+            sw.Restart();
+            for (int i = 0; i < count; i++)
+            {
+                var obj = DeSerializeBinary(list[i]);
+            }
+            ConsoleHelper.WriteLine($"BinaryFormatter实体反序列化平均：{count * 1000 / sw.ElapsedMilliseconds} 次/秒");
+            ConsoleHelper.WriteLine($"BinaryFormatter序列化生成bytes大小：{len1 * count * 1.0 / 1024 / 1024} Mb");
+            list.Clear();
+            sw.Restart();
+
+            for (int i = 0; i < count; i++)
+            {
+                var bytes = RPC.Serialize.ParamsSerializeUtil.Serialize(groupInfo);
+                len2 = bytes.Length;
+                list.Add(bytes);
+            }
+            ConsoleHelper.WriteLine($"ParamsSerializeUtil实体序列化平均：{count * 1000 / sw.ElapsedMilliseconds} 次/秒");
             sw.Restart();
             for (int i = 0; i < count; i++)
             {
@@ -223,9 +272,11 @@ namespace SAEA.RPCTest
 
                 var obj = RPC.Serialize.ParamsSerializeUtil.Deserialize(groupInfo.GetType(), list[i], ref os);
             }
+            ConsoleHelper.WriteLine($"ParamsSerializeUtil实体反序列化平均：{count * 1000 / sw.ElapsedMilliseconds} 次/秒");
+            ConsoleHelper.WriteLine($"ParamsSerializeUtil序列化生成bytes大小：{len2 * count * 1.0 / 1024 / 1024} Mb");
             sw.Stop();
-            ConsoleHelper.WriteLine($"GroupInfo实体反序列化平均：{count * 1000 / sw.ElapsedMilliseconds} 次/秒");
         }
+
 
         static void StabilityTest()
         {
@@ -268,7 +319,6 @@ namespace SAEA.RPCTest
 
                 System.Threading.Thread.Sleep(rd.Next(120000));
             }
-
         }
 
         private static void Cp_OnErr(string name, Exception ex)

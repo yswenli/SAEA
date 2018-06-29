@@ -12,6 +12,8 @@ namespace SAEA.RPC.Serialize
     /// </summary>
     public class ParamsSerializeUtil
     {
+        static Type stringType = typeof(string);
+
 
         #region Serialize
 
@@ -169,7 +171,7 @@ namespace SAEA.RPC.Serialize
 
                 foreach (var item in param)
                 {
-                    if (itemtype.IsClass && itemtype != typeof(string))
+                    if (itemtype.IsClass && itemtype != stringType)
                     {
                         var ps = itemtype.GetProperties();
 
@@ -312,7 +314,7 @@ namespace SAEA.RPC.Serialize
                 Buffer.BlockCopy(datas, offset, data, 0, len);
                 offset += len;
 
-                if (type == typeof(string))
+                if (type == stringType)
                 {
                     obj = Encoding.UTF8.GetString(data);
                 }
@@ -421,58 +423,52 @@ namespace SAEA.RPC.Serialize
 
             var ps = type.GetProperties();
 
-            if (ps != null)
+            foreach (var p in ps)
             {
-                foreach (var p in ps)
-                {
-                    ts.Add(p.PropertyType);
-                }
+                ts.Add(p.PropertyType);
+            }
 
-                var vas = Deserialize(ts.ToArray(), datas);
+            var vas = Deserialize(ts.ToArray(), datas);
 
-                for (int j = 0; j < ps.Length; j++)
+            for (int j = 0; j < ps.Length; j++)
+            {
+                try
                 {
-                    try
+                    if (!ps[j].PropertyType.IsGenericType)
                     {
-                        if (!ps[j].PropertyType.IsGenericType)
+                        ps[j].SetValue(instance, vas[j], null);
+                    }
+                    else
+                    {
+                        Type genericTypeDefinition = ps[j].PropertyType.GetGenericTypeDefinition();
+                        if (genericTypeDefinition == typeof(Nullable<>))
                         {
-                            ps[j].SetValue(instance, vas[j], null);
+                            ps[j].SetValue(instance, Convert.ChangeType(vas[j], Nullable.GetUnderlyingType(ps[j].PropertyType)), null);
                         }
                         else
                         {
-                            Type genericTypeDefinition = ps[j].PropertyType.GetGenericTypeDefinition();
-                            if (genericTypeDefinition == typeof(Nullable<>))
-                            {
-                                ps[j].SetValue(instance, Convert.ChangeType(vas[j], Nullable.GetUnderlyingType(ps[j].PropertyType)), null);
-                            }
-                            else
-                            {
-                                ps[j].SetValue(instance, vas[j], null);
-                            }
+                            ps[j].SetValue(instance, vas[j], null);
                         }
                     }
-                    catch
-                    {
-                        throw new RPCPamarsException("ParamsSerializeUtil.Deserialize 未定义的类型：" + type.ToString());
-                    }
+                }
+                catch
+                {
+                    throw new RPCPamarsException("ParamsSerializeUtil.Deserialize 未定义的类型：" + type.ToString());
                 }
             }
+
             return instance;
         }
 
         private static object DeserializeList(Type type, byte[] datas)
         {
-            var stype = type.GetGenericArguments()[0];
-
-            var gtype = type.GetGenericTypeDefinition().MakeGenericType(stype);
-
-            var info = TypeHelper.GetOrAddInstance(gtype);
+            var info = TypeHelper.GetOrAddInstance(type);
 
             var instance = info.Instance;
 
             var methodInvoker = info.FastInvokeHandler;
 
-            if (stype.IsClass && stype != typeof(string))
+            if (info.ArgTypes[0].IsClass && info.ArgTypes[0] != stringType)
             {
                 //子项内容
                 var slen = 0;
@@ -482,7 +478,7 @@ namespace SAEA.RPC.Serialize
                     slen = BitConverter.ToInt32(datas, soffset);
                     if (slen > 0)
                     {
-                        var sobj = Deserialize(stype, datas, ref soffset);
+                        var sobj = Deserialize(info.ArgTypes[0], datas, ref soffset);
                         if (sobj != null)
                             try
                             {
@@ -523,7 +519,7 @@ namespace SAEA.RPC.Serialize
                     slen = BitConverter.ToInt32(datas, soffset);
                     if (slen > 0)
                     {
-                        var sobj = Deserialize(stype, datas, ref soffset);
+                        var sobj = Deserialize(info.ArgTypes[0], datas, ref soffset);
                         if (sobj != null)
                             try
                             {
@@ -564,13 +560,7 @@ namespace SAEA.RPC.Serialize
 
         private static object DeserializeDic(Type type, byte[] datas)
         {
-            var stype1 = type.GetGenericArguments()[0];
-
-            var stype2 = type.GetGenericArguments()[1];
-
-            var gtype = type.GetGenericTypeDefinition().MakeGenericType(stype1, stype2);
-
-            var tinfo = TypeHelper.GetOrAddInstance(gtype);
+            var tinfo = TypeHelper.GetOrAddInstance(type);
 
             var instance = tinfo.Instance;
 
@@ -598,7 +588,7 @@ namespace SAEA.RPC.Serialize
                     if (slen > 0)
                     {
                         int lloffset = 0;
-                        var sobj = Deserialize(stype1, sdata, ref lloffset);
+                        var sobj = Deserialize(tinfo.ArgTypes[0], sdata, ref lloffset);
                         if (sobj != null)
                             v = sobj;
                     }
@@ -610,7 +600,7 @@ namespace SAEA.RPC.Serialize
                     if (slen > 0)
                     {
                         int lloffset = 0;
-                        var sobj = Deserialize(stype2, sdata, ref lloffset);
+                        var sobj = Deserialize(tinfo.ArgTypes[1], sdata, ref lloffset);
                         if (sobj != null)
                             v = sobj;
                     }
