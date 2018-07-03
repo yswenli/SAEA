@@ -102,7 +102,6 @@ namespace SAEA.RPC.Serialize
                 {
                     var type = param.GetType();
 
-
                     if (type.IsGenericType || type.IsArray)
                     {
                         if (TypeHelper.DicTypeStrs.Contains(type.Name))
@@ -126,7 +125,7 @@ namespace SAEA.RPC.Serialize
             {
                 datas.AddRange(data);
             }
-            return datas.Count == 0 ? null : datas.ToArray();
+            return datas.ToArray();
         }
 
         private static byte[] SerializeClass(object obj, Type type)
