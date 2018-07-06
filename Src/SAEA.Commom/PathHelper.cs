@@ -35,20 +35,21 @@ namespace SAEA.Common
                 return Path.GetDirectoryName(AssemblyHelper.Current.Location);
             }
         }
-
+        /// <summary>
+        /// 获取当前目录下的文件全路径
+        /// </summary>
+        /// <param name="fileName"></param>
+        /// <returns></returns>
         public static string GetFullName(string fileName)
         {
             var path = PathHelper.Current;
-            if (path.Substring(path.Length - 1) != "\\")
-            {
-                path += "\\";
-            }
-            return path + fileName;
+
+            return Path.Combine(path, fileName);
         }
 
         public static string GetCurrentPath(string children)
         {
-            var path= Path.Combine(Current, children);
+            var path = Path.Combine(Current, children);
             if (!Directory.Exists(path))
                 Directory.CreateDirectory(path);
             return path;

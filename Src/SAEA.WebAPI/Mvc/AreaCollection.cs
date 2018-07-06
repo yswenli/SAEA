@@ -57,6 +57,21 @@ namespace SAEA.WebAPI.Mvc
                 }
             }
         }
+        /// <summary>
+        /// 加载用户自定义分离的controller
+        /// </summary>
+        /// <param name="controllerNameSpace"></param>
+        public static void RegistAll(string controllerNameSpace)
+        {
+            lock (_locker)
+            {
+                var fileName = controllerNameSpace + ".dll";
+                var assembly = Assembly.LoadFile(PathHelper.GetFullName(fileName));
+                var tt = assembly.GetTypes().Where(b => b.FullName.Contains("Controllers")).ToList();
+                if (tt == null) throw new Exception("当前项目中找不到Controllers空间或命名不符合MVC规范！");
+                _list.AddRange(tt);
+            }
+        }
 
         /// <summary>
         /// Controller中处理的方法代理

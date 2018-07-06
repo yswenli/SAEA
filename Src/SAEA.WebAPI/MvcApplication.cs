@@ -46,13 +46,40 @@ namespace SAEA.WebAPI
 
 
         /// <summary>
-        /// 启动服务
+        /// 启动webapi服务
         /// </summary>
         public void Start(int port = 39654)
         {
             try
             {
                 AreaCollection.RegistAll();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("当前代码无任何Controller或者不符合MVC 命名规范！ err:" + ex.Message);
+            }
+            try
+            {
+                httpServer.Start(port);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("当前端口已被其他程序占用，请更换端口再做尝试！ err:" + ex.Message);
+            }
+        }
+        /// <summary>
+        /// 启动webapi服务
+        /// </summary>
+        /// <param name="port"></param>
+        /// <param name="controllerNameSpace"></param>
+        public void Start(int port = 39654, string controllerNameSpace = "")
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(controllerNameSpace))
+                    AreaCollection.RegistAll();
+                else
+                    AreaCollection.RegistAll(controllerNameSpace);
             }
             catch (Exception ex)
             {

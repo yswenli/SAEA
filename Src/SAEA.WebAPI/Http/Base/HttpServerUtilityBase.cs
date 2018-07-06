@@ -22,7 +22,10 @@
 *
 *****************************************************************************/
 using System;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
+using System.Reflection;
 
 namespace SAEA.WebAPI.Http.Base
 {
@@ -34,7 +37,13 @@ namespace SAEA.WebAPI.Http.Base
 
             var uri = new Uri(prex, path);
 
-            return Path.GetFullPath(Directory.GetCurrentDirectory() + uri.LocalPath);
+            //return Path.GetFullPath(Directory.GetCurrentDirectory() + uri.LocalPath);
+
+            StackTrace ss = new StackTrace(true);
+
+            MethodBase mb = ss.GetFrames().Last().GetMethod();
+
+            return Path.GetFullPath(mb.DeclaringType.Assembly.Location + uri.LocalPath);
         }
 
         public virtual string UrlEncode(string s, bool isData = false)
