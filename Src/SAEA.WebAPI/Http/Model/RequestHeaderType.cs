@@ -23,7 +23,7 @@
 *****************************************************************************/
 using System.ComponentModel;
 
-namespace SAEA.WebAPI.Http.Base
+namespace SAEA.WebAPI.Http.Model
 {
     public enum RequestHeaderType
     {

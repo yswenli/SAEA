@@ -34,7 +34,7 @@ namespace SAEA.NatSocket.Utils
 {
     internal static class StreamExtensions
     {
-        internal static string ReadAsMany(this StreamReader stream, int bytesToRead)
+        internal static string ReadAsMany(this System.IO.StreamReader stream, int bytesToRead)
         {
             var buffer = new char[bytesToRead];
             stream.ReadBlock(buffer, 0, bytesToRead);
@@ -110,7 +110,7 @@ namespace SAEA.NatSocket.Utils
                         stream.Position = 0;
 
                         // Read MemoryStream contents into a StreamReader.
-                        var reader = new StreamReader(stream);
+                        var reader = new System.IO.StreamReader(stream);
 
                         // Extract the text from the StreamReader.
                         return reader.ReadToEnd();

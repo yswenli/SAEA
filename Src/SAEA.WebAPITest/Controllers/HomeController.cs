@@ -92,6 +92,10 @@ namespace SAEA.WebAPITest.Controllers
             return Json(userInfo);
         }
 
+        /// <summary>
+        /// Test
+        /// </summary>
+        /// <returns></returns>
         [HttpPost]
         public ActionResult Test()
         {

@@ -10,6 +10,8 @@ namespace SAEA.WebAPI.Http.Base
 
         public const string POSTStr = "POST";
 
+        public const string OPTIONSStr = "OPTIONS";
+
 
 
         /// <summary>
@@ -23,8 +25,8 @@ namespace SAEA.WebAPI.Http.Base
         public const string FORMENCTYPE2 = "multipart/form-data";
 
         /// <summary>
-        /// text/plain
+        /// application/json
         /// </summary>
-        public const string FORMENCTYPE3 = "text/plain";
+        public const string FORMENCTYPE3 = "application/json";
     }
 }

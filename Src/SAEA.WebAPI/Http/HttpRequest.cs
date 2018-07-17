@@ -37,7 +37,7 @@ namespace SAEA.WebAPI.Http
     /// <summary>
     /// HTTP请求定义
     /// </summary>
-    public class HttpRequest : BaseHeader, IDisposable
+    public class HttpRequest : HttpBase, IDisposable
     {
         internal HttpServer HttpServer { get; set; }
 
@@ -45,13 +45,14 @@ namespace SAEA.WebAPI.Http
 
         RequestDataReader _requestDataReader;
 
-        internal byte[] Body
+
+        /// <summary>
+        /// enctype="text/plain"
+        /// </summary>
+        internal string Json
         {
             get; set;
         }
-
-
-
 
         /// <summary>
         /// 接收到的文件信息
@@ -103,6 +104,7 @@ namespace SAEA.WebAPI.Http
             }
             if (!string.IsNullOrEmpty(requestDataReader.Json))
             {
+                this.Json = requestDataReader.Json;
                 this.Body = requestDataReader.Body;
             }
             _requestDataReader = requestDataReader;

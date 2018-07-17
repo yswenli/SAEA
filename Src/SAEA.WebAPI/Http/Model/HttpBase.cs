@@ -24,12 +24,11 @@
 using SAEA.Common;
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Text.RegularExpressions;
 
-namespace SAEA.WebAPI.Http.Base
+namespace SAEA.WebAPI.Http.Model
 {
-    public class BaseHeader
+    public class HttpBase
     {
         public const string ENTER = "\r\n";
 
@@ -141,6 +140,11 @@ namespace SAEA.WebAPI.Http.Base
         }
 
         public int ContentLength
+        {
+            get; set;
+        }
+
+        public byte[] Body
         {
             get; set;
         }

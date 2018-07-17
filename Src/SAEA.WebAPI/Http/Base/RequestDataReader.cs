@@ -12,7 +12,7 @@ namespace SAEA.WebAPI.Http.Base
     /// <summary>
     /// http字符串读取 
     /// </summary>
-    internal class RequestDataReader : BaseHeader, IDisposable
+    internal class RequestDataReader : HttpBase, IDisposable
     {
         StringBuilder _stringBuilder = new StringBuilder();
 
@@ -25,13 +25,6 @@ namespace SAEA.WebAPI.Http.Base
         public int Position
         {
             get; private set;
-        }
-        /// <summary>
-        /// http请求数据体部分
-        /// </summary>
-        public byte[] Body
-        {
-            get; set;
         }
         /// <summary>
         /// 接收到的文件信息
@@ -195,11 +188,7 @@ namespace SAEA.WebAPI.Http.Base
 
                 switch (this.ContentType)
                 {
-                    case ConstString.FORMENCTYPE1:
-                        this.Forms = GetRequestForms(Encoding.UTF8.GetString(this.Body));
-                        break;
                     case ConstString.FORMENCTYPE2:
-                        //todo
                         using (MemoryStream ms = new MemoryStream(this.Body))
                         {
                             ms.Position = 0;
@@ -244,8 +233,11 @@ namespace SAEA.WebAPI.Http.Base
                             }
                         }
                         break;
-                    default:
+                    case ConstString.FORMENCTYPE3:
                         this.Json = Encoding.UTF8.GetString(this.Body);
+                        break;
+                    default:
+                        this.Forms = GetRequestForms(Encoding.UTF8.GetString(this.Body));
                         break;
                 }
             }

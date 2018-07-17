@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using Newtonsoft.Json.Linq;
 using SAEA.Common;
 using SAEA.Sockets.Interface;
 using SAEA.WebAPI.Http.Base;
@@ -72,25 +73,38 @@ namespace SAEA.WebAPI.Http
         /// </summary>
         internal void InvokeAction()
         {
-            if (this.Request.Parmas == null) this.Request.Parmas = new System.Collections.Generic.Dictionary<string, string>();
+            ActionResult result = null;
 
-            if (this.Request.Query != null && this.Request.Query.Count > 0)
+            switch (this.Request.Method)
             {
-                foreach (var item in this.Request.Query)
-                {
-                    this.Request.Parmas.TryAdd(item.Key, item.Value);
-                }
-            }
-            if (this.Request.Forms != null && this.Request.Forms.Count > 0)
-            {
-                foreach (var item in this.Request.Forms)
-                {
-                    this.Request.Parmas.TryAdd(item.Key, item.Value);
-                }
-            }
+                case ConstString.GETStr:
+                case ConstString.POSTStr:
 
-            var result = AreaCollection.Invoke(this, this.Request.Url, this.Request.Parmas.ToNameValueCollection(), this.Request.Method == "POST");
+                    if (this.Request.Parmas == null) this.Request.Parmas = new System.Collections.Generic.Dictionary<string, string>();
 
+                    if (this.Request.Query != null && this.Request.Query.Count > 0)
+                    {
+                        foreach (var item in this.Request.Query)
+                        {
+                            this.Request.Parmas.TryAdd(item.Key, item.Value);
+                        }
+                    }
+                    if (this.Request.Forms != null && this.Request.Forms.Count > 0)
+                    {
+                        foreach (var item in this.Request.Forms)
+                        {
+                            this.Request.Parmas.TryAdd(item.Key, item.Value);
+                        }
+                    }
+                    result = AreaCollection.Invoke(this, this.Request.Url, this.Request.Parmas.ToNameValueCollection(), this.Request.Method == "POST");
+                    break;
+                case ConstString.OPTIONSStr:
+                    result = new EmptyResult();
+                    break;
+                default:
+                    result = new ContentResult("不支持的请求方式", System.Net.HttpStatusCode.NotImplemented);
+                    break;
+            }
             if (!(result is EmptyResult))
             {
                 this.Response.SetResult(result);

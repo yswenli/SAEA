@@ -25,6 +25,7 @@ using SAEA.Common;
 using SAEA.Sockets.Interface;
 using SAEA.WebAPI.Common;
 using SAEA.WebAPI.Http.Base;
+using SAEA.WebAPI.Http.Model;
 using SAEA.WebAPI.Mvc;
 using System;
 using System.Collections.Generic;
@@ -33,7 +34,7 @@ using System.Text;
 
 namespace SAEA.WebAPI.Http
 {
-    public class HttpResponse : BaseHeader, IDisposable
+    public class HttpResponse : HttpBase, IDisposable
     {
         public HttpStatusCode Status { get; set; } = HttpStatusCode.OK;
 
@@ -57,11 +58,6 @@ namespace SAEA.WebAPI.Http
             this.Protocal = protocal;
         }
 
-        public byte[] Body
-        {
-            get; set;
-        }
-
         /// <summary>
         /// 设置回复内容
         /// </summary>
@@ -83,7 +79,7 @@ namespace SAEA.WebAPI.Http
             {
                 this.ContentType = result.ContentType;
                 this.SetContent(result.Content);
-            }            
+            }
         }
 
         internal HttpResponse SetContent(byte[] content, Encoding encoding = null)
@@ -156,10 +152,17 @@ namespace SAEA.WebAPI.Http
             byte[] lineBytes = Encoding.UTF8.GetBytes(System.Environment.NewLine);
 
             var bdata = this.Body;
-            if (_isCompressed)
+            if (_isCompressed && this.Body != null)
                 bdata = GZipHelper.Compress(this.Body);
 
-            this.SetHeader(ResponseHeaderType.ContentLength, bdata.Length.ToString());
+            var bodyLen = 0;
+
+            if (bdata != null)
+            {
+                bodyLen = bdata.Length;
+            }
+
+            this.SetHeader(ResponseHeaderType.ContentLength, bodyLen.ToString());
 
             var header = BuildHeader();
 
@@ -170,11 +173,12 @@ namespace SAEA.WebAPI.Http
             //发送空行
             reponseDataList.AddRange(lineBytes);
             //发送内容
-            reponseDataList.AddRange(bdata);
+            if (bdata != null)
+                reponseDataList.AddRange(bdata);
 
             var arr = reponseDataList.ToArray();
 
-            if (this.Body != null && this.Body.Length > 0)
+            if (this.Body != null && bodyLen > 0)
                 Array.Clear(this.Body, 0, this.Body.Length);
             this.Body = null;
             reponseDataList.Clear();

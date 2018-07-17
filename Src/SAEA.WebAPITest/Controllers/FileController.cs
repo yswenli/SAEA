@@ -29,7 +29,7 @@ namespace SAEA.WebAPITest.Controllers
         {
             var postFiles = HttpContext.Request.PostFiles;
 
-            return Content("操作成功！");
+            return Content($"操作成功！name：{name}");
         }
 
     }
