@@ -23,13 +23,14 @@
 *****************************************************************************/
 using SAEA.Sockets.Core;
 using SAEA.Sockets.Interface;
+using SAEA.WebAPI.Http.Base;
 using System;
 
 namespace SAEA.WebAPI.Http.Net
 {
     class ServerSocket : BaseServerSocket
     {
-        public event Action<IUserToken, string> OnRequested;
+        public event Action<IUserToken, RequestDataReader> OnRequested;
 
         public ServerSocket(int bufferSize = 1024 * 100, int count = 10000) : base(new HContext(), bufferSize, true, count)
         {

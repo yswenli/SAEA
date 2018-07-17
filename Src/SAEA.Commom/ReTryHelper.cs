@@ -46,23 +46,35 @@ namespace SAEA.Common
                 }
             }
         }
-
+        /// <summary>
+        /// 重试
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="action"></param>
+        /// <param name="retry"></param>
+        /// <returns></returns>
         public static T Do<T>(Func<T> action, int retry = 5)
         {
             var t = default(T);
             int error = 0;
+            Exception exception = null;
             while (error < 5)
             {
                 try
                 {
                     t = action.Invoke();
+                    exception = null;
                     break;
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
                     error++;
+                    exception = ex;
                 }
             }
+
+            if (exception != null) throw exception;
+
             return t;
         }
     }

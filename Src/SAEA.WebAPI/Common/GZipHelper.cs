@@ -26,16 +26,12 @@ namespace SAEA.WebAPI.Common
                 {
                     inflateStream.Write(data, 0, data.Length);
                 }
-
                 stream.Seek(0, SeekOrigin.Begin);
-
                 int length = Convert.ToInt32(stream.Length);
                 buffer = new byte[length];
                 stream.Read(buffer, 0, length);
             }
-
             return buffer;
-
         }
 
         /// <summary>

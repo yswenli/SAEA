@@ -26,13 +26,14 @@ using SAEA.Sockets.Interface;
 using SAEA.WebAPI.Common;
 using SAEA.WebAPI.Http.Base;
 using SAEA.WebAPI.Mvc;
+using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Text;
 
 namespace SAEA.WebAPI.Http
 {
-    public class HttpResponse : BaseHeader
+    public class HttpResponse : BaseHeader, IDisposable
     {
         public HttpStatusCode Status { get; set; } = HttpStatusCode.OK;
 
@@ -41,15 +42,24 @@ namespace SAEA.WebAPI.Http
 
         internal IUserToken UserToken { get; set; }
 
-        internal HttpResponse()
-        {
+        private bool _isCompressed = false;
 
+        internal HttpResponse(bool isCompressed = true)
+        {
+            _isCompressed = isCompressed;
         }
 
-        internal void Init(HttpServer httpServer, IUserToken userToken)
+        internal void Init(HttpServer httpServer, IUserToken userToken, string protocal)
         {
             this.HttpServer = httpServer;
             this.UserToken = userToken;
+
+            this.Protocal = protocal;
+        }
+
+        public byte[] Body
+        {
+            get; set;
         }
 
         /// <summary>
@@ -58,32 +68,28 @@ namespace SAEA.WebAPI.Http
         /// <param name="result"></param>
         internal void SetResult(ActionResult result)
         {
-            this.Content_Encoding = result.ContentEncoding.EncodingName;
-            this.Content_Type = result.ContentType;
             this.Status = result.Status;
-
             if (result is EmptyResult)
             {
                 return;
             }
-
-            if (result is FileResult)
+            else if (result is FileResult)
             {
-                var f = result as FileResult;
-
-                this.SetContent(f.Content);
-
-                return;
+                var actionResult = result as FileResult;
+                this.ContentType = actionResult.ContentType;
+                this.SetContent(actionResult.Content);
             }
-
-            this.SetContent(result.Content);
+            else
+            {
+                this.ContentType = result.ContentType;
+                this.SetContent(result.Content);
+            }            
         }
 
         internal HttpResponse SetContent(byte[] content, Encoding encoding = null)
         {
             this.Body = content;
-            this.Encoding = encoding != null ? encoding : Encoding.UTF8;
-            this.Content_Length = content.Length.ToString();
+            this.ContentLength = content.Length;
             return this;
         }
 
@@ -112,16 +118,14 @@ namespace SAEA.WebAPI.Http
         protected string BuildHeader()
         {
             StringBuilder builder = new StringBuilder();
-            builder.Append(Protocols + SPACE + Status.ToNVString() + ENTER);
+            builder.Append(this.Protocal + SPACE + Status.ToNVString() + ENTER);
             builder.AppendLine("Server: Wenli's Server");
             builder.AppendLine("Keep-Alive: timeout=20");
             builder.AppendLine("Date: " + DateTimeHelper.Now.ToFString("r"));
 
-            if (!string.IsNullOrEmpty(this.Content_Type))
-                builder.AppendLine("Content-Type:" + this.Content_Type);
-
-            //支持gzip
-            builder.AppendLine("Content-Encoding:gzip");
+            if (_isCompressed)
+                //支持gzip
+                builder.AppendLine("Content-Encoding:gzip");
 
             //支持跨域
             builder.AppendLine("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
@@ -131,13 +135,15 @@ namespace SAEA.WebAPI.Http
 
             if (this.Headers != null && this.Headers.Count > 0)
             {
-                foreach (var key in Headers.Names)
+                foreach (var key in Headers.Keys)
                 {
                     builder.AppendLine($"{key}: {Headers[key]}");
                 }
             }
-
-            return builder.ToString();
+            var result = builder.ToString();
+            builder.Clear();
+            builder = null;
+            return result;
         }
 
         /// <summary>
@@ -147,16 +153,17 @@ namespace SAEA.WebAPI.Http
         {
             List<byte> reponseDataList = new List<byte>();
 
-            byte[] lineBytes = this.Encoding.GetBytes(System.Environment.NewLine);
+            byte[] lineBytes = Encoding.UTF8.GetBytes(System.Environment.NewLine);
 
-            //var bdata = this.Body;
-            var bdata = GZipHelper.Compress(this.Body);
+            var bdata = this.Body;
+            if (_isCompressed)
+                bdata = GZipHelper.Compress(this.Body);
 
             this.SetHeader(ResponseHeaderType.ContentLength, bdata.Length.ToString());
 
             var header = BuildHeader();
 
-            byte[] headerBytes = this.Encoding.GetBytes(header);
+            byte[] headerBytes = Encoding.UTF8.GetBytes(header);
 
             //发送响应头
             reponseDataList.AddRange(headerBytes);
@@ -165,7 +172,15 @@ namespace SAEA.WebAPI.Http
             //发送内容
             reponseDataList.AddRange(bdata);
 
-            return reponseDataList.ToArray();
+            var arr = reponseDataList.ToArray();
+
+            if (this.Body != null && this.Body.Length > 0)
+                Array.Clear(this.Body, 0, this.Body.Length);
+            this.Body = null;
+            reponseDataList.Clear();
+            reponseDataList = null;
+
+            return arr;
         }
 
 
@@ -179,11 +194,7 @@ namespace SAEA.WebAPI.Http
             SetContent(data, encoding);
         }
 
-        public void Clear()
-        {
-            this.Headers.Clear();
-            this.Write("");
-        }
+
 
         public void End()
         {
@@ -191,6 +202,12 @@ namespace SAEA.WebAPI.Http
             {
                 HttpServer.Reponse(UserToken, this.ToBytes());
             }
+        }
+
+        public void Dispose()
+        {
+            this.Headers.Clear();
+            this.Write("");
         }
 
     }

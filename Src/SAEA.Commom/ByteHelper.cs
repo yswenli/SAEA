@@ -92,5 +92,45 @@ namespace SAEA.Common
         {
             return !(BitConverter.IsLittleEndian ^ (order == ByteOrder.Little));
         }
+        /// <summary>
+        /// 查找数据是存在的位置
+        /// </summary>
+        /// <param name="data"></param>
+        /// <param name="searchData"></param>
+        /// <param name="start"></param>
+        /// <returns></returns>
+        public static int IndexOf(this byte[] data, byte[] searchData, int start = 0)
+        {
+            int result = -1;
+            var total = data.Length;
+            var count = searchData.Length;
+            var remain = total - start;
+
+            var last = remain - count;
+
+            if (last >= 0)
+            {
+                var finded = true;
+                for (int i = start; i < last + 1; i++)
+                {
+                    finded = true;
+                    for (int j = 0; j < count; j++)
+                    {
+                        if (data[i + j] != searchData[j])
+                        {
+                            finded = false;
+                            break;
+                        }
+                    }
+                    if (finded)
+                    {
+                        result = i;
+                        break;
+                    }
+                }
+            }
+
+            return result;
+        }
     }
 }

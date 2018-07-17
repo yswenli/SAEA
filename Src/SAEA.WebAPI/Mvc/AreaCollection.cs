@@ -109,7 +109,7 @@ namespace SAEA.WebAPI.Mvc
                     }
                     else
                     {
-                        var filePath = httpContext.Server.MapPath(httpContext.Request.URL);
+                        var filePath = httpContext.Server.MapPath(httpContext.Request.Url);
                         if (File.Exists(filePath))
                         {
                             return new FileResult(filePath);

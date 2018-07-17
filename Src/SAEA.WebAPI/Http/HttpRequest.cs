@@ -24,6 +24,7 @@
 using SAEA.Common;
 using SAEA.Sockets.Interface;
 using SAEA.WebAPI.Http.Base;
+using SAEA.WebAPI.Http.Model;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -36,96 +37,75 @@ namespace SAEA.WebAPI.Http
     /// <summary>
     /// HTTP请求定义
     /// </summary>
-    public class HttpRequest : BaseHeader
+    public class HttpRequest : BaseHeader, IDisposable
     {
-        /// <summary>
-        /// URL参数
-        /// </summary>
-        public NameValueCollection Params { get; private set; } = new NameValueCollection();
-
-        /// <summary>
-        /// HTTP请求方式
-        /// </summary>
-        public string Method { get; private set; }
-
-        /// <summary>
-        /// HTTP(S)地址
-        /// </summary>
-        public string URL { get; set; }
-
-        public string Query { get; set; }
-
         internal HttpServer HttpServer { get; set; }
 
         internal IUserToken UserToken { get; set; }
 
+        RequestDataReader _requestDataReader;
+
+        internal byte[] Body
+        {
+            get; set;
+        }
+
+
+
+
         /// <summary>
-        /// 初始化
+        /// 接收到的文件信息
+        /// </summary>
+        public List<FilePart> PostFiles
+        {
+            get; set;
+        }
+
+        /// <summary>
+        /// contruct
         /// </summary>
         internal HttpRequest()
         {
 
         }
 
-        internal void Init(HttpServer httpServer, IUserToken userToken, string requestStr)
+        /// <summary>
+        /// init
+        /// </summary>
+        /// <param name="httpServer"></param>
+        /// <param name="userToken"></param>
+        /// <param name="requestDataReader"></param>
+        internal void Init(HttpServer httpServer, IUserToken userToken, RequestDataReader requestDataReader)
         {
             this.HttpServer = httpServer;
-
             this.UserToken = userToken;
-            
-            var rows = Regex.Split(requestStr, Environment.NewLine);
 
-            //Request URL & Method & Version
-            var first = Regex.Split(rows[0], @"(\s+)")
-                .Where(e => e.Trim() != string.Empty)
-                .ToArray();
-            if (first.Length > 0) this.Method = first[0];
-            if (first.Length > 1)
+            this.Method = requestDataReader.Method;
+            this.RelativeUrl = requestDataReader.RelativeUrl;
+            this.Url = requestDataReader.Url;
+            this.Query = requestDataReader.Query;
+            this.Protocal = requestDataReader.Protocal;
+            this.Headers = requestDataReader.Headers;
+            this.HeaderStr = requestDataReader.HeaderStr;
+            this.Cookies = requestDataReader.Cookies;
+            this.IsFormData = requestDataReader.IsFormData;
+            this.Boundary = requestDataReader.Boundary;
+            this.ContentType = requestDataReader.ContentType;
+            this.ContentLength = requestDataReader.ContentLength;
+
+            if (requestDataReader.Forms != null && requestDataReader.Forms.Count > 0)
             {
-                this.Query = first[1];
-
-                if (this.Query.Contains("?"))
-                {
-                    var qarr = this.Query.Split("?");
-                    this.URL = qarr[0];
-                    this.Params = GetRequestParameters(qarr[1]);
-                }
-                else
-                {
-                    this.URL = this.Query;
-                }
-
-                var uarr = this.URL.Split("/");
-
-                if (long.TryParse(uarr[uarr.Length - 1], out long id))
-                {
-                    this.URL = this.URL.Substring(0, this.URL.LastIndexOf("/"));
-                    this.Params.Set("id", id.ToString());
-                }
+                this.Forms = requestDataReader.Forms;
             }
-            if (first.Length > 2) this.Protocols = first[2];
-
-            //Request Headers
-            this.Headers = GetRequestHeaders(rows);
-
-            var bodyStr = GetRequestBody(rows);
-
-            //Request "GET"
-            if (this.Method == "GET")
+            if (requestDataReader.PostFiles!=null && requestDataReader.PostFiles.Count > 0)
             {
-                if (!string.IsNullOrEmpty(bodyStr))
-                    this.Body = Encoding.UTF8.GetBytes(bodyStr);
+                this.PostFiles = requestDataReader.PostFiles;
             }
-
-            //Request "POST"
-            if (this.Method == "POST")
+            if (!string.IsNullOrEmpty(requestDataReader.Json))
             {
-                if (!string.IsNullOrEmpty(bodyStr))
-                    this.Body = Encoding.UTF8.GetBytes(bodyStr);
-                var contentType = GetHeader(RequestHeaderType.ContentType);
-                var isUrlencoded = contentType == @"application/x-www-form-urlencoded";
-                if (isUrlencoded) this.Params = GetRequestParameters(bodyStr);
+                this.Body = requestDataReader.Body;
             }
+            _requestDataReader = requestDataReader;
         }
 
         public string GetHeader(RequestHeaderType header)
@@ -138,37 +118,12 @@ namespace SAEA.WebAPI.Http
             base.SetHeader(header, value);
         }
 
-        private string GetRequestBody(IEnumerable<string> rows)
+        public void Dispose()
         {
-            var target = rows.Select((v, i) => new { Value = v, Index = i }).FirstOrDefault(e => e.Value.Trim() == string.Empty);
-            if (target == null) return null;
-            var range = Enumerable.Range(target.Index + 1, rows.Count() - target.Index - 1);
-            return string.Join(Environment.NewLine, range.Select(e => rows.ElementAt(e)).ToArray());
-        }
-
-        private NameValueCollection GetRequestHeaders(IEnumerable<string> rows)
-        {
-            if (rows == null || rows.Count() <= 0) return null;
-            var target = rows.Select((v, i) => new { Value = v, Index = i }).FirstOrDefault(e => e.Value.Trim() == string.Empty);
-            var length = target == null ? rows.Count() - 1 : target.Index;
-            if (length <= 1) return null;
-            var range = Enumerable.Range(1, length - 1);
-            return range.Select(e => rows.ElementAt(e)).Distinct().ToDictionary(e => e.Split(':')[0], e => e.Split(':')[1].Trim()).ToNameValueCollection();
-        }
-
-        private NameValueCollection GetRequestParameters(string row)
-        {
-            if (string.IsNullOrEmpty(row)) return null;
-            var kvs = Regex.Split(row, "&");
-            if (kvs == null || kvs.Count() <= 0) return null;
-            return kvs.ToDictionary(e => Regex.Split(e, "=")[0], e => Regex.Split(e, "=")[1]).ToNameValueCollection();
-        }
-
-        internal void Clear()
-        {
-            this.Params.Clear();
-            this.Query = this.URL = string.Empty;
+            this.Query.Clear();
+            this.RelativeUrl = this.Url = string.Empty;
             this.Headers.Clear();
+            _requestDataReader.Dispose();
         }
     }
 }

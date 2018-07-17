@@ -44,7 +44,6 @@ namespace SAEA.WebAPI
             httpServer = new HttpServer(bufferSize, count);
         }
 
-
         /// <summary>
         /// 启动webapi服务
         /// </summary>
@@ -70,9 +69,9 @@ namespace SAEA.WebAPI
         /// <summary>
         /// 启动webapi服务
         /// </summary>
+        /// <param name="controllerNameSpace">分离式的controller</param>
         /// <param name="port"></param>
-        /// <param name="controllerNameSpace"></param>
-        public void Start(int port = 39654, string controllerNameSpace = "")
+        public void Start(string controllerNameSpace, int port = 39654)
         {
             try
             {

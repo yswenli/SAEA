@@ -21,10 +21,13 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Common;
 using SAEA.Sockets.Interface;
 using SAEA.WebAPI.Http.Base;
 using SAEA.WebAPI.Mvc;
+using System;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace SAEA.WebAPI.Http
@@ -32,7 +35,7 @@ namespace SAEA.WebAPI.Http
     /// <summary>
     /// http上下文
     /// </summary>
-    public class HttpContext
+    public class HttpContext : IDisposable
     {
         public HttpRequest Request
         {
@@ -46,11 +49,11 @@ namespace SAEA.WebAPI.Http
             private set;
         }
 
-        public HttpServerUtilityBase Server
+        public HttpUtility Server
         {
             get;
             private set;
-        } = new HttpServerUtilityBase();
+        } = new HttpUtility();
 
         internal HttpContext()
         {
@@ -58,16 +61,35 @@ namespace SAEA.WebAPI.Http
             this.Response = new HttpResponse();
         }
 
-        internal void Init(HttpServer httpServer, IUserToken userToken, string htmlStr)
+        internal void Init(HttpServer httpServer, IUserToken userToken, RequestDataReader requestDataReader)
         {
-            this.Request.Init(httpServer, userToken, htmlStr);
+            this.Request.Init(httpServer, userToken, requestDataReader);
 
-            this.Response.Init(httpServer, userToken);
+            this.Response.Init(httpServer, userToken, this.Request.Protocal);
         }
-
+        /// <summary>
+        /// 执行Controller中对应的方法
+        /// </summary>
         internal void InvokeAction()
         {
-            var result = AreaCollection.Invoke(this, this.Request.URL, this.Request.Params, this.Request.Method == "POST");
+            if (this.Request.Parmas == null) this.Request.Parmas = new System.Collections.Generic.Dictionary<string, string>();
+
+            if (this.Request.Query != null && this.Request.Query.Count > 0)
+            {
+                foreach (var item in this.Request.Query)
+                {
+                    this.Request.Parmas.TryAdd(item.Key, item.Value);
+                }
+            }
+            if (this.Request.Forms != null && this.Request.Forms.Count > 0)
+            {
+                foreach (var item in this.Request.Forms)
+                {
+                    this.Request.Parmas.TryAdd(item.Key, item.Value);
+                }
+            }
+
+            var result = AreaCollection.Invoke(this, this.Request.Url, this.Request.Parmas.ToNameValueCollection(), this.Request.Method == "POST");
 
             if (!(result is EmptyResult))
             {
@@ -76,15 +98,15 @@ namespace SAEA.WebAPI.Http
             this.Response.End();
         }
 
-        internal void Free()
+        public void Dispose()
         {
             if (this.Request != null)
             {
-                this.Request.Clear();
+                this.Request.Dispose();
             }
             if (this.Response != null)
             {
-                this.Response.Clear();
+                this.Response.Dispose();
             }
         }
 

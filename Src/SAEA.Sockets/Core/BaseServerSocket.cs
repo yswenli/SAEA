@@ -194,7 +194,7 @@ namespace SAEA.Sockets.Core
                 else
                 {
                     _argsPool.Free(readArgs);
-                    Disconnect(userToken, new Exception("远程主机已断开连接！"));
+                    Disconnect(userToken, null);
                 }
             }
             catch (Exception ex)

@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -31,6 +32,8 @@ namespace SAEA.WebAPI.Http.Base
 {
     public class HttpServerUtilityBase
     {
+        const string Controller = "Controller";
+
         public virtual string MapPath(string path)
         {
             var prex = new Uri("http://127.0.0.1:39654");
@@ -41,9 +44,31 @@ namespace SAEA.WebAPI.Http.Base
 
             StackTrace ss = new StackTrace(true);
 
-            MethodBase mb = ss.GetFrames().Last().GetMethod();
+            var frames = ss.GetFrames();
 
-            return Path.GetFullPath(mb.DeclaringType.Assembly.Location + uri.LocalPath);
+            List<MethodBase> mbs = new List<MethodBase>();
+
+            if (frames != null)
+            {
+                foreach (var item in frames)
+                {
+                    mbs.Add(item.GetMethod());
+                }
+            }
+
+            MethodBase mb = null;
+
+            foreach (var item in mbs)
+            {
+                var len = item.DeclaringType.FullName.Length;
+                if (item.DeclaringType.FullName.LastIndexOf(Controller) == len - 10)
+                {
+                    mb = item;
+                    break;
+                }
+            }
+
+            return Path.Combine(Path.GetDirectoryName(mb.DeclaringType.Assembly.Location) + uri.LocalPath);
         }
 
         public virtual string UrlEncode(string s, bool isData = false)

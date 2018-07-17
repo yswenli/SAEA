@@ -22,42 +22,76 @@
 *
 *****************************************************************************/
 using SAEA.Sockets.Interface;
+using SAEA.WebAPI.Http.Base;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Text;
 
 namespace SAEA.WebAPI.Http.Net
 {
     class HCoder : ICoder
     {
-        private static string ENDSTR = "\r\n\r\n";
+        List<byte> _cache = new List<byte>();
 
-        StringBuilder _result = new StringBuilder();
+        Stopwatch _stopwatch = new Stopwatch();
 
         object _locker = new object();
+
+        RequestDataReader _httpStringReader = new RequestDataReader();
+
+        bool isAnalysis = false;
+
 
         public void Pack(byte[] data, Action<DateTime> onHeart, Action<ISocketProtocal> onUnPackage, Action<byte[]> onFile)
         {
 
         }
 
-        public void GetRequest(byte[] data, Action<string> onUnpackage)
+        /// <summary>
+        /// 解析http请求的数据
+        /// </summary>
+        /// <param name="data"></param>
+        /// <param name="onUnpackage"></param>
+        public void GetRequest(byte[] data, Action<RequestDataReader> onUnpackage)
         {
             lock (_locker)
             {
-                var strFragment = Encoding.UTF8.GetString(data);
+                _cache.AddRange(data);
 
-                _result.Append(strFragment);
+                var buffer = _cache.ToArray();
 
-                var str = _result.ToString();
-
-                var index = str.IndexOf(ENDSTR);
-
-                if (index > -1)
+                if (!isAnalysis)
                 {
-                    onUnpackage.Invoke(str);
-
-                    _result.Clear();
+                    isAnalysis = _httpStringReader.Analysis(buffer);
+                }
+                if (isAnalysis)
+                {
+                    //post需要处理body
+                    if (_httpStringReader.Method == ConstString.POSTStr)
+                    {
+                        var contentLen = _httpStringReader.ContentLength;
+                        var positon = _httpStringReader.Position;
+                        var totlalLen = contentLen + positon;
+                        if (buffer.Length == totlalLen)
+                        {
+                            _httpStringReader.AnalysisBody(buffer);
+                            onUnpackage.Invoke(_httpStringReader);
+                            Array.Clear(buffer, 0, buffer.Length);
+                            buffer = null;
+                            _cache.Clear();
+                            _cache = null;
+                        }
+                    }
+                    else
+                    {
+                        onUnpackage.Invoke(_httpStringReader);
+                        Array.Clear(buffer, 0, buffer.Length);
+                        buffer = null;
+                        _cache.Clear();
+                        _cache = null;
+                    }
                 }
             }
         }
@@ -65,8 +99,7 @@ namespace SAEA.WebAPI.Http.Net
 
         public void Dispose()
         {
-            _result.Clear();
-            _result = null;
+            _stopwatch.Stop();
         }
     }
 }

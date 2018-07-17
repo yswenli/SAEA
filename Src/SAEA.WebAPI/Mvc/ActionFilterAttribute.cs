@@ -34,9 +34,13 @@ namespace SAEA.WebAPI.Mvc
     {
         bool _isEnabled = true;
 
+        /// <summary>
+        /// 拦截器
+        /// </summary>
+        /// <param name="isEnabled"></param>
         public ActionFilterAttribute(bool isEnabled)
         {
-            _isEnabled = true;
+            _isEnabled = isEnabled;
         }
 
         /// <summary>
