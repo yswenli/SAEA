@@ -42,7 +42,6 @@ namespace SAEA.RedisSocketTest
             RedisClient redisClient = new RedisClient(cnnStr);
             redisClient.Connect();
 
-
             var info = redisClient.Info();
             if (info.Contains("NOAUTH Authentication required."))
             {
@@ -92,7 +91,15 @@ namespace SAEA.RedisSocketTest
 
                 ConsoleHelper.WriteLine("回车开始kv插值操作...");
                 ConsoleHelper.ReadLine();
-                for (int i = 0; i < 1000; i++)
+                for (int i = 0; i < 100000; i++)
+                {
+                    redisClient.GetDataBase().Set("key" + i, "val" + i);
+                }
+                for (int i = 0; i < 100000; i++)
+                {
+                    redisClient.GetDataBase().Del("key" + i);
+                }
+                for (int i = 0; i < 100; i++)
                 {
                     redisClient.GetDataBase().Set("key" + i, "val" + i);
                 }
@@ -113,7 +120,7 @@ namespace SAEA.RedisSocketTest
 
                 ConsoleHelper.WriteLine("回车开始开始kv移除操作...");
                 ConsoleHelper.ReadLine();
-                for (int i = 0; i < 1000; i++)
+                for (int i = 0; i < 100; i++)
                 {
                     redisClient.GetDataBase().Del("key" + i);
                 }
