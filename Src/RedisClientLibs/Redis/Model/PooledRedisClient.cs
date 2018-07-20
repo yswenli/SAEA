@@ -58,7 +58,7 @@ namespace SAEA.RedisSocket.Model
             return _client.Ping();
         }
 
-        public string Select(int dbIndex = 0)
+        public bool Select(int dbIndex = 0)
         {
             return _client.Select(dbIndex);
         }

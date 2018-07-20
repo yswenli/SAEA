@@ -18,10 +18,14 @@ namespace RedusClientConsole
             var cnnStr = ConsoleHelper.ReadLine();
             if (string.IsNullOrEmpty(cnnStr))
             {
-                cnnStr = "server=127.0.0.1:6379;password=yswenli";
+                cnnStr = "server=172.31.32.85:6379;password=yswenli";
             }
             RedisClient redisClient = new RedisClient(cnnStr);
             redisClient.Connect();
+
+            var s= redisClient.Select(159);
+            s= redisClient.Select(160);
+
 
             var info = redisClient.Info();
             if (info.Contains("NOAUTH Authentication required."))

@@ -13,7 +13,7 @@ namespace SAEA.RedisSocket.Interface
 
         string Ping();
 
-        string Select(int dbIndex = 0);
+        bool Select(int dbIndex = 0);
 
         int DBSize();
 

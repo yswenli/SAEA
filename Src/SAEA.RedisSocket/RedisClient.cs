@@ -149,13 +149,17 @@ namespace SAEA.RedisSocket
         /// </summary>
         /// <param name="dbIndex"></param>
         /// <returns></returns>
-        public string Select(int dbIndex = -1)
+        public bool Select(int dbIndex = -1)
         {
             if (dbIndex > -1)
             {
                 _dbIndex = dbIndex;
             }
-            return GetDataBase().Do(RequestType.SELECT, _dbIndex.ToString()).Data;
+            if (GetDataBase().Do(RequestType.SELECT, _dbIndex.ToString()).Data.IndexOf("ERR invalid DB index") == -1)
+            {
+                return true;
+            }
+            return false;
         }
         /// <summary>
         /// 当前db数据项数据
