@@ -202,16 +202,30 @@ namespace SAEA.RedisSocket
         /// redis server是否是主
         /// </summary>
         /// <returns></returns>
-        public bool IsMaster()
+        public bool IsMaster
         {
-            var info = Info();
-            if (info.Contains("role:master"))
+            get
             {
-                return true;
+                var info = Info();
+                if (info.Contains("role:master"))
+                {
+                    return true;
+                }
+                return false;
             }
-            return false;
         }
-
+        public bool IsCluster
+        {
+            get
+            {
+                var info = Info();
+                if (info.Contains("cluster_enabled:1"))
+                {
+                    return true;
+                }
+                return false;
+            }
+        }
         /// <summary>
         /// 获取redis database操作
         /// </summary>

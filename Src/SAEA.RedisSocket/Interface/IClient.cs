@@ -7,6 +7,16 @@ namespace SAEA.RedisSocket.Interface
 {
     public interface IClient
     {
+        bool IsMaster
+        {
+            get;
+        }
+
+        bool IsCluster
+        {
+            get;
+        }
+
         bool IsConnected { get; set; }
 
         string Auth(string password);
@@ -21,9 +31,7 @@ namespace SAEA.RedisSocket.Interface
 
         string Info();
 
-        string SlaveOf(string ipPort = "");
-
-        bool IsMaster();
+        string SlaveOf(string ipPort = "");        
 
         RedisDataBase GetDataBase(int dbIndex = -1);
     }

@@ -75,7 +75,7 @@ namespace SAEA.RedisSocket
                                     var client = new RedisClient(ipPortStr, password);
                                     client.Connect();                                    
                                     if (isReadOnly)
-                                        isReadOnly = client.IsMaster();
+                                        isReadOnly = client.IsMaster;
                                     queue.Enqueue(client);
                                 }
                                 if (isReadOnly)

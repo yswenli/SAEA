@@ -40,7 +40,7 @@ namespace SAEA.RedisSocket.Model
         RedisClientFactory _factory;
 
         RedisClient _client;
-        
+
         internal void SetClient(RedisClientFactory factory, IClient client)
         {
             _factory = factory;
@@ -83,9 +83,19 @@ namespace SAEA.RedisSocket.Model
             return _client.SlaveOf(ipPort);
         }
 
-        public bool IsMaster()
+        public bool IsMaster
         {
-            return _client.IsMaster();
+            get
+            {
+                return _client.IsMaster;
+            }
+        }
+        public bool IsCluster
+        {
+            get
+            {
+                return _client.IsCluster;
+            }
         }
 
         public RedisDataBase GetDataBase(int dbIndex = -1)
@@ -96,7 +106,7 @@ namespace SAEA.RedisSocket.Model
 
         public void Dispose()
         {
-            bool isMaster = IsMaster();
+            bool isMaster = IsMaster;
             _factory.Free(isMaster, _client);
             IsConnected = false;
             _client = null;
