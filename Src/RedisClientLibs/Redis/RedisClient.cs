@@ -226,6 +226,15 @@ namespace SAEA.RedisSocket
                 return false;
             }
         }
+
+        public int DBIndex
+        {
+            get
+            {
+                return _dbIndex;
+            }
+        }
+
         /// <summary>
         /// 获取redis database操作
         /// </summary>

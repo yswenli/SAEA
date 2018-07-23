@@ -17,6 +17,11 @@ namespace SAEA.RedisSocket.Interface
             get;
         }
 
+        int DBIndex
+        {
+            get;
+        }
+
         bool IsConnected { get; set; }
 
         string Auth(string password);
@@ -31,7 +36,7 @@ namespace SAEA.RedisSocket.Interface
 
         string Info();
 
-        string SlaveOf(string ipPort = "");        
+        string SlaveOf(string ipPort = "");
 
         RedisDataBase GetDataBase(int dbIndex = -1);
     }

@@ -239,6 +239,28 @@ namespace SAEA.RedisSocket.Core
         }
         #endregion
 
+        #region SCAN
+        public ResponseData Scan(int offset = 0, string pattern = "*", int count = -1)
+        {
+            return base.Do(RequestType.KEYS, offset, pattern, count);
+        }
+
+        public ResponseData HScan(string hid, int offset = 0, string pattern = "*", int count = -1)
+        {
+            return base.Do(RequestType.KEYS, hid, offset, pattern, count);
+        }
+
+        public ResponseData SScan(string hid, int offset = 0, string pattern = "*", int count = -1)
+        {
+            return base.Do(RequestType.KEYS, hid, offset, pattern, count);
+        }
+
+        public ResponseData ZScan(string hid, int offset = 0, string pattern = "*", int count = -1)
+        {
+            return base.Do(RequestType.KEYS, hid, offset, pattern, count);
+        }
+        #endregion
+
         #region Pub/Sub
         public int Publish(string channel, string value)
         {

@@ -214,7 +214,9 @@ namespace SAEA.RedisSocket
                 return false;
             }
         }
-
+        /// <summary>
+        /// 是否是cluster node
+        /// </summary>
         public bool IsCluster
         {
             get
@@ -225,6 +227,17 @@ namespace SAEA.RedisSocket
                     return true;
                 }
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// 当前db index
+        /// </summary>
+        public int DBIndex
+        {
+            get
+            {
+                return _dbIndex;
             }
         }
 

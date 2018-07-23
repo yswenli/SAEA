@@ -17,6 +17,10 @@ namespace SAEA.RedisSocket.Core
         object _syncLocker = new object();
         string space = " ";
 
+        const string MATCH = "MATCH";
+
+        const string COUNT = "COUNT";
+
         public event Func<string, RedisConnection> OnRedirect;
 
         public RedisOperator(RedisConnection cnn)
@@ -227,6 +231,110 @@ namespace SAEA.RedisSocket.Core
                     _cnn = OnRedirect.Invoke(result.Data);
                     _redisCoder = _cnn.RedisCoder;
                     return DoBatch<T>(type, id, dic);
+                }
+                else
+                    return result;
+            }
+        }
+
+        /// <summary>
+        /// SCAN
+        /// </summary>
+        /// <param name="type"></param>
+        /// <param name="offset"></param>
+        /// <param name="pattern"></param>
+        /// <param name="count"></param>
+        /// <returns></returns>
+
+        public ResponseData Do(RequestType type, int offset = 0, string pattern = "*", int count = -1)
+        {
+            lock (_syncLocker)
+            {
+                var cmd = "";
+
+                if (offset < 0) offset = 0;
+
+                if (!string.IsNullOrEmpty(pattern))
+                {
+                    if (count > -1)
+                    {
+                        cmd = _redisCoder.Coder(type, type.ToString(), offset.ToString(), MATCH, pattern, COUNT, count.ToString());
+                    }
+                    else
+                    {
+                        cmd = _redisCoder.Coder(type, type.ToString(), offset.ToString(), MATCH, pattern);
+                    }
+                }
+                else
+                {
+                    if (count > -1)
+                    {
+                        cmd = _redisCoder.Coder(type, type.ToString(), offset.ToString(), COUNT, count.ToString());
+                    }
+                    else
+                    {
+                        cmd = _redisCoder.Coder(type, type.ToString(), offset.ToString());
+                    }
+                }
+                _cnn.Send(cmd);
+                var result = _redisCoder.Decoder();
+                if (result.Type == ResponseType.Redirect)
+                {
+                    _cnn = OnRedirect.Invoke(result.Data);
+                    _redisCoder = _cnn.RedisCoder;
+                    return Do(type, offset, pattern, count);
+                }
+                else
+                    return result;
+            }
+        }
+
+        /// <summary>
+        /// Others Scan
+        /// </summary>
+        /// <param name="type"></param>
+        /// <param name="key"></param>
+        /// <param name="offset"></param>
+        /// <param name="pattern"></param>
+        /// <param name="count"></param>
+        /// <returns></returns>
+        public ResponseData Do(RequestType type, string key, int offset = 0, string pattern = "*", int count = -1)
+        {
+            lock (_syncLocker)
+            {
+                var cmd = "";
+
+                if (offset < 0) offset = 0;
+
+                if (!string.IsNullOrEmpty(pattern))
+                {
+                    if (count > -1)
+                    {
+                        cmd = _redisCoder.Coder(type, key, type.ToString(), offset.ToString(), MATCH, pattern, COUNT, count.ToString());
+                    }
+                    else
+                    {
+                        cmd = _redisCoder.Coder(type, key, type.ToString(), offset.ToString(), MATCH, pattern);
+                    }
+                }
+                else
+                {
+                    if (count > -1)
+                    {
+                        cmd = _redisCoder.Coder(type, key, type.ToString(), offset.ToString(), COUNT, count.ToString());
+                    }
+                    else
+                    {
+                        cmd = _redisCoder.Coder(type, key, type.ToString(), offset.ToString());
+                    }
+                }
+                _cnn.Send(cmd);
+                var result = _redisCoder.Decoder();
+                if (result.Type == ResponseType.Redirect)
+                {
+                    _cnn = OnRedirect.Invoke(result.Data);
+                    _redisCoder = _cnn.RedisCoder;
+                    return Do(type, offset, pattern, count);
                 }
                 else
                     return result;

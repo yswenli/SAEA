@@ -1,7 +1,4 @@
 ﻿using SAEA.RedisSocket.Core;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.RedisSocket.Interface
 {
@@ -13,6 +10,11 @@ namespace SAEA.RedisSocket.Interface
         }
 
         bool IsCluster
+        {
+            get;
+        }
+
+        int DBIndex
         {
             get;
         }

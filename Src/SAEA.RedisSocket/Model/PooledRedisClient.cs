@@ -98,6 +98,14 @@ namespace SAEA.RedisSocket.Model
             }
         }
 
+        public int DBIndex
+        {
+            get
+            {
+                return _client.DBIndex;
+            }
+        }
+
         public RedisDataBase GetDataBase(int dbIndex = -1)
         {
             return _client.GetDataBase(dbIndex);

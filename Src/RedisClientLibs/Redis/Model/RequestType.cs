@@ -81,10 +81,12 @@ namespace SAEA.RedisSocket.Model
 
         PUBLISH,
         SUBSCRIBE,
-        UNSUBSCRIBE
+        UNSUBSCRIBE,
 
-
-
+        SCAN,
+        HSCAN,
+        SSCAN,
+        ZSCAN,
 
     }
 }
