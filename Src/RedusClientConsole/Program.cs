@@ -23,7 +23,12 @@ namespace RedusClientConsole
             RedisClient redisClient = new RedisClient(cnnStr);
             redisClient.Connect();
 
-            var z = redisClient.Type("zaaa");
+            //var s= redisClient.Select(159);
+            //s= redisClient.Select(160);
+
+            //var z = redisClient.Type("zaaa");
+
+            var s = redisClient.GetDataBase().Scan();
 
 
             var info = redisClient.Info();

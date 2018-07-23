@@ -242,22 +242,22 @@ namespace SAEA.RedisSocket.Core
         #region SCAN
         public ResponseData Scan(int offset = 0, string pattern = "*", int count = -1)
         {
-            return base.Do(RequestType.KEYS, offset, pattern, count);
+            return base.Do(RequestType.SCAN, offset, pattern, count);
         }
 
         public ResponseData HScan(string hid, int offset = 0, string pattern = "*", int count = -1)
         {
-            return base.Do(RequestType.KEYS, hid, offset, pattern, count);
+            return base.Do(RequestType.HSCAN, hid, offset, pattern, count);
         }
 
         public ResponseData SScan(string hid, int offset = 0, string pattern = "*", int count = -1)
         {
-            return base.Do(RequestType.KEYS, hid, offset, pattern, count);
+            return base.Do(RequestType.SSCAN, hid, offset, pattern, count);
         }
 
         public ResponseData ZScan(string hid, int offset = 0, string pattern = "*", int count = -1)
         {
-            return base.Do(RequestType.KEYS, hid, offset, pattern, count);
+            return base.Do(RequestType.ZSCAN, hid, offset, pattern, count);
         }
         #endregion
 
