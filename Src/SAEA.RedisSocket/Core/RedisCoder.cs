@@ -204,6 +204,10 @@ namespace SAEA.RedisSocket.Core
                     case RequestType.HKEYS:
                     case RequestType.LRANGE:
                     case RequestType.SMEMBERS:
+                    case RequestType.SCAN:
+                    case RequestType.HSCAN:
+                    case RequestType.SSCAN:
+                    case RequestType.ZSCAN:
                         result.Type = ResponseType.Lines;
                         var sb = new StringBuilder();
                         var rn = GetRowNum(command, out error);
@@ -333,6 +337,7 @@ namespace SAEA.RedisSocket.Core
                         break;
                     default:
                         result.Type = ResponseType.Undefined;
+                        result.Data = "未知的命令，请自行添加解码规则！";
                         break;
                 }
             }

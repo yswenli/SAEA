@@ -331,8 +331,55 @@ namespace SAEA.RedisSocket.Core
                         var vNum = GetValue(GetRedisReply(), out error);
                         IsSubed = false;
                         break;
+                    case RequestType.SCAN:
+                    case RequestType.HSCAN:
+                    case RequestType.SSCAN:
+                    case RequestType.ZSCAN:
+                        result.Type = ResponseType.Lines;
+                        while (command == _enter)
+                        {
+                            command = GetRedisReply();
+                        }
+                        sb = new StringBuilder();
+
+                        int offset = 0;
+
+                        rn = GetRowNum(command, out error);
+                        if (!string.IsNullOrEmpty(error))
+                        {
+                            result.Type = ResponseType.Error;
+                            result.Data = error;
+                            break;
+                        }
+                        if (rn > 0)
+                        {
+                            len = GetWordsNum(GetRedisReply(), out error);
+                            int.TryParse(GetRedisReply(), out offset);
+                            sb.AppendLine("offset:" + offset);
+                        }
+                        //
+                        command = GetRedisReply();
+                        if (string.IsNullOrEmpty(command))
+                        {
+                            break;
+                        }
+
+                        rn = GetRowNum(command, out error);
+
+                        for (int i = 0; i < rn; i++)
+                        {
+                            command = GetRedisReply();
+                            len = GetWordsNum(command, out error);
+                            if (len >= 0)
+                            {
+                                sb.AppendLine(GetRedisReply());
+                            }
+                        }
+                        result.Data = sb.ToString();
+                        break;
                     default:
                         result.Type = ResponseType.Undefined;
+                        result.Data = "未知的命令，请自行添加解码规则！";
                         break;
                 }
             }
@@ -446,7 +493,7 @@ namespace SAEA.RedisSocket.Core
                 result = new ResponseData()
                 {
                     Type = ResponseType.Redirect,
-                    Data = command.Split(new string[] { " " }, StringSplitOptions.RemoveEmptyEntries)[2].Replace("\r\n", "")
+                    Data = command.Split(new string[] { " " }, StringSplitOptions.None)[2].Replace("\r\n", "")
                 };
             }
             return result;

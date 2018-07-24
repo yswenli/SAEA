@@ -3,8 +3,8 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.RedisSocket
-*文件名： ResponseMessage
+*命名空间：SAEA.RedisSocket.Model
+*文件名： ResponseData
 *版本号： V1.0.0.0
 *唯一标识：bc48708f-e1e1-4b9e-be22-0cba54211c76
 *当前的用户域：WENLI-PC
@@ -21,9 +21,6 @@
 *描述：
 *
 *****************************************************************************/
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.RedisSocket.Model
 {

@@ -1,6 +1,5 @@
 ﻿using SAEA.Common;
 using SAEA.RedisSocket.Model;
-using SAEA.RedisSocket.Net;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -246,7 +245,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="count"></param>
         /// <returns></returns>
 
-        public ResponseData Do(RequestType type, int offset = 0, string pattern = "*", int count = -1)
+        public ScanResponse Do(RequestType type, int offset = 0, string pattern = "*", int count = -1)
         {
             lock (_syncLocker)
             {
@@ -285,7 +284,15 @@ namespace SAEA.RedisSocket.Core
                     return Do(type, offset, pattern, count);
                 }
                 else
-                    return result;
+                {
+                    if (result.Type == ResponseType.Lines)
+                    {
+                        return result.ToScanResponse();
+                    }
+
+                    return null;
+                }
+
             }
         }
 
@@ -298,7 +305,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="pattern"></param>
         /// <param name="count"></param>
         /// <returns></returns>
-        public ResponseData Do(RequestType type, string key, int offset = 0, string pattern = "*", int count = -1)
+        public ScanResponse Do(RequestType type, string key, int offset = 0, string pattern = "*", int count = -1)
         {
             lock (_syncLocker)
             {
@@ -337,9 +344,18 @@ namespace SAEA.RedisSocket.Core
                     return Do(type, offset, pattern, count);
                 }
                 else
-                    return result;
+                {
+                    if (result.Type == ResponseType.Lines)
+                    {
+                        return result.ToScanResponse();
+                    }
+
+                    return null;
+                }
             }
         }
+
+        //
 
     }
 }

@@ -75,7 +75,9 @@
     <Compile Include="Redis\Model\PooledRedisClient.cs" />
     <Compile Include="Redis\Model\RequestType.cs" />
     <Compile Include="Redis\Model\ResponseData.cs" />
+    <Compile Include="Redis\Model\ResponseExtention.cs" />
     <Compile Include="Redis\Model\ResponseType.cs" />
+    <Compile Include="Redis\Model\ScanResponse.cs" />
     <Compile Include="Redis\Net\RCoder.cs" />
     <Compile Include="Redis\Net\RConnection.cs" />
     <Compile Include="Redis\Net\RContext.cs" />

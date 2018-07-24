@@ -240,24 +240,24 @@ namespace SAEA.RedisSocket.Core
         #endregion
 
         #region SCAN
-        public ResponseData Scan(int offset = 0, string pattern = "*", int count = -1)
+        public ScanResponse Scan(int offset = 0, string pattern = "*", int count = -1)
         {
             return base.Do(RequestType.SCAN, offset, pattern, count);
         }
 
-        public ResponseData HScan(string hid, int offset = 0, string pattern = "*", int count = -1)
+        public ScanResponse HScan(string hid, int offset = 0, string pattern = "*", int count = -1)
         {
             return base.Do(RequestType.HSCAN, hid, offset, pattern, count);
         }
 
-        public ResponseData SScan(string hid, int offset = 0, string pattern = "*", int count = -1)
+        public ScanResponse SScan(string sid, int offset = 0, string pattern = "*", int count = -1)
         {
-            return base.Do(RequestType.SSCAN, hid, offset, pattern, count);
+            return base.Do(RequestType.SSCAN, sid, offset, pattern, count);
         }
 
-        public ResponseData ZScan(string hid, int offset = 0, string pattern = "*", int count = -1)
+        public ScanResponse ZScan(string zid, int offset = 0, string pattern = "*", int count = -1)
         {
-            return base.Do(RequestType.ZSCAN, hid, offset, pattern, count);
+            return base.Do(RequestType.ZSCAN, zid, offset, pattern, count);
         }
         #endregion
 
