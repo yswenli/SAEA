@@ -145,7 +145,7 @@ namespace SAEA.RedisSocket.Core
         {
             lock (_syncLocker)
             {
-                var cmd = _redisCoder.Coder(type, type.ToString(), id, begin.ToString(), end.ToString(), " WITHSCORES");
+                var cmd = _redisCoder.Coder(type, type.ToString(), id, begin.ToString(), end.ToString(), "WITHSCORES");
                 _cnn.Send(cmd);
                 var result = _redisCoder.Decoder();
                 if (result.Type == ResponseType.Redirect)

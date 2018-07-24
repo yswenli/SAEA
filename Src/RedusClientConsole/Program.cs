@@ -103,7 +103,7 @@ namespace RedusClientConsole
                 ConsoleHelper.WriteLine("回车开始获取kv值操作...");
                 ConsoleHelper.ReadLine();
 
-                var keys = redisClient.GetDataBase().Keys().Data.ToArray(false, "\r\n");
+                var keys = redisClient.GetDataBase().Keys();
 
                 foreach (var key in keys)
                 {
@@ -135,7 +135,7 @@ namespace RedusClientConsole
 
                 ConsoleHelper.WriteLine("回车开始HashSet插值操作...");
                 ConsoleHelper.ReadLine();
-                var hkeys = redisClient.GetDataBase().GetHKeys(hid).Data.ToArray();
+                var hkeys = redisClient.GetDataBase().GetHKeys(hid).ToArray();
                 foreach (var hkey in hkeys)
                 {
                     var val = redisClient.GetDataBase().HGet(hid, hkey);

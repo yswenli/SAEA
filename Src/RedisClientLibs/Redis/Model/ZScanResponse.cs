@@ -40,13 +40,13 @@ namespace SAEA.RedisSocket.Model
         /// <summary>
         /// 返回数据
         /// </summary>
-        public List<ZScanItem> Data
+        public List<ZItem> Data
         {
             get; set;
         }
     }
 
-    public class ZScanItem
+    public class ZItem
     {
         public string Value
         {

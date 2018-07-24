@@ -1,5 +1,4 @@
 ﻿using SAEA.RedisSocket.Model;
-using SAEA.RedisSocket.Net;
 using System;
 using System.Collections.Generic;
 
@@ -37,9 +36,9 @@ namespace SAEA.RedisSocket.Core
         {
             return base.Do(RequestType.GET, key).Data;
         }
-        public ResponseData Keys(string pattern = "*")
+        public List<string> Keys(string pattern = "*")
         {
-            return base.Do(RequestType.KEYS, pattern);
+            return base.Do(RequestType.KEYS, pattern).ToList<string>();
         }
         public void Del(string key)
         {
@@ -102,9 +101,9 @@ namespace SAEA.RedisSocket.Core
         {
             return base.Do(RequestType.HGETALL, hid).ToKeyValues();
         }
-        public ResponseData GetHKeys(string hid)
+        public List<string> GetHKeys(string hid)
         {
-            return base.Do(RequestType.HKEYS, hid);
+            return base.Do(RequestType.HKEYS, hid).ToList<string>();
         }
         public ResponseData HDel(string hid, string key)
         {
@@ -158,9 +157,9 @@ namespace SAEA.RedisSocket.Core
         {
             return base.Do(RequestType.RPOP, key).Data;
         }
-        public ResponseData LRang(string key, int begin = 0, int end = -1)
+        public List<string> LRang(string key, int begin = 0, int end = -1)
         {
-            return base.Do(RequestType.LRANGE, key, begin.ToString(), end.ToString());
+            return base.Do(RequestType.LRANGE, key, begin.ToString(), end.ToString()).ToList<string>();
         }
         public int LRemove(string key, int begin = 0, int end = -1)
         {
@@ -194,9 +193,9 @@ namespace SAEA.RedisSocket.Core
             return result == ResponseType.Empty ? false : true;
         }
 
-        public ResponseData SMemebers(string key)
+        public List<string> SMemebers(string key)
         {
-            return base.Do(RequestType.SMEMBERS, key);
+            return base.Do(RequestType.SMEMBERS, key).ToList<string>();
         }
 
         public string SRandMemeber(string key)
@@ -238,14 +237,16 @@ namespace SAEA.RedisSocket.Core
             return result;
         }
 
-        public ResponseData ZRang(string key, double begin = 0, double end = -1)
+        public List<ZItem> ZRang(string key, double begin = 0, double end = -1)
         {
-            return base.Do(RequestType.ZRANGE, key, begin, end);
+            return base.Do(RequestType.ZRANGE, key, begin, end).ToList();
         }
-        public ResponseData ZRevrange(string key, double begin = 0, double end = -1)
+
+        public List<ZItem> ZRevrange(string key, double begin = 0, double end = -1)
         {
-            return base.Do(RequestType.ZREVRANGE, key, begin, end);
+            return base.Do(RequestType.ZREVRANGE, key, begin, end).ToList();
         }
+
         public int ZRemove(string key, string[] values)
         {
             var result = 0;

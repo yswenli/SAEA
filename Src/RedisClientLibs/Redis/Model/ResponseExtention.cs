@@ -28,6 +28,128 @@ namespace SAEA.RedisSocket.Model
 {
     public static class ResponseExtention
     {
+
+        public static List<T> ToList<T>(this ResponseData result)
+        {
+            if (result == null) return null;
+
+            if (result.Type == ResponseType.Error)
+            {
+                throw new Exception(result.Data);
+            }
+
+            List<T> list = null;
+
+            if (!string.IsNullOrEmpty(result.Data))
+            {
+                list = new List<T>();
+
+                var arr = result.Data.Split(new string[] { "\r\n" },StringSplitOptions.None);
+
+                for (int i = 0; i < arr.Length; i++)
+                {
+                    if (i + 1 == arr.Length) break;
+
+                    T val = (T)Convert.ChangeType(arr[i], typeof(T)); ;
+
+                    list.Add(val);
+
+                    i++;
+                }
+            }
+
+            return list;
+        }
+
+        public static List<ZItem> ToList(this ResponseData source)
+        {
+            if (source == null) return null;
+
+            if (source.Type == ResponseType.Error)
+            {
+                throw new Exception(source.Data);
+            }
+
+            List<ZItem> result = null;
+
+            if (!string.IsNullOrEmpty(source.Data))
+            {
+                var arr = source.Data.Split(new string[] { "\r\n" }, StringSplitOptions.None);
+
+                if (arr != null && arr.Length > 0)
+                {
+                    result = new List<ZItem>();
+
+                    for (int i = 0; i < arr.Length; i++)
+                    {
+                        ZItem zItem = new ZItem();
+
+                        var val = arr[i];
+
+                        if (!string.IsNullOrEmpty(val))
+                        {
+                            if (i + 2 <= arr.Length)
+                            {
+                                double score = 0D;
+                                double.TryParse(arr[i + 2], out score);
+                                zItem.Value = val;
+                                zItem.Score = score;
+                                result.Add(zItem);
+                            }
+                        }
+                        i += 3;
+                    }
+                }
+            }
+
+
+            return result;
+        }
+
+        public static Dictionary<string, string> ToKeyValues(this ResponseData result)
+        {
+            if (result == null) return null;
+
+            if (result.Type == ResponseType.Error)
+            {
+                throw new Exception(result.Data);
+            }
+
+            Dictionary<string, string> keyValuePairs = null;
+
+            if (!string.IsNullOrEmpty(result.Data))
+            {
+                var arr = result.Data.Split(new string[] { "\r\n" }, StringSplitOptions.None);
+
+                if (arr != null && arr.Length > 0)
+                {
+                    keyValuePairs = new Dictionary<string, string>();
+
+                    for (int i = 0; i < arr.Length; i++)
+                    {
+                        var key = arr[i];
+
+                        if (!string.IsNullOrEmpty(key))
+                        {
+                            if (i + 2 <= arr.Length)
+                            {
+                                keyValuePairs.Add(key, arr[i + 2]);
+                            }
+                            else
+                            {
+                                keyValuePairs.Add(key, string.Empty);
+                            }
+                        }
+
+                        i += 3;
+                    }
+                }
+            }
+
+            return keyValuePairs;
+        }
+
+
         public static ScanResponse ToScanResponse(this ResponseData result)
         {
             if (result == null) return null;
@@ -100,15 +222,15 @@ namespace SAEA.RedisSocket.Model
         {
             if (source == null) return null;
 
-            List<ZScanItem> data = null;
+            List<ZItem> data = null;
 
             if (source.Data != null && source.Data.Count > 0)
             {
-                data = new List<ZScanItem>();
+                data = new List<ZItem>();
 
                 for (int i = 0; i < source.Data.Count; i++)
                 {
-                    var zi = new ZScanItem();
+                    var zi = new ZItem();
 
                     zi.Value = source.Data[i];
 

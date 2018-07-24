@@ -43,12 +43,18 @@ namespace SAEA.RedisSocketTest
             RedisClient redisClient = new RedisClient(cnnStr);
             redisClient.Connect();
 
+            //var keys = redisClient.GetDataBase().Keys();
+
             //var scan = redisClient.GetDataBase().Scan();
             //var hscan = redisClient.GetDataBase().HScan("haa2", 0);
             //var sscan = redisClient.GetDataBase().SScan("aaa", 0);
             //var zscan = redisClient.GetDataBase().ZScan("zaaa", 0);
 
-            var r = redisClient.GetDataBase().Rename("aaa", "aaa");
+            //var r = redisClient.GetDataBase().Rename("aaa", "aaa");
+
+            //var l = redisClient.GetDataBase().LRang("testlist");
+
+            var z = redisClient.GetDataBase().ZRang("zaaa");
 
             var info = redisClient.Info();
             if (info.Contains("NOAUTH Authentication required."))
@@ -117,7 +123,7 @@ namespace SAEA.RedisSocketTest
                 ConsoleHelper.WriteLine("回车开始获取kv值操作...");
                 ConsoleHelper.ReadLine();
 
-                var keys = redisClient.GetDataBase().Keys().Data.ToArray(false, "\r\n");
+                var keys = redisClient.GetDataBase().Keys();
 
                 foreach (var key in keys)
                 {
@@ -149,7 +155,7 @@ namespace SAEA.RedisSocketTest
 
                 ConsoleHelper.WriteLine("回车开始HashSet插值操作...");
                 ConsoleHelper.ReadLine();
-                var hkeys = redisClient.GetDataBase().GetHKeys(hid).Data.ToArray();
+                var hkeys = redisClient.GetDataBase().GetHKeys(hid);
                 foreach (var hkey in hkeys)
                 {
                     var val = redisClient.GetDataBase().HGet(hid, hkey);
