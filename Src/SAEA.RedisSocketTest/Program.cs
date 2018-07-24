@@ -43,10 +43,12 @@ namespace SAEA.RedisSocketTest
             RedisClient redisClient = new RedisClient(cnnStr);
             redisClient.Connect();
 
-            var scan = redisClient.GetDataBase().Scan();
-            var hscan = redisClient.GetDataBase().HScan("haa2", 0);
-            var sscan = redisClient.GetDataBase().SScan("aaa", 0);
-            var zscan = redisClient.GetDataBase().ZScan("zaaa", 0);
+            //var scan = redisClient.GetDataBase().Scan();
+            //var hscan = redisClient.GetDataBase().HScan("haa2", 0);
+            //var sscan = redisClient.GetDataBase().SScan("aaa", 0);
+            //var zscan = redisClient.GetDataBase().ZScan("zaaa", 0);
+
+            var r = redisClient.GetDataBase().Rename("aaa", "aaa");
 
             var info = redisClient.Info();
             if (info.Contains("NOAUTH Authentication required."))

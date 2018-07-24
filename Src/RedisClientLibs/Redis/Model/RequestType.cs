@@ -46,6 +46,7 @@ namespace SAEA.RedisSocket.Model
         PERSIST,
         GETSET,
         SETNX,
+        RENAME,
 
         HSET,
         HGET,

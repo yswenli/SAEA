@@ -72,6 +72,21 @@ namespace SAEA.RedisSocket.Core
         {
             base.Do(RequestType.PERSIST, key);
         }
+        /// <summary>
+        /// 将 oldKey 改名为 newkey 。
+        /// </summary>
+        /// <param name="oldKey"></param>
+        /// <param name="newKey"></param>
+        /// <returns></returns>
+        public bool Rename(string oldKey, string newKey)
+        {
+            var result = base.Do(RequestType.RENAME, oldKey, newKey);
+            if (result.Data == "OK")
+            {
+                return true;
+            }
+            return false;
+        }
         #endregion
 
         #region HSET
@@ -83,7 +98,7 @@ namespace SAEA.RedisSocket.Core
         {
             return base.Do(RequestType.HGET, hid, key);
         }
-        public Dictionary<string,string> HGetAll(string hid)
+        public Dictionary<string, string> HGetAll(string hid)
         {
             return base.Do(RequestType.HGETALL, hid).ToKeyValues();
         }

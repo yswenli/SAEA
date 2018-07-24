@@ -30,6 +30,13 @@ namespace SAEA.RedisSocket.Model
     {
         public static ScanResponse ToScanResponse(this ResponseData result)
         {
+            if (result == null) return null;
+
+            if (result.Type == ResponseType.Error)
+            {
+                throw new Exception(result.Data);
+            }
+
             var scanResponse = new ScanResponse();
 
             var dataArr = result.Data.Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);

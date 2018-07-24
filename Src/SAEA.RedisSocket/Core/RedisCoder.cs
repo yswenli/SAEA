@@ -107,6 +107,10 @@ namespace SAEA.RedisSocket.Core
 
         public bool IsSubed = false;
 
+        /// <summary>
+        /// 解析从redis返回的命令
+        /// </summary>
+        /// <returns></returns>
         public ResponseData Decoder()
         {
             var result = new ResponseData();
@@ -154,6 +158,7 @@ namespace SAEA.RedisSocket.Core
                     case RequestType.HSET:
                     case RequestType.HDEL:
                     case RequestType.LSET:
+                    case RequestType.RENAME:
                         if (GetStatus(command, out error))
                         {
                             result.Type = ResponseType.OK;

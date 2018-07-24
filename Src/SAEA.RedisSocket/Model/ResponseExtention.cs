@@ -32,6 +32,13 @@ namespace SAEA.RedisSocket.Model
 
         public static Dictionary<string, string> ToKeyValues(this ResponseData result)
         {
+            if (result == null) return null;
+
+            if (result.Type == ResponseType.Error)
+            {
+                throw new Exception(result.Data);
+            }
+
             Dictionary<string, string> keyValuePairs = null;
 
             if (!string.IsNullOrEmpty(result.Data))

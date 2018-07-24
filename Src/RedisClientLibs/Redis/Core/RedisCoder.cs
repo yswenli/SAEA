@@ -119,7 +119,7 @@ namespace SAEA.RedisSocket.Core
 
             command = GetRedisReply();
 
-            if (command == _enter)
+            while (command == _enter)
             {
                 command = GetRedisReply();
             }
@@ -154,6 +154,7 @@ namespace SAEA.RedisSocket.Core
                     case RequestType.HSET:
                     case RequestType.HDEL:
                     case RequestType.LSET:
+                    case RequestType.RENAME:
                         if (GetStatus(command, out error))
                         {
                             result.Type = ResponseType.OK;
@@ -207,14 +208,6 @@ namespace SAEA.RedisSocket.Core
                         result.Type = ResponseType.Lines;
                         var sb = new StringBuilder();
                         var rn = GetRowNum(command, out error);
-                        if (!string.IsNullOrEmpty(error))
-                        {
-                            result.Type = ResponseType.Error;
-                            result.Data = error;
-                            break;
-                        }
-                        //再尝试读取一次，发现有回车行出现
-                        if (rn == -1) rn = GetRowNum(GetRedisReply(), out error);
                         if (!string.IsNullOrEmpty(error))
                         {
                             result.Type = ResponseType.Error;
