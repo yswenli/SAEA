@@ -32,7 +32,7 @@ namespace SAEA.RedisSocketTest
         static void Main(string[] args)
         {
             ConsoleHelper.Title = "SAEA.RedisSocketTest";
-            ConsoleHelper.WriteLine("输入连接字符串连接RedisServer，格式为server=127.0.0.1:6379;password=yswenli");
+            ConsoleHelper.WriteLine("输入连接字符串连接RedisServer，格式为\r\nserver=127.0.0.1:6379;password=yswenli");
 
             var cnnStr = ConsoleHelper.ReadLine();
             if (string.IsNullOrEmpty(cnnStr))
@@ -43,18 +43,20 @@ namespace SAEA.RedisSocketTest
             RedisClient redisClient = new RedisClient(cnnStr);
             redisClient.Connect();
 
-            //var keys = redisClient.GetDataBase().Keys();
+            var keys = redisClient.GetDataBase().Keys();
 
-            //var scan = redisClient.GetDataBase().Scan();
-            //var hscan = redisClient.GetDataBase().HScan("haa2", 0);
-            //var sscan = redisClient.GetDataBase().SScan("aaa", 0);
-            //var zscan = redisClient.GetDataBase().ZScan("zaaa", 0);
+            var scan = redisClient.GetDataBase().Scan();
+            var hscan = redisClient.GetDataBase().HScan("haa22", 0);
+            var sscan = redisClient.GetDataBase().SScan("aaa", 0);
+            var zscan = redisClient.GetDataBase().ZScan("zaaa", 0);
 
-            //var r = redisClient.GetDataBase().Rename("aaa", "aaa");
+            var r = redisClient.GetDataBase().Rename("aaa", "aaa");
 
-            //var l = redisClient.GetDataBase().LRang("testlist");
+            var l = redisClient.GetDataBase().LRang("testlist");
 
-            //var z = redisClient.GetDataBase().ZRang("zaaa");
+            var z = redisClient.GetDataBase().ZRang("zaaa");
+
+            var h = redisClient.GetDataBase().HGetAll("haa22");
 
             var info = redisClient.Info();
             if (info.Contains("NOAUTH Authentication required."))

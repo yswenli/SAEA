@@ -223,7 +223,7 @@ namespace SAEA.RedisSocket.Core
                             for (int i = 0; i < rn; i++)
                             {
                                 len = GetWordsNum(GetRedisReply(), out error);
-                                sb.AppendLine(GetRedisReply());
+                                sb.Append(GetRedisReply());
                             }
                         }
                         result.Data = sb.ToString();
@@ -245,7 +245,7 @@ namespace SAEA.RedisSocket.Core
                             for (int i = 0; i < rn; i++)
                             {
                                 len = GetWordsNum(GetRedisReply(), out error);
-                                sb.AppendLine(GetRedisReply());
+                                sb.Append(GetRedisReply());
                             }
                         }
                         result.Data = sb.ToString();
@@ -369,7 +369,7 @@ namespace SAEA.RedisSocket.Core
                             len = GetWordsNum(command, out error);
                             if (len >= 0)
                             {
-                                sb.AppendLine(GetRedisReply());
+                                sb.Append(GetRedisReply());
                             }
                         }
                         result.Data = sb.ToString();

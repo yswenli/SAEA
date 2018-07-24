@@ -54,8 +54,6 @@ namespace SAEA.RedisSocket.Model
                     T val = (T)Convert.ChangeType(arr[i], typeof(T)); ;
 
                     list.Add(val);
-
-                    i++;
                 }
             }
 
@@ -90,16 +88,16 @@ namespace SAEA.RedisSocket.Model
 
                         if (!string.IsNullOrEmpty(val))
                         {
-                            if (i + 2 <= arr.Length)
+                            if (i + 1 < arr.Length)
                             {
                                 double score = 0D;
-                                double.TryParse(arr[i + 2], out score);
+                                double.TryParse(arr[i + 1], out score);
                                 zItem.Value = val;
                                 zItem.Score = score;
                                 result.Add(zItem);
                             }
                         }
-                        i += 3;
+                        i++;
                     }
                 }
             }
@@ -133,9 +131,9 @@ namespace SAEA.RedisSocket.Model
 
                         if (!string.IsNullOrEmpty(key))
                         {
-                            if (i + 2 <= arr.Length)
+                            if (i + 1 < arr.Length)
                             {
-                                keyValuePairs.Add(key, arr[i + 2]);
+                                keyValuePairs.Add(key, arr[i + 1]);
                             }
                             else
                             {
@@ -143,7 +141,7 @@ namespace SAEA.RedisSocket.Model
                             }
                         }
 
-                        i += 3;
+                        i += 1;
                     }
                 }
             }
@@ -155,7 +153,7 @@ namespace SAEA.RedisSocket.Model
         {
             var scanResponse = new ScanResponse();
 
-            var dataArr = source.Data.Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+            var dataArr = source.Data.Split(_enter, StringSplitOptions.None);
 
             var doffset = 0;
 
@@ -167,6 +165,7 @@ namespace SAEA.RedisSocket.Model
 
             for (int i = 1; i < dataArr.Length; i++)
             {
+                if (i + 1 == dataArr.Length) break;
                 datas.Add(dataArr[i]);
             }
             scanResponse.Data = datas;
@@ -231,15 +230,13 @@ namespace SAEA.RedisSocket.Model
 
                     var score = 0D;
 
-                    if (i + 1 <= source.Data.Count)
+                    if (i + 1 < source.Data.Count)
                     {
                         double.TryParse(source.Data[i + 1], out score);
                     }
                     zi.Score = score;
 
                     data.Add(zi);
-
-                    i += 1;
                 }
             }
 

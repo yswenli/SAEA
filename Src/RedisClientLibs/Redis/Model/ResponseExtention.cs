@@ -29,22 +29,24 @@ namespace SAEA.RedisSocket.Model
     public static class ResponseExtention
     {
 
-        public static List<T> ToList<T>(this ResponseData result)
-        {
-            if (result == null) return null;
+        static string _enter = "\r\n";
 
-            if (result.Type == ResponseType.Error)
+        public static List<T> ToList<T>(this ResponseData source)
+        {
+            if (source == null) return null;
+
+            if (source.Type == ResponseType.Error)
             {
-                throw new Exception(result.Data);
+                throw new Exception(source.Data);
             }
 
             List<T> list = null;
 
-            if (!string.IsNullOrEmpty(result.Data))
+            if (!string.IsNullOrEmpty(source.Data))
             {
                 list = new List<T>();
 
-                var arr = result.Data.Split(new string[] { "\r\n" },StringSplitOptions.None);
+                var arr = source.Data.Split(new string[] { _enter }, StringSplitOptions.None);
 
                 for (int i = 0; i < arr.Length; i++)
                 {
@@ -53,13 +55,12 @@ namespace SAEA.RedisSocket.Model
                     T val = (T)Convert.ChangeType(arr[i], typeof(T)); ;
 
                     list.Add(val);
-
-                    i++;
                 }
             }
 
             return list;
         }
+
 
         public static List<ZItem> ToList(this ResponseData source)
         {
@@ -74,7 +75,7 @@ namespace SAEA.RedisSocket.Model
 
             if (!string.IsNullOrEmpty(source.Data))
             {
-                var arr = source.Data.Split(new string[] { "\r\n" }, StringSplitOptions.None);
+                var arr = source.Data.Split(new string[] { _enter }, StringSplitOptions.None);
 
                 if (arr != null && arr.Length > 0)
                 {
@@ -88,16 +89,16 @@ namespace SAEA.RedisSocket.Model
 
                         if (!string.IsNullOrEmpty(val))
                         {
-                            if (i + 2 <= arr.Length)
+                            if (i + 1 < arr.Length)
                             {
                                 double score = 0D;
-                                double.TryParse(arr[i + 2], out score);
+                                double.TryParse(arr[i + 1], out score);
                                 zItem.Value = val;
                                 zItem.Score = score;
                                 result.Add(zItem);
                             }
                         }
-                        i += 3;
+                        i++;
                     }
                 }
             }
@@ -106,20 +107,20 @@ namespace SAEA.RedisSocket.Model
             return result;
         }
 
-        public static Dictionary<string, string> ToKeyValues(this ResponseData result)
+        public static Dictionary<string, string> ToKeyValues(this ResponseData source)
         {
-            if (result == null) return null;
+            if (source == null) return null;
 
-            if (result.Type == ResponseType.Error)
+            if (source.Type == ResponseType.Error)
             {
-                throw new Exception(result.Data);
+                throw new Exception(source.Data);
             }
 
             Dictionary<string, string> keyValuePairs = null;
 
-            if (!string.IsNullOrEmpty(result.Data))
+            if (!string.IsNullOrEmpty(source.Data))
             {
-                var arr = result.Data.Split(new string[] { "\r\n" }, StringSplitOptions.None);
+                var arr = source.Data.Split(new string[] { _enter }, StringSplitOptions.None);
 
                 if (arr != null && arr.Length > 0)
                 {
@@ -131,9 +132,9 @@ namespace SAEA.RedisSocket.Model
 
                         if (!string.IsNullOrEmpty(key))
                         {
-                            if (i + 2 <= arr.Length)
+                            if (i + 1 < arr.Length)
                             {
-                                keyValuePairs.Add(key, arr[i + 2]);
+                                keyValuePairs.Add(key, arr[i + 1]);
                             }
                             else
                             {
@@ -141,7 +142,7 @@ namespace SAEA.RedisSocket.Model
                             }
                         }
 
-                        i += 3;
+                        i += 1;
                     }
                 }
             }
@@ -149,19 +150,11 @@ namespace SAEA.RedisSocket.Model
             return keyValuePairs;
         }
 
-
-        public static ScanResponse ToScanResponse(this ResponseData result)
+        public static ScanResponse ToScanResponse(this ResponseData source)
         {
-            if (result == null) return null;
-
-            if (result.Type == ResponseType.Error)
-            {
-                throw new Exception(result.Data);
-            }
-
             var scanResponse = new ScanResponse();
 
-            var dataArr = result.Data.Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+            var dataArr = source.Data.Split(new string[] { _enter }, StringSplitOptions.None);
 
             var doffset = 0;
 
@@ -173,11 +166,13 @@ namespace SAEA.RedisSocket.Model
 
             for (int i = 1; i < dataArr.Length; i++)
             {
+                if (i + 1 == dataArr.Length) break;
                 datas.Add(dataArr[i]);
             }
             scanResponse.Data = datas;
             return scanResponse;
         }
+
 
         public static HScanResponse ToHScanResponse(this ScanResponse source)
         {
@@ -236,15 +231,13 @@ namespace SAEA.RedisSocket.Model
 
                     var score = 0D;
 
-                    if (i + 1 <= source.Data.Count)
+                    if (i + 1 < source.Data.Count)
                     {
                         double.TryParse(source.Data[i + 1], out score);
                     }
                     zi.Score = score;
 
                     data.Add(zi);
-
-                    i += 1;
                 }
             }
 
