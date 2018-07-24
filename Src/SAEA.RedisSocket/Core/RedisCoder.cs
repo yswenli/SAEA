@@ -119,7 +119,7 @@ namespace SAEA.RedisSocket.Core
 
             command = GetRedisReply();
 
-            if (command == _enter)
+            while (command == _enter)
             {
                 command = GetRedisReply();
             }
@@ -204,21 +204,9 @@ namespace SAEA.RedisSocket.Core
                     case RequestType.HKEYS:
                     case RequestType.LRANGE:
                     case RequestType.SMEMBERS:
-                    case RequestType.SCAN:
-                    case RequestType.HSCAN:
-                    case RequestType.SSCAN:
-                    case RequestType.ZSCAN:
                         result.Type = ResponseType.Lines;
                         var sb = new StringBuilder();
                         var rn = GetRowNum(command, out error);
-                        if (!string.IsNullOrEmpty(error))
-                        {
-                            result.Type = ResponseType.Error;
-                            result.Data = error;
-                            break;
-                        }
-                        //再尝试读取一次，发现有回车行出现
-                        if (rn == -1) rn = GetRowNum(GetRedisReply(), out error);
                         if (!string.IsNullOrEmpty(error))
                         {
                             result.Type = ResponseType.Error;
@@ -334,6 +322,52 @@ namespace SAEA.RedisSocket.Core
                         var channel = GetRedisReply();
                         var vNum = GetValue(GetRedisReply(), out error);
                         IsSubed = false;
+                        break;
+                    case RequestType.SCAN:
+                    case RequestType.HSCAN:
+                    case RequestType.SSCAN:
+                    case RequestType.ZSCAN:
+                        result.Type = ResponseType.Lines;
+                        while (command == _enter)
+                        {
+                            command = GetRedisReply();
+                        }
+                        sb = new StringBuilder();
+
+                        int offset = 0;
+
+                        rn = GetRowNum(command, out error);
+                        if (!string.IsNullOrEmpty(error))
+                        {
+                            result.Type = ResponseType.Error;
+                            result.Data = error;
+                            return result;
+                        }
+                        if (rn > 0)
+                        {
+                            len = GetWordsNum(GetRedisReply(), out error);
+                            int.TryParse(GetRedisReply(), out offset);
+                            sb.AppendLine("offset:" + offset);
+                        }
+                        //
+                        command = GetRedisReply();
+                        if (string.IsNullOrEmpty(command))
+                        {
+                            break;
+                        }
+
+                        rn = GetRowNum(command, out error);
+
+                        for (int i = 0; i < rn; i++)
+                        {
+                            command = GetRedisReply();
+                            len = GetWordsNum(command, out error);
+                            if (len >= 0)
+                            {
+                                sb.AppendLine(GetRedisReply());
+                            }
+                        }
+                        result.Data = sb.ToString();
                         break;
                     default:
                         result.Type = ResponseType.Undefined;

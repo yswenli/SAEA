@@ -49,5 +49,83 @@ namespace SAEA.RedisSocket.Model
             scanResponse.Data = datas;
             return scanResponse;
         }
+
+        public static HScanResponse ToHScanResponse(this ScanResponse source)
+        {
+            if (source == null) return null;
+
+            Dictionary<string, string> data = null;
+
+            if (source.Data != null && source.Data.Count > 0)
+            {
+                data = new Dictionary<string, string>();
+
+                for (int i = 0; i < source.Data.Count; i++)
+                {
+                    var key = source.Data[i];
+
+                    if (!string.IsNullOrEmpty(key))
+                    {
+                        if (i + 1 <= source.Data.Count)
+                        {
+                            data.Add(key, source.Data[i + 1]);
+                        }
+                        else
+                        {
+                            data.Add(key, string.Empty);
+                        }
+                    }
+
+                    i += 1;
+                }
+            }
+
+            var result = new HScanResponse()
+            {
+                Offset = source.Offset,
+                Data = data
+            };
+
+            return result;
+        }
+
+        public static ZScanResponse ToZScanResponse(this ScanResponse source)
+        {
+            if (source == null) return null;
+
+            List<ZScanItem> data = null;
+
+            if (source.Data != null && source.Data.Count > 0)
+            {
+                data = new List<ZScanItem>();
+
+                for (int i = 0; i < source.Data.Count; i++)
+                {
+                    var zi = new ZScanItem();
+
+                    zi.Value = source.Data[i];
+
+                    var score = 0D;
+
+                    if (i + 1 <= source.Data.Count)
+                    {
+                        double.TryParse(source.Data[i + 1], out score);
+                    }
+                    zi.Score = score;
+
+                    data.Add(zi);
+
+                    i += 1;
+                }
+            }
+
+            var result = new ZScanResponse()
+            {
+                Offset = source.Offset,
+                Data = data
+            };
+
+            return result;
+        }
     }
 }

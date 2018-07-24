@@ -41,6 +41,10 @@ namespace SAEA.RedisSocket.Core
                     _redisCoder = _cnn.RedisCoder;
                     return Do(type);
                 }
+                else if (result.Type == ResponseType.Error)
+                {
+                    throw new Exception(result.Data);
+                }
                 else
                     return result;
             }
@@ -58,6 +62,10 @@ namespace SAEA.RedisSocket.Core
                     _cnn = OnRedirect.Invoke(result.Data);
                     _redisCoder = _cnn.RedisCoder;
                     return Do(type, key);
+                }
+                else if (result.Type == ResponseType.Error)
+                {
+                    throw new Exception(result.Data);
                 }
                 else
                     return result;
@@ -77,6 +85,10 @@ namespace SAEA.RedisSocket.Core
                     _redisCoder = _cnn.RedisCoder;
                     return Do(type, key, value);
                 }
+                else if (result.Type == ResponseType.Error)
+                {
+                    throw new Exception(result.Data);
+                }
                 else
                     return result;
             }
@@ -94,6 +106,10 @@ namespace SAEA.RedisSocket.Core
                     _cnn = OnRedirect.Invoke(result.Data);
                     _redisCoder = _cnn.RedisCoder;
                     DoExpire(key, seconds);
+                }
+                else if (result.Type == ResponseType.Error)
+                {
+                    throw new Exception(result.Data);
                 }
             }
         }
@@ -113,6 +129,10 @@ namespace SAEA.RedisSocket.Core
                     cmd = _redisCoder.Coder(type, type.ToString(), key, value);
                     _cnn.Send(cmd);
                     _redisCoder.Decoder();
+                }
+                else if (result.Type == ResponseType.Error)
+                {
+                    throw new Exception(result.Data);
                 }
 
                 cmd = _redisCoder.Coder(RequestType.EXPIRE, string.Format("{0} {1} {2}", type.ToString(), key, seconds));
@@ -134,6 +154,10 @@ namespace SAEA.RedisSocket.Core
                     _redisCoder = _cnn.RedisCoder;
                     return Do(type, id, key, value);
                 }
+                else if (result.Type == ResponseType.Error)
+                {
+                    throw new Exception(result.Data);
+                }
                 else
                     return result;
             }
@@ -150,6 +174,10 @@ namespace SAEA.RedisSocket.Core
                     _cnn = OnRedirect.Invoke(result.Data);
                     _redisCoder = _cnn.RedisCoder;
                     return Do(type, id, begin, end);
+                }
+                else if (result.Type == ResponseType.Error)
+                {
+                    throw new Exception(result.Data);
                 }
                 else
                     return result;
@@ -204,6 +232,10 @@ namespace SAEA.RedisSocket.Core
                     _redisCoder = _cnn.RedisCoder;
                     return DoBatch(type, id, keys);
                 }
+                else if (result.Type == ResponseType.Error)
+                {
+                    throw new Exception(result.Data);
+                }
                 else
                     return result;
             }
@@ -230,6 +262,10 @@ namespace SAEA.RedisSocket.Core
                     _cnn = OnRedirect.Invoke(result.Data);
                     _redisCoder = _cnn.RedisCoder;
                     return DoBatch<T>(type, id, dic);
+                }
+                else if (result.Type == ResponseType.Error)
+                {
+                    throw new Exception(result.Data);
                 }
                 else
                     return result;
@@ -283,13 +319,18 @@ namespace SAEA.RedisSocket.Core
                     _redisCoder = _cnn.RedisCoder;
                     return Do(type, offset, pattern, count);
                 }
+                else if (result.Type == ResponseType.Error)
+                {
+                    throw new Exception(result.Data);
+                }
                 else
                 {
+                    var scanResponse = new ScanResponse();
+
                     if (result.Type == ResponseType.Lines)
                     {
                         return result.ToScanResponse();
                     }
-
                     return null;
                 }
 
@@ -317,22 +358,22 @@ namespace SAEA.RedisSocket.Core
                 {
                     if (count > -1)
                     {
-                        cmd = _redisCoder.Coder(type, key, type.ToString(), offset.ToString(), MATCH, pattern, COUNT, count.ToString());
+                        cmd = _redisCoder.Coder(type, type.ToString(), key, offset.ToString(), MATCH, pattern, COUNT, count.ToString());
                     }
                     else
                     {
-                        cmd = _redisCoder.Coder(type, key, type.ToString(), offset.ToString(), MATCH, pattern);
+                        cmd = _redisCoder.Coder(type, type.ToString(), key, offset.ToString(), MATCH, pattern);
                     }
                 }
                 else
                 {
                     if (count > -1)
                     {
-                        cmd = _redisCoder.Coder(type, key, type.ToString(), offset.ToString(), COUNT, count.ToString());
+                        cmd = _redisCoder.Coder(type, type.ToString(), key, offset.ToString(), COUNT, count.ToString());
                     }
                     else
                     {
-                        cmd = _redisCoder.Coder(type, key, type.ToString(), offset.ToString());
+                        cmd = _redisCoder.Coder(type, type.ToString(), key, offset.ToString());
                     }
                 }
                 _cnn.Send(cmd);
@@ -343,19 +384,20 @@ namespace SAEA.RedisSocket.Core
                     _redisCoder = _cnn.RedisCoder;
                     return Do(type, offset, pattern, count);
                 }
+                else if (result.Type == ResponseType.Error)
+                {
+                    throw new Exception(result.Data);
+                }
                 else
                 {
                     if (result.Type == ResponseType.Lines)
                     {
                         return result.ToScanResponse();
                     }
-
                     return null;
                 }
             }
         }
-
-        //
 
     }
 }

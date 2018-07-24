@@ -244,9 +244,9 @@ namespace SAEA.RedisSocket.Core
             return base.Do(RequestType.SCAN, offset, pattern, count);
         }
 
-        public ScanResponse HScan(string hid, int offset = 0, string pattern = "*", int count = -1)
+        public HScanResponse HScan(string hid, int offset = 0, string pattern = "*", int count = -1)
         {
-            return base.Do(RequestType.HSCAN, hid, offset, pattern, count);
+            return base.Do(RequestType.HSCAN, hid, offset, pattern, count).ToHScanResponse();
         }
 
         public ScanResponse SScan(string sid, int offset = 0, string pattern = "*", int count = -1)
@@ -254,9 +254,9 @@ namespace SAEA.RedisSocket.Core
             return base.Do(RequestType.SSCAN, sid, offset, pattern, count);
         }
 
-        public ScanResponse ZScan(string zid, int offset = 0, string pattern = "*", int count = -1)
+        public ZScanResponse ZScan(string zid, int offset = 0, string pattern = "*", int count = -1)
         {
-            return base.Do(RequestType.ZSCAN, zid, offset, pattern, count);
+            return base.Do(RequestType.ZSCAN, zid, offset, pattern, count).ToZScanResponse();
         }
         #endregion
 

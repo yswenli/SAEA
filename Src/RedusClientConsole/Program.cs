@@ -28,6 +28,11 @@ namespace RedusClientConsole
 
             //var z = redisClient.Type("zaaa");
 
+            var scan = redisClient.GetDataBase().Scan();
+            var hscan = redisClient.GetDataBase().HScan("haa2", 0);
+            var sscan = redisClient.GetDataBase().SScan("aaa", 0);
+            var zscan = redisClient.GetDataBase().ZScan("zaaa", 0);
+
             var s = redisClient.GetDataBase().Scan();
 
 

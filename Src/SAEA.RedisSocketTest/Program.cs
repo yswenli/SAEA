@@ -37,10 +37,16 @@ namespace SAEA.RedisSocketTest
             var cnnStr = ConsoleHelper.ReadLine();
             if (string.IsNullOrEmpty(cnnStr))
             {
-                cnnStr = "server=127.0.0.1:6379;password=yswenli";
+                //cnnStr = "server=127.0.0.1:6379;password=yswenli";
+                cnnStr = "server=172.31.32.85:6379;password=yswenli";
             }            
             RedisClient redisClient = new RedisClient(cnnStr);
             redisClient.Connect();
+
+            var scan = redisClient.GetDataBase().Scan();
+            var hscan = redisClient.GetDataBase().HScan("haa2", 0);
+            var sscan = redisClient.GetDataBase().SScan("aaa", 0);
+            var zscan = redisClient.GetDataBase().ZScan("zaaa", 0);
 
             var info = redisClient.Info();
             if (info.Contains("NOAUTH Authentication required."))
@@ -91,14 +97,14 @@ namespace SAEA.RedisSocketTest
 
                 ConsoleHelper.WriteLine("回车开始kv插值操作...");
                 ConsoleHelper.ReadLine();
-                for (int i = 0; i < 100000; i++)
-                {
-                    redisClient.GetDataBase().Set("key" + i, "val" + i);
-                }
-                for (int i = 0; i < 100000; i++)
-                {
-                    redisClient.GetDataBase().Del("key" + i);
-                }
+                //for (int i = 0; i < 100000; i++)
+                //{
+                //    redisClient.GetDataBase().Set("key" + i, "val" + i);
+                //}
+                //for (int i = 0; i < 100000; i++)
+                //{
+                //    redisClient.GetDataBase().Del("key" + i);
+                //}
                 for (int i = 0; i < 100; i++)
                 {
                     redisClient.GetDataBase().Set("key" + i, "val" + i);
@@ -148,7 +154,8 @@ namespace SAEA.RedisSocketTest
                     ConsoleHelper.WriteLine("HGet val:" + val.Data);
                 }
 
-                var hall = redisClient.GetDataBase().HGetAll("wenli");
+                var hall = redisClient.GetDataBase().HGetAll("wenli");                
+
                 ConsoleHelper.WriteLine("HashSet查询完成...");
 
                 ConsoleHelper.WriteLine("回车开始HashSet移除操作...");
