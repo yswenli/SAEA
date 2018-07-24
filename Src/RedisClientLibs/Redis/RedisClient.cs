@@ -186,7 +186,7 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public string Info()
         {
-            return GetDataBase().Do(RequestType.INFO).Data;
+            return GetDataBase().Do(RequestType.INFO, "all").Data;
         }
 
         /// <summary>
