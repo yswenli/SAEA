@@ -54,7 +54,7 @@ namespace SAEA.RedisSocketTest
 
             //var l = redisClient.GetDataBase().LRang("testlist");
 
-            var z = redisClient.GetDataBase().ZRang("zaaa");
+            //var z = redisClient.GetDataBase().ZRang("zaaa");
 
             var info = redisClient.Info();
             if (info.Contains("NOAUTH Authentication required."))

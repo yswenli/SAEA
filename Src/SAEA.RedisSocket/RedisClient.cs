@@ -188,7 +188,6 @@ namespace SAEA.RedisSocket
         {
             return GetDataBase().Do(RequestType.INFO, "all").Data;
         }
-
         /// <summary>
         /// 设置或取消丛
         /// </summary>
@@ -264,7 +263,6 @@ namespace SAEA.RedisSocket
             }
 
         }
-
 
         /// <summary>
         /// 在cluster中重置连接
