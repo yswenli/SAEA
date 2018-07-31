@@ -30,6 +30,9 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Newtonsoft.Json, Version=11.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.11.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -79,6 +82,7 @@
     <Compile Include="Redis\Model\ResponseExtention.cs" />
     <Compile Include="Redis\Model\ResponseType.cs" />
     <Compile Include="Redis\Model\ScanResponse.cs" />
+    <Compile Include="Redis\Model\ServerInfo.cs" />
     <Compile Include="Redis\Model\ZScanResponse.cs" />
     <Compile Include="Redis\Net\RCoder.cs" />
     <Compile Include="Redis\Net\RConnection.cs" />
@@ -109,6 +113,9 @@
     <Compile Include="Utility\SyncHelper.cs" />
     <Compile Include="Utility\ThreadHelper.cs" />
     <Compile Include="Utility\TypeHelper.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

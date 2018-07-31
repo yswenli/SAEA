@@ -24,8 +24,6 @@
 using SAEA.Common;
 using SAEA.RedisSocket.Net;
 using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading;
 
 namespace SAEA.RedisSocket.Core

@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Common;
 using SAEA.WebAPI.Common;
 using System;
 using System.Collections.Generic;

@@ -161,10 +161,10 @@ namespace SAEA.RedisSocket.Core
         {
             return base.Do(RequestType.LRANGE, key, begin.ToString(), end.ToString()).ToList<string>();
         }
-        public int LRemove(string key, int begin = 0, int end = -1)
+        public int LRemove(string key, int count, string value)
         {
             var result = 0;
-            int.TryParse(base.Do(RequestType.LREM, key, begin.ToString(), end.ToString()).Data, out result);
+            int.TryParse(base.Do(RequestType.LREM, key, count.ToString(), value).Data, out result);
             return result;
         }
         #endregion
@@ -216,13 +216,14 @@ namespace SAEA.RedisSocket.Core
         #endregion
 
         #region ZSET
-        public void ZAdd(string key, string value, double score)
+        public void ZAdd(string key, double score, string value)
         {
-            base.Do(RequestType.ZADD, key, value, score.ToString());
+            base.Do(RequestType.ZADD, key, score.ToString(), value);
         }
-        public void ZAdd(string key, Dictionary<string, double> dic)
+
+        public void ZAdd(string key, Dictionary<double, string> scoreVals)
         {
-            base.DoBatch(RequestType.ZADD, key, dic);
+            base.DoBatch(RequestType.ZADD, key, scoreVals);
         }
         public int ZLen(string key)
         {

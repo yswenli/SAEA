@@ -9,11 +9,6 @@ namespace SAEA.RedisSocket.Interface
             get;
         }
 
-        bool IsCluster
-        {
-            get;
-        }
-
         int DBIndex
         {
             get;
@@ -31,7 +26,7 @@ namespace SAEA.RedisSocket.Interface
 
         string Type(string key);
 
-        string Info();
+        string Info(string section = "all");
 
         string SlaveOf(string ipPort = "");        
 

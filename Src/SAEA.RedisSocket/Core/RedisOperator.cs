@@ -191,14 +191,11 @@ namespace SAEA.RedisSocket.Core
         {
             lock (_syncLocker)
             {
-                var sb = new StringBuilder();
-                sb.Append(type.ToString());
-                sb.Append(space + id);
-                for (int i = 0; i < keys.Length; i++)
-                {
-                    sb.Append(space + keys[i]);
-                }
-                var cmd = _redisCoder.Coder(type, sb.ToString());
+                List<string> list = new List<string>();
+                list.Add(type.ToString());
+                list.Add(id);
+                list.AddRange(keys);
+                var cmd = _redisCoder.Coder(type, list.ToArray());
                 _cnn.Send(cmd);
                 var result = _redisCoder.Decoder();
                 if (result.Type == ResponseType.Redirect)
@@ -212,20 +209,47 @@ namespace SAEA.RedisSocket.Core
             }
         }
 
+        public ResponseData DoBatch(RequestType type, string id, Dictionary<double, string> dic)
+        {
+            lock (_syncLocker)
+            {
+
+                List<string> list = new List<string>();
+                list.Add(type.ToString());
+                list.Add(id);
+                foreach (var item in dic)
+                {
+                    list.Add(item.Key.ToString());
+                    list.Add(item.Value);
+                }
+                var cmd = _redisCoder.Coder(type, list.ToArray());
+                _cnn.Send(cmd);
+                var result = _redisCoder.Decoder();
+                if (result.Type == ResponseType.Redirect)
+                {
+                    _cnn = OnRedirect.Invoke(result.Data);
+                    _redisCoder = _cnn.RedisCoder;
+                    return DoBatch(type, id, dic);
+                }
+                else
+                    return result;
+            }
+        }
+
         public ResponseData DoBatch<T>(RequestType type, string id, Dictionary<string, T> dic)
         {
             lock (_syncLocker)
             {
-                var sb = new StringBuilder();
-                sb.Append(type.ToString());
-                sb.Append(space + id);
 
-                foreach (var key in dic.Keys)
+                List<string> list = new List<string>();
+                list.Add(type.ToString());
+                list.Add(id);
+                foreach (var item in dic)
                 {
-                    sb.Append(space + key + space + dic[key]);
+                    list.Add(item.Key);
+                    list.Add(SerializeHelper.Serialize(item.Value));
                 }
-
-                var cmd = _redisCoder.Coder(type, sb.ToString());
+                var cmd = _redisCoder.Coder(type, list.ToArray());
                 _cnn.Send(cmd);
                 var result = _redisCoder.Decoder();
                 if (result.Type == ResponseType.Redirect)
@@ -355,6 +379,77 @@ namespace SAEA.RedisSocket.Core
                     }
                     return null;
                 }
+            }
+        }
+
+
+        public ResponseData DoCluster(RequestType type, params object[] @params)
+        {
+            lock (_syncLocker)
+            {
+                List<string> list = new List<string>();
+
+                var arr = type.ToString().Split("_");
+
+                list.AddRange(arr);
+
+                if (@params != null)
+                {
+                    foreach (var item in @params)
+                    {
+                        list.Add(item.ToString());
+                    }
+                }
+                var cmd = _redisCoder.Coder(type, list.ToArray());
+                _cnn.Send(cmd);
+                var result = _redisCoder.Decoder();
+                if (result.Type == ResponseType.Redirect)
+                {
+                    _cnn = OnRedirect.Invoke(result.Data);
+                    _redisCoder = _cnn.RedisCoder;
+                    return Do(type);
+                }
+                else if (result.Type == ResponseType.Error)
+                {
+                    throw new Exception(result.Data);
+                }
+                else
+                    return result;
+            }
+        }
+
+
+        public ResponseData DoClusterSetSlot(RequestType type,string action, int slot, string nodeID)
+        {
+            lock (_syncLocker)
+            {
+                List<string> list = new List<string>();
+
+                var arr = type.ToString().Split("_");
+
+                list.AddRange(arr);
+
+                list.Add(slot.ToString());
+
+                list.Add(action);
+
+                list.Add(nodeID);
+
+                var cmd = _redisCoder.Coder(type, list.ToArray());
+                _cnn.Send(cmd);
+                var result = _redisCoder.Decoder();
+                if (result.Type == ResponseType.Redirect)
+                {
+                    _cnn = OnRedirect.Invoke(result.Data);
+                    _redisCoder = _cnn.RedisCoder;
+                    return Do(type);
+                }
+                else if (result.Type == ResponseType.Error)
+                {
+                    throw new Exception(result.Data);
+                }
+                else
+                    return result;
             }
         }
 

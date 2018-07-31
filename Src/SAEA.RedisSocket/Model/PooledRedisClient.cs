@@ -73,9 +73,9 @@ namespace SAEA.RedisSocket.Model
             return _client.Type(key);
         }
 
-        public string Info()
+        public string Info(string section = "all")
         {
-            return _client.Info();
+            return _client.Info(section);
         }
 
         public string SlaveOf(string ipPort = "")

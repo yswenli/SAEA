@@ -209,6 +209,9 @@
       "SAEA.Common/1.0.0": {
         "type": "project",
         "framework": ".NETCoreApp,Version=v2.0",
+        "dependencies": {
+          "Newtonsoft.Json": "11.0.2"
+        },
         "compile": {
           "bin/placeholder/SAEA.Common.dll": {}
         },
@@ -233,7 +236,6 @@
         "type": "project",
         "framework": ".NETCoreApp,Version=v2.0",
         "dependencies": {
-          "Newtonsoft.Json": "11.0.2",
           "SAEA.Sockets": "1.0.0"
         },
         "compile": {

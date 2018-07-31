@@ -188,7 +188,44 @@ namespace SAEA.RedisSocket
         {
             return GetDataBase().Do(RequestType.INFO, "all").Data;
         }
+        public ServerInfo ServerInfo
+        {
+            get
+            {
+                var info = Info();
 
+                var lines = info.Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+
+                Dictionary<string, string> dic = new Dictionary<string, string>();
+
+                foreach (var item in lines)
+                {
+                    var arr = item.Split(new string[] { ":" }, StringSplitOptions.RemoveEmptyEntries);
+                    dic.Add(arr[0], arr[1]);
+                }
+
+                var serverInfo = new ServerInfo()
+                {
+                    cluster_enabled = dic["cluster_enabled"],
+                    config_file = dic["config_file"],
+                    connected_clients = dic["connected_clients"],
+                    connected_slaves = dic["connected_slaves"],
+                    executable = dic["executable"],
+                    maxmemory_human = dic["maxmemory_human"],
+                    os = dic["os"],
+                    redis_version = dic["redis_version"],
+                    role = dic["role"],
+                    used_cpu_sys = dic["used_cpu_sys"],
+                    used_cpu_user = dic["used_cpu_user"],
+                    used_memory_human = dic["used_memory_human"],
+                    used_memory_peak_human = dic["used_memory_peak_human"],
+                    used_memory_rss_human = dic["used_memory_rss_human"],
+                    address = RedisConfig.GetIPPort()
+                };
+
+                return serverInfo;
+            }
+        }
         /// <summary>
         /// 设置或取消丛
         /// </summary>

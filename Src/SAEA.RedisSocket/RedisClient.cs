@@ -32,11 +32,13 @@ using System.Threading;
 
 namespace SAEA.RedisSocket
 {
-    public class RedisClient : IClient, IDisposable
+    public partial class RedisClient : IClient, IDisposable
     {
         RedisConnection _cnn;
 
         RedisDataBase _redisDataBase;
+
+        const string OK = "ok";
 
         object _syncLocker = new object();
 
@@ -73,8 +75,6 @@ namespace SAEA.RedisSocket
         {
             lock (_syncLocker)
             {
-                var ok = "OK";
-
                 if (!IsConnected)
                 {
                     _cnn.Connect();
@@ -93,7 +93,7 @@ namespace SAEA.RedisSocket
 
                         var authMsg = Auth(RedisConfig.Passwords);
 
-                        if (!authMsg.Contains(ok))
+                        if (!authMsg.Contains(OK))
                         {
                             _cnn.Quit();
                             return authMsg;
@@ -102,7 +102,7 @@ namespace SAEA.RedisSocket
                 }
                 _cnn.KeepAlived(() => this.KeepAlive());
                 _clusterCnn.Add(RedisConfig.GetIPPort(), _cnn);
-                return ok;
+                return OK;
             }
         }
 
@@ -184,9 +184,51 @@ namespace SAEA.RedisSocket
         /// redis server的信息
         /// </summary>
         /// <returns></returns>
-        public string Info()
+        public string Info(string section = "all")
         {
-            return GetDataBase().Do(RequestType.INFO, "all").Data;
+            return GetDataBase().Do(RequestType.INFO, section).Data;
+        }
+
+        /// <summary>
+        /// redis信息
+        /// </summary>
+        public ServerInfo ServerInfo
+        {
+            get
+            {
+                var info = Info();
+
+                var lines = info.Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+
+                Dictionary<string, string> dic = new Dictionary<string, string>();
+
+                foreach (var item in lines)
+                {
+                    var arr = item.Split(":");
+                    dic.Add(arr[0], arr[1]);
+                }
+
+                var serverInfo = new ServerInfo()
+                {
+                    cluster_enabled = dic["cluster_enabled"],
+                    config_file = dic["config_file"],
+                    connected_clients = dic["connected_clients"],
+                    connected_slaves = dic["connected_slaves"],
+                    executable = dic["executable"],
+                    maxmemory_human = dic["maxmemory_human"],
+                    os = dic["os"],
+                    redis_version = dic["redis_version"],
+                    role = dic["role"],
+                    used_cpu_sys = dic["used_cpu_sys"],
+                    used_cpu_user = dic["used_cpu_user"],
+                    used_memory_human = dic["used_memory_human"],
+                    used_memory_peak_human = dic["used_memory_peak_human"],
+                    used_memory_rss_human = dic["used_memory_rss_human"],
+                    address = RedisConfig.GetIPPort()
+                };
+
+                return serverInfo;
+            }
         }
         /// <summary>
         /// 设置或取消丛
@@ -205,23 +247,8 @@ namespace SAEA.RedisSocket
         {
             get
             {
-                var info = Info();
+                var info = Info("Replication");
                 if (info.Contains("role:master"))
-                {
-                    return true;
-                }
-                return false;
-            }
-        }
-        /// <summary>
-        /// 是否是cluster node
-        /// </summary>
-        public bool IsCluster
-        {
-            get
-            {
-                var info = Info();
-                if (info.Contains("cluster_enabled:1"))
                 {
                     return true;
                 }

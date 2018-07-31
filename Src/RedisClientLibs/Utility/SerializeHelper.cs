@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using Newtonsoft.Json;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
@@ -93,7 +94,34 @@ namespace SAEA.Common
             return ByteDeserialize<List<byte[]>>(buffer);
         }
         #endregion
+        #region json
+        /// <summary>
+        ///     newton.json序列化,日志参数专用
+        /// </summary>
+        /// <param name="obj"></param>
+        /// <returns></returns>
+        public static string Serialize(object obj)
+        {
+            JsonSerializerSettings settings = new JsonSerializerSettings();
+            settings.ObjectCreationHandling = ObjectCreationHandling.Replace;
+            settings.DateFormatString = "yyyy-MM-dd HH:mm:ss.fff";
+            return JsonConvert.SerializeObject(obj, settings);
+        }
 
+        /// <summary>
+        ///     newton.json反序列化,日志参数专用
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="json"></param>
+        /// <returns></returns>
+        public static T Deserialize<T>(string json)
+        {
+            JsonSerializerSettings settings = new JsonSerializerSettings();
+            settings.ObjectCreationHandling = ObjectCreationHandling.Replace;
+            settings.DateFormatString = "yyyy-MM-dd HH:mm:ss.fff";
+            return JsonConvert.DeserializeObject<T>(json, settings);
+        }
+        #endregion
 
     }
 }

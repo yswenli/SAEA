@@ -90,5 +90,19 @@ namespace SAEA.RedisSocket.Model
         ZSCAN,
 
 
+        CLUSTER_INFO,
+        CLUSTER_NODES,
+        CLUSTER_MEET,
+        CLUSTER_FORGET,
+        CLUSTER_REPLICATE,
+        CLUSTER_SAVECONFIG,
+        CLUSTER_ADDSLOTS,
+        CLUSTER_DELSLOTS,
+        CLUSTER_FLUSHSLOTS,
+        CLUSTER_SETSLOT,
+        CLUSTER_KEYSLOT,
+        CLUSTER_COUNTKEYSINSLOT,
+        CLUSTER_GETKEYSINSLOT,
+
     }
 }

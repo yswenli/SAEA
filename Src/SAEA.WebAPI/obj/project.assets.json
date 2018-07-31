@@ -209,6 +209,9 @@
       "SAEA.Common/1.0.0": {
         "type": "project",
         "framework": ".NETCoreApp,Version=v2.0",
+        "dependencies": {
+          "Newtonsoft.Json": "11.0.2"
+        },
         "compile": {
           "bin/placeholder/SAEA.Common.dll": {}
         },
@@ -731,7 +734,6 @@
   "projectFileDependencyGroups": {
     ".NETCoreApp,Version=v2.0": [
       "Microsoft.NETCore.App >= 2.0.0",
-      "Newtonsoft.Json >= 11.0.2",
       "SAEA.Sockets >= 1.0.0"
     ]
   },
@@ -785,10 +787,6 @@
             "target": "Package",
             "version": "[2.0.0, )",
             "autoReferenced": true
-          },
-          "Newtonsoft.Json": {
-            "target": "Package",
-            "version": "[11.0.2, )"
           }
         },
         "imports": [
