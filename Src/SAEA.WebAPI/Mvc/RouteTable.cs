@@ -90,7 +90,7 @@ namespace SAEA.WebAPI.Mvc
                             {
                                 ControllerName = controllerName,
                                 ActionName = actionName,
-                                Instance = (Controller)instance,
+                                Instance = (APIController)instance,
                                 FilterAtrrs = iAttrs,
                                 Action = action,
                                 ActionInvoker = FastInvoke.GetMethodInvoker(action)

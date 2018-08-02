@@ -45,6 +45,16 @@ namespace SAEA.WebAPI
         }
 
         /// <summary>
+        /// 设置默认路由地址
+        /// </summary>
+        /// <param name="controllerName"></param>
+        /// <param name="actionName"></param>
+        public void SetDefault(string controllerName, string actionName)
+        {
+            AreaCollection.SetDefault(controllerName, actionName);
+        }
+
+        /// <summary>
         /// 启动webapi服务
         /// </summary>
         public void Start(int port = 39654)

@@ -29,7 +29,7 @@ namespace SAEA.WebAPI.Mvc
 {
     public class Routing
     {
-        public Controller Instance
+        public APIController Instance
         {
             get; set;
         }

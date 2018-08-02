@@ -31,7 +31,7 @@ namespace SAEA.WebAPITest.Controllers
     /// 测试实例代码
     /// </summary>
     //[LogAtrribute]
-    public class HomeController : Controller
+    public class HomeController : APIController
     {
         /// <summary>
         /// 日志拦截

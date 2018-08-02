@@ -29,7 +29,7 @@ namespace SAEA.WebAPI.Mvc
     /// <summary>
     /// WebApi控制器
     /// </summary>
-    public abstract class Controller
+    public abstract class APIController
     {
         public HttpContext HttpContext { get; set; }
 

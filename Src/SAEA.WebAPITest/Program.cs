@@ -9,14 +9,11 @@ namespace SAEA.WebAPITest
     {
         static void Main(string[] args)
         {
-
-            var t = "2018-07-18T14:36:43";
-
-            var begin = DateTime.Parse(t);
-
             ConsoleHelper.Title = "SAEA.WebAPITest";
 
             MvcApplication mvcApplication = new MvcApplication();
+
+            mvcApplication.SetDefault("home", "index");
 
             mvcApplication.Start();
 

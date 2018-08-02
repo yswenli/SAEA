@@ -73,6 +73,22 @@ namespace SAEA.WebAPI.Mvc
             }
         }
 
+        static NameValueItem _controllerActionName = null;
+
+        /// <summary>
+        /// 设置一个默认值
+        /// </summary>
+        /// <param name="controllerName"></param>
+        /// <param name="actionName"></param>
+        public static void SetDefault(string controllerName, string actionName)
+        {
+            _controllerActionName = new NameValueItem
+            {
+                Name = controllerName.ToLower(),
+                Value = actionName.ToLower()
+            };
+        }
+
         /// <summary>
         /// Controller中处理的方法代理
         /// </summary>
@@ -89,13 +105,15 @@ namespace SAEA.WebAPI.Mvc
 
                 if (arr.Length == 0)
                 {
-                    var d = _list.Where(b => b.Name.ToLower() == "homecontroller" || b.Name.ToLower() == "indexcontroller").FirstOrDefault();
-
-                    if (d != null)
+                    if (_controllerActionName != null)
                     {
-                        return Invoke(httpContext, d, "index", nameValues, isPost);
-                    }
+                        var d = _list.Where(b => b.Name.ToLower() == _controllerActionName.Name).FirstOrDefault();
 
+                        if (d != null)
+                        {
+                            return Invoke(httpContext, d, _controllerActionName.Value, nameValues, isPost);
+                        }
+                    }
                 }
                 else if (arr.Length >= 2)
                 {

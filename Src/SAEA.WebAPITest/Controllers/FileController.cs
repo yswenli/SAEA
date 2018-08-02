@@ -8,7 +8,7 @@ namespace SAEA.WebAPITest.Controllers
     /// <summary>
     /// 文件控制器
     /// </summary>
-    public class FileController : Controller
+    public class FileController : APIController
     {
         /// <summary>
         /// 文件输出
