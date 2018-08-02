@@ -107,7 +107,7 @@ namespace SAEA.WebAPI.Mvc
                 {
                     if (_controllerActionName != null)
                     {
-                        var d = _list.Where(b => b.Name.ToLower() == _controllerActionName.Name).FirstOrDefault();
+                        var d = _list.Where(b => b.Name.ToLower() == _controllerActionName.Name || b.Name.ToLower() == _controllerActionName.Name + "controller").FirstOrDefault();
 
                         if (d != null)
                         {
