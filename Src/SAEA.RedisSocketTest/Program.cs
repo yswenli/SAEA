@@ -37,7 +37,8 @@ namespace SAEA.RedisSocketTest
             var cnnStr = ConsoleHelper.ReadLine();
             if (string.IsNullOrEmpty(cnnStr))
             {
-                cnnStr = "server=127.0.0.1:6381;password=yswenli";
+                //cnnStr = "server=127.0.0.1:6381;password=yswenli";
+                cnnStr = "server=172.31.32.85:6379;password=yswenli";
             }            
             RedisClient redisClient = new RedisClient(cnnStr);
             redisClient.Connect();
@@ -56,6 +57,8 @@ namespace SAEA.RedisSocketTest
             //var z = redisClient.GetDataBase().ZRang("zaaa");
 
             //var h = redisClient.GetDataBase().HGetAll("haa22");
+
+            redisClient.Select(0);
 
             var m = redisClient.ClusterInfo;
             var n = redisClient.ClusterNodes;

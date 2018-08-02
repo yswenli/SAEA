@@ -32,11 +32,13 @@ using System.Threading;
 
 namespace SAEA.RedisSocket
 {
-    public class RedisClient : IClient, IDisposable
+    public partial class RedisClient : IClient, IDisposable
     {
         RedisConnection _cnn;
 
         RedisDataBase _redisDataBase;
+
+        const string OK = "ok";
 
         object _syncLocker = new object();
 
@@ -73,8 +75,6 @@ namespace SAEA.RedisSocket
         {
             lock (_syncLocker)
             {
-                var ok = "OK";
-
                 if (!IsConnected)
                 {
                     _cnn.Connect();
@@ -93,7 +93,7 @@ namespace SAEA.RedisSocket
 
                         var authMsg = Auth(RedisConfig.Passwords);
 
-                        if (!authMsg.Contains(ok))
+                        if (!authMsg.Contains(OK))
                         {
                             _cnn.Quit();
                             return authMsg;
@@ -102,7 +102,7 @@ namespace SAEA.RedisSocket
                 }
                 _cnn.KeepAlived(() => this.KeepAlive());
                 _clusterCnn.Add(RedisConfig.GetIPPort(), _cnn);
-                return ok;
+                return OK;
             }
         }
 
@@ -184,10 +184,14 @@ namespace SAEA.RedisSocket
         /// redis server的信息
         /// </summary>
         /// <returns></returns>
-        public string Info()
+        public string Info(string section = "all")
         {
-            return GetDataBase().Do(RequestType.INFO, "all").Data;
+            return GetDataBase().Do(RequestType.INFO, section).Data;
         }
+
+        /// <summary>
+        /// redis信息
+        /// </summary>
         public ServerInfo ServerInfo
         {
             get
@@ -200,7 +204,7 @@ namespace SAEA.RedisSocket
 
                 foreach (var item in lines)
                 {
-                    var arr = item.Split(new string[] { ":" }, StringSplitOptions.RemoveEmptyEntries);
+                    var arr = item.Split(new string[] { ":" }, StringSplitOptions.None);
                     dic.Add(arr[0], arr[1]);
                 }
 
@@ -243,7 +247,7 @@ namespace SAEA.RedisSocket
         {
             get
             {
-                var info = Info();
+                var info = Info("Replication");
                 if (info.Contains("role:master"))
                 {
                     return true;
@@ -251,19 +255,10 @@ namespace SAEA.RedisSocket
                 return false;
             }
         }
-        public bool IsCluster
-        {
-            get
-            {
-                var info = Info();
-                if (info.Contains("cluster_enabled:1"))
-                {
-                    return true;
-                }
-                return false;
-            }
-        }
 
+        /// <summary>
+        /// 当前db index
+        /// </summary>
         public int DBIndex
         {
             get
@@ -295,7 +290,6 @@ namespace SAEA.RedisSocket
             }
 
         }
-
 
         /// <summary>
         /// 在cluster中重置连接

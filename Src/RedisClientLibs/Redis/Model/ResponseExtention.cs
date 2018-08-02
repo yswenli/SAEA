@@ -28,7 +28,6 @@ namespace SAEA.RedisSocket.Model
 {
     public static class ResponseExtention
     {
-
         static string _enter = "\r\n";
 
         public static List<T> ToList<T>(this ResponseData source)

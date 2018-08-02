@@ -382,5 +382,76 @@ namespace SAEA.RedisSocket.Core
             }
         }
 
+
+        public ResponseData DoCluster(RequestType type, params object[] @params)
+        {
+            lock (_syncLocker)
+            {
+                List<string> list = new List<string>();
+
+                var arr = type.ToString().Split(new string[] { "_" }, StringSplitOptions.None);
+
+                list.AddRange(arr);
+
+                if (@params != null)
+                {
+                    foreach (var item in @params)
+                    {
+                        list.Add(item.ToString());
+                    }
+                }
+                var cmd = _redisCoder.Coder(type, list.ToArray());
+                _cnn.Send(cmd);
+                var result = _redisCoder.Decoder();
+                if (result.Type == ResponseType.Redirect)
+                {
+                    _cnn = OnRedirect.Invoke(result.Data);
+                    _redisCoder = _cnn.RedisCoder;
+                    return Do(type);
+                }
+                else if (result.Type == ResponseType.Error)
+                {
+                    throw new Exception(result.Data);
+                }
+                else
+                    return result;
+            }
+        }
+
+
+        public ResponseData DoClusterSetSlot(RequestType type,string action, int slot, string nodeID)
+        {
+            lock (_syncLocker)
+            {
+                List<string> list = new List<string>();
+
+                var arr = type.ToString().Split(new string[] { "_" }, StringSplitOptions.None);
+
+                list.AddRange(arr);
+
+                list.Add(slot.ToString());
+
+                list.Add(action);
+
+                list.Add(nodeID);
+
+                var cmd = _redisCoder.Coder(type, list.ToArray());
+                _cnn.Send(cmd);
+                var result = _redisCoder.Decoder();
+                if (result.Type == ResponseType.Redirect)
+                {
+                    _cnn = OnRedirect.Invoke(result.Data);
+                    _redisCoder = _cnn.RedisCoder;
+                    return Do(type);
+                }
+                else if (result.Type == ResponseType.Error)
+                {
+                    throw new Exception(result.Data);
+                }
+                else
+                    return result;
+            }
+        }
+
     }
 }

@@ -69,12 +69,15 @@
     <Compile Include="Base\Model\UserToken.cs" />
     <Compile Include="Base\SocketProtocalType.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Redis\Core\RedisCluster.cs" />
     <Compile Include="Redis\Core\RedisCoder.cs" />
     <Compile Include="Redis\Core\RedisConnection.cs" />
     <Compile Include="Redis\Core\RedisDataBase.cs" />
     <Compile Include="Redis\Core\RedisLock.cs" />
     <Compile Include="Redis\Core\RedisOperator.cs" />
     <Compile Include="Redis\Interface\IClient.cs" />
+    <Compile Include="Redis\Model\ClusterInfo.cs" />
+    <Compile Include="Redis\Model\ClusterNode.cs" />
     <Compile Include="Redis\Model\HScanResponse.cs" />
     <Compile Include="Redis\Model\PooledRedisClient.cs" />
     <Compile Include="Redis\Model\RequestType.cs" />

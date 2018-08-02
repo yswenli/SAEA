@@ -46,6 +46,12 @@ namespace SAEA.RedisSocket.Core
 
         readonly string _enter = "\r\n";
 
+        /// <summary>
+        /// 常规编码
+        /// </summary>
+        /// <param name="commandName"></param>
+        /// <param name="params"></param>
+        /// <returns></returns>
         public string Coder(RequestType commandName, params string[] @params)
         {
             _autoResetEvent.WaitOne();
@@ -107,6 +113,10 @@ namespace SAEA.RedisSocket.Core
 
         public bool IsSubed = false;
 
+        /// <summary>
+        /// 解析从redis返回的命令
+        /// </summary>
+        /// <returns></returns>
         public ResponseData Decoder()
         {
             var result = new ResponseData();
@@ -155,6 +165,14 @@ namespace SAEA.RedisSocket.Core
                     case RequestType.HDEL:
                     case RequestType.LSET:
                     case RequestType.RENAME:
+                    case RequestType.CLUSTER_MEET:
+                    case RequestType.CLUSTER_FORGET:
+                    case RequestType.CLUSTER_REPLICATE:
+                    case RequestType.CLUSTER_SAVECONFIG:
+                    case RequestType.CLUSTER_ADDSLOTS:
+                    case RequestType.CLUSTER_DELSLOTS:
+                    case RequestType.CLUSTER_FLUSHSLOTS:
+                    case RequestType.CLUSTER_SETSLOT:
                         if (GetStatus(command, out error))
                         {
                             result.Type = ResponseType.OK;
@@ -205,6 +223,7 @@ namespace SAEA.RedisSocket.Core
                     case RequestType.HKEYS:
                     case RequestType.LRANGE:
                     case RequestType.SMEMBERS:
+                    case RequestType.CLUSTER_GETKEYSINSLOT:
                         result.Type = ResponseType.Lines;
                         var sb = new StringBuilder();
                         var rn = GetRowNum(command, out error);
@@ -266,6 +285,8 @@ namespace SAEA.RedisSocket.Core
                     case RequestType.ZCOUNT:
                     case RequestType.ZREM:
                     case RequestType.PUBLISH:
+                    case RequestType.CLUSTER_KEYSLOT:
+                    case RequestType.CLUSTER_COUNTKEYSINSLOT:
                         var val = GetValue(command, out error);
                         if (!string.IsNullOrEmpty(error))
                         {
@@ -284,6 +305,8 @@ namespace SAEA.RedisSocket.Core
                         result.Data = val.ToString();
                         break;
                     case RequestType.INFO:
+                    case RequestType.CLUSTER_INFO:
+                    case RequestType.CLUSTER_NODES:
                         var rnum = GetWordsNum(command, out error);
                         if (!string.IsNullOrEmpty(error))
                         {
@@ -342,7 +365,7 @@ namespace SAEA.RedisSocket.Core
                         {
                             result.Type = ResponseType.Error;
                             result.Data = error;
-                            break;
+                            return result;
                         }
                         if (rn > 0)
                         {

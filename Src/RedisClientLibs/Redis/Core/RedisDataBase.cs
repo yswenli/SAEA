@@ -207,7 +207,7 @@ namespace SAEA.RedisSocket.Core
         {
             return base.Do(RequestType.SPOP, key).Data;
         }
-        public int SRemove(string key, string[] values)
+        public int SRemove(string key, params string[] values)
         {
             var result = 0;
             int.TryParse(base.DoBatch(RequestType.SREM, key, values).Data, out result);
@@ -225,6 +225,7 @@ namespace SAEA.RedisSocket.Core
         {
             base.DoBatch(RequestType.ZADD, key, scoreVals);
         }
+
         public int ZLen(string key)
         {
             var result = 0;

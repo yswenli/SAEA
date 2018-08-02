@@ -1,18 +1,10 @@
 ﻿using SAEA.RedisSocket.Core;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.RedisSocket.Interface
 {
     public interface IClient
     {
         bool IsMaster
-        {
-            get;
-        }
-
-        bool IsCluster
         {
             get;
         }
@@ -34,9 +26,9 @@ namespace SAEA.RedisSocket.Interface
 
         string Type(string key);
 
-        string Info();
+        string Info(string section = "all");
 
-        string SlaveOf(string ipPort = "");
+        string SlaveOf(string ipPort = "");        
 
         RedisDataBase GetDataBase(int dbIndex = -1);
     }

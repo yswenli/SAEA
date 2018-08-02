@@ -40,7 +40,7 @@ namespace SAEA.RedisSocket.Model
         RedisClientFactory _factory;
 
         RedisClient _client;
-        
+
         internal void SetClient(RedisClientFactory factory, IClient client)
         {
             _factory = factory;
@@ -73,9 +73,9 @@ namespace SAEA.RedisSocket.Model
             return _client.Type(key);
         }
 
-        public string Info()
+        public string Info(string section = "all")
         {
-            return _client.Info();
+            return _client.Info(section);
         }
 
         public string SlaveOf(string ipPort = "")
@@ -90,7 +90,6 @@ namespace SAEA.RedisSocket.Model
                 return _client.IsMaster;
             }
         }
-
         public bool IsCluster
         {
             get
