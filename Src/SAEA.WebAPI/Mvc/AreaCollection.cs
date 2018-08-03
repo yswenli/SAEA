@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.WebAPI.Common;
 using SAEA.WebAPI.Http;
 using System;
 using System.Collections.Generic;
@@ -36,8 +37,7 @@ namespace SAEA.WebAPI.Mvc
     {
         static object _locker = new object();
 
-        static List<Type> _list = new List<Type>();
-
+        static List<Type> _list = new List<Type>();      
 
         /// <summary>
         /// 记录用户自定义的Controller
@@ -51,7 +51,7 @@ namespace SAEA.WebAPI.Mvc
                     StackTrace ss = new StackTrace(true);
                     MethodBase mb = ss.GetFrames().Last().GetMethod();
                     var space = mb.DeclaringType.Namespace;
-                    var tt = mb.DeclaringType.Assembly.GetTypes().Where(b => b.FullName.Contains("Controllers")).ToList();
+                    var tt = mb.DeclaringType.Assembly.GetTypes().Where(b => b.FullName.Contains(ConstHelper.CONTROLLERSPACE)).ToList();
                     if (tt == null) throw new Exception("当前项目中找不到Controllers空间或命名不符合MVC规范！");
                     _list.AddRange(tt);
                 }
@@ -67,7 +67,7 @@ namespace SAEA.WebAPI.Mvc
             {
                 var fileName = controllerNameSpace + ".dll";
                 var assembly = Assembly.LoadFile(PathHelper.GetFullName(fileName));
-                var tt = assembly.GetTypes().Where(b => b.FullName.Contains("Controllers")).ToList();
+                var tt = assembly.GetTypes().Where(b => b.FullName.Contains(ConstHelper.CONTROLLERSPACE)).ToList();
                 if (tt == null) throw new Exception("当前项目中找不到Controllers空间或命名不符合MVC规范！");
                 _list.AddRange(tt);
             }
@@ -107,7 +107,7 @@ namespace SAEA.WebAPI.Mvc
                 {
                     if (_controllerActionName != null)
                     {
-                        var d = _list.Where(b => b.Name.ToLower() == _controllerActionName.Name || b.Name.ToLower() == _controllerActionName.Name + "controller").FirstOrDefault();
+                        var d = _list.Where(b => b.Name.ToLower() == _controllerActionName.Name || b.Name.ToLower() == _controllerActionName.Name + ConstHelper.CONTROLLERNAME).FirstOrDefault();
 
                         if (d != null)
                         {
@@ -119,7 +119,7 @@ namespace SAEA.WebAPI.Mvc
                 {
                     var controllerName = arr[arr.Length - 2];
 
-                    var first = _list.Where(b => b.Name.ToLower() == controllerName.ToLower() + "controller").FirstOrDefault();
+                    var first = _list.Where(b => b.Name.ToLower() == controllerName.ToLower() + ConstHelper.CONTROLLERNAME).FirstOrDefault();
 
                     if (first != null)
                     {
@@ -136,7 +136,7 @@ namespace SAEA.WebAPI.Mvc
 
                 }
 
-                return new ContentResult("NotFound", System.Net.HttpStatusCode.NotFound);
+                return new ContentResult("o_o，找不到任何内容", System.Net.HttpStatusCode.NotFound);
             }
         }
 
@@ -159,7 +159,7 @@ namespace SAEA.WebAPI.Mvc
 
                     if (routing == null)
                     {
-                        throw new Exception($"当前请求为:{(isPost ? "HttpPOST" : "HttpGET")} 找不到:{controller.Name}/{actionName}");
+                        throw new Exception($"o_o，找不到：{controller.Name}/{actionName} 当前请求为:{(isPost ? ConstHelper.HTTPPOST : ConstHelper.HTTPGET)}");
                     }
 
                     routing.Instance.HttpContext = httpContext;
@@ -170,11 +170,11 @@ namespace SAEA.WebAPI.Mvc
                     {
                         foreach (var arr in routing.FilterAtrrs)
                         {
-                            var goOn = (bool)FastInvoke.GetMethodInvoker(arr.GetType().GetMethod("OnActionExecuting")).Invoke(arr, nargs.ToArray());
+                            var goOn = (bool)FastInvoke.GetMethodInvoker(arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING)).Invoke(arr, nargs.ToArray());
 
                             if (!goOn)
                             {
-                                return new ContentResult("当前逻辑已被拦截！", System.Net.HttpStatusCode.NotAcceptable);
+                                return new ContentResult("o_o，当前逻辑已被拦截！", System.Net.HttpStatusCode.NotAcceptable);
                             }
                         }
                     }
@@ -183,11 +183,11 @@ namespace SAEA.WebAPI.Mvc
                     {
                         foreach (var arr in routing.ActionFilterAtrrs)
                         {
-                            var goOn = (bool)FastInvoke.GetMethodInvoker(arr.GetType().GetMethod("OnActionExecuting")).Invoke(arr, nargs.ToArray());
+                            var goOn = (bool)FastInvoke.GetMethodInvoker(arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING)).Invoke(arr, nargs.ToArray());
 
                             if (!goOn)
                             {
-                                return new ContentResult("当前逻辑已被拦截！", System.Net.HttpStatusCode.NotAcceptable);
+                                return new ContentResult("o_o，当前逻辑已被拦截！", System.Net.HttpStatusCode.NotAcceptable);
                             }
                         }
                     }
@@ -200,7 +200,7 @@ namespace SAEA.WebAPI.Mvc
                     {
                         foreach (var arr in routing.FilterAtrrs)
                         {
-                            FastInvoke.GetMethodInvoker(arr.GetType().GetMethod("OnActionExecuted")).Invoke(arr, nargs);
+                            FastInvoke.GetMethodInvoker(arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTED)).Invoke(arr, nargs);
                         }
                     }
 
@@ -208,20 +208,20 @@ namespace SAEA.WebAPI.Mvc
                     {
                         foreach (var arr in routing.FilterAtrrs)
                         {
-                            FastInvoke.GetMethodInvoker(arr.GetType().GetMethod("OnActionExecuted")).Invoke(arr, nargs);
+                            FastInvoke.GetMethodInvoker(arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTED)).Invoke(arr, nargs);
                         }
                     }
                     return result;
                 }
                 catch (Exception ex)
                 {
-                    if (ex.Message.Contains("找不到此action"))
+                    if (ex.Message.Contains("o_o，找不到"))
                     {
                         return new ContentResult(ex.Message, System.Net.HttpStatusCode.NotFound);
                     }
                     else
                     {
-                        return new ContentResult(ex.Message, System.Net.HttpStatusCode.InternalServerError);
+                        return new ContentResult("→_→，出错了：" + ex.Message, System.Net.HttpStatusCode.InternalServerError);
                     }
                 }
             }
@@ -254,7 +254,7 @@ namespace SAEA.WebAPI.Mvc
             }
             catch (Exception ex)
             {
-                result = new ContentResult($"{obj}/{action.Name},出现异常：{ex.Message}", System.Net.HttpStatusCode.InternalServerError);
+                result = new ContentResult($"→_→，出错了：{obj}/{action.Name},出现异常：{ex.Message}", System.Net.HttpStatusCode.InternalServerError);
             }
             return result;
         }

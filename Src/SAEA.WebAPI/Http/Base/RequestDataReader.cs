@@ -1,4 +1,5 @@
 ﻿using SAEA.Common;
+using SAEA.WebAPI.Common;
 using SAEA.WebAPI.Http.Model;
 using System;
 using System.Collections.Generic;
@@ -15,8 +16,6 @@ namespace SAEA.WebAPI.Http.Base
     internal class RequestDataReader : HttpBase, IDisposable
     {
         StringBuilder _stringBuilder = new StringBuilder();
-
-        const string CT = "Content-Type";
 
         HttpUtility _httpUtility = new HttpUtility();
         /// <summary>
@@ -109,11 +108,8 @@ namespace SAEA.WebAPI.Http.Base
             if (long.TryParse(uarr[uarr.Length - 1], out long id))
             {
                 this.Url = this.Url.Substring(0, this.Url.LastIndexOf("/"));
-                try
-                {
-                    this.Query.Add("id", id.ToString());
-                }
-                catch { }
+                if (this.Query == null) this.Query = new Dictionary<string, string>();
+                this.Query.Add(ConstHelper.ID, id.ToString());
             }
 
             this.Protocal = arr[2];
@@ -154,7 +150,7 @@ namespace SAEA.WebAPI.Http.Base
                         {
                             this.IsFormData = true;
 
-                            this.Boundary = "--" + Regex.Split(contentTypeStr, ";")[1].Replace(" boundary=", "");
+                            this.Boundary = "--" + Regex.Split(contentTypeStr, ";")[1].Replace(ConstHelper.BOUNDARY, "");
                         }
                     }
                     string contentLengthStr = string.Empty;
@@ -206,7 +202,7 @@ namespace SAEA.WebAPI.Http.Base
                                     else
                                     {
                                         sb.AppendLine(str);
-                                        if (str.IndexOf(CT) > -1)
+                                        if (str.IndexOf(ConstHelper.CT) > -1)
                                         {
                                             var filePart = GetRequestFormsWithMultiPart(sb.ToString());
 
@@ -296,7 +292,7 @@ namespace SAEA.WebAPI.Http.Base
             {
                 foreach (var section in sections)
                 {
-                    if (section.IndexOf(CT) > -1)
+                    if (section.IndexOf(ConstHelper.CT) > -1)
                     {
                         var arr = section.Split(ENTER, StringSplitOptions.RemoveEmptyEntries);
                         if (arr != null && arr.Length > 0)
@@ -344,8 +340,15 @@ namespace SAEA.WebAPI.Http.Base
 
         public void Dispose()
         {
+            if (this.Query != null)
+                this.Query.Clear();
+            if (this.Forms != null)
+                this.Forms.Clear();
+            if (this.Parmas != null)
+                this.Parmas.Clear();
             _stringBuilder.Clear();
-            Array.Clear(Body, 0, Body.Length);
+            if (Body != null)
+                Array.Clear(Body, 0, Body.Length);
             Body = null;
         }
     }

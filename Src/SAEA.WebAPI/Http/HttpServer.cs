@@ -68,7 +68,7 @@ namespace SAEA.WebAPI.Http
                 {
                     httpContext.Init(this, userToken, requestDataReader);
 
-                    httpContext.InvokeAction();
+                    httpContext.HttpHandler();
                 }
             }
             catch (Exception ex)

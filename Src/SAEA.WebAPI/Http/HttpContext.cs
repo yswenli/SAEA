@@ -69,9 +69,10 @@ namespace SAEA.WebAPI.Http
             this.Response.Init(httpServer, userToken, this.Request.Protocal);
         }
         /// <summary>
-        /// 执行Controller中对应的方法
+        /// 执行用户自定义要处理的业务逻辑
+        /// 比如这里就是Controller中内容
         /// </summary>
-        internal void InvokeAction()
+        internal void HttpHandler()
         {
             ActionResult result = null;
 

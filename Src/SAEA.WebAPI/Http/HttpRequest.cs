@@ -82,8 +82,8 @@ namespace SAEA.WebAPI.Http
             this.UserToken = userToken;
 
             this.Method = requestDataReader.Method;
-            this.RelativeUrl = requestDataReader.RelativeUrl;
             this.Url = requestDataReader.Url;
+            this.RelativeUrl = requestDataReader.RelativeUrl;
             this.Query = requestDataReader.Query;
             this.Protocal = requestDataReader.Protocal;
             this.Headers = requestDataReader.Headers;
@@ -98,7 +98,7 @@ namespace SAEA.WebAPI.Http
             {
                 this.Forms = requestDataReader.Forms;
             }
-            if (requestDataReader.PostFiles!=null && requestDataReader.PostFiles.Count > 0)
+            if (requestDataReader.PostFiles != null && requestDataReader.PostFiles.Count > 0)
             {
                 this.PostFiles = requestDataReader.PostFiles;
             }
@@ -122,7 +122,12 @@ namespace SAEA.WebAPI.Http
 
         public void Dispose()
         {
-            this.Query.Clear();
+            if (this.Query != null)
+                this.Query.Clear();
+            if (this.Forms != null)
+                this.Forms.Clear();
+            if (this.Parmas != null)
+                this.Parmas.Clear();
             this.RelativeUrl = this.Url = string.Empty;
             this.Headers.Clear();
             _requestDataReader.Dispose();
