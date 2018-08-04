@@ -37,7 +37,7 @@ namespace SAEA.WebAPI.Mvc
     {
         static object _locker = new object();
 
-        static List<Type> _list = new List<Type>();      
+        static List<Type> _list = new List<Type>();
 
         /// <summary>
         /// 记录用户自定义的Controller
@@ -107,7 +107,7 @@ namespace SAEA.WebAPI.Mvc
                 {
                     if (_controllerActionName != null)
                     {
-                        var d = _list.Where(b => b.Name.ToLower() == _controllerActionName.Name || b.Name.ToLower() == _controllerActionName.Name + ConstHelper.CONTROLLERNAME).FirstOrDefault();
+                        var d = _list.Where(b => string.Compare(b.Name, _controllerActionName.Name, true) > -1 || string.Compare(b.Name, _controllerActionName.Name + ConstHelper.CONTROLLERNAME, true) > -1).FirstOrDefault();
 
                         if (d != null)
                         {
@@ -119,7 +119,7 @@ namespace SAEA.WebAPI.Mvc
                 {
                     var controllerName = arr[arr.Length - 2];
 
-                    var first = _list.Where(b => b.Name.ToLower() == controllerName.ToLower() + ConstHelper.CONTROLLERNAME).FirstOrDefault();
+                    var first = _list.Where(b => string.Compare(b.Name, controllerName + ConstHelper.CONTROLLERNAME, true) > -1).FirstOrDefault();
 
                     if (first != null)
                     {

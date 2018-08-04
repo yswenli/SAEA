@@ -73,6 +73,7 @@ namespace SAEA.WebAPI.Http.Base
                     break;
                 }
             }
+
             if (mb == null)
             {
                 return Path.GetFullPath(Directory.GetCurrentDirectory() + uri.LocalPath);

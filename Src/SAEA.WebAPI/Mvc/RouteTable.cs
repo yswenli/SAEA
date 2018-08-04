@@ -51,11 +51,11 @@ namespace SAEA.WebAPI.Mvc
         {
             lock (_locker)
             {
-                var list = _list.Where(b => b.ControllerName.ToLower() == controllerName.ToLower() && b.ActionName.ToLower() == actionName.ToLower()).ToList();
+                var list = _list.Where(b => string.Compare(b.ControllerName, controllerName, true) > -1 && string.Compare(b.ActionName, actionName) > -1).ToList();
 
                 if (list == null || list.Count == 0)
                 {
-                    var actions = controllerType.GetMethods().Where(b => b.Name.ToLower() == actionName.ToLower()).ToList();
+                    var actions = controllerType.GetMethods().Where(b => string.Compare(b.Name, actionName, true) > -1).ToList();
 
                     if (actions == null || actions.Count == 0)
                     {
@@ -120,7 +120,7 @@ namespace SAEA.WebAPI.Mvc
 
                             _list.Add(routing);
                         }
-                        return _list.Where(b => b.ControllerName.ToLower() == controllerName.ToLower() && b.ActionName.ToLower() == actionName.ToLower() && b.IsPost == isPost).FirstOrDefault();
+                        return _list.Where(b => string.Compare(b.ControllerName, controllerName, true) > -1 && string.Compare(b.ActionName, actionName) > -1 && b.IsPost == isPost).FirstOrDefault();
                     }
                 }
                 return list.FirstOrDefault(b => b.IsPost == isPost);
