@@ -38,7 +38,7 @@ namespace SAEA.RedisSocket
 
         RedisDataBase _redisDataBase;
 
-        const string OK = "ok";
+        const string OK = "OK";
 
         object _syncLocker = new object();
 
@@ -93,7 +93,7 @@ namespace SAEA.RedisSocket
 
                         var authMsg = Auth(RedisConfig.Passwords);
 
-                        if (!authMsg.Contains(OK))
+                        if (string.Compare(authMsg, OK, true) != 0)
                         {
                             _cnn.Quit();
                             return authMsg;
