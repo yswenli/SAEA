@@ -32,14 +32,14 @@ namespace SAEA.RedisSocketTest
         static void Main(string[] args)
         {
             ConsoleHelper.Title = "SAEA.RedisSocketTest";
-            ConsoleHelper.WriteLine("输入连接字符串连接RedisServer，格式为\r\nserver=127.0.0.1:6379;password=yswenli");
+            ConsoleHelper.WriteLine("输入连接字符串连接RedisServer，格式为\r\nserver=127.0.0.1:6379;passwords=yswenli");
 
             var cnnStr = ConsoleHelper.ReadLine();
             if (string.IsNullOrEmpty(cnnStr))
             {
-                //cnnStr = "server=127.0.0.1:6381;password=yswenli";
-                cnnStr = "server=172.31.32.85:6379;password=yswenli";
-            }            
+                cnnStr = "server=127.0.0.1:6379;passwords=yswenli";
+                //cnnStr = "server=172.31.32.85:6379;passwords=yswenli";
+            }
             RedisClient redisClient = new RedisClient(cnnStr);
             redisClient.Connect();
 
@@ -60,10 +60,10 @@ namespace SAEA.RedisSocketTest
 
             redisClient.Select(0);
 
-            var m = redisClient.ClusterInfo;
-            var n = redisClient.ClusterNodes;
-            var k = redisClient.KeySlot("aaa");
-            var g = redisClient.GetKeysInSlot(0);
+            //var m = redisClient.ClusterInfo;
+            //var n = redisClient.ClusterNodes;
+            //var k = redisClient.KeySlot("aaa");
+            //var g = redisClient.GetKeysInSlot(0);
 
             //redisClient.GetDataBase().SRemove("abcd", "12345");
 
@@ -100,7 +100,6 @@ namespace SAEA.RedisSocketTest
             //ConsoleHelper.WriteLine(redisConnection.Type("key0"));
 
             ConsoleHelper.WriteLine("dbSize:{0}", redisClient.DBSize().ToString());
-
 
             RedisOperationTest(redisClient, true);
             ConsoleHelper.ReadLine();
