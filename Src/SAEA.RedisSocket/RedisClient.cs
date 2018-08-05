@@ -204,29 +204,44 @@ namespace SAEA.RedisSocket
 
                 foreach (var item in lines)
                 {
+                    if (item.IndexOf("#") > -1)
+                        continue;
                     var arr = item.Split(":");
                     dic.Add(arr[0], arr[1]);
                 }
 
                 var serverInfo = new ServerInfo()
                 {
-                    cluster_enabled = dic["cluster_enabled"],
                     config_file = dic["config_file"],
                     connected_clients = dic["connected_clients"],
                     connected_slaves = dic["connected_slaves"],
-                    executable = dic["executable"],
-                    maxmemory_human = dic["maxmemory_human"],
                     os = dic["os"],
                     redis_version = dic["redis_version"],
                     role = dic["role"],
                     used_cpu_sys = dic["used_cpu_sys"],
                     used_cpu_user = dic["used_cpu_user"],
+                    used_memory = dic["used_memory"],
                     used_memory_human = dic["used_memory_human"],
                     used_memory_peak_human = dic["used_memory_peak_human"],
-                    used_memory_rss_human = dic["used_memory_rss_human"],
                     address = RedisConfig.GetIPPort()
                 };
 
+                if (dic.ContainsKey("cluster_enabled"))
+                {
+                    serverInfo.cluster_enabled = dic["cluster_enabled"];
+                }
+                if (dic.ContainsKey("executable"))
+                {
+                    serverInfo.executable = dic["executable"];
+                }
+                if (dic.ContainsKey("maxmemory_human"))
+                {
+                    serverInfo.maxmemory_human = dic["maxmemory_human"];
+                }
+                if (dic.ContainsKey("used_memory_rss_human"))
+                {
+                    serverInfo.used_memory_rss_human = dic["used_memory_rss_human"];
+                }
                 return serverInfo;
             }
         }
@@ -276,7 +291,7 @@ namespace SAEA.RedisSocket
         {
             lock (_syncLocker)
             {
-                if (dbIndex > 0 && dbIndex != _dbIndex)
+                if (dbIndex >= 0 && dbIndex != _dbIndex)
                 {
                     _dbIndex = dbIndex;
                     Select(_dbIndex);
