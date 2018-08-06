@@ -1,0 +1,9 @@
+﻿package wenlipackage;
+syntax = "proto3";
+
+message WSMessage {  
+    required string id = 1;
+	required string content = 2;
+	required string sender = 3;
+	required string time = 4;
+}

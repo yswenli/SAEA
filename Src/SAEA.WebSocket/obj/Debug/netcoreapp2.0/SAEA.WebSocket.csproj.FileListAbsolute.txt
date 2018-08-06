@@ -1,0 +1,14 @@
+D:\MyProjects\SAEA\Src\SAEA.WebSocket\bin\Debug\netcoreapp2.0\SAEA.WebSocket.deps.json
+D:\MyProjects\SAEA\Src\SAEA.WebSocket\bin\Debug\netcoreapp2.0\SAEA.WebSocket.dll
+D:\MyProjects\SAEA\Src\SAEA.WebSocket\bin\Debug\netcoreapp2.0\SAEA.WebSocket.pdb
+D:\MyProjects\SAEA\Src\SAEA.WebSocket\bin\Debug\netcoreapp2.0\SAEA.Common.dll
+D:\MyProjects\SAEA\Src\SAEA.WebSocket\bin\Debug\netcoreapp2.0\SAEA.Sockets.dll
+D:\MyProjects\SAEA\Src\SAEA.WebSocket\bin\Debug\netcoreapp2.0\SAEA.Sockets.pdb
+D:\MyProjects\SAEA\Src\SAEA.WebSocket\bin\Debug\netcoreapp2.0\SAEA.Common.pdb
+D:\MyProjects\SAEA\Src\SAEA.WebSocket\obj\Debug\netcoreapp2.0\SAEA.WebSocket.csprojAssemblyReference.cache
+D:\MyProjects\SAEA\Src\SAEA.WebSocket\obj\Debug\netcoreapp2.0\SAEA.WebSocket.csproj.CoreCompileInputs.cache
+D:\MyProjects\SAEA\Src\SAEA.WebSocket\obj\Debug\netcoreapp2.0\SAEA.WebSocket.AssemblyInfoInputs.cache
+D:\MyProjects\SAEA\Src\SAEA.WebSocket\obj\Debug\netcoreapp2.0\SAEA.WebSocket.AssemblyInfo.cs
+D:\MyProjects\SAEA\Src\SAEA.WebSocket\obj\Debug\netcoreapp2.0\SAEA.WebSocket.csproj.CopyComplete
+D:\MyProjects\SAEA\Src\SAEA.WebSocket\obj\Debug\netcoreapp2.0\SAEA.WebSocket.dll
+D:\MyProjects\SAEA\Src\SAEA.WebSocket\obj\Debug\netcoreapp2.0\SAEA.WebSocket.pdb

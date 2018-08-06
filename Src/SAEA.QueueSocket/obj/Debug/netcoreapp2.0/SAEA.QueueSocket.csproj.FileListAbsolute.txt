@@ -1,0 +1,14 @@
+D:\MyProjects\SAEA\Src\SAEA.QueueSocket\bin\Debug\netcoreapp2.0\SAEA.QueueSocket.deps.json
+D:\MyProjects\SAEA\Src\SAEA.QueueSocket\bin\Debug\netcoreapp2.0\SAEA.QueueSocket.dll
+D:\MyProjects\SAEA\Src\SAEA.QueueSocket\bin\Debug\netcoreapp2.0\SAEA.QueueSocket.pdb
+D:\MyProjects\SAEA\Src\SAEA.QueueSocket\bin\Debug\netcoreapp2.0\SAEA.Common.dll
+D:\MyProjects\SAEA\Src\SAEA.QueueSocket\bin\Debug\netcoreapp2.0\SAEA.Sockets.dll
+D:\MyProjects\SAEA\Src\SAEA.QueueSocket\bin\Debug\netcoreapp2.0\SAEA.Common.pdb
+D:\MyProjects\SAEA\Src\SAEA.QueueSocket\bin\Debug\netcoreapp2.0\SAEA.Sockets.pdb
+D:\MyProjects\SAEA\Src\SAEA.QueueSocket\obj\Debug\netcoreapp2.0\SAEA.QueueSocket.csprojAssemblyReference.cache
+D:\MyProjects\SAEA\Src\SAEA.QueueSocket\obj\Debug\netcoreapp2.0\SAEA.QueueSocket.csproj.CoreCompileInputs.cache
+D:\MyProjects\SAEA\Src\SAEA.QueueSocket\obj\Debug\netcoreapp2.0\SAEA.QueueSocket.AssemblyInfoInputs.cache
+D:\MyProjects\SAEA\Src\SAEA.QueueSocket\obj\Debug\netcoreapp2.0\SAEA.QueueSocket.AssemblyInfo.cs
+D:\MyProjects\SAEA\Src\SAEA.QueueSocket\obj\Debug\netcoreapp2.0\SAEA.QueueSocket.csproj.CopyComplete
+D:\MyProjects\SAEA\Src\SAEA.QueueSocket\obj\Debug\netcoreapp2.0\SAEA.QueueSocket.dll
+D:\MyProjects\SAEA\Src\SAEA.QueueSocket\obj\Debug\netcoreapp2.0\SAEA.QueueSocket.pdb

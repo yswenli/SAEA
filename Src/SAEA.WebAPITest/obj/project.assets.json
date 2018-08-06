@@ -756,23 +756,39 @@
     ]
   },
   "packageFolders": {
+<<<<<<< HEAD
     "C:\\Users\\yswenli\\.nuget\\packages\\": {},
+=======
+    "C:\\Users\\fw\\.nuget\\packages\\": {},
+>>>>>>> 823ae10893e42330d66558d1b1cba6000fd92945
     "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
+<<<<<<< HEAD
       "projectUniqueName": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.WebAPITest\\SAEA.WebAPITest.csproj",
       "projectName": "SAEA.WebAPITest",
       "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.WebAPITest\\SAEA.WebAPITest.csproj",
       "packagesPath": "C:\\Users\\yswenli\\.nuget\\packages\\",
       "outputPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.WebAPITest\\obj\\",
+=======
+      "projectUniqueName": "D:\\MyProjects\\SAEA\\Src\\SAEA.WebAPITest\\SAEA.WebAPITest.csproj",
+      "projectName": "SAEA.WebAPITest",
+      "projectPath": "D:\\MyProjects\\SAEA\\Src\\SAEA.WebAPITest\\SAEA.WebAPITest.csproj",
+      "packagesPath": "C:\\Users\\fw\\.nuget\\packages\\",
+      "outputPath": "D:\\MyProjects\\SAEA\\Src\\SAEA.WebAPITest\\obj\\",
+>>>>>>> 823ae10893e42330d66558d1b1cba6000fd92945
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
       ],
       "configFilePaths": [
+<<<<<<< HEAD
         "C:\\Users\\yswenli\\AppData\\Roaming\\NuGet\\NuGet.Config",
+=======
+        "C:\\Users\\fw\\AppData\\Roaming\\NuGet\\NuGet.Config",
+>>>>>>> 823ae10893e42330d66558d1b1cba6000fd92945
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
@@ -785,8 +801,13 @@
       "frameworks": {
         "netcoreapp2.0": {
           "projectReferences": {
+<<<<<<< HEAD
             "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.WebAPI\\SAEA.WebAPI.csproj": {
               "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.WebAPI\\SAEA.WebAPI.csproj"
+=======
+            "D:\\MyProjects\\SAEA\\Src\\SAEA.WebAPI\\SAEA.WebAPI.csproj": {
+              "projectPath": "D:\\MyProjects\\SAEA\\Src\\SAEA.WebAPI\\SAEA.WebAPI.csproj"
+>>>>>>> 823ae10893e42330d66558d1b1cba6000fd92945
             }
           }
         }

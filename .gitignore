@@ -7,6 +7,7 @@ cmake_install.cmake
 install_manifest.txt
 compile_commands.json
 CTestTestfile.cmake
+<<<<<<< HEAD
 *.suo
 Src/.vs/
 *.ide-wal
@@ -90,3 +91,12 @@ Src/SAEA.Commom/obj/Debug/netcoreapp2.0/SAEA.Common.AssemblyInfo.cs
 Src/SAEA.RPCTest/obj/project.assets.json
 Src/SAEA.RPCTest/obj/SAEA.RPCTest.csproj.nuget.g.props
 Src/SAEA.RPCTest/obj/SAEA.RPCTest.csproj.nuget.g.targets
+=======
+>>>>>>> 823ae10893e42330d66558d1b1cba6000fd92945
+Src/.vs/SAEA.Sockets/v15/Server/sqlite3/storage.ide-wal
+Src/.vs/SAEA.Sockets/v15/Server/sqlite3/storage.ide-shm
+Src/.vs/SAEA.Sockets/v15/Server/sqlite3/storage.ide
+Src/.vs/SAEA.Sockets/v15/.suo
+Src/.vs/SAEA.Sockets/DesignTimeBuild/.dtbcache
+.vs/slnx.sqlite
+.vs/SAEA/v15/.suo

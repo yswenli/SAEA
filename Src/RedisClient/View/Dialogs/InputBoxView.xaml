@@ -1,0 +1,32 @@
+﻿<Window x:Class="RedisClient.InputBoxView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:RedisClient"
+        mc:Ignorable="d"
+        WindowStyle="ToolWindow"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Title="RedisClient" Height="200" Width="360">
+    <DockPanel Margin="5">
+        <StackPanel Orientation="Horizontal" DockPanel.Dock="Bottom" HorizontalAlignment="Right" Margin="0,10">
+            <StackPanel.Resources>
+                <Style TargetType="Button">
+                    <Setter Property="Padding" Value="10,2"/>
+                </Style>
+            </StackPanel.Resources>
+            <Button Content="确定" Click="Button_Click" IsDefault="True"/>
+            <Button Content="取消" IsCancel="True" Margin="10,0"/>
+        </StackPanel>
+        <Grid Margin="10,0" >
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <TextBlock Text="{Binding Title}" HorizontalAlignment="Left" Margin="0,0,0,10"/>
+            <TextBox  Text="{Binding Content}"   Grid.Row="1" VerticalAlignment="Stretch" VerticalContentAlignment="Top"/>
+        </Grid>
+       
+    </DockPanel>
+</Window>

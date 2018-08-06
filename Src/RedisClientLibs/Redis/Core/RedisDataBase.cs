@@ -216,7 +216,7 @@ namespace SAEA.RedisSocket.Core
         #endregion
 
         #region ZSET
-        public void ZAdd(string key, double score, string value)
+        public void ZAdd(string key, string value, double score)
         {
             base.Do(RequestType.ZADD, key, score.ToString(), value);
         }

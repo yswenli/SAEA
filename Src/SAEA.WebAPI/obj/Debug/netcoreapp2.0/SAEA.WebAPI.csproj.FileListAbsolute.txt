@@ -1,0 +1,13 @@
+D:\MyProjects\SAEA\Src\SAEA.WebAPI\bin\Debug\netcoreapp2.0\SAEA.WebAPI.deps.json
+D:\MyProjects\SAEA\Src\SAEA.WebAPI\bin\Debug\netcoreapp2.0\SAEA.WebAPI.dll
+D:\MyProjects\SAEA\Src\SAEA.WebAPI\bin\Debug\netcoreapp2.0\SAEA.WebAPI.pdb
+D:\MyProjects\SAEA\Src\SAEA.WebAPI\bin\Debug\netcoreapp2.0\SAEA.Common.dll
+D:\MyProjects\SAEA\Src\SAEA.WebAPI\bin\Debug\netcoreapp2.0\SAEA.Sockets.dll
+D:\MyProjects\SAEA\Src\SAEA.WebAPI\bin\Debug\netcoreapp2.0\SAEA.Sockets.pdb
+D:\MyProjects\SAEA\Src\SAEA.WebAPI\bin\Debug\netcoreapp2.0\SAEA.Common.pdb
+D:\MyProjects\SAEA\Src\SAEA.WebAPI\obj\Debug\netcoreapp2.0\SAEA.WebAPI.csproj.CoreCompileInputs.cache
+D:\MyProjects\SAEA\Src\SAEA.WebAPI\obj\Debug\netcoreapp2.0\SAEA.WebAPI.AssemblyInfoInputs.cache
+D:\MyProjects\SAEA\Src\SAEA.WebAPI\obj\Debug\netcoreapp2.0\SAEA.WebAPI.AssemblyInfo.cs
+D:\MyProjects\SAEA\Src\SAEA.WebAPI\obj\Debug\netcoreapp2.0\SAEA.WebAPI.csproj.CopyComplete
+D:\MyProjects\SAEA\Src\SAEA.WebAPI\obj\Debug\netcoreapp2.0\SAEA.WebAPI.dll
+D:\MyProjects\SAEA\Src\SAEA.WebAPI\obj\Debug\netcoreapp2.0\SAEA.WebAPI.pdb
