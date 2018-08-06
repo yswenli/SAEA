@@ -8,5 +8,12 @@ install_manifest.txt
 compile_commands.json
 CTestTestfile.cmake
 *.suo
-Src/.vs/SAEA.Sockets/v15/Server/sqlite3/storage.ide-shm
+Src/.vs/
 *.ide-wal
+*.cache
+*.ide-shm
+*.ide-wal
+*.ide-shm
+*.ide-wal
+*.ide
+*.user
