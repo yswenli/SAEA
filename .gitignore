@@ -7,3 +7,10 @@ cmake_install.cmake
 install_manifest.txt
 compile_commands.json
 CTestTestfile.cmake
+Src/.vs/SAEA.Sockets/v15/.suo
+Src/RedisClient/bin/Debug/Log/ErrorLog.log
+Src/RedisClient/bin/Debug/RedisClient.exe
+Src/RedisClient/bin/Debug/RedisClient.pdb
+Src/RedisClient/obj/Debug/RedisClient.csprojAssemblyReference.cache
+Src/RedisClient/obj/Debug/RedisClient.exe
+Src/RedisClient/obj/Debug/RedisClient.pdb
