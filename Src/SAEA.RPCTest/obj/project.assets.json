@@ -757,23 +757,23 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\Walle\\.nuget\\packages\\": {},
+    "C:\\Users\\fw\\.nuget\\packages\\": {},
     "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\Walle\\Documents\\GitHub\\SAEA\\Src\\SAEA.RPCTest\\SAEA.RPCTest.csproj",
+      "projectUniqueName": "D:\\MyProjects\\SAEA\\Src\\SAEA.RPCTest\\SAEA.RPCTest.csproj",
       "projectName": "SAEA.RPCTest",
-      "projectPath": "C:\\Users\\Walle\\Documents\\GitHub\\SAEA\\Src\\SAEA.RPCTest\\SAEA.RPCTest.csproj",
-      "packagesPath": "C:\\Users\\Walle\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\Walle\\Documents\\GitHub\\SAEA\\Src\\SAEA.RPCTest\\obj\\",
+      "projectPath": "D:\\MyProjects\\SAEA\\Src\\SAEA.RPCTest\\SAEA.RPCTest.csproj",
+      "packagesPath": "C:\\Users\\fw\\.nuget\\packages\\",
+      "outputPath": "D:\\MyProjects\\SAEA\\Src\\SAEA.RPCTest\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
       ],
       "configFilePaths": [
-        "C:\\Users\\Walle\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\fw\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
@@ -786,8 +786,8 @@
       "frameworks": {
         "netcoreapp2.0": {
           "projectReferences": {
-            "C:\\Users\\Walle\\Documents\\GitHub\\SAEA\\Src\\SAEA.RPC\\SAEA.RPC.csproj": {
-              "projectPath": "C:\\Users\\Walle\\Documents\\GitHub\\SAEA\\Src\\SAEA.RPC\\SAEA.RPC.csproj"
+            "D:\\MyProjects\\SAEA\\Src\\SAEA.RPC\\SAEA.RPC.csproj": {
+              "projectPath": "D:\\MyProjects\\SAEA\\Src\\SAEA.RPC\\SAEA.RPC.csproj"
             }
           }
         }

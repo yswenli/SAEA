@@ -4,17 +4,17 @@
 winexe
 C#
 .cs
-F:\百度云\Develop\案例\网络类\SAEA\Src\RedisClient\obj\Debug\
+D:\MyProjects\SAEA\Src\RedisClient\obj\Debug\
 RedisClient
 none
 false
 DEBUG;TRACE
-F:\百度云\Develop\案例\网络类\SAEA\Src\RedisClient\App.xaml
-12145433039
+D:\MyProjects\SAEA\Src\RedisClient\App.xaml
+14-1613234444
 
-996220351
-14924222346
-Windows\MainWindow.xaml;
+48-339232964
+20-645980794
+Resources\Geometries.xaml;Resources\styles\ButtonStyle.xaml;View\Dialogs\ConnectServerDialogView.xaml;View\Dialogs\InputBoxView.xaml;View\Dialogs\KeyValueDialogView.xaml;View\KeyContainerView.xaml;View\Nodes\HashKeyView.xaml;View\Nodes\ListKeyView.xaml;View\Nodes\SetKeyView.xaml;View\Nodes\StringKeyView.xaml;View\Nodes\ZSetKeyView.xaml;View\PageModuleView.xaml;View\RedisClientDetailView.xaml;View\ShellView.xaml;
 
 True
 

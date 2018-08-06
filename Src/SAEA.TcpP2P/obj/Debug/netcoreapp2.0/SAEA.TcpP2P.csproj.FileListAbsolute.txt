@@ -1,0 +1,13 @@
+D:\MyProjects\SAEA\Src\SAEA.TcpP2P\bin\Debug\netcoreapp2.0\SAEA.TcpP2P.deps.json
+D:\MyProjects\SAEA\Src\SAEA.TcpP2P\bin\Debug\netcoreapp2.0\SAEA.TcpP2P.dll
+D:\MyProjects\SAEA\Src\SAEA.TcpP2P\bin\Debug\netcoreapp2.0\SAEA.TcpP2P.pdb
+D:\MyProjects\SAEA\Src\SAEA.TcpP2P\bin\Debug\netcoreapp2.0\SAEA.Common.dll
+D:\MyProjects\SAEA\Src\SAEA.TcpP2P\bin\Debug\netcoreapp2.0\SAEA.Sockets.dll
+D:\MyProjects\SAEA\Src\SAEA.TcpP2P\bin\Debug\netcoreapp2.0\SAEA.Sockets.pdb
+D:\MyProjects\SAEA\Src\SAEA.TcpP2P\bin\Debug\netcoreapp2.0\SAEA.Common.pdb
+D:\MyProjects\SAEA\Src\SAEA.TcpP2P\obj\Debug\netcoreapp2.0\SAEA.TcpP2P.csproj.CoreCompileInputs.cache
+D:\MyProjects\SAEA\Src\SAEA.TcpP2P\obj\Debug\netcoreapp2.0\SAEA.TcpP2P.AssemblyInfoInputs.cache
+D:\MyProjects\SAEA\Src\SAEA.TcpP2P\obj\Debug\netcoreapp2.0\SAEA.TcpP2P.AssemblyInfo.cs
+D:\MyProjects\SAEA\Src\SAEA.TcpP2P\obj\Debug\netcoreapp2.0\SAEA.TcpP2P.csproj.CopyComplete
+D:\MyProjects\SAEA\Src\SAEA.TcpP2P\obj\Debug\netcoreapp2.0\SAEA.TcpP2P.dll
+D:\MyProjects\SAEA\Src\SAEA.TcpP2P\obj\Debug\netcoreapp2.0\SAEA.TcpP2P.pdb

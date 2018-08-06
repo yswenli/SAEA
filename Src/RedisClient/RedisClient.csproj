@@ -33,7 +33,28 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Caliburn.Micro, Version=2.0.2.0, Culture=neutral, PublicKeyToken=8e5891231f2ed21f, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\dlls\Caliburn.Micro.dll</HintPath>
+    </Reference>
+    <Reference Include="Caliburn.Micro.Platform, Version=2.0.2.0, Culture=neutral, PublicKeyToken=8e5891231f2ed21f, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\dlls\Caliburn.Micro.Platform.dll</HintPath>
+    </Reference>
+    <Reference Include="IEMWorks, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\dlls\IEMWorks.dll</HintPath>
+    </Reference>
+    <Reference Include="log4net, Version=1.2.10.0, Culture=neutral, PublicKeyToken=1b44e1d426115821, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\packages\log4net.1.2.10\lib\1.1\log4net.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=6.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\packages\Newtonsoft.Json.9.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
+    <Reference Include="System.ComponentModel.Composition" />
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
     <Reference Include="Microsoft.CSharp" />
@@ -53,7 +74,59 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
-    <Page Include="Windows\MainWindow.xaml">
+    <Page Include="Resources\Geometries.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Resources\styles\ButtonStyle.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="View\Dialogs\ConnectServerDialogView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="View\Dialogs\InputBoxView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="View\Dialogs\KeyValueDialogView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="View\KeyContainerView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="View\Nodes\HashKeyView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="View\Nodes\ListKeyView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="View\Nodes\SetKeyView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="View\Nodes\StringKeyView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="View\Nodes\ZSetKeyView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="View\PageModuleView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="View\RedisClientDetailView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="View\ShellView.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
@@ -61,9 +134,69 @@
       <DependentUpon>App.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Windows\MainWindow.xaml.cs">
-      <DependentUpon>MainWindow.xaml</DependentUpon>
-      <SubType>Code</SubType>
+    <Compile Include="Helper\DelegateValueConverter.cs" />
+    <Compile Include="Helper\Logger.cs" />
+    <Compile Include="Helper\MefBootstrapper.cs" />
+    <Compile Include="Helper\RelayCommand.cs" />
+    <Compile Include="Helper\RelayCommand.Generic.cs" />
+    <Compile Include="Helper\ValueConverters.cs" />
+    <Compile Include="ViewModel\ConnectServerDialogViewModel.cs" />
+    <Compile Include="ViewModel\Events\KeyNodeEventArgs.cs" />
+    <Compile Include="ViewModel\Events\RedisClientDetailEventArgs.cs" />
+    <Compile Include="ViewModel\InputBoxViewModel.cs" />
+    <Compile Include="ViewModel\Keys\HashKeyItemViewModel.cs" />
+    <Compile Include="ViewModel\Keys\HashKeyViewModel.cs" />
+    <Compile Include="ViewModel\Keys\KeyType.cs" />
+    <Compile Include="ViewModel\Keys\KeyValueDialogViewModel.cs" />
+    <Compile Include="ViewModel\Keys\KeyViewModel.cs" />
+    <Compile Include="ViewModel\Keys\ListKeyViewModel.cs" />
+    <Compile Include="ViewModel\Keys\SetKeyViewModel.cs" />
+    <Compile Include="ViewModel\Keys\StringKeyViewModel.cs" />
+    <Compile Include="ViewModel\Keys\ZSetKeyItemViewModel.cs" />
+    <Compile Include="ViewModel\Keys\ZSetKeyViewModel.cs" />
+    <Compile Include="ViewModel\Nodes\DbNodeViewModel.cs" />
+    <Compile Include="ViewModel\Nodes\NodeViewModel.cs" />
+    <Compile Include="ViewModel\Nodes\RedisClientViewModel.cs" />
+    <Compile Include="ViewModel\Pages\KeyContainerViewModel.cs" />
+    <Compile Include="ViewModel\Pages\PageModuleViewModel.cs" />
+    <Compile Include="ViewModel\Pages\PageViewModel.cs" />
+    <Compile Include="ViewModel\Pages\RedisClientDetailViewModel.cs" />
+    <Compile Include="ViewModel\ShellViewModel.cs" />
+    <Compile Include="View\Dialogs\ConnectServerDialogView.xaml.cs">
+      <DependentUpon>ConnectServerDialogView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="View\Dialogs\InputBoxView.xaml.cs">
+      <DependentUpon>InputBoxView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="View\Dialogs\KeyValueDialogView.xaml.cs">
+      <DependentUpon>KeyValueDialogView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="View\KeyContainerView.xaml.cs">
+      <DependentUpon>KeyContainerView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="View\Nodes\HashKeyView.xaml.cs">
+      <DependentUpon>HashKeyView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="View\Nodes\ListKeyView.xaml.cs">
+      <DependentUpon>ListKeyView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="View\Nodes\SetKeyView.xaml.cs">
+      <DependentUpon>SetKeyView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="View\Nodes\StringKeyView.xaml.cs">
+      <DependentUpon>StringKeyView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="View\Nodes\ZSetKeyView.xaml.cs">
+      <DependentUpon>ZSetKeyView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="View\PageModuleView.xaml.cs">
+      <DependentUpon>PageModuleView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="View\RedisClientDetailView.xaml.cs">
+      <DependentUpon>RedisClientDetailView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="View\ShellView.xaml.cs">
+      <DependentUpon>ShellView.xaml</DependentUpon>
     </Compile>
   </ItemGroup>
   <ItemGroup>
@@ -100,6 +233,10 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Common\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\imgs\key.png" />
+    <Resource Include="Resources\imgs\redis.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

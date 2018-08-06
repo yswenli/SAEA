@@ -758,23 +758,23 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\Walle\\.nuget\\packages\\": {},
+    "C:\\Users\\fw\\.nuget\\packages\\": {},
     "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\Walle\\Documents\\GitHub\\SAEA\\Src\\SAEA.RedisSocketTest\\SAEA.RedisSocketTest.csproj",
+      "projectUniqueName": "D:\\MyProjects\\SAEA\\Src\\SAEA.RedisSocketTest\\SAEA.RedisSocketTest.csproj",
       "projectName": "SAEA.RedisSocketTest",
-      "projectPath": "C:\\Users\\Walle\\Documents\\GitHub\\SAEA\\Src\\SAEA.RedisSocketTest\\SAEA.RedisSocketTest.csproj",
-      "packagesPath": "C:\\Users\\Walle\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\Walle\\Documents\\GitHub\\SAEA\\Src\\SAEA.RedisSocketTest\\obj\\",
+      "projectPath": "D:\\MyProjects\\SAEA\\Src\\SAEA.RedisSocketTest\\SAEA.RedisSocketTest.csproj",
+      "packagesPath": "C:\\Users\\fw\\.nuget\\packages\\",
+      "outputPath": "D:\\MyProjects\\SAEA\\Src\\SAEA.RedisSocketTest\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
       ],
       "configFilePaths": [
-        "C:\\Users\\Walle\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\fw\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
@@ -787,11 +787,11 @@
       "frameworks": {
         "netcoreapp2.0": {
           "projectReferences": {
-            "C:\\Users\\Walle\\Documents\\GitHub\\SAEA\\Src\\SAEA.Commom\\SAEA.Common.csproj": {
-              "projectPath": "C:\\Users\\Walle\\Documents\\GitHub\\SAEA\\Src\\SAEA.Commom\\SAEA.Common.csproj"
+            "D:\\MyProjects\\SAEA\\Src\\SAEA.Commom\\SAEA.Common.csproj": {
+              "projectPath": "D:\\MyProjects\\SAEA\\Src\\SAEA.Commom\\SAEA.Common.csproj"
             },
-            "C:\\Users\\Walle\\Documents\\GitHub\\SAEA\\Src\\SAEA.RedisSocket\\SAEA.RedisSocket.csproj": {
-              "projectPath": "C:\\Users\\Walle\\Documents\\GitHub\\SAEA\\Src\\SAEA.RedisSocket\\SAEA.RedisSocket.csproj"
+            "D:\\MyProjects\\SAEA\\Src\\SAEA.RedisSocket\\SAEA.RedisSocket.csproj": {
+              "projectPath": "D:\\MyProjects\\SAEA\\Src\\SAEA.RedisSocket\\SAEA.RedisSocket.csproj"
             }
           }
         }
