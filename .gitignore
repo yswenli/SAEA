@@ -87,3 +87,6 @@ Src/SAEA.FileSocket/obj/Debug/netcoreapp2.0/SAEA.FileSocket.AssemblyInfo.cs
 Src/SAEA.Commom/obj/SAEA.Common.csproj.nuget.g.props
 Src/SAEA.Commom/obj/project.assets.json
 Src/SAEA.Commom/obj/Debug/netcoreapp2.0/SAEA.Common.AssemblyInfo.cs
+Src/SAEA.RPCTest/obj/project.assets.json
+Src/SAEA.RPCTest/obj/SAEA.RPCTest.csproj.nuget.g.props
+Src/SAEA.RPCTest/obj/SAEA.RPCTest.csproj.nuget.g.targets
