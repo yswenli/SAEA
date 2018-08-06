@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Windows;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Caliburn.Micro;
@@ -51,24 +52,24 @@ namespace RedisClient
 
         private async Task<List<Tuple<int, int>>> GetDbs()
         {
-           return await Task.Run(() =>
-            {
-                int idx = 0;
-                List<Tuple<int, int>> lst = new List<Tuple<int, int>>();
-                while (idx < MaxDBConnectCount)
-                {
-                    var success = this._client.Select(idx);
-                    if (success)
-                        lst.Add(new Tuple<int, int>(idx, this._client.DBSize()));
-                    if (this._client.IsCluster)
-                        break;
-                    else
-                        idx++;
-                }
+            return await Task.Run(() =>
+             {
+                 int idx = 0;
+                 List<Tuple<int, int>> lst = new List<Tuple<int, int>>();
+                 while (idx < MaxDBConnectCount)
+                 {
+                     var success = this._client.Select(idx);
+                     if (success)
+                         lst.Add(new Tuple<int, int>(idx, this._client.DBSize()));
+                     if (this._client.IsCluster)
+                         break;
+                     else
+                         idx++;
+                 }
 
-                return lst;
-            });
- 
+                 return lst;
+             });
+
         }
 
 
@@ -109,9 +110,17 @@ namespace RedisClient
                     {
                         this.IsExpanded = !this.IsExpanded;
                         return;
-                    }          
-                    await ExecuteConnect();               
-                   this.IsExpanded = true;
+                    }
+                    try
+                    {
+                        await ExecuteConnect();
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(Application.Current.MainWindow, ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
+                    this.IsExpanded = true;
                     this.IsConnected = true;
                     this.Items.Clear();
                     var lst = await this.GetDbs();
@@ -121,7 +130,7 @@ namespace RedisClient
                         this.Items.Add(dbNode);
                     });
 
-                } ));
+                }));
             }
         }
 
@@ -131,21 +140,21 @@ namespace RedisClient
         {
             get
             {
-                return this._refreshCommand ?? (this._refreshCommand = new RelayCommand(  async() =>
-                {
-                    this.IsConnected = false;
-                    this.IsExpanded = false;
-                    this.IsConnected = true;
-                    this.Items.Clear();
-                    var lst = await this.GetDbs();
-                    lst.ForEach(x =>
-                    {
-                        var dbNode = new DbNodeViewModel(x.Item1, x.Item2, this._client);
-                        this.Items.Add(dbNode);
-                    });
-                    this.IsExpanded = true;
+                return this._refreshCommand ?? (this._refreshCommand = new RelayCommand(async () =>
+              {
+                  this.IsConnected = false;
+                  this.IsExpanded = false;
+                  this.IsConnected = true;
+                  this.Items.Clear();
+                  var lst = await this.GetDbs();
+                  lst.ForEach(x =>
+                  {
+                      var dbNode = new DbNodeViewModel(x.Item1, x.Item2, this._client);
+                      this.Items.Add(dbNode);
+                  });
+                  this.IsExpanded = true;
 
-                }, () => this.IsConnected));
+              }, () => this.IsConnected));
             }
         }
 
@@ -154,7 +163,7 @@ namespace RedisClient
         private async Task ExecuteConnect()
         {
             await Task.Run(() =>
-            {               
+            {
                 this._client.Connect();
             });
         }
