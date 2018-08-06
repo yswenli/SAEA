@@ -720,23 +720,39 @@
     ]
   },
   "packageFolders": {
+<<<<<<< HEAD
+    "C:\\Users\\yswenli\\.nuget\\packages\\": {},
+=======
     "C:\\Users\\fw\\.nuget\\packages\\": {},
+>>>>>>> 823ae10893e42330d66558d1b1cba6000fd92945
     "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
+<<<<<<< HEAD
+      "projectUniqueName": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Sockets\\SAEA.Sockets.csproj",
+      "projectName": "SAEA.Sockets",
+      "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Sockets\\SAEA.Sockets.csproj",
+      "packagesPath": "C:\\Users\\yswenli\\.nuget\\packages\\",
+      "outputPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Sockets\\obj\\",
+=======
       "projectUniqueName": "D:\\MyProjects\\SAEA\\Src\\SAEA.Sockets\\SAEA.Sockets.csproj",
       "projectName": "SAEA.Sockets",
       "projectPath": "D:\\MyProjects\\SAEA\\Src\\SAEA.Sockets\\SAEA.Sockets.csproj",
       "packagesPath": "C:\\Users\\fw\\.nuget\\packages\\",
       "outputPath": "D:\\MyProjects\\SAEA\\Src\\SAEA.Sockets\\obj\\",
+>>>>>>> 823ae10893e42330d66558d1b1cba6000fd92945
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
       ],
       "configFilePaths": [
+<<<<<<< HEAD
+        "C:\\Users\\yswenli\\AppData\\Roaming\\NuGet\\NuGet.Config",
+=======
         "C:\\Users\\fw\\AppData\\Roaming\\NuGet\\NuGet.Config",
+>>>>>>> 823ae10893e42330d66558d1b1cba6000fd92945
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
@@ -749,8 +765,13 @@
       "frameworks": {
         "netcoreapp2.0": {
           "projectReferences": {
+<<<<<<< HEAD
+            "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Commom\\SAEA.Common.csproj": {
+              "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Commom\\SAEA.Common.csproj"
+=======
             "D:\\MyProjects\\SAEA\\Src\\SAEA.Commom\\SAEA.Common.csproj": {
               "projectPath": "D:\\MyProjects\\SAEA\\Src\\SAEA.Commom\\SAEA.Common.csproj"
+>>>>>>> 823ae10893e42330d66558d1b1cba6000fd92945
             }
           }
         }
