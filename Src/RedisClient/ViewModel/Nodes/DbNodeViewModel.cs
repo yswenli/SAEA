@@ -35,6 +35,30 @@ namespace RedisClient
             }
         }
 
+        //private async void LoadKeysAsync()
+        //{
+        //    this.Keys.Clear();
+        //    this._client.Select(this.Index); //选中本节点索引
+        //    var keys = this._client.GetDataBase().Keys();
+        //    if (keys == null)
+        //        return;
+        //    var lst = await Task.Run(() =>
+        //      {
+        //          List<KeyViewModel> result = new List<RedisClient.KeyViewModel>();
+        //          foreach (var key in keys)
+        //          {
+        //              var keyType = this._client.Type(key);
+
+        //              var vm =KeyViewModel.Create (keyType, key,this);
+        //              if (vm != null)
+        //                  result.Add(vm);
+        //          }
+        //          return result;
+        //      });
+
+        //    lst.ForEach(x => this.Keys.Add(x));
+        //}
+
         private async void LoadKeysAsync()
         {
             this.Keys.Clear();
@@ -43,23 +67,22 @@ namespace RedisClient
             if (keys == null)
                 return;
             var lst = await Task.Run(() =>
-              {
-                  List<KeyViewModel> result = new List<RedisClient.KeyViewModel>();
-                  foreach (var key in keys)
-                  {
-                      var keyType = this._client.Type(key);
+            {
+                List<KeyViewModel> result = new List<RedisClient.KeyViewModel>();
+                foreach (var key in keys)
+                {
+                    var keyType = this._client.Type(key);
 
-                      var vm =KeyViewModel.Create (keyType, key,this);
-                      if (vm != null)
-                          result.Add(vm);
-                  }
-                  return result;
-              });
+                    var vm = KeyViewModel.Create(keyType, key, this);
+                    if (vm != null)
+                        result.Add(vm);
+                }
+                return result;
+            });
 
             lst.ForEach(x => this.Keys.Add(x));
         }
 
-      
 
         public ObservableCollection<KeyViewModel> Keys { get; private set; }
 
