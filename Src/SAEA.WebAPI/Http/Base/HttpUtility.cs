@@ -74,6 +74,11 @@ namespace SAEA.WebAPI.Http.Base
                 }
             }
 
+            if (mb == null)
+            {
+                return Path.GetFullPath(Directory.GetCurrentDirectory() + uri.LocalPath);
+            }
+
             return Path.Combine(Path.GetDirectoryName(mb.DeclaringType.Assembly.Location) + uri.LocalPath);
         }
         /// <summary>

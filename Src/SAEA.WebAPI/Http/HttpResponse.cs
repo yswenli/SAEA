@@ -177,9 +177,6 @@ namespace SAEA.WebAPI.Http
                 reponseDataList.AddRange(bdata);
 
             var arr = reponseDataList.ToArray();
-
-            if (this.Body != null && bodyLen > 0)
-                Array.Clear(this.Body, 0, this.Body.Length);
             this.Body = null;
             reponseDataList.Clear();
             reponseDataList = null;

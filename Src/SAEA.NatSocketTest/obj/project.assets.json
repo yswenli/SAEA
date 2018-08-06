@@ -739,23 +739,23 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\yswenli\\.nuget\\packages\\": {},
+    "C:\\Users\\Walle\\.nuget\\packages\\": {},
     "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.NatSocketTest\\SAEA.NatSocketTest.csproj",
+      "projectUniqueName": "C:\\Users\\Walle\\Documents\\GitHub\\SAEA\\Src\\SAEA.NatSocketTest\\SAEA.NatSocketTest.csproj",
       "projectName": "SAEA.NatSocketTest",
-      "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.NatSocketTest\\SAEA.NatSocketTest.csproj",
-      "packagesPath": "C:\\Users\\yswenli\\.nuget\\packages\\",
-      "outputPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.NatSocketTest\\obj\\",
+      "projectPath": "C:\\Users\\Walle\\Documents\\GitHub\\SAEA\\Src\\SAEA.NatSocketTest\\SAEA.NatSocketTest.csproj",
+      "packagesPath": "C:\\Users\\Walle\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\Walle\\Documents\\GitHub\\SAEA\\Src\\SAEA.NatSocketTest\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
       ],
       "configFilePaths": [
-        "C:\\Users\\yswenli\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\Walle\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
@@ -768,11 +768,11 @@
       "frameworks": {
         "netcoreapp2.0": {
           "projectReferences": {
-            "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Commom\\SAEA.Common.csproj": {
-              "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Commom\\SAEA.Common.csproj"
+            "C:\\Users\\Walle\\Documents\\GitHub\\SAEA\\Src\\SAEA.Commom\\SAEA.Common.csproj": {
+              "projectPath": "C:\\Users\\Walle\\Documents\\GitHub\\SAEA\\Src\\SAEA.Commom\\SAEA.Common.csproj"
             },
-            "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.NatSocket\\SAEA.NatSocket.csproj": {
-              "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.NatSocket\\SAEA.NatSocket.csproj"
+            "C:\\Users\\Walle\\Documents\\GitHub\\SAEA\\Src\\SAEA.NatSocket\\SAEA.NatSocket.csproj": {
+              "projectPath": "C:\\Users\\Walle\\Documents\\GitHub\\SAEA\\Src\\SAEA.NatSocket\\SAEA.NatSocket.csproj"
             }
           }
         }

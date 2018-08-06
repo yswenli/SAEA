@@ -757,23 +757,23 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\yswenli\\.nuget\\packages\\": {},
+    "C:\\Users\\Walle\\.nuget\\packages\\": {},
     "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.RPCTest\\SAEA.RPCTest.csproj",
+      "projectUniqueName": "C:\\Users\\Walle\\Documents\\GitHub\\SAEA\\Src\\SAEA.RPCTest\\SAEA.RPCTest.csproj",
       "projectName": "SAEA.RPCTest",
-      "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.RPCTest\\SAEA.RPCTest.csproj",
-      "packagesPath": "C:\\Users\\yswenli\\.nuget\\packages\\",
-      "outputPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.RPCTest\\obj\\",
+      "projectPath": "C:\\Users\\Walle\\Documents\\GitHub\\SAEA\\Src\\SAEA.RPCTest\\SAEA.RPCTest.csproj",
+      "packagesPath": "C:\\Users\\Walle\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\Walle\\Documents\\GitHub\\SAEA\\Src\\SAEA.RPCTest\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
       ],
       "configFilePaths": [
-        "C:\\Users\\yswenli\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\Walle\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
@@ -786,8 +786,8 @@
       "frameworks": {
         "netcoreapp2.0": {
           "projectReferences": {
-            "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.RPC\\SAEA.RPC.csproj": {
-              "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.RPC\\SAEA.RPC.csproj"
+            "C:\\Users\\Walle\\Documents\\GitHub\\SAEA\\Src\\SAEA.RPC\\SAEA.RPC.csproj": {
+              "projectPath": "C:\\Users\\Walle\\Documents\\GitHub\\SAEA\\Src\\SAEA.RPC\\SAEA.RPC.csproj"
             }
           }
         }
