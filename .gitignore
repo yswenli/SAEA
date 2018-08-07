@@ -147,3 +147,11 @@ Src/RedisClient/obj/Debug/
 
 Src/RedisClient/bin/Debug/
 
+*.pdb
+*.dll
+*.cache
+*.exe
+*.txt
+*.ide
+*.ide-shm
+*.ide-wal

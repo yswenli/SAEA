@@ -15,11 +15,12 @@ namespace RedisClient
         private int _dbIdx;
         private int _dbSize;
         private int _offSet=0;
-        private const int PAGE_SIZE = 5;
+        private const int PAGE_SIZE = 20;
 
         public DbNodeViewModel(int dbIdx,int dbSize, SAEA.RedisSocket.RedisClient client)
         {
             this._client = client;
+            
             this._dbIdx = dbIdx;
             this.Keys = new ObservableCollection<RedisClient.KeyViewModel>();
             this._dbSize = dbSize;
@@ -37,33 +38,12 @@ namespace RedisClient
             }
         }
 
-        //private async void LoadKeysAsync()
-        //{
-        //    this.Keys.Clear();
-        //    this._client.Select(this.Index); //选中本节点索引
-        //    var keys = this._client.GetDataBase().Keys();
-        //    if (keys == null)
-        //        return;
-        //    var lst = await Task.Run(() =>
-        //      {
-        //          List<KeyViewModel> result = new List<RedisClient.KeyViewModel>();
-        //          foreach (var key in keys)
-        //          {
-        //              var keyType = this._client.Type(key);
-
-        //              var vm =KeyViewModel.Create (keyType, key,this);
-        //              if (vm != null)
-        //                  result.Add(vm);
-        //          }
-        //          return result;
-        //      });
-
-        //    lst.ForEach(x => this.Keys.Add(x));
-        //}
-
-        private async void LoadKeysAsync()
+     
+        private async void LoadKeysAsync(bool needClear)
         {
-            this.Keys.Clear();
+            if (needClear)
+                this.Keys.Clear();
+          
             this._client.Select(this.Index); //选中本节点索引
             var sp = this._client.GetDataBase().Scan(this._offSet, "*", PAGE_SIZE);
             this._offSet = sp.Offset;
@@ -85,6 +65,8 @@ namespace RedisClient
             });
 
             lst.ForEach(x => this.Keys.Add(x));
+            this.DBSize = this._client.GetDataBase(this._dbIdx).Keys().Count;
+            this.NotifyOfPropertyChange(() => this.Name);
         }
 
 
@@ -99,6 +81,11 @@ namespace RedisClient
         public int DBSize
         {
             get { return this._dbSize; }
+            private set
+            {
+                this._dbSize = value;
+                this.NotifyOfPropertyChange(() => this.DBSize);
+            }
         }
 
         public SAEA.RedisSocket.RedisClient RedisClient
@@ -110,7 +97,7 @@ namespace RedisClient
         {
             get
             {
-                return string.Format("db{0}({1})",Index,this._dbSize);
+                return string.Format("db{0}({1})",Index,this.DBSize);
             }
         }
 
@@ -122,11 +109,15 @@ namespace RedisClient
             {
                 return this._loadKeysCommand ?? (this._loadKeysCommand = new RelayCommand(() =>
                 {
-                    this._offSet = 0;
-                    this.LoadKeysAsync();
-                    this.IsExpanded = true;
+                    this.DoRefresh();
                 }));
             }
+        }
+
+        private void DoRefresh()
+        {
+            this.LoadKeysAsync(true);
+            this.IsExpanded = true;
         }
 
         private ICommand _loadNextPageCommand;
@@ -137,9 +128,9 @@ namespace RedisClient
             {
                 return this._loadNextPageCommand ?? (this._loadNextPageCommand = new RelayCommand(() =>
                 {
-                    this.LoadKeysAsync();
+                    this.LoadKeysAsync(false);
                     this.IsExpanded = true;
-                }));
+                },()=>this._offSet!=0));
             }
         }
 
@@ -151,18 +142,20 @@ namespace RedisClient
             {
                 return this._addKeyCommand ?? (this._addKeyCommand = new RelayCommand(() =>
                 {
+                    
                     var vm = new KeyValueDialogViewModel { IsKeyTypeVisible = true };
                     var dr = this.WindowManager.ShowDialog(vm);
                     if (dr == false)
                         return;
                     var db = this.RedisClient.GetDataBase(this._dbIdx);
+              
                     switch (vm.KeyType)
                     {
                         case KeyType.String:
-                            db.Set(vm.Key, vm.Value);               
+                            db.Set(vm.Key, vm.Value);
                             break;
                         case KeyType.Hash:
-                            db.HSet(vm.Key, vm.SubKey, vm.Value);                       
+                            db.HSet(vm.Key, vm.SubKey, vm.Value);
                             break;
                         case KeyType.Set:
                             db.SAdd(vm.Key, vm.Value);
@@ -174,8 +167,9 @@ namespace RedisClient
                             db.LPush(vm.Key,  vm.Value);
                             break;
                     }
-                    this.LoadKeysAsync();
-            
+                    this.DoRefresh();
+                  
+
                 }));
             }
         }

@@ -21,6 +21,7 @@
         </ContextMenu>
 
         <ContextMenu x:Key="dbNodeContextMenu">
+            <MenuItem Header="加载下一批" Command="{Binding LoadNextPageCommand}" />
             <MenuItem Header="刷新" Command="{Binding LoadKeysCommand}" />
             <Separator/>
             <MenuItem Header="新建键" Command="{Binding AddKeyCommand}" />
