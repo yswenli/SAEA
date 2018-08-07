@@ -739,23 +739,39 @@
     ]
   },
   "packageFolders": {
+<<<<<<< HEAD
     "C:\\Users\\fw\\.nuget\\packages\\": {},
+=======
+    "C:\\Users\\yswenli\\.nuget\\packages\\": {},
+>>>>>>> 98175a978e70d48b49a6074554d262fb198187c9
     "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
+<<<<<<< HEAD
       "projectUniqueName": "D:\\MyProjects\\SAEA\\Src\\SAEA.RPC\\SAEA.RPC.csproj",
       "projectName": "SAEA.RPC",
       "projectPath": "D:\\MyProjects\\SAEA\\Src\\SAEA.RPC\\SAEA.RPC.csproj",
       "packagesPath": "C:\\Users\\fw\\.nuget\\packages\\",
       "outputPath": "D:\\MyProjects\\SAEA\\Src\\SAEA.RPC\\obj\\",
+=======
+      "projectUniqueName": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.RPC\\SAEA.RPC.csproj",
+      "projectName": "SAEA.RPC",
+      "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.RPC\\SAEA.RPC.csproj",
+      "packagesPath": "C:\\Users\\yswenli\\.nuget\\packages\\",
+      "outputPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.RPC\\obj\\",
+>>>>>>> 98175a978e70d48b49a6074554d262fb198187c9
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
       ],
       "configFilePaths": [
+<<<<<<< HEAD
         "C:\\Users\\fw\\AppData\\Roaming\\NuGet\\NuGet.Config",
+=======
+        "C:\\Users\\yswenli\\AppData\\Roaming\\NuGet\\NuGet.Config",
+>>>>>>> 98175a978e70d48b49a6074554d262fb198187c9
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
@@ -768,11 +784,19 @@
       "frameworks": {
         "netcoreapp2.0": {
           "projectReferences": {
+<<<<<<< HEAD
             "D:\\MyProjects\\SAEA\\Src\\SAEA.Commom\\SAEA.Common.csproj": {
               "projectPath": "D:\\MyProjects\\SAEA\\Src\\SAEA.Commom\\SAEA.Common.csproj"
             },
             "D:\\MyProjects\\SAEA\\Src\\SAEA.Sockets\\SAEA.Sockets.csproj": {
               "projectPath": "D:\\MyProjects\\SAEA\\Src\\SAEA.Sockets\\SAEA.Sockets.csproj"
+=======
+            "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Commom\\SAEA.Common.csproj": {
+              "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Commom\\SAEA.Common.csproj"
+            },
+            "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Sockets\\SAEA.Sockets.csproj": {
+              "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.Sockets\\SAEA.Sockets.csproj"
+>>>>>>> 98175a978e70d48b49a6074554d262fb198187c9
             }
           }
         }
