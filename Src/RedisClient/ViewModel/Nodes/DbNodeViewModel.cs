@@ -14,6 +14,8 @@ namespace RedisClient
         private SAEA.RedisSocket.RedisClient _client;
         private int _dbIdx;
         private int _dbSize;
+        private int _offSet=0;
+        private const int PAGE_SIZE = 5;
 
         public DbNodeViewModel(int dbIdx,int dbSize, SAEA.RedisSocket.RedisClient client)
         {
@@ -63,7 +65,9 @@ namespace RedisClient
         {
             this.Keys.Clear();
             this._client.Select(this.Index); //选中本节点索引
-            var keys = this._client.GetDataBase().Keys();
+            var sp = this._client.GetDataBase().Scan(this._offSet, "*", PAGE_SIZE);
+            this._offSet = sp.Offset;
+            var keys=sp.Data;
             if (keys == null)
                 return;
             var lst = await Task.Run(() =>
@@ -117,6 +121,21 @@ namespace RedisClient
             get
             {
                 return this._loadKeysCommand ?? (this._loadKeysCommand = new RelayCommand(() =>
+                {
+                    this._offSet = 0;
+                    this.LoadKeysAsync();
+                    this.IsExpanded = true;
+                }));
+            }
+        }
+
+        private ICommand _loadNextPageCommand;
+
+        public ICommand LoadNextPageCommand
+        {
+            get
+            {
+                return this._loadNextPageCommand ?? (this._loadNextPageCommand = new RelayCommand(() =>
                 {
                     this.LoadKeysAsync();
                     this.IsExpanded = true;

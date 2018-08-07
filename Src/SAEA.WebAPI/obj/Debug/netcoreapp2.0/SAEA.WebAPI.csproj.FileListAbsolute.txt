@@ -11,3 +11,4 @@ D:\MyProjects\SAEA\Src\SAEA.WebAPI\obj\Debug\netcoreapp2.0\SAEA.WebAPI.AssemblyI
 D:\MyProjects\SAEA\Src\SAEA.WebAPI\obj\Debug\netcoreapp2.0\SAEA.WebAPI.csproj.CopyComplete
 D:\MyProjects\SAEA\Src\SAEA.WebAPI\obj\Debug\netcoreapp2.0\SAEA.WebAPI.dll
 D:\MyProjects\SAEA\Src\SAEA.WebAPI\obj\Debug\netcoreapp2.0\SAEA.WebAPI.pdb
+D:\MyProjects\SAEA\Src\SAEA.WebAPI\obj\Debug\netcoreapp2.0\SAEA.WebAPI.csprojAssemblyReference.cache

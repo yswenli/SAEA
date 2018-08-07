@@ -11,3 +11,4 @@ D:\MyProjects\SAEA\Src\SAEA.RPC\obj\Debug\netcoreapp2.0\SAEA.RPC.AssemblyInfo.cs
 D:\MyProjects\SAEA\Src\SAEA.RPC\obj\Debug\netcoreapp2.0\SAEA.RPC.csproj.CopyComplete
 D:\MyProjects\SAEA\Src\SAEA.RPC\obj\Debug\netcoreapp2.0\SAEA.RPC.dll
 D:\MyProjects\SAEA\Src\SAEA.RPC\obj\Debug\netcoreapp2.0\SAEA.RPC.pdb
+D:\MyProjects\SAEA\Src\SAEA.RPC\obj\Debug\netcoreapp2.0\SAEA.RPC.csprojAssemblyReference.cache

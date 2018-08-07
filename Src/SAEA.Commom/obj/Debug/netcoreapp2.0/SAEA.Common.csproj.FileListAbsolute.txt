@@ -1,7 +1,6 @@
 D:\MyProjects\SAEA\Src\SAEA.Commom\bin\Debug\netcoreapp2.0\SAEA.Common.deps.json
 D:\MyProjects\SAEA\Src\SAEA.Commom\bin\Debug\netcoreapp2.0\SAEA.Common.dll
 D:\MyProjects\SAEA\Src\SAEA.Commom\bin\Debug\netcoreapp2.0\SAEA.Common.pdb
-D:\MyProjects\SAEA\Src\SAEA.Commom\obj\Debug\netcoreapp2.0\SAEA.Common.csprojAssemblyReference.cache
 D:\MyProjects\SAEA\Src\SAEA.Commom\obj\Debug\netcoreapp2.0\SAEA.Common.csproj.CoreCompileInputs.cache
 D:\MyProjects\SAEA\Src\SAEA.Commom\obj\Debug\netcoreapp2.0\SAEA.Common.AssemblyInfoInputs.cache
 D:\MyProjects\SAEA\Src\SAEA.Commom\obj\Debug\netcoreapp2.0\SAEA.Common.AssemblyInfo.cs
