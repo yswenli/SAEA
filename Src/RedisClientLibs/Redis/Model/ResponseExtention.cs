@@ -23,6 +23,7 @@
 *****************************************************************************/
 using System;
 using System.Collections.Generic;
+using SAEA.Common;
 
 namespace SAEA.RedisSocket.Model
 {
@@ -45,7 +46,7 @@ namespace SAEA.RedisSocket.Model
             {
                 list = new List<T>();
 
-                var arr = source.Data.Split(new string[] { _enter }, StringSplitOptions.None);
+                var arr = source.Data.Split(_enter);
 
                 for (int i = 0; i < arr.Length; i++)
                 {
@@ -74,7 +75,7 @@ namespace SAEA.RedisSocket.Model
 
             if (!string.IsNullOrEmpty(source.Data))
             {
-                var arr = source.Data.Split(new string[] { _enter }, StringSplitOptions.None);
+                var arr = source.Data.Split(_enter);
 
                 if (arr != null && arr.Length > 0)
                 {
@@ -119,7 +120,7 @@ namespace SAEA.RedisSocket.Model
 
             if (!string.IsNullOrEmpty(source.Data))
             {
-                var arr = source.Data.Split(new string[] { _enter }, StringSplitOptions.None);
+                var arr = source.Data.Split(_enter);
 
                 if (arr != null && arr.Length > 0)
                 {
@@ -153,11 +154,11 @@ namespace SAEA.RedisSocket.Model
         {
             var scanResponse = new ScanResponse();
 
-            var dataArr = source.Data.Split(new string[] { _enter }, StringSplitOptions.None);
+            var dataArr = source.Data.Split(_enter, StringSplitOptions.None);
 
             var doffset = 0;
 
-            int.TryParse(dataArr[0].Split(new string[] { ":" }, StringSplitOptions.RemoveEmptyEntries)[1], out doffset);
+            int.TryParse(dataArr[0].Split(":", StringSplitOptions.RemoveEmptyEntries)[1], out doffset);
 
             scanResponse.Offset = doffset;
 

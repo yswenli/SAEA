@@ -24,6 +24,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using SAEA.Common;
 
 namespace SAEA.RedisSocket.Model
 {
@@ -112,21 +113,21 @@ namespace SAEA.RedisSocket.Model
 
         public static ClusterInfo Parse(string info)
         {
-            var lines = info.Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+            var lines = info.Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
 
             var clusterInfo = new ClusterInfo()
             {
-                cluster_state = lines[0].Split(new string[] { ":" }, StringSplitOptions.None)[1],
-                cluster_slots_assigned = int.Parse(lines[1].Split(new string[] { ":" }, StringSplitOptions.None)[1]),
-                cluster_slots_ok = int.Parse(lines[2].Split(new string[] { ":" }, StringSplitOptions.None)[1]),
-                cluster_slots_pfail = int.Parse(lines[3].Split(new string[] { ":" }, StringSplitOptions.None)[1]),
-                cluster_slots_fail = int.Parse(lines[4].Split(new string[] { ":" }, StringSplitOptions.None)[1]),
-                cluster_known_nodes = int.Parse(lines[5].Split(new string[] { ":" }, StringSplitOptions.None)[1]),
-                cluster_size = int.Parse(lines[6].Split(new string[] { ":" }, StringSplitOptions.None)[1]),
-                cluster_current_epoch = int.Parse(lines[7].Split(new string[] { ":" }, StringSplitOptions.None)[1]),
-                cluster_my_epoch = int.Parse(lines[8].Split(new string[] { ":" }, StringSplitOptions.None)[1]),
-                cluster_stats_messages_sent = int.Parse(lines[9].Split(new string[] { ":" }, StringSplitOptions.None)[1]),
-                cluster_stats_messages_received = int.Parse(lines[10].Split(new string[] { ":" }, StringSplitOptions.None)[1]),
+                cluster_state = lines[0].Split(":")[1],
+                cluster_slots_assigned = int.Parse(lines[1].Split(":")[1]),
+                cluster_slots_ok = int.Parse(lines[2].Split(":")[1]),
+                cluster_slots_pfail = int.Parse(lines[3].Split(":")[1]),
+                cluster_slots_fail = int.Parse(lines[4].Split(":")[1]),
+                cluster_known_nodes = int.Parse(lines[5].Split(":")[1]),
+                cluster_size = int.Parse(lines[6].Split(":")[1]),
+                cluster_current_epoch = int.Parse(lines[7].Split(":")[1]),
+                cluster_my_epoch = int.Parse(lines[8].Split(":")[1]),
+                cluster_stats_messages_sent = int.Parse(lines[9].Split(":")[1]),
+                cluster_stats_messages_received = int.Parse(lines[10].Split(":")[1]),
             };
 
             return clusterInfo;

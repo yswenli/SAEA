@@ -30,7 +30,10 @@ namespace SAEA.RedisSocket.Model
         {
             get; set;
         }
-
+        public string used_memory
+        {
+            get; set;
+        }
         public string used_cpu_sys
         {
             get; set;
@@ -73,17 +76,17 @@ namespace SAEA.RedisSocket.Model
 
         public string cluster_enabled
         {
-            get;set;
+            get; set;
         }
 
         public string executable
         {
-            get;set;
+            get; set;
         }
 
         public string config_file
         {
-            get;set;
+            get; set;
         }
 
     }

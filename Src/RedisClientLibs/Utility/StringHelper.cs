@@ -84,5 +84,17 @@ namespace SAEA.Common
             return str.Split(splits, none ? StringSplitOptions.None : StringSplitOptions.RemoveEmptyEntries);
         }
 
+        /// <summary>
+        /// 自定义扩展
+        /// </summary>
+        /// <param name="str"></param>
+        /// <param name="splitStr"></param>
+        /// <param name="option"></param>
+        /// <returns></returns>
+        public static string[] Split(this string str, string splitStr, StringSplitOptions option = StringSplitOptions.None)
+        {
+            return str.Split(new string[] { splitStr }, option);
+        }
+
     }
 }

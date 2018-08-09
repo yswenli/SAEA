@@ -424,14 +424,13 @@ namespace SAEA.RedisSocket.Core
             }
             return result;
         }
-        private static bool GetStatusString(string command, out string error)
+        private static bool GetStatusString(string command, out string msg)
         {
-            error = string.Empty;
+            msg = string.Empty;
             var result = false;
             if (!string.IsNullOrEmpty(command) && command.Length > 0)
             {
-                var c = command.Substring(0, 1);
-                if (c == "+")
+                if (string.Compare(command, "+") == 1)
                 {
                     result = true;
                 }
@@ -439,7 +438,7 @@ namespace SAEA.RedisSocket.Core
                 {
                     result = false;
                 }
-                error = command.Substring(1);
+                msg = command.Substring(1, command.Length - 3);
             }
             return result;
         }

@@ -389,7 +389,7 @@ namespace SAEA.RedisSocket.Core
             {
                 List<string> list = new List<string>();
 
-                var arr = type.ToString().Split(new string[] { "_" }, StringSplitOptions.None);
+                var arr = type.ToString().Split("_");
 
                 list.AddRange(arr);
 
@@ -425,7 +425,7 @@ namespace SAEA.RedisSocket.Core
             {
                 List<string> list = new List<string>();
 
-                var arr = type.ToString().Split(new string[] { "_" }, StringSplitOptions.None);
+                var arr = type.ToString().Split("_");
 
                 list.AddRange(arr);
 

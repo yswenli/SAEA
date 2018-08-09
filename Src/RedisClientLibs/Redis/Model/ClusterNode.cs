@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using SAEA.Common;
 
 namespace SAEA.RedisSocket.Model
 {
@@ -46,7 +47,7 @@ namespace SAEA.RedisSocket.Model
 
         public static List<ClusterNode> ParseList(string info)
         {
-            var lines = info.Replace("\r\n", "").Split(new string[] { "\n" }, StringSplitOptions.RemoveEmptyEntries);
+            var lines = info.Replace("\r\n", "").Split("\n", StringSplitOptions.RemoveEmptyEntries);
 
             List<ClusterNode> list = new List<ClusterNode>();
 
@@ -62,7 +63,7 @@ namespace SAEA.RedisSocket.Model
         {
             ClusterNode clusterNode = new ClusterNode();
 
-            var arr = info.Split(new string[] { " " }, StringSplitOptions.RemoveEmptyEntries);
+            var arr = info.Split(" ");
 
             clusterNode.NodeID = arr[0];
             clusterNode.IPPort = arr[1];

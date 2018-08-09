@@ -73,18 +73,18 @@ namespace SAEA.RedisSocket
         {
             try
             {
-                var arr = connectionStr.Split(new string[] { ";" }, StringSplitOptions.RemoveEmptyEntries);
+                var arr = connectionStr.Split(";", StringSplitOptions.RemoveEmptyEntries);
                 foreach (var item in arr)
                 {
                     if (item.Contains("server="))
                     {
-                        var IPPort = item.Split(new string[] { "=" }, StringSplitOptions.RemoveEmptyEntries)[1].GetIPPort();
+                        var IPPort = item.Split("=", StringSplitOptions.RemoveEmptyEntries)[1].GetIPPort();
                         this.IP = IPPort.Item1;
                         this.Port = IPPort.Item2;
                     }
                     else if (item.Contains("passwords="))
                     {
-                        this.Passwords = item.Split(new string[] { "=" }, StringSplitOptions.RemoveEmptyEntries)[1];
+                        this.Passwords = item.Split("=", StringSplitOptions.RemoveEmptyEntries)[1];
                     }
                 }
             }
