@@ -521,3 +521,4 @@ Src/SAEA.WebSocketTest/obj/project.assets.json
 Src/SAEA.WebSocketTest/obj/SAEA.WebSocketTest.csproj.nuget.cache
 Src/SAEA.WebSocketTest/obj/SAEA.WebSocketTest.csproj.nuget.g.props
 Src/SAEA.WebSocketTest/obj/SAEA.WebSocketTest.csproj.nuget.g.targets
+Src/SAEA.RPC/obj/Debug/netcoreapp2.0/SAEA.RPC.csprojAssemblyReference.cache
