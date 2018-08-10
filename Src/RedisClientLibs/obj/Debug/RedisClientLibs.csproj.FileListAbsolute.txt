@@ -1,9 +1,0 @@
-D:\MyProjects\SAEA\Src\RedisClientLibs\bin\Debug\RedisClientLibs.dll
-D:\MyProjects\SAEA\Src\RedisClientLibs\bin\Debug\RedisClientLibs.pdb
-D:\MyProjects\SAEA\Src\RedisClientLibs\bin\Debug\Newtonsoft.Json.dll
-D:\MyProjects\SAEA\Src\RedisClientLibs\bin\Debug\Newtonsoft.Json.xml
-D:\MyProjects\SAEA\Src\RedisClientLibs\obj\Debug\RedisClientLibs.csprojAssemblyReference.cache
-D:\MyProjects\SAEA\Src\RedisClientLibs\obj\Debug\RedisClientLibs.csproj.CoreCompileInputs.cache
-D:\MyProjects\SAEA\Src\RedisClientLibs\obj\Debug\RedisClientLibs.csproj.CopyComplete
-D:\MyProjects\SAEA\Src\RedisClientLibs\obj\Debug\RedisClientLibs.dll
-D:\MyProjects\SAEA\Src\RedisClientLibs\obj\Debug\RedisClientLibs.pdb
