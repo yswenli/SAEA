@@ -187,9 +187,9 @@ namespace SAEA.RedisSocket.Core
             return result;
         }
 
-        public bool SExists(string key)
+        public bool SExists(string key, string value)
         {
-            var result = base.Do(RequestType.SISMEMBER, key).Type;
+            var result = base.Do(RequestType.SISMEMBER, key, value).Type;
             return result == ResponseType.Empty ? false : true;
         }
 
