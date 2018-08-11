@@ -245,7 +245,16 @@ namespace SAEA.WebAPI.Http.Base
             if (string.IsNullOrEmpty(row)) return null;
             var kvs = Regex.Split(row, "&");
             if (kvs == null || kvs.Count() <= 0) return null;
-            return kvs.ToDictionary(e => Regex.Split(e, "=")[0], e => _httpUtility.UrlDecode(Regex.Split(e, "=")[1]));
+            Dictionary<string, string> dic = new Dictionary<string, string>();
+            foreach (var item in kvs)
+            {
+                var arr = Regex.Split(item, "=");
+                if(dic.TryAdd(arr[0], _httpUtility.UrlDecode(arr[1])))
+                {
+                    dic[arr[0]] = _httpUtility.UrlDecode(arr[1]);
+                }
+            }
+            return dic;
         }
 
         private Dictionary<string, string> GetRequestForms(string row)
@@ -253,7 +262,16 @@ namespace SAEA.WebAPI.Http.Base
             if (string.IsNullOrEmpty(row)) return null;
             var kvs = Regex.Split(row, "&");
             if (kvs == null || kvs.Count() <= 0) return null;
-            return kvs.ToDictionary(e => Regex.Split(e, "=")[0], e => _httpUtility.HtmlDecode(_httpUtility.UrlDecode(Regex.Split(e, "=")[1])));
+            Dictionary<string, string> dic = new Dictionary<string, string>();
+            foreach (var item in kvs)
+            {
+                var arr = Regex.Split(item, "=");
+                if (dic.TryAdd(arr[0], _httpUtility.UrlDecode(arr[1])))
+                {
+                    dic[arr[0]] = _httpUtility.HtmlDecode(_httpUtility.UrlDecode(arr[1]));
+                }
+            }
+            return dic;
         }
 
         private Dictionary<string, string> GetRequestHeaders(IEnumerable<string> rows)
@@ -271,7 +289,16 @@ namespace SAEA.WebAPI.Http.Base
             if (string.IsNullOrEmpty(cookieStr)) return null;
             var kvs = Regex.Split(cookieStr, ";");
             if (kvs == null || kvs.Count() <= 0) return null;
-            return kvs.ToDictionary(e => Regex.Split(e, "=")[0], e => Regex.Split(e, "=")[1]);
+            Dictionary<string, string> dic = new Dictionary<string, string>();
+            foreach (var item in kvs)
+            {
+                var arr = Regex.Split(item, "=");
+                if (dic.TryAdd(arr[0], _httpUtility.UrlDecode(arr[1])))
+                {
+                    dic[arr[0]] = _httpUtility.HtmlDecode(_httpUtility.UrlDecode(arr[1]));
+                }
+            }
+            return dic;
         }
 
         private string GetRequestBody(IEnumerable<string> rows)

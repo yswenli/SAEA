@@ -92,12 +92,12 @@ namespace SAEA.RedisSocket.Model
                             {
                                 double score = 0D;
                                 double.TryParse(arr[i + 1], out score);
+                                i++;
                                 zItem.Value = val;
                                 zItem.Score = score;
                                 result.Add(zItem);
                             }
                         }
-                        i++;
                     }
                 }
             }
@@ -134,14 +134,13 @@ namespace SAEA.RedisSocket.Model
                             if (i + 1 < arr.Length)
                             {
                                 keyValuePairs.Add(key, arr[i + 1]);
+                                i++;
                             }
                             else
                             {
                                 keyValuePairs.Add(key, string.Empty);
                             }
                         }
-
-                        i += 1;
                     }
                 }
             }
@@ -192,14 +191,13 @@ namespace SAEA.RedisSocket.Model
                         if (i + 1 <= source.Data.Count)
                         {
                             data.Add(key, source.Data[i + 1]);
+                            i++;
                         }
                         else
                         {
                             data.Add(key, string.Empty);
                         }
                     }
-
-                    i += 1;
                 }
             }
 
@@ -233,6 +231,7 @@ namespace SAEA.RedisSocket.Model
                     if (i + 1 < source.Data.Count)
                     {
                         double.TryParse(source.Data[i + 1], out score);
+                        i++;
                     }
                     zi.Score = score;
 
