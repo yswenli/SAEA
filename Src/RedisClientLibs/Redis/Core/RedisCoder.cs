@@ -60,7 +60,8 @@ namespace SAEA.RedisSocket.Core
             sb.AppendLine("*" + @params.Length);
             foreach (var param in @params)
             {
-                sb.AppendLine("$" + param.Length);
+                var length = Encoding.UTF8.GetBytes(param).Length;
+                sb.AppendLine("$" + length);
                 sb.AppendLine(param);
             }
             _sendCommand = sb.ToString();
