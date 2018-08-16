@@ -3122,23 +3122,23 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\Walle\\.nuget\\packages\\": {},
+    "C:\\Users\\yswenli\\.nuget\\packages\\": {},
     "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\Walle\\Documents\\GitHub\\SAEA\\Src\\SAEA.MessageTest\\SAEA.MessageTest.csproj",
+      "projectUniqueName": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.MessageTest\\SAEA.MessageTest.csproj",
       "projectName": "SAEA.MessageTest",
-      "projectPath": "C:\\Users\\Walle\\Documents\\GitHub\\SAEA\\Src\\SAEA.MessageTest\\SAEA.MessageTest.csproj",
-      "packagesPath": "C:\\Users\\Walle\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\Walle\\Documents\\GitHub\\SAEA\\Src\\SAEA.MessageTest\\obj\\",
+      "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.MessageTest\\SAEA.MessageTest.csproj",
+      "packagesPath": "C:\\Users\\yswenli\\.nuget\\packages\\",
+      "outputPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.MessageTest\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
       ],
       "configFilePaths": [
-        "C:\\Users\\Walle\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\yswenli\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
@@ -3151,8 +3151,8 @@
       "frameworks": {
         "netcoreapp2.0": {
           "projectReferences": {
-            "C:\\Users\\Walle\\Documents\\GitHub\\SAEA\\Src\\SAEA.MessageSocket\\SAEA.MessageSocket.csproj": {
-              "projectPath": "C:\\Users\\Walle\\Documents\\GitHub\\SAEA\\Src\\SAEA.MessageSocket\\SAEA.MessageSocket.csproj"
+            "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.MessageSocket\\SAEA.MessageSocket.csproj": {
+              "projectPath": "F:\\百度云\\Develop\\案例\\网络类\\SAEA\\Src\\SAEA.MessageSocket\\SAEA.MessageSocket.csproj"
             }
           }
         }
