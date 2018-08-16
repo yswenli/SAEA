@@ -84,8 +84,8 @@ namespace SAEA.WebAPI.Mvc
         {
             _controllerActionName = new NameValueItem
             {
-                Name = controllerName.ToLower(),
-                Value = actionName.ToLower()
+                Name = controllerName,
+                Value = actionName
             };
         }
 
