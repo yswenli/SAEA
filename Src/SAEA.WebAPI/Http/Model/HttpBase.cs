@@ -122,11 +122,11 @@ namespace SAEA.WebAPI.Http.Model
                 var key = ResponseHeaderType.ContentType.GetDescription();
                 if (!this.Headers.ContainsKey(key))
                 {
-                    this.Headers.Add(key, value.ToLower());
+                    this.Headers.Add(key, value);
                 }
                 else
                 {
-                    this.Headers[key] = value.ToLower();
+                    this.Headers[key] = value;
                 }
             }
         }

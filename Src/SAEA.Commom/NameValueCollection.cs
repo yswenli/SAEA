@@ -67,7 +67,7 @@ namespace SAEA.Common
 
         public void Add(string name, string value)
         {
-            var header = new NameValueItem() { Name = name.ToLower(), Value = value };
+            var header = new NameValueItem() { Name = name, Value = value };
 
             Add(header);
         }
@@ -79,7 +79,7 @@ namespace SAEA.Common
 
         public NameValueItem Get(string name)
         {
-            return _list.Where(b => b.Name.ToLower() == name.ToLower()).FirstOrDefault();
+            return _list.Where(b => string.Compare(b.Name, name, true) > -1).FirstOrDefault();
         }
 
         public bool TryGetValue(string name, out string value)
@@ -100,12 +100,12 @@ namespace SAEA.Common
 
         public bool ContainsName(string name)
         {
-            return _list.Exists(b => b.Name.ToLower() == name.ToLower());
+            return _list.Exists(b => string.Compare(b.Name, name) > -1);
         }
 
         public bool Exists(NameValueItem header)
         {
-            return _list.Exists(b => b.Name.ToLower() == header.Name.ToLower() && b.Value == header.Value);
+            return _list.Exists(b => string.Compare(b.Name , header.Name)>-1 && b.Value == header.Value);
         }
 
         public void Remove(string name)
@@ -127,7 +127,7 @@ namespace SAEA.Common
 
         public void Set(string name, string value)
         {
-            var header = new NameValueItem() { Name = name.ToLower(), Value = value };
+            var header = new NameValueItem() { Name = name, Value = value };
             Set(header);
         }
 

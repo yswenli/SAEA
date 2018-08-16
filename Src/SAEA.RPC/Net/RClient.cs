@@ -59,7 +59,7 @@ namespace SAEA.RPC.Net
 
         public RClient(Uri uri) : this(100 * 1024, uri.Host, uri.Port)
         {
-            if (string.IsNullOrEmpty(uri.Scheme) || uri.Scheme.ToLower() != "rpc")
+            if (string.IsNullOrEmpty(uri.Scheme) || string.Compare(uri.Scheme, "rpc", true) > -1)
             {
                 ExceptionCollector.Add("Consumer", new RPCSocketException("当前连接协议不正确，请使用格式rpc://ip:port"));
                 return;
