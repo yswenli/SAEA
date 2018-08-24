@@ -16,7 +16,7 @@ namespace SAEA.Common
 
         public static readonly string[] DicTypeStrs = { "Dictionary`2", "IDictionary`2" };
 
-        static StackTrace _stackTrace = new StackTrace(true);
+        static readonly StackTrace StackTrace = new StackTrace(true);
 
         /// <summary>
         /// 因为.net framework的环境不同
@@ -24,7 +24,7 @@ namespace SAEA.Common
         /// <returns></returns>
         public static Type[] GetDefalt()
         {
-            var frames = _stackTrace.GetFrames();
+            var frames = StackTrace.GetFrames();
 
             MethodBase[] mbs = new MethodBase[frames.Length];
 
@@ -73,9 +73,9 @@ namespace SAEA.Common
             return type.Name;
         }
 
-        private static object _syncRoot = new object();
+        private static readonly object SyncRoot = new object();
 
-        private static Dictionary<string, TypeInfo> _instanceCache = new Dictionary<string, TypeInfo>();
+        private static readonly Dictionary<string, TypeInfo> InstanceCache = new Dictionary<string, TypeInfo>();
         /// <summary>
         /// 添加或获取实例
         /// </summary>
@@ -83,7 +83,7 @@ namespace SAEA.Common
         /// <returns></returns>
         public static TypeInfo GetOrAddInstance(Type type, string methodName = "Add")
         {
-            lock (_syncRoot)
+            lock (SyncRoot)
             {
 
                 if (type.IsInterface)
@@ -97,7 +97,7 @@ namespace SAEA.Common
 
                     TypeInfo typeInfo;
 
-                    if (!_instanceCache.TryGetValue(fullName, out typeInfo))
+                    if (!InstanceCache.TryGetValue(fullName, out typeInfo))
                     {
                         Type[] argsTypes = null;
 
@@ -116,7 +116,7 @@ namespace SAEA.Common
                             FastInvokeHandler = mi == null ? null : FastInvoke.GetMethodInvoker(mi),
                             ArgTypes = argsTypes
                         };
-                        _instanceCache.Add(fullName, typeInfo);
+                        InstanceCache.Add(fullName, typeInfo);
                     }
                     else
                     {
@@ -130,7 +130,7 @@ namespace SAEA.Common
 
         public static TypeInfo GetOrAddInstance(Type type, MethodInfo mb)
         {
-            lock (_syncRoot)
+            lock (SyncRoot)
             {
                 if (type.IsInterface)
                 {
@@ -139,7 +139,7 @@ namespace SAEA.Common
 
                 var fullName = type.FullName + mb.Name;
 
-                if (!_instanceCache.TryGetValue(fullName, out TypeInfo typeInfo))
+                if (!InstanceCache.TryGetValue(fullName, out TypeInfo typeInfo))
                 {
                     typeInfo = new TypeInfo()
                     {
@@ -147,7 +147,7 @@ namespace SAEA.Common
                         Instance = Activator.CreateInstance(type),
                         FastInvokeHandler = FastInvoke.GetMethodInvoker(mb)
                     };
-                    _instanceCache.TryAdd(fullName, typeInfo);
+                    InstanceCache.TryAdd(fullName, typeInfo);
                 }
                 else
                 {

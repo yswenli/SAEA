@@ -13,7 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SAEA.Commom\SAEA.Common.csproj" />
+    <ProjectReference Include="..\SAEA.Common\SAEA.Common.csproj" />
     <ProjectReference Include="..\SAEA.Sockets\SAEA.Sockets.csproj" />
   </ItemGroup>
 
