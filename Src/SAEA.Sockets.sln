@@ -51,6 +51,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedisClientLibs", "RedisCli
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedusClientConsole", "RedusClientConsole\RedusClientConsole.csproj", "{3EE18125-3542-4288-89C3-720161F67151}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAEA.Common.DNC", "SAEA.Common.DNC\SAEA.Common.DNC.csproj", "{57AF9624-504F-4E45-BAE0-5807ED097B45}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -149,6 +151,10 @@ Global
 		{3EE18125-3542-4288-89C3-720161F67151}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3EE18125-3542-4288-89C3-720161F67151}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3EE18125-3542-4288-89C3-720161F67151}.Release|Any CPU.Build.0 = Release|Any CPU
+		{57AF9624-504F-4E45-BAE0-5807ED097B45}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{57AF9624-504F-4E45-BAE0-5807ED097B45}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{57AF9624-504F-4E45-BAE0-5807ED097B45}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{57AF9624-504F-4E45-BAE0-5807ED097B45}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

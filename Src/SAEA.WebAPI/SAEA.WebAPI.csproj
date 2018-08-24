@@ -12,6 +12,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\SAEA.Common.DNC\SAEA.Common.DNC.csproj" />
     <ProjectReference Include="..\SAEA.Sockets\SAEA.Sockets.csproj" />
   </ItemGroup>
 

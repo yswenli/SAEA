@@ -33,6 +33,7 @@ using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Concurrent;
 using System.Net.Sockets;
+using SAEA.Common;
 
 namespace SAEA.Sockets.Core
 {
@@ -89,15 +90,13 @@ namespace SAEA.Sockets.Core
                 else
                 {
                     args.Dispose();
-                    args = null;
                 }
             }
         }
 
         public void Clear()
         {
-            if (_pool != null)
-                _pool.Clear();
+            _pool.Clear();
         }
 
 
