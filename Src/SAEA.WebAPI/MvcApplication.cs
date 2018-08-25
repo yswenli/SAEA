@@ -35,12 +35,27 @@ namespace SAEA.WebAPI
         HttpServer httpServer;
 
         /// <summary>
+        /// 是否启用静态缓存
+        /// </summary>
+        internal static bool IsStaticsCached { get; set; }
+
+        /// <summary>
+        /// 是压启用内容压缩
+        /// </summary>
+        internal static bool IsZiped { get; set; }
+
+        /// <summary>
         /// 构建mvc容器
         /// </summary>
+        /// <param name="isStaticsCached">是否启用静态缓存</param>
+        /// <param name="isZiped">是压启用内容压缩</param>
         /// <param name="bufferSize">http处理数据缓存大小</param>
         /// <param name="count">http连接数上限</param>
-        public MvcApplication(int bufferSize = 1024 * 100, int count = 10000)
+        public MvcApplication(bool isStaticsCached = true, bool isZiped = true, int bufferSize = 1024 * 100, int count = 10000)
         {
+            IsStaticsCached = isStaticsCached;
+            IsZiped = isZiped;
+
             httpServer = new HttpServer(bufferSize, count);
         }
 

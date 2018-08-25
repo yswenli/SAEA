@@ -41,19 +41,40 @@ namespace SAEA.WebAPI.Mvc
 
         }
 
+        /// <summary>
+        /// 文件内容
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="contentType"></param>
+        /// <param name="status"></param>
         public FileResult(string filePath, string contentType = "", HttpStatusCode status = HttpStatusCode.OK)
         {
-            var data = StaticResourcesCache.GetOrAdd(filePath, (k) =>
+            if (MvcApplication.IsStaticsCached)
             {
+                var data = StaticResourcesCache.GetOrAdd(filePath, (k) =>
+                {
+                    using (var fs = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                    {
+                        var buffer = new byte[fs.Length];
+                        fs.Position = 0;
+                        fs.Read(buffer, 0, buffer.Length);
+                        return buffer;
+                    }
+                });
+                this.Content = data;
+            }
+            else
+            {
+                byte[] data = null;
                 using (var fs = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
                     var buffer = new byte[fs.Length];
                     fs.Position = 0;
                     fs.Read(buffer, 0, buffer.Length);
-                    return buffer;
+                    data = buffer;
                 }
-            });
-            this.Content = data;
+                this.Content = data;
+            }
             this.ContentEncoding = Encoding.UTF8;
             this.ContentType = contentType;
             this.Status = status;

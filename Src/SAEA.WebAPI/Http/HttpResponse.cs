@@ -43,11 +43,8 @@ namespace SAEA.WebAPI.Http
 
         internal IUserToken UserToken { get; set; }
 
-        private bool _isCompressed = false;
-
-        internal HttpResponse(bool isCompressed = true)
+        internal HttpResponse()
         {
-            _isCompressed = isCompressed;
         }
 
         internal void Init(HttpServer httpServer, IUserToken userToken, string protocal)
@@ -119,7 +116,7 @@ namespace SAEA.WebAPI.Http
             builder.AppendLine("Keep-Alive: timeout=20");
             builder.AppendLine("Date: " + DateTimeHelper.Now.ToFString("r"));
 
-            if (_isCompressed)
+            if (MvcApplication.IsZiped)
                 //支持gzip
                 builder.AppendLine("Content-Encoding:gzip");
 
@@ -152,7 +149,7 @@ namespace SAEA.WebAPI.Http
             byte[] lineBytes = Encoding.UTF8.GetBytes(System.Environment.NewLine);
 
             var bdata = this.Body;
-            if (_isCompressed && this.Body != null)
+            if (MvcApplication.IsZiped && this.Body != null)
                 bdata = GZipHelper.Compress(this.Body);
 
             var bodyLen = 0;
