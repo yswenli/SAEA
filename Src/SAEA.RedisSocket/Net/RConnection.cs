@@ -49,9 +49,15 @@ namespace SAEA.RedisSocket.Net
             {
                 this.UserToken.Coder.Pack(data, null, (content) =>
                 {
-                    OnMessage?.Invoke(Encoding.UTF8.GetString(content.Content));
-                }, null);
+                    //OnMessage?.Invoke(Encoding.UTF8.GetString(content.Content));
 
+                    var lines = Encoding.UTF8.GetString(content.Content).Split("\r\n", StringSplitOptions.None);
+                    foreach (var item in lines)
+                    {
+                        OnMessage?.Invoke(item + "\r\n");
+                    }
+
+                }, null);
             }
         }
 

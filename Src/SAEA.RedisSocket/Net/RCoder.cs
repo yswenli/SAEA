@@ -53,27 +53,34 @@ namespace SAEA.RedisSocket.Net
             {
                 _buffer.AddRange(data);
 
-                while (_buffer.Count > 0)
+                //while (_buffer.Count > 0)
+                //{
+                //var buffer = new List<byte>();
+                //for (int i = 0; i < _buffer.Count; i++)
+                //{
+                //    _position++;
+                //    buffer.Add(_buffer[i]);
+                //    if (i > 0 && buffer[i - 1] == 13 && buffer[i] == 10)
+                //    {
+                //        onUnPackage.Invoke(new RMessage() { Content = buffer.ToArray() });
+                //        buffer.Clear();
+                //        break;
+                //    }
+                //}
+                //if (buffer.Count == 0)
+                //{
+                //    _buffer.RemoveRange(0, (int)_position);
+                //    _position = 0;
+                //}
+                //buffer.Clear();
+                //buffer = null;
+
+                //}
+
+                if (_buffer.LastIndexOf(13) == _buffer.Count - 2 && _buffer.LastIndexOf(10) == _buffer.Count - 1)
                 {
-                    var buffer = new List<byte>();
-                    for (int i = 0; i < _buffer.Count; i++)
-                    {
-                        _position++;
-                        buffer.Add(_buffer[i]);
-                        if (i > 0 && buffer[i - 1] == 13 && buffer[i] == 10)
-                        {
-                            onUnPackage.Invoke(new RMessage() { Content = buffer.ToArray() });
-                            buffer.Clear();
-                            break;
-                        }
-                    }
-                    if (buffer.Count == 0)
-                    {
-                        _buffer.RemoveRange(0, (int)_position);
-                        _position = 0;
-                    }
-                    buffer.Clear();
-                    buffer = null;
+                    onUnPackage.Invoke(new RMessage() { Content = _buffer.ToArray() });
+                    _buffer.Clear();
                 }
             }
         }
