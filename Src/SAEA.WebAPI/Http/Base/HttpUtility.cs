@@ -31,6 +31,7 @@ namespace SAEA.WebAPI.Http.Base
 {
     /// <summary>
     /// HttpUtility
+    /// .core
     /// </summary>
     public class HttpUtility
     {
