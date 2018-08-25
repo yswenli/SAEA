@@ -120,7 +120,7 @@ namespace SAEA.RedisSocket
                     {
                         Ping();
                     }
-                    ThreadHelper.Sleep(10 * 1000);
+                    ThreadHelper.Sleep(60 * 1000);
                 }
             }, true, ThreadPriority.Highest);
         }

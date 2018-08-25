@@ -85,9 +85,10 @@ namespace SAEA.RedisSocket.Core
         public string GetRedisReply(int timeOut = 30 * 1000)
         {
             bool stopped = false;
-            var task = Task.Factory.StartNew(() => BlockDequeue(stopped));
+            var task = Task.Factory.StartNew(() => BlockDequeue(ref stopped));
             if (!Task.WaitAll(new Task[] { task }, timeOut))
             {
+                stopped = true;
                 throw new Exception("redis server reply time out!");
             }
             stopped = true;
@@ -98,7 +99,7 @@ namespace SAEA.RedisSocket.Core
         /// 从收到的消息本地队列中出队
         /// </summary>
         /// <returns></returns>
-        private string BlockDequeue(bool stopped = false)
+        private string BlockDequeue(ref bool stopped)
         {
             var result = string.Empty;
             do
@@ -412,8 +413,7 @@ namespace SAEA.RedisSocket.Core
             var result = false;
             if (!string.IsNullOrEmpty(command) && command.Length > 0)
             {
-                var c = command.Substring(0, 1);
-                if (c == "+")
+                if (command.IndexOf("+") == 0)
                 {
                     result = true;
                 }
@@ -431,7 +431,7 @@ namespace SAEA.RedisSocket.Core
             var result = false;
             if (!string.IsNullOrEmpty(command) && command.Length > 0)
             {
-                if (string.Compare(command, "+") == 1)
+                if (command.IndexOf("+") == 0)
                 {
                     result = true;
                 }
@@ -451,11 +451,11 @@ namespace SAEA.RedisSocket.Core
 
             if (!string.IsNullOrEmpty(command))
             {
-                if (command.Length > 2 && command.Substring(0, 1) == "*")
+                if (command.Length > 2 && command.IndexOf("*") == 0)
                 {
                     num = int.Parse(command.Substring(1));
                 }
-                if (command.Length > 2 && command.Substring(0, 1) == "-")
+                if (command.Length > 2 && command.IndexOf("-") == 0)
                 {
                     error = command.Substring(1);
                 }
@@ -469,11 +469,11 @@ namespace SAEA.RedisSocket.Core
             int num = -1;
             if (!string.IsNullOrEmpty(command))
             {
-                if (command.Length > 2 && command.Substring(0, 1) == "$")
+                if (command.Length > 2 && command.IndexOf("$") == 0)
                 {
                     num = int.Parse(command.Substring(1));
                 }
-                if (command.Length > 2 && command.Substring(0, 1) == "-")
+                if (command.Length > 2 && command.IndexOf("-") == 0)
                 {
                     error = command.Substring(1);
                 }
@@ -488,11 +488,11 @@ namespace SAEA.RedisSocket.Core
             int num = 0;
             if (!string.IsNullOrEmpty(command))
             {
-                if (command.Length > 2 && command.Substring(0, 1) == ":")
+                if (command.Length > 2 && command.IndexOf(":") == 0)
                 {
                     int.TryParse(command.Substring(1), out num);
                 }
-                if (command.Length > 2 && command.Substring(0, 1) == "-")
+                if (command.Length > 2 && command.IndexOf("-") == 0)
                 {
                     error = command.Substring(1);
                 }
