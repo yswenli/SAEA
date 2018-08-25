@@ -83,6 +83,16 @@ namespace SAEA.Common
         {
             return str.Split(splits, none ? StringSplitOptions.None : StringSplitOptions.RemoveEmptyEntries);
         }
+        
+        public static string[] Split(this string str, string splitStr, StringSplitOptions option)
+        {
+            return str.Split(new string[] { splitStr }, option);
+        }
+
+        public static string[] Split(this string str, string splitStr)
+        {
+            return str.Split(splitStr, StringSplitOptions.None);
+        }
 
     }
 }

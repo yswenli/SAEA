@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 using System;
+using SAEA.Common;
 using System.Collections.Generic;
 
 namespace SAEA.RedisSocket.Model
