@@ -189,7 +189,7 @@ namespace SAEA.RedisSocket.Model
 
                     if (!string.IsNullOrEmpty(key))
                     {
-                        if (i + 1 <= source.Data.Count)
+                        if (i + 1 < source.Data.Count)
                         {
                             data.Add(key, source.Data[i + 1]);
                             i++;

@@ -38,7 +38,7 @@ namespace SAEA.RedisSocket.Net
 
         List<byte> _buffer = new List<byte>();
 
-        long _position = 0;
+        //long _position = 0;
 
         /// <summary>
         /// 服务器端收包处理

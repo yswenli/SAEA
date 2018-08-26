@@ -40,11 +40,50 @@ namespace SAEA.RedisSocket.Core
 
         RequestType _commandName;
 
-        ConcurrentQueue<string> _queue = new ConcurrentQueue<string>();
+        ConcurrentQueue<string> _fastQueue = new ConcurrentQueue<string>();
+
+        ConcurrentQueue<string> _operationQueue = new ConcurrentQueue<string>();
 
         string _sendCommand = string.Empty;
 
-        readonly string _enter = "\r\n";
+        static string _enter = "\r\n";
+
+        object _locker = new object();
+
+        bool _isDisposed = false;
+
+        /// <summary>
+        /// 初始化
+        /// 将从快速获取的队列中拆成行
+        /// </summary>
+        public RedisCoder()
+        {
+            ThreadHelper.Run(() =>
+            {
+                while (!_isDisposed)
+                {
+                    if (_fastQueue.IsEmpty)
+                    {
+                        Thread.Sleep(10);
+                    }
+                    else
+                    {
+                        if (_fastQueue.TryDequeue(out string result))
+                        {
+                            var items = result.Split(_enter);
+                            foreach (var item in items)
+                            {
+                                _operationQueue.Enqueue(item + _enter);
+                            }
+                        }
+                        else
+                        {
+                            Thread.Sleep(10);
+                        }
+                    }
+                }
+            }, true, ThreadPriority.Highest);
+        }
 
         /// <summary>
         /// 常规编码
@@ -74,7 +113,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="command"></param>
         public void Enqueue(string command)
         {
-            _queue.Enqueue(command);
+            _fastQueue.Enqueue(command);
         }
 
         /// <summary>
@@ -105,7 +144,7 @@ namespace SAEA.RedisSocket.Core
             var result = string.Empty;
             do
             {
-                if (!_queue.TryDequeue(out result))
+                if (!_operationQueue.TryDequeue(out result))
                 {
                     Thread.Sleep(0);
                 }
@@ -245,6 +284,7 @@ namespace SAEA.RedisSocket.Core
                                 {
                                     result.Type = ResponseType.Error;
                                     result.Data = error;
+                                    _operationQueue.Clear();
                                     return result;
                                 }
                                 sb.Append(GetRedisReply());
@@ -273,6 +313,7 @@ namespace SAEA.RedisSocket.Core
                                 {
                                     result.Type = ResponseType.Error;
                                     result.Data = error;
+                                    _operationQueue.Clear();
                                     return result;
                                 }
                                 sb.Append(GetRedisReply());
@@ -342,7 +383,7 @@ namespace SAEA.RedisSocket.Core
                         while (IsSubed)
                         {
                             r = GetRedisReply();
-                            if (r == "message\r\n")
+                            if (string.Compare(r, "message\r\n", true) == 0)
                             {
                                 result.Type = ResponseType.Sub;
                                 GetRedisReply();
@@ -359,6 +400,7 @@ namespace SAEA.RedisSocket.Core
                         {
                             result.Type = ResponseType.Error;
                             result.Data = error;
+                            _operationQueue.Clear();
                             return result;
                         }
                         var wNum = GetWordsNum(GetRedisReply(), out error);
@@ -366,6 +408,7 @@ namespace SAEA.RedisSocket.Core
                         {
                             result.Type = ResponseType.Error;
                             result.Data = error;
+                            _operationQueue.Clear();
                             return result;
                         }
                         GetRedisReply();
@@ -374,6 +417,7 @@ namespace SAEA.RedisSocket.Core
                         {
                             result.Type = ResponseType.Error;
                             result.Data = error;
+                            _operationQueue.Clear();
                             return result;
                         }
                         var channel = GetRedisReply();
@@ -382,6 +426,7 @@ namespace SAEA.RedisSocket.Core
                         {
                             result.Type = ResponseType.Error;
                             result.Data = error;
+                            _operationQueue.Clear();
                             return result;
                         }
                         IsSubed = false;
@@ -396,43 +441,55 @@ namespace SAEA.RedisSocket.Core
                             command = GetRedisReply();
                         }
                         sb = new StringBuilder();
-
                         int offset = 0;
-
                         rn = GetRowNum(command, out error);
-                        if (!string.IsNullOrEmpty(error))
+                        while (rn <= 0)
                         {
-                            result.Type = ResponseType.Error;
-                            result.Data = error;
-                            return result;
-                        }
-                        if (rn > 0)
-                        {
-                            len = GetWordsNum(GetRedisReply(), out error);
+                            command = GetRedisReply();
+                            rn = GetRowNum(command, out error);
                             if (!string.IsNullOrEmpty(error))
                             {
                                 result.Type = ResponseType.Error;
                                 result.Data = error;
+                                _operationQueue.Clear();
                                 return result;
                             }
-                            int.TryParse(GetRedisReply(), out offset);
-                            sb.AppendLine("offset:" + offset);
                         }
                         //
-                        command = GetRedisReply();
-                        if (string.IsNullOrEmpty(command))
-                        {
-                            break;
-                        }
-
-                        rn = GetRowNum(command, out error);
+                        len = GetWordsNum(GetRedisReply(), out error);
                         if (!string.IsNullOrEmpty(error))
                         {
                             result.Type = ResponseType.Error;
                             result.Data = error;
+                            _operationQueue.Clear();
                             return result;
                         }
-
+                        int.TryParse(GetRedisReply(), out offset);
+                        sb.AppendLine("offset:" + offset);
+                        //
+                        command = GetRedisReply();
+                        while (command == _enter)
+                        {
+                            command = GetRedisReply();
+                        }
+                        if (string.IsNullOrEmpty(command))
+                        {
+                            break;
+                        }
+                        rn = GetRowNum(command, out error);
+                        while (rn < 0)
+                        {
+                            command = GetRedisReply();
+                            rn = GetRowNum(command, out error);
+                            if (!string.IsNullOrEmpty(error))
+                            {
+                                result.Type = ResponseType.Error;
+                                result.Data = error;
+                                _operationQueue.Clear();
+                                return result;
+                            }
+                        }
+                        //
                         for (int i = 0; i < rn; i++)
                         {
                             command = GetRedisReply();
@@ -445,7 +502,12 @@ namespace SAEA.RedisSocket.Core
                             }
                             if (len >= 0)
                             {
-                                sb.Append(GetRedisReply());
+                                command = GetRedisReply();
+                                sb.Append(command);
+                            }
+                            else
+                            {
+                                sb.Append(command);
                             }
                         }
                         result.Data = sb.ToString();
@@ -456,9 +518,8 @@ namespace SAEA.RedisSocket.Core
                         break;
                 }
             }
-
+            _operationQueue.Clear();
             _autoResetEvent.Set();
-
             return result;
         }
 
@@ -564,7 +625,7 @@ namespace SAEA.RedisSocket.Core
                 result = new ResponseData()
                 {
                     Type = ResponseType.Redirect,
-                    Data = command.Split(" ")[2].Replace("\r\n", "")
+                    Data = command.Split(" ")[2].Replace(_enter, "")
                 };
             }
             return result;
@@ -572,8 +633,9 @@ namespace SAEA.RedisSocket.Core
 
         public void Dispose()
         {
-            _queue.Clear();
-            _queue = null;
+            _isDisposed = true;
+            _fastQueue.Clear();
+            _operationQueue.Clear();
         }
 
     }
