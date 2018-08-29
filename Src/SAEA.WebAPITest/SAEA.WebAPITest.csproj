@@ -13,10 +13,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Logs\**" />
+    <EmbeddedResource Remove="Logs\**" />
+    <None Remove="Logs\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Remove="Content\Image\c984b2fb80aeca7b15eda8c004f2e0d4.jpg" />
-    <None Remove="Logs\Error20180423.log" />
-    <None Remove="Logs\Error20180508.log" />
-    <None Remove="Logs\Error20180516.log" />
   </ItemGroup>
 
   <ItemGroup>
@@ -27,10 +30,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SAEA.WebAPI\SAEA.WebAPI.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Logs\" />
   </ItemGroup>
 
 </Project>
