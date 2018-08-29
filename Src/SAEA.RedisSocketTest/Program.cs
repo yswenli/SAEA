@@ -113,13 +113,16 @@ namespace SAEA.RedisSocketTest
                 ConsoleHelper.WriteLine("连接redis服务器成功！");
 
                 #region key value
-
-                ConsoleHelper.WriteLine("回车开始kv插值操作...");
-                ConsoleHelper.ReadLine();
-                for (int i = 0; i < 100000; i++)
-                {
-                    redisClient.GetDataBase().Set("key" + i, "val" + i);
-                }
+                ConsoleHelper.WriteLine("回车开始kv插值次操作...");
+                //ConsoleHelper.WriteLine("回车开始kv插值1000000次操作...");
+                //ConsoleHelper.ReadLine();
+                //for (int i = 0; i < 1000000; i++)
+                //{
+                //    redisClient.GetDataBase().Set("key" + i, "val" + i);
+                //}
+                //ConsoleHelper.WriteLine("kv插值操作已完成");
+                //ConsoleHelper.ReadLine();
+                //return;
                 for (int i = 0; i < 100000; i++)
                 {
                     redisClient.GetDataBase().Del("key" + i);
