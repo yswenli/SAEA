@@ -36,13 +36,26 @@ namespace SAEA.RedisSocket.Core
     /// </summary>
     public class RedisCoder : IDisposable
     {
-        AutoResetEvent _autoResetEvent = new AutoResetEvent(true);
+        /// <summary>
+        /// 编码解码同步
+        /// </summary>
+        private readonly AutoResetEvent _coderDecoderSync = new AutoResetEvent(true);
+
+        /// <summary>
+        /// 快速队列同步
+        /// </summary>
+        private readonly AutoResetEvent _fastQueueSync = new AutoResetEvent(false);
+
+        /// <summary>
+        /// 操作队列同步
+        /// </summary>
+        private readonly AutoResetEvent _operationQueueSync = new AutoResetEvent(false);
 
         RequestType _commandName;
 
-        ConcurrentQueue<string> _fastQueue = new ConcurrentQueue<string>();
+        readonly ConcurrentQueue<string> _fastQueue = new ConcurrentQueue<string>();
 
-        ConcurrentQueue<string> _operationQueue = new ConcurrentQueue<string>();
+        readonly ConcurrentQueue<string> _operationQueue = new ConcurrentQueue<string>();
 
         string _sendCommand = string.Empty;
 
@@ -62,24 +75,20 @@ namespace SAEA.RedisSocket.Core
             {
                 while (!_isDisposed)
                 {
-                    if (_fastQueue.IsEmpty)
+                    _fastQueueSync.WaitOne();
+
+                    if (_fastQueue.TryDequeue(out string result))
                     {
-                        Thread.Sleep(10);
+                        var items = result.Split(_enter);
+                        foreach (var item in items)
+                        {
+                            _operationQueue.Enqueue(item + _enter);
+                            _operationQueueSync.Set();
+                        }
                     }
                     else
                     {
-                        if (_fastQueue.TryDequeue(out string result))
-                        {
-                            var items = result.Split(_enter);
-                            foreach (var item in items)
-                            {
-                                _operationQueue.Enqueue(item + _enter);
-                            }
-                        }
-                        else
-                        {
-                            Thread.Sleep(10);
-                        }
+                        Thread.Sleep(10);
                     }
                 }
             }, true, ThreadPriority.Highest);
@@ -93,7 +102,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public string Coder(RequestType commandName, params string[] @params)
         {
-            _autoResetEvent.WaitOne();
+            _coderDecoderSync.WaitOne();
             _commandName = commandName;
             var sb = new StringBuilder();
             sb.AppendLine("*" + @params.Length);
@@ -114,6 +123,7 @@ namespace SAEA.RedisSocket.Core
         public void Enqueue(string command)
         {
             _fastQueue.Enqueue(command);
+            _fastQueueSync.Set();
         }
 
         /// <summary>
@@ -144,10 +154,8 @@ namespace SAEA.RedisSocket.Core
             var result = string.Empty;
             do
             {
-                if (!_operationQueue.TryDequeue(out result))
-                {
-                    Thread.Sleep(0);
-                }
+                if (_operationQueue.IsEmpty) _operationQueueSync.WaitOne();
+                _operationQueue.TryDequeue(out result);
             }
             while (string.IsNullOrEmpty(result) && !stopped);
             return result;
@@ -519,7 +527,7 @@ namespace SAEA.RedisSocket.Core
                 }
             }
             _operationQueue.Clear();
-            _autoResetEvent.Set();
+            _coderDecoderSync.Set();
             return result;
         }
 
