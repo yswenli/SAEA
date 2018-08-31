@@ -75,8 +75,6 @@ namespace SAEA.RedisSocket.Core
             {
                 while (!_isDisposed)
                 {
-                    _fastQueueSync.WaitOne();
-
                     if (_fastQueue.TryDequeue(out string result))
                     {
                         var items = result.Split(_enter);
@@ -88,7 +86,7 @@ namespace SAEA.RedisSocket.Core
                     }
                     else
                     {
-                        Thread.Sleep(10);
+                        _fastQueueSync.WaitOne();
                     }
                 }
             }, true, ThreadPriority.Highest);

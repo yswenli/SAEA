@@ -121,9 +121,7 @@ namespace SAEA.Sockets.Core
             {
                 if (userToken.Socket != null)
                 {
-                    if (userToken.Socket.Connected)
-                        userToken.Socket.Close();
-                    userToken.Socket = null;
+                    userToken.Dispose();
                 }
                 if (_cache)
                 {

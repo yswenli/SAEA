@@ -204,7 +204,7 @@ namespace SAEA.Sockets.Core
                 Disconnect(userToken, ex);
             }
 
-            if (userToken != null && userToken.Socket != null && !userToken.Socket.ReceiveAsync(readArgs))
+            if (userToken != null && userToken.Socket != null && userToken.Socket.Connected && !userToken.Socket.ReceiveAsync(readArgs))
             {
                 ProcessReceived(readArgs);
             }

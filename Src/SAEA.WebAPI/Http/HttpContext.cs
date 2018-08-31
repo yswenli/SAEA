@@ -115,14 +115,8 @@ namespace SAEA.WebAPI.Http
 
         public void Dispose()
         {
-            if (this.Request != null)
-            {
-                this.Request.Dispose();
-            }
-            if (this.Response != null)
-            {
-                this.Response.Dispose();
-            }
+            Request?.Dispose();
+            Response?.Dispose();
         }
 
 

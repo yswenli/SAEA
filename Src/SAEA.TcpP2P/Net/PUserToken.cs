@@ -73,5 +73,13 @@ namespace SAEA.TcpP2P.Net
         {
             _autoResetEvent.Set();
         }
+
+        public void Dispose()
+        {
+            _autoResetEvent.Close();
+            if (Buffer != null)
+                Array.Clear(Buffer, 0, Buffer.Length);
+            Socket?.Close();
+        }
     }
 }
