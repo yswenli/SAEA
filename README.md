@@ -1,7 +1,7 @@
 # SAEA
-SAEA.Socket is a high-performance IOCP framework based on.Net core 2.1.4; Src contains its application test scenarios, such as websocket,rpc, redis driver, MVC WebAPI, lightweight message server, ultra large file transmission, etc. 
+SAEA.Socket is a high-performance IOCP framework based on.dotnet standard 2.0; Src contains its application test scenarios, such as websocket,rpc, redis driver, MVC WebAPI, lightweight message server, ultra large file transmission, etc. 
 
-SAEA.Socket是一个高性能IOCP框架，基于.net core 2.1.4；Src中含有其应用测试场景，例如websocket、rpc、redis驱动、MVC WebAPI、轻量级消息服务器、超大文件传输等
+SAEA.Socket是一个高性能IOCP框架，基于.dotnet standard 2.0；Src中含有其应用测试场景，例如websocket、rpc、redis驱动、MVC WebAPI、轻量级消息服务器、超大文件传输等
 
 # FileTransfer
 <img src="https://github.com/yswenli/SAEA/blob/master/FileSocketTest.png?raw=true" alt="SAEA.FileSocket"/>
