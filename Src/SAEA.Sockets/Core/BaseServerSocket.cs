@@ -196,6 +196,18 @@ namespace SAEA.Sockets.Core
                     _argsPool.Free(readArgs);
                     Disconnect(userToken, null);
                 }
+
+                //继续接收下一个
+                if (userToken != null && userToken.Socket != null && userToken.Socket.Connected)
+                {
+                    if (!userToken.Socket.ReceiveAsync(readArgs))
+                        ProcessReceived(readArgs);
+                }
+                else
+                {
+                    _argsPool.Free(readArgs);
+                    Disconnect(userToken, new Exception("远程连接已关闭"));
+                }
             }
             catch (Exception ex)
             {
@@ -204,10 +216,6 @@ namespace SAEA.Sockets.Core
                 Disconnect(userToken, ex);
             }
 
-            if (userToken != null && userToken.Socket != null && userToken.Socket.Connected && !userToken.Socket.ReceiveAsync(readArgs))
-            {
-                ProcessReceived(readArgs);
-            }
         }
 
         private void ProcessSended(SocketAsyncEventArgs e)
@@ -226,7 +234,7 @@ namespace SAEA.Sockets.Core
         {
             if (userToken == null || userToken.Socket == null || !userToken.Socket.Connected)
             {
-                Disconnect(userToken, new Exception("当前连接已被移除"));
+                Disconnect(userToken, new Exception("远程连接已关闭"));
                 return;
             }
 
@@ -258,7 +266,7 @@ namespace SAEA.Sockets.Core
         {
             if (userToken == null || userToken.Socket == null || !userToken.Socket.Connected)
             {
-                Disconnect(userToken, new Exception("当前连接已被移除"));
+                Disconnect(userToken, new Exception("远程连接已关闭"));
                 return;
             }
 
@@ -277,7 +285,6 @@ namespace SAEA.Sockets.Core
                         break;
                     }
                 }
-
 
                 SessionManager.Active(userToken.ID);
             }

@@ -29,14 +29,17 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Common;
 using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Concurrent;
 using System.Net.Sockets;
-using SAEA.Common;
 
 namespace SAEA.Sockets.Core
 {
+    /// <summary>
+    /// SocketAsyncEventArgs pool
+    /// </summary>
     public class ArgsPool
     {
         ConcurrentQueue<SocketAsyncEventArgs> _pool = new ConcurrentQueue<SocketAsyncEventArgs>();
@@ -77,18 +80,28 @@ namespace SAEA.Sockets.Core
             return args;
         }
 
+        /// <summary>
+        /// 释放资源
+        /// 如缓存则进入缓存
+        /// </summary>
+        /// <param name="args"></param>
         public void Free(SocketAsyncEventArgs args)
         {
             if (args != null)
             {
                 if (_cache)
                 {
-                    args.AcceptSocket = null;
+                    args.AcceptSocket?.Close();
+                    args.ConnectSocket?.Close();
                     args.UserToken = null;
                     _pool.Enqueue(args);
                 }
                 else
                 {
+                    args.AcceptSocket?.Close();
+                    args.ConnectSocket?.Close();
+                    args.UserToken = null;
+                    args.Completed -= _completed;
                     args.Dispose();
                 }
             }
@@ -96,7 +109,7 @@ namespace SAEA.Sockets.Core
 
         public void Clear()
         {
-            _pool.Clear();
+            _pool?.Clear();
         }
 
 

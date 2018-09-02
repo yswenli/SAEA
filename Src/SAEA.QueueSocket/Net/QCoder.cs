@@ -234,8 +234,7 @@ namespace SAEA.QueueSocket.Net
         /// </summary>
         public void Dispose()
         {
-            _buffer.Clear();
-            _buffer = null;
+            _buffer?.Clear();
         }
 
 

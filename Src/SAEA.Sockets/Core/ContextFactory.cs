@@ -35,7 +35,6 @@ using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Concurrent;
 using System.Net.Sockets;
-using System.Threading;
 
 namespace SAEA.Sockets.Core
 {
@@ -97,21 +96,19 @@ namespace SAEA.Sockets.Core
 
             if (_cache)
             {
-                _utQueue.TryDequeue(out userToken);
+                if (!_utQueue.TryDequeue(out userToken))
+                {
+                    userToken = this.InitUserToken();
+                }
             }
             else
             {
                 userToken = this.InitUserToken();
             }
-            if (userToken != null)
-            {
-                userToken.Socket = socket;
-                userToken.ID = socket.RemoteEndPoint.ToString();
-                userToken.Linked = DateTimeHelper.Now;
-                userToken.Actived = DateTimeHelper.Now;
-            }
-            else
-                throw new Exception("当前服务器设置连接数已达上限！");
+            userToken.Socket = socket;
+            userToken.ID = socket.RemoteEndPoint.ToString();
+            userToken.Linked = DateTimeHelper.Now;
+            userToken.Actived = DateTimeHelper.Now;
             return userToken;
         }
 
@@ -119,13 +116,18 @@ namespace SAEA.Sockets.Core
         {
             try
             {
-                if (userToken.Socket != null)
+                if (userToken.Socket != null && userToken.Socket.Connected)
                 {
-                    userToken.Dispose();
+                    userToken.Socket.Close();
                 }
                 if (_cache)
                 {
+                    Array.Clear(userToken.Buffer, 0, userToken.Buffer.Length);
                     _utQueue.Enqueue(userToken);
+                }
+                else
+                {
+                    userToken?.Dispose();
                 }
             }
             catch { }
@@ -136,7 +138,6 @@ namespace SAEA.Sockets.Core
             if (_cache)
             {
                 _utQueue.Clear();
-                _utQueue = null;
             }
         }
 

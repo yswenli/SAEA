@@ -88,6 +88,7 @@ namespace SAEA.Sockets.Model
             if (Buffer != null)
                 Array.Clear(Buffer, 0, Buffer.Length);
             Socket?.Close();
+            Coder.Dispose();
         }
     }
 }

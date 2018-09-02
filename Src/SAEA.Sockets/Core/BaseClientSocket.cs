@@ -210,8 +210,7 @@ namespace SAEA.Sockets.Core
             _connectEvent.Set();
             try
             {
-                if (_userToken.Socket.Connected)
-                    _userToken.Socket.Shutdown(SocketShutdown.Send);
+                _userToken.Dispose();
             }
             catch { }
             OnDisconnected?.Invoke(_userToken.ID, ex);
