@@ -47,13 +47,14 @@ namespace SAEA.Sockets.Core
     {
         Socket _listener;
 
-        int _bufferSize = 102400;
-
-        ContextFactory _contextFactory;
-
-        ArgsPool _argsPool;
-
         int _clientCounts;
+
+        private SessionManager _sessionManager;
+
+        public SessionManager SessionManager
+        {
+            get { return _sessionManager; }
+        }
 
         public int ClientCounts { get => _clientCounts; private set => _clientCounts = value; }
 
@@ -73,14 +74,15 @@ namespace SAEA.Sockets.Core
         private OnServerReceiveBytesHandler OnServerReceiveBytes;
 
 
-
-        public BaseServerSocket(IContext context, int bufferSize = 100 * 1024, bool cache = false, int count = 10000)
+        /// <summary>
+        /// iocp 服务器 socket
+        /// </summary>
+        /// <param name="context"></param>
+        /// <param name="bufferSize"></param>
+        /// <param name="count"></param>
+        public BaseServerSocket(IContext context, int bufferSize = 100 * 1024, int count = 10000)
         {
-            _bufferSize = bufferSize;
-
-            _contextFactory = new ContextFactory(context, _bufferSize, cache, count);
-
-            _argsPool = new ArgsPool(IO_Completed, cache, count * 2);
+            _sessionManager = new SessionManager(context, bufferSize, count, IO_Completed);
 
             OnServerReceiveBytes = new OnServerReceiveBytesHandler(OnReceiveBytes);
         }
@@ -116,11 +118,11 @@ namespace SAEA.Sockets.Core
         {
             try
             {
-                var userToken = _contextFactory.GetUserToken(e.AcceptSocket);
+                var userToken = _sessionManager.GenerateUserToken(e.AcceptSocket);
 
-                var readArgs = _argsPool.GetArgs(userToken, true);
+                var readArgs = userToken.ReadArgs;
 
-                SessionManager.Add(userToken);
+                _sessionManager.Add(userToken);
 
                 try
                 {
@@ -183,7 +185,7 @@ namespace SAEA.Sockets.Core
             {
                 if (readArgs.SocketError == SocketError.Success && readArgs.BytesTransferred > 0)
                 {
-                    SessionManager.Active(userToken.ID);
+                    _sessionManager.Active(userToken.ID);
 
                     var data = new byte[readArgs.BytesTransferred];
 
@@ -193,7 +195,6 @@ namespace SAEA.Sockets.Core
                 }
                 else
                 {
-                    _argsPool.Free(readArgs);
                     Disconnect(userToken, null);
                 }
 
@@ -205,13 +206,11 @@ namespace SAEA.Sockets.Core
                 }
                 else
                 {
-                    _argsPool.Free(readArgs);
                     Disconnect(userToken, new Exception("远程连接已关闭"));
                 }
             }
             catch (Exception ex)
             {
-                _argsPool.Free(readArgs);
                 OnError?.Invoke(userToken.ID, ex);
                 Disconnect(userToken, ex);
             }
@@ -221,8 +220,7 @@ namespace SAEA.Sockets.Core
         private void ProcessSended(SocketAsyncEventArgs e)
         {
             var userToken = (IUserToken)e.UserToken;
-            SessionManager.Active(userToken.ID);
-            _argsPool.Free(e);
+            _sessionManager.Active(userToken.ID);
         }
 
         /// <summary>
@@ -238,7 +236,7 @@ namespace SAEA.Sockets.Core
                 return;
             }
 
-            var writeArgs = _argsPool.GetArgs(userToken);
+            var writeArgs = userToken.WriteArgs;
 
             writeArgs.SetBuffer(data, 0, data.Length);
 
@@ -250,7 +248,7 @@ namespace SAEA.Sockets.Core
 
         protected void SendAsync(string sessionID, byte[] data)
         {
-            var userToken = SessionManager.Get(sessionID);
+            var userToken = _sessionManager.Get(sessionID);
             if (userToken != null)
             {
                 SendAsync(userToken, data);
@@ -286,7 +284,7 @@ namespace SAEA.Sockets.Core
                     }
                 }
 
-                SessionManager.Active(userToken.ID);
+                _sessionManager.Active(userToken.ID);
             }
             catch (Exception ex)
             {
@@ -308,9 +306,8 @@ namespace SAEA.Sockets.Core
             {
                 if (userToken != null && userToken.Socket != null)
                 {
-                    _contextFactory.Free(userToken);
+                    _sessionManager.Free(userToken);
                     OnDisconnected?.Invoke(userToken.ID, ex);
-                    SessionManager.Remove(userToken.ID);
                     Interlocked.Decrement(ref _clientCounts);
                 }
             }
@@ -323,11 +320,8 @@ namespace SAEA.Sockets.Core
         {
             try
             {
-                _listener.Close();
-                _contextFactory.Clear();
-                SessionManager.Clear();
-                _argsPool.Clear();
                 _listener.Close(10 * 1000);
+                _sessionManager.Clear();
             }
             catch { }
 

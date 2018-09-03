@@ -36,52 +36,149 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Sockets;
 using System.Threading;
 
 namespace SAEA.Sockets.Core
 {
-    public static class SessionManager
+
+    /// <summary>
+    /// 会话管理器
+    /// </summary>
+    public class SessionManager
     {
-        static MemoryCacheHelper<IUserToken> _session;
+        Type _userTokenType;
 
-        static TimeSpan _timeOut;
+        Type _coderType;
 
-        static SessionManager()
+        MemoryCacheHelper<IUserToken> _session;
+
+        TimeSpan _timeOut;
+
+        ConcurrentQueue<IUserToken> _utQueue = new ConcurrentQueue<IUserToken>();
+
+        private int _bufferSize = 1024 * 10;
+
+        EventHandler<SocketAsyncEventArgs> _completed = null;
+
+        /// <summary>
+        /// 构造会话管理器
+        /// </summary>
+        /// <param name="context"></param>
+        /// <param name="bufferSize"></param>
+        /// <param name="count"></param>
+        /// <param name="completed"></param>
+        public SessionManager(IContext context, int bufferSize, int count, EventHandler<SocketAsyncEventArgs> completed)
         {
+            _userTokenType = context.UserToken.GetType();
+            _coderType = context.UserToken.Coder.GetType();
             _session = new MemoryCacheHelper<IUserToken>();
             _timeOut = new TimeSpan(0, 1, 0);
+            _bufferSize = bufferSize;
+            _completed = completed;
+
+            for (int i = 0; i < count; i++)
+            {
+                _utQueue.Enqueue(InitUserToken());
+            }
         }
 
-        public static void Add(IUserToken IUserToken)
+        /// <summary>
+        /// 初始化一个IUserToken
+        /// </summary>
+        /// <returns></returns>
+        private IUserToken InitUserToken()
+        {
+            IUserToken userToken = (IUserToken)Activator.CreateInstance(_userTokenType);
+            ICoder coder = (ICoder)Activator.CreateInstance(_coderType);
+            userToken.Coder = coder;
+            userToken.ReadArgs = new SocketAsyncEventArgs();
+            var buffer = new byte[_bufferSize];
+            userToken.ReadArgs.SetBuffer(buffer, 0, _bufferSize);
+            userToken.ReadArgs.Completed += _completed;
+            userToken.WriteArgs = new SocketAsyncEventArgs();
+            userToken.WriteArgs.Completed += _completed;
+            userToken.ReadArgs.UserToken = userToken;
+            userToken.WriteArgs.UserToken = userToken;
+            return userToken;
+        }
+
+        /// <summary>
+        /// 获取usertoken
+        /// </summary>
+        /// <param name="socket"></param>
+        /// <returns></returns>
+        public IUserToken GenerateUserToken(Socket socket)
+        {
+            IUserToken userToken = null;
+
+            if (!_utQueue.TryDequeue(out userToken))
+            {
+                userToken = this.InitUserToken();
+            }
+            userToken.Socket = socket;
+            userToken.ID = socket.RemoteEndPoint.ToString();
+            userToken.Linked = DateTimeHelper.Now;
+            userToken.Actived = DateTimeHelper.Now;
+            return userToken;
+        }
+
+
+        public void Add(IUserToken IUserToken)
         {
             _session.Set(IUserToken.ID, IUserToken, _timeOut);
 
         }
 
-        public static void Active(string ID)
+        public void Active(string ID)
         {
             _session.Active(ID, _timeOut);
         }
 
-        public static IUserToken Get(string ID)
+        public IUserToken Get(string ID)
         {
             return _session.Get(ID);
         }
 
-        public static void Remove(string ID)
+        /// <summary>
+        /// 释放IUserToken
+        /// </summary>
+        /// <param name="userToken"></param>
+        public void Free(IUserToken userToken)
         {
-            _session.Del(ID);
+            try
+            {
+                _session.Del(userToken.ID);
+
+                if (userToken.Socket != null && userToken.Socket.Connected)
+                {
+                    userToken.Socket.Close();
+                }
+                _utQueue.Enqueue(userToken);
+            }
+            catch { }
 
         }
 
-        public static List<IUserToken> ToList()
+        /// <summary>
+        /// 获取全部会话
+        /// </summary>
+        /// <returns></returns>
+        public List<IUserToken> ToList()
         {
             return _session.List.ToList();
         }
 
-
-        public static void Clear()
+        /// <summary>
+        /// 清理全部会话
+        /// </summary>
+        public void Clear()
         {
+            var list = ToList();
+            foreach (var item in list)
+            {
+                item.Dispose();
+            }
             _session.Clear();
         }
     }

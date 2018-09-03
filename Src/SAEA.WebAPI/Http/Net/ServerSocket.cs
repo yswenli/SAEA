@@ -32,7 +32,7 @@ namespace SAEA.WebAPI.Http.Net
     {
         public event Action<IUserToken, RequestDataReader> OnRequested;
 
-        public ServerSocket(int bufferSize = 1024 * 100, int count = 10000) : base(new HContext(), bufferSize, true, count)
+        public ServerSocket(int bufferSize = 1024 * 100, int count = 10000) : base(new HContext(), bufferSize, count)
         {
 
         }

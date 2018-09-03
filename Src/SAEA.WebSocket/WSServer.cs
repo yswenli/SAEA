@@ -36,7 +36,7 @@ namespace SAEA.WebSocket
     {
         int _heartSpan = 20 * 1000;
 
-        public WSServer(int heartSpan = 20 * 1000, int bufferSize = 1024, int count = 60000) : base(new WSContext(), bufferSize, true, count)
+        public WSServer(int heartSpan = 20 * 1000, int bufferSize = 1024, int count = 60000) : base(new WSContext(), bufferSize, count)
         {
             _heartSpan = heartSpan;
 

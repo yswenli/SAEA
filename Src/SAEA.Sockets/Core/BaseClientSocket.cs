@@ -52,8 +52,6 @@ namespace SAEA.Sockets.Core
 
         int _port = 39654;
 
-        ContextFactory _contextFactory;
-
         IUserToken _userToken;
 
         SocketAsyncEventArgs _connectArgs;
@@ -67,7 +65,7 @@ namespace SAEA.Sockets.Core
         public bool Connected { get => _connected; set => _connected = value; }
         public IUserToken UserToken { get => _userToken; private set => _userToken = value; }
 
-        ArgsPool _argsPool;
+        private SessionManager _sessionManager;
 
         public event OnErrorHandler OnError;
 
@@ -93,9 +91,7 @@ namespace SAEA.Sockets.Core
             _ip = ip;
             _port = port;
 
-            _contextFactory = new ContextFactory(context, bufferSize, false);
-
-            _argsPool = new ArgsPool(IO_Completed, false);
+            _sessionManager = new SessionManager(context, bufferSize, 1, IO_Completed);
 
             OnClientReceive = new OnClientReceiveBytesHandler(OnReceived);
 
@@ -135,8 +131,8 @@ namespace SAEA.Sockets.Core
             _connected = (e.SocketError == SocketError.Success);
             if (_connected)
             {
-                _userToken = _contextFactory.GetUserToken(e.ConnectSocket);
-                var readArgs = _argsPool.GetArgs(_userToken, true);
+                _userToken = _sessionManager.GenerateUserToken(e.ConnectSocket);
+                var readArgs = _userToken.ReadArgs;
                 if (!e.ConnectSocket.ReceiveAsync(readArgs))
                     ProcessReceive(readArgs);
                 _connectCallBack?.Invoke(e.SocketError);
@@ -155,7 +151,6 @@ namespace SAEA.Sockets.Core
                     ProcessSended(e);
                     break;
                 default:
-                    _argsPool.Free(e);
                     Disconnect();
                     break;
             }
@@ -183,13 +178,11 @@ namespace SAEA.Sockets.Core
                 }
                 else
                 {
-                    _argsPool.Free(e);
                     ProcessDisconnected(new Exception("SocketError:" + e.SocketError.ToString()));
                 }
             }
             catch (Exception ex)
             {
-                _argsPool.Free(e);
                 OnError?.Invoke(_userToken.ID, ex);
                 Disconnect();
                 ConsoleHelper.WriteLine(ex.Message);
@@ -200,8 +193,6 @@ namespace SAEA.Sockets.Core
         {
             _userToken.Set();
             _userToken.Actived = DateTimeHelper.Now;
-            _argsPool.Free(e);
-
         }
 
         void ProcessDisconnected(Exception ex)
@@ -228,7 +219,8 @@ namespace SAEA.Sockets.Core
                 {
                     _userToken.WaitOne();
 
-                    var writeArgs = _argsPool.GetArgs(_userToken);
+                    var writeArgs = _userToken.WriteArgs;
+
                     writeArgs.SetBuffer(data, 0, data.Length);
 
                     if (!_userToken.Socket.SendAsync(writeArgs))
@@ -239,8 +231,8 @@ namespace SAEA.Sockets.Core
                 catch (Exception ex)
                 {
                     OnError?.Invoke(_userToken.ID, ex);
-                    Disconnect();
                     _userToken.Set();
+                    Disconnect();
                 }
             }
             else
@@ -331,7 +323,7 @@ namespace SAEA.Sockets.Core
                 try
                 {
                     if (_userToken != null && _userToken.Socket != null)
-                        _userToken.Socket.Disconnect(true);
+                        _userToken.Socket.Close();
                 }
                 catch (Exception sex)
                 {
@@ -344,7 +336,6 @@ namespace SAEA.Sockets.Core
                 }
                 if (_userToken != null)
                     OnDisconnected?.Invoke(_userToken.ID, mex);
-
             }
         }
 
@@ -353,7 +344,7 @@ namespace SAEA.Sockets.Core
             this.Disconnect();
             try
             {
-                _contextFactory.Free(_userToken);
+                _sessionManager.Clear();
             }
             catch { };
 

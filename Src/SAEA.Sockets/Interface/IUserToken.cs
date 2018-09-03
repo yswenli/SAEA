@@ -57,7 +57,12 @@ namespace SAEA.Sockets.Interface
             get; set;
         }
 
-        byte[] Buffer
+        SocketAsyncEventArgs ReadArgs
+        {
+            get; set;
+        }
+
+        SocketAsyncEventArgs WriteArgs
         {
             get; set;
         }

@@ -43,7 +43,12 @@ namespace SAEA.TcpP2P.Net
             get; set;
         }
 
-        public byte[] Buffer
+        public SocketAsyncEventArgs ReadArgs
+        {
+            get; set;
+        }
+
+        public SocketAsyncEventArgs WriteArgs
         {
             get; set;
         }
@@ -77,9 +82,10 @@ namespace SAEA.TcpP2P.Net
         public void Dispose()
         {
             _autoResetEvent.Close();
-            if (Buffer != null)
-                Array.Clear(Buffer, 0, Buffer.Length);
+            ReadArgs.Dispose();
+            WriteArgs.Dispose();
             Socket?.Close();
+            Coder?.Dispose();
         }
     }
 }

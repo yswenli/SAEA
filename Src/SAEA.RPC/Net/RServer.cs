@@ -40,7 +40,7 @@ namespace SAEA.RPC.Net
         public event Action<IUserToken, RSocketMsg> OnMsg;
 
         public RServer(int bufferSize = 100 * 1024, int count = 10000)
-            : base(new RContext(), bufferSize, true, count)
+            : base(new RContext(), bufferSize, count)
         {
 
         }

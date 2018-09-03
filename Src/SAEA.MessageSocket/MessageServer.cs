@@ -44,7 +44,7 @@ namespace SAEA.MessageSocket
         GroupList _groupList = new GroupList();
 
 
-        public MessageServer(int bufferSize = 1024, int count = 60000) : base(new MessageContext(), bufferSize, true, count)
+        public MessageServer(int bufferSize = 1024, int count = 60000) : base(new MessageContext(), bufferSize, count)
         {
 
         }
