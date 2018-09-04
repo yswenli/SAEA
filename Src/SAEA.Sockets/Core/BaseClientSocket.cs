@@ -88,6 +88,7 @@ namespace SAEA.Sockets.Core
         {
             _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            _socket.NoDelay = true;
             _ip = ip;
             _port = port;
 

@@ -92,6 +92,7 @@ namespace SAEA.Sockets.Core
         {
             _listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             _listener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            _listener.NoDelay = true;
             _listener.Bind(new IPEndPoint(IPAddress.Any, port));
             _listener.Listen(backlog);
             ProcessAccept(null);

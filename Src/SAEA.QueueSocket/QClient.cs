@@ -53,8 +53,9 @@ namespace SAEA.QueueSocket
 
         ConcurrentQueue<Byte[]> _concurrentQueue = new ConcurrentQueue<byte[]>();
 
-
         bool _isClosed = false;
+
+        private AutoResetEvent autoResetEvent = new AutoResetEvent(false);
 
         public QClient(string name, string ipPort) : this(name, 102400, ipPort.GetIPPort().Item1, ipPort.GetIPPort().Item2)
         {
@@ -68,8 +69,6 @@ namespace SAEA.QueueSocket
             HeartSpan = 1000 * 1000;
 
             HeartAsync();
-
-            SendDataAsync();
         }
 
 
@@ -99,11 +98,11 @@ namespace SAEA.QueueSocket
                             {
                                 SendAsync(_queueCoder.Ping(_name));
                             }
-                            ThreadHelper.Sleep(HeartSpan / 2);
+                            autoResetEvent.WaitOne(HeartSpan / 2);
                         }
                         else
                         {
-                            ThreadHelper.Sleep(1);
+                            autoResetEvent.WaitOne(1000);
                         }
                     }
                 }
@@ -111,45 +110,36 @@ namespace SAEA.QueueSocket
             }, true, System.Threading.ThreadPriority.Highest);
         }
 
-        private void SendDataAsync()
-        {
-            ThreadHelper.Run(() =>
-            {
-                try
-                {
-                    while (!_isClosed)
-                    {
-                        if (this.Connected && !_concurrentQueue.IsEmpty)
-                        {
-                            var list = new List<byte>();
-                            while (_concurrentQueue.TryDequeue(out byte[] data))
-                            {
-                                list.AddRange(data);
-                            }
-                            if (list.Count > 0)
-                                Send(list.ToArray());
-                        }
-                        else
-                            ThreadHelper.Sleep(10);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    ConsoleHelper.WriteLine("SendDataAsync error:" + ex.Message);
-                }
-            }, true, System.Threading.ThreadPriority.Highest);
-        }
+        #region 生产者发送消息
 
+        private readonly List<byte> cache = new List<byte>();
+
+        private DateTime _sendSpan = DateTimeHelper.Now.AddMilliseconds(500);
+
+        private readonly object sendLock = new object();
+
+        /// <summary>
+        /// 生产者发送消息
+        /// </summary>
+        /// <param name="topic"></param>
+        /// <param name="content"></param>
         public void Publish(string topic, string content)
         {
-            while (_concurrentQueue.Count > 10000)
+            Monitor.Enter(sendLock);
+            cache.AddRange(_queueCoder.Publish(_name, topic, content));
+            if (cache.Count < 1024 * 1024 * 10 || _sendSpan < DateTimeHelper.Now)
             {
-                ThreadHelper.Sleep(1);
+                Monitor.Exit(sendLock);
+                return;
             }
-            _concurrentQueue.Enqueue(_queueCoder.Publish(_name, topic, content));
-
-            //Send(_queueCoder.Publish(_name, topic, content));
+            SendAsync(cache.ToArray());
+            cache.Clear();
+            _sendSpan = DateTimeHelper.Now.AddMilliseconds(500);
+            Monitor.Exit(sendLock);
         }
+
+        #endregion
+
 
         public void Subscribe(string topic)
         {
@@ -165,7 +155,7 @@ namespace SAEA.QueueSocket
         {
             while (!_concurrentQueue.IsEmpty)
             {
-                ThreadHelper.Sleep(10);
+                autoResetEvent.WaitOne(10000);
             }
             _isClosed = true;
             SendAsync(_queueCoder.Close(_name));

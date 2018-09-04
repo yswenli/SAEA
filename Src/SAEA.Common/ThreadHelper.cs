@@ -28,13 +28,30 @@ namespace SAEA.Common
 {
     public class ThreadHelper
     {
+        private static readonly AutoResetEvent autoResetEvent = new AutoResetEvent(false);
+
+        /// <summary>
+        /// 启动一个线程
+        /// </summary>
+        /// <param name="doWork"></param>
+        /// <param name="isBackground"></param>
+        /// <param name="priority"></param>
+        /// <returns></returns>
         public static Thread Run(Action doWork, bool isBackground = true, ThreadPriority priority = ThreadPriority.Normal)
         {
             var td = new Thread(new ThreadStart(doWork)) { IsBackground = true, Priority = priority };
             td.Start();
             return td;
         }
-
+        /// <summary>
+        /// 循环间隔运行
+        /// </summary>
+        /// <param name="doWork"></param>
+        /// <param name="interval"></param>
+        /// <param name="stopped"></param>
+        /// <param name="isBackground"></param>
+        /// <param name="priority"></param>
+        /// <returns></returns>
         public static Thread PulseAction(Action doWork, TimeSpan interval, bool stopped = false, bool isBackground = true, ThreadPriority priority = ThreadPriority.Highest)
         {
             var td = Run(() =>
@@ -48,9 +65,13 @@ namespace SAEA.Common
             return td;
         }
 
+        /// <summary>
+        /// 阻塞时长
+        /// </summary>
+        /// <param name="millisecondsTimeout"></param>
         public static void Sleep(int millisecondsTimeout)
         {
-            Thread.Sleep(millisecondsTimeout);
+            autoResetEvent.WaitOne(millisecondsTimeout);
         }
 
     }

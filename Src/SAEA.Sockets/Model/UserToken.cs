@@ -78,22 +78,22 @@ namespace SAEA.Sockets.Model
 
         public void WaitOne()
         {
-            _autoResetEvent.WaitOne();
+            _autoResetEvent?.WaitOne();
         }
 
 
         public void Set()
         {
-            _autoResetEvent.Set();
+            _autoResetEvent?.Set();
         }
 
         public void Dispose()
         {
-            _autoResetEvent.Close();
             ReadArgs.Dispose();
             WriteArgs.Dispose();
             Socket?.Close();
             Coder?.Dispose();
+            _autoResetEvent.Close();
         }
     }
 }
