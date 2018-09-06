@@ -91,6 +91,10 @@ namespace SAEA.WebAPI.Http
         {
             if (ex != null)
             {
+                if (ex.Message.IndexOf("远程连接已关闭", StringComparison.Ordinal) == 0)
+                {
+                    return;
+                }
                 LogHelper.WriteError("_serverSocket_OnDisconnected 断开连接", ex);
             }
 
