@@ -81,11 +81,11 @@ namespace SAEA.TcpP2P.Net
 
         public void Dispose()
         {
-            _autoResetEvent.Close();
-            ReadArgs.Dispose();
-            WriteArgs.Dispose();
             Socket?.Close();
             Coder?.Dispose();
+            _autoResetEvent.Close();
+            ReadArgs?.Dispose();
+            WriteArgs?.Dispose();
         }
     }
 }

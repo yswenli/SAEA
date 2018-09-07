@@ -12,7 +12,7 @@
 *机器名称：WENLI-PC
 *公司名称：wenli
 *命名空间：SAEA.Sockets
-*文件名： Class1
+*文件名： SessionManager
 *版本号： V1.0.0.0
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
@@ -55,11 +55,13 @@ namespace SAEA.Sockets.Core
 
         TimeSpan _timeOut;
 
-        ConcurrentQueue<IUserToken> _utQueue = new ConcurrentQueue<IUserToken>();
-
         private int _bufferSize = 1024 * 10;
 
         EventHandler<SocketAsyncEventArgs> _completed = null;
+
+        BufferManager _bufferManager;
+
+        SocketAsyncEventArgsPool _argsPool;
 
         /// <summary>
         /// 构造会话管理器
@@ -77,10 +79,11 @@ namespace SAEA.Sockets.Core
             _bufferSize = bufferSize;
             _completed = completed;
 
-            for (int i = 0; i < count; i++)
-            {
-                _utQueue.Enqueue(InitUserToken());
-            }
+            _bufferManager = new BufferManager(bufferSize * count, bufferSize);
+            _bufferManager.InitBuffer();
+
+            _argsPool = new SocketAsyncEventArgsPool(count * 2);
+            _argsPool.InitPool(completed);
         }
 
         /// <summary>
@@ -92,14 +95,11 @@ namespace SAEA.Sockets.Core
             IUserToken userToken = (IUserToken)Activator.CreateInstance(_userTokenType);
             ICoder coder = (ICoder)Activator.CreateInstance(_coderType);
             userToken.Coder = coder;
-            userToken.ReadArgs = new SocketAsyncEventArgs();
-            var buffer = new byte[_bufferSize];
-            userToken.ReadArgs.SetBuffer(buffer, 0, _bufferSize);
-            userToken.ReadArgs.Completed += _completed;
-            userToken.WriteArgs = new SocketAsyncEventArgs();
-            userToken.WriteArgs.Completed += _completed;
-            userToken.ReadArgs.UserToken = userToken;
-            userToken.WriteArgs.UserToken = userToken;
+
+            userToken.ReadArgs = _argsPool.Pop();
+            _bufferManager.SetBuffer(userToken.ReadArgs);
+            userToken.WriteArgs = _argsPool.Pop();
+            userToken.ReadArgs.UserToken = userToken.WriteArgs.UserToken = userToken;
             return userToken;
         }
 
@@ -110,12 +110,7 @@ namespace SAEA.Sockets.Core
         /// <returns></returns>
         public IUserToken GenerateUserToken(Socket socket)
         {
-            IUserToken userToken = null;
-
-            if (!_utQueue.TryDequeue(out userToken))
-            {
-                userToken = this.InitUserToken();
-            }
+            IUserToken userToken = InitUserToken();
             userToken.Socket = socket;
             userToken.ID = socket.RemoteEndPoint.ToString();
             userToken.Linked = DateTimeHelper.Now;
@@ -144,20 +139,23 @@ namespace SAEA.Sockets.Core
         /// 释放IUserToken
         /// </summary>
         /// <param name="userToken"></param>
-        public void Free(IUserToken userToken)
+        public bool Free(IUserToken userToken)
         {
-            try
+            _session.Del(userToken.ID);
+            if (userToken.Socket != null && userToken.Socket.Connected)
             {
-                _session.Del(userToken.ID);
-
-                if (userToken.Socket != null && userToken.Socket.Connected)
+                try
                 {
-                    userToken.Socket.Close();
+                    userToken.Socket.Shutdown(SocketShutdown.Both);
                 }
-                _utQueue.Enqueue(userToken);
+                catch { }
+                _bufferManager.FreeBuffer(userToken.ReadArgs);
+                _argsPool.Push(userToken.ReadArgs);
+                _argsPool.Push(userToken.WriteArgs);
+                userToken.Dispose();
+                return true;
             }
-            catch { }
-
+            return false;
         }
 
         /// <summary>

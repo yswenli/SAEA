@@ -135,16 +135,6 @@ namespace SAEA.QueueSocket.Model
             return result;
         }
 
-        public string BlockDequeue(string topic)
-        {
-            var queue = _list.Values.FirstOrDefault(b => b.Topic == topic);
-            if (queue != null)
-            {
-                return queue.BlockDequeue();
-            }
-            return null;
-        }
-
         public List<QueueBase> ToList()
         {
             lock (_syncLocker)

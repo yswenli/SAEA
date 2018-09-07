@@ -1,4 +1,5 @@
 ﻿/****************************************************************************
+ * 
   ____    _    _____    _      ____             _        _   
  / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
  \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
@@ -11,7 +12,7 @@
 *机器名称：WENLI-PC
 *公司名称：wenli
 *命名空间：SAEA.Sockets
-*文件名： UserToken
+*文件名： SocketAsyncEventArgsPool
 *版本号： V1.0.0.0
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
@@ -28,71 +29,58 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Sockets.Interface;
 using System;
+using System.Collections.Generic;
 using System.Net.Sockets;
-using System.Threading;
 
-namespace SAEA.Sockets.Model
+namespace SAEA.Sockets.Core
 {
-    /// <summary>
-    /// 连接信息类
-    /// </summary>
-    public class UserToken : IUserToken
+    class SocketAsyncEventArgsPool
     {
-        AutoResetEvent _autoResetEvent = new AutoResetEvent(true);
+        Stack<SocketAsyncEventArgs> m_pool;
 
-        public string ID
-        {
-            get; set;
-        }
-        public Socket Socket
-        {
-            get; set;
-        }
+        int _capacity = 1000 * 100;
 
-        public SocketAsyncEventArgs ReadArgs
+        public SocketAsyncEventArgsPool(int capacity = 1000 * 100)
         {
-            get; set;
-        }
-
-        public SocketAsyncEventArgs WriteArgs
-        {
-            get; set;
-        }
-
-        public DateTime Linked
-        {
-            get; set;
-        }
-
-        public DateTime Actived
-        {
-            get; set;
-        }
-
-        public ICoder Coder
-        {
-            get; set;
-        }
-
-        public void WaitOne()
-        {
-            _autoResetEvent?.WaitOne();
+            _capacity = capacity;
+            m_pool = new Stack<SocketAsyncEventArgs>(_capacity);
         }
 
 
-        public void Set()
+        public void InitPool(EventHandler<SocketAsyncEventArgs> completed)
         {
-            _autoResetEvent?.Set();
+            for (int i = 0; i < _capacity; i++)
+            {
+                var args = new SocketAsyncEventArgs();
+                args.Completed += completed;
+                m_pool.Push(args);
+            }
         }
 
-        public void Dispose()
+        public void Push(SocketAsyncEventArgs item)
         {
-            Socket?.Close();
-            Coder?.Dispose();
-            _autoResetEvent.Close();
-            Socket = null;
+            if (item == null) { throw new ArgumentNullException("Items added to a SocketAsyncEventArgsPool cannot be null"); }
+            lock (m_pool)
+            {
+                m_pool.Push(item);
+            }
         }
+
+
+        public SocketAsyncEventArgs Pop()
+        {
+            lock (m_pool)
+            {
+                return m_pool.Pop();
+            }
+        }
+
+
+        public int Count
+        {
+            get { return m_pool.Count; }
+        }
+
     }
 }

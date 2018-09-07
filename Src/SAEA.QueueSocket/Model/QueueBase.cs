@@ -34,8 +34,6 @@ namespace SAEA.QueueSocket.Model
     {
         ConcurrentQueue<string> _queue;
 
-        AutoResetEvent _autoResetEvent;
-
         public string Topic
         {
             get; private set;
@@ -76,7 +74,6 @@ namespace SAEA.QueueSocket.Model
             this.Created = DateTimeHelper.Now;
             _minute = minutes;
             this.Expired = DateTimeHelper.Now.AddMinutes(_minute);
-            _autoResetEvent = new AutoResetEvent(false);
         }
 
         public void Enqueue(string data)
@@ -84,7 +81,6 @@ namespace SAEA.QueueSocket.Model
             _queue.Enqueue(data);
             this.Expired = DateTimeHelper.Now.AddMinutes(_minute);
             Interlocked.Increment(ref _length);
-            _autoResetEvent.Set();
         }
 
         public string Dequeue()
@@ -95,20 +91,6 @@ namespace SAEA.QueueSocket.Model
             }
             return result;
         }
-
-        public string BlockDequeue()
-        {
-            string result = string.Empty;
-            do
-            {
-                _autoResetEvent.WaitOne();
-                result = Dequeue();
-            }
-            while (result == null);
-            Interlocked.Decrement(ref _length);
-            return result;
-        }
-
 
         public void Dispose()
         {

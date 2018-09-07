@@ -12,7 +12,7 @@
 *机器名称：WENLI-PC
 *公司名称：wenli
 *命名空间：SAEA.Sockets
-*文件名： Class1
+*文件名： BaseServerSocket
 *版本号： V1.0.0.0
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
@@ -51,6 +51,8 @@ namespace SAEA.Sockets.Core
 
         private SessionManager _sessionManager;
 
+        Semaphore m_maxNumberAcceptedClients;
+
         public SessionManager SessionManager
         {
             get { return _sessionManager; }
@@ -85,13 +87,15 @@ namespace SAEA.Sockets.Core
             _sessionManager = new SessionManager(context, bufferSize, count, IO_Completed);
 
             OnServerReceiveBytes = new OnServerReceiveBytesHandler(OnReceiveBytes);
+
+            m_maxNumberAcceptedClients = new Semaphore(count, count);
         }
 
 
         public void Start(int port = 39654, int backlog = 10 * 1000)
         {
             _listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            _listener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            //_listener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             _listener.NoDelay = true;
             _listener.Bind(new IPEndPoint(IPAddress.Any, port));
             _listener.Listen(backlog);
@@ -100,6 +104,7 @@ namespace SAEA.Sockets.Core
 
         private void ProcessAccept(SocketAsyncEventArgs args)
         {
+            m_maxNumberAcceptedClients.WaitOne();
             if (args == null)
             {
                 args = new SocketAsyncEventArgs();
@@ -222,6 +227,7 @@ namespace SAEA.Sockets.Core
         {
             var userToken = (IUserToken)e.UserToken;
             _sessionManager.Active(userToken.ID);
+            userToken.WriteArgs.SetBuffer(null, 0, 0);
         }
 
         /// <summary>
@@ -307,9 +313,12 @@ namespace SAEA.Sockets.Core
             {
                 if (userToken != null && userToken.Socket != null)
                 {
-                    _sessionManager.Free(userToken);
-                    OnDisconnected?.Invoke(userToken.ID, ex);
-                    Interlocked.Decrement(ref _clientCounts);
+                    if (_sessionManager.Free(userToken))
+                    {
+                        OnDisconnected?.Invoke(userToken.ID, ex);
+                        Interlocked.Decrement(ref _clientCounts);
+                        m_maxNumberAcceptedClients.Release();
+                    }
                 }
             }
         }
