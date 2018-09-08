@@ -49,7 +49,7 @@ namespace SAEA.WebAPI.Mvc
         /// <param name="status"></param>
         public FileResult(string filePath, string contentType = "", HttpStatusCode status = HttpStatusCode.OK)
         {
-            if (MvcApplication.IsStaticsCached)
+            if (SAEAMvcApplication.IsStaticsCached)
             {
                 var data = StaticResourcesCache.GetOrAdd(filePath, (k) =>
                 {

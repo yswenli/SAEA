@@ -91,6 +91,8 @@ namespace SAEA.Sockets.Model
         {
             Socket?.Close();
             Coder?.Dispose();
+            ReadArgs = null;
+            WriteArgs = null;
             _autoResetEvent.Close();
             Socket = null;
         }

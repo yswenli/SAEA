@@ -11,7 +11,7 @@ namespace SAEA.WebAPITest
         {
             ConsoleHelper.Title = "SAEA.WebAPITest";
 
-            MvcApplication mvcApplication = new MvcApplication();
+            SAEAMvcApplication mvcApplication = new SAEAMvcApplication();
 
             mvcApplication.SetDefault("home", "index");
 

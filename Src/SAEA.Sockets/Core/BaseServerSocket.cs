@@ -82,21 +82,20 @@ namespace SAEA.Sockets.Core
         /// <param name="context"></param>
         /// <param name="bufferSize"></param>
         /// <param name="count"></param>
-        public BaseServerSocket(IContext context, int bufferSize = 100 * 1024, int count = 10000)
+        /// <param name="noDelay"></param>
+        public BaseServerSocket(IContext context, int bufferSize = 100 * 1024, int count = 10000, bool noDelay = true)
         {
             _sessionManager = new SessionManager(context, bufferSize, count, IO_Completed);
-
             OnServerReceiveBytes = new OnServerReceiveBytesHandler(OnReceiveBytes);
-
             m_maxNumberAcceptedClients = new Semaphore(count, count);
+            _listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            _listener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            _listener.NoDelay = noDelay;
         }
 
 
         public void Start(int port = 39654, int backlog = 10 * 1000)
         {
-            _listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            //_listener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-            _listener.NoDelay = true;
             _listener.Bind(new IPEndPoint(IPAddress.Any, port));
             _listener.Listen(backlog);
             ProcessAccept(null);

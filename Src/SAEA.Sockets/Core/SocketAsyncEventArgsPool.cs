@@ -63,6 +63,7 @@ namespace SAEA.Sockets.Core
             if (item == null) { throw new ArgumentNullException("Items added to a SocketAsyncEventArgsPool cannot be null"); }
             lock (m_pool)
             {
+                item.UserToken = null;
                 m_pool.Push(item);
             }
         }

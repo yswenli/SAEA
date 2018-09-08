@@ -44,7 +44,7 @@ namespace SAEA.QueueSocket
         int _maxTime = 500;
 
         public QServer(int heartSpan = 20 * 1000, int bufferSize = 1000 * 1024, int count = 1000, int maxNum = 500, int maxTime = 500)
-            : base(new QContext(), bufferSize, count)
+            : base(new QContext(), bufferSize, count, false)
         {
             _maxNum = maxNum;
             _maxTime = maxTime;

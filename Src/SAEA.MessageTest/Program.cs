@@ -103,25 +103,31 @@ namespace SAEA.MessageTest
 
             ConsoleHelper.ReadLine();
             ConsoleHelper.WriteLine("单机连接测试...");
-            List<MessageClient> slist = new List<MessageClient>();
+
+            var count = 60 * 1000;
+
+            Sockets.Core.StressTestingClient stressTestingClient;
             Task.Run(() =>
             {
-                for (int i = 0; i < 50000; i++)
+                ConsoleHelper.WriteLine("单机连接测试正在初始化...");
+
+                stressTestingClient = new Sockets.Core.StressTestingClient(count);
+
+                ConsoleHelper.WriteLine("单机连接测试初始化完成，正在建立连接...");
+
+                Task.Run(() =>
                 {
-                    var c = new MessageClient();
-                    c.ConnectAsync((state) =>
+                    while (stressTestingClient.Connections < count)
                     {
-                        slist.Add(c);
-                    });
-                    Thread.Sleep(1);
-                    if (i > 1000)
-                        Thread.Sleep(10);
-                    if (i > 5000)
-                        Thread.Sleep(100);
-                    if (i > 10000)
                         Thread.Sleep(1000);
-                }
-                ConsoleHelper.WriteLine("单机5W连接就绪...");
+                        ConsoleHelper.WriteLine($"单机连接测试已建立连接：{stressTestingClient.Connections} 未连接：{stressTestingClient.Lost}");
+                    }
+                    ConsoleHelper.WriteLine($"单机{count}连接已完成！");
+                });
+
+                stressTestingClient.Connect();
+
+
             });
 
 

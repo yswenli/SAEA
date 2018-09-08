@@ -30,7 +30,7 @@ namespace SAEA.WebAPI
     /// <summary>
     /// SAEA.WebAPI.Mvc应用程序
     /// </summary>
-    public class MvcApplication
+    public class SAEAMvcApplication
     {
         HttpServer httpServer;
 
@@ -51,7 +51,7 @@ namespace SAEA.WebAPI
         /// <param name="isZiped">是压启用内容压缩</param>
         /// <param name="bufferSize">http处理数据缓存大小</param>
         /// <param name="count">http连接数上限</param>
-        public MvcApplication(bool isStaticsCached = true, bool isZiped = true, int bufferSize = 1024 * 100, int count = 10000)
+        public SAEAMvcApplication(bool isStaticsCached = true, bool isZiped = true, int bufferSize = 1024 * 100, int count = 10000)
         {
             IsStaticsCached = isStaticsCached;
             IsZiped = isZiped;

@@ -116,7 +116,7 @@ namespace SAEA.WebAPI.Http
             builder.AppendLine("Keep-Alive: timeout=20");
             builder.AppendLine("Date: " + DateTimeHelper.Now.ToFString("r"));
 
-            if (MvcApplication.IsZiped)
+            if (SAEAMvcApplication.IsZiped)
                 //支持gzip
                 builder.AppendLine("Content-Encoding:gzip");
 
@@ -149,7 +149,7 @@ namespace SAEA.WebAPI.Http
             byte[] lineBytes = Encoding.UTF8.GetBytes(System.Environment.NewLine);
 
             var bdata = this.Body;
-            if (MvcApplication.IsZiped && this.Body != null)
+            if (SAEAMvcApplication.IsZiped && this.Body != null)
                 bdata = GZipHelper.Compress(this.Body);
 
             var bodyLen = 0;
