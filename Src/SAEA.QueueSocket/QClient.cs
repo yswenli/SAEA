@@ -127,7 +127,7 @@ namespace SAEA.QueueSocket
         {
             Monitor.Enter(sendLock);
             cache.AddRange(_queueCoder.Publish(_name, topic, content));
-            if (cache.Count < 1024 * 1024 * 10 || _sendSpan < DateTimeHelper.Now)
+            if (cache.Count < 1000 *  10 || _sendSpan < DateTimeHelper.Now)
             {
                 Monitor.Exit(sendLock);
                 return;
