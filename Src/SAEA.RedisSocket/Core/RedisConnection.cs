@@ -61,13 +61,13 @@ namespace SAEA.RedisSocket.Core
 
         bool _debugMode = false;
 
-        public RedisConnection(string ipPort, bool debugMode = false)
+        public RedisConnection(string ipPort,int actionTimeout=60, bool debugMode = false)
         {
             var address = ipPort.GetIPPort();
             _cnn = new RConnection(102400, address.Item1, address.Item2);
             _cnn.OnActived += _cnn_OnActived;
             _cnn.OnMessage += _cnn_OnMessage;
-            _redisCoder = new RedisCoder();
+            _redisCoder = new RedisCoder(actionTimeout);
             _debugMode = debugMode;
         }
 

@@ -60,12 +60,12 @@ namespace SAEA.RedisSocket
         {
             _debugModel = debugModel;
             RedisConfig = config;
-            _cnn = new RedisConnection(RedisConfig.GetIPPort(), debugModel);
+            _cnn = new RedisConnection(RedisConfig.GetIPPort(), RedisConfig.ActionTimeOut, debugModel);
         }
 
         public RedisClient(string connectStr, bool debugModel = false) : this(new RedisConfig(connectStr), debugModel) { }
 
-        public RedisClient(string ipPort, string password, bool debugModel = false) : this(new RedisConfig(ipPort, password), debugModel) { }
+        public RedisClient(string ipPort, string password, int acitonTimeout = 60, bool debugModel = false) : this(new RedisConfig(ipPort, password, acitonTimeout), debugModel) { }
 
         /// <summary>
         /// 使用密码连接到RedisServer
@@ -322,8 +322,8 @@ namespace SAEA.RedisSocket
                 else
                 {
                     this.IsConnected = false;
-                    this.RedisConfig = new RedisConfig(ipPort, this.RedisConfig.Passwords);
-                    _cnn = new RedisConnection(RedisConfig.GetIPPort(), _debugModel);
+                    this.RedisConfig = new RedisConfig(ipPort, this.RedisConfig.Passwords, this.RedisConfig.ActionTimeOut);
+                    _cnn = new RedisConnection(RedisConfig.GetIPPort(), this.RedisConfig.ActionTimeOut, _debugModel);
                     this.Connect();
                     return _cnn;
                 }

@@ -5,6 +5,17 @@
     <Company>yswenli</Company>
     <Authors>yswenli</Authors>
     <Copyright>yswenli</Copyright>
+    <PackageProjectUrl>https://www.cnblogs.com/yswenli/</PackageProjectUrl>
+    <FileVersion>2.1.0.0</FileVersion>
+    <AssemblyVersion>2.1.0.0</AssemblyVersion>
+    <Version>2.1.0</Version>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
+    <Description>This is a high-performance file transfer component based on SAEA.Sockets.
+这是一个基于SAEA.Sockets的高性能文件传输组件</Description>
+    <PackageReleaseNotes>This is a high-performance file transfer component based on SAEA.Sockets.
+这是一个基于SAEA.Sockets的高性能文件传输组件</PackageReleaseNotes>
+    <PackageTags>iocp,filetransfer,tcp</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

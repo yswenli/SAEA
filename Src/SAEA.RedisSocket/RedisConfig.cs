@@ -44,12 +44,17 @@ namespace SAEA.RedisSocket
             get; set;
         }
 
+        public int ActionTimeOut
+        {
+            get; set;
+        } = 60;
+
         public RedisConfig()
         {
 
         }
 
-        public RedisConfig(string ipPort, string passwords)
+        public RedisConfig(string ipPort, string passwords, int actionTimeOut = 60)
         {
             try
             {
@@ -57,6 +62,7 @@ namespace SAEA.RedisSocket
                 this.IP = IPPort.Item1;
                 this.Port = IPPort.Item2;
                 this.Passwords = passwords;
+                this.ActionTimeOut = actionTimeOut;
             }
             catch (Exception ex)
             {
@@ -86,11 +92,15 @@ namespace SAEA.RedisSocket
                     {
                         this.Passwords = item.Split("=", StringSplitOptions.RemoveEmptyEntries)[1];
                     }
+                    else if (item.Contains("actionTimeout="))
+                    {
+                        this.ActionTimeOut = int.Parse(item.Split("=", StringSplitOptions.RemoveEmptyEntries)[2]);
+                    }
                 }
             }
             catch (Exception ex)
             {
-                throw new Exception("连接字符串格式有误，例如格式为：server=127.0.0.1:6379;passwords=yswenli; error:" + ex.Message);
+                throw new Exception("连接字符串格式有误，例如格式为：server=127.0.0.1:6379;passwords=yswenli;actionTimeout=60; error:" + ex.Message);
             }
         }
         /// <summary>
@@ -107,6 +117,8 @@ namespace SAEA.RedisSocket
             sb.Append(";");
             sb.Append("passwords=");
             sb.Append(this.Passwords);
+            sb.Append("actionTimeout=");
+            sb.Append(this.ActionTimeOut);
             return sb.ToString();
         }
 

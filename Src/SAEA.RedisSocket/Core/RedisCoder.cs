@@ -65,12 +65,17 @@ namespace SAEA.RedisSocket.Core
 
         bool _isDisposed = false;
 
+        int _actionTimeout = 60;
+
         /// <summary>
         /// 初始化
         /// 将从快速获取的队列中拆成行
         /// </summary>
-        public RedisCoder()
+        /// <param name="actionTimeout"></param>
+        public RedisCoder(int actionTimeout = 60)
         {
+            _actionTimeout = actionTimeout * 1000;
+
             ThreadHelper.Run(() =>
             {
                 while (!_isDisposed)
@@ -81,8 +86,8 @@ namespace SAEA.RedisSocket.Core
                         foreach (var item in items)
                         {
                             _operationQueue.Enqueue(item + _enter);
-                            _operationQueueSync.Set();
                         }
+                        _operationQueueSync.Set();
                     }
                     else
                     {
@@ -93,7 +98,7 @@ namespace SAEA.RedisSocket.Core
         }
 
         /// <summary>
-        /// 常规编码
+        /// redis client编码
         /// </summary>
         /// <param name="commandName"></param>
         /// <param name="params"></param>
@@ -129,11 +134,11 @@ namespace SAEA.RedisSocket.Core
         /// </summary>
         /// <param name="timeOut">设置收取消息超时时间，默认30秒</param>
         /// <returns></returns>
-        public string GetRedisReply(int timeOut = 30 * 1000)
+        public string GetRedisReply()
         {
             bool stopped = false;
             var task = Task.Factory.StartNew(() => BlockDequeue(ref stopped));
-            if (!Task.WaitAll(new Task[] { task }, timeOut))
+            if (!Task.WaitAll(new Task[] { task }, _actionTimeout))
             {
                 stopped = true;
                 Thread.Sleep(1000);
@@ -152,8 +157,12 @@ namespace SAEA.RedisSocket.Core
             var result = string.Empty;
             do
             {
-                if (_operationQueue.IsEmpty) _operationQueueSync.WaitOne();
-                _operationQueue.TryDequeue(out result);
+                if (_operationQueue.IsEmpty)
+                {
+                    _operationQueueSync.WaitOne(100);
+                }
+                else
+                    _operationQueue.TryDequeue(out result);
             }
             while (string.IsNullOrEmpty(result) && !stopped);
             return result;
@@ -541,7 +550,7 @@ namespace SAEA.RedisSocket.Core
                 }
                 else
                 {
-                    error = command.Substring(1);
+                    error = command.SSubstring(1);
                     result = false;
                 }
             }
@@ -561,7 +570,7 @@ namespace SAEA.RedisSocket.Core
                 {
                     result = false;
                 }
-                msg = command.Substring(1, command.Length - 3);
+                msg = command.SSubstring(1, command.Length - 3);
             }
             return result;
         }
@@ -575,11 +584,11 @@ namespace SAEA.RedisSocket.Core
             {
                 if (command.Length > 2 && command.IndexOf("*") == 0)
                 {
-                    num = int.Parse(command.Substring(1));
+                    num = command.ParseToInt(1, command.Length - 3);
                 }
                 if (command.Length > 2 && command.IndexOf("-") == 0)
                 {
-                    error = command.Substring(1);
+                    error = command.SSubstring(1);
                 }
             }
             return num;
@@ -593,11 +602,11 @@ namespace SAEA.RedisSocket.Core
             {
                 if (command.Length > 2 && command.IndexOf("$") == 0)
                 {
-                    num = int.Parse(command.Substring(1));
+                    num = int.Parse(command.SSubstring(1));
                 }
                 if (command.Length > 2 && command.IndexOf("-") == 0)
                 {
-                    error = command.Substring(1);
+                    error = command.SSubstring(1);
                 }
             }
 
@@ -612,11 +621,11 @@ namespace SAEA.RedisSocket.Core
             {
                 if (command.Length > 2 && command.IndexOf(":") == 0)
                 {
-                    int.TryParse(command.Substring(1), out num);
+                    int.TryParse(command.SSubstring(1), out num);
                 }
                 if (command.Length > 2 && command.IndexOf("-") == 0)
                 {
-                    error = command.Substring(1);
+                    error = command.SSubstring(1);
                 }
             }
 

@@ -107,7 +107,7 @@ namespace SAEA.WebAPI.Http.Base
 
             if (long.TryParse(uarr[uarr.Length - 1], out long id))
             {
-                this.Url = this.Url.Substring(0, this.Url.LastIndexOf("/"));
+                this.Url = this.Url.SSubstring(0, this.Url.LastIndexOf("/"));
                 if (this.Query == null) this.Query = new Dictionary<string, string>();
                 this.Query.Add(ConstHelper.ID, id.ToString());
             }

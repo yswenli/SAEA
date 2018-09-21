@@ -123,10 +123,10 @@ namespace SAEA.RedisSocketTest
                 //ConsoleHelper.WriteLine("kv插值操作已完成");
                 //ConsoleHelper.ReadLine();
                 //return;
-                for (int i = 0; i < 100000; i++)
-                {
-                    redisClient.GetDataBase().Del("key" + i);
-                }
+                //for (int i = 0; i < 100000; i++)
+                //{
+                //    redisClient.GetDataBase().Del("key" + i);
+                //}
                 for (int i = 0; i < 100; i++)
                 {
                     redisClient.GetDataBase().Set("key" + i, "val" + i);

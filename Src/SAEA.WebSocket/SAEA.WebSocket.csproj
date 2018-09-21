@@ -5,6 +5,18 @@
     <Authors>yswenli</Authors>
     <Company>yswenli</Company>
     <Copyright>yswenli</Copyright>
+    <Version>2.1.0</Version>
+    <Description>This is a websocket server and client component based on SAEA.Socket.
+这是基于SAEA.Socket的websocket服务器、客户端组件
+https://github.com/yswenli/SAEA</Description>
+    <PackageProjectUrl>https://www.cnblogs.com/yswenli/</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
+    <PackageTags>websocket,iocp,websocket server,websocket client</PackageTags>
+    <PackageReleaseNotes>This is a websocket server and client component based on SAEA.Socket.
+这是基于SAEA.Socket的websocket服务器、客户端组件
+https://github.com/yswenli/SAEA</PackageReleaseNotes>
+    <AssemblyVersion>2.1.0.0</AssemblyVersion>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>
 
   <ItemGroup>

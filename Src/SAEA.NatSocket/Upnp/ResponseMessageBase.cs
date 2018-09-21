@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Common;
 using System;
 using System.Xml;
 
@@ -45,7 +46,7 @@ namespace SAEA.NatSocket.Upnp
             nsm.AddNamespace("responseNs", ServiceType);
 
             string typeName = _typeName;
-            string messageName = typeName.Substring(0, typeName.Length - "Message".Length);
+            string messageName = typeName.SSubstring(0, typeName.Length - "Message".Length);
             XmlNode node = _document.SelectSingleNode("//responseNs:" + messageName, nsm);
             if (node == null) throw new InvalidOperationException("The response is invalid: " + messageName);
 

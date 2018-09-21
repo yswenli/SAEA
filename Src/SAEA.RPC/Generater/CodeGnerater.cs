@@ -65,7 +65,7 @@ namespace SAEA.RPC.Generater
         /// <returns></returns>
         static string GetSuffixStr(string str)
         {
-            return "_" + str.Substring(0, 1) + str.Substring(1);
+            return "_" + str.SSubstring(0, 2);
         }
 
         /// <summary>

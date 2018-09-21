@@ -5,6 +5,15 @@
     <Authors>yswenli</Authors>
     <Company>yswenli</Company>
     <Copyright>yswenli</Copyright>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Version>2.1.0</Version>
+    <Description>This is a message server and client component based on SAEA.Scokets.
+这是一个基于SAEA.Scokets的消息服务器、客户端组件</Description>
+    <PackageProjectUrl>https://www.cnblogs.com/yswenli/</PackageProjectUrl>
+    <PackageTags>iocp,chat,message</PackageTags>
+    <PackageReleaseNotes>This is a message server and client component based on SAEA.Scokets.
+这是一个基于SAEA.Scokets的消息服务器、客户端组件</PackageReleaseNotes>
+    <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>
