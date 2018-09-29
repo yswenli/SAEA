@@ -3,12 +3,12 @@ using System.IO;
 using System.IO.Compression;
 using System.Text;
 
-namespace SAEA.WebAPI.Common
+namespace SAEA.Common
 {
     /// <summary>
     /// gzip压缩
     /// </summary>
-    class GZipHelper
+    public class GZipHelper
     {
         /// <summary>
         ///     压缩

@@ -21,30 +21,32 @@
 *描述：
 *
 *****************************************************************************/
-using System;
-using System.Collections.Generic;
-using System.Text;
 
-namespace SAEA.WebAPI.Common
+namespace SAEA.Common
 {
-    internal class ConstHelper
+    public class ConstHelper
     {
-        internal const string CONTROLLERNAME = "controller";
+        public const string CONTROLLERNAME = "controller";
 
-        internal const string CONTROLLERSPACE = "Controllers";
+        public const string CONTROLLERSPACE = "Controllers";
 
-        internal const string HTTPGET = "HttpGET";
+        public const string HTTPGET = "HttpGET";
 
-        internal const string HTTPPOST = "HttpPOST";
+        public const string HTTPPOST = "HttpPOST";
 
-        internal const string ONACTIONEXECUTING = "OnActionExecuting";
+        public const string ONACTIONEXECUTING = "OnActionExecuting";
 
-        internal const string ONACTIONEXECUTED = "OnActionExecuted";
+        public const string ONACTIONEXECUTED = "OnActionExecuted";
 
-        internal const string CT = "Content-Type";
+        public const string CT = "Content-Type";
 
-        internal const string BOUNDARY = " boundary=";
+        public const string BOUNDARY = " boundary=";
 
-        internal const string ID = "id";
+        public const string ID = "id";
+
+        /// <summary>
+        /// ActionFilterAttribute
+        /// </summary>
+        public const string ACTIONFILTERATTRIBUTE = "ActionFilterAttribute";
     }
 }

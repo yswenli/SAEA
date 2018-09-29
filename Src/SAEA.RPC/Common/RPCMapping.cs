@@ -90,7 +90,7 @@ namespace SAEA.RPC.Common
 
                             if (attrs != null && attrs.Length > 0)
                             {
-                                var classAttrs = attrs.Where(b => b.GetType().BaseType.Name == "ActionFilterAttribute").ToList();
+                                var classAttrs = attrs.Where(b => b.GetType().BaseType.Name == ConstHelper.ACTIONFILTERATTRIBUTE).ToList();
 
                                 if (classAttrs != null && classAttrs.Count > 0)
 
@@ -105,7 +105,7 @@ namespace SAEA.RPC.Common
 
                             if (actionAttrs != null)
                             {
-                                var filterAttrs = attrs.Where(b => b.GetType().BaseType.Name == "ActionFilterAttribute").ToList();
+                                var filterAttrs = attrs.Where(b => b.GetType().BaseType.Name == ConstHelper.ACTIONFILTERATTRIBUTE).ToList();
 
                                 if (filterAttrs != null && filterAttrs.Count > 0)
 

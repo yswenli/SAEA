@@ -29,7 +29,7 @@ namespace SAEA.WebAPI.Mvc
     /// <summary>
     /// 拦截器
     /// </summary>
-    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Property, AllowMultiple = true, Inherited = true)]
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = true, Inherited = true)]
     public abstract class ActionFilterAttribute : Attribute
     {
         bool _isEnabled = true;

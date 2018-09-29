@@ -36,7 +36,7 @@ namespace SAEA.WebAPITest.Attrubutes
         /// 自定义日志记录
         /// </summary>
         /// <param name="isEnabled"></param>
-        public LogAtrribute(bool isEnabled) : base(isEnabled) { }
+        public LogAtrribute(bool isEnabled = true) : base(isEnabled) { }
 
         /// <summary>
         /// 执行前
@@ -55,7 +55,7 @@ namespace SAEA.WebAPITest.Attrubutes
         /// <param name="result"></param>
         public override void OnActionExecuted(HttpContext httpContext, ActionResult result)
         {
-            ConsoleHelper.WriteLine($"1请求地址：{httpContext.Request.RelativeUrl},回复内容：{result.Content}");
+            ConsoleHelper.WriteLine($"LogAtrribute请求地址：{httpContext.Request.RelativeUrl},回复内容：{result.Content}");
         }
     }
     /// <summary>
@@ -67,7 +67,7 @@ namespace SAEA.WebAPITest.Attrubutes
         /// 自定义日志记录
         /// </summary>
         /// <param name="isEnabled"></param>
-        public Log2Atrribute(bool isEnabled) : base(isEnabled) { }
+        public Log2Atrribute(bool isEnabled = true) : base(isEnabled) { }
 
         /// <summary>
         /// 执行前
@@ -86,7 +86,7 @@ namespace SAEA.WebAPITest.Attrubutes
         /// <param name="result"></param>
         public override void OnActionExecuted(HttpContext httpContext, ActionResult result)
         {
-            ConsoleHelper.WriteLine($"2请求地址：{httpContext.Request.RelativeUrl},回复内容：{result.Content}");
+            ConsoleHelper.WriteLine($"Log2Atrribute请求地址：{httpContext.Request.RelativeUrl},回复内容：{result.Content}");
         }
     }
 }

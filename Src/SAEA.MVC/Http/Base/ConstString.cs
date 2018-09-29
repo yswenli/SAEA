@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace SAEA.WebAPI.Http.Base
+﻿namespace SAEA.WebAPI.Http.Base
 {
     internal struct ConstString
     {
@@ -27,6 +23,6 @@ namespace SAEA.WebAPI.Http.Base
         /// <summary>
         /// application/json
         /// </summary>
-        public const string FORMENCTYPE3 = "application/json";
+        public const string FORMENCTYPE3 = "application/json";        
     }
 }

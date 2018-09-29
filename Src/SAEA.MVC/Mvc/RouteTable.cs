@@ -51,9 +51,9 @@ namespace SAEA.WebAPI.Mvc
         {
             lock (_locker)
             {
-                var list = _list.Where(b => string.Compare(b.ControllerName, controllerName, true) == 0 && string.Compare(b.ActionName, actionName,true) == 0).ToList();
+                var list = _list.Where(b => string.Compare(b.ControllerName, controllerName, true) == 0 && string.Compare(b.ActionName, actionName, true) == 0).ToList();
 
-                if (list == null || list.Count == 0)
+                if (list == null || list.Count == 0 || list.FirstOrDefault(b => b.IsPost == isPost) == null)
                 {
                     var actions = controllerType.GetMethods().Where(b => string.Compare(b.Name, actionName, true) == 0).ToList();
 
@@ -76,7 +76,7 @@ namespace SAEA.WebAPI.Mvc
 
                         if (attrs != null && attrs.Length > 0)
                         {
-                            var actionAttrs = attrs.Where(b => b.GetType().BaseType.Name == "ActionFilterAttribute").ToList();
+                            var actionAttrs = attrs.Where(b => b.GetType().BaseType.Name == ConstHelper.ACTIONFILTERATTRIBUTE).ToList();
 
                             if (actionAttrs != null && actionAttrs.Count > 0)
 
@@ -90,7 +90,7 @@ namespace SAEA.WebAPI.Mvc
                             {
                                 ControllerName = controllerName,
                                 ActionName = actionName,
-                                Instance = (APIController)instance,
+                                Instance = (Controller)instance,
                                 FilterAtrrs = iAttrs,
                                 Action = action,
                                 ActionInvoker = FastInvoke.GetMethodInvoker(action)
@@ -101,24 +101,41 @@ namespace SAEA.WebAPI.Mvc
 
                             if (actionAttrs != null)
                             {
-                                var dPost = actionAttrs.Where(b => b.GetType().Name == "HttpPost").FirstOrDefault();
-                                if (dPost != null)
-                                {
-                                    routing.IsPost = true;
-                                }
-                                else
-                                {
-                                    routing.IsPost = false;
-                                }
-
-                                var filterAttrs = attrs.Where(b => b.GetType().BaseType.Name == "ActionFilterAttribute").ToList();
+                                var filterAttrs = attrs.Where(b => b.GetType().BaseType.Name == ConstHelper.ACTIONFILTERATTRIBUTE).ToList();
 
                                 if (filterAttrs != null && filterAttrs.Count > 0)
 
                                     routing.ActionFilterAtrrs = filterAttrs;
-                            }
 
-                            _list.Add(routing);
+                                var dGet = actionAttrs.Where(b => b.GetType().Name == ConstHelper.HTTPGET).FirstOrDefault();
+                                if (dGet != null)
+                                {
+                                    routing.IsPost = false;
+                                    _list.Add(routing);
+                                }
+
+                                var dPost = actionAttrs.Where(b => b.GetType().Name == ConstHelper.HTTPPOST).FirstOrDefault();
+                                if (dPost != null)
+                                {
+                                    var routing2 = new Routing()
+                                    {
+                                        ControllerName = controllerName,
+                                        ActionName = actionName,
+                                        Instance = (Controller)instance,
+                                        FilterAtrrs = iAttrs,
+                                        Action = action,
+                                        ActionInvoker = FastInvoke.GetMethodInvoker(action),
+                                        ActionFilterAtrrs = routing.ActionFilterAtrrs
+                                    };
+                                    routing2.IsPost = true;
+                                    _list.Add(routing2);
+                                }
+                            }
+                            else
+                            {
+                                routing.IsPost = false;
+                                _list.Add(routing);
+                            }
                         }
                         return _list.Where(b => string.Compare(b.ControllerName, controllerName, true) == 0 && string.Compare(b.ActionName, actionName, true) == 0 && b.IsPost == isPost).FirstOrDefault();
                     }

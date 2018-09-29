@@ -30,18 +30,20 @@ namespace SAEA.WebAPITest.Controllers
     /// <summary>
     /// 测试实例代码
     /// </summary>
-    //[LogAtrribute]
-    public class HomeController : APIController
+    [LogAtrribute]
+    public class HomeController : Controller
     {
         /// <summary>
         /// 日志拦截
         /// 内容输出
         /// </summary>
         /// <returns></returns>
-        //[Log2Atrribute]
+        [Log2Atrribute]
+        [HttpGet]
+        [HttpPost]
         public ActionResult Index()
         {
-            return Content("Hello,I'm SAEA.WebAPI！你好！");
+            return Content("Hello,I'm SAEA.MVC！你好！");
         }
         /// <summary>
         /// 支持基本类型参数

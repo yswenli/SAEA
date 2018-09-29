@@ -54,7 +54,7 @@ namespace SAEA.FileSocket
         public long Total { get => _total; set => _total = value; }
         public long In { get => _in; set => _in = value; }
 
-        public Server(int bufferSize = 100 * 1024) : base(new Context(), bufferSize)
+        public Server(int bufferSize = 100 * 1024) : base(new Context(), bufferSize, 10)
         {
 
         }
