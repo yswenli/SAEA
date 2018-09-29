@@ -9,7 +9,7 @@
     <Authors>yswenli</Authors>
     <Copyright>yswenli</Copyright>
     <PackageProjectUrl>https://www.cnblogs.com/yswenli/</PackageProjectUrl>
-    <Version>2.1.0</Version>
+    <Version>2.1.1</Version>
     <PackageReleaseNotes>This is a redis driver based on SAEA.Sockets.
 这是一个基于SAEA.Sockets的redis 驱动
 https://github.com/yswenli/SAEA</PackageReleaseNotes>
