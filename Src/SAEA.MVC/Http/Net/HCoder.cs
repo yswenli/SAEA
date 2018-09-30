@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.WebAPI.Http.Net
+*命名空间：SAEA.MVC.Http.Net
 *文件名： HCoder
 *版本号： V1.0.0.0
 *唯一标识：1c78283d-e311-4d8d-b781-395253c9454c
@@ -22,11 +22,11 @@
 *
 *****************************************************************************/
 using SAEA.Sockets.Interface;
-using SAEA.WebAPI.Http.Base;
+using SAEA.MVC.Http.Base;
 using System;
 using System.Collections.Generic;
 
-namespace SAEA.WebAPI.Http.Net
+namespace SAEA.MVC.Http.Net
 {
     class HCoder : ICoder
     {

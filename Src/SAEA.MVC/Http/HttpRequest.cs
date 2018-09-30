@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.WebAPI.Http
+*命名空间：SAEA.MVC.Http
 *文件名： HttpRequest
 *版本号： V1.0.0.0
 *唯一标识：eeefb8e0-9493-4a07-b469-fc24db360a1b
@@ -23,8 +23,8 @@
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.Sockets.Interface;
-using SAEA.WebAPI.Http.Base;
-using SAEA.WebAPI.Http.Model;
+using SAEA.MVC.Http.Base;
+using SAEA.MVC.Http.Model;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -32,7 +32,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace SAEA.WebAPI.Http
+namespace SAEA.MVC.Http
 {
     /// <summary>
     /// HTTP请求定义

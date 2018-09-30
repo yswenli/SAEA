@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.WebAPI.Mvc
+*命名空间：SAEA.MVC.Mvc
 *文件名： ActionResult
 *版本号： V1.0.0.0
 *唯一标识：39ffb9e8-5bff-4535-9b15-8d744bc100d9
@@ -24,14 +24,14 @@
 using System.Net;
 using System.Text;
 
-namespace SAEA.WebAPI.Mvc
+namespace SAEA.MVC.Mvc
 {
     // 摘要:
     //     封装一个操作方法的结果并用于代表该操作方法执行框架级操作。
     public abstract class ActionResult
     {
         // 摘要:
-        //     初始化 SAEA.WebAPI.ActionResult 类的新实例。
+        //     初始化 SAEA.MVC.ActionResult 类的新实例。
         public ActionResult()
         {
 

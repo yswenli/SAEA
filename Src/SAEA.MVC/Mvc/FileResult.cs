@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.WebAPI.Mvc
+*命名空间：SAEA.MVC.Mvc
 *文件名： FileResult
 *版本号： V1.0.0.0
 *唯一标识：10362e3c-aeb1-4282-a3b2-69774773af9e
@@ -21,13 +21,13 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.BaseLibs.WebApi.Http.Base;
-using SAEA.WebAPI.Http.Base;
+using SAEA.BaseLibs.MVC.Http.Base;
+using SAEA.MVC.Http.Base;
 using System.IO;
 using System.Net;
 using System.Text;
 
-namespace SAEA.WebAPI.Mvc
+namespace SAEA.MVC.Mvc
 {
     /// <summary>
     /// 文件类型

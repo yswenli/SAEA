@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.WebAPITest.Model
+*命名空间：SAEA.MVCTest.Model
 *文件名： UserInfo
 *版本号： V1.0.0.0
 *唯一标识：87527f7a-54bc-4833-b04b-c5ba8551f048
@@ -25,7 +25,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace SAEA.WebAPITest.Model
+namespace SAEA.MVCTest.Model
 {
     public class UserInfo
     {

@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.WebAPI.Mvc
+*命名空间：SAEA.MVC.Mvc
 *文件名： HttpPost
 *版本号： V1.0.0.0
 *唯一标识：e00bb57f-e3ee-4efe-a7cf-f23db767c1d0
@@ -25,7 +25,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace SAEA.WebAPI.Mvc
+namespace SAEA.MVC.Mvc
 {
     /// <summary>
     /// 标记方法为POST

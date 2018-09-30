@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.WebAPI.Http
+*命名空间：SAEA.MVC.Http
 *文件名： HttpServer
 *版本号： V1.0.0.0
 *唯一标识：914acb72-d4c4-4fa1-8e80-ce2f83bd06f0
@@ -22,12 +22,12 @@
 *
 *****************************************************************************/
 using SAEA.Sockets.Interface;
-using SAEA.WebAPI.Common;
-using SAEA.WebAPI.Http.Base;
-using SAEA.WebAPI.Http.Net;
+using SAEA.MVC.Common;
+using SAEA.MVC.Http.Base;
+using SAEA.MVC.Http.Net;
 using System;
 
-namespace SAEA.WebAPI.Http
+namespace SAEA.MVC.Http
 {
     /// <summary>
     /// web api httpServer

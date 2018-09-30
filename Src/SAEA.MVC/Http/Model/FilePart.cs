@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace SAEA.WebAPI.Http.Model
+namespace SAEA.MVC.Http.Model
 {
     public class FilePart
     {

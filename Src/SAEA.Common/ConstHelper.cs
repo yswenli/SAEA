@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.WebAPI.Mvc
+*命名空间：SAEA.MVC.Mvc
 *文件名： AreaCollection
 *版本号： V1.0.0.0
 *唯一标识：eb956356-8ea4-4657-aec1-458a3654c078

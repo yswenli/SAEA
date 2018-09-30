@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.WebAPI.Mvc
+*命名空间：SAEA.MVC.Mvc
 *文件名： RouteTable
 *版本号： V1.0.0.0
 *唯一标识：1ed5d381-d7ce-4ea3-b8b5-c32f581ad49f
@@ -26,10 +26,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace SAEA.WebAPI.Mvc
+namespace SAEA.MVC.Mvc
 {
     /// <summary>
-    /// SAEA.WebAPI路由表
+    /// SAEA.MVC路由表
     /// </summary>
     public static class RouteTable
     {
@@ -99,7 +99,7 @@ namespace SAEA.WebAPI.Mvc
                             //action上面的过滤
                             var actionAttrs = action.GetCustomAttributes(true);
 
-                            if (actionAttrs != null)
+                            if (actionAttrs != null && actionAttrs.Length > 0)
                             {
                                 var filterAttrs = attrs.Where(b => b.GetType().BaseType.Name == ConstHelper.ACTIONFILTERATTRIBUTE).ToList();
 

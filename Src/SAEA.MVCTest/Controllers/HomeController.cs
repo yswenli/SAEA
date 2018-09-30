@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.WebAPITest.Controllers
+*命名空间：SAEA.MVCTest.Controllers
 *文件名： HomeController
 *版本号： V1.0.0.0
 *唯一标识：e00bb57f-e3ee-4efe-a7cf-f23db767c1d0
@@ -21,11 +21,11 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.WebAPI.Mvc;
-using SAEA.WebAPITest.Attrubutes;
-using SAEA.WebAPITest.Model;
+using SAEA.MVC.Mvc;
+using SAEA.MVCTest.Attrubutes;
+using SAEA.MVCTest.Model;
 
-namespace SAEA.WebAPITest.Controllers
+namespace SAEA.MVCTest.Controllers
 {
     /// <summary>
     /// 测试实例代码
@@ -37,10 +37,7 @@ namespace SAEA.WebAPITest.Controllers
         /// 日志拦截
         /// 内容输出
         /// </summary>
-        /// <returns></returns>
-        [Log2Atrribute]
-        [HttpGet]
-        [HttpPost]
+        /// <returns></returns>              
         public ActionResult Index()
         {
             return Content("Hello,I'm SAEA.MVC！你好！");
@@ -51,6 +48,9 @@ namespace SAEA.WebAPITest.Controllers
         /// </summary>
         /// <param name="id"></param>
         /// <returns></returns>
+        [Log2Atrribute]
+        [HttpGet]
+        [HttpPost]
         public ActionResult Get(int id)
         {
             return Json(new { Name = "yswenli", Sex = "男" });

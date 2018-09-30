@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.WebAPI.Http
+*命名空间：SAEA.MVC.Http
 *文件名： HttpResponse
 *版本号： V1.0.0.0
 *唯一标识：2e43075f-a43d-4b60-bee1-1f9107e2d133
@@ -23,16 +23,16 @@
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.Sockets.Interface;
-using SAEA.WebAPI.Common;
-using SAEA.WebAPI.Http.Base;
-using SAEA.WebAPI.Http.Model;
-using SAEA.WebAPI.Mvc;
+using SAEA.MVC.Common;
+using SAEA.MVC.Http.Base;
+using SAEA.MVC.Http.Model;
+using SAEA.MVC.Mvc;
 using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Text;
 
-namespace SAEA.WebAPI.Http
+namespace SAEA.MVC.Http
 {
     public class HttpResponse : HttpBase, IDisposable
     {

@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.WebAPI.Mvc
+*命名空间：SAEA.MVC.Mvc
 *文件名： Routing
 *版本号： V1.0.0.0
 *唯一标识：d48d62ba-6e2b-4eeb-875b-fda8d962f3e0
@@ -25,7 +25,7 @@ using SAEA.Common;
 using System.Collections.Generic;
 using System.Reflection;
 
-namespace SAEA.WebAPI.Mvc
+namespace SAEA.MVC.Mvc
 {
     public class Routing
     {

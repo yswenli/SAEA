@@ -1,14 +1,14 @@
 ﻿using SAEA.Common;
-using SAEA.WebAPI;
+using SAEA.MVC;
 using System.Diagnostics;
 
-namespace SAEA.WebAPITest
+namespace SAEA.MVCTest
 {
     class Program
     {
         static void Main(string[] args)
         {
-            ConsoleHelper.Title = "SAEA.WebAPITest";
+            ConsoleHelper.Title = "SAEA.MVCTest";
 
             SAEAMvcApplication mvcApplication = new SAEAMvcApplication();
 
@@ -16,7 +16,7 @@ namespace SAEA.WebAPITest
 
             mvcApplication.Start();
 
-            ConsoleHelper.WriteLine("WebApi已启动！\t\r\n访问请输入http://127.0.0.1:39654/controller/action");
+            ConsoleHelper.WriteLine("MVC已启动！\t\r\n访问请输入http://127.0.0.1:39654/controller/action");
 
             ConsoleHelper.ReadLine();
         }

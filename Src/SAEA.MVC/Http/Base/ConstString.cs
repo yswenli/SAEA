@@ -1,4 +1,4 @@
-﻿namespace SAEA.WebAPI.Http.Base
+﻿namespace SAEA.MVC.Http.Base
 {
     internal struct ConstString
     {

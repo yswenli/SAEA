@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.WebAPI
+*命名空间：SAEA.MVC
 *文件名： HttpApplication
 *版本号： V1.0.0.0
 *唯一标识：85030224-1d7f-4fc0-8e65-f4b6144c6a46
@@ -21,14 +21,14 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.WebAPI.Http;
-using SAEA.WebAPI.Mvc;
+using SAEA.MVC.Http;
+using SAEA.MVC.Mvc;
 using System;
 
-namespace SAEA.WebAPI
+namespace SAEA.MVC
 {
     /// <summary>
-    /// SAEA.WebAPI.Mvc应用程序
+    /// SAEA.MVC.Mvc应用程序
     /// </summary>
     public class SAEAMvcApplication
     {
@@ -70,7 +70,7 @@ namespace SAEA.WebAPI
         }
 
         /// <summary>
-        /// 启动webapi服务
+        /// 启动MVC服务
         /// </summary>
         public void Start(int port = 39654)
         {
@@ -92,7 +92,7 @@ namespace SAEA.WebAPI
             }
         }
         /// <summary>
-        /// 启动webapi服务
+        /// 启动MVC服务
         /// </summary>
         /// <param name="controllerNameSpace">分离式的controller</param>
         /// <param name="port"></param>

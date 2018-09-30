@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
-namespace SAEA.WebAPI.Common
+namespace SAEA.MVC.Common
 {
     /// <summary>
     /// 生成日志

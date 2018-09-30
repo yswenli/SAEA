@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.WebAPI.Http.Base
+*命名空间：SAEA.MVC.Http.Base
 *文件名： Headers
 *版本号： V1.0.0.0
 *唯一标识：7ac31ac9-292a-46c3-b0ac-796d1b89e067

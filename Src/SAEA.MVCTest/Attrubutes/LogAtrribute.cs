@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.WebAPITest.Common
+*命名空间：SAEA.MVCTest.Common
 *文件名： LogAtrribute
 *版本号： V1.0.0.0
 *唯一标识：2a261731-b8f6-47de-b2e4-aecf2e0e0c0f
@@ -22,10 +22,10 @@
 *
 *****************************************************************************/
 using SAEA.Common;
-using SAEA.WebAPI.Http;
-using SAEA.WebAPI.Mvc;
+using SAEA.MVC.Http;
+using SAEA.MVC.Mvc;
 
-namespace SAEA.WebAPITest.Attrubutes
+namespace SAEA.MVCTest.Attrubutes
 {
     /// <summary>
     /// 自定义日志记录

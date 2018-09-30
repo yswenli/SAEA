@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.WebAPI.Http
+*命名空间：SAEA.MVC.Http
 *文件名： HttpContext
 *版本号： V1.0.0.0
 *唯一标识：af0b65c6-0f58-4221-9e52-7e3f0a4ffb24
@@ -21,17 +21,13 @@
 *描述：
 *
 *****************************************************************************/
-using Newtonsoft.Json.Linq;
-using SAEA.Sockets.Interface;
-using SAEA.WebAPI.Http.Base;
-using SAEA.WebAPI.Mvc;
-using System;
-using System.IO;
-using System.Linq;
-using System.Text;
 using SAEA.Common;
+using SAEA.MVC.Http.Base;
+using SAEA.MVC.Mvc;
+using SAEA.Sockets.Interface;
+using System;
 
-namespace SAEA.WebAPI.Http
+namespace SAEA.MVC.Http
 {
     /// <summary>
     /// http上下文

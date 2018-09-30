@@ -1,9 +1,9 @@
-﻿using SAEA.WebAPI.Mvc;
+﻿using SAEA.MVC.Mvc;
 using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace SAEA.WebAPITest.Controllers
+namespace SAEA.MVCTest.Controllers
 {
     /// <summary>
     /// 文件控制器

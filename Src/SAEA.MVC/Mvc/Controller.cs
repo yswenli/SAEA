@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.WebAPI.Mvc
+*命名空间：SAEA.MVC.Mvc
 *文件名： Controller
 *版本号： V1.0.0.0
 *唯一标识：a303db7d-f83c-4c49-9804-032ec2236232
@@ -22,12 +22,12 @@
 *
 *****************************************************************************/
 
-using SAEA.WebAPI.Http;
+using SAEA.MVC.Http;
 
-namespace SAEA.WebAPI.Mvc
+namespace SAEA.MVC.Mvc
 {
     /// <summary>
-    /// WebApi控制器
+    /// MVC控制器
     /// </summary>
     public abstract class Controller
     {

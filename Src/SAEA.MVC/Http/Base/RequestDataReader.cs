@@ -1,6 +1,6 @@
 ﻿using SAEA.Common;
-using SAEA.WebAPI.Common;
-using SAEA.WebAPI.Http.Model;
+using SAEA.MVC.Common;
+using SAEA.MVC.Http.Model;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -8,7 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace SAEA.WebAPI.Http.Base
+namespace SAEA.MVC.Http.Base
 {
     /// <summary>
     /// http字符串读取 

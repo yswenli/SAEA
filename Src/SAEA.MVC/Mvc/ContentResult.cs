@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.WebAPI.Mvc
+*命名空间：SAEA.MVC.Mvc
 *文件名： ContentResult
 *版本号： V1.0.0.0
 *唯一标识：4f00dffe-e5f4-4a70-83d3-95c1e16d96a3
@@ -24,7 +24,7 @@
 using System.Net;
 using System.Text;
 
-namespace SAEA.WebAPI.Mvc
+namespace SAEA.MVC.Mvc
 {
     public class ContentResult : ActionResult
     {

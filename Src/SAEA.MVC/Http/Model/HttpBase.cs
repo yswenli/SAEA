@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.WebAPI.Http.Base
+*命名空间：SAEA.MVC.Http.Base
 *文件名： BaseHeader
 *版本号： V1.0.0.0
 *唯一标识：2ab45db1-f3f1-4ed5-99c4-5d11f52c8a6b
@@ -26,7 +26,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
-namespace SAEA.WebAPI.Http.Model
+namespace SAEA.MVC.Http.Model
 {
     public class HttpBase
     {

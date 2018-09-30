@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.WebAPI.Mvc
+*命名空间：SAEA.MVC.Mvc
 *文件名： JsonResult
 *版本号： V1.0.0.0
 *唯一标识：340c3ef0-2e98-4f25-998f-2bb369fa2794
@@ -22,13 +22,13 @@
 *
 *****************************************************************************/
 using SAEA.Common;
-using SAEA.WebAPI.Common;
+using SAEA.MVC.Common;
 using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Text;
 
-namespace SAEA.WebAPI.Mvc
+namespace SAEA.MVC.Mvc
 {
     public class JsonResult : ActionResult
     {

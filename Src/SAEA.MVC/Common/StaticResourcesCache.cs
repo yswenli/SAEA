@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.WebAPI.Http.Base
+*命名空间：SAEA.MVC.Http.Base
 *文件名： StaticResourcesCache
 *版本号： V1.0.0.0
 *唯一标识：4eebbaa7-1781-4521-ab57-4bc9c8d43a84
@@ -28,7 +28,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SAEA.BaseLibs.WebApi.Http.Base
+namespace SAEA.BaseLibs.MVC.Http.Base
 {
     /// <summary>
     /// 静态资源缓存

@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.WebAPI.Mvc
+*命名空间：SAEA.MVC.Mvc
 *文件名： ActionFilterAttribute
 *版本号： V1.0.0.0
 *唯一标识：a22caf84-4c61-456e-98cc-cbb6cb2c6d6e
@@ -21,10 +21,10 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.WebAPI.Http;
+using SAEA.MVC.Http;
 using System;
 
-namespace SAEA.WebAPI.Mvc
+namespace SAEA.MVC.Mvc
 {
     /// <summary>
     /// 拦截器
