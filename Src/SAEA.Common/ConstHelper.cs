@@ -30,9 +30,9 @@ namespace SAEA.Common
 
         public const string CONTROLLERSPACE = "Controllers";
 
-        public const string HTTPGET = "HttpGET";
+        public const string HTTPGET = "HttpGet";
 
-        public const string HTTPPOST = "HttpPOST";
+        public const string HTTPPOST = "HttpPost";
 
         public const string ONACTIONEXECUTING = "OnActionExecuting";
 
