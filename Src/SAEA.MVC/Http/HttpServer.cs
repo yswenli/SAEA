@@ -30,14 +30,14 @@ using System;
 namespace SAEA.MVC.Http
 {
     /// <summary>
-    /// web api httpServer
+    /// saea mvc httpServer
     /// </summary>
     class HttpServer
     {
         ServerSocket _serverSocket;
 
         /// <summary>
-        /// web api httpServer
+        /// saea mvc httpServer
         /// </summary>
         /// <param name="bufferSize"></param>
         /// <param name="count"></param>

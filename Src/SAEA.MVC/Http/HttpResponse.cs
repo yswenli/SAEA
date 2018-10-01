@@ -112,7 +112,7 @@ namespace SAEA.MVC.Http
         {
             StringBuilder builder = new StringBuilder();
             builder.Append(this.Protocal + SPACE + Status.ToNVString() + ENTER);
-            builder.AppendLine("Server: Wenli's Server");
+            builder.AppendLine(ConstHelper.SERVERMVCSERVER);
             builder.AppendLine("Keep-Alive: timeout=20");
             builder.AppendLine("Date: " + DateTimeHelper.Now.ToFString("r"));
 
