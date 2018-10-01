@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
@@ -31,8 +32,13 @@ using System.Text;
 
 namespace SAEA.Common
 {
+    /// <summary>
+    /// Enum辅助类
+    /// </summary>
     public static class EnumHelper
     {
+        static ConcurrentDictionary<Enum, string> _cache = new ConcurrentDictionary<Enum, string>();
+
         /// <summary>
         /// 获取DescriptionAttribute
         /// </summary>
@@ -42,19 +48,27 @@ namespace SAEA.Common
         {
             var result = string.Empty;
 
-            var typeInfo = @enum.GetType();
+            if (@enum == null) return result;
 
-            var enumValues = typeInfo.GetEnumValues();
-
-            foreach (var value in enumValues)
+            if(!_cache.TryGetValue(@enum,out result))
             {
-                if (@enum.Equals(value))
-                {
-                    MemberInfo memberInfo = typeInfo.GetMember(value.ToString()).First();
+                var typeInfo = @enum.GetType();
 
-                    result = memberInfo.GetCustomAttribute<DescriptionAttribute>().Description;
+                var enumValues = typeInfo.GetEnumValues();
+
+                foreach (var value in enumValues)
+                {
+                    if (@enum.Equals(value))
+                    {
+                        MemberInfo memberInfo = typeInfo.GetMember(value.ToString()).First();
+
+                        result = memberInfo.GetCustomAttribute<DescriptionAttribute>().Description;
+                    }
                 }
+
+                _cache.TryAdd(@enum, result);
             }
+            
             return result;
         }
 

@@ -124,7 +124,6 @@ namespace SAEA.Common
             while (this.Position < _stream.Length);
             var result = list.ToArray();
             list.Clear();
-            list = null;
             return result;
         }
         /// <summary>
@@ -149,7 +148,6 @@ namespace SAEA.Common
                 data = null;
                 return ldata;
             }
-            data = null;
             return null;
         }
 
@@ -170,7 +168,6 @@ namespace SAEA.Common
         public void Dispose()
         {
             _cache.Clear();
-            _cache = null;
             _position = 0;
             _stream.Close();
         }
