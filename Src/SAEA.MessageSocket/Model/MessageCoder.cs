@@ -5,7 +5,7 @@
 *公司名称：wenli
 *命名空间：SAEA.MessageSocket
 *文件名： Class1
-*版本号： V1.0.0.0
+*版本号： V2.1.5.0
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,14 +17,13 @@
 *修改标记
 *修改时间：2018/3/1 15:54:21
 *修改人： yswenli
-*版本号： V1.0.0.0
+*版本号： V2.1.5.0
 *描述：
 *
 *****************************************************************************/
 
 using SAEA.Common;
 using SAEA.Sockets;
-using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
 using System;
@@ -57,10 +56,10 @@ namespace SAEA.MessageSocket.Model
             {
                 _buffer.AddRange(data);
 
-                var buffer = _buffer.ToArray();
-
-                while (buffer.Length >= P_Head)
+                while (_buffer.Count >= P_Head)
                 {
+                    var buffer = _buffer.ToArray();
+
                     var bodyLen = GetLength(buffer);
 
                     var type = GetType(buffer);
@@ -82,7 +81,7 @@ namespace SAEA.MessageSocket.Model
                         }
                         else
                         {
-                            var sm = new SocketProtocal() { BodyLength = bodyLen, Type = (byte)type, Content = GetContent(buffer, P_Head, (int)bodyLen) };
+                            var sm = new SocketProtocal() { BodyLength = bodyLen, Type = (byte)type, Content = GetContent(buffer, P_Head, (int)bodyLen) };                           
                             _buffer.RemoveRange(0, (int)(P_Head + bodyLen));
                             bodyLen = 0;
                             onUnPackage?.Invoke(sm);
@@ -116,7 +115,6 @@ namespace SAEA.MessageSocket.Model
         public void Dispose()
         {
             _buffer.Clear();
-            _buffer = null;
         }
     }
 }

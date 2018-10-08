@@ -5,7 +5,7 @@
 *公司名称：wenli
 *命名空间：SAEA.Commom
 *文件名： Class1
-*版本号： V1.0.0.0
+*版本号： V2.1.5.0
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/3/1 15:54:21
 *修改人： yswenli
-*版本号： V1.0.0.0
+*版本号： V2.1.5.0
 *描述：
 *
 *****************************************************************************/
@@ -28,8 +28,9 @@ namespace SAEA.Common
 {
     public static class DateTimeHelper
     {
+        static AutoResetEvent autoResetEvent = new AutoResetEvent(false);
 
-        static DateTime _current;
+        static DateTime _now = DateTime.Now;
 
         static DateTimeHelper()
         {
@@ -39,8 +40,8 @@ namespace SAEA.Common
                 {
                     while (true)
                     {
-                        _current = DateTime.Now;
-                        Thread.Sleep(1);
+                        _now = DateTime.Now;
+                        autoResetEvent.WaitOne(1);
                     }
                 }
                 catch { }
@@ -52,17 +53,7 @@ namespace SAEA.Common
             }.Start();
         }
 
-        public static DateTime Now
-        {
-            get
-            {
-                if (_current == null || _current.Year == 1)
-                {
-                    _current = DateTime.Now;
-                }
-                return _current;
-            }
-        }
+        public static DateTime Now => _now;
 
         /// <summary>
         /// 将中国时间转换成UTC

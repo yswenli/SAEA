@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.MVC.Mvc
 *文件名： RouteTable
-*版本号： V1.0.0.0
+*版本号： V2.1.5.0
 *唯一标识：1ed5d381-d7ce-4ea3-b8b5-c32f581ad49f
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/4/12 10:55:31
 *修改人： yswenli
-*版本号： V1.0.0.0
+*版本号： V2.1.5.0
 *描述：
 *
 *****************************************************************************/
@@ -72,11 +72,11 @@ namespace SAEA.MVC.Mvc
                         List<object> iAttrs = null;
 
                         //类上面的过滤
-                        var attrs = controllerType.GetCustomAttributes(true);
+                        var classAttrs = controllerType.GetCustomAttributes(true);
 
-                        if (attrs != null && attrs.Length > 0)
+                        if (classAttrs != null && classAttrs.Length > 0)
                         {
-                            var actionAttrs = attrs.Where(b => b.GetType().BaseType.Name == ConstHelper.ACTIONFILTERATTRIBUTE).ToList();
+                            var actionAttrs = classAttrs.Where(b => b.GetType().BaseType.Name == ConstHelper.ACTIONFILTERATTRIBUTE).ToList();
 
                             if (actionAttrs != null && actionAttrs.Count > 0)
 
@@ -101,22 +101,22 @@ namespace SAEA.MVC.Mvc
 
                             if (actionAttrs != null && actionAttrs.Length > 0)
                             {
-                                var filterAttrs = attrs.Where(b => b.GetType().BaseType.Name == ConstHelper.ACTIONFILTERATTRIBUTE).ToList();
+                                var filterAttrs = actionAttrs.Where(b => b.GetType().BaseType.Name == ConstHelper.ACTIONFILTERATTRIBUTE).ToList();
 
                                 if (filterAttrs != null && filterAttrs.Count > 0)
 
-                                    routing.ActionFilterAtrrs = filterAttrs;
-
-                                var dGet = actionAttrs.Where(b => b.GetType().Name == ConstHelper.HTTPGET).FirstOrDefault();
-                                if (dGet != null)
-                                {
-                                    routing.IsPost = false;
-                                    _list.Add(routing);
-                                }
+                                    routing.ActionFilterAtrrs = actionAttrs.ToList();
 
                                 var dPost = actionAttrs.Where(b => b.GetType().Name == ConstHelper.HTTPPOST).FirstOrDefault();
                                 if (dPost != null)
                                 {
+                                    var dGet = actionAttrs.Where(b => b.GetType().Name == ConstHelper.HTTPGET).FirstOrDefault();
+                                    if (dGet != null)
+                                    {
+                                        routing.IsPost = false;
+                                        _list.Add(routing);
+                                    }
+
                                     var routing2 = new Routing()
                                     {
                                         ControllerName = controllerName,
@@ -129,6 +129,11 @@ namespace SAEA.MVC.Mvc
                                     };
                                     routing2.IsPost = true;
                                     _list.Add(routing2);
+                                }
+                                else
+                                {
+                                    routing.IsPost = false;
+                                    _list.Add(routing);
                                 }
                             }
                             else

@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.MVC.Mvc
 *文件名： AreaCollection
-*版本号： V1.0.0.0
+*版本号： V2.1.5.0
 *唯一标识：eb956356-8ea4-4657-aec1-458a3654c078
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/4/10 18:10:16
 *修改人： yswenli
-*版本号： V1.0.0.0
+*版本号： V2.1.5.0
 *描述：
 *
 *****************************************************************************/
@@ -170,12 +170,19 @@ namespace SAEA.MVC.Mvc
                     {
                         foreach (var arr in routing.FilterAtrrs)
                         {
-                            var goOn = (bool)FastInvoke.GetMethodInvoker(arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING)).Invoke(arr, nargs.ToArray());
+                            var method = arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING);
 
-                            if (!goOn)
+                            if (method != null)
                             {
-                                return new ContentResult("o_o，当前逻辑已被拦截！", System.Net.HttpStatusCode.NotAcceptable);
+                                var goOn = (bool)FastInvoke.GetMethodInvoker(method).Invoke(arr, nargs.ToArray());
+
+                                if (!goOn)
+                                {
+                                    return new ContentResult("o_o，当前逻辑已被拦截！", System.Net.HttpStatusCode.NotAcceptable);
+                                }
                             }
+
+
                         }
                     }
 
@@ -183,11 +190,16 @@ namespace SAEA.MVC.Mvc
                     {
                         foreach (var arr in routing.ActionFilterAtrrs)
                         {
-                            var goOn = (bool)FastInvoke.GetMethodInvoker(arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING)).Invoke(arr, nargs.ToArray());
+                            var method = arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING);
 
-                            if (!goOn)
+                            if (method != null)
                             {
-                                return new ContentResult("o_o，当前逻辑已被拦截！", System.Net.HttpStatusCode.NotAcceptable);
+                                var goOn = (bool)FastInvoke.GetMethodInvoker(arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING)).Invoke(arr, nargs.ToArray());
+
+                                if (!goOn)
+                                {
+                                    return new ContentResult("o_o，当前逻辑已被拦截！", System.Net.HttpStatusCode.NotAcceptable);
+                                }
                             }
                         }
                     }
@@ -200,15 +212,19 @@ namespace SAEA.MVC.Mvc
                     {
                         foreach (var arr in routing.FilterAtrrs)
                         {
-                            FastInvoke.GetMethodInvoker(arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTED)).Invoke(arr, nargs);
+                            var method = arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTED);
+                            if (method != null)
+                                FastInvoke.GetMethodInvoker(method).Invoke(arr, nargs);
                         }
                     }
 
                     if (routing.ActionFilterAtrrs != null && routing.ActionFilterAtrrs.Count > 0)
                     {
-                        foreach (var arr in routing.FilterAtrrs)
+                        foreach (var arr in routing.ActionFilterAtrrs)
                         {
-                            FastInvoke.GetMethodInvoker(arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTED)).Invoke(arr, nargs);
+                            var method = arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTED);
+                            if (method != null)
+                                FastInvoke.GetMethodInvoker(method).Invoke(arr, nargs);
                         }
                     }
                     return result;

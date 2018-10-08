@@ -13,7 +13,7 @@
 *公司名称：wenli
 *命名空间：SAEA.Sockets
 *文件名： StressTestingClient
-*版本号： V1.0.0.0
+*版本号： V2.1.5.0
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -25,19 +25,16 @@
 *修改标记
 *修改时间：2018/9/8 20:00:00
 *修改人： yswenli
-*版本号： V1.0.0.0
+*版本号： V2.1.5.0
 *描述：
 *
 *****************************************************************************/
 using SAEA.Common;
-using SAEA.Sockets.Interface;
-using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using System.Threading;
-using System.Linq;
 
 namespace SAEA.Sockets.Core
 {
@@ -57,7 +54,7 @@ namespace SAEA.Sockets.Core
 
         public int Lost { get; private set; }
 
-        bool isStop = false;
+        bool isStop = true;
 
         AutoResetEvent _connectEvent = new AutoResetEvent(true);
 
@@ -75,7 +72,7 @@ namespace SAEA.Sockets.Core
             {
                 var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                 socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-                socket.NoDelay = true;
+                socket.NoDelay = false;
                 _list.Add(socket);
             }
 
@@ -95,14 +92,18 @@ namespace SAEA.Sockets.Core
 
         void Calc()
         {
-            ThreadHelper.Run(() =>
+            if (isStop)
             {
-                while (!isStop)
+                isStop = false;
+                ThreadHelper.Run(() =>
                 {
-                    this.Lost = _list.Where(b => !b.Connected).Count();
-                    Thread.Sleep(500);
-                }
-            });
+                    while (!isStop)
+                    {
+                        this.Lost = _list.Where(b => !b.Connected).Count();
+                        Thread.Sleep(1000);
+                    }
+                });
+            }
         }
 
         public void Connect()

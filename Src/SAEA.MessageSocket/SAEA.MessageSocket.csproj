@@ -6,7 +6,7 @@
     <Company>yswenli</Company>
     <Copyright>yswenli</Copyright>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Version>2.1.1</Version>
+    <Version>2.1.5</Version>
     <Description>This is a message server and client component based on SAEA.Scokets.
 这是一个基于SAEA.Scokets的消息服务器、客户端组件
 https://github.com/yswenli/SAEA</Description>

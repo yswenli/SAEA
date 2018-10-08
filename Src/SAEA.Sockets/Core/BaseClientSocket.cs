@@ -13,7 +13,7 @@
 *公司名称：wenli
 *命名空间：SAEA.Sockets
 *文件名： BaseClientSocket
-*版本号： V1.0.0.0
+*版本号： V2.1.5.0
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -25,7 +25,7 @@
 *修改标记
 *修改时间：2018/3/1 15:54:21
 *修改人： yswenli
-*版本号： V1.0.0.0
+*版本号： V2.1.5.0
 *描述：
 *
 *****************************************************************************/
@@ -121,6 +121,19 @@ namespace SAEA.Sockets.Core
             }
         }
 
+        public void Connect()
+        {
+            bool waited = false;
+            ConnectAsync((s) =>
+            {
+                waited = true;
+            });
+            while (!waited)
+            {
+                Thread.Sleep(10);
+            }
+        }
+
         void ConnectArgs_Completed(object sender, SocketAsyncEventArgs e)
         {
             ProcessConnected(e);
@@ -133,6 +146,7 @@ namespace SAEA.Sockets.Core
             if (_connected)
             {
                 _userToken = _sessionManager.GenerateUserToken(e.ConnectSocket);
+                _userToken.ID = e.ConnectSocket.LocalEndPoint.ToString();
                 var readArgs = _userToken.ReadArgs;
                 if (!e.ConnectSocket.ReceiveAsync(readArgs))
                     ProcessReceive(readArgs);

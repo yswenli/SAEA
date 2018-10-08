@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.MVC.Http.Base
 *文件名： StaticResourcesCache
-*版本号： V1.0.0.0
+*版本号： V2.1.5.0
 *唯一标识：4eebbaa7-1781-4521-ab57-4bc9c8d43a84
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,16 +17,12 @@
 *修改标记
 *修改时间：2018/8/5 13:31:23
 *修改人： yswenli
-*版本号： V1.0.0.0
+*版本号： V2.1.5.0
 *描述：
 *
 *****************************************************************************/
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SAEA.BaseLibs.MVC.Http.Base
 {
