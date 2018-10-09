@@ -94,13 +94,18 @@ namespace SAEA.Sockets.Core
             _listener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             _listener.NoDelay = noDelay;
         }
-
+        /// <summary>
+        /// 启动服务
+        /// </summary>
+        /// <param name="port"></param>
+        /// <param name="backlog"></param>
         public void Start(int port = 39654, int backlog = 10 * 1000)
         {
             _listener.Bind(new IPEndPoint(IPAddress.Any, port));
             _listener.Listen(backlog);
             ProcessAccept(null);
         }
+
 
         private void ProcessAccept(SocketAsyncEventArgs args)
         {
@@ -136,7 +141,7 @@ namespace SAEA.Sockets.Core
                 }
                 catch (Exception ex)
                 {
-                    OnError?.Invoke(userToken.ID, new Exception("server在接受客户端时出现异常：" + ex.Message));
+                    OnError?.Invoke(userToken.ID, new Exception("server在接受客户端连接时出现异常：" + ex.Message));
                 }
 
                 Interlocked.Increment(ref _clientCounts);
@@ -148,7 +153,7 @@ namespace SAEA.Sockets.Core
             }
             catch (Exception ex)
             {
-                OnError?.Invoke("BaseServerSocket.ProcessAccepted", new Exception("server在接受客户端时出现异常：" + ex.Message));
+                OnError?.Invoke("BaseServerSocket.ProcessAccepted", new Exception("server在接受客户端连接时出现异常：" + ex.Message));
             }
             //接入新的请求
             ProcessAccept(e);
@@ -184,6 +189,11 @@ namespace SAEA.Sockets.Core
         /// <param name="data"></param>
         protected abstract void OnReceiveBytes(IUserToken userToken, byte[] data);
 
+
+        /// <summary>
+        /// 处理接收到数据
+        /// </summary>
+        /// <param name="readArgs"></param>
         private void ProcessReceived(SocketAsyncEventArgs readArgs)
         {
             var userToken = (IUserToken)readArgs.UserToken;
@@ -199,7 +209,6 @@ namespace SAEA.Sockets.Core
 
                     OnServerReceiveBytes.Invoke(userToken, data);
 
-
                     //继续接收下一个
                     if (userToken != null && userToken.Socket != null && userToken.Socket.Connected)
                     {
@@ -208,7 +217,7 @@ namespace SAEA.Sockets.Core
                     }
                     else
                     {
-                        Disconnect(userToken, new Exception("远程连接已关闭"));
+                        Disconnect(userToken, new Exception("The remote client has been disconnected."));
                     }
                 }
                 else
@@ -241,7 +250,7 @@ namespace SAEA.Sockets.Core
         {
             if (userToken == null || userToken.Socket == null || !userToken.Socket.Connected)
             {
-                Disconnect(userToken, new Exception("远程连接已关闭"));
+                Disconnect(userToken, new Exception("The remote client has been disconnected."));
                 return;
             }
 
@@ -275,7 +284,7 @@ namespace SAEA.Sockets.Core
         {
             if (userToken == null || userToken.Socket == null || !userToken.Socket.Connected)
             {
-                Disconnect(userToken, new Exception("远程连接已关闭"));
+                Disconnect(userToken, new Exception("The remote client has been disconnected."));
                 return;
             }
 
@@ -344,7 +353,6 @@ namespace SAEA.Sockets.Core
                 _sessionManager.Clear();
             }
             catch { }
-
         }
     }
 }

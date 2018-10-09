@@ -106,7 +106,7 @@ namespace SAEA.MessageTest
         {
             ConsoleHelper.WriteLine("SAEA.Message服务器正在启动...");
 
-            MessageServer server = new MessageServer();
+            MessageServer server = new MessageServer(1024, 1000 * 1000, 30 * 60 * 1000);
 
             server.OnDisconnected += Server_OnDisconnected;
 
@@ -232,7 +232,7 @@ namespace SAEA.MessageTest
 
             List<MessageClient> list = new List<MessageClient>();
             Task.Factory.StartNew(() =>
-            {                
+            {
                 for (int i = 0; i < 100; i++)
                 {
                     var c = new MessageClient();
