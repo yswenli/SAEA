@@ -83,16 +83,17 @@ namespace SAEA.Sockets.Core
         /// <param name="bufferSize"></param>
         /// <param name="count"></param>
         /// <param name="noDelay"></param>
-        public BaseServerSocket(IContext context, int bufferSize = 100 * 1024, int count = 10000, bool noDelay = true)
+        /// <param name="timeOut"></param>
+        public BaseServerSocket(IContext context, int bufferSize = 100 * 1024, int count = 10000, bool noDelay = true, int timeOut = 60 * 1000)
         {
-            _sessionManager = new SessionManager(context, bufferSize, count, IO_Completed);
+            _sessionManager = new SessionManager(context, bufferSize, count, IO_Completed, new TimeSpan(0, 0, timeOut));
+            _sessionManager.OnTimeOut += _sessionManager_OnTimeOut;
             OnServerReceiveBytes = new OnServerReceiveBytesHandler(OnReceiveBytes);
             m_maxNumberAcceptedClients = new Semaphore(count, count);
             _listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             _listener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             _listener.NoDelay = noDelay;
         }
-
 
         public void Start(int port = 39654, int backlog = 10 * 1000)
         {
@@ -127,7 +128,7 @@ namespace SAEA.Sockets.Core
 
                 var readArgs = userToken.ReadArgs;
 
-                _sessionManager.Add(userToken);
+                _sessionManager.Set(userToken);
 
                 try
                 {
@@ -197,29 +198,30 @@ namespace SAEA.Sockets.Core
                     Buffer.BlockCopy(readArgs.Buffer, readArgs.Offset, data, 0, readArgs.BytesTransferred);
 
                     OnServerReceiveBytes.Invoke(userToken, data);
+
+
+                    //继续接收下一个
+                    if (userToken != null && userToken.Socket != null && userToken.Socket.Connected)
+                    {
+                        if (!userToken.Socket.ReceiveAsync(readArgs))
+                            ProcessReceived(readArgs);
+                    }
+                    else
+                    {
+                        Disconnect(userToken, new Exception("远程连接已关闭"));
+                    }
                 }
                 else
                 {
                     Disconnect(userToken, null);
                 }
-
-                //继续接收下一个
-                if (userToken != null && userToken.Socket != null && userToken.Socket.Connected)
-                {
-                    if (!userToken.Socket.ReceiveAsync(readArgs))
-                        ProcessReceived(readArgs);
-                }
-                else
-                {
-                    Disconnect(userToken, new Exception("远程连接已关闭"));
-                }
+               
             }
             catch (Exception ex)
             {
                 OnError?.Invoke(userToken.ID, ex);
                 Disconnect(userToken, ex);
             }
-
         }
 
         private void ProcessSended(SocketAsyncEventArgs e)
@@ -317,12 +319,18 @@ namespace SAEA.Sockets.Core
                 {
                     if (_sessionManager.Free(userToken))
                     {
+                        if (ex == null) ex = new Exception("The remote client has been disconnected.");
                         OnDisconnected?.Invoke(userToken.ID, ex);
                         Interlocked.Decrement(ref _clientCounts);
                         m_maxNumberAcceptedClients.Release();
                     }
                 }
             }
+        }
+
+        private void _sessionManager_OnTimeOut(IUserToken userToken)
+        {
+            Disconnect(userToken);
         }
 
         /// <summary>

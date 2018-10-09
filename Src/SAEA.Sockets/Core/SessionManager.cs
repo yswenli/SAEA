@@ -33,11 +33,9 @@
 using SAEA.Common;
 using SAEA.Sockets.Interface;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
-using System.Threading;
 
 namespace SAEA.Sockets.Core
 {
@@ -51,7 +49,7 @@ namespace SAEA.Sockets.Core
 
         Type _coderType;
 
-        MemoryCacheHelper<IUserToken> _session;
+        OuterMemoryCacheHelper<IUserToken> _session;
 
         TimeSpan _timeOut;
 
@@ -64,18 +62,23 @@ namespace SAEA.Sockets.Core
         SocketAsyncEventArgsPool _argsPool;
 
         /// <summary>
+        /// 心跳过期事件
+        /// </summary>
+        public event Action<IUserToken> OnTimeOut;
+
+        /// <summary>
         /// 构造会话管理器
         /// </summary>
         /// <param name="context"></param>
         /// <param name="bufferSize"></param>
         /// <param name="count"></param>
         /// <param name="completed"></param>
-        public SessionManager(IContext context, int bufferSize, int count, EventHandler<SocketAsyncEventArgs> completed)
+        public SessionManager(IContext context, int bufferSize, int count, EventHandler<SocketAsyncEventArgs> completed, TimeSpan timeOut)
         {
             _userTokenType = context.UserToken.GetType();
             _coderType = context.UserToken.Coder.GetType();
-            _session = new MemoryCacheHelper<IUserToken>();
-            _timeOut = new TimeSpan(0, 1, 0);
+            _session = new OuterMemoryCacheHelper<IUserToken>();
+            _timeOut = timeOut;
             _bufferSize = bufferSize;
             _completed = completed;
 
@@ -84,6 +87,20 @@ namespace SAEA.Sockets.Core
 
             _argsPool = new SocketAsyncEventArgsPool(count * 2);
             _argsPool.InitPool(completed);
+
+            //超时处理 timeout handler
+            ThreadHelper.PulseAction(() =>
+            {
+                var values = _session.List.Where(b => b.Expired < DateTimeHelper.Now);
+                if (values != null)
+                {
+                    foreach (var val in values)
+                    {
+                        if (val != null)
+                            OnTimeOut?.Invoke(val.Value);
+                    }
+                }
+            }, new TimeSpan(0, 0, 10), false);
         }
 
         /// <summary>
@@ -119,7 +136,7 @@ namespace SAEA.Sockets.Core
         }
 
 
-        public void Add(IUserToken IUserToken)
+        public void Set(IUserToken IUserToken)
         {
             _session.Set(IUserToken.ID, IUserToken, _timeOut);
 
@@ -141,19 +158,23 @@ namespace SAEA.Sockets.Core
         /// <param name="userToken"></param>
         public bool Free(IUserToken userToken)
         {
-            _session.Del(userToken.ID);
-            if (userToken.Socket != null && userToken.Socket.Connected)
+            if (_session.Get(userToken.ID) != null)
             {
-                try
+                _session.Del(userToken.ID);
+                if (userToken.Socket != null)
                 {
-                    userToken.Socket.Shutdown(SocketShutdown.Both);
+                    try
+                    {
+                        if (userToken.Socket.Connected)
+                            userToken.Socket.Shutdown(SocketShutdown.Both);
+                    }
+                    catch { }
+                    _bufferManager.FreeBuffer(userToken.ReadArgs);
+                    _argsPool.Push(userToken.ReadArgs);
+                    _argsPool.Push(userToken.WriteArgs);
+                    userToken.Dispose();
+                    return true;
                 }
-                catch { }
-                _bufferManager.FreeBuffer(userToken.ReadArgs);
-                _argsPool.Push(userToken.ReadArgs);
-                _argsPool.Push(userToken.WriteArgs);
-                userToken.Dispose();
-                return true;
             }
             return false;
         }
@@ -164,7 +185,7 @@ namespace SAEA.Sockets.Core
         /// <returns></returns>
         public List<IUserToken> ToList()
         {
-            return _session.List.ToList();
+            return _session.List.Select(b => b.Value).ToList();
         }
 
         /// <summary>

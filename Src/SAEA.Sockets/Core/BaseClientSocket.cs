@@ -84,7 +84,7 @@ namespace SAEA.Sockets.Core
         /// <param name="context"></param>
         /// <param name="ip"></param>
         /// <param name="port"></param>
-        public BaseClientSocket(IContext context, string ip = "127.0.0.1", int port = 39654, int bufferSize = 100 * 1024)
+        public BaseClientSocket(IContext context, string ip = "127.0.0.1", int port = 39654, int bufferSize = 100 * 1024, int timeOut = 60 * 1000)
         {
             _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
@@ -92,7 +92,9 @@ namespace SAEA.Sockets.Core
             _ip = ip;
             _port = port;
 
-            _sessionManager = new SessionManager(context, bufferSize, 1, IO_Completed);
+            _sessionManager = new SessionManager(context, bufferSize, 1, IO_Completed, new TimeSpan(0, 0, timeOut));
+            _sessionManager.OnTimeOut += _sessionManager_OnTimeOut;
+
 
             OnClientReceive = new OnClientReceiveBytesHandler(OnReceived);
 
@@ -352,6 +354,11 @@ namespace SAEA.Sockets.Core
                 if (_userToken != null)
                     OnDisconnected?.Invoke(_userToken.ID, mex);
             }
+        }
+
+        private void _sessionManager_OnTimeOut(IUserToken obj)
+        {
+            Disconnect();
         }
 
         public void Dispose()

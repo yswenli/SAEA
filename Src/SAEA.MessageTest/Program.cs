@@ -94,6 +94,11 @@ namespace SAEA.MessageTest
             ConsoleHelper.WriteLine("收到频道消息2：{0}", msg.Content);
         }
 
+        private static void Server_OnDisconnected(string ID, Exception ex)
+        {
+            ConsoleHelper.WriteLine($"{ID}已断开连接，ex:{ex.Message}", ConsoleColor.Red);
+        }
+
 
         #region MyRegion
 
@@ -102,6 +107,8 @@ namespace SAEA.MessageTest
             ConsoleHelper.WriteLine("SAEA.Message服务器正在启动...");
 
             MessageServer server = new MessageServer();
+
+            server.OnDisconnected += Server_OnDisconnected;
 
             server.Start();
 
@@ -118,10 +125,12 @@ namespace SAEA.MessageTest
             ConsoleHelper.WriteLine("SAEA.Message服务器已就绪!");
         }
 
+
+
         private static void PreesureTest()
         {
+            ConsoleHelper.WriteLine("回车开始连接测试...");
             ConsoleHelper.ReadLine();
-            ConsoleHelper.WriteLine("单机连接测试...");
 
             var count = 60 * 1000;
 
@@ -151,6 +160,8 @@ namespace SAEA.MessageTest
         private static void FunTest()
         {
             //===============================================================
+            ConsoleHelper.WriteLine("回车开始私信测试开始...");
+            ConsoleHelper.ReadLine();
             var cc1 = new MessageClient();
             cc1.OnPrivateMessage += Client_OnPrivateMessage;
 
@@ -162,9 +173,6 @@ namespace SAEA.MessageTest
 
             cc1.Login();
             cc2.Login();
-
-            ConsoleHelper.WriteLine("私信测试开始...");
-            ConsoleHelper.ReadLine();
 
             Task.Run(() =>
             {
@@ -184,9 +192,9 @@ namespace SAEA.MessageTest
                 }
             });
 
-            ConsoleHelper.ReadLine();
             //===============================================================
-
+            ConsoleHelper.WriteLine("回车开始频道测试开始...");
+            ConsoleHelper.ReadLine();
 
             MessageClient client = new MessageClient();
 
@@ -218,32 +226,30 @@ namespace SAEA.MessageTest
 
             });
 
-
-            ConsoleHelper.WriteLine("客户发送频道消息成功");
+            //===============================================================
+            ConsoleHelper.WriteLine("回车开始订阅频道消息...");
             ConsoleHelper.ReadLine();
 
-            //===============================================================
-            ConsoleHelper.WriteLine("开始订阅频道消息...");
             List<MessageClient> list = new List<MessageClient>();
-            for (int i = 0; i < 100; i++)
-            {
-                var c = new MessageClient();
-                if (i < 10)
-                    c.OnChannelMessage += Client_OnChannelMessage2;
-                c.ConnectAsync((state) =>
+            Task.Factory.StartNew(() =>
+            {                
+                for (int i = 0; i < 100; i++)
                 {
-                    c.Login();
-                    c.Subscribe(channelName);
-                    list.Add(c);
-                });
-            }
-
-
-
-            ConsoleHelper.ReadLine();
+                    var c = new MessageClient();
+                    if (i < 10)
+                        c.OnChannelMessage += Client_OnChannelMessage2;
+                    c.ConnectAsync((state) =>
+                    {
+                        c.Login();
+                        c.Subscribe(channelName);
+                        list.Add(c);
+                    });
+                }
+            });
             //===============================================================
 
-            ConsoleHelper.WriteLine("群组测试");
+            ConsoleHelper.WriteLine("回车开始群组测试");
+            ConsoleHelper.ReadLine();
 
             cc1.OnGroupMessage += Client_OnGroupMessage;
             cc2.OnGroupMessage += Client_OnGroupMessage;
@@ -265,7 +271,7 @@ namespace SAEA.MessageTest
             });
 
 
-
+            ConsoleHelper.WriteLine("The function test has been completed.");
             ConsoleHelper.ReadLine();
             //===============================================================
 
@@ -274,7 +280,7 @@ namespace SAEA.MessageTest
             client.Unsubscribe(channelName);
 
 
-            ConsoleHelper.WriteLine("The function test has been completed.");
+
         }
 
         #endregion

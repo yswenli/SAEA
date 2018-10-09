@@ -55,8 +55,6 @@ namespace SAEA.MessageSocket
 
             userToken.Coder.Pack(data, null, (s) =>
             {
-                //todo 消息处理
-
                 if (s.Content != null)
                 {
                     try
