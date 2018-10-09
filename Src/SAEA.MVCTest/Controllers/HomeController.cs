@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.MVCTest.Controllers
 *文件名： HomeController
-*版本号： V2.1.5.0
+*版本号： V2.1.5.1
 *唯一标识：e00bb57f-e3ee-4efe-a7cf-f23db767c1d0
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/4/10 16:43:26
 *修改人： yswenli
-*版本号： V2.1.5.0
+*版本号： V2.1.5.1
 *描述：
 *
 *****************************************************************************/
@@ -91,6 +91,17 @@ namespace SAEA.MVCTest.Controllers
         /// <returns></returns>
         [HttpPost]
         public ActionResult Update(bool isFemale, UserInfo userInfo = null)
+        {
+            return Json(userInfo);
+        }
+
+        /// <summary>
+        /// test model
+        /// </summary>
+        /// <param name="isFemale"></param>
+        /// <param name="userInfo"></param>
+        /// <returns></returns>
+        public ActionResult Set(bool isFemale, UserInfo userInfo)
         {
             return Json(userInfo);
         }
