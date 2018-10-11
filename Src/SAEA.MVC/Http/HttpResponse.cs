@@ -22,11 +22,9 @@
 *
 *****************************************************************************/
 using SAEA.Common;
-using SAEA.Sockets.Interface;
-using SAEA.MVC.Common;
-using SAEA.MVC.Http.Base;
 using SAEA.MVC.Http.Model;
 using SAEA.MVC.Mvc;
+using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Generic;
 using System.Net;

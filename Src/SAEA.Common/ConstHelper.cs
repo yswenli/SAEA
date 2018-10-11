@@ -38,7 +38,7 @@ namespace SAEA.Common
 
         public const string ONACTIONEXECUTED = "OnActionExecuted";
 
-        public const string SERVERMVCSERVER = "Server: SAEAMVCServer";
+        public const string SERVERMVCSERVER = "Server: SAEAWebServer";
 
         public const string CT = "Content-Type";
 
