@@ -21,16 +21,12 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Common;
-using SAEA.Sockets.Interface;
 using SAEA.MVC.Http.Base;
 using SAEA.MVC.Http.Model;
+using SAEA.MVC.Web;
+using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
 
 namespace SAEA.MVC.Http
 {
@@ -39,7 +35,7 @@ namespace SAEA.MVC.Http
     /// </summary>
     public class HttpRequest : HttpBase, IDisposable
     {
-        internal HttpServer HttpServer { get; set; }
+        internal WebServer WebServer { get; set; }
 
         internal IUserToken UserToken { get; set; }
 
@@ -73,12 +69,12 @@ namespace SAEA.MVC.Http
         /// <summary>
         /// init
         /// </summary>
-        /// <param name="httpServer"></param>
+        /// <param name="webServer"></param>
         /// <param name="userToken"></param>
         /// <param name="requestDataReader"></param>
-        internal void Init(HttpServer httpServer, IUserToken userToken, RequestDataReader requestDataReader)
+        internal void Init(WebServer webServer, IUserToken userToken, RequestDataReader requestDataReader)
         {
-            this.HttpServer = httpServer;
+            this.WebServer = webServer;
             this.UserToken = userToken;
 
             this.Method = requestDataReader.Method;

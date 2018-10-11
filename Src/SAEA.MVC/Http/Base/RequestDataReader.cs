@@ -16,8 +16,6 @@ namespace SAEA.MVC.Http.Base
     internal class RequestDataReader : HttpBase, IDisposable
     {
         StringBuilder _stringBuilder = new StringBuilder();
-
-        HttpUtility _httpUtility = new HttpUtility();
         /// <summary>
         /// 整个请求流头部结束字节位置
         /// </summary>
@@ -249,9 +247,9 @@ namespace SAEA.MVC.Http.Base
             foreach (var item in kvs)
             {
                 var arr = Regex.Split(item, "=");
-                if(dic.TryAdd(arr[0], _httpUtility.UrlDecode(arr[1])))
+                if(dic.TryAdd(arr[0], HttpUtility.UrlDecode(arr[1])))
                 {
-                    dic[arr[0]] = _httpUtility.UrlDecode(arr[1]);
+                    dic[arr[0]] = HttpUtility.UrlDecode(arr[1]);
                 }
             }
             return dic;
@@ -266,9 +264,9 @@ namespace SAEA.MVC.Http.Base
             foreach (var item in kvs)
             {
                 var arr = Regex.Split(item, "=");
-                if (dic.TryAdd(arr[0], _httpUtility.UrlDecode(arr[1])))
+                if (dic.TryAdd(arr[0], HttpUtility.UrlDecode(arr[1])))
                 {
-                    dic[arr[0]] = _httpUtility.HtmlDecode(_httpUtility.UrlDecode(arr[1]));
+                    dic[arr[0]] = HttpUtility.HtmlDecode(HttpUtility.UrlDecode(arr[1]));
                 }
             }
             return dic;
@@ -293,9 +291,9 @@ namespace SAEA.MVC.Http.Base
             foreach (var item in kvs)
             {
                 var arr = Regex.Split(item, "=");
-                if (dic.TryAdd(arr[0], _httpUtility.UrlDecode(arr[1])))
+                if (dic.TryAdd(arr[0], HttpUtility.UrlDecode(arr[1])))
                 {
-                    dic[arr[0]] = _httpUtility.HtmlDecode(_httpUtility.UrlDecode(arr[1]));
+                    dic[arr[0]] = HttpUtility.HtmlDecode(HttpUtility.UrlDecode(arr[1]));
                 }
             }
             return dic;

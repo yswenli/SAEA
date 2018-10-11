@@ -47,7 +47,7 @@ namespace SAEA.MVC.Mvc
         /// <param name="filePath"></param>
         /// <param name="contentType"></param>
         /// <param name="status"></param>
-        public FileResult(string filePath, string contentType = "", HttpStatusCode status = HttpStatusCode.OK)
+        public FileResult(bool isStaticsCached, string filePath, string contentType = "", HttpStatusCode status = HttpStatusCode.OK)
         {
             if (SAEAMvcApplication.IsStaticsCached)
             {

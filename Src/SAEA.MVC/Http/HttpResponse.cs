@@ -24,6 +24,7 @@
 using SAEA.Common;
 using SAEA.MVC.Http.Model;
 using SAEA.MVC.Mvc;
+using SAEA.MVC.Web;
 using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Generic;
@@ -37,20 +38,23 @@ namespace SAEA.MVC.Http
         public HttpStatusCode Status { get; set; } = HttpStatusCode.OK;
 
 
-        internal HttpServer HttpServer { get; set; }
+        internal WebServer WebServer { get; set; }
 
         internal IUserToken UserToken { get; set; }
+
+        bool _isZiped = false;
 
         internal HttpResponse()
         {
         }
 
-        internal void Init(HttpServer httpServer, IUserToken userToken, string protocal)
+        internal void Init(WebServer webServer, IUserToken userToken, string protocal, bool isZiped = false)
         {
-            this.HttpServer = httpServer;
+            this.WebServer = webServer;
             this.UserToken = userToken;
 
             this.Protocal = protocal;
+            _isZiped = isZiped; 
         }
 
         /// <summary>
@@ -114,7 +118,7 @@ namespace SAEA.MVC.Http
             builder.AppendLine("Keep-Alive: timeout=20");
             builder.AppendLine("Date: " + DateTimeHelper.Now.ToFString("r"));
 
-            if (SAEAMvcApplication.IsZiped)
+            if (_isZiped)
                 //支持gzip
                 builder.AppendLine("Content-Encoding:gzip");
 
@@ -147,7 +151,7 @@ namespace SAEA.MVC.Http
             byte[] lineBytes = Encoding.UTF8.GetBytes(System.Environment.NewLine);
 
             var bdata = this.Body;
-            if (SAEAMvcApplication.IsZiped && this.Body != null)
+            if (_isZiped && this.Body != null)
                 bdata = GZipHelper.Compress(this.Body);
 
             var bodyLen = 0;
@@ -196,7 +200,7 @@ namespace SAEA.MVC.Http
         {
             if (UserToken != null)
             {
-                HttpServer.Reponse(UserToken, this.ToBytes());
+                WebServer.Reponse(UserToken, this.ToBytes());
             }
         }
 

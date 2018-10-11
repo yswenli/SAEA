@@ -24,6 +24,7 @@
 using SAEA.Common;
 using SAEA.MVC.Http.Base;
 using SAEA.MVC.Mvc;
+using SAEA.MVC.Web;
 using SAEA.Sockets.Interface;
 using System;
 
@@ -50,7 +51,7 @@ namespace SAEA.MVC.Http
         {
             get;
             private set;
-        } = new HttpUtility();
+        }
 
         internal HttpContext()
         {
@@ -58,11 +59,13 @@ namespace SAEA.MVC.Http
             this.Response = new HttpResponse();
         }
 
-        internal void Init(HttpServer httpServer, IUserToken userToken, RequestDataReader requestDataReader)
+        internal void Init(WebServer webServer, IUserToken userToken, RequestDataReader requestDataReader, string root, bool isZiped)
         {
-            this.Request.Init(httpServer, userToken, requestDataReader);
+            this.Request.Init(webServer, userToken, requestDataReader);
 
-            this.Response.Init(httpServer, userToken, this.Request.Protocal);
+            this.Response.Init(webServer, userToken, this.Request.Protocal, isZiped);
+
+            this.Server = new HttpUtility(root);
         }
         /// <summary>
         /// 执行用户自定义要处理的业务逻辑

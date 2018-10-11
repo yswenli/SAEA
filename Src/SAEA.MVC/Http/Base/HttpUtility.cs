@@ -36,6 +36,15 @@ namespace SAEA.MVC.Http.Base
     public class HttpUtility
     {
         const string Controller = "Controller";
+
+        string _root = "/";
+
+
+        public HttpUtility(string root)
+        {
+            _root = root;
+        }
+
         /// <summary>
         /// MapPath
         /// </summary>
@@ -43,7 +52,7 @@ namespace SAEA.MVC.Http.Base
         /// <returns></returns>
         public virtual string MapPath(string path)
         {
-            var prex = new Uri("http://127.0.0.1:39654");
+            var prex = new Uri("http://127.0.0.1:39654"+ _root);
 
             var uri = new Uri(prex, path);
 
@@ -88,7 +97,7 @@ namespace SAEA.MVC.Http.Base
         /// <param name="s"></param>
         /// <param name="isData"></param>
         /// <returns></returns>
-        public string UrlEncode(string s, bool isData = false)
+        public static string UrlEncode(string s, bool isData = false)
         {
             if (isData)
             {
@@ -102,7 +111,7 @@ namespace SAEA.MVC.Http.Base
         /// </summary>
         /// <param name="s"></param>
         /// <returns></returns>
-        public string UrlDecode(string s)
+        public static string UrlDecode(string s)
         {
             return Uri.UnescapeDataString(s);
         }
@@ -112,7 +121,7 @@ namespace SAEA.MVC.Http.Base
         /// </summary>
         /// <param name="str"></param>
         /// <returns></returns>
-        public string HtmlEncode(string str)
+        public static string HtmlEncode(string str)
         {
             return System.Web.HttpUtility.HtmlEncode(str);
         }
@@ -121,7 +130,7 @@ namespace SAEA.MVC.Http.Base
         /// </summary>
         /// <param name="html"></param>
         /// <returns></returns>
-        public string HtmlDecode(string html)
+        public static string HtmlDecode(string html)
         {            
             return System.Web.HttpUtility.HtmlDecode(html);
         }

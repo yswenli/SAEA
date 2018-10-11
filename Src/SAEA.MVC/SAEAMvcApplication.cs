@@ -21,8 +21,8 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.MVC.Http;
 using SAEA.MVC.Mvc;
+using SAEA.MVC.Web;
 using System;
 
 namespace SAEA.MVC
@@ -32,31 +32,20 @@ namespace SAEA.MVC
     /// </summary>
     public class SAEAMvcApplication
     {
-        HttpServer httpServer;
-
-        /// <summary>
-        /// 是否启用静态缓存
-        /// </summary>
-        internal static bool IsStaticsCached { get; set; }
-
-        /// <summary>
-        /// 是压启用内容压缩
-        /// </summary>
-        internal static bool IsZiped { get; set; }
+        WebServer webServer;
 
         /// <summary>
         /// 构建mvc容器
         /// </summary>
+        /// <param name="root">根目录</param>
+        /// <param name="port">监听端口</param>
         /// <param name="isStaticsCached">是否启用静态缓存</param>
         /// <param name="isZiped">是压启用内容压缩</param>
         /// <param name="bufferSize">http处理数据缓存大小</param>
         /// <param name="count">http连接数上限</param>
-        public SAEAMvcApplication(bool isStaticsCached = true, bool isZiped = true, int bufferSize = 1024 * 100, int count = 10000)
+        public SAEAMvcApplication(string root = "/html/", int port = 39654, bool isStaticsCached = true, bool isZiped = true, int bufferSize = 1024 * 100, int count = 10000)
         {
-            IsStaticsCached = isStaticsCached;
-            IsZiped = isZiped;
-
-            httpServer = new HttpServer(bufferSize, count);
+            webServer = new WebServer(root, port, isStaticsCached, isZiped, bufferSize, count);
         }
 
         /// <summary>
@@ -72,7 +61,7 @@ namespace SAEA.MVC
         /// <summary>
         /// 启动MVC服务
         /// </summary>
-        public void Start(int port = 39654)
+        public void Start()
         {
             try
             {
@@ -84,7 +73,7 @@ namespace SAEA.MVC
             }
             try
             {
-                httpServer.Start(port);
+                webServer.Start();
             }
             catch (Exception ex)
             {
@@ -95,8 +84,7 @@ namespace SAEA.MVC
         /// 启动MVC服务
         /// </summary>
         /// <param name="controllerNameSpace">分离式的controller</param>
-        /// <param name="port"></param>
-        public void Start(string controllerNameSpace, int port = 39654)
+        public void Start(string controllerNameSpace)
         {
             try
             {
@@ -111,11 +99,26 @@ namespace SAEA.MVC
             }
             try
             {
-                httpServer.Start(port);
+                webServer.Start();
             }
             catch (Exception ex)
             {
                 throw new Exception("当前端口已被其他程序占用，请更换端口再做尝试！ err:" + ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// 停止
+        /// </summary>
+        public void Stop()
+        {
+            try
+            {
+                webServer.Stop();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("关闭SAEA.MVCServer失败 err:" + ex.Message);
             }
         }
     }
