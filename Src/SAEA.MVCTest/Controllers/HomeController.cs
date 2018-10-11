@@ -49,9 +49,9 @@ namespace SAEA.MVCTest.Controllers
         /// </summary>
         /// <param name="id"></param>
         /// <returns></returns>
-        
+
         [HttpGet]
-        [HttpPost]        
+        [HttpPost]
         public ActionResult Get(int id)
         {
             return Json(new { Name = "yswenli", Sex = "男" });
@@ -107,6 +107,18 @@ namespace SAEA.MVCTest.Controllers
         }
 
         /// <summary>
+        /// Get 多参数测试
+        /// </summary>
+        /// <param name="version"></param>
+        /// <param name="basePamars"></param>
+        /// <param name="pagedPamars"></param>
+        /// <returns></returns>
+        public ActionResult GetModels(string version, BasePamars basePamars, PagedPamars pagedPamars)
+        {
+            return Content($"version:{version}  basePamars:{Serialize(basePamars)}  pagedPamars:{Serialize(pagedPamars)}");
+        }
+
+        /// <summary>
         /// Test
         /// </summary>
         /// <returns></returns>
@@ -114,6 +126,6 @@ namespace SAEA.MVCTest.Controllers
         public ActionResult Test()
         {
             return Content("httppost test");
-        }        
+        }
     }
 }

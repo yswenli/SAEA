@@ -52,11 +52,9 @@ namespace SAEA.MVC.Http.Base
         /// <returns></returns>
         public virtual string MapPath(string path)
         {
-            var prex = new Uri("http://127.0.0.1:39654"+ _root);
+            var prex = new Uri("http://127.0.0.1:39654");
 
-            var uri = new Uri(prex, path);
-
-            //return Path.GetFullPath(Directory.GetCurrentDirectory() + uri.LocalPath);
+            var uri = new Uri(prex, _root + path);
 
             StackTrace ss = new StackTrace(true);
 
@@ -131,7 +129,7 @@ namespace SAEA.MVC.Http.Base
         /// <param name="html"></param>
         /// <returns></returns>
         public static string HtmlDecode(string html)
-        {            
+        {
             return System.Web.HttpUtility.HtmlDecode(html);
         }
     }

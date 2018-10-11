@@ -36,7 +36,7 @@ namespace SAEA.MVC.Mvc
     {
         public new byte[] Content { get; set; }
 
-        public FileResult(string filePath) : this(filePath, HttpMIME.GetType(filePath))
+        public FileResult(string filePath, bool isStaticsCached) : this(isStaticsCached, filePath, HttpMIME.GetType(filePath))
         {
 
         }
@@ -44,36 +44,19 @@ namespace SAEA.MVC.Mvc
         /// <summary>
         /// 文件内容
         /// </summary>
+        /// <param name="isStaticsCached"></param>
         /// <param name="filePath"></param>
         /// <param name="contentType"></param>
         /// <param name="status"></param>
         public FileResult(bool isStaticsCached, string filePath, string contentType = "", HttpStatusCode status = HttpStatusCode.OK)
         {
-            if (SAEAMvcApplication.IsStaticsCached)
+            if (isStaticsCached)
             {
-                var data = StaticResourcesCache.GetOrAdd(filePath, (k) =>
-                {
-                    using (var fs = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
-                    {
-                        var buffer = new byte[fs.Length];
-                        fs.Position = 0;
-                        fs.Read(buffer, 0, buffer.Length);
-                        return buffer;
-                    }
-                });
-                this.Content = data;
+                this.Content = StaticResourcesCache.GetOrAdd(filePath, filePath);
             }
             else
             {
-                byte[] data = null;
-                using (var fs = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
-                {
-                    var buffer = new byte[fs.Length];
-                    fs.Position = 0;
-                    fs.Read(buffer, 0, buffer.Length);
-                    data = buffer;
-                }
-                this.Content = data;
+                this.Content = StaticResourcesCache.Read(filePath);
             }
             this.ContentEncoding = Encoding.UTF8;
             this.ContentType = contentType;

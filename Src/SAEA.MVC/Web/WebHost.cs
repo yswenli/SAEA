@@ -11,7 +11,7 @@ namespace SAEA.MVC.Web
     /// <summary>
     /// SAEA WebServer
     /// </summary>
-    internal class WebServer
+    internal class WebHost
     {
         ServerSocket _serverSocket;
 
@@ -21,9 +21,9 @@ namespace SAEA.MVC.Web
         public bool IsRunning { get; set; }
 
         /// <summary>
-        ///  SAEA WebServerConfig
+        ///  SAEA WebConfig
         /// </summary>
-        public WebServerConfig WebServerConfig { get; set; }
+        public WebConfig WebConfig { get; set; }
 
         /// <summary>
         /// SAEA WebServer
@@ -34,9 +34,9 @@ namespace SAEA.MVC.Web
         /// <param name="isZiped">是压启用内容压缩</param>
         /// <param name="bufferSize">http处理数据缓存大小</param>
         /// <param name="count">http连接数上限</param>
-        public WebServer(string root = "/html/", int port = 39654, bool isStaticsCached = true, bool isZiped = true, int bufferSize = 1024 * 100, int count = 10000)
+        public WebHost(string root = "/html/", int port = 39654, bool isStaticsCached = true, bool isZiped = true, int bufferSize = 1024 * 100, int count = 10000)
         {
-            WebServerConfig = new WebServerConfig()
+            WebConfig = new WebConfig()
             {
                 Root = root,
                 Port = port,
@@ -47,8 +47,6 @@ namespace SAEA.MVC.Web
             };
 
             _serverSocket = new ServerSocket(bufferSize, count);
-
-            _serverSocket.OnDisconnected += _serverSocket_OnDisconnected;
 
             _serverSocket.OnRequested += _serverSocket_OnRequested;
 
@@ -62,7 +60,7 @@ namespace SAEA.MVC.Web
         {
             if (!IsRunning)
             {
-                _serverSocket.Start(WebServerConfig.Port);
+                _serverSocket.Start(WebConfig.Port);
                 IsRunning = true;
             }
             
@@ -79,7 +77,7 @@ namespace SAEA.MVC.Web
             {
                 using (var httpContext = new HttpContext())
                 {
-                    httpContext.Init(this, userToken, requestDataReader, WebServerConfig.Root, WebServerConfig.IsZiped);
+                    httpContext.Init(this, userToken, requestDataReader, WebConfig.Root, WebConfig.IsZiped);
 
                     httpContext.HttpHandler();
                 }
@@ -99,20 +97,6 @@ namespace SAEA.MVC.Web
         internal void Close(IUserToken userToken)
         {
             _serverSocket.Disconnect(userToken);
-        }
-
-
-        private void _serverSocket_OnDisconnected(string ID, System.Exception ex)
-        {
-            if (ex != null)
-            {
-                if (ex.Message.IndexOf("远程连接已关闭", StringComparison.Ordinal) == 0)
-                {
-                    return;
-                }
-                LogHelper.WriteError("_serverSocket_OnDisconnected 断开连接", ex);
-            }
-
         }
 
         private void _serverSocket_OnError(string ID, Exception ex)

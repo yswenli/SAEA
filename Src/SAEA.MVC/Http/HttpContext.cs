@@ -59,13 +59,17 @@ namespace SAEA.MVC.Http
             this.Response = new HttpResponse();
         }
 
-        internal void Init(WebServer webServer, IUserToken userToken, RequestDataReader requestDataReader, string root, bool isZiped)
-        {
-            this.Request.Init(webServer, userToken, requestDataReader);
+        internal bool IsStaticsCached { get; set; }
 
-            this.Response.Init(webServer, userToken, this.Request.Protocal, isZiped);
+        internal void Init(WebHost webHost, IUserToken userToken, RequestDataReader requestDataReader, string root, bool isZiped)
+        {
+            this.Request.Init(webHost, userToken, requestDataReader);
+
+            this.Response.Init(webHost, userToken, this.Request.Protocal, isZiped);
 
             this.Server = new HttpUtility(root);
+
+            IsStaticsCached = webHost.WebConfig.IsStaticsCached;
         }
         /// <summary>
         /// 执行用户自定义要处理的业务逻辑

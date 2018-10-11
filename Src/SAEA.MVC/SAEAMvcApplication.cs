@@ -32,7 +32,7 @@ namespace SAEA.MVC
     /// </summary>
     public class SAEAMvcApplication
     {
-        WebServer webServer;
+        WebHost webServer;
 
         /// <summary>
         /// 构建mvc容器
@@ -45,7 +45,7 @@ namespace SAEA.MVC
         /// <param name="count">http连接数上限</param>
         public SAEAMvcApplication(string root = "/html/", int port = 39654, bool isStaticsCached = true, bool isZiped = true, int bufferSize = 1024 * 100, int count = 10000)
         {
-            webServer = new WebServer(root, port, isStaticsCached, isZiped, bufferSize, count);
+            webServer = new WebHost(root, port, isStaticsCached, isZiped, bufferSize, count);
         }
 
         /// <summary>

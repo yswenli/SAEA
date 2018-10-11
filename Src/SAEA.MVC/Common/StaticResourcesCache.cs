@@ -23,6 +23,7 @@
 *****************************************************************************/
 using System;
 using System.Collections.Concurrent;
+using System.IO;
 
 namespace SAEA.BaseLibs.MVC.Http.Base
 {
@@ -34,14 +35,34 @@ namespace SAEA.BaseLibs.MVC.Http.Base
         static ConcurrentDictionary<string, byte[]> _cache = new ConcurrentDictionary<string, byte[]>();
 
         /// <summary>
+        /// 读取文件内容
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <returns></returns>
+        public static byte[] Read(string filePath)
+        {
+            byte[] data = null;
+            using (var fs = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                var buffer = new byte[fs.Length];
+                fs.Position = 0;
+                fs.Read(buffer, 0, buffer.Length);
+                data = buffer;
+            }
+            return data;
+        }
+
+        /// <summary>
         /// 增加或获取资源
         /// </summary>
         /// <param name="key"></param>
+        /// <param name="filePath"></param>
         /// <returns></returns>
-        public static byte[] GetOrAdd(string key, Func<string, byte[]> valueFactory)
+        public static byte[] GetOrAdd(string key, string filePath)
         {
-            return _cache.GetOrAdd(key, valueFactory);
+            return _cache.GetOrAdd(key, (k) => Read(filePath));
         }
+
 
     }
 }

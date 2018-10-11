@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 
+using SAEA.Common;
 using SAEA.MVC.Http;
 
 namespace SAEA.MVC.Mvc
@@ -60,7 +61,7 @@ namespace SAEA.MVC.Mvc
         /// <returns></returns>
         protected FileResult File(string filePath)
         {
-            return new FileResult(filePath);
+            return new FileResult(filePath, HttpContext.IsStaticsCached);
         }
 
         /// <summary>
@@ -70,6 +71,16 @@ namespace SAEA.MVC.Mvc
         protected EmptyResult Empty()
         {
             return new EmptyResult();
+        }
+
+        protected string Serialize<T>(T t)
+        {
+            return SerializeHelper.Serialize(t);
+        }
+
+        protected T Deserialize<T>(string json)
+        {
+            return SerializeHelper.Deserialize<T>(json);
         }
     }
 }

@@ -35,7 +35,7 @@ namespace SAEA.MVC.Http
     /// </summary>
     public class HttpRequest : HttpBase, IDisposable
     {
-        internal WebServer WebServer { get; set; }
+        internal WebHost WebHost { get; set; }
 
         internal IUserToken UserToken { get; set; }
 
@@ -69,12 +69,12 @@ namespace SAEA.MVC.Http
         /// <summary>
         /// init
         /// </summary>
-        /// <param name="webServer"></param>
+        /// <param name="webHost"></param>
         /// <param name="userToken"></param>
         /// <param name="requestDataReader"></param>
-        internal void Init(WebServer webServer, IUserToken userToken, RequestDataReader requestDataReader)
+        internal void Init(WebHost webHost, IUserToken userToken, RequestDataReader requestDataReader)
         {
-            this.WebServer = webServer;
+            this.WebHost = webHost;
             this.UserToken = userToken;
 
             this.Method = requestDataReader.Method;

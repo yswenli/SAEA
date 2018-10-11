@@ -27,7 +27,7 @@ namespace SAEA.MVC.Http.Model
     /// <summary>
     /// WebServerConfig
     /// </summary>
-    internal class WebServerConfig
+    internal class WebConfig
     {
         /// <summary>
         /// 是否启用静态缓存

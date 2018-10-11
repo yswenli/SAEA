@@ -38,7 +38,7 @@ namespace SAEA.MVC.Http
         public HttpStatusCode Status { get; set; } = HttpStatusCode.OK;
 
 
-        internal WebServer WebServer { get; set; }
+        internal WebHost WebHost { get; set; }
 
         internal IUserToken UserToken { get; set; }
 
@@ -48,9 +48,9 @@ namespace SAEA.MVC.Http
         {
         }
 
-        internal void Init(WebServer webServer, IUserToken userToken, string protocal, bool isZiped = false)
+        internal void Init(WebHost webHost, IUserToken userToken, string protocal, bool isZiped = false)
         {
-            this.WebServer = webServer;
+            this.WebHost = webHost;
             this.UserToken = userToken;
 
             this.Protocal = protocal;
@@ -200,7 +200,7 @@ namespace SAEA.MVC.Http
         {
             if (UserToken != null)
             {
-                WebServer.Reponse(UserToken, this.ToBytes());
+                WebHost.Reponse(UserToken, this.ToBytes());
             }
         }
 

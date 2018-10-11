@@ -120,7 +120,7 @@ namespace SAEA.MVC.Mvc
                     var filePath = httpContext.Server.MapPath(httpContext.Request.Url);
                     if (File.Exists(filePath))
                     {
-                        return new FileResult(filePath);
+                        return new FileResult(filePath, httpContext.IsStaticsCached);
                     }
                 }
                 else if (arr.Length >= 2)
@@ -138,7 +138,7 @@ namespace SAEA.MVC.Mvc
                         var filePath = httpContext.Server.MapPath(httpContext.Request.Url);
                         if (File.Exists(filePath))
                         {
-                            return new FileResult(filePath);
+                            return new FileResult(filePath, httpContext.IsStaticsCached);
                         }
                     }
                 }
