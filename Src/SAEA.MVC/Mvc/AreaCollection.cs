@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.MVC.Mvc
 *文件名： AreaCollection
-*版本号： V2.1.5.1
+*版本号： V2.1.5.2
 *唯一标识：eb956356-8ea4-4657-aec1-458a3654c078
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/4/10 18:10:16
 *修改人： yswenli
-*版本号： V2.1.5.1
+*版本号： V2.1.5.2
 *描述：
 *
 *****************************************************************************/
@@ -115,6 +115,14 @@ namespace SAEA.MVC.Mvc
                         }
                     }
                 }
+                else if (arr.Length == 1)
+                {
+                    var filePath = httpContext.Server.MapPath(httpContext.Request.Url);
+                    if (File.Exists(filePath))
+                    {
+                        return new FileResult(filePath);
+                    }
+                }
                 else if (arr.Length >= 2)
                 {
                     var controllerName = arr[arr.Length - 2];
@@ -133,9 +141,7 @@ namespace SAEA.MVC.Mvc
                             return new FileResult(filePath);
                         }
                     }
-
                 }
-
                 return new ContentResult("o_o，找不到任何内容", System.Net.HttpStatusCode.NotFound);
             }
         }

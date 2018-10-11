@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.QueueSocket
 *文件名： QueueCoder
-*版本号： V2.1.5.1
+*版本号： V2.1.5.2
 *唯一标识：d10cc75d-4692-46d4-946c-222df3b6f05a
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,18 +17,14 @@
 *修改标记
 *修改时间：2018/5/8 15:38:33
 *修改人： yswenli
-*版本号： V2.1.5.1
+*版本号： V2.1.5.2
 *描述：
 *
 *****************************************************************************/
 using SAEA.Common;
-using SAEA.QueueSocket.Model;
 using SAEA.QueueSocket.Net;
 using SAEA.QueueSocket.Type;
-using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Text;
 using System.Threading;
 
 namespace SAEA.QueueSocket.Model

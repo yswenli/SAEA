@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.QueueSocket.Model
 *文件名： Exchange
-*版本号： V2.1.5.1
+*版本号： V2.1.5.2
 *唯一标识：6a576aad-edcc-446d-b7e5-561a622549bf
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/3/5 16:36:44
 *修改人： yswenli
-*版本号： V2.1.5.1
+*版本号： V2.1.5.2
 *描述：
 *
 *****************************************************************************/
@@ -27,7 +27,6 @@ using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -67,16 +66,13 @@ namespace SAEA.QueueSocket.Model
 
         public void AcceptPublish(string sessionID, QueueResult pInfo)
         {
-            lock (_syncLocker)
-            {
-                this._binding.Set(sessionID, pInfo.Name, pInfo.Topic);
+            this._binding.Set(sessionID, pInfo.Name, pInfo.Topic);
 
-                this._messageQueue.Enqueue(pInfo.Topic, pInfo.Data);
+            this._messageQueue.Enqueue(pInfo.Topic, pInfo.Data);
 
-                _pNum = this._binding.GetPublisherCount();
+            _pNum = this._binding.GetPublisherCount();
 
-                Interlocked.Increment(ref _inNum);
-            }
+            Interlocked.Increment(ref _inNum);
         }
 
         public void AcceptPublishForBatch(string sessionID, QueueResult[] datas)
@@ -96,32 +92,29 @@ namespace SAEA.QueueSocket.Model
 
         public void GetSubscribeData(string sessionID, QueueResult sInfo, int maxSize = 500, int maxTime = 500, Action<List<string>> callBack = null)
         {
-            lock (_syncLocker)
+            var result = this._binding.GetBingInfo(sInfo);
+
+            if (result == null)
             {
-                var result = this._binding.GetBingInfo(sInfo);
+                this._binding.Set(sessionID, sInfo.Name, sInfo.Topic, false);
 
-                if (result == null)
+                _cNum = this._binding.GetSubscriberCount();
+
+                Task.Factory.StartNew(() =>
                 {
-                    this._binding.Set(sessionID, sInfo.Name, sInfo.Topic, false);
-
-                    _cNum = this._binding.GetSubscriberCount();
-
-                    Task.Factory.StartNew(() =>
+                    while (this._binding.Exists(sInfo))
                     {
-                        while (this._binding.Exists(sInfo))
+                        var list = this._messageQueue.DequeueForList(sInfo.Topic, maxSize, maxTime);
+                        if (list != null)
                         {
-                            var list = this._messageQueue.DequeueForList(sInfo.Topic, maxSize, maxTime);
-                            if (list != null)
-                            {
-                                list.ForEach(i => { Interlocked.Increment(ref _outNum); });
-                                callBack?.Invoke(list);
-                                list.Clear();
-                                list = null;
-                            }
+                            list.ForEach(i => { Interlocked.Increment(ref _outNum); });
+                            callBack?.Invoke(list);
+                            list.Clear();
+                            list = null;
                         }
-                    });
-                }
-            }            
+                    }
+                });
+            }
         }
 
         public void Unsubscribe(QueueResult sInfo)

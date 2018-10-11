@@ -5,7 +5,7 @@
 *公司名称：wenli
 *命名空间：SAEA.QueueSocket
 *文件名： QServer
-*版本号： V2.1.5.1
+*版本号： V2.1.5.2
 *唯一标识：3d6821bb-82f1-4181-8de3-a31341caad45
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/3/1 16:16:26
 *修改人： yswenli
-*版本号： V2.1.5.1
+*版本号： V2.1.5.2
 *描述：
 *
 *****************************************************************************/
@@ -30,7 +30,6 @@ using SAEA.Sockets.Core;
 using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace SAEA.QueueSocket
@@ -92,18 +91,21 @@ namespace SAEA.QueueSocket
 
         private void ReplySubcribe(IUserToken ut, QueueResult data)
         {
-            var qcoder = (QCoder)ut.Coder;
-            _exchange.GetSubscribeData(ut.ID, new QueueResult() { Name = data.Name, Topic = data.Topic }, _maxNum, _maxTime, (rlist) =>
+            Task.Factory.StartNew(() =>
             {
-                if (rlist != null)
+                var qcoder = (QCoder)ut.Coder;
+                _exchange.GetSubscribeData(ut.ID, new QueueResult() { Name = data.Name, Topic = data.Topic }, _maxNum, _maxTime, (rlist) =>
                 {
-                    var list = new List<byte>();
-                    rlist.ForEach(r =>
+                    if (rlist != null)
                     {
-                        list.AddRange(qcoder.QueueCoder.Data(data.Name, data.Topic, r));
-                    });
-                    base.Send(ut, list.ToArray());
-                }
+                        var list = new List<byte>();
+                        rlist.ForEach(r =>
+                        {
+                            list.AddRange(qcoder.QueueCoder.Data(data.Name, data.Topic, r));
+                        });
+                        base.Send(ut, list.ToArray());
+                    }
+                });
             });
         }
 

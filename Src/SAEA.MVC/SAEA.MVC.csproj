@@ -6,7 +6,7 @@
     <Company>yswenli</Company>
     <Copyright>yswenli</Copyright>
     <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
-    <Version>2.1.5.1</Version>
+    <Version>2.1.5.2</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Description>This is a web component based on SAEA.Sockets. It is lightweight, high performance and easy to use.
 这是一个基于SAEA.Sockets的web组件，轻量高性能，使用简便
@@ -14,7 +14,8 @@ https://github.com/yswenli/SAEA</Description>
     <PackageTags>iocp,httpserver,mvc,webapi</PackageTags>
     <PackageReleaseNotes>This is a web component based on SAEA.Sockets. It is lightweight, high performance and easy to use.
 这是一个基于SAEA.Sockets的web组件，轻量高性能，使用简便
-https://github.com/yswenli/SAEA</PackageReleaseNotes>
+https://github.com/yswenli/SAEA
+# 修复找不到根目录文件bug~</PackageReleaseNotes>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">

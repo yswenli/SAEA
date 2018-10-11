@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.QueueSocket.Model
 *文件名： SubscribeInfo
-*版本号： V2.1.5.1
+*版本号： V2.1.5.2
 *唯一标识：516e7423-55bc-4d53-83b2-5b5cd36827df
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,13 +17,11 @@
 *修改标记
 *修改时间：2018/3/6 15:38:03
 *修改人： yswenli
-*版本号： V2.1.5.1
+*版本号： V2.1.5.2
 *描述：
 *
 *****************************************************************************/
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.QueueSocket.Model
 {
