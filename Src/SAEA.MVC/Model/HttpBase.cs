@@ -3,21 +3,21 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.MVC.Http.Base
-*文件名： BaseHeader
-*版本号： V2.1.5.2
-*唯一标识：2ab45db1-f3f1-4ed5-99c4-5d11f52c8a6b
+*命名空间：SAEA.MVC.Model
+*文件名： HttpBase
+*版本号： V2.2.0.0
+*唯一标识：a303db7d-f83c-4c49-9804-032ec2236232
 *当前的用户域：WENLI-PC
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
-*创建时间：2018/4/8 16:30:45
+*创建时间：2018/4/10 13:58:08
 *描述：
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/4/8 16:30:45
+*修改时间：2018/4/10 13:58:08
 *修改人： yswenli
-*版本号： V2.1.5.2
+*版本号： V2.2.0.0
 *描述：
 *
 *****************************************************************************/
@@ -26,7 +26,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
-namespace SAEA.MVC.Http.Model
+namespace SAEA.MVC.Model
 {
     public class HttpBase
     {

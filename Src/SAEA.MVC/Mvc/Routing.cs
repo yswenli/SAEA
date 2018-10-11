@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.MVC.Mvc
 *文件名： Routing
-*版本号： V2.1.5.2
+*版本号： V2.2.0.0
 *唯一标识：d48d62ba-6e2b-4eeb-875b-fda8d962f3e0
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/4/12 10:57:24
 *修改人： yswenli
-*版本号： V2.1.5.2
+*版本号： V2.2.0.0
 *描述：
 *
 *****************************************************************************/
@@ -33,10 +33,7 @@ namespace SAEA.MVC.Mvc
         {
             get; set;
         }
-        public string ControllerName
-        {
-            get; set;
-        }
+
         public MethodInfo Action
         {
             get; set;

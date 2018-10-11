@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.MVC.Http.Net
 *文件名： HCoder
-*版本号： V2.1.5.2
+*版本号： V2.2.0.0
 *唯一标识：1c78283d-e311-4d8d-b781-395253c9454c
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/4/8 17:19:30
 *修改人： yswenli
-*版本号： V2.1.5.2
+*版本号： V2.2.0.0
 *描述：
 *
 *****************************************************************************/
@@ -25,6 +25,7 @@ using SAEA.Sockets.Interface;
 using SAEA.MVC.Http.Base;
 using System;
 using System.Collections.Generic;
+using SAEA.Common;
 
 namespace SAEA.MVC.Http.Net
 {
@@ -64,7 +65,7 @@ namespace SAEA.MVC.Http.Net
                 if (_isAnalysis)
                 {
                     //post需要处理body
-                    if (requestDataReader.Method == ConstString.POSTStr)
+                    if (requestDataReader.Method == ConstHelper.POST)
                     {
                         var contentLen = requestDataReader.ContentLength;
                         var positon = requestDataReader.Position;

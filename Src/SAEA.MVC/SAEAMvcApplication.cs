@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.MVC
 *文件名： HttpApplication
-*版本号： V2.1.5.2
+*版本号： V2.2.0.0
 *唯一标识：85030224-1d7f-4fc0-8e65-f4b6144c6a46
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,12 +17,14 @@
 *修改标记
 *修改时间：2018/4/10 13:59:33
 *修改人： yswenli
-*版本号： V2.1.5.2
+*版本号： V2.2.0.0
 *描述：
 *
 *****************************************************************************/
+using SAEA.MVC.Http.Base;
 using SAEA.MVC.Mvc;
 using SAEA.MVC.Web;
+using SAEA.Sockets.Interface;
 using System;
 
 namespace SAEA.MVC
@@ -32,7 +34,9 @@ namespace SAEA.MVC
     /// </summary>
     public class SAEAMvcApplication
     {
-        WebHost webServer;
+        WebHost webHost;
+
+        internal AreaCollection AreaCollection { get; private set; } = new AreaCollection();
 
         /// <summary>
         /// 构建mvc容器
@@ -45,7 +49,23 @@ namespace SAEA.MVC
         /// <param name="count">http连接数上限</param>
         public SAEAMvcApplication(string root = "/html/", int port = 39654, bool isStaticsCached = true, bool isZiped = true, int bufferSize = 1024 * 100, int count = 10000)
         {
-            webServer = new WebHost(root, port, isStaticsCached, isZiped, bufferSize, count);
+            webHost = new WebHost(root, port, isStaticsCached, isZiped, bufferSize, count);
+            webHost.OnRequested += WebHost_OnRequested;
+        }
+
+        /// <summary>
+        /// 处理mvc请求
+        /// </summary>
+        /// <param name="userToken"></param>
+        /// <param name="requestDataReader"></param>
+        private void WebHost_OnRequested(IUserToken userToken, RequestDataReader requestDataReader)
+        {
+            using (var httpContext = new HttpContext())
+            {
+                httpContext.Init(webHost, userToken, requestDataReader);
+
+                httpContext.HttpHandler(AreaCollection.RouteTable);
+            }
         }
 
         /// <summary>
@@ -55,7 +75,21 @@ namespace SAEA.MVC
         /// <param name="actionName"></param>
         public void SetDefault(string controllerName, string actionName)
         {
-            AreaCollection.SetDefault(controllerName, actionName);
+            webHost.WebConfig.DefaultRout = new SAEA.Common.NameValueItem() { Name = controllerName, Value = actionName };
+        }
+
+        public void SetDefault(string defaultPage)
+        {
+            webHost.WebConfig.DefaultPage = "/" + defaultPage;
+        }
+
+        /// <summary>
+        /// 设置禁止访问列表
+        /// </summary>
+        /// <param name="list"></param>
+        public void SetForbiddenAccessList(params string[] list)
+        {
+            webHost.WebConfig.SetForbiddenAccessList(list);
         }
 
         /// <summary>
@@ -73,7 +107,7 @@ namespace SAEA.MVC
             }
             try
             {
-                webServer.Start();
+                webHost.Start();
             }
             catch (Exception ex)
             {
@@ -99,7 +133,7 @@ namespace SAEA.MVC
             }
             try
             {
-                webServer.Start();
+                webHost.Start();
             }
             catch (Exception ex)
             {
@@ -114,7 +148,7 @@ namespace SAEA.MVC
         {
             try
             {
-                webServer.Stop();
+                webHost.Stop();
             }
             catch (Exception ex)
             {

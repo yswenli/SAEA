@@ -1,8 +1,31 @@
-﻿using SAEA.MVC.Common;
-using SAEA.MVC.Http;
+﻿/****************************************************************************
+*Copyright (c) 2018 Microsoft All Rights Reserved.
+*CLR版本： 4.0.30319.42000
+*机器名称：WENLI-PC
+*公司名称：Microsoft
+*命名空间：SAEA.MVC.Web
+*文件名： WebHost
+*版本号： V2.2.0.0
+*唯一标识：340c3ef0-2e98-4f25-998f-2bb369fa2794
+*当前的用户域：WENLI-PC
+*创建人： yswenli
+*电子邮箱：wenguoli_520@qq.com
+*创建时间：2018/10/12 00:48:06
+*描述：
+*
+*=====================================================================
+*修改标记
+*创建时间：2018/10/12 00:48:06
+*修改人： yswenli
+*版本号： V2.2.0.0
+*描述：
+*
+*****************************************************************************/
+
+using SAEA.MVC.Common;
 using SAEA.MVC.Http.Base;
-using SAEA.MVC.Http.Model;
 using SAEA.MVC.Http.Net;
+using SAEA.MVC.Model;
 using SAEA.Sockets.Interface;
 using System;
 
@@ -11,7 +34,7 @@ namespace SAEA.MVC.Web
     /// <summary>
     /// SAEA WebServer
     /// </summary>
-    internal class WebHost
+    internal class WebHost : IWebHost
     {
         ServerSocket _serverSocket;
 
@@ -24,6 +47,11 @@ namespace SAEA.MVC.Web
         ///  SAEA WebConfig
         /// </summary>
         public WebConfig WebConfig { get; set; }
+
+        /// <summary>
+        /// 当解析到http请求时
+        /// </summary>
+        public event Action<IUserToken, RequestDataReader> OnRequested;
 
         /// <summary>
         /// SAEA WebServer
@@ -75,12 +103,7 @@ namespace SAEA.MVC.Web
         {
             try
             {
-                using (var httpContext = new HttpContext())
-                {
-                    httpContext.Init(this, userToken, requestDataReader, WebConfig.Root, WebConfig.IsZiped);
-
-                    httpContext.HttpHandler();
-                }
+                OnRequested?.Invoke(userToken, requestDataReader);               
             }
             catch (Exception ex)
             {
@@ -89,7 +112,7 @@ namespace SAEA.MVC.Web
             }
         }
 
-        internal void Reponse(IUserToken userToken, byte[] data)
+        public void Reponse(IUserToken userToken, byte[] data)
         {
             _serverSocket.Reply(userToken, data);
         }

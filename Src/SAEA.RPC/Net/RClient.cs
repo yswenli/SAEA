@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.RPC.Net
 *文件名： RClient
-*版本号： V2.1.5.2
+*版本号： V2.2.0.0
 *唯一标识：6921ced2-8a62-45a7-89c6-84d1301c1a28
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/5/16 16:16:42
 *修改人： yswenli
-*版本号： V2.1.5.2
+*版本号： V2.2.0.0
 *描述：
 *
 *****************************************************************************/
@@ -35,20 +35,13 @@ namespace SAEA.RPC.Net
 {
     internal class RClient : BaseClientSocket, ISyncBase, IDisposable
     {
-        bool _isConnected = false;
-
         bool _isDisposed = false;
-
-        /// <summary>
-        /// 当前连接状态
-        /// </summary>
-        public bool IsConnected { get => _isConnected; set => _isConnected = value; }
-
 
         SyncHelper<byte[]> _syncHelper = new SyncHelper<byte[]>();
 
 
         object _syncLocker = new object();
+
         public object SyncLocker
         {
             get
@@ -69,26 +62,6 @@ namespace SAEA.RPC.Net
         public RClient(int bufferSize = 100 * 1024, string ip = "127.0.0.1", int port = 39654) : base(new RContext(), ip, port, bufferSize)
         {
 
-        }
-
-        /// <summary>
-        /// 连接到rpc服务
-        /// </summary>
-        /// <returns></returns>
-        public bool Connect()
-        {
-            AutoResetEvent autoRestEvent = new AutoResetEvent(false);
-
-            base.ConnectAsync((s) =>
-            {
-                if (s == System.Net.Sockets.SocketError.Success)
-                {
-                    _isConnected = true;
-                    autoRestEvent.Set();
-                }
-            });
-
-            return autoRestEvent.WaitOne(10 * 1000);
         }
 
         protected override void OnReceived(byte[] data)
@@ -131,7 +104,7 @@ namespace SAEA.RPC.Net
                 {
                     try
                     {
-                        if (_isConnected)
+                        if (this.Connected)
                         {
                             if (UserToken.Actived.AddSeconds(20) < DateTimeHelper.Now)
                             {
@@ -142,7 +115,6 @@ namespace SAEA.RPC.Net
                     }
                     catch (Exception ex)
                     {
-                        _isConnected = false;
                         ExceptionCollector.Add("Consumer", ex);
                     }
                 }
@@ -156,7 +128,7 @@ namespace SAEA.RPC.Net
         {
             lock (_syncLocker)
             {
-                if (_isConnected)
+                if (this.Connected)
                 {
                     var data = ((RCoder)UserToken.Coder).Encode(msg);
                     SendAsync(data);
@@ -212,11 +184,7 @@ namespace SAEA.RPC.Net
         public new void Dispose()
         {
             _isDisposed = true;
-            if (this._isConnected)
-            {
-                _isConnected = false;
-                this.Disconnect();
-            }
+            this.Disconnect();
             base.Dispose();
         }
     }

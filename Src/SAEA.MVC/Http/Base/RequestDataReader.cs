@@ -1,6 +1,5 @@
 ﻿using SAEA.Common;
-using SAEA.MVC.Common;
-using SAEA.MVC.Http.Model;
+using SAEA.MVC.Model;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -124,7 +123,7 @@ namespace SAEA.MVC.Http.Base
                 }
 
                 //post数据分析
-                if (this.Method == ConstString.POSTStr)
+                if (this.Method == ConstHelper.POST)
                 {
                     using (MemoryStream ms = new MemoryStream(buffer))
                     {
@@ -144,7 +143,7 @@ namespace SAEA.MVC.Http.Base
                     if (this.Headers.TryGetValue(RequestHeaderType.ContentType.GetDescription(), out contentTypeStr))
                     {
                         //form-data
-                        if (contentTypeStr.IndexOf(ConstString.FORMENCTYPE2) > -1)
+                        if (contentTypeStr.IndexOf(ConstHelper.FORMENCTYPE2) > -1)
                         {
                             this.IsFormData = true;
 
@@ -182,7 +181,7 @@ namespace SAEA.MVC.Http.Base
 
                 switch (this.ContentType)
                 {
-                    case ConstString.FORMENCTYPE2:
+                    case ConstHelper.FORMENCTYPE2:
                         using (MemoryStream ms = new MemoryStream(this.Body))
                         {
                             ms.Position = 0;
@@ -227,7 +226,7 @@ namespace SAEA.MVC.Http.Base
                             }
                         }
                         break;
-                    case ConstString.FORMENCTYPE3:
+                    case ConstHelper.FORMENCTYPE3:
                         this.Json = Encoding.UTF8.GetString(this.Body);
                         break;
                     default:

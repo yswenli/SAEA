@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.MVC.Http
 *文件名： HttpContext
-*版本号： V2.1.5.2
+*版本号： V2.2.0.0
 *唯一标识：af0b65c6-0f58-4221-9e52-7e3f0a4ffb24
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,21 +17,21 @@
 *修改标记
 *修改时间：2018/4/10 16:46:31
 *修改人： yswenli
-*版本号： V2.1.5.2
+*版本号： V2.2.0.0
 *描述：
 *
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.MVC.Http;
 using SAEA.MVC.Http.Base;
-using SAEA.MVC.Mvc;
-using SAEA.MVC.Web;
+using SAEA.MVC.Model;
 using SAEA.Sockets.Interface;
 using System;
 
-namespace SAEA.MVC.Http
+namespace SAEA.MVC.Mvc
 {
     /// <summary>
-    /// http上下文
+    /// SAEA.MVC http上下文
     /// </summary>
     public class HttpContext : IDisposable
     {
@@ -53,6 +53,8 @@ namespace SAEA.MVC.Http
             private set;
         }
 
+        internal IWebHost WebHost { get; set; }
+
         internal HttpContext()
         {
             this.Request = new HttpRequest();
@@ -61,13 +63,15 @@ namespace SAEA.MVC.Http
 
         internal bool IsStaticsCached { get; set; }
 
-        internal void Init(WebHost webHost, IUserToken userToken, RequestDataReader requestDataReader, string root, bool isZiped)
+        internal void Init(IWebHost webHost, IUserToken userToken, RequestDataReader requestDataReader)
         {
-            this.Request.Init(webHost, userToken, requestDataReader);
+            this.WebHost = webHost;
 
-            this.Response.Init(webHost, userToken, this.Request.Protocal, isZiped);
+            this.Request.Init(this.WebHost, userToken, requestDataReader);
 
-            this.Server = new HttpUtility(root);
+            this.Response.Init(this.WebHost, userToken, this.Request.Protocal, webHost.WebConfig.IsZiped);
+
+            this.Server = new HttpUtility(webHost.WebConfig.Root);
 
             IsStaticsCached = webHost.WebConfig.IsStaticsCached;
         }
@@ -75,14 +79,15 @@ namespace SAEA.MVC.Http
         /// 执行用户自定义要处理的业务逻辑
         /// 比如这里就是Controller中内容
         /// </summary>
-        internal void HttpHandler()
+        /// <param name="routeTable"></param>
+        internal void HttpHandler(RouteTable routeTable)
         {
             ActionResult result = null;
 
             switch (this.Request.Method)
             {
-                case ConstString.GETStr:
-                case ConstString.POSTStr:
+                case ConstHelper.GET:
+                case ConstHelper.POST:
 
                     if (this.Request.Parmas == null) this.Request.Parmas = new System.Collections.Generic.Dictionary<string, string>();
 
@@ -100,9 +105,9 @@ namespace SAEA.MVC.Http
                             this.Request.Parmas.TryAdd(item.Key, item.Value);
                         }
                     }
-                    result = AreaCollection.Invoke(this, this.Request.Url, this.Request.Parmas.ToNameValueCollection(), this.Request.Method == "POST");
+                    result = Invoker.Invoke(this, routeTable);
                     break;
-                case ConstString.OPTIONSStr:
+                case ConstHelper.OPTIONS:
                     result = new EmptyResult();
                     break;
                 default:

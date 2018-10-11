@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.RPC.Consumer
 *文件名： ConsumerMultiplexer
-*版本号： V2.1.5.2
+*版本号： V2.2.0.0
 *唯一标识：85b40df2-6436-4a63-8358-6a0ed32b20cd
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/5/25 16:14:32
 *修改人： yswenli
-*版本号： V2.1.5.2
+*版本号： V2.2.0.0
 *描述：
 *
 *****************************************************************************/
@@ -99,10 +99,7 @@ namespace SAEA.RPC.Consumer
                 for (int i = 0; i < links; i++)
                 {
                     var rClient = new RClient(uri);
-                    if (!rClient.Connect())
-                    {
-                        throw new RPCSocketException($"连接到{uri.ToString()}失败");
-                    }
+                    rClient.Connect();                    
                     rClient.KeepAlive();
                     _hashMap.Set(uri.ToString(), i, rClient);
                 }
@@ -124,13 +121,6 @@ namespace SAEA.RPC.Consumer
 
         private void RClient_OnDisconnected(string ID, Exception ex)
         {
-            foreach (var rClient in _myClients.Values)
-            {
-                if (rClient.UserToken.ID == ID)
-                {
-                    rClient.IsConnected = false;
-                }
-            }
             OnDisconnected?.Invoke(ID, ex);
         }
 
@@ -167,14 +157,14 @@ namespace SAEA.RPC.Consumer
                         return null;
                     }
 
-                    if (_myClients.TryGetValue(_index, out rClient) && rClient.IsConnected)
+                    if (_myClients.TryGetValue(_index, out rClient) && rClient.Connected)
                     {
                         break;
                     }
 
                     var retry = 0;
 
-                    while (!rClient.IsConnected && retry < _retry)
+                    while (!rClient.Connected && retry < _retry)
                     {
                         rClient.Connect();
 
@@ -187,7 +177,7 @@ namespace SAEA.RPC.Consumer
 
                     _index++;
                 }
-                while (!rClient.IsConnected);
+                while (!rClient.Connected);
 
                 _index = 0;
 

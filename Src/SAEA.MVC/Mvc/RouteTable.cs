@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.MVC.Mvc
 *文件名： RouteTable
-*版本号： V2.1.5.2
+*版本号： V2.2.0.0
 *唯一标识：1ed5d381-d7ce-4ea3-b8b5-c32f581ad49f
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,12 +17,13 @@
 *修改标记
 *修改时间：2018/4/12 10:55:31
 *修改人： yswenli
-*版本号： V2.1.5.2
+*版本号： V2.2.0.0
 *描述：
 *
 *****************************************************************************/
 using SAEA.Common;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -31,39 +32,46 @@ namespace SAEA.MVC.Mvc
     /// <summary>
     /// SAEA.MVC路由表
     /// </summary>
-    public static class RouteTable
+    public class RouteTable
     {
-        static object _locker = new object();
+        object _locker = new object();
 
-        static List<Routing> _list = new List<Routing>();
+        ConcurrentDictionary<string, Routing> _cDic = new ConcurrentDictionary<string, Routing>();
 
+        public static List<Type> Types { get; set; } = new List<Type>();
 
         /// <summary>
         /// 获取routing中的缓存
         /// 若不存在则创建
         /// </summary>
         /// <param name="controllerType"></param>
-        /// <param name="controllerName"></param>
         /// <param name="actionName"></param>
         /// <param name="isPost"></param>
         /// <returns></returns>
-        public static Routing GetOrAdd(Type controllerType, string controllerName, string actionName, bool isPost)
+        public Routing GetOrAdd(Type controllerType, string actionName, bool isPost)
         {
-            lock (_locker)
-            {
-                var list = _list.Where(b => string.Compare(b.ControllerName, controllerName, true) == 0 && string.Compare(b.ActionName, actionName, true) == 0).ToList();
+            if (controllerType == null) throw new Exception($"{controllerType.Name}/{actionName}找不到此action!");
 
-                if (list == null || list.Count == 0 || list.FirstOrDefault(b => b.IsPost == isPost) == null)
+            Routing routing = null;
+
+            var getKey = controllerType.Name + actionName + "_" + ConstHelper.GET;
+
+            var postKey = controllerType.Name + actionName + "_" + ConstHelper.POST;
+
+            if (!isPost)
+            {
+
+                routing = _cDic.GetOrAdd(getKey, (k) =>
                 {
                     var actions = controllerType.GetMethods().Where(b => string.Compare(b.Name, actionName, true) == 0).ToList();
 
                     if (actions == null || actions.Count == 0)
                     {
-                        throw new Exception($"{controllerName}/{actionName}找不到此action!");
+                        throw new Exception($"{controllerType.Name}/{actionName}找不到此action!");
                     }
                     else if (actions.Count > 2)
                     {
-                        throw new Exception($"{controllerName}/{actionName}有多个重复的的action!");
+                        throw new Exception($"{controllerType.Name}/{actionName}有多个重复的的action!");
                     }
                     else
                     {
@@ -86,9 +94,8 @@ namespace SAEA.MVC.Mvc
 
                         foreach (var action in actions)
                         {
-                            var routing = new Routing()
+                            routing = new Routing()
                             {
-                                ControllerName = controllerName,
                                 ActionName = actionName,
                                 Instance = (Controller)instance,
                                 FilterAtrrs = iAttrs,
@@ -114,12 +121,9 @@ namespace SAEA.MVC.Mvc
                                     if (dGet != null)
                                     {
                                         routing.IsPost = false;
-                                        _list.Add(routing);
                                     }
-
                                     var routing2 = new Routing()
                                     {
-                                        ControllerName = controllerName,
                                         ActionName = actionName,
                                         Instance = (Controller)instance,
                                         FilterAtrrs = iAttrs,
@@ -128,25 +132,116 @@ namespace SAEA.MVC.Mvc
                                         ActionFilterAtrrs = routing.ActionFilterAtrrs
                                     };
                                     routing2.IsPost = true;
-                                    _list.Add(routing2);
+                                    _cDic.TryAdd(postKey, routing2);
                                 }
                                 else
                                 {
                                     routing.IsPost = false;
-                                    _list.Add(routing);
                                 }
                             }
                             else
                             {
                                 routing.IsPost = false;
-                                _list.Add(routing);
                             }
                         }
-                        return _list.Where(b => string.Compare(b.ControllerName, controllerName, true) == 0 && string.Compare(b.ActionName, actionName, true) == 0 && b.IsPost == isPost).FirstOrDefault();
+                        return routing;
                     }
-                }
-                return list.FirstOrDefault(b => b.IsPost == isPost);
+                });
             }
+            else
+            {
+                routing = _cDic.GetOrAdd(postKey, (k) =>
+                {
+                    var actions = controllerType.GetMethods().Where(b => string.Compare(b.Name, actionName, true) == 0).ToList();
+
+                    if (actions == null || actions.Count == 0)
+                    {
+                        throw new Exception($"{controllerType.Name}/{actionName}找不到此action!");
+                    }
+                    else if (actions.Count > 2)
+                    {
+                        throw new Exception($"{controllerType.Name}/{actionName}有多个重复的的action!");
+                    }
+                    else
+                    {
+                        var instance = System.Activator.CreateInstance(controllerType);
+
+                        List<object> iAttrs = null;
+
+                        //类上面的过滤
+                        var classAttrs = controllerType.GetCustomAttributes(true);
+
+                        if (classAttrs != null && classAttrs.Length > 0)
+                        {
+                            var actionAttrs = classAttrs.Where(b => b.GetType().BaseType.Name == ConstHelper.ACTIONFILTERATTRIBUTE).ToList();
+
+                            if (actionAttrs != null && actionAttrs.Count > 0)
+
+                                iAttrs = actionAttrs;
+
+                        }
+
+                        foreach (var action in actions)
+                        {
+                            var routing2 = new Routing()
+                            {
+                                ActionName = actionName,
+                                Instance = (Controller)instance,
+                                FilterAtrrs = iAttrs,
+                                Action = action,
+                                ActionInvoker = FastInvoke.GetMethodInvoker(action)
+                            };
+
+                            //action上面的过滤
+                            var actionAttrs = action.GetCustomAttributes(true);
+
+                            if (actionAttrs != null && actionAttrs.Length > 0)
+                            {
+                                var filterAttrs = actionAttrs.Where(b => b.GetType().BaseType.Name == ConstHelper.ACTIONFILTERATTRIBUTE).ToList();
+
+                                if (filterAttrs != null && filterAttrs.Count > 0)
+
+                                    routing2.ActionFilterAtrrs = actionAttrs.ToList();
+
+                                var dPost = actionAttrs.Where(b => b.GetType().Name == ConstHelper.HTTPPOST).FirstOrDefault();
+                                if (dPost != null)
+                                {
+                                    var dGet = actionAttrs.Where(b => b.GetType().Name == ConstHelper.HTTPGET).FirstOrDefault();
+                                    if (dGet != null)
+                                    {
+                                        routing2.IsPost = false;
+                                        _cDic.TryAdd(getKey, routing2);
+                                    }
+
+                                    routing = new Routing()
+                                    {
+                                        ActionName = actionName,
+                                        Instance = (Controller)instance,
+                                        FilterAtrrs = iAttrs,
+                                        Action = action,
+                                        ActionInvoker = FastInvoke.GetMethodInvoker(action),
+                                        ActionFilterAtrrs = routing2.ActionFilterAtrrs
+                                    };
+                                    routing.IsPost = true;
+                                }
+                                else
+                                {
+                                    routing2.IsPost = false;
+                                    _cDic.TryAdd(getKey, routing2);
+                                }
+                            }
+                            else
+                            {
+                                routing2.IsPost = false;
+                                _cDic.TryAdd(getKey, routing2);
+                            }
+                        }
+                        return routing;
+                    }
+                });
+            }
+
+            return routing;
         }
     }
 

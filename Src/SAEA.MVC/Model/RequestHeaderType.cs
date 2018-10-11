@@ -3,27 +3,27 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.MVC.Http.Base
+*命名空间：SAEA.MVC.Model
 *文件名： RequestHeaderType
-*版本号： V2.1.5.2
-*唯一标识：15831d79-ecbd-4e52-a017-bf6459a7989d
+*版本号： V2.2.0.0
+*唯一标识：a303db7d-f83c-4c49-9804-032ec2236232
 *当前的用户域：WENLI-PC
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
-*创建时间：2018/4/8 16:36:19
+*创建时间：2018/4/10 13:58:08
 *描述：
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/4/8 16:36:19
+*修改时间：2018/4/10 13:58:08
 *修改人： yswenli
-*版本号： V2.1.5.2
+*版本号： V2.2.0.0
 *描述：
 *
 *****************************************************************************/
 using System.ComponentModel;
 
-namespace SAEA.MVC.Http.Model
+namespace SAEA.MVC.Model
 {
     public enum RequestHeaderType
     {

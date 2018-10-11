@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.MVC.Http
 *文件名： HttpRequest
-*版本号： V2.1.5.2
+*版本号： V2.2.0.0
 *唯一标识：eeefb8e0-9493-4a07-b469-fc24db360a1b
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,12 +17,12 @@
 *修改标记
 *修改时间：2018/4/8 16:34:03
 *修改人： yswenli
-*版本号： V2.1.5.2
+*版本号： V2.2.0.0
 *描述：
 *
 *****************************************************************************/
 using SAEA.MVC.Http.Base;
-using SAEA.MVC.Http.Model;
+using SAEA.MVC.Model;
 using SAEA.MVC.Web;
 using SAEA.Sockets.Interface;
 using System;
@@ -35,7 +35,7 @@ namespace SAEA.MVC.Http
     /// </summary>
     public class HttpRequest : HttpBase, IDisposable
     {
-        internal WebHost WebHost { get; set; }
+        internal IWebHost WebHost { get; set; }
 
         internal IUserToken UserToken { get; set; }
 
@@ -72,7 +72,7 @@ namespace SAEA.MVC.Http
         /// <param name="webHost"></param>
         /// <param name="userToken"></param>
         /// <param name="requestDataReader"></param>
-        internal void Init(WebHost webHost, IUserToken userToken, RequestDataReader requestDataReader)
+        internal void Init(IWebHost webHost, IUserToken userToken, RequestDataReader requestDataReader)
         {
             this.WebHost = webHost;
             this.UserToken = userToken;

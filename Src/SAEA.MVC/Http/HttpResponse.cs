@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.MVC.Http
 *文件名： HttpResponse
-*版本号： V2.1.5.2
+*版本号： V2.2.0.0
 *唯一标识：2e43075f-a43d-4b60-bee1-1f9107e2d133
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,12 +17,12 @@
 *修改标记
 *修改时间：2018/4/8 16:46:40
 *修改人： yswenli
-*版本号： V2.1.5.2
+*版本号： V2.2.0.0
 *描述：
 *
 *****************************************************************************/
 using SAEA.Common;
-using SAEA.MVC.Http.Model;
+using SAEA.MVC.Model;
 using SAEA.MVC.Mvc;
 using SAEA.MVC.Web;
 using SAEA.Sockets.Interface;
@@ -38,7 +38,7 @@ namespace SAEA.MVC.Http
         public HttpStatusCode Status { get; set; } = HttpStatusCode.OK;
 
 
-        internal WebHost WebHost { get; set; }
+        internal IWebHost WebHost { get; set; }
 
         internal IUserToken UserToken { get; set; }
 
@@ -48,7 +48,7 @@ namespace SAEA.MVC.Http
         {
         }
 
-        internal void Init(WebHost webHost, IUserToken userToken, string protocal, bool isZiped = false)
+        internal void Init(IWebHost webHost, IUserToken userToken, string protocal, bool isZiped = false)
         {
             this.WebHost = webHost;
             this.UserToken = userToken;
