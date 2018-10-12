@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.MVC.Http.Base
+*命名空间：SAEA.MVC.Base
 *文件名： HttpMIME
 *版本号： V2.2.0.0
 *唯一标识：4eebbaa7-1781-4521-ab57-4bc9c8d43a84
@@ -24,7 +24,7 @@
 using System.Collections.Generic;
 using System.IO;
 
-namespace SAEA.MVC.Http.Base
+namespace SAEA.MVC.Base
 {
     public static class HttpMIME
     {

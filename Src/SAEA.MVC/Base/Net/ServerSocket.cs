@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.MVC.Http.Net
+*命名空间：SAEA.MVC.Base.Net
 *文件名： ServerSocket
 *版本号： V2.2.0.0
 *唯一标识：ab912b9a-c7ed-44d9-8e48-eef0b6ff86a2
@@ -21,16 +21,16 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.MVC.Model;
 using SAEA.Sockets.Core;
 using SAEA.Sockets.Interface;
-using SAEA.MVC.Http.Base;
 using System;
 
-namespace SAEA.MVC.Http.Net
+namespace SAEA.MVC.Base.Net
 {
     class ServerSocket : BaseServerSocket
     {
-        public event Action<IUserToken, RequestDataReader> OnRequested;
+        public event Action<IUserToken, IRequestDataReader> OnRequested;
 
         public ServerSocket(int bufferSize = 1024 * 100, int count = 10000) : base(new HContext(), bufferSize, count)
         {

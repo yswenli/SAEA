@@ -21,11 +21,12 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.MVC.Http.Base;
+using SAEA.MVC.Base;
 using SAEA.MVC.Mvc;
-using SAEA.MVC.Web;
+using SAEA.MVC.Hosting;
 using SAEA.Sockets.Interface;
 using System;
+using SAEA.MVC.Model;
 
 namespace SAEA.MVC
 {
@@ -58,11 +59,11 @@ namespace SAEA.MVC
         /// </summary>
         /// <param name="userToken"></param>
         /// <param name="requestDataReader"></param>
-        private void WebHost_OnRequested(IUserToken userToken, RequestDataReader requestDataReader)
+        private void WebHost_OnRequested(IUserToken userToken, IRequestDataReader requestDataReader)
         {
             using (var httpContext = new HttpContext())
             {
-                httpContext.Init(webHost, userToken, requestDataReader);
+                httpContext.Init(webHost, userToken, (RequestDataReader)requestDataReader);
 
                 httpContext.HttpHandler(AreaCollection.RouteTable);
             }
@@ -78,6 +79,10 @@ namespace SAEA.MVC
             webHost.WebConfig.DefaultRout = new SAEA.Common.NameValueItem() { Name = controllerName, Value = actionName };
         }
 
+        /// <summary>
+        /// 设置默认首页
+        /// </summary>
+        /// <param name="defaultPage"></param>
         public void SetDefault(string defaultPage)
         {
             webHost.WebConfig.DefaultPage = "/" + defaultPage;

@@ -21,9 +21,8 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.MVC.Http.Base;
+using SAEA.MVC.Base;
 using SAEA.MVC.Model;
-using SAEA.MVC.Web;
 using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Generic;

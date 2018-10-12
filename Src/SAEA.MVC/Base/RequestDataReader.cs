@@ -1,4 +1,27 @@
-﻿using SAEA.Common;
+﻿/****************************************************************************
+*Copyright (c) 2018 Microsoft All Rights Reserved.
+*CLR版本： 4.0.30319.42000
+*机器名称：WENLI-PC
+*公司名称：Microsoft
+*命名空间：SAEA.MVC.Base
+*文件名： RequestDataReader
+*版本号： V2.2.0.0
+*唯一标识：01f783cd-c751-47c5-a5b9-96d3aa840c70
+*当前的用户域：WENLI-PC
+*创建人： yswenli
+*电子邮箱：wenguoli_520@qq.com
+*创建时间：2018/4/16 11:03:29
+*描述：
+*
+*=====================================================================
+*修改标记
+*修改时间：2018/4/16 11:03:29
+*修改人： yswenli
+*版本号： V2.2.0.0
+*描述：
+*
+*****************************************************************************/
+using SAEA.Common;
 using SAEA.MVC.Model;
 using System;
 using System.Collections.Generic;
@@ -7,12 +30,12 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace SAEA.MVC.Http.Base
+namespace SAEA.MVC.Base
 {
     /// <summary>
     /// http字符串读取 
     /// </summary>
-    internal class RequestDataReader : HttpBase, IDisposable
+    internal class RequestDataReader : HttpBase, IDisposable, IRequestDataReader
     {
         StringBuilder _stringBuilder = new StringBuilder();
         /// <summary>

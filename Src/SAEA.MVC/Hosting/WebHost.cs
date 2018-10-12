@@ -22,14 +22,13 @@
 *
 *****************************************************************************/
 
+using SAEA.MVC.Base.Net;
 using SAEA.MVC.Common;
-using SAEA.MVC.Http.Base;
-using SAEA.MVC.Http.Net;
 using SAEA.MVC.Model;
 using SAEA.Sockets.Interface;
 using System;
 
-namespace SAEA.MVC.Web
+namespace SAEA.MVC.Hosting
 {
     /// <summary>
     /// SAEA WebServer
@@ -51,7 +50,7 @@ namespace SAEA.MVC.Web
         /// <summary>
         /// 当解析到http请求时
         /// </summary>
-        public event Action<IUserToken, RequestDataReader> OnRequested;
+        public event Action<IUserToken, IRequestDataReader> OnRequested;
 
         /// <summary>
         /// SAEA WebServer
@@ -99,7 +98,7 @@ namespace SAEA.MVC.Web
         /// </summary>
         /// <param name="userToken"></param>
         /// <param name="requestDataReader"></param>
-        private void _serverSocket_OnRequested(IUserToken userToken, RequestDataReader requestDataReader)
+        private void _serverSocket_OnRequested(IUserToken userToken, IRequestDataReader requestDataReader)
         {
             try
             {

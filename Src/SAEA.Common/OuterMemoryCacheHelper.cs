@@ -37,10 +37,6 @@ namespace SAEA.Common
     {
         ConcurrentDictionary<string, MemoryCachItem<T>> _dic;
 
-        bool _disposed = false;
-
-        object _synclocker = new object();
-
         /// <summary>
         /// 自定义缓存
         /// </summary>
@@ -67,13 +63,10 @@ namespace SAEA.Common
 
         public void Active(string ID, TimeSpan timeOut)
         {
-            lock (_synclocker)
+            var item = Get(ID);
+            if (item != null)
             {
-                var item = Get(ID);
-                if (item != null)
-                {
-                    Set(ID, item, timeOut);
-                }
+                Set(ID, item, timeOut);
             }
         }
 
@@ -98,9 +91,7 @@ namespace SAEA.Common
 
         public void Dispose()
         {
-            _disposed = true;
             _dic.Clear();
-            _dic = null;
         }
     }
     /// <summary>

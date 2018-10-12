@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.MVC.Http.Base
+*命名空间：SAEA.MVC.Base
 *文件名： HttpServerUtilityBase
 *版本号： V2.2.0.0
 *唯一标识：01f783cd-c751-47c5-a5b9-96d3aa840c70
@@ -27,7 +27,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 
-namespace SAEA.MVC.Http.Base
+namespace SAEA.MVC.Base
 {
     /// <summary>
     /// HttpUtility

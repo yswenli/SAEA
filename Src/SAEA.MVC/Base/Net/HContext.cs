@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.MVC.Http.Net
+*命名空间：SAEA.MVC.Base.Net
 *文件名： HContext
 *版本号： V2.2.0.0
 *唯一标识：5977c7e0-64a5-44d5-8931-fcaeec6b203a
@@ -27,7 +27,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace SAEA.MVC.Http.Net
+namespace SAEA.MVC.Base.Net
 {
     class HContext : IContext
     {

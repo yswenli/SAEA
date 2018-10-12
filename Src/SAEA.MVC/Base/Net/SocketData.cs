@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.MVC.Http.Net
+*命名空间：SAEA.MVC.Base.Net
 *文件名： SocketData
 *版本号： V2.2.0.0
 *唯一标识：1d9bbeb9-0d69-47e9-bf97-ce4cb11789d0
@@ -25,9 +25,8 @@ using SAEA.Common;
 using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
-namespace SAEA.MVC.Http.Net
+namespace SAEA.MVC.Base.Net
 {
     public class SocketData : ISocketProtocal
     {

@@ -23,7 +23,7 @@
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.MVC.Http;
-using SAEA.MVC.Http.Base;
+using SAEA.MVC.Base;
 using SAEA.MVC.Model;
 using SAEA.Sockets.Interface;
 using System;

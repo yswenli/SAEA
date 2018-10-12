@@ -22,7 +22,7 @@
 *
 *****************************************************************************/
 using SAEA.BaseLibs.MVC.Http.Base;
-using SAEA.MVC.Http.Base;
+using SAEA.MVC.Base;
 using System.IO;
 using System.Net;
 using System.Text;
