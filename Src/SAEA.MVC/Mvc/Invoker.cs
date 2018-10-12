@@ -85,7 +85,7 @@ namespace SAEA.MVC.Mvc
                     {
                         var d = RouteTable.Types.Where(b => string.Compare(b.Name, httpContext.WebHost.WebConfig.DefaultRout.Name, true) == 0 || string.Compare(b.Name, httpContext.WebHost.WebConfig.DefaultRout.Name + ConstHelper.CONTROLLERNAME, true) == 0).FirstOrDefault();
 
-                        return Invoke(httpContext, routeTable, d, httpContext.WebHost.WebConfig.DefaultRout.Value, nameValues, isPost);
+                        return MVCInvoke(httpContext, routeTable, d, httpContext.WebHost.WebConfig.DefaultRout.Value, nameValues, isPost);
                     }
 
                 case 1:
@@ -103,7 +103,7 @@ namespace SAEA.MVC.Mvc
 
                     if (first != null)
                     {
-                        return Invoke(httpContext, routeTable, first, arr[arr.Length - 1], nameValues, isPost);
+                        return MVCInvoke(httpContext, routeTable, first, arr[arr.Length - 1], nameValues, isPost);
                     }
                     else
                     {
@@ -128,7 +128,7 @@ namespace SAEA.MVC.Mvc
         /// <param name="nameValues"></param>
         /// <param name="isPost"></param>
         /// <returns></returns>
-        public static ActionResult Invoke(HttpContext httpContext,RouteTable routeTable, Type controller, string actionName, NameValueCollection nameValues, bool isPost)
+        public static ActionResult MVCInvoke(HttpContext httpContext,RouteTable routeTable, Type controller, string actionName, NameValueCollection nameValues, bool isPost)
         {
             try
             {
