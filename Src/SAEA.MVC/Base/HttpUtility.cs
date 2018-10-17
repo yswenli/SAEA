@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.MVC.Base
 *文件名： HttpServerUtilityBase
-*版本号： V2.2.0.0
+*版本号： V2.2.0.1
 *唯一标识：01f783cd-c751-47c5-a5b9-96d3aa840c70
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,15 +17,12 @@
 *修改标记
 *修改时间：2018/4/16 11:03:29
 *修改人： yswenli
-*版本号： V2.2.0.0
+*版本号： V2.2.0.1
 *描述：
 *
 *****************************************************************************/
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.Reflection;
 
 namespace SAEA.MVC.Base
 {
@@ -39,10 +36,13 @@ namespace SAEA.MVC.Base
 
         string _root = "/";
 
+        Uri _prex;
+
 
         public HttpUtility(string root)
         {
             _root = root;
+            _prex = new Uri("http://127.0.0.1:39654");
         }
 
         /// <summary>
@@ -52,42 +52,9 @@ namespace SAEA.MVC.Base
         /// <returns></returns>
         public virtual string MapPath(string path)
         {
-            var prex = new Uri("http://127.0.0.1:39654");
-
-            var uri = new Uri(prex, _root + path);
-
-            StackTrace ss = new StackTrace(true);
-
-            var frames = ss.GetFrames();
-
-            List<MethodBase> mbs = new List<MethodBase>();
-
-            if (frames != null)
-            {
-                foreach (var item in frames)
-                {
-                    mbs.Add(item.GetMethod());
-                }
-            }
-
-            MethodBase mb = null;
-
-            foreach (var item in mbs)
-            {
-                var len = item.DeclaringType.FullName.Length;
-                if (item.DeclaringType.FullName.LastIndexOf(Controller) == len - 10)
-                {
-                    mb = item;
-                    break;
-                }
-            }
-
-            if (mb == null)
-            {
-                return Path.GetFullPath(Directory.GetCurrentDirectory() + uri.LocalPath);
-            }
-
-            return Path.Combine(Path.GetDirectoryName(mb.DeclaringType.Assembly.Location) + uri.LocalPath);
+            var uri = new Uri(_prex, _root + path);
+           
+            return Path.GetFullPath(Directory.GetCurrentDirectory() + uri.LocalPath); 
         }
         /// <summary>
         /// UrlEncode

@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.MVC.Http
 *文件名： HttpContext
-*版本号： V2.2.0.0
+*版本号： V2.2.0.1
 *唯一标识：af0b65c6-0f58-4221-9e52-7e3f0a4ffb24
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,12 +17,11 @@
 *修改标记
 *修改时间：2018/4/10 16:46:31
 *修改人： yswenli
-*版本号： V2.2.0.0
+*版本号： V2.2.0.1
 *描述：
 *
 *****************************************************************************/
 using SAEA.Common;
-using SAEA.MVC.Http;
 using SAEA.MVC.Base;
 using SAEA.MVC.Model;
 using SAEA.Sockets.Interface;
@@ -35,13 +34,13 @@ namespace SAEA.MVC.Mvc
     /// </summary>
     public class HttpContext : IDisposable
     {
-        public HttpRequest Request
+        public RequestBase Request
         {
             get;
             private set;
         }
 
-        public HttpResponse Response
+        public ResponseBase Response
         {
             get;
             private set;
@@ -57,8 +56,8 @@ namespace SAEA.MVC.Mvc
 
         internal HttpContext()
         {
-            this.Request = new HttpRequest();
-            this.Response = new HttpResponse();
+            this.Request = new RequestBase();
+            this.Response = new ResponseBase();
         }
 
         internal bool IsStaticsCached { get; set; }
@@ -89,20 +88,18 @@ namespace SAEA.MVC.Mvc
                 case ConstHelper.GET:
                 case ConstHelper.POST:
 
-                    if (this.Request.Parmas == null) this.Request.Parmas = new System.Collections.Generic.Dictionary<string, string>();
-
-                    if (this.Request.Query != null && this.Request.Query.Count > 0)
+                    if (this.Request.Query.Count > 0)
                     {
                         foreach (var item in this.Request.Query)
                         {
-                            this.Request.Parmas.TryAdd(item.Key, item.Value);
+                            this.Request.Parmas[item.Key]= item.Value;
                         }
                     }
-                    if (this.Request.Forms != null && this.Request.Forms.Count > 0)
+                    if (this.Request.Forms.Count > 0)
                     {
                         foreach (var item in this.Request.Forms)
                         {
-                            this.Request.Parmas.TryAdd(item.Key, item.Value);
+                            this.Request.Parmas[item.Key] = item.Value;
                         }
                     }
                     result = Invoker.Invoke(this, routeTable);
@@ -114,10 +111,7 @@ namespace SAEA.MVC.Mvc
                     result = new ContentResult("不支持的请求方式", System.Net.HttpStatusCode.NotImplemented);
                     break;
             }
-            if (!(result is EmptyResult))
-            {
-                this.Response.SetResult(result);
-            }
+            this.Response.SetResult(result);
             this.Response.End();
         }
 

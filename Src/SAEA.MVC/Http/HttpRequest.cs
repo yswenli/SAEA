@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.MVC.Http
 *文件名： HttpRequest
-*版本号： V2.2.0.0
+*版本号： V2.2.0.1
 *唯一标识：eeefb8e0-9493-4a07-b469-fc24db360a1b
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/4/8 16:34:03
 *修改人： yswenli
-*版本号： V2.2.0.0
+*版本号： V2.2.0.1
 *描述：
 *
 *****************************************************************************/
@@ -37,9 +37,6 @@ namespace SAEA.MVC.Http
         internal IWebHost WebHost { get; set; }
 
         internal IUserToken UserToken { get; set; }
-
-        RequestDataReader _requestDataReader;
-
 
         /// <summary>
         /// enctype="text/plain"
@@ -102,7 +99,7 @@ namespace SAEA.MVC.Http
                 this.Json = requestDataReader.Json;
                 this.Body = requestDataReader.Body;
             }
-            _requestDataReader = requestDataReader;
+            requestDataReader.Dispose();
         }
 
         public string GetHeader(RequestHeaderType header)
@@ -125,7 +122,6 @@ namespace SAEA.MVC.Http
                 this.Parmas.Clear();
             this.RelativeUrl = this.Url = string.Empty;
             this.Headers.Clear();
-            _requestDataReader.Dispose();
         }
     }
 }

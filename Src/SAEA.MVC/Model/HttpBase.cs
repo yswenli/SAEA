@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.MVC.Model
 *文件名： HttpBase
-*版本号： V2.2.0.0
+*版本号： V2.2.0.1
 *唯一标识：a303db7d-f83c-4c49-9804-032ec2236232
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/4/10 13:58:08
 *修改人： yswenli
-*版本号： V2.2.0.0
+*版本号： V2.2.0.1
 *描述：
 *
 *****************************************************************************/
@@ -55,14 +55,14 @@ namespace SAEA.MVC.Model
         {
             get; set;
         }
-               
+
         /// <summary>
         /// url参数
         /// </summary>
         public Dictionary<string, string> Query
         {
             get; set;
-        }
+        } = new Dictionary<string, string>();
 
         /// <summary>
         /// 表单参数
@@ -70,14 +70,14 @@ namespace SAEA.MVC.Model
         public Dictionary<string, string> Forms
         {
             get; set;
-        }
+        } = new Dictionary<string, string>();
         /// <summary>
         /// request 参数
         /// </summary>
         public Dictionary<string, string> Parmas
         {
             get; set;
-        }
+        } = new Dictionary<string, string>();
 
         public string Protocal
         {

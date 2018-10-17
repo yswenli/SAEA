@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.MVC.Http
 *文件名： HttpResponse
-*版本号： V2.2.0.0
+*版本号： V2.2.0.1
 *唯一标识：2e43075f-a43d-4b60-bee1-1f9107e2d133
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,13 +17,12 @@
 *修改标记
 *修改时间：2018/4/8 16:46:40
 *修改人： yswenli
-*版本号： V2.2.0.0
+*版本号： V2.2.0.1
 *描述：
 *
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.MVC.Model;
-using SAEA.MVC.Mvc;
 using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Generic;
@@ -54,31 +53,7 @@ namespace SAEA.MVC.Http
 
             this.Protocal = protocal;
             _isZiped = isZiped; 
-        }
-
-        /// <summary>
-        /// 设置回复内容
-        /// </summary>
-        /// <param name="result"></param>
-        internal void SetResult(ActionResult result)
-        {
-            this.Status = result.Status;
-            if (result is EmptyResult)
-            {
-                return;
-            }
-            else if (result is FileResult)
-            {
-                var actionResult = result as FileResult;
-                this.ContentType = actionResult.ContentType;
-                this.SetContent(actionResult.Content);
-            }
-            else
-            {
-                this.ContentType = result.ContentType;
-                this.SetContent(result.Content);
-            }
-        }
+        }       
 
         internal HttpResponse SetContent(byte[] content, Encoding encoding = null)
         {
@@ -136,7 +111,6 @@ namespace SAEA.MVC.Http
             }
             var result = builder.ToString();
             builder.Clear();
-            builder = null;
             return result;
         }
 
@@ -177,8 +151,6 @@ namespace SAEA.MVC.Http
             var arr = reponseDataList.ToArray();
             this.Body = null;
             reponseDataList.Clear();
-            reponseDataList = null;
-
             return arr;
         }
 

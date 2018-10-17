@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.MVC.Web
 *文件名： WebHost
-*版本号： V2.2.0.0
+*版本号： V2.2.0.1
 *唯一标识：340c3ef0-2e98-4f25-998f-2bb369fa2794
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *创建时间：2018/10/12 00:48:06
 *修改人： yswenli
-*版本号： V2.2.0.0
+*版本号： V2.2.0.1
 *描述：
 *
 *****************************************************************************/
@@ -90,7 +90,7 @@ namespace SAEA.MVC.Hosting
                 _serverSocket.Start(WebConfig.Port);
                 IsRunning = true;
             }
-            
+
         }
 
         /// <summary>
@@ -102,13 +102,14 @@ namespace SAEA.MVC.Hosting
         {
             try
             {
-                OnRequested?.Invoke(userToken, requestDataReader);               
+                OnRequested?.Invoke(userToken, requestDataReader);
             }
             catch (Exception ex)
             {
                 LogHelper.WriteError("_serverSocket_OnDisconnected 断开连接", ex);
                 _serverSocket.Disconnect(userToken, ex);
             }
+
         }
 
         public void Reponse(IUserToken userToken, byte[] data)
@@ -136,7 +137,7 @@ namespace SAEA.MVC.Hosting
             {
                 _serverSocket.Stop();
                 IsRunning = false;
-            }            
+            }
         }
 
 

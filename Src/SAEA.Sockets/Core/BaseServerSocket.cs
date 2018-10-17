@@ -13,7 +13,7 @@
 *公司名称：wenli
 *命名空间：SAEA.Sockets
 *文件名： BaseServerSocket
-*版本号： V2.2.0.0
+*版本号： V2.2.0.1
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -25,7 +25,7 @@
 *修改标记
 *修改时间：2018/3/1 15:54:21
 *修改人： yswenli
-*版本号： V2.2.0.0
+*版本号： V2.2.0.1
 *描述：
 *
 *****************************************************************************/
@@ -135,14 +135,7 @@ namespace SAEA.Sockets.Core
 
                 _sessionManager.Set(userToken);
 
-                try
-                {
-                    OnAccepted?.Invoke(userToken);
-                }
-                catch (Exception ex)
-                {
-                    OnError?.Invoke(userToken.ID, new Exception("server在接受客户端连接时出现异常：" + ex.Message));
-                }
+                OnAccepted?.Invoke(userToken);
 
                 Interlocked.Increment(ref _clientCounts);
 
@@ -248,12 +241,6 @@ namespace SAEA.Sockets.Core
         /// <param name="data"></param>
         protected void SendAsync(IUserToken userToken, byte[] data)
         {
-            if (userToken == null || userToken.Socket == null || !userToken.Socket.Connected)
-            {
-                Disconnect(userToken, new Exception("The remote client has been disconnected."));
-                return;
-            }
-
             userToken.WaitOne();
 
             var writeArgs = userToken.WriteArgs;
@@ -281,15 +268,11 @@ namespace SAEA.Sockets.Core
         /// <param name="userToken"></param>
         /// <param name="data"></param>
         protected void Send(IUserToken userToken, byte[] data)
-        {
-            if (userToken == null || userToken.Socket == null || !userToken.Socket.Connected)
-            {
-                Disconnect(userToken, new Exception("The remote client has been disconnected."));
-                return;
-            }
-
+        {          
             try
             {
+                _sessionManager.Active(userToken.ID);
+
                 int sendNum = 0, offset = 0;
 
                 while (userToken != null && userToken.Socket != null && userToken.Socket.Connected)
@@ -302,9 +285,7 @@ namespace SAEA.Sockets.Core
                     {
                         break;
                     }
-                }
-
-                _sessionManager.Active(userToken.ID);
+                }                
             }
             catch (Exception ex)
             {
@@ -322,17 +303,14 @@ namespace SAEA.Sockets.Core
         /// <param name="ex"></param>
         public void Disconnect(IUserToken userToken, Exception ex = null)
         {
-            lock (_locker)
+            if (userToken != null && userToken.Socket != null)
             {
-                if (userToken != null && userToken.Socket != null)
+                if (_sessionManager.Free(userToken))
                 {
-                    if (_sessionManager.Free(userToken))
-                    {
-                        if (ex == null) ex = new Exception("The remote client has been disconnected.");
-                        OnDisconnected?.Invoke(userToken.ID, ex);
-                        Interlocked.Decrement(ref _clientCounts);
-                        m_maxNumberAcceptedClients.Release();
-                    }
+                    if (ex == null) ex = new Exception("The remote client has been disconnected.");
+                    OnDisconnected?.Invoke(userToken.ID, ex);
+                    Interlocked.Decrement(ref _clientCounts);
+                    m_maxNumberAcceptedClients.Release();
                 }
             }
         }

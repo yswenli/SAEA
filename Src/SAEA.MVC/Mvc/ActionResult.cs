@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.MVC.Mvc
 *文件名： ActionResult
-*版本号： V2.2.0.0
+*版本号： V2.2.0.1
 *唯一标识：39ffb9e8-5bff-4535-9b15-8d744bc100d9
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,10 +17,11 @@
 *修改标记
 *修改时间：2018/4/10 16:44:33
 *修改人： yswenli
-*版本号： V2.2.0.0
+*版本号： V2.2.0.1
 *描述：
 *
 *****************************************************************************/
+using SAEA.MVC.Model;
 using System.Net;
 using System.Text;
 
@@ -28,7 +29,7 @@ namespace SAEA.MVC.Mvc
 {
     // 摘要:
     //     封装一个操作方法的结果并用于代表该操作方法执行框架级操作。
-    public abstract class ActionResult
+    public abstract class ActionResult : IActionResult
     {
         // 摘要:
         //     初始化 SAEA.MVC.ActionResult 类的新实例。

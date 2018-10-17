@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.MVC.Base
 *文件名： RequestDataReader
-*版本号： V2.2.0.0
+*版本号： V2.2.0.1
 *唯一标识：01f783cd-c751-47c5-a5b9-96d3aa840c70
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/4/16 11:03:29
 *修改人： yswenli
-*版本号： V2.2.0.0
+*版本号： V2.2.0.1
 *描述：
 *
 *****************************************************************************/
@@ -396,7 +396,6 @@ namespace SAEA.MVC.Base
             _stringBuilder.Clear();
             if (Body != null)
                 Array.Clear(Body, 0, Body.Length);
-            Body = null;
         }
     }
 }
