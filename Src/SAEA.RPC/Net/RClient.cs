@@ -29,7 +29,6 @@ using SAEA.Sockets.Core;
 using SAEA.Sockets.Interface;
 using System;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace SAEA.RPC.Net
 {
@@ -126,14 +125,7 @@ namespace SAEA.RPC.Net
         /// <param name="msg"></param>
         internal void Send(RSocketMsg msg)
         {
-            lock (_syncLocker)
-            {
-                if (this.Connected)
-                {
-                    var data = ((RCoder)UserToken.Coder).Encode(msg);
-                    SendAsync(data);
-                }
-            }
+            SendAsync(((RCoder)UserToken.Coder).Encode(msg));
         }
 
         /// <summary>

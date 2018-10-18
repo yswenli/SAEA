@@ -59,7 +59,7 @@ namespace SAEA.RPC.Net
         /// <param name="msg"></param>
         internal void Reply(IUserToken userToken, RSocketMsg msg)
         {
-            Send(userToken, ((RCoder)userToken.Coder).Encode(msg));
+            SendAsync(userToken, ((RCoder)userToken.Coder).Encode(msg));
         }
     }
 }

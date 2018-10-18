@@ -22,7 +22,6 @@
 *
 *****************************************************************************/
 using SAEA.Common;
-using SAEA.RPC.Common;
 using SAEA.RPC.Model;
 using SAEA.Sockets.Interface;
 using System;

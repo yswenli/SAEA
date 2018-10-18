@@ -5,8 +5,6 @@ using SAEA.RPCTest.Consumer.Model;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace SAEA.RPCTest
 {

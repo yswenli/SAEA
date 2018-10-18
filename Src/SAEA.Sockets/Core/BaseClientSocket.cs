@@ -230,30 +230,25 @@ namespace SAEA.Sockets.Core
         /// <param name="data"></param>
         protected void SendAsync(byte[] data)
         {
-            if (_connected)
+            try
             {
-                try
+                _userToken.WaitOne();
+
+                var writeArgs = _userToken.WriteArgs;
+
+                writeArgs.SetBuffer(data, 0, data.Length);
+
+                if (!_userToken.Socket.SendAsync(writeArgs))
                 {
-                    _userToken.WaitOne();
-
-                    var writeArgs = _userToken.WriteArgs;
-
-                    writeArgs.SetBuffer(data, 0, data.Length);
-
-                    if (!_userToken.Socket.SendAsync(writeArgs))
-                    {
-                        ProcessSended(writeArgs);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    OnError?.Invoke(_userToken.ID, ex);
-                    _userToken.Set();
-                    Disconnect();
+                    ProcessSended(writeArgs);
                 }
             }
-            else
-                OnError?.Invoke("", new Exception("发送失败：当前连接已断开"));
+            catch (Exception ex)
+            {
+                OnError?.Invoke(_userToken.ID, ex);
+                _userToken.Set();
+                Disconnect();
+            }
         }
 
         /// <summary>

@@ -1,4 +1,28 @@
-﻿using SAEA.Common;
+﻿/****************************************************************************
+*Copyright (c) 2018 Microsoft All Rights Reserved.
+*CLR版本： 4.0.30319.42000
+*机器名称：WENLI-PC
+*公司名称：yswenli
+*命名空间：SAEA.RPC.Serialize
+*文件名： ParamsSerializeUtil
+*版本号： V2.2.0.1
+*唯一标识：9555d1ce-23a8-4302-b470-7abffdebcdfa
+*当前的用户域：WENLI-PC
+*创建人： yswenli
+*电子邮箱：wenguoli_520@qq.com
+*创建时间：2018/5/16 17:35:38
+*描述：
+*
+*=====================================================================
+*修改标记
+*修改时间：2018/5/16 17:35:38
+*修改人： yswenli
+*版本号： V2.2.0.1
+*描述：
+*
+*****************************************************************************/
+
+using SAEA.Common;
 using SAEA.RPC.Model;
 using System;
 using System.Collections.Generic;
@@ -8,7 +32,7 @@ using System.Text;
 namespace SAEA.RPC.Serialize
 {
     /// <summary>
-    /// rpc参数序列化处理
+    /// saea.rpc参数序列化处理
     /// </summary>
     public class ParamsSerializeUtil
     {
