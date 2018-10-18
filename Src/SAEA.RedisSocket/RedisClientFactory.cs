@@ -29,6 +29,9 @@ using System.Collections.Generic;
 
 namespace SAEA.RedisSocket
 {
+    /// <summary>
+    /// 主从自适应Redis客户端工厂类
+    /// </summary>
     public class RedisClientFactory
     {
 

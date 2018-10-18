@@ -24,8 +24,6 @@
 using SAEA.Sockets.Core;
 using SAEA.Sockets.Interface;
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.RPC.Net
 {
@@ -49,7 +47,7 @@ namespace SAEA.RPC.Net
         {
             ((RCoder)userToken.Coder).Unpack(data, (r) =>
             {
-                OnMsg?.Invoke(userToken, r);
+                OnMsg.Invoke(userToken, r);
             });
         }
         /// <summary>

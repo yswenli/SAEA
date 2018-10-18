@@ -32,6 +32,11 @@ using System.Threading;
 
 namespace SAEA.RedisSocket
 {
+    /// <summary>
+    /// redis连接类
+    /// 支持常用命令
+    /// 支持Cluster
+    /// </summary>
     public partial class RedisClient : IClient, IDisposable
     {
         RedisConnection _cnn;

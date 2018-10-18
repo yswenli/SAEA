@@ -56,7 +56,7 @@ namespace SAEA.RedisSocket.Net
 
         public void Send(string cmd)
         {
-            Send(Encoding.UTF8.GetBytes(cmd));
+            SendAsync(Encoding.UTF8.GetBytes(cmd));
             OnActived.Invoke(DateTimeHelper.Now.AddSeconds(60));
         }
     }

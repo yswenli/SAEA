@@ -23,5 +23,10 @@ namespace SAEA.Common
             cts.Token.Register(canceled);
             await Task.Factory.StartNew(action, cts.Token);
         }
+
+        public static Task Start(Action action)
+        {
+            return Task.Factory.StartNew(action);
+        }
     }
 }

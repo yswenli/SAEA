@@ -55,7 +55,6 @@ namespace SAEA.Common
             else
                 result = si.AutoResetEvent.WaitOne();
             si.AutoResetEvent.Close();
-            si.Action = null;
             return result;
         }
 

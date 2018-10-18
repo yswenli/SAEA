@@ -70,68 +70,63 @@ namespace SAEA.RPC.Common
         }
 
 
-        public static object Reversal(IUserToken IUserToken, string serviceName, string methodName, object[] inputs)
+        public static object Reversal(IUserToken userToken, string serviceName, string methodName, object[] inputs)
         {
-            lock (_locker)
+            var serviceInfo = RPCMapping.Get(serviceName, methodName);
+
+            if (serviceInfo == null)
             {
-                var serviceInfo = RPCMapping.Get(serviceName, methodName);
-
-                if (serviceInfo == null)
-                {
-                    throw new RPCNotFundException($"当前请求找不到:{serviceName}/{methodName}", null);
-                }
-
-                var nargs = new object[] { IUserToken, serviceName, methodName, inputs };
-
-                if (serviceInfo.FilterAtrrs != null && serviceInfo.FilterAtrrs.Count > 0)
-                {
-                    foreach (var arr in serviceInfo.FilterAtrrs)
-                    {
-                        var goOn = (bool)FastInvoke.GetMethodInvoker(arr.GetType().GetMethod("OnActionExecuting")).Invoke(arr, nargs.ToArray());
-
-                        if (!goOn)
-                        {
-                            //return new RPCNotFundException("当前逻辑已被拦截！", null);
-                            return null;
-                        }
-                    }
-                }
-
-                if (serviceInfo.ActionFilterAtrrs != null && serviceInfo.ActionFilterAtrrs.Count > 0)
-                {
-                    foreach (var arr in serviceInfo.ActionFilterAtrrs)
-                    {
-                        var goOn = (bool)FastInvoke.GetMethodInvoker(arr.GetType().GetMethod("OnActionExecuting")).Invoke(arr, nargs.ToArray());
-
-                        if (!goOn)
-                        {
-                            //return new RPCNotFundException("当前逻辑已被拦截！", null);
-                            return null;
-                        }
-                    }
-                }
-
-                var result = ReversalMethod(serviceInfo.Method, serviceInfo.MethodInvoker, serviceInfo.Instance, inputs);
-
-                nargs = new object[] { IUserToken, serviceName, methodName, inputs, result };
-
-                if (serviceInfo.FilterAtrrs != null && serviceInfo.FilterAtrrs.Count > 0)
-                {
-                    foreach (var arr in serviceInfo.FilterAtrrs)
-                    {
-                        FastInvoke.GetMethodInvoker(arr.GetType().GetMethod("OnActionExecuted")).Invoke(arr, nargs);
-                    }
-                }
-
-                if (serviceInfo.ActionFilterAtrrs != null && serviceInfo.ActionFilterAtrrs.Count > 0)
-                {
-                    foreach (var arr in serviceInfo.FilterAtrrs)
-                    {
-                        FastInvoke.GetMethodInvoker(arr.GetType().GetMethod("OnActionExecuted")).Invoke(arr, nargs);
-                    }
-                }
-                return result;
+                throw new RPCNotFundException($"当前请求找不到:{serviceName}/{methodName}", null);
             }
+
+            var nargs = new object[] { userToken, serviceName, methodName, inputs };
+
+            if (serviceInfo.FilterAtrrs != null && serviceInfo.FilterAtrrs.Count > 0)
+            {
+                foreach (var arr in serviceInfo.FilterAtrrs)
+                {
+                    var goOn = (bool)FastInvoke.GetMethodInvoker(arr.GetType().GetMethod("OnActionExecuting")).Invoke(arr, nargs.ToArray());
+
+                    if (!goOn)
+                    {
+                        return null;
+                    }
+                }
+            }
+
+            if (serviceInfo.ActionFilterAtrrs != null && serviceInfo.ActionFilterAtrrs.Count > 0)
+            {
+                foreach (var arr in serviceInfo.ActionFilterAtrrs)
+                {
+                    var goOn = (bool)FastInvoke.GetMethodInvoker(arr.GetType().GetMethod("OnActionExecuting")).Invoke(arr, nargs.ToArray());
+
+                    if (!goOn)
+                    {
+                        return null;
+                    }
+                }
+            }
+
+            var result = ReversalMethod(serviceInfo.Method, serviceInfo.MethodInvoker, serviceInfo.Instance, inputs);
+
+            nargs = new object[] { userToken, serviceName, methodName, inputs, result };
+
+            if (serviceInfo.FilterAtrrs != null && serviceInfo.FilterAtrrs.Count > 0)
+            {
+                foreach (var arr in serviceInfo.FilterAtrrs)
+                {
+                    FastInvoke.GetMethodInvoker(arr.GetType().GetMethod("OnActionExecuted")).Invoke(arr, nargs);
+                }
+            }
+
+            if (serviceInfo.ActionFilterAtrrs != null && serviceInfo.ActionFilterAtrrs.Count > 0)
+            {
+                foreach (var arr in serviceInfo.FilterAtrrs)
+                {
+                    FastInvoke.GetMethodInvoker(arr.GetType().GetMethod("OnActionExecuted")).Invoke(arr, nargs);
+                }
+            }
+            return result;
         }
 
         /// <summary>
@@ -154,16 +149,9 @@ namespace SAEA.RPC.Common
 
                     throw new RPCNotFundException($"找不到服务：{msg.ServiceName}/{msg.MethodName}");
 
-                try
-                {
-                    var ptypes = serviceInfo.Pamars.Values.ToArray();
+                var ptypes = serviceInfo.Pamars.Values.ToArray();
 
-                    inputs = ParamsSerializeUtil.Deserialize(ptypes, msg.Data);
-                }
-                catch
-                {
-
-                }
+                inputs = ParamsSerializeUtil.Deserialize(ptypes, msg.Data);
             }
 
             var r = Reversal(IUserToken, msg.ServiceName, msg.MethodName, inputs);

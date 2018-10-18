@@ -65,10 +65,8 @@ namespace SAEA.RPC.Net
 
         protected override void OnReceived(byte[] data)
         {
-            ((RCoder)UserToken.Coder).Unpack(data, (msg) =>
+            ((RCoder)UserToken.Coder).Unpack(data, msg =>
             {
-                //ConsoleHelper.WriteLine($"4 consumer receive: {msg.SequenceNumber}");
-
                 switch ((RSocketMsgType)msg.Type)
                 {
                     case RSocketMsgType.Ping:
@@ -107,7 +105,7 @@ namespace SAEA.RPC.Net
                         {
                             if (UserToken.Actived.AddSeconds(20) < DateTimeHelper.Now)
                             {
-                                Send(new RSocketMsg(RSocketMsgType.Ping));
+                                SendAsync(new RSocketMsg(RSocketMsgType.Ping));
                             }
                         }
                         ThreadHelper.Sleep(5 * 100);
@@ -123,7 +121,7 @@ namespace SAEA.RPC.Net
         /// 发送数据
         /// </summary>
         /// <param name="msg"></param>
-        internal void Send(RSocketMsg msg)
+        internal void SendAsync(RSocketMsg msg)
         {
             SendAsync(((RCoder)UserToken.Coder).Encode(msg));
         }
@@ -151,10 +149,8 @@ namespace SAEA.RPC.Net
 
                 if (_syncHelper.Wait(msg.SequenceNumber, () =>
                 {
-                    this.Send(msg); //ConsoleHelper.WriteLine($"1 consumer send: {msg.SequenceNumber}");
-                },
-                                        (r) => { result = r; },
-                                        timeOut))
+                    this.SendAsync(msg); //ConsoleHelper.WriteLine($"1 consumer send: {msg.SequenceNumber}");
+                }, (r) => { result = r; }, timeOut))
                 {
                     return result;
                 }
