@@ -8,7 +8,7 @@
     <PackageProjectUrl>https://www.cnblogs.com/yswenli/</PackageProjectUrl>
     <FileVersion>2.2.0.0</FileVersion>
     <AssemblyVersion>2.2.0.0</AssemblyVersion>
-    <Version>2.2.0.0</Version>
+    <Version>2.2.1.1</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
     <Description>This is a high-performance file transfer component based on SAEA.Sockets.
@@ -16,6 +16,9 @@
     <PackageReleaseNotes>This is a high-performance file transfer component based on SAEA.Sockets.
 这是一个基于SAEA.Sockets的高性能文件传输组件</PackageReleaseNotes>
     <PackageTags>iocp,filetransfer,tcp</PackageTags>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
+    <DelaySign>false</DelaySign>
   </PropertyGroup>
 
   <ItemGroup>

@@ -13,7 +13,7 @@
 *公司名称：wenli
 *命名空间：SAEA.Sockets
 *文件名： BaseServerSocket
-*版本号： V2.2.0.1
+*版本号： V2.2.1.1
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -25,7 +25,7 @@
 *修改标记
 *修改时间：2018/3/1 15:54:21
 *修改人： yswenli
-*版本号： V2.2.0.1
+*版本号： V2.2.1.1
 *描述：
 *
 *****************************************************************************/
@@ -275,7 +275,7 @@ namespace SAEA.Sockets.Core
 
                 int sendNum = 0, offset = 0;
 
-                while (userToken != null && userToken.Socket != null && userToken.Socket.Connected)
+                while (true)
                 {
                     sendNum += userToken.Socket.Send(data, offset, data.Length - offset, SocketFlags.None);
 
@@ -292,9 +292,6 @@ namespace SAEA.Sockets.Core
                 Disconnect(userToken, ex);
             }
         }
-
-
-        object _locker = new object();
 
         /// <summary>
         /// 断开客户端连接
@@ -314,6 +311,23 @@ namespace SAEA.Sockets.Core
                 }
             }
         }
+
+        /// <summary>
+        /// 回复
+        /// </summary>
+        /// <param name="userToken"></param>
+        /// <param name="data"></param>
+        public void End(IUserToken userToken, byte[] data)
+        {
+            var result= userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, null, null);
+            userToken.Socket.EndSend(result);
+            if (_sessionManager.Free(userToken))
+            {
+                Interlocked.Decrement(ref _clientCounts);
+                m_maxNumberAcceptedClients.Release();
+            }
+        }
+
 
         private void _sessionManager_OnTimeOut(IUserToken userToken)
         {

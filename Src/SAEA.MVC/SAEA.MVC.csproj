@@ -6,13 +6,15 @@
     <Company>yswenli</Company>
     <Copyright>yswenli</Copyright>
     <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
-    <Version>2.2.0.0</Version>
+    <Version>2.2.1.1</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Description>This is a web component based on SAEA.Sockets. It is lightweight, high performance, easy to use and self hosting. For example, please visit: https://github.com/yswenli/SAEA/tree/master/Src/SAEA.MVCTest.
 这是一个基于SAEA.Sockets的web组件，轻量高性能，使用简便，自宿主。使用样例请访问：https://github.com/yswenli/SAEA/tree/master/Src/SAEA.MVCTest。</Description>
     <PackageTags>mvc,webapi,iocp,webserver</PackageTags>
     <PackageReleaseNotes>This is a web component based on SAEA.Sockets. It is lightweight, high performance, easy to use and self hosting. For example, please visit: https://github.com/yswenli/SAEA/tree/master/Src/SAEA.MVCTest.
 这是一个基于SAEA.Sockets的web组件，轻量高性能，使用简便，自宿主。使用样例请访问：https://github.com/yswenli/SAEA/tree/master/Src/SAEA.MVCTest。</PackageReleaseNotes>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
