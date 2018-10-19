@@ -50,7 +50,7 @@ namespace SAEA.RedisSocket
         /// <param name="ipAddress">例如：127.0.0.1:6379,192.168.1.3:6380</param>
         /// <param name="connections">每实例tcp连接数</param>
         /// <param name="password">redis密码</param>
-        public RedisClientFactory(string ipAddress, int connections = 20, string password = "")
+        public RedisClientFactory(string ipAddress, int connections = 2, string password = "")
         {
             lock (_syncLocker)
             {
@@ -72,19 +72,18 @@ namespace SAEA.RedisSocket
 
                             try
                             {
-                                bool isReadOnly = true;
+                                bool isMaster = true;
                                 for (int i = 0; i < connections; i++)
                                 {
                                     var client = new RedisClient(ipPortStr, password);
-                                    client.Connect();                                    
-                                    if (isReadOnly)
-                                        isReadOnly = client.IsMaster;
+                                    client.Connect();
+                                    isMaster = client.IsMaster;
                                     queue.Enqueue(client);
                                 }
-                                if (isReadOnly)
-                                    _connections.Add(Slave, queue);
-                                else
+                                if (isMaster)
                                     _connections.Add(Master, queue);
+                                else
+                                    _connections.Add(Slave, queue);
                             }
                             catch (Exception ex)
                             {
@@ -122,7 +121,7 @@ namespace SAEA.RedisSocket
                     }
                     pc = new PooledRedisClient();
                     pc.SetClient(this, client);
-                }                
+                }
                 return pc;
             }
         }

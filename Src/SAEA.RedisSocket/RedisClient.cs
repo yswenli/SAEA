@@ -51,7 +51,7 @@ namespace SAEA.RedisSocket
 
         bool _debugModel = false;
 
-        Dictionary<string, RedisConnection> _clusterCnn = new Dictionary<string, RedisConnection>();
+        Dictionary<string, RedisConnection> _redisCnns = new Dictionary<string, RedisConnection>();
 
         public bool IsConnected { get; set; }
 
@@ -70,7 +70,10 @@ namespace SAEA.RedisSocket
 
         public RedisClient(string connectStr, bool debugModel = false) : this(new RedisConfig(connectStr), debugModel) { }
 
-        public RedisClient(string ipPort, string password, int acitonTimeout = 60, bool debugModel = false) : this(new RedisConfig(ipPort, password, acitonTimeout), debugModel) { }
+        public RedisClient(string ipPort, string password, int acitonTimeout = 60, bool debugModel = false) : this(new RedisConfig(ipPort, password, acitonTimeout), debugModel)
+        {
+            
+        }
 
         /// <summary>
         /// 使用密码连接到RedisServer
@@ -106,7 +109,8 @@ namespace SAEA.RedisSocket
                     }
                 }
                 _cnn.KeepAlived(() => this.KeepAlive());
-                _clusterCnn.Add(RedisConfig.GetIPPort(), _cnn);
+                var ipPort = RedisConfig.GetIPPort();
+                _redisCnns.Add(ipPort, _cnn);
                 return OK;
             }
         }
@@ -304,48 +308,28 @@ namespace SAEA.RedisSocket
                 if (_redisDataBase == null)
                 {
                     _redisDataBase = new RedisDataBase(_cnn);
+                    //RedisCluster
                     _redisDataBase.OnRedirect += _redisDataBase_OnRedirect;
                 }
                 return _redisDataBase;
             }
-
         }
 
+        
         /// <summary>
-        /// 在cluster中重置连接
+        /// 释放连接资源
         /// </summary>
-        /// <param name="ipPort"></param>
-        /// <returns></returns>
-        private RedisConnection _redisDataBase_OnRedirect(string ipPort)
-        {
-            lock (_syncLocker)
-            {
-                if (_clusterCnn.ContainsKey(ipPort))
-                {
-                    return _clusterCnn[ipPort];
-                }
-                else
-                {
-                    this.IsConnected = false;
-                    this.RedisConfig = new RedisConfig(ipPort, this.RedisConfig.Passwords, this.RedisConfig.ActionTimeOut);
-                    _cnn = new RedisConnection(RedisConfig.GetIPPort(), this.RedisConfig.ActionTimeOut, _debugModel);
-                    this.Connect();
-                    return _cnn;
-                }
-            }
-        }
-
         public void Dispose()
         {
             lock (_syncLocker)
             {
-                if (_clusterCnn != null && _clusterCnn.Count > 0)
+                if (_redisCnns != null && _redisCnns.Count > 0)
                 {
-                    foreach (var item in _clusterCnn)
+                    foreach (var item in _redisCnns)
                     {
                         item.Value.Dispose();
                     }
-                    _clusterCnn.Clear();
+                    _redisCnns.Clear();
                 }
             }
         }

@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.RedisSocket.Core;
 using SAEA.RedisSocket.Model;
 using System.Collections.Generic;
 
@@ -31,6 +32,51 @@ namespace SAEA.RedisSocket
     /// </summary>
     public partial class RedisClient
     {
+        List<ClusterNode> _clusterNodes = new List<ClusterNode>();
+
+        /// <summary>
+        /// redis cluster中重置连接事件
+        /// </summary>
+        /// <param name="ipPort"></param>
+        /// <returns></returns>
+        private RedisConnection _redisDataBase_OnRedirect(string ipPort)
+        {
+            lock (_syncLocker)
+            {
+                if (_redisCnns.ContainsKey(ipPort))
+                {
+                    return _redisCnns[ipPort];
+                }
+                else
+                {
+                    this.IsConnected = false;
+                    this.RedisConfig = new RedisConfig(ipPort, this.RedisConfig.Passwords, this.RedisConfig.ActionTimeOut);
+                    _cnn = new RedisConnection(RedisConfig.GetIPPort(), this.RedisConfig.ActionTimeOut, _debugModel);
+                    this.Connect();
+                    _redisCnns[ipPort] = _cnn;
+                    GetClusterMap(ipPort);
+                    return _cnn;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 建立redis cluster 本地映射
+        /// </summary>
+        /// <param name="ipPort"></param>
+        private void GetClusterMap(string ipPort)
+        {
+            if (this.IsCluster)
+            {
+                _clusterNodes = ClusterNodes;
+                foreach (var item in _clusterNodes)
+                {
+                    var cnn = new RedisClient(item.IPPort, RedisConfig.Passwords);
+                    cnn.Connect();
+                }
+            }
+        }
+
 
         /// <summary>
         /// 是否是cluster node
@@ -238,6 +284,16 @@ namespace SAEA.RedisSocket
             int slot = -1;
             int.TryParse(GetDataBase().DoCluster(RequestType.CLUSTER_KEYSLOT, key).Data, out slot);
             return slot;
+        }
+
+        /// <summary>
+        /// 本地计算slot
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        public int CalcSlot(string key)
+        {
+            return RedisCRC16.GetClusterSlot(key);
         }
 
         /// <summary>

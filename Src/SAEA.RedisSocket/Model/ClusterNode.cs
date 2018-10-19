@@ -21,10 +21,9 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Common;
 using System;
 using System.Collections.Generic;
-using System.Text;
-using SAEA.Common;
 
 namespace SAEA.RedisSocket.Model
 {
