@@ -23,7 +23,6 @@
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.RedisSocket;
-using System;
 
 namespace SAEA.RedisSocketTest
 {
