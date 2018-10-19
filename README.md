@@ -18,7 +18,7 @@ SAEA.Socket是一个高性能IOCP框架，基于dotnet standard 2.0；Src中含�
 - [x] Websocket
 - [x] RedisDrive
 
-引用组件，可以在nuget中搜索saea，或者直接输入命令Install-Package SAEA.Sockets -Version 2.1.0 等方式
+引用组件，可以在nuget中搜索saea，或者直接输入命令 Install-Package SAEA.Sockets -Version 2.2.1.1 等方式
 
 nuget url: https://www.nuget.org/packages?q=saea
 
