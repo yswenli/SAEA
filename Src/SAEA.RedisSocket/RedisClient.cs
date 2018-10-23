@@ -25,7 +25,6 @@ using SAEA.Common;
 using SAEA.RedisSocket.Core;
 using SAEA.RedisSocket.Interface;
 using SAEA.RedisSocket.Model;
-using SAEA.RedisSocket.Net;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -37,21 +36,19 @@ namespace SAEA.RedisSocket
     /// 支持常用命令
     /// 支持Cluster
     /// </summary>
-    public partial class RedisClient : IClient, IDisposable
+    public partial class RedisClient : IClient
     {
         RedisConnection _cnn;
 
         RedisDataBase _redisDataBase;
 
-        const string OK = "OK";
+        const string OK = RedisConst.OK;
 
         object _syncLocker = new object();
 
         int _dbIndex = 0;
 
         bool _debugModel = false;
-
-        Dictionary<string, RedisConnection> _redisCnns = new Dictionary<string, RedisConnection>();
 
         public bool IsConnected { get; set; }
 
@@ -66,13 +63,26 @@ namespace SAEA.RedisSocket
             _debugModel = debugModel;
             RedisConfig = config;
             _cnn = new RedisConnection(RedisConfig.GetIPPort(), RedisConfig.ActionTimeOut, debugModel);
+            _cnn.OnDisconnected += _cnn_OnDisconnected;
         }
+
+
 
         public RedisClient(string connectStr, bool debugModel = false) : this(new RedisConfig(connectStr), debugModel) { }
 
         public RedisClient(string ipPort, string password, int acitonTimeout = 60, bool debugModel = false) : this(new RedisConfig(ipPort, password, acitonTimeout), debugModel)
         {
-            
+
+        }
+
+        /// <summary>
+        /// 连接断开事件
+        /// </summary>
+        /// <param name="obj"></param>
+        private void _cnn_OnDisconnected(string ipPort)
+        {
+            RedisConnectionManager.Remove(ipPort);
+            RedisConnectionManager.RemoveClusterNode(ipPort);
         }
 
         /// <summary>
@@ -91,7 +101,7 @@ namespace SAEA.RedisSocket
 
                     var infoMsg = Info();
 
-                    if (infoMsg.Contains("NOAUTH Authentication required."))
+                    if (infoMsg.Contains(RedisConst.NOAuth))
                     {
                         if (string.IsNullOrEmpty(RedisConfig.Passwords))
                         {
@@ -110,7 +120,20 @@ namespace SAEA.RedisSocket
                 }
                 _cnn.KeepAlived(() => this.KeepAlive());
                 var ipPort = RedisConfig.GetIPPort();
-                _redisCnns.Add(ipPort, _cnn);
+
+                var isMaster = this.IsMaster;
+                var isCluster = this.IsCluster;
+
+                if (isCluster)
+                {
+                    _cnn.RedisServerType = isMaster ? RedisServerType.ClusterMaster : RedisServerType.ClusterSlave;
+                    GetClusterMap(ipPort);
+                }
+                else
+                {
+                    _cnn.RedisServerType = isMaster ? RedisServerType.Master : RedisServerType.Slave;
+                    RedisConnectionManager.Set(ipPort, _cnn);
+                }
                 return OK;
             }
         }
@@ -141,7 +164,7 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public string Auth(string password)
         {
-            return GetDataBase().Do(RequestType.AUTH, password).Data;
+            return GetDataBase().DoInOne(RequestType.AUTH, password).Data;
         }
 
         /// <summary>
@@ -164,7 +187,7 @@ namespace SAEA.RedisSocket
             {
                 _dbIndex = dbIndex;
             }
-            if (GetDataBase().Do(RequestType.SELECT, _dbIndex.ToString()).Data.IndexOf("ERR invalid DB index") == -1)
+            if (GetDataBase().DoInOne(RequestType.SELECT, _dbIndex.ToString()).Data.IndexOf(RedisConst.ErrIndex) == -1)
             {
                 return true;
             }
@@ -193,9 +216,9 @@ namespace SAEA.RedisSocket
         /// redis server的信息
         /// </summary>
         /// <returns></returns>
-        public string Info(string section = "all")
+        public string Info(string section = RedisConst.All)
         {
-            return GetDataBase().Do(RequestType.INFO, section).Data;
+            return GetDataBase().DoInOne(RequestType.INFO, section).Data;
         }
 
         /// <summary>
@@ -207,7 +230,7 @@ namespace SAEA.RedisSocket
             {
                 var info = Info();
 
-                var lines = info.Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+                var lines = info.Split(RedisConst.Enter, StringSplitOptions.RemoveEmptyEntries);
 
                 Dictionary<string, string> dic = new Dictionary<string, string>();
 
@@ -259,9 +282,9 @@ namespace SAEA.RedisSocket
         /// </summary>
         /// <param name="ipPort">格式：ip port，若为空则为取消</param>
         /// <returns></returns>
-        public string SlaveOf(string ipPort = "")
+        public string SlaveOf(string ipPort = RedisConst.Empty)
         {
-            return GetDataBase().Do(RequestType.SLAVEOF, string.IsNullOrEmpty(ipPort) ? "NO ONE" : ipPort).Data;
+            return GetDataBase().DoInOne(RequestType.SLAVEOF, string.IsNullOrEmpty(ipPort) ? RedisConst.NoOne : ipPort).Data;
         }
         /// <summary>
         /// redis server是否是主
@@ -308,30 +331,12 @@ namespace SAEA.RedisSocket
                 if (_redisDataBase == null)
                 {
                     _redisDataBase = new RedisDataBase(_cnn);
-                    //RedisCluster
+
                     _redisDataBase.OnRedirect += _redisDataBase_OnRedirect;
                 }
                 return _redisDataBase;
             }
         }
 
-        
-        /// <summary>
-        /// 释放连接资源
-        /// </summary>
-        public void Dispose()
-        {
-            lock (_syncLocker)
-            {
-                if (_redisCnns != null && _redisCnns.Count > 0)
-                {
-                    foreach (var item in _redisCnns)
-                    {
-                        item.Value.Dispose();
-                    }
-                    _redisCnns.Clear();
-                }
-            }
-        }
     }
 }

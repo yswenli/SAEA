@@ -37,11 +37,11 @@ namespace SAEA.RedisSocket.Model
             get; set;
         } = false;
 
-        RedisClientFactory _factory;
+        RedisClientManager _factory;
 
         RedisClient _client;
 
-        internal void SetClient(RedisClientFactory factory, IClient client)
+        internal void SetClient(RedisClientManager factory, IClient client)
         {
             _factory = factory;
             _client = client as RedisClient;

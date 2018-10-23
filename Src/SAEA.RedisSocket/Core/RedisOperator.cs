@@ -1,4 +1,28 @@
-﻿using SAEA.Common;
+﻿/****************************************************************************
+*Copyright (c) 2018 Microsoft All Rights Reserved.
+*CLR版本： 4.0.30319.42000
+*机器名称：WENLI-PC
+*公司名称：yswenli
+*命名空间：SAEA.RedisSocket.Core
+*文件名： RedisOperator
+*版本号： V2.2.1.1
+*唯一标识：23cf910b-3bed-4d80-9e89-92c04fba1e5e
+*当前的用户域：WENLI-PC
+*创建人： yswenli
+*电子邮箱：wenguoli_520@qq.com
+*修改时间：2018/10/22 14:12:40
+*描述：
+*
+*=====================================================================
+*修改标记
+*修改时间：2018/10/22 14:12:40
+*修改人： yswenli
+*版本号： V2.2.1.1
+*描述：
+*
+*****************************************************************************/
+using SAEA.Common;
+using SAEA.RedisSocket.Interface;
 using SAEA.RedisSocket.Model;
 using System;
 using System.Collections.Generic;
@@ -11,18 +35,21 @@ namespace SAEA.RedisSocket.Core
     /// </summary>
     public abstract class RedisOperator
     {
-        RedisConnection _cnn;
+        IRedisConnection _cnn;
+
         RedisCoder _redisCoder;
-        object _syncLocker = new object();
+
         string space = " ";
 
-        const string MATCH = "MATCH";
+        object _syncLocker = new object();
 
-        const string COUNT = "COUNT";
 
-        public event Func<string, RedisConnection> OnRedirect;
+        /// <summary>
+        /// 连接转向事件
+        /// </summary>
+        public event Func<string, IRedisConnection> OnRedirect;
 
-        public RedisOperator(RedisConnection cnn)
+        public RedisOperator(IRedisConnection cnn)
         {
             _cnn = cnn;
             _redisCoder = _cnn.RedisCoder;
@@ -30,133 +57,157 @@ namespace SAEA.RedisSocket.Core
 
         public ResponseData Do(RequestType type)
         {
-            lock (_syncLocker)
+            var cmd = _redisCoder.Coder(type, string.Format("{0}", type.ToString()));
+            _cnn.Send(cmd);
+            var result = _redisCoder.Decoder();
+            if (result.Type == ResponseType.Redirect)
             {
-                var cmd = _redisCoder.Coder(type, string.Format("{0}", type.ToString()));
-                _cnn.Send(cmd);
-                var result = _redisCoder.Decoder();
-                if (result.Type == ResponseType.Redirect)
-                {
-                    _cnn = OnRedirect.Invoke(result.Data);
-                    _redisCoder = _cnn.RedisCoder;
-                    return Do(type);
-                }
-                else if (result.Type == ResponseType.Error)
-                {
-                    throw new Exception(result.Data);
-                }
-                else
-                    return result;
+                _cnn = OnRedirect.Invoke(result.Data);
+                _redisCoder = _cnn.RedisCoder;
+                return Do(type);
             }
+            else if (result.Type == ResponseType.Error)
+            {
+                throw new Exception(result.Data);
+            }
+            else
+                return result;
         }
+
+
+        public ResponseData DoInOne(RequestType type, string content)
+        {
+            var cmd = _redisCoder.Coder(type, type.ToString(), content);
+            _cnn.Send(cmd);
+            return _redisCoder.Decoder();
+        }
+
+
 
         public ResponseData Do(RequestType type, string key)
         {
-            lock (_syncLocker)
+            if (_cnn.RedisServerType == RedisServerType.ClusterMaster || _cnn.RedisServerType == RedisServerType.ClusterSlave)
             {
-                var cmd = _redisCoder.Coder(type, type.ToString(), key);
-                _cnn.Send(cmd);
-                var result = _redisCoder.Decoder();
-                if (result.Type == ResponseType.Redirect)
-                {
-                    _cnn = OnRedirect.Invoke(result.Data);
-                    _redisCoder = _cnn.RedisCoder;
-                    return Do(type, key);
-                }
-                else
-                    return result;
+                _cnn = RedisConnectionManager.GetConnectionBySlot(key);
+                _redisCoder = _cnn.RedisCoder;
             }
+            var cmd = _redisCoder.Coder(type, type.ToString(), key);
+            _cnn.Send(cmd);
+            var result = _redisCoder.Decoder();
+            if (result.Type == ResponseType.Redirect)
+            {
+                _cnn = OnRedirect.Invoke(result.Data);
+                _redisCoder = _cnn.RedisCoder;
+                return Do(type, key);
+            }
+            else
+                return result;
         }
 
         public ResponseData Do(RequestType type, string key, string value)
         {
-            lock (_syncLocker)
+            if (_cnn.RedisServerType == RedisServerType.ClusterMaster || _cnn.RedisServerType == RedisServerType.ClusterSlave)
             {
-                var cmd = _redisCoder.Coder(type, type.ToString(), key, value);
-                _cnn.Send(cmd);
-                var result = _redisCoder.Decoder();
-                if (result.Type == ResponseType.Redirect)
-                {
-                    _cnn = OnRedirect.Invoke(result.Data);
-                    _redisCoder = _cnn.RedisCoder;
-                    return Do(type, key, value);
-                }
-                else
-                    return result;
+                _cnn = RedisConnectionManager.GetConnectionBySlot(key);
+                _redisCoder = _cnn.RedisCoder;
             }
+            var cmd = _redisCoder.Coder(type, type.ToString(), key, value);
+            _cnn.Send(cmd);
+            var result = _redisCoder.Decoder();
+            if (result.Type == ResponseType.Redirect)
+            {
+                _cnn = OnRedirect.Invoke(result.Data);
+                _redisCoder = _cnn.RedisCoder;
+                return Do(type, key, value);
+            }
+            else
+                return result;
+
         }
 
         public void DoExpire(string key, int seconds)
         {
-            lock (_syncLocker)
+            if (_cnn.RedisServerType == RedisServerType.ClusterMaster || _cnn.RedisServerType == RedisServerType.ClusterSlave)
             {
-                var cmd = _redisCoder.Coder(RequestType.EXPIRE, RequestType.EXPIRE.ToString(), key, seconds.ToString());
-                _cnn.Send(cmd);
-                var result = _redisCoder.Decoder();
-                if (result.Type == ResponseType.Redirect)
-                {
-                    _cnn = OnRedirect.Invoke(result.Data);
-                    _redisCoder = _cnn.RedisCoder;
-                    DoExpire(key, seconds);
-                }
+                _cnn = RedisConnectionManager.GetConnectionBySlot(key);
+                _redisCoder = _cnn.RedisCoder;
             }
+
+            var cmd = _redisCoder.Coder(RequestType.EXPIRE, RequestType.EXPIRE.ToString(), key, seconds.ToString());
+            _cnn.Send(cmd);
+            var result = _redisCoder.Decoder();
+            if (result.Type == ResponseType.Redirect)
+            {
+                _cnn = OnRedirect.Invoke(result.Data);
+                _redisCoder = _cnn.RedisCoder;
+                DoExpire(key, seconds);
+            }
+
         }
 
         public void DoExpire(RequestType type, string key, string value, int seconds)
         {
-            lock (_syncLocker)
+            if (_cnn.RedisServerType == RedisServerType.ClusterMaster || _cnn.RedisServerType == RedisServerType.ClusterSlave)
             {
-                var cmd = _redisCoder.Coder(type, type.ToString(), key, value);
-                _cnn.Send(cmd);
-                var result = _redisCoder.Decoder();
-                if (result.Type == ResponseType.Redirect)
-                {
-                    _cnn = OnRedirect.Invoke(result.Data);
-                    _redisCoder = _cnn.RedisCoder;
+                _cnn = RedisConnectionManager.GetConnectionBySlot(key);
+                _redisCoder = _cnn.RedisCoder;
+            }
+            var cmd = _redisCoder.Coder(type, type.ToString(), key, value);
+            _cnn.Send(cmd);
+            var result = _redisCoder.Decoder();
+            if (result.Type == ResponseType.Redirect)
+            {
+                _cnn = OnRedirect.Invoke(result.Data);
+                _redisCoder = _cnn.RedisCoder;
 
-                    cmd = _redisCoder.Coder(type, type.ToString(), key, value);
-                    _cnn.Send(cmd);
-                    _redisCoder.Decoder();
-                }
-                cmd = _redisCoder.Coder(RequestType.EXPIRE, string.Format("{0} {1} {2}", type.ToString(), key, seconds));
+                cmd = _redisCoder.Coder(type, type.ToString(), key, value);
                 _cnn.Send(cmd);
                 _redisCoder.Decoder();
             }
+            cmd = _redisCoder.Coder(RequestType.EXPIRE, string.Format("{0} {1} {2}", type.ToString(), key, seconds));
+            _cnn.Send(cmd);
+            _redisCoder.Decoder();
+
         }
 
         public ResponseData Do(RequestType type, string id, string key, string value)
         {
-            lock (_syncLocker)
+            if (_cnn.RedisServerType == RedisServerType.ClusterMaster || _cnn.RedisServerType == RedisServerType.ClusterSlave)
             {
-                var cmd = _redisCoder.Coder(type, type.ToString(), id, key, value);
-                _cnn.Send(cmd);
-                var result = _redisCoder.Decoder();
-                if (result.Type == ResponseType.Redirect)
-                {
-                    _cnn = OnRedirect.Invoke(result.Data);
-                    _redisCoder = _cnn.RedisCoder;
-                    return Do(type, id, key, value);
-                }
-                else
-                    return result;
+                _cnn = RedisConnectionManager.GetConnectionBySlot(id);
+                _redisCoder = _cnn.RedisCoder;
             }
+            var cmd = _redisCoder.Coder(type, type.ToString(), id, key, value);
+            _cnn.Send(cmd);
+            var result = _redisCoder.Decoder();
+            if (result.Type == ResponseType.Redirect)
+            {
+                _cnn = OnRedirect.Invoke(result.Data);
+                _redisCoder = _cnn.RedisCoder;
+                return Do(type, id, key, value);
+            }
+            else
+                return result;
         }
         public ResponseData Do(RequestType type, string id, double begin = 0, double end = -1)
         {
-            lock (_syncLocker)
+            if (_cnn.RedisServerType == RedisServerType.ClusterMaster || _cnn.RedisServerType == RedisServerType.ClusterSlave)
             {
-                var cmd = _redisCoder.Coder(type, type.ToString(), id, begin.ToString(), end.ToString(), "WITHSCORES");
-                _cnn.Send(cmd);
-                var result = _redisCoder.Decoder();
-                if (result.Type == ResponseType.Redirect)
-                {
-                    _cnn = OnRedirect.Invoke(result.Data);
-                    _redisCoder = _cnn.RedisCoder;
-                    return Do(type, id, begin, end);
-                }
-                else
-                    return result;
+                _cnn = RedisConnectionManager.GetConnectionBySlot(id);
+                _redisCoder = _cnn.RedisCoder;
             }
+            var cmd = _redisCoder.Coder(type, type.ToString(), id, begin.ToString(), end.ToString(), "WITHSCORES");
+            _cnn.Send(cmd);
+            var result = _redisCoder.Decoder();
+            if (result.Type == ResponseType.Redirect)
+            {
+                _cnn = OnRedirect.Invoke(result.Data);
+                _redisCoder = _cnn.RedisCoder;
+                return Do(type, id, begin, end);
+            }
+            else
+                return result;
+
         }
 
         public void DoSub(string[] channels, Action<string, string> onMsg)
@@ -211,56 +262,61 @@ namespace SAEA.RedisSocket.Core
 
         public ResponseData DoBatch(RequestType type, string id, Dictionary<double, string> dic)
         {
-            lock (_syncLocker)
+            if (_cnn.RedisServerType == RedisServerType.ClusterMaster || _cnn.RedisServerType == RedisServerType.ClusterSlave)
             {
-
-                List<string> list = new List<string>();
-                list.Add(type.ToString());
-                list.Add(id);
-                foreach (var item in dic)
-                {
-                    list.Add(item.Key.ToString());
-                    list.Add(item.Value);
-                }
-                var cmd = _redisCoder.Coder(type, list.ToArray());
-                _cnn.Send(cmd);
-                var result = _redisCoder.Decoder();
-                if (result.Type == ResponseType.Redirect)
-                {
-                    _cnn = OnRedirect.Invoke(result.Data);
-                    _redisCoder = _cnn.RedisCoder;
-                    return DoBatch(type, id, dic);
-                }
-                else
-                    return result;
+                _cnn = RedisConnectionManager.GetConnectionBySlot(id);
+                _redisCoder = _cnn.RedisCoder;
             }
+            List<string> list = new List<string>();
+            list.Add(type.ToString());
+            list.Add(id);
+            foreach (var item in dic)
+            {
+                list.Add(item.Key.ToString());
+                list.Add(item.Value);
+            }
+            var cmd = _redisCoder.Coder(type, list.ToArray());
+            _cnn.Send(cmd);
+            var result = _redisCoder.Decoder();
+            if (result.Type == ResponseType.Redirect)
+            {
+                _cnn = OnRedirect.Invoke(result.Data);
+                _redisCoder = _cnn.RedisCoder;
+                return DoBatch(type, id, dic);
+            }
+            else
+                return result;
+
         }
 
         public ResponseData DoBatch<T>(RequestType type, string id, Dictionary<string, T> dic)
         {
-            lock (_syncLocker)
+            if (_cnn.RedisServerType == RedisServerType.ClusterMaster || _cnn.RedisServerType == RedisServerType.ClusterSlave)
             {
-
-                List<string> list = new List<string>();
-                list.Add(type.ToString());
-                list.Add(id);
-                foreach (var item in dic)
-                {
-                    list.Add(item.Key);
-                    list.Add(SerializeHelper.Serialize(item.Value));
-                }
-                var cmd = _redisCoder.Coder(type, list.ToArray());
-                _cnn.Send(cmd);
-                var result = _redisCoder.Decoder();
-                if (result.Type == ResponseType.Redirect)
-                {
-                    _cnn = OnRedirect.Invoke(result.Data);
-                    _redisCoder = _cnn.RedisCoder;
-                    return DoBatch<T>(type, id, dic);
-                }
-                else
-                    return result;
+                _cnn = RedisConnectionManager.GetConnectionBySlot(id);
+                _redisCoder = _cnn.RedisCoder;
             }
+
+            List<string> list = new List<string>();
+            list.Add(type.ToString());
+            list.Add(id);
+            foreach (var item in dic)
+            {
+                list.Add(item.Key);
+                list.Add(SerializeHelper.Serialize(item.Value));
+            }
+            var cmd = _redisCoder.Coder(type, list.ToArray());
+            _cnn.Send(cmd);
+            var result = _redisCoder.Decoder();
+            if (result.Type == ResponseType.Redirect)
+            {
+                _cnn = OnRedirect.Invoke(result.Data);
+                _redisCoder = _cnn.RedisCoder;
+                return DoBatch<T>(type, id, dic);
+            }
+            else
+                return result;
+
         }
 
         /// <summary>
@@ -274,54 +330,51 @@ namespace SAEA.RedisSocket.Core
 
         public ScanResponse Do(RequestType type, int offset = 0, string pattern = "*", int count = -1)
         {
-            lock (_syncLocker)
+            var cmd = "";
+
+            if (offset < 0) offset = 0;
+
+            if (!string.IsNullOrEmpty(pattern))
             {
-                var cmd = "";
-
-                if (offset < 0) offset = 0;
-
-                if (!string.IsNullOrEmpty(pattern))
+                if (count > -1)
                 {
-                    if (count > -1)
-                    {
-                        cmd = _redisCoder.Coder(type, type.ToString(), offset.ToString(), MATCH, pattern, COUNT, count.ToString());
-                    }
-                    else
-                    {
-                        cmd = _redisCoder.Coder(type, type.ToString(), offset.ToString(), MATCH, pattern);
-                    }
+                    cmd = _redisCoder.Coder(type, type.ToString(), offset.ToString(), RedisConst.MATCH, pattern, RedisConst.COUNT, count.ToString());
                 }
                 else
                 {
-                    if (count > -1)
-                    {
-                        cmd = _redisCoder.Coder(type, type.ToString(), offset.ToString(), COUNT, count.ToString());
-                    }
-                    else
-                    {
-                        cmd = _redisCoder.Coder(type, type.ToString(), offset.ToString());
-                    }
+                    cmd = _redisCoder.Coder(type, type.ToString(), offset.ToString(), RedisConst.MATCH, pattern);
                 }
-                _cnn.Send(cmd);
-                var result = _redisCoder.Decoder();
-                if (result.Type == ResponseType.Redirect)
-                {
-                    _cnn = OnRedirect.Invoke(result.Data);
-                    _redisCoder = _cnn.RedisCoder;
-                    return Do(type, offset, pattern, count);
-                }
-                else
-                {
-                    var scanResponse = new ScanResponse();
-
-                    if (result.Type == ResponseType.Lines)
-                    {
-                        return result.ToScanResponse();
-                    }
-                    return null;
-                }
-
             }
+            else
+            {
+                if (count > -1)
+                {
+                    cmd = _redisCoder.Coder(type, type.ToString(), offset.ToString(), RedisConst.COUNT, count.ToString());
+                }
+                else
+                {
+                    cmd = _redisCoder.Coder(type, type.ToString(), offset.ToString());
+                }
+            }
+            _cnn.Send(cmd);
+            var result = _redisCoder.Decoder();
+            if (result.Type == ResponseType.Redirect)
+            {
+                _cnn = OnRedirect.Invoke(result.Data);
+                _redisCoder = _cnn.RedisCoder;
+                return Do(type, offset, pattern, count);
+            }
+            else
+            {
+                var scanResponse = new ScanResponse();
+
+                if (result.Type == ResponseType.Lines)
+                {
+                    return result.ToScanResponse();
+                }
+                return null;
+            }
+
         }
 
         /// <summary>
@@ -335,50 +388,53 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public ScanResponse Do(RequestType type, string key, int offset = 0, string pattern = "*", int count = -1)
         {
-            lock (_syncLocker)
+            if (_cnn.RedisServerType == RedisServerType.ClusterMaster || _cnn.RedisServerType == RedisServerType.ClusterSlave)
             {
-                var cmd = "";
+                _cnn = RedisConnectionManager.GetConnectionBySlot(key);
+                _redisCoder = _cnn.RedisCoder;
+            }
 
-                if (offset < 0) offset = 0;
+            var cmd = "";
 
-                if (!string.IsNullOrEmpty(pattern))
+            if (offset < 0) offset = 0;
+
+            if (!string.IsNullOrEmpty(pattern))
+            {
+                if (count > -1)
                 {
-                    if (count > -1)
-                    {
-                        cmd = _redisCoder.Coder(type, type.ToString(), key, offset.ToString(), MATCH, pattern, COUNT, count.ToString());
-                    }
-                    else
-                    {
-                        cmd = _redisCoder.Coder(type, type.ToString(), key, offset.ToString(), MATCH, pattern);
-                    }
+                    cmd = _redisCoder.Coder(type, type.ToString(), key, offset.ToString(), RedisConst.MATCH, pattern, RedisConst.COUNT, count.ToString());
                 }
                 else
                 {
-                    if (count > -1)
-                    {
-                        cmd = _redisCoder.Coder(type, type.ToString(), key, offset.ToString(), COUNT, count.ToString());
-                    }
-                    else
-                    {
-                        cmd = _redisCoder.Coder(type, type.ToString(), key, offset.ToString());
-                    }
+                    cmd = _redisCoder.Coder(type, type.ToString(), key, offset.ToString(), RedisConst.MATCH, pattern);
                 }
-                _cnn.Send(cmd);
-                var result = _redisCoder.Decoder();
-                if (result.Type == ResponseType.Redirect)
+            }
+            else
+            {
+                if (count > -1)
                 {
-                    _cnn = OnRedirect.Invoke(result.Data);
-                    _redisCoder = _cnn.RedisCoder;
-                    return Do(type, offset, pattern, count);
+                    cmd = _redisCoder.Coder(type, type.ToString(), key, offset.ToString(), RedisConst.COUNT, count.ToString());
                 }
                 else
                 {
-                    if (result.Type == ResponseType.Lines)
-                    {
-                        return result.ToScanResponse();
-                    }
-                    return null;
+                    cmd = _redisCoder.Coder(type, type.ToString(), key, offset.ToString());
                 }
+            }
+            _cnn.Send(cmd);
+            var result = _redisCoder.Decoder();
+            if (result.Type == ResponseType.Redirect)
+            {
+                _cnn = OnRedirect.Invoke(result.Data);
+                _redisCoder = _cnn.RedisCoder;
+                return Do(type, offset, pattern, count);
+            }
+            else
+            {
+                if (result.Type == ResponseType.Lines)
+                {
+                    return result.ToScanResponse();
+                }
+                return null;
             }
         }
 
@@ -419,7 +475,7 @@ namespace SAEA.RedisSocket.Core
         }
 
 
-        public ResponseData DoClusterSetSlot(RequestType type,string action, int slot, string nodeID)
+        public ResponseData DoClusterSetSlot(RequestType type, string action, int slot, string nodeID)
         {
             lock (_syncLocker)
             {

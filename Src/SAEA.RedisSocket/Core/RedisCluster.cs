@@ -32,7 +32,13 @@ namespace SAEA.RedisSocket
     /// </summary>
     public partial class RedisClient
     {
-        List<ClusterNode> _clusterNodes = new List<ClusterNode>();
+        /// <summary>
+        /// 集群标识
+        /// </summary>
+        public string ClusterID
+        {
+            get; private set;
+        }
 
         /// <summary>
         /// redis cluster中重置连接事件
@@ -43,18 +49,19 @@ namespace SAEA.RedisSocket
         {
             lock (_syncLocker)
             {
-                if (_redisCnns.ContainsKey(ipPort))
+                var cnn = RedisConnectionManager.Get(ipPort);
+
+                if (cnn != null)
                 {
-                    return _redisCnns[ipPort];
+                    return (RedisConnection)cnn;
                 }
                 else
                 {
                     this.IsConnected = false;
                     this.RedisConfig = new RedisConfig(ipPort, this.RedisConfig.Passwords, this.RedisConfig.ActionTimeOut);
                     _cnn = new RedisConnection(RedisConfig.GetIPPort(), this.RedisConfig.ActionTimeOut, _debugModel);
+                    _cnn.OnDisconnected += _cnn_OnDisconnected;
                     this.Connect();
-                    _redisCnns[ipPort] = _cnn;
-                    GetClusterMap(ipPort);
                     return _cnn;
                 }
             }
@@ -66,13 +73,18 @@ namespace SAEA.RedisSocket
         /// <param name="ipPort"></param>
         private void GetClusterMap(string ipPort)
         {
-            if (this.IsCluster)
+            var clusterNodes = ClusterNodes;
+
+            RedisConnectionManager.SetClusterNodes(clusterNodes);
+
+            foreach (var item in clusterNodes)
             {
-                _clusterNodes = ClusterNodes;
-                foreach (var item in _clusterNodes)
+                if (!RedisConnectionManager.Exsits(item.IPPort))
                 {
-                    var cnn = new RedisClient(item.IPPort, RedisConfig.Passwords);
+                    var cnn = new RedisConnection(item.IPPort);
                     cnn.Connect();
+                    cnn.RedisServerType = item.IsMaster ? RedisServerType.ClusterMaster : RedisServerType.ClusterSlave;
+                    RedisConnectionManager.Set(item.IPPort, cnn);
                 }
             }
         }
@@ -284,16 +296,6 @@ namespace SAEA.RedisSocket
             int slot = -1;
             int.TryParse(GetDataBase().DoCluster(RequestType.CLUSTER_KEYSLOT, key).Data, out slot);
             return slot;
-        }
-
-        /// <summary>
-        /// 本地计算slot
-        /// </summary>
-        /// <param name="key"></param>
-        /// <returns></returns>
-        public int CalcSlot(string key)
-        {
-            return RedisCRC16.GetClusterSlot(key);
         }
 
         /// <summary>

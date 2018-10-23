@@ -30,19 +30,14 @@ using System.Collections.Generic;
 namespace SAEA.RedisSocket
 {
     /// <summary>
-    /// 主从自适应Redis客户端工厂类
+    /// 主从自适应Redis客户端管理类
     /// </summary>
-    public class RedisClientFactory
+    public class RedisClientManager
     {
 
         Dictionary<string, ConcurrentQueue<RedisClient>> _connections;
 
-        readonly string Master = "Master";
-
-        readonly string Slave = "Slave";
-
         object _syncLocker;
-
 
         /// <summary>
         /// 初始化Redis连接池
@@ -50,7 +45,7 @@ namespace SAEA.RedisSocket
         /// <param name="ipAddress">例如：127.0.0.1:6379,192.168.1.3:6380</param>
         /// <param name="connections">每实例tcp连接数</param>
         /// <param name="password">redis密码</param>
-        public RedisClientFactory(string ipAddress, int connections = 2, string password = "")
+        public RedisClientManager(string ipAddress, int connections = 2, string password = "")
         {
             lock (_syncLocker)
             {
@@ -81,9 +76,9 @@ namespace SAEA.RedisSocket
                                     queue.Enqueue(client);
                                 }
                                 if (isMaster)
-                                    _connections.Add(Master, queue);
+                                    _connections.Add(RedisConst.Master, queue);
                                 else
-                                    _connections.Add(Slave, queue);
+                                    _connections.Add(RedisConst.Slave, queue);
                             }
                             catch (Exception ex)
                             {
@@ -109,9 +104,9 @@ namespace SAEA.RedisSocket
 
                 RedisClient client;
 
-                if (_connections.ContainsKey(Master))
+                if (_connections.ContainsKey(RedisConst.Master))
                 {
-                    while (!_connections[Master].TryDequeue(out client))
+                    while (!_connections[RedisConst.Master].TryDequeue(out client))
                     {
                         ThreadHelper.Sleep(1);
                     }
@@ -138,9 +133,9 @@ namespace SAEA.RedisSocket
 
                 RedisClient client;
 
-                if (_connections.ContainsKey(Slave))
+                if (_connections.ContainsKey(RedisConst.Slave))
                 {
-                    while (!_connections[Slave].TryDequeue(out client))
+                    while (!_connections[RedisConst.Slave].TryDequeue(out client))
                     {
                         ThreadHelper.Sleep(1);
                     }
@@ -164,11 +159,11 @@ namespace SAEA.RedisSocket
         {
             if (isMaster)
             {
-                _connections[Master].Enqueue(client);
+                _connections[RedisConst.Master].Enqueue(client);
             }
             else
             {
-                _connections[Slave].Enqueue(client);
+                _connections[RedisConst.Slave].Enqueue(client);
             }
         }
 

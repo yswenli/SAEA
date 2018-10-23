@@ -91,13 +91,13 @@ namespace SAEA.RedisSocketTest
                 }
             }
 
-            //redisConnection.SlaveOf();
+            //redisClient.SlaveOf();
 
-            //redisConnection.Ping();
+            redisClient.Ping();
 
             //redisClient.Select(1);
 
-            //ConsoleHelper.WriteLine(redisConnection.Type("key0"));
+            ConsoleHelper.WriteLine(redisClient.Type("key0"));
 
             ConsoleHelper.WriteLine("dbSize:{0}", redisClient.DBSize().ToString());
 
@@ -131,7 +131,7 @@ namespace SAEA.RedisSocketTest
                 {
                     redisClient.GetDataBase().Set("key" + i, "val" + i);
                 }
-                //redisConnection.GetDataBase().Exists("key0");
+                redisClient.GetDataBase().Exists("key0");
                 ConsoleHelper.WriteLine("kv插入完成...");
 
                 ConsoleHelper.WriteLine("回车开始获取kv值操作...");

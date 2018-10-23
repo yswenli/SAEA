@@ -130,7 +130,7 @@ namespace SAEA.RedisSocket.Model
                     {
                         var key = arr[i];
 
-                        if (!string.IsNullOrEmpty(key))
+                        if (!string.IsNullOrEmpty(key) && !keyValuePairs.ContainsKey(key))
                         {
                             if (i + 1 < arr.Length)
                             {

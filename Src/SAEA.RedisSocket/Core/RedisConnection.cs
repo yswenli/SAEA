@@ -22,6 +22,8 @@
 *
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.RedisSocket.Interface;
+using SAEA.RedisSocket.Model;
 using SAEA.RedisSocket.Net;
 using System;
 using System.Threading;
@@ -31,13 +33,15 @@ namespace SAEA.RedisSocket.Core
     /// <summary>
     /// redis连接类
     /// </summary>
-    public class RedisConnection : IDisposable
+    public class RedisConnection : IDisposable, IRedisConnection
     {
         object _syncLocker = new object();
 
         RConnection _cnn;
 
         DateTime _actived;
+
+        bool _debugMode = false;
 
         public DateTime Actived
         {
@@ -59,16 +63,31 @@ namespace SAEA.RedisSocket.Core
 
         public bool IsConnected { get; private set; } = false;
 
-        bool _debugMode = false;
 
-        public RedisConnection(string ipPort,int actionTimeout=60, bool debugMode = false)
+        public RedisServerType RedisServerType { get; set; }
+
+
+        public string IPPort { get; set; }
+
+
+        public event Action<string> OnDisconnected;
+
+
+        public RedisConnection(string ipPort, int actionTimeout = 60, bool debugMode = false)
         {
+            this.IPPort = ipPort;
             var address = ipPort.GetIPPort();
             _cnn = new RConnection(102400, address.Item1, address.Item2);
             _cnn.OnActived += _cnn_OnActived;
             _cnn.OnMessage += _cnn_OnMessage;
+            _cnn.OnDisconnected += _cnn_OnDisconnected;
             _redisCoder = new RedisCoder(actionTimeout);
             _debugMode = debugMode;
+        }
+
+        private void _cnn_OnDisconnected(string ID, Exception ex)
+        {
+            OnDisconnected?.Invoke(this.IPPort);
         }
 
         private void _cnn_OnActived(DateTime actived)

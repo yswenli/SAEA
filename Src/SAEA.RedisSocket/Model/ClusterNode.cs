@@ -42,11 +42,6 @@ namespace SAEA.RedisSocket.Model
             get; set;
         }
 
-        public bool Role
-        {
-            get; set;
-        }
-
         public string Status
         {
             get; set;
@@ -57,7 +52,11 @@ namespace SAEA.RedisSocket.Model
             get; set;
         }
 
-        public string Slots
+        public int MinSlots
+        {
+            get; set;
+        }
+        public int MaxSlots
         {
             get; set;
         }
@@ -94,7 +93,11 @@ namespace SAEA.RedisSocket.Model
             if (clusterNode.IsMaster)
             {
                 clusterNode.Status = arr[7];
-                clusterNode.Slots = arr[8];
+
+                var sarr = arr[8].Split("-");
+
+                clusterNode.MinSlots = int.Parse(sarr[0]);
+                clusterNode.MaxSlots = int.Parse(sarr[1]);
             }
             else
             {
