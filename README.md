@@ -1,13 +1,9 @@
 # SAEA
 
 SAEA.Socket is a high-performance IOCP framework based on dotnet standard 2.0; Src contains application test scenarios such as websocket, high-performance message queue, rpc, redis driver, Mvc WebApi, single-machine million-connection high-performance message server, large file transfer, etc.. <br/>
-Reference components that search for saea in nuget, or enter the command Install-Package SAEA. Sockets-Version 2.1.0 directly
+Reference components that search for saea in nuget, or enter the command Install-Package SAEA.Sockets-Version 2.2.2 directly
 
 SAEA.Socket是一个高性能IOCP框架，基于dotnet standard 2.0；Src中含有其应用测试场景，例如websocket、高性能消息队列、rpc、redis驱动、Mvc WebApi、单机百万连接高性能消息服务器、大文件传输等<br/>
-
-|Linux|Windows|
-|:------:|:------:|
-|[![][linux-build-badge]][linux-build]|[![][windows-build-badge]][windows-build]|
 
 - [x] IOCP
 - [x] FileTransfer
@@ -18,7 +14,7 @@ SAEA.Socket是一个高性能IOCP框架，基于dotnet standard 2.0；Src中含�
 - [x] Websocket
 - [x] RedisDrive
 
-引用组件，可以在nuget中搜索saea，或者直接输入命令 Install-Package SAEA.Sockets -Version 2.2.1.1 等方式
+引用组件，可以在nuget中搜索saea，或者直接输入命令 Install-Package SAEA.Sockets -Version 2.2.2 等方式
 
 nuget url: https://www.nuget.org/packages?q=saea
 
