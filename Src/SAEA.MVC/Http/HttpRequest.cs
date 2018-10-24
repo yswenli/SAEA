@@ -99,7 +99,6 @@ namespace SAEA.MVC.Http
                 this.Json = requestDataReader.Json;
                 this.Body = requestDataReader.Body;
             }
-            requestDataReader.Dispose();
         }
 
         public string GetHeader(RequestHeaderType header)

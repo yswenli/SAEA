@@ -105,7 +105,7 @@ namespace SAEA.Common
 
         public bool Exists(NameValueItem header)
         {
-            return _list.Exists(b => string.Compare(b.Name , header.Name)>-1 && b.Value == header.Value);
+            return _list.Exists(b => string.Compare(b.Name, header.Name) > -1 && b.Value == header.Value);
         }
 
         public void Remove(string name)
@@ -193,12 +193,10 @@ namespace SAEA.Common
     {
         public static NameValueCollection ToNameValueCollection(this Dictionary<string, string> dic)
         {
-            NameValueCollection result = null;
+            NameValueCollection result = new NameValueCollection();
 
             if (dic != null && dic.Count > 0)
             {
-                result = new NameValueCollection();
-
                 foreach (var item in dic)
                 {
                     var nv = new NameValueItem()

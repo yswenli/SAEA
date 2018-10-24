@@ -102,14 +102,13 @@ namespace SAEA.MVC.Hosting
         {
             try
             {
-                OnRequested?.Invoke(userToken, requestDataReader);
+                OnRequested.Invoke(userToken, requestDataReader);
             }
             catch (Exception ex)
             {
                 LogHelper.WriteError("_serverSocket_OnDisconnected 断开连接", ex);
                 _serverSocket.Disconnect(userToken, ex);
             }
-
         }
 
         public void End(IUserToken userToken, byte[] data)
