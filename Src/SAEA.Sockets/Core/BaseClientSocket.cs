@@ -33,7 +33,6 @@
 using SAEA.Common;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
-using SAEA.Sockets.Model;
 using System;
 using System.Net;
 using System.Net.Sockets;
@@ -65,8 +64,6 @@ namespace SAEA.Sockets.Core
         public bool Connected { get => _connected; set => _connected = value; }
         public IUserToken UserToken { get => _userToken; private set => _userToken = value; }
 
-        private SessionManager _sessionManager;
-
         public event OnErrorHandler OnError;
 
         public event OnDisconnectedHandler OnDisconnected;
@@ -92,10 +89,6 @@ namespace SAEA.Sockets.Core
             _ip = ip;
             _port = port;
 
-            _sessionManager = new SessionManager(context, bufferSize, 1, IO_Completed, new TimeSpan(0, 0, timeOut));
-            _sessionManager.OnTimeOut += _sessionManager_OnTimeOut;
-
-
             OnClientReceive = new OnClientReceiveBytesHandler(OnReceived);
 
             _connectArgs = new SocketAsyncEventArgs
@@ -104,6 +97,19 @@ namespace SAEA.Sockets.Core
             };
             _connectArgs.Completed += ConnectArgs_Completed;
 
+            var userTokenType = context.UserToken.GetType();
+            var coderType = context.UserToken.Coder.GetType();
+
+            IUserToken userToken = (IUserToken)Activator.CreateInstance(userTokenType);
+            ICoder coder = (ICoder)Activator.CreateInstance(coderType);
+            userToken.Coder = coder;
+
+            userToken.ReadArgs = new SocketAsyncEventArgs();
+            userToken.ReadArgs.SetBuffer(new byte[bufferSize], 0, bufferSize);
+            userToken.WriteArgs = new SocketAsyncEventArgs();
+            userToken.ReadArgs.UserToken = userToken.WriteArgs.UserToken = userToken;
+
+            _userToken = userToken;
         }
 
         /// <summary>
@@ -147,7 +153,6 @@ namespace SAEA.Sockets.Core
             _connected = (e.SocketError == SocketError.Success);
             if (_connected)
             {
-                _userToken = _sessionManager.GenerateUserToken(e.ConnectSocket);
                 _userToken.ID = e.ConnectSocket.LocalEndPoint.ToString();
                 var readArgs = _userToken.ReadArgs;
                 if (!e.ConnectSocket.ReceiveAsync(readArgs))
@@ -348,6 +353,8 @@ namespace SAEA.Sockets.Core
                 }
                 if (_userToken != null)
                     OnDisconnected?.Invoke(_userToken.ID, mex);
+
+                _userToken.Dispose();
             }
         }
 
@@ -359,12 +366,6 @@ namespace SAEA.Sockets.Core
         public void Dispose()
         {
             this.Disconnect();
-            try
-            {
-                _sessionManager.Clear();
-            }
-            catch { };
-
         }
 
 

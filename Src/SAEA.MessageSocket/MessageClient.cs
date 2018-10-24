@@ -168,11 +168,11 @@ namespace SAEA.MessageSocket
                                 };
                                 SendAsync(sm.ToBytes());
                             }
-                            Thread.Sleep(HeartSpan);
+                            ThreadHelper.Sleep(HeartSpan);
                         }
                         else
                         {
-                            Thread.Sleep(1);
+                            ThreadHelper.Sleep(100);
                         }
                     }
                 }

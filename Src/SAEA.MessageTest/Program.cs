@@ -64,6 +64,10 @@ namespace SAEA.MessageTest
                     ServerInit();
                     PreesureTest();
                     break;
+                case "ST":
+                    ServerInit();
+                    ChannelMsgTest();
+                    break;
                 default:
                     ServerInit();
                     FunTest();
@@ -124,8 +128,6 @@ namespace SAEA.MessageTest
 
             ConsoleHelper.WriteLine("SAEA.Message服务器已就绪!");
         }
-
-
 
         private static void PreesureTest()
         {
@@ -283,6 +285,49 @@ namespace SAEA.MessageTest
 
         }
 
+
+        private static void ChannelMsgTest()
+        {
+            ConsoleHelper.WriteLine("发布订阅测试开始...");
+
+            var channelName = "testChannel";
+
+            var cc1 = new MessageClient();
+            cc1.Connect();
+
+            Task.Run(() =>
+            {
+                for (int i = 0; i < 10000; i++)
+                {
+                    var ccc = new MessageClient();
+                    ccc.OnChannelMessage += Ccc_OnChannelMessage;
+                    ccc.Connect();
+                    ccc.Subscribe(channelName);
+                }
+
+                cc1.SendChannelMsg(channelName, channelName);
+            });
+
+
+
+            Task.Run(() =>
+            {
+                while (true)
+                {
+                    ConsoleHelper.WriteLine("当前已接收到消息数：" + cmc);
+                    Thread.Sleep(1000);
+                }
+            });
+
+            ConsoleHelper.ReadLine();
+        }
+
+        static int cmc = 0;
+
+        private static void Ccc_OnChannelMessage(ChannelMessage obj)
+        {
+            Interlocked.Increment(ref cmc);
+        }
         #endregion
     }
 }

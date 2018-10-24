@@ -188,3 +188,48 @@ RPCServiceProxy cp = new RPCServiceProxy(url);
 cp.OnErr += Cp_OnErr;
 cp.HelloService.Hello();
 ```
+
+## SAEA.Message
+
+### saea.message server usage
+
+```csharp
+MessageServer server = new MessageServer(1024, 1000 * 1000, 30 * 60 * 1000);
+
+server.OnDisconnected += Server_OnDisconnected;
+
+server.Start();
+```
+
+### saea.message client usage
+
+```csharp
+var cc1 = new MessageClient();
+cc1.OnPrivateMessage += Client_OnPrivateMessage;
+cc1.Connect();
+
+//私信
+cc1.SendPrivateMsg(cc2.UserToken.ID, "你好呀,cc2！");
+
+//订阅
+cc1.Subscribe(channelName);
+
+//发送频道消息
+cc1.SendChannelMsg(channelName, "hello!");
+
+//创建群组
+cc1.SendCreateGroup(groupName);
+
+//加入群组
+cc2.SendAddMember(groupName);
+
+
+//发送群消息
+cc1.SendGroupMessage(groupName, "群主广播了！");
+
+//退群
+cc2.SendRemoveGroup(groupName);
+
+```
+
+<img src="https://github.com/yswenli/SAEA/blob/master/redis%20cluster%20test.png?raw=true" />
