@@ -24,6 +24,7 @@
 using SAEA.Common;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace SAEA.RedisSocket.Model
 {
@@ -75,6 +76,19 @@ namespace SAEA.RedisSocket.Model
             foreach (var item in lines)
             {
                 list.Add(Parse(item));
+            }
+
+            foreach (var item in list)
+            {
+                if (!item.IsMaster)
+                {
+                    var masterNode = list.Where(b => b.NodeID == item.MasterNodeID).FirstOrDefault();
+                    if (masterNode != null)
+                    {
+                        item.MinSlots = masterNode.MinSlots;
+                        item.MaxSlots = masterNode.MaxSlots;
+                    }
+                }
             }
 
             return list;
