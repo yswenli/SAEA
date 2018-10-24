@@ -33,14 +33,6 @@ namespace SAEA.RedisSocket
     public partial class RedisClient
     {
         /// <summary>
-        /// 集群标识
-        /// </summary>
-        public string ClusterID
-        {
-            get; private set;
-        }
-
-        /// <summary>
         /// redis cluster中重置连接事件
         /// </summary>
         /// <param name="ipPort"></param>
