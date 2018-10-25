@@ -232,4 +232,14 @@ cc2.SendRemoveGroup(groupName);
 
 ```
 
-<img src="https://github.com/yswenli/SAEA/blob/master/redis%20cluster%20test.png?raw=true" />
+## Instance screenshot
+
+<img src="https://github.com/yswenli/SAEA/blob/master/FileSocketTest.png?raw=true" /><br/>
+<img src="https://github.com/yswenli/SAEA/blob/master/QueueSocketTest.png?raw=true" /><br/>
+<img src="https://github.com/yswenli/SAEA/blob/master/SAEA.MVC.png?raw=true" /><br/>
+<img src="https://github.com/yswenli/SAEA/blob/master/SAEA.MVCTest.png?raw=true" /><br/>
+<img src="https://github.com/yswenli/SAEA/blob/master/SAEA.RedisTest.png?raw=true" /><br/>
+<img src="https://github.com/yswenli/SAEA/blob/master/SAEA.WebAPITest.png?raw=true" /><br/>
+<img src="https://github.com/yswenli/SAEA/blob/master/WebsocketTest.png?raw=true" /><br/>
+<img src="https://github.com/yswenli/SAEA/blob/master/redis%20cluster%20test.png?raw=true" /><br/>
+<img src="https://github.com/yswenli/SAEA/blob/master/rpc.png?raw=true" /><br/>
