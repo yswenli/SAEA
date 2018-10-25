@@ -217,7 +217,7 @@ namespace SAEA.Sockets.Core
                 {
                     Disconnect(userToken, null);
                 }
-               
+
             }
             catch (Exception ex)
             {
@@ -268,7 +268,7 @@ namespace SAEA.Sockets.Core
         /// <param name="userToken"></param>
         /// <param name="data"></param>
         protected void Send(IUserToken userToken, byte[] data)
-        {          
+        {
             try
             {
                 _sessionManager.Active(userToken.ID);
@@ -285,7 +285,7 @@ namespace SAEA.Sockets.Core
                     {
                         break;
                     }
-                }                
+                }
             }
             catch (Exception ex)
             {
@@ -319,7 +319,7 @@ namespace SAEA.Sockets.Core
         /// <param name="data"></param>
         public void End(IUserToken userToken, byte[] data)
         {
-            var result= userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, null, null);
+            var result = userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, null, null);
             userToken.Socket.EndSend(result);
             if (_sessionManager.Free(userToken))
             {
