@@ -151,7 +151,7 @@ namespace SAEA.MessageSocket
 
         void HeartAsync()
         {
-            new Thread(new ThreadStart(() =>
+            TaskHelper.Start(() =>
             {
                 try
                 {
@@ -172,13 +172,12 @@ namespace SAEA.MessageSocket
                         }
                         else
                         {
-                            ThreadHelper.Sleep(100);
+                            ThreadHelper.Sleep(1000);
                         }
                     }
                 }
                 catch { }
-            }))
-            { IsBackground = true }.Start();
+            });
         }
 
         private void SendBase(ChatMessage cm)

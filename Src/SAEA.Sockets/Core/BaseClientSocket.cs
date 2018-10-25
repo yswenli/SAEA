@@ -105,8 +105,10 @@ namespace SAEA.Sockets.Core
             userToken.Coder = coder;
 
             userToken.ReadArgs = new SocketAsyncEventArgs();
+            userToken.ReadArgs.Completed += IO_Completed;
             userToken.ReadArgs.SetBuffer(new byte[bufferSize], 0, bufferSize);
             userToken.WriteArgs = new SocketAsyncEventArgs();
+            userToken.WriteArgs.Completed += IO_Completed;
             userToken.ReadArgs.UserToken = userToken.WriteArgs.UserToken = userToken;
 
             _userToken = userToken;
@@ -154,8 +156,11 @@ namespace SAEA.Sockets.Core
             if (_connected)
             {
                 _userToken.ID = e.ConnectSocket.LocalEndPoint.ToString();
+                _userToken.Socket = _socket;
+                _userToken.Linked = _userToken.Actived = DateTime.Now;
+
                 var readArgs = _userToken.ReadArgs;
-                if (!e.ConnectSocket.ReceiveAsync(readArgs))
+                if (!_userToken.Socket.ReceiveAsync(readArgs))
                     ProcessReceive(readArgs);
                 _connectCallBack?.Invoke(e.SocketError);
             }

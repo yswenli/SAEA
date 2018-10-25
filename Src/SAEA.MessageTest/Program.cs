@@ -294,15 +294,28 @@ namespace SAEA.MessageTest
 
             var cc1 = new MessageClient();
             cc1.Connect();
+            cc1.Subscribe(channelName);
+
+
+            List<MessageClient> list = new List<MessageClient>();
 
             Task.Run(() =>
             {
+                ConsoleHelper.WriteLine("正在开始初始化客户端...");
+
                 for (int i = 0; i < 10000; i++)
                 {
                     var ccc = new MessageClient();
                     ccc.OnChannelMessage += Ccc_OnChannelMessage;
-                    ccc.Connect();
-                    ccc.Subscribe(channelName);
+                    list.Add(ccc);
+                }
+
+                ConsoleHelper.WriteLine("正在连接订阅...");
+
+                foreach (var item in list)
+                {
+                    item.Connect();
+                    item.Subscribe(channelName);
                 }
 
                 cc1.SendChannelMsg(channelName, channelName);
@@ -316,11 +329,20 @@ namespace SAEA.MessageTest
                 {
                     ConsoleHelper.WriteLine("当前已接收到消息数：" + cmc);
                     Thread.Sleep(1000);
+                    Interlocked.Increment(ref calc);
+
+                    if (cmc >= 10000)
+                    {
+                        ConsoleHelper.WriteLine("测试完毕，当前用时：" + calc + "秒");
+                        break;
+                    }
                 }
             });
 
             ConsoleHelper.ReadLine();
         }
+
+        static int calc = 0;
 
         static int cmc = 0;
 
