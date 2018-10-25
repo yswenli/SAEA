@@ -33,6 +33,7 @@ using SAEA.Sockets.Core;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
 using System;
+using System.Threading.Tasks;
 
 namespace SAEA.MessageSocket
 {
@@ -167,22 +168,17 @@ namespace SAEA.MessageSocket
                 {
                     lock (_channelList.SyncLocker)
                     {
-                        foreach (var m in channel.Members)
+                        Parallel.ForEach(channel.Members, (m) =>
                         {
-                            try
+                            if (m.ID != userToken.ID)
                             {
-                                if (m.ID != userToken.ID)
+                                var r = SessionManager.Get(m.ID);
+                                if (r != null)
                                 {
-                                    var r = SessionManager.Get(m.ID);
-                                    if (r != null)
-                                    {
-                                        ReplyBase(r, new ChatMessage(ChatMessageType.ChannelMessage, ConvertHelper.Serialize(channelMsg)));
-                                    }
+                                    ReplyBase(r, new ChatMessage(ChatMessageType.ChannelMessage, ConvertHelper.Serialize(channelMsg)));
                                 }
-
                             }
-                            catch { }
-                        }
+                        });
                     }
                 }
             }
