@@ -168,6 +168,11 @@ namespace SAEA.MessageSocket
                 {
                     lock (_channelList.SyncLocker)
                     {
+
+                        var ccm = new ChatMessage(ChatMessageType.ChannelMessage, ConvertHelper.Serialize(channelMsg));
+                        var data = ConvertHelper.PBSerialize(cm);
+                        var sp = SocketProtocal.Parse(data, SocketProtocalType.ChatMessage).ToBytes();
+
                         Parallel.ForEach(channel.Members, (m) =>
                         {
                             if (m.ID != userToken.ID)
@@ -175,7 +180,7 @@ namespace SAEA.MessageSocket
                                 var r = SessionManager.Get(m.ID);
                                 if (r != null)
                                 {
-                                    ReplyBase(r, new ChatMessage(ChatMessageType.ChannelMessage, ConvertHelper.Serialize(channelMsg)));
+                                    SendAsync(r, sp);
                                 }
                             }
                         });
@@ -272,20 +277,19 @@ namespace SAEA.MessageSocket
                 {
                     lock (_groupList.SyncLocker)
                     {
-                        foreach (var m in group.Members)
-                        {
-                            try
-                            {
-                                if (m.ID != userToken.ID)
-                                {
-                                    var r = SessionManager.Get(m.ID);
-                                    if (r != null)
-                                        ReplyBase(r, new ChatMessage(ChatMessageType.GroupMessage, groupMsg));
-                                }
+                        var ccm = new ChatMessage(ChatMessageType.GroupMessage, groupMsg);
+                        var data = ConvertHelper.PBSerialize(cm);
+                        var sp = SocketProtocal.Parse(data, SocketProtocalType.ChatMessage).ToBytes();
 
+                        Parallel.ForEach(group.Members, (m) =>
+                        {
+                            if (m.ID != userToken.ID)
+                            {
+                                var r = SessionManager.Get(m.ID);
+                                if (r != null)
+                                    SendAsync(r, sp);
                             }
-                            catch { }
-                        }
+                        });
                     }
                 }
             }
