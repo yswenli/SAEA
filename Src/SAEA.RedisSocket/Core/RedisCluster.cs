@@ -39,23 +39,20 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         private RedisConnection _redisDataBase_OnRedirect(string ipPort)
         {
-            lock (_syncLocker)
-            {
-                var cnn = RedisConnectionManager.Get(ipPort);
+            var cnn = RedisConnectionManager.Get(ipPort);
 
-                if (cnn != null)
-                {
-                    return (RedisConnection)cnn;
-                }
-                else
-                {
-                    this.IsConnected = false;
-                    this.RedisConfig = new RedisConfig(ipPort, this.RedisConfig.Passwords, this.RedisConfig.ActionTimeOut);
-                    _cnn = new RedisConnection(RedisConfig.GetIPPort(), this.RedisConfig.ActionTimeOut, _debugModel);
-                    _cnn.OnDisconnected += _cnn_OnDisconnected;
-                    this.Connect();
-                    return _cnn;
-                }
+            if (cnn != null)
+            {
+                return (RedisConnection)cnn;
+            }
+            else
+            {
+                this.IsConnected = false;
+                this.RedisConfig = new RedisConfig(ipPort, this.RedisConfig.Passwords, this.RedisConfig.ActionTimeOut);
+                _cnn = new RedisConnection(RedisConfig.GetIPPort(), this.RedisConfig.ActionTimeOut, _debugModel);
+                _cnn.OnDisconnected += _cnn_OnDisconnected;
+                this.Connect();
+                return _cnn;
             }
         }
 
