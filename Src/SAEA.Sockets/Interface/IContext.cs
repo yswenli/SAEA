@@ -35,6 +35,6 @@ namespace SAEA.Sockets.Interface
     {
         IUserToken UserToken { get; set; }
 
-        ICoder Coder { get; set; }
+        IUnpacker Unpacker { get; set; }
     }
 }

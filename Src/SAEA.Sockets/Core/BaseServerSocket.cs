@@ -30,6 +30,7 @@
 *
 *****************************************************************************/
 
+using SAEA.Common;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using System;
@@ -50,8 +51,6 @@ namespace SAEA.Sockets.Core
         int _clientCounts;
 
         private SessionManager _sessionManager;
-
-        Semaphore m_maxNumberAcceptedClients;
 
         public SessionManager SessionManager
         {
@@ -89,7 +88,6 @@ namespace SAEA.Sockets.Core
             _sessionManager = new SessionManager(context, bufferSize, count, IO_Completed, new TimeSpan(0, 0, timeOut));
             _sessionManager.OnTimeOut += _sessionManager_OnTimeOut;
             OnServerReceiveBytes = new OnServerReceiveBytesHandler(OnReceiveBytes);
-            m_maxNumberAcceptedClients = new Semaphore(count, count);
             _listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             _listener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             _listener.NoDelay = noDelay;
@@ -103,50 +101,44 @@ namespace SAEA.Sockets.Core
         {
             _listener.Bind(new IPEndPoint(IPAddress.Any, port));
             _listener.Listen(backlog);
-            ProcessAccept(null);
+
+            var accepteArgs = new SocketAsyncEventArgs();
+            accepteArgs.Completed += AccepteArgs_Completed;
+            ProcessAccept(accepteArgs);
         }
 
-
-        private void ProcessAccept(SocketAsyncEventArgs args)
+        private void AccepteArgs_Completed(object sender, SocketAsyncEventArgs e)
         {
-            m_maxNumberAcceptedClients.WaitOne();
-            if (args == null)
+            if (e.LastOperation == SocketAsyncOperation.Accept)
             {
-                args = new SocketAsyncEventArgs();
-                args.Completed += ProcessAccepted;
-            }
-            else
-            {
-                args.AcceptSocket = null;
-            }
-            if (!_listener.AcceptAsync(args))
-            {
-                ProcessAccepted(_listener, args);
+                ProcessAccepted(e);
             }
         }
 
-        private void ProcessAccepted(object sender, SocketAsyncEventArgs e)
+        private void ProcessAccept(SocketAsyncEventArgs e)
         {
-            try
+            e.AcceptSocket = null;
+            if (!_listener.AcceptAsync(e))
             {
-                var userToken = _sessionManager.GenerateUserToken(e.AcceptSocket);
-
-                var readArgs = userToken.ReadArgs;
-
-                _sessionManager.Set(userToken);
-
-                OnAccepted?.Invoke(userToken);
-
-                Interlocked.Increment(ref _clientCounts);
-
-                if (!userToken.Socket.ReceiveAsync(readArgs))
-                {
-                    ProcessReceived(readArgs);
-                }
+                ProcessAccepted(e);
             }
-            catch (Exception ex)
+        }
+
+        private void ProcessAccepted(SocketAsyncEventArgs e)
+        {
+            var userToken = _sessionManager.GenerateUserToken(e.AcceptSocket);
+
+            var readArgs = userToken.ReadArgs;
+
+            _sessionManager.Set(userToken);
+
+            OnAccepted?.Invoke(userToken);
+
+            Interlocked.Increment(ref _clientCounts);
+
+            if (!userToken.Socket.ReceiveAsync(readArgs))
             {
-                OnError?.Invoke("BaseServerSocket.ProcessAccepted", new Exception("server在接受客户端连接时出现异常：" + ex.Message));
+                ProcessReceived(readArgs);
             }
             //接入新的请求
             ProcessAccept(e);
@@ -307,7 +299,6 @@ namespace SAEA.Sockets.Core
                     if (ex == null) ex = new Exception("The remote client has been disconnected.");
                     OnDisconnected?.Invoke(userToken.ID, ex);
                     Interlocked.Decrement(ref _clientCounts);
-                    m_maxNumberAcceptedClients.Release();
                 }
             }
         }
@@ -324,7 +315,6 @@ namespace SAEA.Sockets.Core
             if (_sessionManager.Free(userToken))
             {
                 Interlocked.Decrement(ref _clientCounts);
-                m_maxNumberAcceptedClients.Release();
             }
         }
 

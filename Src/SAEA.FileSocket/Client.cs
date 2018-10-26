@@ -71,23 +71,23 @@ namespace SAEA.FileSocket
         {
             if (data != null)
             {
-                this.UserToken.Coder.Pack(data, null, (allow) =>
+                this.UserToken.Unpacker.Unpack(data, (allow) =>
                 {
 
-                     Action<bool> action;
+                    Action<bool> action;
 
-                     if (_eventCollection.TryPop(out action))
-                     {
-                         var result = false;
+                    if (_eventCollection.TryPop(out action))
+                    {
+                        var result = false;
 
-                         if (allow.Type == (byte)SocketProtocalType.AllowReceive)
-                         {
-                             result = true;
-                         }
+                        if (allow.Type == (byte)SocketProtocalType.AllowReceive)
+                        {
+                            result = true;
+                        }
 
-                         action?.Invoke(result);
-                     }
-                 }, null);
+                        action?.Invoke(result);
+                    }
+                }, null, null);
             }
         }
 

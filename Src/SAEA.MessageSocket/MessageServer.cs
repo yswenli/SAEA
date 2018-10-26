@@ -54,7 +54,7 @@ namespace SAEA.MessageSocket
         {
             var mUserToken = (MessageUserToken)userToken;
 
-            userToken.Coder.Pack(data, null, (s) =>
+            userToken.Unpacker.Unpack(data, (s) =>
             {
                 if (s.Content != null)
                 {
@@ -105,7 +105,7 @@ namespace SAEA.MessageSocket
                     }
                 }
 
-            }, null);
+            }, null, null);
         }
 
 

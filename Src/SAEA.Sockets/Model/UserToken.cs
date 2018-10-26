@@ -71,7 +71,7 @@ namespace SAEA.Sockets.Model
             get; set;
         }
 
-        public ICoder Coder
+        public IUnpacker Unpacker
         {
             get; set;
         }
@@ -90,7 +90,7 @@ namespace SAEA.Sockets.Model
         public void Dispose()
         {
             Socket?.Close();
-            Coder?.Dispose();
+            Unpacker?.Dispose();
             ReadArgs = null;
             WriteArgs = null;
             _autoResetEvent.Close();

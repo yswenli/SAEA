@@ -34,11 +34,11 @@ namespace SAEA.RPC.Net
     /// SAEA.RPC传输编解码
     /// 格式为：1+4+8+4+x+4+x+x
     /// </summary>
-    public sealed class RCoder : ICoder
+    public sealed class RCoder : IUnpacker
     {
 
         //内置
-        public void Pack(byte[] data, Action<DateTime> onHeart, Action<ISocketProtocal> onUnPackage, Action<byte[]> onFile)
+        public void Unpack(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
         {
 
         }

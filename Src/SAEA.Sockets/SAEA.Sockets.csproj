@@ -26,4 +26,10 @@ SAEA.Socket是一个高性能IOCP框架，基于.dotnet standard 2.0；Src中含
     <ProjectReference Include="..\SAEA.Common\SAEA.Common.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Reference Include="System.Threading.Tasks.Dataflow">
+      <HintPath>C:\Program Files\dotnet\sdk\NuGetFallbackFolder\microsoft.netcore.app\2.0.0\ref\netcoreapp2.0\System.Threading.Tasks.Dataflow.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
 </Project>

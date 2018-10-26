@@ -57,7 +57,7 @@ namespace SAEA.TcpP2P.Net
 
         protected override void OnReceived(byte[] data)
         {
-            base.UserToken.Coder.Pack(data, null, (msg) =>
+            base.UserToken.Unpacker.Unpack(data, (msg) =>
             {
                 switch (msg.Type)
                 {
@@ -84,7 +84,7 @@ namespace SAEA.TcpP2P.Net
                         base.Disconnect();
                         break;
                 }
-            }, null);
+            }, null, null);
         }
 
 

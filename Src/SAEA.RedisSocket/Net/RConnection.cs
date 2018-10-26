@@ -24,7 +24,6 @@
 using SAEA.Common;
 using SAEA.Sockets.Core;
 using System;
-using System.Collections.Generic;
 using System.Text;
 
 namespace SAEA.RedisSocket.Net
@@ -36,28 +35,26 @@ namespace SAEA.RedisSocket.Net
     {
         public event Action<string> OnMessage;
 
+        public event Action<DateTime> OnActived;
+
         public RConnection(int bufferSize = 100 * 1024, string ip = "127.0.0.1", int port = 39654) : base(new RContext(), ip, port, bufferSize)
         {
-        }
 
-        public event Action<DateTime> OnActived;
+        }
 
         protected override void OnReceived(byte[] data)
         {
-            OnActived.Invoke(DateTimeHelper.Now.AddSeconds(60));
-            if (data != null)
+            OnActived.Invoke(DateTimeHelper.Now);
+            this.UserToken.Unpacker.Unpack(data, (content) =>
             {
-                this.UserToken.Coder.Pack(data, null, (content) =>
-                {
-                    OnMessage.Invoke(Encoding.UTF8.GetString(content.Content));                    
-                }, null);
-            }
+                OnMessage.Invoke(Encoding.UTF8.GetString(content.Content));
+            }, null, null);
         }
 
         public void Send(string cmd)
         {
             SendAsync(Encoding.UTF8.GetBytes(cmd));
-            OnActived.Invoke(DateTimeHelper.Now.AddSeconds(60));
+            OnActived.Invoke(DateTimeHelper.Now);
         }
     }
 }

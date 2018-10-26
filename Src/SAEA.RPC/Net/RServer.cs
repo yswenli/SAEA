@@ -45,7 +45,7 @@ namespace SAEA.RPC.Net
 
         protected override void OnReceiveBytes(IUserToken userToken, byte[] data)
         {
-            ((RCoder)userToken.Coder).Unpack(data, (r) =>
+            ((RCoder)userToken.Unpacker).Unpack(data, (r) =>
             {
                 OnMsg.Invoke(userToken, r);
             });
@@ -57,7 +57,7 @@ namespace SAEA.RPC.Net
         /// <param name="msg"></param>
         internal void Reply(IUserToken userToken, RSocketMsg msg)
         {
-            SendAsync(userToken, ((RCoder)userToken.Coder).Encode(msg));
+            SendAsync(userToken, ((RCoder)userToken.Unpacker).Encode(msg));
         }
     }
 }

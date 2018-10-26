@@ -36,7 +36,7 @@ namespace SAEA.RedisSocket.Net
     {
         public IUserToken UserToken { get; set; }
 
-        public ICoder Coder { get; set; }
+        public IUnpacker Unpacker { get; set; }
 
         /// <summary>
         /// 内置上下文
@@ -45,8 +45,8 @@ namespace SAEA.RedisSocket.Net
         public RContext()
         {
             this.UserToken = new UserToken();
-            this.Coder = new RCoder();
-            this.UserToken.Coder = this.Coder;
+            this.Unpacker = new RUnpacker();
+            this.UserToken.Unpacker = this.Unpacker;
         }
     }
 }

@@ -37,7 +37,7 @@ namespace SAEA.RedisSocketTest
             if (string.IsNullOrEmpty(cnnStr))
             {
                 //cnnStr = "server=127.0.0.1:6380;passwords=yswenli";
-                cnnStr = "server=127.0.0.1:6381;passwords=yswenli";
+                cnnStr = "server=127.0.0.1:6380;passwords=yswenli";
             }
             RedisClient redisClient = new RedisClient(cnnStr);
             redisClient.Connect();

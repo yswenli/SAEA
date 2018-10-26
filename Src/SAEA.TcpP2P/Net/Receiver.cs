@@ -44,7 +44,7 @@ namespace SAEA.TcpP2P.Net
 
         protected override void OnReceiveBytes(IUserToken userToken, byte[] data)
         {
-            userToken.Coder.Pack(data, null, (msg) =>
+            userToken.Unpacker.Unpack(data, (msg) =>
             {
                 switch (msg.Type)
                 {
@@ -70,7 +70,7 @@ namespace SAEA.TcpP2P.Net
                         base.Disconnect(userToken, new Exception("未定义的类型"));
                         break;
                 }
-            }, null);
+            }, null, null);
         }
 
         private void ReplyBase(IUserToken userToken, PSocketMsg msg)

@@ -53,7 +53,7 @@ namespace SAEA.QueueSocket
 
         protected override void OnReceiveBytes(IUserToken userToken, byte[] data)
         {
-            var qcoder = (QCoder)userToken.Coder;
+            var qcoder = (QUnpacker)userToken.Unpacker;
 
             qcoder.GetQueueResult(data, r =>
             {
@@ -80,7 +80,7 @@ namespace SAEA.QueueSocket
 
         private void ReplyPong(IUserToken ut, QueueResult data)
         {
-            var qcoder = (QCoder)ut.Coder;
+            var qcoder = (QUnpacker)ut.Unpacker;
             base.Send(ut, qcoder.QueueCoder.Pong(data.Name));
         }
 
@@ -93,7 +93,7 @@ namespace SAEA.QueueSocket
         {
             Task.Factory.StartNew(() =>
             {
-                var qcoder = (QCoder)ut.Coder;
+                var qcoder = (QUnpacker)ut.Unpacker;
                 _exchange.GetSubscribeData(ut.ID, new QueueResult() { Name = data.Name, Topic = data.Topic }, _maxNum, _maxTime, (rlist) =>
                 {
                     if (rlist != null)
@@ -116,7 +116,7 @@ namespace SAEA.QueueSocket
 
         private void ReplyClose(IUserToken ut, QueueResult data)
         {
-            var qcoder = (QCoder)ut.Coder;
+            var qcoder = (QUnpacker)ut.Unpacker;
             base.Send(ut, qcoder.QueueCoder.Close(data.Name));
             _exchange.Clear(ut.ID);
             base.Disconnect(ut);

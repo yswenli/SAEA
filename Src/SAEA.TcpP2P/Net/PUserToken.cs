@@ -63,7 +63,7 @@ namespace SAEA.TcpP2P.Net
             get; set;
         }
 
-        public ICoder Coder
+        public IUnpacker Unpacker
         {
             get; set;
         }
@@ -82,7 +82,7 @@ namespace SAEA.TcpP2P.Net
         public void Dispose()
         {
             Socket?.Close();
-            Coder?.Dispose();
+            Unpacker?.Dispose();
             _autoResetEvent.Close();
             ReadArgs?.Dispose();
             WriteArgs?.Dispose();

@@ -32,7 +32,7 @@ namespace SAEA.TcpP2P.Net
     {
         public IUserToken UserToken { get; set; }
 
-        public ICoder Coder { get; set; }
+        public IUnpacker Unpacker { get; set; }
 
         /// <summary>
         /// 上下文
@@ -41,8 +41,8 @@ namespace SAEA.TcpP2P.Net
         public PContext()
         {
             this.UserToken = new PUserToken();
-            this.Coder = new PCoder();
-            this.UserToken.Coder = this.Coder;
+            this.Unpacker = new PCoder();
+            this.UserToken.Unpacker = this.Unpacker;
         }
     }
 }

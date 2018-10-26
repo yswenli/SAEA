@@ -76,76 +76,76 @@ namespace SAEA.MessageSocket
 
             if (data != null)
             {
-                this.UserToken.Coder.Pack(data, null, (s) =>
-                 {
-                     if (s.Content != null)
-                     {
-                         try
-                         {
-                             var cm = ConvertHelper.PBDeserialize<ChatMessage>(s.Content);
+                this.UserToken.Unpacker.Unpack(data, (s) =>
+                {
+                    if (s.Content != null)
+                    {
+                        try
+                        {
+                            var cm = ConvertHelper.PBDeserialize<ChatMessage>(s.Content);
 
-                             switch (cm.Type)
-                             {
-                                 case ChatMessageType.LoginAnswer:
-                                     this.Logined = true;
-                                     _autoResetEvent.Set();
-                                     break;
-                                 case ChatMessageType.SubscribeAnswer:
-                                     if (cm.Content == "1")
-                                     {
-                                         _subscribed = true;
-                                     }
-                                     else
-                                     {
-                                         _subscribed = false;
-                                     }
-                                     _autoResetEvent.Set();
-                                     break;
-                                 case ChatMessageType.UnSubscribeAnswer:
-                                     if (cm.Content == "1")
-                                     {
-                                         _unsubscribed = true;
-                                     }
-                                     else
-                                     {
-                                         _unsubscribed = false;
-                                     }
-                                     _autoResetEvent.Set();
-                                     break;
-                                 case ChatMessageType.ChannelMessage:
-                                     OnChannelMessage?.Invoke(cm.GetIMessage<ChannelMessage>());
-                                     break;
-                                 case ChatMessageType.PrivateMessage:
-                                     OnPrivateMessage?.Invoke(cm.GetIMessage<PrivateMessage>());
-                                     break;
-                                 case ChatMessageType.GroupMessage:
-                                     OnGroupMessage?.Invoke(cm.GetIMessage<GroupMessage>());
-                                     break;
-                                 case ChatMessageType.PrivateMessageAnswer:
-                                     _autoResetEvent.Set();
-                                     break;
-                                 case ChatMessageType.CreateGroupAnswer:
-                                 case ChatMessageType.RemoveGroupAnswer:
-                                 case ChatMessageType.AddMemberAnswer:
-                                 case ChatMessageType.RemoveMemberAnswer:
-                                     _autoResetEvent.Set();
-                                     break;
+                            switch (cm.Type)
+                            {
+                                case ChatMessageType.LoginAnswer:
+                                    this.Logined = true;
+                                    _autoResetEvent.Set();
+                                    break;
+                                case ChatMessageType.SubscribeAnswer:
+                                    if (cm.Content == "1")
+                                    {
+                                        _subscribed = true;
+                                    }
+                                    else
+                                    {
+                                        _subscribed = false;
+                                    }
+                                    _autoResetEvent.Set();
+                                    break;
+                                case ChatMessageType.UnSubscribeAnswer:
+                                    if (cm.Content == "1")
+                                    {
+                                        _unsubscribed = true;
+                                    }
+                                    else
+                                    {
+                                        _unsubscribed = false;
+                                    }
+                                    _autoResetEvent.Set();
+                                    break;
+                                case ChatMessageType.ChannelMessage:
+                                    OnChannelMessage?.Invoke(cm.GetIMessage<ChannelMessage>());
+                                    break;
+                                case ChatMessageType.PrivateMessage:
+                                    OnPrivateMessage?.Invoke(cm.GetIMessage<PrivateMessage>());
+                                    break;
+                                case ChatMessageType.GroupMessage:
+                                    OnGroupMessage?.Invoke(cm.GetIMessage<GroupMessage>());
+                                    break;
+                                case ChatMessageType.PrivateMessageAnswer:
+                                    _autoResetEvent.Set();
+                                    break;
+                                case ChatMessageType.CreateGroupAnswer:
+                                case ChatMessageType.RemoveGroupAnswer:
+                                case ChatMessageType.AddMemberAnswer:
+                                case ChatMessageType.RemoveMemberAnswer:
+                                    _autoResetEvent.Set();
+                                    break;
 
-                                 case ChatMessageType.GroupMessageAnswer:
-                                     _autoResetEvent.Set();
-                                     break;
-                                 default:
-                                     ConsoleHelper.WriteLine("cm.Type", cm.Type);
-                                     break;
-                             }
-                         }
-                         catch (Exception ex)
-                         {
-                             RaiseOnError("", ex);
-                         }
-                     }
+                                case ChatMessageType.GroupMessageAnswer:
+                                    _autoResetEvent.Set();
+                                    break;
+                                default:
+                                    ConsoleHelper.WriteLine("cm.Type", cm.Type);
+                                    break;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            RaiseOnError("", ex);
+                        }
+                    }
 
-                 }, null);
+                }, null, null);
             }
         }
 

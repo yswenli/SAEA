@@ -32,7 +32,7 @@ using System.Text;
 
 namespace SAEA.QueueSocket.Net
 {
-    public sealed class QCoder : ICoder
+    public sealed class QUnpacker : IUnpacker
     {
         static readonly int MIN = 1 + 4 + 4 + 0 + 4 + 0 + 0;
 
@@ -40,7 +40,7 @@ namespace SAEA.QueueSocket.Net
 
         private object _locker = new object();
 
-        public void Pack(byte[] data, Action<DateTime> onHeart, Action<ISocketProtocal> onUnPackage, Action<byte[]> onFile)
+        public void Unpack(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
         {
 
         }
@@ -67,7 +67,7 @@ namespace SAEA.QueueSocket.Net
                     {
                         var buffer = _buffer.ToArray();
 
-                        QCoder.Decode(buffer, (list, offset) =>
+                        QUnpacker.Decode(buffer, (list, offset) =>
                         {
                             if (list != null)
                             {

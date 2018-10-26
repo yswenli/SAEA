@@ -30,7 +30,7 @@ namespace SAEA.MVC.Base.Net
     {
         public IUserToken UserToken { get; set; }
 
-        public ICoder Coder { get; set; }
+        public IUnpacker Unpacker { get; set; }
 
         /// <summary>
         /// 上下文
@@ -38,8 +38,8 @@ namespace SAEA.MVC.Base.Net
         public HContext()
         {
             this.UserToken = new UserToken();
-            this.Coder = new HCoder();
-            this.UserToken.Coder = this.Coder;
+            this.Unpacker = new HUnpacker();
+            this.UserToken.Unpacker = this.Unpacker;
         }
     }
 }

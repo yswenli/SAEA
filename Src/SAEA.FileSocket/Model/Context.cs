@@ -29,8 +29,9 @@
 *
 *****************************************************************************/
 using SAEA.Sockets.Interface;
+using SAEA.Sockets.Model;
 
-namespace SAEA.Sockets.Model
+namespace SAEA.FileSocket.Model
 {
     /// <summary>
     /// 内置上下文
@@ -39,7 +40,7 @@ namespace SAEA.Sockets.Model
     {
         public IUserToken UserToken { get; set; }
 
-        public ICoder Coder { get; set; }
+        public IUnpacker Unpacker { get; set; }
 
         /// <summary>
         /// 内置上下文
@@ -48,8 +49,8 @@ namespace SAEA.Sockets.Model
         public Context()
         {
             this.UserToken = new UserToken();
-            this.Coder = new Coder();
-            this.UserToken.Coder = this.Coder;
+            this.Unpacker = new BaseUnpacker();
+            this.UserToken.Unpacker = this.Unpacker;
         }
     }
 }

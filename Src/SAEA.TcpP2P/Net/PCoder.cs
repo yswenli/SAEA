@@ -26,11 +26,10 @@ using SAEA.Common;
 using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.TcpP2P.Net
 {
-    public sealed class PCoder : ICoder
+    public sealed class PCoder : IUnpacker
     {
         public const int P_LEN = 8;
 
@@ -48,11 +47,11 @@ namespace SAEA.TcpP2P.Net
         /// <param name="OnHeart"></param>
         /// <param name="OnUnPackage"></param>
         /// <param name="onFile"></param>
-        public void Pack(byte[] data, Action<DateTime> onHeart, Action<ISocketProtocal> onUnPackage, Action<byte[]> onFile)
+        public void Unpack(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
         {
             lock (_locker)
             {
-                _buffer.AddRange(data);               
+                _buffer.AddRange(data);
 
                 while (_buffer.Count >= P_Head)
                 {
@@ -73,7 +72,7 @@ namespace SAEA.TcpP2P.Net
                         var sm = new PSocketMsg() { BodyLength = bodyLen, Type = (byte)type, Content = GetContent(buffer, P_Head, (int)bodyLen) };
                         _buffer.RemoveRange(0, (int)(P_Head + bodyLen));
                         bodyLen = 0;
-                        onUnPackage?.Invoke(sm);
+                        unpackCallback?.Invoke(sm);
                     }
                     else
                     {

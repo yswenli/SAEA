@@ -10,37 +10,32 @@
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
 *公司名称：wenli
-*命名空间：SAEA.Sockets
-*文件名： Class1
+*命名空间：SAEA.Sockets.Model
+*文件名： BaseCode
 *版本号： V2.2.2.0
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
-*创建时间：2018/3/1 15:54:21
+*修改时间：2018/10/26 15:54:21
 *描述：
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/3/1 15:54:21
+*修改时间：2018/10/26 15:54:21
 *修改人： yswenli
 *版本号： V2.2.2.0
 *描述：
 *
 *****************************************************************************/
-
 using SAEA.Common;
-using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Generic;
 
 namespace SAEA.Sockets.Model
 {
-    /// <summary>
-    /// 通信数据接收解析器
-    /// </summary>
-    public sealed class Coder : ICoder
+    public class BaseUnpacker : IUnpacker
     {
         public const int P_LEN = 8;
 
@@ -50,19 +45,13 @@ namespace SAEA.Sockets.Model
 
         private List<byte> _buffer = new List<byte>();
 
-        private object _locker = new object();
-        /// <summary>
-        /// 服务器端收包处理
-        /// </summary>
-        /// <param name="data"></param>
-        /// <param name="OnHeart"></param>
-        /// <param name="OnUnPackage"></param>
-        /// <param name="onFile"></param>
-        public void Pack(byte[] data, Action<DateTime> onHeart, Action<ISocketProtocal> onUnPackage, Action<byte[]> onFile)
+        object _locker = new object();
+
+        public void Unpack(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
         {
             lock (_locker)
             {
-                _buffer.AddRange(data);                
+                _buffer.AddRange(data);
 
                 while (_buffer.Count >= P_Head)
                 {
@@ -92,7 +81,7 @@ namespace SAEA.Sockets.Model
                             var sm = new SocketProtocal() { BodyLength = bodyLen, Type = (byte)type, Content = GetContent(buffer, P_Head, (int)bodyLen) };
                             _buffer.RemoveRange(0, (int)(P_Head + bodyLen));
                             bodyLen = 0;
-                            onUnPackage?.Invoke(sm);
+                            unpackCallback?.Invoke(sm);
                         }
                     }
                     else
@@ -102,6 +91,7 @@ namespace SAEA.Sockets.Model
                 }
             }
         }
+
 
         public static long GetLength(byte[] data)
         {
@@ -125,6 +115,5 @@ namespace SAEA.Sockets.Model
             _buffer.Clear();
             _buffer = null;
         }
-
     }
 }

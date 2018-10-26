@@ -29,7 +29,7 @@ using SAEA.MVC.Model;
 
 namespace SAEA.MVC.Base.Net
 {
-    class HCoder : ICoder
+    class HUnpacker : IUnpacker
     {
         List<byte> _cache = new List<byte>();
 
@@ -38,7 +38,7 @@ namespace SAEA.MVC.Base.Net
         bool _isAnalysis = false;
 
 
-        public void Pack(byte[] data, Action<DateTime> onHeart, Action<ISocketProtocal> onUnPackage, Action<byte[]> onFile)
+        public void Unpack(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
         {
 
         }

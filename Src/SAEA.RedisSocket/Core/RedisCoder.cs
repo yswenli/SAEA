@@ -137,8 +137,8 @@ namespace SAEA.RedisSocket.Core
         public string GetRedisReply()
         {
             bool stopped = false;
-            var task = Task.Factory.StartNew(() => BlockDequeue(ref stopped));
-            if (!Task.WaitAll(new Task[] { task }, _actionTimeout))
+            var task = Task.Factory.StartNew(() => BlockDequeue(ref stopped));            
+            if (!task.Wait(_actionTimeout))
             {
                 stopped = true;
                 Thread.Sleep(1000);

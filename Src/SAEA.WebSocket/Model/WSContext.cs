@@ -30,7 +30,7 @@ namespace SAEA.WebSocket.Model
     {
         public IUserToken UserToken { get; set; }
 
-        public ICoder Coder { get; set; }
+        public IUnpacker Unpacker { get; set; }
 
         /// <summary>
         /// 上下文
@@ -38,8 +38,8 @@ namespace SAEA.WebSocket.Model
         public WSContext()
         {
             this.UserToken = new WSUserToken();
-            this.Coder = new WSCoder();
-            this.UserToken.Coder = this.Coder;
+            this.Unpacker = new WSCoder();
+            this.UserToken.Unpacker = this.Unpacker;
         }
     }
 }

@@ -39,7 +39,7 @@ namespace SAEA.MVC.Base.Net
 
         protected override void OnReceiveBytes(IUserToken userToken, byte[] data)
         {
-            HCoder coder = (HCoder)userToken.Coder;
+            HUnpacker coder = (HUnpacker)userToken.Unpacker;
 
             coder.GetRequest(data, (result) =>
             {

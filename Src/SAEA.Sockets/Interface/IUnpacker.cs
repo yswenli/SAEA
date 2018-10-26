@@ -11,7 +11,7 @@
 *机器名称：WENLI-PC
 *公司名称：wenli
 *命名空间：SAEA.Sockets
-*文件名： Class1
+*文件名： IUnpacker
 *版本号： V2.2.2.0
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
@@ -35,16 +35,8 @@ namespace SAEA.Sockets.Interface
     /// <summary>
     /// 通信数据接收解析器
     /// </summary>
-    public interface ICoder : IDisposable
+    public interface IUnpacker : IDisposable
     {
-        /// <summary>
-        /// 收包处理
-        /// </summary>
-        /// <param name="data"></param>
-        /// <param name="onHeart"></param>
-        /// <param name="onUnPackage"></param>
-        /// <param name="onFile"></param>
-        void Pack(byte[] data, Action<DateTime> onHeart, Action<ISocketProtocal> onUnPackage, Action<byte[]> onFile);
-
+       void Unpack(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null);
     }
 }

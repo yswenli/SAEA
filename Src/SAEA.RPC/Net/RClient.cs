@@ -65,7 +65,7 @@ namespace SAEA.RPC.Net
 
         protected override void OnReceived(byte[] data)
         {
-            ((RCoder)UserToken.Coder).Unpack(data, msg =>
+            ((RCoder)UserToken.Unpacker).Unpack(data, msg =>
             {
                 switch ((RSocketMsgType)msg.Type)
                 {
@@ -123,7 +123,7 @@ namespace SAEA.RPC.Net
         /// <param name="msg"></param>
         internal void SendAsync(RSocketMsg msg)
         {
-            SendAsync(((RCoder)UserToken.Coder).Encode(msg));
+            SendAsync(((RCoder)UserToken.Unpacker).Encode(msg));
         }
 
         /// <summary>

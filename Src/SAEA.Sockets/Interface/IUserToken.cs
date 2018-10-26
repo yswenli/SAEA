@@ -67,7 +67,7 @@ namespace SAEA.Sockets.Interface
             get; set;
         }
 
-        ICoder Coder
+        IUnpacker Unpacker
         {
             get; set;
         }

@@ -98,11 +98,11 @@ namespace SAEA.Sockets.Core
             _connectArgs.Completed += ConnectArgs_Completed;
 
             var userTokenType = context.UserToken.GetType();
-            var coderType = context.UserToken.Coder.GetType();
+            var coderType = context.UserToken.Unpacker.GetType();
 
             IUserToken userToken = (IUserToken)Activator.CreateInstance(userTokenType);
-            ICoder coder = (ICoder)Activator.CreateInstance(coderType);
-            userToken.Coder = coder;
+            IUnpacker coder = (IUnpacker)Activator.CreateInstance(coderType);
+            userToken.Unpacker = coder;
 
             userToken.ReadArgs = new SocketAsyncEventArgs();
             userToken.ReadArgs.Completed += IO_Completed;
@@ -133,15 +133,12 @@ namespace SAEA.Sockets.Core
 
         public void Connect()
         {
-            bool waited = false;
+            var wait = new AutoResetEvent(false);
             ConnectAsync((s) =>
             {
-                waited = true;
+                wait.Set();
             });
-            while (!waited)
-            {
-                Thread.Sleep(10);
-            }
+            wait.WaitOne();
         }
 
         void ConnectArgs_Completed(object sender, SocketAsyncEventArgs e)

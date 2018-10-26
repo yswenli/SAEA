@@ -126,9 +126,9 @@ namespace SAEA.WebSocket
             }
             else
             {
-                var coder = (WSCoder)UserToken.Coder;
+                var coder = (WSCoder)UserToken.Unpacker;
 
-                coder.Pack(data, null, (d) =>
+                coder.Unpack(data, (d) =>
                 {
                     var wsProtocal = (WSProtocal)d;
                     switch (wsProtocal.Type)
@@ -153,7 +153,7 @@ namespace SAEA.WebSocket
                             break;
                     }
 
-                }, null);
+                }, null, null);
             }
         }
 

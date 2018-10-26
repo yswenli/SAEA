@@ -44,7 +44,7 @@ namespace SAEA.QueueSocket.Model
         /// <returns></returns>
         public byte[] Encode(QueueSocketMsgType cmdType, string name, string topic, string data)
         {
-            return QCoder.Encode(new QueueSocketMsg(cmdType, name, topic, data));
+            return QUnpacker.Encode(new QueueSocketMsg(cmdType, name, topic, data));
         }
         /// <summary>
         /// 按指定格式编码批量处理

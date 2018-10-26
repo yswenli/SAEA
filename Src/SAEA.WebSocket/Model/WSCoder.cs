@@ -29,7 +29,7 @@ using System.Collections.Generic;
 
 namespace SAEA.WebSocket.Model
 {
-    public class WSCoder : ICoder
+    public class WSCoder : IUnpacker
     {
         private List<byte> _buffer = new List<byte>();
 
@@ -40,12 +40,12 @@ namespace SAEA.WebSocket.Model
         /// 客户发送的数据是必须含掩码的
         /// </summary>
         /// <param name="data"></param>
+        /// <param name="unpackCallback"></param>
         /// <param name="OnHeart"></param>
-        /// <param name="OnUnPackage"></param>
         /// <param name="OnFile"></param>
-        public void Pack(byte[] data, Action<DateTime> onHeart, Action<ISocketProtocal> onUnPackage, Action<byte[]> onFile)
+        public void Unpack(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
         {
-            DeCode(data, onUnPackage);
+            DeCode(data, unpackCallback);
         }
 
         /// <summary>

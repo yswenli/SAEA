@@ -38,7 +38,7 @@ namespace SAEA.MessageTest
         {
             ConsoleHelper.WriteLine("Message Test ");
 
-            ConsoleHelper.WriteLine("S boot server \r\n\t\t\t F starts functional testing \r\n\t\t\t P start pressure test");
+            ConsoleHelper.WriteLine("S boot server \r\n\t\t\t F starts functional testing \r\n\t\t\t P start pressure test\r\n\t\t\t T start channelmessage test");
 
             var input = ConsoleHelper.ReadLine().ToUpper();
 
@@ -54,6 +54,9 @@ namespace SAEA.MessageTest
 
                 case "P":
                     PreesureTest();
+                    break;
+                case "T":
+                    ChannelMsgTest();
                     break;
 
                 case "SF":
@@ -110,7 +113,7 @@ namespace SAEA.MessageTest
         {
             ConsoleHelper.WriteLine("SAEA.Message服务器正在启动...");
 
-            MessageServer server = new MessageServer(1024, 1000 * 1000, 30 * 60 * 1000);
+            MessageServer server = new MessageServer(100, 100000, 30 * 60 * 1000);
 
             server.OnDisconnected += Server_OnDisconnected;
 
@@ -310,33 +313,36 @@ namespace SAEA.MessageTest
                     list.Add(ccc);
                 }
 
-                ConsoleHelper.WriteLine("正在连接订阅...");
+                ConsoleHelper.WriteLine("正在建立连接...");
 
-                foreach (var item in list)
+                Parallel.ForEach(list, (item) =>
                 {
                     item.Connect();
-                    item.Subscribe(channelName);
-                }
+                });
 
-                cc1.SendChannelMsg(channelName, channelName);
-            });
-
-
-
-            Task.Run(() =>
-            {
-                while (true)
+                ConsoleHelper.WriteLine("正在订阅...");
+                Parallel.ForEach(list, (item) =>
                 {
-                    ConsoleHelper.WriteLine("当前已接收到消息数：" + cmc);
-                    Thread.Sleep(1000);
-                    Interlocked.Increment(ref calc);
+                    item.Subscribe(channelName);
+                });
+                ConsoleHelper.WriteLine("正在转发...");
+                cc1.SendChannelMsg(channelName, channelName);
 
-                    if (cmc >= 10000)
+                Task.Run(() =>
+                {
+                    while (true)
                     {
-                        ConsoleHelper.WriteLine("测试完毕，当前用时：" + calc + "秒");
-                        break;
+                        ConsoleHelper.WriteLine("当前已接收到消息数：" + cmc);
+                        Thread.Sleep(1000);
+                        Interlocked.Increment(ref calc);
+
+                        if (cmc >= 10000)
+                        {
+                            ConsoleHelper.WriteLine("测试完毕，当前用时：" + calc + "秒");
+                            break;
+                        }
                     }
-                }
+                });
             });
 
             ConsoleHelper.ReadLine();

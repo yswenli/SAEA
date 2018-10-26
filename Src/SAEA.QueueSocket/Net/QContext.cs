@@ -23,9 +23,6 @@
 *****************************************************************************/
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.QueueSocket.Net
 {
@@ -33,7 +30,7 @@ namespace SAEA.QueueSocket.Net
     {
         public IUserToken UserToken { get; set; }
 
-        public ICoder Coder { get; set; }
+        public IUnpacker Unpacker { get; set; }
 
         /// <summary>
         /// 上下文
@@ -41,8 +38,8 @@ namespace SAEA.QueueSocket.Net
         public QContext()
         {
             this.UserToken = new UserToken();
-            this.Coder = new QCoder();
-            this.UserToken.Coder = this.Coder;
+            this.Unpacker = new QUnpacker();
+            this.UserToken.Unpacker = this.Unpacker;
         }
     }
 }

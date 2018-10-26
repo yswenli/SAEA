@@ -66,8 +66,6 @@ namespace SAEA.RedisSocket
             _cnn.OnDisconnected += _cnn_OnDisconnected;
         }
 
-
-
         public RedisClient(string connectStr, bool debugModel = false) : this(new RedisConfig(connectStr), debugModel) { }
 
         public RedisClient(string ipPort, string password, int acitonTimeout = 60, bool debugModel = false) : this(new RedisConfig(ipPort, password, acitonTimeout), debugModel)
@@ -148,11 +146,11 @@ namespace SAEA.RedisSocket
             {
                 while (_cnn.IsConnected)
                 {
-                    if (_cnn.Actived <= DateTimeHelper.Now)
+                    if (_cnn.Actived <= DateTimeHelper.Now.AddSeconds(60))
                     {
                         Ping();
                     }
-                    ThreadHelper.Sleep(60 * 1000);
+                    ThreadHelper.Sleep(30 * 1000);
                 }
             }, true, ThreadPriority.Highest);
         }

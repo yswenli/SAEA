@@ -33,15 +33,15 @@ namespace SAEA.RPC.Net
     {
         public IUserToken UserToken { get; set; }
 
-        public ICoder Coder { get; set; }
+        public IUnpacker Unpacker { get; set; }
         /// <summary>
         /// 上下文
         /// </summary>
         public RContext()
         {
             this.UserToken = new UserToken();
-            this.Coder = new RCoder();
-            this.UserToken.Coder = this.Coder;
+            this.Unpacker = new RCoder();
+            this.UserToken.Unpacker = this.Unpacker;
         }
     }
 }

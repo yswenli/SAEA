@@ -65,8 +65,8 @@ namespace SAEA.WebSocket
             }
             else
             {
-                var coder = (WSCoder)ut.Coder;
-                coder.Pack(data, (h) => { }, (d) =>
+                var coder = (WSCoder)ut.Unpacker;
+                coder.Unpack(data, (d) =>
                 {
                     var wsProtocal = (WSProtocal)d;
                     switch (wsProtocal.Type)
@@ -89,7 +89,7 @@ namespace SAEA.WebSocket
                             break;
                     }
 
-                }, null);
+                }, (h) => { }, null);
             }
         }
 

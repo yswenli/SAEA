@@ -45,9 +45,7 @@ namespace SAEA.Sockets.Core
     /// </summary>
     public class SessionManager
     {
-        Type _userTokenType;
-
-        Type _coderType;
+        UserTokenPool _userTokenPool;
 
         OuterMemoryCacheHelper<IUserToken> _session;
 
@@ -75,8 +73,8 @@ namespace SAEA.Sockets.Core
         /// <param name="completed"></param>
         public SessionManager(IContext context, int bufferSize, int count, EventHandler<SocketAsyncEventArgs> completed, TimeSpan timeOut)
         {
-            _userTokenType = context.UserToken.GetType();
-            _coderType = context.UserToken.Coder.GetType();
+            _userTokenPool = new UserTokenPool(context, count);
+
             _session = new OuterMemoryCacheHelper<IUserToken>();
             _timeOut = timeOut;
             _bufferSize = bufferSize;
@@ -109,10 +107,7 @@ namespace SAEA.Sockets.Core
         /// <returns></returns>
         private IUserToken InitUserToken()
         {
-            IUserToken userToken = (IUserToken)Activator.CreateInstance(_userTokenType);
-            ICoder coder = (ICoder)Activator.CreateInstance(_coderType);
-            userToken.Coder = coder;
-
+            IUserToken userToken = _userTokenPool.Dequeue();
             userToken.ReadArgs = _argsPool.Pop();
             _bufferManager.SetBuffer(userToken.ReadArgs);
             userToken.WriteArgs = _argsPool.Pop();
@@ -172,7 +167,7 @@ namespace SAEA.Sockets.Core
                     _bufferManager.FreeBuffer(userToken.ReadArgs);
                     _argsPool.Push(userToken.ReadArgs);
                     _argsPool.Push(userToken.WriteArgs);
-                    userToken.Dispose();
+                    _userTokenPool.Enqueue(userToken);
                     return true;
                 }
             }

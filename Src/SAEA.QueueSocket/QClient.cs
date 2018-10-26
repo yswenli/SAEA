@@ -72,7 +72,7 @@ namespace SAEA.QueueSocket
         {
             Actived = DateTimeHelper.Now;
 
-            var qcoder = (QCoder)UserToken.Coder;
+            var qcoder = (QUnpacker)UserToken.Unpacker;
 
             qcoder.GetQueueResult(data, (r) =>
             {

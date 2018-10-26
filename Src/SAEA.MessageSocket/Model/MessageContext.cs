@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 using SAEA.Sockets.Interface;
+using SAEA.Sockets.Model;
 
 namespace SAEA.MessageSocket.Model
 {
@@ -29,7 +30,7 @@ namespace SAEA.MessageSocket.Model
     {
         public IUserToken UserToken { get; set; }
 
-        public ICoder Coder { get; set; }
+        public IUnpacker Unpacker { get; set; }
 
         /// <summary>
         /// 上下文
@@ -37,8 +38,8 @@ namespace SAEA.MessageSocket.Model
         public MessageContext()
         {
             this.UserToken = new MessageUserToken();
-            this.Coder = new MessageCoder();
-            this.UserToken.Coder = this.Coder;
+            this.Unpacker = new BaseUnpacker();
+            this.UserToken.Unpacker = this.Unpacker;
         }
     }
 }

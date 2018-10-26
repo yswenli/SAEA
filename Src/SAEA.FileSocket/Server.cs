@@ -97,7 +97,7 @@ namespace SAEA.FileSocket
         /// <param name="data"></param>
         protected override void OnReceiveBytes(IUserToken userToken, byte[] data)
         {
-            userToken.Coder.Pack(data, null, (s) =>
+            userToken.Unpacker.Unpack(data, (s) =>
             {
                 string fileName = string.Empty;
 
@@ -113,7 +113,7 @@ namespace SAEA.FileSocket
                 OnRequested?.Invoke(userToken.ID, fileName, length);
 
                 _total = length;
-            }, (f) =>
+            }, null, (f) =>
             {
                 Interlocked.Add(ref _in, f.Length);
                 OnFile?.Invoke(userToken, f);
