@@ -22,7 +22,7 @@ namespace SAEA.RedisSocket.Core
         private DateTime GetDateTime()
         {
             DateTime dt = new DateTime();
-            DateTime.TryParse(base.Do(RequestType.GET, _oldKey).Data, out dt);
+            DateTime.TryParse(base.Do1(RequestType.GET, _oldKey, true).Data, out dt);
             return dt;
         }
 
@@ -41,7 +41,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns>返回给定 key 的旧值。 当 key 没有旧值时，即 key 不存在时，返回 nil 。当 key 存在但不是字符串类型时，返回一个错误。</returns>
         public string GetSet(string key, string value)
         {
-            return base.Do(RequestType.GETSET, key, value).Data;
+            return base.Do2(RequestType.GETSET, key, value, true).Data;
         }
 
 
@@ -54,7 +54,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns>若存在，返回false,否则返回true</returns>
         public bool SetNX(string key, string value)
         {
-            if (base.Do(RequestType.SETNX, key, value).Data == "1")
+            if (base.Do2(RequestType.SETNX, key, value, true).Data == "1")
             {
                 return true;
             }
@@ -99,7 +99,7 @@ namespace SAEA.RedisSocket.Core
             {
                 key = _oldKey;
             }
-            base.Do(RequestType.DEL, key);
+            base.Do1(RequestType.DEL, key, true);
         }
     }
 }

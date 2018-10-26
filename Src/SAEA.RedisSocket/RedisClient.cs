@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.RedisSocket
 *文件名： RedisOperation
-*版本号： V2.2.2.0
+*版本号： V2.2.2.1
 *唯一标识：23cf910b-3bed-4d80-9e89-92c04fba1e5e
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/3/16 10:12:40
 *修改人： yswenli
-*版本号： V2.2.2.0
+*版本号： V2.2.2.1
 *描述：
 *
 *****************************************************************************/
@@ -208,7 +208,7 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public string Type(string key)
         {
-            return GetDataBase().Do(RequestType.TYPE, key).Data;
+            return GetDataBase().Do1(RequestType.TYPE, key, true).Data;
         }
         /// <summary>
         /// redis server的信息

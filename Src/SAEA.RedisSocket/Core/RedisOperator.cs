@@ -5,7 +5,7 @@
 *公司名称：yswenli
 *命名空间：SAEA.RedisSocket.Core
 *文件名： RedisOperator
-*版本号： V2.2.2.0
+*版本号： V2.2.2.1
 *唯一标识：23cf910b-3bed-4d80-9e89-92c04fba1e5e
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/10/22 14:12:40
 *修改人： yswenli
-*版本号： V2.2.2.0
+*版本号： V2.2.2.1
 *描述：
 *
 *****************************************************************************/
@@ -84,7 +84,7 @@ namespace SAEA.RedisSocket.Core
 
 
 
-        public ResponseData Do(RequestType type, string key, bool hasCalc = true)
+        public ResponseData Do1(RequestType type, string key, bool hasCalc = true)
         {
             if (hasCalc)
                 if (_cnn.RedisServerType == RedisServerType.ClusterMaster || _cnn.RedisServerType == RedisServerType.ClusterSlave)
@@ -99,13 +99,13 @@ namespace SAEA.RedisSocket.Core
             {
                 _cnn = OnRedirect.Invoke(result.Data);
                 _redisCoder = _cnn.RedisCoder;
-                return Do(type, key, false);
+                return Do1(type, key, false);
             }
             else
                 return result;
         }
 
-        public ResponseData Do(RequestType type, string key, string value, bool hasCalc = true)
+        public ResponseData Do2(RequestType type, string key, string value, bool hasCalc = true)
         {
             if (hasCalc)
                 if (_cnn.RedisServerType == RedisServerType.ClusterMaster || _cnn.RedisServerType == RedisServerType.ClusterSlave)
@@ -120,13 +120,13 @@ namespace SAEA.RedisSocket.Core
             {
                 _cnn = OnRedirect.Invoke(result.Data);
                 _redisCoder = _cnn.RedisCoder;
-                return Do(type, key, value, false);
+                return Do2(type, key, value, false);
             }
             else
                 return result;
         }
 
-        public void DoExpire(string key, int seconds, bool hasCalc = true)
+        public void DoExpire(string key, int seconds, bool hasCalc)
         {
             if (hasCalc)
                 if (_cnn.RedisServerType == RedisServerType.ClusterMaster || _cnn.RedisServerType == RedisServerType.ClusterSlave)
@@ -146,7 +146,8 @@ namespace SAEA.RedisSocket.Core
             }
         }
 
-        public void DoExpire(RequestType type, string key, string value, int seconds)
+
+        public void DoExpireInsert(RequestType type, string key, string value, int seconds)
         {
             if (_cnn.RedisServerType == RedisServerType.ClusterMaster || _cnn.RedisServerType == RedisServerType.ClusterSlave)
             {
@@ -170,7 +171,7 @@ namespace SAEA.RedisSocket.Core
             _redisCoder.Decoder();
         }
 
-        public ResponseData Do(RequestType type, string id, string key, string value, bool hasCalc = true)
+        public ResponseData Do3(RequestType type, string id, string key, string value, bool hasCalc = true)
         {
             if (hasCalc)
                 if (_cnn.RedisServerType == RedisServerType.ClusterMaster || _cnn.RedisServerType == RedisServerType.ClusterSlave)
@@ -185,12 +186,12 @@ namespace SAEA.RedisSocket.Core
             {
                 _cnn = OnRedirect.Invoke(result.Data);
                 _redisCoder = _cnn.RedisCoder;
-                return Do(type, id, key, value, false);
+                return Do3(type, id, key, value, false);
             }
             else
                 return result;
         }
-        public ResponseData Do(RequestType type, string id, double begin = 0, double end = -1, bool hasCalc = true)
+        public ResponseData DoRang(RequestType type, string id, double begin = 0, double end = -1, bool hasCalc = true)
         {
             if (hasCalc)
                 if (_cnn.RedisServerType == RedisServerType.ClusterMaster || _cnn.RedisServerType == RedisServerType.ClusterSlave)
@@ -205,7 +206,7 @@ namespace SAEA.RedisSocket.Core
             {
                 _cnn = OnRedirect.Invoke(result.Data);
                 _redisCoder = _cnn.RedisCoder;
-                return Do(type, id, begin, end, false);
+                return DoRang(type, id, begin, end, false);
             }
             else
                 return result;
@@ -259,7 +260,7 @@ namespace SAEA.RedisSocket.Core
                 return result;
         }
 
-        public ResponseData DoBatch(RequestType type, string id, Dictionary<double, string> dic, bool hasCalc = true)
+        public ResponseData DoBatch(RequestType type, string id, Dictionary<double, string> dic, bool hasCalc)
         {
             if (hasCalc)
                 if (_cnn.RedisServerType == RedisServerType.ClusterMaster || _cnn.RedisServerType == RedisServerType.ClusterSlave)
@@ -289,7 +290,7 @@ namespace SAEA.RedisSocket.Core
 
         }
 
-        public ResponseData DoBatch<T>(RequestType type, string id, Dictionary<string, T> dic, bool hasCalc = true)
+        public ResponseData DoBatch<T>(RequestType type, string id, Dictionary<string, T> dic, bool hasCalc)
         {
             if (hasCalc)
                 if (_cnn.RedisServerType == RedisServerType.ClusterMaster || _cnn.RedisServerType == RedisServerType.ClusterSlave)
@@ -387,7 +388,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="pattern"></param>
         /// <param name="count"></param>
         /// <returns></returns>
-        public ScanResponse Do(RequestType type, string key, int offset = 0, string pattern = "*", int count = -1, bool hasCalc = true)
+        public ScanResponse DoScanKey(RequestType type, string key, int offset = 0, string pattern = "*", int count = -1, bool hasCalc = true)
         {
             if (hasCalc)
                 if (_cnn.RedisServerType == RedisServerType.ClusterMaster || _cnn.RedisServerType == RedisServerType.ClusterSlave)
@@ -428,7 +429,7 @@ namespace SAEA.RedisSocket.Core
             {
                 _cnn = OnRedirect.Invoke(result.Data);
                 _redisCoder = _cnn.RedisCoder;
-                return Do(type, key, offset, pattern, count, false);
+                return DoScanKey(type, key, offset, pattern, count, false);
             }
             else
             {
