@@ -95,6 +95,9 @@ client.Close();
 ```
 
 ## RedisTest
+
+<a href="https://github.com/yswenli/WebRedisManager" target="_blank">https://github.com/yswenli/WebRedisManager</a>
+
 ### saea.redis usage
 
 ```csharp
@@ -106,6 +109,9 @@ client.Close();
 ```
 
 ## SAEA.MVC
+
+<a href="https://github.com/yswenli/WebRedisManager" target="_blank">https://github.com/yswenli/WebRedisManager</a>
+
 ### saea.mvc init usage
 
 ```csharp
