@@ -39,40 +39,27 @@ namespace SAEA.Sockets.Core
 {
     public class UserTokenPool : IDisposable
     {
-        Type _userTokenType;
-
-        Type _coderType;
-
         ConcurrentQueue<IUserToken> concurrentQueue = new ConcurrentQueue<IUserToken>();
 
         object locker = new object();
 
         public UserTokenPool(IContext context, int count)
         {
-            _userTokenType = context.UserToken.GetType();
-            _coderType = context.UserToken.Unpacker.GetType();
 
             for (int i = 0; i < count; i++)
             {
-                concurrentQueue.Enqueue(GetUserToken());
+                IUserToken userToken = UserTokenFactory.Create(context);
+                concurrentQueue.Enqueue(userToken);
             }
-        }
-
-        private IUserToken GetUserToken()
-        {
-            IUserToken userToken = (IUserToken)Activator.CreateInstance(_userTokenType);
-            IUnpacker coder = (IUnpacker)Activator.CreateInstance(_coderType);
-            userToken.Unpacker = coder;            
-            return userToken;
         }
 
         public IUserToken Dequeue()
         {
-            if (!concurrentQueue.TryDequeue(out IUserToken userToken))
+            if (concurrentQueue.TryDequeue(out IUserToken userToken))
             {
-                userToken = GetUserToken();
+                return userToken;
             }
-            return userToken;
+            else throw new Exception("当前IUserToken请求数已超出限制！");
         }
 
         public void Enqueue(IUserToken userToken)

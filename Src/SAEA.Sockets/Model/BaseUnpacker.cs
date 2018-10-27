@@ -11,7 +11,7 @@
 *机器名称：WENLI-PC
 *公司名称：wenli
 *命名空间：SAEA.Sockets.Model
-*文件名： BaseCode
+*文件名： BaseUnpacker
 *版本号： V2.2.2.1
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC

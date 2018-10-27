@@ -113,13 +113,13 @@ namespace SAEA.MessageSocket
                                     _autoResetEvent.Set();
                                     break;
                                 case ChatMessageType.ChannelMessage:
-                                    OnChannelMessage?.Invoke(cm.GetIMessage<ChannelMessage>());
+                                    TaskHelper.Start(() => OnChannelMessage?.Invoke(cm.GetIMessage<ChannelMessage>()));
                                     break;
                                 case ChatMessageType.PrivateMessage:
-                                    OnPrivateMessage?.Invoke(cm.GetIMessage<PrivateMessage>());
+                                    TaskHelper.Start(() => OnPrivateMessage?.Invoke(cm.GetIMessage<PrivateMessage>()));
                                     break;
                                 case ChatMessageType.GroupMessage:
-                                    OnGroupMessage?.Invoke(cm.GetIMessage<GroupMessage>());
+                                    TaskHelper.Start(() => OnGroupMessage?.Invoke(cm.GetIMessage<GroupMessage>()));
                                     break;
                                 case ChatMessageType.PrivateMessageAnswer:
                                     _autoResetEvent.Set();

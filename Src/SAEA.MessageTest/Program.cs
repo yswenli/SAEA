@@ -184,14 +184,6 @@ namespace SAEA.MessageTest
                 while (true)
                 {
                     cc1.SendPrivateMsg(cc2.UserToken.ID, "你好呀,cc2！");
-                    Thread.Sleep(500);
-                }
-            });
-
-            Task.Run(() =>
-            {
-                while (true)
-                {
                     cc2.SendPrivateMsg(cc1.UserToken.ID, "你好呀,cc1！");
                     Thread.Sleep(500);
                 }
@@ -212,7 +204,6 @@ namespace SAEA.MessageTest
             client.Connect();
 
             ConsoleHelper.WriteLine("客户端就绪");
-
 
             client.Login();
             ConsoleHelper.WriteLine("客户端登录成功");
@@ -243,12 +234,10 @@ namespace SAEA.MessageTest
                     var c = new MessageClient();
                     if (i < 10)
                         c.OnChannelMessage += Client_OnChannelMessage2;
-                    c.ConnectAsync((state) =>
-                    {
-                        c.Login();
-                        c.Subscribe(channelName);
-                        list.Add(c);
-                    });
+                    list.Add(c);
+                    c.Connect();
+                    c.Login();
+                    c.Subscribe(channelName);
                 }
             });
             //===============================================================

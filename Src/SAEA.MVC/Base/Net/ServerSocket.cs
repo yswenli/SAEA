@@ -32,9 +32,10 @@ namespace SAEA.MVC.Base.Net
     {
         public event Action<IUserToken, IRequestDataReader> OnRequested;
 
+
         public ServerSocket(int bufferSize = 1024 * 100, int count = 10000) : base(new HContext(), bufferSize, count)
         {
-
+            
         }
 
         protected override void OnReceiveBytes(IUserToken userToken, byte[] data)

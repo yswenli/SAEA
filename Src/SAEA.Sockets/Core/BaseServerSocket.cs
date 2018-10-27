@@ -132,9 +132,9 @@ namespace SAEA.Sockets.Core
 
             _sessionManager.Set(userToken);
 
-            OnAccepted?.Invoke(userToken);
-
             Interlocked.Increment(ref _clientCounts);
+
+            TaskHelper.Start(() => { OnAccepted?.Invoke(userToken); });
 
             if (!userToken.Socket.ReceiveAsync(readArgs))
             {

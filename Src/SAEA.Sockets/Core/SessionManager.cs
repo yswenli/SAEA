@@ -102,7 +102,7 @@ namespace SAEA.Sockets.Core
         }
 
         /// <summary>
-        /// 初始化一个IUserToken
+        /// 初始化IUserToken
         /// </summary>
         /// <returns></returns>
         private IUserToken InitUserToken()

@@ -37,6 +37,7 @@ using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using System.Threading.Tasks.Dataflow;
 
 namespace SAEA.Sockets.Core
 {
@@ -60,6 +61,8 @@ namespace SAEA.Sockets.Core
         Action<SocketError> _connectCallBack;
 
         AutoResetEvent _connectEvent = new AutoResetEvent(true);
+
+        ActionBlock<byte[]> _actionBlock;
 
         public bool Connected { get => _connected; set => _connected = value; }
         public IUserToken UserToken { get => _userToken; private set => _userToken = value; }
@@ -97,21 +100,12 @@ namespace SAEA.Sockets.Core
             };
             _connectArgs.Completed += ConnectArgs_Completed;
 
-            var userTokenType = context.UserToken.GetType();
-            var coderType = context.UserToken.Unpacker.GetType();
+            _userToken = UserTokenFactory.Create(context, bufferSize, IO_Completed);
 
-            IUserToken userToken = (IUserToken)Activator.CreateInstance(userTokenType);
-            IUnpacker coder = (IUnpacker)Activator.CreateInstance(coderType);
-            userToken.Unpacker = coder;
-
-            userToken.ReadArgs = new SocketAsyncEventArgs();
-            userToken.ReadArgs.Completed += IO_Completed;
-            userToken.ReadArgs.SetBuffer(new byte[bufferSize], 0, bufferSize);
-            userToken.WriteArgs = new SocketAsyncEventArgs();
-            userToken.WriteArgs.Completed += IO_Completed;
-            userToken.ReadArgs.UserToken = userToken.WriteArgs.UserToken = userToken;
-
-            _userToken = userToken;
+            _actionBlock = new ActionBlock<byte[]>((data) =>
+            {
+                OnClientReceive?.Invoke(data);
+            });
         }
 
         /// <summary>
@@ -159,7 +153,7 @@ namespace SAEA.Sockets.Core
                 var readArgs = _userToken.ReadArgs;
                 if (!_userToken.Socket.ReceiveAsync(readArgs))
                     ProcessReceive(readArgs);
-                _connectCallBack?.Invoke(e.SocketError);
+                _connectCallBack?.Invoke(e.SocketError);                
             }
         }
 
@@ -195,7 +189,7 @@ namespace SAEA.Sockets.Core
 
                     Buffer.BlockCopy(e.Buffer, e.Offset, data, 0, e.BytesTransferred);
 
-                    OnClientReceive?.Invoke(data);
+                    _actionBlock.Post(data);
 
                     if (!_userToken.Socket.ReceiveAsync(e))
                         ProcessReceive(e);
