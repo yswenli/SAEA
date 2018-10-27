@@ -35,8 +35,9 @@ namespace SAEA.MVC.Base.Net
 
         object _locker = new object();
 
-        bool _isAnalysis = false;
+        private bool _isAnalysis = false;
 
+        public bool IsAnalysis { get => _isAnalysis; set => _isAnalysis = value; }
 
         public void Unpack(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
         {

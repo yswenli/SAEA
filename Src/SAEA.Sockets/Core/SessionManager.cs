@@ -153,9 +153,8 @@ namespace SAEA.Sockets.Core
         /// <param name="userToken"></param>
         public bool Free(IUserToken userToken)
         {
-            if (_session.Get(userToken.ID) != null)
+            if (_session.Del(userToken.ID, out MemoryCachItem<IUserToken> mc))
             {
-                _session.Del(userToken.ID);
                 if (userToken.Socket != null)
                 {
                     try

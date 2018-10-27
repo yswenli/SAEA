@@ -71,10 +71,11 @@ namespace SAEA.Common
         }
 
 
-        public void Del(string key)
+        public bool Del(string key,out MemoryCachItem<T> mc)
         {
-            _dic.TryRemove(key, out MemoryCachItem<T> mc);
+            return _dic.TryRemove(key, out mc);
         }
+
 
         public IEnumerable<MemoryCachItem<T>> List
         {

@@ -41,6 +41,8 @@ namespace SAEA.MVC.Base.Net
         {
             HUnpacker coder = (HUnpacker)userToken.Unpacker;
 
+            coder.IsAnalysis = false;
+
             coder.GetRequest(data, (result) =>
             {
                 OnRequested?.Invoke(userToken, result);

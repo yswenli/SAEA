@@ -37,14 +37,14 @@ namespace SAEA.Sockets.Core
 {
     class SocketAsyncEventArgsPool
     {
-        Stack<SocketAsyncEventArgs> m_pool;
+        Stack<SocketAsyncEventArgs> _argsPool;
 
         int _capacity = 1000 * 100;
 
         public SocketAsyncEventArgsPool(int capacity = 1000 * 100)
         {
             _capacity = capacity;
-            m_pool = new Stack<SocketAsyncEventArgs>(_capacity);
+            _argsPool = new Stack<SocketAsyncEventArgs>(_capacity);
         }
 
 
@@ -54,33 +54,33 @@ namespace SAEA.Sockets.Core
             {
                 var args = new SocketAsyncEventArgs();
                 args.Completed += completed;
-                m_pool.Push(args);
+                _argsPool.Push(args);
             }
         }
 
         public void Push(SocketAsyncEventArgs item)
         {
             if (item == null) { throw new ArgumentNullException("Items added to a SocketAsyncEventArgsPool cannot be null"); }
-            lock (m_pool)
+            lock (_argsPool)
             {
                 item.UserToken = null;
-                m_pool.Push(item);
+                _argsPool.Push(item);
             }
         }
 
 
         public SocketAsyncEventArgs Pop()
         {
-            lock (m_pool)
+            lock (_argsPool)
             {
-                return m_pool.Pop();
+                return _argsPool.Pop();
             }
         }
 
 
         public int Count
         {
-            get { return m_pool.Count; }
+            get { return _argsPool.Count; }
         }
 
     }
