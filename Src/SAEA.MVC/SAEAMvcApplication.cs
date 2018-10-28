@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.MVC
 *文件名： HttpApplication
-*版本号： V2.2.2.1
+*版本号： V3.0.0.1
 *唯一标识：85030224-1d7f-4fc0-8e65-f4b6144c6a46
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,21 +17,18 @@
 *修改标记
 *修改时间：2018/4/10 13:59:33
 *修改人： yswenli
-*版本号： V2.2.2.1
+*版本号： V3.0.0.1
 *描述：
 *
 *****************************************************************************/
-using SAEA.MVC.Base;
-using SAEA.MVC.Mvc;
-using SAEA.MVC.Hosting;
+using SAEA.Http;
 using SAEA.Sockets.Interface;
 using System;
-using SAEA.MVC.Model;
 
 namespace SAEA.MVC
 {
     /// <summary>
-    /// SAEA.MVC.Mvc应用程序
+    /// SAEA.MVC应用程序
     /// </summary>
     public class SAEAMvcApplication
     {
@@ -50,23 +47,11 @@ namespace SAEA.MVC
         /// <param name="count">http连接数上限</param>
         public SAEAMvcApplication(string root = "/html/", int port = 39654, bool isStaticsCached = true, bool isZiped = false, int bufferSize = 1024 * 10, int count = 10000)
         {
-            webHost = new WebHost(root, port, isStaticsCached, isZiped, bufferSize, count);
-            webHost.OnRequested += WebHost_OnRequested;
-        }
-
-        /// <summary>
-        /// 处理mvc请求
-        /// </summary>
-        /// <param name="userToken"></param>
-        /// <param name="requestDataReader"></param>
-        private void WebHost_OnRequested(IUserToken userToken, IRequestDataReader requestDataReader)
-        {
-            using (var httpContext = new HttpContext())
+            var mvcInvoker = new MVCInvoker()
             {
-                httpContext.Init(webHost, userToken, (RequestDataReader)requestDataReader);
-
-                httpContext.HttpHandler(AreaCollection.RouteTable);
-            }
+                Parma = AreaCollection.RouteTable
+            };
+            webHost = new WebHost(mvcInvoker, root, port, isStaticsCached, isZiped, bufferSize, count);
         }
 
         /// <summary>

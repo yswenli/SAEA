@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <Description>This is a web component based on SAEA.Sockets. It is lightweight, high performance, easy to use and self hosting. For example, please visit: https://github.com/yswenli/SAEA/tree/master/Src/SAEA.HttpTest.
+这是一个基于SAEA.Sockets的web组件，轻量高性能，使用简便，自宿主。使用样例请访问：https://github.com/yswenli/SAEA/tree/master/Src/SAEA.MVCTest。</Description>
+    <PackageReleaseNotes>This is a web component based on SAEA.Sockets. It is lightweight, high performance, easy to use and self hosting. For example, please visit: https://github.com/yswenli/SAEA/tree/master/Src/SAEA.HttpTest.
+这是一个基于SAEA.Sockets的web组件，轻量高性能，使用简便，自宿主。使用样例请访问：https://github.com/yswenli/SAEA/tree/master/Src/SAEA.MVCTest。</PackageReleaseNotes>
+    <Copyright>yswenli</Copyright>
+    <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
+    <PackageTags>webserver,httpserver,iocp,tcp,socket</PackageTags>
+    <Version>3.0.0.1</Version>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SAEA.Common\SAEA.Common.csproj" />
+    <ProjectReference Include="..\SAEA.Sockets\SAEA.Sockets.csproj" />
+  </ItemGroup>
+
+</Project>

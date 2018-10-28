@@ -53,10 +53,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedisClientLibs", "RedisCli
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedusClientConsole", "RedusClientConsole\RedusClientConsole.csproj", "{3EE18125-3542-4288-89C3-720161F67151}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAEA.Http", "SAEA.Http\SAEA.Http.csproj", "{2EA32048-4558-4B28-BF83-4E74018DE96E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAEA.HttpTest", "SAEA.HttpTest\SAEA.HttpTest.csproj", "{C3DCF09A-79E3-4E97-B39A-21086AC51303}"
+EndProject
 Global
-	GlobalSection(Performance) = preSolution
-		HasPerformanceSessions = true
-	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
@@ -158,6 +159,14 @@ Global
 		{3EE18125-3542-4288-89C3-720161F67151}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3EE18125-3542-4288-89C3-720161F67151}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3EE18125-3542-4288-89C3-720161F67151}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2EA32048-4558-4B28-BF83-4E74018DE96E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2EA32048-4558-4B28-BF83-4E74018DE96E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2EA32048-4558-4B28-BF83-4E74018DE96E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2EA32048-4558-4B28-BF83-4E74018DE96E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C3DCF09A-79E3-4E97-B39A-21086AC51303}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C3DCF09A-79E3-4E97-B39A-21086AC51303}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C3DCF09A-79E3-4E97-B39A-21086AC51303}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C3DCF09A-79E3-4E97-B39A-21086AC51303}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -169,6 +178,9 @@ Global
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {83B70B6A-E224-43AF-8343-2E224D9FA68E}
+	EndGlobalSection
+	GlobalSection(Performance) = preSolution
+		HasPerformanceSessions = true
 	EndGlobalSection
 	GlobalSection(Performance) = preSolution
 		HasPerformanceSessions = true

@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netcoreapp2.0</TargetFramework>
     <PackageProjectUrl>https://www.cnblogs.com/yswenli/</PackageProjectUrl>
-    <Version>2.2.2.1</Version>
+    <Version>3.0.0.1</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Description>This is a SAEA. Sockets-based RPC component, portable and efficient, far superior performance to similar products, easy to use, a few lines of code can be implemented.
 这是一个基于SAEA.Sockets的rpc组件，轻便高效，性能远超同类产品，简单易用，几行代码就能实现
@@ -13,7 +13,7 @@ https://github.com/yswenli/SAEA</Description>
     <PackageReleaseNotes>This is a SAEA. Sockets-based RPC component, portable and efficient, far superior performance to similar products, easy to use, a few lines of code can be implemented.
 这是一个基于SAEA.Sockets的rpc组件，轻便高效，性能远超同类产品，简单易用，几行代码就能实现
 https://github.com/yswenli/SAEA</PackageReleaseNotes>
-    <PackageTags>rcp,iocp,tcp</PackageTags>
+    <PackageTags>rcp,iocp,socket,tcp</PackageTags>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
   </PropertyGroup>

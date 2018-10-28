@@ -1,7 +1,5 @@
-﻿using SAEA.MVC.Mvc;
-using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using SAEA.Http.Model;
+using SAEA.MVC;
 
 namespace SAEA.MVCTest.Controllers
 {
