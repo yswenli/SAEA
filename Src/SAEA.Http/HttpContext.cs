@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.Http
 *文件名： HttpContext
-*版本号： V3.0.0.1
+*版本号： V3.1.0.0
 *唯一标识：af0b65c6-0f58-4221-9e52-7e3f0a4ffb24
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/4/10 16:46:31
 *修改人： yswenli
-*版本号： V3.0.0.1
+*版本号： V3.1.0.0
 *描述：
 *
 *****************************************************************************/
@@ -79,38 +79,7 @@ namespace SAEA.Http
 
         public void HttpHandle()
         {
-            ActionResult result = null;
-
-            switch (this.Request.Method)
-            {
-                case ConstHelper.GET:
-                case ConstHelper.POST:
-
-                    if (this.Request.Query.Count > 0)
-                    {
-                        foreach (var item in this.Request.Query)
-                        {
-                            this.Request.Parmas[item.Key] = item.Value;
-                        }
-                    }
-                    if (this.Request.Forms.Count > 0)
-                    {
-                        foreach (var item in this.Request.Forms)
-                        {
-                            this.Request.Parmas[item.Key] = item.Value;
-                        }
-                    }
-                    result = Invoker.Invoke(this);
-                    break;
-                case ConstHelper.OPTIONS:
-                    result = new EmptyResult();
-                    break;
-                default:
-                    result = new ContentResult("不支持的请求方式", System.Net.HttpStatusCode.NotImplemented);
-                    break;
-            }
-            this.Response.SetResult(result);
-            this.Response.End();
+            Invoker.Invoke(this);           
         }
 
         public void Dispose()

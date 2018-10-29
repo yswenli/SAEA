@@ -4,8 +4,8 @@
 *机器名称：WENLI-PC
 *公司名称：Microsoft
 *命名空间：SAEA.MVC
-*文件名： HttpApplication
-*版本号： V3.0.0.1
+*文件名： SAEAMvcApplication
+*版本号： V3.1.0.0
 *唯一标识：85030224-1d7f-4fc0-8e65-f4b6144c6a46
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,12 +17,11 @@
 *修改标记
 *修改时间：2018/4/10 13:59:33
 *修改人： yswenli
-*版本号： V3.0.0.1
+*版本号： V3.1.0.0
 *描述：
 *
 *****************************************************************************/
 using SAEA.Http;
-using SAEA.Sockets.Interface;
 using System;
 
 namespace SAEA.MVC
@@ -47,10 +46,7 @@ namespace SAEA.MVC
         /// <param name="count">http连接数上限</param>
         public SAEAMvcApplication(string root = "/html/", int port = 39654, bool isStaticsCached = true, bool isZiped = false, int bufferSize = 1024 * 10, int count = 10000)
         {
-            var mvcInvoker = new MVCInvoker()
-            {
-                Parma = AreaCollection.RouteTable
-            };
+            var mvcInvoker = new MvcInvoker(AreaCollection.RouteTable);
             webHost = new WebHost(mvcInvoker, root, port, isStaticsCached, isZiped, bufferSize, count);
         }
 

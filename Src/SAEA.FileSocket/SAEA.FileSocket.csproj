@@ -5,10 +5,10 @@
     <Company>yswenli</Company>
     <Authors>yswenli</Authors>
     <Copyright>yswenli</Copyright>
-    <PackageProjectUrl>https://www.cnblogs.com/yswenli/</PackageProjectUrl>
-    <FileVersion>3.0.0.1</FileVersion>
-    <AssemblyVersion>3.0.0.1</AssemblyVersion>
-    <Version>3.0.0.1</Version>
+    <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
+    <FileVersion>3.1.0.0</FileVersion>
+    <AssemblyVersion>3.1.0.0</AssemblyVersion>
+    <Version>3.1.0.0</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
     <Description>This is a high-performance file transfer component based on SAEA.Sockets.

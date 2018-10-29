@@ -3,9 +3,9 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.Http.Model
+*命名空间：SAEA.MVC
 *文件名： ActionResult
-*版本号： V3.0.0.1
+*版本号： V3.1.0.0
 *唯一标识：39ffb9e8-5bff-4535-9b15-8d744bc100d9
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,18 +17,19 @@
 *修改标记
 *修改时间：2018/4/10 16:44:33
 *修改人： yswenli
-*版本号： V3.0.0.1
+*版本号： V3.1.0.0
 *描述：
 *
 *****************************************************************************/
+using SAEA.Http.Model;
 using System.Net;
 using System.Text;
 
-namespace SAEA.Http.Model
+namespace SAEA.MVC
 {
     // 摘要:
     //     封装一个操作方法的结果并用于代表该操作方法执行框架级操作。
-    public abstract class ActionResult : IActionResult
+    public abstract class ActionResult : IHttpResult
     {
         // 摘要:
         //     初始化 SAEA.Http.ActionResult 类的新实例。

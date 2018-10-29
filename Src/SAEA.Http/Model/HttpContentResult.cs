@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.Http.Model
 *文件名： ContentResult
-*版本号： V3.0.0.1
+*版本号： V3.1.0.0
 *唯一标识：4f00dffe-e5f4-4a70-83d3-95c1e16d96a3
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/4/11 13:51:11
 *修改人： yswenli
-*版本号： V3.0.0.1
+*版本号： V3.1.0.0
 *描述：
 *
 *****************************************************************************/
@@ -26,14 +26,14 @@ using System.Text;
 
 namespace SAEA.Http.Model
 {
-    public class ContentResult : ActionResult
+    public class HttpContentResult : HttpActionResult
     {
-        public ContentResult(string str) : this(str, Encoding.UTF8)
+        public HttpContentResult(string str) : this(str, Encoding.UTF8)
         {
 
         }
 
-        public ContentResult(string str, HttpStatusCode status)
+        public HttpContentResult(string str, HttpStatusCode status)
         {
             this.Content = str;
             this.ContentEncoding = Encoding.UTF8;
@@ -41,7 +41,7 @@ namespace SAEA.Http.Model
             this.Status = status;
         }
 
-        public ContentResult(string str, Encoding encoding, string contentType = "text/plane; charset=utf-8")
+        public HttpContentResult(string str, Encoding encoding, string contentType = "text/plane; charset=utf-8")
         {
             this.Content = str;
             this.ContentEncoding = encoding;

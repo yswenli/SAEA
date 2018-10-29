@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.Http.Model
 *文件名： FilePart
-*版本号： V3.0.0.1
+*版本号： V3.1.0.0
 *唯一标识：a303db7d-f83c-4c49-9804-032ec2236232
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/4/10 13:58:08
 *修改人： yswenli
-*版本号： V3.0.0.1
+*版本号： V3.1.0.0
 *描述：
 *
 *****************************************************************************/
@@ -50,5 +50,12 @@ namespace SAEA.Http.Model
             Type = type;
             Data = data;
         }
+
+
+        public void Save(string filePath)
+        {
+            SAEA.Common.FileHelper.Write(filePath, this.Data);
+        }
+
     }
 }

@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.Http.Http
 *文件名： HttpResponse
-*版本号： V3.0.0.1
+*版本号： V3.1.0.0
 *唯一标识：2e43075f-a43d-4b60-bee1-1f9107e2d133
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/4/8 16:46:40
 *修改人： yswenli
-*版本号： V3.0.0.1
+*版本号： V3.1.0.0
 *描述：
 *
 *****************************************************************************/
@@ -118,16 +118,16 @@ namespace SAEA.Http
         /// 设置回复内容
         /// </summary>
         /// <param name="result"></param>
-        internal void SetResult(IActionResult result)
+        public void SetResult(IHttpResult result)
         {
             this.Status = result.Status;
-            if (result is EmptyResult)
+            if (result is HttpEmptyResult)
             {
                 return;
             }
-            else if (result is FileResult)
+            else if (result is IFileResult)
             {
-                var fileResult = (FileResult)result;
+                var fileResult = (IFileResult)result;
                 this.ContentType = fileResult.ContentType;
                 this.SetContent(fileResult.Content);
             }

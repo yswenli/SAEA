@@ -4,8 +4,8 @@
 *机器名称：WENLI-PC
 *公司名称：Microsoft
 *命名空间：SAEA.MVC
-*文件名： Invoker
-*版本号： V3.0.0.1
+*文件名： MvcInvoker
+*版本号： V3.1.0.0
 *唯一标识：eb956356-8ea4-4657-aec1-458a3654c078
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/4/10 18:10:16
 *修改人： yswenli
-*版本号： V3.0.0.1
+*版本号： V3.1.0.0
 *描述：
 *
 *****************************************************************************/
@@ -34,22 +34,30 @@ namespace SAEA.MVC
     /// <summary>
     /// saea.mvc实例方法映射处理类
     /// </summary>
-    public class MVCInvoker : IInvoker
+    public class MvcInvoker : IInvoker
     {
+        protected HttpContext _httpContext;
+
         public object Parma { get; set; }
 
-        public ActionResult Invoke(HttpContext httpContext)
+        public MvcInvoker(object parma) 
+        {
+            this.Parma = parma;
+        }
+
+
+        protected IHttpResult GetActionResult()
         {
             RouteTable routeTable = (RouteTable)this.Parma;
 
-            string url = httpContext.Request.Url;
+            string url = _httpContext.Request.Url;
 
-            NameValueCollection nameValues = httpContext.Request.Parmas.ToNameValueCollection();
+            NameValueCollection nameValues = _httpContext.Request.Parmas.ToNameValueCollection();
 
-            bool isPost = httpContext.Request.Method == ConstHelper.POST;
+            bool isPost = _httpContext.Request.Method == ConstHelper.POST;
 
             //禁止访问
-            var flist = httpContext.WebConfig.ForbiddenAccessList;
+            var flist = _httpContext.WebConfig.ForbiddenAccessList;
 
             if (flist.Count > 0)
             {
@@ -74,24 +82,24 @@ namespace SAEA.MVC
             {
                 case 0:
 
-                    filePath = httpContext.Server.MapPath(httpContext.WebConfig.DefaultPage);
+                    filePath = _httpContext.Server.MapPath(_httpContext.WebConfig.DefaultPage);
 
                     if (StaticResourcesCache.Exists(filePath))
                     {
-                        return new FileResult(filePath, httpContext.IsStaticsCached);
+                        return new FileResult(filePath, _httpContext.IsStaticsCached);
                     }
                     else
                     {
-                        var d = RouteTable.Types.Where(b => string.Compare(b.Name, httpContext.WebConfig.DefaultRout.Name, true) == 0 || string.Compare(b.Name, httpContext.WebConfig.DefaultRout.Name + ConstHelper.CONTROLLERNAME, true) == 0).FirstOrDefault();
+                        var d = RouteTable.Types.Where(b => string.Compare(b.Name, _httpContext.WebConfig.DefaultRout.Name, true) == 0 || string.Compare(b.Name, _httpContext.WebConfig.DefaultRout.Name + ConstHelper.CONTROLLERNAME, true) == 0).FirstOrDefault();
 
-                        return MVCInvoke(httpContext, routeTable, d, httpContext.WebConfig.DefaultRout.Value, nameValues, isPost);
+                        return MvcInvoke(_httpContext, routeTable, d, _httpContext.WebConfig.DefaultRout.Value, nameValues, isPost);
                     }
 
                 case 1:
-                    filePath = httpContext.Server.MapPath(url);
+                    filePath = _httpContext.Server.MapPath(url);
                     if (StaticResourcesCache.Exists(filePath))
                     {
-                        return new FileResult(filePath, httpContext.IsStaticsCached);
+                        return new FileResult(filePath, _httpContext.IsStaticsCached);
                     }
                     break;
 
@@ -102,19 +110,57 @@ namespace SAEA.MVC
 
                     if (first != null)
                     {
-                        return MVCInvoke(httpContext, routeTable, first, arr[arr.Length - 1], nameValues, isPost);
+                        return MvcInvoke(_httpContext, routeTable, first, arr[arr.Length - 1], nameValues, isPost);
                     }
                     else
                     {
-                        filePath = httpContext.Server.MapPath(url);
+                        filePath = _httpContext.Server.MapPath(url);
                         if (StaticResourcesCache.Exists(filePath))
                         {
-                            return new FileResult(filePath, httpContext.IsStaticsCached);
+                            return new FileResult(filePath, _httpContext.IsStaticsCached);
                         }
                     }
                     break;
             }
             return new ContentResult("o_o，找不到任何内容", System.Net.HttpStatusCode.NotFound);
+        }
+
+        public void Invoke(HttpContext httpContext)
+        {
+            _httpContext = httpContext;
+
+            IHttpResult result;
+
+            switch (_httpContext.Request.Method)
+            {
+                case ConstHelper.GET:
+                case ConstHelper.POST:
+
+                    if (_httpContext.Request.Query.Count > 0)
+                    {
+                        foreach (var item in _httpContext.Request.Query)
+                        {
+                            _httpContext.Request.Parmas[item.Key] = item.Value;
+                        }
+                    }
+                    if (_httpContext.Request.Forms.Count > 0)
+                    {
+                        foreach (var item in _httpContext.Request.Forms)
+                        {
+                            _httpContext.Request.Parmas[item.Key] = item.Value;
+                        }
+                    }
+                    result = GetActionResult();
+                    break;
+                case ConstHelper.OPTIONS:
+                    result = new EmptyResult();
+                    break;
+                default:
+                    result = new ContentResult("不支持的请求方式", System.Net.HttpStatusCode.NotImplemented);
+                    break;
+            }
+            _httpContext.Response.SetResult(result);
+            _httpContext.Response.End();
         }
 
         /// <summary>
@@ -127,7 +173,7 @@ namespace SAEA.MVC
         /// <param name="nameValues"></param>
         /// <param name="isPost"></param>
         /// <returns></returns>
-        public static ActionResult MVCInvoke(HttpContext httpContext, RouteTable routeTable, Type controller, string actionName, NameValueCollection nameValues, bool isPost)
+        private static ActionResult MvcInvoke(HttpContext httpContext, RouteTable routeTable, Type controller, string actionName, NameValueCollection nameValues, bool isPost)
         {
             try
             {
@@ -174,7 +220,7 @@ namespace SAEA.MVC
 
                             if (!goOn)
                             {
-                                return new ContentResult("o_o，当前逻辑已被拦截！", System.Net.HttpStatusCode.NotAcceptable);
+                                return new  ContentResult("o_o，当前逻辑已被拦截！", System.Net.HttpStatusCode.NotAcceptable);
                             }
                         }
                     }
@@ -209,11 +255,11 @@ namespace SAEA.MVC
             {
                 if (ex.Message.Contains("o_o，找不到"))
                 {
-                    return new ContentResult(ex.Message, System.Net.HttpStatusCode.NotFound);
+                    return new  ContentResult(ex.Message, System.Net.HttpStatusCode.NotFound);
                 }
                 else
                 {
-                    return new ContentResult("→_→，出错了：" + ex.Message, System.Net.HttpStatusCode.InternalServerError);
+                    return new  ContentResult("→_→，出错了：" + ex.Message, System.Net.HttpStatusCode.InternalServerError);
                 }
             }
         }
@@ -245,7 +291,7 @@ namespace SAEA.MVC
             }
             catch (Exception ex)
             {
-                result = new ContentResult($"→_→，出错了：{obj}/{action.Name},出现异常：{ex.Message}", System.Net.HttpStatusCode.InternalServerError);
+                result = new  ContentResult($"→_→，出错了：{obj}/{action.Name},出现异常：{ex.Message}", System.Net.HttpStatusCode.InternalServerError);
             }
             return result;
         }

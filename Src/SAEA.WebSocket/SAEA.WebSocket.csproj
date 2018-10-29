@@ -5,7 +5,7 @@
     <Authors>yswenli</Authors>
     <Company>yswenli</Company>
     <Copyright>yswenli</Copyright>
-    <Version>3.0.0.1</Version>
+    <Version>3.1.0.0</Version>
     <Description>This is a websocket server and client component based on SAEA.Socket.
 这是基于SAEA.Socket的websocket服务器、客户端组件
 https://github.com/yswenli/SAEA</Description>
@@ -15,7 +15,7 @@ https://github.com/yswenli/SAEA</Description>
     <PackageReleaseNotes>This is a websocket server and client component based on SAEA.Socket.
 这是基于SAEA.Socket的websocket服务器、客户端组件
 https://github.com/yswenli/SAEA</PackageReleaseNotes>
-    <AssemblyVersion>3.0.0.1</AssemblyVersion>
+    <AssemblyVersion>3.1.0.0</AssemblyVersion>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>

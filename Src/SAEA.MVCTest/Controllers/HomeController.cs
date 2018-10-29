@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.MVCTest.Controllers
 *文件名： HomeController
-*版本号： V3.0.0.1
+*版本号： V3.1.0.0
 *唯一标识：e00bb57f-e3ee-4efe-a7cf-f23db767c1d0
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,11 +17,10 @@
 *修改标记
 *修改时间：2018/4/10 16:43:26
 *修改人： yswenli
-*版本号： V3.0.0.1
+*版本号： V3.1.0.0
 *描述：
 *
 *****************************************************************************/
-using SAEA.Http.Model;
 using SAEA.MVC;
 using SAEA.MVCTest.Attrubutes;
 using SAEA.MVCTest.Model;
