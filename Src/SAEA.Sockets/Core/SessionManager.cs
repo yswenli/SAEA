@@ -64,6 +64,9 @@ namespace SAEA.Sockets.Core
         /// </summary>
         public event Action<IUserToken> OnTimeOut;
 
+        object _locker = new object();
+
+
         /// <summary>
         /// 构造会话管理器
         /// </summary>
@@ -105,7 +108,7 @@ namespace SAEA.Sockets.Core
         /// 初始化IUserToken
         /// </summary>
         /// <returns></returns>
-        private IUserToken InitUserToken()
+        IUserToken InitUserToken()
         {
             IUserToken userToken = _userTokenPool.Dequeue();
             userToken.ReadArgs = _argsPool.Pop();
@@ -122,19 +125,23 @@ namespace SAEA.Sockets.Core
         /// <returns></returns>
         public IUserToken GenerateUserToken(Socket socket)
         {
-            IUserToken userToken = InitUserToken();
-            userToken.Socket = socket;
-            userToken.ID = socket.RemoteEndPoint.ToString();
-            userToken.Linked = DateTimeHelper.Now;
-            userToken.Actived = DateTimeHelper.Now;
-            return userToken;
+            lock (_locker)
+            {
+                IUserToken userToken = InitUserToken();
+                userToken.Socket = socket;
+                userToken.ID = socket.RemoteEndPoint.ToString();
+                userToken.Linked = DateTimeHelper.Now;
+                userToken.Actived = DateTimeHelper.Now;
+                Set(userToken);
+                return userToken;
+            }
+            
         }
 
 
-        public void Set(IUserToken IUserToken)
+        void Set(IUserToken IUserToken)
         {
             _session.Set(IUserToken.ID, IUserToken, _timeOut);
-
         }
 
         public void Active(string ID)
@@ -153,24 +160,32 @@ namespace SAEA.Sockets.Core
         /// <param name="userToken"></param>
         public bool Free(IUserToken userToken)
         {
-            if (_session.Del(userToken.ID, out MemoryCachItem<IUserToken> mc))
+            lock (_locker)
             {
-                if (userToken.Socket != null)
+                if (_session.Del(userToken.ID, out MemoryCachItem<IUserToken> mc))
                 {
-                    try
+                    if (userToken.Socket != null)
                     {
-                        if (userToken.Socket.Connected)
-                            userToken.Socket.Shutdown(SocketShutdown.Both);
+                        try
+                        {
+                            if (userToken.Socket.Connected)
+                                userToken.Socket.Shutdown(SocketShutdown.Both);
+                        }
+                        catch { }
+                        _bufferManager.FreeBuffer(userToken.ReadArgs);
+                        _argsPool.Push(userToken.ReadArgs);
+                        _argsPool.Push(userToken.WriteArgs);
+                        _userTokenPool.Enqueue(userToken);
+                        return true;
                     }
-                    catch { }
-                    _bufferManager.FreeBuffer(userToken.ReadArgs);
-                    _argsPool.Push(userToken.ReadArgs);
-                    _argsPool.Push(userToken.WriteArgs);
-                    _userTokenPool.Enqueue(userToken);
-                    return true;
+                    else
+                    {
+
+                    }
                 }
+                return false;
             }
-            return false;
+            
         }
 
         /// <summary>
@@ -179,7 +194,10 @@ namespace SAEA.Sockets.Core
         /// <returns></returns>
         public List<IUserToken> ToList()
         {
-            return _session.List.Select(b => b.Value).ToList();
+            lock (_locker)
+            {
+                return _session.List.Select(b => b.Value).ToList();
+            }            
         }
 
         /// <summary>

@@ -36,7 +36,7 @@ namespace SAEA.Http
     /// </summary>
     public class WebHost : IWebHost
     {
-        ServerSocket _serverSocket;
+        HttpSocket _serverSocket;
 
         /// <summary>
         /// 是否已启动
@@ -75,7 +75,7 @@ namespace SAEA.Http
                 ClientCounts = count
             };
 
-            _serverSocket = new ServerSocket(bufferSize, count);
+            _serverSocket = new HttpSocket(bufferSize, count);
 
             _serverSocket.OnRequested += _serverSocket_OnRequested;
 
@@ -104,10 +104,7 @@ namespace SAEA.Http
         {
             try
             {
-                using (var httpContext = new HttpContext(this, userToken, (RequestDataReader)requestDataReader))
-                {
-                    httpContext.HttpHandle();
-                }
+                new HttpContext(this, userToken, (RequestDataReader)requestDataReader).HttpHandle();
             }
             catch (Exception ex)
             {

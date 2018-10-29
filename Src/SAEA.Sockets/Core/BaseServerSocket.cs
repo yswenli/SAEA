@@ -83,7 +83,7 @@ namespace SAEA.Sockets.Core
         /// <param name="count"></param>
         /// <param name="noDelay"></param>
         /// <param name="timeOut"></param>
-        public BaseServerSocket(IContext context, int bufferSize = 100 * 1024, int count = 10000, bool noDelay = true, int timeOut = 60 * 1000)
+        public BaseServerSocket(IContext context, int bufferSize = 1024 * 10, int count = 10000, bool noDelay = true, int timeOut = 60 * 1000)
         {
             _sessionManager = new SessionManager(context, bufferSize, count, IO_Completed, new TimeSpan(0, 0, timeOut));
             _sessionManager.OnTimeOut += _sessionManager_OnTimeOut;
@@ -123,14 +123,12 @@ namespace SAEA.Sockets.Core
                 ProcessAccepted(e);
             }
         }
-
+        
         private void ProcessAccepted(SocketAsyncEventArgs e)
         {
             var userToken = _sessionManager.GenerateUserToken(e.AcceptSocket);
 
             var readArgs = userToken.ReadArgs;
-
-            _sessionManager.Set(userToken);
 
             Interlocked.Increment(ref _clientCounts);
 
@@ -195,7 +193,7 @@ namespace SAEA.Sockets.Core
                     OnServerReceiveBytes.Invoke(userToken, data);
 
                     //继续接收下一个
-                    if (userToken != null && userToken.Socket != null && userToken.Socket.Connected)
+                    if (userToken.Socket != null && userToken.Socket.Connected)
                     {
                         if (!userToken.Socket.ReceiveAsync(readArgs))
                             ProcessReceived(readArgs);
@@ -310,15 +308,11 @@ namespace SAEA.Sockets.Core
         /// <param name="data"></param>
         public void End(IUserToken userToken, byte[] data)
         {
-            if (userToken != null && userToken.Socket != null)
+            var result = userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, null, null);
+            userToken.Socket.EndSend(result);
+            if (_sessionManager.Free(userToken))
             {
-                var result = userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, null, null);
-                if (result != null)
-                    userToken.Socket.EndSend(result);
-                if (_sessionManager.Free(userToken))
-                {
-                    Interlocked.Decrement(ref _clientCounts);
-                }
+                Interlocked.Decrement(ref _clientCounts);
             }
         }
 
@@ -335,7 +329,7 @@ namespace SAEA.Sockets.Core
         {
             try
             {
-                _listener.Close(10 * 1000);
+                _listener.Close();
                 _sessionManager.Clear();
             }
             catch { }

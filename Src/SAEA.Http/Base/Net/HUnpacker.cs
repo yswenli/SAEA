@@ -35,9 +35,6 @@ namespace SAEA.Http.Base.Net
 
         object _locker = new object();
 
-        private bool _isAnalysis = false;
-
-        public bool IsAnalysis { get => _isAnalysis; set => _isAnalysis = value; }
 
         public void Unpack(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
         {
@@ -59,11 +56,9 @@ namespace SAEA.Http.Base.Net
 
                 var requestDataReader = new RequestDataReader();
 
-                if (!_isAnalysis)
-                {
-                    _isAnalysis = requestDataReader.Analysis(buffer);
-                }
-                if (_isAnalysis)
+                var isAnalysis = requestDataReader.Analysis(buffer);
+
+                if (isAnalysis)
                 {
                     //post需要处理body
                     if (requestDataReader.Method == ConstHelper.POST)

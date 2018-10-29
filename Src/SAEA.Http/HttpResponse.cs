@@ -32,7 +32,7 @@ using System.Text;
 
 namespace SAEA.Http
 {
-    public class HttpResponse : HttpBase, IDisposable
+    public class HttpResponse : HttpBase
     {
         public HttpStatusCode Status { get; set; } = HttpStatusCode.OK;
 
@@ -122,7 +122,7 @@ namespace SAEA.Http
         public void SetResult(IHttpResult result)
         {
             this.Status = result.Status;
-            if (result is HttpEmptyResult)
+            if (result is IEmptyResult)
             {
                 return;
             }
@@ -193,16 +193,6 @@ namespace SAEA.Http
         public void End()
         {
             WebHost.End(UserToken, this.ToBytes());
-        }
-
-        public void Dispose()
-        {
-            if (this.Body != null)
-            {
-                Array.Clear(this.Body, 0, this.Body.Length);
-            }
-            this.ContentLength = 0;
-            this.WebHost = null;
         }
 
     }

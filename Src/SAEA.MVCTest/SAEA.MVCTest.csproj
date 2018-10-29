@@ -22,11 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Remove="Html\Content\Image\c984b2fb80aeca7b15eda8c004f2e0d4.jpg" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Include="Html\Content\Image\c984b2fb80aeca7b15eda8c004f2e0d4.jpg">
+    <Content Include="Html\6139455.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

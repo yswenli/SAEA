@@ -22,13 +22,15 @@
 *
 *****************************************************************************/
 
+using SAEA.Http.Model;
+
 namespace SAEA.MVC
 {
     /// <summary>
     /// 空结果
     /// 用于直接的response操作场景
     /// </summary>
-    public class EmptyResult : ActionResult
+    public class EmptyResult : ActionResult, IEmptyResult
     {
     }
 }

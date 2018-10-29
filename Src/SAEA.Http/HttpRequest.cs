@@ -31,7 +31,7 @@ namespace SAEA.Http
     /// <summary>
     /// HTTP请求定义
     /// </summary>
-    public class HttpRequest : HttpBase, IDisposable
+    public class HttpRequest : HttpBase
     {
         /// <summary>
         /// enctype="text/plain"
@@ -100,18 +100,6 @@ namespace SAEA.Http
         public void SetHeader(RequestHeaderType header, string value)
         {
             base.SetHeader(header, value);
-        }
-
-        public void Dispose()
-        {
-            if (this.Query != null)
-                this.Query.Clear();
-            if (this.Forms != null)
-                this.Forms.Clear();
-            if (this.Parmas != null)
-                this.Parmas.Clear();
-            this.RelativeUrl = this.Url = string.Empty;
-            this.Headers.Clear();
         }
     }
 }

@@ -21,18 +21,16 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Common;
 using SAEA.Http.Base;
 using SAEA.Http.Model;
 using SAEA.Sockets.Interface;
-using System;
 
 namespace SAEA.Http
 {
     /// <summary>
     /// SAEA.Http http上下文
     /// </summary>
-    public class HttpContext : IDisposable
+    public class HttpContext 
     {
         public HttpRequest Request
         {
@@ -81,15 +79,5 @@ namespace SAEA.Http
         {
             Invoker.Invoke(this);           
         }
-
-        public void Dispose()
-        {
-            this.WebConfig = null;
-            this.Invoker = null;            
-            Request?.Dispose();
-            Response?.Dispose();
-        }
-
-
     }
 }

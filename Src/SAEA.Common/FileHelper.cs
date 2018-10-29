@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 using System.IO;
+using System.Threading.Tasks;
 
 namespace SAEA.Common
 {
@@ -43,6 +44,32 @@ namespace SAEA.Common
             {
                 fs.Write(data, 0, data.Length);
             }
+        }
+
+        /// <summary>
+        /// 读取文件内容
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <returns></returns>
+        public static byte[] Read(string filePath)
+        {
+            byte[] data = null;
+            using (var fs = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                var buffer = new byte[fs.Length];
+                fs.Position = 0;
+                var offset = 0;
+
+                while ((offset = fs.Read(buffer, offset, buffer.Length)) > 0)
+                {
+                    if (offset == fs.Length) break;
+
+                    if (offset == 0) throw new System.Exception($"坊取{filePath}出现异常！");
+
+                }
+                data = buffer;
+            }
+            return data;
         }
 
     }

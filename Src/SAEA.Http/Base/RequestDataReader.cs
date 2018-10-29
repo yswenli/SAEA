@@ -94,7 +94,6 @@ namespace SAEA.Http.Base
                         else if (str == null && string.IsNullOrEmpty(this.HeaderStr))
                         {
                             return false;
-
                         }
                         else
                             _stringBuilder.AppendLine(str);

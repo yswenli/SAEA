@@ -36,12 +36,14 @@ namespace SAEA.RedisSocketTest
             var cnnStr = ConsoleHelper.ReadLine();
             if (string.IsNullOrEmpty(cnnStr))
             {
-                //cnnStr = "server=127.0.0.1:6380;passwords=yswenli";
-                cnnStr = "server=127.0.0.1:6381;passwords=yswenli";
+                cnnStr = "server=127.0.0.1:6379;passwords=yswenli";
+                //cnnStr = "server=127.0.0.1:6381;passwords=yswenli";
             }
             RedisClient redisClient = new RedisClient(cnnStr);
             redisClient.Connect();
             var isCluster = redisClient.IsCluster;
+
+            var list= redisClient.ClusterNodes;
 
             //var keys = redisClient.GetDataBase().Keys();
 

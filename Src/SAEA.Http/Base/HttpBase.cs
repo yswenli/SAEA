@@ -146,8 +146,6 @@ namespace SAEA.Http.Base
         {
             var fieldName = header.GetDescription();
             if (fieldName == null) return null;
-            var hasKey = Headers.ContainsKey(fieldName);
-            if (!hasKey) return null;
             return Headers[fieldName];
         }
 
@@ -155,9 +153,7 @@ namespace SAEA.Http.Base
         {
             var fieldName = header.GetDescription();
             if (fieldName == null) return;
-            var hasKey = Headers.ContainsKey(fieldName);
-            if (hasKey) Headers.Remove(fieldName);
-            Headers.Add(fieldName, value);
+            Headers[fieldName] = value;
         }
 
         protected void RemoveHeader(Enum header, string value)

@@ -26,6 +26,8 @@ using SAEA.Http.Base;
 using System.IO;
 using System.Net;
 using System.Text;
+using System.Threading.Tasks;
+using SAEA.Common;
 
 namespace SAEA.Http.Model
 {
@@ -56,7 +58,7 @@ namespace SAEA.Http.Model
             }
             else
             {
-                this.Content = StaticResourcesCache.Read(filePath);
+                this.Content = FileHelper.Read(filePath);
             }
             this.ContentEncoding = Encoding.UTF8;
             this.ContentType = contentType;

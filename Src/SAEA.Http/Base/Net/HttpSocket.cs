@@ -4,7 +4,7 @@
 *机器名称：WENLI-PC
 *公司名称：Microsoft
 *命名空间：SAEA.Http.Base.Net
-*文件名： ServerSocket
+*文件名： HttpSocket
 *版本号： V3.1.1.0
 *唯一标识：ab912b9a-c7ed-44d9-8e48-eef0b6ff86a2
 *当前的用户域：WENLI-PC
@@ -28,23 +28,21 @@ using System;
 
 namespace SAEA.Http.Base.Net
 {
-    class ServerSocket : BaseServerSocket
+    class HttpSocket : BaseServerSocket
     {
         public event Action<IUserToken, IRequestDataReader> OnRequested;
 
 
-        public ServerSocket(int bufferSize = 1024 * 10, int count = 10000) : base(new HContext(), bufferSize, count)
+        public HttpSocket(int bufferSize = 1024 * 10, int count = 10000) : base(new HContext(), bufferSize, count)
         {
             
         }
 
         protected override void OnReceiveBytes(IUserToken userToken, byte[] data)
         {
-            HUnpacker coder = (HUnpacker)userToken.Unpacker;
+            HUnpacker unpacker = (HUnpacker)userToken.Unpacker;            
 
-            coder.IsAnalysis = false;
-
-            coder.GetRequest(data, (result) =>
+            unpacker.GetRequest(data, (result) =>
             {
                 OnRequested?.Invoke(userToken, result);
             });

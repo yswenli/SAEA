@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Common;
 using System.Collections.Concurrent;
 using System.IO;
 
@@ -31,25 +32,7 @@ namespace SAEA.Http.Common
     /// </summary>
     public static class StaticResourcesCache
     {
-        static ConcurrentDictionary<string, byte[]> _cache = new ConcurrentDictionary<string, byte[]>();
-
-        /// <summary>
-        /// 读取文件内容
-        /// </summary>
-        /// <param name="filePath"></param>
-        /// <returns></returns>
-        public static byte[] Read(string filePath)
-        {
-            byte[] data = null;
-            using (var fs = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
-            {
-                var buffer = new byte[fs.Length];
-                fs.Position = 0;
-                fs.Read(buffer, 0, buffer.Length);
-                data = buffer;
-            }
-            return data;
-        }
+        static ConcurrentDictionary<string, byte[]> _cache = new ConcurrentDictionary<string, byte[]>();       
 
         /// <summary>
         /// 增加或获取资源
@@ -59,7 +42,7 @@ namespace SAEA.Http.Common
         /// <returns></returns>
         public static byte[] GetOrAdd(string key, string filePath)
         {
-            return _cache.GetOrAdd(key, (k) => Read(filePath));
+            return _cache.GetOrAdd(key, FileHelper.Read(filePath));
         }
 
         /// <summary>

@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Common;
 using SAEA.Http.Base;
 using SAEA.Http.Common;
 using SAEA.Http.Model;
@@ -56,7 +57,7 @@ namespace SAEA.MVC
             }
             else
             {
-                this.Content = StaticResourcesCache.Read(filePath);
+                this.Content = FileHelper.Read(filePath);
             }
             this.ContentEncoding = Encoding.UTF8;
             this.ContentType = contentType;
