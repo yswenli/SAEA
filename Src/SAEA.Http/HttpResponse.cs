@@ -44,6 +44,7 @@ namespace SAEA.Http
 
         internal HttpResponse()
         {
+
         }
 
         internal void Init(IWebHost webHost, IUserToken userToken, string protocal, bool isZiped = false)
@@ -52,8 +53,8 @@ namespace SAEA.Http
             this.UserToken = userToken;
 
             this.Protocal = protocal;
-            _isZiped = isZiped; 
-        }       
+            _isZiped = isZiped;
+        }
 
         internal HttpResponse SetContent(byte[] content, Encoding encoding = null)
         {
@@ -189,8 +190,6 @@ namespace SAEA.Http
             SetContent(data, encoding);
         }
 
-
-
         public void End()
         {
             WebHost.End(UserToken, this.ToBytes());
@@ -198,8 +197,11 @@ namespace SAEA.Http
 
         public void Dispose()
         {
-            this.Headers.Clear();
-            this.Write("");
+            if (this.Body != null)
+            {
+                Array.Clear(this.Body, 0, this.Body.Length);
+            }
+            this.ContentLength = 0;
             this.WebHost = null;
         }
 
