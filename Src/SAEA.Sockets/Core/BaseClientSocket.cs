@@ -219,7 +219,7 @@ namespace SAEA.Sockets.Core
             _connectEvent.Set();
             try
             {
-                _userToken.Dispose();
+                _userToken.Clear();
             }
             catch { }
             OnDisconnected?.Invoke(_userToken.ID, ex);
@@ -350,7 +350,7 @@ namespace SAEA.Sockets.Core
                 if (_userToken != null)
                     OnDisconnected?.Invoke(_userToken.ID, mex);
 
-                _userToken.Dispose();
+                _userToken.Clear();
             }
         }
 

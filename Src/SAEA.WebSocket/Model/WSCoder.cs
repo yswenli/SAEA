@@ -133,10 +133,9 @@ namespace SAEA.WebSocket.Model
             }
         }
 
-        public void Dispose()
+        public void Clear()
         {
             _buffer.Clear();
-            _buffer = null;
         }
 
     }

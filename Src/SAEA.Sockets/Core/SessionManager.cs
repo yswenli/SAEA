@@ -190,7 +190,7 @@ namespace SAEA.Sockets.Core
             var list = ToList();
             foreach (var item in list)
             {
-                item.Dispose();
+                item.Clear();
             }
             _session.Clear();
         }

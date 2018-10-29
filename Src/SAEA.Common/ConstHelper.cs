@@ -71,5 +71,13 @@ namespace SAEA.Common
         /// ActionFilterAttribute
         /// </summary>
         public const string ACTIONFILTERATTRIBUTE = "ActionFilterAttribute";
+
+        public const string ENTER = "\r\n";
+
+        public const string DENTER = "\r\n\r\n";
+
+        public const string SPACE = " ";
+
+        public const string JSONCONTENTTYPE= "application/json; charset=utf-8";
     }
 }

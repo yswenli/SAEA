@@ -87,10 +87,10 @@ namespace SAEA.Sockets.Model
             _autoResetEvent?.Set();
         }
 
-        public void Dispose()
+        public void Clear()
         {
             Socket?.Close();
-            Unpacker?.Dispose();
+            Unpacker?.Clear();
             ReadArgs = null;
             WriteArgs = null;
             _autoResetEvent.Close();

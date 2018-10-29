@@ -35,8 +35,10 @@ namespace SAEA.Sockets.Interface
     /// <summary>
     /// 通信数据接收解析器
     /// </summary>
-    public interface IUnpacker : IDisposable
+    public interface IUnpacker
     {
-       void Unpack(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null);
+        void Unpack(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null);
+
+        void Clear();
     }
 }

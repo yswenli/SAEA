@@ -232,7 +232,7 @@ namespace SAEA.QueueSocket.Net
         /// <summary>
         /// dispose
         /// </summary>
-        public void Dispose()
+        public void Clear()
         {
             _buffer?.Clear();
         }

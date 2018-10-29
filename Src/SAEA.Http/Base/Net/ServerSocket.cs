@@ -33,7 +33,7 @@ namespace SAEA.Http.Base.Net
         public event Action<IUserToken, IRequestDataReader> OnRequested;
 
 
-        public ServerSocket(int bufferSize = 1024 * 100, int count = 10000) : base(new HContext(), bufferSize, count)
+        public ServerSocket(int bufferSize = 1024 * 10, int count = 10000) : base(new HContext(), bufferSize, count)
         {
             
         }

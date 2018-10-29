@@ -311,7 +311,8 @@ namespace SAEA.Sockets.Core
         public void End(IUserToken userToken, byte[] data)
         {
             var result = userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, null, null);
-            userToken.Socket.EndSend(result);
+            if (result != null && userToken.Socket != null)
+                userToken.Socket.EndSend(result);
             if (_sessionManager.Free(userToken))
             {
                 Interlocked.Decrement(ref _clientCounts);

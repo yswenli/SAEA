@@ -98,10 +98,9 @@ namespace SAEA.TcpP2P.Net
             Buffer.BlockCopy(data, offset, buffer, 0, count);
             return buffer;
         }
-        public void Dispose()
+        public void Clear()
         {
             _buffer.Clear();
-            _buffer = null;
         }
     }
 }

@@ -104,7 +104,7 @@ namespace SAEA.Http.Base
 
             //分析requestHeader
 
-            var rows = Regex.Split(this.HeaderStr, ENTER);
+            var rows = Regex.Split(this.HeaderStr, ConstHelper.ENTER);
 
             var arr = Regex.Split(rows[0], @"(\s+)").Where(e => e.Trim() != string.Empty).ToArray();
 
@@ -136,52 +136,49 @@ namespace SAEA.Http.Base
 
             this.Headers = GetRequestHeaders(rows);
 
-            if (this.Headers != null)
+            //cookies
+            var cookiesStr = string.Empty;
+            if (this.Headers.TryGetValue(RequestHeaderType.Cookie.GetDescription(), out cookiesStr))
             {
-                //cookies
-                var cookiesStr = string.Empty;
-                if (this.Headers.TryGetValue(RequestHeaderType.Cookie.GetDescription(), out cookiesStr))
+                this.Cookies = GetCookies(cookiesStr);
+            }
+
+            //post数据分析
+            if (this.Method == ConstHelper.POST)
+            {
+                using (MemoryStream ms = new MemoryStream(buffer))
                 {
-                    this.Cookies = GetCookies(cookiesStr);
+                    var poistion = ms.Position = 0;
+                    while (true)
+                    {
+                        if (ms.ReadByte() == 13 && ms.ReadByte() == 10 && ms.ReadByte() == 13 && ms.ReadByte() == 10)
+                        {
+                            poistion = ms.Position;
+                            break;
+                        }
+                    }
+                    this.Position = (int)poistion;
                 }
 
-                //post数据分析
-                if (this.Method == ConstHelper.POST)
+                string contentTypeStr = string.Empty;
+                if (this.Headers.TryGetValue(RequestHeaderType.ContentType.GetDescription(), out contentTypeStr))
                 {
-                    using (MemoryStream ms = new MemoryStream(buffer))
+                    //form-data
+                    if (contentTypeStr.IndexOf(ConstHelper.FORMENCTYPE2) > -1)
                     {
-                        var poistion = ms.Position = 0;
-                        while (true)
-                        {
-                            if (ms.ReadByte() == 13 && ms.ReadByte() == 10 && ms.ReadByte() == 13 && ms.ReadByte() == 10)
-                            {
-                                poistion = ms.Position;
-                                break;
-                            }
-                        }
-                        this.Position = (int)poistion;
+                        this.IsFormData = true;
+
+                        this.Boundary = "--" + Regex.Split(contentTypeStr, ";")[1].Replace(ConstHelper.BOUNDARY, "");
                     }
+                }
+                string contentLengthStr = string.Empty;
+                if (this.Headers.TryGetValue(RequestHeaderType.ContentLength.GetDescription(), out contentLengthStr))
+                {
+                    int cl = 0;
 
-                    string contentTypeStr = string.Empty;
-                    if (this.Headers.TryGetValue(RequestHeaderType.ContentType.GetDescription(), out contentTypeStr))
+                    if (int.TryParse(contentLengthStr, out cl))
                     {
-                        //form-data
-                        if (contentTypeStr.IndexOf(ConstHelper.FORMENCTYPE2) > -1)
-                        {
-                            this.IsFormData = true;
-
-                            this.Boundary = "--" + Regex.Split(contentTypeStr, ";")[1].Replace(ConstHelper.BOUNDARY, "");
-                        }
-                    }
-                    string contentLengthStr = string.Empty;
-                    if (this.Headers.TryGetValue(RequestHeaderType.ContentLength.GetDescription(), out contentLengthStr))
-                    {
-                        int cl = 0;
-
-                        if (int.TryParse(contentLengthStr, out cl))
-                        {
-                            this.ContentLength = cl;
-                        }
+                        this.ContentLength = cl;
                     }
                 }
             }
@@ -332,7 +329,7 @@ namespace SAEA.Http.Base
                 {
                     if (section.IndexOf(ConstHelper.CT) > -1)
                     {
-                        var arr = section.Split(ENTER, StringSplitOptions.RemoveEmptyEntries);
+                        var arr = section.Split(ConstHelper.ENTER, StringSplitOptions.RemoveEmptyEntries);
                         if (arr != null && arr.Length > 0)
                         {
                             var firsts = Regex.Split(arr[0], ";");
@@ -348,7 +345,7 @@ namespace SAEA.Http.Base
                     }
                     else
                     {
-                        var arr = section.Split(ENTER, StringSplitOptions.RemoveEmptyEntries);
+                        var arr = section.Split(ConstHelper.ENTER, StringSplitOptions.RemoveEmptyEntries);
                         if (arr != null)
                         {
                             if (arr.Length > 0 && arr[0].IndexOf(";") > -1 && arr[0].IndexOf("=") > -1)

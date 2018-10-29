@@ -36,7 +36,7 @@ namespace SAEA.Sockets.Interface
     /// <summary>
     /// 连接信息类
     /// </summary>
-    public interface IUserToken : IDisposable
+    public interface IUserToken
     {
         string ID
         {
@@ -76,6 +76,9 @@ namespace SAEA.Sockets.Interface
 
 
         void Set();
+
+
+        void Clear();
 
     }
 }

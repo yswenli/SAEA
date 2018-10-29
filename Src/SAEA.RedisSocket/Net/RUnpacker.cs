@@ -60,10 +60,9 @@ namespace SAEA.RedisSocket.Net
 
 
 
-        public void Dispose()
+        public void Clear()
         {
             _buffer.Clear();
-            _buffer = null;
         }
 
     }

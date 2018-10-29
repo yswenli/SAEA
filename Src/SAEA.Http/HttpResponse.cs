@@ -88,7 +88,7 @@ namespace SAEA.Http
         protected string BuildHeader()
         {
             StringBuilder builder = new StringBuilder();
-            builder.Append(this.Protocal + SPACE + Status.ToNVString() + ENTER);
+            builder.Append(this.Protocal + ConstHelper.SPACE + Status.ToNVString() + ConstHelper.ENTER);
             builder.AppendLine(ConstHelper.SERVERMVCSERVER);
             builder.AppendLine("Keep-Alive: timeout=20");
             builder.AppendLine("Date: " + DateTimeHelper.Now.ToFString("r"));
@@ -103,7 +103,7 @@ namespace SAEA.Http
             builder.AppendLine("Access-Control-Allow-Headers: Content-Type,X-Requested-With,Accept,yswenli");//可自行增加额外的header
             builder.AppendLine("Access-Control-Request-Methods: GET, POST, PUT, DELETE, OPTIONS");
 
-            if (this.Headers != null && this.Headers.Count > 0)
+            if (this.Headers.Count > 0)
             {
                 foreach (var key in Headers.Keys)
                 {

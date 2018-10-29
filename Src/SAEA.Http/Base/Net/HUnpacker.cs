@@ -90,7 +90,7 @@ namespace SAEA.Http.Base.Net
         }
 
 
-        public void Dispose()
+        public void Clear()
         {
             _cache.Clear();
         }

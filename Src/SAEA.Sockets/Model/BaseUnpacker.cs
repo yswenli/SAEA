@@ -110,7 +110,7 @@ namespace SAEA.Sockets.Model
             return buffer;
         }
 
-        public void Dispose()
+        public void Clear()
         {
             _buffer.Clear();
             _buffer = null;

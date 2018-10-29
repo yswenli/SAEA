@@ -31,12 +31,6 @@ namespace SAEA.Http.Base
 {
     public class HttpBase
     {
-        public const string ENTER = "\r\n";
-
-        public const string DENTER = "\r\n\r\n";
-
-        public const string SPACE = " ";
-
         public string HeaderStr
         {
             get; set;
@@ -88,13 +82,13 @@ namespace SAEA.Http.Base
         public Dictionary<string, string> Cookies
         {
             get; set;
-        }
+        } = new Dictionary<string, string>();
 
 
         public Dictionary<string, string> Headers
         {
             get; set;
-        }
+        } = new Dictionary<string, string>();
 
         /// <summary>
         /// 类型
@@ -103,11 +97,10 @@ namespace SAEA.Http.Base
         {
             get
             {
-                if (this.Headers == null) this.Headers = new Dictionary<string, string>();
                 var key = ResponseHeaderType.ContentType.GetDescription();
                 if (!this.Headers.ContainsKey(key))
                 {
-                    return "application/json; charset=utf-8";
+                    return ConstHelper.JSONCONTENTTYPE;
                 }
                 var type = this.Headers[key];
 
@@ -119,7 +112,6 @@ namespace SAEA.Http.Base
             }
             set
             {
-                if (this.Headers == null) this.Headers = new Dictionary<string, string>();
                 var key = ResponseHeaderType.ContentType.GetDescription();
                 if (!this.Headers.ContainsKey(key))
                 {
@@ -152,7 +144,6 @@ namespace SAEA.Http.Base
 
         protected string GetHeader(Enum header)
         {
-            if (this.Headers == null) this.Headers = new Dictionary<string, string>();
             var fieldName = header.GetDescription();
             if (fieldName == null) return null;
             var hasKey = Headers.ContainsKey(fieldName);
@@ -162,7 +153,6 @@ namespace SAEA.Http.Base
 
         protected void SetHeader(Enum header, string value)
         {
-            if (this.Headers == null) this.Headers = new Dictionary<string, string>();
             var fieldName = header.GetDescription();
             if (fieldName == null) return;
             var hasKey = Headers.ContainsKey(fieldName);
@@ -172,7 +162,6 @@ namespace SAEA.Http.Base
 
         protected void RemoveHeader(Enum header, string value)
         {
-            if (this.Headers == null) this.Headers = new Dictionary<string, string>();
             var fieldName = header.GetDescription();
             if (fieldName == null) return;
             var hasKey = Headers.ContainsKey(fieldName);
