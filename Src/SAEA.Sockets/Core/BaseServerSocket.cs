@@ -310,12 +310,15 @@ namespace SAEA.Sockets.Core
         /// <param name="data"></param>
         public void End(IUserToken userToken, byte[] data)
         {
-            var result = userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, null, null);
-            if (result != null && userToken.Socket != null)
-                userToken.Socket.EndSend(result);
-            if (_sessionManager.Free(userToken))
+            if (userToken != null && userToken.Socket != null)
             {
-                Interlocked.Decrement(ref _clientCounts);
+                var result = userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, null, null);
+                if (result != null)
+                    userToken.Socket.EndSend(result);
+                if (_sessionManager.Free(userToken))
+                {
+                    Interlocked.Decrement(ref _clientCounts);
+                }
             }
         }
 
