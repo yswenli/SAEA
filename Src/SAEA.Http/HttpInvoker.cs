@@ -32,9 +32,9 @@ namespace SAEA.Http
     {
         public object Parma { get; set; }
 
-        public HttpInvoker(object parma)
+        public HttpInvoker()
         {
-            this.Parma = parma;
+
         }
 
         public IHttpResult GetActionResult(HttpContext httpContext)

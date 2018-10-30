@@ -10,7 +10,7 @@ namespace SAEA.HttpTest
         {
             Console.WriteLine("WebHost Test");
 
-            WebHost webHost = new WebHost(new HttpInvoker(null));
+            WebHost webHost = new WebHost(new HttpInvoker());
 
             webHost.Start();
 
