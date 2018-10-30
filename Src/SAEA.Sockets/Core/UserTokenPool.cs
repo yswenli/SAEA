@@ -59,7 +59,12 @@ namespace SAEA.Sockets.Core
             {
                 return userToken;
             }
-            else throw new Exception("当前IUserToken请求数已超出限制！");
+            else
+            {
+                ThreadHelper.Sleep(1);
+                return Dequeue();
+            }
+                
         }
 
         public void Enqueue(IUserToken userToken)

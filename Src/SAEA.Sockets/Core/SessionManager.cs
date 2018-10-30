@@ -125,17 +125,13 @@ namespace SAEA.Sockets.Core
         /// <returns></returns>
         public IUserToken GenerateUserToken(Socket socket)
         {
-            lock (_locker)
-            {
-                IUserToken userToken = InitUserToken();
-                userToken.Socket = socket;
-                userToken.ID = socket.RemoteEndPoint.ToString();
-                userToken.Linked = DateTimeHelper.Now;
-                userToken.Actived = DateTimeHelper.Now;
-                Set(userToken);
-                return userToken;
-            }
-            
+            IUserToken userToken = InitUserToken();
+            userToken.Socket = socket;
+            userToken.ID = socket.RemoteEndPoint.ToString();
+            userToken.Linked = DateTimeHelper.Now;
+            userToken.Actived = DateTimeHelper.Now;
+            Set(userToken);
+            return userToken;
         }
 
 
@@ -160,32 +156,28 @@ namespace SAEA.Sockets.Core
         /// <param name="userToken"></param>
         public bool Free(IUserToken userToken)
         {
-            lock (_locker)
+            if (_session.Del(userToken.ID, out MemoryCachItem<IUserToken> mc))
             {
-                if (_session.Del(userToken.ID, out MemoryCachItem<IUserToken> mc))
+                if (userToken.Socket != null)
                 {
-                    if (userToken.Socket != null)
+                    try
                     {
-                        try
-                        {
-                            if (userToken.Socket.Connected)
-                                userToken.Socket.Shutdown(SocketShutdown.Both);
-                        }
-                        catch { }
-                        _bufferManager.FreeBuffer(userToken.ReadArgs);
-                        _argsPool.Push(userToken.ReadArgs);
-                        _argsPool.Push(userToken.WriteArgs);
-                        _userTokenPool.Enqueue(userToken);
-                        return true;
+                        if (userToken.Socket.Connected)
+                            userToken.Socket.Shutdown(SocketShutdown.Both);
                     }
-                    else
-                    {
-
-                    }
+                    catch { }
+                    _bufferManager.FreeBuffer(userToken.ReadArgs);
+                    _argsPool.Push(userToken.ReadArgs);
+                    _argsPool.Push(userToken.WriteArgs);
+                    _userTokenPool.Enqueue(userToken);
+                    return true;
                 }
-                return false;
+                else
+                {
+
+                }
             }
-            
+            return false;
         }
 
         /// <summary>

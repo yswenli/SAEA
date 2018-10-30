@@ -27,6 +27,6 @@ namespace SAEA.Http.Model
     {
         object Parma { get; set; }
 
-        void Invoke(HttpContext context);
+        IHttpResult GetActionResult(HttpContext context);
     }
 }

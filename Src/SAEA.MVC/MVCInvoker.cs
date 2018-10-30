@@ -40,24 +40,22 @@ namespace SAEA.MVC
 
         public object Parma { get; set; }
 
-        public MvcInvoker(object parma) 
+        public MvcInvoker(object parma)
         {
             this.Parma = parma;
         }
 
 
-        protected IHttpResult GetActionResult()
+        public IHttpResult GetActionResult(HttpContext httpContext)
         {
             RouteTable routeTable = (RouteTable)this.Parma;
 
-            string url = _httpContext.Request.Url;
+            string url = httpContext.Request.Url;
 
-            NameValueCollection nameValues = _httpContext.Request.Parmas.ToNameValueCollection();
-
-            bool isPost = _httpContext.Request.Method == ConstHelper.POST;
+            bool isPost = httpContext.Request.Method == ConstHelper.POST;
 
             //禁止访问
-            var flist = _httpContext.WebConfig.ForbiddenAccessList;
+            var flist = httpContext.WebConfig.ForbiddenAccessList;
 
             if (flist.Count > 0)
             {
@@ -78,28 +76,32 @@ namespace SAEA.MVC
 
             var filePath = string.Empty;
 
+            NameValueCollection nameValues;
+
             switch (arr.Length)
             {
                 case 0:
 
-                    filePath = _httpContext.Server.MapPath(_httpContext.WebConfig.DefaultPage);
+                    filePath = httpContext.Server.MapPath(httpContext.WebConfig.DefaultPage);
 
                     if (StaticResourcesCache.Exists(filePath))
                     {
-                        return new FileResult(filePath, _httpContext.IsStaticsCached);
+                        return new FileResult(filePath, httpContext.IsStaticsCached);
                     }
                     else
                     {
-                        var d = RouteTable.Types.Where(b => string.Compare(b.Name, _httpContext.WebConfig.DefaultRout.Name, true) == 0 || string.Compare(b.Name, _httpContext.WebConfig.DefaultRout.Name + ConstHelper.CONTROLLERNAME, true) == 0).FirstOrDefault();
+                        var d = RouteTable.Types.Where(b => string.Compare(b.Name, httpContext.WebConfig.DefaultRout.Name, true) == 0 || string.Compare(b.Name, httpContext.WebConfig.DefaultRout.Name + ConstHelper.CONTROLLERNAME, true) == 0).FirstOrDefault();
 
-                        return MvcInvoke(_httpContext, routeTable, d, _httpContext.WebConfig.DefaultRout.Value, nameValues, isPost);
+                        nameValues = httpContext.Request.Parmas.ToNameValueCollection();
+
+                        return MvcInvoke(httpContext, routeTable, d, httpContext.WebConfig.DefaultRout.Value, nameValues, isPost);
                     }
 
                 case 1:
-                    filePath = _httpContext.Server.MapPath(url);
+                    filePath = httpContext.Server.MapPath(url);
                     if (StaticResourcesCache.Exists(filePath))
                     {
-                        return new FileResult(filePath, _httpContext.IsStaticsCached);
+                        return new FileResult(filePath, httpContext.IsStaticsCached);
                     }
                     break;
 
@@ -110,57 +112,21 @@ namespace SAEA.MVC
 
                     if (first != null)
                     {
-                        return MvcInvoke(_httpContext, routeTable, first, arr[arr.Length - 1], nameValues, isPost);
+                        nameValues = httpContext.Request.Parmas.ToNameValueCollection();
+
+                        return MvcInvoke(httpContext, routeTable, first, arr[arr.Length - 1], nameValues, isPost);
                     }
                     else
                     {
-                        filePath = _httpContext.Server.MapPath(url);
+                        filePath = httpContext.Server.MapPath(url);
                         if (StaticResourcesCache.Exists(filePath))
                         {
-                            return new FileResult(filePath, _httpContext.IsStaticsCached);
+                            return new FileResult(filePath, httpContext.IsStaticsCached);
                         }
                     }
                     break;
             }
             return new ContentResult("o_o，找不到任何内容", System.Net.HttpStatusCode.NotFound);
-        }
-
-        public void Invoke(HttpContext httpContext)
-        {
-            _httpContext = httpContext;
-
-            IHttpResult result;
-
-            switch (_httpContext.Request.Method)
-            {
-                case ConstHelper.GET:
-                case ConstHelper.POST:
-
-                    if (_httpContext.Request.Query.Count > 0)
-                    {
-                        foreach (var item in _httpContext.Request.Query)
-                        {
-                            _httpContext.Request.Parmas[item.Key] = item.Value;
-                        }
-                    }
-                    if (_httpContext.Request.Forms.Count > 0)
-                    {
-                        foreach (var item in _httpContext.Request.Forms)
-                        {
-                            _httpContext.Request.Parmas[item.Key] = item.Value;
-                        }
-                    }
-                    result = GetActionResult();
-                    break;
-                case ConstHelper.OPTIONS:
-                    result = new EmptyResult();
-                    break;
-                default:
-                    result = new ContentResult("不支持的请求方式", System.Net.HttpStatusCode.NotImplemented);
-                    break;
-            }
-            _httpContext.Response.SetResult(result);
-            _httpContext.Response.End();
         }
 
         /// <summary>
@@ -220,7 +186,7 @@ namespace SAEA.MVC
 
                             if (!goOn)
                             {
-                                return new  ContentResult("o_o，当前逻辑已被拦截！", System.Net.HttpStatusCode.NotAcceptable);
+                                return new ContentResult("o_o，当前逻辑已被拦截！", System.Net.HttpStatusCode.NotAcceptable);
                             }
                         }
                     }
@@ -255,11 +221,11 @@ namespace SAEA.MVC
             {
                 if (ex.Message.Contains("o_o，找不到"))
                 {
-                    return new  ContentResult(ex.Message, System.Net.HttpStatusCode.NotFound);
+                    return new ContentResult(ex.Message, System.Net.HttpStatusCode.NotFound);
                 }
                 else
                 {
-                    return new  ContentResult("→_→，出错了：" + ex.Message, System.Net.HttpStatusCode.InternalServerError);
+                    return new ContentResult("→_→，出错了：" + ex.Message, System.Net.HttpStatusCode.InternalServerError);
                 }
             }
         }
@@ -291,7 +257,7 @@ namespace SAEA.MVC
             }
             catch (Exception ex)
             {
-                result = new  ContentResult($"→_→，出错了：{obj}/{action.Name},出现异常：{ex.Message}", System.Net.HttpStatusCode.InternalServerError);
+                result = new ContentResult($"→_→，出错了：{obj}/{action.Name},出现异常：{ex.Message}", System.Net.HttpStatusCode.InternalServerError);
             }
             return result;
         }

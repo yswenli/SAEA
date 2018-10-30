@@ -21,16 +21,18 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Common;
 using SAEA.Http.Base;
 using SAEA.Http.Model;
 using SAEA.Sockets.Interface;
+using System;
 
 namespace SAEA.Http
 {
     /// <summary>
     /// SAEA.Http http上下文
     /// </summary>
-    public class HttpContext 
+    public class HttpContext : IDisposable
     {
         public HttpRequest Request
         {
@@ -54,8 +56,10 @@ namespace SAEA.Http
 
         public WebConfig WebConfig { get; set; }
 
+
         internal HttpContext(IWebHost webHost, IUserToken userToken, RequestDataReader requestDataReader)
         {
+
             this.WebConfig = webHost.WebConfig;
 
             this.Invoker = webHost.Invoker;
@@ -77,7 +81,48 @@ namespace SAEA.Http
 
         public void HttpHandle()
         {
-            Invoker.Invoke(this);           
+            IHttpResult result;
+
+            switch (this.Request.Method)
+            {
+                case ConstHelper.GET:
+                case ConstHelper.POST:
+
+                    if (this.Request.Query.Count > 0)
+                    {
+                        foreach (var item in this.Request.Query)
+                        {
+                            this.Request.Parmas[item.Key] = item.Value;
+                        }
+                    }
+                    if (this.Request.Forms.Count > 0)
+                    {
+                        foreach (var item in this.Request.Forms)
+                        {
+                            this.Request.Parmas[item.Key] = item.Value;
+                        }
+                    }
+                    result = this.Invoker.GetActionResult(this);
+                    break;
+                case ConstHelper.OPTIONS:
+                    result = new HttpEmptyResult();
+                    break;
+                default:
+                    result = new HttpContentResult("不支持的请求方式", System.Net.HttpStatusCode.NotImplemented);
+                    break;
+            }
+            Response.SetResult(result);
+            Response.End();
+        }
+
+        public void Dispose()
+        {
+            this.Response.Dispose();
+            this.Request.Dispose();
+            this.Invoker = null;
+            this.WebConfig = null;
+            this.Response = null;
+            this.Request = null;
         }
     }
 }

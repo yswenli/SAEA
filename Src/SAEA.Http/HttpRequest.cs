@@ -31,7 +31,7 @@ namespace SAEA.Http
     /// <summary>
     /// HTTP请求定义
     /// </summary>
-    public class HttpRequest : HttpBase
+    public class HttpRequest : HttpBase, IDisposable
     {
         /// <summary>
         /// enctype="text/plain"
@@ -57,6 +57,8 @@ namespace SAEA.Http
 
         }
 
+        RequestDataReader _requestDataReader;
+
         /// <summary>
         /// init
         /// </summary>
@@ -64,32 +66,34 @@ namespace SAEA.Http
         /// <param name="requestDataReader"></param>
         internal void Init(RequestDataReader requestDataReader)
         {
-            this.Method = requestDataReader.Method;
-            this.Url = requestDataReader.Url;
-            this.RelativeUrl = requestDataReader.RelativeUrl;
-            this.Query = requestDataReader.Query;
-            this.Protocal = requestDataReader.Protocal;
-            this.Headers = requestDataReader.Headers;
-            this.HeaderStr = requestDataReader.HeaderStr;
-            this.Cookies = requestDataReader.Cookies;
-            this.IsFormData = requestDataReader.IsFormData;
-            this.Boundary = requestDataReader.Boundary;
-            this.ContentType = requestDataReader.ContentType;
-            this.ContentLength = requestDataReader.ContentLength;
+            _requestDataReader = requestDataReader;
 
-            if (requestDataReader.Forms != null && requestDataReader.Forms.Count > 0)
+            this.Method = _requestDataReader.Method;
+            this.Url = _requestDataReader.Url;
+            this.RelativeUrl = _requestDataReader.RelativeUrl;
+            this.Query = _requestDataReader.Query;
+            this.Protocal = _requestDataReader.Protocal;
+            this.Headers = _requestDataReader.Headers;
+            this.HeaderStr = _requestDataReader.HeaderStr;
+            this.Cookies = _requestDataReader.Cookies;
+            this.IsFormData = _requestDataReader.IsFormData;
+            this.Boundary = _requestDataReader.Boundary;
+            this.ContentType = _requestDataReader.ContentType;
+            this.ContentLength = _requestDataReader.ContentLength;
+
+            if (_requestDataReader.Forms != null && _requestDataReader.Forms.Count > 0)
             {
-                this.Forms = requestDataReader.Forms;
+                this.Forms = _requestDataReader.Forms;
             }
-            if (requestDataReader.PostFiles != null && requestDataReader.PostFiles.Count > 0)
+            if (_requestDataReader.PostFiles != null && _requestDataReader.PostFiles.Count > 0)
             {
-                this.PostFiles = requestDataReader.PostFiles;
+                this.PostFiles = _requestDataReader.PostFiles;
             }
-            if (!string.IsNullOrEmpty(requestDataReader.Json))
+            if (!string.IsNullOrEmpty(_requestDataReader.Json))
             {
-                this.Json = requestDataReader.Json;
-                this.Body = requestDataReader.Body;
-            }
+                this.Json = _requestDataReader.Json;
+                this.Body = _requestDataReader.Body;
+            }            
         }
 
         public string GetHeader(RequestHeaderType header)
@@ -100,6 +104,11 @@ namespace SAEA.Http
         public void SetHeader(RequestHeaderType header, string value)
         {
             base.SetHeader(header, value);
+        }
+
+        public void Dispose()
+        {
+            _requestDataReader.Dispose();
         }
     }
 }
