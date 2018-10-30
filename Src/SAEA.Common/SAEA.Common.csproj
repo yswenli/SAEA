@@ -20,6 +20,7 @@ https://github.com/yswenli/SAEA</PackageReleaseNotes>
     <AssemblyVersion>3.2.1.1</AssemblyVersion>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
+    <PackageId>SAEA.Common</PackageId>
   </PropertyGroup>
 
   <ItemGroup>
