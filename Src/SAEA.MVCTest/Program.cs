@@ -27,6 +27,8 @@ namespace SAEA.MVCTest
 
             ConsoleHelper.WriteLine("MVC已启动！\t\r\n访问请输入http://127.0.0.1:39654/{controller}/{action}");
 
+            ConsoleHelper.WriteLine("回车结束！");
+
             ConsoleHelper.ReadLine();
         }
     }

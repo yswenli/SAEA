@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.MVC
 *文件名： SAEAMvcApplication
-*版本号： V3.1.1.0
+*版本号： V3.2.1.1
 *唯一标识：85030224-1d7f-4fc0-8e65-f4b6144c6a46
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/4/10 13:59:33
 *修改人： yswenli
-*版本号： V3.1.1.0
+*版本号： V3.2.1.1
 *描述：
 *
 *****************************************************************************/
@@ -44,7 +44,7 @@ namespace SAEA.MVC
         /// <param name="isZiped">是压启用内容压缩</param>
         /// <param name="bufferSize">http处理数据缓存大小</param>
         /// <param name="count">http连接数上限</param>
-        public SAEAMvcApplication(string root = "/html/", int port = 39654, bool isStaticsCached = true, bool isZiped = false, int bufferSize = 1024 * 10, int count = 1)
+        public SAEAMvcApplication(string root = "/html/", int port = 39654, bool isStaticsCached = true, bool isZiped = false, int bufferSize = 1024 * 10, int count = 10000)
         {
             var mvcInvoker = new MvcInvoker(AreaCollection.RouteTable);
             webHost = new WebHost(mvcInvoker, root, port, isStaticsCached, isZiped, bufferSize, count);
