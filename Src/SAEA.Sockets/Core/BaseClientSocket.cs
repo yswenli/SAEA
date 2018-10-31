@@ -37,7 +37,6 @@ using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
-using System.Threading.Tasks.Dataflow;
 
 namespace SAEA.Sockets.Core
 {
@@ -61,8 +60,6 @@ namespace SAEA.Sockets.Core
         Action<SocketError> _connectCallBack;
 
         AutoResetEvent _connectEvent = new AutoResetEvent(true);
-
-        ActionBlock<byte[]> _actionBlock;
 
         public bool Connected { get => _connected; set => _connected = value; }
         public IUserToken UserToken { get => _userToken; private set => _userToken = value; }
@@ -101,11 +98,6 @@ namespace SAEA.Sockets.Core
             _connectArgs.Completed += ConnectArgs_Completed;
 
             _userToken = UserTokenFactory.Create(context, bufferSize, IO_Completed);
-
-            _actionBlock = new ActionBlock<byte[]>((data) =>
-            {
-                OnClientReceive?.Invoke(data);
-            });
         }
 
         /// <summary>
@@ -189,7 +181,7 @@ namespace SAEA.Sockets.Core
 
                     Buffer.BlockCopy(e.Buffer, e.Offset, data, 0, e.BytesTransferred);
 
-                    _actionBlock.Post(data);
+                    OnClientReceive?.Invoke(data);
 
                     if (!_userToken.Socket.ReceiveAsync(e))
                         ProcessReceive(e);

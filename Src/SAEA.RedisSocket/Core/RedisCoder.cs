@@ -87,7 +87,6 @@ namespace SAEA.RedisSocket.Core
                         {
                             _operationQueue.Enqueue(item + _enter);
                         }
-                        _operationQueueSync.Set();
                     }
                     else
                     {
@@ -159,7 +158,7 @@ namespace SAEA.RedisSocket.Core
             {
                 if (_operationQueue.IsEmpty)
                 {
-                    _operationQueueSync.WaitOne(100);
+                    _operationQueueSync.WaitOne(10);
                 }
                 else
                     _operationQueue.TryDequeue(out result);

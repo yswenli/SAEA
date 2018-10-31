@@ -23,6 +23,7 @@
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.RedisSocket;
+using System.Diagnostics;
 
 namespace SAEA.RedisSocketTest
 {
@@ -36,14 +37,18 @@ namespace SAEA.RedisSocketTest
             var cnnStr = ConsoleHelper.ReadLine();
             if (string.IsNullOrEmpty(cnnStr))
             {
-                cnnStr = "server=127.0.0.1:6379;passwords=yswenli";
+                //cnnStr = "server=127.0.0.1:6379;passwords=yswenli";
                 //cnnStr = "server=127.0.0.1:6381;passwords=yswenli";
+                cnnStr = "server=172.31.32.85:6379;passwords=yswenli";
             }
             RedisClient redisClient = new RedisClient(cnnStr);
             redisClient.Connect();
-            var isCluster = redisClient.IsCluster;
 
-            var list= redisClient.ClusterNodes;
+            PerformanceTest(redisClient);
+
+            //var isCluster = redisClient.IsCluster;
+
+            //var list = redisClient.ClusterNodes;
 
             //var keys = redisClient.GetDataBase().Keys();
 
@@ -116,19 +121,7 @@ namespace SAEA.RedisSocketTest
 
                 #region key value
                 ConsoleHelper.WriteLine("回车开始kv插值次操作...");
-                //ConsoleHelper.WriteLine("回车开始kv插值1000000次操作...");
-                //ConsoleHelper.ReadLine();
-                //for (int i = 0; i < 1000000; i++)
-                //{
-                //    redisClient.GetDataBase().Set("key" + i, "val" + i);
-                //}
-                //ConsoleHelper.WriteLine("kv插值操作已完成");
-                //ConsoleHelper.ReadLine();
-                //return;
-                //for (int i = 0; i < 100000; i++)
-                //{
-                //    redisClient.GetDataBase().Del("key" + i);
-                //}
+
                 for (int i = 0; i < 100; i++)
                 {
                     redisClient.GetDataBase().Set("key" + i, "val" + i);
@@ -178,7 +171,7 @@ namespace SAEA.RedisSocketTest
                     ConsoleHelper.WriteLine("HGet val:" + val.Data);
                 }
 
-                var hall = redisClient.GetDataBase().HGetAll("wenli");                
+                var hall = redisClient.GetDataBase().HGetAll("wenli");
 
                 ConsoleHelper.WriteLine("HashSet查询完成...");
 
@@ -207,6 +200,40 @@ namespace SAEA.RedisSocketTest
             {
                 ConsoleHelper.WriteLine("连接失败！");
             }
+        }
+
+
+        private static void PerformanceTest(object sender)
+        {
+            RedisClient redisClient = (RedisClient)sender;
+            var db = redisClient.GetDataBase();
+            var count = 10000;
+
+            ConsoleHelper.WriteLine($"回车开始{count}次操作...");
+            Stopwatch stopwatch = new Stopwatch();
+            ConsoleHelper.ReadLine();
+            stopwatch.Start();
+            for (int i = 0; i < count; i++)
+            {
+                db.Set("key" + i, "val" + i);
+            }
+            ConsoleHelper.WriteLine($"kv插值操作已完成，速度{count * 1000 / stopwatch.ElapsedMilliseconds}");
+            
+            stopwatch.Restart();
+            for (int i = 0; i < count; i++)
+            {
+                db.Get("key" + i);
+            }
+            ConsoleHelper.WriteLine($"kv取值操作已完成，速度{count * 1000 / stopwatch.ElapsedMilliseconds}");
+
+            stopwatch.Restart();
+            for (int i = 0; i < count; i++)
+            {
+                db.Del("key" + i);
+            }
+            ConsoleHelper.WriteLine($"kv删除操作已完成，速度{count * 1000 / stopwatch.ElapsedMilliseconds}");
+            ConsoleHelper.ReadLine();
+
         }
     }
 }
