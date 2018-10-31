@@ -23,6 +23,7 @@
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.RedisSocket;
+using System.Collections.Generic;
 using System.Diagnostics;
 
 namespace SAEA.RedisSocketTest
@@ -39,7 +40,7 @@ namespace SAEA.RedisSocketTest
             {
                 //cnnStr = "server=127.0.0.1:6379;passwords=yswenli";
                 //cnnStr = "server=127.0.0.1:6381;passwords=yswenli";
-                cnnStr = "server=172.31.32.85:6379;passwords=yswenli";
+                cnnStr = "server=127.0.0.1:6380;passwords=yswenli";
             }
             RedisClient redisClient = new RedisClient(cnnStr);
             redisClient.Connect();
@@ -207,30 +208,52 @@ namespace SAEA.RedisSocketTest
         {
             RedisClient redisClient = (RedisClient)sender;
             var db = redisClient.GetDataBase();
-            var count = 10000;
+            var count = 100000;
 
             ConsoleHelper.WriteLine($"回车开始{count}次操作...");
             Stopwatch stopwatch = new Stopwatch();
             ConsoleHelper.ReadLine();
             stopwatch.Start();
+
+            //1
+            //for (int i = 0; i < count; i++)
+            //{
+            //    db.Set("key" + i, "val" + i);
+            //}
+
+            //2
+            Dictionary<string, string> dic = new Dictionary<string, string>();
             for (int i = 0; i < count; i++)
             {
-                db.Set("key" + i, "val" + i);
+                dic.Add("key" + i, "val" + i);
             }
+            db.MSet(dic);
             ConsoleHelper.WriteLine($"kv插值操作已完成，速度{count * 1000 / stopwatch.ElapsedMilliseconds}");
-            
+
             stopwatch.Restart();
+            //1
+            //for (int i = 0; i < count; i++)
+            //{
+            //    db.Get("key" + i);
+            //}
+            List<string> keys = new List<string>();
             for (int i = 0; i < count; i++)
             {
-                db.Get("key" + i);
+                keys.Add("key" + i);
             }
+
+            var result = db.MGet(keys.ToArray());
             ConsoleHelper.WriteLine($"kv取值操作已完成，速度{count * 1000 / stopwatch.ElapsedMilliseconds}");
 
             stopwatch.Restart();
-            for (int i = 0; i < count; i++)
-            {
-                db.Del("key" + i);
-            }
+            //1
+            //for (int i = 0; i < count; i++)
+            //{
+            //    db.Del("key" + i);
+            //}
+
+            db.Del(keys.ToArray());
+
             ConsoleHelper.WriteLine($"kv删除操作已完成，速度{count * 1000 / stopwatch.ElapsedMilliseconds}");
             ConsoleHelper.ReadLine();
 

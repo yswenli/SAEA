@@ -216,6 +216,7 @@ namespace SAEA.RedisSocket.Core
                     case RequestType.SELECT:
                     case RequestType.SLAVEOF:
                     case RequestType.SET:
+                    case RequestType.MSET:
                     case RequestType.DEL:
                     case RequestType.HSET:
                     case RequestType.HDEL:
@@ -276,6 +277,7 @@ namespace SAEA.RedisSocket.Core
                         }
                         break;
                     case RequestType.KEYS:
+                    case RequestType.MGET:
                     case RequestType.HKEYS:
                     case RequestType.LRANGE:
                     case RequestType.SMEMBERS:

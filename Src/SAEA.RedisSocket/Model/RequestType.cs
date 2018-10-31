@@ -38,7 +38,9 @@ namespace SAEA.RedisSocket.Model
         SLAVEOF,
 
         SET,
+        MSET,
         GET,
+        MGET,
         DEL,
         KEYS,
         EXISTS,

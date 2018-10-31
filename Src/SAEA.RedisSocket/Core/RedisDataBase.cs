@@ -32,10 +32,21 @@ namespace SAEA.RedisSocket.Core
             base.DoExpireInsert(RequestType.SET, key, value, seconds);
         }
 
+        public void MSet(Dictionary<string, string> dic)
+        {
+            base.DoBatch(RequestType.MSET, dic);
+        }
+
         public string Get(string key)
         {
             return base.Do1(RequestType.GET, key, true).Data;
         }
+
+        public string MGet(params string[] keys)
+        {
+            return base.DoBatch1(RequestType.MGET, keys).Data;
+        }
+
         public List<string> Keys(string pattern = "*")
         {
             return base.Do1(RequestType.KEYS, pattern, true).ToList<string>();
@@ -43,6 +54,11 @@ namespace SAEA.RedisSocket.Core
         public void Del(string key)
         {
             base.Do1(RequestType.DEL, key, true);
+        }
+
+        public void Del(params string[] keys)
+        {
+            base.DoBatch1(RequestType.DEL, keys);
         }
         /// <summary>
         /// 检查给定 key 是否存在。
@@ -111,7 +127,7 @@ namespace SAEA.RedisSocket.Core
         }
         public ResponseData HDel(string hid, string[] keys)
         {
-            return base.DoBatch(RequestType.HDEL, hid, keys);
+            return base.DoBatch2(RequestType.HDEL, hid, keys);
         }
         public int HLen(string hid)
         {
@@ -177,7 +193,7 @@ namespace SAEA.RedisSocket.Core
 
         public void SAdd(string key, string[] value)
         {
-            base.DoBatch(RequestType.SADD, key, value);
+            base.DoBatch2(RequestType.SADD, key, value);
         }
 
         public int SLen(string key)
@@ -210,7 +226,7 @@ namespace SAEA.RedisSocket.Core
         public int SRemove(string key, params string[] values)
         {
             var result = 0;
-            int.TryParse(base.DoBatch(RequestType.SREM, key, values).Data, out result);
+            int.TryParse(base.DoBatch2(RequestType.SREM, key, values).Data, out result);
             return result;
         }
         #endregion
@@ -223,7 +239,7 @@ namespace SAEA.RedisSocket.Core
 
         public void ZAdd(string key, Dictionary<double, string> scoreVals)
         {
-            base.DoBatch(RequestType.ZADD, key, scoreVals, true);
+            base.DoBatch3(RequestType.ZADD, key, scoreVals, true);
         }
 
         public int ZLen(string key)
@@ -252,7 +268,7 @@ namespace SAEA.RedisSocket.Core
         public int ZRemove(string key, string[] values)
         {
             var result = 0;
-            int.TryParse(base.DoBatch(RequestType.ZREM, key, values).Data, out result);
+            int.TryParse(base.DoBatch2(RequestType.ZREM, key, values).Data, out result);
             return result;
         }
         #endregion

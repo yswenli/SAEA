@@ -241,7 +241,46 @@ namespace SAEA.RedisSocket.Core
                 }
             }
         }
-        public ResponseData DoBatch(RequestType type, string id, params string[] keys)
+
+
+        public ResponseData DoBatch(RequestType type, Dictionary<string, string> dic)
+        {
+            List<string> list = new List<string>();
+            foreach (var item in dic)
+            {
+                list.Add(item.Key);
+                list.Add(item.Value);
+            }
+            var cmd = _redisCoder.Coder(type, list.ToArray());
+            _cnn.Send(cmd);
+            var result = _redisCoder.Decoder();
+            if (result.Type == ResponseType.Redirect)
+            {
+                _cnn = OnRedirect.Invoke(result.Data);
+                _redisCoder = _cnn.RedisCoder;
+                return DoBatch(type, dic);
+            }
+            else
+                return result;
+        }
+
+        public ResponseData DoBatch1(RequestType type, params string[] keys)
+        {
+            var cmd = _redisCoder.Coder(type, keys);
+            _cnn.Send(cmd);
+            var result = _redisCoder.Decoder();
+            if (result.Type == ResponseType.Redirect)
+            {
+                _cnn = OnRedirect.Invoke(result.Data);
+                _redisCoder = _cnn.RedisCoder;
+                return DoBatch1(type, keys);
+            }
+            else
+                return result;
+        }
+
+
+        public ResponseData DoBatch2(RequestType type, string id, params string[] keys)
         {
             List<string> list = new List<string>();
             list.Add(type.ToString());
@@ -254,13 +293,13 @@ namespace SAEA.RedisSocket.Core
             {
                 _cnn = OnRedirect.Invoke(result.Data);
                 _redisCoder = _cnn.RedisCoder;
-                return DoBatch(type, id, keys);
+                return DoBatch2(type, id, keys);
             }
             else
                 return result;
         }
 
-        public ResponseData DoBatch(RequestType type, string id, Dictionary<double, string> dic, bool hasCalc)
+        public ResponseData DoBatch3(RequestType type, string id, Dictionary<double, string> dic, bool hasCalc)
         {
             if (hasCalc)
                 if (_cnn.RedisServerType == RedisServerType.ClusterMaster || _cnn.RedisServerType == RedisServerType.ClusterSlave)
@@ -283,14 +322,13 @@ namespace SAEA.RedisSocket.Core
             {
                 _cnn = OnRedirect.Invoke(result.Data);
                 _redisCoder = _cnn.RedisCoder;
-                return DoBatch(type, id, dic, false);
+                return DoBatch3(type, id, dic, false);
             }
             else
                 return result;
-
         }
 
-        public ResponseData DoBatch<T>(RequestType type, string id, Dictionary<string, T> dic, bool hasCalc)
+        public ResponseData DoBatch4<T>(RequestType type, string id, Dictionary<string, T> dic, bool hasCalc)
         {
             if (hasCalc)
                 if (_cnn.RedisServerType == RedisServerType.ClusterMaster || _cnn.RedisServerType == RedisServerType.ClusterSlave)
@@ -314,12 +352,14 @@ namespace SAEA.RedisSocket.Core
             {
                 _cnn = OnRedirect.Invoke(result.Data);
                 _redisCoder = _cnn.RedisCoder;
-                return DoBatch<T>(type, id, dic, false);
+                return DoBatch4<T>(type, id, dic, false);
             }
             else
                 return result;
 
         }
+
+       
 
         /// <summary>
         /// SCAN
