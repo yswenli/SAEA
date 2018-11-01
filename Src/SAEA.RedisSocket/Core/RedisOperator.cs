@@ -245,13 +245,7 @@ namespace SAEA.RedisSocket.Core
 
         public ResponseData DoBatch(RequestType type, Dictionary<string, string> dic)
         {
-            List<string> list = new List<string>();
-            foreach (var item in dic)
-            {
-                list.Add(item.Key);
-                list.Add(item.Value);
-            }
-            var cmd = _redisCoder.Coder(type, list.ToArray());
+            var cmd = _redisCoder.Coder(type, dic);
             _cnn.Send(cmd);
             var result = _redisCoder.Decoder();
             if (result.Type == ResponseType.Redirect)

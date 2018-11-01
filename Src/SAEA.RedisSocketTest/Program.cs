@@ -208,9 +208,27 @@ namespace SAEA.RedisSocketTest
 
         private static void PerformanceTest(object sender)
         {
+            ConsoleHelper.WriteLine($"正在初始化数据...");
+
             RedisClient redisClient = (RedisClient)sender;
             var db = redisClient.GetDataBase();
-            var count = 100000;
+            var count = 1000000;
+
+            var millseconds = 0L;
+
+            Dictionary<string, string> dic = new Dictionary<string, string>();
+            for (int i = 0; i < count; i++)
+            {
+                dic.Add("key" + i, "val" + i);
+            }
+
+            List<string> list = new List<string>();
+            for (int i = 0; i < count; i++)
+            {
+                list.Add("key" + i);
+            }
+
+            var keys = list.ToArray();
 
             ConsoleHelper.WriteLine($"回车开始{count}次操作...");
             Stopwatch stopwatch = new Stopwatch();
@@ -224,13 +242,12 @@ namespace SAEA.RedisSocketTest
             //}
 
             //2
-            Dictionary<string, string> dic = new Dictionary<string, string>();
-            for (int i = 0; i < count; i++)
-            {
-                dic.Add("key" + i, "val" + i);
-            }
+           
             db.MSet(dic);
-            ConsoleHelper.WriteLine($"kv插值操作已完成，速度{count * 1000 / stopwatch.ElapsedMilliseconds}");
+
+            millseconds = stopwatch.ElapsedMilliseconds;
+
+            ConsoleHelper.WriteLine($"kv插值操作已完成，用时：{millseconds}, 速度{count * 1000 / millseconds}");
 
             stopwatch.Restart();
             //1
@@ -238,14 +255,13 @@ namespace SAEA.RedisSocketTest
             //{
             //    db.Get("key" + i);
             //}
-            List<string> keys = new List<string>();
-            for (int i = 0; i < count; i++)
-            {
-                keys.Add("key" + i);
-            }
+            
 
-            var result = db.MGet(keys.ToArray());
-            ConsoleHelper.WriteLine($"kv取值操作已完成，速度{count * 1000 / stopwatch.ElapsedMilliseconds}");
+            var result = db.MGet(keys);
+
+            millseconds = stopwatch.ElapsedMilliseconds;
+
+            ConsoleHelper.WriteLine($"kv取值操作已完成，用时：{millseconds}, 速度{count * 1000 / millseconds}");
 
             stopwatch.Restart();
             //1
@@ -254,9 +270,9 @@ namespace SAEA.RedisSocketTest
             //    db.Del("key" + i);
             //}
 
-            db.Del(keys.ToArray());
-
-            ConsoleHelper.WriteLine($"kv删除操作已完成，速度{count * 1000 / stopwatch.ElapsedMilliseconds}");
+            db.Del(keys);
+            millseconds = stopwatch.ElapsedMilliseconds;
+            ConsoleHelper.WriteLine($"kv删除操作已完成，用时：{millseconds}，速度{count * 1000 / millseconds}");
             ConsoleHelper.ReadLine();
 
         }

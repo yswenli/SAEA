@@ -25,6 +25,7 @@ using SAEA.Common;
 using SAEA.RedisSocket.Model;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -90,7 +91,7 @@ namespace SAEA.RedisSocket.Core
                     }
                     else
                     {
-                        _fastQueueSync.WaitOne();
+                        _fastQueueSync.WaitOne(10);
                     }
                 }
             }, true, ThreadPriority.Highest);
@@ -118,6 +119,26 @@ namespace SAEA.RedisSocket.Core
             return _sendCommand;
         }
 
+        public string Coder(RequestType commandName, Dictionary<string,string> dic)
+        {
+            _coderDecoderSync.WaitOne();
+            _commandName = commandName;
+            var sb = new StringBuilder();
+            sb.AppendLine("*" + dic.Count);
+            foreach (var item in dic)
+            {
+                var length = Encoding.UTF8.GetBytes(item.Key).Length;
+                sb.AppendLine("$" + length);
+                sb.AppendLine(item.Key);
+
+                length = Encoding.UTF8.GetBytes(item.Value).Length;
+                sb.AppendLine("$" + length);
+                sb.AppendLine(item.Value);
+            }
+            _sendCommand = sb.ToString();
+            return _sendCommand;
+        }
+
         /// <summary>
         /// 接收来自RedisServer的命令
         /// </summary>
@@ -125,7 +146,6 @@ namespace SAEA.RedisSocket.Core
         public void Enqueue(string command)
         {
             _fastQueue.Enqueue(command);
-            _fastQueueSync.Set();
         }
 
         /// <summary>
