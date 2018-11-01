@@ -245,7 +245,7 @@ namespace SAEA.RedisSocket.Core
 
         public ResponseData DoBatch(RequestType type, Dictionary<string, string> dic)
         {
-            var cmd = _redisCoder.Coder(type, dic);
+            var cmd = _redisCoder.CoderForDic(type, dic);
             _cnn.Send(cmd);
             var result = _redisCoder.Decoder();
             if (result.Type == ResponseType.Redirect)
@@ -301,15 +301,8 @@ namespace SAEA.RedisSocket.Core
                     _cnn = RedisConnectionManager.GetConnectionBySlot(id);
                     _redisCoder = _cnn.RedisCoder;
                 }
-            List<string> list = new List<string>();
-            list.Add(type.ToString());
-            list.Add(id);
-            foreach (var item in dic)
-            {
-                list.Add(item.Key.ToString());
-                list.Add(item.Value);
-            }
-            var cmd = _redisCoder.Coder(type, list.ToArray());
+
+            var cmd = _redisCoder.CoderForDicWidthID(type, id, dic);
             _cnn.Send(cmd);
             var result = _redisCoder.Decoder();
             if (result.Type == ResponseType.Redirect)
@@ -322,38 +315,7 @@ namespace SAEA.RedisSocket.Core
                 return result;
         }
 
-        public ResponseData DoBatch4<T>(RequestType type, string id, Dictionary<string, T> dic, bool hasCalc)
-        {
-            if (hasCalc)
-                if (_cnn.RedisServerType == RedisServerType.ClusterMaster || _cnn.RedisServerType == RedisServerType.ClusterSlave)
-                {
-                    _cnn = RedisConnectionManager.GetConnectionBySlot(id);
-                    _redisCoder = _cnn.RedisCoder;
-                }
 
-            List<string> list = new List<string>();
-            list.Add(type.ToString());
-            list.Add(id);
-            foreach (var item in dic)
-            {
-                list.Add(item.Key);
-                list.Add(SerializeHelper.Serialize(item.Value));
-            }
-            var cmd = _redisCoder.Coder(type, list.ToArray());
-            _cnn.Send(cmd);
-            var result = _redisCoder.Decoder();
-            if (result.Type == ResponseType.Redirect)
-            {
-                _cnn = OnRedirect.Invoke(result.Data);
-                _redisCoder = _cnn.RedisCoder;
-                return DoBatch4<T>(type, id, dic, false);
-            }
-            else
-                return result;
-
-        }
-
-       
 
         /// <summary>
         /// SCAN

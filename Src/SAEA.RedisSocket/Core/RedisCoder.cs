@@ -119,7 +119,7 @@ namespace SAEA.RedisSocket.Core
             return _sendCommand;
         }
 
-        public string Coder(RequestType commandName, Dictionary<string,string> dic)
+        public string CoderForDic<K,V>(RequestType commandName, Dictionary<K, V> dic)
         {
             _coderDecoderSync.WaitOne();
             _commandName = commandName;
@@ -127,13 +127,36 @@ namespace SAEA.RedisSocket.Core
             sb.AppendLine("*" + dic.Count);
             foreach (var item in dic)
             {
-                var length = Encoding.UTF8.GetBytes(item.Key).Length;
+                var length = Encoding.UTF8.GetBytes(item.Key.ToString()).Length;
                 sb.AppendLine("$" + length);
-                sb.AppendLine(item.Key);
+                sb.AppendLine(item.Key.ToString());
 
-                length = Encoding.UTF8.GetBytes(item.Value).Length;
+                length = Encoding.UTF8.GetBytes(item.Value.ToString()).Length;
                 sb.AppendLine("$" + length);
-                sb.AppendLine(item.Value);
+                sb.AppendLine(item.Value.ToString());
+            }
+            _sendCommand = sb.ToString();
+            return _sendCommand;
+        }
+
+        public string CoderForDicWidthID<K,V>(RequestType commandName, string id, Dictionary<K, V> dic)
+        {
+            _coderDecoderSync.WaitOne();
+            _commandName = commandName;
+            var sb = new StringBuilder();
+            sb.AppendLine("*" + dic.Count + 1);
+            var length = Encoding.UTF8.GetBytes(id).Length;
+            sb.AppendLine("$" + length);
+            sb.AppendLine(id);
+            foreach (var item in dic)
+            {
+                length = Encoding.UTF8.GetBytes(item.Key.ToString()).Length;
+                sb.AppendLine("$" + length);
+                sb.AppendLine(item.Key.ToString());
+
+                length = Encoding.UTF8.GetBytes(item.Value.ToString()).Length;
+                sb.AppendLine("$" + length);
+                sb.AppendLine(item.Value.ToString());
             }
             _sendCommand = sb.ToString();
             return _sendCommand;
@@ -156,7 +179,7 @@ namespace SAEA.RedisSocket.Core
         public string GetRedisReply()
         {
             bool stopped = false;
-            var task = Task.Factory.StartNew(() => BlockDequeue(ref stopped));            
+            var task = Task.Factory.StartNew(() => BlockDequeue(ref stopped));
             if (!task.Wait(_actionTimeout))
             {
                 stopped = true;

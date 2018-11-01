@@ -211,24 +211,23 @@ namespace SAEA.RedisSocketTest
             ConsoleHelper.WriteLine($"正在初始化数据...");
 
             RedisClient redisClient = (RedisClient)sender;
+
             var db = redisClient.GetDataBase();
+
             var count = 1000000;
 
             var millseconds = 0L;
 
+            string[] keys = new string[count];
+
             Dictionary<string, string> dic = new Dictionary<string, string>();
+
             for (int i = 0; i < count; i++)
             {
-                dic.Add("key" + i, "val" + i);
+                var key = "key" + i;
+                keys[i] = key;
+                dic.Add(key, "val" + i);
             }
-
-            List<string> list = new List<string>();
-            for (int i = 0; i < count; i++)
-            {
-                list.Add("key" + i);
-            }
-
-            var keys = list.ToArray();
 
             ConsoleHelper.WriteLine($"回车开始{count}次操作...");
             Stopwatch stopwatch = new Stopwatch();
@@ -242,7 +241,7 @@ namespace SAEA.RedisSocketTest
             //}
 
             //2
-           
+
             db.MSet(dic);
 
             millseconds = stopwatch.ElapsedMilliseconds;
@@ -255,7 +254,7 @@ namespace SAEA.RedisSocketTest
             //{
             //    db.Get("key" + i);
             //}
-            
+
 
             var result = db.MGet(keys);
 
@@ -273,6 +272,7 @@ namespace SAEA.RedisSocketTest
             db.Del(keys);
             millseconds = stopwatch.ElapsedMilliseconds;
             ConsoleHelper.WriteLine($"kv删除操作已完成，用时：{millseconds}，速度{count * 1000 / millseconds}");
+            stopwatch.Stop();
             ConsoleHelper.ReadLine();
 
         }
