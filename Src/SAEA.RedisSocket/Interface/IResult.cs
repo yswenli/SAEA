@@ -3,8 +3,8 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.RedisSocket.Model
-*文件名： ResponseData
+*命名空间：SAEA.RedisSocket.Interface
+*文件名： IResult
 *版本号： V3.2.1.1
 *唯一标识：bc48708f-e1e1-4b9e-be22-0cba54211c76
 *当前的用户域：WENLI-PC
@@ -22,20 +22,7 @@
 *
 *****************************************************************************/
 
-using SAEA.RedisSocket.Interface;
-
-namespace SAEA.RedisSocket.Model
+namespace SAEA.RedisSocket.Interface
 {
-    public class ResponseData: IResult
-    {
-        public ResponseType Type
-        {
-            get; set;
-        }
-
-        public string Data
-        {
-            get; set;
-        }
-    }
+    public interface IResult { }
 }

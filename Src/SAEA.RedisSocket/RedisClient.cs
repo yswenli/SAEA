@@ -2,20 +2,20 @@
 *Copyright (c) 2018 Microsoft All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
-*公司名称：Microsoft
+*公司名称：wenli
 *命名空间：SAEA.RedisSocket
-*文件名： RedisOperation
+*文件名： RedisClient
 *版本号： V3.2.1.1
-*唯一标识：23cf910b-3bed-4d80-9e89-92c04fba1e5e
+*唯一标识：3806bd74-f304-42b2-ab04-3e219828fa60
 *当前的用户域：WENLI-PC
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
-*创建时间：2018/3/16 10:12:40
+*创建时间：2018/3/1 16:16:57
 *描述：
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/3/16 10:12:40
+*修改时间：2018/3/1 16:16:57
 *修改人： yswenli
 *版本号： V3.2.1.1
 *描述：
@@ -23,20 +23,15 @@
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.RedisSocket.Core;
-using SAEA.RedisSocket.Interface;
 using SAEA.RedisSocket.Model;
 using System;
 using System.Collections.Generic;
+using System.Text;
 using System.Threading;
 
 namespace SAEA.RedisSocket
 {
-    /// <summary>
-    /// redis连接类
-    /// 支持常用命令
-    /// 支持Cluster
-    /// </summary>
-    public partial class RedisClient : IClient
+    public partial class RedisClient
     {
         RedisConnection _cnn;
 
@@ -208,7 +203,7 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public string Type(string key)
         {
-            return GetDataBase().Do1(RequestType.TYPE, key, true).Data;
+            return GetDataBase().DoWithKey(RequestType.TYPE, key, true).Data;
         }
         /// <summary>
         /// redis server的信息
@@ -330,11 +325,10 @@ namespace SAEA.RedisSocket
                 {
                     _redisDataBase = new RedisDataBase(_cnn);
 
-                    _redisDataBase.OnRedirect += _redisDataBase_OnRedirect;
+                    _redisDataBase.OnRedirect += _redisDataBase_OnRedirect1;
                 }
                 return _redisDataBase;
             }
-        }
-
+        }        
     }
 }

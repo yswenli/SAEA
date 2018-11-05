@@ -32,10 +32,4 @@ https://github.com/yswenli/SAEA</Description>
     <ProjectReference Include="..\SAEA.Sockets\SAEA.Sockets.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Reference Include="System.Threading.Tasks.Dataflow">
-      <HintPath>C:\Program Files\dotnet\sdk\NuGetFallbackFolder\microsoft.netcore.app\2.0.0\ref\netcoreapp2.0\System.Threading.Tasks.Dataflow.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-
 </Project>

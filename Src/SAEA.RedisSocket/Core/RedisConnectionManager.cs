@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.RedisSocket.Base;
 using SAEA.RedisSocket.Interface;
 using SAEA.RedisSocket.Model;
 using System.Collections.Concurrent;
@@ -37,7 +38,7 @@ namespace SAEA.RedisSocket.Core
         /// <summary>
         /// redis连接缓存
         /// </summary>
-        static ConcurrentDictionary<string, IRedisConnection> _redisConnections = new ConcurrentDictionary<string, IRedisConnection>();
+        static ConcurrentDictionary<string, RedisConnection> _redisConnections = new ConcurrentDictionary<string, RedisConnection>();
 
 
         public static List<ClusterNode> _clusterMasterNodes = new List<ClusterNode>();
@@ -71,20 +72,24 @@ namespace SAEA.RedisSocket.Core
             }
         }
 
-        /// <summary>
-        /// 根据key获取对应连接对象
-        /// </summary>
-        /// <param name="key"></param>
-        /// <returns></returns>
-        public static IRedisConnection GetConnectionBySlot(string key)
+        public static string GetIPPortWidthKey(string key)
         {
             var slot = RedisCRC16.GetClusterSlot(key);
             string ipPort = string.Empty;
             lock (_locker)
             {
-                ipPort = _clusterMasterNodes.Where(b => b.MinSlots <= slot && b.MaxSlots >= slot).Select(b => b.IPPort).First();
+                return _clusterMasterNodes.Where(b => b.MinSlots <= slot && b.MaxSlots >= slot).Select(b => b.IPPort).First();
             }
-            return Get(ipPort);
+        }
+
+        /// <summary>
+        /// 根据key获取对应连接对象
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        public static RedisConnection GetConnectionBySlot(string key)
+        {
+            return Get(GetIPPortWidthKey(key));
         }
 
 
@@ -93,7 +98,7 @@ namespace SAEA.RedisSocket.Core
         /// </summary>
         /// <param name="ipPort"></param>
         /// <param name="cnn"></param>
-        public static void Set(string ipPort, IRedisConnection cnn)
+        public static void Set(string ipPort, RedisConnection cnn)
         {
             _redisConnections.TryAdd(ipPort, cnn);
         }
@@ -103,9 +108,9 @@ namespace SAEA.RedisSocket.Core
         /// </summary>
         /// <param name="ipPort"></param>
         /// <returns></returns>
-        public static IRedisConnection Get(string ipPort)
+        public static RedisConnection Get(string ipPort)
         {
-            if (_redisConnections.TryGetValue(ipPort, out IRedisConnection redisConnection))
+            if (_redisConnections.TryGetValue(ipPort, out RedisConnection redisConnection))
             {
                 return redisConnection;
             }
@@ -128,7 +133,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="ipPort"></param>
         public static void Remove(string ipPort)
         {
-            _redisConnections.TryRemove(ipPort, out IRedisConnection redisConnection);
+            _redisConnections.TryRemove(ipPort, out RedisConnection redisConnection);
         }
 
 

@@ -2,20 +2,20 @@
 *Copyright (c) 2018 Microsoft All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
-*公司名称：Microsoft
-*命名空间：SAEA.RedisSocket
+*公司名称：yswenli
+*命名空间：SAEA.RedisSocket.Core
 *文件名： RedisCoder
 *版本号： V3.2.1.1
-*唯一标识：5bb9b438-ce6f-4faa-b786-a0b372aaecf2
+*唯一标识：a22caf84-4c61-456e-98cc-cbb6cb2c6d6e
 *当前的用户域：WENLI-PC
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
-*创建时间：2018/3/16 9:38:50
+*创建时间：2018/11/5 20:45:02
 *描述：
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/3/16 9:38:50
+*创建时间：2018/11/5 20:45:02
 *修改人： yswenli
 *版本号： V3.2.1.1
 *描述：
@@ -23,7 +23,6 @@
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.RedisSocket.Model;
-using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text;
@@ -32,10 +31,7 @@ using System.Threading.Tasks;
 
 namespace SAEA.RedisSocket.Core
 {
-    /// <summary>
-    /// redis 命令编码与解析
-    /// </summary>
-    public class RedisCoder : IDisposable
+    internal class RedisCoder
     {
         /// <summary>
         /// 编码解码同步
@@ -91,7 +87,7 @@ namespace SAEA.RedisSocket.Core
                     }
                     else
                     {
-                        _fastQueueSync.WaitOne(10);
+                        _fastQueueSync.WaitOne(1);
                     }
                 }
             }, true, ThreadPriority.Highest);
@@ -119,7 +115,7 @@ namespace SAEA.RedisSocket.Core
             return _sendCommand;
         }
 
-        public string CoderForDic<K,V>(RequestType commandName, Dictionary<K, V> dic)
+        public string CoderForDic<K, V>(RequestType commandName, Dictionary<K, V> dic)
         {
             _coderDecoderSync.WaitOne();
             _commandName = commandName;
@@ -139,7 +135,7 @@ namespace SAEA.RedisSocket.Core
             return _sendCommand;
         }
 
-        public string CoderForDicWidthID<K,V>(RequestType commandName, string id, Dictionary<K, V> dic)
+        public string CoderForDicWidthID<K, V>(RequestType commandName, string id, Dictionary<K, V> dic)
         {
             _coderDecoderSync.WaitOne();
             _commandName = commandName;
@@ -176,7 +172,7 @@ namespace SAEA.RedisSocket.Core
         /// </summary>
         /// <param name="timeOut">设置收取消息超时时间，默认30秒</param>
         /// <returns></returns>
-        public string GetRedisReply()
+        string GetRedisReply()
         {
             bool stopped = false;
             var task = Task.Factory.StartNew(() => BlockDequeue(ref stopped));
@@ -201,7 +197,7 @@ namespace SAEA.RedisSocket.Core
             {
                 if (_operationQueue.IsEmpty)
                 {
-                    _operationQueueSync.WaitOne(10);
+                    _operationQueueSync.WaitOne(1);
                 }
                 else
                     _operationQueue.TryDequeue(out result);
@@ -696,6 +692,5 @@ namespace SAEA.RedisSocket.Core
             _fastQueue.Clear();
             _operationQueue.Clear();
         }
-
     }
 }

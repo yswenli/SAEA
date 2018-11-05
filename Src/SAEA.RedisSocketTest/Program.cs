@@ -41,8 +41,6 @@ namespace SAEA.RedisSocketTest
                 cnnStr = "server=127.0.0.1:6379;passwords=yswenli";
                 //cnnStr = "server=127.0.0.1:6381;passwords=yswenli";
 
-                cnnStr = "server=127.0.0.1:6380;passwords=yswenli";
-
             }
             RedisClient redisClient = new RedisClient(cnnStr);
             redisClient.Connect();
@@ -214,7 +212,7 @@ namespace SAEA.RedisSocketTest
 
             var db = redisClient.GetDataBase();
 
-            var count = 1000000;
+            var count = 10000;
 
             var millseconds = 0L;
 
@@ -235,19 +233,20 @@ namespace SAEA.RedisSocketTest
             stopwatch.Start();
 
             //1
-            //for (int i = 0; i < count; i++)
-            //{
-            //    db.Set("key" + i, "val" + i);
-            //}
+            for (int i = 0; i < count; i++)
+            {
+                db.Set("key" + i, "val" + i);
+            }
 
             //2
 
-            db.MSet(dic);
+            //db.MSet(dic);
 
             millseconds = stopwatch.ElapsedMilliseconds;
 
             ConsoleHelper.WriteLine($"kv插值操作已完成，用时：{millseconds}, 速度{count * 1000 / millseconds}");
 
+            ConsoleHelper.ReadLine();
             stopwatch.Restart();
             //1
             //for (int i = 0; i < count; i++)

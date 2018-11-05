@@ -2,42 +2,40 @@
 *Copyright (c) 2018 Microsoft All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
-*公司名称：Microsoft
+*公司名称：yswenli
 *命名空间：SAEA.RedisSocket.Core
 *文件名： RedisConnection
 *版本号： V3.2.1.1
-*唯一标识：f02f9b69-4b98-401f-8a0d-8d13467ea1df
+*唯一标识：a22caf84-4c61-456e-98cc-cbb6cb2c6d6e
 *当前的用户域：WENLI-PC
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
-*创建时间：2018/3/19 15:37:01
+*创建时间：2018/11/5 20:45:02
 *描述：
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/3/19 15:37:01
+*创建时间：2018/11/5 20:45:02
 *修改人： yswenli
 *版本号： V3.2.1.1
 *描述：
 *
 *****************************************************************************/
+
 using SAEA.Common;
-using SAEA.RedisSocket.Interface;
+using SAEA.RedisSocket.Base.Net;
 using SAEA.RedisSocket.Model;
-using SAEA.RedisSocket.Net;
 using System;
+using System.Text;
 using System.Threading;
 
 namespace SAEA.RedisSocket.Core
 {
-    /// <summary>
-    /// redis连接类
-    /// </summary>
-    public class RedisConnection : IDisposable, IRedisConnection
+    public class RedisConnection
     {
         object _syncLocker = new object();
 
-        RConnection _cnn;
+        RClient _cnn;
 
         DateTime _actived;
 
@@ -53,7 +51,7 @@ namespace SAEA.RedisSocket.Core
 
         RedisCoder _redisCoder;
 
-        public RedisCoder RedisCoder
+        internal RedisCoder RedisCoder
         {
             get
             {
@@ -77,7 +75,7 @@ namespace SAEA.RedisSocket.Core
         {
             this.IPPort = ipPort;
             var address = ipPort.GetIPPort();
-            _cnn = new RConnection(102400, address.Item1, address.Item2);
+            _cnn = new RClient(102400, address.Item1, address.Item2);
             _cnn.OnActived += _cnn_OnActived;
             _cnn.OnMessage += _cnn_OnMessage;
             _cnn.OnDisconnected += _cnn_OnDisconnected;
@@ -134,11 +132,11 @@ namespace SAEA.RedisSocket.Core
         /// 发送命令
         /// </summary>
         /// <param name="cmd"></param>
-        public void Send(string cmd)
+        public void Request(string cmd)
         {
             if (IsConnected)
             {
-                _cnn.Send(cmd);
+                _cnn.Request(Encoding.UTF8.GetBytes(cmd));
             }
         }
 

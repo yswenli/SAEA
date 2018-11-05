@@ -1,4 +1,5 @@
-﻿using SAEA.RedisSocket.Model;
+﻿using SAEA.RedisSocket.Base;
+using SAEA.RedisSocket.Model;
 using System;
 using System.Collections.Generic;
 
@@ -7,7 +8,7 @@ namespace SAEA.RedisSocket.Core
     /// <summary>
     /// redis数据库操作类
     /// </summary>
-    public class RedisDataBase : RedisOperator
+    public class RedisDataBase : BaseOperation
     {
         object _syncLocker = new object();
 
@@ -24,7 +25,7 @@ namespace SAEA.RedisSocket.Core
         #region KEY
         public void Set(string key, string value)
         {
-            base.Do2(RequestType.SET, key, value, true);
+            base.DoWithKeyValue(RequestType.SET, key, value, true);
         }
 
         public void Set(string key, string value, int seconds)
@@ -34,31 +35,31 @@ namespace SAEA.RedisSocket.Core
 
         public void MSet(Dictionary<string, string> dic)
         {
-            base.DoBatch(RequestType.MSET, dic);
+            base.DoBatchWithDic(RequestType.MSET, dic);
         }
 
         public string Get(string key)
         {
-            return base.Do1(RequestType.GET, key, true).Data;
+            return base.DoWithKey(RequestType.GET, key, true).Data;
         }
 
         public string MGet(params string[] keys)
         {
-            return base.DoBatch1(RequestType.MGET, keys).Data;
+            return base.DoBatchWithParams(RequestType.MGET, keys).Data;
         }
 
         public List<string> Keys(string pattern = "*")
         {
-            return base.Do1(RequestType.KEYS, pattern, true).ToList<string>();
+            return base.DoWithKey(RequestType.KEYS, pattern, true).ToList<string>();
         }
         public void Del(string key)
         {
-            base.Do1(RequestType.DEL, key, true);
+            base.DoWithKey(RequestType.DEL, key, true);
         }
 
         public void Del(params string[] keys)
         {
-            base.DoBatch1(RequestType.DEL, keys);
+            base.DoBatchWithParams(RequestType.DEL, keys);
         }
         /// <summary>
         /// 检查给定 key 是否存在。
@@ -67,7 +68,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public bool Exists(string key)
         {
-            var result = base.Do1(RequestType.EXISTS, key, true).Type;
+            var result = base.DoWithKey(RequestType.EXISTS, key, true).Type;
             return result == ResponseType.Empty ? false : true;
         }
         /// <summary>
@@ -85,7 +86,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="key"></param>
         public void Persist(string key)
         {
-            base.Do1(RequestType.PERSIST, key, true);
+            base.DoWithKey(RequestType.PERSIST, key, true);
         }
         /// <summary>
         /// 将 oldKey 改名为 newkey 。
@@ -95,7 +96,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public bool Rename(string oldKey, string newKey)
         {
-            var result = base.Do2(RequestType.RENAME, oldKey, newKey, true);
+            var result = base.DoWithKeyValue(RequestType.RENAME, oldKey, newKey, true);
             if (result.Data == "OK")
             {
                 return true;
@@ -107,37 +108,37 @@ namespace SAEA.RedisSocket.Core
         #region HSET
         public void HSet(string hid, string key, string value)
         {
-            base.Do3(RequestType.HSET, hid, key, value, true);
+            base.DoHash(RequestType.HSET, hid, key, value, true);
         }
         public ResponseData HGet(string hid, string key)
         {
-            return base.Do2(RequestType.HGET, hid, key, true);
+            return base.DoWithKeyValue(RequestType.HGET, hid, key, true);
         }
         public Dictionary<string, string> HGetAll(string hid)
         {
-            return base.Do1(RequestType.HGETALL, hid, true).ToKeyValues();
+            return base.DoWithKey(RequestType.HGETALL, hid, true).ToKeyValues();
         }
         public List<string> GetHKeys(string hid)
         {
-            return base.Do1(RequestType.HKEYS, hid, true).ToList<string>();
+            return base.DoWithKey(RequestType.HKEYS, hid, true).ToList<string>();
         }
         public ResponseData HDel(string hid, string key)
         {
-            return base.Do2(RequestType.HDEL, hid, key, true);
+            return base.DoWithKeyValue(RequestType.HDEL, hid, key, true);
         }
         public ResponseData HDel(string hid, string[] keys)
         {
-            return base.DoBatch2(RequestType.HDEL, hid, keys);
+            return base.DoBatchWithIDKeys(RequestType.HDEL, hid, keys);
         }
         public int HLen(string hid)
         {
             var result = 0;
-            int.TryParse(base.Do1(RequestType.HLEN, hid, true).Data, out result);
+            int.TryParse(base.DoWithKey(RequestType.HLEN, hid, true).Data, out result);
             return result;
         }
         public bool HExists(string hid, string key)
         {
-            var result = base.Do2(RequestType.HEXISTS, hid, key, true).Type;
+            var result = base.DoWithKeyValue(RequestType.HEXISTS, hid, key, true).Type;
             return result == ResponseType.Empty ? false : true;
         }
         #endregion
@@ -145,42 +146,42 @@ namespace SAEA.RedisSocket.Core
         #region List
         public void LSet(string key, int index, string value)
         {
-            base.Do3(RequestType.LSET, key, index.ToString(), value, true);
+            base.DoHash(RequestType.LSET, key, index.ToString(), value, true);
         }
         public int LLen(string key)
         {
             var result = 0;
-            int.TryParse(base.Do1(RequestType.LLEN, key, true).Data, out result);
+            int.TryParse(base.DoWithKey(RequestType.LLEN, key, true).Data, out result);
             return result;
         }
         public int LPush(string key, string value)
         {
             var result = 0;
-            int.TryParse(base.Do2(RequestType.LPUSH, key, value, true).Data, out result);
+            int.TryParse(base.DoWithKeyValue(RequestType.LPUSH, key, value, true).Data, out result);
             return result;
         }
         public string LPop(string key)
         {
-            return base.Do1(RequestType.LPOP, key, true).Data;
+            return base.DoWithKey(RequestType.LPOP, key, true).Data;
         }
         public int RPush(string key, string value)
         {
             var result = 0;
-            int.TryParse(base.Do2(RequestType.RPUSH, key, value, true).Data, out result);
+            int.TryParse(base.DoWithKeyValue(RequestType.RPUSH, key, value, true).Data, out result);
             return result;
         }
         public string RPop(string key)
         {
-            return base.Do1(RequestType.RPOP, key, true).Data;
+            return base.DoWithKey(RequestType.RPOP, key, true).Data;
         }
         public List<string> LRang(string key, int begin = 0, int end = -1)
         {
-            return base.Do3(RequestType.LRANGE, key, begin.ToString(), end.ToString(), true).ToList<string>();
+            return base.DoHash(RequestType.LRANGE, key, begin.ToString(), end.ToString(), true).ToList<string>();
         }
         public int LRemove(string key, int count, string value)
         {
             var result = 0;
-            int.TryParse(base.Do3(RequestType.LREM, key, count.ToString(), value, true).Data, out result);
+            int.TryParse(base.DoHash(RequestType.LREM, key, count.ToString(), value, true).Data, out result);
             return result;
         }
         #endregion
@@ -188,45 +189,45 @@ namespace SAEA.RedisSocket.Core
         #region SET
         public void SAdd(string key, string value)
         {
-            base.Do2(RequestType.SADD, key, value, true);
+            base.DoWithKeyValue(RequestType.SADD, key, value, true);
         }
 
         public void SAdd(string key, string[] value)
         {
-            base.DoBatch2(RequestType.SADD, key, value);
+            base.DoBatchWithIDKeys(RequestType.SADD, key, value);
         }
 
         public int SLen(string key)
         {
             var result = 0;
-            int.TryParse(base.Do1(RequestType.SCARD, key, true).Data, out result);
+            int.TryParse(base.DoWithKey(RequestType.SCARD, key, true).Data, out result);
             return result;
         }
 
         public bool SExists(string key, string value)
         {
-            var result = base.Do2(RequestType.SISMEMBER, key, value, true).Type;
+            var result = base.DoWithKeyValue(RequestType.SISMEMBER, key, value, true).Type;
             return result == ResponseType.Empty ? false : true;
         }
 
         public List<string> SMemebers(string key)
         {
-            return base.Do1(RequestType.SMEMBERS, key, true).ToList<string>();
+            return base.DoWithKey(RequestType.SMEMBERS, key, true).ToList<string>();
         }
 
         public string SRandMemeber(string key)
         {
-            return base.Do1(RequestType.SRANDMEMBER, key, true).Data;
+            return base.DoWithKey(RequestType.SRANDMEMBER, key, true).Data;
         }
 
         public string SPop(string key)
         {
-            return base.Do1(RequestType.SPOP, key, true).Data;
+            return base.DoWithKey(RequestType.SPOP, key, true).Data;
         }
         public int SRemove(string key, params string[] values)
         {
             var result = 0;
-            int.TryParse(base.DoBatch2(RequestType.SREM, key, values).Data, out result);
+            int.TryParse(base.DoBatchWithIDKeys(RequestType.SREM, key, values).Data, out result);
             return result;
         }
         #endregion
@@ -234,24 +235,24 @@ namespace SAEA.RedisSocket.Core
         #region ZSET
         public void ZAdd(string key, string value, double score)
         {
-            base.Do3(RequestType.ZADD, key, score.ToString(), value, true);
+            base.DoHash(RequestType.ZADD, key, score.ToString(), value, true);
         }
 
         public void ZAdd(string key, Dictionary<double, string> scoreVals)
         {
-            base.DoBatch3(RequestType.ZADD, key, scoreVals, true);
+            base.DoBatchWithIDDic(RequestType.ZADD, key, scoreVals, true);
         }
 
         public int ZLen(string key)
         {
             var result = 0;
-            int.TryParse(base.Do1(RequestType.ZCARD, key, true).Data, out result);
+            int.TryParse(base.DoWithKey(RequestType.ZCARD, key, true).Data, out result);
             return result;
         }
         public int ZCount(string key, double begin = 0, double end = -1)
         {
             var result = 0;
-            int.TryParse(base.Do3(RequestType.ZCOUNT, key, begin.ToString(), end.ToString(), true).Data, out result);
+            int.TryParse(base.DoHash(RequestType.ZCOUNT, key, begin.ToString(), end.ToString(), true).Data, out result);
             return result;
         }
 
@@ -268,7 +269,7 @@ namespace SAEA.RedisSocket.Core
         public int ZRemove(string key, string[] values)
         {
             var result = 0;
-            int.TryParse(base.DoBatch2(RequestType.ZREM, key, values).Data, out result);
+            int.TryParse(base.DoBatchWithIDKeys(RequestType.ZREM, key, values).Data, out result);
             return result;
         }
         #endregion
@@ -276,7 +277,7 @@ namespace SAEA.RedisSocket.Core
         #region SCAN
         public ScanResponse Scan(int offset = 0, string pattern = "*", int count = -1)
         {
-            return base.Do(RequestType.SCAN, offset, pattern, count);
+            return base.DoScan(RequestType.SCAN, offset, pattern, count);
         }
 
         public HScanResponse HScan(string hid, int offset = 0, string pattern = "*", int count = -1)
@@ -299,7 +300,7 @@ namespace SAEA.RedisSocket.Core
         public int Publish(string channel, string value)
         {
             var result = 0;
-            int.TryParse(base.Do2(RequestType.PUBLISH, channel, value, true).Data, out result);
+            int.TryParse(base.DoWithKeyValue(RequestType.PUBLISH, channel, value, true).Data, out result);
             return result;
         }
 
@@ -310,7 +311,7 @@ namespace SAEA.RedisSocket.Core
 
         public void UNSUBSCRIBE(string channel)
         {
-            base.Do1(RequestType.UNSUBSCRIBE, channel, true);
+            base.DoWithKey(RequestType.UNSUBSCRIBE, channel, true);
         }
         #endregion
 

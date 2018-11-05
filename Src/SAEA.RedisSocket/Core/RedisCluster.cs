@@ -23,6 +23,7 @@
 *****************************************************************************/
 using SAEA.RedisSocket.Core;
 using SAEA.RedisSocket.Model;
+using System;
 using System.Collections.Generic;
 
 namespace SAEA.RedisSocket
@@ -54,6 +55,73 @@ namespace SAEA.RedisSocket
                 this.Connect();
                 return _cnn;
             }
+        }
+
+        /// <summary>
+        /// redis cluster中重置连接事件
+        /// </summary>
+        /// <param name="ipPort"></param>
+        /// <param name="operationType"></param>
+        /// <param name="args"></param>
+        /// <returns></returns>
+        private Interface.IResult _redisDataBase_OnRedirect1(string ipPort, OperationType operationType, params object[] args)
+        {
+            var cnn = RedisConnectionManager.Get(ipPort);
+
+            if (cnn == null)
+            {
+                this.IsConnected = false;
+                this.RedisConfig = new RedisConfig(ipPort, this.RedisConfig.Passwords, this.RedisConfig.ActionTimeOut);
+                _cnn = new RedisConnection(RedisConfig.GetIPPort(), this.RedisConfig.ActionTimeOut, _debugModel);
+                _cnn.OnDisconnected += _cnn_OnDisconnected;
+                this.Connect();
+                RedisConnectionManager.Set(ipPort, _cnn);
+            }
+
+            switch (operationType)
+            {
+                case OperationType.Do:
+                    return GetDataBase().Do((RequestType)args[0]);
+                case OperationType.DoBatchWithDic:
+                    return GetDataBase().DoBatchWithDic((RequestType)args[0], (Dictionary<string, string>)args[1]);
+                case OperationType.DoBatchWithIDDic:
+                    return GetDataBase().DoBatchWithIDDic((RequestType)args[0], (string)args[1], (Dictionary<double, string>)args[2], false);
+                case OperationType.DoBatchWithIDKeys:
+                    return GetDataBase().DoBatchWithIDKeys((RequestType)args[0], (string)args[1], (string[])args[3]);
+                case OperationType.DoBatchWithParams:
+                    return GetDataBase().DoBatchWithParams((RequestType)args[0], (string[])args[1]);
+                case OperationType.DoCluster:
+                    return GetDataBase().DoCluster((RequestType)args[0], (object[])args[1]);
+                case OperationType.DoClusterSetSlot:
+                    return GetDataBase().DoClusterSetSlot((RequestType)args[0], (string)args[1], (int)args[2], (string)args[3]);
+                case OperationType.DoExpire:
+                    GetDataBase().DoExpire((string)args[0], (int)args[1], false);
+                    break;
+                case OperationType.DoExpireInsert:
+                    GetDataBase().DoExpireInsert((RequestType)args[0], (string)args[1], (string)args[2], (int)args[3]);
+                    break;
+                case OperationType.DoHash:
+                    return GetDataBase().DoHash((RequestType)args[0], (string)args[1], (string)args[2], (string)args[3], false);
+                case OperationType.DoInOne:
+                    return GetDataBase().DoInOne((RequestType)args[0], (string)args[1]);
+                case OperationType.DoRang:
+                    return GetDataBase().DoRang((RequestType)args[0], (string)args[1], (double)args[2], (double)args[3], false);
+                case OperationType.DoScan:
+                    return GetDataBase().DoScan((RequestType)args[0], (int)args[1], (string)args[2], (int)args[3]);
+                case OperationType.DoScanKey:
+                    return GetDataBase().DoScanKey((RequestType)args[0], (string)args[1], (int)args[2], (string)args[3], (int)args[4], false);
+                case OperationType.DoSub:
+                    GetDataBase().DoSub((string[])args[0], (Action<string, string>)args[1]);
+                    break;
+                case OperationType.DoWithKey:
+                    return GetDataBase().DoWithKey((RequestType)args[0], (string)args[1], false);
+                case OperationType.DoWithKeyValue:
+                    return GetDataBase().DoWithKeyValue((RequestType)args[0], (string)args[1], (string)args[2], false);
+                default:
+                    return null;
+            }
+            return null;
+
         }
 
         /// <summary>

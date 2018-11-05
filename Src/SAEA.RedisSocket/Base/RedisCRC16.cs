@@ -23,7 +23,7 @@
 *****************************************************************************/
 using System.Text;
 
-namespace SAEA.RedisSocket.Core
+namespace SAEA.RedisSocket.Base
 {
     class RedisCRC16
     {

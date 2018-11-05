@@ -2,20 +2,20 @@
 *Copyright (c) 2018 Microsoft All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
-*公司名称：Microsoft
-*命名空间：SAEA.RedisSocket.Model
-*文件名： ResponseData
+*公司名称：yswenli
+*命名空间：SAEA.RedisSocket.Base
+*文件名： RedirectHandler
 *版本号： V3.2.1.1
-*唯一标识：bc48708f-e1e1-4b9e-be22-0cba54211c76
+*唯一标识：a22caf84-4c61-456e-98cc-cbb6cb2c6d6e
 *当前的用户域：WENLI-PC
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
-*创建时间：2018/3/16 9:52:12
+*创建时间：2018/11/5 20:45:02
 *描述：
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/3/16 9:52:12
+*创建时间：2018/11/5 20:45:02
 *修改人： yswenli
 *版本号： V3.2.1.1
 *描述：
@@ -23,19 +23,9 @@
 *****************************************************************************/
 
 using SAEA.RedisSocket.Interface;
+using SAEA.RedisSocket.Model;
 
-namespace SAEA.RedisSocket.Model
+namespace SAEA.RedisSocket.Base
 {
-    public class ResponseData: IResult
-    {
-        public ResponseType Type
-        {
-            get; set;
-        }
-
-        public string Data
-        {
-            get; set;
-        }
-    }
+    public delegate IResult RedirectHandler(string ipPort, OperationType operationType, params object[] args);
 }

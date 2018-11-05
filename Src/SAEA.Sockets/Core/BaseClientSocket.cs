@@ -145,7 +145,7 @@ namespace SAEA.Sockets.Core
                 var readArgs = _userToken.ReadArgs;
                 if (!_userToken.Socket.ReceiveAsync(readArgs))
                     ProcessReceive(readArgs);
-                _connectCallBack?.Invoke(e.SocketError);                
+                _connectCallBack?.Invoke(e.SocketError);
             }
         }
 
@@ -318,6 +318,16 @@ namespace SAEA.Sockets.Core
             else
                 OnError?.Invoke("", new Exception("发送失败：当前连接已断开"));
         }
+
+
+        public void BeginSend(byte[] data)
+        {
+            if (Connected)
+            {
+                _userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, null, null);
+            }
+        }
+
 
         public void Disconnect(Exception ex = null)
         {

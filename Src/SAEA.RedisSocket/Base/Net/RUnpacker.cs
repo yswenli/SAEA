@@ -2,20 +2,20 @@
 *Copyright (c) 2018 Microsoft All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
-*公司名称：Microsoft
-*命名空间：SAEA.RedisSocket.Net
-*文件名： RCoder
+*公司名称：yswenli
+*命名空间：SAEA.RedisSocket.Base.Net
+*文件名： RUnpacker
 *版本号： V3.2.1.1
-*唯一标识：25bd9770-a61b-4fae-adda-e122d3834826
+*唯一标识：a22caf84-4c61-456e-98cc-cbb6cb2c6d6e
 *当前的用户域：WENLI-PC
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
-*创建时间：2018/3/16 10:26:33
+*创建时间：2018/11/5 20:45:02
 *描述：
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/3/16 10:26:33
+*创建时间：2018/11/5 20:45:02
 *修改人： yswenli
 *版本号： V3.2.1.1
 *描述：
@@ -25,7 +25,7 @@ using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Generic;
 
-namespace SAEA.RedisSocket.Net
+namespace SAEA.RedisSocket.Base.Net
 {
     /// <summary>
     /// 通信数据接收解析器
@@ -44,21 +44,19 @@ namespace SAEA.RedisSocket.Net
         /// <param name="OnUnPackage"></param>
         /// <param name="onFile"></param>
         public void Unpack(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
-        {
-            //lock (_locker)
-            //{
-                
-            //}
+        {            
             _buffer.AddRange(data);
 
-            if (_buffer.LastIndexOf(13) == _buffer.Count - 2 && _buffer.LastIndexOf(10) == _buffer.Count - 1)
+            var sp = _buffer.AsReadOnly();
+
+            var count = sp.Count;
+
+            if (sp[count - 1] == 10 && sp[count - 2] == 13)
             {
                 unpackCallback.Invoke(new RMessage() { Content = _buffer.ToArray() });
                 _buffer.Clear();
             }
         }
-
-
 
 
         public void Clear()
