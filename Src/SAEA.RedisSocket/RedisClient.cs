@@ -325,10 +325,19 @@ namespace SAEA.RedisSocket
                 {
                     _redisDataBase = new RedisDataBase(_cnn);
 
-                    _redisDataBase.OnRedirect += _redisDataBase_OnRedirect1;
+                    _redisDataBase.OnRedirect += _redisDataBase_OnRedirect;
                 }
                 return _redisDataBase;
             }
-        }        
+        }
+
+        private RedisDataBase GetDataBase(RedisConnection cnn)
+        {
+            _redisDataBase = new RedisDataBase(cnn);
+
+            _redisDataBase.OnRedirect += _redisDataBase_OnRedirect;
+
+            return _redisDataBase;
+        }
     }
 }

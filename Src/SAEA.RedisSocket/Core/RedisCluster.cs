@@ -64,7 +64,7 @@ namespace SAEA.RedisSocket
         /// <param name="operationType"></param>
         /// <param name="args"></param>
         /// <returns></returns>
-        private Interface.IResult _redisDataBase_OnRedirect1(string ipPort, OperationType operationType, params object[] args)
+        private Interface.IResult _redisDataBase_OnRedirect(string ipPort, OperationType operationType, params object[] args)
         {
             var cnn = RedisConnectionManager.Get(ipPort);
 
@@ -72,51 +72,54 @@ namespace SAEA.RedisSocket
             {
                 this.IsConnected = false;
                 this.RedisConfig = new RedisConfig(ipPort, this.RedisConfig.Passwords, this.RedisConfig.ActionTimeOut);
-                _cnn = new RedisConnection(RedisConfig.GetIPPort(), this.RedisConfig.ActionTimeOut, _debugModel);
-                _cnn.OnDisconnected += _cnn_OnDisconnected;
+                cnn = new RedisConnection(RedisConfig.GetIPPort(), this.RedisConfig.ActionTimeOut, _debugModel);
+                cnn.OnDisconnected += _cnn_OnDisconnected;
                 this.Connect();
-                RedisConnectionManager.Set(ipPort, _cnn);
+                RedisConnectionManager.Set(ipPort, cnn);
             }
+
+            _cnn = cnn;
+            
 
             switch (operationType)
             {
                 case OperationType.Do:
-                    return GetDataBase().Do((RequestType)args[0]);
+                    return GetDataBase(_cnn).Do((RequestType)args[0]);
                 case OperationType.DoBatchWithDic:
-                    return GetDataBase().DoBatchWithDic((RequestType)args[0], (Dictionary<string, string>)args[1]);
+                    return GetDataBase(_cnn).DoBatchWithDic((RequestType)args[0], (Dictionary<string, string>)args[1]);
                 case OperationType.DoBatchWithIDDic:
-                    return GetDataBase().DoBatchWithIDDic((RequestType)args[0], (string)args[1], (Dictionary<double, string>)args[2], false);
+                    return GetDataBase(_cnn).DoBatchWithIDDic((RequestType)args[0], (string)args[1], (Dictionary<double, string>)args[2], false);
                 case OperationType.DoBatchWithIDKeys:
-                    return GetDataBase().DoBatchWithIDKeys((RequestType)args[0], (string)args[1], (string[])args[3]);
+                    return GetDataBase(_cnn).DoBatchWithIDKeys((RequestType)args[0], (string)args[1], (string[])args[3]);
                 case OperationType.DoBatchWithParams:
-                    return GetDataBase().DoBatchWithParams((RequestType)args[0], (string[])args[1]);
+                    return GetDataBase(_cnn).DoBatchWithParams((RequestType)args[0], (string[])args[1]);
                 case OperationType.DoCluster:
-                    return GetDataBase().DoCluster((RequestType)args[0], (object[])args[1]);
+                    return GetDataBase(_cnn).DoCluster((RequestType)args[0], (object[])args[1]);
                 case OperationType.DoClusterSetSlot:
-                    return GetDataBase().DoClusterSetSlot((RequestType)args[0], (string)args[1], (int)args[2], (string)args[3]);
+                    return GetDataBase(_cnn).DoClusterSetSlot((RequestType)args[0], (string)args[1], (int)args[2], (string)args[3]);
                 case OperationType.DoExpire:
-                    GetDataBase().DoExpire((string)args[0], (int)args[1], false);
+                    GetDataBase(_cnn).DoExpire((string)args[0], (int)args[1], false);
                     break;
                 case OperationType.DoExpireInsert:
-                    GetDataBase().DoExpireInsert((RequestType)args[0], (string)args[1], (string)args[2], (int)args[3]);
+                    GetDataBase(_cnn).DoExpireInsert((RequestType)args[0], (string)args[1], (string)args[2], (int)args[3]);
                     break;
                 case OperationType.DoHash:
-                    return GetDataBase().DoHash((RequestType)args[0], (string)args[1], (string)args[2], (string)args[3], false);
+                    return GetDataBase(_cnn).DoHash((RequestType)args[0], (string)args[1], (string)args[2], (string)args[3], false);
                 case OperationType.DoInOne:
-                    return GetDataBase().DoInOne((RequestType)args[0], (string)args[1]);
+                    return GetDataBase(_cnn).DoInOne((RequestType)args[0], (string)args[1]);
                 case OperationType.DoRang:
-                    return GetDataBase().DoRang((RequestType)args[0], (string)args[1], (double)args[2], (double)args[3], false);
+                    return GetDataBase(_cnn).DoRang((RequestType)args[0], (string)args[1], (double)args[2], (double)args[3], false);
                 case OperationType.DoScan:
-                    return GetDataBase().DoScan((RequestType)args[0], (int)args[1], (string)args[2], (int)args[3]);
+                    return GetDataBase(_cnn).DoScan((RequestType)args[0], (int)args[1], (string)args[2], (int)args[3]);
                 case OperationType.DoScanKey:
-                    return GetDataBase().DoScanKey((RequestType)args[0], (string)args[1], (int)args[2], (string)args[3], (int)args[4], false);
+                    return GetDataBase(_cnn).DoScanKey((RequestType)args[0], (string)args[1], (int)args[2], (string)args[3], (int)args[4], false);
                 case OperationType.DoSub:
-                    GetDataBase().DoSub((string[])args[0], (Action<string, string>)args[1]);
+                    GetDataBase(_cnn).DoSub((string[])args[0], (Action<string, string>)args[1]);
                     break;
                 case OperationType.DoWithKey:
-                    return GetDataBase().DoWithKey((RequestType)args[0], (string)args[1], false);
+                    return GetDataBase(_cnn).DoWithKey((RequestType)args[0], (string)args[1], false);
                 case OperationType.DoWithKeyValue:
-                    return GetDataBase().DoWithKeyValue((RequestType)args[0], (string)args[1], (string)args[2], false);
+                    return GetDataBase(_cnn).DoWithKeyValue((RequestType)args[0], (string)args[1], (string)args[2], false);
                 default:
                     return null;
             }

@@ -22,6 +22,12 @@ namespace SAEA.RedisSocket.Core
             _redisLock = new RedisLock(cnn);
         }
 
+        public void Init(RedisConnection cnn)
+        {
+            _redisCoder = cnn.RedisCoder;
+            _redisLock = new RedisLock(cnn);
+        }
+
         #region KEY
         public void Set(string key, string value)
         {
