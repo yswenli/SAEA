@@ -141,11 +141,11 @@ namespace SAEA.RedisSocket
             {
                 while (_cnn.IsConnected)
                 {
-                    if (_cnn.Actived <= DateTimeHelper.Now.AddSeconds(60))
+                    if (_cnn.Actived.AddSeconds(60) <= DateTimeHelper.Now)
                     {
                         Ping();
                     }
-                    ThreadHelper.Sleep(30 * 1000);
+                    ThreadHelper.Sleep(1000);
                 }
             }, true, ThreadPriority.Highest);
         }

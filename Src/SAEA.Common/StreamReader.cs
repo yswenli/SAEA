@@ -160,7 +160,7 @@ namespace SAEA.Common
             var len = _stream.Read(data, 0, data.Length);
             if (len > 0)
             {
-                if (len == 1024)
+                if (len == _bufferSize)
                 {
                     return data;
                 }

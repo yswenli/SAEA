@@ -49,9 +49,9 @@ namespace SAEA.RedisSocket.Core
             return base.DoWithKey(RequestType.GET, key, true).Data;
         }
 
-        public string MGet(params string[] keys)
+        public List<string> MGet(params string[] keys)
         {
-            return base.DoBatchWithParams(RequestType.MGET, keys).Data;
+            return base.DoBatchWithParams(RequestType.MGET, keys).ToList<string>();
         }
 
         public List<string> Keys(string pattern = "*")

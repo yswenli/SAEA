@@ -52,7 +52,7 @@ namespace SAEA.RedisSocket.Base
 
         public ResponseData Do(RequestType type)
         {
-            var cmd = _cnn.RedisCoder.Coder(type, string.Format("{0}", type.ToString()));
+            var cmd = _cnn.RedisCoder.Coder(type, type.ToString());
             _cnn.Request(cmd);
             var result = _cnn.RedisCoder.Decoder();
             if (result.Type == ResponseType.Redirect)
@@ -234,7 +234,7 @@ namespace SAEA.RedisSocket.Base
 
         public ResponseData DoBatchWithParams(RequestType type, params string[] keys)
         {
-            var cmd = _cnn.RedisCoder.Coder(type, keys);
+            var cmd = _cnn.RedisCoder.CoderWithParams(type, type.ToString(), keys);
             _cnn.Request(cmd);
             var result = _cnn.RedisCoder.Decoder();
             if (result.Type == ResponseType.Redirect)

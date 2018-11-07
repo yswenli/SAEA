@@ -115,12 +115,33 @@ namespace SAEA.RedisSocket.Core
             return _sendCommand;
         }
 
+        public string CoderWithParams(RequestType commandName, string cmdType, params string[] @params)
+        {
+            _coderDecoderSync.WaitOne();
+            _commandName = commandName;
+            var sb = new StringBuilder();
+            sb.AppendLine("*" + (@params.Length + 1));
+            sb.AppendLine("$" + cmdType.Length);
+            sb.AppendLine(cmdType);
+            foreach (var param in @params)
+            {
+                var length = Encoding.UTF8.GetBytes(param).Length;
+                sb.AppendLine("$" + length);
+                sb.AppendLine(param);
+            }
+            _sendCommand = sb.ToString();
+            return _sendCommand;
+        }
+
         public string CoderForDic<K, V>(RequestType commandName, Dictionary<K, V> dic)
         {
             _coderDecoderSync.WaitOne();
             _commandName = commandName;
             var sb = new StringBuilder();
-            sb.AppendLine("*" + dic.Count);
+            sb.AppendLine("*" + (dic.Count + 1));
+            var type = commandName.ToString();
+            sb.AppendLine("$" + type.Length);
+            sb.AppendLine(type);
             foreach (var item in dic)
             {
                 var length = Encoding.UTF8.GetBytes(item.Key.ToString()).Length;
@@ -140,7 +161,7 @@ namespace SAEA.RedisSocket.Core
             _coderDecoderSync.WaitOne();
             _commandName = commandName;
             var sb = new StringBuilder();
-            sb.AppendLine("*" + dic.Count + 1);
+            sb.AppendLine("*" + (dic.Count + 1));
             var length = Encoding.UTF8.GetBytes(id).Length;
             sb.AppendLine("$" + length);
             sb.AppendLine(id);
