@@ -21,7 +21,6 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Http.Model;
 using SAEA.Sockets.Core;
 using SAEA.Sockets.Interface;
 using System;
@@ -30,7 +29,7 @@ namespace SAEA.Http.Base.Net
 {
     class HttpSocket : BaseServerSocket
     {
-        public event Action<IUserToken, IRequestDataReader> OnRequested;
+        public event Action<IUserToken, HttpMessage> OnRequested;
 
 
         public HttpSocket(int bufferSize = 1024 * 10, int count = 10000) : base(new HContext(), bufferSize, count)

@@ -57,42 +57,42 @@ namespace SAEA.Http
 
         }
 
-        RequestDataReader _requestDataReader;
+        HttpMessage _httpMessage;
 
         /// <summary>
         /// init
         /// </summary>
         /// <param name="userToken"></param>
-        /// <param name="requestDataReader"></param>
-        internal void Init(RequestDataReader requestDataReader)
+        /// <param name="httpMessage"></param>
+        internal void Init(HttpMessage httpMessage)
         {
-            _requestDataReader = requestDataReader;
+            _httpMessage = httpMessage;
 
-            this.Method = _requestDataReader.Method;
-            this.Url = _requestDataReader.Url;
-            this.RelativeUrl = _requestDataReader.RelativeUrl;
-            this.Query = _requestDataReader.Query;
-            this.Protocal = _requestDataReader.Protocal;
-            this.Headers = _requestDataReader.Headers;
-            this.HeaderStr = _requestDataReader.HeaderStr;
-            this.Cookies = _requestDataReader.Cookies;
-            this.IsFormData = _requestDataReader.IsFormData;
-            this.Boundary = _requestDataReader.Boundary;
-            this.ContentType = _requestDataReader.ContentType;
-            this.ContentLength = _requestDataReader.ContentLength;
+            this.Method = _httpMessage.Method;
+            this.Url = _httpMessage.Url;
+            this.RelativeUrl = _httpMessage.RelativeUrl;
+            this.Query = _httpMessage.Query;
+            this.Protocal = _httpMessage.Protocal;
+            this.Headers = _httpMessage.Headers;
+            this.HeaderStr = _httpMessage.HeaderStr;
+            this.Cookies = _httpMessage.Cookies;
+            this.IsFormData = _httpMessage.IsFormData;
+            this.Boundary = _httpMessage.Boundary;
+            this.ContentType = _httpMessage.ContentType;
+            this.ContentLength = _httpMessage.ContentLength;
 
-            if (_requestDataReader.Forms != null && _requestDataReader.Forms.Count > 0)
+            if (_httpMessage.Forms != null && _httpMessage.Forms.Count > 0)
             {
-                this.Forms = _requestDataReader.Forms;
+                this.Forms = _httpMessage.Forms;
             }
-            if (_requestDataReader.PostFiles != null && _requestDataReader.PostFiles.Count > 0)
+            if (_httpMessage.PostFiles != null && _httpMessage.PostFiles.Count > 0)
             {
-                this.PostFiles = _requestDataReader.PostFiles;
+                this.PostFiles = _httpMessage.PostFiles;
             }
-            if (!string.IsNullOrEmpty(_requestDataReader.Json))
+            if (!string.IsNullOrEmpty(_httpMessage.Json))
             {
-                this.Json = _requestDataReader.Json;
-                this.Body = _requestDataReader.Body;
+                this.Json = _httpMessage.Json;
+                this.Body = _httpMessage.Body;
             }            
         }
 
@@ -108,7 +108,7 @@ namespace SAEA.Http
 
         public void Dispose()
         {
-            _requestDataReader.Dispose();
+            _httpMessage.Dispose();
         }
     }
 }

@@ -99,12 +99,12 @@ namespace SAEA.Http
         /// 处理http请求数据
         /// </summary>
         /// <param name="userToken"></param>
-        /// <param name="requestDataReader"></param>
-        private void _serverSocket_OnRequested(IUserToken userToken, IRequestDataReader requestDataReader)
+        /// <param name="httpMessage"></param>
+        private void _serverSocket_OnRequested(IUserToken userToken, HttpMessage httpMessage)
         {
             try
             {
-                new HttpContext(this, userToken, (RequestDataReader)requestDataReader).HttpHandle();
+                new HttpContext(this, userToken, httpMessage).HttpHandle();
             }
             catch (Exception ex)
             {

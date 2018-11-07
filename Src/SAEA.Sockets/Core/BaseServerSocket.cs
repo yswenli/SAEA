@@ -283,6 +283,21 @@ namespace SAEA.Sockets.Core
             }
         }
 
+        protected void BeginSend(IUserToken userToken, byte[] data)
+        {
+            try
+            {
+                _sessionManager.Active(userToken.ID);
+
+                userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, null, null);
+
+            }
+            catch (Exception ex)
+            {
+                Disconnect(userToken, ex);
+            }
+        }
+
         /// <summary>
         /// 断开客户端连接
         /// </summary>

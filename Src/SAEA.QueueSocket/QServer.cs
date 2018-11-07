@@ -81,7 +81,7 @@ namespace SAEA.QueueSocket
         private void ReplyPong(IUserToken ut, QueueResult data)
         {
             var qcoder = (QUnpacker)ut.Unpacker;
-            base.Send(ut, qcoder.QueueCoder.Pong(data.Name));
+            base.BeginSend(ut, qcoder.QueueCoder.Pong(data.Name));
         }
 
         private void ReplyPublish(IUserToken ut, QueueResult data)
@@ -103,7 +103,7 @@ namespace SAEA.QueueSocket
                         {
                             list.AddRange(qcoder.QueueCoder.Data(data.Name, data.Topic, r));
                         });
-                        base.Send(ut, list.ToArray());
+                        base.BeginSend(ut, list.ToArray());
                     }
                 });
             });
@@ -117,7 +117,7 @@ namespace SAEA.QueueSocket
         private void ReplyClose(IUserToken ut, QueueResult data)
         {
             var qcoder = (QUnpacker)ut.Unpacker;
-            base.Send(ut, qcoder.QueueCoder.Close(data.Name));
+            base.BeginSend(ut, qcoder.QueueCoder.Close(data.Name));
             _exchange.Clear(ut.ID);
             base.Disconnect(ut);
         }

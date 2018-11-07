@@ -21,11 +21,10 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Common;
 using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Generic;
-using SAEA.Common;
-using SAEA.Http.Model;
 
 namespace SAEA.Http.Base.Net
 {
@@ -46,7 +45,7 @@ namespace SAEA.Http.Base.Net
         /// </summary>
         /// <param name="data"></param>
         /// <param name="onUnpackage"></param>
-        public void GetRequest(byte[] data, Action<IRequestDataReader> onUnpackage)
+        public void GetRequest(byte[] data, Action<HttpMessage> onUnpackage)
         {
             lock (_locker)
             {
@@ -54,29 +53,27 @@ namespace SAEA.Http.Base.Net
 
                 var buffer = _cache.ToArray();
 
-                var requestDataReader = new RequestDataReader();
+                HttpMessage httpMessage = null;
 
-                var isAnalysis = requestDataReader.Analysis(buffer);
-
-                if (isAnalysis)
+                if (RequestDataReader.Analysis(buffer, out httpMessage))
                 {
                     //post需要处理body
-                    if (requestDataReader.Method == ConstHelper.POST)
+                    if (httpMessage.Method == ConstHelper.POST)
                     {
-                        var contentLen = requestDataReader.ContentLength;
-                        var positon = requestDataReader.Position;
+                        var contentLen = httpMessage.ContentLength;
+                        var positon = httpMessage.Position;
                         var totlalLen = contentLen + positon;
                         if (buffer.Length == totlalLen)
                         {
-                            requestDataReader.AnalysisBody(buffer);
-                            onUnpackage.Invoke(requestDataReader);
+                            RequestDataReader.AnalysisBody(buffer, httpMessage);
+                            onUnpackage.Invoke(httpMessage);
                             Array.Clear(buffer, 0, buffer.Length);
                             _cache.Clear();
                         }
                     }
                     else
                     {
-                        onUnpackage.Invoke(requestDataReader);
+                        onUnpackage.Invoke(httpMessage);
                         Array.Clear(buffer, 0, buffer.Length);
                         _cache.Clear();
                     }

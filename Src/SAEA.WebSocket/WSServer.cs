@@ -59,7 +59,7 @@ namespace SAEA.WebSocket
 
                 if (result)
                 {
-                    base.Send(ut, resData);
+                    base.BeginSend(ut, resData);
                     ut.IsHandSharked = true;
                 }
             }

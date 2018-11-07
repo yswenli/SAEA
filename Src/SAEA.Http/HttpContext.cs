@@ -57,7 +57,7 @@ namespace SAEA.Http
         public WebConfig WebConfig { get; set; }
 
 
-        internal HttpContext(IWebHost webHost, IUserToken userToken, RequestDataReader requestDataReader)
+        internal HttpContext(IWebHost webHost, IUserToken userToken, HttpMessage httpMessage)
         {
 
             this.WebConfig = webHost.WebConfig;
@@ -68,7 +68,7 @@ namespace SAEA.Http
 
             this.Response = new HttpResponse();
 
-            this.Request.Init(requestDataReader);
+            this.Request.Init(httpMessage);
 
             this.Response.Init(webHost, userToken, this.Request.Protocal, webHost.WebConfig.IsZiped);
 
