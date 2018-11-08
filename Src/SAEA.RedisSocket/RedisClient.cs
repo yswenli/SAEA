@@ -26,7 +26,6 @@ using SAEA.RedisSocket.Core;
 using SAEA.RedisSocket.Model;
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Threading;
 
 namespace SAEA.RedisSocket
@@ -111,6 +110,7 @@ namespace SAEA.RedisSocket
                         }
                     }
                 }
+                _cnn.OnRedirect += _redisConnection_OnRedirect;
                 _cnn.KeepAlived(() => this.KeepAlive());
                 var ipPort = RedisConfig.GetIPPort();
 
@@ -157,7 +157,7 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public string Auth(string password)
         {
-            return GetDataBase().DoInOne(RequestType.AUTH, password).Data;
+            return _cnn.DoInOne(RequestType.AUTH, password).Data;
         }
 
         /// <summary>
@@ -166,7 +166,7 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public string Ping()
         {
-            return GetDataBase().Do(RequestType.PING).Data;
+            return _cnn.Do(RequestType.PING).Data;
         }
 
         /// <summary>
@@ -180,7 +180,7 @@ namespace SAEA.RedisSocket
             {
                 _dbIndex = dbIndex;
             }
-            if (GetDataBase().DoInOne(RequestType.SELECT, _dbIndex.ToString()).Data.IndexOf(RedisConst.ErrIndex) == -1)
+            if (_cnn.DoInOne(RequestType.SELECT, _dbIndex.ToString()).Data.IndexOf(RedisConst.ErrIndex) == -1)
             {
                 return true;
             }
@@ -193,7 +193,7 @@ namespace SAEA.RedisSocket
         public int DBSize()
         {
             var result = 0;
-            int.TryParse(GetDataBase().Do(RequestType.DBSIZE).Data, out result);
+            int.TryParse(_cnn.Do(RequestType.DBSIZE).Data, out result);
             return result;
         }
         /// <summary>
@@ -203,7 +203,7 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public string Type(string key)
         {
-            return GetDataBase().DoWithKey(RequestType.TYPE, key, true).Data;
+            return _cnn.DoWithKey(RequestType.TYPE, key).Data;
         }
         /// <summary>
         /// redis server的信息
@@ -211,7 +211,7 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public string Info(string section = RedisConst.All)
         {
-            return GetDataBase().DoInOne(RequestType.INFO, section).Data;
+            return _cnn.DoInOne(RequestType.INFO, section).Data;
         }
 
         /// <summary>
@@ -277,7 +277,7 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public string SlaveOf(string ipPort = RedisConst.Empty)
         {
-            return GetDataBase().DoInOne(RequestType.SLAVEOF, string.IsNullOrEmpty(ipPort) ? RedisConst.NoOne : ipPort).Data;
+            return _cnn.DoInOne(RequestType.SLAVEOF, string.IsNullOrEmpty(ipPort) ? RedisConst.NoOne : ipPort).Data;
         }
         /// <summary>
         /// redis server是否是主
@@ -324,20 +324,9 @@ namespace SAEA.RedisSocket
                 if (_redisDataBase == null)
                 {
                     _redisDataBase = new RedisDataBase(_cnn);
-
-                    _redisDataBase.OnRedirect += _redisDataBase_OnRedirect;
                 }
                 return _redisDataBase;
             }
-        }
-
-        private RedisDataBase GetDataBase(RedisConnection cnn)
-        {
-            _redisDataBase = new RedisDataBase(cnn);
-
-            _redisDataBase.OnRedirect += _redisDataBase_OnRedirect;
-
-            return _redisDataBase;
         }
     }
 }

@@ -44,18 +44,21 @@ namespace SAEA.RedisSocket.Base.Net
         /// <param name="OnUnPackage"></param>
         /// <param name="onFile"></param>
         public void Unpack(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
-        {            
-            _buffer.AddRange(data);
-
-            var sp = _buffer.AsReadOnly();
-
-            var count = sp.Count;
-
-            if (sp[count - 1] == 10 && sp[count - 2] == 13)
+        {
+            lock (_locker)
             {
-                unpackCallback.Invoke(new RMessage() { Content = _buffer.ToArray() });
-                _buffer.Clear();
-            }
+                _buffer.AddRange(data);
+
+                var sp = _buffer.AsReadOnly();
+
+                var count = sp.Count;
+
+                if (sp[count - 1] == 10 && sp[count - 2] == 13)
+                {
+                    unpackCallback.Invoke(new RMessage() { Content = _buffer.ToArray() });
+                    _buffer.Clear();
+                }
+            }           
         }
 
 

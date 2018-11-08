@@ -234,14 +234,14 @@ namespace SAEA.RedisSocketTest
             stopwatch.Start();
 
             //1
-            //for (int i = 0; i < count; i++)
-            //{
-            //    db.Set("key" + i, "val" + i);
-            //}
+            for (int i = 0; i < count; i++)
+            {
+                db.Set("key" + i, "val" + i);
+            }
 
             //2
 
-            db.MSet(dic);
+            //db.MSet(dic);
 
             millseconds = stopwatch.ElapsedMilliseconds;
 

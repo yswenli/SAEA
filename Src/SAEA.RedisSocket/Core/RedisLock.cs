@@ -1,28 +1,26 @@
 ﻿using SAEA.Common;
-using SAEA.RedisSocket.Base;
 using SAEA.RedisSocket.Model;
 using System;
 
 namespace SAEA.RedisSocket.Core
 {
-    class RedisLock : BaseOperation
+    class RedisLock
     {
         RedisConnection _cnn;
-        RedisCoder _redisCoder;
+
         object _syncLocker = new object();
         string _prefix = "redis_lock_";
         string _oldKey = string.Empty;
 
-        public RedisLock(RedisConnection cnn) : base(cnn)
+        public RedisLock(RedisConnection cnn)
         {
             _cnn = cnn;
-            _redisCoder = cnn.RedisCoder;
         }
 
         private DateTime GetDateTime()
         {
             DateTime dt = new DateTime();
-            DateTime.TryParse(base.DoWithKey(RequestType.GET, _oldKey, true).Data, out dt);
+            DateTime.TryParse(_cnn.DoWithKey(RequestType.GET, _oldKey).Data, out dt);
             return dt;
         }
 
@@ -41,7 +39,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns>返回给定 key 的旧值。 当 key 没有旧值时，即 key 不存在时，返回 nil 。当 key 存在但不是字符串类型时，返回一个错误。</returns>
         public string GetSet(string key, string value)
         {
-            return base.DoWithKeyValue(RequestType.GETSET, key, value, true).Data;
+            return _cnn.DoWithKeyValue(RequestType.GETSET, key, value).Data;
         }
 
 
@@ -54,7 +52,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns>若存在，返回false,否则返回true</returns>
         public bool SetNX(string key, string value)
         {
-            if (base.DoWithKeyValue(RequestType.SETNX, key, value, true).Data == "1")
+            if (_cnn.DoWithKeyValue(RequestType.SETNX, key, value).Data == "1")
             {
                 return true;
             }
@@ -99,7 +97,7 @@ namespace SAEA.RedisSocket.Core
             {
                 key = _oldKey;
             }
-            base.DoWithKey(RequestType.DEL, key, true);
+            _cnn.DoWithKey(RequestType.DEL, key);
         }
     }
 }

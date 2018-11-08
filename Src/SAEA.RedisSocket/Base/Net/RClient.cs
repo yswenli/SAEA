@@ -42,7 +42,7 @@ namespace SAEA.RedisSocket.Base.Net
 
         protected override void OnReceived(byte[] data)
         {
-            OnActived.Invoke(DateTimeHelper.Now);
+            TaskHelper.Start(() => OnActived.Invoke(DateTimeHelper.Now));
             this.UserToken.Unpacker.Unpack(data, (content) =>
             {
                 OnMessage.Invoke(Encoding.UTF8.GetString(content.Content));
@@ -51,7 +51,7 @@ namespace SAEA.RedisSocket.Base.Net
 
         public void Request(byte[] cmd)
         {
-            OnActived.Invoke(DateTimeHelper.Now);
+            TaskHelper.Start(() => OnActived.Invoke(DateTimeHelper.Now));
             BeginSend(cmd);
         }
     }
