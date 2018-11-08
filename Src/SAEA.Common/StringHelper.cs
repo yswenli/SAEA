@@ -23,28 +23,12 @@
 *****************************************************************************/
 
 using System;
+using System.Collections.Generic;
 
 namespace SAEA.Common
 {
     public static class StringHelper
     {
-        public const string ASTERRISK = "*";
-
-        public const string MINUSSIGN = "-";
-
-        public const string DOLLAR = "$";
-
-        public const string COLON = ":";
-
-        public const string SLASH = "/";
-
-        public const string LESS_THAN = "<";
-
-        public const string GREATER_THAN = ">";
-
-
-
-
         static int k = 1024;
 
         static int m = k * k;
@@ -85,7 +69,7 @@ namespace SAEA.Common
         {
             Tuple<string, int> result;
 
-            var arr = remote.Split(new string[] { ":", " ", "," }, StringSplitOptions.None);
+            var arr = remote.Split(new string[] { ConstHelper.COLON, ConstHelper.SPACE, ConstHelper.COMMA }, StringSplitOptions.None);
 
             var ip = arr[0];
 
@@ -106,71 +90,73 @@ namespace SAEA.Common
             return str.Split(new string[] { splitStr }, option);
         }
 
+
         public static string[] Split(this string str, string splitStr)
         {
             return str.Split(splitStr, StringSplitOptions.None);
         }
 
 
-
         public static string SSubstring(this string str, int start, int length)
         {
-            ReadOnlySpan<char> readOnlySpan = str.AsSpan(start, length);
-            return readOnlySpan.ToString();
+            return str.AsSpan(start, length).ToString();
         }
 
         public static string SSubstring(this string str, int start)
         {
-            ReadOnlySpan<char> readOnlySpan = str.AsSpan(start, str.Length - start);
-            return readOnlySpan.ToString();
+            return str.AsSpan(start, str.Length - start).ToString();
         }
 
 
+        public static int ParseToInt(this ReadOnlySpan<char> rspan)
+        {
+            Int16 sign = 1;
+
+            int num = 0;
+
+            UInt16 index = 0;
+
+            if (rspan[0].Equals('-'))
+            {
+                sign = -1; index = 1;
+            }
+            for (int idx = index; idx < rspan.Length; idx++)
+            {
+                char c = rspan[idx];
+                num = (c - '0') + num * 10;
+            }
+            return num * sign;
+        }
+
+        public static long ParseToLong(this ReadOnlySpan<char> rspan)
+        {
+            Int16 sign = 1;
+
+            long num = 0;
+
+            UInt16 index = 0;
+
+            if (rspan[0].Equals('-'))
+            {
+                sign = -1; index = 1;
+            }
+            for (int idx = index; idx < rspan.Length; idx++)
+            {
+                char c = rspan[idx];
+                num = (c - '0') + num * 10;
+            }
+            return num * sign;
+        }
+
         public static int ParseToInt(this string str, int start, int length)
         {
-            int result = 0;
-
-            ReadOnlySpan<char> readOnlySpan = str.AsSpan(start, length);
-
-            var sign = 1;
-            var index = 0;
-
-            if (readOnlySpan[0].Equals('-'))
-            {
-                sign = -1;
-                index = 1;
-            }
-            for (int i = index; i < length; i++)
-            {
-                var cint = System.Convert.ToInt16(readOnlySpan[i]);
-                if (cint >= 48 && cint <= 57)
-                    result += (cint - 48) * (int)Math.Pow(10, length - i - 1);
-            }
-            return result * sign;
+            return str.AsSpan(start, length).ParseToInt();
         }
 
 
         public static long ParseToLong(this string str, int start, int length)
         {
-            long result = 0;
-
-            ReadOnlySpan<char> readOnlySpan = str.AsSpan(start, length);
-
-            var sign = 1;
-            var index = 0;
-
-            if (readOnlySpan[0].Equals('-'))
-            {
-                sign = -1;
-                index = 1;
-            }
-            for (int i = index; i < length; i++)
-            {
-                var cint = System.Convert.ToInt16(readOnlySpan[i]);
-                if (cint >= 48 && cint <= 57)
-                    result += (cint - 48) * (long)Math.Pow(10, length - i - 1);
-            }
-            return result * sign;
+            return str.AsSpan(start, length).ParseToLong();
         }
     }
 }

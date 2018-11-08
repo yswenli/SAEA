@@ -45,20 +45,17 @@ namespace SAEA.RedisSocket.Base.Net
         /// <param name="onFile"></param>
         public void Unpack(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
         {
-            lock (_locker)
+            _buffer.AddRange(data);
+
+            var sp = _buffer.AsReadOnly();
+
+            var count = sp.Count;
+
+            if (sp[count - 1] == 10 && sp[count - 2] == 13)
             {
-                _buffer.AddRange(data);
-
-                var sp = _buffer.AsReadOnly();
-
-                var count = sp.Count;
-
-                if (sp[count - 1] == 10 && sp[count - 2] == 13)
-                {
-                    unpackCallback.Invoke(new RMessage() { Content = _buffer.ToArray() });
-                    _buffer.Clear();
-                }
-            }           
+                unpackCallback.Invoke(new RMessage() { Content = _buffer.ToArray() });
+                _buffer.Clear();
+            }
         }
 
 

@@ -39,24 +39,15 @@ namespace SAEA.RedisSocket.Core
         private readonly AutoResetEvent _coderDecoderSync = new AutoResetEvent(true);
 
         /// <summary>
-        /// 快速队列同步
-        /// </summary>
-        private readonly AutoResetEvent _fastQueueSync = new AutoResetEvent(false);
-
-        /// <summary>
         /// 操作队列同步
         /// </summary>
         private readonly AutoResetEvent _operationQueueSync = new AutoResetEvent(false);
 
         RequestType _commandName;
 
-        readonly ConcurrentQueue<string> _fastQueue = new ConcurrentQueue<string>();
-
         readonly ConcurrentQueue<string> _operationQueue = new ConcurrentQueue<string>();
 
         string _sendCommand = string.Empty;
-
-        static string _enter = "\r\n";
 
         object _locker = new object();
 
@@ -72,25 +63,19 @@ namespace SAEA.RedisSocket.Core
         public RedisCoder(int actionTimeout = 60)
         {
             _actionTimeout = actionTimeout * 1000;
+        }
 
-            ThreadHelper.Run(() =>
+        /// <summary>
+        /// 接收来自RedisServer的命令
+        /// </summary>
+        /// <param name="command"></param>
+        public void Enqueue(string command)
+        {
+            var items = command.Split(ConstHelper.ENTER);
+            foreach (var item in items)
             {
-                while (!_isDisposed)
-                {
-                    if (_fastQueue.TryDequeue(out string result))
-                    {
-                        var items = result.Split(_enter);
-                        foreach (var item in items)
-                        {
-                            _operationQueue.Enqueue(item + _enter);
-                        }
-                    }
-                    else
-                    {
-                        _fastQueueSync.WaitOne(1);
-                    }
-                }
-            }, true, ThreadPriority.Highest);
+                _operationQueue.Enqueue(item + ConstHelper.ENTER);
+            }
         }
 
         /// <summary>
@@ -104,11 +89,11 @@ namespace SAEA.RedisSocket.Core
             _coderDecoderSync.WaitOne();
             _commandName = commandName;
             var sb = new StringBuilder();
-            sb.AppendLine("*" + @params.Length);
+            sb.AppendLine(ConstHelper.ASTERRISK + @params.Length);
             foreach (var param in @params)
             {
                 var length = Encoding.UTF8.GetBytes(param).Length;
-                sb.AppendLine("$" + length);
+                sb.AppendLine(ConstHelper.DOLLAR + length);
                 sb.AppendLine(param);
             }
             _sendCommand = sb.ToString();
@@ -120,13 +105,13 @@ namespace SAEA.RedisSocket.Core
             _coderDecoderSync.WaitOne();
             _commandName = commandName;
             var sb = new StringBuilder();
-            sb.AppendLine("*" + (@params.Length + 1));
-            sb.AppendLine("$" + cmdType.Length);
+            sb.AppendLine(ConstHelper.ASTERRISK + (@params.Length + 1));
+            sb.AppendLine(ConstHelper.DOLLAR + cmdType.Length);
             sb.AppendLine(cmdType);
             foreach (var param in @params)
             {
                 var length = Encoding.UTF8.GetBytes(param).Length;
-                sb.AppendLine("$" + length);
+                sb.AppendLine(ConstHelper.DOLLAR + length);
                 sb.AppendLine(param);
             }
             _sendCommand = sb.ToString();
@@ -138,18 +123,18 @@ namespace SAEA.RedisSocket.Core
             _coderDecoderSync.WaitOne();
             _commandName = commandName;
             var sb = new StringBuilder();
-            sb.AppendLine("*" + (dic.Count + 1));
+            sb.AppendLine(ConstHelper.ASTERRISK + (dic.Count + 1));
             var type = commandName.ToString();
-            sb.AppendLine("$" + type.Length);
+            sb.AppendLine(ConstHelper.DOLLAR + type.Length);
             sb.AppendLine(type);
             foreach (var item in dic)
             {
                 var length = Encoding.UTF8.GetBytes(item.Key.ToString()).Length;
-                sb.AppendLine("$" + length);
+                sb.AppendLine(ConstHelper.DOLLAR + length);
                 sb.AppendLine(item.Key.ToString());
 
                 length = Encoding.UTF8.GetBytes(item.Value.ToString()).Length;
-                sb.AppendLine("$" + length);
+                sb.AppendLine(ConstHelper.DOLLAR + length);
                 sb.AppendLine(item.Value.ToString());
             }
             _sendCommand = sb.ToString();
@@ -161,32 +146,25 @@ namespace SAEA.RedisSocket.Core
             _coderDecoderSync.WaitOne();
             _commandName = commandName;
             var sb = new StringBuilder();
-            sb.AppendLine("*" + (dic.Count + 1));
+            sb.AppendLine(ConstHelper.ASTERRISK + (dic.Count + 1));
             var length = Encoding.UTF8.GetBytes(id).Length;
-            sb.AppendLine("$" + length);
+            sb.AppendLine(ConstHelper.DOLLAR + length);
             sb.AppendLine(id);
             foreach (var item in dic)
             {
                 length = Encoding.UTF8.GetBytes(item.Key.ToString()).Length;
-                sb.AppendLine("$" + length);
+                sb.AppendLine(ConstHelper.DOLLAR + length);
                 sb.AppendLine(item.Key.ToString());
 
                 length = Encoding.UTF8.GetBytes(item.Value.ToString()).Length;
-                sb.AppendLine("$" + length);
+                sb.AppendLine(ConstHelper.DOLLAR + length);
                 sb.AppendLine(item.Value.ToString());
             }
             _sendCommand = sb.ToString();
             return _sendCommand;
         }
 
-        /// <summary>
-        /// 接收来自RedisServer的命令
-        /// </summary>
-        /// <param name="command"></param>
-        public void Enqueue(string command)
-        {
-            _fastQueue.Enqueue(command);
-        }
+        
 
         /// <summary>
         /// 获取redis回复的内容
@@ -245,7 +223,7 @@ namespace SAEA.RedisSocket.Core
 
             command = GetRedisReply();
 
-            while (command == _enter)
+            while (command == ConstHelper.ENTER)
             {
                 command = GetRedisReply();
             }
@@ -512,7 +490,7 @@ namespace SAEA.RedisSocket.Core
                     case RequestType.SSCAN:
                     case RequestType.ZSCAN:
                         result.Type = ResponseType.Lines;
-                        while (command == _enter)
+                        while (command == ConstHelper.ENTER)
                         {
                             command = GetRedisReply();
                         }
@@ -544,7 +522,7 @@ namespace SAEA.RedisSocket.Core
                         sb.AppendLine("offset:" + offset);
                         //
                         command = GetRedisReply();
-                        while (command == _enter)
+                        while (command == ConstHelper.ENTER)
                         {
                             command = GetRedisReply();
                         }
@@ -643,7 +621,7 @@ namespace SAEA.RedisSocket.Core
 
             if (!string.IsNullOrEmpty(command))
             {
-                if (command.Length > 2 && command.IndexOf("*") == 0)
+                if (command.Length > 2 && command.IndexOf(ConstHelper.ASTERRISK) == 0)
                 {
                     num = command.ParseToInt(1, command.Length - 3);
                 }
@@ -661,7 +639,7 @@ namespace SAEA.RedisSocket.Core
             int num = -1;
             if (!string.IsNullOrEmpty(command))
             {
-                if (command.Length > 2 && command.IndexOf("$") == 0)
+                if (command.Length > 2 && command.IndexOf(ConstHelper.DOLLAR) == 0)
                 {
                     num = int.Parse(command.SSubstring(1));
                 }
@@ -696,12 +674,12 @@ namespace SAEA.RedisSocket.Core
         private static ResponseData Redirect(string command)
         {
             ResponseData result = null;
-            if (command.IndexOf("-MOVED") == 0)
+            if (command.Contains("-MOVED"))
             {
                 result = new ResponseData()
                 {
                     Type = ResponseType.Redirect,
-                    Data = command.Split(" ")[2].Replace(_enter, "")
+                    Data = command.Split(" ")[2].Replace(ConstHelper.ENTER, "")
                 };
             }
             return result;
@@ -710,7 +688,6 @@ namespace SAEA.RedisSocket.Core
         public void Dispose()
         {
             _isDisposed = true;
-            _fastQueue.Clear();
             _operationQueue.Clear();
         }
     }

@@ -78,6 +78,22 @@ namespace SAEA.Common
 
         public const string SPACE = " ";
 
-        public const string JSONCONTENTTYPE= "application/json; charset=utf-8";
+        public const string JSONCONTENTTYPE = "application/json; charset=utf-8";
+
+        public const string ASTERRISK = "*";
+
+        public const string MINUSSIGN = "-";
+
+        public const string DOLLAR = "$";
+
+        public const string COLON = ":";
+
+        public const string COMMA = ",";
+
+        public const string SLASH = "/";
+
+        public const string LESS_THAN = "<";
+
+        public const string GREATER_THAN = ">";
     }
 }
