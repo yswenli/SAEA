@@ -123,7 +123,7 @@ namespace SAEA.Sockets.Core
                 ProcessAccepted(e);
             }
         }
-        
+
         private void ProcessAccepted(SocketAsyncEventArgs e)
         {
             var userToken = _sessionManager.GenerateUserToken(e.AcceptSocket);
@@ -317,18 +317,19 @@ namespace SAEA.Sockets.Core
         }
 
         /// <summary>
-        /// 回复
+        /// 回复并关闭连接
         /// </summary>
         /// <param name="userToken"></param>
         /// <param name="data"></param>
         public void End(IUserToken userToken, byte[] data)
         {
-            var result = userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, null, null);
-            userToken.Socket.EndSend(result);
-            if (_sessionManager.Free(userToken))
+            var result = userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, new AsyncCallback((r) =>
             {
-                Interlocked.Decrement(ref _clientCounts);
-            }
+                if (_sessionManager.Free(userToken))
+                {
+                    Interlocked.Decrement(ref _clientCounts);
+                }
+            }), null);
         }
 
 

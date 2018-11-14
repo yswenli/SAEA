@@ -163,9 +163,10 @@ namespace SAEA.Sockets.Core
                     try
                     {
                         if (userToken.Socket.Connected)
-                            userToken.Socket.Shutdown(SocketShutdown.Both);
+                            userToken.Socket.Close();
                     }
                     catch { }
+                    userToken.Socket = null;
                     _bufferManager.FreeBuffer(userToken.ReadArgs);
                     _argsPool.Push(userToken.ReadArgs);
                     _argsPool.Push(userToken.WriteArgs);

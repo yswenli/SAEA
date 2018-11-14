@@ -34,6 +34,7 @@ using SAEA.Common;
 using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Concurrent;
+using System.Threading;
 
 namespace SAEA.Sockets.Core
 {
@@ -55,16 +56,12 @@ namespace SAEA.Sockets.Core
 
         public IUserToken Dequeue()
         {
-            if (concurrentQueue.TryDequeue(out IUserToken userToken))
+            IUserToken userToken = null;
+            while (!concurrentQueue.TryDequeue(out userToken))
             {
-                return userToken;
+                Thread.Sleep(1);
             }
-            else
-            {
-                ThreadHelper.Sleep(1);
-                return Dequeue();
-            }
-                
+            return userToken;
         }
 
         public void Enqueue(IUserToken userToken)
