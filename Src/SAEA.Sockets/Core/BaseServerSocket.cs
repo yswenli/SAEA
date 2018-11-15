@@ -310,7 +310,7 @@ namespace SAEA.Sockets.Core
         public void End(IUserToken userToken, byte[] data)
         {
             var result = userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, null, null);
-            userToken.Socket.EndSend(result);
+            userToken.Socket.EndSend(result); //兼容.netfx
             Disconnect(userToken);
         }
 
