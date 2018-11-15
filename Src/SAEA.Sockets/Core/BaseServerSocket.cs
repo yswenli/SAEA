@@ -243,6 +243,8 @@ namespace SAEA.Sockets.Core
             }
         }
 
+
+
         protected void SendAsync(string sessionID, byte[] data)
         {
             var userToken = _sessionManager.Get(sessionID);
@@ -251,6 +253,7 @@ namespace SAEA.Sockets.Core
                 SendAsync(userToken, data);
             }
         }
+
 
         /// <summary>
         /// 同步发送
@@ -298,6 +301,25 @@ namespace SAEA.Sockets.Core
             }
         }
 
+
+        /// <summary>
+        /// 回复并关闭连接
+        /// </summary>
+        /// <param name="userToken"></param>
+        /// <param name="data"></param>
+        public void End(IUserToken userToken, byte[] data)
+        {
+            var result = userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, null, null);
+            userToken.Socket.EndSend(result);
+            Disconnect(userToken);
+        }
+
+
+        private void _sessionManager_OnTimeOut(IUserToken userToken)
+        {
+            Disconnect(userToken);
+        }
+
         /// <summary>
         /// 断开客户端连接
         /// </summary>
@@ -309,33 +331,11 @@ namespace SAEA.Sockets.Core
             {
                 if (_sessionManager.Free(userToken))
                 {
-                    if (ex == null) ex = new Exception("The remote client has been disconnected.");                    
+                    if (ex == null) ex = new Exception("The remote client has been disconnected.");
                     Interlocked.Decrement(ref _clientCounts);
                     OnDisconnected?.Invoke(userToken.ID, ex);
                 }
             }
-        }
-
-        /// <summary>
-        /// 回复并关闭连接
-        /// </summary>
-        /// <param name="userToken"></param>
-        /// <param name="data"></param>
-        public void End(IUserToken userToken, byte[] data)
-        {
-            var result = userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, new AsyncCallback((r) =>
-            {
-                if (_sessionManager.Free(userToken))
-                {
-                    Interlocked.Decrement(ref _clientCounts);
-                }
-            }), null);
-        }
-
-
-        private void _sessionManager_OnTimeOut(IUserToken userToken)
-        {
-            Disconnect(userToken);
         }
 
         /// <summary>

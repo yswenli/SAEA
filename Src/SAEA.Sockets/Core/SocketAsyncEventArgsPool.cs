@@ -41,6 +41,7 @@ namespace SAEA.Sockets.Core
 
         int _capacity = 1000 * 100;
 
+
         public SocketAsyncEventArgsPool(int capacity = 1000 * 100)
         {
             _capacity = capacity;

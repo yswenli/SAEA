@@ -166,7 +166,6 @@ namespace SAEA.Sockets.Core
                             userToken.Socket.Close();
                     }
                     catch { }
-                    userToken.Socket = null;
                     _bufferManager.FreeBuffer(userToken.ReadArgs);
                     _argsPool.Push(userToken.ReadArgs);
                     _argsPool.Push(userToken.WriteArgs);
