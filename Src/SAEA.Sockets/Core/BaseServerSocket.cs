@@ -309,9 +309,9 @@ namespace SAEA.Sockets.Core
             {
                 if (_sessionManager.Free(userToken))
                 {
-                    if (ex == null) ex = new Exception("The remote client has been disconnected.");
-                    OnDisconnected?.Invoke(userToken.ID, ex);
+                    if (ex == null) ex = new Exception("The remote client has been disconnected.");                    
                     Interlocked.Decrement(ref _clientCounts);
+                    OnDisconnected?.Invoke(userToken.ID, ex);
                 }
             }
         }
