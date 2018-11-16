@@ -87,7 +87,7 @@ namespace SAEA.Sockets.Core
             _bufferManager.InitBuffer();
 
             _argsPool = new SocketAsyncEventArgsPool(count * 2);
-            _argsPool.InitPool(completed);
+            _argsPool.InitPool(_completed);
 
             //超时处理 timeout handler
             ThreadHelper.PulseAction(() =>
@@ -111,25 +111,25 @@ namespace SAEA.Sockets.Core
         IUserToken InitUserToken()
         {
             IUserToken userToken = _userTokenPool.Dequeue();
-            userToken.ReadArgs = _argsPool.Pop();
+            userToken.ReadArgs = _argsPool.Dequeue();
             _bufferManager.SetBuffer(userToken.ReadArgs);
-            userToken.WriteArgs = _argsPool.Pop();
+            userToken.WriteArgs = _argsPool.Dequeue();
             userToken.ReadArgs.UserToken = userToken.WriteArgs.UserToken = userToken;
             return userToken;
         }
 
         /// <summary>
         /// 获取usertoken
+        /// 如果IUserToken数量耗尽时可能会出现死锁，则需要外部使用
         /// </summary>
         /// <param name="socket"></param>
         /// <returns></returns>
-        public IUserToken GenerateUserToken(Socket socket)
+        public IUserToken BindtUserToken(Socket socket)
         {
             IUserToken userToken = InitUserToken();
             userToken.Socket = socket;
             userToken.ID = socket.RemoteEndPoint.ToString();
-            userToken.Linked = DateTimeHelper.Now;
-            userToken.Actived = DateTimeHelper.Now;
+            userToken.Actived = userToken.Linked = DateTimeHelper.Now;
             Set(userToken);
             return userToken;
         }
@@ -156,26 +156,23 @@ namespace SAEA.Sockets.Core
         /// <param name="userToken"></param>
         public bool Free(IUserToken userToken)
         {
+            if (userToken == null || userToken.Socket == null)
+            {
+                return false;
+            }
             if (_session.Del(userToken.ID, out MemoryCachItem<IUserToken> mc))
             {
-                if (userToken.Socket != null)
+                try
                 {
-                    try
-                    {
-                        if (userToken.Socket.Connected)
-                            userToken.Socket.Close();
-                    }
-                    catch { }
-                    _bufferManager.FreeBuffer(userToken.ReadArgs);
-                    _argsPool.Push(userToken.ReadArgs);
-                    _argsPool.Push(userToken.WriteArgs);
-                    _userTokenPool.Enqueue(userToken);
-                    return true;
+                    if (userToken.Socket.Connected)
+                        userToken.Socket.Close();
                 }
-                else
-                {
-
-                }
+                catch { }
+                _bufferManager.FreeBuffer(userToken.ReadArgs);
+                _argsPool.Enqueue(userToken.ReadArgs);
+                _argsPool.Enqueue(userToken.WriteArgs);
+                _userTokenPool.Enqueue(userToken);
+                return true;
             }
             return false;
         }
@@ -189,7 +186,7 @@ namespace SAEA.Sockets.Core
             lock (_locker)
             {
                 return _session.List.Select(b => b.Value).ToList();
-            }            
+            }
         }
 
         /// <summary>

@@ -79,6 +79,5 @@ namespace SAEA.Sockets.Interface
 
 
         void Clear();
-
     }
 }

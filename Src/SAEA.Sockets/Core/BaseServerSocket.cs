@@ -48,7 +48,7 @@ namespace SAEA.Sockets.Core
     {
         Socket _listener;
 
-        int _clientCounts;
+        int _clientCounts;        
 
         private SessionManager _sessionManager;
 
@@ -126,7 +126,7 @@ namespace SAEA.Sockets.Core
 
         private void ProcessAccepted(SocketAsyncEventArgs e)
         {
-            var userToken = _sessionManager.GenerateUserToken(e.AcceptSocket);
+            var userToken = _sessionManager.BindtUserToken(e.AcceptSocket);
 
             var readArgs = userToken.ReadArgs;
 
@@ -193,7 +193,7 @@ namespace SAEA.Sockets.Core
                     OnServerReceiveBytes.Invoke(userToken, data);
 
                     //继续接收下一个
-                    if (userToken.Socket != null && userToken.Socket.Connected)
+                    if (userToken != null && userToken.Socket != null && userToken.Socket.Connected && readArgs != null)
                     {
                         if (!userToken.Socket.ReceiveAsync(readArgs))
                             ProcessReceived(readArgs);
@@ -327,14 +327,12 @@ namespace SAEA.Sockets.Core
         /// <param name="ex"></param>
         public void Disconnect(IUserToken userToken, Exception ex = null)
         {
-            if (userToken != null && userToken.Socket != null)
+            if (_sessionManager.Free(userToken))
             {
-                if (_sessionManager.Free(userToken))
-                {
-                    if (ex == null) ex = new Exception("The remote client has been disconnected.");
-                    Interlocked.Decrement(ref _clientCounts);
-                    OnDisconnected?.Invoke(userToken.ID, ex);
-                }
+                if (ex == null) ex = new Exception("The remote client has been disconnected.");
+                Interlocked.Decrement(ref _clientCounts);
+                OnDisconnected?.Invoke(userToken.ID, ex);
+                userToken = null;
             }
         }
 

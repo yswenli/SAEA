@@ -37,45 +37,44 @@ namespace SAEA.Sockets.Core
 {
     class SocketAsyncEventArgsPool
     {
-        Stack<SocketAsyncEventArgs> _argsPool;
+        Queue<SocketAsyncEventArgs> _argsPool;
 
         int _capacity = 1000 * 100;
+
+        EventHandler<SocketAsyncEventArgs> _completed;
 
 
         public SocketAsyncEventArgsPool(int capacity = 1000 * 100)
         {
             _capacity = capacity;
-            _argsPool = new Stack<SocketAsyncEventArgs>(_capacity);
+            _argsPool = new Queue<SocketAsyncEventArgs>(_capacity);
         }
 
 
         public void InitPool(EventHandler<SocketAsyncEventArgs> completed)
         {
+            _completed = completed;
             for (int i = 0; i < _capacity; i++)
             {
                 var args = new SocketAsyncEventArgs();
-                args.Completed += completed;
-                _argsPool.Push(args);
+                _argsPool.Enqueue(args);
             }
         }
 
-        public void Push(SocketAsyncEventArgs item)
+        public void Enqueue(SocketAsyncEventArgs args)
         {
-            if (item == null) { throw new ArgumentNullException("Items added to a SocketAsyncEventArgsPool cannot be null"); }
-            lock (_argsPool)
-            {
-                item.UserToken = null;
-                _argsPool.Push(item);
-            }
+            if (args == null) { throw new ArgumentNullException("Items added to a SocketAsyncEventArgsPool cannot be null"); }
+            args.UserToken = null;
+            args.Completed -= _completed;
+            _argsPool.Enqueue(args);
         }
 
 
-        public SocketAsyncEventArgs Pop()
+        public SocketAsyncEventArgs Dequeue()
         {
-            lock (_argsPool)
-            {
-                return _argsPool.Pop();
-            }
+            var args = _argsPool.Dequeue();
+            args.Completed += _completed;
+            return args;
         }
 
 
