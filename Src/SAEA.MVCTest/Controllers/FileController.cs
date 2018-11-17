@@ -26,7 +26,7 @@ namespace SAEA.MVCTest.Controllers
         {
             var postFiles = HttpContext.Request.PostFiles;
 
-            return Content($"操作成功！name：{name}");
+            return Content($"上传文件成功！name：{name}");
         }
 
     }

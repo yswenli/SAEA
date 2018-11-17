@@ -1,4 +1,5 @@
 ﻿using SAEA.MVC;
+using SAEA.MVCTest.Model;
 
 namespace SAEA.MVCTest.Controllers
 {
@@ -15,5 +16,12 @@ namespace SAEA.MVCTest.Controllers
         {
             return Content("this is a test!");
         }
+
+        
+        public ActionResult Other(UserInfo userInfo)
+        {
+            return Json(userInfo);
+        }
+
     }
 }

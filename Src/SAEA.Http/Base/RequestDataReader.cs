@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.Http.Base
 *文件名： RequestDataReader
-*版本号： V3.3.0.1
+*版本号： V3.3.1.2
 *唯一标识：01f783cd-c751-47c5-a5b9-96d3aa840c70
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/4/16 11:03:29
 *修改人： yswenli
-*版本号： V3.3.0.1
+*版本号： V3.3.1.2
 *描述：
 *
 *****************************************************************************/
@@ -37,6 +37,8 @@ namespace SAEA.Http.Base
     /// </summary>
     public static class RequestDataReader
     {
+        static readonly byte[] _dEnterBytes = new byte[] { 13, 10, 13, 10 };
+
         /// <summary>
         /// 分析request 头部
         /// </summary>
@@ -46,39 +48,35 @@ namespace SAEA.Http.Base
         public static bool Analysis(byte[] buffer, out HttpMessage httpMessage)
         {
             httpMessage = null;
-            //获取headerStr
-            using (MemoryStream ms = new MemoryStream(buffer))
-            {
-                ms.Position = 0;
 
-                using (SAEA.Common.StreamReader streamReader = new SAEA.Common.StreamReader(ms))
+            var bufferSpan = buffer.AsSpan();
+
+            var count = bufferSpan.Length;
+
+            var dEnter = Encoding.UTF8.GetString(bufferSpan.Slice(count - 4).ToArray());
+
+            if (dEnter == ConstHelper.DENTER)
+            {
+                httpMessage = new HttpMessage();
+                httpMessage.HeaderStr = Encoding.UTF8.GetString(buffer);
+            }
+            else
+            {
+                var index = bufferSpan.IndexOf(_dEnterBytes.AsSpan());
+                if (index > 0)
                 {
-                    StringBuilder sb = new StringBuilder();
-                    while (true)
-                    {
-                        var str = streamReader.ReadLine();
-                        if (str == string.Empty)
-                        {
-                            httpMessage = new HttpMessage();
-                            httpMessage.HeaderStr = sb.ToString();
-                            sb.Clear();
-                            break;
-                        }
-                        else if (str == null)
-                        {
-                            return false;
-                        }
-                        else
-                            sb.AppendLine(str);
-                    }
+                    httpMessage = new HttpMessage();
+                    httpMessage.HeaderStr = Encoding.UTF8.GetString(bufferSpan.Slice(0, index + 4).ToArray());
+                    httpMessage.Position = index + 4;
                 }
+                if (httpMessage == null) return false;
             }
 
             //分析requestHeader
 
-            var rows = Regex.Split(httpMessage.HeaderStr, ConstHelper.ENTER);
+            var rows = httpMessage.HeaderStr.Split(ConstHelper.ENTER, StringSplitOptions.RemoveEmptyEntries);
 
-            var arr = Regex.Split(rows[0], @"(\s+)").Where(e => e.Trim() != string.Empty).ToArray();
+            var arr = rows[0].Split(ConstHelper.SPACE);
 
             httpMessage.Method = arr[0];
 
@@ -117,20 +115,6 @@ namespace SAEA.Http.Base
             //post数据分析
             if (httpMessage.Method == ConstHelper.POST)
             {
-                using (MemoryStream ms = new MemoryStream(buffer))
-                {
-                    var poistion = ms.Position = 0;
-                    while (true)
-                    {
-                        if (ms.ReadByte() == 13 && ms.ReadByte() == 10 && ms.ReadByte() == 13 && ms.ReadByte() == 10)
-                        {
-                            poistion = ms.Position;
-                            break;
-                        }
-                    }
-                    httpMessage.Position = (int)poistion;
-                }
-
                 string contentTypeStr = string.Empty;
                 if (httpMessage.Headers.TryGetValue(RequestHeaderType.ContentType.GetDescription(), out contentTypeStr))
                 {
@@ -230,12 +214,12 @@ namespace SAEA.Http.Base
         private static Dictionary<string, string> GetRequestQuerys(string row)
         {
             if (string.IsNullOrEmpty(row)) return null;
-            var kvs = Regex.Split(row, "&");
+            var kvs = row.Split("&");
             if (kvs == null || kvs.Count() <= 0) return null;
             Dictionary<string, string> dic = new Dictionary<string, string>();
             foreach (var item in kvs)
             {
-                var arr = Regex.Split(item, "=");
+                var arr = item.Split("=");
                 dic[arr[0]] = HttpUtility.UrlDecode(arr[1]);
             }
             return dic;
@@ -244,12 +228,12 @@ namespace SAEA.Http.Base
         private static Dictionary<string, string> GetRequestForms(string row)
         {
             if (string.IsNullOrEmpty(row)) return null;
-            var kvs = Regex.Split(row, "&");
+            var kvs = row.Split("&");
             if (kvs == null || kvs.Count() <= 0) return null;
             Dictionary<string, string> dic = new Dictionary<string, string>();
             foreach (var item in kvs)
             {
-                var arr = Regex.Split(item, "=");
+                var arr = item.Split("=");
                 dic[arr[0]] = HttpUtility.HtmlDecode(HttpUtility.UrlDecode(arr[1]));
             }
             return dic;
@@ -268,12 +252,12 @@ namespace SAEA.Http.Base
         private static Dictionary<string, string> GetCookies(string cookieStr)
         {
             if (string.IsNullOrEmpty(cookieStr)) return null;
-            var kvs = Regex.Split(cookieStr, ";");
+            var kvs = cookieStr.Split(";");
             if (kvs == null || kvs.Count() <= 0) return null;
             Dictionary<string, string> dic = new Dictionary<string, string>();
             foreach (var item in kvs)
             {
-                var arr = Regex.Split(item, "=");
+                var arr = item.Split("=");
                 dic[arr[0]] = HttpUtility.HtmlDecode(HttpUtility.UrlDecode(arr[1]));
             }
             return dic;
@@ -302,9 +286,9 @@ namespace SAEA.Http.Base
                         var arr = section.Split(ConstHelper.ENTER, StringSplitOptions.RemoveEmptyEntries);
                         if (arr != null && arr.Length > 0)
                         {
-                            var firsts = Regex.Split(arr[0], ";");
-                            var name = Regex.Split(firsts[1], "=")[1].Replace("\"", "");
-                            var fileName = Regex.Split(firsts[2], "=")[1].Replace("\"", "");
+                            var firsts = arr[0].Split(";");
+                            var name = firsts[1].Split("=")[1].Replace("\"", "");
+                            var fileName = firsts[2].Split("=")[1].Replace("\"", "");
                             var type = string.Empty;
                             if (arr.Length > 1)
                             {
@@ -320,9 +304,9 @@ namespace SAEA.Http.Base
                         {
                             if (arr.Length > 0 && arr[0].IndexOf(";") > -1 && arr[0].IndexOf("=") > -1)
                             {
-                                var lineArr = Regex.Split(arr[0], ";");
+                                var lineArr = arr[0].Split(";");
                                 if (lineArr == null) continue;
-                                var name = Regex.Split(lineArr[1], "=")[1].Replace("\"", "");
+                                var name = lineArr[1].Split("=")[1].Replace("\"", "");
                                 var value = string.Empty;
 
                                 if (arr.Length > 1)

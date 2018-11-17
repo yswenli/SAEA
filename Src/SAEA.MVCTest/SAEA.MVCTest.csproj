@@ -31,4 +31,10 @@
     <ProjectReference Include="..\SAEA.MVC\SAEA.MVC.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Html\index.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

@@ -1,0 +1,35 @@
+﻿<!DOCTYPE html>
+
+<html lang="zh-cn" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <title>SAEA.MVCTest</title>
+</head>
+<body>
+    <form action="/home/update" method="get">
+        <p>id: <input type="text" name="id" /></p>
+        <input type="submit" value="Submit" />
+    </form>
+
+    <form action="/home/update" method="post">
+        <p>First name: <input type="text" name="fname" /></p>
+        <p>Last name: <input type="text" name="lname" /></p>
+        <input type="submit" value="Submit" />
+    </form>
+
+
+    <form action="/File/upload" method="post" enctype="multipart/form-data">
+        <p>name: <input type="text" name="name" /></p>
+        <p>File1: <input type="file" name="File1" /></p>
+        <input type="submit" value="Submit" />
+    </form>
+
+
+    <form action="/test/other" method="post" enctype="text/plain">
+        <p>ID: <input type="text" name="ID" /></p>
+        <p>UserName: <input type="text" name="UserName" /></p>
+        <input type="submit" value="Submit" />
+    </form>
+
+</body>
+</html>
