@@ -53,16 +53,15 @@ namespace SAEA.Http.Base
 
             var count = bufferSpan.Length;
 
-            var dEnter = Encoding.UTF8.GetString(bufferSpan.Slice(count - 4).ToArray());
+            var index = bufferSpan.IndexOf(_dEnterBytes);
 
-            if (dEnter == ConstHelper.DENTER)
+            if (index == count - 4)
             {
                 httpMessage = new HttpMessage();
                 httpMessage.HeaderStr = Encoding.UTF8.GetString(buffer);
             }
             else
             {
-                var index = bufferSpan.IndexOf(_dEnterBytes.AsSpan());
                 if (index > 0)
                 {
                     httpMessage = new HttpMessage();
