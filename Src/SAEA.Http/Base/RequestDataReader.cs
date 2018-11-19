@@ -103,7 +103,9 @@ namespace SAEA.Http.Base
 
             httpMessage.Protocal = arr[2];
 
-            httpMessage.Headers = GetRequestHeaders(rows);
+            var lastRows= rows.AsSpan().Slice(1).ToArray();
+
+            httpMessage.Headers = GetRequestHeaders(lastRows);
 
             //cookies
             var cookiesStr = string.Empty;
@@ -241,34 +243,32 @@ namespace SAEA.Http.Base
 
         private static Dictionary<string, string> GetRequestHeaders(IEnumerable<string> rows)
         {
-            if (rows == null || rows.Count() <= 0) return null;
-            var target = rows.Select((v, i) => new { Value = v, Index = i }).FirstOrDefault(e => e.Value.Trim() == string.Empty);
-            var length = target == null ? rows.Count() - 1 : target.Index;
-            if (length <= 1) return null;
-            var range = Enumerable.Range(1, length - 1);
-            return range.Select(e => rows.ElementAt(e)).Distinct().ToDictionary(e => e.Split(':')[0], e => e.Split(':')[1].Trim());
+            var result = new Dictionary<string, string>();
+            if (rows == null || rows.Count() <= 0) return result;            
+            foreach (var row in rows)
+            {
+                var rowArr = row.Split(":");
+                result[rowArr[0]] = rowArr[1].Trim();
+            }
+            return result;
         }
 
         private static Dictionary<string, string> GetCookies(string cookieStr)
         {
-            if (string.IsNullOrEmpty(cookieStr)) return null;
-            var kvs = cookieStr.Split(";");
-            if (kvs == null || kvs.Count() <= 0) return null;
-            Dictionary<string, string> dic = new Dictionary<string, string>();
-            foreach (var item in kvs)
-            {
-                var arr = item.Split("=");
-                dic[arr[0]] = HttpUtility.HtmlDecode(HttpUtility.UrlDecode(arr[1]));
-            }
-            return dic;
-        }
+            var result = new Dictionary<string, string>();
 
-        private static string GetRequestBody(IEnumerable<string> rows)
-        {
-            var target = rows.Select((v, i) => new { Value = v, Index = i }).FirstOrDefault(e => e.Value.Trim() == string.Empty);
-            if (target == null) return null;
-            var range = Enumerable.Range(target.Index + 1, rows.Count() - target.Index - 1);
-            return string.Join(Environment.NewLine, range.Select(e => rows.ElementAt(e)).ToArray());
+            if (string.IsNullOrEmpty(cookieStr)) return result;
+
+            var rows = cookieStr.Split(";");
+
+            if (rows == null || rows.Count() <= 0) return result;
+
+            foreach (var row in rows)
+            {
+                var rowArr = row.Split(":");
+                result[rowArr[0]] = HttpUtility.HtmlDecode(HttpUtility.UrlDecode(rowArr[1]));
+            }
+            return result;
         }
 
         private static FilePart GetRequestFormsWithMultiPart(string row, HttpMessage httpMessage)
