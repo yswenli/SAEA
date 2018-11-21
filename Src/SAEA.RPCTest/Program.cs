@@ -10,8 +10,19 @@ namespace SAEA.RPCTest
 {
     class Program
     {
+
+        static int count = 100000;
+
+        static string str = "  aBc希特勒于1935年3月废除《凡尔赛条约》后，德国军方胃口大增，对尚在定型中的III号和IV号坦克不再满足了。因为它们的装甲防护相对国外坦克不占优势，其平均装甲厚度为30毫米，而英、法坦克的平均装甲厚度为40～60毫米，开发新式重型坦克的工作势在必行。    aBc希特勒于1935年3月废除《凡尔赛条约》后，德国军方胃口大增，对尚在定型中的III号和IV号坦克不再满足了。因为它们的装甲防护相对国外坦克不占优势，其平均装甲厚度为30毫米，而英、法坦克的平均装甲厚度为40～60毫米，开发新式重型坦克的工作势在必行。    aBc希特勒于1935年3月废除《凡尔赛条约》后，德国军方胃口大增，对尚在定型中的III号和IV号坦克不再满足了。因为它们的装甲防护相对国外坦克不占优势，其平均装甲厚度为30毫米，而英、法坦克的平均装甲厚度为40～60毫米，开发新式重型坦克的工作势在必行。    aBc希特勒于1935年3月废除《凡尔赛条约》后，德国军方胃口大增，对尚在定型中的III号和IV号坦克不再满足了。因为它们的装甲防护相对国外坦克不占优势，其平均装甲厚度为30毫米，而英、法坦克的平均装甲厚度为40～60毫米，开发新式重型坦克的工作势在必行。  ";
+
+        static string subStr = "《凡尔赛条约》";
+
+        static string splitStr = "坦克";
+
+
         static void Main(string[] args)
-        {
+        {     
+
             ConsoleHelper.WriteLine($"SAEA.RPC测试： {Environment.NewLine}   a 启动rpc provider consumer{Environment.NewLine}   p 启动rpc provider{Environment.NewLine}   c 启动rpc consumer{Environment.NewLine}   g 启动rpc consumer代码生成器{Environment.NewLine}   t 启动rpc稳定性测试{Environment.NewLine}   s 启动rpc序列化测试");
 
             var inputStr = ConsoleHelper.ReadLine();

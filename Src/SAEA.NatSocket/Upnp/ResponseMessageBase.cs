@@ -46,7 +46,7 @@ namespace SAEA.NatSocket.Upnp
             nsm.AddNamespace("responseNs", ServiceType);
 
             string typeName = _typeName;
-            string messageName = typeName.SSubstring(0, typeName.Length - "Message".Length);
+            string messageName = StringHelper.Substring(typeName, 0, typeName.Length - "Message".Length);
             XmlNode node = _document.SelectSingleNode("//responseNs:" + messageName, nsm);
             if (node == null) throw new InvalidOperationException("The response is invalid: " + messageName);
 

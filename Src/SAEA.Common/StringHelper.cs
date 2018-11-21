@@ -23,6 +23,7 @@
 *****************************************************************************/
 
 using System;
+using System.Collections.Generic;
 
 namespace SAEA.Common
 {
@@ -84,9 +85,48 @@ namespace SAEA.Common
             return str.Split(splits, none ? StringSplitOptions.None : StringSplitOptions.RemoveEmptyEntries);
         }
 
-        public static string[] Split(this string str, string splitStr, StringSplitOptions option)
+        [Obsolete("性能低")]
+        public static string[] Split2(this string str, string splitStr, StringSplitOptions option)
         {
             return str.Split(new string[] { splitStr }, option);
+        }
+
+        /// <summary>
+        /// 自定义分隔
+        /// </summary>
+        /// <param name="str"></param>
+        /// <param name="splitStr"></param>
+        /// <param name="option"></param>
+        /// <returns></returns>
+        public static string[] Split(this string str, string splitStr, StringSplitOptions option)
+        {
+            var strSpan = str.AsSpan();
+
+            var splitSapn = splitStr.AsSpan();
+
+            int m = 0, n = 0;
+
+            List<string> arr = new List<string>();
+
+            while (true)
+            {
+                m = n;
+                n = strSpan.IndexOf(splitSapn);
+                if (n > -1)
+                {
+                    arr.Add(strSpan.Slice(0, n).ToString());
+                    strSpan = strSpan.Slice(n + splitSapn.Length);
+                }
+                else
+                {
+                    break;
+                }
+            }
+            if (option == StringSplitOptions.RemoveEmptyEntries)
+            {
+                arr.RemoveAll(b => string.IsNullOrEmpty(b));
+            }
+            return arr.ToArray();
         }
 
 
@@ -96,66 +136,14 @@ namespace SAEA.Common
         }
 
 
-        public static string SSubstring(this string str, int start, int length)
+        public static string Substring(this string str, int start, int length)
         {
             return str.AsSpan(start, length).ToString();
         }
 
-        public static string SSubstring(this string str, int start)
+        public static string Substring(this string str, int start)
         {
             return str.AsSpan(start, str.Length - start).ToString();
-        }
-
-
-        public static int ParseToInt(this ReadOnlySpan<char> rspan)
-        {
-            Int16 sign = 1;
-
-            int num = 0;
-
-            UInt16 index = 0;
-
-            if (rspan[0].Equals('-'))
-            {
-                sign = -1; index = 1;
-            }
-            for (int idx = index; idx < rspan.Length; idx++)
-            {
-                char c = rspan[idx];
-                num = (c - '0') + num * 10;
-            }
-            return num * sign;
-        }
-
-        public static long ParseToLong(this ReadOnlySpan<char> rspan)
-        {
-            Int16 sign = 1;
-
-            long num = 0;
-
-            UInt16 index = 0;
-
-            if (rspan[0].Equals('-'))
-            {
-                sign = -1; index = 1;
-            }
-            for (int idx = index; idx < rspan.Length; idx++)
-            {
-                char c = rspan[idx];
-                num = (c - '0') + num * 10;
-            }
-            return num * sign;
-        }
-
-        public static int ParseToInt(this string str, int start, int length)
-        {
-            return str.AsSpan(start, length).ParseToInt();
-        }
-
-
-        public static long ParseToLong(this string str, int start, int length)
-        {
-            return str.AsSpan(start, length).ParseToLong();
         }
     }
 }

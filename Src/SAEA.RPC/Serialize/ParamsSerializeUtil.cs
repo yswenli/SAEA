@@ -376,7 +376,7 @@ namespace SAEA.RPC.Serialize
                 else if (type == typeof(DateTime))
                 {
                     var dstr = Encoding.UTF8.GetString(data);
-                    var ticks = long.Parse(dstr.SSubstring(2));
+                    var ticks = long.Parse(StringHelper.Substring(dstr, 2));
                     obj = (new DateTime(ticks));
                 }
                 else if (type.BaseType == typeof(Enum))

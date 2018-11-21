@@ -50,7 +50,7 @@ namespace SAEA.FileTest
 
                 try
                 {
-                    if (input.SSubstring(0, 4) == "send")
+                    if (StringHelper.Substring(input, 0, 4) == "send")
                     {
                         var arr = input.Split(new string[] { " " }, StringSplitOptions.RemoveEmptyEntries);
 

@@ -589,7 +589,7 @@ namespace SAEA.RedisSocket.Core
                 }
                 else
                 {
-                    error = command.SSubstring(1);
+                    error = StringHelper.Substring(command, 1);
                     result = false;
                 }
             }
@@ -609,7 +609,7 @@ namespace SAEA.RedisSocket.Core
                 {
                     result = false;
                 }
-                msg = command.SSubstring(1, command.Length - 3);
+                msg = StringHelper.Substring(command, 1, command.Length - 3);
             }
             return result;
         }
@@ -627,7 +627,7 @@ namespace SAEA.RedisSocket.Core
                 }
                 if (command.Length > 2 && command.IndexOf("-") == 0)
                 {
-                    error = command.SSubstring(1);
+                    error = StringHelper.Substring(command, 1);
                 }
             }
             return num;
@@ -641,11 +641,11 @@ namespace SAEA.RedisSocket.Core
             {
                 if (command.Length > 2 && command.IndexOf(ConstHelper.DOLLAR) == 0)
                 {
-                    num = int.Parse(command.SSubstring(1));
+                    num = int.Parse(StringHelper.Substring(command, 1));
                 }
                 if (command.Length > 2 && command.IndexOf("-") == 0)
                 {
-                    error = command.SSubstring(1);
+                    error = StringHelper.Substring(command, 1);
                 }
             }
 
@@ -660,11 +660,11 @@ namespace SAEA.RedisSocket.Core
             {
                 if (command.Length > 2 && command.IndexOf(":") == 0)
                 {
-                    int.TryParse(command.SSubstring(1), out num);
+                    int.TryParse(StringHelper.Substring(command, 1), out num);
                 }
                 if (command.Length > 2 && command.IndexOf("-") == 0)
                 {
-                    error = command.SSubstring(1);
+                    error = StringHelper.Substring(command, 1);
                 }
             }
 

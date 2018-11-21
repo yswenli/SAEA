@@ -96,7 +96,7 @@ namespace SAEA.Http.Base
 
             if (long.TryParse(uarr[uarr.Length - 1], out long id))
             {
-                httpMessage.Url = httpMessage.Url.SSubstring(0, httpMessage.Url.LastIndexOf("/"));
+                httpMessage.Url = StringHelper.Substring(httpMessage.Url, 0, httpMessage.Url.LastIndexOf("/"));
                 httpMessage.Query.Add(ConstHelper.ID, id.ToString());
             }
 
