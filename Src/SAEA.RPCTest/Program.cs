@@ -154,7 +154,7 @@ namespace SAEA.RPCTest
 
             Stopwatch sw = new Stopwatch();
 
-            int count = 1000000;
+            int count = 100000;
 
             ConsoleHelper.WriteLine($"{count} 次实体传输调用测试中...");
 

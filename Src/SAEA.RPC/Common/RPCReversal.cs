@@ -42,12 +42,11 @@ namespace SAEA.RPC.Common
         /// <summary>
         /// 执行方法
         /// </summary>
-        /// <param name="method"></param>
-        /// <param name="methodInvoker"></param>
         /// <param name="obj"></param>
+        /// <param name="method"></param>        
         /// <param name="args"></param>
         /// <returns></returns>
-        private static object ReversalMethod(MethodInfo method, FastInvoke.FastInvokeHandler methodInvoker, object obj, object[] args)
+        private static object ReversalMethod(object obj, MethodInfo method, object[] args)
         {
             object result = null;
             try
@@ -60,7 +59,7 @@ namespace SAEA.RPC.Common
                 {
                     inputs = null;
                 }
-                result = methodInvoker.Invoke(obj, inputs);
+                result = FastInvoke.Do(obj, method, inputs);
             }
             catch (Exception ex)
             {
@@ -85,7 +84,7 @@ namespace SAEA.RPC.Common
             {
                 foreach (var arr in serviceInfo.FilterAtrrs)
                 {
-                    var goOn = (bool)FastInvoke.GetMethodInvoker(arr.GetType().GetMethod("OnActionExecuting")).Invoke(arr, nargs.ToArray());
+                    var goOn = (bool)FastInvoke.Do(arr, arr.GetType().GetMethod("OnActionExecuting"), nargs.ToArray());
 
                     if (!goOn)
                     {
@@ -98,7 +97,7 @@ namespace SAEA.RPC.Common
             {
                 foreach (var arr in serviceInfo.ActionFilterAtrrs)
                 {
-                    var goOn = (bool)FastInvoke.GetMethodInvoker(arr.GetType().GetMethod("OnActionExecuting")).Invoke(arr, nargs.ToArray());
+                    var goOn = (bool)FastInvoke.Do(arr, arr.GetType().GetMethod("OnActionExecuting"), nargs.ToArray());
 
                     if (!goOn)
                     {
@@ -107,7 +106,7 @@ namespace SAEA.RPC.Common
                 }
             }
 
-            var result = ReversalMethod(serviceInfo.Method, serviceInfo.MethodInvoker, serviceInfo.Instance, inputs);
+            var result = ReversalMethod(serviceInfo.Instance, serviceInfo.Method, inputs);
 
             nargs = new object[] { userToken, serviceName, methodName, inputs, result };
 
@@ -115,7 +114,7 @@ namespace SAEA.RPC.Common
             {
                 foreach (var arr in serviceInfo.FilterAtrrs)
                 {
-                    FastInvoke.GetMethodInvoker(arr.GetType().GetMethod("OnActionExecuted")).Invoke(arr, nargs);
+                    FastInvoke.Do(arr, arr.GetType().GetMethod("OnActionExecuted"), nargs);
                 }
             }
 
@@ -123,7 +122,7 @@ namespace SAEA.RPC.Common
             {
                 foreach (var arr in serviceInfo.FilterAtrrs)
                 {
-                    FastInvoke.GetMethodInvoker(arr.GetType().GetMethod("OnActionExecuted")).Invoke(arr, nargs);
+                    FastInvoke.Do(arr, arr.GetType().GetMethod("OnActionExecuted"), nargs);
                 }
             }
             return result;

@@ -489,8 +489,6 @@ namespace SAEA.RPC.Serialize
 
             var instance = info.Instance;
 
-            var methodInvoker = info.FastInvokeHandler;
-
             if (info.ArgTypes[0].IsClass && info.ArgTypes[0] != stringType)
             {
                 //子项内容
@@ -505,7 +503,7 @@ namespace SAEA.RPC.Serialize
                         if (sobj != null)
                             try
                             {
-                                methodInvoker.Invoke(instance, new object[] { sobj });
+                                FastInvoke.Do(instance, info.MethodInfo, new object[] { sobj });
                             }
                             catch
                             {
@@ -517,7 +515,7 @@ namespace SAEA.RPC.Serialize
                     {
                         try
                         {
-                            methodInvoker.Invoke(instance, null);
+                            FastInvoke.Do(instance, info.MethodInfo, null);
                         }
                         catch
                         {
@@ -546,7 +544,7 @@ namespace SAEA.RPC.Serialize
                         if (sobj != null)
                             try
                             {
-                                methodInvoker.Invoke(instance, new object[] { sobj });
+                                FastInvoke.Do(instance, info.MethodInfo, new object[] { sobj });
                             }
                             catch
                             {
@@ -557,7 +555,7 @@ namespace SAEA.RPC.Serialize
                     {
                         try
                         {
-                            methodInvoker.Invoke(instance, null);
+                            FastInvoke.Do(instance, info.MethodInfo, null);
                         }
                         catch
                         {
@@ -586,8 +584,6 @@ namespace SAEA.RPC.Serialize
             var tinfo = TypeHelper.GetOrAddInstance(type);
 
             var instance = tinfo.Instance;
-
-            var methodInvoker = tinfo.FastInvokeHandler;
 
             //子项内容
             var slen = 0;
@@ -630,7 +626,7 @@ namespace SAEA.RPC.Serialize
                     val = v;
                     try
                     {
-                        methodInvoker.Invoke(instance, new object[] { key, val });
+                        FastInvoke.Do(instance, tinfo.MethodInfo, new object[] { key, val });
                     }
                     catch
                     {

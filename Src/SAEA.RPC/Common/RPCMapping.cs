@@ -79,7 +79,6 @@ namespace SAEA.RPC.Common
                                 Type = type,
                                 Instance = tInfo.Instance,
                                 Method = m,
-                                MethodInvoker = tInfo.FastInvokeHandler,
                                 Pamars = m.GetParameters().ToDic()
                             };
 

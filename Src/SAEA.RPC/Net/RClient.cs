@@ -103,9 +103,9 @@ namespace SAEA.RPC.Net
                     {
                         if (this.Connected)
                         {
-                            if (UserToken.Actived.AddSeconds(20) < DateTimeHelper.Now)
+                            if (UserToken.Actived.AddSeconds(60) < DateTimeHelper.Now)
                             {
-                                SendAsync(new RSocketMsg(RSocketMsgType.Ping));
+                                BeginSend(new RSocketMsg(RSocketMsgType.Ping));
                             }
                         }
                         ThreadHelper.Sleep(5 * 100);
@@ -121,9 +121,9 @@ namespace SAEA.RPC.Net
         /// 发送数据
         /// </summary>
         /// <param name="msg"></param>
-        internal void SendAsync(RSocketMsg msg)
+        internal void BeginSend(RSocketMsg msg)
         {
-            SendAsync(((RCoder)UserToken.Unpacker).Encode(msg));
+            BeginSend(((RCoder)UserToken.Unpacker).Encode(msg));
         }
 
         /// <summary>
@@ -147,10 +147,7 @@ namespace SAEA.RPC.Net
 
                 msg.Data = args;
 
-                if (_syncHelper.Wait(msg.SequenceNumber, () =>
-                {
-                    this.SendAsync(msg); //ConsoleHelper.WriteLine($"1 consumer send: {msg.SequenceNumber}");
-                }, (r) => { result = r; }, timeOut))
+                if (_syncHelper.Wait(msg.SequenceNumber, () => { this.BeginSend(msg); }, (r) => { result = r; }, timeOut))
                 {
                     return result;
                 }

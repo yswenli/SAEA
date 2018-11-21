@@ -61,11 +61,11 @@ namespace SAEA.MVC
             {
                 foreach (var item in flist)
                 {
-                    if (url.IndexOf(item.ToUpper(), StringComparison.OrdinalIgnoreCase) >= 0)
+                    if (url.IndexOf(item, StringComparison.OrdinalIgnoreCase) >= 0)
                     {
                         return new ContentResult("o_o，当前内容禁止访问！", System.Net.HttpStatusCode.Forbidden);
                     }
-                    if (System.Text.RegularExpressions.Regex.IsMatch(url, item))
+                    if (System.Text.RegularExpressions.Regex.IsMatch(url, item,System.Text.RegularExpressions.RegexOptions.IgnoreCase))
                     {
                         return new ContentResult("o_o，当前内容禁止访问！", System.Net.HttpStatusCode.Forbidden);
                     }

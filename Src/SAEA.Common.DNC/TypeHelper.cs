@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
@@ -97,7 +98,9 @@ namespace SAEA.Common
 
         private static readonly object SyncRoot = new object();
 
-        private static readonly Dictionary<string, TypeInfo> InstanceCache = new Dictionary<string, TypeInfo>();
+        private static readonly ConcurrentDictionary<string, TypeInfo> InstanceCache = new ConcurrentDictionary<string, TypeInfo>();
+
+
         /// <summary>
         /// 添加或获取实例
         /// </summary>
@@ -105,49 +108,38 @@ namespace SAEA.Common
         /// <returns></returns>
         public static TypeInfo GetOrAddInstance(Type type, string methodName = "Add")
         {
-            lock (SyncRoot)
+            if (type.IsInterface)
             {
-
-                if (type.IsInterface)
-                {
-                    throw new Exception("服务方法中不能包含接口内容！");
-                }
-
-                if (type.IsClass)
-                {
-                    var fullName = type.FullName + methodName;
-
-                    TypeInfo typeInfo;
-
-                    if (!InstanceCache.TryGetValue(fullName, out typeInfo))
-                    {
-                        Type[] argsTypes = null;
-
-                        if (type.IsGenericType)
-                        {
-                            argsTypes = type.GetGenericArguments();
-                            type = type.GetGenericTypeDefinition().MakeGenericType(argsTypes);
-                        }
-
-                        var mi = type.GetMethod(methodName);
-
-                        typeInfo = new TypeInfo()
-                        {
-                            Type = type,
-                            Instance = Activator.CreateInstance(type),
-                            FastInvokeHandler = mi == null ? null : FastInvoke.GetMethodInvoker(mi),
-                            ArgTypes = argsTypes
-                        };
-                        InstanceCache.Add(fullName, typeInfo);
-                    }
-                    else
-                    {
-                        typeInfo.Instance = Activator.CreateInstance(type);
-                    }
-                    return typeInfo;
-                }
-                return null;
+                throw new Exception("服务方法中不能包含接口内容！");
             }
+
+            if (type.IsClass)
+            {
+                var fullName = type.FullName + methodName;
+
+                TypeInfo typeInfo = InstanceCache.GetOrAdd(fullName, (v) =>
+                {
+                    Type[] argsTypes = null;
+
+                    if (type.IsGenericType)
+                    {
+                        argsTypes = type.GetGenericArguments();
+                        type = type.GetGenericTypeDefinition().MakeGenericType(argsTypes);
+                    }
+
+                    var mi = type.GetMethod(methodName);
+
+                    return new TypeInfo()
+                    {
+                        Type = type,
+                        MethodInfo = mi,
+                        ArgTypes = argsTypes
+                    };
+                });
+                typeInfo.Instance = Activator.CreateInstance(type);
+                return typeInfo;
+            }
+            return null;
         }
 
         public static TypeInfo GetOrAddInstance(Type type, MethodInfo mb)
@@ -161,20 +153,15 @@ namespace SAEA.Common
 
                 var fullName = type.FullName + mb.Name;
 
-                if (!InstanceCache.TryGetValue(fullName, out TypeInfo typeInfo))
+                TypeInfo typeInfo = InstanceCache.GetOrAdd(fullName, (v) =>
                 {
-                    typeInfo = new TypeInfo()
+                    return new TypeInfo()
                     {
                         Type = type,
-                        Instance = Activator.CreateInstance(type),
-                        FastInvokeHandler = FastInvoke.GetMethodInvoker(mb)
+                        MethodInfo = mb
                     };
-                    InstanceCache.TryAdd(fullName, typeInfo);
-                }
-                else
-                {
-                    typeInfo.Instance = Activator.CreateInstance(type);
-                }
+                });
+                typeInfo.Instance = Activator.CreateInstance(type);
                 return typeInfo;
             }
         }
@@ -188,6 +175,6 @@ namespace SAEA.Common
 
         public Type[] ArgTypes { get; set; }
 
-        public FastInvoke.FastInvokeHandler FastInvokeHandler { get; set; }
+        public MethodInfo MethodInfo { get; set; }
     }
 }

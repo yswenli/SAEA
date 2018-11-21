@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -33,6 +34,8 @@ namespace SAEA.Common
     /// </summary>
     public static class FastInvoke
     {
+        static ConcurrentDictionary<string, FastInvokeHandler> _dic = new ConcurrentDictionary<string, FastInvokeHandler>();
+
         /// <summary>
         /// 方法执行代理
         /// </summary>
@@ -51,7 +54,7 @@ namespace SAEA.Common
         /// </summary>
         /// <param name="methodInfo"></param>
         /// <returns></returns>
-        public static FastInvokeHandler GetMethodInvoker(MethodInfo methodInfo)
+        static FastInvokeHandler GetMethodInvoker(MethodInfo methodInfo)
         {
             DynamicMethod dynamicMethod = new DynamicMethod(string.Empty, typeof(object), new Type[] { typeof(object), typeof(object[]) }, methodInfo.DeclaringType.Module);
             ILGenerator il = dynamicMethod.GetILGenerator();
@@ -114,6 +117,24 @@ namespace SAEA.Common
             il.Emit(OpCodes.Ret);
             FastInvokeHandler invoder = (FastInvokeHandler)dynamicMethod.CreateDelegate(typeof(FastInvokeHandler));
             return invoder;
+        }
+
+
+        /// <summary>
+        /// 执行方法
+        /// </summary>
+        /// <param name="target"></param>
+        /// <param name="methodInfo"></param>
+        /// <param name="paramters"></param>
+        /// <returns></returns>
+        public static object Do(object target, MethodInfo methodInfo, params object[] paramters)
+        {
+            string key = target.GetType().FullName + methodInfo.Name;
+
+            return _dic.GetOrAdd(key, (v) =>
+            {
+                return GetMethodInvoker(methodInfo);
+            }).Invoke(target, paramters);
         }
 
         private static void EmitCastToReference(ILGenerator il, System.Type type)
@@ -182,66 +203,6 @@ namespace SAEA.Common
             }
         }
 
-
-        #region Property
-
-        private static object _syncRoot = new object();
-
-        private static Dictionary<string, FastInvokeHandler> _invokeInfos = new Dictionary<string, FastInvokeHandler>();
-
-        /// <summary>
-        /// 属性赋值
-        /// </summary>
-        /// <param name="type"></param>
-        /// <param name="obj"></param>
-        /// <param name="property"></param>
-        /// <param name="val"></param>
-        public static void Setter(Type type, Object obj, PropertyInfo property, object val)
-        {
-            lock (_syncRoot)
-            {
-                var name = type.FullName + property.Name + "Setter";
-
-                if (_invokeInfos.ContainsKey(name))
-                {
-                    _invokeInfos[name].Invoke(obj, val);
-                }
-                else
-                {
-                    var del = FastInvoke.GetMethodInvoker(property.GetSetMethod(true));
-                    _invokeInfos.Add(name, del);
-                    del.Invoke(obj, val);
-                }
-            }
-        }
-        /// <summary>
-        /// 属性取值
-        /// </summary>
-        /// <param name="type"></param>
-        /// <param name="obj"></param>
-        /// <param name="property"></param>
-        /// <returns></returns>
-
-        public static object Getter(Type type, Object obj, PropertyInfo property)
-        {
-            lock (_syncRoot)
-            {
-                var name = type.FullName + property.Name + "Getter";
-
-                if (_invokeInfos.ContainsKey(name))
-                {
-                    return _invokeInfos[name].Invoke(obj);
-                }
-                else
-                {
-                    var del = FastInvoke.GetMethodInvoker(property.GetGetMethod(true));
-                    _invokeInfos.Add(name, del);
-                    return del.Invoke(obj);
-                }
-            }
-        }
-
-        #endregion
 
         /// <summary>
         /// 将List~object转换成List~T
