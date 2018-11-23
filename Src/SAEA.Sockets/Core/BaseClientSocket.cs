@@ -13,7 +13,7 @@
 *公司名称：wenli
 *命名空间：SAEA.Sockets
 *文件名： BaseClientSocket
-*版本号： V3.3.3.1
+*版本号： V3.3.3.3
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -25,7 +25,7 @@
 *修改标记
 *修改时间：2018/3/1 15:54:21
 *修改人： yswenli
-*版本号： V3.3.3.1
+*版本号： V3.3.3.3
 *描述：
 *
 *****************************************************************************/
@@ -86,6 +86,8 @@ namespace SAEA.Sockets.Core
             _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             _socket.NoDelay = true;
+            _socket.SendTimeout = _socket.ReceiveTimeout = 120 * 1000;
+
             _ip = ip;
             _port = port;
 
@@ -124,7 +126,11 @@ namespace SAEA.Sockets.Core
             {
                 wait.Set();
             });
-            wait.WaitOne();
+            if (!wait.WaitOne(10 * 1000))
+            {
+                _socket.Disconnect(true);
+                throw new Exception("连接超时!");
+            }
         }
 
         void ConnectArgs_Completed(object sender, SocketAsyncEventArgs e)

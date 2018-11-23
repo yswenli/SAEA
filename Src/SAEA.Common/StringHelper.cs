@@ -5,7 +5,7 @@
 *公司名称：wenli
 *命名空间：SAEA.Commom
 *文件名： Class1
-*版本号： V3.3.3.1
+*版本号： V3.3.3.3
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/3/1 15:54:21
 *修改人： yswenli
-*版本号： V3.3.3.1
+*版本号： V3.3.3.3
 *描述：
 *
 *****************************************************************************/
@@ -85,7 +85,7 @@ namespace SAEA.Common
             return str.Split(splits, none ? StringSplitOptions.None : StringSplitOptions.RemoveEmptyEntries);
         }
 
-        [Obsolete("性能低")]
+        [Obsolete("测试用")]
         public static string[] Split2(this string str, string splitStr, StringSplitOptions option)
         {
             return str.Split(new string[] { splitStr }, option);
@@ -119,6 +119,7 @@ namespace SAEA.Common
                 }
                 else
                 {
+                    arr.Add(strSpan.Slice(0).ToString());
                     break;
                 }
             }

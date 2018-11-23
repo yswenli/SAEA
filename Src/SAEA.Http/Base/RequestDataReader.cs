@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.Http.Base
 *文件名： RequestDataReader
-*版本号： V3.3.3.1
+*版本号： V3.3.3.3
 *唯一标识：01f783cd-c751-47c5-a5b9-96d3aa840c70
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/4/16 11:03:29
 *修改人： yswenli
-*版本号： V3.3.3.1
+*版本号： V3.3.3.3
 *描述：
 *
 *****************************************************************************/
@@ -81,6 +81,8 @@ namespace SAEA.Http.Base
 
             httpMessage.RelativeUrl = arr[1];
 
+            httpMessage.Protocal = arr[2];            
+
             if (httpMessage.RelativeUrl.Contains("?"))
             {
                 var qarr = httpMessage.RelativeUrl.Split("?");
@@ -99,8 +101,6 @@ namespace SAEA.Http.Base
                 httpMessage.Url = StringHelper.Substring(httpMessage.Url, 0, httpMessage.Url.LastIndexOf("/"));
                 httpMessage.Query.Add(ConstHelper.ID, id.ToString());
             }
-
-            httpMessage.Protocal = arr[2];
 
             var lastRows= rows.AsSpan().Slice(1).ToArray();
 
