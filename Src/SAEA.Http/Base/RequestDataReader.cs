@@ -230,7 +230,7 @@ namespace SAEA.Http.Base
         private static Dictionary<string, string> GetRequestForms(string row)
         {
             if (string.IsNullOrEmpty(row)) return null;
-            var kvs = row.Split("&");
+            var kvs = row.Split(ConstHelper.ENTER,StringSplitOptions.RemoveEmptyEntries);
             if (kvs == null || kvs.Count() <= 0) return null;
             Dictionary<string, string> dic = new Dictionary<string, string>();
             foreach (var item in kvs)

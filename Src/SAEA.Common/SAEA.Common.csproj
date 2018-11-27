@@ -7,7 +7,7 @@
     <Product>SAEA.Commom</Product>
     <Copyright>yswenli</Copyright>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Version>3.3.3.4</Version>
+    <Version>3.3.3.5</Version>
     <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
     <Description>SAEA.Socket is a high-performance IOCP framework based on.dotnet standard 2.0; Src contains its application test scenarios, such as websocket,rpc, redis driver, MVC WebAPI, lightweight message server, ultra large file transmission, etc.
 SAEA.Socket是一个高性能IOCP框架，基于.dotnet standard 2.0；Src中含有其应用测试场景，例如websocket、rpc、redis驱动、MVC WebAPI、轻量级消息服务器、超大文件传输等
@@ -17,7 +17,7 @@ https://github.com/yswenli/SAEA</Description>
 SAEA.Socket是一个高性能IOCP框架，基于.dotnet standard 2.0；Src中含有其应用测试场景，例如websocket、rpc、redis驱动、MVC WebAPI、轻量级消息服务器、超大文件传输等
 https://github.com/yswenli/SAEA</PackageReleaseNotes>
     <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
-    <AssemblyVersion>3.3.3.4</AssemblyVersion>
+    <AssemblyVersion>3.3.3.5</AssemblyVersion>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
     <PackageId>SAEA.Common</PackageId>

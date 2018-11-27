@@ -17,7 +17,8 @@ namespace SAEA.MVCTest.Controllers
             return Content("this is a test!");
         }
 
-        
+        [HttpGet]
+        [HttpPost]
         public ActionResult Other(UserInfo userInfo)
         {
             return Json(userInfo);
