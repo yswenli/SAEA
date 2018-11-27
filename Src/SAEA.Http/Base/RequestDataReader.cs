@@ -82,7 +82,7 @@ namespace SAEA.Http.Base
 
             httpMessage.RelativeUrl = arr[1];
 
-            httpMessage.Protocal = arr[2];            
+            httpMessage.Protocal = arr[2];
 
             if (httpMessage.RelativeUrl.Contains("?"))
             {
@@ -103,7 +103,7 @@ namespace SAEA.Http.Base
                 httpMessage.Query.Add(ConstHelper.ID, id.ToString());
             }
 
-            var lastRows= rows.AsSpan().Slice(1).ToArray();
+            var lastRows = rows.AsSpan().Slice(1).ToArray();
 
             httpMessage.Headers = GetRequestHeaders(lastRows);
 
@@ -216,7 +216,7 @@ namespace SAEA.Http.Base
         private static Dictionary<string, string> GetRequestQuerys(string row)
         {
             if (string.IsNullOrEmpty(row)) return null;
-            var kvs = row.Split("&");
+            var kvs = row.Split("&", StringSplitOptions.RemoveEmptyEntries);
             if (kvs == null || kvs.Count() <= 0) return null;
             Dictionary<string, string> dic = new Dictionary<string, string>();
             foreach (var item in kvs)
@@ -230,7 +230,7 @@ namespace SAEA.Http.Base
         private static Dictionary<string, string> GetRequestForms(string row)
         {
             if (string.IsNullOrEmpty(row)) return null;
-            var kvs = row.Split(ConstHelper.ENTER,StringSplitOptions.RemoveEmptyEntries);
+            var kvs = row.Split(ConstHelper.ENTER, StringSplitOptions.RemoveEmptyEntries);
             if (kvs == null || kvs.Count() <= 0) return null;
             Dictionary<string, string> dic = new Dictionary<string, string>();
             foreach (var item in kvs)
@@ -244,7 +244,7 @@ namespace SAEA.Http.Base
         private static Dictionary<string, string> GetRequestHeaders(IEnumerable<string> rows)
         {
             var result = new Dictionary<string, string>();
-            if (rows == null || rows.Count() <= 0) return result;            
+            if (rows == null || rows.Count() <= 0) return result;
             foreach (var row in rows)
             {
                 var rowArr = row.Split(":");
@@ -259,7 +259,7 @@ namespace SAEA.Http.Base
 
             if (string.IsNullOrEmpty(cookieStr)) return result;
 
-            var rows = cookieStr.Split(";");
+            var rows = cookieStr.Split(";", StringSplitOptions.RemoveEmptyEntries);
 
             if (rows == null || rows.Count() <= 0) return result;
 

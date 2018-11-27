@@ -32,29 +32,19 @@ namespace SAEA.Http.Base.Net
         public event Action<IUserToken, HttpMessage> OnRequested;
 
 
-        public HttpSocket(int bufferSize = 1024 * 10, int count = 10000) : base(new HContext(), bufferSize, count)
+        public HttpSocket(int bufferSize = 1024 * 10, int count = 10000, int timeOut = 120 * 1000) : base(new HContext(), bufferSize, count,false, timeOut)
         {
-            
+
         }
 
         protected override void OnReceiveBytes(IUserToken userToken, byte[] data)
         {
-            HUnpacker unpacker = (HUnpacker)userToken.Unpacker;            
+            HUnpacker unpacker = (HUnpacker)userToken.Unpacker;
 
             unpacker.GetRequest(data, (result) =>
             {
                 OnRequested?.Invoke(userToken, result);
             });
-        }
-
-        /// <summary>
-        /// 发送消息并结束会话
-        /// </summary>
-        /// <param name="userToken"></param>
-        /// <param name="data"></param>
-        public void End(IUserToken userToken, byte[] data)
-        {
-            base.End(userToken, data);
         }
     }
 }
