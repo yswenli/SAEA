@@ -7,17 +7,19 @@
     <Copyright>yswenli</Copyright>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Version>3.3.3.5</Version>
-    <Description>This is a message server and client component based on SAEA.Scokets,Messages are transmitted using pb compression.
-这是一个基于SAEA.Scokets的消息服务器、客户端组件，消息使用pb压缩传输
+    <Description>This is a message server and client component based on SAEA. Scokets. Messages are transmitted by Pb compression. Messages support private messages, channels, groups, etc.
+这是一个基于SAEA.Scokets的消息服务器、客户端组件，消息使用pb压缩传输，消息支持私信、频道、群组等方式
 https://github.com/yswenli/SAEA</Description>
     <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
     <PackageTags>iocp,chatserver,messageserver,tcp,socket</PackageTags>
-    <PackageReleaseNotes>This is a message server and client component based on SAEA.Scokets,Messages are transmitted using pb compression.
-这是一个基于SAEA.Scokets的消息服务器、客户端组件，消息使用pb压缩传输
+    <PackageReleaseNotes>This is a message server and client component based on SAEA. Scokets. Messages are transmitted by Pb compression. Messages support private messages, channels, groups, etc.
+这是一个基于SAEA.Scokets的消息服务器、客户端组件，消息使用pb压缩传输，消息支持私信、频道、群组等方式
 https://github.com/yswenli/SAEA</PackageReleaseNotes>
     <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
+    <PackageLicenseUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/LICENSE</PackageLicenseUrl>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
   </PropertyGroup>
 
   <ItemGroup>

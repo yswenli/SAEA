@@ -16,6 +16,10 @@ https://github.com/yswenli/SAEA</PackageReleaseNotes>
     <PackageTags>rcp,iocp,socket,tcp</PackageTags>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
+    <PackageLicenseUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/LICENSE</PackageLicenseUrl>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+    <Authors>yswenli</Authors>
+    <Company>yswenli</Company>
   </PropertyGroup>
 
   <ItemGroup>
