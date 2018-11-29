@@ -22,7 +22,6 @@
 *
 *****************************************************************************/
 using SAEA.Http;
-using SAEA.Http.Model;
 using System;
 
 namespace SAEA.MVC
