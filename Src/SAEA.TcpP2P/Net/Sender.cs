@@ -41,8 +41,8 @@ namespace SAEA.TcpP2P.Net
 
         public event Action<ISocketProtocal> OnMessage;
 
+        public event Action<List<string>> OnPeerListResponse;
 
-        List<string> _remoteList = new List<string>();
 
         int HeartSpan = 10 * 1000;
 
@@ -63,16 +63,18 @@ namespace SAEA.TcpP2P.Net
                 {
                     case (byte)HolePunchingType.Heart:
                         break;
-                    case (byte)HolePunchingType.Login:
+                    case (byte)HolePunchingType.PeerListRequest:
                         break;
-                    case (byte)HolePunchingType.LoginResponse:
-                        _remoteList = SerializeHelper.ByteDeserialize<List<string>>(msg.Content);
+                    case (byte)HolePunchingType.PeerListResponse:
+                        var remoteList = SerializeHelper.ByteDeserialize<List<string>>(msg.Content);
+                        OnPeerListResponse.Invoke(remoteList);
                         break;
                     case (byte)HolePunchingType.Message:
                         OnMessage?.Invoke(msg);
                         break;
                     case (byte)HolePunchingType.P2PSResponse:
-                        HolePunching(msg);
+                        var ipPort = Encoding.UTF8.GetString(msg.Content).GetIPPort();
+                        OnReceiveP2PTask?.Invoke(ipPort);
                         break;
                     case (byte)HolePunchingType.P2PResponse:
                         OnP2PSucess?.Invoke(_peerBAddress);
@@ -80,7 +82,7 @@ namespace SAEA.TcpP2P.Net
                     case (byte)HolePunchingType.Logout:
                     case (byte)HolePunchingType.Close:
                     default:
-                        SendLogout();
+                        SendClose();
                         base.Disconnect();
                         break;
                 }
@@ -89,7 +91,7 @@ namespace SAEA.TcpP2P.Net
 
 
 
-        private void SendBase(HolePunchingType type, byte[] content = null)
+        public void SendBase(HolePunchingType type, byte[] content = null)
         {
             var qm = PSocketMsg.Parse(content, type);
 
@@ -98,7 +100,7 @@ namespace SAEA.TcpP2P.Net
 
         private void HeartLoop()
         {
-            ThreadHelper.Run(() =>
+            TaskHelper.Start(() =>
             {
                 Actived = DateTimeHelper.Now;
                 try
@@ -120,38 +122,21 @@ namespace SAEA.TcpP2P.Net
                     }
                 }
                 catch { }
-            }, true, System.Threading.ThreadPriority.Highest);
+            });
         }
 
-        private void SendLogin()
+        public void RequestPeerList()
         {
-            var qm = PSocketMsg.Parse(null, HolePunchingType.Login);
+            var qm = PSocketMsg.Parse(null, HolePunchingType.PeerListRequest);
 
             Send(qm.ToBytes());
         }
 
-        private void SendLogout()
+        public void SendClose()
         {
-            var qm = PSocketMsg.Parse(null, HolePunchingType.P2PRequest);
+            var qm = PSocketMsg.Parse(null, HolePunchingType.Close);
 
             Send(qm.ToBytes());
-        }
-
-        /// <summary>
-        /// 收到服务器P2PSResponse， 向打洞的远程机器发送数据
-        /// </summary>
-        /// <param name="msg"></param>
-        private void HolePunching(ISocketProtocal msg)
-        {
-            var ipPort = Encoding.UTF8.GetString(msg.Content).GetIPPort();
-
-            OnReceiveP2PTask?.Invoke(ipPort);
-
-            var qm = PSocketMsg.Parse(null, HolePunchingType.P2PRequest);
-
-            SendTo(new System.Net.IPEndPoint(IPAddress.Parse(ipPort.Item1), ipPort.Item2), qm.ToBytes());
-
-            _peerBAddress = ipPort;
         }
 
         public void ConnectServer()
@@ -162,7 +147,7 @@ namespace SAEA.TcpP2P.Net
                 {
                     HeartLoop();
                     Connected = true;
-                    SendLogin();
+                    RequestPeerList();
                 }
             });
         }
@@ -179,8 +164,7 @@ namespace SAEA.TcpP2P.Net
         public void SendMessage(string msg)
         {
             var qm = PSocketMsg.Parse(Encoding.UTF8.GetBytes(msg), HolePunchingType.Message);
-            SendTo(new System.Net.IPEndPoint(IPAddress.Parse(_peerBAddress.Item1), _peerBAddress.Item2), qm.ToBytes());
-
+            Send(qm.ToBytes());
         }
 
     }

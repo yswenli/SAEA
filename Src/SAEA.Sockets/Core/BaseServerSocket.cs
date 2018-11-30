@@ -83,7 +83,7 @@ namespace SAEA.Sockets.Core
         /// <param name="count"></param>
         /// <param name="noDelay"></param>
         /// <param name="timeOut"></param>
-        public BaseServerSocket(IContext context, int bufferSize = 1024 * 10, int count = 10000, bool noDelay = true, int timeOut = 60 * 1000)
+        public BaseServerSocket(IContext context, int bufferSize = 1024, int count = 10000, bool noDelay = true, int timeOut = 60 * 1000)
         {
             _sessionManager = new SessionManager(context, bufferSize, count, IO_Completed, new TimeSpan(0, 0, timeOut));
             _sessionManager.OnTimeOut += _sessionManager_OnTimeOut;

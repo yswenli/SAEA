@@ -37,9 +37,11 @@ namespace SAEA.TcpP2P.Net
 
         public event Action<IUserToken, ISocketProtocal> OnMessage;
 
-        public Receiver() : base(new PContext())
-        {
+        bool _isP2pServer = false;
 
+        public Receiver(bool isP2pServer = false) : base(new PContext(), 1024, 100)
+        {
+            _isP2pServer = isP2pServer;
         }
 
         protected override void OnReceiveBytes(IUserToken userToken, byte[] data)
@@ -51,8 +53,8 @@ namespace SAEA.TcpP2P.Net
                     case (byte)HolePunchingType.Heart:
                         ReplyHeart(userToken);
                         break;
-                    case (byte)HolePunchingType.Login:
-                        ReplyLogin(userToken);
+                    case (byte)HolePunchingType.PeerListRequest:
+                        ReplyPeerListRequest(userToken);
                         break;
                     case (byte)HolePunchingType.P2PSRequest:
                         ReplyP2PSRequest(userToken, msg);
@@ -88,14 +90,14 @@ namespace SAEA.TcpP2P.Net
             ReplyBase(userToken, PSocketMsg.Parse(null, HolePunchingType.P2PResponse));
         }
 
-        private void ReplyLogin(IUserToken userToken)
+        private void ReplyPeerListRequest(IUserToken userToken)
         {
             var list = SessionManager.ToList().Select(b => b.ID).ToList();
             if (list != null && list.Count > 0)
             {
                 var data = SerializeHelper.ByteSerialize(list);
 
-                ReplyBase(userToken, PSocketMsg.Parse(data, HolePunchingType.LoginResponse));
+                ReplyBase(userToken, PSocketMsg.Parse(data, HolePunchingType.PeerListResponse));
             }
         }
 
@@ -115,6 +117,15 @@ namespace SAEA.TcpP2P.Net
             base.SendAsync(peerB, PSocketMsg.Parse(Encoding.UTF8.GetBytes(peerA), HolePunchingType.P2PSResponse).ToBytes());
         }
 
+        /// <summary>
+        /// 向打洞的远程机器发送数据
+        /// </summary>
+        /// <param name="userToken"></param>
+        public void HolePunching(IUserToken userToken)
+        {
+            var qm = PSocketMsg.Parse(null, HolePunchingType.P2PRequest);
 
+            Send(userToken, qm.ToBytes());
+        }
     }
 }

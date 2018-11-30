@@ -27,8 +27,8 @@ namespace SAEA.TcpP2P.Net
     public enum HolePunchingType
     {
         Heart = 0,
-        Login = 1,
-        LoginResponse = 11,
+        PeerListRequest = 1,
+        PeerListResponse = 11,
         Logout = 2,
         P2PRequest = 3,
         P2PSRequest = 31,

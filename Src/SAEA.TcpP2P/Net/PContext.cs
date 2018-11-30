@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 using SAEA.Sockets.Interface;
+using SAEA.Sockets.Model;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -40,7 +41,7 @@ namespace SAEA.TcpP2P.Net
         /// </summary>
         public PContext()
         {
-            this.UserToken = new PUserToken();
+            this.UserToken = new UserToken();
             this.Unpacker = new PCoder();
             this.UserToken.Unpacker = this.Unpacker;
         }

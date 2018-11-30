@@ -4,7 +4,7 @@
 *机器名称：WENLI-PC
 *公司名称：Microsoft
 *命名空间：SAEA.TcpP2P
-*文件名： Peer
+*文件名： PeerSocket
 *版本号： V3.3.3.4
 *唯一标识：1f88c4b4-a22d-4e98-a403-16c5e911ef86
 *当前的用户域：WENLI-PC
@@ -21,92 +21,90 @@
 *描述：
 *
 *****************************************************************************/
-
 using SAEA.Common;
 using SAEA.Sockets.Interface;
 using SAEA.TcpP2P.Net;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.TcpP2P
 {
+    /// <summary>
+    /// 
+    /// </summary>
     public class Peer
     {
-        Sender _sender;
+        Sender _psSender;
 
-        Receiver _receiver;
+        Receiver _p2pConnect;
 
+        IUserToken rUserToken;
 
-        public event Action<Peer> OnConnected;
+        public event Action<List<string>> OnPeerListResponse;
 
-        public event Action<string> OnMessage;
+        public event Action<Tuple<string, int>> OnP2PSucess;
 
-        Tuple<string, int> _peerBIPPort;
+        public event Action<byte[]> OnMessage;
 
-        public bool Connected { get; set; } = false;
-
-        public Peer(string server)
+        public bool IsConnected
         {
-            var ipPort = server.GetIPPort();
+            get; set;
+        }
 
-            _sender = new Sender(ipPort.Item1, ipPort.Item2);
-
-            _sender.OnReceiveP2PTask += _sender_OnReceiveP2PTask;
-
-            _sender.OnP2PSucess += _sender_OnP2PSucess;
-
-            _sender.OnMessage += _sender_OnMessage;
-
-            _sender.ConnectServer();
-
-            _receiver = new Receiver();
-
-            _receiver.OnP2PSucess += _receiver_OnP2PSucess;
-
-            _receiver.OnMessage += _receiver_OnMessage;
+        public void ConnectPeerServer(string ipPort)
+        {
+            var tuple = ipPort.GetIPPort();
+            _psSender = new Sender(tuple.Item1, tuple.Item2);
+            _psSender.OnPeerListResponse += _psSender_OnPeerListResponse;
+            _psSender.OnReceiveP2PTask += _psSender_OnReceiveP2PTask;
+            _psSender.ConnectServer();
         }
 
 
-
-        private void _sender_OnReceiveP2PTask(Tuple<string, int> obj)
+        public void RequestP2p(string remoteIpPort)
         {
-            _receiver.Start(obj.Item2);
+            _psSender.SendP2PRequest(remoteIpPort);
         }
 
-        private void _sender_OnP2PSucess(Tuple<string, int> obj)
+        private void _psSender_OnPeerListResponse(List<string> obj)
         {
-            Connected = true;
-            OnConnected?.Invoke(this);
-            _peerBIPPort = obj;
+            OnPeerListResponse?.Invoke(obj);
         }
 
-        private void _sender_OnMessage(Sockets.Interface.ISocketProtocal msg)
+        private void _psSender_OnReceiveP2PTask(Tuple<string, int> obj)
         {
-            OnMessage?.Invoke(Encoding.UTF8.GetString(msg.Content));
+            _p2pConnect = new Receiver(obj.Item1, obj.Item2);
+            _p2pConnect.OnP2PSucess += _p2pSender_OnP2PSucess;
+            _p2pConnect.OnMessage += _p2pConnect_OnMessage;
+            _p2pConnect.HolePunching();
         }
 
-        private void _receiver_OnP2PSucess(Tuple<string, int> obj)
+        private void _p2pConnect_OnMessage(IUserToken arg1, ISocketProtocal arg2)
         {
-            Connected = true;
-            OnConnected?.Invoke(this);
-            _peerBIPPort = obj;
-        }
-        private void _receiver_OnMessage(Sockets.Interface.IUserToken userToken, Sockets.Interface.ISocketProtocal msg)
-        {
-            OnMessage?.Invoke(Encoding.UTF8.GetString(msg.Content));
+            if (arg2.Content != null) OnMessage?.Invoke(arg2.Content);
         }
 
-        public void RequestP2P(string remote)
+        private void _p2pSender_OnMessage(Sockets.Interface.ISocketProtocal obj)
         {
-            _sender.SendP2PRequest(remote);
+            if (obj.Content != null) OnMessage?.Invoke(obj.Content);
+        }
+
+        private void _p2pSender_OnP2PSucess(Tuple<string, int> obj)
+        {
+            IsConnected = true;
+            OnP2PSucess?.Invoke(obj);
+        }
+
+        public void SendMessage(byte[] bytes)
+        {
+            if (IsConnected)
+                _p2pConnect.SendBase(HolePunchingType.Message, bytes);
         }
 
         public void SendMessage(string msg)
         {
-            if (Connected)
-                _sender.SendMessage(msg);
+            if (IsConnected)
+                _p2pConnect.SendMessage(msg);
         }
-
     }
 }
