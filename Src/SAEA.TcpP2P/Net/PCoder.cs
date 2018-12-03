@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.TcpP2P.Net
 *文件名： QCoder
-*版本号： V3.3.3.4
+*版本号： V3.3.3.5
 *唯一标识：3bce3dda-573a-4414-8d54-b2b7e1493251
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/3/1 21:31:28
 *修改人： yswenli
-*版本号： V3.3.3.4
+*版本号： V3.3.3.5
 *描述：
 *
 *****************************************************************************/
@@ -61,7 +61,7 @@ namespace SAEA.TcpP2P.Net
 
                     var type = GetType(buffer);
 
-                    if (bodyLen == 0 && type == HolePunchingType.Heart) //空包认为是心跳包
+                    if (bodyLen == 0 && type == TcpP2pType.Heart) //空包认为是心跳包
                     {
                         var sm = new PSocketMsg() { BodyLength = bodyLen, Type = (byte)type };
                         _buffer.Clear();
@@ -87,9 +87,9 @@ namespace SAEA.TcpP2P.Net
             return data.ToLong();
         }
 
-        public static HolePunchingType GetType(byte[] data)
+        public static TcpP2pType GetType(byte[] data)
         {
-            return (HolePunchingType)data[P_LEN];
+            return (TcpP2pType)data[P_LEN];
         }
 
         public static byte[] GetContent(byte[] data, int offset, int count)
