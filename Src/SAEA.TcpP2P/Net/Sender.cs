@@ -27,6 +27,7 @@ using SAEA.Sockets.Core;
 using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading;
@@ -37,7 +38,7 @@ namespace SAEA.TcpP2P.Net
     {
         public event Action<NatInfo> OnReceiveP2PTask;
 
-        public event Action<Tuple<string, int>> OnP2PSucess;
+        public event Action<NatInfo> OnP2PSucess;
 
         public event Action<ISocketProtocal> OnMessage;
 
@@ -50,9 +51,11 @@ namespace SAEA.TcpP2P.Net
 
         Tuple<string, int> _peerBAddress;
 
+        NatInfo _me;
+
         public Sender(string ip, int port) : base(new PContext(), ip, port)
         {
-
+            
         }
 
         protected override void OnReceived(byte[] data)
@@ -67,6 +70,7 @@ namespace SAEA.TcpP2P.Net
                         break;
                     case (byte)TcpP2pType.PeerListResponse:
                         var remoteList = SerializeHelper.ByteDeserialize<List<NatInfo>>(msg.Content);
+                        _me = remoteList.Where(b => b.IsMe).First();
                         OnPeerListResponse.Invoke(remoteList);
                         break;
                     case (byte)TcpP2pType.Message:
@@ -76,7 +80,7 @@ namespace SAEA.TcpP2P.Net
                         OnReceiveP2PTask?.Invoke(SerializeHelper.ByteDeserialize<NatInfo>(msg.Content));
                         break;
                     case (byte)TcpP2pType.P2PResponse:
-                        OnP2PSucess?.Invoke(_peerBAddress);
+                        OnP2PSucess?.Invoke(_me);
                         break;
                     case (byte)TcpP2pType.Logout:
                     case (byte)TcpP2pType.Close:
@@ -131,6 +135,16 @@ namespace SAEA.TcpP2P.Net
             Send(qm.ToBytes());
         }
 
+        /// <summary>
+        /// 向打洞的远程机器发送数据
+        /// </summary>
+        public void HolePunching()
+        {
+            var qm = PSocketMsg.Parse(null, TcpP2pType.P2PRequest);
+
+            Send(qm.ToBytes());
+        }
+
         public void SendClose()
         {
             var qm = PSocketMsg.Parse(null, TcpP2pType.Close);
@@ -160,10 +174,14 @@ namespace SAEA.TcpP2P.Net
             SendBase(TcpP2pType.P2PSRequest, Encoding.UTF8.GetBytes(remote));
         }
 
+        public void SendMessage(byte[] msg)
+        {
+            var qm = PSocketMsg.Parse(msg, TcpP2pType.Message);
+            Send(qm.ToBytes());
+        }
         public void SendMessage(string msg)
         {
-            var qm = PSocketMsg.Parse(Encoding.UTF8.GetBytes(msg), TcpP2pType.Message);
-            Send(qm.ToBytes());
+            SendMessage(Encoding.UTF8.GetBytes(msg));
         }
     }
 }

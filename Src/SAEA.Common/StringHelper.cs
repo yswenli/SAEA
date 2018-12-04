@@ -24,6 +24,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Net;
 
 namespace SAEA.Common
 {
@@ -65,7 +66,7 @@ namespace SAEA.Common
             return Convert(l);
         }
 
-        public static Tuple<string, int> GetIPPort(this string remote)
+        public static Tuple<string, int> ToIPPort(this string remote)
         {
             Tuple<string, int> result;
 
@@ -79,6 +80,13 @@ namespace SAEA.Common
 
             return result;
         }
+
+        public static IPEndPoint ToIPEndPoint(this string remote)
+        {
+            var tuple = remote.ToIPPort();
+            return new IPEndPoint(IPAddress.Parse(tuple.Item1), tuple.Item2);
+        }
+
 
         public static string[] ToArray(this string str, bool none = false, params string[] splits)
         {

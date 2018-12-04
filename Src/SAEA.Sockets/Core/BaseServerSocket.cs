@@ -48,7 +48,7 @@ namespace SAEA.Sockets.Core
     {
         Socket _listener;
 
-        int _clientCounts;        
+        int _clientCounts;
 
         private SessionManager _sessionManager;
 
@@ -224,6 +224,8 @@ namespace SAEA.Sockets.Core
             userToken.Set();
         }
 
+        #region send method
+
         /// <summary>
         /// 异步发送
         /// </summary>
@@ -244,7 +246,11 @@ namespace SAEA.Sockets.Core
         }
 
 
-
+        /// <summary>
+        /// 异步发送
+        /// </summary>
+        /// <param name="sessionID"></param>
+        /// <param name="data"></param>
         protected void SendAsync(string sessionID, byte[] data)
         {
             var userToken = _sessionManager.Get(sessionID);
@@ -286,19 +292,52 @@ namespace SAEA.Sockets.Core
             }
         }
 
-        protected void BeginSend(IUserToken userToken, byte[] data)
+
+        /// <summary>
+        /// 同步发送
+        /// </summary>
+        /// <param name="sessionID"></param>
+        /// <param name="data"></param>
+        protected void Send(string sessionID, byte[] data)
+        {
+            var userToken = _sessionManager.Get(sessionID);
+            if (userToken != null)
+            {
+                Send(userToken, data);
+            }
+        }
+
+        /// <summary>
+        /// APM方式发送
+        /// </summary>
+        /// <param name="userToken"></param>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        protected IAsyncResult BeginSend(IUserToken userToken, byte[] data)
         {
             try
             {
                 _sessionManager.Active(userToken.ID);
 
-                userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, null, null);
+                return userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, null, null);
 
             }
             catch (Exception ex)
             {
                 Disconnect(userToken, ex);
             }
+            return null;
+        }
+
+        /// <summary>
+        /// APM方式结束发送
+        /// </summary>
+        /// <param name="userToken"></param>
+        /// <param name="result"></param>
+        /// <returns></returns>
+        protected int EndSend(IUserToken userToken, IAsyncResult result)
+        {
+            return userToken.Socket.EndSend(result);
         }
 
 
@@ -307,12 +346,14 @@ namespace SAEA.Sockets.Core
         /// </summary>
         /// <param name="userToken"></param>
         /// <param name="data"></param>
-        public void End(IUserToken userToken, byte[] data)
+        protected void End(IUserToken userToken, byte[] data)
         {
             var result = userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, null, null);
-            userToken.Socket.EndSend(result); 
+            userToken.Socket.EndSend(result);
             Disconnect(userToken);
         }
+        #endregion
+
 
 
         private void _sessionManager_OnTimeOut(IUserToken userToken)

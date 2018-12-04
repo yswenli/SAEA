@@ -58,7 +58,7 @@ namespace SAEA.RedisSocket
         {
             try
             {
-                var IPPort = ipPort.GetIPPort();
+                var IPPort = ipPort.ToIPPort();
                 this.IP = IPPort.Item1;
                 this.Port = IPPort.Item2;
                 this.Passwords = passwords;
@@ -84,7 +84,7 @@ namespace SAEA.RedisSocket
                 {
                     if (item.Contains("server="))
                     {
-                        var IPPort = item.Split("=", StringSplitOptions.RemoveEmptyEntries)[1].GetIPPort();
+                        var IPPort = item.Split("=", StringSplitOptions.RemoveEmptyEntries)[1].ToIPPort();
                         this.IP = IPPort.Item1;
                         this.Port = IPPort.Item2;
                     }

@@ -61,7 +61,7 @@ namespace SAEA.TcpP2P.Net
                         ReplyP2PSRequest(userToken, msg);
                         break;
                     case (byte)TcpP2pType.P2PResponse:
-                        var ipPort = userToken.Socket.RemoteEndPoint.ToString().GetIPPort();
+                        var ipPort = userToken.Socket.RemoteEndPoint.ToString().ToIPPort();
                         var natInfo = new NatInfo()
                         {
                             IP = ipPort.Item1,
@@ -107,7 +107,7 @@ namespace SAEA.TcpP2P.Net
 
                 foreach (var item in list)
                 {
-                    var ipPort = item.GetIPPort();
+                    var ipPort = item.ToIPPort();
 
                     var natInfo = new NatInfo()
                     {
@@ -137,7 +137,7 @@ namespace SAEA.TcpP2P.Net
         /// <param name="msg"></param>
         private void ReplyP2PSRequest(IUserToken userToken, ISocketProtocal msg)
         {
-            var peerA = userToken.ID.GetIPPort();
+            var peerA = userToken.ID.ToIPPort();
 
             var natInfoA = new NatInfo()
             {
@@ -148,7 +148,7 @@ namespace SAEA.TcpP2P.Net
 
             var IDB = Encoding.UTF8.GetString(msg.Content);
 
-            var peerB = IDB.GetIPPort();
+            var peerB = IDB.ToIPPort();
 
             var natInfoB = new NatInfo()
             {
@@ -157,40 +157,13 @@ namespace SAEA.TcpP2P.Net
                 IsMe = false
             };
 
-            base.SendAsync(userToken.ID, PSocketMsg.Parse(SerializeHelper.ByteSerialize(natInfoB), TcpP2pType.P2PSResponse).ToBytes());
-
             base.SendAsync(IDB, PSocketMsg.Parse(SerializeHelper.ByteSerialize(natInfoA), TcpP2pType.P2PSResponse).ToBytes());
+            base.SendAsync(userToken.ID, PSocketMsg.Parse(SerializeHelper.ByteSerialize(natInfoB), TcpP2pType.P2PSResponse).ToBytes());
         }
 
-        /// <summary>
-        /// 向打洞的远程机器发送数据
-        /// </summary>
-        /// <param name="remote"></param>
-        public void HolePunching(string remote)
+        public void SendMessage(string ipPort,byte[] msg)
         {
-            var qm = PSocketMsg.Parse(null, TcpP2pType.P2PRequest);
-
-            SendAsync(remote, qm.ToBytes());
-        }
-
-        /// <summary>
-        /// 向远程机器发送数据
-        /// </summary>
-        /// <param name="remote"></param>
-        /// <param name="msg"></param>
-        public void SendMessage(string remote, byte[] msg)
-        {
-            var qm = PSocketMsg.Parse(msg, TcpP2pType.Message);
-            SendAsync(remote, qm.ToBytes());
-        }
-        /// <summary>
-        /// 向远程机器发送数据
-        /// </summary>
-        /// <param name="msg"></param>
-        public void SendMessage(string remote, string msg)
-        {
-            var qm = PSocketMsg.Parse(Encoding.UTF8.GetBytes(msg), TcpP2pType.Message);
-            SendAsync(remote, qm.ToBytes());
+            base.SendAsync(ipPort, PSocketMsg.Parse(msg, TcpP2pType.Message).ToBytes());
         }
     }
 }

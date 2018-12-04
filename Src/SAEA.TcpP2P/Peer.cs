@@ -28,6 +28,7 @@ using SAEA.TcpP2P.Net;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 
 namespace SAEA.TcpP2P
 {
@@ -37,6 +38,8 @@ namespace SAEA.TcpP2P
     public class Peer
     {
         Sender _psSender;
+
+        Sender _p2pSender;
 
         Receiver _p2pConnect;
 
@@ -61,14 +64,18 @@ namespace SAEA.TcpP2P
 
         public event OnDisconnectedHandler OnP2pDisconnected;
 
+        bool isSenderConnected = false;
+
         public bool IsConnected
         {
             get; set;
-        }
+        } = false;
+
+
 
         public void ConnectPeerServer(string ipPort)
         {
-            var tuple = ipPort.GetIPPort();
+            var tuple = ipPort.ToIPPort();
             _psSender = new Sender(tuple.Item1, tuple.Item2);
             _psSender.OnPeerListResponse += _psSender_OnPeerListResponse;
             _psSender.OnReceiveP2PTask += _psSender_OnReceiveP2PTask;
@@ -93,13 +100,44 @@ namespace SAEA.TcpP2P
             OnPeerListResponse?.Invoke(PeerList);
         }
 
+        private void HolePunching(string remote)
+        {
+            var tuple = remote.ToIPPort();
+            try
+            {
+                if (_p2pSender == null || _p2pSender.IsDisposed)
+                {
+                    _p2pSender = new Sender(tuple.Item1, tuple.Item2);
+                    _p2pSender.OnP2PSucess += _p2pSender_OnP2PSucess;
+                }
+                _p2pSender.HolePunching();
+            }
+            catch
+            {
+                _p2pSender.OnP2PSucess -= _p2pSender_OnP2PSucess;
+                _p2pSender.Dispose();
+                _p2pSender = null;
+            }
+        }
+
+        private void _p2pSender_OnP2PSucess(NatInfo obj)
+        {
+            _remote = obj;
+            isSenderConnected = true;
+            IsConnected = true;
+            OnP2pSucess?.Invoke(_remote);
+        }
+
+
         private void _psSender_OnReceiveP2PTask(NatInfo obj)
         {
             _p2pConnect = new Receiver(false);
-            _p2pConnect.OnP2PSucess += _p2pSender_OnP2PSucess;
+            _p2pConnect.OnP2PSucess += _p2pConnect_OnP2PSucess;
             _p2pConnect.OnMessage += _p2pConnect_OnMessage;
             _p2pConnect.OnDisconnected += _p2pConnect_OnDisconnected;
             _p2pConnect.Start(_me.Port);
+
+            _psSender.Dispose();
 
             TaskHelper.Start(() =>
             {
@@ -107,17 +145,23 @@ namespace SAEA.TcpP2P
 
                 while (!IsConnected)
                 {
+                    ThreadHelper.Sleep(1);
                     tryCount++;
-                    _p2pConnect.HolePunching(obj.ToString());
-                    ThreadHelper.Sleep(300);
-                    if (tryCount >= 30)
+                    HolePunching(obj.ToString());
+                    if (tryCount >= 30000 && !IsConnected)
                     {
-                        OnP2pFailed?.Invoke("重试超过30次");
+                        OnP2pFailed?.Invoke("重试超过30000次");
                         break;
                     }
                 }
             });
+        }
 
+        private void _p2pConnect_OnP2PSucess(NatInfo obj)
+        {
+            IsConnected = true;
+            _remote = obj;
+            OnP2pSucess?.Invoke(_remote);
         }
 
         private void _p2pConnect_OnDisconnected(string ID, Exception ex)
@@ -135,23 +179,25 @@ namespace SAEA.TcpP2P
             if (obj.Content != null) OnMessage?.Invoke(obj.Content);
         }
 
-        private void _p2pSender_OnP2PSucess(NatInfo obj)
-        {
-            IsConnected = true;
-            _remote = obj;
-            OnP2pSucess?.Invoke(_remote);
-        }
-
         public void SendMessage(byte[] bytes)
         {
             if (IsConnected)
-                _p2pConnect.SendMessage(_remote.ToString(), bytes);
+            {
+                if (isSenderConnected)
+                {
+                    _p2pSender.SendMessage(bytes);
+                }
+                else
+                {
+                    _p2pConnect.SendMessage(_remote.ToString(), bytes);
+                }
+            }
+
         }
 
         public void SendMessage(string msg)
         {
-            if (IsConnected)
-                _p2pConnect.SendMessage(_remote.ToString(), msg);
+            SendMessage(Encoding.UTF8.GetBytes(msg));
         }
     }
 }

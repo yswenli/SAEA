@@ -53,7 +53,7 @@ namespace SAEA.QueueSocket
 
         private AutoResetEvent autoResetEvent = new AutoResetEvent(false);
 
-        public QClient(string name, string ipPort) : this(name, 102400, ipPort.GetIPPort().Item1, ipPort.GetIPPort().Item2)
+        public QClient(string name, string ipPort) : this(name, 102400, ipPort.ToIPPort().Item1, ipPort.ToIPPort().Item2)
         {
 
         }

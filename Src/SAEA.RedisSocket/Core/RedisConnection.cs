@@ -82,7 +82,7 @@ namespace SAEA.RedisSocket.Core
         public RedisConnection(string ipPort, int actionTimeout = 60, bool debugMode = false)
         {
             this.IPPort = ipPort;
-            var address = ipPort.GetIPPort();
+            var address = ipPort.ToIPPort();
             _cnn = new RClient(102400, address.Item1, address.Item2);
             _cnn.OnActived += _cnn_OnActived;
             _cnn.OnMessage += _cnn_OnMessage;
