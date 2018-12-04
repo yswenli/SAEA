@@ -27,8 +27,8 @@ namespace SAEA.TcpP2P.Net
     public enum TcpP2pType
     {
         Heart = 0,
-        PeerListRequest = 1,
-        PeerListResponse = 11,
+        PublicNatInfoRequest = 1,
+        PublicNatInfoResponse = 11,
         Logout = 2,
         P2PRequest = 3,
         P2PSRequest = 31,

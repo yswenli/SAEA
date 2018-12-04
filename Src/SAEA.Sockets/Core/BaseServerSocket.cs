@@ -343,10 +343,11 @@ namespace SAEA.Sockets.Core
 
         /// <summary>
         /// 回复并关闭连接
+        /// 用于http
         /// </summary>
         /// <param name="userToken"></param>
         /// <param name="data"></param>
-        protected void End(IUserToken userToken, byte[] data)
+        public void End(IUserToken userToken, byte[] data)
         {
             var result = userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, null, null);
             userToken.Socket.EndSend(result);

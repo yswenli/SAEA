@@ -2,6 +2,7 @@
 using SAEA.Common;
 using SAEA.TcpP2P;
 using SAEA.TcpP2P.Net;
+using System;
 using System.Linq;
 using System.Text;
 
@@ -11,18 +12,18 @@ namespace SAEA.TCPP2PTest
     {
         static void Main(string[] args)
         {
-            ConsoleHelper.WriteLine("输入s启动服务器");
+            ConsoleHelper.WriteLine("输入s启动服务器", ConsoleColor.DarkGreen);
 
             var input = ConsoleHelper.ReadLine();
 
             if (string.IsNullOrEmpty(input) || input.ToLower() != "s")
             {
-                ConsoleHelper.WriteLine("输入服务器地址，例如：180.122.325.21:39654");
+                ConsoleHelper.WriteLine("输入服务器地址，例如：180.122.325.21:39654", ConsoleColor.DarkGreen);
 
                 var ipPort = ConsoleHelper.ReadLine();
 
                 Peer peer = new Peer();
-                peer.OnPeerListResponse += Peer_OnPeerListResponse;
+                peer.OnPublicNatInfoResponse += Peer_OnPublicNatInfoResponse; ;
                 peer.OnP2pSucess += Peer_OnP2PSucess;
                 peer.OnP2pFailed += Peer_OnP2pFailed;
                 peer.OnMessage += Peer_OnMessage;
@@ -30,11 +31,18 @@ namespace SAEA.TCPP2PTest
                 peer.OnP2pDisconnected += Peer_OnP2pDisconnected;
                 peer.ConnectPeerServer(ipPort);
 
-                ConsoleHelper.WriteLine("输入PeerB地址，例如：180.122.325.21:21541");
+                ConsoleHelper.WriteLine("回车查看当前的NatInfo", ConsoleColor.DarkGreen);
+                ConsoleHelper.ReadLine();
+                peer.RequestPublicNatInfo();
+
+                ConsoleHelper.WriteLine("输入PeerB地址发起p2p请求，例如：180.122.325.21:21541", ConsoleColor.DarkGreen);
 
                 var pIPPort = ConsoleHelper.ReadLine();
 
+                ConsoleHelper.WriteLine($"正在向{pIPPort}发起P2p请求。。。", ConsoleColor.DarkGreen);
                 peer.RequestP2p(pIPPort);
+
+                ConsoleHelper.WriteLine($"与{peer.RemoteNatInfo.ToString()} P2p建立{(peer.IsConnected ? "成功" : "失败")}", ConsoleColor.DarkGreen);
 
                 TaskHelper.Start(() =>
                 {
@@ -48,12 +56,17 @@ namespace SAEA.TCPP2PTest
             }
             else
             {
-                P2PServer p2pServer = new P2PServer();
+                NATServer p2pServer = new NATServer();
                 p2pServer.Start();
-                ConsoleHelper.WriteLine("回车关闭测试");
+                ConsoleHelper.WriteLine("回车关闭测试", ConsoleColor.DarkGreen);
             }
 
             ConsoleHelper.ReadLine();
+        }
+
+        private static void Peer_OnPublicNatInfoResponse(NatInfo obj)
+        {
+            ConsoleHelper.WriteLine("收到当前连接的Nat信息 " + obj.ToString());
         }
 
         private static void Peer_OnP2pFailed(string obj)
@@ -79,11 +92,6 @@ namespace SAEA.TCPP2PTest
         private static void Peer_OnP2PSucess(NatInfo obj)
         {
             ConsoleHelper.WriteLine($"p2p连接成功 ip:{obj.IP},port:{obj.Port}");
-        }
-
-        private static void Peer_OnPeerListResponse(System.Collections.Generic.List<NatInfo> obj)
-        {
-            ConsoleHelper.WriteLine("收到p2p服务器列表 " + string.Join(",", obj.Select(b => b.ToString())));
         }
 
 

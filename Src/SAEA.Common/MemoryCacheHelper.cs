@@ -41,20 +41,7 @@ namespace SAEA.Common
         object _synclocker = new object();
         public MemoryCacheHelper()
         {
-            _dic = new ConcurrentDictionary<string, MemoryCachItem<T>>();
 
-            ThreadHelper.PulseAction(() =>
-            {
-                var values = _dic.Values.Where(b => b.Expired < DateTimeHelper.Now);
-                if (values != null)
-                {
-                    foreach (var val in values)
-                    {
-                        if (val != null)
-                            Del(val.Key);
-                    }
-                }
-            }, new TimeSpan(0, 0, 10), _disposed);
         }
 
         public void Set(string key, T value, TimeSpan timeOut)

@@ -27,8 +27,8 @@ using SAEA.Sockets.Interface;
 using SAEA.TcpP2P.Net;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
+using System.Threading;
 
 namespace SAEA.TcpP2P
 {
@@ -43,16 +43,18 @@ namespace SAEA.TcpP2P
 
         Receiver _p2pConnect;
 
-        NatInfo _me;
+        AutoResetEvent _autoResetEvent = new AutoResetEvent(false);
 
-        NatInfo _remote;
+        public NatInfo MyNatInfo { get; private set; }
+
+        public NatInfo RemoteNatInfo { get; private set; }
 
         public List<NatInfo> PeerList
         {
             get; private set;
         }
 
-        public event Action<List<NatInfo>> OnPeerListResponse;
+        public event Action<NatInfo> OnPublicNatInfoResponse;
 
         public event Action<NatInfo> OnP2pSucess;
 
@@ -77,10 +79,21 @@ namespace SAEA.TcpP2P
         {
             var tuple = ipPort.ToIPPort();
             _psSender = new Sender(tuple.Item1, tuple.Item2);
-            _psSender.OnPeerListResponse += _psSender_OnPeerListResponse;
+            _psSender.OnPublicNatInfoResponse += _psSender_OnPublicNatInfoResponse;
             _psSender.OnReceiveP2PTask += _psSender_OnReceiveP2PTask;
             _psSender.OnDisconnected += _psSender_OnDisconnected;
             _psSender.ConnectServer();
+        }
+
+        private void _psSender_OnPublicNatInfoResponse(NatInfo obj)
+        {
+            MyNatInfo = obj;
+            OnPublicNatInfoResponse?.Invoke(obj);
+        }
+
+        public void RequestPublicNatInfo()
+        {
+            _psSender.RequestPublicNatInfo();
         }
 
         private void _psSender_OnDisconnected(string ID, Exception ex)
@@ -90,14 +103,15 @@ namespace SAEA.TcpP2P
 
         public void RequestP2p(string remoteIpPort)
         {
+            var ipPort = remoteIpPort.ToIPPort();
+            RemoteNatInfo = new NatInfo()
+            {
+                IP = ipPort.Item1,
+                Port = ipPort.Item2,
+                IsMe = false
+            };
             _psSender.SendP2PRequest(remoteIpPort);
-        }
-
-        private void _psSender_OnPeerListResponse(List<NatInfo> obj)
-        {
-            PeerList = obj;
-            _me = PeerList.Where(b => b.IsMe).First();
-            OnPeerListResponse?.Invoke(PeerList);
+            _autoResetEvent.WaitOne();
         }
 
         private void HolePunching(string remote)
@@ -122,10 +136,11 @@ namespace SAEA.TcpP2P
 
         private void _p2pSender_OnP2PSucess(NatInfo obj)
         {
-            _remote = obj;
+            RemoteNatInfo = obj;
             isSenderConnected = true;
             IsConnected = true;
-            OnP2pSucess?.Invoke(_remote);
+            OnP2pSucess?.Invoke(RemoteNatInfo);
+            _autoResetEvent.Set();
         }
 
 
@@ -135,7 +150,7 @@ namespace SAEA.TcpP2P
             _p2pConnect.OnP2PSucess += _p2pConnect_OnP2PSucess;
             _p2pConnect.OnMessage += _p2pConnect_OnMessage;
             _p2pConnect.OnDisconnected += _p2pConnect_OnDisconnected;
-            _p2pConnect.Start(_me.Port);
+            _p2pConnect.Start(MyNatInfo.Port);
 
             _psSender.Dispose();
 
@@ -143,14 +158,17 @@ namespace SAEA.TcpP2P
             {
                 int tryCount = 0;
 
+                int maxCount = 300;
+
                 while (!IsConnected)
                 {
-                    ThreadHelper.Sleep(1);
+                    ThreadHelper.Sleep(100);
                     tryCount++;
                     HolePunching(obj.ToString());
-                    if (tryCount >= 30000 && !IsConnected)
+                    if (tryCount > maxCount && !IsConnected)
                     {
-                        OnP2pFailed?.Invoke("重试超过30000次");
+                        OnP2pFailed?.Invoke($"已重试超过{maxCount}次");
+                        _autoResetEvent.Set();
                         break;
                     }
                 }
@@ -160,8 +178,9 @@ namespace SAEA.TcpP2P
         private void _p2pConnect_OnP2PSucess(NatInfo obj)
         {
             IsConnected = true;
-            _remote = obj;
-            OnP2pSucess?.Invoke(_remote);
+            RemoteNatInfo = obj;
+            OnP2pSucess?.Invoke(RemoteNatInfo);
+            _autoResetEvent.Set();
         }
 
         private void _p2pConnect_OnDisconnected(string ID, Exception ex)
@@ -189,10 +208,9 @@ namespace SAEA.TcpP2P
                 }
                 else
                 {
-                    _p2pConnect.SendMessage(_remote.ToString(), bytes);
+                    _p2pConnect.SendMessage(RemoteNatInfo.ToString(), bytes);
                 }
             }
-
         }
 
         public void SendMessage(string msg)

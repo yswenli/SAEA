@@ -42,14 +42,12 @@ namespace SAEA.TcpP2P.Net
 
         public event Action<ISocketProtocal> OnMessage;
 
-        public event Action<List<NatInfo>> OnPeerListResponse;
+        public event Action<NatInfo> OnPublicNatInfoResponse;
 
 
-        int HeartSpan = 10 * 1000;
+        int HeartSpan = 30 * 1000;
 
         private DateTime Actived;
-
-        Tuple<string, int> _peerBAddress;
 
         NatInfo _me;
 
@@ -60,18 +58,18 @@ namespace SAEA.TcpP2P.Net
 
         protected override void OnReceived(byte[] data)
         {
+            Actived = DateTime.Now;
             base.UserToken.Unpacker.Unpack(data, (msg) =>
             {
                 switch (msg.Type)
                 {
                     case (byte)TcpP2pType.Heart:
                         break;
-                    case (byte)TcpP2pType.PeerListRequest:
+                    case (byte)TcpP2pType.PublicNatInfoRequest:
                         break;
-                    case (byte)TcpP2pType.PeerListResponse:
-                        var remoteList = SerializeHelper.ByteDeserialize<List<NatInfo>>(msg.Content);
-                        _me = remoteList.Where(b => b.IsMe).First();
-                        OnPeerListResponse.Invoke(remoteList);
+                    case (byte)TcpP2pType.PublicNatInfoResponse:
+                        _me = SerializeHelper.ByteDeserialize<NatInfo>(msg.Content);
+                        OnPublicNatInfoResponse.Invoke(_me);
                         break;
                     case (byte)TcpP2pType.Message:
                         OnMessage?.Invoke(msg);
@@ -99,6 +97,8 @@ namespace SAEA.TcpP2P.Net
             var qm = PSocketMsg.Parse(content, type);
 
             SendAsync(qm.ToBytes());
+
+            Actived = DateTime.Now;
         }
 
         private void HeartLoop()
@@ -128,11 +128,13 @@ namespace SAEA.TcpP2P.Net
             });
         }
 
-        public void RequestPeerList()
+        public void RequestPublicNatInfo()
         {
-            var qm = PSocketMsg.Parse(null, TcpP2pType.PeerListRequest);
+            var qm = PSocketMsg.Parse(null, TcpP2pType.PublicNatInfoRequest);
 
             Send(qm.ToBytes());
+
+            Actived = DateTime.Now;
         }
 
         /// <summary>
@@ -143,6 +145,8 @@ namespace SAEA.TcpP2P.Net
             var qm = PSocketMsg.Parse(null, TcpP2pType.P2PRequest);
 
             Send(qm.ToBytes());
+
+            Actived = DateTime.Now;
         }
 
         public void SendClose()
@@ -150,6 +154,8 @@ namespace SAEA.TcpP2P.Net
             var qm = PSocketMsg.Parse(null, TcpP2pType.Close);
 
             Send(qm.ToBytes());
+
+            Actived = DateTime.Now;
         }
 
         public void ConnectServer()
@@ -160,7 +166,6 @@ namespace SAEA.TcpP2P.Net
                 {
                     HeartLoop();
                     Connected = true;
-                    RequestPeerList();
                 }
             });
         }
@@ -172,16 +177,19 @@ namespace SAEA.TcpP2P.Net
         public void SendP2PRequest(string remote)
         {
             SendBase(TcpP2pType.P2PSRequest, Encoding.UTF8.GetBytes(remote));
+            Actived = DateTime.Now;
         }
 
         public void SendMessage(byte[] msg)
         {
             var qm = PSocketMsg.Parse(msg, TcpP2pType.Message);
             Send(qm.ToBytes());
+            Actived = DateTime.Now;
         }
         public void SendMessage(string msg)
         {
             SendMessage(Encoding.UTF8.GetBytes(msg));
+            Actived = DateTime.Now;
         }
     }
 }

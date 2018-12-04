@@ -40,7 +40,7 @@ namespace SAEA.TcpP2P.Net
 
         bool _isP2pServer = false;
 
-        public Receiver(bool isP2pServer = false) : base(new PContext(), 1024, 100)
+        public Receiver(bool isP2pServer = false) : base(new PContext(), 1024, (isP2pServer ? 10000 : 1))
         {
             _isP2pServer = isP2pServer;
         }
@@ -54,7 +54,7 @@ namespace SAEA.TcpP2P.Net
                     case (byte)TcpP2pType.Heart:
                         ReplyHeart(userToken);
                         break;
-                    case (byte)TcpP2pType.PeerListRequest:
+                    case (byte)TcpP2pType.PublicNatInfoRequest:
                         ReplyPeerListRequest(userToken);
                         break;
                     case (byte)TcpP2pType.P2PSRequest:
@@ -77,7 +77,7 @@ namespace SAEA.TcpP2P.Net
                     case (byte)TcpP2pType.Logout:
                     case (byte)TcpP2pType.Close:
                     default:
-                        base.Disconnect(userToken, new Exception("未定义的类型"));
+                        base.Disconnect(userToken, new Exception("收到来自客户端的关闭请求"));
                         break;
                 }
             }, null, null);
@@ -100,34 +100,19 @@ namespace SAEA.TcpP2P.Net
 
         private void ReplyPeerListRequest(IUserToken userToken)
         {
-            var list = SessionManager.ToList().Select(b => b.ID).ToList();
-            if (list != null && list.Count > 0)
+
+            var ipPort = userToken.ID.ToIPPort();
+
+            var natInfo = new NatInfo()
             {
-                var natInfoList = new List<NatInfo>();
+                IP = ipPort.Item1,
+                Port = ipPort.Item2,
+                IsMe = true
+            };
 
-                foreach (var item in list)
-                {
-                    var ipPort = item.ToIPPort();
+            var data = SerializeHelper.ByteSerialize(natInfo);
 
-                    var natInfo = new NatInfo()
-                    {
-                        IP = ipPort.Item1,
-                        Port = ipPort.Item2,
-                        IsMe = false
-                    };
-
-                    if (item == userToken.ID)
-                    {
-                        natInfo.IsMe = true;
-                    }
-
-                    natInfoList.Add(natInfo);
-                }
-
-                var data = SerializeHelper.ByteSerialize(natInfoList);
-
-                ReplyBase(userToken, PSocketMsg.Parse(data, TcpP2pType.PeerListResponse));
-            }
+            ReplyBase(userToken, PSocketMsg.Parse(data, TcpP2pType.PublicNatInfoResponse));
         }
 
         /// <summary>
@@ -161,7 +146,7 @@ namespace SAEA.TcpP2P.Net
             base.SendAsync(userToken.ID, PSocketMsg.Parse(SerializeHelper.ByteSerialize(natInfoB), TcpP2pType.P2PSResponse).ToBytes());
         }
 
-        public void SendMessage(string ipPort,byte[] msg)
+        public void SendMessage(string ipPort, byte[] msg)
         {
             base.SendAsync(ipPort, PSocketMsg.Parse(msg, TcpP2pType.Message).ToBytes());
         }

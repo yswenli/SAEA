@@ -191,7 +191,7 @@ namespace SAEA.Sockets.Core
 
                     OnClientReceive?.Invoke(data);
 
-                    if (!_userToken.Socket.ReceiveAsync(e))
+                    if (_userToken.Socket != null && !_userToken.Socket.ReceiveAsync(e))
                         ProcessReceive(e);
                 }
                 else
@@ -203,7 +203,6 @@ namespace SAEA.Sockets.Core
             {
                 OnError?.Invoke(_userToken.ID, ex);
                 Disconnect();
-                ConsoleHelper.WriteLine(ex.Message);
             }
         }
 

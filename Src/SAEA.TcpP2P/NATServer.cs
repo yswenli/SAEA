@@ -4,7 +4,7 @@
 *机器名称：WENLI-PC
 *公司名称：Microsoft
 *命名空间：SAEA.TcpP2P
-*文件名： P2PServer
+*文件名： NATServer
 *版本号： V3.3.3.5
 *唯一标识：435d783f-c85f-4a2c-b655-bbcfff38c790
 *当前的用户域：WENLI-PC
@@ -23,20 +23,17 @@
 *****************************************************************************/
 
 using SAEA.Common;
-using SAEA.Sockets.Core;
 using SAEA.Sockets.Interface;
 using SAEA.TcpP2P.Net;
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.TcpP2P
 {
-    public class P2PServer
+    public class NATServer
     {
         Receiver _server;
 
-        public P2PServer()
+        public NATServer()
         {
             _server = new Receiver();
             _server.OnAccepted += _server_OnAccepted;
