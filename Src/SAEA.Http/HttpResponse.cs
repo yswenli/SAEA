@@ -108,7 +108,7 @@ namespace SAEA.Http
             }
             if (this.Cookies.Count > 0)
             {
-                builder.AppendLine(this.Cookies.ToString());
+                builder.Append(this.Cookies.ToString());
             }
 
             var result = builder.ToString();
