@@ -7,6 +7,7 @@ namespace SAEA.MVCTest
     {
         static void Main(string[] args)
         {
+
             ConsoleHelper.Title = "SAEA.MVCTest";
 
             SAEAMvcApplication mvcApplication = new SAEAMvcApplication(root: "/html/", count: 10000);

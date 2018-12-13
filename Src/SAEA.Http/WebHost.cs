@@ -105,7 +105,7 @@ namespace SAEA.Http
         {
             try
             {
-                new HttpContext(this, userToken, httpMessage).HttpHandle();
+                new HttpContext(this, httpMessage).HttpHandle(userToken);
             }
             catch (Exception ex)
             {

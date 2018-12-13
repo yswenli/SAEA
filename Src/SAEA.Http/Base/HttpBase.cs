@@ -79,10 +79,10 @@ namespace SAEA.Http.Base
             get; set;
         }
 
-        public Dictionary<string, string> Cookies
+        public HttpCookies Cookies
         {
             get; set;
-        } = new Dictionary<string, string>();
+        } =new HttpCookies();
 
 
         public Dictionary<string, string> Headers

@@ -111,7 +111,7 @@ namespace SAEA.Http.Base
             var cookiesStr = string.Empty;
             if (httpMessage.Headers.TryGetValue(RequestHeaderType.Cookie.GetDescription(), out cookiesStr))
             {
-                httpMessage.Cookies = GetCookies(cookiesStr);
+                httpMessage.Cookies = HttpCookies.Parse(cookiesStr);
             }
 
             //post数据分析
@@ -249,24 +249,6 @@ namespace SAEA.Http.Base
             {
                 var rowArr = row.Split(":");
                 result[rowArr[0]] = rowArr[1].Trim();
-            }
-            return result;
-        }
-
-        private static Dictionary<string, string> GetCookies(string cookieStr)
-        {
-            var result = new Dictionary<string, string>();
-
-            if (string.IsNullOrEmpty(cookieStr)) return result;
-
-            var rows = cookieStr.Split(";", StringSplitOptions.RemoveEmptyEntries);
-
-            if (rows == null || rows.Count() <= 0) return result;
-
-            foreach (var row in rows)
-            {
-                var rowArr = row.Split(":");
-                result[rowArr[0]] = HttpUtility.HtmlDecode(HttpUtility.UrlDecode(rowArr[1]));
             }
             return result;
         }

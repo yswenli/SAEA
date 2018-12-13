@@ -34,6 +34,7 @@ namespace SAEA.Http
     /// </summary>
     public class HttpContext : IDisposable
     {
+
         public HttpRequest Request
         {
             get;
@@ -52,14 +53,19 @@ namespace SAEA.Http
             private set;
         }
 
+        public HttpSession Session
+        {
+            get;
+            private set;
+        }
+
         internal IInvoker Invoker { get; private set; }
 
         public WebConfig WebConfig { get; set; }
 
 
-        internal HttpContext(IWebHost webHost, IUserToken userToken, HttpMessage httpMessage)
+        internal HttpContext(IWebHost webHost, HttpMessage httpMessage)
         {
-
             this.WebConfig = webHost.WebConfig;
 
             this.Invoker = webHost.Invoker;
@@ -70,16 +76,37 @@ namespace SAEA.Http
 
             this.Request.Init(httpMessage);
 
-            this.Response.Init(webHost, userToken, this.Request.Protocal, webHost.WebConfig.IsZiped);
+            this.Response.Init(webHost, this.Request.Protocal, webHost.WebConfig.IsZiped);
 
             this.Server = new HttpUtility(webHost.WebConfig.Root);
 
             IsStaticsCached = webHost.WebConfig.IsStaticsCached;
         }
 
+        /// <summary>
+        /// 初始化Session
+        /// </summary>
+        private void InitSession(IUserToken userToken)
+        {
+            var sessionID = string.Empty;
+
+            if (!this.Request.Cookies.ContainsKey(ConstHelper.SESSIONID))
+            {
+                sessionID = BitConverter.ToInt64(Guid.NewGuid().ToByteArray(), 0).ToString();
+            }
+            else
+            {
+                sessionID = this.Request.Cookies[ConstHelper.SESSIONID].Value;
+            }
+
+            this.Session = HttpSessionManager.SetAndGet(sessionID);
+
+            this.Response.Cookies[ConstHelper.SESSIONID] = new HttpCookie(ConstHelper.SESSIONID, sessionID, userToken.ID);
+        }
+
         public bool IsStaticsCached { get; set; }
 
-        public void HttpHandle()
+        public void HttpHandle(IUserToken userToken)
         {
             IHttpResult result;
 
@@ -112,7 +139,8 @@ namespace SAEA.Http
                     break;
             }
             Response.SetResult(result);
-            Response.End();
+            this.InitSession(userToken);
+            Response.End(userToken);
         }
 
         public void Dispose()

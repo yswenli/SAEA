@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：Microsoft
-*命名空间：SAEA.Http.Http
+*命名空间：SAEA.Http
 *文件名： HttpResponse
 *版本号： V3.3.3.5
 *唯一标识：2e43075f-a43d-4b60-bee1-1f9107e2d133
@@ -38,8 +38,6 @@ namespace SAEA.Http
 
         internal IWebHost WebHost { get; set; }
 
-        internal IUserToken UserToken { get; set; }
-
         bool _isZiped = false;
 
         internal HttpResponse()
@@ -47,11 +45,9 @@ namespace SAEA.Http
 
         }
 
-        internal void Init(IWebHost webHost, IUserToken userToken, string protocal, bool isZiped = false)
+        internal void Init(IWebHost webHost, string protocal, bool isZiped = false)
         {
             this.WebHost = webHost;
-            this.UserToken = userToken;
-
             this.Protocal = protocal;
             _isZiped = isZiped;
         }
@@ -89,7 +85,7 @@ namespace SAEA.Http
         {
             StringBuilder builder = new StringBuilder();
             builder.Append(this.Protocal + ConstHelper.SPACE + Status.ToNVString() + ConstHelper.ENTER);
-            builder.AppendLine(ConstHelper.SERVERMVCSERVER);
+            builder.AppendLine(ConstHelper.ServerName);
             builder.AppendLine("Keep-Alive: timeout=20");
             builder.AppendLine("Date: " + DateTimeHelper.Now.ToFString("r"));
 
@@ -110,6 +106,11 @@ namespace SAEA.Http
                     builder.AppendLine($"{key}: {Headers[key]}");
                 }
             }
+            if (this.Cookies.Count > 0)
+            {
+                builder.AppendLine(this.Cookies.ToString());
+            }
+
             var result = builder.ToString();
             builder.Clear();
             return result;
@@ -119,7 +120,8 @@ namespace SAEA.Http
         /// 设置回复内容
         /// </summary>
         /// <param name="result"></param>
-        public void SetResult(IHttpResult result)
+        /// <param name="isCached"></param>
+        public void SetResult(IHttpResult result, bool isCached = false)
         {
             this.Status = result.Status;
             if (result is IEmptyResult)
@@ -129,8 +131,18 @@ namespace SAEA.Http
             else if (result is IFileResult)
             {
                 var fileResult = (IFileResult)result;
-                this.ContentType = fileResult.ContentType;
-                this.SetContent(fileResult.Content);
+
+                if (WebHost.WebConfig.IsStaticsCached && isCached)
+                {
+                    this.SetHeader(ResponseHeaderType.CacheControl, "Max-Age=60");
+                    this.SetHeader(ResponseHeaderType.Expires, DateTimeHelper.Now.AddSeconds(60).ToFString("r"));
+                    this.Status = HttpStatusCode.NotModified;
+                }
+                else
+                {
+                    this.ContentType = fileResult.ContentType;
+                    this.SetContent(fileResult.Content);
+                }
             }
             else
             {
@@ -190,9 +202,9 @@ namespace SAEA.Http
             SetContent(data, encoding);
         }
 
-        public void End()
+        internal void End(IUserToken userToken)
         {
-            WebHost.End(UserToken, this.ToBytes());
+            WebHost.End(userToken, this.ToBytes());
         }
 
         public void Dispose()
