@@ -53,6 +53,11 @@ namespace SAEA.Common
             return dt.ToString(format, System.Globalization.CultureInfo.InvariantCulture);
         }
 
+        public static string ToGMTString(this DateTime dt)
+        {
+            return dt.ToString("r", System.Globalization.CultureInfo.InvariantCulture);
+        }
+
         /// <summary>
         /// 获取unix 时间戳
         /// </summary>

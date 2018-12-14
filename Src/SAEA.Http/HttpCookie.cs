@@ -31,6 +31,8 @@ namespace SAEA.Http
 {
     public class HttpCookie
     {
+        internal static string DefaultDomain { get; set; } = string.Empty;
+
         public string Key
         {
             get; set;
@@ -57,19 +59,19 @@ namespace SAEA.Http
         }
 
 
-        public HttpCookie(string key, string value) : this(key, value, DateTime.Now)
+        public HttpCookie(string key, string value)
         {
-
+            this.Key = key;
+            this.Value = value;
+            this.Path = "/";
         }
 
-        public HttpCookie(string key, string value, string domain) : this(key, value, DateTime.Now.AddMinutes(20), "/", string.Empty)
+        public HttpCookie(string key, string value, DateTime expires)
         {
-
-        }
-
-        public HttpCookie(string key, string value, DateTime expires) : this(key, value, expires, "/", string.Empty)
-        {
-
+            this.Key = key;
+            this.Value = value;
+            this.Expires = expires;
+            this.Path = "/";
         }
 
         public HttpCookie(string key, string value, DateTime expires, string path, string domain)
@@ -84,11 +86,43 @@ namespace SAEA.Http
 
         public new string ToString()
         {
-            if (string.IsNullOrEmpty(this.Domain))
+            StringBuilder sb = new StringBuilder();
+
+            if (!string.IsNullOrEmpty(Key))
             {
-                return $"Set-Cookie: {Key}={Value}; Expires={Expires.ToFString("r")}; Path={Path}";
+                sb.Append($"Set-Cookie: {Key}={Value};");
+
+                if (!string.IsNullOrEmpty(this.Domain))
+                {
+                    sb.Append($" Domain={Domain};");
+                }
+                else
+                {
+                    sb.Append($" Domain={DefaultDomain};");
+                }
+
+                if (Expires != null && Expires.Year > 1)
+                {
+                    sb.Append($" Expires={Expires.ToGMTString()};");
+                }
+                else
+                {
+                    sb.Append($" Expires=Session;");
+                }
+
+                if (!string.IsNullOrEmpty(Path))
+                {
+                    sb.Append($" Path={Path}");
+                }
+                else
+                {
+                    sb.Append($" Path=/");
+                }
+
+                return sb.ToString();
             }
-            return $"Set-Cookie: {Key}={Value}; Expires={Expires.ToFString("r")}; Path={Path}; Domain={Domain}";
+
+            return string.Empty;
         }
     }
 
@@ -125,7 +159,9 @@ namespace SAEA.Http
                 StringBuilder sb = new StringBuilder();
                 foreach (var item in this.Values)
                 {
-                    sb.AppendLine(item.ToString());
+                    var itemStr = item.ToString();
+                    if (!string.IsNullOrEmpty(itemStr))
+                        sb.AppendLine(itemStr);
                 }
                 return sb.ToString();
             }

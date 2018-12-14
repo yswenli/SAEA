@@ -92,7 +92,7 @@ namespace SAEA.Http
 
             if (!this.Request.Cookies.ContainsKey(ConstHelper.SESSIONID))
             {
-                sessionID = BitConverter.ToInt64(Guid.NewGuid().ToByteArray(), 0).ToString();
+                sessionID = HttpSessionManager.GeneratID();
             }
             else
             {
@@ -101,7 +101,21 @@ namespace SAEA.Http
 
             this.Session = HttpSessionManager.SetAndGet(sessionID);
 
-            this.Response.Cookies[ConstHelper.SESSIONID] = new HttpCookie(ConstHelper.SESSIONID, sessionID, userToken.ID);
+            var domain = userToken.ID;
+
+            if (this.Request.Headers.ContainsKey("Host"))
+            {
+                domain = this.Request.Headers["Host"];
+
+                if (domain.IndexOf("www.") == 0)
+                {
+                    domain = StringHelper.Substring(domain, 3);
+                }
+
+                HttpCookie.DefaultDomain = domain;
+            }
+
+            this.Response.Cookies[ConstHelper.SESSIONID] = new HttpCookie(ConstHelper.SESSIONID, sessionID);
         }
 
         public bool IsStaticsCached { get; set; }
@@ -144,7 +158,7 @@ namespace SAEA.Http
                     result = new HttpContentResult("不支持的请求方式", System.Net.HttpStatusCode.NotImplemented);
                     break;
             }
-            Response.SetResult(result,this.Session.CacheCalcResult);
+            Response.SetResult(result, this.Session.CacheCalcResult);
             Response.End(userToken);
         }
 

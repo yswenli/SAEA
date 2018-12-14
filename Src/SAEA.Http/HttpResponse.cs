@@ -88,7 +88,7 @@ namespace SAEA.Http
             builder.Append(this.Protocal + ConstHelper.SPACE + Status.ToNVString() + ConstHelper.ENTER);
             builder.AppendLine(ConstHelper.ServerName);
             builder.AppendLine("Keep-Alive: timeout=20");
-            builder.AppendLine("Date: " + DateTimeHelper.Now.ToFString("r"));
+            builder.AppendLine("Date: " + DateTimeHelper.Now.ToGMTString());
 
             if (_isZiped)
                 //支持gzip
@@ -132,7 +132,7 @@ namespace SAEA.Http
             if (carr.Length == 2 && carr[0] >= 0)
             {
                 this.SetHeader(ResponseHeaderType.CacheControl, "Max-Age=" + carr[1]);
-                this.SetHeader(ResponseHeaderType.Expires, DateTimeHelper.Now.AddSeconds(carr[1]).ToFString("r"));
+                this.SetHeader(ResponseHeaderType.Expires, DateTimeHelper.Now.AddSeconds(carr[1]).ToGMTString());
                 this.Status = HttpStatusCode.OK;
 
                 if (carr[0] == 1)

@@ -30,7 +30,9 @@ using System.Threading;
 
 namespace SAEA.Http
 {
-
+    /// <summary>
+    /// HttpSession
+    /// </summary>
     public class HttpSession : HttpSession<object>
     {
         Timer timer;
@@ -51,6 +53,9 @@ namespace SAEA.Http
             get; set;
         } = new KeyCache();
 
+        /// <summary>
+        /// 关联outputcache使用
+        /// </summary>
         public string CacheCalcResult { get; set; } = "-1,-1";
 
         internal event Action<HttpSession> OnExpired;
@@ -71,6 +76,7 @@ namespace SAEA.Http
             timer.Change((long)(new TimeSpan(0, 20, 0).TotalMilliseconds), -1);
         }
     }
+
 
     public class HttpSession<T>
     {
@@ -117,6 +123,10 @@ namespace SAEA.Http
         }
     }
 
+    /// <summary>
+    /// SessionItem
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
     internal class HttpSessionItem<T>
     {
         public string Key
@@ -148,13 +158,26 @@ namespace SAEA.Http
 
     }
 
+    /// <summary>
+    /// SessionManager
+    /// </summary>
     internal static class HttpSessionManager
     {
         static ConcurrentDictionary<string, HttpSession> _keyValuePairs = new ConcurrentDictionary<string, HttpSession>();
 
-        public static void Set(string id, HttpSession httpSession)
+        static Random random = new Random();
+
+        /// <summary>
+        /// 生成sessionID
+        /// </summary>
+        /// <returns></returns>
+        public static string GeneratID()
         {
-            _keyValuePairs[id] = httpSession;
+            var bytes = new byte[15];
+
+            random.NextBytes(bytes);
+
+            return StringHelper.Substring(string.Join("", bytes), 0, 15);
         }
 
         public static HttpSession SetAndGet(string id)
