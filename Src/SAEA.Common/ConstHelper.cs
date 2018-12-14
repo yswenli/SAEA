@@ -117,5 +117,8 @@ namespace SAEA.Common
 
         public const string SESSIONID = "SAEA.Http.Server.SessionID";
 
+
+        public const string OUTPUTCACHEATTRIBUTE = "SAEA.MVC.OutputCacheAttribute";
+
     }
 }

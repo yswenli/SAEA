@@ -106,9 +106,15 @@ namespace SAEA.Http
 
         public bool IsStaticsCached { get; set; }
 
+        /// <summary>
+        /// 处理业务逻辑
+        /// </summary>
+        /// <param name="userToken"></param>
         public void HttpHandle(IUserToken userToken)
         {
             IHttpResult result;
+
+            this.InitSession(userToken);
 
             switch (this.Request.Method)
             {
@@ -138,8 +144,7 @@ namespace SAEA.Http
                     result = new HttpContentResult("不支持的请求方式", System.Net.HttpStatusCode.NotImplemented);
                     break;
             }
-            Response.SetResult(result);
-            this.InitSession(userToken);
+            Response.SetResult(result,this.Session.CacheCalcResult);
             Response.End(userToken);
         }
 

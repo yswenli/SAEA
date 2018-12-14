@@ -27,6 +27,7 @@ using SAEA.Http.Model;
 using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Text;
 
@@ -120,10 +121,32 @@ namespace SAEA.Http
         /// 设置回复内容
         /// </summary>
         /// <param name="result"></param>
-        /// <param name="isCached"></param>
-        public void SetResult(IHttpResult result, bool isCached = false)
+        public void SetResult(IHttpResult result, string cacheCalcResult = "-1,-1")
         {
             this.Status = result.Status;
+
+            #region cached
+
+            var carr = cacheCalcResult.Split(",").Select(b => Convert.ToInt32(b)).ToArray();
+
+            if (carr.Length == 2 && carr[0] >= 0)
+            {
+                this.SetHeader(ResponseHeaderType.CacheControl, "Max-Age=" + carr[1]);
+                this.SetHeader(ResponseHeaderType.Expires, DateTimeHelper.Now.AddSeconds(carr[1]).ToFString("r"));
+                this.Status = HttpStatusCode.OK;
+
+                if (carr[0] == 1)
+                {
+                    if (carr[1] > 0)
+                    {
+                        this.Status = HttpStatusCode.NotModified;
+                        return;
+                    }
+                }
+            }
+
+            #endregion
+
             if (result is IEmptyResult)
             {
                 return;
@@ -131,18 +154,8 @@ namespace SAEA.Http
             else if (result is IFileResult)
             {
                 var fileResult = (IFileResult)result;
-
-                if (WebHost.WebConfig.IsStaticsCached && isCached)
-                {
-                    this.SetHeader(ResponseHeaderType.CacheControl, "Max-Age=60");
-                    this.SetHeader(ResponseHeaderType.Expires, DateTimeHelper.Now.AddSeconds(60).ToFString("r"));
-                    this.Status = HttpStatusCode.NotModified;
-                }
-                else
-                {
-                    this.ContentType = fileResult.ContentType;
-                    this.SetContent(fileResult.Content);
-                }
+                this.ContentType = fileResult.ContentType;
+                this.SetContent(fileResult.Content);
             }
             else
             {

@@ -21,6 +21,7 @@
 *描述：
 ******************************************************************************/
 
+using SAEA.Common;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -45,6 +46,13 @@ namespace SAEA.Http
             get; set;
         }
 
+        public KeyCache CachedPath
+        {
+            get; set;
+        } = new KeyCache();
+
+        public string CacheCalcResult { get; set; } = "-1,-1";
+
         internal event Action<HttpSession> OnExpired;
 
         internal HttpSession(string id) : base()
@@ -53,14 +61,14 @@ namespace SAEA.Http
             this.Expired = DateTime.Now.AddMinutes(20);
             timer = new Timer(new TimerCallback((o) =>
             {
-                OnExpired?.Invoke(this);
-            }), null, 0L, (long)(new TimeSpan(0, 20, 0).TotalMilliseconds));
+                OnExpired?.Invoke((HttpSession)o);
+            }), this, (long)(new TimeSpan(0, 20, 0).TotalMilliseconds), -1);
         }
 
         internal void Refresh()
         {
             this.Expired = DateTime.Now.AddMinutes(20);
-            timer.Change(0L, (long)(new TimeSpan(0, 20, 0).TotalMilliseconds));
+            timer.Change((long)(new TimeSpan(0, 20, 0).TotalMilliseconds), -1);
         }
     }
 
@@ -182,6 +190,7 @@ namespace SAEA.Http
         {
             if (_keyValuePairs.TryRemove(id, out HttpSession httpSession))
             {
+                httpSession.CachedPath.Clear();
                 httpSession.Clear();
             }
         }

@@ -39,6 +39,7 @@ namespace SAEA.MVCTest.Controllers
         /// </summary>
         /// <returns></returns>              
         [Log2Atrribute]
+        [OutputCache]
         public ActionResult Index()
         {
             return Content("Hello,I'm SAEA.MVC！你好！");

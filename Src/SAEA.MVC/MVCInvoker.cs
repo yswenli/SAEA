@@ -65,7 +65,7 @@ namespace SAEA.MVC
                     {
                         return new ContentResult("o_o，当前内容禁止访问！", System.Net.HttpStatusCode.Forbidden);
                     }
-                    if (System.Text.RegularExpressions.Regex.IsMatch(url, item,System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                    if (System.Text.RegularExpressions.Regex.IsMatch(url, item, System.Text.RegularExpressions.RegexOptions.IgnoreCase))
                     {
                         return new ContentResult("o_o，当前内容禁止访问！", System.Net.HttpStatusCode.Forbidden);
                     }
@@ -176,15 +176,27 @@ namespace SAEA.MVC
                 {
                     foreach (var arr in routing.ActionFilterAtrrs)
                     {
-                        var method = arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING);
-
-                        if (method != null)
+                        if (arr.ToString() == ConstHelper.OUTPUTCACHEATTRIBUTE)
                         {
-                            var goOn = (bool)arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING).Invoke(arr, nargs.ToArray());
+                            var method = arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING);
 
-                            if (!goOn)
+                            if (method != null)
                             {
-                                return new ContentResult("o_o，当前逻辑已被拦截！", System.Net.HttpStatusCode.NotAcceptable);
+                                httpContext.Session.CacheCalcResult = (string)arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING).Invoke(arr, nargs.ToArray());
+                            }
+                        }
+                        else
+                        {
+                            var method = arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING);
+
+                            if (method != null)
+                            {
+                                var goOn = (bool)arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING).Invoke(arr, nargs.ToArray());
+
+                                if (!goOn)
+                                {
+                                    return new ContentResult("o_o，当前逻辑已被拦截！", System.Net.HttpStatusCode.NotAcceptable);
+                                }
                             }
                         }
                     }
@@ -208,9 +220,16 @@ namespace SAEA.MVC
                 {
                     foreach (var arr in routing.ActionFilterAtrrs)
                     {
-                        var method = arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTED);
-                        if (method != null)
-                            method.Invoke(arr, nargs);
+                        if (arr.ToString() == ConstHelper.OUTPUTCACHEATTRIBUTE)
+                        {
+                            continue;
+                        }
+                        else
+                        {
+                            var method = arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTED);
+                            if (method != null)
+                                method.Invoke(arr, nargs);
+                        }
                     }
                 }
                 return result;
