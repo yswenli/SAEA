@@ -21,7 +21,7 @@ namespace SAEA.RPCTest
 
 
         static void Main(string[] args)
-        {     
+        {
 
             ConsoleHelper.WriteLine($"SAEA.RPC测试： {Environment.NewLine}   a 启动rpc provider consumer{Environment.NewLine}   p 启动rpc provider{Environment.NewLine}   c 启动rpc consumer{Environment.NewLine}   g 启动rpc consumer代码生成器{Environment.NewLine}   t 启动rpc稳定性测试{Environment.NewLine}   s 启动rpc序列化测试");
 
@@ -277,9 +277,7 @@ namespace SAEA.RPCTest
             sw.Restart();
             for (int i = 0; i < count; i++)
             {
-                int os = 0;
-
-                var obj = RPC.Serialize.ParamsSerializeUtil.Deserialize(groupInfo.GetType(), list[i], ref os);
+                var obj = RPC.Serialize.ParamsSerializeUtil.Deserialize<GroupInfo>(list[i]);
             }
             ConsoleHelper.WriteLine($"ParamsSerializeUtil实体反序列化平均：{count * 1000 / sw.ElapsedMilliseconds} 次/秒");
             ConsoleHelper.WriteLine($"ParamsSerializeUtil序列化生成bytes大小：{len2 * count * 1.0 / 1024 / 1024} Mb");

@@ -55,7 +55,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedusClientConsole", "Redus
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAEA.Http", "SAEA.Http\SAEA.Http.csproj", "{2EA32048-4558-4B28-BF83-4E74018DE96E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAEA.HttpTest", "SAEA.HttpTest\SAEA.HttpTest.csproj", "{C3DCF09A-79E3-4E97-B39A-21086AC51303}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAEA.HttpTest", "SAEA.HttpTest\SAEA.HttpTest.csproj", "{C3DCF09A-79E3-4E97-B39A-21086AC51303}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

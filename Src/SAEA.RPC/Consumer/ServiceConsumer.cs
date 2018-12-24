@@ -90,8 +90,7 @@ namespace SAEA.RPC.Consumer
             {
                 try
                 {
-                    int offset = 0;
-                    t = (T)ParamsSerializeUtil.Deserialize(typeof(T), data, ref offset);
+                    t = ParamsSerializeUtil.Deserialize<T>(data);
                 }
                 catch
                 {

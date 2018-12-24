@@ -317,11 +317,23 @@ namespace SAEA.RPC.Serialize
         /// <summary>
         /// 反序列化
         /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        public static T Deserialize<T>(byte[] data)
+        {
+            int offset = 0;
+            return (T)Deserialize(typeof(T), data, ref offset);
+        }
+
+        /// <summary>
+        /// 反序列化
+        /// </summary>
         /// <param name="type"></param>
         /// <param name="datas"></param>
         /// <param name="offset"></param>
         /// <returns></returns>
-        public static object Deserialize(Type type, byte[] datas, ref int offset)
+        private static object Deserialize(Type type, byte[] datas, ref int offset)
         {
             dynamic obj = null;
 

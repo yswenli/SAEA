@@ -80,8 +80,7 @@ namespace SAEA.RPC.Net
                         _syncHelper.Set(msg.SequenceNumber, msg.Data);
                         break;
                     case RSocketMsgType.Error:
-                        var offset = 0;
-                        ExceptionCollector.Add("Consumer", new Exception((string)ParamsSerializeUtil.Deserialize(typeof(string), msg.Data, ref offset)));
+                        ExceptionCollector.Add("Consumer", new Exception(ParamsSerializeUtil.Deserialize<string>(msg.Data)));
                         _syncHelper.Set(msg.SequenceNumber, msg.Data);
                         break;
                     case RSocketMsgType.Close:
