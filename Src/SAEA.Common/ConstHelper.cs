@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.MVC.Mvc
 *文件名： AreaCollection
-*版本号： V3.5.9.1
+*版本号： V3.6.0.1
 *唯一标识：eb956356-8ea4-4657-aec1-458a3654c078
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,13 +17,12 @@
 *修改标记
 *修改时间：2018/8/2 18:10:16
 *修改人： yswenli
-*版本号： V3.5.9.1
+*版本号： V3.6.0.1
 *描述：
 *
 *****************************************************************************/
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
 
 namespace SAEA.Common
@@ -99,6 +98,14 @@ namespace SAEA.Common
         public const string LESS_THAN = "<";
 
         public const string GREATER_THAN = ">";
+
+        public const string AMPERSAND = "&";
+
+        public const string EQUO = "=";
+
+        public const string SEMICOLON = ";";
+
+        public const string QUESTIONMARK = "?";
 
 
         static string _serverName = string.Empty;

@@ -19,9 +19,61 @@ namespace SAEA.RPCTest
 
         static string splitStr = "坦克";
 
+        #region test
+
+        static int i = 0;
+
+        static ref int GetNum()
+        {
+            System.Threading.Tasks.Task.Factory.StartNew(() =>
+            {
+                while (true)
+                {
+                    i++;
+                    System.Threading.Thread.Sleep(1000);
+                }
+            });
+            return ref i;
+        }
+
+
+        static dynamic t;
+
+        static ref dynamic GetNum2()
+        {
+            int a = 0;
+            System.Threading.Tasks.Task.Factory.StartNew(() =>
+            {
+                while (true)
+                {
+                    a++;
+                    t = a;
+                    System.Threading.Thread.Sleep(1000);
+                }
+            });
+            return ref t;
+        }
+
+        static void test()
+        {
+
+            ref var a1 = ref GetNum();
+            ref var a2 = ref GetNum2();
+
+            while (true)
+            {
+                Console.WriteLine($"GetNum1:{a1},GetNum2:{a2}");
+                System.Threading.Thread.Sleep(1000);
+            }
+
+        }
+        #endregion
+
 
         static void Main(string[] args)
         {
+
+            test();
 
             ConsoleHelper.WriteLine($"SAEA.RPC测试： {Environment.NewLine}   a 启动rpc provider consumer{Environment.NewLine}   p 启动rpc provider{Environment.NewLine}   c 启动rpc consumer{Environment.NewLine}   g 启动rpc consumer代码生成器{Environment.NewLine}   t 启动rpc稳定性测试{Environment.NewLine}   s 启动rpc序列化测试");
 

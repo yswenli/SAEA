@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.Http.Base
 *文件名： RequestDataReader
-*版本号： V3.5.9.1
+*版本号： V3.6.0.1
 *唯一标识：01f783cd-c751-47c5-a5b9-96d3aa840c70
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/4/16 11:03:29
 *修改人： yswenli
-*版本号： V3.5.9.1
+*版本号： V3.6.0.1
 *描述：
 *
 *****************************************************************************/
@@ -84,9 +84,9 @@ namespace SAEA.Http.Base
 
             httpMessage.Protocal = arr[2];
 
-            if (httpMessage.RelativeUrl.Contains("?"))
+            if (httpMessage.RelativeUrl.Contains(ConstHelper.QUESTIONMARK))
             {
-                var qarr = httpMessage.RelativeUrl.Split("?");
+                var qarr = httpMessage.RelativeUrl.Split(ConstHelper.QUESTIONMARK);
                 httpMessage.Url = qarr[0];
                 httpMessage.Query = GetRequestQuerys(qarr[1]);
             }
@@ -95,11 +95,11 @@ namespace SAEA.Http.Base
                 httpMessage.Url = httpMessage.RelativeUrl;
             }
 
-            var uarr = httpMessage.Url.Split("/");
+            var uarr = httpMessage.Url.Split(ConstHelper.SLASH);
 
             if (long.TryParse(uarr[uarr.Length - 1], out long id))
             {
-                httpMessage.Url = StringHelper.Substring(httpMessage.Url, 0, httpMessage.Url.LastIndexOf("/"));
+                httpMessage.Url = StringHelper.Substring(httpMessage.Url, 0, httpMessage.Url.LastIndexOf(ConstHelper.SLASH));
                 httpMessage.Query.Add(ConstHelper.ID, id.ToString());
             }
 
@@ -125,7 +125,7 @@ namespace SAEA.Http.Base
                     {
                         httpMessage.IsFormData = true;
 
-                        httpMessage.Boundary = "--" + Regex.Split(contentTypeStr, ";")[1].Replace(ConstHelper.BOUNDARY, "");
+                        httpMessage.Boundary = "--" + Regex.Split(contentTypeStr, ConstHelper.SEMICOLON)[1].Replace(ConstHelper.BOUNDARY, "");
                     }
                 }
                 string contentLengthStr = string.Empty;
@@ -216,12 +216,12 @@ namespace SAEA.Http.Base
         private static Dictionary<string, string> GetRequestQuerys(string row)
         {
             if (string.IsNullOrEmpty(row)) return null;
-            var kvs = row.Split("&", StringSplitOptions.RemoveEmptyEntries);
+            var kvs = row.Split(ConstHelper.AMPERSAND, StringSplitOptions.RemoveEmptyEntries);
             if (kvs == null || kvs.Count() <= 0) return null;
             Dictionary<string, string> dic = new Dictionary<string, string>();
             foreach (var item in kvs)
             {
-                var arr = item.Split("=");
+                var arr = item.Split(ConstHelper.EQUO);
                 dic[arr[0]] = HttpUtility.UrlDecode(arr[1]);
             }
             return dic;
@@ -230,12 +230,12 @@ namespace SAEA.Http.Base
         private static Dictionary<string, string> GetRequestForms(string row)
         {
             if (string.IsNullOrEmpty(row)) return null;
-            var kvs = row.Split(ConstHelper.ENTER, StringSplitOptions.RemoveEmptyEntries);
+            var kvs = row.Split(ConstHelper.AMPERSAND, StringSplitOptions.RemoveEmptyEntries);
             if (kvs == null || kvs.Count() <= 0) return null;
             Dictionary<string, string> dic = new Dictionary<string, string>();
             foreach (var item in kvs)
             {
-                var arr = item.Split("=");
+                var arr = item.Split(ConstHelper.EQUO);
                 dic[arr[0]] = HttpUtility.HtmlDecode(HttpUtility.UrlDecode(arr[1]));
             }
             return dic;
@@ -247,7 +247,7 @@ namespace SAEA.Http.Base
             if (rows == null || rows.Count() <= 0) return result;
             foreach (var row in rows)
             {
-                var rowArr = row.Split(":");
+                var rowArr = row.Split(ConstHelper.COLON);
                 result[rowArr[0]] = rowArr[1].Trim();
             }
             return result;
@@ -268,13 +268,13 @@ namespace SAEA.Http.Base
                         var arr = section.Split(ConstHelper.ENTER, StringSplitOptions.RemoveEmptyEntries);
                         if (arr != null && arr.Length > 0)
                         {
-                            var firsts = arr[0].Split(";");
-                            var name = firsts[1].Split("=")[1].Replace("\"", "");
-                            var fileName = firsts[2].Split("=")[1].Replace("\"", "");
+                            var firsts = arr[0].Split(ConstHelper.SEMICOLON);
+                            var name = firsts[1].Split(ConstHelper.EQUO)[1].Replace("\"", "");
+                            var fileName = firsts[2].Split(ConstHelper.EQUO)[1].Replace("\"", "");
                             var type = string.Empty;
                             if (arr.Length > 1)
                             {
-                                type = arr[1].Split(new[] { ";", ":" }, StringSplitOptions.RemoveEmptyEntries)[1];
+                                type = arr[1].Split(new[] { ConstHelper.SEMICOLON, ConstHelper.COLON }, StringSplitOptions.RemoveEmptyEntries)[1];
                             }
                             filePart = new FilePart(name, fileName, type);
                         }
@@ -284,11 +284,11 @@ namespace SAEA.Http.Base
                         var arr = section.Split(ConstHelper.ENTER, StringSplitOptions.RemoveEmptyEntries);
                         if (arr != null)
                         {
-                            if (arr.Length > 0 && arr[0].IndexOf(";") > -1 && arr[0].IndexOf("=") > -1)
+                            if (arr.Length > 0 && arr[0].IndexOf(ConstHelper.SEMICOLON) > -1 && arr[0].IndexOf(ConstHelper.EQUO) > -1)
                             {
-                                var lineArr = arr[0].Split(";");
+                                var lineArr = arr[0].Split(ConstHelper.SEMICOLON);
                                 if (lineArr == null) continue;
-                                var name = lineArr[1].Split("=")[1].Replace("\"", "");
+                                var name = lineArr[1].Split(ConstHelper.EQUO)[1].Replace("\"", "");
                                 var value = string.Empty;
 
                                 if (arr.Length > 1)
