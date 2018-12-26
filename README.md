@@ -1,5 +1,6 @@
 # ![Logo](/logo.jpg) SAEA.Socket
 
+点击右侧图标访问最新nuget包
 [![NuGet version (Newtonsoft.Json)](https://img.shields.io/nuget/v/SAEA.Sockets.svg?style=flat-square)](https://www.nuget.org/packages?q=saea)
 
 
