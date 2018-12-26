@@ -6,8 +6,8 @@
     <Authors>yswenli</Authors>
     <Copyright>yswenli</Copyright>
     <PackageProjectUrl>https://www.cnblogs.com/yswenli/</PackageProjectUrl>
-    <AssemblyVersion>3.5.9.1</AssemblyVersion>
-    <Version>3.5.9.1</Version>
+    <AssemblyVersion>3.6.0.1</AssemblyVersion>
+    <Version>3.6.0.1</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
     <Description>This is a high-performance memory queue server and client component based on SAEA.Sockets.
@@ -19,7 +19,7 @@ https://github.com/yswenli/SAEA</PackageReleaseNotes>
     <PackageTags>queue,iocp,tcp,socket</PackageTags>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
-    <FileVersion>3.5.9.1</FileVersion>
+    <FileVersion>3.6.0.1</FileVersion>
     <PackageLicenseUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/LICENSE</PackageLicenseUrl>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
   </PropertyGroup>
