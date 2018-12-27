@@ -51,8 +51,10 @@ namespace SAEA.RedisSocket
                 this.IsConnected = false;
                 this.RedisConfig = new RedisConfig(ipPort, this.RedisConfig.Passwords, this.RedisConfig.ActionTimeOut);
                 _cnn = new RedisConnection(RedisConfig.GetIPPort(), this.RedisConfig.ActionTimeOut, _debugModel);
+                _cnn.OnRedirect += _redisConnection_OnRedirect;
                 _cnn.OnDisconnected += _cnn_OnDisconnected;
                 this.Connect();
+                RedisConnectionManager.Set(ipPort, _cnn);
                 return _cnn;
             }
         }
@@ -73,6 +75,7 @@ namespace SAEA.RedisSocket
                 this.IsConnected = false;
                 this.RedisConfig = new RedisConfig(ipPort, this.RedisConfig.Passwords, this.RedisConfig.ActionTimeOut);
                 cnn = new RedisConnection(RedisConfig.GetIPPort(), this.RedisConfig.ActionTimeOut, _debugModel);
+                cnn.OnRedirect += _redisConnection_OnRedirect;
                 cnn.OnDisconnected += _cnn_OnDisconnected;
                 this.Connect();
                 RedisConnectionManager.Set(ipPort, cnn);
@@ -142,6 +145,8 @@ namespace SAEA.RedisSocket
                 if (!RedisConnectionManager.Exsits(item.IPPort))
                 {
                     var cnn = new RedisConnection(item.IPPort);
+                    cnn.OnRedirect += _redisConnection_OnRedirect;
+                    cnn.OnDisconnected += _cnn_OnDisconnected;
                     cnn.Connect();
                     cnn.RedisServerType = item.IsMaster ? RedisServerType.ClusterMaster : RedisServerType.ClusterSlave;
                     RedisConnectionManager.Set(item.IPPort, cnn);

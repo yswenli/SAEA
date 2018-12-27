@@ -57,6 +57,7 @@ namespace SAEA.RedisSocket
             _debugModel = debugModel;
             RedisConfig = config;
             _cnn = new RedisConnection(RedisConfig.GetIPPort(), RedisConfig.ActionTimeOut, debugModel);
+            _cnn.OnRedirect += _redisConnection_OnRedirect;
             _cnn.OnDisconnected += _cnn_OnDisconnected;
         }
 
@@ -100,7 +101,6 @@ namespace SAEA.RedisSocket
                             _cnn.Quit();
                             return infoMsg;
                         }
-
                         var authMsg = Auth(RedisConfig.Passwords);
 
                         if (string.Compare(authMsg, OK, true) != 0)
@@ -109,8 +109,7 @@ namespace SAEA.RedisSocket
                             return authMsg;
                         }
                     }
-                }
-                _cnn.OnRedirect += _redisConnection_OnRedirect;
+                }                
                 _cnn.KeepAlived(() => this.KeepAlive());
                 var ipPort = RedisConfig.GetIPPort();
 
