@@ -1,11 +1,11 @@
 ﻿/****************************************************************************
-*Copyright (c) 2018 Microsoft All Rights Reserved.
+*Copyright (c) 2018 yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：yswenli
 *命名空间：SAEA.RedisSocket.Core
 *文件名： RedisConnection
-*版本号： V3.6.2.1
+*版本号： V3.6.2.2
 *唯一标识：a22caf84-4c61-456e-98cc-cbb6cb2c6d6e
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *创建时间：2018/11/5 20:45:02
 *修改人： yswenli
-*版本号： V3.6.2.1
+*版本号： V3.6.2.2
 *描述：
 *
 *****************************************************************************/
@@ -178,6 +178,8 @@ namespace SAEA.RedisSocket.Core
 
         public ResponseData DoWithKey(RequestType type, string key)
         {
+            key.KeyCheck();
+
             var cmd = RedisCoder.Coder(type, type.ToString(), key);
             Request(cmd);
             var result = RedisCoder.Decoder();
@@ -191,6 +193,7 @@ namespace SAEA.RedisSocket.Core
 
         public ResponseData DoWithKeyValue(RequestType type, string key, string value)
         {
+            key.KeyCheck();
             var cmd = RedisCoder.Coder(type, type.ToString(), key, value);
             Request(cmd);
             var result = RedisCoder.Decoder();
@@ -204,6 +207,7 @@ namespace SAEA.RedisSocket.Core
 
         public void DoExpire(string key, int seconds)
         {
+            key.KeyCheck();
             var cmd = RedisCoder.Coder(RequestType.EXPIRE, RequestType.EXPIRE.ToString(), key, seconds.ToString());
             Request(cmd);
             var result = RedisCoder.Decoder();
@@ -217,6 +221,7 @@ namespace SAEA.RedisSocket.Core
 
         public void DoExpireInsert(RequestType type, string key, string value, int seconds)
         {
+            key.KeyCheck();
             var cmd = RedisCoder.Coder(type, type.ToString(), key, value);
             Request(cmd);
             var result = RedisCoder.Decoder();
@@ -232,6 +237,8 @@ namespace SAEA.RedisSocket.Core
 
         public ResponseData DoHash(RequestType type, string id, string key, string value)
         {
+            id.KeyCheck();
+            key.KeyCheck();
             var cmd = RedisCoder.Coder(type, type.ToString(), id, key, value);
             Request(cmd);
             var result = RedisCoder.Decoder();
@@ -245,6 +252,7 @@ namespace SAEA.RedisSocket.Core
 
         public ResponseData DoRang(RequestType type, string id, double begin = 0, double end = -1)
         {
+            id.KeyCheck();
             var cmd = RedisCoder.Coder(type, type.ToString(), id, begin.ToString(), end.ToString(), "WITHSCORES");
             Request(cmd);
             var result = RedisCoder.Decoder();
@@ -298,6 +306,7 @@ namespace SAEA.RedisSocket.Core
 
         public ResponseData DoBatchWithParams(RequestType type, params string[] keys)
         {
+            keys.KeyCheck();
             var cmd = RedisCoder.CoderWithParams(type, type.ToString(), keys);
             Request(cmd);
             var result = RedisCoder.Decoder();
@@ -312,6 +321,9 @@ namespace SAEA.RedisSocket.Core
 
         public ResponseData DoBatchWithIDKeys(RequestType type, string id, params string[] keys)
         {
+            id.KeyCheck();
+            keys.KeyCheck();
+
             List<string> list = new List<string>();
             list.Add(type.ToString());
             list.Add(id);
@@ -329,6 +341,7 @@ namespace SAEA.RedisSocket.Core
 
         public ResponseData DoBatchWithIDDic(RequestType type, string id, Dictionary<double, string> dic)
         {
+            id.KeyCheck();
             var cmd = RedisCoder.CoderForDicWidthID(type, id, dic);
             Request(cmd);
             var result = RedisCoder.Decoder();
@@ -407,6 +420,8 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public ScanResponse DoScanKey(RequestType type, string key, int offset = 0, string pattern = "*", int count = -1)
         {
+            key.KeyCheck();
+
             var cmd = "";
 
             if (offset < 0) offset = 0;

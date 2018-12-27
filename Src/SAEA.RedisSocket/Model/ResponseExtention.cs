@@ -1,11 +1,11 @@
 ﻿/****************************************************************************
-*Copyright (c) 2018 Microsoft All Rights Reserved.
+*Copyright (c) 2018 yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
-*公司名称：Microsoft
+*公司名称：yswenli
 *命名空间：SAEA.RedisSocket.Model
 *文件名： ResponseExtention
-*版本号： V3.6.2.1
+*版本号： V3.6.2.2
 *唯一标识：bc48708f-e1e1-4b9e-be22-0cba54211c76
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/3/16 9:52:12
 *修改人： yswenli
-*版本号： V3.6.2.1
+*版本号： V3.6.2.2
 *描述：
 *
 *****************************************************************************/
@@ -153,7 +153,7 @@ namespace SAEA.RedisSocket.Model
         {
             var scanResponse = new ScanResponse();
 
-            var dataArr = source.Data.Split(_enter, StringSplitOptions.None);
+            var dataArr = source.Data.Split(_enter);
 
             var doffset = 0;
 
@@ -191,12 +191,12 @@ namespace SAEA.RedisSocket.Model
                     {
                         if (i + 1 < source.Data.Count)
                         {
-                            data.Add(key, source.Data[i + 1]);
+                            data[key]= source.Data[i + 1];
                             i++;
                         }
                         else
                         {
-                            data.Add(key, string.Empty);
+                            data[key]= string.Empty;
                         }
                     }
                 }

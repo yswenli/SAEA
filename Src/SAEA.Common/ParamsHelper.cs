@@ -1,11 +1,11 @@
 ﻿/****************************************************************************
-*Copyright (c) 2018 Microsoft All Rights Reserved.
+*Copyright (c) 2018 yswenli All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
 *公司名称：wenli
 *命名空间：SAEA.Commom
 *文件名： ParamsHelper
-*版本号： V3.6.2.1
+*版本号： V3.6.2.2
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/3/1 15:54:21
 *修改人： yswenli
-*版本号： V3.6.2.1
+*版本号： V3.6.2.2
 *描述：
 *
 *****************************************************************************/
@@ -32,26 +32,49 @@ namespace SAEA.Common
     /// </summary>
     public static class ParamsHelper
     {
-        public static bool NotNull(this string[] @params)
+        public static void NotNull(this string[] @params)
         {
-            if (@params == null) return false;
+            if (@params == null) throw new Exception("params must not allow null");
 
             foreach (var item in @params)
             {
-                if (item == null) return false;
+                if (item == null) throw new Exception("params must not allow null");
             }
-            return true;
         }
 
-        public static bool NotNull<K, V>(this Dictionary<K, V> dic)
+        public static void NotNull(this Dictionary<string, string> dic)
         {
-            if (dic == null) return false;
+            if (dic == null) throw new Exception("params must not allow null");
 
             foreach (var item in dic)
             {
-                if (item.Key == null || item.Value == null) return false;
+                if (string.IsNullOrEmpty(item.Key) || item.Value == null) throw new Exception("params must not allow null");
             }
-            return true;
+        }
+
+        public static void NotNull(this Dictionary<double, string> dic)
+        {
+            if (dic == null) throw new Exception("params must not allow null");
+
+            foreach (var item in dic)
+            {
+                if (item.Value == null) throw new Exception("value must not allow null");
+            }
+        }
+
+
+        public static void KeyCheck(this string key)
+        {
+            if (string.IsNullOrEmpty(key)) throw new Exception("key must not allow null");
+        }
+
+        public static void KeyCheck(this string[] keys)
+        {
+            if (keys==null) throw new Exception("key must not allow null");
+            foreach (var key in keys)
+            {
+                if (string.IsNullOrEmpty(key)) throw new Exception("key must not allow null");
+            }
         }
 
         /// <summary>
@@ -282,5 +305,8 @@ namespace SAEA.Common
             if (list.Count == 0) return null;
             return list;
         }
+
+
+
     }
 }

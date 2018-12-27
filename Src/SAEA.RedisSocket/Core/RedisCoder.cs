@@ -1,11 +1,11 @@
 ﻿/****************************************************************************
-*Copyright (c) 2018 Microsoft All Rights Reserved.
+*Copyright (c) 2018 yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：yswenli
 *命名空间：SAEA.RedisSocket.Core
 *文件名： RedisCoder
-*版本号： V3.6.2.1
+*版本号： V3.6.2.2
 *唯一标识：a22caf84-4c61-456e-98cc-cbb6cb2c6d6e
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *创建时间：2018/11/5 20:45:02
 *修改人： yswenli
-*版本号： V3.6.2.1
+*版本号： V3.6.2.2
 *描述：
 *
 *****************************************************************************/
@@ -87,7 +87,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public string Coder(RequestType commandName, params string[] @params)
         {
-            if (!@params.NotNull()) throw new RedisParamsNullException();
+            @params.NotNull();
 
             _coderDecoderSync.WaitOne(_actionTimeout);
             _commandName = commandName;
@@ -105,7 +105,7 @@ namespace SAEA.RedisSocket.Core
 
         public string CoderWithParams(RequestType commandName, string cmdType, params string[] @params)
         {
-            if (!@params.NotNull()) throw new RedisParamsNullException();
+            @params.NotNull();
 
             _coderDecoderSync.WaitOne(_actionTimeout);
             _commandName = commandName;
@@ -123,9 +123,9 @@ namespace SAEA.RedisSocket.Core
             return _sendCommand;
         }
 
-        public string CoderForDic<K, V>(RequestType commandName, Dictionary<K, V> dic)
+        public string CoderForDic(RequestType commandName, Dictionary<string, string> dic)
         {
-            if (!dic.NotNull()) throw new RedisParamsNullException();
+            dic.NotNull();
 
             _coderDecoderSync.WaitOne(_actionTimeout);
             _commandName = commandName;
@@ -148,9 +148,9 @@ namespace SAEA.RedisSocket.Core
             return _sendCommand;
         }
 
-        public string CoderForDicWidthID<K, V>(RequestType commandName, string id, Dictionary<K, V> dic)
+        public string CoderForDicWidthID(RequestType commandName, string id, Dictionary<double, string> dic)
         {
-            if (!dic.NotNull()) throw new RedisParamsNullException();
+            dic.NotNull();
 
             _coderDecoderSync.WaitOne(_actionTimeout);
             _commandName = commandName;

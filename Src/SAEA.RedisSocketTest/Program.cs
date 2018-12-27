@@ -1,11 +1,11 @@
 ﻿/****************************************************************************
-*Copyright (c) 2018 Microsoft All Rights Reserved.
+*Copyright (c) 2018 yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
-*公司名称：Microsoft
+*公司名称：yswenli
 *命名空间：SAEA.RedisSocketTest
 *文件名： Program
-*版本号： V3.6.2.1
+*版本号： V3.6.2.2
 *唯一标识：3d4f939c-3fb9-40e9-a0e0-c7ec773539ae
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/3/19 10:37:15
 *修改人： yswenli
-*版本号： V3.6.2.1
+*版本号： V3.6.2.2
 *描述：
 *
 *****************************************************************************/
@@ -67,7 +67,7 @@ namespace SAEA.RedisSocketTest
 
             //var h = redisClient.GetDataBase().HGetAll("haa22");
 
-            //redisClient.GetDataBase().HSet("test", null, "2151");
+            redisClient.GetDataBase().HSet("test", "", "2151");
 
 
             //var m = redisClient.ClusterInfo;

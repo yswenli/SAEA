@@ -7,13 +7,13 @@
  |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
                                                              
 
-*Copyright (c) 2018 Microsoft All Rights Reserved.
+*Copyright (c) 2018 yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
-*公司名称：Microsoft
+*公司名称：yswenli
 *命名空间：SAEA.Sockets.Core
 *文件名： ArgsPool
-*版本号： V3.6.2.1
+*版本号： V3.6.2.2
 *唯一标识：e22e6de2-7921-45b8-a0ad-254bea7e8bdf
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -25,7 +25,7 @@
 *修改标记
 *修改时间：2018/3/9 17:56:47
 *修改人： yswenli
-*版本号： V3.6.2.1
+*版本号： V3.6.2.2
 *描述：
 *
 *****************************************************************************/
