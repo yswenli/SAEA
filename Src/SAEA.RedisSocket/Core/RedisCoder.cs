@@ -5,7 +5,7 @@
 *公司名称：yswenli
 *命名空间：SAEA.RedisSocket.Core
 *文件名： RedisCoder
-*版本号： V3.6.0.1
+*版本号： V3.6.2.1
 *唯一标识：a22caf84-4c61-456e-98cc-cbb6cb2c6d6e
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,12 +17,13 @@
 *修改标记
 *创建时间：2018/11/5 20:45:02
 *修改人： yswenli
-*版本号： V3.6.0.1
+*版本号： V3.6.2.1
 *描述：
 *
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.RedisSocket.Model;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text;
@@ -53,7 +54,7 @@ namespace SAEA.RedisSocket.Core
 
         bool _isDisposed = false;
 
-        int _actionTimeout = 60;
+        int _actionTimeout = 60 * 1000;
 
         /// <summary>
         /// 初始化
@@ -86,7 +87,9 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public string Coder(RequestType commandName, params string[] @params)
         {
-            _coderDecoderSync.WaitOne();
+            if (!@params.NotNull()) throw new RedisParamsNullException();
+
+            _coderDecoderSync.WaitOne(_actionTimeout);
             _commandName = commandName;
             var sb = new StringBuilder();
             sb.AppendLine(ConstHelper.ASTERRISK + @params.Length);
@@ -102,7 +105,9 @@ namespace SAEA.RedisSocket.Core
 
         public string CoderWithParams(RequestType commandName, string cmdType, params string[] @params)
         {
-            _coderDecoderSync.WaitOne();
+            if (!@params.NotNull()) throw new RedisParamsNullException();
+
+            _coderDecoderSync.WaitOne(_actionTimeout);
             _commandName = commandName;
             var sb = new StringBuilder();
             sb.AppendLine(ConstHelper.ASTERRISK + (@params.Length + 1));
@@ -120,7 +125,9 @@ namespace SAEA.RedisSocket.Core
 
         public string CoderForDic<K, V>(RequestType commandName, Dictionary<K, V> dic)
         {
-            _coderDecoderSync.WaitOne();
+            if (!dic.NotNull()) throw new RedisParamsNullException();
+
+            _coderDecoderSync.WaitOne(_actionTimeout);
             _commandName = commandName;
             var sb = new StringBuilder();
             sb.AppendLine(ConstHelper.ASTERRISK + (dic.Count + 1));
@@ -143,7 +150,9 @@ namespace SAEA.RedisSocket.Core
 
         public string CoderForDicWidthID<K, V>(RequestType commandName, string id, Dictionary<K, V> dic)
         {
-            _coderDecoderSync.WaitOne();
+            if (!dic.NotNull()) throw new RedisParamsNullException();
+
+            _coderDecoderSync.WaitOne(_actionTimeout);
             _commandName = commandName;
             var sb = new StringBuilder();
             sb.AppendLine(ConstHelper.ASTERRISK + (dic.Count + 1));

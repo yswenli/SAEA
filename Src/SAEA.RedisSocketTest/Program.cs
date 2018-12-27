@@ -5,7 +5,7 @@
 *公司名称：Microsoft
 *命名空间：SAEA.RedisSocketTest
 *文件名： Program
-*版本号： V3.6.0.1
+*版本号： V3.6.2.1
 *唯一标识：3d4f939c-3fb9-40e9-a0e0-c7ec773539ae
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/3/19 10:37:15
 *修改人： yswenli
-*版本号： V3.6.0.1
+*版本号： V3.6.2.1
 *描述：
 *
 *****************************************************************************/
@@ -39,13 +39,14 @@ namespace SAEA.RedisSocketTest
             if (string.IsNullOrEmpty(cnnStr))
             {
                 //cnnStr = "server=127.0.0.1:6379;passwords=yswenli";
-                cnnStr = "server=10.228.129.129:2181,10.228.129.13:2181,10.228.129.130:2181;passwords=yswenli";
+                cnnStr = "server=127.0.0.1:6379;passwords=yswenli";
 
             }
             RedisClient redisClient = new RedisClient(cnnStr);
             redisClient.Connect();
 
-            PerformanceTest(redisClient);
+            redisClient.Select(0);
+
 
             //var isCluster = redisClient.IsCluster;
 
@@ -66,7 +67,8 @@ namespace SAEA.RedisSocketTest
 
             //var h = redisClient.GetDataBase().HGetAll("haa22");
 
-            redisClient.Select(0);
+            //redisClient.GetDataBase().HSet("test", null, "2151");
+
 
             //var m = redisClient.ClusterInfo;
             //var n = redisClient.ClusterNodes;
@@ -104,6 +106,8 @@ namespace SAEA.RedisSocketTest
             redisClient.Ping();
 
             //redisClient.Select(1);
+
+            PerformanceTest(redisClient);
 
             ConsoleHelper.WriteLine(redisClient.Type("key0"));
 

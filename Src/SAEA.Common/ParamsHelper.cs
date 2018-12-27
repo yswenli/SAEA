@@ -5,7 +5,7 @@
 *公司名称：wenli
 *命名空间：SAEA.Commom
 *文件名： ParamsHelper
-*版本号： V3.6.0.1
+*版本号： V3.6.2.1
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/3/1 15:54:21
 *修改人： yswenli
-*版本号： V3.6.0.1
+*版本号： V3.6.2.1
 *描述：
 *
 *****************************************************************************/
@@ -32,6 +32,27 @@ namespace SAEA.Common
     /// </summary>
     public static class ParamsHelper
     {
+        public static bool NotNull(this string[] @params)
+        {
+            if (@params == null) return false;
+
+            foreach (var item in @params)
+            {
+                if (item == null) return false;
+            }
+            return true;
+        }
+
+        public static bool NotNull<K, V>(this Dictionary<K, V> dic)
+        {
+            if (dic == null) return false;
+
+            foreach (var item in dic)
+            {
+                if (item.Key == null || item.Value == null) return false;
+            }
+            return true;
+        }
 
         /// <summary>
         /// 参数填充

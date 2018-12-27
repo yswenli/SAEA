@@ -2,36 +2,39 @@
 *Copyright (c) 2018 Microsoft All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
-*公司名称：Microsoft
-*命名空间：SAEA.MVC
-*文件名： IFilter
+*公司名称：yswenli
+*命名空间：SAEA.RedisSocket.Core
+*文件名： RedisConnection
 *版本号： V3.6.2.1
 *唯一标识：a22caf84-4c61-456e-98cc-cbb6cb2c6d6e
 *当前的用户域：WENLI-PC
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
-*创建时间：2018/4/11 13:39:02
+*创建时间：2018/11/5 20:45:02
 *描述：
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/4/11 13:39:02
+*创建时间：2018/11/5 20:45:02
 *修改人： yswenli
 *版本号： V3.6.2.1
 *描述：
 *
 *****************************************************************************/
 using System;
-using System.Collections.Generic;
-using System.Text;
 
-namespace SAEA.MVC
+namespace SAEA.RedisSocket.Model
 {
-    public interface IFilter
+    public class RedisParamsNullException : Exception
     {
-        /// <summary>
-        /// 执行顺序
-        /// </summary>
-        int Order { get; set; }
+        public RedisParamsNullException() : this("redis 输入参数不能为null!")
+        {
+
+        }
+
+        public RedisParamsNullException(string message) : base(message)
+        {
+
+        }
     }
 }

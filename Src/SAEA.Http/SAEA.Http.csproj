@@ -9,7 +9,7 @@
     <Copyright>yswenli</Copyright>
     <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
     <PackageTags>webserver,httpserver,iocp,tcp,socket</PackageTags>
-    <Version>3.6.0.1</Version>
+    <Version>3.6.2.1</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
