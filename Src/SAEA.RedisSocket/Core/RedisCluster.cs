@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Common;
 using SAEA.RedisSocket.Core;
 using SAEA.RedisSocket.Model;
 using System;
@@ -82,7 +83,7 @@ namespace SAEA.RedisSocket
             }
 
             _cnn = cnn;
-            
+
 
             switch (operationType)
             {
@@ -144,12 +145,15 @@ namespace SAEA.RedisSocket
             {
                 if (!RedisConnectionManager.Exsits(item.IPPort))
                 {
-                    var cnn = new RedisConnection(item.IPPort);
-                    cnn.OnRedirect += _redisConnection_OnRedirect;
-                    cnn.OnDisconnected += _cnn_OnDisconnected;
-                    cnn.Connect();
-                    cnn.RedisServerType = item.IsMaster ? RedisServerType.ClusterMaster : RedisServerType.ClusterSlave;
-                    RedisConnectionManager.Set(item.IPPort, cnn);
+                    TaskHelper.Start(() =>
+                    {
+                        var cnn = new RedisConnection(item.IPPort);
+                        cnn.OnRedirect += _redisConnection_OnRedirect;
+                        cnn.OnDisconnected += _cnn_OnDisconnected;
+                        cnn.Connect();
+                        cnn.RedisServerType = item.IsMaster ? RedisServerType.ClusterMaster : RedisServerType.ClusterSlave;
+                        RedisConnectionManager.Set(item.IPPort, cnn);
+                    });
                 }
             }
         }
