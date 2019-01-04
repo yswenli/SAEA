@@ -256,8 +256,6 @@ cc2.SendRemoveGroup(groupName);
 
 ## More
 
-WebRedisManager is also a redis management tool based on this. See https://www.cnblogs.com/yswenli/p/9460527.html git source: https://github.com/yswenli/WebRedisManager.
-
 WebRedisManager也是基于此的一款redis管理工具，具体可参见：https://www.cnblogs.com/yswenli/p/9460527.html git源码：https://github.com/yswenli/WebRedisManager
 
 GFF一款仿QQ通信程序同样基于此，具体可参见:https://github.com/yswenli/GFF 
