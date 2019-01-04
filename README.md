@@ -1,13 +1,12 @@
 # ![Logo](/logo.jpg) SAEA.Socket
 
-点击右侧图标访问最新nuget包
 [![NuGet version (Newtonsoft.Json)](https://img.shields.io/nuget/v/SAEA.Sockets.svg?style=flat-square)](https://www.nuget.org/packages?q=saea)
 
 
-SAEA.Socket is a high-performance IOCP framework based on dotnet standard 2.0; Src contains application test scenarios such as websocket, high-performance message queue, rpc, redis driver, Mvc WebApi, single-machine million-connection high-performance message server, large file transfer, etc.. <br/>
+SAEA.Socket is an IOCP high-performance TCP network framework based on dotnet standard 2.0; Src contains its application scenarios, such as large file transfer, websocket client and server, high-performance message queue, rpc, redis driver, httpserver, Mvc, single-machine million-connected high-performance message server, etc. <br/>
 Reference components that search for saea in nuget, or enter the command Install-Package SAEA.Sockets-Version 3.3.3.5 directly
 
-SAEA.Socket是一个高性能IOCP框架，基于dotnet standard 2.0；Src中含有其应用测试场景，例如websocket、高性能消息队列、rpc、redis驱动、Mvc WebApi、单机百万连接高性能消息服务器、大文件传输等<br/>
+SAEA.Socket是一个IOCP高性能tcp网络框架，基于dotnet standard 2.0；Src中含有其应用场景，例如大文件传输、websocket client and server、高性能消息队列、rpc、redis驱动、httpserver、Mvc、单机百万连接高性能消息服务器等<br/>
 
 - [x] IOCP
 - [x] FileTransfer
@@ -18,19 +17,17 @@ SAEA.Socket是一个高性能IOCP框架，基于dotnet standard 2.0；Src中含�
 - [x] Websocket
 - [x] RedisDrive
 
+## Reference component
+
 引用组件，可以在nuget中搜索saea，或者直接输入命令 
 ```
 Install-Package SAEA.Sockets -Version 3.3.3.5
 ```
 nuget url: https://www.nuget.org/packages?q=saea
 
-WebRedisManager is also a redis management tool based on this. See https://www.cnblogs.com/yswenli/p/9460527.html git source: https://github.com/yswenli/WebRedisManager.
-
-WebRedisManager也是基于此的一款redis管理工具，具体可参见：https://www.cnblogs.com/yswenli/p/9460527.html git源码：https://github.com/yswenli/WebRedisManager
-
-GFF一款仿QQ通信程序同样基于此，具体可参见:https://github.com/yswenli/GFF 
-
 ------
+
+# Example
 
 ## FileTransfer
 
@@ -256,3 +253,11 @@ cc2.SendRemoveGroup(groupName);
 <img src="https://github.com/yswenli/SAEA/blob/master/WebsocketTest.png?raw=true" /><br/>
 <img src="https://github.com/yswenli/SAEA/blob/master/redis%20cluster%20test.png?raw=true" /><br/>
 <img src="https://github.com/yswenli/SAEA/blob/master/rpc.png?raw=true" /><br/>
+
+## More
+
+WebRedisManager is also a redis management tool based on this. See https://www.cnblogs.com/yswenli/p/9460527.html git source: https://github.com/yswenli/WebRedisManager.
+
+WebRedisManager也是基于此的一款redis管理工具，具体可参见：https://www.cnblogs.com/yswenli/p/9460527.html git源码：https://github.com/yswenli/WebRedisManager
+
+GFF一款仿QQ通信程序同样基于此，具体可参见:https://github.com/yswenli/GFF 
