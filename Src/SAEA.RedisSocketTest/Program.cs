@@ -42,10 +42,12 @@ namespace SAEA.RedisSocketTest
                 cnnStr = "server=127.0.0.1:6379;passwords=yswenli";
 
             }
-            RedisClient redisClient = new RedisClient(cnnStr);
+            RedisClient redisClient = new RedisClient(cnnStr, false);
             redisClient.Connect();
 
             redisClient.Select(0);
+
+            //redisClient.GetDataBase().HSet("test", "", "2151");
 
 
             //var isCluster = redisClient.IsCluster;
@@ -67,7 +69,7 @@ namespace SAEA.RedisSocketTest
 
             //var h = redisClient.GetDataBase().HGetAll("haa22");
 
-            redisClient.GetDataBase().HSet("test", "", "2151");
+
 
 
             //var m = redisClient.ClusterInfo;

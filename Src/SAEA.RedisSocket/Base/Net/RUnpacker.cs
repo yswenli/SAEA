@@ -34,10 +34,10 @@ namespace SAEA.RedisSocket.Base.Net
     {
         private object _locker = new object();
 
-        List<byte> _buffer = new List<byte>();
+        List<byte> _buffer = new List<byte>(102400);
 
         /// <summary>
-        /// 服务器端收包处理
+        /// 收包处理
         /// </summary>
         /// <param name="data"></param>
         /// <param name="OnHeart"></param>

@@ -41,8 +41,6 @@ namespace SAEA.RedisSocket.Core
 
         DateTime _actived;
 
-        bool _debugMode = false;
-
         public DateTime Actived
         {
             get
@@ -79,7 +77,7 @@ namespace SAEA.RedisSocket.Core
         public event RedirectHandler OnRedirect;
 
 
-        public RedisConnection(string ipPort, int actionTimeout = 60, bool debugMode = false)
+        public RedisConnection(string ipPort, int actionTimeout = 60)
         {
             this.IPPort = ipPort;
             var address = ipPort.ToIPPort();
@@ -88,7 +86,6 @@ namespace SAEA.RedisSocket.Core
             _cnn.OnMessage += _cnn_OnMessage;
             _cnn.OnDisconnected += _cnn_OnDisconnected;
             _redisCoder = new RedisCoder(actionTimeout);
-            _debugMode = debugMode;
         }
 
         private void _cnn_OnDisconnected(string ID, Exception ex)
@@ -100,12 +97,13 @@ namespace SAEA.RedisSocket.Core
         {
             _actived = actived;
         }
-        private void _cnn_OnMessage(string command)
+
+
+        protected virtual void _cnn_OnMessage(string command)
         {
-            _redisCoder.Enqueue(command);
-            if (_debugMode)
-                ConsoleHelper.WriteLine(command);
+            RedisCoder.Enqueue(command);
         }
+
 
         /// <summary>
         /// 连接到redisServer
@@ -143,7 +141,6 @@ namespace SAEA.RedisSocket.Core
         public void Request(string cmd)
         {
             _cnn.Request(Encoding.UTF8.GetBytes(cmd));
-
         }
 
         /// <summary>

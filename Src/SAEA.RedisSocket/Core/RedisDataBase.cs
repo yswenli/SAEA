@@ -271,7 +271,7 @@ namespace SAEA.RedisSocket.Core
             int.TryParse(_cnn.DoWithKey(RequestType.ZCARD, key).Data, out result);
             return result;
         }
-        public int ZCount(string key, double begin = 0, double end = -1)
+        public int ZCount(string key, double begin = int.MinValue, double end = int.MaxValue)
         {
             var result = 0;
             int.TryParse(_cnn.DoHash(RequestType.ZCOUNT, key, begin.ToString(), end.ToString()).Data, out result);
@@ -294,6 +294,7 @@ namespace SAEA.RedisSocket.Core
             int.TryParse(_cnn.DoBatchWithIDKeys(RequestType.ZREM, key, values).Data, out result);
             return result;
         }
+
         #endregion
 
         #region SCAN

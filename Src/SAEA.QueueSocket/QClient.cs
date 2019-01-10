@@ -121,17 +121,26 @@ namespace SAEA.QueueSocket
         /// <param name="content"></param>
         public void Publish(string topic, string content)
         {
-            Monitor.Enter(sendLock);
-            cache.AddRange(_queueCoder.Publish(_name, topic, content));
-            if (cache.Count < 1000 *  10 || _sendSpan < DateTimeHelper.Now)
+            try
+            {
+                Monitor.Enter(sendLock);
+                cache.AddRange(_queueCoder.Publish(_name, topic, content));
+                if (cache.Count < 1000 * 10 || _sendSpan < DateTimeHelper.Now)
+                {
+                    return;
+                }
+                SendAsync(cache.ToArray());
+                cache.Clear();
+                _sendSpan = DateTimeHelper.Now.AddMilliseconds(500);
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+            finally
             {
                 Monitor.Exit(sendLock);
-                return;
             }
-            SendAsync(cache.ToArray());
-            cache.Clear();
-            _sendSpan = DateTimeHelper.Now.AddMilliseconds(500);
-            Monitor.Exit(sendLock);
         }
 
         #endregion

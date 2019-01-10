@@ -66,9 +66,9 @@ namespace SAEA.Common
             return Convert(l);
         }
 
-        public static Tuple<string, int> ToIPPort(this string remote)
+        public static ValueTuple<string, int> ToIPPort(this string remote)
         {
-            Tuple<string, int> result;
+            ValueTuple<string, int> result;
 
             var arr = remote.Split(new string[] { ConstHelper.COLON, ConstHelper.SPACE, ConstHelper.COMMA }, StringSplitOptions.None);
 
@@ -76,7 +76,7 @@ namespace SAEA.Common
 
             var port = int.Parse(arr[1]);
 
-            result = new Tuple<string, int>(ip, port);
+            result = new ValueTuple<string, int>(ip, port);
 
             return result;
         }

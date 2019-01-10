@@ -54,6 +54,11 @@ namespace SAEA.Common
             Console.ForegroundColor = oldColor;
         }
 
+        public static void Write(string str)
+        {
+            Console.Write(str);
+        }
+
         public static string ReadLine()
         {
             return Console.ReadLine();

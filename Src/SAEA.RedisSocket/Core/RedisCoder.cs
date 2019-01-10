@@ -26,6 +26,7 @@ using SAEA.RedisSocket.Model;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -47,6 +48,8 @@ namespace SAEA.RedisSocket.Core
         RequestType _commandName;
 
         readonly ConcurrentQueue<string> _operationQueue = new ConcurrentQueue<string>();
+
+        readonly ConcurrentQueue<string> _codeOperationQueue = new ConcurrentQueue<string>();
 
         string _sendCommand = string.Empty;
 
@@ -72,11 +75,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="command"></param>
         public void Enqueue(string command)
         {
-            var items = command.Split(ConstHelper.ENTER);
-            foreach (var item in items)
-            {
-                _operationQueue.Enqueue(item + ConstHelper.ENTER);
-            }
+            _operationQueue.Enqueue(command);
         }
 
         /// <summary>
@@ -173,7 +172,7 @@ namespace SAEA.RedisSocket.Core
             return _sendCommand;
         }
 
-        
+
 
         /// <summary>
         /// 获取redis回复的内容
@@ -203,12 +202,38 @@ namespace SAEA.RedisSocket.Core
             var result = string.Empty;
             do
             {
-                if (_operationQueue.IsEmpty)
+                if (_codeOperationQueue.IsEmpty)
                 {
-                    _operationQueueSync.WaitOne(1);
+                    if (_operationQueue.IsEmpty)
+                    {
+                        _operationQueueSync.WaitOne(1);
+                    }
+                    else
+                    {
+                        while (!_operationQueue.IsEmpty)
+                        {
+                            if (_operationQueue.TryDequeue(out string str))
+                            {
+                                var span = str.AsSpan();
+
+                                var count = span.IndexOf(ConstHelper.ENTER.AsSpan());
+
+                                while (count >= 0)
+                                {
+                                    count += 2;
+                                    var line = span.Slice(0, count).ToString();
+                                    _codeOperationQueue.Enqueue(line);
+                                    span = span.Slice(count);
+                                    count = span.IndexOf(ConstHelper.ENTER.AsSpan());
+                                }
+                            }
+                        }                       
+                    }
                 }
                 else
-                    _operationQueue.TryDequeue(out result);
+                {
+                    _codeOperationQueue.TryDequeue(out result);
+                }
             }
             while (string.IsNullOrEmpty(result) && !stopped);
             return result;

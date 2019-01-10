@@ -65,14 +65,14 @@ namespace SAEA.RedisSocket.Base.Net
 
         protected override void OnReceived(byte[] data)
         {
-            TaskHelper.Start(() => OnActived.Invoke(DateTimeHelper.Now));
             queue.Enqueue(data);
         }
 
+
         public void Request(byte[] cmd)
         {
-            TaskHelper.Start(() => OnActived.Invoke(DateTimeHelper.Now));
             BeginSend(cmd);
+            OnActived.Invoke(DateTimeHelper.Now);
         }
     }
 }
