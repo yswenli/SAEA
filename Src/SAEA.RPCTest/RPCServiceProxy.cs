@@ -1,6 +1,6 @@
 ﻿/*******
 * 此代码为SAEA.RPC.Generater生成
-* 尽量不要修改此代码 2018-06-19 11:24:12
+* 尽量不要修改此代码 2019-01-11 16:17:19
 *******/
 
 using System;
@@ -21,40 +21,40 @@ namespace SAEA.RPCTest.Consumer
         {
             ExceptionCollector.OnErr += ExceptionCollector_OnErr;
             _serviceConsumer = new ServiceConsumer(new Uri(uri), links, retry, timeOut);
-            _enumService = new EnumService(_serviceConsumer);
-            _groupService = new GroupService(_serviceConsumer);
-            _helloService = new HelloService(_serviceConsumer);
-            _dicService = new DicService(_serviceConsumer);
-            _genericService = new GenericService(_serviceConsumer);
+            _En = new EnumService(_serviceConsumer);
+            _Gr = new GroupService(_serviceConsumer);
+            _He = new HelloService(_serviceConsumer);
+            _Di = new DicService(_serviceConsumer);
+            _Ge = new GenericService(_serviceConsumer);
         }
         private void ExceptionCollector_OnErr(string name, Exception ex)
         {
             OnErr(name, ex);
         }
-        EnumService _enumService;
+        EnumService _En;
         public EnumService EnumService
         {
-            get { return _enumService; }
+             get{ return _En; }
         }
-        GroupService _groupService;
+        GroupService _Gr;
         public GroupService GroupService
         {
-            get { return _groupService; }
+             get{ return _Gr; }
         }
-        HelloService _helloService;
+        HelloService _He;
         public HelloService HelloService
         {
-            get { return _helloService; }
+             get{ return _He; }
         }
-        DicService _dicService;
+        DicService _Di;
         public DicService DicService
         {
-            get { return _dicService; }
+             get{ return _Di; }
         }
-        GenericService _genericService;
+        GenericService _Ge;
         public GenericService GenericService
         {
-            get { return _genericService; }
+             get{ return _Ge; }
         }
     }
 }
@@ -136,9 +136,9 @@ namespace SAEA.RPCTest.Consumer.Service
         {
             _serviceConsumer = serviceConsumer;
         }
-        public Dictionary<Int32, UserInfo> Test(Int32 id, Dictionary<Int32, UserInfo> data)
+        public Dictionary<Int32,UserInfo> Test(Int32 id, Dictionary<Int32,UserInfo> data)
         {
-            return _serviceConsumer.RemoteCall<Dictionary<Int32, UserInfo>>("DicService", "Test", id, data);
+            return _serviceConsumer.RemoteCall<Dictionary<Int32,UserInfo>>("DicService", "Test", id, data);
         }
     }
 }
@@ -165,72 +165,74 @@ namespace SAEA.RPCTest.Consumer.Service
 
 namespace SAEA.RPCTest.Consumer.Model
 {
-    public enum ReturnEnum : Int32
+    public enum ReturnEnum:Int32
     {
-        Big = 0,
-        Bigger = 1,
-        Biggest = 2,
+        Big=0,
+        Bigger=1,
+        Biggest=2,
     }
 }
 
 namespace SAEA.RPCTest.Consumer.Model
 {
-    public enum EnumServiceType : Int32
+    public enum EnumServiceType:Int32
     {
-        Good = 1,
-        Better = 2,
-        Best = 3,
+        Good=1,
+        Better=2,
+        Best=3,
     }
 }
 
 namespace SAEA.RPCTest.Consumer.Model
 {
-    [Serializable]
     public class UserInfo
     {
         public Int32 ID
         {
-            get; set;
+            get;set;
         }
         public String UserName
         {
-            get; set;
+            get;set;
         }
         public DateTime Birthday
         {
-            get; set;
+            get;set;
         }
     }
 }
 
 namespace SAEA.RPCTest.Consumer.Model
 {
-    [Serializable]
     public class GroupInfo
     {
         public Int32 GroupID
         {
-            get; set;
+            get;set;
         }
         public String Name
         {
-            get; set;
+            get;set;
         }
         public Boolean IsTemporary
         {
-            get; set;
+            get;set;
         }
         public DateTime Created
         {
-            get; set;
+            get;set;
         }
         public UserInfo Creator
         {
-            get; set;
+            get;set;
         }
         public List<UserInfo> Users
         {
-            get; set;
+            get;set;
+        }
+        public Dictionary<Int32,UserInfo> Limit
+        {
+            get;set;
         }
     }
 }
@@ -241,19 +243,19 @@ namespace SAEA.RPCTest.Consumer.Model
     {
         public Boolean Success
         {
-            get; set;
+            get;set;
         }
         public String Error
         {
-            get; set;
+            get;set;
         }
         public Int32 Code
         {
-            get; set;
+            get;set;
         }
         public T Data
         {
-            get; set;
+            get;set;
         }
     }
 }

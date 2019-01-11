@@ -21,7 +21,6 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Common;
 using SAEA.RPC.Common;
 using SAEA.RPCTest.Provider.Model;
 using System.Text;

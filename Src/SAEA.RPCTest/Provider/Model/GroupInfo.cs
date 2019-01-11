@@ -23,7 +23,6 @@
 *****************************************************************************/
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.RPCTest.Provider.Model
 {
@@ -59,10 +58,10 @@ namespace SAEA.RPCTest.Provider.Model
             get; set;
         }
 
-        //public Dictionary<int, UserInfo> Limit
-        //{
-        //    get; set;
-        //}
+        public Dictionary<int, UserInfo> Limit
+        {
+            get; set;
+        }
 
     }
 }

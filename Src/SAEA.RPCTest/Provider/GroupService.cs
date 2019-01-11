@@ -46,6 +46,16 @@ namespace SAEA.RPCTest.Provider
 
         public GroupInfo GetGroupInfo(int id)
         {
+            var limit = new Dictionary<int, UserInfo>();
+
+            limit.Add(1, new UserInfo()
+            {
+
+                ID = 1,
+                Birthday = DateTimeHelper.Now.AddYears(-100),
+                UserName = "yswenli"
+            });
+
             return new GroupInfo()
             {
                 GroupID = 1,
@@ -69,6 +79,8 @@ namespace SAEA.RPCTest.Provider
                         UserName = "yswenli"
                     }
                 }
+                ,
+                Limit = limit
             };
         }
     }
