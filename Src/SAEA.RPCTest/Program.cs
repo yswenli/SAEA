@@ -82,6 +82,7 @@ namespace SAEA.RPCTest
             ConsoleHelper.Title = "SAEA.RPC.Provider";
             ConsoleHelper.WriteLine("Provider正在启动HelloService。。。");
 
+            //可设定只提供某些服务
             //var sp = new ServiceProvider(new Type[] { typeof(Provider.HelloService) });
             var sp = new ServiceProvider();
 
@@ -121,18 +122,12 @@ namespace SAEA.RPCTest
 
             ConsoleHelper.WriteLine("Consumer连接成功");
 
+            #region HelloService
+
             ConsoleHelper.WriteLine("HelloService/Hello:" + cp.HelloService.Hello().Length);
             ConsoleHelper.WriteLine("HelloService/Plus:" + cp.HelloService.Plus(1, 9));
             ConsoleHelper.WriteLine("HelloService/Update/UserName:" + cp.HelloService.Update(new Consumer.Model.UserInfo() { ID = 1, UserName = "yswenli" }).UserName);
             ConsoleHelper.WriteLine("HelloService/SendData:" + System.Text.Encoding.UTF8.GetString(cp.HelloService.SendData(System.Text.Encoding.UTF8.GetBytes("Hello Data"))));
-            ConsoleHelper.WriteLine("");
-
-            ConsoleHelper.WriteLine("GroupService/Add/ Creator.UserName:" + cp.GroupService.Add("rpc group", new Consumer.Model.UserInfo() { ID = 1, UserName = "yswenli" }).Creator.UserName);
-            ConsoleHelper.WriteLine("GroupService/Update/Count:" + cp.GroupService.Update(new System.Collections.Generic.List<Consumer.Model.UserInfo>() { new Consumer.Model.UserInfo() { ID = 1, UserName = "yswenli" } }).Count);
-
-            var groupInfoResult = cp.GroupService.GetGroupInfo(1);
-
-            ConsoleHelper.WriteLine("GroupService/GetGroupInfo/Users.UserName:" + groupInfoResult.Users[0].UserName);
             ConsoleHelper.WriteLine("");
 
             var dic = new Dictionary<int, Consumer.Model.UserInfo>();
@@ -140,6 +135,10 @@ namespace SAEA.RPCTest
             ConsoleHelper.WriteLine("DicService/Test/UserName:" + cp.DicService.Test(1, dic)[1].UserName);
             ConsoleHelper.WriteLine("");
 
+            #endregion
+
+
+            #region GenericService
 
             ActionResult<UserInfo> data = new ActionResult<UserInfo>()
             {
@@ -157,14 +156,42 @@ namespace SAEA.RPCTest
             ConsoleHelper.WriteLine("GenericService/GetListString/Count:" + cp.GenericService.GetListString().Count);
             ConsoleHelper.WriteLine("");
 
+            #endregion
+
+            #region EnumService
+
             Console.WriteLine($"{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}  EnumService/Get/GetEnum:" + cp.EnumService.GetEnum(EnumServiceType.Best).ToString());
             Console.WriteLine("");
+
+            #endregion
+
+
+            #region GroupService
+
+            ConsoleHelper.WriteLine("GroupService/Add/ Creator.UserName:" + cp.GroupService.Add("rpc group", new Consumer.Model.UserInfo() { ID = 1, UserName = "yswenli" }).Creator.UserName);
+            ConsoleHelper.WriteLine("GroupService/Update/Count:" + cp.GroupService.Update(new System.Collections.Generic.List<Consumer.Model.UserInfo>() { new Consumer.Model.UserInfo() { ID = 1, UserName = "yswenli" } }).Count);
+
+            var groupInfoResult = cp.GroupService.GetGroupInfo(1);
+
+            ConsoleHelper.WriteLine("GroupService/GetGroupInfo/Users.UserName:" + groupInfoResult.Users[0].UserName);
+            ConsoleHelper.WriteLine("");
+
+            #endregion
 
             ConsoleHelper.WriteLine("回车启动性能测试！");
 
             ConsoleHelper.ReadLine();
 
             #region 性能测试
+
+            PerformenceTest(cp);
+
+            #endregion
+
+        }
+
+        static void PerformenceTest(RPCServiceProxy cp)
+        {
 
             Stopwatch sw = new Stopwatch();
 
@@ -183,12 +210,10 @@ namespace SAEA.RPCTest
             ConsoleHelper.WriteLine($"实体传输：{count * 1000 / sw.ElapsedMilliseconds} 次/秒");
 
             sw.Stop();
-
-            #endregion
-
         }
 
 
+        #region ms serialize
         public static byte[] SerializeBinary(object request)
         {
 
@@ -216,6 +241,9 @@ namespace SAEA.RPCTest
                 return deserializer.Deserialize(memStream);
             }
         }
+        #endregion
+
+
 
         static void SerializeTest()
         {
