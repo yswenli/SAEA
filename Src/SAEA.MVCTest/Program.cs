@@ -10,7 +10,7 @@ namespace SAEA.MVCTest
 
             ConsoleHelper.Title = "SAEA.MVCTest";
 
-            SAEAMvcApplication mvcApplication = new SAEAMvcApplication(root: "/html/", count: 10000);
+            SAEAMvcApplication mvcApplication = new SAEAMvcApplication(root: "/wwwroot/", count: 10000);
 
             //设置默认控制器
             mvcApplication.SetDefault("home", "index");

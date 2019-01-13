@@ -65,6 +65,7 @@ namespace SAEA.MVC
             return new FileResult(filePath, HttpContext.IsStaticsCached);
         }
 
+
         /// <summary>
         /// 空结果
         /// </summary>
@@ -82,6 +83,19 @@ namespace SAEA.MVC
         protected T Deserialize<T>(string json)
         {
             return SerializeHelper.Deserialize<T>(json);
+        }
+
+        /// <summary>
+        /// 判断客户端请求是否为ajax
+        /// </summary>
+        /// <returns></returns>
+        protected bool IsAjaxRequest()
+        {
+            if (HttpContext.Request.Headers.ContainsKey("X-Requested-With"))
+            {
+                return true;
+            }
+            return false;
         }
     }
 }

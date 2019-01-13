@@ -31,5 +31,24 @@
         <input type="submit" value="Submit" />
     </form>
 
+    <div>
+        <p>
+            <button id="ajax_btn">ajaxTest</button>
+
+            <button id="noAjax_btn" onclick="location.href = '/ajax/test?str=hello';">noajaxTest</button>
+        </p>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+    <script type="text/javascript">
+        $(function () {
+            $("#ajax_btn").click(function () {
+                $.get("/ajax/test", "str=hello", function (data) {
+                    alert(data);
+                });
+            });
+        });
+    </script>
+
 </body>
 </html>
