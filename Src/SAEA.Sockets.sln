@@ -57,6 +57,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAEA.Http", "SAEA.Http\SAEA
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAEA.HttpTest", "SAEA.HttpTest\SAEA.HttpTest.csproj", "{C3DCF09A-79E3-4E97-B39A-21086AC51303}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAEA.MQTT", "SAEA.MQTT\SAEA.MQTT.csproj", "{6C9FF548-819F-432F-B5B1-5DDCDB6E4DC4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAEA.MQTTTest", "SAEA.MQTTTest\SAEA.MQTTTest.csproj", "{B2FF83EE-9A9A-4251-AEB1-86670CC81D18}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -167,6 +171,14 @@ Global
 		{C3DCF09A-79E3-4E97-B39A-21086AC51303}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C3DCF09A-79E3-4E97-B39A-21086AC51303}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C3DCF09A-79E3-4E97-B39A-21086AC51303}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6C9FF548-819F-432F-B5B1-5DDCDB6E4DC4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6C9FF548-819F-432F-B5B1-5DDCDB6E4DC4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6C9FF548-819F-432F-B5B1-5DDCDB6E4DC4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6C9FF548-819F-432F-B5B1-5DDCDB6E4DC4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B2FF83EE-9A9A-4251-AEB1-86670CC81D18}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B2FF83EE-9A9A-4251-AEB1-86670CC81D18}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B2FF83EE-9A9A-4251-AEB1-86670CC81D18}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B2FF83EE-9A9A-4251-AEB1-86670CC81D18}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
