@@ -12,7 +12,7 @@
 *=====================================================================
 *修改时间：2019/1/15 15:40:22
 *修 改 人： yswenli
-*版 本 号： V1.0.0.0
+*版 本 号： V3.6.2.2
 *描    述：
 *****************************************************************************/
 using SAEA.MQTT.Common;
@@ -257,7 +257,7 @@ namespace SAEA.MQTT.Core.Implementations
 
                 while (!_cancellationTokenSource.IsCancellationRequested)
                 {
-                    var packet = await adapter.ReceivePacketAsync(TimeSpan.Zero, _cancellationTokenSource.Token).ConfigureAwait(false);
+                    var packet = await adapter.ReceivePacketAsync(_options.DefaultCommunicationTimeout, _cancellationTokenSource.Token).ConfigureAwait(false);
                     if (packet != null)
                     {
                         _keepAliveMonitor.PacketReceived(packet);

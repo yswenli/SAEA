@@ -12,13 +12,10 @@
 *=====================================================================
 *修改时间：2019/1/15 10:25:26
 *修 改 人： yswenli
-*版 本 号： V1.0.0.0
+*版 本 号： V3.6.2.2
 *描    述：
 *****************************************************************************/
-using System;
-using System.Collections.Generic;
 using System.Security.Authentication;
-using System.Text;
 
 namespace SAEA.MQTT.Model
 {

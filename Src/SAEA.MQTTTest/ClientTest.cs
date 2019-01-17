@@ -12,7 +12,7 @@
 *=====================================================================
 *修改时间：2019/1/15 16:13:54
 *修 改 人： yswenli
-*版 本 号： V1.0.0.0
+*版 本 号： V3.6.2.2
 *描    述：
 *****************************************************************************/
 using SAEA.MQTT;
@@ -22,8 +22,6 @@ using SAEA.MQTT.Core.Implementations;
 using SAEA.MQTT.Core.Protocol;
 using SAEA.MQTT.Model;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 

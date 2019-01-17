@@ -12,16 +12,14 @@
 *=====================================================================
 *修改时间：2019/1/15 17:04:51
 *修 改 人： yswenli
-*版 本 号： V1.0.0.0
+*版 本 号： V3.6.2.2
 *描    述：
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.MQTT.Interface;
 using SAEA.MQTT.Model;
-using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Core.Implementations

@@ -12,10 +12,10 @@
 *=====================================================================
 *修改时间：2019/1/14 14:11:15
 *修 改 人： yswenli
-*版 本 号： V1.0.0.0
+*版 本 号： V3.6.2.2
 *描    述：
 *****************************************************************************/
-using SAEA.Common;
+
 using SAEA.MQTT;
 using SAEA.MQTT.Common;
 using SAEA.MQTT.Common.Log;
@@ -23,6 +23,7 @@ using SAEA.MQTT.Core.Implementations;
 using SAEA.MQTT.Core.Protocol;
 using SAEA.MQTT.Model;
 using System;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -34,7 +35,8 @@ namespace SAEA.MQTTTest
         {
             while (true)
             {
-                Console.WriteLine($"MQTTnet - TestApp.{TargetFrameworkInfoProvider.TargetFramework}");
+                Console.Title = "SAEA.MQTT Test";
+
                 Console.WriteLine("1 = Start client");
                 Console.WriteLine("2 = Start server");
                 Console.WriteLine("3 = Start performance test");
@@ -77,31 +79,18 @@ namespace SAEA.MQTTTest
                         ServerTest.RunEmptyServer();
                         break;
                 }
-            }            
-        }
-
-        static async Task ServerAndClientTestRunAsync()
-        {
-            MqttNetConsoleLogger.ForwardToConsole();
-
-            var factory = new MqttFactory();
-
-            var server = factory.CreateMqttServer();
-            var client = factory.CreateMqttClient();
-
-            var serverOptions = new MqttServerOptionsBuilder().Build();
-            await server.StartAsync(serverOptions);
-
-            var clientOptions = new MqttClientOptionsBuilder().WithTcpServer("localhost").Build();
-            await client.ConnectAsync(clientOptions);
-
-            await Task.Delay(Timeout.Infinite);
-
+            }
         }
 
 
 
 
+
+
+        /// <summary>
+        /// 4
+        /// </summary>
+        /// <returns></returns>
         static async Task ManagedClientTest()
         {
             var ms = new ClientRetainedMessageHandler();
@@ -154,6 +143,60 @@ namespace SAEA.MQTTTest
             }
         }
 
+
+        /// <summary>
+        /// 6
+        /// </summary>
+        /// <returns></returns>
+        static async Task ServerAndClientTestRunAsync()
+        {
+            MqttNetConsoleLogger.ForwardToConsole();
+
+            var factory = new MqttFactory();
+
+            var server = factory.CreateMqttServer();
+            var client = factory.CreateMqttClient();
+            
+
+            var serverOptions = new MqttServerOptionsBuilder().Build();
+            server.ApplicationMessageReceived += Server_ApplicationMessageReceived;
+            await server.StartAsync(serverOptions);
+
+            var clientOptions = new MqttClientOptionsBuilder().WithTcpServer("127.0.0.1").Build();
+            client.ApplicationMessageReceived += Client_ApplicationMessageReceived;
+            
+
+            await client.ConnectAsync(clientOptions);
+
+            Task.Run(() =>
+            {
+                while (client.IsConnected)
+                {
+                    client.PublishAsync("test/topic", "hello").GetAwaiter().GetResult();
+                    Thread.Sleep(500);
+                }
+            });
+
+            client.SubscribeAsync("test/topic");
+
+        }
+
+        private static void Server_ApplicationMessageReceived(object sender, MQTT.Event.MqttApplicationMessageReceivedEventArgs e)
+        {
+            Console.ForegroundColor = ConsoleColor.DarkGreen;
+            Console.WriteLine($"Server收到消息，ClientId:{e.ClientId}，{Encoding.UTF8.GetString(e.ApplicationMessage.Payload)}");
+        }
+
+        private static void Client_ApplicationMessageReceived(object sender, MQTT.Event.MqttApplicationMessageReceivedEventArgs e)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"client:{e.ClientId}收到消息:{Encoding.UTF8.GetString(e.ApplicationMessage.Payload)}");
+        }
+
+        /// <summary>
+        /// 7
+        /// </summary>
+        /// <returns></returns>
         static async Task ClientFlowTest()
         {
             MqttNetConsoleLogger.ForwardToConsole();

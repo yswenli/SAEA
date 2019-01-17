@@ -12,7 +12,7 @@
 *=====================================================================
 *修改时间：2019/1/16 9:37:54
 *修 改 人： yswenli
-*版 本 号： V1.0.0.0
+*版 本 号： V3.6.2.2
 *描    述：
 *****************************************************************************/
 using SAEA.Common;
@@ -112,6 +112,7 @@ namespace SAEA.MQTT.Core
         public Task StopAsync()
         {
             StopPublishing();
+
             StopMaintainingConnection();
 
             _messageQueue.Clear();
@@ -131,22 +132,26 @@ namespace SAEA.MQTT.Core
             if (applicationMessage == null) throw new ArgumentNullException(nameof(applicationMessage));
 
             ManagedMqttApplicationMessage removedMessage = null;
+
             lock (_messageQueue)
             {
-                if (_messageQueue.Count >= Options.MaxPendingMessages)
+                if (Options != null)
                 {
-                    if (Options.PendingMessagesOverflowStrategy == MqttPendingMessagesOverflowStrategy.DropNewMessage)
+                    if (_messageQueue.Count >= Options.MaxPendingMessages)
                     {
-                        _logger.Verbose("Skipping publish of new application message because internal queue is full.");
-                        ApplicationMessageSkipped?.Invoke(this, new ApplicationMessageSkippedEventArgs(applicationMessage));
-                        return;
-                    }
+                        if (Options.PendingMessagesOverflowStrategy == MqttPendingMessagesOverflowStrategy.DropNewMessage)
+                        {
+                            _logger.Verbose("Skipping publish of new application message because internal queue is full.");
+                            ApplicationMessageSkipped?.Invoke(this, new ApplicationMessageSkippedEventArgs(applicationMessage));
+                            return;
+                        }
 
-                    if (Options.PendingMessagesOverflowStrategy == MqttPendingMessagesOverflowStrategy.DropOldestQueuedMessage)
-                    {
-                        removedMessage = _messageQueue.RemoveFirst();
-                        _logger.Verbose("Removed oldest application message from internal queue because it is full.");
-                        ApplicationMessageSkipped?.Invoke(this, new ApplicationMessageSkippedEventArgs(removedMessage));
+                        if (Options.PendingMessagesOverflowStrategy == MqttPendingMessagesOverflowStrategy.DropOldestQueuedMessage)
+                        {
+                            removedMessage = _messageQueue.RemoveFirst();
+                            _logger.Verbose("Removed oldest application message from internal queue because it is full.");
+                            ApplicationMessageSkipped?.Invoke(this, new ApplicationMessageSkippedEventArgs(removedMessage));
+                        }
                     }
                 }
 

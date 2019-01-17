@@ -12,7 +12,7 @@
 *=====================================================================
 *修改时间：2019/1/14 19:13:31
 *修 改 人： yswenli
-*版 本 号： V1.0.0.0
+*版 本 号： V3.6.2.2
 *描    述：
 *****************************************************************************/
 using SAEA.MQTT.Core.Protocol;
@@ -21,7 +21,7 @@ using System;
 
 namespace SAEA.MQTT.Model
 {
-    public class MqttClientOptions: IMqttClientOptions
+    public class MqttClientOptions : IMqttClientOptions
     {
         public string ClientId { get; set; } = Guid.NewGuid().ToString("N");
         public bool CleanSession { get; set; } = true;
@@ -30,8 +30,8 @@ namespace SAEA.MQTT.Model
         public IMqttClientChannelOptions ChannelOptions { get; set; }
 
         public TimeSpan CommunicationTimeout { get; set; } = TimeSpan.FromSeconds(10);
-        public TimeSpan KeepAlivePeriod { get; set; } = TimeSpan.FromSeconds(15);
-        public TimeSpan? KeepAliveSendInterval { get; set; }
+        public TimeSpan KeepAlivePeriod { get; set; } = TimeSpan.FromDays(365);
+        public TimeSpan? KeepAliveSendInterval { get; set; } = TimeSpan.FromSeconds(15);
 
         public MqttApplicationMessage WillMessage { get; set; }
     }
