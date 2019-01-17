@@ -4,7 +4,7 @@
 *机器名称：WENLI-PC
 *命名空间：SAEA.MQTTTest
 *类 名 称：PublicBrokerTest
-*版 本 号：V1.0.0.0
+*版 本 号： V3.6.2.2
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
 *创建时间：2019/1/15 16:39:45
@@ -97,7 +97,7 @@ namespace SAEA.MQTTTest
                 var client = factory.CreateMqttClient();
                 var topic = Guid.NewGuid().ToString();
 
-                MqttApplicationMessage receivedMessage = null;
+                MqttMessage receivedMessage = null;
                 client.ApplicationMessageReceived += (s, e) => receivedMessage = e.ApplicationMessage;
 
                 await client.ConnectAsync(options);

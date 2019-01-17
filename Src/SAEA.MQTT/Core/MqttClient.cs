@@ -4,7 +4,7 @@
 *机器名称：WENLI-PC
 *命名空间：SAEA.MQTT.Core
 *类 名 称：MqttClient
-*版 本 号：V1.0.0.0
+*版 本 号： V3.6.2.2
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
 *创建时间：2019/1/15 10:34:50
@@ -60,7 +60,7 @@ namespace SAEA.MQTT.Core
 
         public event EventHandler<MqttClientConnectedEventArgs> Connected;
         public event EventHandler<MqttClientDisconnectedEventArgs> Disconnected;
-        public event EventHandler<MqttApplicationMessageReceivedEventArgs> ApplicationMessageReceived;
+        public event EventHandler<MessageReceivedEventArgs> ApplicationMessageReceived;
 
         public bool IsConnected { get; private set; }
         public IMqttClientOptions Options { get; private set; }
@@ -181,7 +181,7 @@ namespace SAEA.MQTT.Core
         }
         
 
-        public Task PublishAsync(MqttApplicationMessage applicationMessage)
+        public Task PublishAsync(MqttMessage applicationMessage)
         {
             ThrowIfNotConnected();
 
@@ -212,7 +212,7 @@ namespace SAEA.MQTT.Core
 
         public Task PublishAsync(string topic, string v, MqttQualityOfServiceLevel atLeastOnce)
         {
-            return PublishAsync(new MqttApplicationMessage() { Topic = topic, QualityOfServiceLevel = atLeastOnce, Payload = Encoding.UTF8.GetBytes(v) });
+            return PublishAsync(new MqttMessage() { Topic = topic, QualityOfServiceLevel = atLeastOnce, Payload = Encoding.UTF8.GetBytes(v) });
         }
 
         public void Dispose()
@@ -225,7 +225,7 @@ namespace SAEA.MQTT.Core
             _adapter = null;
         }
 
-        private async Task<MqttConnAckPacket> AuthenticateAsync(MqttApplicationMessage willApplicationMessage, CancellationToken cancellationToken)
+        private async Task<MqttConnAckPacket> AuthenticateAsync(MqttMessage willApplicationMessage, CancellationToken cancellationToken)
         {
             var connectPacket = new MqttConnectPacket
             {
@@ -549,7 +549,7 @@ namespace SAEA.MQTT.Core
             try
             {
                 var applicationMessage = publishPacket.ToApplicationMessage();
-                ApplicationMessageReceived?.Invoke(this, new MqttApplicationMessageReceivedEventArgs(Options.ClientId, applicationMessage));
+                ApplicationMessageReceived?.Invoke(this, new MessageReceivedEventArgs(Options.ClientId, applicationMessage));
             }
             catch (Exception exception)
             {

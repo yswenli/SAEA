@@ -4,7 +4,7 @@
 *机器名称：WENLI-PC
 *命名空间：SAEA.MQTT.Common
 *类 名 称：MqttApplicationMessageExtensions
-*版 本 号：V1.0.0.0
+*版 本 号： V3.6.2.2
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
 *创建时间：2019/1/15 11:00:39
@@ -24,9 +24,9 @@ namespace SAEA.MQTT.Common
 {
     public static class MqttApplicationMessageExtensions
     {
-        public static MqttApplicationMessage ToApplicationMessage(this MqttPublishPacket publishPacket)
+        public static MqttMessage ToApplicationMessage(this MqttPublishPacket publishPacket)
         {
-            return new MqttApplicationMessage
+            return new MqttMessage
             {
                 Topic = publishPacket.Topic,
                 Payload = publishPacket.Payload,
@@ -35,7 +35,7 @@ namespace SAEA.MQTT.Common
             };
         }
 
-        public static MqttPublishPacket ToPublishPacket(this MqttApplicationMessage applicationMessage)
+        public static MqttPublishPacket ToPublishPacket(this MqttMessage applicationMessage)
         {
             if (applicationMessage == null)
             {
@@ -52,7 +52,7 @@ namespace SAEA.MQTT.Common
             };
         }
 
-        public static string ConvertPayloadToString(this MqttApplicationMessage applicationMessage)
+        public static string ConvertPayloadToString(this MqttMessage applicationMessage)
         {
             if (applicationMessage == null) throw new ArgumentNullException(nameof(applicationMessage));
 

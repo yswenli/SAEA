@@ -4,7 +4,7 @@
 *机器名称：WENLI-PC
 *命名空间：SAEA.MQTT.Core.Implementations
 *类 名 称：ClientRetainedMessageHandler
-*版 本 号：V1.0.0.0
+*版 本 号： V3.6.2.2
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
 *创建时间：2019/1/15 17:04:51
@@ -24,27 +24,27 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Core.Implementations
 {
-    public class ClientRetainedMessageHandler : IManagedMqttClientStorage
+    public class ClientRetainedMessageHandler : IMqttManagedClientStorage
     {
         private const string Filename = @"RetainedMessages.json";
 
-        public Task SaveQueuedMessagesAsync(IList<ManagedMqttApplicationMessage> messages)
+        public Task SaveQueuedMessagesAsync(IList<MqttManagedMessage> messages)
         {
             File.WriteAllText(Filename, SerializeHelper.Serialize(messages));
             return Task.FromResult(0);
         }
 
-        public Task<IList<ManagedMqttApplicationMessage>> LoadQueuedMessagesAsync()
+        public Task<IList<MqttManagedMessage>> LoadQueuedMessagesAsync()
         {
-            IList<ManagedMqttApplicationMessage> retainedMessages;
+            IList<MqttManagedMessage> retainedMessages;
             if (File.Exists(Filename))
             {
                 var json = File.ReadAllText(Filename);
-                retainedMessages = SerializeHelper.Deserialize<List<ManagedMqttApplicationMessage>>(json);
+                retainedMessages = SerializeHelper.Deserialize<List<MqttManagedMessage>>(json);
             }
             else
             {
-                retainedMessages = new List<ManagedMqttApplicationMessage>();
+                retainedMessages = new List<MqttManagedMessage>();
             }
 
             return Task.FromResult(retainedMessages);

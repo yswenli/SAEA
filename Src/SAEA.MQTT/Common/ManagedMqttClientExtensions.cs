@@ -4,7 +4,7 @@
 *机器名称：WENLI-PC
 *命名空间：SAEA.MQTT.Common
 *类 名 称：ManagedMqttClientExtensions
-*版 本 号：V1.0.0.0
+*版 本 号： V3.6.2.2
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
 *创建时间：2019/1/14 19:49:43
@@ -28,29 +28,29 @@ namespace SAEA.MQTT.Common
 {
     public static class ManagedMqttClientExtensions
     {
-        public static IManagedMqttClient CreateManagedMqttClient(this IMqttClientFactory factory)
+        public static IMqttManagedClient CreateManagedMqttClient(this IMqttClientFactory factory)
         {
             if (factory == null) throw new ArgumentNullException(nameof(factory));
 
-            return new ManagedMqttClient(factory.CreateMqttClient(), new MqttNetLogger().CreateChildLogger());
+            return new MqttManagedClient(factory.CreateMqttClient(), new MqttNetLogger().CreateChildLogger());
         }
 
-        public static IManagedMqttClient CreateManagedMqttClient(this IMqttClientFactory factory, IMqttNetLogger logger)
+        public static IMqttManagedClient CreateManagedMqttClient(this IMqttClientFactory factory, IMqttNetLogger logger)
         {
             if (factory == null) throw new ArgumentNullException(nameof(factory));
             if (logger == null) throw new ArgumentNullException(nameof(logger));
 
-            return new ManagedMqttClient(factory.CreateMqttClient(), logger.CreateChildLogger());
+            return new MqttManagedClient(factory.CreateMqttClient(), logger.CreateChildLogger());
         }
 
-        public static Task SubscribeAsync(this IManagedMqttClient managedClient, params TopicFilter[] topicFilters)
+        public static Task SubscribeAsync(this IMqttManagedClient managedClient, params TopicFilter[] topicFilters)
         {
             if (managedClient == null) throw new ArgumentNullException(nameof(managedClient));
 
             return managedClient.SubscribeAsync(topicFilters);
         }
 
-        public static Task SubscribeAsync(this IManagedMqttClient managedClient, string topic, MqttQualityOfServiceLevel qualityOfServiceLevel)
+        public static Task SubscribeAsync(this IMqttManagedClient managedClient, string topic, MqttQualityOfServiceLevel qualityOfServiceLevel)
         {
             if (managedClient == null) throw new ArgumentNullException(nameof(managedClient));
             if (topic == null) throw new ArgumentNullException(nameof(topic));
@@ -58,7 +58,7 @@ namespace SAEA.MQTT.Common
             return managedClient.SubscribeAsync(new TopicFilterBuilder().WithTopic(topic).WithQualityOfServiceLevel(qualityOfServiceLevel).Build());
         }
 
-        public static Task SubscribeAsync(this IManagedMqttClient managedClient, string topic)
+        public static Task SubscribeAsync(this IMqttManagedClient managedClient, string topic)
         {
             if (managedClient == null) throw new ArgumentNullException(nameof(managedClient));
             if (topic == null) throw new ArgumentNullException(nameof(topic));
@@ -66,7 +66,7 @@ namespace SAEA.MQTT.Common
             return managedClient.SubscribeAsync(new TopicFilterBuilder().WithTopic(topic).Build());
         }
 
-        public static Task UnsubscribeAsync(this IManagedMqttClient managedClient, params string[] topicFilters)
+        public static Task UnsubscribeAsync(this IMqttManagedClient managedClient, params string[] topicFilters)
         {
             if (managedClient == null) throw new ArgumentNullException(nameof(managedClient));
 

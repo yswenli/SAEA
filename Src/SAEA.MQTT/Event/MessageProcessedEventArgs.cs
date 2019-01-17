@@ -3,35 +3,35 @@
 *CLR 版本：4.0.30319.42000
 *机器名称：WENLI-PC
 *命名空间：SAEA.MQTT.Event
-*类 名 称：MqttApplicationMessageReceivedEventArgs
-*版 本 号：V1.0.0.0
+*类 名 称：MessageProcessedEventArgs
+*版 本 号： V3.6.2.2
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
-*创建时间：2019/1/14 19:51:54
+*创建时间：2019/1/14 19:56:32
 *描述：
 *=====================================================================
-*修改时间：2019/1/14 19:51:54
+*修改时间：2019/1/14 19:56:32
 *修 改 人： yswenli
 *版 本 号： V3.6.2.2
 *描    述：
 *****************************************************************************/
 using SAEA.MQTT.Model;
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.MQTT.Event
 {
-    public class MqttApplicationMessageReceivedEventArgs : EventArgs
+    public class MessageProcessedEventArgs : EventArgs
     {
-        public MqttApplicationMessageReceivedEventArgs(string clientId, MqttApplicationMessage applicationMessage)
+        public MessageProcessedEventArgs(MqttManagedMessage applicationMessage, Exception exception)
         {
-            ClientId = clientId;
             ApplicationMessage = applicationMessage ?? throw new ArgumentNullException(nameof(applicationMessage));
+            Exception = exception;
         }
 
-        public string ClientId { get; }
+        public MqttManagedMessage ApplicationMessage { get; }
+        public Exception Exception { get; }
 
-        public MqttApplicationMessage ApplicationMessage { get; }
+        public bool HasFailed => Exception != null;
+        public bool HasSucceeded => Exception == null;
     }
 }

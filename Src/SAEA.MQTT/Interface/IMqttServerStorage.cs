@@ -4,7 +4,7 @@
 *机器名称：WENLI-PC
 *命名空间：SAEA.MQTT.Interface
 *类 名 称：IMqttServerStorage
-*版 本 号：V1.0.0.0
+*版 本 号： V3.6.2.2
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
 *创建时间：2019/1/15 10:26:00
@@ -25,8 +25,8 @@ namespace SAEA.MQTT.Interface
 {
     public interface IMqttServerStorage
     {
-        Task SaveRetainedMessagesAsync(IList<MqttApplicationMessage> messages);
+        Task SaveRetainedMessagesAsync(IList<MqttMessage> messages);
 
-        Task<IList<MqttApplicationMessage>> LoadRetainedMessagesAsync();
+        Task<IList<MqttMessage>> LoadRetainedMessagesAsync();
     }
 }

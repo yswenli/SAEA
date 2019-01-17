@@ -4,7 +4,7 @@
 *机器名称：WENLI-PC
 *命名空间：SAEA.MQTTTest
 *类 名 称：PerformanceTest
-*版 本 号：V1.0.0.0
+*版 本 号： V3.6.2.2
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
 *创建时间：2019/1/16 10:16:24
@@ -196,9 +196,9 @@ namespace SAEA.MQTTTest
             }
         }
 
-        private static MqttApplicationMessage CreateMessage()
+        private static MqttMessage CreateMessage()
         {
-            return new MqttApplicationMessage
+            return new MqttMessage
             {
                 Topic = "A/B/C",
                 Payload = Encoding.UTF8.GetBytes("Hello World"),
@@ -206,7 +206,7 @@ namespace SAEA.MQTTTest
             };
         }
 
-        private static Task PublishSingleMessage(IMqttClient client, MqttApplicationMessage applicationMessage, ref int count)
+        private static Task PublishSingleMessage(IMqttClient client, MqttMessage applicationMessage, ref int count)
         {
             Interlocked.Increment(ref count);
             return Task.Run(() => client.PublishAsync(applicationMessage));

@@ -4,7 +4,7 @@
 *机器名称：WENLI-PC
 *命名空间：SAEA.MQTT.Model
 *类 名 称：MqttClientOptions
-*版 本 号：V1.0.0.0
+*版 本 号： V3.6.2.2
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
 *创建时间：2019/1/14 19:13:31
@@ -33,6 +33,6 @@ namespace SAEA.MQTT.Model
         public TimeSpan KeepAlivePeriod { get; set; } = TimeSpan.FromDays(365);
         public TimeSpan? KeepAliveSendInterval { get; set; } = TimeSpan.FromSeconds(15);
 
-        public MqttApplicationMessage WillMessage { get; set; }
+        public MqttMessage WillMessage { get; set; }
     }
 }

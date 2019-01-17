@@ -4,7 +4,7 @@
 *机器名称：WENLI-PC
 *命名空间：SAEA.MQTT.Core.Implementations
 *类 名 称：RetainedMessageHandler
-*版 本 号：V1.0.0.0
+*版 本 号： V3.6.2.2
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
 *创建时间：2019/1/15 16:24:29
@@ -37,7 +37,7 @@ namespace SAEA.MQTT.Core.Implementations
             _filename = fileName;
         }
 
-        public Task SaveRetainedMessagesAsync(IList<MqttApplicationMessage> messages)
+        public Task SaveRetainedMessagesAsync(IList<MqttMessage> messages)
         {
             var directory = Path.GetDirectoryName(_filename);
             if (!Directory.Exists(directory))
@@ -49,17 +49,17 @@ namespace SAEA.MQTT.Core.Implementations
             return Task.FromResult(0);
         }
 
-        public Task<IList<MqttApplicationMessage>> LoadRetainedMessagesAsync()
+        public Task<IList<MqttMessage>> LoadRetainedMessagesAsync()
         {
-            IList<MqttApplicationMessage> retainedMessages;
+            IList<MqttMessage> retainedMessages;
             if (File.Exists(_filename))
             {
                 var json = File.ReadAllText(_filename);
-                retainedMessages = SerializeHelper.Deserialize<List<MqttApplicationMessage>>(json);
+                retainedMessages = SerializeHelper.Deserialize<List<MqttMessage>>(json);
             }
             else
             {
-                retainedMessages = new List<MqttApplicationMessage>();
+                retainedMessages = new List<MqttMessage>();
             }
 
             return Task.FromResult(retainedMessages);

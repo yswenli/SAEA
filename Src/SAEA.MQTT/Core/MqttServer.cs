@@ -4,7 +4,7 @@
 *机器名称：WENLI-PC
 *命名空间：SAEA.MQTT.Core
 *类 名 称：MqttServer
-*版 本 号：V1.0.0.0
+*版 本 号： V3.6.2.2
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
 *创建时间：2019/1/15 15:35:14
@@ -62,7 +62,7 @@ namespace SAEA.MQTT.Core
         public event EventHandler<MqttClientSubscribedTopicEventArgs> ClientSubscribedTopic;
         public event EventHandler<MqttClientUnsubscribedTopicEventArgs> ClientUnsubscribedTopic;
 
-        public event EventHandler<MqttApplicationMessageReceivedEventArgs> ApplicationMessageReceived;
+        public event EventHandler<MessageReceivedEventArgs> ApplicationMessageReceived;
 
         public IMqttServerOptions Options { get; private set; }
 
@@ -76,7 +76,7 @@ namespace SAEA.MQTT.Core
             return _clientSessionsManager.GetClientStatus();
         }
 
-        public IList<MqttApplicationMessage> GetRetainedMessages()
+        public IList<MqttMessage> GetRetainedMessages()
         {
             return _retainedMessagesManager.GetMessages();
         }
@@ -97,7 +97,7 @@ namespace SAEA.MQTT.Core
             return _clientSessionsManager.UnsubscribeAsync(clientId, topicFilters);
         }
 
-        public Task PublishAsync(MqttApplicationMessage applicationMessage)
+        public Task PublishAsync(MqttMessage applicationMessage)
         {
             if (applicationMessage == null) throw new ArgumentNullException(nameof(applicationMessage));
 

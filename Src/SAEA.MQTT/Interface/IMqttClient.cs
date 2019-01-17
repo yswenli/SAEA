@@ -4,7 +4,7 @@
 *机器名称：WENLI-PC
 *命名空间：SAEA.MQTT.Interface
 *类 名 称：IMqttClient
-*版 本 号：V1.0.0.0
+*版 本 号： V3.6.2.2
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
 *创建时间：2019/1/15 10:09:00
@@ -24,7 +24,7 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Interface
 {
-    public interface IMqttClient : IApplicationMessageReceiver, IApplicationMessagePublisher, IDisposable
+    public interface IMqttClient : IMessageReceiver, IMessagePublisher, IDisposable
     {
         bool IsConnected { get; }
         IMqttClientOptions Options { get; }

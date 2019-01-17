@@ -4,7 +4,7 @@
 *机器名称：WENLI-PC
 *命名空间：SAEA.MQTT.Common
 *类 名 称：ApplicationMessagePublisherExtensions
-*版 本 号：V1.0.0.0
+*版 本 号： V3.6.2.2
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
 *创建时间：2019/1/16 10:10:20
@@ -27,7 +27,7 @@ namespace SAEA.MQTT.Common
 {
     public static class ApplicationMessagePublisherExtensions
     {
-        public static async Task PublishAsync(this IApplicationMessagePublisher publisher, IEnumerable<MqttApplicationMessage> applicationMessages)
+        public static async Task PublishAsync(this IMessagePublisher publisher, IEnumerable<MqttMessage> applicationMessages)
         {
             if (publisher == null) throw new ArgumentNullException(nameof(publisher));
             if (applicationMessages == null) throw new ArgumentNullException(nameof(applicationMessages));
@@ -38,7 +38,7 @@ namespace SAEA.MQTT.Common
             }
         }
 
-        public static async Task PublishAsync(this IApplicationMessagePublisher publisher, params MqttApplicationMessage[] applicationMessages)
+        public static async Task PublishAsync(this IMessagePublisher publisher, params MqttMessage[] applicationMessages)
         {
             if (publisher == null) throw new ArgumentNullException(nameof(publisher));
             if (applicationMessages == null) throw new ArgumentNullException(nameof(applicationMessages));
@@ -49,7 +49,7 @@ namespace SAEA.MQTT.Common
             }
         }
 
-        public static Task PublishAsync(this IApplicationMessagePublisher publisher, string topic)
+        public static Task PublishAsync(this IMessagePublisher publisher, string topic)
         {
             if (publisher == null) throw new ArgumentNullException(nameof(publisher));
             if (topic == null) throw new ArgumentNullException(nameof(topic));
@@ -58,7 +58,7 @@ namespace SAEA.MQTT.Common
                 .WithTopic(topic));
         }
 
-        public static Task PublishAsync(this IApplicationMessagePublisher publisher, string topic, string payload)
+        public static Task PublishAsync(this IMessagePublisher publisher, string topic, string payload)
         {
             if (publisher == null) throw new ArgumentNullException(nameof(publisher));
             if (topic == null) throw new ArgumentNullException(nameof(topic));
@@ -68,7 +68,7 @@ namespace SAEA.MQTT.Common
                 .WithPayload(payload));
         }
 
-        public static Task PublishAsync(this IApplicationMessagePublisher publisher, string topic, string payload, MqttQualityOfServiceLevel qualityOfServiceLevel)
+        public static Task PublishAsync(this IMessagePublisher publisher, string topic, string payload, MqttQualityOfServiceLevel qualityOfServiceLevel)
         {
             if (publisher == null) throw new ArgumentNullException(nameof(publisher));
             if (topic == null) throw new ArgumentNullException(nameof(topic));
@@ -79,7 +79,7 @@ namespace SAEA.MQTT.Common
                 .WithQualityOfServiceLevel(qualityOfServiceLevel));
         }
 
-        public static Task PublishAsync(this IApplicationMessagePublisher publisher, string topic, string payload, MqttQualityOfServiceLevel qualityOfServiceLevel, bool retain)
+        public static Task PublishAsync(this IMessagePublisher publisher, string topic, string payload, MqttQualityOfServiceLevel qualityOfServiceLevel, bool retain)
         {
             if (publisher == null) throw new ArgumentNullException(nameof(publisher));
             if (topic == null) throw new ArgumentNullException(nameof(topic));
@@ -91,9 +91,9 @@ namespace SAEA.MQTT.Common
                 .WithRetainFlag(retain));
         }
 
-        public static Task PublishAsync(this IApplicationMessagePublisher publisher, Func<MqttApplicationMessageBuilder, MqttApplicationMessageBuilder> builder)
+        public static Task PublishAsync(this IMessagePublisher publisher, Func<MqttMessageBuilder, MqttMessageBuilder> builder)
         {
-            var message = builder(new MqttApplicationMessageBuilder()).Build();
+            var message = builder(new MqttMessageBuilder()).Build();
             return publisher.PublishAsync(message);
         }
     }

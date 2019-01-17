@@ -4,7 +4,7 @@
 *机器名称：WENLI-PC
 *命名空间：SAEA.MQTT.Common.Serializer
 *类 名 称：MqttPacketSerializer
-*版 本 号：V1.0.0.0
+*版 本 号： V3.6.2.2
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
 *创建时间：2019/1/15 11:05:03
@@ -59,7 +59,7 @@ namespace SAEA.MQTT.Common.Serializer
             return new ArraySegment<byte>(buffer, headerOffset, _packetWriter.Length - headerOffset);
         }
 
-        public MqttBasePacket Deserialize(ReceivedMqttPacket receivedMqttPacket)
+        public MqttBasePacket Deserialize(MqttReceivedPacket receivedMqttPacket)
         {
             if (receivedMqttPacket == null) throw new ArgumentNullException(nameof(receivedMqttPacket));
 
@@ -203,7 +203,7 @@ namespace SAEA.MQTT.Common.Serializer
             return packet;
         }
 
-        private static MqttBasePacket DeserializePublish(ReceivedMqttPacket receivedMqttPacket)
+        private static MqttBasePacket DeserializePublish(MqttReceivedPacket receivedMqttPacket)
         {
             ThrowIfBodyIsEmpty(receivedMqttPacket.Body);
 
@@ -287,7 +287,7 @@ namespace SAEA.MQTT.Common.Serializer
 
             if (willFlag)
             {
-                packet.WillMessage = new MqttApplicationMessage
+                packet.WillMessage = new MqttMessage
                 {
                     Topic = body.ReadStringWithLengthPrefix(),
                     Payload = body.ReadWithLengthPrefix().ToArray(),

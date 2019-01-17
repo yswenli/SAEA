@@ -4,7 +4,7 @@
 *机器名称：WENLI-PC
 *命名空间：SAEA.MQTT.Core.Implementations
 *类 名 称：MqttChannelAdapter
-*版 本 号：V1.0.0.0
+*版 本 号： V3.6.2.2
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
 *创建时间：2019/1/15 15:24:37
@@ -141,7 +141,7 @@ namespace SAEA.MQTT.Core.Implementations
 
             try
             {
-                ReceivedMqttPacket receivedMqttPacket;
+                MqttReceivedPacket receivedMqttPacket;
 
                 if (timeout > TimeSpan.Zero)
                 {
@@ -183,7 +183,7 @@ namespace SAEA.MQTT.Core.Implementations
             return null;
         }
 
-        private async Task<ReceivedMqttPacket> ReceiveAsync(CancellationToken cancellationToken)
+        private async Task<MqttReceivedPacket> ReceiveAsync(CancellationToken cancellationToken)
         {
             var fixedHeader = await MqttPacketReader.ReadFixedHeaderAsync(_channel, _fixedHeaderBuffer, _singleByteBuffer, cancellationToken).ConfigureAwait(false);
 
@@ -193,7 +193,7 @@ namespace SAEA.MQTT.Core.Implementations
 
                 if (fixedHeader.RemainingLength == 0)
                 {
-                    return new ReceivedMqttPacket(fixedHeader.Flags, null);
+                    return new MqttReceivedPacket(fixedHeader.Flags, null);
                 }
 
                 var body = new byte[fixedHeader.RemainingLength];
@@ -220,7 +220,7 @@ namespace SAEA.MQTT.Core.Implementations
                     bodyOffset += readBytes;
                 } while (bodyOffset < body.Length);
 
-                return new ReceivedMqttPacket(fixedHeader.Flags, new MqttPacketBodyReader(body, 0, body.Length));
+                return new MqttReceivedPacket(fixedHeader.Flags, new MqttPacketBodyReader(body, 0, body.Length));
             }
             finally
             {

@@ -3,8 +3,8 @@
 *CLR 版本：4.0.30319.42000
 *机器名称：WENLI-PC
 *命名空间：SAEA.MQTT.Interface
-*类 名 称：IManagedMqttClient
-*版 本 号：V1.0.0.0
+*类 名 称：IMqttManagedClient
+*版 本 号： V3.6.2.2
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
 *创建时间：2019/1/14 19:50:26
@@ -23,28 +23,28 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Interface
 {
-    public interface IManagedMqttClient : IApplicationMessageReceiver, IApplicationMessagePublisher, IDisposable
+    public interface IMqttManagedClient : IMessageReceiver, IMessagePublisher, IDisposable
     {
         bool IsStarted { get; }
         bool IsConnected { get; }
         int PendingApplicationMessagesCount { get; }
-        IManagedMqttClientOptions Options { get; }
+        IMqttManagedClientOptions Options { get; }
 
         event EventHandler<MqttClientConnectedEventArgs> Connected;
         event EventHandler<MqttClientDisconnectedEventArgs> Disconnected;
 
-        event EventHandler<ApplicationMessageProcessedEventArgs> ApplicationMessageProcessed;
-        event EventHandler<ApplicationMessageSkippedEventArgs> ApplicationMessageSkipped;
+        event EventHandler<MessageProcessedEventArgs> ApplicationMessageProcessed;
+        event EventHandler<MessageSkippedEventArgs> ApplicationMessageSkipped;
 
         event EventHandler<MqttManagedProcessFailedEventArgs> ConnectingFailed;
         event EventHandler<MqttManagedProcessFailedEventArgs> SynchronizingSubscriptionsFailed;
 
-        Task StartAsync(IManagedMqttClientOptions options);
+        Task StartAsync(IMqttManagedClientOptions options);
         Task StopAsync();
 
         Task SubscribeAsync(IEnumerable<TopicFilter> topicFilters);
         Task UnsubscribeAsync(IEnumerable<string> topics);
 
-        Task PublishAsync(ManagedMqttApplicationMessage applicationMessages);
+        Task PublishAsync(MqttManagedMessage applicationMessages);
     }
 }

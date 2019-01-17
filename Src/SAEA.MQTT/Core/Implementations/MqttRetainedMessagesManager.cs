@@ -4,7 +4,7 @@
 *机器名称：WENLI-PC
 *命名空间：SAEA.MQTT.Core.Implementations
 *类 名 称：MqttRetainedMessagesManager
-*版 本 号：V1.0.0.0
+*版 本 号： V3.6.2.2
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
 *创建时间：2019/1/15 15:36:19
@@ -27,7 +27,7 @@ namespace SAEA.MQTT.Core.Implementations
 {
     public class MqttRetainedMessagesManager
     {
-        private readonly Dictionary<string, MqttApplicationMessage> _messages = new Dictionary<string, MqttApplicationMessage>();
+        private readonly Dictionary<string, MqttMessage> _messages = new Dictionary<string, MqttMessage>();
 
         private readonly IMqttNetChildLogger _logger;
         private readonly IMqttServerOptions _options;
@@ -65,13 +65,13 @@ namespace SAEA.MQTT.Core.Implementations
             }
         }
 
-        public async Task HandleMessageAsync(string clientId, MqttApplicationMessage applicationMessage)
+        public async Task HandleMessageAsync(string clientId, MqttMessage applicationMessage)
         {
             if (applicationMessage == null) throw new ArgumentNullException(nameof(applicationMessage));
 
             try
             {
-                List<MqttApplicationMessage> messagesForSave = null;
+                List<MqttMessage> messagesForSave = null;
                 lock (_messages)
                 {
                     var saveIsRequired = false;
@@ -102,7 +102,7 @@ namespace SAEA.MQTT.Core.Implementations
 
                     if (saveIsRequired)
                     {
-                        messagesForSave = new List<MqttApplicationMessage>(_messages.Values);
+                        messagesForSave = new List<MqttMessage>(_messages.Values);
                     }
                 }
 
@@ -123,9 +123,9 @@ namespace SAEA.MQTT.Core.Implementations
             }
         }
 
-        public IList<MqttApplicationMessage> GetSubscribedMessages(ICollection<TopicFilter> topicFilters)
+        public IList<MqttMessage> GetSubscribedMessages(ICollection<TopicFilter> topicFilters)
         {
-            var retainedMessages = new List<MqttApplicationMessage>();
+            var retainedMessages = new List<MqttMessage>();
 
             lock (_messages)
             {
@@ -147,7 +147,7 @@ namespace SAEA.MQTT.Core.Implementations
             return retainedMessages;
         }
 
-        public IList<MqttApplicationMessage> GetMessages()
+        public IList<MqttMessage> GetMessages()
         {
             lock (_messages)
             {
@@ -164,7 +164,7 @@ namespace SAEA.MQTT.Core.Implementations
 
             if (_options.Storage != null)
             {
-                return _options.Storage.SaveRetainedMessagesAsync(new List<MqttApplicationMessage>());
+                return _options.Storage.SaveRetainedMessagesAsync(new List<MqttMessage>());
             }
 
             return Task.FromResult((object)null);

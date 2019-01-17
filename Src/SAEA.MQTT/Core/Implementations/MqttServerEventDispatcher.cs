@@ -4,7 +4,7 @@
 *机器名称：WENLI-PC
 *命名空间：SAEA.MQTT.Core.Implementations
 *类 名 称：MqttServerEventDispatcher
-*版 本 号：V1.0.0.0
+*版 本 号： V3.6.2.2
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
 *创建时间：2019/1/15 15:45:23
@@ -33,7 +33,7 @@ namespace SAEA.MQTT.Core.Implementations
 
         public event EventHandler<MqttClientDisconnectedEventArgs> ClientDisconnected;
 
-        public event EventHandler<MqttApplicationMessageReceivedEventArgs> ApplicationMessageReceived;
+        public event EventHandler<MessageReceivedEventArgs> ApplicationMessageReceived;
 
         public void OnClientSubscribedTopic(string clientId, TopicFilter topicFilter)
         {
@@ -50,9 +50,9 @@ namespace SAEA.MQTT.Core.Implementations
             ClientDisconnected?.Invoke(this, new MqttClientDisconnectedEventArgs(clientId, wasCleanDisconnect));
         }
 
-        public void OnApplicationMessageReceived(string senderClientId, MqttApplicationMessage applicationMessage)
+        public void OnApplicationMessageReceived(string senderClientId, MqttMessage applicationMessage)
         {
-            ApplicationMessageReceived?.Invoke(this, new MqttApplicationMessageReceivedEventArgs(senderClientId, applicationMessage));
+            ApplicationMessageReceived?.Invoke(this, new MessageReceivedEventArgs(senderClientId, applicationMessage));
         }
 
         public void OnClientConnected(string clientId)

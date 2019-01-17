@@ -3,8 +3,8 @@
 *CLR 版本：4.0.30319.42000
 *机器名称：WENLI-PC
 *命名空间：SAEA.MQTT.Core.Implementations
-*类 名 称：ManagedMqttClientStorageManager
-*版 本 号：V1.0.0.0
+*类 名 称：MqttManagedClientStorageManager
+*版 本 号： V3.6.2.2
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
 *创建时间：2019/1/16 9:40:06
@@ -25,19 +25,19 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Core.Implementations
 {
-    public class ManagedMqttClientStorageManager
+    public class MqttManagedClientStorageManager
     {
-        private readonly List<ManagedMqttApplicationMessage> _messages = new List<ManagedMqttApplicationMessage>();
+        private readonly List<MqttManagedMessage> _messages = new List<MqttManagedMessage>();
         private readonly AsyncLock _messagesLock = new AsyncLock();
 
-        private readonly IManagedMqttClientStorage _storage;
+        private readonly IMqttManagedClientStorage _storage;
 
-        public ManagedMqttClientStorageManager(IManagedMqttClientStorage storage)
+        public MqttManagedClientStorageManager(IMqttManagedClientStorage storage)
         {
             _storage = storage ?? throw new ArgumentNullException(nameof(storage));
         }
 
-        public async Task<List<ManagedMqttApplicationMessage>> LoadQueuedMessagesAsync()
+        public async Task<List<MqttManagedMessage>> LoadQueuedMessagesAsync()
         {
             var loadedMessages = await _storage.LoadQueuedMessagesAsync().ConfigureAwait(false);
             _messages.AddRange(loadedMessages);
@@ -45,7 +45,7 @@ namespace SAEA.MQTT.Core.Implementations
             return _messages;
         }
 
-        public async Task AddAsync(ManagedMqttApplicationMessage applicationMessage)
+        public async Task AddAsync(MqttManagedMessage applicationMessage)
         {
             if (applicationMessage == null) throw new ArgumentNullException(nameof(applicationMessage));
 
@@ -56,7 +56,7 @@ namespace SAEA.MQTT.Core.Implementations
             }
         }
 
-        public async Task RemoveAsync(ManagedMqttApplicationMessage applicationMessage)
+        public async Task RemoveAsync(MqttManagedMessage applicationMessage)
         {
             if (applicationMessage == null) throw new ArgumentNullException(nameof(applicationMessage));
 

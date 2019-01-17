@@ -3,8 +3,8 @@
 *CLR 版本：4.0.30319.42000
 *机器名称：WENLI-PC
 *命名空间：SAEA.MQTT.Core.Implementations
-*类 名 称：ManagedMqttApplicationMessageBuilder
-*版 本 号：V1.0.0.0
+*类 名 称：MqttManagedMessageBuilder
+*版 本 号： V3.6.2.2
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
 *创建时间：2019/1/14 19:07:44
@@ -20,42 +20,42 @@ using System;
 
 namespace SAEA.MQTT.Core.Implementations
 {
-    public class ManagedMqttApplicationMessageBuilder
+    public class MqttManagedMessageBuilder
     {
         private Guid _id = Guid.NewGuid();
-        private MqttApplicationMessage _applicationMessage;
+        private MqttMessage _applicationMessage;
 
-        public ManagedMqttApplicationMessageBuilder WithId(Guid id)
+        public MqttManagedMessageBuilder WithId(Guid id)
         {
             _id = id;
             return this;
         }
 
-        public ManagedMqttApplicationMessageBuilder WithApplicationMessage(MqttApplicationMessage applicationMessage)
+        public MqttManagedMessageBuilder WithApplicationMessage(MqttMessage applicationMessage)
         {
             _applicationMessage = applicationMessage;
             return this;
         }
 
-        public ManagedMqttApplicationMessageBuilder WithApplicationMessage(Action<MqttApplicationMessageBuilder> builder)
+        public MqttManagedMessageBuilder WithApplicationMessage(Action<MqttMessageBuilder> builder)
         {
             if (builder == null) throw new ArgumentNullException(nameof(builder));
 
-            var internalBuilder = new MqttApplicationMessageBuilder();
+            var internalBuilder = new MqttMessageBuilder();
             builder(internalBuilder);
 
             _applicationMessage = internalBuilder.Build();
             return this;
         }
 
-        public ManagedMqttApplicationMessage Build()
+        public MqttManagedMessage Build()
         {
             if (_applicationMessage == null)
             {
                 throw new InvalidOperationException("The ApplicationMessage cannot be null.");
             }
 
-            return new ManagedMqttApplicationMessage
+            return new MqttManagedMessage
             {
                 Id = _id,
                 ApplicationMessage = _applicationMessage

@@ -4,7 +4,7 @@
 *机器名称：WENLI-PC
 *命名空间：SAEA.MQTTTest
 *类 名 称：Program
-*版 本 号：V1.0.0.0
+*版 本 号： V3.6.2.2
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
 *创建时间：2019/1/14 14:11:15
@@ -95,7 +95,7 @@ namespace SAEA.MQTTTest
         {
             var ms = new ClientRetainedMessageHandler();
 
-            var options = new ManagedMqttClientOptions
+            var options = new MqttManagedClientOptions
             {
                 ClientOptions = new MqttClientOptions
                 {
@@ -181,13 +181,13 @@ namespace SAEA.MQTTTest
 
         }
 
-        private static void Server_ApplicationMessageReceived(object sender, MQTT.Event.MqttApplicationMessageReceivedEventArgs e)
+        private static void Server_ApplicationMessageReceived(object sender, MQTT.Event.MessageReceivedEventArgs e)
         {
             Console.ForegroundColor = ConsoleColor.DarkGreen;
             Console.WriteLine($"Server收到消息，ClientId:{e.ClientId}，{Encoding.UTF8.GetString(e.ApplicationMessage.Payload)}");
         }
 
-        private static void Client_ApplicationMessageReceived(object sender, MQTT.Event.MqttApplicationMessageReceivedEventArgs e)
+        private static void Client_ApplicationMessageReceived(object sender, MQTT.Event.MessageReceivedEventArgs e)
         {
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"client:{e.ClientId}收到消息:{Encoding.UTF8.GetString(e.ApplicationMessage.Payload)}");

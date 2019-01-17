@@ -3,8 +3,8 @@
 *CLR 版本：4.0.30319.42000
 *机器名称：WENLI-PC
 *命名空间：SAEA.MQTT.Core.Implementations
-*类 名 称：MqttApplicationMessageBuilder
-*版 本 号：V1.0.0.0
+*类 名 称：MqttMessageBuilder
+*版 本 号： V3.6.2.2
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
 *创建时间：2019/1/14 19:00:57
@@ -25,20 +25,20 @@ using System.Text;
 
 namespace SAEA.MQTT.Core.Implementations
 {
-    public class MqttApplicationMessageBuilder
+    public class MqttMessageBuilder
     {
         private MqttQualityOfServiceLevel _qualityOfServiceLevel = MqttQualityOfServiceLevel.AtMostOnce;
         private string _topic;
         private byte[] _payload;
         private bool _retain;
 
-        public MqttApplicationMessageBuilder WithTopic(string topic)
+        public MqttMessageBuilder WithTopic(string topic)
         {
             _topic = topic;
             return this;
         }
 
-        public MqttApplicationMessageBuilder WithPayload(IEnumerable<byte> payload)
+        public MqttMessageBuilder WithPayload(IEnumerable<byte> payload)
         {
             if (payload == null)
             {
@@ -50,12 +50,12 @@ namespace SAEA.MQTT.Core.Implementations
             return this;
         }
 
-        public MqttApplicationMessageBuilder WithPayload(Stream payload)
+        public MqttMessageBuilder WithPayload(Stream payload)
         {
             return WithPayload(payload, payload.Length - payload.Position);
         }
 
-        public MqttApplicationMessageBuilder WithPayload(Stream payload, long length)
+        public MqttMessageBuilder WithPayload(Stream payload, long length)
         {
             if (payload == null)
             {
@@ -76,7 +76,7 @@ namespace SAEA.MQTT.Core.Implementations
             return this;
         }
 
-        public MqttApplicationMessageBuilder WithPayload(string payload)
+        public MqttMessageBuilder WithPayload(string payload)
         {
             if (payload == null)
             {
@@ -88,44 +88,44 @@ namespace SAEA.MQTT.Core.Implementations
             return this;
         }
 
-        public MqttApplicationMessageBuilder WithQualityOfServiceLevel(MqttQualityOfServiceLevel qualityOfServiceLevel)
+        public MqttMessageBuilder WithQualityOfServiceLevel(MqttQualityOfServiceLevel qualityOfServiceLevel)
         {
             _qualityOfServiceLevel = qualityOfServiceLevel;
             return this;
         }
 
-        public MqttApplicationMessageBuilder WithRetainFlag(bool value = true)
+        public MqttMessageBuilder WithRetainFlag(bool value = true)
         {
             _retain = value;
             return this;
         }
 
-        public MqttApplicationMessageBuilder WithAtLeastOnceQoS()
+        public MqttMessageBuilder WithAtLeastOnceQoS()
         {
             _qualityOfServiceLevel = MqttQualityOfServiceLevel.AtLeastOnce;
             return this;
         }
 
-        public MqttApplicationMessageBuilder WithAtMostOnceQoS()
+        public MqttMessageBuilder WithAtMostOnceQoS()
         {
             _qualityOfServiceLevel = MqttQualityOfServiceLevel.AtMostOnce;
             return this;
         }
 
-        public MqttApplicationMessageBuilder WithExactlyOnceQoS()
+        public MqttMessageBuilder WithExactlyOnceQoS()
         {
             _qualityOfServiceLevel = MqttQualityOfServiceLevel.ExactlyOnce;
             return this;
         }
 
-        public MqttApplicationMessage Build()
+        public MqttMessage Build()
         {
             if (string.IsNullOrEmpty(_topic))
             {
                 throw new MqttProtocolViolationException("Topic is not set.");
             }
 
-            return new MqttApplicationMessage
+            return new MqttMessage
             {
                 Topic = _topic,
                 Payload = _payload ?? new byte[0],

@@ -3,8 +3,8 @@
 *CLR 版本：4.0.30319.42000
 *机器名称：WENLI-PC
 *命名空间：SAEA.MQTT.Event
-*类 名 称：ApplicationMessageSkippedEventArgs
-*版 本 号：V1.0.0.0
+*类 名 称：MessageSkippedEventArgs
+*版 本 号： V3.6.2.2
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
 *创建时间：2019/1/14 19:57:10
@@ -20,13 +20,13 @@ using System;
 
 namespace SAEA.MQTT.Event
 {
-    public class ApplicationMessageSkippedEventArgs : EventArgs
+    public class MessageSkippedEventArgs : EventArgs
     {
-        public ApplicationMessageSkippedEventArgs(ManagedMqttApplicationMessage applicationMessage)
+        public MessageSkippedEventArgs(MqttManagedMessage applicationMessage)
         {
             ApplicationMessage = applicationMessage ?? throw new ArgumentNullException(nameof(applicationMessage));
         }
 
-        public ManagedMqttApplicationMessage ApplicationMessage { get; }
+        public MqttManagedMessage ApplicationMessage { get; }
     }
 }

@@ -3,8 +3,8 @@
 *CLR 版本：4.0.30319.42000
 *机器名称：WENLI-PC
 *命名空间：SAEA.MQTT.Core
-*类 名 称：ManagedMqttClient
-*版 本 号：V1.0.0.0
+*类 名 称：MqttManagedClient
+*版 本 号： V3.6.2.2
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
 *创建时间：2019/1/16 9:37:54
@@ -31,9 +31,9 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Core
 {
-    public class ManagedMqttClient : IManagedMqttClient
+    public class MqttManagedClient : IMqttManagedClient
     {
-        private readonly BlockingQueue<ManagedMqttApplicationMessage> _messageQueue = new BlockingQueue<ManagedMqttApplicationMessage>();
+        private readonly BlockingQueue<MqttManagedMessage> _messageQueue = new BlockingQueue<MqttManagedMessage>();
         private readonly Dictionary<string, MqttQualityOfServiceLevel> _subscriptions = new Dictionary<string, MqttQualityOfServiceLevel>();
         private readonly HashSet<string> _unsubscriptions = new HashSet<string>();
 
@@ -43,11 +43,11 @@ namespace SAEA.MQTT.Core
         private CancellationTokenSource _connectionCancellationToken;
         private CancellationTokenSource _publishingCancellationToken;
 
-        private ManagedMqttClientStorageManager _storageManager;
+        private MqttManagedClientStorageManager _storageManager;
 
         private bool _subscriptionsNotPushed;
 
-        public ManagedMqttClient(IMqttClient mqttClient, IMqttNetChildLogger logger)
+        public MqttManagedClient(IMqttClient mqttClient, IMqttNetChildLogger logger)
         {
             if (logger == null) throw new ArgumentNullException(nameof(logger));
 
@@ -57,25 +57,25 @@ namespace SAEA.MQTT.Core
             _mqttClient.Disconnected += OnDisconnected;
             _mqttClient.ApplicationMessageReceived += OnApplicationMessageReceived;
 
-            _logger = logger.CreateChildLogger(nameof(ManagedMqttClient));
+            _logger = logger.CreateChildLogger(nameof(MqttManagedClient));
         }
 
         public bool IsConnected => _mqttClient.IsConnected;
         public bool IsStarted => _connectionCancellationToken != null;
         public int PendingApplicationMessagesCount => _messageQueue.Count;
-        public IManagedMqttClientOptions Options { get; private set; }
+        public IMqttManagedClientOptions Options { get; private set; }
 
         public event EventHandler<MqttClientConnectedEventArgs> Connected;
         public event EventHandler<MqttClientDisconnectedEventArgs> Disconnected;
 
-        public event EventHandler<MqttApplicationMessageReceivedEventArgs> ApplicationMessageReceived;
-        public event EventHandler<ApplicationMessageProcessedEventArgs> ApplicationMessageProcessed;
-        public event EventHandler<ApplicationMessageSkippedEventArgs> ApplicationMessageSkipped;
+        public event EventHandler<MessageReceivedEventArgs> ApplicationMessageReceived;
+        public event EventHandler<MessageProcessedEventArgs> ApplicationMessageProcessed;
+        public event EventHandler<MessageSkippedEventArgs> ApplicationMessageSkipped;
 
         public event EventHandler<MqttManagedProcessFailedEventArgs> ConnectingFailed;
         public event EventHandler<MqttManagedProcessFailedEventArgs> SynchronizingSubscriptionsFailed;
 
-        public async Task StartAsync(IManagedMqttClientOptions options)
+        public async Task StartAsync(IMqttManagedClientOptions options)
         {
             if (options == null) throw new ArgumentNullException(nameof(options));
             if (options.ClientOptions == null) throw new ArgumentException("The client options are not set.", nameof(options));
@@ -91,7 +91,7 @@ namespace SAEA.MQTT.Core
 
             if (Options.Storage != null)
             {
-                _storageManager = new ManagedMqttClientStorageManager(Options.Storage);
+                _storageManager = new MqttManagedClientStorageManager(Options.Storage);
                 var messages = await _storageManager.LoadQueuedMessagesAsync().ConfigureAwait(false);
 
                 foreach (var message in messages)
@@ -120,18 +120,18 @@ namespace SAEA.MQTT.Core
             return Task.FromResult(0);
         }
 
-        public Task PublishAsync(MqttApplicationMessage applicationMessage)
+        public Task PublishAsync(MqttMessage applicationMessage)
         {
             if (applicationMessage == null) throw new ArgumentNullException(nameof(applicationMessage));
 
-            return PublishAsync(new ManagedMqttApplicationMessageBuilder().WithApplicationMessage(applicationMessage).Build());
+            return PublishAsync(new MqttManagedMessageBuilder().WithApplicationMessage(applicationMessage).Build());
         }
 
-        public async Task PublishAsync(ManagedMqttApplicationMessage applicationMessage)
+        public async Task PublishAsync(MqttManagedMessage applicationMessage)
         {
             if (applicationMessage == null) throw new ArgumentNullException(nameof(applicationMessage));
 
-            ManagedMqttApplicationMessage removedMessage = null;
+            MqttManagedMessage removedMessage = null;
 
             lock (_messageQueue)
             {
@@ -142,7 +142,7 @@ namespace SAEA.MQTT.Core
                         if (Options.PendingMessagesOverflowStrategy == MqttPendingMessagesOverflowStrategy.DropNewMessage)
                         {
                             _logger.Verbose("Skipping publish of new application message because internal queue is full.");
-                            ApplicationMessageSkipped?.Invoke(this, new ApplicationMessageSkippedEventArgs(applicationMessage));
+                            ApplicationMessageSkipped?.Invoke(this, new MessageSkippedEventArgs(applicationMessage));
                             return;
                         }
 
@@ -150,7 +150,7 @@ namespace SAEA.MQTT.Core
                         {
                             removedMessage = _messageQueue.RemoveFirst();
                             _logger.Verbose("Removed oldest application message from internal queue because it is full.");
-                            ApplicationMessageSkipped?.Invoke(this, new ApplicationMessageSkippedEventArgs(removedMessage));
+                            ApplicationMessageSkipped?.Invoke(this, new MessageSkippedEventArgs(removedMessage));
                         }
                     }
                 }
@@ -308,7 +308,7 @@ namespace SAEA.MQTT.Core
             }
         }
 
-        private void TryPublishQueuedMessage(ManagedMqttApplicationMessage message)
+        private void TryPublishQueuedMessage(MqttManagedMessage message)
         {
             Exception transmitException = null;
             try
@@ -354,13 +354,13 @@ namespace SAEA.MQTT.Core
             }
             finally
             {
-                ApplicationMessageProcessed?.Invoke(this, new ApplicationMessageProcessedEventArgs(message, transmitException));
+                ApplicationMessageProcessed?.Invoke(this, new MessageProcessedEventArgs(message, transmitException));
             }
         }
 
         private async Task SynchronizeSubscriptionsAsync()
         {
-            _logger.Info(nameof(ManagedMqttClient), "Synchronizing subscriptions");
+            _logger.Info(nameof(MqttManagedClient), "Synchronizing subscriptions");
 
             List<TopicFilter> subscriptions;
             HashSet<string> unsubscriptions;
@@ -420,7 +420,7 @@ namespace SAEA.MQTT.Core
             }
         }
 
-        private void OnApplicationMessageReceived(object sender, MqttApplicationMessageReceivedEventArgs eventArgs)
+        private void OnApplicationMessageReceived(object sender, MessageReceivedEventArgs eventArgs)
         {
             ApplicationMessageReceived?.Invoke(this, eventArgs);
         }

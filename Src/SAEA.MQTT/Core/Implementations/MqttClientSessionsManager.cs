@@ -4,7 +4,7 @@
 *机器名称：WENLI-PC
 *命名空间：SAEA.MQTT.Core.Implementations
 *类 名 称：MqttClientSessionsManager
-*版 本 号：V1.0.0.0
+*版 本 号： V3.6.2.2
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
 *创建时间：2019/1/15 15:39:45
@@ -33,7 +33,7 @@ namespace SAEA.MQTT.Core.Implementations
 {
     public class MqttClientSessionsManager : IDisposable
     {
-        private readonly BlockingCollection<MqttEnqueuedApplicationMessage> _messageQueue = new BlockingCollection<MqttEnqueuedApplicationMessage>();
+        private readonly BlockingCollection<MqttEnqueuedMessage> _messageQueue = new BlockingCollection<MqttEnqueuedMessage>();
 
         /// <summary>
         /// manual locking dictionaries is faster than using concurrent dictionary
@@ -106,7 +106,7 @@ namespace SAEA.MQTT.Core.Implementations
         {
             if (publishPacket == null) throw new ArgumentNullException(nameof(publishPacket));
 
-            _messageQueue.Add(new MqttEnqueuedApplicationMessage(senderClientSession, publishPacket), _cancellationToken);
+            _messageQueue.Add(new MqttEnqueuedMessage(senderClientSession, publishPacket), _cancellationToken);
         }
 
         public Task SubscribeAsync(string clientId, IList<TopicFilter> topicFilters)
@@ -354,7 +354,7 @@ namespace SAEA.MQTT.Core.Implementations
             }
         }
 
-        private MqttApplicationMessageInterceptorContext InterceptApplicationMessage(MqttClientSession sender, MqttApplicationMessage applicationMessage)
+        private MqttMessageInterceptorContext InterceptApplicationMessage(MqttClientSession sender, MqttMessage applicationMessage)
         {
             var interceptor = _options.ApplicationMessageInterceptor;
             if (interceptor == null)
@@ -362,7 +362,7 @@ namespace SAEA.MQTT.Core.Implementations
                 return null;
             }
 
-            var interceptorContext = new MqttApplicationMessageInterceptorContext(sender?.ClientId, applicationMessage);
+            var interceptorContext = new MqttMessageInterceptorContext(sender?.ClientId, applicationMessage);
             interceptor(interceptorContext);
             return interceptorContext;
         }

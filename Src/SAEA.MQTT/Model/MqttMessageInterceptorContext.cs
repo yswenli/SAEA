@@ -3,8 +3,8 @@
 *CLR 版本：4.0.30319.42000
 *机器名称：WENLI-PC
 *命名空间：SAEA.MQTT.Model
-*类 名 称：MqttApplicationMessageInterceptorContext
-*版 本 号：V1.0.0.0
+*类 名 称：MqttMessageInterceptorContext
+*版 本 号： V3.6.2.2
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
 *创建时间：2019/1/15 10:23:30
@@ -21,9 +21,9 @@ using System.Text;
 
 namespace SAEA.MQTT.Model
 {
-    public class MqttApplicationMessageInterceptorContext
+    public class MqttMessageInterceptorContext
     {
-        public MqttApplicationMessageInterceptorContext(string clientId, MqttApplicationMessage applicationMessage)
+        public MqttMessageInterceptorContext(string clientId, MqttMessage applicationMessage)
         {
             ClientId = clientId;
             ApplicationMessage = applicationMessage;
@@ -31,7 +31,7 @@ namespace SAEA.MQTT.Model
 
         public string ClientId { get; }
 
-        public MqttApplicationMessage ApplicationMessage { get; set; }
+        public MqttMessage ApplicationMessage { get; set; }
 
         public bool AcceptPublish { get; set; } = true;
 
