@@ -68,9 +68,9 @@ namespace SAEA.MQTT.Core
         public event EventHandler<MqttClientConnectedEventArgs> Connected;
         public event EventHandler<MqttClientDisconnectedEventArgs> Disconnected;
 
-        public event EventHandler<MessageReceivedEventArgs> ApplicationMessageReceived;
-        public event EventHandler<MessageProcessedEventArgs> ApplicationMessageProcessed;
-        public event EventHandler<MessageSkippedEventArgs> ApplicationMessageSkipped;
+        public event EventHandler<MqttMessageReceivedEventArgs> ApplicationMessageReceived;
+        public event EventHandler<MqttMessageProcessedEventArgs> ApplicationMessageProcessed;
+        public event EventHandler<MqttMessageSkippedEventArgs> ApplicationMessageSkipped;
 
         public event EventHandler<MqttManagedProcessFailedEventArgs> ConnectingFailed;
         public event EventHandler<MqttManagedProcessFailedEventArgs> SynchronizingSubscriptionsFailed;
@@ -142,7 +142,7 @@ namespace SAEA.MQTT.Core
                         if (Options.PendingMessagesOverflowStrategy == MqttPendingMessagesOverflowStrategy.DropNewMessage)
                         {
                             _logger.Verbose("Skipping publish of new application message because internal queue is full.");
-                            ApplicationMessageSkipped?.Invoke(this, new MessageSkippedEventArgs(applicationMessage));
+                            ApplicationMessageSkipped?.Invoke(this, new MqttMessageSkippedEventArgs(applicationMessage));
                             return;
                         }
 
@@ -150,7 +150,7 @@ namespace SAEA.MQTT.Core
                         {
                             removedMessage = _messageQueue.RemoveFirst();
                             _logger.Verbose("Removed oldest application message from internal queue because it is full.");
-                            ApplicationMessageSkipped?.Invoke(this, new MessageSkippedEventArgs(removedMessage));
+                            ApplicationMessageSkipped?.Invoke(this, new MqttMessageSkippedEventArgs(removedMessage));
                         }
                     }
                 }
@@ -354,7 +354,7 @@ namespace SAEA.MQTT.Core
             }
             finally
             {
-                ApplicationMessageProcessed?.Invoke(this, new MessageProcessedEventArgs(message, transmitException));
+                ApplicationMessageProcessed?.Invoke(this, new MqttMessageProcessedEventArgs(message, transmitException));
             }
         }
 
@@ -420,7 +420,7 @@ namespace SAEA.MQTT.Core
             }
         }
 
-        private void OnApplicationMessageReceived(object sender, MessageReceivedEventArgs eventArgs)
+        private void OnApplicationMessageReceived(object sender, MqttMessageReceivedEventArgs eventArgs)
         {
             ApplicationMessageReceived?.Invoke(this, eventArgs);
         }

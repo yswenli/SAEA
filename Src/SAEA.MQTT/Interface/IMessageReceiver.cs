@@ -22,6 +22,6 @@ namespace SAEA.MQTT.Interface
 {
     public interface IMessageReceiver
     {
-        event EventHandler<MessageReceivedEventArgs> ApplicationMessageReceived;
+        event EventHandler<MqttMessageReceivedEventArgs> ApplicationMessageReceived;
     }
 }

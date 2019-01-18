@@ -62,7 +62,7 @@ namespace SAEA.MQTT.Core
         public event EventHandler<MqttClientSubscribedTopicEventArgs> ClientSubscribedTopic;
         public event EventHandler<MqttClientUnsubscribedTopicEventArgs> ClientUnsubscribedTopic;
 
-        public event EventHandler<MessageReceivedEventArgs> ApplicationMessageReceived;
+        public event EventHandler<MqttMessageReceivedEventArgs> ApplicationMessageReceived;
 
         public IMqttServerOptions Options { get; private set; }
 

@@ -198,7 +198,7 @@ namespace SAEA.MQTT.Core.Implementations
                     applicationMessage = interceptorContext.ApplicationMessage;
                 }
 
-                _eventDispatcher.OnApplicationMessageReceived(sender?.ClientId, applicationMessage);
+                _eventDispatcher.OnMessageReceived(sender?.ClientId, applicationMessage);
 
                 if (applicationMessage.Retain)
                 {

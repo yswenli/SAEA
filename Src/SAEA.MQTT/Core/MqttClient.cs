@@ -60,7 +60,7 @@ namespace SAEA.MQTT.Core
 
         public event EventHandler<MqttClientConnectedEventArgs> Connected;
         public event EventHandler<MqttClientDisconnectedEventArgs> Disconnected;
-        public event EventHandler<MessageReceivedEventArgs> ApplicationMessageReceived;
+        public event EventHandler<MqttMessageReceivedEventArgs> ApplicationMessageReceived;
 
         public bool IsConnected { get; private set; }
         public IMqttClientOptions Options { get; private set; }
@@ -549,7 +549,7 @@ namespace SAEA.MQTT.Core
             try
             {
                 var applicationMessage = publishPacket.ToApplicationMessage();
-                ApplicationMessageReceived?.Invoke(this, new MessageReceivedEventArgs(Options.ClientId, applicationMessage));
+                ApplicationMessageReceived?.Invoke(this, new MqttMessageReceivedEventArgs(Options.ClientId, applicationMessage));
             }
             catch (Exception exception)
             {

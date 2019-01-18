@@ -23,6 +23,9 @@ using SAEA.MQTT.Core.Implementations;
 using SAEA.MQTT.Core.Protocol;
 using SAEA.MQTT.Model;
 using System;
+using System.IO;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -32,7 +35,8 @@ namespace SAEA.MQTTTest
     class Program
     {
         static void Main(string[] args)
-        {
+        {                    
+
             while (true)
             {
                 Console.Title = "SAEA.MQTT Test";
@@ -156,7 +160,7 @@ namespace SAEA.MQTTTest
 
             var server = factory.CreateMqttServer();
             var client = factory.CreateMqttClient();
-            
+
 
             var serverOptions = new MqttServerOptionsBuilder().Build();
             server.ApplicationMessageReceived += Server_ApplicationMessageReceived;
@@ -164,7 +168,7 @@ namespace SAEA.MQTTTest
 
             var clientOptions = new MqttClientOptionsBuilder().WithTcpServer("127.0.0.1").Build();
             client.ApplicationMessageReceived += Client_ApplicationMessageReceived;
-            
+
 
             await client.ConnectAsync(clientOptions);
 
@@ -181,13 +185,13 @@ namespace SAEA.MQTTTest
 
         }
 
-        private static void Server_ApplicationMessageReceived(object sender, MQTT.Event.MessageReceivedEventArgs e)
+        private static void Server_ApplicationMessageReceived(object sender, MQTT.Event.MqttMessageReceivedEventArgs e)
         {
             Console.ForegroundColor = ConsoleColor.DarkGreen;
             Console.WriteLine($"Server收到消息，ClientId:{e.ClientId}，{Encoding.UTF8.GetString(e.ApplicationMessage.Payload)}");
         }
 
-        private static void Client_ApplicationMessageReceived(object sender, MQTT.Event.MessageReceivedEventArgs e)
+        private static void Client_ApplicationMessageReceived(object sender, MQTT.Event.MqttMessageReceivedEventArgs e)
         {
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"client:{e.ClientId}收到消息:{Encoding.UTF8.GetString(e.ApplicationMessage.Payload)}");

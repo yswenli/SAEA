@@ -33,8 +33,8 @@ namespace SAEA.MQTT.Interface
         event EventHandler<MqttClientConnectedEventArgs> Connected;
         event EventHandler<MqttClientDisconnectedEventArgs> Disconnected;
 
-        event EventHandler<MessageProcessedEventArgs> ApplicationMessageProcessed;
-        event EventHandler<MessageSkippedEventArgs> ApplicationMessageSkipped;
+        event EventHandler<MqttMessageProcessedEventArgs> ApplicationMessageProcessed;
+        event EventHandler<MqttMessageSkippedEventArgs> ApplicationMessageSkipped;
 
         event EventHandler<MqttManagedProcessFailedEventArgs> ConnectingFailed;
         event EventHandler<MqttManagedProcessFailedEventArgs> SynchronizingSubscriptionsFailed;

@@ -33,7 +33,7 @@ namespace SAEA.MQTT.Core.Implementations
 
         public event EventHandler<MqttClientDisconnectedEventArgs> ClientDisconnected;
 
-        public event EventHandler<MessageReceivedEventArgs> ApplicationMessageReceived;
+        public event EventHandler<MqttMessageReceivedEventArgs> ApplicationMessageReceived;
 
         public void OnClientSubscribedTopic(string clientId, TopicFilter topicFilter)
         {
@@ -50,9 +50,9 @@ namespace SAEA.MQTT.Core.Implementations
             ClientDisconnected?.Invoke(this, new MqttClientDisconnectedEventArgs(clientId, wasCleanDisconnect));
         }
 
-        public void OnApplicationMessageReceived(string senderClientId, MqttMessage applicationMessage)
+        public void OnMessageReceived(string senderClientId, MqttMessage applicationMessage)
         {
-            ApplicationMessageReceived?.Invoke(this, new MessageReceivedEventArgs(senderClientId, applicationMessage));
+            ApplicationMessageReceived?.Invoke(this, new MqttMessageReceivedEventArgs(senderClientId, applicationMessage));
         }
 
         public void OnClientConnected(string clientId)
