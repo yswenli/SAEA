@@ -38,13 +38,22 @@ namespace SAEA.MVC
         /// <summary>
         /// 构建mvc容器
         /// </summary>
+        /// <param name="mvcConfig"></param>
+        public SAEAMvcApplication(SAEAMvcApplicationConfig mvcConfig) : this(mvcConfig.Root, mvcConfig.Port, mvcConfig.IsStaticsCached, mvcConfig.IsZiped, mvcConfig.BufferSize, mvcConfig.Count)
+        {
+            webHost.WebConfig.DefaultPage = "/" + mvcConfig.DefaultPage;
+        }
+
+        /// <summary>
+        /// 构建mvc容器
+        /// </summary>
         /// <param name="root">根目录</param>
         /// <param name="port">监听端口</param>
         /// <param name="isStaticsCached">是否启用静态缓存</param>
         /// <param name="isZiped">是压启用内容压缩</param>
         /// <param name="bufferSize">http处理数据缓存大小</param>
         /// <param name="count">http连接数上限</param>
-        public SAEAMvcApplication(string root = "/wwwroot/", int port = 39654, bool isStaticsCached = true, bool isZiped = false, int bufferSize = 1024 * 10, int count = 10000)
+        public SAEAMvcApplication(string root = "/wwwroot/", int port = 39654, bool isStaticsCached = true, bool isZiped = false, int bufferSize = 1024 * 10, int count = 100)
         {
             var mvcInvoker = new MvcInvoker(AreaCollection.RouteTable);
             webHost = new WebHost(mvcInvoker, root, port, isStaticsCached, isZiped, bufferSize, count);

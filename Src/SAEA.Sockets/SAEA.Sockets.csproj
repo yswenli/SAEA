@@ -29,7 +29,8 @@ SAEA.Socket是一个高性能IOCP框架，基于.dotnet standard 2.0；Src中含
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Extention\" />
+    <Folder Include="Core\Tcp\" />
+    <Folder Include="Core\Udp\" />
   </ItemGroup>
 
 </Project>

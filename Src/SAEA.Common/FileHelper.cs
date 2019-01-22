@@ -22,12 +22,18 @@
 *
 *****************************************************************************/
 using System.IO;
-using System.Threading.Tasks;
+using System.Text;
 
 namespace SAEA.Common
 {
     public static class FileHelper
     {
+
+        public static bool Exists(string filePath)
+        {
+            return File.Exists(filePath);
+        }
+
         public static string GetDirecotry(string filePath)
         {
             var dir = Path.GetDirectoryName(filePath);
@@ -44,6 +50,13 @@ namespace SAEA.Common
             {
                 fs.Write(data, 0, data.Length);
             }
+        }
+
+
+        public static void WriteString(string filePath, string txt)
+        {
+            var data = Encoding.UTF8.GetBytes(txt);
+            Write(filePath, data);
         }
 
         /// <summary>
@@ -64,13 +77,21 @@ namespace SAEA.Common
                 {
                     if (offset == fs.Length) break;
 
-                    if (offset == 0) throw new System.Exception($"坊取{filePath}出现异常！");
+                    if (offset == 0) throw new System.Exception($"读取{filePath}出现异常！");
 
                 }
                 data = buffer;
             }
             return data;
         }
+
+        public static string ReadString(string filePath)
+        {
+            var data = Read(filePath);
+
+            return Encoding.UTF8.GetString(data);
+        }
+
 
     }
 }
