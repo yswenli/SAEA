@@ -11,9 +11,9 @@
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
 *公司名称：wenli
-*命名空间：SAEA.Sockets
-*文件名： BaseClientSocket
-*版本号： V3.6.2.2
+*命名空间：SAEA.Sockets.Core.Tcp
+*文件名： IocpClientSocket
+*版本号： V4.0.0.1
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -25,7 +25,7 @@
 *修改标记
 *修改时间：2018/3/1 15:54:21
 *修改人： yswenli
-*版本号： V3.6.2.2
+*版本号： V4.0.0.1
 *描述：
 *
 *****************************************************************************/
@@ -33,17 +33,18 @@
 using SAEA.Common;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
+using SAEA.Sockets.Model;
 using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 
-namespace SAEA.Sockets.Core
+namespace SAEA.Sockets.Core.Tcp
 {
     /// <summary>
     /// iocp 客户端 socket
     /// </summary>
-    public abstract class BaseClientSocket : IDisposable
+    public class IocpClientSocket : ISocket, IDisposable
     {
         Socket _socket;
 
@@ -61,6 +62,8 @@ namespace SAEA.Sockets.Core
 
         AutoResetEvent _connectEvent = new AutoResetEvent(true);
 
+        SocketOption _SocketOption;
+
         public bool Connected { get => _connected; set => _connected = value; }
         public IUserToken UserToken { get => _userToken; private set => _userToken = value; }
 
@@ -77,15 +80,22 @@ namespace SAEA.Sockets.Core
             OnError?.Invoke(id, ex);
         }
 
+        public IocpClientSocket(SocketOption socketOption) : this(socketOption.Context, socketOption.IP, socketOption.Port, socketOption.BufferSize, socketOption.TimeOut)
+        {
+            _SocketOption = socketOption;
+        }
+
         /// <summary>
         /// iocp 客户端 socket
         /// </summary>
         /// <param name="context"></param>
         /// <param name="ip"></param>
         /// <param name="port"></param>
-        public BaseClientSocket(IContext context, string ip = "127.0.0.1", int port = 39654, int bufferSize = 100 * 1024, int timeOut = 60 * 1000)
+        /// <param name="bufferSize"></param>
+        /// <param name="timeOut"></param>
+        public IocpClientSocket(IContext context, string ip = "127.0.0.1", int port = 39654, int bufferSize = 100 * 1024, int timeOut = 60 * 1000)
         {
-            _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            _socket = new Socket(AddressFamily.InterNetwork, System.Net.Sockets.SocketType.Stream, ProtocolType.Tcp);
             _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             _socket.NoDelay = true;
             _socket.SendTimeout = _socket.ReceiveTimeout = 120 * 1000;
@@ -108,7 +118,7 @@ namespace SAEA.Sockets.Core
         /// 连接到服务器
         /// </summary>
         /// <param name="callBack"></param>
-        public void ConnectAsync(Action<SocketError> callBack = null)
+        public async void ConnectAsync(Action<SocketError> callBack = null)
         {
             _connectEvent.WaitOne();
             if (!_connected)
@@ -120,6 +130,7 @@ namespace SAEA.Sockets.Core
                 }
             }
         }
+
 
         public void Connect()
         {
@@ -174,7 +185,9 @@ namespace SAEA.Sockets.Core
             }
         }
 
-        protected abstract void OnReceived(byte[] data);
+        protected virtual void OnReceived(byte[] data) { }
+
+
 
         void ProcessReceive(SocketAsyncEventArgs e)
         {
@@ -227,28 +240,38 @@ namespace SAEA.Sockets.Core
         /// <summary>
         /// 异步发送
         /// </summary>
+        /// <param name="userToken"></param>
         /// <param name="data"></param>
-        protected void SendAsync(byte[] data)
+        public void SendAsync(IUserToken userToken, byte[] data)
         {
             try
             {
-                _userToken.WaitOne();
+                userToken.WaitOne();
 
-                var writeArgs = _userToken.WriteArgs;
+                var writeArgs = userToken.WriteArgs;
 
                 writeArgs.SetBuffer(data, 0, data.Length);
 
-                if (!_userToken.Socket.SendAsync(writeArgs))
+                if (!userToken.Socket.SendAsync(writeArgs))
                 {
                     ProcessSended(writeArgs);
                 }
             }
             catch (Exception ex)
             {
-                OnError?.Invoke(_userToken.ID, ex);
-                _userToken.Set();
+                OnError?.Invoke(userToken.ID, ex);
+                userToken.Set();
                 Disconnect();
             }
+        }
+
+        /// <summary>
+        /// 异步发送
+        /// </summary>
+        /// <param name="data"></param>
+        public void SendAsync(byte[] data)
+        {
+            SendAsync(UserToken, data);
         }
 
         /// <summary>
@@ -373,7 +396,5 @@ namespace SAEA.Sockets.Core
             this.Disconnect();
             IsDisposed = true;
         }
-
-
     }
 }

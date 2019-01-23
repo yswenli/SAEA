@@ -5,7 +5,7 @@
 *公司名称：yswenli
 *命名空间：SAEA.TcpP2P.Net
 *文件名： Receiver
-*版本号： V3.6.2.2
+*版本号： V4.0.0.1
 *唯一标识：02774aed-635d-4731-82ec-daaace9ce96f
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,22 +17,20 @@
 *修改标记
 *修改时间：2018/3/1 21:46:22
 *修改人： yswenli
-*版本号： V3.6.2.2
+*版本号： V4.0.0.1
 *描述：
 *
 *****************************************************************************/
 
 using SAEA.Common;
-using SAEA.Sockets.Core;
+using SAEA.Sockets.Core.Tcp;
 using SAEA.Sockets.Interface;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 
 namespace SAEA.TcpP2P.Net
 {
-    public class Receiver : BaseServerSocket
+    public class Receiver : IocpServerSocket
     {
         public event Action<NatInfo> OnP2PSucess;
 

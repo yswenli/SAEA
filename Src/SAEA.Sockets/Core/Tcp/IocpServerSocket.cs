@@ -11,9 +11,9 @@
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
 *公司名称：wenli
-*命名空间：SAEA.Sockets
-*文件名： BaseServerSocket
-*版本号： V3.6.2.2
+*命名空间：SAEA.Sockets.Core.Tcp
+*文件名： IocpServerSocket
+*版本号： V4.0.0.1
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -25,7 +25,7 @@
 *修改标记
 *修改时间：2018/3/1 15:54:21
 *修改人： yswenli
-*版本号： V3.6.2.2
+*版本号： V4.0.0.1
 *描述：
 *
 *****************************************************************************/
@@ -33,22 +33,25 @@
 using SAEA.Common;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
+using SAEA.Sockets.Model;
 using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 
-namespace SAEA.Sockets.Core
+namespace SAEA.Sockets.Core.Tcp
 {
     /// <summary>
     /// iocp 服务器 socket
     /// 支持使用自定义 IContext 来扩展
     /// </summary>
-    public abstract class BaseServerSocket
+    public class IocpServerSocket : ISocket
     {
         Socket _listener;
 
         int _clientCounts;
+
+        SocketOption _SocketOption;
 
         private SessionManager _sessionManager;
 
@@ -83,23 +86,52 @@ namespace SAEA.Sockets.Core
         /// <param name="count"></param>
         /// <param name="noDelay"></param>
         /// <param name="timeOut"></param>
-        public BaseServerSocket(IContext context, int bufferSize = 1024, int count = 10000, bool noDelay = true, int timeOut = 60 * 1000)
+        public IocpServerSocket(IContext context, int bufferSize = 1024, int count = 10000, bool noDelay = true, int timeOut = 60 * 1000, bool isIpV6 = false, int port = 39654)
         {
+            _SocketOption = new SocketOption()
+            {
+                BufferSize = bufferSize,
+                Context = context,
+                Count = count,
+                IsClient = false,
+                NoDelay = noDelay,
+                Port = port,
+                SocketType = Model.SocketType.Tcp,
+                TimeOut = timeOut,
+                UseIocp = true,
+                UseIPV6 = isIpV6,
+                WithSsl = false
+            };
+
             _sessionManager = new SessionManager(context, bufferSize, count, IO_Completed, new TimeSpan(0, 0, timeOut));
             _sessionManager.OnTimeOut += _sessionManager_OnTimeOut;
             OnServerReceiveBytes = new OnServerReceiveBytesHandler(OnReceiveBytes);
-            _listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            _listener = new Socket(AddressFamily.InterNetwork, System.Net.Sockets.SocketType.Stream, ProtocolType.Tcp);
             _listener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             _listener.NoDelay = noDelay;
+
+            
         }
+
+
+        public IocpServerSocket(SocketOption socketOption) : this(socketOption.Context, socketOption.BufferSize, socketOption.Count, socketOption.NoDelay, socketOption.TimeOut, socketOption.UseIPV6, socketOption.Port) { }
+
+
         /// <summary>
         /// 启动服务
         /// </summary>
-        /// <param name="port"></param>
         /// <param name="backlog"></param>
-        public void Start(int port = 39654, int backlog = 10 * 1000)
+        public void Start(int backlog = 10 * 1000)
         {
-            _listener.Bind(new IPEndPoint(IPAddress.Any, port));
+            if (_SocketOption.UseIPV6)
+            {
+                _listener.Bind(new IPEndPoint(IPAddress.IPv6Any, _SocketOption.Port));
+            }
+            else
+            {
+                _listener.Bind(new IPEndPoint(IPAddress.Any, _SocketOption.Port));
+            }
+            
             _listener.Listen(backlog);
 
             var accepteArgs = new SocketAsyncEventArgs();
@@ -170,7 +202,7 @@ namespace SAEA.Sockets.Core
         /// </summary>
         /// <param name="userToken"></param>
         /// <param name="data"></param>
-        protected abstract void OnReceiveBytes(IUserToken userToken, byte[] data);
+        protected virtual void OnReceiveBytes(IUserToken userToken, byte[] data) { }
 
 
         /// <summary>
@@ -230,7 +262,7 @@ namespace SAEA.Sockets.Core
         /// </summary>
         /// <param name="userToken"></param>
         /// <param name="data"></param>
-        protected void SendAsync(IUserToken userToken, byte[] data)
+        public void SendAsync(IUserToken userToken, byte[] data)
         {
             userToken.WaitOne();
 

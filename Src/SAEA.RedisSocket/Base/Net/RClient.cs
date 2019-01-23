@@ -5,7 +5,7 @@
 *公司名称：yswenli
 *命名空间：SAEA.RedisSocket.Base.Net
 *文件名： RClient
-*版本号： V3.6.2.2
+*版本号： V4.0.0.1
 *唯一标识：a22caf84-4c61-456e-98cc-cbb6cb2c6d6e
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,20 +17,20 @@
 *修改标记
 *创建时间：2018/11/5 20:45:02
 *修改人： yswenli
-*版本号： V3.6.2.2
+*版本号： V4.0.0.1
 *描述：
 *
 *****************************************************************************/
 
 using SAEA.Common;
-using SAEA.Sockets.Core;
+using SAEA.Sockets.Core.Tcp;
 using System;
 using System.Collections.Generic;
 using System.Text;
 
 namespace SAEA.RedisSocket.Base.Net
 {
-    internal class RClient : BaseClientSocket
+    internal class RClient : IocpClientSocket
     {
         public event Action<string> OnMessage;
 

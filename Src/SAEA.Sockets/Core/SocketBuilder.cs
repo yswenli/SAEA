@@ -1,0 +1,128 @@
+﻿/***************************************************************************** 
+  ____    _    _____    _      ____             _        _   
+ / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
+ \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
+  ___) / ___ \| |___ / ___ \   ___) | (_) | (__|   <  __/ |_ 
+ |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
+                                                             
+
+*Copyright (c) 2018 yswenli All Rights Reserved.
+*CLR版本： 2.1.4
+*机器名称：WENLI-PC
+*公司名称：wenli
+*命名空间：SAEA.Sockets.Core
+*文件名： SocketBuilder
+*版本号： V4.0.0.1
+*唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
+*当前的用户域：WENLI-PC
+*创建人： yswenli
+*电子邮箱：wenguoli_520@qq.com
+*创建时间：2018/3/1 15:54:21
+*描述：
+*
+*=====================================================================
+*修改标记
+*修改时间：2018/3/1 15:54:21
+*修改人： yswenli
+*版本号： V4.0.0.1
+*描述：
+*****************************************************************************/
+using System;
+using SAEA.Common;
+using SAEA.Sockets.Interface;
+using SAEA.Sockets.Model;
+using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
+
+namespace SAEA.Sockets.Core
+{
+    public class SocketBuilder
+    {
+
+        SocketOption _socketOption;
+
+        public SocketBuilder()
+        {
+            _socketOption = new SocketOption();
+        }
+
+        public SocketBuilder SetSocket(SocketType socketType)
+        {
+            _socketOption.SocketType = socketType;
+            return this;
+        }
+
+        public SocketBuilder UseIocp(IContext context)
+        {
+            if (_socketOption.WithSsl) throw new Exception("ssl模式下暂不支持icop");
+            _socketOption.Context = context;
+            _socketOption.UseIocp = true;
+            return this;
+        }
+
+        public SocketBuilder SetDelay()
+        {
+            _socketOption.NoDelay = false;
+            return this;
+        }
+
+        public SocketBuilder WithSsl(SslProtocols sslProtocols = SslProtocols.Tls12, string cenFilePath = "")
+        {
+            if (_socketOption.UseIocp) throw new Exception("暂不支持此模式下的ssl");
+            _socketOption.SslProtocol = sslProtocols;
+            if (!string.IsNullOrEmpty(cenFilePath))
+            {
+                if (!FileHelper.Exists(cenFilePath))
+                {
+                    throw new Exception("cenFilePath设置有误，找不到该证书文件!");
+                }
+                _socketOption.X509Certificate2 = (X509Certificate2)X509Certificate.CreateFromCertFile(cenFilePath);
+            }
+            _socketOption.WithSsl = true;
+            return this;
+        }
+
+
+        public SocketBuilder ForClient()
+        {
+            _socketOption.IsClient = true;
+            return this;
+        }
+
+
+        public SocketBuilder SetIP(string ip)
+        {
+            _socketOption.IP = ip;
+            return this;
+        }
+
+        public SocketBuilder SetPort(int port = 39654)
+        {
+            _socketOption.Port = port;
+            return this;
+        }
+
+        public SocketBuilder SetBufferSize(int size = 1024)
+        {
+            _socketOption.BufferSize = size;
+            return this;
+        }
+
+        public SocketBuilder SetCount(int count = 100)
+        {
+            _socketOption.Count = count;
+            return this;
+        }
+
+        public SocketBuilder SetTimeOut(int timeOut = 60 * 1000)
+        {
+            _socketOption.TimeOut = timeOut;
+            return this;
+        }
+
+        public SocketOption Build()
+        {
+            return _socketOption;
+        }
+    }
+}

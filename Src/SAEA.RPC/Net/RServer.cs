@@ -5,7 +5,7 @@
 *公司名称：yswenli
 *命名空间：SAEA.RPC.Net
 *文件名： RServer
-*版本号： V3.6.2.2
+*版本号： V4.0.0.1
 *唯一标识：5732cac7-ae47-4e6c-8533-844e350f3f81
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,11 +17,12 @@
 *修改标记
 *修改时间：2018/5/16 16:16:54
 *修改人： yswenli
-*版本号： V3.6.2.2
+*版本号： V4.0.0.1
 *描述：
 *
 *****************************************************************************/
 using SAEA.Sockets.Core;
+using SAEA.Sockets.Core.Tcp;
 using SAEA.Sockets.Interface;
 using System;
 
@@ -30,15 +31,15 @@ namespace SAEA.RPC.Net
     /// <summary>
     /// provider socket处理
     /// </summary>
-    internal class RServer : BaseServerSocket
+    internal class RServer : IocpServerSocket
     {
         /// <summary>
         /// 收到消息
         /// </summary>
         public event Action<IUserToken, RSocketMsg> OnMsg;
 
-        public RServer(int bufferSize = 100 * 1024, int count = 10000)
-            : base(new RContext(), bufferSize, count)
+        public RServer(int port = 39654, int bufferSize = 100 * 1024, int count = 10000)
+            : base(port: port, context: new RContext(), bufferSize: bufferSize, count: count)
         {
 
         }

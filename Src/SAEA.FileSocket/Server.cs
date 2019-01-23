@@ -5,7 +5,7 @@
 *公司名称：wenli
 *命名空间：SAEA.FileSocket
 *文件名： Class1
-*版本号： V3.6.2.2
+*版本号： V4.0.0.1
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,19 +17,20 @@
 *修改标记
 *修改时间：2018/3/1 15:54:21
 *修改人： yswenli
-*版本号： V3.6.2.2
+*版本号： V4.0.0.1
 *描述：
 *
 *****************************************************************************/
 
+using SAEA.Common;
+using SAEA.FileSocket.Model;
 using SAEA.Sockets;
 using SAEA.Sockets.Core;
-using SAEA.Sockets.Model;
+using SAEA.Sockets.Core.Tcp;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
+using SAEA.Sockets.Model;
 using System.Threading;
-using SAEA.FileSocket.Model;
-using SAEA.Common;
 
 namespace SAEA.FileSocket
 {
@@ -37,7 +38,7 @@ namespace SAEA.FileSocket
     /// 服务器
     /// 采用默认的上下文操作
     /// </summary>
-    public class Server : BaseServerSocket
+    public class Server : IocpServerSocket
     {
         #region events
 

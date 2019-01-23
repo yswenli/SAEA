@@ -5,7 +5,7 @@
 *公司名称：yswenli
 *命名空间：SAEA.TcpP2P.Net
 *文件名： Sender
-*版本号： V3.6.2.2
+*版本号： V4.0.0.1
 *唯一标识：1ea6636f-88e7-4577-be6e-2934d7388893
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,24 +17,21 @@
 *修改标记
 *修改时间：2018/3/1 22:18:18
 *修改人： yswenli
-*版本号： V3.6.2.2
+*版本号： V4.0.0.1
 *描述：
 *
 *****************************************************************************/
 
 using SAEA.Common;
-using SAEA.Sockets.Core;
+using SAEA.Sockets.Core.Tcp;
 using SAEA.Sockets.Interface;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
 using System.Text;
 using System.Threading;
 
 namespace SAEA.TcpP2P.Net
 {
-    public class Sender : BaseClientSocket
+    public class Sender : IocpClientSocket
     {
         public event Action<NatInfo> OnReceiveP2PTask;
 
