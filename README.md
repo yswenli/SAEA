@@ -3,10 +3,10 @@
 [![NuGet version (Newtonsoft.Json)](https://img.shields.io/nuget/v/SAEA.Sockets.svg?style=flat-square)](https://www.nuget.org/packages?q=saea)
 
 
-SAEA.Socket is an IOCP high-performance TCP network framework based on dotnet standard 2.0; Src contains its application scenarios, such as large file transfer, websocket client and server, high-performance message queue, rpc, redis driver, httpserver, Mvc, single-machine million-connected high-performance message server, etc. <br/>
+SAEA.Socket is an IOCP high-performance TCP network framework based on dotnet standard 2.0; Src contains its application scenarios, such as large file transfer, websocket client and server, high-performance message queue, rpc, redis driver, httpserver,MQTT, Mvc, single-machine million-connected high-performance message server, etc. <br/>
 Reference components that search for saea in nuget, or enter the command Install-Package SAEA.Sockets-Version 3.3.3.5 directly
 
-SAEA.Socket是一个IOCP高性能tcp网络框架，基于dotnet standard 2.0；Src中含有其应用场景，例如大文件传输、websocket client and server、高性能消息队列、rpc、redis驱动、httpserver、Mvc、单机百万连接高性能消息服务器等<br/>
+SAEA.Socket是一个IOCP高性能tcp网络框架，基于dotnet standard 2.0；Src中含有其应用场景，例如大文件传输、websocket client and server、高性能消息队列、rpc、redis驱动、httpserver、MQTT、Mvc、单机百万连接高性能消息服务器等<br/>
 
 - [x] IOCP
 - [x] FileTransfer
@@ -16,6 +16,7 @@ SAEA.Socket是一个IOCP高性能tcp网络框架，基于dotnet standard 2.0；S
 - [x] RPC
 - [x] Websocket
 - [x] RedisDrive
+- [x] MQTT
 
 ## Reference component
 
