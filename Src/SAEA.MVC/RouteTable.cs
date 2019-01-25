@@ -99,7 +99,17 @@ namespace SAEA.MVC
                                 ActionName = actionName,
                                 Instance = (Controller)instance,
                                 FilterAtrrs = iAttrs,
-                                Action = action
+                                Action = action,
+                                IsPost = false
+                            };
+
+                            var routing2 = new Routing()
+                            {
+                                ActionName = actionName,
+                                Instance = (Controller)instance,
+                                FilterAtrrs = iAttrs,
+                                Action = action,
+                                IsPost = true
                             };
 
                             //action上面的过滤
@@ -111,35 +121,24 @@ namespace SAEA.MVC
 
                                 if (filterAttrs != null && filterAttrs.Count > 0)
 
-                                    routing.ActionFilterAtrrs = actionAttrs.ToList().ConvertAll(b => b as IFilter).OrderBy(b => b.Order).ToList();
+                                    routing.ActionFilterAtrrs= routing2.ActionFilterAtrrs = actionAttrs.ToList().ConvertAll(b => b as IFilter).OrderBy(b => b.Order).ToList();
 
                                 var dPost = actionAttrs.Where(b => b.GetType().Name == ConstHelper.HTTPPOST).FirstOrDefault();
                                 if (dPost != null)
                                 {
-                                    var dGet = actionAttrs.Where(b => b.GetType().Name == ConstHelper.HTTPGET).FirstOrDefault();
-                                    if (dGet != null)
-                                    {
-                                        routing.IsPost = false;
-                                    }
-                                    var routing2 = new Routing()
-                                    {
-                                        ActionName = actionName,
-                                        Instance = (Controller)instance,
-                                        FilterAtrrs = iAttrs,
-                                        Action = action,
-                                        ActionFilterAtrrs = routing.ActionFilterAtrrs
-                                    };
-                                    routing2.IsPost = true;
                                     _cDic.TryAdd(postKey, routing2);
                                 }
-                                else
+                                var dGet = actionAttrs.Where(b => b.GetType().Name == ConstHelper.HTTPGET).FirstOrDefault();
+                                if (dGet != null)
                                 {
-                                    routing.IsPost = false;
+                                    _cDic.TryAdd(getKey, routing);
                                 }
                             }
                             else
                             {
-                                routing.IsPost = false;
+                                _cDic.TryAdd(getKey, routing);
+
+                                _cDic.TryAdd(postKey, routing2);
                             }
                         }
                         return routing;
@@ -181,14 +180,23 @@ namespace SAEA.MVC
 
                         foreach (var action in actions)
                         {
+                            routing = new Routing()
+                            {
+                                ActionName = actionName,
+                                Instance = (Controller)instance,
+                                FilterAtrrs = iAttrs,
+                                Action = action,
+                                IsPost = true
+                            };
+
                             var routing2 = new Routing()
                             {
                                 ActionName = actionName,
                                 Instance = (Controller)instance,
                                 FilterAtrrs = iAttrs,
-                                Action = action
+                                Action = action,
+                                IsPost = false
                             };
-
                             //action上面的过滤
                             var actionAttrs = action.GetCustomAttributes(true);
 
@@ -198,38 +206,26 @@ namespace SAEA.MVC
 
                                 if (filterAttrs != null && filterAttrs.Count > 0)
 
-                                    routing2.ActionFilterAtrrs = filterAttrs.ToList().ConvertAll(b => b as IFilter).OrderBy(b => b.Order).ToList();
+                                    routing.ActionFilterAtrrs = routing2.ActionFilterAtrrs = filterAttrs.ToList().ConvertAll(b => b as IFilter).OrderBy(b => b.Order).ToList();
+
+
+                                var dGet = actionAttrs.Where(b => b.GetType().Name == ConstHelper.HTTPGET).FirstOrDefault();
+                                if (dGet != null)
+                                {
+                                    _cDic.TryAdd(getKey, routing2);
+                                }
 
                                 var dPost = actionAttrs.Where(b => b.GetType().Name == ConstHelper.HTTPPOST).FirstOrDefault();
                                 if (dPost != null)
                                 {
-                                    var dGet = actionAttrs.Where(b => b.GetType().Name == ConstHelper.HTTPGET).FirstOrDefault();
-                                    if (dGet != null)
-                                    {
-                                        routing2.IsPost = false;
-                                        _cDic.TryAdd(getKey, routing2);
-                                    }
-
-                                    routing = new Routing()
-                                    {
-                                        ActionName = actionName,
-                                        Instance = (Controller)instance,
-                                        FilterAtrrs = iAttrs,
-                                        Action = action,
-                                        ActionFilterAtrrs = routing2.ActionFilterAtrrs
-                                    };
-                                    routing.IsPost = true;
-                                }
-                                else
-                                {
-                                    routing2.IsPost = false;
-                                    _cDic.TryAdd(getKey, routing2);
+                                    _cDic.TryAdd(postKey, routing);
                                 }
                             }
                             else
                             {
-                                routing2.IsPost = false;
                                 _cDic.TryAdd(getKey, routing2);
+
+                                _cDic.TryAdd(postKey, routing);
                             }
                         }
                         return routing;

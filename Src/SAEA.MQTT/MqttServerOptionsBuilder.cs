@@ -52,7 +52,7 @@ namespace SAEA.MQTT
             return this;
         }
 
-        public MqttServerOptionsBuilder WithDefaultEndpointPort(int value)
+        public MqttServerOptionsBuilder WithDefaultEndpointPort(int value = 1883)
         {
             _options.DefaultEndpointOptions.Port = value;
             return this;

@@ -159,6 +159,9 @@ namespace SAEA.Http.Base
 
                 switch (httpMessage.ContentType)
                 {
+                    case ConstHelper.FORMENCTYPE1:
+                        httpMessage.Forms = GetRequestForms(Encoding.UTF8.GetString(httpMessage.Body));
+                        break;
                     case ConstHelper.FORMENCTYPE2:
                         using (MemoryStream ms = new MemoryStream(httpMessage.Body))
                         {
@@ -198,14 +201,12 @@ namespace SAEA.Http.Base
                                     }
                                 }
                                 while (true);
-
                             }
                         }
                         break;
                     case ConstHelper.FORMENCTYPE3:
-                        httpMessage.Json = Encoding.UTF8.GetString(httpMessage.Body);
-                        break;
                     default:
+                        httpMessage.Json = Encoding.UTF8.GetString(httpMessage.Body);
                         httpMessage.Forms = GetRequestForms(Encoding.UTF8.GetString(httpMessage.Body));
                         break;
                 }
@@ -230,13 +231,37 @@ namespace SAEA.Http.Base
         private static Dictionary<string, string> GetRequestForms(string row)
         {
             if (string.IsNullOrEmpty(row)) return null;
-            var kvs = row.Split(ConstHelper.AMPERSAND, StringSplitOptions.RemoveEmptyEntries);
-            if (kvs == null || kvs.Count() <= 0) return null;
+
             Dictionary<string, string> dic = new Dictionary<string, string>();
-            foreach (var item in kvs)
+
+            if (row.IndexOf(ConstHelper.ENTER) > 0)
             {
-                var arr = item.Split(ConstHelper.EQUO);
+                var kvs = row.Split(ConstHelper.ENTER, StringSplitOptions.RemoveEmptyEntries);
+                if (kvs == null || kvs.Count() <= 0) return null;
+                foreach (var item in kvs)
+                {
+                    var arr = item.Split(ConstHelper.EQUO);
+                    dic[arr[0]] = HttpUtility.HtmlDecode(HttpUtility.UrlDecode(arr[1]));
+                }
+            }
+            else if(row.IndexOf("&")>0)
+            {
+                var kvs = row.Split(ConstHelper.AMPERSAND, StringSplitOptions.RemoveEmptyEntries);
+                if (kvs == null || kvs.Count() <= 0) return null;
+                foreach (var item in kvs)
+                {
+                    var arr = item.Split(ConstHelper.EQUO);
+                    dic[arr[0]] = HttpUtility.HtmlDecode(HttpUtility.UrlDecode(arr[1]));
+                }
+            }
+            else if(row.IndexOf(ConstHelper.EQUO) > 0)
+            {
+                var arr = row.Split(ConstHelper.EQUO);
                 dic[arr[0]] = HttpUtility.HtmlDecode(HttpUtility.UrlDecode(arr[1]));
+            }
+            else
+            {
+                return null;
             }
             return dic;
         }

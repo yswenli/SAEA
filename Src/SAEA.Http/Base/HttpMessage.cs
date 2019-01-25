@@ -38,8 +38,10 @@ namespace SAEA.Http.Base
         {
             get; set;
         } = new List<FilePart>();
+
         /// <summary>
         /// enctype="text/plain"
+        /// application/json
         /// </summary>
         public string Json
         {

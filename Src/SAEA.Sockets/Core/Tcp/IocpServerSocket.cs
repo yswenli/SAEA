@@ -45,13 +45,11 @@ namespace SAEA.Sockets.Core.Tcp
     /// iocp 服务器 socket
     /// 支持使用自定义 IContext 来扩展
     /// </summary>
-    public class IocpServerSocket : ISocket
+    public class IocpServerSocket : IServerSokcet
     {
         Socket _listener;
 
         int _clientCounts;
-
-        SocketOption _SocketOption;
 
         private SessionManager _sessionManager;
 
@@ -61,6 +59,8 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         public int ClientCounts { get => _clientCounts; private set => _clientCounts = value; }
+
+        public ISocketOption SocketOption { get; set; }
 
         #region events
 
@@ -88,12 +88,11 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="timeOut"></param>
         public IocpServerSocket(IContext context, int bufferSize = 1024, int count = 10000, bool noDelay = true, int timeOut = 60 * 1000, bool isIpV6 = false, int port = 39654)
         {
-            _SocketOption = new SocketOption()
+            SocketOption = new SocketOption()
             {
                 BufferSize = bufferSize,
                 Context = context,
                 Count = count,
-                IsClient = false,
                 NoDelay = noDelay,
                 Port = port,
                 SocketType = Model.SocketType.Tcp,
@@ -110,11 +109,11 @@ namespace SAEA.Sockets.Core.Tcp
             _listener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             _listener.NoDelay = noDelay;
 
-            
+
         }
 
 
-        public IocpServerSocket(SocketOption socketOption) : this(socketOption.Context, socketOption.BufferSize, socketOption.Count, socketOption.NoDelay, socketOption.TimeOut, socketOption.UseIPV6, socketOption.Port) { }
+        public IocpServerSocket(ISocketOption socketOption) : this(socketOption.Context, socketOption.BufferSize, socketOption.Count, socketOption.NoDelay, socketOption.TimeOut, socketOption.UseIPV6, socketOption.Port) { }
 
 
         /// <summary>
@@ -123,15 +122,15 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="backlog"></param>
         public void Start(int backlog = 10 * 1000)
         {
-            if (_SocketOption.UseIPV6)
+            if (SocketOption.UseIPV6)
             {
-                _listener.Bind(new IPEndPoint(IPAddress.IPv6Any, _SocketOption.Port));
+                _listener.Bind(new IPEndPoint(IPAddress.IPv6Any, SocketOption.Port));
             }
             else
             {
-                _listener.Bind(new IPEndPoint(IPAddress.Any, _SocketOption.Port));
+                _listener.Bind(new IPEndPoint(IPAddress.Any, SocketOption.Port));
             }
-            
+
             _listener.Listen(backlog);
 
             var accepteArgs = new SocketAsyncEventArgs();

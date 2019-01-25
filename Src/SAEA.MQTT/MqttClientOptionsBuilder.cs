@@ -85,7 +85,7 @@ namespace SAEA.MQTT
             return this;
         }
 
-        public MqttClientOptionsBuilder WithTcpServer(string server, int? port = null)
+        public MqttClientOptionsBuilder WithTcpServer(string server, int port = 1883)
         {
             _tcpOptions = new MqttClientTcpOptions
             {

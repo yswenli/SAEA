@@ -36,14 +36,14 @@ using System.Security.Cryptography.X509Certificates;
 
 namespace SAEA.Sockets.Model
 {
-    public class SocketOption
+    public class SocketOption : ISocketOption
     {
         public SocketType SocketType { get; set; }
 
         public bool WithSsl
         {
             get; set;
-        }
+        } = false;
 
         public X509Certificate2 X509Certificate2
         {
@@ -61,15 +61,11 @@ namespace SAEA.Sockets.Model
         } = true;
 
 
-        public bool IsClient
-        {
-            get; set;
-        }
-
         public bool UseIocp
         {
             get; set;
         }
+
 
         public IContext Context
         {
@@ -79,7 +75,7 @@ namespace SAEA.Sockets.Model
         public bool UseIPV6
         {
             get; set;
-        }
+        } = false;
 
         public string IP
         {

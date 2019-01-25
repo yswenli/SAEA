@@ -46,6 +46,13 @@ namespace SAEA.MQTT.Core.Implementations
 
         public string Endpoint { get; }
 
+
+        public async Task ConnectAsync()
+        {
+            CancellationToken cancellationToken = new CancellationToken(false);
+            await ConnectAsync(cancellationToken);
+        }
+
         public async Task ConnectAsync(CancellationToken cancellationToken)
         {
             var uri = _options.Uri;

@@ -1,4 +1,5 @@
 ﻿using SAEA.MVC;
+using SAEA.MVCTest.Model;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -18,5 +19,26 @@ namespace SAEA.MVCTest.Controllers
                 return Content($"str={str}. \r\nthis is not an ajax request!");
             }
         }
+
+
+        public ActionResult Test2(string str)
+        {
+            if (IsAjaxRequest())
+            {
+                return Content($"str={str}. \r\nthis is an ajax request!");
+            }
+            else
+            {
+                return Content($"str={str}. \r\nthis is not an ajax request!");
+            }
+        }
+
+
+        public ActionResult Test3(UserInfo userInfo)
+        {
+            return Json(userInfo);
+        }
+
+
     }
 }

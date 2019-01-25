@@ -26,6 +26,7 @@ using SAEA.Http;
 using SAEA.Http.Common;
 using SAEA.Http.Model;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
@@ -90,7 +91,7 @@ namespace SAEA.MVC
                     }
                     else
                     {
-                        var d = RouteTable.Types.Where(b => string.Compare(b.Name, httpContext.WebConfig.DefaultRout.Name, true) == 0 || string.Compare(b.Name, httpContext.WebConfig.DefaultRout.Name + ConstHelper.CONTROLLERNAME, true) == 0).FirstOrDefault();
+                        var d = RouteTable.Types.Where(b => (string.Compare(b.Name, httpContext.WebConfig.DefaultRout.Name, true) == 0 || string.Compare(b.Name, httpContext.WebConfig.DefaultRout.Name + ConstHelper.CONTROLLERNAME, true) == 0)).FirstOrDefault();
 
                         nameValues = httpContext.Request.Parmas.ToNameValueCollection();
 
@@ -202,7 +203,24 @@ namespace SAEA.MVC
                     }
                 }
 
-                var result = MethodInvoke(routing.Action, routing.Instance, nameValues);
+                #region actionResult
+
+                ActionResult result;
+
+                if (httpContext.Request.ContentType == ConstHelper.FORMENCTYPE3 && !string.IsNullOrEmpty(httpContext.Request.Json))
+                {
+                    var nnv = SerializeHelper.Deserialize<Dictionary<string, string>>(httpContext.Request.Json).ToNameValueCollection();
+
+                    result = MethodInvoke(routing.Action, routing.Instance, nnv);
+                }
+                else
+                {
+                    result = MethodInvoke(routing.Action, routing.Instance, nameValues);
+                }
+
+                #endregion
+
+
 
                 nargs = new object[] { httpContext, result };
 

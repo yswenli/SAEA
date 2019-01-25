@@ -36,7 +36,7 @@ namespace SAEA.Http
         /// <summary>
         /// enctype="text/plain"
         /// </summary>
-        internal string Json
+        public string Json
         {
             get; set;
         }

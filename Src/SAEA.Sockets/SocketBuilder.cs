@@ -10,7 +10,7 @@
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
 *公司名称：wenli
-*命名空间：SAEA.Sockets.Core
+*命名空间：SAEA.Sockets
 *文件名： SocketBuilder
 *版本号： V4.0.0.1
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
@@ -34,7 +34,7 @@ using SAEA.Sockets.Model;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 
-namespace SAEA.Sockets.Core
+namespace SAEA.Sockets
 {
     public class SocketBuilder
     {
@@ -46,7 +46,7 @@ namespace SAEA.Sockets.Core
             _socketOption = new SocketOption();
         }
 
-        public SocketBuilder SetSocket(SocketType socketType)
+        public SocketBuilder SetSocket(SocketType socketType = SocketType.Tcp)
         {
             _socketOption.SocketType = socketType;
             return this;
@@ -56,7 +56,15 @@ namespace SAEA.Sockets.Core
         {
             if (_socketOption.WithSsl) throw new Exception("ssl模式下暂不支持icop");
             _socketOption.Context = context;
+            _socketOption.SocketType = SocketType.Tcp;
             _socketOption.UseIocp = true;
+            return this;
+        }
+
+        public SocketBuilder UseStream()
+        {
+            _socketOption.SocketType = SocketType.Tcp;
+            _socketOption.UseIocp = false;
             return this;
         }
 
@@ -66,7 +74,7 @@ namespace SAEA.Sockets.Core
             return this;
         }
 
-        public SocketBuilder WithSsl(SslProtocols sslProtocols = SslProtocols.Tls12, string cenFilePath = "")
+        public SocketBuilder WithSsl(SslProtocols sslProtocols, string cenFilePath = "")
         {
             if (_socketOption.UseIocp) throw new Exception("暂不支持此模式下的ssl");
             _socketOption.SslProtocol = sslProtocols;
@@ -77,18 +85,28 @@ namespace SAEA.Sockets.Core
                     throw new Exception("cenFilePath设置有误，找不到该证书文件!");
                 }
                 _socketOption.X509Certificate2 = (X509Certificate2)X509Certificate.CreateFromCertFile(cenFilePath);
+                _socketOption.WithSsl = true;
             }
-            _socketOption.WithSsl = true;
             return this;
         }
 
-
-        public SocketBuilder ForClient()
+        public SocketBuilder WithSsl(X509Certificate2 x509Certificate2, SslProtocols sslProtocols)
         {
-            _socketOption.IsClient = true;
+            if (_socketOption.UseIocp) throw new Exception("暂不支持此模式下的ssl");
+            _socketOption.SslProtocol = sslProtocols;
+            if (x509Certificate2 != null)
+            {
+                _socketOption.X509Certificate2 = x509Certificate2;
+                _socketOption.WithSsl = true;
+            }
             return this;
         }
 
+        public SocketBuilder UseIPV6()
+        {
+            _socketOption.UseIPV6 = true;
+            return this;
+        }
 
         public SocketBuilder SetIP(string ip)
         {

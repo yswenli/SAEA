@@ -31,8 +31,8 @@
 *****************************************************************************/
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
-using SAEA.Sockets.Model;
 using System;
+using System.IO;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Authentication;
@@ -42,21 +42,23 @@ using System.Threading.Tasks;
 
 namespace SAEA.Sockets.Core.Tcp
 {
-    public class StreamClientSocket : ISocket
+    public class StreamClientSocket : IClientSocket
     {
         Socket _socket;
 
+        bool _isSsl = false;
+
         CancellationToken _CancellationToken;
 
-        bool _connected = false;
+        ISocketOption _SocketOption;
 
-        SocketOption _SocketOption;
+        Stream _stream;
 
-        SslStream _SslStream;
-
-        public bool Connected { get => _connected; set => _connected = value; }
+        public bool Connected { get; set; }
 
         public bool IsDisposed { get; private set; } = false;
+
+        public string Endpoint { get => _socket?.RemoteEndPoint?.ToString(); }
 
         public event OnDisconnectedHandler OnDisconnected;
 
@@ -65,9 +67,18 @@ namespace SAEA.Sockets.Core.Tcp
         /// </summary>
         /// <param name="socketOption"></param>
         /// <param name="cancellationToken"></param>
-        public StreamClientSocket(SocketOption socketOption, CancellationToken cancellationToken) : this(cancellationToken, socketOption.IP, socketOption.Port, socketOption.BufferSize, socketOption.TimeOut)
+        public StreamClientSocket(ISocketOption socketOption, CancellationToken cancellationToken) : this(cancellationToken, socketOption.IP, socketOption.Port, socketOption.BufferSize, socketOption.TimeOut, socketOption.SslProtocol, socketOption.WithSsl)
         {
+            _SocketOption = socketOption;
+        }
 
+        /// <summary>
+        /// 客户端 socket
+        /// </summary>
+        /// <param name="socketOption"></param>
+        public StreamClientSocket(ISocketOption socketOption) : this(socketOption.IP, socketOption.Port, socketOption.BufferSize, socketOption.TimeOut, socketOption.SslProtocol, socketOption.WithSsl)
+        {
+            _SocketOption = socketOption;
         }
 
         /// <summary>
@@ -79,21 +90,8 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="bufferSize"></param>
         /// <param name="timeOut"></param>
         /// <param name="sslProtocols"></param>
-        public StreamClientSocket(CancellationToken cancellationToken, string ip = "127.0.0.1", int port = 39654, int bufferSize = 100 * 1024, int timeOut = 60 * 1000, SslProtocols sslProtocols = SslProtocols.Tls12)
+        public StreamClientSocket(CancellationToken cancellationToken, string ip = "127.0.0.1", int port = 39654, int bufferSize = 100 * 1024, int timeOut = 60 * 1000, SslProtocols sslProtocols = SslProtocols.Tls12, bool userSsl = false)
         {
-            _SocketOption = new SocketOption()
-            {
-                IP = ip,
-                Port = port,
-                BufferSize = bufferSize,
-                TimeOut = timeOut,
-                IsClient = true,
-                Count = 1,
-                SocketType = Model.SocketType.Tcp,
-                WithSsl = true,
-                SslProtocol = sslProtocols
-            };
-
             _CancellationToken = cancellationToken;
 
             _socket = new Socket(AddressFamily.InterNetwork, System.Net.Sockets.SocketType.Stream, ProtocolType.Tcp);
@@ -101,34 +99,63 @@ namespace SAEA.Sockets.Core.Tcp
             _socket.NoDelay = true;
             _socket.SendTimeout = _socket.ReceiveTimeout = 120 * 1000;
 
-
+            _isSsl = userSsl;
         }
+
+        /// <summary>
+        /// 客户端 socket
+        /// </summary>
+        /// <param name="ip"></param>
+        /// <param name="port"></param>
+        /// <param name="bufferSize"></param>
+        /// <param name="timeOut"></param>
+        /// <param name="sslProtocols"></param>
+        public StreamClientSocket(string ip = "127.0.0.1", int port = 39654, int bufferSize = 100 * 1024, int timeOut = 60 * 1000, SslProtocols sslProtocols = SslProtocols.Tls12, bool userSsl = false)
+        {
+            _socket = new Socket(AddressFamily.InterNetwork, System.Net.Sockets.SocketType.Stream, ProtocolType.Tcp);
+            _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            _socket.NoDelay = true;
+            _socket.SendTimeout = _socket.ReceiveTimeout = 120 * 1000;
+
+            _isSsl = userSsl;
+        }
+
+        
 
         /// <summary>
         /// 可让服务器接受的连接使用
         /// </summary>
         /// <param name="socket"></param>
-        /// <param name="sslStream"></param>
-        public StreamClientSocket(Socket socket, SslStream sslStream)
+        /// <param name="stream"></param>
+        public StreamClientSocket(Socket socket, Stream stream, bool isSsl = false)
         {
             _socket = socket ?? throw new ArgumentNullException(nameof(socket));
 
-            _SslStream = sslStream ?? throw new ArgumentNullException(nameof(sslStream));
+            _stream = stream ?? throw new ArgumentNullException(nameof(stream));
+
+            _isSsl = isSsl;
         }
 
         /// <summary>
         /// 连接到服务器
         /// </summary>
-        public async void ConnectAsync()
+        public async Task ConnectAsync()
         {
             await _socket.ConnectAsync(_SocketOption.IP, _SocketOption.Port).ConfigureAwait(false);
 
-            _SslStream = new SslStream(new NetworkStream(_socket, true), false, InternalUserCertificateValidationCallback);
+            if (_isSsl)
+            {
+                _stream = new SslStream(new NetworkStream(_socket, true), false, InternalUserCertificateValidationCallback);
 
-            _SslStream.ReadTimeout = _SocketOption.TimeOut;
-            _SslStream.WriteTimeout = _SocketOption.TimeOut;
+                await ((SslStream)_stream).AuthenticateAsClientAsync(_SocketOption.IP, LoadCertificates(), _SocketOption.SslProtocol, true);
+            }
+            else
+            {
+                _stream = new NetworkStream(_socket, true);
+            }
 
-            await _SslStream.AuthenticateAsClientAsync(_SocketOption.IP, LoadCertificates(), _SocketOption.SslProtocol, true);
+            _stream.ReadTimeout = _SocketOption.TimeOut;
+            _stream.WriteTimeout = _SocketOption.TimeOut;
 
             this.Connected = true;
         }
@@ -139,7 +166,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="buffer"></param>
         public Task SendAsync(byte[] buffer, int offset, int count)
         {
-            return _SslStream.WriteAsync(buffer, offset, count, _CancellationToken);
+            return _stream.WriteAsync(buffer, offset, count, _CancellationToken);
         }
 
         /// <summary>
@@ -152,7 +179,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <returns></returns>
         public Task SendAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
-            return _SslStream.WriteAsync(buffer, offset, count, cancellationToken);
+            return _stream.WriteAsync(buffer, offset, count, cancellationToken);
         }
 
 
@@ -165,7 +192,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <returns></returns>
         public Task ReceiveAsync(byte[] buffer, int offset, int count)
         {
-            return _SslStream.ReadAsync(buffer, offset, count, _CancellationToken);
+            return _stream.ReadAsync(buffer, offset, count, _CancellationToken);
         }
 
         /// <summary>
@@ -178,7 +205,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <returns></returns>
         public Task<int> ReceiveAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
-            return _SslStream.ReadAsync(buffer, offset, count, cancellationToken);
+            return _stream.ReadAsync(buffer, offset, count, cancellationToken);
         }
 
         /// <summary>
@@ -193,7 +220,7 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 try
                 {
-                    _SslStream.Close();
+                    _stream.Close();
                 }
                 catch (Exception sex)
                 {

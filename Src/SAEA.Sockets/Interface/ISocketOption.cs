@@ -11,7 +11,7 @@
 *机器名称：WENLI-PC
 *公司名称：wenli
 *命名空间：SAEA.Sockets.Interface
-*文件名： IServerSokcet
+*文件名： ISocketOption
 *版本号： V4.0.0.1
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
@@ -27,16 +27,76 @@
 *版本号： V4.0.0.1
 *描述：
 *****************************************************************************/
-using System;
-using System.Collections.Generic;
-using System.Text;
+using SAEA.Sockets.Model;
+using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
 
 namespace SAEA.Sockets.Interface
 {
-    public interface IServerSokcet
+    public interface ISocketOption
     {
-        void Start(int backlog = 10 * 1000);
+        SocketType SocketType { get; set; }
 
-        ISocketOption SocketOption { get; set; }
+        bool WithSsl
+        {
+            get; set;
+        }
+
+        X509Certificate2 X509Certificate2
+        {
+            get; set;
+        }
+
+        SslProtocols SslProtocol
+        {
+            get; set;
+        }
+
+        bool NoDelay
+        {
+            get; set;
+        } 
+
+
+        bool UseIocp
+        {
+            get; set;
+        }
+
+
+        IContext Context
+        {
+            get; set;
+        }
+
+        bool UseIPV6
+        {
+            get; set;
+        }
+
+        string IP
+        {
+            get; set;
+        }
+
+        int Port
+        {
+            get; set;
+        }
+
+        int BufferSize
+        {
+            get; set;
+        }
+
+        int Count
+        {
+            get; set;
+        }
+
+        int TimeOut
+        {
+            get; set;
+        }
     }
 }

@@ -33,18 +33,19 @@
 using SAEA.Common;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
-using SAEA.Sockets.Model;
 using System;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace SAEA.Sockets.Core.Tcp
 {
     /// <summary>
     /// iocp 客户端 socket
     /// </summary>
-    public class IocpClientSocket : ISocket, IDisposable
+    public class IocpClientSocket : IClientSocket, IDisposable
     {
         Socket _socket;
 
@@ -55,16 +56,19 @@ namespace SAEA.Sockets.Core.Tcp
         IUserToken _userToken;
 
         SocketAsyncEventArgs _connectArgs;
+        
 
-        bool _connected = false;
+        MemoryStream _strean;
 
         Action<SocketError> _connectCallBack;
 
         AutoResetEvent _connectEvent = new AutoResetEvent(true);
 
-        SocketOption _SocketOption;
+        ISocketOption _SocketOption;
 
-        public bool Connected { get => _connected; set => _connected = value; }
+        public string Endpoint { get => _socket?.RemoteEndPoint?.ToString(); }
+
+        public bool Connected { get; set; }
         public IUserToken UserToken { get => _userToken; private set => _userToken = value; }
 
         public bool IsDisposed { get; private set; } = false;
@@ -73,14 +77,18 @@ namespace SAEA.Sockets.Core.Tcp
 
         public event OnDisconnectedHandler OnDisconnected;
 
-        protected OnClientReceiveBytesHandler OnClientReceive;
+        protected OnClientReceiveBytesHandler OnClientReceive = null;
 
         protected void RaiseOnError(string id, Exception ex)
         {
             OnError?.Invoke(id, ex);
         }
 
-        public IocpClientSocket(SocketOption socketOption) : this(socketOption.Context, socketOption.IP, socketOption.Port, socketOption.BufferSize, socketOption.TimeOut)
+        /// <summary>
+        /// iocp 客户端 socket
+        /// </summary>
+        /// <param name="socketOption"></param>
+        public IocpClientSocket(ISocketOption socketOption) : this(socketOption.Context, socketOption.IP, socketOption.Port, socketOption.BufferSize, socketOption.TimeOut)
         {
             _SocketOption = socketOption;
         }
@@ -103,6 +111,8 @@ namespace SAEA.Sockets.Core.Tcp
             _ip = ip;
             _port = port;
 
+            _strean = new MemoryStream();
+
             OnClientReceive = new OnClientReceiveBytesHandler(OnReceived);
 
             _connectArgs = new SocketAsyncEventArgs
@@ -118,10 +128,10 @@ namespace SAEA.Sockets.Core.Tcp
         /// 连接到服务器
         /// </summary>
         /// <param name="callBack"></param>
-        public async void ConnectAsync(Action<SocketError> callBack = null)
+        public void ConnectAsync(Action<SocketError> callBack = null)
         {
             _connectEvent.WaitOne();
-            if (!_connected)
+            if (!Connected)
             {
                 _connectCallBack = callBack;
                 if (!_socket.ConnectAsync(_connectArgs))
@@ -129,6 +139,19 @@ namespace SAEA.Sockets.Core.Tcp
                     ProcessConnected(_connectArgs);
                 }
             }
+        }
+
+        public async Task ConnectAsync()
+        {
+            await _socket.ConnectAsync(_SocketOption.IP, _SocketOption.Port).ConfigureAwait(false);
+
+            _userToken.ID = _socket.LocalEndPoint.ToString();
+            _userToken.Socket = _socket;
+            _userToken.Linked = _userToken.Actived = DateTime.Now;
+
+            var readArgs = _userToken.ReadArgs;
+            if (!_userToken.Socket.ReceiveAsync(readArgs))
+                ProcessReceive(readArgs);
         }
 
 
@@ -154,8 +177,8 @@ namespace SAEA.Sockets.Core.Tcp
         void ProcessConnected(SocketAsyncEventArgs e)
         {
             _connectEvent.Set();
-            _connected = (e.SocketError == SocketError.Success);
-            if (_connected)
+            Connected = (e.SocketError == SocketError.Success);
+            if (Connected)
             {
                 _userToken.ID = e.ConnectSocket.LocalEndPoint.ToString();
                 _userToken.Socket = _socket;
@@ -185,6 +208,7 @@ namespace SAEA.Sockets.Core.Tcp
             }
         }
 
+
         protected virtual void OnReceived(byte[] data) { }
 
 
@@ -203,6 +227,9 @@ namespace SAEA.Sockets.Core.Tcp
                     Buffer.BlockCopy(e.Buffer, e.Offset, data, 0, e.BytesTransferred);
 
                     OnClientReceive?.Invoke(data);
+                    _strean.Position = _strean.Length;
+                    _strean.Write(data, 0, data.Length);
+
 
                     if (_userToken.Socket != null && !_userToken.Socket.ReceiveAsync(e))
                         ProcessReceive(e);
@@ -219,15 +246,18 @@ namespace SAEA.Sockets.Core.Tcp
             }
         }
 
+
         void ProcessSended(SocketAsyncEventArgs e)
         {
             _userToken.Set();
             _userToken.Actived = DateTimeHelper.Now;
         }
 
+
+
         void ProcessDisconnected(Exception ex)
         {
-            _connected = false;
+            Connected = false;
             _connectEvent.Set();
             try
             {
@@ -282,26 +312,18 @@ namespace SAEA.Sockets.Core.Tcp
         {
             if (data == null) return;
 
-            if (_connected)
+            if (Connected)
             {
-                var sendNum = 0;
-
-                int offset = 0;
-
                 try
                 {
-
-                    while (_connected)
+                    var offset = 0;
+                    do
                     {
-                        sendNum += _socket.Send(data, offset, data.Length - offset, SocketFlags.None);
-
-                        offset += sendNum;
-
-                        if (sendNum == data.Length)
-                        {
-                            break;
-                        }
+                        var iResult = _socket.BeginSend(data, offset, data.Length - offset, SocketFlags.None, null, null);
+                        offset += _socket.EndSend(iResult);
                     }
+                    while (offset < data.Length);
+
                     _userToken.Actived = DateTimeHelper.Now;
                 }
                 catch (Exception ex)
@@ -312,43 +334,6 @@ namespace SAEA.Sockets.Core.Tcp
             else
                 OnError?.Invoke("", new Exception("发送失败：当前连接已断开"));
         }
-
-        protected void SendTo(IPEndPoint remoteEP, byte[] data)
-        {
-            if (data == null) return;
-
-            if (_connected)
-            {
-                var sendNum = 0;
-
-                int offset = 0;
-
-                try
-                {
-                    while (_connected)
-                    {
-                        sendNum += _socket.SendTo(data, offset, data.Length - offset, SocketFlags.None, remoteEP);
-
-                        offset += sendNum;
-
-                        if (sendNum == data.Length)
-                        {
-                            break;
-                        }
-                    }
-                    if (!_connected)
-                        ConnectArgs_Completed(this, _connectArgs);
-                    _userToken.Actived = DateTimeHelper.Now;
-                }
-                catch (Exception ex)
-                {
-                    ProcessDisconnected(ex);
-                }
-            }
-            else
-                OnError?.Invoke("", new Exception("发送失败：当前连接已断开"));
-        }
-
 
         public void BeginSend(byte[] data)
         {
@@ -356,6 +341,25 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 _userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, null, null);
             }
+        }
+
+
+        public Task SendAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        {
+            return Task.Run(() =>
+            {
+                var data = new byte[count];
+
+                Buffer.BlockCopy(buffer, offset, data, 0, count);
+
+                Send(data);
+
+            }, cancellationToken);
+        }
+
+        public Task<int> ReceiveAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        {
+            return _strean.ReadAsync(buffer, offset, count, cancellationToken);
         }
 
 

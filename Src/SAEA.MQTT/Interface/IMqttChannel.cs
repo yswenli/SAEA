@@ -25,7 +25,7 @@ namespace SAEA.MQTT.Interface
     {
         string Endpoint { get; }
 
-        Task ConnectAsync(CancellationToken cancellationToken);
+        Task ConnectAsync();
         Task DisconnectAsync();
 
         Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken);

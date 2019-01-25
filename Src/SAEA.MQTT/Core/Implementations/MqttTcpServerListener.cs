@@ -19,25 +19,28 @@ using SAEA.MQTT.Common.Log;
 using SAEA.MQTT.Common.Serializer;
 using SAEA.MQTT.Event;
 using SAEA.MQTT.Model;
+using SAEA.Sockets;
+using SAEA.Sockets.Core.Tcp;
+using SAEA.Sockets.Interface;
 using System;
-using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Core.Implementations
 {
     public class MqttTcpServerListener : IDisposable
     {
-        private readonly IMqttNetChildLogger _logger;
-        private readonly CancellationToken _cancellationToken;
-        private readonly AddressFamily _addressFamily;
-        private readonly MqttServerTcpEndpointBaseOptions _options;
-        private readonly MqttServerTlsTcpEndpointOptions _tlsOptions;
-        private readonly X509Certificate2 _tlsCertificate;
-        private Socket _socket;
+        ISocketOption socketOption;
+
+        StreamServerSocket serverSokcet;
+
+        AddressFamily _addressFamily;
+
+        CancellationToken _cancellationToken;
+
+        IMqttNetChildLogger _logger;
 
         public MqttTcpServerListener(
             AddressFamily addressFamily,
@@ -46,85 +49,49 @@ namespace SAEA.MQTT.Core.Implementations
             CancellationToken cancellationToken,
             IMqttNetChildLogger logger)
         {
-            _addressFamily = addressFamily;
-            _options = options;
-            _tlsCertificate = tlsCertificate;
+
             _cancellationToken = cancellationToken;
-            _logger = logger.CreateChildLogger(nameof(MqttTcpServerListener));
-            
-            if (_options is MqttServerTlsTcpEndpointOptions tlsOptions)
+            _logger = logger;
+
+            var sb = new SocketBuilder().SetSocket(Sockets.Model.SocketType.Tcp).UseStream();
+
+            if (options is MqttServerTlsTcpEndpointOptions tlsOptions)
             {
-                _tlsOptions = tlsOptions;
+                sb = sb.WithSsl(tlsCertificate, tlsOptions.SslProtocol);
             }
+
+            sb = sb.SetPort(options.Port);
+
+            if (_addressFamily == AddressFamily.InterNetworkV6)
+            {
+                sb = sb.UseIPV6();
+            }
+
+            socketOption = sb.Build();
+
+            serverSokcet = (StreamServerSocket)SocketFactory.CreateServerSocket(socketOption, cancellationToken);
+
+            serverSokcet.OnAccepted += ServerSokcet_OnAccepted;
+        }
+
+        private void ServerSokcet_OnAccepted(Socket clientSocket, System.IO.Stream stream)
+        {
+            var clientAdapter = new MqttChannelAdapter(new MqttTcpChannel(clientSocket, stream), new MqttPacketSerializer(), _logger);
+
+            ClientAccepted?.Invoke(this, new MqttServerAdapterClientAcceptedEventArgs(clientAdapter));
         }
 
         public event EventHandler<MqttServerAdapterClientAcceptedEventArgs> ClientAccepted;
 
         public void Start()
         {
-            var boundIp = _options.BoundInterNetworkAddress;
-            if (_addressFamily == AddressFamily.InterNetworkV6)
-            {
-                boundIp = _options.BoundInterNetworkV6Address;
-            }
-
-            _socket = new Socket(_addressFamily, SocketType.Stream, ProtocolType.Tcp);
-            _socket.Bind(new IPEndPoint(boundIp, _options.Port));
-
-            _logger.Info($"Starting TCP listener for {_socket.LocalEndPoint} TLS={_tlsCertificate != null}.");
-
-            _socket.Listen(_options.ConnectionBacklog);
-            Task.Run(AcceptClientConnectionsAsync, _cancellationToken);
+            serverSokcet.Start();
         }
 
-        private async Task AcceptClientConnectionsAsync()
-        {
-            while (!_cancellationToken.IsCancellationRequested)
-            {
-                try
-                {
-
-                    var clientSocket = await _socket.AcceptAsync().ConfigureAwait(false);
-
-                    clientSocket.NoDelay = true;
-
-                    SslStream sslStream = null;
-
-                    if (_tlsCertificate != null)
-                    {
-                        sslStream = new SslStream(new NetworkStream(clientSocket), false);
-                        await sslStream.AuthenticateAsServerAsync(_tlsCertificate, false, _tlsOptions.SslProtocol, false).ConfigureAwait(false);
-                    }
-
-                    _logger.Verbose("Client '{0}' accepted by TCP listener '{1}, {2}'.",
-                        clientSocket.RemoteEndPoint,
-                        _socket.LocalEndPoint,
-                        _addressFamily == AddressFamily.InterNetwork ? "ipv4" : "ipv6");
-
-                    var clientAdapter = new MqttChannelAdapter(new MqttTcpChannel(clientSocket, sslStream), new MqttPacketSerializer(), _logger);
-                    ClientAccepted?.Invoke(this, new MqttServerAdapterClientAcceptedEventArgs(clientAdapter));
-                }
-                catch (ObjectDisposedException)
-                {
-                    // It can happen that the listener socket is accessed after the cancellation token is already set and the listener socket is disposed.
-                }
-                catch (Exception exception)
-                {
-                    if (exception is SocketException s && s.SocketErrorCode == SocketError.OperationAborted)
-                    {
-                        return;
-                    }
-
-                    _logger.Error(exception, $"Error while accepting connection at TCP listener {_socket.LocalEndPoint} TLS={_tlsCertificate != null}.");
-                    await Task.Delay(TimeSpan.FromSeconds(1), _cancellationToken).ConfigureAwait(false);
-                }
-            }
-        }
 
         public void Dispose()
         {
-            _socket?.Dispose();
-            _tlsCertificate?.Dispose();
+            serverSokcet?.Dispose();
         }
     }
 }

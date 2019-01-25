@@ -9,7 +9,7 @@
     <Authors>yswenli</Authors>
     <Copyright>yswenli</Copyright>
     <PackageProjectUrl>https://www.cnblogs.com/yswenli/</PackageProjectUrl>
-    <Version>3.6.2.2</Version>
+    <Version>4.0.0.1</Version>
     <PackageReleaseNotes>This is a high-performance redis driver based on SAEA.Sockets, supporting redis cluster.
 这是一个基于SAEA.Sockets的redis 高性能驱动，支持redis cluster
 https://github.com/yswenli/SAEA</PackageReleaseNotes>

@@ -23,7 +23,7 @@ namespace SAEA.MQTT.Model
     {
         public bool IsEnabled { get; set; }
 
-        public int Port { get; set; }
+        public int Port { get; set; } = 1883;
 
         public int ConnectionBacklog { get; set; } = 10;
 

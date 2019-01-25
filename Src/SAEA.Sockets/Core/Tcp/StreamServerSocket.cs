@@ -33,6 +33,7 @@ using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
 using System;
+using System.IO;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
@@ -46,7 +47,7 @@ namespace SAEA.Sockets.Core.Tcp
     /// <summary>
     /// 服务器 socket
     /// </summary>
-    public class StreamServerSocket : ISocket, IDisposable
+    public class StreamServerSocket : IServerSokcet, IDisposable
     {
         Socket _listener;
 
@@ -55,10 +56,8 @@ namespace SAEA.Sockets.Core.Tcp
         private readonly CancellationToken _cancellationToken;
 
         public int ClientCounts { get => _clientCounts; private set => _clientCounts = value; }
-
-
-        SocketOption _SocketOption;
-
+        
+        public ISocketOption SocketOption { get; set; }
 
         bool _isStoped = true;
 
@@ -79,10 +78,9 @@ namespace SAEA.Sockets.Core.Tcp
         /// </summary>
         /// <param name="socketOption"></param>
         /// <param name="cancellationToken"></param>
-        public StreamServerSocket(SocketOption socketOption, CancellationToken cancellationToken) : this(cancellationToken, socketOption.X509Certificate2, socketOption.BufferSize, socketOption.Count, socketOption.NoDelay, socketOption.TimeOut, socketOption.SslProtocol)
+        public StreamServerSocket(ISocketOption socketOption, CancellationToken cancellationToken) : this(cancellationToken, socketOption.X509Certificate2,  socketOption.NoDelay, socketOption.SslProtocol)
         {
-            _SocketOption.UseIPV6 = socketOption.UseIPV6;
-            _SocketOption.Port = socketOption.Port;
+            SocketOption = socketOption;
         }
 
         /// <summary>
@@ -90,28 +88,15 @@ namespace SAEA.Sockets.Core.Tcp
         /// </summary>
         /// <param name="cancellationToken"></param>
         /// <param name="x509Certificate2"></param>
-        /// <param name="bufferSize"></param>
         /// <param name="count"></param>
         /// <param name="noDelay"></param>
         /// <param name="timeOut"></param>
         /// <param name="sslProtocol"></param>
-        public StreamServerSocket(CancellationToken cancellationToken, X509Certificate2 x509Certificate2, int bufferSize = 1024, int count = 10000, bool noDelay = true, int timeOut = 60 * 1000, SslProtocols sslProtocol = SslProtocols.Tls12)
+        public StreamServerSocket(CancellationToken cancellationToken, X509Certificate2 x509Certificate2, bool noDelay = true, SslProtocols sslProtocol = SslProtocols.Tls12)
         {
             _listener = new Socket(AddressFamily.InterNetwork, System.Net.Sockets.SocketType.Stream, ProtocolType.Tcp);
             _listener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             _listener.NoDelay = noDelay;
-
-            _SocketOption = new SocketOption()
-            {
-                BufferSize = bufferSize,
-                Count = count,
-                IsClient = false,
-                NoDelay = noDelay,
-                SocketType = Model.SocketType.Tcp,
-                SslProtocol = sslProtocol,
-                WithSsl = true,
-                X509Certificate2 = x509Certificate2
-            };
             _cancellationToken = cancellationToken;
         }
         /// <summary>
@@ -121,13 +106,13 @@ namespace SAEA.Sockets.Core.Tcp
         {
             _isStoped = false;
 
-            if (_SocketOption.UseIPV6)
+            if (SocketOption.UseIPV6)
             {
-                _listener.Bind(new IPEndPoint(IPAddress.IPv6Any, _SocketOption.Port));
+                _listener.Bind(new IPEndPoint(IPAddress.IPv6Any, SocketOption.Port));
             }
             else
             {
-                _listener.Bind(new IPEndPoint(IPAddress.Any, _SocketOption.Port));
+                _listener.Bind(new IPEndPoint(IPAddress.Any, SocketOption.Port));
             }
 
             _listener.Listen(backlog);
@@ -143,9 +128,20 @@ namespace SAEA.Sockets.Core.Tcp
                 {
                     var clientSocket = await _listener.AcceptAsync().ConfigureAwait(false);
                     clientSocket.NoDelay = true;
-                    SslStream sslStream = new SslStream(new NetworkStream(clientSocket), false);
-                    await sslStream.AuthenticateAsServerAsync(_SocketOption.X509Certificate2, false, _SocketOption.SslProtocol, false).ConfigureAwait(false);
-                    OnAccepted?.Invoke(clientSocket, sslStream);
+
+                    Stream nsStream;
+
+                    if (SocketOption.WithSsl)
+                    {
+                        nsStream = new SslStream(new NetworkStream(clientSocket), false);
+                        await ((SslStream)nsStream).AuthenticateAsServerAsync(SocketOption.X509Certificate2, false, SocketOption.SslProtocol, false).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        nsStream = new NetworkStream(clientSocket);
+                    }
+                    
+                    OnAccepted?.Invoke(clientSocket, nsStream);
                 }
                 catch (ObjectDisposedException oex)
                 {
@@ -155,7 +151,7 @@ namespace SAEA.Sockets.Core.Tcp
                 {
                     if (exception is SocketException s && s.SocketErrorCode == SocketError.OperationAborted)
                     {
-                        OnDisconnected?.Invoke(_SocketOption.IP + "_" + _SocketOption.Port, exception);
+                        OnDisconnected?.Invoke(SocketOption.IP + "_" + SocketOption.Port, exception);
                         return;
                     }
                     await Task.Delay(TimeSpan.FromSeconds(1), _cancellationToken).ConfigureAwait(false);
@@ -179,7 +175,7 @@ namespace SAEA.Sockets.Core.Tcp
         public void Dispose()
         {
             _listener?.Dispose();
-            _SocketOption.X509Certificate2?.Dispose();
+            SocketOption.X509Certificate2?.Dispose();
         }
     }
 }

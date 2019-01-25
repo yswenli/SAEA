@@ -6,14 +6,19 @@
     <title>SAEA.MVCTest</title>
 </head>
 <body>
+
+    <div>
+        <img src="6139455.png" />
+    </div>
+
     <form action="/home/update" method="get">
         <p>id: <input type="text" name="id" /></p>
         <input type="submit" value="Submit" />
     </form>
 
     <form action="/home/update" method="post">
-        <p>First name: <input type="text" name="fname" /></p>
-        <p>Last name: <input type="text" name="lname" /></p>
+        <p>ID: <input type="text" name="ID" /></p>
+        <p>UserName: <input type="text" name="UserName" /></p>
         <input type="submit" value="Submit" />
     </form>
 
@@ -35,6 +40,10 @@
         <p>
             <button id="ajax_btn">ajaxTest</button>
 
+            <button id="ajax_btn2">ajaxTest2</button>
+
+            <button id="ajax_btn3">ajaxTest3</button>
+
             <button id="noAjax_btn" onclick="location.href = '/ajax/test?str=hello';">noajaxTest</button>
         </p>
     </div>
@@ -47,6 +56,27 @@
                     alert(data);
                 });
             });
+
+            $("#ajax_btn2").click(function () {
+                $.post("/ajax/test2", "str=hello", function (data) {
+                    alert(data);
+                });
+            });
+
+            $("#ajax_btn3").click(function () {
+                $.ajax({
+                    url: "/ajax/test3",
+                    type: "POST",
+                    datType: "JSON",
+                    contentType: "application/json",
+                    data: "{'id': " + 1 + ",'username':'yswenli','nickname':'WALLE'}",
+                    async: false,
+                    success: function (result) {
+                        alert(`id:${result.ID},username:${result.UserName},nickname:${result.NickName}`);
+                    }
+                });
+            });
+
         });
     </script>
 

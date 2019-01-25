@@ -72,7 +72,7 @@ namespace SAEA.MQTT.Core.Implementations
                 _logger.Verbose("Connecting [Timeout={0}]", timeout);
 
                 await Common.TaskExtensions
-                    .TimeoutAfterAsync(ct => _channel.ConnectAsync(ct), timeout, cancellationToken)
+                    .TimeoutAfterAsync(ct => _channel.ConnectAsync(), timeout, cancellationToken)
                     .ConfigureAwait(false);
             }
             catch (Exception exception)

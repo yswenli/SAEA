@@ -11,7 +11,7 @@
 *机器名称：WENLI-PC
 *公司名称：wenli
 *命名空间：SAEA.Sockets.Interface
-*文件名： IServerSokcet
+*文件名： IClientSocket
 *版本号： V4.0.0.1
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
@@ -27,16 +27,23 @@
 *版本号： V4.0.0.1
 *描述：
 *****************************************************************************/
-using System;
-using System.Collections.Generic;
-using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace SAEA.Sockets.Interface
 {
-    public interface IServerSokcet
+    public interface IClientSocket
     {
-        void Start(int backlog = 10 * 1000);
+        string Endpoint { get; }
 
-        ISocketOption SocketOption { get; set; }
+        Task ConnectAsync();
+
+        bool Connected { get; set; }
+
+        Task SendAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken);
+
+        Task<int> ReceiveAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken);
+
+        void Dispose();
     }
 }
