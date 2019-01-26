@@ -60,8 +60,17 @@ namespace SAEA.MVC
             var fileName = controllerSpaceName + ".dll";
             var assembly = Assembly.LoadFile(PathHelper.GetFullName(fileName));
             var tt = assembly.GetTypes().Where(b => b.FullName.Contains(ConstHelper.CONTROLLERSPACE)).ToList();
-            if (tt == null) throw new Exception("当前项目中找不到Controllers空间或命名不符合SAEA.MVC命名规范！");
-            RouteTable.Types.AddRange(tt);
+
+            var fileName2 = controllerSpaceName + ".exe";
+            var assembly2 = Assembly.LoadFile(PathHelper.GetFullName(fileName));
+            var tt2 = assembly2.GetTypes().Where(b => b.FullName.Contains(ConstHelper.CONTROLLERSPACE)).ToList();
+
+            if (tt == null && tt2 == null) throw new Exception("当前项目中找不到Controllers空间或命名不符合SAEA.MVC命名规范！");
+
+            if (tt != null)
+                RouteTable.Types.AddRange(tt);
+            if (tt2 != null)
+                RouteTable.Types.AddRange(tt2);
         }
 
 

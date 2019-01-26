@@ -12,6 +12,8 @@ namespace SAEA.MVCTest
 
             var mvcConfig = SAEAMvcApplicationConfigBuilder.Read();
 
+            //mvcConfig.Port = 39655;
+
             SAEAMvcApplication mvcApplication = new SAEAMvcApplication(mvcConfig);
 
             //设置默认控制器
@@ -26,7 +28,7 @@ namespace SAEA.MVCTest
 
             mvcApplication.Start();
 
-            ConsoleHelper.WriteLine("MVC已启动！\t\r\n访问请输入http://127.0.0.1:39654/{controller}/{action}");
+            ConsoleHelper.WriteLine($"MVC已启动！\t\r\n访问请输入http://127.0.0.1:{mvcConfig.Port}/{{controller}}/{{action}}");
 
             ConsoleHelper.WriteLine("回车结束！");
 

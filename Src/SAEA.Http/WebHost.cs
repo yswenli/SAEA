@@ -62,7 +62,7 @@ namespace SAEA.Http
         /// <param name="bufferSize">http处理数据缓存大小</param>
         /// <param name="count">http连接数上限</param>
         /// <param name="timeOut">超时</param>
-        public WebHost(IInvoker invoker, string root = "/html/", int port = 39654, bool isStaticsCached = true, bool isZiped = true, int bufferSize = 1024 * 10, int count = 10000, int timeOut = 120 * 1000)
+        public WebHost(IInvoker invoker, string root = "/wwwroot/", int port = 39654, bool isStaticsCached = true, bool isZiped = true, int bufferSize = 1024 * 10, int count = 10000, int timeOut = 120 * 1000)
         {
             Invoker = invoker;
 
@@ -76,7 +76,7 @@ namespace SAEA.Http
                 ClientCounts = count
             };
 
-            _serverSocket = new HttpSocket(bufferSize, count, timeOut);
+            _serverSocket = new HttpSocket(port, bufferSize, count, timeOut);
 
             _serverSocket.OnRequested += _serverSocket_OnRequested;
 
@@ -90,7 +90,7 @@ namespace SAEA.Http
         {
             if (!IsRunning)
             {
-                _serverSocket.Start(WebConfig.Port);
+                _serverSocket.Start();
                 IsRunning = true;
             }
 

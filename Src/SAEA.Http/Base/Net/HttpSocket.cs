@@ -32,7 +32,7 @@ namespace SAEA.Http.Base.Net
         public event Action<IUserToken, HttpMessage> OnRequested;
 
 
-        public HttpSocket(int bufferSize = 1024 * 10, int count = 10000, int timeOut = 120 * 1000) : base(new HContext(), bufferSize, count,false, timeOut)
+        public HttpSocket(int port, int bufferSize = 1024 * 10, int count = 10000, int timeOut = 120 * 1000) : base(new HContext(), bufferSize, count, false, timeOut, false, port)
         {
 
         }
