@@ -13,7 +13,7 @@
 *公司名称：wenli
 *命名空间：SAEA.Sockets.Core
 *文件名： UserTokenPool
-*版本号： V4.0.0.1
+*版本号： V4.1.2.2
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -25,7 +25,7 @@
 *修改标记
 *创建时间：2018/10/26 15:54:21
 *修改人： yswenli
-*版本号： V4.0.0.1
+*版本号： V4.1.2.2
 *描述：
 *
 *****************************************************************************/
@@ -39,6 +39,8 @@ namespace SAEA.Sockets.Core
 {
     public class UserTokenPool : IDisposable
     {
+        UserTokenFactory _userTokenFactory;
+
         Queue<IUserToken> concurrentQueue = new Queue<IUserToken>();
 
         object locker = new object();
@@ -47,10 +49,12 @@ namespace SAEA.Sockets.Core
 
         public UserTokenPool(IContext context, int count)
         {
+            _userTokenFactory = new UserTokenFactory();
+      
             _clientAcceptManager = new Semaphore(count, count);
             for (int i = 0; i < count; i++)
             {
-                IUserToken userToken = UserTokenFactory.Create(context);
+                IUserToken userToken =_userTokenFactory.Create(context);
                 concurrentQueue.Enqueue(userToken);
             }
         }
