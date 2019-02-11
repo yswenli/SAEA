@@ -111,7 +111,7 @@ namespace SAEA.MQTT.Core.Implementations
                 _listeners.Add(listenerV4);
             }
 
-            if (!options.BoundInterNetworkV6Address.Equals(IPAddress.None))
+            if (!options.BoundInterNetworkV6Address.Equals(IPAddress.IPv6None))
             {
                 var listenerV6 = new MqttTcpServerListener(
                     AddressFamily.InterNetworkV6,

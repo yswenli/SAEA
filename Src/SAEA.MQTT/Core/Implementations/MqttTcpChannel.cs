@@ -19,6 +19,7 @@
 using SAEA.MQTT.Interface;
 using SAEA.MQTT.Model;
 using SAEA.Sockets;
+using SAEA.Sockets.Core;
 using SAEA.Sockets.Core.Tcp;
 using SAEA.Sockets.Interface;
 using System;
@@ -39,15 +40,13 @@ namespace SAEA.MQTT.Core.Implementations
 
         IClientSocket _clientSocket;
 
-        /// <summary>
-        /// called on client sockets are created in connect
-        /// </summary>
+
         public MqttTcpChannel(IMqttClientOptions clientOptions)
         {
             _clientOptions = clientOptions ?? throw new ArgumentNullException(nameof(clientOptions));
             _options = (MqttClientTcpOptions)clientOptions.ChannelOptions;
 
-            var builder = new SocketBuilder()
+            var builder = new SocketOptionBuilder()
                 .UseStream()
                 .SetIP(_options.Server)
                 .SetPort(_options.Port ?? 1883);
@@ -63,10 +62,7 @@ namespace SAEA.MQTT.Core.Implementations
         }
 
 
-        /// <summary>
-        /// called on server, sockets are passed in
-        /// connect will not be called
-        /// </summary>
+
         public MqttTcpChannel(Socket socket, Stream sslStream)
         {
             _clientSocket = new StreamClientSocket(socket, sslStream);
@@ -93,16 +89,19 @@ namespace SAEA.MQTT.Core.Implementations
 
         public Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
+            ChannelManager.Current.Refresh(_clientSocket.Endpoint);
             return _clientSocket.ReceiveAsync(buffer, offset, count, cancellationToken);
         }
 
         public Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
+            ChannelManager.Current.Refresh(_clientSocket.Endpoint);
             return _clientSocket.SendAsync(buffer, offset, count, cancellationToken);
         }
 
         public void Dispose()
         {
+            ChannelManager.Current.Remove(_clientSocket.Endpoint);
             _clientSocket.Dispose();
         }
 

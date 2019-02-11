@@ -99,6 +99,7 @@ namespace SAEA.MQTT.Core.Implementations
             if (_options.TlsOptions?.UseTls == true && _options.TlsOptions?.Certificates != null)
             {
                 clientWebSocket.Options.ClientCertificates = new X509CertificateCollection();
+
                 foreach (var certificate in _options.TlsOptions.Certificates)
                 {
                     clientWebSocket.Options.ClientCertificates.Add(new X509Certificate(certificate));
@@ -106,6 +107,7 @@ namespace SAEA.MQTT.Core.Implementations
             }
 
             await clientWebSocket.ConnectAsync(new Uri(uri), cancellationToken).ConfigureAwait(false);
+
             _webSocket = clientWebSocket;
         }
 
@@ -170,11 +172,6 @@ namespace SAEA.MQTT.Core.Implementations
                 return null;
             }
 
-#if WINDOWS_UWP
-            throw new NotSupportedException("Proxies are not supported in UWP.");
-#elif NETSTANDARD1_3
-            throw new NotSupportedException("Proxies are not supported in netstandard 1.3.");
-#else
             var proxyUri = new Uri(_options.ProxyOptions.Address);
 
             if (!string.IsNullOrEmpty(_options.ProxyOptions.Username) && !string.IsNullOrEmpty(_options.ProxyOptions.Password))
@@ -186,7 +183,7 @@ namespace SAEA.MQTT.Core.Implementations
             }
 
             return new WebProxy(proxyUri, _options.ProxyOptions.BypassOnLocal, _options.ProxyOptions.BypassList);
-#endif
+
         }
     }
 }

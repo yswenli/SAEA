@@ -40,9 +40,9 @@ namespace SAEA.TcpP2P
             _server.OnDisconnected += _server_OnDisconnected;
         }
 
-        private void _server_OnAccepted(IUserToken userToken)
+        private void _server_OnAccepted(string id)
         {
-            ConsoleHelper.WriteLine("userToken.ID:{0} 连接成功！", userToken.ID);
+            ConsoleHelper.WriteLine("userToken.ID:{0} 连接成功！", id);
         }
 
         private void _server_OnDisconnected(string ID, Exception ex)

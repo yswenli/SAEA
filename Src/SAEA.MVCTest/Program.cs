@@ -12,7 +12,7 @@ namespace SAEA.MVCTest
 
             var mvcConfig = SAEAMvcApplicationConfigBuilder.Read();
 
-            //mvcConfig.Port = 39655;
+            //mvcConfig.Port = 39656;
 
             SAEAMvcApplication mvcApplication = new SAEAMvcApplication(mvcConfig);
 

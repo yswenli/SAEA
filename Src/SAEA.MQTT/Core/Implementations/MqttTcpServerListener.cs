@@ -20,10 +20,9 @@ using SAEA.MQTT.Common.Serializer;
 using SAEA.MQTT.Event;
 using SAEA.MQTT.Model;
 using SAEA.Sockets;
-using SAEA.Sockets.Core.Tcp;
+using SAEA.Sockets.Core;
 using SAEA.Sockets.Interface;
 using System;
-using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
@@ -34,7 +33,7 @@ namespace SAEA.MQTT.Core.Implementations
     {
         ISocketOption socketOption;
 
-        StreamServerSocket serverSokcet;
+        IServerSokcet serverSokcet;
 
         AddressFamily _addressFamily;
 
@@ -52,8 +51,9 @@ namespace SAEA.MQTT.Core.Implementations
 
             _cancellationToken = cancellationToken;
             _logger = logger;
+            _addressFamily = addressFamily;
 
-            var sb = new SocketBuilder().SetSocket(Sockets.Model.SocketType.Tcp).UseStream();
+            var sb = new SocketOptionBuilder().SetSocket(Sockets.Model.SocketType.Tcp).UseStream();
 
             if (options is MqttServerTlsTcpEndpointOptions tlsOptions)
             {
@@ -69,16 +69,21 @@ namespace SAEA.MQTT.Core.Implementations
 
             socketOption = sb.Build();
 
-            serverSokcet = (StreamServerSocket)SocketFactory.CreateServerSocket(socketOption, cancellationToken);
+            serverSokcet = SocketFactory.CreateServerSocket(socketOption, cancellationToken);
 
             serverSokcet.OnAccepted += ServerSokcet_OnAccepted;
         }
 
-        private void ServerSokcet_OnAccepted(Socket clientSocket, System.IO.Stream stream)
+        private void ServerSokcet_OnAccepted(string id)
         {
-            var clientAdapter = new MqttChannelAdapter(new MqttTcpChannel(clientSocket, stream), new MqttPacketSerializer(), _logger);
+            var ci = ChannelManager.Current.Get(id);
 
-            ClientAccepted?.Invoke(this, new MqttServerAdapterClientAcceptedEventArgs(clientAdapter));
+            if (ci != null)
+            {
+                var clientAdapter = new MqttChannelAdapter(new MqttTcpChannel(ci.ClientSocket, ci.Stream), new MqttPacketSerializer(), _logger);
+
+                ClientAccepted?.Invoke(this, new MqttServerAdapterClientAcceptedEventArgs(clientAdapter));
+            }
         }
 
         public event EventHandler<MqttServerAdapterClientAcceptedEventArgs> ClientAccepted;
@@ -91,6 +96,7 @@ namespace SAEA.MQTT.Core.Implementations
 
         public void Dispose()
         {
+            ChannelManager.Current.Clear();
             serverSokcet?.Dispose();
         }
     }

@@ -31,7 +31,6 @@
 *****************************************************************************/
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
-using SAEA.Sockets.Model;
 using System;
 using System.IO;
 using System.Net;
@@ -56,18 +55,18 @@ namespace SAEA.Sockets.Core.Tcp
         private readonly CancellationToken _cancellationToken;
 
         public int ClientCounts { get => _clientCounts; private set => _clientCounts = value; }
-        
+
         public ISocketOption SocketOption { get; set; }
 
         bool _isStoped = true;
 
         #region events
 
-        public event OnStreamAcceptedHandler OnAccepted;
-
+        public event OnAcceptedHandler OnAccepted;
         public event OnErrorHandler OnError;
-
         public event OnDisconnectedHandler OnDisconnected;
+        [Obsolete("此方法仅用于IOCP中")]
+        public event OnReceiveHandler OnReceive;
 
         #endregion
 
@@ -78,7 +77,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// </summary>
         /// <param name="socketOption"></param>
         /// <param name="cancellationToken"></param>
-        public StreamServerSocket(ISocketOption socketOption, CancellationToken cancellationToken) : this(cancellationToken, socketOption.X509Certificate2,  socketOption.NoDelay, socketOption.SslProtocol)
+        public StreamServerSocket(ISocketOption socketOption, CancellationToken cancellationToken) : this(cancellationToken, socketOption.X509Certificate2, socketOption.NoDelay, socketOption.SslProtocol)
         {
             SocketOption = socketOption;
         }
@@ -140,8 +139,16 @@ namespace SAEA.Sockets.Core.Tcp
                     {
                         nsStream = new NetworkStream(clientSocket);
                     }
-                    
-                    OnAccepted?.Invoke(clientSocket, nsStream);
+                    var id = clientSocket.RemoteEndPoint.ToString();
+
+                    ChannelManager.Current.Set(id, clientSocket, nsStream);
+
+                    OnAccepted?.Invoke(id);
+
+                    if (OnReceive != null)
+                    {
+
+                    }
                 }
                 catch (ObjectDisposedException oex)
                 {
@@ -157,8 +164,7 @@ namespace SAEA.Sockets.Core.Tcp
                     await Task.Delay(TimeSpan.FromSeconds(1), _cancellationToken).ConfigureAwait(false);
                 }
             }
-        }
-
+        }       
 
         /// <summary>
         /// 关闭

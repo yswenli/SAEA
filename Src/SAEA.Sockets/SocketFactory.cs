@@ -63,7 +63,23 @@ namespace SAEA.Sockets
             {
                 return null;
             }
-            
+        }
+
+        /// <summary>
+        /// 创建iocp服务器Socket
+        /// </summary>
+        /// <param name="socketOption"></param>
+        /// <returns></returns>
+        public static IServerSokcet CreateServerSocket(ISocketOption socketOption)
+        {
+            if (socketOption.SocketType == SocketType.Tcp)
+            {
+                if (socketOption.UseIocp)
+                {
+                    return new IocpServerSocket(socketOption);
+                }
+            }
+            return null;
         }
 
 

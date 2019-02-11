@@ -21,30 +21,60 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Sockets;
 using SAEA.Sockets.Core.Tcp;
 using SAEA.Sockets.Interface;
 using System;
 
 namespace SAEA.Http.Base.Net
 {
-    class HttpSocket : IocpServerSocket
+    class HttpSocket
     {
+        IServerSokcet _serverSokcet;
+
         public event Action<IUserToken, HttpMessage> OnRequested;
 
 
-        public HttpSocket(int port, int bufferSize = 1024 * 10, int count = 10000, int timeOut = 120 * 1000) : base(new HContext(), bufferSize, count, false, timeOut, false, port)
+        public HttpSocket(int port, int bufferSize = 1024 * 10, int count = 10000, int timeOut = 120 * 1000)
         {
+            var optionBuilder = new SocketOptionBuilder()
+               .SetSocket(Sockets.Model.SocketType.Tcp)
+               .UseIocp(new HContext())
+               .SetPort(port)
+               .SetCount(count)
+               .SetBufferSize(bufferSize)
+               .SetTimeOut(timeOut);
+            var option = optionBuilder.Build();
 
+            _serverSokcet = SocketFactory.CreateServerSocket(option);
+            _serverSokcet.OnReceive += _serverSokcet_OnReceive;
         }
 
-        protected override void OnReceiveBytes(IUserToken userToken, byte[] data)
+        private void _serverSokcet_OnReceive(string id, byte[] data)
         {
+            var userToken = ((IocpServerSocket)_serverSokcet).SessionManager.Get(id);
+
             HUnpacker unpacker = (HUnpacker)userToken.Unpacker;
 
             unpacker.GetRequest(data, (result) =>
             {
                 OnRequested?.Invoke(userToken, result);
             });
+        }
+        
+        public void End(IUserToken userToken, byte[] data)
+        {
+            ((IocpServerSocket)_serverSokcet).End(userToken, data);
+        }
+
+        public void Start()
+        {
+            _serverSokcet.Start();
+        }
+
+        public void Stop()
+        {
+            _serverSokcet.Dispose();
         }
     }
 }

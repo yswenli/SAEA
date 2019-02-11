@@ -1,5 +1,4 @@
-﻿/****************************************************************************
- * 
+﻿/***************************************************************************** 
   ____    _    _____    _      ____             _        _   
  / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
  \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
@@ -11,8 +10,8 @@
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
 *公司名称：wenli
-*命名空间：SAEA.Sockets
-*文件名： OnAcceptedHandler
+*命名空间：SAEA.Sockets.Interface
+*文件名： IServerSokcet
 *版本号： V4.1.2.2
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
@@ -27,12 +26,24 @@
 *修改人： yswenli
 *版本号： V4.1.2.2
 *描述：
-*
 *****************************************************************************/
-using System.IO;
-using System.Net.Sockets;
 
-namespace SAEA.Sockets.Handler
+using SAEA.Sockets.Handler;
+
+namespace SAEA.Sockets.Interface
 {
-    public delegate void OnAcceptedHandler(string clientID);
+    public interface IServerSokcet
+    {
+        void Start(int backlog = 10 * 1000);
+
+        ISocketOption SocketOption { get; set; }
+
+        event OnAcceptedHandler OnAccepted;
+
+        event OnErrorHandler OnError;
+
+        event OnReceiveHandler OnReceive;
+
+        void Dispose();
+    }
 }

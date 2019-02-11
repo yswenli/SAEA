@@ -70,13 +70,14 @@ namespace SAEA.Sockets.Core.Tcp
 
         public event OnDisconnectedHandler OnDisconnected;
 
+        public event OnReceiveHandler OnReceive;
+
         #endregion
 
         /// <summary>
         /// socket收到数据时的代理
         /// </summary>
         private OnServerReceiveBytesHandler OnServerReceiveBytes;
-
 
         /// <summary>
         /// iocp 服务器 socket
@@ -108,8 +109,6 @@ namespace SAEA.Sockets.Core.Tcp
             _listener = new Socket(AddressFamily.InterNetwork, System.Net.Sockets.SocketType.Stream, ProtocolType.Tcp);
             _listener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             _listener.NoDelay = noDelay;
-
-
         }
 
 
@@ -163,7 +162,7 @@ namespace SAEA.Sockets.Core.Tcp
 
             Interlocked.Increment(ref _clientCounts);
 
-            TaskHelper.Start(() => { OnAccepted?.Invoke(userToken); });
+            TaskHelper.Start(() => { OnAccepted?.Invoke(userToken.ID); });
 
             if (!userToken.Socket.ReceiveAsync(readArgs))
             {
@@ -201,7 +200,13 @@ namespace SAEA.Sockets.Core.Tcp
         /// </summary>
         /// <param name="userToken"></param>
         /// <param name="data"></param>
-        protected virtual void OnReceiveBytes(IUserToken userToken, byte[] data) { }
+        protected virtual void OnReceiveBytes(IUserToken userToken, byte[] data)
+        {
+            if (OnReceive != null)
+            {
+                OnReceive.Invoke(userToken.ID, data);
+            }
+        }
 
 
         /// <summary>
@@ -419,6 +424,11 @@ namespace SAEA.Sockets.Core.Tcp
                 _sessionManager.Clear();
             }
             catch { }
+        }
+
+        public void Dispose()
+        {
+            Stop();
         }
     }
 }

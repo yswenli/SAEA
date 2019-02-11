@@ -31,9 +31,11 @@ namespace SAEA.MQTTTest
         public static void RunEmptyServer()
         {
             var mqttServer = new MqttFactory().CreateMqttServer();
+
             mqttServer.StartAsync(new MqttServerOptions()).GetAwaiter().GetResult();
 
             Console.WriteLine("Press any key to exit.");
+
             Console.ReadLine();
         }
 
@@ -41,6 +43,8 @@ namespace SAEA.MQTTTest
         {
             try
             {
+                #region ipv6
+
                 var options = new MqttServerOptions
                 {
                     ConnectionValidator = p =>
@@ -60,8 +64,6 @@ namespace SAEA.MQTTTest
                     {
                         if (MqttTopicFilterComparer.IsMatch(context.ApplicationMessage.Topic, "/myTopic/WithTimestamp/#"))
                         {
-                            // Replace the payload with the timestamp. But also extending a JSON 
-                            // based payload with the timestamp is a suitable use case.
                             context.ApplicationMessage.Payload = Encoding.UTF8.GetBytes(DateTime.Now.ToString("O"));
                         }
 
@@ -86,9 +88,7 @@ namespace SAEA.MQTTTest
                     }
                 };
 
-                // Extend the timestamp for all messages from clients.
-                // Protect several topics from being subscribed from every client.
-
+                
                 //var certificate = new X509Certificate(@"C:\certs\test\test.cer", "");
                 //options.TlsEndpointOptions.Certificate = certificate.Export(X509ContentType.Cert);
                 //options.ConnectionBacklog = 5;
@@ -132,6 +132,9 @@ namespace SAEA.MQTTTest
                 };
 
                 await mqttServer.StartAsync(options);
+                #endregion
+
+
 
                 Console.WriteLine("Press any key to exit.");
                 Console.ReadLine();
