@@ -73,16 +73,13 @@ namespace SAEA.Sockets.Core
 
         public SocketAsyncEventArgs Dequeue()
         {
-            if (_argsPool.TryDequeue(out SocketAsyncEventArgs args))
-            {
-                args.Completed += _completed;
-                return args;
-            }
-            else
+            SocketAsyncEventArgs args;
+            while (!_argsPool.TryDequeue(out args))
             {
                 Thread.Sleep(1);
-                return Dequeue();
             }
+            args.Completed += _completed;
+            return args;
         }
 
 

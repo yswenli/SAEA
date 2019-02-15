@@ -7,7 +7,7 @@
     <Product>SAEA.Commom</Product>
     <Copyright>yswenli</Copyright>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Version>4.1.2.2</Version>
+    <Version>4.1.2.3</Version>
     <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
     <Description>SAEA. Common is a tool class project in the SAEA project
 SAEA.Common 是SAEA项目中的工具类项目</Description>
@@ -15,7 +15,7 @@ SAEA.Common 是SAEA项目中的工具类项目</Description>
     <PackageReleaseNotes>SAEA. Common is a tool class project in the SAEA project
 SAEA.Common 是SAEA项目中的工具类项目</PackageReleaseNotes>
     <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
-    <AssemblyVersion>4.1.2.2</AssemblyVersion>
+    <AssemblyVersion>4.1.2.3</AssemblyVersion>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
     <PackageId>SAEA.Common</PackageId>
