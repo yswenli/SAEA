@@ -243,6 +243,49 @@ cc2.SendRemoveGroup(groupName);
 
 ```
 
+## SAEA.MQTT
+
+### saea.mqtt server usage
+
+```csharp
+var serverOptions = new MqttServerOptionsBuilder().Build();
+
+server.ApplicationMessageReceived += Server_ApplicationMessageReceived;
+
+await server.StartAsync(serverOptions)
+
+private static void Server_ApplicationMessageReceived(object sender, MQTT.Event.MqttMessageReceivedEventArgs e)
+{
+    Console.ForegroundColor = ConsoleColor.DarkGreen;
+
+    Console.WriteLine($"Server收到消息，ClientId:{e.ClientId}，{Encoding.UTF8.GetString(e.ApplicationMessage.Payload)}");
+}
+```
+### saea.mqtt client usage
+
+```csharp
+var client = factory.CreateMqttClient();
+
+var clientOptions = new MqttClientOptionsBuilder().WithTcpServer("127.0.0.1").Build();
+
+client.ApplicationMessageReceived += Client_ApplicationMessageReceived;
+
+await client.ConnectAsync(clientOptions);
+
+client.SubscribeAsync("test/topic").GetAwaiter().GetResult();
+
+client.PublishAsync("test/topic", "hello").GetAwaiter().GetResult();
+
+
+private static void Client_ApplicationMessageReceived(object sender, MQTT.Event.MqttMessageReceivedEventArgs e)
+{
+    Console.ForegroundColor = ConsoleColor.Red;
+	
+    Console.WriteLine($"client:{e.ClientId}收到消息:{Encoding.UTF8.GetString(e.ApplicationMessage.Payload)}");
+}
+
+```
+
 ## Instance screenshot
 
 <img src="https://github.com/yswenli/SAEA/blob/master/FileSocketTest.png?raw=true" /><br/>
