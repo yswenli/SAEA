@@ -49,12 +49,12 @@ namespace SAEA.MVC
         public int BufferSize
         {
             get; set;
-        } = 102400;
+        } = 10240;
 
         public int Count
         {
             get; set;
-        } = 100;
+        } = 10000;
 
 
         public string DefaultPage

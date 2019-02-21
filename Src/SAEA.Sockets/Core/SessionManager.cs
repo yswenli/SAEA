@@ -124,7 +124,7 @@ namespace SAEA.Sockets.Core
         /// </summary>
         /// <param name="socket"></param>
         /// <returns></returns>
-        public IUserToken BindtUserToken(Socket socket)
+        public IUserToken BindUserToken(Socket socket)
         {
             IUserToken userToken = InitUserToken();
             userToken.Socket = socket;

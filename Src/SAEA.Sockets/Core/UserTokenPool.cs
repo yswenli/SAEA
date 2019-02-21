@@ -30,9 +30,10 @@
 *
 *****************************************************************************/
 
+using SAEA.Common;
 using SAEA.Sockets.Interface;
 using System;
-using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Threading;
 
 namespace SAEA.Sockets.Core
@@ -41,7 +42,7 @@ namespace SAEA.Sockets.Core
     {
         UserTokenFactory _userTokenFactory;
 
-        Queue<IUserToken> concurrentQueue = new Queue<IUserToken>();
+        ConcurrentQueue<IUserToken> concurrentQueue = new ConcurrentQueue<IUserToken>();
 
         object locker = new object();
 
@@ -50,19 +51,24 @@ namespace SAEA.Sockets.Core
         public UserTokenPool(IContext context, int count)
         {
             _userTokenFactory = new UserTokenFactory();
-      
-            _clientAcceptManager = new Semaphore(count, count);
+
             for (int i = 0; i < count; i++)
             {
-                IUserToken userToken =_userTokenFactory.Create(context);
+                IUserToken userToken = _userTokenFactory.Create(context);
                 concurrentQueue.Enqueue(userToken);
             }
         }
 
         public IUserToken Dequeue()
         {
-            _clientAcceptManager.WaitOne();
-            return concurrentQueue.Dequeue();
+            IUserToken token;
+
+            while (!concurrentQueue.TryDequeue(out token))
+            {
+                Thread.Sleep(1);
+            }
+
+            return token;
         }
 
         public void Enqueue(IUserToken userToken)
@@ -71,7 +77,6 @@ namespace SAEA.Sockets.Core
             userToken.ReadArgs = null;
             userToken.WriteArgs = null;
             concurrentQueue.Enqueue(userToken);
-            _clientAcceptManager.Release();
         }
 
         public void Dispose()

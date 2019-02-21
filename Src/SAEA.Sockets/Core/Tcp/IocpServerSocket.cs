@@ -156,7 +156,7 @@ namespace SAEA.Sockets.Core.Tcp
 
         private void ProcessAccepted(SocketAsyncEventArgs e)
         {
-            var userToken = _sessionManager.BindtUserToken(e.AcceptSocket);
+            var userToken = _sessionManager.BindUserToken(e.AcceptSocket);
 
             var readArgs = userToken.ReadArgs;
 
