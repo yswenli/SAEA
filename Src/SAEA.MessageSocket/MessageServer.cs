@@ -22,19 +22,18 @@
 *
 *****************************************************************************/
 
+using SAEA.Common;
 using SAEA.MessageSocket.Collection;
 using SAEA.MessageSocket.Common;
 using SAEA.MessageSocket.Model;
 using SAEA.MessageSocket.Model.Business;
 using SAEA.MessageSocket.Model.Communication;
-using SAEA.Common;
-using SAEA.Sockets;
 using SAEA.Sockets.Core;
+using SAEA.Sockets.Core.Tcp;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
 using System;
 using System.Threading.Tasks;
-using SAEA.Sockets.Core.Tcp;
 
 namespace SAEA.MessageSocket
 {
