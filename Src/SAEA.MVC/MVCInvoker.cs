@@ -142,28 +142,58 @@ namespace SAEA.MVC
         /// <returns></returns>
         private static ActionResult MvcInvoke(HttpContext httpContext, RouteTable routeTable, Type controller, string actionName, NameValueCollection nameValues, bool isPost)
         {
-            try
+            var routing = routeTable.GetOrAdd(controller, actionName, isPost);
+
+            if (routing == null)
             {
-                var routing = routeTable.GetOrAdd(controller, actionName, isPost);
+                return new ContentResult($"o_o，找不到：{controller.Name}/{actionName} 当前请求为:{(isPost ? ConstHelper.HTTPPOST : ConstHelper.HTTPGET)}", System.Net.HttpStatusCode.NotFound);
+            }
 
-                if (routing == null)
+            routing.Instance.HttpContext = httpContext;
+
+            var nargs = new object[] { httpContext };
+
+
+            //类过滤器
+            if (routing.FilterAtrrs != null && routing.FilterAtrrs.Any())
+            {
+                foreach (var arr in routing.FilterAtrrs)
                 {
-                    throw new Exception($"o_o，找不到：{controller.Name}/{actionName} 当前请求为:{(isPost ? ConstHelper.HTTPPOST : ConstHelper.HTTPGET)}");
+                    var method = arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING);
+
+                    if (method != null)
+                    {
+                        var goOn = (bool)method.Invoke(arr, nargs.ToArray());
+
+                        if (!goOn)
+                        {
+                            return new ContentResult("o_o，当前逻辑已被拦截！", System.Net.HttpStatusCode.NotAcceptable);
+                        }
+                    }
                 }
+            }
 
-                routing.Instance.HttpContext = httpContext;
-
-                var nargs = new object[] { httpContext };
-
-                if (routing.FilterAtrrs != null && routing.FilterAtrrs.Count > 0)
+            //方法过滤器
+            if (routing.ActionFilterAtrrs != null && routing.ActionFilterAtrrs.Any())
+            {
+                foreach (var arr in routing.ActionFilterAtrrs)
                 {
-                    foreach (var arr in routing.FilterAtrrs)
+                    if (arr.ToString() == ConstHelper.OUTPUTCACHEATTRIBUTE)
                     {
                         var method = arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING);
 
                         if (method != null)
                         {
-                            var goOn = (bool)method.Invoke(arr, nargs.ToArray());
+                            httpContext.Session.CacheCalcResult = (string)arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING).Invoke(arr, nargs.ToArray());
+                        }
+                    }
+                    else
+                    {
+                        var method = arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING);
+
+                        if (method != null)
+                        {
+                            var goOn = (bool)arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING).Invoke(arr, nargs.ToArray());
 
                             if (!goOn)
                             {
@@ -172,97 +202,55 @@ namespace SAEA.MVC
                         }
                     }
                 }
+            }
 
-                if (routing.ActionFilterAtrrs != null && routing.ActionFilterAtrrs.Count > 0)
+            #region actionResult
+
+            ActionResult result;
+
+            if (httpContext.Request.ContentType == ConstHelper.FORMENCTYPE3 && !string.IsNullOrEmpty(httpContext.Request.Json))
+            {
+                var nnv = SerializeHelper.Deserialize<Dictionary<string, string>>(httpContext.Request.Json).ToNameValueCollection();
+
+                result = MethodInvoke(routing.Action, routing.Instance, nnv);
+            }
+            else
+            {
+                result = MethodInvoke(routing.Action, routing.Instance, nameValues);
+            }
+
+            #endregion
+
+            nargs = new object[] { httpContext, result };
+
+            if (routing.FilterAtrrs != null && routing.FilterAtrrs.Any())
+            {
+                foreach (var arr in routing.FilterAtrrs)
                 {
-                    foreach (var arr in routing.ActionFilterAtrrs)
+                    var method = arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTED);
+                    if (method != null)
+                        method.Invoke(arr, nargs);
+                }
+            }
+
+            if (routing.ActionFilterAtrrs != null && routing.ActionFilterAtrrs.Any())
+            {
+                foreach (var arr in routing.ActionFilterAtrrs)
+                {
+                    if (arr.ToString() == ConstHelper.OUTPUTCACHEATTRIBUTE)
                     {
-                        if (arr.ToString() == ConstHelper.OUTPUTCACHEATTRIBUTE)
-                        {
-                            var method = arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING);
-
-                            if (method != null)
-                            {
-                                httpContext.Session.CacheCalcResult = (string)arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING).Invoke(arr, nargs.ToArray());
-                            }
-                        }
-                        else
-                        {
-                            var method = arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING);
-
-                            if (method != null)
-                            {
-                                var goOn = (bool)arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING).Invoke(arr, nargs.ToArray());
-
-                                if (!goOn)
-                                {
-                                    return new ContentResult("o_o，当前逻辑已被拦截！", System.Net.HttpStatusCode.NotAcceptable);
-                                }
-                            }
-                        }
+                        continue;
                     }
-                }
-
-                #region actionResult
-
-                ActionResult result;
-
-                if (httpContext.Request.ContentType == ConstHelper.FORMENCTYPE3 && !string.IsNullOrEmpty(httpContext.Request.Json))
-                {
-                    var nnv = SerializeHelper.Deserialize<Dictionary<string, string>>(httpContext.Request.Json).ToNameValueCollection();
-
-                    result = MethodInvoke(routing.Action, routing.Instance, nnv);
-                }
-                else
-                {
-                    result = MethodInvoke(routing.Action, routing.Instance, nameValues);
-                }
-
-                #endregion
-
-
-
-                nargs = new object[] { httpContext, result };
-
-                if (routing.FilterAtrrs != null && routing.FilterAtrrs.Count > 0)
-                {
-                    foreach (var arr in routing.FilterAtrrs)
+                    else
                     {
                         var method = arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTED);
                         if (method != null)
                             method.Invoke(arr, nargs);
                     }
                 }
+            }
 
-                if (routing.ActionFilterAtrrs != null && routing.ActionFilterAtrrs.Count > 0)
-                {
-                    foreach (var arr in routing.ActionFilterAtrrs)
-                    {
-                        if (arr.ToString() == ConstHelper.OUTPUTCACHEATTRIBUTE)
-                        {
-                            continue;
-                        }
-                        else
-                        {
-                            var method = arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTED);
-                            if (method != null)
-                                method.Invoke(arr, nargs);
-                        }
-                    }
-                }
-                return result;
-            }
-            catch (Exception ex)
-            {
-                if (ex.Message.Contains("o_o，找不到"))
-                {
-                    return new ContentResult(ex.Message, System.Net.HttpStatusCode.NotFound);
-                }
-                else
-                {
-                    return new ContentResult("→_→，出错了：" + ex.Message, System.Net.HttpStatusCode.InternalServerError);
-                }
-            }
+            return result;
         }
 
         /// <summary>
@@ -279,7 +267,7 @@ namespace SAEA.MVC
             {
                 var @params = action.GetParameters();
 
-                if (@params != null && @params.Length > 0)
+                if (@params != null && @params.Any())
                 {
                     var list = ParamsHelper.FillPamars(@params, nameValues);
 
