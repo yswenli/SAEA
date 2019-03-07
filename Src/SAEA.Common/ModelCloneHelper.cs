@@ -93,36 +93,55 @@ namespace SAEA.Common
 
                 if (constructor != null)
                 {
-                    object o = constructor.Invoke(null);
-
-                    PropertyInfo[] propertys = type.GetProperties();
-
                     Type oldType = obj.GetType();
 
-                    foreach (PropertyInfo property in propertys)
+                    object o = constructor.Invoke(null);
+
+                    //泛型集合
+                    if (oldType.IsAnsiClass && (oldType.IsGenericType || oldType.IsArray))
                     {
-                        PropertyInfo p = oldType.GetProperty(property.Name);
+                        IEnumerable data = obj as IEnumerable;
 
-                        if (property.CanWrite && p != null && p.CanRead)
+                        if (oldType.Name == "Dictionary`2")
                         {
-                            if (p.PropertyType.IsAnsiClass && (p.PropertyType.IsGenericType || p.PropertyType.IsArray))
+                            var args = type.GetGenericArguments();
+
+                            var type1 = args[0];
+
+                            var type2 = args[1];
+
+                            var cpv2 = (System.Collections.IDictionary)Activator.CreateInstance(type);
+
+                            var nData = (System.Collections.IDictionary)data;
+
+                            foreach (DictionaryEntry item in nData)
                             {
-                                if (p.PropertyType.Name == "Nullable`1")
+                                cpv2.Add(ConvertTo(item.Key, type1), ConvertTo(item.Value, type2));
+                            }
+                            o = cpv2;
+                        }
+                        else
+                        {
+                            foreach (var item in data)
+                            {
+                                var nItem = ConvertTo(item, type.GetGenericArguments()[0]);
+                                type.GetMethod("Add").Invoke(o, new[] { nItem });
+                            }
+                        }
+                    }
+                    else
+                    {
+                        PropertyInfo[] propertys = type.GetProperties();
+
+                        foreach (PropertyInfo property in propertys)
+                        {
+                            PropertyInfo p = oldType.GetProperty(property.Name);
+
+                            if (property.CanWrite && p != null && p.CanRead)
+                            {
+                                if (p.PropertyType.IsAnsiClass && (p.PropertyType.IsGenericType || p.PropertyType.IsArray))
                                 {
-                                    var pv = p.GetValue(obj, null);
-
-                                    if (pv != null)
-                                    {
-                                        var args = property.PropertyType.GetGenericArguments();
-
-                                        var ptype = args[0];
-
-                                        property.SetValue(o, ConvertTo(pv, ptype), null);
-                                    }
-                                }
-                                else
-                                {
-                                    if (p.PropertyType.Name == "Dictionary`2" || p.PropertyType.Name == "IDictionary`2")
+                                    if (p.PropertyType.Name == "Nullable`1")
                                     {
                                         var pv = p.GetValue(obj, null);
 
@@ -130,58 +149,75 @@ namespace SAEA.Common
                                         {
                                             var args = property.PropertyType.GetGenericArguments();
 
-                                            var type1 = args[0];
+                                            var ptype = args[0];
 
-                                            var type2 = args[1];
-
-                                            var cpv = (System.Collections.IDictionary)pv;
-
-                                            var cpv2 = (System.Collections.IDictionary)Activator.CreateInstance(property.PropertyType);
-
-                                            foreach (DictionaryEntry item in cpv)
-                                            {
-                                                cpv2.Add(ConvertTo(item.Key, type1), ConvertTo(item.Value, type2));
-                                            }
-
-                                            property.SetValue(o, cpv2, null);
-
+                                            property.SetValue(o, ConvertTo(pv, ptype), null);
                                         }
                                     }
                                     else
                                     {
-                                        var pv = p.GetValue(obj, null);
-
-                                        if (pv != null)
+                                        if (p.PropertyType.Name == "Dictionary`2" || p.PropertyType.Name == "IDictionary`2")
                                         {
-                                            var args = property.PropertyType.GetGenericArguments();
+                                            var pv = p.GetValue(obj, null);
 
-                                            var ptype1 = args[0];
-
-                                            var cpv = (System.Collections.IList)pv;
-
-                                            var cpv2 = (System.Collections.IList)Activator.CreateInstance(property.PropertyType);
-
-                                            foreach (var item in cpv)
+                                            if (pv != null)
                                             {
-                                                cpv2.Add(ConvertTo(item, ptype1));
+                                                var args = property.PropertyType.GetGenericArguments();
+
+                                                var type1 = args[0];
+
+                                                var type2 = args[1];
+
+                                                var cpv = (System.Collections.IDictionary)pv;
+
+                                                var cpv2 = (System.Collections.IDictionary)Activator.CreateInstance(property.PropertyType);
+
+                                                foreach (DictionaryEntry item in cpv)
+                                                {
+                                                    cpv2.Add(ConvertTo(item.Key, type1), ConvertTo(item.Value, type2));
+                                                }
+
+                                                property.SetValue(o, cpv2, null);
+
+                                            }
+                                        }
+                                        else
+                                        {
+                                            var pv = p.GetValue(obj, null);
+
+                                            if (pv != null)
+                                            {
+                                                var args = property.PropertyType.GetGenericArguments();
+
+                                                var ptype1 = args[0];
+
+                                                var cpv = (System.Collections.IList)pv;
+
+                                                var cpv2 = (System.Collections.IList)Activator.CreateInstance(property.PropertyType);
+
+                                                foreach (var item in cpv)
+                                                {
+                                                    cpv2.Add(ConvertTo(item, ptype1));
+                                                }
+
+                                                property.SetValue(o, cpv2, null);
                                             }
 
-                                            property.SetValue(o, cpv2, null);
                                         }
-
                                     }
                                 }
-                            }
-                            else
-                            {
-                                var pv = p.GetValue(obj, null);
+                                else
+                                {
+                                    var pv = p.GetValue(obj, null);
 
-                                if (pv != null)
+                                    if (pv != null)
 
-                                    property.SetValue(o, ConvertTo(pv, property.PropertyType), null);
+                                        property.SetValue(o, ConvertTo(pv, property.PropertyType), null);
+                                }
                             }
                         }
                     }
+
                     return o;
                 }
             }
