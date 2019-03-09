@@ -23,6 +23,7 @@
 *****************************************************************************/
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 
 namespace SAEA.Common
@@ -70,7 +71,7 @@ namespace SAEA.Common
 
         public static void KeyCheck(this string[] keys)
         {
-            if (keys==null) throw new Exception("key must not allow null");
+            if (keys == null) throw new Exception("key must not allow null");
             foreach (var key in keys)
             {
                 if (string.IsNullOrEmpty(key)) throw new Exception("key must not allow null");
@@ -91,11 +92,7 @@ namespace SAEA.Common
             {
                 string val = string.Empty;
 
-                if (nameValues == null || nameValues.Count < 1)
-                {
-                    throw new Exception($"缺少参数{parma.Name}！");
-                }
-                if (nameValues.TryGetValue(parma.Name, out val))
+                if (nameValues != null && nameValues.Any() && nameValues.TryGetValue(parma.Name, out val))
                 {
                     if (parma.ParameterType == typeof(System.Int32))
                     {
