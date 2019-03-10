@@ -64,6 +64,8 @@ namespace SAEA.Common
                 return (T)bin.Deserialize(m);
             }
         }
+
+
         #region byte序列化扩展
         public static byte[] ToBytes<T>(this T t) where T : class, new()
         {
@@ -97,20 +99,26 @@ namespace SAEA.Common
 
         #region json
         /// <summary>
-        ///     newton.json序列化,日志参数专用
+        /// newton.json序列化
         /// </summary>
         /// <param name="obj"></param>
+        /// <param name="expended"></param>
         /// <returns></returns>
-        public static string Serialize(object obj)
+        public static string Serialize(object obj, bool expended = false)
         {
             JsonSerializerSettings settings = new JsonSerializerSettings();
             settings.ObjectCreationHandling = ObjectCreationHandling.Replace;
             settings.DateFormatString = "yyyy-MM-dd HH:mm:ss.fff";
+            if (expended)
+            {
+                settings.Formatting = Formatting.Indented;
+                return JsonConvert.SerializeObject(obj, Formatting.Indented, settings);
+            }
             return JsonConvert.SerializeObject(obj, settings);
         }
 
         /// <summary>
-        ///     newton.json反序列化,日志参数专用
+        ///     newton.json反序列化
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="json"></param>
