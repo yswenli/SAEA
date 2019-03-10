@@ -122,7 +122,9 @@ client.Close();
 ### saea.mvc init usage
 
 ```csharp
-SAEAMvcApplication mvcApplication = new SAEAMvcApplication(root: "/html/");
+
+var mvcConfig = SAEAMvcApplicationConfigBuilder.Read();
+SAEAMvcApplication mvcApplication = new SAEAMvcApplication(mvcConfig);
 //设置默认控制器
 mvcApplication.SetDefault("home", "index");
 mvcApplication.SetDefault("index.html");
