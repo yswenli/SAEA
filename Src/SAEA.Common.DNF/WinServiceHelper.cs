@@ -168,17 +168,18 @@ namespace SAEA.Common
         #region 启动服务
 
         /// <summary>
-        ///     启动服务
+        /// 启动服务
         /// </summary>
         /// <param name="serviceName"></param>
-        public static void Start(string serviceName)
+        /// <param name="args"></param>
+        public static void Start(string serviceName, params string[] args)
         {
             if (Exists(serviceName))
             {
                 var service = new ServiceController(serviceName);
                 if ((service.Status != ServiceControllerStatus.Running) &&
                     (service.Status != ServiceControllerStatus.StartPending))
-                    service.Start();
+                    service.Start(args);
             }
         }
 
@@ -187,7 +188,7 @@ namespace SAEA.Common
         #region 停止服务
 
         /// <summary>
-        ///     停止服务
+        /// 停止服务
         /// </summary>
         /// <param name="serviceName"></param>
         public static void Stop(string serviceName)
