@@ -40,9 +40,9 @@ namespace SAEA.MVC
         /// </summary>
         /// <param name="data"></param>
         /// <returns></returns>
-        protected JsonResult Json(object data)
+        protected JsonResult Json(object data, bool expended = false)
         {
-            return new JsonResult(data);
+            return new JsonResult(data, expended);
         }
         /// <summary>
         /// 自定义内容
@@ -75,9 +75,9 @@ namespace SAEA.MVC
             return new EmptyResult();
         }
 
-        protected string Serialize<T>(T t)
+        protected string Serialize<T>(T t, bool expended = false)
         {
-            return SerializeHelper.Serialize(t);
+            return SerializeHelper.Serialize(t, expended);
         }
 
         protected T Deserialize<T>(string json)

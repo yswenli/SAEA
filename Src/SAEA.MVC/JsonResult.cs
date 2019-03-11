@@ -29,7 +29,7 @@ namespace SAEA.MVC
 {
     public class JsonResult : ActionResult
     {
-        public JsonResult(object model) : this(SerializeHelper.Serialize(model))
+        public JsonResult(object model, bool expended = false) : this(SerializeHelper.Serialize(model, expended))
         {
 
         }
