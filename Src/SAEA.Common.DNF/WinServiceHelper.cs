@@ -26,6 +26,9 @@ using System.ServiceProcess;
 
 namespace SAEA.Common
 {
+    /// <summary>
+    /// win服务工具类
+    /// </summary>
     public class WinServiceHelper
     {
         #region 安装Windows服务
@@ -37,7 +40,7 @@ namespace SAEA.Common
         /// <param name="name"></param>
         /// <param name="display"></param>
         /// <param name="description"></param>
-        public static void InstallmyService(string filePath, string name, string display, string description)
+        public static void Install(string filePath, string name, string display, string description)
         {
             Console.WriteLine("开始安装服务：");
             Console.WriteLine("--> 服务名称：" + name);
@@ -51,6 +54,22 @@ namespace SAEA.Common
                 Console.WriteLine("安装失败，在安装过程中发生错误，请用管理员模式尝试.");
         }
 
+        /// <summary>
+        /// 安装并启动服务
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="name"></param>
+        /// <param name="display"></param>
+        /// <param name="description"></param>
+        public static void InstallAndStart(string filePath, string name, string display, string description)
+        {
+            if (!WinServiceHelper.Exists(name))
+            {
+                WinServiceHelper.Install(filePath, name, display, description);
+            }
+            WinServiceHelper.Start(name);
+        }
+
         #endregion
 
         #region 卸载Windows服务
@@ -59,12 +78,12 @@ namespace SAEA.Common
         ///     卸载Windows服务
         /// </summary>
         /// <param name="name"></param>
-        public static void UnInstallmyService(string name)
+        public static void Unstall(string name)
         {
-            if (IsServiceIsExisted(name))
+            if (Exists(name))
             {
-                if (IsServiceRunning(name))
-                    StopService(name);
+                if (IsStarted(name))
+                    Stop(name);
                 Console.WriteLine("开始卸载服务：");
                 Console.WriteLine("--> 服务名称：" + name);
                 Console.WriteLine("");
@@ -92,7 +111,7 @@ namespace SAEA.Common
         /// </summary>
         /// <param name="NameService"></param>
         /// <returns></returns>
-        public static bool IsServiceIsExisted(string NameService)
+        public static bool Exists(string NameService)
         {
             if (!string.IsNullOrEmpty(NameService))
             {
@@ -112,7 +131,7 @@ namespace SAEA.Common
         ///     判断某个Windows服务是否运行
         /// </summary>
         /// <returns></returns>
-        public static bool IsServiceRunning(string serviceName)
+        public static bool IsStarted(string serviceName)
         {
             var psc = new ServiceController(serviceName);
             var bStartStatus = false;
@@ -152,9 +171,9 @@ namespace SAEA.Common
         ///     启动服务
         /// </summary>
         /// <param name="serviceName"></param>
-        public static void StartService(string serviceName)
+        public static void Start(string serviceName)
         {
-            if (IsServiceIsExisted(serviceName))
+            if (Exists(serviceName))
             {
                 var service = new ServiceController(serviceName);
                 if ((service.Status != ServiceControllerStatus.Running) &&
@@ -171,9 +190,9 @@ namespace SAEA.Common
         ///     停止服务
         /// </summary>
         /// <param name="serviceName"></param>
-        public static void StopService(string serviceName)
+        public static void Stop(string serviceName)
         {
-            if (IsServiceIsExisted(serviceName))
+            if (Exists(serviceName))
             {
                 var service = new ServiceController(serviceName);
                 if (service.Status == ServiceControllerStatus.Running)
