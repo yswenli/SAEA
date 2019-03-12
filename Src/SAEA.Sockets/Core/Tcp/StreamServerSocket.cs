@@ -164,7 +164,18 @@ namespace SAEA.Sockets.Core.Tcp
                     await Task.Delay(TimeSpan.FromSeconds(1), _cancellationToken).ConfigureAwait(false);
                 }
             }
-        }       
+        }
+
+        /// <summary>
+        /// 断开连接
+        /// </summary>
+        /// <param name="obj">Socket</param>
+        public void Disconnecte(object obj)
+        {
+            var socket = obj as Socket;
+            if (socket != null)
+                socket.Close();
+        }
 
         /// <summary>
         /// 关闭

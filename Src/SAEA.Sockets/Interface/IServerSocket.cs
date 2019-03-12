@@ -36,6 +36,10 @@ namespace SAEA.Sockets.Interface
     {
         void Start(int backlog = 10 * 1000);
 
+        void Stop();
+
+        void Disconnecte(object obj);
+
         ISocketOption SocketOption { get; set; }
 
         event OnAcceptedHandler OnAccepted;

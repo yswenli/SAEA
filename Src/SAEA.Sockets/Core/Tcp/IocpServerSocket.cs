@@ -60,7 +60,7 @@ namespace SAEA.Sockets.Core.Tcp
 
         public int ClientCounts { get => _clientCounts; private set => _clientCounts = value; }
 
-        public ISocketOption SocketOption { get; set; }
+        public ISocketOption SocketOption { get; set; }        
 
         #region events
 
@@ -414,6 +414,17 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         /// <summary>
+        /// 断开连接
+        /// </summary>
+        /// <param name="obj"></param>
+        public void Disconnecte(object obj)
+        {
+            var userToken = obj as IUserToken;
+            if (userToken != null)
+                Disconnect(userToken);
+        }
+
+        /// <summary>
         /// 关闭
         /// </summary>
         public void Stop()
@@ -430,5 +441,8 @@ namespace SAEA.Sockets.Core.Tcp
         {
             Stop();
         }
+
+
+        
     }
 }

@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Common;
 using SAEA.Sockets;
 using SAEA.Sockets.Core.Tcp;
 using SAEA.Sockets.Interface;
@@ -53,18 +54,32 @@ namespace SAEA.Http.Base.Net
         private void _serverSokcet_OnReceive(string id, byte[] data)
         {
             var userToken = ((IocpServerSocket)_serverSokcet).SessionManager.Get(id);
-
-            HUnpacker unpacker = (HUnpacker)userToken.Unpacker;
-
-            unpacker.GetRequest(data, (result) =>
+            try
             {
-                OnRequested?.Invoke(userToken, result);
-            });
+                HUnpacker unpacker = (HUnpacker)userToken.Unpacker;
+
+                unpacker.GetRequest(data, (result) =>
+                {
+                    if (result != null)
+                        OnRequested?.Invoke(userToken, result);
+                });
+
+            }
+            catch (Exception ex)
+            {
+                LogHelper.WriteError("Http解码出现异常", ex);
+                Disconnecte(userToken);
+            }
         }
-        
+
         public void End(IUserToken userToken, byte[] data)
         {
             ((IocpServerSocket)_serverSokcet).End(userToken, data);
+        }
+
+        public void Disconnecte(IUserToken userToken)
+        {
+            _serverSokcet.Disconnecte(userToken);
         }
 
         public void Start()
