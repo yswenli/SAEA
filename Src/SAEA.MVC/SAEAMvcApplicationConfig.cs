@@ -62,7 +62,7 @@ namespace SAEA.MVC
             get; set;
         } = "index.html";
 
-        protected SAEAMvcApplicationConfig()
+        public SAEAMvcApplicationConfig()
         {
 
         }

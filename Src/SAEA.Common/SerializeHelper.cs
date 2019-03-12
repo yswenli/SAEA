@@ -112,7 +112,6 @@ namespace SAEA.Common
             if (expended)
             {
                 settings.Formatting = Formatting.Indented;
-                return JsonConvert.SerializeObject(obj, Formatting.Indented, settings);
             }
             return JsonConvert.SerializeObject(obj, settings);
         }

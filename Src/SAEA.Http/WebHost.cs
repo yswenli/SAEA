@@ -22,9 +22,9 @@
 *
 *****************************************************************************/
 
+using SAEA.Common;
 using SAEA.Http.Base;
 using SAEA.Http.Base.Net;
-using SAEA.Http.Common;
 using SAEA.Http.Model;
 using SAEA.Sockets.Interface;
 using System;

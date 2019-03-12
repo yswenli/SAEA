@@ -32,7 +32,7 @@ namespace SAEA.FileTest
     {
         static FileTransfer _fileTransfer;
 
-        static string filePath = PathHelper.Current;
+        static string filePath = PathHelper.GetCurrentPath();
 
         static void Main(string[] args)
         {

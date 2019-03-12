@@ -100,7 +100,7 @@ namespace SAEA.RPCTest
 
         static void Generate()
         {
-            RPC.Generater.CodeGnerater.Generate(PathHelper.Current, "SAEA.RPCTest");
+            RPC.Generater.CodeGnerater.Generate(PathHelper.GetCurrentPath(typeof(Program)), "SAEA.RPCTest");
         }
 
         static void ConsumerInit()

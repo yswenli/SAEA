@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：yswenli
-*命名空间：SAEA.Http.Http.Base
+*命名空间：SAEA.Common
 *文件名： LogHelper
 *版本号： v4.2.1.6
 *唯一标识：4eebbaa7-1781-4521-ab57-4bc9c8d43a84
@@ -21,12 +21,11 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Common;
 using System;
 using System.IO;
 using System.Text;
 
-namespace SAEA.Http.Common
+namespace SAEA.Common
 {
     /// <summary>
     /// 生成日志

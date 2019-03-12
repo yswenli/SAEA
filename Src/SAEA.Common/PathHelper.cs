@@ -21,20 +21,29 @@
 *描述：
 *
 *****************************************************************************/
+using System;
 using System.IO;
+using System.Reflection;
 
 namespace SAEA.Common
 {
     public static class PathHelper
     {
-        public static string Current
+        public static string GetCurrentPath()
         {
-            get
-            {
-                //return Directory.GetCurrentDirectory();
-                return Path.GetDirectoryName(AssemblyHelper.Current.Location);
-            }
+            return Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
         }
+
+        /// <summary>
+        /// 获取当前目录
+        /// </summary>
+        /// <param name="type"></param>
+        /// <returns></returns>
+        public static string GetCurrentPath(Type type)
+        {
+            return Path.GetDirectoryName(type.Assembly.Location);
+        }
+
         /// <summary>
         /// 获取当前目录下的文件全路径
         /// </summary>
@@ -42,14 +51,14 @@ namespace SAEA.Common
         /// <returns></returns>
         public static string GetFullName(string fileName)
         {
-            var path = PathHelper.Current;
+            var path = PathHelper.GetCurrentPath();
 
             return Path.Combine(path, fileName);
         }
 
         public static string GetCurrentPath(string children)
         {
-            var path = Path.Combine(Current, children);
+            var path = Path.Combine(GetCurrentPath(), children);
             if (!Directory.Exists(path))
                 Directory.CreateDirectory(path);
             return path;

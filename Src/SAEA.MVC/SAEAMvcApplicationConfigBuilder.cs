@@ -22,30 +22,71 @@
 *
 *****************************************************************************/
 using SAEA.Common;
+using System;
 
 namespace SAEA.MVC
 {
     public static class SAEAMvcApplicationConfigBuilder
     {
-        static string _FilePath = PathHelper.GetFullName("SAEAMvcApplicationConfig.json");
-
+        /// <summary>
+        /// 读取SAEAMvcApplicationConfig.json配置
+        /// </summary>
+        /// <returns></returns>
         public static SAEAMvcApplicationConfig Read()
         {
-            if (!FileHelper.Exists(_FilePath))
+            SAEAMvcApplicationConfig result;
+
+            string filePath = string.Empty;
+            try
             {
-                Write(SAEAMvcApplicationConfig.Default);
+                filePath = PathHelper.GetFullName("SAEAMvcApplicationConfig.json");
+
+                if (!FileHelper.Exists(filePath))
+                {
+                    result = SAEAMvcApplicationConfig.Default;
+
+                    Write(result);
+                }
+                else
+                {
+                    result = SerializeHelper.Deserialize<SAEAMvcApplicationConfig>(FileHelper.ReadString(filePath));
+                }
+
             }
-            return SerializeHelper.Deserialize<SAEAMvcApplicationConfig>(FileHelper.ReadString(_FilePath));
+            catch (Exception ex)
+            {
+                result = SAEAMvcApplicationConfig.Default;
+
+                LogHelper.WriteError("SAEAMvcApplicationConfigBuilder.Read", ex);
+            }
+            return result;
         }
 
-
+        /// <summary>
+        /// 写入SAEAMvcApplicationConfig.json配置
+        /// </summary>
+        /// <param name="config"></param>
         public static void Write(SAEAMvcApplicationConfig config)
         {
-            if (config == null) config = SAEAMvcApplicationConfig.Default;
+            if (config == null) return;
 
-            var json = SerializeHelper.Serialize(config);
+            string json = string.Empty;
 
-            FileHelper.WriteString(_FilePath, json);
+            string filePath = string.Empty;
+
+            try
+            {
+                filePath = PathHelper.GetFullName("SAEAMvcApplicationConfig.json");
+
+                json = SerializeHelper.Serialize(config);
+
+                FileHelper.WriteString(filePath, json);
+            }
+            catch (Exception ex)
+            {
+                LogHelper.WriteError("SAEAMvcApplicationConfigBuilder.Write ", ex);
+            }
+
         }
     }
 }

@@ -171,15 +171,14 @@ namespace SAEA.Common
         /// 启动服务
         /// </summary>
         /// <param name="serviceName"></param>
-        /// <param name="args"></param>
-        public static void Start(string serviceName, params string[] args)
+        public static void Start(string serviceName)
         {
             if (Exists(serviceName))
             {
                 var service = new ServiceController(serviceName);
                 if ((service.Status != ServiceControllerStatus.Running) &&
                     (service.Status != ServiceControllerStatus.StartPending))
-                    service.Start(args);
+                    service.Start();
             }
         }
 
