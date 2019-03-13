@@ -32,9 +32,6 @@ namespace SAEA.Http.Base.Net
     {
         List<byte> _cache = new List<byte>();
 
-        object _locker = new object();
-
-
         public void Unpack(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
         {
 
@@ -47,36 +44,33 @@ namespace SAEA.Http.Base.Net
         /// <param name="onUnpackage"></param>
         public void GetRequest(byte[] data, Action<HttpMessage> onUnpackage)
         {
-            lock (_locker)
+            _cache.AddRange(data);
+
+            var buffer = _cache.ToArray();
+
+            HttpMessage httpMessage = null;
+
+            if (RequestDataReader.Analysis(buffer, out httpMessage))
             {
-                _cache.AddRange(data);
-
-                var buffer = _cache.ToArray();
-
-                HttpMessage httpMessage = null;
-
-                if (RequestDataReader.Analysis(buffer, out httpMessage))
+                //post需要处理body
+                if (httpMessage.Method == ConstHelper.POST)
                 {
-                    //post需要处理body
-                    if (httpMessage.Method == ConstHelper.POST)
+                    var contentLen = httpMessage.ContentLength;
+                    var positon = httpMessage.Position;
+                    var totlalLen = contentLen + positon;
+                    if (buffer.Length == totlalLen)
                     {
-                        var contentLen = httpMessage.ContentLength;
-                        var positon = httpMessage.Position;
-                        var totlalLen = contentLen + positon;
-                        if (buffer.Length == totlalLen)
-                        {
-                            RequestDataReader.AnalysisBody(buffer, httpMessage);
-                            onUnpackage.Invoke(httpMessage);
-                            Array.Clear(buffer, 0, buffer.Length);
-                            _cache.Clear();
-                        }
-                    }
-                    else
-                    {
+                        RequestDataReader.AnalysisBody(buffer, httpMessage);
                         onUnpackage.Invoke(httpMessage);
                         Array.Clear(buffer, 0, buffer.Length);
                         _cache.Clear();
                     }
+                }
+                else
+                {
+                    onUnpackage.Invoke(httpMessage);
+                    Array.Clear(buffer, 0, buffer.Length);
+                    _cache.Clear();
                 }
             }
         }

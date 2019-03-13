@@ -62,6 +62,11 @@ namespace SAEA.MVC
             get; set;
         } = "index.html";
 
+        public bool IsDebug
+        {
+            get; set;
+        } = false;
+
         public SAEAMvcApplicationConfig()
         {
 

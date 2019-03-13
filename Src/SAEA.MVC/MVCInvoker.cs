@@ -83,7 +83,7 @@ namespace SAEA.MVC
             {
                 case 0:
 
-                    filePath = httpContext.Server.MapPath(httpContext.WebConfig.DefaultPage);
+                    filePath = httpContext.Server.MapPath(httpContext.WebConfig.HomePage);
 
                     if (StaticResourcesCache.Exists(filePath))
                     {
@@ -91,11 +91,11 @@ namespace SAEA.MVC
                     }
                     else
                     {
-                        var d = RouteTable.Types.Where(b => (string.Compare(b.Name, httpContext.WebConfig.DefaultRout.Name, true) == 0 || string.Compare(b.Name, httpContext.WebConfig.DefaultRout.Name + ConstHelper.CONTROLLERNAME, true) == 0)).FirstOrDefault();
+                        var d = RouteTable.Types.Where(b => (string.Compare(b.Name, httpContext.WebConfig.DefaultRoute.Name, true) == 0 || string.Compare(b.Name, httpContext.WebConfig.DefaultRoute.Name + ConstHelper.CONTROLLERNAME, true) == 0)).FirstOrDefault();
 
                         nameValues = httpContext.Request.Parmas.ToNameValueCollection();
 
-                        return MvcInvoke(httpContext, routeTable, d, httpContext.WebConfig.DefaultRout.Value, nameValues, isPost);
+                        return MvcInvoke(httpContext, routeTable, d, httpContext.WebConfig.DefaultRoute.Value, nameValues, isPost);
                     }
 
                 case 1:

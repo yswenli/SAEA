@@ -57,7 +57,7 @@ namespace SAEA.MVC
             {
                 result = SAEAMvcApplicationConfig.Default;
 
-                LogHelper.WriteError("SAEAMvcApplicationConfigBuilder.Read", ex);
+                LogHelper.Error("SAEAMvcApplicationConfigBuilder.Read", ex);
             }
             return result;
         }
@@ -84,7 +84,7 @@ namespace SAEA.MVC
             }
             catch (Exception ex)
             {
-                LogHelper.WriteError("SAEAMvcApplicationConfigBuilder.Write ", ex);
+                LogHelper.Error("SAEAMvcApplicationConfigBuilder.Write ", ex);
             }
 
         }

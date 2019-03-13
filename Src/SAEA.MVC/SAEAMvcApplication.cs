@@ -39,9 +39,9 @@ namespace SAEA.MVC
         /// 构建mvc容器
         /// </summary>
         /// <param name="mvcConfig"></param>
-        public SAEAMvcApplication(SAEAMvcApplicationConfig mvcConfig) : this(mvcConfig.Root, mvcConfig.Port, mvcConfig.IsStaticsCached, mvcConfig.IsZiped, mvcConfig.BufferSize, mvcConfig.Count)
+        public SAEAMvcApplication(SAEAMvcApplicationConfig mvcConfig) : this(mvcConfig.Root, mvcConfig.Port, mvcConfig.IsStaticsCached, mvcConfig.IsZiped, mvcConfig.BufferSize, mvcConfig.Count, mvcConfig.IsDebug)
         {
-            webHost.WebConfig.DefaultPage = "/" + mvcConfig.DefaultPage;
+            webHost.WebConfig.HomePage = "/" + mvcConfig.DefaultPage;
         }
 
         /// <summary>
@@ -53,10 +53,12 @@ namespace SAEA.MVC
         /// <param name="isZiped">是压启用内容压缩</param>
         /// <param name="bufferSize">http处理数据缓存大小</param>
         /// <param name="count">http连接数上限</param>
-        public SAEAMvcApplication(string root = "/wwwroot/", int port = 39654, bool isStaticsCached = true, bool isZiped = false, int bufferSize = 1024 * 10, int count = 10000)
+        /// <param name="isDebug">http连接数上限</param>
+        public SAEAMvcApplication(string root = "/wwwroot/", int port = 39654, bool isStaticsCached = true, bool isZiped = false, int bufferSize = 1024 * 10, int count = 10000, bool isDebug = false)
         {
             var mvcInvoker = new MvcInvoker(AreaCollection.RouteTable);
-            webHost = new WebHost(mvcInvoker, root, port, isStaticsCached, isZiped, bufferSize, count);
+
+            webHost = new WebHost(mvcInvoker, root, port, isStaticsCached, isZiped, bufferSize, count, 120 * 1000, isDebug);
         }
 
         /// <summary>
@@ -66,7 +68,7 @@ namespace SAEA.MVC
         /// <param name="actionName"></param>
         public void SetDefault(string controllerName, string actionName)
         {
-            webHost.WebConfig.DefaultRout = new SAEA.Common.NameValueItem() { Name = controllerName, Value = actionName };
+            webHost.WebConfig.DefaultRoute = new SAEA.Common.NameValueItem() { Name = controllerName, Value = actionName };
         }
 
         /// <summary>
@@ -75,7 +77,7 @@ namespace SAEA.MVC
         /// <param name="defaultPage"></param>
         public void SetDefault(string defaultPage)
         {
-            webHost.WebConfig.DefaultPage = "/" + defaultPage;
+            webHost.WebConfig.HomePage = "/" + defaultPage;
         }
 
         /// <summary>

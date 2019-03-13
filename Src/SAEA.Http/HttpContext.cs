@@ -64,7 +64,7 @@ namespace SAEA.Http
         public WebConfig WebConfig { get; set; }
 
 
-        internal HttpContext(IWebHost webHost, HttpMessage httpMessage)
+        protected HttpContext(IWebHost webHost, HttpMessage httpMessage)
         {
             this.WebConfig = webHost.WebConfig;
 
@@ -82,6 +82,20 @@ namespace SAEA.Http
 
             IsStaticsCached = webHost.WebConfig.IsStaticsCached;
         }
+
+
+        /// <summary>
+        /// 创建HttpContext
+        /// </summary>
+        /// <param name="webHost"></param>
+        /// <param name="httpMessage"></param>
+        /// <returns></returns>
+        public static HttpContext Create(IWebHost webHost, HttpMessage httpMessage)
+        {
+            return new HttpContext(webHost, httpMessage);
+        }
+
+
 
         /// <summary>
         /// 初始化Session

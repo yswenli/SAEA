@@ -23,6 +23,7 @@
 *****************************************************************************/
 using System;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace SAEA.Common
@@ -33,7 +34,7 @@ namespace SAEA.Common
     public static class LogHelper
     {
         static string logPath = string.Empty;
-        
+
         private static void Write(string type, string msg)
         {
             try
@@ -41,20 +42,44 @@ namespace SAEA.Common
                 if (string.IsNullOrEmpty(logPath))
                     logPath = PathHelper.GetCurrentPath("Logs");
                 var fileName = PathHelper.GetFilePath(logPath, type + DateTimeHelper.ToString("yyyyMMdd") + ".log");
-                File.AppendAllText(fileName, DateTimeHelper.ToString() + "  " + msg + Environment.NewLine, Encoding.UTF8);
+                File.AppendAllText(fileName, $"{DateTimeHelper.ToString()}   {type}   {msg}{Environment.NewLine}", Encoding.UTF8);
             }
             catch { }
         }
 
 
-        public static void WriteError(string des, Exception ex)
+        public static void Error(string des, Exception ex)
         {
-            Write("Error", des + " " + ex.Message);
+            Write("[Error]", des + " " + ex.Message);
         }
 
-        public static void Write(string des)
+        public static void Info(string des)
         {
-            Write("Info", des);
+            Write("[Info]", des);
+        }
+
+        public static void Debug(params string[] des)
+        {
+            if (des != null && des.Any())
+            {
+                StringBuilder sb = new StringBuilder();
+                foreach (var item in des)
+                {
+                    sb.Append(item);
+                }
+                Write("[Debug]", sb.ToString());
+            }
+
+        }
+
+        public static void Debug(byte[] data)
+        {
+            var result = "内容为空";
+            if (data != null && data.Any())
+            {
+                result = Encoding.UTF8.GetString(data);
+            }
+            Write("[Debug]", result);
         }
     }
 }

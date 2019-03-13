@@ -58,7 +58,7 @@ namespace SAEA.Http.Base
             if (index == count - 4)
             {
                 httpMessage = new HttpMessage();
-                httpMessage.HeaderStr = Encoding.UTF8.GetString(buffer);
+                httpMessage.HeaderStr = Encoding.ASCII.GetString(buffer);
                 httpMessage.Position = count;
             }
             else
@@ -66,11 +66,12 @@ namespace SAEA.Http.Base
                 if (index > 0)
                 {
                     httpMessage = new HttpMessage();
-                    httpMessage.HeaderStr = Encoding.UTF8.GetString(bufferSpan.Slice(0, index + 4).ToArray());
+                    httpMessage.HeaderStr = Encoding.ASCII.GetString(bufferSpan.Slice(0, index + 4).ToArray());
                     httpMessage.Position = index + 4;
                 }
-                if (httpMessage == null) return false;
             }
+
+            if (httpMessage == null) return false;
 
             //分析requestHeader
 
@@ -230,21 +231,22 @@ namespace SAEA.Http.Base
 
         private static Dictionary<string, string> GetRequestForms(string row)
         {
-            if (string.IsNullOrEmpty(row)) return null;
-
             Dictionary<string, string> dic = new Dictionary<string, string>();
 
-            if (row.IndexOf(ConstHelper.ENTER) > 0)
+            if (string.IsNullOrEmpty(row)) return dic;
+
+            if (row.IndexOf(ConstHelper.ENTER) > 0 && row.TrimStart().IndexOf("{") != 0)
             {
                 var kvs = row.Split(ConstHelper.ENTER, StringSplitOptions.RemoveEmptyEntries);
-                if (kvs == null || kvs.Count() <= 0) return null;
+                if (kvs == null || kvs.Count() <= 0) return dic;
                 foreach (var item in kvs)
                 {
-                    var arr = item.Split(ConstHelper.EQUO);
-                    dic[arr[0]] = HttpUtility.HtmlDecode(HttpUtility.UrlDecode(arr[1]));
+                    var key = item.Substring(0, item.IndexOf(ConstHelper.EQUO));
+                    var value = item.Substring(item.IndexOf(ConstHelper.EQUO) + 1);
+                    dic[key] = HttpUtility.HtmlDecode(HttpUtility.UrlDecode(value));
                 }
             }
-            else if(row.IndexOf("&")>0)
+            else if (row.IndexOf("&") > 0)
             {
                 var kvs = row.Split(ConstHelper.AMPERSAND, StringSplitOptions.RemoveEmptyEntries);
                 if (kvs == null || kvs.Count() <= 0) return null;
@@ -254,14 +256,10 @@ namespace SAEA.Http.Base
                     dic[arr[0]] = HttpUtility.HtmlDecode(HttpUtility.UrlDecode(arr[1]));
                 }
             }
-            else if(row.IndexOf(ConstHelper.EQUO) > 0)
+            else if (row.IndexOf(ConstHelper.EQUO) > 0)
             {
                 var arr = row.Split(ConstHelper.EQUO);
                 dic[arr[0]] = HttpUtility.HtmlDecode(HttpUtility.UrlDecode(arr[1]));
-            }
-            else
-            {
-                return null;
             }
             return dic;
         }
@@ -306,22 +304,19 @@ namespace SAEA.Http.Base
                     }
                     else
                     {
-                        var arr = section.Split(ConstHelper.ENTER, StringSplitOptions.RemoveEmptyEntries);
-                        if (arr != null)
+                        if (!string.IsNullOrWhiteSpace(section))
                         {
-                            if (arr.Length > 0 && arr[0].IndexOf(ConstHelper.SEMICOLON) > -1 && arr[0].IndexOf(ConstHelper.EQUO) > -1)
-                            {
-                                var lineArr = arr[0].Split(ConstHelper.SEMICOLON);
-                                if (lineArr == null) continue;
-                                var name = lineArr[1].Split(ConstHelper.EQUO)[1].Replace("\"", "");
-                                var value = string.Empty;
+                            var content = section.Trim();
 
-                                if (arr.Length > 1)
-                                {
-                                    value = arr[1];
-                                }
-                                httpMessage.Forms[name] = value;
-                            }
+                            var nameLine = content.Substring(0, content.IndexOf(ConstHelper.DENTER));
+
+                            var name = nameLine.Substring(nameLine.IndexOf("=\"") + 2);
+
+                            name = name.Substring(0, name.LastIndexOf(ConstHelper.DOUBLEQUOTES));
+
+                            var value = content.Substring(content.IndexOf(ConstHelper.DENTER) + 2);
+
+                            httpMessage.Forms[name] = value;
                         }
                     }
                 }

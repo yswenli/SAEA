@@ -60,7 +60,7 @@ namespace SAEA.Sockets.Core.Tcp
 
         public int ClientCounts { get => _clientCounts; private set => _clientCounts = value; }
 
-        public ISocketOption SocketOption { get; set; }        
+        public ISocketOption SocketOption { get; set; }
 
         #region events
 
@@ -202,10 +202,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="data"></param>
         protected virtual void OnReceiveBytes(IUserToken userToken, byte[] data)
         {
-            if (OnReceive != null)
-            {
-                OnReceive.Invoke(userToken.ID, data);
-            }
+            OnReceive?.Invoke(userToken, data);
         }
 
 
@@ -443,6 +440,6 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
 
-        
+
     }
 }

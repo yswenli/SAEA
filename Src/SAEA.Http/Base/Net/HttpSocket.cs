@@ -25,6 +25,7 @@ using SAEA.Common;
 using SAEA.Sockets;
 using SAEA.Sockets.Core.Tcp;
 using SAEA.Sockets.Interface;
+using SAEA.Sockets.Model;
 using System;
 
 namespace SAEA.Http.Base.Net
@@ -35,8 +36,16 @@ namespace SAEA.Http.Base.Net
 
         public event Action<IUserToken, HttpMessage> OnRequested;
 
+        /// <summary>
+        /// 测试模式
+        /// </summary>
+        public bool IsDebug
+        {
+            get; set;
+        }
 
-        public HttpSocket(int port, int bufferSize = 1024 * 10, int count = 10000, int timeOut = 120 * 1000)
+
+        public HttpSocket(int port, int bufferSize = 1024 * 10, int count = 10000, int timeOut = 120 * 1000, bool isDebug = false)
         {
             var optionBuilder = new SocketOptionBuilder()
                .SetSocket(Sockets.Model.SocketType.Tcp)
@@ -49,26 +58,36 @@ namespace SAEA.Http.Base.Net
 
             _serverSokcet = SocketFactory.CreateServerSocket(option);
             _serverSokcet.OnReceive += _serverSokcet_OnReceive;
+
+            IsDebug = isDebug;
         }
 
-        private void _serverSokcet_OnReceive(string id, byte[] data)
+        private void _serverSokcet_OnReceive(object userToken, byte[] data)
         {
-            var userToken = ((IocpServerSocket)_serverSokcet).SessionManager.Get(id);
+            if (IsDebug)
+            {
+                LogHelper.Debug(userToken == null ? "userToken is null" : "userToken is not null");
+                LogHelper.Debug(data);
+            }
+
+            var ut = (IUserToken)userToken;
+
             try
             {
-                HUnpacker unpacker = (HUnpacker)userToken.Unpacker;
+                if (ut == null) throw new KernelException("userToken is null");
+
+                HUnpacker unpacker = (HUnpacker)ut.Unpacker;
 
                 unpacker.GetRequest(data, (result) =>
                 {
-                    if (result != null)
-                        OnRequested?.Invoke(userToken, result);
+                    OnRequested?.Invoke(ut, result);
                 });
 
             }
             catch (Exception ex)
             {
-                LogHelper.WriteError("Http解码出现异常", ex);
-                Disconnecte(userToken);
+                LogHelper.Error("Http解码出现异常", ex);
+                Disconnecte(ut);
             }
         }
 

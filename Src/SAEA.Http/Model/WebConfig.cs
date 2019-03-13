@@ -87,7 +87,7 @@ namespace SAEA.Http.Model
         /// <summary>
         /// 默认controller/action
         /// </summary>
-        public NameValueItem DefaultRout
+        public NameValueItem DefaultRoute
         {
             get; set;
         } = new NameValueItem() { Name = "home", Value = "index" };
@@ -95,9 +95,18 @@ namespace SAEA.Http.Model
         /// <summary>
         /// 默认的首页地址
         /// </summary>
-        public string DefaultPage
+        public string HomePage
         {
             get; set;
         } = "/index.html";
+
+        /// <summary>
+        /// 是否是测试模式
+        /// </summary>
+        public bool IsDebug
+        {
+            get; set;
+        } = false;
+
     }
 }

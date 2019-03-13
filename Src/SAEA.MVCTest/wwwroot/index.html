@@ -25,6 +25,7 @@
 
     <form action="/File/upload" method="post" enctype="multipart/form-data">
         <p>name: <input type="text" name="name" /></p>
+        <p>name: <textarea name="name2" /></textarea></p>
         <p>File1: <input type="file" name="File1" /></p>
         <input type="submit" value="Submit" />
     </form>
@@ -63,13 +64,15 @@
                 });
             });
 
+            var json = { "id": 1, "userName": "yswenli", "nickName": "WaLLE" };
+
             $("#ajax_btn3").click(function () {
                 $.ajax({
                     url: "/ajax/test3",
                     type: "POST",
                     datType: "JSON",
                     contentType: "application/json",
-                    data: "{'id': " + 1 + ",'username':'yswenli','nickname':'WALLE'}",
+                    data: JSON.stringify(json),
                     async: false,
                     success: function (result) {
                         alert(`id:${result.ID},username:${result.UserName},nickname:${result.NickName}`);

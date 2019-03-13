@@ -24,6 +24,7 @@
 
 using System;
 using System.Linq;
+using System.Text;
 
 namespace SAEA.Common
 {
@@ -62,7 +63,7 @@ namespace SAEA.Common
 
         public const string ONACTIONEXECUTED = "OnActionExecuted";
 
-        public const string SERVERMVCSERVER = "83,101,114,118,101,114,58,32,83,65,69,65,46,72,116,116,112,46,83,101,114,118,101,114,32,51,46,48";
+        public const string SERVERMVCSERVER = "83,101,114,118,101,114,58,32,83,65,69,65,46,72,116,116,112,46,83,101,114,118,101,114,32,52,46,48";
 
         public const string CT = "Content-Type";
 
@@ -107,6 +108,8 @@ namespace SAEA.Common
 
         public const string QUESTIONMARK = "?";
 
+        public const string DOUBLEQUOTES = "\"";
+
 
         static string _serverName = string.Empty;
 
@@ -116,9 +119,45 @@ namespace SAEA.Common
             {
                 if (string.IsNullOrEmpty(_serverName))
                 {
-                    _serverName = System.Text.Encoding.UTF8.GetString(SERVERMVCSERVER.Split(",").Select(b => Convert.ToByte(b)).ToArray());
+                    _serverName = System.Text.Encoding.ASCII.GetString(SERVERMVCSERVER.Split(",").Select(b => Convert.ToByte(b)).ToArray());
                 }
                 return _serverName;
+            }
+        }
+
+
+        static string _contentEncoding = string.Empty;
+
+        public static string ContentEncoding
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(_contentEncoding))
+                {
+                    _contentEncoding = "Content-Encoding: gzip";
+                }
+                return _contentEncoding;
+            }
+        }
+
+
+        static string _crossDomain = string.Empty;
+
+        public static string CrossDomain
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(_crossDomain))
+                {
+                    var builder = new StringBuilder();
+                    //支持跨域
+                    builder.AppendLine("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
+                    builder.AppendLine("Access-Control-Allow-Origin: *");
+                    builder.AppendLine("Access-Control-Allow-Headers: Content-Type,X-Requested-With,Accept,yswenli");//可自行增加额外的header
+                    builder.AppendLine("Access-Control-Request-Methods: GET, POST, PUT, DELETE, OPTIONS");
+                    _crossDomain = builder.ToString();
+                }
+                return _crossDomain;
             }
         }
 
@@ -126,6 +165,9 @@ namespace SAEA.Common
 
 
         public const string OUTPUTCACHEATTRIBUTE = "SAEA.MVC.OutputCacheAttribute";
+
+
+
 
     }
 }

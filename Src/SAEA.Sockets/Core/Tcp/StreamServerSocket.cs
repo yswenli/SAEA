@@ -144,11 +144,6 @@ namespace SAEA.Sockets.Core.Tcp
                     ChannelManager.Current.Set(id, clientSocket, nsStream);
 
                     OnAccepted?.Invoke(id);
-
-                    if (OnReceive != null)
-                    {
-
-                    }
                 }
                 catch (ObjectDisposedException oex)
                 {

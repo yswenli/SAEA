@@ -87,18 +87,15 @@ namespace SAEA.Http
             StringBuilder builder = new StringBuilder();
             builder.Append(this.Protocal + ConstHelper.SPACE + Status.ToNVString() + ConstHelper.ENTER);
             builder.AppendLine(ConstHelper.ServerName);
-            builder.AppendLine("Keep-Alive: timeout=20");
+            builder.AppendLine("Connection: close");
             builder.AppendLine("Date: " + DateTimeHelper.Now.ToGMTString());
 
             if (_isZiped)
                 //支持gzip
-                builder.AppendLine("Content-Encoding:gzip");
+                builder.AppendLine(ConstHelper.ContentEncoding);
 
             //支持跨域
-            builder.AppendLine("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
-            builder.AppendLine("Access-Control-Allow-Origin: *");
-            builder.AppendLine("Access-Control-Allow-Headers: Content-Type,X-Requested-With,Accept,yswenli");//可自行增加额外的header
-            builder.AppendLine("Access-Control-Request-Methods: GET, POST, PUT, DELETE, OPTIONS");
+            builder.Append(ConstHelper.CrossDomain);
 
             if (this.Headers.Count > 0)
             {

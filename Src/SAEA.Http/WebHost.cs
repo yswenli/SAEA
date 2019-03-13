@@ -62,7 +62,8 @@ namespace SAEA.Http
         /// <param name="bufferSize">http处理数据缓存大小</param>
         /// <param name="count">http连接数上限</param>
         /// <param name="timeOut">超时</param>
-        public WebHost(IInvoker invoker, string root = "/wwwroot/", int port = 39654, bool isStaticsCached = true, bool isZiped = true, int bufferSize = 1024 * 10, int count = 10000, int timeOut = 120 * 1000)
+        /// <param name="isDebug">测试模式</param>
+        public WebHost(IInvoker invoker, string root = "/wwwroot/", int port = 39654, bool isStaticsCached = true, bool isZiped = true, int bufferSize = 1024 * 10, int count = 10000, int timeOut = 120 * 1000, bool isDebug = false)
         {
             Invoker = invoker;
 
@@ -76,7 +77,7 @@ namespace SAEA.Http
                 ClientCounts = count
             };
 
-            _serverSocket = new HttpSocket(port, bufferSize, count, timeOut);
+            _serverSocket = new HttpSocket(port, bufferSize, count, timeOut, isDebug);
 
             _serverSocket.OnRequested += _serverSocket_OnRequested;
         }
@@ -103,11 +104,13 @@ namespace SAEA.Http
         {
             try
             {
-                new HttpContext(this, httpMessage).HttpHandle(userToken);
+                var httpContext = HttpContext.Create(this, httpMessage);
+
+                httpContext.HttpHandle(userToken);
             }
             catch (Exception ex)
             {
-                LogHelper.WriteError("_serverSocket_OnDisconnected 意外断开连接", ex);
+                LogHelper.Error("WebHost._serverSocket_OnDisconnected 意外断开连接", ex);
             }
         }
 
@@ -119,7 +122,7 @@ namespace SAEA.Http
 
         private void _serverSocket_OnError(string ID, Exception ex)
         {
-            LogHelper.WriteError(ID, ex);
+            LogHelper.Error(ID, ex);
         }
 
 

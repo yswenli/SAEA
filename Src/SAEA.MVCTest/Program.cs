@@ -7,7 +7,6 @@ namespace SAEA.MVCTest
     {
         static void Main(string[] args)
         {
-
             ConsoleHelper.Title = "SAEA.MVCTest";
 
             var mvcConfig = SAEAMvcApplicationConfigBuilder.Read();
