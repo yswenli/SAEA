@@ -65,7 +65,7 @@ namespace SAEA.MVC
                 {
                     var actions = controllerType.GetMethods().Where(b => string.Compare(b.Name, actionName, true) == 0).ToList();
 
-                    if (actions == null || actions.Count == 0)
+                    if (actions == null || !actions.Any())
                     {
                         throw new Exception($"{controllerType.Name}/{actionName}找不到此action!");
                     }
