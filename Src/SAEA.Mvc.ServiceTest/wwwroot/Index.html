@@ -1,0 +1,249 @@
+﻿<!doctype html>
+<html lang="zh-cn">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel=icon sizes=any mask href="/favicon.svg">
+    <link href="content/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="content/css/bootstrap-theme.min.css" rel="stylesheet" />
+    <link href="content/css/index.css" rel="stylesheet" />
+    <title>SAEA.RESTED——developed by yswenli</title>
+</head>
+<body>
+    <div class="container">
+        <div class="row">
+            <div class="col-md-*">
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h1>
+                            <a id="markImg" href="https://github.com/yswenli/saea.rested" target="_blank">
+                                <img src="content/img/6139455.png" />
+                            </a>
+                            SAEA.RESTED <small>基于SAEA.MVC的WebApiTool</small>
+                        </h1>
+                    </div>
+                    <div class="panel-body">
+                        <div class="col-md-8">
+                            <div class="row">
+                                <div class="col-md-2 search-div-1">
+                                    <select class="form-control" id="methodSel">
+                                        <option value="GET">GET</option>
+                                        <option value="POST">POST</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-10 search-div-2">
+                                    <div class="input-group">
+                                        <input id="urlTxt" type="text" class="form-control" placeholder="https://github.com/yswenli/saea.rested" value="https://github.com/yswenli/saea.rested" />
+                                        <span class="input-group-btn">
+                                            <button id="runBtn" class="btn btn-primary" type="button">Go!</button>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="col-md-12">
+                                    <p></p>
+                                </div>
+                                <div class="col-md-12">
+                                    <textarea id="dataTxt" class="form-control" rows="10" placeholder="请求Json"></textarea>
+                                </div>
+                                <div class="col-md-12">
+                                    <p></p>
+                                </div>
+                                <div class="col-md-12">
+                                    <textarea id="reTxt" class="form-control" rows="21" placeholder="回复内容" readonly="readonly"></textarea>
+                                </div>
+                                <div class="col-md-12">
+                                    <p id="alert-words">
+                                        本次请求用时：0秒
+                                    </p>
+                                </div>
+                                <div class="col-md-12">
+                                    <button id="saveBtn" type="button" class="btn btn-default" data-toggle="modal" data-target="#addItemModal"><span class="glyphicon glyphicon-share-alt"></span> 保存到列表</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 right-list">
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <div class="input-group">
+                                        <input id="searchTxt" type="text" class="form-control" placeholder="请输入关键字" value="" />
+                                        <span class="input-group-btn">
+                                            <button id="searchBtn" class="btn btn-primary" type="button" data-toggle="modal" data-target="#searchModel">Search</button>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="col-md-12">
+                                    <p></p>
+                                </div>
+                                <div class="col-md-12">
+                                    <button id="addBtn" type="button" class="btn btn-default" data-toggle="modal" data-target="#addGroupModal"><span class="glyphicon glyphicon-plus"></span>添加组</button>
+                                    <button id="importBtn" type="button" class="btn btn-default" data-toggle="modal" data-target="#importModal"><span class="glyphicon glyphicon-download"></span> 导入</button>
+                                    <button id="exportBtn" type="button" class="btn btn-default" data-toggle="modal" data-target="#exportModal"><span class="glyphicon glyphicon-upload"></span> 导出</button>
+                                </div>
+                                <div class="col-md-12">
+                                    <p></p>
+                                </div>
+                                <div class="col-md-12">
+                                    <div class="panel-group" id="accordion" role="tablist" aria-multiselectable="false">
+
+
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="panel-footer text-right">
+                    <a href="https://github.com/yswenli/SAEA.Rested/releases" target="_blank">下载地址：<img src="https://camo.githubusercontent.com/304b257ed56ec29cb31d21f8a4755df7555cbc24/68747470733a2f2f696d672e736869656c64732e696f2f6769746875622f72656c656173652f797377656e6c692f736165612e7265737465642e737667" alt="GitHub release" data-canonical-src="https://img.shields.io/github/release/yswenli/saea.rested.svg" style="max-width:100%;"></a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!--model div-->
+
+    <div class="modal fade" id="addGroupModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" id="myModalLabel">SAEA.RESTED 提示</h4>
+                </div>
+                <div class="modal-body">
+                    <input type="text" class="form-control" id="addGroupNameTxt" placeholder="添加组名称">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="addGroupBtn">确定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="modal fade" id="addItemModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" id="myModalLabel">SAEA.RESTED 提示</h4>
+                </div>
+                <div class="modal-body">
+                    <select class="form-control" id="groupIDsel"></select></br>
+                    <input type="text" class="form-control" id="addItemTxt" placeholder="添加项名称" />
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="addItemBtn">确定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="importModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" id="myModalLabel">SAEA.RESTED 导入提示</h4>
+                </div>
+                <div class="modal-body">
+                    <textarea id="importDataTxt" rows="20" class="form-control" placeholder="请输入Json配置"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="importDataBtn">确定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="exportModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" id="myModalLabel">SAEA.RESTED 导出提示</h4>
+                </div>
+                <div class="modal-body" id="exportDiv">
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" id="myModalLabel">SAEA.RESTED 提示</h4>
+                </div>
+                <div class="modal-body">
+                    确定要删除此组么？
+                    <input type="hidden" id="deletegroupidTxt" value="" />
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="deletegroupBtn">确定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="deleteItemModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" id="myModalLabel">SAEA.RESTED 提示</h4>
+                </div>
+                <div class="modal-body">
+                    确定要删除此项么？
+                    <input type="hidden" id="deleteitemgroupidTxt" value="" />
+                    <input type="hidden" id="deleteitemidTxt" value="" />
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="deleteitemBtn">确定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="searchModel" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" id="myModalLabel">SAEA.RESTED 提示</h4>
+                </div>
+                <div class="modal-body search-list">
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- loading -->
+    <div class="modal fade" id="loading" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" data-backdrop='static'>
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title" id="myModalLabel">SAEA.RESTED 提示</h4>
+                </div>
+                <div class="modal-body">
+                    <img src="content/img/loading.gif" />  正在玩命加载中，请稍候...<span id="result"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://v3.bootcss.com/assets/js/vendor/jquery.min.js"></script>
+    <script src="content/js/bootstrap.min.js"></script>
+    <script src="content/js/index.js"></script>
+</body>
+</html>

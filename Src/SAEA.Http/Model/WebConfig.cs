@@ -39,7 +39,7 @@ namespace SAEA.Http.Model
         /// <summary>
         /// 根目录
         /// </summary>
-        internal string Root { get; set; }
+        internal string Root { get; set; } = "wwwroot";
 
         /// <summary>
         /// 是否启用静态缓存
@@ -98,7 +98,7 @@ namespace SAEA.Http.Model
         public string HomePage
         {
             get; set;
-        } = "/index.html";
+        } = "index.html";
 
         /// <summary>
         /// 是否是测试模式

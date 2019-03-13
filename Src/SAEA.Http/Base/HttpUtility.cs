@@ -21,8 +21,10 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Common;
 using System;
 using System.IO;
+using System.Linq;
 
 namespace SAEA.Http.Base
 {
@@ -32,27 +34,25 @@ namespace SAEA.Http.Base
     /// </summary>
     public class HttpUtility
     {
-        string _root = "/";
-
-        Uri _prex;
+        string _root = "";
 
 
         public HttpUtility(string root)
         {
             _root = root;
-            _prex = new Uri("http://127.0.0.1:39654");
         }
 
         /// <summary>
         /// MapPath
         /// </summary>
-        /// <param name="path"></param>
+        /// <param name="uriPath"></param>
         /// <returns></returns>
-        public virtual string MapPath(string path)
+        public virtual string MapPath(string uriPath)
         {
-            var uri = new Uri(_prex, _root + path);
-           
-            return Path.GetFullPath(Directory.GetCurrentDirectory() + uri.LocalPath); 
+            var cpath = _root + "/" + uriPath;
+            var list = cpath.Split("/", StringSplitOptions.RemoveEmptyEntries).ToList();
+            list.Insert(0, SAEA.Common.PathHelper.GetCurrentPath());
+            return Path.Combine(list.ToArray());
         }
         /// <summary>
         /// UrlEncode

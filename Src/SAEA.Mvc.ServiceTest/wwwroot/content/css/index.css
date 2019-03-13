@@ -1,0 +1,254 @@
+﻿body {
+    background-image: linear-gradient(315deg,#f5f5f5 25%,#ffffff 0,#ffffff 50%,#f5f5f5 0,#f5f5f5 75%,#ffffff 0);
+    background-size: 6px 6px;
+}
+
+textarea {
+    resize: none;
+}
+
+.panel {
+    margin-bottom: 2px;
+}
+
+#markImg {
+    display: inline-block;
+    width: 38px;
+    height: 38px;
+    position: relative;
+    top: 2px;
+}
+
+    #markImg img {
+        width: 38px;
+        border: solid 2px #4bacff;
+        border-radius: 19px;
+        position: relative;
+        top: -4px;
+    }
+
+@-webkit-keyframes rotation {
+
+    from {
+        -webkit-transform: rotate(0deg);
+    }
+
+    to {
+        -webkit-transform: rotate(360deg);
+    }
+}
+
+#markImg:hover {
+    -webkit-transform: rotate(360deg);
+    animation: rotation 1s linear infinite;
+    -moz-animation: rotation 1s linear infinite;
+    -webkit-animation: rotation 1s linear infinite;
+    -o-animation: rotation 1s linear infinite;
+}
+
+.panel-body .right-list {
+    height: 770px;
+    overflow: auto;
+}
+
+.search-div-1 {
+    padding-right: 3px;
+}
+
+.search-div-2 {
+    padding-left: 0px;
+}
+
+@media screen and (max-width: 990px) {
+    .search-div-1 {
+        padding-right: 15px;
+    }
+
+    .search-div-2 {
+        padding-left: 15px;
+    }
+}
+
+#alert-words {
+    display: block;
+    width: 100%;
+    height: 30px;
+    line-height: 30px;
+    background-color: #eee;
+    border: 1px solid #eee;
+    border-left-color: #5cb85c;
+    border-left-width: 5px;
+    border-radius: 3px;
+    margin-top: 10px;
+    padding-left: 6px;
+}
+
+
+.list-item {
+    display: block;
+    height: 46px;
+    width: 100%;
+    border-radius: 5px;
+    background-color: #EFEFEF;
+    border: solid 1px #e1dfdf;
+    margin-bottom: 10px;
+    padding: 5px 5px 5px 15px;
+    overflow: hidden;
+    box-shadow: rgba(0, 0, 0, 0.075) 0px 1px 1px inset;
+    transition: border-color ease-in-out .45s, box-shadow ease-in-out .45s,background-color ease-in-out .45s, box-shadow ease-in-out .45s;
+}
+
+    .list-item:hover {
+        background-color: #ffffff;
+        border: solid 1px #f5f5f5;
+    }
+
+.panel-footer {
+    border-radius: 7px;
+}
+
+.panel-body .list-item a {
+    width: 84%;
+}
+
+    .panel-body .list-item a p {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        line-height: 12px;
+    }
+
+        .panel-body .list-item a p.list-item-title {
+            font-size: 16px;
+            font-weight: bold;
+            text-decoration: none;
+            line-height: 20px;
+            margin-bottom: 2px;
+        }
+
+.panel-body .list-item a, .panel-body .list-item span {
+    display: inline-block;
+    cursor: pointer;
+}
+
+.panel-body .list-item span {
+    width: 10%;
+    top: -18px;
+}
+
+.group-title-lable {
+    display: inline-block;
+    width: 80%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: bold;
+}
+
+a[aria-expanded="false"] {
+    font-style: italic;
+}
+
+.group-edit, .group-delete {
+    padding-right: 5px;
+    cursor: pointer;
+}
+
+.group-edit-div {
+    visibility: collapse;
+}
+
+.search-list div {
+    border-radius: 5px;
+    background: #e1dfdf;
+    border: 1px solid #e1dfdf;
+    padding: 5px;
+    margin: 5px;
+    color: #337AC3;
+    box-shadow: rgba(0, 0, 0, 0.075) 0px 1px 1px inset;
+    transition: border-color ease-in-out .45s, box-shadow ease-in-out .45s,background-color ease-in-out .45s, box-shadow ease-in-out .45s;
+}
+
+    .search-list div:hover {
+        background-color: #ffffff;
+        border: solid 1px #f5f5f5;
+        color: #01063d;
+    }
+
+    .search-list div p {
+        cursor: pointer;
+        word-wrap: break-word;
+    }
+
+.search-item-title {
+    font-weight: bold;
+}
+
+#importDataTxt {
+    width: 100%;
+}
+
+
+#exportDiv {
+    max-height: 680px;
+    overflow: scroll;
+    word-wrap: break-word;
+}
+
+.flicker {
+    animation: searchLights 0.5s ease-in 0.5s infinite;    
+}
+
+
+
+@-webkit-keyframes searchLights {
+    0% {
+        left: 647px;
+        top: 120px;
+        background-color: #cfcfcf;
+    }
+
+    to {
+        left: 0;
+        top: 0;
+    }
+}
+
+@-o-keyframes searchLights {
+    0% {
+        left: 647px;
+        top: 120px;
+        background-color: #cfcfcf;
+    }
+
+    to {
+        left: 0;
+        top: 0;
+    }
+}
+
+@-moz-keyframes searchLights {
+    0% {
+        left: 647px;
+        top: 120px;
+        background-color: #cfcfcf;
+    }
+
+    to {
+        left: 0;
+        top: 0;
+    }
+}
+
+@keyframes searchLights {
+    0% {
+        left: 647px;
+        top: 120px;
+        background-color: #cfcfcf;
+    }
+
+    to {
+        left: 0;
+        top: 0;
+    }
+}

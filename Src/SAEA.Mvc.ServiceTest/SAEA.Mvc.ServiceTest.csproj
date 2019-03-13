@@ -1,0 +1,207 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{78B4C427-6E75-4FFF-A172-490C51AA7B34}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>SAEA.Mvc.ServiceTest</RootNamespace>
+    <AssemblyName>SAEA.Mvc.ServiceTest</AssemblyName>
+    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Newtonsoft.Json, Version=12.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.12.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="SAEA.Common, Version=4.2.3.6, Culture=neutral, PublicKeyToken=01a82380791791ab, processorArchitecture=MSIL">
+      <HintPath>..\packages\SAEA.Common.4.2.3.6\lib\netstandard2.0\SAEA.Common.dll</HintPath>
+    </Reference>
+    <Reference Include="SAEA.Sockets, Version=4.2.3.6, Culture=neutral, PublicKeyToken=01a82380791791ab, processorArchitecture=MSIL">
+      <HintPath>..\packages\SAEA.Sockets.4.2.3.6\lib\netstandard2.0\SAEA.Sockets.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Buffers, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Buffers.4.5.0\lib\netstandard2.0\System.Buffers.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Configuration.Install" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Management" />
+    <Reference Include="System.Memory, Version=4.0.1.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Memory.4.5.2\lib\netstandard2.0\System.Memory.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Numerics.Vectors, Version=4.1.4.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Numerics.Vectors.4.5.0\lib\net46\System.Numerics.Vectors.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe, Version=4.0.4.1, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Runtime.CompilerServices.Unsafe.4.5.2\lib\netstandard2.0\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Web" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.ServiceProcess" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Controllers\HomeController.cs" />
+    <Compile Include="Libs\RecordDataHelper.cs" />
+    <Compile Include="Libs\WebClientHelper.cs" />
+    <Compile Include="Models\GroupData.cs" />
+    <Compile Include="Models\ListItem.cs" />
+    <Compile Include="Models\RecordData.cs" />
+    <Compile Include="ProjectInstaller.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="ProjectInstaller.Designer.cs">
+      <DependentUpon>ProjectInstaller.cs</DependentUpon>
+    </Compile>
+    <Compile Include="SAEA\Http\Base\HttpBase.cs" />
+    <Compile Include="SAEA\Http\Base\HttpMessage.cs" />
+    <Compile Include="SAEA\Http\Base\HttpMIME.cs" />
+    <Compile Include="SAEA\Http\Base\HttpUtility.cs" />
+    <Compile Include="SAEA\Http\Base\Net\HContext.cs" />
+    <Compile Include="SAEA\Http\Base\Net\HttpSocket.cs" />
+    <Compile Include="SAEA\Http\Base\Net\HUnpacker.cs" />
+    <Compile Include="SAEA\Http\Base\Net\SocketData.cs" />
+    <Compile Include="SAEA\Http\Base\RequestDataReader.cs" />
+    <Compile Include="SAEA\Http\Common\StaticResourcesCache.cs" />
+    <Compile Include="SAEA\Http\HttpContext.cs" />
+    <Compile Include="SAEA\Http\HttpCookie.cs" />
+    <Compile Include="SAEA\Http\HttpInvoker.cs" />
+    <Compile Include="SAEA\Http\HttpRequest.cs" />
+    <Compile Include="SAEA\Http\HttpResponse.cs" />
+    <Compile Include="SAEA\Http\HttpSession.cs" />
+    <Compile Include="SAEA\Http\Model\FilePart.cs" />
+    <Compile Include="SAEA\Http\Model\FileResultBase.cs" />
+    <Compile Include="SAEA\Http\Model\HttpActionResult.cs" />
+    <Compile Include="SAEA\Http\Model\HttpContentResult.cs" />
+    <Compile Include="SAEA\Http\Model\HttpEmptyResult.cs" />
+    <Compile Include="SAEA\Http\Model\HttpFileResult.cs" />
+    <Compile Include="SAEA\Http\Model\IEmptyResult.cs" />
+    <Compile Include="SAEA\Http\Model\IHttpResult.cs" />
+    <Compile Include="SAEA\Http\Model\IInvoker.cs" />
+    <Compile Include="SAEA\Http\Model\IWebHost.cs" />
+    <Compile Include="SAEA\Http\Model\RequestHeaderType.cs" />
+    <Compile Include="SAEA\Http\Model\ResponseHeaderType.cs" />
+    <Compile Include="SAEA\Http\Model\WebConfig.cs" />
+    <Compile Include="SAEA\Http\WebHost.cs" />
+    <Compile Include="SAEA\Mvc\ActionFilterAttribute.cs" />
+    <Compile Include="SAEA\Mvc\ActionResult.cs" />
+    <Compile Include="SAEA\Mvc\AreaCollection.cs" />
+    <Compile Include="SAEA\Mvc\ContentResult.cs" />
+    <Compile Include="SAEA\Mvc\Controller.cs" />
+    <Compile Include="SAEA\Mvc\EmptyResult.cs" />
+    <Compile Include="SAEA\Mvc\FileResult.cs" />
+    <Compile Include="SAEA\Mvc\HttpGet.cs" />
+    <Compile Include="SAEA\Mvc\HttpPost.cs" />
+    <Compile Include="SAEA\Mvc\IFilter.cs" />
+    <Compile Include="SAEA\Mvc\JsonResult.cs" />
+    <Compile Include="SAEA\Mvc\MVCInvoker.cs" />
+    <Compile Include="SAEA\Mvc\OutputCacheAttribute.cs" />
+    <Compile Include="SAEA\Mvc\RouteTable.cs" />
+    <Compile Include="SAEA\Mvc\Routing.cs" />
+    <Compile Include="SAEA\Mvc\SAEAMvcApplication.cs" />
+    <Compile Include="SAEA\Mvc\SAEAMvcApplicationConfig.cs" />
+    <Compile Include="SAEA\Mvc\SAEAMvcApplicationConfigBuilder.cs" />
+    <Compile Include="Service1.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Service1.Designer.cs">
+      <DependentUpon>Service1.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+    <None Include="packages.config" />
+    <None Include="wwwroot\content\config.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="wwwroot\content\fonts\glyphicons-halflings-regular.eot">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="wwwroot\content\fonts\glyphicons-halflings-regular.ttf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="wwwroot\content\fonts\glyphicons-halflings-regular.woff">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="wwwroot\content\fonts\glyphicons-halflings-regular.woff2">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="ProjectInstaller.resx">
+      <DependentUpon>ProjectInstaller.cs</DependentUpon>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SAEA.Common.DNF\SAEA.Common.DNF.csproj">
+      <Project>{3d7906ed-655c-4ac1-be46-6f8d6df9628e}</Project>
+      <Name>SAEA.Common.DNF</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="wwwroot\content\css\bootstrap-theme.min.css">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="wwwroot\content\css\bootstrap.min.css">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="wwwroot\content\css\index.css">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="wwwroot\content\fonts\glyphicons-halflings-regular.svg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="wwwroot\content\img\6139455.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="wwwroot\content\img\loading.gif">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="wwwroot\content\js\bootstrap.min.js">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="wwwroot\content\js\index.js">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="wwwroot\favicon.ico">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="wwwroot\favicon.svg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="wwwroot\Index.html">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
