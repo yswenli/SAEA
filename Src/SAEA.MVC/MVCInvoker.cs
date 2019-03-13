@@ -58,7 +58,7 @@ namespace SAEA.MVC
             //禁止访问
             var flist = httpContext.WebConfig.ForbiddenAccessList;
 
-            if (flist.Count > 0)
+            if (flist.Any())
             {
                 foreach (var item in flist)
                 {
