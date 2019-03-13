@@ -23,6 +23,7 @@
 *****************************************************************************/
 using SAEA.Common;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
@@ -44,10 +45,20 @@ namespace SAEA.MVC
             if (RouteTable.Types.Count() < 1)
             {
                 StackTrace ss = new StackTrace(true);
-                MethodBase mb = ss.GetFrames().Last().GetMethod();
-                var space = mb.DeclaringType.Namespace;
-                var tt = mb.DeclaringType.Assembly.GetTypes().Where(b => b.FullName.Contains(ConstHelper.CONTROLLERSPACE)).ToList();
-                if (tt == null) throw new Exception("当前项目中找不到Controllers空间或命名不符合SAEA.MVC命名规范！");
+
+                List<Type> list = new List<Type>();
+
+                foreach (var item in ss.GetFrames())
+                {
+                    list.AddRange(item.GetMethod().DeclaringType.Assembly.GetTypes());
+                }
+                var tt = list.Where(b => b.FullName.Contains(ConstHelper.CONTROLLERSPACE)).ToList();
+
+                if (tt == null || !tt.Any())
+                {
+                    LogHelper.Error("AreaCollection.RegistAll出现异常",new Exception("找不到符合MVC命名的Controllers空间!"));
+                }
+
                 RouteTable.Types.AddRange(tt);
             }
         }
