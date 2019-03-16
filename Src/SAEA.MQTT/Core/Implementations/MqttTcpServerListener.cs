@@ -74,8 +74,10 @@ namespace SAEA.MQTT.Core.Implementations
             serverSokcet.OnAccepted += ServerSokcet_OnAccepted;
         }
 
-        private void ServerSokcet_OnAccepted(string id)
+        private void ServerSokcet_OnAccepted(object userToken)
         {
+            var id = userToken.ToString();
+
             var ci = ChannelManager.Current.Get(id);
 
             if (ci != null)

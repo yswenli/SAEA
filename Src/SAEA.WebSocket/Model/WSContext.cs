@@ -22,7 +22,6 @@
 *
 *****************************************************************************/
 using SAEA.Sockets.Interface;
-using SAEA.Sockets.Model;
 
 namespace SAEA.WebSocket.Model
 {

@@ -27,6 +27,7 @@
 *版本号： v4.2.3.1
 *描述：
 *****************************************************************************/
+using SAEA.Sockets.Handler;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -43,6 +44,8 @@ namespace SAEA.Sockets.Interface
         Task SendAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken);
 
         Task<int> ReceiveAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken);
+
+        event OnClientReceiveHandler OnReceive;
 
         void Dispose();
     }

@@ -5,7 +5,7 @@
     <RootNamespace>SAEA.Common</RootNamespace>
     <Description>SAEA. Common is a tool class project in the SAEA project
 SAEA.Common 是SAEA项目中的工具类项目</Description>
-    <Version>4.2.4.5</Version>
+    <Version>4.2.5.6</Version>
     <PackageReleaseNotes>SAEA. Common is a tool class project in the SAEA project
 SAEA.Common 是SAEA项目中的工具类项目</PackageReleaseNotes>
     <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>

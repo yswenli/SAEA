@@ -29,10 +29,8 @@
 *描述：
 *
 *****************************************************************************/
-using System.IO;
-using System.Net.Sockets;
 
 namespace SAEA.Sockets.Handler
 {
-    public delegate void OnAcceptedHandler(string clientID);
+    public delegate void OnAcceptedHandler(object userToken);
 }

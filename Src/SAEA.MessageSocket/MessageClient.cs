@@ -27,7 +27,6 @@ using SAEA.MessageSocket.Common;
 using SAEA.MessageSocket.Model;
 using SAEA.MessageSocket.Model.Business;
 using SAEA.MessageSocket.Model.Communication;
-using SAEA.Sockets;
 using SAEA.Sockets.Core.Tcp;
 using SAEA.Sockets.Model;
 using System;

@@ -25,4 +25,6 @@
 namespace SAEA.Sockets.Handler
 {
     public delegate void OnReceiveHandler(object userToken, byte[] data);
+
+    public delegate void OnClientReceiveHandler(byte[] data);
 }

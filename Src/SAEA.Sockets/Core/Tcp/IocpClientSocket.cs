@@ -79,6 +79,8 @@ namespace SAEA.Sockets.Core.Tcp
 
         public event OnDisconnectedHandler OnDisconnected;
 
+        public event OnClientReceiveHandler OnReceive;
+
         protected OnClientReceiveBytesHandler OnClientReceive = null;
 
         protected void RaiseOnError(string id, Exception ex)
@@ -213,7 +215,10 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
 
-        protected virtual void OnReceived(byte[] data) { }
+        protected virtual void OnReceived(byte[] data)
+        {
+            OnReceive?.Invoke(data);
+        }
 
 
 

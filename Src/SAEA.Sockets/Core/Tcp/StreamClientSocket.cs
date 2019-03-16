@@ -62,6 +62,8 @@ namespace SAEA.Sockets.Core.Tcp
 
         public event OnDisconnectedHandler OnDisconnected;
 
+        public event OnClientReceiveHandler OnReceive;
+
         /// <summary>
         /// 客户端 socket
         /// </summary>
