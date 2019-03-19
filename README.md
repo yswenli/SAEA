@@ -1,6 +1,7 @@
 # ![Logo](/logo.jpg) SAEA.Socket
 
 [![NuGet version (Newtonsoft.Json)](https://img.shields.io/nuget/v/SAEA.Sockets.svg?style=flat-square)](https://www.nuget.org/packages?q=saea)
+[![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 
 
 SAEA.Socket is an IOCP high-performance TCP network framework based on dotnet standard 2.0; Src contains its application scenarios, such as large file transfer, websocket client and server, high-performance message queue, rpc, redis driver, httpserver,MQTT, Mvc, single-machine million-connected high-performance message server, etc. <br/>
