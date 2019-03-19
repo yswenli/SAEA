@@ -118,7 +118,7 @@ client.Close();
 
 ## SAEA.MVC
 
-<a href="https://github.com/yswenli/WebRedisManager" target="_blank">https://github.com/yswenli/WebRedisManager</a>
+<a href="https://github.com/yswenli/SAEA.Rested" target="_blank">https://github.com/yswenli/SAEA.Rested</a>
 
 ### saea.mvc init usage
 
