@@ -5,7 +5,7 @@
 *公司名称：yswenli
 *命名空间：SAEA.RPC.Serialize
 *文件名： ParamsSerializeUtil
-*版本号： v4.2.3.1
+*版本号： v4.3.1.2
 *唯一标识：9555d1ce-23a8-4302-b470-7abffdebcdfa
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/5/16 17:35:38
 *修改人： yswenli
-*版本号： v4.2.3.1
+*版本号： v4.3.1.2
 *描述：
 *
 *****************************************************************************/
@@ -515,7 +515,7 @@ namespace SAEA.RPC.Serialize
                         if (sobj != null)
                             try
                             {
-                                FastInvoke.Do(instance, info.MethodInfo, new object[] { sobj });
+                                info.MethodInfo.Invoke(instance, new object[] { sobj });
                             }
                             catch
                             {
@@ -527,7 +527,7 @@ namespace SAEA.RPC.Serialize
                     {
                         try
                         {
-                            FastInvoke.Do(instance, info.MethodInfo, null);
+                            info.MethodInfo.Invoke(instance, null);
                         }
                         catch
                         {
@@ -556,7 +556,7 @@ namespace SAEA.RPC.Serialize
                         if (sobj != null)
                             try
                             {
-                                FastInvoke.Do(instance, info.MethodInfo, new object[] { sobj });
+                                info.MethodInfo.Invoke(instance, new object[] { sobj });
                             }
                             catch
                             {
@@ -567,7 +567,7 @@ namespace SAEA.RPC.Serialize
                     {
                         try
                         {
-                            FastInvoke.Do(instance, info.MethodInfo, null);
+                            info.MethodInfo.Invoke(instance, null);
                         }
                         catch
                         {
@@ -638,7 +638,7 @@ namespace SAEA.RPC.Serialize
                     val = v;
                     try
                     {
-                        FastInvoke.Do(instance, tinfo.MethodInfo, new object[] { key, val });
+                        tinfo.MethodInfo.Invoke(instance, new object[] { key, val });
                     }
                     catch
                     {

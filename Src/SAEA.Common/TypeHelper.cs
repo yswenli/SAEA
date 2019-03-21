@@ -5,7 +5,7 @@
 *公司名称：yswenli
 *命名空间：SAEA.Commom
 *文件名： TypeHelper
-*版本号： v4.2.3.1
+*版本号： v4.3.1.2
 *唯一标识：7d55d6ef-ceb1-4f7a-8f00-cc381341a07f
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/5/29 16:36:58
 *修改人： yswenli
-*版本号： v4.2.3.1
+*版本号： v4.3.1.2
 *描述：
 *
 *****************************************************************************/
@@ -31,7 +31,6 @@ namespace SAEA.Common
 {
     /// <summary>
     /// 程序集获取方法
-    /// 因为.net framework的
     /// </summary>
     public static class TypeHelper
     {
@@ -40,11 +39,7 @@ namespace SAEA.Common
         public static readonly string[] DicTypeStrs = { "Dictionary`2", "IDictionary`2" };
 
         static readonly StackTrace StackTrace = new StackTrace(true);
-
-        /// <summary>
-        /// 因为.net framework的环境不同
-        /// </summary>
-        /// <returns></returns>
+        
         public static Type[] GetDefalt()
         {
             var frames = StackTrace.GetFrames();

@@ -5,7 +5,7 @@
 *公司名称：yswenli
 *命名空间：SAEA.RPC.Common
 *文件名： RPCInovker
-*版本号： v4.2.3.1
+*版本号： v4.3.1.2
 *唯一标识：289c03b9-3910-4e15-8072-93243507689c
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/5/17 14:11:30
 *修改人： yswenli
-*版本号： v4.2.3.1
+*版本号： v4.3.1.2
 *描述：
 *
 *****************************************************************************/
@@ -59,7 +59,7 @@ namespace SAEA.RPC.Common
                 {
                     inputs = null;
                 }
-                result = FastInvoke.Do(obj, method, inputs);
+                result = method.Invoke(obj, inputs);
             }
             catch (Exception ex)
             {
@@ -84,7 +84,7 @@ namespace SAEA.RPC.Common
             {
                 foreach (var arr in serviceInfo.FilterAtrrs)
                 {
-                    var goOn = (bool)FastInvoke.Do(arr, arr.GetType().GetMethod("OnActionExecuting"), nargs.ToArray());
+                    var goOn = (bool)arr.GetType().GetMethod("OnActionExecuting").Invoke(arr, nargs.ToArray());
 
                     if (!goOn)
                     {
@@ -97,7 +97,7 @@ namespace SAEA.RPC.Common
             {
                 foreach (var arr in serviceInfo.ActionFilterAtrrs)
                 {
-                    var goOn = (bool)FastInvoke.Do(arr, arr.GetType().GetMethod("OnActionExecuting"), nargs.ToArray());
+                    var goOn = (bool)arr.GetType().GetMethod("OnActionExecuting").Invoke(arr, nargs.ToArray());
 
                     if (!goOn)
                     {
@@ -114,7 +114,7 @@ namespace SAEA.RPC.Common
             {
                 foreach (var arr in serviceInfo.FilterAtrrs)
                 {
-                    FastInvoke.Do(arr, arr.GetType().GetMethod("OnActionExecuted"), nargs);
+                    arr.GetType().GetMethod("OnActionExecuted").Invoke(arr, nargs);
                 }
             }
 
@@ -122,7 +122,7 @@ namespace SAEA.RPC.Common
             {
                 foreach (var arr in serviceInfo.FilterAtrrs)
                 {
-                    FastInvoke.Do(arr, arr.GetType().GetMethod("OnActionExecuted"), nargs);
+                    arr.GetType().GetMethod("OnActionExecuted").Invoke(arr, nargs);
                 }
             }
             return result;
