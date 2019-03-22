@@ -5,7 +5,7 @@
 *公司名称：yswenli
 *命名空间：SAEA.RPC.Provider
 *文件名： ServiceTable
-*版本号： v4.3.1.2
+*版本号： v4.3.1.5
 *唯一标识：e95f1d0b-f172-49c7-b75f-67f333504260
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/5/16 17:46:34
 *修改人： yswenli
-*版本号： v4.3.1.2
+*版本号： v4.3.1.5
 *描述：
 *
 *****************************************************************************/
@@ -139,11 +139,15 @@ namespace SAEA.RPC.Common
         public static void RegistAll()
         {
             StackTrace ss = new StackTrace(true);
-            //最上层调用
-            MethodBase mb = ss.GetFrames().Last().GetMethod();
-            var space = mb.DeclaringType.Namespace;
-            var tt = mb.DeclaringType.Assembly.GetTypes();
-            Regists(tt);
+
+            var frames = ss.GetFrames();
+
+            if (frames == null || !frames.Any()) throw new Exception("RPCMapping.RegistAll 获取上层调用异常！");
+
+            foreach (var item in frames)
+            {
+                Regists(item.GetMethod().DeclaringType.Assembly.GetTypes());
+            }
         }
 
         /// <summary>
