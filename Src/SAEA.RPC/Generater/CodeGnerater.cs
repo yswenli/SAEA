@@ -24,18 +24,17 @@
 using SAEA.Common;
 using SAEA.RPC.Common;
 using SAEA.RPC.Model;
-using SAEA.RPC.Serialize;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Text;
 
 namespace SAEA.RPC.Generater
 {
     /// <summary>
-    /// 代码生成器
+    /// 代码生成器,
+    /// 调用此代码的位置需放在生产者所在项目，否则会出现无法注册问题
     /// </summary>
     public static class CodeGnerater
     {
