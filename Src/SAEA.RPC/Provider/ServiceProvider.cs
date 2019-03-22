@@ -51,22 +51,28 @@ namespace SAEA.RPC.Provider
         /// RPC服务提供者
         /// </summary>
         /// <param name="port"></param>
-        public ServiceProvider(int port = 39654) : this(null, port)
+        /// <param name="bufferSize"></param>
+        /// <param name="count"></param>
+        public ServiceProvider(int port = 39654, int bufferSize = 10 * 1024, int count = 10000) : this(null, port, bufferSize, count)
         {
 
         }
 
+
         /// <summary>
         /// RPC服务提供者
         /// </summary>
-        /// <param name="serviceTypes">null 自动注册全部服务</param>
+        /// <param name="serviceTypes">null 注册全部rpc服务</param>
         /// <param name="port"></param>
-        public ServiceProvider(Type[] serviceTypes, int port = 39654)
+        /// <param name="bufferSize"></param>
+        /// <param name="count"></param>
+        public ServiceProvider(Type[] serviceTypes, int port = 39654, int bufferSize = 10 * 1024, int count = 10000)
         {
             _serviceTypes = serviceTypes;
-            _port = 39654;
 
-            _RServer = new RServer(port: _port);
+            _port = port;
+
+            _RServer = new RServer(_port, bufferSize, count);
             _RServer.OnMsg += _RServer_OnMsg;
             _RServer.OnError += _RServer_OnError;
 
