@@ -131,6 +131,18 @@ namespace SAEA.RPC.Generater
             csStr.AppendLine(GetSpace(3) + "OnErr?.Invoke(name, ex);");
             csStr.AppendLine(GetSpace(2) + "}");
 
+
+            csStr.AppendLine(GetSpace(2) + "public bool IsConnected");
+            csStr.AppendLine(GetSpace(2) + "{");
+            csStr.AppendLine(GetSpace(3) + "get{ return _serviceConsumer.IsConnected; }");
+            csStr.AppendLine(GetSpace(2) + "}");
+
+
+            csStr.AppendLine(GetSpace(2) + "public void Dispose()");
+            csStr.AppendLine(GetSpace(2) + "{");
+            csStr.AppendLine(GetSpace(3) + "_serviceConsumer.Dispose();");
+            csStr.AppendLine(GetSpace(2) + "}");
+
             if (names != null)
             {
                 foreach (var name in names)
@@ -492,7 +504,7 @@ namespace SAEA.RPC.Generater
                 }
             }
         }
-        
+
 
 
         /// <summary>

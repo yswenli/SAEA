@@ -60,6 +60,12 @@ namespace SAEA.RPC.Consumer
             }
         }
 
+        public bool IsConnected
+        {
+            get; private set;
+        } = false;
+
+
         /// <summary>
         /// 初始化
         /// </summary>
@@ -99,12 +105,14 @@ namespace SAEA.RPC.Consumer
                 for (int i = 0; i < links; i++)
                 {
                     var rClient = new RClient(uri);
-                    rClient.Connect();                    
+                    rClient.Connect();
                     rClient.KeepAlive();
                     _hashMap.Set(uri.ToString(), i, rClient);
                 }
             }
-            return new ConsumerMultiplexer(uri, links, timeOut);
+            var cm = new ConsumerMultiplexer(uri, links, timeOut);
+            cm.IsConnected = true;
+            return cm;
         }
 
 
@@ -121,6 +129,7 @@ namespace SAEA.RPC.Consumer
 
         private void RClient_OnDisconnected(string ID, Exception ex)
         {
+
             OnDisconnected?.Invoke(ID, ex);
         }
 
@@ -153,7 +162,8 @@ namespace SAEA.RPC.Consumer
                 {
                     if (_index >= _links)
                     {
-                        ExceptionCollector.Add("Consumer", new RPCSocketException("连接已断开！"));
+                        this.IsConnected = false;
+                        ExceptionCollector.Add("Consumer.GetClient.Error", new RPCSocketException("连接已断开！"));
                         return null;
                     }
 

@@ -31,7 +31,7 @@ namespace SAEA.RPC.Consumer
     /// <summary>
     /// rpc消费者
     /// </summary>
-    public class ServiceConsumer
+    public class ServiceConsumer:IDisposable
     {
         ConsumerMultiplexer _consumerMultiplexer = null;
 
@@ -98,6 +98,24 @@ namespace SAEA.RPC.Consumer
                 }
             }
             return t;
+        }
+
+        public bool IsConnected
+        {
+            get
+            {
+                return _consumerMultiplexer.IsConnected;
+            }
+        }
+
+        public void Disconnect()
+        {
+            _consumerMultiplexer.Dispose();
+        }
+
+        public void Dispose()
+        {
+            Disconnect();
         }
     }
 }

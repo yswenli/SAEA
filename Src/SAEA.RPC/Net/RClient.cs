@@ -28,7 +28,6 @@ using SAEA.RPC.Serialize;
 using SAEA.Sockets.Core.Tcp;
 using SAEA.Sockets.Interface;
 using System;
-using System.Threading;
 
 namespace SAEA.RPC.Net
 {
@@ -53,7 +52,7 @@ namespace SAEA.RPC.Net
         {
             if (string.IsNullOrEmpty(uri.Scheme) || string.Compare(uri.Scheme, "rpc", true) != 0)
             {
-                ExceptionCollector.Add("Consumer", new RPCSocketException("当前连接协议不正确，请使用格式rpc://ip:port"));
+                ExceptionCollector.Add("Consumer.RClient.Init Error", new RPCSocketException("当前连接协议不正确，请使用格式rpc://ip:port"));
                 return;
             }
         }
@@ -80,7 +79,7 @@ namespace SAEA.RPC.Net
                         _syncHelper.Set(msg.SequenceNumber, msg.Data);
                         break;
                     case RSocketMsgType.Error:
-                        ExceptionCollector.Add("Consumer", new Exception(ParamsSerializeUtil.Deserialize<string>(msg.Data)));
+                        ExceptionCollector.Add("Consumer.OnReceived Error", new Exception(ParamsSerializeUtil.Deserialize<string>(msg.Data)));
                         _syncHelper.Set(msg.SequenceNumber, msg.Data);
                         break;
                     case RSocketMsgType.Close:
@@ -94,7 +93,7 @@ namespace SAEA.RPC.Net
         /// </summary>
         internal void KeepAlive()
         {
-            ThreadHelper.Run(() =>
+            TaskHelper.Start(() =>
             {
                 while (!_isDisposed)
                 {
@@ -111,10 +110,10 @@ namespace SAEA.RPC.Net
                     }
                     catch (Exception ex)
                     {
-                        ExceptionCollector.Add("Consumer", ex);
+                        ExceptionCollector.Add("Consumer.KeepAlive Error", ex);
                     }
                 }
-            }, true, ThreadPriority.Highest);
+            });
         }
         /// <summary>
         /// 发送数据
@@ -152,12 +151,12 @@ namespace SAEA.RPC.Net
                 }
                 else
                 {
-                    ExceptionCollector.Add("Consumer", new RPCSocketException($"serviceName:{serviceName}/method:{method} 调用超时！"));
+                    ExceptionCollector.Add("Consumer.Request.Error", new RPCSocketException($"serviceName:{serviceName}/method:{method} 调用超时！"));
                 }
             }
             catch (Exception ex)
             {
-                ExceptionCollector.Add("Consumer", new RPCSocketException($"serviceName:{serviceName}/method:{method} 调用出现异常！", ex));
+                ExceptionCollector.Add("Consumer.Request.Error", new RPCSocketException($"serviceName:{serviceName}/method:{method} 调用出现异常！", ex));
             }
             return null;
         }

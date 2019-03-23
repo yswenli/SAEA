@@ -1,6 +1,6 @@
 ﻿/*******
 * 此代码为SAEA.RPC.Generater生成
-* 尽量不要修改此代码 2019-01-11 16:17:19
+* 尽量不要修改此代码 2019-03-23 20:53:34
 *******/
 
 using System;
@@ -29,32 +29,40 @@ namespace SAEA.RPCTest.Consumer
         }
         private void ExceptionCollector_OnErr(string name, Exception ex)
         {
-            OnErr(name, ex);
+            OnErr?.Invoke(name, ex);
+        }
+        public bool IsConnected
+        {
+            get { return _serviceConsumer.IsConnected; }
+        }
+        public void Dispose()
+        {
+            _serviceConsumer.Dispose();
         }
         EnumService _En;
         public EnumService EnumService
         {
-             get{ return _En; }
+            get { return _En; }
         }
         GroupService _Gr;
         public GroupService GroupService
         {
-             get{ return _Gr; }
+            get { return _Gr; }
         }
         HelloService _He;
         public HelloService HelloService
         {
-             get{ return _He; }
+            get { return _He; }
         }
         DicService _Di;
         public DicService DicService
         {
-             get{ return _Di; }
+            get { return _Di; }
         }
         GenericService _Ge;
         public GenericService GenericService
         {
-             get{ return _Ge; }
+            get { return _Ge; }
         }
     }
 }
@@ -136,9 +144,9 @@ namespace SAEA.RPCTest.Consumer.Service
         {
             _serviceConsumer = serviceConsumer;
         }
-        public Dictionary<Int32,UserInfo> Test(Int32 id, Dictionary<Int32,UserInfo> data)
+        public Dictionary<Int32, UserInfo> Test(Int32 id, Dictionary<Int32, UserInfo> data)
         {
-            return _serviceConsumer.RemoteCall<Dictionary<Int32,UserInfo>>("DicService", "Test", id, data);
+            return _serviceConsumer.RemoteCall<Dictionary<Int32, UserInfo>>("DicService", "Test", id, data);
         }
     }
 }
@@ -165,21 +173,21 @@ namespace SAEA.RPCTest.Consumer.Service
 
 namespace SAEA.RPCTest.Consumer.Model
 {
-    public enum ReturnEnum:Int32
+    public enum ReturnEnum : Int32
     {
-        Big=0,
-        Bigger=1,
-        Biggest=2,
+        Big = 0,
+        Bigger = 1,
+        Biggest = 2,
     }
 }
 
 namespace SAEA.RPCTest.Consumer.Model
 {
-    public enum EnumServiceType:Int32
+    public enum EnumServiceType : Int32
     {
-        Good=1,
-        Better=2,
-        Best=3,
+        Good = 1,
+        Better = 2,
+        Best = 3,
     }
 }
 
@@ -189,15 +197,15 @@ namespace SAEA.RPCTest.Consumer.Model
     {
         public Int32 ID
         {
-            get;set;
+            get; set;
         }
         public String UserName
         {
-            get;set;
+            get; set;
         }
         public DateTime Birthday
         {
-            get;set;
+            get; set;
         }
     }
 }
@@ -208,31 +216,31 @@ namespace SAEA.RPCTest.Consumer.Model
     {
         public Int32 GroupID
         {
-            get;set;
+            get; set;
         }
         public String Name
         {
-            get;set;
+            get; set;
         }
         public Boolean IsTemporary
         {
-            get;set;
+            get; set;
         }
         public DateTime Created
         {
-            get;set;
+            get; set;
         }
         public UserInfo Creator
         {
-            get;set;
+            get; set;
         }
         public List<UserInfo> Users
         {
-            get;set;
+            get; set;
         }
-        public Dictionary<Int32,UserInfo> Limit
+        public Dictionary<Int32, UserInfo> Limit
         {
-            get;set;
+            get; set;
         }
     }
 }
@@ -243,19 +251,19 @@ namespace SAEA.RPCTest.Consumer.Model
     {
         public Boolean Success
         {
-            get;set;
+            get; set;
         }
         public String Error
         {
-            get;set;
+            get; set;
         }
         public Int32 Code
         {
-            get;set;
+            get; set;
         }
         public T Data
         {
-            get;set;
+            get; set;
         }
     }
 }
