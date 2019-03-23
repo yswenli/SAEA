@@ -128,7 +128,7 @@ namespace SAEA.RPC.Generater
 
             csStr.AppendLine(GetSpace(2) + "private void ExceptionCollector_OnErr(string name, Exception ex)");
             csStr.AppendLine(GetSpace(2) + "{");
-            csStr.AppendLine(GetSpace(3) + "OnErr(name, ex);");
+            csStr.AppendLine(GetSpace(3) + "OnErr?.Invoke(name, ex);");
             csStr.AppendLine(GetSpace(2) + "}");
 
             if (names != null)
