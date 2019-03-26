@@ -169,7 +169,6 @@ namespace SAEA.RedisSocket.Core
                             result = RedisCoder.Decoder();
                         }
                     }
-
                 }
             }
             catch (Exception ex)

@@ -239,8 +239,6 @@ namespace SAEA.RedisSocket.Core
         public bool IsSubed = false;
 
 
-        ResponseData responseData = new ResponseData();
-
         /// <summary>
         /// 解析从redis返回的命令
         /// </summary>
@@ -254,6 +252,8 @@ namespace SAEA.RedisSocket.Core
             var len = 0;
 
             command = GetRedisReply();
+
+            var responseData = new ResponseData();
 
             if (command.IndexOf("-Err") == 0)
             {
