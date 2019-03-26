@@ -5,7 +5,7 @@
 *公司名称：yswenli
 *命名空间：SAEA.Commom
 *文件名： EnumHelper
-*版本号： v4.3.1.2
+*版本号： v4.3.2.5
 *唯一标识：0957f3bb-7462-4ff0-867d-0a8c9411f2eb
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/4/12 9:33:39
 *修改人： yswenli
-*版本号： v4.3.1.2
+*版本号： v4.3.2.5
 *描述：
 *
 *****************************************************************************/
@@ -50,7 +50,7 @@ namespace SAEA.Common
 
             if (@enum == null) return result;
 
-            if(!_cache.TryGetValue(@enum,out result))
+            if (!_cache.TryGetValue(@enum, out result))
             {
                 var typeInfo = @enum.GetType();
 
@@ -68,7 +68,7 @@ namespace SAEA.Common
 
                 _cache.TryAdd(@enum, result);
             }
-            
+
             return result;
         }
 
@@ -92,6 +92,18 @@ namespace SAEA.Common
             }
 
             return buffer;
+        }
+
+        /// <summary>
+        /// 根据字符串获取枚举
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="str"></param>
+        /// <param name="result"></param>
+        /// <returns></returns>
+        public static bool GetEnum<T>(string str, out T result) where T : struct
+        {
+            return Enum.TryParse<T>(str, out result);
         }
     }
 }

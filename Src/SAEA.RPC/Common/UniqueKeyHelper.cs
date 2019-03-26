@@ -5,7 +5,7 @@
 *公司名称：yswenli
 *命名空间：SAEA.RPC.Common
 *文件名： UniqueKeyHelper
-*版本号： v4.3.1.5
+*版本号： v4.3.2.5
 *唯一标识：b0c33733-d06f-48e5-bcd1-7db71dd3f37a
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,13 +17,10 @@
 *修改标记
 *修改时间：2018/5/16 16:43:33
 *修改人： yswenli
-*版本号： v4.3.1.5
+*版本号： v4.3.2.5
 *描述：
 *
 *****************************************************************************/
-using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading;
 
 namespace SAEA.RPC.Common

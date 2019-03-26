@@ -5,7 +5,7 @@
 *公司名称：yswenli
 *命名空间：SAEA.RedisSocket.Core
 *文件名： RedisConnection
-*版本号： v4.3.1.2
+*版本号： v4.3.2.5
 *唯一标识：a22caf84-4c61-456e-98cc-cbb6cb2c6d6e
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *创建时间：2018/11/5 20:45:02
 *修改人： yswenli
-*版本号： v4.3.1.2
+*版本号： v4.3.2.5
 *描述：
 *
 *****************************************************************************/
@@ -33,7 +33,7 @@ using System.Threading;
 
 namespace SAEA.RedisSocket.Core
 {
-    public class RedisConnection
+    internal class RedisConnection
     {
         object _syncLocker = new object();
 
@@ -138,9 +138,38 @@ namespace SAEA.RedisSocket.Core
         /// 发送
         /// </summary>
         /// <param name="cmd"></param>
-        public void Request(string cmd)
+        void Request(string cmd)
         {
             _cnn.Request(Encoding.UTF8.GetBytes(cmd));
+        }
+
+        /// <summary>
+        /// 发送,
+        /// 命令行模式
+        /// </summary>
+        /// <param name="cmd"></param>
+        /// <returns></returns>
+        internal ResponseData RequestWithConsole(string cmd)
+        {
+            ResponseData result = new ResponseData() { Type = ResponseType.Empty };
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(cmd))
+                {
+                    var redisCmd = cmd.Split(" ")[0];
+
+                    if (EnumHelper.GetEnum(redisCmd, out RequestType requestType))
+                    {
+                        result = RedisCoder.Decoder();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = ex.Message;
+            }
+            return result;
         }
 
         /// <summary>
@@ -170,7 +199,6 @@ namespace SAEA.RedisSocket.Core
             Request(cmd);
             return RedisCoder.Decoder();
         }
-
 
 
         public ResponseData DoWithKey(RequestType type, string key)
