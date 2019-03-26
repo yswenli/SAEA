@@ -27,7 +27,6 @@
 *版本号： v4.3.1.2
 *描述：
 *****************************************************************************/
-using SAEA.Sockets.Model;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 
@@ -35,8 +34,6 @@ namespace SAEA.Sockets.Interface
 {
     public interface ISocketOption
     {
-        SocketType SocketType { get; set; }
-
         bool WithSsl
         {
             get; set;

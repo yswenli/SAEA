@@ -170,7 +170,11 @@ namespace SAEA.Sockets.Core.Tcp
             });
             if (!wait.WaitOne(10 * 1000))
             {
-                _socket.Disconnect(true);
+                try
+                {
+                    _socket.Disconnect(true);
+                }
+                catch { }
                 throw new Exception("连接超时!");
             }
         }

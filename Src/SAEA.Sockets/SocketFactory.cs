@@ -29,7 +29,6 @@
 *****************************************************************************/
 using SAEA.Sockets.Core.Tcp;
 using SAEA.Sockets.Interface;
-using SAEA.Sockets.Model;
 using System.Threading;
 
 namespace SAEA.Sockets
@@ -48,20 +47,13 @@ namespace SAEA.Sockets
         /// <returns></returns>
         public static IServerSokcet CreateServerSocket(ISocketOption socketOption, CancellationToken cancellationToken)
         {
-            if (socketOption.SocketType == SocketType.Tcp)
+            if (!socketOption.UseIocp)
             {
-                if (!socketOption.UseIocp)
-                {
-                    return new StreamServerSocket(socketOption, cancellationToken);
-                }
-                else
-                {
-                    return new IocpServerSocket(socketOption);
-                }
+                return new StreamServerSocket(socketOption, cancellationToken);
             }
             else
             {
-                return null;
+                return new IocpServerSocket(socketOption);
             }
         }
 
@@ -72,12 +64,9 @@ namespace SAEA.Sockets
         /// <returns></returns>
         public static IServerSokcet CreateServerSocket(ISocketOption socketOption)
         {
-            if (socketOption.SocketType == SocketType.Tcp)
+            if (socketOption.UseIocp)
             {
-                if (socketOption.UseIocp)
-                {
-                    return new IocpServerSocket(socketOption);
-                }
+                return new IocpServerSocket(socketOption);
             }
             return null;
         }
@@ -91,20 +80,13 @@ namespace SAEA.Sockets
         /// <returns></returns>
         public static IClientSocket CreateClientSocket(ISocketOption socketOption, CancellationToken cancellationToken)
         {
-            if (socketOption.SocketType == SocketType.Tcp)
+            if (!socketOption.UseIocp)
             {
-                if (!socketOption.UseIocp)
-                {
-                    return new StreamClientSocket(socketOption, cancellationToken);
-                }
-                else
-                {
-                    return new IocpClientSocket(socketOption);
-                }
+                return new StreamClientSocket(socketOption, cancellationToken);
             }
             else
             {
-                return null;
+                return new IocpClientSocket(socketOption);
             }
         }
 
@@ -115,20 +97,13 @@ namespace SAEA.Sockets
         /// <returns></returns>
         public static IClientSocket CreateClientSocket(ISocketOption socketOption)
         {
-            if (socketOption.SocketType == SocketType.Tcp)
+            if (!socketOption.UseIocp)
             {
-                if (!socketOption.UseIocp)
-                {
-                    return new StreamClientSocket(socketOption);
-                }
-                else
-                {
-                    return new IocpClientSocket(socketOption);
-                }
+                return new StreamClientSocket(socketOption);
             }
             else
             {
-                return null;
+                return new IocpClientSocket(socketOption);
             }
         }
 
