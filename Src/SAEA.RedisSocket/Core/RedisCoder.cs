@@ -398,6 +398,7 @@ namespace SAEA.RedisSocket.Core
                                     responseData.Type = ResponseType.Error;
                                     responseData.Data = error;
                                     _operationQueue.Clear();
+                                    _coderDecoderSync.Set();
                                     return responseData;
                                 }
                                 sb.Append(GetRedisReply());
@@ -427,6 +428,7 @@ namespace SAEA.RedisSocket.Core
                                     responseData.Type = ResponseType.Error;
                                     responseData.Data = error;
                                     _operationQueue.Clear();
+                                    _coderDecoderSync.Set();
                                     return responseData;
                                 }
                                 sb.Append(GetRedisReply());
@@ -514,6 +516,7 @@ namespace SAEA.RedisSocket.Core
                             responseData.Type = ResponseType.Error;
                             responseData.Data = error;
                             _operationQueue.Clear();
+                            _coderDecoderSync.Set();
                             return responseData;
                         }
                         var wNum = GetWordsNum(GetRedisReply(), out error);
@@ -522,6 +525,7 @@ namespace SAEA.RedisSocket.Core
                             responseData.Type = ResponseType.Error;
                             responseData.Data = error;
                             _operationQueue.Clear();
+                            _coderDecoderSync.Set();
                             return responseData;
                         }
                         GetRedisReply();
@@ -531,6 +535,7 @@ namespace SAEA.RedisSocket.Core
                             responseData.Type = ResponseType.Error;
                             responseData.Data = error;
                             _operationQueue.Clear();
+                            _coderDecoderSync.Set();
                             return responseData;
                         }
                         var channel = GetRedisReply();
@@ -540,6 +545,7 @@ namespace SAEA.RedisSocket.Core
                             responseData.Type = ResponseType.Error;
                             responseData.Data = error;
                             _operationQueue.Clear();
+                            _coderDecoderSync.Set();
                             return responseData;
                         }
                         IsSubed = false;
@@ -565,6 +571,7 @@ namespace SAEA.RedisSocket.Core
                                 responseData.Type = ResponseType.Error;
                                 responseData.Data = error;
                                 _operationQueue.Clear();
+                                _coderDecoderSync.Set();
                                 return responseData;
                             }
                         }
@@ -575,6 +582,7 @@ namespace SAEA.RedisSocket.Core
                             responseData.Type = ResponseType.Error;
                             responseData.Data = error;
                             _operationQueue.Clear();
+                            _coderDecoderSync.Set();
                             return responseData;
                         }
                         int.TryParse(GetRedisReply(), out offset);
@@ -599,6 +607,7 @@ namespace SAEA.RedisSocket.Core
                                 responseData.Type = ResponseType.Error;
                                 responseData.Data = error;
                                 _operationQueue.Clear();
+                                _coderDecoderSync.Set();
                                 return responseData;
                             }
                         }
@@ -611,6 +620,7 @@ namespace SAEA.RedisSocket.Core
                             {
                                 responseData.Type = ResponseType.Error;
                                 responseData.Data = error;
+                                _coderDecoderSync.Set();
                                 return responseData;
                             }
                             if (len >= 0)
