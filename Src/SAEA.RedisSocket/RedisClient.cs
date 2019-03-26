@@ -26,6 +26,7 @@ using SAEA.RedisSocket.Core;
 using SAEA.RedisSocket.Model;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 
 namespace SAEA.RedisSocket
@@ -156,6 +157,17 @@ namespace SAEA.RedisSocket
             }, true, ThreadPriority.Highest);
         }
 
+
+        /// <summary>
+        /// console命令行
+        /// </summary>
+        /// <param name="cmd"></param>
+        /// <returns></returns>
+        public string Console(string cmd)
+        {
+            return _cnn.RequestWithConsole(cmd).ToString();
+        }
+
         /// <summary>
         /// redis 密码验证
         /// </summary>
@@ -227,52 +239,92 @@ namespace SAEA.RedisSocket
         {
             get
             {
+                ServerInfo serverInfo = null;
+
                 var info = Info();
 
                 var lines = info.Split(RedisConst.Enter, StringSplitOptions.RemoveEmptyEntries);
 
-                Dictionary<string, string> dic = new Dictionary<string, string>();
+                if (lines != null && lines.Any())
+                {
+                    Dictionary<string, string> dic = new Dictionary<string, string>();
 
-                foreach (var item in lines)
-                {
-                    if (item.IndexOf("#") > -1)
-                        continue;
-                    var arr = item.Split(":");
-                    dic.Add(arr[0], arr[1]);
+                    foreach (var item in lines)
+                    {
+                        if (item.IndexOf("#") > -1)
+                            continue;
+
+                        var arr = item.Split(":");
+
+                        if (arr.Length > 1)
+                            dic.Add(arr[0], arr[1]);
+                    }
+
+                    if (dic.TryGetValue("config_file",out string config_file))
+                    {
+                        serverInfo.config_file = config_file;
+                    }
+                    if (dic.TryGetValue("connected_clients", out string connected_clients))
+                    {
+                        serverInfo.connected_clients = connected_clients;
+                    }
+                    if (dic.TryGetValue("connected_slaves", out string connected_slaves))
+                    {
+                        serverInfo.connected_slaves = connected_slaves;
+                    }
+                    if (dic.TryGetValue("os", out string os))
+                    {
+                        serverInfo.os = os;
+                    }
+                    if (dic.TryGetValue("redis_version", out string redis_version))
+                    {
+                        serverInfo.redis_version = redis_version;
+                    }
+                    if (dic.TryGetValue("role", out string role))
+                    {
+                        serverInfo.role = role;
+                    }
+                    if (dic.TryGetValue("used_cpu_sys", out string used_cpu_sys))
+                    {
+                        serverInfo.used_cpu_sys = used_cpu_sys;
+                    }
+                    if (dic.TryGetValue("used_cpu_user", out string used_cpu_user))
+                    {
+                        serverInfo.used_cpu_user = used_cpu_user;
+                    }
+                    if (dic.TryGetValue("used_memory", out string used_memory))
+                    {
+                        serverInfo.used_memory = used_memory;
+                    }
+                    if (dic.TryGetValue("used_memory_human", out string used_memory_human))
+                    {
+                        serverInfo.used_memory_human = used_memory_human;
+                    }
+                    if (dic.TryGetValue("used_memory_peak_human", out string used_memory_peak_human))
+                    {
+                        serverInfo.used_memory_peak_human = used_memory_peak_human;
+                    }
+
+
+                    if (dic.ContainsKey("cluster_enabled"))
+                    {
+                        serverInfo.cluster_enabled = dic["cluster_enabled"];
+                    }
+                    if (dic.ContainsKey("executable"))
+                    {
+                        serverInfo.executable = dic["executable"];
+                    }
+                    if (dic.ContainsKey("maxmemory_human"))
+                    {
+                        serverInfo.maxmemory_human = dic["maxmemory_human"];
+                    }
+                    if (dic.ContainsKey("used_memory_rss_human"))
+                    {
+                        serverInfo.used_memory_rss_human = dic["used_memory_rss_human"];
+                    }
                 }
 
-                var serverInfo = new ServerInfo()
-                {
-                    config_file = dic["config_file"],
-                    connected_clients = dic["connected_clients"],
-                    connected_slaves = dic["connected_slaves"],
-                    os = dic["os"],
-                    redis_version = dic["redis_version"],
-                    role = dic["role"],
-                    used_cpu_sys = dic["used_cpu_sys"],
-                    used_cpu_user = dic["used_cpu_user"],
-                    used_memory = dic["used_memory"],
-                    used_memory_human = dic["used_memory_human"],
-                    used_memory_peak_human = dic["used_memory_peak_human"],
-                    address = RedisConfig.GetIPPort()
-                };
 
-                if (dic.ContainsKey("cluster_enabled"))
-                {
-                    serverInfo.cluster_enabled = dic["cluster_enabled"];
-                }
-                if (dic.ContainsKey("executable"))
-                {
-                    serverInfo.executable = dic["executable"];
-                }
-                if (dic.ContainsKey("maxmemory_human"))
-                {
-                    serverInfo.maxmemory_human = dic["maxmemory_human"];
-                }
-                if (dic.ContainsKey("used_memory_rss_human"))
-                {
-                    serverInfo.used_memory_rss_human = dic["used_memory_rss_human"];
-                }
                 return serverInfo;
             }
         }

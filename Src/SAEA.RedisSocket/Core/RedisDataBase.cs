@@ -44,16 +44,6 @@ namespace SAEA.RedisSocket.Core
             _redisLock = new RedisLock(_cnn);
         }
 
-        /// <summary>
-        /// 命令行模式
-        /// </summary>
-        /// <param name="cmd"></param>
-        /// <returns></returns>
-        public string Console(string cmd)
-        {
-            return _cnn.RequestWithConsole(cmd).ToString();
-        }
-
         #region KEY
         public void Set(string key, string value)
         {
