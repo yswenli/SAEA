@@ -81,6 +81,10 @@ namespace SAEA.RedisSocketTest
 
             var info = redisClient.Info();
 
+            var serverInfo = redisClient.ServerInfo;
+
+            var r = redisClient.Console("INFO");
+
             if (info.Contains("NOAUTH Authentication required."))
             {
                 while (true)

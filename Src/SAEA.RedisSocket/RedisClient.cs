@@ -239,7 +239,7 @@ namespace SAEA.RedisSocket
         {
             get
             {
-                ServerInfo serverInfo = null;
+                ServerInfo serverInfo = new ServerInfo() { address = RedisConfig.GetIPPort() };
 
                 var info = Info();
 
@@ -257,10 +257,10 @@ namespace SAEA.RedisSocket
                         var arr = item.Split(":");
 
                         if (arr.Length > 1)
-                            dic.Add(arr[0], arr[1]);
+                            dic[arr[0]] = arr[1];
                     }
 
-                    if (dic.TryGetValue("config_file",out string config_file))
+                    if (dic.TryGetValue("config_file", out string config_file))
                     {
                         serverInfo.config_file = config_file;
                     }

@@ -151,17 +151,25 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         internal ResponseData RequestWithConsole(string cmd)
         {
-            ResponseData result = new ResponseData() { Type = ResponseType.Empty };
+            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
             try
             {
                 if (!string.IsNullOrWhiteSpace(cmd))
                 {
-                    var redisCmd = cmd.Split(" ")[0];
+                    var @params = cmd.Split(" ", StringSplitOptions.RemoveEmptyEntries);
 
-                    if (EnumHelper.GetEnum(redisCmd, out RequestType requestType))
+                    if (@params != null && @params.Length > 0)
                     {
-                        result = RedisCoder.Decoder();
+                        var redisCmd = @params[0];
+
+                        if (EnumHelper.GetEnum(redisCmd, out RequestType requestType))
+                        {
+                            var sendData = RedisCoder.Coder(requestType, @params);
+                            Request(sendData);
+                            result = RedisCoder.Decoder();
+                        }
                     }
+
                 }
             }
             catch (Exception ex)
