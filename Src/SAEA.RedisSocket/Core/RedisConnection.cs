@@ -160,13 +160,18 @@ namespace SAEA.RedisSocket.Core
 
                     if (@params != null && @params.Length > 0)
                     {
-                        var redisCmd = @params[0];
+                        var redisCmd = @params[0].ToUpper();
 
                         if (EnumHelper.GetEnum(redisCmd, out RequestType requestType))
                         {
                             var sendData = RedisCoder.Coder(requestType, @params);
                             Request(sendData);
                             result = RedisCoder.Decoder();
+                        }
+                        else
+                        {
+                            result.Type = ResponseType.Error;
+                            result.Data = "未知的命令 cmd:"+ cmd;
                         }
                     }
                 }

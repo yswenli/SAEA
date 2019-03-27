@@ -21,9 +21,6 @@
 *描述：
 *
 *****************************************************************************/
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.RedisSocket.Model
 {
@@ -36,6 +33,8 @@ namespace SAEA.RedisSocket.Model
         TYPE,
         INFO,
         SLAVEOF,
+        FLUSHALL,
+        FLUSHDB,
 
         SET,
         MSET,
@@ -90,7 +89,6 @@ namespace SAEA.RedisSocket.Model
         HSCAN,
         SSCAN,
         ZSCAN,
-
 
         CLUSTER_INFO,
         CLUSTER_NODES,

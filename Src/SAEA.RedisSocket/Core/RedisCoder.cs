@@ -245,9 +245,9 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public ResponseData Decoder()
         {
-            string command = null;
+            string command = string.Empty;
 
-            string error = null;
+            string error = string.Empty;
 
             var len = 0;
 
@@ -255,7 +255,7 @@ namespace SAEA.RedisSocket.Core
 
             var responseData = new ResponseData();
 
-            if (command.IndexOf("-Err") == 0)
+            if (command.IndexOf("-") == 0)
             {
                 responseData.Type = ResponseType.Error;
                 responseData.Data = command;
@@ -268,7 +268,7 @@ namespace SAEA.RedisSocket.Core
             {
                 command = GetRedisReply();
 
-                if (command.IndexOf("-Err") == 0)
+                if (command.IndexOf("-") == 0)
                 {
                     responseData.Type = ResponseType.Error;
                     responseData.Data = command;
@@ -286,7 +286,7 @@ namespace SAEA.RedisSocket.Core
             }
             else
             {
-                if (command.IndexOf("-Err") == 0)
+                if (command.IndexOf("-") == 0)
                 {
                     responseData.Type = ResponseType.Error;
                     responseData.Data = command;
@@ -310,6 +310,7 @@ namespace SAEA.RedisSocket.Core
                         }
                         break;
                     case RequestType.AUTH:
+                    case RequestType.FLUSHALL:
                     case RequestType.SELECT:
                     case RequestType.SLAVEOF:
                     case RequestType.SET:
@@ -365,7 +366,7 @@ namespace SAEA.RedisSocket.Core
                         else if (len == -1)
                         {
                             responseData.Type = ResponseType.Empty;
-                            responseData.Data = error;
+                            responseData.Data = string.Empty;
                         }
                         else
                         {
@@ -401,6 +402,14 @@ namespace SAEA.RedisSocket.Core
                                     _coderDecoderSync.Set();
                                     return responseData;
                                 }
+                                if (len == -1)
+                                {
+                                    responseData.Type = ResponseType.Empty;
+                                    responseData.Data = string.Empty;
+                                    _operationQueue.Clear();
+                                    _coderDecoderSync.Set();
+                                    return responseData;
+                                }
                                 sb.Append(GetRedisReply());
                             }
                         }
@@ -431,12 +440,21 @@ namespace SAEA.RedisSocket.Core
                                     _coderDecoderSync.Set();
                                     return responseData;
                                 }
+                                if (len == -1)
+                                {
+                                    responseData.Type = ResponseType.Empty;
+                                    responseData.Data = string.Empty;
+                                    _operationQueue.Clear();
+                                    _coderDecoderSync.Set();
+                                    return responseData;
+                                }
                                 sb.Append(GetRedisReply());
                             }
                         }
                         responseData.Data = sb.ToString();
                         break;
                     case RequestType.DBSIZE:
+                    case RequestType.FLUSHDB:
                     case RequestType.EXISTS:
                     case RequestType.EXPIRE:
                     case RequestType.PERSIST:
@@ -478,7 +496,15 @@ namespace SAEA.RedisSocket.Core
                     case RequestType.INFO:
                     case RequestType.CLUSTER_INFO:
                     case RequestType.CLUSTER_NODES:
-                        var rnum = GetWordsNum(command, out error);
+                        len = GetWordsNum(command, out error);
+                        if (len == -1)
+                        {
+                            responseData.Type = ResponseType.Empty;
+                            responseData.Data = string.Empty;
+                            _operationQueue.Clear();
+                            _coderDecoderSync.Set();
+                            return responseData;
+                        }
                         if (!string.IsNullOrEmpty(error))
                         {
                             responseData.Type = ResponseType.Error;
@@ -486,7 +512,7 @@ namespace SAEA.RedisSocket.Core
                             break;
                         }
                         var info = "";
-                        while (info.Length < rnum)
+                        while (info.Length < len)
                         {
                             info += GetRedisReply();
                         }
@@ -562,6 +588,14 @@ namespace SAEA.RedisSocket.Core
                         sb = new StringBuilder();
                         int offset = 0;
                         rn = GetRowNum(command, out error);
+                        if (!string.IsNullOrEmpty(error))
+                        {
+                            responseData.Type = ResponseType.Error;
+                            responseData.Data = error;
+                            _operationQueue.Clear();
+                            _coderDecoderSync.Set();
+                            return responseData;
+                        }
                         while (rn <= 0)
                         {
                             command = GetRedisReply();
@@ -598,6 +632,14 @@ namespace SAEA.RedisSocket.Core
                             break;
                         }
                         rn = GetRowNum(command, out error);
+                        if (!string.IsNullOrEmpty(error))
+                        {
+                            responseData.Type = ResponseType.Error;
+                            responseData.Data = error;
+                            _operationQueue.Clear();
+                            _coderDecoderSync.Set();
+                            return responseData;
+                        }
                         while (rn < 0)
                         {
                             command = GetRedisReply();
