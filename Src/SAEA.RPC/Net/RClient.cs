@@ -81,7 +81,7 @@ namespace SAEA.RPC.Net
                         _syncHelper.Set(msg.SequenceNumber, msg.Data);
                         break;
                     case RSocketMsgType.Notice:
-                        OnNoticed?.BeginInvoke(msg.Data, null, null);
+                        OnNoticed.Invoke(msg.Data);
                         break;
                     case RSocketMsgType.Error:
                         ExceptionCollector.Add("Consumer.OnReceived Error", new Exception(SAEASerialize.Deserialize<string>(msg.Data)));
@@ -100,24 +100,24 @@ namespace SAEA.RPC.Net
         {
             TaskHelper.Start(() =>
             {
-                //while (!_isDisposed)
-                //{
-                //    try
-                //    {
-                //        if (this.Connected)
-                //        {
-                //            if (UserToken.Actived.AddSeconds(60) < DateTimeHelper.Now)
-                //            {
-                //                BeginSend(new RSocketMsg(RSocketMsgType.Ping));
-                //            }
-                //        }
-                //        ThreadHelper.Sleep(5 * 100);
-                //    }
-                //    catch (Exception ex)
-                //    {
-                //        ExceptionCollector.Add("Consumer.KeepAlive Error", ex);
-                //    }
-                //}
+                while (!_isDisposed)
+                {
+                    try
+                    {
+                        if (this.Connected)
+                        {
+                            if (UserToken.Actived.AddSeconds(60) < DateTimeHelper.Now)
+                            {
+                                BeginSend(new RSocketMsg(RSocketMsgType.Ping));
+                            }
+                        }
+                        ThreadHelper.Sleep(5 * 100);
+                    }
+                    catch (Exception ex)
+                    {
+                        ExceptionCollector.Add("Consumer.KeepAlive Error", ex);
+                    }
+                }
             });
         }
         /// <summary>
@@ -139,31 +139,24 @@ namespace SAEA.RPC.Net
         /// <returns></returns>
         public byte[] Request(string serviceName, string method, byte[] args, int timeOut)
         {
-            try
+            byte[] result = null;
+
+            var msg = new RSocketMsg(RSocketMsgType.Request, serviceName, method)
             {
-                byte[] result = null;
+                SequenceNumber = UniqueKeyHelper.Next()
+            };
 
-                var msg = new RSocketMsg(RSocketMsgType.Request, serviceName, method)
-                {
-                    SequenceNumber = UniqueKeyHelper.Next()
-                };
+            msg.Data = args;
 
-                msg.Data = args;
-
-                if (_syncHelper.Wait(msg.SequenceNumber, () => { this.BeginSend(msg); }, (r) => { result = r; }, timeOut))
-                {
-                    return result;
-                }
-                else
-                {
-                    ExceptionCollector.Add("Consumer.Request.Error", new RPCSocketException($"serviceName:{serviceName}/method:{method} 调用超时！"));
-                }
-            }
-            catch (Exception ex)
+            if (_syncHelper.Wait(msg.SequenceNumber, () => { this.BeginSend(msg); }, (r) => { result = r; }, timeOut))
             {
-                ExceptionCollector.Add("Consumer.Request.Error", new RPCSocketException($"serviceName:{serviceName}/method:{method} 调用出现异常！", ex));
+                return result;
             }
-            return null;
+            else
+            {
+                ExceptionCollector.Add("Consumer.Request.Error", new RPCSocketException($"serviceName:{serviceName}/method:{method} 调用超时！"));
+            }
+            return result;
         }
 
         /// <summary>

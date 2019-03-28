@@ -81,7 +81,7 @@ namespace SAEA.RPC.Consumer
 
         private void _consumerMultiplexer_OnNoticed(byte[] serializeData)
         {
-            OnNoticed?.BeginInvoke(serializeData, null, null);
+            OnNoticed?.Invoke(serializeData);
         }
 
 
@@ -114,12 +114,9 @@ namespace SAEA.RPC.Consumer
         }
 
 
-        public async Task RegistReceiveNotice()
+        public void RegistReceiveNotice()
         {
-            await Task.Run(() =>
-            {
-                _consumerMultiplexer.RegistReceiveNotice();
-            });
+            _consumerMultiplexer.RegistReceiveNotice();
         }
 
 

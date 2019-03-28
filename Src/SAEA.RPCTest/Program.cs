@@ -375,7 +375,8 @@ namespace SAEA.RPCTest
 
         static void NoticeTest()
         {
-            ConsoleHelper.Title = "SAEA.RPC.Provider";
+            ConsoleHelper.Title = "SAEA.RPC 推送消息测试";
+
             ConsoleHelper.WriteLine("Provider正在启动HelloService。。。");
 
             var sp = new ServiceProvider();
@@ -386,30 +387,32 @@ namespace SAEA.RPCTest
 
             var started = true;
 
-            //TaskHelper.Start(() =>
-            //{
-            //    while (started)
-            //    {
-            //        sp.Notice($"hello rpc client!\t{DateTime.Now}");
-            //        ThreadHelper.Sleep(1000);
-            //    }
-            //});
+            TaskHelper.Start(() =>
+            {
+                while (started)
+                {
+                    sp.Notice($"hello rpc client!\t{DateTime.Now}");
+                    ThreadHelper.Sleep(10);
+                }
+            });
 
             ConsoleHelper.WriteLine("Provider就绪！");
 
+            ConsoleHelper.WriteLine("Consumer正在连接到SAEA.RPC Service");
 
             RPCServiceProxy rpcServiceProxy = new RPCServiceProxy();
+
             rpcServiceProxy.OnNoticed += RpcServiceProxy_OnNoticed;
+
+            ConsoleHelper.WriteLine("Consumer正在注册接收SAEA.RPC Service消息推送...");
+
             //注册接收通知
             rpcServiceProxy.RegistReceiveNotice();
-
-
-            sp.Notice($"hello rpc client!\t{DateTime.Now}");
         }
 
         private static void RpcServiceProxy_OnNoticed(byte[] serializeData)
         {
-            ConsoleHelper.WriteLine(SAEASerialize.Deserialize<string>(serializeData));
+            ConsoleHelper.WriteLine($"RPCServiceProxy 收到服务推送的消息： {SAEASerialize.Deserialize<string>(serializeData)}");
         }
 
         #endregion

@@ -161,6 +161,7 @@ namespace SAEA.RPC.Provider
                 if (list != null && list.Any())
                 {
                     var data = SAEASerialize.Serialize(t);
+
                     var msg = new RSocketMsg(RSocketMsgType.Notice, null, null, data) { SequenceNumber = UniqueKeyHelper.Next() };
 
                     foreach (var item in list)

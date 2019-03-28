@@ -77,9 +77,9 @@ namespace SAEA.RPCTest.Consumer
             get { return _Ge; }
         }
 
-        public async void RegistReceiveNotice()
+        public void RegistReceiveNotice()
         {
-            await _serviceConsumer.RegistReceiveNotice();
+            _serviceConsumer.RegistReceiveNotice();
         }
     }
 }

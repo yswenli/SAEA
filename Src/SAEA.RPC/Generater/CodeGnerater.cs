@@ -177,9 +177,9 @@ namespace SAEA.RPC.Generater
             }
 
 
-            csStr.AppendLine(GetSpace(2) + "public async void RegistReceiveNotice()");
+            csStr.AppendLine(GetSpace(2) + "public void RegistReceiveNotice()");
             csStr.AppendLine(GetSpace(2) + "{");
-            csStr.AppendLine(GetSpace(3) + "await _serviceConsumer.RegistReceiveNotice();");
+            csStr.AppendLine(GetSpace(3) + "_serviceConsumer.RegistReceiveNotice();");
             csStr.AppendLine(GetSpace(2) + "}");
 
 
