@@ -24,9 +24,7 @@
 using SAEA.Common;
 using SAEA.RPC.Model;
 using SAEA.RPC.Net;
-using SAEA.RPC.Serialize;
 using SAEA.Sockets.Interface;
-using System;
 using System.Linq;
 using System.Reflection;
 
@@ -48,23 +46,16 @@ namespace SAEA.RPC.Common
         /// <returns></returns>
         private static object ReversalMethod(object obj, MethodInfo method, object[] args)
         {
-            object result = null;
-            try
-            {
-                var inputs = args;
+            var inputs = args;
 
-                var @params = method.GetParameters();
+            var @params = method.GetParameters();
 
-                if (@params == null || @params.Length == 0)
-                {
-                    inputs = null;
-                }
-                result = method.Invoke(obj, inputs);
-            }
-            catch (Exception ex)
+            if (@params == null || @params.Length == 0)
             {
-                throw new RPCPamarsException($"{obj}/{method.Name},用户自定义业务代码出现异常：{ex.Message}", ex);
+                inputs = null;
             }
+            var result= method.Invoke(obj, inputs);
+
             return result;
         }
 
@@ -150,14 +141,14 @@ namespace SAEA.RPC.Common
 
                 var ptypes = serviceInfo.Pamars.Values.ToArray();
 
-                inputs = ParamsSerializeUtil.Deserialize(ptypes, msg.Data);
+                inputs = SAEASerialize.Deserialize(ptypes, msg.Data);
             }
 
             var r = Reversal(IUserToken, msg.ServiceName, msg.MethodName, inputs);
 
             if (r != null)
             {
-                return ParamsSerializeUtil.Serialize(r);
+                return SAEASerialize.Serialize(r);
             }
             return result;
 

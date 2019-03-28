@@ -23,7 +23,7 @@ namespace SAEA.RPCTest
         static void Main(string[] args)
         {
 
-            ConsoleHelper.WriteLine($"SAEA.RPC测试： {Environment.NewLine}   a 启动rpc provider consumer{Environment.NewLine}   p 启动rpc provider{Environment.NewLine}   c 启动rpc consumer{Environment.NewLine}   g 启动rpc consumer代码生成器{Environment.NewLine}   t 启动rpc稳定性测试{Environment.NewLine}   s 启动rpc序列化测试");
+            ConsoleHelper.WriteLine($"SAEA.RPC测试： {Environment.NewLine}   a 启动rpc provider consumer{Environment.NewLine}   p 启动rpc provider{Environment.NewLine}   c 启动rpc consumer{Environment.NewLine}   g 启动rpc consumer代码生成器{Environment.NewLine}   t 启动rpc稳定性测试{Environment.NewLine}   s 启动rpc序列化测试{Environment.NewLine}   n 启动rpc Notice 测试");
 
             var inputStr = ConsoleHelper.ReadLine();
 
@@ -65,6 +65,12 @@ namespace SAEA.RPCTest
             else if (inputStr == "t")
             {
                 StabilityTest();
+                ConsoleHelper.WriteLine("回车结束！");
+                ConsoleHelper.ReadLine();
+            }
+            else if (inputStr == "n")
+            {
+                NoticeTest();
                 ConsoleHelper.WriteLine("回车结束！");
                 ConsoleHelper.ReadLine();
             }
@@ -300,7 +306,7 @@ namespace SAEA.RPCTest
 
             for (int i = 0; i < count; i++)
             {
-                var bytes = RPC.Serialize.ParamsSerializeUtil.Serialize(groupInfo);
+                var bytes = SAEASerialize.Serialize(groupInfo);
                 len2 = bytes.Length;
                 list.Add(bytes);
             }
@@ -308,7 +314,7 @@ namespace SAEA.RPCTest
             sw.Restart();
             for (int i = 0; i < count; i++)
             {
-                var obj = RPC.Serialize.ParamsSerializeUtil.Deserialize<GroupInfo>(list[i]);
+                var obj = SAEASerialize.Deserialize<GroupInfo>(list[i]);
             }
             ConsoleHelper.WriteLine($"ParamsSerializeUtil实体反序列化平均：{count * 1000 / sw.ElapsedMilliseconds} 次/秒");
             ConsoleHelper.WriteLine($"ParamsSerializeUtil序列化生成bytes大小：{len2 * count * 1.0 / 1024 / 1024} Mb");
@@ -363,5 +369,49 @@ namespace SAEA.RPCTest
         {
             ConsoleHelper.WriteLine($"{name}  {ex.Message}");
         }
+
+
+        #region notice provider 推送
+
+        static void NoticeTest()
+        {
+            ConsoleHelper.Title = "SAEA.RPC.Provider";
+            ConsoleHelper.WriteLine("Provider正在启动HelloService。。。");
+
+            var sp = new ServiceProvider();
+
+            sp.OnErr += Sp_OnErr;
+
+            sp.Start();
+
+            var started = true;
+
+            //TaskHelper.Start(() =>
+            //{
+            //    while (started)
+            //    {
+            //        sp.Notice($"hello rpc client!\t{DateTime.Now}");
+            //        ThreadHelper.Sleep(1000);
+            //    }
+            //});
+
+            ConsoleHelper.WriteLine("Provider就绪！");
+
+
+            RPCServiceProxy rpcServiceProxy = new RPCServiceProxy();
+            rpcServiceProxy.OnNoticed += RpcServiceProxy_OnNoticed;
+            //注册接收通知
+            rpcServiceProxy.RegistReceiveNotice();
+
+
+            sp.Notice($"hello rpc client!\t{DateTime.Now}");
+        }
+
+        private static void RpcServiceProxy_OnNoticed(byte[] serializeData)
+        {
+            ConsoleHelper.WriteLine(SAEASerialize.Deserialize<string>(serializeData));
+        }
+
+        #endregion
     }
 }

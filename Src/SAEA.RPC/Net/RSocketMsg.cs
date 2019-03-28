@@ -21,11 +21,8 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.RPC.Common;
 using SAEA.RPC.Model;
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.RPC.Net
 {

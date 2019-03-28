@@ -199,26 +199,23 @@ namespace SAEA.RPC.Net
         /// <param name="onServerUnpacked"></param>
         public void Unpack(byte[] data, Action<RSocketMsg> onServerUnpacked)
         {
-            lock (_locker)
+            _buffer.AddRange(data);
+
+            if (_buffer.Count >= (1 + 4 + 4 + 0 + 4 + 0 + 0))
             {
-                _buffer.AddRange(data);
+                var buffer = _buffer.ToArray();
 
-                if (_buffer.Count >= (1 + 4 + 4 + 0 + 4 + 0 + 0))
+                Decode(buffer, (list, offset) =>
                 {
-                    var buffer = _buffer.ToArray();
-
-                    this.Decode(buffer, (list, offset) =>
+                    if (list != null)
                     {
-                        if (list != null)
+                        foreach (var item in list)
                         {
-                            foreach (var item in list)
-                            {
-                                TaskHelper.Start(() => { onServerUnpacked.Invoke(item); });
-                            }
-                            _buffer.RemoveRange(0, (int)offset);
+                            TaskHelper.Start(() => { onServerUnpacked.Invoke(item); });
                         }
-                    });
-                }
+                        _buffer.RemoveRange(0, (int)offset);
+                    }
+                });
             }
         }
 

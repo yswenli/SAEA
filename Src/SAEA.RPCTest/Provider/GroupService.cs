@@ -22,7 +22,7 @@
 *
 *****************************************************************************/
 using SAEA.Common;
-using SAEA.RPC.Common;
+using SAEA.RPC;
 using SAEA.RPCTest.Provider.Model;
 using System.Collections.Generic;
 

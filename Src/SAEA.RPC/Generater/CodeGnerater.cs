@@ -102,18 +102,38 @@ namespace SAEA.RPC.Generater
         internal static void GenerateProxy(string spaceName)
         {
             StringBuilder csStr = new StringBuilder();
-            csStr.AppendLine(Header("using System.Collections.Generic;", "using SAEA.Common;", "using SAEA.RPC.Consumer;", $"using {spaceName}.Consumer.Model;", $"using {spaceName}.Consumer.Service;"));
+
+
+            var header = Header("using System.Collections.Generic;", "using SAEA.Common;", "using SAEA.RPC.Consumer;", "using SAEA.RPC.Model;", $"using {spaceName}.Consumer.Model;", $"using {spaceName}.Consumer.Service;");
+            csStr.AppendLine(header);
+
             csStr.AppendLine($"namespace {spaceName}.Consumer");
             csStr.AppendLine("{");
+
+
             csStr.AppendLine($"{GetSpace(1)}public class RPCServiceProxy");
             csStr.AppendLine(GetSpace(1) + "{");
-            csStr.AppendLine(GetSpace(2) + "public event ExceptionCollector.OnErrHander OnErr;");
-            csStr.AppendLine(GetSpace(2) + "ServiceConsumer _serviceConsumer;");
+
+
+            csStr.AppendLine(GetSpace(2) + "public event ExceptionCollector.OnErrHander OnErr;\r\n");
+            csStr.AppendLine(GetSpace(2) + "public event OnNoticedHandler OnNoticed;\r\n");
+            csStr.AppendLine(GetSpace(2) + "ServiceConsumer _serviceConsumer;\r\n");
+
+
+            csStr.AppendLine(GetSpace(2) + "public bool IsConnected");
+            csStr.AppendLine(GetSpace(2) + "{");
+            csStr.AppendLine(GetSpace(3) + "get{ return _serviceConsumer.IsConnected; }");
+            csStr.AppendLine(GetSpace(2) + "}");
+
+
             csStr.AppendLine(GetSpace(2) + "public RPCServiceProxy(string uri = \"rpc://127.0.0.1:39654\") : this(uri, 4, 5, 10 * 1000) { }");
             csStr.AppendLine(GetSpace(2) + "public RPCServiceProxy(string uri, int links = 4, int retry = 5, int timeOut = 10 * 1000)");
             csStr.AppendLine(GetSpace(2) + "{");
             csStr.AppendLine(GetSpace(3) + "ExceptionCollector.OnErr += ExceptionCollector_OnErr;");
+
+            
             csStr.AppendLine(GetSpace(3) + "_serviceConsumer = new ServiceConsumer(new Uri(uri), links, retry, timeOut);");
+            csStr.AppendLine(GetSpace(3) + "_serviceConsumer.OnNoticed += _serviceConsumer_OnNoticed;");
 
             var names = RPCMapping.GetServiceNames();
 
@@ -131,16 +151,9 @@ namespace SAEA.RPC.Generater
             csStr.AppendLine(GetSpace(3) + "OnErr?.Invoke(name, ex);");
             csStr.AppendLine(GetSpace(2) + "}");
 
-
-            csStr.AppendLine(GetSpace(2) + "public bool IsConnected");
+            csStr.AppendLine(GetSpace(2) + "private void _serviceConsumer_OnNoticed(byte[] serializeData)");
             csStr.AppendLine(GetSpace(2) + "{");
-            csStr.AppendLine(GetSpace(3) + "get{ return _serviceConsumer.IsConnected; }");
-            csStr.AppendLine(GetSpace(2) + "}");
-
-
-            csStr.AppendLine(GetSpace(2) + "public void Dispose()");
-            csStr.AppendLine(GetSpace(2) + "{");
-            csStr.AppendLine(GetSpace(3) + "_serviceConsumer.Dispose();");
+            csStr.AppendLine(GetSpace(3) + "OnNoticed?.Invoke(serializeData);");
             csStr.AppendLine(GetSpace(2) + "}");
 
             if (names != null)
@@ -162,6 +175,18 @@ namespace SAEA.RPC.Generater
                     }
                 }
             }
+
+
+            csStr.AppendLine(GetSpace(2) + "public async void RegistReceiveNotice()");
+            csStr.AppendLine(GetSpace(2) + "{");
+            csStr.AppendLine(GetSpace(3) + "await _serviceConsumer.RegistReceiveNotice();");
+            csStr.AppendLine(GetSpace(2) + "}");
+
+
+            csStr.AppendLine(GetSpace(2) + "public void Dispose()");
+            csStr.AppendLine(GetSpace(2) + "{");
+            csStr.AppendLine(GetSpace(3) + "_serviceConsumer.Dispose();");
+            csStr.AppendLine(GetSpace(2) + "}");
 
             csStr.AppendLine(GetSpace(1) + "}");
             csStr.AppendLine("}");

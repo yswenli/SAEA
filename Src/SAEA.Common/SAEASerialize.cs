@@ -22,19 +22,18 @@
 *
 *****************************************************************************/
 
-using SAEA.Common;
-using SAEA.RPC.Model;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace SAEA.RPC.Serialize
+namespace SAEA.Common
 {
     /// <summary>
-    /// saea.rpc参数序列化处理
+    /// saea参数序列化处理，
+    /// .net 异常请在Model所在项目请增加[assembly: SecurityRules(SecurityRuleSet.Level1)]
     /// </summary>
-    public class ParamsSerializeUtil
+    public static class SAEASerialize
     {
         static Type stringType = typeof(string);
 
@@ -441,7 +440,7 @@ namespace SAEA.RPC.Serialize
                 }
                 else
                 {
-                    throw new RPCPamarsException("ParamsSerializeUtil.Deserialize 未定义的类型：" + type.ToString());
+                    throw new Exception("ParamsSerializeUtil.Deserialize 未定义的类型：" + type.ToString());
                 }
 
             }
@@ -488,7 +487,7 @@ namespace SAEA.RPC.Serialize
                 }
                 catch
                 {
-                    throw new RPCPamarsException("ParamsSerializeUtil.Deserialize 未定义的类型：" + type.ToString());
+                    throw new Exception("ParamsSerializeUtil.Deserialize 未定义的类型：" + type.ToString());
                 }
             }
 
@@ -513,27 +512,12 @@ namespace SAEA.RPC.Serialize
                     {
                         var sobj = Deserialize(info.ArgTypes[0], datas, ref soffset);
                         if (sobj != null)
-                            try
-                            {
-                                info.MethodInfo.Invoke(instance, new object[] { sobj });
-                            }
-                            catch
-                            {
-                                throw new RPCPamarsException("当前Model所在项目请增加[assembly: SecurityRules(SecurityRuleSet.Level1)]");
-                            }
+                            info.MethodInfo.Invoke(instance, new object[] { sobj });
 
                     }
                     else
                     {
-                        try
-                        {
-                            info.MethodInfo.Invoke(instance, null);
-                        }
-                        catch
-                        {
-                            throw new RPCPamarsException("当前Model所在项目请增加[assembly: SecurityRules(SecurityRuleSet.Level1)]");
-                        }
-
+                        info.MethodInfo.Invoke(instance, null);
                     }
                 }
                 return instance;
@@ -554,25 +538,11 @@ namespace SAEA.RPC.Serialize
                     {
                         var sobj = Deserialize(info.ArgTypes[0], datas, ref soffset);
                         if (sobj != null)
-                            try
-                            {
-                                info.MethodInfo.Invoke(instance, new object[] { sobj });
-                            }
-                            catch
-                            {
-                                throw new RPCPamarsException("当前Model所在项目请增加[assembly: SecurityRules(SecurityRuleSet.Level1)]");
-                            }
+                            info.MethodInfo.Invoke(instance, new object[] { sobj });
                     }
                     else
                     {
-                        try
-                        {
-                            info.MethodInfo.Invoke(instance, null);
-                        }
-                        catch
-                        {
-                            throw new RPCPamarsException("当前Model所在项目请增加[assembly: SecurityRules(SecurityRuleSet.Level1)]");
-                        }
+                        info.MethodInfo.Invoke(instance, null);
                     }
                 }
                 return instance;
@@ -636,14 +606,7 @@ namespace SAEA.RPC.Serialize
                             v = sobj;
                     }
                     val = v;
-                    try
-                    {
-                        tinfo.MethodInfo.Invoke(instance, new object[] { key, val });
-                    }
-                    catch
-                    {
-                        throw new RPCPamarsException("当前Model所在项目请增加[assembly: SecurityRules(SecurityRuleSet.Level1)]");
-                    }
+                    tinfo.MethodInfo.Invoke(instance, new object[] { key, val });
                 }
                 m++;
             }

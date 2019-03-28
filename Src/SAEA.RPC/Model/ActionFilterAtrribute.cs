@@ -23,8 +23,6 @@
 *****************************************************************************/
 using SAEA.Sockets.Interface;
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.RPC.Model
 {

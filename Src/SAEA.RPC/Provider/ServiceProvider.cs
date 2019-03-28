@@ -25,8 +25,10 @@ using SAEA.Common;
 using SAEA.RPC.Common;
 using SAEA.RPC.Model;
 using SAEA.RPC.Net;
-using SAEA.RPC.Serialize;
+using SAEA.Sockets.Interface;
 using System;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace SAEA.RPC.Provider
 {
@@ -42,6 +44,8 @@ namespace SAEA.RPC.Provider
         bool _started = false;
 
         RServer _RServer;
+
+        NoticeCollection _noticeCollection = null;
 
         public delegate void OnErrHander(Exception ex);
 
@@ -69,8 +73,9 @@ namespace SAEA.RPC.Provider
         public ServiceProvider(Type[] serviceTypes, int port = 39654, int bufferSize = 10 * 1024, int count = 10000)
         {
             _serviceTypes = serviceTypes;
-
             _port = port;
+
+            _noticeCollection = new NoticeCollection();
 
             _RServer = new RServer(_port, bufferSize, count);
             _RServer.OnMsg += _RServer_OnMsg;
@@ -89,7 +94,7 @@ namespace SAEA.RPC.Provider
             ExceptionCollector.Add("Provider", ex);
         }
 
-        private void _RServer_OnMsg(Sockets.Interface.IUserToken userToken, RSocketMsg msg)
+        private void _RServer_OnMsg(IUserToken userToken, RSocketMsg msg)
         {
             //ConsoleHelper.WriteLine($"2 provider receive: {msg.SequenceNumber}");
 
@@ -102,33 +107,18 @@ namespace SAEA.RPC.Provider
 
                     break;
                 case RSocketMsgType.Request:
-                    try
-                    {
-                        var data = RPCReversal.Reversal(userToken, msg);
 
-                        var rSocketMsg = new RSocketMsg(RSocketMsgType.Response, null, null, data) { SequenceNumber = msg.SequenceNumber };
+                    var data = RPCReversal.Reversal(userToken, msg);
 
-                        _RServer.Reply(userToken, rSocketMsg);
-                    }
-                    catch (Exception ex)
-                    {
-                        try
-                        {
-                            ExceptionCollector.Add("Provider", ex);
+                    var rSocketMsg = new RSocketMsg(RSocketMsgType.Response, null, null, data) { SequenceNumber = msg.SequenceNumber };
 
-                            if (userToken.Socket != null && userToken.Socket.Connected)
-                            {
-                                var eData = ParamsSerializeUtil.Serialize(ex.Message);
-                                var eMsg = new RSocketMsg(RSocketMsgType.Error, null, null, eData) { SequenceNumber = msg.SequenceNumber };
-                                _RServer.Reply(userToken, eMsg);
-                            }
-                        }
-                        catch (Exception sex)
-                        {
-                            Console.WriteLine($"_RServer_OnMsg.Error:{sex.Message}");
-                        }
-                    }
+                    _RServer.Reply(userToken, rSocketMsg);
+
                     //ConsoleHelper.WriteLine($"3 provider send: {msg.SequenceNumber}");
+                    break;
+
+                case RSocketMsgType.RegistNotice:
+                    _noticeCollection.Set(userToken);
                     break;
                 case RSocketMsgType.Response:
 
@@ -155,8 +145,39 @@ namespace SAEA.RPC.Provider
 
                 _started = true;
             }
-
         }
+
+        /// <summary>
+        /// 向注册了接收通知的rpc client 发送通知
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="t"></param>
+        public void Notice<T>(T t)
+        {
+            if (t != null)
+            {
+                var list = _noticeCollection.GetList().GetAwaiter().GetResult();
+
+                if (list != null && list.Any())
+                {
+                    var data = SAEASerialize.Serialize(t);
+                    var msg = new RSocketMsg(RSocketMsgType.Notice, null, null, data) { SequenceNumber = UniqueKeyHelper.Next() };
+
+                    foreach (var item in list)
+                    {
+                        try
+                        {
+                            _RServer.Reply(item, msg);
+                        }
+                        catch (Exception ex)
+                        {
+                            LogHelper.Warn("ServiceProvider.Notice 出现异常", ex);
+                        }
+                    }
+                }
+            }
+        }
+
         /// <summary>
         /// 停止服务
         /// </summary>

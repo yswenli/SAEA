@@ -21,7 +21,7 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.RPC.Common;
+using SAEA.RPC;
 using SAEA.RPCTest.Provider.Model;
 
 namespace SAEA.RPCTest.Provider

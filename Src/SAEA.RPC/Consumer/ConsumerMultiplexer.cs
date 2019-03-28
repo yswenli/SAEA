@@ -85,8 +85,10 @@ namespace SAEA.RPC.Consumer
                 var rClient = dic[i];
                 rClient.OnDisconnected -= RClient_OnDisconnected;
                 rClient.OnError -= RClient_OnError;
+                rClient.OnNoticed -= RClient_OnNoticed;
                 rClient.OnDisconnected += RClient_OnDisconnected;
                 rClient.OnError += RClient_OnError;
+                rClient.OnNoticed += RClient_OnNoticed;
                 _myClients.TryAdd(i, rClient);
             }
         }
@@ -115,8 +117,15 @@ namespace SAEA.RPC.Consumer
             return cm;
         }
 
+        private void RClient_OnNoticed(byte[] serializeData)
+        {
+            OnNoticed?.Invoke(serializeData);
+        }
+
 
         #region events
+
+        public event OnNoticedHandler OnNoticed;
 
         public event OnErrorHandler OnError;
 
@@ -147,6 +156,12 @@ namespace SAEA.RPC.Consumer
         {
             _retry = retry;
             return ReTryHelper.Do(() => this.GetClient().Request(serviceName, method, args, _timeOut), retry);
+        }
+
+
+        public void RegistReceiveNotice()
+        {
+            this.GetClient().RegistReceiveNotice();
         }
 
         /// <summary>

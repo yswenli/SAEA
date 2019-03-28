@@ -1,12 +1,13 @@
 ﻿/*******
 * 此代码为SAEA.RPC.Generater生成
-* 尽量不要修改此代码 2019-03-23 20:53:34
+* 尽量不要修改此代码 2019-03-28 15:13:49
 *******/
 
 using System;
 using System.Collections.Generic;
 using SAEA.Common;
 using SAEA.RPC.Consumer;
+using SAEA.RPC.Model;
 using SAEA.RPCTest.Consumer.Model;
 using SAEA.RPCTest.Consumer.Service;
 
@@ -15,12 +16,19 @@ namespace SAEA.RPCTest.Consumer
     public class RPCServiceProxy
     {
         public event ExceptionCollector.OnErrHander OnErr;
+
+        public event OnNoticedHandler OnNoticed;
+
         ServiceConsumer _serviceConsumer;
+
         public RPCServiceProxy(string uri = "rpc://127.0.0.1:39654") : this(uri, 4, 5, 10 * 1000) { }
         public RPCServiceProxy(string uri, int links = 4, int retry = 5, int timeOut = 10 * 1000)
         {
             ExceptionCollector.OnErr += ExceptionCollector_OnErr;
+
             _serviceConsumer = new ServiceConsumer(new Uri(uri), links, retry, timeOut);
+            _serviceConsumer.OnNoticed += _serviceConsumer_OnNoticed;
+
             _En = new EnumService(_serviceConsumer);
             _Gr = new GroupService(_serviceConsumer);
             _He = new HelloService(_serviceConsumer);
@@ -30,6 +38,10 @@ namespace SAEA.RPCTest.Consumer
         private void ExceptionCollector_OnErr(string name, Exception ex)
         {
             OnErr?.Invoke(name, ex);
+        }
+        private void _serviceConsumer_OnNoticed(byte[] serializeData)
+        {
+            OnNoticed?.Invoke(serializeData);
         }
         public bool IsConnected
         {
@@ -63,6 +75,11 @@ namespace SAEA.RPCTest.Consumer
         public GenericService GenericService
         {
             get { return _Ge; }
+        }
+
+        public async void RegistReceiveNotice()
+        {
+            await _serviceConsumer.RegistReceiveNotice();
         }
     }
 }

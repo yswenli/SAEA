@@ -24,7 +24,6 @@
 using SAEA.Common;
 using SAEA.RPC.Common;
 using SAEA.RPC.Model;
-using SAEA.RPC.Serialize;
 using SAEA.Sockets.Core.Tcp;
 using SAEA.Sockets.Interface;
 using System;
@@ -48,6 +47,8 @@ namespace SAEA.RPC.Net
             }
         }
 
+        public event OnNoticedHandler OnNoticed;
+
         public RClient(Uri uri) : this(100 * 1024, uri.Host, uri.Port)
         {
             if (string.IsNullOrEmpty(uri.Scheme) || string.Compare(uri.Scheme, "rpc", true) != 0)
@@ -61,6 +62,7 @@ namespace SAEA.RPC.Net
         {
 
         }
+
 
         protected override void OnReceived(byte[] data)
         {
@@ -78,8 +80,11 @@ namespace SAEA.RPC.Net
                     case RSocketMsgType.Response:
                         _syncHelper.Set(msg.SequenceNumber, msg.Data);
                         break;
+                    case RSocketMsgType.Notice:
+                        OnNoticed?.BeginInvoke(msg.Data, null, null);
+                        break;
                     case RSocketMsgType.Error:
-                        ExceptionCollector.Add("Consumer.OnReceived Error", new Exception(ParamsSerializeUtil.Deserialize<string>(msg.Data)));
+                        ExceptionCollector.Add("Consumer.OnReceived Error", new Exception(SAEASerialize.Deserialize<string>(msg.Data)));
                         _syncHelper.Set(msg.SequenceNumber, msg.Data);
                         break;
                     case RSocketMsgType.Close:
@@ -95,24 +100,24 @@ namespace SAEA.RPC.Net
         {
             TaskHelper.Start(() =>
             {
-                while (!_isDisposed)
-                {
-                    try
-                    {
-                        if (this.Connected)
-                        {
-                            if (UserToken.Actived.AddSeconds(60) < DateTimeHelper.Now)
-                            {
-                                BeginSend(new RSocketMsg(RSocketMsgType.Ping));
-                            }
-                        }
-                        ThreadHelper.Sleep(5 * 100);
-                    }
-                    catch (Exception ex)
-                    {
-                        ExceptionCollector.Add("Consumer.KeepAlive Error", ex);
-                    }
-                }
+                //while (!_isDisposed)
+                //{
+                //    try
+                //    {
+                //        if (this.Connected)
+                //        {
+                //            if (UserToken.Actived.AddSeconds(60) < DateTimeHelper.Now)
+                //            {
+                //                BeginSend(new RSocketMsg(RSocketMsgType.Ping));
+                //            }
+                //        }
+                //        ThreadHelper.Sleep(5 * 100);
+                //    }
+                //    catch (Exception ex)
+                //    {
+                //        ExceptionCollector.Add("Consumer.KeepAlive Error", ex);
+                //    }
+                //}
             });
         }
         /// <summary>
@@ -159,6 +164,18 @@ namespace SAEA.RPC.Net
                 ExceptionCollector.Add("Consumer.Request.Error", new RPCSocketException($"serviceName:{serviceName}/method:{method} 调用出现异常！", ex));
             }
             return null;
+        }
+
+        /// <summary>
+        /// 向rpc service provider 注册接收通知
+        /// </summary>
+        public void RegistReceiveNotice()
+        {
+            var msg = new RSocketMsg(RSocketMsgType.RegistNotice, null, null)
+            {
+                SequenceNumber = UniqueKeyHelper.Next()
+            };
+            BeginSend(msg);
         }
 
         /// <summary>

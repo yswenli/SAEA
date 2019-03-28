@@ -1,10 +1,6 @@
-﻿
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using SAEA.RPC.Common;
+﻿using SAEA.RPC;
 using SAEA.RPCTest.Consumer.Model;
+using System.Collections.Generic;
 
 namespace SAEA.RPCTest.Providers
 {

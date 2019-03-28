@@ -53,6 +53,11 @@ namespace SAEA.Common
             Write("[Error]", des + " " + ex.Message);
         }
 
+        public static void Warn(string des, Exception ex)
+        {
+            Write("[Warn]", des + " " + ex.Message);
+        }
+
         public static void Info(string des)
         {
             Write("[Info]", des);

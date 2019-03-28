@@ -23,7 +23,7 @@
 *****************************************************************************/
 using System;
 
-namespace SAEA.RPC.Common
+namespace SAEA.RPC
 {
     /// <summary>
     /// 标记当前类为服务提供类

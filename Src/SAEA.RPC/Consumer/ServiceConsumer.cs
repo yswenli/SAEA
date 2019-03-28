@@ -23,19 +23,30 @@
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.RPC.Model;
-using SAEA.RPC.Serialize;
 using System;
+using System.Threading.Tasks;
 
 namespace SAEA.RPC.Consumer
 {
     /// <summary>
     /// rpc消费者
     /// </summary>
-    public class ServiceConsumer:IDisposable
+    public class ServiceConsumer : IDisposable
     {
         ConsumerMultiplexer _consumerMultiplexer = null;
 
         int _retry = 5;
+
+        public event OnNoticedHandler OnNoticed;
+
+
+        public bool IsConnected
+        {
+            get
+            {
+                return _consumerMultiplexer.IsConnected;
+            }
+        }
 
         public ServiceConsumer() : this(new Uri("rpc://127.0.0.1:39654")) { }
 
@@ -50,9 +61,12 @@ namespace SAEA.RPC.Consumer
         {
             _retry = retry;
             _consumerMultiplexer = ConsumerMultiplexer.Create(uri, links, timeOut);
+            _consumerMultiplexer.OnNoticed += _consumerMultiplexer_OnNoticed;
             _consumerMultiplexer.OnDisconnected += _consumerMultiplexer_OnDisconnected;
             _consumerMultiplexer.OnError += _consumerMultiplexer_OnError;
         }
+
+
 
         private void _consumerMultiplexer_OnDisconnected(string ID, Exception ex)
         {
@@ -62,6 +76,12 @@ namespace SAEA.RPC.Consumer
         private void _consumerMultiplexer_OnError(string ID, Exception ex)
         {
             ExceptionCollector.Add("Consumer", new RPCSocketException("ServiceConsumer Socket Exception:" + ex.Message, ex));
+        }
+
+
+        private void _consumerMultiplexer_OnNoticed(byte[] serializeData)
+        {
+            OnNoticed?.BeginInvoke(serializeData, null, null);
         }
 
 
@@ -81,32 +101,29 @@ namespace SAEA.RPC.Consumer
 
             if (args != null)
             {
-                abytes = ParamsSerializeUtil.Serialize(args);
+                abytes = SAEASerialize.Serialize(args);
             }
 
             var data = _consumerMultiplexer.Request(serviceName, method, abytes, _retry);
 
             if (data != null)
             {
-                try
-                {
-                    t = ParamsSerializeUtil.Deserialize<T>(data);
-                }
-                catch
-                {
-
-                }
+                t = SAEASerialize.Deserialize<T>(data);
             }
             return t;
         }
 
-        public bool IsConnected
+
+        public async Task RegistReceiveNotice()
         {
-            get
+            await Task.Run(() =>
             {
-                return _consumerMultiplexer.IsConnected;
-            }
+                _consumerMultiplexer.RegistReceiveNotice();
+            });
         }
+
+
+
 
         public void Disconnect()
         {
