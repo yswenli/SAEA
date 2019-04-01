@@ -97,11 +97,11 @@ namespace SAEA.Common
 
                     object o = constructor.Invoke(null);
 
-                    //泛型集合
-                    if (oldType.IsAnsiClass && (oldType.IsGenericType || oldType.IsArray))
-                    {
-                        IEnumerable data = obj as IEnumerable;
+                    IEnumerable data = obj as IEnumerable;
 
+                    //泛型集合
+                    if (data != null)
+                    {
                         if (oldType.Name == "Dictionary`2")
                         {
                             var args = type.GetGenericArguments();
