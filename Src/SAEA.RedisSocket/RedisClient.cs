@@ -198,7 +198,7 @@ namespace SAEA.RedisSocket
             {
                 _dbIndex = dbIndex;
             }
-            if (_cnn.DoInOne(RequestType.SELECT, _dbIndex.ToString()).Data.IndexOf(RedisConst.ErrIndex) == -1)
+            if (_cnn.DoInOne(RequestType.SELECT, _dbIndex.ToString()).Data.IndexOf(RedisConst.ErrIndex, StringComparison.InvariantCultureIgnoreCase) == -1)
             {
                 return true;
             }
@@ -208,10 +208,10 @@ namespace SAEA.RedisSocket
         /// 当前db数据项数据
         /// </summary>
         /// <returns></returns>
-        public int DBSize()
+        public long DBSize()
         {
-            var result = 0;
-            int.TryParse(_cnn.Do(RequestType.DBSIZE).Data, out result);
+            var result = 0L;
+            long.TryParse(_cnn.Do(RequestType.DBSIZE).Data, out result);
             return result;
         }
         /// <summary>

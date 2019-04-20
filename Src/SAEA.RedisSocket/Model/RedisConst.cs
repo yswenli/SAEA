@@ -28,9 +28,9 @@ namespace SAEA.RedisSocket.Model
     {
         public const string OK = "OK";
 
-        public const string NOAuth = "NOAUTH Authentication required";
+        public const string NOAuth = "NOAUTH";
 
-        public const string ErrIndex = "ERR invalid DB index";
+        public const string ErrIndex = "-ERR";
 
         public const string All = "all";
 

@@ -42,6 +42,7 @@ namespace SAEA.MVCTest.Controllers
         [OutputCache]
         public ActionResult Index()
         {
+            System.Threading.Thread.Sleep(600000);
             return Content("Hello,I'm SAEA.MVC！你好！");
         }
         /// <summary>

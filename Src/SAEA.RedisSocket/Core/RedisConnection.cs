@@ -197,10 +197,6 @@ namespace SAEA.RedisSocket.Core
             {
                 return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.Do, null);
             }
-            else if (result.Type == ResponseType.Error)
-            {
-                throw new Exception(result.Data);
-            }
             else
                 return result;
         }

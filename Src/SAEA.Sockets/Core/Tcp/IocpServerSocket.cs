@@ -166,7 +166,10 @@ namespace SAEA.Sockets.Core.Tcp
 
             if (!userToken.Socket.ReceiveAsync(readArgs))
             {
-                ProcessReceived(readArgs);
+                TaskHelper.Start(() =>
+                {
+                    ProcessReceived(readArgs);
+                });
             }
             //接入新的请求
             ProcessAccept(e);
