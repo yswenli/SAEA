@@ -5,7 +5,7 @@
 *公司名称：wenli
 *命名空间：SAEA.Commom
 *文件名： Class1
-*版本号： v4.3.2.5
+*版本号： v4.3.3.7
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,12 +17,14 @@
 *修改标记
 *修改时间：2018/3/1 15:54:21
 *修改人： yswenli
-*版本号： v4.3.2.5
+*版本号： v4.3.3.7
 *描述：
 *
 *****************************************************************************/
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 
 namespace SAEA.Common
@@ -67,6 +69,50 @@ namespace SAEA.Common
         public static string GetFilePath(string path, string fileName)
         {
             return Path.Combine(path, fileName);
+        }
+
+        /// <summary>
+        /// 获取目录下的目录及文件
+        /// </summary>
+        /// <param name="root"></param>
+        /// <param name="files"></param>
+        /// <returns></returns>
+        public static List<DirectoryInfo> GetAllDirectories(DirectoryInfo root, out List<FileInfo> files)
+        {
+            List<DirectoryInfo> directories = new List<DirectoryInfo>();
+
+            files = new List<FileInfo>();
+
+            if (root != null)
+            {
+                directories.Add(root);
+            }
+
+            var fs = root.GetFiles();
+
+            if (fs != null && fs.Any())
+            {
+                files.AddRange(fs);
+            }
+
+            var dirs = root.GetDirectories();
+
+            if (dirs != null && dirs.Any())
+            {
+                foreach (var dir in dirs)
+                {
+                    List<FileInfo> sfs;
+
+                    directories.AddRange(GetAllDirectories(dir, out sfs));
+
+                    if(sfs!=null && sfs.Any())
+                    {
+                        files.AddRange(sfs);
+                    }
+                }
+            }
+
+            return directories;
         }
 
     }
