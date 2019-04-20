@@ -9,6 +9,8 @@ Reference components that search for saea in nuget, or enter the command Install
 
 SAEA.Socket是一个IOCP高性能tcp网络框架，基于dotnet standard 2.0；Src中含有其应用场景，例如大文件传输、websocket client and server、高性能消息队列、rpc、redis驱动、httpserver、MQTT、Mvc、单机百万连接高性能消息服务器等<br/>
 
+QQ群：788260487
+
 - [x] IOCP
 - [x] FileTransfer
 - [x] MessageSocket
