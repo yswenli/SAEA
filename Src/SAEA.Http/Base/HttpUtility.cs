@@ -5,7 +5,7 @@
 *公司名称：yswenli
 *命名空间：SAEA.Http.Base
 *文件名： HttpServerUtilityBase
-*版本号： v4.3.3.7
+*版本号： v4.5.1.2
 *唯一标识：01f783cd-c751-47c5-a5b9-96d3aa840c70
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,12 +17,13 @@
 *修改标记
 *修改时间：2018/4/16 11:03:29
 *修改人： yswenli
-*版本号： v4.3.3.7
+*版本号： v4.5.1.2
 *描述：
 *
 *****************************************************************************/
 using SAEA.Common;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -40,6 +41,8 @@ namespace SAEA.Http.Base
         List<FileInfo> files = new List<FileInfo>();
 
         List<DirectoryInfo> dirs = new List<DirectoryInfo>();
+
+        static ConcurrentDictionary<string, string> _cache = new ConcurrentDictionary<string, string>();
 
 
         public HttpUtility(string root = "wwwroot")
@@ -66,24 +69,27 @@ namespace SAEA.Http.Base
         /// </summary>
         /// <param name="uriPath"></param>
         /// <returns></returns>
-        public virtual string MapPath(string uriPath)
+        public string MapPath(string uriPath)
         {
-            var cpath = _root + "/" + uriPath;
-
-            var list = cpath.Split("/", StringSplitOptions.RemoveEmptyEntries).ToList();
-
-            list.Insert(0, SAEA.Common.PathHelper.GetCurrentPath());
-
-            var physicalPath = Path.Combine(list.ToArray());
-
-            foreach (var item in files)
+            return _cache.GetOrAdd(uriPath, (k) =>
             {
-                if (item.FullName.ToLowerInvariant() == physicalPath.ToLowerInvariant())
+                var cpath = _root + "/" + uriPath;
+
+                var list = cpath.Split("/", StringSplitOptions.RemoveEmptyEntries).ToList();
+
+                list.Insert(0, SAEA.Common.PathHelper.GetCurrentPath());
+
+                var physicalPath = Path.Combine(list.ToArray());
+
+                foreach (var item in files)
                 {
-                    return item.FullName;
+                    if (item.FullName.ToLowerInvariant() == physicalPath.ToLowerInvariant())
+                    {
+                        return item.FullName;
+                    }
                 }
-            }
-            return physicalPath;
+                return physicalPath;
+            });
         }
         /// <summary>
         /// UrlEncode

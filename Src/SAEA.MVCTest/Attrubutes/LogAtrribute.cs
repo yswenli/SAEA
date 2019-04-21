@@ -5,7 +5,7 @@
 *公司名称：yswenli
 *命名空间：SAEA.MVCTest.Common
 *文件名： LogAtrribute
-*版本号： v4.3.3.7
+*版本号： v4.5.1.2
 *唯一标识：2a261731-b8f6-47de-b2e4-aecf2e0e0c0f
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/4/11 13:46:42
 *修改人： yswenli
-*版本号： v4.3.3.7
+*版本号： v4.5.1.2
 *描述：
 *
 *****************************************************************************/
@@ -25,6 +25,7 @@ using SAEA.Common;
 using SAEA.Http;
 using SAEA.Http.Model;
 using SAEA.MVC;
+using HttpContext = SAEA.MVC.HttpContext;
 
 namespace SAEA.MVCTest.Attrubutes
 {

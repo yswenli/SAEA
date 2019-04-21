@@ -5,7 +5,7 @@
 *公司名称：yswenli
 *命名空间：SAEA.RedisSocket.Core
 *文件名： RedisConnection
-*版本号： v4.3.3.7
+*版本号： v4.5.1.2
 *唯一标识：a22caf84-4c61-456e-98cc-cbb6cb2c6d6e
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *创建时间：2018/11/5 20:45:02
 *修改人： yswenli
-*版本号： v4.3.3.7
+*版本号： v4.5.1.2
 *描述：
 *
 *****************************************************************************/
@@ -108,7 +108,7 @@ namespace SAEA.RedisSocket.Core
         /// <summary>
         /// 连接到redisServer
         /// </summary>
-        public void Connect()
+        public bool Connect()
         {
             lock (_syncLocker)
             {
@@ -124,13 +124,17 @@ namespace SAEA.RedisSocket.Core
                         }
                         autoResetEvent.Set();
                     });
-                    var result = autoResetEvent.WaitOne(10 * 1000);
-                    if (!result || !IsConnected)
+
+                    autoResetEvent.WaitOne(10 * 1000);
+
+                    if (!IsConnected)
                     {
                         _cnn.Disconnect();
-                        throw new Exception("无法连接到redis server!");
+                        return false;
                     }
+                    return true;
                 }
+                return true;
             }
         }
 

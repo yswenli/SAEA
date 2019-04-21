@@ -5,7 +5,7 @@
 *公司名称：yswenli
 *命名空间：SAEA.Http
 *文件名： HttpContext
-*版本号： v4.3.3.7
+*版本号： v4.5.1.2
 *唯一标识：af0b65c6-0f58-4221-9e52-7e3f0a4ffb24
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,14 +17,14 @@
 *修改标记
 *修改时间：2018/4/10 16:46:31
 *修改人： yswenli
-*版本号： v4.3.3.7
+*版本号： v4.5.1.2
 *描述：
 *
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.Http.Base;
+using SAEA.Http.Common;
 using SAEA.Http.Model;
-using SAEA.Sockets.Interface;
 using System;
 
 namespace SAEA.Http
@@ -32,158 +32,50 @@ namespace SAEA.Http
     /// <summary>
     /// SAEA.Http http上下文
     /// </summary>
-    public class HttpContext : IDisposable
+    internal class HttpContext : HttpContextBase, IHttpContext
     {
-
-        public HttpRequest Request
+        public HttpContext(IWebHost webHost, HttpMessage httpMessage) : base(webHost, httpMessage)
         {
-            get;
-            private set;
-        }
 
-        public HttpResponse Response
-        {
-            get;
-            private set;
-        }
-
-        public HttpUtility Server
-        {
-            get;
-            private set;
-        }
-
-        public HttpSession Session
-        {
-            get;
-            private set;
-        }
-
-        internal IInvoker Invoker { get; private set; }
-
-        public WebConfig WebConfig { get; set; }
-
-
-        protected HttpContext(IWebHost webHost, HttpMessage httpMessage)
-        {
-            this.WebConfig = webHost.WebConfig;
-
-            this.Invoker = webHost.Invoker;
-
-            this.Request = new HttpRequest();
-
-            this.Response = new HttpResponse();
-
-            this.Request.Init(httpMessage);
-
-            this.Response.Init(webHost, this.Request.Protocal, webHost.WebConfig.IsZiped);
-
-            this.Server = new HttpUtility(webHost.WebConfig.Root);
-
-            IsStaticsCached = webHost.WebConfig.IsStaticsCached;
         }
 
 
-        /// <summary>
-        /// 创建HttpContext
-        /// </summary>
-        /// <param name="webHost"></param>
-        /// <param name="httpMessage"></param>
-        /// <returns></returns>
-        public static HttpContext Create(IWebHost webHost, HttpMessage httpMessage)
+        public IHttpResult GetActionResult()
         {
-            return new HttpContext(webHost, httpMessage);
-        }
+            string url = Request.Url;
 
+            bool isPost = Request.Method == ConstHelper.POST;
 
+            //禁止访问
+            var flist = WebConfig.ForbiddenAccessList;
 
-        /// <summary>
-        /// 初始化Session
-        /// </summary>
-        private void InitSession(IUserToken userToken)
-        {
-            var sessionID = string.Empty;
-
-            if (!this.Request.Cookies.ContainsKey(ConstHelper.SESSIONID))
+            if (flist.Count > 0)
             {
-                sessionID = HttpSessionManager.GeneratID();
-            }
-            else
-            {
-                sessionID = this.Request.Cookies[ConstHelper.SESSIONID].Value;
-            }
-
-            this.Session = HttpSessionManager.SetAndGet(sessionID);
-
-            var domain = userToken.ID;
-
-            if (this.Request.Headers.ContainsKey("Host"))
-            {
-                domain = this.Request.Headers["Host"];
-
-                if (domain.IndexOf("www.") == 0)
+                foreach (var item in flist)
                 {
-                    domain = StringHelper.Substring(domain, 3);
+                    if (url.IndexOf(item.ToUpper(), StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        return new HttpContentResult("o_o，当前内容禁止访问！", System.Net.HttpStatusCode.Forbidden);
+                    }
+                    if (System.Text.RegularExpressions.Regex.IsMatch(url, item))
+                    {
+                        return new HttpContentResult("o_o，当前内容禁止访问！", System.Net.HttpStatusCode.Forbidden);
+                    }
                 }
-
-                HttpCookie.DefaultDomain = domain;
             }
 
-            this.Response.Cookies[ConstHelper.SESSIONID] = new HttpCookie(ConstHelper.SESSIONID, sessionID);
-        }
-
-        public bool IsStaticsCached { get; set; }
-
-        /// <summary>
-        /// 处理业务逻辑
-        /// </summary>
-        /// <param name="userToken"></param>
-        public void HttpHandle(IUserToken userToken)
-        {
-            IHttpResult result;
-
-            this.InitSession(userToken);
-
-            switch (this.Request.Method)
+            if (url == "/")
             {
-                case ConstHelper.GET:
-                case ConstHelper.POST:
-
-                    if (this.Request.Query.Count > 0)
-                    {
-                        foreach (var item in this.Request.Query)
-                        {
-                            this.Request.Parmas[item.Key] = item.Value;
-                        }
-                    }
-                    if (this.Request.Forms.Count > 0)
-                    {
-                        foreach (var item in this.Request.Forms)
-                        {
-                            this.Request.Parmas[item.Key] = item.Value;
-                        }
-                    }
-                    result = this.Invoker.GetActionResult(this);
-                    break;
-                case ConstHelper.OPTIONS:
-                    result = new HttpEmptyResult();
-                    break;
-                default:
-                    result = new HttpContentResult("不支持的请求方式", System.Net.HttpStatusCode.NotImplemented);
-                    break;
+                url = "/index.html";
             }
-            Response.SetResult(result, this.Session.CacheCalcResult);
-            Response.End(userToken);
-        }
 
-        public void Dispose()
-        {
-            this.Response.Dispose();
-            this.Request.Dispose();
-            this.Invoker = null;
-            this.WebConfig = null;
-            this.Response = null;
-            this.Request = null;
+            var filePath = Server.MapPath(url);
+
+            if (StaticResourcesCache.Exists(filePath))
+            {
+                return new HttpFileResult(filePath, IsStaticsCached);
+            }
+            return new HttpContentResult("o_o，找不到任何内容", System.Net.HttpStatusCode.NotFound);
         }
     }
 }

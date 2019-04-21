@@ -6,12 +6,16 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="Html\6139455.png" />
+    <None Remove="wwwroot\6139455.png" />
+    <None Remove="wwwroot\index.html" />
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Html\6139455.png">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    <Content Include="wwwroot\6139455.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="wwwroot\index.html">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
 

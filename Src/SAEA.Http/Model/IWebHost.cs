@@ -5,7 +5,7 @@
 *公司名称：yswenli
 *命名空间：SAEA.Http.Model
 *文件名： IWebHost
-*版本号： v4.3.3.7
+*版本号： v4.5.1.2
 *唯一标识：340c3ef0-2e98-4f25-998f-2bb369fa2794
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,22 +17,26 @@
 *修改标记
 *创建时间：2018/10/12 00:48:06
 *修改人： yswenli
-*版本号： v4.3.3.7
+*版本号： v4.5.1.2
 *描述：
 *
 *****************************************************************************/
 
+using SAEA.Http.Base;
 using SAEA.Sockets.Interface;
-using System;
 
 namespace SAEA.Http.Model
 {
+
     public interface IWebHost
     {
         bool IsRunning { get; set; }
+
         WebConfig WebConfig { get; set; }
 
-        IInvoker Invoker { get; }
+        HttpUtility HttpUtility { get; }
+
+        object RouteParam { get; set; }
 
         void Start();
 

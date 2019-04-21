@@ -5,7 +5,7 @@
 *公司名称：yswenli
 *命名空间：SAEA.Http.Web
 *文件名： WebHost
-*版本号： v4.3.3.7
+*版本号： v4.5.1.2
 *唯一标识：340c3ef0-2e98-4f25-998f-2bb369fa2794
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *创建时间：2018/10/12 00:48:06
 *修改人： yswenli
-*版本号： v4.3.3.7
+*版本号： v4.5.1.2
 *描述：
 *
 *****************************************************************************/
@@ -38,6 +38,8 @@ namespace SAEA.Http
     {
         HttpSocket _serverSocket;
 
+        Type _httpContentType = typeof(HttpContext);
+
         /// <summary>
         /// 是否已启动
         /// </summary>
@@ -48,13 +50,19 @@ namespace SAEA.Http
         /// </summary>
         public WebConfig WebConfig { get; set; }
 
+        public HttpUtility HttpUtility
+        {
+            get;
+            private set;
+        }
 
-        public IInvoker Invoker { get; private set; }
+        public object RouteParam { get; set; }
+
 
         /// <summary>
         /// SAEA WebServer
         /// </summary>
-        /// <param name="invoker">处理对象</param>
+        /// <param name="httpContentType">处理对象</param>
         /// <param name="root">根目录</param>
         /// <param name="port">监听端口</param>
         /// <param name="isStaticsCached">是否启用静态缓存</param>
@@ -63,9 +71,16 @@ namespace SAEA.Http
         /// <param name="count">http连接数上限</param>
         /// <param name="timeOut">超时</param>
         /// <param name="isDebug">测试模式</param>
-        public WebHost(IInvoker invoker, string root = "wwwroot", int port = 39654, bool isStaticsCached = true, bool isZiped = true, int bufferSize = 1024 * 10, int count = 10000, int timeOut = 120 * 1000, bool isDebug = false)
+        public WebHost(Type httpContentType = null, string root = "wwwroot", int port = 39654, bool isStaticsCached = true, bool isZiped = true, int bufferSize = 1024 * 10, int count = 10000, int timeOut = 120 * 1000, bool isDebug = false)
         {
-            Invoker = invoker;
+            if (httpContentType != null && _httpContentType.GetInterface("SAEA.Http.Model.IHttpContext", true) != null)
+            {
+                _httpContentType = httpContentType;
+            }
+            else
+            {
+                throw new Exception("httpContentType 传入值不正确！");
+            }
 
             WebConfig = new WebConfig()
             {
@@ -76,6 +91,8 @@ namespace SAEA.Http
                 HandleBufferSize = bufferSize,
                 ClientCounts = count
             };
+
+            HttpUtility = new HttpUtility(WebConfig.Root);
 
             _serverSocket = new HttpSocket(port, bufferSize, count, timeOut, isDebug);
 
@@ -104,9 +121,10 @@ namespace SAEA.Http
         {
             try
             {
-                var httpContext = HttpContext.Create(this, httpMessage);
+                var httpContext = (IHttpContext)Activator.CreateInstance(_httpContentType, this, httpMessage);
 
                 httpContext.HttpHandle(userToken);
+
             }
             catch (Exception ex)
             {

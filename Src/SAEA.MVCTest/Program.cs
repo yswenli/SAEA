@@ -16,14 +16,16 @@ namespace SAEA.MVCTest
             SAEAMvcApplication mvcApplication = new SAEAMvcApplication(mvcConfig);
 
             //设置默认控制器
+
             //mvcApplication.SetDefault("home", "index");
 
             //mvcApplication.SetDefault("index.html");
 
             //限制
-            mvcApplication.SetForbiddenAccessList("/content/");
 
-            mvcApplication.SetForbiddenAccessList(".jpg");
+            //mvcApplication.SetForbiddenAccessList("/content/");
+
+            //mvcApplication.SetForbiddenAccessList(".jpg");
 
             mvcApplication.Start();
 

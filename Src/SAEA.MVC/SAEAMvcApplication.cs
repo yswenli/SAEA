@@ -5,7 +5,7 @@
 *公司名称：yswenli
 *命名空间：SAEA.MVC
 *文件名： SAEAMvcApplication
-*版本号： v4.3.3.7
+*版本号： v4.5.1.2
 *唯一标识：85030224-1d7f-4fc0-8e65-f4b6144c6a46
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/4/10 13:59:33
 *修改人： yswenli
-*版本号： v4.3.3.7
+*版本号： v4.5.1.2
 *描述：
 *
 *****************************************************************************/
@@ -53,12 +53,25 @@ namespace SAEA.MVC
         /// <param name="isZiped">是压启用内容压缩</param>
         /// <param name="bufferSize">http处理数据缓存大小</param>
         /// <param name="count">http连接数上限</param>
-        /// <param name="isDebug">http连接数上限</param>
-        public SAEAMvcApplication(string root = "wwwroot", int port = 39654, bool isStaticsCached = true, bool isZiped = false, int bufferSize = 1024 * 10, int count = 10000, bool isDebug = false)
+        /// <param name="isDebug">调试模式</param>
+        public SAEAMvcApplication(string root = "wwwroot", int port = 39654, bool isStaticsCached = true, bool isZiped = false, int bufferSize = 1024 * 10, int count = 10000, bool isDebug = false, string controllerNameSpace="")
         {
-            var mvcInvoker = new MvcInvoker(AreaCollection.RouteTable);
+            try
+            {
+                if (string.IsNullOrEmpty(controllerNameSpace))
+                    AreaCollection.RegistAll();
+                else
+                    AreaCollection.RegistAll(controllerNameSpace);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("当前代码无任何Controller或者不符合MVC 命名规范！ err:" + ex.Message);
+            }
 
-            webHost = new WebHost(mvcInvoker, root, port, isStaticsCached, isZiped, bufferSize, count, 120 * 1000, isDebug);
+            webHost = new WebHost(typeof(HttpContext), root, port, isStaticsCached, isZiped, bufferSize, count, 120 * 1000, isDebug);
+
+
+            webHost.RouteParam = AreaCollection.RouteTable;
         }
 
         /// <summary>
@@ -94,40 +107,6 @@ namespace SAEA.MVC
         /// </summary>
         public void Start()
         {
-            try
-            {
-                AreaCollection.RegistAll();
-            }
-            catch (Exception ex)
-            {
-                throw new Exception("当前代码无任何Controller或者不符合MVC 命名规范！ err:" + ex.Message);
-            }
-            try
-            {
-                webHost.Start();
-            }
-            catch (Exception ex)
-            {
-                throw new Exception("当前端口已被其他程序占用，请更换端口再做尝试！ err:" + ex.Message);
-            }
-        }
-        /// <summary>
-        /// 启动MVC服务
-        /// </summary>
-        /// <param name="controllerNameSpace">分离式的controller</param>
-        public void Start(string controllerNameSpace)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(controllerNameSpace))
-                    AreaCollection.RegistAll();
-                else
-                    AreaCollection.RegistAll(controllerNameSpace);
-            }
-            catch (Exception ex)
-            {
-                throw new Exception("当前代码无任何Controller或者不符合MVC 命名规范！ err:" + ex.Message);
-            }
             try
             {
                 webHost.Start();
