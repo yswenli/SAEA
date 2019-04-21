@@ -50,7 +50,7 @@ namespace SAEA.MVC
         /// <returns></returns>
         public Routing GetOrAdd(Type controllerType, string actionName, bool isPost)
         {
-            if (controllerType == null) throw new Exception($"{controllerType.Name}/{actionName}找不到此action!");
+            if (controllerType == null) return null;
 
             Routing routing = null;
 

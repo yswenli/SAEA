@@ -46,6 +46,8 @@ namespace SAEA.MVC
         /// <returns></returns>
         public static ActionResult InvokeResult(HttpContext httpContext, RouteTable routeTable, Type controller, string actionName, NameValueCollection nameValues, bool isPost)
         {
+            if (routeTable == null) return new ContentResult($"o_o，当前未注册任何Controller!", System.Net.HttpStatusCode.NotFound);
+
             var routing = routeTable.GetOrAdd(controller, actionName, isPost);
 
             if (routing == null)
@@ -189,6 +191,6 @@ namespace SAEA.MVC
             return result;
         }
 
-       
+
     }
 }

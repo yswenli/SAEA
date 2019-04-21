@@ -41,7 +41,6 @@ namespace SAEA.MVC
 
         public override IHttpResult GetActionResult()
         {
-
             string url = Request.Url;
 
             bool isPost = Request.Method == ConstHelper.POST;
@@ -74,14 +73,13 @@ namespace SAEA.MVC
             {
                 case 0:
 
-                    try
-                    {
-                        filePath = Server.MapPath(WebConfig.HomePage);
-                    }
-                    catch (Exception ex)
-                    {
+                    filePath = Server.MapPath(WebConfig.HomePage);
 
+                    if (string.IsNullOrWhiteSpace(filePath))
+                    {
+                        new ContentResult($"o_o，找不到任何内容 url:{url} filePath:{filePath}", System.Net.HttpStatusCode.NotFound);
                     }
+
                     if (StaticResourcesCache.Exists(filePath))
                     {
                         return new FileResult(filePath, IsStaticsCached);
