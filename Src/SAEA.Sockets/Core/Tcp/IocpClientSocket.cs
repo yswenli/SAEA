@@ -147,6 +147,10 @@ namespace SAEA.Sockets.Core.Tcp
             }
         }
 
+        /// <summary>
+        /// 连接到服务器
+        /// </summary>
+        /// <returns></returns>
         public async Task ConnectAsync()
         {
             await _socket.ConnectAsync(_SocketOption.IP, _SocketOption.Port).ConfigureAwait(false);
@@ -160,15 +164,18 @@ namespace SAEA.Sockets.Core.Tcp
                 ProcessReceive(readArgs);
         }
 
-
-        public void Connect()
+        /// <summary>
+        /// 连接到服务器
+        /// </summary>
+        /// <param name="timeOut"></param>
+        public void Connect(int timeOut = 10 * 1000)
         {
             var wait = new AutoResetEvent(false);
             ConnectAsync((s) =>
             {
                 wait.Set();
             });
-            if (!wait.WaitOne(10 * 1000))
+            if (!wait.WaitOne(timeOut))
             {
                 try
                 {

@@ -110,32 +110,12 @@ namespace SAEA.RedisSocket.Core
         /// </summary>
         public bool Connect()
         {
-            lock (_syncLocker)
+            if (!IsConnected)
             {
-                if (!IsConnected)
-                {
-                    var autoResetEvent = new AutoResetEvent(false);
-
-                    _cnn.ConnectAsync((s) =>
-                    {
-                        if (s == System.Net.Sockets.SocketError.Success)
-                        {
-                            IsConnected = true;
-                        }
-                        autoResetEvent.Set();
-                    });
-
-                    autoResetEvent.WaitOne(10 * 1000);
-
-                    if (!IsConnected)
-                    {
-                        _cnn.Disconnect();
-                        return false;
-                    }
-                    return true;
-                }
-                return true;
+                _cnn.Connect();
+                IsConnected = true;
             }
+            return IsConnected;
         }
 
         /// <summary>
@@ -175,7 +155,7 @@ namespace SAEA.RedisSocket.Core
                         else
                         {
                             result.Type = ResponseType.Error;
-                            result.Data = "未知的命令 cmd:"+ cmd;
+                            result.Data = "未知的命令 cmd:" + cmd;
                         }
                     }
                 }
