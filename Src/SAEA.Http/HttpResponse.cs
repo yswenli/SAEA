@@ -212,7 +212,7 @@ namespace SAEA.Http
             SetContent(data, encoding);
         }
 
-        internal void End(IUserToken userToken)
+        public void End(IUserToken userToken)
         {
             WebHost.End(userToken, this.ToBytes());
         }

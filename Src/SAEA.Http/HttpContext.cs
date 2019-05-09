@@ -25,6 +25,7 @@ using SAEA.Common;
 using SAEA.Http.Base;
 using SAEA.Http.Common;
 using SAEA.Http.Model;
+using SAEA.Sockets.Interface;
 using System;
 
 namespace SAEA.Http
@@ -39,8 +40,52 @@ namespace SAEA.Http
 
         }
 
+        /// <summary>
+        /// 处理业务逻辑
+        /// </summary>
+        /// <param name="userToken"></param>
+        public override void HttpHandle(IUserToken userToken)
+        {
+            IHttpResult result;
 
-        public IHttpResult GetActionResult()
+            this.InitSession(userToken);
+
+            switch (this.Request.Method)
+            {
+                case ConstHelper.GET:
+                case ConstHelper.POST:
+
+                    if (this.Request.Query.Count > 0)
+                    {
+                        foreach (var item in this.Request.Query)
+                        {
+                            this.Request.Parmas[item.Key] = item.Value;
+                        }
+                    }
+                    if (this.Request.Forms.Count > 0)
+                    {
+                        foreach (var item in this.Request.Forms)
+                        {
+                            this.Request.Parmas[item.Key] = item.Value;
+                        }
+                    }
+                    result = GetActionResult();
+                    break;
+                case ConstHelper.OPTIONS:
+                    result = new HttpEmptyResult();
+                    break;
+                default:
+                    result = new HttpContentResult("不支持的请求方式", System.Net.HttpStatusCode.NotImplemented);
+                    break;
+            }
+
+            Response.SetResult(result, this.Session.CacheCalcResult);
+
+            Response.End(userToken);
+        }
+
+
+        public override IHttpResult GetActionResult()
         {
             string url = Request.Url;
 

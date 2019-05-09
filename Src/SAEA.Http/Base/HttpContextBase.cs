@@ -33,7 +33,7 @@ namespace SAEA.Http.Base
     /// 基础的http上下文类
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public class HttpContextBase : IHttpContext
+    public abstract class HttpContextBase : IHttpContext
     {
 
         protected IWebHost _webHost;
@@ -87,7 +87,7 @@ namespace SAEA.Http.Base
         /// <summary>
         /// 初始化Session
         /// </summary>
-        private void InitSession(IUserToken userToken)
+        public void InitSession(IUserToken userToken)
         {
             var sessionID = string.Empty;
 
@@ -125,82 +125,9 @@ namespace SAEA.Http.Base
         /// 处理业务逻辑
         /// </summary>
         /// <param name="userToken"></param>
-        public void HttpHandle(IUserToken userToken)
-        {
-            IHttpResult result;
+        public abstract void HttpHandle(IUserToken userToken);
 
-            this.InitSession(userToken);
+        public abstract IHttpResult GetActionResult();
 
-            switch (this.Request.Method)
-            {
-                case ConstHelper.GET:
-                case ConstHelper.POST:
-
-                    if (this.Request.Query.Count > 0)
-                    {
-                        foreach (var item in this.Request.Query)
-                        {
-                            this.Request.Parmas[item.Key] = item.Value;
-                        }
-                    }
-                    if (this.Request.Forms.Count > 0)
-                    {
-                        foreach (var item in this.Request.Forms)
-                        {
-                            this.Request.Parmas[item.Key] = item.Value;
-                        }
-                    }
-                    result = GetActionResult();
-                    break;
-                case ConstHelper.OPTIONS:
-                    result = new HttpEmptyResult();
-                    break;
-                default:
-                    result = new HttpContentResult("不支持的请求方式", System.Net.HttpStatusCode.NotImplemented);
-                    break;
-            }
-
-            Response.SetResult(result, this.Session.CacheCalcResult);
-
-            Response.End(userToken);
-        }
-
-        public virtual IHttpResult GetActionResult()
-        {
-            string url = Request.Url;
-
-            bool isPost = Request.Method == ConstHelper.POST;
-
-            //禁止访问
-            var flist = WebConfig.ForbiddenAccessList;
-
-            if (flist.Count > 0)
-            {
-                foreach (var item in flist)
-                {
-                    if (url.IndexOf(item.ToUpper(), StringComparison.OrdinalIgnoreCase) >= 0)
-                    {
-                        return new HttpContentResult("o_o，当前内容禁止访问！", System.Net.HttpStatusCode.Forbidden);
-                    }
-                    if (System.Text.RegularExpressions.Regex.IsMatch(url, item))
-                    {
-                        return new HttpContentResult("o_o，当前内容禁止访问！", System.Net.HttpStatusCode.Forbidden);
-                    }
-                }
-            }
-
-            if (url == "/")
-            {
-                url = "/index.html";
-            }
-
-            var filePath = Server.MapPath(url);
-
-            if (StaticResourcesCache.Exists(filePath))
-            {
-                return new HttpFileResult(filePath, IsStaticsCached);
-            }
-            return new HttpContentResult("o_o，找不到任何内容", System.Net.HttpStatusCode.NotFound);
-        }
     }
 }
