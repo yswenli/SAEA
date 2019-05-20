@@ -28,6 +28,9 @@ using System.Runtime.Serialization.Formatters.Binary;
 
 namespace SAEA.Common
 {
+    /// <summary>
+    /// 常规序列化工具类
+    /// </summary>
     public static class SerializeHelper
     {
         /// <summary>

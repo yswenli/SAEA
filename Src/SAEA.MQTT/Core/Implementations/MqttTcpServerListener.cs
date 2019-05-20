@@ -53,7 +53,7 @@ namespace SAEA.MQTT.Core.Implementations
             _logger = logger;
             _addressFamily = addressFamily;
 
-            var sb = new SocketOptionBuilder().SetSocket(Sockets.Model.SocketType.Tcp).UseStream();
+            var sb = new SocketOptionBuilder().SetSocket(Sockets.Model.SAEASocketType.Tcp).UseStream();
 
             if (options is MqttServerTlsTcpEndpointOptions tlsOptions)
             {

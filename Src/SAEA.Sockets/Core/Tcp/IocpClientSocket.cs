@@ -168,21 +168,27 @@ namespace SAEA.Sockets.Core.Tcp
         /// 连接到服务器
         /// </summary>
         /// <param name="timeOut"></param>
-        public void Connect(int timeOut = 10 * 1000)
+        public void Connect(int timeOut = 30 * 1000)
         {
-            var wait = new AutoResetEvent(false);
+            var connected = false;
+
             ConnectAsync((s) =>
             {
-                wait.Set();
+                connected = true;
             });
-            if (!wait.WaitOne(timeOut))
+
+            var step = 0;
+
+            while (!connected)
             {
-                try
+                Thread.Sleep(10);
+
+                step += 10;
+
+                if (step >= timeOut)
                 {
-                    _socket.Disconnect(true);
+                    return;
                 }
-                catch { }
-                throw new Exception("连接超时!");
             }
         }
 
@@ -193,8 +199,8 @@ namespace SAEA.Sockets.Core.Tcp
 
         void ProcessConnected(SocketAsyncEventArgs e)
         {
-            _connectEvent.Set();
             Connected = (e.SocketError == SocketError.Success);
+
             if (Connected)
             {
                 _userToken.ID = e.ConnectSocket.LocalEndPoint.ToString();
@@ -206,6 +212,7 @@ namespace SAEA.Sockets.Core.Tcp
                     ProcessReceive(readArgs);
                 _connectCallBack?.Invoke(e.SocketError);
             }
+            _connectEvent.Set();
         }
 
 
@@ -401,7 +408,7 @@ namespace SAEA.Sockets.Core.Tcp
                 this.Connected = false;
                 if (mex == null)
                 {
-                    mex = new Exception("当前用户已主动断开连接！");
+                    mex = new Exception("当前Socket已主动断开连接！");
                 }
                 if (_userToken != null)
                     OnDisconnected?.Invoke(_userToken.ID, mex);

@@ -123,12 +123,24 @@ namespace SAEA.WebSocket
         /// <summary>
         /// 回复客户端消息
         /// </summary>
-        /// <param name="ID"></param>
+        /// <param name="id"></param>
         /// <param name="data"></param>
-        public void Reply(string ID, WSProtocal data)
+        public void Reply(string id, WSProtocal data)
         {
-            var ut = SessionManager.Get(ID);
+            var ut = SessionManager.Get(id);
             ReplyBase((WSUserToken)ut, data);
+        }
+
+        /// <summary>
+        /// 发送关闭
+        /// </summary>
+        /// <param name="id"></param>
+        /// <param name="data"></param>
+        public void Disconnect(string id, WSProtocal data)
+        {
+            var ut = SessionManager.Get(id);
+            ReplyBase((WSUserToken)ut, data);
+
         }
 
         /// <summary>

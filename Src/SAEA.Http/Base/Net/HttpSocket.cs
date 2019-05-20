@@ -48,7 +48,7 @@ namespace SAEA.Http.Base.Net
         public HttpSocket(int port, int bufferSize = 1024 * 10, int count = 10000, int timeOut = 120 * 1000, bool isDebug = false)
         {
             var optionBuilder = new SocketOptionBuilder()
-               .SetSocket(Sockets.Model.SocketType.Tcp)
+               .SetSocket(Sockets.Model.SAEASocketType.Tcp)
                .UseIocp(new HContext())
                .SetPort(port)
                .SetCount(count)

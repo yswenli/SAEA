@@ -96,7 +96,7 @@ namespace SAEA.Sockets.Core.Tcp
                 Count = count,
                 NoDelay = noDelay,
                 Port = port,
-                SocketType = Model.SocketType.Tcp,
+                SocketType = Model.SAEASocketType.Tcp,
                 TimeOut = timeOut,
                 UseIocp = true,
                 UseIPV6 = isIpV6,

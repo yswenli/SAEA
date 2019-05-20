@@ -46,7 +46,7 @@ namespace SAEA.Sockets
             _socketOption = new SocketOption();
         }
 
-        public SocketOptionBuilder SetSocket(SocketType socketType = SocketType.Tcp)
+        public SocketOptionBuilder SetSocket(SAEASocketType socketType = SAEASocketType.Tcp)
         {
             _socketOption.SocketType = socketType;
             return this;
@@ -56,14 +56,14 @@ namespace SAEA.Sockets
         {
             if (_socketOption.WithSsl) throw new Exception("ssl模式下暂不支持icop");
             _socketOption.Context = context;
-            _socketOption.SocketType = SocketType.Tcp;
+            _socketOption.SocketType = SAEASocketType.Tcp;
             _socketOption.UseIocp = true;
             return this;
         }
 
         public SocketOptionBuilder UseStream()
         {
-            _socketOption.SocketType = SocketType.Tcp;
+            _socketOption.SocketType = SAEASocketType.Tcp;
             _socketOption.UseIocp = false;
             return this;
         }

@@ -35,7 +35,7 @@ using System.Text;
 
 namespace SAEA.Sockets.Model
 {
-    public enum SocketType
+    public enum SAEASocketType
     {
         Tcp = 0,
         Udp = 1
