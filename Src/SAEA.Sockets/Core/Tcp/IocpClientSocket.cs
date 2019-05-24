@@ -112,7 +112,9 @@ namespace SAEA.Sockets.Core.Tcp
             _socket = new Socket(AddressFamily.InterNetwork, System.Net.Sockets.SocketType.Stream, ProtocolType.Tcp);
             _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             _socket.NoDelay = true;
-            _socket.SendTimeout = _socket.ReceiveTimeout = 120 * 1000;
+            _socket.SendTimeout = _socket.ReceiveTimeout = timeOut;
+            _socket.KeepAlive();
+
 
             _ip = ip;
             _port = port;

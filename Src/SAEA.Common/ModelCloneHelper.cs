@@ -23,7 +23,9 @@
 *****************************************************************************/
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Reflection;
 
 namespace SAEA.Common
@@ -34,218 +36,886 @@ namespace SAEA.Common
     public static class ModelCloneHelper
     {
         /// <summary>
-        /// 将一个对象转换为指定类型
+        /// 转换成另外一个实体
         /// </summary>
-        /// <param name="obj">待转换的对象</param>
-        /// <param name="type">目标类型</param>
-        /// <returns>转换后的对象</returns>
-        public static object ConvertTo(this object obj, Type type)
+        /// <typeparam name="T"></typeparam>
+        /// <param name="source"></param>
+        /// <returns></returns>
+        public static T ConvertTo<T>(this object source) where T : class
         {
-            if (type == null) return obj;
-
-            if (obj == null) return type.IsValueType ? Activator.CreateInstance(type) : null;
-
-            Type underlyingType = Nullable.GetUnderlyingType(type);
-
-            if (type.IsAssignableFrom(obj.GetType()))
+            if (source != null && source.GetType().IsClass)
             {
-                return obj;
-            }
-            else if ((underlyingType ?? type).IsEnum)
-            {
-                if (underlyingType != null && string.IsNullOrEmpty(obj.ToString()))
+                var sourceProperties = source.GetType().GetProperties();
+
+                var type = typeof(T);
+
+                var target = (T)Activator.CreateInstance(type);
+
+                var targetProperties = type.GetProperties();
+
+                foreach (var targetProperty in targetProperties)
                 {
-                    return null;
-                }
-                else
-                {
-                    return Enum.Parse(underlyingType ?? type, obj.ToString());
-                }
-            }
-            else if (typeof(IConvertible).IsAssignableFrom(underlyingType ?? type))
-            {
-                try
-                {
-                    if (obj is DateTime && type == typeof(string))
+
+                    var sourceProperty = sourceProperties.Where(b => b.Name.ToLower() == targetProperty.Name.ToLower()).FirstOrDefault();
+
+                    if (sourceProperty != null)
                     {
-                        return ((DateTime)obj).ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
-                    }
-                    else
-                    {
-                        return Convert.ChangeType(obj, underlyingType ?? type, null);
-                    }
-                }
-                catch
-                {
-                    return underlyingType == null ? Activator.CreateInstance(type) : null;
-                }
-            }
-            else
-            {
-                TypeConverter converter = TypeDescriptor.GetConverter(type);
-
-                if (converter.CanConvertFrom(obj.GetType()))
-                {
-                    return converter.ConvertFrom(obj);
-                }
-
-                ConstructorInfo constructor = type.GetConstructor(Type.EmptyTypes);
-
-                if (constructor != null)
-                {
-                    Type oldType = obj.GetType();
-
-                    object o = constructor.Invoke(null);
-
-                    IEnumerable data = obj as IEnumerable;
-
-                    //泛型集合
-                    if (data != null)
-                    {
-                        if (oldType.Name == "Dictionary`2")
+                        try
                         {
-                            var args = type.GetGenericArguments();
+                            var val = sourceProperty.GetValue(source, null);
 
-                            var type1 = args[0];
-
-                            var type2 = args[1];
-
-                            var cpv2 = (System.Collections.IDictionary)Activator.CreateInstance(type);
-
-                            var nData = (System.Collections.IDictionary)data;
-
-                            foreach (DictionaryEntry item in nData)
+                            if (sourceProperty.PropertyType == targetProperty.PropertyType)
                             {
-                                cpv2.Add(ConvertTo(item.Key, type1), ConvertTo(item.Value, type2));
-                            }
-                            o = cpv2;
-                        }
-                        else
-                        {
-                            foreach (var item in data)
-                            {
-                                var nItem = ConvertTo(item, type.GetGenericArguments()[0]);
-                                type.GetMethod("Add").Invoke(o, new[] { nItem });
-                            }
-                        }
-                    }
-                    else
-                    {
-                        PropertyInfo[] propertys = type.GetProperties();
-
-                        foreach (PropertyInfo property in propertys)
-                        {
-                            PropertyInfo p = oldType.GetProperty(property.Name);
-
-                            if (property.CanWrite && p != null && p.CanRead)
-                            {
-                                if (p.PropertyType.IsAnsiClass && (p.PropertyType.IsGenericType || p.PropertyType.IsArray))
+                                if (val != null)
                                 {
-                                    if (p.PropertyType.Name == "Nullable`1")
+                                    targetProperty.SetValue(target, val, null);
+                                }
+                            }
+                            else
+                            {
+                                //不同类型转换
+
+                                #region 日期
+
+                                if (sourceProperty.PropertyType == typeof(DateTime))
+                                {
+                                    if (targetProperty.PropertyType == typeof(string))
                                     {
-                                        var pv = p.GetValue(obj, null);
-
-                                        if (pv != null)
+                                        if (val != null)
                                         {
-                                            var args = property.PropertyType.GetGenericArguments();
-
-                                            var ptype = args[0];
-
-                                            property.SetValue(o, ConvertTo(pv, ptype), null);
+                                            var dt = (DateTime)val;
+                                            targetProperty.SetValue(target, dt.ToString("yyyy-MM-dd HH:mm:ss"), null);
                                         }
                                     }
-                                    else
+                                    else if (targetProperty.PropertyType == typeof(Nullable<DateTime>))
                                     {
-                                        if (p.PropertyType.Name == "Dictionary`2" || p.PropertyType.Name == "IDictionary`2")
+                                        if (val != null)
                                         {
-                                            var pv = p.GetValue(obj, null);
-
-                                            if (pv != null)
-                                            {
-                                                var args = property.PropertyType.GetGenericArguments();
-
-                                                var type1 = args[0];
-
-                                                var type2 = args[1];
-
-                                                var cpv = (System.Collections.IDictionary)pv;
-
-                                                var cpv2 = (System.Collections.IDictionary)Activator.CreateInstance(property.PropertyType);
-
-                                                foreach (DictionaryEntry item in cpv)
-                                                {
-                                                    cpv2.Add(ConvertTo(item.Key, type1), ConvertTo(item.Value, type2));
-                                                }
-
-                                                property.SetValue(o, cpv2, null);
-
-                                            }
-                                        }
-                                        else
-                                        {
-                                            var pv = p.GetValue(obj, null);
-
-                                            if (pv != null)
-                                            {
-                                                var args = property.PropertyType.GetGenericArguments();
-
-                                                var ptype1 = args[0];
-
-                                                var cpv = (System.Collections.IList)pv;
-
-                                                var cpv2 = (System.Collections.IList)Activator.CreateInstance(property.PropertyType);
-
-                                                foreach (var item in cpv)
-                                                {
-                                                    cpv2.Add(ConvertTo(item, ptype1));
-                                                }
-
-                                                property.SetValue(o, cpv2, null);
-                                            }
-
+                                            targetProperty.SetValue(target, val, null);
                                         }
                                     }
                                 }
-                                else
+                                else if (sourceProperty.PropertyType == typeof(Nullable<DateTime>))
                                 {
-                                    var pv = p.GetValue(obj, null);
-
-                                    if (pv != null)
-
-                                        property.SetValue(o, ConvertTo(pv, property.PropertyType), null);
+                                    if (targetProperty.PropertyType == typeof(string))
+                                    {
+                                        if (val != null)
+                                        {
+                                            var dt = (Nullable<DateTime>)val;
+                                            if (dt.HasValue)
+                                            {
+                                                targetProperty.SetValue(target, dt.Value.ToString("yyyy-MM-dd HH:mm:ss"), null);
+                                            }
+                                        }
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(DateTime))
+                                    {
+                                        if (val != null)
+                                        {
+                                            var dt = (Nullable<DateTime>)val;
+                                            if (dt.HasValue)
+                                            {
+                                                targetProperty.SetValue(target, dt.Value, null);
+                                            }
+                                        }
+                                    }
                                 }
+
+                                #endregion
+
+                                #region 字符串
+
+                                if (sourceProperty.PropertyType == typeof(string))
+                                {
+                                    var str = (string)val;
+
+                                    if (targetProperty.PropertyType == typeof(int) || targetProperty.PropertyType == typeof(Nullable<int>))
+                                    {
+                                        var num = 0;
+
+                                        if (!string.IsNullOrWhiteSpace(str))
+                                        {
+                                            int.TryParse(str, out num);
+                                        }
+
+                                        targetProperty.SetValue(target, num, null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(long) || targetProperty.PropertyType == typeof(Nullable<long>))
+                                    {
+                                        long num = 0;
+
+                                        if (!string.IsNullOrWhiteSpace(str))
+                                        {
+                                            long.TryParse(str, out num);
+                                        }
+
+                                        targetProperty.SetValue(target, num, null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(short) || targetProperty.PropertyType == typeof(Nullable<short>))
+                                    {
+                                        short num = 0;
+
+                                        if (!string.IsNullOrWhiteSpace(str))
+                                        {
+                                            short.TryParse(str, out num);
+                                        }
+
+                                        targetProperty.SetValue(target, num, null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(byte) || targetProperty.PropertyType == typeof(Nullable<byte>))
+                                    {
+                                        byte num = 0;
+
+                                        if (!string.IsNullOrWhiteSpace(str))
+                                        {
+                                            byte.TryParse(str, out num);
+                                        }
+
+                                        targetProperty.SetValue(target, num, null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(float) || targetProperty.PropertyType == typeof(Nullable<float>))
+                                    {
+                                        float num = 0;
+
+                                        if (!string.IsNullOrWhiteSpace(str))
+                                        {
+                                            float.TryParse(str, out num);
+                                        }
+
+                                        targetProperty.SetValue(target, num, null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(double) || targetProperty.PropertyType == typeof(Nullable<double>))
+                                    {
+                                        double num = 0;
+
+                                        if (!string.IsNullOrWhiteSpace(str))
+                                        {
+                                            double.TryParse(str, out num);
+                                        }
+
+                                        targetProperty.SetValue(target, num, null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(decimal) || targetProperty.PropertyType == typeof(Nullable<decimal>))
+                                    {
+                                        decimal num = 0;
+
+                                        if (!string.IsNullOrWhiteSpace(str))
+                                        {
+                                            decimal.TryParse(str, out num);
+                                        }
+
+                                        targetProperty.SetValue(target, num, null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(bool) || targetProperty.PropertyType == typeof(Nullable<bool>))
+                                    {
+                                        var bVal = false;
+
+                                        if (!string.IsNullOrWhiteSpace(str))
+                                        {
+                                            bool.TryParse(str, out bVal);
+                                        }
+
+                                        if (str != "0" && str != "false")
+                                        {
+                                            bVal = true;
+                                        }
+
+                                        targetProperty.SetValue(target, bVal, null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(DateTime) || targetProperty.PropertyType == typeof(Nullable<DateTime>))
+                                    {
+                                        if (!string.IsNullOrWhiteSpace(str))
+                                        {
+                                            if (DateTime.TryParse(str, out DateTime dt))
+                                            {
+                                                targetProperty.SetValue(target, dt, null);
+                                            }
+                                        }
+                                    }
+                                }
+
+                                #endregion
+
+                                #region 数字
+
+                                if (sourceProperty.PropertyType == typeof(byte))
+                                {
+                                    if (targetProperty.PropertyType == typeof(string))
+                                    {
+                                        targetProperty.SetValue(target, val.ToString(), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(Nullable<byte>))
+                                    {
+                                        targetProperty.SetValue(target, val, null);
+                                    }
+                                    else if (targetProperty.PropertyType.IsEnum)
+                                    {
+                                        var eVal = Enum.Parse(targetProperty.PropertyType, val.ToString());
+
+                                        targetProperty.SetValue(target, eVal, null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(bool) || targetProperty.PropertyType == typeof(Nullable<bool>))
+                                    {
+                                        targetProperty.SetValue(target, (Convert.ToByte(val)) != 0, null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(short) || targetProperty.PropertyType == typeof(Nullable<short>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToInt16(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(int) || targetProperty.PropertyType == typeof(Nullable<int>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToInt32(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(decimal) || targetProperty.PropertyType == typeof(Nullable<decimal>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToDecimal(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(float) || targetProperty.PropertyType == typeof(Nullable<float>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToSingle(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(double) || targetProperty.PropertyType == typeof(Nullable<double>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToDouble(val), null);
+                                    }
+                                }
+                                else if (sourceProperty.PropertyType == typeof(Nullable<byte>))
+                                {
+                                    if (val != null)
+                                    {
+                                        var nVal = (Nullable<byte>)val;
+
+                                        if (nVal.HasValue)
+                                        {
+                                            if (targetProperty.PropertyType == typeof(string))
+                                            {
+                                                targetProperty.SetValue(target, nVal.Value.ToString(), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(byte))
+                                            {
+                                                targetProperty.SetValue(target, nVal, null);
+                                            }
+                                            else if (targetProperty.PropertyType.IsEnum)
+                                            {
+                                                var eVal = Enum.Parse(targetProperty.PropertyType, nVal.Value.ToString());
+
+                                                targetProperty.SetValue(target, eVal, null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(bool) || targetProperty.PropertyType == typeof(Nullable<bool>))
+                                            {
+                                                targetProperty.SetValue(target, (Convert.ToByte(nVal.Value)) != 0, null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(short) || targetProperty.PropertyType == typeof(Nullable<short>))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToInt16(nVal.Value), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(int) || targetProperty.PropertyType == typeof(Nullable<int>))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToInt32(nVal.Value), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(decimal) || targetProperty.PropertyType == typeof(Nullable<decimal>))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToDecimal(nVal.Value), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(long) || targetProperty.PropertyType == typeof(Nullable<long>))
+                                            {
+                                                targetProperty.SetValue(target, (long)nVal.Value, null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(float) || targetProperty.PropertyType == typeof(Nullable<float>))
+                                            {
+                                                targetProperty.SetValue(target, (float)nVal.Value, null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(double) || targetProperty.PropertyType == typeof(Nullable<double>))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToDouble(nVal.Value), null);
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (sourceProperty.PropertyType == typeof(short))
+                                {
+                                    if (targetProperty.PropertyType == typeof(string))
+                                    {
+                                        targetProperty.SetValue(target, val.ToString(), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(Nullable<short>))
+                                    {
+                                        targetProperty.SetValue(target, val, null);
+                                    }
+                                    else if (targetProperty.PropertyType.IsEnum)
+                                    {
+                                        var eVal = Enum.Parse(targetProperty.PropertyType, val.ToString());
+
+                                        targetProperty.SetValue(target, eVal, null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(bool) || targetProperty.PropertyType == typeof(Nullable<bool>))
+                                    {
+                                        targetProperty.SetValue(target, (Convert.ToInt16(val)) != 0, null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(byte) || targetProperty.PropertyType == typeof(Nullable<byte>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToByte(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(int) || targetProperty.PropertyType == typeof(Nullable<int>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToInt32(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(decimal) || targetProperty.PropertyType == typeof(Nullable<decimal>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToDecimal(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(float) || targetProperty.PropertyType == typeof(Nullable<float>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToSingle(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(double) || targetProperty.PropertyType == typeof(Nullable<double>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToDouble(val), null);
+                                    }
+                                }
+                                else if (sourceProperty.PropertyType == typeof(Nullable<short>))
+                                {
+                                    if (val != null)
+                                    {
+                                        var nVal = (Nullable<short>)val;
+
+                                        if (nVal.HasValue)
+                                        {
+                                            if (targetProperty.PropertyType == typeof(string))
+                                            {
+                                                targetProperty.SetValue(target, nVal.Value.ToString(), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(short))
+                                            {
+                                                targetProperty.SetValue(target, nVal.Value, null);
+                                            }
+                                            else if (targetProperty.PropertyType.IsEnum)
+                                            {
+                                                var eVal = Enum.Parse(targetProperty.PropertyType, nVal.Value.ToString());
+
+                                                targetProperty.SetValue(target, eVal, null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(bool) || targetProperty.PropertyType == typeof(Nullable<bool>))
+                                            {
+                                                targetProperty.SetValue(target, (Convert.ToInt16(nVal.Value)) != 0, null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(byte) || targetProperty.PropertyType == typeof(Nullable<byte>))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToByte(nVal.Value), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(int) || targetProperty.PropertyType == typeof(Nullable<int>))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToInt32(nVal.Value), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(decimal) || targetProperty.PropertyType == typeof(Nullable<decimal>))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToDecimal(nVal.Value), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(long) || targetProperty.PropertyType == typeof(Nullable<long>))
+                                            {
+                                                targetProperty.SetValue(target, (long)nVal.Value, null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(float) || targetProperty.PropertyType == typeof(Nullable<float>))
+                                            {
+                                                targetProperty.SetValue(target, (float)nVal.Value, null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(double) || targetProperty.PropertyType == typeof(Nullable<double>))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToDouble(nVal.Value), null);
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (sourceProperty.PropertyType == typeof(int))
+                                {
+                                    if (targetProperty.PropertyType == typeof(string))
+                                    {
+                                        targetProperty.SetValue(target, val.ToString(), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(Nullable<int>))
+                                    {
+                                        targetProperty.SetValue(target, val, null);
+                                    }
+                                    else if (targetProperty.PropertyType.IsEnum)
+                                    {
+                                        var eVal = Enum.Parse(targetProperty.PropertyType, val.ToString());
+
+                                        targetProperty.SetValue(target, eVal, null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(bool) || targetProperty.PropertyType == typeof(Nullable<bool>))
+                                    {
+                                        targetProperty.SetValue(target, (Convert.ToInt32(val)) != 0, null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(byte) || targetProperty.PropertyType == typeof(Nullable<byte>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToByte(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(short) || targetProperty.PropertyType == typeof(Nullable<short>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToInt16(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(decimal) || targetProperty.PropertyType == typeof(Nullable<decimal>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToDecimal(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(float) || targetProperty.PropertyType == typeof(Nullable<float>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToSingle(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(double) || targetProperty.PropertyType == typeof(Nullable<double>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToDouble(val), null);
+                                    }
+                                }
+                                else if (sourceProperty.PropertyType == typeof(Nullable<int>))
+                                {
+                                    if (val != null)
+                                    {
+                                        var nVal = (Nullable<int>)val;
+
+                                        if (nVal.HasValue)
+                                        {
+                                            if (targetProperty.PropertyType == typeof(string))
+                                            {
+                                                targetProperty.SetValue(target, nVal.Value.ToString(), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(int))
+                                            {
+                                                targetProperty.SetValue(target, nVal.Value, null);
+                                            }
+                                            else if (targetProperty.PropertyType.IsEnum)
+                                            {
+                                                var eVal = Enum.Parse(targetProperty.PropertyType, nVal.Value.ToString());
+
+                                                targetProperty.SetValue(target, eVal, null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(bool) || targetProperty.PropertyType == typeof(Nullable<bool>))
+                                            {
+                                                targetProperty.SetValue(target, (Convert.ToInt32(nVal.Value)) != 0, null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(byte) || targetProperty.PropertyType == typeof(Nullable<byte>))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToByte(nVal.Value), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(short) || targetProperty.PropertyType == typeof(Nullable<short>))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToInt16(nVal.Value), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(decimal) || targetProperty.PropertyType == typeof(Nullable<decimal>))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToDecimal(nVal.Value), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(long) || targetProperty.PropertyType == typeof(Nullable<long>))
+                                            {
+                                                targetProperty.SetValue(target, (long)nVal.Value, null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(float) || targetProperty.PropertyType == typeof(Nullable<float>))
+                                            {
+                                                targetProperty.SetValue(target, (float)nVal.Value, null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(double) || targetProperty.PropertyType == typeof(Nullable<double>))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToDouble(nVal.Value), null);
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (sourceProperty.PropertyType == typeof(long))
+                                {
+                                    if (targetProperty.PropertyType == typeof(string))
+                                    {
+                                        targetProperty.SetValue(target, val.ToString(), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(Nullable<long>))
+                                    {
+                                        targetProperty.SetValue(target, val, null);
+                                    }
+                                    else if (targetProperty.PropertyType.IsEnum)
+                                    {
+                                        var eVal = Enum.Parse(targetProperty.PropertyType, val.ToString());
+
+                                        targetProperty.SetValue(target, eVal, null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(byte) || targetProperty.PropertyType == typeof(Nullable<byte>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToByte(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(short) || targetProperty.PropertyType == typeof(Nullable<short>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToInt16(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(int) || targetProperty.PropertyType == typeof(Nullable<int>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToInt32(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(decimal) || targetProperty.PropertyType == typeof(Nullable<decimal>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToDecimal(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(float) || targetProperty.PropertyType == typeof(Nullable<float>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToSingle(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(double) || targetProperty.PropertyType == typeof(Nullable<double>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToDouble(val), null);
+                                    }
+                                }
+                                else if (sourceProperty.PropertyType == typeof(Nullable<long>))
+                                {
+                                    if (val != null)
+                                    {
+                                        var nVal = (Nullable<long>)val;
+
+                                        if (nVal.HasValue)
+                                        {
+                                            if (targetProperty.PropertyType == typeof(string))
+                                            {
+                                                targetProperty.SetValue(target, nVal.Value.ToString(), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(long))
+                                            {
+                                                targetProperty.SetValue(target, nVal.Value, null);
+                                            }
+                                            else if (targetProperty.PropertyType.IsEnum)
+                                            {
+                                                var eVal = Enum.Parse(targetProperty.PropertyType, nVal.Value.ToString());
+
+                                                targetProperty.SetValue(target, eVal, null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(byte) || targetProperty.PropertyType == typeof(Nullable<byte>))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToByte(nVal.Value), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(short) || targetProperty.PropertyType == typeof(Nullable<short>))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToInt16(nVal.Value), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(int) || targetProperty.PropertyType == typeof(Nullable<int>))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToInt32(nVal.Value), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(double) || targetProperty.PropertyType == typeof(Nullable<double>))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToDouble(nVal.Value), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(decimal) || targetProperty.PropertyType == typeof(Nullable<decimal>))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToDecimal(nVal.Value), null);
+                                            }
+                                        }
+                                    }
+                                }
+
+
+                                if (sourceProperty.PropertyType == typeof(float))
+                                {
+                                    if (targetProperty.PropertyType == typeof(string))
+                                    {
+                                        targetProperty.SetValue(target, val.ToString(), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(byte) || targetProperty.PropertyType == typeof(Nullable<byte>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToByte(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(short) || targetProperty.PropertyType == typeof(Nullable<short>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToInt16(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(int) || targetProperty.PropertyType == typeof(Nullable<int>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToInt32(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(long) || targetProperty.PropertyType == typeof(Nullable<long>))
+                                    {
+                                        targetProperty.SetValue(target, (long)val, null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(double) || targetProperty.PropertyType == typeof(Nullable<double>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToSingle(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(decimal) || targetProperty.PropertyType == typeof(Nullable<decimal>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToDecimal(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(Nullable<float>))
+                                    {
+                                        targetProperty.SetValue(target, val, null);
+                                    }
+                                }
+                                else if (sourceProperty.PropertyType == typeof(Nullable<float>))
+                                {
+                                    if (val != null)
+                                    {
+                                        var nVal = (Nullable<float>)val;
+
+                                        if (nVal.HasValue)
+                                        {
+                                            if (targetProperty.PropertyType == typeof(string))
+                                            {
+                                                targetProperty.SetValue(target, nVal.Value.ToString(), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(float))
+                                            {
+                                                targetProperty.SetValue(target, nVal.Value, null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(byte) || targetProperty.PropertyType == typeof(Nullable<byte>))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToByte(nVal.Value), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(short) || targetProperty.PropertyType == typeof(Nullable<short>))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToInt16(nVal.Value), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(int) || targetProperty.PropertyType == typeof(Nullable<int>))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToInt32(nVal.Value), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(long) || targetProperty.PropertyType == typeof(Nullable<long>))
+                                            {
+                                                targetProperty.SetValue(target, (long)nVal.Value, null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(decimal) || targetProperty.PropertyType == typeof(Nullable<decimal>))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToDecimal(nVal.Value), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(double) || targetProperty.PropertyType == typeof(Nullable<double>))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToDouble(nVal.Value), null);
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (sourceProperty.PropertyType == typeof(double))
+                                {
+                                    if (targetProperty.PropertyType == typeof(string))
+                                    {
+                                        targetProperty.SetValue(target, val.ToString(), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(byte) || targetProperty.PropertyType == typeof(Nullable<byte>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToByte(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(short) || targetProperty.PropertyType == typeof(Nullable<short>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToInt16(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(int) || targetProperty.PropertyType == typeof(Nullable<int>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToInt32(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(long) || targetProperty.PropertyType == typeof(Nullable<long>))
+                                    {
+                                        targetProperty.SetValue(target, (long)val, null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(float) || targetProperty.PropertyType == typeof(Nullable<float>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToSingle(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(decimal) || targetProperty.PropertyType == typeof(Nullable<decimal>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToDecimal(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(Nullable<double>))
+                                    {
+                                        targetProperty.SetValue(target, val, null);
+                                    }
+                                }
+                                else if (sourceProperty.PropertyType == typeof(Nullable<double>))
+                                {
+                                    if (val != null)
+                                    {
+                                        var nVal = (Nullable<double>)val;
+
+                                        if (nVal.HasValue)
+                                        {
+                                            if (targetProperty.PropertyType == typeof(string))
+                                            {
+                                                targetProperty.SetValue(target, nVal.Value.ToString(), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(decimal) || targetProperty.PropertyType == typeof(Nullable<decimal>))
+                                            {
+                                                targetProperty.SetValue(target, nVal.Value, null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(byte) || targetProperty.PropertyType == typeof(Nullable<byte>))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToByte(nVal.Value), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(short) || targetProperty.PropertyType == typeof(Nullable<short>))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToInt16(nVal.Value), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(int) || targetProperty.PropertyType == typeof(Nullable<int>))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToInt32(nVal.Value), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(long) || targetProperty.PropertyType == typeof(Nullable<long>))
+                                            {
+                                                targetProperty.SetValue(target, (long)nVal.Value, null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(float) || targetProperty.PropertyType == typeof(Nullable<float>))
+                                            {
+                                                targetProperty.SetValue(target, (float)nVal.Value, null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(double))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToDouble(nVal.Value), null);
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (sourceProperty.PropertyType == typeof(decimal))
+                                {
+                                    if (targetProperty.PropertyType == typeof(string))
+                                    {
+                                        targetProperty.SetValue(target, val.ToString(), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(byte) || targetProperty.PropertyType == typeof(Nullable<byte>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToByte(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(short) || targetProperty.PropertyType == typeof(Nullable<short>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToInt16(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(int) || targetProperty.PropertyType == typeof(Nullable<int>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToInt32(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(long) || targetProperty.PropertyType == typeof(Nullable<long>))
+                                    {
+                                        targetProperty.SetValue(target, (long)val, null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(float) || targetProperty.PropertyType == typeof(Nullable<float>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToSingle(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(double) || targetProperty.PropertyType == typeof(Nullable<double>))
+                                    {
+                                        targetProperty.SetValue(target, Convert.ToDouble(val), null);
+                                    }
+                                    else if (targetProperty.PropertyType == typeof(Nullable<decimal>))
+                                    {
+                                        targetProperty.SetValue(target, val, null);
+                                    }
+                                }
+                                else if (sourceProperty.PropertyType == typeof(Nullable<decimal>))
+                                {
+                                    if (val != null)
+                                    {
+                                        var nVal = (Nullable<decimal>)val;
+
+                                        if (nVal.HasValue)
+                                        {
+                                            if (targetProperty.PropertyType == typeof(string))
+                                            {
+                                                targetProperty.SetValue(target, nVal.Value.ToString(), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(decimal))
+                                            {
+                                                targetProperty.SetValue(target, nVal.Value, null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(byte) || targetProperty.PropertyType == typeof(Nullable<byte>))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToByte(nVal.Value), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(short) || targetProperty.PropertyType == typeof(Nullable<short>))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToInt16(nVal.Value), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(int) || targetProperty.PropertyType == typeof(Nullable<int>))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToInt32(nVal.Value), null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(long) || targetProperty.PropertyType == typeof(Nullable<long>))
+                                            {
+                                                targetProperty.SetValue(target, (long)nVal.Value, null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(float) || targetProperty.PropertyType == typeof(Nullable<float>))
+                                            {
+                                                targetProperty.SetValue(target, (float)nVal.Value, null);
+                                            }
+                                            else if (targetProperty.PropertyType == typeof(double) || targetProperty.PropertyType == typeof(Nullable<double>))
+                                            {
+                                                targetProperty.SetValue(target, Convert.ToDouble(nVal.Value), null);
+                                            }
+                                        }
+                                    }
+                                }
+
+                                #endregion
+
+                                #region 枚举
+
+                                if (sourceProperty.PropertyType.IsEnum)
+                                {
+                                    if (sourceProperty.PropertyType == typeof(string))
+                                    {
+                                        var str = Enum.GetName(val.GetType(), val);
+                                        targetProperty.SetValue(target, str, null);
+                                    }
+                                    else if (sourceProperty.PropertyType == typeof(byte))
+                                    {
+                                        var nVal = Convert.ToByte(val);
+                                        targetProperty.SetValue(target, nVal, null);
+                                    }
+                                    else if (sourceProperty.PropertyType == typeof(short))
+                                    {
+                                        var nVal = Convert.ToInt16(val);
+                                        targetProperty.SetValue(target, nVal, null);
+                                    }
+                                    else if (sourceProperty.PropertyType == typeof(int))
+                                    {
+                                        var nVal = Convert.ToInt32(val);
+                                        targetProperty.SetValue(target, nVal, null);
+                                    }
+                                }
+                                #endregion
                             }
+                        }
+                        catch (Exception ex)
+                        {
+                            throw new Exception($"WEF ConvertTo 中指定的转换无效，sourceProperty:{sourceProperty.Name} {sourceProperty.PropertyType}, targetProperty:{targetProperty.Name} {targetProperty.PropertyType} ,err:{ex.Message}");
                         }
                     }
 
-                    return o;
+
+                }
+                return target;
+            }
+            return default(T);
+        }
+
+        /// <summary>
+        /// 转换成另外一个实体列表
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="source"></param>
+        /// <returns></returns>
+        public static List<T> ConvertToList<T>(this object source) where T : class
+        {
+            if (source != null)
+            {
+                if (source.GetType().GetInterface("IEnumerable", true) != null)
+                {
+                    var list = (System.Collections.IEnumerable)source;
+
+                    var result = new List<T>();
+
+                    foreach (var item in list)
+                    {
+                        result.Add(item.ConvertTo<T>());
+                    }
+
+                    return result;
                 }
             }
-            return obj;
-        }
-
-
-        /// <summary>
-        /// 将obj转换成T
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="obj"></param>
-        /// <returns></returns>
-        public static T ConvertTo<T>(this object obj) where T : class, new()
-        {
-            if (obj == null) return default(T);
-            return (T)obj.ConvertTo(typeof(T));
-        }
-
-        /// <summary>
-        /// 复制到另一实体
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="t"></param>
-        /// <returns></returns>
-        public static T Clone<T>(this T t) where T : class, new()
-        {
-            return (T)ConvertTo(t, typeof(T));
+            return null;
         }
     }
 }

@@ -46,6 +46,14 @@ namespace SAEA.Sockets
             _socketOption = new SocketOption();
         }
 
+        public static SocketOptionBuilder Instance
+        {
+            get
+            {
+                return new SocketOptionBuilder();
+            }
+        }
+
         public SocketOptionBuilder SetSocket(SAEASocketType socketType = SAEASocketType.Tcp)
         {
             _socketOption.SocketType = socketType;

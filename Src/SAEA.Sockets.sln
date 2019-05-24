@@ -57,6 +57,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAEA.Common.DNF", "SAEA.Com
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAEA.Mvc.ServiceTest", "SAEA.Mvc.ServiceTest\SAEA.Mvc.ServiceTest.csproj", "{78B4C427-6E75-4FFF-A172-490C51AA7B34}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAEA.Mongo", "SAEA.Mongo\SAEA.Mongo.csproj", "{EDE12560-0D0C-48BE-A5B4-19A8DC92B918}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAEA.MongoTest", "SAEA.MongoTest\SAEA.MongoTest.csproj", "{38CEE6F8-BBDD-4109-A4ED-3B990DC3CCDB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -171,6 +175,14 @@ Global
 		{78B4C427-6E75-4FFF-A172-490C51AA7B34}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{78B4C427-6E75-4FFF-A172-490C51AA7B34}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{78B4C427-6E75-4FFF-A172-490C51AA7B34}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EDE12560-0D0C-48BE-A5B4-19A8DC92B918}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EDE12560-0D0C-48BE-A5B4-19A8DC92B918}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EDE12560-0D0C-48BE-A5B4-19A8DC92B918}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EDE12560-0D0C-48BE-A5B4-19A8DC92B918}.Release|Any CPU.Build.0 = Release|Any CPU
+		{38CEE6F8-BBDD-4109-A4ED-3B990DC3CCDB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{38CEE6F8-BBDD-4109-A4ED-3B990DC3CCDB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{38CEE6F8-BBDD-4109-A4ED-3B990DC3CCDB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{38CEE6F8-BBDD-4109-A4ED-3B990DC3CCDB}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
