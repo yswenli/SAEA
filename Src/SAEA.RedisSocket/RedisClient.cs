@@ -92,50 +92,47 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public string Connect()
         {
-            lock (_syncLocker)
+            if (_cnn.Connect())
             {
-                if (_cnn.Connect())
+                IsConnected = _cnn.IsConnected;
+
+                var infoMsg = Info();
+
+                if (infoMsg.Contains(RedisConst.NOAuth))
                 {
-                    IsConnected = _cnn.IsConnected;
-
-                    var infoMsg = Info();
-
-                    if (infoMsg.Contains(RedisConst.NOAuth))
+                    if (string.IsNullOrWhiteSpace(RedisConfig.Passwords))
                     {
-                        if (string.IsNullOrWhiteSpace(RedisConfig.Passwords))
-                        {
-                            _cnn.Quit();
-                            return infoMsg;
-                        }
+                        _cnn.Quit();
+                        return infoMsg;
+                    }
 
-                        var authMsg = Auth(RedisConfig.Passwords);
+                    var authMsg = Auth(RedisConfig.Passwords);
 
-                        if (string.Compare(authMsg, OK, true) != 0)
-                        {
-                            _cnn.Quit();
-                            return authMsg;
-                        }
+                    if (string.Compare(authMsg, OK, true) != 0)
+                    {
+                        _cnn.Quit();
+                        return authMsg;
                     }
                 }
-
-                _cnn.KeepAlived(() => this.KeepAlive());
-                var ipPort = RedisConfig.GetIPPort();
-
-                var isMaster = this.IsMaster;
-                var isCluster = this.IsCluster;
-
-                if (isCluster)
-                {
-                    _cnn.RedisServerType = isMaster ? RedisServerType.ClusterMaster : RedisServerType.ClusterSlave;
-                    GetClusterMap(ipPort);
-                }
-                else
-                {
-                    _cnn.RedisServerType = isMaster ? RedisServerType.Master : RedisServerType.Slave;
-                    RedisConnectionManager.Set(ipPort, _cnn);
-                }
-                return OK;
             }
+
+            _cnn.KeepAlived(() => this.KeepAlive());
+            var ipPort = RedisConfig.GetIPPort();
+
+            var isMaster = this.IsMaster;
+            var isCluster = this.IsCluster;
+
+            if (isCluster)
+            {
+                _cnn.RedisServerType = isMaster ? RedisServerType.ClusterMaster : RedisServerType.ClusterSlave;
+                GetClusterMap(ipPort);
+            }
+            else
+            {
+                _cnn.RedisServerType = isMaster ? RedisServerType.Master : RedisServerType.Slave;
+                RedisConnectionManager.Set(ipPort, _cnn);
+            }
+            return OK;
         }
 
 

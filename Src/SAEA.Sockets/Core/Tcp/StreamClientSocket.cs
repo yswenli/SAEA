@@ -100,6 +100,7 @@ namespace SAEA.Sockets.Core.Tcp
             _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             _socket.NoDelay = true;
             _socket.SendTimeout = _socket.ReceiveTimeout = 120 * 1000;
+            _socket.KeepAlive();
 
             _isSsl = userSsl;
         }

@@ -4,7 +4,7 @@
 *机器名称：WENLI-PC
 *公司名称：yswenli
 *命名空间：SAEA.RPC.Serialize
-*文件名： ParamsSerializeUtil
+*文件名： SAEASerialize
 *版本号： v4.5.1.2
 *唯一标识：9555d1ce-23a8-4302-b470-7abffdebcdfa
 *当前的用户域：WENLI-PC
@@ -440,7 +440,7 @@ namespace SAEA.Common
                 }
                 else
                 {
-                    throw new Exception("ParamsSerializeUtil.Deserialize 未定义的类型：" + type.ToString());
+                    throw new Exception("SAEASerialize.Deserialize 未定义的类型：" + type.ToString());
                 }
 
             }
@@ -487,7 +487,7 @@ namespace SAEA.Common
                 }
                 catch
                 {
-                    throw new Exception("ParamsSerializeUtil.Deserialize 未定义的类型：" + type.ToString());
+                    throw new Exception("SAEASerialize.Deserialize 未定义的类型：" + type.ToString());
                 }
             }
 

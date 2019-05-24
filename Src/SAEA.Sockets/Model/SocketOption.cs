@@ -38,7 +38,7 @@ namespace SAEA.Sockets.Model
 {
     public class SocketOption : ISocketOption
     {
-        public SocketType SocketType { get; set; }
+        public SAEASocketType SocketType { get; set; }
 
         public bool WithSsl
         {
