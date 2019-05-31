@@ -148,7 +148,7 @@ namespace SAEA.RedisSocket.Core
 
                         if (EnumHelper.GetEnum(redisCmd, out RequestType requestType))
                         {
-                            var sendData = RedisCoder.Coder(requestType, @params);
+                            var sendData = RedisCoder.CoderByParams(requestType, @params);
                             Request(sendData);
                             result = RedisCoder.Decoder();
                         }
@@ -174,7 +174,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="cmd"></param>
         public ResponseData Do(RequestType type)
         {
-            var cmd = RedisCoder.Coder(type, type.ToString());
+            var cmd = RedisCoder.CoderByParams(type, type.ToString());
             Request(cmd);
             var result = RedisCoder.Decoder();
             if (result.Type == ResponseType.Redirect)
@@ -288,7 +288,7 @@ namespace SAEA.RedisSocket.Core
                 List<string> list = new List<string>();
                 list.Add(RequestType.SUBSCRIBE.ToString());
                 list.AddRange(channels);
-                var cmd = RedisCoder.Coder(RequestType.SUBSCRIBE, list.ToArray());
+                var cmd = RedisCoder.CoderByParams(RequestType.SUBSCRIBE, list.ToArray());
                 Request(cmd);
                 RedisCoder.IsSubed = true;
                 while (RedisCoder.IsSubed)
@@ -324,7 +324,7 @@ namespace SAEA.RedisSocket.Core
         public ResponseData DoBatchWithParams(RequestType type, params string[] keys)
         {
             keys.KeyCheck();
-            var cmd = RedisCoder.CoderWithParams(type, type.ToString(), keys);
+            var cmd = RedisCoder.Coder(type, type.ToString(), keys);
             Request(cmd);
             var result = RedisCoder.Decoder();
             if (result.Type == ResponseType.Redirect)
@@ -345,7 +345,7 @@ namespace SAEA.RedisSocket.Core
             list.Add(type.ToString());
             list.Add(id);
             list.AddRange(keys);
-            var cmd = RedisCoder.Coder(type, list.ToArray());
+            var cmd = RedisCoder.CoderByParams(type, list.ToArray());
             Request(cmd);
             var result = RedisCoder.Decoder();
             if (result.Type == ResponseType.Redirect)
@@ -499,7 +499,7 @@ namespace SAEA.RedisSocket.Core
                         list.Add(item.ToString());
                     }
                 }
-                var cmd = RedisCoder.Coder(type, list.ToArray());
+                var cmd = RedisCoder.CoderByParams(type, list.ToArray());
                 Request(cmd);
                 var result = RedisCoder.Decoder();
                 if (result.Type == ResponseType.Redirect)
@@ -532,7 +532,7 @@ namespace SAEA.RedisSocket.Core
 
                 list.Add(nodeID);
 
-                var cmd = RedisCoder.Coder(type, list.ToArray());
+                var cmd = RedisCoder.CoderByParams(type, list.ToArray());
                 Request(cmd);
                 var result = RedisCoder.Decoder();
 

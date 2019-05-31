@@ -81,14 +81,18 @@ namespace SAEA.RedisSocket.Core
         /// <param name="commandName"></param>
         /// <param name="params"></param>
         /// <returns></returns>
-        public string Coder(RequestType commandName, params string[] @params)
+        public string CoderByParams(RequestType commandName, params string[] @params)
         {
             @params.NotNull();
 
             _coderDecoderSync.WaitOne(_actionTimeout);
+
             _commandName = commandName;
+
             var sb = new StringBuilder();
+
             sb.AppendLine(ConstHelper.ASTERRISK + @params.Length);
+
             foreach (var param in @params)
             {
                 var length = Encoding.UTF8.GetBytes(param).Length;
@@ -99,7 +103,15 @@ namespace SAEA.RedisSocket.Core
             return _sendCommand;
         }
 
-        public string CoderWithParams(RequestType commandName, string cmdType, params string[] @params)
+        /// <summary>
+        /// redis client编码
+        /// </summary>
+        /// <param name="commandName"></param>
+        /// <param name="cmdType"></param>
+        /// <param name="params"></param>
+        /// <returns></returns>
+
+        public string Coder(RequestType commandName, string cmdType, params string[] @params)
         {
             @params.NotNull();
 
