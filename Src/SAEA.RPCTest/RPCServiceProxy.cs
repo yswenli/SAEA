@@ -224,6 +224,11 @@ namespace SAEA.RPCTest.Consumer.Model
         {
             get; set;
         }
+
+        public decimal Score
+        {
+            get;set;
+        }
     }
 }
 

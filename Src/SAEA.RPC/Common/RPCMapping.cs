@@ -125,14 +125,16 @@ namespace SAEA.RPC.Common
         /// <param name="types"></param>
         public static void Regists(params Type[] types)
         {
-            if (types != null)
+            if (types == null || !types.Any()) RegistAll();
+
+            else
+
                 foreach (var type in types)
                 {
                     Regist(type);
                 }
-            else
-                RegistAll();
         }
+
         /// <summary>
         /// 全部注册带有ServiceAttribute的服务
         /// </summary>

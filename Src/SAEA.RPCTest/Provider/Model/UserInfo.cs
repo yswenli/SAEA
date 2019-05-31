@@ -32,6 +32,11 @@ namespace SAEA.RPCTest.Provider.Model
         public string UserName { get; set; }
         
         public DateTime Birthday { get; set; }
-            
+
+        public decimal Score
+        {
+            get; set;
+        }
+
     }
 }

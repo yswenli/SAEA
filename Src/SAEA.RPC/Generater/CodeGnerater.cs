@@ -538,9 +538,10 @@ namespace SAEA.RPC.Generater
         /// </summary>
         /// <param name="folder"></param>
         /// <param name="spaceName"></param>
-        public static void Generate(string folder, string spaceName)
+        /// <param name="types"></param>
+        public static void Generate(string folder, string spaceName, params Type[] types)
         {
-            RPCMapping.RegistAll();
+            RPCMapping.Regists(types);
 
             GenerateProxy(spaceName);
 
@@ -571,5 +572,6 @@ namespace SAEA.RPC.Generater
 
             File.WriteAllText(filePath, sb.ToString(), Encoding.UTF8);
         }
+
     }
 }

@@ -53,7 +53,8 @@ namespace SAEA.RPCTest.Provider
 
                 ID = 1,
                 Birthday = DateTimeHelper.Now.AddYears(-100),
-                UserName = "yswenli"
+                UserName = "yswenli",
+                Score = 99.021M
             });
 
             return new GroupInfo()

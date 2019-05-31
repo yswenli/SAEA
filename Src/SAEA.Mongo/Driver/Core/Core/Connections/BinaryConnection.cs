@@ -31,6 +31,7 @@ using SAEA.Mongo.Driver.Core.Servers;
 using SAEA.Mongo.Driver.Core.WireProtocol.Messages;
 using SAEA.Mongo.Driver.Core.WireProtocol.Messages.Encoders;
 using SAEA.Mongo.Driver.Core.WireProtocol.Messages.Encoders.BinaryEncoders;
+using SAEA.Sockets.Interface;
 
 namespace SAEA.Mongo.Driver.Core.Connections
 {
@@ -57,7 +58,7 @@ namespace SAEA.Mongo.Driver.Core.Connections
         private readonly SemaphoreSlim _sendLock;
         private readonly ConnectionSettings _settings;
         private readonly InterlockedInt32 _state;
-        private Stream _stream;
+        private IClientSocket _stream;
         private readonly IStreamFactory _streamFactory;
 
         private readonly Action<ConnectionFailedEvent> _failedEventHandler;
@@ -311,13 +312,13 @@ namespace SAEA.Mongo.Driver.Core.Connections
             try
             {
                 var messageSizeBytes = new byte[4];
-                _stream.ReadBytes(messageSizeBytes, 0, 4, _backgroundTaskCancellationToken);
+                _stream.ReceiveAsync(messageSizeBytes, 0, 4, _backgroundTaskCancellationToken).GetAwaiter();
                 var messageSize = BitConverter.ToInt32(messageSizeBytes, 0);
                 var inputBufferChunkSource = new InputBufferChunkSource(BsonChunkPool.Default);
                 var buffer = ByteBufferFactory.Create(inputBufferChunkSource, messageSize);
                 buffer.Length = messageSize;
                 buffer.SetBytes(0, messageSizeBytes, 0, 4);
-                _stream.ReadBytes(buffer, 4, messageSize - 4, _backgroundTaskCancellationToken);
+                _stream.ReceiveAsync(buffer, 4, messageSize - 4, _backgroundTaskCancellationToken).GetAwaiter();
                 _lastUsedAtUtc = DateTime.UtcNow;
                 buffer.MakeReadOnly();
                 return buffer;

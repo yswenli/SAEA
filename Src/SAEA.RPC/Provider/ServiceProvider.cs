@@ -146,6 +146,17 @@ namespace SAEA.RPC.Provider
                 _started = true;
             }
         }
+        /// <summary>
+        /// 停止服务
+        /// </summary>
+        public void Stop()
+        {
+            if (_started)
+            {
+                _RServer.Stop();
+                _started = false;
+            }
+        }
 
         /// <summary>
         /// 向注册了接收通知的rpc client 发送通知
@@ -176,18 +187,6 @@ namespace SAEA.RPC.Provider
                         }
                     }
                 }
-            }
-        }
-
-        /// <summary>
-        /// 停止服务
-        /// </summary>
-        public void Stop()
-        {
-            if (_started)
-            {
-                _started = false;
-                _RServer.Stop();
             }
         }
 

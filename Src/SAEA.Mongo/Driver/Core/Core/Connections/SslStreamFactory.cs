@@ -23,6 +23,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using SAEA.Mongo.Driver.Core.Configuration;
 using SAEA.Mongo.Driver.Core.Misc;
+using SAEA.Sockets;
+using SAEA.Sockets.Interface;
 
 namespace SAEA.Mongo.Driver.Core.Connections
 {
@@ -39,44 +41,87 @@ namespace SAEA.Mongo.Driver.Core.Connections
         }
 
         // public methods
-        public Stream CreateStream(EndPoint endPoint, CancellationToken cancellationToken)
+        public IClientSocket CreateStream(EndPoint endPoint, CancellationToken cancellationToken)
         {
-            var stream = _wrapped.CreateStream(endPoint, cancellationToken);
-            try
+            //            var stream = _wrapped.CreateStream(endPoint, cancellationToken);
+            //            try
+            //            {
+            //                var sslStream = CreateSslStream(stream);
+            //                var targetHost = GetTargetHost(endPoint);
+            //                var clientCertificates = new X509CertificateCollection(_settings.ClientCertificates.ToArray());
+            //#if NETSTANDARD1_5 || NETSTANDARD1_6
+            //                sslStream.AuthenticateAsClientAsync(targetHost, clientCertificates, _settings.EnabledSslProtocols, _settings.CheckCertificateRevocation).GetAwaiter().GetResult();
+            //#else
+            //                sslStream.AuthenticateAsClient(targetHost, clientCertificates, _settings.EnabledSslProtocols, _settings.CheckCertificateRevocation);
+            //#endif       
+            //                return sslStream;
+            //            }
+            //            catch
+            //            {
+            //                DisposeStreamIgnoringExceptions(stream);
+            //                throw;
+            //            }
+
+
+            var ipEndpoint = (IPEndPoint)endPoint;
+
+            var ip = ipEndpoint.Address.ToString();
+
+            var port = ipEndpoint.Port;
+
+            var builder = SocketOptionBuilder.Instance.SetSocket().UseStream().SetIP(ip).SetPort(port);
+
+            if (_settings is SslStreamSettings)
             {
-                var sslStream = CreateSslStream(stream);
-                var targetHost = GetTargetHost(endPoint);
-                var clientCertificates = new X509CertificateCollection(_settings.ClientCertificates.ToArray());
-#if NETSTANDARD1_5 || NETSTANDARD1_6
-                sslStream.AuthenticateAsClientAsync(targetHost, clientCertificates, _settings.EnabledSslProtocols, _settings.CheckCertificateRevocation).GetAwaiter().GetResult();
-#else
-                sslStream.AuthenticateAsClient(targetHost, clientCertificates, _settings.EnabledSslProtocols, _settings.CheckCertificateRevocation);
-#endif       
-                return sslStream;
+                builder.WithSsl(System.Security.Authentication.SslProtocols.Tls);
             }
-            catch
-            {
-                DisposeStreamIgnoringExceptions(stream);
-                throw;
-            }
+
+            var socketOption = builder.Build();
+
+            var client = SocketFactory.CreateClientSocket(socketOption);
+
+            client.ConnectAsync().GetAwaiter();
+
+            return client;
         }
 
-        public async Task<Stream> CreateStreamAsync(EndPoint endPoint, CancellationToken cancellationToken)
+        public async Task<IClientSocket> CreateStreamAsync(EndPoint endPoint, CancellationToken cancellationToken)
         {
-            var stream = await _wrapped.CreateStreamAsync(endPoint, cancellationToken).ConfigureAwait(false);
-            try
+            //var stream = await _wrapped.CreateStreamAsync(endPoint, cancellationToken).ConfigureAwait(false);
+            //try
+            //{
+            //    var sslStream = CreateSslStream(stream);
+            //    var targetHost = GetTargetHost(endPoint);
+            //    var clientCertificates = new X509CertificateCollection(_settings.ClientCertificates.ToArray());
+            //    await sslStream.AuthenticateAsClientAsync(targetHost, clientCertificates, _settings.EnabledSslProtocols, _settings.CheckCertificateRevocation).ConfigureAwait(false);
+            //    return sslStream;
+            //}
+            //catch
+            //{
+            //    DisposeStreamIgnoringExceptions(stream);
+            //    throw;
+            //}
+
+            var ipEndpoint = (IPEndPoint)endPoint;
+
+            var ip = ipEndpoint.Address.ToString();
+
+            var port = ipEndpoint.Port;
+
+            var builder = SocketOptionBuilder.Instance.SetSocket().UseStream().SetIP(ip).SetPort(port);
+
+            if (_settings is SslStreamSettings)
             {
-                var sslStream = CreateSslStream(stream);
-                var targetHost = GetTargetHost(endPoint);
-                var clientCertificates = new X509CertificateCollection(_settings.ClientCertificates.ToArray());
-                await sslStream.AuthenticateAsClientAsync(targetHost, clientCertificates, _settings.EnabledSslProtocols, _settings.CheckCertificateRevocation).ConfigureAwait(false);
-                return sslStream;
+                builder.WithSsl(System.Security.Authentication.SslProtocols.Tls);
             }
-            catch
-            {
-                DisposeStreamIgnoringExceptions(stream);
-                throw;
-            }
+
+            var socketOption = builder.Build();
+
+            var client= SocketFactory.CreateClientSocket(socketOption);
+
+            await client.ConnectAsync();
+
+            return client;
         }
 
         // private methods

@@ -298,7 +298,14 @@ namespace SAEA.Mongo.Driver.Core.Connections
 
             var port = ipEndpoint.Port;
 
-            var socketOption = SocketOptionBuilder.Instance.SetSocket().UseStream().SetIP(ip).SetPort(port).Build();
+            var builder = SocketOptionBuilder.Instance.SetSocket().UseStream().SetIP(ip).SetPort(port);
+
+            if(_settings is SslStreamSettings)
+            {
+                builder.WithSsl(System.Security.Authentication.SslProtocols.Tls);
+            }
+
+            var socketOption = builder.Build();
 
             return SocketFactory.CreateClientSocket(socketOption);
         }
