@@ -41,7 +41,7 @@ namespace SAEA.Mongo.Driver.Core.Connections
         }
 
         // public methods
-        public IClientSocket CreateStream(EndPoint endPoint, CancellationToken cancellationToken)
+        public IClientSocket CreateClient(EndPoint endPoint, CancellationToken cancellationToken)
         {
             //            var stream = _wrapped.CreateStream(endPoint, cancellationToken);
             //            try
@@ -71,10 +71,7 @@ namespace SAEA.Mongo.Driver.Core.Connections
 
             var builder = SocketOptionBuilder.Instance.SetSocket().UseStream().SetIP(ip).SetPort(port);
 
-            if (_settings is SslStreamSettings)
-            {
-                builder.WithSsl(System.Security.Authentication.SslProtocols.Tls);
-            }
+            builder.WithSsl(System.Security.Authentication.SslProtocols.Tls);
 
             var socketOption = builder.Build();
 
@@ -85,7 +82,7 @@ namespace SAEA.Mongo.Driver.Core.Connections
             return client;
         }
 
-        public async Task<IClientSocket> CreateStreamAsync(EndPoint endPoint, CancellationToken cancellationToken)
+        public async Task<IClientSocket> CreateClientAsync(EndPoint endPoint, CancellationToken cancellationToken)
         {
             //var stream = await _wrapped.CreateStreamAsync(endPoint, cancellationToken).ConfigureAwait(false);
             //try

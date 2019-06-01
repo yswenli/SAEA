@@ -14,12 +14,7 @@
 */
 
 using SAEA.Sockets.Interface;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Net;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -36,7 +31,7 @@ namespace SAEA.Mongo.Driver.Core.Connections
         /// <param name="endPoint">The end point.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A Stream.</returns>
-        IClientSocket CreateStream(EndPoint endPoint, CancellationToken cancellationToken);
+        IClientSocket CreateClient(EndPoint endPoint, CancellationToken cancellationToken);
 
         /// <summary>
         /// Creates a stream.
@@ -44,6 +39,6 @@ namespace SAEA.Mongo.Driver.Core.Connections
         /// <param name="endPoint">The end point.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A Task whose result is the Stream.</returns>
-        Task<IClientSocket> CreateStreamAsync(EndPoint endPoint, CancellationToken cancellationToken);
+        Task<IClientSocket> CreateClientAsync(EndPoint endPoint, CancellationToken cancellationToken);
     }
 }

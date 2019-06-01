@@ -20,6 +20,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using SAEA.Mongo.Bson.IO;
@@ -32,6 +33,7 @@ using SAEA.Mongo.Driver.Core.WireProtocol.Messages;
 using SAEA.Mongo.Driver.Core.WireProtocol.Messages.Encoders;
 using SAEA.Mongo.Driver.Core.WireProtocol.Messages.Encoders.BinaryEncoders;
 using SAEA.Sockets.Interface;
+using SAEA.Mongo.Driver.Core.Core.Misc;
 
 namespace SAEA.Mongo.Driver.Core.Connections
 {
@@ -58,7 +60,7 @@ namespace SAEA.Mongo.Driver.Core.Connections
         private readonly SemaphoreSlim _sendLock;
         private readonly ConnectionSettings _settings;
         private readonly InterlockedInt32 _state;
-        private IClientSocket _stream;
+        private IClientSocket _client;
         private readonly IStreamFactory _streamFactory;
 
         private readonly Action<ConnectionFailedEvent> _failedEventHandler;
@@ -196,11 +198,11 @@ namespace SAEA.Mongo.Driver.Core.Connections
                     _receiveLock.Dispose();
                     _sendLock.Dispose();
 
-                    if (_stream != null)
+                    if (_client != null)
                     {
                         try
                         {
-                            _stream.Dispose();
+                            _client.Dispose();
                         }
                         catch
                         {
@@ -275,7 +277,7 @@ namespace SAEA.Mongo.Driver.Core.Connections
             try
             {
                 helper.OpeningConnection();
-                _stream = _streamFactory.CreateStream(_endPoint, cancellationToken);
+                _client = _streamFactory.CreateClient(_endPoint, cancellationToken);
                 helper.InitializingConnection();
                 _description = _connectionInitializer.InitializeConnection(this, cancellationToken);
                 helper.OpenedConnection();
@@ -294,7 +296,7 @@ namespace SAEA.Mongo.Driver.Core.Connections
             try
             {
                 helper.OpeningConnection();
-                _stream = await _streamFactory.CreateStreamAsync(_endPoint, cancellationToken).ConfigureAwait(false);
+                _client = await _streamFactory.CreateClientAsync(_endPoint, cancellationToken).ConfigureAwait(false);
                 helper.InitializingConnection();
                 _description = await _connectionInitializer.InitializeConnectionAsync(this, cancellationToken).ConfigureAwait(false);
                 helper.OpenedConnection();
@@ -312,16 +314,21 @@ namespace SAEA.Mongo.Driver.Core.Connections
             try
             {
                 var messageSizeBytes = new byte[4];
-                _stream.ReceiveAsync(messageSizeBytes, 0, 4, _backgroundTaskCancellationToken).GetAwaiter();
+                _client.ReceiveAsync(messageSizeBytes, 0, 4, _backgroundTaskCancellationToken).GetAwaiter();
                 var messageSize = BitConverter.ToInt32(messageSizeBytes, 0);
                 var inputBufferChunkSource = new InputBufferChunkSource(BsonChunkPool.Default);
-                var buffer = ByteBufferFactory.Create(inputBufferChunkSource, messageSize);
-                buffer.Length = messageSize;
-                buffer.SetBytes(0, messageSizeBytes, 0, 4);
-                _stream.ReceiveAsync(buffer, 4, messageSize - 4, _backgroundTaskCancellationToken).GetAwaiter();
-                _lastUsedAtUtc = DateTime.UtcNow;
-                buffer.MakeReadOnly();
-                return buffer;
+
+                if (messageSize > 0)
+                {
+                    var buffer = ByteBufferFactory.Create(inputBufferChunkSource, messageSize);
+                    buffer.Length = messageSize;
+                    buffer.SetBytes(0, messageSizeBytes, 0, 4);
+                    _client.ReadBytes(buffer, 4, messageSize - 4, _backgroundTaskCancellationToken);
+                    _lastUsedAtUtc = DateTime.UtcNow;
+                    buffer.MakeReadOnly();
+                    return buffer;
+                }
+                return null;
             }
             catch (Exception ex)
             {
@@ -373,13 +380,13 @@ namespace SAEA.Mongo.Driver.Core.Connections
             try
             {
                 var messageSizeBytes = new byte[4];
-                await _stream.ReadBytesAsync(messageSizeBytes, 0, 4, _backgroundTaskCancellationToken).ConfigureAwait(false);
+                await _client.ReadBytesAsync(messageSizeBytes, 0, 4, _backgroundTaskCancellationToken).ConfigureAwait(false);
                 var messageSize = BitConverter.ToInt32(messageSizeBytes, 0);
                 var inputBufferChunkSource = new InputBufferChunkSource(BsonChunkPool.Default);
                 var buffer = ByteBufferFactory.Create(inputBufferChunkSource, messageSize);
                 buffer.Length = messageSize;
                 buffer.SetBytes(0, messageSizeBytes, 0, 4);
-                await _stream.ReadBytesAsync(buffer, 4, messageSize - 4, _backgroundTaskCancellationToken).ConfigureAwait(false);
+                await _client.ReadBytesAsync(buffer, 4, messageSize - 4, _backgroundTaskCancellationToken).ConfigureAwait(false);
                 _lastUsedAtUtc = DateTime.UtcNow;
                 buffer.MakeReadOnly();
                 return buffer;
@@ -496,7 +503,7 @@ namespace SAEA.Mongo.Driver.Core.Connections
                 try
                 {
                     // don't use the caller's cancellationToken because once we start writing a message we have to write the whole thing
-                    _stream.WriteBytes(buffer, 0, buffer.Length, _backgroundTaskCancellationToken);
+                    _client.WriteBytes(buffer, 0, buffer.Length, _backgroundTaskCancellationToken);
                     _lastUsedAtUtc = DateTime.UtcNow;
                 }
                 catch (Exception ex)
@@ -525,7 +532,7 @@ namespace SAEA.Mongo.Driver.Core.Connections
                 try
                 {
                     // don't use the caller's cancellationToken because once we start writing a message we have to write the whole thing
-                    await _stream.WriteBytesAsync(buffer, 0, buffer.Length, _backgroundTaskCancellationToken).ConfigureAwait(false);
+                    await _client.WriteBytesAsync(buffer, 0, buffer.Length, _backgroundTaskCancellationToken).ConfigureAwait(false);
                     _lastUsedAtUtc = DateTime.UtcNow;
                 }
                 catch (Exception ex)

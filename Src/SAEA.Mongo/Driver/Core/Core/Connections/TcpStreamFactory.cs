@@ -48,7 +48,7 @@ namespace SAEA.Mongo.Driver.Core.Connections
         }
 
         // methods
-        public IClientSocket CreateStream(EndPoint endPoint, CancellationToken cancellationToken)
+        public IClientSocket CreateClient(EndPoint endPoint, CancellationToken cancellationToken)
         {
 #if NETSTANDARD1_5 || NETSTANDARD1_6
             // ugh... I know... but there isn't a non-async version of dns resolution
@@ -88,7 +88,7 @@ namespace SAEA.Mongo.Driver.Core.Connections
 #endif
         }
 
-        public async Task<IClientSocket> CreateStreamAsync(EndPoint endPoint, CancellationToken cancellationToken)
+        public async Task<IClientSocket> CreateClientAsync(EndPoint endPoint, CancellationToken cancellationToken)
         {
 #if NETSTANDARD1_5 || NETSTANDARD1_6
             var resolved = await ResolveEndPointsAsync(endPoint).ConfigureAwait(false);
@@ -292,7 +292,20 @@ namespace SAEA.Mongo.Driver.Core.Connections
 
             // return socket;
 
-            var ipEndpoint = (IPEndPoint)endPoint;
+            IPEndPoint ipEndpoint = null;
+
+            var addressFamily = endPoint.AddressFamily;
+
+            if (addressFamily == AddressFamily.Unspecified || addressFamily == AddressFamily.Unknown)
+            {
+                ipEndpoint = new IPEndPoint(IPAddress.Parse("127.0.0.1"), ((DnsEndPoint)endPoint).Port);
+            }
+            else
+            {
+                ipEndpoint = (IPEndPoint)endPoint;
+            }
+
+
 
             var ip = ipEndpoint.Address.ToString();
 
@@ -300,7 +313,7 @@ namespace SAEA.Mongo.Driver.Core.Connections
 
             var builder = SocketOptionBuilder.Instance.SetSocket().UseStream().SetIP(ip).SetPort(port);
 
-            if(_settings is SslStreamSettings)
+            if (_settings is SslStreamSettings)
             {
                 builder.WithSsl(System.Security.Authentication.SslProtocols.Tls);
             }

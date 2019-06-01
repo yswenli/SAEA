@@ -15,8 +15,11 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
+using SAEA.Mongo.Driver;
+using SAEA.MongoTest.Entities;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace SAEA.MongoTest
@@ -26,6 +29,41 @@ namespace SAEA.MongoTest
 
         static void Main(string[] args)
         {
+            Console.Title = "SAEA.MongoTest";
+
+            var mongoUrl = new MongoUrl("mongodb://admin:admin@localhost:27017/MongoTests?authSource=admin");
+
+            MongoClient mongoClient = new MongoClient(mongoUrl);
+
+            var collection = mongoClient.GetDatabase("MongoTests").GetCollection<UserInfo>("UserInfo");
+
+            var userInfo = collection.Find(b => b.ID > 0).FirstOrDefault();
+
+            if (userInfo == null)
+            {
+                var ui = new UserInfo()
+                {
+                    ID = 1,
+                    UserName = "yswenli",
+                    Sex = true,
+                    Birthday = DateTime.Now,
+                    Score = 99.20M
+                };
+                collection.InsertOne(ui);
+
+                Console.WriteLine("SAEA.Mongo.InsertOne");
+            }
+
+            var query = collection.AsQueryable();
+
+            userInfo = query.Where(b => b.ID > 0).FirstOrDefault();
+
+            if (userInfo != null)
+            {
+                Console.WriteLine($"SAEA.Mongo.Linq userInfo.UserName:{userInfo.UserName}");
+            }
+
+            Console.ReadLine();
 
         }
     }
