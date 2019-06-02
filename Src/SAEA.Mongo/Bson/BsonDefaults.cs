@@ -1,24 +1,21 @@
-﻿/****************************************************************************
-*项目名称：SAEA.Mongo.Bson
-*CLR 版本：4.0.30319.42000
-*机器名称：WENLI-PC
-*命名空间：SAEA.Mongo.Bson
-*类 名 称：BsonDefaults
-*版 本 号：V1.0.0.0
-*创建人： yswenli
-*电子邮箱：wenguoli_520@qq.com
-*创建时间：2019/5/22 11:09:39
-*描述：
-*=====================================================================
-*修改时间：2019/5/22 11:09:39
-*修 改 人： yswenli
-*版 本 号： V1.0.0.0
-*描    述：
-*****************************************************************************/
-using SAEA.Mongo.Bson.Serialization;
+﻿/* Copyright 2010-present MongoDB Inc.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+* http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+
 using System.Collections.Generic;
 using System.Dynamic;
-
+using SAEA.Mongo.Bson.Serialization;
 namespace SAEA.Mongo.Bson
 {
     /// <summary>
@@ -30,7 +27,7 @@ namespace SAEA.Mongo.Bson
         private static bool __dynamicArraySerializerWasSet;
         private static IBsonSerializer __dynamicArraySerializer;
         private static bool __dynamicDocumentSerializerWasSet;
-        private static IBsonSerializer __dynamicDocumentSerializer;
+        private static IBsonSerializer __dynamicDocumentSerializer; 
         private static GuidRepresentation __guidRepresentation = GuidRepresentation.CSharpLegacy;
         private static int __maxDocumentSize = int.MaxValue;
         private static int __maxSerializationDepth = 100;
@@ -49,10 +46,10 @@ namespace SAEA.Mongo.Bson
                 }
                 return __dynamicArraySerializer;
             }
-            set
+            set 
             {
                 __dynamicArraySerializerWasSet = true;
-                __dynamicArraySerializer = value;
+                __dynamicArraySerializer = value; 
             }
         }
 
@@ -61,18 +58,18 @@ namespace SAEA.Mongo.Bson
         /// </summary>
         public static IBsonSerializer DynamicDocumentSerializer
         {
-            get
+            get 
             {
                 if (!__dynamicDocumentSerializerWasSet)
                 {
                     __dynamicDocumentSerializer = BsonSerializer.LookupSerializer<ExpandoObject>();
                 }
-                return __dynamicDocumentSerializer;
+                return __dynamicDocumentSerializer; 
             }
-            set
+            set 
             {
                 __dynamicDocumentSerializerWasSet = true;
-                __dynamicDocumentSerializer = value;
+                __dynamicDocumentSerializer = value; 
             }
         }
 

@@ -90,7 +90,7 @@ namespace SAEA.Mongo.Driver.Linq
         /// <summary>
         /// Evaluates and replaces sub-trees when first candidate is reached (top-down)
         /// </summary>
-        class SubtreeEvaluator : System.Linq.Expressions.ExpressionVisitor
+        class SubtreeEvaluator : ExpressionVisitor
         {
             HashSet<Expression> _candidates;
 
@@ -104,7 +104,7 @@ namespace SAEA.Mongo.Driver.Linq
                 return this.Visit(exp);
             }
 
-            public override Expression Visit(Expression exp)
+            protected override Expression Visit(Expression exp)
             {
                 if (exp == null)
                 {

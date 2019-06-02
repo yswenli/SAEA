@@ -14,7 +14,6 @@
 */
 
 using System;
-using SAEA.Mongo.Bson.Exceptions;
 using SAEA.Mongo.Bson.IO;
 using SAEA.Mongo.Bson.Serialization.Options;
 

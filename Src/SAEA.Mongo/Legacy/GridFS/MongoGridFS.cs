@@ -19,7 +19,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using SAEA.Mongo.Bson;
 using SAEA.Mongo.Driver.Builders;
-using SAEA.Mongo.GridFS;
+using MongoDB.Shared;
 
 namespace SAEA.Mongo.Driver.GridFS
 {

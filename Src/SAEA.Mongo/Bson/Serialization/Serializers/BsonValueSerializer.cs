@@ -14,7 +14,6 @@
 */
 
 
-using SAEA.Mongo.Bson.Exceptions;
 using System.Collections.Generic;
 using System.Linq;
 namespace SAEA.Mongo.Bson.Serialization.Serializers

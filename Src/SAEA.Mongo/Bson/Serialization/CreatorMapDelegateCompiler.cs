@@ -18,7 +18,6 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Collections.Generic;
-using SAEA.Mongo.Bson.Exceptions;
 
 namespace SAEA.Mongo.Bson.Serialization
 {

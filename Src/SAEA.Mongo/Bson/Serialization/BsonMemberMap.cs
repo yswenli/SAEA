@@ -17,7 +17,6 @@ using System;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
-using SAEA.Mongo.Bson.Exceptions;
 using SAEA.Mongo.Bson.Serialization.Serializers;
 
 namespace SAEA.Mongo.Bson.Serialization

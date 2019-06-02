@@ -44,7 +44,7 @@ namespace SAEA.Mongo.Driver.Linq.Expressions
             return _candidates;
         }
 
-        public override Expression Visit(Expression expression)
+        protected override Expression Visit(Expression expression)
         {
             if (expression != null)
             {

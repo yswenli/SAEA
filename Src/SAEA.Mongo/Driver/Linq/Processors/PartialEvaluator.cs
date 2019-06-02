@@ -97,7 +97,7 @@ namespace SAEA.Mongo.Driver.Linq.Processors
                 _candidates = new HashSet<Expression>();
             }
 
-            public override Expression Visit(Expression node)
+            public override Expression Visit(System.Linq.Expressions.Expression node)
             {
                 if (node == null)
                 {
@@ -118,7 +118,7 @@ namespace SAEA.Mongo.Driver.Linq.Processors
                 return visited;
             }
 
-            protected override Expression VisitListInit(ListInitExpression node)
+            protected override Expression VisitListInit(System.Linq.Expressions.ListInitExpression node)
             {
                 Visit(node.Initializers, VisitElementInit);
 

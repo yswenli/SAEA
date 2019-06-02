@@ -16,10 +16,9 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
-using SAEA.Mongo.Bson;
 using SAEA.Mongo.Bson.Serialization.Attributes;
 using SAEA.Mongo.Driver.GeoJsonObjectModel.Serializers;
-
+using MongoDB.Shared;
 
 namespace SAEA.Mongo.Driver.GeoJsonObjectModel
 {

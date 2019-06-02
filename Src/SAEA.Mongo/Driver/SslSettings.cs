@@ -13,7 +13,6 @@
 * limitations under the License.
 */
 
-using SAEA.Mongo.Bson;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -22,7 +21,7 @@ using System.Net.Security;
 using System.Reflection;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
-
+using MongoDB.Shared;
 
 namespace SAEA.Mongo.Driver
 {

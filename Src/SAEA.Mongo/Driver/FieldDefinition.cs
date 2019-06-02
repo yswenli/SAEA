@@ -22,7 +22,7 @@ using SAEA.Mongo.Driver.Core.Misc;
 using SAEA.Mongo.Driver.Linq;
 using SAEA.Mongo.Driver.Linq.Expressions;
 using SAEA.Mongo.Driver.Linq.Processors;
-using PartialEvaluator = SAEA.Mongo.Driver.Linq.PartialEvaluator;
+using PartialEvaluator = SAEA.Mongo.Driver.Linq.Processors.PartialEvaluator;
 
 namespace SAEA.Mongo.Driver
 {

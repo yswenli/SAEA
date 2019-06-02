@@ -18,7 +18,7 @@ using SAEA.Mongo.Driver.Linq.Processors.Transformers;
 
 namespace SAEA.Mongo.Driver.Linq.Processors
 {
-    internal sealed class Transformer : ExpressionVisitor
+    internal sealed class Transformer : System.Linq.Expressions.ExpressionVisitor
     {
         private static ExpressionTransformerRegistry __registry;
 

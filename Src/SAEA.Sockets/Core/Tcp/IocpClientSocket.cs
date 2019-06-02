@@ -392,6 +392,11 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
 
+        public Stream GetStream()
+        {
+            throw new InvalidOperationException("iocp暂不支持流模式");
+        }
+
         public void Disconnect(Exception ex = null)
         {
             var mex = ex;

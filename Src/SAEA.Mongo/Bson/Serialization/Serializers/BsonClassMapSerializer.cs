@@ -18,7 +18,6 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
-using SAEA.Mongo.Bson.Exceptions;
 using SAEA.Mongo.Bson.IO;
 using SAEA.Mongo.Bson.Serialization.Serializers;
 

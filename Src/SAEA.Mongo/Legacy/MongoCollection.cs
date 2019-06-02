@@ -31,7 +31,7 @@ using SAEA.Mongo.Driver.Core.Operations;
 using SAEA.Mongo.Driver.Core.WireProtocol.Messages.Encoders;
 using SAEA.Mongo.Driver.Operations;
 using SAEA.Mongo.Driver.Wrappers;
-using SAEA.Mongo.Shared;
+using MongoDB.Shared;
 
 namespace SAEA.Mongo.Driver
 {
@@ -153,6 +153,7 @@ namespace SAEA.Mongo.Driver
                     BypassDocumentValidation = args.BypassDocumentValidation,
                     Collation = args.Collation,
                     MaxTime = args.MaxTime,
+                    ReadConcern = _settings.ReadConcern,
                     WriteConcern = _settings.WriteConcern
                 };
                 ExecuteWriteOperation(session, aggregateOperation);

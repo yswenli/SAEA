@@ -14,8 +14,6 @@
 */
 
 
-using SAEA.Mongo.Bson.Exceptions;
-
 namespace SAEA.Mongo.Bson.Serialization.Serializers
 {
     /// <summary>

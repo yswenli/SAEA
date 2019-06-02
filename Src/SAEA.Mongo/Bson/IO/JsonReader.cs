@@ -13,12 +13,12 @@
 * limitations under the License.
 */
 
-using SAEA.Mongo.Bson.Exceptions;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text.RegularExpressions;
+using MongoDB.Shared;
 
 namespace SAEA.Mongo.Bson.IO
 {

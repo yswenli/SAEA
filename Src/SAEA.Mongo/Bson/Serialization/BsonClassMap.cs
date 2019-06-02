@@ -21,7 +21,6 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
-using SAEA.Mongo.Bson.Exceptions;
 using SAEA.Mongo.Bson.IO;
 using SAEA.Mongo.Bson.Serialization.Conventions;
 

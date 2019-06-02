@@ -21,7 +21,6 @@ using System.Dynamic;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using SAEA.Mongo.Bson.Exceptions;
 using SAEA.Mongo.Bson.Serialization.Serializers;
 
 namespace SAEA.Mongo.Bson.Serialization

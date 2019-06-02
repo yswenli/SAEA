@@ -15,7 +15,6 @@
 
 using System;
 using System.IO;
-using SAEA.Mongo.Bson.Exceptions;
 using SAEA.Mongo.Bson.IO;
 using SAEA.Mongo.Bson.Serialization.Attributes;
 using SAEA.Mongo.Bson.Serialization.Options;

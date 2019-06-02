@@ -26,7 +26,7 @@ using SAEA.Mongo.Bson.Serialization.Serializers;
 using SAEA.Mongo.Driver.Core.Bindings;
 using SAEA.Mongo.Driver.Core.Misc;
 using SAEA.Mongo.Driver.Core.Operations;
-using SAEA.Mongo.GridFS;
+using MongoDB.Shared;
 
 namespace SAEA.Mongo.Driver.GridFS
 {

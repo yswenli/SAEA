@@ -26,7 +26,7 @@ using SAEA.Mongo.Driver.Builders;
 using SAEA.Mongo.Driver.Core.Clusters;
 using SAEA.Mongo.Driver.Core.Misc;
 using SAEA.Mongo.Driver.Core.Operations;
-using SAEA.Mongo.Shared;
+using MongoDB.Shared;
 
 namespace SAEA.Mongo.Driver
 {

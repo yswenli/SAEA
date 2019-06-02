@@ -13,7 +13,6 @@
 * limitations under the License.
 */
 
-using SAEA.Mongo.Bson.Exceptions;
 using System;
 using System.Globalization;
 using System.IO;

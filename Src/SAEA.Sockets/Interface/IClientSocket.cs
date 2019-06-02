@@ -28,6 +28,7 @@
 *描述：
 *****************************************************************************/
 using SAEA.Sockets.Handler;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -44,6 +45,8 @@ namespace SAEA.Sockets.Interface
         Task SendAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken);
 
         Task<int> ReceiveAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken);
+
+        Stream GetStream();
 
         event OnClientReceiveHandler OnReceive;
 

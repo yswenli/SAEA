@@ -25,6 +25,7 @@ using SAEA.Mongo.Bson.IO;
 using SAEA.Mongo.Driver.Core.Clusters;
 using SAEA.Mongo.Driver.Core.Configuration;
 using SAEA.Mongo.Driver.Core.Misc;
+using MongoDB.Shared;
 
 namespace SAEA.Mongo.Driver
 {
@@ -926,9 +927,9 @@ namespace SAEA.Mongo.Driver
             {
                 query.AppendFormat("retryReads=false;");
             }
-            if (_retryWrites.GetValueOrDefault(false))
+            if (_retryWrites.HasValue)
             {
-                query.AppendFormat("retryWrites=true;");
+                query.AppendFormat("retryWrites={0};", JsonConvert.ToString(_retryWrites.Value));
             }
             if (query.Length != 0)
             {

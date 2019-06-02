@@ -21,6 +21,7 @@ using System.Linq;
 using SAEA.Mongo.Bson.IO;
 using SAEA.Mongo.Bson.Serialization;
 using SAEA.Mongo.Bson.Serialization.Serializers;
+using MongoDB.Shared;
 
 namespace SAEA.Mongo.Bson
 {

@@ -16,7 +16,6 @@
 using System;
 using System.Collections;
 using System.Text;
-using SAEA.Mongo.Bson.Exceptions;
 using SAEA.Mongo.Bson.IO;
 
 namespace SAEA.Mongo.Bson.Serialization.Serializers

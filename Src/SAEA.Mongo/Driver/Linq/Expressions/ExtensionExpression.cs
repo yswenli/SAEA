@@ -17,7 +17,7 @@ using System.Linq.Expressions;
 
 namespace SAEA.Mongo.Driver.Linq.Expressions
 {
-    internal abstract class ExtensionExpression : Expression
+    internal abstract class ExtensionExpression : System.Linq.Expressions.Expression
     {
         public abstract ExtensionExpressionType ExtensionType { get; }
 
@@ -33,8 +33,7 @@ namespace SAEA.Mongo.Driver.Linq.Expressions
             {
                 return Accept(mongoVisitor);
             }
-            return null;
-            //return base.Accept(visitor);
+            return base.Accept(visitor);
         }
 
         protected internal virtual Expression Accept(ExtensionExpressionVisitor visitor)

@@ -18,10 +18,10 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
-using System.Threading;
 using SAEA.Mongo.Bson;
 using SAEA.Mongo.Driver.Core.Configuration;
 using SAEA.Mongo.Driver.Core.Misc;
+using MongoDB.Shared;
 
 namespace SAEA.Mongo.Driver
 {
@@ -93,7 +93,7 @@ namespace SAEA.Mongo.Driver
             _readPreference = ReadPreference.Primary;
             _replicaSetName = null;
             _retryReads = true;
-            _retryWrites = false;
+            _retryWrites = true;
             _scheme = ConnectionStringScheme.MongoDB;
             _sdamLogFilename = null;
             _servers = new List<MongoServerAddress> { new MongoServerAddress("localhost") };
@@ -398,6 +398,9 @@ namespace SAEA.Mongo.Driver
         /// <summary>
         /// Gets or sets whether to retry writes.
         /// </summary>
+        /// <value>
+        /// The default value is <c>true</c>.
+        /// </value>
         public bool RetryWrites
         {
             get { return _retryWrites; }
@@ -675,7 +678,7 @@ namespace SAEA.Mongo.Driver
             clientSettings.ReadPreference = (url.ReadPreference == null) ? ReadPreference.Primary : url.ReadPreference;
             clientSettings.ReplicaSetName = url.ReplicaSetName;
             clientSettings.RetryReads = url.RetryReads.GetValueOrDefault(true);
-            clientSettings.RetryWrites = url.RetryWrites.GetValueOrDefault(false);
+            clientSettings.RetryWrites = url.RetryWrites.GetValueOrDefault(true);
             clientSettings.LocalThreshold = url.LocalThreshold;
             clientSettings.Scheme = url.Scheme;
             clientSettings.Servers = new List<MongoServerAddress>(url.Servers);

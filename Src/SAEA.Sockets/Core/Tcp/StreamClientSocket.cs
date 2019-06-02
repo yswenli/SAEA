@@ -211,6 +211,12 @@ namespace SAEA.Sockets.Core.Tcp
             return _stream.ReadAsync(buffer, offset, count, cancellationToken);
         }
 
+
+        public Stream GetStream()
+        {
+            return _stream;
+        }
+
         /// <summary>
         /// 断开
         /// </summary>

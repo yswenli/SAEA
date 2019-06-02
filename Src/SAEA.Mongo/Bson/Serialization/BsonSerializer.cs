@@ -19,7 +19,6 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
-using SAEA.Mongo.Bson.Exceptions;
 
 // don't add using statement for SAEA.Mongo.Bson.Serialization.Serializers to minimize dependencies on DefaultSerializer
 using SAEA.Mongo.Bson.IO;

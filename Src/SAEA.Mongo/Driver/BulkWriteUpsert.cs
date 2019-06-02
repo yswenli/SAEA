@@ -20,7 +20,7 @@ using System.Linq;
 using SAEA.Mongo.Bson;
 using SAEA.Mongo.Bson.Serialization.Attributes;
 using SAEA.Mongo.Driver.Support;
-
+using MongoDB.Shared;
 
 namespace SAEA.Mongo.Driver
 {

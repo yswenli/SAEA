@@ -1,26 +1,28 @@
-﻿/****************************************************************************
-*项目名称：SAEA.Mongo.Bson.Exceptions
-*CLR 版本：4.0.30319.42000
-*机器名称：WENLI-PC
-*命名空间：SAEA.Mongo.Bson.Exceptions
-*类 名 称：BsonException
-*版 本 号：V1.0.0.0
-*创建人： yswenli
-*电子邮箱：wenguoli_520@qq.com
-*创建时间：2019/5/22 11:11:45
-*描述：
-*=====================================================================
-*修改时间：2019/5/22 11:11:45
-*修 改 人： yswenli
-*版 本 号： V1.0.0.0
-*描    述：
-*****************************************************************************/
-using System;
-using System.Collections.Generic;
-using System.Text;
+﻿/* Copyright 2010-present MongoDB Inc.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+* http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
 
-namespace SAEA.Mongo.Bson.Exceptions
+using System;
+#if NET452
+using System.Runtime.Serialization;
+#endif
+
+namespace SAEA.Mongo.Bson
 {
+    /// <summary>
+    /// Represents a BSON exception.
+    /// </summary>
 #if NET452
     [Serializable]
 #endif

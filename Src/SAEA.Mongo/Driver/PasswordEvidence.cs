@@ -21,7 +21,7 @@ using System.Security.Cryptography;
 using SAEA.Mongo.Bson;
 using SAEA.Mongo.Bson.IO;
 using SAEA.Mongo.Driver.Core.Misc;
-
+using MongoDB.Shared;
 
 namespace SAEA.Mongo.Driver
 {

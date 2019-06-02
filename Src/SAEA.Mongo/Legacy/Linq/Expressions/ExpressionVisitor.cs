@@ -39,7 +39,7 @@ namespace SAEA.Mongo.Driver.Linq
         /// </summary>
         /// <param name="node">The Expression.</param>
         /// <returns>The Expression (posibly modified).</returns>
-        public virtual Expression Visit(Expression node)
+        protected virtual Expression Visit(Expression node)
         {
             if (node == null)
             {
