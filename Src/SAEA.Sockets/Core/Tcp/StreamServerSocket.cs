@@ -123,9 +123,11 @@ namespace SAEA.Sockets.Core.Tcp
         {
             while (!_isStoped)
             {
+                Socket clientSocket = null;
                 try
                 {
-                    var clientSocket = await _listener.AcceptAsync().ConfigureAwait(false);
+                    clientSocket = await _listener.AcceptAsync().ConfigureAwait(false);
+
                     clientSocket.NoDelay = true;
 
                     Stream nsStream;
@@ -133,7 +135,7 @@ namespace SAEA.Sockets.Core.Tcp
                     if (SocketOption.WithSsl)
                     {
                         nsStream = new SslStream(new NetworkStream(clientSocket), false);
-                        await ((SslStream)nsStream).AuthenticateAsServerAsync(SocketOption.X509Certificate2, false, SocketOption.SslProtocol, false).ConfigureAwait(false);
+                        await ((SslStream)nsStream).AuthenticateAsServerAsync(SocketOption.X509Certificate2, false, SslProtocols.Tls | SslProtocols.Tls11 | SslProtocols.Tls12, false).ConfigureAwait(false);
                     }
                     else
                     {
@@ -149,14 +151,26 @@ namespace SAEA.Sockets.Core.Tcp
                 {
                     OnError?.Invoke(string.Empty, oex);
                 }
+                catch(AuthenticationException aex)
+                {
+                    OnError?.Invoke(string.Empty, aex);
+                    OnDisconnected?.Invoke(SocketOption.IP + "_" + SocketOption.Port, aex);
+                    return;
+                }
                 catch (Exception exception)
                 {
+                    OnError?.Invoke(string.Empty, exception);
+
                     if (exception is SocketException s && s.SocketErrorCode == SocketError.OperationAborted)
                     {
                         OnDisconnected?.Invoke(SocketOption.IP + "_" + SocketOption.Port, exception);
                         return;
                     }
                     await Task.Delay(TimeSpan.FromSeconds(1), _cancellationToken).ConfigureAwait(false);
+                }
+                finally
+                {
+                    clientSocket?.Close();
                 }
             }
         }

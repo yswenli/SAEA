@@ -34,11 +34,24 @@ namespace SAEA.WebSocketTest
 {
     class Program
     {
-        static WSServer _server = new WSServer();
+        static WSServer _server;
 
         static void Main(string[] args)
         {
+            //Init1();
+
+            Init2();
+
+            ConsoleHelper.ReadLine();
+        }
+
+
+        #region test1
+
+        static void Init1()
+        {
             ConsoleHelper.WriteLine("WSServer 正在初始化....", ConsoleColor.Green);
+            _server = new WSServer();
             _server.OnMessage += Server_OnMessage;
             _server.Start();
             ConsoleHelper.WriteLine("WSServer 就绪,回车启动客户端", ConsoleColor.Green);
@@ -93,10 +106,8 @@ namespace SAEA.WebSocketTest
             {
                 ConsoleHelper.WriteLine("WSClient 连接失败", ConsoleColor.DarkGray);
             }
+        }
 
-
-            ConsoleHelper.ReadLine();
-        }        
 
         private static void Server_OnMessage(string id, WSProtocal data)
         {
@@ -125,6 +136,32 @@ namespace SAEA.WebSocketTest
         {
             ConsoleHelper.WriteLine("WSClient 连接已断开：" + ex.Message, ConsoleColor.DarkGray);
         }
+
+        #endregion
+
+        #region test2
+
+        static void Init2()
+        {
+            ConsoleHelper.WriteLine("WSSServer 正在初始化....", ConsoleColor.Green);
+
+            var pfxPath = PathHelper.GetFullName("yswenli.pfx");
+            _server = new WSServer(39656, System.Security.Authentication.SslProtocols.Tls12, pfxPath, "yswenli");
+            _server.OnMessage += Server_OnMessage2;
+            _server.Start();
+
+            ConsoleHelper.WriteLine("WSSServer 就绪,回车启动客户端", ConsoleColor.Green);
+        }
+
+        private static void Server_OnMessage2(string id, WSProtocal data)
+        {
+            ConsoleHelper.WriteLine("WSSServer 收到{0}的消息：{1}", ConsoleColor.Green, id, Encoding.UTF8.GetString(data.Content));
+
+            _server.Reply(id, data);
+        }
+
+
+        #endregion
 
 
     }

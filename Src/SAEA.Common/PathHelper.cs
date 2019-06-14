@@ -29,11 +29,20 @@ using System.Reflection;
 
 namespace SAEA.Common
 {
-    public static class PathHelper
+    public sealed class PathHelper
     {
+        static string _currentPath = string.Empty;
+
         public static string GetCurrentPath()
         {
-            return Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            //return Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+
+            if (string.IsNullOrEmpty(_currentPath))
+            {
+                _currentPath = Path.GetDirectoryName(Assembly.GetAssembly(typeof(PathHelper)).Location);
+            }
+
+            return _currentPath;
         }
 
         /// <summary>
@@ -105,7 +114,7 @@ namespace SAEA.Common
 
                     directories.AddRange(GetAllDirectories(dir, out sfs));
 
-                    if(sfs!=null && sfs.Any())
+                    if (sfs != null && sfs.Any())
                     {
                         files.AddRange(sfs);
                     }

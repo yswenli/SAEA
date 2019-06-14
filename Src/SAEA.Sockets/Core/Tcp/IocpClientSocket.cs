@@ -92,7 +92,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// iocp 客户端 socket
         /// </summary>
         /// <param name="socketOption"></param>
-        public IocpClientSocket(ISocketOption socketOption) : this(socketOption.Context, socketOption.IP, socketOption.Port, socketOption.BufferSize, socketOption.TimeOut)
+        public IocpClientSocket(ISocketOption socketOption) : this(socketOption.Context, socketOption.IP, socketOption.Port, socketOption.ReadBufferSize, socketOption.TimeOut)
         {
             _SocketOption = socketOption;
         }

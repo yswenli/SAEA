@@ -82,17 +82,17 @@ namespace SAEA.Sockets
             return this;
         }
 
-        public SocketOptionBuilder WithSsl(SslProtocols sslProtocols, string cenFilePath = "")
+        public SocketOptionBuilder WithSsl(SslProtocols sslProtocols, string pfxFilePath = "*.pfx", string pwd = "")
         {
             if (_socketOption.UseIocp) throw new Exception("暂不支持此模式下的ssl");
             _socketOption.SslProtocol = sslProtocols;
-            if (!string.IsNullOrEmpty(cenFilePath))
+            if (!string.IsNullOrEmpty(pfxFilePath))
             {
-                if (!FileHelper.Exists(cenFilePath))
+                if (!FileHelper.Exists(pfxFilePath))
                 {
                     throw new Exception("cenFilePath设置有误，找不到该证书文件!");
                 }
-                _socketOption.X509Certificate2 = (X509Certificate2)X509Certificate.CreateFromCertFile(cenFilePath);
+                _socketOption.X509Certificate2 = new X509Certificate2(pfxFilePath, pwd, X509KeyStorageFlags.PersistKeySet);
                 _socketOption.WithSsl = true;
             }
             return this;
@@ -128,9 +128,15 @@ namespace SAEA.Sockets
             return this;
         }
 
-        public SocketOptionBuilder SetBufferSize(int size = 1024)
+        public SocketOptionBuilder SetReadBufferSize(int size = 1024)
         {
-            _socketOption.BufferSize = size;
+            _socketOption.ReadBufferSize = size;
+            return this;
+        }
+
+        public SocketOptionBuilder SetWriteBufferSize(int size = 1024)
+        {
+            _socketOption.WriteBufferSize = size;
             return this;
         }
 

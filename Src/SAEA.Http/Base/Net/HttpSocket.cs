@@ -52,7 +52,7 @@ namespace SAEA.Http.Base.Net
                .UseIocp(new HContext())
                .SetPort(port)
                .SetCount(count)
-               .SetBufferSize(bufferSize)
+               .SetReadBufferSize(bufferSize)
                .SetTimeOut(timeOut);
             var option = optionBuilder.Build();
 

@@ -22,103 +22,42 @@
 *
 *****************************************************************************/
 
-using SAEA.Common;
-using SAEA.Sockets.Core;
-using SAEA.Sockets.Core.Tcp;
-using SAEA.Sockets.Interface;
+using SAEA.WebSocket.Core;
 using SAEA.WebSocket.Model;
-using SAEA.WebSocket.Type;
 using System;
-using System.Threading;
+using System.Security.Authentication;
 
 namespace SAEA.WebSocket
 {
-    public class WSServer : IocpServerSocket
+    public class WSServer
     {
-        int _heartSpan = 20 * 1000;
-
-        public WSServer(int heartSpan = 20 * 1000, int bufferSize = 1024, int count = 60000) : base(new WSContext(), bufferSize, count)
-        {
-            _heartSpan = heartSpan;
-
-            this.HeartAsync();
-        }
-
+        IWSServer wsServer;
 
         public event Action<string, WSProtocal> OnMessage;
 
-
-        protected override void OnReceiveBytes(IUserToken userToken, byte[] data)
+        public WSServer(int port = 39654, SslProtocols protocols = SslProtocols.None, string pfxPath = "", string pwd = "", int heartSpan = 20 * 1000, int bufferSize = 1024, int count = 60000)
         {
-            var ut = (WSUserToken)(userToken);
-
-            if (!ut.IsHandSharked)
+            if (protocols != SslProtocols.None && !string.IsNullOrEmpty(pfxPath))
             {
-                byte[] resData = null;
-
-                var result = ut.GetReplayHandShake(data, out resData);
-
-                if (result)
-                {
-                    base.BeginSend(ut, resData);
-                    ut.IsHandSharked = true;
-                }
+                wsServer = new WSSServerImpl(protocols, pfxPath, pwd, port, bufferSize);
             }
             else
             {
-                var coder = (WSCoder)ut.Unpacker;
-                coder.Unpack(data, (d) =>
-                {
-                    var wsProtocal = (WSProtocal)d;
-                    switch (wsProtocal.Type)
-                    {
-                        case (byte)WSProtocalType.Close:
-                            ReplyClose(ut, wsProtocal);
-                            break;
-                        case (byte)WSProtocalType.Ping:
-                            ReplyPong(ut, wsProtocal);
-                            break;
-                        case (byte)WSProtocalType.Binary:
-                        case (byte)WSProtocalType.Text:
-                        case (byte)WSProtocalType.Cont:
-                            OnMessage?.Invoke(ut.ID, (WSProtocal)d);
-                            break;
-                        case (byte)WSProtocalType.Pong:
-                            break;
-                        default:
-                            var error = string.Format("收到未定义的Opcode={0}", d.Type);
-                            break;
-                    }
-
-                }, (h) => { }, null);
+                wsServer = new WSServerImpl(port, heartSpan, bufferSize, count);
+                wsServer.OnMessage += WsServer_OnMessage;
             }
         }
 
-
-        private void ReplyBase(WSUserToken ut, WSProtocalType type, byte[] content)
+        private void WsServer_OnMessage(string str, WSProtocal protocal)
         {
-            var byts = new WSProtocal(type, content).ToBytes();
-
-            base.SendAsync(ut.ID, byts);
+            this.OnMessage?.Invoke(str, protocal);
         }
 
-        private void ReplyBase(WSUserToken ut, WSProtocal data)
+
+        public void Start(int backlog = 10 * 1000)
         {
-            var byts = data.ToBytes();
-
-            base.SendAsync(ut.ID, byts);
+            wsServer.Start(backlog);
         }
-
-        private void ReplyPong(WSUserToken ut, WSProtocal data)
-        {
-            ReplyBase(ut, WSProtocalType.Pong, data.Content);
-        }
-
-        private void ReplyClose(WSUserToken ut, WSProtocal data)
-        {
-            ReplyBase(ut, WSProtocalType.Close, data.Content);
-        }
-
 
         /// <summary>
         /// 回复客户端消息
@@ -127,8 +66,7 @@ namespace SAEA.WebSocket
         /// <param name="data"></param>
         public void Reply(string id, WSProtocal data)
         {
-            var ut = SessionManager.Get(id);
-            ReplyBase((WSUserToken)ut, data);
+            wsServer.Reply(id, data);
         }
 
         /// <summary>
@@ -138,40 +76,14 @@ namespace SAEA.WebSocket
         /// <param name="data"></param>
         public void Disconnect(string id, WSProtocal data)
         {
-            var ut = SessionManager.Get(id);
-            ReplyBase((WSUserToken)ut, data);
-
+            wsServer.Disconnect(id, data);
         }
 
-        /// <summary>
-        /// 反 ping
-        /// </summary>
-        private void HeartAsync()
+
+        public void Stop()
         {
-            ThreadHelper.Run(() =>
-            {
-                while (true)
-                {
-                    try
-                    {
-                        Thread.Sleep(_heartSpan);
-
-                        var list = SessionManager.ToList();
-
-                        if (list != null && list.Count > 0)
-
-                            foreach (WSUserToken item in list)
-                            {
-                                if (item.Actived.AddMilliseconds(_heartSpan) < DateTimeHelper.Now)
-                                    ReplyBase(item, WSProtocalType.Ping, null);
-                            }
-                    }
-                    catch { }
-                }
-            }, true, ThreadPriority.Highest);
+            wsServer.Stop();
         }
-
-
 
     }
 }

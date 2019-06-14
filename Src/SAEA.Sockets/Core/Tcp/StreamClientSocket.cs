@@ -69,7 +69,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// </summary>
         /// <param name="socketOption"></param>
         /// <param name="cancellationToken"></param>
-        public StreamClientSocket(ISocketOption socketOption, CancellationToken cancellationToken) : this(cancellationToken, socketOption.IP, socketOption.Port, socketOption.BufferSize, socketOption.TimeOut, socketOption.SslProtocol, socketOption.WithSsl)
+        public StreamClientSocket(ISocketOption socketOption, CancellationToken cancellationToken) : this(cancellationToken, socketOption.IP, socketOption.Port, socketOption.ReadBufferSize, socketOption.TimeOut, socketOption.SslProtocol, socketOption.WithSsl)
         {
             _SocketOption = socketOption;
         }
@@ -78,7 +78,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// 客户端 socket
         /// </summary>
         /// <param name="socketOption"></param>
-        public StreamClientSocket(ISocketOption socketOption) : this(socketOption.IP, socketOption.Port, socketOption.BufferSize, socketOption.TimeOut, socketOption.SslProtocol, socketOption.WithSsl)
+        public StreamClientSocket(ISocketOption socketOption) : this(socketOption.IP, socketOption.Port, socketOption.ReadBufferSize, socketOption.TimeOut, socketOption.SslProtocol, socketOption.WithSsl)
         {
             _SocketOption = socketOption;
         }

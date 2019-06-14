@@ -36,11 +36,30 @@ namespace SAEA.Sockets.Core
         public static void KeepAlive(this Socket socket, int keepAliveTime = 30 * 1000, int timeOut = 5 * 1000)
         {
             uint dummy = 0;
+
             byte[] inOptionValues = new byte[Marshal.SizeOf(dummy) * 3];
+
             BitConverter.GetBytes((uint)1).CopyTo(inOptionValues, 0);//是否启用Keep-Alive
+
             BitConverter.GetBytes((uint)keepAliveTime).CopyTo(inOptionValues, Marshal.SizeOf(dummy));//多长时间开始第一次探测
             BitConverter.GetBytes((uint)timeOut).CopyTo(inOptionValues, Marshal.SizeOf(dummy) * 2);//探测时间间隔
-            socket.IOControl(IOControlCode.KeepAliveValues, inOptionValues, null);
+
+            try
+            {
+                socket.IOControl(IOControlCode.KeepAliveValues, inOptionValues, null);
+            }
+            catch (PlatformNotSupportedException)
+            {
+                try
+                {
+                    socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
+                }
+                catch (PlatformNotSupportedException)
+                {
+
+                }
+            }
+
         }
     }
 }

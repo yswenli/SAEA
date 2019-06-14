@@ -81,7 +81,7 @@ namespace SAEA.Sockets.Interface
             get; set;
         }
 
-        int BufferSize
+        int ReadBufferSize
         {
             get; set;
         }

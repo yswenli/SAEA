@@ -91,7 +91,7 @@ namespace SAEA.Sockets.Core.Tcp
         {
             SocketOption = new SocketOption()
             {
-                BufferSize = bufferSize,
+                ReadBufferSize = bufferSize,
                 Context = context,
                 Count = count,
                 NoDelay = noDelay,
@@ -112,7 +112,7 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
 
-        public IocpServerSocket(ISocketOption socketOption) : this(socketOption.Context, socketOption.BufferSize, socketOption.Count, socketOption.NoDelay, socketOption.TimeOut, socketOption.UseIPV6, socketOption.Port) { }
+        public IocpServerSocket(ISocketOption socketOption) : this(socketOption.Context, socketOption.ReadBufferSize, socketOption.Count, socketOption.NoDelay, socketOption.TimeOut, socketOption.UseIPV6, socketOption.Port) { }
 
 
         /// <summary>

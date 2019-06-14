@@ -68,7 +68,12 @@ namespace SAEA.Sockets
             {
                 return new IocpServerSocket(socketOption);
             }
-            return null;
+            else
+            {
+                CancellationTokenSource source = new CancellationTokenSource();
+                CancellationToken token = source.Token;
+                return new StreamServerSocket(socketOption, token);
+            }
         }
 
 

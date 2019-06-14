@@ -55,66 +55,64 @@ namespace SAEA.WebSocket.Model
         /// <param name="callBack"></param>
         private void DeCode(byte[] data, Action<ISocketProtocal> callBack)
         {
-            lock (_locker)
+            byte[] payloadData = null;
+
+            _buffer.AddRange(data);
+
+            var buffer = _buffer.ToArray();
+
+            var opcode = (byte)(buffer[0] & 0x0f);
+            bool mask = (buffer[1] & 0x80) == 0x80; // 是否包含掩码  
+            int payloadLen = buffer[1] & 0x7F; // 数据长度  
+
+            if (payloadLen + 6 > buffer.Length) return;
+
+            if (mask)
             {
-                byte[] payloadData = null;
-
-                _buffer.AddRange(data);
-
-                var buffer = _buffer.ToArray();
-
-                var opcode = (byte)(buffer[0] & 0x0f);
-                bool mask = (buffer[1] & 0x80) == 0x80; // 是否包含掩码  
-                int payloadLen = buffer[1] & 0x7F; // 数据长度  
-
-                if (payloadLen + 6 > buffer.Length) return;
-
-                if (mask)
+                var masks = new byte[4];
+                if (payloadLen == 126)
                 {
-                    var masks = new byte[4];
-                    if (payloadLen == 126)
-                    {
-                        var len = (ushort)(buffer[2] << 8 | buffer[3]);
-                        if (len + 8 > buffer.Length) return;
+                    var len = (ushort)(buffer[2] << 8 | buffer[3]);
+                    if (len + 8 > buffer.Length) return;
 
-                        Array.Copy(buffer, 4, masks, 0, 4);
-                        payloadData = new byte[len];
-                        Array.Copy(buffer, 8, payloadData, 0, len);
-                        DoMask(payloadData, 0, len, masks);
-                        callBack?.Invoke(new WSProtocal((WSProtocalType)opcode, payloadData));
-                        _buffer.RemoveRange(0, 8 + len);
-                    }
-                    else
-                    {
-                        Array.Copy(buffer, 2, masks, 0, 4);
-                        payloadData = new byte[payloadLen];
-                        Array.Copy(buffer, 6, payloadData, 0, payloadLen);
-                        DoMask(payloadData, 0, payloadLen, masks);
-                        callBack?.Invoke(new WSProtocal((WSProtocalType)opcode, payloadData));
-                        _buffer.RemoveRange(0, 6 + payloadLen);
-                    }
+                    Array.Copy(buffer, 4, masks, 0, 4);
+                    payloadData = new byte[len];
+                    Array.Copy(buffer, 8, payloadData, 0, len);
+                    DoMask(payloadData, 0, len, masks);
+                    callBack?.Invoke(new WSProtocal((WSProtocalType)opcode, payloadData));
+                    _buffer.RemoveRange(0, 8 + len);
                 }
                 else
                 {
-                    if (payloadLen == 126)
-                    {
-                        var len = (ushort)(buffer[2] << 8 | buffer[3]);
-                        if (len + 8 > buffer.Length) return;
-
-                        payloadData = new byte[len];
-                        Array.Copy(buffer, 4, payloadData, 0, len);
-                        callBack?.Invoke(new WSProtocal((WSProtocalType)opcode, payloadData));
-                        _buffer.RemoveRange(0, 4 + len);
-                    }
-                    else
-                    {
-                        payloadData = new byte[payloadLen];
-                        Array.Copy(buffer, 2, payloadData, 0, payloadLen);
-                        callBack?.Invoke(new WSProtocal((WSProtocalType)opcode, payloadData));
-                        _buffer.RemoveRange(0, 2 + payloadLen);
-                    }
+                    Array.Copy(buffer, 2, masks, 0, 4);
+                    payloadData = new byte[payloadLen];
+                    Array.Copy(buffer, 6, payloadData, 0, payloadLen);
+                    DoMask(payloadData, 0, payloadLen, masks);
+                    callBack?.Invoke(new WSProtocal((WSProtocalType)opcode, payloadData));
+                    _buffer.RemoveRange(0, 6 + payloadLen);
                 }
             }
+            else
+            {
+                if (payloadLen == 126)
+                {
+                    var len = (ushort)(buffer[2] << 8 | buffer[3]);
+                    if (len + 8 > buffer.Length) return;
+
+                    payloadData = new byte[len];
+                    Array.Copy(buffer, 4, payloadData, 0, len);
+                    callBack?.Invoke(new WSProtocal((WSProtocalType)opcode, payloadData));
+                    _buffer.RemoveRange(0, 4 + len);
+                }
+                else
+                {
+                    payloadData = new byte[payloadLen];
+                    Array.Copy(buffer, 2, payloadData, 0, payloadLen);
+                    callBack?.Invoke(new WSProtocal((WSProtocalType)opcode, payloadData));
+                    _buffer.RemoveRange(0, 2 + payloadLen);
+                }
+            }
+
         }
 
 

@@ -87,7 +87,12 @@ namespace SAEA.Sockets.Model
             get; set;
         } = 39654;
 
-        public int BufferSize
+        public int ReadBufferSize
+        {
+            get; set;
+        } = 1024;
+
+        public int WriteBufferSize
         {
             get; set;
         } = 1024;

@@ -48,6 +48,7 @@ namespace SAEA.Sockets.Interface
 
         Stream GetStream();
 
+
         event OnClientReceiveHandler OnReceive;
 
         void Dispose();
