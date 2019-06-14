@@ -25,6 +25,7 @@
 using SAEA.WebSocket.Core;
 using SAEA.WebSocket.Model;
 using System;
+using System.Net;
 using System.Security.Authentication;
 
 namespace SAEA.WebSocket
@@ -37,6 +38,8 @@ namespace SAEA.WebSocket
 
         public WSServer(int port = 39654, SslProtocols protocols = SslProtocols.None, string pfxPath = "", string pwd = "", int heartSpan = 20 * 1000, int bufferSize = 1024, int count = 60000)
         {
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+
             if (protocols != SslProtocols.None && !string.IsNullOrEmpty(pfxPath))
             {
                 wsServer = new WSSServerImpl(protocols, pfxPath, pwd, port, bufferSize);

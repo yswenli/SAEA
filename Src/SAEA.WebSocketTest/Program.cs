@@ -38,9 +38,9 @@ namespace SAEA.WebSocketTest
 
         static void Main(string[] args)
         {
-            //Init1();
+            Init1();
 
-            Init2();
+            //Init2();
 
             ConsoleHelper.ReadLine();
         }
@@ -84,7 +84,7 @@ namespace SAEA.WebSocketTest
                     {
                         ConsoleHelper.WriteLine("WSClient 正在发送消息...", ConsoleColor.DarkGray);
 
-                        client.Send("hello world!");
+                        client.Send($"hello world!{DateTime.Now.ToString("HH:mm:ss.fff")}");
 
                         Thread.Sleep(1000);
                     }

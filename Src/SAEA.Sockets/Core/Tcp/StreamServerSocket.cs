@@ -155,7 +155,7 @@ namespace SAEA.Sockets.Core.Tcp
                 {
                     OnError?.Invoke(string.Empty, aex);
                     OnDisconnected?.Invoke(SocketOption.IP + "_" + SocketOption.Port, aex);
-                    return;
+                    clientSocket?.Close();
                 }
                 catch (Exception exception)
                 {
@@ -164,12 +164,8 @@ namespace SAEA.Sockets.Core.Tcp
                     if (exception is SocketException s && s.SocketErrorCode == SocketError.OperationAborted)
                     {
                         OnDisconnected?.Invoke(SocketOption.IP + "_" + SocketOption.Port, exception);
-                        return;
                     }
                     await Task.Delay(TimeSpan.FromSeconds(1), _cancellationToken).ConfigureAwait(false);
-                }
-                finally
-                {
                     clientSocket?.Close();
                 }
             }
