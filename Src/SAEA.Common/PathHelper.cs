@@ -39,7 +39,7 @@ namespace SAEA.Common
             {
                 _currentPath = Path.GetDirectoryName(Assembly.GetAssembly(typeof(PathHelper)).Location);
 
-                if (_currentPath.IndexOf(".nuget\\packages\\saea.common",StringComparison.OrdinalIgnoreCase) > -1)
+                if (_currentPath.IndexOf(".nuget\\packages", StringComparison.OrdinalIgnoreCase) > -1)
                 {
                     _currentPath = Directory.GetCurrentDirectory();
                 }

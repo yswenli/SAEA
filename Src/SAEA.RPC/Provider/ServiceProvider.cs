@@ -78,7 +78,7 @@ namespace SAEA.RPC.Provider
             _noticeCollection = new NoticeCollection();
 
             _RServer = new RServer(_port, bufferSize, count);
-            _RServer.OnMsg += _RServer_OnMsg;
+            _RServer.OnMsg += _RServer_OnMsgAsync;
             _RServer.OnError += _RServer_OnError;
 
             ExceptionCollector.OnErr += ExceptionCollector_OnErr;
@@ -94,7 +94,7 @@ namespace SAEA.RPC.Provider
             ExceptionCollector.Add("Provider", ex);
         }
 
-        private void _RServer_OnMsg(IUserToken userToken, RSocketMsg msg)
+        private void _RServer_OnMsgAsync(IUserToken userToken, RSocketMsg msg)
         {
             //ConsoleHelper.WriteLine($"2 provider receive: {msg.SequenceNumber}");
 
@@ -118,7 +118,7 @@ namespace SAEA.RPC.Provider
                     break;
 
                 case RSocketMsgType.RegistNotice:
-                    _noticeCollection.Set(userToken);
+                    _noticeCollection.Set(userToken).GetAwaiter();
                     break;
                 case RSocketMsgType.Response:
 
