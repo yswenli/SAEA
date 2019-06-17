@@ -35,11 +35,14 @@ namespace SAEA.Common
 
         public static string GetCurrentPath()
         {
-            //return Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-
             if (string.IsNullOrEmpty(_currentPath))
             {
                 _currentPath = Path.GetDirectoryName(Assembly.GetAssembly(typeof(PathHelper)).Location);
+
+                if (_currentPath.IndexOf(".nuget\\packages", StringComparison.OrdinalIgnoreCase) > -1)
+                {
+                    _currentPath = Directory.GetCurrentDirectory();
+                }
             }
 
             return _currentPath;

@@ -29,13 +29,13 @@ namespace SAEA.Common
     /// </summary>
     public static class SAEAVersion
     {
-        const string version = "v4.5.6.7";
+        const string version = "v4.6.6.8";
 
         /// <summary>
         /// 获取版本
         /// </summary>
         /// <returns></returns>
-        public static string ToString()
+        public static new string ToString()
         {
             return version;
         }
