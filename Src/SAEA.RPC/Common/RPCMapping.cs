@@ -82,35 +82,44 @@ namespace SAEA.RPC.Common
                                 Pamars = m.GetParameters().ToDic()
                             };
 
-                            List<object> iAttrs = null;
-
                             //类上面的过滤
                             var attrs = type.GetCustomAttributes(true);
 
                             if (attrs != null && attrs.Length > 0)
                             {
-                                var classAttrs = attrs.Where(b => b.GetType().BaseType.Name == ConstHelper.ACTIONFILTERATTRIBUTE).ToList();
+                                var classAttrs = attrs.Where(b => b is ActionFilterAtrribute).ToList();
 
-                                if (classAttrs != null && classAttrs.Count > 0)
+                                if (classAttrs != null && classAttrs.Any())
+                                {
 
-                                    iAttrs = classAttrs;
+                                    serviceInfo.FilterAtrrs = new List<ActionFilterAtrribute>();
 
+                                    foreach (var item in classAttrs)
+                                    {
+                                        serviceInfo.FilterAtrrs.Add((ActionFilterAtrribute)item);
+                                    }
+
+                                    serviceInfo.FilterAtrrs = serviceInfo.FilterAtrrs.OrderBy(b => b.Order).ToList();
+                                }
                             }
-
-                            serviceInfo.FilterAtrrs = iAttrs;
 
                             //action上面的过滤
                             var actionAttrs = m.GetCustomAttributes(true);
 
                             if (actionAttrs != null)
                             {
-                                var filterAttrs = attrs.Where(b => b.GetType().BaseType.Name == ConstHelper.ACTIONFILTERATTRIBUTE).ToList();
+                                var filterAttrs = actionAttrs.Where(b => b is ActionFilterAtrribute).ToList();
 
-                                if (filterAttrs != null && filterAttrs.Count > 0)
-
-                                    serviceInfo.ActionFilterAtrrs = filterAttrs;
+                                if (filterAttrs != null && filterAttrs.Any())
+                                {
+                                    serviceInfo.ActionFilterAtrrs = new List<ActionFilterAtrribute>();
+                                    foreach (var item in filterAttrs)
+                                    {
+                                        serviceInfo.ActionFilterAtrrs.Add((ActionFilterAtrribute)item);
+                                    };
+                                    serviceInfo.ActionFilterAtrrs = serviceInfo.ActionFilterAtrrs.OrderBy(b => b.Order).ToList();
+                                }
                             }
-
                             _serviceMap.Set(serviceName, m.Name, serviceInfo);
                         }
                     }

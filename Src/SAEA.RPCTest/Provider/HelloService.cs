@@ -30,6 +30,7 @@ namespace SAEA.RPCTest.Provider
     [RPCService]
     public class HelloService
     {
+        [LogAttribute]
         public string Hello()
         {
             var sb = new StringBuilder();

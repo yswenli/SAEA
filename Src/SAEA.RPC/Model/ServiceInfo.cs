@@ -41,23 +41,23 @@ namespace SAEA.RPC.Model
 
         public MethodInfo Method
         {
-            get;set;
+            get; set;
         }
 
         public object Instance
         {
-            get;set;
+            get; set;
         }
 
-        public List<object> FilterAtrrs { get; set; }
+        public List<ActionFilterAtrribute> FilterAtrrs { get; set; } = new List<ActionFilterAtrribute>();
 
-        public List<object> ActionFilterAtrrs { get; set; }
+        public List<ActionFilterAtrribute> ActionFilterAtrrs { get; set; } = new List<ActionFilterAtrribute>();
 
         public Dictionary<string, Type> Pamars
         {
             get; set;
         } = new Dictionary<string, Type>();
 
-        
+
     }
 }

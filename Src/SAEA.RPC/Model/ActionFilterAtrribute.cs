@@ -23,11 +23,24 @@
 *****************************************************************************/
 using SAEA.Sockets.Interface;
 using System;
+using System.Diagnostics;
 
-namespace SAEA.RPC.Model
+namespace SAEA.RPC
 {
+    /// <summary>
+    /// SAEA.RPC AOP入口类
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = false, Inherited = true)]
     public abstract class ActionFilterAtrribute : Attribute
     {
+        /// <summary>
+        /// 执行顺序
+        /// </summary>
+        public int Order
+        {
+            get; set;
+        }
+
         /// <summary>
         /// 方法执行前
         /// </summary>

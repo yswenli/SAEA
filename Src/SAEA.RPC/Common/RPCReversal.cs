@@ -54,7 +54,7 @@ namespace SAEA.RPC.Common
             {
                 inputs = null;
             }
-            var result= method.Invoke(obj, inputs);
+            var result = method.Invoke(obj, inputs);
 
             return result;
         }
@@ -69,13 +69,15 @@ namespace SAEA.RPC.Common
                 throw new RPCNotFundException($"当前请求找不到:{serviceName}/{methodName}", null);
             }
 
+            #region 执行前
+
             var nargs = new object[] { userToken, serviceName, methodName, inputs };
 
-            if (serviceInfo.FilterAtrrs != null && serviceInfo.FilterAtrrs.Count > 0)
+            if (serviceInfo.FilterAtrrs != null && serviceInfo.FilterAtrrs.Any())
             {
                 foreach (var arr in serviceInfo.FilterAtrrs)
                 {
-                    var goOn = (bool)arr.GetType().GetMethod("OnActionExecuting").Invoke(arr, nargs.ToArray());
+                    var goOn = (bool)arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING).Invoke(arr, nargs.ToArray());
 
                     if (!goOn)
                     {
@@ -84,11 +86,11 @@ namespace SAEA.RPC.Common
                 }
             }
 
-            if (serviceInfo.ActionFilterAtrrs != null && serviceInfo.ActionFilterAtrrs.Count > 0)
+            if (serviceInfo.ActionFilterAtrrs != null && serviceInfo.ActionFilterAtrrs.Any())
             {
                 foreach (var arr in serviceInfo.ActionFilterAtrrs)
                 {
-                    var goOn = (bool)arr.GetType().GetMethod("OnActionExecuting").Invoke(arr, nargs.ToArray());
+                    var goOn = (bool)arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING).Invoke(arr, nargs.ToArray());
 
                     if (!goOn)
                     {
@@ -97,25 +99,32 @@ namespace SAEA.RPC.Common
                 }
             }
 
+            #endregion
+
             var result = ReversalMethod(serviceInfo.Instance, serviceInfo.Method, inputs);
+
+            #region 执行后
 
             nargs = new object[] { userToken, serviceName, methodName, inputs, result };
 
-            if (serviceInfo.FilterAtrrs != null && serviceInfo.FilterAtrrs.Count > 0)
+            if (serviceInfo.FilterAtrrs != null && serviceInfo.FilterAtrrs.Any())
             {
                 foreach (var arr in serviceInfo.FilterAtrrs)
                 {
-                    arr.GetType().GetMethod("OnActionExecuted").Invoke(arr, nargs);
+                    arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTED).Invoke(arr, nargs);
                 }
             }
 
-            if (serviceInfo.ActionFilterAtrrs != null && serviceInfo.ActionFilterAtrrs.Count > 0)
+            if (serviceInfo.ActionFilterAtrrs != null && serviceInfo.ActionFilterAtrrs.Any())
             {
-                foreach (var arr in serviceInfo.FilterAtrrs)
+                foreach (var arr in serviceInfo.ActionFilterAtrrs)
                 {
-                    arr.GetType().GetMethod("OnActionExecuted").Invoke(arr, nargs);
+                    arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTED).Invoke(arr, nargs);
                 }
             }
+
+            #endregion
+
             return result;
         }
 

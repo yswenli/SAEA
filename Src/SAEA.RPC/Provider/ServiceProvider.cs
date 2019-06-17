@@ -96,39 +96,42 @@ namespace SAEA.RPC.Provider
 
         private void _RServer_OnMsg(IUserToken userToken, RSocketMsg msg)
         {
-            //ConsoleHelper.WriteLine($"2 provider receive: {msg.SequenceNumber}");
-
-            switch ((RSocketMsgType)msg.Type)
+            try
             {
-                case RSocketMsgType.Ping:
-                    _RServer.Reply(userToken, new RSocketMsg(RSocketMsgType.Pong) { SequenceNumber = msg.SequenceNumber });
-                    break;
-                case RSocketMsgType.Pong:
+                switch ((RSocketMsgType)msg.Type)
+                {
+                    case RSocketMsgType.Ping:
+                        _RServer.Reply(userToken, new RSocketMsg(RSocketMsgType.Pong) { SequenceNumber = msg.SequenceNumber });
+                        break;
+                    case RSocketMsgType.Pong:
 
-                    break;
-                case RSocketMsgType.Request:
+                        break;
+                    case RSocketMsgType.Request:
 
-                    var data = RPCReversal.Reversal(userToken, msg);
+                        var data = RPCReversal.Reversal(userToken, msg);
 
-                    var rSocketMsg = new RSocketMsg(RSocketMsgType.Response, null, null, data) { SequenceNumber = msg.SequenceNumber };
+                        var rSocketMsg = new RSocketMsg(RSocketMsgType.Response, null, null, data) { SequenceNumber = msg.SequenceNumber };
 
-                    _RServer.Reply(userToken, rSocketMsg);
+                        _RServer.Reply(userToken, rSocketMsg);
+                        break;
 
-                    //ConsoleHelper.WriteLine($"3 provider send: {msg.SequenceNumber}");
-                    break;
+                    case RSocketMsgType.RegistNotice:
+                        _noticeCollection.Set(userToken);
+                        break;
+                    case RSocketMsgType.Response:
 
-                case RSocketMsgType.RegistNotice:
-                    _noticeCollection.Set(userToken);
-                    break;
-                case RSocketMsgType.Response:
+                        break;
+                    case RSocketMsgType.Error:
 
-                    break;
-                case RSocketMsgType.Error:
-
-                    break;
-                case RSocketMsgType.Close:
-                    _RServer.Disconnect(userToken);
-                    break;
+                        break;
+                    case RSocketMsgType.Close:
+                        _RServer.Disconnect(userToken);
+                        break;
+                }
+            }
+            catch(Exception ex)
+            {
+                ExceptionCollector.Add("Provider", ex);
             }
         }
 
