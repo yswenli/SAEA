@@ -42,12 +42,12 @@ namespace SAEA.Common
         {
             var cts = new CancellationTokenSource(timeOut);
             cts.Token.Register(canceled);
-            await Task.Factory.StartNew(action, cts.Token);
+            await Task.Run(action, cts.Token);
         }
 
         public static Task Start(Action action)
         {
-            return Task.Factory.StartNew(action);
+            return Task.Run(action);
         }
     }
 }

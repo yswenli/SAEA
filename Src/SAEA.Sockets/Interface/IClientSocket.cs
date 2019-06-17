@@ -42,6 +42,8 @@ namespace SAEA.Sockets.Interface
 
         bool Connected { get; set; }
 
+        void BeginSend(byte[] data);
+
         Task SendAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken);
 
         Task<int> ReceiveAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken);
@@ -50,6 +52,12 @@ namespace SAEA.Sockets.Interface
 
 
         event OnClientReceiveHandler OnReceive;
+
+        event OnDisconnectedHandler OnDisconnected;
+
+        event OnErrorHandler OnError;
+
+        void Disconnect();
 
         void Dispose();
     }

@@ -62,7 +62,11 @@ namespace SAEA.Sockets.Core.Tcp
 
         public event OnDisconnectedHandler OnDisconnected;
 
+        [Obsolete("此方法为IOCP中所用")]
         public event OnClientReceiveHandler OnReceive;
+
+
+        public event OnErrorHandler OnError;
 
         /// <summary>
         /// 客户端 socket
@@ -265,6 +269,16 @@ namespace SAEA.Sockets.Core.Tcp
             certificates.Add(_SocketOption.X509Certificate2);
 
             return certificates;
+        }
+
+        public void BeginSend(byte[] data)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void Disconnect()
+        {
+            throw new NotImplementedException();
         }
 
         #endregion

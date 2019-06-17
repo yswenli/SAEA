@@ -155,15 +155,20 @@ namespace SAEA.Sockets.Core.Tcp
         /// <returns></returns>
         public async Task ConnectAsync()
         {
-            await _socket.ConnectAsync(_SocketOption.IP, _SocketOption.Port).ConfigureAwait(false);
+            if (!Connected)
+            {
+                await _socket.ConnectAsync(_SocketOption.IP, _SocketOption.Port).ConfigureAwait(false);
 
-            _userToken.ID = _socket.LocalEndPoint.ToString();
-            _userToken.Socket = _socket;
-            _userToken.Linked = _userToken.Actived = DateTime.Now;
+                Connected = true;
 
-            var readArgs = _userToken.ReadArgs;
-            if (!_userToken.Socket.ReceiveAsync(readArgs))
-                ProcessReceive(readArgs);
+                _userToken.ID = _socket.LocalEndPoint.ToString();
+                _userToken.Socket = _socket;
+                _userToken.Linked = _userToken.Actived = DateTime.Now;
+
+                var readArgs = _userToken.ReadArgs;
+                if (!_userToken.Socket.ReceiveAsync(readArgs))
+                    ProcessReceive(readArgs);
+            }
         }
 
         /// <summary>
@@ -397,7 +402,7 @@ namespace SAEA.Sockets.Core.Tcp
             throw new InvalidOperationException("iocp暂不支持流模式");
         }
 
-        public void Disconnect(Exception ex = null)
+        public void Disconnect(Exception ex)
         {
             var mex = ex;
 
@@ -433,6 +438,11 @@ namespace SAEA.Sockets.Core.Tcp
         {
             this.Disconnect();
             IsDisposed = true;
+        }
+
+        public void Disconnect()
+        {
+            this.Disconnect(null);
         }
     }
 }

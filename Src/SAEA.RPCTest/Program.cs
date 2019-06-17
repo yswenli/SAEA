@@ -23,6 +23,9 @@ namespace SAEA.RPCTest
         static void Main(string[] args)
         {
 
+            var uri = new Uri("https://www.baidu.com");
+
+
             ConsoleHelper.WriteLine($"SAEA.RPC测试： {Environment.NewLine}   a 启动rpc provider consumer{Environment.NewLine}   p 启动rpc provider{Environment.NewLine}   c 启动rpc consumer{Environment.NewLine}   g 启动rpc consumer代码生成器{Environment.NewLine}   t 启动rpc稳定性测试{Environment.NewLine}   s 启动rpc序列化测试{Environment.NewLine}   n 启动rpc Notice 测试");
 
             var inputStr = ConsoleHelper.ReadLine();

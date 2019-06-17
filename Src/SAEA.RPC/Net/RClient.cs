@@ -24,17 +24,27 @@
 using SAEA.Common;
 using SAEA.RPC.Common;
 using SAEA.RPC.Model;
+using SAEA.Sockets;
 using SAEA.Sockets.Core.Tcp;
+using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
+using SAEA.Sockets.Model;
 using System;
+using System.Linq;
+using System.Net;
+using System.Net.Sockets;
 
 namespace SAEA.RPC.Net
 {
-    internal class RClient : IocpClientSocket, ISyncBase, IDisposable
+    internal class RClient : ISyncBase, IDisposable
     {
         bool _isDisposed = false;
 
         SyncHelper<byte[]> _syncHelper = new SyncHelper<byte[]>();
+
+        RContext _RContext;
+
+        IClientSocket _client;
 
 
         object _syncLocker = new object();
@@ -47,26 +57,57 @@ namespace SAEA.RPC.Net
             }
         }
 
+        public bool Connected
+        {
+            get
+            {
+                return _client == null ? false : _client.Connected;
+            }
+        }
+
         public event OnNoticedHandler OnNoticed;
 
-        public RClient(Uri uri) : this(100 * 1024, uri.Host, uri.Port)
+        public event OnDisconnectedHandler OnDisconnected;
+
+        public event OnErrorHandler OnError;
+
+        public RClient(Uri uri)
         {
             if (string.IsNullOrEmpty(uri.Scheme) || string.Compare(uri.Scheme, "rpc", true) != 0)
             {
                 ExceptionCollector.Add("Consumer.RClient.Init Error", new RPCSocketException("当前连接协议不正确，请使用格式rpc://ip:port"));
                 return;
             }
+
+            var ipPort = DNSHelper.GetIPPort(uri);
+
+            _RContext = new RContext();            
+
+            SocketOptionBuilder builder = SocketOptionBuilder.Instance;
+
+            var option = builder.SetSocket().UseIocp(_RContext).SetIP(ipPort.Item1).SetPort(ipPort.Item2).SetReadBufferSize().SetWriteBufferSize().Build();
+
+            _client = SocketFactory.CreateClientSocket(option);
+
+            _client.OnReceive += OnReceived;
+
+            _client.OnDisconnected += _client_OnDisConnected;
+
         }
 
-        public RClient(int bufferSize = 100 * 1024, string ip = "127.0.0.1", int port = 39654) : base(new RContext(), ip, port, bufferSize)
+        private void _client_OnDisConnected(string ID, Exception ex)
         {
-
+            OnDisconnected?.Invoke(ID, ex);
         }
 
-
-        protected override void OnReceived(byte[] data)
+        public void Connect()
         {
-            ((RCoder)UserToken.Unpacker).Unpack(data, msg =>
+            _client.ConnectAsync().GetAwaiter();
+        }
+
+        protected void OnReceived(byte[] data)
+        {
+            ((RCoder)_RContext.Unpacker).Unpack(data, msg =>
             {
                 switch ((RSocketMsgType)msg.Type)
                 {
@@ -104,9 +145,9 @@ namespace SAEA.RPC.Net
                 {
                     try
                     {
-                        if (this.Connected)
+                        if (_client.Connected)
                         {
-                            if (UserToken.Actived.AddSeconds(60) < DateTimeHelper.Now)
+                            if (_RContext.UserToken.Actived.AddSeconds(60) < DateTimeHelper.Now)
                             {
                                 BeginSend(new RSocketMsg(RSocketMsgType.Ping));
                             }
@@ -120,13 +161,16 @@ namespace SAEA.RPC.Net
                 }
             });
         }
+
         /// <summary>
         /// 发送数据
         /// </summary>
         /// <param name="msg"></param>
         internal void BeginSend(RSocketMsg msg)
         {
-            BeginSend(((RCoder)UserToken.Unpacker).Encode(msg));
+            var data = ((RCoder)_RContext.Unpacker).Encode(msg);
+
+            _client.BeginSend(data);
         }
 
         /// <summary>
@@ -177,8 +221,8 @@ namespace SAEA.RPC.Net
         public new void Dispose()
         {
             _isDisposed = true;
-            this.Disconnect();
-            base.Dispose();
+            _client.Disconnect();
+            _client.Dispose();
         }
     }
 }
