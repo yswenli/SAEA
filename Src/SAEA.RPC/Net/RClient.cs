@@ -25,14 +25,9 @@ using SAEA.Common;
 using SAEA.RPC.Common;
 using SAEA.RPC.Model;
 using SAEA.Sockets;
-using SAEA.Sockets.Core.Tcp;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
-using SAEA.Sockets.Model;
 using System;
-using System.Linq;
-using System.Net;
-using System.Net.Sockets;
 
 namespace SAEA.RPC.Net
 {
@@ -149,7 +144,7 @@ namespace SAEA.RPC.Net
                         {
                             if (_RContext.UserToken.Actived.AddSeconds(60) < DateTimeHelper.Now)
                             {
-                                BeginSend(new RSocketMsg(RSocketMsgType.Ping));
+                                Send(new RSocketMsg(RSocketMsgType.Ping));
                             }
                         }
                         ThreadHelper.Sleep(5 * 100);
@@ -166,11 +161,11 @@ namespace SAEA.RPC.Net
         /// 发送数据
         /// </summary>
         /// <param name="msg"></param>
-        internal void BeginSend(RSocketMsg msg)
+        internal void Send(RSocketMsg msg)
         {
             var data = ((RCoder)_RContext.Unpacker).Encode(msg);
 
-            _client.BeginSend(data);
+            _client.Send(data);
         }
 
         /// <summary>
@@ -192,7 +187,7 @@ namespace SAEA.RPC.Net
 
             msg.Data = args;
 
-            if (_syncHelper.Wait(msg.SequenceNumber, () => { this.BeginSend(msg); }, (r) => { result = r; }, timeOut))
+            if (_syncHelper.Wait(msg.SequenceNumber, () => { this.Send(msg); }, (r) => { result = r; }, timeOut))
             {
                 return result;
             }
@@ -212,13 +207,13 @@ namespace SAEA.RPC.Net
             {
                 SequenceNumber = UniqueKeyHelper.Next()
             };
-            BeginSend(msg);
+            Send(msg);
         }
 
         /// <summary>
         /// 释放资源
         /// </summary>
-        public new void Dispose()
+        public void Dispose()
         {
             _isDisposed = true;
             _client.Disconnect();

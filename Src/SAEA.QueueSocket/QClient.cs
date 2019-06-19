@@ -92,7 +92,7 @@ namespace SAEA.QueueSocket
                         {
                             if (Actived.AddMilliseconds(HeartSpan) <= DateTimeHelper.Now)
                             {
-                                SendAsync(_queueCoder.Ping(_name));
+                                Send(_queueCoder.Ping(_name));
                             }
                             autoResetEvent.WaitOne(HeartSpan / 2);
                         }
@@ -129,7 +129,7 @@ namespace SAEA.QueueSocket
                 {
                     return;
                 }
-                SendAsync(cache.ToArray());
+                Send(cache.ToArray());
                 cache.Clear();
                 _sendSpan = DateTimeHelper.Now.AddMilliseconds(500);
             }
@@ -148,12 +148,12 @@ namespace SAEA.QueueSocket
 
         public void Subscribe(string topic)
         {
-            SendAsync(_queueCoder.Subscribe(_name, topic));
+            Send(_queueCoder.Subscribe(_name, topic));
         }
 
         public void Unsubscribe(string topic)
         {
-            SendAsync(_queueCoder.Unsubcribe(_name, topic));
+            Send(_queueCoder.Unsubcribe(_name, topic));
         }
 
         public void Close()
@@ -163,7 +163,7 @@ namespace SAEA.QueueSocket
                 autoResetEvent.WaitOne(10000);
             }
             _isClosed = true;
-            SendAsync(_queueCoder.Close(_name));
+            Send(_queueCoder.Close(_name));
         }
     }
 }

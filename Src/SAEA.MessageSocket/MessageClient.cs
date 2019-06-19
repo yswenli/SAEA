@@ -165,7 +165,7 @@ namespace SAEA.MessageSocket
                                     BodyLength = 0,
                                     Type = (byte)SocketProtocalType.Heart
                                 };
-                                SendAsync(sm.ToBytes());
+                                Send(sm.ToBytes());
                             }
                             ThreadHelper.Sleep(HeartSpan);
                         }

@@ -93,7 +93,7 @@ namespace SAEA.TcpP2P.Net
         {
             var qm = PSocketMsg.Parse(content, type);
 
-            SendAsync(qm.ToBytes());
+            Send(qm.ToBytes());
 
             Actived = DateTime.Now;
         }

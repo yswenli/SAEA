@@ -167,6 +167,12 @@ namespace SAEA.Sockets.Core.Tcp
             this.Connected = true;
         }
 
+
+        public void Send(byte[] buffer)
+        {
+            _stream.Write(buffer, 0, buffer.Length);
+        }
+
         /// <summary>
         /// 异步发送
         /// </summary>
