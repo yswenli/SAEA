@@ -106,7 +106,7 @@ namespace SAEA.Sockets.Core.Tcp
             _sessionManager = new SessionManager(context, bufferSize, count, IO_Completed, new TimeSpan(0, 0, timeOut));
             _sessionManager.OnTimeOut += _sessionManager_OnTimeOut;
             OnServerReceiveBytes = new OnServerReceiveBytesHandler(OnReceiveBytes);
-            _listener = new Socket(AddressFamily.InterNetwork, System.Net.Sockets.SocketType.Stream, ProtocolType.Tcp);
+            _listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             _listener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             _listener.NoDelay = noDelay;
         }
@@ -190,7 +190,7 @@ namespace SAEA.Sockets.Core.Tcp
                     try
                     {
                         var userToken = (IUserToken)e.UserToken;
-                        Disconnect(userToken, new Exception("当前操作异常，SocketAsyncOperation：" + e.LastOperation));
+                        Disconnect(userToken, new Exception("Operation-exceptions，SocketAsyncOperation：" + e.LastOperation));
                     }
                     catch { }
                     break;
@@ -384,9 +384,11 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="data"></param>
         public void End(IUserToken userToken, byte[] data)
         {
-            var result = userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, null, null);
-            userToken.Socket.EndSend(result);
-            Disconnect(userToken);
+            userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, new AsyncCallback((result) =>
+            {
+                userToken.Socket.EndSend(result);
+                Disconnect(userToken);
+            }), null);
         }
         #endregion
 
