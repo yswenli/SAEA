@@ -26,6 +26,7 @@ using System.Collections.Generic;
 
 namespace SAEA.RPCTest.Provider.Model
 {
+    [Serializable]
     public class GroupInfo
     {
         public int GroupID

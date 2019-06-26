@@ -210,6 +210,7 @@ namespace SAEA.RPCTest.Consumer.Model
 
 namespace SAEA.RPCTest.Consumer.Model
 {
+    [Serializable]
     public class UserInfo
     {
         public Int32 ID
@@ -234,6 +235,7 @@ namespace SAEA.RPCTest.Consumer.Model
 
 namespace SAEA.RPCTest.Consumer.Model
 {
+    [Serializable]
     public class GroupInfo
     {
         public Int32 GroupID
