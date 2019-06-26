@@ -286,7 +286,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// </summary>
         /// <param name="sessionID"></param>
         /// <param name="data"></param>
-        protected void SendAsync(string sessionID, byte[] data)
+        public void SendAsync(string sessionID, byte[] data)
         {
             var userToken = _sessionManager.Get(sessionID);
             if (userToken != null)
@@ -301,7 +301,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// </summary>
         /// <param name="userToken"></param>
         /// <param name="data"></param>
-        protected void Send(IUserToken userToken, byte[] data)
+        public void Send(IUserToken userToken, byte[] data)
         {
             try
             {
@@ -333,7 +333,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// </summary>
         /// <param name="sessionID"></param>
         /// <param name="data"></param>
-        protected void Send(string sessionID, byte[] data)
+        public void Send(string sessionID, byte[] data)
         {
             var userToken = _sessionManager.Get(sessionID);
             if (userToken != null)
@@ -348,14 +348,13 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="userToken"></param>
         /// <param name="data"></param>
         /// <returns></returns>
-        protected IAsyncResult BeginSend(IUserToken userToken, byte[] data)
+        public IAsyncResult BeginSend(IUserToken userToken, byte[] data)
         {
             try
             {
                 _sessionManager.Active(userToken.ID);
 
                 return userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, null, null);
-
             }
             catch (Exception ex)
             {
@@ -370,7 +369,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="userToken"></param>
         /// <param name="result"></param>
         /// <returns></returns>
-        protected int EndSend(IUserToken userToken, IAsyncResult result)
+        public int EndSend(IUserToken userToken, IAsyncResult result)
         {
             return userToken.Socket.EndSend(result);
         }
@@ -384,11 +383,9 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="data"></param>
         public void End(IUserToken userToken, byte[] data)
         {
-            userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, new AsyncCallback((result) =>
-            {
-                userToken.Socket.EndSend(result);
-                Disconnect(userToken);
-            }), null);
+            SendAsync(userToken, data);
+
+            Disconnect(userToken);
         }
         #endregion
 
