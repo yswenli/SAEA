@@ -71,7 +71,7 @@ namespace SAEA.WebSocket.Model
                 responseBuilder.Append("HTTP/1.1 101 Switching Protocols" + "\r\n");
                 responseBuilder.Append("Upgrade: websocket" + "\r\n");
                 responseBuilder.Append("Connection: Upgrade" + "\r\n");
-                //responseBuilder.AppendFormat("Sec-WebSocket-Protocol: {0}\r\n", "wenli.asea");
+                responseBuilder.AppendFormat("Sec-WebSocket-Protocol: {0}\r\n", "saea.websocket");
                 responseBuilder.Append("Sec-WebSocket-Accept: " + secKey + "\r\n\r\n");
                 data = Encoding.UTF8.GetBytes(responseBuilder.ToString());
                 result = true;

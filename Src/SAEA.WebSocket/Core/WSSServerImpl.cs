@@ -19,9 +19,11 @@ using SAEA.Common;
 using SAEA.Sockets;
 using SAEA.Sockets.Core;
 using SAEA.Sockets.Interface;
+using SAEA.Sockets.Model;
 using SAEA.WebSocket.Model;
 using SAEA.WebSocket.Type;
 using System;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Security.Authentication;
 
@@ -32,6 +34,8 @@ namespace SAEA.WebSocket.Core
         IServerSokcet serverSokcet;
 
         int _bufferSize = 1024;
+
+        ConcurrentDictionary<string, WSCoder> _concurrentDictionary;
 
         public WSSServerImpl(SslProtocols sslProtocols, string pfxPath, string pwd = "", int port = 39654, int bufferSize = 1024)
         {
@@ -44,25 +48,23 @@ namespace SAEA.WebSocket.Core
             serverSokcet = SocketFactory.CreateServerSocket(options);
 
             serverSokcet.OnAccepted += ServerSokcet_OnAccepted;
+
+            _concurrentDictionary = new ConcurrentDictionary<string, WSCoder>();
         }
 
-        private void ServerSokcet_OnAccepted(object userToken)
+        private void ServerSokcet_OnAccepted(object obj)
         {
-            ProcessReceive(userToken);
+            ProcessReceive(obj);
         }
 
         public event Action<string, WSProtocal> OnMessage;
 
 
-        void ProcessReceive(object userToken)
+        void ProcessReceive(Object obj)
         {
             TaskHelper.Start(() =>
             {
-                var ut = userToken as WSUserToken;
-
-                if (ut == null) return;
-
-                var channelInfo = ChannelManager.Current.Get(ut.ID);
+                var channelInfo = (ChannelInfo)obj;
 
                 if (channelInfo == null) return;
 
@@ -80,21 +82,24 @@ namespace SAEA.WebSocket.Core
                         size = channelInfo.Stream.Read(data, offset, _bufferSize);
                     }
 
-                    if (!ut.IsHandSharked)
+                    if (!_concurrentDictionary.ContainsKey(channelInfo.ID))
                     {
                         byte[] resData = null;
 
-                        var result = ut.GetReplayHandShake(data, out resData);
+                        var wsut = new WSUserToken();
+
+                        var result = wsut.GetReplayHandShake(data, out resData);
 
                         if (result)
                         {
                             channelInfo.Stream.Write(resData, 0, resData.Length);
-                            ut.IsHandSharked = true;
+                            wsut.IsHandSharked = true;
+                            _concurrentDictionary[channelInfo.ID]= new WSCoder();
                         }
                     }
                     else
                     {
-                        var coder = (WSCoder)ut.Unpacker;
+                        var coder = _concurrentDictionary[channelInfo.ID];
                         coder.Unpack(data, (d) =>
                         {
                             var wsProtocal = (WSProtocal)d;
@@ -109,7 +114,7 @@ namespace SAEA.WebSocket.Core
                                 case (byte)WSProtocalType.Binary:
                                 case (byte)WSProtocalType.Text:
                                 case (byte)WSProtocalType.Cont:
-                                    OnMessage?.Invoke(ut.ID, (WSProtocal)d);
+                                    OnMessage?.Invoke(channelInfo.ID, (WSProtocal)d);
                                     break;
                                 case (byte)WSProtocalType.Pong:
                                     break;

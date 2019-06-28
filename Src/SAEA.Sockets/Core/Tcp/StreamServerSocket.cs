@@ -70,8 +70,6 @@ namespace SAEA.Sockets.Core.Tcp
 
         #endregion
 
-
-
         /// <summary>
         /// 服务器 socket
         /// </summary>
@@ -143,9 +141,9 @@ namespace SAEA.Sockets.Core.Tcp
                     }
                     var id = clientSocket.RemoteEndPoint.ToString();
 
-                    ChannelManager.Current.Set(id, clientSocket, nsStream);
+                    var ci= ChannelManager.Current.Set(id, clientSocket, nsStream);
 
-                    OnAccepted?.Invoke(id);
+                    OnAccepted?.Invoke(ci);
                 }
                 catch (ObjectDisposedException oex)
                 {

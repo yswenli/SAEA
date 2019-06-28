@@ -60,6 +60,8 @@ namespace SAEA.Sockets.Core.Tcp
 
         public string Endpoint { get => _socket?.RemoteEndPoint?.ToString(); }
 
+        public Socket Socket => _socket;
+
         public event OnDisconnectedHandler OnDisconnected;
 
         [Obsolete("此方法为IOCP中所用")]

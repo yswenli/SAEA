@@ -162,7 +162,7 @@ namespace SAEA.Sockets.Core.Tcp
 
             Interlocked.Increment(ref _clientCounts);
 
-            TaskHelper.Start(() => { OnAccepted?.Invoke(userToken.ID); });
+            TaskHelper.Start(() => { OnAccepted?.Invoke(userToken); });
 
             if (!userToken.Socket.ReceiveAsync(readArgs))
             {

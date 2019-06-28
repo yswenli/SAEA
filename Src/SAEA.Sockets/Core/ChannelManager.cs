@@ -48,7 +48,7 @@ namespace SAEA.Sockets.Core
             _timeOut = timeOut;
         }
 
-        public void Set(string id, Socket socket, Stream stream)
+        public ChannelInfo Set(string id, Socket socket, Stream stream)
         {
             var ci = new ChannelInfo()
             {
@@ -58,6 +58,7 @@ namespace SAEA.Sockets.Core
                 Expired = DateTime.Now.AddSeconds(_timeOut)
             };
             _concurrentDictionary.AddOrUpdate(id, ci, (k, v) => ci);
+            return ci;
         }
 
 

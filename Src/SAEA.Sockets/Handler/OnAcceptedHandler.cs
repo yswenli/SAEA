@@ -32,5 +32,5 @@
 
 namespace SAEA.Sockets.Handler
 {
-    public delegate void OnAcceptedHandler(object userToken);
+    public delegate void OnAcceptedHandler(object obj);
 }

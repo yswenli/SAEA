@@ -29,6 +29,7 @@
 *****************************************************************************/
 using SAEA.Sockets.Handler;
 using System.IO;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -37,6 +38,8 @@ namespace SAEA.Sockets.Interface
     public interface IClientSocket
     {
         string Endpoint { get; }
+
+        Socket Socket { get; }
 
         Task ConnectAsync();
 

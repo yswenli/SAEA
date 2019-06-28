@@ -34,12 +34,6 @@ namespace SAEA.Sockets.Interface
 {
     public interface IServerSokcet
     {
-        void Start(int backlog = 10 * 1000);
-
-        void Stop();
-
-        void Disconnecte(object obj);
-
         ISocketOption SocketOption { get; set; }
 
         event OnAcceptedHandler OnAccepted;
@@ -47,6 +41,13 @@ namespace SAEA.Sockets.Interface
         event OnErrorHandler OnError;
 
         event OnReceiveHandler OnReceive;
+
+        void Start(int backlog = 10 * 1000);
+
+        void Stop();
+
+        void Disconnecte(object obj);
+       
 
         void Dispose();
     }

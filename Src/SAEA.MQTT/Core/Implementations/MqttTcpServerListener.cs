@@ -22,6 +22,7 @@ using SAEA.MQTT.Model;
 using SAEA.Sockets;
 using SAEA.Sockets.Core;
 using SAEA.Sockets.Interface;
+using SAEA.Sockets.Model;
 using System;
 using System.Net.Sockets;
 using System.Security.Cryptography.X509Certificates;
@@ -74,11 +75,10 @@ namespace SAEA.MQTT.Core.Implementations
             serverSokcet.OnAccepted += ServerSokcet_OnAccepted;
         }
 
-        private void ServerSokcet_OnAccepted(object userToken)
+        private void ServerSokcet_OnAccepted(object cci)
         {
-            var id = userToken.ToString();
 
-            var ci = ChannelManager.Current.Get(id);
+            var ci = (ChannelInfo)cci;
 
             if (ci != null)
             {

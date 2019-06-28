@@ -75,6 +75,8 @@ namespace SAEA.Sockets.Core.Tcp
 
         public bool IsDisposed { get; private set; } = false;
 
+        public Socket Socket => _socket;
+
         public event OnErrorHandler OnError;
 
         public event OnDisconnectedHandler OnDisconnected;
