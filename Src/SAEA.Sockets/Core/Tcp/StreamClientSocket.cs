@@ -104,6 +104,7 @@ namespace SAEA.Sockets.Core.Tcp
 
             _socket = new Socket(AddressFamily.InterNetwork, System.Net.Sockets.SocketType.Stream, ProtocolType.Tcp);
             _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            _socket.Blocking = true;
             _socket.NoDelay = true;
             _socket.SendTimeout = _socket.ReceiveTimeout = 120 * 1000;
             _socket.KeepAlive();
@@ -124,12 +125,12 @@ namespace SAEA.Sockets.Core.Tcp
             _socket = new Socket(AddressFamily.InterNetwork, System.Net.Sockets.SocketType.Stream, ProtocolType.Tcp);
             _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             _socket.NoDelay = true;
+            _socket.Blocking = true;
             _socket.SendTimeout = _socket.ReceiveTimeout = 120 * 1000;
-
             _isSsl = userSsl;
         }
 
-        
+
 
         /// <summary>
         /// 可让服务器接受的连接使用
@@ -148,31 +149,34 @@ namespace SAEA.Sockets.Core.Tcp
         /// <summary>
         /// 连接到服务器
         /// </summary>
-        public async Task ConnectAsync()
+        public Task ConnectAsync()
         {
-            await _socket.ConnectAsync(_SocketOption.IP, _SocketOption.Port).ConfigureAwait(false);
-
-            if (_isSsl)
+            return Task.Run(() =>
             {
-                _stream = new SslStream(new NetworkStream(_socket, true), false, InternalUserCertificateValidationCallback);
+                _socket.Connect(_SocketOption.IP, _SocketOption.Port);
 
-                await ((SslStream)_stream).AuthenticateAsClientAsync(_SocketOption.IP, LoadCertificates(), _SocketOption.SslProtocol, true);
-            }
-            else
-            {
-                _stream = new NetworkStream(_socket, true);
-            }
+                if (_isSsl)
+                {
+                    _stream = new SslStream(new NetworkStream(_socket, true), false, InternalUserCertificateValidationCallback);
 
-            _stream.ReadTimeout = _SocketOption.TimeOut;
-            _stream.WriteTimeout = _SocketOption.TimeOut;
+                    ((SslStream)_stream).AuthenticateAsClient(_SocketOption.IP, LoadCertificates(), _SocketOption.SslProtocol, true);
+                }
+                else
+                {
+                    _stream = new NetworkStream(_socket, true);
+                }
 
-            this.Connected = true;
+                _stream.ReadTimeout = _SocketOption.TimeOut;
+                _stream.WriteTimeout = _SocketOption.TimeOut;
+
+                this.Connected = true;
+            });
         }
 
 
         public void Send(byte[] buffer)
         {
-            _stream.Write(buffer, 0, buffer.Length);
+            _stream.WriteAsync(buffer, 0, buffer.Length).GetAwaiter();
         }
 
         /// <summary>

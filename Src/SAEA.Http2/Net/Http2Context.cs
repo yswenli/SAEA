@@ -43,7 +43,7 @@ namespace SAEA.Http2.Net
 
             if (_invoker == null)
             {
-                _invoker = new WebInvoker();
+                _invoker = new WebInvoker("wwwroot");
             }
         }
 

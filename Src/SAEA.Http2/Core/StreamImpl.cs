@@ -167,7 +167,7 @@ namespace SAEA.Http2.Core
         }
 
         internal async Task WriteValidatedHeadersAsync(
-            IEnumerable<HeaderField> headers, bool endOfStream)
+            IEnumerable<HeaderField> headers, bool endOfStream = false)
         {
             var removeStream = false;
 
@@ -494,7 +494,7 @@ namespace SAEA.Http2.Core
                         throw new Exception("试图在头之前写入数据");
                     }
 
-                    dataSent = true; 
+                    dataSent = true;
                 }
 
 
@@ -692,7 +692,7 @@ namespace SAEA.Http2.Core
                                 state = StreamState.Closed;
                                 removeStream = true;
                             }
-                            else 
+                            else
                             {
                                 state = StreamState.HalfClosedRemote;
                             }
@@ -814,7 +814,7 @@ namespace SAEA.Http2.Core
                                 state = StreamState.Closed;
                                 removeStream = true;
                             }
-                            else 
+                            else
                             {
                                 state = StreamState.HalfClosedRemote;
                             }

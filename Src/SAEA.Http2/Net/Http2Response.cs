@@ -20,6 +20,7 @@ using SAEA.Http2.Model;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 
 namespace SAEA.Http2.Net
 {
@@ -34,6 +35,14 @@ namespace SAEA.Http2.Net
             _stream = stream;
             this.Heads = new List<HeaderField>();
             _data = new List<byte>();
+        }
+
+        public void SetHeaders(HeaderField[] headerFields)
+        {
+            foreach (var item in headerFields)
+            {
+                SetHeader(item);
+            }
         }
 
         public void SetHeader(HeaderField headerField)
@@ -65,12 +74,40 @@ namespace SAEA.Http2.Net
             _data.AddRange(data);
         }
 
-        public async void End()
+        public void Write(string data)
+        {
+            _data.AddRange(Encoding.UTF8.GetBytes(data));
+        }
+
+        public async void FlushAsync()
         {
             await _stream.WriteHeadersAsync(Heads, false);
-
+            Heads.Clear();
             if (_data.Any())
-                await _stream.WriteAsync(new ArraySegment<byte>(_data.ToArray()), true);
+                await _stream.WriteAsync(new ArraySegment<byte>(_data.ToArray()), false);
+            _data.Clear();
+        }
+
+        public async void End()
+        {
+            var fh = new FrameHeader
+            {
+                Type = FrameType.GoAway,
+                StreamId = 0,
+                Flags = 0,
+            };
+
+            var goAwayData = new GoAwayFrameData
+            {
+                Reason = new GoAwayReason
+                {
+                    LastStreamId = _stream.Id,
+                    ErrorCode = ErrorCode.StreamClosed,
+                    DebugData = Constants.EmptyByteArray,
+                }
+            };
+
+            await writer.WriteGoAway(fh, goAwayData, true);
         }
 
 

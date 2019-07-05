@@ -61,7 +61,7 @@ namespace SAEA.Http2.Extentions
             {
                 this.socket = socket;
 
-                socket.Blocking = false;
+                //socket.Blocking = false;
             }
 
             public ValueTask<StreamReadResult> ReadAsync(ArraySegment<byte> buffer)

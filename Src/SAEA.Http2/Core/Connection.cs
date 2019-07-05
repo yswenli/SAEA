@@ -123,11 +123,7 @@ namespace SAEA.Http2.Core
         /// <param name="inputStream"></param>
         /// <param name="outputStream"></param>
         /// <param name="options"></param>
-        public Connection(
-            ConnectionConfiguration config,
-            IReadableByteStream inputStream,
-            IWriteAndCloseableByteStream outputStream,
-            Options? options = null)
+        public Connection(ConnectionConfiguration config, IReadableByteStream inputStream, IWriteAndCloseableByteStream outputStream, Options? options = null)
         {
             if (config == null) throw new ArgumentNullException(nameof(config));
             this.config = config;
@@ -545,13 +541,9 @@ namespace SAEA.Http2.Core
         /// <param name="headers"></param>
         /// <param name="endOfStream"></param>
         /// <returns></returns>
-        public async Task<IStream> CreateStreamAsync(
-            IEnumerable<HeaderField> headers,
-            bool endOfStream = false)
+        public async Task<IStream> CreateStreamAsync(IEnumerable<HeaderField> headers, bool endOfStream = false)
         {
-            if (config.IsServer)
-                throw new NotSupportedException(
-                    "Streams can only be created for clients");
+            if (config.IsServer) throw new NotSupportedException("只能为客户端创建流");
 
             var hvr = HeaderValidator.ValidateRequestHeaders(headers);
             if (hvr != HeaderValidationResult.Ok)
@@ -741,7 +733,7 @@ namespace SAEA.Http2.Core
                 (IsServer && !isServerInitiated) || (!IsServer && isServerInitiated);
 
             var isValidNewStream =
-                IsServer && 
+                IsServer &&
                 isRemoteInitiated &&
                 (headers.StreamId > lastIncomingStream);
 
@@ -1048,7 +1040,7 @@ namespace SAEA.Http2.Core
                 var debugData = new byte[data.Count];
                 Array.Copy(data.Array, data.Offset, debugData, 0, data.Count);
                 reason.DebugData = new ArraySegment<byte>(debugData);
-                
+
                 remoteGoAwayTcs.TrySetResult(reason);
             }
 
@@ -1325,7 +1317,10 @@ namespace SAEA.Http2.Core
             return null;
         }
 
-        /// <param name="stream">The stream to unregister</param>
+        /// <summary>
+        /// 要注销的流
+        /// </summary>
+        /// <param name="stream"></param>
         internal void UnregisterStream(StreamImpl stream)
         {
             lock (shared.Mutex)

@@ -15,6 +15,7 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
+using SAEA.Common;
 using SAEA.Http2.Core;
 using SAEA.Http2.Extentions;
 using SAEA.Http2.Model;
@@ -195,6 +196,41 @@ namespace SAEA.Http2.Net
             return result;
         }
 
+        public async Task<Http2Result> Post(string kvs)
+        {
+            return await Post(Encoding.UTF8.GetBytes(kvs));
+        }
+
+        public async Task<Http2Result> Post(byte[] data)
+        {
+            var result = new Http2Result();
+
+            var headers = new HeaderField[]
+            {
+                new HeaderField { Name = ":method", Value = "POST" },
+                new HeaderField { Name = ":scheme", Value = "http" },
+                new HeaderField { Name = ":path", Value = _path },
+                new HeaderField { Name = ":authority", Value = _authority },
+            };
+
+            var stream = await _conn.CreateStreamAsync(headers, true);
+
+            result.Heads = (await stream.ReadHeadersAsync()).ToList();
+
+            List<byte> list = new List<byte>();
+            while (true)
+            {
+                var buf = new byte[8192];
+                var res = await stream.ReadAsync(new ArraySegment<byte>(buf));
+                if (res.EndOfStream) break;
+                list.AddRange(buf.AsSpan().Slice(0, res.BytesRead).ToArray());
+            }
+            if (list.Any())
+            {
+                result.Body = list.ToArray();
+            }
+            return result;
+        }
 
 
 
