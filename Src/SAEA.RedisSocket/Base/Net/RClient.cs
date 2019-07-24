@@ -32,7 +32,7 @@ namespace SAEA.RedisSocket.Base.Net
 {
     internal class RClient : IocpClientSocket
     {
-        public event Action<string> OnMessage;
+        public event Action<byte[]> OnMessage;
 
         public event Action<DateTime> OnActived;
 
@@ -51,7 +51,7 @@ namespace SAEA.RedisSocket.Base.Net
 
                         this.UserToken.Unpacker.Unpack(data, (content) =>
                         {
-                            OnMessage.Invoke(Encoding.UTF8.GetString(content.Content));
+                            OnMessage.Invoke(content.Content);
                         }, null, null);
                     }
                     else

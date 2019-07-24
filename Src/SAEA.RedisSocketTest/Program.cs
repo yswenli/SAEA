@@ -43,9 +43,12 @@ namespace SAEA.RedisSocketTest
 
             }
             RedisClient redisClient = new RedisClient(cnnStr, false);
+
             redisClient.Connect();
 
-            redisClient.Select(0);
+            redisClient.Select(1);
+
+            var list = redisClient.GetDataBase().LRang("list1", 0, 10);
 
             //redisClient.GetDataBase().HSet("test", "", "2151");
 
@@ -54,12 +57,13 @@ namespace SAEA.RedisSocketTest
 
             //var list = redisClient.ClusterNodes;
 
-            //var keys = redisClient.GetDataBase().Keys();
+            var keys = redisClient.GetDataBase().Keys();
 
-            //var scan = redisClient.GetDataBase().Scan();
-            //var hscan = redisClient.GetDataBase().HScan("haa22", 0);
-            //var sscan = redisClient.GetDataBase().SScan("aaa", 0);
-            //var zscan = redisClient.GetDataBase().ZScan("zaaa", 0);
+            var scan = redisClient.GetDataBase().Scan();
+            var hscan = redisClient.GetDataBase().HScan("haa22", 0);
+            var sscan = redisClient.GetDataBase().SScan("aaa", 0);
+            redisClient.GetDataBase().ZAdd("zaaa", "!#@%$^&*\r\n()^^%%&%@FSDH\r\n某月霜\r\n/.';lakdsfakdsf", 110);
+            var zscan = redisClient.GetDataBase().ZScan("zaaa", 0);
 
             //var r = redisClient.GetDataBase().Rename("aaa", "aaa");
 
@@ -67,7 +71,7 @@ namespace SAEA.RedisSocketTest
 
             //var z = redisClient.GetDataBase().ZRang("zaaa");
 
-            //var h = redisClient.GetDataBase().HGetAll("haa22");
+            var h = redisClient.GetDataBase().HGetAll("haa22");
 
 
 
@@ -109,7 +113,7 @@ namespace SAEA.RedisSocketTest
 
             //redisClient.SlaveOf();
 
-            redisClient.Ping();
+            var pong= redisClient.Ping();
 
             //redisClient.Select(1);
 

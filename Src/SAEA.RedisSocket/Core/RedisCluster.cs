@@ -402,7 +402,7 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public List<string> GetKeysInSlot(int slot)
         {
-            return _cnn.DoCluster(RequestType.CLUSTER_GETKEYSINSLOT, slot).ToList<string>();
+            return _cnn.DoCluster(RequestType.CLUSTER_GETKEYSINSLOT, slot).ToList();
         }
 
         /// <summary>

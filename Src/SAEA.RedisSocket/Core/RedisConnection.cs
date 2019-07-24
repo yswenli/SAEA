@@ -29,7 +29,6 @@ using SAEA.RedisSocket.Model;
 using System;
 using System.Collections.Generic;
 using System.Text;
-using System.Threading;
 
 namespace SAEA.RedisSocket.Core
 {
@@ -99,9 +98,9 @@ namespace SAEA.RedisSocket.Core
         }
 
 
-        protected virtual void _cnn_OnMessage(string command)
+        protected virtual void _cnn_OnMessage(byte[] msg)
         {
-            RedisCoder.Enqueue(command);
+            RedisCoder.Enqueue(msg);
         }
 
 
@@ -135,37 +134,40 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         internal ResponseData RequestWithConsole(string cmd)
         {
-            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
-            try
+            lock (_syncLocker)
             {
-                if (!string.IsNullOrWhiteSpace(cmd))
+                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+                try
                 {
-                    var @params = cmd.Split(" ", StringSplitOptions.RemoveEmptyEntries);
-
-                    if (@params != null && @params.Length > 0)
+                    if (!string.IsNullOrWhiteSpace(cmd))
                     {
-                        var redisCmd = @params[0].ToUpper();
+                        var @params = cmd.Split(" ", StringSplitOptions.RemoveEmptyEntries);
 
-                        if (EnumHelper.GetEnum(redisCmd, out RequestType requestType))
+                        if (@params != null && @params.Length > 0)
                         {
-                            var sendData = RedisCoder.CoderByParams(requestType, @params);
-                            Request(sendData);
-                            result = RedisCoder.Decoder();
-                        }
-                        else
-                        {
-                            result.Type = ResponseType.Error;
-                            result.Data = "未知的命令 cmd:" + cmd;
+                            var redisCmd = @params[0].ToUpper();
+
+                            if (EnumHelper.GetEnum(redisCmd, out RequestType requestType))
+                            {
+                                var sendData = RedisCoder.CoderByParams(requestType, @params);
+                                Request(sendData);
+                                result = RedisCoder.Decoder();
+                            }
+                            else
+                            {
+                                result.Type = ResponseType.Error;
+                                result.Data = "未知的命令 cmd:" + cmd;
+                            }
                         }
                     }
                 }
+                catch (Exception ex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = ex.Message;
+                }
+                return result;
             }
-            catch (Exception ex)
-            {
-                result.Type = ResponseType.Error;
-                result.Data = ex.Message;
-            }
-            return result;
         }
 
         /// <summary>
@@ -174,111 +176,137 @@ namespace SAEA.RedisSocket.Core
         /// <param name="cmd"></param>
         public ResponseData Do(RequestType type)
         {
-            var cmd = RedisCoder.CoderByParams(type, type.ToString());
-            Request(cmd);
-            var result = RedisCoder.Decoder();
-            if (result.Type == ResponseType.Redirect)
+            lock (_syncLocker)
             {
-                return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.Do, null);
+                var cmd = RedisCoder.CoderByParams(type, type.ToString());
+                Request(cmd);
+                var result = RedisCoder.Decoder();
+                if (result.Type == ResponseType.Redirect)
+                {
+                    return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.Do, null);
+                }
+                else
+                    return result;
             }
-            else
-                return result;
+
         }
 
         public ResponseData DoInOne(RequestType type, string content)
         {
-            var cmd = RedisCoder.Coder(type, type.ToString(), content);
-            Request(cmd);
-            return RedisCoder.Decoder();
+            lock (_syncLocker)
+            {
+                var cmd = RedisCoder.Coder(type, type.ToString(), content);
+                Request(cmd);
+                return RedisCoder.Decoder();
+            }
+
         }
 
 
         public ResponseData DoWithKey(RequestType type, string key)
         {
-            key.KeyCheck();
-
-            var cmd = RedisCoder.Coder(type, type.ToString(), key);
-            Request(cmd);
-            var result = RedisCoder.Decoder();
-            if (result.Type == ResponseType.Redirect)
+            lock (_syncLocker)
             {
-                return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoWithKey, type, key);
+                key.KeyCheck();
+
+                var cmd = RedisCoder.Coder(type, type.ToString(), key);
+                Request(cmd);
+                var result = RedisCoder.Decoder();
+                if (result.Type == ResponseType.Redirect)
+                {
+                    return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoWithKey, type, key);
+                }
+                else
+                    return result;
             }
-            else
-                return result;
         }
 
         public ResponseData DoWithKeyValue(RequestType type, string key, string value)
         {
-            key.KeyCheck();
-            var cmd = RedisCoder.Coder(type, type.ToString(), key, value);
-            Request(cmd);
-            var result = RedisCoder.Decoder();
-            if (result.Type == ResponseType.Redirect)
+            lock (_syncLocker)
             {
-                return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoWithKeyValue, type, key, value);
+                key.KeyCheck();
+                var cmd = RedisCoder.Coder(type, type.ToString(), key, value);
+                Request(cmd);
+                var result = RedisCoder.Decoder();
+                if (result.Type == ResponseType.Redirect)
+                {
+                    return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoWithKeyValue, type, key, value);
+                }
+                else
+                    return result;
             }
-            else
-                return result;
         }
 
         public void DoExpire(string key, int seconds)
         {
-            key.KeyCheck();
-            var cmd = RedisCoder.Coder(RequestType.EXPIRE, RequestType.EXPIRE.ToString(), key, seconds.ToString());
-            Request(cmd);
-            var result = RedisCoder.Decoder();
-            if (result.Type == ResponseType.Redirect)
+            lock (_syncLocker)
             {
-                OnRedirect.Invoke(result.Data, OperationType.DoExpire, key, seconds);
-                return;
+                key.KeyCheck();
+                var cmd = RedisCoder.Coder(RequestType.EXPIRE, RequestType.EXPIRE.ToString(), key, seconds.ToString());
+                Request(cmd);
+                var result = RedisCoder.Decoder();
+                if (result.Type == ResponseType.Redirect)
+                {
+                    OnRedirect.Invoke(result.Data, OperationType.DoExpire, key, seconds);
+                    return;
+                }
             }
         }
 
 
         public void DoExpireInsert(RequestType type, string key, string value, int seconds)
         {
-            key.KeyCheck();
-            var cmd = RedisCoder.Coder(type, type.ToString(), key, value);
-            Request(cmd);
-            var result = RedisCoder.Decoder();
-            if (result.Type == ResponseType.Redirect)
+            lock (_syncLocker)
             {
-                OnRedirect.Invoke(result.Data, OperationType.DoExpireInsert, key, value, seconds);
-                return;
+                key.KeyCheck();
+                var cmd = RedisCoder.Coder(type, type.ToString(), key, value);
+                Request(cmd);
+                var result = RedisCoder.Decoder();
+                if (result.Type == ResponseType.Redirect)
+                {
+                    OnRedirect.Invoke(result.Data, OperationType.DoExpireInsert, key, value, seconds);
+                    return;
+                }
+                cmd = RedisCoder.Coder(RequestType.EXPIRE, string.Format("{0} {1} {2}", type.ToString(), key, seconds));
+                Request(cmd);
+                RedisCoder.Decoder();
             }
-            cmd = RedisCoder.Coder(RequestType.EXPIRE, string.Format("{0} {1} {2}", type.ToString(), key, seconds));
-            Request(cmd);
-            RedisCoder.Decoder();
         }
 
         public ResponseData DoHash(RequestType type, string id, string key, string value)
         {
-            id.KeyCheck();
-            key.KeyCheck();
-            var cmd = RedisCoder.Coder(type, type.ToString(), id, key, value);
-            Request(cmd);
-            var result = RedisCoder.Decoder();
-            if (result.Type == ResponseType.Redirect)
+            lock (_syncLocker)
             {
-                return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoHash, type, id, key, value);
+                id.KeyCheck();
+                key.KeyCheck();
+                var cmd = RedisCoder.Coder(type, type.ToString(), id, key, value);
+                Request(cmd);
+                var result = RedisCoder.Decoder();
+                if (result.Type == ResponseType.Redirect)
+                {
+                    return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoHash, type, id, key, value);
+                }
+                else
+                    return result;
             }
-            else
-                return result;
         }
 
         public ResponseData DoRang(RequestType type, string id, double begin = 0, double end = -1)
         {
-            id.KeyCheck();
-            var cmd = RedisCoder.Coder(type, type.ToString(), id, begin.ToString(), end.ToString(), "WITHSCORES");
-            Request(cmd);
-            var result = RedisCoder.Decoder();
-            if (result.Type == ResponseType.Redirect)
+            lock (_syncLocker)
             {
-                return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoRang, type, id, begin, end);
+                id.KeyCheck();
+                var cmd = RedisCoder.Coder(type, type.ToString(), id, begin.ToString(), end.ToString(), "WITHSCORES");
+                Request(cmd);
+                var result = RedisCoder.Decoder();
+                if (result.Type == ResponseType.Redirect)
+                {
+                    return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoRang, type, id, begin, end);
+                }
+                else
+                    return result;
             }
-            else
-                return result;
         }
 
         public void DoSub(string[] channels, Action<string, string> onMsg)
@@ -310,64 +338,76 @@ namespace SAEA.RedisSocket.Core
 
         public ResponseData DoBatchWithDic(RequestType type, Dictionary<string, string> dic)
         {
-            var cmd = RedisCoder.CoderForDic(type, dic);
-            Request(cmd);
-            var result = RedisCoder.Decoder();
-            if (result.Type == ResponseType.Redirect)
+            lock (_syncLocker)
             {
-                return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoBatchWithDic, type, dic);
+                var cmd = RedisCoder.CoderForDic(type, dic);
+                Request(cmd);
+                var result = RedisCoder.Decoder();
+                if (result.Type == ResponseType.Redirect)
+                {
+                    return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoBatchWithDic, type, dic);
+                }
+                else
+                    return result;
             }
-            else
-                return result;
         }
 
         public ResponseData DoBatchWithParams(RequestType type, params string[] keys)
         {
-            keys.KeyCheck();
-            var cmd = RedisCoder.Coder(type, type.ToString(), keys);
-            Request(cmd);
-            var result = RedisCoder.Decoder();
-            if (result.Type == ResponseType.Redirect)
+            lock (_syncLocker)
             {
-                return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoBatchWithParams, type, keys);
+                keys.KeyCheck();
+                var cmd = RedisCoder.Coder(type, type.ToString(), keys);
+                Request(cmd);
+                var result = RedisCoder.Decoder();
+                if (result.Type == ResponseType.Redirect)
+                {
+                    return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoBatchWithParams, type, keys);
+                }
+                else
+                    return result;
             }
-            else
-                return result;
         }
 
 
         public ResponseData DoBatchWithIDKeys(RequestType type, string id, params string[] keys)
         {
-            id.KeyCheck();
-            keys.KeyCheck();
-
-            List<string> list = new List<string>();
-            list.Add(type.ToString());
-            list.Add(id);
-            list.AddRange(keys);
-            var cmd = RedisCoder.CoderByParams(type, list.ToArray());
-            Request(cmd);
-            var result = RedisCoder.Decoder();
-            if (result.Type == ResponseType.Redirect)
+            lock (_syncLocker)
             {
-                return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoBatchWithIDKeys, type, id, keys);
+                id.KeyCheck();
+                keys.KeyCheck();
+
+                List<string> list = new List<string>();
+                list.Add(type.ToString());
+                list.Add(id);
+                list.AddRange(keys);
+                var cmd = RedisCoder.CoderByParams(type, list.ToArray());
+                Request(cmd);
+                var result = RedisCoder.Decoder();
+                if (result.Type == ResponseType.Redirect)
+                {
+                    return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoBatchWithIDKeys, type, id, keys);
+                }
+                else
+                    return result;
             }
-            else
-                return result;
         }
 
         public ResponseData DoBatchWithIDDic(RequestType type, string id, Dictionary<double, string> dic)
         {
-            id.KeyCheck();
-            var cmd = RedisCoder.CoderForDicWidthID(type, id, dic);
-            Request(cmd);
-            var result = RedisCoder.Decoder();
-            if (result.Type == ResponseType.Redirect)
+            lock (_syncLocker)
             {
-                return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoBatchWithIDDic, type, id, dic);
+                id.KeyCheck();
+                var cmd = RedisCoder.CoderForDicWidthID(type, id, dic);
+                Request(cmd);
+                var result = RedisCoder.Decoder();
+                if (result.Type == ResponseType.Redirect)
+                {
+                    return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoBatchWithIDDic, type, id, dic);
+                }
+                else
+                    return result;
             }
-            else
-                return result;
         }
 
         /// <summary>
@@ -381,49 +421,49 @@ namespace SAEA.RedisSocket.Core
 
         public ScanResponse DoScan(RequestType type, int offset = 0, string pattern = "*", int count = -1)
         {
-            var cmd = "";
-
-            if (offset < 0) offset = 0;
-
-            if (!string.IsNullOrEmpty(pattern))
+            lock (_syncLocker)
             {
-                if (count > -1)
+                var cmd = "";
+
+                if (offset < 0) offset = 0;
+
+                if (!string.IsNullOrEmpty(pattern))
                 {
-                    cmd = RedisCoder.Coder(type, type.ToString(), offset.ToString(), RedisConst.MATCH, pattern, RedisConst.COUNT, count.ToString());
+                    if (count > -1)
+                    {
+                        cmd = RedisCoder.Coder(type, type.ToString(), offset.ToString(), RedisConst.MATCH, pattern, RedisConst.COUNT, count.ToString());
+                    }
+                    else
+                    {
+                        cmd = RedisCoder.Coder(type, type.ToString(), offset.ToString(), RedisConst.MATCH, pattern);
+                    }
                 }
                 else
                 {
-                    cmd = RedisCoder.Coder(type, type.ToString(), offset.ToString(), RedisConst.MATCH, pattern);
+                    if (count > -1)
+                    {
+                        cmd = RedisCoder.Coder(type, type.ToString(), offset.ToString(), RedisConst.COUNT, count.ToString());
+                    }
+                    else
+                    {
+                        cmd = RedisCoder.Coder(type, type.ToString(), offset.ToString());
+                    }
                 }
-            }
-            else
-            {
-                if (count > -1)
+                Request(cmd);
+                var result = RedisCoder.Decoder();
+                if (result.Type == ResponseType.Redirect)
                 {
-                    cmd = RedisCoder.Coder(type, type.ToString(), offset.ToString(), RedisConst.COUNT, count.ToString());
+                    return (ScanResponse)OnRedirect.Invoke(result.Data, OperationType.DoScan, type, offset, pattern, count);
                 }
                 else
                 {
-                    cmd = RedisCoder.Coder(type, type.ToString(), offset.ToString());
+                    if (result.Type == ResponseType.Lines)
+                    {
+                        return result.ToScanResponse();
+                    }
+                    return null;
                 }
             }
-            Request(cmd);
-            var result = RedisCoder.Decoder();
-            if (result.Type == ResponseType.Redirect)
-            {
-                return (ScanResponse)OnRedirect.Invoke(result.Data, OperationType.DoScan, type, offset, pattern, count);
-            }
-            else
-            {
-                var scanResponse = new ScanResponse();
-
-                if (result.Type == ResponseType.Lines)
-                {
-                    return result.ToScanResponse();
-                }
-                return null;
-            }
-
         }
 
         /// <summary>
@@ -437,47 +477,50 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public ScanResponse DoScanKey(RequestType type, string key, int offset = 0, string pattern = "*", int count = -1)
         {
-            key.KeyCheck();
-
-            var cmd = "";
-
-            if (offset < 0) offset = 0;
-
-            if (!string.IsNullOrEmpty(pattern))
+            lock (_syncLocker)
             {
-                if (count > -1)
+                key.KeyCheck();
+
+                var cmd = "";
+
+                if (offset < 0) offset = 0;
+
+                if (!string.IsNullOrEmpty(pattern))
                 {
-                    cmd = RedisCoder.Coder(type, type.ToString(), key, offset.ToString(), RedisConst.MATCH, pattern, RedisConst.COUNT, count.ToString());
+                    if (count > -1)
+                    {
+                        cmd = RedisCoder.Coder(type, type.ToString(), key, offset.ToString(), RedisConst.MATCH, pattern, RedisConst.COUNT, count.ToString());
+                    }
+                    else
+                    {
+                        cmd = RedisCoder.Coder(type, type.ToString(), key, offset.ToString(), RedisConst.MATCH, pattern);
+                    }
                 }
                 else
                 {
-                    cmd = RedisCoder.Coder(type, type.ToString(), key, offset.ToString(), RedisConst.MATCH, pattern);
+                    if (count > -1)
+                    {
+                        cmd = RedisCoder.Coder(type, type.ToString(), key, offset.ToString(), RedisConst.COUNT, count.ToString());
+                    }
+                    else
+                    {
+                        cmd = RedisCoder.Coder(type, type.ToString(), key, offset.ToString());
+                    }
                 }
-            }
-            else
-            {
-                if (count > -1)
+                Request(cmd);
+                var result = RedisCoder.Decoder();
+                if (result.Type == ResponseType.Redirect)
                 {
-                    cmd = RedisCoder.Coder(type, type.ToString(), key, offset.ToString(), RedisConst.COUNT, count.ToString());
+                    return (ScanResponse)OnRedirect.Invoke(result.Data, OperationType.DoScanKey, type, key, offset, pattern, count);
                 }
                 else
                 {
-                    cmd = RedisCoder.Coder(type, type.ToString(), key, offset.ToString());
+                    if (result.Type == ResponseType.Lines)
+                    {
+                        return result.ToScanResponse();
+                    }
+                    return null;
                 }
-            }
-            Request(cmd);
-            var result = RedisCoder.Decoder();
-            if (result.Type == ResponseType.Redirect)
-            {
-                return (ScanResponse)OnRedirect.Invoke(result.Data, OperationType.DoScanKey, type, key, offset, pattern, count);
-            }
-            else
-            {
-                if (result.Type == ResponseType.Lines)
-                {
-                    return result.ToScanResponse();
-                }
-                return null;
             }
         }
 

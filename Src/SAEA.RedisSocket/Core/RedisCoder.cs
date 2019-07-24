@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.RedisSocket.Base.Net;
 using SAEA.RedisSocket.Model;
 using System;
 using System.Collections.Concurrent;
@@ -34,21 +35,11 @@ namespace SAEA.RedisSocket.Core
 {
     internal class RedisCoder
     {
-        /// <summary>
-        /// 编码解码同步
-        /// </summary>
-        private readonly AutoResetEvent _coderDecoderSync = new AutoResetEvent(true);
-
-        /// <summary>
-        /// 操作队列同步
-        /// </summary>
-        private readonly AutoResetEvent _operationQueueSync = new AutoResetEvent(false);
+        public const string SEPARATOR = "===========YSWENLI============";
 
         RequestType _commandName;
 
-        readonly ConcurrentQueue<string> _operationQueue = new ConcurrentQueue<string>();
-
-        readonly ConcurrentQueue<string> _codeOperationQueue = new ConcurrentQueue<string>();
+        RedisStream _redisStream = new RedisStream();
 
         string _sendCommand = string.Empty;
 
@@ -70,9 +61,9 @@ namespace SAEA.RedisSocket.Core
         /// 接收来自RedisServer的命令
         /// </summary>
         /// <param name="command"></param>
-        public void Enqueue(string command)
+        public void Enqueue(byte[] msg)
         {
-            _operationQueue.Enqueue(command);
+            _redisStream.Write(msg);
         }
 
         /// <summary>
@@ -84,8 +75,6 @@ namespace SAEA.RedisSocket.Core
         public string CoderByParams(RequestType commandName, params string[] @params)
         {
             @params.NotNull();
-
-            _coderDecoderSync.WaitOne(_actionTimeout);
 
             _commandName = commandName;
 
@@ -114,8 +103,6 @@ namespace SAEA.RedisSocket.Core
         public string Coder(RequestType commandName, string cmdType, params string[] @params)
         {
             @params.NotNull();
-
-            _coderDecoderSync.WaitOne(_actionTimeout);
             _commandName = commandName;
             var sb = new StringBuilder();
             sb.AppendLine(ConstHelper.ASTERRISK + (@params.Length + 1));
@@ -134,8 +121,6 @@ namespace SAEA.RedisSocket.Core
         public string CoderForDic(RequestType commandName, Dictionary<string, string> dic)
         {
             dic.NotNull();
-
-            _coderDecoderSync.WaitOne(_actionTimeout);
             _commandName = commandName;
             var sb = new StringBuilder();
             sb.AppendLine(ConstHelper.ASTERRISK + (dic.Count + 1));
@@ -159,8 +144,6 @@ namespace SAEA.RedisSocket.Core
         public string CoderForDicWidthID(RequestType commandName, string id, Dictionary<double, string> dic)
         {
             dic.NotNull();
-
-            _coderDecoderSync.WaitOne(_actionTimeout);
             _commandName = commandName;
             var sb = new StringBuilder();
             sb.AppendLine(ConstHelper.ASTERRISK + (dic.Count + 1));
@@ -190,66 +173,65 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         string GetRedisReply()
         {
-            bool stopped = false;
-            var task = Task.Factory.StartNew(() => BlockDequeue(ref stopped));
-            if (!task.Wait(_actionTimeout))
-            {
-                stopped = true;
-                Thread.Sleep(1000);
-                return "-Err:redis server reply time out!";
-            }
-            stopped = true;
-            return task.Result;
-        }
+            string str = string.Empty;
 
-        /// <summary>
-        /// 从收到的消息本地队列中出队
-        /// </summary>
-        /// <returns></returns>
-        private string BlockDequeue(ref bool stopped)
-        {
-            var result = string.Empty;
+            bool loop = false;
+
             do
             {
-                if (_codeOperationQueue.IsEmpty)
-                {
-                    if (_operationQueue.IsEmpty)
-                    {
-                        _operationQueueSync.WaitOne(1);
-                    }
-                    else
-                    {
-                        while (!_operationQueue.IsEmpty)
-                        {
-                            if (_operationQueue.TryDequeue(out string str))
-                            {
-                                var span = str.AsSpan();
+                str = _redisStream.ReadLine();
 
-                                var count = span.IndexOf(ConstHelper.ENTER.AsSpan());
+                loop = string.IsNullOrEmpty(str);
 
-                                while (count >= 0)
-                                {
-                                    count += 2;
-                                    var line = span.Slice(0, count).ToString();
-                                    _codeOperationQueue.Enqueue(line);
-                                    span = span.Slice(count);
-                                    count = span.IndexOf(ConstHelper.ENTER.AsSpan());
-                                }
-                            }
-                        }
-                    }
-                }
-                else
+                if (loop)
                 {
-                    _codeOperationQueue.TryDequeue(out result);
+                    Thread.Sleep(1);
                 }
             }
-            while (string.IsNullOrEmpty(result) && !stopped);
-            return result;
+            while (loop);
+
+            return str;
         }
 
         public bool IsSubed = false;
 
+
+        /// <summary>
+        /// 读取剩余的内容
+        /// </summary>
+        /// <param name="sb"></param>
+        /// <param name="len"></param>
+        /// <param name="addSeparator"></param>
+        /// <returns></returns>
+        private StringBuilder GetLastSB(StringBuilder sb, int len, bool addSeparator = false)
+        {
+            string str = string.Empty;
+
+            bool loop = false;
+
+            if (len > 0)
+            {
+                do
+                {
+                    str = _redisStream.Read(len);
+
+                    loop = string.IsNullOrEmpty(str);
+
+                    if (loop)
+                    {
+                        Thread.Sleep(1);
+                    }
+                }
+                while (loop);
+
+                sb.Append(str);
+            }
+
+            if (addSeparator)
+                sb.Append(SEPARATOR);
+
+            return sb;
+        }
 
         /// <summary>
         /// 解析从redis返回的命令
@@ -271,8 +253,6 @@ namespace SAEA.RedisSocket.Core
             {
                 responseData.Type = ResponseType.Error;
                 responseData.Data = command;
-                _operationQueue.Clear();
-                _coderDecoderSync.Set();
                 return responseData;
             }
 
@@ -284,8 +264,6 @@ namespace SAEA.RedisSocket.Core
                 {
                     responseData.Type = ResponseType.Error;
                     responseData.Data = command;
-                    _operationQueue.Clear();
-                    _coderDecoderSync.Set();
                     return responseData;
                 }
             }
@@ -302,8 +280,6 @@ namespace SAEA.RedisSocket.Core
                 {
                     responseData.Type = ResponseType.Error;
                     responseData.Data = command;
-                    _operationQueue.Clear();
-                    _coderDecoderSync.Set();
                     return responseData;
                 }
 
@@ -383,7 +359,8 @@ namespace SAEA.RedisSocket.Core
                         else
                         {
                             responseData.Type = ResponseType.String;
-                            responseData.Data += GetRedisReply();
+
+                            responseData.Data += GetLastSB(new StringBuilder(), len).ToString();
                         }
                         break;
                     case RequestType.KEYS:
@@ -410,19 +387,15 @@ namespace SAEA.RedisSocket.Core
                                 {
                                     responseData.Type = ResponseType.Error;
                                     responseData.Data = error;
-                                    _operationQueue.Clear();
-                                    _coderDecoderSync.Set();
                                     return responseData;
                                 }
                                 if (len == -1)
                                 {
                                     responseData.Type = ResponseType.Empty;
                                     responseData.Data = string.Empty;
-                                    _operationQueue.Clear();
-                                    _coderDecoderSync.Set();
                                     return responseData;
                                 }
-                                sb.Append(GetRedisReply());
+                                sb = GetLastSB(sb, len, true);
                             }
                         }
                         responseData.Data = sb.ToString();
@@ -448,19 +421,15 @@ namespace SAEA.RedisSocket.Core
                                 {
                                     responseData.Type = ResponseType.Error;
                                     responseData.Data = error;
-                                    _operationQueue.Clear();
-                                    _coderDecoderSync.Set();
                                     return responseData;
                                 }
                                 if (len == -1)
                                 {
                                     responseData.Type = ResponseType.Empty;
                                     responseData.Data = string.Empty;
-                                    _operationQueue.Clear();
-                                    _coderDecoderSync.Set();
                                     return responseData;
                                 }
-                                sb.Append(GetRedisReply());
+                                sb = GetLastSB(sb, len, true);
                             }
                         }
                         responseData.Data = sb.ToString();
@@ -513,8 +482,6 @@ namespace SAEA.RedisSocket.Core
                         {
                             responseData.Type = ResponseType.Empty;
                             responseData.Data = string.Empty;
-                            _operationQueue.Clear();
-                            _coderDecoderSync.Set();
                             return responseData;
                         }
                         if (!string.IsNullOrEmpty(error))
@@ -523,13 +490,9 @@ namespace SAEA.RedisSocket.Core
                             responseData.Data = error;
                             break;
                         }
-                        var info = "";
-                        while (info.Length < len)
-                        {
-                            info += GetRedisReply();
-                        }
+                        var ssb = GetLastSB(new StringBuilder(), len, false);
                         responseData.Type = ResponseType.String;
-                        responseData.Data = info;
+                        responseData.Data = ssb.ToString();
                         break;
                     case RequestType.SUBSCRIBE:
                         var r = "";
@@ -553,8 +516,6 @@ namespace SAEA.RedisSocket.Core
                         {
                             responseData.Type = ResponseType.Error;
                             responseData.Data = error;
-                            _operationQueue.Clear();
-                            _coderDecoderSync.Set();
                             return responseData;
                         }
                         var wNum = GetWordsNum(GetRedisReply(), out error);
@@ -562,8 +523,6 @@ namespace SAEA.RedisSocket.Core
                         {
                             responseData.Type = ResponseType.Error;
                             responseData.Data = error;
-                            _operationQueue.Clear();
-                            _coderDecoderSync.Set();
                             return responseData;
                         }
                         GetRedisReply();
@@ -572,8 +531,6 @@ namespace SAEA.RedisSocket.Core
                         {
                             responseData.Type = ResponseType.Error;
                             responseData.Data = error;
-                            _operationQueue.Clear();
-                            _coderDecoderSync.Set();
                             return responseData;
                         }
                         var channel = GetRedisReply();
@@ -582,8 +539,6 @@ namespace SAEA.RedisSocket.Core
                         {
                             responseData.Type = ResponseType.Error;
                             responseData.Data = error;
-                            _operationQueue.Clear();
-                            _coderDecoderSync.Set();
                             return responseData;
                         }
                         IsSubed = false;
@@ -604,8 +559,6 @@ namespace SAEA.RedisSocket.Core
                         {
                             responseData.Type = ResponseType.Error;
                             responseData.Data = error;
-                            _operationQueue.Clear();
-                            _coderDecoderSync.Set();
                             return responseData;
                         }
                         while (rn <= 0)
@@ -616,8 +569,6 @@ namespace SAEA.RedisSocket.Core
                             {
                                 responseData.Type = ResponseType.Error;
                                 responseData.Data = error;
-                                _operationQueue.Clear();
-                                _coderDecoderSync.Set();
                                 return responseData;
                             }
                         }
@@ -627,12 +578,10 @@ namespace SAEA.RedisSocket.Core
                         {
                             responseData.Type = ResponseType.Error;
                             responseData.Data = error;
-                            _operationQueue.Clear();
-                            _coderDecoderSync.Set();
                             return responseData;
                         }
                         int.TryParse(GetRedisReply(), out offset);
-                        sb.AppendLine("offset:" + offset);
+                        sb.Append("offset:" + offset + SEPARATOR);
                         //
                         command = GetRedisReply();
                         while (command == ConstHelper.ENTER)
@@ -648,8 +597,6 @@ namespace SAEA.RedisSocket.Core
                         {
                             responseData.Type = ResponseType.Error;
                             responseData.Data = error;
-                            _operationQueue.Clear();
-                            _coderDecoderSync.Set();
                             return responseData;
                         }
                         while (rn < 0)
@@ -660,31 +607,22 @@ namespace SAEA.RedisSocket.Core
                             {
                                 responseData.Type = ResponseType.Error;
                                 responseData.Data = error;
-                                _operationQueue.Clear();
-                                _coderDecoderSync.Set();
                                 return responseData;
                             }
                         }
                         //
                         for (int i = 0; i < rn; i++)
                         {
-                            command = GetRedisReply();
-                            len = GetWordsNum(command, out error);
+                            len = GetWordsNum(GetRedisReply(), out error);
                             if (!string.IsNullOrEmpty(error))
                             {
                                 responseData.Type = ResponseType.Error;
                                 responseData.Data = error;
-                                _coderDecoderSync.Set();
                                 return responseData;
                             }
                             if (len >= 0)
                             {
-                                command = GetRedisReply();
-                                sb.Append(command);
-                            }
-                            else
-                            {
-                                sb.Append(command);
+                                sb = GetLastSB(sb, len, true);
                             }
                         }
                         responseData.Data = sb.ToString();
@@ -695,8 +633,6 @@ namespace SAEA.RedisSocket.Core
                         break;
                 }
             }
-            _operationQueue.Clear();
-            _coderDecoderSync.Set();
             return responseData;
         }
 
@@ -810,7 +746,7 @@ namespace SAEA.RedisSocket.Core
 
         public void Dispose()
         {
-            _operationQueue.Clear();
+            _redisStream.Dispose();
         }
     }
 }

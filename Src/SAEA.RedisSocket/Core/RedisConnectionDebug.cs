@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 using SAEA.Common;
+using System.Text;
 
 namespace SAEA.RedisSocket.Core
 {
@@ -32,10 +33,10 @@ namespace SAEA.RedisSocket.Core
 
         }
 
-        protected override void _cnn_OnMessage(string command)
+        protected override void _cnn_OnMessage(byte[] msg)
         {
-            RedisCoder.Enqueue(command);
-            ConsoleHelper.Write(command);
+            RedisCoder.Enqueue(msg);
+            ConsoleHelper.Write(Encoding.UTF8.GetString(msg));
         }
     }
 }

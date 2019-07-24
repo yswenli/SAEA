@@ -67,12 +67,12 @@ namespace SAEA.RedisSocket.Core
 
         public List<string> MGet(params string[] keys)
         {
-            return _cnn.DoBatchWithParams(RequestType.MGET, keys).ToList<string>();
+            return _cnn.DoBatchWithParams(RequestType.MGET, keys).ToList();
         }
 
         public List<string> Keys(string pattern = "*")
         {
-            return _cnn.DoWithKey(RequestType.KEYS, pattern).ToList<string>();
+            return _cnn.DoWithKey(RequestType.KEYS, pattern).ToList();
         }
         public void Del(string key)
         {
@@ -142,7 +142,7 @@ namespace SAEA.RedisSocket.Core
         }
         public List<string> GetHKeys(string hid)
         {
-            return _cnn.DoWithKey(RequestType.HKEYS, hid).ToList<string>();
+            return _cnn.DoWithKey(RequestType.HKEYS, hid).ToList();
         }
         public ResponseData HDel(string hid, string key)
         {
@@ -198,7 +198,7 @@ namespace SAEA.RedisSocket.Core
         }
         public List<string> LRang(string key, int begin = 0, int end = -1)
         {
-            return _cnn.DoHash(RequestType.LRANGE, key, begin.ToString(), end.ToString()).ToList<string>();
+            return _cnn.DoHash(RequestType.LRANGE, key, begin.ToString(), end.ToString()).ToList();
         }
         public int LRemove(string key, int count, string value)
         {
@@ -234,7 +234,7 @@ namespace SAEA.RedisSocket.Core
 
         public List<string> SMemebers(string key)
         {
-            return _cnn.DoWithKey(RequestType.SMEMBERS, key).ToList<string>();
+            return _cnn.DoWithKey(RequestType.SMEMBERS, key).ToList();
         }
 
         public string SRandMemeber(string key)
@@ -280,12 +280,12 @@ namespace SAEA.RedisSocket.Core
 
         public List<ZItem> ZRang(string key, double begin = 0, double end = -1)
         {
-            return _cnn.DoRang(RequestType.ZRANGE, key, begin, end).ToList();
+            return _cnn.DoRang(RequestType.ZRANGE, key, begin, end).ToZList();
         }
 
         public List<ZItem> ZRevrange(string key, double begin = 0, double end = -1)
         {
-            return _cnn.DoRang(RequestType.ZREVRANGE, key, begin, end).ToList();
+            return _cnn.DoRang(RequestType.ZREVRANGE, key, begin, end).ToZList();
         }
 
         public int ZRemove(string key, string[] values)

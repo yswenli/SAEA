@@ -162,7 +162,12 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public string Console(string cmd)
         {
-            return _cnn.RequestWithConsole(cmd).ToString();
+            var result = _cnn.RequestWithConsole(cmd).ToString();
+            if (!string.IsNullOrEmpty(result))
+            {
+                result = result.Replace(RedisCoder.SEPARATOR, "\r\n");
+            }
+            return result;
         }
 
         /// <summary>

@@ -24,6 +24,7 @@
 using System;
 using SAEA.Common;
 using System.Collections.Generic;
+using SAEA.RedisSocket.Core;
 
 namespace SAEA.RedisSocket.Model
 {
@@ -31,7 +32,7 @@ namespace SAEA.RedisSocket.Model
     {
         static string _enter = "\r\n";
 
-        public static List<T> ToList<T>(this ResponseData source)
+        public static List<string> ToList(this ResponseData source)
         {
             if (source == null) return null;
 
@@ -40,21 +41,19 @@ namespace SAEA.RedisSocket.Model
                 throw new Exception(source.Data);
             }
 
-            List<T> list = null;
+            List<string> list = null;
 
             if (!string.IsNullOrEmpty(source.Data))
             {
-                list = new List<T>();
+                list = new List<string>();
 
-                var arr = source.Data.Split(_enter);
+                var arr = source.Data.Split(RedisCoder.SEPARATOR);
 
                 for (int i = 0; i < arr.Length; i++)
                 {
                     if (i + 1 == arr.Length) break;
 
-                    T val = (T)Convert.ChangeType(arr[i], typeof(T)); ;
-
-                    list.Add(val);
+                    list.Add(arr[i]);
                 }
             }
 
@@ -62,7 +61,7 @@ namespace SAEA.RedisSocket.Model
         }
 
 
-        public static List<ZItem> ToList(this ResponseData source)
+        public static List<ZItem> ToZList(this ResponseData source)
         {
             if (source == null) return null;
 
@@ -75,7 +74,7 @@ namespace SAEA.RedisSocket.Model
 
             if (!string.IsNullOrEmpty(source.Data))
             {
-                var arr = source.Data.Split(_enter);
+                var arr = source.Data.Split(RedisCoder.SEPARATOR);
 
                 if (arr != null && arr.Length > 0)
                 {
@@ -120,7 +119,7 @@ namespace SAEA.RedisSocket.Model
 
             if (!string.IsNullOrEmpty(source.Data))
             {
-                var arr = source.Data.Split(_enter);
+                var arr = source.Data.Split(RedisCoder.SEPARATOR);
 
                 if (arr != null && arr.Length > 0)
                 {
@@ -153,7 +152,7 @@ namespace SAEA.RedisSocket.Model
         {
             var scanResponse = new ScanResponse();
 
-            var dataArr = source.Data.Split(_enter);
+            var dataArr = source.Data.Split(RedisCoder.SEPARATOR);
 
             var doffset = 0;
 
@@ -191,12 +190,12 @@ namespace SAEA.RedisSocket.Model
                     {
                         if (i + 1 < source.Data.Count)
                         {
-                            data[key]= source.Data[i + 1];
+                            data[key] = source.Data[i + 1];
                             i++;
                         }
                         else
                         {
-                            data[key]= string.Empty;
+                            data[key] = string.Empty;
                         }
                     }
                 }
