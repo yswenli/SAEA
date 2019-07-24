@@ -383,7 +383,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="data"></param>
         public void End(IUserToken userToken, byte[] data)
         {
-            SendAsync(userToken, data);
+            Send(userToken, data);
 
             Disconnect(userToken);
         }

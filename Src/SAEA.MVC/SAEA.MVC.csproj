@@ -6,7 +6,7 @@
     <Company>yswenli</Company>
     <Copyright>yswenli</Copyright>
     <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
-    <Version>4.6.3.1</Version>
+    <Version>4.6.3.2</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Description>This is a web component based on SAEA.Sockets. It is lightweight, high performance, easy to use and self hosting. 
 这是一个基于SAEA.Sockets的web组件，轻量高性能，使用简便，自宿主。https://github.com/yswenli/SAEA/tree/master/Src/SAEA.MVCTest。</Description>
