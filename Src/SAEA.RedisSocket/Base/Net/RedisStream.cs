@@ -105,6 +105,11 @@ namespace SAEA.RedisSocket.Base.Net
             }
         }
 
+        public void Clear()
+        {
+            _bytes.Clear();
+        }
+
         public void Dispose()
         {
             _isdiposed = true;

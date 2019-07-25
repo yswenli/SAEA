@@ -66,6 +66,7 @@ namespace SAEA.RedisSocket.Core
             _redisStream.Write(msg);
         }
 
+
         /// <summary>
         /// redis client编码
         /// </summary>
@@ -89,6 +90,7 @@ namespace SAEA.RedisSocket.Core
                 sb.AppendLine(param);
             }
             _sendCommand = sb.ToString();
+
             return _sendCommand;
         }
 
@@ -177,8 +179,12 @@ namespace SAEA.RedisSocket.Core
 
             bool loop = false;
 
+            int timeCount = 0;
+
             do
             {
+                timeCount++;
+
                 str = _redisStream.ReadLine();
 
                 loop = string.IsNullOrEmpty(str);
@@ -186,6 +192,8 @@ namespace SAEA.RedisSocket.Core
                 if (loop)
                 {
                     Thread.Sleep(1);
+
+                    if (timeCount >= _actionTimeout) throw new TimeoutException("-Err:Operation is timeout!");
                 }
             }
             while (loop);
@@ -209,10 +217,14 @@ namespace SAEA.RedisSocket.Core
 
             bool loop = false;
 
+            int timeCount = 0;
+
             if (len > 0)
             {
                 do
                 {
+                    timeCount++;
+
                     str = _redisStream.Read(len);
 
                     loop = string.IsNullOrEmpty(str);
@@ -220,6 +232,7 @@ namespace SAEA.RedisSocket.Core
                     if (loop)
                     {
                         Thread.Sleep(1);
+                        if (timeCount >= _actionTimeout) throw new TimeoutException("-Err:Operation is timeout!");
                     }
                 }
                 while (loop);
