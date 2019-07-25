@@ -59,6 +59,10 @@ namespace SAEA.RedisSocket.Model
             get; set;
         }
 
+        public string maxmemory
+        {
+            get; set;
+        }
         public string maxmemory_human
         {
             get; set;

@@ -233,6 +233,7 @@ namespace SAEA.RedisSocket
         {
             return _cnn.DoInOne(RequestType.INFO, section).Data;
         }
+        
 
         /// <summary>
         /// redis信息
@@ -315,6 +316,10 @@ namespace SAEA.RedisSocket
                     if (dic.ContainsKey("executable"))
                     {
                         serverInfo.executable = dic["executable"];
+                    }
+                    if (dic.ContainsKey("maxmemory"))
+                    {
+                        serverInfo.maxmemory = dic["maxmemory"];
                     }
                     if (dic.ContainsKey("maxmemory_human"))
                     {
