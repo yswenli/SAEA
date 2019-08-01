@@ -35,6 +35,8 @@ namespace SAEA.RedisSocket.Model
         SLAVEOF,
         FLUSHALL,
         FLUSHDB,
+        TTL,
+        PTTL,
 
         SET,
         MSET,

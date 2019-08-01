@@ -165,7 +165,7 @@ namespace SAEA.MessageSocket
                                     BodyLength = 0,
                                     Type = (byte)SocketProtocalType.Heart
                                 };
-                                Send(sm.ToBytes());
+                                SendAsync(sm.ToBytes());
                             }
                             ThreadHelper.Sleep(HeartSpan);
                         }
@@ -185,7 +185,7 @@ namespace SAEA.MessageSocket
 
             var content = SocketProtocal.Parse(data, SocketProtocalType.ChatMessage).ToBytes();
 
-            this.Send(content);
+            this.SendAsync(content);
 
             Actived = DateTimeHelper.Now;
         }

@@ -110,7 +110,7 @@ namespace SAEA.FileSocket
                                     BodyLength = 0,
                                     Type = (byte)SocketProtocalType.Heart
                                 };
-                                Send(sm.ToBytes());
+                                SendAsync(sm.ToBytes());
                             }
                             Thread.Sleep(HeartSpan);
                         }
@@ -128,7 +128,7 @@ namespace SAEA.FileSocket
         void sendMessageBase(byte[] content)
         {
             var data = SocketProtocal.ParseRequest(content).ToBytes();
-            Send(data);
+            SendAsync(data);
         }
 
 
@@ -176,7 +176,7 @@ namespace SAEA.FileSocket
 
                             var data = SocketProtocal.ParseStream(content).ToBytes();
 
-                            Send(data);
+                            SendAsync(data);
 
                             Interlocked.Add(ref _out, readNum);
                         }

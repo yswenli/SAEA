@@ -159,7 +159,7 @@ namespace SAEA.WebSocket
 
         private void RequestHandShark()
         {
-            base.Send(WSUserToken.RequestHandShark(_serverIP, _serverPort));
+            base.SendAsync(WSUserToken.RequestHandShark(_serverIP, _serverPort));
         }
 
         /// <summary>
@@ -170,7 +170,7 @@ namespace SAEA.WebSocket
         public void Send(byte[] msg, WSProtocalType type = WSProtocalType.Text)
         {
             var data = new WSProtocal(type, msg).ToBytes();
-            base.Send(data);
+            base.SendAsync(data);
         }
 
         /// <summary>
@@ -179,7 +179,7 @@ namespace SAEA.WebSocket
         /// <param name="msg"></param>
         public void Send(string msg)
         {
-            this.Send(Encoding.UTF8.GetBytes(msg));
+            this.SendAsync(Encoding.UTF8.GetBytes(msg));
         }
 
         /// <summary>
@@ -189,7 +189,7 @@ namespace SAEA.WebSocket
         {
             var msg = DateTimeHelper.ToString();
             var data = new WSProtocal(WSProtocalType.Pong, null).ToBytes();
-            base.Send(data);
+            base.SendAsync(data);
         }
 
 
@@ -200,14 +200,14 @@ namespace SAEA.WebSocket
         {
             var msg = DateTimeHelper.ToString();
             var data = new WSProtocal(WSProtocalType.Ping, Encoding.UTF8.GetBytes(msg)).ToBytes();
-            base.Send(data);
+            base.SendAsync(data);
         }
 
         public void Close(string discription = "客户端主动断开ws连接")
         {
             var msg = DateTimeHelper.ToString();
             var data = new WSProtocal(WSProtocalType.Close, Encoding.UTF8.GetBytes(discription)).ToBytes();
-            base.Send(data);
+            base.SendAsync(data);
         }
 
 

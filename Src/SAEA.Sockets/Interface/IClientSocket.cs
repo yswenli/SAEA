@@ -49,6 +49,8 @@ namespace SAEA.Sockets.Interface
 
         void Send(byte[] data);
 
+        void SendAsync(byte[] data);
+
         Task SendAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken);
 
         Task<int> ReceiveAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken);

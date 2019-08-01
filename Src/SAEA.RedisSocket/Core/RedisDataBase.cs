@@ -125,6 +125,31 @@ namespace SAEA.RedisSocket.Core
             }
             return false;
         }
+
+        /// <summary>
+        /// 以秒为单位，返回给定 key 的剩余生存时间(TTL, time to live)
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns>当 key 不存在时，返回 -2 。当 key 存在但没有设置剩余生存时间时，返回 -1 。否则，以秒为单位，返回 key 的剩余生存时间。 </returns>
+        public int Ttl(string key)
+        {
+            int.TryParse(_cnn.DoWithKey(RequestType.TTL, key).Data ,out int result);
+
+            return result;
+
+        }
+
+        /// <summary>
+        /// 以毫秒为单位，返回给定 key 的剩余生存时间(TTL, time to live)
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns>当 key 不存在时，返回 -2 。当 key 存在但没有设置剩余生存时间时，返回 -1 。否则，以秒为单位，返回 key 的剩余生存时间。</returns>
+        public long Pttl(string key)
+        {
+            long.TryParse(_cnn.DoWithKey(RequestType.PTTL, key).Data, out long result);
+
+            return result;
+        }
         #endregion
 
         #region HSET

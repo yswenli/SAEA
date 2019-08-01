@@ -25,11 +25,9 @@ using SAEA.Common;
 using SAEA.RedisSocket.Base.Net;
 using SAEA.RedisSocket.Model;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace SAEA.RedisSocket.Core
 {
@@ -352,7 +350,7 @@ namespace SAEA.RedisSocket.Core
                         responseData.Data = msg;
                         break;
                     case RequestType.GET:
-                    case RequestType.GETSET:
+                    case RequestType.GETSET:                    
                     case RequestType.HGET:
                     case RequestType.LPOP:
                     case RequestType.RPOP:
@@ -449,6 +447,8 @@ namespace SAEA.RedisSocket.Core
                         break;
                     case RequestType.DBSIZE:
                     case RequestType.FLUSHDB:
+                    case RequestType.TTL:
+                    case RequestType.PTTL:
                     case RequestType.EXISTS:
                     case RequestType.EXPIRE:
                     case RequestType.PERSIST:

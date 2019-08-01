@@ -165,7 +165,7 @@ namespace SAEA.RPC.Net
         {
             var data = ((RCoder)_RContext.Unpacker).Encode(msg);
 
-            _client.Send(data);
+            _client.SendAsync(data);
         }
 
         /// <summary>

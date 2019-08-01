@@ -26,7 +26,6 @@ using SAEA.Common;
 using SAEA.Sockets.Core.Tcp;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.RedisSocket.Base.Net
 {
@@ -71,7 +70,7 @@ namespace SAEA.RedisSocket.Base.Net
 
         public void Request(byte[] cmd)
         {
-            SendSync(cmd);
+            SendAsync(cmd);
             OnActived.Invoke(DateTimeHelper.Now);
         }
     }

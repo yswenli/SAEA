@@ -176,7 +176,12 @@ namespace SAEA.Sockets.Core.Tcp
 
         public void Send(byte[] buffer)
         {
-            _stream.WriteAsync(buffer, 0, buffer.Length).GetAwaiter();
+            _stream.Write(buffer, 0, buffer.Length);
+        }
+
+        public void SendAsync(byte[] buffer)
+        {
+            _stream.WriteAsync(buffer, 0, buffer.Length);
         }
 
         /// <summary>

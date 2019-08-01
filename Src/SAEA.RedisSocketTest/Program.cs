@@ -73,8 +73,10 @@ namespace SAEA.RedisSocketTest
 
             var h = redisClient.GetDataBase().HGetAll("haa22");
 
-
-
+            var t1 = redisClient.GetDataBase().Ttl("zaaa");
+            var t2 = redisClient.GetDataBase().Ttl("haa22");
+            var t3 = redisClient.GetDataBase().Pttl("key0");
+            var t4 = redisClient.GetDataBase().Pttl("akey0");
 
             //var m = redisClient.ClusterInfo;
             //var n = redisClient.ClusterNodes;
@@ -291,3 +293,4 @@ namespace SAEA.RedisSocketTest
         }
     }
 }
+

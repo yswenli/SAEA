@@ -335,7 +335,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// iocp发送
         /// </summary>
         /// <param name="data"></param>
-        public void Send(byte[] data)
+        public void SendAsync(byte[] data)
         {
             SendAsync(UserToken, data);
         }
@@ -344,7 +344,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// 同步发送
         /// </summary>
         /// <param name="data"></param>
-        protected void SendSync(byte[] data)
+        public void Send(byte[] data)
         {
             if (data == null) return;
 
