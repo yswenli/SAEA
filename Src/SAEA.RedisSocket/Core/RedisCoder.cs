@@ -45,25 +45,29 @@ namespace SAEA.RedisSocket.Core
 
         int _actionTimeout = 60 * 1000;
 
+        RClient _rclient;
+
         /// <summary>
         /// 初始化
-        /// 将从快速获取的队列中拆成行
         /// </summary>
+        /// <param name="rclient"></param>
         /// <param name="actionTimeout"></param>
-        public RedisCoder(int actionTimeout = 60)
+        public RedisCoder(RClient rclient, int actionTimeout = 60)
         {
+            _rclient = rclient;
             _actionTimeout = actionTimeout * 1000;
         }
 
-        /// <summary>
-        /// 接收来自RedisServer的命令
-        /// </summary>
-        /// <param name="command"></param>
-        public void Enqueue(byte[] msg)
-        {
-            _redisStream.Write(msg);
-        }
+        #region 发送编码
 
+        /// <summary>
+        /// 发送
+        /// </summary>
+        /// <param name="cmd"></param>
+        void Request(string cmd)
+        {
+            _rclient.Request(Encoding.UTF8.GetBytes(cmd));
+        }
 
         /// <summary>
         /// redis client编码
@@ -71,7 +75,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="commandName"></param>
         /// <param name="params"></param>
         /// <returns></returns>
-        public string CoderByParams(RequestType commandName, params string[] @params)
+        public void CoderByParams(RequestType commandName, params string[] @params)
         {
             @params.NotNull();
 
@@ -89,7 +93,7 @@ namespace SAEA.RedisSocket.Core
             }
             _sendCommand = sb.ToString();
 
-            return _sendCommand;
+            Request(_sendCommand);
         }
 
         /// <summary>
@@ -100,7 +104,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="params"></param>
         /// <returns></returns>
 
-        public string Coder(RequestType commandName, string cmdType, params string[] @params)
+        public void Coder(RequestType commandName, string cmdType, params string[] @params)
         {
             @params.NotNull();
             _commandName = commandName;
@@ -115,10 +119,10 @@ namespace SAEA.RedisSocket.Core
                 sb.AppendLine(param);
             }
             _sendCommand = sb.ToString();
-            return _sendCommand;
+            Request(_sendCommand);
         }
 
-        public string CoderForDic(RequestType commandName, Dictionary<string, string> dic)
+        public void CoderForDic(RequestType commandName, Dictionary<string, string> dic)
         {
             dic.NotNull();
             _commandName = commandName;
@@ -138,10 +142,10 @@ namespace SAEA.RedisSocket.Core
                 sb.AppendLine(item.Value.ToString());
             }
             _sendCommand = sb.ToString();
-            return _sendCommand;
+            Request(_sendCommand);
         }
 
-        public string CoderForDicWidthID(RequestType commandName, string id, Dictionary<double, string> dic)
+        public void CoderForDicWidthID(RequestType commandName, string id, Dictionary<double, string> dic)
         {
             dic.NotNull();
             _commandName = commandName;
@@ -161,10 +165,21 @@ namespace SAEA.RedisSocket.Core
                 sb.AppendLine(item.Value.ToString());
             }
             _sendCommand = sb.ToString();
-            return _sendCommand;
+            Request(_sendCommand);
         }
 
+        #endregion
 
+        #region 接收解码
+
+        /// <summary>
+        /// 接收来自RedisServer的命令
+        /// </summary>
+        /// <param name="command"></param>
+        public void Enqueue(byte[] msg)
+        {
+            _redisStream.Write(msg);
+        }
 
         /// <summary>
         /// 获取redis回复的内容
@@ -223,7 +238,7 @@ namespace SAEA.RedisSocket.Core
                 {
                     timeCount++;
 
-                    str = _redisStream.Read(len);
+                    str = _redisStream.ReadBlock(len);
 
                     loop = string.IsNullOrEmpty(str);
 
@@ -350,7 +365,7 @@ namespace SAEA.RedisSocket.Core
                         responseData.Data = msg;
                         break;
                     case RequestType.GET:
-                    case RequestType.GETSET:                    
+                    case RequestType.GETSET:
                     case RequestType.HGET:
                     case RequestType.LPOP:
                     case RequestType.RPOP:
@@ -508,7 +523,7 @@ namespace SAEA.RedisSocket.Core
                         responseData.Data = ssb.ToString();
                         break;
                     case RequestType.SUBSCRIBE:
-                        var r = "";
+                        var r = string.Empty;
                         while (IsSubed)
                         {
                             r = GetRedisReply();
@@ -756,6 +771,10 @@ namespace SAEA.RedisSocket.Core
             }
             return result;
         }
+
+        #endregion
+
+
 
         public void Dispose()
         {

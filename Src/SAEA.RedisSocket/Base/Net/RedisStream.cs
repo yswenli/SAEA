@@ -43,10 +43,11 @@ namespace SAEA.RedisSocket.Base.Net
                 {
                     if (_queue.TryDequeue(out byte[] data))
                     {
-                        lock (_locker)
-                        {
-                            _bytes.AddRange(data);
-                        }
+                        if (data != null)
+                            lock (_locker)
+                            {
+                                _bytes.AddRange(data);
+                            }
                     }
                     else
                     {
@@ -61,7 +62,7 @@ namespace SAEA.RedisSocket.Base.Net
             _queue.Enqueue(data);
         }
 
-        public string ReadLine()
+        byte[] ReadBytesLine()
         {
             lock (_locker)
             {
@@ -79,30 +80,49 @@ namespace SAEA.RedisSocket.Base.Net
                     {
                         _bytes.RemoveRange(0, index + 1);
 
-                        return Encoding.UTF8.GetString(span.Slice(0, index + 1).ToArray());
+                        return span.Slice(0, index + 1).ToArray();
                     }
-                    return string.Empty;
+                    return null;
                 }
                 else
                 {
-                    return string.Empty;
+                    return null;
                 }
             }
-
         }
 
-        public string Read(int len)
-        {            
+        byte[] ReadBytesBlock(int len)
+        {
             lock (_locker)
             {
-                if (_bytes.Count < len + 2) return string.Empty;
+                if (_bytes.Count < len + 2) return null;
 
                 var data = _bytes.Take(len).ToArray();
 
                 _bytes.RemoveRange(0, len + 2);
 
+                return data;
+            }
+        }
+
+        public string ReadLine()
+        {
+            var data = ReadBytesLine();
+            if (data != null)
+            {
                 return Encoding.UTF8.GetString(data);
             }
+            return string.Empty;
+        }
+
+        public string ReadBlock(int len)
+        {
+            var data = ReadBytesBlock(len);
+            if (data != null)
+            {
+                return Encoding.UTF8.GetString(data);
+            }
+            return string.Empty;
         }
 
         public void Clear()

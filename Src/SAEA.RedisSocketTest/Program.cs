@@ -25,6 +25,7 @@ using SAEA.Common;
 using SAEA.RedisSocket;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading.Tasks;
 
 namespace SAEA.RedisSocketTest
 {
@@ -115,7 +116,7 @@ namespace SAEA.RedisSocketTest
 
             //redisClient.SlaveOf();
 
-            var pong= redisClient.Ping();
+            var pong = redisClient.Ping();
 
             //redisClient.Select(1);
 
@@ -228,7 +229,7 @@ namespace SAEA.RedisSocketTest
 
             var db = redisClient.GetDataBase();
 
-            var count = 10000;
+            var count = 1000;
 
             var millseconds = 0L;
 
