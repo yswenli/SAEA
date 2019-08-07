@@ -430,14 +430,5 @@ namespace SAEA.RedisSocket
         {
             return _cnn.DoMutiCmd(RequestType.CLIENT_LIST).ToList();
         }
-
-        /// <summary>
-        /// 设置集群
-        /// </summary>
-        /// <returns></returns>
-        public bool SetCluster()
-        {
-            return SetConfig("cluster_enabled", 1);
-        }
     }
 }
