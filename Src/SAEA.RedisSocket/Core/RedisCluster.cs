@@ -114,7 +114,7 @@ namespace SAEA.RedisSocket
                 case OperationType.DoBatchWithParams:
                     return _cnn.DoBatchWithParams((RequestType)args[0], (string[])args[1]);
                 case OperationType.DoCluster:
-                    return _cnn.DoCluster((RequestType)args[0], (object[])args[1]);
+                    return _cnn.DoMutiCmd((RequestType)args[0], (object[])args[1]);
                 case OperationType.DoClusterSetSlot:
                     return _cnn.DoClusterSetSlot((RequestType)args[0], (string)args[1], (int)args[2], (string)args[3]);
                 case OperationType.DoExpire:
@@ -196,7 +196,7 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public string ClusterInfoStr()
         {
-            return _cnn.DoCluster(RequestType.CLUSTER_INFO).Data;
+            return _cnn.DoMutiCmd(RequestType.CLUSTER_INFO).Data;
         }
         /// <summary>
         /// 集群信息
@@ -216,7 +216,7 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public string ClusterNodesStr()
         {
-            return _cnn.DoCluster(RequestType.CLUSTER_NODES).Data;
+            return _cnn.DoMutiCmd(RequestType.CLUSTER_NODES).Data;
         }
         /// <summary>
         /// 集群节点信息
@@ -239,7 +239,7 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public bool AddNode(string ip, int port)
         {
-            return _cnn.DoCluster(RequestType.CLUSTER_MEET, ip, port).Data == OK;
+            return _cnn.DoMutiCmd(RequestType.CLUSTER_MEET, ip, port).Data == OK;
         }
         /// <summary>
         /// 移除节点
@@ -248,7 +248,7 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public bool DeleteNode(string nodeID)
         {
-            return _cnn.DoCluster(RequestType.CLUSTER_FORGET, nodeID).Data == OK;
+            return _cnn.DoMutiCmd(RequestType.CLUSTER_FORGET, nodeID).Data == OK;
         }
 
         /// <summary>
@@ -258,7 +258,7 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public bool Replicate(string masterNodeID)
         {
-            return _cnn.DoCluster(RequestType.CLUSTER_REPLICATE, masterNodeID).Data == OK;
+            return _cnn.DoMutiCmd(RequestType.CLUSTER_REPLICATE, masterNodeID).Data == OK;
         }
 
         /// <summary>
@@ -268,7 +268,7 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public bool AddSlots(params int[] slots)
         {
-            return _cnn.DoCluster(RequestType.CLUSTER_ADDSLOTS, slots).Data == OK;
+            return _cnn.DoMutiCmd(RequestType.CLUSTER_ADDSLOTS, slots).Data == OK;
         }
 
         /// <summary>
@@ -278,7 +278,7 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public bool DelSlots(params int[] slots)
         {
-            return _cnn.DoCluster(RequestType.CLUSTER_DELSLOTS, slots).Data == OK;
+            return _cnn.DoMutiCmd(RequestType.CLUSTER_DELSLOTS, slots).Data == OK;
         }
         /// <summary>
         /// 当前节点移除全部slots
@@ -286,7 +286,7 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public bool FlushSlots()
         {
-            return _cnn.DoCluster(RequestType.CLUSTER_FLUSHSLOTS).Data == OK;
+            return _cnn.DoMutiCmd(RequestType.CLUSTER_FLUSHSLOTS).Data == OK;
         }
         /// <summary>
         /// 将当前节点的slot 指派给 node_id指定的节点，如果槽已经指派给另一个节点，那么先让另一个节点删除该槽，然后再进行指派。
@@ -379,7 +379,7 @@ namespace SAEA.RedisSocket
         public int KeySlot(string key)
         {
             int slot = -1;
-            int.TryParse(_cnn.DoCluster(RequestType.CLUSTER_KEYSLOT, key).Data, out slot);
+            int.TryParse(_cnn.DoMutiCmd(RequestType.CLUSTER_KEYSLOT, key).Data, out slot);
             return slot;
         }
 
@@ -391,7 +391,7 @@ namespace SAEA.RedisSocket
         public int CountKeysInSlot(int slot)
         {
             int count = -1;
-            int.TryParse(_cnn.DoCluster(RequestType.CLUSTER_COUNTKEYSINSLOT, slot).Data, out count);
+            int.TryParse(_cnn.DoMutiCmd(RequestType.CLUSTER_COUNTKEYSINSLOT, slot).Data, out count);
             return count;
         }
 
@@ -402,7 +402,7 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public List<string> GetKeysInSlot(int slot)
         {
-            return _cnn.DoCluster(RequestType.CLUSTER_GETKEYSINSLOT, slot).ToList();
+            return _cnn.DoMutiCmd(RequestType.CLUSTER_GETKEYSINSLOT, slot).ToList();
         }
 
         /// <summary>
@@ -411,7 +411,7 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public bool SaveClusterConfig()
         {
-            return _cnn.DoCluster(RequestType.CLUSTER_SAVECONFIG).Data == OK;
+            return _cnn.DoMutiCmd(RequestType.CLUSTER_SAVECONFIG).Data == OK;
         }
     }
 }

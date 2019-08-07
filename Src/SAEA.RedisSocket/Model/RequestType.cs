@@ -106,5 +106,10 @@ namespace SAEA.RedisSocket.Model
         CLUSTER_COUNTKEYSINSLOT,
         CLUSTER_GETKEYSINSLOT,
 
+        CONFIG_GET,
+        CONFIG_SET,
+
+        CLIENT_LIST,
+
     }
 }

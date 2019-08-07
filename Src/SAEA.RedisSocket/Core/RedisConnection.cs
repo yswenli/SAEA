@@ -497,7 +497,7 @@ namespace SAEA.RedisSocket.Core
         }
 
 
-        public ResponseData DoCluster(RequestType type, params object[] @params)
+        public ResponseData DoMutiCmd(RequestType type, params object[] @params)
         {
             lock (_syncLocker)
             {

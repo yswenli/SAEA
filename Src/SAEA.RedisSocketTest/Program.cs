@@ -49,6 +49,15 @@ namespace SAEA.RedisSocketTest
 
             redisClient.Select(1);
 
+            var clist = redisClient.ClientList();
+
+
+            var ck = "slowlog-max-len";
+
+            var cr1 = redisClient.SetConfig(ck, 1000);
+
+            var cr2 = redisClient.GetConfig(ck);
+
             var list = redisClient.GetDataBase().LRang("list1", 0, 10);
 
             //redisClient.GetDataBase().HSet("test", "", "2151");
@@ -65,6 +74,9 @@ namespace SAEA.RedisSocketTest
             var sscan = redisClient.GetDataBase().SScan("aaa", 0);
             redisClient.GetDataBase().ZAdd("zaaa", "!#@%$^&*\r\n()^^%%&%@FSDH\r\n某月霜\r\n/.';lakdsfakdsf", 110);
             var zscan = redisClient.GetDataBase().ZScan("zaaa", 0);
+
+            var zc = redisClient.GetDataBase().ZCount("zaaa");
+            var zl = redisClient.GetDataBase().ZLen("zaaa");
 
             //var r = redisClient.GetDataBase().Rename("aaa", "aaa");
 

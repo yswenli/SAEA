@@ -233,7 +233,7 @@ namespace SAEA.RedisSocket
         {
             return _cnn.DoInOne(RequestType.INFO, section).Data;
         }
-        
+
 
         /// <summary>
         /// redis信息
@@ -392,6 +392,52 @@ namespace SAEA.RedisSocket
                 }
                 return _redisDataBase;
             }
+        }
+
+        /// <summary>
+        /// 获取服务器配置
+        /// </summary>
+        /// <param name="parameter"></param>
+        /// <returns></returns>
+        public string GetConfig(string parameter)
+        {
+            var responseData = _cnn.DoMutiCmd(RequestType.CONFIG_GET, parameter);
+
+            if (responseData.Type == ResponseType.Lines)
+            {
+                return responseData.ToList()[1];
+            }
+
+            return string.Empty;
+        }
+
+        /// <summary>
+        /// 设置服务器配置
+        /// </summary>
+        /// <param name="parameter"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public bool SetConfig(string parameter, object value)
+        {
+            return _cnn.DoMutiCmd(RequestType.CONFIG_SET, parameter, value.ToString()).Type == ResponseType.OK ? true : false;
+        }
+
+        /// <summary>
+        /// 获取客户端列表
+        /// </summary>
+        /// <returns></returns>
+        public List<string> ClientList()
+        {
+            return _cnn.DoMutiCmd(RequestType.CLIENT_LIST).ToList();
+        }
+
+        /// <summary>
+        /// 设置集群
+        /// </summary>
+        /// <returns></returns>
+        public bool SetCluster()
+        {
+            return SetConfig("cluster_enabled", 1);
         }
     }
 }

@@ -342,6 +342,7 @@ namespace SAEA.RedisSocket.Core
                     case RequestType.CLUSTER_DELSLOTS:
                     case RequestType.CLUSTER_FLUSHSLOTS:
                     case RequestType.CLUSTER_SETSLOT:
+                    case RequestType.CONFIG_SET:
                         if (GetStatus(command, out error))
                         {
                             responseData.Type = ResponseType.OK;
@@ -388,13 +389,14 @@ namespace SAEA.RedisSocket.Core
 
                             responseData.Data += GetLastSB(new StringBuilder(), len).ToString();
                         }
-                        break;
+                        break;                    
                     case RequestType.KEYS:
                     case RequestType.MGET:
                     case RequestType.HKEYS:
                     case RequestType.LRANGE:
                     case RequestType.SMEMBERS:
                     case RequestType.CLUSTER_GETKEYSINSLOT:
+                    case RequestType.CONFIG_GET:
                         responseData.Type = ResponseType.Lines;
                         var sb = new StringBuilder();
                         var rn = GetRowNum(command, out error);
@@ -505,6 +507,7 @@ namespace SAEA.RedisSocket.Core
                     case RequestType.INFO:
                     case RequestType.CLUSTER_INFO:
                     case RequestType.CLUSTER_NODES:
+                    case RequestType.CLIENT_LIST:
                         len = GetWordsNum(command, out error);
                         if (len == -1)
                         {
