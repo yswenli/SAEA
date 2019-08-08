@@ -72,6 +72,8 @@ namespace SAEA.Common
 
             var arr = remote.Split(new string[] { ConstHelper.COLON, ConstHelper.SPACE, ConstHelper.COMMA }, StringSplitOptions.None);
 
+            if (string.IsNullOrEmpty(arr[0])) arr[0] = "127.0.0.1";
+
             var ip = arr[0];
 
             var port = int.Parse(arr[1]);
@@ -155,7 +157,7 @@ namespace SAEA.Common
             return str.AsSpan(start, str.Length - start).ToString();
         }
 
-        public static int ParseToInt(this string str,int start, int count)
+        public static int ParseToInt(this string str, int start, int count)
         {
             return int.Parse(Substring(str, start, count));
         }

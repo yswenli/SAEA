@@ -98,27 +98,35 @@ namespace SAEA.RedisSocket.Model
         {
             ClusterNode clusterNode = new ClusterNode();
 
-            var arr = info.Split(" ");
-
-            clusterNode.NodeID = arr[0];
-            clusterNode.IPPort = arr[1];
-            clusterNode.IsMaster = arr[2].Contains("master");
-
-            if (clusterNode.IsMaster)
+            try
             {
-                clusterNode.Status = arr[7];
+                var arr = info.Split(" ");
 
-                var sarr = arr[8].Split("-");
+                clusterNode.NodeID = arr[0];
+                clusterNode.IPPort = arr[1];
+                clusterNode.IsMaster = arr[2].Contains("master");
 
-                clusterNode.MinSlots = int.Parse(sarr[0]);
-                clusterNode.MaxSlots = int.Parse(sarr[1]);
+                if (clusterNode.IsMaster)
+                {
+                    clusterNode.Status = arr[7];
+
+                    if (arr.Length >= 9)
+                    {
+                        var sarr = arr[8].Split("-");
+                        clusterNode.MinSlots = int.Parse(sarr[0]);
+                        clusterNode.MaxSlots = int.Parse(sarr[1]);
+                    }
+                }
+                else
+                {
+                    clusterNode.MasterNodeID = arr[3];
+                    clusterNode.Status = arr[7];
+                }
             }
-            else
+            catch
             {
-                clusterNode.MasterNodeID = arr[3];
-                clusterNode.Status = arr[7];
-            }
 
+            }
             return clusterNode;
         }
 

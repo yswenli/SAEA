@@ -38,7 +38,7 @@ namespace SAEA.RedisSocket.Base.Net
         Queue<byte[]> queue = new Queue<byte[]>();
 
 
-        public RClient(int bufferSize = 100 * 1024, string ip = "127.0.0.1", int port = 39654) : base(new RContext(), ip, port, bufferSize)
+        public RClient(int bufferSize = 100 * 1024, string ip = "127.0.0.1", int port = 39654) : base(new RContext(), string.IsNullOrEmpty(ip) ? "127.0.0.1" : ip, port, bufferSize)
         {
             TaskHelper.Start(() =>
             {
