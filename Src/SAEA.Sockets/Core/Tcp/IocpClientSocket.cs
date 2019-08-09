@@ -413,7 +413,10 @@ namespace SAEA.Sockets.Core.Tcp
                 try
                 {
                     if (_userToken != null && _userToken.Socket != null)
-                        _userToken.Socket.Close();
+                    {
+                        _userToken.Socket.Shutdown(SocketShutdown.Send);
+                        _userToken.Socket.Close(10 * 1000);
+                    }
                 }
                 catch (Exception sex)
                 {

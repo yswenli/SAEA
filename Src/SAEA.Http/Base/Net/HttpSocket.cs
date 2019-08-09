@@ -108,7 +108,7 @@ namespace SAEA.Http.Base.Net
 
         public void Stop()
         {
-            _serverSokcet.Dispose();
+            _serverSokcet.Stop();
         }
     }
 }

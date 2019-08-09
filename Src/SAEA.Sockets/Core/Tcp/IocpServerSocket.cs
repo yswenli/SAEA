@@ -47,7 +47,7 @@ namespace SAEA.Sockets.Core.Tcp
     /// </summary>
     public class IocpServerSocket : IServerSokcet
     {
-        Socket _listener;
+        Socket _listener = null;
 
         int _clientCounts;
 
@@ -102,13 +102,9 @@ namespace SAEA.Sockets.Core.Tcp
                 UseIPV6 = isIpV6,
                 WithSsl = false
             };
-
             _sessionManager = new SessionManager(context, bufferSize, count, IO_Completed, new TimeSpan(0, 0, timeOut));
             _sessionManager.OnTimeOut += _sessionManager_OnTimeOut;
             OnServerReceiveBytes = new OnServerReceiveBytesHandler(OnReceiveBytes);
-            _listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            _listener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-            _listener.NoDelay = noDelay;
         }
 
 
@@ -121,20 +117,26 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="backlog"></param>
         public void Start(int backlog = 10 * 1000)
         {
-            if (SocketOption.UseIPV6)
+            if (_listener == null)
             {
-                _listener.Bind(new IPEndPoint(IPAddress.IPv6Any, SocketOption.Port));
-            }
-            else
-            {
-                _listener.Bind(new IPEndPoint(IPAddress.Any, SocketOption.Port));
-            }
+                _listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                _listener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+                _listener.NoDelay = SocketOption.NoDelay;
+                if (SocketOption.UseIPV6)
+                {
+                    _listener.Bind(new IPEndPoint(IPAddress.IPv6Any, SocketOption.Port));
+                }
+                else
+                {
+                    _listener.Bind(new IPEndPoint(IPAddress.Any, SocketOption.Port));
+                }
 
-            _listener.Listen(backlog);
+                _listener.Listen(backlog);
 
-            var accepteArgs = new SocketAsyncEventArgs();
-            accepteArgs.Completed += AccepteArgs_Completed;
-            ProcessAccept(accepteArgs);
+                var accepteArgs = new SocketAsyncEventArgs();
+                accepteArgs.Completed += AccepteArgs_Completed;
+                ProcessAccept(accepteArgs);
+            }
         }
 
         private void AccepteArgs_Completed(object sender, SocketAsyncEventArgs e)
@@ -148,7 +150,7 @@ namespace SAEA.Sockets.Core.Tcp
         private void ProcessAccept(SocketAsyncEventArgs e)
         {
             e.AcceptSocket = null;
-            if (!_listener.AcceptAsync(e))
+            if (_listener != null && !_listener.AcceptAsync(e))
             {
                 ProcessAccepted(e);
             }
@@ -158,18 +160,21 @@ namespace SAEA.Sockets.Core.Tcp
         {
             var userToken = _sessionManager.BindUserToken(e.AcceptSocket);
 
-            var readArgs = userToken.ReadArgs;
-
-            Interlocked.Increment(ref _clientCounts);
-
-            TaskHelper.Start(() => { OnAccepted?.Invoke(userToken); });
-
-            if (!userToken.Socket.ReceiveAsync(readArgs))
+            if (userToken != null)
             {
-                TaskHelper.Start(() =>
+                var readArgs = userToken.ReadArgs;
+
+                Interlocked.Increment(ref _clientCounts);
+
+                TaskHelper.Start(() => { OnAccepted?.Invoke(userToken); });
+
+                if (!userToken.Socket.ReceiveAsync(readArgs))
                 {
-                    ProcessReceived(readArgs);
-                });
+                    TaskHelper.Start(() =>
+                    {
+                        ProcessReceived(readArgs);
+                    });
+                }
             }
             //接入新的请求
             ProcessAccept(e);
@@ -430,15 +435,25 @@ namespace SAEA.Sockets.Core.Tcp
         {
             try
             {
-                _listener.Close();
-                _sessionManager.Clear();
+                _listener.Close(10 * 1000);
+            }
+            catch { }
+            try
+            {
+                _listener.Dispose();
+                _listener = null;
             }
             catch { }
         }
 
         public void Dispose()
         {
-            Stop();
+            try
+            {
+                Stop();
+                _sessionManager.Clear();
+            }
+            catch { }
         }
 
 

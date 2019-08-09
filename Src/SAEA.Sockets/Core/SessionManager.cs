@@ -126,6 +126,8 @@ namespace SAEA.Sockets.Core
         /// <returns></returns>
         public IUserToken BindUserToken(Socket socket)
         {
+            if (socket == null || socket.RemoteEndPoint == null) return null;
+
             IUserToken userToken = InitUserToken();
             userToken.Socket = socket;
             userToken.ID = socket.RemoteEndPoint.ToString();
