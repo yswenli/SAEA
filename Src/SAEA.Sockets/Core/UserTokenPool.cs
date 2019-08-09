@@ -44,9 +44,6 @@ namespace SAEA.Sockets.Core
 
         ConcurrentQueue<IUserToken> concurrentQueue = new ConcurrentQueue<IUserToken>();
 
-        object locker = new object();
-
-        Semaphore _clientAcceptManager;
 
         public UserTokenPool(IContext context, int count)
         {
