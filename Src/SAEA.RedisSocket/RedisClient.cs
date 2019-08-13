@@ -160,13 +160,15 @@ namespace SAEA.RedisSocket
         /// </summary>
         /// <param name="cmd"></param>
         /// <returns></returns>
-        public string Console(string cmd)
+        public ResponseData Console(string cmd)
         {
-            var result = _cnn.RequestWithConsole(cmd).ToString();
-            if (!string.IsNullOrEmpty(result))
+            var result = _cnn.RequestWithConsole(cmd);
+
+            if (result != null && !string.IsNullOrEmpty(result.Data))
             {
-                result = result.Replace(RedisCoder.SEPARATOR, "\r\n");
+                result.Data = result.Data.Replace(RedisCoder.SEPARATOR, "\r\n");
             }
+
             return result;
         }
 

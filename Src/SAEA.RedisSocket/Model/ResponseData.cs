@@ -40,7 +40,7 @@ namespace SAEA.RedisSocket.Model
 
         public new string ToString()
         {
-            return $"ResponseData Type:{this.Type} Data:{this.Data}";
+            return $"ResponseData\r\n\tType:{this.Type}\r\n\tData:{this.Data}";
         }
     }
 }
