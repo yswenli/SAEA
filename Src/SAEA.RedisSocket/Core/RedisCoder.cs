@@ -507,7 +507,6 @@ namespace SAEA.RedisSocket.Core
                     case RequestType.INFO:
                     case RequestType.CLUSTER_INFO:
                     case RequestType.CLUSTER_NODES:
-                    case RequestType.CLIENT_LIST:
                         len = GetWordsNum(command, out error);
                         if (len == -1)
                         {
@@ -522,6 +521,24 @@ namespace SAEA.RedisSocket.Core
                             break;
                         }
                         var ssb = GetLastSB(new StringBuilder(), len, false);
+                        responseData.Type = ResponseType.String;
+                        responseData.Data = ssb.ToString();
+                        break;
+                    case RequestType.CLIENT_LIST:
+                        len = GetWordsNum(command, out error);
+                        if (len == -1)
+                        {
+                            responseData.Type = ResponseType.Empty;
+                            responseData.Data = string.Empty;
+                            return responseData;
+                        }
+                        if (!string.IsNullOrEmpty(error))
+                        {
+                            responseData.Type = ResponseType.Error;
+                            responseData.Data = error;
+                            break;
+                        }
+                        ssb = GetLastSB(new StringBuilder(), len, true);
                         responseData.Type = ResponseType.String;
                         responseData.Data = ssb.ToString();
                         break;
