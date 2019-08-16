@@ -60,7 +60,7 @@ namespace SAEA.RedisSocket
                 {
                     _cnn = new RedisConnection(RedisConfig.GetIPPort(), this.RedisConfig.ActionTimeOut);
                 }
-                
+
                 _cnn.OnRedirect += _redisConnection_OnRedirect;
                 _cnn.OnDisconnected += _cnn_OnDisconnected;
                 this.Connect();
@@ -105,14 +105,18 @@ namespace SAEA.RedisSocket
             {
                 case OperationType.Do:
                     return _cnn.Do((RequestType)args[0]);
+                case OperationType.DoBatchWithList:
+                    return _cnn.DoBatchWithList((RequestType)args[0], (string)args[1], (List<string>)args[2]);
                 case OperationType.DoBatchWithDic:
                     return _cnn.DoBatchWithDic((RequestType)args[0], (Dictionary<string, string>)args[1]);
                 case OperationType.DoBatchWithIDDic:
-                    return _cnn.DoBatchWithIDDic((RequestType)args[0], (string)args[1], (Dictionary<double, string>)args[2]);
+                    return _cnn.DoBatchWithIDDic((RequestType)args[0], (string)args[1], (Dictionary<string, string>)args[2]);
+                case OperationType.DoBatchZaddWithIDDic:
+                    return _cnn.DoBatchZaddWithIDDic((RequestType)args[0], (string)args[1], (Dictionary<double, string>)args[2]);
                 case OperationType.DoBatchWithIDKeys:
                     return _cnn.DoBatchWithIDKeys((RequestType)args[0], (string)args[1], (string[])args[3]);
                 case OperationType.DoBatchWithParams:
-                    return _cnn.DoBatchWithParams((RequestType)args[0], (string[])args[1]);
+                    return _cnn.DoWithMutiParams((RequestType)args[0], (string[])args[1]);
                 case OperationType.DoCluster:
                     return _cnn.DoMutiCmd((RequestType)args[0], (object[])args[1]);
                 case OperationType.DoClusterSetSlot:
@@ -120,15 +124,18 @@ namespace SAEA.RedisSocket
                 case OperationType.DoExpire:
                     _cnn.DoExpire((string)args[0], (int)args[1]);
                     break;
+                case OperationType.DoExpireAt:
+                    _cnn.DoExpireAt((string)args[0], (int)args[1]);
+                    break;
                 case OperationType.DoExpireInsert:
                     _cnn.DoExpireInsert((RequestType)args[0], (string)args[1], (string)args[2], (int)args[3]);
                     break;
-                case OperationType.DoHash:
-                    return _cnn.DoHash((RequestType)args[0], (string)args[1], (string)args[2], (string)args[3]);
-                case OperationType.DoInOne:
-                    return _cnn.DoInOne((RequestType)args[0], (string)args[1]);
+                case OperationType.DoWithID:
+                    return _cnn.DoWithID((RequestType)args[0], (string)args[1], (string)args[2], (string)args[3]);
                 case OperationType.DoRang:
                     return _cnn.DoRang((RequestType)args[0], (string)args[1], (double)args[2], (double)args[3]);
+                case OperationType.DoRangByScore:
+                    return _cnn.DoRangByScore((RequestType)args[0], (string)args[1], (double)args[2], (double)args[3], (RangType)args[4], (long)args[5], (int)args[6], (bool)args[7]);
                 case OperationType.DoScan:
                     return _cnn.DoScan((RequestType)args[0], (int)args[1], (string)args[2], (int)args[3]);
                 case OperationType.DoScanKey:

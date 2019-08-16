@@ -64,7 +64,18 @@ namespace SAEA.Common
         /// <returns></returns>
         public static int GetUnixTick()
         {
-            TimeSpan ts = DateTimeHelper.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0, 0);
+            TimeSpan ts = DateTimeHelper.Now - new DateTime(1970, 1, 1, 0, 0, 0, 0).ToLocalTime();
+            return Convert.ToInt32(ts.TotalSeconds);
+        }
+
+        /// <summary>
+        /// 获取unix 时间戳
+        /// </summary>
+        /// <param name="dateTime"></param>
+        /// <returns></returns>
+        public static int ToUnixTick(this DateTime dateTime)
+        {
+            TimeSpan ts = dateTime - new DateTime(1970, 1, 1, 0, 0, 0, 0).ToLocalTime();
             return Convert.ToInt32(ts.TotalSeconds);
         }
 
@@ -73,9 +84,9 @@ namespace SAEA.Common
         /// </summary>
         /// <param name="unixTick"></param>
         /// <returns></returns>
-        public static DateTime GetDateTimeWithUnixTick(int unixTick)
+        public static DateTime ToDateTimeByUnixTick(this int unixTick)
         {
-            var start = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            var start = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Local);
             return start.AddSeconds(unixTick);
         }
 

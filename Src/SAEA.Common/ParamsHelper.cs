@@ -43,6 +43,16 @@ namespace SAEA.Common
             }
         }
 
+        public static void NotNull(this List<string> list)
+        {
+            if (list == null) throw new Exception("list must not allow null");
+
+            foreach (var item in list)
+            {
+                if (item == null) throw new Exception("list must not allow null");
+            }
+        }
+
         public static void NotNull(this Dictionary<string, string> dic)
         {
             if (dic == null) throw new Exception("params must not allow null");

@@ -145,7 +145,7 @@ namespace SAEA.RedisSocket
             {
                 while (_cnn.IsConnected)
                 {
-                    if (_cnn.Actived.AddSeconds(60) <= DateTimeHelper.Now)
+                    if (_cnn.Actived.AddSeconds(120) <= DateTimeHelper.Now)
                     {
                         Ping();
                     }
@@ -179,7 +179,7 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public string Auth(string password)
         {
-            return _cnn.DoInOne(RequestType.AUTH, password).Data;
+            return _cnn.DoWithOne(RequestType.AUTH, password).Data;
         }
 
         /// <summary>
@@ -202,7 +202,7 @@ namespace SAEA.RedisSocket
             {
                 _dbIndex = dbIndex;
             }
-            if (_cnn.DoInOne(RequestType.SELECT, _dbIndex.ToString()).Data.IndexOf(RedisConst.ErrIndex, StringComparison.InvariantCultureIgnoreCase) == -1)
+            if (_cnn.DoWithOne(RequestType.SELECT, _dbIndex.ToString()).Data.IndexOf(RedisConst.ErrIndex, StringComparison.InvariantCultureIgnoreCase) == -1)
             {
                 return true;
             }
@@ -233,7 +233,7 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public string Info(string section = RedisConst.All)
         {
-            return _cnn.DoInOne(RequestType.INFO, section).Data;
+            return _cnn.DoWithOne(RequestType.INFO, section).Data;
         }
 
 
@@ -344,7 +344,7 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public string SlaveOf(string ipPort = RedisConst.Empty)
         {
-            return _cnn.DoInOne(RequestType.SLAVEOF, string.IsNullOrEmpty(ipPort) ? RedisConst.NoOne : ipPort).Data;
+            return _cnn.DoWithOne(RequestType.SLAVEOF, string.IsNullOrEmpty(ipPort) ? RedisConst.NoOne : ipPort).Data;
         }
         /// <summary>
         /// redis server是否是主
@@ -430,7 +430,23 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public List<string> ClientList()
         {
-            return _cnn.DoMutiCmd(RequestType.CLIENT_LIST).ToList();
+            var list = _cnn.DoMutiCmd(RequestType.CLIENT_LIST).ToList();
+
+            if (list != null && list.Any())
+            {
+                var result = new List<string>();
+
+                var arr = list[0].Split("id=", StringSplitOptions.RemoveEmptyEntries);
+
+                foreach (var item in arr)
+                {
+                    result.Add($"id={item}");
+                }
+
+                return result;
+            }
+
+            return null;
         }
     }
 }

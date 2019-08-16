@@ -23,6 +23,7 @@
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.RedisSocket;
+using SAEA.RedisSocket.Core;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
@@ -45,36 +46,24 @@ namespace SAEA.RedisSocketTest
 
             redisClient.Connect();
 
-            redisClient.Select(1);
+            KeysTest(redisClient);
 
-            var clist = redisClient.ClientList();
+            StringTest(redisClient.GetDataBase(0));
 
+            HashTest(redisClient.GetDataBase());
 
-            var ck = "slowlog-max-len";
+            ListTest(redisClient.GetDataBase());
 
-            var cr1 = redisClient.SetConfig(ck, 1000);
-
-            var cr2 = redisClient.GetConfig(ck);
-
-            var list = redisClient.GetDataBase().LRang("list1", 0, 10);
-
-            //redisClient.GetDataBase().HSet("test", "", "2151");
+            SetTest(redisClient.GetDataBase());
 
 
-            //var isCluster = redisClient.IsCluster;
+
 
             //var list = redisClient.ClusterNodes;
 
-            var keys = redisClient.GetDataBase().Keys();
 
-            var scan = redisClient.GetDataBase().Scan();
-            var hscan = redisClient.GetDataBase().HScan("haa22", 0);
-            var sscan = redisClient.GetDataBase().SScan("aaa", 0);
-            redisClient.GetDataBase().ZAdd("zaaa", "!#@%$^&*\r\n()^^%%&%@FSDH\r\n某月霜\r\n/.';lakdsfakdsf", 110);
-            var zscan = redisClient.GetDataBase().ZScan("zaaa", 0);
 
-            var zc = redisClient.GetDataBase().ZCount("zaaa");
-            var zl = redisClient.GetDataBase().ZLen("zaaa");
+
 
             //var r = redisClient.GetDataBase().Rename("aaa", "aaa");
 
@@ -96,40 +85,6 @@ namespace SAEA.RedisSocketTest
 
             //redisClient.GetDataBase().SRemove("abcd", "12345");
 
-            var info = redisClient.Info();
-
-            var serverInfo = redisClient.ServerInfo;
-
-            var r = redisClient.Console("scan 0");
-
-            if (info.Contains("NOAUTH Authentication required."))
-            {
-                while (true)
-                {
-                    ConsoleHelper.WriteLine("请输入redis连接密码");
-                    var auth = ConsoleHelper.ReadLine();
-                    if (string.IsNullOrEmpty(auth))
-                    {
-                        auth = "yswenli";
-                    }
-                    var a = redisClient.Auth(auth);
-                    if (a.Contains("OK"))
-                    {
-                        break;
-                    }
-                    else
-                    {
-                        ConsoleHelper.WriteLine(a);
-                    }
-                }
-            }
-
-            //redisClient.SlaveOf();
-
-            var pong = redisClient.Ping();
-
-            //redisClient.Select(1);
-
             PerformanceTest(redisClient);
 
             ConsoleHelper.WriteLine(redisClient.Type("key0"));
@@ -137,7 +92,264 @@ namespace SAEA.RedisSocketTest
             ConsoleHelper.WriteLine("dbSize:{0}", redisClient.DBSize().ToString());
 
             RedisOperationTest(redisClient, true);
+
             ConsoleHelper.ReadLine();
+        }
+
+        static void KeysTest(RedisClient redisClient)
+        {
+            var a = redisClient.Auth("yswenli");
+
+            var info = redisClient.Info();
+
+            var serverInfo = redisClient.ServerInfo;
+
+            redisClient.Select(1);
+
+            var dbsize = redisClient.DBSize();
+
+            redisClient.SlaveOf();
+
+            var pong = redisClient.Ping();
+
+            var clist = redisClient.ClientList();
+
+            var ck = "slowlog-max-len";
+
+            var cr1 = redisClient.SetConfig(ck, 1000);
+
+            var cr2 = redisClient.GetConfig(ck);
+
+            var isCluster = redisClient.IsCluster;
+
+        }
+
+        static void StringTest(RedisDataBase db)
+        {
+            db.Set("yswenli", "good man");
+
+            var val = db.Get("yswenli");
+
+            var keys = db.Keys();
+
+            db.Del("yswenli");
+
+            var e = db.Exists("yswenli");
+
+            db.Expire("saea", 60);
+
+            db.Set("saea", "redis");
+
+            db.ExpireAt("saea", DateTimeHelper.Now.AddSeconds(30));
+
+            var t1 = db.Ttl("saea");
+
+            db.Append("saea", " socket nibility");
+
+            var v = db.Get("saea");
+
+            var v1 = db.GetSet("saea", "redis socket");
+
+            var r = db.RandomKey();
+
+            db.Persist("saea");
+
+            var t2 = db.Ttl("saea");
+
+            var i1 = db.Increment("inc1");
+            i1 = db.Increment("inc1");
+            i1 = db.Increment("inc1");
+
+            i1 = db.Decrement("inc1");
+            i1 = db.Decrement("inc1");
+            i1 = db.Decrement("inc1");
+
+            var i2 = db.IncrementBy("inc2", 1);
+            i2 = db.IncrementBy("inc2", 1);
+            i2 = db.IncrementBy("inc2", 1);
+
+            i2 = db.DecrementBy("inc2", 1);
+            i2 = db.DecrementBy("inc2", 1);
+            i2 = db.DecrementBy("inc2", 1);
+
+            var i3 = db.IncrementByFloat("inc3", 0.1F);
+            i3 = db.IncrementByFloat("inc3", 0.1F);
+            i3 = db.IncrementByFloat("inc3", 0.1F);
+
+            i3 = db.IncrementByFloat("inc3", -0.1F);
+            i3 = db.IncrementByFloat("inc3", -0.1F);
+            i3 = db.IncrementByFloat("inc3", -0.1F);
+
+            var len = db.Len("saea");
+        }
+
+        static void HashTest(RedisDataBase db)
+        {
+            db.HSet("yswenliH", "saea1", "socket");
+
+            var dic = new Dictionary<string, string>();
+            dic.Add("saea2", "mvc");
+            dic.Add("saea3", "rpc");
+            db.HMSet("yswenliH", dic);
+
+            var v1 = db.HGet("yswenliH", "saea1");
+
+            var v2 = db.HMGet("yswenliH", new List<string>() { "saea1", "saea2", "saea3" });
+
+            var v3 = db.HGetAll("yswenliH");
+
+            var v4 = db.HGetKeys("yswenliH");
+
+            var v5 = db.HGetValues("yswenliH");
+
+            var l1 = db.HLen("yswenliH");
+
+            var l2 = db.HStrLen("yswenliH", "saea1");
+
+            var s = db.HScan("yswenli*");
+
+            var b1 = db.HExists("yswenliH", "saea1");
+
+            var b2 = db.HExists("yswenliH", "saea4");
+
+            db.HDel("yswenliH", "saea1");
+
+            db.HDel("yswenliH", new string[] { "saea2", "saea3" });
+
+            v4 = db.HGetKeys("yswenliH");
+
+            db.Del("yswenliH");
+
+            var i1 = db.HIncrementBy("yswenliH", "inc", 1);
+
+            i1 = db.HIncrementBy("yswenliH", "inc", 1);
+
+            i1 = db.HIncrementBy("yswenliH", "inc", -1);
+
+            i1 = db.HIncrementBy("yswenliH", "inc", -1);
+
+            var i2 = db.HIncrementByFloat("yswenliH", "inc1", 0.1F);
+
+            i2 = db.HIncrementByFloat("yswenliH", "inc1", 0.1F);
+
+            i2 = db.HIncrementByFloat("yswenliH", "inc1", -0.1F);
+
+            i2 = db.HIncrementByFloat("yswenliH", "inc1", -0.1F);
+
+        }
+
+        static void ListTest(RedisDataBase db)
+        {
+            var key = "yswenliL";
+
+            var i1 = db.LPush(key, "saea");
+
+            var l1 = db.LLen(key);
+
+            var i2 = db.LPush(key, new List<string>() { "redis", "socket" });
+
+            var l2 = db.LLen(key);
+
+            var i3 = db.LPushX(key, "a");
+            db.LPushX(key, "a");
+
+            var l3 = db.LLen(key);
+
+            var i4 = db.RPush(key, "b");
+
+            var l4 = db.LLen(key);
+
+            var i5 = db.RPush(key, new List<string>() { "c", "d", "e" });
+
+            var v6 = db.LInsert(key, "c", true, "f");
+
+            var l5 = db.LLen(key);
+
+            var i6 = db.RPushX(key, "f");
+
+            var l6 = db.LLen(key);
+
+            var v1 = db.LPop(key);
+
+            var l7 = db.LLen(key);
+
+            var v2 = db.BLPop(key, 10);
+
+            var l8 = db.LLen(key);
+
+            var v3 = db.BLPop(new List<string>() { key, "key1" }, 10);
+
+            var l9 = db.LLen(key);
+
+            var v4 = db.RpopLPush(key, "key1");
+
+            var l10 = db.LLen(key);
+
+            var l11 = db.LLen("key1");
+
+            var v5 = db.LIndex(key, 0);
+
+            var v7 = db.RPop(key);
+
+            db.LSet(key, 0, "redis1");
+
+            var v8 = db.LRang(key);
+
+            var v9 = db.LTrim(key, 1, 3);
+
+            var v10 = db.BRPop(key, 10);
+
+            var v11 = db.BRPopLPush(key, "key1", 10);
+
+            var v12 = db.LRemove(key, 100, "a");
+        }
+
+        static void SetTest(RedisDataBase db)
+        {
+            var key = "yswenliS";
+
+            db.SAdd(key, "saea");
+
+            db.SAdd(key, new string[] { "redis", "socket", "a", "b", "c", "d", "e", "f" });
+
+            var e = db.SExists(key, "saea");
+
+            var v1 = db.SPop(key);
+
+            var v2 = db.SRandMemeber(key);
+
+            var s = db.SRemove(key, "saea");
+
+            var i1 = db.SMove(key, "yswenliS1", "redis");
+
+            var l1 = db.SLen(key);
+
+            var l2 = db.SMemebers("yswenliS1");
+
+            var l3 = db.SInter(key, "yswenliS1");
+
+            var i2 = db.SInterStore("yswenliS2", key, "yswenliS1");
+
+            var l4 = db.SUnion(key, "yswenliS1");
+
+            var i3 = db.SUnionStore("yswenliS3", key, "yswenliS1");
+
+            var l5 = db.SDiff(key, "yswenliS1");
+
+            var i4 = db.SDiffStore("yswenliS4", key, "yswenliS1");
+
+        }
+
+        static void ScanTest(RedisDataBase db)
+        {
+            var scan = db.Scan();
+            var hscan = db.HScan("haa22", 0);
+            var sscan = db.SScan("aaa", 0);
+            db.ZAdd("zaaa", "!#@%$^&*\r\n()^^%%&%@FSDH\r\n某月霜\r\n/.';lakdsfakdsf", 110);
+            var zscan = db.ZScan("zaaa", 0);
+
+            var zc = db.ZCount("zaaa");
+            var zl = db.ZLen("zaaa");
         }
 
         private static void RedisOperationTest(object sender, bool status)
@@ -192,11 +404,11 @@ namespace SAEA.RedisSocketTest
 
                 ConsoleHelper.WriteLine("回车开始HashSet插值操作...");
                 ConsoleHelper.ReadLine();
-                var hkeys = redisClient.GetDataBase().GetHKeys(hid);
+                var hkeys = redisClient.GetDataBase().HGetKeys(hid);
                 foreach (var hkey in hkeys)
                 {
                     var val = redisClient.GetDataBase().HGet(hid, hkey);
-                    ConsoleHelper.WriteLine("HGet val:" + val.Data);
+                    ConsoleHelper.WriteLine("HGet val:" + val);
                 }
 
                 var hall = redisClient.GetDataBase().HGetAll("wenli");

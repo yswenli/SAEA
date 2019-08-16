@@ -70,8 +70,8 @@ namespace SAEA.RedisSocket.Base.Net
 
         public void Request(byte[] cmd)
         {
-            OnActived.Invoke(DateTimeHelper.Now);
             SendAsync(cmd);
+            OnActived.Invoke(DateTimeHelper.Now);
         }
     }
 }

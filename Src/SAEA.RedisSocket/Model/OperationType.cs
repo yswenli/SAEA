@@ -31,21 +31,24 @@ namespace SAEA.RedisSocket.Model
     public enum OperationType : byte
     {
         Do = 1,
-        DoInOne = 2,
-        DoWithKey = 3,
-        DoWithKeyValue = 4,
-        DoExpire = 5,
+        DoWithKey = 2,
+        DoWithKeyValue = 3,
+        DoExpire = 4,
+        DoExpireAt = 5,
         DoExpireInsert = 6,
-        DoHash = 7,
+        DoWithID = 7,
         DoRang = 8,
-        DoSub = 9,
-        DoBatchWithDic = 10,
-        DoBatchWithParams = 11,
-        DoBatchWithIDKeys = 12,
-        DoBatchWithIDDic = 13,
-        DoScan = 14,
-        DoScanKey = 15,
-        DoCluster = 16,
-        DoClusterSetSlot = 17
+        DoRangByScore = 9,
+        DoSub = 10,
+        DoBatchWithDic = 11,
+        DoBatchWithList = 12,
+        DoBatchWithParams = 13,
+        DoBatchWithIDKeys = 14,
+        DoBatchWithIDDic = 15,
+        DoBatchZaddWithIDDic = 16,
+        DoScan = 17,
+        DoScanKey = 18,
+        DoCluster = 19,
+        DoClusterSetSlot = 20
     }
 }

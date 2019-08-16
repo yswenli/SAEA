@@ -30,7 +30,6 @@ namespace SAEA.RedisSocket.Model
 {
     public static class ResponseExtention
     {
-        static string _enter = "\r\n";
 
         public static List<string> ToList(this ResponseData source)
         {
@@ -51,12 +50,42 @@ namespace SAEA.RedisSocket.Model
 
                 for (int i = 0; i < arr.Length; i++)
                 {
-                    list.Add(arr[i]);
                     if (i + 1 == arr.Length) break;
+                    list.Add(arr[i]);
                 }
             }
 
             return list;
+        }
+
+        public static Dictionary<string, string> ToDic(this ResponseData source)
+        {
+            if (source == null) return null;
+
+            if (source.Type == ResponseType.Error)
+            {
+                throw new Exception(source.Data);
+            }
+
+            Dictionary<string, string> dic = null;
+
+            if (!string.IsNullOrEmpty(source.Data))
+            {
+                dic = new Dictionary<string, string>();
+
+                var arr = source.Data.Split(RedisCoder.SEPARATOR);
+
+                for (int i = 0; i < arr.Length; i++)
+                {
+                    if (i + 1 == arr.Length) break;
+                    if (i % 2 == 1)
+                    {
+                        dic.Add(arr[i - 1], arr[i]);
+                    }
+                }
+            }
+
+            return dic;
         }
 
 
