@@ -24,7 +24,6 @@
 
 using SAEA.Common;
 using SAEA.MessageSocket.Collection;
-using SAEA.MessageSocket.Common;
 using SAEA.MessageSocket.Model;
 using SAEA.MessageSocket.Model.Business;
 using SAEA.MessageSocket.Model.Communication;
@@ -60,7 +59,7 @@ namespace SAEA.MessageSocket
                 {
                     try
                     {
-                        var cm = ConvertHelper.PBDeserialize<ChatMessage>(s.Content);
+                        var cm = SerializeHelper.PBDeserialize<ChatMessage>(s.Content);
 
                         switch (cm.Type)
                         {
@@ -112,7 +111,7 @@ namespace SAEA.MessageSocket
         #region reply
         void ReplyBase(IUserToken userToken, ChatMessage cm)
         {
-            var data = ConvertHelper.PBSerialize(cm);
+            var data = SerializeHelper.PBSerialize(cm);
 
             var sp = SocketProtocal.Parse(data, SocketProtocalType.ChatMessage).ToBytes();
 
@@ -154,7 +153,7 @@ namespace SAEA.MessageSocket
 
         void ReplyChannelMessage(MessageUserToken userToken, ChatMessage cm)
         {
-            var channelMsg = ConvertHelper.Deserialize<ChannelMessage>(cm.Content);
+            var channelMsg = SerializeHelper.Deserialize<ChannelMessage>(cm.Content);
 
             if (channelMsg != null && !string.IsNullOrEmpty(channelMsg.Name))
             {
@@ -169,8 +168,8 @@ namespace SAEA.MessageSocket
                     lock (_channelList.SyncLocker)
                     {
 
-                        var ccm = new ChatMessage(ChatMessageType.ChannelMessage, ConvertHelper.Serialize(channelMsg));
-                        var data = ConvertHelper.PBSerialize(cm);
+                        var ccm = new ChatMessage(ChatMessageType.ChannelMessage, SerializeHelper.Serialize(channelMsg));
+                        var data = SerializeHelper.PBSerialize(cm);
                         var sp = SocketProtocal.Parse(data, SocketProtocalType.ChatMessage).ToBytes();
 
                         Parallel.ForEach(channel.Members, (m) =>
@@ -194,7 +193,7 @@ namespace SAEA.MessageSocket
         {
             ReplyBase(userToken, new ChatMessage(ChatMessageType.PrivateMessageAnswer, ""));
 
-            var privateMessage = ConvertHelper.Deserialize<PrivateMessage>(cm.Content);
+            var privateMessage = SerializeHelper.Deserialize<PrivateMessage>(cm.Content);
 
             if (privateMessage != null && !string.IsNullOrEmpty(privateMessage.Receiver))
             {
@@ -204,7 +203,7 @@ namespace SAEA.MessageSocket
 
                 var r = SessionManager.Get(privateMessage.Receiver);
                 if (r != null)
-                    ReplyBase(r, new ChatMessage(ChatMessageType.PrivateMessage, ConvertHelper.Serialize(privateMessage)));
+                    ReplyBase(r, new ChatMessage(ChatMessageType.PrivateMessage, SerializeHelper.Serialize(privateMessage)));
             }
         }
 
@@ -278,7 +277,7 @@ namespace SAEA.MessageSocket
                     lock (_groupList.SyncLocker)
                     {
                         var ccm = new ChatMessage(ChatMessageType.GroupMessage, groupMsg);
-                        var data = ConvertHelper.PBSerialize(cm);
+                        var data = SerializeHelper.PBSerialize(cm);
                         var sp = SocketProtocal.Parse(data, SocketProtocalType.ChatMessage).ToBytes();
 
                         Parallel.ForEach(group.Members, (m) =>

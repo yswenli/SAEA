@@ -23,7 +23,6 @@
 *****************************************************************************/
 
 using SAEA.Common;
-using SAEA.MessageSocket.Common;
 using SAEA.MessageSocket.Model;
 using SAEA.MessageSocket.Model.Business;
 using SAEA.MessageSocket.Model.Communication;
@@ -81,7 +80,7 @@ namespace SAEA.MessageSocket
                     {
                         try
                         {
-                            var cm = ConvertHelper.PBDeserialize<ChatMessage>(s.Content);
+                            var cm = SerializeHelper.PBDeserialize<ChatMessage>(s.Content);
 
                             switch (cm.Type)
                             {
@@ -181,7 +180,7 @@ namespace SAEA.MessageSocket
 
         private void SendBase(ChatMessage cm)
         {
-            var data = ConvertHelper.PBSerialize(cm);
+            var data = SerializeHelper.PBSerialize(cm);
 
             var content = SocketProtocal.Parse(data, SocketProtocalType.ChatMessage).ToBytes();
 

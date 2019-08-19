@@ -21,9 +21,6 @@
 *描述：
 *
 *****************************************************************************/
-
-using SAEA.MessageSocket.Common;
-using ProtoBuf;
 using SAEA.Common;
 using System;
 
@@ -63,7 +60,7 @@ namespace SAEA.MessageSocket.Model.Communication
         public ChatMessage(ChatMessageType type, IMessage msg)
         {
             this.Type = type;
-            this.Content = ConvertHelper.Serialize(msg);
+            this.Content = SerializeHelper.Serialize(msg);
             this.DateTime = DateTimeHelper.GetUnixTick();
         }
 
@@ -71,7 +68,7 @@ namespace SAEA.MessageSocket.Model.Communication
         {
             if (!string.IsNullOrEmpty(this.Content))
             {
-                return ConvertHelper.Deserialize<T>(this.Content);
+                return SerializeHelper.Deserialize<T>(this.Content);
             }
             return default(T);
         }
