@@ -178,6 +178,13 @@ namespace SAEA.RedisSocket.Model
 
         public static ScanResponse ToScanResponse(this ResponseData source)
         {
+            if (source == null) return null;
+
+            if (source.Type == ResponseType.Error)
+            {
+                throw new Exception(source.Data);
+            }
+
             var scanResponse = new ScanResponse();
 
             var dataArr = source.Data.Split(RedisCoder.SEPARATOR);
@@ -272,6 +279,82 @@ namespace SAEA.RedisSocket.Model
                 Offset = source.Offset,
                 Data = data
             };
+
+            return result;
+        }
+
+
+        public static List<GeoNum> ToGeoNums(this ResponseData source)
+        {
+            if (source == null) return null;
+
+            if (source.Type == ResponseType.Error)
+            {
+                throw new Exception(source.Data);
+            }
+
+            List<GeoNum> result = null;
+
+            if (!string.IsNullOrEmpty(source.Data))
+            {
+                var arr = source.Data.Split(RedisCoder.SEPARATOR, StringSplitOptions.RemoveEmptyEntries);
+
+                if (arr.Length > 1)
+                {
+                    result = new List<GeoNum>();
+
+                    for (int i = 0; i < arr.Length; i++)
+                    {
+                        if (i % 2 == 1)
+                        {
+                            var geoNum = new GeoNum()
+                            {
+                                Lng = double.Parse(arr[i - 1]),
+                                Lat = double.Parse(arr[i])
+                            };
+                            result.Add(geoNum);
+                        }
+                    }
+                }
+            }
+            return result;
+        }
+
+        public static List<GeoDistInfo> ToGeoDistInfos(this ResponseData source)
+        {
+            if (source == null) return null;
+
+            if (source.Type == ResponseType.Error)
+            {
+                throw new Exception(source.Data);
+            }
+
+            List<GeoDistInfo> result = null;
+
+            if (!string.IsNullOrEmpty(source.Data))
+            {
+                var arr = source.Data.Split(RedisCoder.SEPARATOR, StringSplitOptions.RemoveEmptyEntries);
+
+                if (arr.Length > 1)
+                {
+                    result = new List<GeoDistInfo>();
+
+                    for (int i = 0; i < arr.Length; i++)
+                    {
+                        if (i % 4 == 3)
+                        {
+                            var geoDistInfo = new GeoDistInfo()
+                            {
+                                Name = arr[i - 3],
+                                Dist = double.Parse(arr[i - 2]),
+                                Lng = double.Parse(arr[i - 1]),
+                                Lat = double.Parse(arr[i])
+                            };
+                            result.Add(geoDistInfo);
+                        }
+                    }
+                }
+            }
 
             return result;
         }

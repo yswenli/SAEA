@@ -20,6 +20,29 @@ using System.Collections.Generic;
 
 namespace SAEA.RedisSocket.Model
 {
+    /// <summary>
+    /// 单位的参数 unit 必须是以下单位的其中一个
+    /// </summary>
+    public enum GeoUnit
+    {
+        /// <summary>
+        /// 表示单位为米
+        /// </summary>
+        m,
+        /// <summary>
+        /// 表示单位为千米
+        /// </summary>
+        km,
+        /// <summary>
+        /// 表示单位为英里
+        /// </summary>
+        mi,
+        /// <summary>
+        /// 表示单位为英尺
+        /// </summary>
+        ft
+    }
+
     public class GeoItem
     {
         public string Name
@@ -55,5 +78,18 @@ namespace SAEA.RedisSocket.Model
             result.Add(item.Name);
             return result;
         }
+    }
+
+    public class GeoNum
+    {
+        public double Lng { get; set; }
+
+        public double Lat { get; set; }
+    }
+
+
+    public class GeoDistInfo : GeoItem
+    {
+        public double Dist { get; set; }
     }
 }

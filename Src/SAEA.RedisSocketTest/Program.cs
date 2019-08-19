@@ -24,6 +24,7 @@
 using SAEA.Common;
 using SAEA.RedisSocket;
 using SAEA.RedisSocket.Core;
+using SAEA.RedisSocket.Model;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
@@ -48,50 +49,17 @@ namespace SAEA.RedisSocketTest
 
             KeysTest(redisClient);
 
-            StringTest(redisClient.GetDataBase(0));
+            var db = redisClient.GetDataBase(0);
 
-            HashTest(redisClient.GetDataBase());
+            StringTest(db);
 
-            ListTest(redisClient.GetDataBase());
+            HashTest(db);
 
-            SetTest(redisClient.GetDataBase());
+            ListTest(db);
 
+            SetTest(db);
 
-
-
-            //var list = redisClient.ClusterNodes;
-
-
-
-
-
-            //var r = redisClient.GetDataBase().Rename("aaa", "aaa");
-
-            //var l = redisClient.GetDataBase().LRang("testlist");
-
-            //var z = redisClient.GetDataBase().ZRang("zaaa");
-
-            var h = redisClient.GetDataBase().HGetAll("haa22");
-
-            var t1 = redisClient.GetDataBase().Ttl("zaaa");
-            var t2 = redisClient.GetDataBase().Ttl("haa22");
-            var t3 = redisClient.GetDataBase().Pttl("key0");
-            var t4 = redisClient.GetDataBase().Pttl("akey0");
-
-            //var m = redisClient.ClusterInfo;
-            //var n = redisClient.ClusterNodes;
-            //var k = redisClient.KeySlot("aaa");
-            //var g = redisClient.GetKeysInSlot(0);
-
-            //redisClient.GetDataBase().SRemove("abcd", "12345");
-
-            PerformanceTest(redisClient);
-
-            ConsoleHelper.WriteLine(redisClient.Type("key0"));
-
-            ConsoleHelper.WriteLine("dbSize:{0}", redisClient.DBSize().ToString());
-
-            RedisOperationTest(redisClient, true);
+            GeoTest(db);
 
             ConsoleHelper.ReadLine();
         }
@@ -119,6 +87,11 @@ namespace SAEA.RedisSocketTest
             var cr1 = redisClient.SetConfig(ck, 1000);
 
             var cr2 = redisClient.GetConfig(ck);
+
+            var t1 = redisClient.GetDataBase().Ttl("zaaa");
+            var t2 = redisClient.GetDataBase().Ttl("haa22");
+            var t3 = redisClient.GetDataBase().Pttl("key0");
+            var t4 = redisClient.GetDataBase().Pttl("akey0");
 
             var isCluster = redisClient.IsCluster;
 
@@ -337,6 +310,28 @@ namespace SAEA.RedisSocketTest
             var l5 = db.SDiff(key, "yswenliS1");
 
             var i4 = db.SDiffStore("yswenliS4", key, "yswenliS1");
+        }
+
+        static void ZSetTest(RedisDataBase db)
+        {
+            var key = "ysweliZ";
+            db.ZAdd(key, "aaa", 11);
+            
+
+            var z = db.ZRange("zaaa");
+        }
+
+        static void GeoTest(RedisDataBase db)
+        {
+            db.GeoAdd("yswenliG", new GeoItem() { Name = "Palermo", Lng = 13.361389, Lat = 38.115556 }, new GeoItem() { Name = "Catania", Lng = 15.087269, Lat = 37.502669 });
+
+            var list = db.GeoPos("yswenliG", "Palermo", "Catania");
+
+            var dis = db.GeoDist("yswenliG", "Palermo", "Catania");
+
+            var ms1 = db.GeoRandius("yswenliG", 15, 37, 200, GeoUnit.km);
+
+            var ms2 = db.GeoRandiusByMember("yswenliG", "Palermo", 200);
 
         }
 
@@ -352,167 +347,17 @@ namespace SAEA.RedisSocketTest
             var zl = db.ZLen("zaaa");
         }
 
-        private static void RedisOperationTest(object sender, bool status)
+        static void ClusterTest(RedisClient redisClient)
         {
-            RedisClient redisClient = (RedisClient)sender;
-            if (status)
-            {
-                ConsoleHelper.WriteLine("连接redis服务器成功！");
+            var list = redisClient.ClusterNodes;
 
-                #region key value
-                ConsoleHelper.WriteLine("回车开始kv插值次操作...");
+            var m = redisClient.ClusterInfo;
 
-                for (int i = 0; i < 100; i++)
-                {
-                    redisClient.GetDataBase().Set("key" + i, "val" + i);
-                }
-                redisClient.GetDataBase().Exists("key0");
-                ConsoleHelper.WriteLine("kv插入完成...");
+            var n = redisClient.ClusterNodes;
 
-                ConsoleHelper.WriteLine("回车开始获取kv值操作...");
-                ConsoleHelper.ReadLine();
+            var k = redisClient.KeySlot("aaa");
 
-                var keys = redisClient.GetDataBase().Keys();
-
-                foreach (var key in keys)
-                {
-                    var val = redisClient.GetDataBase().Get(key);
-                    ConsoleHelper.WriteLine("Get val:" + val);
-                }
-                ConsoleHelper.WriteLine("获取kv值完成...");
-
-                ConsoleHelper.WriteLine("回车开始开始kv移除操作...");
-                ConsoleHelper.ReadLine();
-                for (int i = 0; i < 100; i++)
-                {
-                    redisClient.GetDataBase().Del("key" + i);
-                }
-                ConsoleHelper.WriteLine("移除kv值完成...");
-                #endregion
-
-
-                #region hashset
-                string hid = "wenli";
-
-                ConsoleHelper.WriteLine("回车开始HashSet插值操作...");
-                ConsoleHelper.ReadLine();
-                for (int i = 0; i < 1000; i++)
-                {
-                    redisClient.GetDataBase().HSet(hid, "key" + i, "val" + i);
-                }
-                ConsoleHelper.WriteLine("HashSet插值完成...");
-
-                ConsoleHelper.WriteLine("回车开始HashSet插值操作...");
-                ConsoleHelper.ReadLine();
-                var hkeys = redisClient.GetDataBase().HGetKeys(hid);
-                foreach (var hkey in hkeys)
-                {
-                    var val = redisClient.GetDataBase().HGet(hid, hkey);
-                    ConsoleHelper.WriteLine("HGet val:" + val);
-                }
-
-                var hall = redisClient.GetDataBase().HGetAll("wenli");
-
-                ConsoleHelper.WriteLine("HashSet查询完成...");
-
-                ConsoleHelper.WriteLine("回车开始HashSet移除操作...");
-                ConsoleHelper.ReadLine();
-                foreach (var hkey in hkeys)
-                {
-                    redisClient.GetDataBase().HDel(hid, hkey);
-                }
-                ConsoleHelper.WriteLine("HashSet移除完成...");
-
-
-                #endregion
-
-
-                //redisConnection.GetDataBase().Suscribe((c, m) =>
-                //{
-                //    ConsoleHelper.WriteLine("channel:{0} msg:{1}", c, m);
-                //    redisConnection.GetDataBase().UNSUBSCRIBE(c);
-                //}, "c39654");
-
-
-                ConsoleHelper.WriteLine("测试完成！");
-            }
-            else
-            {
-                ConsoleHelper.WriteLine("连接失败！");
-            }
-        }
-
-
-        private static void PerformanceTest(object sender)
-        {
-            ConsoleHelper.WriteLine($"正在初始化数据...");
-
-            RedisClient redisClient = (RedisClient)sender;
-
-            var db = redisClient.GetDataBase();
-
-            var count = 1000;
-
-            var millseconds = 0L;
-
-            string[] keys = new string[count];
-
-            Dictionary<string, string> dic = new Dictionary<string, string>();
-
-            for (int i = 0; i < count; i++)
-            {
-                var key = "key" + i;
-                keys[i] = key;
-                dic.Add(key, "val" + i);
-            }
-
-            ConsoleHelper.WriteLine($"回车开始{count}次操作...");
-            Stopwatch stopwatch = new Stopwatch();
-            ConsoleHelper.ReadLine();
-            stopwatch.Start();
-
-            //1
-            for (int i = 0; i < count; i++)
-            {
-                db.Set("key" + i, "val" + i);
-            }
-
-            //2
-
-            //db.MSet(dic);
-
-            millseconds = stopwatch.ElapsedMilliseconds;
-
-            ConsoleHelper.WriteLine($"kv插值操作已完成，用时：{millseconds}, 速度{count * 1000 / millseconds}");
-
-            ConsoleHelper.ReadLine();
-            stopwatch.Restart();
-            //1
-            //for (int i = 0; i < count; i++)
-            //{
-            //    db.Get("key" + i);
-            //}
-
-
-            var result = db.MGet(keys);
-
-            millseconds = stopwatch.ElapsedMilliseconds;
-
-            ConsoleHelper.WriteLine($"kv取值操作已完成，用时：{millseconds}, 速度{count * 1000 / millseconds}");
-
-            stopwatch.Restart();
-            //1
-            //for (int i = 0; i < count; i++)
-            //{
-            //    db.Del("key" + i);
-            //}
-
-            db.Del(keys);
-            millseconds = stopwatch.ElapsedMilliseconds;
-            ConsoleHelper.WriteLine($"kv删除操作已完成，用时：{millseconds}，速度{count * 1000 / millseconds}");
-            stopwatch.Stop();
-            ConsoleHelper.ReadLine();
-
+            var g = redisClient.GetKeysInSlot(0);
         }
     }
 }

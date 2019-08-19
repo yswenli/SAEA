@@ -52,5 +52,66 @@ namespace SAEA.RedisSocket.Core
             return result;
         }
 
+
+        /// <summary>
+        /// 从键里面返回所有给定位置元素的位置（经度和纬度）
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="memebers"></param>
+        /// <returns></returns>
+        public List<GeoNum> GeoPos(string key, params string[] memebers)
+        {
+            return _cnn.DoBatchWithIDKeys(RequestType.GEOPOS, key, memebers).ToGeoNums();
+        }
+
+        /// <summary>
+        /// 返回两个给定位置之间的距离
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="member1"></param>
+        /// <param name="member2"></param>
+        /// <param name="geoUnit"></param>
+        /// <returns></returns>
+        public double GeoDist(string key, string member1, string member2, GeoUnit geoUnit = GeoUnit.m)
+        {
+            double result = 0D;
+
+            double.TryParse(_cnn.DoWithMutiParams(RequestType.GEODIST, key, member1, member2, geoUnit.ToString()).Data, out result);
+
+            return result;
+        }
+
+        /// <summary>
+        /// 以给定的经纬度为中心， 返回键包含的位置元素当中， 与中心的距离不超过给定最大距离的所有位置元素
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="lng"></param>
+        /// <param name="lat"></param>
+        /// <param name="dist"></param>
+        /// <param name="geoUnit"></param>
+        /// <param name="asc"></param>
+        /// <param name="count"></param>
+        /// <returns></returns>
+        public List<GeoDistInfo> GeoRandius(string key, double lng, double lat, double dist, GeoUnit geoUnit = GeoUnit.m, bool asc = true, int count = 20)
+        {
+            return _cnn.DoWithMutiParams(RequestType.GEORADIUS, key, lng.ToString(), lat.ToString(), dist.ToString(), geoUnit.ToString(), "WITHDIST", "WITHCOORD", (asc ? "ASC" : "DESC"), "COUNT", count.ToString()).ToGeoDistInfos();
+        }
+
+        /// <summary>
+        /// 找出位于指定范围内的元素， 但是 GEORADIUSBYMEMBER 的中心点是由给定的位置元素决定的， 而不是像 GEORADIUS 那样， 使用输入的经度和纬度来决定中心点
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="member"></param>
+        /// <param name="dist"></param>
+        /// <param name="geoUnit"></param>
+        /// <param name="asc"></param>
+        /// <param name="count"></param>
+        /// <returns></returns>
+        public List<GeoDistInfo> GeoRandiusByMember(string key, string member, double dist, GeoUnit geoUnit = GeoUnit.m, bool asc = true, int count = 20)
+        {
+            return _cnn.DoWithMutiParams(RequestType.GEORADIUSBYMEMBER, key, member, dist.ToString(), geoUnit.ToString(), "WITHDIST", "WITHCOORD", (asc ? "ASC" : "DESC"), "COUNT", count.ToString()).ToGeoDistInfos();
+        }
+
+
     }
 }

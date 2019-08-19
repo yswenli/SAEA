@@ -131,7 +131,10 @@ namespace SAEA.RedisSocket.Model
 
 
         GEOADD,
-
+        GEOPOS,
+        GEODIST,
+        GEORADIUS,
+        GEORADIUSBYMEMBER,
 
         PUBLISH,
         SUBSCRIBE,

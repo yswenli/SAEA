@@ -710,6 +710,7 @@ namespace SAEA.RedisSocket.Core
                         responseData.Type = ResponseType.Value;
                         responseData.Data = val.ToString();
                         break;
+
                     case RequestType.LINDEX:
                         val = GetValue(command, out error);
                         if (!string.IsNullOrEmpty(error))
@@ -908,6 +909,62 @@ namespace SAEA.RedisSocket.Core
                             }
                         }
                         responseData.Data = sb.ToString();
+                        break;
+                    case RequestType.GEOPOS:
+                    case RequestType.GEORADIUS:
+                    case RequestType.GEORADIUSBYMEMBER:
+                        responseData.Type = ResponseType.Lines;
+                        sb = new StringBuilder();
+                        rn = GetRowNum(command, out error);
+                        if (!string.IsNullOrEmpty(error))
+                        {
+                            responseData.Type = ResponseType.Error;
+                            responseData.Data = error;
+                            return responseData;
+                        }
+                        for (int i = 0; i < rn; i++)
+                        {
+                            command = GetRedisReply();
+                            var srows = GetRowNum(command, out error);
+                            if (!string.IsNullOrEmpty(error))
+                            {
+                                responseData.Type = ResponseType.Error;
+                                responseData.Data = error;
+                                return responseData;
+                            }
+                            for (int j = 0; j < srows; j++)
+                            {
+                                command = GetRedisReply();
+                                len = GetWordsNum(command, out error);
+                                if (len >= 0)
+                                {
+                                    sb = GetLastSB(sb, len, true);
+                                }
+                                else
+                                {
+                                    var ssrows = GetRowNum(command, out error);
+
+                                    for (int k = 0; k < ssrows; k++)
+                                    {
+                                        command = GetRedisReply();
+                                        len = GetWordsNum(command, out error);
+                                        sb = GetLastSB(sb, len, true);
+                                    }
+                                }
+                            }
+                        }
+                        responseData.Data = sb.ToString();
+                        break;
+                    case RequestType.GEODIST:
+                        len = GetWordsNum(command, out error);
+                        if (!string.IsNullOrEmpty(error))
+                        {
+                            responseData.Type = ResponseType.Error;
+                            responseData.Data = error;
+                            break;
+                        }
+                        responseData.Type = ResponseType.Value;
+                        responseData.Data = GetLastSB(new StringBuilder(), len).ToString();
                         break;
                     default:
                         responseData.Type = ResponseType.Undefined;
