@@ -44,6 +44,8 @@ namespace SAEA.Sockets.Interface
 
         void Start(int backlog = 10 * 1000);
 
+        void SendAsync(string sessionID, byte[] data);
+
         void Stop();
 
         void Disconnecte(object obj);

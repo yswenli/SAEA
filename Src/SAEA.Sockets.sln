@@ -57,6 +57,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAEA.Common.DNF", "SAEA.Com
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAEA.Mvc.ServiceTest", "SAEA.Mvc.ServiceTest\SAEA.Mvc.ServiceTest.csproj", "{78B4C427-6E75-4FFF-A172-490C51AA7B34}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAEA.SocketsTest", "SAEA.SocketsTest\SAEA.SocketsTest.csproj", "{5A11145C-BEF8-456A-B2B1-0770AD399F07}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -171,6 +173,10 @@ Global
 		{78B4C427-6E75-4FFF-A172-490C51AA7B34}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{78B4C427-6E75-4FFF-A172-490C51AA7B34}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{78B4C427-6E75-4FFF-A172-490C51AA7B34}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5A11145C-BEF8-456A-B2B1-0770AD399F07}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5A11145C-BEF8-456A-B2B1-0770AD399F07}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5A11145C-BEF8-456A-B2B1-0770AD399F07}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5A11145C-BEF8-456A-B2B1-0770AD399F07}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

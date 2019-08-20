@@ -163,6 +163,12 @@ namespace SAEA.Sockets.Core.Tcp
             }
         }
 
+        public void SendAsync(string sessionID, byte[] data)
+        {
+            var channel = ChannelManager.Current.Get(sessionID);
+            channel.Stream.WriteAsync(data, 0, data.Length);
+        }
+
         /// <summary>
         /// 断开连接
         /// </summary>
