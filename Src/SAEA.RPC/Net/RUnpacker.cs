@@ -5,7 +5,7 @@
 *公司名称：yswenli
 *命名空间：SAEA.RPC.Net
 *文件名： RCoder
-*版本号： v4.5.6.7
+*版本号： v5.0.0.1
 *唯一标识：c56d3df1-0ff6-4497-828a-e6de342dd876
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/5/16 15:14:20
 *修改人： yswenli
-*版本号： v4.5.6.7
+*版本号： v5.0.0.1
 *描述：
 *
 *****************************************************************************/
@@ -34,7 +34,7 @@ namespace SAEA.RPC.Net
     /// SAEA.RPC传输编解码
     /// 格式为：1+4+8+4+x+4+x+x
     /// </summary>
-    public sealed class RCoder : IUnpacker
+    public sealed class RUnpacker : IUnpacker
     {
 
         //内置

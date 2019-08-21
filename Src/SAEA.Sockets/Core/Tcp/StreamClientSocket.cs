@@ -13,7 +13,7 @@
 *公司名称：wenli
 *命名空间：SAEA.Sockets.Core.Tcp
 *文件名： StreamClientSocket
-*版本号： v4.5.6.7
+*版本号： v5.0.0.1
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -25,7 +25,7 @@
 *修改标记
 *修改时间：2018/3/1 15:54:21
 *修改人： yswenli
-*版本号： v4.5.6.7
+*版本号： v5.0.0.1
 *描述：
 *
 *****************************************************************************/
@@ -149,9 +149,33 @@ namespace SAEA.Sockets.Core.Tcp
         /// <summary>
         /// 连接到服务器
         /// </summary>
-        public Task ConnectAsync()
+        public async Task ConnectAsync()
         {
-            return Task.Run(() =>
+            if (!Connected)
+            {
+                await _socket.ConnectAsync(_SocketOption.IP, _SocketOption.Port).ConfigureAwait(true);
+
+                if (_isSsl)
+                {
+                    _stream = new SslStream(new NetworkStream(_socket, true), false, InternalUserCertificateValidationCallback);
+
+                    ((SslStream)_stream).AuthenticateAsClient(_SocketOption.IP, LoadCertificates(), _SocketOption.SslProtocol, true);
+                }
+                else
+                {
+                    _stream = new NetworkStream(_socket, true);
+                }
+
+                _stream.ReadTimeout = _SocketOption.TimeOut;
+                _stream.WriteTimeout = _SocketOption.TimeOut;
+
+                this.Connected = true;
+            }
+        }
+
+        public void Connect()
+        {
+            if (!Connected)
             {
                 _socket.Connect(_SocketOption.IP, _SocketOption.Port);
 
@@ -169,8 +193,45 @@ namespace SAEA.Sockets.Core.Tcp
                 _stream.ReadTimeout = _SocketOption.TimeOut;
                 _stream.WriteTimeout = _SocketOption.TimeOut;
 
-                this.Connected = true;
-            });
+                Connected = true;
+            }
+        }
+
+        public void ConnectAsync(Action<SocketError> callBack = null)
+        {
+            if (!Connected)
+            {
+                Task.Run(() =>
+                {
+                    try
+                    {
+                        _socket.ConnectAsync(_SocketOption.IP, _SocketOption.Port).GetAwaiter().GetResult();
+
+                        if (_isSsl)
+                        {
+                            _stream = new SslStream(new NetworkStream(_socket, true), false, InternalUserCertificateValidationCallback);
+
+                            ((SslStream)_stream).AuthenticateAsClient(_SocketOption.IP, LoadCertificates(), _SocketOption.SslProtocol, true);
+                        }
+                        else
+                        {
+                            _stream = new NetworkStream(_socket, true);
+                        }
+
+                        _stream.ReadTimeout = _SocketOption.TimeOut;
+
+                        _stream.WriteTimeout = _SocketOption.TimeOut;
+
+                        this.Connected = true;
+
+                        callBack?.Invoke(SocketError.Success);
+                    }
+                    catch
+                    {
+                        callBack?.Invoke(SocketError.SocketError);
+                    }
+                });
+            }
         }
 
 

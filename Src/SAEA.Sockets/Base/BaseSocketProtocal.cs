@@ -12,7 +12,7 @@
 *公司名称：wenli
 *命名空间：SAEA.Sockets
 *文件名： SocketProtocal
-*版本号： v4.5.6.7
+*版本号： v5.0.0.1
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -24,22 +24,23 @@
 *修改标记
 *修改时间：2018/3/1 15:54:21
 *修改人： yswenli
-*版本号： v4.5.6.7
+*版本号： v5.0.0.1
 *描述：
 *
 *****************************************************************************/
 
 using SAEA.Common;
 using SAEA.Sockets.Interface;
+using SAEA.Sockets.Model;
 using System;
 using System.Collections.Generic;
 
-namespace SAEA.Sockets.Model
+namespace SAEA.Sockets.Base
 {
     /// <summary>
     /// 系统默认消息协议
     /// </summary>
-    public class SocketProtocal : ISocketProtocal
+    public class BaseSocketProtocal : ISocketProtocal
     {
         public long BodyLength
         {
@@ -72,9 +73,9 @@ namespace SAEA.Sockets.Model
             return data.ToArray();
         }
 
-        public static SocketProtocal Parse(byte[] data, SocketProtocalType type)
+        public static BaseSocketProtocal Parse(byte[] data, SocketProtocalType type)
         {
-            var msg = new SocketProtocal();
+            var msg = new BaseSocketProtocal();
 
             if (data != null)
                 msg.BodyLength = data.Length;
@@ -91,15 +92,15 @@ namespace SAEA.Sockets.Model
             return msg;
         }
 
-        public static SocketProtocal ParseRequest(byte[] data)
+        public static BaseSocketProtocal ParseRequest(byte[] data)
         {
             return Parse(data, SocketProtocalType.RequestSend);
         }
 
 
-        public static SocketProtocal ParseStream(byte[] data)
+        public static BaseSocketProtocal ParseStream(byte[] data)
         {
-            var msg = new SocketProtocal();
+            var msg = new BaseSocketProtocal();
 
             if (data != null)
                 msg.BodyLength = data.Length;

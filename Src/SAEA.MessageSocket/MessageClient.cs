@@ -4,8 +4,8 @@
 *机器名称：WENLI-PC
 *公司名称：wenli
 *命名空间：SAEA.MessageSocket
-*文件名： Class1
-*版本号： v4.5.6.7
+*文件名： MessageClient
+*版本号： v5.0.0.1
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/3/1 15:54:21
 *修改人： yswenli
-*版本号： v4.5.6.7
+*版本号： v5.0.0.1
 *描述：
 *
 *****************************************************************************/
@@ -26,14 +26,17 @@ using SAEA.Common;
 using SAEA.MessageSocket.Model;
 using SAEA.MessageSocket.Model.Business;
 using SAEA.MessageSocket.Model.Communication;
-using SAEA.Sockets.Core.Tcp;
+using SAEA.Sockets;
+using SAEA.Sockets.Base;
+using SAEA.Sockets.Handler;
+using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
 using System;
 using System.Threading;
 
 namespace SAEA.MessageSocket
 {
-    public class MessageClient : IocpClientSocket
+    public class MessageClient
     {
         int _bufferSize = 100 * 1024;
 
@@ -60,21 +63,56 @@ namespace SAEA.MessageSocket
 
         public event Action<GroupMessage> OnGroupMessage;
 
-        public MessageClient(int bufferSize = 1024, string ip = "127.0.0.1", int port = 39654) : base(new MessageContext(), ip, port, bufferSize)
+        public event OnErrorHandler OnError;
+
+        IClientSocket _client;
+
+        MessageContext _messageContext;
+
+        public string ID
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(_messageContext.UserToken.ID))
+                {
+                    _messageContext.UserToken.ID = _messageContext.UserToken.Socket.RemoteEndPoint.ToString();
+                }
+
+                return _messageContext.UserToken.ID;
+            }
+        }
+
+        public MessageClient(int bufferSize = 1024, string ip = "127.0.0.1", int port = 39654)
         {
             _bufferSize = bufferSize;
             _buffer = new byte[_bufferSize];
+
+            _messageContext = new MessageContext();
+
+            var option = SocketOptionBuilder.Instance
+                .SetSocket()
+                .UseIocp(_messageContext)
+                .SetIP(ip)
+                .SetPort(port)
+                .SetReadBufferSize(bufferSize)
+                .SetWriteBufferSize(bufferSize)
+                .Build();
+
+            _client = SocketFactory.CreateClientSocket(option);
+
+            _client.OnReceive += _client_OnReceive;
+
             HeartSpan = 10 * 1000;
             HeartAsync();
         }
 
-        protected override void OnReceived(byte[] data)
+        private void _client_OnReceive(byte[] data)
         {
             Actived = DateTimeHelper.Now;
 
             if (data != null)
             {
-                this.UserToken.Unpacker.Unpack(data, (s) =>
+                this._messageContext.Unpacker.Unpack(data, (s) =>
                 {
                     if (s.Content != null)
                     {
@@ -139,13 +177,14 @@ namespace SAEA.MessageSocket
                         }
                         catch (Exception ex)
                         {
-                            RaiseOnError("", ex);
+                            OnError?.Invoke(_messageContext.UserToken.ID, ex);
                         }
                     }
 
                 }, null, null);
             }
         }
+
 
         void HeartAsync()
         {
@@ -155,16 +194,16 @@ namespace SAEA.MessageSocket
                 {
                     while (true)
                     {
-                        if (this.Connected)
+                        if (_client.Connected)
                         {
                             if (Actived.AddMilliseconds(HeartSpan) <= DateTimeHelper.Now)
                             {
-                                var sm = new SocketProtocal()
+                                var sm = new BaseSocketProtocal()
                                 {
                                     BodyLength = 0,
                                     Type = (byte)SocketProtocalType.Heart
                                 };
-                                SendAsync(sm.ToBytes());
+                                _client.SendAsync(sm.ToBytes());
                             }
                             ThreadHelper.Sleep(HeartSpan);
                         }
@@ -178,13 +217,18 @@ namespace SAEA.MessageSocket
             });
         }
 
+        public void Connect()
+        {
+            _client.ConnectAsync().GetAwaiter().GetResult();
+        }
+
         private void SendBase(ChatMessage cm)
         {
             var data = SerializeHelper.PBSerialize(cm);
 
-            var content = SocketProtocal.Parse(data, SocketProtocalType.ChatMessage).ToBytes();
+            var content = BaseSocketProtocal.Parse(data, SocketProtocalType.ChatMessage).ToBytes();
 
-            this.SendAsync(content);
+            _client.SendAsync(content);
 
             Actived = DateTimeHelper.Now;
         }

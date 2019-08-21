@@ -5,7 +5,7 @@
 *公司名称：wenli
 *命名空间：SAEA.MessageTest
 *文件名： Class1
-*版本号： v4.5.6.7
+*版本号： v5.0.0.1
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/3/1 15:54:21
 *修改人： yswenli
-*版本号： v4.5.6.7
+*版本号： v5.0.0.1
 *描述：
 *
 *****************************************************************************/
@@ -113,7 +113,7 @@ namespace SAEA.MessageTest
         {
             ConsoleHelper.WriteLine("SAEA.Message服务器正在启动...");
 
-            MessageServer server = new MessageServer(100, 100000, 30 * 60 * 1000);
+            MessageServer server = new MessageServer(39654, 100, 100000, 30 * 60 * 1000);
 
             server.OnDisconnected += Server_OnDisconnected;
 
@@ -183,8 +183,8 @@ namespace SAEA.MessageTest
             {
                 while (true)
                 {
-                    cc1.SendPrivateMsg(cc2.UserToken.ID, "你好呀,cc2！");
-                    cc2.SendPrivateMsg(cc1.UserToken.ID, "你好呀,cc1！");
+                    cc1.SendPrivateMsg(cc2.ID, "你好呀,cc2！");
+                    cc2.SendPrivateMsg(cc1.ID, "你好呀,cc1！");
                     Thread.Sleep(500);
                 }
             });
@@ -265,7 +265,7 @@ namespace SAEA.MessageTest
             });
 
 
-            
+
             ConsoleHelper.ReadLine();
             ConsoleHelper.WriteLine("The function test has been completed.");
             //===============================================================
@@ -293,7 +293,7 @@ namespace SAEA.MessageTest
             {
                 ConsoleHelper.WriteLine("正在开始初始化客户端...");
 
-                for (int i = 0; i < 10000; i++)
+                for (int i = 0; i < 100; i++)
                 {
                     var ccc = new MessageClient();
                     ccc.OnChannelMessage += Ccc_OnChannelMessage;
@@ -302,10 +302,10 @@ namespace SAEA.MessageTest
 
                 ConsoleHelper.WriteLine("正在建立连接...");
 
-                Parallel.ForEach(list, (item) =>
+                foreach (var item in list)
                 {
                     item.Connect();
-                });
+                }
 
                 ConsoleHelper.WriteLine("正在订阅...");
                 Parallel.ForEach(list, (item) =>

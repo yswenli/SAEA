@@ -13,7 +13,7 @@
 *公司名称：wenli
 *命名空间：SAEA.Sockets.Core.Tcp
 *文件名： IocpClientSocket
-*版本号： v4.5.6.7
+*版本号： v5.0.0.1
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -25,7 +25,7 @@
 *修改标记
 *修改时间：2018/3/1 15:54:21
 *修改人： yswenli
-*版本号： v4.5.6.7
+*版本号： v5.0.0.1
 *描述：
 *
 *****************************************************************************/
@@ -159,13 +159,13 @@ namespace SAEA.Sockets.Core.Tcp
         {
             if (!Connected)
             {
-                await _socket.ConnectAsync(_SocketOption.IP, _SocketOption.Port).ConfigureAwait(false);
+                await _socket.ConnectAsync(_SocketOption.IP, _SocketOption.Port).ConfigureAwait(true);
 
                 Connected = true;
 
                 _userToken.ID = _socket.LocalEndPoint.ToString();
                 _userToken.Socket = _socket;
-                _userToken.Linked = _userToken.Actived = DateTime.Now;
+                _userToken.Linked = _userToken.Actived = DateTime.Now;                
 
                 var readArgs = _userToken.ReadArgs;
                 if (!_userToken.Socket.ReceiveAsync(readArgs))
@@ -177,27 +177,13 @@ namespace SAEA.Sockets.Core.Tcp
         /// 连接到服务器
         /// </summary>
         /// <param name="timeOut"></param>
-        public void Connect(int timeOut = 30 * 1000)
+        public void Connect()
         {
-            var connected = false;
-
-            ConnectAsync((s) =>
+            if (!Connected)
             {
-                connected = true;
-            });
+                _socket.Connect(_SocketOption.IP, _SocketOption.Port);
 
-            var step = 0;
-
-            while (!connected)
-            {
-                Thread.Sleep(10);
-
-                step += 10;
-
-                if (step >= timeOut)
-                {
-                    return;
-                }
+                Connected = true;
             }
         }
 

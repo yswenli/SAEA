@@ -5,7 +5,7 @@
 *公司名称：wenli
 *命名空间：SAEA.FileSocket
 *文件名： Class1
-*版本号： v4.5.6.7
+*版本号： v5.0.0.1
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,14 +17,14 @@
 *修改标记
 *修改时间：2018/3/1 15:54:21
 *修改人： yswenli
-*版本号： v4.5.6.7
+*版本号： v5.0.0.1
 *描述：
 *
 *****************************************************************************/
 
 using SAEA.Common;
 using SAEA.FileSocket.Model;
-using SAEA.Sockets;
+using SAEA.Sockets.Base;
 using SAEA.Sockets.Core.Tcp;
 using SAEA.Sockets.Model;
 using System;
@@ -105,7 +105,7 @@ namespace SAEA.FileSocket
                         {
                             if (Actived.AddMilliseconds(HeartSpan) <= DateTimeHelper.Now)
                             {
-                                var sm = new SocketProtocal()
+                                var sm = new BaseSocketProtocal()
                                 {
                                     BodyLength = 0,
                                     Type = (byte)SocketProtocalType.Heart
@@ -127,7 +127,7 @@ namespace SAEA.FileSocket
 
         void sendMessageBase(byte[] content)
         {
-            var data = SocketProtocal.ParseRequest(content).ToBytes();
+            var data = BaseSocketProtocal.ParseRequest(content).ToBytes();
             SendAsync(data);
         }
 
@@ -174,7 +174,7 @@ namespace SAEA.FileSocket
 
                             Buffer.BlockCopy(buffer, 0, content, 0, readNum);
 
-                            var data = SocketProtocal.ParseStream(content).ToBytes();
+                            var data = BaseSocketProtocal.ParseStream(content).ToBytes();
 
                             SendAsync(data);
 

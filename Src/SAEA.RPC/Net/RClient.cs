@@ -5,7 +5,7 @@
 *公司名称：yswenli
 *命名空间：SAEA.RPC.Net
 *文件名： RClient
-*版本号： v4.5.6.7
+*版本号： v5.0.0.1
 *唯一标识：6921ced2-8a62-45a7-89c6-84d1301c1a28
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/5/16 16:16:42
 *修改人： yswenli
-*版本号： v4.5.6.7
+*版本号： v5.0.0.1
 *描述：
 *
 *****************************************************************************/
@@ -80,7 +80,13 @@ namespace SAEA.RPC.Net
 
             SocketOptionBuilder builder = SocketOptionBuilder.Instance;
 
-            var option = builder.SetSocket().UseIocp(_RContext).SetIP(ipPort.Item1).SetPort(ipPort.Item2).SetReadBufferSize().SetWriteBufferSize().Build();
+            var option = builder.SetSocket()
+                .UseIocp(_RContext)
+                .SetIP(ipPort.Item1)
+                .SetPort(ipPort.Item2)
+                .SetReadBufferSize()
+                .SetWriteBufferSize()
+                .Build();
 
             _client = SocketFactory.CreateClientSocket(option);
 
@@ -102,7 +108,7 @@ namespace SAEA.RPC.Net
 
         protected void OnReceived(byte[] data)
         {
-            ((RCoder)_RContext.Unpacker).Unpack(data, msg =>
+            ((RUnpacker)_RContext.Unpacker).Unpack(data, msg =>
             {
                 switch ((RSocketMsgType)msg.Type)
                 {
@@ -163,7 +169,7 @@ namespace SAEA.RPC.Net
         /// <param name="msg"></param>
         internal void Send(RSocketMsg msg)
         {
-            var data = ((RCoder)_RContext.Unpacker).Encode(msg);
+            var data = ((RUnpacker)_RContext.Unpacker).Encode(msg);
 
             _client.SendAsync(data);
         }

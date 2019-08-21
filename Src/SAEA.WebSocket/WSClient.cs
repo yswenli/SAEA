@@ -5,7 +5,7 @@
 *公司名称：wenli
 *命名空间：SAEA.WebSocket
 *文件名： Class1
-*版本号： v4.5.6.7
+*版本号： v5.0.0.1
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,14 +17,15 @@
 *修改标记
 *修改时间：2018/3/1 15:54:21
 *修改人： yswenli
-*版本号： v4.5.6.7
+*版本号： v5.0.0.1
 *描述：
 *
 *****************************************************************************/
 
 using SAEA.Common;
-using SAEA.Sockets.Core.Tcp;
+using SAEA.Sockets;
 using SAEA.Sockets.Handler;
+using SAEA.Sockets.Interface;
 using SAEA.WebSocket.Model;
 using SAEA.WebSocket.Type;
 using System;
@@ -35,7 +36,7 @@ using System.Threading;
 
 namespace SAEA.WebSocket
 {
-    public class WSClient : IocpClientSocket
+    public class WSClient
     {
         int _bufferSize = 100 * 1024;
 
@@ -49,7 +50,7 @@ namespace SAEA.WebSocket
 
         List<byte> _cache = new List<byte>();
 
-        public new event OnErrorHandler OnError;
+        public event OnErrorHandler OnError;
 
         public event Action<DateTime> OnPong;
 
@@ -57,24 +58,50 @@ namespace SAEA.WebSocket
 
         public event Action<string> OnClose;
 
-        public WSClient(string ip = "127.0.0.1", int port = 39654, int bufferSize = 10 * 1024) : base(new WSContext(), ip, port, bufferSize)
+        public event OnDisconnectedHandler OnDisconnected;
+
+        IClientSocket _client;
+
+        WSContext _wsContext;
+
+        public WSClient(string ip = "127.0.0.1", int port = 39654, int bufferSize = 10 * 1024)
         {
             _serverIP = ip;
             _serverPort = port;
             _bufferSize = bufferSize;
             _buffer = new byte[_bufferSize];
-            base.OnDisconnected += WSClient_OnDisconnected;
-            base.OnError += WSClient_OnError;
+
+            _wsContext = new WSContext();
+
+            var option = SocketOptionBuilder.Instance
+                .UseIocp(_wsContext)
+                .SetIP(ip)
+                .SetCount(port)
+                .SetReadBufferSize(bufferSize)
+                .SetReadBufferSize(bufferSize)
+                .Build();
+
+            _client = SocketFactory.CreateClientSocket(option);
+
+            _client.OnReceive += _client_OnReceive;
+            _client.OnDisconnected += WSClient_OnDisconnected;
+            _client.OnError += WSClient_OnError;
         }
 
-        private void WSClient_OnError(string ID, Exception ex)
+        private void _client_OnReceive(byte[] data)
         {
-            OnError?.Invoke(ID, ex);
+            OnReceived(data);
         }
 
-        private void WSClient_OnDisconnected(string ID, Exception ex)
+        private void WSClient_OnError(string id, Exception ex)
         {
-            OnClose?.Invoke(ex.Message);
+            OnError?.Invoke(id, ex);
+        }
+
+        private void WSClient_OnDisconnected(string id, Exception ex)
+        {
+            OnDisconnected?.Invoke(id, ex);
+            OnClose?.Invoke(id);
         }
 
         /// <summary>
@@ -83,13 +110,9 @@ namespace SAEA.WebSocket
         /// <returns></returns>
         public new bool Connect(int timeOut = 10 * 1000)
         {
-            base.ConnectAsync((se) =>
-            {
-                if (se == System.Net.Sockets.SocketError.Success)
-                {
-                    this.RequestHandShark();
-                }
-            });
+            _client.ConnectAsync().GetAwaiter().GetResult();
+
+            this.RequestHandShark();
 
             int i = 0;
 
@@ -103,7 +126,7 @@ namespace SAEA.WebSocket
             return false;
         }
 
-        protected override void OnReceived(byte[] data)
+        protected void OnReceived(byte[] data)
         {
             if (!_isHandSharked)
             {
@@ -121,12 +144,12 @@ namespace SAEA.WebSocket
                 }
                 catch (Exception ex)
                 {
-                    OnError.Invoke(UserToken.ID, ex);
+                    OnError.Invoke(_wsContext.UserToken.ID, ex);
                 }
             }
             else
             {
-                var coder = (WSCoder)UserToken.Unpacker;
+                var coder = (WSCoder)_wsContext.Unpacker;
 
                 coder.Unpack(data, (d) =>
                 {
@@ -134,7 +157,7 @@ namespace SAEA.WebSocket
                     switch (wsProtocal.Type)
                     {
                         case (byte)WSProtocalType.Close:
-                            base.Disconnect();
+                            _client.Disconnect();
                             break;
                         case (byte)WSProtocalType.Pong:
                             var date = DateTime.Parse(Encoding.UTF8.GetString(wsProtocal.Content));
@@ -159,7 +182,7 @@ namespace SAEA.WebSocket
 
         private void RequestHandShark()
         {
-            base.SendAsync(WSUserToken.RequestHandShark(_serverIP, _serverPort));
+            _client.SendAsync(WSUserToken.RequestHandShark(_serverIP, _serverPort));
         }
 
         /// <summary>
@@ -170,7 +193,7 @@ namespace SAEA.WebSocket
         public void Send(byte[] msg, WSProtocalType type = WSProtocalType.Text)
         {
             var data = new WSProtocal(type, msg).ToBytes();
-            base.SendAsync(data);
+            _client.SendAsync(data);
         }
 
         /// <summary>
@@ -179,7 +202,7 @@ namespace SAEA.WebSocket
         /// <param name="msg"></param>
         public void Send(string msg)
         {
-            this.SendAsync(Encoding.UTF8.GetBytes(msg));
+            Send(Encoding.UTF8.GetBytes(msg));
         }
 
         /// <summary>
@@ -189,7 +212,7 @@ namespace SAEA.WebSocket
         {
             var msg = DateTimeHelper.ToString();
             var data = new WSProtocal(WSProtocalType.Pong, null).ToBytes();
-            base.SendAsync(data);
+            _client.SendAsync(data);
         }
 
 
@@ -200,14 +223,14 @@ namespace SAEA.WebSocket
         {
             var msg = DateTimeHelper.ToString();
             var data = new WSProtocal(WSProtocalType.Ping, Encoding.UTF8.GetBytes(msg)).ToBytes();
-            base.SendAsync(data);
+            _client.SendAsync(data);
         }
 
         public void Close(string discription = "客户端主动断开ws连接")
         {
             var msg = DateTimeHelper.ToString();
             var data = new WSProtocal(WSProtocalType.Close, Encoding.UTF8.GetBytes(discription)).ToBytes();
-            base.SendAsync(data);
+            _client.SendAsync(data);
         }
 
 

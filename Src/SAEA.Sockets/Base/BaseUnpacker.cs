@@ -12,7 +12,7 @@
 *公司名称：wenli
 *命名空间：SAEA.Sockets.Model
 *文件名： BaseUnpacker
-*版本号： v4.5.6.7
+*版本号： v5.0.0.1
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -24,16 +24,17 @@
 *修改标记
 *修改时间：2018/10/26 15:54:21
 *修改人： yswenli
-*版本号： v4.5.6.7
+*版本号： v5.0.0.1
 *描述：
 *
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.Sockets.Interface;
+using SAEA.Sockets.Model;
 using System;
 using System.Collections.Generic;
 
-namespace SAEA.Sockets.Model
+namespace SAEA.Sockets.Base
 {
     public class BaseUnpacker : IUnpacker
     {
@@ -63,7 +64,7 @@ namespace SAEA.Sockets.Model
 
                     if (bodyLen == 0 && type == SocketProtocalType.Heart) //空包认为是心跳包
                     {
-                        var sm = new SocketProtocal() { BodyLength = bodyLen, Type = (byte)type };
+                        var sm = new BaseSocketProtocal() { BodyLength = bodyLen, Type = (byte)type };
                         _buffer.Clear();
                         onHeart?.Invoke(DateTimeHelper.Now);
                     }
@@ -78,7 +79,7 @@ namespace SAEA.Sockets.Model
                         }
                         else
                         {
-                            var sm = new SocketProtocal() { BodyLength = bodyLen, Type = (byte)type, Content = GetContent(buffer, P_Head, (int)bodyLen) };
+                            var sm = new BaseSocketProtocal() { BodyLength = bodyLen, Type = (byte)type, Content = GetContent(buffer, P_Head, (int)bodyLen) };
                             _buffer.RemoveRange(0, (int)(P_Head + bodyLen));
                             bodyLen = 0;
                             unpackCallback?.Invoke(sm);

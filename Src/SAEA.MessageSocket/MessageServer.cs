@@ -5,7 +5,7 @@
 *公司名称：wenli
 *命名空间：SAEA.MessageSocket
 *文件名： Class1
-*版本号： v4.5.6.7
+*版本号： v5.0.0.1
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,7 +17,7 @@
 *修改标记
 *修改时间：2018/3/1 15:54:21
 *修改人： yswenli
-*版本号： v4.5.6.7
+*版本号： v5.0.0.1
 *描述：
 *
 *****************************************************************************/
@@ -27,8 +27,9 @@ using SAEA.MessageSocket.Collection;
 using SAEA.MessageSocket.Model;
 using SAEA.MessageSocket.Model.Business;
 using SAEA.MessageSocket.Model.Communication;
-using SAEA.Sockets.Core;
-using SAEA.Sockets.Core.Tcp;
+using SAEA.Sockets;
+using SAEA.Sockets.Base;
+using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
 using System;
@@ -36,24 +37,59 @@ using System.Threading.Tasks;
 
 namespace SAEA.MessageSocket
 {
-    public class MessageServer : IocpServerSocket
+    public class MessageServer
     {
+
+        IServerSokcet _server;
 
         ChannelList _channelList = new ChannelList();
 
         GroupList _groupList = new GroupList();
 
+        public event OnDisconnectedHandler OnDisconnected;
 
-        public MessageServer(int bufferSize = 1024, int count = 1000000, int timeOut = 60 * 1000) : base(new MessageContext(), bufferSize, count, true, timeOut)
+
+        public int ClientCounts
         {
-
+            get
+            {
+                return _server.ClientCounts;
+            }
         }
 
-        protected override void OnReceiveBytes(IUserToken userToken, byte[] data)
+        public MessageServer(int port = 39654, int bufferSize = 1024, int count = 1000000, int timeOut = 60 * 1000)
         {
-            var mUserToken = (MessageUserToken)userToken;
+            var option = SocketOptionBuilder.Instance
+                .SetPort(port)
+                .UseIocp(new MessageContext())
+                .SetReadBufferSize(bufferSize)
+                .SetWriteBufferSize(bufferSize)
+                .SetCount(count)
+                .SetTimeOut(timeOut)
+                .Build();
 
-            userToken.Unpacker.Unpack(data, (s) =>
+            _server = SocketFactory.CreateServerSocket(option);
+
+            _server.OnReceive += _server_OnReceive;
+
+            _server.OnDisconnected += _server_OnDisconnected;
+        }
+
+        private void _server_OnDisconnected(string ID, Exception ex)
+        {
+            this.OnDisconnected?.Invoke(ID, ex);
+        }
+
+        public void Start()
+        {
+            _server.Start();
+        }
+
+        private void _server_OnReceive(object currentObj, byte[] data)
+        {
+            var mUserToken = (MessageUserToken)currentObj;
+
+            mUserToken.Unpacker.Unpack(data, (s) =>
             {
                 if (s.Content != null)
                 {
@@ -100,11 +136,17 @@ namespace SAEA.MessageSocket
                     }
                     catch (Exception ex)
                     {
-                        Disconnect(userToken, ex);
+                        _server.Disconnecte(currentObj);
+                        LogHelper.Error("MessageServer._server_OnReceive", ex);
                     }
                 }
 
             }, null, null);
+        }
+
+        public void Stop()
+        {
+            _server.Stop();
         }
 
 
@@ -113,9 +155,9 @@ namespace SAEA.MessageSocket
         {
             var data = SerializeHelper.PBSerialize(cm);
 
-            var sp = SocketProtocal.Parse(data, SocketProtocalType.ChatMessage).ToBytes();
+            var sp = BaseSocketProtocal.Parse(data, SocketProtocalType.ChatMessage).ToBytes();
 
-            SendAsync(userToken, sp);
+            _server.SendAsync(userToken.ID, sp);
         }
 
         void ReplyLogin(MessageUserToken userToken, ChatMessage cm)
@@ -169,18 +211,16 @@ namespace SAEA.MessageSocket
                     {
 
                         var ccm = new ChatMessage(ChatMessageType.ChannelMessage, SerializeHelper.Serialize(channelMsg));
-                        var data = SerializeHelper.PBSerialize(cm);
-                        var sp = SocketProtocal.Parse(data, SocketProtocalType.ChatMessage).ToBytes();
+
+                        var data = SerializeHelper.PBSerialize(ccm);
+
+                        var sp = BaseSocketProtocal.Parse(data, SocketProtocalType.ChatMessage).ToBytes();
 
                         Parallel.ForEach(channel.Members, (m) =>
                         {
                             if (m.ID != userToken.ID)
                             {
-                                var r = SessionManager.Get(m.ID);
-                                if (r != null)
-                                {
-                                    SendAsync(r, sp);
-                                }
+                                _server.SendAsync(m.ID, sp);
                             }
                         });
                     }
@@ -201,7 +241,7 @@ namespace SAEA.MessageSocket
 
                 privateMessage.Sended = DateTimeHelper.ToString();
 
-                var r = SessionManager.Get(privateMessage.Receiver);
+                var r = (IUserToken)_server.GetCurrentObj(privateMessage.Receiver);
                 if (r != null)
                     ReplyBase(r, new ChatMessage(ChatMessageType.PrivateMessage, SerializeHelper.Serialize(privateMessage)));
             }
@@ -278,15 +318,13 @@ namespace SAEA.MessageSocket
                     {
                         var ccm = new ChatMessage(ChatMessageType.GroupMessage, groupMsg);
                         var data = SerializeHelper.PBSerialize(cm);
-                        var sp = SocketProtocal.Parse(data, SocketProtocalType.ChatMessage).ToBytes();
+                        var sp = BaseSocketProtocal.Parse(data, SocketProtocalType.ChatMessage).ToBytes();
 
                         Parallel.ForEach(group.Members, (m) =>
                         {
                             if (m.ID != userToken.ID)
                             {
-                                var r = SessionManager.Get(m.ID);
-                                if (r != null)
-                                    SendAsync(r, sp);
+                                _server.SendAsync(m.ID, sp);
                             }
                         });
                     }
