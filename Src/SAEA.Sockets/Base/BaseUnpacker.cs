@@ -46,49 +46,44 @@ namespace SAEA.Sockets.Base
 
         private List<byte> _buffer = new List<byte>();
 
-        object _locker = new object();
-
         public void Unpack(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
         {
-            lock (_locker)
+            _buffer.AddRange(data);
+
+            while (_buffer.Count >= P_Head)
             {
-                _buffer.AddRange(data);
+                var buffer = _buffer.ToArray();
 
-                while (_buffer.Count >= P_Head)
+                var bodyLen = GetLength(buffer);
+
+                var type = GetType(buffer);
+
+                if (bodyLen == 0 && type == SocketProtocalType.Heart) //空包认为是心跳包
                 {
-                    var buffer = _buffer.ToArray();
-
-                    var bodyLen = GetLength(buffer);
-
-                    var type = GetType(buffer);
-
-                    if (bodyLen == 0 && type == SocketProtocalType.Heart) //空包认为是心跳包
+                    var sm = new BaseSocketProtocal() { BodyLength = bodyLen, Type = (byte)type };
+                    _buffer.Clear();
+                    onHeart?.Invoke(DateTimeHelper.Now);
+                }
+                else if (buffer.Length >= P_Head + bodyLen)
+                {
+                    if (type == SocketProtocalType.BigData)
                     {
-                        var sm = new BaseSocketProtocal() { BodyLength = bodyLen, Type = (byte)type };
-                        _buffer.Clear();
-                        onHeart?.Invoke(DateTimeHelper.Now);
-                    }
-                    else if (buffer.Length >= P_Head + bodyLen)
-                    {
-                        if (type == SocketProtocalType.BigData)
-                        {
-                            var content = GetContent(buffer, P_Head, (int)bodyLen);
-                            _buffer.RemoveRange(0, (int)(P_Head + bodyLen));
-                            bodyLen = 0;
-                            onFile?.Invoke(content);
-                        }
-                        else
-                        {
-                            var sm = new BaseSocketProtocal() { BodyLength = bodyLen, Type = (byte)type, Content = GetContent(buffer, P_Head, (int)bodyLen) };
-                            _buffer.RemoveRange(0, (int)(P_Head + bodyLen));
-                            bodyLen = 0;
-                            unpackCallback?.Invoke(sm);
-                        }
+                        var content = GetContent(buffer, P_Head, (int)bodyLen);
+                        _buffer.RemoveRange(0, (int)(P_Head + bodyLen));
+                        bodyLen = 0;
+                        onFile?.Invoke(content);
                     }
                     else
                     {
-                        return;
+                        var sm = new BaseSocketProtocal() { BodyLength = bodyLen, Type = (byte)type, Content = GetContent(buffer, P_Head, (int)bodyLen) };
+                        _buffer.RemoveRange(0, (int)(P_Head + bodyLen));
+                        bodyLen = 0;
+                        unpackCallback?.Invoke(sm);
                     }
+                }
+                else
+                {
+                    return;
                 }
             }
         }
@@ -113,7 +108,7 @@ namespace SAEA.Sockets.Base
 
         public void Clear()
         {
-            _buffer.Clear();
+            _buffer?.Clear();
             _buffer = null;
         }
     }

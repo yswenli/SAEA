@@ -50,10 +50,9 @@ namespace SAEA.MessageSocket
         bool _subscribed = false;
 
         bool _unsubscribed = false;
-
-
-        AutoResetEvent _autoResetEvent = new AutoResetEvent(false);
+        
         private DateTime Actived = DateTimeHelper.Now;
+
         private int HeartSpan;
 
 
@@ -124,7 +123,6 @@ namespace SAEA.MessageSocket
                             {
                                 case ChatMessageType.LoginAnswer:
                                     this.Logined = true;
-                                    _autoResetEvent.Set();
                                     break;
                                 case ChatMessageType.SubscribeAnswer:
                                     if (cm.Content == "1")
@@ -135,7 +133,6 @@ namespace SAEA.MessageSocket
                                     {
                                         _subscribed = false;
                                     }
-                                    _autoResetEvent.Set();
                                     break;
                                 case ChatMessageType.UnSubscribeAnswer:
                                     if (cm.Content == "1")
@@ -146,7 +143,6 @@ namespace SAEA.MessageSocket
                                     {
                                         _unsubscribed = false;
                                     }
-                                    _autoResetEvent.Set();
                                     break;
                                 case ChatMessageType.ChannelMessage:
                                     TaskHelper.Start(() => OnChannelMessage?.Invoke(cm.GetIMessage<ChannelMessage>()));
@@ -158,17 +154,14 @@ namespace SAEA.MessageSocket
                                     TaskHelper.Start(() => OnGroupMessage?.Invoke(cm.GetIMessage<GroupMessage>()));
                                     break;
                                 case ChatMessageType.PrivateMessageAnswer:
-                                    _autoResetEvent.Set();
                                     break;
                                 case ChatMessageType.CreateGroupAnswer:
                                 case ChatMessageType.RemoveGroupAnswer:
                                 case ChatMessageType.AddMemberAnswer:
                                 case ChatMessageType.RemoveMemberAnswer:
-                                    _autoResetEvent.Set();
                                     break;
 
                                 case ChatMessageType.GroupMessageAnswer:
-                                    _autoResetEvent.Set();
                                     break;
                                 default:
                                     ConsoleHelper.WriteLine("cm.Type", cm.Type);
@@ -219,7 +212,17 @@ namespace SAEA.MessageSocket
 
         public void Connect()
         {
-            _client.ConnectAsync().GetAwaiter().GetResult();
+            if (!_client.Connected)
+            {
+                _client.ConnectAsync((c) =>
+                {
+                    if (c != System.Net.Sockets.SocketError.Success)
+                    {
+                        throw new KernelException("连接到消息服务器失败，Code:" + c.ToString());
+                    }
+                });
+            }
+
         }
 
         private void SendBase(ChatMessage cm)
@@ -237,20 +240,17 @@ namespace SAEA.MessageSocket
         public void Login()
         {
             SendBase(new ChatMessage(ChatMessageType.Login, ""));
-            _autoResetEvent.WaitOne();
         }
 
         public bool Subscribe(string name)
         {
             SendBase(new ChatMessage(ChatMessageType.Subscribe, name));
-            _autoResetEvent.WaitOne();
             return _subscribed;
         }
 
         public bool Unsubscribe(string name)
         {
             SendBase(new ChatMessage(ChatMessageType.UnSubscribe, name));
-            _autoResetEvent.WaitOne();
             return _unsubscribed;
         }
 
@@ -275,8 +275,6 @@ namespace SAEA.MessageSocket
             };
 
             SendBase(new ChatMessage(ChatMessageType.PrivateMessage, pm));
-
-            _autoResetEvent.WaitOne();
         }
 
         #region group
@@ -284,25 +282,21 @@ namespace SAEA.MessageSocket
         public void SendCreateGroup(string groupName)
         {
             SendBase(new ChatMessage(ChatMessageType.CreateGroup, groupName));
-            _autoResetEvent.WaitOne();
         }
 
         public void SendRemoveGroup(string groupName)
         {
             SendBase(new ChatMessage(ChatMessageType.RemoveGroup, groupName));
-            _autoResetEvent.WaitOne();
         }
 
         public void SendAddMember(string groupName)
         {
             SendBase(new ChatMessage(ChatMessageType.AddMember, groupName));
-            _autoResetEvent.WaitOne();
         }
 
         public void SendRemoveMember(string groupName)
         {
             SendBase(new ChatMessage(ChatMessageType.RemoveMember, groupName));
-            _autoResetEvent.WaitOne();
         }
 
         public void SendGroupMessage(string groupName, string content)
@@ -314,7 +308,6 @@ namespace SAEA.MessageSocket
             };
 
             SendBase(new ChatMessage(ChatMessageType.GroupMessage, pm));
-            _autoResetEvent.WaitOne();
         }
 
 

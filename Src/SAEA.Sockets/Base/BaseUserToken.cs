@@ -28,10 +28,10 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Common;
 using SAEA.Sockets.Interface;
 using System;
 using System.Net.Sockets;
-using System.Threading;
 
 namespace SAEA.Sockets.Base
 {
@@ -40,7 +40,13 @@ namespace SAEA.Sockets.Base
     /// </summary>
     public class BaseUserToken : IUserToken
     {
-        AutoResetEvent _autoResetEvent = new AutoResetEvent(true);
+
+        SpinLock _spinLock;
+
+        public BaseUserToken()
+        {
+            _spinLock = new SpinLock();
+        }
 
         public string ID
         {
@@ -78,22 +84,22 @@ namespace SAEA.Sockets.Base
 
         public void WaitOne()
         {
-            _autoResetEvent?.WaitOne();
+            _spinLock.WaitOne();
         }
 
 
         public void Set()
         {
-            _autoResetEvent?.Set();
+            _spinLock.Set();
         }
 
         public void Clear()
         {
             Socket?.Close();
             Unpacker?.Clear();
+            //_autoResetEvent?.Close();
             ReadArgs = null;
             WriteArgs = null;
-            _autoResetEvent.Close();
             Socket = null;
         }
     }

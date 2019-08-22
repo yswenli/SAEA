@@ -189,6 +189,11 @@ namespace SAEA.MessageTest
                 }
             });
 
+            Parallel.For(0, 1000, (i) =>
+            {
+                cc1.SendPrivateMsg(cc2.ID, "你好呀,cc2！");
+            });
+
             //===============================================================
             ConsoleHelper.WriteLine("回车开始频道测试开始...");
             ConsoleHelper.ReadLine();
@@ -293,7 +298,7 @@ namespace SAEA.MessageTest
             {
                 ConsoleHelper.WriteLine("正在开始初始化客户端...");
 
-                for (int i = 0; i < 100; i++)
+                for (int i = 0; i < 10000; i++)
                 {
                     var ccc = new MessageClient();
                     ccc.OnChannelMessage += Ccc_OnChannelMessage;

@@ -33,6 +33,7 @@
 using SAEA.Common;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
+using SAEA.Sockets.Model;
 using System;
 using System.IO;
 using System.Net;
@@ -58,9 +59,6 @@ namespace SAEA.Sockets.Core.Tcp
         SocketAsyncEventArgs _connectArgs;
 
         UserTokenFactory _userTokenFactory;
-
-
-        MemoryStream _strean;
 
         Action<SocketError> _connectCallBack;
 
@@ -121,8 +119,6 @@ namespace SAEA.Sockets.Core.Tcp
             _ip = ip;
             _port = port;
 
-            _strean = new MemoryStream();
-
             OnClientReceive = new OnClientReceiveBytesHandler(OnReceived);
 
             _connectArgs = new SocketAsyncEventArgs
@@ -165,7 +161,7 @@ namespace SAEA.Sockets.Core.Tcp
 
                 _userToken.ID = _socket.LocalEndPoint.ToString();
                 _userToken.Socket = _socket;
-                _userToken.Linked = _userToken.Actived = DateTime.Now;                
+                _userToken.Linked = _userToken.Actived = DateTime.Now;
 
                 var readArgs = _userToken.ReadArgs;
                 if (!_userToken.Socket.ReceiveAsync(readArgs))
@@ -249,9 +245,6 @@ namespace SAEA.Sockets.Core.Tcp
                     Buffer.BlockCopy(e.Buffer, e.Offset, data, 0, e.BytesTransferred);
 
                     OnClientReceive?.Invoke(data);
-                    _strean.Position = _strean.Length;
-                    _strean.Write(data, 0, data.Length);
-
 
                     if (_userToken.Socket != null && !_userToken.Socket.ReceiveAsync(e))
                         ProcessReceive(e);
@@ -298,15 +291,19 @@ namespace SAEA.Sockets.Core.Tcp
         {
             try
             {
-                userToken.WaitOne();
 
-                var writeArgs = userToken.WriteArgs;
-
-                writeArgs.SetBuffer(data, 0, data.Length);
-
-                if (!userToken.Socket.SendAsync(writeArgs))
+                if (userToken != null && userToken.Socket != null && userToken.Socket.Connected)
                 {
-                    ProcessSended(writeArgs);
+                    userToken.WaitOne();
+
+                    var writeArgs = userToken.WriteArgs;
+
+                    writeArgs.SetBuffer(data, 0, data.Length);
+
+                    if (!userToken.Socket.SendAsync(writeArgs))
+                    {
+                        ProcessSended(writeArgs);
+                    }
                 }
             }
             catch (Exception ex)
@@ -381,7 +378,7 @@ namespace SAEA.Sockets.Core.Tcp
 
         public Task<int> ReceiveAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
-            return _strean.ReadAsync(buffer, offset, count, cancellationToken);
+            throw new KernelException("当前方法只在stream实现中才能使用!");
         }
 
 
