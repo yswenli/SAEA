@@ -60,12 +60,12 @@ namespace SAEA.FileSocket
 
         public event Action<string> OnDisplay;
 
-        public FileTransfer(string filePath, int bufferSize = 100 * 1024)
+        public FileTransfer(string filePath, int port = 39654, int bufferSize = 100 * 1024)
         {
             _filePath = filePath;
             _bufferSize = bufferSize;
 
-            _receiver = new Server(_bufferSize);
+            _receiver = new Server(port, _bufferSize);
             _receiver.OnRequested += _receiver_OnRequested;
             _receiver.OnFile += _receiver_OnFile;
             _receiver.OnError += _receiver_OnError;
@@ -135,18 +135,13 @@ namespace SAEA.FileSocket
 
                 ConsoleHelper.WriteLine("正在连接IP:{0}...", ip);
 
-                _sender.ConnectAsync((state) =>
+                _sender.Connect();
+
+                if (_sender.Connected)
                 {
-                    if (state == System.Net.Sockets.SocketError.Success)
-                    {
-                        _connected = true;
-                        SendFileBase(fileName, ip);
-                    }
-                    else
-                    {
-                        ConsoleHelper.WriteLine("连接IP:{0}失败", ip);
-                    }
-                });
+                    _connected = true;
+                    SendFileBase(fileName, ip);
+                }
             }
             else
             {

@@ -65,7 +65,7 @@ namespace SAEA.MQTT.Core.Implementations
 
             if (_addressFamily == AddressFamily.InterNetworkV6)
             {
-                sb = sb.UseIPV6();
+                sb = sb.UseIPv6();
             }
 
             socketOption = sb.Build();

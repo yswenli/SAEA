@@ -36,41 +36,110 @@ using System.Threading.Tasks;
 
 namespace SAEA.Sockets
 {
+    /// <summary>
+    /// 客户端
+    /// </summary>
     public interface IClientSocket
     {
+        /// <summary>
+        /// 端地址
+        /// </summary>
         string Endpoint { get; }
 
+        /// <summary>
+        /// socket
+        /// </summary>
         Socket Socket { get; }
 
+        /// <summary>
+        /// 连接
+        /// </summary>
+        /// <returns></returns>
         Task ConnectAsync();
 
+        /// <summary>
+        /// 连接
+        /// </summary>
         void Connect();
 
+        /// <summary>
+        /// 连接
+        /// </summary>
+        /// <param name="callBack"></param>
         void ConnectAsync(Action<SocketError> callBack = null);
 
+        /// <summary>
+        /// 连接
+        /// </summary>
         bool Connected { get; set; }
 
+        /// <summary>
+        /// 导步发送
+        /// </summary>
+        /// <param name="data"></param>
         void BeginSend(byte[] data);
 
+        /// <summary>
+        /// 同步发送
+        /// </summary>
+        /// <param name="data"></param>
         void Send(byte[] data);
 
+        /// <summary>
+        /// iocp发送
+        /// </summary>
+        /// <param name="data"></param>
         void SendAsync(byte[] data);
 
+        /// <summary>
+        /// 异步流发送
+        /// </summary>
+        /// <param name="buffer"></param>
+        /// <param name="offset"></param>
+        /// <param name="count"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
         Task SendAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken);
 
+        /// <summary>
+        /// 异步流接收
+        /// </summary>
+        /// <param name="buffer"></param>
+        /// <param name="offset"></param>
+        /// <param name="count"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
         Task<int> ReceiveAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken);
 
+        /// <summary>
+        /// 网络流
+        /// </summary>
+        /// <returns></returns>
         Stream GetStream();
 
-
+        /// <summary>
+        /// 接收数据事件
+        /// </summary>
         event OnClientReceiveHandler OnReceive;
 
+        /// <summary>
+        /// 断开事件
+        /// </summary>
         event OnDisconnectedHandler OnDisconnected;
 
+        /// <summary>
+        /// 异常事件
+        /// </summary>
         event OnErrorHandler OnError;
 
+        /// <summary>
+        /// 断开连接
+        /// </summary>
         void Disconnect();
 
+        /// <summary>
+        /// 释放资源
+        /// </summary>
         void Dispose();
     }
 }

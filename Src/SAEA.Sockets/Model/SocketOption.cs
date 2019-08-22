@@ -38,6 +38,9 @@ namespace SAEA.Sockets.Model
 {
     public class SocketOption : ISocketOption
     {
+
+        internal SocketOption() { }
+
         public SAEASocketType SocketType { get; set; }
 
         public bool WithSsl
@@ -101,6 +104,11 @@ namespace SAEA.Sockets.Model
         {
             get; set;
         } = 100;
+
+        public bool ReusePort
+        {
+            get; set;
+        } = true;
 
         public int TimeOut
         {

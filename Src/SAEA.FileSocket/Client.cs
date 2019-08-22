@@ -24,8 +24,8 @@
 
 using SAEA.Common;
 using SAEA.FileSocket.Model;
+using SAEA.Sockets;
 using SAEA.Sockets.Base;
-using SAEA.Sockets.Core.Tcp;
 using SAEA.Sockets.Model;
 using System;
 using System.Collections.Concurrent;
@@ -34,7 +34,7 @@ using System.Threading;
 
 namespace SAEA.FileSocket
 {
-    public class Client : IocpClientSocket
+    public class Client
     {
         DateTime Actived;
 
@@ -50,28 +50,44 @@ namespace SAEA.FileSocket
         public long Total { get => _total; set => _total = value; }
         public long Out { get => _out; set => _out = value; }
 
+        public bool Connected { get { return _client.Connected; } }
+
 
         ConcurrentStack<Action<bool>> _eventCollection = new ConcurrentStack<Action<bool>>();
 
         AutoResetEvent _autoResetEvent = new AutoResetEvent(true);
 
-        public Client(int bufferSize = 100 * 1024, string ip = "127.0.0.1", int port = 39654) : base(new Context(), ip, port, bufferSize)
+        Context _context;
+
+        IClientSocket _client;
+
+        public Client(int bufferSize = 100 * 1024, string ip = "127.0.0.1", int port = 39654)
         {
+            _context = new Context();
+
+            var option = SocketOptionBuilder.Instance
+                .SetSocket()
+                .UseIocp(_context)
+                .SetIP(ip)
+                .SetPort(port)
+                .SetReadBufferSize(bufferSize)
+                .SetWriteBufferSize(bufferSize)
+                .Build();
+
+            _client = SocketFactory.CreateClientSocket(option);
+
+            _client.OnReceive += _client_OnReceive;
+
             _bufferSize = bufferSize;
             _buffer = new byte[_bufferSize];
             HeartAsync();
         }
 
-        /// <summary>
-        /// 重写数据接收以实现具体的业务应用场景
-        /// 自行实现ICotext、ICoder等可以实现自定义协议
-        /// </summary>
-        /// <param name="data"></param>
-        protected override void OnReceived(byte[] data)
+        private void _client_OnReceive(byte[] data)
         {
             if (data != null)
             {
-                this.UserToken.Unpacker.Unpack(data, (allow) =>
+                _context.Unpacker.Unpack(data, (allow) =>
                 {
 
                     Action<bool> action;
@@ -101,7 +117,7 @@ namespace SAEA.FileSocket
                 {
                     while (true)
                     {
-                        if (this.Connected)
+                        if (_client.Connected)
                         {
                             if (Actived.AddMilliseconds(HeartSpan) <= DateTimeHelper.Now)
                             {
@@ -110,7 +126,7 @@ namespace SAEA.FileSocket
                                     BodyLength = 0,
                                     Type = (byte)SocketProtocalType.Heart
                                 };
-                                SendAsync(sm.ToBytes());
+                                _client.SendAsync(sm.ToBytes());
                             }
                             Thread.Sleep(HeartSpan);
                         }
@@ -128,7 +144,7 @@ namespace SAEA.FileSocket
         void sendMessageBase(byte[] content)
         {
             var data = BaseSocketProtocal.ParseRequest(content).ToBytes();
-            SendAsync(data);
+            _client.SendAsync(data);
         }
 
 
@@ -176,7 +192,7 @@ namespace SAEA.FileSocket
 
                             var data = BaseSocketProtocal.ParseStream(content).ToBytes();
 
-                            SendAsync(data);
+                            _client.SendAsync(data);
 
                             Interlocked.Add(ref _out, readNum);
                         }
@@ -214,6 +230,11 @@ namespace SAEA.FileSocket
                     _autoResetEvent.Set();
                 });
             }
+        }
+
+        public void Connect()
+        {
+            _client.Connect();
         }
     }
 }

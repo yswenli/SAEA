@@ -37,16 +37,25 @@ using SAEA.Sockets.Base;
 
 namespace SAEA.Sockets
 {
+    /// <summary>
+    /// socket选项创造器
+    /// </summary>
     public class SocketOptionBuilder
     {
 
-        SocketOption _socketOption;
+        ISocketOption _socketOption;
 
+        /// <summary>
+        /// socket选项创造器
+        /// </summary>
         public SocketOptionBuilder()
         {
             _socketOption = new SocketOption();
         }
 
+        /// <summary>
+        /// 返回一个SocketOptionBuilder实例
+        /// </summary>
         public static SocketOptionBuilder Instance
         {
             get
@@ -55,12 +64,22 @@ namespace SAEA.Sockets
             }
         }
 
+        /// <summary>
+        /// 设置socket类型
+        /// </summary>
+        /// <param name="socketType"></param>
+        /// <returns></returns>
         public SocketOptionBuilder SetSocket(SAEASocketType socketType = SAEASocketType.Tcp)
         {
             _socketOption.SocketType = socketType;
             return this;
         }
 
+        /// <summary>
+        /// 启用iocp
+        /// </summary>
+        /// <param name="context"></param>
+        /// <returns></returns>
         public SocketOptionBuilder UseIocp(IContext context)
         {
             if (_socketOption.WithSsl) throw new Exception("ssl模式下暂不支持icop");
@@ -70,6 +89,10 @@ namespace SAEA.Sockets
             return this;
         }
 
+        /// <summary>
+        /// 启用iocp
+        /// </summary>
+        /// <returns></returns>
         public SocketOptionBuilder UseIocp()
         {
             if (_socketOption.WithSsl) throw new Exception("ssl模式下暂不支持icop");
@@ -79,6 +102,10 @@ namespace SAEA.Sockets
             return this;
         }
 
+        /// <summary>
+        /// 使用流模式
+        /// </summary>
+        /// <returns></returns>
         public SocketOptionBuilder UseStream()
         {
             _socketOption.SocketType = SAEASocketType.Tcp;
@@ -86,12 +113,23 @@ namespace SAEA.Sockets
             return this;
         }
 
+        /// <summary>
+        /// 是否延时
+        /// </summary>
+        /// <returns></returns>
         public SocketOptionBuilder SetDelay()
         {
             _socketOption.NoDelay = false;
             return this;
         }
 
+        /// <summary>
+        /// 使用ssl
+        /// </summary>
+        /// <param name="sslProtocols"></param>
+        /// <param name="pfxFilePath"></param>
+        /// <param name="pwd"></param>
+        /// <returns></returns>
         public SocketOptionBuilder WithSsl(SslProtocols sslProtocols, string pfxFilePath = "*.pfx", string pwd = "")
         {
             if (_socketOption.UseIocp) throw new Exception("暂不支持此模式下的ssl");
@@ -108,6 +146,12 @@ namespace SAEA.Sockets
             return this;
         }
 
+        /// <summary>
+        /// 使用ssl
+        /// </summary>
+        /// <param name="x509Certificate2"></param>
+        /// <param name="sslProtocols"></param>
+        /// <returns></returns>
         public SocketOptionBuilder WithSsl(X509Certificate2 x509Certificate2, SslProtocols sslProtocols)
         {
             if (_socketOption.UseIocp) throw new Exception("暂不支持此模式下的ssl");
@@ -120,49 +164,94 @@ namespace SAEA.Sockets
             return this;
         }
 
-        public SocketOptionBuilder UseIPV6()
+        /// <summary>
+        /// 使用ipv6
+        /// </summary>
+        /// <returns></returns>
+        public SocketOptionBuilder UseIPv6()
         {
             _socketOption.UseIPV6 = true;
             return this;
         }
 
+        /// <summary>
+        /// 设置ip
+        /// </summary>
+        /// <param name="ip"></param>
+        /// <returns></returns>
         public SocketOptionBuilder SetIP(string ip)
         {
             _socketOption.IP = ip;
             return this;
         }
 
+        /// <summary>
+        /// 设置端口
+        /// </summary>
+        /// <param name="port"></param>
+        /// <returns></returns>
         public SocketOptionBuilder SetPort(int port = 39654)
         {
             _socketOption.Port = port;
             return this;
         }
 
+        /// <summary>
+        /// 读取缓冲区大小
+        /// </summary>
+        /// <param name="size"></param>
+        /// <returns></returns>
         public SocketOptionBuilder SetReadBufferSize(int size = 1024)
         {
             _socketOption.ReadBufferSize = size;
             return this;
         }
 
+        /// <summary>
+        /// 写入缓冲区大小
+        /// </summary>
+        /// <param name="size"></param>
+        /// <returns></returns>
         public SocketOptionBuilder SetWriteBufferSize(int size = 1024)
         {
             _socketOption.WriteBufferSize = size;
             return this;
         }
 
+        /// <summary>
+        /// 服务器中支持的客户端数
+        /// </summary>
+        /// <param name="count"></param>
+        /// <returns></returns>
         public SocketOptionBuilder SetCount(int count = 100)
         {
             _socketOption.Count = count;
             return this;
         }
 
+        /// <summary>
+        /// 是否端口复用
+        /// </summary>
+        /// <param name="reusePort"></param>
+        /// <returns></returns>
+        public SocketOptionBuilder ReusePort(bool reusePort = true)
+        {
+            _socketOption.ReusePort = reusePort;
+            return this;
+        }
+
+        /// <summary>
+        /// 操作超时
+        /// </summary>
+        /// <param name="timeOut"></param>
+        /// <returns></returns>
         public SocketOptionBuilder SetTimeOut(int timeOut = 60 * 1000)
         {
             _socketOption.TimeOut = timeOut;
             return this;
         }
 
-        public SocketOption Build()
+        public ISocketOption Build()
         {
             return _socketOption;
         }

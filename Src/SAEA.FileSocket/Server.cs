@@ -24,9 +24,8 @@
 
 using SAEA.Common;
 using SAEA.FileSocket.Model;
+using SAEA.Sockets;
 using SAEA.Sockets.Base;
-using SAEA.Sockets.Core;
-using SAEA.Sockets.Core.Tcp;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
@@ -38,13 +37,15 @@ namespace SAEA.FileSocket
     /// 服务器
     /// 采用默认的上下文操作
     /// </summary>
-    public class Server : IocpServerSocket
+    public class Server
     {
         #region events
 
         public event OnRequestHandler OnRequested;
 
         public event OnFileHandler OnFile;
+
+        public event OnErrorHandler OnError;
 
         #endregion
 
@@ -55,49 +56,36 @@ namespace SAEA.FileSocket
         public long Total { get => _total; set => _total = value; }
         public long In { get => _in; set => _in = value; }
 
-        public Server(int bufferSize = 100 * 1024) : base(new Context(), bufferSize, 10)
-        {
+        IServerSokcet _server;
 
+        public Server(int port = 39654, int bufferSize = 100 * 1024, int count = 10)
+        {
+            var option = SocketOptionBuilder.Instance
+                .SetSocket()
+                .UseIocp(new Context())
+                .SetPort(port)
+                .ReusePort(false)
+                .SetReadBufferSize(bufferSize)
+                .SetWriteBufferSize(bufferSize)
+                .SetCount(count)                
+                .Build();
+
+            _server = SocketFactory.CreateServerSocket(option);
+
+            _server.OnReceive += _server_OnReceive;
+
+            _server.OnError += _server_OnError;
         }
 
-        public void Allow(string ID)
+        private void _server_OnError(string ID, System.Exception ex)
         {
-            var sm = new BaseSocketProtocal()
-            {
-                BodyLength = 0,
-                Type = (byte)SocketProtocalType.AllowReceive
-            };
-
-            var data = sm.ToBytes();
-
-            var userToken = SessionManager.Get(ID);
-            if (userToken != null)
-                SendAsync(userToken, data);
+            OnError?.Invoke(ID, ex);
         }
 
-        public void Refuse(string ID)
+        private void _server_OnReceive(object currentObj, byte[] data)
         {
-            var sm = new BaseSocketProtocal()
-            {
-                BodyLength = 0,
-                Type = (byte)SocketProtocalType.RefuseReceive
-            };
+            var userToken = (IUserToken)currentObj;
 
-            var data = sm.ToBytes();
-
-            var userToken = SessionManager.Get(ID);
-            if (userToken != null)
-                SendAsync(userToken, data);
-        }
-
-        /// <summary>
-        /// 重写数据接收以实现具体的业务应用场景
-        /// 自行实现ICotext、ICoder等可以实现自定义协议
-        /// </summary>
-        /// <param name="userToken"></param>
-        /// <param name="data"></param>
-        protected override void OnReceiveBytes(IUserToken userToken, byte[] data)
-        {
             userToken.Unpacker.Unpack(data, (s) =>
             {
                 string fileName = string.Empty;
@@ -119,6 +107,43 @@ namespace SAEA.FileSocket
                 Interlocked.Add(ref _in, f.Length);
                 OnFile?.Invoke(userToken, f);
             });
+        }
+
+        public void Allow(string id)
+        {
+            var sm = new BaseSocketProtocal()
+            {
+                BodyLength = 0,
+                Type = (byte)SocketProtocalType.AllowReceive
+            };
+
+            var data = sm.ToBytes();
+
+            _server.SendAsync(id, data);
+        }
+
+        public void Refuse(string id)
+        {
+            var sm = new BaseSocketProtocal()
+            {
+                BodyLength = 0,
+                Type = (byte)SocketProtocalType.RefuseReceive
+            };
+
+            var data = sm.ToBytes();
+
+            _server.SendAsync(id, data);
+        }
+
+
+        public void Start()
+        {
+            _server.Start();
+        }
+
+        public void Stop()
+        {
+            _server.Stop();
         }
     }
 }

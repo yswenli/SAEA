@@ -32,31 +32,75 @@ using SAEA.Sockets.Handler;
 
 namespace SAEA.Sockets
 {
+    /// <summary>
+    /// 服务器端
+    /// </summary>
     public interface IServerSokcet
     {
+        /// <summary>
+        /// 配置项
+        /// </summary>
         ISocketOption SocketOption { get; set; }
 
+        /// <summary>
+        /// 建立连接事件
+        /// </summary>
         event OnAcceptedHandler OnAccepted;
 
+        /// <summary>
+        /// 异常事件
+        /// </summary>
         event OnErrorHandler OnError;
 
+        /// <summary>
+        /// 接收数据事件
+        /// </summary>
         event OnReceiveHandler OnReceive;
 
+        /// <summary>
+        /// 客户端断开事件
+        /// </summary>
         event OnDisconnectedHandler OnDisconnected;
 
+        /// <summary>
+        /// 启动
+        /// </summary>
+        /// <param name="backlog"></param>
         void Start(int backlog = 10 * 1000);
 
+        /// <summary>
+        /// 客户端连接数
+        /// </summary>
         int ClientCounts { get; }
 
+        /// <summary>
+        /// 获取当前UserToken或Channel对象
+        /// </summary>
+        /// <param name="sessionID"></param>
+        /// <returns></returns>
         object GetCurrentObj(string sessionID);
 
+        /// <summary>
+        /// 发送数据
+        /// </summary>
+        /// <param name="sessionID"></param>
+        /// <param name="data"></param>
         void SendAsync(string sessionID, byte[] data);
 
+        /// <summary>
+        /// 停止
+        /// </summary>
         void Stop();
 
+        /// <summary>
+        /// 断开指定会话
+        /// </summary>
+        /// <param name="obj"></param>
         void Disconnecte(object obj);
        
-
+        /// <summary>
+        /// 释放资源
+        /// </summary>
         void Dispose();
     }
 }
