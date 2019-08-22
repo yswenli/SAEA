@@ -41,7 +41,10 @@ namespace SAEA.WebSocket.Core
         {
             _bufferSize = bufferSize;
 
-            var builder = SocketOptionBuilder.Instance.UseStream().SetPort(port).WithSsl(sslProtocols, pfxPath, pwd);
+            var builder = SocketOptionBuilder.Instance
+                .UseStream()
+                .SetPort(port)
+                .WithSsl(sslProtocols, pfxPath, pwd);
 
             var options = builder.Build();
 

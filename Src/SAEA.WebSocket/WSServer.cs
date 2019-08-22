@@ -4,7 +4,7 @@
 *机器名称：WENLI-PC
 *公司名称：wenli
 *命名空间：SAEA.WebSocket
-*文件名： Class1
+*文件名： WSServer
 *版本号： v5.0.0.1
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
@@ -36,7 +36,7 @@ namespace SAEA.WebSocket
 
         public event Action<string, WSProtocal> OnMessage;
 
-        public WSServer(int port = 39654, SslProtocols protocols = SslProtocols.None, string pfxPath = "", string pwd = "", int heartSpan = 20 * 1000, int bufferSize = 1024, int count = 60000)
+        public WSServer(int port = 39654, SslProtocols protocols = SslProtocols.None, string pfxPath = "", string pwd = "", int bufferSize = 1024, int count = 60000)
         {
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
 
@@ -46,7 +46,7 @@ namespace SAEA.WebSocket
             }
             else
             {
-                wsServer = new WSServerImpl(port, heartSpan, bufferSize, count);
+                wsServer = new WSServerImpl(port, bufferSize, count);
                 wsServer.OnMessage += WsServer_OnMessage;
             }
         }

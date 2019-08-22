@@ -15,14 +15,10 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
-using SAEA.Common;
-using SAEA.Sockets.Core;
-using SAEA.Sockets.Core.Tcp;
-using SAEA.Sockets.Interface;
+using SAEA.Sockets;
 using SAEA.WebSocket.Model;
 using SAEA.WebSocket.Type;
 using System;
-using System.Threading;
 
 namespace SAEA.WebSocket.Core
 {
@@ -30,23 +26,34 @@ namespace SAEA.WebSocket.Core
     /// websocket server,
     /// iocp实现
     /// </summary>
-    internal class WSServerImpl : IocpServerSocket, IWSServer
+    internal class WSServerImpl : IWSServer
     {
+
+        IServerSokcet _server;
+
         int _heartSpan = 20 * 1000;
-
-        public WSServerImpl(int port = 39654, int heartSpan = 20 * 1000, int bufferSize = 1024, int count = 60000) : base(new WSContext(), bufferSize, count, port: port)
-        {
-            _heartSpan = heartSpan;
-
-            this.HeartAsync();
-        }
 
         public event Action<string, WSProtocal> OnMessage;
 
-
-        protected override void OnReceiveBytes(IUserToken userToken, byte[] data)
+        public WSServerImpl(int port = 39654, int bufferSize = 1024, int count = 60000)
         {
-            var ut = (WSUserToken)(userToken);
+            var option = SocketOptionBuilder.Instance
+                .SetSocket()
+                .UseIocp(new WSContext())
+                .SetPort(port)
+                .SetReadBufferSize(bufferSize)
+                .SetWriteBufferSize(bufferSize)
+                .SetCount(count)
+                .Build();
+
+            _server = SocketFactory.CreateServerSocket(option);
+
+            _server.OnReceive += _server_OnReceive;
+        }
+
+        private void _server_OnReceive(object currentObj, byte[] data)
+        {
+            var ut = (WSUserToken)(currentObj);
 
             if (!ut.IsHandSharked)
             {
@@ -56,7 +63,7 @@ namespace SAEA.WebSocket.Core
 
                 if (result)
                 {
-                    base.BeginSend(ut, resData);
+                    _server.SendAsync(ut.ID, resData);
                     ut.IsHandSharked = true;
                 }
             }
@@ -69,10 +76,10 @@ namespace SAEA.WebSocket.Core
                     switch (wsProtocal.Type)
                     {
                         case (byte)WSProtocalType.Close:
-                            ReplyClose(ut, wsProtocal);
+                            ReplyClose(ut.ID, wsProtocal);
                             break;
                         case (byte)WSProtocalType.Ping:
-                            ReplyPong(ut, wsProtocal);
+                            ReplyPong(ut.ID, wsProtocal);
                             break;
                         case (byte)WSProtocalType.Binary:
                         case (byte)WSProtocalType.Text:
@@ -91,28 +98,28 @@ namespace SAEA.WebSocket.Core
         }
 
 
-        private void ReplyBase(WSUserToken ut, WSProtocalType type, byte[] content)
+        private void ReplyBase(string id, WSProtocalType type, byte[] content)
         {
             var byts = new WSProtocal(type, content).ToBytes();
 
-            base.SendAsync(ut.ID, byts);
+            _server.SendAsync(id, byts);
         }
 
-        private void ReplyBase(WSUserToken ut, WSProtocal data)
+        private void ReplyBase(string id, WSProtocal data)
         {
             var byts = data.ToBytes();
 
-            base.SendAsync(ut.ID, byts);
+            _server.SendAsync(id, byts);
         }
 
-        private void ReplyPong(WSUserToken ut, WSProtocal data)
+        private void ReplyPong(string id, WSProtocal data)
         {
-            ReplyBase(ut, WSProtocalType.Pong, data.Content);
+            ReplyBase(id, WSProtocalType.Pong, data.Content);
         }
 
-        private void ReplyClose(WSUserToken ut, WSProtocal data)
+        private void ReplyClose(string id, WSProtocal data)
         {
-            ReplyBase(ut, WSProtocalType.Close, data.Content);
+            ReplyBase(id, WSProtocalType.Close, data.Content);
         }
 
 
@@ -123,8 +130,7 @@ namespace SAEA.WebSocket.Core
         /// <param name="data"></param>
         public void Reply(string id, WSProtocal data)
         {
-            var ut = SessionManager.Get(id);
-            ReplyBase((WSUserToken)ut, data);
+            ReplyBase(id, data);
         }
 
         /// <summary>
@@ -134,41 +140,20 @@ namespace SAEA.WebSocket.Core
         /// <param name="data"></param>
         public void Disconnect(string id, WSProtocal data)
         {
-            var ut = SessionManager.Get(id);
-            ReplyBase((WSUserToken)ut, data);
+            ReplyBase(id, data);
 
         }
 
-        /// <summary>
-        /// 反 ping
-        /// </summary>
-        private void HeartAsync()
+
+        public void Start(int backlog=10000)
         {
-            ThreadHelper.Run(() =>
-            {
-                while (true)
-                {
-                    try
-                    {
-                        Thread.Sleep(_heartSpan);
-
-                        var list = SessionManager.ToList();
-
-                        if (list != null && list.Count > 0)
-
-                            foreach (WSUserToken item in list)
-                            {
-                                if (item.Actived.AddMilliseconds(_heartSpan) < DateTimeHelper.Now)
-                                    ReplyBase(item, WSProtocalType.Ping, null);
-                            }
-                    }
-                    catch { }
-                }
-            }, true, ThreadPriority.Highest);
+            _server.Start(backlog);
         }
 
-
-
+        public void Stop()
+        {
+            _server.Stop();
+        }
     }
 
 }

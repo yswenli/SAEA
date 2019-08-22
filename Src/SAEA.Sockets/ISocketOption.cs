@@ -27,10 +27,11 @@
 *版本号： v5.0.0.1
 *描述：
 *****************************************************************************/
+using SAEA.Sockets.Interface;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 
-namespace SAEA.Sockets.Interface
+namespace SAEA.Sockets
 {
     public interface ISocketOption
     {

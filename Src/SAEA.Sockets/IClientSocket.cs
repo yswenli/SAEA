@@ -11,7 +11,7 @@
 *机器名称：WENLI-PC
 *公司名称：wenli
 *命名空间：SAEA.Sockets.Interface
-*文件名： IServerSokcet
+*文件名： IClientSocket
 *版本号： v5.0.0.1
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
@@ -27,35 +27,49 @@
 *版本号： v5.0.0.1
 *描述：
 *****************************************************************************/
-
 using SAEA.Sockets.Handler;
+using System;
+using System.IO;
+using System.Net.Sockets;
+using System.Threading;
+using System.Threading.Tasks;
 
-namespace SAEA.Sockets.Interface
+namespace SAEA.Sockets
 {
-    public interface IServerSokcet
+    public interface IClientSocket
     {
-        ISocketOption SocketOption { get; set; }
+        string Endpoint { get; }
 
-        event OnAcceptedHandler OnAccepted;
+        Socket Socket { get; }
 
-        event OnErrorHandler OnError;
+        Task ConnectAsync();
 
-        event OnReceiveHandler OnReceive;
+        void Connect();
+
+        void ConnectAsync(Action<SocketError> callBack = null);
+
+        bool Connected { get; set; }
+
+        void BeginSend(byte[] data);
+
+        void Send(byte[] data);
+
+        void SendAsync(byte[] data);
+
+        Task SendAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken);
+
+        Task<int> ReceiveAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken);
+
+        Stream GetStream();
+
+
+        event OnClientReceiveHandler OnReceive;
 
         event OnDisconnectedHandler OnDisconnected;
 
-        void Start(int backlog = 10 * 1000);
+        event OnErrorHandler OnError;
 
-        int ClientCounts { get; }
-
-        object GetCurrentObj(string sessionID);
-
-        void SendAsync(string sessionID, byte[] data);
-
-        void Stop();
-
-        void Disconnecte(object obj);
-       
+        void Disconnect();
 
         void Dispose();
     }
