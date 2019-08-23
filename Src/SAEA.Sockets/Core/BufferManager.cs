@@ -31,6 +31,7 @@
 *****************************************************************************/
 using System.Collections.Generic;
 using System.Net.Sockets;
+using System.Threading;
 
 namespace SAEA.Sockets.Core
 {
@@ -57,7 +58,6 @@ namespace SAEA.Sockets.Core
 
         public bool SetBuffer(SocketAsyncEventArgs args)
         {
-
             if (m_freeIndexPool.Count > 0)
             {
                 args.SetBuffer(m_buffer, m_freeIndexPool.Pop(), m_bufferSize);
@@ -77,7 +77,20 @@ namespace SAEA.Sockets.Core
         public void FreeBuffer(SocketAsyncEventArgs args)
         {
             m_freeIndexPool.Push(args.Offset);
-            args.SetBuffer(null, 0, 0);
+
+            while (true)
+            {
+                try
+                {
+                    args.SetBuffer(null, 0, 0);
+                    break;
+                }
+                catch
+                {
+                    Thread.Sleep(1);
+                }
+            }
+            
         }
     }
 }

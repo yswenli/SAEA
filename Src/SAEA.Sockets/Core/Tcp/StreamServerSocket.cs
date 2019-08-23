@@ -173,6 +173,13 @@ namespace SAEA.Sockets.Core.Tcp
             channel.Stream.WriteAsync(data, 0, data.Length);
         }
 
+        public void End(string sessionID, byte[] data)
+        {
+            var channel = ChannelManager.Current.Get(sessionID);
+            channel.Stream.Write(data, 0, data.Length);
+            Disconnecte(channel.ClientSocket);
+        }
+
         /// <summary>
         /// 断开连接
         /// </summary>

@@ -120,7 +120,7 @@ namespace SAEA.Sockets.Core.Tcp
             if (_listener == null)
             {
                 _listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                _listener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+                _listener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, SocketOption.ReusePort);
                 _listener.NoDelay = SocketOption.NoDelay;
                 if (SocketOption.UseIPV6)
                 {
@@ -166,14 +166,11 @@ namespace SAEA.Sockets.Core.Tcp
 
                 Interlocked.Increment(ref _clientCounts);
 
-                TaskHelper.Start(() => { OnAccepted?.Invoke(userToken); });
+                OnAccepted?.Invoke(userToken);
 
                 if (!userToken.Socket.ReceiveAsync(readArgs))
                 {
-                    TaskHelper.Start(() =>
-                    {
-                        ProcessReceived(readArgs);
-                    });
+                    ProcessReceived(readArgs);
                 }
             }
             //接入新的请求
@@ -227,11 +224,16 @@ namespace SAEA.Sockets.Core.Tcp
                 {
                     _sessionManager.Active(userToken.ID);
 
-                    var data = new byte[readArgs.BytesTransferred];
+                    var data = readArgs.Buffer.AsSpan().Slice(readArgs.Offset, readArgs.BytesTransferred).ToArray();
 
-                    Buffer.BlockCopy(readArgs.Buffer, readArgs.Offset, data, 0, readArgs.BytesTransferred);
-
-                    OnServerReceiveBytes.Invoke(userToken, data);
+                    try
+                    {
+                        OnServerReceiveBytes.Invoke(userToken, data);
+                    }
+                    catch (Exception ex)
+                    {
+                        OnError?.Invoke(userToken.ID, ex);
+                    }
 
                     if (userToken != null && userToken.Socket != null && userToken.Socket.Connected && readArgs != null)
                     {
@@ -247,12 +249,12 @@ namespace SAEA.Sockets.Core.Tcp
                 {
                     Disconnect(userToken, null);
                 }
-
             }
-            catch (Exception ex)
+            catch (Exception exp)
             {
-                OnError?.Invoke(userToken.ID, ex);
-                Disconnect(userToken, ex);
+                var kex = new KernelException("An exception occurs when a message is received:" + exp.Message, exp);
+                OnError?.Invoke(userToken.ID, kex);
+                Disconnect(userToken, kex);
             }
         }
 
@@ -294,6 +296,7 @@ namespace SAEA.Sockets.Core.Tcp
         public void SendAsync(string sessionID, byte[] data)
         {
             var userToken = _sessionManager.Get(sessionID);
+
             if (userToken != null)
             {
                 SendAsync(userToken, data);
@@ -328,7 +331,8 @@ namespace SAEA.Sockets.Core.Tcp
             }
             catch (Exception ex)
             {
-                Disconnect(userToken, ex);
+                var kex = new KernelException("An exception occurs when a message is sending:" + ex.Message, ex);
+                Disconnect(userToken, kex);
             }
         }
 
@@ -363,7 +367,8 @@ namespace SAEA.Sockets.Core.Tcp
             }
             catch (Exception ex)
             {
-                Disconnect(userToken, ex);
+                var kex = new KernelException("An exception occurs when a message is sending:" + ex.Message, ex);
+                Disconnect(userToken, kex);
             }
             return null;
         }
@@ -380,17 +385,26 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
 
+
         /// <summary>
         /// 回复并关闭连接
         /// 用于http
         /// </summary>
-        /// <param name="userToken"></param>
+        /// <param name="sessionID"></param>
         /// <param name="data"></param>
-        public void End(IUserToken userToken, byte[] data)
+        public void End(string sessionID, byte[] data)
         {
-            Send(userToken, data);
+            var userToken = _sessionManager.Get(sessionID);
 
-            Disconnect(userToken);
+            if (userToken != null)
+            {
+                _sessionManager.Active(userToken.ID);
+
+                userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, new AsyncCallback((s) =>
+                {
+                    Disconnect(userToken);
+                }), null);
+            }
         }
         #endregion
 

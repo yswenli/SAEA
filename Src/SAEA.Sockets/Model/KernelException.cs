@@ -43,7 +43,7 @@ namespace SAEA.Sockets.Model
 
         }
 
-        public KernelException(string msg,Exception ex) : base(msg, ex)
+        public KernelException(string msg, Exception ex) : base(msg, ex)
         {
 
         }

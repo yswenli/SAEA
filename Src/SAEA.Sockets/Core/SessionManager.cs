@@ -162,7 +162,7 @@ namespace SAEA.Sockets.Core
             {
                 return false;
             }
-            if (_session.Del(userToken.ID, out MemoryCachItem<IUserToken> mc))
+            if (_session.Del(userToken.ID, out MemoryCacheItem<IUserToken> mc))
             {
                 try
                 {

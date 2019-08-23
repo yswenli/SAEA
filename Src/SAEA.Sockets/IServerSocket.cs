@@ -87,6 +87,8 @@ namespace SAEA.Sockets
         /// <param name="data"></param>
         void SendAsync(string sessionID, byte[] data);
 
+        void End(string sessionID, byte[] data);
+
         /// <summary>
         /// 停止
         /// </summary>

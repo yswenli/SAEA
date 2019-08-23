@@ -30,9 +30,7 @@ namespace SAEA.MVCTest
             //mvcApplication.SetForbiddenAccessList(".jpg");
 
             mvcApplication.Start();
-            ConsoleHelper.ReadLine();
             mvcApplication.Stop();
-            ConsoleHelper.ReadLine();
             mvcApplication.Start();
 
             ConsoleHelper.WriteLine($"MVC已启动！\t\r\n访问请输入http://127.0.0.1:{mvcConfig.Port}/{{controller}}/{{action}}");

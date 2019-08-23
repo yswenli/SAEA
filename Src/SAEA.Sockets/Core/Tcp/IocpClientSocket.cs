@@ -237,12 +237,9 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 if (e.BytesTransferred > 0 && e.SocketError == SocketError.Success)
                 {
-
                     _userToken.Actived = DateTimeHelper.Now;
 
-                    var data = new byte[e.BytesTransferred];
-
-                    Buffer.BlockCopy(e.Buffer, e.Offset, data, 0, e.BytesTransferred);
+                    var data = e.Buffer.AsSpan().Slice(e.Offset, e.BytesTransferred).ToArray();
 
                     OnClientReceive?.Invoke(data);
 

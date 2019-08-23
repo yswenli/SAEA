@@ -34,7 +34,7 @@ namespace SAEA.Common
     /// <typeparam name="T"></typeparam>
     public class MemoryCacheHelper<T> : IDisposable
     {
-        ConcurrentDictionary<string, MemoryCachItem<T>> _dic;
+        ConcurrentDictionary<string, MemoryCacheItem<T>> _dic;
 
         bool _disposed = false;
 
@@ -46,13 +46,13 @@ namespace SAEA.Common
 
         public void Set(string key, T value, TimeSpan timeOut)
         {
-            var mc = new MemoryCachItem<T>() { Key = key, Value = value, Expired = DateTimeHelper.Now.AddSeconds(timeOut.TotalSeconds) };
+            var mc = new MemoryCacheItem<T>() { Key = key, Value = value, Expired = DateTimeHelper.Now.AddSeconds(timeOut.TotalSeconds) };
             _dic.AddOrUpdate(key, mc, (k, v) => { return mc; });
         }
 
         public T Get(string key)
         {
-            _dic.TryGetValue(key, out MemoryCachItem<T> mc);
+            _dic.TryGetValue(key, out MemoryCacheItem<T> mc);
             if (mc != null && mc.Value != null)
             {
                 if (mc.Expired <= DateTimeHelper.Now)
@@ -82,7 +82,7 @@ namespace SAEA.Common
 
         public void Del(string key)
         {
-            _dic.TryRemove(key, out MemoryCachItem<T> mc);
+            _dic.TryRemove(key, out MemoryCacheItem<T> mc);
         }
 
         public IEnumerable<T> List

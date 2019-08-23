@@ -53,7 +53,8 @@ namespace SAEA.Http.Base.Net
                .SetPort(port)
                .SetCount(count)
                .SetReadBufferSize(bufferSize)
-               .SetTimeOut(timeOut);
+               .SetTimeOut(timeOut)
+               .ReusePort(false);
             var option = optionBuilder.Build();
 
             _serverSokcet = SocketFactory.CreateServerSocket(option);
@@ -93,7 +94,7 @@ namespace SAEA.Http.Base.Net
 
         public void End(IUserToken userToken, byte[] data)
         {
-            ((IocpServerSocket)_serverSokcet).End(userToken, data);
+            _serverSokcet.End(userToken.ID, data);
         }
 
         public void Disconnecte(IUserToken userToken)

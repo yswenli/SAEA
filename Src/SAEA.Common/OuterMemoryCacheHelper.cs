@@ -35,25 +35,25 @@ namespace SAEA.Common
     /// <typeparam name="T"></typeparam>
     public class OuterMemoryCacheHelper<T> : IDisposable
     {
-        ConcurrentDictionary<string, MemoryCachItem<T>> _dic;
+        ConcurrentDictionary<string, MemoryCacheItem<T>> _dic;
 
         /// <summary>
         /// 自定义缓存
         /// </summary>
         public OuterMemoryCacheHelper()
         {
-            _dic = new ConcurrentDictionary<string, MemoryCachItem<T>>();
+            _dic = new ConcurrentDictionary<string, MemoryCacheItem<T>>();
         }
 
         public void Set(string key, T value, TimeSpan timeOut)
         {
-            var mc = new MemoryCachItem<T>() { Key = key, Value = value, Expired = DateTimeHelper.Now.AddSeconds(timeOut.TotalSeconds) };
+            var mc = new MemoryCacheItem<T>() { Key = key, Value = value, Expired = DateTimeHelper.Now.AddSeconds(timeOut.TotalSeconds) };
             _dic.AddOrUpdate(key, mc, (k, v) => { return mc; });
         }
 
         public T Get(string key)
         {
-            _dic.TryGetValue(key, out MemoryCachItem<T> mc);
+            _dic.TryGetValue(key, out MemoryCacheItem<T> mc);
             if (mc != null && mc.Value != null)
             {
                 return mc.Value;
@@ -71,13 +71,13 @@ namespace SAEA.Common
         }
 
 
-        public bool Del(string key,out MemoryCachItem<T> mc)
+        public bool Del(string key,out MemoryCacheItem<T> mc)
         {
             return _dic.TryRemove(key, out mc);
         }
 
 
-        public IEnumerable<MemoryCachItem<T>> List
+        public IEnumerable<MemoryCacheItem<T>> List
         {
             get
             {
@@ -99,7 +99,7 @@ namespace SAEA.Common
     /// 缓存项
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public class MemoryCachItem<T>
+    public class MemoryCacheItem<T>
     {
         public string Key
         {

@@ -79,7 +79,7 @@ namespace SAEA.Http
             }
             else
             {
-                throw new Exception("httpContentType 传入值不正确！");
+                _httpContentType = typeof(HttpContext);
             }
 
             WebConfig = new WebConfig()
