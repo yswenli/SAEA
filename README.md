@@ -35,6 +35,13 @@ nuget url: https://www.nuget.org/packages?q=saea
 
 # Example
 
+## SAEA.Sockets for custom protocol
+
+### JT808 protocol
+
+The test project is SAEA. Sockets Test, which demonstrates how to extend access to SAEA. Sockets using IContext, IUnpacker custom decoding, coding.
+测试项目为SAEA.SocketsTest，其中演示了如何扩展使用IContext、IUnpacker自定义解码、编码来接入SAEA.Sockets
+
 ## FileTransfer
 
 ### saea.filesocket usage

@@ -34,7 +34,7 @@ namespace SAEA.SocketsTest
                 case (ushort)JT808MsgId.终端鉴权:
                 case (ushort)JT808MsgId.位置信息汇报:
 
-                    result = Response();
+                    result = Response(package.Header.TerminalPhoneNo);
                     break;
                 default:
                     throw new System.Exception("未知的类型!");
@@ -48,7 +48,7 @@ namespace SAEA.SocketsTest
         /// 平台通用应答
         /// </summary>
         /// <returns></returns>
-        public byte[] Response()
+        public byte[] Response(string phoneno)
         {
             JT808Package jT808Package = new JT808Package();
 
@@ -56,7 +56,7 @@ namespace SAEA.SocketsTest
             {
                 MsgId = JT808MsgId.平台通用应答.ToUInt16Value(),
                 MsgNum = 126,
-                TerminalPhoneNo = "123456789012"
+                TerminalPhoneNo = phoneno
             };
 
             JT808_0x8001 jT808_0x0200 = new JT808_0x8001
