@@ -76,9 +76,9 @@ namespace SAEA.MQTT.Core.Implementations
             }
         }
 
-        public async Task ConnectAsync()
+        public void ConnectAsync()
         {
-            await _clientSocket.ConnectAsync();
+            _clientSocket.ConnectAsync();
         }
 
         public Task DisconnectAsync()
@@ -120,6 +120,11 @@ namespace SAEA.MQTT.Core.Implementations
             }
 
             return certificates;
+        }
+
+        Task IMqttChannel.ConnectAsync()
+        {
+           return Task.Run(() => ConnectAsync());
         }
     }
 }

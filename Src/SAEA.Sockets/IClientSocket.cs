@@ -54,12 +54,6 @@ namespace SAEA.Sockets
         /// <summary>
         /// 连接
         /// </summary>
-        /// <returns></returns>
-        Task ConnectAsync();
-
-        /// <summary>
-        /// 连接
-        /// </summary>
         void Connect();
 
         /// <summary>

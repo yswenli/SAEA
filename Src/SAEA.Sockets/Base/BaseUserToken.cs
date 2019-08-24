@@ -32,6 +32,7 @@ using SAEA.Common;
 using SAEA.Sockets.Interface;
 using System;
 using System.Net.Sockets;
+using System.Threading;
 
 namespace SAEA.Sockets.Base
 {
@@ -41,11 +42,13 @@ namespace SAEA.Sockets.Base
     public class BaseUserToken : IUserToken
     {
 
-        SpinLock _spinLock;
+        //SpinLock _spinLock;
+
+        AutoResetEvent _autoResetEvent = new AutoResetEvent(true);
 
         public BaseUserToken()
         {
-            _spinLock = new SpinLock();
+            _autoResetEvent = new AutoResetEvent(true);
         }
 
         public string ID
@@ -84,20 +87,20 @@ namespace SAEA.Sockets.Base
 
         public void WaitOne()
         {
-            _spinLock.WaitOne();
+            _autoResetEvent.WaitOne();
         }
 
 
         public void Set()
         {
-            _spinLock.Set();
+            _autoResetEvent.Set();
         }
 
         public void Clear()
         {
             Socket?.Close();
             Unpacker?.Clear();
-            //_autoResetEvent?.Close();
+            _autoResetEvent?.Close();
             ReadArgs = null;
             WriteArgs = null;
             Socket = null;

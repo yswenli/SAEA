@@ -35,7 +35,7 @@ namespace SAEA.RPCTest.Provider
         {
             var sb = new StringBuilder();
 
-            for (int i = 0; i < 100000; i++)
+            for (int i = 0; i < 1000; i++)
             {
                 sb.Append("hello world!");
             }

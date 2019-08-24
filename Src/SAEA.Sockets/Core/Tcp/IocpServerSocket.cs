@@ -150,33 +150,43 @@ namespace SAEA.Sockets.Core.Tcp
         private void ProcessAccept(SocketAsyncEventArgs e)
         {
             e.AcceptSocket = null;
-            if (_listener != null && !_listener.AcceptAsync(e))
+            try
             {
-                ProcessAccepted(e);
+                if (_listener != null && !_listener.AcceptAsync(e))
+                {
+                    ProcessAccepted(e);
+                }
+            }
+            catch
+            {
+                Thread.Sleep(500);
+                ProcessAccept(e);
             }
         }
 
         private void ProcessAccepted(SocketAsyncEventArgs e)
         {
-            var userToken = _sessionManager.BindUserToken(e.AcceptSocket);
-
-            if (userToken != null)
+            try
             {
-                var readArgs = userToken.ReadArgs;
+                var userToken = _sessionManager.BindUserToken(e.AcceptSocket);
 
-                Interlocked.Increment(ref _clientCounts);
-
-                OnAccepted?.Invoke(userToken);
-
-                if (!userToken.Socket.ReceiveAsync(readArgs))
+                if (userToken != null)
                 {
-                    ProcessReceived(readArgs);
+                    var readArgs = userToken.ReadArgs;
+
+                    Interlocked.Increment(ref _clientCounts);
+
+                    OnAccepted?.Invoke(userToken);
+
+                    ProcessReceive(readArgs);
                 }
             }
-            //接入新的请求
+            catch (Exception ex)
+            {
+                OnError?.Invoke("", ex);
+            }
             ProcessAccept(e);
         }
-
 
         private void IO_Completed(object sender, SocketAsyncEventArgs e)
         {
@@ -192,7 +202,7 @@ namespace SAEA.Sockets.Core.Tcp
                     try
                     {
                         var userToken = (IUserToken)e.UserToken;
-                        Disconnect(userToken, new Exception("Operation-exceptions，SocketAsyncOperation：" + e.LastOperation));
+                        Disconnect(userToken, new KernelException("Operation-exceptions，SocketAsyncOperation：" + e.LastOperation));
                     }
                     catch { }
                     break;
@@ -212,12 +222,41 @@ namespace SAEA.Sockets.Core.Tcp
 
 
         /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="readArgs"></param>
+        private void ProcessReceive(SocketAsyncEventArgs readArgs)
+        {
+            var userToken = (IUserToken)readArgs.UserToken;
+            try
+            {
+                if (readArgs != null && userToken != null && userToken.Socket != null && userToken.Socket.Connected)
+                {
+                    if (!userToken.Socket.ReceiveAsync(readArgs))
+                        ProcessReceived(readArgs);
+                }
+                else
+                {
+                    Disconnect(userToken, new KernelException("The remote client has been disconnected."));
+                }
+
+            }
+            catch (Exception exp)
+            {
+                var kex = new KernelException("An exception occurs when a message is received:" + exp.Message, exp);
+                OnError?.Invoke(userToken.ID, kex);
+                Disconnect(userToken, kex);
+            }
+        }
+
+        /// <summary>
         /// 处理接收到数据
         /// </summary>
         /// <param name="readArgs"></param>
-        private void ProcessReceived(SocketAsyncEventArgs readArgs)
+        void ProcessReceived(SocketAsyncEventArgs readArgs)
         {
             var userToken = (IUserToken)readArgs.UserToken;
+
             try
             {
                 if (readArgs.SocketError == SocketError.Success && readArgs.BytesTransferred > 0)
@@ -235,15 +274,7 @@ namespace SAEA.Sockets.Core.Tcp
                         OnError?.Invoke(userToken.ID, ex);
                     }
 
-                    if (userToken != null && userToken.Socket != null && userToken.Socket.Connected && readArgs != null)
-                    {
-                        if (!userToken.Socket.ReceiveAsync(readArgs))
-                            ProcessReceived(readArgs);
-                    }
-                    else
-                    {
-                        Disconnect(userToken, new Exception("The remote client has been disconnected."));
-                    }
+                    ProcessReceive(readArgs);
                 }
                 else
                 {
@@ -400,10 +431,9 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 _sessionManager.Active(userToken.ID);
 
-                userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, new AsyncCallback((s) =>
-                {
-                    Disconnect(userToken);
-                }), null);
+                Send(userToken, data);
+
+                Disconnect(userToken);
             }
         }
         #endregion
@@ -430,7 +460,7 @@ namespace SAEA.Sockets.Core.Tcp
         {
             if (_sessionManager.Free(userToken))
             {
-                if (ex == null) ex = new Exception("The remote client has been disconnected.");
+                if (ex == null) ex = new KernelException("The remote client has been disconnected.");
                 Interlocked.Decrement(ref _clientCounts);
                 OnDisconnected?.Invoke(userToken.ID, ex);
                 userToken = null;

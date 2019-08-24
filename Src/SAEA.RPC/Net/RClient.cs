@@ -76,7 +76,7 @@ namespace SAEA.RPC.Net
 
             var ipPort = DNSHelper.GetIPPort(uri);
 
-            _RContext = new RContext();            
+            _RContext = new RContext();
 
             SocketOptionBuilder builder = SocketOptionBuilder.Instance;
 
@@ -103,7 +103,7 @@ namespace SAEA.RPC.Net
 
         public void Connect()
         {
-            _client.ConnectAsync().GetAwaiter();
+            _client.ConnectAsync();
         }
 
         protected void OnReceived(byte[] data)

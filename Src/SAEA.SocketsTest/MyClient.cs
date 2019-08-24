@@ -65,7 +65,7 @@ namespace SAEA.SocketsTest
 
         public void Connect()
         {
-            _client.ConnectAsync().GetAwaiter().GetResult();
+            _client.ConnectAsync();
         }
 
 

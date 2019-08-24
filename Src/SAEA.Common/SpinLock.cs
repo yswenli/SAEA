@@ -15,30 +15,41 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
+using System.Diagnostics;
 using System.Threading;
 
 namespace SAEA.Common
 {
     public class SpinLock
     {
-        int signal = 0;
+        int _signal = 0;
+
+        Stopwatch _stopwatch;
 
         public SpinLock()
         {
-
+            _stopwatch = new Stopwatch();
+            _stopwatch.Start();
         }
 
-        public void WaitOne()
+        public void WaitOne(int timeOut = 5000)
         {
-            while (Interlocked.Exchange(ref signal, 1) != 0)
+            _stopwatch.Restart();
+            while (Interlocked.Exchange(ref _signal, 1) != 0)
             {
-
+                if(_stopwatch.ElapsedMilliseconds > timeOut)
+                {
+                    Set();
+                    _stopwatch.Stop();
+                    break;
+                }
             }
         }
 
         public void Set()
         {
-            Interlocked.Exchange(ref signal, 0);
+            Interlocked.Exchange(ref _signal, 0);
+            _stopwatch.Stop();
         }
     }
 }

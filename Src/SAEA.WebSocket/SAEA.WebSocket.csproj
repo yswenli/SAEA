@@ -5,7 +5,7 @@
     <Authors>yswenli</Authors>
     <Company>yswenli</Company>
     <Copyright>yswenli</Copyright>
-    <Version>5.0.0.1</Version>
+    <Version>5.0.0.2</Version>
 	<AssemblyVersion>5.0.0.1</AssemblyVersion>
     <Description>This is a websocket server and client component based on SAEA.Socket.
 这是基于SAEA.Socket的websocket服务器、客户端组件

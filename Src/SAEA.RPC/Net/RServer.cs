@@ -82,7 +82,8 @@ namespace SAEA.RPC.Net
         /// <param name="msg"></param>
         internal void Reply(IUserToken userToken, RSocketMsg msg)
         {
-            _server.SendAsync(userToken.ID, ((RUnpacker)userToken.Unpacker).Encode(msg));
+            var data = ((RUnpacker)userToken.Unpacker).Encode(msg);
+            _server.SendAsync(userToken.ID, data);
         }
 
         internal void Disconnect(IUserToken userToken)

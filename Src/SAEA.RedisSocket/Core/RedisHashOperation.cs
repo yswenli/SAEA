@@ -148,7 +148,11 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public int HStrLen(string hid, string key)
         {
-            return int.Parse(_cnn.DoWithKeyValue(RequestType.HSTRLEN, hid, key).Data);
+            var result = 0;
+
+            int.TryParse(_cnn.DoWithKeyValue(RequestType.HSTRLEN, hid, key).Data, out result);
+
+            return result;
         }
 
         /// <summary>

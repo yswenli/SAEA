@@ -50,10 +50,6 @@ namespace SAEA.Sockets.Core.Tcp
     {
         Socket _socket;
 
-        string _ip = string.Empty;
-
-        int _port = 39654;
-
         IUserToken _userToken;
 
         SocketAsyncEventArgs _connectArgs;
@@ -92,9 +88,27 @@ namespace SAEA.Sockets.Core.Tcp
         /// iocp 客户端 socket
         /// </summary>
         /// <param name="socketOption"></param>
-        public IocpClientSocket(ISocketOption socketOption) : this(socketOption.Context, socketOption.IP, socketOption.Port, socketOption.ReadBufferSize, socketOption.TimeOut)
+        public IocpClientSocket(ISocketOption socketOption)
         {
             _SocketOption = socketOption;
+
+            _userTokenFactory = new UserTokenFactory();
+
+            _socket = new Socket(AddressFamily.InterNetwork, System.Net.Sockets.SocketType.Stream, ProtocolType.Tcp);
+            _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, _SocketOption.ReusePort);
+            _socket.NoDelay = _SocketOption.NoDelay;
+            _socket.SendTimeout = _socket.ReceiveTimeout = _SocketOption.TimeOut;
+            _socket.KeepAlive();
+
+            OnClientReceive = new OnClientReceiveBytesHandler(OnReceived);
+
+            _connectArgs = new SocketAsyncEventArgs
+            {
+                RemoteEndPoint = new IPEndPoint(IPAddress.Parse(_SocketOption.IP), _SocketOption.Port)
+            };
+            _connectArgs.Completed += ConnectArgs_Completed;
+
+            _userToken = _userTokenFactory.Create(socketOption.Context, socketOption.ReadBufferSize, IO_Completed);
         }
 
         /// <summary>
@@ -105,29 +119,9 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="port"></param>
         /// <param name="bufferSize"></param>
         /// <param name="timeOut"></param>
-        public IocpClientSocket(IContext context, string ip = "127.0.0.1", int port = 39654, int bufferSize = 100 * 1024, int timeOut = 60 * 1000)
+        public IocpClientSocket(IContext context, string ip = "127.0.0.1", int port = 39654, int bufferSize = 100 * 1024, int timeOut = 60 * 1000) : this(new SocketOption() { Context = context, IP = ip, Port = port, ReadBufferSize = bufferSize, WriteBufferSize = bufferSize, TimeOut = timeOut })
         {
-            _userTokenFactory = new UserTokenFactory();
 
-            _socket = new Socket(AddressFamily.InterNetwork, System.Net.Sockets.SocketType.Stream, ProtocolType.Tcp);
-            _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-            _socket.NoDelay = true;
-            _socket.SendTimeout = _socket.ReceiveTimeout = timeOut;
-            _socket.KeepAlive();
-
-
-            _ip = ip;
-            _port = port;
-
-            OnClientReceive = new OnClientReceiveBytesHandler(OnReceived);
-
-            _connectArgs = new SocketAsyncEventArgs
-            {
-                RemoteEndPoint = new IPEndPoint(IPAddress.Parse(_ip), _port)
-            };
-            _connectArgs.Completed += ConnectArgs_Completed;
-
-            _userToken = _userTokenFactory.Create(context, bufferSize, IO_Completed);
         }
 
         /// <summary>
@@ -150,34 +144,20 @@ namespace SAEA.Sockets.Core.Tcp
         /// <summary>
         /// 连接到服务器
         /// </summary>
-        /// <returns></returns>
-        public async Task ConnectAsync()
-        {
-            if (!Connected)
-            {
-                await _socket.ConnectAsync(_SocketOption.IP, _SocketOption.Port).ConfigureAwait(true);
-
-                Connected = true;
-
-                _userToken.ID = _socket.LocalEndPoint.ToString();
-                _userToken.Socket = _socket;
-                _userToken.Linked = _userToken.Actived = DateTime.Now;
-
-                var readArgs = _userToken.ReadArgs;
-                if (!_userToken.Socket.ReceiveAsync(readArgs))
-                    ProcessReceive(readArgs);
-            }
-        }
-
-        /// <summary>
-        /// 连接到服务器
-        /// </summary>
         /// <param name="timeOut"></param>
         public void Connect()
         {
             if (!Connected)
             {
                 _socket.Connect(_SocketOption.IP, _SocketOption.Port);
+
+                _userToken.ID = _socket.LocalEndPoint.ToString();
+                _userToken.Socket = _socket;
+                _userToken.Linked = _userToken.Actived = DateTime.Now;
+
+                var readArgs = _userToken.ReadArgs;
+
+                ProcessReceive(readArgs);
 
                 Connected = true;
             }
@@ -199,8 +179,7 @@ namespace SAEA.Sockets.Core.Tcp
                 _userToken.Linked = _userToken.Actived = DateTime.Now;
 
                 var readArgs = _userToken.ReadArgs;
-                if (!_userToken.Socket.ReceiveAsync(readArgs))
-                    ProcessReceive(readArgs);
+                ProcessReceive(readArgs);
                 _connectCallBack?.Invoke(e.SocketError);
             }
             _connectEvent.Set();
@@ -212,7 +191,7 @@ namespace SAEA.Sockets.Core.Tcp
             switch (e.LastOperation)
             {
                 case SocketAsyncOperation.Receive:
-                    ProcessReceive(e);
+                    ProcessReceived(e);
                     break;
                 case SocketAsyncOperation.Send:
                     ProcessSended(e);
@@ -230,25 +209,36 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
 
+        void ProcessReceive(SocketAsyncEventArgs readArgs)
+        {
+            if (_userToken.Socket != null)
+            {
+                if (!_userToken.Socket.ReceiveAsync(readArgs))
+                {
+                    ProcessReceived(readArgs);
+                }
+            }
 
-        void ProcessReceive(SocketAsyncEventArgs e)
+        }
+
+
+        void ProcessReceived(SocketAsyncEventArgs readArgs)
         {
             try
             {
-                if (e.BytesTransferred > 0 && e.SocketError == SocketError.Success)
+                if (readArgs.BytesTransferred > 0 && readArgs.SocketError == SocketError.Success)
                 {
                     _userToken.Actived = DateTimeHelper.Now;
 
-                    var data = e.Buffer.AsSpan().Slice(e.Offset, e.BytesTransferred).ToArray();
+                    var data = readArgs.Buffer.AsSpan().Slice(readArgs.Offset, readArgs.BytesTransferred).ToArray();
 
                     OnClientReceive?.Invoke(data);
 
-                    if (_userToken.Socket != null && !_userToken.Socket.ReceiveAsync(e))
-                        ProcessReceive(e);
+                    ProcessReceive(readArgs);
                 }
                 else
                 {
-                    ProcessDisconnected(new Exception("SocketError:" + e.SocketError.ToString()));
+                    ProcessDisconnected(new Exception("SocketError:" + readArgs.SocketError.ToString()));
                 }
             }
             catch (Exception ex)
@@ -260,9 +250,9 @@ namespace SAEA.Sockets.Core.Tcp
 
 
         void ProcessSended(SocketAsyncEventArgs e)
-        {
-            _userToken.Set();
+        {            
             _userToken.Actived = DateTimeHelper.Now;
+            _userToken.Set();
         }
 
 
@@ -288,7 +278,6 @@ namespace SAEA.Sockets.Core.Tcp
         {
             try
             {
-
                 if (userToken != null && userToken.Socket != null && userToken.Socket.Connected)
                 {
                     userToken.WaitOne();
@@ -377,7 +366,6 @@ namespace SAEA.Sockets.Core.Tcp
         {
             throw new KernelException("当前方法只在stream实现中才能使用!");
         }
-
 
         public Stream GetStream()
         {

@@ -77,20 +77,7 @@ namespace SAEA.Sockets.Core
         public void FreeBuffer(SocketAsyncEventArgs args)
         {
             m_freeIndexPool.Push(args.Offset);
-
-            while (true)
-            {
-                try
-                {
-                    args.SetBuffer(null, 0, 0);
-                    break;
-                }
-                catch
-                {
-                    Thread.Sleep(1);
-                }
-            }
-            
+            args.SetBuffer(null, 0, 0);
         }
     }
 }

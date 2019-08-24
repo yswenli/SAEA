@@ -109,9 +109,10 @@ namespace SAEA.WebSocket
         /// <returns></returns>
         public new bool Connect(int timeOut = 10 * 1000)
         {
-            _client.ConnectAsync().GetAwaiter().GetResult();
-
-            this.RequestHandShark();
+            _client.ConnectAsync((e) =>
+            {
+                this.RequestHandShark();
+            });
 
             int i = 0;
 
