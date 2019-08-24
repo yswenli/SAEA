@@ -39,8 +39,8 @@ nuget url: https://www.nuget.org/packages?q=saea
 
 ### JT808 protocol
 
-The test project is SAEA. Sockets Test, which demonstrates how to extend access to SAEA. Sockets using IContext, IUnpacker custom decoding, coding.
-测试项目为SAEA.SocketsTest，其中演示了如何扩展使用IContext、IUnpacker自定义解码、编码来接入SAEA.Sockets
+The test project is SAEA. Sockets Test, which demonstrates how to extend IContext, IUnpacker decoding and encoding to access SAEA. Sockets by using tripartite protocol (JT808).
+测试项目为SAEA.SocketsTest，其中演示了使用三方协议（JT808）来如何扩展IContext、IUnpacker解码、编码的方式接入SAEA.Sockets
 
 ## FileTransfer
 
