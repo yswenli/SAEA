@@ -21,7 +21,6 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Http.Base;
 using SAEA.Sockets.Interface;
 
 namespace SAEA.Http.Model

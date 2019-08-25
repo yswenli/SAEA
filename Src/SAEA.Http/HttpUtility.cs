@@ -28,7 +28,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-namespace SAEA.Http.Base
+namespace SAEA.Http
 {
     /// <summary>
     /// HttpUtility
@@ -97,13 +97,9 @@ namespace SAEA.Http.Base
         /// <param name="s"></param>
         /// <param name="isData"></param>
         /// <returns></returns>
-        public static string UrlEncode(string s, bool isData = false)
+        public static string UrlEncode(string s)
         {
-            if (isData)
-            {
-                return Uri.EscapeDataString(s);
-            }
-            return Uri.EscapeUriString(s);
+            return System.Web.HttpUtility.UrlEncode(s);
 
         }
         /// <summary>
@@ -113,7 +109,7 @@ namespace SAEA.Http.Base
         /// <returns></returns>
         public static string UrlDecode(string s)
         {
-            return Uri.UnescapeDataString(s);
+            return System.Web.HttpUtility.UrlDecode(s);
         }
 
         /// <summary>

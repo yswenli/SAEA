@@ -22,7 +22,6 @@
 *
 *****************************************************************************/
 using SAEA.Common;
-using SAEA.Http.Common;
 using SAEA.Http.Model;
 using SAEA.Sockets.Interface;
 using System;

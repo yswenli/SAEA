@@ -21,7 +21,6 @@
 *描述：
 ******************************************************************************/
 using SAEA.Common;
-using SAEA.Http.Base;
 using System;
 using System.Collections.Generic;
 using System.Linq;
