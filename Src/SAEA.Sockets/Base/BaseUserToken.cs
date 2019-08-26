@@ -28,7 +28,6 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Common;
 using SAEA.Sockets.Interface;
 using System;
 using System.Net.Sockets;
@@ -41,9 +40,6 @@ namespace SAEA.Sockets.Base
     /// </summary>
     public class BaseUserToken : IUserToken
     {
-
-        //SpinLock _spinLock;
-
         AutoResetEvent _autoResetEvent = new AutoResetEvent(true);
 
         public BaseUserToken()
