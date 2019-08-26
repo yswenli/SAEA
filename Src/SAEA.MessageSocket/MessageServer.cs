@@ -46,7 +46,11 @@ namespace SAEA.MessageSocket
 
         GroupList _groupList = new GroupList();
 
+        public event OnAcceptedHandler OnAccepted;
+
         public event OnDisconnectedHandler OnDisconnected;
+
+        public event OnErrorHandler OnError;
 
 
         public int ClientCounts
@@ -56,6 +60,8 @@ namespace SAEA.MessageSocket
                 return _server.ClientCounts;
             }
         }
+
+
 
         public MessageServer(int port = 39654, int bufferSize = 1024, int count = 1000000, int timeOut = 60 * 1000)
         {
@@ -70,9 +76,23 @@ namespace SAEA.MessageSocket
 
             _server = SocketFactory.CreateServerSocket(option);
 
+            _server.OnAccepted += _server_OnAccepted;
+
             _server.OnReceive += _server_OnReceive;
 
+            _server.OnError += _server_OnError;
+
             _server.OnDisconnected += _server_OnDisconnected;
+        }
+
+        private void _server_OnError(string ID, Exception ex)
+        {
+            OnError?.Invoke(ID, ex);
+        }
+
+        private void _server_OnAccepted(object obj)
+        {
+            OnAccepted?.Invoke(obj);
         }
 
         private void _server_OnDisconnected(string ID, Exception ex)
