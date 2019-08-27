@@ -29,6 +29,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using SAEA.Sockets.Interface;
 
 namespace SAEA.MessageTest
 {
@@ -115,6 +116,10 @@ namespace SAEA.MessageTest
 
             MessageServer server = new MessageServer(39654, 100, 100000, 30 * 60 * 1000);
 
+            server.OnAccepted += Server_OnAccepted;
+
+            server.OnError += Server_OnError;
+
             server.OnDisconnected += Server_OnDisconnected;
 
             server.Start();
@@ -130,6 +135,16 @@ namespace SAEA.MessageTest
             });
 
             ConsoleHelper.WriteLine("SAEA.Message服务器已就绪!");
+        }
+
+        private static void Server_OnError(string ID, Exception ex)
+        {
+            ConsoleHelper.WriteLine($"SAEA.Message服务器发生异常:{ID}, err:{ex.Message}");
+        }
+
+        private static void Server_OnAccepted(object obj)
+        {
+            ConsoleHelper.WriteLine("SAEA.Message服务器收到连接" + ((IUserToken)obj).ID);
         }
 
         private static void PreesureTest()
