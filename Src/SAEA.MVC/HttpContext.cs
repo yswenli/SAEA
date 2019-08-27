@@ -79,7 +79,7 @@ namespace SAEA.MVC
                     break;
             }
 
-            Response.SetResult(result, this.Session.CacheCalcResult);
+            Response.SetCached(result, this.Session.CacheCalcString);
 
             Response.End(userToken);
         }

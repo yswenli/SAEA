@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Common;
 using SAEA.Http.Base;
 using SAEA.Http.Model;
 using System;
@@ -49,6 +50,44 @@ namespace SAEA.Http
             get; set;
         }
 
+        public string UserHostAddress
+        {
+            get; private set;
+        }
+
+        public string GetRealIp()
+        {
+            string result = string.Empty;
+
+            if (this.Headers.ContainsKey("http_x_forwarded_for"))
+            {
+                result = this.Headers["http_x_forwarded_for"];
+            }
+
+            if (null == result || result == String.Empty)
+            {
+                if (this.Headers.ContainsKey("remote_addr"))
+                {
+                    result = this.Headers["remote_addr"];
+                }
+            }
+            if (null == result || result == String.Empty)
+            {
+                result = this.UserHostAddress;
+            }
+            return result;
+        }
+
+        public string UserAgent
+        {
+            get; private set;
+        }
+
+        public Browser Browser
+        {
+            get; private set;
+        }
+
         /// <summary>
         /// contruct
         /// </summary>
@@ -68,6 +107,7 @@ namespace SAEA.Http
         {
             _httpMessage = httpMessage;
 
+            this.UserHostAddress = httpMessage.ID.ToIPPort().Item1;
             this.Method = _httpMessage.Method;
             this.Url = _httpMessage.Url;
             this.RelativeUrl = _httpMessage.RelativeUrl;
@@ -81,6 +121,12 @@ namespace SAEA.Http
             this.ContentType = _httpMessage.ContentType;
             this.ContentLength = _httpMessage.ContentLength;
 
+            if (this.Headers.ContainsKey("user-agent"))
+            {
+                this.UserAgent = this.Headers["user-agent"];
+
+                this.Browser = Browser.Parse(this.UserAgent);
+            }
             if (_httpMessage.Forms != null && _httpMessage.Forms.Count > 0)
             {
                 this.Forms = _httpMessage.Forms;
@@ -93,7 +139,7 @@ namespace SAEA.Http
             {
                 this.Json = _httpMessage.Json;
                 this.Body = _httpMessage.Body;
-            }            
+            }
         }
 
         public string GetHeader(RequestHeaderType header)

@@ -37,12 +37,7 @@ namespace SAEA.Http.Base.Net
 
         }
 
-        /// <summary>
-        /// 解析http请求的数据
-        /// </summary>
-        /// <param name="data"></param>
-        /// <param name="onUnpackage"></param>
-        public void GetRequest(byte[] data, Action<HttpMessage> onUnpackage)
+        public void GetRequest(string id, byte[] data, Action<HttpMessage> onUnpackage)
         {
             _cache.AddRange(data);
 
@@ -52,6 +47,8 @@ namespace SAEA.Http.Base.Net
 
             if (RequestDataReader.Analysis(buffer, out httpMessage))
             {
+                httpMessage.ID = id;
+
                 //post需要处理body
                 if (httpMessage.Method == ConstHelper.POST)
                 {

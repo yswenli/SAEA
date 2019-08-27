@@ -59,7 +59,6 @@ namespace SAEA.MVC
 
             var nargs = new object[] { httpContext };
 
-
             //类过滤器
             if (routing.FilterAtrrs != null && routing.FilterAtrrs.Any())
             {
@@ -90,7 +89,12 @@ namespace SAEA.MVC
 
                         if (method != null)
                         {
-                            httpContext.Session.CacheCalcResult = (string)arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING).Invoke(arr, nargs.ToArray());
+                            httpContext.Session.CacheCalcString = (string)arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING).Invoke(arr, nargs.ToArray());
+
+                            if (httpContext.Session.CacheCalcString.IndexOf("1,") == 0)
+                            {
+                                return new ContentResult(string.Empty, System.Net.HttpStatusCode.NotModified);
+                            }
                         }
                     }
                     else

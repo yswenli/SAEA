@@ -118,7 +118,7 @@ namespace SAEA.Http
         /// 设置回复内容
         /// </summary>
         /// <param name="result"></param>
-        public void SetResult(IHttpResult result, string cacheCalcResult = "-1,-1")
+        public void SetCached(IHttpResult result, string cacheCalcResult = "-1,-1")
         {
             this.Status = result.Status;
 
@@ -132,11 +132,17 @@ namespace SAEA.Http
                 this.SetHeader(ResponseHeaderType.Expires, DateTimeHelper.Now.AddSeconds(carr[1]).ToGMTString());
                 this.Status = HttpStatusCode.OK;
 
+                if (carr[0] == 0)
+                {
+                    this.Headers["Last-Modified"] = DateTime.Now.ToGMTString();
+                }
+
                 if (carr[0] == 1)
                 {
                     if (carr[1] > 0)
                     {
                         this.Status = HttpStatusCode.NotModified;
+
                         return;
                     }
                 }

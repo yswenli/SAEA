@@ -29,6 +29,11 @@ namespace SAEA.Http.Base
 {
     public class HttpMessage : HttpBase, IDisposable
     {
+        public string ID
+        {
+            get; set;
+        }
+
         public int Position { get; set; }
 
         /// <summary>

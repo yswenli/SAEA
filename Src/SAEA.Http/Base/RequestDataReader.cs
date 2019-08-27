@@ -110,7 +110,7 @@ namespace SAEA.Http.Base
 
             //cookies
             var cookiesStr = string.Empty;
-            if (httpMessage.Headers.TryGetValue(RequestHeaderType.Cookie.GetDescription(), out cookiesStr))
+            if (httpMessage.Headers.TryGetValue(RequestHeaderType.Cookie.GetDescription().ToLower(), out cookiesStr))
             {
                 httpMessage.Cookies = HttpCookies.Parse(cookiesStr);
             }
@@ -119,7 +119,7 @@ namespace SAEA.Http.Base
             if (httpMessage.Method == ConstHelper.POST)
             {
                 string contentTypeStr = string.Empty;
-                if (httpMessage.Headers.TryGetValue(RequestHeaderType.ContentType.GetDescription(), out contentTypeStr))
+                if (httpMessage.Headers.TryGetValue(RequestHeaderType.ContentType.GetDescription().ToLower(), out contentTypeStr))
                 {
                     //form-data
                     if (contentTypeStr.IndexOf(ConstHelper.FORMENCTYPE2) > -1)
@@ -130,7 +130,7 @@ namespace SAEA.Http.Base
                     }
                 }
                 string contentLengthStr = string.Empty;
-                if (httpMessage.Headers.TryGetValue(RequestHeaderType.ContentLength.GetDescription(), out contentLengthStr))
+                if (httpMessage.Headers.TryGetValue(RequestHeaderType.ContentLength.GetDescription().ToLower(), out contentLengthStr))
                 {
                     int cl = 0;
 
@@ -271,7 +271,7 @@ namespace SAEA.Http.Base
             foreach (var row in rows)
             {
                 var rowArr = row.Split(ConstHelper.COLON);
-                result[rowArr[0]] = rowArr[1].Trim();
+                result[rowArr[0].ToLower()] = rowArr[1].Trim();
             }
             return result;
         }

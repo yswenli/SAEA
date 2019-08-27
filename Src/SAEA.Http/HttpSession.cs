@@ -56,7 +56,7 @@ namespace SAEA.Http
         /// <summary>
         /// 关联outputcache使用
         /// </summary>
-        public string CacheCalcResult { get; set; } = "-1,-1";
+        public string CacheCalcString { get; set; } = "-1,-1";
 
         internal event Action<HttpSession> OnExpired;
 

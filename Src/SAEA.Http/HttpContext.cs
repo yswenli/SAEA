@@ -79,12 +79,10 @@ namespace SAEA.Http
                     break;
             }
 
-            Response.SetResult(result, this.Session.CacheCalcResult);
+            Response.SetCached(result, this.Session.CacheCalcString);
 
             Response.End(userToken);
         }
-
-
         public override IHttpResult GetActionResult()
         {
             string url = Request.Url;
