@@ -6,9 +6,9 @@
     <Authors>yswenli</Authors>
     <Copyright>yswenli</Copyright>
     <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
-    <FileVersion>5.0.0.2</FileVersion>
-    <AssemblyVersion>5.0.0.2</AssemblyVersion>
-    <Version>5.0.0.2</Version>
+    <FileVersion>5.1.6.8</FileVersion>
+    <AssemblyVersion>5.1.6.8</AssemblyVersion>
+    <Version>5.1.6.8</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
     <Description>This is a high-performance file transfer component based on SAEA.Sockets.

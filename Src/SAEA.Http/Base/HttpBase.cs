@@ -82,7 +82,7 @@ namespace SAEA.Http.Base
         public HttpCookies Cookies
         {
             get; set;
-        } =new HttpCookies();
+        } = new HttpCookies();
 
 
         public Dictionary<string, string> Headers
@@ -97,7 +97,7 @@ namespace SAEA.Http.Base
         {
             get
             {
-                var key = ResponseHeaderType.ContentType.GetDescription();
+                var key = ResponseHeaderType.ContentType.GetDescription().ToLower();
                 if (!this.Headers.ContainsKey(key))
                 {
                     return ConstHelper.JSONCONTENTTYPE;
@@ -112,7 +112,7 @@ namespace SAEA.Http.Base
             }
             set
             {
-                var key = ResponseHeaderType.ContentType.GetDescription();
+                var key = ResponseHeaderType.ContentType.GetDescription().ToLower();
                 if (!this.Headers.ContainsKey(key))
                 {
                     this.Headers.Add(key, value);
@@ -144,21 +144,21 @@ namespace SAEA.Http.Base
 
         protected string GetHeader(Enum header)
         {
-            var fieldName = header.GetDescription();
+            var fieldName = header.GetDescription().ToLower();
             if (fieldName == null) return null;
             return Headers[fieldName];
         }
 
         protected void SetHeader(Enum header, string value)
         {
-            var fieldName = header.GetDescription();
+            var fieldName = header.GetDescription().ToLower();
             if (fieldName == null) return;
             Headers[fieldName] = value;
         }
 
         protected void RemoveHeader(Enum header, string value)
         {
-            var fieldName = header.GetDescription();
+            var fieldName = header.GetDescription().ToLower();
             if (fieldName == null) return;
             var hasKey = Headers.ContainsKey(fieldName);
             if (hasKey) Headers.Remove(fieldName);
