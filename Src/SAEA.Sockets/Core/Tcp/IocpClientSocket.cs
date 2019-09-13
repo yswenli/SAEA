@@ -182,6 +182,12 @@ namespace SAEA.Sockets.Core.Tcp
                 ProcessReceive(readArgs);
                 _connectCallBack?.Invoke(e.SocketError);
             }
+            else
+            {
+                _connectEvent.Set();
+                throw new KernelException("connection failed!");
+
+            }
             _connectEvent.Set();
         }
 

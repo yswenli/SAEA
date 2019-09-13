@@ -224,7 +224,10 @@ namespace SAEA.Http.Base
             foreach (var item in kvs)
             {
                 var arr = item.Split(ConstHelper.EQUO);
-                dic[arr[0]] = HttpUtility.UrlDecode(arr[1]);
+                if (arr.Length == 2)
+                    dic[arr[0]] = HttpUtility.UrlDecode(arr[1]);
+                else
+                    dic[arr[0]] = "";
             }
             return dic;
         }
