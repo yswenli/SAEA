@@ -163,12 +163,6 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\SAEA.Common.DNF\SAEA.Common.DNF.csproj">
-      <Project>{3d7906ed-655c-4ac1-be46-6f8d6df9628e}</Project>
-      <Name>SAEA.Common.DNF</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
     <Content Include="wwwroot\content\css\bootstrap-theme.min.css">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -202,6 +196,12 @@
     <Content Include="wwwroot\Index.html">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SAEA.Common.DNF\SAEA.Common.DNF.csproj">
+      <Project>{3d7906ed-655c-4ac1-be46-6f8d6df9628e}</Project>
+      <Name>SAEA.Common.DNF</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -30,7 +30,7 @@ namespace SAEA.FTP.Net
                 .SetSocket()
                 .UseIocp()
                 .SetIP(config.IP)
-                .SetPort(config.Port)
+                .SetPort(config.Port);
                 
         }
     }
