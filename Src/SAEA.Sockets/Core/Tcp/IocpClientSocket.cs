@@ -180,14 +180,8 @@ namespace SAEA.Sockets.Core.Tcp
 
                 var readArgs = _userToken.ReadArgs;
                 ProcessReceive(readArgs);
-                _connectCallBack?.Invoke(e.SocketError);
             }
-            else
-            {
-                _connectEvent.Set();
-                throw new KernelException("connection failed!");
-
-            }
+            _connectCallBack?.Invoke(e.SocketError);
             _connectEvent.Set();
         }
 
