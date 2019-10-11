@@ -1,5 +1,6 @@
 ﻿using SAEA.MVC;
 using SAEA.MVCTest.Model;
+using System.Threading;
 
 namespace SAEA.MVCTest.Controllers
 {
@@ -22,6 +23,13 @@ namespace SAEA.MVCTest.Controllers
         public ActionResult Other(UserInfo userInfo)
         {
             return Json(userInfo);
+        }
+
+        public ActionResult Timeout()
+        {
+            int s = 200 * 1000;
+            Thread.Sleep(s);
+            return Content($"已成功等待{s}毫秒！");
         }
 
     }

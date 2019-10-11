@@ -16,6 +16,7 @@
 *描    述：
 *****************************************************************************/
 using SAEA.Sockets;
+using SAEA.Sockets.Handler;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -24,14 +25,48 @@ namespace SAEA.FTP.Net
 {
     class ClientSocket
     {
+        IClientSocket _clientSocket = null;
+
+        public event OnDisconnectedHandler OnDisconnected;
+
         public ClientSocket(ClientConfig config)
         {
-            SocketOptionBuilder.Instance
+            var option = SocketOptionBuilder.Instance
                 .SetSocket()
                 .UseIocp()
                 .SetIP(config.IP)
                 .SetPort(config.Port)
-                
+                .Build();
+
+            _clientSocket = SocketFactory.CreateClientSocket(option);
+            _clientSocket.OnError += _clientSocket_OnError;
+            _clientSocket.OnReceive += _clientSocket_OnReceive;
+            _clientSocket.OnDisconnected += _clientSocket_OnDisconnected;
+        }
+
+
+        private void _clientSocket_OnError(string ID, Exception ex)
+        {
+            throw new NotImplementedException();
+        }
+
+        private void _clientSocket_OnReceive(byte[] data)
+        {
+            throw new NotImplementedException();
+        }
+        private void _clientSocket_OnDisconnected(string ID, Exception ex)
+        {
+            OnDisconnected?.Invoke(ID, ex);
+        }
+
+        public void Connect()
+        {
+            _clientSocket.Connect();
+        }
+
+        public void Request(byte[] data)
+        {
+            _clientSocket.SendAsync(data);
         }
     }
 }
