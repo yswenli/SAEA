@@ -67,6 +67,7 @@ namespace SAEA.FTP.Net
         public void Request(byte[] data)
         {
             _clientSocket.SendAsync(data);
+                
         }
     }
 }
