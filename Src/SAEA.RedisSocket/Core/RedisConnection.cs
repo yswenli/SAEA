@@ -89,6 +89,8 @@ namespace SAEA.RedisSocket.Core
         private void _cnn_OnDisconnected(string ID, Exception ex)
         {
             OnDisconnected?.Invoke(this.IPPort);
+
+            Connect();
         }
 
         private void _cnn_OnActived(DateTime actived)
