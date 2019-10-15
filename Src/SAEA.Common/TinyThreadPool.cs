@@ -32,6 +32,16 @@ namespace SAEA.Common
         /// <param name="imThreadPoolException"></param>
         public delegate void TinyThreadPoolOnErrorHandler(TinyThreadPoolException tinyThreadPoolException);
 
+        /// <summary>
+        /// 执行前
+        /// </summary>
+        /// <returns></returns>
+        public delegate bool TinyThreadPoolOnInvoking();
+        /// <summary>
+        /// 执行后
+        /// </summary>
+        public delegate void TinyThreadPoolOnInvoked();
+
         int _maxWorkCount = 100;
 
         int _maxQueueCount = 5000 * 1000;
@@ -63,6 +73,15 @@ namespace SAEA.Common
         /// 执行任务发生异常时事件
         /// </summary>
         public event TinyThreadPoolOnErrorHandler OnError;
+
+        /// <summary>
+        /// 任务执行前
+        /// </summary>
+        public event TinyThreadPoolOnInvoking OnInvoking;
+        /// <summary>
+        /// 任务执行后
+        /// </summary>
+        public event TinyThreadPoolOnInvoked OnInvoked;
 
         int workingThreadCount = 0;
 
@@ -183,7 +202,14 @@ namespace SAEA.Common
                             Interlocked.Increment(ref workingThreadCount);
                             try
                             {
-                                work.Invoke();
+                                var result = OnInvoking?.Invoke();
+
+                                if (!result.HasValue || result.Value)
+                                {
+                                    work.Invoke();
+
+                                    OnInvoked?.Invoke();
+                                }
                             }
                             catch (Exception ex)
                             {
