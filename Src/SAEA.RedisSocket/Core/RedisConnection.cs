@@ -535,8 +535,6 @@ namespace SAEA.RedisSocket.Core
             {
                 key.KeyCheck();
 
-                var cmd = "";
-
                 if (offset < 0) offset = 0;
 
                 if (!string.IsNullOrEmpty(pattern))

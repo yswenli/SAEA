@@ -41,7 +41,7 @@ namespace SAEA.RedisSocketTest
             var cnnStr = ConsoleHelper.ReadLine();
             if (string.IsNullOrEmpty(cnnStr))
             {
-                cnnStr = "server=127.0.0.1:6379;passwords=yswenli";
+                cnnStr = "server=10.205.29.211:6379;passwords=Oyk4moI0H";
             }
             RedisClient redisClient = new RedisClient(cnnStr, false);
 
@@ -52,6 +52,8 @@ namespace SAEA.RedisSocketTest
             var db = redisClient.GetDataBase(0);
 
             StringTest(db);
+
+            ConsoleHelper.ReadLine();
 
             HashTest(db);
 
@@ -66,13 +68,13 @@ namespace SAEA.RedisSocketTest
 
         static void KeysTest(RedisClient redisClient)
         {
-            var a = redisClient.Auth("yswenli");
+            //var a = redisClient.Auth("yswenli");
 
             var info = redisClient.Info();
 
             var serverInfo = redisClient.ServerInfo;
 
-            redisClient.Select(1);
+            //redisClient.Select(1);
 
             var dbsize = redisClient.DBSize();
 
@@ -84,7 +86,7 @@ namespace SAEA.RedisSocketTest
 
             var ck = "slowlog-max-len";
 
-            var cr1 = redisClient.SetConfig(ck, 1000);
+            //var cr1 = redisClient.SetConfig(ck, 1000);
 
             var cr2 = redisClient.GetConfig(ck);
 
