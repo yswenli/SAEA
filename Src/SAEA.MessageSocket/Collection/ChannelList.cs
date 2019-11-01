@@ -26,123 +26,81 @@ using SAEA.Common;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 
 namespace SAEA.MessageSocket.Collection
 {
     class ChannelList
     {
-        public object SyncLocker = new object();
+        MemoryCacheHelper<ChannelInfo> _cache = new MemoryCacheHelper<ChannelInfo>();
 
-        public List<ChannelInfo> _list = new List<ChannelInfo>();
-
+        object _syncLocker = new object();
 
         public ChannelList()
         {
-            //超过一天自动结束
-            new Thread(new ThreadStart(() =>
-            {
-                try
-                {
-                    while (true)
-                    {
-                        Thread.Sleep(10 * 1000);
-                        lock (SyncLocker)
-                        {
-                            for (int i = 0; i < _list.Count; i++)
-                            {
-                                if (_list[i].Created.AddDays(1) < DateTimeHelper.Now)
-                                {
-                                    _list.Remove(_list[i]);
-                                }
-                            }
-                        }
-                    }
-                }
-                catch { }
-
-            }))
-            {
-                IsBackground = true,
-                Priority = ThreadPriority.Highest
-            }.Start();
+            _cache = new MemoryCacheHelper<ChannelInfo>();
         }
 
         public ChannelInfo Get(string name)
         {
-            lock (SyncLocker)
-            {
-                if (_list != null && _list.Count >= 0)
-                {
-                    return _list.FirstOrDefault(b => b.Name == name);
-                }
-                return null;
-            }
+            return _cache.Get(name);
         }
 
         public bool Subscribe(string name, string ID)
         {
-            lock (SyncLocker)
+            lock (_syncLocker)
             {
-                if (_list != null && _list.Count >= 0)
+                var ci = _cache.Get(name);
+
+                if (ci != null && ci.Members != null)
                 {
-                    var ci = _list.FirstOrDefault(b => b.Name == name);
-
-                    if (ci != null && ci.Members != null)
+                    var cm = new ChannelMemberInfo()
                     {
-                        var cm = new ChannelMemberInfo()
-                        {
-                            ID = ID,
-                            Joined = DateTimeHelper.Now
-                        };
+                        ID = ID,
+                        Joined = DateTimeHelper.Now
+                    };
 
-                        if (!ci.Members.Exists(b => b.ID == ID))
-                        {
-                            ci.Members.Add(cm);
-
-                            return true;
-                        }
-                    }
-                    else
+                    if (!ci.Members.Exists(b => b.ID == ID))
                     {
-                        ci = new ChannelInfo()
-                        {
-                            Name = name,
-                            Creator = ID,
-                            Created = DateTimeHelper.Now
-                        };
-
-                        var cm = new ChannelMemberInfo()
-                        {
-                            ID = ID,
-                            Joined = DateTimeHelper.Now
-                        };
-
-                        ci.Members = new List<ChannelMemberInfo>();
                         ci.Members.Add(cm);
-
-                        _list.Add(ci);
-
-                        return true;
                     }
                 }
-                return false;
+                else
+                {
+                    ci = new ChannelInfo()
+                    {
+                        Name = name,
+                        Creator = ID,
+                        Created = DateTimeHelper.Now
+                    };
+
+                    var cm = new ChannelMemberInfo()
+                    {
+                        ID = ID,
+                        Joined = DateTimeHelper.Now
+                    };
+
+                    ci.Members = new List<ChannelMemberInfo>();
+                    ci.Members.Add(cm);
+
+                    _cache.Set(name, ci, TimeSpan.FromDays(1));
+                }
+                return true;
             }
+
         }
 
         public bool Unsubscribe(string name, string ID)
         {
-            if (_list != null && _list.Count >= 0)
+            lock (_syncLocker)
             {
-                var ci = _list.FirstOrDefault(b => b.Name == name);
+                var ci = _cache.Get(name);
 
-                if (ci != null && ci.Members != null)
+                if (ci != null)
                 {
                     if (ci.Creator == ID)
                     {
                         ci.Members.Clear();
-                        _list.Remove(ci);
-                        return true;
+                        _cache.Del(name);
                     }
                     else
                     {
@@ -150,12 +108,14 @@ namespace SAEA.MessageSocket.Collection
                         if (cm != null)
                         {
                             ci.Members.Remove(cm);
-                            return true;
+                            _cache.Set(name, ci, TimeSpan.FromDays(1));
                         }
                     }
                 }
+
+                return false;
             }
-            return false;
+                
         }
 
     }

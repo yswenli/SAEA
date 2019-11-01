@@ -227,23 +227,21 @@ namespace SAEA.MessageSocket
 
                 if (channel != null && channel.Members != null)
                 {
-                    lock (_channelList.SyncLocker)
+                    var members = channel.Members.ToArray();
+
+                    var ccm = new ChatMessage(ChatMessageType.ChannelMessage, SerializeHelper.Serialize(channelMsg));
+
+                    var data = SerializeHelper.PBSerialize(ccm);
+
+                    var sp = BaseSocketProtocal.Parse(data, SocketProtocalType.ChatMessage).ToBytes();
+
+                    Parallel.ForEach(members, (m) =>
                     {
-
-                        var ccm = new ChatMessage(ChatMessageType.ChannelMessage, SerializeHelper.Serialize(channelMsg));
-
-                        var data = SerializeHelper.PBSerialize(ccm);
-
-                        var sp = BaseSocketProtocal.Parse(data, SocketProtocalType.ChatMessage).ToBytes();
-
-                        Parallel.ForEach(channel.Members, (m) =>
+                        if (m.ID != userToken.ID)
                         {
-                            if (m.ID != userToken.ID)
-                            {
-                                _server.SendAsync(m.ID, sp);
-                            }
-                        });
-                    }
+                            _server.SendAsync(m.ID, sp);
+                        }
+                    });
                 }
             }
         }

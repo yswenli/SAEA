@@ -39,9 +39,11 @@ namespace SAEA.Common
         bool _disposed = false;
 
         object _synclocker = new object();
+
+
         public MemoryCacheHelper()
         {
-
+            _dic = new ConcurrentDictionary<string, MemoryCacheItem<T>>();
         }
 
         public void Set(string key, T value, TimeSpan timeOut)

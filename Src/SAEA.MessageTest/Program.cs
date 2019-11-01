@@ -313,7 +313,7 @@ namespace SAEA.MessageTest
             {
                 ConsoleHelper.WriteLine("正在开始初始化客户端...");
 
-                for (int i = 0; i < 10000; i++)
+                for (int i = 0; i < 100; i++)
                 {
                     var ccc = new MessageClient();
                     ccc.OnChannelMessage += Ccc_OnChannelMessage;
@@ -328,11 +328,14 @@ namespace SAEA.MessageTest
                 }
 
                 ConsoleHelper.WriteLine("正在订阅...");
-                Parallel.ForEach(list, (item) =>
+
+                foreach (var item in list)
                 {
                     item.Subscribe(channelName);
-                });
+                }
+
                 ConsoleHelper.WriteLine("正在转发...");
+
                 cc1.SendChannelMsg(channelName, channelName);
 
                 Task.Run(() =>
@@ -343,7 +346,7 @@ namespace SAEA.MessageTest
                         Thread.Sleep(1000);
                         Interlocked.Increment(ref calc);
 
-                        if (cmc >= 10000)
+                        if (cmc >= 100)
                         {
                             ConsoleHelper.WriteLine("测试完毕，当前用时：" + calc + "秒");
                             break;
