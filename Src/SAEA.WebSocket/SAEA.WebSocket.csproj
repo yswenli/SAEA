@@ -5,8 +5,8 @@
     <Authors>yswenli</Authors>
     <Company>yswenli</Company>
     <Copyright>yswenli</Copyright>
-    <Version>5.1.7.6</Version>
-	<AssemblyVersion>5.1.7.6</AssemblyVersion>
+    <Version>5.1.8.2</Version>
+	<AssemblyVersion>5.1.8.2</AssemblyVersion>
     <Description>This is a websocket server and client component based on SAEA.Socket.
 这是基于SAEA.Socket的websocket服务器、客户端组件
 https://github.com/yswenli/SAEA</Description>
