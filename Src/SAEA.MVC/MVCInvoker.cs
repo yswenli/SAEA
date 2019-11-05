@@ -37,14 +37,13 @@ namespace SAEA.MVC
         /// <summary>
         /// MVC处理
         /// </summary>
-        /// <param name="httpContext"></param>
         /// <param name="routeTable"></param>
         /// <param name="controller"></param>
         /// <param name="actionName"></param>
         /// <param name="nameValues"></param>
         /// <param name="isPost"></param>
         /// <returns></returns>
-        public static ActionResult InvokeResult(HttpContext httpContext, RouteTable routeTable, Type controller, string actionName, NameValueCollection nameValues, bool isPost)
+        public static ActionResult InvokeResult(RouteTable routeTable, Type controller, string actionName, NameValueCollection nameValues, bool isPost)
         {
             if (routeTable == null) return new ContentResult($"o_o，当前未注册任何Controller!", System.Net.HttpStatusCode.NotFound);
 
@@ -55,10 +54,6 @@ namespace SAEA.MVC
                 return new ContentResult($"o_o，找不到：{controller.Name}/{actionName} 当前请求为:{(isPost ? ConstHelper.HTTPPOST : ConstHelper.HTTPGET)}", System.Net.HttpStatusCode.NotFound);
             }
 
-            routing.Instance.HttpContext = httpContext;
-
-            var nargs = new object[] { httpContext };
-
             //类过滤器
             if (routing.FilterAtrrs != null && routing.FilterAtrrs.Any())
             {
@@ -68,7 +63,7 @@ namespace SAEA.MVC
 
                     if (method != null)
                     {
-                        var goOn = (bool)method.Invoke(arr, nargs.ToArray());
+                        var goOn = (bool)method.Invoke(arr, null);
 
                         if (!goOn)
                         {
@@ -89,9 +84,9 @@ namespace SAEA.MVC
 
                         if (method != null)
                         {
-                            httpContext.Session.CacheCalcString = (string)arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING).Invoke(arr, nargs.ToArray());
+                            HttpContext.Current.Session.CacheCalcString = (string)arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING).Invoke(arr, null);
 
-                            if (httpContext.Session.CacheCalcString.IndexOf("1,") == 0)
+                            if (HttpContext.Current.Session.CacheCalcString.IndexOf("1,") == 0)
                             {
                                 return new ContentResult(string.Empty, System.Net.HttpStatusCode.NotModified);
                             }
@@ -103,7 +98,7 @@ namespace SAEA.MVC
 
                         if (method != null)
                         {
-                            var goOn = (bool)arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING).Invoke(arr, nargs.ToArray());
+                            var goOn = (bool)arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING).Invoke(arr, null);
 
                             if (!goOn)
                             {
@@ -118,9 +113,9 @@ namespace SAEA.MVC
 
             ActionResult result;
 
-            if (httpContext.Request.ContentType == ConstHelper.FORMENCTYPE3 && !string.IsNullOrEmpty(httpContext.Request.Json))
+            if (HttpContext.Current.Request.ContentType == ConstHelper.FORMENCTYPE3 && !string.IsNullOrEmpty(HttpContext.Current.Request.Json))
             {
-                var nnv = SerializeHelper.Deserialize<Dictionary<string, string>>(httpContext.Request.Json).ToNameValueCollection();
+                var nnv = SerializeHelper.Deserialize<Dictionary<string, string>>(HttpContext.Current.Request.Json).ToNameValueCollection();
 
                 result = MethodInvoke(routing.Action, routing.Instance, nnv);
             }
@@ -131,7 +126,7 @@ namespace SAEA.MVC
 
             #endregion
 
-            nargs = new object[] { httpContext, result };
+            var nargs = new object[] { result };
 
             if (routing.FilterAtrrs != null && routing.FilterAtrrs.Any())
             {

@@ -43,9 +43,8 @@ namespace SAEA.MVCTest.Attrubutes
         /// <summary>
         /// 执行前
         /// </summary>
-        /// <param name="httpContext"></param>
         /// <returns>返回值true为继续，false为终止</returns>
-        public override bool OnActionExecuting(HttpContext httpContext)
+        public override bool OnActionExecuting()
         {
             return true;
         }
@@ -53,11 +52,10 @@ namespace SAEA.MVCTest.Attrubutes
         /// <summary>
         /// 执行后
         /// </summary>
-        /// <param name="httpContext"></param>
         /// <param name="result"></param>
-        public override void OnActionExecuted(HttpContext httpContext, ActionResult result)
+        public override void OnActionExecuted(ActionResult result)
         {
-            ConsoleHelper.WriteLine($"LogAtrribute请求地址：{httpContext.Request.RelativeUrl},回复内容：{result.Content}");
+            ConsoleHelper.WriteLine($"LogAtrribute请求地址：{HttpContext.Current.Request.RelativeUrl},回复内容：{result.Content}");
         }
     }
     /// <summary>
@@ -74,9 +72,8 @@ namespace SAEA.MVCTest.Attrubutes
         /// <summary>
         /// 执行前
         /// </summary>
-        /// <param name="httpContext"></param>
         /// <returns>返回值true为继续，false为终止</returns>
-        public override bool OnActionExecuting(HttpContext httpContext)
+        public override bool OnActionExecuting()
         {
             return true;
         }
@@ -84,11 +81,10 @@ namespace SAEA.MVCTest.Attrubutes
         /// <summary>
         /// 执行后
         /// </summary>
-        /// <param name="httpContext"></param>
         /// <param name="result"></param>
-        public override void OnActionExecuted(HttpContext httpContext, ActionResult result)
+        public override void OnActionExecuted(ActionResult result)
         {
-            ConsoleHelper.WriteLine($"Log2Atrribute请求地址：{httpContext.Request.RelativeUrl},回复内容：{result.Content}");
+            ConsoleHelper.WriteLine($"Log2Atrribute请求地址：{HttpContext.Current.Request.RelativeUrl},回复内容：{result.Content}");
         }
     }
 }

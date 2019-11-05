@@ -21,19 +21,18 @@ namespace SAEA.MVC
         /// <summary>
         /// 方法执行前
         /// </summary>
-        /// <param name="httpContext"></param>
         /// <returns></returns>
-        public string OnActionExecuting(HttpContext httpContext)
+        public string OnActionExecuting()
         {
             var result = "0,60";
-            if (!httpContext.Session.CachedPath.Contains(httpContext.Request.Url))
+            if (!HttpContext.Current.Session.CachedPath.Contains(HttpContext.Current.Request.Url))
             {
-                httpContext.Session.CachedPath.Add(httpContext.Request.Url, DateTime.Now.AddSeconds(_duration));
+                HttpContext.Current.Session.CachedPath.Add(HttpContext.Current.Request.Url, DateTime.Now.AddSeconds(_duration));
                 result = "0" + "," + _duration;
             }
             else
             {
-                var cp = httpContext.Session.CachedPath.Get(httpContext.Request.Url);
+                var cp = HttpContext.Current.Session.CachedPath.Get(HttpContext.Current.Request.Url);
                 if (cp != null)
                 {
                     result = "1" + "," + (int)(cp.Expired - DateTime.Now).TotalSeconds;

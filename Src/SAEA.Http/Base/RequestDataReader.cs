@@ -311,13 +311,11 @@ namespace SAEA.Http.Base
                         {
                             var content = section.Trim();
 
-                            var nameLine = content.Substring(0, content.IndexOf(ConstHelper.DENTER));
-
-                            var name = nameLine.Substring(nameLine.IndexOf("=\"") + 2);
+                            var name = content.Substring(content.IndexOf("=\"") + 2);
 
                             name = name.Substring(0, name.LastIndexOf(ConstHelper.DOUBLEQUOTES));
 
-                            var value = content.Substring(content.IndexOf(ConstHelper.DENTER) + 2);
+                            var value = content.Substring(content.IndexOf(ConstHelper.DENTER) + 4);
 
                             httpMessage.Forms[name] = value;
                         }

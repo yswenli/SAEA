@@ -31,8 +31,6 @@ namespace SAEA.MVC
     /// </summary>
     public abstract class Controller
     {
-        public HttpContext HttpContext { get; set; }
-
         /// <summary>
         /// 返回Json
         /// </summary>
@@ -60,7 +58,7 @@ namespace SAEA.MVC
         /// <returns></returns>
         protected FileResult File(string filePath)
         {
-            return new FileResult(filePath, HttpContext.IsStaticsCached);
+            return new FileResult(filePath, HttpContext.Current.IsStaticsCached);
         }
 
 
@@ -89,7 +87,7 @@ namespace SAEA.MVC
         /// <returns></returns>
         protected bool IsAjaxRequest()
         {
-            if (HttpContext.Request.Headers.ContainsKey("X-Requested-With"))
+            if (HttpContext.Current.Request.Headers.ContainsKey("X-Requested-With"))
             {
                 return true;
             }

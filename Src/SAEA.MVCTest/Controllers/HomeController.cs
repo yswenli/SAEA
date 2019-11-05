@@ -50,7 +50,7 @@ namespace SAEA.MVCTest.Controllers
         [OutputCache]
         public ActionResult Index2()
         {
-            System.Threading.Thread.Sleep(600000);
+            //System.Threading.Thread.Sleep(600000);
             return Content("Hello,I'm SAEA.MVC2！");
         }
 
@@ -58,11 +58,11 @@ namespace SAEA.MVCTest.Controllers
         [OutputCache]
         public ActionResult Index3()
         {
-            var ip = HttpContext.Request.UserHostAddress;
+            var ip = HttpContext.Current.Request.UserHostAddress;
 
-            var rip = HttpContext.Request.GetRealIp();
+            var rip = HttpContext.Current.Request.GetRealIp();
 
-            var browser = HttpContext.Request.Browser;
+            var browser = HttpContext.Current.Request.Browser;
 
             return Content($"Hello,I'm SAEA.MVC3！ip:{ip} rip:{rip} browser:{browser.BrowserName} os:{browser.OSName}");
         }
@@ -85,7 +85,7 @@ namespace SAEA.MVCTest.Controllers
         /// <returns></returns>
         public ActionResult Show()
         {
-            var response = HttpContext.Response;
+            var response = HttpContext.Current.Response;
 
             response.ContentType = "text/html; charset=utf-8";
 

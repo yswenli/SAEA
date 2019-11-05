@@ -50,15 +50,13 @@ namespace SAEA.MVC
         /// <summary>
         /// 方法执行前
         /// </summary>
-        /// <param name="httpContext"></param>
         /// <returns></returns>
-        public abstract bool OnActionExecuting(HttpContext httpContext);
+        public abstract bool OnActionExecuting();
 
         /// <summary>
         /// 方法执行后
         /// </summary>
-        /// <param name="httpContext"></param>
         /// <param name="result"></param>
-        public abstract void OnActionExecuted(HttpContext httpContext, ActionResult result);
+        public abstract void OnActionExecuted(ActionResult result);
     }
 }

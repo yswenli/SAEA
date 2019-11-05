@@ -63,6 +63,17 @@ namespace SAEA.Http.Base
 
         public WebConfig WebConfig { get; set; }
 
+        /// <summary>
+        /// 获取当前上下文IHttpContext
+        /// </summary>
+        public static IHttpContext Current
+        {
+            get
+            {
+                return CallContext<IHttpContext>.GetData("ContextBase.Current");
+            }
+        }
+
 
         public HttpContextBase(IWebHost webHost, HttpMessage httpMessage)
         {
@@ -81,6 +92,8 @@ namespace SAEA.Http.Base
             this.Server = _webHost.HttpUtility;
 
             IsStaticsCached = _webHost.WebConfig.IsStaticsCached;
+
+            CallContext<IHttpContext>.SetData("ContextBase.Current", this);
         }
 
         /// <summary>
