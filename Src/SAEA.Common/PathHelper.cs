@@ -25,7 +25,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 
 namespace SAEA.Common
 {
@@ -37,12 +36,13 @@ namespace SAEA.Common
         {
             if (string.IsNullOrEmpty(_currentPath))
             {
-                _currentPath = Path.GetDirectoryName(Assembly.GetAssembly(typeof(PathHelper)).Location);
+                //_currentPath = Path.GetDirectoryName(Assembly.GetAssembly(typeof(PathHelper)).Location);
 
-                if (_currentPath.IndexOf(".nuget\\packages", StringComparison.OrdinalIgnoreCase) > -1)
-                {
-                    _currentPath = Directory.GetCurrentDirectory();
-                }
+                //if (_currentPath.IndexOf(".nuget\\packages", StringComparison.OrdinalIgnoreCase) > -1)
+                //{
+                //    _currentPath = Directory.GetCurrentDirectory();
+                //}
+                _currentPath = Path.GetDirectoryName(System.AppDomain.CurrentDomain.BaseDirectory);
             }
 
             return _currentPath;

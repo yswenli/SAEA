@@ -21,8 +21,8 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Sockets.Base;
 using SAEA.Sockets.Interface;
-using SAEA.Sockets.Model;
 
 namespace SAEA.Http.Base.Net
 {
@@ -37,7 +37,7 @@ namespace SAEA.Http.Base.Net
         /// </summary>
         public HContext()
         {
-            this.UserToken = new UserToken();
+            this.UserToken = new BaseUserToken();
             this.Unpacker = new HUnpacker();
             this.UserToken.Unpacker = this.Unpacker;
         }

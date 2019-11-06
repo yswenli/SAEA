@@ -68,7 +68,7 @@ namespace SAEA.Http.Base.Net
             if (IsDebug)
             {
                 LogHelper.Debug(userToken == null ? "userToken is null" : "userToken is not null");
-                LogHelper.Debug(data);
+                LogHelper.Debug("HttpSocket.Recieve", data);
             }
 
             var ut = (IUserToken)userToken;

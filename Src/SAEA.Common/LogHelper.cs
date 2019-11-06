@@ -47,37 +47,45 @@ namespace SAEA.Common
             catch { }
         }
 
-
-        public static void Error(string des, Exception ex)
+        public static void Error(string des, Exception ex, params object[] @params)
         {
-            Write("[Error]", des + " " + ex.Message);
-        }
+            string paramStr = string.Empty;
 
-        public static void Warn(string des, Exception ex)
-        {
-            Write("[Warn]", des + " " + ex.Message);
-        }
-
-        public static void Info(string des)
-        {
-            Write("[Info]", des);
-        }
-
-        public static void Debug(params string[] des)
-        {
-            if (des != null && des.Any())
+            if (@params != null && @params.Any())
             {
-                StringBuilder sb = new StringBuilder();
-                foreach (var item in des)
-                {
-                    sb.Append(item);
-                }
-                Write("[Debug]", sb.ToString());
+                paramStr = SerializeHelper.Serialize(@params);
             }
-
+            Write($"[Error]\t{des}", $"err:{ex.Message},params:{paramStr}");
         }
 
-        public static void Debug(byte[] data)
+        public static void Warn(string des, Exception ex, params object[] @params)
+        {
+            string paramStr = string.Empty;
+
+            if (@params != null && @params.Any())
+            {
+                paramStr = SerializeHelper.Serialize(@params);
+            }
+            Write($"[Warn]\t{des}", $"err:{ex.Message},params:{paramStr}");
+        }
+
+        public static void Info(string des, params object[] @params)
+        {
+            Write($"[Info]\t{des}", des);
+        }
+
+        public static void Debug(string des, params object[] @params)
+        {
+            string paramStr = string.Empty;
+
+            if (@params != null && @params.Any())
+            {
+                paramStr = SerializeHelper.Serialize(@params);
+            }
+            Write($"[Debug]\t{des}", $"params:{paramStr}");
+        }
+
+        public static void Debug(string des, byte[] data)
         {
             var result = "内容为空";
             if (data != null && data.Any())
