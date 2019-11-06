@@ -19,6 +19,7 @@ SAEA.Common 是SAEA项目中的工具类项目</PackageReleaseNotes>
     <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
     <PackageLicenseUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/LICENSE</PackageLicenseUrl>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+    <LangVersion>7.2</LangVersion>
   </PropertyGroup>
 
 </Project>

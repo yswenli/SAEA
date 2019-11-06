@@ -22,6 +22,7 @@ https://github.com/yswenli/SAEA</PackageReleaseNotes>
     <FileVersion>5.1.8.2</FileVersion>
     <PackageLicenseUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/LICENSE</PackageLicenseUrl>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+    <LangVersion>7.2</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>

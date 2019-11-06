@@ -15,6 +15,7 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
+using SAEA.FTP.Net;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -23,5 +24,26 @@ namespace SAEA.FTP
 {
     public class FTPClient
     {
+        ClientSocket _client;
+
+
+
+        public FTPClient(ClientConfig config)
+        {
+            _client = new ClientSocket(config);
+        }
+
+        public FTPClient(string ip, int port, string userName, string password) : this(new ClientConfig() { IP = ip, Port = port, UserName = userName, Password = password })
+        {
+
+        }
+
+        public void Connect()
+        {
+            _client.Connect();
+        }
+
+
+
     }
 }

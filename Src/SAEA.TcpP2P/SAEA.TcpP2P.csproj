@@ -5,6 +5,7 @@
     <Company>yswenli</Company>
     <Authors>yswenli</Authors>
     <Copyright>yswenli</Copyright>
+    <LangVersion>7.2</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>

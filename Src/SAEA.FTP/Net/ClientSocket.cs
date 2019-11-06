@@ -15,9 +15,12 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
+using SAEA.Common;
+using SAEA.FTP.Core;
 using SAEA.Sockets;
 using SAEA.Sockets.Handler;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text;
 
@@ -27,9 +30,15 @@ namespace SAEA.FTP.Net
     {
         IClientSocket _clientSocket = null;
 
+        bool _isCmd = true;
+
         public event OnDisconnectedHandler OnDisconnected;
 
-        public ClientSocket(ClientConfig config)
+        FTPStream _ftpStream;
+
+        SyncHelper<string> _cmdCache;
+
+        public ClientSocket(ClientConfig config, bool isCmd = true)
         {
             var option = SocketOptionBuilder.Instance
                 .SetSocket()
@@ -42,6 +51,10 @@ namespace SAEA.FTP.Net
             _clientSocket.OnError += _clientSocket_OnError;
             _clientSocket.OnReceive += _clientSocket_OnReceive;
             _clientSocket.OnDisconnected += _clientSocket_OnDisconnected;
+
+            _isCmd = isCmd;
+            _ftpStream = new FTPStream();
+            _cmdCache = new SyncHelper<string>();
         }
 
 
@@ -52,7 +65,15 @@ namespace SAEA.FTP.Net
 
         private void _clientSocket_OnReceive(byte[] data)
         {
-            throw new NotImplementedException();
+            if (_isCmd)
+            {
+                _ftpStream.Write(data);
+                _ftpStream.ReadLine();
+            }
+            else
+            {
+
+            }
         }
         private void _clientSocket_OnDisconnected(string ID, Exception ex)
         {
@@ -66,8 +87,9 @@ namespace SAEA.FTP.Net
 
         public void Request(byte[] data)
         {
+            _cmdCache.TryAdd()
             _clientSocket.SendAsync(data);
-                
+
         }
     }
 }

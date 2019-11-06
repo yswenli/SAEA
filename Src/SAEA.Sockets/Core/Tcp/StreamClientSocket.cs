@@ -348,7 +348,7 @@ namespace SAEA.Sockets.Core.Tcp
 
             return certificates;
         }
-
+ #endregion
         public void BeginSend(byte[] data)
         {
             throw new NotImplementedException();
@@ -359,6 +359,6 @@ namespace SAEA.Sockets.Core.Tcp
             throw new NotImplementedException();
         }
 
-        #endregion
+       
     }
 }
