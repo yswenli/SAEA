@@ -7,18 +7,16 @@
 *版 本 号：V1.0.0.0
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
-*创建时间：2019/9/27 17:05:38
+*创建时间：2019/11/7 15:01:51
 *描述：
 *=====================================================================
-*修改时间：2019/9/27 17:05:38
+*修改时间：2019/11/7 15:01:51
 *修 改 人： yswenli
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
+using SAEA.Sockets.Base;
 using SAEA.Sockets.Interface;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.FTP.Net
 {
@@ -28,9 +26,14 @@ namespace SAEA.FTP.Net
 
         public IUnpacker Unpacker { get; set; }
 
+        /// <summary>
+        /// 上下文
+        /// </summary>
         public FContext()
         {
-
+            this.UserToken = new BaseUserToken();
+            this.Unpacker = new FUnpacker();
+            this.UserToken.Unpacker = this.Unpacker;
         }
     }
 }

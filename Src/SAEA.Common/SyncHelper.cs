@@ -23,7 +23,6 @@
 *****************************************************************************/
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Threading;
 
 namespace SAEA.Common
@@ -34,7 +33,9 @@ namespace SAEA.Common
     /// <typeparam name="T"></typeparam>
     public class SyncHelper<T>
     {
-        ConcurrentDictionary<long, SyncInfo<T>> _cmdDic = new ConcurrentDictionary<long, SyncInfo<T>>();
+        ConcurrentDictionary<string, SyncInfo<T>> _cmdDic = new ConcurrentDictionary<string, SyncInfo<T>>();
+
+        string _key;
 
         /// <summary>
         /// 设置等待点
@@ -42,13 +43,12 @@ namespace SAEA.Common
         /// <param name="sNo"></param>
         /// <param name="callBack"></param>
         /// <param name="millisecondsTimeout"></param>
-        public bool Wait(long sNo, Action work, Action<T> callBack, int millisecondsTimeout = 180 * 1000)
+        public bool Wait(Action work, Action<T> callBack, int millisecondsTimeout = 180 * 1000)
         {
             var result = false;
-
+            _key = Guid.NewGuid().ToString("N");
             var si = new SyncInfo<T>() { Action = callBack };
-            _cmdDic.TryAdd(sNo, si);
-
+            _cmdDic.TryAdd(_key, si);
             work?.Invoke();
             if (millisecondsTimeout > 0)
                 result = si.AutoResetEvent.WaitOne(millisecondsTimeout);
@@ -61,20 +61,16 @@ namespace SAEA.Common
         /// <summary>
         /// 通知取消等待
         /// </summary>
-        /// <param name="sNo"></param>
         /// <param name="t"></param>
-        public void Set(long sNo, T t)
+        public bool Set( T t)
         {
-            if (_cmdDic.TryRemove(sNo, out SyncInfo<T> si))
+            if (_cmdDic.TryRemove(_key, out SyncInfo<T> si))
             {
                 si.Action.Invoke(t);
                 si.AutoResetEvent.Set();
+                return true;
             }
-            else
-            {
-                Thread.Sleep(1);
-                Set(sNo, t);
-            }
+            return false;
         }
     }
 

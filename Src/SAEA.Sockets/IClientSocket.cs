@@ -39,7 +39,7 @@ namespace SAEA.Sockets
     /// <summary>
     /// 客户端
     /// </summary>
-    public interface IClientSocket
+    public interface IClientSocket : IDisposable
     {
         /// <summary>
         /// 端地址

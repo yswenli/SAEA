@@ -66,11 +66,11 @@ namespace SAEA.FTP.Core
             {
                 var span = _cache.ToArray().AsSpan();
 
-                var i = span.IndexOf((byte)10);
+                var i = span.IndexOf((byte)13);
 
                 if (i > -1)
                 {
-                    var j = span.IndexOf((byte)13);
+                    var j = span.IndexOf((byte)10);
 
                     if (j > i)
                     {
@@ -85,6 +85,30 @@ namespace SAEA.FTP.Core
                 }
                 return null;
             }
+        }
+
+        public string ReadText()
+        {
+            StringBuilder sb = new StringBuilder();
+
+            var str = string.Empty;
+
+            do
+            {
+                str = ReadLine();
+
+                if (!string.IsNullOrEmpty(str))
+                {
+                    sb.Append(str);
+                }
+                else
+                {
+                    break;
+                }
+            }
+            while (true);
+
+            return sb.ToString();
         }
 
 

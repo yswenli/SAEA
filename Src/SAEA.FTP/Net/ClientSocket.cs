@@ -17,44 +17,54 @@
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.FTP.Core;
+using SAEA.FTP.Model;
 using SAEA.Sockets;
 using SAEA.Sockets.Handler;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace SAEA.FTP.Net
 {
     class ClientSocket
     {
-        IClientSocket _clientSocket = null;
+        IClientSocket _cmdSocket = null;
 
-        bool _isCmd = true;
+        bool _isFirst = true;
 
         public event OnDisconnectedHandler OnDisconnected;
 
         FTPStream _ftpStream;
 
-        SyncHelper<string> _cmdCache;
+        SyncHelper<ServerResponse> _syncHelper1;
 
-        public ClientSocket(ClientConfig config, bool isCmd = true)
+        SyncHelper<ServerResponse> _syncHelper2;
+
+        ClientConfig _config;
+
+        public bool Connected { get; set; } = false;
+
+        public ClientSocket(ClientConfig config)
         {
+            _config = config;
+
             var option = SocketOptionBuilder.Instance
                 .SetSocket()
                 .UseIocp()
-                .SetIP(config.IP)
-                .SetPort(config.Port)
+                .SetIP(_config.IP)
+                .SetPort(_config.Port)
                 .Build();
 
-            _clientSocket = SocketFactory.CreateClientSocket(option);
-            _clientSocket.OnError += _clientSocket_OnError;
-            _clientSocket.OnReceive += _clientSocket_OnReceive;
-            _clientSocket.OnDisconnected += _clientSocket_OnDisconnected;
+            _cmdSocket = SocketFactory.CreateClientSocket(option);
+            _cmdSocket.OnError += _clientSocket_OnError;
+            _cmdSocket.OnReceive += _clientSocket_OnReceive;
+            _cmdSocket.OnDisconnected += _clientSocket_OnDisconnected;
 
-            _isCmd = isCmd;
             _ftpStream = new FTPStream();
-            _cmdCache = new SyncHelper<string>();
+            _syncHelper1 = new SyncHelper<ServerResponse>();
+            _syncHelper2 = new SyncHelper<ServerResponse>();
         }
 
 
@@ -65,15 +75,16 @@ namespace SAEA.FTP.Net
 
         private void _clientSocket_OnReceive(byte[] data)
         {
-            if (_isCmd)
-            {
-                _ftpStream.Write(data);
-                _ftpStream.ReadLine();
-            }
-            else
-            {
+            _ftpStream.Write(data);
 
+            if (_isFirst)
+            {
+                _syncHelper1.Set(ServerResponse.Parse(_ftpStream.ReadText()));
+                _isFirst = false;
+                return;
             }
+            _ftpStream.Write(data);
+            _syncHelper2.Set(ServerResponse.Parse(_ftpStream.ReadText()));
         }
         private void _clientSocket_OnDisconnected(string ID, Exception ex)
         {
@@ -82,14 +93,219 @@ namespace SAEA.FTP.Net
 
         public void Connect()
         {
-            _clientSocket.Connect();
+            if (!Connected)
+            {
+                ServerResponse result = null;
+
+                _syncHelper1.Wait(() =>
+                {
+                    _cmdSocket.Connect();
+                }, (r) =>
+                {
+                    result = r;
+                });
+
+
+                if (result.Code != ServerResponseCode.服务就绪)
+                {
+                    _cmdSocket.Disconnect();
+                    throw new Exception(result.Reply);
+                }
+
+                result = BaseSend($"{FTPCommand.USER} {_config.UserName}");
+
+                if (result.Code != ServerResponseCode.登录因特网 && result.Code != ServerResponseCode.要求密码)
+                {
+                    _cmdSocket.Disconnect();
+                    throw new Exception(result.Reply);
+                }
+
+                if (result.Code == ServerResponseCode.要求密码)
+                {
+                    result = BaseSend($"{FTPCommand.PASS} {_config.Password}");
+
+                    if (result.Code != ServerResponseCode.登录因特网 && result.Code != ServerResponseCode.初始命令没有执行)
+                    {
+                        _cmdSocket.Disconnect();
+                        throw new Exception(result.Reply);
+                    }
+                }
+
+                result = BaseSend($"{FTPCommand.SYST}");
+
+                if (result.Code != ServerResponseCode.系统类型回复)
+                {
+                    _cmdSocket.Disconnect();
+                    throw new Exception(result.Reply);
+                }
+
+                Connected = true;
+            }
         }
 
-        public void Request(byte[] data)
+        ServerResponse BaseSend(string cmd)
         {
-            _cmdCache.TryAdd()
-            _clientSocket.SendAsync(data);
-
+            ServerResponse result = null;
+            _syncHelper2.Wait(() => { _cmdSocket.SendAsync(Encoding.ASCII.GetBytes(cmd + Environment.NewLine)); }, (r) => { result = r; });
+            return result;
         }
+
+        IClientSocket CreateDataConnection()
+        {
+            var result = BaseSend($"{FTPCommand.PASV}");
+
+            int num = result.Reply.IndexOf('(');
+
+            int num2 = result.Reply.IndexOf(')');
+
+            string text = result.Reply.Substring(num + 1, num2 - num - 1);
+
+            string[] array = new string[6];
+
+            array = text.Split(new char[]
+            {
+               ','
+            });
+
+            if (array.Length != 6)
+            {
+                throw new IOException("Malformed PASV strReply: " + result.Reply);
+            }
+
+            string ip = string.Concat(new string[]
+            {
+                array[0],
+                ".",
+                array[1],
+                ".",
+                array[2],
+                ".",
+                array[3]
+            });
+
+            try
+            {
+                num = int.Parse(array[4]);
+                num2 = int.Parse(array[5]);
+            }
+            catch
+            {
+                throw new IOException("Malformed PASV strReply: " + result.Reply);
+            }
+
+            int port = (num << 8) + num2;
+
+            var option = SocketOptionBuilder.Instance
+                .SetSocket()
+                .UseIocp()
+                .SetIP(ip)
+                .SetPort(port)
+                .Build();
+
+            var dataSocket = SocketFactory.CreateClientSocket(option);
+            dataSocket.OnError += _clientSocket_OnError;
+            dataSocket.OnReceive += _dataSocket_OnReceive;
+            dataSocket.OnDisconnected += _clientSocket_OnDisconnected;
+            dataSocket.Connect();
+            FTPDataManager.New();
+            return dataSocket;
+        }
+
+
+        private void _dataSocket_OnReceive(byte[] data)
+        {
+            FTPDataManager.Write(data);
+        }
+
+        public void Noop()
+        {
+            var sres = BaseSend($"{FTPCommand.NOOP}");
+
+            if (sres.Code != ServerResponseCode.成功)
+            {
+                throw new Exception($"code:{sres.Code},reply:{sres.Reply}");
+            }
+        }
+
+        public bool CheckDir(string pathName)
+        {
+            var sres = BaseSend($"{FTPCommand.CWD} {pathName}");
+
+            if (sres.Code == ServerResponseCode.文件行为完成)
+            {
+                return true;
+            }
+            if (sres.Code == ServerResponseCode.页文件不可用)
+            {
+                return false;
+            }
+            throw new IOException($"code:{sres.Code},reply:{sres.Reply}");
+        }
+
+        /// <summary>
+        /// 重传文件
+        /// </summary>
+        /// <param name="size"></param>
+        public void Reset(long size)
+        {
+            using (var dataSocket = CreateDataConnection())
+            {
+                var sres = BaseSend($"REST {size}");
+
+                if (sres.Code != ServerResponseCode.文件行为暂停)
+                {
+                    throw new IOException($"code:{sres.Code},reply:{sres.Reply}");
+                }
+
+                //todo
+            }
+        }
+
+
+        public List<string> Dir(string pathName = "/", DirType dirType = DirType.List)
+        {
+            using (var dataSocket = CreateDataConnection())
+            {
+                var sres = BaseSend($"{dirType.ToString()} {pathName}");
+
+                var str = FTPDataManager.ReadText();
+
+                if (string.IsNullOrEmpty(str))
+                {
+                    if (CheckDir(pathName))
+                    {
+                        return new List<string>();
+                    }
+                    else
+                    {
+                        return null;
+                    }
+                }
+                return str.Split(Environment.NewLine).ToList();
+            }
+        }
+
+        public void MakeDir(string pathName)
+        {
+            var sres = BaseSend($"{FTPCommand.MKD} {pathName}");
+
+            if (sres.Code != ServerResponseCode.文件行为完成)
+            {
+                throw new IOException($"code:{sres.Code},reply:{sres.Reply}");
+            }
+        }
+
+
+
+        public void Quit()
+        {
+            var sres = BaseSend($"{FTPCommand.QUIT}");
+
+            if (sres.Code != ServerResponseCode.成功)
+            {
+                throw new Exception($"code:{sres.Code},reply:{sres.Reply}");
+            }
+        }
+
     }
 }

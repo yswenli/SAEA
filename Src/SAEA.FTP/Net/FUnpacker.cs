@@ -7,39 +7,29 @@
 *版 本 号：V1.0.0.0
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
-*创建时间：2019/9/27 17:07:00
+*创建时间：2019/11/7 15:01:28
 *描述：
 *=====================================================================
-*修改时间：2019/9/27 17:07:00
+*修改时间：2019/11/7 15:01:28
 *修 改 人： yswenli
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
 using SAEA.Sockets.Interface;
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.FTP.Net
 {
     public class FUnpacker : IUnpacker
     {
-        List<byte> _cache = new List<byte>();
-
         public void Clear()
         {
-            _cache.Clear();
+            throw new NotImplementedException();
         }
 
         public void Unpack(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
         {
             
         }
-
-        public void Unpack(byte[] data)
-        {
-            _cache.AddRange(data);
-        }
-
     }
 }

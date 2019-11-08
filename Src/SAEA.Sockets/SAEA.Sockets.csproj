@@ -26,10 +26,6 @@ SAEA.Socket是一个高性能IOCP框架，基于.dotnet standard 2.0；Src中含
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.IO.Pipelines" Version="4.6.0" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\SAEA.Common\SAEA.Common.csproj" />
   </ItemGroup>
 

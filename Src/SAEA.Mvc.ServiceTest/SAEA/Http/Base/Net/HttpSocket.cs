@@ -48,11 +48,12 @@ namespace SAEA.Http.Base.Net
         public HttpSocket(int port, int bufferSize = 1024 * 10, int count = 10000, int timeOut = 120 * 1000, bool isDebug = false)
         {
             var optionBuilder = new SocketOptionBuilder()
-               .SetSocket(Sockets.Model.SocketType.Tcp)
+               .SetSocket(SAEASocketType.Tcp)
                .UseIocp(new HContext())
                .SetPort(port)
                .SetCount(count)
-               .SetBufferSize(bufferSize)
+               .SetReadBufferSize(bufferSize)
+               .SetWriteBufferSize(bufferSize)
                .SetTimeOut(timeOut);
             var option = optionBuilder.Build();
 
@@ -93,7 +94,7 @@ namespace SAEA.Http.Base.Net
 
         public void End(IUserToken userToken, byte[] data)
         {
-            ((IocpServerSocket)_serverSokcet).End(userToken, data);
+            ((IocpServerSocket)_serverSokcet).End(userToken.ID, data);
         }
 
         public void Disconnecte(IUserToken userToken)

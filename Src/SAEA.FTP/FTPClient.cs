@@ -15,6 +15,7 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
+using SAEA.FTP.Model;
 using SAEA.FTP.Net;
 using System;
 using System.Collections.Generic;
@@ -43,6 +44,30 @@ namespace SAEA.FTP
             _client.Connect();
         }
 
+        /// <summary>
+        /// 类似于ping
+        /// </summary>
+        public void Noop()
+        {
+            _client.Noop();
+        }
+
+
+        public bool CheckDir(string pathName)
+        {
+            return _client.CheckDir(pathName);
+        }
+
+        public ServerResponse Reset(long size)
+        {
+           return _client.Reset(size);
+        }
+
+
+        public List<string> Dir(string pathName = "/", DirType dirType = DirType.List)
+        {
+           return _client.Dir(pathName, dirType);
+        }
 
 
     }

@@ -120,14 +120,14 @@ namespace SAEA.RPC.Net
                     case RSocketMsgType.Request:
                         break;
                     case RSocketMsgType.Response:
-                        _syncHelper.Set(msg.SequenceNumber, msg.Data);
+                        _syncHelper.Set(msg.Data);
                         break;
                     case RSocketMsgType.Notice:
                         OnNoticed.Invoke(msg.Data);
                         break;
                     case RSocketMsgType.Error:
                         ExceptionCollector.Add("Consumer.OnReceived Error", new Exception(SAEASerialize.Deserialize<string>(msg.Data)));
-                        _syncHelper.Set(msg.SequenceNumber, msg.Data);
+                        _syncHelper.Set(msg.Data);
                         break;
                     case RSocketMsgType.Close:
                         break;
@@ -193,7 +193,7 @@ namespace SAEA.RPC.Net
 
             msg.Data = args;
 
-            if (_syncHelper.Wait(msg.SequenceNumber, () => { this.Send(msg); }, (r) => { result = r; }, timeOut))
+            if (_syncHelper.Wait(() => { this.Send(msg); }, (r) => { result = r; }, timeOut))
             {
                 return result;
             }

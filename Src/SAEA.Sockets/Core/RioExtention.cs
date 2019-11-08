@@ -19,7 +19,7 @@ using SAEA.Common;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
-using System.IO.Pipelines;
+//using System.IO.Pipelines;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 
@@ -35,92 +35,92 @@ namespace SAEA.Sockets.Core
         /// </summary>
         /// <param name="socket"></param>
         /// <returns></returns>
-        public static async Task<Byte[][]> Request(this Socket socket)
-        {
-            var pipe = new Pipe();
+        //public static async Task<Byte[][]> Request(this Socket socket)
+        //{
+        //    var pipe = new Pipe();
 
-            var writer = pipe.Writer;
+        //    var writer = pipe.Writer;
 
-            var reader = pipe.Reader;
+        //    var reader = pipe.Reader;
 
-            #region write
+        //    #region write
 
-            await Task.Run(async () =>
-            {
-                int bytesRead = 0;
+        //    await Task.Run(async () =>
+        //    {
+        //        int bytesRead = 0;
 
-                Memory<byte> memory;
+        //        Memory<byte> memory;
 
-                while (true)
-                {
-                    memory = writer.GetMemory(socket.ReceiveBufferSize);
+        //        while (true)
+        //        {
+        //            memory = writer.GetMemory(socket.ReceiveBufferSize);
 
-                    try
-                    {
-                        //bytesRead = await socket.ReceiveAsync(memory, SocketFlags.None);
+        //            try
+        //            {
+        //                //bytesRead = await socket.ReceiveAsync(memory, SocketFlags.None);
 
-                        if (bytesRead == 0)
-                        {
-                            break;
-                        }
-                        writer.Advance(bytesRead);
-                    }
-                    catch (Exception ex)
-                    {
-                        LogHelper.Error("RioExtention.Request", ex);
-                        break;
-                    }
+        //                if (bytesRead == 0)
+        //                {
+        //                    break;
+        //                }
+        //                writer.Advance(bytesRead);
+        //            }
+        //            catch (Exception ex)
+        //            {
+        //                LogHelper.Error("RioExtention.Request", ex);
+        //                break;
+        //            }
 
-                    FlushResult flushResult = await writer.FlushAsync();
+        //            FlushResult flushResult = await writer.FlushAsync();
 
-                    if (flushResult.IsCompleted)
-                    {
-                        break;
-                    }
-                }
-                writer.Complete();
-            });
+        //            if (flushResult.IsCompleted)
+        //            {
+        //                break;
+        //            }
+        //        }
+        //        writer.Complete();
+        //    });
 
 
-            #endregion
+        //    #endregion
 
-            #region read
+        //    #region read
 
-            List<byte[]> result = new List<byte[]>();
+        //    List<byte[]> result = new List<byte[]>();
 
-            while (true)
-            {
-                ReadResult readResult = await reader.ReadAsync();
+        //    while (true)
+        //    {
+        //        ReadResult readResult = await reader.ReadAsync();
 
-                ReadOnlySequence<byte> buffer = readResult.Buffer;
+        //        ReadOnlySequence<byte> buffer = readResult.Buffer;
 
-                SequencePosition? position = null;
+        //        SequencePosition? position = null;
 
-                do
-                {
-                    position = buffer.PositionOf((byte)'\n');
+        //        do
+        //        {
+        //            position = buffer.PositionOf((byte)'\n');
 
-                    if (position != null)
-                    {
-                        result.Add(buffer.Slice(0, position.Value).ToArray());
+        //            if (position != null)
+        //            {
+        //                result.Add(buffer.Slice(0, position.Value).ToArray());
 
-                        buffer = buffer.Slice(buffer.GetPosition(1, position.Value));
-                    }
-                }
-                while (position != null);
+        //                buffer = buffer.Slice(buffer.GetPosition(1, position.Value));
+        //            }
+        //        }
+        //        while (position != null);
 
-                reader.AdvanceTo(buffer.Start, buffer.End);
+        //        reader.AdvanceTo(buffer.Start, buffer.End);
 
-                if (readResult.IsCompleted)
-                {
-                    break;
-                }
-            }
+        //        if (readResult.IsCompleted)
+        //        {
+        //            break;
+        //        }
+        //    }
 
-            reader.Complete();
-            #endregion
+        //    reader.Complete();
+        //    #endregion
 
-            return result.ToArray();
-        }
+        //    return result.ToArray();
+        //}
     }
 }
