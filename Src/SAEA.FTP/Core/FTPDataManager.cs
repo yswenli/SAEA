@@ -27,12 +27,15 @@ namespace SAEA.FTP.Core
     {
         static string _filePath = string.Empty;
 
-        public static string New()
+        public static string New(string filePath = "")
         {
-            return _filePath = PathHelper.GetFilePath(PathHelper.GetCurrentPath("Data"), Guid.NewGuid().ToString("N") + ".temp");
+            if (string.IsNullOrEmpty(filePath))
+                return _filePath = PathHelper.GetFilePath(PathHelper.GetCurrentPath("Data"), Guid.NewGuid().ToString("N") + ".temp");
+            else
+               return _filePath = filePath;
         }
 
-        public static void Write(byte[] data)
+        public static void Receive(byte[] data)
         {
             if (data != null && data.Any())
             {
@@ -47,7 +50,7 @@ namespace SAEA.FTP.Core
         {
             int current = 0;
 
-            while (current< timeOut)
+            while (current < timeOut)
             {
                 current += 1000;
 
@@ -68,6 +71,37 @@ namespace SAEA.FTP.Core
                 }
             }
             return string.Empty;
+        }
+
+        public static bool Checked(int timeOut = 3 * 1000)
+        {
+            int current = 0;
+
+            while (current < timeOut)
+            {
+                current += 1000;
+
+                if (!File.Exists(_filePath))
+                {
+                    ThreadHelper.Sleep(1000);
+                }
+                else
+                {
+                    try
+                    {
+                        using (var fs = File.OpenRead(_filePath))
+                        {
+                            fs.ReadByte();
+                        }
+                        return true;
+                    }
+                    catch
+                    {
+                        ThreadHelper.Sleep(1000);
+                    }
+                }
+            }
+            return false;
         }
     }
 }

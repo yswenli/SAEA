@@ -22,7 +22,9 @@ using System.Text;
 namespace SAEA.FTP.Model
 {
     /// <summary>
-    /// FTPCommand
+    /// FTPCommand,
+    /// http://mina.apache.org/ftpserver-project/ftpserver_commands.html,
+    /// https://wenku.baidu.com/view/e41480f8f705cc17552709c9.html
     /// </summary>
     public enum FTPCommand
     {
@@ -39,13 +41,13 @@ namespace SAEA.FTP.Model
         PWD = 11,
         MKD = 12,
         RMD = 13,
-        RNFR=14,
-        RNTO=15,
+        RNFR = 14,
+        RNTO = 15,
+        DELE = 16,
+        STOR = 17,
+        RETR = 18,
+        SIZE = 20,
 
-
-
-
-        REST = 14,
         QUIT = 99
     }
 }

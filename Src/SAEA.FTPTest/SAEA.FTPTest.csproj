@@ -89,6 +89,7 @@
     <Compile Include="FtpClientForm.Designer.cs">
       <DependentUpon>FtpClientForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="Model\ListInfo.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -97,6 +98,10 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\SAEA.Common\SAEA.Common.csproj">
+      <Project>{69C28B02-5B4A-48F4-AE41-1F9BA71CCDCC}</Project>
+      <Name>SAEA.Common</Name>
+    </ProjectReference>
     <ProjectReference Include="..\SAEA.FTP\SAEA.FTP.csproj">
       <Project>{F28C9923-2F32-4FE3-9C79-D13CA7D5DCA4}</Project>
       <Name>SAEA.FTP</Name>

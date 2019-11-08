@@ -83,6 +83,11 @@ namespace SAEA.Common
             return Path.Combine(path, fileName);
         }
 
+        public static string GetFileName(string filePath)
+        {
+            return Path.GetFileName(filePath);
+        }
+
         /// <summary>
         /// 获取目录下的目录及文件
         /// </summary>
@@ -127,5 +132,86 @@ namespace SAEA.Common
             return directories;
         }
 
+        /// <summary>
+        /// 获取目录下的目录及文件
+        /// </summary>
+        /// <param name="root"></param>
+        /// <param name="files"></param>
+        /// <returns></returns>
+        public static List<DirectoryInfo> GetAllDirectories(string root, out List<FileInfo> files)
+        {
+            files = null;
+
+            if (!string.IsNullOrEmpty(root) && Directory.Exists(root))
+            {
+                var rd = new DirectoryInfo(root);
+
+                return GetAllDirectories(rd, out files);
+            }
+
+            return null;
+        }
+
+
+        /// <summary>
+        /// 获取目录下的目录及文件
+        /// </summary>
+        /// <param name="root"></param>
+        /// <param name="files"></param>
+        /// <returns></returns>
+        public static List<DirectoryInfo> GetDirectories(DirectoryInfo root, out List<FileInfo> files)
+        {
+            List<DirectoryInfo> directories = new List<DirectoryInfo>();
+
+            files = new List<FileInfo>();
+
+            if (root != null)
+            {
+                var fs = root.GetFiles();
+
+                if (fs != null && fs.Any())
+                {
+                    files.AddRange(fs);
+                }
+
+                var dirs = root.GetDirectories();
+
+                if (dirs != null && dirs.Any())
+                {
+                    directories.AddRange(dirs);
+                }
+            }
+
+            return directories;
+        }
+
+        /// <summary>
+        /// 获取目录下的目录及文件
+        /// </summary>
+        /// <param name="root"></param>
+        /// <param name="files"></param>
+        /// <returns></returns>
+        public static List<DirectoryInfo> GetDirectories(string root, out List<FileInfo> files)
+        {
+            files = null;
+
+            if (!string.IsNullOrEmpty(root) && Directory.Exists(root))
+            {
+                var rd = new DirectoryInfo(root);
+
+                return GetDirectories(rd, out files);
+            }
+
+            return null;
+        }
+
+        public static DirectoryInfo GetPreDir(string path)
+        {
+            if (!string.IsNullOrEmpty(path) && Directory.Exists(path))
+            {
+                return Directory.GetParent(path);
+            }
+            return null;
+        }
     }
 }

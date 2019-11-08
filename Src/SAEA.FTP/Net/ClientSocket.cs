@@ -107,7 +107,6 @@ namespace SAEA.FTP.Net
                     result = r;
                 });
 
-
                 if (result.Code != ServerResponseCode.服务就绪)
                 {
                     _cmdSocket.Disconnect();
@@ -145,14 +144,21 @@ namespace SAEA.FTP.Net
             }
         }
 
-        ServerResponse BaseSend(string cmd)
+        public ServerResponse BaseSend(string cmd, Action action = null)
         {
             ServerResponse result = null;
-            _syncHelper2.Wait(() => { _cmdSocket.SendAsync(Encoding.ASCII.GetBytes(cmd + Environment.NewLine)); }, (r) => { result = r; });
+            _syncHelper2.Wait(() =>
+            {
+                _cmdSocket.SendAsync(Encoding.ASCII.GetBytes(cmd + Environment.NewLine));
+                action?.Invoke();
+            }, (r) =>
+            {
+                result = r;
+            });
             return result;
         }
 
-        IClientSocket CreateDataConnection()
+        public IClientSocket CreateDataConnection()
         {
             var result = BaseSend($"{FTPCommand.PASV}");
 
@@ -209,175 +215,12 @@ namespace SAEA.FTP.Net
             dataSocket.OnReceive += _dataSocket_OnReceive;
             dataSocket.OnDisconnected += _clientSocket_OnDisconnected;
             dataSocket.Connect();
-            FTPDataManager.New();
             return dataSocket;
         }
 
-
         private void _dataSocket_OnReceive(byte[] data)
         {
-            FTPDataManager.Write(data);
-        }
-
-        public void Noop()
-        {
-            var sres = BaseSend($"{FTPCommand.NOOP}");
-
-            if (sres.Code != ServerResponseCode.成功)
-            {
-                throw new Exception($"code:{sres.Code},reply:{sres.Reply}");
-            }
-        }
-
-        /// <summary>
-        /// 更改工作目录
-        /// </summary>
-        /// <param name="pathName"></param>
-        /// <returns></returns>
-        public bool ChangeDir(string pathName)
-        {
-            var sres = BaseSend($"{FTPCommand.CWD} {pathName}");
-
-            if (sres.Code == ServerResponseCode.文件行为完成)
-            {
-                return true;
-            }
-            if (sres.Code == ServerResponseCode.页文件不可用)
-            {
-                return false;
-            }
-            throw new IOException($"code:{sres.Code},reply:{sres.Reply}");
-        }
-        /// <summary>
-        /// 更改工作目录到父目录
-        /// </summary>
-        /// <param name="pathName"></param>
-        /// <returns></returns>
-        public bool ChangeToParentDir(string pathName)
-        {
-            var sres = BaseSend($"{FTPCommand.CDUP} {pathName}");
-
-            if (sres.Code == ServerResponseCode.文件行为完成)
-            {
-                return true;
-            }
-            if (sres.Code == ServerResponseCode.页文件不可用)
-            {
-                return false;
-            }
-            throw new IOException($"code:{sres.Code},reply:{sres.Reply}");
-        }
-        /// <summary>
-        /// 返回当前工作目录目录
-        /// </summary>
-        /// <returns></returns>
-        public string CurrentDir()
-        {
-            var sres = BaseSend($"{FTPCommand.PWD}");
-
-            if (sres.Code == ServerResponseCode.路径名建立)
-            {
-                return sres.Reply;
-            }
-            throw new IOException($"code:{sres.Code},reply:{sres.Reply}");
-        }
-
-        /// <summary>
-        /// 功能：返回指定路径下的子目录及文件列表，默认为当前工作地址
-        /// </summary>
-        /// <param name="pathName"></param>
-        /// <param name="dirType"></param>
-        /// <returns></returns>
-        public List<string> Dir(string pathName = "/", DirType dirType = DirType.List)
-        {
-            using (var dataSocket = CreateDataConnection())
-            {
-                var sres = BaseSend($"{dirType.ToString()} {pathName}");
-
-                var str = FTPDataManager.ReadText();
-
-                if (string.IsNullOrEmpty(str))
-                {
-                    if (ChangeDir(pathName))
-                    {
-                        return new List<string>();
-                    }
-                    else
-                    {
-                        return null;
-                    }
-                }
-                return str.Split(Environment.NewLine).ToList();
-            }
-        }
-
-        public void MakeDir(string pathName)
-        {
-            var sres = BaseSend($"{FTPCommand.MKD} {pathName}");
-
-            if (sres.Code != ServerResponseCode.文件行为完成)
-            {
-                throw new IOException($"code:{sres.Code},reply:{sres.Reply}");
-            }
-        }
-
-        public void RemoveDir(string pathName)
-        {
-            var sres = BaseSend($"{FTPCommand.RMD} {pathName}");
-
-            if (sres.Code != ServerResponseCode.文件行为完成)
-            {
-                throw new IOException($"code:{sres.Code},reply:{sres.Reply}");
-            }
-        }
-
-
-        public void Rename(string oldName,string newName)
-        {
-            BaseSend($"{FTPCommand.RNFR} {oldName}");
-
-            var sres= BaseSend($"{FTPCommand.RNTO} {newName}");
-
-            if(sres.Code != ServerResponseCode.文件行为完成)
-            {
-                throw new IOException($"code:{sres.Code},reply:{sres.Reply}");
-            }
-        }
-
-
-        public void Upload(string sourceFilePath)
-        {
-
-        }
-
-        /// <summary>
-        /// 重传文件
-        /// </summary>
-        /// <param name="size"></param>
-        public void Reset(long size)
-        {
-            using (var dataSocket = CreateDataConnection())
-            {
-                var sres = BaseSend($"REST {size}");
-
-                if (sres.Code != ServerResponseCode.文件行为暂停)
-                {
-                    throw new IOException($"code:{sres.Code},reply:{sres.Reply}");
-                }
-
-                //todo
-            }
-        }
-
-
-        public void Quit()
-        {
-            var sres = BaseSend($"{FTPCommand.QUIT}");
-
-            if (sres.Code != ServerResponseCode.成功)
-            {
-                throw new Exception($"code:{sres.Code},reply:{sres.Reply}");
-            }
+            FTPDataManager.Receive(data);
         }
 
     }
