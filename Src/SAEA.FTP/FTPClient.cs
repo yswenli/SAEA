@@ -52,23 +52,27 @@ namespace SAEA.FTP
             _client.Noop();
         }
 
-
         public bool CheckDir(string pathName)
         {
-            return _client.CheckDir(pathName);
+            return _client.ChangeDir(pathName);
         }
-
-        public ServerResponse Reset(long size)
-        {
-           return _client.Reset(size);
-        }
-
 
         public List<string> Dir(string pathName = "/", DirType dirType = DirType.List)
         {
            return _client.Dir(pathName, dirType);
         }
 
+        public void MakeDir(string pathName)
+        {
+            _client.MakeDir(pathName);
+        }
+
+
+
+        public void Reset(long size)
+        {
+            _client.Reset(size);
+        }
 
     }
 }

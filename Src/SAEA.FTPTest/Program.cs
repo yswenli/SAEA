@@ -4,21 +4,28 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace SAEA.FTPTest
 {
     class Program
     {
-        static void Main(string[] args)
+        /// <summary>
+        /// 应用程序的主入口点。
+        /// </summary>
+        [STAThread]
+        static void Main()
         {
+            Application.ThreadException += Application_ThreadException;
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
+            Application.Run(new FtpClientForm());
+        }
 
-            FTPClient client = new FTPClient("127.0.0.1", 21, "yswenli", "12321");
-
-            client.Connect();
-
-            client.CheckDir("/BaiduNetdiskDownload");
-
-            var dirs = client.Dir("/WORKS");
+        private static void Application_ThreadException(object sender, System.Threading.ThreadExceptionEventArgs e)
+        {
+            MessageBox.Show($"{e.Exception.Message}");
         }
     }
+
 }

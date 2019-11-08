@@ -21,6 +21,9 @@ using System.Text;
 
 namespace SAEA.FTP.Model
 {
+    /// <summary>
+    /// FTPCommand
+    /// </summary>
     public enum FTPCommand
     {
         USER = 1,
@@ -32,8 +35,17 @@ namespace SAEA.FTP.Model
         MLSD = 7,
         NLST = 8,
         CWD = 9,
-        MKD = 10,
-        REST = 11,
+        CDUP = 10,
+        PWD = 11,
+        MKD = 12,
+        RMD = 13,
+        RNFR=14,
+        RNTO=15,
+
+
+
+
+        REST = 14,
         QUIT = 99
     }
 }

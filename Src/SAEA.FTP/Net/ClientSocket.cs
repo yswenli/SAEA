@@ -70,7 +70,7 @@ namespace SAEA.FTP.Net
 
         private void _clientSocket_OnError(string ID, Exception ex)
         {
-            throw new NotImplementedException();
+            //todo
         }
 
         private void _clientSocket_OnReceive(byte[] data)
@@ -83,13 +83,15 @@ namespace SAEA.FTP.Net
                 _isFirst = false;
                 return;
             }
-            _ftpStream.Write(data);
             _syncHelper2.Set(ServerResponse.Parse(_ftpStream.ReadText()));
         }
+
+
         private void _clientSocket_OnDisconnected(string ID, Exception ex)
         {
             OnDisconnected?.Invoke(ID, ex);
         }
+
 
         public void Connect()
         {
@@ -227,7 +229,12 @@ namespace SAEA.FTP.Net
             }
         }
 
-        public bool CheckDir(string pathName)
+        /// <summary>
+        /// 更改工作目录
+        /// </summary>
+        /// <param name="pathName"></param>
+        /// <returns></returns>
+        public bool ChangeDir(string pathName)
         {
             var sres = BaseSend($"{FTPCommand.CWD} {pathName}");
 
@@ -241,27 +248,46 @@ namespace SAEA.FTP.Net
             }
             throw new IOException($"code:{sres.Code},reply:{sres.Reply}");
         }
-
         /// <summary>
-        /// 重传文件
+        /// 更改工作目录到父目录
         /// </summary>
-        /// <param name="size"></param>
-        public void Reset(long size)
+        /// <param name="pathName"></param>
+        /// <returns></returns>
+        public bool ChangeToParentDir(string pathName)
         {
-            using (var dataSocket = CreateDataConnection())
+            var sres = BaseSend($"{FTPCommand.CDUP} {pathName}");
+
+            if (sres.Code == ServerResponseCode.文件行为完成)
             {
-                var sres = BaseSend($"REST {size}");
-
-                if (sres.Code != ServerResponseCode.文件行为暂停)
-                {
-                    throw new IOException($"code:{sres.Code},reply:{sres.Reply}");
-                }
-
-                //todo
+                return true;
             }
+            if (sres.Code == ServerResponseCode.页文件不可用)
+            {
+                return false;
+            }
+            throw new IOException($"code:{sres.Code},reply:{sres.Reply}");
+        }
+        /// <summary>
+        /// 返回当前工作目录目录
+        /// </summary>
+        /// <returns></returns>
+        public string CurrentDir()
+        {
+            var sres = BaseSend($"{FTPCommand.PWD}");
+
+            if (sres.Code == ServerResponseCode.路径名建立)
+            {
+                return sres.Reply;
+            }
+            throw new IOException($"code:{sres.Code},reply:{sres.Reply}");
         }
 
-
+        /// <summary>
+        /// 功能：返回指定路径下的子目录及文件列表，默认为当前工作地址
+        /// </summary>
+        /// <param name="pathName"></param>
+        /// <param name="dirType"></param>
+        /// <returns></returns>
         public List<string> Dir(string pathName = "/", DirType dirType = DirType.List)
         {
             using (var dataSocket = CreateDataConnection())
@@ -272,7 +298,7 @@ namespace SAEA.FTP.Net
 
                 if (string.IsNullOrEmpty(str))
                 {
-                    if (CheckDir(pathName))
+                    if (ChangeDir(pathName))
                     {
                         return new List<string>();
                     }
@@ -295,6 +321,53 @@ namespace SAEA.FTP.Net
             }
         }
 
+        public void RemoveDir(string pathName)
+        {
+            var sres = BaseSend($"{FTPCommand.RMD} {pathName}");
+
+            if (sres.Code != ServerResponseCode.文件行为完成)
+            {
+                throw new IOException($"code:{sres.Code},reply:{sres.Reply}");
+            }
+        }
+
+
+        public void Rename(string oldName,string newName)
+        {
+            BaseSend($"{FTPCommand.RNFR} {oldName}");
+
+            var sres= BaseSend($"{FTPCommand.RNTO} {newName}");
+
+            if(sres.Code != ServerResponseCode.文件行为完成)
+            {
+                throw new IOException($"code:{sres.Code},reply:{sres.Reply}");
+            }
+        }
+
+
+        public void Upload(string sourceFilePath)
+        {
+
+        }
+
+        /// <summary>
+        /// 重传文件
+        /// </summary>
+        /// <param name="size"></param>
+        public void Reset(long size)
+        {
+            using (var dataSocket = CreateDataConnection())
+            {
+                var sres = BaseSend($"REST {size}");
+
+                if (sres.Code != ServerResponseCode.文件行为暂停)
+                {
+                    throw new IOException($"code:{sres.Code},reply:{sres.Reply}");
+                }
+
+                //todo
+            }
+        }
 
 
         public void Quit()
