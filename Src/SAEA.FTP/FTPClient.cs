@@ -31,6 +31,14 @@ namespace SAEA.FTP
     {
         ClientSocket _client;
 
+        public bool Connected
+        {
+            get
+            {
+                return _client.Connected;
+            }
+        }
+
         public FTPClient(ClientConfig config)
         {
             _client = new ClientSocket(config);
@@ -78,13 +86,12 @@ namespace SAEA.FTP
         /// <summary>
         /// 更改工作目录到父目录
         /// </summary>
-        /// <param name="pathName"></param>
         /// <returns></returns>
-        public bool ChangeToParentDir(string pathName)
+        public bool ChangeToParentDir()
         {
-            var sres = _client.BaseSend($"{FTPCommand.CDUP} {pathName}");
+            var sres = _client.BaseSend($"{FTPCommand.CDUP}");
 
-            if (sres.Code == ServerResponseCode.文件行为完成)
+            if (sres.Code == ServerResponseCode.文件行为完成 || sres.Code == ServerResponseCode.成功)
             {
                 return true;
             }
@@ -104,7 +111,13 @@ namespace SAEA.FTP
 
             if (sres.Code == ServerResponseCode.路径名建立)
             {
-                return sres.Reply;
+                var dir = sres.Reply;
+
+                dir = dir.Substring(dir.IndexOf("\"") + 1);
+
+                dir = dir.Substring(0, dir.IndexOf("\""));
+
+                return dir;
             }
             throw new IOException($"code:{sres.Code},reply:{sres.Reply}");
         }
@@ -200,7 +213,7 @@ namespace SAEA.FTP
 
                         while (true)
                         {
-                            int n = fs.Read(data, numBytesRead, 1024);
+                            int n = fs.Read(data, 0, 1024);
 
                             if (n == 0)
                                 break;

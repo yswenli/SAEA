@@ -76,7 +76,7 @@ namespace SAEA.FTP.Core
                     {
                         var len = j + 1;
 
-                        var str = Encoding.ASCII.GetString(span.Slice(0, len).ToArray());
+                        var str = Encoding.UTF8.GetString(span.Slice(0, len).ToArray());
 
                         _cache.RemoveRange(0, len);
 

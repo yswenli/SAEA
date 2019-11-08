@@ -145,13 +145,19 @@ namespace SAEA.FTPTest
 
         private void textBox2_TextChanged(object sender, EventArgs e)
         {
-            var filePath = textBox2.Text;
-
             Task.Run(() =>
             {
                 try
                 {
-                    var list = _client.Dir(textBox2.Text, FTP.Model.DirType.MLSD);
+                    var filePath = string.Empty;
+
+                    textBox2.Invoke(new Action(() =>
+                    {
+                        filePath = textBox2.Text;
+                    }));
+
+
+                    var list = _client.Dir(filePath, FTP.Model.DirType.MLSD);
 
                     if (list != null && list.Any())
                     {
@@ -163,20 +169,23 @@ namespace SAEA.FTPTest
                             {
                                 var arr = item.Split(";", StringSplitOptions.RemoveEmptyEntries);
 
-                                if (arr.Length == 3)
+                                if (arr.Length >= 3)
                                 {
+                                    var fileName = arr[2].Trim();
+
                                     var type = (arr[0] == "type=dir" ? "文件夹" : "文件");
 
                                     var size = 0L;
 
                                     if (type == "文件")
                                     {
-                                        size = _client.FileSize(arr[2]);
+                                        fileName = arr[3].Trim();
+                                        size = _client.FileSize(fileName);
                                     }
 
                                     listInfos.Add(new ListInfo()
                                     {
-                                        FileName = arr[2],
+                                        FileName = fileName,
                                         Type = type,
                                         Size = size
                                     });
@@ -190,6 +199,13 @@ namespace SAEA.FTPTest
                         {
                             dataGridView2.DataSource = null;
                             dataGridView2.DataSource = listInfos;
+                        }));
+                    }
+                    else
+                    {
+                        dataGridView2.BeginInvoke(new Action(() =>
+                        {
+                            dataGridView2.DataSource = null;
                         }));
                     }
                 }
@@ -209,22 +225,83 @@ namespace SAEA.FTPTest
             {
                 textBox1.Text = dir.FullName;
             }
-
         }
 
         private void parentToolStripMenuItem1_Click(object sender, EventArgs e)
         {
+            Task.Run(() =>
+            {
+                try
+                {
+                    if (_client.ChangeToParentDir())
+                    {
+                        var cp = _client.CurrentDir();
+
+                        textBox2.Invoke(new Action(() =>
+                        {
+                            textBox2.Text = cp;
+                        }));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log("获取ftpserver列表失败", ex.Message);
+                }
+            });
 
         }
+
         private void uploadToolStripMenuItem_Click(object sender, EventArgs e)
         {
 
+
+            DataGridViewRow dr = null;
+
+            var rows = dataGridView1.SelectedRows;
+
+            if (rows != null && rows.Count > 0)
+            {
+                dr = rows[0];
+            }
+            else
+            {
+                var cells = dataGridView1.SelectedCells;
+
+                if (cells != null && cells.Count > 0)
+                {
+                    dr = dataGridView1.Rows[cells[0].RowIndex];
+                }
+            }
+            if (dr != null)
+            {
+                if (_client.Connected)
+                {
+                    if (dr.Cells[2].Value.ToString() == "文件")
+                    {
+                        var filePath = Path.Combine(textBox1.Text, dr.Cells[0].Value.ToString());
+
+                        Task.Run(() =>
+                        {
+                            try
+                            {
+                                _client.Upload(filePath);
+                            }
+                            catch (Exception ex)
+                            {
+                                Log("上传文件失败！", ex.Message);
+                            }
+                        });
+
+                    }
+                }
+            }
         }
 
         private void downloadToolStripMenuItem_Click(object sender, EventArgs e)
         {
 
         }
+
         #endregion
 
 
@@ -258,7 +335,7 @@ namespace SAEA.FTPTest
                 {
                     var path = textBox2.Text;
 
-                    var fileName = dataGridView2.Rows[e.RowIndex].Cells[0].Value.ToString();
+                    var fileName = dataGridView2.Rows[e.RowIndex].Cells[0].Value.ToString().Trim();
 
                     Task.Run(() =>
                     {
@@ -273,23 +350,39 @@ namespace SAEA.FTPTest
                                     textBox2.Text = cp;
                                 }));
                             }
+                            else
+                            {
+                                textBox2_TextChanged(null, null);
+                            }
                         }
                         catch (Exception ex)
                         {
-
+                            Log("获取ftpserver列表失败", ex.Message);
                         }
                     });
-
                 }
             }
             else
             {
-                var dir = PathHelper.GetPreDir(textBox1.Text);
-
-                if (dir != null)
+                Task.Run(() =>
                 {
-                    textBox1.Text = dir.FullName;
-                }
+                    try
+                    {
+                        if (_client.ChangeToParentDir())
+                        {
+                            var cp = _client.CurrentDir();
+
+                            textBox2.Invoke(new Action(() =>
+                            {
+                                textBox2.Text = cp;
+                            }));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log("获取ftpserver列表失败", ex.Message);
+                    }
+                });
             }
         }
     }

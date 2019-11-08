@@ -140,8 +140,17 @@ namespace SAEA.FTP.Net
                     throw new Exception(result.Reply);
                 }
 
+                SetUtf8();
+
                 Connected = true;
             }
+        }
+
+        public ServerResponse SetUtf8()
+        {
+            var result= BaseSend("OPTS UTF8 ON");
+
+            return result;
         }
 
         public ServerResponse BaseSend(string cmd, Action action = null)
@@ -149,7 +158,7 @@ namespace SAEA.FTP.Net
             ServerResponse result = null;
             _syncHelper2.Wait(() =>
             {
-                _cmdSocket.SendAsync(Encoding.ASCII.GetBytes(cmd + Environment.NewLine));
+                _cmdSocket.SendAsync(Encoding.UTF8.GetBytes(cmd + Environment.NewLine));
                 action?.Invoke();
             }, (r) =>
             {
