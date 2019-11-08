@@ -203,37 +203,37 @@ namespace SAEA.FTP
             {
                 var fileName = PathHelper.GetFileName(filePath);
 
-                var sres = _client.BaseSend($"{FTPCommand.STOR} {fileName}", () =>
-                {
-                    using (var fs = File.Open(filePath, FileMode.Open, FileAccess.Read))
-                    {
-                        byte[] data = new byte[1024];
+                var sres = _client.BaseSend($"{FTPCommand.STOR} {fileName}");
 
-                        int numBytesRead = 0;
-
-                        while (true)
-                        {
-                            int n = fs.Read(data, 0, 1024);
-
-                            if (n == 0)
-                                break;
-
-                            numBytesRead += n;
-
-                            if (n == 1024)
-                            {
-                                dataSocket.Send(data);
-                            }
-                            else
-                            {
-                                dataSocket.Send(data.AsSpan().Slice(0, n).ToArray());
-                            }
-                        }
-                    }
-                });
-                if (sres.Code != ServerResponseCode.结束数据连接)
+                if (sres.Code != ServerResponseCode.打开数据连接开始传输 && sres.Code != ServerResponseCode.打开连接)
                 {
                     throw new IOException($"code:{sres.Code},reply:{sres.Reply}");
+                }
+
+                using (var fs = File.Open(filePath, FileMode.Open, FileAccess.Read))
+                {
+                    byte[] data = new byte[1024];
+
+                    int numBytesRead = 0;
+
+                    while (true)
+                    {
+                        int n = fs.Read(data, 0, 1024);
+
+                        if (n == 0)
+                            break;
+
+                        numBytesRead += n;
+
+                        if (n == 1024)
+                        {
+                            dataSocket.Send(data);
+                        }
+                        else
+                        {
+                            dataSocket.Send(data.AsSpan().Slice(0, n).ToArray());
+                        }
+                    }
                 }
             }
         }

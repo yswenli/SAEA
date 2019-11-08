@@ -285,6 +285,10 @@ namespace SAEA.FTPTest
                             try
                             {
                                 _client.Upload(filePath);
+
+                                Log("上传文件成功");
+
+                                textBox2_TextChanged(null, null);
                             }
                             catch (Exception ex)
                             {

@@ -148,7 +148,7 @@ namespace SAEA.FTP.Net
 
         public ServerResponse SetUtf8()
         {
-            var result= BaseSend("OPTS UTF8 ON");
+            var result = BaseSend("OPTS UTF8 ON");
 
             return result;
         }
@@ -159,7 +159,7 @@ namespace SAEA.FTP.Net
             _syncHelper2.Wait(() =>
             {
                 _cmdSocket.SendAsync(Encoding.UTF8.GetBytes(cmd + Environment.NewLine));
-                action?.Invoke();
+                action?.BeginInvoke(null, null);
             }, (r) =>
             {
                 result = r;

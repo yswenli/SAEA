@@ -126,6 +126,8 @@
             // 
             this.logTxt.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
+            this.logTxt.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.logTxt.ForeColor = System.Drawing.Color.Green;
             this.logTxt.Location = new System.Drawing.Point(7, 567);
             this.logTxt.Multiline = true;
             this.logTxt.Name = "logTxt";
