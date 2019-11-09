@@ -226,7 +226,7 @@
             this.textBox1.Margin = new System.Windows.Forms.Padding(0);
             this.textBox1.MinimumSize = new System.Drawing.Size(28, 28);
             this.textBox1.Name = "textBox1";
-            this.textBox1.Size = new System.Drawing.Size(449, 28);
+            this.textBox1.Size = new System.Drawing.Size(449, 26);
             this.textBox1.TabIndex = 0;
             this.textBox1.Text = "c:\\";
             this.textBox1.TextChanged += new System.EventHandler(this.textBox1_TextChanged);
@@ -282,13 +282,15 @@
             this.textBox2.MinimumSize = new System.Drawing.Size(28, 28);
             this.textBox2.Name = "textBox2";
             this.textBox2.ReadOnly = true;
-            this.textBox2.Size = new System.Drawing.Size(503, 28);
+            this.textBox2.Size = new System.Drawing.Size(503, 26);
             this.textBox2.TabIndex = 2;
             this.textBox2.Text = "/";
             this.textBox2.TextChanged += new System.EventHandler(this.textBox2_TextChanged);
             // 
             // notifyIcon1
             // 
+            this.notifyIcon1.BalloonTipIcon = System.Windows.Forms.ToolTipIcon.Info;
+            this.notifyIcon1.BalloonTipText = "正在后台运行中";
             this.notifyIcon1.BalloonTipTitle = "SAEA.FTPClient";
             this.notifyIcon1.ContextMenuStrip = this.contextMenuStrip3;
             this.notifyIcon1.Icon = ((System.Drawing.Icon)(resources.GetObject("notifyIcon1.Icon")));

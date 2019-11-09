@@ -329,6 +329,8 @@ namespace SAEA.FTPTest
                     {
                         var filePath = Path.Combine(textBox1.Text, dr.Cells[0].Value.ToString());
 
+                        _loadingUserControl.Show(this);
+
                         Task.Run(() =>
                         {
                             try
@@ -342,6 +344,10 @@ namespace SAEA.FTPTest
                             catch (Exception ex)
                             {
                                 Log("上传文件失败！", ex.Message);
+                            }
+                            finally
+                            {
+                                _loadingUserControl.Hide(this);
                             }
                         });
 
@@ -379,6 +385,8 @@ namespace SAEA.FTPTest
                     {
                         var fileName = dr.Cells[0].Value.ToString();
 
+                        _loadingUserControl.Show(this);
+
                         Task.Run(() =>
                         {
                             try
@@ -392,6 +400,10 @@ namespace SAEA.FTPTest
                             catch (Exception ex)
                             {
                                 Log("下载文件失败！", ex.Message);
+                            }
+                            finally
+                            {
+                                _loadingUserControl.Hide(this);
                             }
                         });
 
@@ -487,7 +499,9 @@ namespace SAEA.FTPTest
         private void FtpClientForm_FormClosing(object sender, FormClosingEventArgs e)
         {
             e.Cancel = true;
+            notifyIcon1.ShowBalloonTip(2 * 1000);
             this.Hide();
+
         }
 
         private void FtpClientForm_FormClosed(object sender, FormClosedEventArgs e)
@@ -523,6 +537,7 @@ namespace SAEA.FTPTest
                 }
             }
             catch { }
+            notifyIcon1.Dispose();
             Environment.Exit(-1);
         }
         #endregion

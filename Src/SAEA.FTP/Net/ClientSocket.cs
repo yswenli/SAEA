@@ -55,6 +55,8 @@ namespace SAEA.FTP.Net
                 .UseIocp()
                 .SetIP(_config.IP)
                 .SetPort(_config.Port)
+                .SetReadBufferSize(10240)
+                .SetWriteBufferSize(10240)
                 .Build();
 
             _cmdSocket = SocketFactory.CreateClientSocket(option);

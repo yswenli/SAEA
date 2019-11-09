@@ -212,7 +212,7 @@ namespace SAEA.FTP
 
                 using (var fs = File.Open(filePath, FileMode.Open, FileAccess.Read))
                 {
-                    byte[] data = new byte[1024];
+                    byte[] data = new byte[10240];
 
                     int numBytesRead = 0;
 
@@ -238,8 +238,10 @@ namespace SAEA.FTP
             }
         }
 
-        public string Download(string fileName, string filePath, int timeOut = 3 * 1000)
+        public string Download(string fileName, string filePath)
         {
+            var size = FileSize(fileName);
+
             using (var dataSocket = _client.CreateDataConnection())
             {
                 FTPDataManager.New(filePath);
@@ -248,11 +250,11 @@ namespace SAEA.FTP
 
                 if (sres.Code == ServerResponseCode.结束数据连接 || sres.Code == ServerResponseCode.打开连接)
                 {
-                    if (FTPDataManager.Checked(timeOut))
+                    while (size > FTPDataManager.Checked(size))
                     {
-                        return filePath;
+                        ThreadHelper.Sleep(500);
                     }
-                    return string.Empty;
+                    return filePath;
                 }
                 else
                 {

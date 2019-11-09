@@ -32,14 +32,14 @@ namespace SAEA.FTP.Core
             if (string.IsNullOrEmpty(filePath))
                 return _filePath = PathHelper.GetFilePath(PathHelper.GetCurrentPath("Data"), Guid.NewGuid().ToString("N") + ".temp");
             else
-               return _filePath = filePath;
+                return _filePath = filePath;
         }
 
         public static void Receive(byte[] data)
         {
             if (data != null && data.Any())
             {
-                using (var fs = File.Open(_filePath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None))
+                using (var fs = File.Open(_filePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite))
                 {
                     fs.Position = fs.Length;
                     fs.Write(data, 0, data.Length);
@@ -74,35 +74,29 @@ namespace SAEA.FTP.Core
             return string.Empty;
         }
 
-        public static bool Checked(int timeOut = 3 * 1000)
+        public static long Checked(long size)
         {
-            int current = 0;
+            long current = 0;
 
-            while (current < timeOut)
+            if (!File.Exists(_filePath))
             {
-                current += 1000;
-
-                if (!File.Exists(_filePath))
+                ThreadHelper.Sleep(500);
+            }
+            else
+            {
+                try
                 {
-                    ThreadHelper.Sleep(1000);
+                    using (var fs = File.Open(_filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                    {
+                        current = fs.Length;
+                    }
                 }
-                else
+                catch
                 {
-                    try
-                    {
-                        using (var fs = File.OpenRead(_filePath))
-                        {
-                            fs.ReadByte();
-                        }
-                        return true;
-                    }
-                    catch
-                    {
-                        ThreadHelper.Sleep(1000);
-                    }
+                    ThreadHelper.Sleep(500);
                 }
             }
-            return false;
+            return current;
         }
     }
 }
