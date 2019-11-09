@@ -28,7 +28,7 @@ using System.Text;
 
 namespace SAEA.FTP.Net
 {
-    class ClientSocket
+    class ClientSocket : IDisposable
     {
         IClientSocket _cmdSocket = null;
 
@@ -43,6 +43,8 @@ namespace SAEA.FTP.Net
         SyncHelper<ServerResponse> _syncHelper2;
 
         ClientConfig _config;
+
+        public ClientConfig ClientConfig { get => _config; set => _config = value; }
 
         public bool Connected { get; set; } = false;
 
@@ -72,7 +74,7 @@ namespace SAEA.FTP.Net
 
         private void _clientSocket_OnError(string ID, Exception ex)
         {
-            //todo
+            LogHelper.Error("FTPClient异常", ex);
         }
 
         private void _clientSocket_OnReceive(byte[] data)
@@ -234,5 +236,22 @@ namespace SAEA.FTP.Net
             FTPDataManager.Receive(data);
         }
 
+        public void Disconnect()
+        {
+            try
+            {
+                _cmdSocket.Disconnect();
+            }
+            catch { }
+        }
+
+        public void Dispose()
+        {
+            try
+            {
+                _cmdSocket.Dispose();
+            }
+            catch { }
+        }
     }
 }

@@ -42,5 +42,7 @@ namespace SAEA.FTP
         {
             get; set;
         }
+
+        public int BufferSize { get; set; } = 10240;
     }
 }

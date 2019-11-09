@@ -23,11 +23,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 
 namespace SAEA.FTP
 {
-    public class FTPClient
+    public class FTPClient : IDisposable
     {
         ClientSocket _client;
 
@@ -44,7 +43,7 @@ namespace SAEA.FTP
             _client = new ClientSocket(config);
         }
 
-        public FTPClient(string ip, int port, string userName, string password) : this(new ClientConfig() { IP = ip, Port = port, UserName = userName, Password = password })
+        public FTPClient(string ip, int port, string userName, string password, int bufferSize = 10240) : this(new ClientConfig() { IP = ip, Port = port, UserName = userName, Password = password, BufferSize = bufferSize })
         {
 
         }
@@ -220,7 +219,6 @@ namespace SAEA.FTP
                     {
                         ThreadHelper.Sleep(1000);
                         uploading?.Invoke(offset, count);
-
                         if (offset == count) break;
                     }
                 });
@@ -236,14 +234,14 @@ namespace SAEA.FTP
 
                     while (true)
                     {
-                        int n = fs.Read(data, 0, 1024);
+                        int n = fs.Read(data, 0, 10240);
 
                         if (n == 0)
                             break;
 
                         offset = numBytesRead += n;
 
-                        if (n == 1024)
+                        if (n == 10240)
                         {
                             dataSocket.Send(data);
                         }
@@ -314,9 +312,24 @@ namespace SAEA.FTP
         {
             var sres = _client.BaseSend($"{FTPCommand.QUIT}");
 
-            if (sres.Code != ServerResponseCode.成功)
+            if (sres.Code != ServerResponseCode.成功 && sres.Code != ServerResponseCode.退出网络)
             {
                 throw new Exception($"code:{sres.Code},reply:{sres.Reply}");
+            }
+
+            _client.Disconnect();
+        }
+
+        public void Dispose()
+        {
+            if (_client != null && _client.Connected)
+            {
+                try
+                {
+                    Quit();
+                }
+                catch { }
+                _client.Dispose();
             }
         }
     }

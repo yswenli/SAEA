@@ -28,86 +28,9 @@ namespace SAEA.FTPTest
             textBox1_TextChanged(null, null);
         }
 
-        private void FtpClientForm_Load(object sender, EventArgs e)
-        {
-            _loadingUserControl = new LoadingUserControl();
+        #region private
 
-            _loadingUserControl.Size = this.Size;
-
-            _loadingUserControl.Hide(this);
-
-            this.Controls.Add(_loadingUserControl);
-
-            this.Controls.SetChildIndex(_loadingUserControl, 9999);
-        }
-
-        private void skinButton1_Click(object sender, EventArgs e)
-        {
-            _loadingUserControl.Message = "正在连接到FTPServer...";
-
-            _loadingUserControl.Show(this);
-
-            groupBox1.Enabled = false;
-
-            splitContainer2.Panel2.Enabled = false;
-
-            try
-            {
-                var ip = skinWaterTextBox1.Text;
-                var port = int.Parse(skinWaterTextBox2.Text);
-                var username = skinWaterTextBox3.Text;
-                var pwd = skinWaterTextBox4.Text;
-
-                _client = new FTPClient(ip, port, username, pwd);
-
-                Task.Run(() =>
-                {
-                    try
-                    {
-                        _client.Connect();
-
-                        Log("连接到FTP成功");
-
-                        splitContainer2.BeginInvoke(new Action(() =>
-                        {
-                            splitContainer2.Panel2.Enabled = true;
-                            textBox2.Text = "/";
-                            textBox2_TextChanged(null, null);
-                        }));
-
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show("连接到FTP失败，ex:" + ex.Message);
-
-                        Log("连接到FTP失败", ex.Message);
-
-                        this.BeginInvoke(new Action(() =>
-                        {
-                            groupBox1.Enabled = true;
-                        }));
-
-                    }
-                    finally
-                    {
-                        _loadingUserControl.Hide(this);
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                _loadingUserControl.Hide(this);
-                MessageBox.Show("连接到FTP失败，ex:" + ex.Message);
-                Log("连接到FTP失败", ex.Message);
-                groupBox1.Enabled = true;
-            }
-            finally
-            {
-                _loadingUserControl.Hide(this);
-            }
-        }
-
-        public void Log(string operationName, string msg = "")
+        void Log(string operationName, string msg = "")
         {
             var action = new Action(() =>
             {
@@ -123,6 +46,327 @@ namespace SAEA.FTPTest
             else
             {
                 action.Invoke();
+            }
+        }
+
+        #endregion
+
+        #region form event
+
+        private void FtpClientForm_Load(object sender, EventArgs e)
+        {
+            _loadingUserControl = new LoadingUserControl();
+
+            _loadingUserControl.Size = this.Size;
+
+            _loadingUserControl.Hide(this);
+
+            this.Controls.Add(_loadingUserControl);
+
+            this.Controls.SetChildIndex(_loadingUserControl, 9999);
+        }
+
+        private void FtpClientForm_SizeChanged(object sender, EventArgs e)
+        {
+            _loadingUserControl.Size = this.Size;
+        }
+
+        private void FtpClientForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            e.Cancel = true;
+            notifyIcon1.ShowBalloonTip(2 * 1000);
+            this.Hide();
+        }
+
+        private void FtpClientForm_FormClosed(object sender, FormClosedEventArgs e)
+        {
+            try
+            {
+                if (_client != null && _client.Connected)
+                {
+                    _client.Quit();
+                }
+            }
+            catch { }
+        }
+
+        #endregion      
+
+        #region context menus
+
+        private void refreshToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            textBox1_TextChanged(null, null);
+        }
+
+        private void refreshToolStripMenuItem1_Click(object sender, EventArgs e)
+        {
+            textBox2_TextChanged(null, null);
+        }
+
+        private void parentToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var dir = PathHelper.GetPreDir(textBox1.Text);
+
+            if (dir != null)
+            {
+                textBox1.Text = dir.FullName;
+            }
+        }
+
+        private void parentToolStripMenuItem1_Click(object sender, EventArgs e)
+        {
+            Task.Run(() =>
+            {
+                try
+                {
+                    if (_client.ChangeToParentDir())
+                    {
+                        var cp = _client.CurrentDir();
+
+                        textBox2.Invoke(new Action(() =>
+                        {
+                            textBox2.Text = cp;
+                        }));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log("获取ftpserver列表失败", ex.Message);
+                }
+            });
+
+        }
+
+        private void uploadToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            DataGridViewRow dr = null;
+
+            var rows = dataGridView1.SelectedRows;
+
+            if (rows != null && rows.Count > 0)
+            {
+                dr = rows[0];
+            }
+            else
+            {
+                var cells = dataGridView1.SelectedCells;
+
+                if (cells != null && cells.Count > 0)
+                {
+                    dr = dataGridView1.Rows[cells[0].RowIndex];
+                }
+            }
+            if (dr != null)
+            {
+                if (_client.Connected)
+                {
+                    if (dr.Cells[2].Value.ToString() == "文件")
+                    {
+                        var filePath = Path.Combine(textBox1.Text, dr.Cells[0].Value.ToString());
+
+                        _loadingUserControl.Show(this);
+
+                        _loadingUserControl.Message = "正在准备上传文件...";
+
+                        Task.Run(() =>
+                        {
+                            try
+                            {
+                                _client.Upload(filePath, (o, c) =>
+                                {
+                                    _loadingUserControl.Message = $"正在上传文件,{(o * 100 / c)}%";
+                                });
+
+                                Log("上传文件成功");
+
+                                textBox2_TextChanged(null, null);
+                            }
+                            catch (Exception ex)
+                            {
+                                Log("上传文件失败！", ex.Message);
+                            }
+                            finally
+                            {
+                                _loadingUserControl.Hide(this);
+                            }
+                        });
+
+                    }
+                }
+            }
+        }
+
+        private void downloadToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            DataGridViewRow dr = null;
+
+            var rows = dataGridView2.SelectedRows;
+
+            var filePath = textBox1.Text;
+
+            if (rows != null && rows.Count > 0)
+            {
+                dr = rows[0];
+            }
+            else
+            {
+                var cells = dataGridView2.SelectedCells;
+
+                if (cells != null && cells.Count > 0)
+                {
+                    dr = dataGridView2.Rows[cells[0].RowIndex];
+                }
+            }
+            if (dr != null)
+            {
+                if (_client.Connected)
+                {
+                    if (dr.Cells[2].Value.ToString() == "文件")
+                    {
+                        var fileName = dr.Cells[0].Value.ToString();
+
+                        _loadingUserControl.Show(this);
+
+                        _loadingUserControl.Message = "正在准备下载文件...";
+
+                        Task.Run(() =>
+                        {
+                            try
+                            {
+                                _client.Download(fileName, Path.Combine(filePath, fileName), (o, c) =>
+                                {
+                                    _loadingUserControl.Message = $"正在下载文件，{(o * 100 / c)}%";
+                                });
+
+                                Log("下载文件成功");
+
+                                textBox1_TextChanged(null, null);
+                            }
+                            catch (Exception ex)
+                            {
+                                Log("下载文件失败！", ex.Message);
+                            }
+                            finally
+                            {
+                                _loadingUserControl.Hide(this);
+                            }
+                        });
+
+                    }
+                }
+            }
+        }
+
+        #endregion
+
+        #region controls
+        private void skinButton1_Click(object sender, EventArgs e)
+        {
+            if (skinButton1.Text == "Connect")
+            {
+                _loadingUserControl.Message = "正在连接到FTPServer...";
+
+                _loadingUserControl.Show(this);
+
+                groupBox1.Enabled = false;
+
+                splitContainer2.Panel2.Enabled = false;
+
+                try
+                {
+                    var ip = skinWaterTextBox1.Text;
+                    var port = int.Parse(skinWaterTextBox2.Text);
+                    var username = skinWaterTextBox3.Text;
+                    var pwd = skinWaterTextBox4.Text;
+
+                    _client = new FTPClient(ip, port, username, pwd);
+
+                    Task.Run(() =>
+                    {
+                        try
+                        {
+                            _client.Connect();
+
+                            Log($"连接到FTPServer {ip}:{port}成功");
+
+                            splitContainer2.BeginInvoke(new Action(() =>
+                            {
+                                groupBox1.Enabled = true;
+
+                                skinWaterTextBox1.Enabled = skinWaterTextBox2.Enabled
+                                = skinWaterTextBox3.Enabled
+                                = skinWaterTextBox4.Enabled = false;
+
+                                skinButton1.Enabled = true;
+                                skinButton1.Text = "DisConnect";
+
+                                splitContainer2.Panel2.Enabled = true;
+                                textBox2.Text = "/";
+                                dataGridView2.Enabled = true;
+                            }));
+                            textBox2_TextChanged(null, null);
+
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show("连接到FTPServer失败，ex:" + ex.Message);
+
+                            Log("连接到FTPServer失败", ex.Message);
+
+                            this.BeginInvoke(new Action(() =>
+                            {
+                                groupBox1.Enabled = true;
+                            }));
+
+                        }
+                        finally
+                        {
+                            _loadingUserControl.Hide(this);
+                        }
+                    });
+                }
+                catch (Exception ex)
+                {
+                    _loadingUserControl.Hide(this);
+                    MessageBox.Show("连接到FTPServer失败，ex:" + ex.Message);
+                    Log("连接到FTPServer失败", ex.Message);
+                    groupBox1.Enabled = true;
+                }
+                finally
+                {
+                    _loadingUserControl.Hide(this);
+                }
+            }
+            else
+            {
+
+                Task.Run(() =>
+                {
+                    try
+                    {
+                        _client.Quit();
+                    }
+                    catch (Exception ex)
+                    {
+                        Log("断开FTP失败", ex.Message);
+                    }
+                    finally
+                    {
+                        skinButton1.Invoke(new Action(() =>
+                        {
+                            skinWaterTextBox1.Enabled = skinWaterTextBox2.Enabled
+                                = skinWaterTextBox3.Enabled
+                                = skinWaterTextBox4.Enabled = true;
+                            skinButton1.Enabled = true;
+                            dataGridView2.Enabled = false;
+                            dataGridView2.DataSource = null;
+                            skinButton1.Text = "Connect";
+                        }));
+
+                    }
+                });
+
             }
         }
 
@@ -269,164 +513,6 @@ namespace SAEA.FTPTest
             });
         }
 
-        #region context menus
-        private void parentToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            var dir = PathHelper.GetPreDir(textBox1.Text);
-
-            if (dir != null)
-            {
-                textBox1.Text = dir.FullName;
-            }
-        }
-
-        private void parentToolStripMenuItem1_Click(object sender, EventArgs e)
-        {
-            Task.Run(() =>
-            {
-                try
-                {
-                    if (_client.ChangeToParentDir())
-                    {
-                        var cp = _client.CurrentDir();
-
-                        textBox2.Invoke(new Action(() =>
-                        {
-                            textBox2.Text = cp;
-                        }));
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Log("获取ftpserver列表失败", ex.Message);
-                }
-            });
-
-        }
-
-        private void uploadToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            DataGridViewRow dr = null;
-
-            var rows = dataGridView1.SelectedRows;
-
-            if (rows != null && rows.Count > 0)
-            {
-                dr = rows[0];
-            }
-            else
-            {
-                var cells = dataGridView1.SelectedCells;
-
-                if (cells != null && cells.Count > 0)
-                {
-                    dr = dataGridView1.Rows[cells[0].RowIndex];
-                }
-            }
-            if (dr != null)
-            {
-                if (_client.Connected)
-                {
-                    if (dr.Cells[2].Value.ToString() == "文件")
-                    {
-                        var filePath = Path.Combine(textBox1.Text, dr.Cells[0].Value.ToString());
-
-                        _loadingUserControl.Show(this);
-
-                        _loadingUserControl.Message = "正在准备上传文件...";
-
-                        Task.Run(() =>
-                        {
-                            try
-                            {
-                                _client.Upload(filePath, (o, c) =>
-                                {
-                                    _loadingUserControl.Message = $"正在上传文件,{o}/{c}";
-                                });
-
-                                Log("上传文件成功");
-
-                                textBox2_TextChanged(null, null);
-                            }
-                            catch (Exception ex)
-                            {
-                                Log("上传文件失败！", ex.Message);
-                            }
-                            finally
-                            {
-                                _loadingUserControl.Hide(this);
-                            }
-                        });
-
-                    }
-                }
-            }
-        }
-
-        private void downloadToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            DataGridViewRow dr = null;
-
-            var rows = dataGridView2.SelectedRows;
-
-            var filePath = textBox1.Text;
-
-            if (rows != null && rows.Count > 0)
-            {
-                dr = rows[0];
-            }
-            else
-            {
-                var cells = dataGridView2.SelectedCells;
-
-                if (cells != null && cells.Count > 0)
-                {
-                    dr = dataGridView2.Rows[cells[0].RowIndex];
-                }
-            }
-            if (dr != null)
-            {
-                if (_client.Connected)
-                {
-                    if (dr.Cells[2].Value.ToString() == "文件")
-                    {
-                        var fileName = dr.Cells[0].Value.ToString();
-
-                        _loadingUserControl.Show(this);
-
-                        _loadingUserControl.Message = "正在准备下载文件...";
-
-                        Task.Run(() =>
-                        {
-                            try
-                            {
-                                _client.Download(fileName, Path.Combine(filePath, fileName), (o, c) =>
-                                {
-                                    _loadingUserControl.Message = $"正在下载文件，{o}/{c}";
-                                });
-
-                                Log("下载文件成功");
-
-                                textBox1_TextChanged(null, null);
-                            }
-                            catch (Exception ex)
-                            {
-                                Log("下载文件失败！", ex.Message);
-                            }
-                            finally
-                            {
-                                _loadingUserControl.Hide(this);
-                            }
-                        });
-
-                    }
-                }
-            }
-        }
-
-        #endregion
-
-
         private void dataGridView1_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
         {
             if (e.RowIndex >= 0)
@@ -508,25 +594,7 @@ namespace SAEA.FTPTest
             }
         }
 
-        private void FtpClientForm_FormClosing(object sender, FormClosingEventArgs e)
-        {
-            e.Cancel = true;
-            notifyIcon1.ShowBalloonTip(2 * 1000);
-            this.Hide();
-
-        }
-
-        private void FtpClientForm_FormClosed(object sender, FormClosedEventArgs e)
-        {
-            try
-            {
-                if (_client != null && _client.Connected)
-                {
-                    _client.Quit();
-                }
-            }
-            catch { }
-        }
+        #endregion       
 
         #region notify
         private void notifyIcon1_DoubleClick(object sender, EventArgs e)
@@ -541,19 +609,13 @@ namespace SAEA.FTPTest
 
         private void exitToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            try
-            {
-                if (_client != null && _client.Connected)
-                {
-                    _client.Quit();
-                }
-            }
-            catch { }
+            _client?.Dispose();
             notifyIcon1.Dispose();
             Environment.Exit(-1);
         }
-        #endregion
 
+
+        #endregion
 
     }
 }
