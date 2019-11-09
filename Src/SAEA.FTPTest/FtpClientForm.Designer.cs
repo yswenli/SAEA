@@ -48,6 +48,10 @@
             this.parentToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
             this.downloadToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.textBox2 = new System.Windows.Forms.TextBox();
+            this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
+            this.contextMenuStrip3 = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.showUIToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.exitToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.groupBox1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer2)).BeginInit();
             this.splitContainer2.Panel1.SuspendLayout();
@@ -57,6 +61,7 @@
             this.contextMenuStrip1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dataGridView2)).BeginInit();
             this.contextMenuStrip2.SuspendLayout();
+            this.contextMenuStrip3.SuspendLayout();
             this.SuspendLayout();
             // 
             // skinButton1
@@ -124,42 +129,38 @@
             // 
             // logTxt
             // 
-            this.logTxt.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
+            this.logTxt.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.logTxt.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
             this.logTxt.ForeColor = System.Drawing.Color.Green;
-            this.logTxt.Location = new System.Drawing.Point(7, 567);
+            this.logTxt.Location = new System.Drawing.Point(4, 570);
             this.logTxt.Multiline = true;
             this.logTxt.Name = "logTxt";
             this.logTxt.ReadOnly = true;
             this.logTxt.ScrollBars = System.Windows.Forms.ScrollBars.Both;
-            this.logTxt.Size = new System.Drawing.Size(975, 157);
+            this.logTxt.Size = new System.Drawing.Size(981, 157);
             this.logTxt.TabIndex = 8;
             this.logTxt.WaterColor = System.Drawing.Color.FromArgb(((int)(((byte)(127)))), ((int)(((byte)(127)))), ((int)(((byte)(127)))));
             this.logTxt.WaterText = "Logs";
             // 
             // groupBox1
             // 
-            this.groupBox1.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
             this.groupBox1.Controls.Add(this.skinWaterTextBox4);
             this.groupBox1.Controls.Add(this.skinButton1);
             this.groupBox1.Controls.Add(this.skinWaterTextBox1);
             this.groupBox1.Controls.Add(this.skinWaterTextBox2);
             this.groupBox1.Controls.Add(this.skinWaterTextBox3);
-            this.groupBox1.Location = new System.Drawing.Point(7, 35);
+            this.groupBox1.Dock = System.Windows.Forms.DockStyle.Top;
+            this.groupBox1.Location = new System.Drawing.Point(4, 32);
             this.groupBox1.Name = "groupBox1";
-            this.groupBox1.Size = new System.Drawing.Size(975, 57);
+            this.groupBox1.Size = new System.Drawing.Size(981, 57);
             this.groupBox1.TabIndex = 10;
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "FTPServer";
             // 
             // splitContainer2
             // 
-            this.splitContainer2.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.splitContainer2.Location = new System.Drawing.Point(7, 106);
+            this.splitContainer2.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.splitContainer2.Location = new System.Drawing.Point(4, 89);
             this.splitContainer2.Name = "splitContainer2";
             // 
             // splitContainer2.Panel1
@@ -171,8 +172,8 @@
             // 
             this.splitContainer2.Panel2.Controls.Add(this.dataGridView2);
             this.splitContainer2.Panel2.Controls.Add(this.textBox2);
-            this.splitContainer2.Size = new System.Drawing.Size(975, 455);
-            this.splitContainer2.SplitterDistance = 454;
+            this.splitContainer2.Size = new System.Drawing.Size(981, 481);
+            this.splitContainer2.SplitterDistance = 456;
             this.splitContainer2.TabIndex = 11;
             // 
             // dataGridView1
@@ -190,7 +191,7 @@
             this.dataGridView1.Name = "dataGridView1";
             this.dataGridView1.ReadOnly = true;
             this.dataGridView1.RowTemplate.Height = 23;
-            this.dataGridView1.Size = new System.Drawing.Size(447, 417);
+            this.dataGridView1.Size = new System.Drawing.Size(449, 443);
             this.dataGridView1.TabIndex = 1;
             this.dataGridView1.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.dataGridView1_CellDoubleClick);
             // 
@@ -225,7 +226,7 @@
             this.textBox1.Margin = new System.Windows.Forms.Padding(0);
             this.textBox1.MinimumSize = new System.Drawing.Size(28, 28);
             this.textBox1.Name = "textBox1";
-            this.textBox1.Size = new System.Drawing.Size(447, 26);
+            this.textBox1.Size = new System.Drawing.Size(449, 28);
             this.textBox1.TabIndex = 0;
             this.textBox1.Text = "c:\\";
             this.textBox1.TextChanged += new System.EventHandler(this.textBox1_TextChanged);
@@ -245,7 +246,7 @@
             this.dataGridView2.Name = "dataGridView2";
             this.dataGridView2.ReadOnly = true;
             this.dataGridView2.RowTemplate.Height = 23;
-            this.dataGridView2.Size = new System.Drawing.Size(499, 417);
+            this.dataGridView2.Size = new System.Drawing.Size(503, 443);
             this.dataGridView2.TabIndex = 3;
             this.dataGridView2.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.dataGridView2_CellDoubleClick);
             // 
@@ -281,10 +282,41 @@
             this.textBox2.MinimumSize = new System.Drawing.Size(28, 28);
             this.textBox2.Name = "textBox2";
             this.textBox2.ReadOnly = true;
-            this.textBox2.Size = new System.Drawing.Size(499, 26);
+            this.textBox2.Size = new System.Drawing.Size(503, 28);
             this.textBox2.TabIndex = 2;
             this.textBox2.Text = "/";
             this.textBox2.TextChanged += new System.EventHandler(this.textBox2_TextChanged);
+            // 
+            // notifyIcon1
+            // 
+            this.notifyIcon1.BalloonTipTitle = "SAEA.FTPClient";
+            this.notifyIcon1.ContextMenuStrip = this.contextMenuStrip3;
+            this.notifyIcon1.Icon = ((System.Drawing.Icon)(resources.GetObject("notifyIcon1.Icon")));
+            this.notifyIcon1.Text = "SAEA.FTPClient";
+            this.notifyIcon1.Visible = true;
+            this.notifyIcon1.DoubleClick += new System.EventHandler(this.notifyIcon1_DoubleClick);
+            // 
+            // contextMenuStrip3
+            // 
+            this.contextMenuStrip3.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.showUIToolStripMenuItem,
+            this.exitToolStripMenuItem});
+            this.contextMenuStrip3.Name = "contextMenuStrip3";
+            this.contextMenuStrip3.Size = new System.Drawing.Size(125, 48);
+            // 
+            // showUIToolStripMenuItem
+            // 
+            this.showUIToolStripMenuItem.Name = "showUIToolStripMenuItem";
+            this.showUIToolStripMenuItem.Size = new System.Drawing.Size(124, 22);
+            this.showUIToolStripMenuItem.Text = "显示界面";
+            this.showUIToolStripMenuItem.Click += new System.EventHandler(this.showUIToolStripMenuItem_Click);
+            // 
+            // exitToolStripMenuItem
+            // 
+            this.exitToolStripMenuItem.Name = "exitToolStripMenuItem";
+            this.exitToolStripMenuItem.Size = new System.Drawing.Size(124, 22);
+            this.exitToolStripMenuItem.Text = "退出";
+            this.exitToolStripMenuItem.Click += new System.EventHandler(this.exitToolStripMenuItem_Click);
             // 
             // FtpClientForm
             // 
@@ -297,6 +329,9 @@
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Name = "FtpClientForm";
             this.Text = "FtpClientForm";
+            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.FtpClientForm_FormClosing);
+            this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.FtpClientForm_FormClosed);
+            this.Load += new System.EventHandler(this.FtpClientForm_Load);
             this.groupBox1.ResumeLayout(false);
             this.groupBox1.PerformLayout();
             this.splitContainer2.Panel1.ResumeLayout(false);
@@ -309,6 +344,7 @@
             this.contextMenuStrip1.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.dataGridView2)).EndInit();
             this.contextMenuStrip2.ResumeLayout(false);
+            this.contextMenuStrip3.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -333,5 +369,9 @@
         private System.Windows.Forms.ToolStripMenuItem downloadToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem parentToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem parentToolStripMenuItem1;
+        private System.Windows.Forms.NotifyIcon notifyIcon1;
+        private System.Windows.Forms.ContextMenuStrip contextMenuStrip3;
+        private System.Windows.Forms.ToolStripMenuItem showUIToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem exitToolStripMenuItem;
     }
 }

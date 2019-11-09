@@ -19,6 +19,8 @@ namespace SAEA.FTPTest
     {
         FTPClient _client = null;
 
+        LoadingUserControl _loadingUserControl;
+
         public FtpClientForm()
         {
             InitializeComponent();
@@ -26,10 +28,27 @@ namespace SAEA.FTPTest
             textBox1_TextChanged(null, null);
         }
 
+        private void FtpClientForm_Load(object sender, EventArgs e)
+        {
+            _loadingUserControl = new LoadingUserControl();
+
+            _loadingUserControl.Size = this.Size;
+
+            _loadingUserControl.Hide(this);
+
+            this.Controls.Add(_loadingUserControl);
+
+            this.Controls.SetChildIndex(_loadingUserControl, 9999);
+        }
+
         private void skinButton1_Click(object sender, EventArgs e)
         {
+            _loadingUserControl.Show(this);
+
             groupBox1.Enabled = false;
+
             splitContainer2.Panel2.Enabled = false;
+
             try
             {
                 var ip = skinWaterTextBox1.Text;
@@ -58,20 +77,31 @@ namespace SAEA.FTPTest
                     catch (Exception ex)
                     {
                         MessageBox.Show("连接到FTP失败，ex:" + ex.Message);
+
                         Log("连接到FTP失败", ex.Message);
 
                         this.BeginInvoke(new Action(() =>
                         {
                             groupBox1.Enabled = true;
                         }));
+
+                    }
+                    finally
+                    {
+                        _loadingUserControl.Hide(this);
                     }
                 });
             }
             catch (Exception ex)
             {
+                _loadingUserControl.Hide(this);
                 MessageBox.Show("连接到FTP失败，ex:" + ex.Message);
                 Log("连接到FTP失败", ex.Message);
                 groupBox1.Enabled = true;
+            }
+            finally
+            {
+                _loadingUserControl.Hide(this);
             }
         }
 
@@ -145,6 +175,8 @@ namespace SAEA.FTPTest
 
         private void textBox2_TextChanged(object sender, EventArgs e)
         {
+            _loadingUserControl.Show(this);
+
             Task.Run(() =>
             {
                 try
@@ -212,6 +244,10 @@ namespace SAEA.FTPTest
                 catch (Exception ex)
                 {
                     Log("初始化ftpserver列表失败", ex.Message);
+                }
+                finally
+                {
+                    _loadingUserControl.Hide(this);
                 }
             });
         }
@@ -389,5 +425,50 @@ namespace SAEA.FTPTest
                 });
             }
         }
+
+        private void FtpClientForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            e.Cancel = true;
+            this.Hide();
+        }
+
+        private void FtpClientForm_FormClosed(object sender, FormClosedEventArgs e)
+        {
+            try
+            {
+                if (_client != null && _client.Connected)
+                {
+                    _client.Quit();
+                }
+            }
+            catch { }
+        }
+
+        #region notify
+        private void notifyIcon1_DoubleClick(object sender, EventArgs e)
+        {
+            this.Show();
+        }
+
+        private void showUIToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            this.Show();
+        }
+
+        private void exitToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (_client != null && _client.Connected)
+                {
+                    _client.Quit();
+                }
+            }
+            catch { }
+            Environment.Exit(-1);
+        }
+        #endregion
+
+
     }
 }

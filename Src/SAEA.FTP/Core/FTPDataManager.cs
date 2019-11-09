@@ -41,6 +41,7 @@ namespace SAEA.FTP.Core
             {
                 using (var fs = File.Open(_filePath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None))
                 {
+                    fs.Position = fs.Length;
                     fs.Write(data, 0, data.Length);
                 }
             }

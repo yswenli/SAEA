@@ -45,8 +45,9 @@
     <ApplicationIcon>favicon.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="CSkin">
-      <HintPath>..\..\..\..\生成工具\WEF\ModelGenerator\bin\Debug\CSkin.dll</HintPath>
+    <Reference Include="CSkin, Version=16.1.14.2, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\CSkin\CSkin 16.1.14.2\CSkin 16.1.14.2\CSkin 4.0\CSkin.dll</HintPath>
     </Reference>
     <Reference Include="Newtonsoft.Json, Version=12.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\packages\Newtonsoft.Json.12.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
@@ -89,9 +90,20 @@
     <Compile Include="FtpClientForm.Designer.cs">
       <DependentUpon>FtpClientForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="LoadingUserControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="LoadingUserControl.Designer.cs">
+      <DependentUpon>LoadingUserControl.cs</DependentUpon>
+    </Compile>
     <Compile Include="Model\ListInfo.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
@@ -111,9 +123,17 @@
     <EmbeddedResource Include="FtpClientForm.resx">
       <DependentUpon>FtpClientForm.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="LoadingUserControl.resx">
+      <DependentUpon>LoadingUserControl.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
     <Content Include="favicon.ico" />
+    <Content Include="loading.gif" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
