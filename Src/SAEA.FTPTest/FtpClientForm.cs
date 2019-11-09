@@ -316,6 +316,7 @@ namespace SAEA.FTPTest
                         }
                         catch { }
                     }
+                    textBox1_TextChanged(null, null);
                 }
             }
         }
@@ -389,6 +390,7 @@ namespace SAEA.FTPTest
                             }
                         });
                     }
+                    textBox2_TextChanged(null, null);
                 }
             }
         }
