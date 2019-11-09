@@ -246,7 +246,7 @@ namespace SAEA.FTP
 
                 var sres = _client.BaseSend($"{FTPCommand.RETR} {fileName}");
 
-                if (sres.Code == ServerResponseCode.结束数据连接)
+                if (sres.Code == ServerResponseCode.结束数据连接 || sres.Code == ServerResponseCode.打开连接)
                 {
                     if (FTPDataManager.Checked(timeOut))
                     {

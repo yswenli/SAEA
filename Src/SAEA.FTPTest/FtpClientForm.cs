@@ -169,8 +169,21 @@ namespace SAEA.FTPTest
                 }
             }
 
-            dataGridView1.DataSource = null;
-            dataGridView1.DataSource = listInfos;
+            var action = new Action(() =>
+            {
+                dataGridView1.DataSource = null;
+                dataGridView1.DataSource = listInfos;
+            });
+
+            if (dataGridView1.InvokeRequired)
+            {
+                dataGridView1.Invoke(action);
+            }
+            else
+            {
+                action?.Invoke();
+            }
+
         }
 
         private void textBox2_TextChanged(object sender, EventArgs e)
@@ -339,7 +352,52 @@ namespace SAEA.FTPTest
 
         private void downloadToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            DataGridViewRow dr = null;
 
+            var rows = dataGridView2.SelectedRows;
+
+            var filePath = textBox1.Text;
+
+            if (rows != null && rows.Count > 0)
+            {
+                dr = rows[0];
+            }
+            else
+            {
+                var cells = dataGridView2.SelectedCells;
+
+                if (cells != null && cells.Count > 0)
+                {
+                    dr = dataGridView2.Rows[cells[0].RowIndex];
+                }
+            }
+            if (dr != null)
+            {
+                if (_client.Connected)
+                {
+                    if (dr.Cells[2].Value.ToString() == "文件")
+                    {
+                        var fileName = dr.Cells[0].Value.ToString();
+
+                        Task.Run(() =>
+                        {
+                            try
+                            {
+                                _client.Download(fileName, Path.Combine(filePath, fileName));
+
+                                Log("下载文件成功");
+
+                                textBox1_TextChanged(null, null);
+                            }
+                            catch (Exception ex)
+                            {
+                                Log("下载文件失败！", ex.Message);
+                            }
+                        });
+
+                    }
+                }
+            }
         }
 
         #endregion
