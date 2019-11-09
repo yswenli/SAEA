@@ -163,7 +163,9 @@ namespace SAEA.FTPTest
                 {
                     if (dr.Cells[2].Value.ToString() == "文件")
                     {
-                        var filePath = Path.Combine(textBox1.Text, dr.Cells[0].Value.ToString());
+                        var fileName = dr.Cells[0].Value.ToString();
+
+                        var filePath = Path.Combine(textBox1.Text, fileName);
 
                         _loadingUserControl.Show(this);
 
@@ -173,18 +175,30 @@ namespace SAEA.FTPTest
                         {
                             try
                             {
+                                long size = 0;
+
                                 _client.Upload(filePath, (o, c) =>
                                 {
+                                    size = c;
                                     _loadingUserControl.Message = $"正在上传文件,{(o * 100 / c)}%";
                                 });
 
-                                Log("上传文件成功");
+                                var rs = _client.FileSize(fileName);
 
-                                textBox2_TextChanged(null, null);
+                                if (rs == size)
+                                {
+                                    Log("上传文件成功，fileName:" + fileName);
+
+                                    textBox2_TextChanged(null, null);
+                                }
+                                else
+                                {
+                                    Log("上传文件失败，fileName:" + fileName, "未能完整上传文件！");
+                                }
                             }
                             catch (Exception ex)
                             {
-                                Log("上传文件失败！", ex.Message);
+                                Log("上传文件失败，fileName:" + fileName, ex.Message);
                             }
                             finally
                             {
@@ -239,13 +253,13 @@ namespace SAEA.FTPTest
                                     _loadingUserControl.Message = $"正在下载文件，{(o * 100 / c)}%";
                                 });
 
-                                Log("下载文件成功");
+                                Log("下载文件成功，fileName:" + fileName);
 
                                 textBox1_TextChanged(null, null);
                             }
                             catch (Exception ex)
                             {
-                                Log("下载文件失败！", ex.Message);
+                                Log("下载文件失败，fileName:" + fileName, ex.Message);
                             }
                             finally
                             {
@@ -253,6 +267,127 @@ namespace SAEA.FTPTest
                             }
                         });
 
+                    }
+                }
+            }
+        }
+        private void deleteToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (MessageBox.Show("确定要删除此项吗？", "SAEA.FtpClient", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
+            {
+                DataGridViewRow dr = null;
+
+                var rows = dataGridView1.SelectedRows;
+
+                var filePath = textBox1.Text;
+
+                if (rows != null && rows.Count > 0)
+                {
+                    dr = rows[0];
+                }
+                else
+                {
+                    var cells = dataGridView1.SelectedCells;
+
+                    if (cells != null && cells.Count > 0)
+                    {
+                        dr = dataGridView1.Rows[cells[0].RowIndex];
+                    }
+                }
+                if (dr != null)
+                {
+                    var fileName = dr.Cells[0].Value.ToString();
+
+                    var type = dr.Cells[2].Value.ToString();
+
+                    if (type == "文件")
+                    {
+                        try
+                        {
+                            File.Delete(Path.Combine(textBox1.Text, fileName));
+                        }
+                        catch { }
+                    }
+                    else
+                    {
+                        try
+                        {
+                            Directory.Delete(Path.Combine(textBox1.Text, fileName));
+                        }
+                        catch { }
+                    }
+                }
+            }
+        }
+
+        private void deleteToolStripMenuItem1_Click(object sender, EventArgs e)
+        {
+            if (MessageBox.Show("确定要删除此项吗？", "SAEA.FtpClient", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
+            {
+                DataGridViewRow dr = null;
+
+                var rows = dataGridView2.SelectedRows;
+
+                var filePath = textBox1.Text;
+
+                if (rows != null && rows.Count > 0)
+                {
+                    dr = rows[0];
+                }
+                else
+                {
+                    var cells = dataGridView2.SelectedCells;
+
+                    if (cells != null && cells.Count > 0)
+                    {
+                        dr = dataGridView2.Rows[cells[0].RowIndex];
+                    }
+                }
+                if (dr != null)
+                {
+                    var fileName = dr.Cells[0].Value.ToString();
+
+                    var type = dr.Cells[2].Value.ToString();
+
+                    _loadingUserControl.Message = $"正在删除{type}...";
+
+                    _loadingUserControl.Show(this);
+
+                    if (type == "文件")
+                    {
+                        Task.Run(() =>
+                        {
+                            try
+                            {
+                                _client.Delete(fileName);
+                            }
+                            catch (Exception ex)
+                            {
+                                Log($"删除文件{fileName}失败", ex.Message);
+                            }
+                            finally
+                            {
+                                _loadingUserControl.Hide(this);
+                            }
+                        });
+                    }
+                    else
+                    {
+                        Task.Run(() =>
+                        {
+                            try
+                            {
+                                _client.RemoveDir(fileName);
+                            }
+                            catch (Exception ex)
+                            {
+                                Log($"删除文件夹{fileName}失败", ex.Message);
+                            }
+                            finally
+                            {
+                                _loadingUserControl.Hide(this);
+                            }
+                        });
                     }
                 }
             }
@@ -616,6 +751,7 @@ namespace SAEA.FTPTest
 
 
         #endregion
+
 
     }
 }
