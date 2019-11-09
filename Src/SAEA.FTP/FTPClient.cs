@@ -228,20 +228,20 @@ namespace SAEA.FTP
                 {
                     count = fs.Length;
 
-                    byte[] data = new byte[10240];
+                    byte[] data = new byte[_client.Config.BufferSize];
 
                     int numBytesRead = 0;
 
                     while (true)
                     {
-                        int n = fs.Read(data, 0, 10240);
+                        int n = fs.Read(data, 0, _client.Config.BufferSize);
 
                         if (n == 0)
                             break;
 
                         offset = numBytesRead += n;
 
-                        if (n == 10240)
+                        if (n == _client.Config.BufferSize)
                         {
                             dataSocket.Send(data);
                         }

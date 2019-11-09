@@ -21,9 +21,7 @@ using SAEA.FTP.Model;
 using SAEA.Sockets;
 using SAEA.Sockets.Handler;
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text;
 
 namespace SAEA.FTP.Net
@@ -44,7 +42,7 @@ namespace SAEA.FTP.Net
 
         ClientConfig _config;
 
-        public ClientConfig ClientConfig { get => _config; set => _config = value; }
+        public ClientConfig Config { get => _config; set => _config = value; }
 
         public bool Connected { get; set; } = false;
 
