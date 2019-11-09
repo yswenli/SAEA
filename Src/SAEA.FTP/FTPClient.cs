@@ -197,7 +197,7 @@ namespace SAEA.FTP
         }
 
 
-        public void Upload(string filePath)
+        public void Upload(string filePath, Action<long, long> uploading = null)
         {
             using (var dataSocket = _client.CreateDataConnection())
             {
@@ -210,8 +210,26 @@ namespace SAEA.FTP
                     throw new IOException($"code:{sres.Code},reply:{sres.Reply}");
                 }
 
+                long count = 1;
+
+                long offset = 0;
+
+                TaskHelper.Start(() =>
+                {
+                    while (true)
+                    {
+                        ThreadHelper.Sleep(1000);
+                        uploading?.Invoke(offset, count);
+
+                        if (offset == count) break;
+                    }
+                });
+
+
                 using (var fs = File.Open(filePath, FileMode.Open, FileAccess.Read))
                 {
+                    count = fs.Length;
+
                     byte[] data = new byte[10240];
 
                     int numBytesRead = 0;
@@ -223,7 +241,7 @@ namespace SAEA.FTP
                         if (n == 0)
                             break;
 
-                        numBytesRead += n;
+                        offset = numBytesRead += n;
 
                         if (n == 1024)
                         {
@@ -238,9 +256,21 @@ namespace SAEA.FTP
             }
         }
 
-        public string Download(string fileName, string filePath)
+        public string Download(string fileName, string filePath, Action<long, long> downing = null)
         {
-            var size = FileSize(fileName);
+            var count = FileSize(fileName);
+
+            long offset = 0;
+
+            TaskHelper.Start(() =>
+            {
+                while (true)
+                {
+                    ThreadHelper.Sleep(1000);
+                    downing?.Invoke(offset, count);
+                    if (offset == count) break;
+                }
+            });
 
             using (var dataSocket = _client.CreateDataConnection())
             {
@@ -250,9 +280,11 @@ namespace SAEA.FTP
 
                 if (sres.Code == ServerResponseCode.结束数据连接 || sres.Code == ServerResponseCode.打开连接)
                 {
-                    while (size > FTPDataManager.Checked(size))
+                    while (true)
                     {
                         ThreadHelper.Sleep(500);
+                        offset = FTPDataManager.Checked(count);
+                        if (offset == count) break;
                     }
                     return filePath;
                 }

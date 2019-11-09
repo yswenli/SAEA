@@ -14,11 +14,36 @@ namespace SAEA.FTPTest
         {
             get
             {
-                return skinLabel1.Text;
+                string msg = string.Empty;
+
+                var action = new Action(() =>
+                {
+                    msg = skinLabel1.Text;
+                });
+                if (this.InvokeRequired)
+                {
+                    this.Invoke(action);
+                }
+                else
+                {
+                    action.Invoke();
+                }
+                return msg;
             }
             set
             {
-                skinLabel1.Text = value;
+                var action = new Action(() =>
+                {
+                    skinLabel1.Text = value;
+                });
+                if (this.InvokeRequired)
+                {
+                    this.Invoke(action);
+                }
+                else
+                {
+                    action.Invoke();
+                }
             }
         }
 

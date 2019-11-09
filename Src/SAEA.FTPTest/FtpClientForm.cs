@@ -43,6 +43,8 @@ namespace SAEA.FTPTest
 
         private void skinButton1_Click(object sender, EventArgs e)
         {
+            _loadingUserControl.Message = "正在连接到FTPServer...";
+
             _loadingUserControl.Show(this);
 
             groupBox1.Enabled = false;
@@ -188,6 +190,8 @@ namespace SAEA.FTPTest
 
         private void textBox2_TextChanged(object sender, EventArgs e)
         {
+            _loadingUserControl.Message = "正在获取FTPServer文件列表...";
+
             _loadingUserControl.Show(this);
 
             Task.Run(() =>
@@ -302,8 +306,6 @@ namespace SAEA.FTPTest
 
         private void uploadToolStripMenuItem_Click(object sender, EventArgs e)
         {
-
-
             DataGridViewRow dr = null;
 
             var rows = dataGridView1.SelectedRows;
@@ -331,11 +333,16 @@ namespace SAEA.FTPTest
 
                         _loadingUserControl.Show(this);
 
+                        _loadingUserControl.Message = "正在准备上传文件...";
+
                         Task.Run(() =>
                         {
                             try
                             {
-                                _client.Upload(filePath);
+                                _client.Upload(filePath, (o, c) =>
+                                {
+                                    _loadingUserControl.Message = $"正在上传文件,{o}/{c}";
+                                });
 
                                 Log("上传文件成功");
 
@@ -387,11 +394,16 @@ namespace SAEA.FTPTest
 
                         _loadingUserControl.Show(this);
 
+                        _loadingUserControl.Message = "正在准备下载文件...";
+
                         Task.Run(() =>
                         {
                             try
                             {
-                                _client.Download(fileName, Path.Combine(filePath, fileName));
+                                _client.Download(fileName, Path.Combine(filePath, fileName), (o, c) =>
+                                {
+                                    _loadingUserControl.Message = $"正在下载文件，{o}/{c}";
+                                });
 
                                 Log("下载文件成功");
 
