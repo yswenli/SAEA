@@ -297,6 +297,7 @@ namespace SAEA.FTPTest
                 }
             }
         }
+
         private void deleteToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (MessageBox.Show("确定要删除此项吗？", "SAEA.FtpClient", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
@@ -818,12 +819,14 @@ namespace SAEA.FTPTest
 
         private void exitToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            _client?.Dispose();
+            try
+            {
+                _client?.Dispose();               
+            }
+            catch { }
             notifyIcon1.Dispose();
             Environment.Exit(-1);
         }
-
-
 
         #endregion
 
