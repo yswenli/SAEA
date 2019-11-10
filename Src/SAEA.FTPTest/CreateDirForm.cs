@@ -16,7 +16,14 @@ namespace SAEA.FTPTest
 
         private void skinButton1_Click(object sender, EventArgs e)
         {
+
             var pathName = skinWaterTextBox1.Text;
+
+            if (string.IsNullOrWhiteSpace(pathName))
+            {
+                MessageBox.Show("名称不能为空！");
+                return;
+            }
 
             if (Path.GetInvalidPathChars().Any(b => pathName.Contains(b)))
             {
