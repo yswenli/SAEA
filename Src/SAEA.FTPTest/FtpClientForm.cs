@@ -49,6 +49,88 @@ namespace SAEA.FTPTest
             }
         }
 
+        void Upload(string fileName, string filePath)
+        {
+            _loadingUserControl.Show(this);
+
+            _loadingUserControl.Message = "正在准备上传文件...";
+
+            Task.Run(() =>
+            {
+                try
+                {
+                    long size = 0;
+
+                    _client.Upload(filePath, (o, c) =>
+                    {
+                        size = c;
+                        _loadingUserControl.Message = $"正在上传文件:{fileName},{(o * 100 / c)}%";
+                    });
+
+                    var rs = _client.FileSize(fileName);
+
+                    if (rs == size)
+                    {
+                        Log("上传文件成功，fileName:" + fileName);
+
+                        textBox2_TextChanged(null, null);
+                    }
+                    else
+                    {
+                        Log("上传文件失败，fileName:" + fileName, "未能完整上传文件！");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log("上传文件失败，fileName:" + fileName, ex.Message);
+                }
+                finally
+                {
+                    _loadingUserControl.Hide(this);
+                }
+            });
+        }
+
+        void Download(string fileName, string filePath)
+        {
+            _loadingUserControl.Show(this);
+
+            _loadingUserControl.Message = "正在准备下载文件...";
+
+            Task.Run(() =>
+            {
+                try
+                {
+                    _client.Download(fileName, Path.Combine(filePath, fileName), (o, c) =>
+                    {
+                        _loadingUserControl.Message = $"正在下载文件:{fileName}，{(o * 100 / c)}%";
+                    });
+
+                    Log("下载文件成功，fileName:" + fileName);
+
+                    textBox1_TextChanged(null, null);
+                }
+                catch (Exception ex)
+                {
+                    Log("下载文件失败，fileName:" + fileName, ex.Message);
+                }
+                finally
+                {
+                    _loadingUserControl.Hide(this);
+                }
+            });
+        }
+
+
+        void CreateLocalDir()
+        {
+
+        }
+
+        void CreateRemoteDir()
+        {
+
+        }
         #endregion
 
         #region form event
@@ -167,45 +249,11 @@ namespace SAEA.FTPTest
 
                         var filePath = Path.Combine(textBox1.Text, fileName);
 
-                        _loadingUserControl.Show(this);
-
-                        _loadingUserControl.Message = "正在准备上传文件...";
-
-                        Task.Run(() =>
-                        {
-                            try
-                            {
-                                long size = 0;
-
-                                _client.Upload(filePath, (o, c) =>
-                                {
-                                    size = c;
-                                    _loadingUserControl.Message = $"正在上传文件,{(o * 100 / c)}%";
-                                });
-
-                                var rs = _client.FileSize(fileName);
-
-                                if (rs == size)
-                                {
-                                    Log("上传文件成功，fileName:" + fileName);
-
-                                    textBox2_TextChanged(null, null);
-                                }
-                                else
-                                {
-                                    Log("上传文件失败，fileName:" + fileName, "未能完整上传文件！");
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                Log("上传文件失败，fileName:" + fileName, ex.Message);
-                            }
-                            finally
-                            {
-                                _loadingUserControl.Hide(this);
-                            }
-                        });
-
+                        Upload(fileName, filePath);
+                    }
+                    else
+                    {
+                        MessageBox.Show("不支持文件夹！");
                     }
                 }
             }
@@ -240,33 +288,11 @@ namespace SAEA.FTPTest
                     {
                         var fileName = dr.Cells[0].Value.ToString();
 
-                        _loadingUserControl.Show(this);
-
-                        _loadingUserControl.Message = "正在准备下载文件...";
-
-                        Task.Run(() =>
-                        {
-                            try
-                            {
-                                _client.Download(fileName, Path.Combine(filePath, fileName), (o, c) =>
-                                {
-                                    _loadingUserControl.Message = $"正在下载文件，{(o * 100 / c)}%";
-                                });
-
-                                Log("下载文件成功，fileName:" + fileName);
-
-                                textBox1_TextChanged(null, null);
-                            }
-                            catch (Exception ex)
-                            {
-                                Log("下载文件失败，fileName:" + fileName, ex.Message);
-                            }
-                            finally
-                            {
-                                _loadingUserControl.Hide(this);
-                            }
-                        });
-
+                        Download(fileName, filePath);
+                    }
+                    else
+                    {
+                        MessageBox.Show("不支持文件夹！");
                     }
                 }
             }
@@ -361,6 +387,10 @@ namespace SAEA.FTPTest
                             try
                             {
                                 _client.Delete(fileName);
+
+                                Log($"删除文件{fileName}成功");
+
+                                textBox2_TextChanged(null, null);
                             }
                             catch (Exception ex)
                             {
@@ -379,6 +409,10 @@ namespace SAEA.FTPTest
                             try
                             {
                                 _client.RemoveDir(fileName);
+
+                                Log($"删除文件夹{fileName}成功");
+
+                                textBox2_TextChanged(null, null);
                             }
                             catch (Exception ex)
                             {
@@ -390,11 +424,49 @@ namespace SAEA.FTPTest
                             }
                         });
                     }
-                    textBox2_TextChanged(null, null);
                 }
             }
         }
 
+
+        private void createDirToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var cdf = new CreateDirForm();
+            if (cdf.ShowDialog(this) == DialogResult.OK)
+            {
+                var pathName = cdf.PathName;
+
+                Directory.CreateDirectory(Path.Combine(textBox1.Text, pathName));
+
+                textBox1_TextChanged(null, null);
+            }
+        }
+
+        private void createDirToolStripMenuItem1_Click(object sender, EventArgs e)
+        {
+            var cdf = new CreateDirForm();
+
+            if (cdf.ShowDialog(this) == DialogResult.OK)
+            {
+                var pathName = cdf.PathName;
+
+                if (_client != null && _client.Connected)
+                {
+                    try
+                    {
+                        _client.MakeDir(pathName);
+
+                        textBox2_TextChanged(null, null);
+
+                        Log($"创建文件夹：{pathName} 成功");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log($"创建文件夹：{pathName} 失败", ex.Message);
+                    }
+                }
+            }
+        }
         #endregion
 
         #region controls
@@ -752,8 +824,8 @@ namespace SAEA.FTPTest
         }
 
 
-        #endregion
 
+        #endregion
 
     }
 }

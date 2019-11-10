@@ -156,7 +156,7 @@ namespace SAEA.FTP
         {
             var sres = _client.BaseSend($"{FTPCommand.MKD} {pathName}");
 
-            if (sres.Code != ServerResponseCode.文件行为完成)
+            if (sres.Code != ServerResponseCode.文件行为完成 && sres.Code != ServerResponseCode.路径名建立)
             {
                 throw new IOException($"code:{sres.Code},reply:{sres.Reply}");
             }

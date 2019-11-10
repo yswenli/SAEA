@@ -84,6 +84,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CreateDirForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="CreateDirForm.Designer.cs">
+      <DependentUpon>CreateDirForm.cs</DependentUpon>
+    </Compile>
     <Compile Include="FtpClientForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -120,6 +126,9 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="CreateDirForm.resx">
+      <DependentUpon>CreateDirForm.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="FtpClientForm.resx">
       <DependentUpon>FtpClientForm.cs</DependentUpon>
     </EmbeddedResource>
