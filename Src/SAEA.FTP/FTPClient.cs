@@ -216,10 +216,10 @@ namespace SAEA.FTP
                 TaskHelper.Start(() =>
                 {
                     while (true)
-                    {
-                        ThreadHelper.Sleep(1000);
+                    {                        
                         uploading?.Invoke(offset, count);
                         if (offset == count) break;
+                        ThreadHelper.Sleep(1000);
                     }
                 });
 
@@ -263,10 +263,10 @@ namespace SAEA.FTP
             TaskHelper.Start(() =>
             {
                 while (true)
-                {
-                    ThreadHelper.Sleep(1000);
+                {                    
                     downing?.Invoke(offset, count);
                     if (offset == count) break;
+                    ThreadHelper.Sleep(1000);
                 }
             });
 
