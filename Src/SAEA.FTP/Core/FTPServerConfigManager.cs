@@ -27,9 +27,15 @@ namespace SAEA.FTP.Core
 
         static ConfigHelper<ServerConfig> _configHelper;
 
+        static ConcurrentDictionary<string, string> _userBinds;
+
         static FTPServerConfigManager()
         {
             _configHelper = new ConfigHelper<ServerConfig>("Configs", "FTPServer.Config");
+
+            Get();
+
+            _userBinds = new ConcurrentDictionary<string, string>();
         }
 
         public static ServerConfig Get()
@@ -46,6 +52,11 @@ namespace SAEA.FTP.Core
             return sc;
         }
 
+        public static void Set(int port, int bufferSize = 10240)
+        {
+            _serverConfig.Port = port;
+            _serverConfig.BufferSize = 10240;
+        }
 
         public static void Save()
         {
@@ -75,5 +86,31 @@ namespace SAEA.FTP.Core
             }
             return null;
         }
+
+        #region user binding
+
+        public static void UserBinding(string id, string userName)
+        {
+            _userBinds.AddOrUpdate(id, userName, (k, v) => userName);
+        }
+
+        public static string GetUserBind(string id)
+        {
+            if (_userBinds.TryGetValue(id, out string userName))
+            {
+                return userName;
+            }
+            return string.Empty;
+        }
+
+        public static void RemoveUserBind(string id)
+        {
+            _userBinds.TryRemove(id, out string userName);
+        }
+
+        #endregion
+
+
+
     }
 }
