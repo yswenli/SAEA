@@ -17,7 +17,9 @@
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.FTP.Core;
+using SAEA.FTP.Model;
 using SAEA.Sockets;
+using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -31,6 +33,8 @@ namespace SAEA.FTP.Net
         ServerConfig _serverConfig;
 
         FTPStream _ftpStream;
+
+        public event Action OnReceived;
 
         public ServerConfig Config { get => _serverConfig; set => _serverConfig = value; }
 
@@ -58,20 +62,62 @@ namespace SAEA.FTP.Net
             _ftpStream = new FTPStream();
         }
 
+        public void Start()
+        {
+            _serverSocket.Start();
+        }
+
+        public void Stop()
+        {
+            _serverSocket.Stop();
+        }
+
         private void _serverSocket_OnError(string ID, Exception ex)
         {
             LogHelper.Error("FTPServer Error", ex);
         }
-      
+
         private void _serverSocket_OnReceive(object currentObj, byte[] data)
         {
-            throw new NotImplementedException();
+            _ftpStream.Write(data);
+
+            var msg = _ftpStream.ReadLine();
+
+            if (!string.IsNullOrWhiteSpace(msg))
+            {
+                OnReceived?.Invoke();
+            }
         }
         private void _serverSocket_OnDisconnected(string ID, Exception ex)
         {
             throw new NotImplementedException();
         }
 
+        public IServerSokcet CreateDataSocket(int port = 22)
+        {
+            var option = SocketOptionBuilder.Instance
+               .SetSocket()
+               .UseIocp()
+               .SetPort(port)
+               .SetReadBufferSize(_serverConfig.BufferSize)
+               .SetWriteBufferSize(_serverConfig.BufferSize)
+               .Build();
+            var dataSocket = SocketFactory.CreateServerSocket(option);
+            dataSocket.OnError += _serverSocket_OnError;
+            dataSocket.OnReceive += DataSocket_OnReceive;
+            dataSocket.Start();
+            return dataSocket;
+        }
+
+        private void DataSocket_OnReceive(object currentObj, byte[] data)
+        {
+            var ut = currentObj as IUserToken;
+
+            if(_serverConfig.Users.TryGetValue(ut.ID,out FTPUser ftpUser))
+            {
+                ftpUser.FTPDataManager.Receive(data);
+            }
+        }
 
         public void Dispose()
         {

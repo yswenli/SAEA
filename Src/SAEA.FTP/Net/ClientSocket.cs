@@ -46,6 +46,8 @@ namespace SAEA.FTP.Net
 
         public bool Connected { get; set; } = false;
 
+        public FTPDataManager FTPDataManager { get; set; }
+
         public ClientSocket(ClientConfig config)
         {
             _config = config;
@@ -67,6 +69,8 @@ namespace SAEA.FTP.Net
             _ftpStream = new FTPStream();
             _syncHelper1 = new SyncHelper<ServerResponse>();
             _syncHelper2 = new SyncHelper<ServerResponse>();
+
+            FTPDataManager = new FTPDataManager();
         }
 
 
@@ -115,7 +119,7 @@ namespace SAEA.FTP.Net
                     throw new Exception(result.Reply);
                 }
 
-                result = BaseSend($"{FTPCommand.USER} {_config.UserName}");
+                result = Send($"{FTPCommand.USER} {_config.UserName}");
 
                 if (result.Code != ServerResponseCode.登录因特网 && result.Code != ServerResponseCode.要求密码)
                 {
@@ -125,7 +129,7 @@ namespace SAEA.FTP.Net
 
                 if (result.Code == ServerResponseCode.要求密码)
                 {
-                    result = BaseSend($"{FTPCommand.PASS} {_config.Password}");
+                    result = Send($"{FTPCommand.PASS} {_config.Password}");
 
                     if (result.Code != ServerResponseCode.登录因特网 && result.Code != ServerResponseCode.初始命令没有执行)
                     {
@@ -134,7 +138,7 @@ namespace SAEA.FTP.Net
                     }
                 }
 
-                result = BaseSend($"{FTPCommand.SYST}");
+                result = Send($"{FTPCommand.SYST}");
 
                 if (result.Code != ServerResponseCode.系统类型回复)
                 {
@@ -150,26 +154,31 @@ namespace SAEA.FTP.Net
 
         public ServerResponse SetUtf8()
         {
-            var result = BaseSend("OPTS UTF8 ON");
+            var result = Send("OPTS UTF8 ON");
 
             return result;
         }
 
-        public ServerResponse BaseSend(string cmd, Action action = null)
+        ServerResponse Send(string cmd)
         {
-            if (!Connected) throw new IOException("Connection disconnected");
-
             ServerResponse result = null;
-            
+
             _syncHelper2.Wait(() =>
             {
                 _cmdSocket.SendAsync(Encoding.UTF8.GetBytes(cmd + Environment.NewLine));
-                action?.BeginInvoke(null, null);
             }, (r) =>
             {
                 result = r;
             });
             return result;
+        }
+
+
+        public ServerResponse BaseSend(string cmd, Action action = null)
+        {
+            if (!Connected) throw new IOException("Network connection disconnected");
+            
+            return Send(cmd);
         }
 
         public IClientSocket CreateDataConnection()

@@ -19,15 +19,14 @@ using SAEA.Common;
 using System;
 using System.IO;
 using System.Linq;
-using System.Text;
 
 namespace SAEA.FTP.Core
 {
     public class FTPDataManager
     {
-        static string _filePath = string.Empty;
+        string _filePath = string.Empty;
 
-        public static string New(string filePath = "")
+        public string New(string filePath = "")
         {
             if (string.IsNullOrEmpty(filePath))
                 return _filePath = PathHelper.GetFilePath(PathHelper.GetCurrentPath("Data"), Guid.NewGuid().ToString("N") + ".temp");
@@ -35,7 +34,7 @@ namespace SAEA.FTP.Core
                 return _filePath = filePath;
         }
 
-        public static void Receive(byte[] data)
+        public void Receive(byte[] data)
         {
             if (data != null && data.Any())
             {
@@ -47,7 +46,7 @@ namespace SAEA.FTP.Core
             }
         }
 
-        public static string ReadText(int timeOut = 3 * 1000)
+        public string ReadText(int timeOut = 3 * 1000)
         {
             int current = 0;
 
@@ -74,7 +73,7 @@ namespace SAEA.FTP.Core
             return string.Empty;
         }
 
-        public static long Checked(long size)
+        public long Checked(long size)
         {
             long current = 0;
 

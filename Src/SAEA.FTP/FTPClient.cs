@@ -142,11 +142,11 @@ namespace SAEA.FTP
         {
             using (var dataSocket = _client.CreateDataConnection())
             {
-                FTPDataManager.New();
+                _client.FTPDataManager.New();
 
                 var sres = _client.BaseSend($"{dirType.ToString()} {pathName}");
 
-                var str = FTPDataManager.ReadText();
+                var str = _client.FTPDataManager.ReadText();
 
                 if (string.IsNullOrEmpty(str))
                 {
@@ -283,7 +283,7 @@ namespace SAEA.FTP
 
             using (var dataSocket = _client.CreateDataConnection())
             {
-                FTPDataManager.New(filePath);
+                _client.FTPDataManager.New(filePath);
 
                 var sres = _client.BaseSend($"{FTPCommand.RETR} {fileName}");
 
@@ -292,7 +292,7 @@ namespace SAEA.FTP
                     while (true)
                     {
                         ThreadHelper.Sleep(500);
-                        offset = FTPDataManager.Checked(count);
+                        offset = _client.FTPDataManager.Checked(count);
                         if (offset == count) break;
                     }
                     return filePath;
@@ -326,9 +326,7 @@ namespace SAEA.FTP
             if (sres.Code != ServerResponseCode.成功 && sres.Code != ServerResponseCode.退出网络)
             {
                 throw new Exception($"code:{sres.Code},reply:{sres.Reply}");
-            }
-
-            _client.Disconnect();
+            }            
         }
 
         public void Dispose()

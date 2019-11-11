@@ -16,6 +16,7 @@
 *描    述：
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.FTP.Core;
 
 namespace SAEA.FTP.Model
 {
@@ -25,7 +26,11 @@ namespace SAEA.FTP.Model
 
         public string Password { get; set; }
 
+        public int DataPort { get; set; } = 22;
+
         public string Root { get; set; } = "/";
+
+        public FTPDataManager FTPDataManager { get; set; }
 
         public FTPUser()
         {
@@ -37,6 +42,7 @@ namespace SAEA.FTP.Model
             this.UserName = userName;
             this.Password = password;
             this.Root = root;
+            this.FTPDataManager = new FTPDataManager();
             CallContext<FTPUser>.SetData("FTPUser.Current", this);
         }
 
