@@ -17,10 +17,7 @@
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.FTP.Model;
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.FTP.Core
 {
@@ -49,14 +46,34 @@ namespace SAEA.FTP.Core
             return sc;
         }
 
-        public static void Set(ServerConfig serverConfig)
-        {
-            _configHelper.Write(serverConfig);
-        }
 
         public static void Save()
         {
+            _configHelper.Write(_serverConfig);
+        }
 
+        public static void SetUser(string userName, string password, int dataPort, string root)
+        {
+            if (_serverConfig.Users == null) _serverConfig.Users = new ConcurrentDictionary<string, FTPUser>();
+
+            var user = new FTPUser(userName, password, dataPort, root);
+
+            _serverConfig.Users.AddOrUpdate(userName, user, (k, v) =>
+            {
+                return user;
+            });
+        }
+
+        public static FTPUser GetUser(string userName)
+        {
+            if (_serverConfig != null && _serverConfig.Users != null)
+            {
+                if (_serverConfig.Users.TryGetValue(userName, out FTPUser user))
+                {
+                    return user;
+                }
+            }
+            return null;
         }
     }
 }

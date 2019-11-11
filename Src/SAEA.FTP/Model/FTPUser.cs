@@ -37,10 +37,11 @@ namespace SAEA.FTP.Model
 
         }
 
-        public FTPUser(string userName, string password, string root)
+        public FTPUser(string userName, string password, int dataPort, string root)
         {
             this.UserName = userName;
             this.Password = password;
+            this.DataPort = dataPort;
             this.Root = root;
             this.FTPDataManager = new FTPDataManager();
             CallContext<FTPUser>.SetData("FTPUser.Current", this);
