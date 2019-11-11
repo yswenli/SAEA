@@ -157,7 +157,10 @@ namespace SAEA.FTP.Net
 
         public ServerResponse BaseSend(string cmd, Action action = null)
         {
+            if (!Connected) throw new IOException("Connection disconnected");
+
             ServerResponse result = null;
+            
             _syncHelper2.Wait(() =>
             {
                 _cmdSocket.SendAsync(Encoding.UTF8.GetBytes(cmd + Environment.NewLine));

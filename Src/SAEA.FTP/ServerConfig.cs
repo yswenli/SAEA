@@ -15,6 +15,7 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
+using SAEA.FTP.Model;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -23,19 +24,20 @@ namespace SAEA.FTP
 {
     public class ServerConfig
     {
-        public string IP
-        {
-            get; set;
-        }
-
         public int Port
         {
             get; set;
-        }
+        } = 21;
+
+        public int BufferSize { get; set; } = 10240;
 
         public int DataPort
         {
             get; set;
-        }
+        } = 22;
+
+        public string Root { get; set; } = "/";
+
+        public List<FTPUser> Users { get; set; } = new List<FTPUser>();
     }
 }

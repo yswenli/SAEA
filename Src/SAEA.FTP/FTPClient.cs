@@ -30,6 +30,10 @@ namespace SAEA.FTP
     {
         ClientSocket _client;
 
+        public event Action OnConnected;
+
+        public event Action Ondisconnected;
+
         public bool Connected
         {
             get
@@ -41,6 +45,12 @@ namespace SAEA.FTP
         public FTPClient(ClientConfig config)
         {
             _client = new ClientSocket(config);
+            _client.OnDisconnected += _client_OnDisconnected;
+        }
+
+        private void _client_OnDisconnected(string ID, Exception ex)
+        {
+            Ondisconnected?.Invoke();
         }
 
         public FTPClient(string ip, int port, string userName, string password, int bufferSize = 10240) : this(new ClientConfig() { IP = ip, Port = port, UserName = userName, Password = password, BufferSize = bufferSize })
@@ -51,6 +61,7 @@ namespace SAEA.FTP
         public void Connect()
         {
             _client.Connect();
+            OnConnected?.Invoke();
         }
 
         public void Noop()
