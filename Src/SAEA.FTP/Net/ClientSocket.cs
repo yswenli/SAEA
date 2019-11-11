@@ -173,7 +173,6 @@ namespace SAEA.FTP.Net
             return result;
         }
 
-
         public ServerResponse BaseSend(string cmd, Action action = null)
         {
             if (!Connected) throw new IOException("Network connection disconnected");
