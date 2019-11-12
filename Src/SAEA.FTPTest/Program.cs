@@ -18,7 +18,7 @@ namespace SAEA.FTPTest
                 Application.ThreadException += Application_ThreadException;
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
-                Application.Run(new FtpClientForm());
+                Application.Run(new MainForm());
             }
             catch (Exception ex)
             {

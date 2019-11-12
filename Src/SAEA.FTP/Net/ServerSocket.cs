@@ -21,6 +21,7 @@ using SAEA.FTP.Model;
 using SAEA.Sockets;
 using SAEA.Sockets.Interface;
 using System;
+using System.Text;
 
 namespace SAEA.FTP.Net
 {
@@ -53,11 +54,22 @@ namespace SAEA.FTP.Net
 
             _serverSocket.OnError += _serverSocket_OnError;
 
+            _serverSocket.OnAccepted += _serverSocket_OnAccepted;
+
             _serverSocket.OnReceive += _serverSocket_OnReceive;
 
             _serverSocket.OnDisconnected += _serverSocket_OnDisconnected;
 
             _ftpStream = new FTPStream();
+        }
+
+        private void _serverSocket_OnAccepted(object obj)
+        {
+            var ut = obj as IUserToken;
+
+            var data = Encoding.UTF8.GetBytes($"{ServerResponseCode.服务就绪} Welcome to SAEA.FTPServer! {DateTimeHelper.GetUnixTick()}");
+
+            _serverSocket.SendAsync(ut.ID, data);
         }
 
         public void Start()

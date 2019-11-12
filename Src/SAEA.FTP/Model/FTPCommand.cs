@@ -33,7 +33,7 @@ namespace SAEA.FTP.Model
         SYST = 3,
         NOOP = 4,
         PASV = 5,
-        List = 6,
+        LIST = 6,
         MLSD = 7,
         NLST = 8,
         CWD = 9,

@@ -822,7 +822,7 @@ namespace SAEA.FTPTest
             }
             catch { }
             notifyIcon1.Dispose();
-            Environment.Exit(-1);
+            this.Close();
         }
 
         #endregion

@@ -16,6 +16,7 @@
 *描    述：
 *****************************************************************************/
 using SAEA.FTP.Core;
+using SAEA.FTP.Model;
 using SAEA.FTP.Net;
 using System;
 using System.Collections.Generic;
@@ -44,7 +45,16 @@ namespace SAEA.FTP
 
         private void _serverSocket_OnReceived1(string id, string msg)
         {
-            
+            var cr = ClientRequest.Parse(msg);
+
+            var cmd = Enum.Parse(typeof(FTPCommand), cr.Cmd);
+
+            switch (cmd)
+            {
+                case FTPCommand.USER:
+                    var userName = cr.Arg;
+                    break;
+            }
         }
 
         public void Start()

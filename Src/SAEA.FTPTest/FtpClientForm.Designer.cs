@@ -44,6 +44,7 @@
             this.parentToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.uploadToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.deleteToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.createDirToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.textBox1 = new System.Windows.Forms.TextBox();
             this.dataGridView2 = new System.Windows.Forms.DataGridView();
             this.contextMenuStrip2 = new System.Windows.Forms.ContextMenuStrip(this.components);
@@ -51,13 +52,12 @@
             this.parentToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
             this.downloadToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.deleteToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
+            this.createDirToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
             this.textBox2 = new System.Windows.Forms.TextBox();
             this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
             this.contextMenuStrip3 = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.showUIToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.exitToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.createDirToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.createDirToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
             this.groupBox1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer2)).BeginInit();
             this.splitContainer2.Panel1.SuspendLayout();
@@ -73,15 +73,18 @@
             // skinButton1
             // 
             this.skinButton1.BackColor = System.Drawing.Color.Transparent;
+            this.skinButton1.BaseColor = System.Drawing.Color.Gray;
+            this.skinButton1.BorderColor = System.Drawing.Color.Silver;
             this.skinButton1.ControlState = CCWin.SkinClass.ControlState.Normal;
             this.skinButton1.DownBack = null;
             this.skinButton1.Font = new System.Drawing.Font("微软雅黑", 10.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.skinButton1.ForeColor = System.Drawing.Color.White;
+            this.skinButton1.ForeColor = System.Drawing.Color.Yellow;
             this.skinButton1.Location = new System.Drawing.Point(494, 22);
             this.skinButton1.MouseBack = null;
             this.skinButton1.MouseBaseColor = System.Drawing.SystemColors.MenuHighlight;
             this.skinButton1.Name = "skinButton1";
             this.skinButton1.NormlBack = null;
+            this.skinButton1.RoundStyle = CCWin.SkinClass.RoundStyle.All;
             this.skinButton1.Size = new System.Drawing.Size(90, 26);
             this.skinButton1.TabIndex = 9;
             this.skinButton1.Text = "Connect";
@@ -215,30 +218,37 @@
             // refreshToolStripMenuItem
             // 
             this.refreshToolStripMenuItem.Name = "refreshToolStripMenuItem";
-            this.refreshToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.refreshToolStripMenuItem.Size = new System.Drawing.Size(136, 22);
             this.refreshToolStripMenuItem.Text = "刷新";
             this.refreshToolStripMenuItem.Click += new System.EventHandler(this.refreshToolStripMenuItem_Click);
             // 
             // parentToolStripMenuItem
             // 
             this.parentToolStripMenuItem.Name = "parentToolStripMenuItem";
-            this.parentToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.parentToolStripMenuItem.Size = new System.Drawing.Size(136, 22);
             this.parentToolStripMenuItem.Text = "上一层";
             this.parentToolStripMenuItem.Click += new System.EventHandler(this.parentToolStripMenuItem_Click);
             // 
             // uploadToolStripMenuItem
             // 
             this.uploadToolStripMenuItem.Name = "uploadToolStripMenuItem";
-            this.uploadToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.uploadToolStripMenuItem.Size = new System.Drawing.Size(136, 22);
             this.uploadToolStripMenuItem.Text = "上传";
             this.uploadToolStripMenuItem.Click += new System.EventHandler(this.uploadToolStripMenuItem_Click);
             // 
             // deleteToolStripMenuItem
             // 
             this.deleteToolStripMenuItem.Name = "deleteToolStripMenuItem";
-            this.deleteToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.deleteToolStripMenuItem.Size = new System.Drawing.Size(136, 22);
             this.deleteToolStripMenuItem.Text = "删除";
             this.deleteToolStripMenuItem.Click += new System.EventHandler(this.deleteToolStripMenuItem_Click);
+            // 
+            // createDirToolStripMenuItem
+            // 
+            this.createDirToolStripMenuItem.Name = "createDirToolStripMenuItem";
+            this.createDirToolStripMenuItem.Size = new System.Drawing.Size(136, 22);
+            this.createDirToolStripMenuItem.Text = "新建文件夹";
+            this.createDirToolStripMenuItem.Click += new System.EventHandler(this.createDirToolStripMenuItem_Click);
             // 
             // textBox1
             // 
@@ -288,30 +298,37 @@
             // refreshToolStripMenuItem1
             // 
             this.refreshToolStripMenuItem1.Name = "refreshToolStripMenuItem1";
-            this.refreshToolStripMenuItem1.Size = new System.Drawing.Size(131, 22);
+            this.refreshToolStripMenuItem1.Size = new System.Drawing.Size(136, 22);
             this.refreshToolStripMenuItem1.Text = "刷新";
             this.refreshToolStripMenuItem1.Click += new System.EventHandler(this.refreshToolStripMenuItem1_Click);
             // 
             // parentToolStripMenuItem1
             // 
             this.parentToolStripMenuItem1.Name = "parentToolStripMenuItem1";
-            this.parentToolStripMenuItem1.Size = new System.Drawing.Size(131, 22);
+            this.parentToolStripMenuItem1.Size = new System.Drawing.Size(136, 22);
             this.parentToolStripMenuItem1.Text = "上一层";
             this.parentToolStripMenuItem1.Click += new System.EventHandler(this.parentToolStripMenuItem1_Click);
             // 
             // downloadToolStripMenuItem
             // 
             this.downloadToolStripMenuItem.Name = "downloadToolStripMenuItem";
-            this.downloadToolStripMenuItem.Size = new System.Drawing.Size(131, 22);
+            this.downloadToolStripMenuItem.Size = new System.Drawing.Size(136, 22);
             this.downloadToolStripMenuItem.Text = "下载";
             this.downloadToolStripMenuItem.Click += new System.EventHandler(this.downloadToolStripMenuItem_Click);
             // 
             // deleteToolStripMenuItem1
             // 
             this.deleteToolStripMenuItem1.Name = "deleteToolStripMenuItem1";
-            this.deleteToolStripMenuItem1.Size = new System.Drawing.Size(131, 22);
+            this.deleteToolStripMenuItem1.Size = new System.Drawing.Size(136, 22);
             this.deleteToolStripMenuItem1.Text = "删除";
             this.deleteToolStripMenuItem1.Click += new System.EventHandler(this.deleteToolStripMenuItem1_Click);
+            // 
+            // createDirToolStripMenuItem1
+            // 
+            this.createDirToolStripMenuItem1.Name = "createDirToolStripMenuItem1";
+            this.createDirToolStripMenuItem1.Size = new System.Drawing.Size(136, 22);
+            this.createDirToolStripMenuItem1.Text = "新建文件夹";
+            this.createDirToolStripMenuItem1.Click += new System.EventHandler(this.createDirToolStripMenuItem1_Click);
             // 
             // textBox2
             // 
@@ -360,20 +377,6 @@
             this.exitToolStripMenuItem.Size = new System.Drawing.Size(124, 22);
             this.exitToolStripMenuItem.Text = "退出";
             this.exitToolStripMenuItem.Click += new System.EventHandler(this.exitToolStripMenuItem_Click);
-            // 
-            // createDirToolStripMenuItem
-            // 
-            this.createDirToolStripMenuItem.Name = "createDirToolStripMenuItem";
-            this.createDirToolStripMenuItem.Size = new System.Drawing.Size(136, 22);
-            this.createDirToolStripMenuItem.Text = "新建文件夹";
-            this.createDirToolStripMenuItem.Click += new System.EventHandler(this.createDirToolStripMenuItem_Click);
-            // 
-            // createDirToolStripMenuItem1
-            // 
-            this.createDirToolStripMenuItem1.Name = "createDirToolStripMenuItem1";
-            this.createDirToolStripMenuItem1.Size = new System.Drawing.Size(180, 22);
-            this.createDirToolStripMenuItem1.Text = "新建文件夹";
-            this.createDirToolStripMenuItem1.Click += new System.EventHandler(this.createDirToolStripMenuItem1_Click);
             // 
             // FtpClientForm
             // 
