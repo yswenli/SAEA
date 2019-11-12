@@ -21,8 +21,6 @@ using SAEA.FTP.Model;
 using SAEA.Sockets;
 using SAEA.Sockets.Interface;
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.FTP.Net
 {
@@ -113,7 +111,7 @@ namespace SAEA.FTP.Net
         {
             var ut = currentObj as IUserToken;
 
-            if(_serverConfig.Users.TryGetValue(ut.ID,out FTPUser ftpUser))
+            if (_serverConfig.Users.TryGetValue(ut.ID, out FTPUser ftpUser))
             {
                 ftpUser.FTPDataManager.Receive(data);
             }
