@@ -13,6 +13,9 @@ namespace SAEA.FTPTest
 {
     public partial class MainForm : Skin_Mac
     {
+        FtpServerForm _serverForm = null;
+        FtpClientForm _clientForm = null;
+
         public MainForm()
         {
             InitializeComponent();
@@ -20,12 +23,20 @@ namespace SAEA.FTPTest
 
         private void skinButton1_Click(object sender, EventArgs e)
         {
-
+            if (_serverForm == null || _serverForm.IsDisposed)
+            {
+                _serverForm = new FtpServerForm();
+            }
+            _serverForm.Show();
         }
 
         private void skinButton2_Click(object sender, EventArgs e)
         {
-            new FtpClientForm().Show();
+            if (_clientForm == null || _clientForm.IsDisposed)
+            {
+                _clientForm = new FtpClientForm();
+            }
+            _clientForm.Show();
         }
     }
 }
