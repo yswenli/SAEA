@@ -32,7 +32,7 @@ namespace SAEA.FTP.Net
 
         FTPStream _ftpStream;
 
-        public event Action OnReceived;
+        public event Action<string, string> OnReceived;
 
         public ServerConfig Config { get => _serverConfig; set => _serverConfig = value; }
 
@@ -83,7 +83,8 @@ namespace SAEA.FTP.Net
 
             if (!string.IsNullOrWhiteSpace(msg))
             {
-                OnReceived?.Invoke();
+                var ut = currentObj as IUserToken;
+                OnReceived?.Invoke(ut.ID, msg);
             }
         }
         private void _serverSocket_OnDisconnected(string ID, Exception ex)
