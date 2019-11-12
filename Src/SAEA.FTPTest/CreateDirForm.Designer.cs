@@ -53,6 +53,7 @@
             this.skinButton1.MouseBack = null;
             this.skinButton1.Name = "skinButton1";
             this.skinButton1.NormlBack = null;
+            this.skinButton1.RoundStyle = CCWin.SkinClass.RoundStyle.All;
             this.skinButton1.Size = new System.Drawing.Size(75, 36);
             this.skinButton1.TabIndex = 1;
             this.skinButton1.Text = "确定";
@@ -68,6 +69,7 @@
             this.skinButton2.MouseBack = null;
             this.skinButton2.Name = "skinButton2";
             this.skinButton2.NormlBack = null;
+            this.skinButton2.RoundStyle = CCWin.SkinClass.RoundStyle.All;
             this.skinButton2.Size = new System.Drawing.Size(75, 36);
             this.skinButton2.TabIndex = 1;
             this.skinButton2.Text = "取消";

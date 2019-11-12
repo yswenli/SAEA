@@ -58,7 +58,10 @@ namespace SAEA.FTPTest
         {
             Init();
         }
+        private void skinButton3_Click(object sender, EventArgs e)
+        {
 
+        }
 
         private void skinButton2_Click(object sender, EventArgs e)
         {
