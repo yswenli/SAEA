@@ -42,10 +42,10 @@ namespace SAEA.FTP
             FTPServerConfigManager.Save();
 
             _serverSocket = new ServerSocket(_serverConfig);
-            _serverSocket.OnReceived += _serverSocket_OnReceived1;
+            _serverSocket.OnReceived += _serverSocket_OnReceived;
         }
 
-        private void _serverSocket_OnReceived1(string id, string msg)
+        private void _serverSocket_OnReceived(string id, string msg)
         {
             var cr = ClientRequest.Parse(msg);
 
@@ -54,7 +54,14 @@ namespace SAEA.FTP
             switch (cmd)
             {
                 case FTPCommand.USER:
-                    var userName = cr.Arg;
+                    if (!string.IsNullOrEmpty(cr.Arg))
+                    {
+                        var user = FTPServerConfigManager.GetUser(cr.Arg);
+                        if (user == null)
+                        {
+                            _serverSocket.Reply(id, ServerResponseCode.无效的用户名, "Invalid user name");
+                        }
+                    }
                     break;
             }
         }

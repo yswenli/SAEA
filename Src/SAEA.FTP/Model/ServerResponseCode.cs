@@ -86,7 +86,7 @@ namespace SAEA.FTP.Model
 
         public const int 无效命令参数 = 504;
 
-        public const int 未登录网络 = 530;
+        public const int 无效的用户名 = 530;
 
         public const int 存储文件需要帐号 = 532;
 

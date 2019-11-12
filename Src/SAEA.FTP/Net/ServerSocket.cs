@@ -77,6 +77,13 @@ namespace SAEA.FTP.Net
             _serverSocket.Start();
         }
 
+        public void Reply(string id, int code, string msg)
+        {
+            var data = Encoding.UTF8.GetBytes($"{code} {msg}");
+
+            _serverSocket.SendAsync(id, data);
+        }
+
         public void Stop()
         {
             _serverSocket.Stop();

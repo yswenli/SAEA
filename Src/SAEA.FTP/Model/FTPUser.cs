@@ -16,7 +16,6 @@
 *描    述：
 *****************************************************************************/
 using Newtonsoft.Json;
-using SAEA.Common;
 using SAEA.FTP.Core;
 
 namespace SAEA.FTP.Model
@@ -46,15 +45,6 @@ namespace SAEA.FTP.Model
             this.DataPort = dataPort;
             this.Root = root;
             this.FTPDataManager = new FTPDataManager();
-            CallContext<FTPUser>.SetData("FTPUser.Current", this);
-        }
-
-        public static FTPUser Current
-        {
-            get
-            {
-                return CallContext<FTPUser>.GetData("FTPUser.Current");
-            }
         }
     }
 }

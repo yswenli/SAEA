@@ -208,7 +208,11 @@ namespace SAEA.FTPTest
                 skinButton1.Text = "Stop";
 
                 if (_ftpServer == null)
+                {
                     _ftpServer = new FTPServer(_serverConfig.Port, _serverConfig.BufferSize);
+                    _ftpServer.OnLog += _ftpServer_OnLog;
+                }
+
                 _ftpServer.Start();
 
                 Log("FTPServer已启动");
@@ -219,6 +223,11 @@ namespace SAEA.FTPTest
                 _ftpServer.Stop();
                 _ftpServer = null;
             }
+        }
+
+        private void _ftpServer_OnLog(string msg, Exception ex)
+        {
+            Log(msg, ex?.Message);
         }
     }
 }
