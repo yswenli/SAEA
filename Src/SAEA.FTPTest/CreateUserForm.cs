@@ -18,6 +18,14 @@ namespace SAEA.FTPTest
             InitializeComponent();
         }
 
+        public CreateUserForm(FtpServerUser ftpServerUser) : this()
+        {
+            skinWaterTextBox1.Text = ftpServerUser.UserName;
+            skinWaterTextBox2.Text = ftpServerUser.Password;
+            skinWaterTextBox3.Text = ftpServerUser.DataPort.ToString();
+            skinWaterTextBox4.Text = ftpServerUser.Root;
+        }
+
 
         public FtpServerUser FtpServerUser
         {

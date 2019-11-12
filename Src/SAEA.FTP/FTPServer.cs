@@ -32,7 +32,9 @@ namespace SAEA.FTP
 
         public bool Running { get; set; }
 
-        public FTPServer(int port = 21,int bufferSize=10240)
+        public event Action<string, Exception> OnLog;
+
+        public FTPServer(int port = 21, int bufferSize = 10240)
         {
             _serverConfig = FTPServerConfigManager.Get();
             _serverConfig.Port = 21;

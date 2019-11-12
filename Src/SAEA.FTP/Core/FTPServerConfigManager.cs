@@ -90,6 +90,14 @@ namespace SAEA.FTP.Core
             return null;
         }
 
+        public static void DelUser(string userName)
+        {
+            if (_serverConfig != null && _serverConfig.Users != null)
+            {
+                _serverConfig.Users.TryRemove(userName, out FTPUser user);
+            }
+        }
+
         #region user binding
 
         public static void UserBinding(string id, string userName)

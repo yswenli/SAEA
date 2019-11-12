@@ -90,6 +90,12 @@
     <Compile Include="CreateDirForm.Designer.cs">
       <DependentUpon>CreateDirForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="CreateUserForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="CreateUserForm.Designer.cs">
+      <DependentUpon>CreateUserForm.cs</DependentUpon>
+    </Compile>
     <Compile Include="FtpClientForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -141,6 +147,9 @@
   <ItemGroup>
     <EmbeddedResource Include="CreateDirForm.resx">
       <DependentUpon>CreateDirForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="CreateUserForm.resx">
+      <DependentUpon>CreateUserForm.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="FtpClientForm.resx">
       <DependentUpon>FtpClientForm.cs</DependentUpon>
