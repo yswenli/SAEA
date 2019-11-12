@@ -2,8 +2,10 @@
 using SAEA.Common;
 using SAEA.FTP;
 using SAEA.FTP.Core;
+using SAEA.FTP.Model;
 using SAEA.FTPTest.Model;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -33,23 +35,35 @@ namespace SAEA.FTPTest
 
             skinWaterTextBox1.Text = _serverConfig.Port.ToString();
 
-            if (_serverConfig.Users != null && _serverConfig.Users.Any())
+            if (_serverConfig.Users == null)
             {
-                _ftpServerUsers = SerializeHelper.Deserialize<List<FtpServerUser>>(SerializeHelper.Serialize(_serverConfig.Users));
-
-                dataGridView1.DataSource = null;
-
-                dataGridView1.DataSource = _ftpServerUsers;
+                _serverConfig.Users = new ConcurrentDictionary<string, FTPUser>();
             }
+            if (!_serverConfig.Users.Any())
+            {
+                _serverConfig.Users.TryAdd("anonymous", new FTPUser("anonymous", "yswenli@outlook.com", 39654, "c:\\"));
+                FTPServerConfigManager.Save();
+            }
+            _ftpServerUsers = SerializeHelper.Deserialize<List<FtpServerUser>>(SerializeHelper.Serialize(_serverConfig.Users.Values));
+
+            dataGridView1.DataSource = null;
+
+            dataGridView1.DataSource = _ftpServerUsers;
+
+            dataGridView1.AllowUserToAddRows = true;
 
         }
 
         private void FtpServerForm_Load(object sender, EventArgs e)
         {
-
+            Init();
         }
 
 
+        private void skinButton2_Click(object sender, EventArgs e)
+        {
+
+        }
 
         private void skinButton1_Click(object sender, EventArgs e)
         {
@@ -67,5 +81,7 @@ namespace SAEA.FTPTest
                 e.Cancel = true;
             }
         }
+
+        
     }
 }
