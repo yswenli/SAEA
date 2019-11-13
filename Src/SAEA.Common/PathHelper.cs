@@ -224,5 +224,10 @@ namespace SAEA.Common
             newDirPath = Path.Combine(dirPath, dirName);
             return Exists(newDirPath);
         }
+
+        public static bool IsParent(string sourcePath,string targetPath)
+        {
+            return (new DirectoryInfo(sourcePath)).Parent.ToString() == targetPath;
+        }
     }
 }

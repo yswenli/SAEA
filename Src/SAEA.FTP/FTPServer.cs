@@ -139,7 +139,20 @@ namespace SAEA.FTP
                     else
                     {
                         _serverSocket.Reply(id, ServerResponseCode.页文件不可用, "No such directory.");
-                    }                    
+                    }
+                    break;
+                case FTPCommand.CDUP:
+
+                    if (PathHelper.Exists(user.CurrentFtpPath, "../", out newDirPath))
+                    {
+                        if (!PathHelper.IsParent(newDirPath, user.Root))
+                        {
+                            user.CurrentFtpPath = newDirPath;
+                            _serverSocket.Reply(id, ServerResponseCode.文件行为完成, "Command okay.");
+                            return;
+                        }
+                    }
+                    _serverSocket.Reply(id, ServerResponseCode.页文件不可用, "No such directory.");
                     break;
 
             }
