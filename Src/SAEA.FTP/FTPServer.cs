@@ -59,9 +59,45 @@ namespace SAEA.FTP
                         var user = FTPServerConfigManager.GetUser(cr.Arg);
                         if (user == null)
                         {
-                            _serverSocket.Reply(id, ServerResponseCode.无效的用户名, "Invalid user name");
+                            _serverSocket.Reply(id, ServerResponseCode.无效的用户名, "Invalid user name.");
+                        }
+                        else
+                        {
+                            if (FTPServerConfigManager.GetUserBind(id) == user.UserName)
+                            {
+                                if (FTPServerConfigManager.GetUser(user.UserName)?.IsLogin == true)
+                                    _serverSocket.Reply(id, ServerResponseCode.初始命令没有执行, "Already logged-in.");
+                                else
+                                    _serverSocket.Reply(id, ServerResponseCode.要求密码, "User name okay, need password.");
+                            }
+                            else
+                            {
+                                if (user.UserName.ToLower() == "anonymous")
+                                {
+                                    FTPServerConfigManager.UserBinding(id, user.UserName);
+                                    _serverSocket.Reply(id, ServerResponseCode.登录因特网, "User logged in, proceed.");
+                                }
+                                else
+                                {
+                                    FTPServerConfigManager.UserBinding(id, user.UserName);
+                                    _serverSocket.Reply(id, ServerResponseCode.要求密码, "User name okay, need password.");
+                                }
+
+                            }
                         }
                     }
+                    break;
+                case FTPCommand.PASS:
+                    var userName = FTPServerConfigManager.GetUserBind(id);
+                    if (!string.IsNullOrEmpty(userName))
+                    {
+                        
+                    }
+                    else
+                    {
+                        _serverSocket.Reply(id, ServerResponseCode.错误指令序列, "Login with USER first.");
+                    }
+
                     break;
             }
         }

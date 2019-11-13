@@ -67,7 +67,7 @@ namespace SAEA.FTP.Net
         {
             var ut = obj as IUserToken;
 
-            var data = Encoding.UTF8.GetBytes($"{ServerResponseCode.服务就绪} Welcome to SAEA.FTPServer! {DateTimeHelper.GetUnixTick()}");
+            var data = Encoding.UTF8.GetBytes($"{ServerResponseCode.服务就绪} Welcome to SAEA.FTPServer! {DateTimeHelper.GetUnixTick()}{Environment.NewLine}");
 
             _serverSocket.SendAsync(ut.ID, data);
         }
@@ -79,7 +79,7 @@ namespace SAEA.FTP.Net
 
         public void Reply(string id, int code, string msg)
         {
-            var data = Encoding.UTF8.GetBytes($"{code} {msg}");
+            var data = Encoding.UTF8.GetBytes($"{code} {msg}{Environment.NewLine}");
 
             _serverSocket.SendAsync(id, data);
         }

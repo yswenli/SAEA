@@ -33,6 +33,9 @@ namespace SAEA.FTP.Model
         [JsonIgnore]
         public FTPDataManager FTPDataManager { get; set; }
 
+        [JsonIgnore]
+        public bool IsLogin { get; set; } = false;
+
         public FTPUser()
         {
 

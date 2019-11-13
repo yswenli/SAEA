@@ -23,8 +23,7 @@ namespace SAEA.FTP.Model
 {
     /// <summary>
     /// FTPCommand,
-    /// http://mina.apache.org/ftpserver-project/ftpserver_commands.html,
-    /// https://wenku.baidu.com/view/e41480f8f705cc17552709c9.html
+    /// http://mina.apache.org/ftpserver-project/ftpserver_commands.html
     /// </summary>
     public enum FTPCommand
     {
