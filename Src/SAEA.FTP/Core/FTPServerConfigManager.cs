@@ -52,7 +52,7 @@ namespace SAEA.FTP.Core
             return sc;
         }
 
-        public static void Set(int port, int bufferSize = 10240)
+        public static void Set(ushort port, int bufferSize = 10240)
         {
             _serverConfig.Port = port;
             _serverConfig.BufferSize = 10240;
@@ -145,13 +145,5 @@ namespace SAEA.FTP.Core
         }
 
         #endregion
-
-        #region PASV bindings
-
-
-        #endregion
-
-
-
     }
 }

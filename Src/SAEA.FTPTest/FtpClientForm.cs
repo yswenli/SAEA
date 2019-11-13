@@ -185,7 +185,7 @@ namespace SAEA.FTPTest
 
         private void parentToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            var dir = PathHelper.GetPreDir(textBox1.Text);
+            var dir = PathHelper.GetParent(textBox1.Text);
 
             if (dir != null)
             {
@@ -733,7 +733,7 @@ namespace SAEA.FTPTest
             }
             else
             {
-                var dir = PathHelper.GetPreDir(textBox1.Text);
+                var dir = PathHelper.GetParent(textBox1.Text);
 
                 if (dir != null)
                 {

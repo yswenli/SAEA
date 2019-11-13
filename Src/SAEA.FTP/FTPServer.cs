@@ -22,6 +22,8 @@ using SAEA.FTP.Net;
 using SAEA.Sockets;
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace SAEA.FTP
@@ -41,8 +43,8 @@ namespace SAEA.FTP
         public FTPServer(string ip, ushort port = 21, int bufferSize = 10240)
         {
             _serverConfig = FTPServerConfigManager.Get();
-            _serverConfig.Port = 21;
-            _serverConfig.BufferSize = 10240;
+            _serverConfig.Port = port;
+            _serverConfig.BufferSize = bufferSize;
             FTPServerConfigManager.Save();
 
             _cmdSocket = new ServerSocket(_serverConfig);
@@ -160,16 +162,94 @@ namespace SAEA.FTP
                 case FTPCommand.PWD:
                     _cmdSocket.Reply(id, ServerResponseCode.路径名建立, $"\"{ user.CurrentFtpPath}\"");
                     break;
+
                 case FTPCommand.PASV:
                     var dataPort = IPHelper.GetFreePort();
                     var portStr = dataPort.PortToString();
                     var pasvStr = $"SAEA FTPServer PASV({_serverConfig.IP},{portStr})";
-                    _cmdSocket.Reply(id, ServerResponseCode.进入被动模式, pasvStr);
-                    _dataSocket= _cmdSocket.CreateDataSocket(dataPort);
-                    
-                    break;
-                case FTPCommand.LIST:
 
+                    _cmdSocket.CreateDataSocket(userName, dataPort, _serverConfig.BufferSize);
+
+                    _cmdSocket.Reply(id, ServerResponseCode.进入被动模式, pasvStr);
+
+                    break;
+                case FTPCommand.MLSD:
+
+                    var path = user.CurrentFtpPath;
+
+                    if (!string.IsNullOrEmpty(cr.Arg) && cr.Arg != "/")
+                    {
+                        if (PathHelper.Exists(path, cr.Arg, out newDirPath))
+                        {
+                            path = newDirPath;
+                        }
+                    }
+
+                    var dirList = PathHelper.GetDirectories(path, out List<FileInfo> fileList);
+
+                    StringBuilder sb = new StringBuilder();
+
+                    if (dirList != null && dirList.Any())
+                    {
+                        foreach (var item in dirList)
+                        {
+                            sb.AppendLine($"type=dir;modify={item.LastWriteTime.ToFileTimeUtc()}; {item.Name}");
+                        }
+                    }
+
+                    if (fileList != null && fileList.Any())
+                    {
+                        foreach (var item in fileList)
+                        {
+                            sb.AppendLine($"type=file;modify={item.LastWriteTime.ToFileTimeUtc()}; {item.Name}");
+                        }
+                    }
+
+                    var str = sb.ToString();
+
+                    if (!string.IsNullOrEmpty(str))
+                    {
+                        _cmdSocket.SendData(userName, Encoding.UTF8.GetBytes(str));
+                    }
+                    break;
+                case FTPCommand.NLST:
+
+                    path = user.CurrentFtpPath;
+
+                    if (!string.IsNullOrEmpty(cr.Arg) && cr.Arg != "/")
+                    {
+                        if (PathHelper.Exists(path, cr.Arg, out newDirPath))
+                        {
+                            path = newDirPath;
+                        }
+                    }
+
+                    dirList = PathHelper.GetDirectories(path, out fileList);
+
+                    sb = new StringBuilder();
+
+                    if (dirList != null && dirList.Any())
+                    {
+                        foreach (var item in dirList)
+                        {
+                            sb.AppendLine($"{item.FullName.Replace(user.CurrentFtpPath, "").Replace("\\", "/")}");
+                        }
+                    }
+
+                    if (fileList != null && fileList.Any())
+                    {
+                        foreach (var item in fileList)
+                        {
+                            sb.AppendLine($"{item.FullName.Replace(user.CurrentFtpPath, "").Replace("\\", "/")}");
+                        }
+                    }
+
+                    str = sb.ToString();
+
+                    if (!string.IsNullOrEmpty(str))
+                    {
+                        _cmdSocket.SendData(userName, Encoding.UTF8.GetBytes(str));
+                    }
                     break;
             }
         }

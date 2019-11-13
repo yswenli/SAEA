@@ -35,7 +35,8 @@ namespace SAEA.FTPTest
         {
             _serverConfig = FTPServerConfigManager.Get();
 
-            skinWaterTextBox1.Text = _serverConfig.Port.ToString();
+            skinWaterTextBox1.Text = _serverConfig.IP.ToString();
+            skinWaterTextBox2.Text = _serverConfig.Port.ToString();
 
             if (_serverConfig.Users == null)
             {

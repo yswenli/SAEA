@@ -205,7 +205,7 @@ namespace SAEA.Common
             return null;
         }
 
-        public static DirectoryInfo GetPreDir(string path)
+        public static DirectoryInfo GetParent(string path)
         {
             if (!string.IsNullOrEmpty(path) && Directory.Exists(path))
             {
@@ -229,5 +229,6 @@ namespace SAEA.Common
         {
             return (new DirectoryInfo(sourcePath)).Parent.ToString() == targetPath;
         }
+        
     }
 }

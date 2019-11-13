@@ -39,6 +39,9 @@ namespace SAEA.FTP.Model
         [JsonIgnore]
         public string CurrentFtpPath { get; set; } = "/";
 
+        [JsonIgnore]
+        public FTPDataSocketManager FTPDataSocketManager { get; set; }
+
         public FTPUser()
         {
 

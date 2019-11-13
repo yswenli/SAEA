@@ -35,7 +35,7 @@ namespace SAEA.Common
         public static bool IsIP(this string ip)
         {
             if (string.IsNullOrWhiteSpace(ip)) return false;
-            return Regex.IsMatch(ip, "^(([0 - 2]{ 0,1}[0-4]{0,1}\\d{0,1}?|25[0-5]?)\\.){3}([0 - 2]{0,1}[0-4]{0,1}\\d?|25[0-5]?)$");
+            return Regex.IsMatch(ip, "(25[0-5]|2[0-4]\\d|[0-1]\\d{2}|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|[0-1]\\d{2}|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|[0-1]\\d{2}|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|[0-1]\\d{2}|[1-9]?\\d)");
         }
 
         public static bool IsPort(this string portStr, out ushort port)

@@ -27,7 +27,9 @@ namespace SAEA.FTP.Core
 {
     public class FTPDataSocketManager : IDisposable
     {
-        AutoResetEvent _autoResetEvent;
+        AutoResetEvent _autoResetEvent1;
+
+        AutoResetEvent _autoResetEvent2;
 
         IServerSokcet _dataSocket;
 
@@ -37,7 +39,10 @@ namespace SAEA.FTP.Core
 
         public FTPDataSocketManager(string userName, ushort port, int bufferSize = 10240)
         {
-            _autoResetEvent = new AutoResetEvent(false);
+            _autoResetEvent1 = new AutoResetEvent(false);
+            _autoResetEvent2 = new AutoResetEvent(false);
+
+
             var option = SocketOptionBuilder.Instance
               .SetSocket()
               .UseIocp()
@@ -47,17 +52,23 @@ namespace SAEA.FTP.Core
               .Build();
             var dataSocket = SocketFactory.CreateServerSocket(option);
             dataSocket.OnAccepted += DataSocket_OnAccepted;
+            dataSocket.OnDisconnected += DataSocket_OnDisconnected;
             dataSocket.OnError += _serverSocket_OnError;
             dataSocket.OnReceive += DataSocket_OnReceive;
             _dataSocket = dataSocket;
             _userName = userName;
         }
 
+        private void DataSocket_OnDisconnected(string ID, Exception ex)
+        {
+            _autoResetEvent2.Set();
+        }
+
         private void DataSocket_OnAccepted(object obj)
         {
             var ut = obj as IUserToken;
             _id = ut.ID;
-            _autoResetEvent.Set();
+            _autoResetEvent1.Set();
         }
 
         private void DataSocket_OnReceive(object currentObj, byte[] data)
@@ -71,18 +82,23 @@ namespace SAEA.FTP.Core
         public void SendData(byte[] data)
         {
             _dataSocket.Start();
-            _autoResetEvent.WaitOne();
+            _autoResetEvent1.WaitOne();
             _dataSocket.SendAsync(_id, data);
         }
 
         public void SendFile(string filePath)
         {
             _dataSocket.Start();
-            _autoResetEvent.WaitOne();
+            _autoResetEvent1.WaitOne();
             FileHelper.Read(filePath, (data) =>
             {
                 _dataSocket.SendAsync(_id, data);
             });
+        }
+
+        public void Checke()
+        {
+            _autoResetEvent2.WaitOne();
         }
 
 

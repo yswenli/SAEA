@@ -114,14 +114,46 @@ namespace SAEA.FTP.Net
 
 
         #region PASV
-        public void SendData(int port = 22)
-        {
 
+        public void CreateDataSocket(string userName, ushort port, int bufferSize = 10240)
+        {
+            FTPServerConfigManager.GetUser(userName).FTPDataSocketManager = new FTPDataSocketManager(userName, port, bufferSize);
         }
 
-        public void ReceiveFile(int port = 22)
-        {
 
+        public void SendData(string userName, byte[] data)
+        {
+            var ftpUser = FTPServerConfigManager.GetUser(userName);
+
+            ftpUser.FTPDataSocketManager.SendData(data);
+
+            ftpUser.FTPDataSocketManager.Dispose();
+
+            ftpUser.FTPDataSocketManager = null;
+        }
+
+        public void SendFile(string userName, string filePath)
+        {
+            var ftpUser = FTPServerConfigManager.GetUser(userName);
+
+            ftpUser.FTPDataSocketManager.SendFile(filePath);
+
+            ftpUser.FTPDataSocketManager.Dispose();
+
+            ftpUser.FTPDataSocketManager = null;
+        }
+
+        public void ReceiveFile(string userName, string filePath)
+        {
+            var ftpUser = FTPServerConfigManager.GetUser(userName);
+
+            ftpUser.FTPDataManager.New(filePath);
+
+            ftpUser.FTPDataSocketManager.Checke();
+
+            ftpUser.FTPDataSocketManager.Dispose();
+
+            ftpUser.FTPDataSocketManager = null;
         }
 
         #endregion
