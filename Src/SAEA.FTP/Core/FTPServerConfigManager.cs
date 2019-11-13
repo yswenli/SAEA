@@ -90,6 +90,31 @@ namespace SAEA.FTP.Core
             return null;
         }
 
+        public static bool UserLogin(string userName, string password)
+        {
+            if (_serverConfig != null && _serverConfig.Users != null)
+            {
+                if (_serverConfig.Users.TryGetValue(userName, out FTPUser user))
+                {
+                    if (userName.ToLower() == "anonymous")
+                    {
+                        user.IsLogin = true;
+                        return true;
+                    }
+                    else
+                    {
+                        if (user.Password == password)
+                        {
+                            user.IsLogin = true;
+                            return true;
+                        }
+                    }
+
+                }
+            }
+            return false;
+        }
+
         public static void DelUser(string userName)
         {
             if (_serverConfig != null && _serverConfig.Users != null)

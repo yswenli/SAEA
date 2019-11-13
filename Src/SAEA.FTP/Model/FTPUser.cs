@@ -36,6 +36,9 @@ namespace SAEA.FTP.Model
         [JsonIgnore]
         public bool IsLogin { get; set; } = false;
 
+        [JsonIgnore]
+        public string CurrentFtpPath { get; set; } = "/";
+
         public FTPUser()
         {
 

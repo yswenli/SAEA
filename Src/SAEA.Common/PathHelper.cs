@@ -213,5 +213,16 @@ namespace SAEA.Common
             }
             return null;
         }
+
+        public static bool Exists(string dirPath)
+        {
+            return Directory.Exists(dirPath);
+        }
+
+        public static bool Exists(string dirPath, string dirName,out string newDirPath)
+        {
+            newDirPath = Path.Combine(dirPath, dirName);
+            return Exists(newDirPath);
+        }
     }
 }
