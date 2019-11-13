@@ -19,6 +19,7 @@ using SAEA.Common;
 using SAEA.FTP.Core;
 using SAEA.FTP.Model;
 using SAEA.FTP.Net;
+using SAEA.Sockets;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -27,7 +28,9 @@ namespace SAEA.FTP
 {
     public class FTPServer : IDisposable
     {
-        ServerSocket _serverSocket;
+        ServerSocket _cmdSocket;
+
+        IServerSokcet _dataSocket;
 
         ServerConfig _serverConfig;
 
@@ -35,15 +38,15 @@ namespace SAEA.FTP
 
         public event Action<string, Exception> OnLog;
 
-        public FTPServer(int port = 21, int bufferSize = 10240)
+        public FTPServer(string ip, ushort port = 21, int bufferSize = 10240)
         {
             _serverConfig = FTPServerConfigManager.Get();
             _serverConfig.Port = 21;
             _serverConfig.BufferSize = 10240;
             FTPServerConfigManager.Save();
 
-            _serverSocket = new ServerSocket(_serverConfig);
-            _serverSocket.OnReceived += _serverSocket_OnReceived;
+            _cmdSocket = new ServerSocket(_serverConfig);
+            _cmdSocket.OnReceived += _serverSocket_OnReceived;
         }
 
         private void _serverSocket_OnReceived(string id, string msg)
@@ -63,28 +66,28 @@ namespace SAEA.FTP
                     {
                         if (user == null)
                         {
-                            _serverSocket.Reply(id, ServerResponseCode.无效的用户名, "Invalid user name.");
+                            _cmdSocket.Reply(id, ServerResponseCode.无效的用户名, "Invalid user name.");
                         }
                         else
                         {
                             if (FTPServerConfigManager.GetUserBind(id) == user.UserName)
                             {
                                 if (user.IsLogin == true)
-                                    _serverSocket.Reply(id, ServerResponseCode.初始命令没有执行, "Already logged-in.");
+                                    _cmdSocket.Reply(id, ServerResponseCode.初始命令没有执行, "Already logged-in.");
                                 else
-                                    _serverSocket.Reply(id, ServerResponseCode.要求密码, "User name okay, need password.");
+                                    _cmdSocket.Reply(id, ServerResponseCode.要求密码, "User name okay, need password.");
                             }
                             else
                             {
                                 if (user.UserName.ToLower() == "anonymous")
                                 {
                                     FTPServerConfigManager.UserBinding(id, user.UserName);
-                                    _serverSocket.Reply(id, ServerResponseCode.登录因特网, "User logged in, proceed.");
+                                    _cmdSocket.Reply(id, ServerResponseCode.登录因特网, "User logged in, proceed.");
                                 }
                                 else
                                 {
                                     FTPServerConfigManager.UserBinding(id, user.UserName);
-                                    _serverSocket.Reply(id, ServerResponseCode.要求密码, "User name okay, need password.");
+                                    _cmdSocket.Reply(id, ServerResponseCode.要求密码, "User name okay, need password.");
                                 }
                             }
                         }
@@ -95,36 +98,36 @@ namespace SAEA.FTP
                     {
                         if (user.IsLogin)
                         {
-                            _serverSocket.Reply(id, ServerResponseCode.初始命令没有执行, "Already logged-in.");
+                            _cmdSocket.Reply(id, ServerResponseCode.初始命令没有执行, "Already logged-in.");
                         }
                         else
                         {
                             if (FTPServerConfigManager.UserLogin(userName, cr.Arg))
                             {
-                                _serverSocket.Reply(id, ServerResponseCode.登录因特网, "User logged in, proceed.");
+                                _cmdSocket.Reply(id, ServerResponseCode.登录因特网, "User logged in, proceed.");
                             }
                             else
                             {
-                                _serverSocket.Reply(id, ServerResponseCode.无效的用户名, "Authentication failed.");
+                                _cmdSocket.Reply(id, ServerResponseCode.无效的用户名, "Authentication failed.");
                             }
                         }
                     }
                     else
                     {
-                        _serverSocket.Reply(id, ServerResponseCode.错误指令序列, "Login with USER first.");
+                        _cmdSocket.Reply(id, ServerResponseCode.错误指令序列, "Login with USER first.");
                     }
                     return;
                 case FTPCommand.SYST:
-                    _serverSocket.Reply(id, ServerResponseCode.系统类型回复, "WINDOWS Type: SAEA FTP Server");
+                    _cmdSocket.Reply(id, ServerResponseCode.系统类型回复, "WINDOWS Type: SAEA FTP Server");
                     return;
                 case FTPCommand.NOOP:
-                    _serverSocket.Reply(id, ServerResponseCode.成功, "Command okay.");
+                    _cmdSocket.Reply(id, ServerResponseCode.成功, "Command okay.");
                     return;
             }
 
             if (user == null || !user.IsLogin)
             {
-                _serverSocket.Reply(id, ServerResponseCode.错误指令序列, "Login with USER first.");
+                _cmdSocket.Reply(id, ServerResponseCode.错误指令序列, "Login with USER first.");
                 return;
             }
 
@@ -134,11 +137,11 @@ namespace SAEA.FTP
                     if (PathHelper.Exists(user.Root, cr.Arg, out string newDirPath))
                     {
                         user.CurrentFtpPath = newDirPath;
-                        _serverSocket.Reply(id, ServerResponseCode.文件行为完成, "Command okay.");
+                        _cmdSocket.Reply(id, ServerResponseCode.文件行为完成, "Command okay.");
                     }
                     else
                     {
-                        _serverSocket.Reply(id, ServerResponseCode.页文件不可用, "No such directory.");
+                        _cmdSocket.Reply(id, ServerResponseCode.页文件不可用, "No such directory.");
                     }
                     break;
                 case FTPCommand.CDUP:
@@ -148,34 +151,45 @@ namespace SAEA.FTP
                         if (!PathHelper.IsParent(newDirPath, user.Root))
                         {
                             user.CurrentFtpPath = newDirPath;
-                            _serverSocket.Reply(id, ServerResponseCode.文件行为完成, "Command okay.");
+                            _cmdSocket.Reply(id, ServerResponseCode.文件行为完成, "Command okay.");
                             return;
                         }
                     }
-                    _serverSocket.Reply(id, ServerResponseCode.页文件不可用, "No such directory.");
+                    _cmdSocket.Reply(id, ServerResponseCode.页文件不可用, "No such directory.");
                     break;
                 case FTPCommand.PWD:
-                    _serverSocket.Reply(id, ServerResponseCode.路径名建立, $"\"{ user.CurrentFtpPath}\"");
+                    _cmdSocket.Reply(id, ServerResponseCode.路径名建立, $"\"{ user.CurrentFtpPath}\"");
+                    break;
+                case FTPCommand.PASV:
+                    var dataPort = IPHelper.GetFreePort();
+                    var portStr = dataPort.PortToString();
+                    var pasvStr = $"SAEA FTPServer PASV({_serverConfig.IP},{portStr})";
+                    _cmdSocket.Reply(id, ServerResponseCode.进入被动模式, pasvStr);
+                    _dataSocket= _cmdSocket.CreateDataSocket(dataPort);
+                    
+                    break;
+                case FTPCommand.LIST:
+
                     break;
             }
         }
 
         public void Start()
         {
-            _serverSocket.Start();
+            _cmdSocket.Start();
             this.Running = true;
         }
 
         public void Stop()
         {
-            _serverSocket.Stop();
+            _cmdSocket.Stop();
             this.Running = false;
         }
 
 
         public void Dispose()
         {
-            _serverSocket?.Dispose();
+            _cmdSocket?.Dispose();
         }
     }
 }

@@ -22,7 +22,9 @@ namespace SAEA.FTP
 {
     public class ServerConfig
     {
-        public int Port
+        public string IP { get; set; } = "127.0.0.1";
+
+        public ushort Port
         {
             get; set;
         } = 21;

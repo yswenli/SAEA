@@ -31,12 +31,13 @@
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(FtpServerForm));
             this.groupBox1 = new System.Windows.Forms.GroupBox();
-            this.skinWaterTextBox1 = new CCWin.SkinControl.SkinWaterTextBox();
-            this.dataGridView1 = new System.Windows.Forms.DataGridView();
-            this.skinButton2 = new CCWin.SkinControl.SkinButton();
             this.skinButton3 = new CCWin.SkinControl.SkinButton();
+            this.skinButton2 = new CCWin.SkinControl.SkinButton();
+            this.dataGridView1 = new System.Windows.Forms.DataGridView();
+            this.skinWaterTextBox1 = new CCWin.SkinControl.SkinWaterTextBox();
             this.logTxt = new CCWin.SkinControl.SkinWaterTextBox();
             this.skinButton1 = new CCWin.SkinControl.SkinButton();
+            this.skinWaterTextBox2 = new CCWin.SkinControl.SkinWaterTextBox();
             this.groupBox1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dataGridView1)).BeginInit();
             this.SuspendLayout();
@@ -46,6 +47,7 @@
             this.groupBox1.Controls.Add(this.skinButton3);
             this.groupBox1.Controls.Add(this.skinButton2);
             this.groupBox1.Controls.Add(this.dataGridView1);
+            this.groupBox1.Controls.Add(this.skinWaterTextBox2);
             this.groupBox1.Controls.Add(this.skinWaterTextBox1);
             this.groupBox1.Dock = System.Windows.Forms.DockStyle.Top;
             this.groupBox1.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
@@ -56,33 +58,24 @@
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "FtpServerConfig";
             // 
-            // skinWaterTextBox1
+            // skinButton3
             // 
-            this.skinWaterTextBox1.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.skinWaterTextBox1.Location = new System.Drawing.Point(17, 21);
-            this.skinWaterTextBox1.Name = "skinWaterTextBox1";
-            this.skinWaterTextBox1.Size = new System.Drawing.Size(50, 23);
-            this.skinWaterTextBox1.TabIndex = 0;
-            this.skinWaterTextBox1.Text = "21";
-            this.skinWaterTextBox1.WaterColor = System.Drawing.Color.FromArgb(((int)(((byte)(127)))), ((int)(((byte)(127)))), ((int)(((byte)(127)))));
-            this.skinWaterTextBox1.WaterText = "Port";
-            // 
-            // dataGridView1
-            // 
-            this.dataGridView1.AllowUserToAddRows = false;
-            this.dataGridView1.AllowUserToDeleteRows = false;
-            this.dataGridView1.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.dataGridView1.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
-            this.dataGridView1.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.dataGridView1.Location = new System.Drawing.Point(17, 51);
-            this.dataGridView1.Name = "dataGridView1";
-            this.dataGridView1.ReadOnly = true;
-            this.dataGridView1.RowTemplate.Height = 23;
-            this.dataGridView1.Size = new System.Drawing.Size(787, 102);
-            this.dataGridView1.TabIndex = 1;
-            this.dataGridView1.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.dataGridView1_CellDoubleClick);
+            this.skinButton3.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.skinButton3.BackColor = System.Drawing.Color.Transparent;
+            this.skinButton3.BaseColor = System.Drawing.Color.Gray;
+            this.skinButton3.BorderColor = System.Drawing.Color.Silver;
+            this.skinButton3.ControlState = CCWin.SkinClass.ControlState.Normal;
+            this.skinButton3.DownBack = null;
+            this.skinButton3.Location = new System.Drawing.Point(614, 159);
+            this.skinButton3.MouseBack = null;
+            this.skinButton3.Name = "skinButton3";
+            this.skinButton3.NormlBack = null;
+            this.skinButton3.RoundStyle = CCWin.SkinClass.RoundStyle.All;
+            this.skinButton3.Size = new System.Drawing.Size(92, 30);
+            this.skinButton3.TabIndex = 2;
+            this.skinButton3.Text = "Add";
+            this.skinButton3.UseVisualStyleBackColor = false;
+            this.skinButton3.Click += new System.EventHandler(this.skinButton3_Click);
             // 
             // skinButton2
             // 
@@ -103,24 +96,33 @@
             this.skinButton2.UseVisualStyleBackColor = false;
             this.skinButton2.Click += new System.EventHandler(this.skinButton2_Click);
             // 
-            // skinButton3
+            // dataGridView1
             // 
-            this.skinButton3.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.skinButton3.BackColor = System.Drawing.Color.Transparent;
-            this.skinButton3.BaseColor = System.Drawing.Color.Gray;
-            this.skinButton3.BorderColor = System.Drawing.Color.Silver;
-            this.skinButton3.ControlState = CCWin.SkinClass.ControlState.Normal;
-            this.skinButton3.DownBack = null;
-            this.skinButton3.Location = new System.Drawing.Point(614, 159);
-            this.skinButton3.MouseBack = null;
-            this.skinButton3.Name = "skinButton3";
-            this.skinButton3.NormlBack = null;
-            this.skinButton3.RoundStyle = CCWin.SkinClass.RoundStyle.All;
-            this.skinButton3.Size = new System.Drawing.Size(92, 30);
-            this.skinButton3.TabIndex = 2;
-            this.skinButton3.Text = "Add";
-            this.skinButton3.UseVisualStyleBackColor = false;
-            this.skinButton3.Click += new System.EventHandler(this.skinButton3_Click);
+            this.dataGridView1.AllowUserToAddRows = false;
+            this.dataGridView1.AllowUserToDeleteRows = false;
+            this.dataGridView1.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.dataGridView1.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
+            this.dataGridView1.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.dataGridView1.Location = new System.Drawing.Point(17, 51);
+            this.dataGridView1.Name = "dataGridView1";
+            this.dataGridView1.ReadOnly = true;
+            this.dataGridView1.RowTemplate.Height = 23;
+            this.dataGridView1.Size = new System.Drawing.Size(787, 102);
+            this.dataGridView1.TabIndex = 1;
+            this.dataGridView1.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.dataGridView1_CellDoubleClick);
+            // 
+            // skinWaterTextBox1
+            // 
+            this.skinWaterTextBox1.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.skinWaterTextBox1.Location = new System.Drawing.Point(17, 21);
+            this.skinWaterTextBox1.Name = "skinWaterTextBox1";
+            this.skinWaterTextBox1.Size = new System.Drawing.Size(113, 23);
+            this.skinWaterTextBox1.TabIndex = 0;
+            this.skinWaterTextBox1.Text = "127.0.0.1";
+            this.skinWaterTextBox1.WaterColor = System.Drawing.Color.FromArgb(((int)(((byte)(127)))), ((int)(((byte)(127)))), ((int)(((byte)(127)))));
+            this.skinWaterTextBox1.WaterText = "Port";
             // 
             // logTxt
             // 
@@ -156,6 +158,17 @@
             this.skinButton1.UseVisualStyleBackColor = false;
             this.skinButton1.Click += new System.EventHandler(this.skinButton1_Click);
             // 
+            // skinWaterTextBox2
+            // 
+            this.skinWaterTextBox2.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.skinWaterTextBox2.Location = new System.Drawing.Point(136, 21);
+            this.skinWaterTextBox2.Name = "skinWaterTextBox2";
+            this.skinWaterTextBox2.Size = new System.Drawing.Size(40, 23);
+            this.skinWaterTextBox2.TabIndex = 0;
+            this.skinWaterTextBox2.Text = "21";
+            this.skinWaterTextBox2.WaterColor = System.Drawing.Color.FromArgb(((int)(((byte)(127)))), ((int)(((byte)(127)))), ((int)(((byte)(127)))));
+            this.skinWaterTextBox2.WaterText = "Port";
+            // 
             // FtpServerForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
@@ -186,5 +199,6 @@
         private CCWin.SkinControl.SkinButton skinButton3;
         private CCWin.SkinControl.SkinWaterTextBox logTxt;
         private CCWin.SkinControl.SkinButton skinButton1;
+        private CCWin.SkinControl.SkinWaterTextBox skinWaterTextBox2;
     }
 }

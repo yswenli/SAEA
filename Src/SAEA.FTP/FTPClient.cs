@@ -138,7 +138,7 @@ namespace SAEA.FTP
         /// <param name="pathName"></param>
         /// <param name="dirType"></param>
         /// <returns></returns>
-        public List<string> Dir(string pathName = "/", DirType dirType = DirType.LIST)
+        public List<string> Dir(string pathName = "/", DirType dirType = DirType.MLSD)
         {
             using (var dataSocket = _client.CreateDataConnection())
             {

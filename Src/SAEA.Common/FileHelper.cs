@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using System;
 using System.IO;
 using System.Text;
 
@@ -90,6 +91,32 @@ namespace SAEA.Common
             var data = Read(filePath);
 
             return Encoding.UTF8.GetString(data);
+        }
+
+        /// <summary>
+        /// 读取文件内容
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="read"></param>
+        /// <param name="bufferSize"></param>
+        public static void Read(string filePath, Action<byte[]> read, int bufferSize = 10240)
+        {
+            using (var fs = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                fs.Position = 0;
+
+                var data = new byte[bufferSize];
+
+                while (true)
+                {
+                    var count = fs.Read(data, 0, data.Length);
+
+                    if (count == 0) break;
+
+                    read?.Invoke(data.AsSpan().Slice(0, count).ToArray());
+                }
+            }
+
         }
 
 

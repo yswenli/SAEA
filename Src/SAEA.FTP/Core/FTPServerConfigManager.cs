@@ -146,6 +146,11 @@ namespace SAEA.FTP.Core
 
         #endregion
 
+        #region PASV bindings
+
+
+        #endregion
+
 
 
     }

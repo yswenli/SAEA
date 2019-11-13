@@ -111,31 +111,22 @@ namespace SAEA.FTP.Net
             throw new NotImplementedException();
         }
 
-        public IServerSokcet CreateDataSocket(int port = 22)
+
+
+        #region PASV
+        public void SendData(int port = 22)
         {
-            var option = SocketOptionBuilder.Instance
-               .SetSocket()
-               .UseIocp()
-               .SetPort(port)
-               .SetReadBufferSize(_serverConfig.BufferSize)
-               .SetWriteBufferSize(_serverConfig.BufferSize)
-               .Build();
-            var dataSocket = SocketFactory.CreateServerSocket(option);
-            dataSocket.OnError += _serverSocket_OnError;
-            dataSocket.OnReceive += DataSocket_OnReceive;
-            dataSocket.Start();
-            return dataSocket;
+
         }
 
-        private void DataSocket_OnReceive(object currentObj, byte[] data)
+        public void ReceiveFile(int port = 22)
         {
-            var ut = currentObj as IUserToken;
 
-            if (_serverConfig.Users.TryGetValue(ut.ID, out FTPUser ftpUser))
-            {
-                ftpUser.FTPDataManager.Receive(data);
-            }
         }
+
+        #endregion
+
+
 
         public void Dispose()
         {

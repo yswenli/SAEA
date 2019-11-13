@@ -62,6 +62,12 @@ namespace SAEA.FTPTest
         {
             Init();
         }
+
+        /// <summary>
+        /// 添加用户
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void skinButton3_Click(object sender, EventArgs e)
         {
             var cf = new CreateUserForm();
@@ -83,6 +89,11 @@ namespace SAEA.FTPTest
             }
         }
 
+        /// <summary>
+        /// 删除用户
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void skinButton2_Click(object sender, EventArgs e)
         {
             if (MessageBox.Show("确认要删除用户吗？", "SAEA.FTP Test", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
@@ -142,6 +153,12 @@ namespace SAEA.FTPTest
                 }
             }
         }
+
+        /// <summary>
+        /// 修改用户
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void dataGridView1_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
         {
             if (e.ColumnIndex >= 0 && e.RowIndex >= 0)
@@ -203,13 +220,34 @@ namespace SAEA.FTPTest
         {
             if (skinButton1.Text == "Start")
             {
+                var ip = skinWaterTextBox1.Text;
+
+                var portStr = skinWaterTextBox2.Text;
+
+                if (!IPHelper.IsIP(ip))
+                {
+                    MessageBox.Show("输入的ip有误");
+                    Log("输入的ip有误");
+                    return;
+                }
+                if (!IPHelper.IsPort(portStr, out ushort port))
+                {
+                    MessageBox.Show("输入的ip有误");
+                    Log("输入的ip有误");
+                    return;
+                }
+
+                _serverConfig.IP = ip;
+                _serverConfig.Port = port;
+                FTPServerConfigManager.Save();
+
                 Log("FTPServer正在启动中...");
 
                 skinButton1.Text = "Stop";
 
                 if (_ftpServer == null)
                 {
-                    _ftpServer = new FTPServer(_serverConfig.Port, _serverConfig.BufferSize);
+                    _ftpServer = new FTPServer(_serverConfig.IP, _serverConfig.Port, _serverConfig.BufferSize);
                     _ftpServer.OnLog += _ftpServer_OnLog;
                 }
 
