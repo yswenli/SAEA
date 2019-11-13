@@ -154,7 +154,9 @@ namespace SAEA.FTP
                     }
                     _serverSocket.Reply(id, ServerResponseCode.页文件不可用, "No such directory.");
                     break;
-
+                case FTPCommand.PWD:
+                    _serverSocket.Reply(id, ServerResponseCode.路径名建立, $"\"{ user.CurrentFtpPath}\"");
+                    break;
             }
         }
 
