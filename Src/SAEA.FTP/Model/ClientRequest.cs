@@ -37,7 +37,7 @@ namespace SAEA.FTP.Model
                     result = new ClientRequest()
                     {
                         Cmd = msg.Substring(0, index),
-                        Arg = msg.Substring(index + 1)
+                        Arg = msg.Substring(index + 1).Trim()
                     };
                 }
                 else

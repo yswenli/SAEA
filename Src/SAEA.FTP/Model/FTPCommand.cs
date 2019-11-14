@@ -46,7 +46,7 @@ namespace SAEA.FTP.Model
         STOR = 17,
         RETR = 18,
         SIZE = 20,
-
+        OPTS = 21,
         QUIT = 99
     }
 }

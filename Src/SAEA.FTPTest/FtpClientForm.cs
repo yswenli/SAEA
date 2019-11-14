@@ -547,12 +547,14 @@ namespace SAEA.FTPTest
             }
             else
             {
+                Log("正在断开FTP连接...");
 
                 Task.Run(() =>
                 {
                     try
                     {
-                        _client.Quit();
+                        _client.Dispose();
+                        Log("FTP连接已断开");
                     }
                     catch (Exception ex)
                     {
@@ -818,7 +820,7 @@ namespace SAEA.FTPTest
         {
             try
             {
-                _client?.Dispose();               
+                _client?.Dispose();
             }
             catch { }
             notifyIcon1.Dispose();

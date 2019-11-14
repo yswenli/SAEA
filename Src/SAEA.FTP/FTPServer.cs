@@ -53,204 +53,220 @@ namespace SAEA.FTP
 
         private void _serverSocket_OnReceived(string id, string msg)
         {
-            var cr = ClientRequest.Parse(msg);
-
-            var cmd = Enum.Parse(typeof(FTPCommand), cr.Cmd);
-
-            var userName = FTPServerConfigManager.GetUserBind(id);
-
-            var user = FTPServerConfigManager.GetUser(userName);
-
-            switch (cmd)
+            try
             {
-                case FTPCommand.USER:
-                    if (!string.IsNullOrEmpty(cr.Arg))
-                    {
-                        if (user == null)
+                var cr = ClientRequest.Parse(msg);
+
+                var cmd = Enum.Parse(typeof(FTPCommand), cr.Cmd);
+
+                var userName = FTPServerConfigManager.GetUserBind(id);
+
+                var user = FTPServerConfigManager.GetUser(userName);
+
+                switch (cmd)
+                {
+                    case FTPCommand.USER:
+                        if (!string.IsNullOrEmpty(cr.Arg))
                         {
-                            _cmdSocket.Reply(id, ServerResponseCode.无效的用户名, "Invalid user name.");
-                        }
-                        else
-                        {
-                            if (FTPServerConfigManager.GetUserBind(id) == user.UserName)
+                            userName = cr.Arg;
+
+                            user = FTPServerConfigManager.GetUser(userName);
+
+                            if (user == null)
                             {
-                                if (user.IsLogin == true)
-                                    _cmdSocket.Reply(id, ServerResponseCode.初始命令没有执行, "Already logged-in.");
-                                else
-                                    _cmdSocket.Reply(id, ServerResponseCode.要求密码, "User name okay, need password.");
+                                _cmdSocket.Reply(id, ServerResponseCode.无效的用户名, "Invalid user name.");
                             }
                             else
                             {
-                                if (user.UserName.ToLower() == "anonymous")
+                                if (FTPServerConfigManager.GetUserBind(id) == user.UserName)
                                 {
-                                    FTPServerConfigManager.UserBinding(id, user.UserName);
+                                    if (user.IsLogin == true)
+                                        _cmdSocket.Reply(id, ServerResponseCode.初始命令没有执行, "Already logged-in.");
+                                    else
+                                        _cmdSocket.Reply(id, ServerResponseCode.要求密码, "User name okay, need password.");
+                                }
+                                else
+                                {
+                                    if (user.UserName.ToLower() == "anonymous")
+                                    {
+                                        FTPServerConfigManager.UserBinding(id, user.UserName);
+                                        _cmdSocket.Reply(id, ServerResponseCode.登录因特网, "User logged in, proceed.");
+                                    }
+                                    else
+                                    {
+                                        FTPServerConfigManager.UserBinding(id, user.UserName);
+                                        _cmdSocket.Reply(id, ServerResponseCode.要求密码, "User name okay, need password.");
+                                    }
+                                }
+                            }
+                        }
+                        return;
+                    case FTPCommand.PASS:
+                        if (!string.IsNullOrEmpty(userName))
+                        {
+                            if (user.IsLogin)
+                            {
+                                _cmdSocket.Reply(id, ServerResponseCode.初始命令没有执行, "Already logged-in.");
+                            }
+                            else
+                            {
+                                if (FTPServerConfigManager.UserLogin(userName, cr.Arg))
+                                {
                                     _cmdSocket.Reply(id, ServerResponseCode.登录因特网, "User logged in, proceed.");
                                 }
                                 else
                                 {
-                                    FTPServerConfigManager.UserBinding(id, user.UserName);
-                                    _cmdSocket.Reply(id, ServerResponseCode.要求密码, "User name okay, need password.");
+                                    _cmdSocket.Reply(id, ServerResponseCode.无效的用户名, "Authentication failed.");
                                 }
                             }
                         }
-                    }
-                    return;
-                case FTPCommand.PASS:
-                    if (!string.IsNullOrEmpty(userName))
-                    {
-                        if (user.IsLogin)
-                        {
-                            _cmdSocket.Reply(id, ServerResponseCode.初始命令没有执行, "Already logged-in.");
-                        }
                         else
                         {
-                            if (FTPServerConfigManager.UserLogin(userName, cr.Arg))
-                            {
-                                _cmdSocket.Reply(id, ServerResponseCode.登录因特网, "User logged in, proceed.");
-                            }
-                            else
-                            {
-                                _cmdSocket.Reply(id, ServerResponseCode.无效的用户名, "Authentication failed.");
-                            }
+                            _cmdSocket.Reply(id, ServerResponseCode.错误指令序列, "Login with USER first.");
                         }
-                    }
-                    else
-                    {
-                        _cmdSocket.Reply(id, ServerResponseCode.错误指令序列, "Login with USER first.");
-                    }
-                    return;
-                case FTPCommand.SYST:
-                    _cmdSocket.Reply(id, ServerResponseCode.系统类型回复, "WINDOWS Type: SAEA FTP Server");
-                    return;
-                case FTPCommand.NOOP:
-                    _cmdSocket.Reply(id, ServerResponseCode.成功, "Command okay.");
-                    return;
-            }
+                        return;
+                    case FTPCommand.SYST:
+                        _cmdSocket.Reply(id, ServerResponseCode.系统类型回复, "WINDOWS Type: SAEA FTP Server");
+                        return;
+                    case FTPCommand.OPTS:
+                    case FTPCommand.NOOP:
+                        _cmdSocket.Reply(id, ServerResponseCode.成功, "WINDOWS Type: SAEA FTP Server");
+                        _cmdSocket.Reply(id, ServerResponseCode.成功, "Command okay.");
+                        return;
+                    case FTPCommand.QUIT:
+                        _cmdSocket.Reply(id, ServerResponseCode.退出网络, "SAEA FTP: Goodbye.");
+                        return;
+                }
 
-            if (user == null || !user.IsLogin)
-            {
-                _cmdSocket.Reply(id, ServerResponseCode.错误指令序列, "Login with USER first.");
-                return;
-            }
+                if (user == null || !user.IsLogin)
+                {
+                    _cmdSocket.Reply(id, ServerResponseCode.错误指令序列, "Login with USER first.");
+                    return;
+                }
 
-            switch (cmd)
-            {
-                case FTPCommand.CWD:
-                    if (PathHelper.Exists(user.Root, cr.Arg, out string newDirPath))
-                    {
-                        user.CurrentFtpPath = newDirPath;
-                        _cmdSocket.Reply(id, ServerResponseCode.文件行为完成, "Command okay.");
-                    }
-                    else
-                    {
-                        _cmdSocket.Reply(id, ServerResponseCode.页文件不可用, "No such directory.");
-                    }
-                    break;
-                case FTPCommand.CDUP:
-
-                    if (PathHelper.Exists(user.CurrentFtpPath, "../", out newDirPath))
-                    {
-                        if (!PathHelper.IsParent(newDirPath, user.Root))
+                switch (cmd)
+                {
+                    case FTPCommand.CWD:
+                        if (PathHelper.Exists(user.Root, cr.Arg, out string newDirPath))
                         {
                             user.CurrentFtpPath = newDirPath;
                             _cmdSocket.Reply(id, ServerResponseCode.文件行为完成, "Command okay.");
-                            return;
                         }
-                    }
-                    _cmdSocket.Reply(id, ServerResponseCode.页文件不可用, "No such directory.");
-                    break;
-                case FTPCommand.PWD:
-                    _cmdSocket.Reply(id, ServerResponseCode.路径名建立, $"\"{ user.CurrentFtpPath}\"");
-                    break;
-
-                case FTPCommand.PASV:
-                    var dataPort = IPHelper.GetFreePort();
-                    var portStr = dataPort.PortToString();
-                    var pasvStr = $"SAEA FTPServer PASV({_serverConfig.IP},{portStr})";
-
-                    _cmdSocket.CreateDataSocket(userName, dataPort, _serverConfig.BufferSize);
-
-                    _cmdSocket.Reply(id, ServerResponseCode.进入被动模式, pasvStr);
-
-                    break;
-                case FTPCommand.MLSD:
-
-                    var path = user.CurrentFtpPath;
-
-                    if (!string.IsNullOrEmpty(cr.Arg) && cr.Arg != "/")
-                    {
-                        if (PathHelper.Exists(path, cr.Arg, out newDirPath))
+                        else
                         {
-                            path = newDirPath;
+                            _cmdSocket.Reply(id, ServerResponseCode.页文件不可用, "No such directory.");
                         }
-                    }
+                        break;
+                    case FTPCommand.CDUP:
 
-                    var dirList = PathHelper.GetDirectories(path, out List<FileInfo> fileList);
-
-                    StringBuilder sb = new StringBuilder();
-
-                    if (dirList != null && dirList.Any())
-                    {
-                        foreach (var item in dirList)
+                        if (PathHelper.Exists(user.CurrentFtpPath, "../", out newDirPath))
                         {
-                            sb.AppendLine($"type=dir;modify={item.LastWriteTime.ToFileTimeUtc()}; {item.Name}");
+                            if (!PathHelper.IsParent(newDirPath, user.Root))
+                            {
+                                user.CurrentFtpPath = newDirPath;
+                                _cmdSocket.Reply(id, ServerResponseCode.文件行为完成, "Command okay.");
+                                return;
+                            }
                         }
-                    }
+                        _cmdSocket.Reply(id, ServerResponseCode.页文件不可用, "No such directory.");
+                        break;
+                    case FTPCommand.PWD:
+                        _cmdSocket.Reply(id, ServerResponseCode.路径名建立, $"\"{ user.CurrentFtpPath}\"");
+                        break;
 
-                    if (fileList != null && fileList.Any())
-                    {
-                        foreach (var item in fileList)
+                    case FTPCommand.PASV:
+                        var dataPort = IPHelper.GetFreePort();
+                        var portStr = dataPort.PortToString();
+                        var pasvStr = $"SAEA FTPServer PASV({_serverConfig.IP},{portStr})";
+
+                        _cmdSocket.CreateDataSocket(userName, dataPort, _serverConfig.BufferSize);
+
+                        _cmdSocket.Reply(id, ServerResponseCode.进入被动模式, pasvStr);
+
+                        break;
+                    case FTPCommand.MLSD:
+
+                        var path = user.CurrentFtpPath;
+
+                        if (!string.IsNullOrEmpty(cr.Arg) && cr.Arg != "/")
                         {
-                            sb.AppendLine($"type=file;modify={item.LastWriteTime.ToFileTimeUtc()}; {item.Name}");
+                            if (PathHelper.Exists(path, cr.Arg, out newDirPath))
+                            {
+                                path = newDirPath;
+                            }
                         }
-                    }
 
-                    var str = sb.ToString();
+                        var dirList = PathHelper.GetDirectories(path, out List<FileInfo> fileList);
 
-                    if (!string.IsNullOrEmpty(str))
-                    {
-                        _cmdSocket.SendData(userName, Encoding.UTF8.GetBytes(str));
-                    }
-                    break;
-                case FTPCommand.NLST:
+                        StringBuilder sb = new StringBuilder();
 
-                    path = user.CurrentFtpPath;
-
-                    if (!string.IsNullOrEmpty(cr.Arg) && cr.Arg != "/")
-                    {
-                        if (PathHelper.Exists(path, cr.Arg, out newDirPath))
+                        if (dirList != null && dirList.Any())
                         {
-                            path = newDirPath;
+                            foreach (var item in dirList)
+                            {
+                                sb.AppendLine($"type=dir;modify={item.LastWriteTime.ToFileTimeUtc()}; {item.Name}");
+                            }
                         }
-                    }
 
-                    dirList = PathHelper.GetDirectories(path, out fileList);
-
-                    sb = new StringBuilder();
-
-                    if (dirList != null && dirList.Any())
-                    {
-                        foreach (var item in dirList)
+                        if (fileList != null && fileList.Any())
                         {
-                            sb.AppendLine($"{item.FullName.Replace(user.CurrentFtpPath, "").Replace("\\", "/")}");
+                            foreach (var item in fileList)
+                            {
+                                sb.AppendLine($"type=file;modify={item.LastWriteTime.ToFileTimeUtc()}; {item.Name}");
+                            }
                         }
-                    }
 
-                    if (fileList != null && fileList.Any())
-                    {
-                        foreach (var item in fileList)
+                        var str = sb.ToString();
+
+                        if (!string.IsNullOrEmpty(str))
                         {
-                            sb.AppendLine($"{item.FullName.Replace(user.CurrentFtpPath, "").Replace("\\", "/")}");
+                            _cmdSocket.SendData(userName, Encoding.UTF8.GetBytes(str));
                         }
-                    }
+                        break;
+                    case FTPCommand.NLST:
 
-                    str = sb.ToString();
+                        path = user.CurrentFtpPath;
 
-                    if (!string.IsNullOrEmpty(str))
-                    {
-                        _cmdSocket.SendData(userName, Encoding.UTF8.GetBytes(str));
-                    }
-                    break;
+                        if (!string.IsNullOrEmpty(cr.Arg) && cr.Arg != "/")
+                        {
+                            if (PathHelper.Exists(path, cr.Arg, out newDirPath))
+                            {
+                                path = newDirPath;
+                            }
+                        }
+
+                        dirList = PathHelper.GetDirectories(path, out fileList);
+
+                        sb = new StringBuilder();
+
+                        if (dirList != null && dirList.Any())
+                        {
+                            foreach (var item in dirList)
+                            {
+                                sb.AppendLine($"{item.FullName.Replace(user.CurrentFtpPath, "").Replace("\\", "/")}");
+                            }
+                        }
+
+                        if (fileList != null && fileList.Any())
+                        {
+                            foreach (var item in fileList)
+                            {
+                                sb.AppendLine($"{item.FullName.Replace(user.CurrentFtpPath, "").Replace("\\", "/")}");
+                            }
+                        }
+
+                        str = sb.ToString();
+
+                        if (!string.IsNullOrEmpty(str))
+                        {
+                            _cmdSocket.SendData(userName, Encoding.UTF8.GetBytes(str));
+                        }
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                OnLog("FTPServer Error OnReceive", ex);
             }
         }
 
