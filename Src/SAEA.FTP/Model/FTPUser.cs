@@ -28,7 +28,7 @@ namespace SAEA.FTP.Model
 
         public int DataPort { get; set; } = 22;
 
-        public string Root { get; set; } = "/";
+        public string Root { get; set; } = "C:\\";
 
         [JsonIgnore]
         public FTPDataManager FTPDataManager { get; set; }
@@ -38,6 +38,9 @@ namespace SAEA.FTP.Model
 
         [JsonIgnore]
         public string CurrentFtpPath { get; set; } = "/";
+
+        [JsonIgnore]
+        public string CurrentPath { get; set; } = "C:\\";
 
         [JsonIgnore]
         public FTPDataSocketManager FTPDataSocketManager { get; set; }

@@ -121,6 +121,8 @@ namespace SAEA.Common
             return localPort.Distinct().ToArray();
         }
 
+        static Random random = null;
+
         /// <summary>
         /// 随机获取一个大于等于 min 的空闲端口
         /// </summary>
@@ -129,21 +131,21 @@ namespace SAEA.Common
         /// <returns></returns>
         public static ushort GetFreePort(int min = 1024, string address = null)
         {
+            if (random == null) random = new Random(Environment.TickCount);
+
             ushort freePort = 39654;
-            Random random = new Random();
-            int[] freePorts = GetInUsedPort(address)
-                .Where(x => x >= (min = min <= 0 ? 1 : min))
-                .ToArray();
-            while (freePort < 0)
+
+            int[] freePorts = GetInUsedPort(address).ToArray();
+
+            while (true)
             {
                 freePort = (ushort)random.Next(min, 65536);
-                foreach (var item in freePorts)
+
+                if (!freePorts.Contains(freePort))
                 {
-                    if (freePort == item)
-                        freePort = 39654;
+                    return freePort;
                 }
             }
-            return freePort;
         }
 
 
