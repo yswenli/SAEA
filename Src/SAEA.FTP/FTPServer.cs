@@ -55,6 +55,8 @@ namespace SAEA.FTP
         {
             try
             {
+                OnLog($"收到命令：{msg}", null);
+
                 var cr = ClientRequest.Parse(msg);
 
                 var cmd = Enum.Parse(typeof(FTPCommand), cr.Cmd);
@@ -145,6 +147,9 @@ namespace SAEA.FTP
                     return;
                 }
 
+                if (string.IsNullOrWhiteSpace(user.CurrentFtpPath) || user.CurrentFtpPath == "/" || user.CurrentFtpPath == "\\")
+                    user.CurrentFtpPath = user.Root;
+
                 switch (cmd)
                 {
                     case FTPCommand.CWD:
@@ -155,7 +160,7 @@ namespace SAEA.FTP
                         }
                         else
                         {
-                            _cmdSocket.Reply(id, ServerResponseCode.页文件不可用, "No such directory.");
+                            _cmdSocket.Reply(id, ServerResponseCode.找不到文件或文件夹, "No such directory.");
                         }
                         break;
                     case FTPCommand.CDUP:
@@ -169,7 +174,7 @@ namespace SAEA.FTP
                                 return;
                             }
                         }
-                        _cmdSocket.Reply(id, ServerResponseCode.页文件不可用, "No such directory.");
+                        _cmdSocket.Reply(id, ServerResponseCode.找不到文件或文件夹, "No such directory.");
                         break;
                     case FTPCommand.PWD:
                         _cmdSocket.Reply(id, ServerResponseCode.路径名建立, $"\"{ user.CurrentFtpPath}\"");
@@ -187,6 +192,9 @@ namespace SAEA.FTP
                         _cmdSocket.Reply(id, ServerResponseCode.进入被动模式, pasvStr);
 
                         break;
+                    case FTPCommand.PORT:
+                        _cmdSocket.Reply(id, ServerResponseCode.禁用, "Port is disabled.");
+                        break;
                     case FTPCommand.MLSD:
 
                         var path = user.CurrentFtpPath;
@@ -199,7 +207,7 @@ namespace SAEA.FTP
                             }
                             else
                             {
-                                _cmdSocket.Reply(id, ServerResponseCode.页文件不可用, "No such directory.");
+                                _cmdSocket.Reply(id, ServerResponseCode.找不到文件或文件夹, "No such directory.");
                                 return;
                             }
                         }
@@ -220,7 +228,7 @@ namespace SAEA.FTP
                         {
                             foreach (var item in fileList)
                             {
-                                sb.AppendLine($"type=file;modify={item.LastWriteTime.ToFileTimeUtc()}; {item.Name}");
+                                sb.AppendLine($"type=file;modify={item.LastWriteTime.ToFileTimeUtc()};size={item.Length}; {item.Name}");
                             }
                         }
 
@@ -244,7 +252,7 @@ namespace SAEA.FTP
                             }
                             else
                             {
-                                _cmdSocket.Reply(id, ServerResponseCode.页文件不可用, "No such directory.");
+                                _cmdSocket.Reply(id, ServerResponseCode.找不到文件或文件夹, "No such directory.");
                                 return;
                             }
                         }

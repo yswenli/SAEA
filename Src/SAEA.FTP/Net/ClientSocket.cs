@@ -96,6 +96,7 @@ namespace SAEA.FTP.Net
         private void _clientSocket_OnDisconnected(string ID, Exception ex)
         {
             OnDisconnected?.Invoke(ID, ex);
+            FTPDataManager.NoticeComplete();
         }
 
 
@@ -176,7 +177,7 @@ namespace SAEA.FTP.Net
         public ServerResponse BaseSend(string cmd, Action action = null)
         {
             if (!Connected) throw new IOException("Network connection disconnected");
-            
+
             return Send(cmd);
         }
 
@@ -248,7 +249,7 @@ namespace SAEA.FTP.Net
         public void Disconnect()
         {
             try
-            {
+            {                
                 _cmdSocket.Disconnect();
             }
             catch { }

@@ -87,7 +87,7 @@ namespace SAEA.FTP
             {
                 return true;
             }
-            if (sres.Code == ServerResponseCode.页文件不可用)
+            if (sres.Code == ServerResponseCode.找不到文件或文件夹)
             {
                 return false;
             }
@@ -105,7 +105,7 @@ namespace SAEA.FTP
             {
                 return true;
             }
-            if (sres.Code == ServerResponseCode.页文件不可用)
+            if (sres.Code == ServerResponseCode.找不到文件或文件夹)
             {
                 return false;
             }
@@ -142,11 +142,11 @@ namespace SAEA.FTP
         {
             using (var dataSocket = _client.CreateDataConnection())
             {
-                _client.FTPDataManager.New();
+                _client.FTPDataManager.Refresh();
 
                 var sres = _client.BaseSend($"{dirType.ToString()} {pathName}");
 
-                var str = _client.FTPDataManager.ReadText();
+                var str = _client.FTPDataManager.ReadAllText();
 
                 if (string.IsNullOrEmpty(str))
                 {
@@ -289,12 +289,7 @@ namespace SAEA.FTP
 
                 if (sres.Code == ServerResponseCode.结束数据连接 || sres.Code == ServerResponseCode.打开连接)
                 {
-                    while (true)
-                    {
-                        ThreadHelper.Sleep(500);
-                        offset = _client.FTPDataManager.Checked(count);
-                        if (offset == count) break;
-                    }
+                    _client.FTPDataManager.Checked(count);
                     return filePath;
                 }
                 else

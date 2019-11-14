@@ -29,13 +29,14 @@
 *****************************************************************************/
 
 using SAEA.Sockets.Handler;
+using System;
 
 namespace SAEA.Sockets
 {
     /// <summary>
     /// 服务器端
     /// </summary>
-    public interface IServerSokcet
+    public interface IServerSokcet : IDisposable
     {
         /// <summary>
         /// 配置项
@@ -104,10 +105,7 @@ namespace SAEA.Sockets
         /// </summary>
         /// <param name="obj"></param>
         void Disconnecte(object obj);
-       
-        /// <summary>
-        /// 释放资源
-        /// </summary>
-        void Dispose();
+
+        bool IsDisposed { get; set; }
     }
 }

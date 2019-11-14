@@ -55,7 +55,7 @@ namespace SAEA.Common
             {
                 paramStr = SerializeHelper.Serialize(@params);
             }
-            Write($"[Error]\t{des}", $"err:{ex.Message},params:{paramStr}");
+            Write($"[Error]", $"{des}\terr:{ex.Message},params:{paramStr}");
         }
 
         public static void Warn(string des, Exception ex, params object[] @params)
@@ -66,12 +66,18 @@ namespace SAEA.Common
             {
                 paramStr = SerializeHelper.Serialize(@params);
             }
-            Write($"[Warn]\t{des}", $"err:{ex.Message},params:{paramStr}");
+            Write($"[Warn]", $"{des}\terr:{ex.Message},params:{paramStr}");
         }
 
         public static void Info(string des, params object[] @params)
         {
-            Write($"[Info]\t{des}", des);
+            string paramStr = string.Empty;
+
+            if (@params != null && @params.Any())
+            {
+                paramStr = SerializeHelper.Serialize(@params);
+            }
+            Write($"[Info]", $"{des}\tparams:{paramStr}");
         }
 
         public static void Debug(string des, params object[] @params)
@@ -82,7 +88,7 @@ namespace SAEA.Common
             {
                 paramStr = SerializeHelper.Serialize(@params);
             }
-            Write($"[Debug]\t{des}", $"params:{paramStr}");
+            Write($"[Debug]", $"{des}\tparams:{paramStr}");
         }
 
         public static void Debug(string des, byte[] data)
@@ -92,7 +98,7 @@ namespace SAEA.Common
             {
                 result = Encoding.UTF8.GetString(data);
             }
-            Write("[Debug]", result);
+            Write("[Debug]", $"{des}\t{result}");
         }
     }
 }

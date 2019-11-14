@@ -73,12 +73,12 @@
             // skinButton1
             // 
             this.skinButton1.BackColor = System.Drawing.Color.Transparent;
-            this.skinButton1.BaseColor = System.Drawing.Color.Gray;
+            this.skinButton1.BaseColor = System.Drawing.Color.FromArgb(((int)(((byte)(192)))), ((int)(((byte)(192)))), ((int)(((byte)(0)))));
             this.skinButton1.BorderColor = System.Drawing.Color.Silver;
             this.skinButton1.ControlState = CCWin.SkinClass.ControlState.Normal;
             this.skinButton1.DownBack = null;
             this.skinButton1.Font = new System.Drawing.Font("微软雅黑", 10.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.skinButton1.ForeColor = System.Drawing.Color.Yellow;
+            this.skinButton1.ForeColor = System.Drawing.Color.Black;
             this.skinButton1.Location = new System.Drawing.Point(494, 22);
             this.skinButton1.MouseBack = null;
             this.skinButton1.MouseBaseColor = System.Drawing.SystemColors.MenuHighlight;
@@ -159,12 +159,13 @@
             this.groupBox1.Controls.Add(this.skinWaterTextBox2);
             this.groupBox1.Controls.Add(this.skinWaterTextBox3);
             this.groupBox1.Dock = System.Windows.Forms.DockStyle.Top;
+            this.groupBox1.ForeColor = System.Drawing.SystemColors.ControlDarkDark;
             this.groupBox1.Location = new System.Drawing.Point(4, 32);
             this.groupBox1.Name = "groupBox1";
             this.groupBox1.Size = new System.Drawing.Size(981, 57);
             this.groupBox1.TabIndex = 10;
             this.groupBox1.TabStop = false;
-            this.groupBox1.Text = "FTPServer";
+            this.groupBox1.Text = "连接到服务器";
             // 
             // splitContainer2
             // 

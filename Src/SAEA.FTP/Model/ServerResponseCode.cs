@@ -86,11 +86,13 @@ namespace SAEA.FTP.Model
 
         public const int 无效命令参数 = 504;
 
+        public const int 禁用 = 510;
+
         public const int 无效的用户名 = 530;
 
         public const int 存储文件需要帐号 = 532;
 
-        public const int 页文件不可用 = 550;
+        public const int 找不到文件或文件夹 = 550;
 
         public const int 不知道的页类型 = 551;
 

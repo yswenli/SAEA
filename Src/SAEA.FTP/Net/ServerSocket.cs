@@ -125,35 +125,32 @@ namespace SAEA.FTP.Net
         {
             var ftpUser = FTPServerConfigManager.GetUser(userName);
 
-            ftpUser.FTPDataSocketManager.SendData(data);
-
-            ftpUser.FTPDataSocketManager.Dispose();
-
-            ftpUser.FTPDataSocketManager = null;
+            using (var ftpDataSocketManager= ftpUser.FTPDataSocketManager)
+            {
+                ftpUser.FTPDataSocketManager.SendData(data);
+            }
         }
 
         public void SendFile(string userName, string filePath)
         {
             var ftpUser = FTPServerConfigManager.GetUser(userName);
 
-            ftpUser.FTPDataSocketManager.SendFile(filePath);
-
-            ftpUser.FTPDataSocketManager.Dispose();
-
-            ftpUser.FTPDataSocketManager = null;
+            using (var ftpDataSocketManager = ftpUser.FTPDataSocketManager)
+            {
+                ftpUser.FTPDataSocketManager.SendFile(filePath);
+            }
         }
 
         public void ReceiveFile(string userName, string filePath)
         {
             var ftpUser = FTPServerConfigManager.GetUser(userName);
 
-            ftpUser.FTPDataManager.New(filePath);
+            using (var ftpDataSocketManager = ftpUser.FTPDataSocketManager)
+            {
+                ftpUser.FTPDataManager.New(filePath);
 
-            ftpUser.FTPDataSocketManager.Checke();
-
-            ftpUser.FTPDataSocketManager.Dispose();
-
-            ftpUser.FTPDataSocketManager = null;
+                ftpDataSocketManager.Checke();
+            }
         }
 
         #endregion

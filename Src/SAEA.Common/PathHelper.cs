@@ -221,10 +221,14 @@ namespace SAEA.Common
 
         public static bool Exists(string dirPath, string dirName,out string newDirPath)
         {
-            newDirPath = Path.Combine(dirPath, dirName);
+            newDirPath = Combine(dirPath, dirName);
             return Exists(newDirPath);
         }
 
+        public static string Combine(params string[] names)
+        {
+            return Path.Combine(names);
+        }
         public static bool IsParent(string sourcePath,string targetPath)
         {
             return (new DirectoryInfo(sourcePath)).Parent.ToString() == targetPath;

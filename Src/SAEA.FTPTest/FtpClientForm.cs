@@ -501,12 +501,13 @@ namespace SAEA.FTPTest
                             {
                                 groupBox1.Enabled = true;
 
-                                skinWaterTextBox1.Enabled = skinWaterTextBox2.Enabled
+                                skinWaterTextBox1.Enabled
+                                = skinWaterTextBox2.Enabled
                                 = skinWaterTextBox3.Enabled
                                 = skinWaterTextBox4.Enabled = false;
 
                                 skinButton1.Enabled = true;
-                                skinButton1.Text = "DisConnect";
+                                skinButton1.Text = "Disconnect";
 
                                 splitContainer2.Panel2.Enabled = true;
                                 textBox2.Text = "/";
@@ -564,9 +565,11 @@ namespace SAEA.FTPTest
                     {
                         skinButton1.Invoke(new Action(() =>
                         {
-                            skinWaterTextBox1.Enabled = skinWaterTextBox2.Enabled
-                                = skinWaterTextBox3.Enabled
-                                = skinWaterTextBox4.Enabled = true;
+                            skinWaterTextBox1.Enabled
+                            = skinWaterTextBox2.Enabled
+                            = skinWaterTextBox3.Enabled
+                            = skinWaterTextBox4.Enabled
+                            = true;
                             skinButton1.Enabled = true;
                             dataGridView2.Enabled = false;
                             dataGridView2.DataSource = null;
@@ -667,31 +670,41 @@ namespace SAEA.FTPTest
 
                         foreach (var item in list)
                         {
-                            if (!string.IsNullOrEmpty(item))
+                            try
                             {
-                                var arr = item.Split(";", StringSplitOptions.RemoveEmptyEntries);
-
-                                if (arr.Length >= 3)
+                                if (!string.IsNullOrEmpty(item))
                                 {
-                                    var fileName = arr[2].Trim();
+                                    var arr = item.Split(";", StringSplitOptions.RemoveEmptyEntries);
 
-                                    var type = (arr[0] == "type=dir" ? "文件夹" : "文件");
-
-                                    var size = 0L;
-
-                                    if (type == "文件")
+                                    if (arr.Length >= 3)
                                     {
-                                        fileName = arr[3].Trim();
-                                        size = _client.FileSize(fileName);
+                                        var fileName = arr[2].Trim();
+
+                                        var type = (arr[0] == "type=dir" ? "文件夹" : "文件");
+
+                                        var size = 0L;
+
+                                        if (type == "文件")
+                                        {
+                                            fileName = arr[3].Trim();
+
+                                            var sizeStr = arr[2].Substring(arr[2].IndexOf("=") + 1);
+
+                                            long.TryParse(sizeStr, out size);
+                                        }
+
+                                        listInfos.Add(new ListInfo()
+                                        {
+                                            FileName = fileName,
+                                            Type = type,
+                                            Size = size
+                                        });
                                     }
-
-                                    listInfos.Add(new ListInfo()
-                                    {
-                                        FileName = fileName,
-                                        Type = type,
-                                        Size = size
-                                    });
                                 }
+                            }
+                            catch (Exception ex)
+                            {
+                                Log("获取FTPServer文件列表出现异常", ex.Message);
                             }
                         }
 

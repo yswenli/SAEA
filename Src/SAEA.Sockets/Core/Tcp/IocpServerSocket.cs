@@ -45,7 +45,7 @@ namespace SAEA.Sockets.Core.Tcp
     /// iocp 服务器 socket
     /// 支持使用自定义 IContext 来扩展
     /// </summary>
-    public class IocpServerSocket : IServerSokcet
+    public class IocpServerSocket : IServerSokcet, IDisposable
     {
         Socket _listener = null;
 
@@ -57,6 +57,11 @@ namespace SAEA.Sockets.Core.Tcp
         {
             get { return _sessionManager; }
         }
+
+        public bool IsDisposed
+        {
+            get; set;
+        } = false;
 
         public int ClientCounts { get => _clientCounts; private set => _clientCounts = value; }
 
@@ -152,16 +157,13 @@ namespace SAEA.Sockets.Core.Tcp
             e.AcceptSocket = null;
             try
             {
-                if (_listener != null && !_listener.AcceptAsync(e))
+                if (!IsDisposed && _listener != null)
                 {
-                    ProcessAccepted(e);
+                    if (_listener?.AcceptAsync(e) == false)
+                        ProcessAccepted(e);
                 }
             }
-            catch
-            {
-                Thread.Sleep(500);
-                ProcessAccept(e);
-            }
+            catch { }
         }
 
         private void ProcessAccepted(SocketAsyncEventArgs e)
@@ -500,8 +502,9 @@ namespace SAEA.Sockets.Core.Tcp
         {
             try
             {
-                Stop();
                 _sessionManager.Clear();
+                Stop();
+                IsDisposed = true;
             }
             catch { }
         }

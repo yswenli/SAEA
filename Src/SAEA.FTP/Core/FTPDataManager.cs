@@ -17,85 +17,112 @@
 *****************************************************************************/
 using SAEA.Common;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace SAEA.FTP.Core
 {
     public class FTPDataManager
     {
+        #region dowload file
+
+        string _tempPath = string.Empty;
+
         string _filePath = string.Empty;
 
-        public string New(string filePath = "")
+        public void New(string filePath)
         {
-            if (string.IsNullOrEmpty(filePath))
-                return _filePath = PathHelper.GetFilePath(PathHelper.GetCurrentPath("Data"), Guid.NewGuid().ToString("N") + ".temp");
-            else
-                return _filePath = filePath;
+            _tempPath = PathHelper.GetFilePath(PathHelper.GetCurrentPath("Data"), Guid.NewGuid().ToString("N") + ".temp");
+
+            _filePath = filePath;
+
+            this.IsFile = true;
         }
 
         public void Receive(byte[] data)
         {
+
             if (data != null && data.Any())
             {
-                using (var fs = File.Open(_filePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite))
-                {
-                    fs.Position = fs.Length;
-                    fs.Write(data, 0, data.Length);
-                }
-            }
-        }
+                if (IsFile)
 
-        public string ReadText(int timeOut = 3 * 1000)
-        {
-            int current = 0;
-
-            while (current < timeOut)
-            {
-                current += 1000;
-
-                if (!File.Exists(_filePath))
-                {
-                    ThreadHelper.Sleep(1000);
-                }
+                    using (var fs = File.Open(_tempPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite))
+                    {
+                        fs.Position = fs.Length;
+                        fs.Write(data, 0, data.Length);
+                    }
                 else
                 {
-                    try
-                    {
-                        return File.ReadAllText(_filePath);
-                    }
-                    catch
-                    {
-                        ThreadHelper.Sleep(1000);
-                    }
+                    _list.AddRange(data);
                 }
             }
-            return string.Empty;
         }
 
-        public long Checked(long size)
+        public void Checked(long size)
         {
             long current = 0;
 
-            if (!File.Exists(_filePath))
+            while (true)
             {
-                ThreadHelper.Sleep(500);
-            }
-            else
-            {
+                if (!File.Exists(_tempPath))
+                {
+                    ThreadHelper.Sleep(500);
+                    continue;
+                }
+
                 try
                 {
-                    using (var fs = File.Open(_filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                    using (var fs = File.Open(_tempPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                     {
                         current = fs.Length;
                     }
                 }
-                catch
-                {
-                    ThreadHelper.Sleep(500);
-                }
+                catch { }
+                if (current < size)
+                    ThreadHelper.Sleep(50);
+                else
+                    break;
             }
-            return current;
+
+            File.Move(_tempPath, _filePath);
         }
+        #endregion
+
+        #region download data
+
+        List<byte> _list = null;
+
+        bool _isComplete = false;
+
+        public void Refresh()
+        {
+            this.IsFile = false;
+
+            if (_list != null) _list.Clear();
+
+            _list = new List<byte>();
+
+            _isComplete = false;
+        }
+
+        public void NoticeComplete()
+        {
+            _isComplete = true;
+        }
+
+        public string ReadAllText()
+        {
+            while (!_isComplete)
+            {
+                ThreadHelper.Sleep(500);
+            }
+            return Encoding.UTF8.GetString(_list.ToArray());
+        }
+
+        #endregion
+
+        public bool IsFile { get; set; } = false;
     }
 }

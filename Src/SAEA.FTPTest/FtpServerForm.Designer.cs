@@ -34,10 +34,10 @@
             this.skinButton3 = new CCWin.SkinControl.SkinButton();
             this.skinButton2 = new CCWin.SkinControl.SkinButton();
             this.dataGridView1 = new System.Windows.Forms.DataGridView();
+            this.skinWaterTextBox2 = new CCWin.SkinControl.SkinWaterTextBox();
             this.skinWaterTextBox1 = new CCWin.SkinControl.SkinWaterTextBox();
             this.logTxt = new CCWin.SkinControl.SkinWaterTextBox();
             this.skinButton1 = new CCWin.SkinControl.SkinButton();
-            this.skinWaterTextBox2 = new CCWin.SkinControl.SkinWaterTextBox();
             this.groupBox1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dataGridView1)).BeginInit();
             this.SuspendLayout();
@@ -51,6 +51,7 @@
             this.groupBox1.Controls.Add(this.skinWaterTextBox1);
             this.groupBox1.Dock = System.Windows.Forms.DockStyle.Top;
             this.groupBox1.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.groupBox1.ForeColor = System.Drawing.SystemColors.ControlDarkDark;
             this.groupBox1.Location = new System.Drawing.Point(4, 32);
             this.groupBox1.Name = "groupBox1";
             this.groupBox1.Size = new System.Drawing.Size(821, 195);
@@ -62,7 +63,7 @@
             // 
             this.skinButton3.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.skinButton3.BackColor = System.Drawing.Color.Transparent;
-            this.skinButton3.BaseColor = System.Drawing.Color.Gray;
+            this.skinButton3.BaseColor = System.Drawing.Color.FromArgb(((int)(((byte)(192)))), ((int)(((byte)(192)))), ((int)(((byte)(0)))));
             this.skinButton3.BorderColor = System.Drawing.Color.Silver;
             this.skinButton3.ControlState = CCWin.SkinClass.ControlState.Normal;
             this.skinButton3.DownBack = null;
@@ -81,7 +82,7 @@
             // 
             this.skinButton2.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.skinButton2.BackColor = System.Drawing.Color.Transparent;
-            this.skinButton2.BaseColor = System.Drawing.Color.Gray;
+            this.skinButton2.BaseColor = System.Drawing.Color.FromArgb(((int)(((byte)(192)))), ((int)(((byte)(192)))), ((int)(((byte)(0)))));
             this.skinButton2.BorderColor = System.Drawing.Color.Silver;
             this.skinButton2.ControlState = CCWin.SkinClass.ControlState.Normal;
             this.skinButton2.DownBack = null;
@@ -113,6 +114,17 @@
             this.dataGridView1.TabIndex = 1;
             this.dataGridView1.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.dataGridView1_CellDoubleClick);
             // 
+            // skinWaterTextBox2
+            // 
+            this.skinWaterTextBox2.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.skinWaterTextBox2.Location = new System.Drawing.Point(136, 21);
+            this.skinWaterTextBox2.Name = "skinWaterTextBox2";
+            this.skinWaterTextBox2.Size = new System.Drawing.Size(40, 23);
+            this.skinWaterTextBox2.TabIndex = 0;
+            this.skinWaterTextBox2.Text = "21";
+            this.skinWaterTextBox2.WaterColor = System.Drawing.Color.FromArgb(((int)(((byte)(127)))), ((int)(((byte)(127)))), ((int)(((byte)(127)))));
+            this.skinWaterTextBox2.WaterText = "Port";
+            // 
             // skinWaterTextBox1
             // 
             this.skinWaterTextBox1.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
@@ -134,19 +146,18 @@
             this.logTxt.ReadOnly = true;
             this.logTxt.Size = new System.Drawing.Size(821, 277);
             this.logTxt.TabIndex = 1;
-            this.logTxt.Text = "Logs";
             this.logTxt.WaterColor = System.Drawing.Color.FromArgb(((int)(((byte)(127)))), ((int)(((byte)(127)))), ((int)(((byte)(127)))));
             this.logTxt.WaterText = "";
             // 
             // skinButton1
             // 
             this.skinButton1.BackColor = System.Drawing.Color.Transparent;
-            this.skinButton1.BaseColor = System.Drawing.Color.Gray;
+            this.skinButton1.BaseColor = System.Drawing.Color.FromArgb(((int)(((byte)(192)))), ((int)(((byte)(192)))), ((int)(((byte)(0)))));
             this.skinButton1.BorderColor = System.Drawing.Color.Silver;
             this.skinButton1.ControlState = CCWin.SkinClass.ControlState.Normal;
             this.skinButton1.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.skinButton1.DownBack = null;
-            this.skinButton1.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.skinButton1.Font = new System.Drawing.Font("微软雅黑", 10.5F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
             this.skinButton1.Location = new System.Drawing.Point(4, 474);
             this.skinButton1.MouseBack = null;
             this.skinButton1.Name = "skinButton1";
@@ -157,17 +168,6 @@
             this.skinButton1.Text = "Start";
             this.skinButton1.UseVisualStyleBackColor = false;
             this.skinButton1.Click += new System.EventHandler(this.skinButton1_Click);
-            // 
-            // skinWaterTextBox2
-            // 
-            this.skinWaterTextBox2.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.skinWaterTextBox2.Location = new System.Drawing.Point(136, 21);
-            this.skinWaterTextBox2.Name = "skinWaterTextBox2";
-            this.skinWaterTextBox2.Size = new System.Drawing.Size(40, 23);
-            this.skinWaterTextBox2.TabIndex = 0;
-            this.skinWaterTextBox2.Text = "21";
-            this.skinWaterTextBox2.WaterColor = System.Drawing.Color.FromArgb(((int)(((byte)(127)))), ((int)(((byte)(127)))), ((int)(((byte)(127)))));
-            this.skinWaterTextBox2.WaterText = "Port";
             // 
             // FtpServerForm
             // 

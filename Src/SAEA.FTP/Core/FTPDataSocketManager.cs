@@ -18,8 +18,10 @@
 using SAEA.Common;
 using SAEA.Sockets;
 using SAEA.Sockets.Interface;
+using SAEA.Sockets.Model;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using System.Threading;
 
@@ -33,7 +35,7 @@ namespace SAEA.FTP.Core
 
         string _userName = string.Empty;
 
-        string _id = string.Empty;
+        ChannelInfo _channelInfo = null;
 
         public bool IsConnected = false;
 
@@ -43,9 +45,8 @@ namespace SAEA.FTP.Core
 
             var option = SocketOptionBuilder.Instance
               .SetSocket()
-              .UseIocp()
+              .UseStream()
               .SetPort(port)
-              .SetCount(10)
               .SetReadBufferSize(bufferSize)
               .SetWriteBufferSize(bufferSize)
               .Build();
@@ -66,8 +67,8 @@ namespace SAEA.FTP.Core
 
         private void DataSocket_OnAccepted(object obj)
         {
-            var ut = obj as IUserToken;
-            _id = ut.ID;
+            _channelInfo = obj as ChannelInfo;
+
             IsConnected = true;
         }
 
@@ -85,7 +86,7 @@ namespace SAEA.FTP.Core
             {
                 _autoResetEvent.WaitOne(100);
             }
-            _dataSocket.SendAsync(_id, data);
+            _dataSocket.End(_channelInfo.ID, data);
         }
 
         public void SendFile(string filePath)
@@ -96,7 +97,7 @@ namespace SAEA.FTP.Core
             }
             FileHelper.Read(filePath, (data) =>
             {
-                _dataSocket.SendAsync(_id, data);
+                _dataSocket.End(_channelInfo.ID, data);
             });
         }
 
@@ -114,6 +115,7 @@ namespace SAEA.FTP.Core
         public void Dispose()
         {
             _dataSocket?.Dispose();
+            _dataSocket = null;
         }
     }
 }

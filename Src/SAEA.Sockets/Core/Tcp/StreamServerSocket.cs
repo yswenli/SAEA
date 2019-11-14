@@ -59,6 +59,11 @@ namespace SAEA.Sockets.Core.Tcp
 
         bool _isStoped = true;
 
+        public bool IsDisposed
+        {
+            get; set;
+        } = false;
+
         #region events
 
         public event OnAcceptedHandler OnAccepted;
@@ -214,6 +219,7 @@ namespace SAEA.Sockets.Core.Tcp
         public void Dispose()
         {
             Stop();
+            IsDisposed = true;
         }
     }
 }
