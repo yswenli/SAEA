@@ -90,7 +90,7 @@ namespace SAEA.FTP
                                     if (user.UserName.ToLower() == "anonymous")
                                     {
                                         FTPServerConfigManager.UserBinding(id, user.UserName);
-                                        _cmdSocket.Reply(id, ServerResponseCode.登录因特网, "User logged in, proceed.");
+                                        _cmdSocket.Reply(id, ServerResponseCode.登录成功, "User logged in, proceed.");
                                     }
                                     else
                                     {
@@ -112,7 +112,8 @@ namespace SAEA.FTP
                             {
                                 if (FTPServerConfigManager.UserLogin(userName, cr.Arg))
                                 {
-                                    _cmdSocket.Reply(id, ServerResponseCode.登录因特网, "User logged in, proceed.");
+                                    _cmdSocket.Reply(id, ServerResponseCode.登录成功, "User logged in, proceed.");
+                                    OnLog($"{userName}登录成功", null);
                                 }
                                 else
                                 {
@@ -177,9 +178,11 @@ namespace SAEA.FTP
                     case FTPCommand.PASV:
                         var dataPort = IPHelper.GetFreePort();
                         var portStr = dataPort.PortToString();
-                        var pasvStr = $"SAEA FTPServer PASV({_serverConfig.IP},{portStr})";
+                        var pasvStr = $"SAEA FTPServer PASV({_serverConfig.IP.Replace(".", ",")},{portStr})";
 
                         _cmdSocket.CreateDataSocket(userName, dataPort, _serverConfig.BufferSize);
+
+                        OnLog($"{userName}进入被动模式，已创建数据传输Socket", null);
 
                         _cmdSocket.Reply(id, ServerResponseCode.进入被动模式, pasvStr);
 
@@ -193,6 +196,11 @@ namespace SAEA.FTP
                             if (PathHelper.Exists(path, cr.Arg, out newDirPath))
                             {
                                 path = newDirPath;
+                            }
+                            else
+                            {
+                                _cmdSocket.Reply(id, ServerResponseCode.页文件不可用, "No such directory.");
+                                return;
                             }
                         }
 
@@ -222,6 +230,7 @@ namespace SAEA.FTP
                         {
                             _cmdSocket.SendData(userName, Encoding.UTF8.GetBytes(str));
                         }
+                        _cmdSocket.Reply(id, ServerResponseCode.打开连接, "File status okay; about to open data connection.");
                         break;
                     case FTPCommand.NLST:
 
@@ -232,6 +241,11 @@ namespace SAEA.FTP
                             if (PathHelper.Exists(path, cr.Arg, out newDirPath))
                             {
                                 path = newDirPath;
+                            }
+                            else
+                            {
+                                _cmdSocket.Reply(id, ServerResponseCode.页文件不可用, "No such directory.");
+                                return;
                             }
                         }
 
@@ -261,6 +275,7 @@ namespace SAEA.FTP
                         {
                             _cmdSocket.SendData(userName, Encoding.UTF8.GetBytes(str));
                         }
+                        _cmdSocket.Reply(id, ServerResponseCode.打开连接, "File status okay; about to open data connection.");
                         break;
                 }
             }

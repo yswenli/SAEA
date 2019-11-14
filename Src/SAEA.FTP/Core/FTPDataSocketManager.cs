@@ -27,9 +27,7 @@ namespace SAEA.FTP.Core
 {
     public class FTPDataSocketManager : IDisposable
     {
-        AutoResetEvent _autoResetEvent1;
-
-        AutoResetEvent _autoResetEvent2;
+        AutoResetEvent _autoResetEvent;
 
         IServerSokcet _dataSocket;
 
@@ -37,16 +35,17 @@ namespace SAEA.FTP.Core
 
         string _id = string.Empty;
 
+        public bool IsConnected = false;
+
         public FTPDataSocketManager(string userName, ushort port, int bufferSize = 10240)
         {
-            _autoResetEvent1 = new AutoResetEvent(false);
-            _autoResetEvent2 = new AutoResetEvent(false);
-
+            _autoResetEvent = new AutoResetEvent(false);
 
             var option = SocketOptionBuilder.Instance
               .SetSocket()
               .UseIocp()
               .SetPort(port)
+              .SetCount(10)
               .SetReadBufferSize(bufferSize)
               .SetWriteBufferSize(bufferSize)
               .Build();
@@ -57,18 +56,19 @@ namespace SAEA.FTP.Core
             dataSocket.OnReceive += DataSocket_OnReceive;
             _dataSocket = dataSocket;
             _userName = userName;
+            _dataSocket.Start();
         }
 
         private void DataSocket_OnDisconnected(string ID, Exception ex)
         {
-            _autoResetEvent2.Set();
+            _autoResetEvent.Set();
         }
 
         private void DataSocket_OnAccepted(object obj)
         {
             var ut = obj as IUserToken;
             _id = ut.ID;
-            _autoResetEvent1.Set();
+            IsConnected = true;
         }
 
         private void DataSocket_OnReceive(object currentObj, byte[] data)
@@ -81,15 +81,19 @@ namespace SAEA.FTP.Core
 
         public void SendData(byte[] data)
         {
-            _dataSocket.Start();
-            _autoResetEvent1.WaitOne();
+            while (!IsConnected)
+            {
+                _autoResetEvent.WaitOne(100);
+            }
             _dataSocket.SendAsync(_id, data);
         }
 
         public void SendFile(string filePath)
         {
-            _dataSocket.Start();
-            _autoResetEvent1.WaitOne();
+            while (!IsConnected)
+            {
+                _autoResetEvent.WaitOne(100);
+            }
             FileHelper.Read(filePath, (data) =>
             {
                 _dataSocket.SendAsync(_id, data);
@@ -98,7 +102,7 @@ namespace SAEA.FTP.Core
 
         public void Checke()
         {
-            _autoResetEvent2.WaitOne();
+            _autoResetEvent.WaitOne();
         }
 
 

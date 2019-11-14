@@ -823,8 +823,16 @@ namespace SAEA.FTPTest
                 _client?.Dispose();
             }
             catch { }
-            notifyIcon1.Dispose();
-            this.Close();
+            try
+            {
+                notifyIcon1.Dispose();
+            }
+            catch { }
+            try
+            {
+                this.Close();
+            }
+            catch { }
         }
 
         #endregion

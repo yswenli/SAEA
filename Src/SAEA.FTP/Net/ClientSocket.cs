@@ -121,7 +121,7 @@ namespace SAEA.FTP.Net
 
                 result = Send($"{FTPCommand.USER} {_config.UserName}");
 
-                if (result.Code != ServerResponseCode.登录因特网 && result.Code != ServerResponseCode.要求密码)
+                if (result.Code != ServerResponseCode.登录成功 && result.Code != ServerResponseCode.要求密码)
                 {
                     _cmdSocket.Disconnect();
                     throw new Exception(result.Reply);
@@ -131,7 +131,7 @@ namespace SAEA.FTP.Net
                 {
                     result = Send($"{FTPCommand.PASS} {_config.Password}");
 
-                    if (result.Code != ServerResponseCode.登录因特网 && result.Code != ServerResponseCode.初始命令没有执行)
+                    if (result.Code != ServerResponseCode.登录成功 && result.Code != ServerResponseCode.初始命令没有执行)
                     {
                         _cmdSocket.Disconnect();
                         throw new Exception(result.Reply);

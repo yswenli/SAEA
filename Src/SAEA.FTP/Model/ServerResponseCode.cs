@@ -52,7 +52,7 @@ namespace SAEA.FTP.Model
 
         public const int 进入被动模式 = 227;
 
-        public const int 登录因特网 = 230;
+        public const int 登录成功 = 230;
 
         public const int 文件行为完成 = 250;
 
