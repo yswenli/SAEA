@@ -157,7 +157,6 @@ namespace SAEA.FTP
                     user.CurrentFtpPath = "/";
                 }
 
-
                 switch (cmd)
                 {
                     case FTPCommand.CWD:

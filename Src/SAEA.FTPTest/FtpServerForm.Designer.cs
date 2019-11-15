@@ -67,6 +67,7 @@
             this.skinButton3.BorderColor = System.Drawing.Color.Silver;
             this.skinButton3.ControlState = CCWin.SkinClass.ControlState.Normal;
             this.skinButton3.DownBack = null;
+            this.skinButton3.ForeColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.skinButton3.Location = new System.Drawing.Point(614, 159);
             this.skinButton3.MouseBack = null;
             this.skinButton3.Name = "skinButton3";
@@ -86,6 +87,7 @@
             this.skinButton2.BorderColor = System.Drawing.Color.Silver;
             this.skinButton2.ControlState = CCWin.SkinClass.ControlState.Normal;
             this.skinButton2.DownBack = null;
+            this.skinButton2.ForeColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.skinButton2.Location = new System.Drawing.Point(712, 159);
             this.skinButton2.MouseBack = null;
             this.skinButton2.Name = "skinButton2";
@@ -144,6 +146,7 @@
             this.logTxt.Multiline = true;
             this.logTxt.Name = "logTxt";
             this.logTxt.ReadOnly = true;
+            this.logTxt.ScrollBars = System.Windows.Forms.ScrollBars.Both;
             this.logTxt.Size = new System.Drawing.Size(821, 277);
             this.logTxt.TabIndex = 1;
             this.logTxt.WaterColor = System.Drawing.Color.FromArgb(((int)(((byte)(127)))), ((int)(((byte)(127)))), ((int)(((byte)(127)))));
