@@ -130,10 +130,5 @@ namespace SAEA.Sockets
         /// 断开连接
         /// </summary>
         void Disconnect();
-
-        /// <summary>
-        /// 释放资源
-        /// </summary>
-        void Dispose();
     }
 }

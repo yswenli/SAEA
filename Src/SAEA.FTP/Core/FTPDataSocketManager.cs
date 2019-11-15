@@ -62,7 +62,7 @@ namespace SAEA.FTP.Core
 
         private void DataSocket_OnDisconnected(string ID, Exception ex)
         {
-            _autoResetEvent.Set();
+            IsConnected = false;
         }
 
         private void DataSocket_OnAccepted(object obj)
@@ -74,7 +74,6 @@ namespace SAEA.FTP.Core
 
         private void DataSocket_OnReceive(object currentObj, byte[] data)
         {
-            var ut = currentObj as IUserToken;
             var ftpUser = FTPServerConfigManager.GetUser(_userName);
             ftpUser.FTPDataManager.Receive(data);
         }
@@ -104,7 +103,12 @@ namespace SAEA.FTP.Core
 
         public void Checke()
         {
-            _autoResetEvent.WaitOne();
+            var ftpUser = FTPServerConfigManager.GetUser(_userName);
+            while (IsConnected)
+            {
+                _autoResetEvent.WaitOne(100);
+            }
+            ftpUser.FTPDataManager.FileComplete();
         }
 
 

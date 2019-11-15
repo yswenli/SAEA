@@ -86,6 +86,11 @@ namespace SAEA.FTP.Core
                     break;
             }
 
+            FileComplete();
+        }
+
+        public void FileComplete()
+        {
             File.Move(_tempPath, _filePath);
         }
         #endregion

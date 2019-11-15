@@ -30,7 +30,6 @@
 *
 *****************************************************************************/
 using SAEA.Sockets.Handler;
-using SAEA.Sockets.Interface;
 using System;
 using System.IO;
 using System.Net;
@@ -69,7 +68,6 @@ namespace SAEA.Sockets.Core.Tcp
         public event OnAcceptedHandler OnAccepted;
         public event OnErrorHandler OnError;
         public event OnDisconnectedHandler OnDisconnected;
-        [Obsolete("此方法仅用于IOCP中")]
         public event OnReceiveHandler OnReceive;
 
         #endregion
@@ -143,6 +141,26 @@ namespace SAEA.Sockets.Core.Tcp
                     var ci = ChannelManager.Current.Set(id, clientSocket, nsStream);
 
                     OnAccepted?.Invoke(ci);
+
+                    Task.Run(() =>
+                    {
+                        while (clientSocket.Connected && OnReceive != null)
+                        {
+                            try
+                            {
+                                var data = new byte[SocketOption.ReadBufferSize];
+
+                                var len = nsStream.Read(data, 0, data.Length);
+
+                                if (len > 0)
+                                {
+                                    OnReceive.Invoke(id, data.AsSpan().Slice(0, len).ToArray());
+                                }
+                            }
+                            catch { }
+                           
+                        }
+                    });
                 }
                 catch (ObjectDisposedException oex)
                 {
@@ -230,6 +248,6 @@ namespace SAEA.Sockets.Core.Tcp
             IsDisposed = true;
         }
 
-        
+
     }
 }
