@@ -35,6 +35,8 @@ namespace SAEA.FTP.Net
 
         public event Action<string, string> OnReceived;
 
+        public event Action<string> OnDisconnected;
+
         public ServerConfig Config { get => _serverConfig; set => _serverConfig = value; }
 
 
@@ -106,9 +108,10 @@ namespace SAEA.FTP.Net
                 OnReceived?.Invoke(ut.ID, msg);
             }
         }
+
         private void _serverSocket_OnDisconnected(string ID, Exception ex)
         {
-            throw new NotImplementedException();
+            OnDisconnected?.Invoke(ID);
         }
 
 
@@ -125,7 +128,7 @@ namespace SAEA.FTP.Net
         {
             var ftpUser = FTPServerConfigManager.GetUser(userName);
 
-            using (var ftpDataSocketManager= ftpUser.FTPDataSocketManager)
+            using (var ftpDataSocketManager = ftpUser.FTPDataSocketManager)
             {
                 ftpUser.FTPDataSocketManager.SendData(data);
             }

@@ -49,7 +49,10 @@ namespace SAEA.FTP
 
             _cmdSocket = new ServerSocket(_serverConfig);
             _cmdSocket.OnReceived += _serverSocket_OnReceived;
+            _cmdSocket.OnDisconnected += _cmdSocket_OnDisconnected;
         }
+
+
 
         private void _serverSocket_OnReceived(string id, string msg)
         {
@@ -149,14 +152,20 @@ namespace SAEA.FTP
                 }
 
                 if (string.IsNullOrWhiteSpace(user.CurrentFtpPath) || user.CurrentFtpPath == "/" || user.CurrentFtpPath == "\\")
+                {
                     user.CurrentPath = user.Root;
+                    user.CurrentFtpPath = "/";
+                }
+
 
                 switch (cmd)
                 {
                     case FTPCommand.CWD:
-                        if (PathHelper.Exists(user.Root, cr.Arg, out string newDirPath))
+                        if (PathHelper.Combine(user.CurrentPath, cr.Arg, out string newDirPath))
                         {
                             user.CurrentFtpPath += cr.Arg + "/";
+                            user.CurrentFtpPath = user.CurrentFtpPath.Replace("//", "/");
+
                             user.CurrentPath = newDirPath;
                             _cmdSocket.Reply(id, ServerResponseCode.文件行为完成, "Command okay.");
                         }
@@ -167,13 +176,17 @@ namespace SAEA.FTP
                         break;
                     case FTPCommand.CDUP:
 
-                        if (PathHelper.Exists(user.CurrentPath, "..\\", out newDirPath))
+                        var parentDir = PathHelper.GetParent(user.CurrentPath);
+
+                        if (parentDir!=null)
                         {
-                            if (!PathHelper.IsParent(newDirPath, user.Root))
+                            if (!PathHelper.IsParent(parentDir.ToString(), user.Root))
                             {
                                 var cstr = user.CurrentFtpPath.Substring(0, user.CurrentFtpPath.LastIndexOf("/"));
                                 user.CurrentFtpPath = cstr.Substring(0, cstr.LastIndexOf("/") + 1);
-                                user.CurrentPath = newDirPath;
+                                user.CurrentFtpPath = user.CurrentFtpPath.Replace("//", "/");
+
+                                user.CurrentPath = parentDir.ToString();
                             }
                             _cmdSocket.Reply(id, ServerResponseCode.文件行为完成, "Command okay.");
                             return;
@@ -203,12 +216,9 @@ namespace SAEA.FTP
 
                         if (!string.IsNullOrEmpty(cr.Arg) && cr.Arg != "/")
                         {
-                            if (PathHelper.Exists(user.CurrentPath, cr.Arg, out newDirPath))
-                            {
-                                user.CurrentPath = newDirPath;
-                                user.CurrentFtpPath += cr.Arg + "/";
-                            }
-                            else
+                            PathHelper.Combine(user.CurrentPath, cr.Arg, out newDirPath);
+
+                            if (string.IsNullOrEmpty(newDirPath))
                             {
                                 _cmdSocket.Reply(id, ServerResponseCode.找不到文件或文件夹, "No such directory.");
                                 return;
@@ -256,14 +266,12 @@ namespace SAEA.FTP
                         _cmdSocket.Reply(id, ServerResponseCode.打开连接, "File status okay; about to open data connection.");
                         break;
                     case FTPCommand.NLST:
+
                         if (!string.IsNullOrEmpty(cr.Arg) && cr.Arg != "/")
                         {
-                            if (PathHelper.Exists(user.CurrentPath, cr.Arg, out newDirPath))
-                            {
-                                user.CurrentPath = newDirPath;
-                                user.CurrentFtpPath += cr.Arg + "/";
-                            }
-                            else
+                            PathHelper.Combine(user.CurrentPath, cr.Arg, out newDirPath);
+
+                            if (string.IsNullOrEmpty(newDirPath))
                             {
                                 _cmdSocket.Reply(id, ServerResponseCode.找不到文件或文件夹, "No such directory.");
                                 return;
@@ -317,6 +325,26 @@ namespace SAEA.FTP
             }
         }
 
+        /// <summary>
+        /// 断开连接
+        /// </summary>
+        /// <param name="id"></param>
+        private void _cmdSocket_OnDisconnected(string id)
+        {
+            var userName = FTPServerConfigManager.GetUserBind(id);
+
+            if (string.IsNullOrEmpty(userName)) return;
+
+            var user = FTPServerConfigManager.GetUser(userName);
+
+            if (user == null) return;
+
+            user.CurrentFtpPath = user.Root;
+            user.CurrentPath = "/";
+            user.IsLogin = false;
+            FTPServerConfigManager.RemoveUserBind(id);
+
+        }
         public void Start()
         {
             _cmdSocket.Start();

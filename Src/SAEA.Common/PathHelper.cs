@@ -219,20 +219,73 @@ namespace SAEA.Common
             return Directory.Exists(dirPath);
         }
 
-        public static bool Exists(string dirPath, string dirName,out string newDirPath)
+        /// <summary>
+        /// 合并后判断是否存在并返回合并结果
+        /// </summary>
+        /// <param name="dirPath"></param>
+        /// <param name="dirName"></param>
+        /// <param name="newDirPath"></param>
+        /// <returns></returns>
+        public static bool Combine(string dirPath, string dirName, out string newDirPath)
         {
-            newDirPath = Combine(dirPath, dirName);
-            return Exists(newDirPath);
+            newDirPath = string.Empty;
+
+            var dirNames = dirName.Split(new string[] { "/", "\\" }, StringSplitOptions.RemoveEmptyEntries);
+            var path = Combine(dirPath, dirNames);
+            if (Exists(path))
+            {
+                newDirPath = path;
+                return true;
+            }
+            else
+            {
+                if (Exists(dirPath))
+                {
+                    newDirPath = dirPath;
+                }
+                return false;
+            }
         }
 
-        public static string Combine(params string[] names)
+
+        public static string Combine(params string[] dirNames)
         {
-            return Path.Combine(names);
+            return Path.Combine(dirNames);
         }
-        public static bool IsParent(string sourcePath,string targetPath)
+
+
+        public static string Combine(string dirPath, params string[] dirNames)
         {
-            return (new DirectoryInfo(sourcePath)).Parent.ToString() == targetPath;
+            List<string> list = new List<string>();
+
+            list.Add(dirPath);
+
+            list.AddRange(dirNames);
+
+            return Combine(list.ToArray());
         }
-        
+
+        public static bool IsParent(string sourcePath, string targetPath)
+        {
+            if (sourcePath == targetPath) return false;
+
+            var parent = new DirectoryInfo(sourcePath).Parent;
+
+            if (parent == null) return true;
+
+            var result = parent.ToString() == targetPath;
+
+            if (result)
+            {
+                return true;
+            }
+            else
+            {
+                if (sourcePath.Length < targetPath.Length) return true;
+            }
+
+            return false;
+        }
+
     }
 }

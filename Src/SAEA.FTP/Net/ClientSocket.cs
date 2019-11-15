@@ -95,8 +95,7 @@ namespace SAEA.FTP.Net
 
         private void _clientSocket_OnDisconnected(string ID, Exception ex)
         {
-            OnDisconnected?.Invoke(ID, ex);
-            FTPDataManager.NoticeComplete();
+            OnDisconnected?.Invoke(ID, ex);            
         }
 
 
@@ -236,9 +235,14 @@ namespace SAEA.FTP.Net
             var dataSocket = SocketFactory.CreateClientSocket(option);
             dataSocket.OnError += _clientSocket_OnError;
             dataSocket.OnReceive += _dataSocket_OnReceive;
-            dataSocket.OnDisconnected += _clientSocket_OnDisconnected;
+            dataSocket.OnDisconnected += DataSocket_OnDisconnected;
             dataSocket.Connect();
             return dataSocket;
+        }
+
+        private void DataSocket_OnDisconnected(string ID, Exception ex)
+        {
+            FTPDataManager.NoticeComplete();
         }
 
         private void _dataSocket_OnReceive(byte[] data)
