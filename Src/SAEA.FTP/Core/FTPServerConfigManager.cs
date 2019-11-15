@@ -84,6 +84,11 @@ namespace SAEA.FTP.Core
             {
                 if (_serverConfig.Users.TryGetValue(userName, out FTPUser user))
                 {
+                    if (user.FTPDataManager == null)
+                    {
+                        user.FTPDataManager = new FTPDataManager();
+                    }
+
                     return user;
                 }
             }

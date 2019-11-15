@@ -353,6 +353,32 @@ namespace SAEA.FTP
                             _cmdSocket.Reply(id, ServerResponseCode.找不到文件或文件夹, "No such file.");
                         }
                         break;
+                    case FTPCommand.STOR:
+                        try
+                        {
+                            fileName = cr.Arg;
+
+                            filePath = PathHelper.Combine(user.CurrentPath, fileName);
+
+                            if (!string.IsNullOrEmpty(filePath))
+                            {
+                                _cmdSocket.Reply(id, ServerResponseCode.打开连接, "Opening data connection.");
+
+                                _cmdSocket.ReceiveFile(userName, filePath);
+
+                                OnLog($"已从{userName}接收到文件{fileName}", null);
+                            }
+                            else
+                            {
+                                _cmdSocket.Reply(id, ServerResponseCode.输出文件出错, "Error on output file.");
+                            }
+                            break;
+                        }
+                        catch (Exception ex)
+                        {
+                            OnLog($"从{userName}接收文件时出现异常", ex);
+                        }
+                        break;
 
                 }
             }

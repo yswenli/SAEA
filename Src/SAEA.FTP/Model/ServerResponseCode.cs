@@ -94,7 +94,7 @@ namespace SAEA.FTP.Model
 
         public const int 找不到文件或文件夹 = 550;
 
-        public const int 不知道的页类型 = 551;
+        public const int 输出文件出错 = 551;
 
         public const int 超过存储分配 = 552;
 
