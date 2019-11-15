@@ -177,7 +177,7 @@ namespace SAEA.FTP
 
                         var parentDir = PathHelper.GetParent(user.CurrentPath);
 
-                        if (parentDir!=null)
+                        if (parentDir != null)
                         {
                             if (!PathHelper.IsParent(parentDir.ToString(), user.Root))
                             {
@@ -316,11 +316,49 @@ namespace SAEA.FTP
                         }
                         _cmdSocket.Reply(id, ServerResponseCode.打开连接, "File status okay; about to open data connection.");
                         break;
+                    case FTPCommand.SIZE:
+                        var fileName = cr.Arg;
+
+                        var filePath = PathHelper.Combine(user.CurrentPath, fileName);
+
+                        var fileInfo = FileHelper.GetFileInfo(filePath);
+
+                        if (fileInfo != null)
+                        {
+                            _cmdSocket.Reply(id, ServerResponseCode.文件状态回复, fileInfo.Length.ToString());
+                        }
+                        else
+                        {
+                            _cmdSocket.Reply(id, ServerResponseCode.找不到文件或文件夹, "No such file.");
+                        }
+                        break;
+                    case FTPCommand.RETR:
+
+                        fileName = cr.Arg;
+
+                        filePath = PathHelper.Combine(user.CurrentPath, fileName);
+
+                        fileInfo = FileHelper.GetFileInfo(filePath);
+
+                        if (fileInfo != null)
+                        {
+                            _cmdSocket.Reply(id, ServerResponseCode.打开连接, fileInfo.Length.ToString());
+
+                            _cmdSocket.SendFile(userName, filePath);
+
+                            OnLog($"已发送文件{fileName}到{userName}", null);
+                        }
+                        else
+                        {
+                            _cmdSocket.Reply(id, ServerResponseCode.找不到文件或文件夹, "No such file.");
+                        }
+                        break;
+
                 }
             }
             catch (Exception ex)
             {
-                OnLog("FTPServer Error OnReceive", ex);
+                OnLog("FTPServer Error OnReceive 未知的命令", ex);
             }
         }
 

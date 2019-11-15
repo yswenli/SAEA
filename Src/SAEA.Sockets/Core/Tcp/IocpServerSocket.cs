@@ -472,10 +472,10 @@ namespace SAEA.Sockets.Core.Tcp
         /// <summary>
         /// 断开连接
         /// </summary>
-        /// <param name="obj"></param>
-        public void Disconnecte(object obj)
+        /// <param name="sessionID"></param>
+        public void Disconnecte(string sessionID)
         {
-            var userToken = obj as IUserToken;
+            var userToken = SessionManager.Get(sessionID);
             if (userToken != null)
                 Disconnect(userToken);
         }

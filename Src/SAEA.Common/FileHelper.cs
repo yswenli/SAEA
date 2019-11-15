@@ -116,7 +116,19 @@ namespace SAEA.Common
                     read?.Invoke(data.AsSpan().Slice(0, count).ToArray());
                 }
             }
-
+        }
+        /// <summary>
+        /// 获取文件信息
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <returns></returns>
+        public static FileInfo GetFileInfo(string filePath)
+        {
+            if (File.Exists(filePath))
+            {
+                return new FileInfo(filePath);
+            }
+            return null;
         }
 
 

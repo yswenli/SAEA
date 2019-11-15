@@ -99,7 +99,7 @@ namespace SAEA.Http.Base.Net
 
         public void Disconnecte(IUserToken userToken)
         {
-            _serverSokcet.Disconnecte(userToken);
+            _serverSokcet.Disconnecte(userToken.ID);
         }
 
         public void Start()

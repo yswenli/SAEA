@@ -89,6 +89,13 @@ namespace SAEA.Sockets
         void SendAsync(string sessionID, byte[] data);
 
         /// <summary>
+        /// 发送数据
+        /// </summary>
+        /// <param name="sessionID"></param>
+        /// <param name="data"></param>
+        void Send(string sessionID, byte[] data);
+
+        /// <summary>
         /// http end
         /// </summary>
         /// <param name="sessionID"></param>
@@ -103,8 +110,8 @@ namespace SAEA.Sockets
         /// <summary>
         /// 断开指定会话
         /// </summary>
-        /// <param name="obj"></param>
-        void Disconnecte(object obj);
+        /// <param name="sessionID"></param>
+        void Disconnecte(string sessionID);
 
         bool IsDisposed { get; set; }
     }

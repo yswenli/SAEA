@@ -97,8 +97,9 @@ namespace SAEA.FTP.Core
             }
             FileHelper.Read(filePath, (data) =>
             {
-                _dataSocket.End(_channelInfo.ID, data);
+                _dataSocket.Send(_channelInfo.ID, data);
             });
+            _dataSocket.Disconnecte(_channelInfo.ID);
         }
 
         public void Checke()

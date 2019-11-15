@@ -178,22 +178,30 @@ namespace SAEA.Sockets.Core.Tcp
             channel.Stream.WriteAsync(data, 0, data.Length);
         }
 
+        public void Send(string sessionID, byte[] data)
+        {
+            var channel = ChannelManager.Current.Get(sessionID);
+            channel.Stream.Write(data, 0, data.Length);
+        }
+
         public void End(string sessionID, byte[] data)
         {
             var channel = ChannelManager.Current.Get(sessionID);
             channel.Stream.Write(data, 0, data.Length);
-            Disconnecte(channel.ClientSocket);
+            Disconnecte(sessionID);
         }
 
         /// <summary>
         /// 断开连接
         /// </summary>
-        /// <param name="obj">Socket</param>
-        public void Disconnecte(object obj)
+        /// <param name="sessionID"></param>
+        public void Disconnecte(string sessionID)
         {
-            var socket = obj as Socket;
+            var channel = ChannelManager.Current.Get(sessionID);
+            var socket = channel.ClientSocket;
             if (socket != null)
                 socket.Close();
+            ChannelManager.Current.Remove(sessionID);
         }
 
         /// <summary>
@@ -221,5 +229,7 @@ namespace SAEA.Sockets.Core.Tcp
             Stop();
             IsDisposed = true;
         }
+
+        
     }
 }
