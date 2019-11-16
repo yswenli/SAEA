@@ -22,7 +22,6 @@ namespace SAEA.FTPTest
         {
             skinWaterTextBox1.Text = ftpServerUser.UserName;
             skinWaterTextBox2.Text = ftpServerUser.Password;
-            skinWaterTextBox3.Text = ftpServerUser.DataPort.ToString();
             skinWaterTextBox4.Text = ftpServerUser.Root;
         }
 
@@ -51,28 +50,6 @@ namespace SAEA.FTPTest
                 return;
             }
 
-            var dataPort = 39654;
-
-            var dataPortStr = skinWaterTextBox3.Text;
-
-            if (string.IsNullOrWhiteSpace(dataPortStr))
-            {
-                MessageBox.Show("dataPort不能为空！");
-                return;
-            }
-
-            if (!int.TryParse(dataPortStr, out dataPort))
-            {
-                MessageBox.Show("dataPort不是数字！");
-                return;
-            }
-
-            if (dataPort < 20 || dataPort > 65536)
-            {
-                MessageBox.Show("dataPort必须在20-63536之间！");
-                return;
-            }
-
             var root = skinWaterTextBox4.Text;
 
             if (string.IsNullOrWhiteSpace(root))
@@ -86,7 +63,6 @@ namespace SAEA.FTPTest
             {
                 UserName = userName,
                 Password = password,
-                DataPort = dataPort,
                 Root = root
             };
 

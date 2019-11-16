@@ -45,7 +45,7 @@ namespace SAEA.FTPTest
 
             if (!_serverConfig.Users.Any())
             {
-                _serverConfig.Users.TryAdd("anonymous", new FTPUser("anonymous", "yswenli@outlook.com", 39654, "c:\\"));
+                _serverConfig.Users.TryAdd("anonymous", new FTPUser("anonymous", "yswenli@outlook.com", "c:\\"));
                 FTPServerConfigManager.Save();
             }
 
@@ -84,7 +84,7 @@ namespace SAEA.FTPTest
                 }
 
                 _ftpServerUsers.Add(user);
-                FTPServerConfigManager.SetUser(user.UserName, user.Password, user.DataPort, user.Root);
+                FTPServerConfigManager.SetUser(user.UserName, user.Password, user.Root);
                 FTPServerConfigManager.Save();
                 Init();
             }
@@ -179,7 +179,7 @@ namespace SAEA.FTPTest
                     var user = cf.FtpServerUser;
                     _ftpServerUsers.Remove(oUser);
                     _ftpServerUsers.Add(user);
-                    FTPServerConfigManager.SetUser(user.UserName, user.Password, user.DataPort, user.Root);
+                    FTPServerConfigManager.SetUser(user.UserName, user.Password, user.Root);
                     FTPServerConfigManager.Save();
                     Init();
                 }
