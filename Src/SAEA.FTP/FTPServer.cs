@@ -257,11 +257,9 @@ namespace SAEA.FTP
 
                         var str = sb.ToString();
 
-                        if (!string.IsNullOrEmpty(str))
-                        {
-                            _cmdSocket.SendData(userName, Encoding.UTF8.GetBytes(str));
-                            OnLog($"已发送数据到{userName}", null);
-                        }
+                        _cmdSocket.SendData(userName, Encoding.UTF8.GetBytes(str));
+                        OnLog($"已发送数据到{userName}", null);
+
                         _cmdSocket.Reply(id, ServerResponseCode.打开连接, "File status okay; about to open data connection.");
                         break;
                     case FTPCommand.NLST:

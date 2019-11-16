@@ -52,6 +52,8 @@ namespace SAEA.FTPTest
 
             _loadingUserControl.Message = "正在准备上传文件...";
 
+            Log($"正在准备上传文件{fileName}...");
+
             Task.Run(() =>
             {
                 try
@@ -68,7 +70,7 @@ namespace SAEA.FTPTest
 
                     if (rs == size)
                     {
-                        Log("上传文件成功，fileName:" + fileName);
+                        Log($"上传文件{fileName}成功");
 
                         textBox2_TextChanged(null, null);
                     }
@@ -94,6 +96,8 @@ namespace SAEA.FTPTest
 
             _loadingUserControl.Message = "正在准备下载文件...";
 
+            Log($"正在准备下载文件{fileName}...");
+
             Task.Run(() =>
             {
                 try
@@ -103,7 +107,7 @@ namespace SAEA.FTPTest
                         _loadingUserControl.Message = $"正在下载文件:{fileName}，{(o * 100 / c)}%";
                     });
 
-                    Log("下载文件成功，fileName:" + fileName);
+                    Log($"下载文件{fileName}成功");
 
                     textBox1_TextChanged(null, null);
                 }
@@ -384,6 +388,8 @@ namespace SAEA.FTPTest
                         {
                             try
                             {
+                                Log($"正在删除文件：{fileName}");
+
                                 _client.Delete(fileName);
 
                                 Log($"删除文件{fileName}成功");
@@ -406,6 +412,8 @@ namespace SAEA.FTPTest
                         {
                             try
                             {
+                                Log($"正在删除文件夹：{fileName}");
+
                                 _client.RemoveDir(fileName);
 
                                 Log($"删除文件夹{fileName}成功");
@@ -452,6 +460,8 @@ namespace SAEA.FTPTest
                 {
                     try
                     {
+                        Log($"正在创建文件夹：{pathName}");
+
                         _client.MakeDir(pathName);
 
                         textBox2_TextChanged(null, null);
@@ -488,6 +498,7 @@ namespace SAEA.FTPTest
                     var pwd = skinWaterTextBox4.Text;
 
                     _client = new FTPClient(ip, port, username, pwd);
+                    _client.Ondisconnected += _client_Ondisconnected;
 
                     Task.Run(() =>
                     {
@@ -582,6 +593,25 @@ namespace SAEA.FTPTest
             }
         }
 
+        private void _client_Ondisconnected()
+        {
+            Log("已断开与FTPServer的连接");
+
+            this.Invoke(new Action(() =>
+            {
+                splitContainer2.Panel2.Enabled = false;
+                skinWaterTextBox1.Enabled
+                                = skinWaterTextBox2.Enabled
+                                = skinWaterTextBox3.Enabled
+                                = skinWaterTextBox4.Enabled
+                                = true;
+                skinButton1.Enabled = true;
+                dataGridView2.Enabled = false;
+                dataGridView2.DataSource = null;
+                skinButton1.Text = "Connect";
+            }));
+        }
+
         private void textBox1_TextChanged(object sender, EventArgs e)
         {
             var filePath = textBox1.Text;
@@ -648,6 +678,8 @@ namespace SAEA.FTPTest
         {
             _loadingUserControl.Message = "正在获取FTPServer文件列表...";
 
+            Log("正在获取FTPServer文件列表...");
+
             _loadingUserControl.Show(this);
 
             Task.Run(() =>
@@ -663,6 +695,8 @@ namespace SAEA.FTPTest
 
 
                     var list = _client.Dir(filePath, FTP.Model.DirType.MLSD);
+
+                    Log("已获取FTPServer文件列表");
 
                     if (list != null && list.Any())
                     {
