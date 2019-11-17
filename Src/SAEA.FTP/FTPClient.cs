@@ -227,9 +227,14 @@ namespace SAEA.FTP
                 TaskHelper.Start(() =>
                 {
                     while (true)
-                    {                        
+                    {
                         uploading?.Invoke(offset, count);
-                        if (offset == count) break;
+
+                        if (offset == count)
+                        {
+                            uploading?.Invoke(offset, count);
+                            break;
+                        }
                         ThreadHelper.Sleep(1000);
                     }
                 });
@@ -259,8 +264,10 @@ namespace SAEA.FTP
                         else
                         {
                             dataSocket.Send(data.AsSpan().Slice(0, n).ToArray());
+                            break;
                         }
                     }
+                    dataSocket.Disconnect();
                 }
             }
         }
@@ -274,7 +281,7 @@ namespace SAEA.FTP
             TaskHelper.Start(() =>
             {
                 while (true)
-                {                    
+                {
                     downing?.Invoke(offset, count);
                     if (offset == count) break;
                     ThreadHelper.Sleep(1000);
@@ -321,7 +328,7 @@ namespace SAEA.FTP
             if (sres.Code != ServerResponseCode.成功 && sres.Code != ServerResponseCode.退出网络)
             {
                 throw new Exception($"code:{sres.Code},reply:{sres.Reply}");
-            }            
+            }
         }
 
         public void Dispose()

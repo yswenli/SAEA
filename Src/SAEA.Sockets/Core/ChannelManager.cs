@@ -33,6 +33,7 @@ using SAEA.Sockets.Model;
 using System;
 using System.Collections.Concurrent;
 using System.IO;
+using System.Linq;
 using System.Net.Sockets;
 
 namespace SAEA.Sockets.Core
@@ -92,13 +93,22 @@ namespace SAEA.Sockets.Core
 
         public void Clear()
         {
+            var vals = _concurrentDictionary.Values;
+
+            if (vals != null && vals.Any())
+            {
+                foreach (var item in vals)
+                {
+                    item.ClientSocket.Close(10 * 1000);
+                }
+            }
             _concurrentDictionary.Clear();
         }
 
 
         static ChannelManager _channelManager = null;
 
-        public static ChannelManager Current
+        public static ChannelManager Instance
         {
             get
             {

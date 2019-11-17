@@ -101,7 +101,7 @@ namespace SAEA.Common
         /// <param name="bufferSize"></param>
         public static void Read(string filePath, Action<byte[]> read, int bufferSize = 10240)
         {
-            using (var fs = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            using (var fs = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             {
                 fs.Position = 0;
 
@@ -113,7 +113,9 @@ namespace SAEA.Common
 
                     if (count == 0) break;
 
-                    read?.Invoke(data.AsSpan().Slice(0, count).ToArray());
+                    var buffer = data.AsSpan().Slice(0, count).ToArray();
+
+                    read?.Invoke(buffer);
                 }
             }
         }

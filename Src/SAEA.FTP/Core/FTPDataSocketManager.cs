@@ -107,6 +107,11 @@ namespace SAEA.FTP.Core
             while (IsConnected)
             {
                 _autoResetEvent.WaitOne(100);
+
+                if (_dataSocket.ClientCounts == 0)
+                {
+                    break;
+                }
             }
             ftpUser.FTPDataManager.FileComplete();
         }

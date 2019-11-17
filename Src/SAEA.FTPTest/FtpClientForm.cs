@@ -66,17 +66,26 @@ namespace SAEA.FTPTest
                         _loadingUserControl.Message = $"正在上传文件:{fileName},{(o * 100 / c)}%";
                     });
 
-                    var rs = _client.FileSize(fileName);
-
-                    if (rs == size)
+                    var fun = new Func<bool>(() =>
                     {
-                        Log($"上传文件{fileName}成功");
+                        if (_client.FileSize(fileName) == size)
+                        {
+                            Log($"上传文件{fileName}成功");
 
-                        textBox2_TextChanged(null, null);
-                    }
-                    else
+                            textBox2_TextChanged(null, null);
+
+                            return true;
+                        }
+                        ThreadHelper.Sleep(1000);
+                        return false;
+                    });
+
+                    while (true)
                     {
-                        Log("上传文件失败，fileName:" + fileName, "未能完整上传文件！");
+                        if (fun.Invoke())
+                        {
+                            break;
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -169,6 +178,8 @@ namespace SAEA.FTPTest
 
         private void FtpClientForm_Load(object sender, EventArgs e)
         {
+            textBox1.Text = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+
             _loadingUserControl = new LoadingUserControl();
 
             _loadingUserControl.Size = this.Size;
