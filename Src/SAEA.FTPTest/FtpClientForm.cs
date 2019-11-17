@@ -125,12 +125,43 @@ namespace SAEA.FTPTest
 
         void CreateLocalDir()
         {
+            var cdf = new CreateDirForm();
+            if (cdf.ShowDialog(this) == DialogResult.OK)
+            {
+                var pathName = cdf.PathName;
 
+                Directory.CreateDirectory(Path.Combine(textBox1.Text, pathName));
+
+                textBox1_TextChanged(null, null);
+            }
         }
 
         void CreateRemoteDir()
         {
+            var cdf = new CreateDirForm();
 
+            if (cdf.ShowDialog(this) == DialogResult.OK)
+            {
+                var pathName = cdf.PathName;
+
+                if (_client != null && _client.Connected)
+                {
+                    try
+                    {
+                        Log($"正在创建文件夹：{pathName}");
+
+                        _client.MakeDir(pathName);
+
+                        textBox2_TextChanged(null, null);
+
+                        Log($"创建文件夹：{pathName} 成功");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log($"创建文件夹：{pathName} 失败", ex.Message);
+                    }
+                }
+            }
         }
         #endregion
 
@@ -437,43 +468,12 @@ namespace SAEA.FTPTest
 
         private void createDirToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            var cdf = new CreateDirForm();
-            if (cdf.ShowDialog(this) == DialogResult.OK)
-            {
-                var pathName = cdf.PathName;
-
-                Directory.CreateDirectory(Path.Combine(textBox1.Text, pathName));
-
-                textBox1_TextChanged(null, null);
-            }
+            CreateLocalDir();
         }
 
         private void createDirToolStripMenuItem1_Click(object sender, EventArgs e)
         {
-            var cdf = new CreateDirForm();
-
-            if (cdf.ShowDialog(this) == DialogResult.OK)
-            {
-                var pathName = cdf.PathName;
-
-                if (_client != null && _client.Connected)
-                {
-                    try
-                    {
-                        Log($"正在创建文件夹：{pathName}");
-
-                        _client.MakeDir(pathName);
-
-                        textBox2_TextChanged(null, null);
-
-                        Log($"创建文件夹：{pathName} 成功");
-                    }
-                    catch (Exception ex)
-                    {
-                        Log($"创建文件夹：{pathName} 失败", ex.Message);
-                    }
-                }
-            }
+            CreateRemoteDir();
         }
         #endregion
 
@@ -609,6 +609,7 @@ namespace SAEA.FTPTest
                 dataGridView2.Enabled = false;
                 dataGridView2.DataSource = null;
                 skinButton1.Text = "Connect";
+                _loadingUserControl.Hide();
             }));
         }
 
