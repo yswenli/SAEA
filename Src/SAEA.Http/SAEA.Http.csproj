@@ -9,7 +9,7 @@
     <Copyright>yswenli</Copyright>
     <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
     <PackageTags>webserver,httpserver,iocp,tcp,socket</PackageTags>
-    <Version>5.1.8.2</Version>
+    <Version>5.2.0.1</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
@@ -17,6 +17,7 @@
     <PackageLicenseUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/LICENSE</PackageLicenseUrl>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <LangVersion>7.2</LangVersion>
+    <PackageIconUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/favicon.ico</PackageIconUrl>
   </PropertyGroup>
 
   <ItemGroup>

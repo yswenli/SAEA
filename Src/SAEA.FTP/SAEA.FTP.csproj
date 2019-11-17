@@ -3,6 +3,21 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <LangVersion>7.2</LangVersion>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+    <PackageLicenseUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/LICENSE</PackageLicenseUrl>
+    <Copyright>yswenli</Copyright>
+    <Version>5.2.0.1</Version>
+    <Authors>yswenli</Authors>
+    <Company>yswenli</Company>
+    <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
+    <PackageTags>ftp,iocp,tcp,socket</PackageTags>
+    <Description>Saea.ftp is a simple component including ftpserver and ftpclient.
+SAEA.FTP 是个包含FtpServer和FtpClient的简易组件</Description>
+    <PackageReleaseNotes>Saea.ftp is a simple component including ftpserver and ftpclient.
+SAEA.FTP 是个包含FtpServer和FtpClient的简易组件</PackageReleaseNotes>
+    <PackageIconUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/favicon.ico</PackageIconUrl>
   </PropertyGroup>
 
   <ItemGroup>

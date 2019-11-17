@@ -377,7 +377,51 @@ namespace SAEA.FTP
                             OnLog($"从{userName}接收文件时出现异常", ex);
                         }
                         break;
-
+                    case FTPCommand.MKD:
+                        try
+                        {
+                            fileName = cr.Arg;
+                            filePath = PathHelper.Combine(user.CurrentPath, fileName);
+                            PathHelper.CreateDir(filePath);
+                            _cmdSocket.Reply(id, ServerResponseCode.文件行为完成, "Directory created.");
+                            break;
+                        }
+                        catch (Exception ex)
+                        {
+                            OnLog($"{userName}创建目录{cr.Arg}时出现异常", ex);
+                        }
+                        _cmdSocket.Reply(id, ServerResponseCode.找不到文件或文件夹, "Cannot create directory.");
+                        break;
+                    case FTPCommand.RMD:
+                        try
+                        {
+                            fileName = cr.Arg;
+                            filePath = PathHelper.Combine(user.CurrentPath, fileName);
+                            PathHelper.Remove(filePath);
+                            _cmdSocket.Reply(id, ServerResponseCode.文件行为完成, "Directory removed.");
+                            break;
+                        }
+                        catch (Exception ex)
+                        {
+                            OnLog($"{userName}移除目录{cr.Arg}时出现异常", ex);
+                        }
+                        _cmdSocket.Reply(id, ServerResponseCode.找不到文件或文件夹, "Cannot remove directory.");
+                        break;
+                    case FTPCommand.DELE:
+                        try
+                        {
+                            fileName = cr.Arg;
+                            filePath = PathHelper.Combine(user.CurrentPath, fileName);
+                            FileHelper.Remove(filePath);
+                            _cmdSocket.Reply(id, ServerResponseCode.文件行为完成, "File removed.");
+                            break;
+                        }
+                        catch (Exception ex)
+                        {
+                            OnLog($"{userName}移除文件{cr.Arg}时出现异常", ex);
+                        }
+                        _cmdSocket.Reply(id, ServerResponseCode.找不到文件或文件夹, "Cannot remove File.");
+                        break;
                 }
             }
             catch (Exception ex)

@@ -287,5 +287,48 @@ namespace SAEA.Common
             return false;
         }
 
+
+        public static bool CreateDir(string root, string dirName)
+        {
+            if (Combine(root, dirName, out string dirPath))
+            {
+                CreateDir(dirPath);
+                return true;
+            }
+            return false;
+        }
+
+        public static bool CreateDir(string dirPath)
+        {
+            try
+            {
+                if (Directory.Exists(dirPath))
+                {
+                    return false;
+                }
+                Directory.CreateDirectory(dirPath);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Error("PathHelper.CreateDir", ex, dirPath);
+            }
+            return false;
+        }
+
+        public static bool Remove(string dirPath)
+        {
+            try
+            {
+                Directory.Delete(dirPath);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Error("PathHelper.Remove", ex, dirPath);
+            }
+            return false;
+        }
+
     }
 }

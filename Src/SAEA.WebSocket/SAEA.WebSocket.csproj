@@ -5,8 +5,8 @@
     <Authors>yswenli</Authors>
     <Company>yswenli</Company>
     <Copyright>yswenli</Copyright>
-    <Version>5.1.8.2</Version>
-	<AssemblyVersion>5.1.8.2</AssemblyVersion>
+    <Version>5.2.0.1</Version>
+	<AssemblyVersion>5.2.0.1</AssemblyVersion>
     <Description>This is a websocket server and client component based on SAEA.Socket.
 这是基于SAEA.Socket的websocket服务器、客户端组件
 https://github.com/yswenli/SAEA</Description>
@@ -22,6 +22,7 @@ https://github.com/yswenli/SAEA</PackageReleaseNotes>
     <PackageLicenseUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/LICENSE</PackageLicenseUrl>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <LangVersion>7.2</LangVersion>
+    <PackageIconUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/favicon.ico</PackageIconUrl>
   </PropertyGroup>
 
   <ItemGroup>

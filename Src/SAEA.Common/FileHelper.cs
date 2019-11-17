@@ -27,6 +27,9 @@ using System.Text;
 
 namespace SAEA.Common
 {
+    /// <summary>
+    /// 文件操作类
+    /// </summary>
     public static class FileHelper
     {
 
@@ -132,7 +135,24 @@ namespace SAEA.Common
             }
             return null;
         }
-
-
+        
+        /// <summary>
+        /// 移除文件
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <returns></returns>
+        public static bool Remove(string filePath)
+        {
+            try
+            {
+                File.Delete(filePath);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Error("FileHelper.Remove", ex, filePath);
+            }
+            return false;
+        }
     }
 }

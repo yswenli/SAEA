@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <Version>5.1.8.2</Version>
+    <Version>5.2.0.1</Version>
     <PackageLicenseUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/LICENSE</PackageLicenseUrl>
     <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
     <PackageTags>mqtt,socket,tcp</PackageTags>
@@ -13,6 +13,8 @@ https://github.com/yswenli/SAEA</Description>
     <PackageReleaseNotes>MQTT Server and Client Based on SAEA.Socket.SAEA.MQTT基于SAEA.Socket实现的MQTT服务器与客户端
 https://github.com/yswenli/SAEA</PackageReleaseNotes>
     <LangVersion>7.2</LangVersion>
+    <PackageIconUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/favicon.ico</PackageIconUrl>
+    <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>
