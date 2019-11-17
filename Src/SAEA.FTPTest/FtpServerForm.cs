@@ -258,9 +258,8 @@ namespace SAEA.FTPTest
             }
             else
             {
-                skinButton1.Text = "Start";
                 _ftpServer.Stop();
-                _ftpServer = null;
+                this.Close();
             }
         }
 
