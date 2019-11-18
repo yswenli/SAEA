@@ -98,7 +98,7 @@ namespace SAEA.MQTT.Core.Implementations
 
         public void Dispose()
         {
-            ChannelManager.Current.Clear();
+            ChannelManager.Instance.Clear();
             serverSokcet?.Dispose();
         }
     }

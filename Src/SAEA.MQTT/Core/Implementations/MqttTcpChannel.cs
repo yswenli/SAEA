@@ -89,19 +89,19 @@ namespace SAEA.MQTT.Core.Implementations
 
         public Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
-            ChannelManager.Current.Refresh(_clientSocket.Endpoint);
+            ChannelManager.Instance.Refresh(_clientSocket.Endpoint);
             return _clientSocket.ReceiveAsync(buffer, offset, count, cancellationToken);
         }
 
         public Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
-            ChannelManager.Current.Refresh(_clientSocket.Endpoint);
+            ChannelManager.Instance.Refresh(_clientSocket.Endpoint);
             return _clientSocket.SendAsync(buffer, offset, count, cancellationToken);
         }
 
         public void Dispose()
         {
-            ChannelManager.Current.Remove(_clientSocket.Endpoint);
+            ChannelManager.Instance.Remove(_clientSocket.Endpoint);
             _clientSocket.Dispose();
         }
 

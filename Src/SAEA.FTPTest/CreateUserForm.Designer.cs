@@ -32,7 +32,6 @@
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(CreateUserForm));
             this.skinWaterTextBox1 = new CCWin.SkinControl.SkinWaterTextBox();
             this.skinWaterTextBox2 = new CCWin.SkinControl.SkinWaterTextBox();
-            this.skinWaterTextBox3 = new CCWin.SkinControl.SkinWaterTextBox();
             this.skinWaterTextBox4 = new CCWin.SkinControl.SkinWaterTextBox();
             this.skinButton2 = new CCWin.SkinControl.SkinButton();
             this.skinButton1 = new CCWin.SkinControl.SkinButton();
@@ -61,20 +60,9 @@
             this.skinWaterTextBox2.WaterColor = System.Drawing.Color.FromArgb(((int)(((byte)(127)))), ((int)(((byte)(127)))), ((int)(((byte)(127)))));
             this.skinWaterTextBox2.WaterText = "Password";
             // 
-            // skinWaterTextBox3
-            // 
-            this.skinWaterTextBox3.Location = new System.Drawing.Point(61, 116);
-            this.skinWaterTextBox3.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
-            this.skinWaterTextBox3.Name = "skinWaterTextBox3";
-            this.skinWaterTextBox3.Size = new System.Drawing.Size(204, 26);
-            this.skinWaterTextBox3.TabIndex = 2;
-            this.skinWaterTextBox3.Text = "39654";
-            this.skinWaterTextBox3.WaterColor = System.Drawing.Color.FromArgb(((int)(((byte)(127)))), ((int)(((byte)(127)))), ((int)(((byte)(127)))));
-            this.skinWaterTextBox3.WaterText = "DataPort";
-            // 
             // skinWaterTextBox4
             // 
-            this.skinWaterTextBox4.Location = new System.Drawing.Point(61, 152);
+            this.skinWaterTextBox4.Location = new System.Drawing.Point(61, 116);
             this.skinWaterTextBox4.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             this.skinWaterTextBox4.Name = "skinWaterTextBox4";
             this.skinWaterTextBox4.Size = new System.Drawing.Size(204, 26);
@@ -88,7 +76,7 @@
             this.skinButton2.BackColor = System.Drawing.Color.Transparent;
             this.skinButton2.ControlState = CCWin.SkinClass.ControlState.Normal;
             this.skinButton2.DownBack = null;
-            this.skinButton2.Location = new System.Drawing.Point(190, 199);
+            this.skinButton2.Location = new System.Drawing.Point(190, 187);
             this.skinButton2.MouseBack = null;
             this.skinButton2.Name = "skinButton2";
             this.skinButton2.NormlBack = null;
@@ -104,7 +92,7 @@
             this.skinButton1.BackColor = System.Drawing.Color.Transparent;
             this.skinButton1.ControlState = CCWin.SkinClass.ControlState.Normal;
             this.skinButton1.DownBack = null;
-            this.skinButton1.Location = new System.Drawing.Point(88, 199);
+            this.skinButton1.Location = new System.Drawing.Point(88, 187);
             this.skinButton1.MouseBack = null;
             this.skinButton1.Name = "skinButton1";
             this.skinButton1.NormlBack = null;
@@ -119,11 +107,11 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 20F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(336, 247);
+            this.BackColor = System.Drawing.Color.White;
+            this.ClientSize = new System.Drawing.Size(325, 247);
             this.Controls.Add(this.skinButton2);
             this.Controls.Add(this.skinButton1);
             this.Controls.Add(this.skinWaterTextBox4);
-            this.Controls.Add(this.skinWaterTextBox3);
             this.Controls.Add(this.skinWaterTextBox2);
             this.Controls.Add(this.skinWaterTextBox1);
             this.Font = new System.Drawing.Font("微软雅黑", 10.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
@@ -143,7 +131,6 @@
 
         private CCWin.SkinControl.SkinWaterTextBox skinWaterTextBox1;
         private CCWin.SkinControl.SkinWaterTextBox skinWaterTextBox2;
-        private CCWin.SkinControl.SkinWaterTextBox skinWaterTextBox3;
         private CCWin.SkinControl.SkinWaterTextBox skinWaterTextBox4;
         private CCWin.SkinControl.SkinButton skinButton2;
         private CCWin.SkinControl.SkinButton skinButton1;

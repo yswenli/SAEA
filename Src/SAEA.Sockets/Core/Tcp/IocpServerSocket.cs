@@ -485,9 +485,15 @@ namespace SAEA.Sockets.Core.Tcp
         /// </summary>
         public void Stop()
         {
+            
             try
             {
                 _listener.Close(10 * 1000);
+            }
+            catch { }
+            try
+            {
+                _sessionManager.Clear();
             }
             catch { }
             try
@@ -502,7 +508,6 @@ namespace SAEA.Sockets.Core.Tcp
         {
             try
             {
-                _sessionManager.Clear();
                 Stop();
                 IsDisposed = true;
             }

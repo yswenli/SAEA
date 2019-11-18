@@ -63,14 +63,14 @@ namespace SAEA.FTP.Core
             _configHelper.Write(_serverConfig);
         }
 
-        public static void SetUser(string userName, string password, int dataPort, string root)
+        public static void SetUser(string userName, string password, string root)
         {
             if (_serverConfig.Users == null)
             {
                 _serverConfig.Users = new ConcurrentDictionary<string, FTPUser>();
             }
 
-            var user = new FTPUser(userName, password, dataPort, root);
+            var user = new FTPUser(userName, password, root);
 
             _serverConfig.Users.AddOrUpdate(userName, user, (k, v) =>
             {

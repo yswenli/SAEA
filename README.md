@@ -13,6 +13,7 @@ QQ群：788260487
 
 - [x] IOCP
 - [x] FileTransfer
+- [x] FTP
 - [x] MessageSocket
 - [x] QueueSocket
 - [x] MVC
@@ -53,6 +54,42 @@ fileTransfer.OnDisplay += _fileTransfer_OnDisplay;
 //send file
 fileTransfer.SendFile(string fileName, string ip)
 ```
+
+## FTP
+
+### saea.ftp usage
+
+#### saea.ftpclient
+
+```csharp
+var client = new FTPClient(ip, port, username, pwd);
+client.Ondisconnected += _client_Ondisconnected;
+client.Connect();
+var path = client.CurrentDir();
+client.Upload(filePath, (o, c) =>
+{
+	size = c;
+	_loadingUserControl.Message = $"正在上传文件:{fileName},{(o * 100 / c)}%";
+});
+client.Download(fileName, Path.Combine(filePath, fileName), (o, c) =>
+{
+	_loadingUserControl.Message = $"正在下载文件:{fileName}，{(o * 100 / c)}%";
+});
+```
+#### saea.ftpserver
+
+```csharp
+
+_serverConfig.IP = ip;
+_serverConfig.Port = port;
+FTPServerConfigManager.Save();
+
+var ftpServer = new FTPServer(_serverConfig.IP, _serverConfig.Port, _serverConfig.BufferSize);
+ftpServer.OnLog += _ftpServer_OnLog;
+ftpServer.Start();
+
+```
+
 ## QueueTest
 
 ### saea.queue server usage

@@ -27,6 +27,9 @@ using System.Text;
 
 namespace SAEA.Common
 {
+    /// <summary>
+    /// 文件操作类
+    /// </summary>
     public static class FileHelper
     {
 
@@ -101,7 +104,7 @@ namespace SAEA.Common
         /// <param name="bufferSize"></param>
         public static void Read(string filePath, Action<byte[]> read, int bufferSize = 10240)
         {
-            using (var fs = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            using (var fs = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             {
                 fs.Position = 0;
 
@@ -113,7 +116,9 @@ namespace SAEA.Common
 
                     if (count == 0) break;
 
-                    read?.Invoke(data.AsSpan().Slice(0, count).ToArray());
+                    var buffer = data.AsSpan().Slice(0, count).ToArray();
+
+                    read?.Invoke(buffer);
                 }
             }
         }
@@ -130,7 +135,24 @@ namespace SAEA.Common
             }
             return null;
         }
-
-
+        
+        /// <summary>
+        /// 移除文件
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <returns></returns>
+        public static bool Remove(string filePath)
+        {
+            try
+            {
+                File.Delete(filePath);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Error("FileHelper.Remove", ex, filePath);
+            }
+            return false;
+        }
     }
 }

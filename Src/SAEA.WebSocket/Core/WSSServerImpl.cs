@@ -159,14 +159,14 @@ namespace SAEA.WebSocket.Core
 
         public void Reply(string id, WSProtocal data)
         {
-            var channelInfo = ChannelManager.Current.Get(id);
+            var channelInfo = ChannelManager.Instance.Get(id);
 
             ReplyBase(channelInfo.Stream, data);
         }
 
         public void Disconnect(string id, WSProtocal data)
         {
-            var channelInfo = ChannelManager.Current.Get(id);
+            var channelInfo = ChannelManager.Instance.Get(id);
 
             ReplyBase(channelInfo.Stream, data);
         }
