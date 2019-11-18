@@ -83,7 +83,7 @@ namespace SAEA.FTP.Core
         {
             while (!IsConnected)
             {
-                _autoResetEvent.WaitOne(100);
+                _autoResetEvent.WaitOne(10);
             }
             _dataSocket.End(_channelInfo.ID, data);
         }
@@ -92,7 +92,7 @@ namespace SAEA.FTP.Core
         {
             while (!IsConnected)
             {
-                _autoResetEvent.WaitOne(100);
+                _autoResetEvent.WaitOne(10);
             }
             FileHelper.Read(filePath, (data) =>
             {
@@ -106,7 +106,7 @@ namespace SAEA.FTP.Core
             var ftpUser = FTPServerConfigManager.GetUser(_userName);
             while (IsConnected)
             {
-                _autoResetEvent.WaitOne(100);
+                _autoResetEvent.WaitOne(10);
             }
             ftpUser.FTPDataManager.FileComplete();
         }

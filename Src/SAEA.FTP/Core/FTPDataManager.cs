@@ -68,7 +68,7 @@ namespace SAEA.FTP.Core
             {
                 if (!File.Exists(_tempPath))
                 {
-                    ThreadHelper.Sleep(500);
+                    ThreadHelper.Sleep(50);
                     continue;
                 }
 
