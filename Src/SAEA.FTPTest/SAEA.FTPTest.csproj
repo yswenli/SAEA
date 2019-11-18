@@ -84,6 +84,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Common\DriverHelper.cs" />
+    <Compile Include="Common\SystemIconsImageList.cs" />
     <Compile Include="CreateDirForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -120,6 +122,10 @@
     <Compile Include="MainForm.Designer.cs">
       <DependentUpon>MainForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="Model\BaseInfo.cs" />
+    <Compile Include="Model\CustomerViewList.cs" />
+    <Compile Include="Model\DirectoryClass.cs" />
+    <Compile Include="Model\FileClass.cs" />
     <Compile Include="Model\FtpServerUser.cs" />
     <Compile Include="Model\ListInfo.cs" />
     <Compile Include="Program.cs" />
@@ -171,6 +177,8 @@
   <ItemGroup>
     <Content Include="favicon.ico" />
     <Content Include="loading.gif" />
+    <None Include="Resources\MyDriver.png" />
+    <None Include="Resources\FileFolder.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

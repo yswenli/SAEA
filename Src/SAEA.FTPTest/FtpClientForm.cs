@@ -1,10 +1,12 @@
 ﻿using CCWin;
 using SAEA.Common;
 using SAEA.FTP;
+using SAEA.FTPTest.Common;
 using SAEA.FTPTest.Model;
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -18,11 +20,13 @@ namespace SAEA.FTPTest
 
         LoadingUserControl _loadingUserControl;
 
+        DriverHelper _driverHelper;
+
         public FtpClientForm()
         {
             InitializeComponent();
 
-            textBox1_TextChanged(null, null);
+            _driverHelper = new DriverHelper(listView1);
         }
 
         #region private
@@ -43,6 +47,40 @@ namespace SAEA.FTPTest
             else
             {
                 action.Invoke();
+            }
+        }
+
+        void RefreshLocalListView()
+        {
+            var filePath = textBox1.Text;
+
+            List<ListInfo> listInfos = new List<ListInfo>();
+
+            if (!string.IsNullOrEmpty(filePath) && filePath != "我的电脑")
+            {
+                try
+                {
+                    var dir = new DirectoryClass()
+                    {
+                        FullName = filePath
+                    };
+                    _driverHelper.GetDirectoryAndFile(dir);
+                }
+                catch (Exception ex)
+                {
+                    Log("访问本地目录：" + filePath, ex.Message);
+                }
+            }
+            else
+            {
+                try
+                {
+                    _driverHelper.GetLocalDriver();
+                }
+                catch (Exception ex)
+                {
+                    Log("访问本地目录：" + filePath, ex.Message);
+                }
             }
         }
 
@@ -118,7 +156,7 @@ namespace SAEA.FTPTest
 
                     Log($"下载文件{fileName}成功");
 
-                    textBox1_TextChanged(null, null);
+                    RefreshLocalListView();
                 }
                 catch (Exception ex)
                 {
@@ -141,9 +179,10 @@ namespace SAEA.FTPTest
 
                 Directory.CreateDirectory(Path.Combine(textBox1.Text, pathName));
 
-                textBox1_TextChanged(null, null);
+                RefreshLocalListView();
             }
         }
+
 
         void CreateRemoteDir()
         {
@@ -178,17 +217,17 @@ namespace SAEA.FTPTest
 
         private void FtpClientForm_Load(object sender, EventArgs e)
         {
-            textBox1.Text = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-
             _loadingUserControl = new LoadingUserControl();
 
             _loadingUserControl.Size = this.Size;
 
-            _loadingUserControl.Hide(this);
-
             this.Controls.Add(_loadingUserControl);
 
             this.Controls.SetChildIndex(_loadingUserControl, 9999);
+
+            RefreshLocalListView();
+
+            _loadingUserControl.Hide(this);
         }
 
         private void FtpClientForm_SizeChanged(object sender, EventArgs e)
@@ -221,7 +260,7 @@ namespace SAEA.FTPTest
 
         private void refreshToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            textBox1_TextChanged(null, null);
+            RefreshLocalListView();
         }
 
         private void refreshToolStripMenuItem1_Click(object sender, EventArgs e)
@@ -236,6 +275,14 @@ namespace SAEA.FTPTest
             if (dir != null)
             {
                 textBox1.Text = dir.FullName;
+
+                RefreshLocalListView();
+            }
+            else
+            {
+                textBox1.Text = "我的电脑";
+
+                RefreshLocalListView();
             }
         }
 
@@ -265,30 +312,19 @@ namespace SAEA.FTPTest
 
         private void uploadToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            DataGridViewRow dr = null;
+            var items = listView1.SelectedItems;
 
-            var rows = dataGridView1.SelectedRows;
+            if (items == null || items.Count == 0) return;
 
-            if (rows != null && rows.Count > 0)
-            {
-                dr = rows[0];
-            }
-            else
-            {
-                var cells = dataGridView1.SelectedCells;
+            var dir = items[0].Tag as DirectoryClass;
 
-                if (cells != null && cells.Count > 0)
-                {
-                    dr = dataGridView1.Rows[cells[0].RowIndex];
-                }
-            }
-            if (dr != null)
+            if (dir != null)
             {
                 if (_client.Connected)
                 {
-                    if (dr.Cells[2].Value.ToString() == "文件")
+                    if (!dir.IsDirectory)
                     {
-                        var fileName = dr.Cells[0].Value.ToString();
+                        var fileName = dir.Name;
 
                         var filePath = Path.Combine(textBox1.Text, fileName);
 
@@ -345,32 +381,19 @@ namespace SAEA.FTPTest
         {
             if (MessageBox.Show("确定要删除此项吗？", "SAEA.FtpClient", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
             {
-                DataGridViewRow dr = null;
+                var items = listView1.SelectedItems;
 
-                var rows = dataGridView1.SelectedRows;
+                if (items == null || items.Count == 0) return;
 
-                var filePath = textBox1.Text;
+                var dir = items[0].Tag as DirectoryClass;
 
-                if (rows != null && rows.Count > 0)
+                if (dir != null)
                 {
-                    dr = rows[0];
-                }
-                else
-                {
-                    var cells = dataGridView1.SelectedCells;
+                    var fileName = dir.Name;
 
-                    if (cells != null && cells.Count > 0)
-                    {
-                        dr = dataGridView1.Rows[cells[0].RowIndex];
-                    }
-                }
-                if (dr != null)
-                {
-                    var fileName = dr.Cells[0].Value.ToString();
+                    var type = dir.IsDirectory;
 
-                    var type = dr.Cells[2].Value.ToString();
-
-                    if (type == "文件")
+                    if (!type)
                     {
                         try
                         {
@@ -386,7 +409,7 @@ namespace SAEA.FTPTest
                         }
                         catch { }
                     }
-                    textBox1_TextChanged(null, null);
+                    RefreshLocalListView();
                 }
             }
         }
@@ -624,66 +647,13 @@ namespace SAEA.FTPTest
             }));
         }
 
-        private void textBox1_TextChanged(object sender, EventArgs e)
+
+        private void textBox1_KeyUp(object sender, KeyEventArgs e)
         {
-            var filePath = textBox1.Text;
-
-            List<ListInfo> listInfos = new List<ListInfo>();
-
-            if (!string.IsNullOrEmpty(filePath))
+            if (e.KeyCode == Keys.Enter)
             {
-                try
-                {
-                    var dirs = PathHelper.GetDirectories(filePath, out List<FileInfo> files);
-
-                    if (dirs != null)
-                    {
-                        foreach (var item in dirs)
-                        {
-                            listInfos.Add(new ListInfo()
-                            {
-                                FileName = item.Name,
-                                Type = "文件夹"
-                            });
-                        }
-                    }
-
-                    if (files != null)
-                    {
-                        foreach (var item in files)
-                        {
-                            listInfos.Add(new ListInfo()
-                            {
-                                FileName = item.Name,
-                                Type = "文件",
-                                Size = item.Length
-                            });
-                        }
-                    }
-
-                    listInfos = listInfos.OrderBy(b => b.FileName).ToList();
-                }
-                catch (Exception ex)
-                {
-                    Log("访问本地目录：" + filePath, ex.Message);
-                }
+                RefreshLocalListView();
             }
-
-            var action = new Action(() =>
-            {
-                dataGridView1.DataSource = null;
-                dataGridView1.DataSource = listInfos;
-            });
-
-            if (dataGridView1.InvokeRequired)
-            {
-                dataGridView1.Invoke(action);
-            }
-            else
-            {
-                action?.Invoke();
-            }
-
         }
 
         private void textBox2_TextChanged(object sender, EventArgs e)
@@ -781,25 +751,24 @@ namespace SAEA.FTPTest
             });
         }
 
-        private void dataGridView1_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+        private void listView1_MouseDoubleClick(object sender, MouseEventArgs e)
         {
-            if (e.RowIndex >= 0)
+            if (listView1.SelectedItems.Count <= 0)
             {
-                if (dataGridView1.Rows[e.RowIndex].Cells[2].Value.ToString() == "文件夹")
-                {
-                    var fileName = dataGridView1.Rows[e.RowIndex].Cells[0].Value.ToString();
-
-                    textBox1.Text = Path.Combine(textBox1.Text, fileName);
-                }
+                return;
+            }
+            string typeName = listView1.SelectedItems[0].SubItems[1].Text;
+            if (typeName == "文件夹" || typeName == "本地磁盘")
+            {
+                DirectoryClass dir = listView1.SelectedItems[0].Tag as DirectoryClass;
+                listView1.Items.Clear();
+                _driverHelper.GetDirectoryAndFile(dir);
+                textBox1.Text = dir.FullName;
             }
             else
             {
-                var dir = PathHelper.GetParent(textBox1.Text);
-
-                if (dir != null)
-                {
-                    textBox1.Text = dir.FullName;
-                }
+                FileClass file = listView1.SelectedItems[0].Tag as FileClass;
+                Process.Start(file.FullName);
             }
         }
 
@@ -862,7 +831,7 @@ namespace SAEA.FTPTest
             }
         }
 
-        #endregion       
+        #endregion
 
         #region notify
         private void notifyIcon1_DoubleClick(object sender, EventArgs e)
@@ -894,7 +863,7 @@ namespace SAEA.FTPTest
             catch { }
         }
 
-        #endregion
 
+        #endregion       
     }
 }
