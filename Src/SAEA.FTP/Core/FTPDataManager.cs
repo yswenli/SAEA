@@ -60,10 +60,8 @@ namespace SAEA.FTP.Core
             }
         }
 
-        public void Checked(long size)
+        public void Checked(long size, ref long offset)
         {
-            long current = 0;
-
             while (true)
             {
                 if (!File.Exists(_tempPath))
@@ -76,11 +74,11 @@ namespace SAEA.FTP.Core
                 {
                     using (var fs = File.Open(_tempPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                     {
-                        current = fs.Length;
+                        offset = fs.Length;
                     }
                 }
                 catch { }
-                if (current < size)
+                if (offset < size)
                     ThreadHelper.Sleep(50);
                 else
                     break;

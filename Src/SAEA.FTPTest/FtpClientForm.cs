@@ -316,7 +316,7 @@ namespace SAEA.FTPTest
 
             if (items == null || items.Count == 0) return;
 
-            var dir = items[0].Tag as DirectoryClass;
+            var dir = items[0].Tag as FileClass;
 
             if (dir != null)
             {
@@ -380,7 +380,7 @@ namespace SAEA.FTPTest
 
                 if (items == null || items.Count == 0) return;
 
-                var dir = items[0].Tag as DirectoryClass;
+                var dir = items[0].Tag as FileClass;
 
                 if (dir != null)
                 {
@@ -417,7 +417,7 @@ namespace SAEA.FTPTest
 
                 if (items == null || items.Count == 0) return;
 
-                var dir = items[0].Tag as DirectoryClass;
+                var dir = items[0].Tag as FileClass;
 
                 if (dir != null)
                 {

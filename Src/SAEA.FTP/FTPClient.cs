@@ -209,6 +209,8 @@ namespace SAEA.FTP
 
         public void Upload(string filePath, Action<long, long> uploading = null)
         {
+            var running = true;
+
             using (var dataSocket = _client.CreateDataConnection())
             {
                 var fileName = PathHelper.GetFileName(filePath);
@@ -226,13 +228,14 @@ namespace SAEA.FTP
 
                 TaskHelper.Start(() =>
                 {
-                    while (true)
+                    while (running && _client.Connected)
                     {
                         uploading?.Invoke(offset, count);
 
                         if (offset == count)
                         {
                             uploading?.Invoke(offset, count);
+
                             break;
                         }
                         ThreadHelper.Sleep(1000);
@@ -269,21 +272,30 @@ namespace SAEA.FTP
                     }
                     dataSocket.Disconnect();
                 }
+
+                running = false;
             }
         }
 
         public string Download(string fileName, string filePath, Action<long, long> downing = null)
         {
+            var running = true;
+
             var count = FileSize(fileName);
 
             long offset = 0;
 
             TaskHelper.Start(() =>
             {
-                while (true)
+                while (running && _client.Connected)
                 {
                     downing?.Invoke(offset, count);
-                    if (offset == count) break;
+
+                    if (offset == count)
+                    {
+                        downing?.Invoke(offset, count);
+                        break;
+                    }
                     ThreadHelper.Sleep(1000);
                 }
             });
@@ -296,11 +308,17 @@ namespace SAEA.FTP
 
                 if (sres.Code == ServerResponseCode.结束数据连接 || sres.Code == ServerResponseCode.打开连接)
                 {
-                    _client.FTPDataManager.Checked(count);
+                    _client.FTPDataManager.Checked(count, ref offset);
+
+                    dataSocket.Disconnect();
+
+                    running = false;
+
                     return filePath;
                 }
                 else
                 {
+                    running = false;
                     throw new IOException($"code:{sres.Code},reply:{sres.Reply}");
                 }
             }

@@ -128,7 +128,7 @@ namespace SAEA.Sockets.Core.Tcp
                     {
                         _isStoped = true;
 
-                        ChannelManager.Instance.Clear();
+                        //ChannelManager.Instance.Clear();
 
                         break;
                     }

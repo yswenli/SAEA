@@ -112,11 +112,11 @@ namespace SAEA.Common
 
                 while (true)
                 {
-                    var count = fs.Read(data, 0, data.Length);
+                    var len = fs.Read(data, 0, data.Length);
 
-                    if (count == 0) break;
+                    if (len == 0) break;
 
-                    var buffer = data.AsSpan().Slice(0, count).ToArray();
+                    var buffer = data.AsSpan().Slice(0, len).ToArray();
 
                     read?.Invoke(buffer);
                 }
