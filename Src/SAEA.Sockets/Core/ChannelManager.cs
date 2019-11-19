@@ -91,7 +91,7 @@ namespace SAEA.Sockets.Core
         }
 
 
-        public void Clear()
+        public void Clear(int timeOut = 60 * 1000)
         {
             var vals = _concurrentDictionary.Values;
 
@@ -99,7 +99,11 @@ namespace SAEA.Sockets.Core
             {
                 foreach (var item in vals)
                 {
-                    item.ClientSocket.Close(10 * 1000);
+                    try
+                    {
+                        item.ClientSocket.Close(timeOut);
+                    }
+                    catch { }                    
                 }
             }
             _concurrentDictionary.Clear();

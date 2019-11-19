@@ -95,7 +95,7 @@ namespace SAEA.FTP.Net
 
         private void _clientSocket_OnDisconnected(string ID, Exception ex)
         {
-            OnDisconnected?.Invoke(ID, ex);            
+            OnDisconnected?.Invoke(ID, ex);
         }
 
 
@@ -230,6 +230,8 @@ namespace SAEA.FTP.Net
                 .UseIocp()
                 .SetIP(ip)
                 .SetPort(port)
+                .SetReadBufferSize(4 * 1024 * 1024)
+                .SetWriteBufferSize(4 * 1024 * 1024)
                 .Build();
 
             var dataSocket = SocketFactory.CreateClientSocket(option);
@@ -253,7 +255,7 @@ namespace SAEA.FTP.Net
         public void Disconnect()
         {
             try
-            {                
+            {
                 _cmdSocket.Disconnect();
             }
             catch { }
