@@ -84,7 +84,6 @@ namespace SAEA.FTPTest.Common
             _largeImageList.ColorDepth = ColorDepth.Depth32Bit;
             _largeImageList.ImageSize = SystemInformation.IconSize;
             _largeImageList.ImageSize = new Size(32, 32);
-
         }
 
 
