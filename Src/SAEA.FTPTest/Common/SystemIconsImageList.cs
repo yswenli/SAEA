@@ -16,6 +16,7 @@
 *描    述：
 *****************************************************************************/
 using Microsoft.Win32;
+using SAEA.Common;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -30,35 +31,35 @@ namespace SAEA.FTPTest.Common
 {
     public class SystemIconsImageList : IDisposable
     {
-        #region Win32 declarations
+        //#region Win32 declarations
 
 
-        private const uint SHGFI_ICON = 0x100;
-        private const uint SHGFI_LARGEICON = 0x0;  //大图标
-        private const uint SHGFI_SMALLICON = 0x1;  //小图标
+        //private const uint SHGFI_ICON = 0x100;
+        //private const uint SHGFI_LARGEICON = 0x0;  //大图标
+        //private const uint SHGFI_SMALLICON = 0x1;  //小图标
 
-        [StructLayout(LayoutKind.Sequential)]
-        public struct SHFILEINFO
-        {
-            public IntPtr hIcon; //文件的图标句柄  
+        //[StructLayout(LayoutKind.Sequential)]
+        //public struct SHFILEINFO
+        //{
+        //    public IntPtr hIcon; //文件的图标句柄  
 
-            public IntPtr iIcon;  //图标的系统索引号  
+        //    public IntPtr iIcon;  //图标的系统索引号  
 
-            public uint dwAttributes;  //文件的属性值  
+        //    public uint dwAttributes;  //文件的属性值  
 
-            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
-            public string szDisplayName;  //文件的显示名  
-
-
-            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 80)]
-            public string szTypeName;  //文件的类型名  
-        };
-
-        [DllImport("shell32.dll")]
-        public static extern IntPtr SHGetFileInfo(string pszPath, uint dwFileAttributes, ref SHFILEINFO psfi, uint cbSizeFileInfo, uint uFlags);
+        //    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
+        //    public string szDisplayName;  //文件的显示名  
 
 
-        #endregion
+        //    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 80)]
+        //    public string szTypeName;  //文件的类型名  
+        //};
+
+        //[DllImport("shell32.dll")]
+        //public static extern IntPtr SHGetFileInfo(string pszPath, uint dwFileAttributes, ref SHFILEINFO psfi, uint cbSizeFileInfo, uint uFlags);
+
+
+        //#endregion
 
         #region  ImageList大/小图像列表字段
 
@@ -154,19 +155,18 @@ namespace SAEA.FTPTest.Common
         /// <summary>
         /// 根据文件名称得到图片：包括文件和文件夹
         /// </summary>
-        /// <param name="FileName">Name of an existing File or Directory</param>
-        /// <returns>图片的索引</returns>
-        public int GetIconIndex(string FileName)
+        /// <param name="filePath"></param>
+        /// <param name="isDir"></param>
+        /// <returns></returns>
+        public int GetIconIndex(string filePath, bool isDir)
         {
-            SHFILEINFO shinfo = new SHFILEINFO();
+            var fileName = Path.GetFileName(filePath);
 
-            FileInfo info = new FileInfo(FileName);
-
-            string ext = info.Extension; //文件的后缀名 .jpg
+            var ext = Path.GetExtension(filePath);            
 
             if (string.IsNullOrEmpty(ext)) //文件夹 或者没有相关联的后缀名
             {
-                if ((info.Attributes & FileAttributes.Directory) != 0) //文件夹
+                if (isDir)
                 {
                     ext = "5EEB255733234c4dBECF9A128E896A1E"; // for directories
                 }
@@ -181,7 +181,7 @@ namespace SAEA.FTPTest.Common
                 if (ext.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) ||
                     ext.Equals(".lnk", StringComparison.InvariantCultureIgnoreCase))
                 {
-                    ext = info.Name;
+                    ext = fileName;
                 }
 
             }
@@ -194,97 +194,42 @@ namespace SAEA.FTPTest.Common
             }
             else  //如果不存在就添加
             {
-                SHGetFileInfo(FileName, 0, ref shinfo, (uint)Marshal.SizeOf(shinfo), SHGFI_ICON | SHGFI_SMALLICON);
-
-                Icon smallIcon;
-
                 try
                 {
-                    smallIcon = Icon.FromHandle(shinfo.hIcon);
+                    Icon largeIcon;
+
+                    Icon smallIcon;
+
+                    IconHelper.GetFileIcon(ext, out largeIcon, out smallIcon);
+
+                    //SHGetFileInfo(filePath, 0, ref shinfo, (uint)Marshal.SizeOf(shinfo), SHGFI_ICON | SHGFI_SMALLICON);
+
+                    //Icon smallIcon = Icon.FromHandle(shinfo.hIcon);
+
+                    _smallImageList.Images.Add(ext, smallIcon); //添加小图标
+
+
+                    //大图标
+                    //SHGetFileInfo(filePath, 0, ref shinfo, (uint)Marshal.SizeOf(shinfo), SHGFI_ICON | SHGFI_LARGEICON);
+
+                    //Icon largeIcon = Icon.FromHandle(shinfo.hIcon);
+
+                    _largeImageList.Images.Add(ext, largeIcon);
                 }
                 catch (ArgumentException ex)
                 {
-                    throw new ArgumentException(String.Format("File \"{0}\" doesn not exist!", FileName), ex);
+                    LogHelper.Error("SystemIconsImageList.GetIconIndex", ex, filePath);
                 }
 
-                _smallImageList.Images.Add(ext, smallIcon); //添加小图标
-
-                //大图标
-                SHGetFileInfo(FileName, 0, ref shinfo, (uint)Marshal.SizeOf(shinfo), SHGFI_ICON | SHGFI_LARGEICON);
-
-                Icon largeIcon = Icon.FromHandle(shinfo.hIcon);
-                _largeImageList.Images.Add(ext, largeIcon);
-
                 return _smallImageList.Images.Count - 1;
-
             }
-
-
         }
 
 
 
         #endregion
 
-        /// <summary>
-        /// 通过扩展名得到描述
-        /// </summary>
-        /// <param name="ext">扩展名，如.jpg</param>
-        /// <param name="description">返回描述</param>
-        public void GetExtsDescription(string ext, out string description)
-        {
-            description = "";
-
-            //从注册表中读取扩展名相应的子键  
-            RegistryKey extsubkey = Registry.ClassesRoot.OpenSubKey(ext);
-            if (extsubkey == null)  //没有找到
-            {
-                //如果没有找到，那就是这种类型
-
-                description = ext.ToUpper().Substring(1) + "文件";
-
-                return;
-            }
-
-            //取出扩展名对应的文件类型名称  
-            string extdefaultvalue = extsubkey.GetValue(null) as string;
-            if (extdefaultvalue == null)
-            {
-                return;
-            }
-
-            //扩展名类型是可执行文件
-            if (extdefaultvalue.Equals("exefile", StringComparison.InvariantCultureIgnoreCase))
-            {
-                //从注册表中读取文件类型名称的相应子键  
-                RegistryKey exefilesubkey = Registry.ClassesRoot.OpenSubKey(extdefaultvalue);
-                if (exefilesubkey != null)  //如果不为空
-                {
-                    string exefiledescription = exefilesubkey.GetValue(null) as string;   //得到exefile描述字符串  
-                    if (exefiledescription != null)
-                    {
-                        description = exefiledescription;
-                    }
-
-                }
-                return;
-            }
-
-
-            //从注册表中读取文件类型名称的相应子键  
-            RegistryKey typesubkey = Registry.ClassesRoot.OpenSubKey(extdefaultvalue);
-            if (typesubkey == null)
-            {
-                return;
-            }
-
-            //得到类型描述字符串  
-            string typedescription = typesubkey.GetValue(null) as string;
-            if (typedescription != null)
-            {
-                description = typedescription;
-            }
-        }
+        
 
 
     }

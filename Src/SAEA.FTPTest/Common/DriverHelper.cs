@@ -29,7 +29,9 @@ namespace SAEA.FTPTest.Common
 {
     class DriverHelper
     {
-        ListView _lstView;
+        ListView _localListView;
+
+        ListView _remoteListView;
 
         SystemIconsImageList _sysIcons;
 
@@ -49,36 +51,36 @@ namespace SAEA.FTPTest.Common
                 switch (_customerChoose.ToString())
                 {
                     case "平铺":
-                        _lstView.View = View.Tile;
+                        _remoteListView.View = _localListView.View = View.Tile;
                         _customerChoose = CustomerViewList.平铺;
                         break;
                     case "大图标":
-                        _lstView.View = View.LargeIcon;
+                        _remoteListView.View = _localListView.View = View.LargeIcon;
                         _customerChoose = CustomerViewList.大图标;
                         break;
                     case "小图标":
-                        _lstView.View = View.SmallIcon;
+                        _remoteListView.View = _localListView.View = View.SmallIcon;
                         _customerChoose = CustomerViewList.小图标;
                         break;
                     case "列表":
-                        _lstView.View = View.List;
+                        _remoteListView.View = _localListView.View = View.List;
                         _customerChoose = CustomerViewList.列表;
                         break;
                     case "详细信息":
-                        _lstView.View = View.Details;
+                        _remoteListView.View = _localListView.View = View.Details;
                         _customerChoose = CustomerViewList.详细信息;
                         break;
                 };
             }
         }
 
-        public DriverHelper(ListView listView)
+        public DriverHelper(ListView localListView, ListView remoteListView)
         {
-            _lstView = listView;
+            _localListView = localListView;
+
+            _remoteListView = remoteListView;
 
             _sysIcons = new SystemIconsImageList();
-
-            #region  加载已有的图片到ImageList控件中去
 
             _sysIcons.SmallImageList.Images.Add("MyDriver", Resources.MyDriver);
             _sysIcons.LargeImageList.Images.Add("MyDriver", Resources.MyDriver);
@@ -86,10 +88,11 @@ namespace SAEA.FTPTest.Common
             _sysIcons.SmallImageList.Images.Add("FileFolder", Resources.FileFolder);
             _sysIcons.LargeImageList.Images.Add("FileFolder", Resources.FileFolder);
 
-            _lstView.SmallImageList = _sysIcons.SmallImageList;
-            _lstView.LargeImageList = _sysIcons.LargeImageList;
+            _localListView.SmallImageList = _sysIcons.SmallImageList;
+            _localListView.LargeImageList = _sysIcons.LargeImageList;
 
-            #endregion
+            _remoteListView.SmallImageList = _sysIcons.SmallImageList;
+            _remoteListView.LargeImageList = _sysIcons.LargeImageList;
 
             this.CustomerChoose = CustomerViewList.详细信息;
         }
@@ -102,12 +105,12 @@ namespace SAEA.FTPTest.Common
         /// </summary>
         public void GetLocalDriver()
         {
-            _lstView.Clear();
+            _localListView.Clear();
 
-            _lstView.Columns.Add("columnsName", "名称", 200);
-            _lstView.Columns.Add("columnsType", "类型", 80);
-            _lstView.Columns.Add("columnsMax", "总大小", 100);
-            _lstView.Columns.Add("columnsFreeSpace", "可用空间", 80);
+            _localListView.Columns.Add("columnsName", "名称", 200);
+            _localListView.Columns.Add("columnsType", "类型", 80);
+            _localListView.Columns.Add("columnsMax", "总大小", 100);
+            _localListView.Columns.Add("columnsFreeSpace", "可用空间", 80);
 
             FixDriverColumnHeader();
 
@@ -134,7 +137,7 @@ namespace SAEA.FTPTest.Common
 
                     //可用空间                 
                     item.SubItems.Add(driverBase.FreePrice + "GB");
-                    _lstView.Items.Add(item);
+                    _localListView.Items.Add(item);
                 }
 
 
@@ -149,9 +152,9 @@ namespace SAEA.FTPTest.Common
             //重新加项目的列
             if (CustomerChoose == CustomerViewList.平铺)
             {
-                foreach (ListViewItem lst in _lstView.Items)
+                foreach (ListViewItem lst in _localListView.Items)
                 {
-                    _lstView.Columns[0].Width = 180;
+                    _localListView.Columns[0].Width = 180;
                     //lst.SubItems[1].Text = "";
                     lst.SubItems[2].Text = "";
                     lst.SubItems[3].Text = "";
@@ -160,7 +163,7 @@ namespace SAEA.FTPTest.Common
             }
             else
             {
-                foreach (ListViewItem lst in _lstView.Items)
+                foreach (ListViewItem lst in _localListView.Items)
                 {
                     DirectoryClass dc = lst.Tag as DirectoryClass;
 
@@ -178,128 +181,139 @@ namespace SAEA.FTPTest.Common
         /// <param name="info"></param>
         public void GetDirectoryAndFile(DirectoryClass info)
         {
-            _lstView.Clear();           
-
-            DirectoryInfo dirs = new DirectoryInfo(info.FullName);
-            if (dirs.ToString() == @"C:\Documents and Settings\Administrator\桌面") return;
-
-            //循环添加文件夹
-
-            foreach (DirectoryInfo dir in dirs.GetDirectories())
+            var action = new Action(() =>
             {
+                _localListView.Clear();
 
-                #region 如果文件是只读的就不要读出来，不然会报错
-                string[] fileAttrites = File.GetAttributes(dir.FullName).ToString().Split(',');
-                //如果属性大于0的就说明有问题,只要属性里面有hidden就不要显示出来
+                DirectoryInfo dirs = new DirectoryInfo(info.FullName);
+                if (dirs.ToString() == @"C:\Documents and Settings\Administrator\桌面") return;
 
-                bool isHideen = false; //是不是隐藏文件
+                //循环添加文件夹
 
-                foreach (string cAttrites in fileAttrites)
+                foreach (DirectoryInfo dir in dirs.GetDirectories())
                 {
-                    if (cAttrites.Equals("hidden", StringComparison.InvariantCultureIgnoreCase) || cAttrites.Equals("readonly", StringComparison.InvariantCultureIgnoreCase))
+                    #region 如果文件是只读的就不要读出来，不然会报错
+                    string[] fileAttrites = File.GetAttributes(dir.FullName).ToString().Split(',');
+                    //如果属性大于0的就说明有问题,只要属性里面有hidden就不要显示出来
+
+                    bool isHideen = false; //是不是隐藏文件
+
+                    foreach (string cAttrites in fileAttrites)
                     {
-                        isHideen = true;
-                        break;
+                        if (cAttrites.Equals("hidden", StringComparison.InvariantCultureIgnoreCase) || cAttrites.Equals("readonly", StringComparison.InvariantCultureIgnoreCase))
+                        {
+                            isHideen = true;
+                            break;
+                        }
                     }
+                    #endregion
+
+                    #region 判断isHideen=false，这样就可以添加资料到ListView中去
+
+                    if (!isHideen)  //文件夹
+                    {
+                        DirectoryClass dc = new DirectoryClass();
+                        dc.Name = dir.Name;
+                        dc.FullName = dir.FullName;
+                        dc.IsDirectory = true;
+                        dc.IsFixDriver = false;
+                        dc.CreateTime1 = dir.LastWriteTime.ToString("yyyy/MM/dd HH:mm");
+
+                        ListViewItem item = new ListViewItem();
+                        item.Text = dc.Name;
+                        item.Tag = dc;
+                        item.ImageIndex = _sysIcons.SmallImageList.Images.IndexOfKey("FileFolder");
+
+                        item.SubItems.Add("文件夹");
+                        item.SubItems.Add(dc.CreateTime1);
+                        item.SubItems.Add("");
+
+                        _localListView.Items.Add(item);
+                    }
+
+                    #endregion
+
                 }
-                #endregion
 
-                #region 判断isHideen=false，这样就可以添加资料到ListView中去
-
-                if (!isHideen)  //文件夹
+                //循环添加文件
+                foreach (FileInfo file in dirs.GetFiles())
                 {
-                    DirectoryClass dc = new DirectoryClass();
-                    dc.Name = dir.Name;
-                    dc.FullName = dir.FullName;
-                    dc.IsDirectory = true;
-                    dc.IsFixDriver = false;
-                    dc.CreateTime1 = dir.LastWriteTime.ToString("yyyy/MM/dd HH:mm");
+                    #region 如果文件是只读的就不要读出来，不然会报错
+                    string[] fileAttrites = File.GetAttributes(file.FullName).ToString().Split(',');
+                    //如果属性大于0的就说明有问题,只要属性里面有hidden就不要显示出来
 
-                    ListViewItem item = new ListViewItem();
-                    item.Text = dc.Name;
-                    item.Tag = dc;
-                    item.ImageIndex = _sysIcons.SmallImageList.Images.IndexOfKey("FileFolder");
+                    bool isHideen = false; //是不是隐藏文件
 
-                    item.SubItems.Add("文件夹");
-                    item.SubItems.Add(dc.CreateTime1);
-                    item.SubItems.Add("");
+                    foreach (string cAttrites in fileAttrites)
+                    {
+                        if (cAttrites.Equals("hidden", StringComparison.InvariantCultureIgnoreCase) || cAttrites.Equals("readonly", StringComparison.InvariantCultureIgnoreCase))
+                        {
+                            isHideen = true;
+                            break;
+                        }
+                    }
+                    #endregion
 
-                    _lstView.Items.Add(item);
+                    #region 如果isHideen==false就显示文件
+
+                    if (!isHideen)
+                    {
+                        FileClass newFile = new FileClass();
+                        newFile.Name = file.Name;
+                        newFile.FullName = file.FullName;
+                        newFile.FileExtends = file.Extension;  //扩展名
+                        newFile.CreateTime1 = file.LastWriteTime.ToString("yyyy/MM/dd HH:mm");
+
+
+                        newFile.FileMax = Math.Round((file.Length / 1024.0 / 1024.0), 2);
+
+                        newFile.IsDirectory = false;
+
+                        //文件的扩展名称叫什么
+                        string desc;
+
+                        IconHelper.GetExtsDescription(newFile.FileExtends, out desc);
+
+                        newFile.FileExtendsName = desc;
+
+
+                        ListViewItem item = new ListViewItem();
+                        item.Text = newFile.Name;
+                        item.Tag = newFile;
+                        item.ImageIndex = _sysIcons.GetIconIndex(newFile.FullName, false);
+
+                        //子项
+                        item.SubItems.Add(newFile.FileExtendsName);
+                        item.SubItems.Add(newFile.CreateTime1);
+
+                        double len = newFile.FileMax;
+                        if (len >= 1000)
+                        {
+                            len = Math.Round((len / 1024.0), 2);
+
+                            item.SubItems.Add(len + "GB");
+                        }
+                        else
+                        {
+                            item.SubItems.Add(newFile.FileMax + "MB");
+                        }
+
+                        _localListView.Items.Add(item);
+                    }
+                    #endregion
                 }
 
-                #endregion
+                FillDirectoryHeader();
+            });
 
-            }
-
-            //循环添加文件
-            foreach (FileInfo file in dirs.GetFiles())
+            if (_localListView.InvokeRequired)
             {
-                #region 如果文件是只读的就不要读出来，不然会报错
-                string[] fileAttrites = File.GetAttributes(file.FullName).ToString().Split(',');
-                //如果属性大于0的就说明有问题,只要属性里面有hidden就不要显示出来
-
-                bool isHideen = false; //是不是隐藏文件
-
-                foreach (string cAttrites in fileAttrites)
-                {
-                    if (cAttrites.Equals("hidden", StringComparison.InvariantCultureIgnoreCase) || cAttrites.Equals("readonly", StringComparison.InvariantCultureIgnoreCase))
-                    {
-                        isHideen = true;
-                        break;
-                    }
-                }
-                #endregion
-
-                #region 如果isHideen==false就显示文件
-
-                if (!isHideen)
-                {
-                    FileClass newFile = new FileClass();
-                    newFile.Name = file.Name;
-                    newFile.FullName = file.FullName;
-                    newFile.FileExtends = file.Extension;  //扩展名
-                    newFile.CreateTime1 = file.LastWriteTime.ToString("yyyy/MM/dd HH:mm");
-
-
-                    newFile.FileMax = Math.Round((file.Length / 1024.0 / 1024.0), 2);
-
-                    newFile.IsDirectory = false;
-
-                    //文件的扩展名称叫什么
-                    string desc;
-
-                    _sysIcons.GetExtsDescription(newFile.FileExtends, out desc);
-
-                    newFile.FileExtendsName = desc;
-
-
-                    ListViewItem item = new ListViewItem();
-                    item.Text = newFile.Name;
-                    item.Tag = newFile;
-                    item.ImageIndex = _sysIcons.GetIconIndex(newFile.FullName);
-
-                    //子项
-                    item.SubItems.Add(newFile.FileExtendsName);
-                    item.SubItems.Add(newFile.CreateTime1);
-
-                    double len = newFile.FileMax;
-                    if (len >= 1000)
-                    {
-                        len = Math.Round((len / 1024.0), 2);
-
-                        item.SubItems.Add(len + "GB");
-                    }
-                    else
-                    {
-                        item.SubItems.Add(newFile.FileMax + "MB");
-                    }
-
-                    _lstView.Items.Add(item);
-                }
-                #endregion
+                _localListView.Invoke(action);
             }
-
-            FillDirectoryHeader();
+            else
+            {
+                action.Invoke();
+            }
         }
 
 
@@ -310,9 +324,9 @@ namespace SAEA.FTPTest.Common
         {
             if (CustomerChoose == CustomerViewList.平铺)
             {
-                foreach (ListViewItem lst in _lstView.Items)
+                foreach (ListViewItem lst in _localListView.Items)
                 {
-                    _lstView.Columns[0].Width = 200;
+                    _localListView.Columns[0].Width = 200;
                     //lst.SubItems[1].Text = "";
                     lst.SubItems[2].Text = "";
                     lst.SubItems[3].Text = "";
@@ -321,12 +335,118 @@ namespace SAEA.FTPTest.Common
             }
             else
             {
-                _lstView.Columns.Add("columnsName", "名称", 200);
-                _lstView.Columns.Add("columnsType", "类型", 200);
-                _lstView.Columns.Add("columnsMax", "修改日期", 150);
-                _lstView.Columns.Add("columnsFreeSpace", "大小", 80);
+                _localListView.Columns.Add("columnsName", "名称", 200);
+                _localListView.Columns.Add("columnsType", "类型", 200);
+                _localListView.Columns.Add("columnsMax", "修改日期", 150);
+                _localListView.Columns.Add("columnsFreeSpace", "大小", 80);
 
-                foreach (ListViewItem lst in _lstView.Items)
+                foreach (ListViewItem lst in _localListView.Items)
+                {
+                    if (lst.SubItems[1].Text == "文件夹")
+                    {
+                        DirectoryClass dc = lst.Tag as DirectoryClass;
+                        lst.SubItems[1].Text = "文件夹";
+                        lst.SubItems[2].Text = dc.CreateTime1;  //修改日期
+                    }
+                    else
+                    {
+                        FileClass dc = lst.Tag as FileClass;
+                        lst.SubItems[1].Text = dc.FileExtendsName;  //文件类型
+                        lst.SubItems[2].Text = dc.CreateTime1;  //修改日期
+                        lst.SubItems[3].Text = dc.FileMax + "MB";  //大小
+                    }
+                }
+            }
+        }
+
+
+
+        public void GetRemoteDirectoryAndFile(List<ListInfo> listInfos)
+        {
+            var action = new Action(() =>
+            {
+                _remoteListView.Clear();
+
+                //循环添加文件夹
+
+                foreach (var dir in listInfos)
+                {
+                    ListViewItem item = new ListViewItem();
+
+                    item.Text = dir.FileName;
+
+                    item.SubItems.Add(dir.Type);
+
+                    if (dir.Type == "文件夹")
+                    {
+                        item.ImageIndex = _sysIcons.SmallImageList.Images.IndexOfKey("FileFolder");
+
+                        item.Tag = new DirectoryClass()
+                        {
+                            Name = dir.FileName
+                        };
+                    }
+                    else
+                    {
+                        item.ImageIndex = _sysIcons.GetIconIndex(dir.FileName, false);
+
+                        var ext = Path.GetExtension(dir.FileName);
+
+                        string desc = string.Empty;
+
+                        IconHelper.GetExtsDescription(ext, out desc);
+
+                        item.Tag = new FileClass()
+                        {
+                            Name = dir.FileName,
+                            FileExtendsName = desc,
+                            FileMax = dir.Size / (1024 * 1024)
+                        };
+
+                    }
+                    item.SubItems.Add("");
+                    item.SubItems.Add(dir.Size.ToString());
+
+                    _remoteListView.Items.Add(item);
+
+                }
+
+                FillRemoteDirectoryHeader();
+            });
+            if (_remoteListView.InvokeRequired)
+            {
+                _remoteListView.Invoke(action);
+            }
+            else
+            {
+                action.Invoke();
+            }
+        }
+
+        /// <summary>
+        /// 填充文件夹的标题头
+        /// </summary>
+        private void FillRemoteDirectoryHeader()
+        {
+            if (CustomerChoose == CustomerViewList.平铺)
+            {
+                foreach (ListViewItem lst in _remoteListView.Items)
+                {
+                    _remoteListView.Columns[0].Width = 200;
+                    //lst.SubItems[1].Text = "";
+                    lst.SubItems[2].Text = "";
+                    lst.SubItems[3].Text = "";
+                }
+
+            }
+            else
+            {
+                _remoteListView.Columns.Add("columnsName", "名称", 200);
+                _remoteListView.Columns.Add("columnsType", "类型", 200);
+                _remoteListView.Columns.Add("columnsMax", "修改日期", 150);
+                _remoteListView.Columns.Add("columnsFreeSpace", "大小", 80);
+
+                foreach (ListViewItem lst in _remoteListView.Items)
                 {
                     if (lst.SubItems[1].Text == "文件夹")
                     {

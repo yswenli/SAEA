@@ -26,7 +26,7 @@ namespace SAEA.FTPTest
         {
             InitializeComponent();
 
-            _driverHelper = new DriverHelper(listView1);
+            _driverHelper = new DriverHelper(listView1, listView2);
         }
 
         #region private
@@ -340,32 +340,27 @@ namespace SAEA.FTPTest
 
         private void downloadToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            DataGridViewRow dr = null;
-
-            var rows = dataGridView2.SelectedRows;
-
             var filePath = textBox1.Text;
 
-            if (rows != null && rows.Count > 0)
+            if (string.IsNullOrEmpty(filePath) || filePath == "我的电脑")
             {
-                dr = rows[0];
+                MessageBox.Show("请在左侧列表中选择下载目录！");
+                return;
             }
-            else
-            {
-                var cells = dataGridView2.SelectedCells;
 
-                if (cells != null && cells.Count > 0)
-                {
-                    dr = dataGridView2.Rows[cells[0].RowIndex];
-                }
-            }
-            if (dr != null)
+            var items = listView2.SelectedItems;
+
+            if (items == null || items.Count == 0) return;
+
+            var dir = items[0].Tag as FileClass;
+
+            if (dir != null)
             {
                 if (_client.Connected)
                 {
-                    if (dr.Cells[2].Value.ToString() == "文件")
+                    if (!dir.IsDirectory)
                     {
-                        var fileName = dr.Cells[0].Value.ToString();
+                        var fileName = dir.Name;
 
                         Download(fileName, filePath);
                     }
@@ -418,36 +413,23 @@ namespace SAEA.FTPTest
         {
             if (MessageBox.Show("确定要删除此项吗？", "SAEA.FtpClient", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
             {
-                DataGridViewRow dr = null;
+                var items = listView2.SelectedItems;
 
-                var rows = dataGridView2.SelectedRows;
+                if (items == null || items.Count == 0) return;
 
-                var filePath = textBox1.Text;
+                var dir = items[0].Tag as DirectoryClass;
 
-                if (rows != null && rows.Count > 0)
+                if (dir != null)
                 {
-                    dr = rows[0];
-                }
-                else
-                {
-                    var cells = dataGridView2.SelectedCells;
+                    var fileName = dir.Name;
 
-                    if (cells != null && cells.Count > 0)
-                    {
-                        dr = dataGridView2.Rows[cells[0].RowIndex];
-                    }
-                }
-                if (dr != null)
-                {
-                    var fileName = dr.Cells[0].Value.ToString();
-
-                    var type = dr.Cells[2].Value.ToString();
+                    var type = dir.IsDirectory;
 
                     _loadingUserControl.Message = $"正在删除{type}...";
 
                     _loadingUserControl.Show(this);
 
-                    if (type == "文件")
+                    if (!dir.IsDirectory)
                     {
                         Task.Run(() =>
                         {
@@ -556,7 +538,7 @@ namespace SAEA.FTPTest
 
                                 splitContainer2.Panel2.Enabled = true;
                                 textBox2.Text = "/";
-                                dataGridView2.Enabled = true;
+                                listView2.Enabled = true;
                             }));
                             textBox2_TextChanged(null, null);
 
@@ -616,8 +598,8 @@ namespace SAEA.FTPTest
                             = skinWaterTextBox4.Enabled
                             = true;
                             skinButton1.Enabled = true;
-                            dataGridView2.Enabled = false;
-                            dataGridView2.DataSource = null;
+                            listView2.Enabled = false;
+                            listView2.Clear();
                             skinButton1.Text = "Connect";
                         }));
 
@@ -640,8 +622,8 @@ namespace SAEA.FTPTest
                                 = skinWaterTextBox4.Enabled
                                 = true;
                 skinButton1.Enabled = true;
-                dataGridView2.Enabled = false;
-                dataGridView2.DataSource = null;
+                listView2.Enabled = false;
+                listView2.Clear();
                 skinButton1.Text = "Connect";
                 _loadingUserControl.Hide();
             }));
@@ -726,17 +708,17 @@ namespace SAEA.FTPTest
 
                         listInfos = listInfos.OrderBy(b => b.FileName).ToList();
 
-                        dataGridView2.BeginInvoke(new Action(() =>
+                        listView2.BeginInvoke(new Action(() =>
                         {
-                            dataGridView2.DataSource = null;
-                            dataGridView2.DataSource = listInfos;
+                            listView2.Clear();
+                            _driverHelper.GetRemoteDirectoryAndFile(listInfos);
                         }));
                     }
                     else
                     {
-                        dataGridView2.BeginInvoke(new Action(() =>
+                        listView2.BeginInvoke(new Action(() =>
                         {
-                            dataGridView2.DataSource = null;
+                            listView2.Clear();
                         }));
                     }
                 }
@@ -771,41 +753,40 @@ namespace SAEA.FTPTest
                 Process.Start(file.FullName);
             }
         }
-
-        private void dataGridView2_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+        private void listView2_MouseDoubleClick(object sender, MouseEventArgs e)
         {
-            if (e.RowIndex >= 0)
+            if (listView2.SelectedItems.Count <= 0)
             {
-                if (dataGridView2.Rows[e.RowIndex].Cells[2].Value.ToString() == "文件夹")
+                return;
+            }
+            string typeName = listView2.SelectedItems[0].SubItems[1].Text;
+            if (typeName == "文件夹" || typeName == "本地磁盘")
+            {
+                DirectoryClass dir = listView2.SelectedItems[0].Tag as DirectoryClass;
+
+                Task.Run(() =>
                 {
-                    var path = textBox2.Text;
-
-                    var fileName = dataGridView2.Rows[e.RowIndex].Cells[0].Value.ToString().Trim();
-
-                    Task.Run(() =>
+                    try
                     {
-                        try
+                        if (_client.ChangeDir(dir.Name))
                         {
-                            if (_client.ChangeDir(fileName))
-                            {
-                                var cp = _client.CurrentDir();
+                            var cp = _client.CurrentDir();
 
-                                textBox2.Invoke(new Action(() =>
-                                {
-                                    textBox2.Text = cp;
-                                }));
-                            }
-                            else
+                            textBox2.Invoke(new Action(() =>
                             {
-                                textBox2_TextChanged(null, null);
-                            }
+                                textBox2.Text = cp;
+                            }));
                         }
-                        catch (Exception ex)
+                        else
                         {
-                            Log("获取ftpserver列表失败", ex.Message);
+                            textBox2_TextChanged(null, null);
                         }
-                    });
-                }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log("获取ftpserver列表失败", ex.Message);
+                    }
+                });
             }
             else
             {
@@ -864,6 +845,8 @@ namespace SAEA.FTPTest
         }
 
 
-        #endregion       
+        #endregion
+
+
     }
 }

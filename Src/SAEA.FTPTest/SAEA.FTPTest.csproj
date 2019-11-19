@@ -85,6 +85,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Common\DriverHelper.cs" />
+    <Compile Include="Common\IconHelper.cs" />
     <Compile Include="Common\SystemIconsImageList.cs" />
     <Compile Include="CreateDirForm.cs">
       <SubType>Form</SubType>
