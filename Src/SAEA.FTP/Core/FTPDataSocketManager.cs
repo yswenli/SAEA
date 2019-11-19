@@ -98,6 +98,10 @@ namespace SAEA.FTP.Core
             {
                 _dataSocket.Send(_channelInfo.ID, data);
             });
+            while (IsConnected)
+            {
+                _autoResetEvent.WaitOne(10);
+            }
         }
 
         public void Checke()

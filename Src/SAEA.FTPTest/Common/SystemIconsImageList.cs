@@ -31,36 +31,6 @@ namespace SAEA.FTPTest.Common
 {
     public class SystemIconsImageList : IDisposable
     {
-        //#region Win32 declarations
-
-
-        //private const uint SHGFI_ICON = 0x100;
-        //private const uint SHGFI_LARGEICON = 0x0;  //大图标
-        //private const uint SHGFI_SMALLICON = 0x1;  //小图标
-
-        //[StructLayout(LayoutKind.Sequential)]
-        //public struct SHFILEINFO
-        //{
-        //    public IntPtr hIcon; //文件的图标句柄  
-
-        //    public IntPtr iIcon;  //图标的系统索引号  
-
-        //    public uint dwAttributes;  //文件的属性值  
-
-        //    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
-        //    public string szDisplayName;  //文件的显示名  
-
-
-        //    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 80)]
-        //    public string szTypeName;  //文件的类型名  
-        //};
-
-        //[DllImport("shell32.dll")]
-        //public static extern IntPtr SHGetFileInfo(string pszPath, uint dwFileAttributes, ref SHFILEINFO psfi, uint cbSizeFileInfo, uint uFlags);
-
-
-        //#endregion
-
         #region  ImageList大/小图像列表字段
 
 
@@ -160,9 +130,13 @@ namespace SAEA.FTPTest.Common
         /// <returns></returns>
         public int GetIconIndex(string filePath, bool isDir)
         {
+            Icon largeIcon = null;
+
+            Icon smallIcon = null;
+
             var fileName = Path.GetFileName(filePath);
 
-            var ext = Path.GetExtension(filePath);            
+            var ext = Path.GetExtension(filePath);
 
             if (string.IsNullOrEmpty(ext)) //文件夹 或者没有相关联的后缀名
             {
@@ -175,46 +149,61 @@ namespace SAEA.FTPTest.Common
                     ext = "F9EB930C78D2477c80A51945D505E9C4"; // for files without extension
                 }
             }
-            else  //文件
+            else  
             {
-                //如果是exe文件或者快捷方式
                 if (ext.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) ||
                     ext.Equals(".lnk", StringComparison.InvariantCultureIgnoreCase))
                 {
                     ext = fileName;
                 }
-
             }
 
-
-            //看是否存在于imageList中
             if (_smallImageList.Images.ContainsKey(ext))
             {
                 return _smallImageList.Images.IndexOfKey(ext);
             }
-            else  //如果不存在就添加
+            else 
             {
                 try
                 {
-                    Icon largeIcon;
+                    if (Path.GetExtension(ext).Equals(".exe", StringComparison.InvariantCultureIgnoreCase) ||
+                    Path.GetExtension(ext).Equals(".lnk", StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        if (File.Exists(filePath))
+                        {
+                            largeIcon = IconHelper.GetIconByFilePath(filePath, true);
 
-                    Icon smallIcon;
+                            smallIcon = IconHelper.GetIconByFilePath(filePath, false);
+                        }
+                        else
+                        {
+                            IconHelper.GetFileIcon(ext, out largeIcon, out smallIcon);
+                        }
+                    }
+                    else
+                    {
+                        IconHelper.GetFileIcon(ext, out largeIcon, out smallIcon);
+                    }
 
-                    IconHelper.GetFileIcon(ext, out largeIcon, out smallIcon);
+                    if (largeIcon != null && smallIcon == null)
+                    {
+                        smallIcon = largeIcon;
+                    }
 
-                    //SHGetFileInfo(filePath, 0, ref shinfo, (uint)Marshal.SizeOf(shinfo), SHGFI_ICON | SHGFI_SMALLICON);
+                    if (smallIcon != null && largeIcon == null)
+                    {
+                        largeIcon = smallIcon;
+                    }
 
-                    //Icon smallIcon = Icon.FromHandle(shinfo.hIcon);
-
-                    _smallImageList.Images.Add(ext, smallIcon); //添加小图标
-
-
-                    //大图标
-                    //SHGetFileInfo(filePath, 0, ref shinfo, (uint)Marshal.SizeOf(shinfo), SHGFI_ICON | SHGFI_LARGEICON);
-
-                    //Icon largeIcon = Icon.FromHandle(shinfo.hIcon);
+                    if (largeIcon == null && smallIcon == null)
+                    {
+                        IconHelper.GetDefaultIcon(out largeIcon, out smallIcon);
+                    }
 
                     _largeImageList.Images.Add(ext, largeIcon);
+
+                    _smallImageList.Images.Add(ext, smallIcon);
+
                 }
                 catch (ArgumentException ex)
                 {
@@ -224,13 +213,6 @@ namespace SAEA.FTPTest.Common
                 return _smallImageList.Images.Count - 1;
             }
         }
-
-
-
         #endregion
-
-        
-
-
     }
 }

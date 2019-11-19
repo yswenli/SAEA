@@ -33,13 +33,33 @@ namespace SAEA.FTPTest.Common
         [DllImport("shell32.dll", EntryPoint = "ExtractIconExW", CallingConvention = System.Runtime.InteropServices.CallingConvention.StdCall)]
         public static extern uint ExtractIconExW([System.Runtime.InteropServices.InAttribute()] [System.Runtime.InteropServices.MarshalAsAttribute(UnmanagedType.LPWStr)] string lpszFile, int nIconIndex, ref IntPtr phiconLarge, ref IntPtr phiconSmall, uint nIcons);
 
-        /// <summary> 
-        /// 通过扩展名得到图标和描述 
-        /// </summary> 
-        /// <param name="ext">扩展名</param> 
-        /// <param name="LargeIcon">得到大图标</param> 
-        /// <param name="smallIcon">得到小图标</param> 
-        public static void GetExtsIconAndDescription(string ext, out Icon largeIcon, out Icon smallIcon, out string description)
+        [DllImport("shell32.dll")]
+        public static extern uint ExtractIconEx(string lpszFile, int nIconIndex, int[] phiconLarge, int[] phiconSmall, uint nIcons);
+
+        /// <summary>
+        /// 获取文件路径的icon
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="isLarge"></param>
+        /// <returns></returns>
+        public static Icon GetIconByFilePath(string filePath, bool isLarge = true)
+        {
+            int[] phiconLarge = new int[1];
+            int[] phiconSmall = new int[1];
+            ExtractIconEx(filePath, 0, phiconLarge, phiconSmall, 1);
+            IntPtr IconHnd = new IntPtr(isLarge ? phiconLarge[0] : phiconSmall[0]);
+            if (IconHnd.ToString() == "0")
+                return null;
+            return Icon.FromHandle(IconHnd);
+        }
+
+            /// <summary> 
+            /// 通过扩展名得到图标和描述 
+            /// </summary> 
+            /// <param name="ext">扩展名</param> 
+            /// <param name="LargeIcon">得到大图标</param> 
+            /// <param name="smallIcon">得到小图标</param> 
+            public static void GetExtsIconAndDescription(string ext, out Icon largeIcon, out Icon smallIcon, out string description)
         {
             largeIcon = smallIcon = null;
             description = "";
