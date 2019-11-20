@@ -87,7 +87,7 @@ namespace SAEA.MVC
         /// <returns></returns>
         protected bool IsAjaxRequest()
         {
-            if (HttpContext.Current.Request.Headers.ContainsKey("X-Requested-With"))
+            if (HttpContext.Current.Request.Headers.ContainsKey("X-Requested-With") || HttpContext.Current.Request.Headers.ContainsKey("x-requested-with"))
             {
                 return true;
             }

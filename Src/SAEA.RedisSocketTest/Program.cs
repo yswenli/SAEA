@@ -41,7 +41,7 @@ namespace SAEA.RedisSocketTest
             var cnnStr = ConsoleHelper.ReadLine();
             if (string.IsNullOrEmpty(cnnStr))
             {
-                cnnStr = "server=10.205.29.211:6379;passwords=Oyk4moI0H";
+                cnnStr = "server=127.0.0.1:6379;passwords=yswenli";
             }
             RedisClient redisClient = new RedisClient(cnnStr, false);
 
@@ -181,7 +181,7 @@ namespace SAEA.RedisSocketTest
 
             var l2 = db.HStrLen("yswenliH", "saea1");
 
-            var s = db.HScan("yswenli*");
+            var s = db.HScan("yswenliH");
 
             var b1 = db.HExists("yswenliH", "saea1");
 

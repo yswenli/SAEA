@@ -23,7 +23,6 @@
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.Sockets;
-using SAEA.Sockets.Core.Tcp;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
 using System;

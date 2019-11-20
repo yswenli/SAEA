@@ -110,6 +110,7 @@ namespace SAEA.Http.Base
 
             //cookies
             var cookiesStr = string.Empty;
+
             if (httpMessage.Headers.TryGetValue(RequestHeaderType.Cookie.GetDescription().ToLower(), out cookiesStr))
             {
                 httpMessage.Cookies = HttpCookies.Parse(cookiesStr);
@@ -119,6 +120,7 @@ namespace SAEA.Http.Base
             if (httpMessage.Method == ConstHelper.POST)
             {
                 string contentTypeStr = string.Empty;
+
                 if (httpMessage.Headers.TryGetValue(RequestHeaderType.ContentType.GetDescription().ToLower(), out contentTypeStr))
                 {
                     //form-data
@@ -130,6 +132,7 @@ namespace SAEA.Http.Base
                     }
                 }
                 string contentLengthStr = string.Empty;
+
                 if (httpMessage.Headers.TryGetValue(RequestHeaderType.ContentLength.GetDescription().ToLower(), out contentLengthStr))
                 {
                     int cl = 0;
@@ -151,12 +154,14 @@ namespace SAEA.Http.Base
         public static void AnalysisBody(byte[] requestData, HttpMessage httpMessage)
         {
             var contentLen = httpMessage.ContentLength;
+
             if (contentLen > 0)
             {
                 var positon = httpMessage.Position;
+
                 var totlalLen = contentLen + positon;
-                httpMessage.Body = new byte[contentLen];
-                Buffer.BlockCopy(requestData, positon, httpMessage.Body, 0, httpMessage.Body.Length);
+
+                httpMessage.Body = requestData.AsSpan().Slice(positon, contentLen).ToArray();
 
                 switch (httpMessage.ContentType)
                 {
@@ -208,7 +213,6 @@ namespace SAEA.Http.Base
                     case ConstHelper.FORMENCTYPE3:
                     default:
                         httpMessage.Json = Encoding.UTF8.GetString(httpMessage.Body);
-                        httpMessage.Forms = GetRequestForms(Encoding.UTF8.GetString(httpMessage.Body));
                         break;
                 }
             }
@@ -266,6 +270,7 @@ namespace SAEA.Http.Base
             }
             return dic;
         }
+
 
         private static Dictionary<string, string> GetRequestHeaders(IEnumerable<string> rows)
         {

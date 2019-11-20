@@ -1,8 +1,5 @@
 ﻿using SAEA.MVC;
 using SAEA.MVCTest.Model;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.MVCTest.Controllers
 {

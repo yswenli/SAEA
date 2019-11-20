@@ -39,11 +39,13 @@
 
     <div>
         <p>
-            <button id="ajax_btn">ajaxTest</button>
+            <button id="ajax_btn">ajaxTest--url get</button>
 
-            <button id="ajax_btn2">ajaxTest2</button>
+            <button id="ajax_btn1">ajaxTest--form get</button>
 
-            <button id="ajax_btn3">ajaxTest3</button>
+            <button id="ajax_btn2">ajaxTest2--form post</button>
+
+            <button id="ajax_btn3">ajaxTest3--json</button>
 
             <button id="noAjax_btn" onclick="location.href = '/ajax/test?str=hello';">noajaxTest</button>
         </p>
@@ -53,6 +55,12 @@
     <script type="text/javascript">
         $(function () {
             $("#ajax_btn").click(function () {
+                $.get("/ajax/test?str=hello", null, function (data) {
+                    alert(data);
+                });
+            });
+
+            $("#ajax_btn1").click(function () {
                 $.get("/ajax/test", "str=hello", function (data) {
                     alert(data);
                 });
@@ -64,7 +72,7 @@
                 });
             });
 
-            var json = { "id": 1, "userName": "yswenli", "nickName": "WaLLE" };
+            var json = { "id": 1, "userName": "yswenli", "nickName": "WaLLE&@#$%$=-090-=+)_(89~!@@!`123" };
 
             $("#ajax_btn3").click(function () {
                 $.ajax({
