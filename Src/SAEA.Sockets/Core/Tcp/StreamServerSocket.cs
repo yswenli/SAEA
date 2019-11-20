@@ -128,7 +128,7 @@ namespace SAEA.Sockets.Core.Tcp
                     {
                         _isStoped = true;
 
-                        //ChannelManager.Instance.Clear();
+                        ChannelManager.Instance.Clear();
 
                         break;
                     }
@@ -168,18 +168,26 @@ namespace SAEA.Sockets.Core.Tcp
                                         break;
                                     }
 
-                                    var data = new byte[SocketOption.ReadBufferSize];
-
-                                    var len = nsStream.Read(data, 0, data.Length);
-
-                                    if (len > 0)
+                                    if (clientSocket.Connected)
                                     {
-                                        OnReceive.Invoke(id, data.AsSpan().Slice(0, len).ToArray());
+                                        var data = new byte[SocketOption.ReadBufferSize];
+
+                                        var len = nsStream.Read(data, 0, data.Length);
+
+                                        if (len > 0)
+                                        {
+                                            OnReceive.Invoke(id, data.AsSpan().Slice(0, len).ToArray());
+                                        }
+                                        else
+                                        {
+                                            Thread.Sleep(10);
+                                        }
                                     }
                                     else
                                     {
-                                        Thread.Sleep(10);
+                                        break;
                                     }
+
                                 }
                                 else
                                     break;
@@ -204,7 +212,7 @@ namespace SAEA.Sockets.Core.Tcp
                 {
                     OnError?.Invoke(string.Empty, aex);
                     OnDisconnected?.Invoke(SocketOption.IP + "_" + SocketOption.Port, aex);
-                    clientSocket?.Close();
+                    clientSocket?.Close(SocketOption.TimeOut);
                 }
                 catch (Exception exception)
                 {
@@ -215,7 +223,7 @@ namespace SAEA.Sockets.Core.Tcp
                         OnDisconnected?.Invoke(SocketOption.IP + "_" + SocketOption.Port, exception);
                     }
                     await Task.Delay(TimeSpan.FromSeconds(1), _cancellationToken).ConfigureAwait(false);
-                    clientSocket?.Close();
+                    clientSocket?.Close(SocketOption.TimeOut);
                 }
             }
         }
@@ -253,7 +261,7 @@ namespace SAEA.Sockets.Core.Tcp
             var socket = channel.ClientSocket;
             if (socket != null)
             {
-                socket.Close();
+                socket.Close(SocketOption.TimeOut);
                 OnDisconnected?.Invoke(sessionID, null);
             }
             ChannelManager.Instance.Remove(sessionID);
@@ -267,8 +275,9 @@ namespace SAEA.Sockets.Core.Tcp
             _isStoped = true;
             try
             {
+                ChannelManager.Instance.Clear(SocketOption.TimeOut);
                 SocketOption.X509Certificate2?.Dispose();
-                _listener.Close();
+                _listener.Close(SocketOption.TimeOut);
             }
             catch { }
             try

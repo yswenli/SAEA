@@ -625,6 +625,7 @@ namespace SAEA.FTPTest
                 listView2.Enabled = false;
                 listView2.Clear();
                 skinButton1.Text = "Connect";
+                logTxt.Text = "";
                 _loadingUserControl.Hide();
             }));
         }

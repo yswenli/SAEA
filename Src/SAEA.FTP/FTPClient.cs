@@ -42,16 +42,15 @@ namespace SAEA.FTP
             }
         }
 
+        DateTime _Actived;
+
         public FTPClient(ClientConfig config)
         {
             _client = new ClientSocket(config);
             _client.OnDisconnected += _client_OnDisconnected;
         }
 
-        private void _client_OnDisconnected(string ID, Exception ex)
-        {
-            Ondisconnected?.Invoke();
-        }
+
 
         public FTPClient(string ip, int port, string userName, string password, int bufferSize = 10240) : this(new ClientConfig() { IP = ip, Port = port, UserName = userName, Password = password, BufferSize = bufferSize })
         {
@@ -62,6 +61,19 @@ namespace SAEA.FTP
         {
             _client.Connect();
             OnConnected?.Invoke();
+            _Actived = DateTime.Now;
+            TaskHelper.Start(() =>
+            {
+                while (Connected)
+                {
+                    if (_Actived.AddMinutes(1) < DateTime.Now)
+                    {
+                        Noop();
+                        _Actived = DateTime.Now;
+                    }
+                    ThreadHelper.Sleep(500);
+                }
+            });
         }
 
         public void Noop()
@@ -83,6 +95,8 @@ namespace SAEA.FTP
         {
             var sres = _client.BaseSend($"{FTPCommand.CWD} {pathName}");
 
+            Active();
+
             if (sres.Code == ServerResponseCode.文件行为完成)
             {
                 return true;
@@ -101,6 +115,8 @@ namespace SAEA.FTP
         {
             var sres = _client.BaseSend($"{FTPCommand.CDUP}");
 
+            Active();
+
             if (sres.Code == ServerResponseCode.文件行为完成 || sres.Code == ServerResponseCode.成功)
             {
                 return true;
@@ -118,6 +134,8 @@ namespace SAEA.FTP
         public string CurrentDir()
         {
             var sres = _client.BaseSend($"{FTPCommand.PWD}");
+
+            Active();
 
             if (sres.Code == ServerResponseCode.路径名建立)
             {
@@ -140,11 +158,15 @@ namespace SAEA.FTP
         /// <returns></returns>
         public List<string> Dir(string pathName = "/", DirType dirType = DirType.MLSD)
         {
+            _client.FTPDataManager.IsFile = false;
+
             using (var dataSocket = _client.CreateDataConnection())
             {
                 _client.FTPDataManager.Refresh();
 
                 var sres = _client.BaseSend($"{dirType.ToString()} {pathName}");
+
+                Active();
 
                 var str = _client.FTPDataManager.ReadAllText();
 
@@ -167,6 +189,8 @@ namespace SAEA.FTP
         {
             var sres = _client.BaseSend($"{FTPCommand.MKD} {pathName}");
 
+            Active();
+
             if (sres.Code != ServerResponseCode.文件行为完成 && sres.Code != ServerResponseCode.路径名建立)
             {
                 throw new IOException($"code:{sres.Code},reply:{sres.Reply}");
@@ -176,6 +200,8 @@ namespace SAEA.FTP
         public void RemoveDir(string pathName)
         {
             var sres = _client.BaseSend($"{FTPCommand.RMD} {pathName}");
+
+            Active();
 
             if (sres.Code != ServerResponseCode.文件行为完成)
             {
@@ -190,6 +216,8 @@ namespace SAEA.FTP
 
             var sres = _client.BaseSend($"{FTPCommand.RNTO} {newName}");
 
+            Active();
+
             if (sres.Code != ServerResponseCode.文件行为完成)
             {
                 throw new IOException($"code:{sres.Code},reply:{sres.Reply}");
@@ -199,6 +227,8 @@ namespace SAEA.FTP
         public void Delete(string fileName)
         {
             var sres = _client.BaseSend($"{FTPCommand.DELE} {fileName}");
+
+            Active();
 
             if (sres.Code != ServerResponseCode.文件行为完成)
             {
@@ -213,9 +243,13 @@ namespace SAEA.FTP
 
             using (var dataSocket = _client.CreateDataConnection())
             {
+                _client.FTPDataManager.IsFile = true;
+
                 var fileName = PathHelper.GetFileName(filePath);
 
                 var sres = _client.BaseSend($"{FTPCommand.STOR} {fileName}");
+
+                Active();
 
                 if (sres.Code != ServerResponseCode.打开数据连接开始传输 && sres.Code != ServerResponseCode.打开连接)
                 {
@@ -296,18 +330,23 @@ namespace SAEA.FTP
                         downing?.Invoke(offset, count);
                         break;
                     }
-                    ThreadHelper.Sleep(1000);
+                    ThreadHelper.Sleep(500);
                 }
             });
 
             using (var dataSocket = _client.CreateDataConnection())
             {
+                _client.FTPDataManager.IsFile = true;
+
                 _client.FTPDataManager.New(filePath);
 
                 var sres = _client.BaseSend($"{FTPCommand.RETR} {fileName}");
 
+                Active();
+
                 if (sres.Code == ServerResponseCode.结束数据连接 || sres.Code == ServerResponseCode.打开连接)
                 {
+                    //确认长度后断开
                     _client.FTPDataManager.Checked(count, ref offset);
 
                     dataSocket.Disconnect();
@@ -329,6 +368,8 @@ namespace SAEA.FTP
         {
             var sres = _client.BaseSend($"{FTPCommand.SIZE} {fileName}");
 
+            Active();
+
             if (sres.Code == ServerResponseCode.文件状态回复)
             {
                 return long.Parse(sres.Reply);
@@ -341,25 +382,33 @@ namespace SAEA.FTP
 
         public void Quit()
         {
-            var sres = _client.BaseSend($"{FTPCommand.QUIT}");
-
-            if (sres.Code != ServerResponseCode.成功 && sres.Code != ServerResponseCode.退出网络)
+            if (_client != null && _client.Connected)
             {
-                throw new Exception($"code:{sres.Code},reply:{sres.Reply}");
+                _client.BaseSend($"{FTPCommand.QUIT}");
+
+                _client.Disconnect();
+
+                _client.Dispose();
             }
         }
 
         public void Dispose()
         {
-            if (_client != null && _client.Connected)
+            try
             {
-                try
-                {
-                    Quit();
-                }
-                catch { }
-                _client.Dispose();
+                Quit();
             }
+            catch { }
+        }
+
+        private void Active()
+        {
+            _Actived = DateTimeHelper.Now;
+        }
+
+        private void _client_OnDisconnected(string ID, Exception ex)
+        {
+            Ondisconnected?.Invoke();
         }
     }
 }

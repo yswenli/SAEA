@@ -448,6 +448,7 @@ namespace SAEA.FTP
             user.CurrentPath = "/";
             user.IsLogin = false;
             FTPServerConfigManager.RemoveUserBind(id);
+            FTPServerConfigManager.Save();
 
         }
         public void Start()

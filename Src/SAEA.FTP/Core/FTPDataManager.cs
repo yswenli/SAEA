@@ -39,6 +39,10 @@ namespace SAEA.FTP.Core
             _filePath = filePath;
 
             this.IsFile = true;
+
+            if (_list != null) _list.Clear();
+
+            _list = new List<byte>();
         }
 
         public void Receive(byte[] data)
@@ -60,6 +64,11 @@ namespace SAEA.FTP.Core
             }
         }
 
+        /// <summary>
+        /// 检查文件长度
+        /// </summary>
+        /// <param name="size"></param>
+        /// <param name="offset"></param>
         public void Checked(long size, ref long offset)
         {
             while (true)
@@ -72,10 +81,7 @@ namespace SAEA.FTP.Core
 
                 try
                 {
-                    using (var fs = File.Open(_tempPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-                    {
-                        offset = fs.Length;
-                    }
+                    offset = new FileInfo(_tempPath).Length;
                 }
                 catch { }
                 if (offset < size)
