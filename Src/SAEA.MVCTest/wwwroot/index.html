@@ -11,29 +11,46 @@
         <img src="6139455.png" />
     </div>
 
+    <p>
+        form get
+    </p>
     <form action="/home/update" method="get">
         <p>id: <input type="text" name="id" /></p>
         <input type="submit" value="Submit" />
     </form>
-
+    <p>
+        form post
+    </p>
     <form action="/home/update" method="post">
         <p>ID: <input type="text" name="ID" /></p>
         <p>UserName: <input type="text" name="UserName" /></p>
         <input type="submit" value="Submit" />
     </form>
 
-
+    <p>
+        form file
+    </p>
     <form action="/File/upload" method="post" enctype="multipart/form-data">
         <p>name: <input type="text" name="name" /></p>
-        <p>name: <textarea name="name2" /></textarea></p>
+        <p>name: <textarea name="name2"></textarea></p>
         <p>File1: <input type="file" name="File1" /></p>
         <input type="submit" value="Submit" />
     </form>
-
-
+    <p>
+        form plain
+    </p>
     <form action="/test/other" method="post" enctype="text/plain">
         <p>ID: <input type="text" name="ID" /></p>
         <p>UserName: <input type="text" name="UserName" /></p>
+        <input type="submit" value="Submit" />
+    </form>
+    <p>
+        form json
+    </p>
+
+    <form action="/test/other" method="post" enctype="application/json">
+        <p>ID: <input type="text" name="ID" /></p>
+        <p>UserName: <input type="text" name="UserName" value='{"asdfe":"bafeaf","#@!$%^%$%^&**&()(__":"!@#$#%#%$^* *(*(*)0_+_+_==857","ccc":"1111"}'/></p>
         <input type="submit" value="Submit" />
     </form>
 
@@ -72,7 +89,7 @@
                 });
             });
 
-            var json = { "id": 1, "userName": "yswenli", "nickName": "WaLLE&@#$%$=-090-=+)_(89~!@@!`123" };
+            var json = { "id": 1, "userName": "yswenli", "nickName": "WaLLE&@#$ %$=-090-=+)_(89~!@@!`123" };
 
             $("#ajax_btn3").click(function () {
                 $.ajax({
