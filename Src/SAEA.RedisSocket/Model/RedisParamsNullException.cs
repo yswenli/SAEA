@@ -25,6 +25,19 @@ using System;
 
 namespace SAEA.RedisSocket.Model
 {
+    public class RedisIOException : Exception
+    {
+        public RedisIOException() : this("redis disconnected!")
+        {
+
+        }
+
+        public RedisIOException(string message) : base(message)
+        {
+
+        }
+    }
+
     public class RedisParamsNullException : Exception
     {
         public RedisParamsNullException() : this("redis 输入参数不能为null!")

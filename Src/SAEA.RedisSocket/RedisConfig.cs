@@ -47,7 +47,7 @@ namespace SAEA.RedisSocket
         public int ActionTimeOut
         {
             get; set;
-        } = 60;
+        } = 10;
 
         public RedisConfig()
         {

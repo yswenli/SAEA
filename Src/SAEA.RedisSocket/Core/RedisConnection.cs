@@ -75,7 +75,7 @@ namespace SAEA.RedisSocket.Core
         public event RedirectHandler OnRedirect;
 
 
-        public RedisConnection(string ipPort, int actionTimeout = 60)
+        public RedisConnection(string ipPort, int actionTimeout = 10)
         {
             this.IPPort = ipPort;
             var address = ipPort.ToIPPort();
@@ -89,7 +89,8 @@ namespace SAEA.RedisSocket.Core
         private void _cnn_OnDisconnected(string ID, Exception ex)
         {
             OnDisconnected?.Invoke(this.IPPort);
-
+            ThreadHelper.Sleep(3000);
+            IsConnected = false;
             Connect();
         }
 

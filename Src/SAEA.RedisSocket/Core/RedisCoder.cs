@@ -43,7 +43,7 @@ namespace SAEA.RedisSocket.Core
 
         object _locker = new object();
 
-        int _actionTimeout = 60 * 1000;
+        int _actionTimeout = 10 * 1000;
 
         RClient _rclient;
 
@@ -52,7 +52,7 @@ namespace SAEA.RedisSocket.Core
         /// </summary>
         /// <param name="rclient"></param>
         /// <param name="actionTimeout"></param>
-        public RedisCoder(RClient rclient, int actionTimeout = 60)
+        public RedisCoder(RClient rclient, int actionTimeout = 10)
         {
             _rclient = rclient;
             _actionTimeout = actionTimeout * 1000;
@@ -419,25 +419,16 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public ResponseData Decoder()
         {
-            string command = string.Empty;
-
-            string error = string.Empty;
-
-            var len = 0;
-
-            command = GetRedisReply();
-
             var responseData = new ResponseData();
 
-            if (command.IndexOf("-") == 0)
+            try
             {
-                responseData.Type = ResponseType.Error;
-                responseData.Data = command;
-                return responseData;
-            }
+                string command = string.Empty;
 
-            while (command == ConstHelper.ENTER)
-            {
+                string error = string.Empty;
+
+                var len = 0;
+
                 command = GetRedisReply();
 
                 if (command.IndexOf("-") == 0)
@@ -446,445 +437,409 @@ namespace SAEA.RedisSocket.Core
                     responseData.Data = command;
                     return responseData;
                 }
-            }
 
-            var temp = Redirect(command);
 
-            if (temp != null)
-            {
-                responseData = temp;
-            }
-            else
-            {
-                if (command.IndexOf("-") == 0)
+                while (command == ConstHelper.ENTER)
                 {
-                    responseData.Type = ResponseType.Error;
-                    responseData.Data = command;
-                    return responseData;
+                    command = GetRedisReply();
+
+                    if (command.IndexOf("-") == 0)
+                    {
+                        responseData.Type = ResponseType.Error;
+                        responseData.Data = command;
+                        return responseData;
+                    }
                 }
 
-                switch (_commandName)
+                var temp = Redirect(command);
+
+                if (temp != null)
                 {
-                    case RequestType.PING:
-                        if (GetStatus(command, out error))
-                        {
-                            responseData.Type = ResponseType.OK;
-                            responseData.Data = "PONG";
-                        }
-                        else
-                        {
-                            responseData.Type = ResponseType.Error;
-                            responseData.Data = error;
-                        }
-                        break;
-                    case RequestType.AUTH:
-                    case RequestType.FLUSHALL:
-                    case RequestType.SELECT:
-                    case RequestType.SLAVEOF:
-                    case RequestType.SET:
-                    case RequestType.MSET:
-                    case RequestType.MSETNX:
-                    case RequestType.DEL:
-                    case RequestType.HSET:
-                    case RequestType.HMSET:
-                    case RequestType.HDEL:
-                    case RequestType.LSET:
-                    case RequestType.LTRIM:
-                    case RequestType.RENAME:
-                    case RequestType.CLUSTER_MEET:
-                    case RequestType.CLUSTER_FORGET:
-                    case RequestType.CLUSTER_REPLICATE:
-                    case RequestType.CLUSTER_SAVECONFIG:
-                    case RequestType.CLUSTER_ADDSLOTS:
-                    case RequestType.CLUSTER_DELSLOTS:
-                    case RequestType.CLUSTER_FLUSHSLOTS:
-                    case RequestType.CLUSTER_SETSLOT:
-                    case RequestType.CONFIG_SET:
-                        if (GetStatus(command, out error))
-                        {
-                            responseData.Type = ResponseType.OK;
-                            responseData.Data = "OK";
-                        }
-                        else
-                        {
-                            responseData.Type = ResponseType.Error;
-                            responseData.Data = error;
-                        }
-                        break;
-                    case RequestType.TYPE:
-                        if (GetStatusString(command, out string msg))
-                        {
-                            responseData.Type = ResponseType.OK;
-                        }
-                        else
-                        {
-                            responseData.Type = ResponseType.Error;
-                        }
-                        responseData.Data = msg;
-                        break;
-                    case RequestType.GET:
-                    case RequestType.GETSET:
-                    case RequestType.HGET:
-                    case RequestType.LPOP:
-                    case RequestType.RPOP:
-                    case RequestType.SRANDMEMBER:
-                    case RequestType.SPOP:
-                    case RequestType.RANDOMKEY:
-                        len = GetWordsNum(command, out error);
-                        if (!string.IsNullOrEmpty(error))
-                        {
-                            responseData.Type = ResponseType.Error;
-                            responseData.Data = error;
-                        }
-                        else if (len == -1)
-                        {
-                            responseData.Type = ResponseType.Empty;
-                            responseData.Data = string.Empty;
-                        }
-                        else
-                        {
-                            responseData.Type = ResponseType.String;
-                            responseData.Data += GetLastSB(new StringBuilder(), len).ToString();
-                        }
-                        break;
-                    case RequestType.KEYS:
-                    case RequestType.MGET:
-                    case RequestType.HKEYS:
-                    case RequestType.HVALS:
-                    case RequestType.HMGET:
-                    case RequestType.LRANGE:
-                    case RequestType.BLPOP:
-                    case RequestType.BRPOP:
-                    case RequestType.SMEMBERS:
-                    case RequestType.SINTER:
-                    case RequestType.SUNION:
-                    case RequestType.SDIFF:
-                    case RequestType.ZRANGEBYLEX:
-                    case RequestType.CLUSTER_GETKEYSINSLOT:
-                    case RequestType.CONFIG_GET:
-                        var sb = new StringBuilder();
-                        var rn = GetRowNum(command, out error);
-                        if (!string.IsNullOrEmpty(error))
-                        {
-                            responseData.Type = ResponseType.Error;
-                            responseData.Data = error;
-                            break;
-                        }
-                        if (rn > 0)
-                        {
-                            for (int i = 0; i < rn; i++)
+                    responseData = temp;
+                }
+                else
+                {
+                    if (command.IndexOf("-") == 0)
+                    {
+                        responseData.Type = ResponseType.Error;
+                        responseData.Data = command;
+                        return responseData;
+                    }
+
+                    switch (_commandName)
+                    {
+                        case RequestType.PING:
+                            if (GetStatus(command, out error))
                             {
-                                len = GetWordsNum(GetRedisReply(), out error);
-                                if (!string.IsNullOrEmpty(error))
-                                {
-                                    responseData.Type = ResponseType.Error;
-                                    responseData.Data = error;
-                                    return responseData;
-                                }
-                                if (len == -1)
-                                {
-                                    responseData.Type = ResponseType.Empty;
-                                    responseData.Data = string.Empty;
-                                    return responseData;
-                                }
-                                sb = GetLastSB(sb, len, true);
+                                responseData.Type = ResponseType.OK;
+                                responseData.Data = "PONG";
                             }
-                        }
-                        responseData.Type = ResponseType.Lines;
-                        responseData.Data = sb.ToString();
-                        break;
-                    case RequestType.BRPOPLPUSH:
-                        responseData.Type = ResponseType.Value;
-                        len = GetWordsNum(command, out error);
-                        if (!string.IsNullOrEmpty(error))
-                        {
-                            responseData.Type = ResponseType.Error;
-                            responseData.Data = error;
-                        }
-                        else if (len == -1)
-                        {
-                            responseData.Type = ResponseType.Empty;
-                            responseData.Data = string.Empty;
-                        }
-                        else
-                        {
-                            responseData.Type = ResponseType.String;
-
-                            responseData.Data += GetLastSB(new StringBuilder(), len).ToString();
-                        }
-                        break;
-                    case RequestType.HGETALL:
-                    case RequestType.ZRANGE:
-                    case RequestType.ZREVRANGE:
-                    case RequestType.ZRANGEBYSCORE:
-                    case RequestType.ZREVRANGEBYSCORE:
-                        responseData.Type = ResponseType.KeyValues;
-                        sb = new StringBuilder();
-                        rn = GetRowNum(command, out error);
-                        if (!string.IsNullOrEmpty(error))
-                        {
-                            responseData.Type = ResponseType.Error;
-                            responseData.Data = error;
-                            break;
-                        }
-                        if (rn > 0)
-                        {
-                            for (int i = 0; i < rn; i++)
+                            else
                             {
-                                len = GetWordsNum(GetRedisReply(), out error);
-                                if (!string.IsNullOrEmpty(error))
-                                {
-                                    responseData.Type = ResponseType.Error;
-                                    responseData.Data = error;
-                                    return responseData;
-                                }
-                                if (len == -1)
-                                {
-                                    responseData.Type = ResponseType.Empty;
-                                    responseData.Data = string.Empty;
-                                    return responseData;
-                                }
-                                sb = GetLastSB(sb, len, true);
+                                responseData.Type = ResponseType.Error;
+                                responseData.Data = error;
                             }
-                        }
-                        responseData.Data = sb.ToString();
-                        break;
-                    case RequestType.DBSIZE:
-                    case RequestType.FLUSHDB:
-                    case RequestType.STRLEN:
-                    case RequestType.APPEND:
-                    case RequestType.TTL:
-                    case RequestType.PTTL:
-                    case RequestType.EXISTS:
-                    case RequestType.EXPIRE:
-                    case RequestType.EXPIREAT:
-                    case RequestType.PERSIST:
-                    case RequestType.SETNX:
-                    case RequestType.HEXISTS:
-                    case RequestType.HLEN:
-                    case RequestType.HSTRLEN:
-                    case RequestType.HINCRBY:
-                    case RequestType.LLEN:
-                    case RequestType.INCR:
-                    case RequestType.INCRBY:
-                    case RequestType.DECR:
-                    case RequestType.DECRBY:
-                    case RequestType.LPUSH:
-                    case RequestType.LPUSHX:
-                    case RequestType.RPUSH:
-                    case RequestType.RPUSHX:
-                    case RequestType.RPOPLPUSH:
-                    case RequestType.LINSERT:
-                    case RequestType.SADD:
-                    case RequestType.SCARD:
-                    case RequestType.SISMEMBER:
-                    case RequestType.SREM:
-                    case RequestType.SMOVE:
-                    case RequestType.SINTERSTORE:
-                    case RequestType.SUNIONSTORE:
-                    case RequestType.LREM:
-                    case RequestType.SDIFFSTORE:
-                    case RequestType.ZADD:
-                    case RequestType.ZSCORE:
-                    case RequestType.ZINCRBY:
-                    case RequestType.ZCARD:
-                    case RequestType.ZCOUNT:
-                    case RequestType.ZRANK:
-                    case RequestType.ZREVRANK:
-                    case RequestType.ZREM:
-                    case RequestType.ZREMRANGEBYRANK:
-                    case RequestType.ZREMRANGEBYSCORE:
-                    case RequestType.ZLEXCOUNT:
-                    case RequestType.ZREMRANGEBYLEX:
-                    case RequestType.PUBLISH:
-                    case RequestType.CLUSTER_KEYSLOT:
-                    case RequestType.CLUSTER_COUNTKEYSINSLOT:
-                    case RequestType.GEOADD:
-                        var val = GetValue(command, out error);
-                        if (!string.IsNullOrEmpty(error))
-                        {
-                            responseData.Type = ResponseType.Error;
-                            responseData.Data = error;
                             break;
-                        }
-                        responseData.Type = ResponseType.Value;
-                        responseData.Data = val.ToString();
-                        break;
-
-                    case RequestType.LINDEX:
-                        val = GetValue(command, out error);
-                        if (!string.IsNullOrEmpty(error))
-                        {
-                            responseData.Type = ResponseType.Error;
-                            responseData.Data = error;
-                            break;
-                        }
-                        len = GetWordsNum(GetRedisReply(), out error);
-                        if (len == -1)
-                        {
-                            responseData.Type = ResponseType.Empty;
-                            responseData.Data = string.Empty;
-                            return responseData;
-                        }
-                        if (!string.IsNullOrEmpty(error))
-                        {
-                            responseData.Type = ResponseType.Error;
-                            responseData.Data = error;
-                            break;
-                        }
-                        var ssb = GetLastSB(new StringBuilder(), len, false);
-                        responseData.Type = ResponseType.String;
-                        responseData.Data = ssb.ToString();
-
-                        break;
-                    case RequestType.INFO:
-                    case RequestType.INCRBYFLOAT:
-                    case RequestType.HINCRBYFLOAT:
-                    case RequestType.CLUSTER_INFO:
-                    case RequestType.CLUSTER_NODES:
-                        len = GetWordsNum(command, out error);
-                        if (len == -1)
-                        {
-                            responseData.Type = ResponseType.Empty;
-                            responseData.Data = string.Empty;
-                            return responseData;
-                        }
-                        if (!string.IsNullOrEmpty(error))
-                        {
-                            responseData.Type = ResponseType.Error;
-                            responseData.Data = error;
-                            break;
-                        }
-                        ssb = GetLastSB(new StringBuilder(), len, false);
-                        responseData.Type = ResponseType.String;
-                        responseData.Data = ssb.ToString();
-                        break;
-                    case RequestType.CLIENT_LIST:
-                        len = GetWordsNum(command, out error);
-                        if (len == -1)
-                        {
-                            responseData.Type = ResponseType.Empty;
-                            responseData.Data = string.Empty;
-                            return responseData;
-                        }
-                        if (!string.IsNullOrEmpty(error))
-                        {
-                            responseData.Type = ResponseType.Error;
-                            responseData.Data = error;
-                            break;
-                        }
-                        ssb = GetLastSB(new StringBuilder(), len, true);
-                        responseData.Type = ResponseType.String;
-                        responseData.Data = ssb.ToString();
-                        break;
-                    case RequestType.SUBSCRIBE:
-                        var r = string.Empty;
-                        while (IsSubed)
-                        {
-                            r = GetRedisReply();
-                            if (string.Compare(r, "message\r\n", true) == 0)
+                        case RequestType.AUTH:
+                        case RequestType.FLUSHALL:
+                        case RequestType.SELECT:
+                        case RequestType.SLAVEOF:
+                        case RequestType.SET:
+                        case RequestType.MSET:
+                        case RequestType.MSETNX:
+                        case RequestType.DEL:
+                        case RequestType.HSET:
+                        case RequestType.HMSET:
+                        case RequestType.HDEL:
+                        case RequestType.LSET:
+                        case RequestType.LTRIM:
+                        case RequestType.RENAME:
+                        case RequestType.CLUSTER_MEET:
+                        case RequestType.CLUSTER_FORGET:
+                        case RequestType.CLUSTER_REPLICATE:
+                        case RequestType.CLUSTER_SAVECONFIG:
+                        case RequestType.CLUSTER_ADDSLOTS:
+                        case RequestType.CLUSTER_DELSLOTS:
+                        case RequestType.CLUSTER_FLUSHSLOTS:
+                        case RequestType.CLUSTER_SETSLOT:
+                        case RequestType.CONFIG_SET:
+                            if (GetStatus(command, out error))
                             {
-                                responseData.Type = ResponseType.Sub;
-                                GetRedisReply();
-                                responseData.Data = GetRedisReply();
-                                GetRedisReply();
-                                responseData.Data += GetRedisReply();
+                                responseData.Type = ResponseType.OK;
+                                responseData.Data = "OK";
+                            }
+                            else
+                            {
+                                responseData.Type = ResponseType.Error;
+                                responseData.Data = error;
+                            }
+                            break;
+                        case RequestType.TYPE:
+                            if (GetStatusString(command, out string msg))
+                            {
+                                responseData.Type = ResponseType.OK;
+                            }
+                            else
+                            {
+                                responseData.Type = ResponseType.Error;
+                            }
+                            responseData.Data = msg;
+                            break;
+                        case RequestType.GET:
+                        case RequestType.GETSET:
+                        case RequestType.HGET:
+                        case RequestType.LPOP:
+                        case RequestType.RPOP:
+                        case RequestType.SRANDMEMBER:
+                        case RequestType.SPOP:
+                        case RequestType.RANDOMKEY:
+                            len = GetWordsNum(command, out error);
+                            if (!string.IsNullOrEmpty(error))
+                            {
+                                responseData.Type = ResponseType.Error;
+                                responseData.Data = error;
+                            }
+                            else if (len == -1)
+                            {
+                                responseData.Type = ResponseType.Empty;
+                                responseData.Data = string.Empty;
+                            }
+                            else
+                            {
+                                responseData.Type = ResponseType.String;
+                                responseData.Data += GetLastSB(new StringBuilder(), len).ToString();
+                            }
+                            break;
+                        case RequestType.KEYS:
+                        case RequestType.MGET:
+                        case RequestType.HKEYS:
+                        case RequestType.HVALS:
+                        case RequestType.HMGET:
+                        case RequestType.LRANGE:
+                        case RequestType.BLPOP:
+                        case RequestType.BRPOP:
+                        case RequestType.SMEMBERS:
+                        case RequestType.SINTER:
+                        case RequestType.SUNION:
+                        case RequestType.SDIFF:
+                        case RequestType.ZRANGEBYLEX:
+                        case RequestType.CLUSTER_GETKEYSINSLOT:
+                        case RequestType.CONFIG_GET:
+                            var sb = new StringBuilder();
+                            var rn = GetRowNum(command, out error);
+                            if (!string.IsNullOrEmpty(error))
+                            {
+                                responseData.Type = ResponseType.Error;
+                                responseData.Data = error;
                                 break;
                             }
-                        }
-                        break;
-                    case RequestType.UNSUBSCRIBE:
-                        var rNum = GetRowNum(command, out error);
-                        if (!string.IsNullOrEmpty(error))
-                        {
-                            responseData.Type = ResponseType.Error;
-                            responseData.Data = error;
-                            return responseData;
-                        }
-                        var wNum = GetWordsNum(GetRedisReply(), out error);
-                        if (!string.IsNullOrEmpty(error))
-                        {
-                            responseData.Type = ResponseType.Error;
-                            responseData.Data = error;
-                            return responseData;
-                        }
-                        GetRedisReply();
-                        wNum = GetWordsNum(GetRedisReply(), out error);
-                        if (!string.IsNullOrEmpty(error))
-                        {
-                            responseData.Type = ResponseType.Error;
-                            responseData.Data = error;
-                            return responseData;
-                        }
-                        var channel = GetRedisReply();
-                        var vNum = GetValue(GetRedisReply(), out error);
-                        if (!string.IsNullOrEmpty(error))
-                        {
-                            responseData.Type = ResponseType.Error;
-                            responseData.Data = error;
-                            return responseData;
-                        }
-                        IsSubed = false;
-                        break;
-                    case RequestType.SCAN:
-                    case RequestType.HSCAN:
-                    case RequestType.SSCAN:
-                    case RequestType.ZSCAN:
-                        responseData.Type = ResponseType.Lines;
-                        while (command == ConstHelper.ENTER)
-                        {
-                            command = GetRedisReply();
-                        }
-                        sb = new StringBuilder();
-                        int offset = 0;
-                        rn = GetRowNum(command, out error);
-                        if (!string.IsNullOrEmpty(error))
-                        {
-                            responseData.Type = ResponseType.Error;
-                            responseData.Data = error;
-                            return responseData;
-                        }
-                        while (rn <= 0)
-                        {
-                            command = GetRedisReply();
-                            rn = GetRowNum(command, out error);
-                            if (!string.IsNullOrEmpty(error))
+                            if (rn > 0)
                             {
-                                responseData.Type = ResponseType.Error;
-                                responseData.Data = error;
-                                return responseData;
+                                for (int i = 0; i < rn; i++)
+                                {
+                                    len = GetWordsNum(GetRedisReply(), out error);
+                                    if (!string.IsNullOrEmpty(error))
+                                    {
+                                        responseData.Type = ResponseType.Error;
+                                        responseData.Data = error;
+                                        return responseData;
+                                    }
+                                    if (len == -1)
+                                    {
+                                        responseData.Type = ResponseType.Empty;
+                                        responseData.Data = string.Empty;
+                                        return responseData;
+                                    }
+                                    sb = GetLastSB(sb, len, true);
+                                }
                             }
-                        }
-                        //
-                        len = GetWordsNum(GetRedisReply(), out error);
-                        if (!string.IsNullOrEmpty(error))
-                        {
-                            responseData.Type = ResponseType.Error;
-                            responseData.Data = error;
-                            return responseData;
-                        }
-                        int.TryParse(GetRedisReply(), out offset);
-                        sb.Append("offset:" + offset + SEPARATOR);
-                        //
-                        command = GetRedisReply();
-                        while (command == ConstHelper.ENTER)
-                        {
-                            command = GetRedisReply();
-                        }
-                        if (string.IsNullOrEmpty(command))
-                        {
+                            responseData.Type = ResponseType.Lines;
+                            responseData.Data = sb.ToString();
                             break;
-                        }
-                        rn = GetRowNum(command, out error);
-                        if (!string.IsNullOrEmpty(error))
-                        {
-                            responseData.Type = ResponseType.Error;
-                            responseData.Data = error;
-                            return responseData;
-                        }
-                        while (rn < 0)
-                        {
-                            command = GetRedisReply();
+                        case RequestType.BRPOPLPUSH:
+                            responseData.Type = ResponseType.Value;
+                            len = GetWordsNum(command, out error);
+                            if (!string.IsNullOrEmpty(error))
+                            {
+                                responseData.Type = ResponseType.Error;
+                                responseData.Data = error;
+                            }
+                            else if (len == -1)
+                            {
+                                responseData.Type = ResponseType.Empty;
+                                responseData.Data = string.Empty;
+                            }
+                            else
+                            {
+                                responseData.Type = ResponseType.String;
+
+                                responseData.Data += GetLastSB(new StringBuilder(), len).ToString();
+                            }
+                            break;
+                        case RequestType.HGETALL:
+                        case RequestType.ZRANGE:
+                        case RequestType.ZREVRANGE:
+                        case RequestType.ZRANGEBYSCORE:
+                        case RequestType.ZREVRANGEBYSCORE:
+                            responseData.Type = ResponseType.KeyValues;
+                            sb = new StringBuilder();
+                            rn = GetRowNum(command, out error);
+                            if (!string.IsNullOrEmpty(error))
+                            {
+                                responseData.Type = ResponseType.Error;
+                                responseData.Data = error;
+                                break;
+                            }
+                            if (rn > 0)
+                            {
+                                for (int i = 0; i < rn; i++)
+                                {
+                                    len = GetWordsNum(GetRedisReply(), out error);
+                                    if (!string.IsNullOrEmpty(error))
+                                    {
+                                        responseData.Type = ResponseType.Error;
+                                        responseData.Data = error;
+                                        return responseData;
+                                    }
+                                    if (len == -1)
+                                    {
+                                        responseData.Type = ResponseType.Empty;
+                                        responseData.Data = string.Empty;
+                                        return responseData;
+                                    }
+                                    sb = GetLastSB(sb, len, true);
+                                }
+                            }
+                            responseData.Data = sb.ToString();
+                            break;
+                        case RequestType.DBSIZE:
+                        case RequestType.FLUSHDB:
+                        case RequestType.STRLEN:
+                        case RequestType.APPEND:
+                        case RequestType.TTL:
+                        case RequestType.PTTL:
+                        case RequestType.EXISTS:
+                        case RequestType.EXPIRE:
+                        case RequestType.EXPIREAT:
+                        case RequestType.PERSIST:
+                        case RequestType.SETNX:
+                        case RequestType.HEXISTS:
+                        case RequestType.HLEN:
+                        case RequestType.HSTRLEN:
+                        case RequestType.HINCRBY:
+                        case RequestType.LLEN:
+                        case RequestType.INCR:
+                        case RequestType.INCRBY:
+                        case RequestType.DECR:
+                        case RequestType.DECRBY:
+                        case RequestType.LPUSH:
+                        case RequestType.LPUSHX:
+                        case RequestType.RPUSH:
+                        case RequestType.RPUSHX:
+                        case RequestType.RPOPLPUSH:
+                        case RequestType.LINSERT:
+                        case RequestType.SADD:
+                        case RequestType.SCARD:
+                        case RequestType.SISMEMBER:
+                        case RequestType.SREM:
+                        case RequestType.SMOVE:
+                        case RequestType.SINTERSTORE:
+                        case RequestType.SUNIONSTORE:
+                        case RequestType.LREM:
+                        case RequestType.SDIFFSTORE:
+                        case RequestType.ZADD:
+                        case RequestType.ZSCORE:
+                        case RequestType.ZINCRBY:
+                        case RequestType.ZCARD:
+                        case RequestType.ZCOUNT:
+                        case RequestType.ZRANK:
+                        case RequestType.ZREVRANK:
+                        case RequestType.ZREM:
+                        case RequestType.ZREMRANGEBYRANK:
+                        case RequestType.ZREMRANGEBYSCORE:
+                        case RequestType.ZLEXCOUNT:
+                        case RequestType.ZREMRANGEBYLEX:
+                        case RequestType.PUBLISH:
+                        case RequestType.CLUSTER_KEYSLOT:
+                        case RequestType.CLUSTER_COUNTKEYSINSLOT:
+                        case RequestType.GEOADD:
+                            var val = GetValue(command, out error);
+                            if (!string.IsNullOrEmpty(error))
+                            {
+                                responseData.Type = ResponseType.Error;
+                                responseData.Data = error;
+                                break;
+                            }
+                            responseData.Type = ResponseType.Value;
+                            responseData.Data = val.ToString();
+                            break;
+
+                        case RequestType.LINDEX:
+                            val = GetValue(command, out error);
+                            if (!string.IsNullOrEmpty(error))
+                            {
+                                responseData.Type = ResponseType.Error;
+                                responseData.Data = error;
+                                break;
+                            }
+                            len = GetWordsNum(GetRedisReply(), out error);
+                            if (len == -1)
+                            {
+                                responseData.Type = ResponseType.Empty;
+                                responseData.Data = string.Empty;
+                                return responseData;
+                            }
+                            if (!string.IsNullOrEmpty(error))
+                            {
+                                responseData.Type = ResponseType.Error;
+                                responseData.Data = error;
+                                break;
+                            }
+                            var ssb = GetLastSB(new StringBuilder(), len, false);
+                            responseData.Type = ResponseType.String;
+                            responseData.Data = ssb.ToString();
+
+                            break;
+                        case RequestType.INFO:
+                        case RequestType.INCRBYFLOAT:
+                        case RequestType.HINCRBYFLOAT:
+                        case RequestType.CLUSTER_INFO:
+                        case RequestType.CLUSTER_NODES:
+                            len = GetWordsNum(command, out error);
+                            if (len == -1)
+                            {
+                                responseData.Type = ResponseType.Empty;
+                                responseData.Data = string.Empty;
+                                return responseData;
+                            }
+                            if (!string.IsNullOrEmpty(error))
+                            {
+                                responseData.Type = ResponseType.Error;
+                                responseData.Data = error;
+                                break;
+                            }
+                            ssb = GetLastSB(new StringBuilder(), len, false);
+                            responseData.Type = ResponseType.String;
+                            responseData.Data = ssb.ToString();
+                            break;
+                        case RequestType.CLIENT_LIST:
+                            len = GetWordsNum(command, out error);
+                            if (len == -1)
+                            {
+                                responseData.Type = ResponseType.Empty;
+                                responseData.Data = string.Empty;
+                                return responseData;
+                            }
+                            if (!string.IsNullOrEmpty(error))
+                            {
+                                responseData.Type = ResponseType.Error;
+                                responseData.Data = error;
+                                break;
+                            }
+                            ssb = GetLastSB(new StringBuilder(), len, true);
+                            responseData.Type = ResponseType.String;
+                            responseData.Data = ssb.ToString();
+                            break;
+                        case RequestType.SUBSCRIBE:
+                            var r = string.Empty;
+                            while (IsSubed)
+                            {
+                                r = GetRedisReply();
+                                if (string.Compare(r, "message\r\n", true) == 0)
+                                {
+                                    responseData.Type = ResponseType.Sub;
+                                    GetRedisReply();
+                                    responseData.Data = GetRedisReply();
+                                    GetRedisReply();
+                                    responseData.Data += GetRedisReply();
+                                    break;
+                                }
+                            }
+                            break;
+                        case RequestType.UNSUBSCRIBE:
+                            var rNum = GetRowNum(command, out error);
+                            if (!string.IsNullOrEmpty(error))
+                            {
+                                responseData.Type = ResponseType.Error;
+                                responseData.Data = error;
+                                return responseData;
+                            }
+                            var wNum = GetWordsNum(GetRedisReply(), out error);
+                            if (!string.IsNullOrEmpty(error))
+                            {
+                                responseData.Type = ResponseType.Error;
+                                responseData.Data = error;
+                                return responseData;
+                            }
+                            GetRedisReply();
+                            wNum = GetWordsNum(GetRedisReply(), out error);
+                            if (!string.IsNullOrEmpty(error))
+                            {
+                                responseData.Type = ResponseType.Error;
+                                responseData.Data = error;
+                                return responseData;
+                            }
+                            var channel = GetRedisReply();
+                            var vNum = GetValue(GetRedisReply(), out error);
+                            if (!string.IsNullOrEmpty(error))
+                            {
+                                responseData.Type = ResponseType.Error;
+                                responseData.Data = error;
+                                return responseData;
+                            }
+                            IsSubed = false;
+                            break;
+                        case RequestType.SCAN:
+                        case RequestType.HSCAN:
+                        case RequestType.SSCAN:
+                        case RequestType.ZSCAN:
+                            responseData.Type = ResponseType.Lines;
+                            while (command == ConstHelper.ENTER)
+                            {
+                                command = GetRedisReply();
+                            }
+                            sb = new StringBuilder();
+                            int offset = 0;
                             rn = GetRowNum(command, out error);
                             if (!string.IsNullOrEmpty(error))
                             {
@@ -892,10 +847,18 @@ namespace SAEA.RedisSocket.Core
                                 responseData.Data = error;
                                 return responseData;
                             }
-                        }
-                        //
-                        for (int i = 0; i < rn; i++)
-                        {
+                            while (rn <= 0)
+                            {
+                                command = GetRedisReply();
+                                rn = GetRowNum(command, out error);
+                                if (!string.IsNullOrEmpty(error))
+                                {
+                                    responseData.Type = ResponseType.Error;
+                                    responseData.Data = error;
+                                    return responseData;
+                                }
+                            }
+                            //
                             len = GetWordsNum(GetRedisReply(), out error);
                             if (!string.IsNullOrEmpty(error))
                             {
@@ -903,74 +866,119 @@ namespace SAEA.RedisSocket.Core
                                 responseData.Data = error;
                                 return responseData;
                             }
-                            if (len >= 0)
-                            {
-                                sb = GetLastSB(sb, len, true);
-                            }
-                        }
-                        responseData.Data = sb.ToString();
-                        break;
-                    case RequestType.GEOPOS:
-                    case RequestType.GEORADIUS:
-                    case RequestType.GEORADIUSBYMEMBER:
-                        responseData.Type = ResponseType.Lines;
-                        sb = new StringBuilder();
-                        rn = GetRowNum(command, out error);
-                        if (!string.IsNullOrEmpty(error))
-                        {
-                            responseData.Type = ResponseType.Error;
-                            responseData.Data = error;
-                            return responseData;
-                        }
-                        for (int i = 0; i < rn; i++)
-                        {
+                            int.TryParse(GetRedisReply(), out offset);
+                            sb.Append("offset:" + offset + SEPARATOR);
+                            //
                             command = GetRedisReply();
-                            var srows = GetRowNum(command, out error);
+                            while (command == ConstHelper.ENTER)
+                            {
+                                command = GetRedisReply();
+                            }
+                            if (string.IsNullOrEmpty(command))
+                            {
+                                break;
+                            }
+                            rn = GetRowNum(command, out error);
                             if (!string.IsNullOrEmpty(error))
                             {
                                 responseData.Type = ResponseType.Error;
                                 responseData.Data = error;
                                 return responseData;
                             }
-                            for (int j = 0; j < srows; j++)
+                            while (rn < 0)
                             {
                                 command = GetRedisReply();
-                                len = GetWordsNum(command, out error);
+                                rn = GetRowNum(command, out error);
+                                if (!string.IsNullOrEmpty(error))
+                                {
+                                    responseData.Type = ResponseType.Error;
+                                    responseData.Data = error;
+                                    return responseData;
+                                }
+                            }
+                            //
+                            for (int i = 0; i < rn; i++)
+                            {
+                                len = GetWordsNum(GetRedisReply(), out error);
+                                if (!string.IsNullOrEmpty(error))
+                                {
+                                    responseData.Type = ResponseType.Error;
+                                    responseData.Data = error;
+                                    return responseData;
+                                }
                                 if (len >= 0)
                                 {
                                     sb = GetLastSB(sb, len, true);
                                 }
-                                else
+                            }
+                            responseData.Data = sb.ToString();
+                            break;
+                        case RequestType.GEOPOS:
+                        case RequestType.GEORADIUS:
+                        case RequestType.GEORADIUSBYMEMBER:
+                            responseData.Type = ResponseType.Lines;
+                            sb = new StringBuilder();
+                            rn = GetRowNum(command, out error);
+                            if (!string.IsNullOrEmpty(error))
+                            {
+                                responseData.Type = ResponseType.Error;
+                                responseData.Data = error;
+                                return responseData;
+                            }
+                            for (int i = 0; i < rn; i++)
+                            {
+                                command = GetRedisReply();
+                                var srows = GetRowNum(command, out error);
+                                if (!string.IsNullOrEmpty(error))
                                 {
-                                    var ssrows = GetRowNum(command, out error);
-
-                                    for (int k = 0; k < ssrows; k++)
+                                    responseData.Type = ResponseType.Error;
+                                    responseData.Data = error;
+                                    return responseData;
+                                }
+                                for (int j = 0; j < srows; j++)
+                                {
+                                    command = GetRedisReply();
+                                    len = GetWordsNum(command, out error);
+                                    if (len >= 0)
                                     {
-                                        command = GetRedisReply();
-                                        len = GetWordsNum(command, out error);
                                         sb = GetLastSB(sb, len, true);
+                                    }
+                                    else
+                                    {
+                                        var ssrows = GetRowNum(command, out error);
+
+                                        for (int k = 0; k < ssrows; k++)
+                                        {
+                                            command = GetRedisReply();
+                                            len = GetWordsNum(command, out error);
+                                            sb = GetLastSB(sb, len, true);
+                                        }
                                     }
                                 }
                             }
-                        }
-                        responseData.Data = sb.ToString();
-                        break;
-                    case RequestType.GEODIST:
-                        len = GetWordsNum(command, out error);
-                        if (!string.IsNullOrEmpty(error))
-                        {
-                            responseData.Type = ResponseType.Error;
-                            responseData.Data = error;
+                            responseData.Data = sb.ToString();
                             break;
-                        }
-                        responseData.Type = ResponseType.Value;
-                        responseData.Data = GetLastSB(new StringBuilder(), len).ToString();
-                        break;
-                    default:
-                        responseData.Type = ResponseType.Undefined;
-                        responseData.Data = "未知的命令，请自行添加解码规则！";
-                        break;
+                        case RequestType.GEODIST:
+                            len = GetWordsNum(command, out error);
+                            if (!string.IsNullOrEmpty(error))
+                            {
+                                responseData.Type = ResponseType.Error;
+                                responseData.Data = error;
+                                break;
+                            }
+                            responseData.Type = ResponseType.Value;
+                            responseData.Data = GetLastSB(new StringBuilder(), len).ToString();
+                            break;
+                        default:
+                            responseData.Type = ResponseType.Undefined;
+                            responseData.Data = "未知的命令，请自行添加解码规则！";
+                            break;
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Error("RedisCoder.Decoder", ex);
             }
             return responseData;
         }

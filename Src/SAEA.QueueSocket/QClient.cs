@@ -82,7 +82,7 @@ namespace SAEA.QueueSocket
 
         private void HeartAsync()
         {
-            ThreadHelper.Run(() =>
+            TaskHelper.Start(() =>
             {
                 try
                 {
@@ -103,7 +103,7 @@ namespace SAEA.QueueSocket
                     }
                 }
                 catch { }
-            }, true, System.Threading.ThreadPriority.Highest);
+            });
         }
 
         #region 生产者发送消息

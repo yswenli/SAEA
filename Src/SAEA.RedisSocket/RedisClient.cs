@@ -82,8 +82,7 @@ namespace SAEA.RedisSocket
         /// <param name="obj"></param>
         private void _cnn_OnDisconnected(string ipPort)
         {
-            RedisConnectionManager.Remove(ipPort);
-            RedisConnectionManager.RemoveClusterNode(ipPort);
+            LogHelper.Error("RedisClient disconnected", new RedisIOException(), ipPort);
         }
 
         /// <summary>
@@ -141,7 +140,7 @@ namespace SAEA.RedisSocket
         /// </summary>
         private void KeepAlive()
         {
-            ThreadHelper.Run(() =>
+            TaskHelper.Start(() =>
             {
                 while (_cnn.IsConnected)
                 {
@@ -151,7 +150,7 @@ namespace SAEA.RedisSocket
                     }
                     ThreadHelper.Sleep(1000);
                 }
-            }, true, ThreadPriority.Highest);
+            });
         }
 
 

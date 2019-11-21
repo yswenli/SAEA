@@ -44,7 +44,7 @@ namespace SAEA.Common
         /// </summary>
         static ExceptionCollector()
         {
-            ThreadHelper.Run(() =>
+            TaskHelper.Start(() =>
             {
                 while (!_isClose)
                 {
@@ -57,7 +57,7 @@ namespace SAEA.Common
                     }
                     ThreadHelper.Sleep(50);
                 }
-            }, true, System.Threading.ThreadPriority.Highest);
+            });
         }
 
         /// <summary>

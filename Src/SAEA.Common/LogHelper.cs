@@ -55,7 +55,7 @@ namespace SAEA.Common
             {
                 paramStr = SerializeHelper.Serialize(@params);
             }
-            Write($"[Error]", $"{des}\terr:{ex.Message},params:{paramStr}");
+            Write($"[Error]", $"{des}\terr:{SerializeHelper.Serialize(ex)},params:{paramStr}");
         }
 
         public static void Warn(string des, Exception ex, params object[] @params)
@@ -66,7 +66,7 @@ namespace SAEA.Common
             {
                 paramStr = SerializeHelper.Serialize(@params);
             }
-            Write($"[Warn]", $"{des}\terr:{ex.Message},params:{paramStr}");
+            Write($"[Warn]", $"{des}\terr:{SerializeHelper.Serialize(ex)},params:{paramStr}");
         }
 
         public static void Info(string des, params object[] @params)
