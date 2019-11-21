@@ -107,11 +107,12 @@ namespace SAEA.FTP.Core
         public void Checke()
         {
             var ftpUser = FTPServerConfigManager.GetUser(_userName);
+
             while (IsConnected)
             {
                 _autoResetEvent.WaitOne(10);
 
-                if (_dataSocket.ClientCounts == 0)
+                if (!IsConnected)
                 {
                     break;
                 }
