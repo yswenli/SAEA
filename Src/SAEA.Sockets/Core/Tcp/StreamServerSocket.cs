@@ -148,6 +148,7 @@ namespace SAEA.Sockets.Core.Tcp
                     {
                         nsStream = new NetworkStream(clientSocket);
                     }
+
                     var id = clientSocket.RemoteEndPoint.ToString();
 
                     var ci = ChannelManager.Instance.Set(id, clientSocket, nsStream);
@@ -191,6 +192,11 @@ namespace SAEA.Sockets.Core.Tcp
                                 }
                                 else
                                     break;
+                            }
+                            catch (IOException iex)
+                            {
+                                OnDisconnected?.Invoke(id, iex);
+                                break;
                             }
                             catch (SocketException sex)
                             {
@@ -261,7 +267,12 @@ namespace SAEA.Sockets.Core.Tcp
             var socket = channel.ClientSocket;
             if (socket != null)
             {
-                socket.Close(SocketOption.TimeOut);
+                try
+                {
+                    socket.Shutdown(SocketShutdown.Both);
+                }
+                catch { }
+                socket.Close();
                 OnDisconnected?.Invoke(sessionID, null);
             }
             ChannelManager.Instance.Remove(sessionID);
@@ -275,11 +286,12 @@ namespace SAEA.Sockets.Core.Tcp
             _isStoped = true;
             try
             {
-                ChannelManager.Instance.Clear(SocketOption.TimeOut);
+                ChannelManager.Instance.Clear();
                 SocketOption.X509Certificate2?.Dispose();
-                _listener.Close(SocketOption.TimeOut);
+                _listener.Shutdown(SocketShutdown.Both);                
             }
             catch { }
+            _listener.Close();
             try
             {
                 _listener?.Dispose();

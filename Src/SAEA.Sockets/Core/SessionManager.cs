@@ -168,7 +168,14 @@ namespace SAEA.Sockets.Core
                 try
                 {
                     if (userToken.Socket.Connected)
+                    {
+                        try
+                        {
+                            userToken.Socket.Shutdown(SocketShutdown.Both);
+                        }
+                        catch { }                        
                         userToken.Socket.Close();
+                    }
                 }
                 catch { }
                 _bufferManager.FreeBuffer(userToken.ReadArgs);

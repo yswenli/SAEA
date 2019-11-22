@@ -382,8 +382,12 @@ namespace SAEA.Sockets.Core.Tcp
                 {
                     if (_userToken != null && _userToken.Socket != null)
                     {
-                        _userToken.Socket.Shutdown(SocketShutdown.Send);
-                        _userToken.Socket.Close(10 * 1000);
+                        try
+                        {
+                            _userToken.Socket.Shutdown(SocketShutdown.Both);
+                        }
+                        catch { }
+                        _userToken.Socket.Close();
                     }
                 }
                 catch (Exception sex)

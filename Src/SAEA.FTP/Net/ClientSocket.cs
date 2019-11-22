@@ -227,7 +227,7 @@ namespace SAEA.FTP.Net
 
             var option = SocketOptionBuilder.Instance
                 .SetSocket()
-                .UseIocp()
+                .UseStream()
                 .SetIP(ip)
                 .SetPort(port)
                 .SetReadBufferSize(4 * 1024 * 1024)

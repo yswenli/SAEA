@@ -72,6 +72,7 @@ namespace SAEA.FTP.Core
             IsConnected = true;
         }
 
+
         private void DataSocket_OnReceive(object currentObj, byte[] data)
         {
             var ftpUser = FTPServerConfigManager.GetUser(_userName);
@@ -110,7 +111,7 @@ namespace SAEA.FTP.Core
 
             while (IsConnected)
             {
-                _autoResetEvent.WaitOne(10);
+                _autoResetEvent.WaitOne(1);
 
                 if (!IsConnected)
                 {

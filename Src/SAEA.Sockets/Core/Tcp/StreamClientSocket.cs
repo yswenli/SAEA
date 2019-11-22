@@ -303,22 +303,24 @@ namespace SAEA.Sockets.Core.Tcp
         /// 断开
         /// </summary>
         /// <param name="ex"></param>
-        public void Disconnect(Exception ex = null)
+        public void Disconnect()
         {
-            var mex = ex;
-
             if (this.Connected)
             {
                 try
                 {
-                    _stream.Close();
+                    _socket.Shutdown(SocketShutdown.Both);
+                    OnDisconnected?.Invoke(_SocketOption.IP + ":" + _SocketOption.Port, null);
                 }
-                catch (Exception sex)
+                catch (Exception ex)
                 {
-                    if (mex != null) mex = sex;
+                    OnDisconnected?.Invoke(_SocketOption.IP + ":" + _SocketOption.Port, ex);
+                }
+                finally
+                {
+                    _socket.Close();
                 }
                 this.Connected = false;
-                OnDisconnected?.Invoke(_SocketOption.IP + ":" + _SocketOption.Port, mex);
             }
         }
 
@@ -348,17 +350,11 @@ namespace SAEA.Sockets.Core.Tcp
 
             return certificates;
         }
- #endregion
+        #endregion
         public void BeginSend(byte[] data)
         {
             throw new NotImplementedException();
         }
 
-        public void Disconnect()
-        {
-            throw new NotImplementedException();
-        }
-
-       
     }
 }
