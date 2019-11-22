@@ -54,7 +54,7 @@ namespace SAEA.RedisSocket
 
         }
 
-        public RedisConfig(string ipPort, string passwords, int actionTimeOut = 60)
+        public RedisConfig(string ipPort, string passwords, int actionTimeOut = 10)
         {
             try
             {
