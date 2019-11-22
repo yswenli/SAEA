@@ -35,7 +35,7 @@ namespace SAEA.FTP.Core
 
         string _userName = string.Empty;
 
-        ChannelInfo _channelInfo = null;
+        IUserToken _userToken = null;
 
         public bool IsConnected = false;
 
@@ -45,7 +45,7 @@ namespace SAEA.FTP.Core
 
             var option = SocketOptionBuilder.Instance
               .SetSocket()
-              .UseStream()
+              .UseIocp()
               .SetPort(port)
               .SetReadBufferSize(bufferSize)
               .SetWriteBufferSize(bufferSize)
@@ -67,7 +67,7 @@ namespace SAEA.FTP.Core
 
         private void DataSocket_OnAccepted(object obj)
         {
-            _channelInfo = obj as ChannelInfo;
+            _userToken = obj as IUserToken;
 
             IsConnected = true;
         }
@@ -86,7 +86,7 @@ namespace SAEA.FTP.Core
             {
                 _autoResetEvent.WaitOne(10);
             }
-            _dataSocket.End(_channelInfo.ID, data);
+            _dataSocket.End(_userToken.ID, data);
         }
 
         public void SendFile(string filePath)
@@ -97,7 +97,7 @@ namespace SAEA.FTP.Core
             }
             FileHelper.Read(filePath, (data) =>
             {
-                _dataSocket.Send(_channelInfo.ID, data);
+                _dataSocket.Send(_userToken.ID, data);
             });
             while (IsConnected)
             {
