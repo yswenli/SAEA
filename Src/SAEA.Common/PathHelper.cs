@@ -118,6 +118,8 @@ namespace SAEA.Common
             {
                 foreach (var dir in dirs)
                 {
+                    if (dir.Name == "$RECYCLE.BIN" || dir.Name == "System Volume Information") continue;
+
                     List<FileInfo> sfs;
 
                     directories.AddRange(GetAllDirectories(dir, out sfs));
@@ -178,7 +180,12 @@ namespace SAEA.Common
 
                 if (dirs != null && dirs.Any())
                 {
-                    directories.AddRange(dirs);
+                    foreach (var dir in dirs)
+                    {
+                        if (dir.Name == "$RECYCLE.BIN" || dir.Name == "System Volume Information") continue;
+
+                        directories.Add(dir);
+                    }
                 }
             }
 

@@ -192,6 +192,8 @@ namespace SAEA.FTPTest.Common
 
                 foreach (DirectoryInfo dir in dirs.GetDirectories())
                 {
+                    if (dir.Name == "$RECYCLE.BIN" || dir.Name == "System Volume Information") continue;
+
                     #region 如果文件是只读的就不要读出来，不然会报错
                     string[] fileAttrites = File.GetAttributes(dir.FullName).ToString().Split(',');
                     //如果属性大于0的就说明有问题,只要属性里面有hidden就不要显示出来
@@ -200,7 +202,7 @@ namespace SAEA.FTPTest.Common
 
                     foreach (string cAttrites in fileAttrites)
                     {
-                        if (cAttrites.Equals("hidden", StringComparison.InvariantCultureIgnoreCase) || cAttrites.Equals("readonly", StringComparison.InvariantCultureIgnoreCase))
+                        if (cAttrites.Equals("hidden", StringComparison.InvariantCultureIgnoreCase))
                         {
                             isHideen = true;
                             break;

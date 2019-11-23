@@ -50,10 +50,16 @@
       <HintPath>..\..\..\..\CSkin\CSkin 16.1.14.2\CSkin 16.1.14.2\CSkin 4.0\CSkin.dll</HintPath>
     </Reference>
     <Reference Include="Newtonsoft.Json, Version=12.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
-      <HintPath>..\packages\Newtonsoft.Json.12.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
+      <HintPath>..\packages\Newtonsoft.Json.12.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="protobuf-net, Version=2.4.0.0, Culture=neutral, PublicKeyToken=257b51d87d2e4d67, processorArchitecture=MSIL">
       <HintPath>..\packages\protobuf-net.2.4.4\lib\net40\protobuf-net.dll</HintPath>
+    </Reference>
+    <Reference Include="SAEA.Common, Version=5.2.0.1, Culture=neutral, PublicKeyToken=01a82380791791ab, processorArchitecture=MSIL">
+      <HintPath>..\packages\SAEA.Common.5.2.0.1\lib\netstandard2.0\SAEA.Common.dll</HintPath>
+    </Reference>
+    <Reference Include="SAEA.Sockets, Version=5.2.0.1, Culture=neutral, PublicKeyToken=01a82380791791ab, processorArchitecture=MSIL">
+      <HintPath>..\packages\SAEA.Sockets.5.2.0.1\lib\netstandard2.0\SAEA.Sockets.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Buffers, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
@@ -142,10 +148,6 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\SAEA.Common\SAEA.Common.csproj">
-      <Project>{69C28B02-5B4A-48F4-AE41-1F9BA71CCDCC}</Project>
-      <Name>SAEA.Common</Name>
-    </ProjectReference>
     <ProjectReference Include="..\SAEA.FTP\SAEA.FTP.csproj">
       <Project>{F28C9923-2F32-4FE3-9C79-D13CA7D5DCA4}</Project>
       <Name>SAEA.FTP</Name>

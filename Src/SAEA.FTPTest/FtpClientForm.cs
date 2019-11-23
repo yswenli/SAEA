@@ -100,6 +100,7 @@ namespace SAEA.FTPTest
 
                     _client.Upload(filePath, (o, c) =>
                     {
+                        if (c == 0) return;
                         size = c;
                         _loadingUserControl.Message = $"正在上传文件:{fileName},{(o * 100 / c)}%";
                     });
@@ -121,6 +122,10 @@ namespace SAEA.FTPTest
                     while (true)
                     {
                         if (fun.Invoke())
+                        {
+                            break;
+                        }
+                        if (size == 1)
                         {
                             break;
                         }
@@ -597,6 +602,7 @@ namespace SAEA.FTPTest
                             = skinWaterTextBox3.Enabled
                             = skinWaterTextBox4.Enabled
                             = true;
+                            textBox2.Text = "/";
                             skinButton1.Enabled = true;
                             listView2.Enabled = false;
                             listView2.Clear();

@@ -78,11 +78,13 @@ namespace SAEA.FTP
 
         public void Noop()
         {
-            var sres = _client.BaseSend($"{FTPCommand.NOOP}");
-
-            if (sres.Code != ServerResponseCode.成功)
+            try
             {
-                throw new Exception($"code:{sres.Code},reply:{sres.Reply}");
+                _client.BaseSend($"{FTPCommand.NOOP}");
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Error("FTPClient Noop", ex);
             }
         }
 
@@ -272,42 +274,51 @@ namespace SAEA.FTP
 
                             break;
                         }
-                        ThreadHelper.Sleep(1000);
+                        ThreadHelper.Sleep(1);
                     }
                 });
 
 
-                using (var fs = File.Open(filePath, FileMode.Open, FileAccess.Read))
+                try
                 {
-                    count = fs.Length;
-
-                    byte[] data = new byte[_client.Config.BufferSize];
-
-                    int numBytesRead = 0;
-
-                    while (true)
+                    using (var fs = File.Open(filePath, FileMode.Open, FileAccess.Read))
                     {
-                        int n = fs.Read(data, 0, _client.Config.BufferSize);
+                        count = fs.Length;
 
-                        if (n == 0)
-                            break;
+                        byte[] data = new byte[_client.Config.BufferSize];
 
-                        offset = numBytesRead += n;
+                        int numBytesRead = 0;
 
-                        if (n == _client.Config.BufferSize)
+                        while (true)
                         {
-                            dataSocket.Send(data);
+                            int n = fs.Read(data, 0, _client.Config.BufferSize);
+
+                            if (n == 0)
+                                break;
+
+                            offset = numBytesRead += n;
+
+                            if (n == _client.Config.BufferSize)
+                            {
+                                dataSocket.Send(data);
+                            }
+                            else
+                            {
+                                dataSocket.Send(data.AsSpan().Slice(0, n).ToArray());
+                                break;
+                            }
                         }
-                        else
-                        {
-                            dataSocket.Send(data.AsSpan().Slice(0, n).ToArray());
-                            break;
-                        }
+                        dataSocket.Disconnect();
                     }
-                    dataSocket.Disconnect();
                 }
-
-                running = false;
+                catch(Exception ex)
+                {
+                    throw ex;
+                }
+                finally
+                {
+                    running = false;
+                }
             }
         }
 
