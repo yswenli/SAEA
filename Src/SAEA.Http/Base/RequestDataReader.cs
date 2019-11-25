@@ -231,7 +231,7 @@ namespace SAEA.Http.Base
                 if (arr.Length == 2)
                     dic[arr[0]] = HttpUtility.UrlDecode(arr[1]);
                 else
-                    dic[arr[0]] = "";
+                    dic[arr[0]] = string.Empty;
             }
             return dic;
         }

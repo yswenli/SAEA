@@ -70,7 +70,7 @@ namespace SAEA.RedisSocket
 
         public RedisClient(string connectStr, bool debugModel = false) : this(new RedisConfig(connectStr), debugModel) { }
 
-        public RedisClient(string ipPort, string password, int acitonTimeout = 60, bool debugModel = false) : this(new RedisConfig(ipPort, password, acitonTimeout), debugModel)
+        public RedisClient(string ipPort, string password, int acitonTimeout = 10, bool debugModel = false) : this(new RedisConfig(ipPort, password, acitonTimeout), debugModel)
         {
 
         }
@@ -115,6 +115,7 @@ namespace SAEA.RedisSocket
             }
 
             _cnn.KeepAlived(() => this.KeepAlive());
+
             var ipPort = RedisConfig.GetIPPort();
 
             var isMaster = this.IsMaster;
@@ -244,94 +245,99 @@ namespace SAEA.RedisSocket
             {
                 ServerInfo serverInfo = new ServerInfo() { address = RedisConfig.GetIPPort() };
 
-                var info = Info();
-
-                var lines = info.Split(RedisConst.Enter, StringSplitOptions.RemoveEmptyEntries);
-
-                if (lines != null && lines.Any())
+                try
                 {
-                    Dictionary<string, string> dic = new Dictionary<string, string>();
+                    var info = Info();
 
-                    foreach (var item in lines)
-                    {
-                        if (item.IndexOf("#") > -1)
-                            continue;
+                    var lines = info.Split(RedisConst.Enter, StringSplitOptions.RemoveEmptyEntries);
 
-                        var arr = item.Split(":");
+                    if (lines != null && lines.Any())
+                    {
+                        Dictionary<string, string> dic = new Dictionary<string, string>();
 
-                        if (arr.Length > 1)
-                            dic[arr[0]] = arr[1];
-                    }
+                        foreach (var item in lines)
+                        {
+                            if (item.IndexOf("#") > -1)
+                                continue;
 
-                    if (dic.TryGetValue("config_file", out string config_file))
-                    {
-                        serverInfo.config_file = config_file;
-                    }
-                    if (dic.TryGetValue("connected_clients", out string connected_clients))
-                    {
-                        serverInfo.connected_clients = connected_clients;
-                    }
-                    if (dic.TryGetValue("connected_slaves", out string connected_slaves))
-                    {
-                        serverInfo.connected_slaves = connected_slaves;
-                    }
-                    if (dic.TryGetValue("os", out string os))
-                    {
-                        serverInfo.os = os;
-                    }
-                    if (dic.TryGetValue("redis_version", out string redis_version))
-                    {
-                        serverInfo.redis_version = redis_version;
-                    }
-                    if (dic.TryGetValue("role", out string role))
-                    {
-                        serverInfo.role = role;
-                    }
-                    if (dic.TryGetValue("used_cpu_sys", out string used_cpu_sys))
-                    {
-                        serverInfo.used_cpu_sys = used_cpu_sys;
-                    }
-                    if (dic.TryGetValue("used_cpu_user", out string used_cpu_user))
-                    {
-                        serverInfo.used_cpu_user = used_cpu_user;
-                    }
-                    if (dic.TryGetValue("used_memory", out string used_memory))
-                    {
-                        serverInfo.used_memory = used_memory;
-                    }
-                    if (dic.TryGetValue("used_memory_human", out string used_memory_human))
-                    {
-                        serverInfo.used_memory_human = used_memory_human;
-                    }
-                    if (dic.TryGetValue("used_memory_peak_human", out string used_memory_peak_human))
-                    {
-                        serverInfo.used_memory_peak_human = used_memory_peak_human;
-                    }
+                            var arr = item.Split(":");
+
+                            if (arr.Length > 1)
+                                dic[arr[0]] = arr[1];
+                        }
+
+                        if (dic.TryGetValue("config_file", out string config_file))
+                        {
+                            serverInfo.config_file = config_file;
+                        }
+                        if (dic.TryGetValue("connected_clients", out string connected_clients))
+                        {
+                            serverInfo.connected_clients = connected_clients;
+                        }
+                        if (dic.TryGetValue("connected_slaves", out string connected_slaves))
+                        {
+                            serverInfo.connected_slaves = connected_slaves;
+                        }
+                        if (dic.TryGetValue("os", out string os))
+                        {
+                            serverInfo.os = os;
+                        }
+                        if (dic.TryGetValue("redis_version", out string redis_version))
+                        {
+                            serverInfo.redis_version = redis_version;
+                        }
+                        if (dic.TryGetValue("role", out string role))
+                        {
+                            serverInfo.role = role;
+                        }
+                        if (dic.TryGetValue("used_cpu_sys", out string used_cpu_sys))
+                        {
+                            serverInfo.used_cpu_sys = used_cpu_sys;
+                        }
+                        if (dic.TryGetValue("used_cpu_user", out string used_cpu_user))
+                        {
+                            serverInfo.used_cpu_user = used_cpu_user;
+                        }
+                        if (dic.TryGetValue("used_memory", out string used_memory))
+                        {
+                            serverInfo.used_memory = used_memory;
+                        }
+                        if (dic.TryGetValue("used_memory_human", out string used_memory_human))
+                        {
+                            serverInfo.used_memory_human = used_memory_human;
+                        }
+                        if (dic.TryGetValue("used_memory_peak_human", out string used_memory_peak_human))
+                        {
+                            serverInfo.used_memory_peak_human = used_memory_peak_human;
+                        }
 
 
-                    if (dic.ContainsKey("cluster_enabled"))
-                    {
-                        serverInfo.cluster_enabled = dic["cluster_enabled"];
-                    }
-                    if (dic.ContainsKey("executable"))
-                    {
-                        serverInfo.executable = dic["executable"];
-                    }
-                    if (dic.ContainsKey("maxmemory"))
-                    {
-                        serverInfo.maxmemory = dic["maxmemory"];
-                    }
-                    if (dic.ContainsKey("maxmemory_human"))
-                    {
-                        serverInfo.maxmemory_human = dic["maxmemory_human"];
-                    }
-                    if (dic.ContainsKey("used_memory_rss_human"))
-                    {
-                        serverInfo.used_memory_rss_human = dic["used_memory_rss_human"];
+                        if (dic.ContainsKey("cluster_enabled"))
+                        {
+                            serverInfo.cluster_enabled = dic["cluster_enabled"];
+                        }
+                        if (dic.ContainsKey("executable"))
+                        {
+                            serverInfo.executable = dic["executable"];
+                        }
+                        if (dic.ContainsKey("maxmemory"))
+                        {
+                            serverInfo.maxmemory = dic["maxmemory"];
+                        }
+                        if (dic.ContainsKey("maxmemory_human"))
+                        {
+                            serverInfo.maxmemory_human = dic["maxmemory_human"];
+                        }
+                        if (dic.ContainsKey("used_memory_rss_human"))
+                        {
+                            serverInfo.used_memory_rss_human = dic["used_memory_rss_human"];
+                        }
                     }
                 }
-
-
+                catch(Exception ex)
+                {
+                    LogHelper.Error("RedisClient.ServerInfo", ex, RedisConfig);
+                }
                 return serverInfo;
             }
         }

@@ -100,7 +100,7 @@ namespace SAEA.RedisSocket
             }
             catch (Exception ex)
             {
-                throw new Exception("连接字符串格式有误，例如格式为：server=127.0.0.1:6379;passwords=yswenli;actionTimeout=60; error:" + ex.Message);
+                throw new Exception("连接字符串格式有误，例如格式为：server=127.0.0.1:6379;passwords=yswenli;actionTimeout=10; error:" + ex.Message);
             }
         }
         /// <summary>
