@@ -26,8 +26,6 @@ using SAEA.RedisSocket;
 using SAEA.RedisSocket.Core;
 using SAEA.RedisSocket.Model;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Threading.Tasks;
 
 namespace SAEA.RedisSocketTest
 {
@@ -43,7 +41,7 @@ namespace SAEA.RedisSocketTest
             {
                 cnnStr = "server=192.168.126.1:6378;passwords=yswenli";
             }
-            RedisClient redisClient = new RedisClient(cnnStr, true);
+            RedisClient redisClient = new RedisClient(cnnStr, false);
 
             redisClient.Connect();
 

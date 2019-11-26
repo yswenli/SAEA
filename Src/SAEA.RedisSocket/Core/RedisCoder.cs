@@ -26,6 +26,7 @@ using SAEA.RedisSocket.Base.Net;
 using SAEA.RedisSocket.Model;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading;
 
@@ -83,13 +84,13 @@ namespace SAEA.RedisSocket.Core
 
             var sb = new StringBuilder();
 
-            sb.AppendLine(ConstHelper.ASTERRISK + @params.Length);
+            sb.Append(ConstHelper.ASTERRISK + @params.Length + ConstHelper.ENTER);
 
             foreach (var param in @params)
             {
                 var length = Encoding.UTF8.GetBytes(param).Length;
-                sb.AppendLine(ConstHelper.DOLLAR + length);
-                sb.AppendLine(param);
+                sb.Append(ConstHelper.DOLLAR + length + ConstHelper.ENTER);
+                sb.Append(param + ConstHelper.ENTER);
             }
             _sendCommand = sb.ToString();
 
@@ -109,14 +110,14 @@ namespace SAEA.RedisSocket.Core
             @params.NotNull();
             _commandName = commandName;
             var sb = new StringBuilder();
-            sb.AppendLine(ConstHelper.ASTERRISK + (@params.Length + 1));
-            sb.AppendLine(ConstHelper.DOLLAR + cmdType.Length);
-            sb.AppendLine(cmdType);
+            sb.Append(ConstHelper.ASTERRISK + (@params.Length + 1) + ConstHelper.ENTER);
+            sb.Append(ConstHelper.DOLLAR + cmdType.Length + ConstHelper.ENTER);
+            sb.Append(cmdType + ConstHelper.ENTER);
             foreach (var param in @params)
             {
                 var length = Encoding.UTF8.GetBytes(param).Length;
-                sb.AppendLine(ConstHelper.DOLLAR + length);
-                sb.AppendLine(param);
+                sb.Append(ConstHelper.DOLLAR + length + ConstHelper.ENTER);
+                sb.Append(param + ConstHelper.ENTER);
             }
             _sendCommand = sb.ToString();
             Request(_sendCommand);
@@ -129,21 +130,21 @@ namespace SAEA.RedisSocket.Core
             _commandName = commandName;
 
             var sb = new StringBuilder();
-            sb.AppendLine(ConstHelper.ASTERRISK + (list.Count + 2));
+            sb.Append(ConstHelper.ASTERRISK + (list.Count + 2) + ConstHelper.ENTER);
 
             var type = commandName.ToString();
-            sb.AppendLine(ConstHelper.DOLLAR + type.Length);
-            sb.AppendLine(type);
+            sb.Append(ConstHelper.DOLLAR + type.Length + ConstHelper.ENTER);
+            sb.Append(type + ConstHelper.ENTER);
 
             var length = Encoding.UTF8.GetBytes(id).Length;
-            sb.AppendLine(ConstHelper.DOLLAR + length);
-            sb.AppendLine(id);
+            sb.Append(ConstHelper.DOLLAR + length + ConstHelper.ENTER);
+            sb.Append(id + ConstHelper.ENTER);
 
             foreach (var item in list)
             {
                 var len = Encoding.UTF8.GetBytes(item).Length;
-                sb.AppendLine(ConstHelper.DOLLAR + len);
-                sb.AppendLine(item);
+                sb.Append(ConstHelper.DOLLAR + len + ConstHelper.ENTER);
+                sb.Append(item + ConstHelper.ENTER);
             }
             _sendCommand = sb.ToString();
             Request(_sendCommand);
@@ -154,19 +155,19 @@ namespace SAEA.RedisSocket.Core
             dic.NotNull();
             _commandName = commandName;
             var sb = new StringBuilder();
-            sb.AppendLine(ConstHelper.ASTERRISK + (dic.Count * 2 + 1));
+            sb.Append(ConstHelper.ASTERRISK + (dic.Count * 2 + 1) + ConstHelper.ENTER);
             var type = commandName.ToString();
-            sb.AppendLine(ConstHelper.DOLLAR + type.Length);
-            sb.AppendLine(type);
+            sb.Append(ConstHelper.DOLLAR + type.Length + ConstHelper.ENTER);
+            sb.Append(type + ConstHelper.ENTER);
             foreach (var item in dic)
             {
                 var length = Encoding.UTF8.GetBytes(item.Key.ToString()).Length;
-                sb.AppendLine(ConstHelper.DOLLAR + length);
-                sb.AppendLine(item.Key.ToString());
+                sb.Append(ConstHelper.DOLLAR + length + ConstHelper.ENTER);
+                sb.Append(item.Key.ToString() + ConstHelper.ENTER);
 
                 length = Encoding.UTF8.GetBytes(item.Value.ToString()).Length;
-                sb.AppendLine(ConstHelper.DOLLAR + length);
-                sb.AppendLine(item.Value.ToString());
+                sb.Append(ConstHelper.DOLLAR + length + ConstHelper.ENTER);
+                sb.Append(item.Value.ToString() + ConstHelper.ENTER);
             }
             _sendCommand = sb.ToString();
             Request(_sendCommand);
@@ -177,24 +178,24 @@ namespace SAEA.RedisSocket.Core
             dic.NotNull();
             _commandName = commandName;
             var sb = new StringBuilder();
-            sb.AppendLine(ConstHelper.ASTERRISK + (dic.Count * 2 + 2));
+            sb.Append(ConstHelper.ASTERRISK + (dic.Count * 2 + 2) + ConstHelper.ENTER);
 
             var type = commandName.ToString();
-            sb.AppendLine(ConstHelper.DOLLAR + type.Length);
-            sb.AppendLine(type);
+            sb.Append(ConstHelper.DOLLAR + type.Length + ConstHelper.ENTER);
+            sb.Append(type + ConstHelper.ENTER);
 
             var length = Encoding.UTF8.GetBytes(id).Length;
-            sb.AppendLine(ConstHelper.DOLLAR + length);
-            sb.AppendLine(id);
+            sb.Append(ConstHelper.DOLLAR + length + ConstHelper.ENTER);
+            sb.Append(id + ConstHelper.ENTER);
             foreach (var item in dic)
             {
                 length = Encoding.UTF8.GetBytes(item.Key.ToString()).Length;
-                sb.AppendLine(ConstHelper.DOLLAR + length);
-                sb.AppendLine(item.Key.ToString());
+                sb.Append(ConstHelper.DOLLAR + length + ConstHelper.ENTER);
+                sb.Append(item.Key.ToString() + ConstHelper.ENTER);
 
                 length = Encoding.UTF8.GetBytes(item.Value.ToString()).Length;
-                sb.AppendLine(ConstHelper.DOLLAR + length);
-                sb.AppendLine(item.Value.ToString());
+                sb.Append(ConstHelper.DOLLAR + length + ConstHelper.ENTER);
+                sb.Append(item.Value.ToString() + ConstHelper.ENTER);
             }
             _sendCommand = sb.ToString();
             Request(_sendCommand);
@@ -205,24 +206,24 @@ namespace SAEA.RedisSocket.Core
             dic.NotNull();
             _commandName = commandName;
             var sb = new StringBuilder();
-            sb.AppendLine(ConstHelper.ASTERRISK + (dic.Count * 2 + 2));
+            sb.Append(ConstHelper.ASTERRISK + (dic.Count * 2 + 2) + ConstHelper.ENTER);
 
             var type = commandName.ToString();
-            sb.AppendLine(ConstHelper.DOLLAR + type.Length);
-            sb.AppendLine(type);
+            sb.Append(ConstHelper.DOLLAR + type.Length + ConstHelper.ENTER);
+            sb.Append(type + ConstHelper.ENTER);
 
             var length = Encoding.UTF8.GetBytes(id).Length;
-            sb.AppendLine(ConstHelper.DOLLAR + length);
-            sb.AppendLine(id);
+            sb.Append(ConstHelper.DOLLAR + length + ConstHelper.ENTER);
+            sb.Append(id + ConstHelper.ENTER);
             foreach (var item in dic)
             {
                 length = Encoding.UTF8.GetBytes(item.Key.ToString()).Length;
-                sb.AppendLine(ConstHelper.DOLLAR + length);
-                sb.AppendLine(item.Key.ToString());
+                sb.Append(ConstHelper.DOLLAR + length);
+                sb.Append(item.Key.ToString());
 
                 length = Encoding.UTF8.GetBytes(item.Value.ToString()).Length;
-                sb.AppendLine(ConstHelper.DOLLAR + length);
-                sb.AppendLine(item.Value.ToString());
+                sb.Append(ConstHelper.DOLLAR + length + ConstHelper.ENTER);
+                sb.Append(item.Value.ToString() + ConstHelper.ENTER);
             }
             _sendCommand = sb.ToString();
             Request(_sendCommand);
@@ -238,32 +239,32 @@ namespace SAEA.RedisSocket.Core
             {
                 if (offset > -1)
                 {
-                    sb.AppendLine(ConstHelper.ASTERRISK + 8);
+                    sb.Append(ConstHelper.ASTERRISK + 8 + ConstHelper.ENTER);
                 }
                 else
                 {
-                    sb.AppendLine(ConstHelper.ASTERRISK + 5);
+                    sb.Append(ConstHelper.ASTERRISK + 5 + ConstHelper.ENTER);
                 }
             }
             else
             {
                 if (offset > -1)
                 {
-                    sb.AppendLine(ConstHelper.ASTERRISK + 7);
+                    sb.Append(ConstHelper.ASTERRISK + 7 + ConstHelper.ENTER);
                 }
                 else
                 {
-                    sb.AppendLine(ConstHelper.ASTERRISK + 4);
+                    sb.Append(ConstHelper.ASTERRISK + 4 + ConstHelper.ENTER);
                 }
             }
 
             var type = commandName.ToString();
-            sb.AppendLine(ConstHelper.DOLLAR + type.Length);
-            sb.AppendLine(type);
+            sb.Append(ConstHelper.DOLLAR + type.Length + ConstHelper.ENTER);
+            sb.Append(type + ConstHelper.ENTER);
 
             var length = Encoding.UTF8.GetBytes(key).Length;
-            sb.AppendLine(ConstHelper.DOLLAR + length);
-            sb.AppendLine(key);
+            sb.Append(ConstHelper.DOLLAR + length + ConstHelper.ENTER);
+            sb.Append(key + ConstHelper.ENTER);
 
             var minStr = string.Empty;
             var maxStr = string.Empty;
@@ -289,33 +290,33 @@ namespace SAEA.RedisSocket.Core
             }
 
             length = Encoding.UTF8.GetBytes(minStr).Length;
-            sb.AppendLine(ConstHelper.DOLLAR + length);
-            sb.AppendLine(minStr);
+            sb.Append(ConstHelper.DOLLAR + length + ConstHelper.ENTER);
+            sb.Append(minStr + ConstHelper.ENTER);
 
             length = Encoding.UTF8.GetBytes(maxStr).Length;
-            sb.AppendLine(ConstHelper.DOLLAR + length);
-            sb.AppendLine(maxStr);
+            sb.Append(ConstHelper.DOLLAR + length + ConstHelper.ENTER);
+            sb.Append(maxStr + ConstHelper.ENTER);
 
             if (withScore)
             {
-                sb.AppendLine(ConstHelper.DOLLAR + 10);
-                sb.AppendLine("WITHSCORES");
+                sb.Append(ConstHelper.DOLLAR + 10 + ConstHelper.ENTER);
+                sb.Append("WITHSCORES" + ConstHelper.ENTER);
             }
 
             if (offset > -1)
             {
-                sb.AppendLine(ConstHelper.DOLLAR + 5);
-                sb.AppendLine("LIMIT");
+                sb.Append(ConstHelper.DOLLAR + 5 + ConstHelper.ENTER);
+                sb.Append("LIMIT" + ConstHelper.ENTER);
 
                 var offsetStr = offset.ToString();
                 length = Encoding.UTF8.GetBytes(offsetStr).Length;
-                sb.AppendLine(ConstHelper.DOLLAR + length);
-                sb.AppendLine(offsetStr);
+                sb.Append(ConstHelper.DOLLAR + length + ConstHelper.ENTER);
+                sb.Append(offsetStr + ConstHelper.ENTER);
 
                 var countStr = count.ToString();
                 length = Encoding.UTF8.GetBytes(countStr).Length;
-                sb.AppendLine(ConstHelper.DOLLAR + length);
-                sb.AppendLine(countStr);
+                sb.Append(ConstHelper.DOLLAR + length + ConstHelper.ENTER);
+                sb.Append(countStr + ConstHelper.ENTER);
             }
 
             _sendCommand = sb.ToString();

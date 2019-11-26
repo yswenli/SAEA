@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using System;
 using System.Text;
 
 namespace SAEA.RedisSocket.Base
@@ -28,10 +29,11 @@ namespace SAEA.RedisSocket.Base
     class RedisCRC16
     {
         public const int NoSlot = -1, MultipleSlots = -2;
+
         private const int RedisClusterSlotCount = 16384;
 
-        private static readonly ushort[] crc16tab =
-            {
+        private static ReadOnlySpan<ushort> s_crc16tab => new ushort[]
+        {
                 0x0000,0x1021,0x2042,0x3063,0x4084,0x50a5,0x60c6,0x70e7,
                 0x8108,0x9129,0xa14a,0xb16b,0xc18c,0xd1ad,0xe1ce,0xf1ef,
                 0x1231,0x0210,0x3273,0x2252,0x52b5,0x4294,0x72f7,0x62d6,
@@ -64,34 +66,40 @@ namespace SAEA.RedisSocket.Base
                 0x7c26,0x6c07,0x5c64,0x4c45,0x3ca2,0x2c83,0x1ce0,0x0cc1,
                 0xef1f,0xff3e,0xcf5d,0xdf7c,0xaf9b,0xbfba,0x8fd9,0x9ff8,
                 0x6e17,0x7e36,0x4e55,0x5e74,0x2e93,0x3eb2,0x0ed1,0x1ef0
-            };
+        };
 
 
         public static unsafe int GetClusterSlot(string key)
         {
-            //HASH_SLOT = CRC16(key) mod 16384
             if (string.IsNullOrEmpty(key)) return NoSlot;
+
             unchecked
             {
                 var blob = Encoding.UTF8.GetBytes(key);
+
                 fixed (byte* ptr = blob)
                 {
-                    int offset = 0, count = blob.Length, start, end;
-                    if ((start = IndexOf(ptr, (byte)'{', 0, count - 1)) >= 0
-                        && (end = IndexOf(ptr, (byte)'}', start + 1, count)) >= 0
-                        && --end != start)
+                    fixed (ushort* crc16tab = s_crc16tab)
                     {
-                        offset = start + 1;
-                        count = end - start; // note we already subtracted one via --end
-                    }
+                        int offset = 0, count = blob.Length, start, end;
+                        if ((start = IndexOf(ptr, (byte)'{', 0, count - 1)) >= 0
+                            && (end = IndexOf(ptr, (byte)'}', start + 1, count)) >= 0
+                            && --end != start)
+                        {
+                            offset = start + 1;
+                            count = end - start;
+                        }
 
-                    uint crc = 0;
-                    for (int i = 0; i < count; i++)
-                        crc = ((crc << 8) ^ crc16tab[((crc >> 8) ^ ptr[offset++]) & 0x00FF]) & 0x0000FFFF;
-                    return (int)(crc % RedisClusterSlotCount);
+                        uint crc = 0;
+                        for (int i = 0; i < count; i++)
+                            crc = ((crc << 8) ^ crc16tab[((crc >> 8) ^ ptr[offset++]) & 0x00FF]) & 0x0000FFFF;
+                        return (int)(crc % RedisClusterSlotCount);
+                    }
                 }
             }
         }
+
+
 
         private static unsafe int IndexOf(byte* ptr, byte value, int start, int end)
         {
