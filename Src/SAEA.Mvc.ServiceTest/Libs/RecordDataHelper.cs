@@ -276,7 +276,7 @@ namespace SAEA.RESTED.Libs
             if (RecordData != null && RecordData.Groups != null && RecordData.Groups.Any())
             {
                 if (!string.IsNullOrWhiteSpace(keywords))
-                    keywords = SAEA.Http.Base.HttpUtility.UrlDecode(keywords);
+                    keywords = SAEA.Http.HttpUtility.UrlDecode(keywords);
 
                 StringBuilder sb = new StringBuilder();
 

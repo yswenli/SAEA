@@ -28,7 +28,7 @@ namespace SAEA.RESTED.Controllers
         {
             string groupID = string.Empty;
 
-            HttpContext.Request.Parmas.TryGetValue("groupID", out groupID);
+            HttpContext.Current.Request.Parmas.TryGetValue("groupID", out groupID);
 
             return Content(RecordDataHelper.GetRightList(groupID));
         }
@@ -56,13 +56,13 @@ namespace SAEA.RESTED.Controllers
             var result = "0";
             if (!string.IsNullOrWhiteSpace(groupID) && !string.IsNullOrWhiteSpace(title) && !string.IsNullOrWhiteSpace(method) && !string.IsNullOrWhiteSpace(url))
             {
-                title = SAEA.Http.Base.HttpUtility.UrlDecode(title);
+                title = SAEA.Http.HttpUtility.UrlDecode(title);
 
-                url = SAEA.Http.Base.HttpUtility.UrlDecode(url);
+                url = SAEA.Http.HttpUtility.UrlDecode(url);
 
                 if (!string.IsNullOrWhiteSpace(json))
                 {
-                    json = SAEA.Http.Base.HttpUtility.UrlDecode(json);
+                    json = SAEA.Http.HttpUtility.UrlDecode(json);
                 }
 
                 RecordDataHelper.AddItem(groupID, title, method, url, json);
@@ -77,7 +77,7 @@ namespace SAEA.RESTED.Controllers
             var result = "0";
             if (!string.IsNullOrWhiteSpace(groupID) && !string.IsNullOrWhiteSpace(groupName))
             {
-                groupName = SAEA.Http.Base.HttpUtility.UrlDecode(groupName);
+                groupName = SAEA.Http.HttpUtility.UrlDecode(groupName);
 
                 RecordDataHelper.UpdateGroup(groupID, groupName);
 
@@ -142,7 +142,7 @@ namespace SAEA.RESTED.Controllers
             {
                 if (!string.IsNullOrWhiteSpace(json))
                 {
-                    json = SAEA.Http.Base.HttpUtility.UrlDecode(json);
+                    json = SAEA.Http.HttpUtility.UrlDecode(json);
 
                     var rd = Deserialize<RecordData>(json);
 
@@ -170,12 +170,12 @@ namespace SAEA.RESTED.Controllers
 
             if (!string.IsNullOrWhiteSpace(method) && !string.IsNullOrWhiteSpace(url))
             {
-                url = SAEA.Http.Base.HttpUtility.UrlDecode(url);
+                url = SAEA.Http.HttpUtility.UrlDecode(url);
             }
 
             if (!string.IsNullOrWhiteSpace(data))
             {
-                data = SAEA.Http.Base.HttpUtility.UrlDecode(data);
+                data = SAEA.Http.HttpUtility.UrlDecode(data);
             }
 
             if (method == "POST")

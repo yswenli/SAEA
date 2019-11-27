@@ -44,6 +44,12 @@
     <Reference Include="SAEA.Common, Version=5.2.1.8, Culture=neutral, PublicKeyToken=01a82380791791ab, processorArchitecture=MSIL">
       <HintPath>..\packages\SAEA.Common.5.2.1.8\lib\netstandard2.0\SAEA.Common.dll</HintPath>
     </Reference>
+    <Reference Include="SAEA.Http, Version=5.2.1.8, Culture=neutral, PublicKeyToken=01a82380791791ab, processorArchitecture=MSIL">
+      <HintPath>..\packages\SAEA.Http.5.2.1.8\lib\netstandard2.0\SAEA.Http.dll</HintPath>
+    </Reference>
+    <Reference Include="SAEA.MVC, Version=5.2.1.8, Culture=neutral, PublicKeyToken=01a82380791791ab, processorArchitecture=MSIL">
+      <HintPath>..\packages\SAEA.MVC.5.2.1.8\lib\netstandard2.0\SAEA.MVC.dll</HintPath>
+    </Reference>
     <Reference Include="SAEA.Sockets, Version=5.2.1.8, Culture=neutral, PublicKeyToken=01a82380791791ab, processorArchitecture=MSIL">
       <HintPath>..\packages\SAEA.Sockets.5.2.1.8\lib\netstandard2.0\SAEA.Sockets.dll</HintPath>
     </Reference>
@@ -80,6 +86,8 @@
     <Compile Include="Controllers\HomeController.cs" />
     <Compile Include="Libs\RecordDataHelper.cs" />
     <Compile Include="Libs\WebClientHelper.cs" />
+    <Compile Include="Libs\WinServiceHelper.cs" />
+    <Compile Include="Libs\WinServiceManager.cs" />
     <Compile Include="Models\GroupData.cs" />
     <Compile Include="Models\ListItem.cs" />
     <Compile Include="Models\RecordData.cs" />
@@ -89,54 +97,6 @@
     <Compile Include="ProjectInstaller.Designer.cs">
       <DependentUpon>ProjectInstaller.cs</DependentUpon>
     </Compile>
-    <Compile Include="SAEA\Http\Base\HttpBase.cs" />
-    <Compile Include="SAEA\Http\Base\HttpMessage.cs" />
-    <Compile Include="SAEA\Http\Base\HttpMIME.cs" />
-    <Compile Include="SAEA\Http\Base\HttpUtility.cs" />
-    <Compile Include="SAEA\Http\Base\Net\HContext.cs" />
-    <Compile Include="SAEA\Http\Base\Net\HttpSocket.cs" />
-    <Compile Include="SAEA\Http\Base\Net\HUnpacker.cs" />
-    <Compile Include="SAEA\Http\Base\Net\SocketData.cs" />
-    <Compile Include="SAEA\Http\Base\RequestDataReader.cs" />
-    <Compile Include="SAEA\Http\Common\StaticResourcesCache.cs" />
-    <Compile Include="SAEA\Http\HttpContext.cs" />
-    <Compile Include="SAEA\Http\HttpCookie.cs" />
-    <Compile Include="SAEA\Http\HttpInvoker.cs" />
-    <Compile Include="SAEA\Http\HttpRequest.cs" />
-    <Compile Include="SAEA\Http\HttpResponse.cs" />
-    <Compile Include="SAEA\Http\HttpSession.cs" />
-    <Compile Include="SAEA\Http\Model\FilePart.cs" />
-    <Compile Include="SAEA\Http\Model\FileResultBase.cs" />
-    <Compile Include="SAEA\Http\Model\HttpActionResult.cs" />
-    <Compile Include="SAEA\Http\Model\HttpContentResult.cs" />
-    <Compile Include="SAEA\Http\Model\HttpEmptyResult.cs" />
-    <Compile Include="SAEA\Http\Model\HttpFileResult.cs" />
-    <Compile Include="SAEA\Http\Model\IEmptyResult.cs" />
-    <Compile Include="SAEA\Http\Model\IHttpResult.cs" />
-    <Compile Include="SAEA\Http\Model\IInvoker.cs" />
-    <Compile Include="SAEA\Http\Model\IWebHost.cs" />
-    <Compile Include="SAEA\Http\Model\RequestHeaderType.cs" />
-    <Compile Include="SAEA\Http\Model\ResponseHeaderType.cs" />
-    <Compile Include="SAEA\Http\Model\WebConfig.cs" />
-    <Compile Include="SAEA\Http\WebHost.cs" />
-    <Compile Include="SAEA\Mvc\ActionFilterAttribute.cs" />
-    <Compile Include="SAEA\Mvc\ActionResult.cs" />
-    <Compile Include="SAEA\Mvc\AreaCollection.cs" />
-    <Compile Include="SAEA\Mvc\ContentResult.cs" />
-    <Compile Include="SAEA\Mvc\Controller.cs" />
-    <Compile Include="SAEA\Mvc\EmptyResult.cs" />
-    <Compile Include="SAEA\Mvc\FileResult.cs" />
-    <Compile Include="SAEA\Mvc\HttpGet.cs" />
-    <Compile Include="SAEA\Mvc\HttpPost.cs" />
-    <Compile Include="SAEA\Mvc\IFilter.cs" />
-    <Compile Include="SAEA\Mvc\JsonResult.cs" />
-    <Compile Include="SAEA\Mvc\MVCInvoker.cs" />
-    <Compile Include="SAEA\Mvc\OutputCacheAttribute.cs" />
-    <Compile Include="SAEA\Mvc\RouteTable.cs" />
-    <Compile Include="SAEA\Mvc\Routing.cs" />
-    <Compile Include="SAEA\Mvc\SAEAMvcApplication.cs" />
-    <Compile Include="SAEA\Mvc\SAEAMvcApplicationConfig.cs" />
-    <Compile Include="SAEA\Mvc\SAEAMvcApplicationConfigBuilder.cs" />
     <Compile Include="Service1.cs">
       <SubType>Component</SubType>
     </Compile>
