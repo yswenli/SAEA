@@ -1,33 +1,34 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-    <Company>yswenli</Company>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Version>5.3.0.1</Version>
     <Authors>yswenli</Authors>
-    <Copyright>yswenli</Copyright>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Version>5.2.1.8</Version>
-    <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
-    <PackageTags>iocp,tcp,socket</PackageTags>
-    <AssemblyVersion>5.2.1.8</AssemblyVersion>
-    <FileVersion>5.2.1.8</FileVersion>
     <Description>SAEA.Socket is a high-performance IOCP framework based on.dotnet standard 2.0; Src contains its application test scenarios, such as websocket,rpc, redis driver, MVC WebAPI, lightweight message server, ultra large file transmission, etc.
 SAEA.Socket是一个高性能IOCP框架，基于.dotnet standard 2.0；Src中含有其应用测试场景，例如websocket、rpc、redis驱动、MVC WebAPI、轻量级消息服务器、超大文件传输等
 https://github.com/yswenli/SAEA</Description>
+    <Copyright>yswenli</Copyright>
+    <PackageLicenseExpression></PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
+    <PackageIconUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/favicon.ico</PackageIconUrl>
+    <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
+    <PackageTags>iocp,tcp,socket</PackageTags>
     <PackageReleaseNotes>SAEA.Socket is a high-performance IOCP framework based on.dotnet standard 2.0; Src contains its application test scenarios, such as websocket,rpc, redis driver, MVC WebAPI, lightweight message server, ultra large file transmission, etc.
 
 SAEA.Socket是一个高性能IOCP框架，基于.dotnet standard 2.0；Src中含有其应用测试场景，例如websocket、rpc、redis驱动、MVC WebAPI、轻量级消息服务器、超大文件传输等</PackageReleaseNotes>
-    <SignAssembly>true</SignAssembly>
-    <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
-    <PackageLicenseUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/LICENSE</PackageLicenseUrl>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
-    <LangVersion>7.2</LangVersion>
-    <PackageIconUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/favicon.ico</PackageIconUrl>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\SAEA.Common\SAEA.Common.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\..\LICENSE.txt">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
+  </ItemGroup>
 </Project>

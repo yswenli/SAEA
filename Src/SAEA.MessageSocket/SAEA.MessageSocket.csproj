@@ -1,28 +1,33 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>netstandard2.1</TargetFramework>
     <Authors>yswenli</Authors>
-    <Company>yswenli</Company>
-    <Copyright>yswenli</Copyright>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Version>5.2.1.8</Version>
+    <Version>5.3.0.1</Version>
     <Description>This is a message server and client component based on SAEA. Scokets. Messages are transmitted by Pb compression. Messages support private messages, channels, groups, etc.
 这是一个基于SAEA.Scokets的高性能消息服务器、客户端组件，消息使用pb压缩传输，消息支持私信、频道、群组等方式
 https://github.com/yswenli/SAEA</Description>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <Copyright>yswenli</Copyright>
     <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
+    <PackageIconUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/favicon.ico</PackageIconUrl>
+    <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
     <PackageTags>iocp,chatserver,messageserver,tcp,socket</PackageTags>
     <PackageReleaseNotes>This is a message server and client component based on SAEA. Scokets. Messages are transmitted by Pb compression. Messages support private messages, channels, groups, etc.
 这是一个基于SAEA.Scokets的高性能消息服务器、客户端组件，消息使用pb压缩传输，消息支持私信、频道、群组等方式
 https://github.com/yswenli/SAEA</PackageReleaseNotes>
-    <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
-    <PackageLicenseUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/LICENSE</PackageLicenseUrl>
-    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
-    <LangVersion>7.2</LangVersion>
-    <PackageIconUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/favicon.ico</PackageIconUrl>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\LICENSE.txt">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\SAEA.Common\SAEA.Common.csproj" />

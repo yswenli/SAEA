@@ -1,30 +1,33 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-    <Company>yswenli</Company>
-    <Authors>yswenli</Authors>
-    <Copyright>yswenli</Copyright>
-    <PackageProjectUrl>https://www.cnblogs.com/yswenli/</PackageProjectUrl>
-    <AssemblyVersion>5.2.1.8</AssemblyVersion>
-    <Version>5.2.1.8</Version>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
+    <TargetFramework>netstandard2.1</TargetFramework>
     <Description>This is a high-performance memory queue server and client component based on SAEA.Sockets.
 这是一个基于SAEA.Sockets的高性能内存队列服务器、客户端组件
 https://github.com/yswenli/SAEA</Description>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <Version>5.3.0.1</Version>
+    <Copyright>yswenli</Copyright>
+    <Authors>yswenli</Authors>
+    <PackageTags>queue,iocp,tcp,socket</PackageTags>
     <PackageReleaseNotes>This is a high-performance memory queue server and client component based on SAEA.Sockets.
 这是一个基于SAEA.Sockets的高性能内存队列服务器、客户端组件
 https://github.com/yswenli/SAEA</PackageReleaseNotes>
-    <PackageTags>queue,iocp,tcp,socket</PackageTags>
+    <PackageIconUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/favicon.ico</PackageIconUrl>
+    <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
-    <FileVersion>5.2.1.8</FileVersion>
-    <PackageLicenseUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/LICENSE</PackageLicenseUrl>
-    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
-    <LangVersion>7.2</LangVersion>
-    <PackageIconUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/favicon.ico</PackageIconUrl>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\LICENSE.txt">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\SAEA.Common\SAEA.Common.csproj" />

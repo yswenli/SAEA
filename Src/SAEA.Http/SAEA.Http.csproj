@@ -1,24 +1,28 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-    <Description>This is a web component based on SAEA.Sockets. It is lightweight, high performance, easy to use and self hosting. 
-这是一个基于SAEA.Sockets的web组件，轻量高性能，使用简便，自宿主。https://github.com/yswenli/SAEA/tree/master/Src/SAEA.HttpTest。</Description>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Authors>yswenli</Authors>
+    <Version>5.3.0.1</Version>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
+    <PackageIconUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/favicon.ico</PackageIconUrl>
+    <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
+    <PackageTags>webserver,httpserver,iocp,tcp,socket</PackageTags>
     <PackageReleaseNotes>This is a web component based on SAEA.Sockets. It is lightweight, high performance, easy to use and self hosting. 
 这是一个基于SAEA.Sockets的web组件，轻量高性能，使用简便，自宿主。https://github.com/yswenli/SAEA/tree/master/Src/SAEA.HttpTest。</PackageReleaseNotes>
-    <Copyright>yswenli</Copyright>
-    <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
-    <PackageTags>webserver,httpserver,iocp,tcp,socket</PackageTags>
-    <Version>5.2.1.8</Version>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
-    <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
-    <PackageLicenseUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/LICENSE</PackageLicenseUrl>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
-    <LangVersion>7.2</LangVersion>
-    <PackageIconUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/favicon.ico</PackageIconUrl>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\LICENSE.txt">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\SAEA.Common\SAEA.Common.csproj" />

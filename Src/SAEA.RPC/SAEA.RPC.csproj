@@ -1,28 +1,37 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-    <PackageProjectUrl>https://www.cnblogs.com/yswenli/</PackageProjectUrl>
-    <Version>5.2.1.8</Version>
+    <TargetFramework>netstandard2.1</TargetFramework>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+    <Version>5.3.0.1</Version>
+    <Authors>yswenli</Authors>
+    <Copyright>yswenli</Copyright>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <Description>This is a SAEA. Sockets-based RPC component, portable and efficient, far superior performance to similar products, easy to use, a few lines of code can be implemented.
 这是一个基于SAEA.Sockets的rpc组件，轻便高效，性能远超同类产品，简单易用，几行代码就能实现
 https://github.com/yswenli/SAEA</Description>
-    <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
-    <Copyright>yswenli</Copyright>
     <PackageReleaseNotes>This is a SAEA. Sockets-based RPC component, portable and efficient, far superior performance to similar products, easy to use, a few lines of code can be implemented.
 这是一个基于SAEA.Sockets的rpc组件，轻便高效，性能远超同类产品，简单易用，几行代码就能实现
 https://github.com/yswenli/SAEA</PackageReleaseNotes>
     <PackageTags>rcp,iocp,socket,tcp</PackageTags>
+    <PackageIconUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/favicon.ico</PackageIconUrl>
+    <PackageProjectUrl>https://www.cnblogs.com/yswenli/</PackageProjectUrl>
+    <RepositoryUrl>https://www.cnblogs.com/yswenli/</RepositoryUrl>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
-    <PackageLicenseUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/LICENSE</PackageLicenseUrl>
-    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
-    <Authors>yswenli</Authors>
-    <Company>yswenli</Company>
-    <LangVersion>7.2</LangVersion>
-    <PackageIconUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/favicon.ico</PackageIconUrl>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Folder Include="Properties\PublishProfiles\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\LICENSE.txt">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\SAEA.Common\SAEA.Common.csproj" />

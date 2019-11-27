@@ -1,26 +1,35 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-    <LangVersion>7.2</LangVersion>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
-    <PackageLicenseUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/LICENSE</PackageLicenseUrl>
-    <Copyright>yswenli</Copyright>
-    <Version>5.2.1.8</Version>
-    <Authors>yswenli</Authors>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Version>5.3.0.1</Version>
     <Company>yswenli</Company>
-    <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
-    <PackageTags>ftp,iocp,tcp,socket</PackageTags>
+    <Authors>yswenli</Authors>
     <Description>Saea.ftp is a simple component including ftpserver and ftpclient.
 SAEA.FTP 是个包含FtpServer和FtpClient的简易组件</Description>
+    <Copyright>yswenli</Copyright>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
+    <PackageIconUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/favicon.ico</PackageIconUrl>
+    <PackageTags>ftp,iocp,tcp,socket</PackageTags>
     <PackageReleaseNotes>Saea.ftp is a simple component including ftpserver and ftpclient.
 SAEA.FTP 是个包含FtpServer和FtpClient的简易组件</PackageReleaseNotes>
-    <PackageIconUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/favicon.ico</PackageIconUrl>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="..\..\LICENSE.txt">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SAEA.Common\SAEA.Common.csproj" />
     <ProjectReference Include="..\SAEA.Sockets\SAEA.Sockets.csproj" />
   </ItemGroup>
 

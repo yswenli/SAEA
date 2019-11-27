@@ -1,35 +1,37 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Library</OutputType>
-    <TargetFramework>netstandard2.0</TargetFramework>
-    <ApplicationIcon />
-    <StartupObject />
-    <Company>yswenli</Company>
-    <Authors>yswenli</Authors>
-    <Copyright>yswenli</Copyright>
-    <PackageProjectUrl>https://www.cnblogs.com/yswenli/</PackageProjectUrl>
-    <Version>5.2.1.8</Version>
-    <PackageReleaseNotes>This is a high-performance redis driver based on SAEA.Sockets, supporting redis cluster.
-这是一个基于SAEA.Sockets的redis 高性能驱动，支持redis cluster
-https://github.com/yswenli/SAEA</PackageReleaseNotes>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Description>This is a high-performance redis driver based on SAEA.Sockets, supporting redis cluster.
 这是一个基于SAEA.Sockets的redis 高性能驱动，支持redis cluster
 https://github.com/yswenli/SAEA</Description>
-    <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
+    <PackageReleaseNotes>This is a high-performance redis driver based on SAEA.Sockets, supporting redis cluster.
+这是一个基于SAEA.Sockets的redis 高性能驱动，支持redis cluster
+https://github.com/yswenli/SAEA</PackageReleaseNotes>
+    <PackageIconUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/favicon.ico</PackageIconUrl>
+    <Version>5.3.0.1</Version>
+    <Authors>yswenli</Authors>
+    <Copyright>yswenli</Copyright>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageTags>redis,redisclient,redisdrive,rediscluster,iocp,socket,tcp</PackageTags>
+    <PackageProjectUrl>https://www.cnblogs.com/yswenli/</PackageProjectUrl>
+    <RepositoryUrl>https://www.cnblogs.com/yswenli/</RepositoryUrl>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
-    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
-    <PackageLicenseUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/LICENSE</PackageLicenseUrl>
-    <LangVersion>7.3</LangVersion>
-    <PackageIconUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/favicon.ico</PackageIconUrl>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\LICENSE.txt">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\SAEA.Common\SAEA.Common.csproj" />

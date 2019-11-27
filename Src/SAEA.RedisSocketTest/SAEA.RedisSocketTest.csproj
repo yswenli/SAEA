@@ -1,16 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp2.0</TargetFramework>
-    <Company>yswenli</Company>
-    <Authors>yswenli</Authors>
-    <Copyright>yswenli</Copyright>
-    <LangVersion>7.2</LangVersion>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SAEA.Common\SAEA.Common.csproj" />
     <ProjectReference Include="..\SAEA.RedisSocket\SAEA.RedisSocket.csproj" />
   </ItemGroup>
 

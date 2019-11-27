@@ -1,27 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp2.0</TargetFramework>
-    <Authors>yswenli</Authors>
-    <Company>yswenli</Company>
-    <Copyright>yswenli</Copyright>
-    <LangVersion>7.2</LangVersion>
-    <StartupObject>SAEA.FileTest.Program</StartupObject>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <PlatformTarget>x64</PlatformTarget>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\SAEA.Common\SAEA.Common.csproj" />
     <ProjectReference Include="..\SAEA.FileSocket\SAEA.FileSocket.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="System.Runtime">
-      <HintPath>C:\Program Files\dotnet\sdk\NuGetFallbackFolder\microsoft.netcore.app\2.0.0\ref\netcoreapp2.0\System.Runtime.dll</HintPath>
-    </Reference>
   </ItemGroup>
 
 </Project>
