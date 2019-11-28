@@ -107,7 +107,7 @@ namespace SAEA.WebSocket
         /// 连接websocketServer
         /// </summary>
         /// <returns></returns>
-        public new bool Connect(int timeOut = 10 * 1000)
+        public bool Connect(int timeOut = 10 * 1000)
         {
             _client.ConnectAsync((e) =>
             {

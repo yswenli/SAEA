@@ -479,8 +479,6 @@ namespace SAEA.RedisSocket.Core
         {
             lock (_syncLocker)
             {
-                var cmd = "";
-
                 if (offset < 0) offset = 0;
 
                 if (!string.IsNullOrEmpty(pattern))

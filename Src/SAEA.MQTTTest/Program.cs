@@ -169,7 +169,7 @@ namespace SAEA.MQTTTest
 
             await client.ConnectAsync(clientOptions);
 
-            Task.Run(() =>
+            await Task.Run(() =>
             {
                 while (client.IsConnected)
                 {
@@ -178,7 +178,7 @@ namespace SAEA.MQTTTest
                 }
             });
 
-            client.SubscribeAsync("test/topic");
+            await client.SubscribeAsync("test/topic");
 
         }
 

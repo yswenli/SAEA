@@ -31,8 +31,6 @@ namespace SAEA.WebSocket.Core
 
         IServerSokcet _server;
 
-        int _heartSpan = 20 * 1000;
-
         public event Action<string, WSProtocal> OnMessage;
 
         public WSServerImpl(int port = 39654, int bufferSize = 1024, int count = 60000)

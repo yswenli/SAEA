@@ -23,7 +23,7 @@ namespace SAEA.DNS.Protocol
 {
     public interface IDnsMessage
     {
-        public DnsMessageHeader Header { get; set; }
+        DnsMessageHeader Header { get; set; }
 
         //public 
     }

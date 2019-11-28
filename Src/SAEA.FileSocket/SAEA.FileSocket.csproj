@@ -16,6 +16,7 @@
     <PackageReleaseNotes>This is a high-performance file transfer component based on SAEA.Sockets.
 这是一个基于SAEA.Sockets的高性能文件传输组件</PackageReleaseNotes>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <LangVersion>8.0</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>

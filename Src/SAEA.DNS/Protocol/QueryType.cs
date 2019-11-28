@@ -21,6 +21,9 @@ using System.Text;
 
 namespace SAEA.DNS.Protocol
 {
+    /// <summary>
+    /// 查询类型
+    /// </summary>
     public enum QueryType : ushort
     {
         /// <summary>

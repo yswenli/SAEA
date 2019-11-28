@@ -32,8 +32,6 @@ namespace SAEA.FTP
     {
         ServerSocket _cmdSocket;
 
-        IServerSokcet _dataSocket;
-
         ServerConfig _serverConfig;
 
         public bool Running { get; set; }
