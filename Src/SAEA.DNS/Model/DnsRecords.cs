@@ -3,7 +3,7 @@
 *CLR 版本：3.0
 *机器名称：WENLI-PC
 *命名空间：SAEA.DNS.Model
-*类 名 称：DnsDataFile
+*类 名 称：DnsRecords
 *版 本 号：v5.0.0.1
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
@@ -31,7 +31,7 @@ namespace SAEA.DNS.Model
     /// <summary>
     /// DNSDataFile
     /// </summary>
-    public class DnsDataFile : IRequestCoder
+    public class DnsRecords : IRequestCoder
     {
         private static readonly TimeSpan DEFAULT_TTL = new TimeSpan(0);
 
@@ -62,76 +62,139 @@ namespace SAEA.DNS.Model
 
         private TimeSpan ttl = DEFAULT_TTL;
 
-        public DnsDataFile(TimeSpan ttl)
+        public DnsRecords(TimeSpan ttl)
         {
             this.ttl = ttl;
         }
 
-        public DnsDataFile() { }
+        public DnsRecords() { }
 
         public void Add(IResourceRecord entry)
         {
             entries.Add(entry);
         }
 
+        /// <summary>
+        /// 添加域名ip映射
+        /// </summary>
+        /// <param name="domain"></param>
+        /// <param name="ip"></param>
         public void AddIPAddressResourceRecord(string domain, string ip)
         {
             AddIPAddressResourceRecord(new Domain(domain), IPAddress.Parse(ip));
         }
 
+        /// <summary>
+        /// 添加域名ip映射
+        /// </summary>
+        /// <param name="domain"></param>
+        /// <param name="ip"></param>
         public void AddIPAddressResourceRecord(Domain domain, IPAddress ip)
         {
             Add(new IPAddressResourceRecord(domain, ip, ttl));
         }
 
+        /// <summary>
+        /// 添加名称服务器资源记录
+        /// </summary>
+        /// <param name="domain"></param>
+        /// <param name="nsDomain"></param>
         public void AddNameServerResourceRecord(string domain, string nsDomain)
         {
             AddNameServerResourceRecord(new Domain(domain), new Domain(nsDomain));
         }
 
+        /// <summary>
+        /// 添加名称服务器资源记录
+        /// </summary>
+        /// <param name="domain"></param>
+        /// <param name="nsDomain"></param>
         public void AddNameServerResourceRecord(Domain domain, Domain nsDomain)
         {
             Add(new NameServerResourceRecord(domain, nsDomain, ttl));
         }
 
+        /// <summary>
+        /// 添加规范名称资源记录
+        /// </summary>
+        /// <param name="domain"></param>
+        /// <param name="cname"></param>
         public void AddCanonicalNameResourceRecord(string domain, string cname)
         {
             AddCanonicalNameResourceRecord(new Domain(domain), new Domain(cname));
         }
 
+        /// <summary>
+        /// 添加规范名称资源记录
+        /// </summary>
+        /// <param name="domain"></param>
+        /// <param name="cname"></param>
         public void AddCanonicalNameResourceRecord(Domain domain, Domain cname)
         {
             Add(new CanonicalNameResourceRecord(domain, cname, ttl));
         }
 
+        /// <summary>
+        /// 添加指针资源记录
+        /// </summary>
+        /// <param name="ip"></param>
+        /// <param name="pointer"></param>
         public void AddPointerResourceRecord(string ip, string pointer)
         {
             AddPointerResourceRecord(IPAddress.Parse(ip), new Domain(pointer));
         }
-
+        /// <summary>
+        /// 添加指针资源记录
+        /// </summary>
+        /// <param name="ip"></param>
+        /// <param name="pointer"></param>
         public void AddPointerResourceRecord(IPAddress ip, Domain pointer)
         {
             Add(new PointerResourceRecord(ip, pointer, ttl));
         }
 
+        /// <summary>
+        /// 添加邮件交换资源记录
+        /// </summary>
+        /// <param name="domain"></param>
+        /// <param name="preference"></param>
+        /// <param name="exchange"></param>
         public void AddMailExchangeResourceRecord(string domain, int preference, string exchange)
         {
             AddMailExchangeResourceRecord(new Domain(domain), preference, new Domain(exchange));
         }
 
+        /// <summary>
+        /// 添加邮件交换资源记录
+        /// </summary>
+        /// <param name="domain"></param>
+        /// <param name="preference"></param>
+        /// <param name="exchange"></param>
         public void AddMailExchangeResourceRecord(Domain domain, int preference, Domain exchange)
         {
             Add(new MailExchangeResourceRecord(domain, preference, exchange));
         }
 
+        /// <summary>
+        /// 添加文本资源记录
+        /// </summary>
+        /// <param name="domain"></param>
+        /// <param name="attributeName"></param>
+        /// <param name="attributeValue"></param>
         public void AddTextResourceRecord(string domain, string attributeName, string attributeValue)
         {
             Add(new TextResourceRecord(new Domain(domain), attributeName, attributeValue, ttl));
         }
 
-        public Task<IResponse> Resolve(IRequest request, CancellationToken cancellationToken = default(CancellationToken))
+        /// <summary>
+        /// 解析
+        /// </summary>
+        /// <param name="request"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        public Task<IResponse> Code(IRequest request, CancellationToken cancellationToken = default(CancellationToken))
         {
-            IResponse response = Response.FromRequest(request);
+            IResponse response = Protocol.DnsResponseMessage.FromRequest(request);
 
             foreach (Question question in request.Questions)
             {

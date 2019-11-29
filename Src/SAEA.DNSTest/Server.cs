@@ -12,59 +12,69 @@ namespace SAEA.DNSTest
 
         public async static Task InitAsync(int port = 53)
         {
-            DnsDataFile dnsDataFile = new DnsDataFile();
+            DnsRecords dnsDataFile = new DnsRecords();
 
             _server = new DnsServer(dnsDataFile);
 
-            dnsDataFile.AddIPAddressResourceRecord("baidu.com", "127.0.0.1");
+            dnsDataFile.AddIPAddressResourceRecord("yswenli.net", "127.0.0.1");
 
-            _server.Requested += (sender, e) => Console.WriteLine("Requested: {0}", e.Request);
-
-            _server.Responded += (sender, e) => Console.WriteLine("Responded: {0} => {1}", e.Request, e.Response);
-
-            _server.Errored += (sender, e) => Console.WriteLine("Errored: {0}", e.Exception.Message);
-
-            _server.Listening += (sender, e) => Console.WriteLine("Listening");
-
-            _server.Listening += async (sender, e) =>
+            _server.OnRequested += (sender, e) =>
             {
-
-                DnsClient client = new DnsClient("127.0.0.1", port);
-
-                await client.Lookup("baidu.com");
+                Console.WriteLine("[Requested]: {0}", e.Request);
             };
 
-            await _server.Listen(port);
+            _server.OnResponded += (sender, e) =>
+            {
+                Console.WriteLine("[Responded]: {0} => {1}", e.Request, e.Response);
+            };
+
+            _server.OnErrored += (sender, e) =>
+            {
+                Console.WriteLine("[Errored]: {0}", e.Exception.Message);
+            };
+
+            _server.OnListening += async (sender, e) =>
+            {
+                Console.WriteLine("[Listening]");
+
+                await new DnsClient("127.0.0.1").Lookup("yswenli.net");
+            };
+
+            await _server.Start(port);
         }
 
         public static void Init(int port = 53)
         {
             var result = false;
 
-            DnsDataFile dnsDataFile = new DnsDataFile();
+            DnsRecords dnsDataFile = new DnsRecords();
 
             _server = new DnsServer(dnsDataFile);
 
             dnsDataFile.AddIPAddressResourceRecord("baidu.com", "127.0.0.1");
 
-            _server.Requested += (sender, e) => Console.WriteLine("Requested: {0}", e.Request);
-
-            _server.Responded += (sender, e) => Console.WriteLine("Responded: {0} => {1}", e.Request, e.Response);
-
-            _server.Errored += (sender, e) => Console.WriteLine("Errored: {0}", e.Exception.Message);
-
-            _server.Listening += (sender, e) => Console.WriteLine("Listening");
-
-            _server.Listening += async (sender, e) =>
+            _server.OnRequested += (sender, e) =>
             {
-                result = true;
-
-                //DnsClient client = new DnsClient();
-
-                //await client.Lookup("baidu.com");
+                Console.WriteLine("[Requested]: {0}", e.Request);                
             };
 
-            _server.Listen(port);
+            _server.OnResponded += (sender, e) =>
+            {
+                Console.WriteLine("[Responded]: {0} => {1}", e.Request, e.Response);
+            };
+
+            _server.OnErrored += (sender, e) =>
+            {
+                Console.WriteLine("[Errored]: {0}", e.Exception.Message);
+            };
+
+            _server.OnListening += async (sender, e) =>
+            {
+                result = true;
+                Console.WriteLine("[Listening]");
+            };
+
+            _server.Start(port);
 
             while (!result)
             {

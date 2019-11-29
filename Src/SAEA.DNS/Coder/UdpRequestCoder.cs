@@ -27,12 +27,21 @@ using SAEA.DNS.Model;
 
 namespace SAEA.DNS.Coder
 {
+    /// <summary>
+    /// udp模式处理编解码
+    /// </summary>
     public class UdpRequestCoder : IRequestCoder
     {
         private int timeout;
         private IRequestCoder fallback;
         private IPEndPoint dns;
 
+        /// <summary>
+        /// udp模式处理编解码
+        /// </summary>
+        /// <param name="dns"></param>
+        /// <param name="fallback"></param>
+        /// <param name="timeout"></param>
         public UdpRequestCoder(IPEndPoint dns, IRequestCoder fallback, int timeout = 5000)
         {
             this.dns = dns;
@@ -40,6 +49,11 @@ namespace SAEA.DNS.Coder
             this.timeout = timeout;
         }
 
+        /// <summary>
+        /// udp模式处理编解码
+        /// </summary>
+        /// <param name="dns"></param>
+        /// <param name="timeout"></param>
         public UdpRequestCoder(IPEndPoint dns, int timeout = 5000)
         {
             this.dns = dns;
@@ -47,28 +61,32 @@ namespace SAEA.DNS.Coder
             this.timeout = timeout;
         }
 
-        public async Task<IResponse> Resolve(IRequest request, CancellationToken cancellationToken = default(CancellationToken))
+        /// <summary>
+        /// 编码处理
+        /// </summary>
+        /// <param name="request"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        public async Task<IResponse> Code(IRequest request, CancellationToken cancellationToken = default(CancellationToken))
         {
             using (UdpClient udp = new UdpClient())
             {
-                await udp
-                    .SendAsync(request.ToArray(), request.Size, dns)
-                    .WithCancellationTimeout(TimeSpan.FromMilliseconds(timeout), cancellationToken);
+                await udp.SendAsync(request.ToArray(), request.Size, dns).WithCancellationTimeout(TimeSpan.FromMilliseconds(timeout), cancellationToken);
 
-                UdpReceiveResult result = await udp
-                    .ReceiveAsync()
-                    .WithCancellationTimeout(TimeSpan.FromMilliseconds(timeout), cancellationToken);
+                UdpReceiveResult result = await udp.ReceiveAsync().WithCancellationTimeout(TimeSpan.FromMilliseconds(timeout), cancellationToken);
 
                 if (!result.RemoteEndPoint.Equals(dns)) throw new IOException("Remote endpoint mismatch");
+
                 byte[] buffer = result.Buffer;
-                Response response = Response.FromArray(buffer);
+
+                Protocol.DnsResponseMessage response = Protocol.DnsResponseMessage.FromArray(buffer);
 
                 if (response.Truncated)
                 {
-                    return await fallback.Resolve(request, cancellationToken);
+                    return await fallback.Code(request, cancellationToken);
                 }
 
-                return new DnsResponse(request, response, buffer);
+                return new Model.DnsResponse(request, response, buffer);
             }
         }
     }

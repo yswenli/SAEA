@@ -3,7 +3,7 @@
 *CLR 版本：3.0
 *机器名称：WENLI-PC
 *命名空间：SAEA.DNS.Protocol
-*类 名 称：Request
+*类 名 称：DnsRequestMessage
 *版 本 号：v5.0.0.1
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
@@ -23,7 +23,10 @@ using System.Linq;
 
 namespace SAEA.DNS.Protocol
 {
-    public class Request : IRequest
+    /// <summary>
+    /// Dns请求消息体
+    /// </summary>
+    public class DnsRequestMessage : IRequest
     {
         private static readonly Random RANDOM = new Random();
 
@@ -31,7 +34,7 @@ namespace SAEA.DNS.Protocol
         private Header header;
         private IList<IResourceRecord> additional;
 
-        public static Request FromArray(byte[] message)
+        public static DnsRequestMessage FromArray(byte[] message)
         {
             Header header = Header.FromArray(message);
             int offset = header.Size;
@@ -44,19 +47,28 @@ namespace SAEA.DNS.Protocol
                 throw new ArgumentException("Invalid request message");
             }
 
-            return new Request(header,
+            return new DnsRequestMessage(header,
                 Question.GetAllFromArray(message, offset, header.QuestionCount, out offset),
                 ResourceRecordFactory.GetAllFromArray(message, offset, header.AdditionalRecordCount, out offset));
         }
 
-        public Request(Header header, IList<Question> questions, IList<IResourceRecord> additional)
+        /// <summary>
+        /// Dns请求消息体
+        /// </summary>
+        /// <param name="header"></param>
+        /// <param name="questions"></param>
+        /// <param name="additional"></param>
+        public DnsRequestMessage(Header header, IList<Question> questions, IList<IResourceRecord> additional)
         {
             this.header = header;
             this.questions = questions;
             this.additional = additional;
         }
 
-        public Request()
+        /// <summary>
+        /// Dns请求消息体
+        /// </summary>
+        public DnsRequestMessage()
         {
             this.questions = new List<Question>();
             this.header = new Header();
@@ -67,7 +79,11 @@ namespace SAEA.DNS.Protocol
             this.header.Id = RANDOM.Next(UInt16.MaxValue);
         }
 
-        public Request(IRequest request)
+        /// <summary>
+        /// Dns请求消息体
+        /// </summary>
+        /// <param name="request"></param>
+        public DnsRequestMessage(IRequest request)
         {
             this.header = new Header();
             this.questions = new List<Question>(request.Questions);

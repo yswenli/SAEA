@@ -22,6 +22,6 @@ using System.Threading.Tasks;
 namespace SAEA.DNS.Coder
 {
     public interface IRequestCoder {
-        Task<IResponse> Resolve(IRequest request, CancellationToken cancellationToken = default(CancellationToken));
+        Task<IResponse> Code(IRequest request, CancellationToken cancellationToken = default(CancellationToken));
     }
 }

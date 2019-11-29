@@ -22,9 +22,12 @@ using System.Threading.Tasks;
 
 namespace SAEA.DNS.Coder
 {
+    /// <summary>
+    /// ø’¥¶¿Ì
+    /// </summary>
     public class NullRequestCoder : IRequestCoder
     {
-        public Task<IResponse> Resolve(IRequest request, CancellationToken cancellationToken = default(CancellationToken))
+        public Task<IResponse> Code(IRequest request, CancellationToken cancellationToken = default(CancellationToken))
         {
             throw new ResponseException("Request failed");
         }

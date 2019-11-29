@@ -3,7 +3,7 @@
 *CLR 版本：3.0
 *机器名称：WENLI-PC
 *命名空间：SAEA.DNS.Protocol
-*类 名 称：Response
+*类 名 称：DnsResponseMessage
 *版 本 号：v5.0.0.1
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
@@ -23,7 +23,10 @@ using System.Linq;
 
 namespace SAEA.DNS.Protocol
 {
-    public class Response : IResponse
+    /// <summary>
+    /// Dns回复数据消息体
+    /// </summary>
+    public class DnsResponseMessage : IResponse
     {
         private static readonly Random RANDOM = new Random();
 
@@ -33,9 +36,9 @@ namespace SAEA.DNS.Protocol
         private IList<IResourceRecord> authority;
         private IList<IResourceRecord> additional;
 
-        public static Response FromRequest(IRequest request)
+        public static DnsResponseMessage FromRequest(IRequest request)
         {
-            Response response = new Response();
+            DnsResponseMessage response = new DnsResponseMessage();
 
             response.Id = request.Id;
 
@@ -47,7 +50,7 @@ namespace SAEA.DNS.Protocol
             return response;
         }
 
-        public static Response FromArray(byte[] message)
+        public static DnsResponseMessage FromArray(byte[] message)
         {
             Header header = Header.FromArray(message);
             int offset = header.Size;
@@ -59,21 +62,29 @@ namespace SAEA.DNS.Protocol
 
             if (header.Truncated)
             {
-                return new Response(header,
+                return new DnsResponseMessage(header,
                     Question.GetAllFromArray(message, offset, header.QuestionCount),
                     new List<IResourceRecord>(),
                     new List<IResourceRecord>(),
                     new List<IResourceRecord>());
             }
 
-            return new Response(header,
+            return new DnsResponseMessage(header,
                 Question.GetAllFromArray(message, offset, header.QuestionCount, out offset),
                 ResourceRecordFactory.GetAllFromArray(message, offset, header.AnswerRecordCount, out offset),
                 ResourceRecordFactory.GetAllFromArray(message, offset, header.AuthorityRecordCount, out offset),
                 ResourceRecordFactory.GetAllFromArray(message, offset, header.AdditionalRecordCount, out offset));
         }
 
-        public Response(Header header, IList<Question> questions, IList<IResourceRecord> answers,
+        /// <summary>
+        /// Dns回复数据消息体
+        /// </summary>
+        /// <param name="header"></param>
+        /// <param name="questions"></param>
+        /// <param name="answers"></param>
+        /// <param name="authority"></param>
+        /// <param name="additional"></param>
+        public DnsResponseMessage(Header header, IList<Question> questions, IList<IResourceRecord> answers,
                 IList<IResourceRecord> authority, IList<IResourceRecord> additional)
         {
             this.header = header;
@@ -83,7 +94,10 @@ namespace SAEA.DNS.Protocol
             this.additional = additional;
         }
 
-        public Response()
+        /// <summary>
+        /// Dns回复数据消息体
+        /// </summary>
+        public DnsResponseMessage()
         {
             this.header = new Header();
             this.questions = new List<Question>();
@@ -95,7 +109,11 @@ namespace SAEA.DNS.Protocol
             this.header.Id = RANDOM.Next(UInt16.MaxValue);
         }
 
-        public Response(IResponse response)
+        /// <summary>
+        /// Dns回复数据消息体
+        /// </summary>
+        /// <param name="response"></param>
+        public DnsResponseMessage(IResponse response)
         {
             this.header = new Header();
             this.questions = new List<Question>(response.Questions);

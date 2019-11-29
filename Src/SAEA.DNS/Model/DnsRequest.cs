@@ -38,22 +38,44 @@ namespace SAEA.DNS.Model
 
         private IRequest request;
 
+        /// <summary>
+        /// 请求
+        /// </summary>
+        /// <param name="dns"></param>
+        /// <param name="request"></param>
         public DnsRequest(IPEndPoint dns, IRequest request = null) :
             this(new UdpRequestCoder(dns), request)
         { }
 
+        /// <summary>
+        /// 请求
+        /// </summary>
+        /// <param name="ip"></param>
+        /// <param name="port"></param>
+        /// <param name="request"></param>
         public DnsRequest(IPAddress ip, int port = DEFAULT_PORT, IRequest request = null) :
             this(new IPEndPoint(ip, port), request)
         { }
 
+        /// <summary>
+        /// 请求
+        /// </summary>
+        /// <param name="ip"></param>
+        /// <param name="port"></param>
+        /// <param name="request"></param>
         public DnsRequest(string ip, int port = DEFAULT_PORT, IRequest request = null) :
             this(IPAddress.Parse(ip), port, request)
         { }
 
+        /// <summary>
+        /// 请求
+        /// </summary>
+        /// <param name="resolver"></param>
+        /// <param name="request"></param>
         public DnsRequest(IRequestCoder resolver, IRequest request = null)
         {
             this.resolver = resolver;
-            this.request = request == null ? new Request() : new Request(request);
+            this.request = request == null ? new Protocol.DnsRequestMessage() : new Protocol.DnsRequestMessage(request);
         }
 
         public int Id
@@ -100,15 +122,15 @@ namespace SAEA.DNS.Model
         }
 
         /// <summary>
-        /// 使用提供的DNS信息将此请求解析为响应。给定的请求策略用于检索响应。
+        /// 使用提供的DNS信息将此请求解析为响应,给定的请求策略用于检索响应。
         /// </summary>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
-        public async Task<IResponse> Resolve(CancellationToken cancellationToken = default(CancellationToken))
+        public async Task<IResponse> Query(CancellationToken cancellationToken = default(CancellationToken))
         {
             try
             {
-                IResponse response = await resolver.Resolve(this, cancellationToken);
+                IResponse response = await resolver.Code(this, cancellationToken);
 
                 if (response.Id != this.Id)
                 {

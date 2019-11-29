@@ -39,34 +39,69 @@ namespace SAEA.DNS
 
         private IRequestCoder resolver;
 
+        /// <summary>
+        /// DnsClient
+        /// </summary>
+        /// <param name="dns"></param>
         public DnsClient(IPEndPoint dns) :
             this(new UdpRequestCoder(dns, new TcpRequestCoder(dns)))
         { }
 
+        /// <summary>
+        /// DnsClient
+        /// </summary>
+        /// <param name="ip"></param>
+        /// <param name="port"></param>
         public DnsClient(IPAddress ip, int port = DEFAULT_PORT) :
             this(new IPEndPoint(ip, port))
         { }
 
+        /// <summary>
+        /// DnsClient
+        /// </summary>
+        /// <param name="ip"></param>
+        /// <param name="port"></param>
         public DnsClient(string ip = "119.29.29.29", int port = DEFAULT_PORT) :
             this(IPAddress.Parse(ip), port)
         { }
 
+        /// <summary>
+        /// DnsClient
+        /// </summary>
+        /// <param name="resolver"></param>
         public DnsClient(IRequestCoder resolver)
         {
             this.resolver = resolver;
         }
 
+        /// <summary>
+        /// 通过数据转换
+        /// </summary>
+        /// <param name="message"></param>
+        /// <returns></returns>
         public DnsRequest FromArray(byte[] message)
         {
-            Request request = Request.FromArray(message);
-            return new DnsRequest(resolver, request);
+            Protocol.DnsRequestMessage request = Protocol.DnsRequestMessage.FromArray(message);
+            return new Model.DnsRequest(resolver, request);
         }
 
+        /// <summary>
+        /// 创建一个DnsRequest
+        /// </summary>
+        /// <param name="request"></param>
+        /// <returns></returns>
         public DnsRequest Create(IRequest request = null)
         {
-            return new DnsRequest(resolver, request);
+            return new Model.DnsRequest(resolver, request);
         }
 
+        /// <summary>
+        /// 查询
+        /// </summary>
+        /// <param name="domain"></param>
+        /// <param name="type"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
         public async Task<IList<IPAddress>> Lookup(string domain, RecordType type = RecordType.A, CancellationToken cancellationToken = default(CancellationToken))
         {
             if (type != RecordType.A && type != RecordType.AAAA)
@@ -74,7 +109,7 @@ namespace SAEA.DNS
                 throw new ArgumentException("Invalid record type " + type);
             }
 
-            IResponse response = await Resolve(domain, type, cancellationToken);
+            IResponse response = await Query(domain, type, cancellationToken);
             IList<IPAddress> ips = response.AnswerRecords
                 .Where(r => r.Type == type)
                 .Cast<IPAddressResourceRecord>()
@@ -89,14 +124,26 @@ namespace SAEA.DNS
             return ips;
         }
 
+        /// <summary>
+        /// 反转查询
+        /// </summary>
+        /// <param name="ip"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
         public Task<string> Reverse(string ip, CancellationToken cancellationToken = default(CancellationToken))
         {
             return Reverse(IPAddress.Parse(ip), cancellationToken);
         }
 
+        /// <summary>
+        /// 反转查询
+        /// </summary>
+        /// <param name="ip"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
         public async Task<string> Reverse(IPAddress ip, CancellationToken cancellationToken = default(CancellationToken))
         {
-            IResponse response = await Resolve(Domain.PointerName(ip), RecordType.PTR, cancellationToken);
+            IResponse response = await Query(Domain.PointerName(ip), RecordType.PTR, cancellationToken);
             IResourceRecord ptr = response.AnswerRecords.FirstOrDefault(r => r.Type == RecordType.PTR);
 
             if (ptr == null)
@@ -107,21 +154,36 @@ namespace SAEA.DNS
             return ((PointerResourceRecord)ptr).PointerDomainName.ToString();
         }
 
-        public Task<IResponse> Resolve(string domain, RecordType type, CancellationToken cancellationToken = default(CancellationToken))
+        /// <summary>
+        /// 查询
+        /// </summary>
+        /// <param name="domain"></param>
+        /// <param name="type"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        public Task<IResponse> Query(string domain, RecordType type, CancellationToken cancellationToken = default(CancellationToken))
         {
-            return Resolve(new Domain(domain), type, cancellationToken);
+            return Query(new Domain(domain), type, cancellationToken);
         }
 
-        public Task<IResponse> Resolve(Domain domain, RecordType type, CancellationToken cancellationToken = default(CancellationToken))
+        /// <summary>
+        /// 查询
+        /// </summary>
+        /// <param name="domain"></param>
+        /// <param name="type"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        public Task<IResponse> Query(Domain domain, RecordType type, CancellationToken cancellationToken = default(CancellationToken))
         {
-            DnsRequest request = Create();
+            Model.DnsRequest request = Create();
+
             Question question = new Question(domain, type);
 
             request.Questions.Add(question);
             request.OperationCode = OperationCode.Query;
             request.RecursionDesired = true;
 
-            return request.Resolve(cancellationToken);
+            return request.Query(cancellationToken);
         }
     }
 }

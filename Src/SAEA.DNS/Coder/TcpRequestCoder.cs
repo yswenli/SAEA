@@ -26,16 +26,29 @@ using System.Threading.Tasks;
 
 namespace SAEA.DNS.Coder
 {
+    /// <summary>
+    /// tcp模式处理编解码
+    /// </summary>
     public class TcpRequestCoder : IRequestCoder
     {
         private IPEndPoint dns;
 
+        /// <summary>
+        /// tcp模式处理编解码
+        /// </summary>
+        /// <param name="dns"></param>
         public TcpRequestCoder(IPEndPoint dns)
         {
             this.dns = dns;
         }
 
-        public async Task<IResponse> Resolve(IRequest request, CancellationToken cancellationToken = default(CancellationToken))
+        /// <summary>
+        /// 编码处理
+        /// </summary>
+        /// <param name="request"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        public async Task<IResponse> Code(IRequest request, CancellationToken cancellationToken = default(CancellationToken))
         {
             var socketOption = SocketOptionBuilder.Instance
                 .UseStream()
@@ -75,9 +88,9 @@ namespace SAEA.DNS.Coder
 
                 await Read(stream, buffer, cancellationToken);
 
-                IResponse response = Response.FromArray(buffer);
+                IResponse response = Protocol.DnsResponseMessage.FromArray(buffer);
 
-                return new DnsResponse(request, response, buffer);
+                return new Model.DnsResponse(request, response, buffer);
             }
         }
 

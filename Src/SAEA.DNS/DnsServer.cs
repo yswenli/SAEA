@@ -15,17 +15,16 @@
 *版 本 号： v5.0.0.1
 *描    述：
 *****************************************************************************/
-using System;
-using System.Net;
-using System.Net.Sockets;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Runtime.InteropServices;
-using System.IO;
 using SAEA.DNS.Coder;
+using SAEA.DNS.Common.Utils;
 using SAEA.DNS.Model;
 using SAEA.DNS.Protocol;
-using SAEA.DNS.Common.Utils;
+using System;
+using System.IO;
+using System.Net;
+using System.Net.Sockets;
+using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using ResponseException = SAEA.DNS.Model.ResponseException;
 
 namespace SAEA.DNS
@@ -39,65 +38,111 @@ namespace SAEA.DNS
         private const int DEFAULT_PORT = 53;
         private const int UDP_TIMEOUT = 2000;
 
-        public event EventHandler<RequestedEventArgs> Requested;
-        public event EventHandler<RespondedEventArgs> Responded;
-        public event EventHandler<EventArgs> Listening;
-        public event EventHandler<ErroredEventArgs> Errored;
+        public event EventHandler<RequestedEventArgs> OnRequested;
+        public event EventHandler<RespondedEventArgs> OnResponded;
+        public event EventHandler<EventArgs> OnListening;
+        public event EventHandler<ErroredEventArgs> OnErrored;
 
-        private bool run = true;
-        private bool disposed = false;
-        private UdpClient udp;
-        private IRequestCoder resolver;
+        private bool _run = true;
+        private bool _disposed = false;
+        private UdpClient _udp;
+        private IRequestCoder _coder;
 
-        public DnsServer(DnsDataFile masterFile, IPEndPoint endServer) :
-            this(new FallbackRequestResolver(masterFile, new UdpRequestCoder(endServer)))
+        /// <summary>
+        /// DnsServer
+        /// </summary>
+        /// <param name="dnsRecords"></param>
+        /// <param name="endServer"></param>
+        public DnsServer(DnsRecords dnsRecords, IPEndPoint endServer) :
+            this(new FallbackRequestCoder(dnsRecords, new UdpRequestCoder(endServer)))
         { }
 
-        public DnsServer(DnsDataFile masterFile, IPAddress endServer, int port = DEFAULT_PORT) :
-            this(masterFile, new IPEndPoint(endServer, port))
+        /// <summary>
+        /// DnsServer
+        /// </summary>
+        /// <param name="dnsRecords"></param>
+        /// <param name="endServer"></param>
+        /// <param name="port"></param>
+        public DnsServer(DnsRecords dnsRecords, IPAddress endServer, int port = DEFAULT_PORT) :
+            this(dnsRecords, new IPEndPoint(endServer, port))
         { }
 
-        public DnsServer(DnsDataFile masterFile, string endServer="119.29.29.29", int port = DEFAULT_PORT) :
-            this(masterFile, IPAddress.Parse(endServer), port)
+        /// <summary>
+        /// DnsServer
+        /// </summary>
+        /// <param name="dnsRecords"></param>
+        /// <param name="endServer"></param>
+        /// <param name="port"></param>
+        public DnsServer(DnsRecords dnsRecords, string endServer = "119.29.29.29", int port = DEFAULT_PORT) :
+            this(dnsRecords, IPAddress.Parse(endServer), port)
         { }
 
+        /// <summary>
+        /// DnsServer
+        /// </summary>
+        /// <param name="endServer"></param>
         public DnsServer(IPEndPoint endServer) :
             this(new UdpRequestCoder(endServer))
         { }
 
+        /// <summary>
+        /// DnsServer
+        /// </summary>
+        /// <param name="endServer"></param>
+        /// <param name="port"></param>
         public DnsServer(IPAddress endServer, int port = DEFAULT_PORT) :
             this(new IPEndPoint(endServer, port))
         { }
 
+        /// <summary>
+        /// DnsServer
+        /// </summary>
+        /// <param name="endServer"></param>
+        /// <param name="port"></param>
         public DnsServer(string endServer, int port = DEFAULT_PORT) :
             this(IPAddress.Parse(endServer), port)
         { }
 
-        public DnsServer(IRequestCoder resolver)
+        /// <summary>
+        /// DnsServer
+        /// </summary>
+        /// <param name="coder"></param>
+        public DnsServer(IRequestCoder coder)
         {
-            this.resolver = resolver;
+            this._coder = coder;
         }
 
-        public Task Listen(int port = DEFAULT_PORT, IPAddress ip = null)
+        /// <summary>
+        /// 启动服务
+        /// </summary>
+        /// <param name="port"></param>
+        /// <param name="ip"></param>
+        /// <returns></returns>
+        public Task Start(int port = DEFAULT_PORT, IPAddress ip = null)
         {
-            return Listen(new IPEndPoint(ip ?? IPAddress.Any, port));
+            return Start(new IPEndPoint(ip ?? IPAddress.Any, port));
         }
 
-        public async Task Listen(IPEndPoint endpoint)
+        /// <summary>
+        /// 启动服务
+        /// </summary>
+        /// <param name="endpoint"></param>
+        /// <returns></returns>
+        public async Task Start(IPEndPoint endpoint)
         {
             await Task.Yield();
 
             TaskCompletionSource<object> tcs = new TaskCompletionSource<object>();
 
-            if (run)
+            if (_run)
             {
                 try
                 {
-                    udp = new UdpClient(endpoint);
+                    _udp = new UdpClient(endpoint);
 
                     if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                     {
-                        udp.Client.IOControl(SIO_UDP_CONNRESET, new byte[4], new byte[4]);
+                        _udp.Client.IOControl(SIO_UDP_CONNRESET, new byte[4], new byte[4]);
                     }
                 }
                 catch (SocketException e)
@@ -108,6 +153,7 @@ namespace SAEA.DNS
             }
 
             AsyncCallback receiveCallback = null;
+
             receiveCallback = result =>
             {
                 byte[] data;
@@ -115,25 +161,24 @@ namespace SAEA.DNS
                 try
                 {
                     IPEndPoint remote = new IPEndPoint(0, 0);
-                    data = udp.EndReceive(result, ref remote);
+                    data = _udp.EndReceive(result, ref remote);
                     HandleRequest(data, remote);
                 }
                 catch (ObjectDisposedException)
                 {
-                    // 运行应该已经是错误的
-                    run = false;
+                    _run = false;
                 }
                 catch (SocketException e)
                 {
                     OnError(e);
                 }
 
-                if (run) udp.BeginReceive(receiveCallback, null);
+                if (_run) _udp.BeginReceive(receiveCallback, null);
                 else tcs.SetResult(null);
             };
 
-            udp.BeginReceive(receiveCallback, null);
-            OnEvent(Listening, EventArgs.Empty);
+            _udp.BeginReceive(receiveCallback, null);
+            OnEvent(OnListening, EventArgs.Empty);
             await tcs.Task;
         }
 
@@ -149,38 +194,38 @@ namespace SAEA.DNS
 
         protected virtual void Dispose(bool disposing)
         {
-            if (!disposed)
+            if (!_disposed)
             {
-                disposed = true;
+                _disposed = true;
 
                 if (disposing)
                 {
-                    run = false;
-                    udp?.Dispose();
+                    _run = false;
+                    _udp?.Dispose();
                 }
             }
         }
 
         private void OnError(Exception e)
         {
-            OnEvent(Errored, new ErroredEventArgs(e));
+            OnEvent(OnErrored, new ErroredEventArgs(e));
         }
 
         private async void HandleRequest(byte[] data, IPEndPoint remote)
         {
-            Request request = null;
+            Protocol.DnsRequestMessage request = null;
 
             try
             {
-                request = Request.FromArray(data);
-                OnEvent(Requested, new RequestedEventArgs(request, data, remote));
+                request = Protocol.DnsRequestMessage.FromArray(data);
 
-                IResponse response = await resolver.Resolve(request);
+                OnEvent(OnRequested, new RequestedEventArgs(request, data, remote));
 
-                OnEvent(Responded, new RespondedEventArgs(request, response, data, remote));
-                await udp
-                    .SendAsync(response.ToArray(), response.Size, remote)
-                    .WithCancellationTimeout(TimeSpan.FromMilliseconds(UDP_TIMEOUT));
+                IResponse response = await _coder.Code(request);
+
+                OnEvent(OnResponded, new RespondedEventArgs(request, response, data, remote));
+
+                await _udp.SendAsync(response.ToArray(), response.Size, remote).WithCancellationTimeout(TimeSpan.FromMilliseconds(UDP_TIMEOUT));
             }
             catch (SocketException e) { OnError(e); }
             catch (ArgumentException e) { OnError(e); }
@@ -194,118 +239,18 @@ namespace SAEA.DNS
 
                 if (response == null)
                 {
-                    response = Response.FromRequest(request);
+                    response = Protocol.DnsResponseMessage.FromRequest(request);
                 }
 
                 try
                 {
-                    await udp
+                    await _udp
                         .SendAsync(response.ToArray(), response.Size, remote)
                         .WithCancellationTimeout(TimeSpan.FromMilliseconds(UDP_TIMEOUT));
                 }
                 catch (SocketException) { }
                 catch (OperationCanceledException) { }
                 finally { OnError(e); }
-            }
-        }
-
-        public class RequestedEventArgs : EventArgs
-        {
-            public RequestedEventArgs(IRequest request, byte[] data, IPEndPoint remote)
-            {
-                Request = request;
-                Data = data;
-                Remote = remote;
-            }
-
-            public IRequest Request
-            {
-                get;
-                private set;
-            }
-
-            public byte[] Data
-            {
-                get;
-                private set;
-            }
-
-            public IPEndPoint Remote
-            {
-                get;
-                private set;
-            }
-        }
-
-        public class RespondedEventArgs : EventArgs
-        {
-            public RespondedEventArgs(IRequest request, IResponse response, byte[] data, IPEndPoint remote)
-            {
-                Request = request;
-                Response = response;
-                Data = data;
-                Remote = remote;
-            }
-
-            public IRequest Request
-            {
-                get;
-                private set;
-            }
-
-            public IResponse Response
-            {
-                get;
-                private set;
-            }
-
-            public byte[] Data
-            {
-                get;
-                private set;
-            }
-
-            public IPEndPoint Remote
-            {
-                get;
-                private set;
-            }
-        }
-
-        public class ErroredEventArgs : EventArgs
-        {
-            public ErroredEventArgs(Exception e)
-            {
-                Exception = e;
-            }
-
-            public Exception Exception
-            {
-                get;
-                private set;
-            }
-        }
-
-        private class FallbackRequestResolver : IRequestCoder
-        {
-            private IRequestCoder[] resolvers;
-
-            public FallbackRequestResolver(params IRequestCoder[] resolvers)
-            {
-                this.resolvers = resolvers;
-            }
-
-            public async Task<IResponse> Resolve(IRequest request, CancellationToken cancellationToken = default(CancellationToken))
-            {
-                IResponse response = null;
-
-                foreach (IRequestCoder resolver in resolvers)
-                {
-                    response = await resolver.Resolve(request, cancellationToken);
-                    if (response.AnswerRecords.Count > 0) break;
-                }
-
-                return response;
             }
         }
     }

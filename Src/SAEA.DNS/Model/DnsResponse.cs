@@ -32,7 +32,7 @@ namespace SAEA.DNS.Model
 
         public static DnsResponse FromArray(IRequest request, byte[] message)
         {
-            Response response = Response.FromArray(message);
+            Protocol.DnsResponseMessage response = Protocol.DnsResponseMessage.FromArray(message);
             return new DnsResponse(request, response, message);
         }
 
