@@ -90,7 +90,7 @@ namespace SAEA.DNS.Coder
 
                 IResponse response = Protocol.DnsResponseMessage.FromArray(buffer);
 
-                return new Model.DnsResponse(request, response, buffer);
+                return new Model.DnsClientResponse(request, response, buffer);
             }
         }
 

@@ -86,7 +86,7 @@ namespace SAEA.DNS.Coder
                     return await fallback.Code(request, cancellationToken);
                 }
 
-                return new Model.DnsResponse(request, response, buffer);
+                return new Model.DnsClientResponse(request, response, buffer);
             }
         }
     }

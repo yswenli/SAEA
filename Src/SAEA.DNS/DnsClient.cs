@@ -35,9 +35,7 @@ namespace SAEA.DNS
     {
         private const int DEFAULT_PORT = 53;
 
-        private static readonly Random RANDOM = new Random();
-
-        private IRequestCoder resolver;
+        private IRequestCoder _coder;
 
         /// <summary>
         /// DnsClient
@@ -68,10 +66,10 @@ namespace SAEA.DNS
         /// <summary>
         /// DnsClient
         /// </summary>
-        /// <param name="resolver"></param>
-        public DnsClient(IRequestCoder resolver)
+        /// <param name="coder"></param>
+        public DnsClient(IRequestCoder coder)
         {
-            this.resolver = resolver;
+            this._coder = coder;
         }
 
         /// <summary>
@@ -79,10 +77,10 @@ namespace SAEA.DNS
         /// </summary>
         /// <param name="message"></param>
         /// <returns></returns>
-        public DnsRequest FromArray(byte[] message)
+        public DnsClientRequest FromArray(byte[] message)
         {
-            Protocol.DnsRequestMessage request = Protocol.DnsRequestMessage.FromArray(message);
-            return new Model.DnsRequest(resolver, request);
+            DnsRequestMessage request = DnsRequestMessage.FromArray(message);
+            return new DnsClientRequest(_coder, request);
         }
 
         /// <summary>
@@ -90,9 +88,9 @@ namespace SAEA.DNS
         /// </summary>
         /// <param name="request"></param>
         /// <returns></returns>
-        public DnsRequest Create(IRequest request = null)
+        public DnsClientRequest Create(IRequest request = null)
         {
-            return new Model.DnsRequest(resolver, request);
+            return new DnsClientRequest(_coder, request);
         }
 
         /// <summary>
@@ -144,6 +142,7 @@ namespace SAEA.DNS
         public async Task<string> Reverse(IPAddress ip, CancellationToken cancellationToken = default(CancellationToken))
         {
             IResponse response = await Query(Domain.PointerName(ip), RecordType.PTR, cancellationToken);
+
             IResourceRecord ptr = response.AnswerRecords.FirstOrDefault(r => r.Type == RecordType.PTR);
 
             if (ptr == null)
@@ -175,7 +174,7 @@ namespace SAEA.DNS
         /// <returns></returns>
         public Task<IResponse> Query(Domain domain, RecordType type, CancellationToken cancellationToken = default(CancellationToken))
         {
-            Model.DnsRequest request = Create();
+            DnsClientRequest request = Create();
 
             Question question = new Question(domain, type);
 

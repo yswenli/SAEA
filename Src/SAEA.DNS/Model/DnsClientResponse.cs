@@ -3,7 +3,7 @@
 *CLR 版本：3.0
 *机器名称：WENLI-PC
 *命名空间：SAEA.DNS.Model
-*类 名 称：DnsResponse
+*类 名 称：DnsClientResponse
 *版 本 号：v5.0.0.1
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
@@ -25,25 +25,36 @@ namespace SAEA.DNS.Model
     /// <summary>
     /// 响应
     /// </summary>
-    public class DnsResponse : IResponse
+    public class DnsClientResponse : DnsResponseMessage, IResponse
     {
         private IResponse response;
         private byte[] message;
 
-        public static DnsResponse FromArray(IRequest request, byte[] message)
+        public static DnsClientResponse FromArray(IRequest request, byte[] message)
         {
-            Protocol.DnsResponseMessage response = Protocol.DnsResponseMessage.FromArray(message);
-            return new DnsResponse(request, response, message);
+            DnsResponseMessage response = DnsResponseMessage.FromArray(message);
+
+            return new DnsClientResponse(request, response, message);
         }
 
-        internal DnsResponse(IRequest request, IResponse response, byte[] message)
+        /// <summary>
+        /// 响应
+        /// </summary>
+        /// <param name="request"></param>
+        /// <param name="response"></param>
+        /// <param name="message"></param>
+        internal DnsClientResponse(IRequest request, IResponse response, byte[] message)
         {
             Request = request;
             this.message = message;
             this.response = response;
         }
-
-        internal DnsResponse(IRequest request, IResponse response)
+        /// <summary>
+        /// 响应
+        /// </summary>
+        /// <param name="request"></param>
+        /// <param name="response"></param>
+        internal DnsClientResponse(IRequest request, IResponse response)
         {
             Request = request;
 

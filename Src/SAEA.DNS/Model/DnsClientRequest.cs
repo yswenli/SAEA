@@ -3,7 +3,7 @@
 *CLR 版本：3.0
 *机器名称：WENLI-PC
 *命名空间：SAEA.DNS.Model
-*类 名 称：DnsRequest
+*类 名 称：DnsClientRequest
 *版 本 号：v5.0.0.1
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
@@ -16,11 +16,8 @@
 *描    述：
 *****************************************************************************/
 using SAEA.DNS.Coder;
-using SAEA.DNS.Common.ResourceRecords;
 using SAEA.DNS.Protocol;
 using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -30,20 +27,28 @@ namespace SAEA.DNS.Model
     /// <summary>
     /// 请求
     /// </summary>
-    public class DnsRequest : IRequest
+    public class DnsClientRequest : DnsRequestMessage, IRequest
     {
         private const int DEFAULT_PORT = 53;
 
-        private IRequestCoder resolver;
+        private IRequestCoder _coder;
 
-        private IRequest request;
+        private IRequest _request;
+
+        /// <summary>
+        /// 请求
+        /// </summary>
+        public DnsClientRequest() : base()
+        {
+
+        }
 
         /// <summary>
         /// 请求
         /// </summary>
         /// <param name="dns"></param>
         /// <param name="request"></param>
-        public DnsRequest(IPEndPoint dns, IRequest request = null) :
+        public DnsClientRequest(IPEndPoint dns, IRequest request = null) :
             this(new UdpRequestCoder(dns), request)
         { }
 
@@ -53,7 +58,7 @@ namespace SAEA.DNS.Model
         /// <param name="ip"></param>
         /// <param name="port"></param>
         /// <param name="request"></param>
-        public DnsRequest(IPAddress ip, int port = DEFAULT_PORT, IRequest request = null) :
+        public DnsClientRequest(IPAddress ip, int port = DEFAULT_PORT, IRequest request = null) :
             this(new IPEndPoint(ip, port), request)
         { }
 
@@ -63,63 +68,20 @@ namespace SAEA.DNS.Model
         /// <param name="ip"></param>
         /// <param name="port"></param>
         /// <param name="request"></param>
-        public DnsRequest(string ip, int port = DEFAULT_PORT, IRequest request = null) :
+        public DnsClientRequest(string ip, int port = DEFAULT_PORT, IRequest request = null) :
             this(IPAddress.Parse(ip), port, request)
         { }
 
         /// <summary>
         /// 请求
         /// </summary>
-        /// <param name="resolver"></param>
+        /// <param name="coder"></param>
         /// <param name="request"></param>
-        public DnsRequest(IRequestCoder resolver, IRequest request = null)
+        public DnsClientRequest(IRequestCoder coder, IRequest request = null)
         {
-            this.resolver = resolver;
-            this.request = request == null ? new Protocol.DnsRequestMessage() : new Protocol.DnsRequestMessage(request);
-        }
-
-        public int Id
-        {
-            get { return request.Id; }
-            set { request.Id = value; }
-        }
-
-        public IList<IResourceRecord> AdditionalRecords
-        {
-            get { return new ReadOnlyCollection<IResourceRecord>(request.AdditionalRecords); }
-        }
-
-        public OperationCode OperationCode
-        {
-            get { return request.OperationCode; }
-            set { request.OperationCode = value; }
-        }
-
-        public bool RecursionDesired
-        {
-            get { return request.RecursionDesired; }
-            set { request.RecursionDesired = value; }
-        }
-
-        public IList<Question> Questions
-        {
-            get { return request.Questions; }
-        }
-
-        public int Size
-        {
-            get { return request.Size; }
-        }
-
-        public byte[] ToArray()
-        {
-            return request.ToArray();
-        }
-
-        public override string ToString()
-        {
-            return request.ToString();
-        }
+            this._coder = coder;
+            this._request = request == null ? new DnsRequestMessage() : new DnsRequestMessage(request);
+        }        
 
         /// <summary>
         /// 使用提供的DNS信息将此请求解析为响应,给定的请求策略用于检索响应。
@@ -130,7 +92,7 @@ namespace SAEA.DNS.Model
         {
             try
             {
-                IResponse response = await resolver.Code(this, cancellationToken);
+                IResponse response = await _coder.Code(this, cancellationToken);
 
                 if (response.Id != this.Id)
                 {
