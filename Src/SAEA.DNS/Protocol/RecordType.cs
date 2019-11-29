@@ -3,8 +3,8 @@
 *CLR 版本：3.0
 *机器名称：WENLI-PC
 *命名空间：SAEA.DNS.Protocol
-*类 名 称：DnsQuery
-*版 本 号： v5.0.0.1
+*类 名 称：RecordType
+*版 本 号：v5.0.0.1
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
 *创建时间：2019/11/28 22:43:28
@@ -14,17 +14,13 @@
 *修 改 人： yswenli
 *版 本 号： v5.0.0.1
 *描    述：
-****************************************************************************/
-using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace SAEA.DNS.Protocol
+*****************************************************************************/
+namespace SAEA.DNS.Protocol 
 {
     /// <summary>
-    /// 查询类型
+    /// 数据类型
     /// </summary>
-    public enum QueryType : ushort
+    public enum RecordType
     {
         /// <summary>
         /// 由域名获得IPv4地址
@@ -53,15 +49,21 @@ namespace SAEA.DNS.Protocol
         /// <summary>
         /// 主机信息
         /// </summary>
-        HINFO = 13,
+        MX = 15,
         /// <summary>
         /// 邮件交换
         /// </summary>
-        MX = 15,
+        TXT = 16,
         /// <summary>
         /// 由域名获得IPv6地址
         /// </summary>
         AAAA = 28,
+        /// <summary>
+        /// 服务定位（SRV）资源记录
+        /// </summary>
+        SRV = 33,
+
+        OPT = 41,
         /// <summary>
         /// 传送整个区的请求
         /// </summary>
@@ -69,7 +71,6 @@ namespace SAEA.DNS.Protocol
         /// <summary>
         /// 对所有记录的请求
         /// </summary>
-        ANY = 255
-
+        ANY = 255,
     }
 }

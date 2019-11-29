@@ -36,8 +36,6 @@ namespace SAEA.Common
     {
         ConcurrentDictionary<string, MemoryCacheItem<T>> _dic;
 
-        bool _disposed = false;
-
         object _synclocker = new object();
 
 
@@ -102,7 +100,6 @@ namespace SAEA.Common
 
         public void Dispose()
         {
-            _disposed = true;
             _dic.Clear();
             _dic = null;
         }

@@ -2,9 +2,9 @@
 *项目名称：SAEA.DNS
 *CLR 版本：3.0
 *机器名称：WENLI-PC
-*命名空间：SAEA.DNS
-*类 名 称：DnsRequest
-*版 本 号： v5.0.0.1
+*命名空间：SAEA.DNS.Common.Marshalling
+*类 名 称：Endianness
+*版 本 号：v5.0.0.1
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
 *创建时间：2019/11/28 22:43:28
@@ -15,14 +15,13 @@
 *版 本 号： v5.0.0.1
 *描    述：
 *****************************************************************************/
-using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace SAEA.DNS
+namespace SAEA.DNS.Common.Marshalling
 {
-    public class DnsRequest
-    {
-       
+    /// <summary>
+    /// 编码顺序
+    /// </summary>
+    public enum Endianness {
+        Big,
+        Little,
     }
 }
