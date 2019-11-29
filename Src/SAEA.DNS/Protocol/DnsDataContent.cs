@@ -1,8 +1,8 @@
 ﻿/****************************************************************************
-*项目名称：SAEA.Common
+*项目名称：SAEA.DNS
 *CLR 版本：3.0
 *机器名称：WENLI-PC
-*命名空间：SAEA.DNS
+*命名空间：SAEA.DNS.Protocol
 *类 名 称：DnsDataContent
 *版 本 号： v5.0.0.1
 *创建人： yswenli
