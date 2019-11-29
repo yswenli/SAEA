@@ -10,7 +10,7 @@ namespace SAEA.DNSTest
     {
         public async static Task LookupAsync(params string[] args)
         {
-            DnsClient client = new DnsClient("127.0.0.1");
+            DnsClient client = new DnsClient("127.0.0.1", 53);
 
             foreach (string domain in args)
             {

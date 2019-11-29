@@ -30,7 +30,7 @@ namespace SAEA.DNSTest
                             break;
 
                         default:
-                            Server.InitAsync().GetAwaiter().GetResult();
+                            Server.Init();
                             Client.LookupAsync("baidu.com").GetAwaiter().GetResult();
                             break;
                     }

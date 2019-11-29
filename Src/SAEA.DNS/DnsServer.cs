@@ -57,7 +57,7 @@ namespace SAEA.DNS
             this(masterFile, new IPEndPoint(endServer, port))
         { }
 
-        public DnsServer(DnsDataFile masterFile, string endServer, int port = DEFAULT_PORT) :
+        public DnsServer(DnsDataFile masterFile, string endServer="119.29.29.29", int port = DEFAULT_PORT) :
             this(masterFile, IPAddress.Parse(endServer), port)
         { }
 

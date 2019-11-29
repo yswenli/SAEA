@@ -47,7 +47,7 @@ namespace SAEA.DNS
             this(new IPEndPoint(ip, port))
         { }
 
-        public DnsClient(string ip, int port = DEFAULT_PORT) :
+        public DnsClient(string ip = "119.29.29.29", int port = DEFAULT_PORT) :
             this(IPAddress.Parse(ip), port)
         { }
 
