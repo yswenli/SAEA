@@ -211,7 +211,7 @@ namespace SAEA.RPC.Net
                     {
                         foreach (var item in list)
                         {
-                            TaskHelper.Start(() => { onServerUnpacked.Invoke(item); });
+                            TaskHelper.Run(() => { onServerUnpacked.Invoke(item); });
                         }
                         _buffer.RemoveRange(0, (int)offset);
                     }

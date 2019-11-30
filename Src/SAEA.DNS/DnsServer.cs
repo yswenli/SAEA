@@ -15,6 +15,7 @@
 *版 本 号： v5.0.0.1
 *描    述：
 *****************************************************************************/
+using SAEA.Common;
 using SAEA.DNS.Coder;
 using SAEA.DNS.Common.Utils;
 using SAEA.DNS.Model;
@@ -34,7 +35,7 @@ namespace SAEA.DNS
     /// </summary>
     public class DnsServer : IDisposable
     {
-        
+
         private const int SIO_UDP_CONNRESET = unchecked((int)0x9800000C);
         private const int DEFAULT_PORT = 53;
         private const int UDP_TIMEOUT = 2000;
@@ -218,11 +219,11 @@ namespace SAEA.DNS
 
         private async void HandleRequest(byte[] data, IPEndPoint remote)
         {
-            Protocol.DnsRequestMessage request = null;
+            DnsRequestMessage request = null;
 
             try
             {
-                request = Protocol.DnsRequestMessage.FromArray(data);
+                request = DnsRequestMessage.FromArray(data);
 
                 OnEvent(OnRequested, new RequestedEventArgs(request, data, remote));
 
@@ -249,9 +250,7 @@ namespace SAEA.DNS
 
                 try
                 {
-                    await _udp
-                        .SendAsync(response.ToArray(), response.Size, remote)
-                        .WithCancellationTimeout(TimeSpan.FromMilliseconds(UDP_TIMEOUT));
+                    await _udp.SendAsync(response.ToArray(), response.Size, remote).WithCancellationTimeout(TimeSpan.FromMilliseconds(UDP_TIMEOUT));
                 }
                 catch (SocketException) { }
                 catch (OperationCanceledException) { }

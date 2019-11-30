@@ -62,7 +62,7 @@ namespace SAEA.FTP
             _client.Connect();
             OnConnected?.Invoke();
             _Actived = DateTime.Now;
-            TaskHelper.Start(() =>
+            TaskHelper.Run(() =>
             {
                 while (Connected)
                 {
@@ -262,7 +262,7 @@ namespace SAEA.FTP
 
                 long offset = 0;
 
-                TaskHelper.Start(() =>
+                TaskHelper.Run(() =>
                 {
                     while (running && _client.Connected)
                     {
@@ -330,7 +330,7 @@ namespace SAEA.FTP
 
             long offset = 0;
 
-            TaskHelper.Start(() =>
+            TaskHelper.Run(() =>
             {
                 while (running && _client.Connected)
                 {

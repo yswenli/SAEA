@@ -15,6 +15,7 @@
 *版 本 号： v5.0.0.1
 *描    述：
 *****************************************************************************/
+using SAEA.Common;
 using SAEA.MQTT.Common;
 using SAEA.MQTT.Common.Log;
 using SAEA.MQTT.Core.Packets;
@@ -335,7 +336,7 @@ namespace SAEA.MQTT.Core
             try
             {
                 await _adapter.SendPacketAsync(requestPacket, cancellationToken).ConfigureAwait(false);
-                var respone = await Common.TaskExtensions.TimeoutAfterAsync(ct => packetAwaiter.Task, Options.CommunicationTimeout, cancellationToken).ConfigureAwait(false);
+                var respone = await TaskHelper.TimeoutAfterAsync(ct => packetAwaiter.Task, Options.CommunicationTimeout, cancellationToken).ConfigureAwait(false);
 
                 return (TResponsePacket)respone;
             }

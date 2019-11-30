@@ -140,7 +140,7 @@ namespace SAEA.RPC.Net
         /// </summary>
         internal void KeepAlive()
         {
-            TaskHelper.Start(() =>
+            TaskHelper.Run(() =>
             {
                 while (!_isDisposed)
                 {

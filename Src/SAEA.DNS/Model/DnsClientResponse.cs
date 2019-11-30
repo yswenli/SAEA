@@ -25,10 +25,11 @@ namespace SAEA.DNS.Model
     /// <summary>
     /// 响应
     /// </summary>
-    public class DnsClientResponse : DnsResponseMessage, IResponse
+    public class DnsClientResponse : IResponse
     {
-        private IResponse response;
-        private byte[] message;
+        private IResponse _response;
+
+        private byte[] _message;
 
         public static DnsClientResponse FromArray(IRequest request, byte[] message)
         {
@@ -46,8 +47,8 @@ namespace SAEA.DNS.Model
         internal DnsClientResponse(IRequest request, IResponse response, byte[] message)
         {
             Request = request;
-            this.message = message;
-            this.response = response;
+            this._message = message;
+            this._response = response;
         }
         /// <summary>
         /// 响应
@@ -58,8 +59,8 @@ namespace SAEA.DNS.Model
         {
             Request = request;
 
-            this.message = response.ToArray();
-            this.response = response;
+            this._message = response.ToArray();
+            this._response = response;
         }
 
         public IRequest Request
@@ -70,85 +71,85 @@ namespace SAEA.DNS.Model
 
         public int Id
         {
-            get { return response.Id; }
+            get { return _response.Id; }
             set { }
         }
 
         public IList<IResourceRecord> AnswerRecords
         {
-            get { return response.AnswerRecords; }
+            get { return _response.AnswerRecords; }
         }
 
         public IList<IResourceRecord> AuthorityRecords
         {
-            get { return new ReadOnlyCollection<IResourceRecord>(response.AuthorityRecords); }
+            get { return new ReadOnlyCollection<IResourceRecord>(_response.AuthorityRecords); }
         }
 
         public IList<IResourceRecord> AdditionalRecords
         {
-            get { return new ReadOnlyCollection<IResourceRecord>(response.AdditionalRecords); }
+            get { return new ReadOnlyCollection<IResourceRecord>(_response.AdditionalRecords); }
         }
 
         public bool RecursionAvailable
         {
-            get { return response.RecursionAvailable; }
+            get { return _response.RecursionAvailable; }
             set { }
         }
 
         public bool AuthenticData
         {
-            get { return response.AuthenticData; }
+            get { return _response.AuthenticData; }
             set { }
         }
 
         public bool CheckingDisabled
         {
-            get { return response.CheckingDisabled; }
+            get { return _response.CheckingDisabled; }
             set { }
         }
 
         public bool AuthorativeServer
         {
-            get { return response.AuthorativeServer; }
+            get { return _response.AuthorativeServer; }
             set { }
         }
 
         public bool Truncated
         {
-            get { return response.Truncated; }
+            get { return _response.Truncated; }
             set { }
         }
 
         public OperationCode OperationCode
         {
-            get { return response.OperationCode; }
+            get { return _response.OperationCode; }
             set { }
         }
 
         public ResponseCode ResponseCode
         {
-            get { return response.ResponseCode; }
+            get { return _response.ResponseCode; }
             set { }
         }
 
         public IList<Question> Questions
         {
-            get { return new ReadOnlyCollection<Question>(response.Questions); }
+            get { return new ReadOnlyCollection<Question>(_response.Questions); }
         }
 
         public int Size
         {
-            get { return message.Length; }
+            get { return _message.Length; }
         }
 
         public byte[] ToArray()
         {
-            return message;
+            return _message;
         }
 
         public override string ToString()
         {
-            return response.ToString();
+            return _response.ToString();
         }
     }
 }

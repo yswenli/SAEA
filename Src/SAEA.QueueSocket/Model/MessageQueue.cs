@@ -52,7 +52,7 @@ namespace SAEA.QueueSocket.Model
         {
             _list = new ConcurrentDictionary<string, QueueBase>();
 
-            TaskHelper.Start(() =>
+            TaskHelper.Run(() =>
             {
                 while (!_isDisposed)
                 {

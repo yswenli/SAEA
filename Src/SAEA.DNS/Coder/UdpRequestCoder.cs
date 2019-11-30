@@ -15,6 +15,7 @@
 *版 本 号： v5.0.0.1
 *描    述：
 *****************************************************************************/
+using SAEA.Common;
 using SAEA.DNS.Common.Utils;
 using SAEA.DNS.Protocol;
 using System;

@@ -381,7 +381,7 @@ namespace SAEA.RPCTest
 
             var started = true;
 
-            TaskHelper.Start(() =>
+            TaskHelper.Run(() =>
             {
                 while (started)
                 {

@@ -140,7 +140,7 @@ namespace SAEA.RedisSocket
         /// </summary>
         private void KeepAlive()
         {
-            TaskHelper.Start(() =>
+            TaskHelper.Run(() =>
             {
                 while (_cnn.IsConnected)
                 {

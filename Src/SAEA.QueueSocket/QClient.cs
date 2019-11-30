@@ -82,7 +82,7 @@ namespace SAEA.QueueSocket
 
         private void HeartAsync()
         {
-            TaskHelper.Start(() =>
+            TaskHelper.Run(() =>
             {
                 try
                 {

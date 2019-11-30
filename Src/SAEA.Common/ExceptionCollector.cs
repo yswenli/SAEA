@@ -44,7 +44,7 @@ namespace SAEA.Common
         /// </summary>
         static ExceptionCollector()
         {
-            TaskHelper.Start(() =>
+            TaskHelper.Run(() =>
             {
                 while (!_isClose)
                 {

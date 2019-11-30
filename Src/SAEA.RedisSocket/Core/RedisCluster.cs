@@ -168,7 +168,7 @@ namespace SAEA.RedisSocket
             {
                 if (!RedisConnectionManager.Exsits(item.IPPort))
                 {
-                    TaskHelper.Start(() =>
+                    TaskHelper.Run(() =>
                     {
                         var cnn = new RedisConnection(item.IPPort);
                         cnn.OnRedirect += _redisConnection_OnRedirect;

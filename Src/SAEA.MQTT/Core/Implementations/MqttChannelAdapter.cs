@@ -15,6 +15,7 @@
 *版 本 号： v5.0.0.1
 *描    述：
 *****************************************************************************/
+using SAEA.Common;
 using SAEA.MQTT.Common;
 using SAEA.MQTT.Common.Log;
 using SAEA.MQTT.Common.Serializer;
@@ -71,7 +72,7 @@ namespace SAEA.MQTT.Core.Implementations
             {
                 _logger.Verbose("Connecting [Timeout={0}]", timeout);
 
-                await Common.TaskExtensions
+                await TaskHelper
                     .TimeoutAfterAsync(ct => _channel.ConnectAsync(), timeout, cancellationToken)
                     .ConfigureAwait(false);
             }
@@ -94,7 +95,7 @@ namespace SAEA.MQTT.Core.Implementations
             {
                 _logger.Verbose("Disconnecting [Timeout={0}]", timeout);
 
-                await Common.TaskExtensions
+                await TaskHelper
                     .TimeoutAfterAsync(ct => _channel.DisconnectAsync(), timeout, cancellationToken)
                     .ConfigureAwait(false);
             }
@@ -145,7 +146,7 @@ namespace SAEA.MQTT.Core.Implementations
 
                 if (timeout > TimeSpan.Zero)
                 {
-                    receivedMqttPacket = await Common.TaskExtensions.TimeoutAfterAsync(ReceiveAsync, timeout, cancellationToken).ConfigureAwait(false);
+                    receivedMqttPacket = await TaskHelper.TimeoutAfterAsync(ReceiveAsync, timeout, cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
@@ -209,8 +210,7 @@ namespace SAEA.MQTT.Core.Implementations
                     }
 
 
-                    // async/await is not used to avoid the overhead of context switches. We assume that the reamining data
-                    // has been sent from the sender directly after the initial bytes.
+                    //async/await不用于避免上下文切换的开销。我们假设扩孔数据已从发件人直接发送到初始字节之后。
                     var readBytes = _channel.ReadAsync(body, bodyOffset, chunkSize, cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
 
 

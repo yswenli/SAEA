@@ -145,13 +145,13 @@ namespace SAEA.MessageSocket
                                     }
                                     break;
                                 case ChatMessageType.ChannelMessage:
-                                    TaskHelper.Start(() => OnChannelMessage?.Invoke(cm.GetIMessage<ChannelMessage>()));
+                                    TaskHelper.Run(() => OnChannelMessage?.Invoke(cm.GetIMessage<ChannelMessage>()));
                                     break;
                                 case ChatMessageType.PrivateMessage:
-                                    TaskHelper.Start(() => OnPrivateMessage?.Invoke(cm.GetIMessage<PrivateMessage>()));
+                                    TaskHelper.Run(() => OnPrivateMessage?.Invoke(cm.GetIMessage<PrivateMessage>()));
                                     break;
                                 case ChatMessageType.GroupMessage:
-                                    TaskHelper.Start(() => OnGroupMessage?.Invoke(cm.GetIMessage<GroupMessage>()));
+                                    TaskHelper.Run(() => OnGroupMessage?.Invoke(cm.GetIMessage<GroupMessage>()));
                                     break;
                                 case ChatMessageType.PrivateMessageAnswer:
                                     break;
@@ -181,7 +181,7 @@ namespace SAEA.MessageSocket
 
         void HeartAsync()
         {
-            TaskHelper.Start(() =>
+            TaskHelper.Run(() =>
             {
                 try
                 {

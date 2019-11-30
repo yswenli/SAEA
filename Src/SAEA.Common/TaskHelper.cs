@@ -45,9 +45,115 @@ namespace SAEA.Common
             await Task.Run(action, cts.Token);
         }
 
-        public static Task Start(Action action)
+        public static Task Run(Action action)
         {
             return Task.Run(action);
+        }
+
+        /// <summary>
+        /// 任务超时
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="task"></param>
+        /// <param name="token"></param>
+        /// <returns></returns>
+        public static async Task<T> WithCancellation<T>(this Task<T> task, CancellationToken token)
+        {
+            TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
+            CancellationTokenRegistration registration = token.Register(src =>
+            {
+                ((TaskCompletionSource<bool>)src).TrySetResult(true);
+            }, tcs);
+
+            using (registration)
+            {
+                if (await Task.WhenAny(task, tcs.Task) != task)
+                {
+                    throw new OperationCanceledException(token);
+                }
+            }
+
+            return await task;
+        }
+
+        /// <summary>
+        /// 任务超时
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="task"></param>
+        /// <param name="timeout"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        public static async Task<T> WithCancellationTimeout<T>(this Task<T> task, TimeSpan timeout, CancellationToken cancellationToken = default(CancellationToken))
+        {
+            using (CancellationTokenSource timeoutSource = new CancellationTokenSource(timeout))
+            using (CancellationTokenSource linkSource = CancellationTokenSource.CreateLinkedTokenSource(timeoutSource.Token, cancellationToken))
+            {
+                return await task.WithCancellation(linkSource.Token);
+            }
+        }
+
+        /// <summary>
+        /// 任务超时
+        /// </summary>
+        /// <param name="action"></param>
+        /// <param name="timeout"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        public static async Task TimeoutAfterAsync(Func<CancellationToken, Task> action, TimeSpan timeout, CancellationToken cancellationToken)
+        {
+            if (action == null) throw new ArgumentNullException(nameof(action));
+
+            using (var timeoutCts = new CancellationTokenSource(timeout))
+            using (var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, cancellationToken))
+            {
+                try
+                {
+                    await action(linkedCts.Token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException exception)
+                {
+                    var timeoutReached = timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested;
+                    if (timeoutReached)
+                    {
+                        throw new TimeoutException(exception.Message);
+                    }
+
+                    throw;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 任务超时
+        /// </summary>
+        /// <typeparam name="TResult"></typeparam>
+        /// <param name="action"></param>
+        /// <param name="timeout"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        public static async Task<TResult> TimeoutAfterAsync<TResult>(Func<CancellationToken, Task<TResult>> action, TimeSpan timeout, CancellationToken cancellationToken)
+        {
+            if (action == null) throw new ArgumentNullException(nameof(action));
+
+            using (var timeoutCts = new CancellationTokenSource(timeout))
+            using (var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, cancellationToken))
+            {
+                try
+                {
+                    return await action(linkedCts.Token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException exception)
+                {
+                    var timeoutReached = timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested;
+                    if (timeoutReached)
+                    {
+                        throw new TimeoutException(exception.Message);
+                    }
+
+                    throw;
+                }
+            }
         }
     }
 }
