@@ -27,6 +27,7 @@ namespace SAEA.DNSTest
 
                         case "c":
                             Client.LookupAsync("baidu.com").GetAwaiter().GetResult();
+                            Client.LookupAsync("idontgiveaflyingfuck.com").GetAwaiter().GetResult();
                             break;
 
                         default:

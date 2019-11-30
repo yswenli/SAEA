@@ -15,15 +15,14 @@
 *版 本 号： v5.0.0.1
 *描    述：
 *****************************************************************************/
+using SAEA.DNS.Common.Utils;
+using SAEA.DNS.Protocol;
 using System;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
-using System.IO;
-using SAEA.DNS.Protocol;
-using SAEA.DNS.Common.Utils;
-using SAEA.DNS.Model;
 
 namespace SAEA.DNS.Coder
 {
@@ -79,7 +78,7 @@ namespace SAEA.DNS.Coder
 
                 byte[] buffer = result.Buffer;
 
-                Protocol.DnsResponseMessage response = Protocol.DnsResponseMessage.FromArray(buffer);
+                DnsResponseMessage response = DnsResponseMessage.FromArray(buffer);
 
                 if (response.Truncated)
                 {

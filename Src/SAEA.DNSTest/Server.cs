@@ -16,7 +16,7 @@ namespace SAEA.DNSTest
 
             _server = new DnsServer(dnsRecords);
 
-            //添加
+            //添加映射记录
             dnsRecords.AddIPAddressResourceRecord("yswenli.net", "127.0.0.1");
 
             _server.OnRequested += (sender, e) =>
@@ -41,6 +41,7 @@ namespace SAEA.DNSTest
                 await new DnsClient("127.0.0.1").Lookup("yswenli.net");
             };
 
+            //启动dns服务
             await _server.Start(port);
         }
 
@@ -52,6 +53,7 @@ namespace SAEA.DNSTest
 
             _server = new DnsServer(dnsRecords);
 
+            //添加映射记录
             dnsRecords.AddIPAddressResourceRecord("baidu.com", "127.0.0.1");
 
             _server.OnRequested += (sender, e) =>
@@ -75,6 +77,7 @@ namespace SAEA.DNSTest
                 Console.WriteLine("[DNSServer Listening]");
             };
 
+            //启动dns服务
             _server.Start(port);
 
             while (!result)

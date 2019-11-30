@@ -34,6 +34,7 @@ namespace SAEA.DNS
     /// </summary>
     public class DnsServer : IDisposable
     {
+        
         private const int SIO_UDP_CONNRESET = unchecked((int)0x9800000C);
         private const int DEFAULT_PORT = 53;
         private const int UDP_TIMEOUT = 2000;
@@ -52,55 +53,55 @@ namespace SAEA.DNS
         /// DnsServer
         /// </summary>
         /// <param name="dnsRecords"></param>
-        /// <param name="endServer"></param>
-        public DnsServer(DnsRecords dnsRecords, IPEndPoint endServer) :
-            this(new FallbackRequestCoder(dnsRecords, new UdpRequestCoder(endServer)))
+        /// <param name="parentServer"></param>
+        public DnsServer(DnsRecords dnsRecords, IPEndPoint parentServer) :
+            this(new FallbackRequestCoder(dnsRecords, new UdpRequestCoder(parentServer)))
         { }
 
         /// <summary>
         /// DnsServer
         /// </summary>
         /// <param name="dnsRecords"></param>
-        /// <param name="endServer"></param>
+        /// <param name="parentServer"></param>
         /// <param name="port"></param>
-        public DnsServer(DnsRecords dnsRecords, IPAddress endServer, int port = DEFAULT_PORT) :
-            this(dnsRecords, new IPEndPoint(endServer, port))
+        public DnsServer(DnsRecords dnsRecords, IPAddress parentServer, int port = DEFAULT_PORT) :
+            this(dnsRecords, new IPEndPoint(parentServer, port))
         { }
 
         /// <summary>
         /// DnsServer
         /// </summary>
         /// <param name="dnsRecords"></param>
-        /// <param name="endServer"></param>
+        /// <param name="parentServer"></param>
         /// <param name="port"></param>
-        public DnsServer(DnsRecords dnsRecords, string endServer = "119.29.29.29", int port = DEFAULT_PORT) :
-            this(dnsRecords, IPAddress.Parse(endServer), port)
+        public DnsServer(DnsRecords dnsRecords, string parentServer = "119.29.29.29", int port = DEFAULT_PORT) :
+            this(dnsRecords, IPAddress.Parse(parentServer), port)
         { }
 
         /// <summary>
         /// DnsServer
         /// </summary>
-        /// <param name="endServer"></param>
-        public DnsServer(IPEndPoint endServer) :
-            this(new UdpRequestCoder(endServer))
+        /// <param name="parentServer"></param>
+        public DnsServer(IPEndPoint parentServer) :
+            this(new UdpRequestCoder(parentServer))
         { }
 
         /// <summary>
         /// DnsServer
         /// </summary>
-        /// <param name="endServer"></param>
+        /// <param name="parentServer"></param>
         /// <param name="port"></param>
-        public DnsServer(IPAddress endServer, int port = DEFAULT_PORT) :
-            this(new IPEndPoint(endServer, port))
+        public DnsServer(IPAddress parentServer, int port = DEFAULT_PORT) :
+            this(new IPEndPoint(parentServer, port))
         { }
 
         /// <summary>
         /// DnsServer
         /// </summary>
-        /// <param name="endServer"></param>
+        /// <param name="parentServer"></param>
         /// <param name="port"></param>
-        public DnsServer(string endServer, int port = DEFAULT_PORT) :
-            this(IPAddress.Parse(endServer), port)
+        public DnsServer(string parentServer, int port = DEFAULT_PORT) :
+            this(IPAddress.Parse(parentServer), port)
         { }
 
         /// <summary>
@@ -140,6 +141,7 @@ namespace SAEA.DNS
                 {
                     _udp = new UdpClient(endpoint);
 
+                    //判断如果关闭不重试
                     if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                     {
                         _udp.Client.IOControl(SIO_UDP_CONNRESET, new byte[4], new byte[4]);
@@ -174,11 +176,14 @@ namespace SAEA.DNS
                 }
 
                 if (_run) _udp.BeginReceive(receiveCallback, null);
+
                 else tcs.SetResult(null);
             };
 
             _udp.BeginReceive(receiveCallback, null);
+
             OnEvent(OnListening, EventArgs.Empty);
+
             await tcs.Task;
         }
 
