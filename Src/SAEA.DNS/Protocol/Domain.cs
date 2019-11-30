@@ -21,6 +21,7 @@ using System.Linq;
 using System.Text;
 using System.Net;
 using SAEA.DNS.Common.Utils;
+using SAEA.Common;
 
 namespace SAEA.DNS.Protocol
 {

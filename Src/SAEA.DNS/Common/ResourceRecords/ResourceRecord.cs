@@ -18,6 +18,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using SAEA.Common;
 using SAEA.DNS.Common.Utils;
 using SAEA.DNS.Protocol;
 
@@ -60,7 +61,7 @@ namespace SAEA.DNS.Common.ResourceRecords
         public static ResourceRecord FromArray(byte[] message, int offset, out int endOffset)
         {
             Domain domain = Domain.FromArray(message, offset, out offset);
-            Tail tail = Marshalling.Struct.GetStruct<Tail>(message, offset, Tail.SIZE);
+            Tail tail = StructHelper.GetStruct<Tail>(message, offset, Tail.SIZE);
 
             byte[] data = new byte[tail.DataLength];
 
@@ -128,7 +129,7 @@ namespace SAEA.DNS.Common.ResourceRecords
 
             result
                 .Append(domain.ToArray())
-                .Append(Marshalling.Struct.GetBytes<Tail>(new Tail()
+                .Append(StructHelper.GetBytes<Tail>(new Tail()
                 {
                     Type = Type,
                     Class = Class,
@@ -147,7 +148,7 @@ namespace SAEA.DNS.Common.ResourceRecords
                 .ToString();
         }
 
-        [Marshalling.Endian(Marshalling.Endianness.Big)]
+        [Endian(EndianOrder.Big)]
         [StructLayout(LayoutKind.Sequential, Pack = 2)]
         private struct Tail
         {

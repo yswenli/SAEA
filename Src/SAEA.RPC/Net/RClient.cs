@@ -41,16 +41,7 @@ namespace SAEA.RPC.Net
 
         IClientSocket _client;
 
-
-        object _syncLocker = new object();
-
-        public object SyncLocker
-        {
-            get
-            {
-                return _syncLocker;
-            }
-        }
+        public object SyncLocker { get; } = new object();
 
         public bool Connected
         {
@@ -108,31 +99,39 @@ namespace SAEA.RPC.Net
 
         protected void OnReceived(byte[] data)
         {
-            ((RUnpacker)_RContext.Unpacker).Unpack(data, msg =>
+            try
             {
-                switch ((RSocketMsgType)msg.Type)
+                ((RUnpacker)_RContext.Unpacker).Unpack(data, msg =>
                 {
-                    case RSocketMsgType.Ping:
-                        break;
-                    case RSocketMsgType.Pong:
+                    switch ((RSocketMsgType)msg.Type)
+                    {
+                        case RSocketMsgType.Ping:
+                            break;
+                        case RSocketMsgType.Pong:
 
-                        break;
-                    case RSocketMsgType.Request:
-                        break;
-                    case RSocketMsgType.Response:
-                        _syncHelper.Set(msg.Data);
-                        break;
-                    case RSocketMsgType.Notice:
-                        OnNoticed.Invoke(msg.Data);
-                        break;
-                    case RSocketMsgType.Error:
-                        ExceptionCollector.Add("Consumer.OnReceived Error", new Exception(SAEASerialize.Deserialize<string>(msg.Data)));
-                        _syncHelper.Set(msg.Data);
-                        break;
-                    case RSocketMsgType.Close:
-                        break;
-                }
-            });
+                            break;
+                        case RSocketMsgType.Request:
+                            break;
+                        case RSocketMsgType.Response:
+                            _syncHelper.Set(msg.Data);
+                            break;
+                        case RSocketMsgType.Notice:
+                            OnNoticed.Invoke(msg.Data);
+                            break;
+                        case RSocketMsgType.Error:
+                            ExceptionCollector.Add("Consumer.OnReceived Error", new Exception(SAEASerialize.Deserialize<string>(msg.Data)));
+                            _syncHelper.Set(msg.Data);
+                            break;
+                        case RSocketMsgType.Close:
+                            break;
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                OnError?.Invoke(_client.Endpoint.ToString(), ex);
+            }
+
         }
 
         /// <summary>
@@ -222,7 +221,6 @@ namespace SAEA.RPC.Net
         public void Dispose()
         {
             _isDisposed = true;
-            _client.Disconnect();
             _client.Dispose();
         }
     }

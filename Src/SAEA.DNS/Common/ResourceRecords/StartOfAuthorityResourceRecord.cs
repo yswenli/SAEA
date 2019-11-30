@@ -15,6 +15,7 @@
 *版 本 号： v5.0.0.1
 *描    述：
 *****************************************************************************/
+using SAEA.Common;
 using SAEA.DNS.Common.Utils;
 using SAEA.DNS.Protocol;
 using System;
@@ -44,7 +45,7 @@ namespace SAEA.DNS.Common.ResourceRecords
             data
                 .Append(master.ToArray())
                 .Append(responsible.ToArray())
-                .Append(Marshalling.Struct.GetBytes(tail));
+                .Append(StructHelper.GetBytes(tail));
 
             return new ResourceRecord(domain, data.ToArray(), RecordType.SOA, RecordClass.IN, ttl);
         }
@@ -55,7 +56,7 @@ namespace SAEA.DNS.Common.ResourceRecords
             MasterDomainName = Domain.FromArray(message, dataOffset, out dataOffset);
             ResponsibleDomainName = Domain.FromArray(message, dataOffset, out dataOffset);
 
-            Options tail = Marshalling.Struct.GetStruct<Options>(message, dataOffset, Options.SIZE);
+            Options tail = StructHelper.GetStruct<Options>(message, dataOffset, Options.SIZE);
 
             SerialNumber = tail.SerialNumber;
             RefreshInterval = tail.RefreshInterval;
@@ -131,7 +132,7 @@ namespace SAEA.DNS.Common.ResourceRecords
             return Stringify().Add("MasterDomainName", "ResponsibleDomainName", "SerialNumber").ToString();
         }
 
-        [Marshalling.Endian(Marshalling.Endianness.Big)]
+        [Endian(EndianOrder.Big)]
         [StructLayout(LayoutKind.Sequential, Pack = 4)]
         public struct Options
         {

@@ -15,7 +15,7 @@
 *版 本 号： v5.0.0.1
 *描    述：
 *****************************************************************************/
-using SAEA.DNS.Common.Marshalling;
+using SAEA.Common;
 using SAEA.DNS.Common.Utils;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -54,7 +54,7 @@ namespace SAEA.DNS.Protocol
         {
             Domain domain = Domain.FromArray(message, offset, out offset);
 
-            Tail tail = Struct.GetStruct<Tail>(message, offset, Tail.SIZE);
+            Tail tail = StructHelper.GetStruct<Tail>(message, offset, Tail.SIZE);
 
             endOffset = offset + Tail.SIZE;
 
@@ -98,7 +98,7 @@ namespace SAEA.DNS.Protocol
 
             result
                 .Append(domain.ToArray())
-                .Append(Struct.GetBytes(new Tail { Type = Type, Class = Class }));
+                .Append(StructHelper.GetBytes(new Tail { Type = Type, Class = Class }));
 
             return result.ToArray();
         }
@@ -110,7 +110,7 @@ namespace SAEA.DNS.Protocol
                 .ToString();
         }
 
-        [Endian(Endianness.Big)]
+        [Endian(EndianOrder.Big)]
         [StructLayout(LayoutKind.Sequential, Pack = 2)]
         private struct Tail
         {

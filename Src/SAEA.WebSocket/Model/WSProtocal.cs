@@ -76,12 +76,12 @@ namespace SAEA.WebSocket.Model
             else if (len < 0x010000)
             {
                 _payloadLength = (byte)126;
-                _extPayloadLength = ((ushort)len).InternalToByteArray(ByteOrder.Big);
+                _extPayloadLength = ((ushort)len).InternalToByteArray(EndianOrder.Big);
             }
             else
             {
                 _payloadLength = (byte)127;
-                _extPayloadLength = len.InternalToByteArray(ByteOrder.Big);
+                _extPayloadLength = len.InternalToByteArray(EndianOrder.Big);
             }
 
             using (var buff = new MemoryStream())
@@ -93,7 +93,7 @@ namespace SAEA.WebSocket.Model
                 header = (header << 4) + (int)this.Type;
                 header = (header << 1) + (int)0x0;
                 header = (header << 7) + (int)_payloadLength;
-                buff.Write(((ushort)header).InternalToByteArray(ByteOrder.Big), 0, 2);
+                buff.Write(((ushort)header).InternalToByteArray(EndianOrder.Big), 0, 2);
 
                 if (_payloadLength > 125)
                     buff.Write(_extPayloadLength, 0, _payloadLength == 126 ? 2 : 8);

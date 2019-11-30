@@ -17,12 +17,12 @@
 *****************************************************************************/
 using System;
 using System.Runtime.InteropServices;
-using SAEA.DNS.Common.Marshalling;
+using SAEA.Common;
 using SAEA.DNS.Common.Utils;
 
 namespace SAEA.DNS.Protocol
 {
-    [Endian(Endianness.Big)]
+    [Endian(EndianOrder.Big)]
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public struct Header
     {
@@ -35,7 +35,7 @@ namespace SAEA.DNS.Protocol
                 throw new ArgumentException("Header length too small");
             }
 
-            return Struct.GetStruct<Header>(header, 0, SIZE);
+            return StructHelper.GetStruct<Header>(header, 0, SIZE);
         }
 
         private ushort id;
@@ -146,7 +146,7 @@ namespace SAEA.DNS.Protocol
 
         public byte[] ToArray()
         {
-            return Struct.GetBytes(this);
+            return StructHelper.GetBytes(this);
         }
 
         public override string ToString()

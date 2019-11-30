@@ -44,8 +44,6 @@ namespace SAEA.DNSTest
 
             }
             while (true);
-
-            Console.ReadLine();
         }
     }
 }

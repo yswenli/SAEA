@@ -63,24 +63,7 @@ namespace SAEA.Common
         {
             return BitConverter.ToInt32(data, offset);
         }
-
-        public static byte[] InternalToByteArray(this ulong value, ByteOrder order)
-        {
-            var bytes = BitConverter.GetBytes(value);
-            if (!order.IsHostOrder())
-                Array.Reverse(bytes);
-
-            return bytes;
-        }
-
-        public static byte[] InternalToByteArray(this ushort value, ByteOrder order)
-        {
-            var bytes = BitConverter.GetBytes(value);
-            if (!order.IsHostOrder())
-                Array.Reverse(bytes);
-
-            return bytes;
-        }
+        
 
         public static void WriteBytes(this Stream stream, byte[] bytes, int bufferLength)
         {
@@ -88,10 +71,8 @@ namespace SAEA.Common
                 input.CopyTo(stream, bufferLength);
         }
 
-        public static bool IsHostOrder(this ByteOrder order)
-        {
-            return !(BitConverter.IsLittleEndian ^ (order == ByteOrder.Little));
-        }
+       
+
         /// <summary>
         /// 查找数据是存在的位置
         /// </summary>
@@ -132,5 +113,32 @@ namespace SAEA.Common
 
             return result;
         }
+
+        #region bit op
+
+        public static byte GetBitValueAt(this byte b, byte offset, byte length)
+        {
+            return (byte)((b >> offset) & ~(0xff << length));
+        }
+
+        public static byte GetBitValueAt(this byte b, byte offset)
+        {
+            return b.GetBitValueAt(offset, 1);
+        }
+
+        public static byte SetBitValueAt(this byte b, byte offset, byte length, byte value)
+        {
+            int mask = ~(0xff << length);
+            value = (byte)(value & mask);
+
+            return (byte)((value << offset) | (b & ~(mask << offset)));
+        }
+
+        public static byte SetBitValueAt(this byte b, byte offset, byte value)
+        {
+            return b.SetBitValueAt(offset, 1, value);
+        }
+
+        #endregion
     }
 }

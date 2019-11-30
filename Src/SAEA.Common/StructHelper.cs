@@ -3,7 +3,7 @@
 *CLR 版本：3.0
 *机器名称：WENLI-PC
 *命名空间：SAEA.DNS.Common.Marshalling
-*类 名 称：Struct
+*类 名 称：StructHelper
 *版 本 号：v5.0.0.1
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
@@ -20,13 +20,20 @@ using System.Runtime.InteropServices;
 using System.Reflection;
 using System.Linq;
 
-namespace SAEA.DNS.Common.Marshalling
+namespace SAEA.Common
 {
     /// <summary>
-    /// 结构体辅助类
+    /// 结构体辅助类,
+    /// 序列化与反序列化
     /// </summary>
-    public static class Struct
+    public static class StructHelper
     {
+        /// <summary>
+        /// 转换大小端编码
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="data"></param>
+        /// <returns></returns>
         private static byte[] ConvertEndian<T>(byte[] data)
         {
             Type type = typeof(T);
@@ -51,8 +58,8 @@ namespace SAEA.DNS.Common.Marshalling
 
                 endian = endian ?? (EndianAttribute)field.GetCustomAttributes(typeof(EndianAttribute), false).First();
 
-                if (endian.Endianness == Endianness.Big && BitConverter.IsLittleEndian ||
-                        endian.Endianness == Endianness.Little && !BitConverter.IsLittleEndian)
+                if (endian.ByteOrder == EndianOrder.Big && BitConverter.IsLittleEndian ||
+                        endian.ByteOrder == EndianOrder.Little && !BitConverter.IsLittleEndian)
                 {
                     Array.Reverse(data, offset, length);
                 }
@@ -61,11 +68,25 @@ namespace SAEA.DNS.Common.Marshalling
             return data;
         }
 
+        /// <summary>
+        /// 转换成struct
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="data"></param>
+        /// <returns></returns>
         public static T GetStruct<T>(byte[] data) where T : struct
         {
             return GetStruct<T>(data, 0, data.Length);
         }
 
+        /// <summary>
+        /// 转换成struct
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="data"></param>
+        /// <param name="offset"></param>
+        /// <param name="length"></param>
+        /// <returns></returns>
         public static T GetStruct<T>(byte[] data, int offset, int length) where T : struct
         {
             byte[] buffer = new byte[length];
@@ -83,6 +104,12 @@ namespace SAEA.DNS.Common.Marshalling
             }
         }
 
+        /// <summary>
+        /// 转换成byte[]
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="obj"></param>
+        /// <returns></returns>
         public static byte[] GetBytes<T>(T obj) where T : struct
         {
             byte[] data = new byte[Marshal.SizeOf(obj)];
