@@ -32,4 +32,9 @@ SAEA.Socket是一个高性能IOCP框架，基于.dotnet standard 2.0；Src中含
       <PackagePath></PackagePath>
     </None>
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Pipelines.Sockets.Unofficial" Version="2.1.0" />
+    <PackageReference Include="System.IO.Pipelines" Version="4.6.0" />
+  </ItemGroup>
 </Project>

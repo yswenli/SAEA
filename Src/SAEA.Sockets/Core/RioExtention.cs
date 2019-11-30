@@ -15,12 +15,14 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
+using Pipelines.Sockets.Unofficial;
 using SAEA.Common;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
-//using System.IO.Pipelines;
+using System.IO.Pipelines;
 using System.Net.Sockets;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SAEA.Sockets.Core
@@ -30,97 +32,151 @@ namespace SAEA.Sockets.Core
     /// </summary>
     public static class RioExtention
     {
+
+        #region pipelines
+
+        public static async void SendAsync(this Socket socket, Memory<byte> data, CancellationToken token = default)
+        {
+            var i = -1;
+
+            while (i != 0)
+            {
+                i = await socket.SendAsync(data, SocketFlags.None, token);
+            }
+        }
+
         /// <summary>
-        /// 发送请求并返回内容,返回以\r\n的数据
+        /// 返回内容,返回以\r\n的数据
         /// </summary>
         /// <param name="socket"></param>
+        /// <param name="token"></param>
         /// <returns></returns>
-        //public static async Task<Byte[][]> Request(this Socket socket)
-        //{
-        //    var pipe = new Pipe();
+        public static async Task<Memory<byte>> ReceiveAsync(this Socket socket, CancellationToken token = default)
+        {
+            List<byte> data = new List<byte>();
 
-        //    var writer = pipe.Writer;
+            var pipe = new Pipe();
 
-        //    var reader = pipe.Reader;
+            _ = WriteAsync(socket, pipe.Writer);
 
-        //    #region write
+            return await ReadAsync(socket, pipe.Reader).WithCancellation(token);
+        }
 
-        //    await Task.Run(async () =>
-        //    {
-        //        int bytesRead = 0;
+        static async Task WriteAsync(Socket socket, PipeWriter writer)
+        {
+            int bytesRead = 0;
 
-        //        Memory<byte> memory;
+            Memory<byte> memory;
 
-        //        while (true)
-        //        {
-        //            memory = writer.GetMemory(socket.ReceiveBufferSize);
+            while (true)
+            {
+                memory = writer.GetMemory(socket.ReceiveBufferSize);
 
-        //            try
-        //            {
-        //                //bytesRead = await socket.ReceiveAsync(memory, SocketFlags.None);
+                try
+                {
+                    bytesRead = await socket.ReceiveAsync(memory, SocketFlags.None);
 
-        //                if (bytesRead == 0)
-        //                {
-        //                    break;
-        //                }
-        //                writer.Advance(bytesRead);
-        //            }
-        //            catch (Exception ex)
-        //            {
-        //                LogHelper.Error("RioExtention.Request", ex);
-        //                break;
-        //            }
+                    if (bytesRead == 0)
+                    {
+                        break;
+                    }
+                    writer.Advance(bytesRead);
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Error("RioExtention.RioReceiveAsync.WriteAsync", ex);
+                    break;
+                }
 
-        //            FlushResult flushResult = await writer.FlushAsync();
+                FlushResult flushResult = await writer.FlushAsync();
 
-        //            if (flushResult.IsCompleted)
-        //            {
-        //                break;
-        //            }
-        //        }
-        //        writer.Complete();
-        //    });
+                if (flushResult.IsCompleted)
+                {
+                    break;
+                }
+            }
+            writer.Complete();
+        }
+
+        static async Task<Memory<byte>> ReadAsync(Socket socket, PipeReader reader, CancellationToken token = default)
+        {
+            Memory<byte> result = new Memory<byte>();
+
+            List<byte> data = new List<byte>();
+
+            while (true)
+            {
+                ReadResult readResult = await reader.ReadAsync(token);
+
+                ReadOnlySequence<byte> buffer = readResult.Buffer;
+
+                SequencePosition? position = null;
+
+                do
+                {
+                    position = buffer.PositionOf((byte)'\n');
+
+                    if (position != null)
+                    {
+                        data.AddRange(buffer.Slice(0, position.Value).ToArray());
+
+                        buffer = buffer.Slice(buffer.GetPosition(0, position.Value));
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                while (position != null);
+
+                reader.AdvanceTo(buffer.Start, buffer.End);
+
+                if (readResult.IsCompleted)
+                {
+                    break;
+                }
+            }
+
+            reader.Complete();
+
+            return result.ToArray().AsMemory();
+        }
 
 
-        //    #endregion
+        /// <summary>
+        /// 发送并接收，
+        /// SendAsync、ReceiveAsync
+        /// </summary>
+        /// <param name="socket"></param>
+        /// <param name="data"></param>
+        /// <param name="token"></param>
+        /// <returns></returns>
+        public static async Task<Memory<byte>> RequestAsync(this Socket socket, Memory<byte> data, CancellationToken token = default)
+        {
+            SendAsync(socket, data, token);
 
-        //    #region read
+            return await ReceiveAsync(socket, token);
+        }
 
-        //    List<byte[]> result = new List<byte[]>();
+        #endregion
 
-        //    while (true)
-        //    {
-        //        ReadResult readResult = await reader.ReadAsync();
+        /// <summary>
+        /// 发送并接收，
+        /// Pipelines.Sockets.Unofficial
+        /// </summary>
+        /// <param name="socket"></param>
+        /// <param name="data"></param>
+        /// <param name="token"></param>
+        /// <returns></returns>
+        public static async Task<ReadOnlySequence<byte>> Request(this Socket socket, byte[] data, CancellationToken token = default)
+        {
+            var sc = SocketConnection.Create(socket);
 
-        //        ReadOnlySequence<byte> buffer = readResult.Buffer;
+            await sc.Output.WriteAsync(data.AsMemory(), token);
 
-        //        SequencePosition? position = null;
+            var vd = await sc.Input.ReadAsync();
 
-        //        do
-        //        {
-        //            position = buffer.PositionOf((byte)'\n');
-
-        //            if (position != null)
-        //            {
-        //                result.Add(buffer.Slice(0, position.Value).ToArray());
-
-        //                buffer = buffer.Slice(buffer.GetPosition(1, position.Value));
-        //            }
-        //        }
-        //        while (position != null);
-
-        //        reader.AdvanceTo(buffer.Start, buffer.End);
-
-        //        if (readResult.IsCompleted)
-        //        {
-        //            break;
-        //        }
-        //    }
-
-        //    reader.Complete();
-        //    #endregion
-
-        //    return result.ToArray();
-        //}
+            return vd.Buffer;
+        }
     }
 }
