@@ -16,7 +16,7 @@ namespace SAEA.DNSTest
             {
                 IList<IPAddress> ips = await client.Lookup(domain);
 
-                Console.WriteLine("{0} => {1}", domain, string.Join(", ", ips));
+                Console.WriteLine("[DNSClient] {0} => {1}", domain, string.Join(", ", ips));
             }
         }
     }

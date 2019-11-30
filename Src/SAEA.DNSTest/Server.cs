@@ -12,30 +12,31 @@ namespace SAEA.DNSTest
 
         public async static Task InitAsync(int port = 53)
         {
-            DnsRecords dnsDataFile = new DnsRecords();
+            DnsRecords dnsRecords = new DnsRecords();
 
-            _server = new DnsServer(dnsDataFile);
+            _server = new DnsServer(dnsRecords);
 
-            dnsDataFile.AddIPAddressResourceRecord("yswenli.net", "127.0.0.1");
+            //添加
+            dnsRecords.AddIPAddressResourceRecord("yswenli.net", "127.0.0.1");
 
             _server.OnRequested += (sender, e) =>
             {
-                Console.WriteLine("[Requested]: {0}", e.Request);
+                Console.WriteLine("[DNSServer Requested]: {0}", e.Request);
             };
 
             _server.OnResponded += (sender, e) =>
             {
-                Console.WriteLine("[Responded]: {0} => {1}", e.Request, e.Response);
+                Console.WriteLine("[DNSServer Responded]: {0} => {1}", e.Request, e.Response);
             };
 
             _server.OnErrored += (sender, e) =>
             {
-                Console.WriteLine("[Errored]: {0}", e.Exception.Message);
+                Console.WriteLine("[DNSServer Errored]: {0}", e.Exception.Message);
             };
 
             _server.OnListening += async (sender, e) =>
             {
-                Console.WriteLine("[Listening]");
+                Console.WriteLine("[DNSServer Listening]");
 
                 await new DnsClient("127.0.0.1").Lookup("yswenli.net");
             };
@@ -47,31 +48,31 @@ namespace SAEA.DNSTest
         {
             var result = false;
 
-            DnsRecords dnsDataFile = new DnsRecords();
+            DnsRecords dnsRecords = new DnsRecords();
 
-            _server = new DnsServer(dnsDataFile);
+            _server = new DnsServer(dnsRecords);
 
-            dnsDataFile.AddIPAddressResourceRecord("baidu.com", "127.0.0.1");
+            dnsRecords.AddIPAddressResourceRecord("baidu.com", "127.0.0.1");
 
             _server.OnRequested += (sender, e) =>
             {
-                Console.WriteLine("[Requested]: {0}", e.Request);                
+                Console.WriteLine("[DNSServer Requested]: {0}", e.Request);                
             };
 
             _server.OnResponded += (sender, e) =>
             {
-                Console.WriteLine("[Responded]: {0} => {1}", e.Request, e.Response);
+                Console.WriteLine("[DNSServer Responded]: {0} => {1}", e.Request, e.Response);
             };
 
             _server.OnErrored += (sender, e) =>
             {
-                Console.WriteLine("[Errored]: {0}", e.Exception.Message);
+                Console.WriteLine("[DNSServer Errored]: {0}", e.Exception.Message);
             };
 
             _server.OnListening += async (sender, e) =>
             {
                 result = true;
-                Console.WriteLine("[Listening]");
+                Console.WriteLine("[DNSServer Listening]");
             };
 
             _server.Start(port);
