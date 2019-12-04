@@ -33,7 +33,7 @@ namespace SAEA.RedisSocket.Core
 
         object _syncLocker = new object();
         string _prefix = "redis_lock_";
-        string _oldKey = string.Empty;
+        string _key = string.Empty;
 
         public RedisLock(RedisConnection cnn)
         {
@@ -43,14 +43,30 @@ namespace SAEA.RedisSocket.Core
         private DateTime GetDateTime()
         {
             DateTime dt = new DateTime();
-            DateTime.TryParse(_cnn.DoWithKey(RequestType.GET, _oldKey).Data, out dt);
+            DateTime.TryParse(_cnn.DoWithKey(RequestType.GET, _key).Data, out dt);
             return dt;
         }
 
         private DateTime GetSetDateTime(string value)
         {
             DateTime dt = new DateTime();
-            DateTime.TryParse(GetSet(_oldKey, value), out dt);
+
+            var result = GetSet(_key, value);
+
+            if (string.IsNullOrEmpty(result))
+            {
+                result = value;
+
+                if (DateTime.TryParse(result, out dt))
+                {
+                    var seconds = (dt - DateTimeHelper.Now).TotalSeconds;
+                    _cnn.DoExpire(_key, (int)seconds);
+                }
+            }
+            else
+            {
+                DateTime.TryParse(result, out dt);
+            }
             return dt;
         }
 
@@ -88,14 +104,14 @@ namespace SAEA.RedisSocket.Core
         /// <param name="key"></param>
         /// <param name="seconds"></param>
         /// <returns>false 表示锁过期，true表示锁成功，阻塞过程表示正在等待锁</returns>
-        public bool Lock(string key, int seconds)
+        public bool Lock(string key, int seconds = 30)
         {
             lock (_syncLocker)
             {
                 bool result = true;
-                string ckey = _oldKey = string.Format("{0}{1}", _prefix, key);
+                _key = string.Format("{0}{1}", _prefix, key);
                 string expiredStr = DateTimeHelper.Now.AddSeconds(seconds).ToFString();
-                while (!SetNX(ckey, expiredStr))
+                while (!SetNX(_key, expiredStr))
                 {
                     if (GetDateTime() < DateTimeHelper.Now && GetSetDateTime(expiredStr) < DateTimeHelper.Now)
                     {
@@ -118,7 +134,7 @@ namespace SAEA.RedisSocket.Core
         {
             if (string.IsNullOrEmpty(key))
             {
-                key = _oldKey;
+                key = _key;
             }
             _cnn.DoWithKey(RequestType.DEL, key);
         }

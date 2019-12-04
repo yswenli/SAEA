@@ -32,19 +32,6 @@ namespace SAEA.Common
     /// </summary>
     public static class TaskHelper
     {
-        /// <summary>
-        /// 超时取消任务
-        /// </summary>
-        /// <param name="action"></param>
-        /// <param name="timeOut"></param>
-        /// <param name="canceled"></param>
-        public static async void WaitFor(Action action, int timeOut, Action canceled)
-        {
-            var cts = new CancellationTokenSource(timeOut);
-            cts.Token.Register(canceled);
-            await Task.Run(action, cts.Token);
-        }
-
         public static Task Run(Action action)
         {
             return Task.Run(action);
@@ -119,7 +106,7 @@ namespace SAEA.Common
                         throw new TimeoutException(exception.Message);
                     }
 
-                    throw;
+                    throw exception;
                 }
             }
         }
@@ -151,7 +138,7 @@ namespace SAEA.Common
                         throw new TimeoutException(exception.Message);
                     }
 
-                    throw;
+                    throw exception;
                 }
             }
         }
