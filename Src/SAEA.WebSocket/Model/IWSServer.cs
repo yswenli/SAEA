@@ -29,6 +29,8 @@ namespace SAEA.WebSocket.Model
     {
         event Action<string, WSProtocal> OnMessage;
 
+        event Action<string> OnDisconnected;
+
         void Start(int backlog = 10 * 1000);
        
 

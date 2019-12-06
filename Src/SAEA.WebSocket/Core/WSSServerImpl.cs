@@ -52,7 +52,14 @@ namespace SAEA.WebSocket.Core
 
             serverSokcet.OnAccepted += ServerSokcet_OnAccepted;
 
+            serverSokcet.OnDisconnected += ServerSokcet_OnDisconnected;
+
             _concurrentDictionary = new ConcurrentDictionary<string, WSCoder>();
+        }
+
+        private void ServerSokcet_OnDisconnected(string id, Exception ex)
+        {
+            OnDisconnected?.Invoke(id);
         }
 
         private void ServerSokcet_OnAccepted(object obj)
@@ -61,6 +68,8 @@ namespace SAEA.WebSocket.Core
         }
 
         public event Action<string, WSProtocal> OnMessage;
+
+        public event Action<string> OnDisconnected;
 
 
         void ProcessReceive(Object obj)
@@ -97,7 +106,7 @@ namespace SAEA.WebSocket.Core
                         {
                             channelInfo.Stream.Write(resData, 0, resData.Length);
                             wsut.IsHandSharked = true;
-                            _concurrentDictionary[channelInfo.ID]= new WSCoder();
+                            _concurrentDictionary[channelInfo.ID] = new WSCoder();
                         }
                     }
                     else
@@ -169,6 +178,8 @@ namespace SAEA.WebSocket.Core
             var channelInfo = ChannelManager.Instance.Get(id);
 
             ReplyBase(channelInfo.Stream, data);
+
+            OnDisconnected?.Invoke(id);
         }
 
         public void Start(int backlog = 10000)

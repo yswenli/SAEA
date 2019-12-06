@@ -33,6 +33,8 @@ namespace SAEA.WebSocket.Core
 
         public event Action<string, WSProtocal> OnMessage;
 
+        public event Action<string> OnDisconnected;
+
         public WSServerImpl(int port = 39654, int bufferSize = 1024, int count = 60000)
         {
             var option = SocketOptionBuilder.Instance
@@ -47,6 +49,13 @@ namespace SAEA.WebSocket.Core
             _server = SocketFactory.CreateServerSocket(option);
 
             _server.OnReceive += _server_OnReceive;
+
+            _server.OnDisconnected += _server_OnDisconnected;
+        }
+
+        private void _server_OnDisconnected(string id, Exception ex)
+        {
+            OnDisconnected?.Invoke(id);
         }
 
         private void _server_OnReceive(object currentObj, byte[] data)
@@ -139,11 +148,11 @@ namespace SAEA.WebSocket.Core
         public void Disconnect(string id, WSProtocal data)
         {
             ReplyBase(id, data);
-
+            OnDisconnected?.Invoke(id);
         }
 
 
-        public void Start(int backlog=10000)
+        public void Start(int backlog = 10000)
         {
             _server.Start(backlog);
         }

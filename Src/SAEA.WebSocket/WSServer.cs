@@ -36,6 +36,8 @@ namespace SAEA.WebSocket
 
         public event Action<string, WSProtocal> OnMessage;
 
+        public event Action<string> OnDisconnected;
+
         public WSServer(int port = 39654, SslProtocols protocols = SslProtocols.None, string pfxPath = "", string pwd = "", int bufferSize = 1024, int count = 60000)
         {
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
@@ -47,13 +49,22 @@ namespace SAEA.WebSocket
             else
             {
                 wsServer = new WSServerImpl(port, bufferSize, count);
-                wsServer.OnMessage += WsServer_OnMessage;
+
             }
+            wsServer.OnMessage += WsServer_OnMessage;
+            wsServer.OnDisconnected += WsServer_OnDisconnected;
         }
+
+       
 
         private void WsServer_OnMessage(string str, WSProtocal protocal)
         {
             this.OnMessage?.Invoke(str, protocal);
+        }
+
+        private void WsServer_OnDisconnected(string id)
+        {
+            OnDisconnected?.Invoke(id);
         }
 
 
