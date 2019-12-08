@@ -10,7 +10,7 @@ https://github.com/yswenli/SAEA</Description>
     <PackageReleaseNotes>This is a high-performance redis driver based on SAEA.Sockets, supporting redis cluster.
 这是一个基于SAEA.Sockets的redis 高性能驱动，支持redis cluster
 https://github.com/yswenli/SAEA</PackageReleaseNotes>
-    <PackageIconUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/favicon.ico</PackageIconUrl>
+    <PackageIconUrl></PackageIconUrl>
     <Version>5.3.0.1</Version>
     <Authors>yswenli</Authors>
     <Copyright>yswenli</Copyright>
@@ -21,6 +21,7 @@ https://github.com/yswenli/SAEA</PackageReleaseNotes>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
     <LangVersion>8.0</LangVersion>
+    <PackageIcon>favicon.ico</PackageIcon>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -28,6 +29,10 @@ https://github.com/yswenli/SAEA</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="..\..\favicon.ico">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
     <None Include="..\..\LICENSE.txt">
       <Pack>True</Pack>
       <PackagePath></PackagePath>

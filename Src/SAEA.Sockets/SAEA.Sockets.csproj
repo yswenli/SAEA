@@ -10,7 +10,7 @@ https://github.com/yswenli/SAEA</Description>
     <Copyright>yswenli</Copyright>
     <PackageLicenseExpression></PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
-    <PackageIconUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/favicon.ico</PackageIconUrl>
+    <PackageIconUrl></PackageIconUrl>
     <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
     <PackageTags>iocp,tcp,socket</PackageTags>
     <PackageReleaseNotes>SAEA.Socket is a high-performance IOCP framework based on.dotnet standard 2.0; Src contains its application test scenarios, such as websocket,rpc, redis driver, MVC WebAPI, lightweight message server, ultra large file transmission, etc.
@@ -20,6 +20,7 @@ SAEA.Socket是一个高性能IOCP框架，基于.dotnet standard 2.0；Src中含
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <LangVersion>8.0</LangVersion>
+    <PackageIcon>favicon.ico</PackageIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -27,6 +28,10 @@ SAEA.Socket是一个高性能IOCP框架，基于.dotnet standard 2.0；Src中含
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="..\..\favicon.ico">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
     <None Include="..\..\LICENSE.txt">
       <Pack>True</Pack>
       <PackagePath></PackagePath>

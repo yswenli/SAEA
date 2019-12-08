@@ -10,7 +10,7 @@
 https://github.com/yswenli/SAEA</Description>
     <PackageReleaseNotes>MQTT Server and Client Based on SAEA.Socket.SAEA.MQTT基于SAEA.Socket实现的MQTT服务器与客户端
 https://github.com/yswenli/SAEA</PackageReleaseNotes>
-    <PackageIconUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/favicon.ico</PackageIconUrl>
+    <PackageIconUrl></PackageIconUrl>
     <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
     <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
     <PackageTags>mqtt,tcp,socket</PackageTags>
@@ -19,9 +19,14 @@ https://github.com/yswenli/SAEA</PackageReleaseNotes>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
     <LangVersion>8.0</LangVersion>
+    <PackageIcon>favicon.ico</PackageIcon>
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="..\..\favicon.ico">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
     <None Include="..\..\LICENSE.txt">
       <Pack>True</Pack>
       <PackagePath></PackagePath>

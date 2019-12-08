@@ -15,12 +15,13 @@ https://github.com/yswenli/SAEA</Description>
 这是一个基于SAEA.Sockets的rpc组件，轻便高效，性能远超同类产品，简单易用，几行代码就能实现
 https://github.com/yswenli/SAEA</PackageReleaseNotes>
     <PackageTags>rcp,iocp,socket,tcp</PackageTags>
-    <PackageIconUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/favicon.ico</PackageIconUrl>
+    <PackageIconUrl></PackageIconUrl>
     <PackageProjectUrl>https://www.cnblogs.com/yswenli/</PackageProjectUrl>
     <RepositoryUrl>https://www.cnblogs.com/yswenli/</RepositoryUrl>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
     <LangVersion>8.0</LangVersion>
+    <PackageIcon>favicon.ico</PackageIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -28,6 +29,10 @@ https://github.com/yswenli/SAEA</PackageReleaseNotes>
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="..\..\favicon.ico">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
     <None Include="..\..\LICENSE.txt">
       <Pack>True</Pack>
       <PackagePath></PackagePath>

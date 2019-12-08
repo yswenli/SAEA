@@ -10,7 +10,7 @@ SAEA.Common 是SAEA项目中的工具类项目</Description>
     <Copyright>yswenli</Copyright>
     <PackageLicenseExpression></PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
-    <PackageIconUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/favicon.ico</PackageIconUrl>
+    <PackageIconUrl></PackageIconUrl>
     <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
     <PackageTags>iocp,tcp,socket</PackageTags>
     <PackageReleaseNotes>SAEA. Common is a tool class project in the SAEA project
@@ -21,6 +21,7 @@ SAEA.Common 是SAEA项目中的工具类项目</PackageReleaseNotes>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <LangVersion>8.0</LangVersion>
+    <PackageIcon>favicon.ico</PackageIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -29,6 +30,10 @@ SAEA.Common 是SAEA项目中的工具类项目</PackageReleaseNotes>
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="..\..\favicon.ico">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
     <None Include="..\..\LICENSE.txt">
       <Pack>True</Pack>
       <PackagePath></PackagePath>

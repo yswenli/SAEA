@@ -11,18 +11,23 @@ SAEA.FTP 是个包含FtpServer和FtpClient的简易组件</Description>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
     <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
-    <PackageIconUrl>https://raw.githubusercontent.com/yswenli/SAEA/master/favicon.ico</PackageIconUrl>
+    <PackageIconUrl></PackageIconUrl>
     <PackageTags>ftp,iocp,tcp,socket</PackageTags>
-    <PackageReleaseNotes>Saea.ftp is a simple component including ftpserver and ftpclient.
-SAEA.FTP 是个包含FtpServer和FtpClient的简易组件</PackageReleaseNotes>
+    <PackageReleaseNotes>SAEA.FTP is a lightweight component containing FTP server and FTP client based on SAEA.Socket
+SAEA.FTP 是基于SAEA.Socket的轻量级包含FtpServer和FtpClient的组件</PackageReleaseNotes>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <LangVersion>8.0</LangVersion>
+    <PackageIcon>favicon.ico</PackageIcon>
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="..\..\favicon.ico">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
     <None Include="..\..\LICENSE.txt">
       <Pack>True</Pack>
       <PackagePath></PackagePath>
