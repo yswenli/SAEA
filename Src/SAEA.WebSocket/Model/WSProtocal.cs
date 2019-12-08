@@ -25,26 +25,24 @@
 using SAEA.Common;
 using SAEA.Sockets.Interface;
 using SAEA.WebSocket.Type;
-using System;
 using System.IO;
 
 namespace SAEA.WebSocket.Model
 {
     public class WSProtocal : ISocketProtocal
     {
-        Random _rnd = new Random();
-
         public long BodyLength { get; set; }
         public byte[] Content { get; set; }
         public byte Type { get; set; }
 
-        public WSProtocal(byte[] type, byte[] content)
+        public WSProtocal(byte type, byte[] content)
         {
-            var t = BitConverter.ToInt32(type, 0);
-            this.Type = (byte)t;
-            this.Content = content;
+            this.Type = type;
             if (content != null)
                 this.BodyLength = content.Length;
+            else
+                this.BodyLength = 0;
+            this.Content = content;
         }
 
         public WSProtocal(WSProtocalType type, byte[] content)
@@ -65,9 +63,11 @@ namespace SAEA.WebSocket.Model
         public byte[] ToBytes()
         {
             int _payloadLength;
+
             byte[] _extPayloadLength;
 
             ulong len = (ulong)this.BodyLength;
+
             if (len < 126)
             {
                 _payloadLength = (byte)len;
@@ -87,12 +87,12 @@ namespace SAEA.WebSocket.Model
             using (var buff = new MemoryStream())
             {
                 var header = (int)0x1;
-                header = (header << 1) + (int)0x0;
-                header = (header << 1) + (int)0x0;
-                header = (header << 1) + (int)0x0;
-                header = (header << 4) + (int)this.Type;
-                header = (header << 1) + (int)0x0;
-                header = (header << 7) + (int)_payloadLength;
+                header = (header << 1) + (byte)0x0;
+                header = (header << 1) + (byte)0x0;
+                header = (header << 1) + (byte)0x0;
+                header = (header << 4) + this.Type;
+                header = (header << 1) + (byte)0x0;
+                header = (header << 7) + (byte)_payloadLength;
                 buff.Write(((ushort)header).InternalToByteArray(EndianOrder.Big), 0, 2);
 
                 if (_payloadLength > 125)

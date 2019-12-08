@@ -18,7 +18,6 @@
 using SAEA.Common;
 using SAEA.Sockets;
 using SAEA.Sockets.Core;
-using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
 using SAEA.WebSocket.Model;
 using SAEA.WebSocket.Type;

@@ -127,6 +127,7 @@ namespace SAEA.WebSocket.Core
         private void ReplyClose(string id, WSProtocal data)
         {
             ReplyBase(id, WSProtocalType.Close, data.Content);
+            OnDisconnected?.Invoke(id);
         }
 
 

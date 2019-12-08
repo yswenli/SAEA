@@ -25,6 +25,7 @@
 using SAEA.Common;
 using SAEA.WebSocket;
 using SAEA.WebSocket.Model;
+using SAEA.WebSocket.Type;
 using System;
 using System.Text;
 using System.Threading;
@@ -53,6 +54,7 @@ namespace SAEA.WebSocketTest
             ConsoleHelper.WriteLine("WSServer 正在初始化....", ConsoleColor.Green);
             _server = new WSServer();
             _server.OnMessage += Server_OnMessage;
+            _server.OnDisconnected += _server_OnDisconnected;
             _server.Start();
             ConsoleHelper.WriteLine("WSServer 就绪,回车启动客户端", ConsoleColor.Green);
 
@@ -76,22 +78,13 @@ namespace SAEA.WebSocketTest
                 //ConsoleHelper.ReadLine();
 
 
-                var loop = true;
+                ConsoleHelper.WriteLine("WSClient 正在发送消息...", ConsoleColor.DarkGray);
 
-                Task.Run(() =>
-                {
-                    while (loop)
-                    {
-                        ConsoleHelper.WriteLine("WSClient 正在发送消息...", ConsoleColor.DarkGray);
+                client.Send($"hello world!{DateTime.Now.ToString("HH:mm:ss.fff")}");
 
-                        client.Send($"hello world!{DateTime.Now.ToString("HH:mm:ss.fff")}");
-
-                        Thread.Sleep(1000);
-                    }
-                });
+                Thread.Sleep(1000);
 
                 ConsoleHelper.ReadLine();
-                loop = false;
                 ConsoleHelper.WriteLine("WSClient 正在ping服务器...", ConsoleColor.DarkGray);
                 Thread.Sleep(2000);
                 client.Ping();
@@ -101,6 +94,8 @@ namespace SAEA.WebSocketTest
                 ConsoleHelper.WriteLine("WSClient 正在断开连接...");
                 Thread.Sleep(1000);
                 client.Close();
+
+                ConsoleHelper.ReadLine();
             }
             else
             {
@@ -148,13 +143,19 @@ namespace SAEA.WebSocketTest
             var pfxPath = PathHelper.GetFullName("yswenli.pfx");
             _server = new WSServer(39656, System.Security.Authentication.SslProtocols.Tls12, pfxPath, "yswenli");
             _server.OnMessage += Server_OnMessage2;
+            _server.OnDisconnected += _server_OnDisconnected;
             _server.Start();
 
             ConsoleHelper.WriteLine("WSSServer 就绪,回车启动客户端", ConsoleColor.Green);
         }
 
-        private static void Server_OnMessage2(string id, WSProtocal data)
+        private static void _server_OnDisconnected(string id)
         {
+            ConsoleHelper.WriteLine("WSServer 收到{0}已断开！", ConsoleColor.Green, id);
+        }
+
+        private static void Server_OnMessage2(string id, WSProtocal data)
+        {    
             ConsoleHelper.WriteLine("WSSServer 收到{0}的消息：{1}", ConsoleColor.Green, id, Encoding.UTF8.GetString(data.Content));
 
             _server.Reply(id, data);
