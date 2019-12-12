@@ -18,7 +18,7 @@ SAEA.DNS 是个包含DnsServer和DnsClient的简易组件</Description>
     <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
     <PackageReleaseNotes>Saea.dns is a lightweight component based on saea.socket, including dnsserver and dnsclient.
 SAEA.DNS 是基于SAEA.Socket的轻量级的包含DnsServer和DnsClient的简易组件</PackageReleaseNotes>
-    <PackageIcon>favicon.ico</PackageIcon>
+    <PackageIcon>favicon.png</PackageIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -27,7 +27,7 @@ SAEA.DNS 是基于SAEA.Socket的轻量级的包含DnsServer和DnsClient的简易
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\..\favicon.ico">
+    <None Include="..\..\favicon.png">
       <Pack>True</Pack>
       <PackagePath></PackagePath>
     </None>

@@ -19,7 +19,7 @@
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
     <LangVersion>8.0</LangVersion>
-    <PackageIcon>favicon.ico</PackageIcon>
+    <PackageIcon>favicon.png</PackageIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -29,7 +29,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\..\favicon.ico">
+    <None Include="..\..\favicon.png">
       <Pack>True</Pack>
       <PackagePath></PackagePath>
     </None>

@@ -21,7 +21,7 @@ SAEA.Common 是SAEA项目中的工具类项目</PackageReleaseNotes>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <LangVersion>8.0</LangVersion>
-    <PackageIcon>favicon.ico</PackageIcon>
+    <PackageIcon>favicon.png</PackageIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -31,7 +31,7 @@ SAEA.Common 是SAEA项目中的工具类项目</PackageReleaseNotes>
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\..\favicon.ico">
+    <None Include="..\..\favicon.png">
       <Pack>True</Pack>
       <PackagePath></PackagePath>
     </None>
