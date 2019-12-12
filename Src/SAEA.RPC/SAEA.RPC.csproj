@@ -1,10 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.1</TargetFramework>
+    <TargetFramework>netstandard2.0</TargetFramework>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
-    <Version>5.3.0.1</Version>
+    <Version>5.3.0.2</Version>
     <Authors>yswenli</Authors>
     <Copyright>yswenli</Copyright>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>

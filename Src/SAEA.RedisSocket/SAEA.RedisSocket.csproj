@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.1</TargetFramework>
+    <TargetFramework>netstandard2.0</TargetFramework>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Description>This is a high-performance redis driver based on SAEA.Sockets, supporting redis cluster.
@@ -11,7 +11,7 @@ https://github.com/yswenli/SAEA</Description>
 这是一个基于SAEA.Sockets的redis 高性能驱动，支持redis cluster
 https://github.com/yswenli/SAEA</PackageReleaseNotes>
     <PackageIconUrl></PackageIconUrl>
-    <Version>5.3.0.1</Version>
+    <Version>5.3.0.2</Version>
     <Authors>yswenli</Authors>
     <Copyright>yswenli</Copyright>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>

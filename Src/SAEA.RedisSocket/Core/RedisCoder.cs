@@ -432,7 +432,7 @@ namespace SAEA.RedisSocket.Core
 
                 command = GetRedisReply();
 
-                if (command.IndexOf("-") == 0)
+                if (command.IndexOf("-") == 0 && command.IndexOf("-MOVED") == -1)
                 {
                     responseData.Type = ResponseType.Error;
                     responseData.Data = command;
@@ -444,7 +444,7 @@ namespace SAEA.RedisSocket.Core
                 {
                     command = GetRedisReply();
 
-                    if (command.IndexOf("-") == 0)
+                    if (command.IndexOf("-") == 0 && command.IndexOf("-MOVED") == -1)
                     {
                         responseData.Type = ResponseType.Error;
                         responseData.Data = command;

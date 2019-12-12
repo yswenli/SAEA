@@ -9,6 +9,20 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="wwwroot\6139455.png" />
+    <None Remove="wwwroot\index.html" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="wwwroot\6139455.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="wwwroot\index.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\SAEA.Common\SAEA.Common.csproj" />
     <ProjectReference Include="..\SAEA.MVC\SAEA.MVC.csproj" />
   </ItemGroup>
