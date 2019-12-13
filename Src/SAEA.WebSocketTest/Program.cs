@@ -25,11 +25,9 @@
 using SAEA.Common;
 using SAEA.WebSocket;
 using SAEA.WebSocket.Model;
-using SAEA.WebSocket.Type;
 using System;
 using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace SAEA.WebSocketTest
 {
@@ -129,7 +127,7 @@ namespace SAEA.WebSocketTest
 
         private static void Client_OnDisconnected(string ID, Exception ex)
         {
-            ConsoleHelper.WriteLine("WSClient 连接已断开：" + ex.Message, ConsoleColor.DarkGray);
+            ConsoleHelper.WriteLine("WSClient Client_OnDisconnected 连接已断开：" + ex.Message, ConsoleColor.DarkGray);
         }
 
         #endregion
