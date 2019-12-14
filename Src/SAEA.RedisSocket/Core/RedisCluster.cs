@@ -80,7 +80,7 @@ namespace SAEA.RedisSocket
         {
             var cnn = RedisConnectionManager.Get(ipPort);
 
-            if (cnn == null)
+            if (cnn == null || !cnn.IsConnected)
             {
                 this.IsConnected = false;
                 this.RedisConfig = new RedisConfig(ipPort, this.RedisConfig.Passwords, this.RedisConfig.ActionTimeOut);
@@ -94,12 +94,17 @@ namespace SAEA.RedisSocket
                 }
                 cnn.OnRedirect += _redisConnection_OnRedirect;
                 cnn.OnDisconnected += _cnn_OnDisconnected;
-                this.Connect();
-                RedisConnectionManager.Set(ipPort, cnn);
+                if (cnn.Connect())
+                {
+                    _cnn = cnn;
+                    this.IsConnected = true;
+                    RedisConnectionManager.Set(ipPort, cnn);
+                }
+                else
+                {
+                    throw new Exception($"当前节点不可达ipport:{ipPort}");
+                }
             }
-
-            _cnn = cnn;
-
 
             switch (operationType)
             {

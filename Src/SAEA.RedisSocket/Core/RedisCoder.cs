@@ -347,21 +347,19 @@ namespace SAEA.RedisSocket.Core
 
             bool loop = false;
 
-            int timeCount = 0;
+            var beginTime = DateTimeHelper.Now;
 
             do
             {
-                timeCount++;
-
                 str = _redisStream.ReadLine();
 
                 loop = string.IsNullOrEmpty(str);
 
                 if (loop)
                 {
-                    Thread.Sleep(1);
+                    Thread.Sleep(0);
 
-                    if (timeCount >= _actionTimeout) throw new TimeoutException("-Err:Operation is timeout!");
+                    if((DateTimeHelper.Now- beginTime).TotalMilliseconds>_actionTimeout) throw new TimeoutException("-Err:Operation is timeout!");
                 }
             }
             while (loop);
@@ -980,6 +978,8 @@ namespace SAEA.RedisSocket.Core
             catch (Exception ex)
             {
                 LogHelper.Error("RedisCoder.Decoder", ex);
+                responseData.Type = ResponseType.Error;
+                responseData.Data = "操作超时";
             }
             return responseData;
         }
