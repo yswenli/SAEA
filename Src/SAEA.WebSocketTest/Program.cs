@@ -79,18 +79,15 @@ namespace SAEA.WebSocketTest
                 ConsoleHelper.WriteLine("WSClient 正在发送消息...", ConsoleColor.DarkGray);
 
                 client.Send($"hello world!{DateTime.Now.ToString("HH:mm:ss.fff")}");
-
-                Thread.Sleep(1000);
-
                 ConsoleHelper.ReadLine();
+
+
                 ConsoleHelper.WriteLine("WSClient 正在ping服务器...", ConsoleColor.DarkGray);
-                Thread.Sleep(2000);
                 client.Ping();
 
 
                 ConsoleHelper.ReadLine();
                 ConsoleHelper.WriteLine("WSClient 正在断开连接...");
-                Thread.Sleep(1000);
                 client.Close();
 
                 ConsoleHelper.ReadLine();
