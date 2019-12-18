@@ -105,6 +105,10 @@ namespace SAEA.RedisSocket
                     throw new Exception($"当前节点不可达ipport:{ipPort}");
                 }
             }
+            else
+            {
+                _cnn = cnn;
+            }
 
             switch (operationType)
             {
