@@ -50,22 +50,25 @@ namespace SAEA.RedisSocket
             else
             {
                 this.IsConnected = false;
+
                 this.RedisConfig = new RedisConfig(ipPort, this.RedisConfig.Passwords, this.RedisConfig.ActionTimeOut);
 
                 if (_debugModel)
                 {
-                    _cnn = new RedisConnectionDebug(RedisConfig.GetIPPort(), this.RedisConfig.ActionTimeOut);
+                    cnn = new RedisConnectionDebug(RedisConfig.GetIPPort(), this.RedisConfig.ActionTimeOut);
                 }
                 else
                 {
-                    _cnn = new RedisConnection(RedisConfig.GetIPPort(), this.RedisConfig.ActionTimeOut);
+                    cnn = new RedisConnection(RedisConfig.GetIPPort(), this.RedisConfig.ActionTimeOut);
                 }
 
-                _cnn.OnRedirect += _redisConnection_OnRedirect;
-                _cnn.OnDisconnected += _cnn_OnDisconnected;
-                this.Connect();
-                RedisConnectionManager.Set(ipPort, _cnn);
-                return _cnn;
+                cnn.OnRedirect += _redisConnection_OnRedirect;
+                cnn.OnDisconnected += _cnn_OnDisconnected;
+                cnn.Connect();
+                cnn.Auth(this.RedisConfig.Passwords);
+                RedisConnectionManager.Set(ipPort, cnn);
+                _cnn = cnn;
+                return cnn;
             }
         }
 
@@ -96,6 +99,8 @@ namespace SAEA.RedisSocket
                 cnn.OnDisconnected += _cnn_OnDisconnected;
                 if (cnn.Connect())
                 {
+                    if (!string.IsNullOrEmpty(this.RedisConfig.Passwords))
+                        cnn.Auth(this.RedisConfig.Passwords);
                     _cnn = cnn;
                     this.IsConnected = true;
                     RedisConnectionManager.Set(ipPort, cnn);

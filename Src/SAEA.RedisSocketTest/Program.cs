@@ -41,14 +41,24 @@ namespace SAEA.RedisSocketTest
 
             if (string.IsNullOrEmpty(cnnStr))
             {
-                cnnStr = "server=127.0.0.1:6385;passwords=yswenli";
+                cnnStr = "server=127.0.0.1:6379;passwords=yswenli";
             }
             RedisClient redisClient = new RedisClient(cnnStr, false);
 
             redisClient.Connect();
 
-            var type= redisClient.Type("key72399");            
+            var type= redisClient.Type("FUND_GROUP_TG_5c8abef4c30c6b9a");
+            ConsoleHelper.WriteLine(type);
+            var type1 = redisClient.Type("FUND_GROUP_TG_176d0049714c618a");
+            ConsoleHelper.WriteLine(type1);
+            var type2 = redisClient.Type("POINT_GROUP_PG_ad011ad469744a6bbc79981c1d0811d6");
+            ConsoleHelper.WriteLine(type2);
+            var type3 = redisClient.Type("FUND_GROUP_TG_48fb4e9e8d6dda15");
+            ConsoleHelper.WriteLine(type3);
+            var type4 = redisClient.Type("POINT_GROUP_PG_8136d029050740acab7a3d24a6e88663");
+            ConsoleHelper.WriteLine(type4);
 
+            ConsoleHelper.ReadLine();
             KeysTest(redisClient);
 
             var db = redisClient.GetDataBase(0);

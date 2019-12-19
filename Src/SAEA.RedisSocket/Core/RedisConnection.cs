@@ -192,6 +192,11 @@ namespace SAEA.RedisSocket.Core
 
         }
 
+        public string Auth(string password)
+        {
+            return DoWithOne(RequestType.AUTH, password).Data;
+        }
+
         /// <summary>
         /// 用于不会迁移的命令
         /// </summary>

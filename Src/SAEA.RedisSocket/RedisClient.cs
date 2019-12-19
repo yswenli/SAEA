@@ -178,7 +178,7 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public string Auth(string password)
         {
-            return _cnn.DoWithOne(RequestType.AUTH, password).Data;
+            return _cnn.Auth(password);
         }
 
         /// <summary>
