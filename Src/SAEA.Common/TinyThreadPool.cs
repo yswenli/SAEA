@@ -238,5 +238,39 @@ namespace SAEA.Common
         {
             public TinyThreadPoolException(Exception ex) : base(ex.Message) { }
         }
+
+
+        #region static
+
+        static Lazy<TinyThreadPool> _ThreadPool = null;
+
+        /// <summary>
+        /// 静态创建一个公共线程池
+        /// </summary>
+        /// <param name="maxWorkCount"></param>
+        /// <param name="maxQueueCount"></param>
+        /// <returns></returns>
+        public static TinyThreadPool Create(int maxWorkCount = 2, int maxQueueCount = 100)
+        {
+            if (_ThreadPool == null)
+            {
+                _ThreadPool = new Lazy<TinyThreadPool>(() => new TinyThreadPool(maxWorkCount, maxQueueCount));
+            }
+            return _ThreadPool.Value;
+        }
+        /// <summary>
+        /// 使用公共线程池运行
+        /// </summary>
+        /// <param name="action"></param>
+        /// <param name="maxWorkCount"></param>
+        /// <param name="maxQueueCount"></param>
+        public static void Run(Action action, int maxWorkCount = 2, int maxQueueCount = 100)
+        {
+            var threadPool = Create(maxWorkCount, maxQueueCount);
+
+            threadPool.BlockAdd(action);
+        }
+
+        #endregion
     }
 }
