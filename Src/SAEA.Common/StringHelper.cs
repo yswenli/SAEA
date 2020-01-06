@@ -25,6 +25,7 @@
 using System;
 using System.Collections.Generic;
 using System.Net;
+using System.Text;
 
 namespace SAEA.Common
 {
@@ -160,6 +161,146 @@ namespace SAEA.Common
         public static int ParseToInt(this string str, int start, int count)
         {
             return int.Parse(Substring(str, start, count));
+        }
+
+        // <summary>
+        /// byte[]转为16进制字符串
+        /// </summary>
+        /// <param name="bytes"></param>
+        /// <returns></returns>
+        public static string ByteToHexStr(this byte[] bytes)
+        {
+            string returnStr = "";
+            if (bytes != null)
+            {
+                for (int i = 0; i < bytes.Length; i++)
+                {
+                    returnStr += bytes[i].ToString("X2");
+                }
+            }
+            return returnStr;
+        }
+
+        /// <summary>
+        /// 将16进制的字符串转为byte[]
+        /// </summary>
+        /// <param name="hexString"></param>
+        /// <returns></returns>
+        public static byte[] StrToHexByte(this string hexString)
+        {
+            hexString = hexString.Replace(" ", "");
+            if ((hexString.Length % 2) != 0)
+                hexString += " ";
+            byte[] returnBytes = new byte[hexString.Length / 2];
+            for (int i = 0; i < returnBytes.Length; i++)
+                returnBytes[i] = System.Convert.ToByte(hexString.Substring(i * 2, 2), 16);
+            return returnBytes;
+        }
+
+
+        /// <summary>
+        /// 将16进制字符串转为字符串
+        /// </summary>
+        /// <param name="hs"></param>
+        /// <param name="encode"></param>
+        /// <returns></returns>
+        public static string HexStringToString(this string hs, Encoding encode)
+        {
+            string strTemp = "";
+            byte[] b = new byte[hs.Length / 2];
+            for (int i = 0; i < hs.Length / 2; i++)
+            {
+                strTemp = hs.Substring(i * 2, 2);
+                b[i] = System.Convert.ToByte(strTemp, 16);
+            }
+            //按照指定编码将字节数组变为字符串
+            return encode.GetString(b);
+        }
+        /// <summary>
+        /// 将字符串转为16进制字符，允许中文
+        /// </summary>
+        /// <param name="s"></param>
+        /// <param name="encode"></param>
+        /// <param name="spanString"></param>
+        /// <returns></returns>
+        public static string StringToHexString(this string s, Encoding encode, string spanString)
+        {
+            byte[] b = encode.GetBytes(s);//按照指定编码将string编程字节数组
+            string result = string.Empty;
+            for (int i = 0; i < b.Length; i++)//逐字节变为16进制字符
+            {
+                result += System.Convert.ToString(b[i], 16) + spanString;
+            }
+            return result;
+        }
+
+
+        /// <summary>
+        /// url encode
+        /// </summary>
+        /// <param name="str"></param>
+        /// <returns></returns>
+        public static string UrlEncode(this string str)
+        {
+            return System.Web.HttpUtility.UrlEncode(str);
+        }
+
+        /// <summary>
+        /// url decode
+        /// </summary>
+        /// <param name="str"></param>
+        /// <returns></returns>
+        public static string UrlDecode(this string str)
+        {
+            return System.Web.HttpUtility.UrlDecode(str);
+        }
+
+
+        /// <summary>
+        /// 计算含有emoji表情字符串的长度
+        /// </summary>
+        /// <param name="str"></param>
+        /// <returns></returns>
+        public static int GetStringLength(this string str)
+        {
+            int len = 0;
+
+            if (!string.IsNullOrEmpty(str))
+            {
+                var bytes = Encoding.UTF8.GetBytes(str);
+
+                var fstr = str;
+
+                //System.IO.File.AppendAllText();
+
+                int i = 0;
+
+                while (i < bytes.Length)
+                {
+                    var k = bytes[i];
+
+                    if (k <= 127)
+                    {
+                        i += 1;
+                    }
+                    else if (k < 224)
+                    {
+                        i += 2;
+                    }
+                    else if (k < 240)
+                    {
+                        i += 3;
+                    }
+                    else
+                    {
+                        i += 4;
+                    }
+                    len++;
+                }
+
+            }
+
+            return len;
         }
     }
 }

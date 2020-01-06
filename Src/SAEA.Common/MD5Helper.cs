@@ -82,5 +82,26 @@ namespace SAEA.Common
         {
             return GetMD5(Encoding.UTF8.GetBytes(str));
         }
+
+        /// <summary>
+        /// HmacMD5
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="source"></param>
+        /// <returns></returns>
+        public static string HmacMD5(string key, string source)
+        {
+            HMACMD5 hmacmd = new HMACMD5(Encoding.Default.GetBytes(key));
+
+            byte[] inArray = hmacmd.ComputeHash(Encoding.Default.GetBytes(source));
+
+            StringBuilder sb = new StringBuilder(32);
+
+            for (int i = 0; i < inArray.Length; i++)
+            {
+                sb.Append(inArray[i].ToString("x").PadLeft(2, '0'));
+            }
+            return sb.ToString();
+        }
     }
 }
