@@ -429,7 +429,7 @@ namespace SAEA.Sockets.Core.Tcp
         {
             var userToken = _sessionManager.Get(sessionID);
 
-            if (userToken != null)
+            if (userToken != null && userToken.Socket != null && userToken.Socket.Connected)
             {
                 _sessionManager.Active(userToken.ID);
 
@@ -485,7 +485,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// </summary>
         public void Stop()
         {
-            
+
             try
             {
                 _listener.Close(10 * 1000);

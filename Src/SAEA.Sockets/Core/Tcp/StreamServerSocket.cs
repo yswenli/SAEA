@@ -253,8 +253,11 @@ namespace SAEA.Sockets.Core.Tcp
         public void End(string sessionID, byte[] data)
         {
             var channel = ChannelManager.Instance.Get(sessionID);
-            channel.Stream.Write(data, 0, data.Length);
-            Disconnecte(sessionID);
+            if (channel != null && channel.Stream != null && channel.Stream.CanWrite)
+            {
+                channel.Stream.Write(data, 0, data.Length);
+                Disconnecte(sessionID);
+            }
         }
 
         /// <summary>
@@ -288,7 +291,7 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 ChannelManager.Instance.Clear();
                 SocketOption.X509Certificate2?.Dispose();
-                _listener.Shutdown(SocketShutdown.Both);                
+                _listener.Shutdown(SocketShutdown.Both);
             }
             catch { }
             _listener.Close();

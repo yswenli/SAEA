@@ -1,4 +1,5 @@
 ﻿using SAEA.MVC;
+using SAEA.MVCTest.Attrubutes;
 using SAEA.MVCTest.Model;
 using System.Threading;
 
@@ -13,6 +14,7 @@ namespace SAEA.MVCTest.Controllers
         /// test
         /// </summary>
         /// <returns></returns>
+        [AuthAttribute(true)]
         public ActionResult Test()
         {
             return Content("this is a test!");

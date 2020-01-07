@@ -85,9 +85,7 @@ namespace SAEA.Http.Base
 
             this.Response = new HttpResponse();
 
-            this.Request.Init(httpMessage);
-
-            this.Response.Init(_webHost, this.Request.Protocal, _webHost.WebConfig.IsZiped);
+            this.Request.Init(httpMessage);           
 
             this.Server = _webHost.HttpUtility;
 
@@ -102,6 +100,8 @@ namespace SAEA.Http.Base
         public void InitSession(IUserToken userToken)
         {
             var sessionID = string.Empty;
+
+            this.Response.Init(_webHost, userToken, this.Request.Protocal, _webHost.WebConfig.IsZiped);
 
             if (!this.Request.Cookies.ContainsKey(ConstHelper.SESSIONID))
             {

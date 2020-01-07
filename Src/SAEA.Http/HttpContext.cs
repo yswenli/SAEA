@@ -81,7 +81,7 @@ namespace SAEA.Http
 
             Response.SetCached(result, this.Session.CacheCalcString);
 
-            Response.End(userToken);
+            Response.End();
         }
         public override IHttpResult GetActionResult()
         {
