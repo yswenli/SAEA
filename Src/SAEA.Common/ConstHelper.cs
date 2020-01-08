@@ -63,7 +63,7 @@ namespace SAEA.Common
 
         public const string ONACTIONEXECUTED = "OnActionExecuted";
 
-        public const string SERVERMVCSERVER = "83,101,114,118,101,114,58,32,83,65,69,65,46,72,116,116,112,46,83,101,114,118,101,114,32,52,46,48";
+        public const string SERVERMVCSERVER = "83,65,69,65,46,72,116,116,112,46,83,101,114,118,101,114,32,53,46,48";
 
         public const string CT = "Content-Type";
 
@@ -119,7 +119,7 @@ namespace SAEA.Common
             {
                 if (string.IsNullOrEmpty(_serverName))
                 {
-                    _serverName = System.Text.Encoding.ASCII.GetString(SERVERMVCSERVER.Split(",").Select(b => Convert.ToByte(b)).ToArray());
+                    _serverName = Encoding.ASCII.GetString(SERVERMVCSERVER.Split(",").Select(b => Convert.ToByte(b)).ToArray());
                 }
                 return _serverName;
             }
