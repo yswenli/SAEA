@@ -37,7 +37,7 @@ namespace SAEA.Common
         public static string Encrypt(string encryptString, string encryptKey, bool isbase64 = true)
         {
             string returnValue;
-            var temp = Convert.FromBase64String("eXN3ZW5saQ==");
+            var temp = Convert.FromBase64String("Rkb4jvUy/ye7Cd7k89QQgQ==");
             var AESProvider = Rijndael.Create();
             try
             {
@@ -82,7 +82,7 @@ namespace SAEA.Common
         public static string Decrypt(string decryptString, string decryptKey, bool isbase64 = true)
         {
             var returnValue = "";
-            var temp = Convert.FromBase64String("eXN3ZW5saQ==");
+            var temp = Convert.FromBase64String("Rkb4jvUy/ye7Cd7k89QQgQ==");
             var AESProvider = Rijndael.Create();
             try
             {
