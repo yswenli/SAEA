@@ -210,7 +210,11 @@ namespace SAEA.Http
             return arr;
         }
 
-
+        /// <summary>
+        /// 此方法为基础输出方法，使用时请设置status和contenttype
+        /// </summary>
+        /// <param name="str"></param>
+        /// <param name="encoding"></param>
         public void Write(string str, Encoding encoding = null)
         {
             SetContent(str, encoding);
