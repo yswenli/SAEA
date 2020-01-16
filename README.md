@@ -7,20 +7,21 @@
 SAEA.Socket is an IOCP high-performance TCP network framework based on dotnet standard 2.0; Src contains its application scenarios, such as large file transfer, websocket client and server, high-performance message queue, rpc, redis driver, httpserver,MQTT, Mvc, single-machine million-connected high-performance message server, etc. <br/>
 Reference components that search for saea in nuget, or enter the command Install-Package SAEA.Sockets-Version 3.3.3.5 directly
 
-SAEA.Socket是一个IOCP高性能tcp网络框架，基于dotnet standard 2.0；Src中含有其应用场景，例如大文件传输、websocket client and server、高性能消息队列、rpc、redis驱动、httpserver、MQTT、Mvc、单机百万连接高性能消息服务器等<br/>
+SAEA.Socket是一个IOCP高性能tcp网络框架，基于dotnet standard 2.0；Src中含有其应用场景，例如大文件传输、websocket client and server、高性能消息队列、rpc、redis驱动、httpserver、MQTT、Mvc、DNS等，基于SAEA.Sockets可轻易实现单机百万连接高性能消息服务器<br/>
 
 QQ群：788260487
 
-- [x] IOCP
-- [x] FileTransfer
-- [x] FTP
-- [x] MessageSocket
-- [x] QueueSocket
-- [x] MVC
-- [x] RPC
-- [x] Websocket
-- [x] RedisDrive
-- [x] MQTT
+- [√] IOCP
+- [√] FileTransfer
+- [√] FTP
+- [√] MessageSocket
+- [√] QueueSocket
+- [√] MVC
+- [√] RPC
+- [√] Websocket
+- [√] RedisDrive
+- [√] MQTT
+- [√] DNS
 
 ## Reference component
 
