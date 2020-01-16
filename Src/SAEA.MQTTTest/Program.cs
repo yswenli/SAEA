@@ -21,6 +21,7 @@ using SAEA.MQTT.Common;
 using SAEA.MQTT.Common.Log;
 using SAEA.MQTT.Core.Implementations;
 using SAEA.MQTT.Core.Protocol;
+using SAEA.MQTT.Interface;
 using SAEA.MQTT.Model;
 using System;
 using System.Text;
@@ -32,7 +33,7 @@ namespace SAEA.MQTTTest
     class Program
     {
         static void Main(string[] args)
-        {                    
+        {
 
             while (true)
             {
@@ -156,20 +157,26 @@ namespace SAEA.MQTTTest
             var factory = new MqttFactory();
 
             var server = factory.CreateMqttServer();
+
             var client = factory.CreateMqttClient();
 
 
             var serverOptions = new MqttServerOptionsBuilder().Build();
+
             server.ApplicationMessageReceived += Server_ApplicationMessageReceived;
+
             await server.StartAsync(serverOptions);
 
+
+
             var clientOptions = new MqttClientOptionsBuilder().WithTcpServer("127.0.0.1").Build();
+
             client.ApplicationMessageReceived += Client_ApplicationMessageReceived;
 
 
             await client.ConnectAsync(clientOptions);
 
-            await Task.Run(() =>
+            _ = Task.Run(() =>
             {
                 while (client.IsConnected)
                 {
@@ -185,12 +192,14 @@ namespace SAEA.MQTTTest
         private static void Server_ApplicationMessageReceived(object sender, MQTT.Event.MqttMessageReceivedEventArgs e)
         {
             Console.ForegroundColor = ConsoleColor.DarkGreen;
+
             Console.WriteLine($"Server收到消息，ClientId:{e.ClientId}，{Encoding.UTF8.GetString(e.ApplicationMessage.Payload)}");
         }
 
         private static void Client_ApplicationMessageReceived(object sender, MQTT.Event.MqttMessageReceivedEventArgs e)
         {
             Console.ForegroundColor = ConsoleColor.Red;
+
             Console.WriteLine($"client:{e.ClientId}收到消息:{Encoding.UTF8.GetString(e.ApplicationMessage.Payload)}");
         }
 

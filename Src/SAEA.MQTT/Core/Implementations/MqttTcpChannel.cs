@@ -16,12 +16,12 @@
 *Ãè    Êö£º
 *****************************************************************************/
 
+using SAEA.MQTT.Exceptions;
 using SAEA.MQTT.Interface;
 using SAEA.MQTT.Model;
 using SAEA.Sockets;
 using SAEA.Sockets.Core;
 using SAEA.Sockets.Core.Tcp;
-using SAEA.Sockets.Interface;
 using System;
 using System.IO;
 using System.Net.Sockets;
@@ -72,7 +72,11 @@ namespace SAEA.MQTT.Core.Implementations
         {
             get
             {
-                return _clientSocket.Endpoint; ;
+                if (_clientSocket.Connected)
+
+                    return _clientSocket.Endpoint;
+
+                return string.Empty;
             }
         }
 
@@ -95,7 +99,15 @@ namespace SAEA.MQTT.Core.Implementations
 
         public Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
+            while (!_clientSocket.Connected)
+            {
+                Task.Delay(TimeSpan.FromSeconds(1)).ConfigureAwait(true);
+
+                if (cancellationToken.IsCancellationRequested) throw new MqttCommunicationTimedOutException();
+            }
+
             ChannelManager.Instance.Refresh(_clientSocket.Endpoint);
+
             return _clientSocket.SendAsync(buffer, offset, count, cancellationToken);
         }
 
@@ -124,7 +136,7 @@ namespace SAEA.MQTT.Core.Implementations
 
         Task IMqttChannel.ConnectAsync()
         {
-           return Task.Run(() => ConnectAsync());
+            return Task.Run(() => ConnectAsync());
         }
     }
 }

@@ -84,6 +84,7 @@ namespace SAEA.MQTT.Core
         public Task SubscribeAsync(string clientId, IList<TopicFilter> topicFilters)
         {
             if (clientId == null) throw new ArgumentNullException(nameof(clientId));
+
             if (topicFilters == null) throw new ArgumentNullException(nameof(topicFilters));
 
             return _clientSessionsManager.SubscribeAsync(clientId, topicFilters);
@@ -92,6 +93,7 @@ namespace SAEA.MQTT.Core
         public Task UnsubscribeAsync(string clientId, IList<string> topicFilters)
         {
             if (clientId == null) throw new ArgumentNullException(nameof(clientId));
+
             if (topicFilters == null) throw new ArgumentNullException(nameof(topicFilters));
 
             return _clientSessionsManager.UnsubscribeAsync(clientId, topicFilters);
@@ -148,10 +150,12 @@ namespace SAEA.MQTT.Core
                 foreach (var adapter in _adapters)
                 {
                     adapter.ClientAccepted -= OnClientAccepted;
+
                     await adapter.StopAsync().ConfigureAwait(false);
                 }
 
                 _logger.Info("Stopped.");
+
                 Stopped?.Invoke(this, EventArgs.Empty);
             }
             finally

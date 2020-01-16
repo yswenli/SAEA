@@ -159,6 +159,7 @@ namespace SAEA.MQTT.Core.Implementations
                 }
 
                 var packet = PacketSerializer.Deserialize(receivedMqttPacket);
+
                 if (packet == null)
                 {
                     throw new MqttProtocolViolationException("Received malformed packet.");
@@ -170,6 +171,7 @@ namespace SAEA.MQTT.Core.Implementations
             }
             catch (OperationCanceledException)
             {
+
             }
             catch (Exception exception)
             {

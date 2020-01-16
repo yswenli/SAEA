@@ -65,7 +65,7 @@ namespace SAEA.Sockets
         /// <summary>
         /// 连接
         /// </summary>
-        bool Connected { get; set; }
+        bool Connected { get;  }
 
         /// <summary>
         /// 导步发送

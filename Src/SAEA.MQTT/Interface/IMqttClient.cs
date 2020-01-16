@@ -30,6 +30,7 @@ namespace SAEA.MQTT.Interface
         IMqttClientOptions Options { get; }
 
         event EventHandler<MqttClientConnectedEventArgs> Connected;
+
         event EventHandler<MqttClientDisconnectedEventArgs> Disconnected;
 
         Task<MqttClientConnectResult> ConnectAsync(IMqttClientOptions options);

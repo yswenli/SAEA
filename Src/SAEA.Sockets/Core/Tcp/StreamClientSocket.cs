@@ -54,11 +54,25 @@ namespace SAEA.Sockets.Core.Tcp
 
         Stream _stream;
 
-        public bool Connected { get; set; }
+        public bool Connected
+        {
+            get; private set;
+        } = false;
 
         public bool IsDisposed { get; private set; } = false;
 
-        public string Endpoint { get => _socket?.RemoteEndPoint?.ToString(); }
+        public string Endpoint
+        {
+            get
+            {
+
+                if (_socket != null && _socket.Connected)
+
+                    return _socket?.RemoteEndPoint?.ToString();
+
+                return string.Empty;
+            }
+        }
 
         public Socket Socket => _socket;
 
@@ -167,6 +181,7 @@ namespace SAEA.Sockets.Core.Tcp
                 }
 
                 _stream.ReadTimeout = _SocketOption.TimeOut;
+
                 _stream.WriteTimeout = _SocketOption.TimeOut;
 
                 this.Connected = true;

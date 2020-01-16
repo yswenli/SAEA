@@ -85,7 +85,8 @@ namespace SAEA.MQTTTest
                     {
                         Server = "127.0.0.1"
                     },
-                    CleanSession = true
+                    CleanSession = true,
+                    CommunicationTimeout = TimeSpan.FromSeconds(60)
                 };
 
                 var client = new MqttFactory().CreateMqttClient();

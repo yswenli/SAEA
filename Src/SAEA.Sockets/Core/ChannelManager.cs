@@ -29,6 +29,7 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Common;
 using SAEA.Sockets.Model;
 using System;
 using System.Collections.Concurrent;
@@ -56,7 +57,7 @@ namespace SAEA.Sockets.Core
                 ID = id,
                 ClientSocket = socket,
                 Stream = stream,
-                Expired = DateTime.Now.AddSeconds(_timeOut)
+                Expired = DateTimeHelper.Now.AddSeconds(_timeOut)
             };
             _concurrentDictionary.AddOrUpdate(id, ci, (k, v) => ci);
             return ci;
@@ -67,10 +68,13 @@ namespace SAEA.Sockets.Core
         {
             if (_concurrentDictionary.TryGetValue(id, out ChannelInfo ci))
             {
-                if (ci.Expired < DateTime.Now)
-                    Remove(id);
-                else
-                    return ci;
+                if (ci != null)
+                {
+                    if (ci.Expired < DateTimeHelper.Now)
+                        Remove(id);
+                    else
+                        return ci;
+                }
             }
             return null;
         }
@@ -80,7 +84,9 @@ namespace SAEA.Sockets.Core
         {
             if (_concurrentDictionary.TryGetValue(id, out ChannelInfo ci))
             {
-                ci.Expired = DateTime.Now.AddSeconds(_timeOut);
+                if (ci != null)
+
+                    ci.Expired = DateTimeHelper.Now.AddSeconds(_timeOut);
             }
         }
 

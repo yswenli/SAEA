@@ -88,9 +88,14 @@ namespace SAEA.MQTT.Core
                 await _adapter.ConnectAsync(Options.CommunicationTimeout, _cancellationTokenSource.Token).ConfigureAwait(false);
                 _logger.Verbose("Connection with server established.");
 
-                StartReceivingPackets(_cancellationTokenSource.Token);
+
+                _packetReceiverTask = Task.Factory.StartNew(() => ReceivePacketsAsync(_cancellationTokenSource.Token),
+                                                                _cancellationTokenSource.Token,
+                                                                TaskCreationOptions.LongRunning,
+                                                                TaskScheduler.Default).Unwrap();
 
                 var connectResponse = await AuthenticateAsync(options.WillMessage, _cancellationTokenSource.Token).ConfigureAwait(false);
+
                 _logger.Verbose("MQTT connection with server established.");
 
                 _sendTracker.Restart();
@@ -101,6 +106,7 @@ namespace SAEA.MQTT.Core
                 }
 
                 IsConnected = true;
+
                 Connected?.Invoke(this, new MqttClientConnectedEventArgs(connectResponse.IsSessionPresent));
 
                 _logger.Info("Connected.");
@@ -151,6 +157,7 @@ namespace SAEA.MQTT.Core
                 TopicFilters = topicFilters.ToList()
             };
 
+
             var response = await SendAndReceiveAsync<MqttSubAckPacket>(subscribePacket, _cancellationTokenSource.Token).ConfigureAwait(false);
 
             if (response.SubscribeReturnCodes.Count != subscribePacket.TopicFilters.Count)
@@ -180,7 +187,7 @@ namespace SAEA.MQTT.Core
         {
             return UnsubscribeAsync(new string[] { topic });
         }
-        
+
 
         public Task PublishAsync(MqttMessage applicationMessage)
         {
@@ -246,6 +253,7 @@ namespace SAEA.MQTT.Core
 
             return response;
         }
+
 
         private void ThrowIfNotConnected()
         {
@@ -336,6 +344,7 @@ namespace SAEA.MQTT.Core
             try
             {
                 await _adapter.SendPacketAsync(requestPacket, cancellationToken).ConfigureAwait(false);
+
                 var respone = await TaskHelper.TimeoutAfterAsync(ct => packetAwaiter.Task, Options.CommunicationTimeout, cancellationToken).ConfigureAwait(false);
 
                 return (TResponsePacket)respone;
@@ -351,6 +360,11 @@ namespace SAEA.MQTT.Core
             }
         }
 
+        /// <summary>
+        /// 心跳包
+        /// </summary>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
         private async Task SendKeepAliveMessagesAsync(CancellationToken cancellationToken)
         {
             try
@@ -360,15 +374,18 @@ namespace SAEA.MQTT.Core
                 while (!cancellationToken.IsCancellationRequested)
                 {
                     var keepAliveSendInterval = TimeSpan.FromSeconds(Options.KeepAlivePeriod.TotalSeconds * 0.75);
+
                     if (Options.KeepAliveSendInterval.HasValue)
                     {
                         keepAliveSendInterval = Options.KeepAliveSendInterval.Value;
                     }
 
                     var waitTime = keepAliveSendInterval - _sendTracker.Elapsed;
+
                     if (waitTime <= TimeSpan.Zero)
                     {
                         await SendAndReceiveAsync<MqttPingRespPacket>(new MqttPingReqPacket(), cancellationToken).ConfigureAwait(false);
+
                         waitTime = keepAliveSendInterval;
                     }
 
@@ -498,6 +515,7 @@ namespace SAEA.MQTT.Core
             {
                 // QoS 2 is implement as method "B" (4.3.3 QoS 2: Exactly once delivery)
                 FireApplicationMessageReceivedEvent(publishPacket);
+
                 return SendAsync(new MqttPubRecPacket { PacketIdentifier = publishPacket.PacketIdentifier }, cancellationToken);
             }
 
@@ -527,14 +545,6 @@ namespace SAEA.MQTT.Core
             await SendAndReceiveAsync<MqttPubCompPacket>(pubRelPacket, cancellationToken).ConfigureAwait(false);
         }
 
-        private void StartReceivingPackets(CancellationToken cancellationToken)
-        {
-            _packetReceiverTask = Task.Factory.StartNew(
-                () => ReceivePacketsAsync(cancellationToken),
-                cancellationToken,
-                TaskCreationOptions.LongRunning,
-                TaskScheduler.Default).Unwrap();
-        }
 
         private void StartSendingKeepAliveMessages(CancellationToken cancellationToken)
         {
