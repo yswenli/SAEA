@@ -294,9 +294,17 @@ namespace SAEA.Sockets.Core.Tcp
         private void ProcessSended(SocketAsyncEventArgs e)
         {
             var userToken = (IUserToken)e.UserToken;
-            _sessionManager.Active(userToken.ID);
-            userToken.WriteArgs.SetBuffer(null, 0, 0);
-            userToken.Set();
+            try
+            {
+                _sessionManager.Active(userToken.ID);
+                userToken.WriteArgs.SetBuffer(null, 0, 0);
+               
+            }
+            catch (Exception ex)
+            {
+                OnError?.Invoke($"An exception occurs when a message is sended:{userToken?.ID}", ex);
+            }
+            userToken?.Set();
         }
 
         #region send method
@@ -310,13 +318,20 @@ namespace SAEA.Sockets.Core.Tcp
         {
             userToken.WaitOne();
 
-            var writeArgs = userToken.WriteArgs;
-
-            writeArgs.SetBuffer(data, 0, data.Length);
-
-            if (!userToken.Socket.SendAsync(writeArgs))
+            try
             {
-                ProcessSended(writeArgs);
+                var writeArgs = userToken.WriteArgs;
+
+                writeArgs.SetBuffer(data, 0, data.Length);
+
+                if (!userToken.Socket.SendAsync(writeArgs))
+                {
+                    ProcessSended(writeArgs);
+                }
+            }
+            catch(Exception ex)
+            {
+                OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", ex);
             }
         }
 
