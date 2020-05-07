@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>netstandard2.1</TargetFramework>
     <Version>5.3.2.1</Version>
     <Authors>yswenli</Authors>
     <Company>yswenli</Company>
@@ -26,8 +26,8 @@ SAEA.Common 是SAEA项目中的工具类项目</PackageReleaseNotes>
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
-    <PackageReference Include="protobuf-net" Version="2.4.4" />
-    <PackageReference Include="System.Memory" Version="4.5.3" />
+    <PackageReference Include="protobuf-net" Version="2.4.6" />
+    <PackageReference Include="System.Memory" Version="4.5.4" />
   </ItemGroup>
 
   <ItemGroup>
