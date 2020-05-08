@@ -47,6 +47,10 @@ namespace SAEA.RedisSocketTest
 
             redisClient.Connect();
 
+            var rk = redisClient.GetDataBase().RandomKey();
+
+            var crk= redisClient.Console("RandomKey");
+
             var type= redisClient.Type("FUND_GROUP_TG_5c8abef4c30c6b9a");
             ConsoleHelper.WriteLine(type);
             var type1 = redisClient.Type("FUND_GROUP_TG_176d0049714c618a");
