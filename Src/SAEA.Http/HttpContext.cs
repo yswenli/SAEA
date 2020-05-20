@@ -54,6 +54,8 @@ namespace SAEA.Http
             {
                 case ConstHelper.GET:
                 case ConstHelper.POST:
+                case ConstHelper.PUT:
+                case ConstHelper.DELETE:
 
                     if (this.Request.Query.Count > 0)
                     {
@@ -79,9 +81,12 @@ namespace SAEA.Http
                     break;
             }
 
-            Response.SetCached(result, this.Session.CacheCalcString);
+            if (!(result is IBigDataResult))
+            {
+                Response.SetCached(result, this.Session.CacheCalcString);
 
-            Response.End();
+                Response.End();
+            }
         }
         public override IHttpResult GetActionResult()
         {
@@ -116,7 +121,14 @@ namespace SAEA.Http
 
             if (StaticResourcesCache.Exists(filePath))
             {
-                return new HttpFileResult(filePath, IsStaticsCached);
+                if (StaticResourcesCache.IsBigFile(filePath))
+                {
+                    return new HttpBigDataResult(filePath);
+                }
+                else
+                {
+                    return new HttpFileResult(filePath, IsStaticsCached);
+                }
             }
             return new HttpContentResult("o_o，找不到任何内容", System.Net.HttpStatusCode.NotFound);
         }

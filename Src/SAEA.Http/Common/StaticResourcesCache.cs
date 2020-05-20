@@ -38,21 +38,39 @@ namespace SAEA.Http.Common
         /// 增加或获取资源
         /// </summary>
         /// <param name="key"></param>
-        /// <param name="filePath"></param>
+        /// <param name="fileName"></param>
         /// <returns></returns>
-        public static byte[] GetOrAdd(string key, string filePath)
+        public static byte[] GetOrAdd(string key, string fileName)
         {
-            return _cache.GetOrAdd(key, FileHelper.Read(filePath));
+            return _cache.GetOrAdd(key, FileHelper.Read(fileName));
         }
 
         /// <summary>
         /// 判断文件是否存在
         /// </summary>
-        /// <param name="filePath"></param>
+        /// <param name="fileName"></param>
         /// <returns></returns>
-        public static bool Exists(string filePath)
+        public static bool Exists(string fileName)
         {
-            return File.Exists(filePath);
+            return File.Exists(fileName);
+        }
+
+        /// <summary>
+        /// 是否是大文件
+        /// </summary>
+        /// <param name="fileName"></param>
+        /// <returns></returns>
+        public static bool IsBigFile(string fileName)
+        {
+            var fileInfo = new FileInfo(fileName);
+
+            //超过4M认为是大文件
+            if (fileInfo.Length> 4194304)
+            {
+                return true;
+            }
+
+            return false;
         }
 
     }

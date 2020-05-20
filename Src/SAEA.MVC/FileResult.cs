@@ -25,21 +25,44 @@ using SAEA.Common;
 using SAEA.Http.Base;
 using SAEA.Http.Common;
 using SAEA.Http.Model;
+using System.IO;
 using System.Net;
 using System.Text;
 
 namespace SAEA.MVC
 {
     /// <summary>
-    /// 文件类型
+    /// 小文件或数据
     /// </summary>
     public class FileResult : ActionResult, IFileResult
     {
         public new byte[] Content { get; set; }
 
+        /// <summary>
+        /// 小文件或数据
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="isStaticsCached"></param>
         public FileResult(string filePath, bool isStaticsCached) : this(isStaticsCached, filePath, HttpMIME.GetType(filePath))
         {
 
+        }
+
+        /// <summary>
+        /// 小文件或数据
+        /// </summary>
+        /// <param name="stream"></param>
+        /// <param name="contentType"></param>
+        /// <param name="status"></param>
+        public FileResult(Stream stream, string contentType = "", HttpStatusCode status = HttpStatusCode.OK)
+        {
+            int len = (int)stream.Length;
+            var data = new byte[len];
+            stream.Read(data, 0, len);
+            this.Content = data;
+            this.ContentEncoding = Encoding.UTF8;
+            this.ContentType = contentType;
+            this.Status = status;
         }
 
         /// <summary>

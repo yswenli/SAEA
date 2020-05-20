@@ -220,16 +220,85 @@ namespace SAEA.Http
             SetContent(str, encoding);
         }
 
+        /// <summary>
+        /// 此方法为基础输出方法，使用时请设置status和contenttype
+        /// </summary>
+        /// <param name="data"></param>
+        /// <param name="encoding"></param>
         public void BinaryWrite(byte[] data, Encoding encoding = null)
         {
             SetContent(data, encoding);
         }
 
+        #region 针对类似大文件场景分开处理
+
+        /// <summary>
+        /// 仅发送头，
+        /// 与SendData，SendEnd联合使用
+        /// </summary>
+        /// <param name="bodyLen"></param>
+        /// <param name="encoding"></param>
+        public void SendHeader(long bodyLen, Encoding encoding = null)
+        {
+            if (encoding == null) encoding = Encoding.UTF8;
+
+            List<byte> reponseDataList = new List<byte>();
+
+            byte[] lineBytes = encoding.GetBytes(System.Environment.NewLine);
+
+            this.SetHeader(ResponseHeaderType.ContentLength, bodyLen.ToString());
+
+            var header = BuildHeader();
+
+            byte[] headerBytes = encoding.GetBytes(header);
+
+            //发送响应头
+            reponseDataList.AddRange(headerBytes);
+            //发送空行
+            reponseDataList.AddRange(lineBytes);
+
+            var arr = reponseDataList.ToArray();
+            
+            reponseDataList.Clear();
+
+            WebHost.Send(UserToken, arr);
+        }
+
+
+        /// <summary>
+        /// 发送数据，
+        /// 与SendHeader，SendEnd联合使用
+        /// </summary>
+        /// <param name="data"></param>
+        public void SendData(byte[] data)
+        {
+            WebHost.Send(UserToken, data);
+        }
+
+        /// <summary>
+        /// 发送结束，
+        /// 与SendHeader，SendData联合使用
+        /// </summary>
+        public void SendEnd()
+        {
+            WebHost.Disconnect(UserToken);
+            this.Body = null;
+        }
+
+        #endregion
+
+
+        /// <summary>
+        /// 结束当前流程
+        /// </summary>
         public void End()
         {
             WebHost.End(UserToken, this.ToBytes());
         }
 
+        /// <summary>
+        /// 释放资源
+        /// </summary>
         public void Dispose()
         {
             if (this.Query != null)

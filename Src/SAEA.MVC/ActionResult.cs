@@ -27,39 +27,37 @@ using System.Text;
 
 namespace SAEA.MVC
 {
-    // 摘要:
-    //     封装一个操作方法的结果并用于代表该操作方法执行框架级操作。
+    /// <summary>
+    /// 封装一个操作方法的结果并用于代表该操作方法执行框架级操作。
+    /// </summary>
     public abstract class ActionResult : IHttpResult
     {
-        // 摘要:
-        //     初始化 SAEA.Http.ActionResult 类的新实例。
+        /// <summary>
+        ///  初始化 SAEA.Http.ActionResult 类的新实例。
+        /// </summary>
         public ActionResult()
         {
 
         }
 
-        // 摘要:
-        //     获取或设置内容。
-        //
-        // 返回结果:
-        //     内容。
+        /// <summary>
+        /// 获取或设置内容。
+        /// </summary>
         public string Content { get; set; }
-        //
-        // 摘要:
-        //     获取或设置内容编码。
-        //
-        // 返回结果:
-        //     内容编码。
+
+        /// <summary>
+        /// 获取或设置内容编码。
+        /// </summary>
         public Encoding ContentEncoding { get; set; } = Encoding.UTF8;
-        //
-        // 摘要:
-        //     获取或设置内容的类型。
-        //
-        // 返回结果:
-        //     内容的类型。
+
+        /// <summary>
+        /// 获取或设置内容的类型。
+        /// </summary>
         public string ContentType { get; set; } = "application/json";
 
-
+        /// <summary>
+        /// 状态码
+        /// </summary>
         public HttpStatusCode Status
         {
             get; set;

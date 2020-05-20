@@ -29,11 +29,16 @@ namespace SAEA.MVC
     /// <summary>
     /// SAEA.MVC应用程序
     /// </summary>
-    public class SAEAMvcApplication
+    public partial class SAEAMvcApplication
     {
         WebHost webHost;
 
         internal AreaCollection AreaCollection { get; private set; } = new AreaCollection();
+
+        /// <summary>
+        /// 是否处于运行中
+        /// </summary>
+        public bool Running { get; set; } = false;
 
         /// <summary>
         /// 构建mvc容器
@@ -110,6 +115,7 @@ namespace SAEA.MVC
             try
             {
                 webHost.Start();
+                this.Running = true;
             }
             catch (Exception ex)
             {
@@ -125,6 +131,7 @@ namespace SAEA.MVC
             try
             {
                 webHost.Stop();
+                this.Running = false;
             }
             catch (Exception ex)
             {

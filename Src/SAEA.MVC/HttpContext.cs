@@ -54,6 +54,8 @@ namespace SAEA.MVC
             {
                 case ConstHelper.GET:
                 case ConstHelper.POST:
+                case ConstHelper.PUT:
+                case ConstHelper.DELETE:
 
                     if (this.Request.Query.Count > 0)
                     {
@@ -72,16 +74,19 @@ namespace SAEA.MVC
                     result = GetActionResult();
                     break;
                 case ConstHelper.OPTIONS:
-                    result = new HttpEmptyResult();
+                    result = new EmptyResult();
                     break;
                 default:
-                    result = new HttpContentResult("不支持的请求方式", System.Net.HttpStatusCode.NotImplemented);
+                    result = new ContentResult("不支持的请求方式", System.Net.HttpStatusCode.NotImplemented);
                     break;
             }
 
-            Response.SetCached(result, this.Session.CacheCalcString);
+            if (!(result is IBigDataResult))
+            {
+                Response.SetCached(result, this.Session.CacheCalcString);
 
-            Response.End();
+                Response.End();
+            }
         }
 
         public override IHttpResult GetActionResult()
@@ -127,7 +132,12 @@ namespace SAEA.MVC
 
                     if (StaticResourcesCache.Exists(filePath))
                     {
-                        return new FileResult(filePath, IsStaticsCached);
+                        if (StaticResourcesCache.IsBigFile(filePath))
+
+                            return new BigDataResult(filePath);
+                        else
+
+                            return new FileResult(filePath, IsStaticsCached);
                     }
                     else
                     {
@@ -142,7 +152,12 @@ namespace SAEA.MVC
                     filePath = Server.MapPath(url);
                     if (StaticResourcesCache.Exists(filePath))
                     {
-                        return new FileResult(filePath, IsStaticsCached);
+                        if (StaticResourcesCache.IsBigFile(filePath))
+
+                            return new BigDataResult(filePath);
+                        else
+
+                            return new FileResult(filePath, IsStaticsCached);
                     }
                     break;
 
@@ -162,7 +177,12 @@ namespace SAEA.MVC
                         filePath = Server.MapPath(url);
                         if (StaticResourcesCache.Exists(filePath))
                         {
-                            return new FileResult(filePath, IsStaticsCached);
+                            if (StaticResourcesCache.IsBigFile(filePath))
+
+                                return new BigDataResult(filePath);
+                            else
+
+                                return new FileResult(filePath, IsStaticsCached);
                         }
                     }
                     break;

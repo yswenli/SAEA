@@ -32,16 +32,39 @@ using SAEA.Common;
 namespace SAEA.Http.Model
 {
     /// <summary>
-    /// 文件类型
+    /// 小文件或数据
     /// </summary>
     public class HttpFileResult : HttpActionResult, IFileResult
     {
         public new byte[] Content { get; set; }
 
+        /// <summary>
+        /// 小文件或数据
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="isStaticsCached"></param>
         public HttpFileResult(string filePath, bool isStaticsCached) : this(isStaticsCached, filePath, HttpMIME.GetType(filePath))
         {
 
         }
+
+        /// <summary>
+        /// 小文件或数据
+        /// </summary>
+        /// <param name="stream"></param>
+        /// <param name="contentType"></param>
+        /// <param name="status"></param>
+        public HttpFileResult(Stream stream, string contentType = "", HttpStatusCode status = HttpStatusCode.OK)
+        {
+            int len = (int)stream.Length;
+            var data = new byte[len];
+            stream.Read(data, 0, len);
+            this.Content = data;
+            this.ContentEncoding = Encoding.UTF8;
+            this.ContentType = contentType;
+            this.Status = status;
+        }
+
 
         /// <summary>
         /// 文件内容

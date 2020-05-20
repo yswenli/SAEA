@@ -40,6 +40,10 @@ namespace SAEA.Http.Model
 
         void Start();
 
+        void Send(IUserToken userToken, byte[] data);
+
+        void Disconnect(IUserToken userToken);
+
         void End(IUserToken userToken, byte[] data);
 
         void Stop();

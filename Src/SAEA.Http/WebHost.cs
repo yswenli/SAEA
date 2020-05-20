@@ -132,11 +132,36 @@ namespace SAEA.Http
             }
         }
 
+        /// <summary>
+        /// 发送
+        /// </summary>
+        /// <param name="userToken"></param>
+        /// <param name="data"></param>
+        public void Send(IUserToken userToken, byte[] data)
+        {
+            _serverSocket.Send(userToken, data);
+        }
+
+        /// <summary>
+        /// 结束
+        /// </summary>
+        /// <param name="userToken"></param>
+        public void Disconnect(IUserToken userToken)
+        {
+            _serverSocket.Disconnecte(userToken);
+        }
+
+        /// <summary>
+        /// 发送并结束
+        /// </summary>
+        /// <param name="userToken"></param>
+        /// <param name="data"></param>
         public void End(IUserToken userToken, byte[] data)
         {
             _serverSocket.End(userToken, data);
         }
 
+        
 
         private void _serverSocket_OnError(string ID, Exception ex)
         {

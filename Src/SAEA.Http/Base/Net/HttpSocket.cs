@@ -91,16 +91,19 @@ namespace SAEA.Http.Base.Net
             }
         }
 
-        public void End(IUserToken userToken, byte[] data)
+        public void Send(IUserToken userToken, byte[] data)
         {
-            _serverSokcet.End(userToken.ID, data);
+            _serverSokcet.Send(userToken.ID, data);
         }
 
         public void Disconnecte(IUserToken userToken)
         {
             _serverSokcet.Disconnecte(userToken.ID);
         }
-
+        public void End(IUserToken userToken, byte[] data)
+        {
+            _serverSokcet.End(userToken.ID, data);
+        }
         public void Start()
         {
             _serverSokcet.Start();

@@ -26,6 +26,9 @@ using System.Text;
 
 namespace SAEA.Http.Model
 {
+    /// <summary>
+    /// 公共返回的接口
+    /// </summary>
     public interface IHttpResult
     {
         string Content { get; set; }

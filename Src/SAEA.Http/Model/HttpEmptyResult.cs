@@ -30,5 +30,6 @@ namespace SAEA.Http.Model
     /// </summary>
     public class HttpEmptyResult : HttpActionResult, IEmptyResult
     {
+
     }
 }
