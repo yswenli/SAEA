@@ -153,7 +153,7 @@ namespace SAEA.Http
 
             #endregion
 
-            if (result is IEmptyResult)
+            if (result is IEmptyResult || result is IBigDataResult)
             {
                 return;
             }
@@ -258,7 +258,7 @@ namespace SAEA.Http
             reponseDataList.AddRange(lineBytes);
 
             var arr = reponseDataList.ToArray();
-            
+
             reponseDataList.Clear();
 
             WebHost.Send(UserToken, arr);

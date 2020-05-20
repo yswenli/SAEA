@@ -94,7 +94,7 @@ namespace SAEA.Http
 
             HttpUtility = new HttpUtility(WebConfig.Root);
 
-            _serverSocket = new HttpSocket(port, bufferSize, count, timeOut, isDebug);
+            _serverSocket = new HttpSocket(port, bufferSize, count, timeOut, isDebug);            
 
             _serverSocket.OnRequested += _serverSocket_OnRequested;
         }
@@ -128,7 +128,7 @@ namespace SAEA.Http
             }
             catch (Exception ex)
             {
-                LogHelper.Error("WebHost._serverSocket_OnDisconnected 意外断开连接", ex);
+                LogHelper.Error("WebHost._serverSocket_OnDisconnected 意外断开连接", ex, httpMessage);
             }
         }
 
@@ -159,14 +159,7 @@ namespace SAEA.Http
         public void End(IUserToken userToken, byte[] data)
         {
             _serverSocket.End(userToken, data);
-        }
-
-        
-
-        private void _serverSocket_OnError(string ID, Exception ex)
-        {
-            LogHelper.Error(ID, ex);
-        }
+        }        
 
 
         /// <summary>
