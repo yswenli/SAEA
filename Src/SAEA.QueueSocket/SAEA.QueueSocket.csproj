@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.1</TargetFramework>
+    <TargetFramework>netstandard2.0</TargetFramework>
     <Description>This is a high-performance memory queue server and client component based on SAEA.Sockets.
 这是一个基于SAEA.Sockets的高性能内存队列服务器、客户端组件
 https://github.com/yswenli/SAEA</Description>
