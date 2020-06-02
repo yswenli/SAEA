@@ -72,7 +72,7 @@ namespace SAEA.WebSocket.Model
                 responseBuilder.Append("HTTP/1.1 101 Switching Protocols" + "\r\n");
                 responseBuilder.Append("Upgrade: websocket" + "\r\n");
                 responseBuilder.Append("Connection: Upgrade" + "\r\n");
-                responseBuilder.AppendFormat("Sec-WebSocket-Protocol: {0}\r\n", "saea.websocket");
+                responseBuilder.AppendFormat("Sec-WebSocket-Protocol: {0}\r\n", SubProtocolType.Default);
                 responseBuilder.Append("Sec-WebSocket-Accept: " + secKey + "\r\n\r\n");
                 data = Encoding.UTF8.GetBytes(responseBuilder.ToString());
                 result = true;
@@ -99,16 +99,19 @@ namespace SAEA.WebSocket.Model
         /// </summary>
         /// <param name="serverIP"></param>
         /// <param name="serverPort"></param>
+        /// <param name="subProtocol"></param>
         /// <returns></returns>
-        public static byte[] RequestHandShark(string serverIP, int serverPort)
+        public static byte[] RequestHandShark(string serverIP, int serverPort, string subProtocol = SubProtocolType.Default)
         {
             var sb = new StringBuilder(64);
             sb.AppendFormat("{0} ws:{1}:{2} HTTP/{3}{4}", "GET", serverIP, serverPort, "1.1", CrLf);
             sb.AppendFormat("{0}: {1}{2}", "Upgrade", "websocket", CrLf);
             sb.AppendFormat("{0}: {1}{2}", "Connection", "Upgrade", CrLf);
             sb.AppendFormat("{0}: {1}{2}", "Sec-WebSocket-Key", CreateBase64Key(), CrLf);
-            sb.AppendFormat("{0}: {1}{2}", "Sec-WebSocket-Protocol", "wenli.asea", CrLf);
+            if (!string.IsNullOrEmpty(subProtocol))
+                sb.AppendFormat("{0}: {1}{2}", "Sec-WebSocket-Protocol", subProtocol, CrLf);
             sb.AppendFormat("{0}: {1}{2}", "Sec-WebSocket-Version", "13", CrLf);
+            sb.AppendFormat("{0}: {1}{2}", "Sec-WebSocket-Extensions", "permessage-deflate; client_max_window_bits", CrLf);
             sb.Append(CrLf);
             return Encoding.UTF8.GetBytes(sb.ToString());
         }

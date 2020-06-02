@@ -35,6 +35,9 @@ using System.Threading;
 
 namespace SAEA.WebSocket
 {
+    /// <summary>
+    /// WSClient
+    /// </summary>
     public class WSClient
     {
         int _bufferSize = 100 * 1024;
@@ -46,6 +49,8 @@ namespace SAEA.WebSocket
         int _serverPort;
 
         bool _isHandSharked = false;
+
+        string _subProtocol = "SAEA.WebSocket";
 
         List<byte> _cache = new List<byte>();
 
@@ -63,7 +68,14 @@ namespace SAEA.WebSocket
 
         WSContext _wsContext;
 
-        public WSClient(string ip = "127.0.0.1", int port = 39654, int bufferSize = 10 * 1024)
+        /// <summary>
+        /// WSClient
+        /// </summary>
+        /// <param name="ip"></param>
+        /// <param name="port"></param>
+        /// <param name="subProtocol"></param>
+        /// <param name="bufferSize"></param>
+        public WSClient(string ip = "127.0.0.1", int port = 39654, string subProtocol = SubProtocolType.Default, int bufferSize = 10 * 1024)
         {
             _serverIP = ip;
             _serverPort = port;
@@ -75,10 +87,12 @@ namespace SAEA.WebSocket
             var option = SocketOptionBuilder.Instance
                 .UseIocp(_wsContext)
                 .SetIP(ip)
-                .SetCount(port)
+                .SetPort(port)
                 .SetReadBufferSize(bufferSize)
                 .SetReadBufferSize(bufferSize)
                 .Build();
+
+            _subProtocol = subProtocol;
 
             _client = SocketFactory.CreateClientSocket(option);
 
@@ -86,6 +100,17 @@ namespace SAEA.WebSocket
             _client.OnDisconnected += WSClient_OnDisconnected;
             _client.OnError += WSClient_OnError;
         }
+
+        public WSClient(Uri uri, string subProtocol = SubProtocolType.Default) : this(uri.Host, uri.Port, subProtocol)
+        {
+
+        }
+
+        public WSClient(string url, string subProtocol = SubProtocolType.Default) : this(new Uri(url), subProtocol)
+        {
+
+        }
+
 
         private void _client_OnReceive(byte[] data)
         {
@@ -182,7 +207,7 @@ namespace SAEA.WebSocket
 
         private void RequestHandShark()
         {
-            _client.SendAsync(WSUserToken.RequestHandShark(_serverIP, _serverPort));
+            _client.SendAsync(WSUserToken.RequestHandShark(_serverIP, _serverPort, _subProtocol));
         }
 
         /// <summary>

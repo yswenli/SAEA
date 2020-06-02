@@ -37,9 +37,11 @@ namespace SAEA.WebSocketTest
 
         static void Main(string[] args)
         {
-            Init1();
+            //Init1();
 
             //Init2();
+
+            Init3();
 
             ConsoleHelper.ReadLine();
         }
@@ -129,7 +131,7 @@ namespace SAEA.WebSocketTest
 
         #endregion
 
-        #region test2
+        #region test2 ssl
 
         static void Init2()
         {
@@ -150,12 +152,61 @@ namespace SAEA.WebSocketTest
         }
 
         private static void Server_OnMessage2(string id, WSProtocal data)
-        {    
+        {
             ConsoleHelper.WriteLine("WSSServer 收到{0}的消息：{1}", ConsoleColor.Green, id, Encoding.UTF8.GetString(data.Content));
 
             _server.Reply(id, data);
         }
 
+
+        #endregion
+
+
+        #region test3 workman
+
+        static void Init3()
+        {
+            ConsoleHelper.WriteLine("WSClient 正在连接到WorkMan服务器...", ConsoleColor.DarkGray);
+
+            var url = "ws://120.79.233.58:7272";
+
+            WSClient client = new WSClient(url, SubProtocolType.Json);
+            client.OnPong += Client_OnPong;
+            client.OnMessage += Client_OnMessage;
+            client.OnError += Client_OnError;
+            client.OnDisconnected += Client_OnDisconnected;
+
+            var connected = client.Connect();
+
+            if (connected)
+            {
+                ConsoleHelper.WriteLine("WSClient 连接成功，回车测试消息", ConsoleColor.DarkGray);
+                ConsoleHelper.ReadLine();
+
+                ConsoleHelper.WriteLine("WSClient 正在发送消息...", ConsoleColor.DarkGray);
+
+                var msg = new
+                {
+                    type = "text",
+                    content = $"hello world!{DateTime.Now.ToString("HH:mm:ss.fff")}"
+                };
+
+                var json = SerializeHelper.Serialize(msg);
+
+                client.Send(json);
+                ConsoleHelper.ReadLine();
+
+                ConsoleHelper.WriteLine("回车WSClient 断开连接");
+                ConsoleHelper.ReadLine();
+                client.Close();
+
+                ConsoleHelper.ReadLine();
+            }
+            else
+            {
+                ConsoleHelper.WriteLine("WSClient 连接失败", ConsoleColor.DarkGray);
+            }
+        }
 
         #endregion
 
