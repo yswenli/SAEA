@@ -119,7 +119,7 @@ namespace SAEA.WebSocketTest
             ConsoleHelper.WriteLine("WSClient 收到的消息：{0}", ConsoleColor.DarkGray, Encoding.UTF8.GetString(data.Content));
         }
 
-        private static void Client_OnPong(DateTime date)
+        private static void Client_OnPong(string date)
         {
             ConsoleHelper.WriteLine("WSClient 收到pong：{0}", ConsoleColor.DarkGray, date);
         }
@@ -183,21 +183,22 @@ namespace SAEA.WebSocketTest
                 ConsoleHelper.WriteLine("WSClient 连接成功，回车测试消息", ConsoleColor.DarkGray);
                 ConsoleHelper.ReadLine();
 
+                client.Ping();
+
                 ConsoleHelper.WriteLine("WSClient 正在发送消息...", ConsoleColor.DarkGray);
 
-                var msg = new
-                {
-                    type = "text",
-                    content = $"hello world!{DateTime.Now.ToString("HH:mm:ss.fff")}"
-                };
+                client.Send($"hello world!{DateTime.Now.ToString("HH:mm:ss.fff")}");
+               
+                ConsoleHelper.WriteLine("WSClient 已发送消息", ConsoleColor.DarkGray);
 
-                var json = SerializeHelper.Serialize(msg);
-
-                client.Send(json);
                 ConsoleHelper.ReadLine();
+
+                
 
                 ConsoleHelper.WriteLine("回车WSClient 断开连接");
+
                 ConsoleHelper.ReadLine();
+
                 client.Close();
 
                 ConsoleHelper.ReadLine();

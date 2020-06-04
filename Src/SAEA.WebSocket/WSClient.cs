@@ -56,7 +56,7 @@ namespace SAEA.WebSocket
 
         public event OnErrorHandler OnError;
 
-        public event Action<DateTime> OnPong;
+        public event Action<string> OnPong;
 
         public event Action<WSProtocal> OnMessage;
 
@@ -185,8 +185,7 @@ namespace SAEA.WebSocket
                             _client.Disconnect();
                             break;
                         case (byte)WSProtocalType.Pong:
-                            var date = DateTime.Parse(Encoding.UTF8.GetString(wsProtocal.Content));
-                            OnPong?.Invoke(date);
+                            OnPong?.Invoke(Encoding.UTF8.GetString(wsProtocal.Content));
                             break;
                         case (byte)WSProtocalType.Binary:
                         case (byte)WSProtocalType.Text:

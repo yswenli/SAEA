@@ -31,6 +31,8 @@ namespace SAEA.WebSocket.Model
 {
     public class WSProtocal : ISocketProtocal
     {
+        int _mask = RandomHelper.GetInt(1);
+
         public long BodyLength { get; set; }
         public byte[] Content { get; set; }
         public byte Type { get; set; }
@@ -91,9 +93,14 @@ namespace SAEA.WebSocket.Model
                 header = (header << 1) + (byte)0x0;
                 header = (header << 1) + (byte)0x0;
                 header = (header << 4) + this.Type;
-                header = (header << 1) + (byte)0x0;
+                header = (header << 1) + (byte)0x1;
                 header = (header << 7) + (byte)_payloadLength;
                 buff.Write(((ushort)header).InternalToByteArray(EndianOrder.Big), 0, 2);
+
+                //mask
+                var maskBytes = _mask.ToBytes();
+                buff.Write(maskBytes, 0, 4);
+
 
                 if (_payloadLength > 125)
                     buff.Write(_extPayloadLength, 0, _payloadLength == 126 ? 2 : 8);
