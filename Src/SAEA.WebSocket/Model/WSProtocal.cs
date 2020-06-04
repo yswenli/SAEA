@@ -108,6 +108,9 @@ namespace SAEA.WebSocket.Model
 
                 if (_payloadLength > 0)
                 {
+
+                    WSCoder.DoMask(this.Content, 0, this.Content.Length, maskBytes);
+
                     buff.Write(this.Content, 0, (int)this.BodyLength);
                 }
 

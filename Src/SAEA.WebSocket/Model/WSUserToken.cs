@@ -97,20 +97,28 @@ namespace SAEA.WebSocket.Model
         /// <summary>
         /// 客户端发起握手
         /// </summary>
+        /// <param name="url"></param>
         /// <param name="serverIP"></param>
         /// <param name="serverPort"></param>
         /// <param name="subProtocol"></param>
+        /// <param name="origin"></param>
         /// <returns></returns>
-        public static byte[] RequestHandShark(string serverIP, int serverPort, string subProtocol = SubProtocolType.Default)
+        public static byte[] RequestHandShark(string url, string serverIP, int serverPort, string subProtocol = SubProtocolType.Default, string origin = "")
         {
             var sb = new StringBuilder(64);
-            sb.AppendFormat("{0} ws:{1}:{2} HTTP/{3}{4}", "GET", serverIP, serverPort, "1.1", CrLf);
+            sb.AppendFormat("{0} {1} HTTP/{2}{3}", "GET", url, "1.1", CrLf);
+            sb.AppendFormat("{0}: {1}{2}", "Host", $"{serverIP}:{serverPort}", CrLf);
+            sb.AppendLine("User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.61 Safari/537.36");
+            if (!string.IsNullOrEmpty(origin))
+            {
+                sb.AppendLine($"Origin: {origin}");
+            }
             sb.AppendFormat("{0}: {1}{2}", "Upgrade", "websocket", CrLf);
             sb.AppendFormat("{0}: {1}{2}", "Connection", "Upgrade", CrLf);
-            sb.AppendFormat("{0}: {1}{2}", "Sec-WebSocket-Key", CreateBase64Key(), CrLf);
+            sb.AppendFormat("{0}: {1}{2}", "Sec-WebSocket-Version", "13", CrLf);
             if (!string.IsNullOrEmpty(subProtocol))
                 sb.AppendFormat("{0}: {1}{2}", "Sec-WebSocket-Protocol", subProtocol, CrLf);
-            sb.AppendFormat("{0}: {1}{2}", "Sec-WebSocket-Version", "13", CrLf);
+            sb.AppendFormat("{0}: {1}{2}", "Sec-WebSocket-Key", CreateBase64Key(), CrLf);
             sb.AppendFormat("{0}: {1}{2}", "Sec-WebSocket-Extensions", "permessage-deflate; client_max_window_bits", CrLf);
             sb.Append(CrLf);
             return Encoding.UTF8.GetBytes(sb.ToString());

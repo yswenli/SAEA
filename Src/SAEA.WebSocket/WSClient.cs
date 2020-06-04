@@ -44,6 +44,8 @@ namespace SAEA.WebSocket
 
         byte[] _buffer;
 
+        string _url;
+
         string _serverIP;
 
         int _serverPort;
@@ -51,6 +53,8 @@ namespace SAEA.WebSocket
         bool _isHandSharked = false;
 
         string _subProtocol = "SAEA.WebSocket";
+
+        string _origin;
 
         List<byte> _cache = new List<byte>();
 
@@ -74,12 +78,20 @@ namespace SAEA.WebSocket
         /// <param name="ip"></param>
         /// <param name="port"></param>
         /// <param name="subProtocol"></param>
+        /// <param name="origin"></param>
         /// <param name="bufferSize"></param>
-        public WSClient(string ip = "127.0.0.1", int port = 39654, string subProtocol = SubProtocolType.Default, int bufferSize = 10 * 1024)
+        public WSClient(string ip = "127.0.0.1", int port = 39654, string subProtocol = SubProtocolType.Default, string origin = "", int bufferSize = 10 * 1024)
         {
             _serverIP = ip;
             _serverPort = port;
+
+            if (string.IsNullOrEmpty(_url))
+                _url = $"ws://{ip}:{port}/";
+
+            _origin = origin;
+
             _bufferSize = bufferSize;
+
             _buffer = new byte[_bufferSize];
 
             _wsContext = new WSContext();
@@ -101,14 +113,14 @@ namespace SAEA.WebSocket
             _client.OnError += WSClient_OnError;
         }
 
-        public WSClient(Uri uri, string subProtocol = SubProtocolType.Default) : this(uri.Host, uri.Port, subProtocol)
+        public WSClient(Uri uri, string subProtocol = SubProtocolType.Default, string origin = "") : this(uri.Host, uri.Port, subProtocol, origin)
         {
-
+            _url = uri.ToString();
         }
 
-        public WSClient(string url, string subProtocol = SubProtocolType.Default) : this(new Uri(url), subProtocol)
+        public WSClient(string url, string subProtocol = SubProtocolType.Default, string origin = "") : this(new Uri(url), subProtocol, origin)
         {
-
+            _url = url;
         }
 
 
@@ -206,7 +218,7 @@ namespace SAEA.WebSocket
 
         private void RequestHandShark()
         {
-            _client.SendAsync(WSUserToken.RequestHandShark(_serverIP, _serverPort, _subProtocol));
+            _client.SendAsync(WSUserToken.RequestHandShark(_url, _serverIP, _serverPort, _subProtocol, _origin));
         }
 
         /// <summary>

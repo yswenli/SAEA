@@ -41,7 +41,9 @@ namespace SAEA.WebSocketTest
 
             //Init2();
 
-            Init3();
+            //Init3();
+
+            Init4();
 
             ConsoleHelper.ReadLine();
         }
@@ -188,12 +190,12 @@ namespace SAEA.WebSocketTest
                 ConsoleHelper.WriteLine("WSClient 正在发送消息...", ConsoleColor.DarkGray);
 
                 client.Send($"hello world!{DateTime.Now.ToString("HH:mm:ss.fff")}");
-               
+
                 ConsoleHelper.WriteLine("WSClient 已发送消息", ConsoleColor.DarkGray);
 
                 ConsoleHelper.ReadLine();
 
-                
+
 
                 ConsoleHelper.WriteLine("回车WSClient 断开连接");
 
@@ -211,6 +213,52 @@ namespace SAEA.WebSocketTest
 
         #endregion
 
+        #region test4 other
+        static void Init4()
+        {
+            ConsoleHelper.WriteLine("WSClient 正在连接到WorkMan服务器...", ConsoleColor.DarkGray);
 
+            var url = "ws://123.207.136.134:9010/ajaxchattest";
+
+            WSClient client = new WSClient(url, SubProtocolType.Empty, "http://coolaf.com");
+            client.OnPong += Client_OnPong;
+            client.OnMessage += Client_OnMessage;
+            client.OnError += Client_OnError;
+            client.OnDisconnected += Client_OnDisconnected;
+
+            var connected = client.Connect();
+
+            if (connected)
+            {
+                ConsoleHelper.WriteLine("WSClient 连接成功，回车测试消息", ConsoleColor.DarkGray);
+                ConsoleHelper.ReadLine();
+
+                client.Ping();
+
+                ConsoleHelper.WriteLine("WSClient 正在发送消息...", ConsoleColor.DarkGray);
+
+                client.Send($"1111");
+
+                client.Send($"1111");
+
+                client.Send($"1111");
+
+                ConsoleHelper.WriteLine("WSClient 已发送消息", ConsoleColor.DarkGray);
+
+
+
+                ConsoleHelper.WriteLine("回车WSClient 断开连接");
+
+                ConsoleHelper.ReadLine();
+
+                client.Close();
+            }
+            else
+            {
+                ConsoleHelper.WriteLine("WSClient 连接失败", ConsoleColor.DarkGray);
+            }
+        }
+
+        #endregion
     }
 }
