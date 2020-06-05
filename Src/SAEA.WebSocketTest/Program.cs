@@ -37,13 +37,13 @@ namespace SAEA.WebSocketTest
 
         static void Main(string[] args)
         {
-            //Init1();
+            Init1();
 
             //Init2();
 
             //Init3();
 
-            Init4();
+            //Init4();
 
             ConsoleHelper.ReadLine();
         }
