@@ -36,7 +36,7 @@ namespace SAEA.WebSocket.Core
 
         ConcurrentDictionary<string, WSCoder> _concurrentDictionary;
 
-        public WSSServerImpl(SslProtocols sslProtocols, string pfxPath, string pwd = "", int port = 39654, int bufferSize = 1024)
+        public WSSServerImpl(SslProtocols sslProtocols, string pfxPath, string pwd = "", int port = 16666, int bufferSize = 1024)
         {
             _bufferSize = bufferSize;
 

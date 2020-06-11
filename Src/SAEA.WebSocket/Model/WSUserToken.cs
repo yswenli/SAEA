@@ -72,7 +72,14 @@ namespace SAEA.WebSocket.Model
                 responseBuilder.Append("HTTP/1.1 101 Switching Protocols" + "\r\n");
                 responseBuilder.Append("Upgrade: websocket" + "\r\n");
                 responseBuilder.Append("Connection: Upgrade" + "\r\n");
-                responseBuilder.AppendFormat("Sec-WebSocket-Protocol: {0}\r\n", SubProtocolType.Default);
+
+                Regex reg2 = new Regex(@"Sec\-WebSocket\-Protocol:(.*?)\r\n");
+                Match m2 = reg2.Match(handShakeText);
+                if (!string.IsNullOrEmpty(m2.Value))
+                {
+                    responseBuilder.AppendFormat("Sec-WebSocket-Protocol: {0}\r\n", SubProtocolType.Default);
+                }
+
                 responseBuilder.Append("Sec-WebSocket-Accept: " + secKey + "\r\n\r\n");
                 data = Encoding.UTF8.GetBytes(responseBuilder.ToString());
                 result = true;

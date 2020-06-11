@@ -23,6 +23,7 @@
 *****************************************************************************/
 
 using SAEA.Common;
+using SAEA.Http;
 using SAEA.WebSocket;
 using SAEA.WebSocket.Model;
 using System;
@@ -53,6 +54,11 @@ namespace SAEA.WebSocketTest
 
         static void Init1()
         {
+            WebHost webHost = new WebHost(port: 18080, root: "Html");
+
+            webHost.Start();
+
+
             ConsoleHelper.WriteLine("WSServer 正在初始化....", ConsoleColor.Green);
             _server = new WSServer();
             _server.OnMessage += Server_OnMessage;

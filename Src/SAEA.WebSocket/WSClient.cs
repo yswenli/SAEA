@@ -80,7 +80,7 @@ namespace SAEA.WebSocket
         /// <param name="subProtocol"></param>
         /// <param name="origin"></param>
         /// <param name="bufferSize"></param>
-        public WSClient(string ip = "127.0.0.1", int port = 39654, string subProtocol = SubProtocolType.Default, string origin = "", int bufferSize = 10 * 1024)
+        public WSClient(string ip = "127.0.0.1", int port = 16666, string subProtocol = SubProtocolType.Default, string origin = "", int bufferSize = 10 * 1024)
         {
             _serverIP = ip;
             _serverPort = port;

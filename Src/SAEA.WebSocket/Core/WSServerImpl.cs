@@ -35,7 +35,7 @@ namespace SAEA.WebSocket.Core
 
         public event Action<string> OnDisconnected;
 
-        public WSServerImpl(int port = 39654, int bufferSize = 1024, int count = 60000)
+        public WSServerImpl(int port = 16666, int bufferSize = 1024, int count = 60000)
         {
             var option = SocketOptionBuilder.Instance
                 .SetSocket()
@@ -107,16 +107,16 @@ namespace SAEA.WebSocket.Core
 
         private void ReplyBase(string id, WSProtocalType type, byte[] content)
         {
-            var byts = new WSProtocal(type, content).ToBytes();
+            var bs = new WSProtocal(type, content);
 
-            _server.SendAsync(id, byts);
+            ReplyBase(id, bs);
         }
 
         private void ReplyBase(string id, WSProtocal data)
         {
-            var byts = data.ToBytes();
+            var bs = data.ToBytes(false);
 
-            _server.SendAsync(id, byts);
+            _server.SendAsync(id, bs);
         }
 
         private void ReplyPong(string id, WSProtocal data)

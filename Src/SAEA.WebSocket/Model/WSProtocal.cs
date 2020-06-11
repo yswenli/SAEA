@@ -61,29 +61,30 @@ namespace SAEA.WebSocket.Model
         /// <summary>
         /// 将当前实体转换成websocket所需的结构
         /// </summary>
+        /// <param name="masked"></param>
         /// <returns></returns>
-        public byte[] ToBytes()
+        public byte[] ToBytes(bool masked)
         {
-            int _payloadLength;
+            int payloadLength;
 
-            byte[] _extPayloadLength;
+            byte[] extPayloadLength;
 
             ulong len = (ulong)this.BodyLength;
 
             if (len < 126)
             {
-                _payloadLength = (byte)len;
-                _extPayloadLength = new byte[0];
+                payloadLength = (byte)len;
+                extPayloadLength = new byte[0];
             }
             else if (len < 0x010000)
             {
-                _payloadLength = (byte)126;
-                _extPayloadLength = ((ushort)len).InternalToByteArray(EndianOrder.Big);
+                payloadLength = (byte)126;
+                extPayloadLength = ((ushort)len).InternalToByteArray(EndianOrder.Big);
             }
             else
             {
-                _payloadLength = (byte)127;
-                _extPayloadLength = len.InternalToByteArray(EndianOrder.Big);
+                payloadLength = (byte)127;
+                extPayloadLength = len.InternalToByteArray(EndianOrder.Big);
             }
 
             using (var buff = new MemoryStream())
@@ -93,30 +94,52 @@ namespace SAEA.WebSocket.Model
                 header = (header << 1) + (byte)0x0;
                 header = (header << 1) + (byte)0x0;
                 header = (header << 4) + this.Type;
-                header = (header << 1) + (byte)0x1;
-                header = (header << 7) + (byte)_payloadLength;
+
+                if (masked)
+                    header = (header << 1) + (byte)0x1;
+                else
+                    header = (header << 1) + (byte)0x0;
+
+                header = (header << 7) + (byte)payloadLength;
                 buff.Write(((ushort)header).InternalToByteArray(EndianOrder.Big), 0, 2);
 
-                //mask
-                var maskBytes = _mask.ToBytes();
-                buff.Write(maskBytes, 0, 4);
 
+                byte[] maskBytes = null;
 
-                if (_payloadLength > 125)
-                    buff.Write(_extPayloadLength, 0, _payloadLength == 126 ? 2 : 8);
-
-
-                if (_payloadLength > 0)
+                if (masked)
                 {
+                    maskBytes = _mask.ToBytes();
+                    buff.Write(maskBytes, 0, 4);
+                }
 
-                    WSCoder.DoMask(this.Content, 0, this.Content.Length, maskBytes);
+
+                if (payloadLength > 125)
+                    buff.Write(extPayloadLength, 0, payloadLength == 126 ? 2 : 8);
+
+
+                if (payloadLength > 0)
+                {
+                    if (masked)
+                    {
+                        WSCoder.DoMask(this.Content, 0, this.Content.Length, maskBytes);
+                    }
 
                     buff.Write(this.Content, 0, (int)this.BodyLength);
                 }
 
                 buff.Flush();
+
                 return buff.ToArray();
             }
+        }
+
+        /// <summary>
+        /// 将当前实体转换成websocket所需的结构
+        /// </summary>
+        /// <returns></returns>
+        public byte[] ToBytes()
+        {
+            return ToBytes(true);
         }
     }
 }
