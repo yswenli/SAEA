@@ -227,11 +227,18 @@ namespace SAEA.Http.Base
             Dictionary<string, string> dic = new Dictionary<string, string>();
             foreach (var item in kvs)
             {
-                var arr = item.Split(ConstHelper.EQUO);
-                if (arr.Length == 2)
-                    dic[arr[0]] = HttpUtility.UrlDecode(arr[1]);
-                else
-                    dic[arr[0]] = string.Empty;
+                var index = item.IndexOf("=");
+
+                var key = item.Substring(0, index);
+
+                var value = string.Empty;
+
+                if (item.Length> index + 1)
+                {
+                    value = item.Substring(index + 1);
+                }
+
+                dic[key] = value;
             }
             return dic;
         }
