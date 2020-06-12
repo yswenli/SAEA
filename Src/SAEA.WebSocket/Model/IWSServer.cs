@@ -22,14 +22,19 @@
 *
 *****************************************************************************/
 using System;
+using System.Collections.Generic;
 
 namespace SAEA.WebSocket.Model
 {
     public interface IWSServer
     {
+        event Action<string> OnConnected;
+
         event Action<string, WSProtocal> OnMessage;
 
         event Action<string> OnDisconnected;
+
+        List<string> Clients {  set; get; }
 
         void Start(int backlog = 10 * 1000);
        
@@ -39,6 +44,8 @@ namespace SAEA.WebSocket.Model
 
         void Disconnect(string id, WSProtocal data);
 
+
+        void Disconnect(string id);
 
         void Stop();
     }

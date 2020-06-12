@@ -25,6 +25,7 @@
 using SAEA.WebSocket.Core;
 using SAEA.WebSocket.Model;
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Security.Authentication;
 
@@ -32,11 +33,24 @@ namespace SAEA.WebSocket
 {
     public class WSServer
     {
-        IWSServer wsServer;
+        IWSServer _wsServer;
+
+        public event Action<string> OnConnected;
 
         public event Action<string, WSProtocal> OnMessage;
 
         public event Action<string> OnDisconnected;
+
+        /// <summary>
+        /// 已成功连接的客户端
+        /// </summary>
+        public List<string> Clients
+        {
+            get
+            {
+                return _wsServer.Clients;
+            }
+        }
 
         public WSServer(int port = 16666, SslProtocols protocols = SslProtocols.None, string pfxPath = "", string pwd = "", int bufferSize = 1024, int count = 60000)
         {
@@ -44,18 +58,22 @@ namespace SAEA.WebSocket
 
             if (protocols != SslProtocols.None && !string.IsNullOrEmpty(pfxPath))
             {
-                wsServer = new WSSServerImpl(protocols, pfxPath, pwd, port, bufferSize);
+                _wsServer = new WSSServerImpl(protocols, pfxPath, pwd, port, bufferSize);
             }
             else
             {
-                wsServer = new WSServerImpl(port, bufferSize, count);
+                _wsServer = new WSServerImpl(port, bufferSize, count);
 
             }
-            wsServer.OnMessage += WsServer_OnMessage;
-            wsServer.OnDisconnected += WsServer_OnDisconnected;
+            _wsServer.OnConnected += WsServer_OnConnected;
+            _wsServer.OnMessage += WsServer_OnMessage;
+            _wsServer.OnDisconnected += WsServer_OnDisconnected;
         }
 
-
+        private void WsServer_OnConnected(string id)
+        {
+            OnConnected?.Invoke(id);
+        }
 
         private void WsServer_OnMessage(string str, WSProtocal protocal)
         {
@@ -70,7 +88,7 @@ namespace SAEA.WebSocket
 
         public void Start(int backlog = 10 * 1000)
         {
-            wsServer.Start(backlog);
+            _wsServer.Start(backlog);
         }
 
         /// <summary>
@@ -80,7 +98,7 @@ namespace SAEA.WebSocket
         /// <param name="data"></param>
         public void Reply(string id, WSProtocal data)
         {
-            wsServer.Reply(id, data);
+            _wsServer.Reply(id, data);
         }
 
         /// <summary>
@@ -90,13 +108,21 @@ namespace SAEA.WebSocket
         /// <param name="data"></param>
         public void Disconnect(string id, WSProtocal data)
         {
-            wsServer.Disconnect(id, data);
+            _wsServer.Disconnect(id, data);
         }
 
+        /// <summary>
+        /// 关闭
+        /// </summary>
+        /// <param name="id"></param>
+        public void Disconnect(string id)
+        {
+            _wsServer.Disconnect(id);
+        }
 
         public void Stop()
         {
-            wsServer.Stop();
+            _wsServer.Stop();
         }
 
     }

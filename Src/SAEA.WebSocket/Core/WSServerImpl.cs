@@ -19,6 +19,7 @@ using SAEA.Sockets;
 using SAEA.WebSocket.Model;
 using SAEA.WebSocket.Type;
 using System;
+using System.Collections.Generic;
 
 namespace SAEA.WebSocket.Core
 {
@@ -31,10 +32,19 @@ namespace SAEA.WebSocket.Core
 
         IServerSokcet _server;
 
+        public event Action<string> OnConnected;
+
         public event Action<string, WSProtocal> OnMessage;
 
         public event Action<string> OnDisconnected;
+        public List<string> Clients { set; get; } = new List<string>();
 
+        /// <summary>
+        /// websocket server
+        /// </summary>
+        /// <param name="port"></param>
+        /// <param name="bufferSize"></param>
+        /// <param name="count"></param>
         public WSServerImpl(int port = 16666, int bufferSize = 1024, int count = 60000)
         {
             var option = SocketOptionBuilder.Instance
@@ -55,6 +65,7 @@ namespace SAEA.WebSocket.Core
 
         private void _server_OnDisconnected(string id, Exception ex)
         {
+            Clients.Remove(id);
             OnDisconnected?.Invoke(id);
         }
 
@@ -72,6 +83,8 @@ namespace SAEA.WebSocket.Core
                 {
                     _server.SendAsync(ut.ID, resData);
                     ut.IsHandSharked = true;
+                    Clients.Add(ut.ID);
+                    OnConnected?.Invoke(ut.ID);
                 }
             }
             else
@@ -148,9 +161,17 @@ namespace SAEA.WebSocket.Core
         public void Disconnect(string id, WSProtocal data)
         {
             ReplyBase(id, data);
-            OnDisconnected?.Invoke(id);
+            _server.Disconnecte(id);
         }
 
+        /// <summary>
+        /// 关闭
+        /// </summary>
+        /// <param name="id"></param>
+        public void Disconnect(string id)
+        {
+            _server.Disconnecte(id);
+        }
 
         public void Start(int backlog = 10000)
         {

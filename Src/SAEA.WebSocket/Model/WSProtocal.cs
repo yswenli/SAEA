@@ -25,11 +25,16 @@
 using SAEA.Common;
 using SAEA.Sockets.Interface;
 using SAEA.WebSocket.Type;
+using System;
 using System.IO;
+using System.Linq;
 
 namespace SAEA.WebSocket.Model
 {
-    public class WSProtocal : ISocketProtocal
+    /// <summary>
+    /// websocket 数据协议
+    /// </summary>
+    public class WSProtocal : ISocketProtocal, IDisposable
     {
         int _mask = RandomHelper.GetInt(1);
 
@@ -140,6 +145,17 @@ namespace SAEA.WebSocket.Model
         public byte[] ToBytes()
         {
             return ToBytes(true);
+        }
+
+        /// <summary>
+        /// Dispose
+        /// </summary>
+        public void Dispose()
+        {
+            if(this.Content!=null && this.Content.Any())
+            {
+                this.Content.Clear();
+            }
         }
     }
 }

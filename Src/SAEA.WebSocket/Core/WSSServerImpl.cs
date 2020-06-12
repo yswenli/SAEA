@@ -23,6 +23,7 @@ using SAEA.WebSocket.Model;
 using SAEA.WebSocket.Type;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using System.Security.Authentication;
 
@@ -33,6 +34,8 @@ namespace SAEA.WebSocket.Core
         IServerSokcet serverSokcet;
 
         int _bufferSize = 1024;
+
+        public List<string> Clients { set; get; } = new List<string>();
 
         ConcurrentDictionary<string, WSCoder> _concurrentDictionary;
 
@@ -58,6 +61,7 @@ namespace SAEA.WebSocket.Core
 
         private void ServerSokcet_OnDisconnected(string id, Exception ex)
         {
+            Clients.Remove(id);
             OnDisconnected?.Invoke(id);
         }
 
@@ -66,10 +70,11 @@ namespace SAEA.WebSocket.Core
             ProcessReceive(obj);
         }
 
+        public event Action<string> OnConnected;
+
         public event Action<string, WSProtocal> OnMessage;
 
         public event Action<string> OnDisconnected;
-
 
         void ProcessReceive(Object obj)
         {
@@ -106,6 +111,8 @@ namespace SAEA.WebSocket.Core
                             channelInfo.Stream.Write(resData, 0, resData.Length);
                             wsut.IsHandSharked = true;
                             _concurrentDictionary[channelInfo.ID] = new WSCoder();
+                            Clients.Add(channelInfo.ID);
+                            OnConnected?.Invoke(channelInfo.ID);
                         }
                     }
                     else
@@ -178,7 +185,13 @@ namespace SAEA.WebSocket.Core
 
             ReplyBase(channelInfo.Stream, data);
 
-            OnDisconnected?.Invoke(id);
+            channelInfo.Stream.Close();
+        }
+
+        public void Disconnect(string id)
+        {
+            var channelInfo = ChannelManager.Instance.Get(id);
+            channelInfo.Stream.Close();
         }
 
         public void Start(int backlog = 10000)

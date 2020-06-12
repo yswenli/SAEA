@@ -25,6 +25,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace SAEA.Common
@@ -47,6 +48,20 @@ namespace SAEA.Common
                 {
                     list.TryDequeue(out T t);
                 }
+            }
+        }
+
+        /// <summary>
+        /// 清除
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="data"></param>
+        public static void Clear<T>(this ICollection<T> data)
+        {
+            if (data != null && data.Any())
+            {
+                data.Clear();
+                data = null;
             }
         }
     }
