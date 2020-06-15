@@ -345,10 +345,11 @@ namespace SAEA.Sockets.Core.Tcp
         {
             var userToken = _sessionManager.Get(sessionID);
 
-            if (userToken != null)
+            if (userToken == null)
             {
-                SendAsync(userToken, data);
+                throw new KernelException("Failed to send data,current session does not exist！");
             }
+            SendAsync(userToken, data);
         }
 
 

@@ -30,6 +30,7 @@
 *
 *****************************************************************************/
 using SAEA.Sockets.Handler;
+using SAEA.Sockets.Model;
 using System;
 using System.IO;
 using System.Net;
@@ -241,6 +242,8 @@ namespace SAEA.Sockets.Core.Tcp
         public void SendAsync(string sessionID, byte[] data)
         {
             var channel = ChannelManager.Instance.Get(sessionID);
+            if(channel==null || channel.ClientSocket==null || !channel.ClientSocket.Connected)
+                throw new KernelException("Failed to send data,current session does not exist！");
             channel.Stream.WriteAsync(data, 0, data.Length);
         }
 
