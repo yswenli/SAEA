@@ -201,9 +201,12 @@ namespace SAEA.RedisSocket
             {
                 _dbIndex = dbIndex;
             }
-            if (_cnn.DoWithOne(RequestType.SELECT, _dbIndex.ToString()).Data.IndexOf(RedisConst.ErrIndex, StringComparison.InvariantCultureIgnoreCase) == -1)
+            if (!IsCluster)
             {
-                return true;
+                if (_cnn.DoWithOne(RequestType.SELECT, _dbIndex.ToString()).Data.IndexOf(RedisConst.ErrIndex, StringComparison.InvariantCultureIgnoreCase) == -1)
+                {
+                    return true;
+                }
             }
             return false;
         }
@@ -334,7 +337,7 @@ namespace SAEA.RedisSocket
                         }
                     }
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
                     LogHelper.Error("RedisClient.ServerInfo", ex, RedisConfig);
                 }

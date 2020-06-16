@@ -233,9 +233,9 @@ namespace SAEA.Http.Base
 
                 var value = string.Empty;
 
-                if (item.Length> index + 1)
+                if (item.Length > index + 1)
                 {
-                    value = item.Substring(index + 1);
+                    value = HttpUtility.UrlDecode(item.Substring(index + 1));
                 }
 
                 dic[key] = value;

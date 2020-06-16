@@ -12,7 +12,7 @@
     <PackageTags>dns,iocp,tcp,socket</PackageTags>
     <Description>SAEA.DNS is a simple component including dnsserver and dnsclient.
 SAEA.DNS 是个包含DnsServer和DnsClient的简易组件</Description>
-    <Version>5.3.2.6</Version>
+    <Version>5.3.2.7</Version>
     <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
     <PackageIconUrl></PackageIconUrl>
     <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>

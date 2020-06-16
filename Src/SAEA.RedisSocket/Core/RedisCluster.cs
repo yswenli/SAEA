@@ -196,6 +196,10 @@ namespace SAEA.RedisSocket
         }
 
 
+        public bool _hasJudged = false;
+
+        public bool _isCluster = false;
+
         /// <summary>
         /// 是否是cluster node
         /// </summary>
@@ -203,12 +207,16 @@ namespace SAEA.RedisSocket
         {
             get
             {
-                var info = Info("Cluster");
-                if (info.Contains("cluster_enabled:1"))
+                if (!_hasJudged)
                 {
-                    return true;
+                    _hasJudged = true;
+                    var info = Info("Cluster");
+                    if (info.Contains("cluster_enabled:1"))
+                    {
+                        _isCluster = true;
+                    }
                 }
-                return false;
+                return _isCluster;
             }
         }
         /// <summary>

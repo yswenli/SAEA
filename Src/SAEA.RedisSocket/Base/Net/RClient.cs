@@ -40,7 +40,7 @@ namespace SAEA.RedisSocket.Base.Net
 
         public RClient(int bufferSize = 100 * 1024, string ip = "127.0.0.1", int port = 39654) : base(new RContext(), string.IsNullOrEmpty(ip) ? "127.0.0.1" : ip, port, bufferSize)
         {
-            TaskHelper.Run(() =>
+            ThreadHelper.Run(() =>
             {
                 while (true)
                 {
