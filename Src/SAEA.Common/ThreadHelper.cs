@@ -26,6 +26,9 @@ using System.Threading;
 
 namespace SAEA.Common
 {
+    /// <summary>
+    /// ThreadHelper
+    /// </summary>
     public class ThreadHelper
     {
         private static readonly AutoResetEvent autoResetEvent = new AutoResetEvent(false);

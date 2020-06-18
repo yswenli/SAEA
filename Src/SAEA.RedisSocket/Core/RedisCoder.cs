@@ -26,6 +26,7 @@ using SAEA.RedisSocket.Base.Net;
 using SAEA.RedisSocket.Model;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading;
 
@@ -122,14 +123,14 @@ namespace SAEA.RedisSocket.Core
             Request(_sendCommand);
         }
 
-        public void CoderForList(RequestType commandName, string id, List<string> list)
+        public void CoderForList(RequestType commandName, string id, IEnumerable<string> list)
         {
             list.NotNull();
 
             _commandName = commandName;
 
             var sb = new StringBuilder();
-            sb.Append(ConstHelper.ASTERRISK + (list.Count + 2) + ConstHelper.ENTER);
+            sb.Append(ConstHelper.ASTERRISK + (list.Count() + 2) + ConstHelper.ENTER);
 
             var type = commandName.ToString();
             sb.Append(ConstHelper.DOLLAR + type.Length + ConstHelper.ENTER);

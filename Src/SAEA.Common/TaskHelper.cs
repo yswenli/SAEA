@@ -37,6 +37,11 @@ namespace SAEA.Common
             return Task.Run(action);
         }
 
+        public static Task<T> Run<T>(Func<T> fuc)
+        {
+            return Task.Run(fuc);
+        }
+
         /// <summary>
         /// 任务超时
         /// </summary>

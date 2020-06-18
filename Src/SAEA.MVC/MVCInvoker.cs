@@ -26,6 +26,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
 
 namespace SAEA.MVC
 {
@@ -170,17 +171,30 @@ namespace SAEA.MVC
             ActionResult result = null;
             try
             {
+                object data;
+
                 var @params = action.GetParameters();
 
                 if (@params != null && @params.Any())
                 {
                     var list = ParamsHelper.FillPamars(@params, nameValues);
 
-                    result = (ActionResult)action.Invoke(obj, list.ToArray());
+                    data = action.Invoke(obj, list.ToArray());
                 }
                 else
                 {
-                    result = (ActionResult)action.Invoke(obj, null);
+                    data = action.Invoke(obj, null);
+                }
+
+                if (data.GetType().Name == "AsyncStateMachineBox`1")
+                {
+                    var tdata = data as Task<ActionResult>;
+
+                    result = tdata.Result;
+                }
+                else
+                {
+                    result = (ActionResult)data;
                 }
             }
             catch (Exception ex)

@@ -41,9 +41,9 @@ namespace SAEA.Common
         public const string GET = "GET";
 
         public const string POST = "POST";
-        
+
         public const string PUT = "PUT";
-        
+
         public const string DELETE = "DELETE";
 
         public const string OPTIONS = "OPTIONS";
@@ -67,7 +67,7 @@ namespace SAEA.Common
 
         public const string ONACTIONEXECUTED = "OnActionExecuted";
 
-        public const string SERVERMVCSERVER = "83,101,114,118,101,114,58,32,83,65,69,65,46,72,116,116,112,46,83,101,114,118,101,114,32,53,46,48";
+        public const string SERVERMVCSERVER = "83,101,114,118,101,114,58,32,83,65,69,65,46,72,116,116,112,46,83,101,114,118,101,114,32";
 
         public const string CT = "Content-Type";
 
@@ -123,7 +123,7 @@ namespace SAEA.Common
             {
                 if (string.IsNullOrEmpty(_serverName))
                 {
-                    _serverName = Encoding.ASCII.GetString(SERVERMVCSERVER.Split(",").Select(b => Convert.ToByte(b)).ToArray());
+                    _serverName = $"{Encoding.ASCII.GetString(SERVERMVCSERVER.Split(",").Select(b => Convert.ToByte(b)).ToArray())}{SAEAVersion.ToString()}";
                 }
                 return _serverName;
             }

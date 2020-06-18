@@ -28,6 +28,8 @@ namespace SAEA.Common
                 return "net452";
 #elif NET461
                 return "net461";
+#elif NET462
+                return "net462";
 #elif NET472
                 return "net472";
 #elif NETSTANDARD1_3
@@ -38,6 +40,8 @@ namespace SAEA.Common
                 return "netstandard2.1";
 #elif NETSTANDARD3_0
                 return "netstandard3.0";
+#elif NETSTANDARD3_1
+                return "netstandard3.1";
 #elif WINDOWS_UWP
                 return "uap10.0";
 #endif

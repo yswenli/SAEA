@@ -37,7 +37,6 @@ namespace SAEA.MVCTest.Attrubutes
         public override bool OnActionExecuting()
         {
             HttpContext.Current.Response.SetCached(new JsonResult("当前操作需要登录！"));
-
             HttpContext.Current.Response.End();
             return false;
         }
