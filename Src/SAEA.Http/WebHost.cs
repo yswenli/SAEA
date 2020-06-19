@@ -28,6 +28,7 @@ using SAEA.Http.Base.Net;
 using SAEA.Http.Model;
 using SAEA.Sockets.Interface;
 using System;
+using System.Collections.Generic;
 
 namespace SAEA.Http
 {
@@ -94,10 +95,12 @@ namespace SAEA.Http
 
             HttpUtility = new HttpUtility(WebConfig.Root);
 
-            _serverSocket = new HttpSocket(port, bufferSize, count, timeOut, isDebug);            
+            _serverSocket = new HttpSocket(port, bufferSize, count, timeOut, isDebug);
 
             _serverSocket.OnRequested += _serverSocket_OnRequested;
         }
+
+
 
         /// <summary>
         /// 启动服务
@@ -109,7 +112,24 @@ namespace SAEA.Http
                 _serverSocket.Start();
                 IsRunning = true;
             }
+        }
 
+
+        /// <summary>
+        /// 设置需要跨域的自定义headers
+        /// </summary>
+        /// <param name="headers"></param>
+        public void SetCrossDomainHeaders(params string[] headers)
+        {
+            ConstHelper.SetCrossDomainHeaders(headers);
+        }
+        /// <summary>
+        /// 设置需要跨域的自定义headers
+        /// </summary>
+        /// <param name="headers"></param>
+        public void SetCrossDomainHeaders(string headers)
+        {
+            ConstHelper.SetCrossDomainHeaders(headers);
         }
 
         /// <summary>
@@ -159,8 +179,16 @@ namespace SAEA.Http
         public void End(IUserToken userToken, byte[] data)
         {
             _serverSocket.End(userToken, data);
-        }        
+        }
 
+        /// <summary>
+        /// 重启
+        /// </summary>
+        public void Restart()
+        {
+            this.Stop();
+            this.Start();
+        }
 
         /// <summary>
         /// 关闭服务

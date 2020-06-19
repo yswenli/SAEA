@@ -88,7 +88,7 @@ namespace SAEA.Http
         protected string BuildHeader()
         {
             StringBuilder builder = new StringBuilder();
-            builder.Append(this.Protocal + ConstHelper.SPACE + Status.ToNVString() + ConstHelper.ENTER);
+            builder.AppendLine($"{this.Protocal} {Status.ToNVString()}");
             builder.AppendLine(ConstHelper.ServerName);
             builder.AppendLine("Connection: close");
             builder.AppendLine("Date: " + DateTimeHelper.Now.ToGMTString());

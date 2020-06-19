@@ -37,14 +37,17 @@ namespace SAEA.Common
 
         private static void Write(string type, string msg)
         {
-            try
+            TaskHelper.Run(() =>
             {
-                if (string.IsNullOrEmpty(logPath))
-                    logPath = PathHelper.GetCurrentPath("Logs");
-                var fileName = PathHelper.GetFilePath(logPath, type + DateTimeHelper.ToString("yyyyMMdd") + ".log");
-                File.AppendAllText(fileName, $"{DateTimeHelper.ToString()}   {type}   {msg}{Environment.NewLine}", Encoding.UTF8);
-            }
-            catch { }
+                try
+                {
+                    if (string.IsNullOrEmpty(logPath))
+                        logPath = PathHelper.GetCurrentPath("Logs");
+                    var fileName = PathHelper.GetFilePath(logPath, type + DateTimeHelper.ToString("yyyyMMdd") + ".log");
+                    File.AppendAllText(fileName, $"{DateTimeHelper.ToString()}   {type}   {msg}{Environment.NewLine}", Encoding.UTF8);
+                }
+                catch { }
+            });
         }
 
         public static void Error(string des, Exception ex, params object[] @params)

@@ -23,6 +23,7 @@
 *****************************************************************************/
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
@@ -145,6 +146,8 @@ namespace SAEA.Common
         }
 
 
+        #region CrossDomain
+
         static string _crossDomain = string.Empty;
 
         public static string CrossDomain
@@ -157,13 +160,59 @@ namespace SAEA.Common
                     //支持跨域
                     builder.AppendLine("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
                     builder.AppendLine("Access-Control-Allow-Origin: *");
-                    builder.AppendLine("Access-Control-Allow-Headers: Content-Type,X-Requested-With,Accept,yswenli");//可自行增加额外的header
+                    builder.Append("Access-Control-Allow-Headers: Content-Type,X-Requested-With,Accept,yswenli");//可自行增加额外的header
+                    if (_crossDomainHeaders.Any())
+                    {
+                        foreach (var item in _crossDomainHeaders)
+                        {
+                            if (!string.IsNullOrWhiteSpace(item))
+                                builder.Append($",{item}");
+                        }
+                    }
+                    builder.AppendLine();
                     builder.AppendLine("Access-Control-Request-Methods: GET, POST, PUT, DELETE, OPTIONS");
                     _crossDomain = builder.ToString();
                 }
                 return _crossDomain;
             }
         }
+
+        static List<string> _crossDomainHeaders = new List<string>();
+
+        /// <summary>
+        /// 设置需要跨域的自定义headers
+        /// </summary>
+        /// <param name="headers"></param>
+        public static void SetCrossDomainHeaders(IEnumerable<string> headers)
+        {
+            if (headers != null && headers.Any())
+            {
+                _crossDomainHeaders = headers.ToList();
+                _crossDomain = string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// 设置需要跨域的自定义headers
+        /// </summary>
+        /// <param name="headers"></param>
+        public static void SetCrossDomainHeaders(string headers)
+        {
+            if (!string.IsNullOrEmpty(headers) && headers.IndexOf(",") > -1)
+            {
+                var arr = headers.Split(",", StringSplitOptions.RemoveEmptyEntries);
+                if (arr != null && arr.Any())
+                {
+                    SetCrossDomainHeaders(arr);
+                }
+            }
+        }
+
+        #endregion
+
+
+
+
 
         public const string SESSIONID = "SAEA.Http.Server.SessionID";
 

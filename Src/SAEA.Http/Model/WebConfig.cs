@@ -101,6 +101,14 @@ namespace SAEA.Http.Model
         } = "index.html";
 
         /// <summary>
+        /// 支持跨域的header参数
+        /// </summary>
+        public static List<string> CrossHeaders
+        {
+            get; set;
+        } = new List<string>();
+
+        /// <summary>
         /// 是否是测试模式
         /// </summary>
         public bool IsDebug

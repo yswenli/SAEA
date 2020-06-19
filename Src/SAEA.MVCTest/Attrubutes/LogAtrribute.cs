@@ -22,8 +22,6 @@
 *
 *****************************************************************************/
 using SAEA.Common;
-using SAEA.Http;
-using SAEA.Http.Model;
 using SAEA.MVC;
 using HttpContext = SAEA.MVC.HttpContext;
 

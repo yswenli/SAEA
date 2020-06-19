@@ -21,8 +21,10 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Common;
 using SAEA.Http;
 using System;
+using System.Collections.Generic;
 
 namespace SAEA.MVC
 {
@@ -44,7 +46,7 @@ namespace SAEA.MVC
         /// 构建mvc容器
         /// </summary>
         /// <param name="mvcConfig"></param>
-        public SAEAMvcApplication(SAEAMvcApplicationConfig mvcConfig) : this(mvcConfig.Root, mvcConfig.Port, mvcConfig.IsStaticsCached, mvcConfig.IsZiped, mvcConfig.BufferSize, mvcConfig.Count, mvcConfig.IsDebug)
+        public SAEAMvcApplication(SAEAMvcApplicationConfig mvcConfig) : this(mvcConfig.Root, mvcConfig.Port, mvcConfig.IsStaticsCached, mvcConfig.IsZiped, mvcConfig.BufferSize, mvcConfig.Count, isDebug: mvcConfig.IsDebug)
         {
             webHost.WebConfig.HomePage = mvcConfig.DefaultPage;
         }
@@ -58,8 +60,9 @@ namespace SAEA.MVC
         /// <param name="isZiped">是压启用内容压缩</param>
         /// <param name="bufferSize">http处理数据缓存大小</param>
         /// <param name="count">http连接数上限</param>
+        /// <param name="controllerNameSpace">注册指定的Controlls空间名</param>
         /// <param name="isDebug">调试模式</param>
-        public SAEAMvcApplication(string root = "wwwroot", int port = 39654, bool isStaticsCached = true, bool isZiped = false, int bufferSize = 1024 * 10, int count = 10000, bool isDebug = false, string controllerNameSpace="")
+        public SAEAMvcApplication(string root = "wwwroot", int port = 28080, bool isStaticsCached = true, bool isZiped = false, int bufferSize = 1024 * 10, int count = 10000, string controllerNameSpace = "", bool isDebug = false)
         {
             try
             {
@@ -74,7 +77,6 @@ namespace SAEA.MVC
             }
 
             webHost = new WebHost(typeof(HttpContext), root, port, isStaticsCached, isZiped, bufferSize, count, 120 * 1000, isDebug);
-
 
             webHost.RouteParam = AreaCollection.RouteTable;
         }
@@ -121,6 +123,32 @@ namespace SAEA.MVC
             {
                 throw new Exception("当前端口已被其他程序占用，请更换端口再做尝试！ err:" + ex.Message);
             }
+        }
+
+        /// <summary>
+        /// 设置需要跨域的自定义headers
+        /// </summary>
+        /// <param name="headers"></param>
+        public void SetCrossDomainHeaders(params string[] headers)
+        {
+            ConstHelper.SetCrossDomainHeaders(headers);
+        }
+        /// <summary>
+        /// 设置需要跨域的自定义headers
+        /// </summary>
+        /// <param name="headers"></param>
+        public void SetCrossDomainHeaders(string headers)
+        {
+            ConstHelper.SetCrossDomainHeaders(headers);
+        }
+
+        /// <summary>
+        /// 重启
+        /// </summary>
+        public void Restart()
+        {
+            this.Stop();
+            this.Start();
         }
 
         /// <summary>

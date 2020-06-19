@@ -14,6 +14,8 @@ namespace SAEA.HttpTest
 
             webHost.Start();
 
+            webHost.SetCrossDomainHeaders("token", "auth");
+
             ConsoleHelper.WriteLine("WebHost 已启动");
 
             ConsoleHelper.WriteLine("请在浏览器中输入URL:http://127.0.0.1:18080");

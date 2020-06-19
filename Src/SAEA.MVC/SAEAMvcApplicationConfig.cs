@@ -34,7 +34,7 @@ namespace SAEA.MVC
         public int Port
         {
             get; set;
-        } = 39654;
+        } = 28080;
 
         public bool IsStaticsCached
         {
