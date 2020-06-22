@@ -45,7 +45,7 @@ namespace SAEA.RedisSocket.Core
                 }
                 return IsConnected;
 
-            }).WithCancellationTimeout(timeSpan);
+            }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -103,7 +103,7 @@ namespace SAEA.RedisSocket.Core
                     return result;
                 }
 
-            }).WithCancellationTimeout(timeSpan);
+            }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
 
 
@@ -129,7 +129,7 @@ namespace SAEA.RedisSocket.Core
                         return result;
                 }
 
-            }).WithCancellationTimeout(timeSpan);
+            }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -150,7 +150,7 @@ namespace SAEA.RedisSocket.Core
                     return RedisCoder.Decoder();
                 }
 
-            }).WithCancellationTimeout(timeSpan);
+            }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -177,7 +177,7 @@ namespace SAEA.RedisSocket.Core
                         return result;
                 }
 
-            }).WithCancellationTimeout(timeSpan);
+            }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
 
         public async Task<ResponseData> DoWithKeyValueAsync(RequestType type, string key, string value, TimeSpan timeSpan)
@@ -197,7 +197,7 @@ namespace SAEA.RedisSocket.Core
                         return result;
                 }
 
-            }).WithCancellationTimeout(timeSpan);
+            }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
 
         public async Task<ResponseData> DoWithIDAsync(RequestType type, string id, string key, string value, TimeSpan timeSpan)
@@ -218,7 +218,7 @@ namespace SAEA.RedisSocket.Core
                         return result;
                 }
 
-            }).WithCancellationTimeout(timeSpan);
+            }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
 
 
@@ -239,7 +239,7 @@ namespace SAEA.RedisSocket.Core
                         return result;
                 }
 
-            }).WithCancellationTimeout(timeSpan);
+            }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
 
         }
 
@@ -258,7 +258,6 @@ namespace SAEA.RedisSocket.Core
                         return;
                     }
                 }
-
             });
         }
 
@@ -318,7 +317,7 @@ namespace SAEA.RedisSocket.Core
                         return result;
                 }
 
-            }).WithCancellationTimeout(timeSpan);
+            }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
 
         public async Task<ResponseData> DoRangByScoreAsync(TimeSpan timeSpan, RequestType type, string key, double min = double.MinValue, double max = double.MaxValue, RangType rangType = RangType.None, long offset = -1, int count = 20, bool withScore = false)
@@ -338,7 +337,7 @@ namespace SAEA.RedisSocket.Core
                         return result;
                 }
 
-            }).WithCancellationTimeout(timeSpan);
+            }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
 
 
@@ -358,7 +357,7 @@ namespace SAEA.RedisSocket.Core
                         return result;
                 }
 
-            }).WithCancellationTimeout(timeSpan);
+            }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
 
 
@@ -378,7 +377,7 @@ namespace SAEA.RedisSocket.Core
                         return result;
                 }
 
-            }).WithCancellationTimeout(timeSpan);
+            }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
 
 
@@ -405,7 +404,7 @@ namespace SAEA.RedisSocket.Core
                         return result;
                 }
 
-            }).WithCancellationTimeout(timeSpan);
+            }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
 
         public async Task<ResponseData> DoBatchZaddWithIDDicAsync(RequestType type, string id, Dictionary<double, string> dic, TimeSpan timeSpan)
@@ -425,7 +424,7 @@ namespace SAEA.RedisSocket.Core
                         return result;
                 }
 
-            }).WithCancellationTimeout(timeSpan);
+            }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
 
         public async Task<ResponseData> DoBatchWithIDDicAsync(RequestType type, string id, Dictionary<string, string> dic, TimeSpan timeSpan)
@@ -445,7 +444,7 @@ namespace SAEA.RedisSocket.Core
                         return result;
                 }
 
-            }).WithCancellationTimeout(timeSpan);
+            }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
 
         public async Task<ScanResponse> DoScanAsync(TimeSpan timeSpan, RequestType type, int offset = 0, string pattern = "*", int count = -1)
@@ -543,7 +542,7 @@ namespace SAEA.RedisSocket.Core
                     }
                 }
 
-            }).WithCancellationTimeout(timeSpan);
+            }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
 
 
@@ -580,7 +579,7 @@ namespace SAEA.RedisSocket.Core
                         return result;
                 }
 
-            }).WithCancellationTimeout(timeSpan);
+            }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
 
         public async Task<ResponseData> DoClusterSetSlotAsync(RequestType type, string action, int slot, string nodeID, TimeSpan timeSpan)
@@ -617,7 +616,7 @@ namespace SAEA.RedisSocket.Core
                         return result;
                 }
 
-            }).WithCancellationTimeout(timeSpan);
+            }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
 
         }
     }
