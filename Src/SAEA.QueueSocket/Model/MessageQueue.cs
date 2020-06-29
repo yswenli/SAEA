@@ -130,7 +130,7 @@ namespace SAEA.QueueSocket.Model
                     }
                 }
             });
-            Task.WaitAll(new Task[] { task }, maxTime);
+            task.Wait(maxTime);
             running = false;
             return result;
         }
