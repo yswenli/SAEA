@@ -149,6 +149,7 @@ namespace SAEA.RedisSocket.Model
         CLUSTER_NODES,
         CLUSTER_MEET,
         CLUSTER_FORGET,
+        CLUSTER_FAILOVER,
         CLUSTER_REPLICATE,
         CLUSTER_SAVECONFIG,
         CLUSTER_ADDSLOTS,

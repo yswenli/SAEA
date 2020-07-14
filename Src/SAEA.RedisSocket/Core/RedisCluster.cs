@@ -291,6 +291,19 @@ namespace SAEA.RedisSocket
         }
 
         /// <summary>
+        /// 该命令只能在群集的某个slave节点执行，让slave节点进行一次人工故障切换。
+        /// FORCE|TAKEOVER,
+        /// FORCE 选项:master节点down的情况下的人工故障转移。slave节点不和master协商(master也许已不可达)，从上如4步开始进行故障切换。当master已不可用，而我们想要做人工故障转移时，该选项很有用。
+        /// TAKEOVER 选项: 忽略群集一致验证的的人工故障切换。选项TAKEOVER 实现了FORCE的所有功能，同时为了能够进行故障切换放弃群集验证
+        /// </summary>
+        /// <param name="force"></param>
+        /// <returns></returns>
+        public bool BeMaster(bool force)
+        {
+            return _cnn.DoMutiCmd(RequestType.CLUSTER_FAILOVER, (force ? "FORCE" : "TAKEOVER")).Data == OK;
+        }
+
+        /// <summary>
         /// 当前节点添加slots
         /// </summary>
         /// <param name="slots"></param>
