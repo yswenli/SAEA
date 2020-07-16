@@ -124,7 +124,7 @@ namespace SAEA.RedisSocket
             if (isCluster)
             {
                 _cnn.RedisServerType = isMaster ? RedisServerType.ClusterMaster : RedisServerType.ClusterSlave;
-                GetClusterMap(ipPort);
+                GetClusterMap();
             }
             else
             {

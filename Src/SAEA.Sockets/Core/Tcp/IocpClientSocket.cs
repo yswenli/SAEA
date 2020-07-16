@@ -325,6 +325,7 @@ namespace SAEA.Sockets.Core.Tcp
                     do
                     {
                         var iResult = _socket.BeginSend(data, offset, data.Length - offset, SocketFlags.None, null, null);
+
                         offset += _socket.EndSend(iResult);
                     }
                     while (offset < data.Length);

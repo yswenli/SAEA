@@ -171,8 +171,7 @@ namespace SAEA.RedisSocket
         /// <summary>
         /// 建立redis cluster 本地映射
         /// </summary>
-        /// <param name="ipPort"></param>
-        private void GetClusterMap(string ipPort)
+        private void GetClusterMap()
         {
             var clusterNodes = ClusterNodes;
 
