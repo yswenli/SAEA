@@ -124,6 +124,9 @@ namespace SAEA.RedisSocket.Model
         SDIFFSTORE,
 
         ZADD,
+        /// <summary>
+        /// 返回有序集 key 中，成员 member 的 score 值。
+        /// </summary>
         ZSCORE,
         ZINCRBY,
         /// <summary>
@@ -132,16 +135,28 @@ namespace SAEA.RedisSocket.Model
         ZCARD,
         ZCOUNT,
         ZRANGE,
+        /// <summary>
+        /// 返回有序集 key 中，指定区间内的成员。成员按 score 值递减
+        /// </summary>
         ZREVRANGE,
         ZRANGEBYSCORE,
         ZREVRANGEBYSCORE,
         ZRANK,
         ZREVRANK,
         ZREM,
+        /// <summary>
+        /// 移除有序集 key 中，指定排名(rank)区间内的所有成员。
+        /// </summary>
         ZREMRANGEBYRANK,
+        /// <summary>
+        /// 移除有序集 key 中，所有 score 值介于 min 和 max 之间(包括等于 min 或 max )的成员
+        /// </summary>
         ZREMRANGEBYSCORE,
         ZRANGEBYLEX,
         ZLEXCOUNT,
+        /// <summary>
+        /// 对于一个所有成员的分值都相同的有序集合键 key 来说， 这个命令会移除该集合中， 成员介于 min 和 max 范围内的所有元素。
+        /// </summary>
         ZREMRANGEBYLEX,
 
 

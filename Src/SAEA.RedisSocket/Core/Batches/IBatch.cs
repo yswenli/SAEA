@@ -155,10 +155,41 @@ namespace SAEA.RedisSocket.Core.Batches
         void ZLexCountAsync( string key, double min = double.MinValue, double max = double.MaxValue, long offset = -1, int count = 20);
         void ZRankAsync( string key, string value);
         void ZRemoveAsync( string key, string[] values);
+        /// <summary>
+        /// 对于一个所有成员的分值都相同的有序集合键 key 来说， 这个命令会移除该集合中， 成员介于 min 和 max 范围内的所有元素。
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="min"></param>
+        /// <param name="max"></param>
+        /// <param name="offset"></param>
+        /// <param name="count"></param>
         void ZRemoveByLexAsync( string key, double min = double.MinValue, double max = double.MaxValue, long offset = -1, int count = 20);
+        /// <summary>
+        /// 移除有序集 key 中，指定排名(rank)区间内的所有成员。
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="start"></param>
+        /// <param name="stop"></param>
         void ZRemoveByRankAsync( string key, double start = 0, double stop = -1);
+        /// <summary>
+        /// 移除有序集 key 中，所有 score 值介于 min 和 max 之间(包括等于 min 或 max )的成员
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="min"></param>
+        /// <param name="max"></param>
+        /// <param name="rangType"></param>
         void ZRemoveByScoreAsync( string key, double min = 0, double max = double.MaxValue, RangType rangType = RangType.None);
+        /// <summary>
+        /// 返回有序集 key 中，指定区间内的成员。成员按 score 值递减
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
         void ZRevRankAsync( string key, string value);
+        /// <summary>
+        /// 返回有序集 key 中，成员 member 的 score 值。
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
         void ZScoreAsync( string key, string value);
     }
 }

@@ -29,8 +29,6 @@ namespace SAEA.RedisSocket.Core.Batches
     /// </summary>
     public class Batch : IBatch
     {
-        RedisDataBase _redisDataBase;
-
         List<BatchItem> _batchData;
 
         RedisCoder _redisCode;
@@ -41,8 +39,6 @@ namespace SAEA.RedisSocket.Core.Batches
         /// <param name="redisDataBase"></param>
         internal Batch(RedisDataBase redisDataBase)
         {
-            _redisDataBase = redisDataBase;
-
             _redisCode = redisDataBase.RedisConnection.RedisCoder;
 
             _batchData = new List<BatchItem>();
@@ -754,42 +750,100 @@ namespace SAEA.RedisSocket.Core.Batches
 
         public void ZLexCountAsync(string key, double min = double.MinValue, double max = double.MaxValue, long offset = -1, int count = 20)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.ZLEXCOUNT, key, min.ToString(), max.ToString(), offset.ToString(), count.ToString());
+
+            _batchData.Add(new BatchItem(RequestType.ZLEXCOUNT, cmd));
         }
 
         public void ZRankAsync(string key, string value)
         {
-            throw new NotImplementedException();
-        }
+            var cmd = _redisCode.Coder(RequestType.ZRANK, key, value);
 
+            _batchData.Add(new BatchItem(RequestType.ZRANK, cmd));
+        }
+        /// <summary>
+        /// 移除有序集 key 中的一个或多个成员，不存在的成员将被忽略。
+        /// 当 key 存在但不是有序集类型时，返回一个错误
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="values"></param>
         public void ZRemoveAsync(string key, string[] values)
         {
-            throw new NotImplementedException();
+            var list = new List<string>();
+
+            list.Add(key);
+
+            list.AddRange(values);
+
+            var cmd = _redisCode.Coder(RequestType.ZREM, list.ToString());
+
+            _batchData.Add(new BatchItem(RequestType.ZREM, cmd));
         }
 
+        /// <summary>
+        /// 对于一个所有成员的分值都相同的有序集合键 key 来说， 这个命令会移除该集合中， 成员介于 min 和 max 范围内的所有元素。
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="min"></param>
+        /// <param name="max"></param>
+        /// <param name="offset"></param>
+        /// <param name="count"></param>
         public void ZRemoveByLexAsync(string key, double min = double.MinValue, double max = double.MaxValue, long offset = -1, int count = 20)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.CodeForRandByScore(RequestType.ZREMRANGEBYLEX, key, min, max, RangType.None, offset, count);
+
+            _batchData.Add(new BatchItem(RequestType.ZREMRANGEBYLEX, cmd));
         }
 
+        /// <summary>
+        /// 移除有序集 key 中，指定排名(rank)区间内的所有成员。
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="start"></param>
+        /// <param name="stop"></param>
         public void ZRemoveByRankAsync(string key, double start = 0, double stop = -1)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.CodeForRandByScore(RequestType.ZREMRANGEBYRANK, key, start, stop, RangType.None, -1, 20);
+
+            _batchData.Add(new BatchItem(RequestType.ZREMRANGEBYRANK, cmd));
         }
 
+        /// <summary>
+        /// 移除有序集 key 中，所有 score 值介于 min 和 max 之间(包括等于 min 或 max )的成员
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="min"></param>
+        /// <param name="max"></param>
+        /// <param name="rangType"></param>
         public void ZRemoveByScoreAsync(string key, double min = 0, double max = double.MaxValue, RangType rangType = RangType.None)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.CodeForRandByScore(RequestType.ZREMRANGEBYSCORE, key, min, max, RangType.None, -1, 20);
+
+            _batchData.Add(new BatchItem(RequestType.ZREMRANGEBYSCORE, cmd));
         }
 
+        /// <summary>
+        /// 返回有序集 key 中，指定区间内的成员。成员按 score 值递减
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
         public void ZRevRankAsync(string key, string value)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.ZREVRANGE, key, value);
+
+            _batchData.Add(new BatchItem(RequestType.ZREVRANGE, cmd));
         }
 
+        /// <summary>
+        /// 返回有序集 key 中，成员 member 的 score 值。
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
         public void ZScoreAsync(string key, string value)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.ZSCORE, key, value);
+
+            _batchData.Add(new BatchItem(RequestType.ZSCORE, cmd));
         }
     }
 }

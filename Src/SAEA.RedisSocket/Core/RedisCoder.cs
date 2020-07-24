@@ -249,7 +249,7 @@ namespace SAEA.RedisSocket.Core
             return sb.ToString();
         }
 
-        public void RequestForRandByScore(RequestType requestType, string key, double min, double max, RangType rangType, long offset, int count, bool withScore = false)
+        public string CodeForRandByScore(RequestType requestType, string key, double min, double max, RangType rangType, long offset, int count, bool withScore = false)
         {
             var sb = new StringBuilder();
 
@@ -337,10 +337,15 @@ namespace SAEA.RedisSocket.Core
                 sb.Append(countStr + ConstHelper.ENTER);
             }
 
-            _sendCommand = sb.ToString();
-            Request(_sendCommand);
+            return sb.ToString();
+
         }
 
+
+        public void RequestForRandByScore(RequestType requestType, string key, double min, double max, RangType rangType, long offset, int count, bool withScore = false)
+        {
+            Request(CodeForRandByScore(requestType, key, min, max, RangType.None, offset, count, withScore));
+        }
         #endregion
 
         #region 接收解码
