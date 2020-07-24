@@ -52,6 +52,8 @@ namespace SAEA.RedisSocketTest
             var r = redisClient.GetDataBase().HGetAsync(TimeSpan.FromSeconds(5), "hid", "key").Result;
             var rr = redisClient.GetDataBase().HDelAsync(TimeSpan.FromSeconds(5), "hid", "key").Result;
 
+            
+
             var rk = redisClient.GetDataBase().RandomKey();
 
             var crk = redisClient.Console("RandomKey");
