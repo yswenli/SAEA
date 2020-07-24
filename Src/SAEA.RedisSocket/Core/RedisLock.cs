@@ -109,8 +109,11 @@ namespace SAEA.RedisSocket.Core
             lock (_syncLocker)
             {
                 bool result = true;
+
                 _key = string.Format("{0}{1}", _prefix, key);
+
                 string expiredStr = DateTimeHelper.Now.AddSeconds(seconds).ToFString();
+
                 while (!SetNX(_key, expiredStr))
                 {
                     if (GetDateTime() < DateTimeHelper.Now && GetSetDateTime(expiredStr) < DateTimeHelper.Now)

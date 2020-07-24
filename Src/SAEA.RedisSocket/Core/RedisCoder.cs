@@ -36,8 +36,6 @@ namespace SAEA.RedisSocket.Core
     {
         public const string SEPARATOR = "===========YSWENLI============";
 
-        RequestType _commandName;
-
         RedisStream _redisStream = new RedisStream();
 
         string _sendCommand = string.Empty;
@@ -80,8 +78,6 @@ namespace SAEA.RedisSocket.Core
         {
             @params.NotNull();
 
-            _commandName = commandName;
-
             var sb = new StringBuilder();
 
             sb.Append(ConstHelper.ASTERRISK + @params.Length + ConstHelper.ENTER);
@@ -108,7 +104,6 @@ namespace SAEA.RedisSocket.Core
         public void Coder(RequestType commandName, string cmdType, params string[] @params)
         {
             @params.NotNull();
-            _commandName = commandName;
             var sb = new StringBuilder();
             sb.Append(ConstHelper.ASTERRISK + (@params.Length + 1) + ConstHelper.ENTER);
             sb.Append(ConstHelper.DOLLAR + cmdType.Length + ConstHelper.ENTER);
@@ -126,8 +121,6 @@ namespace SAEA.RedisSocket.Core
         public void CoderForList(RequestType commandName, string id, IEnumerable<string> list)
         {
             list.NotNull();
-
-            _commandName = commandName;
 
             var sb = new StringBuilder();
             sb.Append(ConstHelper.ASTERRISK + (list.Count() + 2) + ConstHelper.ENTER);
@@ -153,7 +146,6 @@ namespace SAEA.RedisSocket.Core
         public void CoderForDic(RequestType commandName, Dictionary<string, string> dic)
         {
             dic.NotNull();
-            _commandName = commandName;
             var sb = new StringBuilder();
             sb.Append(ConstHelper.ASTERRISK + (dic.Count * 2 + 1) + ConstHelper.ENTER);
             var type = commandName.ToString();
@@ -161,13 +153,13 @@ namespace SAEA.RedisSocket.Core
             sb.Append(type + ConstHelper.ENTER);
             foreach (var item in dic)
             {
-                var length = Encoding.UTF8.GetBytes(item.Key.ToString()).Length;
+                var length = Encoding.UTF8.GetBytes(item.Key).Length;
                 sb.Append(ConstHelper.DOLLAR + length + ConstHelper.ENTER);
-                sb.Append(item.Key.ToString() + ConstHelper.ENTER);
+                sb.Append(item.Key + ConstHelper.ENTER);
 
-                length = Encoding.UTF8.GetBytes(item.Value.ToString()).Length;
+                length = Encoding.UTF8.GetBytes(item.Value).Length;
                 sb.Append(ConstHelper.DOLLAR + length + ConstHelper.ENTER);
-                sb.Append(item.Value.ToString() + ConstHelper.ENTER);
+                sb.Append(item.Value + ConstHelper.ENTER);
             }
             _sendCommand = sb.ToString();
             Request(_sendCommand);
@@ -176,7 +168,6 @@ namespace SAEA.RedisSocket.Core
         public void CoderForDicWidthID(RequestType commandName, string id, Dictionary<string, string> dic)
         {
             dic.NotNull();
-            _commandName = commandName;
             var sb = new StringBuilder();
             sb.Append(ConstHelper.ASTERRISK + (dic.Count * 2 + 2) + ConstHelper.ENTER);
 
@@ -191,11 +182,11 @@ namespace SAEA.RedisSocket.Core
             {
                 length = Encoding.UTF8.GetBytes(item.Key.ToString()).Length;
                 sb.Append(ConstHelper.DOLLAR + length + ConstHelper.ENTER);
-                sb.Append(item.Key.ToString() + ConstHelper.ENTER);
+                sb.Append(item.Key + ConstHelper.ENTER);
 
-                length = Encoding.UTF8.GetBytes(item.Value.ToString()).Length;
+                length = Encoding.UTF8.GetBytes(item.Value).Length;
                 sb.Append(ConstHelper.DOLLAR + length + ConstHelper.ENTER);
-                sb.Append(item.Value.ToString() + ConstHelper.ENTER);
+                sb.Append(item.Value + ConstHelper.ENTER);
             }
             _sendCommand = sb.ToString();
             Request(_sendCommand);
@@ -204,7 +195,6 @@ namespace SAEA.RedisSocket.Core
         public void CoderForDicWidthID(RequestType commandName, string id, Dictionary<double, string> dic)
         {
             dic.NotNull();
-            _commandName = commandName;
             var sb = new StringBuilder();
             sb.Append(ConstHelper.ASTERRISK + (dic.Count * 2 + 2) + ConstHelper.ENTER);
 
@@ -221,9 +211,9 @@ namespace SAEA.RedisSocket.Core
                 sb.Append(ConstHelper.DOLLAR + length);
                 sb.Append(item.Key.ToString());
 
-                length = Encoding.UTF8.GetBytes(item.Value.ToString()).Length;
+                length = Encoding.UTF8.GetBytes(item.Value).Length;
                 sb.Append(ConstHelper.DOLLAR + length + ConstHelper.ENTER);
-                sb.Append(item.Value.ToString() + ConstHelper.ENTER);
+                sb.Append(item.Value + ConstHelper.ENTER);
             }
             _sendCommand = sb.ToString();
             Request(_sendCommand);
@@ -231,8 +221,6 @@ namespace SAEA.RedisSocket.Core
 
         public void CoderForRandByScore(RequestType commandName, string key, double min, double max, RangType rangType, long offset, int count, bool withScore = false)
         {
-            _commandName = commandName;
-
             var sb = new StringBuilder();
 
             if (withScore)
@@ -415,8 +403,9 @@ namespace SAEA.RedisSocket.Core
         /// <summary>
         /// 解析从redis返回的命令
         /// </summary>
+        /// <param name="requestType"></param>
         /// <returns></returns>
-        public ResponseData Decoder()
+        public ResponseData Decoder(RequestType requestType)
         {
             var responseData = new ResponseData();
 
@@ -465,7 +454,7 @@ namespace SAEA.RedisSocket.Core
                         return responseData;
                     }
 
-                    switch (_commandName)
+                    switch (requestType)
                     {
                         case RequestType.PING:
                             if (GetStatus(command, out error))

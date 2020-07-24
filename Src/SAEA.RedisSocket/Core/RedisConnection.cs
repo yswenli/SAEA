@@ -226,7 +226,7 @@ namespace SAEA.RedisSocket.Core
                 {
                     while (RedisCoder.IsSubed)
                     {
-                        var result = RedisCoder.Decoder();
+                        var result = RedisCoder.Decoder(RequestType.SUBSCRIBE);
                         if (result.Type == ResponseType.Sub)
                         {
                             var arr = result.Data.ToArray(false, Environment.NewLine);

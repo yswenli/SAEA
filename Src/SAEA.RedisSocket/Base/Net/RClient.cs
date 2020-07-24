@@ -25,6 +25,7 @@
 using SAEA.Common;
 using SAEA.Sockets.Core.Tcp;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 
 namespace SAEA.RedisSocket.Base.Net
@@ -35,7 +36,7 @@ namespace SAEA.RedisSocket.Base.Net
 
         public event Action<DateTime> OnActived;
 
-        Queue<byte[]> queue = new Queue<byte[]>();
+        ConcurrentQueue<byte[]> queue = new ConcurrentQueue<byte[]>();
 
 
         public RClient(int bufferSize = 100 * 1024, string ip = "127.0.0.1", int port = 39654) : base(new RContext(), string.IsNullOrEmpty(ip) ? "127.0.0.1" : ip, port, bufferSize)
@@ -44,11 +45,9 @@ namespace SAEA.RedisSocket.Base.Net
             {
                 while (true)
                 {
-                    if (queue.Count > 0)
+                    if (queue.TryDequeue(out byte[] data))
                     {
-                        var data = queue.Dequeue();
-
-                        this.UserToken.Unpacker.Unpack(data, (content) =>
+                        UserToken.Unpacker.Unpack(data, (content) =>
                         {
                             OnMessage.Invoke(content.Content);
                         }, null, null);
