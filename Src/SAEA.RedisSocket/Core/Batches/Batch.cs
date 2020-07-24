@@ -91,7 +91,7 @@ namespace SAEA.RedisSocket.Core.Batches
                     case RequestType.CLUSTER_FLUSHSLOTS:
                     case RequestType.CLUSTER_SETSLOT:
                     case RequestType.CONFIG_SET:
-
+                        result.Add(data.Data);
                         break;
                     case RequestType.GET:
                     case RequestType.GETSET:
@@ -101,24 +101,7 @@ namespace SAEA.RedisSocket.Core.Batches
                     case RequestType.SRANDMEMBER:
                     case RequestType.SPOP:
                     case RequestType.RANDOMKEY:
-
-                        break;
-                    case RequestType.KEYS:
-                    case RequestType.MGET:
-                    case RequestType.HKEYS:
-                    case RequestType.HVALS:
-                    case RequestType.HMGET:
-                    case RequestType.LRANGE:
-                    case RequestType.BLPOP:
-                    case RequestType.BRPOP:
-                    case RequestType.SMEMBERS:
-                    case RequestType.SINTER:
-                    case RequestType.SUNION:
-                    case RequestType.SDIFF:
-                    case RequestType.ZRANGEBYLEX:
-                    case RequestType.CLUSTER_GETKEYSINSLOT:
-                    case RequestType.CONFIG_GET:
-
+                        result.Add(data.Data);
                         break;
                     case RequestType.DBSIZE:
                     case RequestType.FLUSHDB:
@@ -172,17 +155,18 @@ namespace SAEA.RedisSocket.Core.Batches
                     case RequestType.CLUSTER_KEYSLOT:
                     case RequestType.CLUSTER_COUNTKEYSINSLOT:
                     case RequestType.GEOADD:
-
+                        result.Add(data.Data);
                         break;
                     case RequestType.GEOPOS:
                     case RequestType.GEORADIUS:
                     case RequestType.GEORADIUSBYMEMBER:
-
+                        result.Add(data.Data);
                         break;
-
+                    default:
+                        result.Add(null);
+                        break;
                 }
             }
-
             return result;
         }
 
@@ -210,9 +194,9 @@ namespace SAEA.RedisSocket.Core.Batches
 
         public void DelAsync(params string[] keys)
         {
-            var cmd = _redisCode.Coder(RequestType.DECRBY, keys);
+            var cmd = _redisCode.Coder(RequestType.DEL, keys);
 
-            _batchData.Add(new BatchItem(RequestType.DECRBY, cmd));
+            _batchData.Add(new BatchItem(RequestType.DEL, cmd));
         }
 
         public void ExistsAsync(string key)
@@ -620,7 +604,7 @@ namespace SAEA.RedisSocket.Core.Batches
         }
 
         /// <summary>
-        /// 返回集合交集并保存到 destination 集合
+        /// 返回集合交集数量并保存到 destination 集合
         /// </summary>
         /// <param name="destination"></param>
         /// <param name="keys"></param>
@@ -755,6 +739,11 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.ZLEXCOUNT, cmd));
         }
 
+        /// <summary>
+        /// 返回有序集 key 中成员 member 的排名
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
         public void ZRankAsync(string key, string value)
         {
             var cmd = _redisCode.Coder(RequestType.ZRANK, key, value);

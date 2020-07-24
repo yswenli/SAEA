@@ -27,6 +27,7 @@ using SAEA.RedisSocket.Core;
 using SAEA.RedisSocket.Model;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace SAEA.RedisSocketTest
 {
@@ -48,11 +49,16 @@ namespace SAEA.RedisSocketTest
 
             redisClient.Connect();
 
+            #region 异步测试
+
             redisClient.GetDataBase().HSetAsync(TimeSpan.FromSeconds(5), "hid", "key", "val");
             var r = redisClient.GetDataBase().HGetAsync(TimeSpan.FromSeconds(5), "hid", "key").Result;
             var rr = redisClient.GetDataBase().HDelAsync(TimeSpan.FromSeconds(5), "hid", "key").Result;
 
-            
+            #endregion
+
+            BatchTest(redisClient);
+
 
             var rk = redisClient.GetDataBase().RandomKey();
 
@@ -383,6 +389,32 @@ namespace SAEA.RedisSocketTest
             var k = redisClient.KeySlot("aaa");
 
             var g = redisClient.GetKeysInSlot(0);
+        }
+
+        static void BatchTest(RedisClient redisClient, int count = 1 * 1000)
+        {
+            #region batch
+
+            Console.WriteLine($"batch操作{count}次开始");
+
+            Stopwatch stopwatch = Stopwatch.StartNew();
+
+            var batch = redisClient.GetDataBase().CreatedBatch();
+
+            for (int i = 0; i < count; i++)
+            {
+                batch.SetAsync(i.ToString(), i.ToString());
+                batch.GetAsync(i.ToString());
+                batch.DelAsync(i.ToString());
+            }
+
+            var batchResult = batch.Execute();
+
+            stopwatch.Stop();
+
+            Console.WriteLine($"batch操作用时{TimeSpan.FromMilliseconds(stopwatch.ElapsedMilliseconds)},速度为{(count * 3 / stopwatch.Elapsed.TotalSeconds)}次/秒");
+            Console.ReadLine();
+            #endregion
         }
     }
 }

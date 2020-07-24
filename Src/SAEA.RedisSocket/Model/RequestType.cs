@@ -114,6 +114,9 @@ namespace SAEA.RedisSocket.Model
         SREM,
         SMOVE,
         SINTER,
+        /// <summary>
+        /// 返回集合交集数量并保存到 destination 集合
+        /// </summary>
         SINTERSTORE,
         SUNION,
         /// <summary>
@@ -141,6 +144,9 @@ namespace SAEA.RedisSocket.Model
         ZREVRANGE,
         ZRANGEBYSCORE,
         ZREVRANGEBYSCORE,
+        /// <summary>
+        /// 返回有序集 key 中成员 member 的排名
+        /// </summary>
         ZRANK,
         ZREVRANK,
         ZREM,
