@@ -64,31 +64,38 @@ namespace SAEA.RedisSocket.Base.Net
 
         byte[] ReadBytesLine()
         {
+            byte[] data;
+
             lock (_locker)
             {
-                var data = _bytes.ToArray();
+                data = _bytes.ToArray();
+            }
 
-                var span = data.AsSpan();
+            var span = data.AsSpan();
 
-                var index = span.IndexOf((byte)13);
+            var index = span.IndexOf((byte)13);
 
-                if (index >= 0)
+            if (index >= 0)
+            {
+                index = span.IndexOf((byte)10);
+
+                if (index > 0)
                 {
-                    index = span.IndexOf((byte)10);
-
-                    if (index > 0)
+                    lock (_locker)
                     {
                         _bytes.RemoveRange(0, index + 1);
-
-                        return span.Slice(0, index + 1).ToArray();
                     }
-                    return null;
+
+
+                    return span.Slice(0, index + 1).ToArray();
                 }
-                else
-                {
-                    return null;
-                }
+                return null;
             }
+            else
+            {
+                return null;
+            }
+
         }
 
         byte[] ReadBytesBlock(int len)
