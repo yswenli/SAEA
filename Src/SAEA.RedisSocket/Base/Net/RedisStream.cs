@@ -86,7 +86,6 @@ namespace SAEA.RedisSocket.Base.Net
                         _bytes.RemoveRange(0, index + 1);
                     }
 
-
                     return span.Slice(0, index + 1).ToArray();
                 }
                 return null;
