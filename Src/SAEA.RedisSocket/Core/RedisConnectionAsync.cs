@@ -25,7 +25,7 @@ using System.Threading.Tasks;
 namespace SAEA.RedisSocket.Core
 {
     /// <summary>
-    /// RedisConnectionAsync
+    /// 连接包装类,RedisConnectionAsync
     /// </summary>
     partial class RedisConnection
     {
@@ -74,7 +74,7 @@ namespace SAEA.RedisSocket.Core
 
                                 if (EnumHelper.GetEnum(redisCmd, out RequestType requestType1))
                                 {
-                                    RedisCoder.CoderByParams(requestType1, @params);
+                                    RedisCoder.RequestOnlyParams(@params);
                                     result = RedisCoder.Decoder(requestType1);
                                 }
                                 else
@@ -83,7 +83,7 @@ namespace SAEA.RedisSocket.Core
 
                                     if (EnumHelper.GetEnum(redisCmd, out RequestType requestType2))
                                     {
-                                        RedisCoder.CoderByParams(requestType2, @params);
+                                        RedisCoder.RequestOnlyParams(@params);
                                         result = RedisCoder.Decoder(requestType2);
                                     }
                                     else
@@ -119,7 +119,7 @@ namespace SAEA.RedisSocket.Core
             {
                 lock (_syncLocker)
                 {
-                    RedisCoder.CoderByParams(type, type.ToString());
+                    RedisCoder.RequestOnlyParams(type.ToString());
                     var result = RedisCoder.Decoder(type);
                     if (result.Type == ResponseType.Redirect)
                     {
@@ -146,7 +146,7 @@ namespace SAEA.RedisSocket.Core
                 lock (_syncLocker)
                 {
                     content.KeyCheck();
-                    RedisCoder.Coder(type, type.ToString(), content);
+                    RedisCoder.Request(type, content);
                     return RedisCoder.Decoder(type);
                 }
 
@@ -167,7 +167,7 @@ namespace SAEA.RedisSocket.Core
                 lock (_syncLocker)
                 {
                     key.KeyCheck();
-                    RedisCoder.Coder(type, type.ToString(), key);
+                    RedisCoder.Request(type, key);
                     var result = RedisCoder.Decoder(type);
                     if (result.Type == ResponseType.Redirect)
                     {
@@ -187,7 +187,7 @@ namespace SAEA.RedisSocket.Core
                 lock (_syncLocker)
                 {
                     key.KeyCheck();
-                    RedisCoder.Coder(type, type.ToString(), key, value);
+                    RedisCoder.Request(type, key, value);
                     var result = RedisCoder.Decoder(type);
                     if (result.Type == ResponseType.Redirect)
                     {
@@ -208,7 +208,7 @@ namespace SAEA.RedisSocket.Core
                 {
                     id.KeyCheck();
                     key.KeyCheck();
-                    RedisCoder.Coder(type, type.ToString(), id, key, value);
+                    RedisCoder.Request(type, id, key, value);
                     var result = RedisCoder.Decoder(type);
                     if (result.Type == ResponseType.Redirect)
                     {
@@ -229,7 +229,7 @@ namespace SAEA.RedisSocket.Core
                 lock (_syncLocker)
                 {
                     keys.KeyCheck();
-                    RedisCoder.Coder(type, type.ToString(), keys);
+                    RedisCoder.Request(type, keys);
                     var result = RedisCoder.Decoder(type);
                     if (result.Type == ResponseType.Redirect)
                     {
@@ -250,7 +250,7 @@ namespace SAEA.RedisSocket.Core
                 lock (_syncLocker)
                 {
                     key.KeyCheck();
-                    RedisCoder.Coder(RequestType.EXPIRE, RequestType.EXPIRE.ToString(), key, seconds.ToString());
+                    RedisCoder.Request(RequestType.EXPIRE, key, seconds.ToString());
                     var result = RedisCoder.Decoder(RequestType.EXPIRE);
                     if (result.Type == ResponseType.Redirect)
                     {
@@ -268,7 +268,7 @@ namespace SAEA.RedisSocket.Core
                 lock (_syncLocker)
                 {
                     key.KeyCheck();
-                    RedisCoder.Coder(RequestType.EXPIREAT, RequestType.EXPIREAT.ToString(), key, timestamp.ToString());
+                    RedisCoder.Request(RequestType.EXPIREAT, key, timestamp.ToString());
                     var result = RedisCoder.Decoder(RequestType.EXPIREAT);
                     if (result.Type == ResponseType.Redirect)
                     {
@@ -287,14 +287,14 @@ namespace SAEA.RedisSocket.Core
                 lock (_syncLocker)
                 {
                     key.KeyCheck();
-                    RedisCoder.Coder(type, type.ToString(), key, value);
+                    RedisCoder.Request(type, key, value);
                     var result = RedisCoder.Decoder(type);
                     if (result.Type == ResponseType.Redirect)
                     {
                         OnRedirect.Invoke(result.Data, OperationType.DoExpireInsert, key, value, seconds);
                         return;
                     }
-                    RedisCoder.Coder(RequestType.EXPIRE, string.Format("{0} {1} {2}", type.ToString(), key, seconds));
+                    RedisCoder.Request(RequestType.EXPIRE, string.Format("{0} {1}", key, seconds));
                     RedisCoder.Decoder(RequestType.EXPIRE);
                 }
             });
@@ -307,7 +307,7 @@ namespace SAEA.RedisSocket.Core
                 lock (_syncLocker)
                 {
                     key.KeyCheck();
-                    RedisCoder.Coder(type, type.ToString(), key, begin.ToString(), end.ToString(), "WITHSCORES");
+                    RedisCoder.Request(type, key, begin.ToString(), end.ToString(), "WITHSCORES");
                     var result = RedisCoder.Decoder(type);
                     if (result.Type == ResponseType.Redirect)
                     {
@@ -327,7 +327,7 @@ namespace SAEA.RedisSocket.Core
                 lock (_syncLocker)
                 {
                     key.KeyCheck();
-                    RedisCoder.CoderForRandByScore(type, key, min, max, rangType, offset, count, withScore);
+                    RedisCoder.RequestForRandByScore(type, key, min, max, rangType, offset, count, withScore);
                     var result = RedisCoder.Decoder(type);
                     if (result.Type == ResponseType.Redirect)
                     {
@@ -347,7 +347,7 @@ namespace SAEA.RedisSocket.Core
             {
                 lock (_syncLocker)
                 {
-                    RedisCoder.CoderForList(type, id, list);
+                    RedisCoder.RequestForList(type, id, list);
                     var result = RedisCoder.Decoder(type);
                     if (result.Type == ResponseType.Redirect)
                     {
@@ -367,7 +367,7 @@ namespace SAEA.RedisSocket.Core
             {
                 lock (_syncLocker)
                 {
-                    RedisCoder.CoderForDic(type, dic);
+                    RedisCoder.RequestForDic(type, dic);
                     var result = RedisCoder.Decoder(type);
                     if (result.Type == ResponseType.Redirect)
                     {
@@ -394,7 +394,7 @@ namespace SAEA.RedisSocket.Core
                     list.Add(type.ToString());
                     list.Add(id);
                     list.AddRange(keys);
-                    RedisCoder.CoderByParams(type, list.ToArray());
+                    RedisCoder.RequestOnlyParams(list.ToArray());
                     var result = RedisCoder.Decoder(type);
                     if (result.Type == ResponseType.Redirect)
                     {
@@ -414,7 +414,7 @@ namespace SAEA.RedisSocket.Core
                 lock (_syncLocker)
                 {
                     id.KeyCheck();
-                    RedisCoder.CoderForDicWidthID(type, id, dic);
+                    RedisCoder.RequestForDicWidthID(type, id, dic);
                     var result = RedisCoder.Decoder(type);
                     if (result.Type == ResponseType.Redirect)
                     {
@@ -434,7 +434,7 @@ namespace SAEA.RedisSocket.Core
                 lock (_syncLocker)
                 {
                     id.KeyCheck();
-                    RedisCoder.CoderForDicWidthID(type, id, dic);
+                    RedisCoder.RequestForDicWidthID(type, id, dic);
                     var result = RedisCoder.Decoder(type);
                     if (result.Type == ResponseType.Redirect)
                     {
@@ -459,22 +459,22 @@ namespace SAEA.RedisSocket.Core
                     {
                         if (count > -1)
                         {
-                            RedisCoder.Coder(type, type.ToString(), offset.ToString(), RedisConst.MATCH, pattern, RedisConst.COUNT, count.ToString());
+                            RedisCoder.Request(type, offset.ToString(), RedisConst.MATCH, pattern, RedisConst.COUNT, count.ToString());
                         }
                         else
                         {
-                            RedisCoder.Coder(type, type.ToString(), offset.ToString(), RedisConst.MATCH, pattern);
+                            RedisCoder.Request(type, offset.ToString(), RedisConst.MATCH, pattern);
                         }
                     }
                     else
                     {
                         if (count > -1)
                         {
-                            RedisCoder.Coder(type, type.ToString(), offset.ToString(), RedisConst.COUNT, count.ToString());
+                            RedisCoder.Request(type, offset.ToString(), RedisConst.COUNT, count.ToString());
                         }
                         else
                         {
-                            RedisCoder.Coder(type, type.ToString(), offset.ToString());
+                            RedisCoder.Request(type, offset.ToString());
                         }
                     }
                     var result = RedisCoder.Decoder(type);
@@ -509,22 +509,22 @@ namespace SAEA.RedisSocket.Core
                     {
                         if (count > -1)
                         {
-                            RedisCoder.Coder(type, type.ToString(), key, offset.ToString(), RedisConst.MATCH, pattern, RedisConst.COUNT, count.ToString());
+                            RedisCoder.Request(type, key, offset.ToString(), RedisConst.MATCH, pattern, RedisConst.COUNT, count.ToString());
                         }
                         else
                         {
-                            RedisCoder.Coder(type, type.ToString(), key, offset.ToString(), RedisConst.MATCH, pattern);
+                            RedisCoder.Request(type, key, offset.ToString(), RedisConst.MATCH, pattern);
                         }
                     }
                     else
                     {
                         if (count > -1)
                         {
-                            RedisCoder.Coder(type, type.ToString(), key, offset.ToString(), RedisConst.COUNT, count.ToString());
+                            RedisCoder.Request(type, key, offset.ToString(), RedisConst.COUNT, count.ToString());
                         }
                         else
                         {
-                            RedisCoder.Coder(type, type.ToString(), key, offset.ToString());
+                            RedisCoder.Request(type, key, offset.ToString());
                         }
                     }
                     var result = RedisCoder.Decoder(type);
@@ -565,7 +565,7 @@ namespace SAEA.RedisSocket.Core
                             list.Add(item.ToString());
                         }
                     }
-                    RedisCoder.CoderByParams(type, list.ToArray());
+                    RedisCoder.RequestOnlyParams(list.ToArray());
                     var result = RedisCoder.Decoder(type);
                     if (result.Type == ResponseType.Redirect)
                     {
@@ -600,7 +600,7 @@ namespace SAEA.RedisSocket.Core
 
                     list.Add(nodeID);
 
-                    RedisCoder.CoderByParams(type, list.ToArray());
+                    RedisCoder.RequestOnlyParams(list.ToArray());
 
                     var result = RedisCoder.Decoder(type);
 

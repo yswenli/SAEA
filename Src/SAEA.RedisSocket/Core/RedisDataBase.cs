@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.RedisSocket.Core.Batches;
 using SAEA.RedisSocket.Model;
 using System;
 
@@ -29,36 +30,57 @@ namespace SAEA.RedisSocket.Core
     /// <summary>
     /// redis数据库操作类
     /// </summary>
-    public partial class RedisDataBase
+    public partial class RedisDataBase 
     {
-        RedisConnection _cnn;
+        /// <summary>
+        /// 连接包装类
+        /// </summary>
+        internal RedisConnection RedisConnection { get; private set; }
 
         RedisLock _redisLock;
 
+        /// <summary>
+        /// redis数据库操作类
+        /// </summary>
+        /// <param name="cnn"></param>
         internal RedisDataBase(RedisConnection cnn)
         {
-            _cnn = cnn;
-            _redisLock = new RedisLock(_cnn);
+            RedisConnection = cnn;
+            _redisLock = new RedisLock(RedisConnection);
         }
+
+        #region bache
+
+        /// <summary>
+        /// 创建一个批量操作对象
+        /// </summary>
+        /// <returns></returns>
+        public IBatch CreatedBatch()
+        {
+            return new Batch(this);
+        }
+
+        #endregion
+
         #region SCAN
         public ScanResponse Scan(int offset = 0, string pattern = "*", int count = -1)
         {
-            return _cnn.DoScan(RequestType.SCAN, offset, pattern, count);
+            return RedisConnection.DoScan(RequestType.SCAN, offset, pattern, count);
         }
 
         public HScanResponse HScan(string hid, int offset = 0, string pattern = "*", int count = -1)
         {
-            return _cnn.DoScanKey(RequestType.HSCAN, hid, offset, pattern, count).ToHScanResponse();
+            return RedisConnection.DoScanKey(RequestType.HSCAN, hid, offset, pattern, count).ToHScanResponse();
         }
 
         public ScanResponse SScan(string sid, int offset = 0, string pattern = "*", int count = -1)
         {
-            return _cnn.DoScanKey(RequestType.SSCAN, sid, offset, pattern, count);
+            return RedisConnection.DoScanKey(RequestType.SSCAN, sid, offset, pattern, count);
         }
 
         public ZScanResponse ZScan(string zid, int offset = 0, string pattern = "*", int count = -1)
         {
-            return _cnn.DoScanKey(RequestType.ZSCAN, zid, offset, pattern, count).ToZScanResponse();
+            return RedisConnection.DoScanKey(RequestType.ZSCAN, zid, offset, pattern, count).ToZScanResponse();
         }
         #endregion
 
@@ -66,18 +88,18 @@ namespace SAEA.RedisSocket.Core
         public int Publish(string channel, string value)
         {
             var result = 0;
-            int.TryParse(_cnn.DoWithKeyValue(RequestType.PUBLISH, channel, value).Data, out result);
+            int.TryParse(RedisConnection.DoWithKeyValue(RequestType.PUBLISH, channel, value).Data, out result);
             return result;
         }
 
         public void Suscribe(Action<string, string> onMsg, params string[] channels)
         {
-            _cnn.DoSub(channels, onMsg);
+            RedisConnection.DoSub(channels, onMsg);
         }
 
         public void UNSUBSCRIBE(string channel)
         {
-            _cnn.DoWithKey(RequestType.UNSUBSCRIBE, channel);
+            RedisConnection.DoWithKey(RequestType.UNSUBSCRIBE, channel);
         }
         #endregion
 

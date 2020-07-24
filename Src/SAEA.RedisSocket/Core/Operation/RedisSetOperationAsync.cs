@@ -37,7 +37,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="value"></param>
         public async void SAddAsync(TimeSpan timeSpan, string key, string value)
         {
-            await _cnn.DoWithKeyValueAsync(RequestType.SADD, key, value, timeSpan);
+            await RedisConnection.DoWithKeyValueAsync(RequestType.SADD, key, value, timeSpan);
         }
 
         /// <summary>
@@ -48,7 +48,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="value"></param>
         public async void SAddAsync(TimeSpan timeSpan, string key, string[] value)
         {
-            await _cnn.DoBatchWithIDKeysAsync(timeSpan, RequestType.SADD, key, value);
+            await RedisConnection.DoBatchWithIDKeysAsync(timeSpan, RequestType.SADD, key, value);
         }
 
         /// <summary>
@@ -60,7 +60,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<bool> SExistsAsync(TimeSpan timeSpan, string key, string value)
         {
-            var data = await _cnn.DoWithKeyValueAsync(RequestType.SISMEMBER, key, value, timeSpan);
+            var data = await RedisConnection.DoWithKeyValueAsync(RequestType.SISMEMBER, key, value, timeSpan);
             var result = data.Data;
             return result.IndexOf("1") > -1 ? true : false;
         }
@@ -73,7 +73,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<string> SPopAsync(TimeSpan timeSpan, string key)
         {
-            var data = await _cnn.DoWithKeyAsync(RequestType.SPOP, key, timeSpan);
+            var data = await RedisConnection.DoWithKeyAsync(RequestType.SPOP, key, timeSpan);
             return data.Data;
         }
 
@@ -85,7 +85,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<string> SRandMemeberAsync(TimeSpan timeSpan, string key)
         {
-            var data = await _cnn.DoWithKeyAsync(RequestType.SRANDMEMBER, key, timeSpan);
+            var data = await RedisConnection.DoWithKeyAsync(RequestType.SRANDMEMBER, key, timeSpan);
             return data.Data;
         }
 
@@ -99,7 +99,7 @@ namespace SAEA.RedisSocket.Core
         public async Task<int> SRemoveAsync(TimeSpan timeSpan, string key, params string[] values)
         {
             var result = 0;
-            var data = await _cnn.DoBatchWithIDKeysAsync(timeSpan, RequestType.SREM, key, values);
+            var data = await RedisConnection.DoBatchWithIDKeysAsync(timeSpan, RequestType.SREM, key, values);
             int.TryParse(data.Data, out result);
             return result;
         }
@@ -114,7 +114,7 @@ namespace SAEA.RedisSocket.Core
         public async Task<int> SMove(TimeSpan timeSpan, string source, string destination, string key)
         {
             var result = 0;
-            var data = await _cnn.DoWithIDAsync(RequestType.SMOVE, source, destination, key, timeSpan);
+            var data = await RedisConnection.DoWithIDAsync(RequestType.SMOVE, source, destination, key, timeSpan);
             int.TryParse(data.Data, out result);
             return result;
         }
@@ -128,7 +128,7 @@ namespace SAEA.RedisSocket.Core
         public async Task<int> SLenAsync(TimeSpan timeSpan, string key)
         {
             var result = 0;
-            var data = await _cnn.DoWithKeyAsync(RequestType.SCARD, key, timeSpan);
+            var data = await RedisConnection.DoWithKeyAsync(RequestType.SCARD, key, timeSpan);
             int.TryParse(data.Data, out result);
             return result;
         }
@@ -141,7 +141,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<List<string>> SMemebersAsync(TimeSpan timeSpan, string key)
         {
-            var data = await _cnn.DoWithKeyAsync(RequestType.SMEMBERS, key, timeSpan);
+            var data = await RedisConnection.DoWithKeyAsync(RequestType.SMEMBERS, key, timeSpan);
             return data.ToList();
         }
 
@@ -153,7 +153,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<List<string>> SInterAsync(TimeSpan timeSpan, params string[] keys)
         {
-            var data = await _cnn.DoWithMutiParamsAsync(RequestType.SINTER, timeSpan, keys);
+            var data = await RedisConnection.DoWithMutiParamsAsync(RequestType.SINTER, timeSpan, keys);
             return data.ToList();
         }
 
@@ -168,7 +168,7 @@ namespace SAEA.RedisSocket.Core
         {
             keys.NotNull();
             var result = 0;
-            var data = await _cnn.DoBatchWithListAsync(RequestType.SINTERSTORE, destination, keys.ToList(), timeSpan);
+            var data = await RedisConnection.DoBatchWithListAsync(RequestType.SINTERSTORE, destination, keys.ToList(), timeSpan);
             int.TryParse(data.Data, out result);
             return result;
         }
@@ -181,7 +181,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<List<string>> SUnionAsync(TimeSpan timeSpan, params string[] keys)
         {
-            var data = await _cnn.DoWithMutiParamsAsync(RequestType.SUNION, timeSpan, keys);
+            var data = await RedisConnection.DoWithMutiParamsAsync(RequestType.SUNION, timeSpan, keys);
             return data.ToList();
         }
 
@@ -196,7 +196,7 @@ namespace SAEA.RedisSocket.Core
         {
             keys.NotNull();
             var result = 0;
-            var data = await _cnn.DoBatchWithListAsync(RequestType.SUNIONSTORE, destination, keys, timeSpan);
+            var data = await RedisConnection.DoBatchWithListAsync(RequestType.SUNIONSTORE, destination, keys, timeSpan);
             int.TryParse(data.Data, out result);
             return result;
         }
@@ -209,7 +209,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<List<string>> SDiffAsync(TimeSpan timeSpan, params string[] keys)
         {
-            var data = await _cnn.DoWithMutiParamsAsync(RequestType.SDIFF, timeSpan, keys);
+            var data = await RedisConnection.DoWithMutiParamsAsync(RequestType.SDIFF, timeSpan, keys);
             return data.ToList();
         }
 
@@ -224,7 +224,7 @@ namespace SAEA.RedisSocket.Core
         {
             keys.NotNull();
             var result = 0;
-            var data = await _cnn.DoBatchWithListAsync(RequestType.SDIFFSTORE, destination, keys.ToList(), timeSpan);
+            var data = await RedisConnection.DoBatchWithListAsync(RequestType.SDIFFSTORE, destination, keys.ToList(), timeSpan);
             int.TryParse(data.Data, out result);
             return result;
         }

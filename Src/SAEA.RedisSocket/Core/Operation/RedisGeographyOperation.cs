@@ -47,7 +47,7 @@ namespace SAEA.RedisSocket.Core
             list.Add(key);
             list.AddRange(GeoItem.ToParams(items));
 
-            int.TryParse(_cnn.DoWithMutiParams(RequestType.GEOADD, list.ToArray()).Data, out result);
+            int.TryParse(RedisConnection.DoWithMutiParams(RequestType.GEOADD, list.ToArray()).Data, out result);
 
             return result;
         }
@@ -61,7 +61,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public List<GeoNum> GeoPos(string key, params string[] memebers)
         {
-            return _cnn.DoBatchWithIDKeys(RequestType.GEOPOS, key, memebers).ToGeoNums();
+            return RedisConnection.DoBatchWithIDKeys(RequestType.GEOPOS, key, memebers).ToGeoNums();
         }
 
         /// <summary>
@@ -76,7 +76,7 @@ namespace SAEA.RedisSocket.Core
         {
             double result = 0D;
 
-            double.TryParse(_cnn.DoWithMutiParams(RequestType.GEODIST, key, member1, member2, geoUnit.ToString()).Data, out result);
+            double.TryParse(RedisConnection.DoWithMutiParams(RequestType.GEODIST, key, member1, member2, geoUnit.ToString()).Data, out result);
 
             return result;
         }
@@ -94,7 +94,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public List<GeoDistInfo> GeoRandius(string key, double lng, double lat, double dist, GeoUnit geoUnit = GeoUnit.m, bool asc = true, int count = 20)
         {
-            return _cnn.DoWithMutiParams(RequestType.GEORADIUS, key, lng.ToString(), lat.ToString(), dist.ToString(), geoUnit.ToString(), "WITHDIST", "WITHCOORD", (asc ? "ASC" : "DESC"), "COUNT", count.ToString()).ToGeoDistInfos();
+            return RedisConnection.DoWithMutiParams(RequestType.GEORADIUS, key, lng.ToString(), lat.ToString(), dist.ToString(), geoUnit.ToString(), "WITHDIST", "WITHCOORD", (asc ? "ASC" : "DESC"), "COUNT", count.ToString()).ToGeoDistInfos();
         }
 
         /// <summary>
@@ -109,7 +109,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public List<GeoDistInfo> GeoRandiusByMember(string key, string member, double dist, GeoUnit geoUnit = GeoUnit.m, bool asc = true, int count = 20)
         {
-            return _cnn.DoWithMutiParams(RequestType.GEORADIUSBYMEMBER, key, member, dist.ToString(), geoUnit.ToString(), "WITHDIST", "WITHCOORD", (asc ? "ASC" : "DESC"), "COUNT", count.ToString()).ToGeoDistInfos();
+            return RedisConnection.DoWithMutiParams(RequestType.GEORADIUSBYMEMBER, key, member, dist.ToString(), geoUnit.ToString(), "WITHDIST", "WITHCOORD", (asc ? "ASC" : "DESC"), "COUNT", count.ToString()).ToGeoDistInfos();
         }
 
 

@@ -35,7 +35,7 @@ namespace SAEA.RedisSocket.Core
         public int LPush(string key, string value)
         {
             var result = 0;
-            int.TryParse(_cnn.DoWithKeyValue(RequestType.LPUSH, key, value).Data, out result);
+            int.TryParse(RedisConnection.DoWithKeyValue(RequestType.LPUSH, key, value).Data, out result);
             return result;
         }
 
@@ -48,7 +48,7 @@ namespace SAEA.RedisSocket.Core
         public int LPush(string key, List<string> lists)
         {
             var result = 0;
-            int.TryParse(_cnn.DoBatchWithList(RequestType.LPUSH, key, lists).Data, out result);
+            int.TryParse(RedisConnection.DoBatchWithList(RequestType.LPUSH, key, lists).Data, out result);
             return result;
         }
 
@@ -61,7 +61,7 @@ namespace SAEA.RedisSocket.Core
         public int LPushX(string key, string value)
         {
             var result = 0;
-            int.TryParse(_cnn.DoWithKeyValue(RequestType.LPUSHX, key, value).Data, out result);
+            int.TryParse(RedisConnection.DoWithKeyValue(RequestType.LPUSHX, key, value).Data, out result);
             return result;
         }
 
@@ -74,7 +74,7 @@ namespace SAEA.RedisSocket.Core
         public int RPush(string key, string value)
         {
             var result = 0;
-            int.TryParse(_cnn.DoWithKeyValue(RequestType.RPUSH, key, value).Data, out result);
+            int.TryParse(RedisConnection.DoWithKeyValue(RequestType.RPUSH, key, value).Data, out result);
             return result;
         }
 
@@ -87,7 +87,7 @@ namespace SAEA.RedisSocket.Core
         public int RPush(string key, List<string> values)
         {
             var result = 0;
-            int.TryParse(_cnn.DoBatchWithList(RequestType.RPUSH, key, values).Data, out result);
+            int.TryParse(RedisConnection.DoBatchWithList(RequestType.RPUSH, key, values).Data, out result);
             return result;
         }
 
@@ -100,7 +100,7 @@ namespace SAEA.RedisSocket.Core
         public int RPushX(string key, string value)
         {
             var result = 0;
-            int.TryParse(_cnn.DoWithKeyValue(RequestType.RPUSHX, key, value).Data, out result);
+            int.TryParse(RedisConnection.DoWithKeyValue(RequestType.RPUSHX, key, value).Data, out result);
             return result;
         }
 
@@ -111,7 +111,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public string LPop(string key)
         {
-            return _cnn.DoWithKey(RequestType.LPOP, key).Data;
+            return RedisConnection.DoWithKey(RequestType.LPOP, key).Data;
         }
 
         /// <summary>
@@ -121,7 +121,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public string RPop(string key)
         {
-            return _cnn.DoWithKey(RequestType.RPOP, key).Data;
+            return RedisConnection.DoWithKey(RequestType.RPOP, key).Data;
         }
 
         /// <summary>
@@ -134,7 +134,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public string RpopLPush(string source, string destination)
         {
-            return _cnn.DoWithKeyValue(RequestType.RPOPLPUSH, source, destination).Data;
+            return RedisConnection.DoWithKeyValue(RequestType.RPOPLPUSH, source, destination).Data;
         }
 
         /// <summary>
@@ -147,7 +147,7 @@ namespace SAEA.RedisSocket.Core
         public int LRemove(string key, int count, string value)
         {
             var result = 0;
-            int.TryParse(_cnn.DoWithID(RequestType.LREM, key, count.ToString(), value).Data, out result);
+            int.TryParse(RedisConnection.DoWithID(RequestType.LREM, key, count.ToString(), value).Data, out result);
             return result;
         }
 
@@ -159,7 +159,7 @@ namespace SAEA.RedisSocket.Core
         public int LLen(string key)
         {
             var result = 0;
-            int.TryParse(_cnn.DoWithKey(RequestType.LLEN, key).Data, out result);
+            int.TryParse(RedisConnection.DoWithKey(RequestType.LLEN, key).Data, out result);
             return result;
         }
 
@@ -171,7 +171,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public string LIndex(string key, int index)
         {
-            return _cnn.DoWithKeyValue(RequestType.LINDEX, key, index.ToString()).Data;
+            return RedisConnection.DoWithKeyValue(RequestType.LINDEX, key, index.ToString()).Data;
         }
 
         /// <summary>
@@ -191,7 +191,7 @@ namespace SAEA.RedisSocket.Core
             list.Add(beforStr);
             list.Add(pivot);
             list.Add(value);
-            return int.Parse(_cnn.DoWithMutiParams(RequestType.LINSERT, list.ToArray()).Data);
+            return int.Parse(RedisConnection.DoWithMutiParams(RequestType.LINSERT, list.ToArray()).Data);
         }
 
         /// <summary>
@@ -202,7 +202,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="value"></param>
         public void LSet(string key, int index, string value)
         {
-            _cnn.DoWithID(RequestType.LSET, key, index.ToString(), value);
+            RedisConnection.DoWithID(RequestType.LSET, key, index.ToString(), value);
         }
 
 
@@ -215,7 +215,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public List<string> LRang(string key, int begin = 0, int end = -1)
         {
-            return _cnn.DoWithID(RequestType.LRANGE, key, begin.ToString(), end.ToString()).ToList();
+            return RedisConnection.DoWithID(RequestType.LRANGE, key, begin.ToString(), end.ToString()).ToList();
         }
 
         /// <summary>
@@ -227,7 +227,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public bool LTrim(string key, int begin = 0, int end = -1)
         {
-            return _cnn.DoWithID(RequestType.LTRIM, key, begin.ToString(), end.ToString()).Data.IndexOf("OK") > -1 ? true : false;
+            return RedisConnection.DoWithID(RequestType.LTRIM, key, begin.ToString(), end.ToString()).Data.IndexOf("OK") > -1 ? true : false;
         }
 
         /// <summary>
@@ -242,7 +242,7 @@ namespace SAEA.RedisSocket.Core
             List<string> datas = new List<string>();
             datas.AddRange(keys);
             datas.Add(seconds.ToString());
-            return _cnn.DoWithMutiParams(RequestType.BLPOP, datas.ToArray()).ToList();
+            return RedisConnection.DoWithMutiParams(RequestType.BLPOP, datas.ToArray()).ToList();
         }
 
         public List<string> BLPop(string key, int seconds = 0)
@@ -262,7 +262,7 @@ namespace SAEA.RedisSocket.Core
             List<string> datas = new List<string>();
             datas.AddRange(keys);
             datas.Add(seconds.ToString());
-            return _cnn.DoWithMutiParams(RequestType.BRPOP, datas.ToArray()).ToList();
+            return RedisConnection.DoWithMutiParams(RequestType.BRPOP, datas.ToArray()).ToList();
         }
 
         /// <summary>
@@ -285,7 +285,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public string BRPopLPush(string source, string destination, int seconds = 0)
         {
-            return _cnn.DoWithID(RequestType.BRPOPLPUSH, source, destination, seconds.ToString()).Data;
+            return RedisConnection.DoWithID(RequestType.BRPOPLPUSH, source, destination, seconds.ToString()).Data;
         }
 
     }

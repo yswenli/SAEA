@@ -34,7 +34,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="value"></param>
         public void SAdd(string key, string value)
         {
-            _cnn.DoWithKeyValue(RequestType.SADD, key, value);
+            RedisConnection.DoWithKeyValue(RequestType.SADD, key, value);
         }
 
         /// <summary>
@@ -44,7 +44,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="value"></param>
         public void SAdd(string key, string[] value)
         {
-            _cnn.DoBatchWithIDKeys(RequestType.SADD, key, value);
+            RedisConnection.DoBatchWithIDKeys(RequestType.SADD, key, value);
         }
 
         /// <summary>
@@ -55,7 +55,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public bool SExists(string key, string value)
         {
-            var result = _cnn.DoWithKeyValue(RequestType.SISMEMBER, key, value).Data;
+            var result = RedisConnection.DoWithKeyValue(RequestType.SISMEMBER, key, value).Data;
             return result.IndexOf("1") > -1 ? true : false;
         }
 
@@ -66,7 +66,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public string SPop(string key)
         {
-            return _cnn.DoWithKey(RequestType.SPOP, key).Data;
+            return RedisConnection.DoWithKey(RequestType.SPOP, key).Data;
         }
 
         /// <summary>
@@ -76,7 +76,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public string SRandMemeber(string key)
         {
-            return _cnn.DoWithKey(RequestType.SRANDMEMBER, key).Data;
+            return RedisConnection.DoWithKey(RequestType.SRANDMEMBER, key).Data;
         }
 
         /// <summary>
@@ -88,7 +88,7 @@ namespace SAEA.RedisSocket.Core
         public int SRemove(string key, params string[] values)
         {
             var result = 0;
-            int.TryParse(_cnn.DoBatchWithIDKeys(RequestType.SREM, key, values).Data, out result);
+            int.TryParse(RedisConnection.DoBatchWithIDKeys(RequestType.SREM, key, values).Data, out result);
             return result;
         }
 
@@ -101,7 +101,7 @@ namespace SAEA.RedisSocket.Core
         public int SMove(string source, string destination, string key)
         {
             var result = 0;
-            int.TryParse(_cnn.DoWithID(RequestType.SMOVE, source, destination, key).Data, out result);
+            int.TryParse(RedisConnection.DoWithID(RequestType.SMOVE, source, destination, key).Data, out result);
             return result;
         }
 
@@ -113,7 +113,7 @@ namespace SAEA.RedisSocket.Core
         public int SLen(string key)
         {
             var result = 0;
-            int.TryParse(_cnn.DoWithKey(RequestType.SCARD, key).Data, out result);
+            int.TryParse(RedisConnection.DoWithKey(RequestType.SCARD, key).Data, out result);
             return result;
         }
 
@@ -124,7 +124,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public List<string> SMemebers(string key)
         {
-            return _cnn.DoWithKey(RequestType.SMEMBERS, key).ToList();
+            return RedisConnection.DoWithKey(RequestType.SMEMBERS, key).ToList();
         }
 
         /// <summary>
@@ -134,7 +134,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public List<string> SInter(params string[] keys)
         {
-            return _cnn.DoWithMutiParams(RequestType.SINTER, keys).ToList();
+            return RedisConnection.DoWithMutiParams(RequestType.SINTER, keys).ToList();
         }
 
         /// <summary>
@@ -147,7 +147,7 @@ namespace SAEA.RedisSocket.Core
         {
             keys.NotNull();
             var result = 0;
-            int.TryParse(_cnn.DoBatchWithList(RequestType.SINTERSTORE, destination, keys.ToList()).Data, out result);
+            int.TryParse(RedisConnection.DoBatchWithList(RequestType.SINTERSTORE, destination, keys.ToList()).Data, out result);
             return result;
         }
 
@@ -158,7 +158,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public List<string> SUnion(params string[] keys)
         {
-            return _cnn.DoWithMutiParams(RequestType.SUNION, keys).ToList();
+            return RedisConnection.DoWithMutiParams(RequestType.SUNION, keys).ToList();
         }
 
         /// <summary>
@@ -171,7 +171,7 @@ namespace SAEA.RedisSocket.Core
         {
             keys.NotNull();
             var result = 0;
-            int.TryParse(_cnn.DoBatchWithList(RequestType.SUNIONSTORE, destination, keys.ToList()).Data, out result);
+            int.TryParse(RedisConnection.DoBatchWithList(RequestType.SUNIONSTORE, destination, keys.ToList()).Data, out result);
             return result;
         }
 
@@ -182,7 +182,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public List<string> SDiff(params string[] keys)
         {
-            return _cnn.DoWithMutiParams(RequestType.SDIFF, keys).ToList();
+            return RedisConnection.DoWithMutiParams(RequestType.SDIFF, keys).ToList();
         }
 
         /// <summary>
@@ -195,7 +195,7 @@ namespace SAEA.RedisSocket.Core
         {
             keys.NotNull();
             var result = 0;
-            int.TryParse(_cnn.DoBatchWithList(RequestType.SDIFFSTORE, destination, keys.ToList()).Data, out result);
+            int.TryParse(RedisConnection.DoBatchWithList(RequestType.SDIFFSTORE, destination, keys.ToList()).Data, out result);
             return result;
         }
 

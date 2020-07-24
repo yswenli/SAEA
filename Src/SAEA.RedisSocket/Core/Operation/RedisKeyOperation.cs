@@ -33,7 +33,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="key"></param>
         public void Del(string key)
         {
-            _cnn.DoWithKey(RequestType.DEL, key);
+            RedisConnection.DoWithKey(RequestType.DEL, key);
         }
         /// <summary>
         /// 删除给定的一个或多个 key
@@ -41,7 +41,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="keys"></param>
         public void Del(params string[] keys)
         {
-            _cnn.DoWithMutiParams(RequestType.DEL, keys);
+            RedisConnection.DoWithMutiParams(RequestType.DEL, keys);
         }
 
         /// <summary>
@@ -51,7 +51,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public bool Exists(string key)
         {
-            var result = _cnn.DoWithKey(RequestType.EXISTS, key).Data;
+            var result = RedisConnection.DoWithKey(RequestType.EXISTS, key).Data;
             return result.IndexOf("0") > -1 ? false : true;
         }
 
@@ -62,7 +62,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="seconds"></param>
         public void Expire(string key, int seconds)
         {
-            _cnn.DoExpire(key, seconds);
+            RedisConnection.DoExpire(key, seconds);
         }
 
         /// <summary>
@@ -72,7 +72,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="timestamp"></param>
         public void ExpireAt(string key, int timestamp)
         {
-            _cnn.DoExpireAt(key, timestamp);
+            RedisConnection.DoExpireAt(key, timestamp);
         }
 
         /// <summary>
@@ -92,7 +92,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public List<string> Keys(string pattern = "*")
         {
-            return _cnn.DoWithKey(RequestType.KEYS, pattern).ToList();
+            return RedisConnection.DoWithKey(RequestType.KEYS, pattern).ToList();
         }
 
         /// <summary>
@@ -101,7 +101,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="key"></param>
         public void Persist(string key)
         {
-            _cnn.DoWithKey(RequestType.PERSIST, key);
+            RedisConnection.DoWithKey(RequestType.PERSIST, key);
         }
 
         /// <summary>
@@ -111,7 +111,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns>当 key 不存在时，返回 -2 。当 key 存在但没有设置剩余生存时间时，返回 -1 。否则，以秒为单位，返回 key 的剩余生存时间。 </returns>
         public int Ttl(string key)
         {
-            int.TryParse(_cnn.DoWithKey(RequestType.TTL, key).Data, out int result);
+            int.TryParse(RedisConnection.DoWithKey(RequestType.TTL, key).Data, out int result);
 
             return result;
 
@@ -124,7 +124,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns>当 key 不存在时，返回 -2 。当 key 存在但没有设置剩余生存时间时，返回 -1 。否则，以秒为单位，返回 key 的剩余生存时间。</returns>
         public long Pttl(string key)
         {
-            long.TryParse(_cnn.DoWithKey(RequestType.PTTL, key).Data, out long result);
+            long.TryParse(RedisConnection.DoWithKey(RequestType.PTTL, key).Data, out long result);
 
             return result;
         }
@@ -135,7 +135,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public string RandomKey()
         {
-            return _cnn.Do(RequestType.RANDOMKEY).Data;
+            return RedisConnection.Do(RequestType.RANDOMKEY).Data;
         }
 
         /// <summary>
@@ -146,7 +146,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public bool Rename(string oldKey, string newKey)
         {
-            var result = _cnn.DoWithKeyValue(RequestType.RENAME, oldKey, newKey);
+            var result = RedisConnection.DoWithKeyValue(RequestType.RENAME, oldKey, newKey);
             if (result.Data == "OK")
             {
                 return true;

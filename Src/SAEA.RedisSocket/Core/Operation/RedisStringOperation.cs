@@ -32,7 +32,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="value"></param>
         public void Set(string key, string value)
         {
-            _cnn.DoWithKeyValue(RequestType.SET, key, value);
+            RedisConnection.DoWithKeyValue(RequestType.SET, key, value);
         }
 
         /// <summary>
@@ -43,7 +43,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="seconds"></param>
         public void Set(string key, string value, int seconds)
         {
-            _cnn.DoExpireInsert(RequestType.SET, key, value, seconds);
+            RedisConnection.DoExpireInsert(RequestType.SET, key, value, seconds);
         }
 
         /// <summary>
@@ -52,7 +52,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="dic"></param>
         public void MSet(Dictionary<string, string> dic)
         {
-            _cnn.DoBatchWithDic(RequestType.MSET, dic);
+            RedisConnection.DoBatchWithDic(RequestType.MSET, dic);
         }
 
         /// <summary>
@@ -61,7 +61,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="dic"></param>
         public void MSetNx(Dictionary<string, string> dic)
         {
-            _cnn.DoBatchWithDic(RequestType.MSETNX, dic);
+            RedisConnection.DoBatchWithDic(RequestType.MSETNX, dic);
         }
 
         /// <summary>
@@ -72,7 +72,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public int Append(string key, string value)
         {
-            return int.Parse(_cnn.DoWithKeyValue(RequestType.APPEND, key, value).Data);
+            return int.Parse(RedisConnection.DoWithKeyValue(RequestType.APPEND, key, value).Data);
         }
 
         /// <summary>
@@ -82,7 +82,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public string Get(string key)
         {
-            return _cnn.DoWithKey(RequestType.GET, key).Data;
+            return RedisConnection.DoWithKey(RequestType.GET, key).Data;
         }
 
         /// <summary>
@@ -92,7 +92,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public List<string> MGet(params string[] keys)
         {
-            return _cnn.DoWithMutiParams(RequestType.MGET, keys).ToList();
+            return RedisConnection.DoWithMutiParams(RequestType.MGET, keys).ToList();
         }
 
         /// <summary>
@@ -103,7 +103,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public string GetSet(string key, string value)
         {
-            return _cnn.DoWithKeyValue(RequestType.GETSET, key, value).Data;
+            return RedisConnection.DoWithKeyValue(RequestType.GETSET, key, value).Data;
         }
 
         /// <summary>
@@ -113,7 +113,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public long Increment(string key)
         {
-            return long.Parse(_cnn.DoWithKey(RequestType.INCR, key).Data);
+            return long.Parse(RedisConnection.DoWithKey(RequestType.INCR, key).Data);
         }
 
         /// <summary>
@@ -123,7 +123,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public long Decrement(string key)
         {
-            return long.Parse(_cnn.DoWithKey(RequestType.DECR, key).Data);
+            return long.Parse(RedisConnection.DoWithKey(RequestType.DECR, key).Data);
         }
 
         /// <summary>
@@ -134,7 +134,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public long IncrementBy(string key, int num)
         {
-            return long.Parse(_cnn.DoWithKeyValue(RequestType.INCRBY, key, num.ToString()).Data);
+            return long.Parse(RedisConnection.DoWithKeyValue(RequestType.INCRBY, key, num.ToString()).Data);
         }
 
         /// <summary>
@@ -145,7 +145,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public long DecrementBy(string key, int num)
         {
-            return long.Parse(_cnn.DoWithKeyValue(RequestType.DECRBY, key, num.ToString()).Data);
+            return long.Parse(RedisConnection.DoWithKeyValue(RequestType.DECRBY, key, num.ToString()).Data);
         }
 
         /// <summary>
@@ -156,7 +156,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public float IncrementByFloat(string key, float num)
         {
-            return float.Parse(_cnn.DoWithKeyValue(RequestType.INCRBYFLOAT, key, num.ToString()).Data);
+            return float.Parse(RedisConnection.DoWithKeyValue(RequestType.INCRBYFLOAT, key, num.ToString()).Data);
         }
 
         /// <summary>
@@ -166,7 +166,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public int Len(string key)
         {
-            return int.Parse(_cnn.DoWithKey(RequestType.STRLEN, key).Data);
+            return int.Parse(RedisConnection.DoWithKey(RequestType.STRLEN, key).Data);
         }
     }
 }

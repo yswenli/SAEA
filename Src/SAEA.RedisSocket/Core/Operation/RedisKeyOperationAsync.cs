@@ -36,7 +36,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="key"></param>
         public async void DelAsync(TimeSpan timeSpan, string key)
         {
-            await _cnn.DoWithKeyAsync(RequestType.DEL, key, timeSpan);
+            await RedisConnection.DoWithKeyAsync(RequestType.DEL, key, timeSpan);
         }
 
         /// <summary>
@@ -46,7 +46,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="keys"></param>
         public async void DelAsync(TimeSpan timeSpan, params string[] keys)
         {
-            await _cnn.DoWithMutiParamsAsync(RequestType.DEL, timeSpan, keys);
+            await RedisConnection.DoWithMutiParamsAsync(RequestType.DEL, timeSpan, keys);
         }
 
         /// <summary>
@@ -57,7 +57,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<bool> ExistsAsync(TimeSpan timeSpan, string key)
         {
-            var data = await _cnn.DoWithKeyAsync(RequestType.EXISTS, key, timeSpan);
+            var data = await RedisConnection.DoWithKeyAsync(RequestType.EXISTS, key, timeSpan);
             return data.Data.IndexOf("0") > -1 ? false : true;
         }
 
@@ -68,7 +68,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="seconds"></param>
         public async void ExpireAsync(string key, int seconds)
         {
-            await _cnn.DoExpireAsync(key, seconds);
+            await RedisConnection.DoExpireAsync(key, seconds);
         }
 
         /// <summary>
@@ -78,7 +78,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="timestamp"></param>
         public async void ExpireAtAsync(string key, int timestamp)
         {
-            await _cnn.DoExpireAtAsync(key, timestamp);
+            await RedisConnection.DoExpireAtAsync(key, timestamp);
         }
 
         /// <summary>
@@ -99,7 +99,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<List<string>> KeysAsync(TimeSpan timeSpan, string pattern = "*")
         {
-            var data = await _cnn.DoWithKeyAsync(RequestType.KEYS, pattern, timeSpan);
+            var data = await RedisConnection.DoWithKeyAsync(RequestType.KEYS, pattern, timeSpan);
             return data.ToList();
         }
 
@@ -110,7 +110,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="key"></param>
         public async void PersistAsync(TimeSpan timeSpan, string key)
         {
-            await _cnn.DoWithKeyAsync(RequestType.PERSIST, key, timeSpan);
+            await RedisConnection.DoWithKeyAsync(RequestType.PERSIST, key, timeSpan);
         }
 
         /// <summary>
@@ -121,7 +121,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns>当 key 不存在时，返回 -2 。当 key 存在但没有设置剩余生存时间时，返回 -1 。否则，以秒为单位，返回 key 的剩余生存时间。 </returns>
         public async Task<int> TtlAsync(TimeSpan timeSpan, string key)
         {
-            var data = await _cnn.DoWithKeyAsync(RequestType.TTL, key, timeSpan);
+            var data = await RedisConnection.DoWithKeyAsync(RequestType.TTL, key, timeSpan);
 
             int.TryParse(data.Data, out int result);
 
@@ -137,7 +137,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns>当 key 不存在时，返回 -2 。当 key 存在但没有设置剩余生存时间时，返回 -1 。否则，以秒为单位，返回 key 的剩余生存时间。</returns>
         public async Task<long> PttlAsync(TimeSpan timeSpan, string key)
         {
-            var data = await _cnn.DoWithKeyAsync(RequestType.PTTL, key, timeSpan);
+            var data = await RedisConnection.DoWithKeyAsync(RequestType.PTTL, key, timeSpan);
 
             long.TryParse(data.Data, out long result);
 
@@ -151,7 +151,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<string> RandomKeyAsync(TimeSpan timeSpan)
         {
-            var data = await _cnn.DoAsync(RequestType.RANDOMKEY, timeSpan);
+            var data = await RedisConnection.DoAsync(RequestType.RANDOMKEY, timeSpan);
             return data.Data;
         }
 
@@ -164,7 +164,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<bool> RenameAsync(TimeSpan timeSpan, string oldKey, string newKey)
         {
-            var result = await _cnn.DoWithKeyValueAsync(RequestType.RENAME, oldKey, newKey, timeSpan);
+            var result = await RedisConnection.DoWithKeyValueAsync(RequestType.RENAME, oldKey, newKey, timeSpan);
 
             if (result.Data == "OK")
             {

@@ -50,7 +50,7 @@ namespace SAEA.RedisSocket.Core
 
             list.AddRange(GeoItem.ToParams(items));
 
-            var data = await _cnn.DoWithMutiParamsAsync(RequestType.GEOADD, timeSpan, list.ToArray());
+            var data = await RedisConnection.DoWithMutiParamsAsync(RequestType.GEOADD, timeSpan, list.ToArray());
 
             int.TryParse(data.Data, out result);
 
@@ -67,7 +67,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<List<GeoNum>> GeoPosAsync(TimeSpan timeSpan, string key, params string[] memebers)
         {
-            var data = await _cnn.DoBatchWithIDKeysAsync(timeSpan, RequestType.GEOPOS, key, memebers);
+            var data = await RedisConnection.DoBatchWithIDKeysAsync(timeSpan, RequestType.GEOPOS, key, memebers);
 
             return data.ToGeoNums();
         }
@@ -85,7 +85,7 @@ namespace SAEA.RedisSocket.Core
         {
             double result;
 
-            var data = await _cnn.DoWithMutiParamsAsync(RequestType.GEODIST, timeSpan, key, member1, member2, geoUnit.ToString());
+            var data = await RedisConnection.DoWithMutiParamsAsync(RequestType.GEODIST, timeSpan, key, member1, member2, geoUnit.ToString());
 
             double.TryParse(data.Data, out result);
 
@@ -106,7 +106,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<List<GeoDistInfo>> GeoRandiusAsync(TimeSpan timeSpan, string key, double lng, double lat, double dist, GeoUnit geoUnit = GeoUnit.m, bool asc = true, int count = 20)
         {
-            var data = await _cnn.DoWithMutiParamsAsync(RequestType.GEORADIUS, timeSpan, key, lng.ToString(), lat.ToString(), dist.ToString(), geoUnit.ToString(), "WITHDIST", "WITHCOORD", (asc ? "ASC" : "DESC"), "COUNT", count.ToString());
+            var data = await RedisConnection.DoWithMutiParamsAsync(RequestType.GEORADIUS, timeSpan, key, lng.ToString(), lat.ToString(), dist.ToString(), geoUnit.ToString(), "WITHDIST", "WITHCOORD", (asc ? "ASC" : "DESC"), "COUNT", count.ToString());
             return data.ToGeoDistInfos();
         }
 
@@ -123,7 +123,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<List<GeoDistInfo>> GeoRandiusByMemberAsync(TimeSpan timeSpan, string key, string member, double dist, GeoUnit geoUnit = GeoUnit.m, bool asc = true, int count = 20)
         {
-            var data = await _cnn.DoWithMutiParamsAsync(RequestType.GEORADIUSBYMEMBER, timeSpan, key, member, dist.ToString(), geoUnit.ToString(), "WITHDIST", "WITHCOORD", (asc ? "ASC" : "DESC"), "COUNT", count.ToString());
+            var data = await RedisConnection.DoWithMutiParamsAsync(RequestType.GEORADIUSBYMEMBER, timeSpan, key, member, dist.ToString(), geoUnit.ToString(), "WITHDIST", "WITHCOORD", (asc ? "ASC" : "DESC"), "COUNT", count.ToString());
             return data.ToGeoDistInfos();
         }
 

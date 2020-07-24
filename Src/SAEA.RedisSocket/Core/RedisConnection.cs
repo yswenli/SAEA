@@ -31,6 +31,9 @@ using System.Collections.Generic;
 
 namespace SAEA.RedisSocket.Core
 {
+    /// <summary>
+    /// 连接包装类
+    /// </summary>
     internal partial class RedisConnection
     {
         object _syncLocker = new object();
@@ -216,10 +219,7 @@ namespace SAEA.RedisSocket.Core
         {
             lock (_syncLocker)
             {
-                List<string> list = new List<string>();
-                list.Add(RequestType.SUBSCRIBE.ToString());
-                list.AddRange(channels);
-                RedisCoder.CoderByParams(RequestType.SUBSCRIBE, list.ToArray());
+                RedisCoder.Request(RequestType.SUBSCRIBE, channels);
                 RedisCoder.IsSubed = true;
 
                 TaskHelper.Run(() =>

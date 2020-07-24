@@ -36,7 +36,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="value"></param>
         public async void HSetAsync(TimeSpan timeSpan, string hid, string key, string value)
         {
-            await _cnn.DoWithIDAsync(RequestType.HSET, hid, key, value, timeSpan);
+            await RedisConnection.DoWithIDAsync(RequestType.HSET, hid, key, value, timeSpan);
         }
         /// <summary>
         /// 同时将多个 field-value (域-值)对设置到哈希表 key 中
@@ -46,7 +46,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="keyvalues"></param>
         public async void HMSetAsync(TimeSpan timeSpan, string hid, Dictionary<string, string> keyvalues)
         {
-            await _cnn.DoBatchWithIDDicAsync(RequestType.HMSET, hid, keyvalues, timeSpan);
+            await RedisConnection.DoBatchWithIDDicAsync(RequestType.HMSET, hid, keyvalues, timeSpan);
         }
 
         /// <summary>
@@ -58,7 +58,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<string> HGetAsync(TimeSpan timeSpan, string hid, string key)
         {
-            var data = await _cnn.DoWithKeyValueAsync(RequestType.HGET, hid, key, timeSpan);
+            var data = await RedisConnection.DoWithKeyValueAsync(RequestType.HGET, hid, key, timeSpan);
             return data.Data;
         }
 
@@ -71,7 +71,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<List<string>> HMGetAsync(TimeSpan timeSpan, string hid, List<string> keys)
         {
-            var data = await _cnn.DoBatchWithListAsync(RequestType.HMGET, hid, keys, timeSpan);
+            var data = await RedisConnection.DoBatchWithListAsync(RequestType.HMGET, hid, keys, timeSpan);
             return data.ToList();
         }
 
@@ -83,7 +83,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<Dictionary<string, string>> HGetAllAsync(TimeSpan timeSpan, string hid)
         {
-            var data = await _cnn.DoWithKeyAsync(RequestType.HGETALL, hid, timeSpan);
+            var data = await RedisConnection.DoWithKeyAsync(RequestType.HGETALL, hid, timeSpan);
             return data.ToKeyValues();
         }
 
@@ -95,7 +95,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<List<string>> HGetKeysAsync(TimeSpan timeSpan, string hid)
         {
-            var data = await _cnn.DoWithKeyAsync(RequestType.HKEYS, hid, timeSpan);
+            var data = await RedisConnection.DoWithKeyAsync(RequestType.HKEYS, hid, timeSpan);
             return data.ToList();
         }
 
@@ -107,7 +107,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<List<string>> HGetValuesAsync(TimeSpan timeSpan, string hid)
         {
-            var data = await _cnn.DoWithKeyAsync(RequestType.HVALS, hid, timeSpan);
+            var data = await RedisConnection.DoWithKeyAsync(RequestType.HVALS, hid, timeSpan);
             return data.ToList();
         }
 
@@ -118,9 +118,15 @@ namespace SAEA.RedisSocket.Core
         /// <param name="hid"></param>
         /// <param name="key"></param>
         /// <returns></returns>
-        public async Task<ResponseData> HDelAsync(TimeSpan timeSpan, string hid, string key)
+        public async Task<int> HDelAsync(TimeSpan timeSpan, string hid, string key)
         {
-            return await _cnn.DoWithKeyValueAsync(RequestType.HDEL, hid, key, timeSpan);
+            var result = await RedisConnection.DoWithKeyValueAsync(RequestType.HDEL, hid, key, timeSpan);
+
+            if (int.TryParse(result.Data, out int count))
+            {
+                return count;
+            }
+            return 0;
         }
 
         /// <summary>
@@ -130,9 +136,15 @@ namespace SAEA.RedisSocket.Core
         /// <param name="hid"></param>
         /// <param name="keys"></param>
         /// <returns></returns>
-        public async Task<ResponseData> HDelAsync(TimeSpan timeSpan, string hid, string[] keys)
+        public async Task<int> HDelAsync(TimeSpan timeSpan, string hid, string[] keys)
         {
-            return await _cnn.DoBatchWithIDKeysAsync(timeSpan, RequestType.HDEL, hid, keys);
+            var result = await RedisConnection.DoBatchWithIDKeysAsync(timeSpan, RequestType.HDEL, hid, keys);
+
+            if (int.TryParse(result.Data, out int count))
+            {
+                return count;
+            }
+            return 0;
         }
 
         /// <summary>
@@ -144,7 +156,7 @@ namespace SAEA.RedisSocket.Core
         public async Task<int> HLenAsync(TimeSpan timeSpan, string hid)
         {
             int result;
-            var data = await _cnn.DoWithKeyAsync(RequestType.HLEN, hid, timeSpan);
+            var data = await RedisConnection.DoWithKeyAsync(RequestType.HLEN, hid, timeSpan);
             int.TryParse(data.Data, out result);
             return result;
         }
@@ -158,7 +170,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<bool> HExistsAsync(TimeSpan timeSpan, string hid, string key)
         {
-            var data = await _cnn.DoWithKeyValueAsync(RequestType.HEXISTS, hid, key, timeSpan);
+            var data = await RedisConnection.DoWithKeyValueAsync(RequestType.HEXISTS, hid, key, timeSpan);
             var result = data.Data;
             return result == "1" ? true : false;
         }
@@ -174,7 +186,7 @@ namespace SAEA.RedisSocket.Core
         {
             int result;
 
-            var data = await _cnn.DoWithKeyValueAsync(RequestType.HSTRLEN, hid, key, timeSpan);
+            var data = await RedisConnection.DoWithKeyValueAsync(RequestType.HSTRLEN, hid, key, timeSpan);
 
             int.TryParse(data.Data, out result);
 
@@ -191,7 +203,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<long> HIncrementByAsync(TimeSpan timeSpan, string hid, string key, int num)
         {
-            var data = await _cnn.DoWithIDAsync(RequestType.HINCRBY, hid, key, num.ToString(), timeSpan);
+            var data = await RedisConnection.DoWithIDAsync(RequestType.HINCRBY, hid, key, num.ToString(), timeSpan);
             return long.Parse(data.Data);
         }
 
@@ -205,7 +217,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<float> HIncrementByFloatAsync(TimeSpan timeSpan, string hid, string key, float num)
         {
-            var data = await _cnn.DoWithIDAsync(RequestType.HINCRBYFLOAT, hid, key, num.ToString(), timeSpan);
+            var data = await RedisConnection.DoWithIDAsync(RequestType.HINCRBYFLOAT, hid, key, num.ToString(), timeSpan);
             return float.Parse(data.Data);
         }
     }

@@ -40,7 +40,7 @@ namespace SAEA.RedisSocket.Core
         public async Task<int> LPushAsync(TimeSpan timeSpan, string key, string value)
         {
             var result = 0;
-            var data = await _cnn.DoWithKeyValueAsync(RequestType.LPUSH, key, value, timeSpan);
+            var data = await RedisConnection.DoWithKeyValueAsync(RequestType.LPUSH, key, value, timeSpan);
             int.TryParse(data.Data, out result);
             return result;
         }
@@ -55,7 +55,7 @@ namespace SAEA.RedisSocket.Core
         public async Task<int> LPushAsync(TimeSpan timeSpan, string key, List<string> lists)
         {
             var result = 0;
-            var data = await _cnn.DoBatchWithListAsync(RequestType.LPUSH, key, lists, timeSpan);
+            var data = await RedisConnection.DoBatchWithListAsync(RequestType.LPUSH, key, lists, timeSpan);
             int.TryParse(data.Data, out result);
             return result;
         }
@@ -70,7 +70,7 @@ namespace SAEA.RedisSocket.Core
         public async Task<int> LPushXAsync(TimeSpan timeSpan, string key, string value)
         {
             var result = 0;
-            var data = await _cnn.DoWithKeyValueAsync(RequestType.LPUSHX, key, value, timeSpan);
+            var data = await RedisConnection.DoWithKeyValueAsync(RequestType.LPUSHX, key, value, timeSpan);
             int.TryParse(data.Data, out result);
             return result;
         }
@@ -85,7 +85,7 @@ namespace SAEA.RedisSocket.Core
         public async Task<int> RPushAsync(TimeSpan timeSpan, string key, string value)
         {
             var result = 0;
-            var data = await _cnn.DoWithKeyValueAsync(RequestType.RPUSH, key, value, timeSpan);
+            var data = await RedisConnection.DoWithKeyValueAsync(RequestType.RPUSH, key, value, timeSpan);
             int.TryParse(data.Data, out result);
             return result;
         }
@@ -100,7 +100,7 @@ namespace SAEA.RedisSocket.Core
         public async Task<int> RPushAsync(TimeSpan timeSpan, string key, List<string> values)
         {
             var result = 0;
-            var data = await _cnn.DoBatchWithListAsync(RequestType.RPUSH, key, values, timeSpan);
+            var data = await RedisConnection.DoBatchWithListAsync(RequestType.RPUSH, key, values, timeSpan);
             int.TryParse(data.Data, out result);
             return result;
         }
@@ -115,7 +115,7 @@ namespace SAEA.RedisSocket.Core
         public async Task<int> RPushXAsync(TimeSpan timeSpan, string key, string value)
         {
             var result = 0;
-            var data = await _cnn.DoWithKeyValueAsync(RequestType.RPUSHX, key, value, timeSpan);
+            var data = await RedisConnection.DoWithKeyValueAsync(RequestType.RPUSHX, key, value, timeSpan);
             int.TryParse(data.Data, out result);
             return result;
         }
@@ -128,7 +128,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<string> LPopAsync(TimeSpan timeSpan, string key)
         {
-            return _cnn.DoWithKey(RequestType.LPOP, key).Data;
+            return RedisConnection.DoWithKey(RequestType.LPOP, key).Data;
         }
 
         /// <summary>
@@ -139,7 +139,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<string> RPopAsync(TimeSpan timeSpan, string key)
         {
-            var data = await _cnn.DoWithKeyAsync(RequestType.RPOP, key, timeSpan);
+            var data = await RedisConnection.DoWithKeyAsync(RequestType.RPOP, key, timeSpan);
 
             return data.Data;
         }
@@ -155,7 +155,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<string> RpopLPushAsync(TimeSpan timeSpan, string source, string destination)
         {
-            var data = await _cnn.DoWithKeyValueAsync(RequestType.RPOPLPUSH, source, destination, timeSpan);
+            var data = await RedisConnection.DoWithKeyValueAsync(RequestType.RPOPLPUSH, source, destination, timeSpan);
 
             return data.Data;
         }
@@ -171,7 +171,7 @@ namespace SAEA.RedisSocket.Core
         public async Task<int> LRemoveAsync(TimeSpan timeSpan, string key, int count, string value)
         {
             var result = 0;
-            var data = await _cnn.DoWithIDAsync(RequestType.LREM, key, count.ToString(), value, timeSpan);
+            var data = await RedisConnection.DoWithIDAsync(RequestType.LREM, key, count.ToString(), value, timeSpan);
             int.TryParse(data.Data, out result);
             return result;
         }
@@ -185,7 +185,7 @@ namespace SAEA.RedisSocket.Core
         public async Task<int> LLenAsync(TimeSpan timeSpan, string key)
         {
             var result = 0;
-            var data = await _cnn.DoWithKeyAsync(RequestType.LLEN, key, timeSpan);
+            var data = await RedisConnection.DoWithKeyAsync(RequestType.LLEN, key, timeSpan);
             int.TryParse(data.Data, out result);
             return result;
         }
@@ -199,7 +199,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<string> LIndexAsync(TimeSpan timeSpan, string key, int index)
         {
-            var data = await _cnn.DoWithKeyValueAsync(RequestType.LINDEX, key, index.ToString(), timeSpan);
+            var data = await RedisConnection.DoWithKeyValueAsync(RequestType.LINDEX, key, index.ToString(), timeSpan);
             return data.Data;
         }
 
@@ -221,7 +221,7 @@ namespace SAEA.RedisSocket.Core
             list.Add(beforStr);
             list.Add(pivot);
             list.Add(value);
-            var data = await _cnn.DoWithMutiParamsAsync(RequestType.LINSERT, timeSpan, list.ToArray());
+            var data = await RedisConnection.DoWithMutiParamsAsync(RequestType.LINSERT, timeSpan, list.ToArray());
             return int.Parse(data.Data);
         }
 
@@ -234,7 +234,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="value"></param>
         public async void LSetAsync(TimeSpan timeSpan, string key, int index, string value)
         {
-            await _cnn.DoWithIDAsync(RequestType.LSET, key, index.ToString(), value, timeSpan);
+            await RedisConnection.DoWithIDAsync(RequestType.LSET, key, index.ToString(), value, timeSpan);
         }
 
 
@@ -248,7 +248,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<List<string>> LRangAsync(TimeSpan timeSpan, string key, int begin = 0, int end = -1)
         {
-            var data = await _cnn.DoWithIDAsync(RequestType.LRANGE, key, begin.ToString(), end.ToString(), timeSpan);
+            var data = await RedisConnection.DoWithIDAsync(RequestType.LRANGE, key, begin.ToString(), end.ToString(), timeSpan);
             return data.ToList();
         }
 
@@ -262,7 +262,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<bool> LTrimAsync(TimeSpan timeSpan, string key, int begin = 0, int end = -1)
         {
-            var data = await _cnn.DoWithIDAsync(RequestType.LTRIM, key, begin.ToString(), end.ToString(), timeSpan);
+            var data = await RedisConnection.DoWithIDAsync(RequestType.LTRIM, key, begin.ToString(), end.ToString(), timeSpan);
             return data.Data.IndexOf("OK") > -1 ? true : false;
         }
 
@@ -279,7 +279,7 @@ namespace SAEA.RedisSocket.Core
             List<string> datas = new List<string>();
             datas.AddRange(keys);
             datas.Add(seconds.ToString());
-            var data = await _cnn.DoWithMutiParamsAsync(RequestType.BLPOP, timeSpan, datas.ToArray());
+            var data = await RedisConnection.DoWithMutiParamsAsync(RequestType.BLPOP, timeSpan, datas.ToArray());
             return data.ToList();
         }
 
@@ -308,7 +308,7 @@ namespace SAEA.RedisSocket.Core
             List<string> datas = new List<string>();
             datas.AddRange(keys);
             datas.Add(seconds.ToString());
-            var data = await _cnn.DoWithMutiParamsAsync(RequestType.BRPOP, timeSpan, datas.ToArray());
+            var data = await RedisConnection.DoWithMutiParamsAsync(RequestType.BRPOP, timeSpan, datas.ToArray());
             return data.ToList();
         }
 
@@ -334,7 +334,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<string> BRPopLPushAsync(TimeSpan timeSpan, string source, string destination, int seconds = 0)
         {
-            var data = await _cnn.DoWithIDAsync(RequestType.BRPOPLPUSH, source, destination, seconds.ToString(), timeSpan);
+            var data = await RedisConnection.DoWithIDAsync(RequestType.BRPOPLPUSH, source, destination, seconds.ToString(), timeSpan);
             return data.Data;
         }
 

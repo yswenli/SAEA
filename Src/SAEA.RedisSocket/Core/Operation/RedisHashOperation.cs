@@ -33,7 +33,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="value"></param>
         public void HSet(string hid, string key, string value)
         {
-            _cnn.DoWithID(RequestType.HSET, hid, key, value);
+            RedisConnection.DoWithID(RequestType.HSET, hid, key, value);
         }
         /// <summary>
         /// 同时将多个 field-value (域-值)对设置到哈希表 key 中
@@ -42,7 +42,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="keyvalues"></param>
         public void HMSet(string hid, Dictionary<string, string> keyvalues)
         {
-            _cnn.DoBatchWithIDDic(RequestType.HMSET, hid, keyvalues);
+            RedisConnection.DoBatchWithIDDic(RequestType.HMSET, hid, keyvalues);
         }
         /// <summary>
         /// 返回哈希表中给定域的值
@@ -52,7 +52,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public string HGet(string hid, string key)
         {
-            return _cnn.DoWithKeyValue(RequestType.HGET, hid, key).Data;
+            return RedisConnection.DoWithKeyValue(RequestType.HGET, hid, key).Data;
         }
 
         /// <summary>
@@ -63,7 +63,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public List<string> HMGet(string hid, List<string> keys)
         {
-            return _cnn.DoBatchWithList(RequestType.HMGET, hid, keys).ToList();
+            return RedisConnection.DoBatchWithList(RequestType.HMGET, hid, keys).ToList();
         }
         /// <summary>
         /// 返回哈希表 key 中，所有的域和值
@@ -72,7 +72,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public Dictionary<string, string> HGetAll(string hid)
         {
-            return _cnn.DoWithKey(RequestType.HGETALL, hid).ToKeyValues();
+            return RedisConnection.DoWithKey(RequestType.HGETALL, hid).ToKeyValues();
         }
 
         /// <summary>
@@ -82,7 +82,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public List<string> HGetKeys(string hid)
         {
-            return _cnn.DoWithKey(RequestType.HKEYS, hid).ToList();
+            return RedisConnection.DoWithKey(RequestType.HKEYS, hid).ToList();
         }
 
         /// <summary>
@@ -92,7 +92,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public List<string> HGetValues(string hid)
         {
-            return _cnn.DoWithKey(RequestType.HVALS, hid).ToList();
+            return RedisConnection.DoWithKey(RequestType.HVALS, hid).ToList();
         }
 
         /// <summary>
@@ -101,9 +101,15 @@ namespace SAEA.RedisSocket.Core
         /// <param name="hid"></param>
         /// <param name="key"></param>
         /// <returns></returns>
-        public ResponseData HDel(string hid, string key)
+        public int HDel(string hid, string key)
         {
-            return _cnn.DoWithKeyValue(RequestType.HDEL, hid, key);
+            var result = RedisConnection.DoWithKeyValue(RequestType.HDEL, hid, key);
+
+            if (int.TryParse(result.Data, out int count))
+            {
+                return count;
+            }
+            return 0;
         }
 
         /// <summary>
@@ -112,9 +118,15 @@ namespace SAEA.RedisSocket.Core
         /// <param name="hid"></param>
         /// <param name="keys"></param>
         /// <returns></returns>
-        public ResponseData HDel(string hid, string[] keys)
+        public int HDel(string hid, string[] keys)
         {
-            return _cnn.DoBatchWithIDKeys(RequestType.HDEL, hid, keys);
+            var result = RedisConnection.DoBatchWithIDKeys(RequestType.HDEL, hid, keys);
+
+            if (int.TryParse(result.Data, out int count))
+            {
+                return count;
+            }
+            return 0;
         }
 
         /// <summary>
@@ -125,7 +137,7 @@ namespace SAEA.RedisSocket.Core
         public int HLen(string hid)
         {
             var result = 0;
-            int.TryParse(_cnn.DoWithKey(RequestType.HLEN, hid).Data, out result);
+            int.TryParse(RedisConnection.DoWithKey(RequestType.HLEN, hid).Data, out result);
             return result;
         }
         /// <summary>
@@ -136,7 +148,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public bool HExists(string hid, string key)
         {
-            var result = _cnn.DoWithKeyValue(RequestType.HEXISTS, hid, key).Data;
+            var result = RedisConnection.DoWithKeyValue(RequestType.HEXISTS, hid, key).Data;
             return result == "1" ? true : false;
         }
 
@@ -150,7 +162,7 @@ namespace SAEA.RedisSocket.Core
         {
             var result = 0;
 
-            int.TryParse(_cnn.DoWithKeyValue(RequestType.HSTRLEN, hid, key).Data, out result);
+            int.TryParse(RedisConnection.DoWithKeyValue(RequestType.HSTRLEN, hid, key).Data, out result);
 
             return result;
         }
@@ -164,7 +176,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public long HIncrementBy(string hid, string key, int num)
         {
-            return long.Parse(_cnn.DoWithID(RequestType.HINCRBY, hid, key, num.ToString()).Data);
+            return long.Parse(RedisConnection.DoWithID(RequestType.HINCRBY, hid, key, num.ToString()).Data);
         }
 
         /// <summary>
@@ -176,7 +188,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public float HIncrementByFloat(string hid, string key, float num)
         {
-            return float.Parse(_cnn.DoWithID(RequestType.HINCRBYFLOAT, hid, key, num.ToString()).Data);
+            return float.Parse(RedisConnection.DoWithID(RequestType.HINCRBYFLOAT, hid, key, num.ToString()).Data);
         }
 
     }

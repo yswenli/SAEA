@@ -33,7 +33,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="score"></param>
         public void ZAdd(string key, string value, double score)
         {
-            _cnn.DoWithID(RequestType.ZADD, key, score.ToString(), value);
+            RedisConnection.DoWithID(RequestType.ZADD, key, score.ToString(), value);
         }
 
         /// <summary>
@@ -43,7 +43,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="scoreVals"></param>
         public void ZAdd(string key, Dictionary<double, string> scoreVals)
         {
-            _cnn.DoBatchZaddWithIDDic(RequestType.ZADD, key, scoreVals);
+            RedisConnection.DoBatchZaddWithIDDic(RequestType.ZADD, key, scoreVals);
         }
 
         /// <summary>
@@ -55,7 +55,7 @@ namespace SAEA.RedisSocket.Core
         public double ZScore(string key, string value)
         {
             var result = 0D;
-            double.TryParse(_cnn.DoWithKeyValue(RequestType.ZSCORE, key, value).Data, out result);
+            double.TryParse(RedisConnection.DoWithKeyValue(RequestType.ZSCORE, key, value).Data, out result);
             return result;
         }
 
@@ -69,7 +69,7 @@ namespace SAEA.RedisSocket.Core
         public long ZIncrBy(string key, long increment, string value)
         {
             var result = 0L;
-            long.TryParse(_cnn.DoWithID(RequestType.ZINCRBY, key, increment.ToString(), value).Data, out result);
+            long.TryParse(RedisConnection.DoWithID(RequestType.ZINCRBY, key, increment.ToString(), value).Data, out result);
             return result;
 
         }
@@ -84,7 +84,7 @@ namespace SAEA.RedisSocket.Core
         public double ZIncrBy(string key, double increment, string value)
         {
             var result = 0D;
-            double.TryParse(_cnn.DoWithID(RequestType.ZINCRBY, key, increment.ToString(), value).Data, out result);
+            double.TryParse(RedisConnection.DoWithID(RequestType.ZINCRBY, key, increment.ToString(), value).Data, out result);
             return result;
         }
 
@@ -96,7 +96,7 @@ namespace SAEA.RedisSocket.Core
         public int ZLen(string key)
         {
             var result = 0;
-            int.TryParse(_cnn.DoWithKey(RequestType.ZCARD, key).Data, out result);
+            int.TryParse(RedisConnection.DoWithKey(RequestType.ZCARD, key).Data, out result);
             return result;
         }
 
@@ -110,7 +110,7 @@ namespace SAEA.RedisSocket.Core
         public int ZCount(string key, double begin = int.MinValue, double end = int.MaxValue)
         {
             var result = 0;
-            int.TryParse(_cnn.DoWithID(RequestType.ZCOUNT, key, begin.ToString(), end.ToString()).Data, out result);
+            int.TryParse(RedisConnection.DoWithID(RequestType.ZCOUNT, key, begin.ToString(), end.ToString()).Data, out result);
             return result;
         }
         /// <summary>
@@ -124,7 +124,7 @@ namespace SAEA.RedisSocket.Core
 
         public List<ZItem> ZRange(string key, double start = 0, double stop = -1)
         {
-            return _cnn.DoRang(RequestType.ZRANGE, key, start, stop).ToZList();
+            return RedisConnection.DoRang(RequestType.ZRANGE, key, start, stop).ToZList();
         }
 
         /// <summary>
@@ -137,7 +137,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public List<ZItem> ZRevrange(string key, double start = 0, double stop = -1)
         {
-            return _cnn.DoRang(RequestType.ZREVRANGE, key, start, stop).ToZList();
+            return RedisConnection.DoRang(RequestType.ZREVRANGE, key, start, stop).ToZList();
         }
 
         /// <summary>
@@ -152,7 +152,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public List<ZItem> ZRangeByScore(string key, double min = double.MinValue, double max = double.MaxValue, RangType rangType = RangType.None, long offset = -1, int count = 20)
         {
-            return _cnn.DoRangByScore(RequestType.ZRANGEBYSCORE, key, min, max, rangType, offset, count, true).ToZList();
+            return RedisConnection.DoRangByScore(RequestType.ZRANGEBYSCORE, key, min, max, rangType, offset, count, true).ToZList();
         }
 
         /// <summary>
@@ -167,7 +167,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public List<ZItem> ZRevRangeByScore(string key, double min = double.MinValue, double max = double.MaxValue, RangType rangType = RangType.None, long offset = -1, int count = 20)
         {
-            return _cnn.DoRangByScore(RequestType.ZREVRANGEBYSCORE, key, min, max, rangType, offset, count, true).ToZList();
+            return RedisConnection.DoRangByScore(RequestType.ZREVRANGEBYSCORE, key, min, max, rangType, offset, count, true).ToZList();
         }
 
         /// <summary>
@@ -179,7 +179,7 @@ namespace SAEA.RedisSocket.Core
         public long ZRank(string key, string value)
         {
             var result = 0L;
-            long.TryParse(_cnn.DoWithKeyValue(RequestType.ZRANK, key, value).Data, out result);
+            long.TryParse(RedisConnection.DoWithKeyValue(RequestType.ZRANK, key, value).Data, out result);
             return result;
         }
 
@@ -192,7 +192,7 @@ namespace SAEA.RedisSocket.Core
         public long ZRevRank(string key, string value)
         {
             var result = 0L;
-            long.TryParse(_cnn.DoWithKeyValue(RequestType.ZREVRANK, key, value).Data, out result);
+            long.TryParse(RedisConnection.DoWithKeyValue(RequestType.ZREVRANK, key, value).Data, out result);
             return result;
         }
 
@@ -205,7 +205,7 @@ namespace SAEA.RedisSocket.Core
         public int ZRemove(string key, string[] values)
         {
             var result = 0;
-            int.TryParse(_cnn.DoBatchWithIDKeys(RequestType.ZREM, key, values).Data, out result);
+            int.TryParse(RedisConnection.DoBatchWithIDKeys(RequestType.ZREM, key, values).Data, out result);
             return result;
         }
 
@@ -219,7 +219,7 @@ namespace SAEA.RedisSocket.Core
         public int ZRemoveByRank(string key, double start = 0, double stop = -1)
         {
             var result = 0;
-            int.TryParse(_cnn.DoRang(RequestType.ZREMRANGEBYRANK, key, start, stop).Data, out result);
+            int.TryParse(RedisConnection.DoRang(RequestType.ZREMRANGEBYRANK, key, start, stop).Data, out result);
             return result;
         }
 
@@ -233,7 +233,7 @@ namespace SAEA.RedisSocket.Core
         public int ZRemoveByScore(string key, double min = 0, double max = double.MaxValue, RangType rangType = RangType.None)
         {
             var result = 0;
-            int.TryParse(_cnn.DoRangByScore(RequestType.ZREMRANGEBYSCORE, key, min, max, rangType).Data, out result);
+            int.TryParse(RedisConnection.DoRangByScore(RequestType.ZREMRANGEBYSCORE, key, min, max, rangType).Data, out result);
             return result;
         }
 
@@ -250,7 +250,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public List<string> ZrangeByLex(string key, double min, double max, long offset = -1, int count = 20)
         {
-            return _cnn.DoRangByScore(RequestType.ZRANGEBYLEX, key, min, max, RangType.None, offset, count).ToList();
+            return RedisConnection.DoRangByScore(RequestType.ZRANGEBYLEX, key, min, max, RangType.None, offset, count).ToList();
         }
 
         /// <summary>
@@ -265,7 +265,7 @@ namespace SAEA.RedisSocket.Core
         public long ZLexCount(string key, double min = double.MinValue, double max = double.MaxValue, long offset = -1, int count = 20)
         {
             long result = 0;
-            long.TryParse(_cnn.DoRangByScore(RequestType.ZLEXCOUNT, key, min, max, RangType.None, offset, count).Data, out result);
+            long.TryParse(RedisConnection.DoRangByScore(RequestType.ZLEXCOUNT, key, min, max, RangType.None, offset, count).Data, out result);
             return result;
         }
 
@@ -282,7 +282,7 @@ namespace SAEA.RedisSocket.Core
         public long ZRemoveByLex(string key, double min = double.MinValue, double max = double.MaxValue, long offset = -1, int count = 20)
         {
             long result = 0;
-            long.TryParse(_cnn.DoRangByScore(RequestType.ZREMRANGEBYLEX, key, min, max, RangType.None, offset, count).Data, out result);
+            long.TryParse(RedisConnection.DoRangByScore(RequestType.ZREMRANGEBYLEX, key, min, max, RangType.None, offset, count).Data, out result);
             return result;
         }
     }

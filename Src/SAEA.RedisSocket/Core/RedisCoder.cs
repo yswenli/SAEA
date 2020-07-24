@@ -63,7 +63,7 @@ namespace SAEA.RedisSocket.Core
         /// 发送
         /// </summary>
         /// <param name="cmd"></param>
-        void Request(string cmd)
+        public void Request(string cmd)
         {
             _rclient.Request(Encoding.UTF8.GetBytes(cmd));
         }
@@ -71,10 +71,9 @@ namespace SAEA.RedisSocket.Core
         /// <summary>
         /// redis client编码
         /// </summary>
-        /// <param name="commandName"></param>
         /// <param name="params"></param>
         /// <returns></returns>
-        public void CoderByParams(RequestType commandName, params string[] @params)
+        public void RequestOnlyParams(params string[] @params)
         {
             @params.NotNull();
 
@@ -96,36 +95,46 @@ namespace SAEA.RedisSocket.Core
         /// <summary>
         /// redis client编码
         /// </summary>
-        /// <param name="commandName"></param>
-        /// <param name="cmdType"></param>
+        /// <param name="requestType"></param>
         /// <param name="params"></param>
         /// <returns></returns>
 
-        public void Coder(RequestType commandName, string cmdType, params string[] @params)
+        public void Request(RequestType requestType, params string[] @params)
+        {
+            Request(Coder(requestType, @params));
+        }
+
+        /// <summary>
+        /// redis client编码
+        /// </summary>
+        /// <param name="requestType"></param>
+        /// <param name="params"></param>
+        /// <returns></returns>
+        public string Coder(RequestType requestType, params string[] @params)
         {
             @params.NotNull();
+            var type = requestType.ToString();
             var sb = new StringBuilder();
             sb.Append(ConstHelper.ASTERRISK + (@params.Length + 1) + ConstHelper.ENTER);
-            sb.Append(ConstHelper.DOLLAR + cmdType.Length + ConstHelper.ENTER);
-            sb.Append(cmdType + ConstHelper.ENTER);
+            sb.Append(ConstHelper.DOLLAR + type.Length + ConstHelper.ENTER);
+            sb.Append(type + ConstHelper.ENTER);
             foreach (var param in @params)
             {
                 var length = Encoding.UTF8.GetBytes(param).Length;
                 sb.Append(ConstHelper.DOLLAR + length + ConstHelper.ENTER);
                 sb.Append(param + ConstHelper.ENTER);
             }
-            _sendCommand = sb.ToString();
-            Request(_sendCommand);
+            return sb.ToString();
         }
 
-        public void CoderForList(RequestType commandName, string id, IEnumerable<string> list)
+        public void RequestForList(RequestType requestType, string id, IEnumerable<string> list)
         {
             list.NotNull();
 
             var sb = new StringBuilder();
             sb.Append(ConstHelper.ASTERRISK + (list.Count() + 2) + ConstHelper.ENTER);
 
-            var type = commandName.ToString();
+            var type = requestType.ToString();
             sb.Append(ConstHelper.DOLLAR + type.Length + ConstHelper.ENTER);
             sb.Append(type + ConstHelper.ENTER);
 
@@ -143,12 +152,12 @@ namespace SAEA.RedisSocket.Core
             Request(_sendCommand);
         }
 
-        public void CoderForDic(RequestType commandName, Dictionary<string, string> dic)
+        public void RequestForDic(RequestType requestType, Dictionary<string, string> dic)
         {
             dic.NotNull();
             var sb = new StringBuilder();
             sb.Append(ConstHelper.ASTERRISK + (dic.Count * 2 + 1) + ConstHelper.ENTER);
-            var type = commandName.ToString();
+            var type = requestType.ToString();
             sb.Append(ConstHelper.DOLLAR + type.Length + ConstHelper.ENTER);
             sb.Append(type + ConstHelper.ENTER);
             foreach (var item in dic)
@@ -165,13 +174,13 @@ namespace SAEA.RedisSocket.Core
             Request(_sendCommand);
         }
 
-        public void CoderForDicWidthID(RequestType commandName, string id, Dictionary<string, string> dic)
+        public void RequestForDicWidthID(RequestType requestType, string id, Dictionary<string, string> dic)
         {
             dic.NotNull();
             var sb = new StringBuilder();
             sb.Append(ConstHelper.ASTERRISK + (dic.Count * 2 + 2) + ConstHelper.ENTER);
 
-            var type = commandName.ToString();
+            var type = requestType.ToString();
             sb.Append(ConstHelper.DOLLAR + type.Length + ConstHelper.ENTER);
             sb.Append(type + ConstHelper.ENTER);
 
@@ -192,13 +201,13 @@ namespace SAEA.RedisSocket.Core
             Request(_sendCommand);
         }
 
-        public void CoderForDicWidthID(RequestType commandName, string id, Dictionary<double, string> dic)
+        public void RequestForDicWidthID(RequestType requestType, string id, Dictionary<double, string> dic)
         {
             dic.NotNull();
             var sb = new StringBuilder();
             sb.Append(ConstHelper.ASTERRISK + (dic.Count * 2 + 2) + ConstHelper.ENTER);
 
-            var type = commandName.ToString();
+            var type = requestType.ToString();
             sb.Append(ConstHelper.DOLLAR + type.Length + ConstHelper.ENTER);
             sb.Append(type + ConstHelper.ENTER);
 
@@ -219,7 +228,7 @@ namespace SAEA.RedisSocket.Core
             Request(_sendCommand);
         }
 
-        public void CoderForRandByScore(RequestType commandName, string key, double min, double max, RangType rangType, long offset, int count, bool withScore = false)
+        public void RequestForRandByScore(RequestType requestType, string key, double min, double max, RangType rangType, long offset, int count, bool withScore = false)
         {
             var sb = new StringBuilder();
 
@@ -246,7 +255,7 @@ namespace SAEA.RedisSocket.Core
                 }
             }
 
-            var type = commandName.ToString();
+            var type = requestType.ToString();
             sb.Append(ConstHelper.DOLLAR + type.Length + ConstHelper.ENTER);
             sb.Append(type + ConstHelper.ENTER);
 
@@ -347,7 +356,7 @@ namespace SAEA.RedisSocket.Core
                 {
                     Thread.Sleep(0);
 
-                    if((DateTimeHelper.Now- beginTime).TotalMilliseconds>_actionTimeout) throw new TimeoutException("-Err:Operation is timeout!");
+                    if ((DateTimeHelper.Now - beginTime).TotalMilliseconds > _actionTimeout) throw new TimeoutException("-Err:Operation is timeout!");
                 }
             }
             while (loop);
@@ -478,7 +487,6 @@ namespace SAEA.RedisSocket.Core
                         case RequestType.DEL:
                         case RequestType.HSET:
                         case RequestType.HMSET:
-                        case RequestType.HDEL:
                         case RequestType.LSET:
                         case RequestType.LTRIM:
                         case RequestType.RENAME:
@@ -653,6 +661,7 @@ namespace SAEA.RedisSocket.Core
                         case RequestType.SETNX:
                         case RequestType.HEXISTS:
                         case RequestType.HLEN:
+                        case RequestType.HDEL:
                         case RequestType.HSTRLEN:
                         case RequestType.HINCRBY:
                         case RequestType.LLEN:

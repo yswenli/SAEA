@@ -38,7 +38,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="score"></param>
         public async void ZAddAsync(TimeSpan timeSpan, string key, string value, double score)
         {
-            await _cnn.DoWithIDAsync(RequestType.ZADD, key, score.ToString(), value, timeSpan);
+            await RedisConnection.DoWithIDAsync(RequestType.ZADD, key, score.ToString(), value, timeSpan);
         }
 
         /// <summary>
@@ -49,7 +49,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="scoreVals"></param>
         public async void ZAddAsync(TimeSpan timeSpan, string key, Dictionary<double, string> scoreVals)
         {
-            await _cnn.DoBatchZaddWithIDDicAsync(RequestType.ZADD, key, scoreVals, timeSpan);
+            await RedisConnection.DoBatchZaddWithIDDicAsync(RequestType.ZADD, key, scoreVals, timeSpan);
         }
 
         /// <summary>
@@ -62,7 +62,7 @@ namespace SAEA.RedisSocket.Core
         public async Task<double> ZScoreAsync(TimeSpan timeSpan, string key, string value)
         {
             var result = 0D;
-            var data = await _cnn.DoWithKeyValueAsync(RequestType.ZSCORE, key, value, timeSpan);
+            var data = await RedisConnection.DoWithKeyValueAsync(RequestType.ZSCORE, key, value, timeSpan);
             double.TryParse(data.Data, out result);
             return result;
         }
@@ -78,7 +78,7 @@ namespace SAEA.RedisSocket.Core
         public async Task<long> ZIncrByAsync(TimeSpan timeSpan, string key, long increment, string value)
         {
             var result = 0L;
-            var data = await _cnn.DoWithIDAsync(RequestType.ZINCRBY, key, increment.ToString(), value, timeSpan);
+            var data = await RedisConnection.DoWithIDAsync(RequestType.ZINCRBY, key, increment.ToString(), value, timeSpan);
             long.TryParse(data.Data, out result);
             return result;
 
@@ -95,7 +95,7 @@ namespace SAEA.RedisSocket.Core
         public async Task<double> ZIncrByAsync(TimeSpan timeSpan, string key, double increment, string value)
         {
             var result = 0D;
-            var data = await _cnn.DoWithIDAsync(RequestType.ZINCRBY, key, increment.ToString(), value, timeSpan);
+            var data = await RedisConnection.DoWithIDAsync(RequestType.ZINCRBY, key, increment.ToString(), value, timeSpan);
             double.TryParse(data.Data, out result);
             return result;
         }
@@ -109,7 +109,7 @@ namespace SAEA.RedisSocket.Core
         public async Task<int> ZLenAsync(TimeSpan timeSpan, string key)
         {
             var result = 0;
-            var data = await _cnn.DoWithKeyAsync(RequestType.ZCARD, key, timeSpan);
+            var data = await RedisConnection.DoWithKeyAsync(RequestType.ZCARD, key, timeSpan);
             int.TryParse(data.Data, out result);
             return result;
         }
@@ -125,7 +125,7 @@ namespace SAEA.RedisSocket.Core
         public async Task<int> ZCountAsync(TimeSpan timeSpan, string key, double begin = int.MinValue, double end = int.MaxValue)
         {
             var result = 0;
-            var data = await _cnn.DoWithIDAsync(RequestType.ZCOUNT, key, begin.ToString(), end.ToString(), timeSpan);
+            var data = await RedisConnection.DoWithIDAsync(RequestType.ZCOUNT, key, begin.ToString(), end.ToString(), timeSpan);
             int.TryParse(data.Data, out result);
             return result;
         }
@@ -141,7 +141,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<List<ZItem>> ZRangeAsync(TimeSpan timeSpan, string key, double start = 0, double stop = -1)
         {
-            var data = await _cnn.DoRangAsync(RequestType.ZRANGE, key, start, stop, timeSpan);
+            var data = await RedisConnection.DoRangAsync(RequestType.ZRANGE, key, start, stop, timeSpan);
             return data.ToZList();
         }
 
@@ -156,7 +156,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<List<ZItem>> ZRevrangeAsync(TimeSpan timeSpan, string key, double start = 0, double stop = -1)
         {
-            var data = await _cnn.DoRangAsync(RequestType.ZREVRANGE, key, start, stop, timeSpan);
+            var data = await RedisConnection.DoRangAsync(RequestType.ZREVRANGE, key, start, stop, timeSpan);
             return data.ToZList();
         }
 
@@ -173,7 +173,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<List<ZItem>> ZRangeByScoreAsync(TimeSpan timeSpan, string key, double min = double.MinValue, double max = double.MaxValue, RangType rangType = RangType.None, long offset = -1, int count = 20)
         {
-            var data = await _cnn.DoRangByScoreAsync(timeSpan, RequestType.ZRANGEBYSCORE, key, min, max, rangType, offset, count, true);
+            var data = await RedisConnection.DoRangByScoreAsync(timeSpan, RequestType.ZRANGEBYSCORE, key, min, max, rangType, offset, count, true);
             return data.ToZList();
         }
 
@@ -190,7 +190,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<List<ZItem>> ZRevRangeByScoreAsync(TimeSpan timeSpan, string key, double min = double.MinValue, double max = double.MaxValue, RangType rangType = RangType.None, long offset = -1, int count = 20)
         {
-            var data = await _cnn.DoRangByScoreAsync(timeSpan, RequestType.ZREVRANGEBYSCORE, key, min, max, rangType, offset, count, true);
+            var data = await RedisConnection.DoRangByScoreAsync(timeSpan, RequestType.ZREVRANGEBYSCORE, key, min, max, rangType, offset, count, true);
             return data.ToZList();
         }
 
@@ -204,7 +204,7 @@ namespace SAEA.RedisSocket.Core
         public async Task<long> ZRankAsync(TimeSpan timeSpan, string key, string value)
         {
             var result = 0L;
-            var data = await _cnn.DoWithKeyValueAsync(RequestType.ZRANK, key, value, timeSpan);
+            var data = await RedisConnection.DoWithKeyValueAsync(RequestType.ZRANK, key, value, timeSpan);
             long.TryParse(data.Data, out result);
             return result;
         }
@@ -219,7 +219,7 @@ namespace SAEA.RedisSocket.Core
         public async Task<long> ZRevRankAsync(TimeSpan timeSpan, string key, string value)
         {
             var result = 0L;
-            var data = await _cnn.DoWithKeyValueAsync(RequestType.ZREVRANK, key, value, timeSpan);
+            var data = await RedisConnection.DoWithKeyValueAsync(RequestType.ZREVRANK, key, value, timeSpan);
             long.TryParse(data.Data, out result);
             return result;
         }
@@ -234,7 +234,7 @@ namespace SAEA.RedisSocket.Core
         public async Task<int> ZRemoveAsync(TimeSpan timeSpan, string key, string[] values)
         {
             var result = 0;
-            var data = await _cnn.DoBatchWithIDKeysAsync(timeSpan, RequestType.ZREM, key, values);
+            var data = await RedisConnection.DoBatchWithIDKeysAsync(timeSpan, RequestType.ZREM, key, values);
             int.TryParse(data.Data, out result);
             return result;
         }
@@ -250,7 +250,7 @@ namespace SAEA.RedisSocket.Core
         public async Task<int> ZRemoveByRankAsync(TimeSpan timeSpan, string key, double start = 0, double stop = -1)
         {
             var result = 0;
-            var data = await _cnn.DoRangAsync(RequestType.ZREMRANGEBYRANK, key, start, stop, timeSpan);
+            var data = await RedisConnection.DoRangAsync(RequestType.ZREMRANGEBYRANK, key, start, stop, timeSpan);
             int.TryParse(data.Data, out result);
             return result;
         }
@@ -266,7 +266,7 @@ namespace SAEA.RedisSocket.Core
         public async Task<int> ZRemoveByScoreAsync(TimeSpan timeSpan, string key, double min = 0, double max = double.MaxValue, RangType rangType = RangType.None)
         {
             var result = 0;
-            var data = await _cnn.DoRangByScoreAsync(timeSpan, RequestType.ZREMRANGEBYSCORE, key, min, max, rangType);
+            var data = await RedisConnection.DoRangByScoreAsync(timeSpan, RequestType.ZREMRANGEBYSCORE, key, min, max, rangType);
             int.TryParse(data.Data, out result);
             return result;
         }
@@ -285,7 +285,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public async Task<List<string>> ZrangeByLexAsync(TimeSpan timeSpan, string key, double min, double max, long offset = -1, int count = 20)
         {
-            var data = await _cnn.DoRangByScoreAsync(timeSpan, RequestType.ZRANGEBYLEX, key, min, max, RangType.None, offset, count);
+            var data = await RedisConnection.DoRangByScoreAsync(timeSpan, RequestType.ZRANGEBYLEX, key, min, max, RangType.None, offset, count);
             return data.ToList();
         }
 
@@ -302,7 +302,7 @@ namespace SAEA.RedisSocket.Core
         public async Task<long> ZLexCountAsync(TimeSpan timeSpan, string key, double min = double.MinValue, double max = double.MaxValue, long offset = -1, int count = 20)
         {
             long result = 0;
-            var data = await _cnn.DoRangByScoreAsync(timeSpan, RequestType.ZLEXCOUNT, key, min, max, RangType.None, offset, count);
+            var data = await RedisConnection.DoRangByScoreAsync(timeSpan, RequestType.ZLEXCOUNT, key, min, max, RangType.None, offset, count);
             long.TryParse(data.Data, out result);
             return result;
         }
@@ -321,7 +321,7 @@ namespace SAEA.RedisSocket.Core
         public async Task<long> ZRemoveByLexAsync(TimeSpan timeSpan, string key, double min = double.MinValue, double max = double.MaxValue, long offset = -1, int count = 20)
         {
             long result = 0;
-            var data = await _cnn.DoRangByScoreAsync(timeSpan, RequestType.ZREMRANGEBYLEX, key, min, max, RangType.None, offset, count);
+            var data = await RedisConnection.DoRangByScoreAsync(timeSpan, RequestType.ZREMRANGEBYLEX, key, min, max, RangType.None, offset, count);
             long.TryParse(data.Data, out result);
             return result;
         }

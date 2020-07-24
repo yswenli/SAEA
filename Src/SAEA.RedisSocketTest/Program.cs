@@ -25,6 +25,7 @@ using SAEA.Common;
 using SAEA.RedisSocket;
 using SAEA.RedisSocket.Core;
 using SAEA.RedisSocket.Model;
+using System;
 using System.Collections.Generic;
 
 namespace SAEA.RedisSocketTest
@@ -47,11 +48,15 @@ namespace SAEA.RedisSocketTest
 
             redisClient.Connect();
 
+            redisClient.GetDataBase().HSetAsync(TimeSpan.FromSeconds(5), "hid", "key", "val");
+            var r = redisClient.GetDataBase().HGetAsync(TimeSpan.FromSeconds(5), "hid", "key").Result;
+            var rr = redisClient.GetDataBase().HDelAsync(TimeSpan.FromSeconds(5), "hid", "key").Result;
+
             var rk = redisClient.GetDataBase().RandomKey();
 
-            var crk= redisClient.Console("RandomKey");
+            var crk = redisClient.Console("RandomKey");
 
-            var type= redisClient.Type("FUND_GROUP_TG_5c8abef4c30c6b9a");
+            var type = redisClient.Type("FUND_GROUP_TG_5c8abef4c30c6b9a");
             ConsoleHelper.WriteLine(type);
             var type1 = redisClient.Type("FUND_GROUP_TG_176d0049714c618a");
             ConsoleHelper.WriteLine(type1);
@@ -334,7 +339,7 @@ namespace SAEA.RedisSocketTest
         {
             var key = "ysweliZ";
             db.ZAdd(key, "aaa", 11);
-            
+
 
             var z = db.ZRange("zaaa");
         }
