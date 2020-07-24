@@ -15,6 +15,7 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
+using SAEA.Common;
 using SAEA.RedisSocket.Model;
 using System;
 using System.Collections.Generic;
@@ -208,45 +209,55 @@ namespace SAEA.RedisSocket.Core.Batches
         {
             var cmd = _redisCode.Coder(RequestType.DECRBY, key, num.ToString());
 
-            _batchData.Add(new BatchItem(RequestType.DECR, cmd));
+            _batchData.Add(new BatchItem(RequestType.DECRBY, cmd));
         }
 
         public void DelAsync(params string[] keys)
         {
             var cmd = _redisCode.Coder(RequestType.DECRBY, keys);
 
-            _batchData.Add(new BatchItem(RequestType.DECR, cmd));
+            _batchData.Add(new BatchItem(RequestType.DECRBY, cmd));
         }
-
-
 
         public void ExistsAsync(string key)
         {
             var cmd = _redisCode.Coder(RequestType.EXISTS, key);
 
-            _batchData.Add(new BatchItem(RequestType.DECR, cmd));
+            _batchData.Add(new BatchItem(RequestType.EXISTS, cmd));
         }
 
         public void ExpireAsync(string key, int seconds)
         {
             var cmd = _redisCode.Coder(RequestType.EXPIRE, key, seconds.ToString());
 
-            _batchData.Add(new BatchItem(RequestType.DECR, cmd));
+            _batchData.Add(new BatchItem(RequestType.EXPIRE, cmd));
         }
 
         public void ExpireAtAsync(string key, DateTime dateTime)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.EXPIREAT, key, dateTime.ToUnixTick().ToString());
+
+            _batchData.Add(new BatchItem(RequestType.EXPIREAT, cmd));
         }
 
         public void ExpireAtAsync(string key, int timestamp)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.EXPIREAT, key, timestamp.ToString());
+
+            _batchData.Add(new BatchItem(RequestType.EXPIREAT, cmd));
         }
 
         public void GeoAddAsync(string key, params GeoItem[] items)
         {
-            throw new NotImplementedException();
+            var list = new List<string>();
+
+            list.Add(key);
+
+            list.AddRange(GeoItem.ToParams(items));
+
+            var cmd = _redisCode.Coder(RequestType.GEOADD, list.ToArray());
+
+            _batchData.Add(new BatchItem(RequestType.EXPIREAT, cmd));
         }
 
         public void GeoDistAsync(string key, string member1, string member2, GeoUnit geoUnit = GeoUnit.m)
