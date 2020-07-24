@@ -59,7 +59,6 @@ namespace SAEA.RedisSocket.Core.Batches
         void HIncrementByAsync( string hid, string key, int num);
         void HIncrementByFloatAsync( string hid, string key, float num);
         void HLenAsync( string hid);
-        void HMSetAsync( string hid, Dictionary<string, string> keyvalues);
         void HSetAsync( string hid, string key, string value);
         void HStrLenAsync( string hid, string key);
         void IncrementAsync( string key);

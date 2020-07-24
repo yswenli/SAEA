@@ -257,107 +257,153 @@ namespace SAEA.RedisSocket.Core.Batches
 
             var cmd = _redisCode.Coder(RequestType.GEOADD, list.ToArray());
 
-            _batchData.Add(new BatchItem(RequestType.EXPIREAT, cmd));
+            _batchData.Add(new BatchItem(RequestType.GEOADD, cmd));
         }
 
         public void GeoDistAsync(string key, string member1, string member2, GeoUnit geoUnit = GeoUnit.m)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.GEODIST, key, member1, member2, geoUnit.ToString());
+
+            _batchData.Add(new BatchItem(RequestType.GEODIST, cmd));
         }
 
         public void GetAsync(string key)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.GET, key);
+
+            _batchData.Add(new BatchItem(RequestType.GET, cmd));
         }
 
         public void GetSetAsync(string key, string value)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.GETSET, key, value);
+
+            _batchData.Add(new BatchItem(RequestType.GETSET, cmd));
         }
 
         public void HDelAsync(string hid, string key)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.HDEL, hid, key);
+
+            _batchData.Add(new BatchItem(RequestType.HDEL, cmd));
         }
 
         public void HDelAsync(string hid, string[] keys)
         {
-            throw new NotImplementedException();
+            var list = new List<string>();
+
+            list.Add(hid);
+
+            list.AddRange(keys);
+
+            var cmd = _redisCode.Coder(RequestType.HDEL, list.ToArray());
+
+            _batchData.Add(new BatchItem(RequestType.HDEL, cmd));
         }
 
         public void HExistsAsync(string hid, string key)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.HEXISTS, hid, key);
+
+            _batchData.Add(new BatchItem(RequestType.HEXISTS, cmd));
         }
 
         public void HGetAsync(string hid, string key)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.HGET, hid, key);
+
+            _batchData.Add(new BatchItem(RequestType.HGET, cmd));
         }
 
         public void HIncrementByAsync(string hid, string key, int num)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.HINCRBY, hid, key, num.ToString());
+
+            _batchData.Add(new BatchItem(RequestType.HINCRBY, cmd));
         }
 
         public void HIncrementByFloatAsync(string hid, string key, float num)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.HINCRBYFLOAT, hid, key, num.ToString());
+
+            _batchData.Add(new BatchItem(RequestType.HINCRBYFLOAT, cmd));
         }
 
         public void HLenAsync(string hid)
         {
-            throw new NotImplementedException();
-        }
+            var cmd = _redisCode.Coder(RequestType.HLEN, hid);
 
-        public void HMSetAsync(string hid, Dictionary<string, string> keyvalues)
-        {
-            throw new NotImplementedException();
+            _batchData.Add(new BatchItem(RequestType.HLEN, cmd));
         }
 
         public void HSetAsync(string hid, string key, string value)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.HSET, hid, key, value);
+
+            _batchData.Add(new BatchItem(RequestType.HSET, cmd));
         }
 
         public void HStrLenAsync(string hid, string key)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.HSTRLEN, hid, key);
+
+            _batchData.Add(new BatchItem(RequestType.HSTRLEN, cmd));
         }
 
         public void IncrementAsync(string key)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.INCR, key);
+
+            _batchData.Add(new BatchItem(RequestType.INCR, cmd));
         }
 
         public void IncrementByAsync(string key, int num)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.INCRBY, key, num.ToString());
+
+            _batchData.Add(new BatchItem(RequestType.INCRBY, cmd));
         }
 
         public void IncrementByFloatAsync(string key, float num)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.INCRBY, key, num.ToString());
+
+            _batchData.Add(new BatchItem(RequestType.INCRBY, cmd));
         }
 
         public void LenAsync(string key)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.STRLEN, key);
+
+            _batchData.Add(new BatchItem(RequestType.STRLEN, cmd));
         }
 
         public void LIndexAsync(string key, int index)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.LINDEX, key, index.ToString());
+
+            _batchData.Add(new BatchItem(RequestType.LINDEX, cmd));
         }
 
         public void LInsertAsync(string key, string pivot, bool isBefore, string value)
         {
-            throw new NotImplementedException();
+            var beforStr = isBefore ? "BEFORE" : "AFTER";
+            var list = new List<string>();
+            list.Add(key);
+            list.Add(beforStr);
+            list.Add(pivot);
+            list.Add(value);
+
+            var cmd = _redisCode.Coder(RequestType.LINSERT, list.ToArray());
+
+            _batchData.Add(new BatchItem(RequestType.LINSERT, cmd));
         }
 
         public void LLenAsync(string key)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.LLEN, key);
+
+            _batchData.Add(new BatchItem(RequestType.LLEN, cmd));
         }
 
         public void LPopAsync(string key)
