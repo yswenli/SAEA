@@ -75,24 +75,71 @@ namespace SAEA.RedisSocket.Core.Batches
         void LRemoveAsync( string key, int count, string value);
         void LSetAsync( string key, int index, string value);
         void LTrimAsync( string key, int begin = 0, int end = -1);
-        void MSetAsync( Dictionary<string, string> dic);
-        void MSetNxAsync( Dictionary<string, string> dic);
+        /// <summary>
+        /// 移除给定 key 的生存时间，将这个 key 从『易失的』(带生存时间 key )转换成『持久的』(一个不带生存时间、永不过期的 key )。
+        /// </summary>
+        /// <param name="key"></param>
         void PersistAsync( string key);
+        /// <summary>
+        /// 这个命令类似于 TTL 命令，但它以毫秒为单位返回 key 的剩余生存时间，而不是像 TTL 命令那样，以秒为单位。
+        /// </summary>
+        /// <param name="key"></param>
         void PttlAsync( string key);
-        void RandomKeyAsync(TimeSpan timeSpan);
+        /// <summary>
+        /// 从当前数据库中随机返回(不删除)一个 key 。
+        /// </summary>
+        void RandomKeyAsync();
+        /// <summary>
+        /// 将 key 改名为 newkey 。
+        /// 当 key 和 newkey 相同，或者 key 不存在时，返回一个错误。
+        /// </summary>
+        /// <param name="oldKey"></param>
+        /// <param name="newKey"></param>
         void RenameAsync( string oldKey, string newKey);
+        /// <summary>
+        /// 移除并返回列表 key 的尾元素
+        /// </summary>
+        /// <param name="key"></param>
         void RPopAsync( string key);
         void RpopLPushAsync( string source, string destination);
-        void RPushAsync( string key, List<string> values);
-        void RPushAsync( string key, string value);
+        /// <summary>
+        /// 将一个或多个值 value 插入到列表 key 的表尾(最右边)
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="values"></param>
+        public void RPushAsync(string key, params string[] values);
+        /// <summary>
+        /// 将值 value 插入到列表 key 的表尾，当且仅当 key 存在并且是一个列表。        
+        /// 和 RPUSH 命令相反，当 key 不存在时， RPUSHX 命令什么也不做。
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
         void RPushXAsync( string key, string value);
-        void SAddAsync( string key, string value);
-        void SAddAsync( string key, string[] value);
+        /// <summary>
+        /// 将一个或多个 member 元素加入到集合 key 当中，已经存在于集合的 member 元素将被忽略。
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="values"></param>
+        void SAddAsync(string key, params string[] values);
         void SDiffStoreAsync( string destination, params string[] keys);
         void SetAsync(string key, string value, int seconds);
         void SetAsync( string key, string value);
+        /// <summary>
+        /// 判断 member 元素是否集合 key 的成员
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
         void SExistsAsync( string key, string value);
+        /// <summary>
+        /// 返回集合交集并保存到 destination 集合
+        /// </summary>
+        /// <param name="destination"></param>
+        /// <param name="keys"></param>
         void SInterStoreAsync( string destination, params string[] keys);
+        /// <summary>
+        /// 返回集合 key 的基数(集合中元素的数量)。
+        /// </summary>
+        /// <param name="key"></param>
         void SLenAsync( string key);
         void SPopAsync( string key);
         void SRandMemeberAsync( string key);

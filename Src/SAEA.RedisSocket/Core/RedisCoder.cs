@@ -71,9 +71,19 @@ namespace SAEA.RedisSocket.Core
         /// <summary>
         /// redis client编码
         /// </summary>
+        /// <param name="requestType"></param>
+        /// <returns></returns>
+        public string CodeOnlyParams(RequestType requestType)
+        {
+            return CodeOnlyParams(requestType);
+        }
+
+        /// <summary>
+        /// redis client编码
+        /// </summary>
         /// <param name="params"></param>
         /// <returns></returns>
-        public void RequestOnlyParams(params string[] @params)
+        public string CodeOnlyParams(params string[] @params)
         {
             @params.NotNull();
 
@@ -87,9 +97,16 @@ namespace SAEA.RedisSocket.Core
                 sb.Append(ConstHelper.DOLLAR + length + ConstHelper.ENTER);
                 sb.Append(param + ConstHelper.ENTER);
             }
-            _sendCommand = sb.ToString();
+            return sb.ToString();
+        }
 
-            Request(_sendCommand);
+        /// <summary>
+        /// RequestOnlyParams
+        /// </summary>
+        /// <param name="params"></param>
+        public void RequestOnlyParams(params string[] @params)
+        {
+            Request(CodeOnlyParams(@params));
         }
 
         /// <summary>
@@ -203,6 +220,11 @@ namespace SAEA.RedisSocket.Core
 
         public void RequestForDicWidthID(RequestType requestType, string id, Dictionary<double, string> dic)
         {
+            Request(CodeForDicWidthID(requestType, id, dic));
+        }
+
+        public string CodeForDicWidthID(RequestType requestType, string id, Dictionary<double, string> dic)
+        {
             dic.NotNull();
             var sb = new StringBuilder();
             sb.Append(ConstHelper.ASTERRISK + (dic.Count * 2 + 2) + ConstHelper.ENTER);
@@ -224,8 +246,7 @@ namespace SAEA.RedisSocket.Core
                 sb.Append(ConstHelper.DOLLAR + length + ConstHelper.ENTER);
                 sb.Append(item.Value + ConstHelper.ENTER);
             }
-            _sendCommand = sb.ToString();
-            Request(_sendCommand);
+            return sb.ToString();
         }
 
         public void RequestForRandByScore(RequestType requestType, string key, double min, double max, RangType rangType, long offset, int count, bool withScore = false)

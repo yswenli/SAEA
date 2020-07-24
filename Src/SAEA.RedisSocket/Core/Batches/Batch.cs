@@ -408,187 +408,348 @@ namespace SAEA.RedisSocket.Core.Batches
 
         public void LPopAsync(string key)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.LPOP, key);
+
+            _batchData.Add(new BatchItem(RequestType.LPOP, cmd));
         }
 
         public void LPushAsync(string key, List<string> lists)
         {
-            throw new NotImplementedException();
+            var list = new List<string>();
+
+            list.Add(key);
+
+            list.AddRange(lists);
+
+            var cmd = _redisCode.Coder(RequestType.LPUSH, list.ToArray());
+
+            _batchData.Add(new BatchItem(RequestType.LPUSH, cmd));
         }
 
         public void LPushAsync(string key, string value)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.LPUSH, key, value);
+
+            _batchData.Add(new BatchItem(RequestType.LPUSH, cmd));
         }
 
         public void LPushXAsync(string key, string value)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.LPUSHX, key, value);
+
+            _batchData.Add(new BatchItem(RequestType.LPUSHX, cmd));
         }
 
         public void LRemoveAsync(string key, int count, string value)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.LREM, key, count.ToString(), value);
+
+            _batchData.Add(new BatchItem(RequestType.LREM, cmd));
         }
 
         public void LSetAsync(string key, int index, string value)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.LSET, key, index.ToString(), value);
+
+            _batchData.Add(new BatchItem(RequestType.LSET, cmd));
         }
 
         public void LTrimAsync(string key, int begin = 0, int end = -1)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.LTRIM, key, begin.ToString(), end.ToString());
+
+            _batchData.Add(new BatchItem(RequestType.LTRIM, cmd));
         }
 
-        public void MSetAsync(Dictionary<string, string> dic)
-        {
-            throw new NotImplementedException();
-        }
-
-        public void MSetNxAsync(Dictionary<string, string> dic)
-        {
-            throw new NotImplementedException();
-        }
-
+        /// <summary>
+        /// 移除给定 key 的生存时间，将这个 key 从『易失的』(带生存时间 key )转换成『持久的』(一个不带生存时间、永不过期的 key )。
+        /// </summary>
+        /// <param name="key"></param>
         public void PersistAsync(string key)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.PERSIST, key);
+
+            _batchData.Add(new BatchItem(RequestType.PERSIST, cmd));
         }
 
+        /// <summary>
+        /// 这个命令类似于 TTL 命令，但它以毫秒为单位返回 key 的剩余生存时间，而不是像 TTL 命令那样，以秒为单位。
+        /// </summary>
+        /// <param name="key"></param>
         public void PttlAsync(string key)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.PTTL, key);
+
+            _batchData.Add(new BatchItem(RequestType.PTTL, cmd));
         }
 
-        public void RandomKeyAsync(TimeSpan timeSpan)
+        /// <summary>
+        /// 从当前数据库中随机返回(不删除)一个 key 。
+        /// </summary>
+        public void RandomKeyAsync()
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.CodeOnlyParams(RequestType.RANDOMKEY);
+
+            _batchData.Add(new BatchItem(RequestType.RANDOMKEY, cmd));
         }
 
+        /// <summary>
+        /// 将 key 改名为 newkey 。
+        /// 当 key 和 newkey 相同，或者 key 不存在时，返回一个错误。
+        /// </summary>
+        /// <param name="oldKey"></param>
+        /// <param name="newKey"></param>
         public void RenameAsync(string oldKey, string newKey)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.RENAME, oldKey, newKey);
+
+            _batchData.Add(new BatchItem(RequestType.RENAME, cmd));
         }
 
+        /// <summary>
+        /// 移除并返回列表 key 的尾元素
+        /// </summary>
+        /// <param name="key"></param>
         public void RPopAsync(string key)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.RPOP, key);
+
+            _batchData.Add(new BatchItem(RequestType.RPOP, cmd));
         }
 
         public void RpopLPushAsync(string source, string destination)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.RPOPLPUSH, source, destination);
+
+            _batchData.Add(new BatchItem(RequestType.RPOPLPUSH, cmd));
         }
 
-        public void RPushAsync(string key, List<string> values)
+        /// <summary>
+        /// 将一个或多个值 value 插入到列表 key 的表尾(最右边)
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="values"></param>
+        public void RPushAsync(string key, params string[] values)
         {
-            throw new NotImplementedException();
+            var list = new List<string>();
+
+            list.Add(key);
+
+            list.AddRange(values);
+
+            var cmd = _redisCode.Coder(RequestType.RPUSH, list.ToArray());
+
+            _batchData.Add(new BatchItem(RequestType.RPUSH, cmd));
         }
 
-        public void RPushAsync(string key, string value)
-        {
-            throw new NotImplementedException();
-        }
-
+        /// <summary>
+        /// 将值 value 插入到列表 key 的表尾，当且仅当 key 存在并且是一个列表。        
+        /// 和 RPUSH 命令相反，当 key 不存在时， RPUSHX 命令什么也不做。
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
         public void RPushXAsync(string key, string value)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.RPUSHX, key, value);
+
+            _batchData.Add(new BatchItem(RequestType.RPUSHX, cmd));
         }
 
-        public void SAddAsync(string key, string value)
+        /// <summary>
+        /// 将一个或多个 member 元素加入到集合 key 当中，已经存在于集合的 member 元素将被忽略。
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="values"></param>
+        public void SAddAsync(string key, params string[] values)
         {
-            throw new NotImplementedException();
+            var list = new List<string>();
+
+            list.Add(key);
+
+            list.AddRange(values);
+
+            var cmd = _redisCode.Coder(RequestType.SADD, list.ToArray());
+
+            _batchData.Add(new BatchItem(RequestType.SADD, cmd));
         }
 
-        public void SAddAsync(string key, string[] value)
-        {
-            throw new NotImplementedException();
-        }
-
+        /// <summary>
+        /// 这个命令的作用和 SDIFF 类似，但它将结果保存到 destination 集合，而不是简单地返回结果集。        
+        /// 如果 destination 集合已经存在，则将其覆盖。
+        /// destination 可以是 key 本身。
+        /// </summary>
+        /// <param name="destination"></param>
+        /// <param name="keys"></param>
         public void SDiffStoreAsync(string destination, params string[] keys)
         {
-            throw new NotImplementedException();
+            var list = new List<string>();
+
+            list.Add(destination);
+
+            list.AddRange(keys);
+
+            var cmd = _redisCode.Coder(RequestType.SDIFFSTORE, list.ToArray());
+
+            _batchData.Add(new BatchItem(RequestType.SDIFFSTORE, cmd));
         }
 
         public void SetAsync(string key, string value, int seconds)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.SET, key, value);
+
+            _batchData.Add(new BatchItem(RequestType.SET, cmd));
+
+            cmd = _redisCode.Coder(RequestType.EXPIRE, key, seconds.ToString());
+
+            _batchData.Add(new BatchItem(RequestType.EXPIRE, cmd));
         }
 
         public void SetAsync(string key, string value)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.SET, key, value);
+
+            _batchData.Add(new BatchItem(RequestType.SET, cmd));
         }
 
+        /// <summary>
+        /// 判断 member 元素是否集合 key 的成员
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
         public void SExistsAsync(string key, string value)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.SISMEMBER, key, value);
+
+            _batchData.Add(new BatchItem(RequestType.SISMEMBER, cmd));
         }
 
+        /// <summary>
+        /// 返回集合交集并保存到 destination 集合
+        /// </summary>
+        /// <param name="destination"></param>
+        /// <param name="keys"></param>
         public void SInterStoreAsync(string destination, params string[] keys)
         {
-            throw new NotImplementedException();
+            var list = new List<string>();
+
+            list.Add(destination);
+
+            list.AddRange(keys);
+
+            var cmd = _redisCode.Coder(RequestType.SINTERSTORE, list.ToArray());
+
+            _batchData.Add(new BatchItem(RequestType.SINTERSTORE, cmd));
         }
 
+        /// <summary>
+        /// 返回集合 key 的基数(集合中元素的数量)。
+        /// </summary>
+        /// <param name="key"></param>
         public void SLenAsync(string key)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.SCARD, key);
+
+            _batchData.Add(new BatchItem(RequestType.SCARD, cmd));
         }
 
         public void SPopAsync(string key)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.SPOP, key);
+
+            _batchData.Add(new BatchItem(RequestType.SPOP, cmd));
         }
 
         public void SRandMemeberAsync(string key)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.SRANDMEMBER, key);
+
+            _batchData.Add(new BatchItem(RequestType.SRANDMEMBER, cmd));
         }
 
         public void SRemoveAsync(string key, params string[] values)
         {
-            throw new NotImplementedException();
+            var list = new List<string>();
+
+            list.Add(key);
+
+            list.AddRange(values);
+
+            var cmd = _redisCode.Coder(RequestType.SREM, list.ToArray());
+
+            _batchData.Add(new BatchItem(RequestType.SREM, cmd));
         }
 
+        /// <summary>
+        /// 返回一个集合的全部成员，该集合是所有给定集合的并集。并将集合保存到destination中
+        /// </summary>
+        /// <param name="destination"></param>
+        /// <param name="keys"></param>
         public void SUnionStoreAsync(string destination, params string[] keys)
         {
-            throw new NotImplementedException();
+            var list = new List<string>();
+
+            list.Add(destination);
+
+            list.AddRange(keys);
+
+            var cmd = _redisCode.Coder(RequestType.SUNIONSTORE, list.ToArray());
+
+            _batchData.Add(new BatchItem(RequestType.SUNIONSTORE, cmd));
         }
 
+        /// <summary>
+        /// 返回生命周期
+        /// </summary>
+        /// <param name="key"></param>
         public void TtlAsync(string key)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.TTL, key);
+
+            _batchData.Add(new BatchItem(RequestType.TTL, cmd));
         }
 
         public void ZAddAsync(string key, Dictionary<double, string> scoreVals)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.CodeForDicWidthID(RequestType.ZADD, key, scoreVals);
+
+            _batchData.Add(new BatchItem(RequestType.ZADD, cmd));
+
         }
 
         public void ZAddAsync(string key, string value, double score)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.ZADD, key, score.ToString(), value);
+
+            _batchData.Add(new BatchItem(RequestType.ZADD, cmd));
+
         }
 
         public void ZCountAsync(string key, double begin = -2147483648, double end = 2147483647)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.ZCOUNT, key, begin.ToString(), end.ToString());
+
+            _batchData.Add(new BatchItem(RequestType.ZCOUNT, cmd));
         }
 
         public void ZIncrByAsync(string key, double increment, string value)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.ZINCRBY, key, increment.ToString(), value);
+
+            _batchData.Add(new BatchItem(RequestType.ZINCRBY, cmd));
         }
 
         public void ZIncrByAsync(string key, long increment, string value)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.ZINCRBY, key, increment.ToString(), value);
+
+            _batchData.Add(new BatchItem(RequestType.ZINCRBY, cmd));
         }
 
         public void ZLenAsync(string key)
         {
-            throw new NotImplementedException();
+            var cmd = _redisCode.Coder(RequestType.ZCARD, key);
+
+            _batchData.Add(new BatchItem(RequestType.ZCARD, cmd));
         }
 
         public void ZLexCountAsync(string key, double min = double.MinValue, double max = double.MaxValue, long offset = -1, int count = 20)

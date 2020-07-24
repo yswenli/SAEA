@@ -35,7 +35,13 @@ namespace SAEA.RedisSocket.Model
         SLAVEOF,
         FLUSHALL,
         FLUSHDB,
+        /// <summary>
+        /// 返回生命周期,秒
+        /// </summary>
         TTL,
+        /// <summary>
+        /// 返回生命周期,毫秒
+        /// </summary>
         PTTL,
         RANDOMKEY,
 
@@ -97,6 +103,9 @@ namespace SAEA.RedisSocket.Model
 
 
         SADD,
+        /// <summary>
+        /// 返回集合 key 的基数(集合中元素的数量)。
+        /// </summary>
         SCARD,
         SISMEMBER,
         SMEMBERS,
@@ -107,6 +116,9 @@ namespace SAEA.RedisSocket.Model
         SINTER,
         SINTERSTORE,
         SUNION,
+        /// <summary>
+        /// 返回一个集合的全部成员，该集合是所有给定集合的并集。并将集合保存到destination中
+        /// </summary>
         SUNIONSTORE,
         SDIFF,
         SDIFFSTORE,
@@ -114,6 +126,9 @@ namespace SAEA.RedisSocket.Model
         ZADD,
         ZSCORE,
         ZINCRBY,
+        /// <summary>
+        /// 返回有序集 key 的基数
+        /// </summary>
         ZCARD,
         ZCOUNT,
         ZRANGE,
