@@ -74,6 +74,18 @@ namespace SAEA.Common
         /// <param name="millisecondsTimeout"></param>
         public static void Sleep(int millisecondsTimeout)
         {
+            if (millisecondsTimeout < 1)
+                Thread.Yield();
+            else
+                Thread.Sleep(millisecondsTimeout);
+        }
+
+        /// <summary>
+        /// 阻塞时长
+        /// </summary>
+        /// <param name="millisecondsTimeout"></param>
+        public static void Wait(int millisecondsTimeout)
+        {
             autoResetEvent.WaitOne(millisecondsTimeout);
         }
 

@@ -23,6 +23,7 @@
 *****************************************************************************/
 
 using SAEA.RedisSocket.Interface;
+using System;
 
 namespace SAEA.RedisSocket.Model
 {
@@ -33,9 +34,18 @@ namespace SAEA.RedisSocket.Model
             get; set;
         }
 
+        string _data = string.Empty;
+
         public string Data
         {
-            get; set;
+            get
+            {
+                return _data.TrimEnd('\r', '\n');
+            }
+            set
+            {
+                _data = value;
+            }
         }
 
         public new string ToString()

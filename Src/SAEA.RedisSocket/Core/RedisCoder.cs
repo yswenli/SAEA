@@ -32,15 +32,13 @@ using System.Threading;
 
 namespace SAEA.RedisSocket.Core
 {
-    internal class RedisCoder
+    internal class RedisCoder : IDisposable
     {
         public const string SEPARATOR = "===========YSWENLI============";
 
         RedisStream _redisStream = new RedisStream();
 
         string _sendCommand = string.Empty;
-
-        object _locker = new object();
 
         int _actionTimeout = 10 * 1000;
 
@@ -380,7 +378,7 @@ namespace SAEA.RedisSocket.Core
 
                 if (loop)
                 {
-                    Thread.Sleep(0);
+                    Thread.Yield();
 
                     if ((DateTimeHelper.Now - beginTime).TotalMilliseconds > _actionTimeout) throw new TimeoutException("-Err:Operation is timeout!");
                 }
@@ -420,7 +418,7 @@ namespace SAEA.RedisSocket.Core
 
                     if (loop)
                     {
-                        Thread.Sleep(1);
+                        Thread.Yield();
                         if (timeCount >= _actionTimeout) throw new TimeoutException("-Err:Operation is timeout!");
                     }
                 }

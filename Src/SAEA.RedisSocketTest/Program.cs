@@ -58,6 +58,7 @@ namespace SAEA.RedisSocketTest
 
             #endregion
 
+            StringPerformanceTest(redisClient);
             BatchTest(redisClient);
 
 
@@ -391,6 +392,26 @@ namespace SAEA.RedisSocketTest
 
             var g = redisClient.GetKeysInSlot(0);
         }
+
+
+        static void StringPerformanceTest(RedisClient redisClient, int count = 10 * 1000)
+        {
+            Console.WriteLine($"string操作{count}次开始");
+
+            Stopwatch stopwatch = Stopwatch.StartNew();
+
+            for (int i = 0; i < count; i++)
+            {
+                redisClient.GetDataBase().Set(i.ToString(), i.ToString());
+                redisClient.GetDataBase().Get(i.ToString());
+                redisClient.GetDataBase().Del(i.ToString(), i.ToString());
+            }
+
+            Console.WriteLine($"string操作用时{TimeSpan.FromMilliseconds(stopwatch.ElapsedMilliseconds)},速度为{(count * 3 / stopwatch.Elapsed.TotalSeconds)}次/秒");
+
+            Console.ReadLine();
+        }
+
 
         static void BatchTest(RedisClient redisClient, int count = 1000 * 1000)
         {

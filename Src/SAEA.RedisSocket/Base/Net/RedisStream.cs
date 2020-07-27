@@ -41,7 +41,7 @@ namespace SAEA.RedisSocket.Base.Net
             {
                 while (!_isdiposed)
                 {
-                    if (_queue.TryDequeue(out byte[] data))
+                    if (!_queue.IsEmpty && _queue.TryDequeue(out byte[] data))
                     {
                         if (data == null || !data.Any()) continue;
 
@@ -87,7 +87,7 @@ namespace SAEA.RedisSocket.Base.Net
 
         public string ReadLine()
         {
-            if(_stringQueue.TryDequeue(out string result))
+            if (_stringQueue.TryDequeue(out string result))
             {
                 return result;
             }
@@ -115,7 +115,7 @@ namespace SAEA.RedisSocket.Base.Net
         {
             _isdiposed = true;
             _bytes.Clear();
-            _bytes = null;
+            _bytes = null;            
         }
     }
 }
