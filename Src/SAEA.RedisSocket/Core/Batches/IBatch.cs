@@ -37,9 +37,8 @@ namespace SAEA.RedisSocket.Core.Batches
         /// 执行操作
         /// </summary>
         /// <returns></returns>
-        List<object> Execute();
-
-        void AppendAsync(string key, string value);
+        IEnumerable<object> Execute();
+        void AppendAsync(string key, string value);        
 
         void DecrementAsync(string key);
         void DecrementByAsync(string key, int num);

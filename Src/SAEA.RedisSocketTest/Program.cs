@@ -28,6 +28,7 @@ using SAEA.RedisSocket.Model;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 
 namespace SAEA.RedisSocketTest
 {
@@ -391,7 +392,7 @@ namespace SAEA.RedisSocketTest
             var g = redisClient.GetKeysInSlot(0);
         }
 
-        static void BatchTest(RedisClient redisClient, int count = 1 * 1000)
+        static void BatchTest(RedisClient redisClient, int count = 1000 * 1000)
         {
             #region batch
 
@@ -408,11 +409,12 @@ namespace SAEA.RedisSocketTest
                 batch.DelAsync(i.ToString());
             }
 
-            var batchResult = batch.Execute();
+            var batchResult = batch.Execute().ToList();
 
             stopwatch.Stop();
 
             Console.WriteLine($"batch操作用时{TimeSpan.FromMilliseconds(stopwatch.ElapsedMilliseconds)},速度为{(count * 3 / stopwatch.Elapsed.TotalSeconds)}次/秒");
+
             Console.ReadLine();
             #endregion
         }

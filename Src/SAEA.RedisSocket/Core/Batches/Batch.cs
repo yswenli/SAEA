@@ -48,11 +48,9 @@ namespace SAEA.RedisSocket.Core.Batches
         /// 执行批量操作
         /// </summary>
         /// <returns></returns>
-        public List<object> Execute()
+        public IEnumerable<object> Execute()
         {
-            if (!_batchData.Any()) return null;
-
-            List<object> result = new List<object>();
+            if (!_batchData.Any()) yield return null;
 
             StringBuilder sb = new StringBuilder();
 
@@ -67,107 +65,8 @@ namespace SAEA.RedisSocket.Core.Batches
             {
                 var data = _redisCode.Decoder(item.RequestType);
 
-                switch (item.RequestType)
-                {
-                    case RequestType.AUTH:
-                    case RequestType.FLUSHALL:
-                    case RequestType.SELECT:
-                    case RequestType.SLAVEOF:
-                    case RequestType.SET:
-                    case RequestType.MSET:
-                    case RequestType.MSETNX:
-                    case RequestType.DEL:
-                    case RequestType.HSET:
-                    case RequestType.HMSET:
-                    case RequestType.LSET:
-                    case RequestType.LTRIM:
-                    case RequestType.RENAME:
-                    case RequestType.CLUSTER_MEET:
-                    case RequestType.CLUSTER_FORGET:
-                    case RequestType.CLUSTER_REPLICATE:
-                    case RequestType.CLUSTER_SAVECONFIG:
-                    case RequestType.CLUSTER_ADDSLOTS:
-                    case RequestType.CLUSTER_DELSLOTS:
-                    case RequestType.CLUSTER_FLUSHSLOTS:
-                    case RequestType.CLUSTER_SETSLOT:
-                    case RequestType.CONFIG_SET:
-                        result.Add(data.Data);
-                        break;
-                    case RequestType.GET:
-                    case RequestType.GETSET:
-                    case RequestType.HGET:
-                    case RequestType.LPOP:
-                    case RequestType.RPOP:
-                    case RequestType.SRANDMEMBER:
-                    case RequestType.SPOP:
-                    case RequestType.RANDOMKEY:
-                        result.Add(data.Data);
-                        break;
-                    case RequestType.DBSIZE:
-                    case RequestType.FLUSHDB:
-                    case RequestType.STRLEN:
-                    case RequestType.APPEND:
-                    case RequestType.TTL:
-                    case RequestType.PTTL:
-                    case RequestType.EXISTS:
-                    case RequestType.EXPIRE:
-                    case RequestType.EXPIREAT:
-                    case RequestType.PERSIST:
-                    case RequestType.SETNX:
-                    case RequestType.HEXISTS:
-                    case RequestType.HLEN:
-                    case RequestType.HDEL:
-                    case RequestType.HSTRLEN:
-                    case RequestType.HINCRBY:
-                    case RequestType.LLEN:
-                    case RequestType.INCR:
-                    case RequestType.INCRBY:
-                    case RequestType.DECR:
-                    case RequestType.DECRBY:
-                    case RequestType.LPUSH:
-                    case RequestType.LPUSHX:
-                    case RequestType.RPUSH:
-                    case RequestType.RPUSHX:
-                    case RequestType.RPOPLPUSH:
-                    case RequestType.LINSERT:
-                    case RequestType.SADD:
-                    case RequestType.SCARD:
-                    case RequestType.SISMEMBER:
-                    case RequestType.SREM:
-                    case RequestType.SMOVE:
-                    case RequestType.SINTERSTORE:
-                    case RequestType.SUNIONSTORE:
-                    case RequestType.LREM:
-                    case RequestType.SDIFFSTORE:
-                    case RequestType.ZADD:
-                    case RequestType.ZSCORE:
-                    case RequestType.ZINCRBY:
-                    case RequestType.ZCARD:
-                    case RequestType.ZCOUNT:
-                    case RequestType.ZRANK:
-                    case RequestType.ZREVRANK:
-                    case RequestType.ZREM:
-                    case RequestType.ZREMRANGEBYRANK:
-                    case RequestType.ZREMRANGEBYSCORE:
-                    case RequestType.ZLEXCOUNT:
-                    case RequestType.ZREMRANGEBYLEX:
-                    case RequestType.PUBLISH:
-                    case RequestType.CLUSTER_KEYSLOT:
-                    case RequestType.CLUSTER_COUNTKEYSINSLOT:
-                    case RequestType.GEOADD:
-                        result.Add(data.Data);
-                        break;
-                    case RequestType.GEOPOS:
-                    case RequestType.GEORADIUS:
-                    case RequestType.GEORADIUSBYMEMBER:
-                        result.Add(data.Data);
-                        break;
-                    default:
-                        result.Add(null);
-                        break;
-                }
+                yield return data.Data;
             }
-            return result;
         }
 
         public void AppendAsync(string key, string value)

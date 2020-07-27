@@ -31,7 +31,7 @@ namespace SAEA.RedisSocket.Base.Net
 
         List<byte> _bytes = new List<byte>();
 
-        object _locker = new object();
+        ConcurrentQueue<string> _stringQueue = new ConcurrentQueue<string>();
 
         bool _isdiposed = false;
 
@@ -43,11 +43,34 @@ namespace SAEA.RedisSocket.Base.Net
                 {
                     if (_queue.TryDequeue(out byte[] data))
                     {
-                        if (data != null)
-                            lock (_locker)
+                        if (data == null || !data.Any()) continue;
+
+                        _bytes.AddRange(data);
+
+                        var index = -1;
+
+                        do
+                        {
+                            index = _bytes.IndexOf(10);
+
+                            if (index < 0)
                             {
-                                _bytes.AddRange(data);
+                                break;
                             }
+
+                            //双回车结束的情况
+                            if (_bytes.IndexOf(10, index) == index + 2)
+                            {
+                                index += 2;
+                            }
+
+                            index += 1;
+
+                            _stringQueue.Enqueue(Encoding.UTF8.GetString(_bytes.Take(index).ToArray()));
+
+                            _bytes.RemoveRange(0, index);
+                        }
+                        while (!_isdiposed);
                     }
                     else
                     {
@@ -62,73 +85,25 @@ namespace SAEA.RedisSocket.Base.Net
             _queue.Enqueue(data);
         }
 
-        byte[] ReadBytesLine()
-        {
-            byte[] data;
-
-            lock (_locker)
-            {
-                data = _bytes.ToArray();
-            }
-
-            var span = data.AsSpan();
-
-            var index = span.IndexOf((byte)13);
-
-            if (index >= 0)
-            {
-                index = span.IndexOf((byte)10);
-
-                if (index > 0)
-                {
-                    lock (_locker)
-                    {
-                        _bytes.RemoveRange(0, index + 1);
-                    }
-
-                    return span.Slice(0, index + 1).ToArray();
-                }
-                return null;
-            }
-            else
-            {
-                return null;
-            }
-
-        }
-
-        byte[] ReadBytesBlock(int len)
-        {
-            lock (_locker)
-            {
-                if (_bytes.Count < len + 2) return null;
-
-                var data = _bytes.Take(len).ToArray();
-
-                _bytes.RemoveRange(0, len + 2);
-
-                return data;
-            }
-        }
-
         public string ReadLine()
         {
-            var data = ReadBytesLine();
-            if (data != null)
+            if(_stringQueue.TryDequeue(out string result))
             {
-                return Encoding.UTF8.GetString(data);
+                return result;
             }
-            return string.Empty;
+            return null;
         }
 
         public string ReadBlock(int len)
         {
-            var data = ReadBytesBlock(len);
-            if (data != null)
+            StringBuilder sb = new StringBuilder();
+
+            while (sb.Length < len)
             {
-                return Encoding.UTF8.GetString(data);
+                sb.Append(ReadLine());
             }
-            return string.Empty;
+
+            return sb.ToString();
         }
 
         public void Clear()
