@@ -11,15 +11,16 @@ namespace SAEA.MVCTest.Controllers
     public class TestController: Controller
     {
         /// <summary>
-        /// test
+        /// Get
         /// </summary>
         /// <returns></returns>
-        [AuthAttribute(false)]
-        public ActionResult Test()
+
+        public ActionResult Get()
         {
             return Content("this is a test!中文测试！Zh Test!");
         }
 
+        [AuthAttribute(false)]
         [HttpGet]
         [HttpPost]
         public ActionResult Other(UserInfo userInfo)
