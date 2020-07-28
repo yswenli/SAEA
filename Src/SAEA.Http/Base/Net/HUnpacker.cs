@@ -43,9 +43,7 @@ namespace SAEA.Http.Base.Net
 
             var buffer = _cache.ToArray();
 
-            HttpMessage httpMessage = null;
-
-            if (RequestDataReader.Analysis(buffer, out httpMessage))
+            if (RequestDataReader.Analysis(buffer, out HttpMessage httpMessage))
             {
                 httpMessage.ID = id;
 
