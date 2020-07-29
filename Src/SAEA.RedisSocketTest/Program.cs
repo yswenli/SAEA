@@ -50,6 +50,8 @@ namespace SAEA.RedisSocketTest
 
             redisClient.Connect();
 
+            var info = redisClient.Info();
+
             #region 异步测试
 
             redisClient.GetDataBase().HSetAsync(TimeSpan.FromSeconds(5), "hid", "key", "val");
@@ -64,6 +66,15 @@ namespace SAEA.RedisSocketTest
             //}
             //_ = batch.Execute().ToList();
             #endregion
+
+            #region scan
+
+            var sresult1= redisClient.GetDataBase().Scan();
+            var sresult2 = redisClient.GetDataBase().Scan(0,"*",-1);
+
+            #endregion
+
+            //StringPerformanceTest(redisClient);
 
             BatchTest(redisClient);
 

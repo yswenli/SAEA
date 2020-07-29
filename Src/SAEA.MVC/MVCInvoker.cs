@@ -55,6 +55,8 @@ namespace SAEA.MVC
                 return new ContentResult($"o_o，找不到：{controller.Name}/{actionName} 当前请求为:{(isPost ? ConstHelper.HTTPPOST : ConstHelper.HTTPGET)}", System.Net.HttpStatusCode.NotFound);
             }
 
+            ActionResult result;
+
             //类过滤器
             if (routing.FilterAtrrs != null && routing.FilterAtrrs.Any())
             {
@@ -68,7 +70,7 @@ namespace SAEA.MVC
 
                         if (!goOn)
                         {
-                            return new ContentResult("o_o，当前逻辑已被拦截！", System.Net.HttpStatusCode.NotAcceptable);
+                            return new ContentResult("o_o，拒绝访问！", System.Net.HttpStatusCode.Forbidden);
                         }
                     }
                 }
@@ -103,16 +105,14 @@ namespace SAEA.MVC
 
                             if (!goOn)
                             {
-                                return new ContentResult("o_o，当前逻辑已被拦截！", System.Net.HttpStatusCode.NotAcceptable);
+                                return new ContentResult("o_o，拒绝访问！", System.Net.HttpStatusCode.Forbidden);
                             }
                         }
                     }
                 }
             }
 
-            #region actionResult
-
-            ActionResult result;
+            #region actionResult                
 
             if (HttpContext.Current.Request.ContentType == ConstHelper.FORMENCTYPE3 && !string.IsNullOrEmpty(HttpContext.Current.Request.Json))
             {
@@ -169,37 +169,31 @@ namespace SAEA.MVC
         static ActionResult MethodInvoke(MethodInfo action, object obj, NameValueCollection nameValues)
         {
             ActionResult result = null;
-            try
+
+            object data;
+
+            var @params = action.GetParameters();
+
+            if (@params != null && @params.Any())
             {
-                object data;
+                var list = ParamsHelper.FillPamars(@params, nameValues);
 
-                var @params = action.GetParameters();
-
-                if (@params != null && @params.Any())
-                {
-                    var list = ParamsHelper.FillPamars(@params, nameValues);
-
-                    data = action.Invoke(obj, list.ToArray());
-                }
-                else
-                {
-                    data = action.Invoke(obj, null);
-                }
-
-                if (data.GetType().Name == "AsyncStateMachineBox`1")
-                {
-                    var tdata = data as Task<ActionResult>;
-
-                    result = tdata.Result;
-                }
-                else
-                {
-                    result = (ActionResult)data;
-                }
+                data = action.Invoke(obj, list.ToArray());
             }
-            catch (Exception ex)
+            else
             {
-                result = new ContentResult($"→_→，出错了：{obj}/{action.Name},出现异常：{ex.Message}", System.Net.HttpStatusCode.InternalServerError);
+                data = action.Invoke(obj, null);
+            }
+
+            if (data.GetType().Name == "AsyncStateMachineBox`1")
+            {
+                var tdata = data as Task<ActionResult>;
+
+                result = tdata.Result;
+            }
+            else
+            {
+                result = (ActionResult)data;
             }
             return result;
         }

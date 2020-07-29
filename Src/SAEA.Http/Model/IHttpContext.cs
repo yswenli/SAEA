@@ -34,6 +34,11 @@ namespace SAEA.Http.Model
         HttpSession Session { get; }
         WebConfig WebConfig { get; set; }
 
+        /// <summary>
+        /// 自定义异常事件
+        /// </summary>
+        event ExceptionHandler OnException;
+
         void HttpHandle(IUserToken userToken);
 
         IHttpResult GetActionResult();

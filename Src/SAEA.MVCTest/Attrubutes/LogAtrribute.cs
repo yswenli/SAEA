@@ -33,12 +33,6 @@ namespace SAEA.MVCTest.Attrubutes
     public sealed class LogAtrribute : ActionFilterAttribute
     {
         /// <summary>
-        /// 自定义日志记录
-        /// </summary>
-        /// <param name="isEnabled"></param>
-        public LogAtrribute(bool isEnabled = true) : base(isEnabled) { }
-
-        /// <summary>
         /// 执行前
         /// </summary>
         /// <returns>返回值true为继续，false为终止</returns>
@@ -61,12 +55,6 @@ namespace SAEA.MVCTest.Attrubutes
     /// </summary>
     public class Log2Atrribute : ActionFilterAttribute
     {
-        /// <summary>
-        /// 自定义日志记录
-        /// </summary>
-        /// <param name="isEnabled"></param>
-        public Log2Atrribute(bool isEnabled = true) : base(isEnabled) { }
-
         /// <summary>
         /// 执行前
         /// </summary>

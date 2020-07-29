@@ -183,6 +183,21 @@ namespace SAEA.Common
             return args.ToArray();
         }
 
+        public new string ToString()
+        {
+            if (!_list.Any())
+            {
+                return string.Empty;
+            }
+            StringBuilder sb = new StringBuilder();
+
+            foreach (var item in _list)
+            {
+                sb.Append($"Name:${item.Name},Value:{item.Value};");
+            }
+            return sb.ToString();
+        }
+
         public void Clear()
         {
             _list.Clear();

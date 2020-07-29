@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.Http;
 using SAEA.Http.Base;
 using SAEA.Http.Common;
 using SAEA.Http.Model;
@@ -31,10 +32,23 @@ using System.Linq;
 
 namespace SAEA.MVC
 {
+    /// <summary>
+    /// mvc HttpContext
+    /// </summary>
     public class HttpContext : HttpContextBase, IHttpContext
     {
         RouteTable _routeTable = null;
 
+        /// <summary>
+        /// 自定义异常事件
+        /// </summary>
+        public new event ExceptionHandler OnException;
+
+        /// <summary>
+        /// mvc HttpContext
+        /// </summary>
+        /// <param name="webHost"></param>
+        /// <param name="httpMessage"></param>
         public HttpContext(IWebHost webHost, HttpMessage httpMessage) : base(webHost, httpMessage)
         {
             _routeTable = _webHost.RouteParam as RouteTable;
@@ -48,37 +62,49 @@ namespace SAEA.MVC
         {
             IHttpResult result;
 
-            this.InitSession(userToken);
-
-            switch (this.Request.Method)
+            try
             {
-                case ConstHelper.GET:
-                case ConstHelper.POST:
-                case ConstHelper.PUT:
-                case ConstHelper.DELETE:
+                this.InitSession(userToken);
 
-                    if (this.Request.Query.Count > 0)
-                    {
-                        foreach (var item in this.Request.Query)
+                switch (this.Request.Method)
+                {
+                    case ConstHelper.GET:
+                    case ConstHelper.POST:
+                    case ConstHelper.PUT:
+                    case ConstHelper.DELETE:
+
+                        if (this.Request.Query.Count > 0)
                         {
-                            this.Request.Parmas[item.Key] = item.Value;
+                            foreach (var item in this.Request.Query)
+                            {
+                                this.Request.Parmas[item.Key] = item.Value;
+                            }
                         }
-                    }
-                    if (this.Request.Forms.Count > 0)
-                    {
-                        foreach (var item in this.Request.Forms)
+                        if (this.Request.Forms.Count > 0)
                         {
-                            this.Request.Parmas[item.Key] = item.Value;
+                            foreach (var item in this.Request.Forms)
+                            {
+                                this.Request.Parmas[item.Key] = item.Value;
+                            }
                         }
-                    }
-                    result = GetActionResult();
-                    break;
-                case ConstHelper.OPTIONS:
-                    result = new EmptyResult();
-                    break;
-                default:
-                    result = new ContentResult("不支持的请求方式", System.Net.HttpStatusCode.NotImplemented);
-                    break;
+                        result = GetActionResult();
+                        break;
+                    case ConstHelper.OPTIONS:
+                        result = new EmptyResult();
+                        break;
+                    default:
+                        result = new ContentResult("不支持的请求方式", System.Net.HttpStatusCode.NotImplemented);
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                result = OnException.Invoke(this, ex);
+
+                if (result == null)
+                {
+                    result = new ContentResult("请求发生异常：" + ex.Message, System.Net.HttpStatusCode.InternalServerError);
+                }
             }
 
             if (!(result is IBigDataResult))
@@ -89,6 +115,10 @@ namespace SAEA.MVC
             }
         }
 
+        /// <summary>
+        /// 重新获取结果方法
+        /// </summary>
+        /// <returns></returns>
         public override IHttpResult GetActionResult()
         {
             string url = Request.Url;
@@ -187,7 +217,6 @@ namespace SAEA.MVC
                     }
                     break;
             }
-
 
             return new ContentResult("o_o，找不到任何内容 url:" + url, System.Net.HttpStatusCode.NotFound);
         }

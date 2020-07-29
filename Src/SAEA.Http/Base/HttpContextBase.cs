@@ -37,6 +37,11 @@ namespace SAEA.Http.Base
 
         protected IWebHost _webHost;
 
+        /// <summary>
+        /// 自定义异常事件
+        /// </summary>
+        public event ExceptionHandler OnException;
+
         public HttpRequest Request
         {
             get;

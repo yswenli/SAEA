@@ -38,6 +38,11 @@ namespace SAEA.Http.Model
 
         object RouteParam { get; set; }
 
+        /// <summary>
+        /// 自定义异常事件
+        /// </summary>
+        event ExceptionHandler OnException;
+
         void Start();
 
         void Send(IUserToken userToken, byte[] data);

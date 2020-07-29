@@ -364,28 +364,28 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         string GetRedisReply()
         {
-            string str = string.Empty;
-
-            bool loop = false;
-
-            var beginTime = DateTimeHelper.Now;
-
-            do
+            return TaskHelper.Run((token) =>
             {
-                str = _redisStream.ReadLine();
+                 string str = string.Empty;
 
-                loop = string.IsNullOrEmpty(str);
+                 do
+                 {
+                     str = _redisStream.ReadLine();
 
-                if (loop)
-                {
-                    Thread.Yield();
+                     if (string.IsNullOrEmpty(str))
+                     {
+                         Thread.Yield();
+                     }
+                     else
+                     {
+                         break;
+                     }
+                 }
+                 while (!token.IsCancellationRequested);
 
-                    if ((DateTimeHelper.Now - beginTime).TotalMilliseconds > _actionTimeout) throw new TimeoutException("-Err:Operation is timeout!");
-                }
-            }
-            while (loop);
+                 return str;
 
-            return str;
+             }, _actionTimeout).Result;
         }
 
         public bool IsSubed = false;
@@ -400,32 +400,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         private StringBuilder GetLastSB(StringBuilder sb, int len, bool addSeparator = false)
         {
-            string str = string.Empty;
-
-            bool loop = false;
-
-            int timeCount = 0;
-
-            if (len > 0)
-            {
-                do
-                {
-                    timeCount++;
-
-                    str = _redisStream.ReadBlock(len);
-
-                    loop = string.IsNullOrEmpty(str);
-
-                    if (loop)
-                    {
-                        Thread.Yield();
-                        if (timeCount >= _actionTimeout) throw new TimeoutException("-Err:Operation is timeout!");
-                    }
-                }
-                while (loop);
-
-                sb.Append(str);
-            }
+            sb.Append(_redisStream.ReadBlock(len, _actionTimeout));
 
             if (addSeparator)
                 sb.Append(SEPARATOR);
@@ -1006,6 +981,8 @@ namespace SAEA.RedisSocket.Core
             return responseData;
         }
 
+        #region 解析
+
         private static bool GetStatus(string command, out string error)
         {
             error = string.Empty;
@@ -1112,6 +1089,10 @@ namespace SAEA.RedisSocket.Core
             }
             return result;
         }
+
+        #endregion
+
+
 
         #endregion
 

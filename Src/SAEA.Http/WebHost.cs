@@ -60,6 +60,13 @@ namespace SAEA.Http
         public object RouteParam { get; set; }
 
 
+
+        /// <summary>
+        /// 自定义异常事件
+        /// </summary>
+        public event ExceptionHandler OnException;
+
+
         /// <summary>
         /// SAEA WebServer
         /// </summary>
@@ -143,6 +150,8 @@ namespace SAEA.Http
             {
                 var httpContext = (IHttpContext)Activator.CreateInstance(_httpContentType, this, httpMessage);
 
+                httpContext.OnException += HttpContext_OnException;
+
                 httpContext.HttpHandle(userToken);
 
             }
@@ -150,6 +159,11 @@ namespace SAEA.Http
             {
                 LogHelper.Error("WebHost._serverSocket_OnDisconnected 意外断开连接", ex, httpMessage);
             }
+        }
+
+        private IHttpResult HttpContext_OnException(IHttpContext httpContext, Exception ex)
+        {
+            return OnException?.Invoke(httpContext, ex);
         }
 
         /// <summary>

@@ -43,6 +43,22 @@ namespace SAEA.Common
         }
 
         /// <summary>
+        /// 指定超时任务
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="fuc"></param>
+        /// <param name="mill"></param>
+        /// <returns></returns>
+        public static Task<T> Run<T>(Func<CancellationToken, T> fuc, int mill = 10 * 1000)
+        {
+            using (CancellationTokenSource cts = new CancellationTokenSource(mill))
+            {
+                var token = cts.Token;
+                return Task.Run(() => fuc.Invoke(token), token);
+            }
+        }
+
+        /// <summary>
         /// 任务超时
         /// </summary>
         /// <typeparam name="T"></typeparam>

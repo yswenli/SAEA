@@ -31,21 +31,10 @@ namespace SAEA.MVC
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = true, Inherited = true)]
     public abstract class ActionFilterAttribute : Attribute, IFilter
     {
-        bool _isEnabled = true;
-
         /// <summary>
         /// 执行顺序
         /// </summary>
         public int Order { get; set; }
-
-        /// <summary>
-        /// 拦截器
-        /// </summary>
-        /// <param name="isEnabled"></param>
-        public ActionFilterAttribute(bool isEnabled)
-        {
-            _isEnabled = isEnabled;
-        }
 
         /// <summary>
         /// 方法执行前

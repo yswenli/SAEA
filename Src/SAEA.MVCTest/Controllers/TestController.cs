@@ -20,7 +20,7 @@ namespace SAEA.MVCTest.Controllers
             return Content("this is a test!中文测试！Zh Test!");
         }
 
-        [AuthAttribute(false)]
+        [AuthAttribute]
         [HttpGet]
         [HttpPost]
         public ActionResult Other(UserInfo userInfo)

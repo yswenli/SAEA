@@ -15,6 +15,7 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
+using SAEA.Common;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -36,6 +37,8 @@ namespace SAEA.RedisSocket.Base.Net
 
         ConcurrentQueue<string> _stringQueue = new ConcurrentQueue<string>();
 
+        AutoResetEvent _autoResetEvent;
+
         bool _isdiposed = false;
 
         /// <summary>
@@ -43,21 +46,21 @@ namespace SAEA.RedisSocket.Base.Net
         /// </summary>
         public RedisStream()
         {
+            _autoResetEvent = new AutoResetEvent(true);
+
             Task.Factory.StartNew(() =>
             {
                 while (!_isdiposed)
                 {
-                    if (!_queue.IsEmpty && _queue.TryDequeue(out byte[] data))
+                    if (!_queue.TryDequeue(out byte[] data))
                     {
                         if (data == null || !data.Any()) continue;
 
                         _bytes.AddRange(data);
 
-                        var index = -1;
-
                         do
                         {
-                            index = _bytes.IndexOf(10);
+                            var index = _bytes.IndexOf(10);
 
                             if (index < 0)
                             {
@@ -80,7 +83,7 @@ namespace SAEA.RedisSocket.Base.Net
                     }
                     else
                     {
-                        Thread.Sleep(1);
+                        _autoResetEvent.WaitOne();
                     }
                 }
             }, TaskCreationOptions.LongRunning);
@@ -93,6 +96,7 @@ namespace SAEA.RedisSocket.Base.Net
         public void Write(byte[] data)
         {
             _queue.Enqueue(data);
+            _autoResetEvent.Set();
         }
 
         /// <summary>
@@ -114,25 +118,17 @@ namespace SAEA.RedisSocket.Base.Net
         /// <returns></returns>
         public string ReadBlock(int len, int timeOut = 10)
         {
-            Task<string> task;
-
-            using (CancellationTokenSource cts = new CancellationTokenSource(timeOut * 1000))
+            return TaskHelper.Run((token) =>
             {
-                var token = cts.Token;
+                StringBuilder sb = new StringBuilder();
 
-                task = Task.Run(() =>
+                while (!token.IsCancellationRequested && sb.Length < len)
                 {
-                    StringBuilder sb = new StringBuilder();
+                    sb.Append(ReadLine());
+                }
+                return sb.ToString();
 
-                    while (!token.IsCancellationRequested && sb.Length < len)
-                    {
-                        sb.Append(ReadLine());
-                    }
-                    return sb.ToString();
-                }, cts.Token);
-            };
-
-            return task.Result;
+            }, timeOut * 1000).Result;
         }
 
         public void Clear()

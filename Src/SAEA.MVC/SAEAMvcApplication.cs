@@ -33,7 +33,7 @@ namespace SAEA.MVC
     /// </summary>
     public partial class SAEAMvcApplication
     {
-        WebHost webHost;
+        WebHost _webHost;
 
         internal AreaCollection AreaCollection { get; private set; } = new AreaCollection();
 
@@ -43,12 +43,17 @@ namespace SAEA.MVC
         public bool Running { get; set; } = false;
 
         /// <summary>
+        /// 自定义异常事件
+        /// </summary>
+        public event ExceptionHandler OnException;
+
+        /// <summary>
         /// 构建mvc容器
         /// </summary>
         /// <param name="mvcConfig"></param>
         public SAEAMvcApplication(SAEAMvcApplicationConfig mvcConfig) : this(mvcConfig.Root, mvcConfig.Port, mvcConfig.IsStaticsCached, mvcConfig.IsZiped, mvcConfig.BufferSize, mvcConfig.Count, isDebug: mvcConfig.IsDebug)
         {
-            webHost.WebConfig.HomePage = mvcConfig.DefaultPage;
+            _webHost.WebConfig.HomePage = mvcConfig.DefaultPage;
         }
 
         /// <summary>
@@ -76,9 +81,16 @@ namespace SAEA.MVC
                 throw new Exception("当前代码无任何Controller或者不符合MVC 命名规范！ err:" + ex.Message);
             }
 
-            webHost = new WebHost(typeof(HttpContext), root, port, isStaticsCached, isZiped, bufferSize, count, 120 * 1000, isDebug);
+            _webHost = new WebHost(typeof(HttpContext), root, port, isStaticsCached, isZiped, bufferSize, count, 120 * 1000, isDebug);
 
-            webHost.RouteParam = AreaCollection.RouteTable;
+            _webHost.OnException += _webHost_OnException;
+
+            _webHost.RouteParam = AreaCollection.RouteTable;
+        }
+
+        private Http.Model.IHttpResult _webHost_OnException(Http.Model.IHttpContext httpContext, Exception ex)
+        {
+            return OnException?.Invoke(httpContext, ex);
         }
 
         /// <summary>
@@ -88,7 +100,7 @@ namespace SAEA.MVC
         /// <param name="actionName"></param>
         public void SetDefault(string controllerName, string actionName)
         {
-            webHost.WebConfig.DefaultRoute = new SAEA.Common.NameValueItem() { Name = controllerName, Value = actionName };
+            _webHost.WebConfig.DefaultRoute = new SAEA.Common.NameValueItem() { Name = controllerName, Value = actionName };
         }
 
         /// <summary>
@@ -97,7 +109,7 @@ namespace SAEA.MVC
         /// <param name="defaultPage"></param>
         public void SetDefault(string defaultPage)
         {
-            webHost.WebConfig.HomePage = "/" + defaultPage;
+            _webHost.WebConfig.HomePage = "/" + defaultPage;
         }
 
         /// <summary>
@@ -106,7 +118,7 @@ namespace SAEA.MVC
         /// <param name="list"></param>
         public void SetForbiddenAccessList(params string[] list)
         {
-            webHost.WebConfig.SetForbiddenAccessList(list);
+            _webHost.WebConfig.SetForbiddenAccessList(list);
         }
 
         /// <summary>
@@ -116,7 +128,7 @@ namespace SAEA.MVC
         {
             try
             {
-                webHost.Start();
+                _webHost.Start();
                 this.Running = true;
             }
             catch (Exception ex)
@@ -158,12 +170,12 @@ namespace SAEA.MVC
         {
             try
             {
-                webHost.Stop();
+                _webHost.Stop();
                 this.Running = false;
             }
             catch (Exception ex)
             {
-                throw new Exception("关闭SAEA.MVCServer失败 err:" + ex.Message);
+                throw new Exception("关闭SAEAMvcApplication err:" + ex.Message);
             }
         }
     }

@@ -199,7 +199,8 @@ namespace SAEA.RedisSocket.Model
 
             for (int i = 1; i < dataArr.Length; i++)
             {
-                if (i + 1 == dataArr.Length) break;
+                if (string.IsNullOrEmpty(dataArr[i])) continue;
+
                 datas.Add(dataArr[i]?.TrimEnd('\r', '\n'));
             }
             scanResponse.Data = datas;

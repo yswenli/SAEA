@@ -19,6 +19,8 @@ namespace SAEA.MVCTest
 
             SAEAMvcApplication mvcApplication = new SAEAMvcApplication(mvcConfig);
 
+            mvcApplication.OnException += MvcApplication_OnException;
+
             //设置默认控制器
 
             //mvcApplication.SetDefault("home", "index");
@@ -42,6 +44,11 @@ namespace SAEA.MVCTest
             ConsoleHelper.WriteLine("回车结束！");
 
             ConsoleHelper.ReadLine();
+        }
+
+        private static Http.Model.IHttpResult MvcApplication_OnException(Http.Model.IHttpContext httpContext, System.Exception ex)
+        {
+            return new ContentResult($"已通过事件捕获发生异常，url：{httpContext.Request.Url},ex:{ex.Message}");
         }
     }
 }
