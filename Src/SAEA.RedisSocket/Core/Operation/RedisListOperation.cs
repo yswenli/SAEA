@@ -288,5 +288,16 @@ namespace SAEA.RedisSocket.Core
             return RedisConnection.DoWithID(RequestType.BRPOPLPUSH, source, destination, seconds.ToString()).Data;
         }
 
+        /// <summary>
+        /// 移除指定位四置的值
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="index"></param>
+        public void LDel(string key, int index)
+        {
+            LSet(key, index, "---VALUE-REMOVED-BY-SAEA.REDISSOCKET---");
+            LRemove(key, 0, "---VALUE-REMOVED-BY-SAEA.REDISSOCKET---");
+        }
+
     }
 }
