@@ -37,8 +37,6 @@ namespace SAEA.RedisSocket.Base.Net
 
         ConcurrentQueue<string> _stringQueue = new ConcurrentQueue<string>();
 
-        AutoResetEvent _autoResetEvent;
-
         bool _isdiposed = false;
 
         /// <summary>
@@ -46,13 +44,12 @@ namespace SAEA.RedisSocket.Base.Net
         /// </summary>
         public RedisStream()
         {
-            _autoResetEvent = new AutoResetEvent(true);
 
             Task.Factory.StartNew(() =>
             {
                 while (!_isdiposed)
                 {
-                    if (!_queue.TryDequeue(out byte[] data))
+                    if (!_queue.IsEmpty && _queue.TryDequeue(out byte[] data))
                     {
                         if (data == null || !data.Any()) continue;
 
@@ -83,7 +80,7 @@ namespace SAEA.RedisSocket.Base.Net
                     }
                     else
                     {
-                        _autoResetEvent.WaitOne();
+                        Thread.Sleep(1);
                     }
                 }
             }, TaskCreationOptions.LongRunning);
@@ -96,7 +93,6 @@ namespace SAEA.RedisSocket.Base.Net
         public void Write(byte[] data)
         {
             _queue.Enqueue(data);
-            _autoResetEvent.Set();
         }
 
         /// <summary>
@@ -118,17 +114,24 @@ namespace SAEA.RedisSocket.Base.Net
         /// <returns></returns>
         public string ReadBlock(int len, int timeOut = 10)
         {
-            return TaskHelper.Run((token) =>
+            try
             {
-                StringBuilder sb = new StringBuilder();
-
-                while (!token.IsCancellationRequested && sb.Length < len)
+                return TaskHelper.Run((token) =>
                 {
-                    sb.Append(ReadLine());
-                }
-                return sb.ToString();
+                    StringBuilder sb = new StringBuilder();
 
-            }, timeOut * 1000).Result;
+                    while (!token.IsCancellationRequested && sb.Length < len)
+                    {
+                        sb.Append(ReadLine());
+                    }
+                    return sb.ToString();
+
+                }, timeOut * 1000).Result;
+            }
+            catch (Exception ex)
+            {
+                return "-Err:ReadBlock Timeout," + ex.Message;
+            }
         }
 
         public void Clear()

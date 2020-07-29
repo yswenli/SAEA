@@ -74,7 +74,7 @@ namespace SAEA.RedisSocketTest
 
             #endregion
 
-            //StringPerformanceTest(redisClient);
+            StringPerformanceTest(redisClient);
 
             BatchTest(redisClient);
 
@@ -83,18 +83,8 @@ namespace SAEA.RedisSocketTest
 
             var crk = redisClient.Console("RandomKey");
 
-            var type = redisClient.Type("FUND_GROUP_TG_5c8abef4c30c6b9a");
-            ConsoleHelper.WriteLine(type);
-            var type1 = redisClient.Type("FUND_GROUP_TG_176d0049714c618a");
-            ConsoleHelper.WriteLine(type1);
-            var type2 = redisClient.Type("POINT_GROUP_PG_ad011ad469744a6bbc79981c1d0811d6");
-            ConsoleHelper.WriteLine(type2);
-            var type3 = redisClient.Type("FUND_GROUP_TG_48fb4e9e8d6dda15");
-            ConsoleHelper.WriteLine(type3);
-            var type4 = redisClient.Type("POINT_GROUP_PG_8136d029050740acab7a3d24a6e88663");
-            ConsoleHelper.WriteLine(type4);
-
             ConsoleHelper.ReadLine();
+
             KeysTest(redisClient);
 
             var db = redisClient.GetDataBase(0);

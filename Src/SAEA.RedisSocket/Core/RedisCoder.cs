@@ -364,28 +364,34 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         string GetRedisReply()
         {
-            return TaskHelper.Run((token) =>
+            try
             {
-                 string str = string.Empty;
+                return TaskHelper.Run((token) =>
+                {
+                    string str = string.Empty;
+                    do
+                    {
+                        str = _redisStream.ReadLine();
 
-                 do
-                 {
-                     str = _redisStream.ReadLine();
+                        if (string.IsNullOrEmpty(str))
+                        {
+                            Thread.Yield();
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+                    while (!token.IsCancellationRequested);
 
-                     if (string.IsNullOrEmpty(str))
-                     {
-                         Thread.Yield();
-                     }
-                     else
-                     {
-                         break;
-                     }
-                 }
-                 while (!token.IsCancellationRequested);
+                    return str;
 
-                 return str;
-
-             }, _actionTimeout).Result;
+                }, _actionTimeout).Result;
+            }
+            catch (Exception ex)
+            {
+                return "-Err:GetRedisReply Timeout," + ex.Message;
+            }
         }
 
         public bool IsSubed = false;
