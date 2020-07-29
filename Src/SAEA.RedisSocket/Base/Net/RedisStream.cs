@@ -25,6 +25,9 @@ using System.Threading.Tasks;
 
 namespace SAEA.RedisSocket.Base.Net
 {
+    /// <summary>
+    /// RedisStream
+    /// </summary>
     internal class RedisStream : IDisposable
     {
         ConcurrentQueue<byte[]> _queue = new ConcurrentQueue<byte[]>();
@@ -35,6 +38,9 @@ namespace SAEA.RedisSocket.Base.Net
 
         bool _isdiposed = false;
 
+        /// <summary>
+        /// RedisStream
+        /// </summary>
         public RedisStream()
         {
             Task.Factory.StartNew(() =>
@@ -80,30 +86,53 @@ namespace SAEA.RedisSocket.Base.Net
             }, TaskCreationOptions.LongRunning);
         }
 
+        /// <summary>
+        /// 存入收到的内容
+        /// </summary>
+        /// <param name="data"></param>
         public void Write(byte[] data)
         {
             _queue.Enqueue(data);
         }
 
+        /// <summary>
+        /// 读取出队内容
+        /// </summary>
+        /// <returns></returns>
         public string ReadLine()
         {
-            if (_stringQueue.TryDequeue(out string result))
-            {
-                return result;
-            }
-            return null;
+            _stringQueue.TryDequeue(out string result);
+
+            return result;
         }
 
-        public string ReadBlock(int len)
+        /// <summary>
+        /// 读取指定长度内容
+        /// </summary>
+        /// <param name="len"></param>
+        /// <param name="timeOut"></param>
+        /// <returns></returns>
+        public string ReadBlock(int len, int timeOut = 10)
         {
-            StringBuilder sb = new StringBuilder();
+            Task<string> task;
 
-            while (sb.Length < len)
+            using (CancellationTokenSource cts = new CancellationTokenSource(timeOut * 1000))
             {
-                sb.Append(ReadLine());
-            }
+                var token = cts.Token;
 
-            return sb.ToString();
+                task = Task.Run(() =>
+                {
+                    StringBuilder sb = new StringBuilder();
+
+                    while (!token.IsCancellationRequested && sb.Length < len)
+                    {
+                        sb.Append(ReadLine());
+                    }
+                    return sb.ToString();
+                }, cts.Token);
+            };
+
+            return task.Result;
         }
 
         public void Clear()
@@ -115,7 +144,7 @@ namespace SAEA.RedisSocket.Base.Net
         {
             _isdiposed = true;
             _bytes.Clear();
-            _bytes = null;            
+            _bytes = null;
         }
     }
 }
