@@ -42,14 +42,12 @@ namespace SAEA.Http.Base
         /// <summary>
         /// 分析request 头部
         /// </summary>
-        /// <param name="buffer"></param>
+        /// <param name="bufferSpan"></param>
         /// <param name="httpMessage"></param>
         /// <returns></returns>
-        public static bool Analysis(byte[] buffer, out HttpMessage httpMessage)
+        public static bool Analysis(Span<byte> bufferSpan, out HttpMessage httpMessage)
         {
             httpMessage = null;
-
-            var bufferSpan = buffer.AsSpan();
 
             var count = bufferSpan.Length;
 
@@ -58,7 +56,7 @@ namespace SAEA.Http.Base
             if (index == count - 4)
             {
                 httpMessage = new HttpMessage();
-                httpMessage.HeaderStr = Encoding.ASCII.GetString(buffer);
+                httpMessage.HeaderStr = Encoding.ASCII.GetString(bufferSpan.ToArray());
                 httpMessage.Position = count;
             }
             else

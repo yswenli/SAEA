@@ -33,6 +33,8 @@ namespace SAEA.Http.Base.Net
     {
         IServerSokcet _serverSokcet;
 
+        ISocketOption _option;
+
         public event Action<IUserToken, HttpMessage> OnRequested;
 
         /// <summary>
@@ -54,9 +56,9 @@ namespace SAEA.Http.Base.Net
                .SetReadBufferSize(bufferSize)
                .SetTimeOut(timeOut)
                .ReusePort(false);
-            var option = optionBuilder.Build();
+            _option = optionBuilder.Build();
 
-            _serverSokcet = SocketFactory.CreateServerSocket(option);
+            _serverSokcet = SocketFactory.CreateServerSocket(_option);
             _serverSokcet.OnReceive += _serverSokcet_OnReceive;
 
             IsDebug = isDebug;

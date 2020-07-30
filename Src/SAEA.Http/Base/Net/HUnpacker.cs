@@ -57,16 +57,14 @@ namespace SAEA.Http.Base.Net
                     {
                         RequestDataReader.AnalysisBody(buffer, httpMessage);
                         onUnpackage.Invoke(httpMessage);
-                        Array.Clear(buffer, 0, buffer.Length);
-                        _cache.Clear();
                     }
                 }
                 else
                 {
-                    onUnpackage.Invoke(httpMessage);
-                    Array.Clear(buffer, 0, buffer.Length);
-                    _cache.Clear();
+                    onUnpackage.Invoke(httpMessage);                    
                 }
+                Array.Clear(buffer, 0, buffer.Length);
+                _cache.Clear();
             }
         }
 
