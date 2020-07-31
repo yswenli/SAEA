@@ -37,7 +37,7 @@ namespace SAEA.Http
     /// </summary>
     public class WebHost : IWebHost
     {
-        HttpSocket _serverSocket;
+        IHttpSocket _serverSocket;
 
         Type _httpContentType = typeof(HttpContext);
 
@@ -102,7 +102,13 @@ namespace SAEA.Http
 
             HttpUtility = new HttpUtility(WebConfig.Root);
 
-            _serverSocket = new HttpSocket(port, bufferSize, count, timeOut, isDebug);
+            if (isDebug)
+
+                _serverSocket = new HttpSocketDebug(port, bufferSize, count, timeOut);
+
+            else
+
+                _serverSocket = new HttpSocket(port, bufferSize, count, timeOut);
 
             _serverSocket.OnRequested += _serverSocket_OnRequested;
         }
