@@ -125,6 +125,24 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         /// <summary>
+        /// 指定绑定ip
+        /// </summary>
+        /// <param name="ip"></param>
+        public void Bind(IPAddress ip)
+        {
+            _socket.Bind(new IPEndPoint(ip, 0));
+        }
+
+        /// <summary>
+        /// 指定绑定ip
+        /// </summary>
+        /// <param name="ip"></param>
+        public void Bind(string ip)
+        {
+            Bind(IPAddress.Parse(ip));
+        }
+
+        /// <summary>
         /// 连接到服务器
         /// </summary>
         /// <param name="callBack"></param>
@@ -250,7 +268,7 @@ namespace SAEA.Sockets.Core.Tcp
 
 
         void ProcessSended(SocketAsyncEventArgs e)
-        {            
+        {
             _userToken.Actived = DateTimeHelper.Now;
             _userToken.Set();
         }

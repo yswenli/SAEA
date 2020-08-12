@@ -30,6 +30,7 @@
 using SAEA.Sockets.Handler;
 using System;
 using System.IO;
+using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -55,6 +56,17 @@ namespace SAEA.Sockets
         /// 连接
         /// </summary>
         void Connect();
+
+        /// <summary>
+        /// 指定绑定ip
+        /// </summary>
+        /// <param name="ip"></param>
+        void Bind(IPAddress ip);
+        /// <summary>
+        /// 指定绑定ip
+        /// </summary>
+        /// <param name="ip"></param>
+        void Bind(string ip);
 
         /// <summary>
         /// 连接

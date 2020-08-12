@@ -33,6 +33,7 @@ using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using System;
 using System.IO;
+using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Authentication;
@@ -158,6 +159,24 @@ namespace SAEA.Sockets.Core.Tcp
             _stream = stream ?? throw new ArgumentNullException(nameof(stream));
 
             _isSsl = isSsl;
+        }
+
+        /// <summary>
+        /// 指定绑定ip
+        /// </summary>
+        /// <param name="ip"></param>
+        public void Bind(IPAddress ip)
+        {
+            _socket.Bind(new IPEndPoint(ip, 0));
+        }
+
+        /// <summary>
+        /// 指定绑定ip
+        /// </summary>
+        /// <param name="ip"></param>
+        public void Bind(string ip)
+        {
+            Bind(IPAddress.Parse(ip));
         }
 
         /// <summary>
@@ -369,7 +388,6 @@ namespace SAEA.Sockets.Core.Tcp
         public void BeginSend(byte[] data)
         {
             throw new NotImplementedException();
-        }
-
+        }        
     }
 }
