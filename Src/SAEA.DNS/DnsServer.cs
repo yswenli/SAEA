@@ -17,7 +17,6 @@
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.DNS.Coder;
-using SAEA.DNS.Common.Utils;
 using SAEA.DNS.Model;
 using SAEA.DNS.Protocol;
 using System;
@@ -26,7 +25,6 @@ using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using ResponseException = SAEA.DNS.Model.ResponseException;
 
 namespace SAEA.DNS
 {
@@ -239,13 +237,13 @@ namespace SAEA.DNS
             catch (OperationCanceledException e) { OnError(e); }
             catch (IOException e) { OnError(e); }
             catch (ObjectDisposedException e) { OnError(e); }
-            catch (ResponseException e)
+            catch (Model.ResponseException e)
             {
                 IResponse response = e.Response;
 
                 if (response == null)
                 {
-                    response = Protocol.DnsResponseMessage.FromRequest(request);
+                    response = DnsResponseMessage.FromRequest(request);
                 }
 
                 try
