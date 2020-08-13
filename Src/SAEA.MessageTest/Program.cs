@@ -39,7 +39,7 @@ namespace SAEA.MessageTest
         {
             ConsoleHelper.WriteLine("Message Test ");
 
-            ConsoleHelper.WriteLine("S boot server \r\n\t\t\t F starts functional testing \r\n\t\t\t P start pressure test\r\n\t\t\t T start channelmessage test");
+            ConsoleHelper.WriteLine("S boot server \r\n\t\t\t F starts functional testing \r\n\t\t\t L start pressure test\r\n\t\t\t T start channelmessage test");
 
             var input = ConsoleHelper.ReadLine().ToUpper();
 
@@ -53,8 +53,8 @@ namespace SAEA.MessageTest
                     FunTest();
                     break;
 
-                case "P":
-                    PreesureTest();
+                case "L":
+                    LinkTest();
                     break;
                 case "T":
                     ChannelMsgTest();
@@ -66,7 +66,7 @@ namespace SAEA.MessageTest
                     break;
                 case "SP":
                     ServerInit();
-                    PreesureTest();
+                    LinkTest();
                     break;
                 case "ST":
                     ServerInit();
@@ -147,7 +147,7 @@ namespace SAEA.MessageTest
             ConsoleHelper.WriteLine("SAEA.Message服务器收到连接" + ((IUserToken)obj).ID);
         }
 
-        private static void PreesureTest()
+        private static void LinkTest()
         {
             ConsoleHelper.WriteLine("回车开始连接测试...");
             ConsoleHelper.ReadLine();
