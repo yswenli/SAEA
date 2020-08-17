@@ -59,49 +59,7 @@ namespace SAEA.RedisSocket.Core
         {
             return await TaskHelper.Run(() =>
             {
-                lock (_syncLocker)
-                {
-                    ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
-                    try
-                    {
-                        if (!string.IsNullOrWhiteSpace(cmd))
-                        {
-                            var @params = cmd.Split(" ", StringSplitOptions.RemoveEmptyEntries);
-
-                            if (@params != null && @params.Length > 0)
-                            {
-                                var redisCmd = @params[0].ToUpper();
-
-                                if (EnumHelper.GetEnum(redisCmd, out RequestType requestType1))
-                                {
-                                    RedisCoder.RequestOnlyParams(@params);
-                                    result = RedisCoder.Decoder(requestType1);
-                                }
-                                else
-                                {
-                                    redisCmd = $"{@params[0]}_{@params[1]}".ToUpper();
-
-                                    if (EnumHelper.GetEnum(redisCmd, out RequestType requestType2))
-                                    {
-                                        RedisCoder.RequestOnlyParams(@params);
-                                        result = RedisCoder.Decoder(requestType2);
-                                    }
-                                    else
-                                    {
-                                        result.Type = ResponseType.Error;
-                                        result.Data = "未知的命令 cmd:" + cmd;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        result.Type = ResponseType.Error;
-                        result.Data = ex.Message;
-                    }
-                    return result;
-                }
+                return RequestWithConsole(cmd);
 
             }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
@@ -117,17 +75,7 @@ namespace SAEA.RedisSocket.Core
         {
             return await TaskHelper.Run(() =>
             {
-                lock (_syncLocker)
-                {
-                    RedisCoder.RequestOnlyParams(type.ToString());
-                    var result = RedisCoder.Decoder(type);
-                    if (result.Type == ResponseType.Redirect)
-                    {
-                        return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.Do, null);
-                    }
-                    else
-                        return result;
-                }
+                return Do(type);
 
             }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
@@ -143,12 +91,7 @@ namespace SAEA.RedisSocket.Core
         {
             return await TaskHelper.Run(() =>
             {
-                lock (_syncLocker)
-                {
-                    content.KeyCheck();
-                    RedisCoder.Request(type, content);
-                    return RedisCoder.Decoder(type);
-                }
+                return DoWithOne(type, content);
 
             }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
@@ -164,18 +107,7 @@ namespace SAEA.RedisSocket.Core
         {
             return await TaskHelper.Run(() =>
             {
-                lock (_syncLocker)
-                {
-                    key.KeyCheck();
-                    RedisCoder.Request(type, key);
-                    var result = RedisCoder.Decoder(type);
-                    if (result.Type == ResponseType.Redirect)
-                    {
-                        return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoWithKey, type, key);
-                    }
-                    else
-                        return result;
-                }
+                return DoWithKey(type, key);
 
             }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
@@ -184,19 +116,7 @@ namespace SAEA.RedisSocket.Core
         {
             return await TaskHelper.Run(() =>
             {
-                lock (_syncLocker)
-                {
-                    key.KeyCheck();
-                    RedisCoder.Request(type, key, value);
-                    var result = RedisCoder.Decoder(type);
-                    if (result.Type == ResponseType.Redirect)
-                    {
-                        return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoWithKeyValue, type, key, value);
-                    }
-                    else
-                        return result;
-                }
-
+                return DoWithKeyValue(type, key, value);
             }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
 
@@ -204,19 +124,7 @@ namespace SAEA.RedisSocket.Core
         {
             return await TaskHelper.Run(() =>
             {
-                lock (_syncLocker)
-                {
-                    id.KeyCheck();
-                    key.KeyCheck();
-                    RedisCoder.Request(type, id, key, value);
-                    var result = RedisCoder.Decoder(type);
-                    if (result.Type == ResponseType.Redirect)
-                    {
-                        return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoWithID, type, id, key, value);
-                    }
-                    else
-                        return result;
-                }
+                return DoWithID(type, id, key, value);
 
             }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
@@ -226,18 +134,7 @@ namespace SAEA.RedisSocket.Core
         {
             return await TaskHelper.Run(() =>
             {
-                lock (_syncLocker)
-                {
-                    keys.KeyCheck();
-                    RedisCoder.Request(type, keys);
-                    var result = RedisCoder.Decoder(type);
-                    if (result.Type == ResponseType.Redirect)
-                    {
-                        return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoBatchWithParams, type, keys);
-                    }
-                    else
-                        return result;
-                }
+                return DoWithMutiParams(type, keys);
 
             }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
 
@@ -247,17 +144,7 @@ namespace SAEA.RedisSocket.Core
         {
             return TaskHelper.Run(() =>
             {
-                lock (_syncLocker)
-                {
-                    key.KeyCheck();
-                    RedisCoder.Request(RequestType.EXPIRE, key, seconds.ToString());
-                    var result = RedisCoder.Decoder(RequestType.EXPIRE);
-                    if (result.Type == ResponseType.Redirect)
-                    {
-                        OnRedirect.Invoke(result.Data, OperationType.DoExpire, key, seconds);
-                        return;
-                    }
-                }
+                DoExpire(key, seconds);
             });
         }
 
@@ -265,18 +152,7 @@ namespace SAEA.RedisSocket.Core
         {
             return TaskHelper.Run(() =>
             {
-                lock (_syncLocker)
-                {
-                    key.KeyCheck();
-                    RedisCoder.Request(RequestType.EXPIREAT, key, timestamp.ToString());
-                    var result = RedisCoder.Decoder(RequestType.EXPIREAT);
-                    if (result.Type == ResponseType.Redirect)
-                    {
-                        OnRedirect.Invoke(result.Data, OperationType.DoExpireAt, key, timestamp);
-                        return;
-                    }
-                }
-
+                DoExpireAt(key, timestamp);
             });
         }
 
@@ -284,19 +160,7 @@ namespace SAEA.RedisSocket.Core
         {
             return TaskHelper.Run(() =>
             {
-                lock (_syncLocker)
-                {
-                    key.KeyCheck();
-                    RedisCoder.Request(type, key, value);
-                    var result = RedisCoder.Decoder(type);
-                    if (result.Type == ResponseType.Redirect)
-                    {
-                        OnRedirect.Invoke(result.Data, OperationType.DoExpireInsert, key, value, seconds);
-                        return;
-                    }
-                    RedisCoder.Request(RequestType.EXPIRE, string.Format("{0} {1}", key, seconds));
-                    RedisCoder.Decoder(RequestType.EXPIRE);
-                }
+                DoExpireInsert(type, key, value, seconds);
             });
         }
 
@@ -304,18 +168,7 @@ namespace SAEA.RedisSocket.Core
         {
             return await TaskHelper.Run(() =>
             {
-                lock (_syncLocker)
-                {
-                    key.KeyCheck();
-                    RedisCoder.Request(type, key, begin.ToString(), end.ToString(), "WITHSCORES");
-                    var result = RedisCoder.Decoder(type);
-                    if (result.Type == ResponseType.Redirect)
-                    {
-                        return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoRang, type, key, begin, end);
-                    }
-                    else
-                        return result;
-                }
+                return DoRang(type, key, begin, end);
 
             }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
@@ -324,18 +177,7 @@ namespace SAEA.RedisSocket.Core
         {
             return await TaskHelper.Run(() =>
             {
-                lock (_syncLocker)
-                {
-                    key.KeyCheck();
-                    RedisCoder.RequestForRandByScore(type, key, min, max, rangType, offset, count, withScore);
-                    var result = RedisCoder.Decoder(type);
-                    if (result.Type == ResponseType.Redirect)
-                    {
-                        return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoRangByScore, type, key, min, max, rangType, offset, count, withScore);
-                    }
-                    else
-                        return result;
-                }
+                return DoRangByScore(type, key, min, max, rangType, offset, count, withScore);
 
             }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
@@ -345,17 +187,7 @@ namespace SAEA.RedisSocket.Core
         {
             return await TaskHelper.Run(() =>
             {
-                lock (_syncLocker)
-                {
-                    RedisCoder.RequestForList(type, id, list);
-                    var result = RedisCoder.Decoder(type);
-                    if (result.Type == ResponseType.Redirect)
-                    {
-                        return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoBatchWithList, type, list);
-                    }
-                    else
-                        return result;
-                }
+                return DoBatchWithList(type, id, list);
 
             }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
@@ -365,17 +197,7 @@ namespace SAEA.RedisSocket.Core
         {
             return await TaskHelper.Run(() =>
             {
-                lock (_syncLocker)
-                {
-                    RedisCoder.RequestForDic(type, dic);
-                    var result = RedisCoder.Decoder(type);
-                    if (result.Type == ResponseType.Redirect)
-                    {
-                        return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoBatchWithDic, type, dic);
-                    }
-                    else
-                        return result;
-                }
+                return DoBatchWithDic(type, dic);
 
             }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
@@ -385,24 +207,7 @@ namespace SAEA.RedisSocket.Core
         {
             return await TaskHelper.Run(() =>
             {
-                lock (_syncLocker)
-                {
-                    id.KeyCheck();
-                    keys.KeyCheck();
-
-                    List<string> list = new List<string>();
-                    list.Add(type.ToString());
-                    list.Add(id);
-                    list.AddRange(keys);
-                    RedisCoder.RequestOnlyParams(list.ToArray());
-                    var result = RedisCoder.Decoder(type);
-                    if (result.Type == ResponseType.Redirect)
-                    {
-                        return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoBatchWithIDKeys, type, id, keys);
-                    }
-                    else
-                        return result;
-                }
+                return DoBatchWithIDKeys(type, id, keys);
 
             }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
@@ -411,18 +216,7 @@ namespace SAEA.RedisSocket.Core
         {
             return await TaskHelper.Run(() =>
             {
-                lock (_syncLocker)
-                {
-                    id.KeyCheck();
-                    RedisCoder.RequestForDicWidthID(type, id, dic);
-                    var result = RedisCoder.Decoder(type);
-                    if (result.Type == ResponseType.Redirect)
-                    {
-                        return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoBatchZaddWithIDDic, type, id, dic);
-                    }
-                    else
-                        return result;
-                }
+                return DoBatchZaddWithIDDic(type, id, dic);
 
             }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
@@ -431,18 +225,7 @@ namespace SAEA.RedisSocket.Core
         {
             return await TaskHelper.Run(() =>
             {
-                lock (_syncLocker)
-                {
-                    id.KeyCheck();
-                    RedisCoder.RequestForDicWidthID(type, id, dic);
-                    var result = RedisCoder.Decoder(type);
-                    if (result.Type == ResponseType.Redirect)
-                    {
-                        return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoBatchWithIDDic, type, id, dic);
-                    }
-                    else
-                        return result;
-                }
+                return DoBatchWithIDDic(type, id, dic);
 
             }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
@@ -451,46 +234,7 @@ namespace SAEA.RedisSocket.Core
         {
             return await TaskHelper.Run(() =>
             {
-                lock (_syncLocker)
-                {
-                    if (offset < 0) offset = 0;
-
-                    if (!string.IsNullOrEmpty(pattern))
-                    {
-                        if (count > -1)
-                        {
-                            RedisCoder.Request(type, offset.ToString(), RedisConst.MATCH, pattern, RedisConst.COUNT, count.ToString());
-                        }
-                        else
-                        {
-                            RedisCoder.Request(type, offset.ToString(), RedisConst.MATCH, pattern);
-                        }
-                    }
-                    else
-                    {
-                        if (count > -1)
-                        {
-                            RedisCoder.Request(type, offset.ToString(), RedisConst.COUNT, count.ToString());
-                        }
-                        else
-                        {
-                            RedisCoder.Request(type, offset.ToString());
-                        }
-                    }
-                    var result = RedisCoder.Decoder(type);
-                    if (result.Type == ResponseType.Redirect)
-                    {
-                        return (ScanResponse)OnRedirect.Invoke(result.Data, OperationType.DoScan, type, offset, pattern, count);
-                    }
-                    else
-                    {
-                        if (result.Type == ResponseType.Lines)
-                        {
-                            return result.ToScanResponse();
-                        }
-                        return null;
-                    }
-                }
+                return DoScan(type, offset, pattern, count);
 
             }).WithCancellationTimeout(timeSpan);
         }
@@ -499,48 +243,7 @@ namespace SAEA.RedisSocket.Core
         {
             return await TaskHelper.Run(() =>
             {
-                lock (_syncLocker)
-                {
-                    key.KeyCheck();
-
-                    if (offset < 0) offset = 0;
-
-                    if (!string.IsNullOrEmpty(pattern))
-                    {
-                        if (count > -1)
-                        {
-                            RedisCoder.Request(type, key, offset.ToString(), RedisConst.MATCH, pattern, RedisConst.COUNT, count.ToString());
-                        }
-                        else
-                        {
-                            RedisCoder.Request(type, key, offset.ToString(), RedisConst.MATCH, pattern);
-                        }
-                    }
-                    else
-                    {
-                        if (count > -1)
-                        {
-                            RedisCoder.Request(type, key, offset.ToString(), RedisConst.COUNT, count.ToString());
-                        }
-                        else
-                        {
-                            RedisCoder.Request(type, key, offset.ToString());
-                        }
-                    }
-                    var result = RedisCoder.Decoder(type);
-                    if (result.Type == ResponseType.Redirect)
-                    {
-                        return (ScanResponse)OnRedirect.Invoke(result.Data, OperationType.DoScanKey, type, key, offset, pattern, count);
-                    }
-                    else
-                    {
-                        if (result.Type == ResponseType.Lines)
-                        {
-                            return result.ToScanResponse();
-                        }
-                        return null;
-                    }
-                }
+                return DoScanKey(type, key, offset, pattern, count);
 
             }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
@@ -550,34 +253,7 @@ namespace SAEA.RedisSocket.Core
         {
             return await TaskHelper.Run(() =>
             {
-                lock (_syncLocker)
-                {
-                    List<string> list = new List<string>();
-
-                    var arr = type.ToString().Split("_");
-
-                    list.AddRange(arr);
-
-                    if (@params != null)
-                    {
-                        foreach (var item in @params)
-                        {
-                            list.Add(item.ToString());
-                        }
-                    }
-                    RedisCoder.RequestOnlyParams(list.ToArray());
-                    var result = RedisCoder.Decoder(type);
-                    if (result.Type == ResponseType.Redirect)
-                    {
-                        return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoCluster, type, @params);
-                    }
-                    else if (result.Type == ResponseType.Error)
-                    {
-                        throw new Exception(result.Data);
-                    }
-                    else
-                        return result;
-                }
+                return DoMutiCmd(type, @params);
 
             }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
@@ -586,35 +262,7 @@ namespace SAEA.RedisSocket.Core
         {
             return await TaskHelper.Run(() =>
             {
-                lock (_syncLocker)
-                {
-                    List<string> list = new List<string>();
-
-                    var arr = type.ToString().Split("_");
-
-                    list.AddRange(arr);
-
-                    list.Add(slot.ToString());
-
-                    list.Add(action);
-
-                    list.Add(nodeID);
-
-                    RedisCoder.RequestOnlyParams(list.ToArray());
-
-                    var result = RedisCoder.Decoder(type);
-
-                    if (result.Type == ResponseType.Redirect)
-                    {
-                        return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoClusterSetSlot, type, action, slot, nodeID);
-                    }
-                    else if (result.Type == ResponseType.Error)
-                    {
-                        throw new Exception(result.Data);
-                    }
-                    else
-                        return result;
-                }
+                return DoClusterSetSlot(type, action, slot, nodeID);
 
             }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
 

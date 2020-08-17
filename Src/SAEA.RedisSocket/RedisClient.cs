@@ -129,7 +129,8 @@ namespace SAEA.RedisSocket
             else
             {
                 _cnn.RedisServerType = isMaster ? RedisServerType.Master : RedisServerType.Slave;
-                RedisConnectionManager.Set(ipPort, _cnn);
+
+                RedisConnectionManager.Set(ipPort, isMaster, _cnn);
             }
             return OK;
         }

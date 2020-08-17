@@ -97,18 +97,20 @@ namespace SAEA.RedisSocket.Core
         /// 设置RedisConnection
         /// </summary>
         /// <param name="ipPort"></param>
+        /// <param name="isMatser"></param>
         /// <param name="cnn"></param>
-        public static void Set(string ipPort, RedisConnection cnn)
+        public static void Set(string ipPort, bool isMatser, RedisConnection cnn)
         {
-            _redisConnections.TryAdd(ipPort, cnn);
+            _redisConnections.TryAdd(ipPort + (isMatser ? "_master" : "_slave"), cnn);
         }
 
         /// <summary>
         /// 获取RedisConnection
         /// </summary>
         /// <param name="ipPort"></param>
+        /// <param name="isMatser"></param>
         /// <returns></returns>
-        public static RedisConnection Get(string ipPort)
+        public static RedisConnection Get(string ipPort,bool isMatser=true)
         {
             if (_redisConnections.TryGetValue(ipPort, out RedisConnection redisConnection))
             {

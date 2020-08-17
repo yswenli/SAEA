@@ -23,6 +23,7 @@
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.RedisSocket.Core;
+using SAEA.RedisSocket.Interface;
 using SAEA.RedisSocket.Model;
 using System;
 using System.Collections.Generic;
@@ -38,50 +39,54 @@ namespace SAEA.RedisSocket
         /// redis cluster中重置连接事件
         /// </summary>
         /// <param name="ipPort"></param>
-        /// <returns></returns>
-        private RedisConnection _redisDataBase_OnRedirect(string ipPort)
-        {
-            var cnn = RedisConnectionManager.Get(ipPort);
-
-            if (cnn != null)
-            {
-                return (RedisConnection)cnn;
-            }
-            else
-            {
-                this.IsConnected = false;
-
-                this.RedisConfig = new RedisConfig(ipPort, this.RedisConfig.Passwords, this.RedisConfig.ActionTimeOut);
-
-                if (_debugModel)
-                {
-                    cnn = new RedisConnectionDebug(RedisConfig.GetIPPort(), this.RedisConfig.ActionTimeOut);
-                }
-                else
-                {
-                    cnn = new RedisConnection(RedisConfig.GetIPPort(), this.RedisConfig.ActionTimeOut);
-                }
-
-                cnn.OnRedirect += _redisConnection_OnRedirect;
-                cnn.OnDisconnected += _cnn_OnDisconnected;
-                cnn.Connect();
-                cnn.Auth(this.RedisConfig.Passwords);
-                RedisConnectionManager.Set(ipPort, cnn);
-                _cnn = cnn;
-                return cnn;
-            }
-        }
-
-        /// <summary>
-        /// redis cluster中重置连接事件
-        /// </summary>
-        /// <param name="ipPort"></param>
         /// <param name="operationType"></param>
         /// <param name="args"></param>
         /// <returns></returns>
-        private Interface.IResult _redisConnection_OnRedirect(string ipPort, OperationType operationType, params object[] args)
+        private IResult _redisConnection_OnRedirect(string ipPort, OperationType operationType, params object[] args)
         {
             var cnn = RedisConnectionManager.Get(ipPort);
+
+            var requestType = (RequestType)args[0];
+
+            switch (requestType)
+            {
+                case RequestType.GET:
+                case RequestType.EXISTS:
+                case RequestType.SCAN:
+                case RequestType.TTL:
+                case RequestType.PTTL:
+                case RequestType.TYPE:
+                case RequestType.HGET:
+                case RequestType.HEXISTS:
+                case RequestType.HLEN:
+                case RequestType.SMEMBERS:
+                case RequestType.SISMEMBER:
+                case RequestType.SSCAN:
+                case RequestType.HSCAN:
+                case RequestType.ZSCAN:
+                case RequestType.ZSCORE:
+                case RequestType.RANDOMKEY:
+                case RequestType.ZLEXCOUNT:
+                case RequestType.ZCARD:
+                case RequestType.ZCOUNT:
+                case RequestType.ZRANGE:
+                case RequestType.ZRANGEBYLEX:
+                case RequestType.ZRANGEBYSCORE:
+                case RequestType.ZRANK:
+                case RequestType.ZREVRANGE:
+                case RequestType.ZREVRANGEBYSCORE:
+                case RequestType.ZREVRANK:
+                case RequestType.LINDEX:
+                case RequestType.LLEN:
+
+                    var slave = RedisConnectionManager.Get(ipPort, false);
+
+                    if (slave != null)
+                    {
+                        cnn = slave;
+                    }
+                    break;
+            }
 
             if (cnn == null || !cnn.IsConnected)
             {
@@ -103,7 +108,7 @@ namespace SAEA.RedisSocket
                         cnn.Auth(this.RedisConfig.Passwords);
                     _cnn = cnn;
                     this.IsConnected = true;
-                    RedisConnectionManager.Set(ipPort, cnn);
+                    RedisConnectionManager.Set(ipPort, IsMaster, cnn);
                 }
                 else
                 {
@@ -187,8 +192,11 @@ namespace SAEA.RedisSocket
                         cnn.OnRedirect += _redisConnection_OnRedirect;
                         cnn.OnDisconnected += _cnn_OnDisconnected;
                         cnn.Connect();
-                        cnn.RedisServerType = item.IsMaster ? RedisServerType.ClusterMaster : RedisServerType.ClusterSlave;
-                        RedisConnectionManager.Set(item.IPPort, cnn);
+                        if (!string.IsNullOrEmpty(RedisConfig.Passwords))
+                            cnn.Auth(RedisConfig.Passwords);
+                        var isMaster = item.IsMaster;
+                        cnn.RedisServerType = isMaster ? RedisServerType.ClusterMaster : RedisServerType.ClusterSlave;
+                        RedisConnectionManager.Set(item.IPPort, isMaster, cnn);
                     });
                 }
             }
