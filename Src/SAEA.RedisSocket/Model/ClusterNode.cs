@@ -69,29 +69,34 @@ namespace SAEA.RedisSocket.Model
 
         public static List<ClusterNode> ParseList(string info)
         {
-            var lines = info.Replace("\r\n", "").Split("\n", StringSplitOptions.RemoveEmptyEntries);
-
-            List<ClusterNode> list = new List<ClusterNode>();
-
-            foreach (var item in lines)
+            try
             {
-                list.Add(Parse(item));
-            }
+                var lines = info.Replace("\r\n", "").Split("\n", StringSplitOptions.RemoveEmptyEntries);
 
-            foreach (var item in list)
-            {
-                if (!item.IsMaster)
+                List<ClusterNode> list = new List<ClusterNode>();
+
+                foreach (var item in lines)
                 {
-                    var masterNode = list.Where(b => b.NodeID == item.MasterNodeID).FirstOrDefault();
-                    if (masterNode != null)
+                    list.Add(Parse(item));
+                }
+
+                foreach (var item in list)
+                {
+                    if (!item.IsMaster)
                     {
-                        item.MinSlots = masterNode.MinSlots;
-                        item.MaxSlots = masterNode.MaxSlots;
+                        var masterNode = list.Where(b => b.NodeID == item.MasterNodeID).FirstOrDefault();
+                        if (masterNode != null)
+                        {
+                            item.MinSlots = masterNode.MinSlots;
+                            item.MaxSlots = masterNode.MaxSlots;
+                        }
                     }
                 }
-            }
 
-            return list;
+                return list;
+            }
+            catch { }
+            return null;
         }
 
         public static ClusterNode Parse(string info)
@@ -113,8 +118,16 @@ namespace SAEA.RedisSocket.Model
                     if (arr.Length >= 9)
                     {
                         var sarr = arr[8].Split("-");
-                        clusterNode.MinSlots = int.Parse(sarr[0]);
-                        clusterNode.MaxSlots = int.Parse(sarr[1]);
+                        try
+                        {
+                            clusterNode.MinSlots = int.Parse(sarr[0]);
+                        }
+                        catch { }
+                        try
+                        {
+                            clusterNode.MaxSlots = int.Parse(sarr[1]);
+                        }
+                        catch { }                        
                     }
                 }
                 else

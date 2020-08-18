@@ -67,21 +67,45 @@ namespace SAEA.Common
             return Convert(l);
         }
 
-        public static ValueTuple<string, int> ToIPPort(this string remote)
+        /// <summary>
+        /// 字符串拆分成ip和port
+        /// </summary>
+        /// <param name="ipStr"></param>
+        /// <returns></returns>
+        public static ValueTuple<string, int> ToIPPort(this string ipStr)
         {
-            ValueTuple<string, int> result;
+            try
+            {
+                ValueTuple<string, int> result;
 
-            var arr = remote.Split(new string[] { ConstHelper.COLON, ConstHelper.SPACE, ConstHelper.COMMA }, StringSplitOptions.None);
+                var arr = ipStr.Split(new string[] { ConstHelper.COLON, ConstHelper.SPACE, ConstHelper.COMMA }, StringSplitOptions.None);
 
-            if (string.IsNullOrEmpty(arr[0])) arr[0] = "127.0.0.1";
+                if (string.IsNullOrEmpty(arr[0])) arr[0] = "127.0.0.1";
 
-            var ip = arr[0];
+                var ip = arr[0];
 
-            var port = int.Parse(arr[1]);
+                if (string.IsNullOrEmpty(arr[1]))
+                {
+                    throw new Exception("port:" + arr[1]);
+                }
 
-            result = new ValueTuple<string, int>(ip, port);
+                var ai = arr[1].IndexOf("@");
 
-            return result;
+                if (ai > -1)
+                {
+                    arr[1] = arr[1].Substring(0, ai);
+                }
+
+                var port = int.Parse(arr[1]);
+
+                result = new ValueTuple<string, int>(ip, port);
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("转换成IPPort失败，ipStr 内容格式不正确，ipStr：" + ipStr, ex);
+            }
         }
 
         public static IPEndPoint ToIPEndPoint(this string remote)

@@ -27,6 +27,7 @@ using SAEA.RedisSocket.Interface;
 using SAEA.RedisSocket.Model;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace SAEA.RedisSocket
 {
@@ -180,19 +181,22 @@ namespace SAEA.RedisSocket
         {
             var clusterNodes = ClusterNodes;
 
-            foreach (var item in clusterNodes)
+            if (clusterNodes != null && clusterNodes.Any())
             {
-                if (!RedisConnectionManager.Exsits(item.IPPort))
+                foreach (var item in clusterNodes)
                 {
-                    var cnn = new RedisConnection(item.IPPort);
-                    cnn.OnRedirect += _redisConnection_OnRedirect;
-                    cnn.OnDisconnected += _cnn_OnDisconnected;
-                    cnn.Connect();
-                    if (!string.IsNullOrEmpty(RedisConfig.Passwords))
-                        cnn.Auth(RedisConfig.Passwords);
-                    var isMaster = item.IsMaster;
-                    cnn.RedisServerType = isMaster ? RedisServerType.ClusterMaster : RedisServerType.ClusterSlave;
-                    RedisConnectionManager.Set(item.IPPort, isMaster, cnn);
+                    if (!RedisConnectionManager.Exsits(item.IPPort))
+                    {
+                        var cnn = new RedisConnection(item.IPPort);
+                        cnn.OnRedirect += _redisConnection_OnRedirect;
+                        cnn.OnDisconnected += _cnn_OnDisconnected;
+                        cnn.Connect();
+                        if (!string.IsNullOrEmpty(RedisConfig.Passwords))
+                            cnn.Auth(RedisConfig.Passwords);
+                        var isMaster = item.IsMaster;
+                        cnn.RedisServerType = isMaster ? RedisServerType.ClusterMaster : RedisServerType.ClusterSlave;
+                        RedisConnectionManager.Set(item.IPPort, isMaster, cnn);
+                    }
                 }
             }
         }
