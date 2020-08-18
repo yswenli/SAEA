@@ -88,7 +88,7 @@ namespace SAEA.Http.Base
 
             this.Request = new HttpRequest();
 
-            this.Response = new HttpResponse();
+            this.Response = new HttpResponse();            
 
             this.Request.Init(httpMessage);           
 

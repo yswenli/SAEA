@@ -41,78 +41,39 @@ namespace SAEA.RedisSocket.Core
         static ConcurrentDictionary<string, RedisConnection> _redisConnections = new ConcurrentDictionary<string, RedisConnection>();
 
 
-        public static List<ClusterNode> _clusterMasterNodes = new List<ClusterNode>();
-
-
-        static object _locker = new object();
-
         /// <summary>
-        /// 设置主节点信息缓存
-        /// </summary>
-        /// <param name="nodes"></param>
-        public static void SetClusterNodes(List<ClusterNode> nodes)
-        {
-            lock (_locker)
-            {
-                var ids = nodes.Select(b => b.NodeID).ToList();
-                _clusterMasterNodes.RemoveAll(b => ids.Contains(b.NodeID));
-                _clusterMasterNodes.AddRange(nodes);
-            }
-        }
-
-        /// <summary>
-        /// 移除节点信息缓存
+        /// getkey
         /// </summary>
         /// <param name="ipPort"></param>
-        public static void RemoveClusterNode(string ipPort)
-        {
-            lock (_locker)
-            {
-                _clusterMasterNodes.RemoveAll(b => b.IPPort == ipPort);
-            }
-        }
-
-        public static string GetIPPortWidthKey(string key)
-        {
-            var slot = RedisCRC16.GetClusterSlot(key);
-            string ipPort = string.Empty;
-            lock (_locker)
-            {
-                return _clusterMasterNodes.Where(b => b.MinSlots <= slot && b.MaxSlots >= slot).Select(b => b.IPPort).First();
-            }
-        }
-
-        /// <summary>
-        /// 根据key获取对应连接对象
-        /// </summary>
-        /// <param name="key"></param>
+        /// <param name="isMaster"></param>
         /// <returns></returns>
-        public static RedisConnection GetConnectionBySlot(string key)
+        static string GetKey(string ipPort, bool isMaster)
         {
-            return Get(GetIPPortWidthKey(key));
+            return ipPort + (isMaster ? "_master" : "_slave");
         }
+
 
 
         /// <summary>
         /// 设置RedisConnection
         /// </summary>
         /// <param name="ipPort"></param>
-        /// <param name="isMatser"></param>
+        /// <param name="isMaster"></param>
         /// <param name="cnn"></param>
-        public static void Set(string ipPort, bool isMatser, RedisConnection cnn)
+        public static void Set(string ipPort, bool isMaster, RedisConnection cnn)
         {
-            _redisConnections.TryAdd(ipPort + (isMatser ? "_master" : "_slave"), cnn);
+            _redisConnections.TryAdd(GetKey(ipPort, isMaster), cnn);
         }
 
         /// <summary>
         /// 获取RedisConnection
         /// </summary>
         /// <param name="ipPort"></param>
-        /// <param name="isMatser"></param>
+        /// <param name="isMaster"></param>
         /// <returns></returns>
-        public static RedisConnection Get(string ipPort,bool isMatser=true)
+        public static RedisConnection Get(string ipPort, bool isMaster = true)
         {
-            if (_redisConnections.TryGetValue(ipPort, out RedisConnection redisConnection))
+            if (_redisConnections.TryGetValue(GetKey(ipPort, isMaster), out RedisConnection redisConnection))
             {
                 return redisConnection;
             }
@@ -126,7 +87,13 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public static bool Exsits(string ipPort)
         {
-            return _redisConnections.ContainsKey(ipPort);
+            var result = _redisConnections.ContainsKey(GetKey(ipPort, true));
+
+            if (!result)
+            {
+                result = _redisConnections.ContainsKey(GetKey(ipPort, false));
+            }
+            return result;
         }
 
         /// <summary>
@@ -135,10 +102,14 @@ namespace SAEA.RedisSocket.Core
         /// <param name="ipPort"></param>
         public static void Remove(string ipPort)
         {
-            _redisConnections.TryRemove(ipPort, out RedisConnection redisConnection);
+            _redisConnections.TryRemove(GetKey(ipPort, true), out RedisConnection redisConnection1);
+            _redisConnections.TryRemove(GetKey(ipPort, false), out RedisConnection redisConnection2);
         }
 
 
+        /// <summary>
+        /// 清理全部内容
+        /// </summary>
         public static void Clear()
         {
             var list = _redisConnections.Values;
