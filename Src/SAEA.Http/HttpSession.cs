@@ -69,7 +69,9 @@ namespace SAEA.Http
                 OnExpired?.Invoke((HttpSession)o);
             }), this, (long)(new TimeSpan(0, 20, 0).TotalMilliseconds), -1);
         }
-
+        /// <summary>
+        /// 重新更新计时器
+        /// </summary>
         internal void Refresh()
         {
             this.Expired = DateTime.Now.AddMinutes(20);
@@ -80,19 +82,24 @@ namespace SAEA.Http
 
     public class HttpSession<T>
     {
-        Dictionary<string, HttpSessionItem<T>> keyValuePairs;
+        ConcurrentDictionary<string, HttpSessionItem<T>> keyValuePairs;
 
         public HttpSession()
         {
-            keyValuePairs = new Dictionary<string, HttpSessionItem<T>>();
+            keyValuePairs = new ConcurrentDictionary<string, HttpSessionItem<T>>();
         }
 
         public T this[string key]
         {
             get
             {
-                var result = keyValuePairs[key];
-                if (result != null) return result.Value;
+                if (keyValuePairs.TryGetValue(key,out HttpSessionItem<T> data))
+                {
+                    if (data != null && data.Value!=null)
+                    {
+                        return data.Value;
+                    }
+                }
                 return default(T);
             }
             set
@@ -111,10 +118,7 @@ namespace SAEA.Http
 
         public void Remove(string key)
         {
-            if (keyValuePairs.ContainsKey(key))
-            {
-                keyValuePairs.Remove(key);
-            }
+            keyValuePairs.TryRemove(key,out HttpSessionItem<T> t);
         }
 
         public void Clear()
@@ -180,7 +184,12 @@ namespace SAEA.Http
             return StringHelper.Substring(string.Join("", bytes), 0, 15);
         }
 
-        public static HttpSession SetAndGet(string id)
+        /// <summary>
+        /// 获取HttpSession
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        public static HttpSession GetIfNotExistsSet(string id)
         {
             var session = _keyValuePairs.GetOrAdd(id, (k) =>
             {
@@ -197,18 +206,10 @@ namespace SAEA.Http
             Remove(obj.ID);
         }
 
-        public static HttpSession Get(string id)
-        {
-            var httpSession = _keyValuePairs[id];
-            if (httpSession.Expired <= DateTime.Now)
-            {
-                _keyValuePairs.TryRemove(id, out HttpSession s);
-                return null;
-            }
-            httpSession.Refresh();
-            return httpSession;
-        }
-
+        /// <summary>
+        /// 移除httpSession
+        /// </summary>
+        /// <param name="id"></param>
         public static void Remove(string id)
         {
             if (_keyValuePairs.TryRemove(id, out HttpSession httpSession))

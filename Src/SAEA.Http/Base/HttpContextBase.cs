@@ -117,7 +117,7 @@ namespace SAEA.Http.Base
                 sessionID = this.Request.Cookies[ConstHelper.SESSIONID].Value;
             }
 
-            this.Session = HttpSessionManager.SetAndGet(sessionID);
+            this.Session = HttpSessionManager.GetIfNotExistsSet(sessionID);
 
             var domain = userToken.ID;
 
