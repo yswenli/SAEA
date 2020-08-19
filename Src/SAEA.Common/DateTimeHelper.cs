@@ -22,15 +22,37 @@
 *
 *****************************************************************************/
 using System;
+using System.Globalization;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace SAEA.Common
 {
+    /// <summary>
+    /// 时间工具类
+    /// </summary>
     public static class DateTimeHelper
     {
-        static AutoResetEvent autoResetEvent = new AutoResetEvent(false);
-        
-        public static DateTime Now => DateTime.Now;
+        static DateTime _dt;
+        static DateTimeHelper()
+        {
+            Task.Factory.StartNew(() =>
+            {
+                while (true)
+                {
+                    _dt = DateTime.Now;
+                    Thread.Sleep(1);
+                }
+            }, TaskCreationOptions.LongRunning);
+        }
+
+        public static DateTime Now
+        {
+            get
+            {
+                return _dt;
+            }
+        }
 
         /// <summary>
         /// 将中国时间转换成UTC
@@ -45,17 +67,17 @@ namespace SAEA.Common
 
         public static string ToString(string format = "yyyy-MM-dd HH:mm:ss.fff")
         {
-            return Now.ToString(format, System.Globalization.CultureInfo.InvariantCulture);
+            return Now.ToString(format, CultureInfo.InvariantCulture);
         }
 
         public static string ToFString(this DateTime dt, string format = "yyyy-MM-dd HH:mm:ss.fff")
         {
-            return dt.ToString(format, System.Globalization.CultureInfo.InvariantCulture);
+            return dt.ToString(format, CultureInfo.InvariantCulture);
         }
 
         public static string ToGMTString(this DateTime dt)
         {
-            return dt.ToString("r", System.Globalization.CultureInfo.InvariantCulture);
+            return dt.ToString("r", CultureInfo.InvariantCulture);
         }
 
         /// <summary>
