@@ -655,7 +655,7 @@ namespace SAEA.RedisSocket.Core.Batches
         /// </summary>
         /// <param name="key"></param>
         /// <param name="values"></param>
-        public void ZRemoveAsync(string key, string[] values)
+        public void ZRemoveAsync(string key, params string[] values)
         {
             var list = new List<string>();
 

@@ -202,7 +202,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="key"></param>
         /// <param name="values"></param>
         /// <returns></returns>
-        public int ZRemove(string key, string[] values)
+        public int ZRemove(string key, params string[] values)
         {
             var result = 0;
             int.TryParse(RedisConnection.DoBatchWithIDKeys(RequestType.ZREM, key, values).Data, out result);

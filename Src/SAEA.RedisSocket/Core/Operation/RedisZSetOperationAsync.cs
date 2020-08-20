@@ -231,7 +231,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="key"></param>
         /// <param name="values"></param>
         /// <returns></returns>
-        public async Task<int> ZRemoveAsync(TimeSpan timeSpan, string key, string[] values)
+        public async Task<int> ZRemoveAsync(TimeSpan timeSpan, string key, params string[] values)
         {
             var result = 0;
             var data = await RedisConnection.DoBatchWithIDKeysAsync(timeSpan, RequestType.ZREM, key, values);

@@ -38,7 +38,7 @@ namespace SAEA.RedisSocket.Core.Batches
         /// </summary>
         /// <returns></returns>
         IEnumerable<object> Execute();
-        void AppendAsync(string key, string value);        
+        void AppendAsync(string key, string value);
 
         void DecrementAsync(string key);
         void DecrementByAsync(string key, int num);
@@ -158,7 +158,7 @@ namespace SAEA.RedisSocket.Core.Batches
         /// <param name="key"></param>
         /// <param name="value"></param>
         void ZRankAsync(string key, string value);
-        void ZRemoveAsync(string key, string[] values);
+        void ZRemoveAsync(string key, params string[] values);
         /// <summary>
         /// 对于一个所有成员的分值都相同的有序集合键 key 来说， 这个命令会移除该集合中， 成员介于 min 和 max 范围内的所有元素。
         /// </summary>
