@@ -42,7 +42,12 @@ namespace SAEA.MVC
         /// <summary>
         /// 自定义异常事件
         /// </summary>
-        public new event ExceptionHandler OnException;
+        public override event ExceptionHandler OnException;
+
+        /// <summary>
+        /// 自定义http处理
+        /// </summary>
+        public override event RequestDelegate OnRequestDelegate;
 
         /// <summary>
         /// mvc HttpContext
@@ -60,7 +65,7 @@ namespace SAEA.MVC
         /// <param name="userToken"></param>
         public override void HttpHandle(IUserToken userToken)
         {
-            IHttpResult result;
+            IHttpResult result = null;
 
             try
             {
@@ -87,7 +92,14 @@ namespace SAEA.MVC
                                 this.Request.Parmas[item.Key] = item.Value;
                             }
                         }
-                        result = GetActionResult();
+                        if (OnRequestDelegate != null)
+                        {
+                            OnRequestDelegate.Invoke(this);
+                        }
+                        else
+                        {
+                            result = GetActionResult();
+                        }
                         break;
                     case ConstHelper.OPTIONS:
                         result = new EmptyResult();
@@ -107,7 +119,7 @@ namespace SAEA.MVC
                 }
             }
 
-            if (!(result is IBigDataResult))
+            if (result != null && !(result is IBigDataResult))
             {
                 Response.SetCached(result, this.Session.CacheCalcString);
 

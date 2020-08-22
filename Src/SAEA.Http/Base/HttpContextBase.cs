@@ -40,7 +40,12 @@ namespace SAEA.Http.Base
         /// <summary>
         /// 自定义异常事件
         /// </summary>
-        public event ExceptionHandler OnException;
+        public abstract event ExceptionHandler OnException;
+
+        /// <summary>
+        /// 自定义http处理
+        /// </summary>
+        public abstract event RequestDelegate OnRequestDelegate;
 
         public HttpRequest Request
         {

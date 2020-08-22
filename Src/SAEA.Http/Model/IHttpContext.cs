@@ -39,6 +39,11 @@ namespace SAEA.Http.Model
         /// </summary>
         event ExceptionHandler OnException;
 
+        /// <summary>
+        /// 自定义http处理
+        /// </summary>
+        event RequestDelegate OnRequestDelegate;
+
         void HttpHandle(IUserToken userToken);
 
         IHttpResult GetActionResult();

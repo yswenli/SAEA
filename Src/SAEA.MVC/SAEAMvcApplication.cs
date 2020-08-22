@@ -48,6 +48,11 @@ namespace SAEA.MVC
         public event ExceptionHandler OnException;
 
         /// <summary>
+        /// 自定义http处理
+        /// </summary>
+        public event RequestDelegate OnRequestDelegate;
+
+        /// <summary>
         /// 构建mvc容器
         /// </summary>
         /// <param name="mvcConfig"></param>
@@ -83,15 +88,9 @@ namespace SAEA.MVC
 
             _webHost = new WebHost(typeof(HttpContext), root, port, isStaticsCached, isZiped, bufferSize, count, 120 * 1000, isDebug);
 
-            _webHost.OnException += _webHost_OnException;
-
             _webHost.RouteParam = AreaCollection.RouteTable;
         }
-
-        private Http.Model.IHttpResult _webHost_OnException(Http.Model.IHttpContext httpContext, Exception ex)
-        {
-            return OnException?.Invoke(httpContext, ex);
-        }
+        
 
         /// <summary>
         /// 设置默认路由地址
@@ -128,6 +127,12 @@ namespace SAEA.MVC
         {
             try
             {
+                if (OnException != null)
+                    _webHost.OnException += _webHost_OnException;
+
+                if (OnRequestDelegate != null)
+                    _webHost.OnRequestDelegate += _webHost_OnRequestDelegate;
+
                 _webHost.Start();
                 this.Running = true;
             }
@@ -135,6 +140,16 @@ namespace SAEA.MVC
             {
                 throw new Exception("当前端口已被其他程序占用，请更换端口再做尝试！ err:" + ex.Message);
             }
+        }
+
+        private void _webHost_OnRequestDelegate(Http.Model.IHttpContext context)
+        {
+            OnRequestDelegate?.Invoke(context);
+        }
+
+        private Http.Model.IHttpResult _webHost_OnException(Http.Model.IHttpContext httpContext, Exception ex)
+        {
+            return OnException?.Invoke(httpContext, ex);
         }
 
         /// <summary>

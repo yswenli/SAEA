@@ -15,16 +15,10 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
-using Microsoft.Win32;
 using SAEA.Common;
 using System;
-using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace SAEA.FTPTest.Common

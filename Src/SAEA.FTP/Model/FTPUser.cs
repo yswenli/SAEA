@@ -15,7 +15,7 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
-using Newtonsoft.Json;
+using SAEA.Common.Newtonsoft.Json;
 using SAEA.FTP.Core;
 
 namespace SAEA.FTP.Model

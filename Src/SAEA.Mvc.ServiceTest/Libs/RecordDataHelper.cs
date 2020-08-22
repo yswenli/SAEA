@@ -16,6 +16,7 @@
 *描    述：
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.Http;
 using SAEA.RESTED.Models;
 using System;
 using System.Collections.Generic;
@@ -276,7 +277,7 @@ namespace SAEA.RESTED.Libs
             if (RecordData != null && RecordData.Groups != null && RecordData.Groups.Any())
             {
                 if (!string.IsNullOrWhiteSpace(keywords))
-                    keywords = SAEA.Http.HttpUtility.UrlDecode(keywords);
+                    keywords = HttpUtility.UrlDecode(keywords);
 
                 StringBuilder sb = new StringBuilder();
 

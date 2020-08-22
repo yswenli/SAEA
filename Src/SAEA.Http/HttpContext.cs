@@ -35,6 +35,17 @@ namespace SAEA.Http
     /// </summary>
     internal class HttpContext : HttpContextBase, IHttpContext
     {
+        /// <summary>
+        /// 自定义异常事件
+        /// </summary>
+        public override event ExceptionHandler OnException;
+
+        /// <summary>
+        /// 自定义http处理
+        /// </summary>
+        public override event RequestDelegate OnRequestDelegate;
+
+
         public HttpContext(IWebHost webHost, HttpMessage httpMessage) : base(webHost, httpMessage)
         {
 
@@ -46,42 +57,56 @@ namespace SAEA.Http
         /// <param name="userToken"></param>
         public override void HttpHandle(IUserToken userToken)
         {
-            IHttpResult result;
+            IHttpResult result = null;
 
-            this.InitSession(userToken);
-
-            switch (this.Request.Method)
+            try
             {
-                case ConstHelper.GET:
-                case ConstHelper.POST:
-                case ConstHelper.PUT:
-                case ConstHelper.DELETE:
+                this.InitSession(userToken);
 
-                    if (this.Request.Query.Count > 0)
-                    {
-                        foreach (var item in this.Request.Query)
+                switch (Request.Method)
+                {
+                    case ConstHelper.GET:
+                    case ConstHelper.POST:
+                    case ConstHelper.PUT:
+                    case ConstHelper.DELETE:
+
+                        if (Request.Query.Count > 0)
                         {
-                            this.Request.Parmas[item.Key] = item.Value;
+                            foreach (var item in Request.Query)
+                            {
+                                Request.Parmas[item.Key] = item.Value;
+                            }
                         }
-                    }
-                    if (this.Request.Forms.Count > 0)
-                    {
-                        foreach (var item in this.Request.Forms)
+                        if (Request.Forms.Count > 0)
                         {
-                            this.Request.Parmas[item.Key] = item.Value;
+                            foreach (var item in Request.Forms)
+                            {
+                                Request.Parmas[item.Key] = item.Value;
+                            }
                         }
-                    }
-                    result = GetActionResult();
-                    break;
-                case ConstHelper.OPTIONS:
-                    result = new HttpEmptyResult();
-                    break;
-                default:
-                    result = new HttpContentResult("不支持的请求方式", System.Net.HttpStatusCode.NotImplemented);
-                    break;
+                        if (OnRequestDelegate != null)
+                        {
+                            OnRequestDelegate.Invoke(this);
+                        }
+                        else
+                        {
+                            result = GetActionResult();
+                        }
+                        break;
+                    case ConstHelper.OPTIONS:
+                        result = new HttpEmptyResult();
+                        break;
+                    default:
+                        result = new HttpContentResult("不支持的请求方式", System.Net.HttpStatusCode.NotImplemented);
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                result = OnException?.Invoke(this, ex);
             }
 
-            if (!(result is IBigDataResult))
+            if (result != null && !(result is IBigDataResult))
             {
                 Response.SetCached(result, this.Session.CacheCalcString);
 

@@ -66,6 +66,11 @@ namespace SAEA.Http
         /// </summary>
         public event ExceptionHandler OnException;
 
+        /// <summary>
+        /// 自定义http处理
+        /// </summary>
+        public event RequestDelegate OnRequestDelegate;
+
 
         /// <summary>
         /// SAEA WebServer
@@ -156,15 +161,24 @@ namespace SAEA.Http
             {
                 var httpContext = (IHttpContext)Activator.CreateInstance(_httpContentType, this, httpMessage);
 
-                httpContext.OnException += HttpContext_OnException;
+                if (OnException != null)
+                    httpContext.OnException += HttpContext_OnException;
+
+                if (OnRequestDelegate != null)
+                    httpContext.OnRequestDelegate += HttpContext_OnRequestDelegate;
 
                 httpContext.HttpHandle(userToken);
 
             }
             catch (Exception ex)
             {
-                LogHelper.Error("WebHost._serverSocket_OnDisconnected 意外断开连接", ex, httpMessage);
+                LogHelper.Error("WebHost._serverSocket_OnDisconnected 意外断开连接", ex, userToken, httpMessage);
             }
+        }
+
+        private void HttpContext_OnRequestDelegate(IHttpContext context)
+        {
+            OnRequestDelegate?.Invoke(context);
         }
 
         private IHttpResult HttpContext_OnException(IHttpContext httpContext, Exception ex)
