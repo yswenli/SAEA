@@ -33,6 +33,8 @@ namespace SAEA.RedisSocket.Core.Batches
 
         RedisCoder _redisCode;
 
+        readonly object SyncRoot;
+
         /// <summary>
         /// Redis批量操作类
         /// </summary>
@@ -40,6 +42,8 @@ namespace SAEA.RedisSocket.Core.Batches
         internal Batch(RedisDataBase redisDataBase)
         {
             _redisCode = redisDataBase.RedisConnection.RedisCoder;
+
+            SyncRoot = redisDataBase.RedisConnection.SyncRoot;
 
             _batchData = new List<BatchItem>();
         }
@@ -50,22 +54,25 @@ namespace SAEA.RedisSocket.Core.Batches
         /// <returns></returns>
         public IEnumerable<object> Execute()
         {
-            if (!_batchData.Any()) yield return null;
-
-            StringBuilder sb = new StringBuilder();
-
-            foreach (var item in _batchData)
+            lock (SyncRoot)
             {
-                sb.Append(item.Cmd);
-            }
+                if (!_batchData.Any()) yield return null;
 
-            _redisCode.Request(sb.ToString());
+                StringBuilder sb = new StringBuilder();
 
-            foreach (var item in _batchData)
-            {
-                var data = _redisCode.Decoder(item.RequestType);
+                foreach (var item in _batchData)
+                {
+                    sb.Append(item.Cmd);
+                }
 
-                yield return data.Data;
+                _redisCode.Request(sb.ToString());
+
+                foreach (var item in _batchData)
+                {
+                    var data = _redisCode.Decoder(item.RequestType);
+
+                    yield return data.Data;
+                }
             }
         }
 

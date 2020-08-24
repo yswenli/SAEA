@@ -34,9 +34,14 @@ namespace SAEA.RedisSocket.Base.Net
 
         public event Action<DateTime> OnActived;
 
+        /// <summary>
+        /// 同步对象
+        /// </summary>
+        public readonly object SyncRoot;
+
         public RClient(int bufferSize = 100 * 1024, string ip = "127.0.0.1", int port = 39654) : base(new RContext(), string.IsNullOrEmpty(ip) ? "127.0.0.1" : ip, port, bufferSize)
         {
-            
+            SyncRoot = new object();
         }
 
         protected override void OnReceived(byte[] data)

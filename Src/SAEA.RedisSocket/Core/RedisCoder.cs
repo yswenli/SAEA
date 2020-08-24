@@ -36,6 +36,8 @@ namespace SAEA.RedisSocket.Core
     {
         public const string SEPARATOR = "===========YSWENLI============";
 
+        public const string MOVED = "-MOVED";
+
         RedisStream _redisStream = new RedisStream();
 
         string _sendCommand = string.Empty;
@@ -433,24 +435,26 @@ namespace SAEA.RedisSocket.Core
 
                 command = GetRedisReply();
 
-                if (command.IndexOf("-") == 0 && command.IndexOf("-MOVED") == -1)
+                if (string.IsNullOrEmpty(command)) return null;
+
+                if (command.IndexOf("-") == 0 && command.IndexOf(MOVED) == -1)
                 {
                     responseData.Type = ResponseType.Error;
                     responseData.Data = command;
                     return responseData;
                 }
 
-
                 while (command == ConstHelper.ENTER)
                 {
                     command = GetRedisReply();
 
-                    if (command.IndexOf("-") == 0 && command.IndexOf("-MOVED") == -1)
+                    if (command.IndexOf("-") == 0 && command.IndexOf(MOVED) == -1)
                     {
                         responseData.Type = ResponseType.Error;
                         responseData.Data = command;
                         return responseData;
                     }
+                    if (string.IsNullOrEmpty(command)) return null;
                 }
 
                 var temp = Redirect(command);
@@ -1085,7 +1089,7 @@ namespace SAEA.RedisSocket.Core
         private static ResponseData Redirect(string command)
         {
             ResponseData result = null;
-            if (command.Contains("-MOVED"))
+            if (command.IndexOf(MOVED) == 0)
             {
                 result = new ResponseData()
                 {

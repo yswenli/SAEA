@@ -36,11 +36,14 @@ namespace SAEA.RedisSocket.Core
     /// </summary>
     internal partial class RedisConnection
     {
-        object _syncLocker = new object();
-
         RClient _cnn;
 
         DateTime _actived;
+
+        /// <summary>
+        /// 同步对象
+        /// </summary>
+        public readonly object SyncRoot;
 
         public DateTime Actived
         {
@@ -90,6 +93,7 @@ namespace SAEA.RedisSocket.Core
             _cnn.OnMessage += _cnn_OnMessage;
             _cnn.OnDisconnected += _cnn_OnDisconnected;
             _redisCoder = new RedisCoder(_cnn, actionTimeout);
+            SyncRoot = _cnn.SyncRoot;
         }
 
         private void _cnn_OnDisconnected(string ID, Exception ex)
@@ -136,7 +140,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         internal ResponseData RequestWithConsole(string cmd)
         {
-            lock (_syncLocker)
+            lock (SyncRoot)
             {
                 ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
                 try
@@ -187,7 +191,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="cmd"></param>
         public ResponseData Do(RequestType type)
         {
-            lock (_syncLocker)
+            lock (SyncRoot)
             {
                 RedisCoder.RequestOnlyParams(type.ToString());
                 var result = RedisCoder.Decoder(type);
@@ -213,7 +217,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public ResponseData DoWithOne(RequestType type, string content)
         {
-            lock (_syncLocker)
+            lock (SyncRoot)
             {
                 content.KeyCheck();
                 RedisCoder.Request(type, content);
@@ -229,7 +233,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public ResponseData DoWithKey(RequestType type, string key)
         {
-            lock (_syncLocker)
+            lock (SyncRoot)
             {
                 key.KeyCheck();
                 RedisCoder.Request(type, key);
@@ -245,7 +249,7 @@ namespace SAEA.RedisSocket.Core
 
         public ResponseData DoWithKeyValue(RequestType type, string key, string value)
         {
-            lock (_syncLocker)
+            lock (SyncRoot)
             {
                 key.KeyCheck();
                 RedisCoder.Request(type, key, value);
@@ -261,7 +265,7 @@ namespace SAEA.RedisSocket.Core
 
         public ResponseData DoWithID(RequestType type, string id, string key, string value)
         {
-            lock (_syncLocker)
+            lock (SyncRoot)
             {
                 id.KeyCheck();
                 key.KeyCheck();
@@ -278,7 +282,7 @@ namespace SAEA.RedisSocket.Core
 
         public ResponseData DoWithMutiParams(RequestType type, params string[] keys)
         {
-            lock (_syncLocker)
+            lock (SyncRoot)
             {
                 keys.KeyCheck();
                 RedisCoder.Request(type, keys);
@@ -294,7 +298,7 @@ namespace SAEA.RedisSocket.Core
 
         public void DoExpire(string key, int seconds)
         {
-            lock (_syncLocker)
+            lock (SyncRoot)
             {
                 key.KeyCheck();
                 RedisCoder.Request(RequestType.EXPIRE, key, seconds.ToString());
@@ -309,7 +313,7 @@ namespace SAEA.RedisSocket.Core
 
         public void DoExpireAt(string key, int timestamp)
         {
-            lock (_syncLocker)
+            lock (SyncRoot)
             {
                 key.KeyCheck();
                 RedisCoder.Request(RequestType.EXPIREAT, key, timestamp.ToString());
@@ -324,7 +328,7 @@ namespace SAEA.RedisSocket.Core
 
         public void DoExpireInsert(RequestType type, string key, string value, int seconds)
         {
-            lock (_syncLocker)
+            lock (SyncRoot)
             {
                 key.KeyCheck();
                 RedisCoder.Request(type, key, value);
@@ -341,7 +345,7 @@ namespace SAEA.RedisSocket.Core
 
         public ResponseData DoRang(RequestType type, string key, double begin = 0, double end = -1)
         {
-            lock (_syncLocker)
+            lock (SyncRoot)
             {
                 key.KeyCheck();
                 RedisCoder.Request(type, key, begin.ToString(), end.ToString(), "WITHSCORES");
@@ -357,7 +361,7 @@ namespace SAEA.RedisSocket.Core
 
         public ResponseData DoRangByScore(RequestType type, string key, double min = double.MinValue, double max = double.MaxValue, RangType rangType = RangType.None, long offset = -1, int count = 20, bool withScore = false)
         {
-            lock (_syncLocker)
+            lock (SyncRoot)
             {
                 key.KeyCheck();
                 RedisCoder.RequestForRandByScore(type, key, min, max, rangType, offset, count, withScore);
@@ -373,7 +377,7 @@ namespace SAEA.RedisSocket.Core
 
         public void DoSub(string[] channels, Action<string, string> onMsg)
         {
-            lock (_syncLocker)
+            lock (SyncRoot)
             {
                 RedisCoder.Request(RequestType.SUBSCRIBE, channels);
                 RedisCoder.IsSubed = true;
@@ -399,7 +403,7 @@ namespace SAEA.RedisSocket.Core
 
         public ResponseData DoBatchWithList(RequestType type, string id, IEnumerable<string> list)
         {
-            lock (_syncLocker)
+            lock (SyncRoot)
             {
                 RedisCoder.RequestForList(type, id, list);
                 var result = RedisCoder.Decoder(type);
@@ -414,7 +418,7 @@ namespace SAEA.RedisSocket.Core
 
         public ResponseData DoBatchWithDic(RequestType type, Dictionary<string, string> dic)
         {
-            lock (_syncLocker)
+            lock (SyncRoot)
             {
                 RedisCoder.RequestForDic(type, dic);
                 var result = RedisCoder.Decoder(type);
@@ -430,7 +434,7 @@ namespace SAEA.RedisSocket.Core
 
         public ResponseData DoBatchWithIDKeys(RequestType type, string id, params string[] keys)
         {
-            lock (_syncLocker)
+            lock (SyncRoot)
             {
                 id.KeyCheck();
                 keys.KeyCheck();
@@ -452,7 +456,7 @@ namespace SAEA.RedisSocket.Core
 
         public ResponseData DoBatchZaddWithIDDic(RequestType type, string id, Dictionary<double, string> dic)
         {
-            lock (_syncLocker)
+            lock (SyncRoot)
             {
                 id.KeyCheck();
                 RedisCoder.RequestForDicWidthID(type, id, dic);
@@ -468,7 +472,7 @@ namespace SAEA.RedisSocket.Core
 
         public ResponseData DoBatchWithIDDic(RequestType type, string id, Dictionary<string, string> dic)
         {
-            lock (_syncLocker)
+            lock (SyncRoot)
             {
                 id.KeyCheck();
                 RedisCoder.RequestForDicWidthID(type, id, dic);
@@ -493,7 +497,7 @@ namespace SAEA.RedisSocket.Core
 
         public ScanResponse DoScan(RequestType type, int offset = 0, string pattern = "*", int count = -1)
         {
-            lock (_syncLocker)
+            lock (SyncRoot)
             {
                 if (offset < 0) offset = 0;
 
@@ -546,7 +550,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public ScanResponse DoScanKey(RequestType type, string key, int offset = 0, string pattern = "*", int count = -1)
         {
-            lock (_syncLocker)
+            lock (SyncRoot)
             {
                 key.KeyCheck();
 
@@ -593,7 +597,7 @@ namespace SAEA.RedisSocket.Core
 
         public ResponseData DoMutiCmd(RequestType type, params object[] @params)
         {
-            lock (_syncLocker)
+            lock (SyncRoot)
             {
                 List<string> list = new List<string>();
 
@@ -626,7 +630,7 @@ namespace SAEA.RedisSocket.Core
 
         public ResponseData DoClusterSetSlot(RequestType type, string action, int slot, string nodeID)
         {
-            lock (_syncLocker)
+            lock (SyncRoot)
             {
                 List<string> list = new List<string>();
 
