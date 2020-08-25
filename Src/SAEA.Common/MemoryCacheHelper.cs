@@ -38,10 +38,31 @@ namespace SAEA.Common
 
         object _synclocker = new object();
 
+        /// <summary>
+        /// 过期事件
+        /// </summary>
+        public event Action<T> OnTimeOut;
 
-        public MemoryCacheHelper()
+        /// <summary>
+        /// 自定义过期缓存
+        /// </summary>
+        /// <param name="seconds"></param>
+        public MemoryCacheHelper(int seconds = 10)
         {
             _dic = new ConcurrentDictionary<string, MemoryCacheItem<T>>();
+
+            ThreadHelper.PulseAction(() =>
+            {
+                var values = _dic.Values.Where(b => b.Expired < DateTimeHelper.Now);
+                if (values != null)
+                {
+                    foreach (var val in values)
+                    {
+                        if (val != null)
+                            OnTimeOut?.Invoke(val.Value);
+                    }
+                }
+            }, new TimeSpan(0, 0, seconds), false);
         }
 
         public void Set(string key, T value, TimeSpan timeOut)
@@ -79,10 +100,14 @@ namespace SAEA.Common
             }
         }
 
-
         public void Del(string key)
         {
             _dic.TryRemove(key, out MemoryCacheItem<T> mc);
+        }
+
+        public bool Del(string key, out MemoryCacheItem<T> mc)
+        {
+            return _dic.TryRemove(key, out mc);
         }
 
         public IEnumerable<T> List
@@ -91,6 +116,11 @@ namespace SAEA.Common
             {
                 return _dic.Values.Select(b => b.Value);
             }
+        }
+
+        public ICollection<MemoryCacheItem<T>> ToList()
+        {
+            return _dic.Values;
         }
 
         public void Clear()
@@ -102,6 +132,28 @@ namespace SAEA.Common
         {
             _dic.Clear();
             _dic = null;
+        }
+    }
+
+    /// <summary>
+    /// 缓存项
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    public class MemoryCacheItem<T>
+    {
+        public string Key
+        {
+            get; set;
+        }
+
+        public T Value
+        {
+            get; set;
+        }
+
+        public DateTime Expired
+        {
+            get; set;
         }
     }
 }

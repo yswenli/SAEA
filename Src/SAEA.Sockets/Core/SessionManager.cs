@@ -48,7 +48,7 @@ namespace SAEA.Sockets.Core
     {
         UserTokenPool _userTokenPool;
 
-        OuterMemoryCacheHelper<IUserToken> _session;
+        MemoryCacheHelper<IUserToken> _session;
 
         TimeSpan _timeOut;
 
@@ -79,7 +79,7 @@ namespace SAEA.Sockets.Core
         {
             _userTokenPool = new UserTokenPool(context, count);
 
-            _session = new OuterMemoryCacheHelper<IUserToken>();
+            _session = new MemoryCacheHelper<IUserToken>();
             _timeOut = timeOut;
             _bufferSize = bufferSize;
             _completed = completed;
@@ -91,18 +91,12 @@ namespace SAEA.Sockets.Core
             _argsPool.InitPool(_completed);
 
             //超时处理 timeout handler
-            ThreadHelper.PulseAction(() =>
-            {
-                var values = _session.List.Where(b => b.Expired < DateTimeHelper.Now);
-                if (values != null)
-                {
-                    foreach (var val in values)
-                    {
-                        if (val != null)
-                            OnTimeOut?.Invoke(val.Value);
-                    }
-                }
-            }, new TimeSpan(0, 0, 10), false);
+            _session.OnTimeOut += _session_OnTimeOut;
+        }
+
+        private void _session_OnTimeOut(IUserToken obj)
+        {
+            OnTimeOut?.Invoke(obj);
         }
 
         /// <summary>
@@ -173,7 +167,7 @@ namespace SAEA.Sockets.Core
                         {
                             userToken.Socket.Shutdown(SocketShutdown.Both);
                         }
-                        catch { }                        
+                        catch { }
                         userToken.Socket.Close();
                     }
                 }
@@ -195,7 +189,7 @@ namespace SAEA.Sockets.Core
         {
             lock (_locker)
             {
-                return _session.List.Select(b => b.Value).ToList();
+                return _session.List.ToList();
             }
         }
 

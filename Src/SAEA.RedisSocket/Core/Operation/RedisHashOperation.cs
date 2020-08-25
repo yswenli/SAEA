@@ -15,8 +15,10 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
+using SAEA.Common;
 using SAEA.RedisSocket.Model;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace SAEA.RedisSocket.Core
 {
@@ -76,6 +78,37 @@ namespace SAEA.RedisSocket.Core
         }
 
         /// <summary>
+        /// 返回哈希表 key 中，所有的域和值
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="hid"></param>
+        /// <returns></returns>
+        public Dictionary<string, T> HGetAll<T>(string hid)
+        {
+            Dictionary<string, T> result;
+
+            var dic = HGetAll(hid);
+
+            if (dic == null || !dic.Any()) return null;
+
+            result = new Dictionary<string, T>();
+
+            foreach (var item in dic)
+            {
+                if (!string.IsNullOrEmpty(item.Value))
+                {
+                    result.Add(item.Key, SerializeHelper.Deserialize<T>(item.Value));
+                }
+                else
+                {
+                    result.Add(item.Key, default(T));
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
         /// 返回哈希表 key 中的所有域
         /// </summary>
         /// <param name="hid"></param>
@@ -118,7 +151,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="hid"></param>
         /// <param name="keys"></param>
         /// <returns></returns>
-        public int HDel(string hid, string[] keys)
+        public int HDel(string hid, params string[] keys)
         {
             var result = RedisConnection.DoBatchWithIDKeys(RequestType.HDEL, hid, keys);
 

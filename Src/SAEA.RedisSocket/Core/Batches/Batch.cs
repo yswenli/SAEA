@@ -174,7 +174,7 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.HDEL, cmd));
         }
 
-        public void HDelAsync(string hid, string[] keys)
+        public void HDelAsync(string hid,params string[] keys)
         {
             var list = new List<string>();
 

@@ -52,7 +52,7 @@ namespace SAEA.RedisSocket.Core.Batches
         void GetAsync(string key);
         void GetSetAsync(string key, string value);
         void HDelAsync(string hid, string key);
-        void HDelAsync(string hid, string[] keys);
+        void HDelAsync(string hid,params string[] keys);
         void HExistsAsync(string hid, string key);
         void HGetAsync(string hid, string key);
         void HIncrementByAsync(string hid, string key, int num);
