@@ -58,14 +58,48 @@ namespace SAEA.RedisSocket.Core
         }
 
         /// <summary>
+        /// 返回哈希表中给定域的值
+        /// </summary>
+        /// <param name="hid"></param>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        public T HGetObj<T>(string hid, string key)
+        {
+            return HGet(hid, key).JsonToObj<T>();
+        }
+
+        /// <summary>
+        /// 返回哈希表中给定域的值
+        /// </summary>
+        /// <param name="hid"></param>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        public T HGet<T>(string hid, string key)
+        {
+            return HGet(hid, key).JsonToObj<T>();
+        }
+
+        /// <summary>
         /// 返回哈希表 key 中，一个或多个给定域的值
         /// </summary>
         /// <param name="hid"></param>
         /// <param name="keys"></param>
         /// <returns></returns>
-        public List<string> HMGet(string hid, List<string> keys)
+        public List<string> HMGet(string hid, params string[] keys)
         {
             return RedisConnection.DoBatchWithList(RequestType.HMGET, hid, keys).ToList();
+        }
+
+        /// <summary>
+        /// 返回哈希表 key 中，一个或多个给定域的值
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="hid"></param>
+        /// <param name="keys"></param>
+        /// <returns></returns>
+        public List<T> HMGetList<T>(string hid, params string[] keys)
+        {
+            return HMGet(hid, keys).JsonToObj<T>();
         }
         /// <summary>
         /// 返回哈希表 key 中，所有的域和值
@@ -95,14 +129,7 @@ namespace SAEA.RedisSocket.Core
 
             foreach (var item in dic)
             {
-                if (!string.IsNullOrEmpty(item.Value))
-                {
-                    result.Add(item.Key, SerializeHelper.Deserialize<T>(item.Value));
-                }
-                else
-                {
-                    result.Add(item.Key, default(T));
-                }
+                result.Add(item.Key, item.Value.JsonToObj<T>());
             }
 
             return result;
@@ -126,6 +153,16 @@ namespace SAEA.RedisSocket.Core
         public List<string> HGetValues(string hid)
         {
             return RedisConnection.DoWithKey(RequestType.HVALS, hid).ToList();
+        }
+
+        /// <summary>
+        /// 返回哈希表 key 中所有域的值
+        /// </summary>
+        /// <param name="hid"></param>
+        /// <returns></returns>
+        public List<T> HGetValueList<T>(string hid)
+        {
+            return HGetValues(hid).JsonToObj<T>();
         }
 
         /// <summary>
@@ -169,9 +206,9 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public int HLen(string hid)
         {
-            var result = 0;
-            int.TryParse(RedisConnection.DoWithKey(RequestType.HLEN, hid).Data, out result);
-            return result;
+            if (int.TryParse(RedisConnection.DoWithKey(RequestType.HLEN, hid).Data, out int result))
+                return result;
+            return 0;
         }
         /// <summary>
         /// 检查给定域 field 是否存在于哈希表 hash 当中
@@ -193,11 +230,11 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public int HStrLen(string hid, string key)
         {
-            var result = 0;
+            if (int.TryParse(RedisConnection.DoWithKeyValue(RequestType.HSTRLEN, hid, key).Data, out int result))
 
-            int.TryParse(RedisConnection.DoWithKeyValue(RequestType.HSTRLEN, hid, key).Data, out result);
+                return result;
 
-            return result;
+            return 0;
         }
 
         /// <summary>

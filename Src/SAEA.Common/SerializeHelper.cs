@@ -25,6 +25,7 @@ using SAEA.Common.Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.Serialization.Formatters.Binary;
 
@@ -133,6 +134,40 @@ namespace SAEA.Common
             settings.ObjectCreationHandling = ObjectCreationHandling.Replace;
             settings.DateFormatString = "yyyy-MM-dd HH:mm:ss.fff";
             return JsonConvert.DeserializeObject<T>(json, settings);
+        }
+
+        /// <summary>
+        /// 快捷将json转换成对象
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="json"></param>
+        /// <returns></returns>
+        public static T JsonToObj<T>(this string json)
+        {
+            if (!string.IsNullOrEmpty(json))
+            {
+                return Deserialize<T>(json);
+            }
+            return default(T);
+        }
+        /// <summary>
+        /// 快捷将json转换成对象列表
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="jsons"></param>
+        /// <returns></returns>
+        public static List<T> JsonToObj<T>(this List<string> jsons)
+        {
+            if (jsons == null || !jsons.Any()) return null;
+
+            List<T> result = new List<T>();
+
+            foreach (var item in jsons)
+            {
+                result.Add(item.JsonToObj<T>());
+            }
+
+            return result;
         }
         #endregion
 
