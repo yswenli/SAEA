@@ -71,6 +71,7 @@ namespace SAEA.MVCTest.Attrubutes
         public override void OnActionExecuted(ActionResult result)
         {
             ConsoleHelper.WriteLine($"Log2Atrribute请求地址：{HttpContext.Current.Request.RelativeUrl},回复内容：{result.Content}");
+            LogHelper.Info("Log2Atrribute.OnActionExecuted", result);
         }
     }
 }

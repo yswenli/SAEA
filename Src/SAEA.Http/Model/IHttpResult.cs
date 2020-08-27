@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Common.Newtonsoft.Json;
 using System.Net;
 using System.Text;
 
@@ -32,6 +33,8 @@ namespace SAEA.Http.Model
     public interface IHttpResult
     {
         string Content { get; set; }
+
+        [JsonIgnore]
         Encoding ContentEncoding { get; set; }
         string ContentType { get; set; }
         HttpStatusCode Status { get; set; }
