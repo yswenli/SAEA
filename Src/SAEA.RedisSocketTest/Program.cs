@@ -207,7 +207,7 @@ namespace SAEA.RedisSocketTest
 
             var v1 = db.HGet("yswenliH", "saea1");
 
-            var v2 = db.HMGet("yswenliH", new List<string>() { "saea1", "saea2", "saea3" });
+            var v2 = db.HMGet("yswenliH",  "saea1", "saea2", "saea3");
 
             var v3 = db.HGetAll("yswenliH");
 

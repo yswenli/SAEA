@@ -89,13 +89,16 @@ namespace SAEA.Sockets.Core
             _argsPool = new SocketAsyncEventArgsPool(count * 2);
             _argsPool.InitPool(_completed);
 
-            //超时处理 timeout handler
-            _session.OnTimeOut += _session_OnTimeOut;
+            //不存在时处理
+            _session.OnChanged += _session_OnChanged;
         }
 
-        private void _session_OnTimeOut(IUserToken obj)
+        private void _session_OnChanged(bool isAdd, IUserToken userToken)
         {
-            OnTimeOut?.Invoke(obj);
+            if (!isAdd)
+            {
+                OnTimeOut?.Invoke(userToken);
+            }
         }
 
         /// <summary>
@@ -156,7 +159,7 @@ namespace SAEA.Sockets.Core
             {
                 return false;
             }
-            if (_session.Del(userToken.ID, out MemoryCacheItem<IUserToken> mc))
+            if (_session.Del(userToken.ID))
             {
                 try
                 {

@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Common.Newtonsoft.Json.Utilities;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -39,9 +40,10 @@ namespace SAEA.Common
         object _synclocker = new object();
 
         /// <summary>
-        /// 过期事件
+        /// 数据发生变化时事件
         /// </summary>
-        public event Action<T> OnTimeOut;
+
+        public event Action<bool, T> OnChanged;
 
         /// <summary>
         /// 自定义过期缓存
@@ -54,23 +56,36 @@ namespace SAEA.Common
             ThreadHelper.PulseAction(() =>
             {
                 var values = _dic.Values.Where(b => b.Expired < DateTimeHelper.Now);
-                if (values != null)
+                if (values != null && values.Any())
                 {
                     foreach (var val in values)
                     {
                         if (val != null)
-                            OnTimeOut?.Invoke(val.Value);
+                        {
+                            OnChanged?.Invoke(false, val.Value);
+                        }
+
                     }
                 }
             }, new TimeSpan(0, 0, seconds), false);
         }
-
+        /// <summary>
+        /// Set
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
+        /// <param name="timeOut"></param>
         public void Set(string key, T value, TimeSpan timeOut)
         {
             var mc = new MemoryCacheItem<T>() { Key = key, Value = value, Expired = DateTimeHelper.Now.AddSeconds(timeOut.TotalSeconds) };
             _dic.AddOrUpdate(key, mc, (k, v) => { return mc; });
+            OnChanged?.Invoke(true, value);
         }
-
+        /// <summary>
+        /// Get
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
         public T Get(string key)
         {
             _dic.TryGetValue(key, out MemoryCacheItem<T> mc);
@@ -78,7 +93,8 @@ namespace SAEA.Common
             {
                 if (mc.Expired <= DateTimeHelper.Now)
                 {
-                    Del(key);
+                    _dic.TryRemove(key, out mc);
+                    OnChanged?.Invoke(false, mc.Value);
                 }
                 else
                 {
@@ -87,7 +103,11 @@ namespace SAEA.Common
             }
             return default(T);
         }
-
+        /// <summary>
+        /// Active
+        /// </summary>
+        /// <param name="ID"></param>
+        /// <param name="timeOut"></param>
         public void Active(string ID, TimeSpan timeOut)
         {
             lock (_synclocker)
@@ -99,15 +119,19 @@ namespace SAEA.Common
                 }
             }
         }
-
-        public void Del(string key)
+        /// <summary>
+        /// Del
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        public bool Del(string key)
         {
-            _dic.TryRemove(key, out MemoryCacheItem<T> mc);
-        }
-
-        public bool Del(string key, out MemoryCacheItem<T> mc)
-        {
-            return _dic.TryRemove(key, out mc);
+            var result = _dic.TryRemove(key, out MemoryCacheItem<T> mc);
+            if (result)
+            {
+                OnChanged?.Invoke(false, mc.Value);
+            }
+            return result;
         }
 
         public IEnumerable<T> List
@@ -123,14 +147,21 @@ namespace SAEA.Common
             return _dic.Values;
         }
 
+        /// <summary>
+        /// Clear
+        /// </summary>
         public void Clear()
         {
             _dic.Clear();
+            OnChanged?.Invoke(false, default(T));
         }
 
+        /// <summary>
+        /// Dispose
+        /// </summary>
         public void Dispose()
         {
-            _dic.Clear();
+            Clear();
             _dic = null;
         }
     }
