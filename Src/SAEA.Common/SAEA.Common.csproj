@@ -27,6 +27,7 @@ SAEA.Common 是SAEA项目中的工具类项目</PackageReleaseNotes>
   <ItemGroup>
     <PackageReference Include="protobuf-net" Version="3.0.29" />
     <PackageReference Include="System.Memory" Version="4.5.4" />
+    <PackageReference Include="System.Security.Permissions" Version="4.7.0" />
   </ItemGroup>
 
   <ItemGroup>
