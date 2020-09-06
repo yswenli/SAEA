@@ -110,23 +110,19 @@ namespace SAEA.RedisSocket.Base.Net
         /// 读取指定长度内容
         /// </summary>
         /// <param name="len"></param>
-        /// <param name="timeOut"></param>
+        /// <param name="ctoken"></param>
         /// <returns></returns>
-        public string ReadBlock(int len, int timeOut = 10)
+        public string ReadBlock(int len, CancellationToken ctoken)
         {
             try
             {
-                return TaskHelper.Run((token) =>
+                StringBuilder sb = new StringBuilder();
+
+                while (!ctoken.IsCancellationRequested && sb.Length < len)
                 {
-                    StringBuilder sb = new StringBuilder();
-
-                    while (!token.IsCancellationRequested && sb.Length < len)
-                    {
-                        sb.Append(ReadLine());
-                    }
-                    return sb.ToString();
-
-                }, timeOut * 1000).Result;
+                    sb.Append(ReadLine());
+                }
+                return sb.ToString();
             }
             catch (Exception ex)
             {

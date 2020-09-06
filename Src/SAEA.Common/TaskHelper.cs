@@ -49,12 +49,12 @@ namespace SAEA.Common
         /// <param name="fuc"></param>
         /// <param name="mill"></param>
         /// <returns></returns>
-        public static Task<T> Run<T>(Func<CancellationToken, T> fuc, int mill = 10 * 1000)
+        public static async Task<T> Run<T>(Func<CancellationToken, T> fuc, int mill = 10 * 1000)
         {
-            using (CancellationTokenSource cts = new CancellationTokenSource(mill))
+            using (CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(mill)))
             {
                 var token = cts.Token;
-                return Task.Run(() => fuc.Invoke(token), token);
+                return await Task.Run(() => fuc.Invoke(token), token);
             }
         }
 
@@ -68,6 +68,7 @@ namespace SAEA.Common
         public static async Task<T> WithCancellation<T>(this Task<T> task, CancellationToken token)
         {
             TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
+
             CancellationTokenRegistration registration = token.Register(src =>
             {
                 ((TaskCompletionSource<bool>)src).TrySetResult(true);

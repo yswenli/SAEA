@@ -187,7 +187,7 @@ namespace SAEA.RedisSocket.Core
         {
             return await TaskHelper.Run(() =>
             {
-                return DoBatchWithList(type, id, list);
+                return DoMultiLineWithList(type, id, list);
 
             }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
@@ -197,7 +197,7 @@ namespace SAEA.RedisSocket.Core
         {
             return await TaskHelper.Run(() =>
             {
-                return DoBatchWithDic(type, dic);
+                return DoMultiLineWithDic(type, dic);
 
             }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }

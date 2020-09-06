@@ -126,9 +126,9 @@ namespace SAEA.RedisSocket
                 case OperationType.Do:
                     return _cnn.Do((RequestType)args[0]);
                 case OperationType.DoBatchWithList:
-                    return _cnn.DoBatchWithList((RequestType)args[0], (string)args[1], (List<string>)args[2]);
+                    return _cnn.DoMultiLineWithList((RequestType)args[0], (string)args[1], (List<string>)args[2]);
                 case OperationType.DoBatchWithDic:
-                    return _cnn.DoBatchWithDic((RequestType)args[0], (Dictionary<string, string>)args[1]);
+                    return _cnn.DoMultiLineWithDic((RequestType)args[0], (Dictionary<string, string>)args[1]);
                 case OperationType.DoBatchWithIDDic:
                     return _cnn.DoBatchWithIDDic((RequestType)args[0], (string)args[1], (Dictionary<string, string>)args[2]);
                 case OperationType.DoBatchZaddWithIDDic:
@@ -142,14 +142,11 @@ namespace SAEA.RedisSocket
                 case OperationType.DoClusterSetSlot:
                     return _cnn.DoClusterSetSlot((RequestType)args[0], (string)args[1], (int)args[2], (string)args[3]);
                 case OperationType.DoExpire:
-                    _cnn.DoExpire((string)args[0], (int)args[1]);
-                    break;
+                    return _cnn.DoExpire((string)args[0], (int)args[1]);
                 case OperationType.DoExpireAt:
-                    _cnn.DoExpireAt((string)args[0], (int)args[1]);
-                    break;
+                    return _cnn.DoExpireAt((string)args[0], (int)args[1]);
                 case OperationType.DoExpireInsert:
-                    _cnn.DoExpireInsert((RequestType)args[0], (string)args[1], (string)args[2], (int)args[3]);
-                    break;
+                    return _cnn.DoExpireInsert((RequestType)args[0], (string)args[1], (string)args[2], (int)args[3]);
                 case OperationType.DoWithID:
                     return _cnn.DoWithID((RequestType)args[0], (string)args[1], (string)args[2], (string)args[3]);
                 case OperationType.DoRang:

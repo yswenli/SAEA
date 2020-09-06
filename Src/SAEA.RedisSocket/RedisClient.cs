@@ -27,6 +27,7 @@ using SAEA.RedisSocket.Model;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace SAEA.RedisSocket
 {
@@ -141,7 +142,7 @@ namespace SAEA.RedisSocket
         /// </summary>
         private void KeepAlive()
         {
-            TaskHelper.Run(() =>
+            Task.Factory.StartNew(() =>
             {
                 while (_cnn.IsConnected)
                 {
@@ -151,7 +152,7 @@ namespace SAEA.RedisSocket
                     }
                     ThreadHelper.Sleep(1000);
                 }
-            });
+            }, TaskCreationOptions.LongRunning);
         }
 
 

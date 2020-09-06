@@ -44,17 +44,20 @@ namespace SAEA.RedisSocket
             get; set;
         }
 
+        /// <summary>
+        /// 操作超时
+        /// </summary>
         public int ActionTimeOut
         {
             get; set;
-        } = 10;
+        } = 6 * 1000;
 
         public RedisConfig()
         {
 
         }
 
-        public RedisConfig(string ipPort, string passwords, int actionTimeOut = 10)
+        public RedisConfig(string ipPort, string passwords, int actionTimeOut = 6 * 1000)
         {
             try
             {

@@ -25,14 +25,22 @@
 using SAEA.Common;
 using SAEA.Sockets.Core.Tcp;
 using System;
+using System.Threading.Tasks;
 
 namespace SAEA.RedisSocket.Base.Net
 {
+    /// <summary>
+    /// 异步代理
+    /// </summary>
+    /// <param name="active"></param>
+    /// <returns></returns>
+    public delegate Task OnActionHandler(DateTime active);
+
     internal class RClient : IocpClientSocket
     {
         public event Action<byte[]> OnMessage;
 
-        public event Action<DateTime> OnActived;
+        public event OnActionHandler OnActived;
 
         /// <summary>
         /// 同步对象
@@ -50,6 +58,7 @@ namespace SAEA.RedisSocket.Base.Net
             {
                 OnMessage.Invoke(content.Content);
             }, null, null);
+            OnActived.Invoke(DateTimeHelper.Now);
         }
 
 

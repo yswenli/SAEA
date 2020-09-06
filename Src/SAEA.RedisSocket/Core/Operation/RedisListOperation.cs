@@ -48,7 +48,7 @@ namespace SAEA.RedisSocket.Core
         public int LPush(string key, List<string> lists)
         {
             var result = 0;
-            int.TryParse(RedisConnection.DoBatchWithList(RequestType.LPUSH, key, lists).Data, out result);
+            int.TryParse(RedisConnection.DoMultiLineWithList(RequestType.LPUSH, key, lists).Data, out result);
             return result;
         }
 
@@ -87,7 +87,7 @@ namespace SAEA.RedisSocket.Core
         public int RPush(string key, List<string> values)
         {
             var result = 0;
-            int.TryParse(RedisConnection.DoBatchWithList(RequestType.RPUSH, key, values).Data, out result);
+            int.TryParse(RedisConnection.DoMultiLineWithList(RequestType.RPUSH, key, values).Data, out result);
             return result;
         }
 

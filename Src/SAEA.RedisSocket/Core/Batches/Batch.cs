@@ -47,33 +47,43 @@ namespace SAEA.RedisSocket.Core.Batches
 
             _batchData = new List<BatchItem>();
         }
-
         /// <summary>
         /// 执行批量操作
         /// </summary>
+        /// <param name="timeout"></param>
         /// <returns></returns>
-        public IEnumerable<object> Execute()
+        public List<string> Execute(int timeout = 10 * 1000)
         {
-            lock (SyncRoot)
+            return TaskHelper.Run((token) =>
             {
-                if (!_batchData.Any()) yield return null;
+                List<string> result = null;
 
-                StringBuilder sb = new StringBuilder();
-
-                foreach (var item in _batchData)
+                lock (SyncRoot)
                 {
-                    sb.Append(item.Cmd);
+                    if (!_batchData.Any()) return null;
+
+                    result = new List<string>();
+
+                    StringBuilder sb = new StringBuilder();
+
+                    foreach (var item in _batchData)
+                    {
+                        sb.Append(item.Cmd);
+                    }
+
+                    _redisCode.Request(sb.ToString());
+
+                    foreach (var item in _batchData)
+                    {
+                        var data = _redisCode.Decoder(item.RequestType, token);
+
+                        result.Add(data.Data);
+                    }
                 }
+                return result;
 
-                _redisCode.Request(sb.ToString());
+            }, timeout).GetAwaiter().GetResult();
 
-                foreach (var item in _batchData)
-                {
-                    var data = _redisCode.Decoder(item.RequestType);
-
-                    yield return data.Data;
-                }
-            }
         }
 
         public void AppendAsync(string key, string value)
@@ -174,7 +184,7 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.HDEL, cmd));
         }
 
-        public void HDelAsync(string hid,params string[] keys)
+        public void HDelAsync(string hid, params string[] keys)
         {
             var list = new List<string>();
 

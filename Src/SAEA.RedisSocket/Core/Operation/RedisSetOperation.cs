@@ -147,7 +147,7 @@ namespace SAEA.RedisSocket.Core
         {
             keys.NotNull();
             var result = 0;
-            int.TryParse(RedisConnection.DoBatchWithList(RequestType.SINTERSTORE, destination, keys.ToList()).Data, out result);
+            int.TryParse(RedisConnection.DoMultiLineWithList(RequestType.SINTERSTORE, destination, keys.ToList()).Data, out result);
             return result;
         }
 
@@ -171,7 +171,7 @@ namespace SAEA.RedisSocket.Core
         {
             keys.NotNull();
             var result = 0;
-            int.TryParse(RedisConnection.DoBatchWithList(RequestType.SUNIONSTORE, destination, keys.ToList()).Data, out result);
+            int.TryParse(RedisConnection.DoMultiLineWithList(RequestType.SUNIONSTORE, destination, keys.ToList()).Data, out result);
             return result;
         }
 
@@ -195,7 +195,7 @@ namespace SAEA.RedisSocket.Core
         {
             keys.NotNull();
             var result = 0;
-            int.TryParse(RedisConnection.DoBatchWithList(RequestType.SDIFFSTORE, destination, keys.ToList()).Data, out result);
+            int.TryParse(RedisConnection.DoMultiLineWithList(RequestType.SDIFFSTORE, destination, keys.ToList()).Data, out result);
             return result;
         }
 

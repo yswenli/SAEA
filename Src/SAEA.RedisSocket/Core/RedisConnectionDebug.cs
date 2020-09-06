@@ -28,7 +28,7 @@ namespace SAEA.RedisSocket.Core
 {
     internal class RedisConnectionDebug : RedisConnection
     {
-        public RedisConnectionDebug(string ipPort, int actionTimeout = 10) : base(ipPort, actionTimeout)
+        public RedisConnectionDebug(string ipPort, int actionTimeout = 6 * 1000) : base(ipPort, actionTimeout)
         {
 
         }

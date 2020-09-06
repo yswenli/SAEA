@@ -52,7 +52,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="dic"></param>
         public void MSet(Dictionary<string, string> dic)
         {
-            RedisConnection.DoBatchWithDic(RequestType.MSET, dic);
+            RedisConnection.DoMultiLineWithDic(RequestType.MSET, dic);
         }
 
         /// <summary>
@@ -61,7 +61,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="dic"></param>
         public void MSetNx(Dictionary<string, string> dic)
         {
-            RedisConnection.DoBatchWithDic(RequestType.MSETNX, dic);
+            RedisConnection.DoMultiLineWithDic(RequestType.MSETNX, dic);
         }
 
         /// <summary>

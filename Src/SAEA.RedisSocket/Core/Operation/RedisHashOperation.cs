@@ -87,7 +87,7 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public List<string> HMGet(string hid, params string[] keys)
         {
-            return RedisConnection.DoBatchWithList(RequestType.HMGET, hid, keys).ToList();
+            return RedisConnection.DoMultiLineWithList(RequestType.HMGET, hid, keys).ToList();
         }
 
         /// <summary>

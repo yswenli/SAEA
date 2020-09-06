@@ -36,8 +36,9 @@ namespace SAEA.RedisSocket.Core.Batches
         /// <summary>
         /// 执行操作
         /// </summary>
+        /// <param name="timeout"></param>
         /// <returns></returns>
-        IEnumerable<object> Execute();
+        List<string> Execute(int timeout = 10 * 1000);
         void AppendAsync(string key, string value);
 
         void DecrementAsync(string key);

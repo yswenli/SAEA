@@ -28,6 +28,7 @@ using SAEA.RedisSocket.Base.Net;
 using SAEA.RedisSocket.Model;
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace SAEA.RedisSocket.Core
 {
@@ -81,9 +82,14 @@ namespace SAEA.RedisSocket.Core
         public event RedirectHandler OnRedirect;
 
 
-        int _actionTimeout = 10;
+        int _actionTimeout = 6 * 1000;
 
-        public RedisConnection(string ipPort, int actionTimeout = 10)
+        /// <summary>
+        /// RedisConnection
+        /// </summary>
+        /// <param name="ipPort"></param>
+        /// <param name="actionTimeout"></param>
+        public RedisConnection(string ipPort, int actionTimeout = 6 * 1000)
         {
             this.IPPort = ipPort;
             var address = ipPort.ToIPPort();
@@ -99,14 +105,14 @@ namespace SAEA.RedisSocket.Core
         private void _cnn_OnDisconnected(string ID, Exception ex)
         {
             OnDisconnected?.Invoke(this.IPPort);
-            ThreadHelper.Sleep(3000);
             IsConnected = false;
+            ThreadHelper.Sleep(1000);
             Connect();
         }
 
-        private void _cnn_OnActived(DateTime actived)
+        private async Task _cnn_OnActived(DateTime actived)
         {
-            _actived = actived;
+            await Task.Run(() => { _actived = actived; });
         }
 
 
@@ -145,36 +151,48 @@ namespace SAEA.RedisSocket.Core
                 ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
                 try
                 {
-                    if (!string.IsNullOrWhiteSpace(cmd))
+                    result = TaskHelper.Run((token) =>
                     {
-                        var @params = cmd.Split(" ", StringSplitOptions.RemoveEmptyEntries);
+                        ResponseData sresult = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
 
-                        if (@params != null && @params.Length > 0)
+                        if (!string.IsNullOrWhiteSpace(cmd))
                         {
-                            var redisCmd = @params[0].ToUpper();
+                            var @params = cmd.Split(" ", StringSplitOptions.RemoveEmptyEntries);
 
-                            if (EnumHelper.GetEnum(redisCmd, out RequestType requestType1))
+                            if (@params != null && @params.Length > 0)
                             {
-                                RedisCoder.RequestOnlyParams(@params);
-                                result = RedisCoder.Decoder(requestType1);
-                            }
-                            else
-                            {
-                                redisCmd = $"{@params[0]}_{@params[1]}".ToUpper();
+                                var redisCmd = @params[0].ToUpper();
 
-                                if (EnumHelper.GetEnum(redisCmd, out RequestType requestType2))
+                                if (EnumHelper.GetEnum(redisCmd, out RequestType requestType1))
                                 {
                                     RedisCoder.RequestOnlyParams(@params);
-                                    result = RedisCoder.Decoder(requestType2);
+                                    sresult = RedisCoder.Decoder(requestType1, token);
                                 }
                                 else
                                 {
-                                    result.Type = ResponseType.Error;
-                                    result.Data = "未知的命令 cmd:" + cmd;
+                                    redisCmd = $"{@params[0]}_{@params[1]}".ToUpper();
+
+                                    if (EnumHelper.GetEnum(redisCmd, out RequestType requestType2))
+                                    {
+                                        RedisCoder.RequestOnlyParams(@params);
+                                        sresult = RedisCoder.Decoder(requestType2, token);
+                                    }
+                                    else
+                                    {
+                                        sresult.Type = ResponseType.Error;
+                                        sresult.Data = "未知的命令 cmd:" + cmd;
+                                    }
                                 }
                             }
                         }
-                    }
+                        return sresult;
+
+                    }, _actionTimeout).Result;
+                }
+                catch (TaskCanceledException tex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = "Action Timeout";
                 }
                 catch (Exception ex)
                 {
@@ -193,14 +211,33 @@ namespace SAEA.RedisSocket.Core
         {
             lock (SyncRoot)
             {
-                RedisCoder.RequestOnlyParams(type.ToString());
-                var result = RedisCoder.Decoder(type);
-                if (result.Type == ResponseType.Redirect)
+                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+
+                try
                 {
-                    return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.Do, null);
+                    result = TaskHelper.Run((token) =>
+                    {
+                        RedisCoder.RequestOnlyParams(type.ToString());
+                        var sresult = RedisCoder.Decoder(type, token);
+                        if (sresult.Type == ResponseType.Redirect)
+                        {
+                            return (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.Do, null);
+                        }
+                        else
+                            return sresult;
+                    }, _actionTimeout).Result;
                 }
-                else
-                    return result;
+                catch (TaskCanceledException tex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = "Action Timeout";
+                }
+                catch (Exception ex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = ex.Message;
+                }
+                return result;
             }
         }
 
@@ -219,9 +256,27 @@ namespace SAEA.RedisSocket.Core
         {
             lock (SyncRoot)
             {
-                content.KeyCheck();
-                RedisCoder.Request(type, content);
-                return RedisCoder.Decoder(type);
+                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+                try
+                {
+                    result = TaskHelper.Run((token) =>
+                    {
+                        content.KeyCheck();
+                        RedisCoder.Request(type, content);
+                        return RedisCoder.Decoder(type, token);
+                    }, _actionTimeout).Result;
+                }
+                catch (TaskCanceledException tex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = "Action Timeout";
+                }
+                catch (Exception ex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = ex.Message;
+                }
+                return result;
             }
         }
 
@@ -233,145 +288,309 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public ResponseData DoWithKey(RequestType type, string key)
         {
+            key.KeyCheck();
+
             lock (SyncRoot)
             {
-                key.KeyCheck();
-                RedisCoder.Request(type, key);
-                var result = RedisCoder.Decoder(type);
-                if (result.Type == ResponseType.Redirect)
+                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+                try
                 {
-                    return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoWithKey, type, key);
+                    result = TaskHelper.Run((token) =>
+                    {
+                        RedisCoder.Request(type, key);
+                        var sresult = RedisCoder.Decoder(type, token);
+                        if (sresult.Type == ResponseType.Redirect)
+                        {
+                            return (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoWithKey, type, key);
+                        }
+                        else
+                            return sresult;
+                    }, _actionTimeout).Result;
                 }
-                else
-                    return result;
+                catch (TaskCanceledException tex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = "Action Timeout";
+                }
+                catch (Exception ex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = ex.Message;
+                }
+                return result;
             }
         }
 
         public ResponseData DoWithKeyValue(RequestType type, string key, string value)
         {
+            key.KeyCheck();
             lock (SyncRoot)
             {
-                key.KeyCheck();
-                RedisCoder.Request(type, key, value);
-                var result = RedisCoder.Decoder(type);
-                if (result.Type == ResponseType.Redirect)
+                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+                try
                 {
-                    return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoWithKeyValue, type, key, value);
+                    result = TaskHelper.Run((token) =>
+                    {
+                        RedisCoder.Request(type, key, value);
+                        var sresult = RedisCoder.Decoder(type, token);
+                        if (sresult.Type == ResponseType.Redirect)
+                        {
+                            return (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoWithKeyValue, type, key, value);
+                        }
+                        else
+                            return sresult;
+                    }, _actionTimeout).Result;
                 }
-                else
-                    return result;
+                catch (TaskCanceledException tex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = "Action Timeout";
+                }
+                catch (Exception ex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = ex.Message;
+                }
+                return result;
             }
         }
 
         public ResponseData DoWithID(RequestType type, string id, string key, string value)
         {
+            id.KeyCheck();
+            key.KeyCheck();
             lock (SyncRoot)
             {
-                id.KeyCheck();
-                key.KeyCheck();
-                RedisCoder.Request(type, id, key, value);
-                var result = RedisCoder.Decoder(type);
-                if (result.Type == ResponseType.Redirect)
+                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+                try
                 {
-                    return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoWithID, type, id, key, value);
+                    result = TaskHelper.Run((token) =>
+                    {
+                        RedisCoder.Request(type, id, key, value);
+                        var sresult = RedisCoder.Decoder(type, token);
+                        if (sresult.Type == ResponseType.Redirect)
+                        {
+                            return (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoWithID, type, id, key, value);
+                        }
+                        else
+                            return sresult;
+                    }, _actionTimeout).Result;
                 }
-                else
-                    return result;
+                catch (TaskCanceledException tex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = "Action Timeout";
+                }
+                catch (Exception ex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = ex.Message;
+                }
+                return result;
             }
         }
 
         public ResponseData DoWithMutiParams(RequestType type, params string[] keys)
         {
+            keys.KeyCheck();
             lock (SyncRoot)
             {
-                keys.KeyCheck();
-                RedisCoder.Request(type, keys);
-                var result = RedisCoder.Decoder(type);
-                if (result.Type == ResponseType.Redirect)
+                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+                try
                 {
-                    return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoBatchWithParams, type, keys);
+                    result = TaskHelper.Run((token) =>
+                    {
+                        RedisCoder.Request(type, keys);
+                        var sresult = RedisCoder.Decoder(type, token);
+                        if (sresult.Type == ResponseType.Redirect)
+                        {
+                            return (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoBatchWithParams, type, keys);
+                        }
+                        else
+                            return sresult;
+                    }, _actionTimeout).Result;
                 }
-                else
-                    return result;
+                catch (TaskCanceledException tex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = "Action Timeout";
+                }
+                catch (Exception ex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = ex.Message;
+                }
+                return result;
             }
         }
 
-        public void DoExpire(string key, int seconds)
+        public ResponseData DoExpire(string key, int seconds)
         {
+            key.KeyCheck();
             lock (SyncRoot)
             {
-                key.KeyCheck();
-                RedisCoder.Request(RequestType.EXPIRE, key, seconds.ToString());
-                var result = RedisCoder.Decoder(RequestType.EXPIRE);
-                if (result.Type == ResponseType.Redirect)
+                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+                try
                 {
-                    OnRedirect.Invoke(result.Data, OperationType.DoExpire, key, seconds);
-                    return;
+                    result = TaskHelper.Run((token) =>
+                    {
+                        RedisCoder.Request(RequestType.EXPIRE, key, seconds.ToString());
+                        var sresult = RedisCoder.Decoder(RequestType.EXPIRE, token);
+                        if (sresult.Type == ResponseType.Redirect)
+                        {
+                            sresult = (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoExpire, key, seconds);
+                        }
+                        return sresult;
+                    }, _actionTimeout).Result;
                 }
+                catch (TaskCanceledException tex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = "Action Timeout";
+                }
+                catch (Exception ex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = ex.Message;
+                }
+                return result;
             }
         }
 
-        public void DoExpireAt(string key, int timestamp)
+        public ResponseData DoExpireAt(string key, int timestamp)
         {
+            key.KeyCheck();
             lock (SyncRoot)
             {
-                key.KeyCheck();
-                RedisCoder.Request(RequestType.EXPIREAT, key, timestamp.ToString());
-                var result = RedisCoder.Decoder(RequestType.EXPIREAT);
-                if (result.Type == ResponseType.Redirect)
+                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+                try
                 {
-                    OnRedirect.Invoke(result.Data, OperationType.DoExpireAt, key, timestamp);
-                    return;
+                    result = TaskHelper.Run((token) =>
+                    {
+                        RedisCoder.Request(RequestType.EXPIREAT, key, timestamp.ToString());
+                        var sresult = RedisCoder.Decoder(RequestType.EXPIREAT, token);
+                        if (sresult.Type == ResponseType.Redirect)
+                        {
+                            sresult = (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoExpireAt, key, timestamp);
+                        }
+                        return sresult;
+                    }, _actionTimeout).Result;
                 }
+                catch (TaskCanceledException tex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = "Action Timeout";
+                }
+                catch (Exception ex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = ex.Message;
+                }
+                return result;
             }
         }
 
-        public void DoExpireInsert(RequestType type, string key, string value, int seconds)
+        public ResponseData DoExpireInsert(RequestType type, string key, string value, int seconds)
         {
+            key.KeyCheck();
+
             lock (SyncRoot)
             {
-                key.KeyCheck();
-                RedisCoder.Request(type, key, value);
-                var result = RedisCoder.Decoder(type);
-                if (result.Type == ResponseType.Redirect)
+                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+                try
                 {
-                    OnRedirect.Invoke(result.Data, OperationType.DoExpireInsert, key, value, seconds);
-                    return;
+                    result = TaskHelper.Run((token) =>
+                    {
+                        RedisCoder.Request(type, key, value);
+                        var sresult = RedisCoder.Decoder(type, token);
+                        if (sresult.Type == ResponseType.Redirect)
+                        {
+                            return (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoExpireInsert, key, value, seconds);
+                        }
+                        RedisCoder.Request(RequestType.EXPIRE, string.Format("{0} {1}", key, seconds));
+                        return RedisCoder.Decoder(RequestType.EXPIRE, token);
+                    }, _actionTimeout).Result;
                 }
-                RedisCoder.Request(RequestType.EXPIRE, string.Format("{0} {1}", key, seconds));
-                RedisCoder.Decoder(RequestType.EXPIRE);
+                catch (TaskCanceledException tex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = "Action Timeout";
+                }
+                catch (Exception ex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = ex.Message;
+                }
+                return result;
             }
         }
 
         public ResponseData DoRang(RequestType type, string key, double begin = 0, double end = -1)
         {
+            key.KeyCheck();
+
             lock (SyncRoot)
             {
-                key.KeyCheck();
-                RedisCoder.Request(type, key, begin.ToString(), end.ToString(), "WITHSCORES");
-                var result = RedisCoder.Decoder(type);
-                if (result.Type == ResponseType.Redirect)
+                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+                try
                 {
-                    return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoRang, type, key, begin, end);
+                    result = TaskHelper.Run((token) =>
+                    {
+                        RedisCoder.Request(type, key, begin.ToString(), end.ToString(), "WITHSCORES");
+                        var sresult = RedisCoder.Decoder(type, token);
+                        if (sresult.Type == ResponseType.Redirect)
+                        {
+                            return (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoRang, type, key, begin, end);
+                        }
+                        else
+                            return sresult;
+                    }, _actionTimeout).Result;
                 }
-                else
-                    return result;
+                catch (TaskCanceledException tex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = "Action Timeout";
+                }
+                catch (Exception ex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = ex.Message;
+                }
+                return result;
             }
         }
 
         public ResponseData DoRangByScore(RequestType type, string key, double min = double.MinValue, double max = double.MaxValue, RangType rangType = RangType.None, long offset = -1, int count = 20, bool withScore = false)
         {
+            key.KeyCheck();
             lock (SyncRoot)
             {
-                key.KeyCheck();
-                RedisCoder.RequestForRandByScore(type, key, min, max, rangType, offset, count, withScore);
-                var result = RedisCoder.Decoder(type);
-                if (result.Type == ResponseType.Redirect)
+                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+                try
                 {
-                    return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoRangByScore, type, key, min, max, rangType, offset, count, withScore);
+                    result = TaskHelper.Run((token) =>
+                    {
+                        RedisCoder.RequestForRandByScore(type, key, min, max, rangType, offset, count, withScore);
+                        var sresult = RedisCoder.Decoder(type, token);
+                        if (sresult.Type == ResponseType.Redirect)
+                        {
+                            return (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoRangByScore, type, key, min, max, rangType, offset, count, withScore);
+                        }
+                        else
+                            return sresult;
+                    }, _actionTimeout).Result;
                 }
-                else
-                    return result;
+                catch (TaskCanceledException tex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = "Action Timeout";
+                }
+                catch (Exception ex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = ex.Message;
+                }
+                return result;
             }
         }
 
@@ -386,7 +605,7 @@ namespace SAEA.RedisSocket.Core
                 {
                     while (RedisCoder.IsSubed)
                     {
-                        var result = RedisCoder.Decoder(RequestType.SUBSCRIBE);
+                        var result = RedisCoder.Decoder(RequestType.SUBSCRIBE, System.Threading.CancellationToken.None);
                         if (result.Type == ResponseType.Sub)
                         {
                             var arr = result.Data.ToArray(false, Environment.NewLine);
@@ -401,88 +620,178 @@ namespace SAEA.RedisSocket.Core
             }
         }
 
-        public ResponseData DoBatchWithList(RequestType type, string id, IEnumerable<string> list)
+        public ResponseData DoMultiLineWithList(RequestType type, string id, IEnumerable<string> list)
         {
             lock (SyncRoot)
             {
-                RedisCoder.RequestForList(type, id, list);
-                var result = RedisCoder.Decoder(type);
-                if (result.Type == ResponseType.Redirect)
+                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+                try
                 {
-                    return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoBatchWithList, type, list);
+                    result = TaskHelper.Run((token) =>
+                    {
+                        RedisCoder.RequestForList(type, id, list);
+                        var sresult = RedisCoder.Decoder(type, token);
+                        if (sresult.Type == ResponseType.Redirect)
+                        {
+                            return (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoBatchWithList, type, list);
+                        }
+                        else
+                            return sresult;
+                    }, _actionTimeout).Result;
                 }
-                else
-                    return result;
+                catch (TaskCanceledException tex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = "Action Timeout";
+                }
+                catch (Exception ex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = ex.Message;
+                }
+                return result;
             }
         }
 
-        public ResponseData DoBatchWithDic(RequestType type, Dictionary<string, string> dic)
+        public ResponseData DoMultiLineWithDic(RequestType type, Dictionary<string, string> dic)
         {
             lock (SyncRoot)
             {
-                RedisCoder.RequestForDic(type, dic);
-                var result = RedisCoder.Decoder(type);
-                if (result.Type == ResponseType.Redirect)
+                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+                try
                 {
-                    return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoBatchWithDic, type, dic);
+                    result = TaskHelper.Run((token) =>
+                    {
+                        RedisCoder.RequestForDic(type, dic);
+                        var sresult = RedisCoder.Decoder(type, token);
+                        if (sresult.Type == ResponseType.Redirect)
+                        {
+                            return (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoBatchWithDic, type, dic);
+                        }
+                        else
+                            return sresult;
+                    }, _actionTimeout).Result;
                 }
-                else
-                    return result;
+                catch (TaskCanceledException tex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = "Action Timeout";
+                }
+                catch (Exception ex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = ex.Message;
+                }
+                return result;
             }
         }
 
 
         public ResponseData DoBatchWithIDKeys(RequestType type, string id, params string[] keys)
         {
+            id.KeyCheck();
+            keys.KeyCheck();
+
             lock (SyncRoot)
             {
-                id.KeyCheck();
-                keys.KeyCheck();
-
-                List<string> list = new List<string>();
-                list.Add(type.ToString());
-                list.Add(id);
-                list.AddRange(keys);
-                RedisCoder.RequestOnlyParams(list.ToArray());
-                var result = RedisCoder.Decoder(type);
-                if (result.Type == ResponseType.Redirect)
+                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+                try
                 {
-                    return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoBatchWithIDKeys, type, id, keys);
+                    result = TaskHelper.Run((token) =>
+                    {
+                        List<string> list = new List<string>();
+                        list.Add(type.ToString());
+                        list.Add(id);
+                        list.AddRange(keys);
+                        RedisCoder.RequestOnlyParams(list.ToArray());
+                        var sresult = RedisCoder.Decoder(type, token);
+                        if (sresult.Type == ResponseType.Redirect)
+                        {
+                            return (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoBatchWithIDKeys, type, id, keys);
+                        }
+                        else
+                            return sresult;
+                    }, _actionTimeout).Result;
                 }
-                else
-                    return result;
+                catch (TaskCanceledException tex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = "Action Timeout";
+                }
+                catch (Exception ex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = ex.Message;
+                }
+                return result;
             }
         }
 
         public ResponseData DoBatchZaddWithIDDic(RequestType type, string id, Dictionary<double, string> dic)
         {
+            id.KeyCheck();
             lock (SyncRoot)
             {
-                id.KeyCheck();
-                RedisCoder.RequestForDicWidthID(type, id, dic);
-                var result = RedisCoder.Decoder(type);
-                if (result.Type == ResponseType.Redirect)
+                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+                try
                 {
-                    return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoBatchZaddWithIDDic, type, id, dic);
+                    result = TaskHelper.Run((token) =>
+                    {
+                        RedisCoder.RequestForDicWidthID(type, id, dic);
+                        var sresult = RedisCoder.Decoder(type, token);
+                        if (sresult.Type == ResponseType.Redirect)
+                        {
+                            return (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoBatchZaddWithIDDic, type, id, dic);
+                        }
+                        else
+                            return sresult;
+                    }, _actionTimeout).Result;
                 }
-                else
-                    return result;
+                catch (TaskCanceledException tex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = "Action Timeout";
+                }
+                catch (Exception ex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = ex.Message;
+                }
+                return result;
             }
         }
 
         public ResponseData DoBatchWithIDDic(RequestType type, string id, Dictionary<string, string> dic)
         {
+            id.KeyCheck();
             lock (SyncRoot)
             {
-                id.KeyCheck();
-                RedisCoder.RequestForDicWidthID(type, id, dic);
-                var result = RedisCoder.Decoder(type);
-                if (result.Type == ResponseType.Redirect)
+                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+                try
                 {
-                    return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoBatchWithIDDic, type, id, dic);
+                    result = TaskHelper.Run((token) =>
+                    {
+                        RedisCoder.RequestForDicWidthID(type, id, dic);
+                        var result = RedisCoder.Decoder(type, token);
+                        if (result.Type == ResponseType.Redirect)
+                        {
+                            return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoBatchWithIDDic, type, id, dic);
+                        }
+                        else
+                            return result;
+                    }, _actionTimeout).Result;
                 }
-                else
-                    return result;
+                catch (TaskCanceledException tex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = "Action Timeout";
+                }
+                catch (Exception ex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = ex.Message;
+                }
+                return result;
             }
         }
 
@@ -499,43 +808,50 @@ namespace SAEA.RedisSocket.Core
         {
             lock (SyncRoot)
             {
-                if (offset < 0) offset = 0;
+                return TaskHelper.Run((token) =>
+                {
 
-                if (!string.IsNullOrEmpty(pattern))
-                {
-                    if (count > -1)
+                    if (offset < 0) offset = 0;
+
+                    if (!string.IsNullOrEmpty(pattern))
                     {
-                        RedisCoder.Request(type, offset.ToString(), RedisConst.MATCH, pattern, RedisConst.COUNT, count.ToString());
+                        if (count > -1)
+                        {
+                            RedisCoder.Request(type, offset.ToString(), RedisConst.MATCH, pattern, RedisConst.COUNT, count.ToString());
+                        }
+                        else
+                        {
+                            RedisCoder.Request(type, offset.ToString(), RedisConst.MATCH, pattern);
+                        }
                     }
                     else
                     {
-                        RedisCoder.Request(type, offset.ToString(), RedisConst.MATCH, pattern);
+                        if (count > -1)
+                        {
+                            RedisCoder.Request(type, offset.ToString(), RedisConst.COUNT, count.ToString());
+                        }
+                        else
+                        {
+                            RedisCoder.Request(type, offset.ToString());
+                        }
                     }
-                }
-                else
-                {
-                    if (count > -1)
+                    var sresult = RedisCoder.Decoder(type, token);
+
+                    if (sresult == null) return null;
+
+                    if (sresult.Type == ResponseType.Redirect)
                     {
-                        RedisCoder.Request(type, offset.ToString(), RedisConst.COUNT, count.ToString());
+                        return (ScanResponse)OnRedirect.Invoke(sresult.Data, OperationType.DoScan, type, offset, pattern, count);
                     }
                     else
                     {
-                        RedisCoder.Request(type, offset.ToString());
+                        if (sresult.Type == ResponseType.Lines)
+                        {
+                            return sresult.ToScanResponse();
+                        }
+                        return null;
                     }
-                }
-                var result = RedisCoder.Decoder(type);
-                if (result.Type == ResponseType.Redirect)
-                {
-                    return (ScanResponse)OnRedirect.Invoke(result.Data, OperationType.DoScan, type, offset, pattern, count);
-                }
-                else
-                {
-                    if (result.Type == ResponseType.Lines)
-                    {
-                        return result.ToScanResponse();
-                    }
-                    return null;
-                }
+                }, _actionTimeout).Result;
             }
         }
 
@@ -550,47 +866,53 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public ScanResponse DoScanKey(RequestType type, string key, int offset = 0, string pattern = "*", int count = -1)
         {
+            key.KeyCheck();
             lock (SyncRoot)
             {
-                key.KeyCheck();
-
-                if (offset < 0) offset = 0;
-
-                if (!string.IsNullOrEmpty(pattern))
+                return TaskHelper.Run((token) =>
                 {
-                    if (count > -1)
+                    if (offset < 0) offset = 0;
+
+                    if (!string.IsNullOrEmpty(pattern))
                     {
-                        RedisCoder.Request(type, key, offset.ToString(), RedisConst.MATCH, pattern, RedisConst.COUNT, count.ToString());
+                        if (count > -1)
+                        {
+                            RedisCoder.Request(type, key, offset.ToString(), RedisConst.MATCH, pattern, RedisConst.COUNT, count.ToString());
+                        }
+                        else
+                        {
+                            RedisCoder.Request(type, key, offset.ToString(), RedisConst.MATCH, pattern);
+                        }
                     }
                     else
                     {
-                        RedisCoder.Request(type, key, offset.ToString(), RedisConst.MATCH, pattern);
+                        if (count > -1)
+                        {
+                            RedisCoder.Request(type, key, offset.ToString(), RedisConst.COUNT, count.ToString());
+                        }
+                        else
+                        {
+                            RedisCoder.Request(type, key, offset.ToString());
+                        }
                     }
-                }
-                else
-                {
-                    if (count > -1)
+
+                    var result = RedisCoder.Decoder(type, token);
+
+                    if (result == null) return null;
+
+                    if (result.Type == ResponseType.Redirect)
                     {
-                        RedisCoder.Request(type, key, offset.ToString(), RedisConst.COUNT, count.ToString());
+                        return (ScanResponse)OnRedirect.Invoke(result.Data, OperationType.DoScanKey, type, key, offset, pattern, count);
                     }
                     else
                     {
-                        RedisCoder.Request(type, key, offset.ToString());
+                        if (result.Type == ResponseType.Lines)
+                        {
+                            return result.ToScanResponse();
+                        }
+                        return null;
                     }
-                }
-                var result = RedisCoder.Decoder(type);
-                if (result.Type == ResponseType.Redirect)
-                {
-                    return (ScanResponse)OnRedirect.Invoke(result.Data, OperationType.DoScanKey, type, key, offset, pattern, count);
-                }
-                else
-                {
-                    if (result.Type == ResponseType.Lines)
-                    {
-                        return result.ToScanResponse();
-                    }
-                    return null;
-                }
+                }, _actionTimeout).Result;
             }
         }
 
@@ -599,31 +921,49 @@ namespace SAEA.RedisSocket.Core
         {
             lock (SyncRoot)
             {
-                List<string> list = new List<string>();
-
-                var arr = type.ToString().Split("_");
-
-                list.AddRange(arr);
-
-                if (@params != null)
+                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+                try
                 {
-                    foreach (var item in @params)
+                    result = TaskHelper.Run((token) =>
                     {
-                        list.Add(item.ToString());
-                    }
+                        List<string> list = new List<string>();
+
+                        var arr = type.ToString().Split("_");
+
+                        list.AddRange(arr);
+
+                        if (@params != null)
+                        {
+                            foreach (var item in @params)
+                            {
+                                list.Add(item.ToString());
+                            }
+                        }
+                        RedisCoder.RequestOnlyParams(list.ToArray());
+                        var sresult = RedisCoder.Decoder(type, token);
+                        if (sresult.Type == ResponseType.Redirect)
+                        {
+                            return (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoCluster, type, @params);
+                        }
+                        else if (sresult.Type == ResponseType.Error)
+                        {
+                            throw new Exception(sresult.Data);
+                        }
+                        else
+                            return sresult;
+                    }, _actionTimeout).Result;
                 }
-                RedisCoder.RequestOnlyParams(list.ToArray());
-                var result = RedisCoder.Decoder(type);
-                if (result.Type == ResponseType.Redirect)
+                catch (TaskCanceledException tex)
                 {
-                    return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoCluster, type, @params);
+                    result.Type = ResponseType.Error;
+                    result.Data = "Action Timeout";
                 }
-                else if (result.Type == ResponseType.Error)
+                catch (Exception ex)
                 {
-                    throw new Exception(result.Data);
+                    result.Type = ResponseType.Error;
+                    result.Data = ex.Message;
                 }
-                else
-                    return result;
+                return result;
             }
         }
 
@@ -632,32 +972,50 @@ namespace SAEA.RedisSocket.Core
         {
             lock (SyncRoot)
             {
-                List<string> list = new List<string>();
-
-                var arr = type.ToString().Split("_");
-
-                list.AddRange(arr);
-
-                list.Add(slot.ToString());
-
-                list.Add(action);
-
-                list.Add(nodeID);
-
-                RedisCoder.RequestOnlyParams(list.ToArray());
-
-                var result = RedisCoder.Decoder(type);
-
-                if (result.Type == ResponseType.Redirect)
+                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+                try
                 {
-                    return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoClusterSetSlot, type, action, slot, nodeID);
+                    result = TaskHelper.Run((token) =>
+                    {
+                        List<string> list = new List<string>();
+
+                        var arr = type.ToString().Split("_");
+
+                        list.AddRange(arr);
+
+                        list.Add(slot.ToString());
+
+                        list.Add(action);
+
+                        list.Add(nodeID);
+
+                        RedisCoder.RequestOnlyParams(list.ToArray());
+
+                        var sresult = RedisCoder.Decoder(type, token);
+
+                        if (sresult.Type == ResponseType.Redirect)
+                        {
+                            return (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoClusterSetSlot, type, action, slot, nodeID);
+                        }
+                        else if (sresult.Type == ResponseType.Error)
+                        {
+                            throw new Exception(sresult.Data);
+                        }
+                        else
+                            return sresult;
+                    }, _actionTimeout).Result;
                 }
-                else if (result.Type == ResponseType.Error)
+                catch (TaskCanceledException tex)
                 {
-                    throw new Exception(result.Data);
+                    result.Type = ResponseType.Error;
+                    result.Data = "Action Timeout";
                 }
-                else
-                    return result;
+                catch (Exception ex)
+                {
+                    result.Type = ResponseType.Error;
+                    result.Data = ex.Message;
+                }
+                return result;
             }
         }
 
