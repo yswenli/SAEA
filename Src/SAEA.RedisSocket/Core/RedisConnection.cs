@@ -98,7 +98,7 @@ namespace SAEA.RedisSocket.Core
             _cnn.OnActived += _cnn_OnActived;
             _cnn.OnMessage += _cnn_OnMessage;
             _cnn.OnDisconnected += _cnn_OnDisconnected;
-            _redisCoder = new RedisCoder(_cnn, actionTimeout);
+            _redisCoder = new RedisCoder(_cnn);
             SyncRoot = _cnn.SyncRoot;
         }
 
@@ -146,12 +146,12 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         internal ResponseData RequestWithConsole(string cmd)
         {
-            lock (SyncRoot)
+            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            try
             {
-                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
-                try
+                result = TaskHelper.Run((token) =>
                 {
-                    result = TaskHelper.Run((token) =>
+                    lock (SyncRoot)
                     {
                         ResponseData sresult = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
 
@@ -186,21 +186,21 @@ namespace SAEA.RedisSocket.Core
                             }
                         }
                         return sresult;
-
-                    }, _actionTimeout).Result;
-                }
-                catch (TaskCanceledException tex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = "Action Timeout";
-                }
-                catch (Exception ex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = ex.Message;
-                }
-                return result;
+                    }
+                }, _actionTimeout).Result;
             }
+            catch (TaskCanceledException tex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = "Action Timeout";
+            }
+            catch (Exception ex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = ex.Message;
+            }
+            return result;
+
         }
 
         /// <summary>
@@ -209,13 +209,13 @@ namespace SAEA.RedisSocket.Core
         /// <param name="cmd"></param>
         public ResponseData Do(RequestType type)
         {
-            lock (SyncRoot)
-            {
-                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
 
-                try
+            try
+            {
+                result = TaskHelper.Run((token) =>
                 {
-                    result = TaskHelper.Run((token) =>
+                    lock (SyncRoot)
                     {
                         RedisCoder.RequestOnlyParams(type.ToString());
                         var sresult = RedisCoder.Decoder(type, token);
@@ -225,20 +225,21 @@ namespace SAEA.RedisSocket.Core
                         }
                         else
                             return sresult;
-                    }, _actionTimeout).Result;
-                }
-                catch (TaskCanceledException tex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = "Action Timeout";
-                }
-                catch (Exception ex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = ex.Message;
-                }
-                return result;
+                    }
+                }, _actionTimeout).Result;
             }
+            catch (TaskCanceledException tex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = "Action Timeout";
+            }
+            catch (Exception ex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = ex.Message;
+            }
+            return result;
+
         }
 
         public string Auth(string password)
@@ -254,30 +255,32 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public ResponseData DoWithOne(RequestType type, string content)
         {
-            lock (SyncRoot)
+            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            try
             {
-                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
-                try
+                result = TaskHelper.Run((token) =>
                 {
-                    result = TaskHelper.Run((token) =>
+                    lock (SyncRoot)
                     {
+
                         content.KeyCheck();
                         RedisCoder.Request(type, content);
                         return RedisCoder.Decoder(type, token);
-                    }, _actionTimeout).Result;
-                }
-                catch (TaskCanceledException tex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = "Action Timeout";
-                }
-                catch (Exception ex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = ex.Message;
-                }
-                return result;
+                    }
+                }, _actionTimeout).Result;
             }
+            catch (TaskCanceledException tex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = "Action Timeout";
+            }
+            catch (Exception ex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = ex.Message;
+            }
+            return result;
+
         }
 
         /// <summary>
@@ -290,12 +293,13 @@ namespace SAEA.RedisSocket.Core
         {
             key.KeyCheck();
 
-            lock (SyncRoot)
+            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+
+            try
             {
-                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
-                try
+                result = TaskHelper.Run((token) =>
                 {
-                    result = TaskHelper.Run((token) =>
+                    lock (SyncRoot)
                     {
                         RedisCoder.Request(type, key);
                         var sresult = RedisCoder.Decoder(type, token);
@@ -305,31 +309,34 @@ namespace SAEA.RedisSocket.Core
                         }
                         else
                             return sresult;
-                    }, _actionTimeout).Result;
-                }
-                catch (TaskCanceledException tex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = "Action Timeout";
-                }
-                catch (Exception ex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = ex.Message;
-                }
-                return result;
+                    }
+                }, _actionTimeout).Result;
             }
+            catch (TaskCanceledException tex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = "Action Timeout";
+            }
+            catch (Exception ex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = ex.Message;
+            }
+            return result;
+
         }
 
         public ResponseData DoWithKeyValue(RequestType type, string key, string value)
         {
             key.KeyCheck();
-            lock (SyncRoot)
+
+            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+
+            try
             {
-                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
-                try
+                result = TaskHelper.Run((token) =>
                 {
-                    result = TaskHelper.Run((token) =>
+                    lock (SyncRoot)
                     {
                         RedisCoder.Request(type, key, value);
                         var sresult = RedisCoder.Decoder(type, token);
@@ -339,32 +346,33 @@ namespace SAEA.RedisSocket.Core
                         }
                         else
                             return sresult;
-                    }, _actionTimeout).Result;
-                }
-                catch (TaskCanceledException tex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = "Action Timeout";
-                }
-                catch (Exception ex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = ex.Message;
-                }
-                return result;
+                    }
+                }, _actionTimeout).Result;
             }
+            catch (TaskCanceledException tex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = "Action Timeout";
+            }
+            catch (Exception ex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = ex.Message;
+            }
+            return result;
         }
 
         public ResponseData DoWithID(RequestType type, string id, string key, string value)
         {
             id.KeyCheck();
             key.KeyCheck();
-            lock (SyncRoot)
+
+            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            try
             {
-                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
-                try
+                result = TaskHelper.Run((token) =>
                 {
-                    result = TaskHelper.Run((token) =>
+                    lock (SyncRoot)
                     {
                         RedisCoder.Request(type, id, key, value);
                         var sresult = RedisCoder.Decoder(type, token);
@@ -374,31 +382,33 @@ namespace SAEA.RedisSocket.Core
                         }
                         else
                             return sresult;
-                    }, _actionTimeout).Result;
-                }
-                catch (TaskCanceledException tex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = "Action Timeout";
-                }
-                catch (Exception ex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = ex.Message;
-                }
-                return result;
+                    }
+                }, _actionTimeout).Result;
             }
+            catch (TaskCanceledException tex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = "Action Timeout";
+            }
+            catch (Exception ex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = ex.Message;
+            }
+            return result;
         }
 
         public ResponseData DoWithMutiParams(RequestType type, params string[] keys)
         {
             keys.KeyCheck();
-            lock (SyncRoot)
+
+            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+
+            try
             {
-                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
-                try
+                result = TaskHelper.Run((token) =>
                 {
-                    result = TaskHelper.Run((token) =>
+                    lock (SyncRoot)
                     {
                         RedisCoder.Request(type, keys);
                         var sresult = RedisCoder.Decoder(type, token);
@@ -408,31 +418,34 @@ namespace SAEA.RedisSocket.Core
                         }
                         else
                             return sresult;
-                    }, _actionTimeout).Result;
-                }
-                catch (TaskCanceledException tex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = "Action Timeout";
-                }
-                catch (Exception ex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = ex.Message;
-                }
-                return result;
+                    }
+                }, _actionTimeout).Result;
             }
+            catch (TaskCanceledException tex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = "Action Timeout";
+            }
+            catch (Exception ex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = ex.Message;
+            }
+            return result;
+
         }
 
         public ResponseData DoExpire(string key, int seconds)
         {
             key.KeyCheck();
-            lock (SyncRoot)
+
+            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+
+            try
             {
-                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
-                try
+                result = TaskHelper.Run((token) =>
                 {
-                    result = TaskHelper.Run((token) =>
+                    lock (SyncRoot)
                     {
                         RedisCoder.Request(RequestType.EXPIRE, key, seconds.ToString());
                         var sresult = RedisCoder.Decoder(RequestType.EXPIRE, token);
@@ -441,31 +454,34 @@ namespace SAEA.RedisSocket.Core
                             sresult = (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoExpire, key, seconds);
                         }
                         return sresult;
-                    }, _actionTimeout).Result;
-                }
-                catch (TaskCanceledException tex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = "Action Timeout";
-                }
-                catch (Exception ex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = ex.Message;
-                }
-                return result;
+                    }
+                }, _actionTimeout).Result;
             }
+            catch (TaskCanceledException tex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = "Action Timeout";
+            }
+            catch (Exception ex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = ex.Message;
+            }
+            return result;
+
         }
 
         public ResponseData DoExpireAt(string key, int timestamp)
         {
             key.KeyCheck();
-            lock (SyncRoot)
+
+            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+
+            try
             {
-                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
-                try
+                result = TaskHelper.Run((token) =>
                 {
-                    result = TaskHelper.Run((token) =>
+                    lock (SyncRoot)
                     {
                         RedisCoder.Request(RequestType.EXPIREAT, key, timestamp.ToString());
                         var sresult = RedisCoder.Decoder(RequestType.EXPIREAT, token);
@@ -474,32 +490,33 @@ namespace SAEA.RedisSocket.Core
                             sresult = (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoExpireAt, key, timestamp);
                         }
                         return sresult;
-                    }, _actionTimeout).Result;
-                }
-                catch (TaskCanceledException tex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = "Action Timeout";
-                }
-                catch (Exception ex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = ex.Message;
-                }
-                return result;
+                    }
+                }, _actionTimeout).Result;
             }
+            catch (TaskCanceledException tex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = "Action Timeout";
+            }
+            catch (Exception ex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = ex.Message;
+            }
+            return result;
         }
 
         public ResponseData DoExpireInsert(RequestType type, string key, string value, int seconds)
         {
             key.KeyCheck();
 
-            lock (SyncRoot)
+            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+
+            try
             {
-                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
-                try
+                result = TaskHelper.Run((token) =>
                 {
-                    result = TaskHelper.Run((token) =>
+                    lock (SyncRoot)
                     {
                         RedisCoder.Request(type, key, value);
                         var sresult = RedisCoder.Decoder(type, token);
@@ -509,32 +526,33 @@ namespace SAEA.RedisSocket.Core
                         }
                         RedisCoder.Request(RequestType.EXPIRE, string.Format("{0} {1}", key, seconds));
                         return RedisCoder.Decoder(RequestType.EXPIRE, token);
-                    }, _actionTimeout).Result;
-                }
-                catch (TaskCanceledException tex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = "Action Timeout";
-                }
-                catch (Exception ex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = ex.Message;
-                }
-                return result;
+                    }
+                }, _actionTimeout).Result;
             }
+            catch (TaskCanceledException tex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = "Action Timeout";
+            }
+            catch (Exception ex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = ex.Message;
+            }
+            return result;
+
         }
 
         public ResponseData DoRang(RequestType type, string key, double begin = 0, double end = -1)
         {
             key.KeyCheck();
 
-            lock (SyncRoot)
+            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            try
             {
-                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
-                try
+                result = TaskHelper.Run((token) =>
                 {
-                    result = TaskHelper.Run((token) =>
+                    lock (SyncRoot)
                     {
                         RedisCoder.Request(type, key, begin.ToString(), end.ToString(), "WITHSCORES");
                         var sresult = RedisCoder.Decoder(type, token);
@@ -544,31 +562,34 @@ namespace SAEA.RedisSocket.Core
                         }
                         else
                             return sresult;
-                    }, _actionTimeout).Result;
-                }
-                catch (TaskCanceledException tex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = "Action Timeout";
-                }
-                catch (Exception ex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = ex.Message;
-                }
-                return result;
+                    }
+                }, _actionTimeout).Result;
             }
+            catch (TaskCanceledException tex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = "Action Timeout";
+            }
+            catch (Exception ex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = ex.Message;
+            }
+            return result;
+
         }
 
         public ResponseData DoRangByScore(RequestType type, string key, double min = double.MinValue, double max = double.MaxValue, RangType rangType = RangType.None, long offset = -1, int count = 20, bool withScore = false)
         {
             key.KeyCheck();
-            lock (SyncRoot)
+
+            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+
+            try
             {
-                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
-                try
+                result = TaskHelper.Run((token) =>
                 {
-                    result = TaskHelper.Run((token) =>
+                    lock (SyncRoot)
                     {
                         RedisCoder.RequestForRandByScore(type, key, min, max, rangType, offset, count, withScore);
                         var sresult = RedisCoder.Decoder(type, token);
@@ -578,30 +599,32 @@ namespace SAEA.RedisSocket.Core
                         }
                         else
                             return sresult;
-                    }, _actionTimeout).Result;
-                }
-                catch (TaskCanceledException tex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = "Action Timeout";
-                }
-                catch (Exception ex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = ex.Message;
-                }
-                return result;
+                    }
+                }, _actionTimeout).Result;
             }
+            catch (TaskCanceledException tex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = "Action Timeout";
+            }
+            catch (Exception ex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = ex.Message;
+            }
+            return result;
+
         }
 
         public void DoSub(string[] channels, Action<string, string> onMsg)
         {
-            lock (SyncRoot)
-            {
-                RedisCoder.Request(RequestType.SUBSCRIBE, channels);
-                RedisCoder.IsSubed = true;
+            RedisCoder.Request(RequestType.SUBSCRIBE, channels);
 
-                TaskHelper.Run(() =>
+            RedisCoder.IsSubed = true;
+
+            TaskHelper.Run(() =>
+            {
+                lock (SyncRoot)
                 {
                     while (RedisCoder.IsSubed)
                     {
@@ -616,18 +639,19 @@ namespace SAEA.RedisSocket.Core
                             break;
                         }
                     }
-                });
-            }
+                }
+            });
         }
 
         public ResponseData DoMultiLineWithList(RequestType type, string id, IEnumerable<string> list)
         {
-            lock (SyncRoot)
+            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+
+            try
             {
-                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
-                try
+                result = TaskHelper.Run((token) =>
                 {
-                    result = TaskHelper.Run((token) =>
+                    lock (SyncRoot)
                     {
                         RedisCoder.RequestForList(type, id, list);
                         var sresult = RedisCoder.Decoder(type, token);
@@ -637,30 +661,30 @@ namespace SAEA.RedisSocket.Core
                         }
                         else
                             return sresult;
-                    }, _actionTimeout).Result;
-                }
-                catch (TaskCanceledException tex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = "Action Timeout";
-                }
-                catch (Exception ex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = ex.Message;
-                }
-                return result;
+                    }
+                }, _actionTimeout).Result;
             }
+            catch (TaskCanceledException tex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = "Action Timeout";
+            }
+            catch (Exception ex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = ex.Message;
+            }
+            return result;
         }
 
         public ResponseData DoMultiLineWithDic(RequestType type, Dictionary<string, string> dic)
         {
-            lock (SyncRoot)
+            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            try
             {
-                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
-                try
+                result = TaskHelper.Run((token) =>
                 {
-                    result = TaskHelper.Run((token) =>
+                    lock (SyncRoot)
                     {
                         RedisCoder.RequestForDic(type, dic);
                         var sresult = RedisCoder.Decoder(type, token);
@@ -670,20 +694,20 @@ namespace SAEA.RedisSocket.Core
                         }
                         else
                             return sresult;
-                    }, _actionTimeout).Result;
-                }
-                catch (TaskCanceledException tex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = "Action Timeout";
-                }
-                catch (Exception ex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = ex.Message;
-                }
-                return result;
+                    }
+                }, _actionTimeout).Result;
             }
+            catch (TaskCanceledException tex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = "Action Timeout";
+            }
+            catch (Exception ex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = ex.Message;
+            }
+            return result;
         }
 
 
@@ -692,13 +716,14 @@ namespace SAEA.RedisSocket.Core
             id.KeyCheck();
             keys.KeyCheck();
 
-            lock (SyncRoot)
+            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            try
             {
-                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
-                try
+                result = TaskHelper.Run((token) =>
                 {
-                    result = TaskHelper.Run((token) =>
+                    lock (SyncRoot)
                     {
+
                         List<string> list = new List<string>();
                         list.Add(type.ToString());
                         list.Add(id);
@@ -711,32 +736,33 @@ namespace SAEA.RedisSocket.Core
                         }
                         else
                             return sresult;
-                    }, _actionTimeout).Result;
-                }
-                catch (TaskCanceledException tex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = "Action Timeout";
-                }
-                catch (Exception ex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = ex.Message;
-                }
-                return result;
+                    }
+                }, _actionTimeout).Result;
             }
+            catch (TaskCanceledException tex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = "Action Timeout";
+            }
+            catch (Exception ex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = ex.Message;
+            }
+            return result;
         }
 
         public ResponseData DoBatchZaddWithIDDic(RequestType type, string id, Dictionary<double, string> dic)
         {
             id.KeyCheck();
-            lock (SyncRoot)
+            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            try
             {
-                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
-                try
+                result = TaskHelper.Run((token) =>
                 {
-                    result = TaskHelper.Run((token) =>
+                    lock (SyncRoot)
                     {
+
                         RedisCoder.RequestForDicWidthID(type, id, dic);
                         var sresult = RedisCoder.Decoder(type, token);
                         if (sresult.Type == ResponseType.Redirect)
@@ -745,31 +771,33 @@ namespace SAEA.RedisSocket.Core
                         }
                         else
                             return sresult;
-                    }, _actionTimeout).Result;
-                }
-                catch (TaskCanceledException tex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = "Action Timeout";
-                }
-                catch (Exception ex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = ex.Message;
-                }
-                return result;
+                    }
+                }, _actionTimeout).Result;
             }
+            catch (TaskCanceledException tex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = "Action Timeout";
+            }
+            catch (Exception ex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = ex.Message;
+            }
+            return result;
+
         }
 
         public ResponseData DoBatchWithIDDic(RequestType type, string id, Dictionary<string, string> dic)
         {
             id.KeyCheck();
-            lock (SyncRoot)
+
+            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            try
             {
-                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
-                try
+                result = TaskHelper.Run((token) =>
                 {
-                    result = TaskHelper.Run((token) =>
+                    lock (SyncRoot)
                     {
                         RedisCoder.RequestForDicWidthID(type, id, dic);
                         var result = RedisCoder.Decoder(type, token);
@@ -779,20 +807,21 @@ namespace SAEA.RedisSocket.Core
                         }
                         else
                             return result;
-                    }, _actionTimeout).Result;
-                }
-                catch (TaskCanceledException tex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = "Action Timeout";
-                }
-                catch (Exception ex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = ex.Message;
-                }
-                return result;
+                    }
+                }, _actionTimeout).Result;
             }
+            catch (TaskCanceledException tex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = "Action Timeout";
+            }
+            catch (Exception ex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = ex.Message;
+            }
+            return result;
+
         }
 
         /// <summary>
@@ -806,11 +835,10 @@ namespace SAEA.RedisSocket.Core
 
         public ScanResponse DoScan(RequestType type, int offset = 0, string pattern = "*", int count = -1)
         {
-            lock (SyncRoot)
+            return TaskHelper.Run((token) =>
             {
-                return TaskHelper.Run((token) =>
+                lock (SyncRoot)
                 {
-
                     if (offset < 0) offset = 0;
 
                     if (!string.IsNullOrEmpty(pattern))
@@ -851,8 +879,8 @@ namespace SAEA.RedisSocket.Core
                         }
                         return null;
                     }
-                }, _actionTimeout).Result;
-            }
+                }
+            }, _actionTimeout).Result;
         }
 
         /// <summary>
@@ -867,9 +895,10 @@ namespace SAEA.RedisSocket.Core
         public ScanResponse DoScanKey(RequestType type, string key, int offset = 0, string pattern = "*", int count = -1)
         {
             key.KeyCheck();
-            lock (SyncRoot)
+
+            return TaskHelper.Run((token) =>
             {
-                return TaskHelper.Run((token) =>
+                lock (SyncRoot)
                 {
                     if (offset < 0) offset = 0;
 
@@ -912,19 +941,20 @@ namespace SAEA.RedisSocket.Core
                         }
                         return null;
                     }
-                }, _actionTimeout).Result;
-            }
+                }
+            }, _actionTimeout).Result;
         }
 
 
         public ResponseData DoMutiCmd(RequestType type, params object[] @params)
         {
-            lock (SyncRoot)
+
+            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            try
             {
-                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
-                try
+                result = TaskHelper.Run((token) =>
                 {
-                    result = TaskHelper.Run((token) =>
+                    lock (SyncRoot)
                     {
                         List<string> list = new List<string>();
 
@@ -951,31 +981,33 @@ namespace SAEA.RedisSocket.Core
                         }
                         else
                             return sresult;
-                    }, _actionTimeout).Result;
-                }
-                catch (TaskCanceledException tex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = "Action Timeout";
-                }
-                catch (Exception ex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = ex.Message;
-                }
-                return result;
+                    }
+                }, _actionTimeout).Result;
             }
+            catch (TaskCanceledException tex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = "Action Timeout";
+            }
+            catch (Exception ex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = ex.Message;
+            }
+            return result;
+
         }
 
 
         public ResponseData DoClusterSetSlot(RequestType type, string action, int slot, string nodeID)
         {
-            lock (SyncRoot)
+
+            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            try
             {
-                ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
-                try
+                result = TaskHelper.Run((token) =>
                 {
-                    result = TaskHelper.Run((token) =>
+                    lock (SyncRoot)
                     {
                         List<string> list = new List<string>();
 
@@ -1003,20 +1035,21 @@ namespace SAEA.RedisSocket.Core
                         }
                         else
                             return sresult;
-                    }, _actionTimeout).Result;
-                }
-                catch (TaskCanceledException tex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = "Action Timeout";
-                }
-                catch (Exception ex)
-                {
-                    result.Type = ResponseType.Error;
-                    result.Data = ex.Message;
-                }
-                return result;
+                    }
+                }, _actionTimeout).Result;
             }
+            catch (TaskCanceledException tex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = "Action Timeout";
+            }
+            catch (Exception ex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = ex.Message;
+            }
+            return result;
+
         }
 
         /// <summary>

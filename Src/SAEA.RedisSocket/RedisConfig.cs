@@ -23,7 +23,6 @@
 *****************************************************************************/
 using SAEA.Common;
 using System;
-using System.Collections.Generic;
 using System.Text;
 
 namespace SAEA.RedisSocket
@@ -35,10 +34,12 @@ namespace SAEA.RedisSocket
         {
             get; set;
         }
+
         public int Port
         {
             get; set;
         }
+
         public string Passwords
         {
             get; set;
@@ -52,10 +53,6 @@ namespace SAEA.RedisSocket
             get; set;
         } = 6 * 1000;
 
-        public RedisConfig()
-        {
-
-        }
 
         public RedisConfig(string ipPort, string passwords, int actionTimeOut = 6 * 1000)
         {
@@ -103,7 +100,7 @@ namespace SAEA.RedisSocket
             }
             catch (Exception ex)
             {
-                throw new Exception("连接字符串格式有误，例如格式为：server=127.0.0.1:6379;passwords=yswenli;actionTimeout=10; error:" + ex.Message);
+                throw new Exception("连接字符串格式有误，例如格式为：server=127.0.0.1:6379;passwords=yswenli;actionTimeout=6000; error:" + ex.Message);
             }
         }
         /// <summary>

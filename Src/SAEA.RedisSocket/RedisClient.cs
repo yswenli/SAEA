@@ -41,8 +41,6 @@ namespace SAEA.RedisSocket
 
         object _syncLocker = new object();
 
-        int _dbIndex = 0;
-
         bool _debugModel = false;
 
         public bool IsConnected { get; set; }
@@ -71,7 +69,7 @@ namespace SAEA.RedisSocket
 
         public RedisClient(string connectStr, bool debugModel = false) : this(new RedisConfig(connectStr), debugModel) { }
 
-        public RedisClient(string ipPort, string password, int acitonTimeout = 10, bool debugModel = false) : this(new RedisConfig(ipPort, password, acitonTimeout), debugModel)
+        public RedisClient(string ipPort, string password, int acitonTimeout = 6 * 1000, bool debugModel = false) : this(new RedisConfig(ipPort, password, acitonTimeout), debugModel)
         {
 
         }
@@ -201,11 +199,11 @@ namespace SAEA.RedisSocket
         {
             if (dbIndex > -1)
             {
-                _dbIndex = dbIndex;
+                DBIndex = dbIndex;
             }
             if (!IsCluster)
             {
-                if (_cnn.DoWithOne(RequestType.SELECT, _dbIndex.ToString()).Data.IndexOf(RedisConst.ErrIndex, StringComparison.InvariantCultureIgnoreCase) == -1)
+                if (_cnn.DoWithOne(RequestType.SELECT, DBIndex.ToString()).Data.IndexOf(RedisConst.ErrIndex, StringComparison.InvariantCultureIgnoreCase) == -1)
                 {
                     return true;
                 }
@@ -218,7 +216,7 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public long DBSize()
         {
-            var result = 0L;
+            long result;
             long.TryParse(_cnn.Do(RequestType.DBSIZE).Data, out result);
             return result;
         }
@@ -375,13 +373,7 @@ namespace SAEA.RedisSocket
         /// <summary>
         /// 当前db index
         /// </summary>
-        public int DBIndex
-        {
-            get
-            {
-                return _dbIndex;
-            }
-        }
+        public int DBIndex { get; private set; } = 0;
 
         /// <summary>
         /// 获取redis database操作
@@ -392,10 +384,10 @@ namespace SAEA.RedisSocket
         {
             lock (_syncLocker)
             {
-                if (dbIndex >= 0 && dbIndex != _dbIndex)
+                if (dbIndex >= 0 && dbIndex != DBIndex)
                 {
-                    _dbIndex = dbIndex;
-                    Select(_dbIndex);
+                    DBIndex = dbIndex;
+                    Select(DBIndex);
                 }
                 if (_redisDataBase == null)
                 {

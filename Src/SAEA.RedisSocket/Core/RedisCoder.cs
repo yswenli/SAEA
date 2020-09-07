@@ -42,19 +42,15 @@ namespace SAEA.RedisSocket.Core
 
         string _sendCommand = string.Empty;
 
-        int _actionTimeout = 6 * 1000;
-
         RClient _rclient;
 
         /// <summary>
         /// 初始化
         /// </summary>
         /// <param name="rclient"></param>
-        /// <param name="actionTimeout"></param>
-        public RedisCoder(RClient rclient, int actionTimeout = 6 * 1000)
+        public RedisCoder(RClient rclient)
         {
             _rclient = rclient;
-            _actionTimeout = actionTimeout;
         }
 
         #region 发送编码
