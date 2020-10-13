@@ -1,5 +1,5 @@
 ﻿/****************************************************************************
-*Copyright (c) 2018 yswenli All Rights Reserved.
+*Copyright (c) 2018-2020 yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：yswenli
@@ -411,6 +411,9 @@ namespace SAEA.RedisSocketTest
             {
                 redisClient.GetDataBase().Set(i.ToString(), i.ToString());
                 redisClient.GetDataBase().Get(i.ToString());
+            }
+            for (int i = 0; i < count; i++)
+            {
                 redisClient.GetDataBase().Del(i.ToString());
             }
 
@@ -437,7 +440,13 @@ namespace SAEA.RedisSocketTest
                 batch.DelAsync(i.ToString());
             }
 
-            var batchResult = batch.Execute().ToList();
+             _= batch.Execute().ToList();
+
+            for (int i = 0; i < count; i++)
+            {
+                batch.DelAsync(i.ToString());
+            }
+            _ = batch.Execute().ToList();
 
             stopwatch.Stop();
 

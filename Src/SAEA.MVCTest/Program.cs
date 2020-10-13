@@ -15,6 +15,8 @@ namespace SAEA.MVCTest
 
             mvcConfig.Port = 28080;
 
+            mvcConfig.IsStaticsCached = false;
+
             SAEAMvcApplicationConfigBuilder.Write(mvcConfig);
 
             SAEAMvcApplication mvcApplication = new SAEAMvcApplication(mvcConfig);

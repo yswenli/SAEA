@@ -113,6 +113,11 @@ namespace SAEA.FTP.Net
                     result = r;
                 });
 
+                if (result == null)
+                {
+                    throw new Exception("连接失败!");
+                }
+
                 if (result.Code != ServerResponseCode.服务就绪)
                 {
                     _cmdSocket.Disconnect();

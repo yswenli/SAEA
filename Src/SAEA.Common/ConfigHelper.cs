@@ -65,7 +65,7 @@ namespace SAEA.Common
                     }
                 }
             }
-            catch { }
+            catch(Exception ex) { }
 
             var json = sb.ToString();
 

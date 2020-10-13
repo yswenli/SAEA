@@ -1,5 +1,5 @@
 ﻿/****************************************************************************
-*Copyright (c) 2018 yswenli All Rights Reserved.
+*Copyright (c) 2018-2020 yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：yswenli
@@ -39,6 +39,12 @@ namespace SAEA.Http.Base.Net
 
         }
 
+        /// <summary>
+        /// GetRequest
+        /// </summary>
+        /// <param name="id"></param>
+        /// <param name="data"></param>
+        /// <param name="onUnpackage"></param>
         public void GetRequest(string id, byte[] data, Action<HttpMessage> onUnpackage)
         {
             _cache.AddRange(data);
@@ -93,7 +99,9 @@ namespace SAEA.Http.Base.Net
             }
         }
 
-
+        /// <summary>
+        /// Clear
+        /// </summary>
         public void Clear()
         {
             _cache.Clear();

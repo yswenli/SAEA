@@ -1,5 +1,5 @@
 ﻿/****************************************************************************
-*Copyright (c) 2018 yswenli All Rights Reserved.
+*Copyright (c) 2018-2020 yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：yswenli
@@ -29,7 +29,7 @@ namespace SAEA.Common
     /// </summary>
     public static class SAEAVersion
     {
-        const string version = "v5.3.3.7";
+        const string version = "v5.3.3.8";
 
         /// <summary>
         /// 获取版本

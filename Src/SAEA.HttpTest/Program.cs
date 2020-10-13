@@ -1,6 +1,5 @@
 ﻿using SAEA.Common;
 using SAEA.Http;
-using SAEA.Http.Model;
 using System;
 
 namespace SAEA.HttpTest
@@ -24,7 +23,7 @@ namespace SAEA.HttpTest
             ConsoleHelper.WriteLine("回车结束");
 
             Console.ReadLine();
-            
+
         }
     }
 }

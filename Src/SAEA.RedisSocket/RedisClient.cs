@@ -1,5 +1,5 @@
 ﻿/****************************************************************************
-*Copyright (c) 2018 yswenli All Rights Reserved.
+*Copyright (c) 2018-2020 yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：wenli
@@ -240,13 +240,13 @@ namespace SAEA.RedisSocket
 
 
         /// <summary>
-        /// redis信息
+        /// redis server信息
         /// </summary>
-        public ServerInfo ServerInfo
+        public RedisServerInfo ServerInfo
         {
             get
             {
-                ServerInfo serverInfo = new ServerInfo() { address = RedisConfig.GetIPPort() };
+                RedisServerInfo serverInfo = new RedisServerInfo() { Address = RedisConfig.GetIPPort() };
 
                 try
                 {
@@ -256,84 +256,31 @@ namespace SAEA.RedisSocket
 
                     if (lines != null && lines.Any())
                     {
-                        Dictionary<string, string> dic = new Dictionary<string, string>();
+                        foreach (var line in lines)
+                        {
+                            var sarr = line.Split(new string[] { ":" }, StringSplitOptions.RemoveEmptyEntries);
 
-                        foreach (var item in lines)
-                        {
-                            if (item.IndexOf("#") > -1)
-                                continue;
-
-                            var arr = item.Split(":");
-
-                            if (arr.Length > 1)
-                                dic[arr[0]] = arr[1];
-                        }
-
-                        if (dic.TryGetValue("config_file", out string config_file))
-                        {
-                            serverInfo.config_file = config_file;
-                        }
-                        if (dic.TryGetValue("connected_clients", out string connected_clients))
-                        {
-                            serverInfo.connected_clients = connected_clients;
-                        }
-                        if (dic.TryGetValue("connected_slaves", out string connected_slaves))
-                        {
-                            serverInfo.connected_slaves = connected_slaves;
-                        }
-                        if (dic.TryGetValue("os", out string os))
-                        {
-                            serverInfo.os = os;
-                        }
-                        if (dic.TryGetValue("redis_version", out string redis_version))
-                        {
-                            serverInfo.redis_version = redis_version;
-                        }
-                        if (dic.TryGetValue("role", out string role))
-                        {
-                            serverInfo.role = role;
-                        }
-                        if (dic.TryGetValue("used_cpu_sys", out string used_cpu_sys))
-                        {
-                            serverInfo.used_cpu_sys = used_cpu_sys;
-                        }
-                        if (dic.TryGetValue("used_cpu_user", out string used_cpu_user))
-                        {
-                            serverInfo.used_cpu_user = used_cpu_user;
-                        }
-                        if (dic.TryGetValue("used_memory", out string used_memory))
-                        {
-                            serverInfo.used_memory = used_memory;
-                        }
-                        if (dic.TryGetValue("used_memory_human", out string used_memory_human))
-                        {
-                            serverInfo.used_memory_human = used_memory_human;
-                        }
-                        if (dic.TryGetValue("used_memory_peak_human", out string used_memory_peak_human))
-                        {
-                            serverInfo.used_memory_peak_human = used_memory_peak_human;
-                        }
-
-
-                        if (dic.ContainsKey("cluster_enabled"))
-                        {
-                            serverInfo.cluster_enabled = dic["cluster_enabled"];
-                        }
-                        if (dic.ContainsKey("executable"))
-                        {
-                            serverInfo.executable = dic["executable"];
-                        }
-                        if (dic.ContainsKey("maxmemory"))
-                        {
-                            serverInfo.maxmemory = dic["maxmemory"];
-                        }
-                        if (dic.ContainsKey("maxmemory_human"))
-                        {
-                            serverInfo.maxmemory_human = dic["maxmemory_human"];
-                        }
-                        if (dic.ContainsKey("used_memory_rss_human"))
-                        {
-                            serverInfo.used_memory_rss_human = dic["used_memory_rss_human"];
+                            switch (sarr[0])
+                            {
+                                case "used_cpu_user":
+                                    serverInfo.Cpu = double.Parse(sarr[1]);
+                                    break;
+                                case "used_memory":
+                                    serverInfo.Memory = double.Parse(sarr[1]) / 1024 / 1024;
+                                    break;
+                                case "instantaneous_ops_per_sec":
+                                    serverInfo.Cmds = long.Parse(sarr[1]);
+                                    break;
+                                case "instantaneous_input_kbps":
+                                    serverInfo.Input = double.Parse(sarr[1]);
+                                    break;
+                                case "instantaneous_output_kbps":
+                                    serverInfo.Output = double.Parse(sarr[1]);
+                                    break;
+                                case "connected_clients":
+                                    serverInfo.Clients = int.Parse(sarr[1]);
+                                    break;
+                            }
                         }
                     }
                 }

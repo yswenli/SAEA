@@ -1,5 +1,5 @@
 ﻿/****************************************************************************
-*Copyright (c) 2018 yswenli All Rights Reserved.
+*Copyright (c) 2018-2020 yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：yswenli
@@ -280,11 +280,16 @@ namespace SAEA.Http.Base
         private static Dictionary<string, string> GetRequestHeaders(IEnumerable<string> rows)
         {
             var result = new Dictionary<string, string>();
+
             if (rows == null || rows.Count() <= 0) return result;
+
             foreach (var row in rows)
             {
                 var rowArr = row.Split(ConstHelper.COLON);
-                result[rowArr[0].ToLower()] = rowArr[1].Trim();
+                if (rowArr.Length == 2)
+                    result[rowArr[0].ToLower()] = rowArr[1].Trim();
+                else
+                    result[rowArr[0].ToLower()] = "";
             }
             return result;
         }

@@ -6,7 +6,7 @@
  |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
                                                              
 
-*Copyright (c) 2018 yswenli All Rights Reserved.
+*Copyright (c) 2018-2020 yswenli All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
 *公司名称：wenli
@@ -36,12 +36,8 @@ namespace SAEA.Sockets.Interface
     /// <summary>
     /// 连接信息类
     /// </summary>
-    public interface IUserToken
-    {
-        string ID
-        {
-            get; set;
-        }
+    public interface IUserToken : ISession
+    {       
         Socket Socket
         {
             get; set;

@@ -1,5 +1,5 @@
 ﻿/****************************************************************************
-*Copyright (c) 2018 yswenli All Rights Reserved.
+*Copyright (c) 2018-2020 yswenli All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
 *公司名称：wenli
@@ -124,7 +124,7 @@ namespace SAEA.MessageTest
 
             server.Start();
 
-            Task.Run(() =>
+            Task.Factory.StartNew(() =>
             {
                 while (true)
                 {
@@ -132,7 +132,7 @@ namespace SAEA.MessageTest
 
                     Thread.Sleep(1000);
                 }
-            });
+            }, TaskCreationOptions.LongRunning);
 
             ConsoleHelper.WriteLine("SAEA.Message服务器已就绪!");
         }
@@ -194,7 +194,7 @@ namespace SAEA.MessageTest
             cc1.Login();
             cc2.Login();
 
-            Task.Run(() =>
+            Task.Factory.StartNew(() =>
             {
                 while (true)
                 {
@@ -202,7 +202,7 @@ namespace SAEA.MessageTest
                     cc2.SendPrivateMsg(cc1.ID, "你好呀,cc1！");
                     Thread.Sleep(500);
                 }
-            });
+            }, TaskCreationOptions.LongRunning);
 
             Parallel.For(0, 1000, (i) =>
             {
@@ -231,7 +231,7 @@ namespace SAEA.MessageTest
             client.Subscribe(channelName);
             ConsoleHelper.WriteLine("客户端订阅成功");
 
-            Task.Run(() =>
+            Task.Factory.StartNew(() =>
             {
                 while (true)
                 {
@@ -240,7 +240,7 @@ namespace SAEA.MessageTest
                     Thread.Sleep(500);
                 }
 
-            });
+            }, TaskCreationOptions.LongRunning);
 
             //===============================================================
             ConsoleHelper.WriteLine("回车开始订阅频道消息...");
@@ -259,7 +259,7 @@ namespace SAEA.MessageTest
                     c.Login();
                     c.Subscribe(channelName);
                 }
-            });
+            }, TaskCreationOptions.LongRunning);
             //===============================================================
 
             ConsoleHelper.WriteLine("回车开始群组测试");
@@ -274,7 +274,7 @@ namespace SAEA.MessageTest
             cc2.SendAddMember(groupName);
 
 
-            Task.Run(() =>
+            Task.Factory.StartNew(() =>
             {
                 while (true)
                 {
@@ -282,7 +282,7 @@ namespace SAEA.MessageTest
                     cc2.SendGroupMessage(groupName, "群主万岁！");
                     Thread.Sleep(100);
                 }
-            });
+            }, TaskCreationOptions.LongRunning);
 
 
 
@@ -338,7 +338,7 @@ namespace SAEA.MessageTest
 
                 cc1.SendChannelMsg(channelName, channelName);
 
-                Task.Run(() =>
+                Task.Factory.StartNew(() =>
                 {
                     while (true)
                     {
@@ -352,7 +352,7 @@ namespace SAEA.MessageTest
                             break;
                         }
                     }
-                });
+                }, TaskCreationOptions.LongRunning);
             });
 
             ConsoleHelper.ReadLine();
