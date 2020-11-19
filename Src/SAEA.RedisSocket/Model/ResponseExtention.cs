@@ -121,7 +121,7 @@ namespace SAEA.RedisSocket.Model
                                 double score = 0D;
                                 double.TryParse(arr[i + 1], out score);
                                 i++;
-                                zItem.Value = val;
+                                zItem.Value = val?.TrimEnd();
                                 zItem.Score = score;
                                 result.Add(zItem);
                             }

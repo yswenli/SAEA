@@ -34,6 +34,10 @@ namespace SAEA.Common
     public static class DateTimeHelper
     {
         static DateTime _dt;
+
+        /// <summary>
+        /// 时间工具类
+        /// </summary>
         static DateTimeHelper()
         {
             Task.Factory.StartNew(() =>
@@ -50,6 +54,7 @@ namespace SAEA.Common
         {
             get
             {
+                if (_dt.Year == 1) _dt = DateTime.Now;
                 return _dt;
             }
         }
