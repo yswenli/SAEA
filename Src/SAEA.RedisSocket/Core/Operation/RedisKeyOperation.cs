@@ -52,6 +52,7 @@ namespace SAEA.RedisSocket.Core
         public bool Exists(string key)
         {
             var result = RedisConnection.DoWithKey(RequestType.EXISTS, key).Data;
+            if (result == null) return false;
             return result.IndexOf("0") > -1 ? false : true;
         }
 
