@@ -203,11 +203,7 @@ namespace SAEA.Http
             //发送内容
             if (bdata != null)
                 reponseDataList.AddRange(bdata);
-
-            var arr = reponseDataList.ToArray();
-            this.Body = null;
-            reponseDataList.Clear();
-            return arr;
+            return reponseDataList.ToArray();
         }
 
         /// <summary>
