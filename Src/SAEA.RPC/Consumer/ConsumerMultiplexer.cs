@@ -28,6 +28,7 @@ using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Concurrent;
+using System.Linq;
 
 namespace SAEA.RPC.Consumer
 {
@@ -115,6 +116,25 @@ namespace SAEA.RPC.Consumer
             var cm = new ConsumerMultiplexer(uri, links, timeOut);
             cm.IsConnected = true;
             return cm;
+        }
+
+        /// <summary>
+        /// 重连
+        /// </summary>
+        /// <returns></returns>
+        public bool Reconnect()
+        {
+            var dic = _hashMap.GetAll(_uri.ToString());
+
+            if (dic != null && dic.Any())
+            {
+                foreach (var item in dic)
+                {
+                    item.Value.Connect();
+                }
+                return true;
+            }
+            return false;
         }
 
         private void RClient_OnNoticed(byte[] serializeData)

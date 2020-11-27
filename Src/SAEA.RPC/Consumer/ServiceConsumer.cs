@@ -37,6 +37,8 @@ namespace SAEA.RPC.Consumer
 
         int _retry = 5;
 
+        Uri _uri;
+
         public event OnNoticedHandler OnNoticed;
 
 
@@ -59,14 +61,22 @@ namespace SAEA.RPC.Consumer
         /// <param name="timeOut"></param>
         public ServiceConsumer(Uri uri, int links = 4, int retry = 5, int timeOut = 10 * 1000)
         {
+            _uri = uri;
             _retry = retry;
-            _consumerMultiplexer = ConsumerMultiplexer.Create(uri, links, timeOut);
+            _consumerMultiplexer = ConsumerMultiplexer.Create(_uri, links, timeOut);
             _consumerMultiplexer.OnNoticed += _consumerMultiplexer_OnNoticed;
             _consumerMultiplexer.OnDisconnected += _consumerMultiplexer_OnDisconnected;
             _consumerMultiplexer.OnError += _consumerMultiplexer_OnError;
         }
 
-
+        /// <summary>
+        /// 重连
+        /// </summary>
+        /// <returns></returns>
+        public bool Reconnect()
+        {
+            return _consumerMultiplexer.Reconnect();
+        }
 
         private void _consumerMultiplexer_OnDisconnected(string ID, Exception ex)
         {

@@ -75,7 +75,8 @@ namespace SAEA.RPC.Generater
         {
             var sb = new StringBuilder();
             sb.AppendLine("/*******");
-            sb.AppendLine($"* 此代码为SAEA.RPC.Generater生成");
+            sb.AppendLine("* 此代码为SAEA.RPC.Generater生成");
+            sb.AppendLine("* SAEA.RPC.Generater Developed by yswenli");
             sb.AppendLine($"* 尽量不要修改此代码 {DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}");
             sb.AppendLine("*******/" + Environment.NewLine);
             sb.AppendLine("using System;");
@@ -144,6 +145,11 @@ namespace SAEA.RPC.Generater
                     csStr.AppendLine(GetSpace(3) + GetSuffixStr(name) + $" = new {name}(_serviceConsumer);");
                 }
             }
+            csStr.AppendLine(GetSpace(2) + "}");
+
+            csStr.AppendLine(GetSpace(2) + "public bool Reconnect()");
+            csStr.AppendLine(GetSpace(2) + "{");
+            csStr.AppendLine(GetSpace(3) + "_serviceConsumer.Reconnect();");
             csStr.AppendLine(GetSpace(2) + "}");
 
             csStr.AppendLine(GetSpace(2) + "private void ExceptionCollector_OnErr(string name, Exception ex)");
@@ -411,7 +417,7 @@ namespace SAEA.RPC.Generater
         /// <returns></returns>
         internal static void GenerateModel(string spaceName, Type type)
         {
-            if (type.IsInterface) throw new Exception("不支持接口：" + TypeHelper.GetTypeName(type));
+            if (type.IsInterface) throw new Exception("在实体及其属性中不支持接口：" + TypeHelper.GetTypeName(type));
 
             var modelKey = $"{spaceName}.Consumer.Model.{type.Name}";
             if (_modelStrs.ContainsKey(modelKey))
