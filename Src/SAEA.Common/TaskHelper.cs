@@ -43,6 +43,16 @@ namespace SAEA.Common
         }
 
         /// <summary>
+        /// LongRunning
+        /// </summary>
+        /// <param name="action"></param>
+        /// <returns></returns>
+        public static Task LongRunning(Action action)
+        {
+            return Task.Factory.StartNew(() => action, TaskCreationOptions.LongRunning);
+        }
+
+        /// <summary>
         /// 指定超时任务
         /// </summary>
         /// <typeparam name="T"></typeparam>
