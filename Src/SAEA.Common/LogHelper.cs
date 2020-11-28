@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 using System;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -33,23 +34,64 @@ namespace SAEA.Common
     /// </summary>
     public static class LogHelper
     {
-        static string logPath = string.Empty;
+        static string _logPath;
 
-        private static void Write(string type, string msg)
+        static ConcurrentBag<LogItem> _cache;
+
+        /// <summary>
+        /// 日志
+        /// </summary>
+        static LogHelper()
         {
-            TaskHelper.Run(() =>
+            _cache = new ConcurrentBag<LogItem>();
+
+            _logPath = PathHelper.GetCurrentPath("Logs");
+
+            TaskHelper.LongRunning(() =>
             {
-                try
+                while (true)
                 {
-                    if (string.IsNullOrEmpty(logPath))
-                        logPath = PathHelper.GetCurrentPath("Logs");
-                    var fileName = PathHelper.GetFilePath(logPath, type + DateTimeHelper.ToString("yyyyMMdd") + ".log");
-                    File.AppendAllText(fileName, $"{DateTimeHelper.ToString()}   {type}   {msg}{Environment.NewLine}", Encoding.UTF8);
+                    if (_cache.IsEmpty)
+                    {
+                        ThreadHelper.Sleep(500);
+                    }
+                    else
+                    {
+                        var count = _cache.Count;
+
+                        for (int i = 0; i < count; i++)
+                        {
+                            if (_cache.TryTake(out LogItem logItem))
+                            {
+                                try
+                                {
+                                    var fileName = PathHelper.GetFilePath(_logPath, logItem.Type + DateTimeHelper.ToString("yyyyMMdd") + ".log");
+                                    File.AppendAllText(fileName, $"{DateTimeHelper.ToString()}   {logItem.Type}   {logItem.Msg}{Environment.NewLine}", Encoding.UTF8);
+                                }
+                                catch { }
+                            }
+                        }
+                    }
                 }
-                catch { }
             });
         }
 
+        /// <summary>
+        /// Write
+        /// </summary>
+        /// <param name="type"></param>
+        /// <param name="msg"></param>
+        static void Write(string type, string msg)
+        {
+            _cache.Add(new LogItem() { Type = type, Msg = msg });
+        }
+
+        /// <summary>
+        /// Error
+        /// </summary>
+        /// <param name="des"></param>
+        /// <param name="ex"></param>
+        /// <param name="params"></param>
         public static void Error(string des, Exception ex, params object[] @params)
         {
             string paramStr = string.Empty;
@@ -61,6 +103,12 @@ namespace SAEA.Common
             Write($"[Error]", $"{des}\terr:{SerializeHelper.Serialize(ex)},params:{paramStr}");
         }
 
+        /// <summary>
+        /// Warn
+        /// </summary>
+        /// <param name="des"></param>
+        /// <param name="ex"></param>
+        /// <param name="params"></param>
         public static void Warn(string des, Exception ex, params object[] @params)
         {
             string paramStr = string.Empty;
@@ -72,6 +120,11 @@ namespace SAEA.Common
             Write($"[Warn]", $"{des}\terr:{SerializeHelper.Serialize(ex)},params:{paramStr}");
         }
 
+        /// <summary>
+        /// Info
+        /// </summary>
+        /// <param name="des"></param>
+        /// <param name="params"></param>
         public static void Info(string des, params object[] @params)
         {
             string paramStr = string.Empty;
@@ -83,6 +136,11 @@ namespace SAEA.Common
             Write($"[Info]", $"{des}\tparams:{paramStr}");
         }
 
+        /// <summary>
+        /// Debug
+        /// </summary>
+        /// <param name="des"></param>
+        /// <param name="params"></param>
         public static void Debug(string des, params object[] @params)
         {
             string paramStr = string.Empty;
@@ -94,6 +152,11 @@ namespace SAEA.Common
             Write($"[Debug]", $"{des}\tparams:{paramStr}");
         }
 
+        /// <summary>
+        /// Debug
+        /// </summary>
+        /// <param name="des"></param>
+        /// <param name="data"></param>
         public static void Debug(string des, byte[] data)
         {
             var result = "内容为空";
@@ -103,5 +166,15 @@ namespace SAEA.Common
             }
             Write("[Debug]", $"{des}\t{result}");
         }
+    }
+
+    /// <summary>
+    /// LogItem
+    /// </summary>
+    internal struct LogItem
+    {
+        public string Type { get; set; }
+
+        public string Msg { get; set; }
     }
 }
