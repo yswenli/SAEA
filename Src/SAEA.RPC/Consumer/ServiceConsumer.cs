@@ -24,7 +24,6 @@
 using SAEA.Common;
 using SAEA.RPC.Model;
 using System;
-using System.Threading.Tasks;
 
 namespace SAEA.RPC.Consumer
 {
@@ -39,9 +38,13 @@ namespace SAEA.RPC.Consumer
 
         Uri _uri;
 
+        /// <summary>
+        /// 推送模式下的数据通知事件
+        /// </summary>
         public event OnNoticedHandler OnNoticed;
-
-
+        /// <summary>
+        /// IsConnected
+        /// </summary>
         public bool IsConnected
         {
             get
@@ -123,14 +126,13 @@ namespace SAEA.RPC.Consumer
             return t;
         }
 
-
+        /// <summary>
+        /// 推送模式
+        /// </summary>
         public void RegistReceiveNotice()
         {
             _consumerMultiplexer.RegistReceiveNotice();
         }
-
-
-
 
         public void Disconnect()
         {
