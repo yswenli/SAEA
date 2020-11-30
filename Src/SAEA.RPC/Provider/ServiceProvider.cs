@@ -43,7 +43,7 @@ namespace SAEA.RPC.Provider
 
         bool _started = false;
 
-        RServer _RServer;
+        RServer _rServer;
 
         NoticeCollection _noticeCollection = null;
 
@@ -77,9 +77,9 @@ namespace SAEA.RPC.Provider
 
             _noticeCollection = new NoticeCollection();
 
-            _RServer = new RServer(_port, bufferSize, count);
-            _RServer.OnMsg += _RServer_OnMsgAsync;
-            _RServer.OnError += _RServer_OnError;
+            _rServer = new RServer(_port, bufferSize, count);
+            _rServer.OnMsg += _RServer_OnMsgAsync;
+            _rServer.OnError += _RServer_OnError;
 
             ExceptionCollector.OnErr += ExceptionCollector_OnErr;
         }
@@ -101,7 +101,7 @@ namespace SAEA.RPC.Provider
                 switch ((RSocketMsgType)msg.Type)
                 {
                     case RSocketMsgType.Ping:
-                        _RServer.Reply(userToken, new RSocketMsg(RSocketMsgType.Pong) { SequenceNumber = msg.SequenceNumber });
+                        _rServer.Reply(userToken, new RSocketMsg(RSocketMsgType.Pong) { SequenceNumber = msg.SequenceNumber });
                         break;
                     case RSocketMsgType.Pong:
 
@@ -112,7 +112,7 @@ namespace SAEA.RPC.Provider
 
                         var rSocketMsg = new RSocketMsg(RSocketMsgType.Response, null, null, data) { SequenceNumber = msg.SequenceNumber };
 
-                        _RServer.Reply(userToken, rSocketMsg);
+                        _rServer.Reply(userToken, rSocketMsg);
                         break;
                     case RSocketMsgType.RegistNotice:
                         _noticeCollection.Set(userToken).GetAwaiter();
@@ -124,7 +124,7 @@ namespace SAEA.RPC.Provider
 
                         break;
                     case RSocketMsgType.Close:
-                        _RServer.Disconnect(userToken);
+                        _rServer.Disconnect(userToken);
                         break;
                 }
             }
@@ -141,7 +141,7 @@ namespace SAEA.RPC.Provider
         {
             if (!_started)
             {
-                _RServer.Start();
+                _rServer.Start();
 
                 RPCMapping.Regists(_serviceTypes);
 
@@ -155,7 +155,7 @@ namespace SAEA.RPC.Provider
         {
             if (_started)
             {
-                _RServer.Stop();
+                _rServer.Stop();
                 _started = false;
             }
         }
@@ -181,7 +181,7 @@ namespace SAEA.RPC.Provider
                     {
                         try
                         {
-                            _RServer.Reply(item, msg);
+                            _rServer.Reply(item, msg);
                         }
                         catch (Exception ex)
                         {
