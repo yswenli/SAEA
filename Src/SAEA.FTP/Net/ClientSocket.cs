@@ -103,14 +103,9 @@ namespace SAEA.FTP.Net
         {
             if (!Connected)
             {
-                ServerResponse result = null;
-
-                _syncHelper1.Wait(() =>
+                ServerResponse result = _syncHelper1.Wait(() =>
                 {
                     _cmdSocket.Connect();
-                }, (r) =>
-                {
-                    result = r;
                 });
 
                 if (result == null)
@@ -166,16 +161,18 @@ namespace SAEA.FTP.Net
 
         ServerResponse Send(string cmd)
         {
-            ServerResponse result = null;
-
-            _syncHelper2.Wait(() =>
+            try
             {
-                _cmdSocket.SendAsync(Encoding.UTF8.GetBytes(cmd + Environment.NewLine));
-            }, (r) =>
+                return _syncHelper2.Wait(() =>
+                {
+                    _cmdSocket.SendAsync(Encoding.UTF8.GetBytes(cmd + Environment.NewLine));
+                });
+            }
+            catch (Exception ex)
             {
-                result = r;
-            });
-            return result;
+                LogHelper.Error("ClientSocket.Send", ex);
+            }
+            return null;
         }
 
         public ServerResponse BaseSend(string cmd, Action action = null)

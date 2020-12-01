@@ -179,26 +179,26 @@ namespace SAEA.RPC.Net
         /// <param name="serviceName"></param>
         /// <param name="method"></param>
         /// <param name="args"></param>
-        /// <param name="timeOut"></param>
         /// <returns></returns>
-        public byte[] Request(string serviceName, string method, byte[] args, int timeOut)
+        public byte[] Request(string serviceName, string method, byte[] args)
         {
             byte[] result = null;
 
-            var msg = new RSocketMsg(RSocketMsgType.Request, serviceName, method)
+            try
             {
-                SequenceNumber = UniqueKeyHelper.Next()
-            };
 
-            msg.Data = args;
+                var msg = new RSocketMsg(RSocketMsgType.Request, serviceName, method)
+                {
+                    SequenceNumber = UniqueKeyHelper.Next()
+                };
 
-            if (_syncHelper.Wait(() => { this.Send(msg); }, (r) => { result = r; }, timeOut))
-            {
-                return result;
+                msg.Data = args;
+
+                result = _syncHelper.Wait(() => { this.Send(msg); });
             }
-            else
+            catch (Exception ex)
             {
-                ExceptionCollector.Add("Consumer.Request.Error", new RPCSocketException($"serviceName:{serviceName}/method:{method} 调用超时！"));
+                ExceptionCollector.Add("Consumer.Request.Error", new RPCSocketException($"serviceName:{serviceName}/method:{method} 调用超时！", ex));
             }
             return result;
         }

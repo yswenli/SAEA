@@ -28,56 +28,74 @@ using System.Threading;
 namespace SAEA.Common
 {
     /// <summary>
-    /// 方法、事件同步
+    /// 同步工具类
     /// </summary>
     /// <typeparam name="T"></typeparam>
     public class SyncHelper<T>
     {
-        ConcurrentDictionary<string, SyncInfo<T>> _cmdDic = new ConcurrentDictionary<string, SyncInfo<T>>();
+        ConcurrentQueue<T> _queue;
 
-        string _key;
+        TimeSpan _timeout;
+
+        object _locker;
 
         /// <summary>
-        /// 设置等待点
+        /// 同步工具类
         /// </summary>
-        /// <param name="sNo"></param>
-        /// <param name="callBack"></param>
-        /// <param name="millisecondsTimeout"></param>
-        public bool Wait(Action work, Action<T> callBack, int millisecondsTimeout = 180 * 1000)
+        /// <param name="timeout"></param>
+        public SyncHelper(int timeout = 3000)
         {
-            var result = false;
-            _key = Guid.NewGuid().ToString("N");
-            var si = new SyncInfo<T>() { Action = callBack };
-            _cmdDic.TryAdd(_key, si);
-            work?.Invoke();
-            if (millisecondsTimeout > 0)
-                result = si.AutoResetEvent.WaitOne(millisecondsTimeout);
-            else
-                result = si.AutoResetEvent.WaitOne();
-            si.AutoResetEvent.Close();
-            return result;
+            _timeout = TimeSpan.FromMilliseconds(timeout);
+
+            _queue = new ConcurrentQueue<T>();
+
+            _locker = new object();
         }
 
         /// <summary>
-        /// 通知取消等待
+        /// 发出请求并等待
+        /// </summary>
+        /// <param name="action"></param>
+        /// <returns></returns>
+        public T Wait(Action action)
+        {
+            lock (_locker)
+            {
+                var date = DateTimeHelper.Now;
+
+                while (!_queue.IsEmpty)
+                {
+                    if (DateTimeHelper.Now - date > _timeout)
+                    {
+                        throw new TimeoutException("request is timeout");
+                    }
+                    Thread.Yield();
+                }
+
+                action?.BeginInvoke(null, null);
+
+                T t;
+
+                while (!_queue.TryDequeue(out t))
+                {
+                    if (DateTimeHelper.Now - date > _timeout)
+                    {
+                        throw new TimeoutException("request is timeout");
+                    }
+                    Thread.Yield();
+                }
+
+                return t;
+            }
+        }
+
+        /// <summary>
+        /// 设置回复值
         /// </summary>
         /// <param name="t"></param>
-        public bool Set( T t)
+        public void Set(T t)
         {
-            if (_cmdDic.TryRemove(_key, out SyncInfo<T> si))
-            {
-                si.Action.Invoke(t);
-                si.AutoResetEvent.Set();
-                return true;
-            }
-            return false;
+            _queue.Enqueue(t);
         }
-    }
-
-    internal class SyncInfo<T>
-    {
-        public AutoResetEvent AutoResetEvent { get; set; } = new AutoResetEvent(false);
-
-        public Action<T> Action { get; set; }
     }
 }
