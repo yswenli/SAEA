@@ -31,15 +31,17 @@ namespace SAEA.RPC.Common
     public static class UniqueKeyHelper
     {
         static long sNo = long.MinValue;
+
+        static long maxVal = long.MaxValue - 1000000;
         /// <summary>
         /// 获取下一个值
         /// </summary>
         /// <returns></returns>
         public static long Next()
         {
-            if (Interlocked.Increment(ref sNo) > long.MaxValue - 10000)
+            if (Interlocked.Increment(ref sNo) > maxVal)
             {
-                sNo = 0;
+                sNo = long.MinValue;
             }
             return sNo;
         }
