@@ -250,6 +250,18 @@ namespace SAEA.RedisSocket.Core
         }
 
         /// <summary>
+        /// 为哈希表 key 中的域 field 的值加上增量 increment 
+        /// </summary>
+        /// <param name="hid"></param>
+        /// <param name="key"></param>
+        /// <param name="num"></param>
+        /// <returns></returns>
+        public long HIncrementBy(string hid, string key, long num)
+        {
+            return long.Parse(RedisConnection.DoWithID(RequestType.HINCRBY, hid, key, num.ToString()).Data);
+        }
+
+        /// <summary>
         /// 为哈希表 key 中的域 field 加上浮点数增量 increment
         /// </summary>
         /// <param name="hid"></param>
