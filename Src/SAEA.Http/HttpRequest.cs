@@ -121,6 +121,11 @@ namespace SAEA.Http
             this.ContentType = _httpMessage.ContentType;
             this.ContentLength = _httpMessage.ContentLength;
 
+            if (this.Headers == null)
+            {
+                this.Headers = new Dictionary<string, string>();
+            }            
+
             if (this.Headers.ContainsKey("user-agent"))
             {
                 this.UserAgent = this.Headers["user-agent"];

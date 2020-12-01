@@ -25,6 +25,7 @@ using SAEA.Common;
 using SAEA.Http.Model;
 using SAEA.Sockets.Interface;
 using System;
+using System.Net;
 
 namespace SAEA.Http.Base
 {
@@ -93,9 +94,9 @@ namespace SAEA.Http.Base
 
             this.Request = new HttpRequest();
 
-            this.Response = new HttpResponse();            
+            this.Response = new HttpResponse();
 
-            this.Request.Init(httpMessage);           
+            this.Request.Init(httpMessage);
 
             this.Server = _webHost.HttpUtility;
 
@@ -109,9 +110,7 @@ namespace SAEA.Http.Base
         /// </summary>
         public void InitSession(IUserToken userToken)
         {
-            var sessionID = string.Empty;
-
-            this.Response.Init(_webHost, userToken, this.Request.Protocal, _webHost.WebConfig.IsZiped);
+            string sessionID;
 
             if (!this.Request.Cookies.ContainsKey(ConstHelper.SESSIONID))
             {
@@ -138,6 +137,14 @@ namespace SAEA.Http.Base
                 HttpCookie.DefaultDomain = domain;
             }
 
+            this.Request.Headers["REMOTE_ADDR"] = ((IPEndPoint)userToken.Socket.RemoteEndPoint).Address.ToString();
+
+            if (this.Request.Headers.ContainsKey("HTTP_X_FORWARDED_FOR"))
+            {
+                this.Request.Headers["HTTP_X_FORWARDED_FOR"] += "," + this.Request.Headers["REMOTE_ADDR"];
+            }
+
+            this.Response.Init(_webHost, userToken, this.Request.Protocal, _webHost.WebConfig.IsZiped);
             this.Response.Cookies[ConstHelper.SESSIONID] = new HttpCookie(ConstHelper.SESSIONID, sessionID);
         }
 
