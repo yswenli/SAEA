@@ -385,7 +385,7 @@ namespace SAEA.RPCTest
             {
                 while (started)
                 {
-                    sp.Notice($"hello rpc client!\t{DateTime.Now}");
+                    _ = sp.Notice($"hello rpc client!\t{DateTime.Now}");
                     ThreadHelper.Sleep(10);
                 }
             });

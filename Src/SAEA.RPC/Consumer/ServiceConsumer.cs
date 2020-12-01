@@ -34,8 +34,6 @@ namespace SAEA.RPC.Consumer
     {
         ConsumerMultiplexer _consumerMultiplexer = null;
 
-        int _retry = 5;
-
         Uri _uri;
 
         /// <summary>
@@ -65,8 +63,7 @@ namespace SAEA.RPC.Consumer
         public ServiceConsumer(Uri uri, int links = 4, int retry = 5, int timeOut = 10 * 1000)
         {
             _uri = uri;
-            _retry = retry;
-            _consumerMultiplexer = ConsumerMultiplexer.Create(_uri, links, timeOut);
+            _consumerMultiplexer = ConsumerMultiplexer.Create(_uri, links, timeOut, retry);
             _consumerMultiplexer.OnNoticed += _consumerMultiplexer_OnNoticed;
             _consumerMultiplexer.OnDisconnected += _consumerMultiplexer_OnDisconnected;
             _consumerMultiplexer.OnError += _consumerMultiplexer_OnError;
@@ -118,7 +115,7 @@ namespace SAEA.RPC.Consumer
                 abytes = SAEASerialize.Serialize(args);
             }
 
-            var data = _consumerMultiplexer.Request(serviceName, method, abytes, _retry);
+            var data = _consumerMultiplexer.Request(serviceName, method, abytes);
 
             if (data != null)
             {

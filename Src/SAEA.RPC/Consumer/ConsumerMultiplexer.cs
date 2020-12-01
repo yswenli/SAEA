@@ -33,7 +33,7 @@ using System.Linq;
 namespace SAEA.RPC.Consumer
 {
     /// <summary>
-    /// 使用多路复用概念来实现高效率传输
+    /// Consumer多路复用
     /// </summary>
     public class ConsumerMultiplexer : ISyncBase, IDisposable
     {
@@ -51,8 +51,8 @@ namespace SAEA.RPC.Consumer
 
         ConcurrentDictionary<int, RClient> _myClients = new ConcurrentDictionary<int, RClient>();
 
-
         object _syncLocker = new object();
+
         public object SyncLocker
         {
             get
@@ -68,29 +68,39 @@ namespace SAEA.RPC.Consumer
 
 
         /// <summary>
-        /// 初始化
+        /// Consumer多路复用
         /// </summary>
         /// <param name="uri"></param>
         /// <param name="links"></param>
         /// <param name="timeOut"></param>
-        ConsumerMultiplexer(Uri uri, int links = 10, int timeOut = 10 * 1000)
+        /// <param name="retry"></param>
+        ConsumerMultiplexer(Uri uri, int links = 10, int timeOut = 10 * 1000, int retry = 5)
         {
             _uri = uri;
             _links = links;
             _timeOut = timeOut;
+            _retry = retry;
 
-            var dic = _hashMap.GetAll(uri.ToString());
-
-            for (int i = 0; i < _links; i++)
+            if (!_hashMap.Exits(uri.ToString()))
             {
-                var rClient = dic[i];
-                rClient.OnDisconnected -= RClient_OnDisconnected;
-                rClient.OnError -= RClient_OnError;
-                rClient.OnNoticed -= RClient_OnNoticed;
-                rClient.OnDisconnected += RClient_OnDisconnected;
-                rClient.OnError += RClient_OnError;
-                rClient.OnNoticed += RClient_OnNoticed;
-                _myClients.TryAdd(i, rClient);
+                for (int i = 0; i < links; i++)
+                {
+                    var rClient = new RClient(uri, timeOut);
+
+                    rClient.OnDisconnected -= RClient_OnDisconnected;
+                    rClient.OnError -= RClient_OnError;
+                    rClient.OnNoticed -= RClient_OnNoticed;
+                    rClient.OnDisconnected += RClient_OnDisconnected;
+                    rClient.OnError += RClient_OnError;
+                    rClient.OnNoticed += RClient_OnNoticed;
+
+                    rClient.Connect();
+                    rClient.KeepAlive();
+
+                    _hashMap.Set(uri.ToString(), i, rClient);
+
+                    _myClients.TryAdd(i, rClient);
+                }
             }
         }
 
@@ -100,20 +110,11 @@ namespace SAEA.RPC.Consumer
         /// <param name="uri"></param>
         /// <param name="links"></param>
         /// <param name="timeOut"></param>
+        /// <param name="retry"></param>
         /// <returns></returns>
-        public static ConsumerMultiplexer Create(Uri uri, int links = 4, int timeOut = 10 * 1000)
+        public static ConsumerMultiplexer Create(Uri uri, int links = 4, int timeOut = 3 * 1000, int retry = 5)
         {
-            if (!_hashMap.Exits(uri.ToString()))
-            {
-                for (int i = 0; i < links; i++)
-                {
-                    var rClient = new RClient(uri);
-                    rClient.Connect();
-                    rClient.KeepAlive();
-                    _hashMap.Set(uri.ToString(), i, rClient);
-                }
-            }
-            var cm = new ConsumerMultiplexer(uri, links, timeOut);
+            var cm = new ConsumerMultiplexer(uri, links, timeOut, retry);
             cm.IsConnected = true;
             return cm;
         }
@@ -172,13 +173,14 @@ namespace SAEA.RPC.Consumer
         /// <param name="method"></param>
         /// <param name="args"></param>
         /// <returns></returns>
-        public byte[] Request(string serviceName, string method, byte[] args, int retry = 5)
+        public byte[] Request(string serviceName, string method, byte[] args)
         {
-            _retry = retry;
-            return ReTryHelper.Do(() => this.GetClient().Request(serviceName, method, args, _timeOut), retry);
+            return ReTryHelper.Do(() => this.GetClient().Request(serviceName, method, args), _retry);
         }
 
-
+        /// <summary>
+        /// 注册通知
+        /// </summary>
         public void RegistReceiveNotice()
         {
             this.GetClient().RegistReceiveNotice();

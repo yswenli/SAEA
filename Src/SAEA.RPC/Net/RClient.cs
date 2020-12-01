@@ -35,7 +35,7 @@ namespace SAEA.RPC.Net
     {
         bool _isDisposed = false;
 
-        SyncHelper<byte[]> _syncHelper = new SyncHelper<byte[]>();
+        SyncHelper<byte[]> _syncHelper;
 
         RContext _RContext;
 
@@ -57,13 +57,19 @@ namespace SAEA.RPC.Net
 
         public event OnErrorHandler OnError;
 
-        public RClient(Uri uri)
+        int _timeOut = 3000;
+
+        public RClient(Uri uri, int timeOut = 3000)
         {
             if (string.IsNullOrEmpty(uri.Scheme) || string.Compare(uri.Scheme, "rpc", true) != 0)
             {
                 ExceptionCollector.Add("Consumer.RClient.Init Error", new RPCSocketException("当前连接协议不正确，请使用格式rpc://ip:port"));
                 return;
             }
+
+            _timeOut = timeOut;
+
+            _syncHelper = new SyncHelper<byte[]>(_timeOut);
 
             var ipPort = DNSHelper.GetIPPort(uri);
 
@@ -77,6 +83,7 @@ namespace SAEA.RPC.Net
                 .SetPort(ipPort.Item2)
                 .SetReadBufferSize()
                 .SetWriteBufferSize()
+                .SetTimeOut(_timeOut)
                 .Build();
 
             _client = SocketFactory.CreateClientSocket(option);
@@ -84,7 +91,6 @@ namespace SAEA.RPC.Net
             _client.OnReceive += OnReceived;
 
             _client.OnDisconnected += _client_OnDisConnected;
-
         }
 
         private void _client_OnDisConnected(string ID, Exception ex)
@@ -186,7 +192,6 @@ namespace SAEA.RPC.Net
 
             try
             {
-
                 var msg = new RSocketMsg(RSocketMsgType.Request, serviceName, method)
                 {
                     SequenceNumber = UniqueKeyHelper.Next()

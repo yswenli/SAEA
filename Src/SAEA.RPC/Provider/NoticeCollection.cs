@@ -49,7 +49,7 @@ namespace SAEA.RPC.Provider
         }
 
 
-        public async Task<List<IUserToken>> GetList()
+        public async Task<List<IUserToken>> GetListAsync()
         {
             return await Task.Run(() =>
             {

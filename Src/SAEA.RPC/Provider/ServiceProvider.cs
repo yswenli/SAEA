@@ -165,11 +165,11 @@ namespace SAEA.RPC.Provider
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="t"></param>
-        public void Notice<T>(T t)
+        public async Task Notice<T>(T t)
         {
             if (t != null)
             {
-                var list = _noticeCollection.GetList().GetAwaiter().GetResult();
+                var list = await _noticeCollection.GetListAsync();
 
                 if (list != null && list.Any())
                 {

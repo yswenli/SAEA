@@ -72,7 +72,7 @@ namespace SAEA.Common
                     Thread.Yield();
                 }
 
-                action?.BeginInvoke(null, null);
+                action?.Invoke();
 
                 T t;
 
