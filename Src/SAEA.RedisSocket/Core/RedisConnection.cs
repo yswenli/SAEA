@@ -231,7 +231,7 @@ namespace SAEA.RedisSocket.Core
             catch (TaskCanceledException tex)
             {
                 result.Type = ResponseType.Error;
-                result.Data = "Action Timeout";
+                result.Data = "Action Timeout," + tex.Message;
             }
             catch (Exception ex)
             {

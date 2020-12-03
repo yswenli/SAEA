@@ -396,5 +396,23 @@ namespace SAEA.RedisSocket
 
             return null;
         }
+
+        /// <summary>
+        /// FlushAll,清空整个 Redis 服务器的数据
+        /// </summary>
+        /// <returns></returns>
+        public bool FlushAll()
+        {
+            var data = _cnn.Do(RequestType.FLUSHALL);
+
+            if (data != null)
+            {
+                if (int.TryParse(data.Data, out int res) && res > -1)
+
+                    return true;
+            }
+
+            return false;
+        }
     }
 }

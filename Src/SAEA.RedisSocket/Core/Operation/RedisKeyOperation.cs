@@ -115,7 +115,6 @@ namespace SAEA.RedisSocket.Core
             int.TryParse(RedisConnection.DoWithKey(RequestType.TTL, key).Data, out int result);
 
             return result;
-
         }
 
         /// <summary>
@@ -148,7 +147,23 @@ namespace SAEA.RedisSocket.Core
         public bool Rename(string oldKey, string newKey)
         {
             var result = RedisConnection.DoWithKeyValue(RequestType.RENAME, oldKey, newKey);
-            if (result.Data == "OK")
+
+            if (result != null && result.Data == "OK")
+            {
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 清空当前数据库中的所有 key
+        /// </summary>
+        /// <returns></returns>
+        public bool FlushDB()
+        {
+            var result = RedisConnection.Do(RequestType.FLUSHDB);
+
+            if (result != null && result.Data == "OK")
             {
                 return true;
             }
