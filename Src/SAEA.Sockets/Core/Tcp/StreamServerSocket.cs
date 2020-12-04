@@ -83,6 +83,8 @@ namespace SAEA.Sockets.Core.Tcp
             SocketOption = socketOption;
             _cancellationToken = cancellationToken;
         }
+
+
         /// <summary>
         /// 启动服务
         /// </summary>
@@ -92,17 +94,26 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 _isStoped = false;
 
-                _listener = new Socket(AddressFamily.InterNetwork, System.Net.Sockets.SocketType.Stream, ProtocolType.Tcp);
-                _listener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+                _listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
+                if (SocketOption.ReusePort)
+                    _listener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, SocketOption.ReusePort);
+
                 _listener.NoDelay = SocketOption.NoDelay;
 
                 if (SocketOption.UseIPV6)
                 {
-                    _listener.Bind(new IPEndPoint(IPAddress.IPv6Any, SocketOption.Port));
+                    if (string.IsNullOrEmpty(SocketOption.IP))
+                        _listener.Bind(new IPEndPoint(IPAddress.IPv6Any, SocketOption.Port));
+                    else
+                        _listener.Bind(new IPEndPoint(IPAddress.Parse(SocketOption.IP), SocketOption.Port));
                 }
                 else
                 {
-                    _listener.Bind(new IPEndPoint(IPAddress.Any, SocketOption.Port));
+                    if (string.IsNullOrEmpty(SocketOption.IP))
+                        _listener.Bind(new IPEndPoint(IPAddress.Any, SocketOption.Port));
+                    else
+                        _listener.Bind(new IPEndPoint(IPAddress.Parse(SocketOption.IP), SocketOption.Port));
                 }
 
                 _listener.Listen(backlog);
@@ -242,7 +253,7 @@ namespace SAEA.Sockets.Core.Tcp
         public void SendAsync(string sessionID, byte[] data)
         {
             var channel = ChannelManager.Instance.Get(sessionID);
-            if(channel==null || channel.ClientSocket==null || !channel.ClientSocket.Connected)
+            if (channel == null || channel.ClientSocket == null || !channel.ClientSocket.Connected)
                 throw new KernelException("Failed to send data,current session does not exist！");
             channel.Stream.WriteAsync(data, 0, data.Length);
         }

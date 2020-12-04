@@ -49,7 +49,7 @@ namespace SAEA.Common
         /// <returns></returns>
         public static Task LongRunning(Action action)
         {
-            return Task.Factory.StartNew(() => action, TaskCreationOptions.LongRunning);
+            return Task.Factory.StartNew(action, TaskCreationOptions.LongRunning);
         }
 
         /// <summary>

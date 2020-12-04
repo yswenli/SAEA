@@ -28,7 +28,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace SAEA.QueueSocket.Model
 {
@@ -100,7 +99,7 @@ namespace SAEA.QueueSocket.Model
 
                 _cNum = this._binding.GetSubscriberCount();
 
-                Task.Factory.StartNew(() =>
+                TaskHelper.LongRunning(() =>
                 {
                     while (this._binding.Exists(sInfo))
                     {

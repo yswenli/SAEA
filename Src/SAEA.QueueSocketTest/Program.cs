@@ -1,13 +1,10 @@
 ﻿
-using SAEA.QueueSocket;
 using SAEA.Common;
+using SAEA.QueueSocket;
 using SAEA.QueueSocket.Model;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace SAEA.QueueSocketTest
 {
@@ -103,7 +100,7 @@ namespace SAEA.QueueSocketTest
 
             producer.ConnectAsync((s) =>
             {
-                Task.Factory.StartNew(() =>
+                TaskHelper.LongRunning(() =>
                 {
                     var old = 0;
                     var speed = 0;
@@ -117,10 +114,10 @@ namespace SAEA.QueueSocketTest
                 });
 
                 var list = new List<Tuple<string, byte[]>>();
-                
+
 
                 while (producer.Connected)
-                {                   
+                {
 
                     producer.Publish(topic, msg);
 
@@ -144,7 +141,7 @@ namespace SAEA.QueueSocketTest
             consumer.OnDisconnected += Client_OnDisconnected;
             consumer.ConnectAsync((s) =>
             {
-                Task.Factory.StartNew(() =>
+                TaskHelper.LongRunning(() =>
                 {
                     var old = 0;
                     var speed = 0;

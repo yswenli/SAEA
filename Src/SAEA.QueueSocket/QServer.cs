@@ -26,7 +26,8 @@ using SAEA.Common;
 using SAEA.QueueSocket.Model;
 using SAEA.QueueSocket.Net;
 using SAEA.QueueSocket.Type;
-using SAEA.Sockets.Core.Tcp;
+using SAEA.Sockets;
+using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Generic;
@@ -34,7 +35,7 @@ using System.Threading.Tasks;
 
 namespace SAEA.QueueSocket
 {
-    public class QServer : IocpServerSocket
+    public class QServer
     {
         Exchange _exchange;
 
@@ -42,17 +43,42 @@ namespace SAEA.QueueSocket
 
         int _maxTime = 500;
 
-        public QServer(int heartSpan = 20 * 1000, int bufferSize = 1000 * 1024, int count = 1000, int maxNum = 500, int maxTime = 500)
-            : base(new QContext(), bufferSize, count, false)
+        IServerSokcet _serverSokcet;
+
+        public event OnDisconnectedHandler OnDisconnected;
+
+        public QServer(int port = 39654, string ip = "127.0.0.1", int bufferSize = 1000 * 1024, int count = 1000, int maxNum = 500, int maxTime = 500)
         {
             _maxNum = maxNum;
             _maxTime = maxTime;
             _exchange = new Exchange();
+
+            var config = SocketOptionBuilder.Instance
+                .UseIocp<QContext>()
+                .SetSocket(Sockets.Model.SAEASocketType.Tcp)                
+                .SetReadBufferSize(bufferSize)
+                .SetWriteBufferSize(bufferSize)
+                .SetCount(count)
+                .SetIP(ip)
+                .SetPort(port)
+                .Build();
+
+            _serverSokcet = SocketFactory.CreateServerSocket(config);
+
+            _serverSokcet.OnReceive += _serverSokcet_OnReceive;
+
+            _serverSokcet.OnDisconnected += _serverSokcet_OnDisconnected;
         }
 
-
-        protected override void OnReceiveBytes(IUserToken userToken, byte[] data)
+        private void _serverSokcet_OnDisconnected(string ID, Exception ex)
         {
+            OnDisconnected?.Invoke(ID, ex);
+        }
+
+        private void _serverSokcet_OnReceive(ISession ut, byte[] data)
+        {
+            var userToken = (IUserToken)ut;
+
             var qcoder = (QUnpacker)userToken.Unpacker;
 
             qcoder.GetQueueResult(data, r =>
@@ -78,10 +104,26 @@ namespace SAEA.QueueSocket
             });
         }
 
+        public void Start(int backlog = 10 * 1000)
+        {
+            _serverSokcet.Start(backlog);
+
+            _calcBegin = true;
+        }
+
+        public void Stop()
+        {
+            _calcBegin = false;
+
+            _serverSokcet.Stop();
+        }
+
+
+
         private void ReplyPong(IUserToken ut, QueueResult data)
         {
             var qcoder = (QUnpacker)ut.Unpacker;
-            base.BeginSend(ut, qcoder.QueueCoder.Pong(data.Name));
+            _serverSokcet.Send(ut.ID, qcoder.QueueCoder.Pong(data.Name));
         }
 
         private void ReplyPublish(IUserToken ut, QueueResult data)
@@ -103,7 +145,7 @@ namespace SAEA.QueueSocket
                         {
                             list.AddRange(qcoder.QueueCoder.Data(data.Name, data.Topic, r));
                         });
-                        base.BeginSend(ut, list.ToArray());
+                        _serverSokcet.Send(ut.ID, list.ToArray());
                     }
                 });
             });
@@ -117,9 +159,9 @@ namespace SAEA.QueueSocket
         private void ReplyClose(IUserToken ut, QueueResult data)
         {
             var qcoder = (QUnpacker)ut.Unpacker;
-            base.BeginSend(ut, qcoder.QueueCoder.Close(data.Name));
+            _serverSokcet.Send(ut.ID, qcoder.QueueCoder.Close(data.Name));
             _exchange.Clear(ut.ID);
-            base.Disconnect(ut);
+            _serverSokcet.Disconnecte(ut.ID);
         }
 
         public void Clear(string sessionID)
@@ -139,7 +181,7 @@ namespace SAEA.QueueSocket
             if (!_calcBegin)
             {
                 _calcBegin = true;
-                Task.Factory.StartNew(() =>
+                TaskHelper.LongRunning(() =>
                 {
                     while (_calcBegin)
                     {

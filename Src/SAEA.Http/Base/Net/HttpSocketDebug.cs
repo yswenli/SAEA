@@ -36,7 +36,7 @@ namespace SAEA.Http.Base.Net
         {
             var optionBuilder = new SocketOptionBuilder()
                .SetSocket(Sockets.Model.SAEASocketType.Tcp)
-               .UseIocp(new HContext())
+               .UseIocp<HContext>()
                .SetPort(port)
                .SetCount(count)
                .SetReadBufferSize(bufferSize)

@@ -38,8 +38,6 @@ namespace SAEA.QueueSocket.Net
 
         private List<byte> _buffer = new List<byte>();
 
-        private object _locker = new object();
-
         public void Unpack(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
         {
 
@@ -57,40 +55,37 @@ namespace SAEA.QueueSocket.Net
         /// <param name="OnQueueResult"></param>
         public void GetQueueResult(byte[] data, Action<QueueResult> OnQueueResult)
         {
-            lock (_locker)
+            try
             {
-                try
-                {
-                    _buffer.AddRange(data);
+                _buffer.AddRange(data);
 
-                    if (_buffer.Count > (1 + 4 + 4 + 0 + 4 + 0 + 0))
+                if (_buffer.Count > (1 + 4 + 4 + 0 + 4 + 0 + 0))
+                {
+                    var buffer = _buffer.ToArray();
+
+                    QUnpacker.Decode(buffer, (list, offset) =>
                     {
-                        var buffer = _buffer.ToArray();
-
-                        QUnpacker.Decode(buffer, (list, offset) =>
+                        if (list != null)
                         {
-                            if (list != null)
+                            foreach (var item in list)
                             {
-                                foreach (var item in list)
+                                OnQueueResult?.Invoke(new QueueResult()
                                 {
-                                    OnQueueResult?.Invoke(new QueueResult()
-                                    {
-                                        Type = (QueueSocketMsgType)item.Type,
-                                        Name = item.Name,
-                                        Topic = item.Topic,
-                                        Data = item.Data
-                                    });
-                                }
-                                _buffer.RemoveRange(0, offset);
+                                    Type = (QueueSocketMsgType)item.Type,
+                                    Name = item.Name,
+                                    Topic = item.Topic,
+                                    Data = item.Data
+                                });
                             }
-                        });
-                    }
+                            _buffer.RemoveRange(0, offset);
+                        }
+                    });
                 }
-                catch (Exception ex)
-                {
-                    ConsoleHelper.WriteLine("QCoder.GetQueueResult error:" + ex.Message + ex.Source);
-                    _buffer.Clear();
-                }
+            }
+            catch (Exception ex)
+            {
+                ConsoleHelper.WriteLine("QCoder.GetQueueResult error:" + ex.Message + ex.Source);
+                _buffer.Clear();
             }
         }
 

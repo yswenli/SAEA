@@ -30,7 +30,6 @@
 *
 *****************************************************************************/
 
-using SAEA.Common;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
@@ -86,34 +85,15 @@ namespace SAEA.Sockets.Core.Tcp
 
         /// <summary>
         /// iocp 服务器 socket
-        /// </summary>
-        /// <param name="context"></param>
-        /// <param name="bufferSize"></param>
-        /// <param name="count"></param>
-        /// <param name="noDelay"></param>
-        /// <param name="timeOut"></param>
-        public IocpServerSocket(IContext context, int bufferSize = 1024, int count = 10000, bool noDelay = true, int timeOut = 60 * 1000, bool isIpV6 = false, int port = 39654)
+        /// </summary>>
+        /// <param name="socketOption"></param>
+        public IocpServerSocket(ISocketOption socketOption)
         {
-            SocketOption = new SocketOption()
-            {
-                ReadBufferSize = bufferSize,
-                Context = context,
-                Count = count,
-                NoDelay = noDelay,
-                Port = port,
-                SocketType = Model.SAEASocketType.Tcp,
-                TimeOut = timeOut,
-                UseIocp = true,
-                UseIPV6 = isIpV6,
-                WithSsl = false
-            };
-            _sessionManager = new SessionManager(context, bufferSize, count, IO_Completed, new TimeSpan(0, 0, timeOut));
+            _sessionManager = new SessionManager(socketOption.Context, socketOption.ReadBufferSize, socketOption.Count, IO_Completed, new TimeSpan(0, 0, socketOption.TimeOut));
             _sessionManager.OnTimeOut += _sessionManager_OnTimeOut;
             OnServerReceiveBytes = new OnServerReceiveBytesHandler(OnReceiveBytes);
+            SocketOption = socketOption;
         }
-
-
-        public IocpServerSocket(ISocketOption socketOption) : this(socketOption.Context, socketOption.ReadBufferSize, socketOption.Count, socketOption.NoDelay, socketOption.TimeOut, socketOption.UseIPV6, socketOption.Port) { }
 
 
         /// <summary>
@@ -125,21 +105,33 @@ namespace SAEA.Sockets.Core.Tcp
             if (_listener == null)
             {
                 _listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                _listener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, SocketOption.ReusePort);
+
+                if (SocketOption.ReusePort)
+                    _listener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, SocketOption.ReusePort);
+
                 _listener.NoDelay = SocketOption.NoDelay;
+
                 if (SocketOption.UseIPV6)
                 {
-                    _listener.Bind(new IPEndPoint(IPAddress.IPv6Any, SocketOption.Port));
+                    if (string.IsNullOrEmpty(SocketOption.IP))
+                        _listener.Bind(new IPEndPoint(IPAddress.IPv6Any, SocketOption.Port));
+                    else
+                        _listener.Bind(new IPEndPoint(IPAddress.Parse(SocketOption.IP), SocketOption.Port));
                 }
                 else
                 {
-                    _listener.Bind(new IPEndPoint(IPAddress.Any, SocketOption.Port));
+                    if (string.IsNullOrEmpty(SocketOption.IP))
+                        _listener.Bind(new IPEndPoint(IPAddress.Any, SocketOption.Port));
+                    else
+                        _listener.Bind(new IPEndPoint(IPAddress.Parse(SocketOption.IP), SocketOption.Port));
                 }
 
                 _listener.Listen(backlog);
 
                 var accepteArgs = new SocketAsyncEventArgs();
+
                 accepteArgs.Completed += AccepteArgs_Completed;
+
                 ProcessAccept(accepteArgs);
             }
         }
@@ -298,7 +290,7 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 _sessionManager.Active(userToken.ID);
                 userToken.WriteArgs.SetBuffer(null, 0, 0);
-               
+
             }
             catch (Exception ex)
             {
@@ -329,7 +321,7 @@ namespace SAEA.Sockets.Core.Tcp
                     ProcessSended(writeArgs);
                 }
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", ex);
             }

@@ -80,6 +80,19 @@ namespace SAEA.Sockets
         /// </summary>
         /// <param name="context"></param>
         /// <returns></returns>
+        public SocketOptionBuilder UseIocp<T>() where T : IContext
+        {
+            if (_socketOption.WithSsl) throw new Exception("ssl模式下暂不支持icop");
+            _socketOption.Context = (IContext)Activator.CreateInstance(typeof(T));
+            _socketOption.SocketType = SAEASocketType.Tcp;
+            _socketOption.UseIocp = true;
+            return this;
+        }
+        /// <summary>
+        /// 启用iocp
+        /// </summary>
+        /// <param name="context"></param>
+        /// <returns></returns>
         public SocketOptionBuilder UseIocp(IContext context)
         {
             if (_socketOption.WithSsl) throw new Exception("ssl模式下暂不支持icop");

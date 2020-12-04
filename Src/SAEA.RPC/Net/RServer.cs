@@ -46,7 +46,7 @@ namespace SAEA.RPC.Net
         {
             var option = SocketOptionBuilder.Instance
                 .SetSocket()
-                .UseIocp(new RContext())
+                .UseIocp<RContext>()
                 .SetPort(port)
                 .SetReadBufferSize(bufferSize)
                 .SetWriteBufferSize(bufferSize)
