@@ -29,7 +29,6 @@ namespace SAEA.WebSocket.Core
     /// </summary>
     internal class WSServerImpl : IWSServer
     {
-
         IServerSokcet _server;
 
         public event Action<string> OnConnected;
@@ -37,6 +36,8 @@ namespace SAEA.WebSocket.Core
         public event Action<string, WSProtocal> OnMessage;
 
         public event Action<string> OnDisconnected;
+
+        object _locker = new object();
         public List<string> Clients { set; get; } = new List<string>();
 
         /// <summary>
@@ -65,7 +66,9 @@ namespace SAEA.WebSocket.Core
 
         private void _server_OnDisconnected(string id, Exception ex)
         {
-            Clients.Remove(id);
+            lock (_locker)
+                Clients.Remove(id);
+
             OnDisconnected?.Invoke(id);
         }
 
@@ -83,7 +86,8 @@ namespace SAEA.WebSocket.Core
                 {
                     _server.SendAsync(ut.ID, resData);
                     ut.IsHandSharked = true;
-                    Clients.Add(ut.ID);
+                    lock (_locker)
+                        Clients.Add(ut.ID);
                     OnConnected?.Invoke(ut.ID);
                 }
             }

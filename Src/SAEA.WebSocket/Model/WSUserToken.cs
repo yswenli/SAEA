@@ -130,5 +130,35 @@ namespace SAEA.WebSocket.Model
             sb.Append(CrLf);
             return Encoding.UTF8.GetBytes(sb.ToString());
         }
+
+
+        static List<byte> _buffer = new List<byte>();
+
+        /// <summary>
+        /// 解析回复的握手
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        public static bool AnalysisHandSharkReply(byte[] data)
+        {
+            _buffer.AddRange(data);
+
+            try
+            {
+                var handShakeText = Encoding.UTF8.GetString(_buffer.ToArray());
+                string key = string.Empty;
+                Regex reg = new Regex(@"Sec\-WebSocket\-Accept:(.*?)\r\n");
+                Match m = reg.Match(handShakeText);
+                if (string.IsNullOrEmpty(m.Value)) throw new Exception("回复中不存在 Sec-WebSocket-Accept");
+                key = Regex.Replace(m.Value, @"Sec\-WebSocket\-Accept:(.*?)\r\n", "$1").Trim();
+                _buffer.Clear();
+                return true;
+            }
+            catch(Exception ex)
+            {
+                LogHelper.Error("WSUserToken.AnalysisHandSharkReply", ex);
+            }
+            return false;
+        }
     }
 }

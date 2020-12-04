@@ -149,6 +149,7 @@ namespace SAEA.Common
             {
                 paramStr = SerializeHelper.Serialize(@params);
             }
+            ConsoleHelper.WriteLine($"[Debug] {des}\tparams:{paramStr}");
             Write($"[Debug]", $"{des}\tparams:{paramStr}");
         }
 
@@ -164,6 +165,7 @@ namespace SAEA.Common
             {
                 result = Encoding.UTF8.GetString(data);
             }
+            ConsoleHelper.WriteLine($"[Debug] {des}\t{result}");
             Write("[Debug]", $"{des}\t{result}");
         }
     }

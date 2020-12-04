@@ -52,6 +52,7 @@ namespace SAEA.WebSocket
             }
         }
 
+
         public WSServer(int port = 16666, SslProtocols protocols = SslProtocols.None, string pfxPath = "", string pwd = "", int bufferSize = 1024, int count = 60000)
         {
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
@@ -84,7 +85,6 @@ namespace SAEA.WebSocket
         {
             OnDisconnected?.Invoke(id);
         }
-
 
         public void Start(int backlog = 10 * 1000)
         {

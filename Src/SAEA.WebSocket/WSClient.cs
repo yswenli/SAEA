@@ -40,10 +40,6 @@ namespace SAEA.WebSocket
     /// </summary>
     public class WSClient
     {
-        int _bufferSize = 100 * 1024;
-
-        byte[] _buffer;
-
         string _url;
 
         string _serverIP;
@@ -55,8 +51,6 @@ namespace SAEA.WebSocket
         string _subProtocol = "SAEA.WebSocket";
 
         string _origin;
-
-        List<byte> _cache = new List<byte>();
 
         public event OnErrorHandler OnError;
 
@@ -89,10 +83,6 @@ namespace SAEA.WebSocket
                 _url = $"ws://{ip}:{port}/";
 
             _origin = origin;
-
-            _bufferSize = bufferSize;
-
-            _buffer = new byte[_bufferSize];
 
             _wsContext = new WSContext();
 
@@ -148,17 +138,22 @@ namespace SAEA.WebSocket
         {
             _client.ConnectAsync((e) =>
             {
-                this.RequestHandShark();
+                _client.SendAsync(WSUserToken.RequestHandShark(_url, _serverIP, _serverPort, _subProtocol, _origin));
             });
+
+            var to = timeOut / 10;
 
             int i = 0;
 
-            while (!_isHandSharked && i < (timeOut / 10))
+            while (!_isHandSharked && i < to)
             {
                 Thread.Sleep(10);
                 i++;
             }
+
             if (_isHandSharked) return true;
+
+            _client.Disconnect();
 
             return false;
         }
@@ -167,22 +162,7 @@ namespace SAEA.WebSocket
         {
             if (!_isHandSharked)
             {
-                _cache.AddRange(data);
-
-                try
-                {
-                    var handShakeText = Encoding.UTF8.GetString(_cache.ToArray());
-                    string key = string.Empty;
-                    Regex reg = new Regex(@"Sec\-WebSocket\-Accept:(.*?)\r\n");
-                    Match m = reg.Match(handShakeText);
-                    if (string.IsNullOrEmpty(m.Value)) throw new Exception("回复中不存在 Sec-WebSocket-Accept");
-                    key = Regex.Replace(m.Value, @"Sec\-WebSocket\-Accept:(.*?)\r\n", "$1").Trim();
-                    _isHandSharked = true;
-                }
-                catch (Exception ex)
-                {
-                    OnError.Invoke(_wsContext.UserToken.ID, ex);
-                }
+                _isHandSharked = WSUserToken.AnalysisHandSharkReply(data);
             }
             else
             {
@@ -214,11 +194,6 @@ namespace SAEA.WebSocket
 
                 }, null, null);
             }
-        }
-
-        private void RequestHandShark()
-        {
-            _client.SendAsync(WSUserToken.RequestHandShark(_url, _serverIP, _serverPort, _subProtocol, _origin));
         }
 
         /// <summary>
@@ -267,6 +242,7 @@ namespace SAEA.WebSocket
             var msg = DateTimeHelper.ToString();
             var data = new WSProtocal(WSProtocalType.Close, Encoding.UTF8.GetBytes(discription)).ToBytes();
             _client.SendAsync(data);
+            _client.Disconnect();
         }
 
 
