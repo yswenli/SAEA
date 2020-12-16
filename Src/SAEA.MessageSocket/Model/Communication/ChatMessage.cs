@@ -23,6 +23,7 @@
 *****************************************************************************/
 using ProtoBuf;
 using SAEA.Common;
+using SAEA.Common.Serialization;
 using System;
 
 namespace SAEA.MessageSocket.Model.Communication

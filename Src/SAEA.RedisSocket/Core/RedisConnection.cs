@@ -23,6 +23,8 @@
 *****************************************************************************/
 
 using SAEA.Common;
+using SAEA.Common.NameValue;
+using SAEA.Common.Threading;
 using SAEA.RedisSocket.Base;
 using SAEA.RedisSocket.Base.Net;
 using SAEA.RedisSocket.Model;

@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.Common.NameValue;
 using SAEA.Http;
 using System;
 using System.Collections.Generic;
@@ -99,7 +100,7 @@ namespace SAEA.MVC
         /// <param name="actionName"></param>
         public void SetDefault(string controllerName, string actionName)
         {
-            _webHost.WebConfig.DefaultRoute = new SAEA.Common.NameValueItem() { Name = controllerName, Value = actionName };
+            _webHost.WebConfig.DefaultRoute = new NameValueItem() { Name = controllerName, Value = actionName };
         }
 
         /// <summary>

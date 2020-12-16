@@ -27,7 +27,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace SAEA.Common
+namespace SAEA.Common.NameValue
 {
     /// <summary>
     /// Name/Value集合

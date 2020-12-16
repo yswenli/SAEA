@@ -21,7 +21,7 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Common;
+using SAEA.Common.Serialization;
 using System.Net;
 using System.Text;
 

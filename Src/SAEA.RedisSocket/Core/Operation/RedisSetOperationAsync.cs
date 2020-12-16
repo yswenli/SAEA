@@ -16,6 +16,7 @@
 *描    述：
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.Common.NameValue;
 using SAEA.RedisSocket.Model;
 using System;
 using System.Collections.Generic;

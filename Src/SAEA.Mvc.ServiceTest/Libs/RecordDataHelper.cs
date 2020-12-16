@@ -15,15 +15,14 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
-using SAEA.Common;
+using SAEA.Common.IO;
+using SAEA.Common.Serialization;
 using SAEA.Http;
 using SAEA.RESTED.Models;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace SAEA.RESTED.Libs
 {

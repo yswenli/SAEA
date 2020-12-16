@@ -21,7 +21,7 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Common;
+using SAEA.Common.IO;
 using System.Collections.Concurrent;
 using System.IO;
 

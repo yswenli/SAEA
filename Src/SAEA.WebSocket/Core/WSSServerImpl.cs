@@ -15,7 +15,7 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
-using SAEA.Common;
+using SAEA.Common.Threading;
 using SAEA.Sockets;
 using SAEA.Sockets.Core;
 using SAEA.Sockets.Model;

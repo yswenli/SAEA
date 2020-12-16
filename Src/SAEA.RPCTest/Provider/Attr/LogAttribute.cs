@@ -20,7 +20,7 @@ using SAEA.Sockets.Interface;
 using System;
 using System.Diagnostics;
 
-namespace SAEA.RPCTest.Provider.Model
+namespace SAEA.RPCTest.Provider.Attr
 {
     /// <summary>
     /// SAEA.RPC LogAttribute

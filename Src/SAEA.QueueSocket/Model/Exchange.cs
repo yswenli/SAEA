@@ -22,7 +22,7 @@
 *
 *****************************************************************************/
 
-using SAEA.Common;
+using SAEA.Common.Threading;
 using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Generic;

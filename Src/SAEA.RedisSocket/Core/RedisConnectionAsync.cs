@@ -15,11 +15,10 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
-using SAEA.Common;
+using SAEA.Common.Threading;
 using SAEA.RedisSocket.Model;
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace SAEA.RedisSocket.Core

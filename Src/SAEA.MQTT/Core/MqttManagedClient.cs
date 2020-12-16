@@ -16,6 +16,7 @@
 *描    述：
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.Common.Caching;
 using SAEA.MQTT.Common.Log;
 using SAEA.MQTT.Core.Implementations;
 using SAEA.MQTT.Core.Protocol;

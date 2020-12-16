@@ -23,6 +23,7 @@
 *****************************************************************************/
 
 using SAEA.Common;
+using SAEA.Common.Threading;
 using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Concurrent;
@@ -52,7 +53,7 @@ namespace SAEA.QueueSocket.Model
         {
             _list = new ConcurrentDictionary<string, QueueBase>();
 
-            TaskHelper.Run(() =>
+            TaskHelper.LongRunning(() =>
             {
                 while (!_isDisposed)
                 {

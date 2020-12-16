@@ -16,13 +16,10 @@
 *描    述：
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.Common.IO;
 using SAEA.Sockets;
 using SAEA.Sockets.Interface;
-using SAEA.Sockets.Model;
 using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Text;
 using System.Threading;
 
 namespace SAEA.FTP.Core

@@ -170,7 +170,7 @@ namespace SAEA.Http.Base
                         using (MemoryStream ms = new MemoryStream(httpMessage.Body))
                         {
                             ms.Position = 0;
-                            using (var sr = new SAEA.Common.StreamReader(ms))
+                            using (var sr = new SAEA.Common.IO.StreamReader(ms))
                             {
                                 StringBuilder sb = new StringBuilder();
                                 var str = string.Empty;

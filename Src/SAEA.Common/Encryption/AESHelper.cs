@@ -2,7 +2,7 @@
 *项目名称：SAEA.Common
 *CLR 版本：4.0.30319.42000
 *机器名称：WALLE-PC
-*命名空间：SAEA.Common
+*命名空间：SAEA.Common.Encryption
 *类 名 称：AESHelper
 *版 本 号：V1.0.0.0
 *创建人： yswenli
@@ -20,7 +20,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace SAEA.Common
+namespace SAEA.Common.Encryption
 {
     /// <summary>
     ///     AES对称加密算法类

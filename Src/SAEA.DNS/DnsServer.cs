@@ -16,6 +16,7 @@
 *描    述：
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.Common.Threading;
 using SAEA.DNS.Coder;
 using SAEA.DNS.Model;
 using SAEA.DNS.Protocol;

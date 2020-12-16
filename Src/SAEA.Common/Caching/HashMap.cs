@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：yswenli
-*命名空间：SAEA.Commom
+*命名空间：SAEA.Commom.Caching
 *文件名： HashMap
 *版本号： v5.0.0.1
 *唯一标识：910dfd6d-5160-474c-9b4d-ec13ab36f614
@@ -25,7 +25,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace SAEA.Common
+namespace SAEA.Common.Caching
 {
     /// <summary>
     /// 定义一个类似redis 的 hashset结构

@@ -2,7 +2,7 @@
 *项目名称：SAEA.Common
 *CLR 版本：4.0.30319.42000
 *机器名称：WENLI-PC
-*命名空间：SAEA.Common
+*命名空间：SAEA.Common.Caching
 *类 名 称：BlockingQueue
 *版 本 号： v5.0.0.1
 *创建人： yswenli
@@ -19,7 +19,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 
-namespace SAEA.Common
+namespace SAEA.Common.Caching
 {
     public class BlockingQueue<TItem>
     {

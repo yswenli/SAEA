@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：yswenli
-*命名空间：SAEA.Commom
+*命名空间：SAEA.Commom.Encryption
 *文件名： MD5Helper
 *版本号： v5.0.0.1
 *唯一标识：f52cdcce-5ea8-4704-b8dd-3ab1e1e23131
@@ -26,7 +26,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace SAEA.Common
+namespace SAEA.Common.Encryption
 {
     public static class MD5Helper
     {

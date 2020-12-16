@@ -2,7 +2,7 @@
 *项目名称：SAEA.Common
 *CLR 版本：4.0.30319.42000
 *机器名称：WALLE-PC
-*命名空间：SAEA.Common
+*命名空间：SAEA.Common.Threading
 *类 名 称：TinyThreadPool
 *版 本 号：V1.0.0.0
 *创建人： yswenli
@@ -19,7 +19,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Threading;
 
-namespace SAEA.Common
+namespace SAEA.Common.Threading
 {
     /// <summary>
     /// 轻量级线程池

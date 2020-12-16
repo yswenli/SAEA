@@ -22,6 +22,8 @@
 *
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.Common.NameValue;
+using SAEA.Common.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Linq;

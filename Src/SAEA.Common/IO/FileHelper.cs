@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：yswenli
-*命名空间：SAEA.Commom
+*命名空间：SAEA.Commom.IO
 *文件名： FileHelper
 *版本号： v5.0.0.1
 *唯一标识：bf3043aa-a84d-42ab-a6b6-b3adf2ab8925
@@ -25,7 +25,7 @@ using System;
 using System.IO;
 using System.Text;
 
-namespace SAEA.Common
+namespace SAEA.Common.IO
 {
     /// <summary>
     /// 文件操作类

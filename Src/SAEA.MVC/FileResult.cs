@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.Common.IO;
 using SAEA.Http.Base;
 using SAEA.Http.Common;
 using SAEA.Http.Model;

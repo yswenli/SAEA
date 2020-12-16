@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：yswenli
-*命名空间：SAEA.Commom
+*命名空间：SAEA.Commom.Threading
 *文件名： TaskHelper
 *版本号： v5.0.0.1
 *唯一标识：0957f3bb-7462-4ff0-867d-0a8c9411f2eb
@@ -25,7 +25,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SAEA.Common
+namespace SAEA.Common.Threading
 {
     /// <summary>
     /// 任务辅助类

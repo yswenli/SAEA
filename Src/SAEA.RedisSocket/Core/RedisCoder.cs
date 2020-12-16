@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.Common.NameValue;
 using SAEA.RedisSocket.Base.Net;
 using SAEA.RedisSocket.Model;
 using System;

@@ -15,7 +15,7 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
-using SAEA.Common;
+using SAEA.Common.Serialization;
 using SAEA.RedisSocket.Model;
 using System.Collections.Generic;
 using System.Linq;

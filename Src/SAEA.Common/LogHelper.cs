@@ -21,6 +21,9 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Common.IO;
+using SAEA.Common.Serialization;
+using SAEA.Common.Threading;
 using System;
 using System.Collections.Concurrent;
 using System.IO;

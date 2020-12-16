@@ -23,6 +23,7 @@
 *****************************************************************************/
 
 using SAEA.Common;
+using SAEA.Common.Serialization;
 using SAEA.FileSocket.Model;
 using SAEA.Sockets;
 using SAEA.Sockets.Base;

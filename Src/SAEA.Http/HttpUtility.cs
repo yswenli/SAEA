@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.Common.IO;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -56,7 +57,7 @@ namespace SAEA.Http
 
             _root = _root.Replace("/", "").Replace("\\", "");
 
-            var rootDir = SAEA.Common.PathHelper.GetCurrentPath(_root);
+            var rootDir = PathHelper.GetCurrentPath(_root);
 
             var dir = new DirectoryInfo(rootDir);
 
@@ -77,7 +78,7 @@ namespace SAEA.Http
 
                 var list = cpath.Split("/", StringSplitOptions.RemoveEmptyEntries).ToList();
 
-                list.Insert(0, SAEA.Common.PathHelper.GetCurrentPath());
+                list.Insert(0, PathHelper.GetCurrentPath());
 
                 var physicalPath = Path.Combine(list.ToArray());
 

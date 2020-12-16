@@ -34,6 +34,7 @@ using SAEA.Sockets.Model;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using SAEA.Sockets.Base;
+using SAEA.Common.IO;
 
 namespace SAEA.Sockets
 {

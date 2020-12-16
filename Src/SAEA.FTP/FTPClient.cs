@@ -16,7 +16,8 @@
 *描    述：
 *****************************************************************************/
 using SAEA.Common;
-using SAEA.FTP.Core;
+using SAEA.Common.IO;
+using SAEA.Common.Threading;
 using SAEA.FTP.Model;
 using SAEA.FTP.Net;
 using System;

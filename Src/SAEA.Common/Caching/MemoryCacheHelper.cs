@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：yswenli
-*命名空间：SAEA.Commom
+*命名空间：SAEA.Commom.Caching
 *文件名： MemoryCache
 *版本号： v5.0.0.1
 *唯一标识：13ed79e2-020d-45aa-a67f-ec00cf30da2d
@@ -21,13 +21,12 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Common.Newtonsoft.Json.Utilities;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace SAEA.Common
+namespace SAEA.Common.Caching
 {
     /// <summary>
     /// 自定义过期缓存

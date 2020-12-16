@@ -31,6 +31,7 @@
 *****************************************************************************/
 
 using SAEA.Common;
+using SAEA.Common.Caching;
 using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Generic;

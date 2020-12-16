@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：yswenli
-*命名空间：SAEA.RPC.Serialize
+*命名空间：SAEA.Common.Serialization
 *文件名： SAEASerialize
 *版本号： v5.0.0.1
 *唯一标识：9555d1ce-23a8-4302-b470-7abffdebcdfa
@@ -27,7 +27,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace SAEA.Common
+namespace SAEA.Common.Serialization
 {
     /// <summary>
     /// saea参数序列化处理，

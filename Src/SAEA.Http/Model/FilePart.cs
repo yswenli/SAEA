@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Common.IO;
 using System.IO;
 using System.Linq;
 
@@ -54,7 +55,7 @@ namespace SAEA.Http.Model
 
         public void Save(string filePath)
         {
-            SAEA.Common.FileHelper.Write(filePath, this.Data);
+            FileHelper.Write(filePath, this.Data);
         }
 
     }

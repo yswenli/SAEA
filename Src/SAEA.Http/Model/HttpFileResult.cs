@@ -21,13 +21,12 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Http.Common;
+using SAEA.Common.IO;
 using SAEA.Http.Base;
+using SAEA.Http.Common;
 using System.IO;
 using System.Net;
 using System.Text;
-using System.Threading.Tasks;
-using SAEA.Common;
 
 namespace SAEA.Http.Model
 {

@@ -16,7 +16,7 @@
 *描    述：
 *****************************************************************************/
 
-using SAEA.Common;
+using SAEA.Common.Serialization;
 
 namespace SAEA.MQTT
 {

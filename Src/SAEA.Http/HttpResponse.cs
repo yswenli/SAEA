@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.Common.Encryption;
 using SAEA.Http.Base;
 using SAEA.Http.Model;
 using SAEA.Sockets.Interface;

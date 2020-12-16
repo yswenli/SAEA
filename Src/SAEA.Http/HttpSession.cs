@@ -22,6 +22,7 @@
 ******************************************************************************/
 
 using SAEA.Common;
+using SAEA.Common.Caching;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;

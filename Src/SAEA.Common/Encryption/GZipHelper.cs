@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：yswenli
-*命名空间：SAEA.Commom
+*命名空间：SAEA.Commom.Encryption
 *文件名： GZipHelper
 *版本号： v5.0.0.1
 *唯一标识：0957f3bb-7462-4ff0-867d-0a8c9411f2eb
@@ -26,7 +26,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Text;
 
-namespace SAEA.Common
+namespace SAEA.Common.Encryption
 {
     /// <summary>
     /// gzip压缩

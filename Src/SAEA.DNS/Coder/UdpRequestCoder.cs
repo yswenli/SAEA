@@ -15,7 +15,7 @@
 *版 本 号： v5.0.0.1
 *描    述：
 *****************************************************************************/
-using SAEA.Common;
+using SAEA.Common.Threading;
 using SAEA.DNS.Protocol;
 using System;
 using System.IO;

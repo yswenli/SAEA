@@ -22,8 +22,9 @@
 *
 *****************************************************************************/
 
-using SAEA.FileSocket;
 using SAEA.Common;
+using SAEA.Common.IO;
+using SAEA.FileSocket;
 using System;
 
 namespace SAEA.FileTest

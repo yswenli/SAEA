@@ -22,6 +22,8 @@
 *
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.Common.Serialization;
+using SAEA.Common.Threading;
 using SAEA.RPC.Common;
 using SAEA.RPC.Model;
 using SAEA.Sockets;
@@ -145,7 +147,7 @@ namespace SAEA.RPC.Net
         /// </summary>
         internal void KeepAlive()
         {
-            TaskHelper.Run(() =>
+            TaskHelper.LongRunning(() =>
             {
                 while (!_isDisposed)
                 {

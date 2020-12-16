@@ -3,7 +3,7 @@
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：yswenli
-*命名空间：SAEA.Commom
+*命名空间：SAEA.Commom.Caching
 *文件名： KeyCache
 *版本号： v5.0.0.1
 *唯一标识：bf3043aa-a84d-42ab-a6b6-b3adf2ab8925
@@ -21,11 +21,12 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Common.Threading;
 using System;
 using System.Collections.Concurrent;
 using System.Threading;
 
-namespace SAEA.Common
+namespace SAEA.Common.Caching
 {
     public class KeyCache
     {
@@ -70,8 +71,6 @@ namespace SAEA.Common
 
     public class KeyCacheItem
     {
-        Timer timer;
-
         public event Action<KeyCacheItem> OnExpired;
 
         public object Key
@@ -87,11 +86,21 @@ namespace SAEA.Common
         public KeyCacheItem(object key, DateTime expired)
         {
             this.Key = key;
+
             this.Expired = expired;
-            timer = new Timer(new TimerCallback((k) =>
+
+            TaskHelper.LongRunning(() =>
             {
-                OnExpired?.Invoke((KeyCacheItem)k);
-            }), this, (int)(expired - DateTime.Now).TotalMilliseconds, -1);
+                while (true)
+                {
+                    if ((expired - DateTimeHelper.Now).TotalMilliseconds <= 0)
+                    {
+                        OnExpired?.Invoke(this);
+                        break;
+                    }
+                    Thread.Sleep(1000);
+                }
+            });
         }
     }
 }

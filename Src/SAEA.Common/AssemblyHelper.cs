@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Common.IO;
 using System;
 using System.Reflection;
 
@@ -57,12 +58,12 @@ namespace SAEA.Common
 
         public static object CreateInstance(Type type)
         {
-            return System.Activator.CreateInstance(type);
+            return Activator.CreateInstance(type);
         }
 
         public static object CreateInstance(Type type, params object[] args)
         {
-            return System.Activator.CreateInstance(type, args);
+            return Activator.CreateInstance(type, args);
         }
 
 

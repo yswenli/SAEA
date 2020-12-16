@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Common.Threading;
 using System;
 using System.Collections.Concurrent;
 

@@ -16,10 +16,10 @@
 *描    述：
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.Common.IO;
 using SAEA.FTP.Core;
 using SAEA.FTP.Model;
 using SAEA.FTP.Net;
-using SAEA.Sockets;
 using System;
 using System.Collections.Generic;
 using System.IO;

@@ -26,7 +26,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
-namespace SAEA.Common
+namespace SAEA.Common.NameValue
 {
     /// <summary>
     /// 反射填充类

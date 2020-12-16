@@ -23,6 +23,7 @@
 *****************************************************************************/
 
 using SAEA.Common;
+using SAEA.Common.NameValue;
 using System.Collections.Generic;
 
 namespace SAEA.Http.Model

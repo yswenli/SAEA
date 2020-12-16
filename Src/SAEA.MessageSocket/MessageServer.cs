@@ -23,6 +23,7 @@
 *****************************************************************************/
 
 using SAEA.Common;
+using SAEA.Common.Serialization;
 using SAEA.MessageSocket.Collection;
 using SAEA.MessageSocket.Model;
 using SAEA.MessageSocket.Model.Business;

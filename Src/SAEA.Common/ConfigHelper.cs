@@ -15,6 +15,8 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
+using SAEA.Common.IO;
+using SAEA.Common.Serialization;
 using System;
 using System.IO;
 using System.Text;

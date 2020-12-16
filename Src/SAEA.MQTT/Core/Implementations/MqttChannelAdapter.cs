@@ -15,7 +15,7 @@
 *版 本 号： v5.0.0.1
 *描    述：
 *****************************************************************************/
-using SAEA.Common;
+using SAEA.Common.Threading;
 using SAEA.MQTT.Common;
 using SAEA.MQTT.Common.Log;
 using SAEA.MQTT.Common.Serializer;

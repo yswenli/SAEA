@@ -23,6 +23,7 @@
 *****************************************************************************/
 
 using SAEA.Common;
+using SAEA.Common.Threading;
 using SAEA.QueueSocket.Model;
 using SAEA.QueueSocket.Net;
 using SAEA.Sockets.Core.Tcp;
@@ -82,7 +83,7 @@ namespace SAEA.QueueSocket
 
         private void HeartAsync()
         {
-            TaskHelper.Run(() =>
+            TaskHelper.LongRunning(() =>
             {
                 try
                 {

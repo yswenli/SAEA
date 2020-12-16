@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.Common.Caching;
 using SAEA.RPC.Model;
 using SAEA.RPC.Net;
 using SAEA.Sockets.Handler;

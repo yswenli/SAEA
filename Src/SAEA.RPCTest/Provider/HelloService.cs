@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 using SAEA.RPC;
+using SAEA.RPCTest.Provider.Attr;
 using SAEA.RPCTest.Provider.Model;
 using System.Text;
 
