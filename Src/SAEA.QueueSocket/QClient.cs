@@ -23,18 +23,21 @@
 *****************************************************************************/
 
 using SAEA.Common;
+using SAEA.Common.Caching;
 using SAEA.Common.Threading;
 using SAEA.QueueSocket.Model;
 using SAEA.QueueSocket.Net;
-using SAEA.Sockets.Core.Tcp;
+using SAEA.Sockets;
+using SAEA.Sockets.Handler;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
+using System.Net.Sockets;
 using System.Threading;
 
 namespace SAEA.QueueSocket
 {
-    public class QClient : IocpClientSocket
+    public class QClient
     {
         private DateTime Actived = DateTimeHelper.Now;
 
@@ -42,43 +45,120 @@ namespace SAEA.QueueSocket
 
         string _name;
 
-        object _locker = new object();
-
         public event Action<QueueResult> OnMessage;
 
-        QueueCoder _queueCoder = new QueueCoder();
+        QContext _qContext;
 
-        ConcurrentQueue<Byte[]> _concurrentQueue = new ConcurrentQueue<byte[]>();
+        QUnpacker _qUnpacker;
+
+        QueueCoder _queueCoder;
 
         bool _isClosed = false;
 
         private AutoResetEvent autoResetEvent = new AutoResetEvent(false);
+
+        Batcher<byte[]> _batcher;
+
+        IClientSocket _clientSocket;
+
+        public event OnErrorHandler OnError;
+
+        public event OnDisconnectedHandler OnDisconnected;
+
+        public bool Connected
+        {
+            get
+            {
+                return _clientSocket.Connected;
+            }
+        }
 
         public QClient(string name, string ipPort) : this(name, 102400, ipPort.ToIPPort().Item1, ipPort.ToIPPort().Item2)
         {
 
         }
 
-        public QClient(string name, int bufferSize = 100 * 1024, string ip = "127.0.0.1", int port = 39654) : base(new QContext(), ip, port, bufferSize)
+        public QClient(string name, int bufferSize = 100 * 1024, string ip = "127.0.0.1", int port = 39654)
         {
             _name = name;
 
             HeartSpan = 1000 * 1000;
 
             HeartAsync();
+
+            _batcher = new Batcher<byte[]>(10000, 500);
+
+            _batcher.OnBatched += _batcher_OnBatched;
+
+            _qContext = new QContext();
+
+            _qUnpacker = (QUnpacker)_qContext.Unpacker;
+
+            _queueCoder = new QueueCoder();
+
+            ISocketOption socketOption = SocketOptionBuilder.Instance.SetSocket(Sockets.Model.SAEASocketType.Tcp)
+                .UseIocp(_qContext)
+                .SetIP(ip)
+                .SetPort(port)
+                .SetWriteBufferSize(bufferSize)
+                .SetReadBufferSize(bufferSize)
+                .ReusePort(false)
+                .Build();
+
+            _clientSocket = SocketFactory.CreateClientSocket(socketOption);
+
+            _clientSocket.OnReceive += _clientSocket_OnReceive;
+
+            _clientSocket.OnError += _clientSocket_OnError;
+
+            _clientSocket.OnDisconnected += _clientSocket_OnDisconnected;
         }
 
 
-        protected override void OnReceived(byte[] data)
+        private void _clientSocket_OnError(string ID, Exception ex)
+        {
+            OnError?.Invoke(ID, ex);
+        }
+
+        private void _clientSocket_OnDisconnected(string ID, Exception ex)
+        {
+            OnDisconnected?.Invoke(ID, ex);
+        }
+
+        /// <summary>
+        /// 连接
+        /// </summary>
+        /// <param name="callBack"></param>
+        public void ConnectAsync(Action<SocketError> callBack = null)
+        {
+            _clientSocket.ConnectAsync(callBack);
+        }
+
+        private void _clientSocket_OnReceive(byte[] data)
         {
             Actived = DateTimeHelper.Now;
 
-            var qcoder = (QUnpacker)UserToken.Unpacker;
-
-            qcoder.GetQueueResult(data, (r) =>
+            _qUnpacker.GetQueueResult(data, (r) =>
             {
                 OnMessage?.Invoke(r);
             });
+        }
+
+        private void _batcher_OnBatched(IBatcher batcher, List<byte[]> data)
+        {
+            if (data != null && data.Any())
+            {
+                var list = new List<byte>();
+
+                foreach (var item in data)
+                {
+                    list.AddRange(item);
+                }
+
+                _clientSocket.SendAsync(list.ToArray());
+
+                list.Clear();
+            }
         }
 
         private void HeartAsync()
@@ -89,11 +169,11 @@ namespace SAEA.QueueSocket
                 {
                     while (!_isClosed)
                     {
-                        if (this.Connected)
+                        if (_clientSocket.Connected)
                         {
                             if (Actived.AddMilliseconds(HeartSpan) <= DateTimeHelper.Now)
                             {
-                                SendAsync(_queueCoder.Ping(_name));
+                                _clientSocket.SendAsync(_queueCoder.Ping(_name));
                             }
                             autoResetEvent.WaitOne(HeartSpan / 2);
                         }
@@ -109,12 +189,6 @@ namespace SAEA.QueueSocket
 
         #region 生产者发送消息
 
-        private readonly List<byte> cache = new List<byte>();
-
-        private DateTime _sendSpan = DateTimeHelper.Now.AddMilliseconds(500);
-
-        private readonly object sendLock = new object();
-
         /// <summary>
         /// 生产者发送消息
         /// </summary>
@@ -122,26 +196,7 @@ namespace SAEA.QueueSocket
         /// <param name="content"></param>
         public void Publish(string topic, string content)
         {
-            try
-            {
-                Monitor.Enter(sendLock);
-                cache.AddRange(_queueCoder.Publish(_name, topic, content));
-                if (cache.Count < 1000 * 10 || _sendSpan < DateTimeHelper.Now)
-                {
-                    return;
-                }
-                SendAsync(cache.ToArray());
-                cache.Clear();
-                _sendSpan = DateTimeHelper.Now.AddMilliseconds(500);
-            }
-            catch (Exception ex)
-            {
-                throw ex;
-            }
-            finally
-            {
-                Monitor.Exit(sendLock);
-            }
+            _batcher.Insert(_queueCoder.Publish(_name, topic, content));
         }
 
         #endregion
@@ -149,22 +204,18 @@ namespace SAEA.QueueSocket
 
         public void Subscribe(string topic)
         {
-            SendAsync(_queueCoder.Subscribe(_name, topic));
+            _clientSocket.SendAsync(_queueCoder.Subscribe(_name, topic));
         }
 
         public void Unsubscribe(string topic)
         {
-            SendAsync(_queueCoder.Unsubcribe(_name, topic));
+            _clientSocket.SendAsync(_queueCoder.Unsubcribe(_name, topic));
         }
 
-        public void Close()
+        public void Close(int wait = 10000)
         {
-            while (!_concurrentQueue.IsEmpty)
-            {
-                autoResetEvent.WaitOne(10000);
-            }
             _isClosed = true;
-            SendAsync(_queueCoder.Close(_name));
+            _clientSocket.SendAsync(_queueCoder.Close(_name));
         }
     }
 }

@@ -22,22 +22,17 @@
 *
 *****************************************************************************/
 
-using SAEA.Common;
-using SAEA.Common.Threading;
 using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 
 namespace SAEA.QueueSocket.Model
 {
     public class MessageQueue : ISyncBase, IDisposable
     {
-        bool _isDisposed = false;
-
-        ConcurrentDictionary<string, QueueBase> _list;
+        ConcurrentDictionary<string, QueueBase> _dic;
 
         object _syncLocker = new object();
 
@@ -51,39 +46,16 @@ namespace SAEA.QueueSocket.Model
 
         public MessageQueue()
         {
-            _list = new ConcurrentDictionary<string, QueueBase>();
-
-            TaskHelper.LongRunning(() =>
-            {
-                while (!_isDisposed)
-                {
-                    var list = _list.Values.Where(b => b.Expired <= DateTimeHelper.Now);
-                    if (list != null)
-                    {
-                        foreach (var item in list)
-                        {
-                            if (item.Length == 0)
-                            {
-                                _list.TryRemove(item.Topic, out QueueBase q);
-                            }
-                        }
-                    }
-                    ThreadHelper.Sleep(1000);
-                }
-            });
+            _dic = new ConcurrentDictionary<string, QueueBase>();
         }
 
 
         public void Enqueue(string topic, string data)
         {
-            var queue = _list.Values.FirstOrDefault(b => b.Topic.Equals(topic));
-            lock (_syncLocker)
+            if (!_dic.TryGetValue(topic, out QueueBase queue))
             {
-                if (queue == null)
-                {
-                    queue = new QueueBase(topic);
-                    _list.TryAdd(topic, queue);
-                }                
+                queue = new QueueBase(topic);
+                _dic.TryAdd(topic, queue);
             }
             queue.Enqueue(data);
         }
@@ -91,72 +63,40 @@ namespace SAEA.QueueSocket.Model
 
         public string Dequeue(string topic)
         {
-            var queue = _list.Values.FirstOrDefault(b => b.Topic.Equals(topic));
-            if (queue != null)
+            if (_dic.TryGetValue(topic, out QueueBase queue))
             {
-                return queue.Dequeue();
+                if (queue != null)
+                {
+                    return queue.Dequeue();
+                }
             }
             return null;
-        }
-
-        /// <summary>
-        /// 批量读取数据
-        /// </summary>
-        /// <param name="topic"></param>
-        /// <param name="maxSize"></param>
-        /// <param name="maxTime"></param>
-        /// <returns></returns>
-        public List<string> DequeueForList(string topic, int maxSize = 500, int maxTime = 500)
-        {
-            List<string> result = new List<string>();
-            bool running = true;
-            var m = 0;
-            var task = Task.Factory.StartNew(() =>
-            {
-                while (running)
-                {
-                    var data = Dequeue(topic);
-                    if (data != null)
-                    {
-                        result.Add(data);
-                        m++;
-                        if (m == maxSize)
-                        {
-                            running = false;
-                        }
-                    }
-                    else
-                    {
-                        ThreadHelper.Sleep(1);
-                    }
-                }
-            });
-            task.Wait(maxTime);
-            running = false;
-            return result;
         }
 
         public List<QueueBase> ToList()
         {
             lock (_syncLocker)
             {
-                return _list.Values.ToList();
+                return _dic.Values.ToList();
             }
         }
 
         public long GetCount(string topic)
         {
-            var queue = _list.Values.FirstOrDefault(b => b.Topic == topic);
-            if (queue != null)
-                return queue.Length;
+            if (_dic.TryGetValue(topic, out QueueBase queue))
+            {
+                if (queue != null)
+                {
+                    return queue.Length;
+                }
+            }
             return 0;
         }
 
         public void Dispose()
         {
-            _isDisposed = true;
-            _list.Clear();
-                _list = null;
+            _dic.Clear();
+            _dic = null;
         }
     }
 }

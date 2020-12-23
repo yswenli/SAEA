@@ -43,10 +43,5 @@ namespace SAEA.QueueSocket.Model
         {
             get; set;
         }
-
-        public DateTime Expired
-        {
-            get; set;
-        }
     }
 }

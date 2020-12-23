@@ -84,7 +84,7 @@ namespace SAEA.Sockets.Core
             _bufferSize = bufferSize;
             _completed = completed;
 
-            _bufferManager = new BufferManager(bufferSize * count, bufferSize);
+            _bufferManager = new BufferManager(_bufferSize * count, _bufferSize);
             _bufferManager.InitBuffer();
 
             _argsPool = new SocketAsyncEventArgsPool(count * 2);

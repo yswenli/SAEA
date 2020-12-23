@@ -22,14 +22,15 @@
 *
 *****************************************************************************/
 
+using SAEA.Common;
+using SAEA.Common.Threading;
 using SAEA.MessageSocket;
 using SAEA.MessageSocket.Model.Business;
-using SAEA.Common;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
-using SAEA.Sockets.Interface;
 
 namespace SAEA.MessageTest
 {
@@ -37,9 +38,9 @@ namespace SAEA.MessageTest
     {
         static void Main(string[] args)
         {
-            ConsoleHelper.WriteLine("Message Test ");
+            ConsoleHelper.WriteLine("Message testing ");
 
-            ConsoleHelper.WriteLine("S boot server \r\n\t\t\t F starts functional testing \r\n\t\t\t L start pressure test\r\n\t\t\t T start channelmessage test");
+            ConsoleHelper.WriteLine("S boot server \r\n\t\t\t F starts functional testing \r\n\t\t\t L start pressure testing\r\n\t\t\t T start channelmessage testing\r\n\t\t\t P start performance testing");
 
             var input = ConsoleHelper.ReadLine().ToUpper();
 
@@ -60,17 +61,25 @@ namespace SAEA.MessageTest
                     ChannelMsgTest();
                     break;
 
+                case "P":
+                    PerformanceTest();
+                    break;
+
                 case "SF":
                     ServerInit();
                     FunTest();
                     break;
-                case "SP":
-                    ServerInit();
+                case "SL":
+                    ServerInit(100 * 1000, 100);
                     LinkTest();
                     break;
                 case "ST":
                     ServerInit();
                     ChannelMsgTest();
+                    break;
+                case "SP":
+                    ServerInit();
+                    PerformanceTest();
                     break;
                 default:
                     ServerInit();
@@ -110,11 +119,11 @@ namespace SAEA.MessageTest
 
         #region MyRegion
 
-        private static void ServerInit()
+        private static void ServerInit(int count = 1000, int size = 102400)
         {
             ConsoleHelper.WriteLine("SAEA.Message服务器正在启动...");
 
-            MessageServer server = new MessageServer(39654, 100, 100000, 30 * 60 * 1000);
+            MessageServer server = new MessageServer(39654, size, count);
 
             server.OnAccepted += Server_OnAccepted;
 
@@ -144,37 +153,47 @@ namespace SAEA.MessageTest
 
         private static void Server_OnAccepted(object obj)
         {
-            ConsoleHelper.WriteLine("SAEA.Message服务器收到连接" + ((IUserToken)obj).ID);
+            //ConsoleHelper.WriteLine("SAEA.Message服务器收到连接" + ((IUserToken)obj).ID);
         }
 
+
+        static int _connectCount = 0;
         private static void LinkTest()
         {
             ConsoleHelper.WriteLine("回车开始连接测试...");
+
             ConsoleHelper.ReadLine();
 
             var count = 60 * 1000;
 
-            Sockets.Core.StressTestingClient stressTestingClient;
+            MessageClient mclient;
+
             Task.Run(() =>
             {
                 ConsoleHelper.WriteLine("单机连接测试正在初始化...");
 
-                stressTestingClient = new Sockets.Core.StressTestingClient(count, "127.0.0.1");
-
-                ConsoleHelper.WriteLine("单机连接测试初始化完成，正在建立连接...");
+                for (int i = 0; i < count; i++)
+                {
+                    mclient = new MessageClient();
+                    mclient.OnConnected += Mclient_OnConnected;
+                    mclient.ConnectAsync();
+                }
 
                 Task.Run(() =>
                 {
-                    while (stressTestingClient.Connections < count)
+                    while (_connectCount < count)
                     {
                         Thread.Sleep(1000);
-                        ConsoleHelper.WriteLine($"单机连接测试已建立连接：{stressTestingClient.Connections} 未连接：{stressTestingClient.Lost}");
+                        ConsoleHelper.WriteLine($"单机连接测试已建立连接：{_connectCount} 未连接：{count - _connectCount}");
                     }
                     ConsoleHelper.WriteLine($"单机{count}连接已完成！");
                 });
-
-                stressTestingClient.Connect();
             });
+        }
+
+        private static void Mclient_OnConnected(MessageClient messageClient)
+        {
+            Interlocked.Increment(ref _connectCount);
         }
 
         private static void FunTest()
@@ -313,7 +332,7 @@ namespace SAEA.MessageTest
             {
                 ConsoleHelper.WriteLine("正在开始初始化客户端...");
 
-                for (int i = 0; i < 100; i++)
+                for (int i = 0; i < 1000; i++)
                 {
                     var ccc = new MessageClient();
                     ccc.OnChannelMessage += Ccc_OnChannelMessage;
@@ -343,14 +362,13 @@ namespace SAEA.MessageTest
                     while (true)
                     {
                         ConsoleHelper.WriteLine("当前已接收到消息数：" + cmc);
-                        Thread.Sleep(1000);
                         Interlocked.Increment(ref calc);
-
-                        if (cmc >= 100)
+                        if (cmc >= 1000)
                         {
                             ConsoleHelper.WriteLine("测试完毕，当前用时：" + calc + "秒");
                             break;
                         }
+                        Thread.Sleep(1000);
                     }
                 }, TaskCreationOptions.LongRunning);
             });
@@ -365,6 +383,63 @@ namespace SAEA.MessageTest
         private static void Ccc_OnChannelMessage(ChannelMessage obj)
         {
             Interlocked.Increment(ref cmc);
+        }
+        #endregion
+
+        #region PerformanceTest
+
+
+        static void PerformanceTest()
+        {
+            ConsoleHelper.WriteLine("回车开始私信测试开始...");
+            ConsoleHelper.ReadLine();
+            var cc1 = new MessageClient();
+            cc1.OnPrivateMessage += Client_OnPrivateMessage1;
+
+            var cc2 = new MessageClient();
+            cc2.OnPrivateMessage += Client_OnPrivateMessage1;
+
+            cc1.Connect();
+            cc2.Connect();
+
+            cc1.Login();
+            cc2.Login();
+
+            Stopwatch stopwatch = Stopwatch.StartNew();
+
+            int size = 100000;
+
+            TaskHelper.LongRunning(() =>
+            {
+                for (int i = 0; i < size; i++)
+                {
+                    cc1.SendPrivateMsg(cc2.ID, "你好呀,cc2！");
+                    cc2.SendPrivateMsg(cc1.ID, "你好呀,cc2！");
+                }
+            });
+
+            while (true)
+            {
+                if (_pcount < 2 * size)
+                {
+                    ConsoleHelper.WriteLine($"已处理私信{_pcount}条");
+                    Thread.Sleep(1000);
+                }
+                else
+                {
+                    stopwatch.Stop();
+                    ConsoleHelper.WriteLine($"私信测试已完成，速度：{_pcount / stopwatch.Elapsed.TotalSeconds}");
+                    break;
+                }
+            }
+            ConsoleHelper.WriteLine("回车开始频道测试开始...");
+            ConsoleHelper.ReadLine();
+        }
+
+        static int _pcount = 0;
+        private static void Client_OnPrivateMessage1(PrivateMessage msg)
+        {
+            Interlocked.Increment(ref _pcount);
         }
         #endregion
     }

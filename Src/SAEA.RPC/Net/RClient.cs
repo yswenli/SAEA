@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.Common.Caching;
 using SAEA.Common.Serialization;
 using SAEA.Common.Threading;
 using SAEA.RPC.Common;
@@ -30,6 +31,7 @@ using SAEA.Sockets;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using System;
+using System.Collections.Generic;
 
 namespace SAEA.RPC.Net
 {

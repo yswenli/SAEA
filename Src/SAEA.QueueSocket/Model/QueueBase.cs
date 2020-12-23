@@ -42,19 +42,7 @@ namespace SAEA.QueueSocket.Model
         long _length;
 
         public long Length { get => _length; set => _length = value; }
-
-        public DateTime Created
-        {
-            get; private set;
-        }
-
-
-        int _minute = 60 * 24 * 7;
-
-        public DateTime Expired
-        {
-            get; private set;
-        }
+       
 
         object _syncLocker = new object();
 
@@ -66,20 +54,16 @@ namespace SAEA.QueueSocket.Model
             }
         }
 
-        public QueueBase(string topic, int minutes = 60 * 24 * 7)
+        public QueueBase(string topic)
         {
             _queue = new ConcurrentQueue<string>();
             this.Topic = topic;
             _length = 0;
-            this.Created = DateTimeHelper.Now;
-            _minute = minutes;
-            this.Expired = DateTimeHelper.Now.AddMinutes(_minute);
         }
 
         public void Enqueue(string data)
         {
             _queue.Enqueue(data);
-            this.Expired = DateTimeHelper.Now.AddMinutes(_minute);
             Interlocked.Increment(ref _length);
         }
 

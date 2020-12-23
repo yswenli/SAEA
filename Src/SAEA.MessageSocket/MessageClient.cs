@@ -23,6 +23,7 @@
 *****************************************************************************/
 
 using SAEA.Common;
+using SAEA.Common.Caching;
 using SAEA.Common.Serialization;
 using SAEA.Common.Threading;
 using SAEA.MessageSocket.Model;
@@ -38,10 +39,6 @@ namespace SAEA.MessageSocket
 {
     public class MessageClient
     {
-        int _bufferSize = 100 * 1024;
-
-        byte[] _buffer;
-
         public bool Logined
         {
             get; set;
@@ -50,11 +47,10 @@ namespace SAEA.MessageSocket
         bool _subscribed = false;
 
         bool _unsubscribed = false;
-        
-        private DateTime Actived = DateTimeHelper.Now;
 
         private int HeartSpan;
 
+        public event Action<MessageClient> OnConnected;
 
         public event Action<PrivateMessage> OnPrivateMessage;
 
@@ -67,6 +63,8 @@ namespace SAEA.MessageSocket
         IClientSocket _client;
 
         MessageContext _messageContext;
+
+        Batcher _batcher;
 
         public string ID
         {
@@ -81,11 +79,8 @@ namespace SAEA.MessageSocket
             }
         }
 
-        public MessageClient(int bufferSize = 1024, string ip = "127.0.0.1", int port = 39654)
+        public MessageClient(int bufferSize = 102400, string ip = "127.0.0.1", int port = 39654)
         {
-            _bufferSize = bufferSize;
-            _buffer = new byte[_bufferSize];
-
             _messageContext = new MessageContext();
 
             var option = SocketOptionBuilder.Instance
@@ -102,13 +97,21 @@ namespace SAEA.MessageSocket
             _client.OnReceive += _client_OnReceive;
 
             HeartSpan = 10 * 1000;
+
             HeartAsync();
+
+            _batcher = new Batcher(10000, 10);
+
+            _batcher.OnBatched += _batcher_OnBatched;
+        }
+
+        private void _batcher_OnBatched(IBatcher sender, byte[] data)
+        {
+            _client.SendAsync(data);
         }
 
         private void _client_OnReceive(byte[] data)
         {
-            Actived = DateTimeHelper.Now;
-
             if (data != null)
             {
                 this._messageContext.Unpacker.Unpack(data, (s) =>
@@ -189,7 +192,7 @@ namespace SAEA.MessageSocket
                     {
                         if (_client.Connected)
                         {
-                            if (Actived.AddMilliseconds(HeartSpan) <= DateTimeHelper.Now)
+                            if (_messageContext.UserToken.Actived.AddMilliseconds(HeartSpan) <= DateTimeHelper.Now)
                             {
                                 var sm = new BaseSocketProtocal()
                                 {
@@ -210,7 +213,7 @@ namespace SAEA.MessageSocket
             });
         }
 
-        public void Connect()
+        public void ConnectAsync()
         {
             if (!_client.Connected)
             {
@@ -220,9 +223,18 @@ namespace SAEA.MessageSocket
                     {
                         throw new KernelException("连接到消息服务器失败，Code:" + c.ToString());
                     }
+                    OnConnected?.Invoke(this);
                 });
             }
+        }
 
+        public void Connect()
+        {
+            if (!_client.Connected)
+            {
+                _client.Connect();
+                OnConnected?.Invoke(this);
+            }
         }
 
         private void SendBase(ChatMessage cm)
@@ -231,9 +243,7 @@ namespace SAEA.MessageSocket
 
             var content = BaseSocketProtocal.Parse(data, SocketProtocalType.ChatMessage).ToBytes();
 
-            _client.SendAsync(content);
-
-            Actived = DateTimeHelper.Now;
+            _batcher.Insert(content);
         }
 
 

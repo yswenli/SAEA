@@ -126,6 +126,9 @@ namespace SAEA.Sockets.Core.Tcp
                         _listener.Bind(new IPEndPoint(IPAddress.Parse(SocketOption.IP), SocketOption.Port));
                 }
 
+                _listener.SendBufferSize = SocketOption.WriteBufferSize;
+                _listener.ReceiveBufferSize = SocketOption.ReadBufferSize;
+
                 _listener.Listen(backlog);
 
                 var accepteArgs = new SocketAsyncEventArgs();
@@ -162,7 +165,17 @@ namespace SAEA.Sockets.Core.Tcp
         {
             try
             {
-                var userToken = _sessionManager.BindUserToken(e.AcceptSocket);
+                var socket = e.AcceptSocket;
+
+                socket.NoDelay = SocketOption.NoDelay;
+
+                socket.ReceiveBufferSize = SocketOption.ReadBufferSize;
+
+                socket.SendBufferSize = SocketOption.WriteBufferSize;
+
+                socket.ReceiveTimeout = socket.SendTimeout = SocketOption.TimeOut;
+
+                var userToken = _sessionManager.BindUserToken(socket);
 
                 if (userToken != null)
                 {
@@ -289,8 +302,6 @@ namespace SAEA.Sockets.Core.Tcp
             try
             {
                 _sessionManager.Active(userToken.ID);
-                userToken.WriteArgs.SetBuffer(null, 0, 0);
-
             }
             catch (Exception ex)
             {

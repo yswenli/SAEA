@@ -23,6 +23,7 @@
 *****************************************************************************/
 
 using SAEA.Common;
+using SAEA.Common.Caching;
 using SAEA.Common.Serialization;
 using SAEA.MessageSocket.Collection;
 using SAEA.MessageSocket.Model;
@@ -47,6 +48,10 @@ namespace SAEA.MessageSocket
 
         GroupList _groupList = new GroupList();
 
+
+        ClassificationBatcher _classificationBatcher;
+
+
         public event OnAcceptedHandler OnAccepted;
 
         public event OnDisconnectedHandler OnDisconnected;
@@ -64,7 +69,7 @@ namespace SAEA.MessageSocket
 
 
 
-        public MessageServer(int port = 39654, int bufferSize = 1024, int count = 1000000, int timeOut = 60 * 1000)
+        public MessageServer(int port = 39654, int bufferSize = 102400, int count = 1000, int timeOut = 60 * 1000)
         {
             var option = SocketOptionBuilder.Instance
                 .SetPort(port)
@@ -84,6 +89,15 @@ namespace SAEA.MessageSocket
             _server.OnError += _server_OnError;
 
             _server.OnDisconnected += _server_OnDisconnected;
+
+            _classificationBatcher = ClassificationBatcher.GetInstance(10000, 10);
+
+            _classificationBatcher.OnBatched += _classificationBatcher_OnBatched;
+        }
+
+        private void _classificationBatcher_OnBatched(string id, byte[] data)
+        {
+            _server.SendAsync(id, data);
         }
 
         private void _server_OnError(string ID, Exception ex)
@@ -178,7 +192,7 @@ namespace SAEA.MessageSocket
 
             var sp = BaseSocketProtocal.Parse(data, SocketProtocalType.ChatMessage).ToBytes();
 
-            _server.SendAsync(userToken.ID, sp);
+            _classificationBatcher.Insert(userToken.ID, sp);
         }
 
         void ReplyLogin(MessageUserToken userToken, ChatMessage cm)
@@ -186,7 +200,6 @@ namespace SAEA.MessageSocket
             userToken.Logined = DateTimeHelper.Now;
 
             ReplyBase(userToken, new ChatMessage(ChatMessageType.LoginAnswer, ""));
-
         }
 
         void ReplySubscribe(MessageUserToken userToken, ChatMessage cm)

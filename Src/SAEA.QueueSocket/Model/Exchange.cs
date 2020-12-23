@@ -57,19 +57,19 @@ namespace SAEA.QueueSocket.Model
 
         public Exchange()
         {
-            this._binding = new Binding();
+            _binding = new Binding();
 
-            this._messageQueue = new MessageQueue();
+            _messageQueue = new MessageQueue();
         }
 
 
         public void AcceptPublish(string sessionID, QueueResult pInfo)
         {
-            this._binding.Set(sessionID, pInfo.Name, pInfo.Topic);
+            _binding.Set(sessionID, pInfo.Name, pInfo.Topic);
 
-            this._messageQueue.Enqueue(pInfo.Topic, pInfo.Data);
+            _messageQueue.Enqueue(pInfo.Topic, pInfo.Data);
 
-            _pNum = this._binding.GetPublisherCount();
+            _pNum = _binding.GetPublisherCount();
 
             Interlocked.Increment(ref _inNum);
         }
@@ -88,28 +88,29 @@ namespace SAEA.QueueSocket.Model
             }
         }
 
-
-        public void GetSubscribeData(string sessionID, QueueResult sInfo, int maxSize = 500, int maxTime = 500, Action<List<string>> callBack = null)
+        public void GetSubscribeData(string sessionID, QueueResult sInfo, Action<string> callBack = null)
         {
-            var result = this._binding.GetBingInfo(sInfo);
+            var result = _binding.GetBingInfo(sInfo);
 
             if (result == null)
             {
-                this._binding.Set(sessionID, sInfo.Name, sInfo.Topic, false);
+                _binding.Set(sessionID, sInfo.Name, sInfo.Topic, false);
 
-                _cNum = this._binding.GetSubscriberCount();
+                _cNum = _binding.GetSubscriberCount();
 
-                TaskHelper.LongRunning(() =>
+                TaskHelper.Run(() =>
                 {
-                    while (this._binding.Exists(sInfo))
+                    while (_binding.Exists(sInfo))
                     {
-                        var list = this._messageQueue.DequeueForList(sInfo.Topic, maxSize, maxTime);
-                        if (list != null)
+                        var msg = _messageQueue.Dequeue(sInfo.Topic);
+                        if (!string.IsNullOrEmpty(msg))
                         {
-                            list.ForEach(i => { Interlocked.Increment(ref _outNum); });
-                            callBack?.Invoke(list);
-                            list.Clear();
-                            list = null;
+                            Interlocked.Increment(ref _outNum);
+                            callBack?.Invoke(msg);
+                        }
+                        else
+                        {
+                            Thread.Yield();
                         }
                     }
                 });
@@ -119,14 +120,14 @@ namespace SAEA.QueueSocket.Model
         public void Unsubscribe(QueueResult sInfo)
         {
             Interlocked.Decrement(ref _cNum);
-            this._binding.Del(sInfo.Name, sInfo.Topic);
+            _binding.Del(sInfo.Name, sInfo.Topic);
         }
 
         public void Clear(string sessionID)
         {
             lock (_syncLocker)
             {
-                var data = this._binding.GetBingInfo(sessionID);
+                var data = _binding.GetBingInfo(sessionID);
 
                 if (data != null)
                 {
@@ -138,7 +139,7 @@ namespace SAEA.QueueSocket.Model
                     {
                         Interlocked.Decrement(ref _cNum);
                     }
-                    this._binding.Remove(sessionID);
+                    _binding.Remove(sessionID);
                 }
             }
         }
@@ -153,7 +154,7 @@ namespace SAEA.QueueSocket.Model
             List<Tuple<string, long>> result = new List<Tuple<string, long>>();
             lock (_syncLocker)
             {
-                var list = this._messageQueue.ToList();
+                var list = _messageQueue.ToList();
                 if (list != null)
                 {
                     var tlts = list.Select(b => b.Topic).Distinct().ToList();
@@ -162,7 +163,7 @@ namespace SAEA.QueueSocket.Model
                     {
                         foreach (var topic in tlts)
                         {
-                            var count = this._messageQueue.GetCount(topic);
+                            var count = _messageQueue.GetCount(topic);
                             var t = new Tuple<string, long>(topic, count);
                             result.Add(t);
                         }

@@ -23,6 +23,7 @@
 *****************************************************************************/
 
 using SAEA.Common;
+using SAEA.Common.Caching;
 using SAEA.Common.Threading;
 using SAEA.QueueSocket.Model;
 using SAEA.QueueSocket.Net;
@@ -32,7 +33,6 @@ using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace SAEA.QueueSocket
 {
@@ -40,23 +40,22 @@ namespace SAEA.QueueSocket
     {
         Exchange _exchange;
 
-        int _maxNum = 500;
-
-        int _maxTime = 500;
-
         IServerSokcet _serverSokcet;
 
         public event OnDisconnectedHandler OnDisconnected;
 
-        public QServer(int port = 39654, string ip = "127.0.0.1", int bufferSize = 1000 * 1024, int count = 1000, int maxNum = 500, int maxTime = 500)
+        ClassificationBatcher _classificationBatcher;
+
+        public QServer(int port = 39654, string ip = "127.0.0.1", int bufferSize = 100 * 1024, int count = 100)
         {
-            _maxNum = maxNum;
-            _maxTime = maxTime;
             _exchange = new Exchange();
+
+            _classificationBatcher = ClassificationBatcher.GetInstance(10000, 50);
+            _classificationBatcher.OnBatched += ClassificationBatcher_OnBatched;
 
             var config = SocketOptionBuilder.Instance
                 .UseIocp<QContext>()
-                .SetSocket(Sockets.Model.SAEASocketType.Tcp)                
+                .SetSocket(Sockets.Model.SAEASocketType.Tcp)
                 .SetReadBufferSize(bufferSize)
                 .SetWriteBufferSize(bufferSize)
                 .SetCount(count)
@@ -69,6 +68,11 @@ namespace SAEA.QueueSocket
             _serverSokcet.OnReceive += _serverSokcet_OnReceive;
 
             _serverSokcet.OnDisconnected += _serverSokcet_OnDisconnected;
+        }
+
+        private void ClassificationBatcher_OnBatched(string name, byte[] data)
+        {
+            _serverSokcet.Send(name, data);
         }
 
         private void _serverSokcet_OnDisconnected(string ID, Exception ex)
@@ -134,21 +138,10 @@ namespace SAEA.QueueSocket
 
         private void ReplySubcribe(IUserToken ut, QueueResult data)
         {
-            Task.Factory.StartNew(() =>
+            var qcoder = (QUnpacker)ut.Unpacker;
+            _exchange.GetSubscribeData(ut.ID, new QueueResult() { Name = data.Name, Topic = data.Topic }, (msg) =>
             {
-                var qcoder = (QUnpacker)ut.Unpacker;
-                _exchange.GetSubscribeData(ut.ID, new QueueResult() { Name = data.Name, Topic = data.Topic }, _maxNum, _maxTime, (rlist) =>
-                {
-                    if (rlist != null)
-                    {
-                        var list = new List<byte>();
-                        rlist.ForEach(r =>
-                        {
-                            list.AddRange(qcoder.QueueCoder.Data(data.Name, data.Topic, r));
-                        });
-                        _serverSokcet.Send(ut.ID, list.ToArray());
-                    }
-                });
+                _classificationBatcher.Insert(ut.ID, qcoder.QueueCoder.Data(data.Name, data.Topic, msg));
             });
         }
 

@@ -22,9 +22,8 @@
 *
 *****************************************************************************/
 
-using SAEA.Common;
-using SAEA.Sockets.Interface;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -33,145 +32,93 @@ namespace SAEA.QueueSocket.Model
     /// <summary>
     /// 连接与主题的映射
     /// </summary>
-    class Binding : ISyncBase, IDisposable
+    class Binding : IDisposable
     {
-        List<BindInfo> _list = new List<BindInfo>();
+        ConcurrentDictionary<string, BindInfo> _cahce;
 
-        object _syncLocker = new object();
+        ConcurrentDictionary<string, string> _mapping;
 
-        public object SyncLocker
+        /// <summary>
+        /// 连接与主题的映射
+        /// </summary>
+        public Binding()
         {
-            get
-            {
-                return _syncLocker;
-            }
+            _cahce = new ConcurrentDictionary<string, BindInfo>();
+
+            _mapping = new ConcurrentDictionary<string, string>();
         }
-
-        bool _isDisposed = false;
-
-        int _minutes = 10;
-
-        public Binding(int minutes = 10)
-        {
-            _minutes = minutes;
-
-            ThreadHelper.PulseAction(() =>
-            {
-                lock (_syncLocker)
-                {
-                    var list = _list.Where(b => b.Expired <= DateTimeHelper.Now).ToList();
-                    if (list != null)
-                    {
-                        list.ForEach(item =>
-                        {
-                            _list.Remove(item);
-                        });
-                        list.Clear();
-                        list = null;
-                    }
-                }
-            }, new TimeSpan(0, 0, 10), _isDisposed);
-        }
-
 
         public void Set(string sessionID, string name, string topic, bool isPublisher = true)
         {
-
-            lock (_syncLocker)
+            _cahce.AddOrUpdate(sessionID + topic, (v) => new BindInfo()
             {
-                var result = _list.FirstOrDefault(b => b.Name == name && b.Topic == topic);
-                if (result == null)
-                {
-                    _list.Add(new BindInfo()
-                    {
-                        SessionID = sessionID,
-                        Name = name,
-                        Topic = topic,
-                        Flag = isPublisher,
-                        Expired = DateTimeHelper.Now.AddMinutes(_minutes)
-                    });
-                }
-                else
-                {
-                    result.Expired = DateTimeHelper.Now.AddMinutes(_minutes);
-                }
-            }
+                SessionID = sessionID,
+                Name = name,
+                Topic = topic,
+                Flag = isPublisher
+            }, (k, v) => new BindInfo()
+            {
+                SessionID = sessionID,
+                Name = name,
+                Topic = topic,
+                Flag = isPublisher
+            });
+
+            _mapping.AddOrUpdate(name, sessionID, (k, v) => sessionID);
         }
 
         public void Del(string sessionID, string topic)
         {
-            lock (_syncLocker)
+            if (_cahce.TryRemove(sessionID + topic, out BindInfo bindInfo))
             {
-                var result = _list.FirstOrDefault(b => b.Name == sessionID && b.Topic == topic);
-                if (result != null)
-                {
-                    _list.Remove(result);
-                }
+                _mapping.TryRemove(bindInfo.Name, out string _);
             }
         }
 
         public void Remove(string sessionID)
         {
-            lock (_syncLocker)
+            foreach (var item in _cahce.Keys)
             {
-                var result = _list.Where(b => b.SessionID == sessionID).ToList();
-                if (result != null)
+                if (item.IndexOf(sessionID) > -1)
                 {
-                    result.ForEach((item) =>
+                    if (_cahce.TryRemove(item, out BindInfo bindInfo))
                     {
-                        _list.Remove(item);
-                    });
-                    result.Clear();
+                        _mapping.TryRemove(bindInfo.Name, out string _);
+                    }
                 }
             }
         }
 
         public BindInfo GetBingInfo(QueueResult sInfo)
         {
-            lock (_syncLocker)
+            if (_mapping.TryGetValue(sInfo.Name, out string sessionID))
             {
-                var bi = _list.FirstOrDefault(b => b.Name == sInfo.Name && b.Topic == sInfo.Topic);
-
-                if (bi != null)
+                if (_cahce.TryGetValue(sessionID + sInfo.Topic, out BindInfo bindInfo))
                 {
-                    if (bi.Expired <= DateTimeHelper.Now)
-                    {
-                        Remove(bi.SessionID);
-                    }
-                    else
-                    {
-                        return bi;
-                    }
+                    return bindInfo;
                 }
-                return null;
             }
+            return null;
         }
 
         public BindInfo GetBingInfo(string sessionID)
         {
-            lock (_syncLocker)
+            foreach (var item in _cahce.Keys)
             {
-                return _list.FirstOrDefault(b => b.SessionID == sessionID);
+                if (item.IndexOf(sessionID) > -1)
+                {
+                    return _cahce[item];
+                }
             }
+            return null;
         }
 
         public bool Exists(QueueResult sInfo)
         {
-            lock (_syncLocker)
+            if (_mapping.TryGetValue(sInfo.Name, out string sessionID))
             {
-                var data = _list.FirstOrDefault(b => b.Name == sInfo.Name && b.Topic == sInfo.Topic);
-
-                if (data != null)
+                if (_cahce.TryGetValue(sessionID + sInfo.Topic, out BindInfo _))
                 {
-                    if (data.Expired <= DateTimeHelper.Now)
-                    {
-                        Remove(data.SessionID);
-
-                        return false;
-                    }
-
-                    data.Expired = DateTimeHelper.Now.AddMinutes(_minutes);
-
                     return true;
                 }
             }
@@ -181,45 +128,30 @@ namespace SAEA.QueueSocket.Model
 
         public IEnumerable<BindInfo> GetPublisher()
         {
-            lock (_syncLocker)
-            {
-                return _list.Where(b => b.Flag);
-            }
+            return _cahce.Values.Where(b => b.Flag);            
         }
 
         public int GetPublisherCount()
         {
-            lock (_syncLocker)
-            {
-                return _list.Where(b => b.Flag).Count();
-            }
+            return GetPublisher().Count();
         }
 
         public IEnumerable<BindInfo> GetSubscriber()
         {
-            lock (_syncLocker)
-            {
-                return _list.Where(b => !b.Flag);
-            }
+            return _cahce.Values.Where(b => !b.Flag);
         }
 
         public int GetSubscriberCount()
         {
-            lock (_syncLocker)
-            {
-                return _list.Where(b => !b.Flag).Count();
-            }
+            return GetSubscriber().Count();
         }
 
 
         public void Dispose()
         {
-            _isDisposed = true;
-            lock (_syncLocker)
-            {
-                _list.Clear();
-                _list = null;
-            }
+            _cahce.Clear();
+            _cahce = null;
+
         }
     }
 }

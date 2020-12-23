@@ -21,10 +21,12 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Common.Caching;
 using SAEA.Sockets;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using System;
+using System.Collections.Generic;
 
 namespace SAEA.RPC.Net
 {
