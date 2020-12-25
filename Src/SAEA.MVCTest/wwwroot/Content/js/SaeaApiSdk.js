@@ -1,7 +1,8 @@
 //
-//此代码为SAEA.MVC.APISdkCodeGenerator于2020-12-25 17:23:34.273生成，请尽量不要修改
+//此代码为SAEA.MVC.APISdkCodeGenerator于2020-12-25 19:58:10.517生成，请尽量不要修改
 //
 function SaeaApiSdk() {
+
     var request = function (opt) {
         opt = opt || {};
         opt.method = !!opt.method === false ? 'POST' : opt.method.toUpperCase();
@@ -38,13 +39,12 @@ function SaeaApiSdk() {
         }
     }
     this.request = request;
-    
 
     // Ajax/Test
-    this.AjaxTest= function (str,sucess, error) {
+    this.AjaxTestGet= function (str,sucess, error) {
         request({
             url: `/api/Ajax/Test`,
-            type: 'get',
+            type: 'Get',
             data: {
                 str:str
             },
@@ -59,10 +59,10 @@ function SaeaApiSdk() {
         });
     }
     // Ajax/Test
-    this.AjaxTest= function (str,sucess, error) {
+    this.AjaxTestPost= function (str,sucess, error) {
         request({
             url: `/api/Ajax/Test`,
-            type: 'post',
+            type: 'Post',
             data: {
                 str:str
             },
@@ -77,10 +77,10 @@ function SaeaApiSdk() {
         });
     }
     // Ajax/Test2
-    this.AjaxTest2= function (str,sucess, error) {
+    this.AjaxTest2Get= function (str,sucess, error) {
         request({
             url: `/api/Ajax/Test2`,
-            type: 'get',
+            type: 'Get',
             data: {
                 str:str
             },
@@ -95,10 +95,10 @@ function SaeaApiSdk() {
         });
     }
     // Ajax/Test2
-    this.AjaxTest2= function (str,sucess, error) {
+    this.AjaxTest2Post= function (str,sucess, error) {
         request({
             url: `/api/Ajax/Test2`,
-            type: 'post',
+            type: 'Post',
             data: {
                 str:str
             },
@@ -113,10 +113,10 @@ function SaeaApiSdk() {
         });
     }
     // Ajax/Test3
-    this.AjaxTest3= function (ID,UserName,NickName,sucess, error) {
+    this.AjaxTest3Get= function (ID,UserName,NickName,sucess, error) {
         request({
             url: `/api/Ajax/Test3`,
-            type: 'get',
+            type: 'Get',
             data: {
                 ID:ID,UserName:UserName,NickName:NickName
             },
@@ -131,10 +131,10 @@ function SaeaApiSdk() {
         });
     }
     // Ajax/Test3
-    this.AjaxTest3= function (ID,UserName,NickName,sucess, error) {
+    this.AjaxTest3Post= function (ID,UserName,NickName,sucess, error) {
         request({
             url: `/api/Ajax/Test3`,
-            type: 'post',
+            type: 'Post',
             data: {
                 ID:ID,UserName:UserName,NickName:NickName
             },
@@ -149,10 +149,10 @@ function SaeaApiSdk() {
         });
     }
     // Error/Test1
-    this.ErrorTest1= function (sucess, error) {
+    this.ErrorTest1Get= function (sucess, error) {
         request({
             url: `/api/Error/Test1`,
-            type: 'get',
+            type: 'Get',
             timeout: 3000,
             success: function (data) {
                 sucess(data);
@@ -164,10 +164,10 @@ function SaeaApiSdk() {
         });
     }
     // Error/Test1
-    this.ErrorTest1= function (sucess, error) {
+    this.ErrorTest1Post= function (sucess, error) {
         request({
             url: `/api/Error/Test1`,
-            type: 'post',
+            type: 'Post',
             timeout: 3000,
             success: function (data) {
                 sucess(data);
@@ -179,10 +179,10 @@ function SaeaApiSdk() {
         });
     }
     // File/Download
-    this.FileDownload= function (sucess, error) {
+    this.FileDownloadGet= function (sucess, error) {
         request({
             url: `/api/File/Download`,
-            type: 'get',
+            type: 'Get',
             timeout: 3000,
             success: function (data) {
                 sucess(data);
@@ -194,10 +194,10 @@ function SaeaApiSdk() {
         });
     }
     // File/Download
-    this.FileDownload= function (sucess, error) {
+    this.FileDownloadPost= function (sucess, error) {
         request({
             url: `/api/File/Download`,
-            type: 'post',
+            type: 'Post',
             timeout: 3000,
             success: function (data) {
                 sucess(data);
@@ -209,10 +209,10 @@ function SaeaApiSdk() {
         });
     }
     // File/Upload
-    this.FileUpload= function (name,sucess, error) {
+    this.FileUploadPost= function (name,sucess, error) {
         request({
             url: `/api/File/Upload`,
-            type: 'post',
+            type: 'Post',
             data: {
                 name:name
             },
@@ -227,10 +227,10 @@ function SaeaApiSdk() {
         });
     }
     // Home/Get
-    this.HomeGet= function (id,sucess, error) {
+    this.HomeGetPost= function (id,sucess, error) {
         request({
             url: `/api/Home/Get`,
-            type: 'post',
+            type: 'Post',
             data: {
                 id:id
             },
@@ -245,10 +245,10 @@ function SaeaApiSdk() {
         });
     }
     // Home/Get
-    this.HomeGet= function (id,sucess, error) {
+    this.HomeGetGet= function (id,sucess, error) {
         request({
             url: `/api/Home/Get`,
-            type: 'get',
+            type: 'Get',
             data: {
                 id:id
             },
@@ -263,10 +263,10 @@ function SaeaApiSdk() {
         });
     }
     // Home/Show
-    this.HomeShow= function (sucess, error) {
+    this.HomeShowGet= function (sucess, error) {
         request({
             url: `/api/Home/Show`,
-            type: 'get',
+            type: 'Get',
             timeout: 3000,
             success: function (data) {
                 sucess(data);
@@ -278,10 +278,10 @@ function SaeaApiSdk() {
         });
     }
     // Home/Show
-    this.HomeShow= function (sucess, error) {
+    this.HomeShowPost= function (sucess, error) {
         request({
             url: `/api/Home/Show`,
-            type: 'post',
+            type: 'Post',
             timeout: 3000,
             success: function (data) {
                 sucess(data);
@@ -293,10 +293,10 @@ function SaeaApiSdk() {
         });
     }
     // Home/Update
-    this.HomeUpdate= function (id,sucess, error) {
+    this.HomeUpdateGet= function (id,sucess, error) {
         request({
             url: `/api/Home/Update`,
-            type: 'get',
+            type: 'Get',
             data: {
                 id:id
             },
@@ -311,10 +311,10 @@ function SaeaApiSdk() {
         });
     }
     // Home/Update
-    this.HomeUpdate= function (isFemale,ID,UserName,NickName,sucess, error) {
+    this.HomeUpdatePost= function (isFemale,ID,UserName,NickName,sucess, error) {
         request({
             url: `/api/Home/Update`,
-            type: 'post',
+            type: 'Post',
             data: {
                 isFemale:isFemale,ID:ID,UserName:UserName,NickName:NickName
             },
@@ -329,10 +329,10 @@ function SaeaApiSdk() {
         });
     }
     // Home/Set
-    this.HomeSet= function (isFemale,ID,UserName,NickName,sucess, error) {
+    this.HomeSetGet= function (isFemale,ID,UserName,NickName,sucess, error) {
         request({
             url: `/api/Home/Set`,
-            type: 'get',
+            type: 'Get',
             data: {
                 isFemale:isFemale,ID:ID,UserName:UserName,NickName:NickName
             },
@@ -347,10 +347,10 @@ function SaeaApiSdk() {
         });
     }
     // Home/Set
-    this.HomeSet= function (isFemale,ID,UserName,NickName,sucess, error) {
+    this.HomeSetPost= function (isFemale,ID,UserName,NickName,sucess, error) {
         request({
             url: `/api/Home/Set`,
-            type: 'post',
+            type: 'Post',
             data: {
                 isFemale:isFemale,ID:ID,UserName:UserName,NickName:NickName
             },
@@ -365,10 +365,10 @@ function SaeaApiSdk() {
         });
     }
     // Home/GetModels
-    this.HomeGetModels= function (version,UID,Token,PageIndex,PageSize,sucess, error) {
+    this.HomeGetModelsGet= function (version,UID,Token,PageIndex,PageSize,sucess, error) {
         request({
             url: `/api/Home/GetModels`,
-            type: 'get',
+            type: 'Get',
             data: {
                 version:version,UID:UID,Token:Token,PageIndex:PageIndex,PageSize:PageSize
             },
@@ -383,10 +383,10 @@ function SaeaApiSdk() {
         });
     }
     // Home/GetModels
-    this.HomeGetModels= function (version,UID,Token,PageIndex,PageSize,sucess, error) {
+    this.HomeGetModelsPost= function (version,UID,Token,PageIndex,PageSize,sucess, error) {
         request({
             url: `/api/Home/GetModels`,
-            type: 'post',
+            type: 'Post',
             data: {
                 version:version,UID:UID,Token:Token,PageIndex:PageIndex,PageSize:PageSize
             },
@@ -401,10 +401,10 @@ function SaeaApiSdk() {
         });
     }
     // Home/Test
-    this.HomeTest= function (sucess, error) {
+    this.HomeTestPost= function (sucess, error) {
         request({
             url: `/api/Home/Test`,
-            type: 'post',
+            type: 'Post',
             timeout: 3000,
             success: function (data) {
                 sucess(data);
@@ -416,10 +416,10 @@ function SaeaApiSdk() {
         });
     }
     // SaeaSdkTest/GetList
-    this.SaeaSdkTestGetList= function (sucess, error) {
+    this.SaeaSdkTestGetListGet= function (sucess, error) {
         request({
             url: `/api/SaeaSdkTest/GetList`,
-            type: 'get',
+            type: 'Get',
             timeout: 3000,
             success: function (data) {
                 sucess(data);
@@ -431,10 +431,10 @@ function SaeaApiSdk() {
         });
     }
     // SaeaSdkTest/GetList
-    this.SaeaSdkTestGetList= function (sucess, error) {
+    this.SaeaSdkTestGetListPost= function (sucess, error) {
         request({
             url: `/api/SaeaSdkTest/GetList`,
-            type: 'post',
+            type: 'Post',
             timeout: 3000,
             success: function (data) {
                 sucess(data);
@@ -446,10 +446,10 @@ function SaeaApiSdk() {
         });
     }
     // Test/Get
-    this.TestGet= function (sucess, error) {
+    this.TestGetGet= function (sucess, error) {
         request({
             url: `/api/Test/Get`,
-            type: 'get',
+            type: 'Get',
             timeout: 3000,
             success: function (data) {
                 sucess(data);
@@ -461,10 +461,10 @@ function SaeaApiSdk() {
         });
     }
     // Test/Get
-    this.TestGet= function (sucess, error) {
+    this.TestGetPost= function (sucess, error) {
         request({
             url: `/api/Test/Get`,
-            type: 'post',
+            type: 'Post',
             timeout: 3000,
             success: function (data) {
                 sucess(data);
@@ -476,10 +476,10 @@ function SaeaApiSdk() {
         });
     }
     // Test/Other
-    this.TestOther= function (ID,UserName,NickName,sucess, error) {
+    this.TestOtherPost= function (ID,UserName,NickName,sucess, error) {
         request({
             url: `/api/Test/Other`,
-            type: 'post',
+            type: 'Post',
             data: {
                 ID:ID,UserName:UserName,NickName:NickName
             },
@@ -494,10 +494,10 @@ function SaeaApiSdk() {
         });
     }
     // Test/Other
-    this.TestOther= function (ID,UserName,NickName,sucess, error) {
+    this.TestOtherGet= function (ID,UserName,NickName,sucess, error) {
         request({
             url: `/api/Test/Other`,
-            type: 'get',
+            type: 'Get',
             data: {
                 ID:ID,UserName:UserName,NickName:NickName
             },
@@ -512,10 +512,10 @@ function SaeaApiSdk() {
         });
     }
     // Test/Timeout
-    this.TestTimeout= function (sucess, error) {
+    this.TestTimeoutGet= function (sucess, error) {
         request({
             url: `/api/Test/Timeout`,
-            type: 'get',
+            type: 'Get',
             timeout: 3000,
             success: function (data) {
                 sucess(data);
@@ -527,10 +527,10 @@ function SaeaApiSdk() {
         });
     }
     // Test/Timeout
-    this.TestTimeout= function (sucess, error) {
+    this.TestTimeoutPost= function (sucess, error) {
         request({
             url: `/api/Test/Timeout`,
-            type: 'post',
+            type: 'Post',
             timeout: 3000,
             success: function (data) {
                 sucess(data);
@@ -542,10 +542,10 @@ function SaeaApiSdk() {
         });
     }
     // Ajax/Test
-    this.AjaxTest= function (str,sucess, error) {
+    this.AjaxTestGet= function (str,sucess, error) {
         request({
             url: `/api/Ajax/Test`,
-            type: 'get',
+            type: 'Get',
             data: {
                 str:str
             },
@@ -560,10 +560,10 @@ function SaeaApiSdk() {
         });
     }
     // Ajax/Test
-    this.AjaxTest= function (str,sucess, error) {
+    this.AjaxTestPost= function (str,sucess, error) {
         request({
             url: `/api/Ajax/Test`,
-            type: 'post',
+            type: 'Post',
             data: {
                 str:str
             },
@@ -578,10 +578,10 @@ function SaeaApiSdk() {
         });
     }
     // Ajax/Test2
-    this.AjaxTest2= function (str,sucess, error) {
+    this.AjaxTest2Get= function (str,sucess, error) {
         request({
             url: `/api/Ajax/Test2`,
-            type: 'get',
+            type: 'Get',
             data: {
                 str:str
             },
@@ -596,10 +596,10 @@ function SaeaApiSdk() {
         });
     }
     // Ajax/Test2
-    this.AjaxTest2= function (str,sucess, error) {
+    this.AjaxTest2Post= function (str,sucess, error) {
         request({
             url: `/api/Ajax/Test2`,
-            type: 'post',
+            type: 'Post',
             data: {
                 str:str
             },
@@ -614,10 +614,10 @@ function SaeaApiSdk() {
         });
     }
     // Ajax/Test3
-    this.AjaxTest3= function (ID,UserName,NickName,sucess, error) {
+    this.AjaxTest3Get= function (ID,UserName,NickName,sucess, error) {
         request({
             url: `/api/Ajax/Test3`,
-            type: 'get',
+            type: 'Get',
             data: {
                 ID:ID,UserName:UserName,NickName:NickName
             },
@@ -632,10 +632,10 @@ function SaeaApiSdk() {
         });
     }
     // Ajax/Test3
-    this.AjaxTest3= function (ID,UserName,NickName,sucess, error) {
+    this.AjaxTest3Post= function (ID,UserName,NickName,sucess, error) {
         request({
             url: `/api/Ajax/Test3`,
-            type: 'post',
+            type: 'Post',
             data: {
                 ID:ID,UserName:UserName,NickName:NickName
             },
@@ -650,10 +650,10 @@ function SaeaApiSdk() {
         });
     }
     // Error/Test1
-    this.ErrorTest1= function (sucess, error) {
+    this.ErrorTest1Get= function (sucess, error) {
         request({
             url: `/api/Error/Test1`,
-            type: 'get',
+            type: 'Get',
             timeout: 3000,
             success: function (data) {
                 sucess(data);
@@ -665,10 +665,10 @@ function SaeaApiSdk() {
         });
     }
     // Error/Test1
-    this.ErrorTest1= function (sucess, error) {
+    this.ErrorTest1Post= function (sucess, error) {
         request({
             url: `/api/Error/Test1`,
-            type: 'post',
+            type: 'Post',
             timeout: 3000,
             success: function (data) {
                 sucess(data);
@@ -680,10 +680,10 @@ function SaeaApiSdk() {
         });
     }
     // File/Download
-    this.FileDownload= function (sucess, error) {
+    this.FileDownloadGet= function (sucess, error) {
         request({
             url: `/api/File/Download`,
-            type: 'get',
+            type: 'Get',
             timeout: 3000,
             success: function (data) {
                 sucess(data);
@@ -695,10 +695,10 @@ function SaeaApiSdk() {
         });
     }
     // File/Download
-    this.FileDownload= function (sucess, error) {
+    this.FileDownloadPost= function (sucess, error) {
         request({
             url: `/api/File/Download`,
-            type: 'post',
+            type: 'Post',
             timeout: 3000,
             success: function (data) {
                 sucess(data);
@@ -710,10 +710,10 @@ function SaeaApiSdk() {
         });
     }
     // File/Upload
-    this.FileUpload= function (name,sucess, error) {
+    this.FileUploadPost= function (name,sucess, error) {
         request({
             url: `/api/File/Upload`,
-            type: 'post',
+            type: 'Post',
             data: {
                 name:name
             },
@@ -728,10 +728,10 @@ function SaeaApiSdk() {
         });
     }
     // Home/Get
-    this.HomeGet= function (id,sucess, error) {
+    this.HomeGetPost= function (id,sucess, error) {
         request({
             url: `/api/Home/Get`,
-            type: 'post',
+            type: 'Post',
             data: {
                 id:id
             },
@@ -746,10 +746,10 @@ function SaeaApiSdk() {
         });
     }
     // Home/Get
-    this.HomeGet= function (id,sucess, error) {
+    this.HomeGetGet= function (id,sucess, error) {
         request({
             url: `/api/Home/Get`,
-            type: 'get',
+            type: 'Get',
             data: {
                 id:id
             },
@@ -764,10 +764,10 @@ function SaeaApiSdk() {
         });
     }
     // Home/Show
-    this.HomeShow= function (sucess, error) {
+    this.HomeShowGet= function (sucess, error) {
         request({
             url: `/api/Home/Show`,
-            type: 'get',
+            type: 'Get',
             timeout: 3000,
             success: function (data) {
                 sucess(data);
@@ -779,10 +779,10 @@ function SaeaApiSdk() {
         });
     }
     // Home/Show
-    this.HomeShow= function (sucess, error) {
+    this.HomeShowPost= function (sucess, error) {
         request({
             url: `/api/Home/Show`,
-            type: 'post',
+            type: 'Post',
             timeout: 3000,
             success: function (data) {
                 sucess(data);
@@ -794,10 +794,10 @@ function SaeaApiSdk() {
         });
     }
     // Home/Update
-    this.HomeUpdate= function (id,sucess, error) {
+    this.HomeUpdateGet= function (id,sucess, error) {
         request({
             url: `/api/Home/Update`,
-            type: 'get',
+            type: 'Get',
             data: {
                 id:id
             },
@@ -812,10 +812,10 @@ function SaeaApiSdk() {
         });
     }
     // Home/Update
-    this.HomeUpdate= function (isFemale,ID,UserName,NickName,sucess, error) {
+    this.HomeUpdatePost= function (isFemale,ID,UserName,NickName,sucess, error) {
         request({
             url: `/api/Home/Update`,
-            type: 'post',
+            type: 'Post',
             data: {
                 isFemale:isFemale,ID:ID,UserName:UserName,NickName:NickName
             },
@@ -830,10 +830,10 @@ function SaeaApiSdk() {
         });
     }
     // Home/Set
-    this.HomeSet= function (isFemale,ID,UserName,NickName,sucess, error) {
+    this.HomeSetGet= function (isFemale,ID,UserName,NickName,sucess, error) {
         request({
             url: `/api/Home/Set`,
-            type: 'get',
+            type: 'Get',
             data: {
                 isFemale:isFemale,ID:ID,UserName:UserName,NickName:NickName
             },
@@ -848,10 +848,10 @@ function SaeaApiSdk() {
         });
     }
     // Home/Set
-    this.HomeSet= function (isFemale,ID,UserName,NickName,sucess, error) {
+    this.HomeSetPost= function (isFemale,ID,UserName,NickName,sucess, error) {
         request({
             url: `/api/Home/Set`,
-            type: 'post',
+            type: 'Post',
             data: {
                 isFemale:isFemale,ID:ID,UserName:UserName,NickName:NickName
             },
@@ -866,10 +866,10 @@ function SaeaApiSdk() {
         });
     }
     // Home/GetModels
-    this.HomeGetModels= function (version,UID,Token,PageIndex,PageSize,sucess, error) {
+    this.HomeGetModelsGet= function (version,UID,Token,PageIndex,PageSize,sucess, error) {
         request({
             url: `/api/Home/GetModels`,
-            type: 'get',
+            type: 'Get',
             data: {
                 version:version,UID:UID,Token:Token,PageIndex:PageIndex,PageSize:PageSize
             },
@@ -884,10 +884,10 @@ function SaeaApiSdk() {
         });
     }
     // Home/GetModels
-    this.HomeGetModels= function (version,UID,Token,PageIndex,PageSize,sucess, error) {
+    this.HomeGetModelsPost= function (version,UID,Token,PageIndex,PageSize,sucess, error) {
         request({
             url: `/api/Home/GetModels`,
-            type: 'post',
+            type: 'Post',
             data: {
                 version:version,UID:UID,Token:Token,PageIndex:PageIndex,PageSize:PageSize
             },
@@ -902,10 +902,10 @@ function SaeaApiSdk() {
         });
     }
     // Home/Test
-    this.HomeTest= function (sucess, error) {
+    this.HomeTestPost= function (sucess, error) {
         request({
             url: `/api/Home/Test`,
-            type: 'post',
+            type: 'Post',
             timeout: 3000,
             success: function (data) {
                 sucess(data);
@@ -917,10 +917,10 @@ function SaeaApiSdk() {
         });
     }
     // SaeaSdkTest/GetList
-    this.SaeaSdkTestGetList= function (sucess, error) {
+    this.SaeaSdkTestGetListGet= function (sucess, error) {
         request({
             url: `/api/SaeaSdkTest/GetList`,
-            type: 'get',
+            type: 'Get',
             timeout: 3000,
             success: function (data) {
                 sucess(data);
@@ -932,10 +932,10 @@ function SaeaApiSdk() {
         });
     }
     // SaeaSdkTest/GetList
-    this.SaeaSdkTestGetList= function (sucess, error) {
+    this.SaeaSdkTestGetListPost= function (sucess, error) {
         request({
             url: `/api/SaeaSdkTest/GetList`,
-            type: 'post',
+            type: 'Post',
             timeout: 3000,
             success: function (data) {
                 sucess(data);
@@ -947,10 +947,10 @@ function SaeaApiSdk() {
         });
     }
     // Test/Get
-    this.TestGet= function (sucess, error) {
+    this.TestGetGet= function (sucess, error) {
         request({
             url: `/api/Test/Get`,
-            type: 'get',
+            type: 'Get',
             timeout: 3000,
             success: function (data) {
                 sucess(data);
@@ -962,10 +962,10 @@ function SaeaApiSdk() {
         });
     }
     // Test/Get
-    this.TestGet= function (sucess, error) {
+    this.TestGetPost= function (sucess, error) {
         request({
             url: `/api/Test/Get`,
-            type: 'post',
+            type: 'Post',
             timeout: 3000,
             success: function (data) {
                 sucess(data);
@@ -977,10 +977,10 @@ function SaeaApiSdk() {
         });
     }
     // Test/Other
-    this.TestOther= function (ID,UserName,NickName,sucess, error) {
+    this.TestOtherPost= function (ID,UserName,NickName,sucess, error) {
         request({
             url: `/api/Test/Other`,
-            type: 'post',
+            type: 'Post',
             data: {
                 ID:ID,UserName:UserName,NickName:NickName
             },
@@ -995,10 +995,10 @@ function SaeaApiSdk() {
         });
     }
     // Test/Other
-    this.TestOther= function (ID,UserName,NickName,sucess, error) {
+    this.TestOtherGet= function (ID,UserName,NickName,sucess, error) {
         request({
             url: `/api/Test/Other`,
-            type: 'get',
+            type: 'Get',
             data: {
                 ID:ID,UserName:UserName,NickName:NickName
             },
@@ -1013,10 +1013,10 @@ function SaeaApiSdk() {
         });
     }
     // Test/Timeout
-    this.TestTimeout= function (sucess, error) {
+    this.TestTimeoutGet= function (sucess, error) {
         request({
             url: `/api/Test/Timeout`,
-            type: 'get',
+            type: 'Get',
             timeout: 3000,
             success: function (data) {
                 sucess(data);
@@ -1028,10 +1028,10 @@ function SaeaApiSdk() {
         });
     }
     // Test/Timeout
-    this.TestTimeout= function (sucess, error) {
+    this.TestTimeoutPost= function (sucess, error) {
         request({
             url: `/api/Test/Timeout`,
-            type: 'post',
+            type: 'Post',
             timeout: 3000,
             success: function (data) {
                 sucess(data);

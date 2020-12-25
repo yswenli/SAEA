@@ -66,7 +66,7 @@ function SaeaApiSdk() {
 }";
 
         public const string MethodTemple1 = @"    // [[Controller]]/[[Action]]
-    this.[[Controller]][[Action]]= function (sucess, error) {
+    this.[[Controller]][[Action]][[Type]]= function (sucess, error) {
         request({
             url: `/api/[[Controller]]/[[Action]]`,
             type: '[[Type]]',
@@ -81,7 +81,7 @@ function SaeaApiSdk() {
         });
     }";
         public const string MethodTemple2 = @"    // [[Controller]]/[[Action]]
-    this.[[Controller]][[Action]]= function ([[Inputs1]]sucess, error) {
+    this.[[Controller]][[Action]][[Type]]= function ([[Inputs1]]sucess, error) {
         request({
             url: `/api/[[Controller]]/[[Action]]`,
             type: '[[Type]]',
@@ -99,7 +99,7 @@ function SaeaApiSdk() {
         });
     }";
         public const string MethodTemple3 = @"    // [[Controller]]/[[Action]]
-    this.[[Controller]][[Action]]= function ([[Header1]],[[Inputs1]]sucess, error) {
+    this.[[Controller]][[Action]][[Type]]= function ([[Header1]],[[Inputs1]]sucess, error) {
         request({
             url: `/api/[[Controller]]/[[Action]]`,
             type: '[[Type]]',

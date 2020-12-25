@@ -17,6 +17,7 @@
 *****************************************************************************/
 using SAEA.MVC;
 using SAEA.MVC.Tool.CodeGenerte;
+using System.Linq;
 using System.Text;
 
 namespace SAEA.MVCTest.Controllers
@@ -31,7 +32,37 @@ namespace SAEA.MVCTest.Controllers
 
             foreach (var routing in routings)
             {
-                sb.Append($"<div><a href='javascript:;' onclick='new SaeaApiSdk().{routing.Instance.GetType().Name.Replace("Controller", "")}{routing.ActionName}(function(data){{alert(data);}},function(e){{alert(e);}})'>/api/{routing.Instance.GetType().Name.Replace("Controller", "")}/{routing.ActionName}</a></div>");
+                var pas = "";
+                if (routing.ParmaTypes != null && routing.ParmaTypes.Any())
+                {
+                    foreach (var item in routing.ParmaTypes)
+                    {
+                        if (item.Value.IsClass && !item.Value.IsSealed)
+                        {
+                            var ppts = item.Value.GetProperties();
+                            foreach (var ppt in ppts)
+                            {
+                                if (ppt.PropertyType == typeof(string))
+                                    pas += ("'',");
+                                else
+                                    pas += ("0,");
+                            }
+                        }
+                        else
+                        {
+                            if (item.Value == typeof(string))
+                                pas += ("'',");
+                            else
+                                pas += ("0,");
+                        }
+                    }
+                    sb.Append($"<div><a href='javascript:;' onclick=\"new SaeaApiSdk().{routing.Instance.GetType().Name.Replace("Controller", "")}{routing.ActionName}{(routing.IsPost ? "Post" : "Get")}({pas}function(data){{alert(data);}},function(e){{alert(e);}})\">/api/{routing.Instance.GetType().Name.Replace("Controller", "")}/{routing.ActionName}</a></div>");
+                }
+                else
+                {
+                    sb.Append($"<div><a href='javascript:;' onclick='new SaeaApiSdk().{routing.Instance.GetType().Name.Replace("Controller", "")}{routing.ActionName}{(routing.IsPost ? "Post" : "Get")}(function(data){{alert(data);}},function(e){{alert(e);}})'>/api/{routing.Instance.GetType().Name.Replace("Controller", "")}/{routing.ActionName}</a></div>");
+                }
+
             }
 
             return Content(sb.ToString());

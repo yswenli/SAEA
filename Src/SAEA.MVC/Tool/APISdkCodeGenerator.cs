@@ -111,7 +111,7 @@ namespace SAEA.MVC.Tool
                 }
                 methodStr = methodStr.Replace("[[Controller]]", routing.Instance.GetType().Name.Replace("Controller", ""));
                 methodStr = methodStr.Replace("[[Action]]", routing.ActionName);
-                methodStr = methodStr.Replace("[[Type]]", (routing.IsPost ? "post" : "get"));
+                methodStr = methodStr.Replace("[[Type]]", (routing.IsPost ? "Post" : "Get"));
                 sb.AppendLine(methodStr);
             }
 

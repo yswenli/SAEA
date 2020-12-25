@@ -71,6 +71,10 @@ namespace SAEA.Common.IO
         public static byte[] Read(string filePath)
         {
             byte[] data = null;
+            if(!File.Exists(filePath))
+            {
+                return data;
+            }
             using (var fs = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 var buffer = new byte[fs.Length];

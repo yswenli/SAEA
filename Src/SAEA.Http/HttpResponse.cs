@@ -60,7 +60,7 @@ namespace SAEA.Http
         internal HttpResponse SetContent(byte[] content, Encoding encoding = null)
         {
             this.Body = content;
-            this.ContentLength = content.Length;
+            this.ContentLength = content?.Length ?? 0;
             return this;
         }
 
