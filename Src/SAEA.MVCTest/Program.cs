@@ -1,5 +1,6 @@
 ﻿using SAEA.Common;
 using SAEA.MVC;
+using SAEA.MVC.Tool;
 
 namespace SAEA.MVCTest
 {
@@ -7,6 +8,9 @@ namespace SAEA.MVCTest
     {
         static void Main(string[] args)
         {
+            //生成sdk测试
+            //TestCodeGenerate();
+
             ConsoleHelper.Title = "SAEA.MVCTest";
 
             var mvcConfig = SAEAMvcApplicationConfigBuilder.Read();
@@ -51,6 +55,14 @@ namespace SAEA.MVCTest
         private static Http.Model.IHttpResult MvcApplication_OnException(Http.Model.IHttpContext httpContext, System.Exception ex)
         {
             return new ContentResult($"已通过事件捕获发生异常，url：{httpContext.Request.Url},ex:{ex.Message}");
+        }
+
+        /// <summary>
+        /// 生成sdk测试
+        /// </summary>
+        static void TestCodeGenerate()
+        {
+            APISdkCodeGenerator.Save(@"C:\Users\yswenli\Desktop", CodeType.Js);
         }
     }
 }

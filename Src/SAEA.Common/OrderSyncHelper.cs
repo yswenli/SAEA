@@ -28,10 +28,10 @@ using System.Threading;
 namespace SAEA.Common
 {
     /// <summary>
-    /// 同步工具类
+    /// 有序同步工具类
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public class SyncHelper<T>
+    public class OrderSyncHelper<T>
     {
         ConcurrentQueue<T> _queue;
 
@@ -40,10 +40,10 @@ namespace SAEA.Common
         object _locker;
 
         /// <summary>
-        /// 同步工具类
+        /// 有序同步工具类
         /// </summary>
         /// <param name="timeout"></param>
-        public SyncHelper(int timeout = 3000)
+        public OrderSyncHelper(int timeout = 3000)
         {
             _timeout = TimeSpan.FromMilliseconds(timeout);
 
@@ -55,9 +55,9 @@ namespace SAEA.Common
         /// <summary>
         /// 发出请求并等待
         /// </summary>
-        /// <param name="action"></param>
+        /// <param name="work"></param>
         /// <returns></returns>
-        public T Wait(Action action)
+        public T Wait(Action work)
         {
             lock (_locker)
             {
@@ -72,7 +72,7 @@ namespace SAEA.Common
                     Thread.Yield();
                 }
 
-                action?.Invoke();
+                work?.Invoke();
 
                 T t;
 

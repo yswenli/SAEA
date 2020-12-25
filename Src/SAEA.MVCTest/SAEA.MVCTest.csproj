@@ -10,18 +10,26 @@
 
   <ItemGroup>
     <None Remove="wwwroot\6139455.png" />
+    <None Remove="wwwroot\Content\js\SaeaApiSdk.js" />
     <None Remove="wwwroot\index.html" />
     <None Remove="wwwroot\jquery.min.js" />
+    <None Remove="wwwroot\sdktest.html" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="wwwroot\6139455.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="wwwroot\Content\js\SaeaApiSdk.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="wwwroot\index.html">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="wwwroot\jquery.min.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="wwwroot\sdktest.html">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

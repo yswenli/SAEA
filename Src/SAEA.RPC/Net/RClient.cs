@@ -22,7 +22,6 @@
 *
 *****************************************************************************/
 using SAEA.Common;
-using SAEA.Common.Caching;
 using SAEA.Common.Serialization;
 using SAEA.Common.Threading;
 using SAEA.RPC.Common;
@@ -31,7 +30,7 @@ using SAEA.Sockets;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using System;
-using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace SAEA.RPC.Net
 {
@@ -39,9 +38,11 @@ namespace SAEA.RPC.Net
     {
         bool _isDisposed = false;
 
-        SyncHelper<byte[]> _syncHelper;
+        DisorderSyncHelper _disorderSyncHelper;
 
         RContext _RContext;
+
+        RUnpacker _rUnpacker;
 
         IClientSocket _client;
 
@@ -73,11 +74,13 @@ namespace SAEA.RPC.Net
 
             _timeOut = timeOut;
 
-            _syncHelper = new SyncHelper<byte[]>(_timeOut);
+            _disorderSyncHelper = new DisorderSyncHelper(_timeOut);
 
             var ipPort = DNSHelper.GetIPPort(uri);
 
             _RContext = new RContext();
+
+            _rUnpacker = ((RUnpacker)_RContext.Unpacker);
 
             SocketOptionBuilder builder = SocketOptionBuilder.Instance;
 
@@ -85,8 +88,8 @@ namespace SAEA.RPC.Net
                 .UseIocp(_RContext)
                 .SetIP(ipPort.Item1)
                 .SetPort(ipPort.Item2)
-                .SetReadBufferSize()
-                .SetWriteBufferSize()
+                .SetReadBufferSize(10240)
+                .SetWriteBufferSize(10240)
                 .SetTimeOut(_timeOut)
                 .Build();
 
@@ -97,21 +100,36 @@ namespace SAEA.RPC.Net
             _client.OnDisconnected += _client_OnDisConnected;
         }
 
+
         private void _client_OnDisConnected(string ID, Exception ex)
         {
             OnDisconnected?.Invoke(ID, ex);
         }
 
+        /// <summary>
+        /// 连接
+        /// </summary>
         public void Connect()
         {
             _client.ConnectAsync();
+        }
+
+        /// <summary>
+        /// 连接
+        /// </summary>
+        /// <returns></returns>
+        public async Task ConnectAsync()
+        {
+            await Task.Yield();
+
+            Connect();
         }
 
         protected void OnReceived(byte[] data)
         {
             try
             {
-                ((RUnpacker)_RContext.Unpacker).Unpack(data, msg =>
+                _rUnpacker.Unpack(data, msg =>
                 {
                     switch ((RSocketMsgType)msg.Type)
                     {
@@ -123,14 +141,14 @@ namespace SAEA.RPC.Net
                         case RSocketMsgType.Request:
                             break;
                         case RSocketMsgType.Response:
-                            _syncHelper.Set(msg.Data);
+                            _disorderSyncHelper.Set(msg.SequenceNumber, msg.Data);
                             break;
                         case RSocketMsgType.Notice:
                             OnNoticed.Invoke(msg.Data);
                             break;
                         case RSocketMsgType.Error:
                             ExceptionCollector.Add("Consumer.OnReceived Error", new Exception(SAEASerialize.Deserialize<string>(msg.Data)));
-                            _syncHelper.Set(msg.Data);
+                            _disorderSyncHelper.Set(msg.SequenceNumber, msg.Data);
                             break;
                         case RSocketMsgType.Close:
                             break;
@@ -141,7 +159,6 @@ namespace SAEA.RPC.Net
             {
                 OnError?.Invoke(_client.Endpoint.ToString(), ex);
             }
-
         }
 
         /// <summary>
@@ -159,10 +176,10 @@ namespace SAEA.RPC.Net
                         {
                             if (_RContext.UserToken.Actived.AddSeconds(60) < DateTimeHelper.Now)
                             {
-                                Send(new RSocketMsg(RSocketMsgType.Ping));
+                                SendBase(new RSocketMsg(RSocketMsgType.Ping));
                             }
                         }
-                        ThreadHelper.Sleep(5 * 100);
+                        ThreadHelper.Sleep(1000);
                     }
                     catch (Exception ex)
                     {
@@ -176,9 +193,9 @@ namespace SAEA.RPC.Net
         /// 发送数据
         /// </summary>
         /// <param name="msg"></param>
-        internal void Send(RSocketMsg msg)
+        internal void SendBase(RSocketMsg msg)
         {
-            var data = ((RUnpacker)_RContext.Unpacker).Encode(msg);
+            var data = _rUnpacker.Encode(msg);
 
             _client.SendAsync(data);
         }
@@ -203,7 +220,7 @@ namespace SAEA.RPC.Net
 
                 msg.Data = args;
 
-                result = _syncHelper.Wait(() => { this.Send(msg); });
+                result = _disorderSyncHelper.Wait(msg.SequenceNumber, () => { SendBase(msg); });
             }
             catch (Exception ex)
             {
@@ -221,7 +238,7 @@ namespace SAEA.RPC.Net
             {
                 SequenceNumber = UniqueKeyHelper.Next()
             };
-            Send(msg);
+            SendBase(msg);
         }
 
         /// <summary>

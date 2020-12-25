@@ -53,7 +53,7 @@ namespace SAEA.MVC
                 {
                     list.AddRange(item.GetMethod().DeclaringType.Assembly.GetTypes());
                 }
-                var tt = list.Where(b => b.FullName.Contains(ConstHelper.CONTROLLERSPACE)).ToList();
+                var tt = list.Where(b => b.BaseType!=null && b.BaseType.FullName == "SAEA.MVC.Controller").ToList();
 
                 if (tt == null || !tt.Any())
                 {

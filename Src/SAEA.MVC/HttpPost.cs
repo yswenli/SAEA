@@ -22,8 +22,6 @@
 *
 *****************************************************************************/
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.MVC
 {
@@ -31,7 +29,8 @@ namespace SAEA.MVC
     /// 标记方法为POST
     /// </summary>
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = true)]
-    public class HttpPost : Attribute
+    public sealed class HttpPost : Attribute, IFilter
     {
+        public int Order { get; set; }
     }
 }

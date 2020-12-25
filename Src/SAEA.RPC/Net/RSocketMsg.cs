@@ -34,7 +34,6 @@ namespace SAEA.RPC.Net
 
         const int MIN = (1 + 4 + 8 + 4 + 0 + 4 + 0 + 0);
 
-
         public byte Type
         {
             get; set;
@@ -78,19 +77,19 @@ namespace SAEA.RPC.Net
         {
 
         }
-        public RSocketMsg(RSocketMsgType type, string name) : this(type, name, string.Empty)
+        public RSocketMsg(RSocketMsgType type, string serviceName) : this(type, serviceName, string.Empty)
         {
 
         }
-        public RSocketMsg(RSocketMsgType type, string name, string topic) : this(type, name, topic, null)
+        public RSocketMsg(RSocketMsgType type, string serviceName, string method) : this(type, serviceName, method, null)
         {
 
         }
-        public RSocketMsg(RSocketMsgType type, string name, string topic, byte[] data)
+        public RSocketMsg(RSocketMsgType type, string serviceName, string method, byte[] data)
         {
             this.Type = (byte)type;
-            this.ServiceName = name;
-            this.MethodName = topic;
+            this.ServiceName = serviceName;
+            this.MethodName = method;
             this.Data = data;
         }
 

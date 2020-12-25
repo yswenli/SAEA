@@ -1,0 +1,31 @@
+﻿<!DOCTYPE html>
+
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <title>SaeaSdkTest</title>
+</head>
+<body>
+    <div id="container">
+
+    </div>
+    <script src="Content/js/SaeaApiSdk.js"></script>
+    <script type="text/javascript">
+
+        var sdk = new SaeaApiSdk();
+
+        sdk.request({
+            url: "/api/SaeaSdkTest/GetList",
+            type: 'get',
+            timeout: 3000,
+            success: function (data) {
+                document.getElementById("container").innerHTML = data;
+            },
+            //异常处理
+            error: function (e) {
+                error(e);
+            }
+        });
+    </script>
+</body>
+</html>

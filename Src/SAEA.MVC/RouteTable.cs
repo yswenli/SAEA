@@ -26,6 +26,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 
 namespace SAEA.MVC
 {
@@ -34,8 +35,6 @@ namespace SAEA.MVC
     /// </summary>
     public class RouteTable
     {
-        object _locker = new object();
-
         ConcurrentDictionary<string, Routing> _cDic = new ConcurrentDictionary<string, Routing>();
 
         public static List<Type> Types { get; set; } = new List<Type>();
@@ -60,10 +59,9 @@ namespace SAEA.MVC
 
             if (!isPost)
             {
-
                 routing = _cDic.GetOrAdd(getKey, (k) =>
                 {
-                    var actions = controllerType.GetMethods().Where(b => string.Compare(b.Name, actionName, true) == 0).ToList();
+                    var actions = controllerType.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly).Where(b => string.Compare(b.Name, actionName, true) == 0).ToList();
 
                     if (actions == null || !actions.Any())
                     {

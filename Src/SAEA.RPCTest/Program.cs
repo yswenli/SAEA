@@ -8,6 +8,7 @@ using SAEA.RPCTest.Consumer.Model;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading.Tasks;
 
 namespace SAEA.RPCTest
 {
@@ -195,7 +196,6 @@ namespace SAEA.RPCTest
 
         static void PerformenceTest(RPCServiceProxy cp)
         {
-
             Stopwatch sw = new Stopwatch();
 
             int count = 100000;
@@ -214,7 +214,7 @@ namespace SAEA.RPCTest
 
             sw.Stop();
         }
-
+       
 
         #region ms serialize
         public static byte[] SerializeBinary(object request)

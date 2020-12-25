@@ -30,6 +30,7 @@ using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Concurrent;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace SAEA.RPC.Consumer
 {
@@ -139,6 +140,17 @@ namespace SAEA.RPC.Consumer
             return false;
         }
 
+        /// <summary>
+        /// 重连
+        /// </summary>
+        /// <returns></returns>
+        public async Task<bool> ReconnectAsync()
+        {
+            await Task.Yield();
+
+            return Reconnect();
+        }
+
         private void RClient_OnNoticed(byte[] serializeData)
         {
             OnNoticed?.Invoke(serializeData);
@@ -160,7 +172,6 @@ namespace SAEA.RPC.Consumer
 
         private void RClient_OnDisconnected(string ID, Exception ex)
         {
-
             OnDisconnected?.Invoke(ID, ex);
         }
 

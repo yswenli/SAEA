@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using SAEA.Common;
 using SAEA.RPC.Consumer;
 using SAEA.RPC.Model;
@@ -97,6 +98,10 @@ namespace SAEA.RPCTest.Consumer.Service
         {
             return _serviceConsumer.RemoteCall<ReturnEnum>("EnumService", "GetEnum", est);
         }
+        public ReturnEnum GetEnumAsync(EnumServiceType est)
+        {
+            return _serviceConsumer.RemoteCall<ReturnEnum>("EnumService", "GetEnum", est);
+        }
     }
 }
 
@@ -145,6 +150,12 @@ namespace SAEA.RPCTest.Consumer.Service
         {
             return _serviceConsumer.RemoteCall<UserInfo>("HelloService", "Update", info);
         }
+
+        public UserInfo UpdateAsync(UserInfo info)
+        {
+            return _serviceConsumer.RemoteCall<UserInfo>("HelloService", "Update", info);
+        }
+
         public Byte[] SendData(Byte[] data)
         {
             return _serviceConsumer.RemoteCall<Byte[]>("HelloService", "SendData", data);
@@ -228,7 +239,7 @@ namespace SAEA.RPCTest.Consumer.Model
 
         public decimal Score
         {
-            get;set;
+            get; set;
         }
     }
 }

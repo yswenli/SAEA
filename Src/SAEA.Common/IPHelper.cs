@@ -20,6 +20,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -147,6 +148,72 @@ namespace SAEA.Common
                 }
             }
         }
+        #region 通过网卡获取本机IP
+
+        static Dictionary<int, List<string>> LocalIps = new Dictionary<int, List<string>>();
+
+        static object _locker = new object();
+
+        /// <summary>
+        /// 获取全部网卡的本机网络地址
+        /// </summary>
+        /// <param name="ipv4">1:ipv4,2:ipv6,3:全部</param>
+        /// <returns></returns>
+        public static List<string> GetLocalIps(int ipv4 = 1)
+        {
+            lock (_locker)
+            {
+                if (!LocalIps.ContainsKey(ipv4))
+                {
+                    List<string> list = new List<string>();
+
+                    NetworkInterface[] NetworkInterfaces = NetworkInterface.GetAllNetworkInterfaces();
+
+                    foreach (NetworkInterface NetworkIntf in NetworkInterfaces)
+                    {
+                        IPInterfaceProperties IPInterfaceProperties = NetworkIntf.GetIPProperties();
+
+                        if (IPInterfaceProperties.GatewayAddresses.Count <= 0) continue;
+
+                        List<UnicastIPAddressInformation> ipAddressInfos;
+
+                        switch (ipv4)
+                        {
+                            case 1:
+                                ipAddressInfos = IPInterfaceProperties.UnicastAddresses.Where(b => b.Address.AddressFamily == AddressFamily.InterNetwork).ToList();
+                                break;
+                            case 2:
+                                ipAddressInfos = IPInterfaceProperties.UnicastAddresses.Where(b => b.Address.AddressFamily == AddressFamily.InterNetworkV6).ToList();
+                                break;
+                            default:
+                                ipAddressInfos = IPInterfaceProperties.UnicastAddresses.Where(b => b.Address.AddressFamily == AddressFamily.InterNetwork || b.Address.AddressFamily == AddressFamily.InterNetworkV6).ToList();
+                                break;
+                        }
+
+                        if (ipAddressInfos != null && ipAddressInfos.Any()) list.AddRange(ipAddressInfos.Select(b => b.Address.ToString()));
+                    }
+                    LocalIps[ipv4] = list;
+                }
+                return LocalIps[ipv4];
+            }
+        }
+
+        /// <summary>
+        /// 获取本地网络地址
+        /// </summary>
+        /// <param name="index"></param>
+        /// <param name="ipv4">1:ipv4,2:ipv6,3:全部</param>
+        /// <returns></returns>
+        public static string GetLocalIp(int index = 0, int ipv4 = 1)
+        {
+            var list = GetLocalIps(ipv4);
+
+            if (list == null || !list.Any() || index >= list.Count) return null;
+
+            return list[index];
+        }
+
+        #endregion
 
 
     }

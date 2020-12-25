@@ -25,6 +25,7 @@ using SAEA.Common;
 using SAEA.Common.Serialization;
 using SAEA.RPC.Model;
 using System;
+using System.Threading.Tasks;
 
 namespace SAEA.RPC.Consumer
 {

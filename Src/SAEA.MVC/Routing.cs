@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 
@@ -63,8 +64,7 @@ namespace SAEA.MVC
             get; set;
         }
 
-
-        public Dictionary<string, object> ParmaTypes
+        public Dictionary<string, Type> ParmaTypes
         {
             get; set;
         }

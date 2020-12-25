@@ -22,8 +22,6 @@
 *
 *****************************************************************************/
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.MVC
 {
@@ -31,8 +29,8 @@ namespace SAEA.MVC
     /// 标记方法为GET
     /// </summary>
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = true)]
-    public class HttpGet : Attribute
+    public sealed class HttpGet : Attribute, IFilter
     {
-
+        public int Order { get; set; }
     }
 }

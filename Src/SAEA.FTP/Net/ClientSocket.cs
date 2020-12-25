@@ -36,9 +36,9 @@ namespace SAEA.FTP.Net
 
         FTPStream _ftpStream;
 
-        SyncHelper<ServerResponse> _syncHelper1;
+        OrderSyncHelper<ServerResponse> _syncHelper1;
 
-        SyncHelper<ServerResponse> _syncHelper2;
+        OrderSyncHelper<ServerResponse> _syncHelper2;
 
         ClientConfig _config;
 
@@ -67,8 +67,8 @@ namespace SAEA.FTP.Net
             _cmdSocket.OnDisconnected += _clientSocket_OnDisconnected;
 
             _ftpStream = new FTPStream();
-            _syncHelper1 = new SyncHelper<ServerResponse>();
-            _syncHelper2 = new SyncHelper<ServerResponse>();
+            _syncHelper1 = new OrderSyncHelper<ServerResponse>();
+            _syncHelper2 = new OrderSyncHelper<ServerResponse>();
 
             FTPDataManager = new FTPDataManager();
         }
