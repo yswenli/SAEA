@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 
+using SAEA.Common.IO;
 using SAEA.Common.Serialization;
 
 namespace SAEA.MVC
@@ -56,9 +57,13 @@ namespace SAEA.MVC
         /// </summary>
         /// <param name="filePath"></param>
         /// <returns></returns>
-        protected FileResult File(string filePath)
+        protected ActionResult File(string filePath)
         {
-            return new FileResult(filePath, HttpContext.Current.IsStaticsCached);
+            if (FileHelper.Exists(filePath))
+
+                return new FileResult(filePath, HttpContext.Current.IsStaticsCached);
+            else
+                return new ContentResult($"o_o，找不到文件", System.Net.HttpStatusCode.NotFound);
         }
 
 
