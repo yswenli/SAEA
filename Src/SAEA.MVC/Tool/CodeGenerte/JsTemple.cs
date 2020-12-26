@@ -23,8 +23,8 @@ namespace SAEA.MVC.Tool.CodeGenerte
         public const string TEMPLE = @"//
 //此代码为SAEA.MVC.APISdkCodeGenerator于[[DateTime]]生成，请尽量不要修改
 //
-function SaeaApiSdk() {
-
+function SaeaApiSdk(url) {    
+    var url=url;
     var request = function (opt) {
         opt = opt || {};
         opt.method = !!opt.method === false ? 'POST' : opt.method.toUpperCase();
@@ -68,7 +68,7 @@ function SaeaApiSdk() {
         public const string MethodTemple1 = @"    // [[Controller]]/[[Action]]
     this.[[Controller]][[Action]][[Type]]= function (sucess, error) {
         request({
-            url: `/api/[[Controller]]/[[Action]]`,
+            url: `${url}/api/[[Controller]]/[[Action]]`,
             type: '[[Type]]',
             timeout: 3000,
             success: function (data) {
@@ -83,7 +83,7 @@ function SaeaApiSdk() {
         public const string MethodTemple2 = @"    // [[Controller]]/[[Action]]
     this.[[Controller]][[Action]][[Type]]= function ([[Inputs1]]sucess, error) {
         request({
-            url: `/api/[[Controller]]/[[Action]]`,
+            url: `${url}/api/[[Controller]]/[[Action]]`,
             type: '[[Type]]',
             data: {
                 [[Inputs2]]
@@ -101,7 +101,7 @@ function SaeaApiSdk() {
         public const string MethodTemple3 = @"    // [[Controller]]/[[Action]]
     this.[[Controller]][[Action]][[Type]]= function ([[Header1]],[[Inputs1]]sucess, error) {
         request({
-            url: `/api/[[Controller]]/[[Action]]`,
+            url: `${url}/api/[[Controller]]/[[Action]]`,
             type: '[[Type]]',
             headers:{
                 [[Header2]]

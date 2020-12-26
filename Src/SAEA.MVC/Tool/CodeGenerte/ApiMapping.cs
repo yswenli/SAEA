@@ -44,7 +44,7 @@ namespace SAEA.MVC.Tool.CodeGenerte
         /// <returns></returns>
         public static List<Routing> GetMapping()
         {
-            List<Routing> routings = new List<Routing>();
+            Dictionary<string, Routing> dic = new Dictionary<string, Routing>();
 
             _areaCollection.RegistAll();
 
@@ -68,12 +68,13 @@ namespace SAEA.MVC.Tool.CodeGenerte
                         iAttrs = actionAttrs.OrderBy(b => b.Order).ToList();
                 }
 
-                var actions = item.GetMethods(BindingFlags.Instance| BindingFlags.Public | BindingFlags.DeclaredOnly);
+                var actions = item.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
 
                 foreach (var action in actions)
                 {
                     var getRouting = new Routing()
                     {
+                        ControllerName = item.Name,
                         ActionName = action.Name,
                         Instance = (Controller)instance,
                         FilterAtrrs = iAttrs,
@@ -83,6 +84,7 @@ namespace SAEA.MVC.Tool.CodeGenerte
 
                     var postRouting = new Routing()
                     {
+                        ControllerName = item.Name,
                         ActionName = action.Name,
                         Instance = (Controller)instance,
                         FilterAtrrs = iAttrs,
@@ -114,28 +116,42 @@ namespace SAEA.MVC.Tool.CodeGenerte
                         if (filterAttrs != null && filterAttrs.Count > 0)
                         {
                             var ifilters = actionAttrs.ToList().ConvertAll(b => b as IFilter);
-                            getRouting.ActionFilterAtrrs = postRouting.ActionFilterAtrrs = ifilters.OrderBy(b => b.Order).ToList();
-                        }                            
 
-                        var dPost = actionAttrs.Where(b => b.GetType().Name == ConstHelper.HTTPPOST).FirstOrDefault();
-                        if (dPost != null)
-                        {
-                            routings.Add(postRouting);
+                            if (ifilters != null && ifilters.Any())
+                            {
+                                getRouting.ActionFilterAtrrs = postRouting.ActionFilterAtrrs = ifilters.OrderBy(b => b.Order).ToList();
+
+                                var dPost = actionAttrs.Where(b => b.GetType().Name == ConstHelper.HTTPPOST).FirstOrDefault();
+                                if (dPost != null)
+                                {
+                                    dic[postRouting.ControllerName + postRouting.ActionName + (postRouting.IsPost ? "POST" : "GET")] = postRouting;
+                                }
+                                var dGet = actionAttrs.Where(b => b.GetType().Name == ConstHelper.HTTPGET).FirstOrDefault();
+                                if (dGet != null)
+                                {
+                                    dic[getRouting.ControllerName + getRouting.ActionName + (getRouting.IsPost ? "POST" : "GET")] = getRouting;
+                                }
+                            }
+                            else
+                            {
+                                dic[getRouting.ControllerName + getRouting.ActionName + (getRouting.IsPost ? "POST" : "GET")] = getRouting;
+                                dic[postRouting.ControllerName + postRouting.ActionName + (postRouting.IsPost ? "POST" : "GET")] = postRouting;
+                            }
                         }
-                        var dGet = actionAttrs.Where(b => b.GetType().Name == ConstHelper.HTTPGET).FirstOrDefault();
-                        if (dGet != null)
+                        else
                         {
-                            routings.Add(getRouting);
+                            dic[getRouting.ControllerName + getRouting.ActionName + (getRouting.IsPost ? "POST" : "GET")] = getRouting;
+                            dic[postRouting.ControllerName + postRouting.ActionName + (postRouting.IsPost ? "POST" : "GET")] = postRouting;
                         }
                     }
                     else
                     {
-                        routings.Add(getRouting);
-                        routings.Add(postRouting);
+                        dic[getRouting.ControllerName + getRouting.ActionName + (getRouting.IsPost ? "POST" : "GET")] = getRouting;
+                        dic[postRouting.ControllerName + postRouting.ActionName + (postRouting.IsPost ? "POST" : "GET")] = postRouting;
                     }
                 }
             }
-            return routings;
+            return dic.Values.ToList();
         }
     }
 }

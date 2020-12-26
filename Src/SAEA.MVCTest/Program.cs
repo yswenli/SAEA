@@ -8,9 +8,6 @@ namespace SAEA.MVCTest
     {
         static void Main(string[] args)
         {
-            //生成sdk测试
-            //TestCodeGenerate();
-
             ConsoleHelper.Title = "SAEA.MVCTest";
 
             var mvcConfig = SAEAMvcApplicationConfigBuilder.Read();
@@ -47,8 +44,13 @@ namespace SAEA.MVCTest
 
             ConsoleHelper.WriteLine($"MVC已启动！\t\r\n访问请输入http://127.0.0.1:{mvcConfig.Port}/{{controller}}/{{action}}");
 
-            ConsoleHelper.WriteLine("回车结束！");
+            
 
+            //生成sdk测试
+            TestCodeGenerate1();
+            TestCodeGenerate2();
+
+            ConsoleHelper.WriteLine("回车结束！");
             ConsoleHelper.ReadLine();
         }
 
@@ -58,11 +60,40 @@ namespace SAEA.MVCTest
         }
 
         /// <summary>
-        /// 生成sdk测试
+        /// 生成sdk代码测试
         /// </summary>
-        static void TestCodeGenerate()
+        static void TestCodeGenerate1()
         {
             APISdkCodeGenerator.Save(@"C:\Users\yswenli\Desktop", CodeType.Js);
+            APISdkCodeGenerator.Save(@"C:\Users\yswenli\Desktop", CodeType.CSharp);
+        }
+
+        /// <summary>
+        /// csharp sdk 测试
+        /// </summary>
+        static void TestCodeGenerate2()
+        {
+            ConsoleHelper.WriteLine("回车测试sdk");
+            ConsoleHelper.ReadLine();
+
+            var sdk = new MVC.Tool.CodeGenerte.SaeaApiSdk("http://127.0.0.1:28080/");
+
+            sdk.HomeGetGet("1", (data) =>
+            {
+                ConsoleHelper.WriteLine("TestCodeGenerate2.sdk.HomeGetGet:" + data);
+            }, (e) =>
+            {
+                ConsoleHelper.WriteLine("TestCodeGenerate2.sdk.HomeGetGet.Error:" + e.Message);
+            });
+
+
+            sdk.HomeUpdatePost("true",1,"yswenli","yswenli", (data) =>
+            {
+                ConsoleHelper.WriteLine("TestCodeGenerate2.sdk.HomeUpdatePost:" + data);
+            }, (e) =>
+            {
+                ConsoleHelper.WriteLine("TestCodeGenerate2.sdk.HomeUpdatePost.Error:" + e.Message);
+            });
         }
     }
 }

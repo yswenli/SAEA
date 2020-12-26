@@ -73,7 +73,7 @@ namespace SAEA.MVC
                     }
                     else
                     {
-                        var instance = System.Activator.CreateInstance(controllerType);
+                        var instance = Activator.CreateInstance(controllerType);
 
                         List<IFilter> iAttrs = null;
 
@@ -94,6 +94,7 @@ namespace SAEA.MVC
                         {
                             routing = new Routing()
                             {
+                                ControllerName= controllerType.Name,
                                 ActionName = actionName,
                                 Instance = (Controller)instance,
                                 FilterAtrrs = iAttrs,
@@ -103,6 +104,7 @@ namespace SAEA.MVC
 
                             var routing2 = new Routing()
                             {
+                                ControllerName = controllerType.Name,
                                 ActionName = actionName,
                                 Instance = (Controller)instance,
                                 FilterAtrrs = iAttrs,
@@ -118,18 +120,37 @@ namespace SAEA.MVC
                                 var filterAttrs = actionAttrs.Where(b => b.GetType().BaseType.Name == ConstHelper.ACTIONFILTERATTRIBUTE).ToList();
 
                                 if (filterAttrs != null && filterAttrs.Count > 0)
-
-                                    routing.ActionFilterAtrrs= routing2.ActionFilterAtrrs = actionAttrs.ToList().ConvertAll(b => b as IFilter).OrderBy(b => b.Order).ToList();
-
-                                var dPost = actionAttrs.Where(b => b.GetType().Name == ConstHelper.HTTPPOST).FirstOrDefault();
-                                if (dPost != null)
                                 {
-                                    _cDic.TryAdd(postKey, routing2);
+                                    var filters = actionAttrs.ToList().ConvertAll(b => b as IFilter);
+
+                                    if (filters != null && filters.Any())
+                                    {
+                                        routing.ActionFilterAtrrs = routing2.ActionFilterAtrrs = filters.OrderBy(b => b.Order).ToList();
+
+                                        var dPost = actionAttrs.Where(b => b.GetType().Name == ConstHelper.HTTPPOST).FirstOrDefault();
+                                        if (dPost != null)
+                                        {
+                                            _cDic.TryAdd(postKey, routing2);
+                                        }
+
+                                        var dGet = actionAttrs.Where(b => b.GetType().Name == ConstHelper.HTTPGET).FirstOrDefault();
+                                        if (dGet != null)
+                                        {
+                                            _cDic.TryAdd(getKey, routing);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        _cDic.TryAdd(getKey, routing);
+
+                                        _cDic.TryAdd(postKey, routing2);
+                                    }
                                 }
-                                var dGet = actionAttrs.Where(b => b.GetType().Name == ConstHelper.HTTPGET).FirstOrDefault();
-                                if (dGet != null)
+                                else
                                 {
                                     _cDic.TryAdd(getKey, routing);
+
+                                    _cDic.TryAdd(postKey, routing2);
                                 }
                             }
                             else
@@ -159,7 +180,7 @@ namespace SAEA.MVC
                     }
                     else
                     {
-                        var instance = System.Activator.CreateInstance(controllerType);
+                        var instance = Activator.CreateInstance(controllerType);
 
                         List<IFilter> iAttrs = null;
 
@@ -181,6 +202,7 @@ namespace SAEA.MVC
                             routing = new Routing()
                             {
                                 ActionName = actionName,
+                                ControllerName = controllerType.Name,
                                 Instance = (Controller)instance,
                                 FilterAtrrs = iAttrs,
                                 Action = action,
@@ -189,6 +211,7 @@ namespace SAEA.MVC
 
                             var routing2 = new Routing()
                             {
+                                ControllerName = controllerType.Name,
                                 ActionName = actionName,
                                 Instance = (Controller)instance,
                                 FilterAtrrs = iAttrs,

@@ -51,13 +51,26 @@ namespace SAEA.Common
         public ApiHelper(int timeOut = 180 * 1000)
         {
             _timeOut = timeOut;
-
+        }
+        /// <summary>
+        /// 自定义webclient
+        /// </summary>
+        static ApiHelper()
+        {
             ServicePointManager.DefaultConnectionLimit = 1024;
-            ServicePointManager.Expect100Continue = true;
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Ssl3
-                | SecurityProtocolType.Tls;
+            ServicePointManager.Expect100Continue = false;
+            try
+            {
+                ServicePointManager.SecurityProtocol = SecurityProtocolType.Ssl3
+                                       | SecurityProtocolType.Tls
+                                       | SecurityProtocolType.Tls11
+                                       | SecurityProtocolType.Tls12;
+            }
+            catch { }
+
             ServicePointManager.ServerCertificateValidationCallback = new RemoteCertificateValidationCallback(CheckValidationResult);
         }
+
         #region ssl
         /// <summary>
         /// 服务器免密验证
@@ -83,6 +96,7 @@ namespace SAEA.Common
             request.AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip | DecompressionMethods.None;
             request.Timeout = request.ReadWriteTimeout = _timeOut;
             request.AllowAutoRedirect = false;
+            request.ProtocolVersion = HttpVersion.Version11;
             return request;
         }
 
@@ -239,6 +253,46 @@ namespace SAEA.Common
         /// 记录接口请求日志
         /// </summary>
         public static event ApiLogHandler OnLogged;
+
+        /// <summary>
+        /// Request
+        /// </summary>
+        /// <param name="url"></param>
+        /// <param name="params"></param>
+        /// <param name="method"></param>
+        /// <param name="headers"></param>
+        /// <param name="timeout"></param>
+        /// <returns></returns>
+        public static string Request(string url, string @params = "", string method = "GET", WebHeaderCollection headers = null, int timeout = 3000)
+        {
+            var func = new Func<string>(() =>
+            {
+                using (ApiHelper client = new ApiHelper(timeout))
+                {
+                    client.Encoding = Encoding.UTF8;
+                    client.Headers.Add(HttpRequestHeader.Accept, "*/*");
+                    client.Headers.Add(HttpRequestHeader.UserAgent, "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.2; SV1; .NET CLR 1.1.4322; .NET CLR 2.0.50727)");
+                    if (headers != null)
+                    {
+                        foreach (var item in headers.AllKeys)
+                        {
+                            client.Headers.Add(item, headers[item]);
+                        }
+                    }
+                    if (method.IndexOf("get", StringComparison.InvariantCultureIgnoreCase) > -1)
+                    {
+                        return client.DownloadString($"{url}?{@params}");
+                    }
+                    else
+                    {
+                        client.Headers.Add("Content-Type", "application/x-www-form-urlencoded");
+                        return client.UploadString(url, "POST", @params);
+                    }
+                }
+            });
+
+            return TackingLog(false, func, url, @params, headers, timeout);
+        }
 
 
         /// <summary>

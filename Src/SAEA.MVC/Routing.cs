@@ -34,6 +34,11 @@ namespace SAEA.MVC
             get; set;
         }
 
+        public string ControllerName
+        {
+            get; set;
+        }
+
         public MethodInfo Action
         {
             get; set;
