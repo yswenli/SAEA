@@ -42,7 +42,7 @@ namespace SAEA.MVCTest
 
             mvcApplication.Restart();
 
-            ConsoleHelper.WriteLine($"MVC已启动！\t\r\n访问请输入http://127.0.0.1:{mvcConfig.Port}/{{controller}}/{{action}}");
+            ConsoleHelper.WriteLine($"SAEA.MVCApplication 已启动！\t\r\n访问请输入http://127.0.0.1:{mvcConfig.Port}/{{controller}}/{{action}}");
 
             
 
