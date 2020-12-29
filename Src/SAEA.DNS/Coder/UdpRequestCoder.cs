@@ -15,8 +15,12 @@
 *版 本 号： v5.0.0.1
 *描    述：
 *****************************************************************************/
+using SAEA.Common;
 using SAEA.Common.Threading;
 using SAEA.DNS.Protocol;
+using SAEA.Sockets;
+using SAEA.Sockets.Base;
+using SAEA.Sockets.Model;
 using System;
 using System.IO;
 using System.Net;
@@ -66,7 +70,7 @@ namespace SAEA.DNS.Coder
         /// <param name="request"></param>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
-        public async Task<IResponse> Code(IRequest request, CancellationToken cancellationToken = default(CancellationToken))
+        public async Task<IResponse> Code2(IRequest request, CancellationToken cancellationToken = default(CancellationToken))
         {
             using (UdpClient udp = new UdpClient())
             {
@@ -88,5 +92,51 @@ namespace SAEA.DNS.Coder
                 return new Model.DnsClientResponse(request, response, buffer);
             }
         }
+
+
+
+        OrderSyncHelper<byte[]> _orderSyncHelper = new OrderSyncHelper<byte[]>(10 * 1000);
+
+
+        /// <summary>
+        /// 编码处理
+        /// </summary>
+        /// <param name="request"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        public async Task<IResponse> Code(IRequest request, CancellationToken cancellationToken = default(CancellationToken))
+        {
+            using (var udpClient = SocketFactory.CreateClientSocket(SocketOptionBuilder.Instance.SetSocket(SAEASocketType.Udp)
+                 .SetIP(dns.Address.ToString())
+                 .SetPort(dns.Port)
+                 .UseIocp<BaseContext>()
+                 .SetReadBufferSize(SocketOption.UDPMaxLength)
+                 .SetWriteBufferSize(SocketOption.UDPMaxLength)
+                 .ReusePort()
+                 .Build()))
+            {
+
+                udpClient.OnReceive += UdpClient_OnReceive;
+
+                var buffer = _orderSyncHelper.Wait(() =>
+                {
+                    udpClient.SendAsync(request.ToArray());
+                });
+
+                DnsResponseMessage response = DnsResponseMessage.FromArray(buffer);
+
+                if (response.Truncated)
+                {
+                    return await fallback.Code(request, cancellationToken);
+                }
+                return new Model.DnsClientResponse(request, response, buffer);
+            }
+        }
+
+        private void UdpClient_OnReceive(byte[] data)
+        {
+            _orderSyncHelper.Set(data);
+        }
     }
 }
+

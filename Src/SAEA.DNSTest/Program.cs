@@ -34,13 +34,13 @@ namespace SAEA.DNSTest
 
                     case "c":
                         await Client.LookupAsync("baidu.com");
-                        await Client.LookupAsync("idontgiveaflyingfuck.com");
+                        await Client.LookupAsync("yswenli.net");
                         break;
 
                     default:
                         await Server.InitAsync();
                         await Client.LookupAsync("baidu.com");
-                        await Client.LookupAsync("idontgiveaflyingfuck.com");
+                        await Client.LookupAsync("yswenli.net");
                         break;
                 }
             }
