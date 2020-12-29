@@ -1,5 +1,4 @@
 ﻿/****************************************************************************
- * 
   ____    _    _____    _      ____             _        _   
  / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
  \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
@@ -7,29 +6,22 @@
  |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
                                                              
 
-*Copyright (c) 2018-2020 yswenli All Rights Reserved.
-*CLR版本： 2.1.4
-*机器名称：WENLI-PC
-*公司名称：wenli
-*命名空间：SAEA.Sockets.Core.Tcp
-*文件名： IocpClientSocket
-*版本号： v5.0.0.1
-*唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
-*当前的用户域：WENLI-PC
+*项目名称：SAEA.Sockets.Core.Udp
+*CLR 版本：4.0.30319.42000
+*机器名称：WALLE-PC
+*命名空间：SAEA.Sockets.Core.Udp
+*类 名 称：UdpClientSocket
+*版 本 号：V1.0.0.0
 *创建人： yswenli
-*电子邮箱：wenguoli_520@qq.com
-*创建时间：2018/3/1 15:54:21
+*电子邮箱：yswenli@outlook.com
+*创建时间：2020/12/28 18:01:43
 *描述：
-*
 *=====================================================================
-*修改标记
-*修改时间：2018/3/1 15:54:21
-*修改人： yswenli
-*版本号： v5.0.0.1
-*描述：
-*
+*修改时间：2020/12/28 18:01:43
+*修 改 人： yswenli
+*版 本 号： V1.0.0.0
+*描    述：
 *****************************************************************************/
-
 using SAEA.Common;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
@@ -38,17 +30,19 @@ using System;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SAEA.Sockets.Core.Tcp
+namespace SAEA.Sockets.Core.Udp
 {
-    /// <summary>
-    /// iocp 客户端 socket
-    /// </summary>
-    public class IocpClientSocket : IClientSocket, IDisposable
+    public class UdpClientSocket : IClientSocket, IDisposable
     {
-        Socket _socket;
+        const int SIO_UDP_CONNRESET = unchecked((int)0x9800000C);
+
+        const int MaxLength = 65506;
+
+        Socket _udpSocket;
 
         IUserToken _userToken;
 
@@ -62,14 +56,16 @@ namespace SAEA.Sockets.Core.Tcp
 
         ISocketOption _socketOption;
 
-        public string Endpoint { get => _socket?.RemoteEndPoint?.ToString(); }
+        IPEndPoint _remoteEndPoint;
 
-        public bool Connected { get; set; }
+        public string Endpoint { get => _udpSocket?.RemoteEndPoint?.ToString(); }
+
+        public bool Connected { get => _udpSocket.Connected; }
         public IUserToken UserToken { get => _userToken; private set => _userToken = value; }
 
         public bool IsDisposed { get; private set; } = false;
 
-        public Socket Socket => _socket;
+        public Socket Socket => _udpSocket;
 
         public event OnErrorHandler OnError;
 
@@ -88,20 +84,29 @@ namespace SAEA.Sockets.Core.Tcp
         /// iocp 客户端 socket
         /// </summary>
         /// <param name="socketOption"></param>
-        public IocpClientSocket(ISocketOption socketOption)
+        public UdpClientSocket(ISocketOption socketOption)
         {
             _socketOption = socketOption;
 
             _userTokenFactory = new UserTokenFactory();
 
-            _socket = new Socket(AddressFamily.InterNetwork, System.Net.Sockets.SocketType.Stream, ProtocolType.Tcp);
-            if (_socketOption.ReusePort)
+            _udpSocket = new Socket(AddressFamily.InterNetwork, System.Net.Sockets.SocketType.Dgram, ProtocolType.Udp);
+            _udpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, _socketOption.ReusePort);
+            _udpSocket.SendTimeout = _udpSocket.ReceiveTimeout = _socketOption.TimeOut;
+            _udpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, _socketOption.Broadcasted);
+
+            //设置多播
+            if (!string.IsNullOrEmpty(_socketOption.MultiCastHost) && !string.IsNullOrEmpty(_socketOption.IP))
             {
-                _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, _socketOption.ReusePort);
+                _udpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastLoopback, true);
+                MulticastOption mcastOption = new MulticastOption(IPAddress.Parse(_socketOption.MultiCastHost), IPAddress.Parse(_socketOption.IP));
+                _udpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership, mcastOption);
             }
-            _socket.NoDelay = _socketOption.NoDelay;
-            _socket.SendTimeout = _socket.ReceiveTimeout = _socketOption.TimeOut;
-            _socket.KeepAlive();
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                _udpSocket.IOControl(SIO_UDP_CONNRESET, new byte[4], new byte[4]);
+            }
 
             OnClientReceive = new OnClientReceiveBytesHandler(OnReceived);
 
@@ -112,6 +117,10 @@ namespace SAEA.Sockets.Core.Tcp
             _connectArgs.Completed += ConnectArgs_Completed;
 
             _userToken = _userTokenFactory.Create(socketOption.Context, socketOption.ReadBufferSize, IO_Completed);
+
+            _remoteEndPoint = new IPEndPoint(IPAddress.Parse(_socketOption.IP), _socketOption.Port);
+
+            _userToken.Socket = _udpSocket;
         }
 
         /// <summary>
@@ -122,7 +131,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="port"></param>
         /// <param name="bufferSize"></param>
         /// <param name="timeOut"></param>
-        public IocpClientSocket(IContext context, string ip = "127.0.0.1", int port = 39654, int bufferSize = 100 * 1024, int timeOut = 60 * 1000) : this(new SocketOption() { Context = context, IP = ip, Port = port, ReadBufferSize = bufferSize, WriteBufferSize = bufferSize, TimeOut = timeOut })
+        public UdpClientSocket(IContext context, string ip = "127.0.0.1", int port = 39654, int bufferSize = 100 * 1024, int timeOut = 60 * 1000) : this(new SocketOption() { Context = context, IP = ip, Port = port, ReadBufferSize = bufferSize, WriteBufferSize = bufferSize, TimeOut = timeOut })
         {
 
         }
@@ -130,10 +139,10 @@ namespace SAEA.Sockets.Core.Tcp
         /// <summary>
         /// 指定绑定ip
         /// </summary>
-        /// <param name="ipEndPint"></param>
+        /// <param name="ip"></param>
         public void Bind(IPEndPoint ipEndPint)
         {
-            _socket.Bind(ipEndPint);
+            _udpSocket.Bind(ipEndPint);
         }
 
         /// <summary>
@@ -151,14 +160,9 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="callBack"></param>
         public void ConnectAsync(Action<SocketError> callBack = null)
         {
-            _connectEvent.WaitOne();
-            if (!Connected)
+            if (!_udpSocket.ConnectAsync(_connectArgs))
             {
-                _connectCallBack = callBack;
-                if (!_socket.ConnectAsync(_connectArgs))
-                {
-                    ProcessConnected(_connectArgs);
-                }
+                ProcessConnected(_connectArgs);
             }
         }
 
@@ -168,20 +172,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="timeOut"></param>
         public void Connect()
         {
-            if (!Connected)
-            {
-                _socket.Connect(_socketOption.IP, _socketOption.Port);
-
-                _userToken.ID = _socket.LocalEndPoint.ToString();
-                _userToken.Socket = _socket;
-                _userToken.Linked = _userToken.Actived = DateTime.Now;
-
-                var readArgs = _userToken.ReadArgs;
-
-                ProcessReceive(readArgs);
-
-                Connected = true;
-            }
+            _udpSocket.Connect(_remoteEndPoint);
         }
 
         void ConnectArgs_Completed(object sender, SocketAsyncEventArgs e)
@@ -191,17 +182,13 @@ namespace SAEA.Sockets.Core.Tcp
 
         void ProcessConnected(SocketAsyncEventArgs e)
         {
-            Connected = (e.SocketError == SocketError.Success);
+            _userToken.ID = e.ConnectSocket.LocalEndPoint.ToString();
+            _userToken.Socket = _udpSocket;
+            _userToken.Linked = _userToken.Actived = DateTime.Now;
 
-            if (Connected)
-            {
-                _userToken.ID = e.ConnectSocket.LocalEndPoint.ToString();
-                _userToken.Socket = _socket;
-                _userToken.Linked = _userToken.Actived = DateTime.Now;
+            var readArgs = _userToken.ReadArgs;
+            ProcessReceive(readArgs);
 
-                var readArgs = _userToken.ReadArgs;
-                ProcessReceive(readArgs);
-            }
             _connectCallBack?.Invoke(e.SocketError);
             _connectEvent.Set();
         }
@@ -212,9 +199,11 @@ namespace SAEA.Sockets.Core.Tcp
             switch (e.LastOperation)
             {
                 case SocketAsyncOperation.Receive:
+                case SocketAsyncOperation.ReceiveFrom:
                     ProcessReceived(e);
                     break;
                 case SocketAsyncOperation.Send:
+                case SocketAsyncOperation.SendTo:
                     ProcessSended(e);
                     break;
                 default:
@@ -280,7 +269,6 @@ namespace SAEA.Sockets.Core.Tcp
 
         void ProcessDisconnected(Exception ex)
         {
-            Connected = false;
             _connectEvent.Set();
             try
             {
@@ -293,30 +281,29 @@ namespace SAEA.Sockets.Core.Tcp
         /// <summary>
         /// 异步发送
         /// </summary>
-        /// <param name="userToken"></param>
+        /// <param name="ipEndPoint"></param>
         /// <param name="data"></param>
-        public void SendAsync(IUserToken userToken, byte[] data)
+        public void SendAsync(IPEndPoint ipEndPoint, byte[] data)
         {
             try
             {
-                if (userToken != null && userToken.Socket != null && userToken.Socket.Connected)
+                UserToken.WaitOne();
+
+                var writeArgs = UserToken.WriteArgs;
+
+                writeArgs.SetBuffer(data, 0, data.Length);
+
+                writeArgs.RemoteEndPoint = ipEndPoint;
+
+                if (!UserToken.Socket.SendToAsync(writeArgs))
                 {
-                    userToken.WaitOne();
-
-                    var writeArgs = userToken.WriteArgs;
-
-                    writeArgs.SetBuffer(data, 0, data.Length);
-
-                    if (!userToken.Socket.SendAsync(writeArgs))
-                    {
-                        ProcessSended(writeArgs);
-                    }
+                    ProcessSended(writeArgs);
                 }
             }
             catch (Exception ex)
             {
-                OnError?.Invoke(userToken.ID, ex);
-                userToken.Set();
+                OnError?.Invoke(_remoteEndPoint.ToString(), ex);
+                UserToken.Set();
                 Disconnect();
             }
         }
@@ -327,7 +314,25 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="data"></param>
         public void SendAsync(byte[] data)
         {
-            SendAsync(UserToken, data);
+            try
+            {
+                UserToken.WaitOne();
+
+                var writeArgs = UserToken.WriteArgs;
+
+                writeArgs.SetBuffer(data, 0, data.Length);
+
+                if (!UserToken.Socket.SendAsync(writeArgs))
+                {
+                    ProcessSended(writeArgs);
+                }
+            }
+            catch (Exception ex)
+            {
+                OnError?.Invoke(_remoteEndPoint.ToString(), ex);
+                UserToken.Set();
+                Disconnect();
+            }
         }
 
         /// <summary>
@@ -338,36 +343,28 @@ namespace SAEA.Sockets.Core.Tcp
         {
             if (data == null) return;
 
-            if (Connected)
+            try
             {
-                try
+                var offset = 0;
+                do
                 {
-                    var offset = 0;
-                    do
-                    {
-                        var iResult = _socket.BeginSend(data, offset, data.Length - offset, SocketFlags.None, null, null);
+                    var iResult = _udpSocket.BeginSendTo(data, offset, data.Length - offset, SocketFlags.None, _remoteEndPoint, null, null);
 
-                        offset += _socket.EndSend(iResult);
-                    }
-                    while (offset < data.Length);
+                    offset += _udpSocket.EndSend(iResult);
+                }
+                while (offset < data.Length);
 
-                    _userToken.Actived = DateTimeHelper.Now;
-                }
-                catch (Exception ex)
-                {
-                    ProcessDisconnected(ex);
-                }
+                _userToken.Actived = DateTimeHelper.Now;
             }
-            else
-                OnError?.Invoke("", new Exception("发送失败：当前连接已断开"));
+            catch (Exception ex)
+            {
+                ProcessDisconnected(ex);
+            }
         }
 
         public void BeginSend(byte[] data)
         {
-            if (Connected)
-            {
-                _userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, null, null);
-            }
+            _userToken.Socket.BeginSendTo(data, 0, data.Length, SocketFlags.None, _remoteEndPoint, null, null);
         }
 
 
@@ -391,41 +388,32 @@ namespace SAEA.Sockets.Core.Tcp
 
         public Stream GetStream()
         {
-            throw new InvalidOperationException("iocp暂不支持流模式");
+            throw new InvalidOperationException("udp不支持流模式");
         }
 
         public void Disconnect(Exception ex)
         {
             var mex = ex;
 
-            if (this.Connected)
+            try
             {
-                try
+                if (_userToken != null && _userToken.Socket != null)
                 {
-                    if (_userToken != null && _userToken.Socket != null)
-                    {
-                        try
-                        {
-                            _userToken.Socket.Shutdown(SocketShutdown.Both);
-                        }
-                        catch { }
-                        _userToken.Socket.Close();
-                    }
+                    _userToken.Socket.Close();
                 }
-                catch (Exception sex)
-                {
-                    if (mex != null) mex = sex;
-                }
-                this.Connected = false;
-                if (mex == null)
-                {
-                    mex = new Exception("当前Socket已主动断开连接！");
-                }
-                if (_userToken != null)
-                    OnDisconnected?.Invoke(_userToken.ID, mex);
-
-                _userToken.Clear();
             }
+            catch (Exception sex)
+            {
+                if (mex != null) mex = sex;
+            }
+            if (mex == null)
+            {
+                mex = new Exception("当前Socket已主动关闭！");
+            }
+            if (_userToken != null)
+                OnDisconnected?.Invoke(_userToken.ID, mex);
+
+            _userToken.Clear();
         }
 
         private void _sessionManager_OnTimeOut(IUserToken obj)

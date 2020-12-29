@@ -36,6 +36,7 @@ using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Sockets;
 
 namespace SAEA.Sockets.Core
@@ -103,7 +104,7 @@ namespace SAEA.Sockets.Core
         }
 
         /// <summary>
-        /// 初始化IUserToken
+        /// TCP初始化IUserToken
         /// </summary>
         /// <returns></returns>
         IUserToken InitUserToken()
@@ -117,7 +118,21 @@ namespace SAEA.Sockets.Core
         }
 
         /// <summary>
-        /// 获取usertoken
+        /// UDP初始化IUserToken
+        /// </summary>
+        /// <param name="readArg"></param>
+        /// <returns></returns>
+        IUserToken InitUserToken(SocketAsyncEventArgs readArg)
+        {
+            IUserToken userToken = _userTokenPool.Dequeue();
+            userToken.ReadArgs = readArg;            
+            userToken.WriteArgs = _argsPool.Dequeue();
+            userToken.ReadArgs.UserToken = userToken.WriteArgs.UserToken = userToken;
+            return userToken;
+        }
+
+        /// <summary>
+        /// TCP获取usertoken
         /// 如果IUserToken数量耗尽时可能会出现死锁，则需要外部使用
         /// </summary>
         /// <param name="socket"></param>
@@ -130,6 +145,35 @@ namespace SAEA.Sockets.Core
             userToken.Socket = socket;
             userToken.ID = socket.RemoteEndPoint.ToString();
             userToken.Actived = userToken.Linked = DateTimeHelper.Now;
+            Set(userToken);
+            return userToken;
+        }
+
+        /// <summary>
+        /// UDP获取arg
+        /// </summary>
+        /// <returns></returns>
+        public SocketAsyncEventArgs GetArg()
+        {
+            var readArg = _argsPool.Dequeue();
+            readArg.RemoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
+            _bufferManager.SetBuffer(readArg);
+            return readArg;
+        }
+
+        /// <summary>
+        /// UDP获取usertoken
+        /// </summary>
+        /// <param name="remoteEndPoint"></param>
+        /// <param name="socket"></param>
+        /// <returns></returns>
+        public IUserToken BindUserToken(SocketAsyncEventArgs readArg, Socket socket)
+        {
+            if (socket == null) return null;
+            IUserToken userToken = InitUserToken(readArg);
+            userToken.Socket = socket;
+            userToken.ID = readArg.RemoteEndPoint.ToString();
+            userToken.Actived = userToken.Linked = DateTimeHelper.Now;            
             Set(userToken);
             return userToken;
         }

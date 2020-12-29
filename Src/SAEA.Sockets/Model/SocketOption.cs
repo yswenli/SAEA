@@ -41,7 +41,7 @@ namespace SAEA.Sockets.Model
 
         internal SocketOption() { }
 
-        public SAEASocketType SocketType { get; set; }
+        public SAEASocketType SocketType { get; set; } = SAEASocketType.Tcp;
 
         public bool WithSsl
         {
@@ -114,5 +114,13 @@ namespace SAEA.Sockets.Model
         {
             get; set;
         } = 60 * 1000;
+        public string MultiCastHost
+        {
+            set; get;
+        }
+        public bool Broadcasted
+        {
+            get; set;
+        }
     }
 }

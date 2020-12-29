@@ -28,7 +28,9 @@
 *描述：
 *****************************************************************************/
 using SAEA.Sockets.Core.Tcp;
-using SAEA.Sockets.Interface;
+using SAEA.Sockets.Core.Udp;
+using SAEA.Sockets.Model;
+using System;
 using System.Threading;
 
 namespace SAEA.Sockets
@@ -47,13 +49,27 @@ namespace SAEA.Sockets
         /// <returns></returns>
         public static IServerSokcet CreateServerSocket(ISocketOption socketOption, CancellationToken cancellationToken)
         {
-            if (!socketOption.UseIocp)
+            if (socketOption.SocketType == SAEASocketType.Tcp)
             {
-                return new StreamServerSocket(socketOption, cancellationToken);
+                if (!socketOption.UseIocp)
+                {
+                    return new StreamServerSocket(socketOption, cancellationToken);
+                }
+                else
+                {
+                    return new IocpServerSocket(socketOption);
+                }
             }
             else
             {
-                return new IocpServerSocket(socketOption);
+                if (!socketOption.UseIocp)
+                {
+                    throw new NotImplementedException("udp不支持此模式");
+                }
+                else
+                {
+                    return new UdpServerSocket(socketOption);
+                }
             }
         }
 
@@ -64,15 +80,29 @@ namespace SAEA.Sockets
         /// <returns></returns>
         public static IServerSokcet CreateServerSocket(ISocketOption socketOption)
         {
-            if (socketOption.UseIocp)
+            if (socketOption.SocketType == SAEASocketType.Tcp)
             {
-                return new IocpServerSocket(socketOption);
+                if (socketOption.UseIocp)
+                {
+                    return new IocpServerSocket(socketOption);
+                }
+                else
+                {
+                    CancellationTokenSource source = new CancellationTokenSource();
+                    CancellationToken token = source.Token;
+                    return new StreamServerSocket(socketOption, token);
+                }
             }
             else
             {
-                CancellationTokenSource source = new CancellationTokenSource();
-                CancellationToken token = source.Token;
-                return new StreamServerSocket(socketOption, token);
+                if (socketOption.UseIocp)
+                {
+                    return new UdpServerSocket(socketOption);
+                }
+                else
+                {
+                    throw new NotImplementedException("udp不支持此模式");
+                }
             }
         }
 
@@ -85,14 +115,29 @@ namespace SAEA.Sockets
         /// <returns></returns>
         public static IClientSocket CreateClientSocket(ISocketOption socketOption, CancellationToken cancellationToken)
         {
-            if (!socketOption.UseIocp)
+            if (socketOption.SocketType == SAEASocketType.Tcp)
             {
-                return new StreamClientSocket(socketOption, cancellationToken);
+                if (!socketOption.UseIocp)
+                {
+                    return new StreamClientSocket(socketOption, cancellationToken);
+                }
+                else
+                {
+                    return new IocpClientSocket(socketOption);
+                }
             }
             else
             {
-                return new IocpClientSocket(socketOption);
+                if (!socketOption.UseIocp)
+                {
+                    throw new NotImplementedException("udp不支持此模式");
+                }
+                else
+                {
+                    return new UdpClientSocket(socketOption);
+                }
             }
+
         }
 
         /// <summary>
@@ -102,14 +147,29 @@ namespace SAEA.Sockets
         /// <returns></returns>
         public static IClientSocket CreateClientSocket(ISocketOption socketOption)
         {
-            if (!socketOption.UseIocp)
+            if (socketOption.SocketType == SAEASocketType.Tcp)
             {
-                return new StreamClientSocket(socketOption);
+                if (!socketOption.UseIocp)
+                {
+                    return new StreamClientSocket(socketOption);
+                }
+                else
+                {
+                    return new IocpClientSocket(socketOption);
+                }
             }
             else
             {
-                return new IocpClientSocket(socketOption);
+                if (!socketOption.UseIocp)
+                {
+                    throw new NotImplementedException("udp不支持此模式");
+                }
+                else
+                {
+                    return new UdpClientSocket(socketOption);
+                }
             }
+
         }
 
     }

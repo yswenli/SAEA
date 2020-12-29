@@ -55,7 +55,7 @@ namespace SAEA.Sockets.Core
                 return new TypeInfo()
                 {
                     UserTokenType = context.UserToken.GetType(),
-                    UnpackerType= context.UserToken.Unpacker.GetType()
+                    UnpackerType = context.UserToken.Unpacker.GetType()
                 };
             });
             IUserToken userToken = (IUserToken)Activator.CreateInstance(typeInfo.UserTokenType);
@@ -72,7 +72,7 @@ namespace SAEA.Sockets.Core
         /// <param name="bufferSize"></param>
         /// <param name="eventHandler"></param>
         /// <returns></returns>
-        public IUserToken Create(IContext context,int bufferSize, EventHandler<SocketAsyncEventArgs> eventHandler)
+        public IUserToken Create(IContext context, int bufferSize, EventHandler<SocketAsyncEventArgs> eventHandler)
         {
             IUserToken userToken = Create(context);
 

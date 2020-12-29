@@ -164,10 +164,10 @@ namespace SAEA.Sockets.Core.Tcp
         /// <summary>
         /// 指定绑定ip
         /// </summary>
-        /// <param name="ip"></param>
-        public void Bind(IPAddress ip)
+        /// <param name="ipEndPoint"></param>
+        public void Bind(IPEndPoint ipEndPoint)
         {
-            _socket.Bind(new IPEndPoint(ip, 0));
+            _socket.Bind(ipEndPoint);
         }
 
         /// <summary>
@@ -176,7 +176,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="ip"></param>
         public void Bind(string ip)
         {
-            Bind(IPAddress.Parse(ip));
+            Bind(new IPEndPoint(IPAddress.Parse(ip), 0));
         }
 
         /// <summary>

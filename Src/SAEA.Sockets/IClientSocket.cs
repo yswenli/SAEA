@@ -60,8 +60,8 @@ namespace SAEA.Sockets
         /// <summary>
         /// 指定绑定ip
         /// </summary>
-        /// <param name="ip"></param>
-        void Bind(IPAddress ip);
+        /// <param name="ipEndPint"></param>
+        void Bind(IPEndPoint ipEndPint);
         /// <summary>
         /// 指定绑定ip
         /// </summary>

@@ -83,9 +83,8 @@ namespace SAEA.Sockets
         /// <returns></returns>
         public SocketOptionBuilder UseIocp<T>() where T : IContext
         {
-            if (_socketOption.WithSsl) throw new Exception("ssl模式下暂不支持icop");
+            if (_socketOption.WithSsl) throw new NotSupportedException("ssl模式下暂不支持icop");
             _socketOption.Context = (IContext)Activator.CreateInstance(typeof(T));
-            _socketOption.SocketType = SAEASocketType.Tcp;
             _socketOption.UseIocp = true;
             return this;
         }
@@ -96,9 +95,8 @@ namespace SAEA.Sockets
         /// <returns></returns>
         public SocketOptionBuilder UseIocp(IContext context)
         {
-            if (_socketOption.WithSsl) throw new Exception("ssl模式下暂不支持icop");
+            if (_socketOption.WithSsl) throw new NotSupportedException("ssl模式下暂不支持icop");
             _socketOption.Context = context;
-            _socketOption.SocketType = SAEASocketType.Tcp;
             _socketOption.UseIocp = true;
             return this;
         }
@@ -109,9 +107,8 @@ namespace SAEA.Sockets
         /// <returns></returns>
         public SocketOptionBuilder UseIocp()
         {
-            if (_socketOption.WithSsl) throw new Exception("ssl模式下暂不支持icop");
+            if (_socketOption.WithSsl) throw new NotSupportedException("ssl模式下暂不支持icop");
             _socketOption.Context = new BaseContext();
-            _socketOption.SocketType = SAEASocketType.Tcp;
             _socketOption.UseIocp = true;
             return this;
         }
@@ -122,6 +119,7 @@ namespace SAEA.Sockets
         /// <returns></returns>
         public SocketOptionBuilder UseStream()
         {
+            if (_socketOption.SocketType == SAEASocketType.Udp) throw new NotSupportedException("udp不支持流");
             _socketOption.SocketType = SAEASocketType.Tcp;
             _socketOption.UseIocp = false;
             return this;
@@ -133,6 +131,7 @@ namespace SAEA.Sockets
         /// <returns></returns>
         public SocketOptionBuilder SetDelay()
         {
+            if (_socketOption.SocketType == SAEASocketType.Udp) throw new NotSupportedException("udp不支持Nagle");
             _socketOption.NoDelay = false;
             return this;
         }
@@ -146,13 +145,13 @@ namespace SAEA.Sockets
         /// <returns></returns>
         public SocketOptionBuilder WithSsl(SslProtocols sslProtocols, string pfxFilePath = "*.pfx", string pwd = "")
         {
-            if (_socketOption.UseIocp) throw new Exception("暂不支持此模式下的ssl");
+            if (_socketOption.UseIocp || _socketOption.SocketType == SAEASocketType.Udp) throw new NotSupportedException("暂不支持此模式下的ssl");
             _socketOption.SslProtocol = sslProtocols;
             if (!string.IsNullOrEmpty(pfxFilePath))
             {
                 if (!FileHelper.Exists(pfxFilePath))
                 {
-                    throw new Exception("cenFilePath设置有误，找不到该证书文件!");
+                    throw new NotSupportedException("cenFilePath设置有误，找不到该证书文件!");
                 }
                 _socketOption.X509Certificate2 = new X509Certificate2(pfxFilePath, pwd, X509KeyStorageFlags.PersistKeySet);
                 _socketOption.WithSsl = true;
@@ -168,7 +167,7 @@ namespace SAEA.Sockets
         /// <returns></returns>
         public SocketOptionBuilder WithSsl(X509Certificate2 x509Certificate2, SslProtocols sslProtocols)
         {
-            if (_socketOption.UseIocp) throw new Exception("暂不支持此模式下的ssl");
+            if (_socketOption.UseIocp || _socketOption.SocketType == SAEASocketType.Udp) throw new NotSupportedException("不支持此模式下的ssl");
             _socketOption.SslProtocol = sslProtocols;
             if (x509Certificate2 != null)
             {
@@ -262,6 +261,29 @@ namespace SAEA.Sockets
         public SocketOptionBuilder SetTimeOut(int timeOut = 60 * 1000)
         {
             _socketOption.TimeOut = timeOut;
+            return this;
+        }
+
+        /// <summary>
+        /// 广播
+        /// </summary>
+        /// <returns></returns>
+        public SocketOptionBuilder UseBroadcast()
+        {
+            if (_socketOption.SocketType == SAEASocketType.Tcp) throw new NotSupportedException("暂不支持此模式下的广播");
+            _socketOption.Broadcasted = true;
+            return this;
+        }
+
+        /// <summary>
+        /// 设置组播
+        /// </summary>
+        /// <param name="multiCastHost"></param>
+        /// <returns></returns>
+        public SocketOptionBuilder SetMultiCastHost(string multiCastHost)
+        {
+            if (_socketOption.SocketType == SAEASocketType.Tcp) throw new NotSupportedException("暂不支持此模式下的组播");
+            _socketOption.MultiCastHost = multiCastHost;
             return this;
         }
 

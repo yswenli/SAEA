@@ -150,5 +150,15 @@ namespace SAEA.Sockets
         /// 是否端口复用
         /// </summary>
         bool ReusePort { get; set; }
+
+        /// <summary>
+        /// 组播
+        /// </summary>
+        string MultiCastHost { get; set; }
+
+        /// <summary>
+        /// 广播
+        /// </summary>
+        bool Broadcasted { get; set; }
     }
 }
