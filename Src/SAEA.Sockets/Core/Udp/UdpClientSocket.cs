@@ -28,6 +28,7 @@ using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
 using System;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
@@ -39,8 +40,6 @@ namespace SAEA.Sockets.Core.Udp
     public class UdpClientSocket : IClientSocket, IDisposable
     {
         const int SIO_UDP_CONNRESET = unchecked((int)0x9800000C);
-
-        const int MaxLength = 65506;
 
         Socket _udpSocket;
 
@@ -91,8 +90,7 @@ namespace SAEA.Sockets.Core.Udp
             _userTokenFactory = new UserTokenFactory();
 
             _udpSocket = new Socket(AddressFamily.InterNetwork, System.Net.Sockets.SocketType.Dgram, ProtocolType.Udp);
-            _udpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, _socketOption.ReusePort);
-            _udpSocket.SendTimeout = _udpSocket.ReceiveTimeout = _socketOption.TimeOut;
+            _udpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, _socketOption.ReusePort);            
             _udpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, _socketOption.Broadcasted);
 
             //设置多播
@@ -108,6 +106,10 @@ namespace SAEA.Sockets.Core.Udp
                 _udpSocket.IOControl(SIO_UDP_CONNRESET, new byte[4], new byte[4]);
             }
 
+            _udpSocket.SendTimeout = _udpSocket.ReceiveTimeout = _socketOption.TimeOut;
+            _udpSocket.SendBufferSize = _socketOption.WriteBufferSize;
+            _udpSocket.ReceiveBufferSize = _socketOption.ReadBufferSize;
+
             OnClientReceive = new OnClientReceiveBytesHandler(OnReceived);
 
             _connectArgs = new SocketAsyncEventArgs
@@ -121,19 +123,6 @@ namespace SAEA.Sockets.Core.Udp
             _remoteEndPoint = new IPEndPoint(IPAddress.Parse(_socketOption.IP), _socketOption.Port);
 
             _userToken.Socket = _udpSocket;
-        }
-
-        /// <summary>
-        /// iocp 客户端 socket
-        /// </summary>
-        /// <param name="context"></param>
-        /// <param name="ip"></param>
-        /// <param name="port"></param>
-        /// <param name="bufferSize"></param>
-        /// <param name="timeOut"></param>
-        public UdpClientSocket(IContext context, string ip = "127.0.0.1", int port = 39654, int bufferSize = 100 * 1024, int timeOut = 60 * 1000) : this(new SocketOption() { Context = context, IP = ip, Port = port, ReadBufferSize = bufferSize, WriteBufferSize = bufferSize, TimeOut = timeOut })
-        {
-
         }
 
         /// <summary>
@@ -172,21 +161,25 @@ namespace SAEA.Sockets.Core.Udp
         /// <param name="timeOut"></param>
         public void Connect()
         {
-            _udpSocket.Connect(_remoteEndPoint);
+            ConnectAsync();
         }
 
         void ConnectArgs_Completed(object sender, SocketAsyncEventArgs e)
         {
-            ProcessConnected(e);
+            if (e.LastOperation == SocketAsyncOperation.Connect)
+                ProcessConnected(e);
+            else
+                throw new Exception(e.LastOperation.ToString());
         }
 
         void ProcessConnected(SocketAsyncEventArgs e)
         {
-            _userToken.ID = e.ConnectSocket.LocalEndPoint.ToString();
+            _userToken.ID = _udpSocket.LocalEndPoint.ToString();
             _userToken.Socket = _udpSocket;
             _userToken.Linked = _userToken.Actived = DateTime.Now;
 
             var readArgs = _userToken.ReadArgs;
+
             ProcessReceive(readArgs);
 
             _connectCallBack?.Invoke(e.SocketError);
@@ -287,6 +280,8 @@ namespace SAEA.Sockets.Core.Udp
         {
             try
             {
+                if (data == null || !data.Any() || data.Length > SocketOption.UDPMaxLength) throw new ArgumentException("SendAsync 参数异常");
+
                 UserToken.WaitOne();
 
                 var writeArgs = UserToken.WriteArgs;
@@ -314,25 +309,7 @@ namespace SAEA.Sockets.Core.Udp
         /// <param name="data"></param>
         public void SendAsync(byte[] data)
         {
-            try
-            {
-                UserToken.WaitOne();
-
-                var writeArgs = UserToken.WriteArgs;
-
-                writeArgs.SetBuffer(data, 0, data.Length);
-
-                if (!UserToken.Socket.SendAsync(writeArgs))
-                {
-                    ProcessSended(writeArgs);
-                }
-            }
-            catch (Exception ex)
-            {
-                OnError?.Invoke(_remoteEndPoint.ToString(), ex);
-                UserToken.Set();
-                Disconnect();
-            }
+            SendAsync(_remoteEndPoint, data);
         }
 
         /// <summary>

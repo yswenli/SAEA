@@ -26,6 +26,7 @@ using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
 using System;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
@@ -36,8 +37,6 @@ namespace SAEA.Sockets.Core.Udp
     public class UdpServerSocket : IServerSokcet, IDisposable
     {
         const int SIO_UDP_CONNRESET = unchecked((int)0x9800000C);
-
-        const int MaxLength = 65506;
 
         Socket _udpSocket = null;
 
@@ -82,7 +81,7 @@ namespace SAEA.Sockets.Core.Udp
         /// <param name="socketOption"></param>
         public UdpServerSocket(ISocketOption socketOption)
         {
-            _sessionManager = new SessionManager(socketOption.Context, socketOption.ReadBufferSize, socketOption.Count, IO_Completed, new TimeSpan(0, 0, socketOption.TimeOut));
+            _sessionManager = new SessionManager(socketOption.Context, socketOption.ReadBufferSize, socketOption.Count, IO_Completed, new TimeSpan(0, 0, 0, 0, socketOption.TimeOut));
             _sessionManager.OnTimeOut += _sessionManager_OnTimeOut;
             OnServerReceiveBytes = new OnServerReceiveBytesHandler(OnReceiveBytes);
             SocketOption = socketOption;
@@ -134,7 +133,7 @@ namespace SAEA.Sockets.Core.Udp
                     else
                         _udpSocket.Bind(new IPEndPoint(IPAddress.Parse(SocketOption.IP), SocketOption.Port));
                 }
-
+                _udpSocket.SendTimeout = _udpSocket.ReceiveTimeout = SocketOption.TimeOut;
                 _udpSocket.SendBufferSize = SocketOption.WriteBufferSize;
                 _udpSocket.ReceiveBufferSize = SocketOption.ReadBufferSize;
 
@@ -188,18 +187,10 @@ namespace SAEA.Sockets.Core.Udp
                 readArgs = _sessionManager.GetArg();
             }
 
-            System.Threading.Tasks.Task.Run(() => {
-                var buffer = new byte[24];
-                EndPoint remoteEP = new IPEndPoint(IPAddress.Any, 0);
-                _udpSocket.ReceiveFrom(buffer, SocketFlags.None, ref remoteEP);
-
-                if (!_udpSocket.ReceiveFromAsync(readArgs))
-                {
-                    ProcessReceived(readArgs);
-                }
-            });
-
-            
+            if (!_udpSocket.ReceiveFromAsync(readArgs))
+            {
+                ProcessReceived(readArgs);
+            }
         }
 
         /// <summary>
@@ -272,6 +263,8 @@ namespace SAEA.Sockets.Core.Udp
         /// <param name="data"></param>
         public void SendAsync(IUserToken userToken, byte[] data)
         {
+            if (data == null || !data.Any() || data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentException("SendAsync 参数异常");
+
             userToken.WaitOne();
 
             try
@@ -320,6 +313,8 @@ namespace SAEA.Sockets.Core.Udp
         {
             try
             {
+                if (data == null || !data.Any() || data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentException("SendAsync 参数异常");
+
                 _sessionManager.Active(userToken.ID);
 
                 int sendNum = 0, offset = 0;

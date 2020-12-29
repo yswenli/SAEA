@@ -38,7 +38,7 @@ namespace SAEA.Sockets.Model
 {
     public class SocketOption : ISocketOption
     {
-
+        public const int UDPMaxLength = 65506;
         internal SocketOption() { }
 
         public SAEASocketType SocketType { get; set; } = SAEASocketType.Tcp;
