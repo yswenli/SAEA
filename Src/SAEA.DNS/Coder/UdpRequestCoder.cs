@@ -16,15 +16,11 @@
 *描    述：
 *****************************************************************************/
 using SAEA.Common;
-using SAEA.Common.Threading;
 using SAEA.DNS.Protocol;
 using SAEA.Sockets;
 using SAEA.Sockets.Base;
 using SAEA.Sockets.Model;
-using System;
-using System.IO;
 using System.Net;
-using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -35,9 +31,10 @@ namespace SAEA.DNS.Coder
     /// </summary>
     public class UdpRequestCoder : IRequestCoder
     {
-        private int timeout;
-        private IRequestCoder fallback;
-        private IPEndPoint dns;
+        private int _timeout;
+        private IRequestCoder _fallback;
+        private IPEndPoint _ipEndpoint;
+        OrderSyncHelper<byte[]> _orderSyncHelper;
 
         /// <summary>
         /// udp模式处理编解码
@@ -47,9 +44,10 @@ namespace SAEA.DNS.Coder
         /// <param name="timeout"></param>
         public UdpRequestCoder(IPEndPoint dns, IRequestCoder fallback, int timeout = 5000)
         {
-            this.dns = dns;
-            this.fallback = fallback;
-            this.timeout = timeout;
+            _ipEndpoint = dns;
+            _fallback = fallback;
+            _timeout = timeout;
+            _orderSyncHelper = new OrderSyncHelper<byte[]>(_timeout);
         }
 
         /// <summary>
@@ -57,46 +55,10 @@ namespace SAEA.DNS.Coder
         /// </summary>
         /// <param name="dns"></param>
         /// <param name="timeout"></param>
-        public UdpRequestCoder(IPEndPoint dns, int timeout = 5000)
+        public UdpRequestCoder(IPEndPoint dns, int timeout = 5000) : this(dns, new NullRequestCoder(), timeout)
         {
-            this.dns = dns;
-            this.fallback = new NullRequestCoder();
-            this.timeout = timeout;
+
         }
-
-        /// <summary>
-        /// 编码处理
-        /// </summary>
-        /// <param name="request"></param>
-        /// <param name="cancellationToken"></param>
-        /// <returns></returns>
-        public async Task<IResponse> Code2(IRequest request, CancellationToken cancellationToken = default(CancellationToken))
-        {
-            using (UdpClient udp = new UdpClient())
-            {
-                await udp.SendAsync(request.ToArray(), request.Size, dns).WithCancellationTimeout(TimeSpan.FromMilliseconds(timeout), cancellationToken);
-
-                UdpReceiveResult result = await udp.ReceiveAsync().WithCancellationTimeout(TimeSpan.FromMilliseconds(timeout), cancellationToken);
-
-                if (!result.RemoteEndPoint.Equals(dns)) throw new IOException("Remote endpoint mismatch");
-
-                byte[] buffer = result.Buffer;
-
-                DnsResponseMessage response = DnsResponseMessage.FromArray(buffer);
-
-                if (response.Truncated)
-                {
-                    return await fallback.Code(request, cancellationToken);
-                }
-
-                return new Model.DnsClientResponse(request, response, buffer);
-            }
-        }
-
-
-
-        OrderSyncHelper<byte[]> _orderSyncHelper = new OrderSyncHelper<byte[]>(10 * 1000);
-
 
         /// <summary>
         /// 编码处理
@@ -107,16 +69,16 @@ namespace SAEA.DNS.Coder
         public async Task<IResponse> Code(IRequest request, CancellationToken cancellationToken = default(CancellationToken))
         {
             using (var udpClient = SocketFactory.CreateClientSocket(SocketOptionBuilder.Instance.SetSocket(SAEASocketType.Udp)
-                 .SetIP(dns.Address.ToString())
-                 .SetPort(dns.Port)
+                 .SetIPEndPoint(_ipEndpoint)
                  .UseIocp<BaseContext>()
                  .SetReadBufferSize(SocketOption.UDPMaxLength)
                  .SetWriteBufferSize(SocketOption.UDPMaxLength)
                  .ReusePort()
                  .Build()))
             {
-
                 udpClient.OnReceive += UdpClient_OnReceive;
+
+                udpClient.Connect();
 
                 var buffer = _orderSyncHelper.Wait(() =>
                 {
@@ -127,7 +89,7 @@ namespace SAEA.DNS.Coder
 
                 if (response.Truncated)
                 {
-                    return await fallback.Code(request, cancellationToken);
+                    return await _fallback.Code(request, cancellationToken);
                 }
                 return new Model.DnsClientResponse(request, response, buffer);
             }

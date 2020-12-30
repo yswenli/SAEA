@@ -89,7 +89,7 @@ namespace SAEA.Sockets.Core.Udp
 
             _userTokenFactory = new UserTokenFactory();
 
-            _udpSocket = new Socket(AddressFamily.InterNetwork, System.Net.Sockets.SocketType.Dgram, ProtocolType.Udp);
+            _udpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
             _udpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, _socketOption.ReusePort);            
             _udpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, _socketOption.Broadcasted);
 
@@ -271,6 +271,8 @@ namespace SAEA.Sockets.Core.Udp
             OnDisconnected?.Invoke(_userToken.ID, ex);
         }
 
+
+
         /// <summary>
         /// 异步发送
         /// </summary>
@@ -393,20 +395,15 @@ namespace SAEA.Sockets.Core.Udp
             _userToken.Clear();
         }
 
-        private void _sessionManager_OnTimeOut(IUserToken obj)
+        public void Disconnect()
         {
-            Disconnect();
+            this.Disconnect(null);
         }
 
         public void Dispose()
         {
             this.Disconnect();
             IsDisposed = true;
-        }
-
-        public void Disconnect()
-        {
-            this.Disconnect(null);
         }
     }
 }

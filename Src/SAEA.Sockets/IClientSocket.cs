@@ -55,6 +55,26 @@ namespace SAEA.Sockets
         /// <summary>
         /// 连接
         /// </summary>
+        bool Connected { get; }
+
+        /// <summary>
+        /// 接收数据事件
+        /// </summary>
+        event OnClientReceiveHandler OnReceive;
+
+        /// <summary>
+        /// 断开事件
+        /// </summary>
+        event OnDisconnectedHandler OnDisconnected;
+
+        /// <summary>
+        /// 异常事件
+        /// </summary>
+        event OnErrorHandler OnError;
+
+        /// <summary>
+        /// 连接
+        /// </summary>
         void Connect();
 
         /// <summary>
@@ -72,12 +92,7 @@ namespace SAEA.Sockets
         /// 连接
         /// </summary>
         /// <param name="callBack"></param>
-        void ConnectAsync(Action<SocketError> callBack = null);
-
-        /// <summary>
-        /// 连接
-        /// </summary>
-        bool Connected { get;  }
+        void ConnectAsync(Action<SocketError> callBack = null);        
 
         /// <summary>
         /// 导步发送
@@ -121,22 +136,7 @@ namespace SAEA.Sockets
         /// 网络流
         /// </summary>
         /// <returns></returns>
-        Stream GetStream();
-
-        /// <summary>
-        /// 接收数据事件
-        /// </summary>
-        event OnClientReceiveHandler OnReceive;
-
-        /// <summary>
-        /// 断开事件
-        /// </summary>
-        event OnDisconnectedHandler OnDisconnected;
-
-        /// <summary>
-        /// 异常事件
-        /// </summary>
-        event OnErrorHandler OnError;
+        Stream GetStream();        
 
         /// <summary>
         /// 断开连接

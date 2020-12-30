@@ -35,6 +35,7 @@ using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using SAEA.Sockets.Base;
 using SAEA.Common.IO;
+using System.Net;
 
 namespace SAEA.Sockets
 {
@@ -206,6 +207,18 @@ namespace SAEA.Sockets
         public SocketOptionBuilder SetPort(int port = 39654)
         {
             _socketOption.Port = port;
+            return this;
+        }
+
+        /// <summary>
+        /// 设置ip/port
+        /// </summary>
+        /// <param name="endPoint"></param>
+        /// <returns></returns>
+        public SocketOptionBuilder SetIPEndPoint(IPEndPoint endPoint)
+        {
+            _socketOption.IP = endPoint.Address.ToString();
+            _socketOption.Port = endPoint.Port;
             return this;
         }
 
