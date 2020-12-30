@@ -70,19 +70,21 @@ namespace SAEA.Common
             if (number == 0) return number.ToString();
             List<string> result = new List<string>();
             long t = number;
-            while (t > 0)
+            do
             {
                 var mod = t % Length;
                 t = Math.Abs(t / Length);
                 var character = FormatString[Convert.ToInt32(mod)].ToString();
                 result.Insert(0, character);
             }
+            while (t > 0);
             return string.Join("", result.ToArray());
         }
 
         /// <summary>
         /// 指定字符串转换为指定进制的数字形式，
-        /// 
+        /// 显示内容的位置就是模，
+        /// 位数就倍数
         /// </summary>
         /// <param name="str"></param>
         /// <returns></returns>
