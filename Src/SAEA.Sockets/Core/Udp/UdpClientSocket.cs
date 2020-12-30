@@ -49,10 +49,6 @@ namespace SAEA.Sockets.Core.Udp
 
         UserTokenFactory _userTokenFactory;
 
-        Action<SocketError> _connectCallBack;
-
-        AutoResetEvent _connectEvent = new AutoResetEvent(true);
-
         ISocketOption _socketOption;
 
         IPEndPoint _remoteEndPoint;
@@ -179,11 +175,7 @@ namespace SAEA.Sockets.Core.Udp
             _userToken.Linked = _userToken.Actived = DateTime.Now;
 
             var readArgs = _userToken.ReadArgs;
-
             ProcessReceive(readArgs);
-
-            _connectCallBack?.Invoke(e.SocketError);
-            _connectEvent.Set();
         }
 
 
@@ -262,7 +254,6 @@ namespace SAEA.Sockets.Core.Udp
 
         void ProcessDisconnected(Exception ex)
         {
-            _connectEvent.Set();
             try
             {
                 _userToken.Clear();
@@ -282,7 +273,7 @@ namespace SAEA.Sockets.Core.Udp
         {
             try
             {
-                if (data == null || !data.Any() || data.Length > SocketOption.UDPMaxLength) throw new ArgumentException("SendAsync 参数异常");
+                if (data == null || !data.Any() || data.Length > SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("SendAsync Incorrect length of data sent");
 
                 UserToken.WaitOne();
 
@@ -320,7 +311,7 @@ namespace SAEA.Sockets.Core.Udp
         /// <param name="data"></param>
         public void Send(byte[] data)
         {
-            if (data == null) return;
+            if (data == null || !data.Any() || data.Length > SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("Send Incorrect length of data sent");
 
             try
             {
@@ -343,6 +334,8 @@ namespace SAEA.Sockets.Core.Udp
 
         public void BeginSend(byte[] data)
         {
+            if (data == null || !data.Any() || data.Length > SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("BeginSend Incorrect length of data sent");
+
             _userToken.Socket.BeginSendTo(data, 0, data.Length, SocketFlags.None, _remoteEndPoint, null, null);
         }
 
@@ -355,6 +348,8 @@ namespace SAEA.Sockets.Core.Udp
 
                 Buffer.BlockCopy(buffer, offset, data, 0, count);
 
+                if (data == null || !data.Any() || data.Length > SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("SendAsync Incorrect length of data sent");
+
                 Send(data);
 
             }, cancellationToken);
@@ -362,12 +357,12 @@ namespace SAEA.Sockets.Core.Udp
 
         public Task<int> ReceiveAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
-            throw new KernelException("当前方法只在stream实现中才能使用!");
+            throw new NotSupportedException("The current method can only be used in stream implementation!");
         }
 
         public Stream GetStream()
         {
-            throw new InvalidOperationException("udp不支持流模式");
+            throw new NotSupportedException("UDP does not support streaming mode");
         }
 
         public void Disconnect(Exception ex)

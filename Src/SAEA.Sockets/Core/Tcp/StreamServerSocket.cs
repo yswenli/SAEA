@@ -57,7 +57,7 @@ namespace SAEA.Sockets.Core.Tcp
 
         public ISocketOption SocketOption { get; set; }
 
-        bool _isStoped = true;
+        volatile bool _isStoped = true;
 
         public bool IsDisposed
         {
@@ -154,7 +154,7 @@ namespace SAEA.Sockets.Core.Tcp
                     if (SocketOption.WithSsl)
                     {
                         nsStream = new SslStream(new NetworkStream(clientSocket), false);
-                        await ((SslStream)nsStream).AuthenticateAsServerAsync(SocketOption.X509Certificate2, false, SslProtocols.Tls | SslProtocols.Tls11 | SslProtocols.Tls12, false).ConfigureAwait(false);
+                        await ((SslStream)nsStream).AuthenticateAsServerAsync(SocketOption.X509Certificate2, false, SslProtocols.Ssl3 | SslProtocols.Tls | SslProtocols.Tls11 | SslProtocols.Tls12, false).ConfigureAwait(false);
                     }
                     else
                     {
@@ -167,9 +167,9 @@ namespace SAEA.Sockets.Core.Tcp
 
                     OnAccepted?.Invoke(ci);
 
-                    await Task.Run(() =>
+                    _ = Task.Run(() =>
                     {
-                        while (true)
+                        while (!_isStoped)
                         {
                             try
                             {
@@ -193,7 +193,7 @@ namespace SAEA.Sockets.Core.Tcp
                                         }
                                         else
                                         {
-                                            Thread.Sleep(10);
+                                            Thread.Yield();
                                         }
                                     }
                                     else
@@ -240,7 +240,6 @@ namespace SAEA.Sockets.Core.Tcp
                     {
                         OnDisconnected?.Invoke(SocketOption.IP + "_" + SocketOption.Port, exception);
                     }
-                    await Task.Delay(TimeSpan.FromSeconds(1), _cancellationToken).ConfigureAwait(false);
                     clientSocket?.Close(SocketOption.TimeOut);
                 }
             }
@@ -272,6 +271,11 @@ namespace SAEA.Sockets.Core.Tcp
                 channel.Stream.Write(data, 0, data.Length);
                 Disconnecte(sessionID);
             }
+        }
+
+        public void SendAsync(IPEndPoint ipEndPoint, byte[] data)
+        {
+            SendAsync(ipEndPoint.ToString(), data);
         }
 
         /// <summary>

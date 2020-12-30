@@ -160,6 +160,15 @@ namespace SAEA.Sockets.Core
             _bufferManager.SetBuffer(readArg);
             return readArg;
         }
+        /// <summary>
+        /// UDP 释放arg
+        /// </summary>
+        /// <param name="arg"></param>
+        public void SetArg(SocketAsyncEventArgs arg)
+        {
+            _bufferManager.FreeBuffer(arg);
+            _argsPool.Enqueue(arg);
+        }
 
         /// <summary>
         /// UDP获取usertoken

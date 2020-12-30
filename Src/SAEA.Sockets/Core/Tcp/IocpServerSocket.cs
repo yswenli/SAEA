@@ -436,8 +436,6 @@ namespace SAEA.Sockets.Core.Tcp
             return userToken.Socket.EndSend(result);
         }
 
-
-
         /// <summary>
         /// 回复并关闭连接
         /// 用于http
@@ -456,6 +454,16 @@ namespace SAEA.Sockets.Core.Tcp
 
                 Disconnect(userToken);
             }
+        }
+
+        /// <summary>
+        /// 发送数据
+        /// </summary>
+        /// <param name="ipEndPoint"></param>
+        /// <param name="data"></param>
+        public void SendAsync(IPEndPoint ipEndPoint, byte[] data)
+        {
+            SendAsync(ipEndPoint.ToString(), data);
         }
         #endregion
 

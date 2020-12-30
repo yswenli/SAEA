@@ -263,7 +263,7 @@ namespace SAEA.Sockets.Core.Udp
         /// <param name="data"></param>
         public void SendAsync(IUserToken userToken, byte[] data)
         {
-            if (data == null || !data.Any() || data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentException("SendAsync 参数异常");
+            if (data == null || !data.Any() || data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentException("SendAsync Incorrect length of data sent");
 
             userToken.WaitOne();
 
@@ -313,7 +313,7 @@ namespace SAEA.Sockets.Core.Udp
         {
             try
             {
-                if (data == null || !data.Any() || data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentException("SendAsync 参数异常");
+                if (data == null || !data.Any() || data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("SendAsync Incorrect length of data sent");
 
                 _sessionManager.Active(userToken.ID);
 
@@ -361,6 +361,7 @@ namespace SAEA.Sockets.Core.Udp
         /// <returns></returns>
         public IAsyncResult BeginSend(IUserToken userToken, byte[] data)
         {
+            if (data == null || !data.Any() || data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("BeginSend Incorrect length of data sent");
             try
             {
                 _sessionManager.Active(userToken.ID);
@@ -396,6 +397,8 @@ namespace SAEA.Sockets.Core.Udp
         /// <param name="data"></param>
         public void End(string sessionID, byte[] data)
         {
+            if (data == null || !data.Any() || data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("End Incorrect length of data sent");
+
             var userToken = _sessionManager.Get(sessionID);
 
             if (userToken != null && userToken.Socket != null)
@@ -405,6 +408,38 @@ namespace SAEA.Sockets.Core.Udp
                 Send(userToken, data);
 
                 Disconnect(userToken);
+            }
+        }
+
+        /// <summary>
+        /// 发送广播或者组播
+        /// </summary>
+        /// <param name="ipEndPoint"></param>
+        /// <param name="data"></param>
+        public void SendAsync(IPEndPoint ipEndPoint, byte[] data)
+        {
+            if (data == null || !data.Any() || data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentException("SendAsync Incorrect length of data sent");
+
+            var writeArgs = SessionManager.GetArg();
+
+            try
+            {
+                writeArgs.RemoteEndPoint = new IPEndPoint(ipEndPoint.Address, SocketOption.Port);
+
+                writeArgs.SetBuffer(data, 0, data.Length);
+
+                if (!_udpSocket.SendToAsync(writeArgs))
+                {
+                    ProcessSended(writeArgs);
+                }
+            }
+            catch (Exception ex)
+            {
+                OnError?.Invoke($"An exception occurs when a message is sending:{ipEndPoint.ToString()}", ex);
+            }
+            finally
+            {
+                SessionManager.SetArg(writeArgs);
             }
         }
         #endregion
@@ -434,7 +469,6 @@ namespace SAEA.Sockets.Core.Udp
                 if (ex == null) ex = new KernelException("The remote client has been closed.");
                 Interlocked.Decrement(ref _clientCounts);
                 OnDisconnected?.Invoke(userToken.ID, ex);
-                userToken = null;
             }
         }
 

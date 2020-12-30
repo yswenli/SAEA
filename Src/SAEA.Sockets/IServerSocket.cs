@@ -30,6 +30,7 @@
 
 using SAEA.Sockets.Handler;
 using System;
+using System.Net;
 
 namespace SAEA.Sockets
 {
@@ -101,6 +102,13 @@ namespace SAEA.Sockets
         /// <param name="sessionID"></param>
         /// <param name="data"></param>
         void End(string sessionID, byte[] data);
+
+        /// <summary>
+        /// 定向发送
+        /// </summary>
+        /// <param name="ipEndPoint"></param>
+        /// <param name="data"></param>
+        void SendAsync(IPEndPoint ipEndPoint, byte[] data);
 
         /// <summary>
         /// 停止
