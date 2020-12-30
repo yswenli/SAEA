@@ -6,8 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SAEA.Common\SAEA.Common.csproj" />
-    <ProjectReference Include="..\SAEA.Sockets\SAEA.Sockets.csproj" />
+    <PackageReference Include="SAEA.Sockets" Version="6.0.0.1" />
   </ItemGroup>
 
 </Project>

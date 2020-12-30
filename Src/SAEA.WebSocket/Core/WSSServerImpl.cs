@@ -31,7 +31,7 @@ namespace SAEA.WebSocket.Core
 {
     internal class WSSServerImpl : IWSServer
     {
-        IServerSokcet serverSokcet;
+        IServerSocket serverSokcet;
 
         int _bufferSize = 1024;
 

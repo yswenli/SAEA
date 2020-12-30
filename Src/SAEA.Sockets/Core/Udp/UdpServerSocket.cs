@@ -34,7 +34,7 @@ using System.Threading;
 
 namespace SAEA.Sockets.Core.Udp
 {
-    public class UdpServerSocket : IServerSokcet, IDisposable
+    public class UdpServerSocket : IServerSocket, IDisposable
     {
         const int SIO_UDP_CONNRESET = unchecked((int)0x9800000C);
 

@@ -45,7 +45,7 @@ namespace SAEA.Sockets.Core.Tcp
     /// <summary>
     /// 服务器 socket
     /// </summary>
-    public class StreamServerSocket : IServerSokcet, IDisposable
+    public class StreamServerSocket : IServerSocket, IDisposable
     {
         Socket _listener;
 

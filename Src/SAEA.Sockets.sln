@@ -53,7 +53,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAEA.DNS", "SAEA.DNS\SAEA.D
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAEA.DNSTest", "SAEA.DNSTest\SAEA.DNSTest.csproj", "{62C7969C-AEC9-4D00-8AD9-0492811784EF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAEA.Sockets.UdpTest", "SAEA.Sockets.UdpTest\SAEA.Sockets.UdpTest.csproj", "{C5734DFE-528A-4C27-8BEB-8D38B11C389E}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAEA.Sockets.UdpTest", "SAEA.Sockets.UdpTest\SAEA.Sockets.UdpTest.csproj", "{C5734DFE-528A-4C27-8BEB-8D38B11C389E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAEA.Sockets.TcpTest", "SAEA.Sockets.TcpTest\SAEA.Sockets.TcpTest.csproj", "{DA56CBE4-E29E-4C77-8128-67FAF384B37C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -165,6 +167,10 @@ Global
 		{C5734DFE-528A-4C27-8BEB-8D38B11C389E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C5734DFE-528A-4C27-8BEB-8D38B11C389E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C5734DFE-528A-4C27-8BEB-8D38B11C389E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DA56CBE4-E29E-4C77-8128-67FAF384B37C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DA56CBE4-E29E-4C77-8128-67FAF384B37C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DA56CBE4-E29E-4C77-8128-67FAF384B37C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DA56CBE4-E29E-4C77-8128-67FAF384B37C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

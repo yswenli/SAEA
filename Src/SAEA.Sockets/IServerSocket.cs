@@ -11,7 +11,7 @@
 *机器名称：WENLI-PC
 *公司名称：wenli
 *命名空间：SAEA.Sockets.Interface
-*文件名： IServerSokcet
+*文件名： IServerSocket
 *版本号： v6.0.0.1
 *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
 *当前的用户域：WENLI-PC
@@ -37,7 +37,7 @@ namespace SAEA.Sockets
     /// <summary>
     /// 服务器端
     /// </summary>
-    public interface IServerSokcet : IDisposable
+    public interface IServerSocket : IDisposable
     {
         /// <summary>
         /// 配置项

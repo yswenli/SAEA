@@ -35,7 +35,7 @@ namespace SAEA.RPC.Net
     /// </summary>
     internal class RServer
     {
-        IServerSokcet _server;
+        IServerSocket _server;
 
         /// <summary>
         /// 收到消息

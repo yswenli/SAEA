@@ -13,6 +13,8 @@ namespace SAEA.Sockets.UdpTest
 
         static BaseUnpacker _baseUnpacker;
 
+        static object _locker = new object();
+
         static void Main(string[] args)
         {
             Console.Title = "SAEA.Sockets.UdpTest";
@@ -68,7 +70,11 @@ namespace SAEA.Sockets.UdpTest
             var userToken = (IUserToken)currentSession;
             userToken.Unpacker.Unpack(data, (msg) =>
             {
-                Console.WriteLine($"udp服务器收到消息：{Encoding.UTF8.GetString(msg.Content)}");
+                lock (_locker)
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkGreen;
+                    Console.WriteLine($"udp服务器收到消息：{Encoding.UTF8.GetString(msg.Content)}");
+                }
 
                 var msg2 = BaseSocketProtocal.Parse(Encoding.UTF8.GetBytes("hello udpclient"), Model.SocketProtocalType.ChatMessage);
 
@@ -83,11 +89,13 @@ namespace SAEA.Sockets.UdpTest
 
         private static void UdpServer_OnDisconnected(string ID, Exception ex)
         {
+            Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"UdpServer_OnDisconnected:{ID}");
         }
 
         private static void UdpServer_OnAccepted(object obj)
         {
+            Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"UdpServer_OnAccepted:{((IUserToken)obj).ID}");
         }
 
@@ -100,7 +108,11 @@ namespace SAEA.Sockets.UdpTest
         {
             _baseUnpacker.Unpack(data, (msg) =>
             {
-                Console.WriteLine($"udp客户端收到消息：{Encoding.UTF8.GetString(msg.Content)}");
+                lock (_locker)
+                {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine($"udp客户端收到消息：{Encoding.UTF8.GetString(msg.Content)}");
+                }
             });
         }
 

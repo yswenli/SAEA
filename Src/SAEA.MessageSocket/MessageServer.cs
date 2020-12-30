@@ -42,7 +42,7 @@ namespace SAEA.MessageSocket
     public class MessageServer
     {
 
-        IServerSokcet _server;
+        IServerSocket _server;
 
         ChannelList _channelList = new ChannelList();
 

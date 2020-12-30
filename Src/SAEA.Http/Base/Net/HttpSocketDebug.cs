@@ -25,7 +25,7 @@ namespace SAEA.Http.Base.Net
 {
     class HttpSocketDebug : IHttpSocket
     {
-        IServerSokcet _serverSokcet;
+        IServerSocket _serverSokcet;
 
         ISocketOption _option;
 

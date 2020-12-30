@@ -47,7 +47,7 @@ namespace SAEA.Sockets
         /// <param name="socketOption"></param>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
-        public static IServerSokcet CreateServerSocket(ISocketOption socketOption, CancellationToken cancellationToken)
+        public static IServerSocket CreateServerSocket(ISocketOption socketOption, CancellationToken cancellationToken)
         {
             if (socketOption.SocketType == SAEASocketType.Tcp)
             {
@@ -78,7 +78,7 @@ namespace SAEA.Sockets
         /// </summary>
         /// <param name="socketOption"></param>
         /// <returns></returns>
-        public static IServerSokcet CreateServerSocket(ISocketOption socketOption)
+        public static IServerSocket CreateServerSocket(ISocketOption socketOption)
         {
             if (socketOption.SocketType == SAEASocketType.Tcp)
             {

@@ -28,7 +28,7 @@ namespace SAEA.FTP.Core
     {
         AutoResetEvent _autoResetEvent;
 
-        IServerSokcet _dataSocket;
+        IServerSocket _dataSocket;
 
         string _userName = string.Empty;
 

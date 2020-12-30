@@ -27,7 +27,7 @@ namespace SAEA.FTP.Net
 {
     class ServerSocket : IDisposable
     {
-        IServerSokcet _serverSocket;
+        IServerSocket _serverSocket;
 
         ServerConfig _serverConfig;
 

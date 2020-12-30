@@ -30,7 +30,7 @@ namespace SAEA.Http.Base.Net
 {
     class HttpSocket : IHttpSocket
     {
-        IServerSokcet _serverSokcet;
+        IServerSocket _serverSokcet;
 
         ISocketOption _option;
 

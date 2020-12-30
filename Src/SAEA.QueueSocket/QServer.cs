@@ -40,7 +40,7 @@ namespace SAEA.QueueSocket
     {
         Exchange _exchange;
 
-        IServerSokcet _serverSokcet;
+        IServerSocket _serverSokcet;
 
         public event OnDisconnectedHandler OnDisconnected;
 

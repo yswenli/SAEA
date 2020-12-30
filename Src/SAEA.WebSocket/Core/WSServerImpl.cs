@@ -29,7 +29,7 @@ namespace SAEA.WebSocket.Core
     /// </summary>
     internal class WSServerImpl : IWSServer
     {
-        IServerSokcet _server;
+        IServerSocket _server;
 
         public event Action<string> OnConnected;
 

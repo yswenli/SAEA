@@ -44,7 +44,7 @@ namespace SAEA.Sockets.Core.Tcp
     /// iocp 服务器 socket
     /// 支持使用自定义 IContext 来扩展
     /// </summary>
-    public class IocpServerSocket : IServerSokcet, IDisposable
+    public class IocpServerSocket : IServerSocket, IDisposable
     {
         Socket _listener = null;
 

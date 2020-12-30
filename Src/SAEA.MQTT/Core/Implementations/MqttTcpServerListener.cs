@@ -34,7 +34,7 @@ namespace SAEA.MQTT.Core.Implementations
     {
         ISocketOption socketOption;
 
-        IServerSokcet serverSokcet;
+        IServerSocket serverSokcet;
 
         AddressFamily _addressFamily;
 
