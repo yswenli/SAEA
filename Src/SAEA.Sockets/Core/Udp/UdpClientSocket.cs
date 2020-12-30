@@ -86,7 +86,7 @@ namespace SAEA.Sockets.Core.Udp
             _userTokenFactory = new UserTokenFactory();
 
             _udpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-            _udpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, _socketOption.ReusePort);            
+            _udpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, _socketOption.ReusePort);
             _udpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, _socketOption.Broadcasted);
 
             //设置多播
@@ -165,7 +165,10 @@ namespace SAEA.Sockets.Core.Udp
             if (e.LastOperation == SocketAsyncOperation.Connect)
                 ProcessConnected(e);
             else
-                throw new Exception(e.LastOperation.ToString());
+            {
+                OnError?.Invoke("", new Exception($"connection failed： {e.LastOperation}"));
+            }
+
         }
 
         void ProcessConnected(SocketAsyncEventArgs e)

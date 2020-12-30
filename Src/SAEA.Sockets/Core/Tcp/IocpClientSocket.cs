@@ -186,7 +186,12 @@ namespace SAEA.Sockets.Core.Tcp
 
         void ConnectArgs_Completed(object sender, SocketAsyncEventArgs e)
         {
-            ProcessConnected(e);
+            if (e.LastOperation == SocketAsyncOperation.Connect)
+                ProcessConnected(e);
+            else
+            {
+                OnError?.Invoke("", new Exception($"connection failed： {e.LastOperation}"));
+            }
         }
 
         void ProcessConnected(SocketAsyncEventArgs e)
