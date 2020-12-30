@@ -18,7 +18,6 @@ namespace SAEA.Sockets.TcpTest
             Console.Title = "SAEA.Sockets.TcpTest JT808";
 
             //tcpserver
-
             _serverSokcet = SocketFactory.CreateServerSocket(SocketOptionBuilder.Instance
                 .SetSocket(Model.SAEASocketType.Tcp)
                 .SetPort(39808)
