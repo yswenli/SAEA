@@ -51,6 +51,24 @@ namespace SAEA.Common.Threading
         {
             return Task.Factory.StartNew(action, TaskCreationOptions.LongRunning);
         }
+        /// <summary>
+        /// LongRunning
+        /// </summary>
+        /// <param name="action"></param>
+        /// <param name="priod">间隔时长</param>
+        /// <returns></returns>
+        public static Task LongRunning(Action action, int priod)
+        {
+            return Task.Factory.StartNew(() =>
+            {
+                while (true)
+                {
+                    action?.Invoke();
+
+                    Thread.Sleep(priod);
+                }
+            }, TaskCreationOptions.LongRunning);
+        }
 
         /// <summary>
         /// 指定超时任务
