@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <Version>6.0.0.1</Version>
+    <Version>6.0.0.2</Version>
     <Authors>yswenli</Authors>
     <Company>yswenli</Company>
     <Description>SAEA. Common is a tool class project in the SAEA project
@@ -25,9 +25,9 @@ SAEA.Common 是SAEA项目中的工具类项目</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="protobuf-net" Version="3.0.29" />
+    <PackageReference Include="protobuf-net" Version="3.0.73" />
     <PackageReference Include="System.Memory" Version="4.5.4" />
-    <PackageReference Include="System.Security.Permissions" Version="4.7.0" />
+    <PackageReference Include="System.Security.Permissions" Version="5.0.0" />
   </ItemGroup>
 
   <ItemGroup>
