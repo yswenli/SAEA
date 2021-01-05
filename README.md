@@ -26,7 +26,7 @@ QQ群：788260487
 
 引用组件，可以在nuget中搜索saea，或者直接输入命令 
 ```
-Install-Package SAEA.Sockets -Version 6.0.0.1
+Install-Package SAEA.Sockets -Version 6.0.0.2
 ```
 nuget url: https://www.nuget.org/packages?q=saea
 
