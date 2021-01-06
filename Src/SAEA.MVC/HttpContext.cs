@@ -120,7 +120,7 @@ namespace SAEA.MVC
                 }
             }
 
-            if (result != null && !(result is IBigDataResult))
+            if (result != null && !(result is IBigDataResult || result is IEventStream))
             {
                 Response.SetCached(result, this.Session.CacheCalcString);
 

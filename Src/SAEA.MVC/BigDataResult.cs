@@ -82,9 +82,8 @@ namespace SAEA.MVC
         /// 大数据结果
         /// </summary>
         /// <param name="filePath"></param>
-        /// <param name="contentType"></param>
         /// <param name="status"></param>
-        public BigDataResult(string filePath, string contentType = "", HttpStatusCode status = HttpStatusCode.OK) : this(File.OpenRead(filePath), HttpMIME.GetType(filePath), status)
+        public BigDataResult(string filePath, HttpStatusCode status = HttpStatusCode.OK) : this(File.OpenRead(filePath), HttpMIME.GetType(filePath), status)
         {
 
         }

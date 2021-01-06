@@ -24,6 +24,7 @@
 
 using SAEA.Common.IO;
 using SAEA.Common.Serialization;
+using System.Text;
 
 namespace SAEA.MVC
 {
@@ -66,6 +67,28 @@ namespace SAEA.MVC
                 return new ContentResult($"o_o，找不到文件", System.Net.HttpStatusCode.NotFound);
         }
 
+        /// <summary>
+        /// 大数据
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <returns></returns>
+        protected ActionResult BigData(string filePath)
+        {
+            if (FileHelper.Exists(filePath))
+
+                return new BigDataResult(filePath);
+            else
+                return new ContentResult($"o_o，找不到文件", System.Net.HttpStatusCode.NotFound);
+        }
+
+        /// <summary>
+        /// 服务器发送事件(Server-Sent Events)
+        /// </summary>
+        /// <returns></returns>
+        protected EventStream GetEventStream()
+        {
+            return new EventStream();
+        }
 
         /// <summary>
         /// 空结果

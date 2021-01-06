@@ -85,13 +85,17 @@ namespace SAEA.Http
         /// <summary>
         /// 构建响应头部
         /// </summary>
+        /// <param name="close"></param>
         /// <returns></returns>
-        protected string BuildHeader()
+        protected string BuildHeader(bool close = true)
         {
             StringBuilder builder = new StringBuilder();
             builder.AppendLine($"{this.Protocal} {Status.ToNVString()}");
             builder.AppendLine(ConstHelper.ServerName);
-            builder.AppendLine("Connection: close");
+            if (close)
+                builder.AppendLine("Connection: close");
+            else
+                builder.AppendLine("Connection: keep-alive");
             builder.AppendLine("Date: " + DateTimeHelper.Now.ToGMTString());
 
             if (_isZiped)
@@ -150,6 +154,10 @@ namespace SAEA.Http
                         return;
                     }
                 }
+            }
+            else
+            {
+                this.SetHeader(ResponseHeaderType.CacheControl, "no-cache");
             }
 
             #endregion
@@ -227,7 +235,7 @@ namespace SAEA.Http
             SetContent(data, encoding);
         }
 
-        #region 针对类似大文件场景分开处理
+        #region 针对类似大文件、事件流场景分开处理
 
         /// <summary>
         /// 仅发送头，
@@ -243,9 +251,10 @@ namespace SAEA.Http
 
             byte[] lineBytes = encoding.GetBytes(System.Environment.NewLine);
 
-            this.SetHeader(ResponseHeaderType.ContentLength, bodyLen.ToString());
+            if (bodyLen > 0)
+                this.SetHeader(ResponseHeaderType.ContentLength, bodyLen.ToString());
 
-            var header = BuildHeader();
+            var header = BuildHeader(false);
 
             byte[] headerBytes = encoding.GetBytes(header);
 

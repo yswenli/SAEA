@@ -97,7 +97,7 @@ namespace SAEA.Http.Base
         {
             get
             {
-                var key = ResponseHeaderType.ContentType.GetDescription().ToLower();
+                var key = ResponseHeaderType.ContentType.GetDescription();
                 if (!this.Headers.ContainsKey(key))
                 {
                     return ConstHelper.JSONCONTENTTYPE;
@@ -112,7 +112,7 @@ namespace SAEA.Http.Base
             }
             set
             {
-                var key = ResponseHeaderType.ContentType.GetDescription().ToLower();
+                var key = ResponseHeaderType.ContentType.GetDescription();
                 if (!this.Headers.ContainsKey(key))
                 {
                     this.Headers.Add(key, value);
@@ -144,21 +144,21 @@ namespace SAEA.Http.Base
 
         protected string GetHeader(Enum header)
         {
-            var fieldName = header.GetDescription().ToLower();
+            var fieldName = header.GetDescription();
             if (fieldName == null) return null;
             return Headers[fieldName];
         }
 
         protected void SetHeader(Enum header, string value)
         {
-            var fieldName = header.GetDescription().ToLower();
+            var fieldName = header.GetDescription();
             if (fieldName == null) return;
             Headers[fieldName] = value;
         }
 
         protected void RemoveHeader(Enum header, string value)
         {
-            var fieldName = header.GetDescription().ToLower();
+            var fieldName = header.GetDescription();
             if (fieldName == null) return;
             var hasKey = Headers.ContainsKey(fieldName);
             if (hasKey) Headers.Remove(fieldName);

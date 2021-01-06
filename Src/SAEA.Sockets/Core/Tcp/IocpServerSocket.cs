@@ -363,6 +363,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="data"></param>
         public void Send(IUserToken userToken, byte[] data)
         {
+            KernelException kex = null;
             try
             {
                 _sessionManager.Active(userToken.ID);
@@ -383,8 +384,12 @@ namespace SAEA.Sockets.Core.Tcp
             }
             catch (Exception ex)
             {
-                var kex = new KernelException("An exception occurs when a message is sending:" + ex.Message, ex);
+                kex = new KernelException("An exception occurs when a message is sending:" + ex.Message, ex);
+            }
+            if (kex != null)
+            {
                 Disconnect(userToken, kex);
+                throw kex;
             }
         }
 
