@@ -73,7 +73,7 @@ namespace SAEA.MVCTest
         /// </summary>
         static void TestCodeGenerate2()
         {
-            ConsoleHelper.WriteLine("回车测试sdk");
+            ConsoleHelper.WriteLine("回车测试sdk生成及功能测试");
             ConsoleHelper.ReadLine();
 
             var sdk = new MVC.Tool.CodeGenerte.SaeaApiSdk("http://127.0.0.1:28080/");
