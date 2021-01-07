@@ -19,7 +19,6 @@ using SAEA.Common;
 using SAEA.Common.Serialization;
 using SAEA.Common.Threading;
 using SAEA.Http.Model;
-using System;
 using System.Net;
 using System.Text;
 
@@ -31,28 +30,46 @@ namespace SAEA.MVC
     public class EventStream : ActionResult, IEventStream
     {
         /// <summary>
+        /// 最后一次接收到的事件的标识符
+        /// </summary>
+        public int LastEventID
+        {
+            get;
+            private set;
+        }
+
+        /// <summary>
         /// SSE服务器事件流
         /// </summary>
         /// <param name="retry">指定浏览器重新发起连接的时间间隔</param>
         public EventStream(int retry = 3 * 1000)
         {
             this.ContentEncoding = Encoding.UTF8;
-            this.ContentType = "text/event-stream; charset=utf-8";
-            this.Status = HttpStatusCode.OK;
+
+            if (HttpContext.Current.Request.Headers.ContainsKey("Last-Event-ID"))
+            {
+                if (int.TryParse(HttpContext.Current.Request.Headers["Last-Event-ID"], out int id))
+                {
+                    LastEventID = id;
+                }
+            }
+
             HttpContext.Current.Response.ContentType = "text/event-stream; charset=utf-8";
             HttpContext.Current.Response.SetHeader(ResponseHeaderType.CacheControl, "no-cache");
             HttpContext.Current.Response.SetHeader(ResponseHeaderType.KeepAlive, "timeout=5");
             HttpContext.Current.Response.Status = HttpStatusCode.OK;
             HttpContext.Current.Response.SendHeader(-1);
 
-            ServerSent(Encoding.UTF8.GetBytes($"retry: {retry}\n\n"));
-
+            //心跳
             var pong = $"SAEAServer PONG {DateTimeHelper.Now:yyyy:MM:dd HH:mm:ss.fff}";
-
+            
             TaskHelper.LongRunning(() =>
             {
                 ServerSent(Encoding.UTF8.GetBytes($": {SerializeHelper.Serialize(pong)}\n\n"));
             }, 1000);
+
+            //断开重连时长
+            ServerSent(Encoding.UTF8.GetBytes($"retry: {retry}\n\n"));
         }
         /// <summary>
         /// 发送通知
