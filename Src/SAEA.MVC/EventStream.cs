@@ -33,7 +33,8 @@ namespace SAEA.MVC
         /// <summary>
         /// SSE服务器事件流
         /// </summary>
-        public EventStream()
+        /// <param name="retry">指定浏览器重新发起连接的时间间隔</param>
+        public EventStream(int retry = 3 * 1000)
         {
             this.ContentEncoding = Encoding.UTF8;
             this.ContentType = "text/event-stream; charset=utf-8";
@@ -43,6 +44,8 @@ namespace SAEA.MVC
             HttpContext.Current.Response.SetHeader(ResponseHeaderType.KeepAlive, "timeout=5");
             HttpContext.Current.Response.Status = HttpStatusCode.OK;
             HttpContext.Current.Response.SendHeader(-1);
+
+            ServerSent(Encoding.UTF8.GetBytes($"retry: {retry}\n\n"));
 
             var pong = $"SAEAServer PONG {DateTimeHelper.Now:yyyy:MM:dd HH:mm:ss.fff}";
 
