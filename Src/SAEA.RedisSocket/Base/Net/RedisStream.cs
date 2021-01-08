@@ -16,13 +16,13 @@
 *描    述：
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.Common.Threading;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace SAEA.RedisSocket.Base.Net
 {
@@ -44,8 +44,7 @@ namespace SAEA.RedisSocket.Base.Net
         /// </summary>
         public RedisStream()
         {
-
-            Task.Factory.StartNew(() =>
+            TaskHelper.LongRunning(() =>
             {
                 while (!_isdiposed)
                 {
@@ -83,7 +82,7 @@ namespace SAEA.RedisSocket.Base.Net
                         Thread.Sleep(1);
                     }
                 }
-            }, TaskCreationOptions.LongRunning);
+            });
         }
 
         /// <summary>

@@ -201,5 +201,24 @@ namespace SAEA.RedisSocket.Model
 
         CLIENT_LIST,
 
+        /// <summary>
+        /// 用于向 stream 添加消息，如果指定的 stream 不存在，则创建一个 stream
+        /// </summary>
+        XADD,
+        /// <summary>
+        /// 管理流数据结构关联的消费者组
+        /// </summary>
+        XGROUP,
+
+        /// <summary>
+        /// 从一个或多个流中读取数据，只返回ID大于调用者报告的上一个接收ID的条目。
+        /// </summary>
+        XREAD,
+        /// <summary>
+        /// 从一个或多个流中读取数据，只返回ID大于调用者报告的上一个接收ID的条目。
+        /// </summary>
+        XREADGROUP
+
+
     }
 }

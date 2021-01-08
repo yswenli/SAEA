@@ -27,6 +27,7 @@ namespace SAEA.MVCTest.Controllers
     public class AuthenticationController : Controller
     {
         [Log2Atrribute]
+        [Auth]
         public ActionResult GetList()
         {
             var list = new List<UserInfo>();
