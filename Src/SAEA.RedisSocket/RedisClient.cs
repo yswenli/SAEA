@@ -23,6 +23,7 @@
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.RedisSocket.Core;
+using SAEA.RedisSocket.Core.Stream;
 using SAEA.RedisSocket.Model;
 using System;
 using System.Collections.Generic;
@@ -343,6 +344,26 @@ namespace SAEA.RedisSocket
                 return _redisDataBase;
             }
         }
+
+        #region redis stream
+
+        RedisProducer _redisProducer = null;
+
+        public RedisProducer GetRedisProducer()
+        {
+            if (_redisProducer == null)
+            {
+                _redisProducer = new RedisProducer(_cnn);
+            }
+            return _redisProducer;
+        }
+
+        public RedisConsumer GetRedisConsumer(IEnumerable<TopicID> topicIDs, int count = 1, bool blocked = false, int timeout = 1000)
+        {
+            return new RedisConsumer(_cnn, topic, redisIDs, count, asc);
+        }
+
+        #endregion
 
         /// <summary>
         /// 获取服务器配置

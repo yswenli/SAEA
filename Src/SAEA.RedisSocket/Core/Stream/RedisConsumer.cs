@@ -41,7 +41,11 @@ namespace SAEA.RedisSocket.Core.Stream
         /// redisconsumer
         /// </summary>
         /// <param name="redisConnection"></param>
-        internal RedisConsumer(RedisConnection redisConnection,string topic,int count=1,IEnumerable<RedisID> redisIDs, bool asc=true)
+        /// <param name="topicIDs"></param>
+        /// <param name="count"></param>
+        /// <param name="blocked"></param>
+        /// <param name="timeout"></param>
+        internal RedisConsumer(RedisConnection redisConnection, IEnumerable<TopicID> topicIDs, int count = 1, bool blocked = false, int timeout = 1000)
         {
 
         }

@@ -141,10 +141,9 @@ namespace SAEA.RedisSocket.Core.Stream
         /// </summary>
         /// <param name="topic"></param>
         /// <param name="group"></param>
-        /// <param name="consumerName"></param>
         /// <param name="asc"></param>
         /// <returns></returns>
-        public bool CreateGroup(string topic, string group, string consumerName, bool asc = true)
+        public bool CreateGroup(string topic, string group, bool asc = true)
         {
             List<string> @params = new List<string>();
             @params.Add("CREATE");
