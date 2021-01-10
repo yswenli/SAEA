@@ -43,12 +43,12 @@ namespace SAEA.RedisSocket.Core.Stream
         string _groupName = string.Empty;
         string _consumerName = string.Empty;
         string _topicName = string.Empty;
+        bool _asc = true;
 
         //
         bool _inited = false;
-        //
 
-        Func<IEnumerable<RedisField>> _streamDataHandler;
+        Func<IEnumerable<RedisField>> _streamDataBlockedHandler;
 
 
         /// <summary>
@@ -77,7 +77,10 @@ namespace SAEA.RedisSocket.Core.Stream
             _blocked = blocked;
             _timeout = timeout;
 
-            _streamDataHandler = new Func<IEnumerable<RedisField>>(() => _redisQueue.Subscribe(topicIDs, count, blocked, timeout));
+            if (blocked)
+            {
+                _streamDataBlockedHandler = new Func<IEnumerable<RedisField>>(Subscribe);
+            }
         }
 
         /// <summary>
@@ -101,16 +104,10 @@ namespace SAEA.RedisSocket.Core.Stream
             _count = count;
             _blocked = blocked;
             _timeout = timeout;
+            _asc = asc;
 
-            _streamDataHandler = new Func<IEnumerable<RedisField>>(() =>
-            {
-                if (!_inited)
-                {
-                    _redisQueue.CreateGroup(_topicName, _groupName, _consumerName, asc);
-                    _inited = true;
-                }
-                return _redisQueue.Subscribe(_groupName, _consumerName, _topicName, _count, _blocked, _timeout);
-            });
+            if (blocked)
+                _streamDataBlockedHandler = new Func<IEnumerable<RedisField>>(SubscribeWithGroup);
         }
 
         /// <summary>
@@ -126,14 +123,36 @@ namespace SAEA.RedisSocket.Core.Stream
                 {
                     try
                     {
-                        OnReceive.Invoke(_streamDataHandler.Invoke());
+                        OnReceive.Invoke(_streamDataBlockedHandler.Invoke());
                     }
-                    catch(Exception ex)
+                    catch (Exception ex)
                     {
                         OnError?.Invoke(ex);
                     }
                 }
             }
+        }
+        /// <summary>
+        /// Subscribe
+        /// </summary>
+        /// <returns></returns>
+        public IEnumerable<RedisField> Subscribe()
+        {
+            return _redisQueue.Subscribe(_topicIDs, _count, _blocked, _timeout);
+        }
+
+        /// <summary>
+        /// SubscribeWithGroup
+        /// </summary>
+        /// <returns></returns>
+        public IEnumerable<RedisField> SubscribeWithGroup()
+        {
+            if (!_inited)
+            {
+                _redisQueue.CreateGroup(_topicName, _groupName, _consumerName, _asc);
+                _inited = true;
+            }
+            return _redisQueue.Subscribe(_groupName, _consumerName, _topicName, _count, _blocked, _timeout);
         }
 
         /// <summary>

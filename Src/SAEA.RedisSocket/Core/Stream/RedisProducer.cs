@@ -52,6 +52,18 @@ namespace SAEA.RedisSocket.Core.Stream
             return _redisQueue.Publish(topic, fields, id, maxLen);
         }
 
+        /// <summary>
+        /// 发布数据
+        /// </summary>
+        /// <param name="topic"></param>        
+        /// <param name="value"></param>
+        /// <param name="filed"></param>
+        /// <returns></returns>
+        public RedisID Publish(string topic, string value, string filed = "saea.redissocket")
+        {
+            return _redisQueue.Publish(topic, new RedisField[] { new RedisField(filed, value) });
+        }
+
         //
     }
 }

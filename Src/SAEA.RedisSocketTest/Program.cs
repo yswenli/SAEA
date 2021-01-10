@@ -22,8 +22,10 @@
 *
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.Common.Threading;
 using SAEA.RedisSocket;
 using SAEA.RedisSocket.Core;
+using SAEA.RedisSocket.Core.Stream;
 using SAEA.RedisSocket.Model;
 using System;
 using System.Collections.Generic;
@@ -51,6 +53,22 @@ namespace SAEA.RedisSocketTest
             redisClient.Connect();
 
             var info = redisClient.Info();
+
+            #region RedisStream
+
+            var topic = "mystream";
+
+            var producer = redisClient.GetRedisProducer();
+
+            TaskHelper.LongRunning(() =>
+            {
+                producer.Publish(topic, $"date:{DateTimeHelper.Now:yyyy-MM-dd HH:mm:ss.fff}");
+            }, 1000);
+
+            var consumer = redisClient.GetRedisConsumer(new List<TopicID>() { new TopicID(topic, "$") });
+            var redisFilelds = consumer.Subscribe();
+
+            #endregion
 
             #region 异步测试
 
@@ -440,7 +458,7 @@ namespace SAEA.RedisSocketTest
                 batch.DelAsync(i.ToString());
             }
 
-             _= batch.Execute().ToList();
+            _ = batch.Execute().ToList();
 
             for (int i = 0; i < count; i++)
             {
