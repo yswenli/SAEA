@@ -356,11 +356,17 @@ namespace SAEA.RedisSocket
                 _redisProducer = new RedisProducer(_cnn);
             }
             return _redisProducer;
-        }
+
+
 
         public RedisConsumer GetRedisConsumer(IEnumerable<TopicID> topicIDs, int count = 1, bool blocked = false, int timeout = 1000)
         {
-            return new RedisConsumer(_cnn, topic, redisIDs, count, asc);
+            return new RedisConsumer(_cnn, topicIDs, count, blocked, timeout);
+        }
+
+        public RedisConsumer GetRedisConsumer(string groupName, string consumerName, string topicName, int count = 1, bool blocked = false, int timeout = 1000, bool asc = true)
+        {
+            return new RedisConsumer(_cnn, groupName, consumerName, topicName, count, blocked, timeout);
         }
 
         #endregion

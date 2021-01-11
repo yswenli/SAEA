@@ -31,11 +31,34 @@ namespace SAEA.RedisSocket.Core.Stream
     {
         bool _started = false;
 
+        RedisQueue _redisQueue;
+
+        IEnumerable<TopicID> _topicIDs;
+        int _count = 1;
+        bool _blocked = false;
+        int _timeout = 1000;
+
+        //
+
+        string _groupName = string.Empty;
+        string _consumerName = string.Empty;
+        string _topicName = string.Empty;
+        bool _asc = true;
+
+        //
+        bool _inited = false;
+
+        Func<IEnumerable<RedisField>> _streamDataBlockedHandler;
+
 
         /// <summary>
-        /// 连接包装类
+        /// 接收到数据
         /// </summary>
-        internal RedisConnection RedisConnection { get; private set; }
+        public event Action<IEnumerable<RedisField>> OnReceive;
+        /// <summary>
+        /// 异常
+        /// </summary>
+        public event Action<Exception> OnError;
 
         /// <summary>
         /// redisconsumer
@@ -47,7 +70,40 @@ namespace SAEA.RedisSocket.Core.Stream
         /// <param name="timeout"></param>
         internal RedisConsumer(RedisConnection redisConnection, IEnumerable<TopicID> topicIDs, int count = 1, bool blocked = false, int timeout = 1000)
         {
+            _redisQueue = new RedisQueue(redisConnection);
 
+            _topicIDs = topicIDs;
+            _count = count;
+            _blocked = blocked;
+            _timeout = timeout;
+
+            if (blocked)
+            {
+                _streamDataBlockedHandler = new Func<IEnumerable<RedisField>>(Subscribe);
+            }
+        }
+
+        /// <param name="groupName"></param>
+        /// <param name="consumerName"></param>
+        /// <param name="topicName"></param>
+        /// <param name="count"></param>
+        /// <param name="blocked"></param>
+        /// <param name="timeout"></param>
+        /// <param name="asc"></param>
+        internal RedisConsumer(RedisConnection redisConnection, string groupName, string consumerName, string topicName, int count = 1, bool blocked = false, int timeout = 1000, bool asc = true)
+        {
+            _redisQueue = new RedisQueue(redisConnection);
+
+            _groupName = groupName;
+            _consumerName = consumerName;
+            _topicName = topicName;
+            _count = count;
+            _blocked = blocked;
+            _timeout = timeout;
+            _asc = asc;
+
+            if (blocked)
+                _streamDataBlockedHandler = new Func<IEnumerable<RedisField>>(SubscribeWithGroup);
         }
 
         /// <summary>
@@ -61,9 +117,38 @@ namespace SAEA.RedisSocket.Core.Stream
 
                 while (_started)
                 {
-
+                    try
+                    {
+                        OnReceive.Invoke(_streamDataBlockedHandler.Invoke());
+                    }
+                    catch (Exception ex)
+                    {
+                        OnError?.Invoke(ex);
+                    }
                 }
             }
+        }
+        /// <summary>
+        /// Subscribe
+        /// </summary>
+        /// <returns></returns>
+        public IEnumerable<RedisField> Subscribe()
+        {
+            return _redisQueue.Subscribe(_topicIDs, _count, _blocked, _timeout);
+        }
+
+        /// <summary>
+        /// SubscribeWithGroup
+        /// </summary>
+        /// <returns></returns>
+        public IEnumerable<RedisField> SubscribeWithGroup()
+        {
+            if (!_inited)
+            {
+                _redisQueue.CreateGroup(_topicName, _groupName, _consumerName, _asc);
+                _inited = true;
+            }
+            return _redisQueue.Subscribe(_groupName, _consumerName, _topicName, _count, _blocked, _timeout);
         }
 
         /// <summary>

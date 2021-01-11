@@ -27,10 +27,8 @@ namespace SAEA.RedisSocket.Core.Stream
     /// </summary>
     public class RedisProducer
     {
-        /// <summary>
-        /// 连接包装类
-        /// </summary>
-        internal RedisConnection RedisConnection { get; private set; }
+
+        RedisQueue _redisQueue;
 
         /// <summary>
         /// RedisProducer
@@ -38,10 +36,33 @@ namespace SAEA.RedisSocket.Core.Stream
         /// <param name="redisConnection"></param>
         internal RedisProducer(RedisConnection redisConnection)
         {
-            RedisConnection = redisConnection;
+            _redisQueue = new RedisQueue(redisConnection);
         }
 
-        
+        /// <summary>
+        /// 发布数据
+        /// </summary>
+        /// <param name="topic"></param>
+        /// <param name="fields"></param>
+        /// <param name="id"></param>
+        /// <param name="maxLen"></param>
+        /// <returns></returns>
+        public RedisID Publish(string topic, IEnumerable<RedisField> fields, string id = "*", int maxLen = -1)
+        {
+            return _redisQueue.Publish(topic, fields, id, maxLen);
+        }
+
+        /// <summary>
+        /// 发布数据
+        /// </summary>
+        /// <param name="topic"></param>        
+        /// <param name="value"></param>
+        /// <param name="filed"></param>
+        /// <returns></returns>
+        public RedisID Publish(string topic, string value, string filed = "saea.redissocket")
+        {
+            return _redisQueue.Publish(topic, new RedisField[] { new RedisField(filed, value) });
+        }
 
         //
     }
