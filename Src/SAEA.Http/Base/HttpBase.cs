@@ -98,16 +98,9 @@ namespace SAEA.Http.Base
             get
             {
                 var key = ResponseHeaderType.ContentType.GetDescription();
-                if (!this.Headers.ContainsKey(key))
-                {
-                    return ConstHelper.JSONCONTENTTYPE;
-                }
-                var type = this.Headers[key];
 
-                if (type.IndexOf(";") > 0)
-                {
-                    type = Regex.Split(type, ";")[0];
-                }
+                Headers.TryGetValue(key, out string type);
+                
                 return type;
             }
             set

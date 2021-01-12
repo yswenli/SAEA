@@ -30,6 +30,8 @@ namespace SAEA.Http.Base.Net
     {
         event Action<IUserToken, HttpMessage> OnRequested;
 
+        event Action<Exception> OnError;
+
         void Disconnecte(IUserToken userToken);
         void End(IUserToken userToken, byte[] data);
         void Send(IUserToken userToken, byte[] data);

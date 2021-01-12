@@ -24,7 +24,7 @@ namespace SAEA.MVC.Tool.CodeGenerte
 //此代码为SAEA.MVC.APISdkCodeGenerator于[[DateTime]]生成，请尽量不要修改
 //
 function SaeaApiSdk(url) {    
-    var url=url;
+    this.url=url;
     var request = function (opt) {
         opt = opt || {};
         opt.method = !!opt.method === false ? 'POST' : opt.method.toUpperCase();

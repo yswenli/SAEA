@@ -23,10 +23,12 @@
 *****************************************************************************/
 using SAEA.Common.Serialization;
 using System.Net;
+using System.Runtime.Serialization;
 using System.Text;
 
 namespace SAEA.MVC
 {
+    [DataContract]
     public class JsonResult : ActionResult
     {
         public JsonResult(object model, bool expended = false) : this(SerializeHelper.Serialize(model, expended))

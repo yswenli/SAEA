@@ -22,10 +22,12 @@
 *
 *****************************************************************************/
 using System.Net;
+using System.Runtime.Serialization;
 using System.Text;
 
 namespace SAEA.MVC
 {
+    [DataContract]
     public class ContentResult : ActionResult
     {
         public ContentResult(string str) : this(str, Encoding.UTF8)

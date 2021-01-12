@@ -19,7 +19,6 @@ using SAEA.RedisSocket.Model;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace SAEA.RedisSocket.Core.Stream
 {
@@ -82,7 +81,7 @@ namespace SAEA.RedisSocket.Core.Stream
             {
                 throw new Exception(responseData.Data);
             }
-            return RedisID.Parse(responseData.Data.Trim());
+            return new RedisID(responseData.Data.Trim());
         }
 
         /// <summary>
@@ -96,7 +95,7 @@ namespace SAEA.RedisSocket.Core.Stream
         /// <param name="blocked"></param>
         /// <param name="timeout"></param>
         /// <returns></returns>
-        public IEnumerable<RedisField> Subscribe(IEnumerable<TopicID> topicIDs, int count = 1, bool blocked = false, int timeout = 1000)
+        public IEnumerable<StreamEntry> Subscribe(IEnumerable<TopicID> topicIDs, int count = 1, bool blocked = false, int timeout = 1000)
         {
             List<string> @params = new List<string>();
 
@@ -126,12 +125,16 @@ namespace SAEA.RedisSocket.Core.Stream
                 @params.Add(redisID);
             }
 
-            var responseData = RedisConnection.DoWithMutiParams(RequestType.XREAD, @params.ToArray());
+            var responseData = RedisConnection.DoStreamSub(RequestType.XREAD, @params.ToArray());
 
             if (responseData == null) throw new Exception("Time out");
 
+            if (responseData.Type == ResponseType.Error)
+            {
+                throw new Exception(responseData.Data);
+            }
 
-            return null;
+            return responseData.Entity;
         }
 
 
@@ -165,24 +168,31 @@ namespace SAEA.RedisSocket.Core.Stream
 
             if (responseData.Type == ResponseType.Error)
             {
+                if (responseData.Data.IndexOf("-BUSYGROUP", StringComparison.InvariantCultureIgnoreCase) > -1)
+                {
+                    return true;
+                }
                 throw new Exception(responseData.Data);
             }
             return (responseData.Data.Trim() == "OK");
         }
 
 
+
         /// <summary>
         /// Subscribe,
-        /// XREADGROUP GROUP $GroupName $ConsumerName BLOCK 2000 COUNT 10 STREAMS mystream
+        /// XREADGROUP GROUP group consumer [COUNT count][BLOCK milliseconds] [NOACK] STREAMS key [key ...]ID [ID ...]
         /// </summary>
         /// <param name="groupName"></param>
         /// <param name="consumerName"></param>
         /// <param name="topicName"></param>
+        /// <param name="redisId"></param>
+        /// <param name="noAck"></param>
         /// <param name="count"></param>
         /// <param name="blocked"></param>
         /// <param name="timeout"></param>
         /// <returns></returns>
-        public IEnumerable<RedisField> Subscribe(string groupName, string consumerName, string topicName, int count = 1, bool blocked = false, int timeout = 1000)
+        public IEnumerable<StreamEntry> Subscribe(string groupName, string consumerName, string topicName, RedisID redisId, bool noAck = false, int count = 1, bool blocked = false, int timeout = 1000)
         {
             List<string> @params = new List<string>();
 
@@ -190,24 +200,33 @@ namespace SAEA.RedisSocket.Core.Stream
             @params.Add(groupName);
             @params.Add(consumerName);
 
+            @params.Add("COUNT");
+            @params.Add(count.ToString());
+
             if (blocked)
             {
                 @params.Add("BLOCK");
                 @params.Add(timeout.ToString());
             }
-
-            @params.Add("COUNT");
-            @params.Add(count.ToString());
+            if (noAck)
+            {
+                @params.Add("NOACK");
+            }
 
             @params.Add("STREAMS");
             @params.Add(topicName);
+            @params.Add(redisId.ToString());
 
-            var responseData = RedisConnection.DoWithMutiParams(RequestType.XREADGROUP, @params.ToArray());
+            var responseData = RedisConnection.DoStreamSub(RequestType.XREADGROUP, @params.ToArray());
 
             if (responseData == null) throw new Exception("Time out");
 
+            if (responseData.Type == ResponseType.Error)
+            {
+                throw new Exception(responseData.Data);
+            }
 
-            return null;
+            return responseData.Entity;
         }
     }
 }

@@ -115,6 +115,7 @@ namespace SAEA.Http
                 _serverSocket = new HttpSocket(port, bufferSize, count, timeOut);
 
             _serverSocket.OnRequested += _serverSocket_OnRequested;
+            _serverSocket.OnError += (e) => OnException?.Invoke(HttpContext.Current, e);
         }
 
 

@@ -54,7 +54,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="cmd"></param>
         /// <param name="timeSpan"></param>
         /// <returns></returns>
-        internal async Task<ResponseData> RequestWithConsoleAsync(string cmd, TimeSpan timeSpan)
+        internal async Task<ResponseData<string>> RequestWithConsoleAsync(string cmd, TimeSpan timeSpan)
         {
             return await TaskHelper.Run(() =>
             {
@@ -70,7 +70,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="type"></param>
         /// <param name="timeSpan"></param>
         /// <returns></returns>
-        public async Task<ResponseData> DoAsync(RequestType type, TimeSpan timeSpan)
+        public async Task<ResponseData<string>> DoAsync(RequestType type, TimeSpan timeSpan)
         {
             return await TaskHelper.Run(() =>
             {
@@ -86,7 +86,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="content"></param>
         /// <param name="timeSpan"></param>
         /// <returns></returns>
-        public async Task<ResponseData> DoWithOneAsync(RequestType type, string content, TimeSpan timeSpan)
+        public async Task<ResponseData<string>> DoWithOneAsync(RequestType type, string content, TimeSpan timeSpan)
         {
             return await TaskHelper.Run(() =>
             {
@@ -102,7 +102,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="key"></param>
         /// <param name="timeSpan"></param>
         /// <returns></returns>
-        public async Task<ResponseData> DoWithKeyAsync(RequestType type, string key, TimeSpan timeSpan)
+        public async Task<ResponseData<string>> DoWithKeyAsync(RequestType type, string key, TimeSpan timeSpan)
         {
             return await TaskHelper.Run(() =>
             {
@@ -111,7 +111,7 @@ namespace SAEA.RedisSocket.Core
             }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
 
-        public async Task<ResponseData> DoWithKeyValueAsync(RequestType type, string key, string value, TimeSpan timeSpan)
+        public async Task<ResponseData<string>> DoWithKeyValueAsync(RequestType type, string key, string value, TimeSpan timeSpan)
         {
             return await TaskHelper.Run(() =>
             {
@@ -119,7 +119,7 @@ namespace SAEA.RedisSocket.Core
             }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
 
-        public async Task<ResponseData> DoWithIDAsync(RequestType type, string id, string key, string value, TimeSpan timeSpan)
+        public async Task<ResponseData<string>> DoWithIDAsync(RequestType type, string id, string key, string value, TimeSpan timeSpan)
         {
             return await TaskHelper.Run(() =>
             {
@@ -129,7 +129,7 @@ namespace SAEA.RedisSocket.Core
         }
 
 
-        public async Task<ResponseData> DoWithMutiParamsAsync(RequestType type, TimeSpan timeSpan, params string[] keys)
+        public async Task<ResponseData<string>> DoWithMutiParamsAsync(RequestType type, TimeSpan timeSpan, params string[] keys)
         {
             return await TaskHelper.Run(() =>
             {
@@ -163,7 +163,7 @@ namespace SAEA.RedisSocket.Core
             });
         }
 
-        public async Task<ResponseData> DoRangAsync(RequestType type, string key, double begin, double end, TimeSpan timeSpan)
+        public async Task<ResponseData<string>> DoRangAsync(RequestType type, string key, double begin, double end, TimeSpan timeSpan)
         {
             return await TaskHelper.Run(() =>
             {
@@ -172,7 +172,7 @@ namespace SAEA.RedisSocket.Core
             }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
 
-        public async Task<ResponseData> DoRangByScoreAsync(TimeSpan timeSpan, RequestType type, string key, double min = double.MinValue, double max = double.MaxValue, RangType rangType = RangType.None, long offset = -1, int count = 20, bool withScore = false)
+        public async Task<ResponseData<string>> DoRangByScoreAsync(TimeSpan timeSpan, RequestType type, string key, double min = double.MinValue, double max = double.MaxValue, RangType rangType = RangType.None, long offset = -1, int count = 20, bool withScore = false)
         {
             return await TaskHelper.Run(() =>
             {
@@ -182,7 +182,7 @@ namespace SAEA.RedisSocket.Core
         }
 
 
-        public async Task<ResponseData> DoBatchWithListAsync(RequestType type, string id, IEnumerable<string> list, TimeSpan timeSpan)
+        public async Task<ResponseData<string>> DoBatchWithListAsync(RequestType type, string id, IEnumerable<string> list, TimeSpan timeSpan)
         {
             return await TaskHelper.Run(() =>
             {
@@ -192,7 +192,7 @@ namespace SAEA.RedisSocket.Core
         }
 
 
-        public async Task<ResponseData> DoBatchWithDicAsync(RequestType type, Dictionary<string, string> dic, TimeSpan timeSpan)
+        public async Task<ResponseData<string>> DoBatchWithDicAsync(RequestType type, Dictionary<string, string> dic, TimeSpan timeSpan)
         {
             return await TaskHelper.Run(() =>
             {
@@ -202,7 +202,7 @@ namespace SAEA.RedisSocket.Core
         }
 
 
-        public async Task<ResponseData> DoBatchWithIDKeysAsync(TimeSpan timeSpan, RequestType type, string id, params string[] keys)
+        public async Task<ResponseData<string>> DoBatchWithIDKeysAsync(TimeSpan timeSpan, RequestType type, string id, params string[] keys)
         {
             return await TaskHelper.Run(() =>
             {
@@ -211,7 +211,7 @@ namespace SAEA.RedisSocket.Core
             }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
 
-        public async Task<ResponseData> DoBatchZaddWithIDDicAsync(RequestType type, string id, Dictionary<double, string> dic, TimeSpan timeSpan)
+        public async Task<ResponseData<string>> DoBatchZaddWithIDDicAsync(RequestType type, string id, Dictionary<double, string> dic, TimeSpan timeSpan)
         {
             return await TaskHelper.Run(() =>
             {
@@ -220,7 +220,7 @@ namespace SAEA.RedisSocket.Core
             }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
 
-        public async Task<ResponseData> DoBatchWithIDDicAsync(RequestType type, string id, Dictionary<string, string> dic, TimeSpan timeSpan)
+        public async Task<ResponseData<string>> DoBatchWithIDDicAsync(RequestType type, string id, Dictionary<string, string> dic, TimeSpan timeSpan)
         {
             return await TaskHelper.Run(() =>
             {
@@ -248,7 +248,7 @@ namespace SAEA.RedisSocket.Core
         }
 
 
-        public async Task<ResponseData> DoMutiCmdAsync(TimeSpan timeSpan, RequestType type, params object[] @params)
+        public async Task<ResponseData<string>> DoMutiCmdAsync(TimeSpan timeSpan, RequestType type, params object[] @params)
         {
             return await TaskHelper.Run(() =>
             {
@@ -257,7 +257,7 @@ namespace SAEA.RedisSocket.Core
             }).WithCancellationTimeout(timeSpan).ConfigureAwait(false);
         }
 
-        public async Task<ResponseData> DoClusterSetSlotAsync(RequestType type, string action, int slot, string nodeID, TimeSpan timeSpan)
+        public async Task<ResponseData<string>> DoClusterSetSlotAsync(RequestType type, string action, int slot, string nodeID, TimeSpan timeSpan)
         {
             return await TaskHelper.Run(() =>
             {

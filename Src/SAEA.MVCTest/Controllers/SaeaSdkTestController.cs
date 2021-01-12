@@ -56,11 +56,11 @@ namespace SAEA.MVCTest.Controllers
                                 pas += ("0,");
                         }
                     }
-                    sb.Append($"<div><a href='javascript:;' onclick=\"new SaeaApiSdk().{routing.ControllerName.Replace("Controller", "")}{routing.ActionName}{(routing.IsPost ? "Post" : "Get")}({pas}function(data){{alert(data);}},function(e){{alert(e);}})\">/api/{routing.ControllerName.Replace("Controller", "")}/{routing.ActionName}</a></div>");
+                    sb.Append($"<div><a href='javascript:;' onclick=\"new SaeaApiSdk('').{routing.ControllerName.Replace("Controller", "")}{routing.ActionName}{(routing.IsPost ? "Post" : "Get")}({pas}function(data){{alert(data);}},function(e){{alert(e);}})\">/api/{routing.ControllerName.Replace("Controller", "")}/{routing.ActionName}</a></div>");
                 }
                 else
                 {
-                    sb.Append($"<div><a href='javascript:;' onclick='new SaeaApiSdk().{routing.ControllerName.Replace("Controller", "")}{routing.ActionName}{(routing.IsPost ? "Post" : "Get")}(function(data){{alert(data);}},function(e){{alert(e);}})'>/api/{routing.ControllerName.Replace("Controller", "")}/{routing.ActionName}</a></div>");
+                    sb.Append($"<div><a href='javascript:;' onclick=\"new SaeaApiSdk('').{routing.ControllerName.Replace("Controller", "")}{routing.ActionName}{(routing.IsPost ? "Post" : "Get")}(function(data){{alert(data);}},function(e){{alert(e);}})\">/api/{routing.ControllerName.Replace("Controller", "")}/{routing.ActionName}</a></div>");
                 }
 
             }

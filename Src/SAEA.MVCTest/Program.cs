@@ -18,7 +18,7 @@ namespace SAEA.MVCTest
 
             mvcConfig.IsStaticsCached = false;
 
-            mvcConfig.ControllerNameSpace = "SAEA.MVCTest";
+            //mvcConfig.ControllerNameSpace = "SAEA.MVCTest";
 
             SAEAMvcApplicationConfigBuilder.Write(mvcConfig);
 
@@ -46,7 +46,7 @@ namespace SAEA.MVCTest
 
             ConsoleHelper.WriteLine($"SAEA.MVCApplication 已启动！\t\r\n访问请输入http://127.0.0.1:{mvcConfig.Port}/{{controller}}/{{action}}");
 
-            
+
 
             //生成sdk测试
             TestCodeGenerate1();
@@ -58,7 +58,7 @@ namespace SAEA.MVCTest
 
         private static Http.Model.IHttpResult MvcApplication_OnException(Http.Model.IHttpContext httpContext, System.Exception ex)
         {
-            return new ContentResult($"已通过事件捕获发生异常，url：{httpContext.Request.Url},ex:{ex.Message}");
+            return new ContentResult($"已通过事件捕获发生异常，url：{httpContext?.Request.Url},ex:{ex.Message}");
         }
 
         /// <summary>
@@ -66,6 +66,8 @@ namespace SAEA.MVCTest
         /// </summary>
         static void TestCodeGenerate1()
         {
+            ConsoleHelper.WriteLine("回车测试sdk生成");
+            ConsoleHelper.ReadLine();
             APISdkCodeGenerator.Save(@"C:\Users\yswenli\Desktop", CodeType.Js);
             APISdkCodeGenerator.Save(@"C:\Users\yswenli\Desktop", CodeType.CSharp);
         }
@@ -75,7 +77,7 @@ namespace SAEA.MVCTest
         /// </summary>
         static void TestCodeGenerate2()
         {
-            ConsoleHelper.WriteLine("回车测试sdk生成及功能测试");
+            ConsoleHelper.WriteLine("回车测试sdk的功能测试");
             ConsoleHelper.ReadLine();
 
             var sdk = new MVC.Tool.CodeGenerte.SaeaApiSdk("http://127.0.0.1:28080/");
@@ -89,7 +91,7 @@ namespace SAEA.MVCTest
             });
 
 
-            sdk.HomeUpdatePost("true",1,"yswenli","yswenli", (data) =>
+            sdk.HomeUpdatePost("true", 1, "yswenli", "yswenli", (data) =>
             {
                 ConsoleHelper.WriteLine("TestCodeGenerate2.sdk.HomeUpdatePost:" + data);
             }, (e) =>

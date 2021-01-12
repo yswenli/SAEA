@@ -76,7 +76,7 @@ namespace SAEA.RedisSocket.Core.Batches
 
                     foreach (var item in _batchData)
                     {
-                        var data = _redisCode.Decoder(item.RequestType, token);
+                        var data = _redisCode.Decoder<string>(item.RequestType, token);
 
                         result.Add(data.Data);
                     }

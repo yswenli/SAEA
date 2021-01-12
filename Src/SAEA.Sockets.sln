@@ -39,8 +39,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAEA.MQTTTest", "SAEA.MQTTT
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAEA.Mvc.ServiceTest", "SAEA.Mvc.ServiceTest\SAEA.Mvc.ServiceTest.csproj", "{78B4C427-6E75-4FFF-A172-490C51AA7B34}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAEA.MVCTest", "SAEA.MVCTest\SAEA.MVCTest.csproj", "{6DD5E081-6211-4A76-8D95-D3E0350DAFB0}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAEA.QueueSocketTest", "SAEA.QueueSocketTest\SAEA.QueueSocketTest.csproj", "{109BFCA2-2FC2-4B7F-B5D2-14B89CA81784}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAEA.RedisSocketTest", "SAEA.RedisSocketTest\SAEA.RedisSocketTest.csproj", "{85A68271-62DC-4929-8F2F-2E274884F8CE}"
@@ -56,6 +54,8 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAEA.Sockets.UdpTest", "SAEA.Sockets.UdpTest\SAEA.Sockets.UdpTest.csproj", "{C5734DFE-528A-4C27-8BEB-8D38B11C389E}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAEA.Sockets.TcpTest", "SAEA.Sockets.TcpTest\SAEA.Sockets.TcpTest.csproj", "{DA56CBE4-E29E-4C77-8128-67FAF384B37C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAEA.MVCTest", "SAEA.MVCTest\SAEA.MVCTest.csproj", "{EA1140BB-6D89-47BF-85DD-CA834ECBB1D8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -135,10 +135,6 @@ Global
 		{78B4C427-6E75-4FFF-A172-490C51AA7B34}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{78B4C427-6E75-4FFF-A172-490C51AA7B34}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{78B4C427-6E75-4FFF-A172-490C51AA7B34}.Release|Any CPU.Build.0 = Release|Any CPU
-		{6DD5E081-6211-4A76-8D95-D3E0350DAFB0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{6DD5E081-6211-4A76-8D95-D3E0350DAFB0}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{6DD5E081-6211-4A76-8D95-D3E0350DAFB0}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{6DD5E081-6211-4A76-8D95-D3E0350DAFB0}.Release|Any CPU.Build.0 = Release|Any CPU
 		{109BFCA2-2FC2-4B7F-B5D2-14B89CA81784}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{109BFCA2-2FC2-4B7F-B5D2-14B89CA81784}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{109BFCA2-2FC2-4B7F-B5D2-14B89CA81784}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -171,6 +167,10 @@ Global
 		{DA56CBE4-E29E-4C77-8128-67FAF384B37C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DA56CBE4-E29E-4C77-8128-67FAF384B37C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DA56CBE4-E29E-4C77-8128-67FAF384B37C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EA1140BB-6D89-47BF-85DD-CA834ECBB1D8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EA1140BB-6D89-47BF-85DD-CA834ECBB1D8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EA1140BB-6D89-47BF-85DD-CA834ECBB1D8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EA1140BB-6D89-47BF-85DD-CA834ECBB1D8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

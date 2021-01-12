@@ -2,7 +2,7 @@
 //此代码为SAEA.MVC.APISdkCodeGenerator于2020-12-26 16:26:20.254生成，请尽量不要修改
 //
 function SaeaApiSdk(url) {    
-    var url=url;
+    this.url=url;
     var request = function (opt) {
         opt = opt || {};
         opt.method = !!opt.method === false ? 'POST' : opt.method.toUpperCase();

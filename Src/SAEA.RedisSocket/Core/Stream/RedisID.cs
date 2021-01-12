@@ -16,17 +16,20 @@
 *描    述：
 *****************************************************************************/
 using SAEA.Common;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.RedisSocket.Core.Stream
 {
     /// <summary>
     /// RedisID
     /// </summary>
-    public struct RedisID
+    public class RedisID
     {
+        public const string Latest = "$";
+
+        public const string Earliest = "0";
+
+        string _str = string.Empty;
+
         public long Head { get; set; }
 
         public long Tail { get; set; }
@@ -40,23 +43,14 @@ namespace SAEA.RedisSocket.Core.Stream
         {
             Head = head;
             Tail = tail;
+            _str = $"{Head}-{Tail}";
         }
 
         /// <summary>
-        /// 转换成字符串
-        /// </summary>
-        /// <returns></returns>
-        public new string ToString()
-        {
-            return $"{Head}-{Tail}";
-        }
-
-        /// <summary>
-        /// 将字符串转换成RedisID,不成功则返回最小值
+        /// RedisID
         /// </summary>
         /// <param name="redisId"></param>
-        /// <returns></returns>
-        public static RedisID Parse(string redisId)
+        public RedisID(string redisId)
         {
             if (!string.IsNullOrEmpty(redisId) && redisId.IndexOf("-") > 0)
             {
@@ -65,12 +59,33 @@ namespace SAEA.RedisSocket.Core.Stream
                 {
                     if (long.TryParse(arr[0], out long h) && long.TryParse(arr[1], out long t))
                     {
-                        return new RedisID(h, t);
+                        Head = h;
+                        Tail = t;
+                        _str = $"{Head}-{Tail}";
                     }
                 }
-
             }
-            return new RedisID(0, 1); ;
+            else
+            {
+                _str = redisId.TrimEnd();
+            }
+        }
+
+        /// <summary>
+        /// RedisID
+        /// </summary>
+        public RedisID()
+        {
+            _str = Earliest;
+        }
+
+        /// <summary>
+        /// 转换成字符串
+        /// </summary>
+        /// <returns></returns>
+        public new string ToString()
+        {
+            return _str;
         }
     }
 

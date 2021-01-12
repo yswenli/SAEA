@@ -36,6 +36,8 @@ namespace SAEA.Http.Base.Net
 
         public event Action<IUserToken, HttpMessage> OnRequested;
 
+        public event Action<Exception> OnError;
+
         public HttpSocket(int port, int bufferSize = 1024 * 10, int count = 10000, int timeOut = 120 * 1000)
         {
             var optionBuilder = new SocketOptionBuilder()
@@ -50,7 +52,8 @@ namespace SAEA.Http.Base.Net
 
             _serverSokcet = SocketFactory.CreateServerSocket(_option);
             _serverSokcet.OnReceive += _serverSokcet_OnReceive;
-        }
+            _serverSokcet.OnError += _serverSokcet_OnError;
+        }       
 
         private void _serverSokcet_OnReceive(object userToken, byte[] data)
         {
@@ -70,6 +73,11 @@ namespace SAEA.Http.Base.Net
                 LogHelper.Error("Http解码出现异常", ex);
                 Disconnecte(ut);
             }
+        }
+
+        private void _serverSokcet_OnError(string ID, Exception ex)
+        {
+            OnError?.Invoke(ex);
         }
 
         public void Send(IUserToken userToken, byte[] data)

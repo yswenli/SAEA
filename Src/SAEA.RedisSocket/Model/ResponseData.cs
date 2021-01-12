@@ -23,11 +23,10 @@
 *****************************************************************************/
 
 using SAEA.RedisSocket.Interface;
-using System;
 
 namespace SAEA.RedisSocket.Model
 {
-    public class ResponseData : IResult
+    public class ResponseData<T> : IResult
     {
         public ResponseType Type
         {
@@ -40,7 +39,7 @@ namespace SAEA.RedisSocket.Model
         {
             get
             {
-                return _data.TrimEnd('\r', '\n');
+                return _data.TrimEnd();
             }
             set
             {
@@ -48,9 +47,9 @@ namespace SAEA.RedisSocket.Model
             }
         }
 
-        public new string ToString()
+        public T Entity
         {
-            return $"ResponseData\r\n\tType:{this.Type}\r\n\tData:{this.Data}";
+            get; set;
         }
     }
 }

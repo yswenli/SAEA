@@ -15,7 +15,7 @@
     <script src="Content/js/SaeaApiSdk.js"></script>
     <script type="text/javascript">
 
-        var sdk = new SaeaApiSdk();
+        var sdk = new SaeaApiSdk("http://127.0.0.1:28080/");
 
         sdk.request({
             url: "/api/SaeaSdkTest/GetList",

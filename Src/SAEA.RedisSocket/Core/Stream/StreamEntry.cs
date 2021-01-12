@@ -15,13 +15,31 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
-using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.RedisSocket.Core.Stream
 {
-    class StreamEntry
+    public class StreamEntry
     {
+        string _topic;
+        public string Topic {
+            get
+            {
+                return _topic;
+            }
+            set
+            {
+                _topic = value?.TrimEnd();
+            }
+        }
+
+        public IEnumerable<IdFiled> IdFileds { get; set; }
+    }
+
+    public class IdFiled
+    {
+        public RedisID RedisID { get; set; }
+
+        public IEnumerable<RedisField> RedisFields { get; set; }
     }
 }

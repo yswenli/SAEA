@@ -31,7 +31,7 @@ namespace SAEA.RedisSocket.Model
     public static class ResponseExtention
     {
 
-        public static List<string> ToList(this ResponseData source)
+        public static List<string> ToList<T>(this ResponseData<T> source)
         {
             if (source == null) return null;
 
@@ -58,7 +58,7 @@ namespace SAEA.RedisSocket.Model
             return list;
         }
 
-        public static Dictionary<string, string> ToDic(this ResponseData source)
+        public static Dictionary<string, string> ToDic<T>(this ResponseData<T> source)
         {
             if (source == null) return null;
 
@@ -89,7 +89,7 @@ namespace SAEA.RedisSocket.Model
         }
 
 
-        public static List<ZItem> ToZList(this ResponseData source)
+        public static List<ZItem> ToZList<T>(this ResponseData<T> source)
         {
             if (source == null) return null;
 
@@ -134,7 +134,7 @@ namespace SAEA.RedisSocket.Model
             return result;
         }
 
-        public static Dictionary<string, string> ToKeyValues(this ResponseData source)
+        public static Dictionary<string, string> ToKeyValues<T>(this ResponseData<T> source)
         {
             if (source == null) return null;
 
@@ -176,7 +176,7 @@ namespace SAEA.RedisSocket.Model
             return keyValuePairs;
         }
 
-        public static ScanResponse ToScanResponse(this ResponseData source)
+        public static ScanResponse ToScanResponse<T>(this ResponseData<T> source)
         {
             if (source == null) return null;
 
@@ -285,7 +285,7 @@ namespace SAEA.RedisSocket.Model
         }
 
 
-        public static List<GeoNum> ToGeoNums(this ResponseData source)
+        public static List<GeoNum> ToGeoNums<T>(this ResponseData<T> source)
         {
             if (source == null) return null;
 
@@ -321,7 +321,7 @@ namespace SAEA.RedisSocket.Model
             return result;
         }
 
-        public static List<GeoDistInfo> ToGeoDistInfos(this ResponseData source)
+        public static List<GeoDistInfo> ToGeoDistInfos<T>(this ResponseData<T> source)
         {
             if (source == null) return null;
 

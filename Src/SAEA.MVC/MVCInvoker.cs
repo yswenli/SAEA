@@ -118,9 +118,16 @@ namespace SAEA.MVC
 
             if (HttpContext.Current.Request.ContentType == ConstHelper.FORMENCTYPE3 && !string.IsNullOrEmpty(HttpContext.Current.Request.Json))
             {
-                var nnv = SerializeHelper.Deserialize<Dictionary<string, string>>(HttpContext.Current.Request.Json).ToNameValueCollection();
+                try
+                {
+                    var nnv = SerializeHelper.Deserialize<Dictionary<string, string>>(HttpContext.Current.Request.Json).ToNameValueCollection();
 
-                result = MethodInvoke(routing.Action, routing.Instance, nnv);
+                    result = MethodInvoke(routing.Action, routing.Instance, nnv);
+                }
+                catch
+                {
+                    return new ContentResult("o_o，错误请求,Json:" + HttpContext.Current.Request.Json, System.Net.HttpStatusCode.BadRequest);
+                }
             }
             else
             {
@@ -187,7 +194,7 @@ namespace SAEA.MVC
                 data = action.Invoke(obj, null);
             }
 
-            if (data.GetType().Name == "AsyncStateMachineBox`1")
+            if (data.GetType().Name == "AsyncStateMachineBox`1" || data.GetType().Name == "Task`1")
             {
                 var tdata = data as Task<ActionResult>;
 

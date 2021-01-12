@@ -31,11 +31,13 @@ namespace SAEA.Http.Base.Net
 
         public event Action<IUserToken, HttpMessage> OnRequested;
 
+        public event Action<Exception> OnError;
+
 
         public HttpSocketDebug(int port, int bufferSize = 1024 * 10, int count = 10000, int timeOut = 120 * 1000)
         {
             var optionBuilder = new SocketOptionBuilder()
-               .SetSocket(Sockets.Model.SAEASocketType.Tcp)
+               .SetSocket(SAEASocketType.Tcp)
                .UseIocp<HContext>()
                .SetPort(port)
                .SetCount(count)
@@ -46,6 +48,7 @@ namespace SAEA.Http.Base.Net
 
             _serverSokcet = SocketFactory.CreateServerSocket(_option);
             _serverSokcet.OnReceive += _serverSokcet_OnReceive;
+            _serverSokcet.OnError += (i, e) => OnError?.Invoke(e);
         }
 
         private void _serverSokcet_OnReceive(object userToken, byte[] data)

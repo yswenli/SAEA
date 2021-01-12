@@ -104,12 +104,11 @@ namespace SAEA.Http.Base
 
             var lastRows = rows.AsSpan().Slice(1).ToArray();
 
-            httpMessage.Headers = GetRequestHeaders(lastRows);
+            httpMessage.Headers = GetRequestHeaders(lastRows);            
 
             //cookies
-            var cookiesStr = string.Empty;
 
-            if (httpMessage.Headers.TryGetValue(RequestHeaderType.Cookie.GetDescription().ToLower(), out cookiesStr))
+            if (httpMessage.Headers.TryGetValue(RequestHeaderType.Cookie.GetDescription().ToLower(), out string cookiesStr))
             {
                 httpMessage.Cookies = HttpCookies.Parse(cookiesStr);
             }
@@ -117,21 +116,15 @@ namespace SAEA.Http.Base
             //post数据分析
             if (httpMessage.Method == ConstHelper.POST)
             {
-                string contentTypeStr = string.Empty;
-
-                if (httpMessage.Headers.TryGetValue(RequestHeaderType.ContentType.GetDescription().ToLower(), out contentTypeStr))
+                //form-data
+                if (httpMessage.ContentType.IndexOf(ConstHelper.FORMENCTYPE2) > -1)
                 {
-                    //form-data
-                    if (contentTypeStr.IndexOf(ConstHelper.FORMENCTYPE2) > -1)
-                    {
-                        httpMessage.IsFormData = true;
+                    httpMessage.IsFormData = true;
 
-                        httpMessage.Boundary = "--" + Regex.Split(contentTypeStr, ConstHelper.SEMICOLON)[1].Replace(ConstHelper.BOUNDARY, "");
-                    }
+                    httpMessage.Boundary = "--" + Regex.Split(httpMessage.ContentType, ConstHelper.SEMICOLON)[1].Replace(ConstHelper.BOUNDARY, "");
                 }
-                string contentLengthStr = string.Empty;
 
-                if (httpMessage.Headers.TryGetValue(RequestHeaderType.ContentLength.GetDescription().ToLower(), out contentLengthStr))
+                if (httpMessage.Headers.TryGetValue(RequestHeaderType.ContentLength.GetDescription(), out string contentLengthStr))
                 {
                     int cl = 0;
 
@@ -157,61 +150,58 @@ namespace SAEA.Http.Base
             {
                 var positon = httpMessage.Position;
 
-                var totlalLen = contentLen + positon;
-
                 httpMessage.Body = requestData.AsSpan().Slice(positon, contentLen).ToArray();
 
-                switch (httpMessage.ContentType)
+                if (httpMessage.ContentType.IndexOf(ConstHelper.FORMENCTYPE1) > -1)
                 {
-                    case ConstHelper.FORMENCTYPE1:
-                        httpMessage.Forms = GetRequestForms(Encoding.UTF8.GetString(httpMessage.Body));
-                        break;
-                    case ConstHelper.FORMENCTYPE2:
-                        using (MemoryStream ms = new MemoryStream(httpMessage.Body))
+                    httpMessage.Forms = GetRequestForms(Encoding.UTF8.GetString(httpMessage.Body));
+                }
+                else if (httpMessage.ContentType.IndexOf(ConstHelper.FORMENCTYPE2) > -1)
+                {
+                    using (MemoryStream ms = new MemoryStream(httpMessage.Body))
+                    {
+                        ms.Position = 0;
+                        using (var sr = new SAEA.Common.IO.StreamReader(ms))
                         {
-                            ms.Position = 0;
-                            using (var sr = new SAEA.Common.IO.StreamReader(ms))
+                            StringBuilder sb = new StringBuilder();
+                            var str = string.Empty;
+                            do
                             {
-                                StringBuilder sb = new StringBuilder();
-                                var str = string.Empty;
-                                do
+                                str = sr.ReadLine();
+                                if (str == null)
                                 {
-                                    str = sr.ReadLine();
-                                    if (str == null)
+                                    break;
+                                }
+                                else
+                                {
+                                    sb.AppendLine(str);
+                                    if (str.Contains(ConstHelper.CT))
                                     {
-                                        break;
-                                    }
-                                    else
-                                    {
-                                        sb.AppendLine(str);
-                                        if (str.Contains(ConstHelper.CT))
+                                        var filePart = GetRequestFormsWithMultiPart(sb.ToString(), httpMessage);
+
+                                        if (filePart != null)
                                         {
-                                            var filePart = GetRequestFormsWithMultiPart(sb.ToString(), httpMessage);
-
-                                            if (filePart != null)
-                                            {
-                                                sr.ReadLine();
-
-                                                filePart.Data = sr.ReadData(sr.Position, httpMessage.Boundary);
-                                                if (filePart.Data != null)
-                                                {
-                                                    filePart.Data = filePart.Data.Take(filePart.Data.Length - 2).ToArray();
-                                                }
-                                                httpMessage.PostFiles.Add(filePart);
-                                            }
-                                            sb.Clear();
                                             sr.ReadLine();
+
+                                            filePart.Data = sr.ReadData(sr.Position, httpMessage.Boundary);
+                                            if (filePart.Data != null)
+                                            {
+                                                filePart.Data = filePart.Data.Take(filePart.Data.Length - 2).ToArray();
+                                            }
+                                            httpMessage.PostFiles.Add(filePart);
                                         }
+                                        sb.Clear();
+                                        sr.ReadLine();
                                     }
                                 }
-                                while (true);
                             }
+                            while (true);
                         }
-                        break;
-                    case ConstHelper.FORMENCTYPE3:
-                    default:
-                        httpMessage.Json = Encoding.UTF8.GetString(httpMessage.Body);
-                        break;
+                    }
+                }
+                else
+                {
+                    httpMessage.Json = Encoding.UTF8.GetString(httpMessage.Body);
                 }
             }
         }
@@ -287,9 +277,9 @@ namespace SAEA.Http.Base
             {
                 var rowArr = row.Split(ConstHelper.COLON);
                 if (rowArr.Length == 2)
-                    result[rowArr[0].ToLower()] = rowArr[1].Trim();
+                    result[rowArr[0]] = rowArr[1].Trim();
                 else
-                    result[rowArr[0].ToLower()] = "";
+                    result[rowArr[0]] = "";
             }
             return result;
         }

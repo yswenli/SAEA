@@ -15,27 +15,53 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.RedisSocket.Core.Stream
 {
     /// <summary>
     /// RedisField
     /// </summary>
-    public struct RedisField
+    public class RedisField
     {
-        public string Field { get; set; }
+        string _field = string.Empty;
 
-        public string String { get; set; }
+        public string Field
+        {
+            get
+            {
+                return _field;
+            }
+            set
+            {
+                _field = value?.TrimEnd();
+            }
+        }
+
+        string _str = string.Empty;
+
+        public string String
+        {
+            get
+            {
+                return _str;
+            }
+            set
+            {
+                _str = value?.TrimEnd();
+            }
+        }
+
+        /// <summary>
+        /// RedisField
+        /// </summary>
+        public RedisField() { }
 
         /// <summary>
         /// RedisField
         /// </summary>
         /// <param name="field"></param>
         /// <param name="str"></param>
-        public RedisField(string field,string str)
+        public RedisField(string field, string str)
         {
             Field = field;
             String = str;

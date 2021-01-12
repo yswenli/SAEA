@@ -23,6 +23,7 @@
 *****************************************************************************/
 using SAEA.Http.Model;
 using System.Net;
+using System.Runtime.Serialization;
 using System.Text;
 
 namespace SAEA.MVC
@@ -30,6 +31,7 @@ namespace SAEA.MVC
     /// <summary>
     /// 封装一个操作方法的结果并用于代表该操作方法执行框架级操作。
     /// </summary>
+    [DataContract]
     public abstract class ActionResult : IHttpResult
     {
         /// <summary>
@@ -43,6 +45,7 @@ namespace SAEA.MVC
         /// <summary>
         /// 获取或设置内容。
         /// </summary>
+        [DataMember]
         public string Content { get; set; }
 
         /// <summary>
@@ -53,11 +56,13 @@ namespace SAEA.MVC
         /// <summary>
         /// 获取或设置内容的类型。
         /// </summary>
+        [DataMember]
         public string ContentType { get; set; } = "application/json";
 
         /// <summary>
         /// 状态码
         /// </summary>
+        [DataMember]
         public HttpStatusCode Status
         {
             get; set;

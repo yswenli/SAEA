@@ -33,7 +33,10 @@ using System.Threading;
 
 namespace SAEA.RedisSocket.Core
 {
-    internal class RedisCoder : IDisposable
+    /// <summary>
+    /// redis coder/decoder
+    /// </summary>
+    internal partial class RedisCoder : IDisposable
     {
         public const string SEPARATOR = "===========YSWENLI============";
 
@@ -413,12 +416,13 @@ namespace SAEA.RedisSocket.Core
         /// <summary>
         /// 解析从redis返回的命令
         /// </summary>
+        /// <typeparam name="T"></typeparam>
         /// <param name="requestType"></param>
         /// <param name="ctoken"></param>
         /// <returns></returns>
-        public ResponseData Decoder(RequestType requestType, CancellationToken ctoken)
+        public ResponseData<T> Decoder<T>(RequestType requestType, CancellationToken ctoken)
         {
-            var responseData = new ResponseData();
+            var responseData = new ResponseData<T>();
 
             try
             {
@@ -452,7 +456,7 @@ namespace SAEA.RedisSocket.Core
                     if (string.IsNullOrEmpty(command)) return null;
                 }
 
-                var temp = Redirect(command);
+                var temp = Redirect<T>(command);
 
                 if (temp != null)
                 {
@@ -996,11 +1000,6 @@ namespace SAEA.RedisSocket.Core
                             responseData.Type = ResponseType.Value;
                             responseData.Data = GetRedisReplyBlob(new StringBuilder(), len, ctoken).ToString();
                             break;
-                        case RequestType.XREAD:
-                        case RequestType.XREADGROUP:
-                            responseData.Type = ResponseType.Lines;
-                            responseData = GetStreamData(command, ctoken);
-                            break;
                         default:
                             responseData.Type = ResponseType.Undefined;
                             responseData.Data = "未知的命令，请自行添加解码规则！";
@@ -1016,7 +1015,6 @@ namespace SAEA.RedisSocket.Core
             }
             return responseData;
         }
-
         #region 解析
 
         private static bool GetStatus(string command, out string error)
@@ -1112,12 +1110,12 @@ namespace SAEA.RedisSocket.Core
             return num;
         }
 
-        private static ResponseData Redirect(string command)
+        private static ResponseData<T> Redirect<T>(string command)
         {
-            ResponseData result = null;
+            ResponseData<T> result = null;
             if (command.IndexOf(MOVED) == 0)
             {
-                result = new ResponseData()
+                result = new ResponseData<T>()
                 {
                     Type = ResponseType.Redirect,
                     Data = command.Split(" ")[2].Replace(ConstHelper.ENTER, "")
@@ -1126,73 +1124,7 @@ namespace SAEA.RedisSocket.Core
             return result;
         }
 
-        /// <summary>
-        /// 分析redis stream 内容
-        /// </summary>
-        /// <param name="command"></param>
-        /// <param name="ctoken"></param>
-        /// <returns></returns>
-        public ResponseData GetStreamData(string command, CancellationToken ctoken)
-        {
-            ResponseData responseData = new ResponseData();
-
-            var sb = new StringBuilder();
-            var row1 = GetRowNum(command, out string error);
-            if (!string.IsNullOrEmpty(error))
-            {
-                responseData.Type = ResponseType.Error;
-                responseData.Data = error;
-                return responseData;
-            }
-            if (row1 <= 0)
-            {
-                responseData.Type = ResponseType.Empty;
-                responseData.Data = "";
-                return responseData;
-            }
-            for (int i = 0; i < row1; i++)
-            {
-                _ = GetRowNum(GetRedisReplyLine(ctoken), out error);
-                if (!string.IsNullOrEmpty(error))
-                {
-                    responseData.Type = ResponseType.Error;
-                    responseData.Data = error;
-                    return responseData;
-                }
-
-                _ = GetWordsNum(GetRedisReplyLine(ctoken), out error);
-                if (!string.IsNullOrEmpty(error))
-                {
-                    responseData.Type = ResponseType.Error;
-                    responseData.Data = error;
-                    return responseData;
-                }
-                sb.AppendLine(GetRedisReplyLine(ctoken));
-
-                var row2 = GetRowNum(GetRedisReplyLine(ctoken), out error);
-
-                for (int j = 0; j < row2; j++)
-                {
-                    _ = GetRowNum(GetRedisReplyLine(ctoken), out error);
-                    if (!string.IsNullOrEmpty(error))
-                    {
-                        responseData.Type = ResponseType.Error;
-                        responseData.Data = error;
-                        return responseData;
-                    }
-                    _ = GetWordsNum(GetRedisReplyLine(ctoken), out error);
-                    sb.AppendLine(GetRedisReplyLine(ctoken));
-                    var row3 = _ = GetWordsNum(GetRedisReplyLine(ctoken), out error);
-                    for (int k = 0; k < row3; k++)
-                    {
-                        _ = GetWordsNum(GetRedisReplyLine(ctoken), out error);
-                        sb.AppendLine(GetRedisReplyLine(ctoken));
-                    }
-                }
-            }
-            responseData.Data = sb.ToString();
-            return responseData;
-        }
+        
         #endregion
 
 

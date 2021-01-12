@@ -27,6 +27,7 @@ using SAEA.Common.NameValue;
 using SAEA.Common.Threading;
 using SAEA.RedisSocket.Base;
 using SAEA.RedisSocket.Base.Net;
+using SAEA.RedisSocket.Core.Stream;
 using SAEA.RedisSocket.Model;
 using System;
 using System.Collections.Generic;
@@ -146,16 +147,16 @@ namespace SAEA.RedisSocket.Core
         /// </summary>
         /// <param name="cmd"></param>
         /// <returns></returns>
-        internal ResponseData RequestWithConsole(string cmd)
+        internal ResponseData<string> RequestWithConsole(string cmd)
         {
-            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
             try
             {
                 result = TaskHelper.Run((token) =>
                 {
                     lock (SyncRoot)
                     {
-                        ResponseData sresult = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+                        ResponseData<string> sresult = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
 
                         if (!string.IsNullOrWhiteSpace(cmd))
                         {
@@ -168,7 +169,7 @@ namespace SAEA.RedisSocket.Core
                                 if (EnumHelper.GetEnum(redisCmd, out RequestType requestType1))
                                 {
                                     RedisCoder.RequestOnlyParams(@params);
-                                    sresult = RedisCoder.Decoder(requestType1, token);
+                                    sresult = RedisCoder.Decoder<string>(requestType1, token);
                                 }
                                 else
                                 {
@@ -177,7 +178,7 @@ namespace SAEA.RedisSocket.Core
                                     if (EnumHelper.GetEnum(redisCmd, out RequestType requestType2))
                                     {
                                         RedisCoder.RequestOnlyParams(@params);
-                                        sresult = RedisCoder.Decoder(requestType2, token);
+                                        sresult = RedisCoder.Decoder<string>(requestType2, token);
                                     }
                                     else
                                     {
@@ -209,9 +210,9 @@ namespace SAEA.RedisSocket.Core
         /// 发送命令
         /// </summary>
         /// <param name="cmd"></param>
-        public ResponseData Do(RequestType type)
+        public ResponseData<string> Do(RequestType type)
         {
-            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
 
             try
             {
@@ -220,10 +221,10 @@ namespace SAEA.RedisSocket.Core
                     lock (SyncRoot)
                     {
                         RedisCoder.RequestOnlyParams(type.ToString());
-                        var sresult = RedisCoder.Decoder(type, token);
+                        var sresult = RedisCoder.Decoder<string>(type, token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
-                            return (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.Do, null);
+                            return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.Do, null);
                         }
                         else
                             return sresult;
@@ -255,9 +256,9 @@ namespace SAEA.RedisSocket.Core
         /// <param name="type"></param>
         /// <param name="content"></param>
         /// <returns></returns>
-        public ResponseData DoWithOne(RequestType type, string content)
+        public ResponseData<string> DoWithOne(RequestType type, string content)
         {
-            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
             try
             {
                 result = TaskHelper.Run((token) =>
@@ -267,7 +268,7 @@ namespace SAEA.RedisSocket.Core
 
                         content.KeyCheck();
                         RedisCoder.Request(type, content);
-                        return RedisCoder.Decoder(type, token);
+                        return RedisCoder.Decoder<string>(type, token);
                     }
                 }, _actionTimeout).Result;
             }
@@ -291,11 +292,11 @@ namespace SAEA.RedisSocket.Core
         /// <param name="type"></param>
         /// <param name="key"></param>
         /// <returns></returns>
-        public ResponseData DoWithKey(RequestType type, string key)
+        public ResponseData<string> DoWithKey(RequestType type, string key)
         {
             key.KeyCheck();
 
-            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
 
             try
             {
@@ -304,10 +305,10 @@ namespace SAEA.RedisSocket.Core
                     lock (SyncRoot)
                     {
                         RedisCoder.Request(type, key);
-                        var sresult = RedisCoder.Decoder(type, token);
+                        var sresult = RedisCoder.Decoder<string>(type, token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
-                            return (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoWithKey, type, key);
+                            return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoWithKey, type, key);
                         }
                         else
                             return sresult;
@@ -328,11 +329,11 @@ namespace SAEA.RedisSocket.Core
 
         }
 
-        public ResponseData DoWithKeyValue(RequestType type, string key, string value)
+        public ResponseData<string> DoWithKeyValue(RequestType type, string key, string value)
         {
             key.KeyCheck();
 
-            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
 
             try
             {
@@ -341,10 +342,10 @@ namespace SAEA.RedisSocket.Core
                     lock (SyncRoot)
                     {
                         RedisCoder.Request(type, key, value);
-                        var sresult = RedisCoder.Decoder(type, token);
+                        var sresult = RedisCoder.Decoder<string>(type, token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
-                            return (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoWithKeyValue, type, key, value);
+                            return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoWithKeyValue, type, key, value);
                         }
                         else
                             return sresult;
@@ -364,12 +365,12 @@ namespace SAEA.RedisSocket.Core
             return result;
         }
 
-        public ResponseData DoWithID(RequestType type, string id, string key, string value)
+        public ResponseData<string> DoWithID(RequestType type, string id, string key, string value)
         {
             id.KeyCheck();
             key.KeyCheck();
 
-            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
             try
             {
                 result = TaskHelper.Run((token) =>
@@ -377,10 +378,10 @@ namespace SAEA.RedisSocket.Core
                     lock (SyncRoot)
                     {
                         RedisCoder.Request(type, id, key, value);
-                        var sresult = RedisCoder.Decoder(type, token);
+                        var sresult = RedisCoder.Decoder<string>(type, token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
-                            return (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoWithID, type, id, key, value);
+                            return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoWithID, type, id, key, value);
                         }
                         else
                             return sresult;
@@ -400,11 +401,11 @@ namespace SAEA.RedisSocket.Core
             return result;
         }
 
-        public ResponseData DoWithMutiParams(RequestType type, params string[] keys)
+        public ResponseData<string> DoWithMutiParams(RequestType type, params string[] keys)
         {
             keys.KeyCheck();
 
-            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
 
             try
             {
@@ -413,10 +414,10 @@ namespace SAEA.RedisSocket.Core
                     lock (SyncRoot)
                     {
                         RedisCoder.Request(type, keys);
-                        var sresult = RedisCoder.Decoder(type, token);
+                        var sresult = RedisCoder.Decoder<string>(type, token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
-                            return (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoBatchWithParams, type, keys);
+                            return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoBatchWithParams, type, keys);
                         }
                         else
                             return sresult;
@@ -434,14 +435,55 @@ namespace SAEA.RedisSocket.Core
                 result.Data = ex.Message;
             }
             return result;
-
         }
 
-        public ResponseData DoExpire(string key, int seconds)
+        /// <summary>
+        /// DoStreamSub
+        /// </summary>
+        /// <param name="type"></param>
+        /// <param name="keys"></param>
+        /// <returns></returns>
+        public ResponseData<IEnumerable<StreamEntry>> DoStreamSub(RequestType type, params string[] keys)
+        {
+            keys.KeyCheck();
+
+            ResponseData<IEnumerable<StreamEntry>> result = new ResponseData<IEnumerable<StreamEntry>>() { Type = ResponseType.Empty, Data = "未知的命令" };
+
+            try
+            {
+                result = TaskHelper.Run((token) =>
+                {
+                    lock (SyncRoot)
+                    {
+                        RedisCoder.Request(type, keys);
+                        var sresult = RedisCoder.Decoder(token);
+                        if (sresult != null && sresult.Type == ResponseType.Redirect)
+                        {
+                            return (ResponseData<IEnumerable<StreamEntry>>)OnRedirect.Invoke(sresult.Data, OperationType.DoBatchWithParams, type, keys);
+                        }
+                        else
+                            return sresult;
+                    }
+                }, _actionTimeout).Result;
+            }
+            catch (TaskCanceledException tex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = "Action Timeout";
+            }
+            catch (Exception ex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = ex.Message;
+            }
+            return result;
+        }
+
+        public ResponseData<string> DoExpire(string key, int seconds)
         {
             key.KeyCheck();
 
-            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
 
             try
             {
@@ -450,10 +492,10 @@ namespace SAEA.RedisSocket.Core
                     lock (SyncRoot)
                     {
                         RedisCoder.Request(RequestType.EXPIRE, key, seconds.ToString());
-                        var sresult = RedisCoder.Decoder(RequestType.EXPIRE, token);
+                        var sresult = RedisCoder.Decoder<string>(RequestType.EXPIRE, token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
-                            sresult = (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoExpire, key, seconds);
+                            sresult = (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoExpire, key, seconds);
                         }
                         return sresult;
                     }
@@ -473,11 +515,11 @@ namespace SAEA.RedisSocket.Core
 
         }
 
-        public ResponseData DoExpireAt(string key, int timestamp)
+        public ResponseData<string> DoExpireAt(string key, int timestamp)
         {
             key.KeyCheck();
 
-            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
 
             try
             {
@@ -486,10 +528,10 @@ namespace SAEA.RedisSocket.Core
                     lock (SyncRoot)
                     {
                         RedisCoder.Request(RequestType.EXPIREAT, key, timestamp.ToString());
-                        var sresult = RedisCoder.Decoder(RequestType.EXPIREAT, token);
+                        var sresult = RedisCoder.Decoder<string>(RequestType.EXPIREAT, token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
-                            sresult = (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoExpireAt, key, timestamp);
+                            sresult = (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoExpireAt, key, timestamp);
                         }
                         return sresult;
                     }
@@ -508,11 +550,11 @@ namespace SAEA.RedisSocket.Core
             return result;
         }
 
-        public ResponseData DoExpireInsert(RequestType type, string key, string value, int seconds)
+        public ResponseData<string> DoExpireInsert(RequestType type, string key, string value, int seconds)
         {
             key.KeyCheck();
 
-            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
 
             try
             {
@@ -521,13 +563,13 @@ namespace SAEA.RedisSocket.Core
                     lock (SyncRoot)
                     {
                         RedisCoder.Request(type, key, value);
-                        var sresult = RedisCoder.Decoder(type, token);
+                        var sresult = RedisCoder.Decoder<string>(type, token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
-                            return (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoExpireInsert, key, value, seconds);
+                            return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoExpireInsert, key, value, seconds);
                         }
                         RedisCoder.Request(RequestType.EXPIRE, string.Format("{0} {1}", key, seconds));
-                        return RedisCoder.Decoder(RequestType.EXPIRE, token);
+                        return RedisCoder.Decoder<string>(RequestType.EXPIRE, token);
                     }
                 }, _actionTimeout).Result;
             }
@@ -545,11 +587,11 @@ namespace SAEA.RedisSocket.Core
 
         }
 
-        public ResponseData DoRang(RequestType type, string key, double begin = 0, double end = -1)
+        public ResponseData<string> DoRang(RequestType type, string key, double begin = 0, double end = -1)
         {
             key.KeyCheck();
 
-            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
             try
             {
                 result = TaskHelper.Run((token) =>
@@ -557,10 +599,10 @@ namespace SAEA.RedisSocket.Core
                     lock (SyncRoot)
                     {
                         RedisCoder.Request(type, key, begin.ToString(), end.ToString(), "WITHSCORES");
-                        var sresult = RedisCoder.Decoder(type, token);
+                        var sresult = RedisCoder.Decoder<string>(type, token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
-                            return (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoRang, type, key, begin, end);
+                            return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoRang, type, key, begin, end);
                         }
                         else
                             return sresult;
@@ -581,11 +623,11 @@ namespace SAEA.RedisSocket.Core
 
         }
 
-        public ResponseData DoRangByScore(RequestType type, string key, double min = double.MinValue, double max = double.MaxValue, RangType rangType = RangType.None, long offset = -1, int count = 20, bool withScore = false)
+        public ResponseData<string> DoRangByScore(RequestType type, string key, double min = double.MinValue, double max = double.MaxValue, RangType rangType = RangType.None, long offset = -1, int count = 20, bool withScore = false)
         {
             key.KeyCheck();
 
-            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
 
             try
             {
@@ -594,10 +636,10 @@ namespace SAEA.RedisSocket.Core
                     lock (SyncRoot)
                     {
                         RedisCoder.RequestForRandByScore(type, key, min, max, rangType, offset, count, withScore);
-                        var sresult = RedisCoder.Decoder(type, token);
+                        var sresult = RedisCoder.Decoder<string>(type, token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
-                            return (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoRangByScore, type, key, min, max, rangType, offset, count, withScore);
+                            return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoRangByScore, type, key, min, max, rangType, offset, count, withScore);
                         }
                         else
                             return sresult;
@@ -630,7 +672,7 @@ namespace SAEA.RedisSocket.Core
                 {
                     while (RedisCoder.IsSubed)
                     {
-                        var result = RedisCoder.Decoder(RequestType.SUBSCRIBE, System.Threading.CancellationToken.None);
+                        var result = RedisCoder.Decoder<string>(RequestType.SUBSCRIBE, System.Threading.CancellationToken.None);
                         if (result != null && result.Type == ResponseType.Sub)
                         {
                             var arr = result.Data.ToArray(false, Environment.NewLine);
@@ -645,9 +687,9 @@ namespace SAEA.RedisSocket.Core
             });
         }
 
-        public ResponseData DoMultiLineWithList(RequestType type, string id, IEnumerable<string> list)
+        public ResponseData<string> DoMultiLineWithList(RequestType type, string id, IEnumerable<string> list)
         {
-            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
 
             try
             {
@@ -656,10 +698,10 @@ namespace SAEA.RedisSocket.Core
                     lock (SyncRoot)
                     {
                         RedisCoder.RequestForList(type, id, list);
-                        var sresult = RedisCoder.Decoder(type, token);
+                        var sresult = RedisCoder.Decoder<string>(type, token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
-                            return (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoBatchWithList, type, list);
+                            return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoBatchWithList, type, list);
                         }
                         else
                             return sresult;
@@ -679,9 +721,9 @@ namespace SAEA.RedisSocket.Core
             return result;
         }
 
-        public ResponseData DoMultiLineWithDic(RequestType type, Dictionary<string, string> dic)
+        public ResponseData<string> DoMultiLineWithDic(RequestType type, Dictionary<string, string> dic)
         {
-            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
             try
             {
                 result = TaskHelper.Run((token) =>
@@ -689,10 +731,10 @@ namespace SAEA.RedisSocket.Core
                     lock (SyncRoot)
                     {
                         RedisCoder.RequestForDic(type, dic);
-                        var sresult = RedisCoder.Decoder(type, token);
+                        var sresult = RedisCoder.Decoder<string>(type, token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
-                            return (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoBatchWithDic, type, dic);
+                            return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoBatchWithDic, type, dic);
                         }
                         else
                             return sresult;
@@ -713,12 +755,12 @@ namespace SAEA.RedisSocket.Core
         }
 
 
-        public ResponseData DoBatchWithIDKeys(RequestType type, string id, params string[] keys)
+        public ResponseData<string> DoBatchWithIDKeys(RequestType type, string id, params string[] keys)
         {
             id.KeyCheck();
             keys.KeyCheck();
 
-            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
             try
             {
                 result = TaskHelper.Run((token) =>
@@ -731,10 +773,10 @@ namespace SAEA.RedisSocket.Core
                         list.Add(id);
                         list.AddRange(keys);
                         RedisCoder.RequestOnlyParams(list.ToArray());
-                        var sresult = RedisCoder.Decoder(type, token);
+                        var sresult = RedisCoder.Decoder<string>(type, token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
-                            return (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoBatchWithIDKeys, type, id, keys);
+                            return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoBatchWithIDKeys, type, id, keys);
                         }
                         else
                             return sresult;
@@ -754,10 +796,10 @@ namespace SAEA.RedisSocket.Core
             return result;
         }
 
-        public ResponseData DoBatchZaddWithIDDic(RequestType type, string id, Dictionary<double, string> dic)
+        public ResponseData<string> DoBatchZaddWithIDDic(RequestType type, string id, Dictionary<double, string> dic)
         {
             id.KeyCheck();
-            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
             try
             {
                 result = TaskHelper.Run((token) =>
@@ -766,10 +808,10 @@ namespace SAEA.RedisSocket.Core
                     {
 
                         RedisCoder.RequestForDicWidthID(type, id, dic);
-                        var sresult = RedisCoder.Decoder(type, token);
+                        var sresult = RedisCoder.Decoder<string>(type, token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
-                            return (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoBatchZaddWithIDDic, type, id, dic);
+                            return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoBatchZaddWithIDDic, type, id, dic);
                         }
                         else
                             return sresult;
@@ -790,11 +832,11 @@ namespace SAEA.RedisSocket.Core
 
         }
 
-        public ResponseData DoBatchWithIDDic(RequestType type, string id, Dictionary<string, string> dic)
+        public ResponseData<string> DoBatchWithIDDic(RequestType type, string id, Dictionary<string, string> dic)
         {
             id.KeyCheck();
 
-            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
             try
             {
                 result = TaskHelper.Run((token) =>
@@ -802,10 +844,10 @@ namespace SAEA.RedisSocket.Core
                     lock (SyncRoot)
                     {
                         RedisCoder.RequestForDicWidthID(type, id, dic);
-                        var result = RedisCoder.Decoder(type, token);
+                        var result = RedisCoder.Decoder<string>(type, token);
                         if (result != null && result.Type == ResponseType.Redirect)
                         {
-                            return (ResponseData)OnRedirect.Invoke(result.Data, OperationType.DoBatchWithIDDic, type, id, dic);
+                            return (ResponseData<string>)OnRedirect.Invoke(result.Data, OperationType.DoBatchWithIDDic, type, id, dic);
                         }
                         else
                             return result;
@@ -865,7 +907,7 @@ namespace SAEA.RedisSocket.Core
                             RedisCoder.Request(type, offset.ToString());
                         }
                     }
-                    var sresult = RedisCoder.Decoder(type, token);
+                    var sresult = RedisCoder.Decoder<string>(type, token);
 
                     if (sresult == null) return null;
 
@@ -927,7 +969,7 @@ namespace SAEA.RedisSocket.Core
                         }
                     }
 
-                    var result = RedisCoder.Decoder(type, token);
+                    var result = RedisCoder.Decoder<string>(type, token);
 
                     if (result == null) return null;
 
@@ -948,10 +990,10 @@ namespace SAEA.RedisSocket.Core
         }
 
 
-        public ResponseData DoMutiCmd(RequestType type, params object[] @params)
+        public ResponseData<string> DoMutiCmd(RequestType type, params object[] @params)
         {
 
-            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
             try
             {
                 result = TaskHelper.Run((token) =>
@@ -972,10 +1014,10 @@ namespace SAEA.RedisSocket.Core
                             }
                         }
                         RedisCoder.RequestOnlyParams(list.ToArray());
-                        var sresult = RedisCoder.Decoder(type, token);
+                        var sresult = RedisCoder.Decoder<string>(type, token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
-                            return (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoCluster, type, @params);
+                            return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoCluster, type, @params);
                         }
                         else if (sresult.Type == ResponseType.Error)
                         {
@@ -1001,10 +1043,10 @@ namespace SAEA.RedisSocket.Core
         }
 
 
-        public ResponseData DoClusterSetSlot(RequestType type, string action, int slot, string nodeID)
+        public ResponseData<string> DoClusterSetSlot(RequestType type, string action, int slot, string nodeID)
         {
 
-            ResponseData result = new ResponseData() { Type = ResponseType.Empty, Data = "未知的命令" };
+            ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
             try
             {
                 result = TaskHelper.Run((token) =>
@@ -1025,11 +1067,11 @@ namespace SAEA.RedisSocket.Core
 
                         RedisCoder.RequestOnlyParams(list.ToArray());
 
-                        var sresult = RedisCoder.Decoder(type, token);
+                        var sresult = RedisCoder.Decoder<string>(type, token);
 
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
-                            return (ResponseData)OnRedirect.Invoke(sresult.Data, OperationType.DoClusterSetSlot, type, action, slot, nodeID);
+                            return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoClusterSetSlot, type, action, slot, nodeID);
                         }
                         else if (sresult != null && sresult.Type == ResponseType.Error)
                         {

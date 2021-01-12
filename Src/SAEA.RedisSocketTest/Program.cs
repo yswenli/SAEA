@@ -60,23 +60,19 @@ namespace SAEA.RedisSocketTest
 
             var producer = redisClient.GetRedisProducer();
 
-            //TaskHelper.LongRunning(() =>
-            //{
-            //    var id = producer.Publish(topic, $"date:{DateTimeHelper.Now:yyyy-MM-dd HH:mm:ss.fff}");
-            //    Console.WriteLine($"RedisID:{id.ToString()}");
-            //}, 1000);
-
-            Console.ReadLine();
+            TaskHelper.LongRunning(() =>
+            {
+                producer.Publish(topic, $"date:{DateTimeHelper.Now:yyyy-MM-dd HH:mm:ss.fff}");
+            }, 1000);
 
             var consumer1 = redisClient.GetRedisConsumer(new List<TopicID>() { new TopicID(topic, "$") });
             var redisFilelds1 = consumer1.Subscribe();
 
-            Console.ReadLine();
-
-            var consumer2 = redisClient.GetRedisConsumer(new List<TopicID>() { new TopicID(topic, "0") });
+            var consumer2 = redisClient.GetRedisConsumer(new List<TopicID>() { new TopicID(topic, "0") }, 2);
             var redisFilelds2 = consumer2.Subscribe();
 
-            Console.ReadLine();
+            var consumer3 = redisClient.GetRedisConsumer("yswenli", "saea.redisscoket", topic, "0", true, 2);
+            var redisFilelds3 = consumer3.SubscribeWithGroup();
 
             #endregion
 
@@ -485,4 +481,3 @@ namespace SAEA.RedisSocketTest
         }
     }
 }
-

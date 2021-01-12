@@ -160,7 +160,7 @@ namespace SAEA.RedisSocket
         /// </summary>
         /// <param name="cmd"></param>
         /// <returns></returns>
-        public ResponseData Console(string cmd)
+        public ResponseData<string> Console(string cmd)
         {
             var result = _cnn.RequestWithConsole(cmd);
 
@@ -385,9 +385,9 @@ namespace SAEA.RedisSocket
         /// <param name="timeout"></param>
         /// <param name="asc"></param>
         /// <returns></returns>
-        public RedisConsumer GetRedisConsumer(string groupName, string consumerName, string topicName, int count = 1, bool blocked = false, int timeout = 1000, bool asc = true)
+        public RedisConsumer GetRedisConsumer(string groupName, string consumerName, string topicName, string redisId = "0", bool noAck = false, int count = 1, bool blocked = false, int timeout = 1000, bool asc = true)
         {
-            return new RedisConsumer(_cnn, groupName, consumerName, topicName, count, blocked, timeout);
+            return new RedisConsumer(_cnn, groupName, consumerName, topicName, redisId, noAck, count, blocked, timeout, asc);
         }
 
         #endregion

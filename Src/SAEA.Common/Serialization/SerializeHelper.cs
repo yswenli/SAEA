@@ -69,7 +69,6 @@ namespace SAEA.Common.Serialization
             }
         }
 
-
         #region byte序列化扩展
         public static byte[] ToBytes<T>(this T t) where T : class, new()
         {
