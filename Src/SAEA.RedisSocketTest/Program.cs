@@ -60,13 +60,23 @@ namespace SAEA.RedisSocketTest
 
             var producer = redisClient.GetRedisProducer();
 
-            TaskHelper.LongRunning(() =>
-            {
-                producer.Publish(topic, $"date:{DateTimeHelper.Now:yyyy-MM-dd HH:mm:ss.fff}");
-            }, 1000);
+            //TaskHelper.LongRunning(() =>
+            //{
+            //    var id = producer.Publish(topic, $"date:{DateTimeHelper.Now:yyyy-MM-dd HH:mm:ss.fff}");
+            //    Console.WriteLine($"RedisID:{id.ToString()}");
+            //}, 1000);
 
-            var consumer = redisClient.GetRedisConsumer(new List<TopicID>() { new TopicID(topic, "$") });
-            var redisFilelds = consumer.Subscribe();
+            Console.ReadLine();
+
+            var consumer1 = redisClient.GetRedisConsumer(new List<TopicID>() { new TopicID(topic, "$") });
+            var redisFilelds1 = consumer1.Subscribe();
+
+            Console.ReadLine();
+
+            var consumer2 = redisClient.GetRedisConsumer(new List<TopicID>() { new TopicID(topic, "0") });
+            var redisFilelds2 = consumer2.Subscribe();
+
+            Console.ReadLine();
 
             #endregion
 

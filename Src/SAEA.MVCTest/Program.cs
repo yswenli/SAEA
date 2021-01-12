@@ -18,6 +18,8 @@ namespace SAEA.MVCTest
 
             mvcConfig.IsStaticsCached = false;
 
+            mvcConfig.ControllerNameSpace = "SAEA.MVCTest";
+
             SAEAMvcApplicationConfigBuilder.Write(mvcConfig);
 
             SAEAMvcApplication mvcApplication = new SAEAMvcApplication(mvcConfig);

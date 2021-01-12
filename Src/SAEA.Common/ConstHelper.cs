@@ -33,7 +33,7 @@ namespace SAEA.Common
     {
         public const string CONTROLLERNAME = "controller";
 
-        public const string CONTROLLERSPACE = "Controllers";
+        public const string CONTROLLERFULLNAME = "SAEA.MVC.Controller";
 
         public const string HTTPGET = "HttpGet";
 

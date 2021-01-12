@@ -184,6 +184,8 @@ namespace SAEA.MVC
                     }
                     else
                     {
+                        if (RouteTable.Types == null) return new ContentResult("o_o，找不到任何路由信息！url:" + url, System.Net.HttpStatusCode.NotFound);
+
                         var d = RouteTable.Types.Where(b => (string.Compare(b.Name, WebConfig.DefaultRoute.Name, true) == 0 || string.Compare(b.Name, WebConfig.DefaultRoute.Name + ConstHelper.CONTROLLERNAME, true) == 0)).FirstOrDefault();
 
                         nameValues = Request.Parmas.ToNameValueCollection();
@@ -207,26 +209,28 @@ namespace SAEA.MVC
                 default:
                     var controllerName = arr[arr.Length - 2];
 
-                    var first = RouteTable.Types.Where(b => string.Compare(b.Name, controllerName + ConstHelper.CONTROLLERNAME, true) == 0).FirstOrDefault();
-
-                    if (first != null)
+                    if (RouteTable.Types != null && RouteTable.Types.Any())
                     {
-                        nameValues = Request.Parmas.ToNameValueCollection();
+                        var first = RouteTable.Types.Where(b => string.Compare(b.Name, controllerName + ConstHelper.CONTROLLERNAME, true) == 0).FirstOrDefault();
 
-                        return MvcInvoker.InvokeResult(_routeTable, first, arr[arr.Length - 1], nameValues, isPost);
-                    }
-                    else
-                    {
-                        filePath = Server.MapPath(url);
-                        if (StaticResourcesCache.Exists(filePath))
+                        if (first != null)
                         {
-                            if (StaticResourcesCache.IsBigFile(filePath))
+                            nameValues = Request.Parmas.ToNameValueCollection();
 
-                                return new BigDataResult(filePath);
-                            else
-
-                                return new FileResult(filePath, IsStaticsCached);
+                            return MvcInvoker.InvokeResult(_routeTable, first, arr[arr.Length - 1], nameValues, isPost);
                         }
+                    }
+
+                    filePath = Server.MapPath(url);
+
+                    if (StaticResourcesCache.Exists(filePath))
+                    {
+                        if (StaticResourcesCache.IsBigFile(filePath))
+
+                            return new BigDataResult(filePath);
+                        else
+
+                            return new FileResult(filePath, IsStaticsCached);
                     }
                     break;
             }

@@ -57,7 +57,7 @@ namespace SAEA.MVC
         /// 构建mvc容器
         /// </summary>
         /// <param name="mvcConfig"></param>
-        public SAEAMvcApplication(SAEAMvcApplicationConfig mvcConfig) : this(mvcConfig.Root, mvcConfig.Port, mvcConfig.IsStaticsCached, mvcConfig.IsZiped, mvcConfig.BufferSize, mvcConfig.Count, isDebug: mvcConfig.IsDebug)
+        public SAEAMvcApplication(SAEAMvcApplicationConfig mvcConfig) : this(mvcConfig.Root, mvcConfig.Port, mvcConfig.IsStaticsCached, mvcConfig.IsZiped, mvcConfig.BufferSize, mvcConfig.Count, mvcConfig.ControllerNameSpace, mvcConfig.IsDebug)
         {
             _webHost.WebConfig.HomePage = mvcConfig.DefaultPage;
         }
@@ -91,7 +91,7 @@ namespace SAEA.MVC
 
             _webHost.RouteParam = AreaCollection.RouteTable;
         }
-        
+
 
         /// <summary>
         /// 设置默认路由地址

@@ -145,7 +145,7 @@ namespace SAEA.RedisSocket.Core.Stream
         {
             if (!_inited)
             {
-                _redisQueue.CreateGroup(_topicName, _groupName, _consumerName, _asc);
+                _redisQueue.CreateGroup(_topicName, _groupName, _asc);
                 _inited = true;
             }
             return _redisQueue.Subscribe(_groupName, _consumerName, _topicName, _count, _blocked, _timeout);

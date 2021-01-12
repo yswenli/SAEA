@@ -28,7 +28,6 @@ using SAEA.Http.Base.Net;
 using SAEA.Http.Model;
 using SAEA.Sockets.Interface;
 using System;
-using System.Collections.Generic;
 
 namespace SAEA.Http
 {

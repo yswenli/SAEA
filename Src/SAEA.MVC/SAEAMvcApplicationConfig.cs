@@ -67,6 +67,8 @@ namespace SAEA.MVC
             get; set;
         } = false;
 
+        public string ControllerNameSpace { get; set; }
+
         public SAEAMvcApplicationConfig()
         {
 

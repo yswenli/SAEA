@@ -361,7 +361,7 @@ namespace SAEA.RedisSocket.Core
         /// </summary>
         /// <param name="ctoken">设置收取消息超时时间，默认30秒</param>
         /// <returns></returns>
-        string GetRedisReply(CancellationToken ctoken)
+        string GetRedisReplyLine(CancellationToken ctoken)
         {
             try
             {
@@ -400,7 +400,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="ctoken"></param>
         /// <param name="addSeparator"></param>
         /// <returns></returns>
-        private StringBuilder GetLastSB(StringBuilder sb, int len, CancellationToken ctoken, bool addSeparator = false)
+        private StringBuilder GetRedisReplyBlob(StringBuilder sb, int len, CancellationToken ctoken, bool addSeparator = false)
         {
             sb.Append(_redisStream.ReadBlock(len, ctoken));
 
@@ -428,7 +428,7 @@ namespace SAEA.RedisSocket.Core
 
                 var len = 0;
 
-                command = GetRedisReply(ctoken);
+                command = GetRedisReplyLine(ctoken);
 
                 if (string.IsNullOrEmpty(command)) return null;
 
@@ -441,7 +441,7 @@ namespace SAEA.RedisSocket.Core
 
                 while (command == ConstHelper.ENTER)
                 {
-                    command = GetRedisReply(ctoken);
+                    command = GetRedisReplyLine(ctoken);
 
                     if (command.IndexOf("-") == 0 && command.IndexOf(MOVED) == -1)
                     {
@@ -503,6 +503,7 @@ namespace SAEA.RedisSocket.Core
                         case RequestType.CLUSTER_FLUSHSLOTS:
                         case RequestType.CLUSTER_SETSLOT:
                         case RequestType.CONFIG_SET:
+                        case RequestType.XGROUP:
                             if (GetStatus(command, out error))
                             {
                                 responseData.Type = ResponseType.OK;
@@ -533,6 +534,7 @@ namespace SAEA.RedisSocket.Core
                         case RequestType.SRANDMEMBER:
                         case RequestType.SPOP:
                         case RequestType.RANDOMKEY:
+                        case RequestType.XADD:
                             len = GetWordsNum(command, out error);
                             if (!string.IsNullOrEmpty(error))
                             {
@@ -547,7 +549,7 @@ namespace SAEA.RedisSocket.Core
                             else
                             {
                                 responseData.Type = ResponseType.String;
-                                responseData.Data += GetLastSB(new StringBuilder(), len, ctoken).ToString();
+                                responseData.Data += GetRedisReplyBlob(new StringBuilder(), len, ctoken).ToString();
                             }
                             break;
                         case RequestType.KEYS:
@@ -573,25 +575,28 @@ namespace SAEA.RedisSocket.Core
                                 responseData.Data = error;
                                 break;
                             }
-                            if (rn > 0)
+                            if (rn <= 0)
                             {
-                                for (int i = 0; i < rn; i++)
+                                responseData.Type = ResponseType.Empty;
+                                responseData.Data = "";
+                                return responseData;
+                            }
+                            for (int i = 0; i < rn; i++)
+                            {
+                                len = GetWordsNum(GetRedisReplyLine(ctoken), out error);
+                                if (!string.IsNullOrEmpty(error))
                                 {
-                                    len = GetWordsNum(GetRedisReply(ctoken), out error);
-                                    if (!string.IsNullOrEmpty(error))
-                                    {
-                                        responseData.Type = ResponseType.Error;
-                                        responseData.Data = error;
-                                        return responseData;
-                                    }
-                                    if (len == -1)
-                                    {
-                                        responseData.Type = ResponseType.Empty;
-                                        responseData.Data = string.Empty;
-                                        return responseData;
-                                    }
-                                    sb = GetLastSB(sb, len, ctoken, true);
+                                    responseData.Type = ResponseType.Error;
+                                    responseData.Data = error;
+                                    return responseData;
                                 }
+                                if (len == -1)
+                                {
+                                    responseData.Type = ResponseType.Empty;
+                                    responseData.Data = string.Empty;
+                                    return responseData;
+                                }
+                                sb = GetRedisReplyBlob(sb, len, ctoken, true);
                             }
                             responseData.Type = ResponseType.Lines;
                             responseData.Data = sb.ToString();
@@ -613,7 +618,7 @@ namespace SAEA.RedisSocket.Core
                             {
                                 responseData.Type = ResponseType.String;
 
-                                responseData.Data += GetLastSB(new StringBuilder(), len, ctoken).ToString();
+                                responseData.Data += GetRedisReplyBlob(new StringBuilder(), len, ctoken).ToString();
                             }
                             break;
                         case RequestType.HGETALL:
@@ -630,25 +635,28 @@ namespace SAEA.RedisSocket.Core
                                 responseData.Data = error;
                                 break;
                             }
-                            if (rn > 0)
+                            if (rn <= 0)
                             {
-                                for (int i = 0; i < rn; i++)
+                                responseData.Type = ResponseType.Empty;
+                                responseData.Data = "";
+                                return responseData;
+                            }
+                            for (int i = 0; i < rn; i++)
+                            {
+                                len = GetWordsNum(GetRedisReplyLine(ctoken), out error);
+                                if (!string.IsNullOrEmpty(error))
                                 {
-                                    len = GetWordsNum(GetRedisReply(ctoken), out error);
-                                    if (!string.IsNullOrEmpty(error))
-                                    {
-                                        responseData.Type = ResponseType.Error;
-                                        responseData.Data = error;
-                                        return responseData;
-                                    }
-                                    if (len == -1)
-                                    {
-                                        responseData.Type = ResponseType.Empty;
-                                        responseData.Data = string.Empty;
-                                        return responseData;
-                                    }
-                                    sb = GetLastSB(sb, len, ctoken, true);
+                                    responseData.Type = ResponseType.Error;
+                                    responseData.Data = error;
+                                    return responseData;
                                 }
+                                if (len == -1)
+                                {
+                                    responseData.Type = ResponseType.Empty;
+                                    responseData.Data = string.Empty;
+                                    return responseData;
+                                }
+                                sb = GetRedisReplyBlob(sb, len, ctoken, true);
                             }
                             responseData.Data = sb.ToString();
                             break;
@@ -704,7 +712,6 @@ namespace SAEA.RedisSocket.Core
                         case RequestType.CLUSTER_KEYSLOT:
                         case RequestType.CLUSTER_COUNTKEYSINSLOT:
                         case RequestType.GEOADD:
-                        case RequestType.XADD:
                             var val = GetValue(command, out error);
                             if (!string.IsNullOrEmpty(error))
                             {
@@ -724,7 +731,7 @@ namespace SAEA.RedisSocket.Core
                                 responseData.Data = error;
                                 break;
                             }
-                            len = GetWordsNum(GetRedisReply(ctoken), out error);
+                            len = GetWordsNum(GetRedisReplyLine(ctoken), out error);
                             if (len == -1)
                             {
                                 responseData.Type = ResponseType.Empty;
@@ -737,7 +744,7 @@ namespace SAEA.RedisSocket.Core
                                 responseData.Data = error;
                                 break;
                             }
-                            var ssb = GetLastSB(new StringBuilder(), len, ctoken, false);
+                            var ssb = GetRedisReplyBlob(new StringBuilder(), len, ctoken, false);
                             responseData.Type = ResponseType.String;
                             responseData.Data = ssb.ToString();
 
@@ -760,7 +767,7 @@ namespace SAEA.RedisSocket.Core
                                 responseData.Data = error;
                                 break;
                             }
-                            ssb = GetLastSB(new StringBuilder(), len, ctoken, false);
+                            ssb = GetRedisReplyBlob(new StringBuilder(), len, ctoken, false);
                             responseData.Type = ResponseType.String;
                             responseData.Data = ssb.ToString();
                             break;
@@ -778,7 +785,7 @@ namespace SAEA.RedisSocket.Core
                                 responseData.Data = error;
                                 break;
                             }
-                            ssb = GetLastSB(new StringBuilder(), len, ctoken, true);
+                            ssb = GetRedisReplyBlob(new StringBuilder(), len, ctoken, true);
                             responseData.Type = ResponseType.String;
                             responseData.Data = ssb.ToString();
                             break;
@@ -786,14 +793,14 @@ namespace SAEA.RedisSocket.Core
                             var r = string.Empty;
                             while (IsSubed)
                             {
-                                r = GetRedisReply(ctoken);
+                                r = GetRedisReplyLine(ctoken);
                                 if (string.Compare(r, "message\r\n", true) == 0)
                                 {
                                     responseData.Type = ResponseType.Sub;
-                                    GetRedisReply(ctoken);
-                                    responseData.Data = GetRedisReply(ctoken);
-                                    GetRedisReply(ctoken);
-                                    responseData.Data += GetRedisReply(ctoken);
+                                    GetRedisReplyLine(ctoken);
+                                    responseData.Data = GetRedisReplyLine(ctoken);
+                                    GetRedisReplyLine(ctoken);
+                                    responseData.Data += GetRedisReplyLine(ctoken);
                                     break;
                                 }
                             }
@@ -806,23 +813,29 @@ namespace SAEA.RedisSocket.Core
                                 responseData.Data = error;
                                 return responseData;
                             }
-                            var wNum = GetWordsNum(GetRedisReply(ctoken), out error);
+                            if (rNum <= 0)
+                            {
+                                responseData.Type = ResponseType.Empty;
+                                responseData.Data = "";
+                                return responseData;
+                            }
+                            var wNum = GetWordsNum(GetRedisReplyLine(ctoken), out error);
                             if (!string.IsNullOrEmpty(error))
                             {
                                 responseData.Type = ResponseType.Error;
                                 responseData.Data = error;
                                 return responseData;
                             }
-                            GetRedisReply(ctoken);
-                            wNum = GetWordsNum(GetRedisReply(ctoken), out error);
+                            GetRedisReplyLine(ctoken);
+                            wNum = GetWordsNum(GetRedisReplyLine(ctoken), out error);
                             if (!string.IsNullOrEmpty(error))
                             {
                                 responseData.Type = ResponseType.Error;
                                 responseData.Data = error;
                                 return responseData;
                             }
-                            var channel = GetRedisReply(ctoken);
-                            var vNum = GetValue(GetRedisReply(ctoken), out error);
+                            var channel = GetRedisReplyLine(ctoken);
+                            var vNum = GetValue(GetRedisReplyLine(ctoken), out error);
                             if (!string.IsNullOrEmpty(error))
                             {
                                 responseData.Type = ResponseType.Error;
@@ -838,7 +851,7 @@ namespace SAEA.RedisSocket.Core
                             responseData.Type = ResponseType.Lines;
                             while (command == ConstHelper.ENTER)
                             {
-                                command = GetRedisReply(ctoken);
+                                command = GetRedisReplyLine(ctoken);
                             }
                             sb = new StringBuilder();
                             int offset = 0;
@@ -849,9 +862,15 @@ namespace SAEA.RedisSocket.Core
                                 responseData.Data = error;
                                 return responseData;
                             }
+                            if (rn <= 0)
+                            {
+                                responseData.Type = ResponseType.Empty;
+                                responseData.Data = "";
+                                return responseData;
+                            }
                             while (rn <= 0)
                             {
-                                command = GetRedisReply(ctoken);
+                                command = GetRedisReplyLine(ctoken);
                                 rn = GetRowNum(command, out error);
                                 if (!string.IsNullOrEmpty(error))
                                 {
@@ -861,20 +880,20 @@ namespace SAEA.RedisSocket.Core
                                 }
                             }
                             //
-                            len = GetWordsNum(GetRedisReply(ctoken), out error);
+                            len = GetWordsNum(GetRedisReplyLine(ctoken), out error);
                             if (!string.IsNullOrEmpty(error))
                             {
                                 responseData.Type = ResponseType.Error;
                                 responseData.Data = error;
                                 return responseData;
                             }
-                            int.TryParse(GetRedisReply(ctoken), out offset);
+                            int.TryParse(GetRedisReplyLine(ctoken), out offset);
                             sb.Append("offset:" + offset + SEPARATOR);
                             //
-                            command = GetRedisReply(ctoken);
+                            command = GetRedisReplyLine(ctoken);
                             while (command == ConstHelper.ENTER)
                             {
-                                command = GetRedisReply(ctoken);
+                                command = GetRedisReplyLine(ctoken);
                             }
                             if (string.IsNullOrEmpty(command))
                             {
@@ -889,7 +908,7 @@ namespace SAEA.RedisSocket.Core
                             }
                             while (rn < 0)
                             {
-                                command = GetRedisReply(ctoken);
+                                command = GetRedisReplyLine(ctoken);
                                 rn = GetRowNum(command, out error);
                                 if (!string.IsNullOrEmpty(error))
                                 {
@@ -901,7 +920,7 @@ namespace SAEA.RedisSocket.Core
                             //
                             for (int i = 0; i < rn; i++)
                             {
-                                len = GetWordsNum(GetRedisReply(ctoken), out error);
+                                len = GetWordsNum(GetRedisReplyLine(ctoken), out error);
                                 if (!string.IsNullOrEmpty(error))
                                 {
                                     responseData.Type = ResponseType.Error;
@@ -910,7 +929,7 @@ namespace SAEA.RedisSocket.Core
                                 }
                                 if (len >= 0)
                                 {
-                                    sb = GetLastSB(sb, len, ctoken, true);
+                                    sb = GetRedisReplyBlob(sb, len, ctoken, true);
                                 }
                             }
                             responseData.Data = sb.ToString();
@@ -927,9 +946,15 @@ namespace SAEA.RedisSocket.Core
                                 responseData.Data = error;
                                 return responseData;
                             }
+                            if (rn <= 0)
+                            {
+                                responseData.Type = ResponseType.Empty;
+                                responseData.Data = "";
+                                return responseData;
+                            }
                             for (int i = 0; i < rn; i++)
                             {
-                                command = GetRedisReply(ctoken);
+                                command = GetRedisReplyLine(ctoken);
                                 var srows = GetRowNum(command, out error);
                                 if (!string.IsNullOrEmpty(error))
                                 {
@@ -939,11 +964,11 @@ namespace SAEA.RedisSocket.Core
                                 }
                                 for (int j = 0; j < srows; j++)
                                 {
-                                    command = GetRedisReply(ctoken);
+                                    command = GetRedisReplyLine(ctoken);
                                     len = GetWordsNum(command, out error);
                                     if (len >= 0)
                                     {
-                                        sb = GetLastSB(sb, len, ctoken, true);
+                                        sb = GetRedisReplyBlob(sb, len, ctoken, true);
                                     }
                                     else
                                     {
@@ -951,9 +976,9 @@ namespace SAEA.RedisSocket.Core
 
                                         for (int k = 0; k < ssrows; k++)
                                         {
-                                            command = GetRedisReply(ctoken);
+                                            command = GetRedisReplyLine(ctoken);
                                             len = GetWordsNum(command, out error);
-                                            sb = GetLastSB(sb, len, ctoken, true);
+                                            sb = GetRedisReplyBlob(sb, len, ctoken, true);
                                         }
                                     }
                                 }
@@ -969,51 +994,12 @@ namespace SAEA.RedisSocket.Core
                                 break;
                             }
                             responseData.Type = ResponseType.Value;
-                            responseData.Data = GetLastSB(new StringBuilder(), len, ctoken).ToString();
+                            responseData.Data = GetRedisReplyBlob(new StringBuilder(), len, ctoken).ToString();
                             break;
                         case RequestType.XREAD:
                         case RequestType.XREADGROUP:
                             responseData.Type = ResponseType.Lines;
-                            sb = new StringBuilder();
-                            rn = GetRowNum(command, out error);
-                            if (!string.IsNullOrEmpty(error))
-                            {
-                                responseData.Type = ResponseType.Error;
-                                responseData.Data = error;
-                                return responseData;
-                            }
-                            for (int i = 0; i < rn; i++)
-                            {
-                                command = GetRedisReply(ctoken);
-                                var srows = GetRowNum(command, out error);
-                                if (!string.IsNullOrEmpty(error))
-                                {
-                                    responseData.Type = ResponseType.Error;
-                                    responseData.Data = error;
-                                    return responseData;
-                                }
-                                for (int j = 0; j < srows; j++)
-                                {
-                                    command = GetRedisReply(ctoken);
-                                    len = GetWordsNum(command, out error);
-                                    if (len >= 0)
-                                    {
-                                        sb = GetLastSB(sb, len, ctoken, true);
-                                    }
-                                    else
-                                    {
-                                        var ssrows = GetRowNum(command, out error);
-
-                                        for (int k = 0; k < ssrows; k++)
-                                        {
-                                            command = GetRedisReply(ctoken);
-                                            len = GetWordsNum(command, out error);
-                                            sb = GetLastSB(sb, len, ctoken, true);
-                                        }
-                                    }
-                                }
-                            }
-                            responseData.Data = sb.ToString();
+                            responseData = GetStreamData(command, ctoken);
                             break;
                         default:
                             responseData.Type = ResponseType.Undefined;
@@ -1140,6 +1126,73 @@ namespace SAEA.RedisSocket.Core
             return result;
         }
 
+        /// <summary>
+        /// 分析redis stream 内容
+        /// </summary>
+        /// <param name="command"></param>
+        /// <param name="ctoken"></param>
+        /// <returns></returns>
+        public ResponseData GetStreamData(string command, CancellationToken ctoken)
+        {
+            ResponseData responseData = new ResponseData();
+
+            var sb = new StringBuilder();
+            var row1 = GetRowNum(command, out string error);
+            if (!string.IsNullOrEmpty(error))
+            {
+                responseData.Type = ResponseType.Error;
+                responseData.Data = error;
+                return responseData;
+            }
+            if (row1 <= 0)
+            {
+                responseData.Type = ResponseType.Empty;
+                responseData.Data = "";
+                return responseData;
+            }
+            for (int i = 0; i < row1; i++)
+            {
+                _ = GetRowNum(GetRedisReplyLine(ctoken), out error);
+                if (!string.IsNullOrEmpty(error))
+                {
+                    responseData.Type = ResponseType.Error;
+                    responseData.Data = error;
+                    return responseData;
+                }
+
+                _ = GetWordsNum(GetRedisReplyLine(ctoken), out error);
+                if (!string.IsNullOrEmpty(error))
+                {
+                    responseData.Type = ResponseType.Error;
+                    responseData.Data = error;
+                    return responseData;
+                }
+                sb.AppendLine(GetRedisReplyLine(ctoken));
+
+                var row2 = GetRowNum(GetRedisReplyLine(ctoken), out error);
+
+                for (int j = 0; j < row2; j++)
+                {
+                    _ = GetRowNum(GetRedisReplyLine(ctoken), out error);
+                    if (!string.IsNullOrEmpty(error))
+                    {
+                        responseData.Type = ResponseType.Error;
+                        responseData.Data = error;
+                        return responseData;
+                    }
+                    _ = GetWordsNum(GetRedisReplyLine(ctoken), out error);
+                    sb.AppendLine(GetRedisReplyLine(ctoken));
+                    var row3 = _ = GetWordsNum(GetRedisReplyLine(ctoken), out error);
+                    for (int k = 0; k < row3; k++)
+                    {
+                        _ = GetWordsNum(GetRedisReplyLine(ctoken), out error);
+                        sb.AppendLine(GetRedisReplyLine(ctoken));
+                    }
+                }
+            }
+            responseData.Data = sb.ToString();
+            return responseData;
+        }
         #endregion
 
 

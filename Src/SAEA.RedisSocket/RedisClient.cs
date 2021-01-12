@@ -349,6 +349,10 @@ namespace SAEA.RedisSocket
 
         RedisProducer _redisProducer = null;
 
+        /// <summary>
+        /// GetRedisProducer
+        /// </summary>
+        /// <returns></returns>
         public RedisProducer GetRedisProducer()
         {
             if (_redisProducer == null)
@@ -357,13 +361,30 @@ namespace SAEA.RedisSocket
             }
             return _redisProducer;
 
-
-
+        }
+        /// <summary>
+        /// GetRedisConsumer
+        /// </summary>
+        /// <param name="topicIDs"></param>
+        /// <param name="count"></param>
+        /// <param name="blocked"></param>
+        /// <param name="timeout"></param>
+        /// <returns></returns>
         public RedisConsumer GetRedisConsumer(IEnumerable<TopicID> topicIDs, int count = 1, bool blocked = false, int timeout = 1000)
         {
             return new RedisConsumer(_cnn, topicIDs, count, blocked, timeout);
         }
-
+        /// <summary>
+        /// GetRedisConsumer
+        /// </summary>
+        /// <param name="groupName"></param>
+        /// <param name="consumerName"></param>
+        /// <param name="topicName"></param>
+        /// <param name="count"></param>
+        /// <param name="blocked"></param>
+        /// <param name="timeout"></param>
+        /// <param name="asc"></param>
+        /// <returns></returns>
         public RedisConsumer GetRedisConsumer(string groupName, string consumerName, string topicName, int count = 1, bool blocked = false, int timeout = 1000, bool asc = true)
         {
             return new RedisConsumer(_cnn, groupName, consumerName, topicName, count, blocked, timeout);

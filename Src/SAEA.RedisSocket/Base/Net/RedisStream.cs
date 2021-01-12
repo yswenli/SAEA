@@ -71,7 +71,12 @@ namespace SAEA.RedisSocket.Base.Net
 
                             index += 1;
 
-                            _stringQueue.Enqueue(Encoding.UTF8.GetString(_bytes.Take(index).ToArray()));
+                            var str = Encoding.UTF8.GetString(_bytes.Take(index).ToArray());
+
+                            //debug
+                            Console.WriteLine(str);
+
+                            _stringQueue.Enqueue(str);
 
                             _bytes.RemoveRange(0, index);
                         }
