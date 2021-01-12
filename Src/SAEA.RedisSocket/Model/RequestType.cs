@@ -217,7 +217,16 @@ namespace SAEA.RedisSocket.Model
         /// <summary>
         /// 从一个或多个流中读取数据，只返回ID大于调用者报告的上一个接收ID的条目。
         /// </summary>
-        XREADGROUP
+        XREADGROUP,
+        /// <summary>
+        /// 确认消息
+        /// </summary>
+        XACK,
+        XLEN,
+        /// <summary>
+        /// 返回范围内的消息信息
+        /// </summary>
+        XRANGE
 
 
     }

@@ -74,7 +74,7 @@ namespace SAEA.RedisSocket.Base.Net
                             var str = Encoding.UTF8.GetString(_bytes.Take(index).ToArray());
 
                             //debug
-                            Console.WriteLine(str);
+                            //Console.WriteLine(str);
 
                             _stringQueue.Enqueue(str);
 

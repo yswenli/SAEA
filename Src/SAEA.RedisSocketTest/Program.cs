@@ -22,10 +22,8 @@
 *
 *****************************************************************************/
 using SAEA.Common;
-using SAEA.Common.Threading;
 using SAEA.RedisSocket;
 using SAEA.RedisSocket.Core;
-using SAEA.RedisSocket.Core.Stream;
 using SAEA.RedisSocket.Model;
 using System;
 using System.Collections.Generic;
@@ -54,27 +52,7 @@ namespace SAEA.RedisSocketTest
 
             var info = redisClient.Info();
 
-            #region RedisStream
-
-            var topic = "mystream";
-
-            var producer = redisClient.GetRedisProducer();
-
-            TaskHelper.LongRunning(() =>
-            {
-                producer.Publish(topic, $"date:{DateTimeHelper.Now:yyyy-MM-dd HH:mm:ss.fff}");
-            }, 1000);
-
-            var consumer1 = redisClient.GetRedisConsumer(new List<TopicID>() { new TopicID(topic, "$") });
-            var redisFilelds1 = consumer1.Subscribe();
-
-            var consumer2 = redisClient.GetRedisConsumer(new List<TopicID>() { new TopicID(topic, "0") }, 2);
-            var redisFilelds2 = consumer2.Subscribe();
-
-            var consumer3 = redisClient.GetRedisConsumer("yswenli", "saea.redisscoket", topic, "0", true, 2);
-            var redisFilelds3 = consumer3.SubscribeWithGroup();
-
-            #endregion
+            new RedisStreamTest(redisClient).Test();
 
             #region 异步测试
 

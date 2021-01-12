@@ -14,17 +14,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="obj\**" />
     <Compile Remove="wwwroot\**" />
+    <EmbeddedResource Remove="obj\**" />
     <EmbeddedResource Remove="wwwroot\**" />
+    <None Remove="obj\**" />
     <None Remove="wwwroot\**" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\SAEA.RedisSocket\SAEA.RedisSocket.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="obj\" />
   </ItemGroup>
 
 </Project>

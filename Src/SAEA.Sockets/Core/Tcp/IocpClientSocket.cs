@@ -168,7 +168,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="timeOut"></param>
         public void Connect()
         {
-            if (!Connected)
+            if (!Connected && !IsDisposed)
             {
                 _socket.Connect(_socketOption.IP, _socketOption.Port);
 
@@ -440,8 +440,9 @@ namespace SAEA.Sockets.Core.Tcp
 
         public void Dispose()
         {
-            this.Disconnect();
             IsDisposed = true;
+            this.Disconnect();
+            
         }
 
         public void Disconnect()

@@ -38,7 +38,7 @@ namespace SAEA.RedisSocket.Core
     /// <summary>
     /// 连接包装类
     /// </summary>
-    internal partial class RedisConnection
+    internal partial class RedisConnection : IDisposable
     {
         RClient _cnn;
 
@@ -68,6 +68,8 @@ namespace SAEA.RedisSocket.Core
         }
 
         public bool IsConnected { get; private set; } = false;
+
+        public bool IsDisposed { get; private set; } = false;
 
 
         public RedisServerType RedisServerType { get; set; }
@@ -107,10 +109,13 @@ namespace SAEA.RedisSocket.Core
 
         private void _cnn_OnDisconnected(string ID, Exception ex)
         {
-            OnDisconnected?.Invoke(this.IPPort);
-            IsConnected = false;
-            ThreadHelper.Sleep(1000);
-            Connect();
+            if (!IsDisposed)
+            {
+                OnDisconnected?.Invoke(this.IPPort);
+                IsConnected = false;
+                ThreadHelper.Sleep(1000);
+                Connect();
+            }
         }
 
         private async Task _cnn_OnActived(DateTime actived)
@@ -460,6 +465,42 @@ namespace SAEA.RedisSocket.Core
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
                             return (ResponseData<IEnumerable<StreamEntry>>)OnRedirect.Invoke(sresult.Data, OperationType.DoBatchWithParams, type, keys);
+                        }
+                        else
+                            return sresult;
+                    }
+                }, _actionTimeout).Result;
+            }
+            catch (TaskCanceledException tex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = "Action Timeout";
+            }
+            catch (Exception ex)
+            {
+                result.Type = ResponseType.Error;
+                result.Data = ex.Message;
+            }
+            return result;
+        }
+
+        public ResponseData<IEnumerable<IdFiled>> DoStreamRange(params string[] @params)
+        {
+            @params.KeyCheck();
+
+            ResponseData<IEnumerable<IdFiled>> result = new ResponseData<IEnumerable<IdFiled>>() { Type = ResponseType.Empty, Data = "未知的命令" };
+
+            try
+            {
+                result = TaskHelper.Run((token) =>
+                {
+                    lock (SyncRoot)
+                    {
+                        RedisCoder.Request(RequestType.XRANGE, @params);
+                        var sresult = RedisCoder.StreamRangeDecoder(token);
+                        if (sresult != null && sresult.Type == ResponseType.Redirect)
+                        {
+                            return (ResponseData<IEnumerable<IdFiled>>)OnRedirect.Invoke(sresult.Data, OperationType.DoBatchWithParams, RequestType.XRANGE, @params);
                         }
                         else
                             return sresult;
@@ -1121,7 +1162,9 @@ namespace SAEA.RedisSocket.Core
         public void Dispose()
         {
             IsConnected = false;
+            IsDisposed = true;
             _cnn.Dispose();
+            
         }
     }
 }

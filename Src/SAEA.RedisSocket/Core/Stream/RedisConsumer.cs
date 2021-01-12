@@ -17,17 +17,15 @@
 *****************************************************************************/
 using System;
 using System.Collections.Generic;
-using System.Text;
+using System.Linq;
 
 namespace SAEA.RedisSocket.Core.Stream
 {
     /// <summary>
     /// redisconsumer,
-    /// XREAD BLOCK 5000 COUNT 100 STREAMS mystream $,
-    /// XREADGROUP GROUP $GroupName $ConsumerName BLOCK 2000 COUNT 10 STREAMS mystream
-    /// XGROUP CREATE mystream consumer-group-name $ MKSTREAM
+    /// XREAD BLOCK 5000 COUNT 100 STREAMS mystream $
     /// </summary>
-    public class RedisConsumer
+    public class RedisConsumer : IDisposable
     {
         bool _started = false;
 
@@ -38,25 +36,11 @@ namespace SAEA.RedisSocket.Core.Stream
         bool _blocked = false;
         int _timeout = 1000;
 
-        //
-
-        string _groupName = string.Empty;
-        string _consumerName = string.Empty;
-        string _topicName = string.Empty;
-        string _redisId = "0";
-        bool _noAck = false;
-        bool _asc = true;
-
-        //
-        bool _inited = false;
-
-        Func<IEnumerable<StreamEntry>> _streamDataBlockedHandler;
-
 
         /// <summary>
-        /// 接收到数据
+        /// 接收到数据事件
         /// </summary>
-        public event Action<IEnumerable<StreamEntry>> OnReceive;
+        public event Action<RedisConsumer, IEnumerable<StreamEntry>> OnReceive;
         /// <summary>
         /// 异常
         /// </summary>
@@ -78,37 +62,8 @@ namespace SAEA.RedisSocket.Core.Stream
             _count = count;
             _blocked = blocked;
             _timeout = timeout;
-
-            if (blocked)
-            {
-                _streamDataBlockedHandler = new Func<IEnumerable<StreamEntry>>(Subscribe);
-            }
         }
 
-        /// <param name="groupName"></param>
-        /// <param name="consumerName"></param>
-        /// <param name="topicName"></param>
-        /// <param name="count"></param>
-        /// <param name="blocked"></param>
-        /// <param name="timeout"></param>
-        /// <param name="asc"></param>
-        internal RedisConsumer(RedisConnection redisConnection, string groupName, string consumerName, string topicName, string redisId = "0", bool noAck = false, int count = 1, bool blocked = false, int timeout = 1000, bool asc = true)
-        {
-            _redisQueue = new RedisQueue(redisConnection);
-
-            _groupName = groupName;
-            _consumerName = consumerName;
-            _topicName = topicName;
-            _redisId = redisId;
-            _noAck = noAck;
-            _count = count;
-            _blocked = blocked;
-            _timeout = timeout;
-            _asc = asc;
-
-            if (blocked)
-                _streamDataBlockedHandler = new Func<IEnumerable<StreamEntry>>(SubscribeWithGroup);
-        }
 
         /// <summary>
         /// Start
@@ -123,7 +78,12 @@ namespace SAEA.RedisSocket.Core.Stream
                 {
                     try
                     {
-                        OnReceive.Invoke(_streamDataBlockedHandler.Invoke());
+                        var list = Subscribe().ToList();
+
+                        if (list != null && list.Any())
+                        {
+                            OnReceive.Invoke(this, list);
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -142,25 +102,16 @@ namespace SAEA.RedisSocket.Core.Stream
         }
 
         /// <summary>
-        /// SubscribeWithGroup
-        /// </summary>
-        /// <returns></returns>
-        public IEnumerable<StreamEntry> SubscribeWithGroup()
-        {
-            if (!_inited)
-            {
-                _redisQueue.CreateGroup(_topicName, _groupName, _asc);
-                _inited = true;
-            }
-            return _redisQueue.Subscribe(_groupName, _consumerName, _topicName, new RedisID(_redisId), _noAck, _count, _blocked, _timeout);
-        }
-
-        /// <summary>
         /// Stop
         /// </summary>
         public void Stop()
         {
             _started = false;
+        }
+
+        public void Dispose()
+        {
+            _redisQueue.Dispose();
         }
     }
 }

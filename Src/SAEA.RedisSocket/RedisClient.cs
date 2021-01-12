@@ -350,6 +350,15 @@ namespace SAEA.RedisSocket
         RedisProducer _redisProducer = null;
 
         /// <summary>
+        /// RedisQueue
+        /// </summary>
+        /// <returns></returns>
+        public RedisQueue GetRedisQueue()
+        {
+            return new RedisQueue(_cnn);
+        }
+
+        /// <summary>
         /// GetRedisProducer
         /// </summary>
         /// <returns></returns>
@@ -372,22 +381,37 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public RedisConsumer GetRedisConsumer(IEnumerable<TopicID> topicIDs, int count = 1, bool blocked = false, int timeout = 1000)
         {
-            return new RedisConsumer(_cnn, topicIDs, count, blocked, timeout);
+            var cnn = new RedisConnection(RedisConfig.GetIPPort(), RedisConfig.ActionTimeOut);
+            cnn.Connect();
+            if (!string.IsNullOrEmpty(RedisConfig.Passwords))
+            {
+                cnn.Auth(RedisConfig.Passwords);
+            }
+            return new RedisConsumer(cnn, topicIDs, count, blocked, timeout);
         }
         /// <summary>
-        /// GetRedisConsumer
+        /// GetRedisGroupConsumer
         /// </summary>
         /// <param name="groupName"></param>
         /// <param name="consumerName"></param>
         /// <param name="topicName"></param>
         /// <param name="count"></param>
+        /// <param name="autoCommit"></param>
+        /// <param name="redisId"></param>
+        /// <param name="noAck"></param>
         /// <param name="blocked"></param>
         /// <param name="timeout"></param>
         /// <param name="asc"></param>
         /// <returns></returns>
-        public RedisConsumer GetRedisConsumer(string groupName, string consumerName, string topicName, string redisId = "0", bool noAck = false, int count = 1, bool blocked = false, int timeout = 1000, bool asc = true)
+        public RedisGroupConsumer GetRedisGroupConsumer(string groupName, string consumerName, string topicName, int count = 1, bool autoCommit = false, string redisId = "", bool noAck = false, bool blocked = false, int timeout = 1000, bool asc = true)
         {
-            return new RedisConsumer(_cnn, groupName, consumerName, topicName, redisId, noAck, count, blocked, timeout, asc);
+            var cnn = new RedisConnection(RedisConfig.GetIPPort(), RedisConfig.ActionTimeOut);
+            cnn.Connect();
+            if (!string.IsNullOrEmpty(RedisConfig.Passwords))
+            {
+                cnn.Auth(RedisConfig.Passwords);
+            }
+            return new RedisGroupConsumer(cnn, groupName, consumerName, topicName, count, autoCommit, redisId, noAck, blocked, timeout, asc);
         }
 
         #endregion

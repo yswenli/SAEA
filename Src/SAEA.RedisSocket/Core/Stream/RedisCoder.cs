@@ -20,7 +20,6 @@ using SAEA.RedisSocket.Core.Stream;
 using SAEA.RedisSocket.Model;
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Threading;
 
 namespace SAEA.RedisSocket.Core
@@ -42,7 +41,6 @@ namespace SAEA.RedisSocket.Core
 
             var list = new List<StreamEntry>();
 
-            var sb = new StringBuilder();
             var row1 = GetRowNum(command, out string error);
             if (!string.IsNullOrEmpty(error))
             {
@@ -92,7 +90,7 @@ namespace SAEA.RedisSocket.Core
                     _ = GetWordsNum(GetRedisReplyLine(ctoken), out error);
 
                     var idFiled = new IdFiled();
-                    idFiled.RedisID =new RedisID(GetRedisReplyLine(ctoken));
+                    idFiled.RedisID = new RedisID(GetRedisReplyLine(ctoken));
 
                     var flist = new List<RedisField>();
 
@@ -140,6 +138,85 @@ namespace SAEA.RedisSocket.Core
             return responseData;
         }
 
+        /// <summary>
+        /// GetStreamRangeData,
+        /// XRANGE
+        /// </summary>
+        /// <param name="command"></param>
+        /// <param name="ctoken"></param>
+        /// <returns></returns>
+        public ResponseData<IEnumerable<IdFiled>> GetStreamRangeData(string command, CancellationToken ctoken)
+        {
+            ResponseData<IEnumerable<IdFiled>> responseData = new ResponseData<IEnumerable<IdFiled>>();
+
+            var list = new List<IdFiled>();
+
+            var row1 = GetRowNum(command, out string error);
+            if (!string.IsNullOrEmpty(error))
+            {
+                responseData.Type = ResponseType.Error;
+                responseData.Data = error;
+                return responseData;
+            }
+            if (row1 <= 0)
+            {
+                responseData.Type = ResponseType.Empty;
+                responseData.Data = "";
+                return responseData;
+            }
+
+            for (int i = 0; i < row1; i++)
+            {
+                _ = GetRowNum(command, out error);
+
+                _ = GetWordsNum(GetRedisReplyLine(ctoken), out error);
+
+                var idFiled = new IdFiled();
+                idFiled.RedisID = new RedisID(GetRedisReplyLine(ctoken));
+
+                var flist = new List<RedisField>();
+
+                var row2 = GetRowNum(command, out error);
+
+                RedisField redisField = null;
+
+                for (int k = 0; k < row2; k++)
+                {
+                    _ = GetWordsNum(GetRedisReplyLine(ctoken), out error);
+                    switch (k)
+                    {
+                        case 0:
+                            redisField = new RedisField();
+                            redisField.Field = GetRedisReplyLine(ctoken);
+                            break;
+                        case 1:
+                            redisField.String = GetRedisReplyLine(ctoken);
+                            flist.Add(redisField);
+                            break;
+                        default:
+                            if (k >= 2)
+                            {
+                                if (k % 2 == 0)
+                                {
+                                    redisField = new RedisField();
+                                    redisField.Field = GetRedisReplyLine(ctoken);
+                                }
+                                else
+                                {
+                                    redisField.String = GetRedisReplyLine(ctoken);
+                                    flist.Add(redisField);
+                                }
+                            }
+                            break;
+                    }
+
+                    idFiled.RedisFields = flist;
+                }
+                list.Add(idFiled);
+            }
+            responseData.Entity = list;
+            return responseData;
+        }
 
         /// <summary>
         /// 解析从redis返回的命令
@@ -152,13 +229,7 @@ namespace SAEA.RedisSocket.Core
 
             try
             {
-                string command = string.Empty;
-
-                string error = string.Empty;
-
-                var len = 0;
-
-                command = GetRedisReplyLine(ctoken);
+                string command = GetRedisReplyLine(ctoken);
 
                 if (string.IsNullOrEmpty(command)) return null;
 
@@ -198,6 +269,74 @@ namespace SAEA.RedisSocket.Core
                     }
                     responseData.Type = ResponseType.Lines;
                     responseData = GetStreamData(command, ctoken);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Error("RedisCoder.Decoder", ex);
+                responseData.Type = ResponseType.Error;
+                responseData.Data = "操作超时";
+            }
+            return responseData;
+        }
+
+        /// <summary>
+        /// 解析从redis返回的命令
+        /// </summary>
+        /// <param name="ctoken"></param>
+        /// <returns></returns>
+        public ResponseData<IEnumerable<IdFiled>> StreamRangeDecoder(CancellationToken ctoken)
+        {
+            var responseData = new ResponseData<IEnumerable<IdFiled>>();
+
+            try
+            {
+                string command = string.Empty;
+
+                string error = string.Empty;
+
+                var len = 0;
+
+                command = GetRedisReplyLine(ctoken);
+
+                if (string.IsNullOrEmpty(command)) return null;
+
+                if (command.IndexOf("-") == 0 && command.IndexOf(MOVED) == -1)
+                {
+                    responseData.Type = ResponseType.Error;
+                    responseData.Data = command;
+                    return responseData;
+                }
+
+                while (command == ConstHelper.ENTER)
+                {
+                    command = GetRedisReplyLine(ctoken);
+
+                    if (command.IndexOf("-") == 0 && command.IndexOf(MOVED) == -1)
+                    {
+                        responseData.Type = ResponseType.Error;
+                        responseData.Data = command;
+                        return responseData;
+                    }
+                    if (string.IsNullOrEmpty(command)) return null;
+                }
+
+                var temp = Redirect<IEnumerable<IdFiled>>(command);
+
+                if (temp != null)
+                {
+                    responseData = temp;
+                }
+                else
+                {
+                    if (command.IndexOf("-") == 0)
+                    {
+                        responseData.Type = ResponseType.Error;
+                        responseData.Data = command;
+                        return responseData;
+                    }
+                    responseData.Type = ResponseType.Lines;
+                    responseData = GetStreamRangeData(command, ctoken);
                 }
             }
             catch (Exception ex)

@@ -506,8 +506,7 @@ namespace SAEA.RedisSocket.Core
                         case RequestType.CLUSTER_DELSLOTS:
                         case RequestType.CLUSTER_FLUSHSLOTS:
                         case RequestType.CLUSTER_SETSLOT:
-                        case RequestType.CONFIG_SET:
-                        case RequestType.XGROUP:
+                        case RequestType.CONFIG_SET:                        
                             if (GetStatus(command, out error))
                             {
                                 responseData.Type = ResponseType.OK;
@@ -716,6 +715,8 @@ namespace SAEA.RedisSocket.Core
                         case RequestType.CLUSTER_KEYSLOT:
                         case RequestType.CLUSTER_COUNTKEYSINSLOT:
                         case RequestType.GEOADD:
+                        case RequestType.XGROUP:
+                        case RequestType.XACK:
                             var val = GetValue(command, out error);
                             if (!string.IsNullOrEmpty(error))
                             {
