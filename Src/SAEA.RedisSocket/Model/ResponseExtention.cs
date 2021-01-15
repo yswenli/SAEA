@@ -262,14 +262,23 @@ namespace SAEA.RedisSocket.Model
 
                     zi.Value = source.Data[i];
 
-                    var score = 0D;
-
-                    if (i + 1 < source.Data.Count)
+                    if (!string.IsNullOrEmpty(zi.Value) && zi.Value.IndexOf("\r\n$") > -1)
                     {
-                        double.TryParse(source.Data[i + 1], out score);
-                        i++;
+                        var arr = zi.Value.Split("\r\n");
+                        zi.Value = arr[0];
+                        zi.Score = double.Parse(arr[2]);
                     }
-                    zi.Score = score;
+                    else
+                    {
+                        var score = 0D;
+
+                        if (i + 1 < source.Data.Count)
+                        {
+                            double.TryParse(source.Data[i + 1], out score);
+                            i++;
+                        }
+                        zi.Score = score;
+                    }                    
 
                     data.Add(zi);
                 }

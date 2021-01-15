@@ -104,7 +104,7 @@ namespace SAEA.Http.Base
 
             var lastRows = rows.AsSpan().Slice(1).ToArray();
 
-            httpMessage.Headers = GetRequestHeaders(lastRows);            
+            httpMessage.Headers = GetRequestHeaders(lastRows);
 
             //cookies
 
@@ -117,7 +117,7 @@ namespace SAEA.Http.Base
             if (httpMessage.Method == ConstHelper.POST)
             {
                 //form-data
-                if (httpMessage.ContentType.IndexOf(ConstHelper.FORMENCTYPE2) > -1)
+                if (httpMessage.ContentType != null && httpMessage.ContentType.IndexOf(ConstHelper.FORMENCTYPE2) > -1)
                 {
                     httpMessage.IsFormData = true;
 
