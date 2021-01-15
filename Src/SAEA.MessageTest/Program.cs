@@ -223,11 +223,6 @@ namespace SAEA.MessageTest
                 }
             }, TaskCreationOptions.LongRunning);
 
-            Parallel.For(0, 1000, (i) =>
-            {
-                cc1.SendPrivateMsg(cc2.ID, "你好呀,cc2！");
-            });
-
             //===============================================================
             ConsoleHelper.WriteLine("回车开始频道测试开始...");
             ConsoleHelper.ReadLine();
@@ -268,11 +263,10 @@ namespace SAEA.MessageTest
             List<MessageClient> list = new List<MessageClient>();
             Task.Factory.StartNew(() =>
             {
-                for (int i = 0; i < 100; i++)
+                for (int i = 0; i < 10; i++)
                 {
                     var c = new MessageClient();
-                    if (i < 10)
-                        c.OnChannelMessage += Client_OnChannelMessage2;
+                    c.OnChannelMessage += Client_OnChannelMessage2;
                     list.Add(c);
                     c.Connect();
                     c.Login();

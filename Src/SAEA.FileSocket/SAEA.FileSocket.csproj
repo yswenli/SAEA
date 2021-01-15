@@ -4,7 +4,7 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
-    <Version>6.1.1.8</Version>
+    <Version>6.1.2.1</Version>
     <Authors>yswenli</Authors>
     <Copyright>yswenli</Copyright>
     <Description>This is a high-performance file transfer component based on SAEA.Sockets.

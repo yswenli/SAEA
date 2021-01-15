@@ -108,7 +108,7 @@ namespace SAEA.Http.Base
 
             //cookies
 
-            if (httpMessage.Headers.TryGetValue(RequestHeaderType.Cookie.GetDescription().ToLower(), out string cookiesStr))
+            if (httpMessage.Headers.TryGetValue(RequestHeaderType.Cookie.GetDescription(), out string cookiesStr))
             {
                 httpMessage.Cookies = HttpCookies.Parse(cookiesStr);
             }
@@ -126,9 +126,7 @@ namespace SAEA.Http.Base
 
                 if (httpMessage.Headers.TryGetValue(RequestHeaderType.ContentLength.GetDescription(), out string contentLengthStr))
                 {
-                    int cl = 0;
-
-                    if (int.TryParse(contentLengthStr, out cl))
+                    if (int.TryParse(contentLengthStr, out int cl))
                     {
                         httpMessage.ContentLength = cl;
                     }

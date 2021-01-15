@@ -172,7 +172,7 @@ namespace SAEA.Http
             }
             catch (Exception ex)
             {
-                LogHelper.Error("WebHost._serverSocket_OnDisconnected 意外断开连接", ex, userToken, httpMessage);
+                LogHelper.Error("WebHost._serverSocket_OnDisconnected 意外断开连接", ex, httpMessage);
             }
         }
 

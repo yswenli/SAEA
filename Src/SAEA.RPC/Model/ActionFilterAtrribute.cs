@@ -23,7 +23,6 @@
 *****************************************************************************/
 using SAEA.Sockets.Interface;
 using System;
-using System.Diagnostics;
 
 namespace SAEA.RPC
 {

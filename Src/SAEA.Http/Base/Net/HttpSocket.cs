@@ -53,7 +53,7 @@ namespace SAEA.Http.Base.Net
             _serverSokcet = SocketFactory.CreateServerSocket(_option);
             _serverSokcet.OnReceive += _serverSokcet_OnReceive;
             _serverSokcet.OnError += _serverSokcet_OnError;
-        }       
+        }
 
         private void _serverSokcet_OnReceive(object userToken, byte[] data)
         {
@@ -70,7 +70,7 @@ namespace SAEA.Http.Base.Net
             }
             catch (Exception ex)
             {
-                LogHelper.Error("Http解码出现异常", ex);
+                LogHelper.Error("Http解码出现异常", ex, Convert.ToBase64String(data));
                 Disconnecte(ut);
             }
         }

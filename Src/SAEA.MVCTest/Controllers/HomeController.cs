@@ -42,6 +42,8 @@ namespace SAEA.MVCTest.Controllers
         [OutputCache]
         public ActionResult Index()
         {
+            HttpContext.Current.Session["userID"] = "yswenli";
+
             return Content("Hello,I'm SAEA.MVC！");
         }
 
@@ -50,8 +52,7 @@ namespace SAEA.MVCTest.Controllers
         [OutputCache]
         public ActionResult Index2()
         {
-            //System.Threading.Thread.Sleep(600000);
-            return Content("Hello,I'm SAEA.MVC2！");
+            return Content($"Hello,I'm SAEA.MVC2,develop by {HttpContext.Current.Session["userID"]}");
         }
 
         [Log2Atrribute]

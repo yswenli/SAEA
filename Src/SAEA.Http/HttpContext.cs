@@ -117,8 +117,6 @@ namespace SAEA.Http
         {
             string url = Request.Url;
 
-            bool isPost = Request.Method == ConstHelper.POST;
-
             //禁止访问
             var flist = WebConfig.ForbiddenAccessList;
 
