@@ -215,7 +215,7 @@ namespace SAEA.DNS
             catch (OperationCanceledException e) { OnError(e); }
             catch (IOException e) { OnError(e); }
             catch (ObjectDisposedException e) { OnError(e); }
-            catch (Model.ResponseException e)
+            catch (ResponseException e)
             {
                 IResponse response = e.Response;
 
