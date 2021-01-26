@@ -15,17 +15,17 @@
 *版 本 号： v5.0.0.1
 *描    述：
 *****************************************************************************/
-using SAEA.Common;
-using SAEA.Common.Threading;
 using SAEA.DNS.Coder;
 using SAEA.DNS.Model;
 using SAEA.DNS.Protocol;
+using SAEA.Sockets;
+using SAEA.Sockets.Base;
+using SAEA.Sockets.Interface;
+using SAEA.Sockets.Model;
 using System;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
-using System.Runtime.InteropServices;
-using System.Threading.Tasks;
 
 namespace SAEA.DNS
 {
@@ -34,8 +34,6 @@ namespace SAEA.DNS
     /// </summary>
     public class DnsServer : IDisposable
     {
-
-        private const int SIO_UDP_CONNRESET = unchecked((int)0x9800000C);
         private const int DEFAULT_PORT = 53;
         private const int UDP_TIMEOUT = 2000;
 
@@ -44,9 +42,9 @@ namespace SAEA.DNS
         public event EventHandler<EventArgs> OnListening;
         public event EventHandler<ErroredEventArgs> OnErrored;
 
-        private bool _run = true;
+        private bool _run = false;
         private bool _disposed = false;
-        private UdpClient _udp;
+        private IServerSocket _udpServer;
         private IRequestCoder _coder;
 
         /// <summary>
@@ -119,9 +117,9 @@ namespace SAEA.DNS
         /// <param name="port"></param>
         /// <param name="ip"></param>
         /// <returns></returns>
-        public Task Start(int port = DEFAULT_PORT, IPAddress ip = null)
+        public void Start(int port = DEFAULT_PORT, IPAddress ip = null)
         {
-            return Start(new IPEndPoint(ip ?? IPAddress.Any, port));
+            Start(new IPEndPoint(ip ?? IPAddress.Any, port));
         }
 
         /// <summary>
@@ -129,23 +127,27 @@ namespace SAEA.DNS
         /// </summary>
         /// <param name="endpoint"></param>
         /// <returns></returns>
-        public async Task Start(IPEndPoint endpoint)
+        public void Start(IPEndPoint endpoint)
         {
-            await Task.Yield();
-
-            TaskCompletionSource<object> tcs = new TaskCompletionSource<object>();
-
-            if (_run)
+            if (!_run)
             {
+                _run = true;
                 try
                 {
-                    _udp = new UdpClient(endpoint);
+                    _udpServer = SocketFactory.CreateServerSocket(SocketOptionBuilder.Instance.SetSocket(SAEASocketType.Udp)
+                                               .SetIPEndPoint(endpoint)
+                                               .UseIocp<BaseContext>()
+                                               .SetReadBufferSize(SocketOption.UDPMaxLength)
+                                               .SetWriteBufferSize(SocketOption.UDPMaxLength)
+                                               .SetTimeOut(UDP_TIMEOUT)
+                                               .Build());
 
-                    //判断如果关闭不重试
-                    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                    {
-                        _udp.Client.IOControl(SIO_UDP_CONNRESET, new byte[4], new byte[4]);
-                    }
+                    _udpServer.OnError += _udpServer_OnError;
+                    _udpServer.OnReceive += _udpServer_OnReceive;
+
+                    _udpServer.Start();
+
+                    OnEvent(OnListening, EventArgs.Empty);
                 }
                 catch (SocketException e)
                 {
@@ -153,43 +155,18 @@ namespace SAEA.DNS
                     return;
                 }
             }
-
-            AsyncCallback receiveCallback = null;
-
-            receiveCallback = result =>
-            {
-                byte[] data;
-
-                try
-                {
-                    IPEndPoint remote = new IPEndPoint(0, 0);
-                    data = _udp.EndReceive(result, ref remote);
-                    HandleRequest(data, remote);
-                }
-                catch (ObjectDisposedException)
-                {
-                    _run = false;
-                }
-                catch (SocketException e)
-                {
-                    OnError(e);
-                }
-
-                if (_run) _udp.BeginReceive(receiveCallback, null);
-
-                else tcs.SetResult(null);
-            };
-
-            _udp.BeginReceive(receiveCallback, null);
-
-            OnEvent(OnListening, EventArgs.Empty);
-
-            await tcs.Task;
         }
 
-        public void Dispose()
+        private void _udpServer_OnReceive(ISession session, byte[] data)
         {
-            Dispose(true);
+            var ut = (IUserToken)session;
+
+            HandleRequest(ut.ID, data);
+        }
+
+        private void _udpServer_OnError(string ID, Exception ex)
+        {
+            OnError(ex);
         }
 
         protected virtual void OnEvent<T>(EventHandler<T> handler, T args)
@@ -206,7 +183,7 @@ namespace SAEA.DNS
                 if (disposing)
                 {
                     _run = false;
-                    _udp?.Dispose();
+                    _udpServer?.Dispose();
                 }
             }
         }
@@ -216,7 +193,7 @@ namespace SAEA.DNS
             OnEvent(OnErrored, new ErroredEventArgs(e));
         }
 
-        private async void HandleRequest(byte[] data, IPEndPoint remote)
+        private async void HandleRequest(string sessionID, byte[] data)
         {
             DnsRequestMessage request = null;
 
@@ -224,13 +201,13 @@ namespace SAEA.DNS
             {
                 request = DnsRequestMessage.FromArray(data);
 
-                OnEvent(OnRequested, new RequestedEventArgs(request, data, remote));
+                OnEvent(OnRequested, new RequestedEventArgs(request, data));
 
                 IResponse response = await _coder.Code(request);
 
-                OnEvent(OnResponded, new RespondedEventArgs(request, response, data, remote));
+                OnEvent(OnResponded, new RespondedEventArgs(request, response, data));
 
-                await _udp.SendAsync(response.ToArray(), response.Size, remote).WithCancellationTimeout(TimeSpan.FromMilliseconds(UDP_TIMEOUT));
+                _udpServer.SendAsync(sessionID, response.ToArray());
             }
             catch (SocketException e) { OnError(e); }
             catch (ArgumentException e) { OnError(e); }
@@ -249,12 +226,18 @@ namespace SAEA.DNS
 
                 try
                 {
-                    await _udp.SendAsync(response.ToArray(), response.Size, remote).WithCancellationTimeout(TimeSpan.FromMilliseconds(UDP_TIMEOUT));
+                    _udpServer.SendAsync(sessionID, response.ToArray());
                 }
                 catch (SocketException) { }
                 catch (OperationCanceledException) { }
                 finally { OnError(e); }
             }
+        }
+
+
+        public void Dispose()
+        {
+            Dispose(true);
         }
     }
 }

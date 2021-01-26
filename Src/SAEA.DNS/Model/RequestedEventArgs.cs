@@ -17,17 +17,15 @@
 *****************************************************************************/
 using SAEA.DNS.Protocol;
 using System;
-using System.Net;
 
 namespace SAEA.DNS.Model
 {
     public class RequestedEventArgs : EventArgs
     {
-        public RequestedEventArgs(IRequest request, byte[] data, IPEndPoint remote)
+        public RequestedEventArgs(IRequest request, byte[] data)
         {
             Request = request;
             Data = data;
-            Remote = remote;
         }
 
         public IRequest Request
@@ -37,12 +35,6 @@ namespace SAEA.DNS.Model
         }
 
         public byte[] Data
-        {
-            get;
-            private set;
-        }
-
-        public IPEndPoint Remote
         {
             get;
             private set;

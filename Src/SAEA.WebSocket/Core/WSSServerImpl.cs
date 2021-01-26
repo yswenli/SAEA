@@ -15,6 +15,7 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
+using SAEA.Common;
 using SAEA.Common.Threading;
 using SAEA.Sockets;
 using SAEA.Sockets.Core;
@@ -86,62 +87,70 @@ namespace SAEA.WebSocket.Core
 
                 while (channelInfo.ClientSocket.Connected)
                 {
-                    var data = new byte[_bufferSize];
-
-                    var offset = 0;
-
-                    var size = channelInfo.Stream.Read(data, offset, _bufferSize);
-
-                    while (size > 0)
+                    try
                     {
-                        offset += size;
-                        size = channelInfo.Stream.Read(data, offset, _bufferSize);
-                    }
+                        var data = new byte[_bufferSize];
 
-                    if (!_concurrentDictionary.ContainsKey(channelInfo.ID))
-                    {
-                        byte[] resData = null;
+                        var offset = 0;
 
-                        var wsut = new WSUserToken();
+                        var size = channelInfo.Stream.Read(data, offset, _bufferSize);
 
-                        var result = wsut.GetReplayHandShake(data, out resData);
-
-                        if (result)
+                        while (size > 0)
                         {
-                            channelInfo.Stream.Write(resData, 0, resData.Length);
-                            wsut.IsHandSharked = true;
-                            _concurrentDictionary[channelInfo.ID] = new WSCoder();
-                            Clients.Add(channelInfo.ID);
-                            OnConnected?.Invoke(channelInfo.ID);
+                            offset += size;
+                            size = channelInfo.Stream.Read(data, offset, _bufferSize);
+                        }
+
+                        if (!_concurrentDictionary.ContainsKey(channelInfo.ID))
+                        {
+                            byte[] resData = null;
+
+                            var wsut = new WSUserToken();
+
+                            var result = wsut.GetReplayHandShake(data, out resData);
+
+                            if (result)
+                            {
+                                channelInfo.Stream.Write(resData, 0, resData.Length);
+                                wsut.IsHandSharked = true;
+                                _concurrentDictionary[channelInfo.ID] = new WSCoder();
+                                Clients.Add(channelInfo.ID);
+                                OnConnected?.Invoke(channelInfo.ID);
+                            }
+                        }
+                        else
+                        {
+                            var coder = _concurrentDictionary[channelInfo.ID];
+                            coder.Unpack(data, (d) =>
+                            {
+                                var wsProtocal = (WSProtocal)d;
+                                switch (wsProtocal.Type)
+                                {
+                                    case (byte)WSProtocalType.Close:
+                                        ReplyClose(channelInfo.Stream, wsProtocal);
+                                        break;
+                                    case (byte)WSProtocalType.Ping:
+                                        ReplyPong(channelInfo.Stream, wsProtocal);
+                                        break;
+                                    case (byte)WSProtocalType.Binary:
+                                    case (byte)WSProtocalType.Text:
+                                    case (byte)WSProtocalType.Cont:
+                                        OnMessage?.Invoke(channelInfo.ID, (WSProtocal)d);
+                                        break;
+                                    case (byte)WSProtocalType.Pong:
+                                        break;
+                                    default:
+                                        var error = string.Format("收到未定义的Opcode={0}", d.Type);
+                                        break;
+                                }
+
+                            }, (h) => { }, null);
                         }
                     }
-                    else
+                    catch(Exception ex)
                     {
-                        var coder = _concurrentDictionary[channelInfo.ID];
-                        coder.Unpack(data, (d) =>
-                        {
-                            var wsProtocal = (WSProtocal)d;
-                            switch (wsProtocal.Type)
-                            {
-                                case (byte)WSProtocalType.Close:
-                                    ReplyClose(channelInfo.Stream, wsProtocal);
-                                    break;
-                                case (byte)WSProtocalType.Ping:
-                                    ReplyPong(channelInfo.Stream, wsProtocal);
-                                    break;
-                                case (byte)WSProtocalType.Binary:
-                                case (byte)WSProtocalType.Text:
-                                case (byte)WSProtocalType.Cont:
-                                    OnMessage?.Invoke(channelInfo.ID, (WSProtocal)d);
-                                    break;
-                                case (byte)WSProtocalType.Pong:
-                                    break;
-                                default:
-                                    var error = string.Format("收到未定义的Opcode={0}", d.Type);
-                                    break;
-                            }
-
-                        }, (h) => { }, null);
+                        LogHelper.Error("WServer.OnReceive.Error", ex);
+                        channelInfo.Stream.Close();
                     }
                 }
             });

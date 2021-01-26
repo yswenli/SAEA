@@ -28,9 +28,7 @@ using SAEA.Sockets.Handler;
 using SAEA.WebSocket.Model;
 using SAEA.WebSocket.Type;
 using System;
-using System.Collections.Generic;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 
 namespace SAEA.WebSocket

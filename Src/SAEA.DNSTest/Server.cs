@@ -10,7 +10,7 @@ namespace SAEA.DNSTest
     {
         static DnsServer _server;
 
-        public async static Task InitAsync(int port = 53)
+        public static void InitAsync(int port = 53)
         {
             DnsRecords dnsRecords = new DnsRecords();
 
@@ -42,7 +42,7 @@ namespace SAEA.DNSTest
             };
 
             //启动dns服务
-            await _server.Start(port);
+            _server.Start(port);
         }
 
         public static void Init(int port = 53)

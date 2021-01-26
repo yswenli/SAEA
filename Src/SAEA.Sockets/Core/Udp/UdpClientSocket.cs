@@ -236,7 +236,7 @@ namespace SAEA.Sockets.Core.Udp
                 }
                 else
                 {
-                    ProcessDisconnected(new Exception("SocketError:the remote server closed connection"));
+                    ProcessDisconnected(new Exception($"SocketError:{readArgs.SocketError},the remote server closed connection"));
                 }
             }
             catch (Exception ex)

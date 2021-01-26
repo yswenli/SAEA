@@ -15,6 +15,7 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
+using SAEA.Common;
 using SAEA.Sockets;
 using SAEA.WebSocket.Model;
 using SAEA.WebSocket.Type;
@@ -75,49 +76,56 @@ namespace SAEA.WebSocket.Core
         private void _server_OnReceive(object currentObj, byte[] data)
         {
             var ut = (WSUserToken)(currentObj);
-
-            if (!ut.IsHandSharked)
+            try
             {
-                byte[] resData = null;
-
-                var result = ut.GetReplayHandShake(data, out resData);
-
-                if (result)
+                if (!ut.IsHandSharked)
                 {
-                    _server.SendAsync(ut.ID, resData);
-                    ut.IsHandSharked = true;
-                    lock (_locker)
-                        Clients.Add(ut.ID);
-                    OnConnected?.Invoke(ut.ID);
+                    byte[] resData = null;
+
+                    var result = ut.GetReplayHandShake(data, out resData);
+
+                    if (result)
+                    {
+                        _server.SendAsync(ut.ID, resData);
+                        ut.IsHandSharked = true;
+                        lock (_locker)
+                            Clients.Add(ut.ID);
+                        OnConnected?.Invoke(ut.ID);
+                    }
+                }
+                else
+                {
+                    var coder = (WSCoder)ut.Unpacker;
+                    coder.Unpack(data, (d) =>
+                    {
+                        var wsProtocal = (WSProtocal)d;
+                        switch (wsProtocal.Type)
+                        {
+                            case (byte)WSProtocalType.Close:
+                                ReplyClose(ut.ID, wsProtocal);
+                                break;
+                            case (byte)WSProtocalType.Ping:
+                                ReplyPong(ut.ID, wsProtocal);
+                                break;
+                            case (byte)WSProtocalType.Binary:
+                            case (byte)WSProtocalType.Text:
+                            case (byte)WSProtocalType.Cont:
+                                OnMessage?.Invoke(ut.ID, (WSProtocal)d);
+                                break;
+                            case (byte)WSProtocalType.Pong:
+                                break;
+                            default:
+                                var error = string.Format("收到未定义的Opcode={0}", d.Type);
+                                break;
+                        }
+
+                    }, (h) => { }, null);
                 }
             }
-            else
+            catch(Exception ex)
             {
-                var coder = (WSCoder)ut.Unpacker;
-                coder.Unpack(data, (d) =>
-                {
-                    var wsProtocal = (WSProtocal)d;
-                    switch (wsProtocal.Type)
-                    {
-                        case (byte)WSProtocalType.Close:
-                            ReplyClose(ut.ID, wsProtocal);
-                            break;
-                        case (byte)WSProtocalType.Ping:
-                            ReplyPong(ut.ID, wsProtocal);
-                            break;
-                        case (byte)WSProtocalType.Binary:
-                        case (byte)WSProtocalType.Text:
-                        case (byte)WSProtocalType.Cont:
-                            OnMessage?.Invoke(ut.ID, (WSProtocal)d);
-                            break;
-                        case (byte)WSProtocalType.Pong:
-                            break;
-                        default:
-                            var error = string.Format("收到未定义的Opcode={0}", d.Type);
-                            break;
-                    }
-
-                }, (h) => { }, null);
+                LogHelper.Error("WServer.OnReceive.Error", ex);
+                _server.Disconnecte(ut.ID);
             }
         }
 

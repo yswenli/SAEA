@@ -6,7 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="SAEA.Sockets" Version="6.0.0.2" />
+    <PackageReference Include="SAEA.Sockets" Version="6.1.2.2" />
   </ItemGroup>
 
 </Project>
