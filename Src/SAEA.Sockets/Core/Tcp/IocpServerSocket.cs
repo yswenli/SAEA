@@ -319,22 +319,27 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="data"></param>
         public void SendAsync(IUserToken userToken, byte[] data)
         {
-            userToken.WaitOne();
-
-            try
+            if (userToken.WaitOne(SocketOption.TimeOut))
             {
-                var writeArgs = userToken.WriteArgs;
-
-                writeArgs.SetBuffer(data, 0, data.Length);
-
-                if (!userToken.Socket.SendAsync(writeArgs))
+                try
                 {
-                    ProcessSended(writeArgs);
+                    var writeArgs = userToken.WriteArgs;
+
+                    writeArgs.SetBuffer(data, 0, data.Length);
+
+                    if (!userToken.Socket.SendAsync(writeArgs))
+                    {
+                        ProcessSended(writeArgs);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", ex);
                 }
             }
-            catch (Exception ex)
+            else
             {
-                OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", ex);
+                OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", new TimeoutException("Sending data timeout"));
             }
         }
 

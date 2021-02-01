@@ -68,7 +68,7 @@ namespace SAEA.Sockets.Interface
             get; set;
         }
 
-        void WaitOne();
+        bool WaitOne(int timeOut);
 
 
         void Set();

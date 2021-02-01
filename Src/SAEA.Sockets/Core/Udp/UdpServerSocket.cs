@@ -265,24 +265,29 @@ namespace SAEA.Sockets.Core.Udp
         {
             if (data == null || !data.Any() || data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentException("SendAsync Incorrect length of data sent");
 
-            userToken.WaitOne();
-
-            try
+            if (userToken.WaitOne(SocketOption.TimeOut))
             {
-                var writeArgs = userToken.WriteArgs;
-
-                writeArgs.RemoteEndPoint = userToken.ReadArgs.RemoteEndPoint;
-
-                writeArgs.SetBuffer(data, 0, data.Length);
-
-                if (!userToken.Socket.SendToAsync(writeArgs))
+                try
                 {
-                    ProcessSended(writeArgs);
+                    var writeArgs = userToken.WriteArgs;
+
+                    writeArgs.RemoteEndPoint = userToken.ReadArgs.RemoteEndPoint;
+
+                    writeArgs.SetBuffer(data, 0, data.Length);
+
+                    if (!userToken.Socket.SendToAsync(writeArgs))
+                    {
+                        ProcessSended(writeArgs);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", ex);
                 }
             }
-            catch (Exception ex)
+            else
             {
-                OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", ex);
+                OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", new TimeoutException("Sending data timeout"));
             }
         }
 
@@ -294,6 +299,7 @@ namespace SAEA.Sockets.Core.Udp
         /// <param name="data"></param>
         public void SendAsync(string sessionID, byte[] data)
         {
+
             var userToken = _sessionManager.Get(sessionID);
 
             if (userToken == null)

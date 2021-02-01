@@ -278,17 +278,22 @@ namespace SAEA.Sockets.Core.Udp
             {
                 if (data == null || !data.Any() || data.Length > SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("SendAsync Incorrect length of data sent");
 
-                UserToken.WaitOne();
-
-                var writeArgs = UserToken.WriteArgs;
-
-                writeArgs.SetBuffer(data, 0, data.Length);
-
-                writeArgs.RemoteEndPoint = ipEndPoint;
-
-                if (!UserToken.Socket.SendToAsync(writeArgs))
+                if (UserToken.WaitOne(_socketOption.TimeOut))
                 {
-                    ProcessSended(writeArgs);
+                    var writeArgs = UserToken.WriteArgs;
+
+                    writeArgs.SetBuffer(data, 0, data.Length);
+
+                    writeArgs.RemoteEndPoint = ipEndPoint;
+
+                    if (!UserToken.Socket.SendToAsync(writeArgs))
+                    {
+                        ProcessSended(writeArgs);
+                    }
+                }
+                else
+                {
+                    OnError?.Invoke($"An exception occurs when a message is sending:{ipEndPoint.ToString()}", new TimeoutException("Sending data timeout"));
                 }
             }
             catch (Exception ex)
@@ -340,6 +345,8 @@ namespace SAEA.Sockets.Core.Udp
             if (data == null || !data.Any() || data.Length > SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("BeginSend Incorrect length of data sent");
 
             _userToken.Socket.BeginSendTo(data, 0, data.Length, SocketFlags.None, _remoteEndPoint, null, null);
+
+            _userToken.Actived = DateTimeHelper.Now;
         }
 
 

@@ -306,15 +306,20 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 if (userToken != null && userToken.Socket != null && userToken.Socket.Connected)
                 {
-                    userToken.WaitOne();
-
-                    var writeArgs = userToken.WriteArgs;
-
-                    writeArgs.SetBuffer(data, 0, data.Length);
-
-                    if (!userToken.Socket.SendAsync(writeArgs))
+                    if (userToken.WaitOne(_socketOption.TimeOut))
                     {
-                        ProcessSended(writeArgs);
+                        var writeArgs = userToken.WriteArgs;
+
+                        writeArgs.SetBuffer(data, 0, data.Length);
+
+                        if (!userToken.Socket.SendAsync(writeArgs))
+                        {
+                            ProcessSended(writeArgs);
+                        }
+                    }
+                    else
+                    {
+                        OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", new TimeoutException("Sending data timeout"));
                     }
                 }
             }

@@ -327,7 +327,5 @@ namespace SAEA.Sockets.Core.Tcp
             ChannelManager.Instance.Clear();
             IsDisposed = true;
         }
-
-
     }
 }

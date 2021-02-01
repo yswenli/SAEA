@@ -81,9 +81,9 @@ namespace SAEA.Sockets.Base
             get; set;
         }
 
-        public void WaitOne()
+        public bool WaitOne(int timeout)
         {
-            _autoResetEvent.WaitOne();
+            return _autoResetEvent.WaitOne(timeout);
         }
 
 

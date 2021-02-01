@@ -49,9 +49,9 @@ namespace SAEA.Sockets.Core.Tcp
 
         bool _isSsl = false;
 
-        CancellationToken _CancellationToken;
+        CancellationToken _cancellationToken;
 
-        ISocketOption _SocketOption;
+        ISocketOption _socketOption;
 
         Stream _stream;
 
@@ -92,7 +92,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="cancellationToken"></param>
         public StreamClientSocket(ISocketOption socketOption, CancellationToken cancellationToken) : this(cancellationToken, socketOption.IP, socketOption.Port, socketOption.ReadBufferSize, socketOption.TimeOut, socketOption.SslProtocol, socketOption.WithSsl)
         {
-            _SocketOption = socketOption;
+            _socketOption = socketOption;
         }
 
         /// <summary>
@@ -101,7 +101,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="socketOption"></param>
         public StreamClientSocket(ISocketOption socketOption) : this(socketOption.IP, socketOption.Port, socketOption.ReadBufferSize, socketOption.TimeOut, socketOption.SslProtocol, socketOption.WithSsl)
         {
-            _SocketOption = socketOption;
+            _socketOption = socketOption;
         }
 
         /// <summary>
@@ -115,7 +115,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="sslProtocols"></param>
         public StreamClientSocket(CancellationToken cancellationToken, string ip = "127.0.0.1", int port = 39654, int bufferSize = 100 * 1024, int timeOut = 60 * 1000, SslProtocols sslProtocols = SslProtocols.Tls12, bool userSsl = false)
         {
-            _CancellationToken = cancellationToken;
+            _cancellationToken = cancellationToken;
 
             _socket = new Socket(AddressFamily.InterNetwork, System.Net.Sockets.SocketType.Stream, ProtocolType.Tcp);
             _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
@@ -186,22 +186,22 @@ namespace SAEA.Sockets.Core.Tcp
         {
             if (!Connected)
             {
-                await _socket.ConnectAsync(_SocketOption.IP, _SocketOption.Port).ConfigureAwait(true);
+                await _socket.ConnectAsync(_socketOption.IP, _socketOption.Port).ConfigureAwait(true);
 
                 if (_isSsl)
                 {
                     _stream = new SslStream(new NetworkStream(_socket, true), false, InternalUserCertificateValidationCallback);
 
-                    ((SslStream)_stream).AuthenticateAsClient(_SocketOption.IP, LoadCertificates(), _SocketOption.SslProtocol, true);
+                    ((SslStream)_stream).AuthenticateAsClient(_socketOption.IP, LoadCertificates(), _socketOption.SslProtocol, true);
                 }
                 else
                 {
                     _stream = new NetworkStream(_socket, true);
                 }
 
-                _stream.ReadTimeout = _SocketOption.TimeOut;
+                _stream.ReadTimeout = _socketOption.TimeOut;
 
-                _stream.WriteTimeout = _SocketOption.TimeOut;
+                _stream.WriteTimeout = _socketOption.TimeOut;
 
                 this.Connected = true;
             }
@@ -211,21 +211,21 @@ namespace SAEA.Sockets.Core.Tcp
         {
             if (!Connected)
             {
-                _socket.Connect(_SocketOption.IP, _SocketOption.Port);
+                _socket.Connect(_socketOption.IP, _socketOption.Port);
 
                 if (_isSsl)
                 {
                     _stream = new SslStream(new NetworkStream(_socket, true), false, InternalUserCertificateValidationCallback);
 
-                    ((SslStream)_stream).AuthenticateAsClient(_SocketOption.IP, LoadCertificates(), _SocketOption.SslProtocol, true);
+                    ((SslStream)_stream).AuthenticateAsClient(_socketOption.IP, LoadCertificates(), _socketOption.SslProtocol, true);
                 }
                 else
                 {
                     _stream = new NetworkStream(_socket, true);
                 }
 
-                _stream.ReadTimeout = _SocketOption.TimeOut;
-                _stream.WriteTimeout = _SocketOption.TimeOut;
+                _stream.ReadTimeout = _socketOption.TimeOut;
+                _stream.WriteTimeout = _socketOption.TimeOut;
 
                 Connected = true;
             }
@@ -239,22 +239,22 @@ namespace SAEA.Sockets.Core.Tcp
                 {
                     try
                     {
-                        _socket.ConnectAsync(_SocketOption.IP, _SocketOption.Port).GetAwaiter().GetResult();
+                        _socket.ConnectAsync(_socketOption.IP, _socketOption.Port).GetAwaiter().GetResult();
 
                         if (_isSsl)
                         {
                             _stream = new SslStream(new NetworkStream(_socket, true), false, InternalUserCertificateValidationCallback);
 
-                            ((SslStream)_stream).AuthenticateAsClient(_SocketOption.IP, LoadCertificates(), _SocketOption.SslProtocol, true);
+                            ((SslStream)_stream).AuthenticateAsClient(_socketOption.IP, LoadCertificates(), _socketOption.SslProtocol, true);
                         }
                         else
                         {
                             _stream = new NetworkStream(_socket, true);
                         }
 
-                        _stream.ReadTimeout = _SocketOption.TimeOut;
+                        _stream.ReadTimeout = _socketOption.TimeOut;
 
-                        _stream.WriteTimeout = _SocketOption.TimeOut;
+                        _stream.WriteTimeout = _socketOption.TimeOut;
 
                         this.Connected = true;
 
@@ -264,7 +264,7 @@ namespace SAEA.Sockets.Core.Tcp
                     {
                         callBack?.Invoke(SocketError.SocketError);
                     }
-                });
+                }).Wait(_socketOption.TimeOut);
             }
         }
 
@@ -285,7 +285,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="buffer"></param>
         public Task SendAsync(byte[] buffer, int offset, int count)
         {
-            return _stream.WriteAsync(buffer, offset, count, _CancellationToken);
+            return _stream.WriteAsync(buffer, offset, count, _cancellationToken);
         }
 
         /// <summary>
@@ -311,7 +311,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <returns></returns>
         public Task ReceiveAsync(byte[] buffer, int offset, int count)
         {
-            return _stream.ReadAsync(buffer, offset, count, _CancellationToken);
+            return _stream.ReadAsync(buffer, offset, count, _cancellationToken);
         }
 
         /// <summary>
@@ -344,11 +344,11 @@ namespace SAEA.Sockets.Core.Tcp
                 try
                 {
                     _socket.Shutdown(SocketShutdown.Both);
-                    OnDisconnected?.Invoke(_SocketOption.IP + ":" + _SocketOption.Port, null);
+                    OnDisconnected?.Invoke(_socketOption.IP + ":" + _socketOption.Port, null);
                 }
                 catch (Exception ex)
                 {
-                    OnDisconnected?.Invoke(_SocketOption.IP + ":" + _SocketOption.Port, ex);
+                    OnDisconnected?.Invoke(_socketOption.IP + ":" + _socketOption.Port, ex);
                 }
                 finally
                 {
@@ -375,12 +375,12 @@ namespace SAEA.Sockets.Core.Tcp
         private X509CertificateCollection LoadCertificates()
         {
             var certificates = new X509CertificateCollection();
-            if (_SocketOption.X509Certificate2 == null)
+            if (_socketOption.X509Certificate2 == null)
             {
                 return certificates;
             }
 
-            certificates.Add(_SocketOption.X509Certificate2);
+            certificates.Add(_socketOption.X509Certificate2);
 
             return certificates;
         }
