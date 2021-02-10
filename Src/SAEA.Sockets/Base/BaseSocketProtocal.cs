@@ -46,10 +46,12 @@ namespace SAEA.Sockets.Base
         {
             get; set;
         }
+
         public byte Type
         {
             get; set;
         }
+
         public Byte[] Content
         {
             get; set;
@@ -75,6 +77,12 @@ namespace SAEA.Sockets.Base
 
         public static BaseSocketProtocal Parse(byte[] data, SocketProtocalType type)
         {
+            return Parse(data, (byte)type);
+        }
+
+
+        public static BaseSocketProtocal Parse(byte[] data, byte type)
+        {
             var msg = new BaseSocketProtocal();
 
             if (data != null)
@@ -82,7 +90,7 @@ namespace SAEA.Sockets.Base
             else
                 msg.BodyLength = 0;
 
-            msg.Type = (byte)type;
+            msg.Type = type;
 
             if (msg.BodyLength > 0)
             {
@@ -91,6 +99,7 @@ namespace SAEA.Sockets.Base
 
             return msg;
         }
+
 
         public static BaseSocketProtocal ParseRequest(byte[] data)
         {
