@@ -57,7 +57,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAEA.Sockets.TcpTest", "SAE
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAEA.MVCTest", "SAEA.MVCTest\SAEA.MVCTest.csproj", "{EA1140BB-6D89-47BF-85DD-CA834ECBB1D8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAEA.Audio.Net", "SAEA.Audio.Net\SAEA.Audio.Net.csproj", "{12FB7FF9-4769-42B3-8F0B-589CD33BC573}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAEA.Audio", "SAEA.Audio\SAEA.Audio.csproj", "{5C8D3040-F67B-4DF3-AE81-66F5F0195520}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -173,10 +173,10 @@ Global
 		{EA1140BB-6D89-47BF-85DD-CA834ECBB1D8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EA1140BB-6D89-47BF-85DD-CA834ECBB1D8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EA1140BB-6D89-47BF-85DD-CA834ECBB1D8}.Release|Any CPU.Build.0 = Release|Any CPU
-		{12FB7FF9-4769-42B3-8F0B-589CD33BC573}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{12FB7FF9-4769-42B3-8F0B-589CD33BC573}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{12FB7FF9-4769-42B3-8F0B-589CD33BC573}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{12FB7FF9-4769-42B3-8F0B-589CD33BC573}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5C8D3040-F67B-4DF3-AE81-66F5F0195520}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5C8D3040-F67B-4DF3-AE81-66F5F0195520}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5C8D3040-F67B-4DF3-AE81-66F5F0195520}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5C8D3040-F67B-4DF3-AE81-66F5F0195520}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

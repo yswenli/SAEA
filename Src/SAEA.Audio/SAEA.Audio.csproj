@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <Version>6.1.2.2</Version>
+    <Authors>yswenli</Authors>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageTags>Audio</PackageTags>
+    <PackageReleaseNotes>SAEA.Audio Is a convenient and fast integrated voice communication library
+SAEA.Audio 是一个方便快捷集成的语音通信库</PackageReleaseNotes>
+    <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
+    <Copyright>yswenli</Copyright>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <PackageIcon>favicon.png</PackageIcon>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\favicon.png">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
+    <None Include="..\..\LICENSE.txt">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Win32.Registry" Version="5.0.0" />
+    <PackageReference Include="SAEA.Sockets" Version="6.1.2.2" />
+  </ItemGroup>
+
+</Project>
