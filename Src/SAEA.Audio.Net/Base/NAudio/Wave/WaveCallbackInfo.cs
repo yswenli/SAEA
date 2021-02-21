@@ -4,10 +4,9 @@ namespace SAEA.Audio.Base.NAudio.Wave
 {
 	public class WaveCallbackInfo
 	{
+		private WaveWindow waveOutWindow;
 
-		//private WaveWindow waveOutWindow;
-
-		//private WaveWindowNative waveOutWindowNative;
+		private WaveWindowNative waveOutWindowNative;
 
 		public WaveCallbackStrategy Strategy
 		{
@@ -50,15 +49,15 @@ namespace SAEA.Audio.Base.NAudio.Wave
 		{
 			if (this.Strategy == WaveCallbackStrategy.NewWindow)
 			{
-				//this.waveOutWindow = new WaveWindow(callback);
-				//this.waveOutWindow.CreateControl();
-				//this.Handle = this.waveOutWindow.Handle;
+				this.waveOutWindow = new WaveWindow(callback);
+				this.waveOutWindow.CreateControl();
+				this.Handle = this.waveOutWindow.Handle;
 				return;
 			}
 			if (this.Strategy == WaveCallbackStrategy.ExistingWindow)
 			{
-				//this.waveOutWindowNative = new WaveWindowNative(callback);
-				//this.waveOutWindowNative.AssignHandle(this.Handle);
+				this.waveOutWindowNative = new WaveWindowNative(callback);
+				this.waveOutWindowNative.AssignHandle(this.Handle);
 			}
 		}
 
@@ -92,16 +91,16 @@ namespace SAEA.Audio.Base.NAudio.Wave
 
 		internal void Disconnect()
 		{
-			//if (this.waveOutWindow != null)
-			//{
-			//	this.waveOutWindow.Close();
-			//	this.waveOutWindow = null;
-			//}
-			//if (this.waveOutWindowNative != null)
-			//{
-			//	this.waveOutWindowNative.ReleaseHandle();
-			//	this.waveOutWindowNative = null;
-			//}
+			if (this.waveOutWindow != null)
+			{
+				this.waveOutWindow.Close();
+				this.waveOutWindow = null;
+			}
+			if (this.waveOutWindowNative != null)
+			{
+				this.waveOutWindowNative.ReleaseHandle();
+				this.waveOutWindowNative = null;
+			}
 		}
 	}
 }

@@ -115,7 +115,7 @@ namespace SAEA.Audio.Net
         }
 
         public void Connect()
-        {
+        {            
             _udpClient.Connect();
         }
 
@@ -179,7 +179,7 @@ namespace SAEA.Audio.Net
         /// <param name="channelID"></param>
         public void Join(string channelID)
         {
-            BaseSend(ProtocalType.Agree, Encoding.UTF8.GetBytes(channelID));
+            BaseSend(ProtocalType.Join, Encoding.UTF8.GetBytes(channelID));
         }
 
         /// <summary>
