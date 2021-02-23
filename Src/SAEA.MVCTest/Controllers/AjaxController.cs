@@ -36,6 +36,9 @@ namespace SAEA.MVCTest.Controllers
             return Json(userInfo);
         }
 
-
+        public ActionResult Test4(int id,string userName,string nickName)
+        {
+            return Json($"id:{id},userName:{userName},nickName:{nickName}");
+        }
     }
 }

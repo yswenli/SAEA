@@ -82,6 +82,8 @@
 
             <button id="ajax_btn3">ajaxTest3--json</button>
 
+            <button id="ajax_btn4">ajaxTest4--json</button>
+
             <button id="noAjax_btn" onclick="location.href = '/ajax/test?str=hello';">noajaxTest</button>
         </p>
     </div>
@@ -124,7 +126,7 @@
                 $.ajax({
                     url: "/ajax/test3",
                     type: "POST",
-                    datType: "JSON",
+                    dataType: "JSON",
                     contentType: "application/json",
                     data: JSON.stringify(json),
                     async: false,
@@ -133,7 +135,19 @@
                     }
                 });
             });
-
+            $("#ajax_btn4").click(function () {
+                $.ajax({
+                    url: "/ajax/test4",
+                    type: "POST",
+                    dataType: "JSON",
+                    contentType: "application/json",
+                    data: JSON.stringify(json),
+                    async: false,
+                    success: function (result) {
+                        alert(result);
+                    }
+                });
+            });
         });
 
         var source = new EventSource("/api/eventstream/sendnotice");
