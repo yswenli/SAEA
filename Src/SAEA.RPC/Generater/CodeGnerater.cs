@@ -149,7 +149,7 @@ namespace SAEA.RPC.Generater
 
             csStr.AppendLine(GetSpace(2) + "public bool Reconnect()");
             csStr.AppendLine(GetSpace(2) + "{");
-            csStr.AppendLine(GetSpace(3) + "_serviceConsumer.Reconnect();");
+            csStr.AppendLine(GetSpace(3) + "return _serviceConsumer.Reconnect();");
             csStr.AppendLine(GetSpace(2) + "}");
 
             csStr.AppendLine(GetSpace(2) + "private void ExceptionCollector_OnErr(string name, Exception ex)");
