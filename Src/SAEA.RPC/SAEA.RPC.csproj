@@ -25,7 +25,9 @@ https://github.com/yswenli/SAEA</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Properties\PublishProfiles\" />
+    <Compile Remove="Properties\**" />
+    <EmbeddedResource Remove="Properties\**" />
+    <None Remove="Properties\**" />
   </ItemGroup>
 
   <ItemGroup>
