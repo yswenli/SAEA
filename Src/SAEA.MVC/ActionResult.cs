@@ -46,7 +46,7 @@ namespace SAEA.MVC
         /// 获取或设置内容。
         /// </summary>
         [DataMember]
-        public string Content { get; set; }
+        public byte[] Content { get; set; }
 
         /// <summary>
         /// 获取或设置内容编码。

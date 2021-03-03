@@ -106,7 +106,7 @@ namespace SAEA.MVC
                         result = new EmptyResult();
                         break;
                     default:
-                        result = new ContentResult("不支持的请求方式", System.Net.HttpStatusCode.NotImplemented);
+                        result = new ContentResult("不支持的请求方式", System.Net.HttpStatusCode.HttpVersionNotSupported);
                         break;
                 }
             }

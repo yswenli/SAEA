@@ -4,7 +4,7 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Version>6.1.2.2</Version>
+    <Version>6.1.2.3</Version>
     <Authors>yswenli</Authors>
     <Copyright>yswenli</Copyright>
     <Description>This is a websocket server and client component based on SAEA.Socket.

@@ -23,6 +23,7 @@
 *****************************************************************************/
 using System;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace SAEA.Common.IO
@@ -32,18 +33,63 @@ namespace SAEA.Common.IO
     /// </summary>
     public static class FileHelper
     {
-
+        /// <summary>
+        /// Exists
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <returns></returns>
         public static bool Exists(string filePath)
         {
             return File.Exists(filePath);
         }
 
+        /// <summary>
+        /// CreateFile
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <returns></returns>
+        public static bool CreateFile(string filePath)
+        {
+            GetDirecotry(filePath);
+
+            FileStream fs = File.Create(filePath);
+
+            fs.Close();
+
+            fs.Dispose();
+
+            return true;
+        }
+
+        /// <summary>
+        /// GetDirecotry,不存在则创建
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <returns></returns>
         public static string GetDirecotry(string filePath)
         {
             var dir = Path.GetDirectoryName(filePath);
             if (!Directory.Exists(dir))
                 Directory.CreateDirectory(dir);
             return dir;
+        }
+
+        /// <summary>
+        /// CreateIfNotExists
+        /// </summary>
+        /// <param name="filePath"></param>
+        public static void CreateIfNotExists(string filePath)
+        {
+            GetDirecotry(filePath);
+
+            if (!Exists(filePath))
+            {
+                FileStream fs = File.Create(filePath);
+
+                fs.Close();
+
+                fs.Dispose();
+            }
         }
 
 
@@ -63,6 +109,23 @@ namespace SAEA.Common.IO
             Write(filePath, data);
         }
 
+
+        public static void Append(string filePath, byte[] data)
+        {
+            GetDirecotry(filePath);
+            using (FileStream fs = File.Open(filePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite))
+            {
+                fs.Write(data, 0, data.Length);
+            }
+        }
+
+
+        public static void AppendString(string filePath, string txt)
+        {
+            var data = Encoding.UTF8.GetBytes(txt);
+            Append(filePath, data);
+        }
+
         /// <summary>
         /// 读取文件内容
         /// </summary>
@@ -71,7 +134,7 @@ namespace SAEA.Common.IO
         public static byte[] Read(string filePath)
         {
             byte[] data = null;
-            if(!File.Exists(filePath))
+            if (!File.Exists(filePath))
             {
                 return data;
             }
@@ -97,7 +160,11 @@ namespace SAEA.Common.IO
         {
             var data = Read(filePath);
 
-            return Encoding.UTF8.GetString(data);
+            if (data != null && data.Any())
+            {
+                return Encoding.UTF8.GetString(data);
+            }
+            return null;
         }
 
         /// <summary>
@@ -139,7 +206,7 @@ namespace SAEA.Common.IO
             }
             return null;
         }
-        
+
         /// <summary>
         /// 移除文件
         /// </summary>

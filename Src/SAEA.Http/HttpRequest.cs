@@ -63,6 +63,10 @@ namespace SAEA.Http
             {
                 result = this.Headers["http_x_forwarded_for"];
             }
+            else if (this.Headers.ContainsKey("x_forwarded_for"))
+            {
+                result = this.Headers["x_forwarded_for"];
+            }
 
             if (null == result || result == String.Empty)
             {
@@ -124,7 +128,7 @@ namespace SAEA.Http
             if (this.Headers == null)
             {
                 this.Headers = new Dictionary<string, string>();
-            }            
+            }
 
             if (this.Headers.ContainsKey("user-agent"))
             {

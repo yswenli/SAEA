@@ -32,7 +32,7 @@ namespace SAEA.Http.Model
     /// </summary>
     public interface IHttpResult
     {
-        string Content { get; set; }
+        byte[] Content { get; set; }
 
         [JsonIgnore]
         Encoding ContentEncoding { get; set; }

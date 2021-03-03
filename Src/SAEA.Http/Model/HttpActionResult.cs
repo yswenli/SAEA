@@ -42,7 +42,7 @@ namespace SAEA.Http.Model
         //
         // 返回结果:
         //     内容。
-        public string Content { get; set; }
+        public byte[] Content { get; set; }
         //
         // 摘要:
         //     获取或设置内容编码。

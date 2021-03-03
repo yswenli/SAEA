@@ -24,6 +24,7 @@
 
 using SAEA.Common.IO;
 using SAEA.Common.Serialization;
+using System.IO;
 using System.Text;
 
 namespace SAEA.MVC
@@ -33,6 +34,35 @@ namespace SAEA.MVC
     /// </summary>
     public abstract class Controller
     {
+        /// <summary>
+        /// UserHostAddress
+        /// </summary>
+        public string UserHostAddress
+        {
+            get
+            {
+                return HttpContext.Current.Request.UserHostAddress;
+            }
+        }
+        /// <summary>
+        /// 返回数据流
+        /// </summary>
+        /// <param name="stream"></param>
+        /// <returns></returns>
+        protected DataResult Data(Stream stream)
+        {
+            return new DataResult(stream);
+        }
+        /// <summary>
+        /// 返回数据流
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        protected DataResult Data(byte[] data)
+        {
+            return new DataResult(data);
+        }
+
         /// <summary>
         /// 返回Json
         /// </summary>
@@ -51,7 +81,6 @@ namespace SAEA.MVC
         {
             return new ContentResult(data);
         }
-
 
         /// <summary>
         /// 小文件

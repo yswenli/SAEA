@@ -35,7 +35,8 @@ namespace SAEA.Http.Model
 
         public HttpContentResult(string str, HttpStatusCode status)
         {
-            this.Content = str;
+            if (!string.IsNullOrEmpty(str))
+                this.Content = Encoding.UTF8.GetBytes(str);
             this.ContentEncoding = Encoding.UTF8;
             this.ContentType = "text/html; charset=utf-8";
             this.Status = status;
@@ -43,7 +44,8 @@ namespace SAEA.Http.Model
 
         public HttpContentResult(string str, Encoding encoding, string contentType = "text/plane; charset=utf-8")
         {
-            this.Content = str;
+            if (!string.IsNullOrEmpty(str))
+                this.Content = encoding.GetBytes(str);
             this.ContentEncoding = encoding;
             this.ContentType = contentType;
         }

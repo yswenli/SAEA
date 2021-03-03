@@ -42,7 +42,8 @@ namespace SAEA.MVC
 
         public JsonResult(string json, HttpStatusCode status)
         {
-            this.Content = json;
+            if (!string.IsNullOrEmpty(json))
+                this.Content = Encoding.UTF8.GetBytes(json);
             this.ContentEncoding = Encoding.UTF8;
             this.ContentType = "application/json; charset=utf-8";
             this.Status = status;
@@ -50,7 +51,8 @@ namespace SAEA.MVC
 
         public JsonResult(string json, Encoding encoding, string contentType = "application/json; charset=utf-8")
         {
-            this.Content = json;
+            if (!string.IsNullOrEmpty(json))
+                this.Content = encoding.GetBytes(json);
             this.ContentEncoding = encoding;
             this.ContentType = contentType;
         }
