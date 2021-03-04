@@ -1,0 +1,24 @@
+﻿<!DOCTYPE html>
+
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <title></title>
+</head>
+<body>
+    <div>
+        <p>
+            服务器发送事件(Server-Sent Events)：
+        </p>
+        <p id="eventstream">
+
+        </p>
+    </div>
+    <script>
+        var source = new EventSource("/api/eventstream/sendnotice");
+        source.onmessage = function (event) {
+            document.getElementById("eventstream").innerHTML += event.data + "<br/>";
+        };
+    </script>
+</body>
+</html>

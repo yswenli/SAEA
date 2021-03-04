@@ -116,23 +116,36 @@ namespace SAEA.MVC
 
             #region actionResult                
 
-            if (HttpContext.Current.Request.ContentType == ConstHelper.FORMENCTYPE3 && !string.IsNullOrEmpty(HttpContext.Current.Request.Json))
+            if (HttpContext.Current.Request.ContentType.IndexOf(ConstHelper.FORMENCTYPE3) > -1 && !string.IsNullOrEmpty(HttpContext.Current.Request.Json))
             {
                 try
                 {
-                    var nnv = SerializeHelper.Deserialize<Dictionary<string, string>>(HttpContext.Current.Request.Json).ToNameValueCollection();
+                    var dic = SerializeHelper.Deserialize<Dictionary<string, string>>(HttpContext.Current.Request.Json);
 
-                    result = MethodInvoke(routing.Action, routing.Instance, nnv);
+                    if (HttpContext.Current.Request.Parmas == null || !HttpContext.Current.Request.Parmas.Any())
+                    {
+                        HttpContext.Current.Request.Parmas = dic;
+                    }
+                    else
+                    {
+                        if (dic != null && dic.Any())
+                        {
+                            foreach (var item in dic)
+                            {
+                                HttpContext.Current.Request.Parmas[item.Key] = item.Value;
+                            }
+                        }
+                    }
+
+                    nameValues = SerializeHelper.Deserialize<Dictionary<string, string>>(HttpContext.Current.Request.Json).ToNameValueCollection();
                 }
                 catch
                 {
                     return new ContentResult("o_o，错误请求,Json:" + HttpContext.Current.Request.Json, System.Net.HttpStatusCode.BadRequest);
                 }
             }
-            else
-            {
-                result = MethodInvoke(routing.Action, routing.Instance, nameValues);
-            }
+
+            result = MethodInvoke(routing.Action, routing.Instance, nameValues);
 
             #endregion
 

@@ -118,6 +118,17 @@ namespace SAEA.MVCTest.Controllers
         }
 
         /// <summary>
+        /// Update2
+        /// </summary>
+        /// <param name="roleType"></param>
+        /// <param name="roleID"></param>
+        /// <returns></returns>
+        public ActionResult Update2(int roleType = 1, int roleID = 1)
+        {
+            return Content($"Update2 roleType:{roleType},roleID:{roleID}");
+        }
+
+        /// <summary>
         /// test model
         /// </summary>
         /// <param name="isFemale"></param>
