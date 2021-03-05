@@ -35,6 +35,7 @@ using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
 using System;
+using System.Buffers;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -254,12 +255,19 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 if (readArgs.BytesTransferred > 0 && readArgs.SocketError == SocketError.Success)
                 {
+
                     _userToken.Actived = DateTimeHelper.Now;
 
-                    var data = readArgs.Buffer.AsSpan().Slice(readArgs.Offset, readArgs.BytesTransferred).ToArray();
+                    var buffer = readArgs.Buffer.AsSpan().Slice(readArgs.Offset, readArgs.BytesTransferred).ToArray();
 
-                    OnClientReceive?.Invoke(data);
-
+                    try
+                    {
+                        OnClientReceive?.Invoke(buffer);
+                    }
+                    catch (Exception ex)
+                    {
+                        OnError?.Invoke(UserToken.ID, ex);
+                    }
                     ProcessReceive(readArgs);
                 }
                 else
@@ -447,7 +455,7 @@ namespace SAEA.Sockets.Core.Tcp
         {
             IsDisposed = true;
             this.Disconnect();
-            
+
         }
 
         public void Disconnect()

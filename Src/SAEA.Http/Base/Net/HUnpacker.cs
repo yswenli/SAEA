@@ -51,19 +51,7 @@ namespace SAEA.Http.Base.Net
 
             var buffer = _cache.ToArray();
 
-            if (_totlalLen == buffer.Length)
-            {
-                if (RequestDataReader.Analysis(buffer, out HttpMessage httpMessage1))
-                {
-                    httpMessage1.ID = id;
-                    RequestDataReader.AnalysisBody(buffer, httpMessage1);
-                    _totlalLen = -1;
-                    onUnpackage.Invoke(httpMessage1);
-                    Array.Clear(buffer, 0, buffer.Length);
-                    _cache.Clear();
-                }
-            }
-            else if (_totlalLen == -1)
+            if (_totlalLen == -1)
             {
                 if (RequestDataReader.Analysis(buffer, out HttpMessage httpMessage2))
                 {
@@ -95,6 +83,18 @@ namespace SAEA.Http.Base.Net
                         _cache.Clear();
                     }
 
+                }
+            }            
+            else if (_totlalLen == buffer.Length)
+            {
+                if (RequestDataReader.Analysis(buffer, out HttpMessage httpMessage1))
+                {
+                    httpMessage1.ID = id;
+                    RequestDataReader.AnalysisBody(buffer, httpMessage1);
+                    _totlalLen = -1;
+                    onUnpackage.Invoke(httpMessage1);
+                    Array.Clear(buffer, 0, buffer.Length);
+                    _cache.Clear();
                 }
             }
         }

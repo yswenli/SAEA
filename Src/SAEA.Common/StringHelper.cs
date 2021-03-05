@@ -135,6 +135,8 @@ namespace SAEA.Common
         /// <returns></returns>
         public static string[] Split(this string str, string splitStr, StringSplitOptions option)
         {
+            if (string.IsNullOrEmpty(str) || string.IsNullOrEmpty(splitStr) || str.IndexOf(splitStr) == -1) return new string[] { str };
+
             var strSpan = str.AsSpan();
 
             var splitSapn = splitStr.AsSpan();

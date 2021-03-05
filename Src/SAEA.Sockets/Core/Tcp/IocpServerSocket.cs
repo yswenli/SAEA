@@ -34,6 +34,7 @@ using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
 using System;
+using System.Buffers;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -270,11 +271,11 @@ namespace SAEA.Sockets.Core.Tcp
                 {
                     _sessionManager.Active(userToken.ID);
 
-                    var data = readArgs.Buffer.AsSpan().Slice(readArgs.Offset, readArgs.BytesTransferred).ToArray();
+                    var buffer = readArgs.Buffer.AsSpan().Slice(readArgs.Offset, readArgs.BytesTransferred).ToArray();
 
                     try
                     {
-                        OnServerReceiveBytes.Invoke(userToken, data);
+                        OnServerReceiveBytes.Invoke(userToken, buffer);
                     }
                     catch (Exception ex)
                     {

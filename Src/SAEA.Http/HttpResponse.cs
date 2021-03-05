@@ -42,7 +42,9 @@ namespace SAEA.Http
 
         bool _isZiped = false;
 
-        IUserToken UserToken { get; set; }
+        protected IUserToken UserToken { get; set; }
+
+        bool _keepAlive = false;
 
         internal HttpResponse()
         {
@@ -77,6 +79,7 @@ namespace SAEA.Http
             return base.GetHeader(header);
         }
 
+
         public void SetHeader(ResponseHeaderType header, string value)
         {
             base.SetHeader(header, value);
@@ -93,9 +96,16 @@ namespace SAEA.Http
             builder.AppendLine($"{this.Protocal} {Status.ToNVString()}");
             builder.AppendLine(ConstHelper.ServerName);
             if (close)
+            {
+                _keepAlive = false;
                 builder.AppendLine("Connection: close");
+            }
             else
+            {
+                _keepAlive = true;
                 builder.AppendLine("Connection: keep-alive");
+            }
+
             builder.AppendLine("Date: " + DateTimeHelper.Now.ToGMTString());
 
             if (_isZiped)
@@ -299,7 +309,10 @@ namespace SAEA.Http
         /// </summary>
         public void End()
         {
-            WebHost.End(UserToken, this.ToBytes());
+            if (_keepAlive)
+                WebHost.Send(UserToken, this.ToBytes());
+            else
+                WebHost.End(UserToken, this.ToBytes());
         }
 
         /// <summary>

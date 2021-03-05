@@ -116,7 +116,9 @@ namespace SAEA.MVC
 
             #region actionResult                
 
-            if (HttpContext.Current.Request.ContentType.IndexOf(ConstHelper.FORMENCTYPE3) > -1 && !string.IsNullOrEmpty(HttpContext.Current.Request.Json))
+            if (!string.IsNullOrEmpty(HttpContext.Current.Request.ContentType) 
+                && HttpContext.Current.Request.ContentType.IndexOf(ConstHelper.FORMENCTYPE3, StringComparison.InvariantCultureIgnoreCase) > -1
+                && !string.IsNullOrEmpty(HttpContext.Current.Request.Json))
             {
                 try
                 {

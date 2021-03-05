@@ -61,7 +61,7 @@ namespace SAEA.Http.Base
             }
             else
             {
-                if (index > 0)
+                if (index > 0 && bufferSpan.Length >= index + 4)
                 {
                     httpMessage = new HttpMessage();
                     httpMessage.HeaderStr = Encoding.ASCII.GetString(bufferSpan.Slice(0, index + 4).ToArray());
@@ -87,7 +87,8 @@ namespace SAEA.Http.Base
             {
                 var qarr = httpMessage.RelativeUrl.Split(ConstHelper.QUESTIONMARK);
                 httpMessage.Url = qarr[0];
-                httpMessage.Query = GetRequestQuerys(qarr[1]);
+                if (qarr.Length > 1)
+                    httpMessage.Query = GetRequestQuerys(qarr[1]);
             }
             else
             {
