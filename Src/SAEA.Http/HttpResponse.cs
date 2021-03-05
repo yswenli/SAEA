@@ -57,6 +57,13 @@ namespace SAEA.Http
             UserToken = userToken;
             Protocal = protocal;
             _isZiped = isZiped;
+
+            var rqHeaders = HttpContext.Current.Request.Headers;
+
+            if (rqHeaders.ContainsKey("Connection"))
+            {
+                _keepAlive = rqHeaders["Connection"] == "keep-alive";
+            }
         }
 
         internal HttpResponse SetContent(byte[] content, Encoding encoding = null)
@@ -97,7 +104,6 @@ namespace SAEA.Http
             builder.AppendLine(ConstHelper.ServerName);
             if (close)
             {
-                _keepAlive = false;
                 builder.AppendLine("Connection: close");
             }
             else
@@ -210,8 +216,8 @@ namespace SAEA.Http
             }
 
             this.SetHeader(ResponseHeaderType.ContentLength, bodyLen.ToString());
-
-            var header = BuildHeader();
+            
+            var header = BuildHeader(!_keepAlive);
 
             byte[] headerBytes = Encoding.UTF8.GetBytes(header);
 
