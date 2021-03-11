@@ -45,7 +45,7 @@ namespace SAEA.MVCTest.Attrubutes
         /// 执行后
         /// </summary>
         /// <param name="result"></param>
-        public override void OnActionExecuted(ActionResult result)
+        public override void OnActionExecuted(ref ActionResult result)
         {
             ConsoleHelper.WriteLine($"LogAtrribute请求地址：{HttpContext.Current.Request.RelativeUrl},回复内容：{result.Content}");
         }
@@ -68,7 +68,7 @@ namespace SAEA.MVCTest.Attrubutes
         /// 执行后
         /// </summary>
         /// <param name="result"></param>
-        public override void OnActionExecuted(ActionResult result)
+        public override void OnActionExecuted(ref ActionResult result)
         {
             ConsoleHelper.WriteLine($"Log2Atrribute请求地址：{HttpContext.Current.Request.RelativeUrl},回复内容：{result.Content}");
             LogHelper.Info("Log2Atrribute.OnActionExecuted", result);

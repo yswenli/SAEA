@@ -125,9 +125,16 @@ namespace SAEA.Http
         }
     }
 
-
+    /// <summary>
+    /// HttpCookies
+    /// </summary>
     public class HttpCookies : Dictionary<string, HttpCookie>
     {
+        /// <summary>
+        /// HttpCookies.Parse
+        /// </summary>
+        /// <param name="cookieStr"></param>
+        /// <returns></returns>
         public static HttpCookies Parse(string cookieStr)
         {
             var result = new HttpCookies();
@@ -141,7 +148,14 @@ namespace SAEA.Http
             foreach (var row in rows)
             {
                 var rowArr = row.Split("=");
-                result[rowArr[0]] = new HttpCookie(rowArr[0], HttpUtility.HtmlDecode(HttpUtility.UrlDecode(rowArr[1])));
+                if (rowArr.Length == 2)
+                {
+                    result[rowArr[0].Trim()] = new HttpCookie(rowArr[0].Trim(), HttpUtility.HtmlDecode(HttpUtility.UrlDecode(rowArr[1])));
+                }
+                else
+                {
+                    result[rowArr[0].Trim()] = new HttpCookie(rowArr[0].Trim(), "");
+                }
             }
             return result;
         }

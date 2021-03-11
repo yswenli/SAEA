@@ -47,7 +47,9 @@ namespace SAEA.Http.Base.Net
                .SetCount(count)
                .SetReadBufferSize(bufferSize)
                .SetTimeOut(timeOut)
+               .SetFreeTime(timeOut)
                .ReusePort(false);
+
             _option = optionBuilder.Build();
 
             _serverSokcet = SocketFactory.CreateServerSocket(_option);
@@ -82,12 +84,12 @@ namespace SAEA.Http.Base.Net
 
         public void Send(IUserToken userToken, byte[] data)
         {
-            _serverSokcet.SendAsync(userToken.ID, data);
+            _serverSokcet.Send(userToken.ID, data);
         }
 
         public void Disconnecte(IUserToken userToken)
         {
-            _serverSokcet.Disconnecte(userToken.ID);
+            _serverSokcet.Disconnect(userToken.ID);
         }
 
 

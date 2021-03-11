@@ -155,7 +155,7 @@ namespace SAEA.QueueSocket
             var qcoder = (QUnpacker)ut.Unpacker;
             _serverSokcet.Send(ut.ID, qcoder.QueueCoder.Close(data.Name));
             _exchange.Clear(ut.ID);
-            _serverSokcet.Disconnecte(ut.ID);
+            _serverSokcet.Disconnect(ut.ID);
         }
 
         public void Clear(string sessionID)

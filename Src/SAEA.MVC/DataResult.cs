@@ -37,12 +37,13 @@ namespace SAEA.MVC
         public DataResult(Stream stream)
         {
             List<byte> list = new List<byte>();
-            var bytes = new byte[1024];
+            var bytes = new byte[10240];
             int offset = 0;
             int size = 0;
+            stream.Position = 0;
             do
             {
-                size = stream.Read(bytes, offset, 1024);
+                size = stream.Read(bytes, 0, 10240);
                 if (size > 0)
                 {
                     offset += size;
@@ -56,11 +57,11 @@ namespace SAEA.MVC
             while (size > 0);
 
             var result = list.ToArray();
-            list.Clear();
             this.Content = result;
             this.ContentEncoding = Encoding.UTF8;
             this.ContentType = "application/octet-stream";
             this.Status = HttpStatusCode.OK;
+            list.Clear();
         }
 
         /// <summary>

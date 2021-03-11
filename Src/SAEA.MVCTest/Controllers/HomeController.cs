@@ -24,6 +24,7 @@
 using SAEA.MVC;
 using SAEA.MVCTest.Attrubutes;
 using SAEA.MVCTest.Model;
+using System.Threading;
 
 namespace SAEA.MVCTest.Controllers
 {
@@ -39,7 +40,6 @@ namespace SAEA.MVCTest.Controllers
         /// </summary>
         /// <returns></returns>              
         [Log2Atrribute]
-        [OutputCache]
         public ActionResult Index()
         {
             HttpContext.Current.Session["userID"] = "yswenli";
@@ -47,16 +47,19 @@ namespace SAEA.MVCTest.Controllers
             return Content("Hello,I'm SAEA.MVC！");
         }
 
-
+        /// <summary>
+        /// 缓存效果测试
+        /// </summary>
+        /// <returns></returns>
         [Log2Atrribute]
-        [OutputCache]
+        [OutputCache(10)]
         public ActionResult Index2()
         {
-            return Content($"Hello,I'm SAEA.MVC2,develop by {HttpContext.Current.Session["userID"]}");
+            Thread.Sleep(3000);
+            return Content($"Hello,I'm SAEA.MVC2,develop by {HttpContext.Current.Session["userID"]} 缓存效果测试");
         }
 
         [Log2Atrribute]
-        [OutputCache]
         public ActionResult Index3()
         {
             var ip = HttpContext.Current.Request.UserHostAddress;

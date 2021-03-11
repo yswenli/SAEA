@@ -46,6 +46,6 @@ namespace SAEA.MVC
         /// 方法执行后
         /// </summary>
         /// <param name="result"></param>
-        public abstract void OnActionExecuted(ActionResult result);
+        public abstract void OnActionExecuted(ref ActionResult result);
     }
 }

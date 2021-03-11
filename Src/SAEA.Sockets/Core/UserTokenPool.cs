@@ -70,10 +70,13 @@ namespace SAEA.Sockets.Core
 
         public void Enqueue(IUserToken userToken)
         {
-            userToken.Socket = null;
-            userToken.ReadArgs = null;
-            userToken.WriteArgs = null;
-            concurrentQueue.Enqueue(userToken);
+            if (userToken != null && userToken.Socket != null && userToken.ReadArgs != null && userToken.WriteArgs != null)
+            {
+                userToken.Socket = null;
+                userToken.ReadArgs = null;
+                userToken.WriteArgs = null;
+                concurrentQueue.Enqueue(userToken);
+            }
         }
 
         public void Dispose()

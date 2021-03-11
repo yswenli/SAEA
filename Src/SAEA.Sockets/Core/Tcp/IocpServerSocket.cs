@@ -34,7 +34,6 @@ using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
 using System;
-using System.Buffers;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -90,7 +89,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="socketOption"></param>
         public IocpServerSocket(ISocketOption socketOption)
         {
-            _sessionManager = new SessionManager(socketOption.Context, socketOption.ReadBufferSize, socketOption.Count, IO_Completed, new TimeSpan(0, 0, 0, 0, socketOption.TimeOut));
+            _sessionManager = new SessionManager(socketOption.Context, socketOption.ReadBufferSize, socketOption.Count, IO_Completed, new TimeSpan(0, 0, 0, 0, socketOption.FreeTime));
             _sessionManager.OnTimeOut += _sessionManager_OnTimeOut;
             OnServerReceiveBytes = new OnServerReceiveBytesHandler(OnReceiveBytes);
             SocketOption = socketOption;
@@ -105,30 +104,36 @@ namespace SAEA.Sockets.Core.Tcp
         {
             if (_listener == null)
             {
-                _listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                IPEndPoint ipEndPoint = null;
+
+                if (SocketOption.UseIPV6)
+                {
+                    _listener = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp);
+
+                    if (string.IsNullOrEmpty(SocketOption.IP))
+                        ipEndPoint = (new IPEndPoint(IPAddress.IPv6Any, SocketOption.Port));
+                    else
+                        ipEndPoint = (new IPEndPoint(IPAddress.Parse(SocketOption.IP), SocketOption.Port));
+                }
+                else
+                {
+                    _listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
+                    if (string.IsNullOrEmpty(SocketOption.IP))
+                        ipEndPoint = (new IPEndPoint(IPAddress.Any, SocketOption.Port));
+                    else
+                        ipEndPoint = (new IPEndPoint(IPAddress.Parse(SocketOption.IP), SocketOption.Port));
+                }
 
                 if (SocketOption.ReusePort)
                     _listener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, SocketOption.ReusePort);
 
                 _listener.NoDelay = SocketOption.NoDelay;
 
-                if (SocketOption.UseIPV6)
-                {
-                    if (string.IsNullOrEmpty(SocketOption.IP))
-                        _listener.Bind(new IPEndPoint(IPAddress.IPv6Any, SocketOption.Port));
-                    else
-                        _listener.Bind(new IPEndPoint(IPAddress.Parse(SocketOption.IP), SocketOption.Port));
-                }
-                else
-                {
-                    if (string.IsNullOrEmpty(SocketOption.IP))
-                        _listener.Bind(new IPEndPoint(IPAddress.Any, SocketOption.Port));
-                    else
-                        _listener.Bind(new IPEndPoint(IPAddress.Parse(SocketOption.IP), SocketOption.Port));
-                }
-
                 _listener.SendBufferSize = SocketOption.WriteBufferSize;
                 _listener.ReceiveBufferSize = SocketOption.ReadBufferSize;
+
+                _listener.Bind(ipEndPoint);
 
                 _listener.Listen(backlog);
 
@@ -252,7 +257,6 @@ namespace SAEA.Sockets.Core.Tcp
             catch (Exception exp)
             {
                 var kex = new KernelException("An exception occurs when a message is received:" + exp.Message, exp);
-                OnError?.Invoke(userToken.ID, kex);
                 Disconnect(userToken, kex);
             }
         }
@@ -292,7 +296,6 @@ namespace SAEA.Sockets.Core.Tcp
             catch (Exception exp)
             {
                 var kex = new KernelException("An exception occurs when a message is received:" + exp.Message, exp);
-                OnError?.Invoke(userToken.ID, kex);
                 Disconnect(userToken, kex);
             }
         }
@@ -300,14 +303,8 @@ namespace SAEA.Sockets.Core.Tcp
         private void ProcessSended(SocketAsyncEventArgs e)
         {
             var userToken = (IUserToken)e.UserToken;
-            try
-            {
-                _sessionManager.Active(userToken.ID);
-            }
-            catch (Exception ex)
-            {
-                OnError?.Invoke($"An exception occurs when a message is sended:{userToken?.ID}", ex);
-            }
+            if (userToken == null) return;
+            _sessionManager.Active(userToken.ID);
             userToken?.Set();
         }
 
@@ -326,11 +323,14 @@ namespace SAEA.Sockets.Core.Tcp
                 {
                     var writeArgs = userToken.WriteArgs;
 
-                    writeArgs.SetBuffer(data, 0, data.Length);
-
-                    if (!userToken.Socket.SendAsync(writeArgs))
+                    if (writeArgs != null)
                     {
-                        ProcessSended(writeArgs);
+                        writeArgs.SetBuffer(data, 0, data.Length);
+
+                        if (!userToken.Socket.SendAsync(writeArgs))
+                        {
+                            ProcessSended(writeArgs);
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -356,7 +356,7 @@ namespace SAEA.Sockets.Core.Tcp
 
             if (userToken == null)
             {
-                throw new KernelException("Failed to send data,current session does not exist！");
+                return;
             }
             SendAsync(userToken, data);
         }
@@ -430,10 +430,9 @@ namespace SAEA.Sockets.Core.Tcp
             }
             catch (Exception ex)
             {
-                var kex = new KernelException("An exception occurs when a message is sending:" + ex.Message, ex);
-                Disconnect(userToken, kex);
+                Disconnect(userToken);
+                throw new KernelException("An exception occurs when a message is sending:" + ex.Message, ex);
             }
-            return null;
         }
 
         /// <summary>
@@ -459,8 +458,6 @@ namespace SAEA.Sockets.Core.Tcp
 
             if (userToken != null && userToken.Socket != null && userToken.Socket.Connected)
             {
-                _sessionManager.Active(userToken.ID);
-
                 Send(userToken, data);
 
                 Disconnect(userToken);
@@ -511,7 +508,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// 断开连接
         /// </summary>
         /// <param name="sessionID"></param>
-        public void Disconnecte(string sessionID)
+        public void Disconnect(string sessionID)
         {
             var userToken = SessionManager.Get(sessionID);
             if (userToken != null)

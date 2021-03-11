@@ -90,39 +90,47 @@ namespace SAEA.Sockets.Core.Tcp
         /// </summary>
         public void Start(int backlog = 10 * 1000)
         {
-            if (_listener == null)
+            if (_listener == null && _isStoped)
             {
-                _isStoped = false;
+                IPEndPoint ipEndPoint = null;
 
-                _listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                if (SocketOption.UseIPV6)
+                {
+                    _listener = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp);
+
+                    if (string.IsNullOrEmpty(SocketOption.IP))
+                        ipEndPoint = (new IPEndPoint(IPAddress.IPv6Any, SocketOption.Port));
+                    else
+                        ipEndPoint = (new IPEndPoint(IPAddress.Parse(SocketOption.IP), SocketOption.Port));
+                }
+                else
+                {
+                    _listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
+                    if (string.IsNullOrEmpty(SocketOption.IP))
+                        ipEndPoint = (new IPEndPoint(IPAddress.Any, SocketOption.Port));
+                    else
+                        ipEndPoint = (new IPEndPoint(IPAddress.Parse(SocketOption.IP), SocketOption.Port));
+                }
 
                 if (SocketOption.ReusePort)
                     _listener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, SocketOption.ReusePort);
 
-                _listener.NoDelay = SocketOption.NoDelay;
+                _listener.NoDelay = SocketOption.NoDelay;                
 
-                if (SocketOption.UseIPV6)
-                {
-                    if (string.IsNullOrEmpty(SocketOption.IP))
-                        _listener.Bind(new IPEndPoint(IPAddress.IPv6Any, SocketOption.Port));
-                    else
-                        _listener.Bind(new IPEndPoint(IPAddress.Parse(SocketOption.IP), SocketOption.Port));
-                }
-                else
-                {
-                    if (string.IsNullOrEmpty(SocketOption.IP))
-                        _listener.Bind(new IPEndPoint(IPAddress.Any, SocketOption.Port));
-                    else
-                        _listener.Bind(new IPEndPoint(IPAddress.Parse(SocketOption.IP), SocketOption.Port));
-                }
+                _listener.Bind(ipEndPoint);
 
                 _listener.Listen(backlog);
 
-                Task.Run(ProcessAccepted, _cancellationToken);
+                _isStoped = false;
+
+                Task.Run(ProcessAccepte);
             }
         }
 
-        private async Task ProcessAccepted()
+        public System.Net.Security.RemoteCertificateValidationCallback RemoteCertificateValidationCallback { get; set; }
+
+        private async Task ProcessAccepte()
         {
             while (!_isStoped)
             {
@@ -133,94 +141,38 @@ namespace SAEA.Sockets.Core.Tcp
 
                     try
                     {
-                        //释放资源时会有空异常
                         clientSocket = await _listener.AcceptAsync().ConfigureAwait(false);
+
+                        clientSocket.NoDelay = SocketOption.NoDelay;
+
+                        clientSocket.ReceiveBufferSize = SocketOption.ReadBufferSize;
+
+                        clientSocket.SendBufferSize = SocketOption.WriteBufferSize;
+
+                        Stream nsStream;
+
+                        if (SocketOption.WithSsl)
+                        {
+                            nsStream = new SslStream(new NetworkStream(clientSocket), false);
+                            await ((SslStream)nsStream).AuthenticateAsServerAsync(SocketOption.X509Certificate2, false, SslProtocols.Ssl3 | SslProtocols.Tls | SslProtocols.Tls11 | SslProtocols.Tls12, false).ConfigureAwait(false);
+                        }
+                        else
+                        {
+                            nsStream = new NetworkStream(clientSocket, true);
+                        }
+
+                        var id = clientSocket.RemoteEndPoint.ToString();
+
+                        var ci = ChannelManager.Instance.Set(id, clientSocket, nsStream);
+
+                        OnAccepted?.Invoke(ci);
+
+                        _ = Task.Run(() => ProcessAccepted(id, nsStream));
                     }
                     catch
                     {
-                        _isStoped = true;
-
-                        ChannelManager.Instance.Clear();
-
-                        break;
+                        await Task.Delay(TimeSpan.FromSeconds(1), _cancellationToken).ConfigureAwait(false);
                     }
-
-                    clientSocket.NoDelay = true;
-
-                    if (clientSocket == null || clientSocket.RemoteEndPoint == null) break;
-
-                    Stream nsStream;
-
-                    if (SocketOption.WithSsl)
-                    {
-                        nsStream = new SslStream(new NetworkStream(clientSocket), false);
-                        await ((SslStream)nsStream).AuthenticateAsServerAsync(SocketOption.X509Certificate2, false, SslProtocols.Ssl3 | SslProtocols.Tls | SslProtocols.Tls11 | SslProtocols.Tls12, false).ConfigureAwait(false);
-                    }
-                    else
-                    {
-                        nsStream = new NetworkStream(clientSocket);
-                    }
-
-                    var id = clientSocket.RemoteEndPoint.ToString();
-
-                    var ci = ChannelManager.Instance.Set(id, clientSocket, nsStream);
-
-                    OnAccepted?.Invoke(ci);
-
-                    _ = Task.Run(() =>
-                    {
-                        while (!_isStoped)
-                        {
-                            try
-                            {
-                                if (OnReceive != null)
-                                {
-                                    if (!clientSocket.Connected)
-                                    {
-                                        OnDisconnected?.Invoke(id, null);
-                                        break;
-                                    }
-
-                                    if (clientSocket.Connected)
-                                    {
-                                        var data = new byte[SocketOption.ReadBufferSize];
-
-                                        var len = nsStream.Read(data, 0, data.Length);
-
-                                        if (len > 0)
-                                        {
-                                            OnReceive.Invoke(new Session(id), data.AsSpan().Slice(0, len).ToArray());
-                                        }
-                                        else
-                                        {
-                                            Thread.Yield();
-                                        }
-                                    }
-                                    else
-                                    {
-                                        break;
-                                    }
-
-                                }
-                                else
-                                    break;
-                            }
-                            catch (IOException iex)
-                            {
-                                OnDisconnected?.Invoke(id, iex);
-                                break;
-                            }
-                            catch (SocketException sex)
-                            {
-                                OnDisconnected?.Invoke(id, sex);
-                                break;
-                            }
-                            catch (Exception ex)
-                            {
-                                OnError?.Invoke(id, ex);
-                            }
-                        }
-                    });
                 }
                 catch (ObjectDisposedException oex)
                 {
@@ -244,6 +196,44 @@ namespace SAEA.Sockets.Core.Tcp
                 }
             }
         }
+
+        async Task ProcessAccepted(string id, Stream nsStream)
+        {
+            await Task.Yield();
+
+            while (!_isStoped && OnReceive != null)
+            {
+                try
+                {
+                    var data = new byte[SocketOption.ReadBufferSize];
+
+                    var len = nsStream.Read(data, 0, data.Length);
+
+                    if (len > 0)
+                    {
+                        ChannelManager.Instance.Refresh(id);
+                        OnReceive.Invoke(new Session(id), data.AsSpan().Slice(0, len).ToArray());
+                    }
+                }
+                catch (IOException iex)
+                {
+                    OnDisconnected?.Invoke(id, iex);
+                    break;
+                }
+                catch (SocketException sex)
+                {
+                    OnDisconnected?.Invoke(id, sex);
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    OnError?.Invoke(id, ex);
+                }
+            }
+        }
+
+
+
         public object GetCurrentObj(string sessionID)
         {
             return ChannelManager.Instance.Get(sessionID);
@@ -252,6 +242,7 @@ namespace SAEA.Sockets.Core.Tcp
         public void SendAsync(string sessionID, byte[] data)
         {
             var channel = ChannelManager.Instance.Get(sessionID);
+            ChannelManager.Instance.Refresh(sessionID);
             if (channel == null || channel.ClientSocket == null || !channel.ClientSocket.Connected)
                 throw new KernelException("Failed to send data,current session does not exist！");
             channel.Stream.WriteAsync(data, 0, data.Length);
@@ -260,16 +251,18 @@ namespace SAEA.Sockets.Core.Tcp
         public void Send(string sessionID, byte[] data)
         {
             var channel = ChannelManager.Instance.Get(sessionID);
+            ChannelManager.Instance.Refresh(sessionID);
             channel.Stream.Write(data, 0, data.Length);
         }
 
         public void End(string sessionID, byte[] data)
         {
             var channel = ChannelManager.Instance.Get(sessionID);
+            ChannelManager.Instance.Refresh(sessionID);
             if (channel != null && channel.Stream != null && channel.Stream.CanWrite)
             {
                 channel.Stream.Write(data, 0, data.Length);
-                Disconnecte(sessionID);
+                Disconnect(sessionID);
             }
         }
 
@@ -282,7 +275,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// 断开连接
         /// </summary>
         /// <param name="sessionID"></param>
-        public void Disconnecte(string sessionID)
+        public void Disconnect(string sessionID)
         {
             var channel = ChannelManager.Instance.Get(sessionID);
             var socket = channel.ClientSocket;
@@ -290,10 +283,10 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 try
                 {
-                    socket.Shutdown(SocketShutdown.Both);
+                    socket.Close();
                 }
                 catch { }
-                socket.Close();
+
                 OnDisconnected?.Invoke(sessionID, null);
             }
             ChannelManager.Instance.Remove(sessionID);
@@ -309,10 +302,10 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 ChannelManager.Instance.Clear();
                 SocketOption.X509Certificate2?.Dispose();
-                _listener.Shutdown(SocketShutdown.Both);
+                _listener.Close();
             }
             catch { }
-            _listener.Close();
+
             try
             {
                 _listener?.Dispose();

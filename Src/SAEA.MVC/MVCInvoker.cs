@@ -59,6 +59,8 @@ namespace SAEA.MVC
 
             ActionResult result;
 
+            var goOn = true;
+
             //类过滤器
             if (routing.FilterAtrrs != null && routing.FilterAtrrs.Any())
             {
@@ -68,12 +70,7 @@ namespace SAEA.MVC
 
                     if (method != null)
                     {
-                        var goOn = (bool)method.Invoke(arr, null);
-
-                        if (!goOn)
-                        {
-                            return new ContentResult("o_o，拒绝访问！", System.Net.HttpStatusCode.Forbidden);
-                        }
+                        goOn = (bool)method.Invoke(arr, null);
                     }
                 }
             }
@@ -83,72 +80,57 @@ namespace SAEA.MVC
             {
                 foreach (var arr in routing.ActionFilterAtrrs)
                 {
-                    if (arr.ToString() == ConstHelper.OUTPUTCACHEATTRIBUTE)
+                    var method = arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING);
+
+                    if (method != null)
                     {
-                        var method = arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING);
-
-                        if (method != null)
-                        {
-                            HttpContext.Current.Session.CacheCalcString = (string)arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING).Invoke(arr, null);
-
-                            if (HttpContext.Current.Session.CacheCalcString.IndexOf("1,") == 0)
-                            {
-                                return new ContentResult(string.Empty, System.Net.HttpStatusCode.NotModified);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        var method = arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING);
-
-                        if (method != null)
-                        {
-                            var goOn = (bool)arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING).Invoke(arr, null);
-
-                            if (!goOn)
-                            {
-                                return new ContentResult("o_o，拒绝访问！", System.Net.HttpStatusCode.Forbidden);
-                            }
-                        }
+                        if ((bool)arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING).Invoke(arr, null) == false)
+                            goOn = false;
                     }
                 }
             }
 
             #region actionResult                
 
-            if (!string.IsNullOrEmpty(HttpContext.Current.Request.ContentType) 
-                && HttpContext.Current.Request.ContentType.IndexOf(ConstHelper.FORMENCTYPE3, StringComparison.InvariantCultureIgnoreCase) > -1
-                && !string.IsNullOrEmpty(HttpContext.Current.Request.Json))
+            if (goOn)
             {
-                try
+                if (!string.IsNullOrEmpty(HttpContext.Current.Request.ContentType)
+               && HttpContext.Current.Request.ContentType.IndexOf(ConstHelper.FORMENCTYPE3, StringComparison.InvariantCultureIgnoreCase) > -1
+               && !string.IsNullOrEmpty(HttpContext.Current.Request.Json))
                 {
-                    var dic = SerializeHelper.Deserialize<Dictionary<string, string>>(HttpContext.Current.Request.Json);
+                    try
+                    {
+                        var dic = SerializeHelper.Deserialize<Dictionary<string, string>>(HttpContext.Current.Request.Json);
 
-                    if (HttpContext.Current.Request.Parmas == null || !HttpContext.Current.Request.Parmas.Any())
-                    {
-                        HttpContext.Current.Request.Parmas = dic;
-                    }
-                    else
-                    {
-                        if (dic != null && dic.Any())
+                        if (HttpContext.Current.Request.Parmas == null || !HttpContext.Current.Request.Parmas.Any())
                         {
-                            foreach (var item in dic)
+                            HttpContext.Current.Request.Parmas = dic;
+                        }
+                        else
+                        {
+                            if (dic != null && dic.Any())
                             {
-                                HttpContext.Current.Request.Parmas[item.Key] = item.Value;
+                                foreach (var item in dic)
+                                {
+                                    HttpContext.Current.Request.Parmas[item.Key] = item.Value;
+                                }
                             }
                         }
+
+                        nameValues = SerializeHelper.Deserialize<Dictionary<string, string>>(HttpContext.Current.Request.Json).ToNameValueCollection();
                     }
+                    catch
+                    {
+                        return new ContentResult("o_o，错误请求,Json:" + HttpContext.Current.Request.Json, System.Net.HttpStatusCode.BadRequest);
+                    }
+                }
 
-                    nameValues = SerializeHelper.Deserialize<Dictionary<string, string>>(HttpContext.Current.Request.Json).ToNameValueCollection();
-                }
-                catch
-                {
-                    return new ContentResult("o_o，错误请求,Json:" + HttpContext.Current.Request.Json, System.Net.HttpStatusCode.BadRequest);
-                }
+                result = MethodInvoke(routing.Action, routing.Instance, nameValues);
             }
-
-            result = MethodInvoke(routing.Action, routing.Instance, nameValues);
-
+            else
+            {
+                result = new EmptyResult();
+            }
             #endregion
 
             var nargs = new object[] { result };
@@ -159,7 +141,12 @@ namespace SAEA.MVC
                 {
                     var method = arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTED);
                     if (method != null)
+                    {
                         method.Invoke(arr, nargs);
+
+                        result = (ActionResult)nargs[0];
+                    }
+
                 }
             }
 
@@ -167,15 +154,11 @@ namespace SAEA.MVC
             {
                 foreach (var arr in routing.ActionFilterAtrrs)
                 {
-                    if (arr.ToString() == ConstHelper.OUTPUTCACHEATTRIBUTE)
+                    var method = arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTED);
+                    if (method != null)
                     {
-                        continue;
-                    }
-                    else
-                    {
-                        var method = arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTED);
-                        if (method != null)
-                            method.Invoke(arr, nargs);
+                        method.Invoke(arr, nargs);
+                        result = (ActionResult)nargs[0];
                     }
                 }
             }

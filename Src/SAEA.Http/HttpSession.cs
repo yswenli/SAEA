@@ -38,33 +38,19 @@ namespace SAEA.Http
     {
         Timer timer;
 
-        public string ID
-        {
-            get;
-            private set;
-        }
-
-        public DateTime Expired
-        {
-            get; set;
-        }
-
-        public KeyCache CachedPath
-        {
-            get; set;
-        } = new KeyCache();
-
         /// <summary>
         /// 关联outputcache使用
         /// </summary>
         public string CacheCalcString { get; set; } = "-1,-1";
 
+
         internal event Action<HttpSession> OnExpired;
+
 
         internal HttpSession(string id) : base()
         {
-            this.ID = id;
-            this.Expired = DateTime.Now.AddMinutes(20);
+            ID = id;
+            Expired = DateTime.Now.AddMinutes(20);
             timer = new Timer(new TimerCallback((o) =>
             {
                 OnExpired?.Invoke((HttpSession)o);
@@ -83,20 +69,31 @@ namespace SAEA.Http
 
     public class HttpSession<T>
     {
-        ConcurrentDictionary<string, HttpSessionItem<T>> keyValuePairs;
+        ConcurrentDictionary<string, HttpSessionItem<T>> _cache;
+
+        public string ID
+        {
+            get;
+            protected set;
+        }
+
+        public DateTime Expired
+        {
+            get; set;
+        }
 
         public HttpSession()
         {
-            keyValuePairs = new ConcurrentDictionary<string, HttpSessionItem<T>>();
+            _cache = new ConcurrentDictionary<string, HttpSessionItem<T>>();
         }
 
         public T this[string key]
         {
             get
             {
-                if (keyValuePairs.TryGetValue(key,out HttpSessionItem<T> data))
+                if (_cache.TryGetValue(key, out HttpSessionItem<T> data))
                 {
-                    if (data != null && data.Value!=null)
+                    if (data != null && data.Value != null)
                     {
                         return data.Value;
                     }
@@ -105,7 +102,7 @@ namespace SAEA.Http
             }
             set
             {
-                keyValuePairs[key] = new HttpSessionItem<T>(key, value);
+                _cache[key] = new HttpSessionItem<T>(key, value);
             }
         }
 
@@ -113,18 +110,48 @@ namespace SAEA.Http
         {
             get
             {
-                return keyValuePairs.Keys.ToList();
+                return _cache.Keys.ToList();
             }
+        }
+
+
+        public HttpSessionItem<T> Get(string key)
+        {
+            if (_cache.TryGetValue(key, out HttpSessionItem<T> t))
+            {
+                return t;
+            }
+            return null;
+        }
+
+        protected bool Contains(string id, string key)
+        {
+            return _cache.ContainsKey(key);
+        }
+
+        public void Add(string key, T val)
+        {
+            _cache.AddOrUpdate(key, new HttpSessionItem<T>(key, val), (k, v) =>
+            {
+                v.Value = val;
+                v.Expires = DateTime.Now.AddMinutes(20);
+                return v;
+            });
+        }
+
+        public bool Contains(string key)
+        {
+            return _cache.ContainsKey(key);
         }
 
         public void Remove(string key)
         {
-            keyValuePairs.TryRemove(key,out HttpSessionItem<T> t);
+            _cache.TryRemove(key, out HttpSessionItem<T> t);
         }
 
         public void Clear()
         {
-            keyValuePairs.Clear();
+            _cache.Clear();
         }
     }
 
@@ -132,7 +159,7 @@ namespace SAEA.Http
     /// SessionItem
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    internal class HttpSessionItem<T>
+    public class HttpSessionItem<T>
     {
         public string Key
         {
@@ -168,7 +195,7 @@ namespace SAEA.Http
     /// </summary>
     internal static class HttpSessionManager
     {
-        static ConcurrentDictionary<string, HttpSession> _keyValuePairs = new ConcurrentDictionary<string, HttpSession>();
+        static ConcurrentDictionary<string, HttpSession> _cache = new ConcurrentDictionary<string, HttpSession>();
 
         static Random random = new Random();
 
@@ -192,7 +219,7 @@ namespace SAEA.Http
         /// <returns></returns>
         public static HttpSession GetIfNotExistsSet(string id)
         {
-            var session = _keyValuePairs.GetOrAdd(id, (k) =>
+            var session = _cache.GetOrAdd(id, (k) =>
             {
                 var httpSession = new HttpSession(k);
                 httpSession.OnExpired += HttpSession_OnExpired;
@@ -213,9 +240,8 @@ namespace SAEA.Http
         /// <param name="id"></param>
         public static void Remove(string id)
         {
-            if (_keyValuePairs.TryRemove(id, out HttpSession httpSession))
+            if (_cache.TryRemove(id, out HttpSession httpSession))
             {
-                httpSession.CachedPath.Clear();
                 httpSession.Clear();
             }
         }

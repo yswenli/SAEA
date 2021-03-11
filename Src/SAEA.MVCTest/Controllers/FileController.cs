@@ -1,5 +1,7 @@
 ﻿using SAEA.Common;
+using SAEA.Common.IO;
 using SAEA.MVC;
+using System.Threading.Tasks;
 
 namespace SAEA.MVCTest.Controllers
 {
@@ -14,16 +16,30 @@ namespace SAEA.MVCTest.Controllers
         /// <returns></returns>
         public ActionResult Download()
         {
-            return File(HttpContext.Current.Server.MapPath("/Content/Image/c984b2fb80aeca7b15eda8c004f2e0d4.jpg"));
+            return File(HttpContext.Current.Server.MapPath("/Content/Images/6139455.png"));
         }
 
         /// <summary>
         /// 大数据输出
         /// </summary>
         /// <returns></returns>
-        public ActionResult DownloadBigData()
+        public async Task<ActionResult> DownloadBigData()
         {
-            return BigData(HttpContext.Current.Server.MapPath("/Content/Image/c984b2fb80aeca7b15eda8c004f2e0d4.jpg"));
+            await Task.Yield();
+            return BigData(HttpContext.Current.Server.MapPath("/Content/Images/6139455.png"));
+        }
+
+        /// <summary>
+        /// 流处理后输出
+        /// </summary>
+        /// <returns></returns>
+        public ActionResult GetPic()
+        {
+            using (var fs = FileHelper.GetStream(HttpContext.Current.Server.MapPath("/Content/Images/6139455.png")))
+            {
+                return Data(fs);
+            }
+
         }
 
         /// <summary>

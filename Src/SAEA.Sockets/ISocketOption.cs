@@ -146,6 +146,11 @@ namespace SAEA.Sockets
             get; set;
         }
 
+        int FreeTime
+        {
+            get; set;
+        }
+
         /// <summary>
         /// 是否端口复用
         /// </summary>

@@ -24,7 +24,9 @@
 using SAEA.Common;
 using SAEA.Sockets.Interface;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace SAEA.Http.Base.Net
 {
@@ -32,12 +34,13 @@ namespace SAEA.Http.Base.Net
     {
         List<byte> _cache = new List<byte>();
 
-        long _totlalLen = -1;
+        int _totlalLen = -1;
 
         public void Unpack(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
         {
 
         }
+
 
         /// <summary>
         /// GetRequest
@@ -53,23 +56,24 @@ namespace SAEA.Http.Base.Net
 
             if (_totlalLen == -1)
             {
-                if (RequestDataReader.Analysis(buffer, out HttpMessage httpMessage2))
+                if (RequestDataReader.Analysis(buffer, out HttpMessage httpMessage))
                 {
-                    httpMessage2.ID = id;
+                    httpMessage.ID = id;
 
                     //post需要处理body
-                    if (httpMessage2.Method == ConstHelper.POST)
+                    if (httpMessage.Method == ConstHelper.POST)
                     {
-                        var contentLen = httpMessage2.ContentLength;
-                        var positon = httpMessage2.Position;
+                        var contentLen = httpMessage.ContentLength;
+                        var positon = httpMessage.Position;
                         _totlalLen = contentLen + positon;
-                        if (buffer.Length == _totlalLen)
+
+                        if (buffer.Length >= _totlalLen)
                         {
-                            RequestDataReader.AnalysisBody(buffer, httpMessage2);
-                            _totlalLen = -1;
-                            onUnpackage.Invoke(httpMessage2);
+                            RequestDataReader.AnalysisBody(buffer, httpMessage);
                             Array.Clear(buffer, 0, buffer.Length);
-                            _cache.Clear();
+                            _cache.RemoveRange(0, _totlalLen);
+                            _totlalLen = -1;
+                            onUnpackage.Invoke(httpMessage);
                         }
                         else
                         {
@@ -78,23 +82,27 @@ namespace SAEA.Http.Base.Net
                     }
                     else
                     {
-                        onUnpackage.Invoke(httpMessage2);
                         Array.Clear(buffer, 0, buffer.Length);
-                        _cache.Clear();
+                        _cache.RemoveRange(0, buffer.Length);
+                        _totlalLen = -1;
+                        onUnpackage.Invoke(httpMessage);
                     }
-
                 }
-            }            
+            }
             else if (_totlalLen == buffer.Length)
             {
                 if (RequestDataReader.Analysis(buffer, out HttpMessage httpMessage1))
                 {
                     httpMessage1.ID = id;
                     RequestDataReader.AnalysisBody(buffer, httpMessage1);
-                    _totlalLen = -1;
-                    onUnpackage.Invoke(httpMessage1);
+                    _totlalLen = -1;                    
                     Array.Clear(buffer, 0, buffer.Length);
                     _cache.Clear();
+                    onUnpackage.Invoke(httpMessage1);
+                }
+                else
+                {
+                    throw new DataMisalignedException("解析失败");
                 }
             }
         }

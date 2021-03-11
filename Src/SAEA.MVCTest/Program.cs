@@ -16,7 +16,7 @@ namespace SAEA.MVCTest
 
             mvcConfig.Port = 28080;
 
-            mvcConfig.IsStaticsCached = false;
+            mvcConfig.IsStaticsCached = true;
 
             //mvcConfig.ControllerNameSpace = "SAEA.MVCTest";
 
@@ -45,8 +45,6 @@ namespace SAEA.MVCTest
             mvcApplication.Restart();
 
             ConsoleHelper.WriteLine($"SAEA.MVCApplication 已启动！\t\r\n访问请输入http://127.0.0.1:{mvcConfig.Port}/{{controller}}/{{action}}");
-
-
 
             //生成sdk测试
             TestCodeGenerate1();

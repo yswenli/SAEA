@@ -133,6 +133,16 @@ namespace SAEA.Common.Caching
             return result;
         }
 
+        public bool DelWithoutEvent(string key)
+        {
+            var result = _dic.TryRemove(key, out MemoryCacheItem<T> mc);
+            if (result)
+            {
+                OnChanged?.Invoke(false, mc.Value);
+            }
+            return result;
+        }
+
         public IEnumerable<T> List
         {
             get

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SAEA.Common.Caching;
+using System;
 
 namespace SAEA.MVC
 {
@@ -6,39 +7,60 @@ namespace SAEA.MVC
     /// 缓存
     /// </summary>
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = true)]
-    public sealed class OutputCacheAttribute : Attribute, IFilter
+    public sealed class OutputCacheAttribute : ActionFilterAttribute, IFilter
     {
-        int _duration = -1;
-
-        public int Order { get; set; } = -1;
+        int _duration = 60;
 
         public OutputCacheAttribute(int Duration = 60)
         {
             _duration = Duration;
+            Order = -1;
         }
 
 
-        /// <summary>
-        /// 方法执行前
-        /// </summary>
-        /// <returns></returns>
-        public string OnActionExecuting()
+        public override bool OnActionExecuting()
         {
-            var result = "0,60";
-            if (!HttpContext.Current.Session.CachedPath.Contains(HttpContext.Current.Request.Url))
+            var result = OutputCacheManager.Get(HttpContext.Current.Request.Url);
+
+            if (result == null)
             {
-                HttpContext.Current.Session.CachedPath.Add(HttpContext.Current.Request.Url, DateTime.Now.AddSeconds(_duration));
-                result = "0" + "," + _duration;
+                return true;
             }
             else
             {
-                var cp = HttpContext.Current.Session.CachedPath.Get(HttpContext.Current.Request.Url);
-                if (cp != null)
-                {
-                    result = "1" + "," + (int)(cp.Expired - DateTime.Now).TotalSeconds;
-                }
+                return false;
             }
-            return result;
+        }
+
+        public override void OnActionExecuted(ref ActionResult result)
+        {
+            if (result.Content == null)
+                result = OutputCacheManager.Get(HttpContext.Current.Request.Url);
+            else
+                OutputCacheManager.Set(HttpContext.Current.Request.Url, result, _duration);
+        }
+    }
+
+    /// <summary>
+    /// OutputCacheManager
+    /// </summary>
+    internal static class OutputCacheManager
+    {
+        static MemoryCacheHelper<ActionResult> _cache;
+
+        static OutputCacheManager()
+        {
+            _cache = new MemoryCacheHelper<ActionResult>();
+        }
+
+        public static void Set(string key, ActionResult val, int timeout = 60)
+        {
+            _cache.Set(key, val, TimeSpan.FromSeconds(timeout));
+        }
+
+        public static ActionResult Get(string key)
+        {
+            return _cache.Get(key);
         }
     }
 }

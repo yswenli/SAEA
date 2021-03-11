@@ -15,6 +15,7 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
+using SAEA.Common.IO;
 using SAEA.Http.Base;
 using SAEA.Http.Model;
 using System;
@@ -44,11 +45,12 @@ namespace SAEA.MVC
             this.Status = status;
 
             HttpContext.Current.Response.ContentType = contentType;
+            HttpContext.Current.Response.Headers["Connection"] = "close";
             HttpContext.Current.Response.Status = status;
             HttpContext.Current.Response.SendHeader(total);
 
-            var buffer = new byte[1024];
-
+            var buffer = new byte[10240];
+            stream.Position = 0;
             do
             {
                 var count = stream.Read(buffer, 0, buffer.Length);
@@ -58,7 +60,7 @@ namespace SAEA.MVC
                     break;
                 }
 
-                if (count == 1024)
+                if (count == 10240)
                 {
                     HttpContext.Current.Response.SendData(buffer);
                 }
@@ -75,6 +77,8 @@ namespace SAEA.MVC
             while (true);
 
             HttpContext.Current.Response.SendEnd();
+
+            stream.Close();
         }
 
 
@@ -83,7 +87,7 @@ namespace SAEA.MVC
         /// </summary>
         /// <param name="filePath"></param>
         /// <param name="status"></param>
-        public BigDataResult(string filePath, HttpStatusCode status = HttpStatusCode.OK) : this(File.OpenRead(filePath), HttpMIME.GetType(filePath), status)
+        public BigDataResult(string filePath, HttpStatusCode status = HttpStatusCode.OK) : this(FileHelper.GetStream(filePath), HttpMIME.GetType(filePath), status)
         {
 
         }

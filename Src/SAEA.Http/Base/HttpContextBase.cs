@@ -137,15 +137,18 @@ namespace SAEA.Http.Base
                 HttpCookie.DefaultDomain = domain;
             }
 
-            this.Request.Headers["REMOTE_ADDR"] = ((IPEndPoint)userToken.Socket.RemoteEndPoint).Address.ToString();
-
-            if (this.Request.Headers.ContainsKey("HTTP_X_FORWARDED_FOR"))
+            if(userToken!=null && userToken.Socket!=null && userToken.Socket.Connected)
             {
-                this.Request.Headers["HTTP_X_FORWARDED_FOR"] += "," + this.Request.Headers["REMOTE_ADDR"];
-            }
+                this.Request.Headers["REMOTE_ADDR"] = ((IPEndPoint)userToken.Socket.RemoteEndPoint).Address.ToString();
 
-            this.Response.Init(_webHost, userToken, this.Request.Protocal, _webHost.WebConfig.IsZiped);
-            this.Response.Cookies[ConstHelper.SESSIONID] = new HttpCookie(ConstHelper.SESSIONID, sessionID);
+                if (this.Request.Headers.ContainsKey("HTTP_X_FORWARDED_FOR"))
+                {
+                    this.Request.Headers["HTTP_X_FORWARDED_FOR"] += "," + this.Request.Headers["REMOTE_ADDR"];
+                }
+
+                this.Response.Init(_webHost, userToken, this.Request.Protocal, _webHost.WebConfig.IsZiped, _webHost.WebConfig.IsStaticsCached);
+                this.Response.Cookies[ConstHelper.SESSIONID] = new HttpCookie(ConstHelper.SESSIONID, sessionID);
+            }           
         }
 
         public bool IsStaticsCached { get; set; }

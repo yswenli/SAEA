@@ -29,14 +29,14 @@ namespace SAEA.MVCTest.Attrubutes
 
         }
 
-        public override void OnActionExecuted(ActionResult result)
+        public override void OnActionExecuted(ref ActionResult result)
         {
-            
+
         }
 
         public override bool OnActionExecuting()
         {
-            HttpContext.Current.Response.SetCached(new JsonResult("当前操作需要登录！"));
+            HttpContext.Current.Response.SetCached(new JsonResult("当前操作需要登录！"), "60,60");
             HttpContext.Current.Response.End();
             return false;
         }

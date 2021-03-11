@@ -29,7 +29,7 @@ namespace SAEA.Sockets.TcpTest
 {
     public class JServer
     {
-        IServerSocket _serverSokcet;
+        IServerSocket _serverSokcet;        
 
         public event Action<JServer, string, JT808Package> OnReceive;
 

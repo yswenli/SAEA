@@ -114,6 +114,12 @@ namespace SAEA.Sockets.Model
         {
             get; set;
         } = 60 * 1000;
+
+        public int FreeTime
+        {
+            get; set;
+        } = int.MaxValue;
+
         public string MultiCastHost
         {
             set; get;

@@ -49,9 +49,9 @@ namespace SAEA.Sockets.Core
     {
         UserTokenPool _userTokenPool;
 
-        MemoryCacheHelper<IUserToken> _session;
+        MemoryCacheHelper<IUserToken> _sessionCache;
 
-        TimeSpan _timeOut;
+        TimeSpan _freeTime;
 
         private int _bufferSize = 1024 * 10;
 
@@ -76,12 +76,13 @@ namespace SAEA.Sockets.Core
         /// <param name="bufferSize"></param>
         /// <param name="count"></param>
         /// <param name="completed"></param>
-        public SessionManager(IContext context, int bufferSize, int count, EventHandler<SocketAsyncEventArgs> completed, TimeSpan timeOut)
+        /// <param name="freetime"></param>
+        public SessionManager(IContext context, int bufferSize, int count, EventHandler<SocketAsyncEventArgs> completed, TimeSpan freetime)
         {
             _userTokenPool = new UserTokenPool(context, count);
 
-            _session = new MemoryCacheHelper<IUserToken>();
-            _timeOut = timeOut;
+            _sessionCache = new MemoryCacheHelper<IUserToken>();
+            _freeTime = freetime;
             _bufferSize = bufferSize;
             _completed = completed;
 
@@ -92,7 +93,7 @@ namespace SAEA.Sockets.Core
             _argsPool.InitPool(_completed);
 
             //不存在时处理
-            _session.OnChanged += _session_OnChanged;
+            _sessionCache.OnChanged += _session_OnChanged;
         }
 
         private void _session_OnChanged(bool isAdd, IUserToken userToken)
@@ -125,7 +126,7 @@ namespace SAEA.Sockets.Core
         IUserToken InitUserToken(SocketAsyncEventArgs readArg)
         {
             IUserToken userToken = _userTokenPool.Dequeue();
-            userToken.ReadArgs = readArg;            
+            userToken.ReadArgs = readArg;
             userToken.WriteArgs = _argsPool.Dequeue();
             userToken.ReadArgs.UserToken = userToken.WriteArgs.UserToken = userToken;
             return userToken;
@@ -182,7 +183,7 @@ namespace SAEA.Sockets.Core
             IUserToken userToken = InitUserToken(readArg);
             userToken.Socket = socket;
             userToken.ID = readArg.RemoteEndPoint.ToString();
-            userToken.Actived = userToken.Linked = DateTimeHelper.Now;            
+            userToken.Actived = userToken.Linked = DateTimeHelper.Now;
             Set(userToken);
             return userToken;
         }
@@ -190,17 +191,17 @@ namespace SAEA.Sockets.Core
 
         void Set(IUserToken IUserToken)
         {
-            _session.Set(IUserToken.ID, IUserToken, _timeOut);
+            _sessionCache.Set(IUserToken.ID, IUserToken, _freeTime);
         }
 
         public void Active(string ID)
         {
-            _session.Active(ID, _timeOut);
+            _sessionCache.Active(ID, _freeTime);
         }
 
         public IUserToken Get(string ID)
         {
-            return _session.Get(ID);
+            return _sessionCache.Get(ID);
         }
 
         /// <summary>
@@ -209,32 +210,29 @@ namespace SAEA.Sockets.Core
         /// <param name="userToken"></param>
         public bool Free(IUserToken userToken)
         {
-            if (userToken == null || userToken.Socket == null)
+            if (userToken == null)
             {
                 return false;
             }
-            if (_session.Del(userToken.ID))
+            _sessionCache.DelWithoutEvent(userToken.ID);
+            try
             {
-                try
+                if (userToken.Socket != null && userToken.Socket.Connected)
                 {
-                    if (userToken.Socket.Connected)
+                    try
                     {
-                        try
-                        {
-                            userToken.Socket.Shutdown(SocketShutdown.Both);
-                        }
-                        catch { }
                         userToken.Socket.Close();
                     }
+                    catch { }
+                    
                 }
-                catch { }
-                _bufferManager.FreeBuffer(userToken.ReadArgs);
-                _argsPool.Enqueue(userToken.ReadArgs);
-                _argsPool.Enqueue(userToken.WriteArgs);
-                _userTokenPool.Enqueue(userToken);
-                return true;
             }
-            return false;
+            catch { }
+            _bufferManager.FreeBuffer(userToken.ReadArgs);
+            _argsPool.Enqueue(userToken.ReadArgs);
+            _argsPool.Enqueue(userToken.WriteArgs);
+            _userTokenPool.Enqueue(userToken);
+            return true;
         }
 
         /// <summary>
@@ -245,7 +243,7 @@ namespace SAEA.Sockets.Core
         {
             lock (_locker)
             {
-                return _session.List.ToList();
+                return _sessionCache.List.ToList();
             }
         }
 
@@ -259,7 +257,7 @@ namespace SAEA.Sockets.Core
             {
                 item.Clear();
             }
-            _session.Clear();
+            _sessionCache.Clear();
         }
     }
 }

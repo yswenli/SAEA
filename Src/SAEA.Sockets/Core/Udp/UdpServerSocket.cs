@@ -482,7 +482,7 @@ namespace SAEA.Sockets.Core.Udp
         /// 断开连接
         /// </summary>
         /// <param name="sessionID"></param>
-        public void Disconnecte(string sessionID)
+        public void Disconnect(string sessionID)
         {
             var userToken = SessionManager.Get(sessionID);
             if (userToken != null)

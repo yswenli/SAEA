@@ -49,7 +49,7 @@ namespace SAEA.Sockets.Core.Udp
 
         UserTokenFactory _userTokenFactory;
 
-        ISocketOption _socketOption;
+        public ISocketOption SocketOption { get; set; }
 
         IPEndPoint _remoteEndPoint;
 
@@ -81,19 +81,19 @@ namespace SAEA.Sockets.Core.Udp
         /// <param name="socketOption"></param>
         public UdpClientSocket(ISocketOption socketOption)
         {
-            _socketOption = socketOption;
+            SocketOption = socketOption;
 
             _userTokenFactory = new UserTokenFactory();
 
             _udpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-            _udpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, _socketOption.ReusePort);
-            _udpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, _socketOption.Broadcasted);
+            _udpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, SocketOption.ReusePort);
+            _udpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, SocketOption.Broadcasted);
 
             //设置多播
-            if (!string.IsNullOrEmpty(_socketOption.MultiCastHost) && !string.IsNullOrEmpty(_socketOption.IP))
+            if (!string.IsNullOrEmpty(SocketOption.MultiCastHost) && !string.IsNullOrEmpty(SocketOption.IP))
             {
                 _udpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastLoopback, true);
-                MulticastOption mcastOption = new MulticastOption(IPAddress.Parse(_socketOption.MultiCastHost), IPAddress.Parse(_socketOption.IP));
+                MulticastOption mcastOption = new MulticastOption(IPAddress.Parse(SocketOption.MultiCastHost), IPAddress.Parse(SocketOption.IP));
                 _udpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership, mcastOption);
             }
 
@@ -102,21 +102,21 @@ namespace SAEA.Sockets.Core.Udp
                 _udpSocket.IOControl(SIO_UDP_CONNRESET, new byte[4], new byte[4]);
             }
 
-            _udpSocket.SendTimeout = _udpSocket.ReceiveTimeout = _socketOption.TimeOut;
-            _udpSocket.SendBufferSize = _socketOption.WriteBufferSize;
-            _udpSocket.ReceiveBufferSize = _socketOption.ReadBufferSize;
+            _udpSocket.SendTimeout = _udpSocket.ReceiveTimeout = SocketOption.TimeOut;
+            _udpSocket.SendBufferSize = SocketOption.WriteBufferSize;
+            _udpSocket.ReceiveBufferSize = SocketOption.ReadBufferSize;
 
             OnClientReceive = new OnClientReceiveBytesHandler(OnReceived);
 
             _connectArgs = new SocketAsyncEventArgs
             {
-                RemoteEndPoint = new IPEndPoint(IPAddress.Parse(_socketOption.IP), _socketOption.Port)
+                RemoteEndPoint = new IPEndPoint(IPAddress.Parse(SocketOption.IP), SocketOption.Port)
             };
             _connectArgs.Completed += ConnectArgs_Completed;
 
             _userToken = _userTokenFactory.Create(socketOption.Context, socketOption.ReadBufferSize, IO_Completed);
 
-            _remoteEndPoint = new IPEndPoint(IPAddress.Parse(_socketOption.IP), _socketOption.Port);
+            _remoteEndPoint = new IPEndPoint(IPAddress.Parse(SocketOption.IP), SocketOption.Port);
 
             _userToken.Socket = _udpSocket;
         }
@@ -276,9 +276,9 @@ namespace SAEA.Sockets.Core.Udp
         {
             try
             {
-                if (data == null || !data.Any() || data.Length > SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("SendAsync Incorrect length of data sent");
+                if (data == null || !data.Any() || data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("SendAsync Incorrect length of data sent");
 
-                if (UserToken.WaitOne(_socketOption.TimeOut))
+                if (UserToken.WaitOne(SocketOption.TimeOut))
                 {
                     var writeArgs = UserToken.WriteArgs;
 
@@ -319,7 +319,7 @@ namespace SAEA.Sockets.Core.Udp
         /// <param name="data"></param>
         public void Send(byte[] data)
         {
-            if (data == null || !data.Any() || data.Length > SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("Send Incorrect length of data sent");
+            if (data == null || !data.Any() || data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("Send Incorrect length of data sent");
 
             try
             {
@@ -342,7 +342,7 @@ namespace SAEA.Sockets.Core.Udp
 
         public void BeginSend(byte[] data)
         {
-            if (data == null || !data.Any() || data.Length > SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("BeginSend Incorrect length of data sent");
+            if (data == null || !data.Any() || data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("BeginSend Incorrect length of data sent");
 
             _userToken.Socket.BeginSendTo(data, 0, data.Length, SocketFlags.None, _remoteEndPoint, null, null);
 
@@ -358,7 +358,7 @@ namespace SAEA.Sockets.Core.Udp
 
                 Buffer.BlockCopy(buffer, offset, data, 0, count);
 
-                if (data == null || !data.Any() || data.Length > SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("SendAsync Incorrect length of data sent");
+                if (data == null || !data.Any() || data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("SendAsync Incorrect length of data sent");
 
                 Send(data);
 

@@ -27,15 +27,14 @@
 *版本号： v6.0.0.1
 *描述：
 *****************************************************************************/
-using System;
-using SAEA.Common;
+using SAEA.Common.IO;
+using SAEA.Sockets.Base;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
+using System;
+using System.Net;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
-using SAEA.Sockets.Base;
-using SAEA.Common.IO;
-using System.Net;
 
 namespace SAEA.Sockets
 {
@@ -146,7 +145,7 @@ namespace SAEA.Sockets
         /// <returns></returns>
         public SocketOptionBuilder WithSsl(SslProtocols sslProtocols, string pfxFilePath = "*.pfx", string pwd = "")
         {
-            if (_socketOption.UseIocp || _socketOption.SocketType == SAEASocketType.Udp) throw new NotSupportedException("暂不支持此模式下的ssl");
+            if (_socketOption.UseIocp || _socketOption.SocketType == SAEASocketType.Udp) throw new NotSupportedException("不支持此模式下的ssl");
             _socketOption.SslProtocol = sslProtocols;
             if (!string.IsNullOrEmpty(pfxFilePath))
             {
@@ -218,7 +217,7 @@ namespace SAEA.Sockets
         public SocketOptionBuilder SetIPEndPoint(IPEndPoint endPoint)
         {
             _socketOption.IP = endPoint.Address.ToString();
-            _socketOption.Port = endPoint.Port;
+            _socketOption.Port = endPoint.Port;            
             return this;
         }
 
@@ -278,12 +277,23 @@ namespace SAEA.Sockets
         }
 
         /// <summary>
+        /// 空闲时长
+        /// </summary>
+        /// <param name="timeOut"></param>
+        /// <returns></returns>
+        public SocketOptionBuilder SetFreeTime(int timeOut = int.MaxValue)
+        {
+            _socketOption.FreeTime = timeOut;
+            return this;
+        }
+
+        /// <summary>
         /// 广播
         /// </summary>
         /// <returns></returns>
         public SocketOptionBuilder UseBroadcast()
         {
-            if (_socketOption.SocketType == SAEASocketType.Tcp) throw new NotSupportedException("暂不支持此模式下的广播");
+            if (_socketOption.SocketType == SAEASocketType.Tcp) throw new NotSupportedException("不支持此模式下的广播");
             _socketOption.Broadcasted = true;
             return this;
         }
@@ -295,7 +305,7 @@ namespace SAEA.Sockets
         /// <returns></returns>
         public SocketOptionBuilder SetMultiCastHost(string multiCastHost)
         {
-            if (_socketOption.SocketType == SAEASocketType.Tcp) throw new NotSupportedException("暂不支持此模式下的组播");
+            if (_socketOption.SocketType == SAEASocketType.Tcp) throw new NotSupportedException("不支持此模式下的组播");
             _socketOption.MultiCastHost = multiCastHost;
             return this;
         }

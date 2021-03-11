@@ -75,7 +75,8 @@ namespace SAEA.Sockets.Core
 
         public void FreeBuffer(SocketAsyncEventArgs args)
         {
-            _freeIndexPool.Push(args.Offset);
+            if (args != null)
+                _freeIndexPool.Push(args.Offset);
         }
     }
 }

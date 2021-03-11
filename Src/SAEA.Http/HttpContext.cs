@@ -97,7 +97,7 @@ namespace SAEA.Http
                         result = new HttpEmptyResult();
                         break;
                     default:
-                        result = new HttpContentResult("不支持的请求方式", System.Net.HttpStatusCode.NotImplemented);
+                        result = new HttpContentResult("不支持的请求方式", System.Net.HttpStatusCode.HttpVersionNotSupported);
                         break;
                 }
             }
@@ -106,11 +106,20 @@ namespace SAEA.Http
                 result = OnException?.Invoke(this, ex);
             }
 
-            if (result != null && !(result is IBigDataResult))
+            if (result != null)
             {
-                Response.SetCached(result, this.Session.CacheCalcString);
-
-                Response.End();
+                if (!(result is IBigDataResult))
+                {
+                    if (result is IFileResult && _webHost.WebConfig.IsStaticsCached)
+                    {
+                        Response.SetCached(result, "60,60");
+                    }
+                    else
+                    {
+                        Response.SetCached(result, this.Session.CacheCalcString);
+                    }
+                    Response.End();
+                }
             }
         }
         public override IHttpResult GetActionResult()

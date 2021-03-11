@@ -171,7 +171,7 @@ namespace SAEA.MessageSocket
                     }
                     catch (Exception ex)
                     {
-                        _server.Disconnecte(mUserToken.ID);
+                        _server.Disconnect(mUserToken.ID);
                         LogHelper.Error("MessageServer._server_OnReceive", ex);
                     }
                 }

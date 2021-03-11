@@ -35,7 +35,6 @@ using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
 using System;
-using System.Buffers;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -61,7 +60,7 @@ namespace SAEA.Sockets.Core.Tcp
 
         AutoResetEvent _connectEvent = new AutoResetEvent(true);
 
-        ISocketOption _socketOption;
+        public ISocketOption SocketOption { get; set; }
 
         public string Endpoint { get => _socket?.RemoteEndPoint?.ToString(); }
 
@@ -91,24 +90,24 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="socketOption"></param>
         public IocpClientSocket(ISocketOption socketOption)
         {
-            _socketOption = socketOption;
+            SocketOption = socketOption;
 
             _userTokenFactory = new UserTokenFactory();
 
             _socket = new Socket(AddressFamily.InterNetwork, System.Net.Sockets.SocketType.Stream, ProtocolType.Tcp);
-            if (_socketOption.ReusePort)
+            if (SocketOption.ReusePort)
             {
-                _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, _socketOption.ReusePort);
+                _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, SocketOption.ReusePort);
             }
-            _socket.NoDelay = _socketOption.NoDelay;
-            _socket.SendTimeout = _socket.ReceiveTimeout = _socketOption.TimeOut;
+            _socket.NoDelay = SocketOption.NoDelay;
+            _socket.SendTimeout = _socket.ReceiveTimeout = SocketOption.TimeOut;
             _socket.KeepAlive();
 
             OnClientReceive = new OnClientReceiveBytesHandler(OnReceived);
 
             _connectArgs = new SocketAsyncEventArgs
             {
-                RemoteEndPoint = new IPEndPoint(IPAddress.Parse(_socketOption.IP), _socketOption.Port)
+                RemoteEndPoint = new IPEndPoint(IPAddress.Parse(SocketOption.IP), SocketOption.Port)
             };
             _connectArgs.Completed += ConnectArgs_Completed;
 
@@ -171,7 +170,7 @@ namespace SAEA.Sockets.Core.Tcp
         {
             if (!Connected && !IsDisposed)
             {
-                _socket.Connect(_socketOption.IP, _socketOption.Port);
+                _socket.Connect(SocketOption.IP, SocketOption.Port);
 
                 _userToken.ID = _socket.LocalEndPoint.ToString();
                 _userToken.Socket = _socket;
@@ -314,7 +313,7 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 if (userToken != null && userToken.Socket != null && userToken.Socket.Connected)
                 {
-                    if (userToken.WaitOne(_socketOption.TimeOut))
+                    if (userToken.WaitOne(SocketOption.TimeOut))
                     {
                         var writeArgs = userToken.WriteArgs;
 

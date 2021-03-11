@@ -42,6 +42,8 @@ namespace SAEA.Sockets
     /// </summary>
     public interface IClientSocket : IDisposable
     {
+        ISocketOption SocketOption { get; set; }
+
         /// <summary>
         /// 端地址
         /// </summary>

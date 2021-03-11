@@ -86,7 +86,7 @@ namespace SAEA.Http.Base.Net
 
         public void Disconnecte(IUserToken userToken)
         {
-            _serverSokcet.Disconnecte(userToken.ID);
+            _serverSokcet.Disconnect(userToken.ID);
         }
         public void End(IUserToken userToken, byte[] data)
         {

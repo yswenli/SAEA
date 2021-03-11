@@ -15,12 +15,14 @@
 *版 本 号： v5.0.0.1
 *描    述：
 *****************************************************************************/
+using SAEA.Common.Newtonsoft.Json;
 using SAEA.MQTT;
-using SAEA.MQTT.Common.Log;
-using SAEA.MQTT.Core.Implementations;
-using SAEA.MQTT.Core.Protocol;
-using SAEA.MQTT.Model;
+using SAEA.MQTT.Client.Receiving;
+using SAEA.MQTT.Protocol;
+using SAEA.MQTT.Server;
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -31,11 +33,9 @@ namespace SAEA.MQTTTest
         public static void RunEmptyServer()
         {
             var mqttServer = new MqttFactory().CreateMqttServer();
-
             mqttServer.StartAsync(new MqttServerOptions()).GetAwaiter().GetResult();
 
             Console.WriteLine("Press any key to exit.");
-
             Console.ReadLine();
         }
 
@@ -43,27 +43,27 @@ namespace SAEA.MQTTTest
         {
             try
             {
-                #region ipv6
-
                 var options = new MqttServerOptions
                 {
-                    ConnectionValidator = p =>
+                    ConnectionValidator = new MqttServerConnectionValidatorDelegate(p =>
                     {
                         if (p.ClientId == "SpecialClient")
                         {
                             if (p.Username != "USER" || p.Password != "PASS")
                             {
-                                p.ReturnCode = MqttConnectReturnCode.ConnectionRefusedBadUsernameOrPassword;
+                                p.ReasonCode = MqttConnectReasonCode.BadUserNameOrPassword;
                             }
                         }
-                    },
+                    }),
 
                     Storage = new RetainedMessageHandler(),
 
-                    ApplicationMessageInterceptor = context =>
+                    ApplicationMessageInterceptor = new MqttServerApplicationMessageInterceptorDelegate(context =>
                     {
                         if (MqttTopicFilterComparer.IsMatch(context.ApplicationMessage.Topic, "/myTopic/WithTimestamp/#"))
                         {
+                            // Replace the payload with the timestamp. But also extending a JSON 
+                            // based payload with the timestamp is a suitable use case.
                             context.ApplicationMessage.Payload = Encoding.UTF8.GetBytes(DateTime.Now.ToString("O"));
                         }
 
@@ -72,8 +72,9 @@ namespace SAEA.MQTTTest
                             context.AcceptPublish = false;
                             context.CloseConnection = true;
                         }
-                    },
-                    SubscriptionInterceptor = context =>
+                    }),
+
+                    SubscriptionInterceptor = new MqttServerSubscriptionInterceptorDelegate(context =>
                     {
                         if (context.TopicFilter.Topic.StartsWith("admin/foo/bar") && context.ClientId != "theAdmin")
                         {
@@ -85,10 +86,12 @@ namespace SAEA.MQTTTest
                             context.AcceptSubscription = false;
                             context.CloseConnection = true;
                         }
-                    }
+                    })
                 };
 
-                
+                // Extend the timestamp for all messages from clients.
+                // Protect several topics from being subscribed from every client.
+
                 //var certificate = new X509Certificate(@"C:\certs\test\test.cer", "");
                 //options.TlsEndpointOptions.Certificate = certificate.Export(X509ContentType.Cert);
                 //options.ConnectionBacklog = 5;
@@ -97,12 +100,12 @@ namespace SAEA.MQTTTest
 
                 var mqttServer = new MqttFactory().CreateMqttServer();
 
-                mqttServer.ApplicationMessageReceived += (s, e) =>
+                mqttServer.ApplicationMessageReceivedHandler = new MqttApplicationMessageReceivedHandlerDelegate(e =>
                 {
                     MqttNetConsoleLogger.PrintToConsole(
                         $"'{e.ClientId}' reported '{e.ApplicationMessage.Topic}' > '{Encoding.UTF8.GetString(e.ApplicationMessage.Payload ?? new byte[0])}'",
                         ConsoleColor.Magenta);
-                };
+                });
 
                 //options.ApplicationMessageInterceptor = c =>
                 //{
@@ -126,15 +129,12 @@ namespace SAEA.MQTTTest
                 //    }
                 //};
 
-                mqttServer.ClientDisconnected += (s, e) =>
+                mqttServer.ClientConnectedHandler = new MqttServerClientConnectedHandlerDelegate(e =>
                 {
                     Console.Write("Client disconnected event fired.");
-                };
+                });
 
                 await mqttServer.StartAsync(options);
-                #endregion
-
-
 
                 Console.WriteLine("Press any key to exit.");
                 Console.ReadLine();
@@ -147,6 +147,39 @@ namespace SAEA.MQTTTest
             }
 
             Console.ReadLine();
+        }
+    }
+
+    public class RetainedMessageHandler : IMqttServerStorage
+    {
+        private const string Filename = "C:\\MQTT\\RetainedMessages.json";
+
+        public Task SaveRetainedMessagesAsync(IList<MqttApplicationMessage> messages)
+        {
+            var directory = Path.GetDirectoryName(Filename);
+            if (!Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            File.WriteAllText(Filename, JsonConvert.SerializeObject(messages));
+            return Task.FromResult(0);
+        }
+
+        public Task<IList<MqttApplicationMessage>> LoadRetainedMessagesAsync()
+        {
+            IList<MqttApplicationMessage> retainedMessages;
+            if (File.Exists(Filename))
+            {
+                var json = File.ReadAllText(Filename);
+                retainedMessages = JsonConvert.DeserializeObject<List<MqttApplicationMessage>>(json);
+            }
+            else
+            {
+                retainedMessages = new List<MqttApplicationMessage>();
+            }
+
+            return Task.FromResult(retainedMessages);
         }
     }
 }

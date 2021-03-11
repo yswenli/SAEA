@@ -120,11 +120,14 @@ namespace SAEA.MVC
                 }
             }
 
-            if (result != null && !(result is IBigDataResult || result is IEventStream))
+            if (result != null)
             {
-                Response.SetCached(result, this.Session.CacheCalcString);
+                if (!(result is IBigDataResult || result is IEventStream))
+                {
+                    Response.SetCached(result, this.Session.CacheCalcString);
 
-                Response.End();
+                    Response.End();
+                }
             }
         }
 

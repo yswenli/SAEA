@@ -16,11 +16,12 @@
 *描    述：
 *****************************************************************************/
 using SAEA.MQTT;
-using SAEA.MQTT.Common;
-using SAEA.MQTT.Common.Log;
-using SAEA.MQTT.Core.Implementations;
-using SAEA.MQTT.Core.Protocol;
-using SAEA.MQTT.Model;
+using SAEA.MQTT.Client;
+using SAEA.MQTT.Client.Connecting;
+using SAEA.MQTT.Client.Disconnecting;
+using SAEA.MQTT.Client.Options;
+using SAEA.MQTT.Client.Receiving;
+using SAEA.MQTT.Protocol;
 using System;
 using System.Text;
 using System.Threading.Tasks;
@@ -45,7 +46,7 @@ namespace SAEA.MQTTTest
                     }
                 };
 
-                client.ApplicationMessageReceived += (s, e) =>
+                client.ApplicationMessageReceivedHandler = new MqttApplicationMessageReceivedHandlerDelegate(e =>
                 {
                     Console.WriteLine("### RECEIVED APPLICATION MESSAGE ###");
                     Console.WriteLine($"+ Topic = {e.ApplicationMessage.Topic}");
@@ -53,18 +54,18 @@ namespace SAEA.MQTTTest
                     Console.WriteLine($"+ QoS = {e.ApplicationMessage.QualityOfServiceLevel}");
                     Console.WriteLine($"+ Retain = {e.ApplicationMessage.Retain}");
                     Console.WriteLine();
-                };
+                });
 
-                client.Connected += async (s, e) =>
+                client.ConnectedHandler = new MqttClientConnectedHandlerDelegate(async e =>
                 {
                     Console.WriteLine("### CONNECTED WITH SERVER ###");
 
-                    await client.SubscribeAsync(new TopicFilterBuilder().WithTopic("#").Build());
+                    await client.SubscribeAsync(new MqttTopicFilterBuilder().WithTopic("#").Build());
 
                     Console.WriteLine("### SUBSCRIBED ###");
-                };
+                });
 
-                client.Disconnected += async (s, e) =>
+                client.DisconnectedHandler = new MqttClientDisconnectedHandlerDelegate(async e =>
                 {
                     Console.WriteLine("### DISCONNECTED FROM SERVER ###");
                     await Task.Delay(TimeSpan.FromSeconds(5));
@@ -77,7 +78,7 @@ namespace SAEA.MQTTTest
                     {
                         Console.WriteLine("### RECONNECTING FAILED ###");
                     }
-                };
+                });
 
                 try
                 {
@@ -94,9 +95,9 @@ namespace SAEA.MQTTTest
                 {
                     Console.ReadLine();
 
-                    await client.SubscribeAsync(new TopicFilter("test", MqttQualityOfServiceLevel.AtMostOnce));
+                    await client.SubscribeAsync(new MqttTopicFilter { Topic = "test", QualityOfServiceLevel = MqttQualityOfServiceLevel.AtMostOnce });
 
-                    var applicationMessage = new MqttMessageBuilder()
+                    var applicationMessage = new MqttApplicationMessageBuilder()
                         .WithTopic("A/B/C")
                         .WithPayload("Hello World")
                         .WithAtLeastOnceQoS()

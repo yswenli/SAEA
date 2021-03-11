@@ -119,7 +119,7 @@ namespace SAEA.Sockets
         /// 断开指定会话
         /// </summary>
         /// <param name="sessionID"></param>
-        void Disconnecte(string sessionID);
+        void Disconnect(string sessionID);
 
         bool IsDisposed { get; set; }
     }

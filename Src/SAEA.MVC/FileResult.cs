@@ -59,11 +59,13 @@ namespace SAEA.MVC
         {
             int len = (int)stream.Length;
             var data = new byte[len];
+            stream.Position = 0;
             stream.Read(data, 0, len);
             this.Content = data;
             this.ContentEncoding = Encoding.UTF8;
             this.ContentType = contentType;
             this.Status = status;
+            stream.Close();
         }
 
         /// <summary>
@@ -75,6 +77,10 @@ namespace SAEA.MVC
         /// <param name="status"></param>
         public FileResult(bool isStaticsCached, string filePath, string contentType = "", HttpStatusCode status = HttpStatusCode.OK)
         {
+            this.ContentEncoding = Encoding.UTF8;
+            this.ContentType = contentType;
+            this.Status = status;
+
             if (isStaticsCached)
             {
                 this.Content = StaticResourcesCache.GetOrAdd(filePath, filePath);
@@ -83,9 +89,7 @@ namespace SAEA.MVC
             {
                 this.Content = FileHelper.Read(filePath);
             }
-            this.ContentEncoding = Encoding.UTF8;
-            this.ContentType = contentType;
-            this.Status = status;
+
         }
     }
 }

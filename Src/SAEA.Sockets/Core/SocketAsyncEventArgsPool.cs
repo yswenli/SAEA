@@ -64,7 +64,7 @@ namespace SAEA.Sockets.Core
 
         public void Enqueue(SocketAsyncEventArgs args)
         {
-            if (args == null) { throw new ArgumentNullException("Items added to a SocketAsyncEventArgsPool cannot be null"); }
+            if (args == null) return;
             args.UserToken = null;
             args.Completed -= _completed;
             _argsPool.Enqueue(args);

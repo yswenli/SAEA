@@ -119,16 +119,26 @@ namespace SAEA.Sockets.Core
 
         static ChannelManager _channelManager = null;
 
+
         public static ChannelManager Instance
         {
             get
             {
                 if (_channelManager == null)
                 {
-                    _channelManager = new ChannelManager();
+                    _channelManager = new ChannelManager(int.MaxValue);
                 }
                 return _channelManager;
             }
+        }
+
+        public static ChannelManager GetInstance(int timeOut = 60)
+        {
+            if (_channelManager == null)
+            {
+                _channelManager = new ChannelManager(timeOut);
+            }
+            return _channelManager;
         }
     }
 }

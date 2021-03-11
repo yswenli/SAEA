@@ -125,7 +125,7 @@ namespace SAEA.WebSocket.Core
             catch(Exception ex)
             {
                 LogHelper.Error("WServer.OnReceive.Error", ex);
-                _server.Disconnecte(ut.ID);
+                _server.Disconnect(ut.ID);
             }
         }
 
@@ -173,7 +173,7 @@ namespace SAEA.WebSocket.Core
         public void Disconnect(string id, WSProtocal data)
         {
             ReplyBase(id, data);
-            _server.Disconnecte(id);
+            _server.Disconnect(id);
         }
 
         /// <summary>
@@ -182,7 +182,7 @@ namespace SAEA.WebSocket.Core
         /// <param name="id"></param>
         public void Disconnect(string id)
         {
-            _server.Disconnecte(id);
+            _server.Disconnect(id);
         }
 
         public void Start(int backlog = 10000)

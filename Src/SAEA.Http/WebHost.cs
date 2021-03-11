@@ -36,7 +36,7 @@ namespace SAEA.Http
     /// </summary>
     public class WebHost : IWebHost
     {
-        IHttpSocket _serverSocket;
+        IHttpSocket _httpServer;
 
         Type _httpContentType = typeof(HttpContext);
 
@@ -108,14 +108,14 @@ namespace SAEA.Http
 
             if (isDebug)
 
-                _serverSocket = new HttpSocketDebug(port, bufferSize, count, timeOut);
+                _httpServer = new HttpSocketDebug(port, bufferSize, count, timeOut);
 
             else
 
-                _serverSocket = new HttpSocket(port, bufferSize, count, timeOut);
+                _httpServer = new HttpSocket(port, bufferSize, count, timeOut);
 
-            _serverSocket.OnRequested += _serverSocket_OnRequested;
-            _serverSocket.OnError += (e) => OnException?.Invoke(HttpContext.Current, e);
+            _httpServer.OnRequested += _serverSocket_OnRequested;
+            _httpServer.OnError += (e) => OnException?.Invoke(HttpContext.Current, e);
         }
 
 
@@ -127,7 +127,7 @@ namespace SAEA.Http
         {
             if (!IsRunning)
             {
-                _serverSocket.Start();
+                _httpServer.Start();
                 IsRunning = true;
             }
         }
@@ -172,7 +172,7 @@ namespace SAEA.Http
             }
             catch (Exception ex)
             {
-                LogHelper.Error("WebHost._serverSocket_OnDisconnected 意外断开连接", ex, httpMessage);
+                LogHelper.Error("http处理过程中发生意外异常", ex, httpMessage);
             }
         }
 
@@ -193,7 +193,7 @@ namespace SAEA.Http
         /// <param name="data"></param>
         public void Send(IUserToken userToken, byte[] data)
         {
-            _serverSocket.Send(userToken, data);
+            _httpServer.Send(userToken, data);
         }
 
         /// <summary>
@@ -202,7 +202,7 @@ namespace SAEA.Http
         /// <param name="userToken"></param>
         public void Disconnect(IUserToken userToken)
         {
-            _serverSocket.Disconnecte(userToken);
+            _httpServer.Disconnecte(userToken);
         }
 
         /// <summary>
@@ -212,7 +212,7 @@ namespace SAEA.Http
         /// <param name="data"></param>
         public void End(IUserToken userToken, byte[] data)
         {
-            _serverSocket.End(userToken, data);
+            _httpServer.End(userToken, data);
         }
 
         /// <summary>
@@ -231,7 +231,7 @@ namespace SAEA.Http
         {
             if (IsRunning)
             {
-                _serverSocket.Stop();
+                _httpServer.Stop();
                 IsRunning = false;
             }
         }

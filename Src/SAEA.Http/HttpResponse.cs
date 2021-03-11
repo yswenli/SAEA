@@ -42,28 +42,23 @@ namespace SAEA.Http
 
         bool _isZiped = false;
 
-        protected IUserToken UserToken { get; set; }
+        bool _staticsCached = false;
 
-        bool _keepAlive = false;
+        protected IUserToken UserToken { get; set; }
 
         internal HttpResponse()
         {
 
         }
 
-        internal void Init(IWebHost webHost, IUserToken userToken, string protocal, bool isZiped = false)
+        internal void Init(IWebHost webHost, IUserToken userToken, string protocal, bool isZiped = false, bool staticsCached = false)
         {
             WebHost = webHost;
             UserToken = userToken;
             Protocal = protocal;
             _isZiped = isZiped;
-
-            var rqHeaders = HttpContext.Current.Request.Headers;
-
-            if (rqHeaders.ContainsKey("Connection"))
-            {
-                _keepAlive = rqHeaders["Connection"] == "keep-alive";
-            }
+            _staticsCached = staticsCached;
+            Headers["Connection"] = "close";
         }
 
         internal HttpResponse SetContent(byte[] content, Encoding encoding = null)
@@ -97,20 +92,11 @@ namespace SAEA.Http
         /// </summary>
         /// <param name="close"></param>
         /// <returns></returns>
-        protected string BuildHeader(bool close = true)
+        protected string BuildHeader()
         {
             StringBuilder builder = new StringBuilder();
             builder.AppendLine($"{this.Protocal} {Status.ToNVString()}");
             builder.AppendLine(ConstHelper.ServerName);
-            if (close)
-            {
-                builder.AppendLine("Connection: close");
-            }
-            else
-            {
-                _keepAlive = true;
-                builder.AppendLine("Connection: keep-alive");
-            }
 
             builder.AppendLine("Date: " + DateTimeHelper.Now.ToGMTString());
 
@@ -216,8 +202,8 @@ namespace SAEA.Http
             }
 
             this.SetHeader(ResponseHeaderType.ContentLength, bodyLen.ToString());
-            
-            var header = BuildHeader(!_keepAlive);
+
+            var header = BuildHeader();
 
             byte[] headerBytes = Encoding.UTF8.GetBytes(header);
 
@@ -225,6 +211,9 @@ namespace SAEA.Http
             reponseDataList.AddRange(headerBytes);
             //发送空行
             reponseDataList.AddRange(lineBytes);
+
+            
+
             //发送内容
             if (bdata != null)
                 reponseDataList.AddRange(bdata);
@@ -254,7 +243,7 @@ namespace SAEA.Http
         #region 针对类似大文件、事件流场景分开处理
 
         /// <summary>
-        /// 仅发送头，
+        /// 仅发送头，针对类似大文件、事件流场景分开处理，
         /// 与SendData，SendEnd联合使用
         /// </summary>
         /// <param name="bodyLen"></param>
@@ -270,7 +259,9 @@ namespace SAEA.Http
             if (bodyLen > 0)
                 this.SetHeader(ResponseHeaderType.ContentLength, bodyLen.ToString());
 
-            var header = BuildHeader(false);
+            Headers["Connection"] = "keep-alive";
+
+            var header = BuildHeader();
 
             byte[] headerBytes = encoding.GetBytes(header);
 
@@ -315,8 +306,7 @@ namespace SAEA.Http
         /// </summary>
         public void End()
         {
-            if (_keepAlive)
-                WebHost.Send(UserToken, this.ToBytes());
+            if (UserToken == null) return;
             else
                 WebHost.End(UserToken, this.ToBytes());
         }

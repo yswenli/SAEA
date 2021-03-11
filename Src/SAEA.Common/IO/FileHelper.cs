@@ -92,11 +92,22 @@ namespace SAEA.Common.IO
             }
         }
 
+        /// <summary>
+        /// 读取流
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <returns></returns>
+        public static FileStream GetStream(string filePath)
+        {
+            return File.Open(filePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite);
+        }
+
+
 
         public static void Write(string filePath, byte[] data)
         {
             GetDirecotry(filePath);
-            using (FileStream fs = File.Create(filePath))
+            using (var fs = GetStream(filePath))
             {
                 fs.Write(data, 0, data.Length);
             }
@@ -113,7 +124,7 @@ namespace SAEA.Common.IO
         public static void Append(string filePath, byte[] data)
         {
             GetDirecotry(filePath);
-            using (FileStream fs = File.Open(filePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite))
+            using (FileStream fs = File.Open(filePath, FileMode.Append, FileAccess.ReadWrite, FileShare.ReadWrite))
             {
                 fs.Write(data, 0, data.Length);
             }
@@ -138,7 +149,7 @@ namespace SAEA.Common.IO
             {
                 return data;
             }
-            using (var fs = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            using (var fs = GetStream(filePath))
             {
                 var buffer = new byte[fs.Length];
                 fs.Position = 0;
@@ -175,7 +186,7 @@ namespace SAEA.Common.IO
         /// <param name="bufferSize"></param>
         public static void Read(string filePath, Action<byte[]> read, int bufferSize = 10240)
         {
-            using (var fs = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using (var fs = GetStream(filePath))
             {
                 fs.Position = 0;
 

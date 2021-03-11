@@ -90,7 +90,7 @@ namespace SAEA.RPC.Net
 
         internal void Disconnect(IUserToken userToken)
         {
-            _server.Disconnecte(userToken.ID);
+            _server.Disconnect(userToken.ID);
         }
 
         internal void Start()

@@ -1,77 +1,124 @@
-﻿/****************************************************************************
-*项目名称：SAEA.MQTT
-*CLR 版本：4.0.30319.42000
-*机器名称：WENLI-PC
-*命名空间：SAEA.MQTT
-*类 名 称：MqttFactory
-*版 本 号： v5.0.0.1
-*创建人： yswenli
-*电子邮箱：wenguoli_520@qq.com
-*创建时间：2019/1/15 10:03:45
-*描述：
-*=====================================================================
-*修改时间：2019/1/15 10:03:45
-*修 改 人： yswenli
-*版 本 号： v5.0.0.1
-*描    述：
-*****************************************************************************/
-using SAEA.MQTT.Common.Log;
-using SAEA.MQTT.Core;
-using SAEA.MQTT.Core.Implementations;
-using SAEA.MQTT.Interface;
+﻿using SAEA.MQTT.Adapter;
+using SAEA.MQTT.Client;
+using SAEA.MQTT.Diagnostics;
+using SAEA.MQTT.Implementations;
+using SAEA.MQTT.LowLevelClient;
+using SAEA.MQTT.Server;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace SAEA.MQTT
 {
-    public class MqttFactory : IMqttClientFactory, IMqttServerFactory
+    public sealed class MqttFactory : IMqttFactory
     {
+        IMqttClientAdapterFactory _clientAdapterFactory;
+
+        public MqttFactory() : this(new MqttNetLogger())
+        {
+        }
+
+        public MqttFactory(IMqttNetLogger logger)
+        {
+            DefaultLogger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _clientAdapterFactory = new MqttClientAdapterFactory(logger);
+        }
+
+        public IMqttNetLogger DefaultLogger { get; }
+
+        public IList<Func<IMqttFactory, IMqttServerAdapter>> DefaultServerAdapters { get; } = new List<Func<IMqttFactory, IMqttServerAdapter>>
+        {
+            factory => new MqttTcpServerAdapter(factory.DefaultLogger)
+        };
+
+        public IDictionary<object, object> Properties { get; } = new Dictionary<object, object>();
+
+        public IMqttFactory UseClientAdapterFactory(IMqttClientAdapterFactory clientAdapterFactory)
+        {
+            _clientAdapterFactory = clientAdapterFactory ?? throw new ArgumentNullException(nameof(clientAdapterFactory));
+            return this;
+        }
+
+        public ILowLevelMqttClient CreateLowLevelMqttClient()
+        {
+            return CreateLowLevelMqttClient(DefaultLogger);
+        }
+
+        public ILowLevelMqttClient CreateLowLevelMqttClient(IMqttNetLogger logger)
+        {
+            if (logger == null) throw new ArgumentNullException(nameof(logger));
+
+            return new LowLevelMqttClient(_clientAdapterFactory, logger);
+        }
+
+        public ILowLevelMqttClient CreateLowLevelMqttClient(IMqttClientAdapterFactory clientAdapterFactory)
+        {
+            if (clientAdapterFactory == null) throw new ArgumentNullException(nameof(clientAdapterFactory));
+
+            return new LowLevelMqttClient(_clientAdapterFactory, DefaultLogger);
+        }
+
+        public ILowLevelMqttClient CreateLowLevelMqttClient(IMqttNetLogger logger, IMqttClientAdapterFactory clientAdapterFactory)
+        {
+            if (logger == null) throw new ArgumentNullException(nameof(logger));
+            if (clientAdapterFactory == null) throw new ArgumentNullException(nameof(clientAdapterFactory));
+
+            return new LowLevelMqttClient(_clientAdapterFactory, logger);
+        }
+
         public IMqttClient CreateMqttClient()
         {
-            return CreateMqttClient(new MqttNetLogger());
+            return CreateMqttClient(DefaultLogger);
         }
 
         public IMqttClient CreateMqttClient(IMqttNetLogger logger)
         {
             if (logger == null) throw new ArgumentNullException(nameof(logger));
 
-            return new MqttClient(new MqttClientAdapterFactory(), logger);
+            return new MqttClient(_clientAdapterFactory, logger);
         }
 
-        public IMqttClient CreateMqttClient(IMqttClientAdapterFactory adapterFactory)
+        public IMqttClient CreateMqttClient(IMqttClientAdapterFactory clientAdapterFactory)
         {
-            if (adapterFactory == null) throw new ArgumentNullException(nameof(adapterFactory));
+            if (clientAdapterFactory == null) throw new ArgumentNullException(nameof(clientAdapterFactory));
 
-            return new MqttClient(adapterFactory, new MqttNetLogger());
+            return new MqttClient(clientAdapterFactory, DefaultLogger);
         }
 
-        public IMqttClient CreateMqttClient(IMqttNetLogger logger, IMqttClientAdapterFactory adapterFactory)
+        public IMqttClient CreateMqttClient(IMqttNetLogger logger, IMqttClientAdapterFactory clientAdapterFactory)
         {
             if (logger == null) throw new ArgumentNullException(nameof(logger));
-            if (adapterFactory == null) throw new ArgumentNullException(nameof(adapterFactory));
+            if (clientAdapterFactory == null) throw new ArgumentNullException(nameof(clientAdapterFactory));
 
-            return new MqttClient(adapterFactory, logger);
+            return new MqttClient(clientAdapterFactory, logger);
         }
 
         public IMqttServer CreateMqttServer()
         {
-            var logger = new MqttNetLogger();
-            return CreateMqttServer(logger);
+            return CreateMqttServer(DefaultLogger);
         }
 
         public IMqttServer CreateMqttServer(IMqttNetLogger logger)
         {
             if (logger == null) throw new ArgumentNullException(nameof(logger));
 
-            return CreateMqttServer(new List<IMqttServerAdapter> { new MqttTcpServerAdapter(logger.CreateChildLogger()) }, logger);
+            var serverAdapters = DefaultServerAdapters.Select(a => a.Invoke(this));
+            return CreateMqttServer(serverAdapters, logger);
         }
 
-        public IMqttServer CreateMqttServer(IEnumerable<IMqttServerAdapter> adapters, IMqttNetLogger logger)
+        public IMqttServer CreateMqttServer(IEnumerable<IMqttServerAdapter> serverAdapters, IMqttNetLogger logger)
         {
-            if (adapters == null) throw new ArgumentNullException(nameof(adapters));
+            if (serverAdapters == null) throw new ArgumentNullException(nameof(serverAdapters));
             if (logger == null) throw new ArgumentNullException(nameof(logger));
 
-            return new MqttServer(adapters, logger.CreateChildLogger());
+            return new MqttServer(serverAdapters, logger);
+        }
+
+        public IMqttServer CreateMqttServer(IEnumerable<IMqttServerAdapter> serverAdapters)
+        {
+            if (serverAdapters == null) throw new ArgumentNullException(nameof(serverAdapters));
+
+            return new MqttServer(serverAdapters, DefaultLogger);
         }
     }
 }

@@ -41,7 +41,7 @@ namespace SAEA.MVCTest.Controllers
 
     public class ErrorAttribute : ActionFilterAttribute
     {
-        public override void OnActionExecuted(ActionResult result)
+        public override void OnActionExecuted(ref ActionResult result)
         {
             throw new NotImplementedException();
         }
