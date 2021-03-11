@@ -79,9 +79,10 @@ namespace SAEA.Common.Threading
         /// <returns></returns>
         public static async Task<T> Run<T>(Func<CancellationToken, T> fuc, int mill = 10 * 1000)
         {
-            CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(mill));
-            var token = cts.Token;
-            return await Task.Run(() => fuc.Invoke(token), token);
+            using (CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(mill)))
+            {
+                return await Task.Run(() => fuc.Invoke(cts.Token), cts.Token);
+            }
         }
 
         /// <summary>
@@ -109,6 +110,7 @@ namespace SAEA.Common.Threading
             }
 
             return await task;
+
         }
 
         /// <summary>
@@ -121,12 +123,13 @@ namespace SAEA.Common.Threading
         /// <returns></returns>
         public static async Task<T> WithCancellationTimeout<T>(this Task<T> task, TimeSpan timeout, CancellationToken cancellationToken = default(CancellationToken))
         {
-            CancellationTokenSource timeoutSource = new CancellationTokenSource(timeout);
-
-            CancellationTokenSource linkSource = CancellationTokenSource.CreateLinkedTokenSource(timeoutSource.Token, cancellationToken);
-
-            return await task.WithCancellation(linkSource.Token);
-
+            using (CancellationTokenSource timeoutSource = new CancellationTokenSource(timeout))
+            {
+                using (CancellationTokenSource linkSource = CancellationTokenSource.CreateLinkedTokenSource(timeoutSource.Token, cancellationToken))
+                {
+                    return await task.WithCancellation(linkSource.Token);
+                }
+            }
         }
 
         /// <summary>
@@ -140,24 +143,26 @@ namespace SAEA.Common.Threading
         {
             if (action == null) throw new ArgumentNullException(nameof(action));
 
-            var timeoutCts = new CancellationTokenSource(timeout);
-
-            var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, cancellationToken);
-
-            try
+            using (var timeoutCts = new CancellationTokenSource(timeout))
             {
-                await action(linkedCts.Token).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException exception)
-            {
-                var timeoutReached = timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested;
-
-                if (timeoutReached)
+                using (var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, cancellationToken))
                 {
-                    throw new TimeoutException(exception.Message);
-                }
+                    try
+                    {
+                        await action(linkedCts.Token).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException exception)
+                    {
+                        var timeoutReached = timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested;
 
-                throw exception;
+                        if (timeoutReached)
+                        {
+                            throw new TimeoutException(exception.Message);
+                        }
+
+                        throw exception;
+                    }
+                }
             }
 
         }
@@ -174,24 +179,26 @@ namespace SAEA.Common.Threading
         {
             if (action == null) throw new ArgumentNullException(nameof(action));
 
-            var timeoutCts = new CancellationTokenSource(timeout);
-
-            var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, cancellationToken);
-            try
+            using (var timeoutCts = new CancellationTokenSource(timeout))
             {
-                return await action(linkedCts.Token).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException exception)
-            {
-                var timeoutReached = timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested;
-                if (timeoutReached)
+                using (var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, cancellationToken))
                 {
-                    throw new TimeoutException(exception.Message);
+                    try
+                    {
+                        return await action(linkedCts.Token).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException exception)
+                    {
+                        var timeoutReached = timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested;
+                        if (timeoutReached)
+                        {
+                            throw new TimeoutException(exception.Message);
+                        }
+
+                        throw exception;
+                    }
                 }
-
-                throw exception;
             }
-
         }
     }
 }
