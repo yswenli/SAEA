@@ -94,7 +94,14 @@ namespace SAEA.Sockets.Core.Tcp
 
             _userTokenFactory = new UserTokenFactory();
 
-            _socket = new Socket(AddressFamily.InterNetwork, System.Net.Sockets.SocketType.Stream, ProtocolType.Tcp);
+            if (SocketOption.UseIPV6)
+            {
+                _socket = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp);
+            }
+            else
+            {
+                _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            }
             if (SocketOption.ReusePort)
             {
                 _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, SocketOption.ReusePort);
