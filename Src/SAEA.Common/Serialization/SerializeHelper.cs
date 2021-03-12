@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 using SAEA.Common.Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -120,7 +121,7 @@ namespace SAEA.Common.Serialization
         }
 
         /// <summary>
-        ///     newton.json反序列化
+        /// newton.json反序列化
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="json"></param>
@@ -131,6 +132,47 @@ namespace SAEA.Common.Serialization
             settings.ObjectCreationHandling = ObjectCreationHandling.Replace;
             settings.DateFormatString = "yyyy-MM-dd HH:mm:ss.fff";
             return JsonConvert.DeserializeObject<T>(json, settings);
+        }
+
+        /// <summary>
+        /// newton.json反序列化
+        /// </summary>
+        /// <param name="json"></param>
+        /// <param name="type"></param>
+        /// <returns></returns>
+        public static object Deserialize(string json, Type type)
+        {
+            JsonSerializerSettings settings = new JsonSerializerSettings();
+            settings.ObjectCreationHandling = ObjectCreationHandling.Replace;
+            settings.DateFormatString = "yyyy-MM-dd HH:mm:ss.fff";
+            return JsonConvert.DeserializeObject(json, type, settings);
+        }
+
+        /// <summary>
+        /// newton.json反序列化
+        /// </summary>
+        /// <param name="json"></param>
+        /// <param name="types"></param>
+        /// <returns></returns>
+        public static List<object> Deserialize(string json, Type[] types)
+        {
+            List<object> list = new List<object>();
+
+            JsonSerializerSettings settings = new JsonSerializerSettings();
+            settings.ObjectCreationHandling = ObjectCreationHandling.Replace;
+            settings.DateFormatString = "yyyy-MM-dd HH:mm:ss.fff";
+            JsonSerializer jsonSerializer = JsonSerializer.CreateDefault(settings);
+            if (!jsonSerializer.IsCheckAdditionalContentSet())
+                jsonSerializer.CheckAdditionalContent = true;
+
+            using (var reader = new JsonTextReader(new StringReader(json)))
+            {
+                foreach (var type in types)
+                {
+                    list.Add(jsonSerializer.Deserialize(reader, type));
+                }
+            }
+            return list;
         }
 
         /// <summary>

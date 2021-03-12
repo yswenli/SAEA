@@ -112,9 +112,11 @@ namespace SAEA.Common.NameValue
             {
                 string val = string.Empty;
 
-                if (nameValues != null && nameValues.Any() && nameValues.TryGetValue(parma.Name, out val))
+                if (nameValues != null && nameValues.Any())
                 {
-                    if (parma.ParameterType == typeof(System.Int32))
+                    nameValues.TryGetValue(parma.Name, out val);
+
+                    if (parma.ParameterType == typeof(Int32) || parma.ParameterType == typeof(Nullable<Int32>))
                     {
                         if (int.TryParse(val, out int v))
                         {
@@ -122,7 +124,15 @@ namespace SAEA.Common.NameValue
                         }
                         else throw new Exception($"参数{parma.Name}值{val}不正确！");
                     }
-                    else if (parma.ParameterType == typeof(System.Int64))
+                    else if (parma.ParameterType == typeof(Int16) || parma.ParameterType == typeof(Nullable<Int16>))
+                    {
+                        if (int.TryParse(val, out int v))
+                        {
+                            list.Add(v);
+                        }
+                        else throw new Exception($"参数{parma.Name}值{val}不正确！");
+                    }
+                    else if (parma.ParameterType == typeof(Int64) || parma.ParameterType == typeof(Nullable<Int64>))
                     {
                         if (long.TryParse(val, out long v))
                         {
@@ -130,7 +140,7 @@ namespace SAEA.Common.NameValue
                         }
                         else throw new Exception($"参数{parma.Name}值{val}不正确！");
                     }
-                    else if (parma.ParameterType == typeof(System.Single))
+                    else if (parma.ParameterType == typeof(Single) || parma.ParameterType == typeof(Nullable<Single>))
                     {
                         if (float.TryParse(val, out float v))
                         {
@@ -138,7 +148,7 @@ namespace SAEA.Common.NameValue
                         }
                         else throw new Exception($"参数{parma.Name}值{val}不正确！");
                     }
-                    else if (parma.ParameterType == typeof(System.Double))
+                    else if (parma.ParameterType == typeof(Double) || parma.ParameterType == typeof(Nullable<double>))
                     {
                         if (double.TryParse(val, out double v))
                         {
@@ -146,7 +156,7 @@ namespace SAEA.Common.NameValue
                         }
                         else throw new Exception($"参数{parma.Name}值{val}不正确！");
                     }
-                    else if (parma.ParameterType == typeof(System.DateTime))
+                    else if (parma.ParameterType == typeof(DateTime) || parma.ParameterType == typeof(Nullable<DateTime>))
                     {
                         if (DateTime.TryParse(val, out DateTime v))
                         {
@@ -154,7 +164,7 @@ namespace SAEA.Common.NameValue
                         }
                         else throw new Exception($"参数{parma.Name}值{val}不正确！");
                     }
-                    else if (parma.ParameterType == typeof(System.Boolean))
+                    else if (parma.ParameterType == typeof(Boolean) || parma.ParameterType == typeof(Nullable<bool>))
                     {
                         if (string.IsNullOrEmpty(val)) val = "false";
 
@@ -170,7 +180,7 @@ namespace SAEA.Common.NameValue
                         }
                         else throw new Exception($"参数{parma.Name}值{val}不正确！");
                     }
-                    else if (parma.ParameterType == typeof(System.Byte))
+                    else if (parma.ParameterType == typeof(Byte) || parma.ParameterType == typeof(Nullable<byte>))
                     {
                         if (byte.TryParse(val, out byte v))
                         {
@@ -181,45 +191,6 @@ namespace SAEA.Common.NameValue
                     else if (parma.ParameterType == typeof(System.String))
                     {
                         list.Add(val);
-                    }
-                    else
-                    {
-                        throw new Exception($"参数{parma.Name}值{val}不正确！");
-                    }
-                }
-                else
-                {
-                    if (parma.ParameterType == typeof(System.Int32))
-                    {
-                        list.Add(0);
-                    }
-                    else if (parma.ParameterType == typeof(System.Int64))
-                    {
-                        list.Add(0L);
-                    }
-                    else if (parma.ParameterType == typeof(System.Single))
-                    {
-                        list.Add(0F);
-                    }
-                    else if (parma.ParameterType == typeof(System.Double))
-                    {
-                        list.Add(0D);
-                    }
-                    else if (parma.ParameterType == typeof(System.DateTime))
-                    {
-                        list.Add(new DateTime());
-                    }
-                    else if (parma.ParameterType == typeof(System.Boolean))
-                    {
-                        list.Add(true);
-                    }
-                    else if (parma.ParameterType == typeof(System.Byte))
-                    {
-                        list.Add((byte)0);
-                    }
-                    else if (parma.ParameterType == typeof(System.String))
-                    {
-                        list.Add(string.Empty);
                     }
                     else
                     {
@@ -239,7 +210,7 @@ namespace SAEA.Common.NameValue
                                 {
                                     val = item.Value;
 
-                                    if (property.PropertyType == typeof(System.Int32))
+                                    if (property.PropertyType == typeof(Int32) || property.PropertyType == typeof(Nullable<int>))
                                     {
                                         if (int.TryParse(val, out int v))
                                         {
@@ -247,7 +218,15 @@ namespace SAEA.Common.NameValue
                                         }
                                         else throw new Exception($"参数{property.Name}值{val}不正确！");
                                     }
-                                    else if (property.PropertyType == typeof(System.Int64))
+                                    else if (property.PropertyType == typeof(Int16) || property.PropertyType == typeof(Nullable<Int16>))
+                                    {
+                                        if (int.TryParse(val, out int v))
+                                        {
+                                            property.SetValue(model, v);
+                                        }
+                                        else throw new Exception($"参数{property.Name}值{val}不正确！");
+                                    }
+                                    else if (property.PropertyType == typeof(Int64) || property.PropertyType == typeof(Nullable<Int64>))
                                     {
                                         if (long.TryParse(val, out long v))
                                         {
@@ -255,7 +234,7 @@ namespace SAEA.Common.NameValue
                                         }
                                         else throw new Exception($"参数{property.Name}值{val}不正确！");
                                     }
-                                    else if (property.PropertyType == typeof(System.Single))
+                                    else if (property.PropertyType == typeof(Single) || property.PropertyType == typeof(Nullable<Single>))
                                     {
                                         if (float.TryParse(val, out float v))
                                         {
@@ -263,7 +242,7 @@ namespace SAEA.Common.NameValue
                                         }
                                         else throw new Exception($"参数{property.Name}值{val}不正确！");
                                     }
-                                    else if (property.PropertyType == typeof(System.Double))
+                                    else if (property.PropertyType == typeof(Double) || property.PropertyType == typeof(Nullable<Double>))
                                     {
                                         if (double.TryParse(val, out double v))
                                         {
@@ -271,7 +250,7 @@ namespace SAEA.Common.NameValue
                                         }
                                         else throw new Exception($"参数{property.Name}值{val}不正确！");
                                     }
-                                    else if (property.PropertyType == typeof(System.DateTime))
+                                    else if (property.PropertyType == typeof(DateTime) || property.PropertyType == typeof(Nullable<DateTime>))
                                     {
                                         if (DateTime.TryParse(val, out DateTime v))
                                         {
@@ -279,7 +258,7 @@ namespace SAEA.Common.NameValue
                                         }
                                         else throw new Exception($"参数{property.Name}值{val}不正确！");
                                     }
-                                    else if (property.PropertyType == typeof(System.Boolean))
+                                    else if (property.PropertyType == typeof(Boolean) || property.PropertyType == typeof(Nullable<Boolean>))
                                     {
                                         if (string.IsNullOrEmpty(val)) val = "false";
 
@@ -295,7 +274,7 @@ namespace SAEA.Common.NameValue
                                         }
                                         else throw new Exception($"参数{property.Name}值{val}不正确！");
                                     }
-                                    else if (property.PropertyType == typeof(System.Byte))
+                                    else if (property.PropertyType == typeof(Byte) || property.PropertyType == typeof(Nullable<Byte>))
                                     {
                                         if (byte.TryParse(val, out byte v))
                                         {
@@ -303,7 +282,7 @@ namespace SAEA.Common.NameValue
                                         }
                                         else throw new Exception($"参数{property.Name}值{val}不正确！");
                                     }
-                                    else if (property.PropertyType == typeof(System.String))
+                                    else if (property.PropertyType == typeof(String))
                                     {
                                         property.SetValue(model, val);
                                     }
@@ -316,6 +295,49 @@ namespace SAEA.Common.NameValue
                         {
                             list.Add(null);
                         }
+                    }
+                }
+                else
+                {
+                    if (parma.ParameterType == typeof(Int32) || parma.ParameterType == typeof(Nullable<Int32>))
+                    {
+                        list.Add(0);
+                    }
+                    else if (parma.ParameterType == typeof(Int16) || parma.ParameterType == typeof(Nullable<Int16>))
+                    {
+                        list.Add(0L);
+                    }
+                    else if (parma.ParameterType == typeof(Int64) || parma.ParameterType == typeof(Nullable<Int64>))
+                    {
+                        list.Add(0L);
+                    }
+                    else if (parma.ParameterType == typeof(Single) || parma.ParameterType == typeof(Nullable<Single>))
+                    {
+                        list.Add(0F);
+                    }
+                    else if (parma.ParameterType == typeof(Double) || parma.ParameterType == typeof(Nullable<double>))
+                    {
+                        list.Add(0D);
+                    }
+                    else if (parma.ParameterType == typeof(DateTime) || parma.ParameterType == typeof(Nullable<DateTime>))
+                    {
+                        list.Add(new DateTime());
+                    }
+                    else if (parma.ParameterType == typeof(Boolean) || parma.ParameterType == typeof(Nullable<bool>))
+                    {
+                        list.Add(true);
+                    }
+                    else if (parma.ParameterType == typeof(Byte) || parma.ParameterType == typeof(Nullable<byte>))
+                    {
+                        list.Add((byte)0);
+                    }
+                    else if (parma.ParameterType == typeof(String))
+                    {
+                        list.Add(string.Empty);
+                    }
+                    else
+                    {
+                        list.Add(null);
                     }
                 }
             }

@@ -115,7 +115,7 @@ namespace SAEA.MVCTest.Controllers
         /// <param name="userInfo"></param>
         /// <returns></returns>
         [HttpPost]
-        public ActionResult Update(bool isFemale, UserInfo userInfo = null)
+        public ActionResult Update1(bool isFemale, UserInfo userInfo = null)
         {
             return Json(userInfo);
         }

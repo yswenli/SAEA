@@ -117,7 +117,7 @@ namespace SAEA.MVC
                             }
                         }
 
-                        nameValues = SerializeHelper.Deserialize<Dictionary<string, string>>(HttpContext.Current.Request.Json).ToNameValueCollection();
+                        nameValues = HttpContext.Current.Request.Parmas.ToNameValueCollection();
                     }
                     catch
                     {
