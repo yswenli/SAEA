@@ -56,29 +56,30 @@ namespace SAEA.RedisSocket.Base.Net
 
                         do
                         {
-                            var index = _bytes.IndexOf(10);
+                            var index = _bytes.IndexOf(13);
 
-                            if (index < 0)
+                            if (index == -1)
                             {
                                 break;
                             }
 
                             //双回车结束的情况
-                            if (_bytes.IndexOf(10, index) == index + 2)
+                            if (_bytes.IndexOf(10, index) == index + 1)
                             {
-                                index += 2;
+                                index += 1;
+                            }
+                            else
+                            {
+                                break;
                             }
 
-                            index += 1;
+                            var count = index + 1;
 
-                            var str = Encoding.UTF8.GetString(_bytes.Take(index).ToArray());
-
-                            //debug
-                            //Console.WriteLine(str);
+                            var str = Encoding.UTF8.GetString(_bytes.Take(count).ToArray());
 
                             _stringQueue.Enqueue(str);
 
-                            _bytes.RemoveRange(0, index);
+                            _bytes.RemoveRange(0, count);
                         }
                         while (!_isdiposed);
                     }
@@ -122,7 +123,7 @@ namespace SAEA.RedisSocket.Base.Net
             {
                 StringBuilder sb = new StringBuilder();
 
-                while (!ctoken.IsCancellationRequested && sb.Length < len)
+                while (!ctoken.IsCancellationRequested && (sb.Length < len && Encoding.UTF8.GetByteCount(sb.ToString()) < len))
                 {
                     sb.Append(ReadLine());
                 }

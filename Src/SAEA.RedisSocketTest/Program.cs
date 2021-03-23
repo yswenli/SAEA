@@ -52,6 +52,8 @@ namespace SAEA.RedisSocketTest
 
             var info = redisClient.Info();
 
+            var bh = redisClient.GetDataBase().HGetAll("Task");
+
             var zr = redisClient.GetDataBase().ZScan("ArbitrationRecords");
 
             new RedisStreamTest(redisClient).Test();

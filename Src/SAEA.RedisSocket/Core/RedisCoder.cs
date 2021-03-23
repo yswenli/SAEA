@@ -506,7 +506,7 @@ namespace SAEA.RedisSocket.Core
                         case RequestType.CLUSTER_DELSLOTS:
                         case RequestType.CLUSTER_FLUSHSLOTS:
                         case RequestType.CLUSTER_SETSLOT:
-                        case RequestType.CONFIG_SET:                        
+                        case RequestType.CONFIG_SET:
                             if (GetStatus(command, out error))
                             {
                                 responseData.Type = ResponseType.OK;
@@ -659,7 +659,8 @@ namespace SAEA.RedisSocket.Core
                                     responseData.Data = string.Empty;
                                     return responseData;
                                 }
-                                sb = GetRedisReplyBlob(sb, len, ctoken, true);
+                                sb.Append(GetRedisReplyLine(ctoken).TrimEnd('\r','\n'));
+                                sb.Append(SEPARATOR);
                             }
                             responseData.Data = sb.ToString();
                             break;
@@ -1125,7 +1126,7 @@ namespace SAEA.RedisSocket.Core
             return result;
         }
 
-        
+
         #endregion
 
 
