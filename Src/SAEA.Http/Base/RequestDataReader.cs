@@ -53,6 +53,8 @@ namespace SAEA.Http.Base
 
             var index = bufferSpan.IndexOf(_dEnterBytes);
 
+            if (index == -1) return false;
+
             if (index == count - 4)
             {
                 httpMessage = new HttpMessage();

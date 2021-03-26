@@ -22,9 +22,11 @@
 *
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.Common.IO;
 using SAEA.Common.NameValue;
 using SAEA.RedisSocket.Base.Net;
 using SAEA.RedisSocket.Model;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -43,6 +45,8 @@ namespace SAEA.RedisSocket.Core
         public const string MOVED = "-MOVED";
 
         RedisStream _redisStream = new RedisStream();
+
+        //DataExtraction _dataExtraction = new DataExtraction();
 
         string _sendCommand = string.Empty;
 
@@ -357,6 +361,7 @@ namespace SAEA.RedisSocket.Core
         public void Enqueue(byte[] msg)
         {
             _redisStream.Write(msg);
+            //_dataExtraction.WriteAsync(msg).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -385,6 +390,8 @@ namespace SAEA.RedisSocket.Core
                 while (!ctoken.IsCancellationRequested);
 
                 return str;
+
+                //return _dataExtraction.ReadLineAsync().Result;
             }
             catch (Exception ex)
             {
@@ -406,6 +413,8 @@ namespace SAEA.RedisSocket.Core
         private StringBuilder GetRedisReplyBlob(StringBuilder sb, int len, CancellationToken ctoken, bool addSeparator = false)
         {
             sb.Append(_redisStream.ReadBlock(len, ctoken));
+            
+            //sb.Append(_dataExtraction.ReadBlock(len, ctoken));
 
             if (addSeparator)
                 sb.Append(SEPARATOR);
@@ -434,7 +443,10 @@ namespace SAEA.RedisSocket.Core
 
                 command = GetRedisReplyLine(ctoken);
 
-                if (string.IsNullOrEmpty(command)) return null;
+                if (string.IsNullOrEmpty(command))
+                {
+                    return null;
+                }
 
                 if (command.IndexOf("-") == 0 && command.IndexOf(MOVED) == -1)
                 {
@@ -453,7 +465,10 @@ namespace SAEA.RedisSocket.Core
                         responseData.Data = command;
                         return responseData;
                     }
-                    if (string.IsNullOrEmpty(command)) return null;
+                    if (string.IsNullOrEmpty(command))
+                    {
+                        return null;
+                    }
                 }
 
                 var temp = Redirect<T>(command);
@@ -659,7 +674,7 @@ namespace SAEA.RedisSocket.Core
                                     responseData.Data = string.Empty;
                                     return responseData;
                                 }
-                                sb.Append(GetRedisReplyLine(ctoken).TrimEnd('\r','\n'));
+                                sb.Append(GetRedisReplyLine(ctoken).TrimEnd('\r', '\n'));
                                 sb.Append(SEPARATOR);
                             }
                             responseData.Data = sb.ToString();
@@ -1137,7 +1152,7 @@ namespace SAEA.RedisSocket.Core
 
         public void Dispose()
         {
-            _redisStream.Dispose();
+            //_redisStream.Dispose();
         }
     }
 }

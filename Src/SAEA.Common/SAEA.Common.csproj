@@ -27,6 +27,7 @@ SAEA.Common 是SAEA项目中的工具类项目</PackageReleaseNotes>
   <ItemGroup>
     <PackageReference Include="protobuf-net" Version="3.0.73" />
     <PackageReference Include="System.Collections.Concurrent" Version="4.3.0" />
+    <PackageReference Include="System.IO.Pipelines" Version="5.0.1" />
     <PackageReference Include="System.Memory" Version="4.5.4" />
     <PackageReference Include="System.Security.Permissions" Version="5.0.0" />
   </ItemGroup>

@@ -51,7 +51,7 @@ namespace SAEA.RedisSocket.Model
                 for (int i = 0; i < arr.Length; i++)
                 {
                     if (i + 1 == arr.Length) break;
-                    list.Add(arr[i]);
+                    list.Add(arr[i]?.TrimEnd());
                 }
             }
 
