@@ -29,7 +29,7 @@ namespace SAEA.Common
     /// </summary>
     public static class SAEAVersion
     {
-        const string version = "v6.1.2.6";
+        const string version = "v6.1.2.9";
 
         /// <summary>
         /// 获取版本

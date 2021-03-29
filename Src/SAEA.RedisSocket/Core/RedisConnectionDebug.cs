@@ -21,8 +21,9 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Common;
+using System;
 using System.Text;
+using SAEA.Common;
 
 namespace SAEA.RedisSocket.Core
 {
@@ -33,10 +34,10 @@ namespace SAEA.RedisSocket.Core
 
         }
 
-        protected override void _cnn_OnMessage(byte[] msg)
+        protected override void _cnn_OnMessage(Memory<byte> msg)
         {
             RedisCoder.Enqueue(msg);
-            ConsoleHelper.Write(Encoding.UTF8.GetString(msg));
+            ConsoleHelper.Write(Encoding.UTF8.GetString(msg.ToArray()));
         }
     }
 }

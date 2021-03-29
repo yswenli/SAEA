@@ -38,7 +38,7 @@ namespace SAEA.RedisSocket.Base.Net
 
     internal class RClient : IocpClientSocket
     {
-        public event Action<byte[]> OnMessage;
+        public event Action<Memory<byte>> OnMessage;
 
         public event OnActionHandler OnActived;
 
@@ -54,10 +54,7 @@ namespace SAEA.RedisSocket.Base.Net
 
         protected override void OnReceived(byte[] data)
         {
-            UserToken.Unpacker.Unpack(data, (content) =>
-            {
-                OnMessage.Invoke(content.Content);
-            }, null, null);
+            OnMessage.Invoke(data);
             OnActived.Invoke(DateTimeHelper.Now);
         }
 

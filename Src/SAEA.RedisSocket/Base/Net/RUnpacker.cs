@@ -42,9 +42,8 @@ namespace SAEA.RedisSocket.Base.Net
         /// <param name="onFile"></param>
         public void Unpack(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
         {
-            unpackCallback.Invoke(new RMessage() { Content = data });
+            
         }
-
 
         public void Clear()
         {

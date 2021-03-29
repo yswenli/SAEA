@@ -17,6 +17,7 @@
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.Common.Threading;
+
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -31,13 +32,13 @@ namespace SAEA.RedisSocket.Base.Net
     /// </summary>
     internal class RedisStream : IDisposable
     {
-        ConcurrentQueue<byte[]> _queue = new ConcurrentQueue<byte[]>();
+        ConcurrentQueue<Memory<byte>> _queue = new ConcurrentQueue<Memory<byte>>();
 
         List<byte> _bytes = new List<byte>();
 
         ConcurrentQueue<string> _stringQueue = new ConcurrentQueue<string>();
 
-        bool _isdiposed = false;
+        public bool IsDisposed { get; private set; } = false;
 
         /// <summary>
         /// RedisStream
@@ -46,13 +47,11 @@ namespace SAEA.RedisSocket.Base.Net
         {
             TaskHelper.LongRunning(() =>
             {
-                while (!_isdiposed)
+                while (!IsDisposed)
                 {
-                    if (!_queue.IsEmpty && _queue.TryDequeue(out byte[] data))
+                    if (!_queue.IsEmpty && _queue.TryDequeue(out Memory<byte> data))
                     {
-                        if (data == null || !data.Any()) continue;
-
-                        _bytes.AddRange(data);
+                        _bytes.AddRange(data.ToArray());
 
                         do
                         {
@@ -81,7 +80,7 @@ namespace SAEA.RedisSocket.Base.Net
 
                             _bytes.RemoveRange(0, count);
                         }
-                        while (!_isdiposed);
+                        while (!IsDisposed);
                     }
                     else
                     {
@@ -94,10 +93,10 @@ namespace SAEA.RedisSocket.Base.Net
         /// <summary>
         /// 存入收到的内容
         /// </summary>
-        /// <param name="data"></param>
-        public void Write(byte[] data)
+        /// <param name="memory"></param>
+        public void Write(Memory<byte> memory)
         {
-            _queue.Enqueue(data);
+            _queue.Enqueue(memory);
         }
 
         /// <summary>
@@ -142,7 +141,7 @@ namespace SAEA.RedisSocket.Base.Net
 
         public void Dispose()
         {
-            _isdiposed = true;
+            IsDisposed = true;
             _bytes.Clear();
             _bytes = null;
         }

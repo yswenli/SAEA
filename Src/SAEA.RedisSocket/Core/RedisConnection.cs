@@ -124,7 +124,7 @@ namespace SAEA.RedisSocket.Core
         }
 
 
-        protected virtual void _cnn_OnMessage(byte[] msg)
+        protected virtual void _cnn_OnMessage(Memory<byte> msg)
         {
             RedisCoder.Enqueue(msg);
         }

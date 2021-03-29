@@ -21,12 +21,11 @@
 *描述：
 *
 *****************************************************************************/
+using System;
+using System.Collections.Generic;
+
 using SAEA.Common;
 using SAEA.Sockets.Interface;
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace SAEA.Http.Base.Net
 {

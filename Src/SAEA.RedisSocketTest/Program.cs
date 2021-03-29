@@ -56,7 +56,7 @@ namespace SAEA.RedisSocketTest
 
             var zr = redisClient.GetDataBase().ZScan("ArbitrationRecords");
 
-            new RedisStreamTest(redisClient).Test();
+            
 
             #region 异步测试
 
@@ -106,6 +106,12 @@ namespace SAEA.RedisSocketTest
             SetTest(db);
 
             GeoTest(db);
+
+            #region redis stream test
+
+            new RedisStreamTest(redisClient).Test();
+
+            #endregion
 
             ConsoleHelper.ReadLine();
         }

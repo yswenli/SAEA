@@ -21,17 +21,15 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Common;
-using SAEA.Common.IO;
-using SAEA.Common.NameValue;
-using SAEA.RedisSocket.Base.Net;
-using SAEA.RedisSocket.Model;
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using SAEA.Common;
+using SAEA.Common.NameValue;
+using SAEA.RedisSocket.Base.Net;
+using SAEA.RedisSocket.Model;
 
 namespace SAEA.RedisSocket.Core
 {
@@ -358,7 +356,7 @@ namespace SAEA.RedisSocket.Core
         /// 接收来自RedisServer的命令
         /// </summary>
         /// <param name="command"></param>
-        public void Enqueue(byte[] msg)
+        public void Enqueue(Memory<byte> msg)
         {
             _redisStream.Write(msg);
             //_dataExtraction.WriteAsync(msg).GetAwaiter().GetResult();

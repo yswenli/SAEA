@@ -11,7 +11,7 @@ https://github.com/yswenli/SAEA</Description>
 这是一个基于SAEA.Sockets的redis 高性能驱动，支持redis cluster
 https://github.com/yswenli/SAEA</PackageReleaseNotes>
     <PackageIconUrl></PackageIconUrl>
-    <Version>6.1.2.8</Version>
+    <Version>6.1.2.9</Version>
     <Authors>yswenli</Authors>
     <Copyright>yswenli</Copyright>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
