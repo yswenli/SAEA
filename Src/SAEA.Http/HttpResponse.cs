@@ -97,6 +97,7 @@ namespace SAEA.Http
             StringBuilder builder = new StringBuilder();
             builder.AppendLine($"{this.Protocal} {Status.ToNVString()}");
             builder.AppendLine(ConstHelper.ServerName);
+            builder.AppendLine("X-Powered-By: SAEA.Sockets");
 
             builder.AppendLine("Date: " + DateTimeHelper.Now.ToGMTString());
 

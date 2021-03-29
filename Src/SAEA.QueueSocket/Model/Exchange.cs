@@ -22,8 +22,11 @@
 *
 *****************************************************************************/
 
+using SAEA.Common.Caching;
 using SAEA.Common.Threading;
+using SAEA.QueueSocket.Net;
 using SAEA.Sockets.Interface;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -34,6 +37,13 @@ namespace SAEA.QueueSocket.Model
     class Exchange : ISyncBase
     {
         object _syncLocker = new object();
+
+        ClassificationBatcher _classificationBatcher;
+
+        /// <summary>
+        /// 分类批量打事件
+        /// </summary>
+        public event OnClassificationBatchedHandler OnBatched;
 
         public object SyncLocker
         {
@@ -60,8 +70,16 @@ namespace SAEA.QueueSocket.Model
             _binding = new Binding();
 
             _messageQueue = new MessageQueue();
+
+            _classificationBatcher = ClassificationBatcher.GetInstance(10000, 50);
+
+            _classificationBatcher.OnBatched += _classificationBatcher_OnBatched;
         }
 
+        private void _classificationBatcher_OnBatched(string id, byte[] data)
+        {
+            OnBatched?.Invoke(id, data);
+        }
 
         public void AcceptPublish(string sessionID, QueueResult pInfo)
         {
@@ -74,31 +92,15 @@ namespace SAEA.QueueSocket.Model
             Interlocked.Increment(ref _inNum);
         }
 
-        public void AcceptPublishForBatch(string sessionID, QueueResult[] datas)
+        public void GetSubscribeData(string sessionID, QueueResult sInfo, QUnpacker qcoder)
         {
-            if (datas != null)
-            {
-                foreach (var data in datas)
-                {
-                    if (data != null)
-                    {
-                        AcceptPublish(sessionID, data);
-                    }
-                }
-            }
-        }
-
-        public void GetSubscribeData(string sessionID, QueueResult sInfo, Action<string> callBack = null)
-        {
-            var result = _binding.GetBingInfo(sInfo);
-
-            if (result == null)
+            if (!_binding.Exists(sInfo))
             {
                 _binding.Set(sessionID, sInfo.Name, sInfo.Topic, false);
 
                 _cNum = _binding.GetSubscriberCount();
 
-                TaskHelper.Run(() =>
+                ThreadPool.QueueUserWorkItem(new WaitCallback((o) =>
                 {
                     while (_binding.Exists(sInfo))
                     {
@@ -106,14 +108,14 @@ namespace SAEA.QueueSocket.Model
                         if (!string.IsNullOrEmpty(msg))
                         {
                             Interlocked.Increment(ref _outNum);
-                            callBack?.Invoke(msg);
+                            _classificationBatcher.Insert(sessionID, qcoder.QueueCoder.Data(sInfo.Name, sInfo.Topic, msg));
                         }
                         else
                         {
                             Thread.Yield();
                         }
                     }
-                });
+                }));
             }
         }
 

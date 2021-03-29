@@ -41,14 +41,10 @@ namespace SAEA.Common.Caching
             onShared(_buffer);
         }
 
-        public void Share(Action<byte[]> onShared)
-        {
-            onShared(_buffer);
-        }
-
-        public void Share(byte[] data, Action<byte[]> onShared)
+        public Memory<byte> GetBuffer(byte[] data)
         {
             Buffer.BlockCopy(data, 0, _buffer, 0, _minLength);
+            return _buffer.AsMemory().Slice(0, _minLength);
         }
 
         public void Dispose()

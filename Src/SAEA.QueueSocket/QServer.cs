@@ -42,16 +42,13 @@ namespace SAEA.QueueSocket
 
         IServerSocket _serverSokcet;
 
-        public event OnDisconnectedHandler OnDisconnected;
-
-        ClassificationBatcher _classificationBatcher;
+        public event OnDisconnectedHandler OnDisconnected;        
 
         public QServer(int port = 39654, string ip = "127.0.0.1", int bufferSize = 100 * 1024, int count = 100)
         {
             _exchange = new Exchange();
 
-            _classificationBatcher = ClassificationBatcher.GetInstance(10000, 50);
-            _classificationBatcher.OnBatched += ClassificationBatcher_OnBatched;
+            _exchange.OnBatched += _exchange_OnBatched;
 
             var config = SocketOptionBuilder.Instance
                 .UseIocp<QContext>()
@@ -70,9 +67,9 @@ namespace SAEA.QueueSocket
             _serverSokcet.OnDisconnected += _serverSokcet_OnDisconnected;
         }
 
-        private void ClassificationBatcher_OnBatched(string name, byte[] data)
+        private void _exchange_OnBatched(string id, byte[] data)
         {
-            _serverSokcet.Send(name, data);
+            _serverSokcet.Send(id, data);
         }
 
         private void _serverSokcet_OnDisconnected(string ID, Exception ex)
@@ -116,6 +113,7 @@ namespace SAEA.QueueSocket
             _calcBegin = true;
         }
 
+
         public void Stop()
         {
             _calcBegin = false;
@@ -139,10 +137,8 @@ namespace SAEA.QueueSocket
         private void ReplySubcribe(IUserToken ut, QueueResult data)
         {
             var qcoder = (QUnpacker)ut.Unpacker;
-            _exchange.GetSubscribeData(ut.ID, new QueueResult() { Name = data.Name, Topic = data.Topic }, (msg) =>
-            {
-                _classificationBatcher.Insert(ut.ID, qcoder.QueueCoder.Data(data.Name, data.Topic, msg));
-            });
+
+            _exchange.GetSubscribeData(ut.ID, new QueueResult() { Name = data.Name, Topic = data.Topic }, qcoder);
         }
 
         private void ReplyUnsubscribe(IUserToken ut, QueueResult data)

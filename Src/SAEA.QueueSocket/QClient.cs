@@ -86,7 +86,7 @@ namespace SAEA.QueueSocket
 
             HeartAsync();
 
-            _batcher = new Batcher<byte[]>(10000, 500);
+            _batcher = new Batcher<byte[]>(1000, 10);
 
             _batcher.OnBatched += _batcher_OnBatched;
 

@@ -275,13 +275,14 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 if (readArgs.SocketError == SocketError.Success && readArgs.BytesTransferred > 0)
                 {
-                    _sessionManager.Active(userToken.ID);
-
-                    var buffer = readArgs.Buffer.AsSpan().Slice(readArgs.Offset, readArgs.BytesTransferred).ToArray();
+                    _sessionManager.Active(userToken.ID);                    
 
                     try
                     {
+                        var buffer = readArgs.Buffer.AsSpan().Slice(readArgs.Offset, readArgs.BytesTransferred).ToArray();
+
                         OnServerReceiveBytes.Invoke(userToken, buffer);
+
                     }
                     catch (Exception ex)
                     {
