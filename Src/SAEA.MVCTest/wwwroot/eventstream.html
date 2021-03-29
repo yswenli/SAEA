@@ -3,7 +3,7 @@
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
     <meta charset="utf-8" />
-    <title></title>
+    <title>服务器发送事件(Server-Sent Events)</title>
 </head>
 <body>
     <div>
@@ -14,11 +14,46 @@
 
         </p>
     </div>
-    <script>
-        var source = new EventSource("/api/eventstream/sendnotice");
-        source.onmessage = function (event) {
-            document.getElementById("eventstream").innerHTML += event.data + "<br/>";
-        };
+    <script type="text/javascript" src="jquery.min.js"></script>
+    <script src="Content/js/eventsource.js"></script>
+    <script type="text/javascript">
+        $(function () {
+            //登录
+            $.ajax({
+                url: '/api/authentication/login',
+                method: 'POST',
+                cache: false,
+                contentType: 'application/json',
+                data: JSON.stringify({ "userName": "yswenli", "pwd": "12321" }),
+                //headers: {
+                //    "userid": 'yswenli',
+                //    "token": token
+                //},
+                success: function (res, status, xhr) {
+
+                    if (res == "Success") {
+
+                        var jwt = xhr.getResponseHeader("authorization");
+
+                         //原生不支持，三方带较验jwt的EventSource
+                        var es = new EventSourcePolyfill('/api/eventstream/sendnotice', {
+                            headers: {
+                                'Authorization': jwt
+                            }
+                        });
+
+                        es.onmessage = function (event) {
+                            document.getElementById("eventstream").innerHTML += event.data + "<br/>";
+                        };
+                    }
+                },
+                error: function (res) {
+                    alert(res);
+                }
+            });
+        });
+
+
     </script>
 </body>
 </html>

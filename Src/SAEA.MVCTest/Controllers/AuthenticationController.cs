@@ -15,36 +15,38 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
-using SAEA.MVC;
-using SAEA.MVCTest.Model;
 using System;
-using System.Collections.Generic;
-using System.Text;
+
+using JWT.Net;
+
+using SAEA.MVC;
 using SAEA.MVCTest.Attrubutes;
+using SAEA.MVCTest.Model;
 
 namespace SAEA.MVCTest.Controllers
 {
+    [LogAtrribute]
     public class AuthenticationController : Controller
     {
-        [Log2Atrribute]
-        [Auth]
-        public ActionResult GetList()
+
+        static readonly string _pwd = "yswenli";
+
+        public ActionResult Login(string userName, string pwd)
         {
-            var list = new List<UserInfo>();
+            Console.WriteLine($"userName:{userName},pwd:{pwd}");
 
-            list.Add(new UserInfo()
+            var jwtp = new JWTPackage<UserInfo>(new UserInfo()
             {
-                ID = 1,
-                NickName = "111",
-                UserName = "222"
-            });
-
-            var objs = new object[3];
-            objs[0] = 1;
-            objs[1] = list;
-            objs[2] = "aaa";
-
-            return Json(objs);
+                ID = 39654,
+                UserName = userName,
+                NickName = "yswenli"
+            }, 180, _pwd);
+            var keyValuePair = jwtp.GetAuthorizationBearer();
+            HttpContext.Current.Response.Headers[keyValuePair.Key] = keyValuePair.Value;
+            HttpContext.Current.Response.Write("Success");
+            HttpContext.Current.Response.End();
+            return Empty();
         }
+
     }
 }

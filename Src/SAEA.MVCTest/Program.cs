@@ -40,7 +40,7 @@ namespace SAEA.MVCTest
 
             mvcApplication.Start();
 
-            mvcApplication.SetCrossDomainHeaders("token", "auth");
+            mvcApplication.SetCrossDomainHeaders("token", "auth", "Authorization");
 
             mvcApplication.Restart();
 

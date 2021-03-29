@@ -15,11 +15,11 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
-using SAEA.MVC;
 using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading;
+
+using SAEA.MVC;
+using SAEA.MVCTest.Attrubutes;
 
 namespace SAEA.MVCTest.Controllers
 {
@@ -32,6 +32,7 @@ namespace SAEA.MVCTest.Controllers
         /// 发送通知
         /// </summary>
         /// <returns></returns>
+        [Auth]
         public ActionResult SendNotice()
         {
             try
