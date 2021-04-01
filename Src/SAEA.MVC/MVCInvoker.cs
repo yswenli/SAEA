@@ -24,6 +24,7 @@
 using SAEA.Common;
 using SAEA.Common.NameValue;
 using SAEA.Common.Serialization;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -196,7 +197,15 @@ namespace SAEA.MVC
             {
                 var tdata = data as Task<ActionResult>;
 
-                result = tdata.Result;
+                if(Task.WaitAll(new Task[] { tdata }, HttpContext.Current.WebConfig.TimeOut))
+                {
+                    result = tdata.Result;
+                }
+                else
+                {
+                    throw new TimeoutException($"{action.Name}: The execution of this asynchronous method has timed out");
+                }
+                
             }
             else
             {

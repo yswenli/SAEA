@@ -27,6 +27,7 @@ using SAEA.Http.Base;
 using SAEA.Http.Base.Net;
 using SAEA.Http.Model;
 using SAEA.Sockets.Interface;
+
 using System;
 
 namespace SAEA.Http
@@ -101,7 +102,8 @@ namespace SAEA.Http
                 IsStaticsCached = isStaticsCached,
                 IsZiped = isZiped,
                 HandleBufferSize = bufferSize,
-                ClientCounts = count
+                ClientCounts = count,
+                TimeOut = timeOut
             };
 
             HttpUtility = new HttpUtility(WebConfig.Root);

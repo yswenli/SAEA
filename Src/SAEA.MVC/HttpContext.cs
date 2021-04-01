@@ -132,7 +132,7 @@ namespace SAEA.MVC
         }
 
         /// <summary>
-        /// 重新获取结果方法
+        /// 根据地址路由到目标并返回执行结果
         /// </summary>
         /// <returns></returns>
         public override IHttpResult GetActionResult()
