@@ -41,7 +41,7 @@ namespace SAEA.Common.Newtonsoft.Json.Serialization
         /// <param name="ex">The trace exception. This parameter is optional.</param>
         public void Trace(TraceLevel level, string message, Exception ex)
         {
-            string traceMessage = DateTime.Now.ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff", CultureInfo.InvariantCulture) + " " + level.ToString("g") + " " + message;
+            string traceMessage = DateTimeHelper.Now.ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff", CultureInfo.InvariantCulture) + " " + level.ToString("g") + " " + message;
 
             if (_traceMessages.Count >= 1000)
                 _traceMessages.Dequeue();

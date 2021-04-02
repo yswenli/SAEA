@@ -181,7 +181,7 @@ namespace SAEA.Sockets.Core.Tcp
 
                 _userToken.ID = _socket.LocalEndPoint.ToString();
                 _userToken.Socket = _socket;
-                _userToken.Linked = _userToken.Actived = DateTime.Now;
+                _userToken.Linked = _userToken.Actived = DateTimeHelper.Now;
 
                 var readArgs = _userToken.ReadArgs;
 
@@ -209,7 +209,7 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 _userToken.ID = e.ConnectSocket.LocalEndPoint.ToString();
                 _userToken.Socket = _socket;
-                _userToken.Linked = _userToken.Actived = DateTime.Now;
+                _userToken.Linked = _userToken.Actived = DateTimeHelper.Now;
 
                 var readArgs = _userToken.ReadArgs;
                 ProcessReceive(readArgs);

@@ -33,6 +33,8 @@ using System;
 using System.IO;
 using System.Net.Sockets;
 
+using SAEA.Common;
+
 namespace SAEA.Sockets.Model
 {
     public class ChannelInfo
@@ -43,6 +45,6 @@ namespace SAEA.Sockets.Model
 
         public Stream Stream { get; set; }
 
-        public DateTime Expired { get; set; } = DateTime.Now;
+        public DateTime Expired { get; set; } = DateTimeHelper.Now;
     }
 }

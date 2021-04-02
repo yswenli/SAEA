@@ -175,7 +175,7 @@ namespace SAEA.Sockets.Core.Udp
         {
             _userToken.ID = _udpSocket.LocalEndPoint.ToString();
             _userToken.Socket = _udpSocket;
-            _userToken.Linked = _userToken.Actived = DateTime.Now;
+            _userToken.Linked = _userToken.Actived = DateTimeHelper.Now;
 
             var readArgs = _userToken.ReadArgs;
             ProcessReceive(readArgs);

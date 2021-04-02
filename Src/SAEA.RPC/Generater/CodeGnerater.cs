@@ -77,7 +77,7 @@ namespace SAEA.RPC.Generater
             sb.AppendLine("/*******");
             sb.AppendLine("* 此代码为SAEA.RPC.Generater生成");
             sb.AppendLine("* SAEA.RPC.Generater Developed by yswenli");
-            sb.AppendLine($"* 尽量不要修改此代码 {DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}");
+            sb.AppendLine($"* 尽量不要修改此代码 {DateTimeHelper.Now.ToString("yyyy-MM-dd HH:mm:ss")}");
             sb.AppendLine("*******/" + Environment.NewLine);
             sb.AppendLine("using System;");
             if (usings != null)

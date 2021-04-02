@@ -15,6 +15,7 @@
 *版 本 号： v5.0.0.1
 *描    述：
 *****************************************************************************/
+using SAEA.Common;
 using SAEA.Common.Newtonsoft.Json;
 using SAEA.MQTT;
 using SAEA.MQTT.Client.Receiving;
@@ -64,7 +65,7 @@ namespace SAEA.MQTTTest
                         {
                             // Replace the payload with the timestamp. But also extending a JSON 
                             // based payload with the timestamp is a suitable use case.
-                            context.ApplicationMessage.Payload = Encoding.UTF8.GetBytes(DateTime.Now.ToString("O"));
+                            context.ApplicationMessage.Payload = Encoding.UTF8.GetBytes(DateTimeHelper.Now.ToString("O"));
                         }
 
                         if (context.ApplicationMessage.Topic == "not_allowed_topic")
@@ -120,7 +121,7 @@ namespace SAEA.MQTTTest
                 //        var timestampProperty = content.Property("timestamp");
                 //        if (timestampProperty != null && timestampProperty.Value.Type == JTokenType.Null)
                 //        {
-                //            timestampProperty.Value = DateTime.Now.ToString("O");
+                //            timestampProperty.Value = DateTimeHelper.Now.ToString("O");
                 //            c.ApplicationMessage.Payload = Encoding.UTF8.GetBytes(content.ToString());
                 //        }
                 //    }

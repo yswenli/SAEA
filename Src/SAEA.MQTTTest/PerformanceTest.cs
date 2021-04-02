@@ -15,6 +15,7 @@
 *版 本 号： v5.0.0.1
 *描    述：
 *****************************************************************************/
+using SAEA.Common;
 using SAEA.MQTT;
 using SAEA.MQTT.Client;
 using SAEA.MQTT.Client.Options;
@@ -154,7 +155,7 @@ namespace SAEA.MQTTTest
                 stopwatch.Stop();
                 Console.WriteLine($"Sent 10.000 messages within {stopwatch.ElapsedMilliseconds} ms ({stopwatch.ElapsedMilliseconds / (float)testMessageCount} ms / message).");
 
-                var last = DateTime.Now;
+                var last = DateTimeHelper.Now;
                 var msgCount = 0;
 
                 while (true)
@@ -179,7 +180,7 @@ namespace SAEA.MQTTTest
                         //send multiple
                     }
 
-                    var now = DateTime.Now;
+                    var now = DateTimeHelper.Now;
                     if (last < now - TimeSpan.FromSeconds(1))
                     {
                         Console.WriteLine($"sending {msgCount} intended {msgChunkSize / interval.TotalSeconds}");

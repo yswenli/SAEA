@@ -145,7 +145,7 @@ namespace SAEA.Http
 
                 if (carr[0] == 0)
                 {
-                    this.Headers["Last-Modified"] = DateTime.Now.ToGMTString();
+                    this.Headers["Last-Modified"] = DateTimeHelper.Now.ToGMTString();
                 }
 
                 if (carr[0] == 1)

@@ -35,7 +35,7 @@ namespace SAEA.FTPTest
         {
             var action = new Action(() =>
             {
-                logTxt.Text = $"{DateTime.Now.ToString("HH:mm:ss.fff")}\t{operationName} \t{msg}{Environment.NewLine}{logTxt.Text}";
+                logTxt.Text = $"{DateTimeHelper.Now.ToString("HH:mm:ss.fff")}\t{operationName} \t{msg}{Environment.NewLine}{logTxt.Text}";
                 logTxt.Select(0, 1);
                 logTxt.ScrollToCaret();
             });

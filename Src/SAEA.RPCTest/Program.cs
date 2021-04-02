@@ -153,7 +153,7 @@ namespace SAEA.RPCTest
                 {
                     ID = 1,
                     UserName = "yswenli",
-                    Birthday = DateTime.Now
+                    Birthday = DateTimeHelper.Now
                 }
             };
             ConsoleHelper.WriteLine("GenericService/Get/UserName:" + cp.GenericService.Get(data).Data.UserName);
@@ -164,7 +164,7 @@ namespace SAEA.RPCTest
 
             #region EnumService
 
-            Console.WriteLine($"{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}  EnumService/Get/GetEnum:" + cp.EnumService.GetEnum(EnumServiceType.Best).ToString());
+            Console.WriteLine($"{DateTimeHelper.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}  EnumService/Get/GetEnum:" + cp.EnumService.GetEnum(EnumServiceType.Best).ToString());
             Console.WriteLine("");
 
             #endregion
@@ -336,7 +336,7 @@ namespace SAEA.RPCTest
 
             ConsoleHelper.WriteLine("开始稳定性测试。。。");
 
-            Random rd = new Random((int)DateTime.Now.Ticks);
+            Random rd = new Random((int)DateTimeHelper.Now.Ticks);
 
             ActionResult<UserInfo> data = new ActionResult<UserInfo>()
             {
@@ -347,7 +347,7 @@ namespace SAEA.RPCTest
                 {
                     ID = 1,
                     UserName = "yswenli",
-                    Birthday = DateTime.Now
+                    Birthday = DateTimeHelper.Now
                 }
             };
 
@@ -388,7 +388,7 @@ namespace SAEA.RPCTest
             {
                 while (started)
                 {
-                    _ = sp.Notice($"hello rpc client!\t{DateTime.Now}");
+                    _ = sp.Notice($"hello rpc client!\t{DateTimeHelper.Now}");
                     ThreadHelper.Sleep(10);
                 }
             });

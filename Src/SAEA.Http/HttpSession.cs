@@ -50,7 +50,7 @@ namespace SAEA.Http
         internal HttpSession(string id) : base()
         {
             ID = id;
-            Expired = DateTime.Now.AddMinutes(20);
+            Expired = DateTimeHelper.Now.AddMinutes(20);
             timer = new Timer(new TimerCallback((o) =>
             {
                 OnExpired?.Invoke((HttpSession)o);
@@ -61,7 +61,7 @@ namespace SAEA.Http
         /// </summary>
         internal void Refresh()
         {
-            this.Expired = DateTime.Now.AddMinutes(20);
+            this.Expired = DateTimeHelper.Now.AddMinutes(20);
             timer.Change((long)(new TimeSpan(0, 20, 0).TotalMilliseconds), -1);
         }
     }
@@ -134,7 +134,7 @@ namespace SAEA.Http
             _cache.AddOrUpdate(key, new HttpSessionItem<T>(key, val), (k, v) =>
             {
                 v.Value = val;
-                v.Expires = DateTime.Now.AddMinutes(20);
+                v.Expires = DateTimeHelper.Now.AddMinutes(20);
                 return v;
             });
         }
@@ -183,7 +183,7 @@ namespace SAEA.Http
             this.Expires = expires;
         }
 
-        public HttpSessionItem(string key, T value) : this(key, value, DateTime.Now.AddMinutes(20))
+        public HttpSessionItem(string key, T value) : this(key, value, DateTimeHelper.Now.AddMinutes(20))
         {
 
         }

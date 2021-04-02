@@ -62,15 +62,15 @@ namespace SAEA.FTP
         {
             _client.Connect();
             OnConnected?.Invoke();
-            _Actived = DateTime.Now;
+            _Actived = DateTimeHelper.Now;
             TaskHelper.Run(() =>
             {
                 while (Connected)
                 {
-                    if (_Actived.AddMinutes(1) < DateTime.Now)
+                    if (_Actived.AddMinutes(1) < DateTimeHelper.Now)
                     {
                         Noop();
-                        _Actived = DateTime.Now;
+                        _Actived = DateTimeHelper.Now;
                     }
                     ThreadHelper.Sleep(500);
                 }

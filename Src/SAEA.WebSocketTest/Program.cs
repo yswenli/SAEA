@@ -88,7 +88,7 @@ namespace SAEA.WebSocketTest
 
                 ConsoleHelper.WriteLine("WSClient 正在发送消息...", ConsoleColor.DarkGray);
 
-                client.Send($"hello world!{DateTime.Now.ToString("HH:mm:ss.fff")}");
+                client.Send($"hello world!{DateTimeHelper.Now.ToString("HH:mm:ss.fff")}");
                 ConsoleHelper.ReadLine();
 
 
@@ -195,7 +195,7 @@ namespace SAEA.WebSocketTest
 
                 ConsoleHelper.WriteLine("WSClient 正在发送消息...", ConsoleColor.DarkGray);
 
-                client.Send($"hello world!{DateTime.Now.ToString("HH:mm:ss.fff")}");
+                client.Send($"hello world!{DateTimeHelper.Now.ToString("HH:mm:ss.fff")}");
 
                 ConsoleHelper.WriteLine("WSClient 已发送消息", ConsoleColor.DarkGray);
 
