@@ -21,8 +21,13 @@
 *描述：
 *
 *****************************************************************************/
+using System.Linq;
+using System.Text;
+
 using SAEA.Common;
+using SAEA.Common.Serialization;
 using SAEA.MVC;
+
 using HttpContext = SAEA.MVC.HttpContext;
 
 namespace SAEA.MVCTest.Attrubutes
@@ -47,7 +52,19 @@ namespace SAEA.MVCTest.Attrubutes
         /// <param name="result"></param>
         public override void OnActionExecuted(ref ActionResult result)
         {
-            ConsoleHelper.WriteLine($"LogAtrribute请求地址：{HttpContext.Current.Request.RelativeUrl},回复内容：{result.Content}");
+            var inputStr = "";
+
+            if (HttpContext.Current.Request.Parmas != null)
+            {
+                inputStr = SerializeHelper.Serialize(HttpContext.Current.Request.Parmas);
+            }
+
+            var outStr = "";
+            if (result.Content != null && result.Content.Any())
+            {
+                outStr = Encoding.UTF8.GetString(result.Content);
+            }
+            ConsoleHelper.WriteLine($"LogAtrribute请求地址：{HttpContext.Current.Request.RelativeUrl},请求参数：{ inputStr},回复内容：{outStr}");
         }
     }
     /// <summary>
@@ -70,7 +87,19 @@ namespace SAEA.MVCTest.Attrubutes
         /// <param name="result"></param>
         public override void OnActionExecuted(ref ActionResult result)
         {
-            ConsoleHelper.WriteLine($"Log2Atrribute请求地址：{HttpContext.Current.Request.RelativeUrl},回复内容：{result.Content}");
+            var inputStr = "";
+
+            if (HttpContext.Current.Request.Parmas != null)
+            {
+                inputStr = SerializeHelper.Serialize(HttpContext.Current.Request.Parmas);
+            }
+
+            var outStr = "";
+            if (result.Content != null && result.Content.Any())
+            {
+                outStr = Encoding.UTF8.GetString(result.Content);
+            }
+            ConsoleHelper.WriteLine($"Log2Atrribute请求地址：{HttpContext.Current.Request.RelativeUrl},请求参数：{inputStr},回复内容：{outStr}");
             LogHelper.Info("Log2Atrribute.OnActionExecuted", result);
         }
     }
