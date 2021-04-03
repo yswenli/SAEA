@@ -24,6 +24,7 @@
 using SAEA.Common;
 using SAEA.Http.Base;
 using SAEA.Http.Model;
+
 using System;
 using System.Collections.Generic;
 
@@ -84,12 +85,27 @@ namespace SAEA.Http
 
         public string UserAgent
         {
-            get; private set;
+            get
+            {
+                if (this.Headers.ContainsKey("user-agent"))
+                {
+                    return this.Headers["user-agent"];
+                }
+                return string.Empty;
+            }
         }
+
 
         public Browser Browser
         {
-            get; private set;
+            get
+            {
+                if (!string.IsNullOrEmpty(UserAgent))
+                {
+                    return Browser.Parse(UserAgent);
+                }
+                return null;
+            }
         }
 
         /// <summary>
@@ -130,12 +146,6 @@ namespace SAEA.Http
                 this.Headers = new Dictionary<string, string>();
             }
 
-            if (this.Headers.ContainsKey("user-agent"))
-            {
-                this.UserAgent = this.Headers["user-agent"];
-
-                this.Browser = Browser.Parse(this.UserAgent);
-            }
             if (_httpMessage.Forms != null && _httpMessage.Forms.Count > 0)
             {
                 this.Forms = _httpMessage.Forms;

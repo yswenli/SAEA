@@ -48,7 +48,7 @@ namespace SAEA.Http
         static string GetOSName(string userAgent)
         {
             string osName = "未知";
-            if (userAgent.Contains("NT 6.4"))
+            if (userAgent.Contains("NT 6.4") || userAgent.Contains("NT 10.0"))
             {
                 osName = "Windows 10";
             }
@@ -157,6 +157,10 @@ namespace SAEA.Http
             if (userAgent.Contains("MSIE 6.0"))
             {
                 return "IE6浏览器";
+            }
+            if (userAgent.Contains("Edg/"))
+            {
+                return "Microsoft Edge浏览器";
             }
             if (userAgent.Contains("Opera"))
             {

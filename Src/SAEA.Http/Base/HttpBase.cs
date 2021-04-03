@@ -21,11 +21,11 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Common;
-using SAEA.Http.Model;
 using System;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
+
+using SAEA.Common;
+using SAEA.Http.Model;
 
 namespace SAEA.Http.Base
 {
@@ -57,7 +57,7 @@ namespace SAEA.Http.Base
         public Dictionary<string, string> Query
         {
             get; set;
-        } = new Dictionary<string, string>();
+        } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// 表单参数
@@ -65,14 +65,14 @@ namespace SAEA.Http.Base
         public Dictionary<string, string> Forms
         {
             get; set;
-        } = new Dictionary<string, string>();
+        } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         /// <summary>
         /// request 参数
         /// </summary>
         public Dictionary<string, string> Parmas
         {
             get; set;
-        } = new Dictionary<string, string>();
+        } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         public string Protocal
         {
@@ -88,7 +88,7 @@ namespace SAEA.Http.Base
         public Dictionary<string, string> Headers
         {
             get; set;
-        } = new Dictionary<string, string>();
+        } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// 类型

@@ -21,11 +21,11 @@
 *描述：
 *
 *****************************************************************************/
+using System;
+
 using SAEA.Common;
 using SAEA.Common.NameValue;
 using SAEA.Http;
-using System;
-using System.Collections.Generic;
 
 namespace SAEA.MVC
 {

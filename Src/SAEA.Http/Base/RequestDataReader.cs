@@ -213,7 +213,7 @@ namespace SAEA.Http.Base
             if (string.IsNullOrEmpty(row)) return null;
             var kvs = row.Split(ConstHelper.AMPERSAND, StringSplitOptions.RemoveEmptyEntries);
             if (kvs == null || kvs.Count() <= 0) return null;
-            Dictionary<string, string> dic = new Dictionary<string, string>();
+            Dictionary<string, string> dic = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (var item in kvs)
             {
                 var index = item.IndexOf("=");
@@ -234,7 +234,7 @@ namespace SAEA.Http.Base
 
         private static Dictionary<string, string> GetRequestForms(string row)
         {
-            Dictionary<string, string> dic = new Dictionary<string, string>();
+            Dictionary<string, string> dic = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
             if (string.IsNullOrEmpty(row)) return dic;
 
@@ -270,7 +270,7 @@ namespace SAEA.Http.Base
 
         private static Dictionary<string, string> GetRequestHeaders(IEnumerable<string> rows)
         {
-            var result = new Dictionary<string, string>();
+            var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
             if (rows == null || rows.Count() <= 0) return result;
 
