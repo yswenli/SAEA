@@ -86,7 +86,7 @@ namespace SAEA.QueueSocket
 
             HeartAsync();
 
-            _batcher = new Batcher<byte[]>(1000, 10);
+            _batcher = new Batcher<byte[]>(3000, 10); //此参数用于控制产生或消费速读，过大会导致溢出异常
 
             _batcher.OnBatched += _batcher_OnBatched;
 

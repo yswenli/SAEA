@@ -174,8 +174,7 @@ namespace SAEA.QueueSocket.Net
 
                             if (qm.NLen > 0)
                             {
-                                var narr = new byte[qm.NLen];
-                                Buffer.BlockCopy(data, offset, narr, 0, narr.Length);
+                                var narr = data.AsSpan().Slice(offset, qm.NLen).ToArray();
                                 qm.Name = Encoding.UTF8.GetString(narr);
                             }
                             offset += qm.NLen;
@@ -186,8 +185,7 @@ namespace SAEA.QueueSocket.Net
 
                             if (qm.TLen > 0)
                             {
-                                var tarr = new byte[qm.TLen];
-                                Buffer.BlockCopy(data, offset, tarr, 0, tarr.Length);
+                                var tarr = data.AsSpan().Slice(offset, qm.TLen).ToArray();
                                 qm.Topic = Encoding.UTF8.GetString(tarr);
                             }
                             offset += qm.TLen;
@@ -196,8 +194,7 @@ namespace SAEA.QueueSocket.Net
 
                             if (dlen > 0)
                             {
-                                var darr = new byte[dlen];
-                                Buffer.BlockCopy(data, offset, darr, 0, dlen);
+                                var darr = data.AsSpan().Slice(offset, dlen).ToArray();
                                 qm.Data = Encoding.UTF8.GetString(darr);
                                 offset += dlen;
                             }

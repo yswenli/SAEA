@@ -22,8 +22,10 @@
 *
 *****************************************************************************/
 
+using System;
+using System.Collections.Generic;
+
 using SAEA.Common;
-using SAEA.Common.Caching;
 using SAEA.Common.Threading;
 using SAEA.QueueSocket.Model;
 using SAEA.QueueSocket.Net;
@@ -31,8 +33,6 @@ using SAEA.QueueSocket.Type;
 using SAEA.Sockets;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
-using System;
-using System.Collections.Generic;
 
 namespace SAEA.QueueSocket
 {
