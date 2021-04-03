@@ -36,7 +36,7 @@ namespace SAEA.Http
     public class HttpRequest : HttpBase, IDisposable
     {
         /// <summary>
-        /// enctype="text/plain"
+        /// Json
         /// </summary>
         public string Json
         {
