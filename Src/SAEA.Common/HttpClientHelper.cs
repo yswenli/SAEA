@@ -40,13 +40,21 @@ using SAEA.Common.Serialization;
 
 namespace SAEA.Common
 {
-    public static class HttpClientFactory
+    /// <summary>
+    /// HttpClientHelper
+    /// </summary>
+    public static class HttpClientHelper
     {
+        #region private
+
         static ConcurrentBag<string> _pool;
 
         static MemoryCache<HttpClient> _cache;
 
-        static HttpClientFactory()
+        /// <summary>
+        /// HttpClientHelper
+        /// </summary>
+        static HttpClientHelper()
         {
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Ssl3
                 | SecurityProtocolType.Tls
@@ -76,7 +84,7 @@ namespace SAEA.Common
         }
 
 
-        static HttpClient GetClient()
+        static HttpClient Out()
         {
             HttpClient httpClient = null;
 
@@ -99,8 +107,7 @@ namespace SAEA.Common
         }
 
 
-
-        static void Free(HttpClient httpClient)
+        static void Enter(HttpClient httpClient)
         {
             if (httpClient != null)
             {
@@ -109,6 +116,10 @@ namespace SAEA.Common
                 _cache.Active(key, TimeSpan.FromMinutes(1));
             }
         }
+
+        #endregion
+
+
 
         /// <summary>
         /// 基础的http请求
@@ -120,7 +131,7 @@ namespace SAEA.Common
         {
             using (CancellationTokenSource cts = new CancellationTokenSource(timeOut))
             {
-                var httpClient = GetClient();
+                var httpClient = Out();
                 try
                 {
                     if (httpClient != null)
@@ -132,7 +143,7 @@ namespace SAEA.Common
                 }
                 finally
                 {
-                    Free(httpClient);
+                    Enter(httpClient);
                 }
                 return null;
             }
