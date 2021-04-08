@@ -114,6 +114,7 @@ namespace SAEA.Common
                 {
                     if (httpClient != null)
                     {
+                        httpClient.Timeout = TimeSpan.FromMilliseconds(timeOut);
                         httpClient.DefaultRequestHeaders.AcceptCharset.Add(new StringWithQualityHeaderValue("utf-8"));
                         httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
@@ -163,6 +164,7 @@ namespace SAEA.Common
                 var httpClient = GetClient(cts.Token);
                 try
                 {
+                    httpClient.Timeout = TimeSpan.FromMilliseconds(timeOut);
                     HttpContent httpContent = new StringContent(postData);
                     httpContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
                     httpContent.Headers.ContentType.CharSet = "utf-8";
