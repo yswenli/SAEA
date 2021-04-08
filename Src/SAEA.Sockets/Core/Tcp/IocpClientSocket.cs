@@ -394,10 +394,9 @@ namespace SAEA.Sockets.Core.Tcp
             }
         }
 
-
-        public Task SendAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        public async Task SendAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
-            return Task.Run(() =>
+            await Task.Run(() =>
             {
                 var data = new byte[count];
 
