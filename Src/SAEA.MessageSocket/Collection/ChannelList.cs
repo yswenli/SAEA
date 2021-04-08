@@ -32,13 +32,13 @@ namespace SAEA.MessageSocket.Collection
 {
     class ChannelList
     {
-        MemoryCacheHelper<ChannelInfo> _cache = new MemoryCacheHelper<ChannelInfo>();
+        MemoryCache<ChannelInfo> _cache = new MemoryCache<ChannelInfo>();
 
         object _syncLocker = new object();
 
         public ChannelList()
         {
-            _cache = new MemoryCacheHelper<ChannelInfo>();
+            _cache = new MemoryCache<ChannelInfo>();
         }
 
         public ChannelInfo Get(string name)

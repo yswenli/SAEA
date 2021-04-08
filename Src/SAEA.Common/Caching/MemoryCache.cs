@@ -32,7 +32,7 @@ namespace SAEA.Common.Caching
     /// 自定义过期缓存
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public class MemoryCacheHelper<T> : IDisposable
+    public class MemoryCache<T> : IDisposable
     {
         ConcurrentDictionary<string, MemoryCacheItem<T>> _dic;
 
@@ -48,24 +48,29 @@ namespace SAEA.Common.Caching
         /// 自定义过期缓存
         /// </summary>
         /// <param name="seconds"></param>
-        public MemoryCacheHelper(int seconds = 10)
+        public MemoryCache(int seconds = 10)
         {
             _dic = new ConcurrentDictionary<string, MemoryCacheItem<T>>();
 
             ThreadHelper.PulseAction(() =>
             {
-                var values = _dic.Values.Where(b => b.Expired < DateTimeHelper.Now);
-                if (values != null && values.Any())
+                try
                 {
-                    foreach (var val in values)
+                    var values = _dic.Values.Where(b => b.Expired < DateTimeHelper.Now);
+                    if (values != null && values.Any())
                     {
-                        if (val != null)
+                        foreach (var val in values)
                         {
-                            OnChanged?.Invoke(false, val.Value);
-                        }
+                            if (val != null)
+                            {
+                                OnChanged?.Invoke(false, val.Value);
+                            }
 
+                        }
                     }
                 }
+                catch { }
+               
             }, new TimeSpan(0, 0, seconds), false);
         }
         /// <summary>

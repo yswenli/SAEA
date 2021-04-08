@@ -46,11 +46,11 @@ namespace SAEA.MVC
     /// </summary>
     internal static class OutputCacheManager
     {
-        static MemoryCacheHelper<ActionResult> _cache;
+        static MemoryCache<ActionResult> _cache;
 
         static OutputCacheManager()
         {
-            _cache = new MemoryCacheHelper<ActionResult>();
+            _cache = new MemoryCache<ActionResult>();
         }
 
         public static void Set(string key, ActionResult val, int timeout = 60)

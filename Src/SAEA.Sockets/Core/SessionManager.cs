@@ -49,7 +49,7 @@ namespace SAEA.Sockets.Core
     {
         UserTokenPool _userTokenPool;
 
-        MemoryCacheHelper<IUserToken> _sessionCache;
+        MemoryCache<IUserToken> _sessionCache;
 
         TimeSpan _freeTime;
 
@@ -81,7 +81,7 @@ namespace SAEA.Sockets.Core
         {
             _userTokenPool = new UserTokenPool(context, count);
 
-            _sessionCache = new MemoryCacheHelper<IUserToken>();
+            _sessionCache = new MemoryCache<IUserToken>();
             _freeTime = freetime;
             _bufferSize = bufferSize;
             _completed = completed;
