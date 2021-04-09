@@ -107,7 +107,7 @@ namespace SAEA.MessageSocket
 
         private void _batcher_OnBatched(IBatcher sender, byte[] data)
         {
-            _client.SendAsync(data);
+            _client.Send(data);
         }
 
         private void _client_OnReceive(byte[] data)
@@ -199,7 +199,7 @@ namespace SAEA.MessageSocket
                                     BodyLength = 0,
                                     Type = (byte)SocketProtocalType.Heart
                                 };
-                                _client.SendAsync(sm.ToBytes());
+                                _client.Send(sm.ToBytes());
                             }
                             ThreadHelper.Sleep(HeartSpan);
                         }

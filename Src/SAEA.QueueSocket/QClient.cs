@@ -155,7 +155,7 @@ namespace SAEA.QueueSocket
                     list.AddRange(item);
                 }
 
-                _clientSocket.SendAsync(list.ToArray());
+                _clientSocket.Send(list.ToArray());
 
                 list.Clear();
             }
@@ -173,7 +173,7 @@ namespace SAEA.QueueSocket
                         {
                             if (Actived.AddMilliseconds(HeartSpan) <= DateTimeHelper.Now)
                             {
-                                _clientSocket.SendAsync(_queueCoder.Ping(_name));
+                                _clientSocket.Send(_queueCoder.Ping(_name));
                             }
                             autoResetEvent.WaitOne(HeartSpan / 2);
                         }
@@ -204,18 +204,18 @@ namespace SAEA.QueueSocket
 
         public void Subscribe(string topic)
         {
-            _clientSocket.SendAsync(_queueCoder.Subscribe(_name, topic));
+            _clientSocket.Send(_queueCoder.Subscribe(_name, topic));
         }
 
         public void Unsubscribe(string topic)
         {
-            _clientSocket.SendAsync(_queueCoder.Unsubcribe(_name, topic));
+            _clientSocket.Send(_queueCoder.Unsubcribe(_name, topic));
         }
 
         public void Close(int wait = 10000)
         {
             _isClosed = true;
-            _clientSocket.SendAsync(_queueCoder.Close(_name));
+            _clientSocket.Send(_queueCoder.Close(_name));
         }
     }
 }

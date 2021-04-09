@@ -219,7 +219,6 @@ namespace SAEA.WebSocket
         /// </summary>
         private void ReplyPong()
         {
-            var msg = DateTimeHelper.ToString();
             var data = new WSProtocal(WSProtocalType.Pong, null).ToBytes();
             _client.SendAsync(data);
         }
