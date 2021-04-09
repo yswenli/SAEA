@@ -23,7 +23,6 @@
 *****************************************************************************/
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -35,7 +34,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-using SAEA.Common.Caching;
 using SAEA.Common.Serialization;
 
 namespace SAEA.Common
@@ -47,9 +45,7 @@ namespace SAEA.Common
     {
         #region private
 
-        static ConcurrentBag<string> _pool;
-
-        static MemoryCache<HttpClient> _cache;
+        private static HttpClient _httpClient = null;
 
         /// <summary>
         /// HttpClientHelper
@@ -63,62 +59,28 @@ namespace SAEA.Common
 
             ServicePointManager.ServerCertificateValidationCallback = new RemoteCertificateValidationCallback(CheckValidationResult);
 
-            _pool = new ConcurrentBag<string>();
-
-            _cache = new MemoryCache<HttpClient>();
-
-            _cache.OnChanged += _cache_OnChanged;
-        }
-
-        private static void _cache_OnChanged(bool arg1, HttpClient arg2)
-        {
-            if (!arg1 && arg2 != null)
-            {
-                arg2.Dispose();
-            }
+            _httpClient = new HttpClient();
         }
 
         static bool CheckValidationResult(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors errors)
         {
             return true;
         }
-
-
-        static HttpClient Out()
-        {
-            HttpClient httpClient = null;
-
-            if (_pool.TryTake(out string key))
-            {
-                httpClient = _cache.Get(key);
-            }
-
-            if (httpClient == null)
-            {
-                httpClient = new HttpClient();
-                key = httpClient.GetHashCode().ToString();
-                _cache.Set(key, httpClient, TimeSpan.FromDays(1));
-            }
-            else
-            {
-                _cache.Active(key, TimeSpan.FromDays(1));
-            }
-            return httpClient;
-        }
-
-
-        static void Enter(HttpClient httpClient)
-        {
-            if (httpClient != null)
-            {
-                var key = httpClient.GetHashCode().ToString();
-                _pool.Add(key);
-                _cache.Active(key, TimeSpan.FromMinutes(1));
-            }
-        }
-
         #endregion
 
+
+        /// <summary>
+        /// 设置默认值
+        /// </summary>
+        /// <param name="baseAddress"></param>
+        /// <param name="timeOut"></param>
+        public static void SetDefault(string baseAddress, int timeOut = 60 * 1000)
+        {
+            if (timeOut > 0)
+                _httpClient.Timeout = TimeSpan.FromMilliseconds(timeOut);
+            if (!string.IsNullOrEmpty(baseAddress) && baseAddress.IndexOf("http", StringComparison.OrdinalIgnoreCase) > -1)
+                _httpClient.BaseAddress = new Uri(baseAddress);
+        }
 
 
         /// <summary>
@@ -131,21 +93,7 @@ namespace SAEA.Common
         {
             using (CancellationTokenSource cts = new CancellationTokenSource(timeOut))
             {
-                var httpClient = Out();
-                try
-                {
-                    if (httpClient != null)
-                    {
-                        httpClient.Timeout = TimeSpan.FromMilliseconds(timeOut);
-
-                        return await httpClient.SendAsync(httpRequestMessage, cts.Token);
-                    }
-                }
-                finally
-                {
-                    Enter(httpClient);
-                }
-                return null;
+                return await _httpClient.SendAsync(httpRequestMessage, cts.Token);
             }
         }
 

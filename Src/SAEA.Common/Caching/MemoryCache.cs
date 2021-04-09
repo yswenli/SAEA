@@ -32,7 +32,7 @@ namespace SAEA.Common.Caching
     /// 自定义过期缓存
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public class MemoryCache<T> : IDisposable
+    public class MemoryCache<T> : IEnumerable<T>, IDisposable
     {
         ConcurrentDictionary<string, MemoryCacheItem<T>> _dic;
 
@@ -41,8 +41,7 @@ namespace SAEA.Common.Caching
         /// <summary>
         /// 数据发生变化时事件
         /// </summary>
-
-        public event Action<bool, T> OnChanged;
+        public event Action<MemoryCache<T>, bool, T> OnChanged;
 
         /// <summary>
         /// 自定义过期缓存
@@ -63,16 +62,41 @@ namespace SAEA.Common.Caching
                         {
                             if (val != null)
                             {
-                                OnChanged?.Invoke(false, val.Value);
+                                OnChanged?.Invoke(this, false, val.Value);
                             }
 
                         }
                     }
                 }
                 catch { }
-               
+
             }, new TimeSpan(0, 0, seconds), false);
         }
+
+        /// <summary>
+        /// Count
+        /// </summary>
+        public int Count
+        {
+            get
+            {
+                return _dic.Count;
+            }
+        }
+
+        /// <summary>
+        /// 索引器
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        public T this[string key]
+        {
+            get
+            {
+                return Get(key);
+            }
+        }
+
         /// <summary>
         /// Set
         /// </summary>
@@ -82,8 +106,12 @@ namespace SAEA.Common.Caching
         public void Set(string key, T value, TimeSpan timeOut)
         {
             var mc = new MemoryCacheItem<T>() { Key = key, Value = value, Expired = DateTimeHelper.Now.AddSeconds(timeOut.TotalSeconds) };
-            _dic.AddOrUpdate(key, mc, (k, v) => { return mc; });
-            OnChanged?.Invoke(true, value);
+            _dic.AddOrUpdate(key, (k) =>
+            {
+                OnChanged?.Invoke(this, true, value);
+                return mc;
+            }, (k, v) => { return mc; });
+
         }
         /// <summary>
         /// Get
@@ -98,7 +126,7 @@ namespace SAEA.Common.Caching
                 if (mc.Expired <= DateTimeHelper.Now)
                 {
                     _dic.TryRemove(key, out mc);
-                    OnChanged?.Invoke(false, mc.Value);
+                    OnChanged?.Invoke(this, false, mc.Value);
                 }
                 else
                 {
@@ -110,19 +138,46 @@ namespace SAEA.Common.Caching
         /// <summary>
         /// Active
         /// </summary>
-        /// <param name="ID"></param>
+        /// <param name="key"></param>
         /// <param name="timeOut"></param>
-        public void Active(string ID, TimeSpan timeOut)
+        public void Active(string key, TimeSpan timeOut)
         {
             lock (_synclocker)
             {
-                var item = Get(ID);
+                var item = Get(key);
                 if (item != null)
                 {
-                    Set(ID, item, timeOut);
+                    Set(key, item, timeOut);
                 }
             }
         }
+
+        /// <summary>
+        /// GetAndActive
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="timeOut"></param>
+        /// <returns></returns>
+        public T GetAndActive(string key, TimeSpan timeOut)
+        {
+            _dic.TryGetValue(key, out MemoryCacheItem<T> mc);
+
+            if (mc != null && mc.Value != null)
+            {
+                if (mc.Expired <= DateTimeHelper.Now)
+                {
+                    _dic.TryRemove(key, out mc);
+                    OnChanged?.Invoke(this, false, mc.Value);
+                }
+                else
+                {
+                    Set(key, mc.Value, timeOut);
+                    return mc.Value;
+                }
+            }
+            return default(T);
+        }
+
         /// <summary>
         /// Del
         /// </summary>
@@ -133,7 +188,7 @@ namespace SAEA.Common.Caching
             var result = _dic.TryRemove(key, out MemoryCacheItem<T> mc);
             if (result)
             {
-                OnChanged?.Invoke(false, mc.Value);
+                OnChanged?.Invoke(this, false, mc.Value);
             }
             return result;
         }
@@ -143,11 +198,14 @@ namespace SAEA.Common.Caching
             var result = _dic.TryRemove(key, out MemoryCacheItem<T> mc);
             if (result)
             {
-                OnChanged?.Invoke(false, mc.Value);
+                OnChanged?.Invoke(this, false, mc.Value);
             }
             return result;
         }
 
+        /// <summary>
+        /// List
+        /// </summary>
         public IEnumerable<T> List
         {
             get
@@ -156,6 +214,10 @@ namespace SAEA.Common.Caching
             }
         }
 
+        /// <summary>
+        /// ToList
+        /// </summary>
+        /// <returns></returns>
         public ICollection<MemoryCacheItem<T>> ToList()
         {
             return _dic.Values;
@@ -167,8 +229,20 @@ namespace SAEA.Common.Caching
         public void Clear()
         {
             _dic.Clear();
-            OnChanged?.Invoke(false, default(T));
+            OnChanged?.Invoke(this, false, default(T));
         }
+
+
+        public IEnumerator<T> GetEnumerator()
+        {
+            return List.GetEnumerator();
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
 
         /// <summary>
         /// Dispose

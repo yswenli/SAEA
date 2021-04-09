@@ -33,6 +33,7 @@
 using SAEA.Common;
 using SAEA.Common.Caching;
 using SAEA.Sockets.Interface;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -93,16 +94,18 @@ namespace SAEA.Sockets.Core
             _argsPool.InitPool(_completed);
 
             //不存在时处理
-            _sessionCache.OnChanged += _session_OnChanged;
+            _sessionCache.OnChanged += _sessionCache_OnChanged;
         }
 
-        private void _session_OnChanged(bool isAdd, IUserToken userToken)
+
+        private void _sessionCache_OnChanged(MemoryCache<IUserToken> obj, bool isAdd, IUserToken userToken)
         {
             if (!isAdd)
             {
                 OnTimeOut?.Invoke(userToken);
             }
         }
+
 
         /// <summary>
         /// TCP初始化IUserToken
@@ -224,7 +227,7 @@ namespace SAEA.Sockets.Core
                         userToken.Socket.Close();
                     }
                     catch { }
-                    
+
                 }
             }
             catch { }
