@@ -24,6 +24,7 @@
 using SAEA.MVC;
 using SAEA.MVCTest.Attrubutes;
 using SAEA.MVCTest.Model;
+
 using System.Threading;
 
 namespace SAEA.MVCTest.Controllers
@@ -70,6 +71,19 @@ namespace SAEA.MVCTest.Controllers
 
             return Content($"Hello,I'm SAEA.MVC3！ip:{ip} rip:{rip} browser:{browser.BrowserName} os:{browser.OSName}");
         }
+
+        /// <summary>
+        /// 参数测试
+        /// </summary>
+        /// <param name="id"></param>
+        /// <param name="uid"></param>
+        /// <param name="iid"></param>
+        /// <returns></returns>
+        public ActionResult Index4(int id, int uid, int iid = 1)
+        {
+            return Content($"id:{id},uid:{uid},iid:{iid}");
+        }
+
         /// <summary>
         /// 支持基本类型参数
         /// json序列化

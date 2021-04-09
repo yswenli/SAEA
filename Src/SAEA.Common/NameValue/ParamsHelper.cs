@@ -122,7 +122,10 @@ namespace SAEA.Common.NameValue
                         {
                             list.Add(v);
                         }
-                        else throw new Exception($"参数{parma.Name}值{val}不正确！");
+                        else
+                        {
+                            list.Add(0);
+                        }
                     }
                     else if (parma.ParameterType == typeof(Int16) || parma.ParameterType == typeof(Nullable<Int16>))
                     {
@@ -130,7 +133,10 @@ namespace SAEA.Common.NameValue
                         {
                             list.Add(v);
                         }
-                        else throw new Exception($"参数{parma.Name}值{val}不正确！");
+                        else
+                        {
+                            list.Add(0);
+                        }
                     }
                     else if (parma.ParameterType == typeof(Int64) || parma.ParameterType == typeof(Nullable<Int64>))
                     {
@@ -138,7 +144,10 @@ namespace SAEA.Common.NameValue
                         {
                             list.Add(v);
                         }
-                        else throw new Exception($"参数{parma.Name}值{val}不正确！");
+                        else
+                        {
+                            list.Add(0);
+                        }
                     }
                     else if (parma.ParameterType == typeof(Single) || parma.ParameterType == typeof(Nullable<Single>))
                     {
@@ -146,7 +155,10 @@ namespace SAEA.Common.NameValue
                         {
                             list.Add(v);
                         }
-                        else throw new Exception($"参数{parma.Name}值{val}不正确！");
+                        else
+                        {
+                            list.Add(0);
+                        }
                     }
                     else if (parma.ParameterType == typeof(Double) || parma.ParameterType == typeof(Nullable<double>))
                     {
@@ -154,7 +166,10 @@ namespace SAEA.Common.NameValue
                         {
                             list.Add(v);
                         }
-                        else throw new Exception($"参数{parma.Name}值{val}不正确！");
+                        else
+                        {
+                            list.Add(0);
+                        }
                     }
                     else if (parma.ParameterType == typeof(DateTime) || parma.ParameterType == typeof(Nullable<DateTime>))
                     {
@@ -162,7 +177,10 @@ namespace SAEA.Common.NameValue
                         {
                             list.Add(v);
                         }
-                        else throw new Exception($"参数{parma.Name}值{val}不正确！");
+                        else
+                        {
+                            list.Add(new DateTime());
+                        }
                     }
                     else if (parma.ParameterType == typeof(Boolean) || parma.ParameterType == typeof(Nullable<bool>))
                     {
@@ -178,7 +196,10 @@ namespace SAEA.Common.NameValue
                         {
                             list.Add(v);
                         }
-                        else throw new Exception($"参数{parma.Name}值{val}不正确！");
+                        else
+                        {
+                            list.Add(false);
+                        }
                     }
                     else if (parma.ParameterType == typeof(Byte) || parma.ParameterType == typeof(Nullable<byte>))
                     {
@@ -186,7 +207,10 @@ namespace SAEA.Common.NameValue
                         {
                             list.Add(v);
                         }
-                        else throw new Exception($"参数{parma.Name}值{val}不正确！");
+                        else
+                        {
+                            list.Add(0);
+                        }
                     }
                     else if (parma.ParameterType == typeof(System.String))
                     {
@@ -216,7 +240,10 @@ namespace SAEA.Common.NameValue
                                         {
                                             property.SetValue(model, v);
                                         }
-                                        else throw new Exception($"参数{property.Name}值{val}不正确！");
+                                        else
+                                        {
+                                            property.SetValue(model, 0);
+                                        }
                                     }
                                     else if (property.PropertyType == typeof(Int16) || property.PropertyType == typeof(Nullable<Int16>))
                                     {
@@ -224,7 +251,10 @@ namespace SAEA.Common.NameValue
                                         {
                                             property.SetValue(model, v);
                                         }
-                                        else throw new Exception($"参数{property.Name}值{val}不正确！");
+                                        else
+                                        {
+                                            property.SetValue(model, 0);
+                                        }
                                     }
                                     else if (property.PropertyType == typeof(Int64) || property.PropertyType == typeof(Nullable<Int64>))
                                     {
@@ -232,7 +262,10 @@ namespace SAEA.Common.NameValue
                                         {
                                             property.SetValue(model, v);
                                         }
-                                        else throw new Exception($"参数{property.Name}值{val}不正确！");
+                                        else
+                                        {
+                                            property.SetValue(model, 0);
+                                        }
                                     }
                                     else if (property.PropertyType == typeof(Single) || property.PropertyType == typeof(Nullable<Single>))
                                     {
@@ -240,7 +273,10 @@ namespace SAEA.Common.NameValue
                                         {
                                             property.SetValue(model, v);
                                         }
-                                        else throw new Exception($"参数{property.Name}值{val}不正确！");
+                                        else
+                                        {
+                                            property.SetValue(model, 0);
+                                        }
                                     }
                                     else if (property.PropertyType == typeof(Double) || property.PropertyType == typeof(Nullable<Double>))
                                     {
@@ -248,7 +284,10 @@ namespace SAEA.Common.NameValue
                                         {
                                             property.SetValue(model, v);
                                         }
-                                        else throw new Exception($"参数{property.Name}值{val}不正确！");
+                                        else
+                                        {
+                                            property.SetValue(model, 0);
+                                        }
                                     }
                                     else if (property.PropertyType == typeof(DateTime) || property.PropertyType == typeof(Nullable<DateTime>))
                                     {
@@ -256,7 +295,10 @@ namespace SAEA.Common.NameValue
                                         {
                                             property.SetValue(model, v);
                                         }
-                                        else throw new Exception($"参数{property.Name}值{val}不正确！");
+                                        else
+                                        {
+                                            property.SetValue(model, new DateTime());
+                                        }
                                     }
                                     else if (property.PropertyType == typeof(Boolean) || property.PropertyType == typeof(Nullable<Boolean>))
                                     {
@@ -272,7 +314,10 @@ namespace SAEA.Common.NameValue
                                         {
                                             property.SetValue(model, v);
                                         }
-                                        else throw new Exception($"参数{property.Name}值{val}不正确！");
+                                        else
+                                        {
+                                            property.SetValue(model, false);
+                                        }
                                     }
                                     else if (property.PropertyType == typeof(Byte) || property.PropertyType == typeof(Nullable<Byte>))
                                     {
@@ -280,7 +325,10 @@ namespace SAEA.Common.NameValue
                                         {
                                             property.SetValue(model, v);
                                         }
-                                        else throw new Exception($"参数{property.Name}值{val}不正确！");
+                                        else
+                                        {
+                                            property.SetValue(model, 0);
+                                        }
                                     }
                                     else if (property.PropertyType == typeof(String))
                                     {

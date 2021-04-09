@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 
@@ -37,12 +38,15 @@ namespace SAEA.MVCTest.Attrubutes
     /// </summary>
     public sealed class LogAtrribute : ActionFilterAttribute
     {
+        Stopwatch _stopwatch;
+
         /// <summary>
         /// 执行前
         /// </summary>
         /// <returns>返回值true为继续，false为终止</returns>
         public override bool OnActionExecuting()
         {
+            _stopwatch = Stopwatch.StartNew();
             return true;
         }
 
@@ -52,6 +56,8 @@ namespace SAEA.MVCTest.Attrubutes
         /// <param name="result"></param>
         public override void OnActionExecuted(ref ActionResult result)
         {
+            _stopwatch.Stop();
+
             var inputStr = "";
 
             if (HttpContext.Current.Request.Parmas != null)
@@ -64,7 +70,7 @@ namespace SAEA.MVCTest.Attrubutes
             {
                 outStr = Encoding.UTF8.GetString(result.Content);
             }
-            ConsoleHelper.WriteLine($"LogAtrribute请求地址：{HttpContext.Current.Request.RelativeUrl},请求参数：{ inputStr},回复内容：{outStr}");
+            ConsoleHelper.WriteLine($"LogAtrribute请求地址：{HttpContext.Current.Request.RelativeUrl},请求参数：{ inputStr},用时：{_stopwatch.ElapsedMilliseconds}ms,回复内容：{outStr}");
         }
     }
     /// <summary>
