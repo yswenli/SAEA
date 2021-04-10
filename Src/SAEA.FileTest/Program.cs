@@ -43,6 +43,8 @@ namespace SAEA.FileTest
 
             _fileTransfer.OnDisplay += _fileTransfer_OnDisplay;
 
+            _fileTransfer.Start();
+
             ConsoleHelper.WriteLine("FileTransfer 已启动，发送文件格式如下： send [ip] [fileName]");
 
             do

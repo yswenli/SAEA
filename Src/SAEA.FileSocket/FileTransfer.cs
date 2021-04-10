@@ -23,16 +23,20 @@
 *****************************************************************************/
 
 using SAEA.Common;
+using SAEA.Common.Threading;
 using SAEA.Sockets.Interface;
+
 using System;
 using System.IO;
 using System.Threading;
 
 namespace SAEA.FileSocket
 {
-    public class FileTransfer
+    /// <summary>
+    /// FileTransfer
+    /// </summary>
+    public class FileTransfer : IDisposable
     {
-
         string _filePath;
 
         int _bufferSize;
@@ -57,9 +61,17 @@ namespace SAEA.FileSocket
 
         bool _connected = false;
 
+        bool _started = false;
+
 
         public event Action<string> OnDisplay;
 
+        /// <summary>
+        /// FileTransfer
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="port"></param>
+        /// <param name="bufferSize"></param>
         public FileTransfer(string filePath, int port = 39654, int bufferSize = 100 * 1024)
         {
             _filePath = filePath;
@@ -69,12 +81,7 @@ namespace SAEA.FileSocket
             _receiver.OnRequested += _receiver_OnRequested;
             _receiver.OnFile += _receiver_OnFile;
             _receiver.OnError += _receiver_OnError;
-            _receiver.Start();
-
-            this.ShowMonitorInfo();
         }
-
-
 
         private void _receiver_OnRequested(string ID, string fileName, long length)
         {
@@ -125,6 +132,11 @@ namespace SAEA.FileSocket
             ConsoleHelper.WriteLine("接收文件过程发生异常，ID:{0} err:{1}", ID, ex.Message);
         }
 
+        /// <summary>
+        /// 发送文件
+        /// </summary>
+        /// <param name="fileName"></param>
+        /// <param name="ip"></param>
         public void SendFile(string fileName, string ip)
         {
             _beginSend = false;
@@ -149,21 +161,24 @@ namespace SAEA.FileSocket
             }
         }
 
+        /// <summary>
+        /// 发送文件
+        /// </summary>
+        /// <param name="fileName"></param>
+        /// <param name="ip"></param>
         void SendFileBase(string fileName, string ip)
         {
             ConsoleHelper.WriteLine("成功连接到IP:{0}，正在准备发送文件", ip);
             _beginSend = true;
             _sender.SendFile(fileName, 0, (d) =>
-             {
-                 if (d)
-                     ConsoleHelper.WriteLine("发送文件已完成");
-                 else
-                     ConsoleHelper.WriteLine("发送文件失败");
-                 _beginSend = false;
-             });
+            {
+                if (d)
+                    ConsoleHelper.WriteLine("发送文件已完成");
+                else
+                    ConsoleHelper.WriteLine("发送文件失败");
+                _beginSend = false;
+            });
         }
-
-
 
 
         /// <summary>
@@ -171,9 +186,9 @@ namespace SAEA.FileSocket
         /// </summary>
         private void ShowMonitorInfo()
         {
-            new Thread(new ThreadStart(() =>
+            TaskHelper.LongRunning(() =>
             {
-                string result;
+                string result = string.Empty; ;
 
                 long oldSended = 0;
                 long oldRecevied = 0;
@@ -181,55 +196,76 @@ namespace SAEA.FileSocket
                 long s_speed = 0;
                 long r_speed = 0;
 
-                while (true)
+                while (_started)
                 {
-                    result = string.Empty;
-
-                    while (true)
+                    if (_beginSend && _beginReceive)
                     {
-                        if (_beginSend && _beginReceive)
-                        {
-                            s_speed = _sender.Out - oldSended;
-                            oldSended = _sender.Out;
+                        s_speed = _sender.Out - oldSended;
+                        oldSended = _sender.Out;
 
-                            r_speed = _receiver.In - oldRecevied;
-                            oldRecevied = _receiver.In;
+                        r_speed = _receiver.In - oldRecevied;
+                        oldRecevied = _receiver.In;
 
-                            result = string.Format("总数：{0} 已发送：{1} 发送速度：{2}/s 接收：{3} 接收速度：{4}/s", _receiver.Total.ToSpeedString(), _sender.Out.ToSpeedString(), s_speed.ToSpeedString(), _receiver.In.ToSpeedString(), r_speed.ToSpeedString());
-                        }
-                        else if (_beginSend)
-                        {
-                            s_speed = _sender.Out - oldSended;
-                            oldSended = _sender.Out;
-
-                            result = string.Format("总数：{0} 发送：{1} 发送速度：{2}/s", _sender.Total.ToSpeedString(), _sender.Out.ToSpeedString(), s_speed.ToSpeedString());
-                        }
-                        else if (_beginReceive)
-                        {
-                            r_speed = _receiver.In - oldRecevied;
-                            oldRecevied = _receiver.In;
-                            result = string.Format("总数：{0} 接收：{1} 接收速度：{2}/s", _receiver.Total.ToSpeedString(), _receiver.In.ToSpeedString(), r_speed.ToSpeedString());
-                        }
-                        else
-                        {
-                            break;
-                        }
-
-                        OnDisplay?.Invoke(result);
-
-                        Thread.Sleep(1000);
+                        result = string.Format("总数：{0} 已发送：{1} 发送速度：{2}/s 接收：{3} 接收速度：{4}/s", _receiver.Total.ToSpeedString(), _sender.Out.ToSpeedString(), s_speed.ToSpeedString(), _receiver.In.ToSpeedString(), r_speed.ToSpeedString());
                     }
+                    else if (_beginSend)
+                    {
+                        s_speed = _sender.Out - oldSended;
+                        oldSended = _sender.Out;
+
+                        result = string.Format("总数：{0} 发送：{1} 发送速度：{2}/s", _sender.Total.ToSpeedString(), _sender.Out.ToSpeedString(), s_speed.ToSpeedString());
+                    }
+                    else if (_beginReceive)
+                    {
+                        r_speed = _receiver.In - oldRecevied;
+                        oldRecevied = _receiver.In;
+                        result = string.Format("总数：{0} 接收：{1} 接收速度：{2}/s", _receiver.Total.ToSpeedString(), _receiver.In.ToSpeedString(), r_speed.ToSpeedString());
+                    }
+                    else
+                    {
+                        break;
+                    }
+
+                    OnDisplay?.Invoke(result);
+
                     Thread.Sleep(1000);
                 }
-            }))
-            { IsBackground = true }.Start();
+            });
         }
 
+        /// <summary>
+        /// 启动
+        /// </summary>
+        public void Start()
+        {
+            if (!_started)
+            {
+                _started = true;
 
+                _receiver.Start();
 
+                ShowMonitorInfo();
+            }
+        }
 
+        /// <summary>
+        /// 关闭
+        /// </summary>
+        public void Stop()
+        {
+            _started = false;
 
+            _receiver.Stop();
 
+            _sender.Disconnect();
+        }
 
+        /// <summary>
+        /// Dispose
+        /// </summary>
+        public void Dispose()
+        {
+            Stop();
+        }
     }
 }
