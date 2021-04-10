@@ -25,6 +25,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace SAEA.Common.IO
 {
@@ -103,7 +104,11 @@ namespace SAEA.Common.IO
         }
 
 
-
+        /// <summary>
+        /// 写文件
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="data"></param>
         public static void Write(string filePath, byte[] data)
         {
             GetDirecotry(filePath);
@@ -113,14 +118,49 @@ namespace SAEA.Common.IO
             }
         }
 
+        /// <summary>
+        /// 写文件
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        public static async Task WriteAsync(string filePath, byte[] data)
+        {
+            GetDirecotry(filePath);
+            using (var fs = GetStream(filePath))
+            {
+                await fs.WriteAsync(data, 0, data.Length);
+            }
+        }
 
+        /// <summary>
+        /// 写文本
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="txt"></param>
         public static void WriteString(string filePath, string txt)
         {
             var data = Encoding.UTF8.GetBytes(txt);
             Write(filePath, data);
         }
 
+        /// <summary>
+        /// 写文本
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="txt"></param>
+        /// <returns></returns>
+        public static async Task WriteStringAsync(string filePath, string txt)
+        {
+            var data = Encoding.UTF8.GetBytes(txt);
+            await WriteAsync(filePath, data);
+        }
 
+        /// <summary>
+        /// 追加
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="data"></param>
         public static void Append(string filePath, byte[] data)
         {
             GetDirecotry(filePath);
@@ -130,11 +170,41 @@ namespace SAEA.Common.IO
             }
         }
 
+        /// <summary>
+        /// 追加
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="data"></param>
+        public static async Task AppendAsync(string filePath, byte[] data)
+        {
+            GetDirecotry(filePath);
+            using (FileStream fs = File.Open(filePath, FileMode.Append, FileAccess.ReadWrite, FileShare.ReadWrite))
+            {
+                await fs.WriteAsync(data, 0, data.Length);
+            }
+        }
 
+        /// <summary>
+        /// 追加文本
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="txt"></param>
         public static void AppendString(string filePath, string txt)
         {
             var data = Encoding.UTF8.GetBytes(txt);
             Append(filePath, data);
+        }
+
+        /// <summary>
+        /// 追加文本
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="txt"></param>
+        /// <returns></returns>
+        public static async Task AppendStringAsync(string filePath, string txt)
+        {
+            var data = Encoding.UTF8.GetBytes(txt);
+            await AppendAsync(filePath, data);
         }
 
         /// <summary>
@@ -166,7 +236,40 @@ namespace SAEA.Common.IO
             }
             return data;
         }
+        /// <summary>
+        /// 读取文件内容
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <returns></returns>
+        public static async Task<byte[]> ReadAsync(string filePath)
+        {
+            byte[] data = null;
+            if (!File.Exists(filePath))
+            {
+                return data;
+            }
+            using (var fs = GetStream(filePath))
+            {
+                var buffer = new byte[fs.Length];
+                fs.Position = 0;
+                var offset = 0;
 
+                while ((offset = await fs.ReadAsync(buffer, offset, buffer.Length)) > 0)
+                {
+                    if (offset == fs.Length) break;
+
+                    if (offset == 0) throw new System.Exception($"读取{filePath}出现异常！");
+
+                }
+                data = buffer;
+            }
+            return data;
+        }
+        /// <summary>
+        /// 读取文本内容
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <returns></returns>
         public static string ReadString(string filePath)
         {
             var data = Read(filePath);
@@ -177,7 +280,21 @@ namespace SAEA.Common.IO
             }
             return null;
         }
+        /// <summary>
+        /// 读取文本内容
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <returns></returns>
+        public static async Task<string> ReadStringAsync(string filePath)
+        {
+            var data = await ReadAsync(filePath);
 
+            if (data != null && data.Any())
+            {
+                return Encoding.UTF8.GetString(data);
+            }
+            return null;
+        }
         /// <summary>
         /// 读取文件内容
         /// </summary>
@@ -195,6 +312,34 @@ namespace SAEA.Common.IO
                 while (true)
                 {
                     var len = fs.Read(data, 0, data.Length);
+
+                    if (len == 0) break;
+
+                    var buffer = data.AsSpan().Slice(0, len).ToArray();
+
+                    read?.Invoke(buffer);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 读取文件内容
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="read"></param>
+        /// <param name="bufferSize"></param>
+        /// <returns></returns>
+        public static async Task ReadAsync(string filePath, Action<byte[]> read, int bufferSize = 10240)
+        {
+            using (var fs = GetStream(filePath))
+            {
+                fs.Position = 0;
+
+                var data = new byte[bufferSize];
+
+                while (true)
+                {
+                    var len = await fs.ReadAsync(data, 0, data.Length);
 
                     if (len == 0) break;
 

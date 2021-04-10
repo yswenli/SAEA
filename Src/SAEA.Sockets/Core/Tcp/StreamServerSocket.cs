@@ -154,6 +154,7 @@ namespace SAEA.Sockets.Core.Tcp
                         if (SocketOption.WithSsl)
                         {
                             nsStream = new SslStream(new NetworkStream(clientSocket), false);
+
                             await ((SslStream)nsStream).AuthenticateAsServerAsync(SocketOption.X509Certificate2, false, SslProtocols.Ssl3 | SslProtocols.Tls | SslProtocols.Tls11 | SslProtocols.Tls12, false).ConfigureAwait(false);
                         }
                         else

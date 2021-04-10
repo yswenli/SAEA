@@ -35,6 +35,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
+using SAEA.Common.IO;
 using SAEA.Common.Serialization;
 
 namespace SAEA.Common
@@ -403,6 +404,34 @@ namespace SAEA.Common
             return SerializeHelper.Deserialize<T>(json);
         }
 
+        /// <summary>
+        /// 下载文件,get
+        /// </summary>
+        /// <param name="url"></param>
+        /// <param name="fileName"></param>
+        /// <param name="headers"></param>
+        /// <param name="timeOut"></param>
+        /// <returns></returns>
+        public static async Task DownLoadFileAsync(string url, string fileName, Dictionary<string, string> headers = null, int timeOut = 30 * 1000)
+        {
+            var buffer = await GetAsync(url, headers, timeOut);
+            await FileHelper.WriteAsync(fileName, buffer);
+        }
+
+        /// <summary>
+        /// 下载文件,post
+        /// </summary>
+        /// <param name="url"></param>
+        /// <param name="fileName"></param>
+        /// <param name="formData"></param>
+        /// <param name="headers"></param>
+        /// <param name="timeOut"></param>
+        /// <returns></returns>
+        public static async Task DownLoadFileAsync(string url, string fileName, Dictionary<string, string> formData, Dictionary<string, string> headers = null, int timeOut = 30 * 1000)
+        {
+            var buffer = await PostFormAsync(url, formData, headers, timeOut);
+            await FileHelper.WriteAsync(fileName, buffer);
+        }
     }
 
 }

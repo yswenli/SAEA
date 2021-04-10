@@ -23,6 +23,8 @@
 *****************************************************************************/
 
 
+using System;
+
 using SAEA.Sockets.Interface;
 
 namespace SAEA.Sockets.Handler
