@@ -51,6 +51,7 @@ The test project is SAEA. Sockets Test, which demonstrates how to extend IContex
 var fileTransfer = new FileTransfer(filePath);
 fileTransfer.OnReceiveEnd += _fileTransfer_OnReceiveEnd;
 fileTransfer.OnDisplay += _fileTransfer_OnDisplay;
+fileTransfer.Start();
 //send file
 fileTransfer.SendFile(string fileName, string ip)
 ```

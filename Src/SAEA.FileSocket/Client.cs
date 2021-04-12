@@ -237,5 +237,10 @@ namespace SAEA.FileSocket
         {
             _client.Connect();
         }
+
+        public void Disconnect()
+        {
+            _client.Disconnect();
+        }
     }
 }
