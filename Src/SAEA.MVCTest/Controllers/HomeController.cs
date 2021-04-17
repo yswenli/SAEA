@@ -32,15 +32,14 @@ namespace SAEA.MVCTest.Controllers
     /// <summary>
     /// 测试实例代码
     /// </summary>
-    [LogAtrribute]
+    
     public class HomeController : Controller
     {
         /// <summary>
         /// 日志拦截
         /// 内容输出
         /// </summary>
-        /// <returns></returns>              
-        [Log2Atrribute]
+        /// <returns></returns>
         public ActionResult Index()
         {
             HttpContext.Current.Session["userID"] = "yswenli";
@@ -52,6 +51,7 @@ namespace SAEA.MVCTest.Controllers
         /// 缓存效果测试
         /// </summary>
         /// <returns></returns>
+        [LogAtrribute]
         [Log2Atrribute]
         [OutputCache(10)]
         public ActionResult Index2()

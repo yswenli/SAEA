@@ -30,15 +30,14 @@
 *
 *****************************************************************************/
 
+using System;
+using System.Net;
+using System.Net.Sockets;
+using System.Threading;
+
 using SAEA.Common;
 using SAEA.Common.Caching;
 using SAEA.Sockets.Interface;
-
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
-using System.Net.Sockets;
 
 namespace SAEA.Sockets.Core
 {
@@ -54,21 +53,12 @@ namespace SAEA.Sockets.Core
 
         TimeSpan _freeTime;
 
-        private int _bufferSize = 1024 * 10;
-
-        EventHandler<SocketAsyncEventArgs> _completed = null;
-
-        BufferManager _bufferManager;
-
-        SocketAsyncEventArgsPool _argsPool;
+        Semaphore _semaphore;
 
         /// <summary>
         /// 心跳过期事件
         /// </summary>
         public event Action<IUserToken> OnTimeOut;
-
-        object _locker = new object();
-
 
         /// <summary>
         /// 构造会话管理器
@@ -80,21 +70,15 @@ namespace SAEA.Sockets.Core
         /// <param name="freetime"></param>
         public SessionManager(IContext context, int bufferSize, int count, EventHandler<SocketAsyncEventArgs> completed, TimeSpan freetime)
         {
-            _userTokenPool = new UserTokenPool(context, count);
-
             _sessionCache = new MemoryCache<IUserToken>();
+
             _freeTime = freetime;
-            _bufferSize = bufferSize;
-            _completed = completed;
 
-            _bufferManager = new BufferManager(_bufferSize * count, _bufferSize);
-            _bufferManager.InitBuffer();
+            _userTokenPool = new UserTokenPool(context, count, bufferSize, completed);
 
-            _argsPool = new SocketAsyncEventArgsPool(count * 2);
-            _argsPool.InitPool(_completed);
-
-            //不存在时处理
             _sessionCache.OnChanged += _sessionCache_OnChanged;
+
+            _semaphore = new Semaphore(count, count);
         }
 
 
@@ -106,105 +90,69 @@ namespace SAEA.Sockets.Core
             }
         }
 
-
-        /// <summary>
-        /// TCP初始化IUserToken
-        /// </summary>
-        /// <returns></returns>
-        IUserToken InitUserToken()
-        {
-            IUserToken userToken = _userTokenPool.Dequeue();
-            userToken.ReadArgs = _argsPool.Dequeue();
-            _bufferManager.SetBuffer(userToken.ReadArgs);
-            userToken.WriteArgs = _argsPool.Dequeue();
-            userToken.ReadArgs.UserToken = userToken.WriteArgs.UserToken = userToken;
-            return userToken;
-        }
-
-        /// <summary>
-        /// UDP初始化IUserToken
-        /// </summary>
-        /// <param name="readArg"></param>
-        /// <returns></returns>
-        IUserToken InitUserToken(SocketAsyncEventArgs readArg)
-        {
-            IUserToken userToken = _userTokenPool.Dequeue();
-            userToken.ReadArgs = readArg;
-            userToken.WriteArgs = _argsPool.Dequeue();
-            userToken.ReadArgs.UserToken = userToken.WriteArgs.UserToken = userToken;
-            return userToken;
-        }
-
         /// <summary>
         /// TCP获取usertoken
-        /// 如果IUserToken数量耗尽时可能会出现死锁，则需要外部使用
+        /// 如果IUserToken数量耗尽时会出现死锁
         /// </summary>
         /// <param name="socket"></param>
         /// <returns></returns>
         public IUserToken BindUserToken(Socket socket)
         {
-            if (socket == null || socket.RemoteEndPoint == null) return null;
-
-            IUserToken userToken = InitUserToken();
+            _semaphore.WaitOne();
+            IUserToken userToken = _userTokenPool.Dequeue();
             userToken.Socket = socket;
             userToken.ID = socket.RemoteEndPoint.ToString();
             userToken.Actived = userToken.Linked = DateTimeHelper.Now;
-            Set(userToken);
+            _sessionCache.Set(userToken.ID, userToken, _freeTime);
             return userToken;
         }
 
-        /// <summary>
-        /// UDP获取arg
-        /// </summary>
-        /// <returns></returns>
-        public SocketAsyncEventArgs GetArg()
-        {
-            var readArg = _argsPool.Dequeue();
-            readArg.RemoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
-            _bufferManager.SetBuffer(readArg);
-            return readArg;
-        }
-        /// <summary>
-        /// UDP 释放arg
-        /// </summary>
-        /// <param name="arg"></param>
-        public void SetArg(SocketAsyncEventArgs arg)
-        {
-            _bufferManager.FreeBuffer(arg);
-            _argsPool.Enqueue(arg);
-        }
-
+        #region UDP
         /// <summary>
         /// UDP获取usertoken
+        /// 如果IUserToken数量耗尽时会出现死锁
         /// </summary>
-        /// <param name="remoteEndPoint"></param>
         /// <param name="socket"></param>
         /// <returns></returns>
-        public IUserToken BindUserToken(SocketAsyncEventArgs readArg, Socket socket)
+        public IUserToken BeginBindUserToken(Socket socket)
         {
-            if (socket == null) return null;
-            IUserToken userToken = InitUserToken(readArg);
+            _semaphore.WaitOne();
+            IUserToken userToken = _userTokenPool.Dequeue();
+            userToken.ReadArgs.RemoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
             userToken.Socket = socket;
-            userToken.ID = readArg.RemoteEndPoint.ToString();
-            userToken.Actived = userToken.Linked = DateTimeHelper.Now;
-            Set(userToken);
             return userToken;
         }
-
-
-        void Set(IUserToken IUserToken)
+        /// <summary>
+        /// UDP 设置usertoken
+        /// </summary>
+        /// <param name="userToken"></param>
+        /// <param name="id"></param>
+        public void EndBindUserToken(IUserToken userToken, string id)
         {
-            _sessionCache.Set(IUserToken.ID, IUserToken, _freeTime);
+            userToken.ID = id;
+            userToken.Actived = userToken.Linked = DateTimeHelper.Now;
+            _sessionCache.Set(userToken.ID, userToken, _freeTime);
+        }
+        #endregion
+
+
+        /// <summary>
+        /// Active
+        /// </summary>
+        /// <param name="id"></param>
+        public void Active(string id)
+        {
+            _sessionCache.Active(id, _freeTime);
         }
 
-        public void Active(string ID)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        public IUserToken Get(string id)
         {
-            _sessionCache.Active(ID, _freeTime);
-        }
-
-        public IUserToken Get(string ID)
-        {
-            return _sessionCache.Get(ID);
+            return _sessionCache.Get(id);
         }
 
         /// <summary>
@@ -213,41 +161,14 @@ namespace SAEA.Sockets.Core
         /// <param name="userToken"></param>
         public bool Free(IUserToken userToken)
         {
-            if (userToken == null)
+            if (userToken == null || userToken.Socket == null)
             {
                 return false;
             }
             _sessionCache.DelWithoutEvent(userToken.ID);
-            try
-            {
-                if (userToken.Socket != null && userToken.Socket.Connected)
-                {
-                    try
-                    {
-                        userToken.Socket.Close();
-                    }
-                    catch { }
-
-                }
-            }
-            catch { }
-            _bufferManager.FreeBuffer(userToken.ReadArgs);
-            _argsPool.Enqueue(userToken.ReadArgs);
-            _argsPool.Enqueue(userToken.WriteArgs);
             _userTokenPool.Enqueue(userToken);
+            _semaphore.Release();
             return true;
-        }
-
-        /// <summary>
-        /// 获取全部会话
-        /// </summary>
-        /// <returns></returns>
-        public List<IUserToken> ToList()
-        {
-            lock (_locker)
-            {
-                return _sessionCache.List.ToList();
-            }
         }
 
         /// <summary>
@@ -255,11 +176,6 @@ namespace SAEA.Sockets.Core
         /// </summary>
         public void Clear()
         {
-            var list = ToList();
-            foreach (var item in list)
-            {
-                item.Clear();
-            }
             _sessionCache.Clear();
         }
     }

@@ -82,7 +82,7 @@ namespace SAEA.Sockets.Core.Udp
         /// <param name="socketOption"></param>
         public UdpServerSocket(ISocketOption socketOption)
         {
-            _sessionManager = new SessionManager(socketOption.Context, socketOption.ReadBufferSize, socketOption.Count, IO_Completed, new TimeSpan(0, 0, 0, 0, socketOption.TimeOut));
+            _sessionManager = new SessionManager(socketOption.Context, socketOption.ReadBufferSize, socketOption.Count, IO_Completed, new TimeSpan(0, 0, 0, 0, socketOption.FreeTime));
             _sessionManager.OnTimeOut += _sessionManager_OnTimeOut;
             OnServerReceiveBytes = new OnServerReceiveBytesHandler(OnReceiveBytes);
             SocketOption = socketOption;
@@ -183,14 +183,19 @@ namespace SAEA.Sockets.Core.Udp
         /// <param name="readArgs"></param>
         private void ProcessReceive(SocketAsyncEventArgs readArgs)
         {
+            IUserToken token;
             if (readArgs == null)
             {
-                readArgs = _sessionManager.GetArg();
+                token = SessionManager.BeginBindUserToken(_udpSocket);
+            }
+            else
+            {
+                token = (IUserToken)readArgs.UserToken;
             }
 
-            if (!_udpSocket.ReceiveFromAsync(readArgs))
+            if (!_udpSocket.ReceiveFromAsync(token.ReadArgs))
             {
-                ProcessReceived(readArgs);
+                ProcessReceived(token.ReadArgs);
             }
         }
 
@@ -201,14 +206,8 @@ namespace SAEA.Sockets.Core.Udp
         void ProcessReceived(SocketAsyncEventArgs readArgs)
         {
             var userToken = (IUserToken)readArgs.UserToken;
-
-            if (userToken == null)
-            {
-                userToken = _sessionManager.BindUserToken(readArgs, _udpSocket);
-
-                OnAccepted?.Invoke(userToken);
-            }
-
+            if (string.IsNullOrEmpty(userToken.ID))
+                SessionManager.EndBindUserToken(userToken, readArgs.RemoteEndPoint.ToString());
             try
             {
                 if (readArgs.SocketError == SocketError.Success && readArgs.BytesTransferred > 0)
@@ -300,7 +299,6 @@ namespace SAEA.Sockets.Core.Udp
         /// <param name="data"></param>
         public void SendAsync(string sessionID, byte[] data)
         {
-
             var userToken = _sessionManager.Get(sessionID);
 
             if (userToken == null)
@@ -427,17 +425,17 @@ namespace SAEA.Sockets.Core.Udp
         {
             if (data == null || !data.Any() || data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentException("SendAsync Incorrect length of data sent");
 
-            var writeArgs = SessionManager.GetArg();
+            var userToken = SessionManager.Get(ipEndPoint.ToString());
 
             try
             {
-                writeArgs.RemoteEndPoint = new IPEndPoint(ipEndPoint.Address, SocketOption.Port);
+                userToken.WriteArgs.RemoteEndPoint = new IPEndPoint(ipEndPoint.Address, SocketOption.Port);
 
-                writeArgs.SetBuffer(data, 0, data.Length);
+                userToken.WriteArgs.SetBuffer(data, 0, data.Length);
 
-                if (!_udpSocket.SendToAsync(writeArgs))
+                if (!_udpSocket.SendToAsync(userToken.WriteArgs))
                 {
-                    ProcessSended(writeArgs);
+                    ProcessSended(userToken.WriteArgs);
                 }
             }
             catch (Exception ex)
@@ -446,7 +444,7 @@ namespace SAEA.Sockets.Core.Udp
             }
             finally
             {
-                SessionManager.SetArg(writeArgs);
+                //SessionManager.FreeBuffer(userToken.WriteArgs);
             }
         }
         #endregion

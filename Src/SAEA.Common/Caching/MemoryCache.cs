@@ -195,12 +195,7 @@ namespace SAEA.Common.Caching
 
         public bool DelWithoutEvent(string key)
         {
-            var result = _dic.TryRemove(key, out MemoryCacheItem<T> mc);
-            if (result)
-            {
-                OnChanged?.Invoke(this, false, mc.Value);
-            }
-            return result;
+            return _dic.TryRemove(key, out MemoryCacheItem<T> mc);
         }
 
         /// <summary>

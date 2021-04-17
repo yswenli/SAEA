@@ -32,56 +32,93 @@
 
 using SAEA.Common;
 using SAEA.Sockets.Interface;
+
 using System;
 using System.Collections.Concurrent;
+using System.Net.Sockets;
 using System.Threading;
 
 namespace SAEA.Sockets.Core
 {
+    /// <summary>
+    /// UserTokenPool
+    /// </summary>
     public class UserTokenPool : IDisposable
     {
+        BufferManager _bufferManager;
+
         UserTokenFactory _userTokenFactory;
 
-        ConcurrentQueue<IUserToken> concurrentQueue = new ConcurrentQueue<IUserToken>();
+        ConcurrentQueue<IUserToken> _concurrentQueue = new ConcurrentQueue<IUserToken>();
 
-
-        public UserTokenPool(IContext context, int count)
+        /// <summary>
+        /// UserTokenPool
+        /// </summary>
+        /// <param name="context"></param>
+        /// <param name="count"></param>
+        /// <param name="bufferSize"></param>
+        /// <param name="completed"></param>
+        public UserTokenPool(IContext context, int count, int bufferSize, EventHandler<SocketAsyncEventArgs> completed)
         {
             _userTokenFactory = new UserTokenFactory();
+
+            _bufferManager = new BufferManager(bufferSize * count, bufferSize);
 
             for (int i = 0; i < count; i++)
             {
                 IUserToken userToken = _userTokenFactory.Create(context);
-                concurrentQueue.Enqueue(userToken);
+
+                var writeArgs = new SocketAsyncEventArgs();
+                writeArgs.Completed += completed;
+                userToken.WriteArgs = writeArgs;
+
+                var readArgs = new SocketAsyncEventArgs();
+                readArgs.Completed += completed;
+                _bufferManager.SetBuffer(readArgs);
+                userToken.ReadArgs = readArgs;
+
+                userToken.ReadArgs.UserToken = userToken.WriteArgs.UserToken = userToken;
+                _concurrentQueue.Enqueue(userToken);
             }
         }
 
+        /// <summary>
+        /// Dequeue
+        /// </summary>
+        /// <returns></returns>
         public IUserToken Dequeue()
         {
             IUserToken token;
 
-            while (!concurrentQueue.TryDequeue(out token))
+            while (!_concurrentQueue.TryDequeue(out token))
             {
-                Thread.Sleep(1);
+                Thread.Yield();
             }
-
             return token;
         }
 
+        /// <summary>
+        /// Enqueue
+        /// </summary>
+        /// <param name="userToken"></param>
         public void Enqueue(IUserToken userToken)
         {
-            if (userToken != null && userToken.Socket != null && userToken.ReadArgs != null && userToken.WriteArgs != null)
+            try
             {
-                userToken.Socket = null;
-                userToken.ReadArgs = null;
-                userToken.WriteArgs = null;
-                concurrentQueue.Enqueue(userToken);
+                userToken.Socket.Close();
             }
+            catch { }
+            userToken.Socket = null;
+            _concurrentQueue.Enqueue(userToken);
         }
 
+        /// <summary>
+        /// Dispose
+        /// </summary>
         public void Dispose()
         {
-            concurrentQueue.Clear();
+            _concurrentQueue.Clear();
+            _bufferManager.Dispose();
         }
     }
 }

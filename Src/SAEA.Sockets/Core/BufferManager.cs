@@ -29,12 +29,16 @@
 *描述：
 *
 *****************************************************************************/
+using System;
 using System.Collections.Generic;
 using System.Net.Sockets;
 
 namespace SAEA.Sockets.Core
 {
-    class BufferManager
+    /// <summary>
+    /// BufferManager
+    /// </summary>
+    class BufferManager : IDisposable
     {
         int _numBytes;
         byte[] _buffer;
@@ -42,19 +46,25 @@ namespace SAEA.Sockets.Core
         int _currentIndex;
         int _bufferSize;
 
+        /// <summary>
+        /// BufferManager
+        /// </summary>
+        /// <param name="totalBytes"></param>
+        /// <param name="bufferSize"></param>
         public BufferManager(int totalBytes, int bufferSize)
         {
             _numBytes = totalBytes;
             _currentIndex = 0;
             _bufferSize = bufferSize;
             _freeIndexPool = new Stack<int>();
-        }
-
-        public void InitBuffer()
-        {
             _buffer = new byte[_numBytes];
         }
 
+        /// <summary>
+        /// SetBuffer
+        /// </summary>
+        /// <param name="args"></param>
+        /// <returns></returns>
         public bool SetBuffer(SocketAsyncEventArgs args)
         {
             if (_freeIndexPool.Count > 0)
@@ -73,10 +83,22 @@ namespace SAEA.Sockets.Core
             return true;
         }
 
+        /// <summary>
+        /// FreeBuffer,若对象复用，无需返回
+        /// </summary>
+        /// <param name="args"></param>
         public void FreeBuffer(SocketAsyncEventArgs args)
         {
             if (args != null)
                 _freeIndexPool.Push(args.Offset);
+        }
+
+        /// <summary>
+        /// Dispose
+        /// </summary>
+        public void Dispose()
+        {
+            Array.Clear(_buffer, 0, _buffer.Length);
         }
     }
 }

@@ -22,6 +22,7 @@ using SAEA.Sockets;
 using SAEA.Sockets.Base;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
+
 using System;
 using System.IO;
 using System.Net;
@@ -140,6 +141,7 @@ namespace SAEA.DNS
                                                .SetReadBufferSize(SocketOption.UDPMaxLength)
                                                .SetWriteBufferSize(SocketOption.UDPMaxLength)
                                                .SetTimeOut(UDP_TIMEOUT)
+                                               .SetFreeTime(30 * 1000)
                                                .Build());
 
                     _udpServer.OnError += _udpServer_OnError;

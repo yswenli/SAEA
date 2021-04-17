@@ -31,6 +31,7 @@
 *****************************************************************************/
 
 using SAEA.Sockets.Interface;
+
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 
@@ -118,7 +119,7 @@ namespace SAEA.Sockets.Model
         public int FreeTime
         {
             get; set;
-        } = int.MaxValue;
+        } = 180 * 1000;
 
         public string MultiCastHost
         {

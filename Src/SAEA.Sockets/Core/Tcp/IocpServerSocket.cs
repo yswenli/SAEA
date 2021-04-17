@@ -30,15 +30,14 @@
 *
 *****************************************************************************/
 
-using SAEA.Common.Caching;
-using SAEA.Sockets.Handler;
-using SAEA.Sockets.Interface;
-using SAEA.Sockets.Model;
-
 using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+
+using SAEA.Sockets.Handler;
+using SAEA.Sockets.Interface;
+using SAEA.Sockets.Model;
 
 namespace SAEA.Sockets.Core.Tcp
 {
@@ -139,41 +138,50 @@ namespace SAEA.Sockets.Core.Tcp
 
                 _listener.Listen(backlog);
 
-                var accepteArgs = new SocketAsyncEventArgs();
-
-                accepteArgs.Completed += AccepteArgs_Completed;
-
-                ProcessAccept(accepteArgs);
+                ProcessAccept(null);
             }
         }
 
-        private void AccepteArgs_Completed(object sender, SocketAsyncEventArgs e)
+        private void AccepteArgs_Completed(object sender, SocketAsyncEventArgs acceptArgs)
         {
-            if (e.LastOperation == SocketAsyncOperation.Accept)
+            if (acceptArgs.LastOperation == SocketAsyncOperation.Accept)
             {
-                ProcessAccepted(e);
+                ProcessAccepted(acceptArgs);
             }
         }
 
-        private void ProcessAccept(SocketAsyncEventArgs e)
+        private void ProcessAccept(SocketAsyncEventArgs acceptArgs)
         {
-            e.AcceptSocket = null;
+            if (acceptArgs == null)
+            {
+                acceptArgs = new SocketAsyncEventArgs();
+                acceptArgs.Completed += new EventHandler<SocketAsyncEventArgs>(AccepteArgs_Completed);
+            }
+            else
+            {
+                acceptArgs.AcceptSocket = null;
+            }
             try
             {
                 if (!IsDisposed && _listener != null)
                 {
-                    if (_listener?.AcceptAsync(e) == false)
-                        ProcessAccepted(e);
+                    if (!_listener.AcceptAsync(acceptArgs))
+                        ProcessAccepted(acceptArgs);
                 }
             }
             catch { }
         }
 
-        private void ProcessAccepted(SocketAsyncEventArgs e)
+        private void ProcessAccepted(SocketAsyncEventArgs acceptArgs)
         {
             try
             {
-                var socket = e.AcceptSocket;
+                var socket = acceptArgs.AcceptSocket;
+
+                if (socket.Connected == false)
+                {
+                    return;
+                }
 
                 socket.NoDelay = SocketOption.NoDelay;
 
@@ -185,22 +193,19 @@ namespace SAEA.Sockets.Core.Tcp
 
                 var userToken = _sessionManager.BindUserToken(socket);
 
-                if (userToken != null)
-                {
-                    var readArgs = userToken.ReadArgs;
+                var readArgs = userToken.ReadArgs;
 
-                    Interlocked.Increment(ref _clientCounts);
+                Interlocked.Increment(ref _clientCounts);
 
-                    OnAccepted?.Invoke(userToken);
+                OnAccepted?.Invoke(userToken);
 
-                    ProcessReceive(readArgs);
-                }
+                ProcessReceive(readArgs);
             }
             catch (Exception ex)
             {
-                OnError?.Invoke("", ex);
+                OnError?.Invoke("IocpServerSocket.ProcessAccepted", ex);
             }
-            ProcessAccept(e);
+            ProcessAccept(acceptArgs);
         }
 
         private void IO_Completed(object sender, SocketAsyncEventArgs e)
@@ -252,7 +257,8 @@ namespace SAEA.Sockets.Core.Tcp
                 }
                 else
                 {
-                    Disconnect(userToken, new KernelException("The remote client has been disconnected."));
+                    if (userToken.Socket != null)
+                        Disconnect(userToken, new KernelException("The remote client has been disconnected."));
                 }
 
             }
@@ -270,6 +276,12 @@ namespace SAEA.Sockets.Core.Tcp
         void ProcessReceived(SocketAsyncEventArgs readArgs)
         {
             var userToken = (IUserToken)readArgs.UserToken;
+
+            if (userToken == null)
+            {
+                OnError?.Invoke("", new NullReferenceException("当前对象已回收!"));
+                return;
+            }
 
             try
             {
@@ -465,12 +477,13 @@ namespace SAEA.Sockets.Core.Tcp
         {
             var userToken = _sessionManager.Get(sessionID);
 
-            if (userToken != null && userToken.Socket != null && userToken.Socket.Connected)
+            if (userToken == null) return;
+
+            if (userToken.Socket != null && userToken.Socket.Connected)
             {
                 Send(userToken, data);
-
-                Disconnect(userToken);
             }
+            Disconnect(userToken);
         }
 
         /// <summary>
@@ -506,10 +519,8 @@ namespace SAEA.Sockets.Core.Tcp
         {
             if (_sessionManager.Free(userToken))
             {
-                if (ex == null) ex = new KernelException("The remote client has been disconnected.");
                 Interlocked.Decrement(ref _clientCounts);
                 OnDisconnected?.Invoke(userToken.ID, ex);
-                userToken = null;
             }
         }
 

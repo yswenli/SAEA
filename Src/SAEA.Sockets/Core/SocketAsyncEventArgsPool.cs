@@ -36,7 +36,7 @@ using System.Threading;
 
 namespace SAEA.Sockets.Core
 {
-    class SocketAsyncEventArgsPool
+    class aSocketAsyncEventArgsPool
     {
         ConcurrentQueue<SocketAsyncEventArgs> _argsPool;
 
@@ -45,7 +45,7 @@ namespace SAEA.Sockets.Core
         EventHandler<SocketAsyncEventArgs> _completed;
 
 
-        public SocketAsyncEventArgsPool(int capacity = 1000 * 100)
+        public aSocketAsyncEventArgsPool(int capacity = 1000 * 100)
         {
             _capacity = capacity;
             _argsPool = new ConcurrentQueue<SocketAsyncEventArgs>();
@@ -76,7 +76,7 @@ namespace SAEA.Sockets.Core
             SocketAsyncEventArgs args;
             while (!_argsPool.TryDequeue(out args))
             {
-                Thread.Sleep(1);
+                Thread.Yield();
             }
             args.Completed += _completed;
             return args;
