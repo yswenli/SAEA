@@ -21,15 +21,10 @@
 *描述：
 ******************************************************************************/
 
-using SAEA.Common;
-using SAEA.Common.Caching;
-using SAEA.Common.Threading;
-
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
+
+using SAEA.Common;
 
 namespace SAEA.Http
 {
@@ -58,7 +53,7 @@ namespace SAEA.Http
         internal HttpSession(string id) : base()
         {
             ID = id;
-            Dictionary = new ConcurrentDictionary<string, object>();
+            Dictionary = new ConcurrentDictionary<string, object>(StringComparer.OrdinalIgnoreCase);
             Expired = DateTimeHelper.Now.AddMinutes(20);
         }
 
@@ -90,6 +85,26 @@ namespace SAEA.Http
                 Dictionary[key] = value;
                 Expired = DateTimeHelper.Now.AddMinutes(20);
             }
+        }
+
+        /// <summary>
+        /// ContainsKey
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        public bool ContainsKey(string key)
+        {
+            return Dictionary.ContainsKey(key);
+        }
+
+        /// <summary>
+        /// Remove
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        public bool Remove(string key)
+        {
+            return Dictionary.TryRemove(key, out object _);
         }
 
         /// <summary>
