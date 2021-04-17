@@ -50,11 +50,11 @@
     <Reference Include="protobuf-net.Core, Version=3.0.0.0, Culture=neutral, PublicKeyToken=257b51d87d2e4d67, processorArchitecture=MSIL">
       <HintPath>..\packages\protobuf-net.Core.3.0.101\lib\net461\protobuf-net.Core.dll</HintPath>
     </Reference>
-    <Reference Include="SAEA.Common, Version=6.2.6.1, Culture=neutral, PublicKeyToken=01a82380791791ab, processorArchitecture=MSIL">
-      <HintPath>..\packages\SAEA.Common.6.2.6.1\lib\netstandard2.0\SAEA.Common.dll</HintPath>
+    <Reference Include="SAEA.Common, Version=6.2.6.2, Culture=neutral, PublicKeyToken=01a82380791791ab, processorArchitecture=MSIL">
+      <HintPath>..\packages\SAEA.Common.6.2.6.2\lib\netstandard2.0\SAEA.Common.dll</HintPath>
     </Reference>
-    <Reference Include="SAEA.Sockets, Version=6.2.6.1, Culture=neutral, PublicKeyToken=01a82380791791ab, processorArchitecture=MSIL">
-      <HintPath>..\packages\SAEA.Sockets.6.2.6.1\lib\netstandard2.0\SAEA.Sockets.dll</HintPath>
+    <Reference Include="SAEA.Sockets, Version=6.2.6.2, Culture=neutral, PublicKeyToken=01a82380791791ab, processorArchitecture=MSIL">
+      <HintPath>..\packages\SAEA.Sockets.6.2.6.2\lib\netstandard2.0\SAEA.Sockets.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Buffers, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
