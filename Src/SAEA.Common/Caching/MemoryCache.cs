@@ -36,8 +36,6 @@ namespace SAEA.Common.Caching
     {
         ConcurrentDictionary<string, MemoryCacheItem<T>> _dic;
 
-        object _synclocker = new object();
-
         /// <summary>
         /// 数据发生变化时事件
         /// </summary>
@@ -105,12 +103,13 @@ namespace SAEA.Common.Caching
         /// <param name="timeOut"></param>
         public void Set(string key, T value, TimeSpan timeOut)
         {
-            var mc = new MemoryCacheItem<T>() { Key = key, Value = value, Expired = DateTimeHelper.Now.AddSeconds(timeOut.TotalSeconds) };
-            _dic.AddOrUpdate(key, (k) =>
-            {
-                OnChanged?.Invoke(this, true, value);
-                return mc;
-            }, (k, v) => { return mc; });
+            _dic[key] = new MemoryCacheItem<T>() { Key = key, Value = value, Expired = DateTimeHelper.Now.AddSeconds(timeOut.TotalSeconds) };
+            OnChanged?.Invoke(this, true, value);
+            //_dic.AddOrUpdate(key, (k) =>
+            //{
+            //    OnChanged?.Invoke(this, true, value);
+            //    return new MemoryCacheItem<T>() { Key = key, Value = value, Expired = DateTimeHelper.Now.AddSeconds(timeOut.TotalSeconds) };
+            //}, (k, v) => { return mc; });
 
         }
         /// <summary>
@@ -142,13 +141,10 @@ namespace SAEA.Common.Caching
         /// <param name="timeOut"></param>
         public void Active(string key, TimeSpan timeOut)
         {
-            lock (_synclocker)
+            var item = Get(key);
+            if (item != null)
             {
-                var item = Get(key);
-                if (item != null)
-                {
-                    Set(key, item, timeOut);
-                }
+                Set(key, item, timeOut);
             }
         }
 
@@ -192,7 +188,11 @@ namespace SAEA.Common.Caching
             }
             return result;
         }
-
+        /// <summary>
+        /// DelWithoutEvent
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
         public bool DelWithoutEvent(string key)
         {
             return _dic.TryRemove(key, out MemoryCacheItem<T> mc);

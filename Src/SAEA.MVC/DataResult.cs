@@ -36,32 +36,39 @@ namespace SAEA.MVC
         /// <param name="stream"></param>
         public DataResult(Stream stream)
         {
-            List<byte> list = new List<byte>();
-            var bytes = new byte[10240];
-            int offset = 0;
-            int size = 0;
-            stream.Position = 0;
-            do
+            try
             {
-                size = stream.Read(bytes, 0, 10240);
-                if (size > 0)
+                List<byte> list = new List<byte>();
+                var bytes = new byte[10240];
+                int offset = 0;
+                int size = 0;
+                stream.Position = 0;
+                do
                 {
-                    offset += size;
-                    list.AddRange(bytes.AsSpan().Slice(0, size).ToArray());
+                    size = stream.Read(bytes, 0, 10240);
+                    if (size > 0)
+                    {
+                        offset += size;
+                        list.AddRange(bytes.AsSpan().Slice(0, size).ToArray());
+                    }
+                    else
+                    {
+                        break;
+                    }
                 }
-                else
-                {
-                    break;
-                }
-            }
-            while (size > 0);
+                while (size > 0);
 
-            var result = list.ToArray();
-            this.Content = result;
-            this.ContentEncoding = Encoding.UTF8;
-            this.ContentType = "application/octet-stream";
-            this.Status = HttpStatusCode.OK;
-            list.Clear();
+                var result = list.ToArray();
+                this.Content = result;
+                this.ContentEncoding = Encoding.UTF8;
+                this.ContentType = "application/octet-stream";
+                this.Status = HttpStatusCode.OK;
+                list.Clear();
+            }
+            finally
+            {
+                stream?.Close();
+            }
         }
 
         /// <summary>

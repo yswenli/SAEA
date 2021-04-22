@@ -23,8 +23,6 @@
 
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading;
 
 using SAEA.Common;
@@ -39,7 +37,7 @@ namespace SAEA.Http
     {
         static ConcurrentDictionary<string, HttpSession> _cache = new ConcurrentDictionary<string, HttpSession>();
 
-        static Random random = new Random();
+        static Random _random = new Random();
 
         /// <summary>
         /// SessionManager
@@ -48,15 +46,18 @@ namespace SAEA.Http
         {
             TaskHelper.LongRunning(() =>
             {
-                foreach (var item in _cache)
+                while (true)
                 {
-                    if (item.Value.Expired < DateTimeHelper.Now)
+                    foreach (var item in _cache)
                     {
-                        item.Value.Clear();
-                        break;
+                        if (item.Value.Expired < DateTimeHelper.Now)
+                        {
+                            item.Value.Clear();
+                            break;
+                        }
                     }
-                }               
-                Thread.Sleep(1000);
+                    Thread.Sleep(1000);
+                }
             });
         }
 
@@ -68,7 +69,7 @@ namespace SAEA.Http
         {
             var bytes = new byte[15];
 
-            random.NextBytes(bytes);
+            _random.NextBytes(bytes);
 
             return StringHelper.Substring(string.Join("", bytes), 0, 15);
         }

@@ -26,6 +26,7 @@ using SAEA.Common.Encryption;
 using SAEA.Http.Base;
 using SAEA.Http.Model;
 using SAEA.Sockets.Interface;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -61,10 +62,11 @@ namespace SAEA.Http
             Headers["Connection"] = "close";
         }
 
-        internal HttpResponse SetContent(byte[] content, Encoding encoding = null)
+        internal HttpResponse SetContent(byte[] content)
         {
             this.Body = content;
             this.ContentLength = content?.Length ?? 0;
+
             return this;
         }
 
@@ -72,7 +74,7 @@ namespace SAEA.Http
         {
             //初始化内容
             encoding = encoding != null ? encoding : Encoding.UTF8;
-            return SetContent(encoding.GetBytes(content), encoding);
+            return SetContent(encoding.GetBytes(content));
         }
 
 
@@ -189,7 +191,7 @@ namespace SAEA.Http
         {
             List<byte> reponseDataList = new List<byte>();
 
-            byte[] lineBytes = Encoding.UTF8.GetBytes(System.Environment.NewLine);
+            byte[] lineBytes = Encoding.UTF8.GetBytes(Environment.NewLine);
 
             var bdata = this.Body;
             if (_isZiped && this.Body != null)
@@ -212,8 +214,6 @@ namespace SAEA.Http
             reponseDataList.AddRange(headerBytes);
             //发送空行
             reponseDataList.AddRange(lineBytes);
-
-            
 
             //发送内容
             if (bdata != null)
@@ -238,7 +238,7 @@ namespace SAEA.Http
         /// <param name="encoding"></param>
         public void BinaryWrite(byte[] data, Encoding encoding = null)
         {
-            SetContent(data, encoding);
+            SetContent(data);
         }
 
         #region 针对类似大文件、事件流场景分开处理

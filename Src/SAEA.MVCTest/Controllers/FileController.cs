@@ -35,11 +35,7 @@ namespace SAEA.MVCTest.Controllers
         /// <returns></returns>
         public ActionResult GetPic()
         {
-            using (var fs = FileHelper.GetStream(HttpContext.Current.Server.MapPath("/Content/Images/6139455.png")))
-            {
-                return Data(fs);
-            }
-
+            return Data(FileHelper.GetStream(HttpContext.Current.Server.MapPath("/Content/Images/6139455.png")));
         }
 
         /// <summary>
