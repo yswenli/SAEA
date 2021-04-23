@@ -416,7 +416,6 @@ namespace SAEA.Sockets.Core.Tcp
             if (kex != null)
             {
                 Disconnect(userToken, kex);
-                throw kex;
             }
         }
 

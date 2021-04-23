@@ -31,6 +31,7 @@
 *****************************************************************************/
 
 using SAEA.Common;
+using SAEA.Common.Threading;
 using SAEA.Sockets.Interface;
 
 using System;
@@ -89,8 +90,7 @@ namespace SAEA.Sockets.Core
         public IUserToken Dequeue()
         {
             IUserToken token;
-
-            while (!_concurrentQueue.TryDequeue(out token))
+            while (!_concurrentQueue.TryDequeue(out token) || token == null)
             {
                 Thread.Yield();
             }
@@ -103,12 +103,13 @@ namespace SAEA.Sockets.Core
         /// <param name="userToken"></param>
         public void Enqueue(IUserToken userToken)
         {
+            var socket = userToken.Socket;
+            userToken.Socket = null;
             try
             {
-                userToken.Socket.Close();
+                socket.Close();
             }
             catch { }
-            userToken.Socket = null;
             _concurrentQueue.Enqueue(userToken);
         }
 

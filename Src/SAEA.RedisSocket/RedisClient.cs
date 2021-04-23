@@ -25,6 +25,7 @@ using SAEA.Common;
 using SAEA.RedisSocket.Core;
 using SAEA.RedisSocket.Core.Stream;
 using SAEA.RedisSocket.Model;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -204,7 +205,7 @@ namespace SAEA.RedisSocket
             }
             if (!IsCluster)
             {
-                if (_cnn.DoWithOne(RequestType.SELECT, DBIndex.ToString()).Data.IndexOf(RedisConst.ErrIndex, StringComparison.InvariantCultureIgnoreCase) == -1)
+                if (_cnn.DoWithOne(RequestType.SELECT, DBIndex.ToString()).Data.IndexOf(RedisConst.ErrIndex, StringComparison.OrdinalIgnoreCase) == -1)
                 {
                     return true;
                 }
@@ -330,19 +331,26 @@ namespace SAEA.RedisSocket
         /// <returns></returns>
         public RedisDataBase GetDataBase(int dbIndex = -1)
         {
-            lock (_syncLocker)
+            if (dbIndex >= 0 && dbIndex != DBIndex)
             {
-                if (dbIndex >= 0 && dbIndex != DBIndex)
+                lock (_syncLocker)
                 {
-                    DBIndex = dbIndex;
-                    Select(DBIndex);
+                    if (dbIndex >= 0 && dbIndex != DBIndex)
+                    {
+                        DBIndex = dbIndex;
+                        Select(DBIndex);
+                    }
                 }
-                if (_redisDataBase == null)
-                {
-                    _redisDataBase = new RedisDataBase(_cnn);
-                }
-                return _redisDataBase;
             }
+            if (_redisDataBase == null)
+            {
+                lock (_syncLocker)
+                {
+                    if (_redisDataBase == null)
+                        _redisDataBase = new RedisDataBase(_cnn);
+                }
+            }
+            return _redisDataBase;
         }
 
         #region redis stream

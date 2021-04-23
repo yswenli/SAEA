@@ -55,6 +55,8 @@ namespace SAEA.Sockets.Core
 
         Semaphore _semaphore;
 
+        object _lockObj = new object();
+
         /// <summary>
         /// 心跳过期事件
         /// </summary>
@@ -161,14 +163,20 @@ namespace SAEA.Sockets.Core
         /// <param name="userToken"></param>
         public bool Free(IUserToken userToken)
         {
-            if (userToken == null || userToken.Socket == null)
+            if (userToken != null && userToken.Socket != null)
             {
-                return false;
+                lock (_lockObj)
+                {
+                    if (userToken != null && userToken.Socket != null)
+                    {
+                        _sessionCache.DelWithoutEvent(userToken.ID);
+                        _userTokenPool.Enqueue(userToken);
+                        _semaphore.Release();
+                        return true;
+                    }
+                }
             }
-            _sessionCache.DelWithoutEvent(userToken.ID);
-            _userTokenPool.Enqueue(userToken);
-            _semaphore.Release();
-            return true;
+            return false;
         }
 
         /// <summary>

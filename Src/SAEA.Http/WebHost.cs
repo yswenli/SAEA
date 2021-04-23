@@ -117,7 +117,21 @@ namespace SAEA.Http
                 _httpServer = new HttpSocket(port, bufferSize, count, timeOut);
 
             _httpServer.OnRequested += _serverSocket_OnRequested;
-            _httpServer.OnError += (e) => OnException?.Invoke(HttpContext.Current, e);
+            _httpServer.OnError += _httpServer_OnError;
+        }
+
+        private void _httpServer_OnError(Exception ex)
+        {
+            var httpContext = HttpContext.Current;
+            if (httpContext != null && OnException!=null)
+            {
+                OnException.Invoke(HttpContext.Current, ex);
+            }
+            else
+            {
+                LogHelper.Error("httpServer_OnError", ex);
+            }
+           
         }
 
 

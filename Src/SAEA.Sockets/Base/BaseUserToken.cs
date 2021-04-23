@@ -92,14 +92,17 @@ namespace SAEA.Sockets.Base
             _autoResetEvent.Set();
         }
 
+
         public void Clear()
         {
             Socket?.Close();
             Unpacker?.Clear();
             _autoResetEvent?.Close();
+            ReadArgs?.Dispose();
+            WriteArgs?.Dispose();
+            Socket = null;
             ReadArgs = null;
             WriteArgs = null;
-            Socket = null;
         }
     }
 }

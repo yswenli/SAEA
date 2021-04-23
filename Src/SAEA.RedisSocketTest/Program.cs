@@ -51,6 +51,7 @@ namespace SAEA.RedisSocketTest
             redisClient.Connect();
 
             var info = redisClient.Info();
+            
 
             var bh = redisClient.GetDataBase().HGetAll("Task");
 

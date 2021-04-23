@@ -100,7 +100,7 @@ namespace SAEA.Common.IO
         /// <returns></returns>
         public static FileStream GetStream(string filePath)
         {
-            return File.Open(filePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite);
+            return File.Open(filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
         }
 
 
@@ -112,7 +112,7 @@ namespace SAEA.Common.IO
         public static void Write(string filePath, byte[] data)
         {
             GetDirecotry(filePath);
-            using (var fs = GetStream(filePath))
+            using (var fs = File.Open(filePath, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite))
             {
                 fs.Write(data, 0, data.Length);
             }
@@ -127,7 +127,7 @@ namespace SAEA.Common.IO
         public static async Task WriteAsync(string filePath, byte[] data)
         {
             GetDirecotry(filePath);
-            using (var fs = GetStream(filePath))
+            using (var fs = File.Open(filePath, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite))
             {
                 await fs.WriteAsync(data, 0, data.Length);
             }

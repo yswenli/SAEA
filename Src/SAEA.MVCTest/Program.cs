@@ -57,6 +57,7 @@ namespace SAEA.MVCTest
 
         private static Http.Model.IHttpResult MvcApplication_OnException(Http.Model.IHttpContext httpContext, System.Exception ex)
         {
+            ConsoleHelper.WriteLine(ex.Message);
             return new ContentResult($"已通过事件捕获发生异常，url：{httpContext?.Request.Url},ex:{ex.Message}");
         }
 
