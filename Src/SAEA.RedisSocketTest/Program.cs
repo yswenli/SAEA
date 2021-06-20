@@ -38,6 +38,13 @@ namespace SAEA.RedisSocketTest
         {
             ConsoleHelper.Title = "SAEA.RedisSocketTest";
 
+            #region KeepOnTest
+
+            KeepOnTest.Test();
+
+            #endregion
+
+
             ConsoleHelper.WriteLine("输入连接字符串连接RedisServer，格式为\r\nserver=127.0.0.1:6379;passwords=yswenli");
 
             var cnnStr = ConsoleHelper.ReadLine();
