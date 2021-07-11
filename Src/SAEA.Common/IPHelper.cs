@@ -39,6 +39,12 @@ namespace SAEA.Common
             return Regex.IsMatch(ip, "(25[0-5]|2[0-4]\\d|[0-1]\\d{2}|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|[0-1]\\d{2}|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|[0-1]\\d{2}|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|[0-1]\\d{2}|[1-9]?\\d)");
         }
 
+        /// <summary>
+        /// 是否是端口
+        /// </summary>
+        /// <param name="portStr"></param>
+        /// <param name="port"></param>
+        /// <returns></returns>
         public static bool IsPort(this string portStr, out ushort port)
         {
             if (ushort.TryParse(portStr, out port))
