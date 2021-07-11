@@ -178,17 +178,25 @@ namespace SAEA.RedisSocket.Core
                                 }
                                 else
                                 {
-                                    redisCmd = $"{@params[0]}_{@params[1]}".ToUpper();
-
-                                    if (EnumHelper.GetEnum(redisCmd, out RequestType requestType2))
+                                    if (@params.Length > 1)
                                     {
-                                        RedisCoder.RequestOnlyParams(@params);
-                                        sresult = RedisCoder.Decoder<string>(requestType2, token);
+                                        redisCmd = $"{@params[0]}_{@params[1]}".ToUpper();
+
+                                        if (EnumHelper.GetEnum(redisCmd, out RequestType requestType2))
+                                        {
+                                            RedisCoder.RequestOnlyParams(@params);
+                                            sresult = RedisCoder.Decoder<string>(requestType2, token);
+                                        }
+                                        else
+                                        {
+                                            sresult.Type = ResponseType.Error;
+                                            sresult.Data = "不支持的命令 cmd:" + cmd;
+                                        }
                                     }
                                     else
                                     {
                                         sresult.Type = ResponseType.Error;
-                                        sresult.Data = "未知的命令 cmd:" + cmd;
+                                        sresult.Data = "不支持的命令 cmd:" + cmd;
                                     }
                                 }
                             }

@@ -40,7 +40,7 @@ namespace SAEA.RedisSocketTest
 
             #region KeepOnTest
 
-            KeepOnTest.Test();
+            //KeepOnTest.Test();
 
             #endregion
 
@@ -53,12 +53,13 @@ namespace SAEA.RedisSocketTest
             {
                 cnnStr = "server=127.0.0.1:6379;passwords=yswenli";
             }
-            RedisClient redisClient = new RedisClient(cnnStr, false);
+            RedisClient redisClient = new RedisClient(cnnStr, true);
 
             redisClient.Connect();
 
             var info = redisClient.Info();
-            
+
+            var response = redisClient.Console("role");
 
             var bh = redisClient.GetDataBase().HGetAll("Task");
 
