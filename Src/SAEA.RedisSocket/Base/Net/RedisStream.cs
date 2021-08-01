@@ -136,14 +136,15 @@ namespace SAEA.RedisSocket.Base.Net
 
         public void Clear()
         {
+            _queue.Clear();            
+            _stringQueue.Clear();
             _bytes.Clear();
         }
 
         public void Dispose()
         {
             IsDisposed = true;
-            _bytes.Clear();
-            _bytes = null;
+            Clear();
         }
     }
 }

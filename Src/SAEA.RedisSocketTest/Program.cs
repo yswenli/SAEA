@@ -53,7 +53,7 @@ namespace SAEA.RedisSocketTest
             {
                 cnnStr = "server=127.0.0.1:6379;passwords=yswenli";
             }
-            RedisClient redisClient = new RedisClient(cnnStr, true);
+            RedisClient redisClient = new RedisClient(cnnStr, false);
 
             redisClient.Connect();
 
@@ -74,12 +74,13 @@ namespace SAEA.RedisSocketTest
             var rr = redisClient.GetDataBase().HDelAsync(TimeSpan.FromSeconds(5), "hid", "key").Result;
 
 
-            //var batch = redisClient.GetDataBase().CreatedBatch();
-            //for (int i = 0; i < 100000; i++)
-            //{
-            //    batch.ZAddAsync("yswenliG", i.ToString(), i);
-            //}
-            //_ = batch.Execute().ToList();
+            var batch = redisClient.GetDataBase().CreatedBatch();
+            for (int i = 0; i < 100000; i++)
+            {
+                batch.ZAddAsync("yswenliG", i.ToString(), i);
+            }
+            _ = batch.Execute();
+
             #endregion
 
             #region scan

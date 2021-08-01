@@ -169,7 +169,10 @@ namespace SAEA.Sockets.Core.Tcp
                         ProcessAccepted(acceptArgs);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                OnError?.Invoke("IocpServerSocket.ProcessAccepte", ex);
+            }
         }
 
         private void ProcessAccepted(SocketAsyncEventArgs acceptArgs)
@@ -193,6 +196,11 @@ namespace SAEA.Sockets.Core.Tcp
 
                 var userToken = _sessionManager.BindUserToken(socket);
 
+                if (userToken == null)
+                {
+                    return;
+                }
+
                 var readArgs = userToken.ReadArgs;
 
                 Interlocked.Increment(ref _clientCounts);
@@ -205,7 +213,10 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 OnError?.Invoke("IocpServerSocket.ProcessAccepted", ex);
             }
-            ProcessAccept(acceptArgs);
+            finally
+            {
+                ProcessAccept(acceptArgs);
+            }            
         }
 
         private void IO_Completed(object sender, SocketAsyncEventArgs e)

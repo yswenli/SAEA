@@ -67,6 +67,7 @@ namespace SAEA.RedisSocket.Core
         /// <param name="cmd"></param>
         public void Request(string cmd)
         {
+            _redisStream.Clear();
             _rclient.Request(Encoding.UTF8.GetBytes(cmd));
         }
 
@@ -385,7 +386,7 @@ namespace SAEA.RedisSocket.Core
                         break;
                     }
                 }
-                while (!ctoken.IsCancellationRequested);
+                while (!ctoken.IsCancellationRequested);                
 
                 return str;
 
@@ -443,6 +444,7 @@ namespace SAEA.RedisSocket.Core
 
                 if (string.IsNullOrEmpty(command))
                 {
+                    _redisStream.Clear();
                     return null;
                 }
 
@@ -450,6 +452,7 @@ namespace SAEA.RedisSocket.Core
                 {
                     responseData.Type = ResponseType.Error;
                     responseData.Data = command;
+                    _redisStream.Clear();
                     return responseData;
                 }
 
@@ -465,6 +468,7 @@ namespace SAEA.RedisSocket.Core
                     }
                     if (string.IsNullOrEmpty(command))
                     {
+                        _redisStream.Clear();
                         return null;
                     }
                 }
@@ -481,6 +485,7 @@ namespace SAEA.RedisSocket.Core
                     {
                         responseData.Type = ResponseType.Error;
                         responseData.Data = command;
+                        _redisStream.Clear();
                         return responseData;
                     }
 
@@ -595,6 +600,7 @@ namespace SAEA.RedisSocket.Core
                             {
                                 responseData.Type = ResponseType.Empty;
                                 responseData.Data = "";
+                                _redisStream.Clear();
                                 return responseData;
                             }
                             for (int i = 0; i < rn; i++)
@@ -604,12 +610,14 @@ namespace SAEA.RedisSocket.Core
                                 {
                                     responseData.Type = ResponseType.Error;
                                     responseData.Data = error;
+                                    _redisStream.Clear();
                                     return responseData;
                                 }
                                 if (len == -1)
                                 {
                                     responseData.Type = ResponseType.Empty;
                                     responseData.Data = string.Empty;
+                                    _redisStream.Clear();
                                     return responseData;
                                 }
                                 sb = GetRedisReplyBlob(sb, len, ctoken, true);
@@ -649,12 +657,14 @@ namespace SAEA.RedisSocket.Core
                             {
                                 responseData.Type = ResponseType.Error;
                                 responseData.Data = error;
+                                _redisStream.Clear();
                                 break;
                             }
                             if (rn <= 0)
                             {
                                 responseData.Type = ResponseType.Empty;
                                 responseData.Data = "";
+                                _redisStream.Clear();
                                 return responseData;
                             }
                             for (int i = 0; i < rn; i++)
@@ -664,12 +674,14 @@ namespace SAEA.RedisSocket.Core
                                 {
                                     responseData.Type = ResponseType.Error;
                                     responseData.Data = error;
+                                    _redisStream.Clear();
                                     return responseData;
                                 }
                                 if (len == -1)
                                 {
                                     responseData.Type = ResponseType.Empty;
                                     responseData.Data = string.Empty;
+                                    _redisStream.Clear();
                                     return responseData;
                                 }
                                 sb.Append(GetRedisReplyLine(ctoken).TrimEnd('\r', '\n'));
@@ -1141,16 +1153,7 @@ namespace SAEA.RedisSocket.Core
 
 
         #endregion
-
-
-
         #endregion
 
-
-
-        public void Dispose()
-        {
-            //_redisStream.Dispose();
-        }
     }
 }

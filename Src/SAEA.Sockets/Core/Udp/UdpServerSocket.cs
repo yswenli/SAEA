@@ -193,6 +193,11 @@ namespace SAEA.Sockets.Core.Udp
                 token = (IUserToken)readArgs.UserToken;
             }
 
+            if (token == null)
+            {
+                return;
+            }
+
             if (!_udpSocket.ReceiveFromAsync(token.ReadArgs))
             {
                 ProcessReceived(token.ReadArgs);

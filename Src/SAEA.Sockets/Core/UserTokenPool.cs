@@ -89,12 +89,11 @@ namespace SAEA.Sockets.Core
         /// <returns></returns>
         public IUserToken Dequeue()
         {
-            IUserToken token;
-            while (!_concurrentQueue.TryDequeue(out token) || token == null)
+           if(_concurrentQueue.TryDequeue(out IUserToken token))
             {
-                Thread.Yield();
+                return token;
             }
-            return token;
+            return null;
         }
 
         /// <summary>

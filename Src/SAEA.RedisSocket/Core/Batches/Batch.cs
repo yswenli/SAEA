@@ -28,7 +28,7 @@ namespace SAEA.RedisSocket.Core.Batches
     /// <summary>
     /// Redis批量操作类
     /// </summary>
-    public class Batch : IBatch
+    public class Batch : IBatch, IDisposable
     {
         List<BatchItem> _batchData;
 
@@ -750,6 +750,17 @@ namespace SAEA.RedisSocket.Core.Batches
             var cmd = _redisCode.Coder(RequestType.ZSCORE, key, value);
 
             _batchData.Add(new BatchItem(RequestType.ZSCORE, cmd));
+        }
+
+        /// <summary>
+        /// Dispose
+        /// </summary>
+        public void Dispose()
+        {
+            if (_batchData != null)
+            {
+                _batchData.Clear();
+            }
         }
     }
 }

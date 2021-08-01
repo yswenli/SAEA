@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 using SAEA.RedisSocket.Model;
+
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -31,7 +32,7 @@ namespace SAEA.RedisSocket.Core.Batches
     /// <summary>
     /// 批量操作方法
     /// </summary>
-    public interface IBatch
+    public interface IBatch : IDisposable
     {
         /// <summary>
         /// 执行操作
@@ -53,7 +54,7 @@ namespace SAEA.RedisSocket.Core.Batches
         void GetAsync(string key);
         void GetSetAsync(string key, string value);
         void HDelAsync(string hid, string key);
-        void HDelAsync(string hid,params string[] keys);
+        void HDelAsync(string hid, params string[] keys);
         void HExistsAsync(string hid, string key);
         void HGetAsync(string hid, string key);
         void HIncrementByAsync(string hid, string key, int num);
@@ -196,5 +197,10 @@ namespace SAEA.RedisSocket.Core.Batches
         /// <param name="key"></param>
         /// <param name="value"></param>
         void ZScoreAsync(string key, string value);
+
+        /// <summary>
+        /// Dispose
+        /// </summary>
+        void Dispose();
     }
 }

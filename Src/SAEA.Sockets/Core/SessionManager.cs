@@ -102,6 +102,7 @@ namespace SAEA.Sockets.Core
         {
             _semaphore.WaitOne();
             IUserToken userToken = _userTokenPool.Dequeue();
+            if (userToken == null) return null;
             userToken.Socket = socket;
             userToken.ID = socket.RemoteEndPoint.ToString();
             userToken.Actived = userToken.Linked = DateTimeHelper.Now;
@@ -120,6 +121,7 @@ namespace SAEA.Sockets.Core
         {
             _semaphore.WaitOne();
             IUserToken userToken = _userTokenPool.Dequeue();
+            if (userToken == null) return null;
             userToken.ReadArgs.RemoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
             userToken.Socket = socket;
             return userToken;

@@ -350,20 +350,17 @@ namespace SAEA.RedisSocket.Core
 
             try
             {
-                result = TaskHelper.Run((token) =>
+                lock (SyncRoot)
                 {
-                    lock (SyncRoot)
+                    RedisCoder.Request(type, key, value);
+                    var sresult = RedisCoder.Decoder<string>(type, token);
+                    if (sresult != null && sresult.Type == ResponseType.Redirect)
                     {
-                        RedisCoder.Request(type, key, value);
-                        var sresult = RedisCoder.Decoder<string>(type, token);
-                        if (sresult != null && sresult.Type == ResponseType.Redirect)
-                        {
-                            return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoWithKeyValue, type, key, value);
-                        }
-                        else
-                            return sresult;
+                        return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoWithKeyValue, type, key, value);
                     }
-                }, _actionTimeout).Result;
+                    else
+                        return sresult;
+                }
             }
             catch (TaskCanceledException tex)
             {
