@@ -67,12 +67,8 @@ namespace SAEA.RedisSocketTest
 
             
 
-            #region 异步测试
-
-            redisClient.GetDataBase().HSetAsync(TimeSpan.FromSeconds(5), "hid", "key", "val");
-            var r = redisClient.GetDataBase().HGetAsync(TimeSpan.FromSeconds(5), "hid", "key").Result;
-            var rr = redisClient.GetDataBase().HDelAsync(TimeSpan.FromSeconds(5), "hid", "key").Result;
-
+            #region 测试
+            
 
             var batch = redisClient.GetDataBase().CreatedBatch();
             for (int i = 0; i < 100000; i++)
@@ -90,9 +86,9 @@ namespace SAEA.RedisSocketTest
 
             #endregion
 
-            StringPerformanceTest(redisClient);
+            //StringPerformanceTest(redisClient);
 
-            BatchTest(redisClient);
+            //BatchTest(redisClient);
 
 
             var rk = redisClient.GetDataBase().RandomKey();

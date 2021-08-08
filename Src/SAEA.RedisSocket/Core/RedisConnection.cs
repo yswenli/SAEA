@@ -29,8 +29,10 @@ using SAEA.RedisSocket.Base;
 using SAEA.RedisSocket.Base.Net;
 using SAEA.RedisSocket.Core.Stream;
 using SAEA.RedisSocket.Model;
+
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SAEA.RedisSocket.Core
@@ -157,9 +159,9 @@ namespace SAEA.RedisSocket.Core
             ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
             try
             {
-                result = TaskHelper.Run((token) =>
+                lock (SyncRoot)
                 {
-                    lock (SyncRoot)
+                    using (var cts = new CancellationTokenSource(_actionTimeout))
                     {
                         ResponseData<string> sresult = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
 
@@ -174,7 +176,7 @@ namespace SAEA.RedisSocket.Core
                                 if (EnumHelper.GetEnum(redisCmd, out RequestType requestType1))
                                 {
                                     RedisCoder.RequestOnlyParams(@params);
-                                    sresult = RedisCoder.Decoder<string>(requestType1, token);
+                                    sresult = RedisCoder.Decoder<string>(requestType1, cts.Token);
                                 }
                                 else
                                 {
@@ -185,7 +187,7 @@ namespace SAEA.RedisSocket.Core
                                         if (EnumHelper.GetEnum(redisCmd, out RequestType requestType2))
                                         {
                                             RedisCoder.RequestOnlyParams(@params);
-                                            sresult = RedisCoder.Decoder<string>(requestType2, token);
+                                            sresult = RedisCoder.Decoder<string>(requestType2, cts.Token);
                                         }
                                         else
                                         {
@@ -203,7 +205,7 @@ namespace SAEA.RedisSocket.Core
                         }
                         return sresult;
                     }
-                }, _actionTimeout).Result;
+                }
             }
             catch (TaskCanceledException tex)
             {
@@ -229,12 +231,12 @@ namespace SAEA.RedisSocket.Core
 
             try
             {
-                result = TaskHelper.Run((token) =>
+                lock (SyncRoot)
                 {
-                    lock (SyncRoot)
+                    using (var cts = new CancellationTokenSource(_actionTimeout))
                     {
                         RedisCoder.RequestOnlyParams(type.ToString());
-                        var sresult = RedisCoder.Decoder<string>(type, token);
+                        var sresult = RedisCoder.Decoder<string>(type, cts.Token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
                             return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.Do, null);
@@ -242,7 +244,7 @@ namespace SAEA.RedisSocket.Core
                         else
                             return sresult;
                     }
-                }, _actionTimeout).Result;
+                }
             }
             catch (TaskCanceledException tex)
             {
@@ -274,16 +276,15 @@ namespace SAEA.RedisSocket.Core
             ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
             try
             {
-                result = TaskHelper.Run((token) =>
+                lock (SyncRoot)
                 {
-                    lock (SyncRoot)
+                    using (var cts = new CancellationTokenSource(_actionTimeout))
                     {
-
                         content.KeyCheck();
                         RedisCoder.Request(type, content);
-                        return RedisCoder.Decoder<string>(type, token);
+                        return RedisCoder.Decoder<string>(type, cts.Token);
                     }
-                }, _actionTimeout).Result;
+                }
             }
             catch (TaskCanceledException tex)
             {
@@ -313,12 +314,12 @@ namespace SAEA.RedisSocket.Core
 
             try
             {
-                result = TaskHelper.Run((token) =>
+                lock (SyncRoot)
                 {
-                    lock (SyncRoot)
+                    using (var cts = new CancellationTokenSource(_actionTimeout))
                     {
                         RedisCoder.Request(type, key);
-                        var sresult = RedisCoder.Decoder<string>(type, token);
+                        var sresult = RedisCoder.Decoder<string>(type, cts.Token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
                             return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoWithKey, type, key);
@@ -326,7 +327,7 @@ namespace SAEA.RedisSocket.Core
                         else
                             return sresult;
                     }
-                }, _actionTimeout).Result;
+                }
             }
             catch (TaskCanceledException tex)
             {
@@ -352,15 +353,20 @@ namespace SAEA.RedisSocket.Core
             {
                 lock (SyncRoot)
                 {
-                    RedisCoder.Request(type, key, value);
-                    var sresult = RedisCoder.Decoder<string>(type, token);
-                    if (sresult != null && sresult.Type == ResponseType.Redirect)
+                    using (var cts = new CancellationTokenSource(_actionTimeout))
                     {
-                        return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoWithKeyValue, type, key, value);
+                        RedisCoder.Request(type, key, value);
+                        var sresult = RedisCoder.Decoder<string>(type, cts.Token);
+                        if (sresult != null && sresult.Type == ResponseType.Redirect)
+                        {
+                            return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoWithKeyValue, type, key, value);
+                        }
+                        else
+                            return sresult;
                     }
-                    else
-                        return sresult;
+
                 }
+
             }
             catch (TaskCanceledException tex)
             {
@@ -383,12 +389,12 @@ namespace SAEA.RedisSocket.Core
             ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
             try
             {
-                result = TaskHelper.Run((token) =>
+                lock (SyncRoot)
                 {
-                    lock (SyncRoot)
+                    using (var cts = new CancellationTokenSource(_actionTimeout))
                     {
                         RedisCoder.Request(type, id, key, value);
-                        var sresult = RedisCoder.Decoder<string>(type, token);
+                        var sresult = RedisCoder.Decoder<string>(type, cts.Token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
                             return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoWithID, type, id, key, value);
@@ -396,7 +402,7 @@ namespace SAEA.RedisSocket.Core
                         else
                             return sresult;
                     }
-                }, _actionTimeout).Result;
+                }
             }
             catch (TaskCanceledException tex)
             {
@@ -419,12 +425,12 @@ namespace SAEA.RedisSocket.Core
 
             try
             {
-                result = TaskHelper.Run((token) =>
+                lock (SyncRoot)
                 {
-                    lock (SyncRoot)
+                    using (var cts = new CancellationTokenSource(_actionTimeout))
                     {
                         RedisCoder.Request(type, keys);
-                        var sresult = RedisCoder.Decoder<string>(type, token);
+                        var sresult = RedisCoder.Decoder<string>(type, cts.Token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
                             return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoBatchWithParams, type, keys);
@@ -432,7 +438,7 @@ namespace SAEA.RedisSocket.Core
                         else
                             return sresult;
                     }
-                }, _actionTimeout).Result;
+                }
             }
             catch (TaskCanceledException tex)
             {
@@ -461,12 +467,12 @@ namespace SAEA.RedisSocket.Core
 
             try
             {
-                result = TaskHelper.Run((token) =>
+                lock (SyncRoot)
                 {
-                    lock (SyncRoot)
+                    using (var cts = new CancellationTokenSource(_actionTimeout))
                     {
                         RedisCoder.Request(type, keys);
-                        var sresult = RedisCoder.Decoder(token);
+                        var sresult = RedisCoder.Decoder(cts.Token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
                             return (ResponseData<IEnumerable<StreamEntry>>)OnRedirect.Invoke(sresult.Data, OperationType.DoBatchWithParams, type, keys);
@@ -474,7 +480,7 @@ namespace SAEA.RedisSocket.Core
                         else
                             return sresult;
                     }
-                }, _actionTimeout).Result;
+                }
             }
             catch (TaskCanceledException tex)
             {
@@ -497,12 +503,12 @@ namespace SAEA.RedisSocket.Core
 
             try
             {
-                result = TaskHelper.Run((token) =>
+                lock (SyncRoot)
                 {
-                    lock (SyncRoot)
+                    using (var cts = new CancellationTokenSource(_actionTimeout))
                     {
                         RedisCoder.Request(RequestType.XRANGE, @params);
-                        var sresult = RedisCoder.StreamRangeDecoder(token);
+                        var sresult = RedisCoder.StreamRangeDecoder(cts.Token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
                             return (ResponseData<IEnumerable<IdFiled>>)OnRedirect.Invoke(sresult.Data, OperationType.DoBatchWithParams, RequestType.XRANGE, @params);
@@ -510,7 +516,7 @@ namespace SAEA.RedisSocket.Core
                         else
                             return sresult;
                     }
-                }, _actionTimeout).Result;
+                }
             }
             catch (TaskCanceledException tex)
             {
@@ -533,19 +539,19 @@ namespace SAEA.RedisSocket.Core
 
             try
             {
-                result = TaskHelper.Run((token) =>
+                lock (SyncRoot)
                 {
-                    lock (SyncRoot)
+                    using (var cts = new CancellationTokenSource(_actionTimeout))
                     {
                         RedisCoder.Request(RequestType.EXPIRE, key, seconds.ToString());
-                        var sresult = RedisCoder.Decoder<string>(RequestType.EXPIRE, token);
+                        var sresult = RedisCoder.Decoder<string>(RequestType.EXPIRE, cts.Token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
                             sresult = (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoExpire, key, seconds);
                         }
                         return sresult;
                     }
-                }, _actionTimeout).Result;
+                }
             }
             catch (TaskCanceledException tex)
             {
@@ -569,19 +575,19 @@ namespace SAEA.RedisSocket.Core
 
             try
             {
-                result = TaskHelper.Run((token) =>
+                lock (SyncRoot)
                 {
-                    lock (SyncRoot)
+                    using (var cts = new CancellationTokenSource(_actionTimeout))
                     {
                         RedisCoder.Request(RequestType.EXPIREAT, key, timestamp.ToString());
-                        var sresult = RedisCoder.Decoder<string>(RequestType.EXPIREAT, token);
+                        var sresult = RedisCoder.Decoder<string>(RequestType.EXPIREAT, cts.Token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
                             sresult = (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoExpireAt, key, timestamp);
                         }
                         return sresult;
                     }
-                }, _actionTimeout).Result;
+                }
             }
             catch (TaskCanceledException tex)
             {
@@ -604,20 +610,20 @@ namespace SAEA.RedisSocket.Core
 
             try
             {
-                result = TaskHelper.Run((token) =>
+                lock (SyncRoot)
                 {
-                    lock (SyncRoot)
+                    using (var cts = new CancellationTokenSource(_actionTimeout))
                     {
                         RedisCoder.Request(type, key, value);
-                        var sresult = RedisCoder.Decoder<string>(type, token);
+                        var sresult = RedisCoder.Decoder<string>(type, cts.Token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
                             return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoExpireInsert, key, value, seconds);
                         }
                         RedisCoder.Request(RequestType.EXPIRE, string.Format("{0} {1}", key, seconds));
-                        return RedisCoder.Decoder<string>(RequestType.EXPIRE, token);
+                        return RedisCoder.Decoder<string>(RequestType.EXPIRE, cts.Token);
                     }
-                }, _actionTimeout).Result;
+                }
             }
             catch (TaskCanceledException tex)
             {
@@ -640,12 +646,12 @@ namespace SAEA.RedisSocket.Core
             ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
             try
             {
-                result = TaskHelper.Run((token) =>
+                lock (SyncRoot)
                 {
-                    lock (SyncRoot)
+                    using (var cts = new CancellationTokenSource(_actionTimeout))
                     {
                         RedisCoder.Request(type, key, begin.ToString(), end.ToString(), "WITHSCORES");
-                        var sresult = RedisCoder.Decoder<string>(type, token);
+                        var sresult = RedisCoder.Decoder<string>(type, cts.Token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
                             return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoRang, type, key, begin, end);
@@ -653,7 +659,7 @@ namespace SAEA.RedisSocket.Core
                         else
                             return sresult;
                     }
-                }, _actionTimeout).Result;
+                }
             }
             catch (TaskCanceledException tex)
             {
@@ -677,12 +683,12 @@ namespace SAEA.RedisSocket.Core
 
             try
             {
-                result = TaskHelper.Run((token) =>
+                lock (SyncRoot)
                 {
-                    lock (SyncRoot)
+                    using (var cts = new CancellationTokenSource(_actionTimeout))
                     {
                         RedisCoder.RequestForRandByScore(type, key, min, max, rangType, offset, count, withScore);
-                        var sresult = RedisCoder.Decoder<string>(type, token);
+                        var sresult = RedisCoder.Decoder<string>(type, cts.Token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
                             return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoRangByScore, type, key, min, max, rangType, offset, count, withScore);
@@ -690,7 +696,7 @@ namespace SAEA.RedisSocket.Core
                         else
                             return sresult;
                     }
-                }, _actionTimeout).Result;
+                }
             }
             catch (TaskCanceledException tex)
             {
@@ -712,9 +718,9 @@ namespace SAEA.RedisSocket.Core
 
             RedisCoder.IsSubed = true;
 
-            TaskHelper.Run(() =>
+            lock (SyncRoot)
             {
-                lock (SyncRoot)
+                using (var cts = new CancellationTokenSource(_actionTimeout))
                 {
                     while (RedisCoder.IsSubed)
                     {
@@ -730,7 +736,7 @@ namespace SAEA.RedisSocket.Core
                         }
                     }
                 }
-            });
+            }
         }
 
         public ResponseData<string> DoMultiLineWithList(RequestType type, string id, IEnumerable<string> list)
@@ -739,12 +745,12 @@ namespace SAEA.RedisSocket.Core
 
             try
             {
-                result = TaskHelper.Run((token) =>
+                lock (SyncRoot)
                 {
-                    lock (SyncRoot)
+                    using (var cts = new CancellationTokenSource(_actionTimeout))
                     {
                         RedisCoder.RequestForList(type, id, list);
-                        var sresult = RedisCoder.Decoder<string>(type, token);
+                        var sresult = RedisCoder.Decoder<string>(type, cts.Token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
                             return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoBatchWithList, type, list);
@@ -752,7 +758,7 @@ namespace SAEA.RedisSocket.Core
                         else
                             return sresult;
                     }
-                }, _actionTimeout).Result;
+                }
             }
             catch (TaskCanceledException tex)
             {
@@ -772,12 +778,12 @@ namespace SAEA.RedisSocket.Core
             ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
             try
             {
-                result = TaskHelper.Run((token) =>
+                lock (SyncRoot)
                 {
-                    lock (SyncRoot)
+                    using (var cts = new CancellationTokenSource(_actionTimeout))
                     {
                         RedisCoder.RequestForDic(type, dic);
-                        var sresult = RedisCoder.Decoder<string>(type, token);
+                        var sresult = RedisCoder.Decoder<string>(type, cts.Token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
                             return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoBatchWithDic, type, dic);
@@ -785,7 +791,7 @@ namespace SAEA.RedisSocket.Core
                         else
                             return sresult;
                     }
-                }, _actionTimeout).Result;
+                }
             }
             catch (TaskCanceledException tex)
             {
@@ -809,9 +815,9 @@ namespace SAEA.RedisSocket.Core
             ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
             try
             {
-                result = TaskHelper.Run((token) =>
+                lock (SyncRoot)
                 {
-                    lock (SyncRoot)
+                    using (var cts = new CancellationTokenSource(_actionTimeout))
                     {
 
                         List<string> list = new List<string>();
@@ -819,7 +825,7 @@ namespace SAEA.RedisSocket.Core
                         list.Add(id);
                         list.AddRange(keys);
                         RedisCoder.RequestOnlyParams(list.ToArray());
-                        var sresult = RedisCoder.Decoder<string>(type, token);
+                        var sresult = RedisCoder.Decoder<string>(type, cts.Token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
                             return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoBatchWithIDKeys, type, id, keys);
@@ -827,7 +833,7 @@ namespace SAEA.RedisSocket.Core
                         else
                             return sresult;
                     }
-                }, _actionTimeout).Result;
+                }
             }
             catch (TaskCanceledException tex)
             {
@@ -848,13 +854,12 @@ namespace SAEA.RedisSocket.Core
             ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
             try
             {
-                result = TaskHelper.Run((token) =>
+                lock (SyncRoot)
                 {
-                    lock (SyncRoot)
+                    using (var cts = new CancellationTokenSource(_actionTimeout))
                     {
-
                         RedisCoder.RequestForDicWidthID(type, id, dic);
-                        var sresult = RedisCoder.Decoder<string>(type, token);
+                        var sresult = RedisCoder.Decoder<string>(type, cts.Token);
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
                             return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoBatchZaddWithIDDic, type, id, dic);
@@ -862,7 +867,7 @@ namespace SAEA.RedisSocket.Core
                         else
                             return sresult;
                     }
-                }, _actionTimeout).Result;
+                }
             }
             catch (TaskCanceledException tex)
             {
@@ -883,14 +888,17 @@ namespace SAEA.RedisSocket.Core
             id.KeyCheck();
 
             ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
+
             try
             {
-                result = TaskHelper.Run((token) =>
+                lock (SyncRoot)
                 {
-                    lock (SyncRoot)
+                    using (var cts = new CancellationTokenSource(_actionTimeout))
                     {
                         RedisCoder.RequestForDicWidthID(type, id, dic);
-                        var result = RedisCoder.Decoder<string>(type, token);
+
+                        result = RedisCoder.Decoder<string>(type, cts.Token);
+
                         if (result != null && result.Type == ResponseType.Redirect)
                         {
                             return (ResponseData<string>)OnRedirect.Invoke(result.Data, OperationType.DoBatchWithIDDic, type, id, dic);
@@ -898,7 +906,7 @@ namespace SAEA.RedisSocket.Core
                         else
                             return result;
                     }
-                }, _actionTimeout).Result;
+                }
             }
             catch (TaskCanceledException tex)
             {
@@ -925,9 +933,9 @@ namespace SAEA.RedisSocket.Core
 
         public ScanResponse DoScan(RequestType type, int offset = 0, string pattern = "*", int count = -1)
         {
-            return TaskHelper.Run((token) =>
+            lock (SyncRoot)
             {
-                lock (SyncRoot)
+                using (var cts = new CancellationTokenSource(_actionTimeout))
                 {
                     if (offset < 0) offset = 0;
 
@@ -953,7 +961,7 @@ namespace SAEA.RedisSocket.Core
                             RedisCoder.Request(type, offset.ToString());
                         }
                     }
-                    var sresult = RedisCoder.Decoder<string>(type, token);
+                    var sresult = RedisCoder.Decoder<string>(type, cts.Token);
 
                     if (sresult == null) return null;
 
@@ -970,7 +978,7 @@ namespace SAEA.RedisSocket.Core
                         return null;
                     }
                 }
-            }, _actionTimeout).Result;
+            }
         }
 
         /// <summary>
@@ -985,10 +993,9 @@ namespace SAEA.RedisSocket.Core
         public ScanResponse DoScanKey(RequestType type, string key, int offset = 0, string pattern = "*", int count = -1)
         {
             key.KeyCheck();
-
-            return TaskHelper.Run((token) =>
+            lock (SyncRoot)
             {
-                lock (SyncRoot)
+                using (var cts = new CancellationTokenSource(_actionTimeout))
                 {
                     if (offset < 0) offset = 0;
 
@@ -1015,7 +1022,7 @@ namespace SAEA.RedisSocket.Core
                         }
                     }
 
-                    var result = RedisCoder.Decoder<string>(type, token);
+                    var result = RedisCoder.Decoder<string>(type, cts.Token);
 
                     if (result == null) return null;
 
@@ -1032,7 +1039,7 @@ namespace SAEA.RedisSocket.Core
                         return null;
                     }
                 }
-            }, _actionTimeout).Result;
+            }
         }
 
 
@@ -1042,9 +1049,9 @@ namespace SAEA.RedisSocket.Core
             ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
             try
             {
-                result = TaskHelper.Run((token) =>
+                lock (SyncRoot)
                 {
-                    lock (SyncRoot)
+                    using (var cts = new CancellationTokenSource(_actionTimeout))
                     {
                         List<string> list = new List<string>();
 
@@ -1059,8 +1066,11 @@ namespace SAEA.RedisSocket.Core
                                 list.Add(item.ToString());
                             }
                         }
+
                         RedisCoder.RequestOnlyParams(list.ToArray());
-                        var sresult = RedisCoder.Decoder<string>(type, token);
+
+                        var sresult = RedisCoder.Decoder<string>(type, cts.Token);
+
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
                             return (ResponseData<string>)OnRedirect.Invoke(sresult.Data, OperationType.DoCluster, type, @params);
@@ -1072,7 +1082,7 @@ namespace SAEA.RedisSocket.Core
                         else
                             return sresult;
                     }
-                }, _actionTimeout).Result;
+                }
             }
             catch (TaskCanceledException tex)
             {
@@ -1095,9 +1105,9 @@ namespace SAEA.RedisSocket.Core
             ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
             try
             {
-                result = TaskHelper.Run((token) =>
+                lock (SyncRoot)
                 {
-                    lock (SyncRoot)
+                    using (var cts = new CancellationTokenSource(_actionTimeout))
                     {
                         List<string> list = new List<string>();
 
@@ -1113,7 +1123,7 @@ namespace SAEA.RedisSocket.Core
 
                         RedisCoder.RequestOnlyParams(list.ToArray());
 
-                        var sresult = RedisCoder.Decoder<string>(type, token);
+                        var sresult = RedisCoder.Decoder<string>(type, cts.Token);
 
                         if (sresult != null && sresult.Type == ResponseType.Redirect)
                         {
@@ -1126,7 +1136,7 @@ namespace SAEA.RedisSocket.Core
                         else
                             return sresult;
                     }
-                }, _actionTimeout).Result;
+                }
             }
             catch (TaskCanceledException tex)
             {
@@ -1169,7 +1179,7 @@ namespace SAEA.RedisSocket.Core
             IsConnected = false;
             IsDisposed = true;
             _cnn.Dispose();
-            
+
         }
     }
 }

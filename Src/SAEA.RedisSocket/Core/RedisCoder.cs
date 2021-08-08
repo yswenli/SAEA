@@ -26,6 +26,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
+
 using SAEA.Common;
 using SAEA.Common.NameValue;
 using SAEA.RedisSocket.Base.Net;
@@ -386,7 +387,7 @@ namespace SAEA.RedisSocket.Core
                         break;
                     }
                 }
-                while (!ctoken.IsCancellationRequested);                
+                while (!ctoken.IsCancellationRequested);
 
                 return str;
 
@@ -412,7 +413,7 @@ namespace SAEA.RedisSocket.Core
         private StringBuilder GetRedisReplyBlob(StringBuilder sb, int len, CancellationToken ctoken, bool addSeparator = false)
         {
             sb.Append(_redisStream.ReadBlock(len, ctoken));
-            
+
             //sb.Append(_dataExtraction.ReadBlock(len, ctoken));
 
             if (addSeparator)
@@ -1149,6 +1150,11 @@ namespace SAEA.RedisSocket.Core
                 };
             }
             return result;
+        }
+
+        public void Dispose()
+        {
+            _redisStream.Clear();
         }
 
 
