@@ -193,7 +193,7 @@ namespace SAEA.MVC
 
                         nameValues = Request.Parmas.ToNameValueCollection();
 
-                        return MvcInvoker.InvokeResult(_routeTable, d, WebConfig.DefaultRoute.Value, nameValues, isPost);
+                        return MvcInvoker.InvokeResult(_routeTable, d, WebConfig.DefaultRoute.Value.ToString(), nameValues, isPost);
                     }
 
                 case 1:

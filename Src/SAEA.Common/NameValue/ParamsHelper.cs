@@ -110,7 +110,7 @@ namespace SAEA.Common.NameValue
 
             foreach (var parma in @params)
             {
-                string val = string.Empty;
+                object val = string.Empty;
 
                 if (nameValues != null && nameValues.Any())
                 {
@@ -118,7 +118,7 @@ namespace SAEA.Common.NameValue
 
                     if (parma.ParameterType == typeof(Int32) || parma.ParameterType == typeof(Nullable<Int32>))
                     {
-                        if (int.TryParse(val, out int v))
+                        if (int.TryParse(val.ToString(), out int v))
                         {
                             list.Add(v);
                         }
@@ -129,7 +129,7 @@ namespace SAEA.Common.NameValue
                     }
                     else if (parma.ParameterType == typeof(Int16) || parma.ParameterType == typeof(Nullable<Int16>))
                     {
-                        if (int.TryParse(val, out int v))
+                        if (int.TryParse(val.ToString(), out int v))
                         {
                             list.Add(v);
                         }
@@ -140,7 +140,7 @@ namespace SAEA.Common.NameValue
                     }
                     else if (parma.ParameterType == typeof(Int64) || parma.ParameterType == typeof(Nullable<Int64>))
                     {
-                        if (long.TryParse(val, out long v))
+                        if (long.TryParse(val.ToString(), out long v))
                         {
                             list.Add(v);
                         }
@@ -151,7 +151,7 @@ namespace SAEA.Common.NameValue
                     }
                     else if (parma.ParameterType == typeof(Single) || parma.ParameterType == typeof(Nullable<Single>))
                     {
-                        if (float.TryParse(val, out float v))
+                        if (float.TryParse(val.ToString(), out float v))
                         {
                             list.Add(v);
                         }
@@ -162,7 +162,7 @@ namespace SAEA.Common.NameValue
                     }
                     else if (parma.ParameterType == typeof(Double) || parma.ParameterType == typeof(Nullable<double>))
                     {
-                        if (double.TryParse(val, out double v))
+                        if (double.TryParse(val.ToString(), out double v))
                         {
                             list.Add(v);
                         }
@@ -173,7 +173,7 @@ namespace SAEA.Common.NameValue
                     }
                     else if (parma.ParameterType == typeof(DateTime) || parma.ParameterType == typeof(Nullable<DateTime>))
                     {
-                        if (DateTime.TryParse(val, out DateTime v))
+                        if (DateTime.TryParse(val.ToString(), out DateTime v))
                         {
                             list.Add(v);
                         }
@@ -184,15 +184,15 @@ namespace SAEA.Common.NameValue
                     }
                     else if (parma.ParameterType == typeof(Boolean) || parma.ParameterType == typeof(Nullable<bool>))
                     {
-                        if (string.IsNullOrEmpty(val)) val = "false";
+                        if (string.IsNullOrEmpty(val.ToString())) val = "false";
 
-                        if (int.TryParse(val, out int iv))
+                        if (int.TryParse(val.ToString(), out int iv))
                         {
                             if (iv == 0) val = "false";
                             else val = "true";
                         }
 
-                        if (bool.TryParse(val, out bool v))
+                        if (bool.TryParse(val.ToString(), out bool v))
                         {
                             list.Add(v);
                         }
@@ -203,7 +203,7 @@ namespace SAEA.Common.NameValue
                     }
                     else if (parma.ParameterType == typeof(Byte) || parma.ParameterType == typeof(Nullable<byte>))
                     {
-                        if (byte.TryParse(val, out byte v))
+                        if (byte.TryParse(val.ToString(), out byte v))
                         {
                             list.Add(v);
                         }
@@ -220,128 +220,135 @@ namespace SAEA.Common.NameValue
                     {
                         var modelType = parma.ParameterType;
 
-                        var model = Activator.CreateInstance(modelType);
-
-                        var properties = modelType.GetProperties();
-
-                        if (properties != null)
+                        if (modelType.Name == val.GetType().Name)
                         {
-                            foreach (var property in properties)
-                            {
-                                var item = nameValues.Get(property.Name);
-
-                                if (item != null)
-                                {
-                                    val = item.Value;
-
-                                    if (property.PropertyType == typeof(Int32) || property.PropertyType == typeof(Nullable<int>))
-                                    {
-                                        if (int.TryParse(val, out int v))
-                                        {
-                                            property.SetValue(model, v);
-                                        }
-                                        else
-                                        {
-                                            property.SetValue(model, 0);
-                                        }
-                                    }
-                                    else if (property.PropertyType == typeof(Int16) || property.PropertyType == typeof(Nullable<Int16>))
-                                    {
-                                        if (int.TryParse(val, out int v))
-                                        {
-                                            property.SetValue(model, v);
-                                        }
-                                        else
-                                        {
-                                            property.SetValue(model, 0);
-                                        }
-                                    }
-                                    else if (property.PropertyType == typeof(Int64) || property.PropertyType == typeof(Nullable<Int64>))
-                                    {
-                                        if (long.TryParse(val, out long v))
-                                        {
-                                            property.SetValue(model, v);
-                                        }
-                                        else
-                                        {
-                                            property.SetValue(model, 0);
-                                        }
-                                    }
-                                    else if (property.PropertyType == typeof(Single) || property.PropertyType == typeof(Nullable<Single>))
-                                    {
-                                        if (float.TryParse(val, out float v))
-                                        {
-                                            property.SetValue(model, v);
-                                        }
-                                        else
-                                        {
-                                            property.SetValue(model, 0);
-                                        }
-                                    }
-                                    else if (property.PropertyType == typeof(Double) || property.PropertyType == typeof(Nullable<Double>))
-                                    {
-                                        if (double.TryParse(val, out double v))
-                                        {
-                                            property.SetValue(model, v);
-                                        }
-                                        else
-                                        {
-                                            property.SetValue(model, 0);
-                                        }
-                                    }
-                                    else if (property.PropertyType == typeof(DateTime) || property.PropertyType == typeof(Nullable<DateTime>))
-                                    {
-                                        if (DateTime.TryParse(val, out DateTime v))
-                                        {
-                                            property.SetValue(model, v);
-                                        }
-                                        else
-                                        {
-                                            property.SetValue(model, new DateTime());
-                                        }
-                                    }
-                                    else if (property.PropertyType == typeof(Boolean) || property.PropertyType == typeof(Nullable<Boolean>))
-                                    {
-                                        if (string.IsNullOrEmpty(val)) val = "false";
-
-                                        if (int.TryParse(val, out int iv))
-                                        {
-                                            if (iv == 0) val = "false";
-                                            else val = "true";
-                                        }
-
-                                        if (bool.TryParse(val, out bool v))
-                                        {
-                                            property.SetValue(model, v);
-                                        }
-                                        else
-                                        {
-                                            property.SetValue(model, false);
-                                        }
-                                    }
-                                    else if (property.PropertyType == typeof(Byte) || property.PropertyType == typeof(Nullable<Byte>))
-                                    {
-                                        if (byte.TryParse(val, out byte v))
-                                        {
-                                            property.SetValue(model, v);
-                                        }
-                                        else
-                                        {
-                                            property.SetValue(model, 0);
-                                        }
-                                    }
-                                    else if (property.PropertyType == typeof(String))
-                                    {
-                                        property.SetValue(model, val);
-                                    }
-                                }
-                            }
-
-                            list.Add(model);
+                            list.Add(val);
                         }
                         else
                         {
-                            list.Add(null);
+                            var model = Activator.CreateInstance(modelType);
+
+                            var properties = modelType.GetProperties();
+
+                            if (properties != null)
+                            {
+                                foreach (var property in properties)
+                                {
+                                    var item = nameValues.Get(property.Name);
+
+                                    if (item != null)
+                                    {
+                                        val = item.Value;
+
+                                        if (property.PropertyType == typeof(Int32) || property.PropertyType == typeof(Nullable<int>))
+                                        {
+                                            if (int.TryParse(val.ToString(), out int v))
+                                            {
+                                                property.SetValue(model, v);
+                                            }
+                                            else
+                                            {
+                                                property.SetValue(model, 0);
+                                            }
+                                        }
+                                        else if (property.PropertyType == typeof(Int16) || property.PropertyType == typeof(Nullable<Int16>))
+                                        {
+                                            if (int.TryParse(val.ToString(), out int v))
+                                            {
+                                                property.SetValue(model, v);
+                                            }
+                                            else
+                                            {
+                                                property.SetValue(model, 0);
+                                            }
+                                        }
+                                        else if (property.PropertyType == typeof(Int64) || property.PropertyType == typeof(Nullable<Int64>))
+                                        {
+                                            if (long.TryParse(val.ToString(), out long v))
+                                            {
+                                                property.SetValue(model, v);
+                                            }
+                                            else
+                                            {
+                                                property.SetValue(model, 0);
+                                            }
+                                        }
+                                        else if (property.PropertyType == typeof(Single) || property.PropertyType == typeof(Nullable<Single>))
+                                        {
+                                            if (float.TryParse(val.ToString(), out float v))
+                                            {
+                                                property.SetValue(model, v);
+                                            }
+                                            else
+                                            {
+                                                property.SetValue(model, 0);
+                                            }
+                                        }
+                                        else if (property.PropertyType == typeof(Double) || property.PropertyType == typeof(Nullable<Double>))
+                                        {
+                                            if (double.TryParse(val.ToString(), out double v))
+                                            {
+                                                property.SetValue(model, v);
+                                            }
+                                            else
+                                            {
+                                                property.SetValue(model, 0);
+                                            }
+                                        }
+                                        else if (property.PropertyType == typeof(DateTime) || property.PropertyType == typeof(Nullable<DateTime>))
+                                        {
+                                            if (DateTime.TryParse(val.ToString(), out DateTime v))
+                                            {
+                                                property.SetValue(model, v);
+                                            }
+                                            else
+                                            {
+                                                property.SetValue(model, new DateTime());
+                                            }
+                                        }
+                                        else if (property.PropertyType == typeof(Boolean) || property.PropertyType == typeof(Nullable<Boolean>))
+                                        {
+                                            if (string.IsNullOrEmpty(val.ToString())) val = "false";
+
+                                            if (int.TryParse(val.ToString(), out int iv))
+                                            {
+                                                if (iv == 0) val = "false";
+                                                else val = "true";
+                                            }
+
+                                            if (bool.TryParse(val.ToString(), out bool v))
+                                            {
+                                                property.SetValue(model, v);
+                                            }
+                                            else
+                                            {
+                                                property.SetValue(model, false);
+                                            }
+                                        }
+                                        else if (property.PropertyType == typeof(Byte) || property.PropertyType == typeof(Nullable<Byte>))
+                                        {
+                                            if (byte.TryParse(val.ToString(), out byte v))
+                                            {
+                                                property.SetValue(model, v);
+                                            }
+                                            else
+                                            {
+                                                property.SetValue(model, 0);
+                                            }
+                                        }
+                                        else if (property.PropertyType == typeof(String))
+                                        {
+                                            property.SetValue(model, val);
+                                        }
+                                    }
+                                }
+
+                                list.Add(model);
+                            }
+                            else
+                            {
+                                list.Add(null);
+                            }
                         }
                     }
                 }

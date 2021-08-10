@@ -36,7 +36,7 @@ namespace SAEA.Common.NameValue
     {
         List<NameValueItem> _list = new List<NameValueItem>();
 
-        public string this[string name]
+        public object this[string name]
         {
             get
             {
@@ -65,7 +65,7 @@ namespace SAEA.Common.NameValue
             return GetEnumerator1();
         }
 
-        public void Add(string name, string value)
+        public void Add(string name, object value)
         {
             var header = new NameValueItem() { Name = name, Value = value };
 
@@ -82,7 +82,7 @@ namespace SAEA.Common.NameValue
             return _list.Where(b => string.Compare(b.Name, name, true) == 0).FirstOrDefault();
         }
 
-        public bool TryGetValue(string name, out string value)
+        public bool TryGetValue(string name, out object value)
         {
             value = null;
 
@@ -125,7 +125,7 @@ namespace SAEA.Common.NameValue
             }
         }
 
-        public void Set(string name, string value)
+        public void Set(string name, object value)
         {
             var header = new NameValueItem() { Name = name, Value = value };
             Set(header);
@@ -133,7 +133,7 @@ namespace SAEA.Common.NameValue
 
         public void Set(NameValueItem header)
         {
-            var item = Get(header.Value);
+            var item = Get(header.Name);
             if (item != null)
             {
                 Remove(item);
@@ -157,7 +157,7 @@ namespace SAEA.Common.NameValue
                 return _list.Select(b => b.Name).ToArray();
             }
         }
-        public string[] Values
+        public object[] Values
         {
             get
             {

@@ -122,7 +122,30 @@ namespace SAEA.MVC
                     }
                     catch
                     {
-                        return new ContentResult("o_o，错误请求,Json:" + HttpContext.Current.Request.Json, System.Net.HttpStatusCode.BadRequest);
+                        try
+                        {
+                            var list = SerializeHelper.Deserialize<List<object>>(HttpContext.Current.Request.Json);
+
+                            if (list != null && list.Count > 0)
+                            {
+                                var ps = routing.Action.GetParameters();
+                                if (ps != null && ps.Length > 0)
+                                {
+                                    foreach (var item in ps)
+                                    {
+                                        if (item.ParameterType.Name == "List`1")
+                                        {
+                                            nameValues.Add(item.Name, SerializeHelper.Deserialize(SerializeHelper.Serialize(list), item.ParameterType));
+                                        }
+                                    }
+
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            return new ContentResult("o_o，错误请求,Json:" + HttpContext.Current.Request.Json, System.Net.HttpStatusCode.BadRequest);
+                        }
                     }
                 }
 
@@ -197,7 +220,7 @@ namespace SAEA.MVC
             {
                 var tdata = data as Task<ActionResult>;
 
-                if(Task.WaitAll(new Task[] { tdata }, HttpContext.Current.WebConfig.TimeOut))
+                if (Task.WaitAll(new Task[] { tdata }, HttpContext.Current.WebConfig.TimeOut))
                 {
                     result = tdata.Result;
                 }
@@ -205,7 +228,7 @@ namespace SAEA.MVC
                 {
                     throw new TimeoutException($"{action.Name}: The execution of this asynchronous method has timed out");
                 }
-                
+
             }
             else
             {

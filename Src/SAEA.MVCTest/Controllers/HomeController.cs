@@ -25,6 +25,7 @@ using SAEA.MVC;
 using SAEA.MVCTest.Attrubutes;
 using SAEA.MVCTest.Model;
 
+using System.Collections.Generic;
 using System.Threading;
 
 namespace SAEA.MVCTest.Controllers
@@ -32,7 +33,7 @@ namespace SAEA.MVCTest.Controllers
     /// <summary>
     /// 测试实例代码
     /// </summary>
-    
+
     public class HomeController : Controller
     {
         /// <summary>
@@ -176,6 +177,17 @@ namespace SAEA.MVCTest.Controllers
         public ActionResult Test()
         {
             return Content("httppost test");
+        }
+
+        /// <summary>
+        /// 测试集合
+        /// </summary>
+        /// <param name="list"></param>
+        /// <returns></returns>
+        [HttpPost]
+        public ActionResult UpdateUserList(List<UserInfo> list)
+        {
+            return Json(list);
         }
     }
 }

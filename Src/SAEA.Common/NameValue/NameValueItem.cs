@@ -21,9 +21,6 @@
 *描述：
 *
 *****************************************************************************/
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.Common.NameValue
 {
@@ -37,7 +34,7 @@ namespace SAEA.Common.NameValue
             get;set;
         }
 
-        public string Value
+        public object Value
         {
             get;set;
         }
