@@ -25,6 +25,7 @@ using SAEA.Common;
 using SAEA.RedisSocket;
 using SAEA.RedisSocket.Core;
 using SAEA.RedisSocket.Model;
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -65,20 +66,6 @@ namespace SAEA.RedisSocketTest
 
             var zr = redisClient.GetDataBase().ZScan("ArbitrationRecords");
 
-            
-
-            #region 测试
-            
-
-            var batch = redisClient.GetDataBase().CreatedBatch();
-            for (int i = 0; i < 100000; i++)
-            {
-                batch.ZAddAsync("yswenliG", i.ToString(), i);
-            }
-            _ = batch.Execute();
-
-            #endregion
-
             #region scan
 
             var sresult1 = redisClient.GetDataBase().Scan();
@@ -86,7 +73,7 @@ namespace SAEA.RedisSocketTest
 
             #endregion
 
-            //StringPerformanceTest(redisClient);
+            StringPerformanceTest(redisClient);
 
             //BatchTest(redisClient);
 
@@ -97,7 +84,7 @@ namespace SAEA.RedisSocketTest
 
             ConsoleHelper.ReadLine();
 
-            KeysTest(redisClient);
+            keysTest(redisClient);
 
             var db = redisClient.GetDataBase(0);
 
@@ -122,8 +109,10 @@ namespace SAEA.RedisSocketTest
             ConsoleHelper.ReadLine();
         }
 
-        static void KeysTest(RedisClient redisClient)
+        static void keysTest(RedisClient redisClient)
         {
+            ConsoleHelper.WriteLine("keys test");
+
             //var a = redisClient.Auth("yswenli");
 
             var info = redisClient.Info();
@@ -153,10 +142,14 @@ namespace SAEA.RedisSocketTest
 
             var isCluster = redisClient.IsCluster;
 
+            ConsoleHelper.WriteLine("keys test complete");
+
         }
 
         static void StringTest(RedisDataBase db)
         {
+            ConsoleHelper.WriteLine("string test");
+
             db.Set("yswenli", "good man");
 
             var val = db.Get("yswenli");
@@ -212,6 +205,8 @@ namespace SAEA.RedisSocketTest
             i3 = db.IncrementByFloat("inc3", -0.1F);
 
             var len = db.Len("saea");
+
+            ConsoleHelper.WriteLine("string test complete");
         }
 
         static void HashTest(RedisDataBase db)
@@ -423,16 +418,15 @@ namespace SAEA.RedisSocketTest
         {
             Console.WriteLine($"string操作{count}次开始");
 
+            var db = redisClient.GetDataBase();
+
             Stopwatch stopwatch = Stopwatch.StartNew();
 
             for (int i = 0; i < count; i++)
             {
-                redisClient.GetDataBase().Set(i.ToString(), i.ToString());
-                redisClient.GetDataBase().Get(i.ToString());
-            }
-            for (int i = 0; i < count; i++)
-            {
-                redisClient.GetDataBase().Del(i.ToString());
+                db.Set(i.ToString(), i.ToString());
+                db.Get(i.ToString());
+                db.Del(i.ToString());
             }
 
             Console.WriteLine($"string操作用时{TimeSpan.FromMilliseconds(stopwatch.ElapsedMilliseconds)},速度为{(count * 3 / stopwatch.Elapsed.TotalSeconds)}次/秒");

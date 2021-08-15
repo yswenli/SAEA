@@ -30,25 +30,25 @@
 *
 *****************************************************************************/
 using System;
-using System.Collections.Concurrent;
 using System.Net.Sockets;
-using System.Threading;
+
+using SAEA.Common.Caching;
 
 namespace SAEA.Sockets.Core
 {
-    class aSocketAsyncEventArgsPool
+    class SocketAsyncEventArgsPool
     {
-        ConcurrentQueue<SocketAsyncEventArgs> _argsPool;
+        BlockingQueue<SocketAsyncEventArgs> _argsPool;
 
         int _capacity = 1000 * 100;
 
         EventHandler<SocketAsyncEventArgs> _completed;
 
 
-        public aSocketAsyncEventArgsPool(int capacity = 1000 * 100)
+        public SocketAsyncEventArgsPool(int capacity = 1000 * 100)
         {
             _capacity = capacity;
-            _argsPool = new ConcurrentQueue<SocketAsyncEventArgs>();
+            _argsPool = new BlockingQueue<SocketAsyncEventArgs>();
         }
 
 
@@ -73,11 +73,7 @@ namespace SAEA.Sockets.Core
 
         public SocketAsyncEventArgs Dequeue()
         {
-            SocketAsyncEventArgs args;
-            while (!_argsPool.TryDequeue(out args))
-            {
-                Thread.Yield();
-            }
+            SocketAsyncEventArgs args = _argsPool.Dequeue();
             args.Completed += _completed;
             return args;
         }

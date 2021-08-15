@@ -358,10 +358,9 @@ namespace SAEA.RedisSocket.Core
         /// 接收来自RedisServer的命令
         /// </summary>
         /// <param name="command"></param>
-        public void Enqueue(Memory<byte> msg)
+        public void Enqueue(byte[] msg)
         {
             _redisStream.Write(msg);
-            //_dataExtraction.WriteAsync(msg).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -389,9 +388,12 @@ namespace SAEA.RedisSocket.Core
                 }
                 while (!ctoken.IsCancellationRequested);
 
-                return str;
+                if (ctoken.IsCancellationRequested)
+                {
+                    _redisStream.Clear();
+                }
 
-                //return _dataExtraction.ReadLineAsync().Result;
+                return str;
             }
             catch (Exception ex)
             {

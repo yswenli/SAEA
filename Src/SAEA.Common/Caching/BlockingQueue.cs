@@ -21,12 +21,19 @@ using System.Threading;
 
 namespace SAEA.Common.Caching
 {
+    /// <summary>
+    /// 阻塞试队列
+    /// </summary>
+    /// <typeparam name="TItem"></typeparam>
     public class BlockingQueue<TItem>
     {
         private readonly object _syncRoot = new object();
         private readonly LinkedList<TItem> _items = new LinkedList<TItem>();
         private readonly ManualResetEvent _gate = new ManualResetEvent(false);
 
+        /// <summary>
+        /// 长度
+        /// </summary>
         public int Count
         {
             get
@@ -38,6 +45,10 @@ namespace SAEA.Common.Caching
             }
         }
 
+        /// <summary>
+        /// 入队
+        /// </summary>
+        /// <param name="item"></param>
         public void Enqueue(TItem item)
         {
             if (item == null) throw new ArgumentNullException(nameof(item));
@@ -49,6 +60,10 @@ namespace SAEA.Common.Caching
             }
         }
 
+        /// <summary>
+        /// 出队
+        /// </summary>
+        /// <returns></returns>
         public TItem Dequeue()
         {
             while (true)
@@ -73,6 +88,10 @@ namespace SAEA.Common.Caching
             }
         }
 
+        /// <summary>
+        /// 查看
+        /// </summary>
+        /// <returns></returns>
         public TItem PeekAndWait()
         {
             while (true)
@@ -94,6 +113,10 @@ namespace SAEA.Common.Caching
             }
         }
 
+        /// <summary>
+        /// 移除首元素
+        /// </summary>
+        /// <param name="match"></param>
         public void RemoveFirst(Predicate<TItem> match)
         {
             if (match == null) throw new ArgumentNullException(nameof(match));
@@ -107,6 +130,10 @@ namespace SAEA.Common.Caching
             }
         }
 
+        /// <summary>
+        /// 移除首元素
+        /// </summary>
+        /// <returns></returns>
         public TItem RemoveFirst()
         {
             lock (_syncRoot)
@@ -118,6 +145,9 @@ namespace SAEA.Common.Caching
             }
         }
 
+        /// <summary>
+        /// 清理
+        /// </summary>
         public void Clear()
         {
             lock (_syncRoot)

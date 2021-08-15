@@ -76,7 +76,7 @@ namespace SAEA.MQTT.Internal
         }
 
         public void Clear()
-        {
+        {            
             Interlocked.Exchange(ref _queue, new ConcurrentQueue<TItem>());
         }
 

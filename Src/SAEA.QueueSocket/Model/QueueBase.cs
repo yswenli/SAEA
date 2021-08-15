@@ -23,7 +23,9 @@
 *****************************************************************************/
 
 using SAEA.Common;
+using SAEA.Common.Caching;
 using SAEA.Sockets.Interface;
+
 using System;
 using System.Collections.Concurrent;
 using System.Threading;
@@ -32,7 +34,7 @@ namespace SAEA.QueueSocket.Model
 {
     public class QueueBase : ISyncBase, IDisposable
     {
-        ConcurrentQueue<string> _queue;
+        BlockingQueue<string> _queue;
 
         public string Topic
         {
@@ -42,7 +44,7 @@ namespace SAEA.QueueSocket.Model
         long _length;
 
         public long Length { get => _length; set => _length = value; }
-       
+
 
         object _syncLocker = new object();
 
@@ -56,7 +58,7 @@ namespace SAEA.QueueSocket.Model
 
         public QueueBase(string topic)
         {
-            _queue = new ConcurrentQueue<string>();
+            _queue = new BlockingQueue<string>();
             this.Topic = topic;
             _length = 0;
         }
@@ -69,10 +71,10 @@ namespace SAEA.QueueSocket.Model
 
         public string Dequeue()
         {
-            if (_queue.TryDequeue(out string result))
-            {
-                Interlocked.Decrement(ref _length);
-            }
+            var result = _queue.Dequeue();
+
+            Interlocked.Decrement(ref _length);
+
             return result;
         }
 

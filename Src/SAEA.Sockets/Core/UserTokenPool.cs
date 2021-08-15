@@ -31,6 +31,7 @@
 *****************************************************************************/
 
 using SAEA.Common;
+using SAEA.Common.Caching;
 using SAEA.Common.Threading;
 using SAEA.Sockets.Interface;
 
@@ -50,7 +51,7 @@ namespace SAEA.Sockets.Core
 
         UserTokenFactory _userTokenFactory;
 
-        ConcurrentQueue<IUserToken> _concurrentQueue = new ConcurrentQueue<IUserToken>();
+        BlockingQueue<IUserToken> _concurrentQueue = new BlockingQueue<IUserToken>();
 
         /// <summary>
         /// UserTokenPool
@@ -89,11 +90,7 @@ namespace SAEA.Sockets.Core
         /// <returns></returns>
         public IUserToken Dequeue()
         {
-           if(_concurrentQueue.TryDequeue(out IUserToken token))
-            {
-                return token;
-            }
-            return null;
+            return _concurrentQueue.Dequeue();
         }
 
         /// <summary>

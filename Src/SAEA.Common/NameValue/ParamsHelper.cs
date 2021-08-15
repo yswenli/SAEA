@@ -184,7 +184,7 @@ namespace SAEA.Common.NameValue
                     }
                     else if (parma.ParameterType == typeof(Boolean) || parma.ParameterType == typeof(Nullable<bool>))
                     {
-                        if (string.IsNullOrEmpty(val.ToString())) val = "false";
+                        if (val == null || string.IsNullOrEmpty(val.ToString())) val = "false";
 
                         if (int.TryParse(val.ToString(), out int iv))
                         {
@@ -220,7 +220,7 @@ namespace SAEA.Common.NameValue
                     {
                         var modelType = parma.ParameterType;
 
-                        if (modelType.Name == val.GetType().Name)
+                        if (val != null && modelType.Name == val.GetType().Name)
                         {
                             list.Add(val);
                         }

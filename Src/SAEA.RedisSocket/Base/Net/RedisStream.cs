@@ -16,11 +16,13 @@
 *描    述：
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.Common.Caching;
 using SAEA.Common.Threading;
 
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -32,7 +34,7 @@ namespace SAEA.RedisSocket.Base.Net
     /// </summary>
     internal class RedisStream : IDisposable
     {
-        ConcurrentQueue<Memory<byte>> _queue = new ConcurrentQueue<Memory<byte>>();
+        BlockingQueue<byte[]> _queue = new BlockingQueue<byte[]>();
 
         List<byte> _bytes = new List<byte>();
 
@@ -47,45 +49,45 @@ namespace SAEA.RedisSocket.Base.Net
         {
             TaskHelper.LongRunning(() =>
             {
+                Stopwatch stopwatch = Stopwatch.StartNew();
+
                 while (!IsDisposed)
                 {
-                    if (!_queue.IsEmpty && _queue.TryDequeue(out Memory<byte> data))
-                    {
-                        _bytes.AddRange(data.ToArray());
+                    var data = _queue.Dequeue();
 
-                        do
+                    stopwatch.Restart();
+
+                    _bytes.AddRange(data);
+
+                    do
+                    {
+                        var index = _bytes.IndexOf(13);
+
+                        if (index == -1)
                         {
-                            var index = _bytes.IndexOf(13);
-
-                            if (index == -1)
-                            {
-                                break;
-                            }
-
-                            //双回车结束的情况
-                            if (_bytes.IndexOf(10, index) == index + 1)
-                            {
-                                index += 1;
-                            }
-                            else
-                            {
-                                break;
-                            }
-
-                            var count = index + 1;
-
-                            var str = Encoding.UTF8.GetString(_bytes.Take(count).ToArray());
-
-                            _stringQueue.Enqueue(str);
-
-                            _bytes.RemoveRange(0, count);
+                            break;
                         }
-                        while (!IsDisposed);
+
+                        //双回车结束的情况
+                        if (_bytes.IndexOf(10, index) == index + 1)
+                        {
+                            index += 1;
+                        }
+                        else
+                        {
+                            break;
+                        }
+
+                        var count = index + 1;
+
+                        var str = Encoding.UTF8.GetString(_bytes.Take(count).ToArray());
+
+                        _stringQueue.Enqueue(str);
+
+                        _bytes.RemoveRange(0, count);
                     }
-                    else
-                    {
-                        Thread.Sleep(1);
-                    }
+                    while (!IsDisposed);
+
                 }
             });
         }
@@ -94,7 +96,7 @@ namespace SAEA.RedisSocket.Base.Net
         /// 存入收到的内容
         /// </summary>
         /// <param name="memory"></param>
-        public void Write(Memory<byte> memory)
+        public void Write(byte[] memory)
         {
             _queue.Enqueue(memory);
         }
@@ -106,7 +108,6 @@ namespace SAEA.RedisSocket.Base.Net
         public string ReadLine()
         {
             _stringQueue.TryDequeue(out string result);
-
             return result;
         }
 
@@ -136,7 +137,7 @@ namespace SAEA.RedisSocket.Base.Net
 
         public void Clear()
         {
-            _queue.Clear();            
+            _queue.Clear();
             _stringQueue.Clear();
             _bytes.Clear();
         }

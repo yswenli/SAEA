@@ -21,13 +21,13 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Common;
-using SAEA.RedisSocket.Core;
-using SAEA.RedisSocket.Interface;
-using SAEA.RedisSocket.Model;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+
+using SAEA.RedisSocket.Core;
+using SAEA.RedisSocket.Interface;
+using SAEA.RedisSocket.Model;
 
 namespace SAEA.RedisSocket
 {

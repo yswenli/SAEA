@@ -38,7 +38,7 @@ namespace SAEA.RedisSocket.Base.Net
 
     internal class RClient : IocpClientSocket
     {
-        public event Action<Memory<byte>> OnMessage;
+        public event Action<byte[]> OnMessage;
 
         public event OnActionHandler OnActived;
 

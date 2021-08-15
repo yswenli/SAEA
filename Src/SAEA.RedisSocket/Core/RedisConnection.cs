@@ -126,7 +126,7 @@ namespace SAEA.RedisSocket.Core
         }
 
 
-        protected virtual void _cnn_OnMessage(Memory<byte> msg)
+        protected virtual void _cnn_OnMessage(byte[] msg)
         {
             RedisCoder.Enqueue(msg);
         }
@@ -273,14 +273,14 @@ namespace SAEA.RedisSocket.Core
         /// <returns></returns>
         public ResponseData<string> DoWithOne(RequestType type, string content)
         {
+            content.KeyCheck();
             ResponseData<string> result = new ResponseData<string>() { Type = ResponseType.Empty, Data = "未知的命令" };
             try
             {
                 lock (SyncRoot)
                 {
                     using (var cts = new CancellationTokenSource(_actionTimeout))
-                    {
-                        content.KeyCheck();
+                    {                        
                         RedisCoder.Request(type, content);
                         return RedisCoder.Decoder<string>(type, cts.Token);
                     }
@@ -297,7 +297,6 @@ namespace SAEA.RedisSocket.Core
                 result.Data = ex.Message;
             }
             return result;
-
         }
 
         /// <summary>
