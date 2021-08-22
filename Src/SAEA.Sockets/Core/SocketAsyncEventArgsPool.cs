@@ -73,7 +73,7 @@ namespace SAEA.Sockets.Core
 
         public SocketAsyncEventArgs Dequeue()
         {
-            SocketAsyncEventArgs args = _argsPool.Dequeue();
+            SocketAsyncEventArgs args = _argsPool.Dequeue(-1);
             args.Completed += _completed;
             return args;
         }

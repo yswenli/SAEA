@@ -63,8 +63,9 @@ namespace SAEA.Common.Caching
         /// <summary>
         /// 出队
         /// </summary>
+        /// <param name="maxTimeout"></param>
         /// <returns></returns>
-        public TItem Dequeue()
+        public TItem Dequeue(int maxTimeout = 3000)
         {
             while (true)
             {
@@ -84,7 +85,10 @@ namespace SAEA.Common.Caching
                     }
                 }
 
-                _gate.WaitOne();
+                if (!_gate.WaitOne(maxTimeout))
+                {
+                    return default(TItem);
+                }
             }
         }
 

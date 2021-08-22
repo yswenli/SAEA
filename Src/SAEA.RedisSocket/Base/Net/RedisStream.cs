@@ -15,17 +15,16 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
-using SAEA.Common;
-using SAEA.Common.Caching;
-using SAEA.Common.Threading;
-
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading;
+
+using SAEA.Common;
+using SAEA.Common.Caching;
+using SAEA.Common.Threading;
 
 namespace SAEA.RedisSocket.Base.Net
 {
@@ -49,13 +48,11 @@ namespace SAEA.RedisSocket.Base.Net
         {
             TaskHelper.LongRunning(() =>
             {
-                Stopwatch stopwatch = Stopwatch.StartNew();
-
                 while (!IsDisposed)
                 {
-                    var data = _queue.Dequeue();
+                    var data = _queue.Dequeue(5000);
 
-                    stopwatch.Restart();
+                    if (data == null) break;
 
                     _bytes.AddRange(data);
 

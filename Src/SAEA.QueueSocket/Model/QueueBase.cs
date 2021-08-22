@@ -71,7 +71,7 @@ namespace SAEA.QueueSocket.Model
 
         public string Dequeue()
         {
-            var result = _queue.Dequeue();
+            var result = _queue.Dequeue(-1);
 
             Interlocked.Decrement(ref _length);
 

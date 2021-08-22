@@ -34,7 +34,7 @@ namespace SAEA.WebSocket.Model
 {
     class WSUserToken : BaseUserToken, IUserToken
     {
-        protected const string CrLf = "\r\n";
+        protected const string Enter = "\r\n";
 
         public bool IsHandSharked
         {
@@ -112,21 +112,21 @@ namespace SAEA.WebSocket.Model
         public static byte[] RequestHandShark(string url, string serverIP, int serverPort, string subProtocol = SubProtocolType.Default, string origin = "")
         {
             var sb = new StringBuilder(64);
-            sb.AppendFormat("{0} {1} HTTP/{2}{3}", "GET", url, "1.1", CrLf);
-            sb.AppendFormat("{0}: {1}{2}", "Host", $"{serverIP}:{serverPort}", CrLf);
+            sb.AppendFormat("{0} {1} HTTP/{2}{3}", "GET", url, "1.1", Enter);
+            sb.AppendFormat("{0}: {1}{2}", "Host", $"{serverIP}:{serverPort}", Enter);
             sb.AppendLine("User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.61 Safari/537.36");
             if (!string.IsNullOrEmpty(origin))
             {
                 sb.AppendLine($"Origin: {origin}");
             }
-            sb.AppendFormat("{0}: {1}{2}", "Upgrade", "websocket", CrLf);
-            sb.AppendFormat("{0}: {1}{2}", "Connection", "Upgrade", CrLf);
-            sb.AppendFormat("{0}: {1}{2}", "Sec-WebSocket-Version", "13", CrLf);
+            sb.AppendFormat("{0}: {1}{2}", "Upgrade", "websocket", Enter);
+            sb.AppendFormat("{0}: {1}{2}", "Connection", "Upgrade", Enter);
+            sb.AppendFormat("{0}: {1}{2}", "Sec-WebSocket-Version", "13", Enter);
             if (!string.IsNullOrEmpty(subProtocol))
-                sb.AppendFormat("{0}: {1}{2}", "Sec-WebSocket-Protocol", subProtocol, CrLf);
-            sb.AppendFormat("{0}: {1}{2}", "Sec-WebSocket-Key", CreateBase64Key(), CrLf);
-            sb.AppendFormat("{0}: {1}{2}", "Sec-WebSocket-Extensions", "permessage-deflate; client_max_window_bits", CrLf);
-            sb.Append(CrLf);
+                sb.AppendFormat("{0}: {1}{2}", "Sec-WebSocket-Protocol", subProtocol, Enter);
+            sb.AppendFormat("{0}: {1}{2}", "Sec-WebSocket-Key", CreateBase64Key(), Enter);
+            sb.AppendFormat("{0}: {1}{2}", "Sec-WebSocket-Extensions", "permessage-deflate; client_max_window_bits", Enter);
+            sb.Append(Enter);
             return Encoding.UTF8.GetBytes(sb.ToString());
         }
 
