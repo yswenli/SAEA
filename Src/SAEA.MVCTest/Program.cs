@@ -13,7 +13,7 @@ namespace SAEA.MVCTest
 
             var mvcConfig = SAEAMvcApplicationConfigBuilder.Read();
 
-            mvcConfig.Count = 1000;
+            mvcConfig.Count = 20000;
 
             mvcConfig.Port = 28080;
 

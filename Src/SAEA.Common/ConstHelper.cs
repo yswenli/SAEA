@@ -198,7 +198,7 @@ namespace SAEA.Common
         /// <param name="headers"></param>
         public static void SetCrossDomainHeaders(string headers)
         {
-            if (!string.IsNullOrEmpty(headers) && headers.IndexOf(",") > -1)
+            if (!string.IsNullOrEmpty(headers) && headers.Contains(","))
             {
                 var arr = headers.Split(",", StringSplitOptions.RemoveEmptyEntries);
                 if (arr != null && arr.Any())

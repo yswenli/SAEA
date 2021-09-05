@@ -36,6 +36,11 @@ namespace SAEA.MVCTest.Controllers
 
     public class HomeController : Controller
     {
+        public ActionResult Ping()
+        {
+            return Content("PONG");
+        }
+
         /// <summary>
         /// 日志拦截
         /// 内容输出

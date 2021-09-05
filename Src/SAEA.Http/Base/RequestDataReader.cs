@@ -23,6 +23,7 @@
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.Http.Model;
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -120,7 +121,7 @@ namespace SAEA.Http.Base
             if (httpMessage.Method == ConstHelper.POST)
             {
                 //form-data
-                if (httpMessage.ContentType != null && httpMessage.ContentType.IndexOf(ConstHelper.FORMENCTYPE2) > -1)
+                if (httpMessage.ContentType != null && httpMessage.ContentType.AsSpan().Contains(ConstHelper.FORMENCTYPE2.AsSpan(), StringComparison.InvariantCultureIgnoreCase))
                 {
                     httpMessage.IsFormData = true;
 
