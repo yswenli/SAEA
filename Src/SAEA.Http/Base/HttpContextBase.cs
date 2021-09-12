@@ -24,6 +24,7 @@
 using SAEA.Common;
 using SAEA.Http.Model;
 using SAEA.Sockets.Interface;
+
 using System;
 using System.Net;
 
@@ -74,6 +75,8 @@ namespace SAEA.Http.Base
 
         public WebConfig WebConfig { get; set; }
 
+        public bool IsStaticsCached { get; set; }
+
         /// <summary>
         /// 获取当前上下文IHttpContext
         /// </summary>
@@ -85,8 +88,11 @@ namespace SAEA.Http.Base
             }
         }
 
-
-        public HttpContextBase(IWebHost webHost, HttpMessage httpMessage)
+        /// <summary>
+        /// 基础的http上下文类
+        /// </summary>
+        /// <param name="webHost"></param>
+        public HttpContextBase(IWebHost webHost)
         {
             _webHost = webHost;
 
@@ -96,8 +102,6 @@ namespace SAEA.Http.Base
 
             this.Response = new HttpResponse();
 
-            this.Request.Init(httpMessage);
-
             this.Server = _webHost.HttpUtility;
 
             IsStaticsCached = _webHost.WebConfig.IsStaticsCached;
@@ -106,19 +110,23 @@ namespace SAEA.Http.Base
         }
 
         /// <summary>
-        /// 初始化Session
+        /// 处理业务逻辑
         /// </summary>
-        public void InitSession(IUserToken userToken)
+        /// <param name="userToken"></param>
+        /// <param name="httpMessage"></param>
+        public virtual void HttpHandle(IUserToken userToken, HttpMessage httpMessage)
         {
+            Request.Init(httpMessage);
+
             string sessionID;
 
-            if (!this.Request.Cookies.ContainsKey(ConstHelper.SESSIONID))
+            if (!Request.Cookies.ContainsKey(ConstHelper.SESSIONID))
             {
                 sessionID = HttpSessionManager.GeneratID();
             }
             else
             {
-                sessionID = this.Request.Cookies[ConstHelper.SESSIONID].Value;
+                sessionID = Request.Cookies[ConstHelper.SESSIONID].Value;
             }
 
             this.Session = HttpSessionManager.GetIfNotExistsSet(sessionID);
@@ -127,7 +135,7 @@ namespace SAEA.Http.Base
 
             if (this.Request.Headers.ContainsKey("Host"))
             {
-                domain = this.Request.Headers["Host"];
+                domain = Request.Headers["Host"];
 
                 if (domain.IndexOf("www.", StringComparison.InvariantCultureIgnoreCase) == 0)
                 {
@@ -137,29 +145,29 @@ namespace SAEA.Http.Base
                 HttpCookie.DefaultDomain = domain;
             }
 
-            if(userToken!=null && userToken.Socket!=null && userToken.Socket.Connected)
+            if (userToken != null && userToken.Socket != null && userToken.Socket.Connected)
             {
-                this.Request.Headers["REMOTE_ADDR"] = ((IPEndPoint)userToken.Socket.RemoteEndPoint).Address.ToString();
+                Request.Headers["REMOTE_ADDR"] = ((IPEndPoint)userToken.Socket.RemoteEndPoint).Address.ToString();
 
-                if (this.Request.Headers.ContainsKey("HTTP_X_FORWARDED_FOR"))
+                if (Request.Headers.ContainsKey("HTTP_X_FORWARDED_FOR"))
                 {
-                    this.Request.Headers["HTTP_X_FORWARDED_FOR"] += "," + this.Request.Headers["REMOTE_ADDR"];
+                    Request.Headers["HTTP_X_FORWARDED_FOR"] += "," + this.Request.Headers["REMOTE_ADDR"];
                 }
 
-                this.Response.Init(_webHost, userToken, this.Request.Protocal, _webHost.WebConfig.IsZiped, _webHost.WebConfig.IsStaticsCached);
-                this.Response.Cookies[ConstHelper.SESSIONID] = new HttpCookie(ConstHelper.SESSIONID, sessionID);
-            }           
+                Response.Init(_webHost, userToken, Request.Protocal, _webHost.WebConfig.IsZiped, _webHost.WebConfig.IsStaticsCached);
+                Response.Cookies[ConstHelper.SESSIONID] = new HttpCookie(ConstHelper.SESSIONID, sessionID);
+            }
         }
-
-        public bool IsStaticsCached { get; set; }
-
-        /// <summary>
-        /// 处理业务逻辑
-        /// </summary>
-        /// <param name="userToken"></param>
-        public abstract void HttpHandle(IUserToken userToken);
 
         public abstract IHttpResult GetActionResult();
 
+        /// <summary>
+        /// Dispose
+        /// </summary>
+        public void Dispose()
+        {
+            Request.Dispose();
+            Response.Dispose();
+        }
     }
 }

@@ -15,10 +15,9 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
-using SAEA.MVC;
 using System;
-using System.Collections.Generic;
-using System.Text;
+
+using SAEA.MVC;
 
 namespace SAEA.MVCTest.Controllers
 {

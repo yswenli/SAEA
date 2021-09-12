@@ -23,6 +23,7 @@
 *****************************************************************************/
 
 using SAEA.Common;
+using SAEA.Common.Caching;
 using SAEA.Http.Base;
 using SAEA.Http.Base.Net;
 using SAEA.Http.Model;
@@ -123,7 +124,7 @@ namespace SAEA.Http
         private void _httpServer_OnError(Exception ex)
         {
             var httpContext = HttpContext.Current;
-            if (httpContext != null && OnException!=null)
+            if (httpContext != null && OnException != null)
             {
                 OnException.Invoke(HttpContext.Current, ex);
             }
@@ -131,7 +132,7 @@ namespace SAEA.Http
             {
                 LogHelper.Error("httpServer_OnError", ex);
             }
-           
+
         }
 
 
@@ -173,23 +174,15 @@ namespace SAEA.Http
         /// <param name="httpMessage"></param>
         private void _serverSocket_OnRequested(IUserToken userToken, HttpMessage httpMessage)
         {
-            try
-            {
-                var httpContext = (IHttpContext)Activator.CreateInstance(_httpContentType, this, httpMessage);
+            using IHttpContext httpContext = (IHttpContext)Activator.CreateInstance(_httpContentType, this);
 
-                if (OnException != null)
-                    httpContext.OnException += HttpContext_OnException;
+            if (OnException != null)
+                httpContext.OnException += HttpContext_OnException;
 
-                if (OnRequestDelegate != null)
-                    httpContext.OnRequestDelegate += HttpContext_OnRequestDelegate;
+            if (OnRequestDelegate != null)
+                httpContext.OnRequestDelegate += HttpContext_OnRequestDelegate;
 
-                httpContext.HttpHandle(userToken);
-
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Error("http处理过程中发生意外异常", ex, httpMessage);
-            }
+            httpContext.HttpHandle(userToken, httpMessage);
         }
 
         private void HttpContext_OnRequestDelegate(IHttpContext context)

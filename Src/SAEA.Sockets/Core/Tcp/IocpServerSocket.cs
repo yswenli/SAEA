@@ -105,7 +105,7 @@ namespace SAEA.Sockets.Core.Tcp
         {
             if (_listener == null)
             {
-                IPEndPoint ipEndPoint = null;
+                IPEndPoint ipEndPoint;
 
                 if (SocketOption.UseIPV6)
                 {
@@ -216,7 +216,7 @@ namespace SAEA.Sockets.Core.Tcp
             finally
             {
                 ProcessAccept(acceptArgs);
-            }            
+            }
         }
 
         private void IO_Completed(object sender, SocketAsyncEventArgs e)

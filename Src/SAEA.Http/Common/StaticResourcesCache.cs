@@ -22,6 +22,8 @@
 *
 *****************************************************************************/
 using SAEA.Common.IO;
+
+using System;
 using System.Collections.Concurrent;
 using System.IO;
 
@@ -32,7 +34,7 @@ namespace SAEA.Http.Common
     /// </summary>
     public static class StaticResourcesCache
     {
-        static ConcurrentDictionary<string, byte[]> _cache = new ConcurrentDictionary<string, byte[]>();       
+        static ConcurrentDictionary<string, byte[]> _cache = new ConcurrentDictionary<string, byte[]>();
 
         /// <summary>
         /// 增加或获取资源
@@ -42,7 +44,12 @@ namespace SAEA.Http.Common
         /// <returns></returns>
         public static byte[] GetOrAdd(string key, string fileName)
         {
-            return _cache.GetOrAdd(key, FileHelper.Read(fileName));
+            var bytes = _cache.GetOrAdd(key, FileHelper.Read(fileName));
+            if (bytes != null && bytes.Length > 0)
+            {
+                return bytes.AsSpan().ToArray();
+            }
+            return null;
         }
 
         /// <summary>
@@ -65,7 +72,7 @@ namespace SAEA.Http.Common
             var fileInfo = new FileInfo(fileName);
 
             //超过4M认为是大文件
-            if (fileInfo.Length> 4194304)
+            if (fileInfo.Length > 4194304)
             {
                 return true;
             }

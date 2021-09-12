@@ -24,7 +24,9 @@
 using SAEA.Common;
 using SAEA.Sockets;
 using SAEA.Sockets.Interface;
+
 using System;
+using System.Threading.Tasks;
 
 namespace SAEA.Http.Base.Net
 {
@@ -61,10 +63,10 @@ namespace SAEA.Http.Base.Net
         {
             var ut = (IUserToken)userToken;
 
+            HUnpacker unpacker = (HUnpacker)ut.Unpacker;
+
             try
             {
-                HUnpacker unpacker = (HUnpacker)ut.Unpacker;
-
                 unpacker.GetRequest(ut.ID, data, (result) =>
                 {
                     OnRequested?.Invoke(ut, result);
@@ -75,6 +77,10 @@ namespace SAEA.Http.Base.Net
                 LogHelper.Error("Http解码出现异常", ex, Convert.ToBase64String(data));
                 Disconnecte(ut);
             }
+            finally
+            {
+                unpacker.Clear();
+            }
         }
 
         private void _serverSokcet_OnError(string ID, Exception ex)
@@ -84,7 +90,7 @@ namespace SAEA.Http.Base.Net
 
         public void Send(IUserToken userToken, byte[] data)
         {
-            _serverSokcet.Send(userToken.ID, data);
+            _serverSokcet.SendAsync(userToken.ID, data);
         }
 
         public void Disconnecte(IUserToken userToken)

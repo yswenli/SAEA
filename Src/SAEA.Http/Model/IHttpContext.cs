@@ -21,11 +21,14 @@
 *描述：
 *
 *****************************************************************************/
+using System;
+
+using SAEA.Http.Base;
 using SAEA.Sockets.Interface;
 
 namespace SAEA.Http.Model
 {
-    public interface IHttpContext
+    public interface IHttpContext : IDisposable
     {
         bool IsStaticsCached { get; set; }
         HttpRequest Request { get; }
@@ -44,7 +47,7 @@ namespace SAEA.Http.Model
         /// </summary>
         event RequestDelegate OnRequestDelegate;
 
-        void HttpHandle(IUserToken userToken);
+        void HttpHandle(IUserToken userToken, HttpMessage httpMessage);
 
         IHttpResult GetActionResult();
     }

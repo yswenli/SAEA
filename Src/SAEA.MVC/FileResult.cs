@@ -21,14 +21,14 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Common;
+using System.IO;
+using System.Net;
+using System.Text;
+
 using SAEA.Common.IO;
 using SAEA.Http.Base;
 using SAEA.Http.Common;
 using SAEA.Http.Model;
-using System.IO;
-using System.Net;
-using System.Text;
 
 namespace SAEA.MVC
 {
@@ -61,10 +61,10 @@ namespace SAEA.MVC
             var data = new byte[len];
             stream.Position = 0;
             stream.Read(data, 0, len);
-            this.Content = data;
-            this.ContentEncoding = Encoding.UTF8;
-            this.ContentType = contentType;
-            this.Status = status;
+            Content = data;
+            ContentEncoding = Encoding.UTF8;
+            ContentType = contentType;
+            Status = status;
             stream.Close();
         }
 

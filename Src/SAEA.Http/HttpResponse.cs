@@ -59,7 +59,7 @@ namespace SAEA.Http
             Protocal = protocal;
             _isZiped = isZiped;
             _staticsCached = staticsCached;
-            Headers["Connection"] = "close";
+            //Headers["Connection"] = "close";
         }
 
         internal HttpResponse SetContent(byte[] content)
@@ -296,7 +296,6 @@ namespace SAEA.Http
         public void SendEnd()
         {
             WebHost.Disconnect(UserToken);
-            this.Body = null;
         }
 
         #endregion

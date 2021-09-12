@@ -59,17 +59,24 @@ namespace SAEA.Http.Base.Net
                 {
                     httpMessage.ID = id;
 
-                    //post需要处理body
-                    if (httpMessage.Method == ConstHelper.POST)
-                    {
-                        var contentLen = httpMessage.ContentLength;
-                        var positon = httpMessage.Position;
-                        _totlalLen = contentLen + positon;
+                    var contentLen = httpMessage.ContentLength;
 
+                    var positon = httpMessage.Position;
+
+                    _totlalLen = contentLen + positon;
+
+                    //post需要处理body
+                    if (httpMessage.Method == ConstHelper.GET)
+                    {
+                        _cache.RemoveRange(0, _totlalLen);
+                        _totlalLen = -1;
+                        onUnpackage.Invoke(httpMessage);
+                    }
+                    else
+                    {
                         if (buffer.Length >= _totlalLen)
                         {
                             RequestDataReader.AnalysisBody(buffer, httpMessage);
-                            Array.Clear(buffer, 0, buffer.Length);
                             _cache.RemoveRange(0, _totlalLen);
                             _totlalLen = -1;
                             onUnpackage.Invoke(httpMessage);
@@ -79,13 +86,6 @@ namespace SAEA.Http.Base.Net
                             return;
                         }
                     }
-                    else
-                    {
-                        Array.Clear(buffer, 0, buffer.Length);
-                        _cache.RemoveRange(0, buffer.Length);
-                        _totlalLen = -1;
-                        onUnpackage.Invoke(httpMessage);
-                    }
                 }
             }
             else if (_totlalLen == buffer.Length)
@@ -94,9 +94,8 @@ namespace SAEA.Http.Base.Net
                 {
                     httpMessage1.ID = id;
                     RequestDataReader.AnalysisBody(buffer, httpMessage1);
-                    _totlalLen = -1;                    
-                    Array.Clear(buffer, 0, buffer.Length);
-                    _cache.Clear();
+                    _cache.RemoveRange(0, _totlalLen);
+                    _totlalLen = -1;
                     onUnpackage.Invoke(httpMessage1);
                 }
                 else

@@ -30,15 +30,11 @@
 *
 *****************************************************************************/
 
-using SAEA.Common;
-using SAEA.Common.Caching;
-using SAEA.Common.Threading;
-using SAEA.Sockets.Interface;
-
 using System;
-using System.Collections.Concurrent;
 using System.Net.Sockets;
-using System.Threading;
+
+using SAEA.Common.Caching;
+using SAEA.Sockets.Interface;
 
 namespace SAEA.Sockets.Core
 {

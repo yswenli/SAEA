@@ -28,6 +28,7 @@ using SAEA.Http.Base;
 using SAEA.Http.Common;
 using SAEA.Http.Model;
 using SAEA.Sockets.Interface;
+
 using System;
 using System.Linq;
 
@@ -54,8 +55,7 @@ namespace SAEA.MVC
         /// mvc HttpContext
         /// </summary>
         /// <param name="webHost"></param>
-        /// <param name="httpMessage"></param>
-        public HttpContext(IWebHost webHost, HttpMessage httpMessage) : base(webHost, httpMessage)
+        public HttpContext(IWebHost webHost) : base(webHost)
         {
             _routeTable = _webHost.RouteParam as RouteTable;
         }
@@ -64,14 +64,15 @@ namespace SAEA.MVC
         /// 处理业务逻辑
         /// </summary>
         /// <param name="userToken"></param>
-        public override void HttpHandle(IUserToken userToken)
+        /// <param name="httpMessage"></param>
+        public override void HttpHandle(IUserToken userToken, HttpMessage httpMessage)
         {
+            base.HttpHandle(userToken, httpMessage);
+
             IHttpResult result = null;
 
             try
             {
-                this.InitSession(userToken);
-
                 switch (this.Request.Method)
                 {
                     case ConstHelper.GET:

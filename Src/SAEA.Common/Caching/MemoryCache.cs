@@ -41,6 +41,8 @@ namespace SAEA.Common.Caching
         /// </summary>
         public event Action<MemoryCache<T>, bool, T> OnChanged;
 
+        object _locker = new object();
+
         /// <summary>
         /// 自定义过期缓存
         /// </summary>
@@ -105,13 +107,20 @@ namespace SAEA.Common.Caching
         {
             _dic[key] = new MemoryCacheItem<T>() { Key = key, Value = value, Expired = DateTimeHelper.Now.AddSeconds(timeOut.TotalSeconds) };
             OnChanged?.Invoke(this, true, value);
-            //_dic.AddOrUpdate(key, (k) =>
-            //{
-            //    OnChanged?.Invoke(this, true, value);
-            //    return new MemoryCacheItem<T>() { Key = key, Value = value, Expired = DateTimeHelper.Now.AddSeconds(timeOut.TotalSeconds) };
-            //}, (k, v) => { return mc; });
-
         }
+
+        /// <summary>
+        /// Set
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="addFunc"></param>
+        /// <param name="timeOut"></param>
+        public void Set(string key, Func<string,T> addFunc, TimeSpan timeOut)
+        {
+            var result = addFunc.Invoke(key);
+            Set(key, result, timeOut);
+        }
+
         /// <summary>
         /// Get
         /// </summary>
@@ -172,6 +181,33 @@ namespace SAEA.Common.Caching
                 }
             }
             return default(T);
+        }
+
+
+        public T GetOrAdd(string key, Func<string, T> addFunc, TimeSpan timeOut)
+        {
+            var mt = _dic.GetOrAdd(key, (k) =>
+            {
+                return new MemoryCacheItem<T>()
+                {
+                    Key = k,
+                    Expired = DateTimeHelper.Now.AddSeconds(timeOut.TotalSeconds),
+                    Value = addFunc.Invoke(k)
+                };
+             });
+            lock (_locker)
+            {
+                if (mt.Expired > DateTimeHelper.Now)
+                {
+                    return mt.Value;
+                }
+                else
+                {
+                    var result = addFunc.Invoke(key);
+                    Set(key, result, timeOut);
+                    return result;
+                }
+            }
         }
 
         /// <summary>

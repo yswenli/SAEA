@@ -26,6 +26,7 @@ using SAEA.Http.Base;
 using SAEA.Http.Common;
 using SAEA.Http.Model;
 using SAEA.Sockets.Interface;
+
 using System;
 
 namespace SAEA.Http
@@ -45,8 +46,11 @@ namespace SAEA.Http
         /// </summary>
         public override event RequestDelegate OnRequestDelegate;
 
-
-        public HttpContext(IWebHost webHost, HttpMessage httpMessage) : base(webHost, httpMessage)
+        /// <summary>
+        /// SAEA.Http http上下文
+        /// </summary>
+        /// <param name="webHost"></param>
+        public HttpContext(IWebHost webHost) : base(webHost)
         {
 
         }
@@ -55,13 +59,15 @@ namespace SAEA.Http
         /// 处理业务逻辑
         /// </summary>
         /// <param name="userToken"></param>
-        public override void HttpHandle(IUserToken userToken)
+        /// <param name="httpMessage"></param>
+        public override void HttpHandle(IUserToken userToken, HttpMessage httpMessage)
         {
+            base.HttpHandle(userToken, httpMessage);
+
             IHttpResult result = null;
 
             try
             {
-                this.InitSession(userToken);
 
                 switch (Request.Method)
                 {

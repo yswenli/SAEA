@@ -33,7 +33,6 @@
 using System;
 using System.Net;
 using System.Net.Sockets;
-using System.Threading;
 
 using SAEA.Common;
 using SAEA.Common.Caching;
@@ -52,8 +51,6 @@ namespace SAEA.Sockets.Core
         MemoryCache<IUserToken> _sessionCache;
 
         TimeSpan _freeTime;
-
-        Semaphore _semaphore;
 
         object _lockObj = new object();
 
@@ -79,8 +76,6 @@ namespace SAEA.Sockets.Core
             _userTokenPool = new UserTokenPool(context, count, bufferSize, completed);
 
             _sessionCache.OnChanged += _sessionCache_OnChanged;
-
-            _semaphore = new Semaphore(count, count);
         }
 
 
@@ -100,7 +95,6 @@ namespace SAEA.Sockets.Core
         /// <returns></returns>
         public IUserToken BindUserToken(Socket socket)
         {
-            _semaphore.WaitOne();
             IUserToken userToken = _userTokenPool.Dequeue();
             if (userToken == null) return null;
             userToken.Socket = socket;
@@ -119,7 +113,6 @@ namespace SAEA.Sockets.Core
         /// <returns></returns>
         public IUserToken BeginBindUserToken(Socket socket)
         {
-            _semaphore.WaitOne();
             IUserToken userToken = _userTokenPool.Dequeue();
             if (userToken == null) return null;
             userToken.ReadArgs.RemoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
@@ -173,7 +166,6 @@ namespace SAEA.Sockets.Core
                     {
                         _sessionCache.DelWithoutEvent(userToken.ID);
                         _userTokenPool.Enqueue(userToken);
-                        _semaphore.Release();
                         return true;
                     }
                 }
