@@ -15,11 +15,12 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
-using SAEA.Sockets.Base;
-using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+
+using SAEA.Sockets.Base;
+using SAEA.Sockets.Interface;
 
 namespace SAEA.Sockets.TcpTest
 {

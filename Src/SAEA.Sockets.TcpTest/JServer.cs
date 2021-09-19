@@ -15,15 +15,11 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
-using JT808.Protocol;
-using JT808.Protocol.MessageBody;
-using SAEA.Sockets.Handler;
-using SAEA.Sockets.Interface;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
+using JT808.Protocol;
+
+using SAEA.Sockets.Interface;
 
 namespace SAEA.Sockets.TcpTest
 {

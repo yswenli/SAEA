@@ -15,12 +15,11 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
+using System;
+
 using SAEA.Sockets.Base;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.Sockets.UdpTest
 {

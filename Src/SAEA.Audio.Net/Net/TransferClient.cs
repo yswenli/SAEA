@@ -15,17 +15,21 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
+using System;
+using System.Net;
+using System.Text;
+
 using SAEA.Audio.Model;
 using SAEA.Common.Serialization;
 using SAEA.Sockets;
 using SAEA.Sockets.Base;
 using SAEA.Sockets.Model;
-using System;
-using System.Net;
-using System.Text;
 
 namespace SAEA.Audio.Net
 {
+    /// <summary>
+    /// 语音传输类
+    /// </summary>
     public class TransferClient
     {
         IClientSocket _udpClient;
@@ -59,6 +63,10 @@ namespace SAEA.Audio.Net
         /// </summary>
         public Action<JoinInfo> OnJoin;
 
+        /// <summary>
+        /// 语音传输类
+        /// </summary>
+        /// <param name="endPoint"></param>
         public TransferClient(IPEndPoint endPoint)
         {
             var bContext = new BaseContext();
@@ -114,6 +122,9 @@ namespace SAEA.Audio.Net
             }, null, null);
         }
 
+        /// <summary>
+        /// 尝试建立udp
+        /// </summary>
         public void Connect()
         {            
             _udpClient.Connect();
@@ -213,7 +224,9 @@ namespace SAEA.Audio.Net
             BaseSend(ProtocalType.Quit, null);
         }
 
-
+        /// <summary>
+        /// Disconnect
+        /// </summary>
         public void Disconnect()
         {
             _udpClient.Disconnect();

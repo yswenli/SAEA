@@ -15,8 +15,9 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
-using SAEA.Audio.Base.NAudio.Wave;
 using System;
+
+using SAEA.Audio.Base.NAudio.Wave;
 
 namespace SAEA.Audio.Core
 {
@@ -25,10 +26,12 @@ namespace SAEA.Audio.Core
     /// </summary>
     public class AudioCapture : IDisposable
     {
-        private readonly IWavePlayer _waveOut;
-        private readonly BufferedWaveProvider _waveProvider;
+        
         private readonly INetworkChatCodec _speexCodec;
+
         private readonly WaveIn _waveIn;
+
+        private readonly BufferedWaveProvider _waveProvider;
 
         /// <summary>
         /// 语音数据
@@ -58,9 +61,6 @@ namespace SAEA.Audio.Core
 
             _waveProvider = new BufferedWaveProvider(_speexCodec.RecordFormat);
 
-            _waveOut = new WaveOut();
-            _waveOut.Init(_waveProvider);
-
             _waveIn = new WaveIn();
             _waveIn.BufferMilliseconds = bufferTime;
             _waveIn.DeviceNumber = 0;
@@ -72,14 +72,7 @@ namespace SAEA.Audio.Core
         {
             OnAudioCaptured?.Invoke(this, _speexCodec.Encode(e.Buffer, 0, e.BytesRecorded));
         }
-
-        /// <summary>
-        /// 打开播放设备
-        /// </summary>
-        public void Play()
-        {
-            _waveOut.Play();
-        }
+       
 
         /// <summary>
         /// 解析收到的数据
@@ -89,20 +82,12 @@ namespace SAEA.Audio.Core
         {
             byte[] decoded = _speexCodec.Decode(enData, 0, enData.Length);
             _waveProvider.AddSamples(decoded, 0, decoded.Length);
-        }
-
-        /// <summary>
-        /// 暂停播放设备
-        /// </summary>
-        public void Pause()
-        {
-            _waveOut.Pause();
-        }
+        }       
 
         /// <summary>
         /// 开始捕获语音
         /// </summary>
-        public void StartCaputure()
+        public void Start()
         {
             _waveIn.StartRecording();
         }
@@ -110,7 +95,7 @@ namespace SAEA.Audio.Core
         /// <summary>
         /// 暂停捕获语音
         /// </summary>
-        public void StopCaputure()
+        public void Stop()
         {
             _waveIn.StopRecording();
         }
@@ -120,11 +105,8 @@ namespace SAEA.Audio.Core
         /// </summary>
         public void Dispose()
         {
-            StopCaputure();
+            _waveIn.StopRecording();
             _waveIn.Dispose();
-
-            Pause();
-            _waveOut.Dispose();
         }
     }
 }

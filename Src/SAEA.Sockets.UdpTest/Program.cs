@@ -1,8 +1,10 @@
-﻿using SAEA.Sockets.Base;
+﻿using System;
+using System.Text;
+using System.Threading;
+
+using SAEA.Sockets.Base;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
-using System;
-using System.Text;
 
 namespace SAEA.Sockets.UdpTest
 {
@@ -27,10 +29,13 @@ namespace SAEA.Sockets.UdpTest
             client.Connect();
 
             //send msg
-            for (int i = 0; i < 10; i++)
+            for (int i = 1; i <= 10; i++)
             {
                 client.SendAsync(BaseSocketProtocal.Parse(Encoding.UTF8.GetBytes($"hello udpserver {i}"), SocketProtocalType.ChatMessage));
+                Thread.Sleep(1000);
             }
+
+            client.Disconnect();
 
             Console.ReadLine();
         }        
@@ -40,7 +45,7 @@ namespace SAEA.Sockets.UdpTest
             lock (_locker)
             {
                 Console.ForegroundColor = ConsoleColor.DarkGreen;
-                Console.WriteLine($"udp服务器收到消息：{Encoding.UTF8.GetString(arg3.Content)}");
+                Console.WriteLine($"udp server received a message：{Encoding.UTF8.GetString(arg3.Content)}");
             }
 
             var msg2 = BaseSocketProtocal.Parse(Encoding.UTF8.GetBytes($"udpserver reply:{Encoding.UTF8.GetString(arg3.Content)}"), SocketProtocalType.ChatMessage);
@@ -53,7 +58,7 @@ namespace SAEA.Sockets.UdpTest
             lock (_locker)
             {
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"udp客户端收到消息：{Encoding.UTF8.GetString(arg2.Content)}");
+                Console.WriteLine($"udp client received a message：{Encoding.UTF8.GetString(arg2.Content)}");
             }
         }
     }

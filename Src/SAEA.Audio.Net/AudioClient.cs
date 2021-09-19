@@ -15,31 +15,44 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
-using SAEA.Audio.Core;
-using SAEA.Audio.Net;
 using System;
 using System.Net;
 
+using SAEA.Audio.Core;
+using SAEA.Audio.Net;
+
 namespace SAEA.Audio
 {
+    /// <summary>
+    /// 语音客户端
+    /// </summary>
     public class AudioClient : IDisposable
     {
-        TransferClient _audioClient;
+        TransferClient _transferClient;
 
         AudioCapture _audioCapture;
 
+        AudioPlayer _audioPlayer;
+
+        /// <summary>
+        /// 语音客户端
+        /// </summary>
+        /// <param name="endPoint"></param>
+        /// <param name="quality"></param>
         public AudioClient(IPEndPoint endPoint, int quality = 2)
         {
-            _audioClient = new TransferClient(endPoint);
-            _audioClient.OnReceive += _audioClient_OnReceive;
+            _transferClient = new TransferClient(endPoint);
+            _transferClient.OnReceive += _audioClient_OnReceive;
 
             _audioCapture = new AudioCapture(quality, 50);
             _audioCapture.OnAudioCaptured += _audioCapture_OnAudioCaptured;
+
+            _audioPlayer = new AudioPlayer(quality, 50);
         }
-       
+
 
         /// <summary>
-        /// 初始化
+        /// 语音客户端
         /// </summary>
         /// <param name="ip"></param>
         /// <param name="port"></param>
@@ -55,7 +68,7 @@ namespace SAEA.Audio
         /// <param name="id"></param>
         public void Invite(string id)
         {
-            _audioClient.Invite(id);
+            _transferClient.Invite(id);
         }
 
         /// <summary>
@@ -63,7 +76,7 @@ namespace SAEA.Audio
         /// </summary>
         public void Agree()
         {
-            _audioClient.Agree();
+            _transferClient.Agree();
         }
 
         /// <summary>
@@ -71,7 +84,7 @@ namespace SAEA.Audio
         /// </summary>
         public void Disagree()
         {
-            _audioClient.Disagree();
+            _transferClient.Disagree();
         }
 
         /// <summary>
@@ -80,7 +93,7 @@ namespace SAEA.Audio
         /// <param name="channelID"></param>
         public void Join(string channelID)
         {
-            _audioClient.Join(channelID);
+            _transferClient.Join(channelID);
         }
 
         /// <summary>
@@ -88,7 +101,7 @@ namespace SAEA.Audio
         /// </summary>
         public void Quit()
         {
-            _audioClient.Quit();
+            _transferClient.Quit();
         }
 
         /// <summary>
@@ -96,11 +109,11 @@ namespace SAEA.Audio
         /// </summary>
         public void Start()
         {
-            _audioClient.Connect();
+            _transferClient.Connect();
 
-            _audioCapture.Play();
+            _audioPlayer.Play();
 
-            _audioCapture.StartCaputure();
+            _audioCapture.Start();
         }
 
         private void _audioClient_OnReceive(byte[] data)
@@ -111,7 +124,7 @@ namespace SAEA.Audio
 
         private void _audioCapture_OnAudioCaptured(object sender, byte[] data)
         {
-            _audioClient.SendData(data);
+            _transferClient.SendData(data);
         }
 
         /// <summary>
@@ -119,9 +132,9 @@ namespace SAEA.Audio
         /// </summary>
         public void Stop()
         {
-            _audioCapture.StopCaputure();
-            _audioCapture.Pause();
-            _audioClient.Disconnect();
+            _audioPlayer.Stop();
+            _audioCapture.Stop();
+            _transferClient.Disconnect();
         }
 
         /// <summary>
@@ -129,7 +142,7 @@ namespace SAEA.Audio
         /// </summary>
         public void Dispose()
         {
-            Stop();
+            _audioPlayer.Dispose();
             _audioCapture.Dispose();
         }
     }

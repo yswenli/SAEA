@@ -22,10 +22,6 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
-using SAEA.Common;
-using SAEA.Sockets.Handler;
-using SAEA.Sockets.Interface;
-using SAEA.Sockets.Model;
 using System;
 using System.IO;
 using System.Linq;
@@ -34,6 +30,10 @@ using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
+
+using SAEA.Common;
+using SAEA.Sockets.Handler;
+using SAEA.Sockets.Interface;
 
 namespace SAEA.Sockets.Core.Udp
 {
@@ -160,16 +160,17 @@ namespace SAEA.Sockets.Core.Udp
             ConnectAsync();
         }
 
+
         void ConnectArgs_Completed(object sender, SocketAsyncEventArgs e)
         {
             if (e.LastOperation == SocketAsyncOperation.Connect)
                 ProcessConnected(e);
             else
             {
-                OnError?.Invoke("", new Exception($"connection failed： {e.LastOperation}"));
+                OnError?.Invoke("", new Exception($"udp creation failed： {e.LastOperation}"));
             }
-
         }
+
 
         void ProcessConnected(SocketAsyncEventArgs e)
         {
@@ -236,7 +237,7 @@ namespace SAEA.Sockets.Core.Udp
                 }
                 else
                 {
-                    ProcessDisconnected(new Exception($"SocketError:{readArgs.SocketError},the remote server closed connection"));
+                    ProcessDisconnected(new Exception($"SocketError:{readArgs.SocketError},the remote server closed udp"));
                 }
             }
             catch (Exception ex)
@@ -261,8 +262,10 @@ namespace SAEA.Sockets.Core.Udp
             {
                 _userToken.Clear();
             }
-            catch { }
-            OnDisconnected?.Invoke(_userToken.ID, ex);
+            finally
+            {
+                OnDisconnected?.Invoke(_userToken.ID, ex);
+            }
         }
 
 
@@ -392,7 +395,7 @@ namespace SAEA.Sockets.Core.Udp
             }
             if (mex == null)
             {
-                mex = new Exception("当前Socket已主动关闭！");
+                mex = new Exception("The current udp has been actively closed");
             }
             if (_userToken != null)
                 OnDisconnected?.Invoke(_userToken.ID, mex);
