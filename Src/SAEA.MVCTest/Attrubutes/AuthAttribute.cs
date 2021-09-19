@@ -20,7 +20,6 @@ using System;
 using JWT.Net;
 using JWT.Net.Exceptions;
 
-using SAEA.Common;
 using SAEA.MVC;
 using SAEA.MVCTest.Model;
 
@@ -37,7 +36,7 @@ namespace SAEA.MVCTest.Attrubutes
 
         }
 
-        public override bool OnActionExecuting()
+        public override ActionResult OnActionExecuting()
         {
             var result = string.Empty;
             try
@@ -73,13 +72,13 @@ namespace SAEA.MVCTest.Attrubutes
             }
             if (result == "OK")
             {
-                return true;
+                return EmptyResult.Default;
             }
             else
             {
-                LogHelper.Error("jwt签权失败", new Exception(result));
+                result = $"解析失败,缺少jwt token";
             }
-            return false;
+            return ContentResult.Get(result);
         }
 
 

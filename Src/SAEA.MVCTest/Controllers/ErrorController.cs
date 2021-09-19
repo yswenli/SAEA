@@ -45,7 +45,7 @@ namespace SAEA.MVCTest.Controllers
             throw new NotImplementedException();
         }
 
-        public override bool OnActionExecuting()
+        public override ActionResult OnActionExecuting()
         {
             throw new NotImplementedException();
         }

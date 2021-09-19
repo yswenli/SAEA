@@ -18,18 +18,9 @@ namespace SAEA.MVC
         }
 
 
-        public override bool OnActionExecuting()
+        public override ActionResult OnActionExecuting()
         {
-            var result = OutputCacheManager.Get(HttpContext.Current.Request.Url);
-
-            if (result == null)
-            {
-                return true;
-            }
-            else
-            {
-                return false;
-            }
+            return OutputCacheManager.Get(HttpContext.Current.Request.Url);            
         }
 
         public override void OnActionExecuted(ref ActionResult result)

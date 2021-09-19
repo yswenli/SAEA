@@ -60,7 +60,7 @@ namespace SAEA.MVC
 
             ActionResult result;
 
-            var goOn = true;
+            ActionResult beforeResult = null;
 
             //类过滤器
             if (routing.FilterAtrrs != null && routing.FilterAtrrs.Any())
@@ -71,7 +71,7 @@ namespace SAEA.MVC
 
                     if (method != null)
                     {
-                        goOn = (bool)method.Invoke(arr, null);
+                        beforeResult = (ActionResult)method.Invoke(arr, null);
                     }
                 }
             }
@@ -85,15 +85,14 @@ namespace SAEA.MVC
 
                     if (method != null)
                     {
-                        if ((bool)arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING).Invoke(arr, null) == false)
-                            goOn = false;
+                        beforeResult = (ActionResult)arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING).Invoke(arr, null);
                     }
                 }
             }
 
-            #region actionResult                
+            #region actionResult
 
-            if (goOn)
+            if (beforeResult == null || beforeResult is EmptyResult)
             {
                 if (!string.IsNullOrEmpty(HttpContext.Current.Request.ContentType)
                && HttpContext.Current.Request.ContentType.IndexOf(ConstHelper.FORMENCTYPE3, StringComparison.InvariantCultureIgnoreCase) > -1
@@ -236,7 +235,5 @@ namespace SAEA.MVC
             }
             return result;
         }
-
-
     }
 }

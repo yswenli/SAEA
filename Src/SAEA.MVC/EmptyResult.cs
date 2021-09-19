@@ -32,5 +32,13 @@ namespace SAEA.MVC
     /// </summary>
     public class EmptyResult : ActionResult, IEmptyResult
     {
+        static EmptyResult _emptyResult = new EmptyResult();
+        public static EmptyResult Default
+        {
+            get
+            {
+                return _emptyResult;
+            }
+        }
     }
 }

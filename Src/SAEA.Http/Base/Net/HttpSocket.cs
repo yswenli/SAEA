@@ -21,12 +21,11 @@
 *描述：
 *
 *****************************************************************************/
+using System;
+
 using SAEA.Common;
 using SAEA.Sockets;
 using SAEA.Sockets.Interface;
-
-using System;
-using System.Threading.Tasks;
 
 namespace SAEA.Http.Base.Net
 {
@@ -74,12 +73,9 @@ namespace SAEA.Http.Base.Net
             }
             catch (Exception ex)
             {
+                unpacker.Clear();
                 LogHelper.Error("Http解码出现异常", ex, Convert.ToBase64String(data));
                 Disconnecte(ut);
-            }
-            finally
-            {
-                unpacker.Clear();
             }
         }
 

@@ -62,7 +62,6 @@ namespace SAEA.MVCTest.Controllers
         [OutputCache(10)]
         public ActionResult Index2()
         {
-            Thread.Sleep(3000);
             return Content($"Hello,I'm SAEA.MVC2,develop by {HttpContext.Current.Session["userID"]} 缓存效果测试");
         }
 

@@ -51,5 +51,10 @@ namespace SAEA.MVC
             this.ContentEncoding = encoding;
             this.ContentType = contentType;
         }
+
+        public static ContentResult Get(string str)
+        {
+            return new ContentResult(str);
+        }
     }
 }

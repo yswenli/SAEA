@@ -44,10 +44,10 @@ namespace SAEA.MVCTest.Attrubutes
         /// 执行前
         /// </summary>
         /// <returns>返回值true为继续，false为终止</returns>
-        public override bool OnActionExecuting()
+        public override ActionResult OnActionExecuting()
         {
             _stopwatch = Stopwatch.StartNew();
-            return true;
+            return EmptyResult.Default;
         }
 
         /// <summary>
@@ -82,9 +82,9 @@ namespace SAEA.MVCTest.Attrubutes
         /// 执行前
         /// </summary>
         /// <returns>返回值true为继续，false为终止</returns>
-        public override bool OnActionExecuting()
+        public override ActionResult OnActionExecuting()
         {
-            return true;
+            return EmptyResult.Default;
         }
 
         /// <summary>

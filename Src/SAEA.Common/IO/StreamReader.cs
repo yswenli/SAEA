@@ -79,7 +79,7 @@ namespace SAEA.Common.IO
         public string ReadLine()
         {
             var result = string.Empty;
-            int data = 0;
+            int data;
             do
             {
                 data = _stream.ReadByte();
@@ -128,7 +128,6 @@ namespace SAEA.Common.IO
                     var index = calcData.IndexOf(bounderyData);
 
                     Array.Clear(calcData, 0, calcData.Length);
-                    calcData = null;
 
                     if (index > 0)
                     {
@@ -167,7 +166,6 @@ namespace SAEA.Common.IO
                 var ldata = new byte[len];
                 Buffer.BlockCopy(data, 0, ldata, 0, len);
                 Array.Clear(data, 0, data.Length);
-                data = null;
                 return ldata;
             }
             return null;

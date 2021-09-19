@@ -88,7 +88,7 @@ namespace SAEA.Http.Base.Net
                     }
                 }
             }
-            else if (_totlalLen == buffer.Length)
+            else if (buffer.Length >= _totlalLen)
             {
                 if (RequestDataReader.Analysis(buffer, out HttpMessage httpMessage1))
                 {
@@ -103,6 +103,10 @@ namespace SAEA.Http.Base.Net
                     throw new DataMisalignedException("解析失败");
                 }
             }
+            else
+            {
+                return;
+            }
         }
 
         /// <summary>
@@ -110,6 +114,7 @@ namespace SAEA.Http.Base.Net
         /// </summary>
         public void Clear()
         {
+            _totlalLen = -1;
             _cache.Clear();
         }
     }

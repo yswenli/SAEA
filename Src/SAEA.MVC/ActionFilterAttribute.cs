@@ -40,7 +40,7 @@ namespace SAEA.MVC
         /// 方法执行前
         /// </summary>
         /// <returns></returns>
-        public abstract bool OnActionExecuting();
+        public abstract ActionResult OnActionExecuting();
 
         /// <summary>
         /// 方法执行后
