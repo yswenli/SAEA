@@ -81,7 +81,7 @@ namespace SAEA.FTP
         {
             try
             {
-                _client.BaseSend($"{FTPCommand.NOOP}");
+                _client.BaseRequest($"{FTPCommand.NOOP}");
             }
             catch (Exception ex)
             {
@@ -96,7 +96,7 @@ namespace SAEA.FTP
         /// <returns></returns>
         public bool ChangeDir(string pathName)
         {
-            var sres = _client.BaseSend($"{FTPCommand.CWD} {pathName}");
+            var sres = _client.BaseRequest($"{FTPCommand.CWD} {pathName}");
 
             Active();
 
@@ -116,7 +116,7 @@ namespace SAEA.FTP
         /// <returns></returns>
         public bool ChangeToParentDir()
         {
-            var sres = _client.BaseSend($"{FTPCommand.CDUP}");
+            var sres = _client.BaseRequest($"{FTPCommand.CDUP}");
 
             Active();
 
@@ -136,7 +136,7 @@ namespace SAEA.FTP
         /// <returns></returns>
         public string CurrentDir()
         {
-            var sres = _client.BaseSend($"{FTPCommand.PWD}");
+            var sres = _client.BaseRequest($"{FTPCommand.PWD}");
 
             Active();
 
@@ -167,7 +167,7 @@ namespace SAEA.FTP
             {
                 _client.FTPDataManager.Refresh();
 
-                var sres = _client.BaseSend($"{dirType.ToString()} {pathName}");
+                var sres = _client.BaseRequest($"{dirType.ToString()} {pathName}");
 
                 Active();
 
@@ -190,7 +190,7 @@ namespace SAEA.FTP
 
         public void MakeDir(string pathName)
         {
-            var sres = _client.BaseSend($"{FTPCommand.MKD} {pathName}");
+            var sres = _client.BaseRequest($"{FTPCommand.MKD} {pathName}");
 
             Active();
 
@@ -202,7 +202,7 @@ namespace SAEA.FTP
 
         public void RemoveDir(string pathName)
         {
-            var sres = _client.BaseSend($"{FTPCommand.RMD} {pathName}");
+            var sres = _client.BaseRequest($"{FTPCommand.RMD} {pathName}");
 
             Active();
 
@@ -215,9 +215,9 @@ namespace SAEA.FTP
 
         public void Rename(string oldName, string newName)
         {
-            _client.BaseSend($"{FTPCommand.RNFR} {oldName}");
+            _client.BaseRequest($"{FTPCommand.RNFR} {oldName}");
 
-            var sres = _client.BaseSend($"{FTPCommand.RNTO} {newName}");
+            var sres = _client.BaseRequest($"{FTPCommand.RNTO} {newName}");
 
             Active();
 
@@ -229,7 +229,7 @@ namespace SAEA.FTP
 
         public void Delete(string fileName)
         {
-            var sres = _client.BaseSend($"{FTPCommand.DELE} {fileName}");
+            var sres = _client.BaseRequest($"{FTPCommand.DELE} {fileName}");
 
             Active();
 
@@ -250,7 +250,7 @@ namespace SAEA.FTP
 
                 var fileName = PathHelper.GetFileName(filePath);
 
-                var sres = _client.BaseSend($"{FTPCommand.STOR} {fileName}");
+                var sres = _client.BaseRequest($"{FTPCommand.STOR} {fileName}");
 
                 Active();
 
@@ -352,7 +352,7 @@ namespace SAEA.FTP
 
                 _client.FTPDataManager.New(filePath);
 
-                var sres = _client.BaseSend($"{FTPCommand.RETR} {fileName}");
+                var sres = _client.BaseRequest($"{FTPCommand.RETR} {fileName}");
 
                 Active();
 
@@ -378,7 +378,7 @@ namespace SAEA.FTP
 
         public long FileSize(string fileName)
         {
-            var sres = _client.BaseSend($"{FTPCommand.SIZE} {fileName}");
+            var sres = _client.BaseRequest($"{FTPCommand.SIZE} {fileName}");
 
             Active();
 
@@ -396,7 +396,7 @@ namespace SAEA.FTP
         {
             if (_client != null && _client.Connected)
             {
-                _client.BaseSend($"{FTPCommand.QUIT}");
+                _client.BaseRequest($"{FTPCommand.QUIT}");
 
                 _client.Disconnect();
 

@@ -1,5 +1,6 @@
 ﻿using CCWin;
 using SAEA.Common;
+using SAEA.Common.IO;
 using SAEA.FTP;
 using SAEA.FTPTest.Common;
 using SAEA.FTPTest.Model;
@@ -607,11 +608,11 @@ namespace SAEA.FTPTest
                             listView2.Enabled = false;
                             listView2.Clear();
                             skinButton1.Text = "Connect";
+                            _loadingUserControl.Hide();
                         }));
 
                     }
                 });
-
             }
         }
 

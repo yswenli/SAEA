@@ -448,7 +448,7 @@ namespace SAEA.RedisSocket.Core
                 if (string.IsNullOrEmpty(command))
                 {
                     _redisStream.Clear();
-                    return null;
+                    return responseData;
                 }
 
                 if (command.IndexOf("-") == 0 && command.IndexOf(MOVED) == -1)

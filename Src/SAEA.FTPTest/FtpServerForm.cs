@@ -1,5 +1,6 @@
 ﻿using CCWin;
 using SAEA.Common;
+using SAEA.Common.Serialization;
 using SAEA.FTP;
 using SAEA.FTP.Core;
 using SAEA.FTP.Model;

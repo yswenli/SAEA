@@ -112,6 +112,14 @@ namespace SAEA.FTP.Model
         /// </summary>
         OPTS = 21,
         /// <summary>
+        /// 字符串
+        /// </summary>
+        FEAT = 22,
+        /// <summary>
+        /// 类型
+        /// </summary>
+        TYPE = 23,
+        /// <summary>
         /// 退出命令
         /// </summary>
         QUIT = 99

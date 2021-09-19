@@ -20,6 +20,7 @@ using SAEA.FTP.Core;
 using SAEA.FTP.Model;
 using SAEA.Sockets;
 using SAEA.Sockets.Handler;
+
 using System;
 using System.IO;
 using System.Text;
@@ -67,8 +68,8 @@ namespace SAEA.FTP.Net
             _cmdSocket.OnDisconnected += _clientSocket_OnDisconnected;
 
             _ftpStream = new FTPStream();
-            _syncHelper1 = new OrderSyncHelper<ServerResponse>();
-            _syncHelper2 = new OrderSyncHelper<ServerResponse>();
+            _syncHelper1 = new OrderSyncHelper<ServerResponse>(180 * 1000);
+            _syncHelper2 = new OrderSyncHelper<ServerResponse>(180 * 1000);
 
             FTPDataManager = new FTPDataManager();
         }
@@ -119,7 +120,7 @@ namespace SAEA.FTP.Net
                     throw new Exception(result.Reply);
                 }
 
-                result = Send($"{FTPCommand.USER} {_config.UserName}");
+                result = BaseRequest($"{FTPCommand.USER} {_config.UserName}");
 
                 if (result.Code != ServerResponseCode.登录成功 && result.Code != ServerResponseCode.要求密码)
                 {
@@ -129,7 +130,7 @@ namespace SAEA.FTP.Net
 
                 if (result.Code == ServerResponseCode.要求密码)
                 {
-                    result = Send($"{FTPCommand.PASS} {_config.Password}");
+                    result = BaseRequest($"{FTPCommand.PASS} {_config.Password}");
 
                     if (result.Code != ServerResponseCode.登录成功 && result.Code != ServerResponseCode.初始命令没有执行)
                     {
@@ -138,7 +139,7 @@ namespace SAEA.FTP.Net
                     }
                 }
 
-                result = Send($"{FTPCommand.SYST}");
+                result = BaseRequest($"{FTPCommand.SYST}");
 
                 if (result.Code != ServerResponseCode.系统类型回复)
                 {
@@ -152,14 +153,7 @@ namespace SAEA.FTP.Net
             }
         }
 
-        public ServerResponse SetUtf8()
-        {
-            var result = Send("OPTS UTF8 ON");
-
-            return result;
-        }
-
-        ServerResponse Send(string cmd)
+        public ServerResponse BaseRequest(string cmd)
         {
             try
             {
@@ -175,16 +169,19 @@ namespace SAEA.FTP.Net
             return null;
         }
 
-        public ServerResponse BaseSend(string cmd, Action action = null)
-        {
-            if (!Connected) throw new IOException("Network connection disconnected");
 
-            return Send(cmd);
+        public ServerResponse SetUtf8()
+        {
+            var result = BaseRequest("OPTS UTF8 ON");
+
+            return result;
         }
+
+        
 
         public IClientSocket CreateDataConnection()
         {
-            var result = BaseSend($"{FTPCommand.PASV}");
+            var result = BaseRequest($"{FTPCommand.PASV}");
 
             int num = result.Reply.IndexOf('(');
 

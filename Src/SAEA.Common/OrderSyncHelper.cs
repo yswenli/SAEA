@@ -43,7 +43,7 @@ namespace SAEA.Common
         /// 有序同步工具类
         /// </summary>
         /// <param name="timeout"></param>
-        public OrderSyncHelper(int timeout = 3000)
+        public OrderSyncHelper(int timeout = 10 * 1000)
         {
             _timeout = TimeSpan.FromMilliseconds(timeout);
 
@@ -62,15 +62,6 @@ namespace SAEA.Common
             lock (_locker)
             {
                 var date = DateTimeHelper.Now;
-
-                while (!_queue.IsEmpty)
-                {
-                    if (DateTimeHelper.Now - date > _timeout)
-                    {
-                        throw new TimeoutException("request is timeout");
-                    }
-                    Thread.Yield();
-                }
 
                 work?.Invoke();
 

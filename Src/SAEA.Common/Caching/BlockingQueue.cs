@@ -29,7 +29,10 @@ namespace SAEA.Common.Caching
     {
         private readonly object _syncRoot = new object();
         private readonly LinkedList<TItem> _items = new LinkedList<TItem>();
-        private readonly ManualResetEvent _gate = new ManualResetEvent(false);
+        private readonly ManualResetEvent _gate = new ManualResetEvent(true);
+
+
+        int _readTime = 0;
 
         /// <summary>
         /// 长度
@@ -45,6 +48,14 @@ namespace SAEA.Common.Caching
             }
         }
 
+        public bool IsEmpty
+        {
+            get
+            {
+                return Count == 0;
+            }
+        }
+
         /// <summary>
         /// 入队
         /// </summary>
@@ -56,6 +67,9 @@ namespace SAEA.Common.Caching
             lock (_syncRoot)
             {
                 _items.AddLast(item);
+            }
+            if (Interlocked.Exchange(ref _readTime, 1) == 0)
+            {
                 _gate.Set();
             }
         }
@@ -65,29 +79,29 @@ namespace SAEA.Common.Caching
         /// </summary>
         /// <param name="maxTimeout"></param>
         /// <returns></returns>
-        public TItem Dequeue(int maxTimeout = 3000)
+        public TItem Dequeue(int maxTimeout = 10 * 1000)
         {
             while (true)
             {
+                if (!_gate.WaitOne(maxTimeout))
+                {
+                    _gate.Set();
+                    return default(TItem);
+                }
                 lock (_syncRoot)
                 {
                     if (_items.Count > 0)
                     {
                         var item = _items.First.Value;
                         _items.RemoveFirst();
-
+                        _gate.Set();
                         return item;
                     }
-
-                    if (_items.Count == 0)
+                    else
                     {
                         _gate.Reset();
+                        Interlocked.Exchange(ref _readTime, 0);
                     }
-                }
-
-                if (!_gate.WaitOne(maxTimeout))
-                {
-                    return default(TItem);
                 }
             }
         }
@@ -95,25 +109,29 @@ namespace SAEA.Common.Caching
         /// <summary>
         /// 查看
         /// </summary>
+        /// <param name="maxTimeout"></param>
         /// <returns></returns>
-        public TItem PeekAndWait()
+        public TItem PeekAndWait(int maxTimeout = 10 * 1000)
         {
             while (true)
             {
+                if (!_gate.WaitOne(maxTimeout))
+                {
+                    return default(TItem);
+                }
                 lock (_syncRoot)
                 {
                     if (_items.Count > 0)
                     {
+                        _gate.Set();
                         return _items.First.Value;
                     }
-
-                    if (_items.Count == 0)
+                    else
                     {
                         _gate.Reset();
+                        Interlocked.Exchange(ref _readTime, 0);
                     }
                 }
-
-                _gate.WaitOne();
             }
         }
 
@@ -157,6 +175,7 @@ namespace SAEA.Common.Caching
             lock (_syncRoot)
             {
                 _items.Clear();
+                _gate.Set();
             }
         }
     }

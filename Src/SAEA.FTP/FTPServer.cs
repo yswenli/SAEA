@@ -132,9 +132,17 @@ namespace SAEA.FTP
                     case FTPCommand.SYST:
                         _cmdSocket.Reply(id, ServerResponseCode.系统类型回复, "WINDOWS Type: SAEA FTP Server");
                         return;
-                    case FTPCommand.OPTS:
-                    case FTPCommand.NOOP:
+                    case FTPCommand.OPTS:                    
                         _cmdSocket.Reply(id, ServerResponseCode.成功, "WINDOWS Type: SAEA FTP Server");
+                        break;
+                    case FTPCommand.FEAT:
+                        _cmdSocket.Reply(id, ServerResponseCode.目录状态回复, "Extension supported\r\nUTF8");
+                        break;
+                    case FTPCommand.TYPE:
+                        _cmdSocket.Reply(id, ServerResponseCode.成功, "Type set to A");
+
+                        break;
+                    case FTPCommand.NOOP:
                         _cmdSocket.Reply(id, ServerResponseCode.成功, "Command okay.");
                         return;
                     case FTPCommand.QUIT:

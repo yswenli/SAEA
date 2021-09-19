@@ -29,6 +29,7 @@ using SAEA.QueueSocket.Model;
 using SAEA.QueueSocket.Net;
 using SAEA.Sockets;
 using SAEA.Sockets.Handler;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -169,7 +170,7 @@ namespace SAEA.QueueSocket
                 {
                     while (!_isClosed)
                     {
-                        if (_clientSocket.Connected)
+                        if (_clientSocket != null && _clientSocket.Connected)
                         {
                             if (Actived.AddMilliseconds(HeartSpan) <= DateTimeHelper.Now)
                             {
