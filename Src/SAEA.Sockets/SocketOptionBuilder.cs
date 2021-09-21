@@ -31,8 +31,10 @@ using SAEA.Common.IO;
 using SAEA.Sockets.Base;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
+
 using System;
 using System.Net;
+using System.Net.Sockets;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 
@@ -81,10 +83,10 @@ namespace SAEA.Sockets
         /// </summary>
         /// <param name="context"></param>
         /// <returns></returns>
-        public SocketOptionBuilder UseIocp<T>() where T : IContext
+        public SocketOptionBuilder UseIocp<T>() where T : class, IUnpacker
         {
             if (_socketOption.WithSsl) throw new NotSupportedException("ssl模式下暂不支持icop");
-            _socketOption.Context = (IContext)Activator.CreateInstance(typeof(T));
+            _socketOption.Context = (BaseContext<T>)Activator.CreateInstance(typeof(BaseContext<T>));
             _socketOption.UseIocp = true;
             return this;
         }
@@ -93,7 +95,7 @@ namespace SAEA.Sockets
         /// </summary>
         /// <param name="context"></param>
         /// <returns></returns>
-        public SocketOptionBuilder UseIocp(IContext context)
+        public SocketOptionBuilder UseIocp(IContext<IUnpacker> context)
         {
             if (_socketOption.WithSsl) throw new NotSupportedException("ssl模式下暂不支持icop");
             _socketOption.Context = context;
@@ -108,7 +110,7 @@ namespace SAEA.Sockets
         public SocketOptionBuilder UseIocp()
         {
             if (_socketOption.WithSsl) throw new NotSupportedException("ssl模式下暂不支持icop");
-            _socketOption.Context = new BaseContext();
+            _socketOption.Context = new BaseContext<BaseUnpacker>();
             _socketOption.UseIocp = true;
             return this;
         }
@@ -217,7 +219,15 @@ namespace SAEA.Sockets
         public SocketOptionBuilder SetIPEndPoint(IPEndPoint endPoint)
         {
             _socketOption.IP = endPoint.Address.ToString();
-            _socketOption.Port = endPoint.Port;            
+            _socketOption.Port = endPoint.Port;
+            if (endPoint.AddressFamily == AddressFamily.InterNetworkV6)
+            {
+                _socketOption.UseIPV6 = true;
+            }
+            else
+            {
+                _socketOption.UseIPV6 = false;
+            }
             return this;
         }
 

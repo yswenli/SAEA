@@ -3,6 +3,7 @@ using JT808.Protocol.MessageBody;
 using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace SAEA.Sockets.TcpTest
 {
@@ -22,8 +23,12 @@ namespace SAEA.Sockets.TcpTest
             JClient jClient = new JClient();
             jClient.OnReceive += JClient_OnReceive;
             jClient.Connect();
-            jClient.SendAsync(GetJT808PositionData());
-
+            for (int i = 0; i < 10; i++)
+            {
+                jClient.SendAsync(GetJT808PositionData());
+                Thread.Sleep(1000);
+            }
+            jClient.Disconnect();
             Console.ReadLine();
         }
 
@@ -61,17 +66,7 @@ namespace SAEA.Sockets.TcpTest
             jT808_0x0200.Speed = 60;
             jT808_0x0200.Direction = 0;
             jT808_0x0200.StatusFlag = 2;
-            jT808_0x0200.JT808LocationAttachData = new Dictionary<byte, JT808_0x0200_BodyBase>();
-
-            jT808_0x0200.JT808LocationAttachData.Add(JT808Constants.JT808_0x0200_0x01, new JT808_0x0200_0x01
-            {
-                Mileage = 100
-            });
-
-            jT808_0x0200.JT808LocationAttachData.Add(JT808Constants.JT808_0x0200_0x02, new JT808_0x0200_0x02
-            {
-                Oil = 125
-            });
+            jT808_0x0200.CustomLocationAttachData = new Dictionary<byte, JT808_0x0200_CustomBodyBase>();
 
             jT808Package.Bodies = jT808_0x0200;
 

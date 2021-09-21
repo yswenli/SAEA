@@ -31,7 +31,7 @@
 
 namespace SAEA.Sockets.Interface
 {
-    public interface IContext
+    public interface IContext<out Coder> where Coder : class, IUnpacker
     {
         IUserToken UserToken { get; set; }
 

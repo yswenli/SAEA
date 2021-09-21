@@ -40,8 +40,6 @@ namespace SAEA.RPC.Net
 
         DisorderSyncHelper _disorderSyncHelper;
 
-        RContext _RContext;
-
         RUnpacker _rUnpacker;
 
         IClientSocket _client;
@@ -78,14 +76,12 @@ namespace SAEA.RPC.Net
 
             var ipPort = DNSHelper.GetIPPort(uri);
 
-            _RContext = new RContext();
-
-            _rUnpacker = ((RUnpacker)_RContext.Unpacker);
+            _rUnpacker = new RUnpacker();
 
             SocketOptionBuilder builder = SocketOptionBuilder.Instance;
 
             var option = builder.SetSocket()
-                .UseIocp(_RContext)
+                .UseIocp<RUnpacker>()
                 .SetIP(ipPort.Item1)
                 .SetPort(ipPort.Item2)
                 .SetReadBufferSize(10240)
@@ -174,7 +170,7 @@ namespace SAEA.RPC.Net
                     {
                         if (_client.Connected)
                         {
-                            if (_RContext.UserToken.Actived.AddSeconds(60) < DateTimeHelper.Now)
+                            if (_client.Context.UserToken.Actived.AddSeconds(60) < DateTimeHelper.Now)
                             {
                                 SendBase(new RSocketMsg(RSocketMsgType.Ping));
                             }

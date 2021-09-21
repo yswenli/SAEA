@@ -21,15 +21,16 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Sockets.Base;
 using SAEA.Sockets.Interface;
 
 namespace SAEA.WebSocket.Model
 {
-    class WSContext : IContext
+    class WSContext : BaseContext<WSCoder>
     {
-        public IUserToken UserToken { get; set; }
+        public override IUserToken UserToken { get; set; }
 
-        public IUnpacker Unpacker { get; set; }
+        public override IUnpacker Unpacker { get; set; }
 
         /// <summary>
         /// 上下文

@@ -24,22 +24,6 @@ using SAEA.Sockets.Interface;
 
 namespace SAEA.Sockets.TcpTest
 {
-    public class JContext : IContext
-    {
-        public IUserToken UserToken { get; set; }
-
-        public IUnpacker Unpacker { get; set; }
-
-        /// <summary>
-        /// 上下文
-        /// </summary>
-        public JContext()
-        {
-            this.UserToken = new BaseUserToken();
-            this.Unpacker = new JUnpacker();
-            this.UserToken.Unpacker = this.Unpacker;
-        }
-    }
 
     /// <summary>
     /// 解包

@@ -34,6 +34,7 @@ using SAEA.Common;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
+
 using System;
 using System.IO;
 using System.Net;
@@ -64,12 +65,14 @@ namespace SAEA.Sockets.Core.Tcp
 
         public string Endpoint { get => _socket?.RemoteEndPoint?.ToString(); }
 
-        public bool Connected { get; set; }
+        public bool Connected { get; private set; }
         public IUserToken UserToken { get => _userToken; private set => _userToken = value; }
 
         public bool IsDisposed { get; private set; } = false;
 
         public Socket Socket => _socket;
+
+        public IContext<IUnpacker> Context { get; private set; }
 
         public event OnErrorHandler OnError;
 
@@ -91,6 +94,8 @@ namespace SAEA.Sockets.Core.Tcp
         public IocpClientSocket(ISocketOption socketOption)
         {
             SocketOption = socketOption;
+
+            Context = socketOption.Context;
 
             _userTokenFactory = new UserTokenFactory();
 
@@ -129,7 +134,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="port"></param>
         /// <param name="bufferSize"></param>
         /// <param name="timeOut"></param>
-        public IocpClientSocket(IContext context, string ip = "127.0.0.1", int port = 39654, int bufferSize = 100 * 1024, int timeOut = 60 * 1000) : this(new SocketOption() { Context = context, IP = ip, Port = port, ReadBufferSize = bufferSize, WriteBufferSize = bufferSize, TimeOut = timeOut })
+        public IocpClientSocket(IContext<IUnpacker> context, string ip = "127.0.0.1", int port = 39654, int bufferSize = 100 * 1024, int timeOut = 60 * 1000) : this(new SocketOption() { Context = context, IP = ip, Port = port, ReadBufferSize = bufferSize, WriteBufferSize = bufferSize, TimeOut = timeOut })
         {
 
         }
@@ -299,14 +304,17 @@ namespace SAEA.Sockets.Core.Tcp
 
         void ProcessDisconnected(Exception ex)
         {
-            Connected = false;
-            _connectEvent.Set();
-            try
+            if (Connected)
             {
-                _userToken.Clear();
+                Connected = false;
+                _connectEvent.Set();
+                try
+                {
+                    _userToken.Clear();
+                }
+                catch { }
             }
-            catch { }
-            OnDisconnected?.Invoke(_userToken.ID, ex);
+
         }
 
         /// <summary>
@@ -417,38 +425,43 @@ namespace SAEA.Sockets.Core.Tcp
             throw new InvalidOperationException("iocp暂不支持流模式");
         }
 
+        /// <summary>
+        /// 主动断开连接
+        /// </summary>
+        /// <param name="ex"></param>
         public void Disconnect(Exception ex)
         {
+            this.Connected = false;
+
             var mex = ex;
 
-            if (this.Connected)
+            try
             {
-                try
+                if (_userToken != null && _userToken.Socket != null)
                 {
-                    if (_userToken != null && _userToken.Socket != null)
+                    try
                     {
-                        try
-                        {
-                            _userToken.Socket.Shutdown(SocketShutdown.Both);
-                        }
-                        catch { }
-                        _userToken.Socket.Close();
+                        _userToken.Socket.Shutdown(SocketShutdown.Both);
                     }
+                    catch { }
+                    _userToken.Socket.Close();
                 }
-                catch (Exception sex)
-                {
-                    if (mex != null) mex = sex;
-                }
-                this.Connected = false;
+            }
+            catch (Exception sex)
+            {
+                if (mex != null) mex = sex;
+            }
+            finally
+            {
                 if (mex == null)
                 {
-                    mex = new Exception("当前Socket已主动断开连接！");
+                    mex = new Exception("The current socket has been actively disconnected！");
                 }
                 if (_userToken != null)
                     OnDisconnected?.Invoke(_userToken.ID, mex);
-
-                _userToken.Clear();
             }
+
+            _userToken.Clear();
         }
 
         private void _sessionManager_OnTimeOut(IUserToken obj)

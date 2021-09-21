@@ -39,6 +39,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using SAEA.Sockets.Handler;
+using SAEA.Sockets.Interface;
 
 namespace SAEA.Sockets.Core.Tcp
 {
@@ -77,6 +78,8 @@ namespace SAEA.Sockets.Core.Tcp
 
         public Socket Socket => _socket;
 
+        public IContext<IUnpacker> Context { get; private set; }
+
         public event OnDisconnectedHandler OnDisconnected;
 
         [Obsolete("此方法为IOCP中所用")]
@@ -107,6 +110,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="socketOption"></param>
         public StreamClientSocket(ISocketOption socketOption) : this(socketOption, CancellationToken.None)
         {
+            Context = SocketOption.Context;
 
             if (SocketOption.UseIPV6)
             {

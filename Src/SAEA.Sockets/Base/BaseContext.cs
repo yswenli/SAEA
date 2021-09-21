@@ -15,16 +15,17 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
+using System;
+
 using SAEA.Sockets.Interface;
-using SAEA.Sockets.Model;
 
 namespace SAEA.Sockets.Base
 {
-    public class BaseContext : IContext
+    public class BaseContext<Coder> : IContext<Coder> where Coder : class, IUnpacker
     {
-        public IUserToken UserToken { get; set; }
+        public virtual IUserToken UserToken { get; set; }
 
-        public IUnpacker Unpacker { get; set; }
+        public virtual IUnpacker Unpacker { get; set; }
 
         /// <summary>
         /// 上下文
@@ -32,7 +33,7 @@ namespace SAEA.Sockets.Base
         public BaseContext()
         {
             this.UserToken = new BaseUserToken();
-            this.Unpacker = new BaseUnpacker();
+            this.Unpacker = Activator.CreateInstance<Coder>();
             this.UserToken.Unpacker = this.Unpacker;
         }
     }

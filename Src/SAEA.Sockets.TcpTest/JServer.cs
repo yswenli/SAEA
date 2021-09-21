@@ -20,69 +20,60 @@ using System;
 using JT808.Protocol;
 
 using SAEA.Sockets.Interface;
+using SAEA.Sockets.Shortcut;
 
 namespace SAEA.Sockets.TcpTest
 {
     public class JServer
     {
-        IServerSocket _serverSokcet;        
+        TCPServer<JUnpacker> _server;
 
         public event Action<JServer, string, JT808Package> OnReceive;
 
         public JServer()
         {
+            _server = new TCPServer<JUnpacker>(39808);
 
-            //tcpserver
-            _serverSokcet = SocketFactory.CreateServerSocket(SocketOptionBuilder.Instance
-                .SetSocket(Model.SAEASocketType.Tcp)
-                .SetPort(39808)
-                .UseIocp<JContext>()
-                .Build());
+            _server.OnAccept += _server_OnAccept;
+            _server.OnDisconnect += _server_OnDisconnect;
+            _server.OnError += _server_OnError;
+            _server.OnReceive += _server_OnReceive;
+        }
 
-            _serverSokcet.OnAccepted += ServerSokcet_OnAccepted;
-            _serverSokcet.OnDisconnected += ServerSokcet_OnDisconnected;
-            _serverSokcet.OnError += ServerSokcet_OnError;
-            _serverSokcet.OnReceive += ServerSokcet_OnReceive;
+        private void _server_OnReceive(TCPServer<JUnpacker> arg1, IUserToken arg2, byte[] arg3)
+        {
+            var jUnpacker = (JUnpacker)arg2.Unpacker;
+
+            jUnpacker.DeCode(arg3, (b) =>
+            {
+                var package = new JT808Serializer().Deserialize<JT808Package>(b.AsSpan());
+                OnReceive?.Invoke(this, arg2.ID, package);
+            });
+        }
+
+        private void _server_OnError(TCPServer<JUnpacker> arg1, string arg2, Exception arg3)
+        {
+            Console.WriteLine($"_server_OnError:{arg3.Message}");
+        }
+
+        private void _server_OnDisconnect(TCPServer<JUnpacker> arg1, string arg2, Exception arg3)
+        {
+            Console.WriteLine($"ServerSokcet_OnDisconnected:{arg2}");
+        }
+
+        private void _server_OnAccept(TCPServer<JUnpacker> arg1, string arg2)
+        {
+            Console.WriteLine($"ServerSokcet_OnAccepted:{arg2}");
         }
 
         public void Start()
         {
-            _serverSokcet.Start();
+            _server.Start();
         }
 
         public void SendAsync(string id, JT808Package jT808Package)
         {
-            _serverSokcet.SendAsync(id, new JT808Serializer().Serialize(jT808Package));
+            _server.SendAsync(id, new JT808Serializer().Serialize(jT808Package));
         }
-
-        private void ServerSokcet_OnReceive(Interface.ISession currentSession, byte[] data)
-        {
-            IUserToken userToken = (IUserToken)currentSession;
-            var jUnpacker = (JUnpacker)userToken.Unpacker;
-
-            jUnpacker.DeCode(data, (b) =>
-            {
-                var package = new JT808Serializer().Deserialize<JT808Package>(b.AsSpan());
-                OnReceive?.Invoke(this, userToken.ID, package);
-            });
-        }
-
-        private void ServerSokcet_OnError(string ID, Exception ex)
-        {
-            Console.WriteLine($"ServerSokcet_OnDisconnected:{ex.Message}");
-        }
-
-        private void ServerSokcet_OnDisconnected(string ID, Exception ex)
-        {
-            Console.WriteLine($"ServerSokcet_OnDisconnected:{ex.Message}");
-        }
-
-        private void ServerSokcet_OnAccepted(object obj)
-        {
-            Console.WriteLine($"ServerSokcet_OnAccepted:{((IUserToken)obj).ID}");
-        }
-
-
-
     }
 }

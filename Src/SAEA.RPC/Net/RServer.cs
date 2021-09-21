@@ -21,12 +21,11 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Common.Caching;
+using System;
+
 using SAEA.Sockets;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
-using System;
-using System.Collections.Generic;
 
 namespace SAEA.RPC.Net
 {
@@ -48,7 +47,7 @@ namespace SAEA.RPC.Net
         {
             var option = SocketOptionBuilder.Instance
                 .SetSocket()
-                .UseIocp<RContext>()
+                .UseIocp<RUnpacker>()
                 .SetPort(port)
                 .SetReadBufferSize(bufferSize)
                 .SetWriteBufferSize(bufferSize)

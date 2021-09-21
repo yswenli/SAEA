@@ -26,11 +26,11 @@ using SAEA.Sockets.Interface;
 
 namespace SAEA.MessageSocket.Model
 {
-    class MessageContext : IContext
+    public class MessageContext : BaseContext<BaseUnpacker>
     {
-        public IUserToken UserToken { get; set; }
+        public override IUserToken UserToken { get; set; }
 
-        public IUnpacker Unpacker { get; set; }
+        public override IUnpacker Unpacker { get; set; }
 
         /// <summary>
         /// 上下文

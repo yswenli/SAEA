@@ -239,7 +239,6 @@ namespace SAEA.WebSocket
             var msg = DateTimeHelper.ToString();
             var data = new WSProtocal(WSProtocalType.Close, Encoding.UTF8.GetBytes(discription)).ToBytes();
             _client.SendAsync(data);
-            _client.Disconnect();
         }
 
 

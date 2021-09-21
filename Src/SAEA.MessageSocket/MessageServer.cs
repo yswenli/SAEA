@@ -73,7 +73,7 @@ namespace SAEA.MessageSocket
         {
             var option = SocketOptionBuilder.Instance
                 .SetPort(port)
-                .UseIocp<MessageContext>()
+                .UseIocp(new MessageContext())
                 .SetReadBufferSize(bufferSize)
                 .SetWriteBufferSize(bufferSize)
                 .SetCount(count)

@@ -62,6 +62,8 @@ namespace SAEA.Sockets.Core.Udp
 
         public Socket Socket => _udpSocket;
 
+        public IContext<IUnpacker> Context { get; private set; }
+
         public event OnErrorHandler OnError;
 
         public event OnDisconnectedHandler OnDisconnected;
@@ -82,6 +84,8 @@ namespace SAEA.Sockets.Core.Udp
         public UdpClientSocket(ISocketOption socketOption)
         {
             SocketOption = socketOption;
+
+            Context = socketOption.Context;
 
             _userTokenFactory = new UserTokenFactory();
 

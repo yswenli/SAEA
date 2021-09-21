@@ -70,7 +70,7 @@ namespace SAEA.DNS.Coder
         {
             using (var udpClient = SocketFactory.CreateClientSocket(SocketOptionBuilder.Instance.SetSocket(SAEASocketType.Udp)
                  .SetIPEndPoint(_ipEndpoint)
-                 .UseIocp<BaseContext>()
+                 .UseIocp<BaseUnpacker>()
                  .SetReadBufferSize(SocketOption.UDPMaxLength)
                  .SetWriteBufferSize(SocketOption.UDPMaxLength)
                  .ReusePort()

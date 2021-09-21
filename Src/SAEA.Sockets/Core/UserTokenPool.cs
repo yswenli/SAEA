@@ -56,7 +56,7 @@ namespace SAEA.Sockets.Core
         /// <param name="count"></param>
         /// <param name="bufferSize"></param>
         /// <param name="completed"></param>
-        public UserTokenPool(IContext context, int count, int bufferSize, EventHandler<SocketAsyncEventArgs> completed)
+        public UserTokenPool(IContext<IUnpacker> context, int count, int bufferSize, EventHandler<SocketAsyncEventArgs> completed)
         {
             _userTokenFactory = new UserTokenFactory();
 

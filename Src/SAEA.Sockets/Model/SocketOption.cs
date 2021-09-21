@@ -71,7 +71,7 @@ namespace SAEA.Sockets.Model
         }
 
 
-        public IContext Context
+        public IContext<IUnpacker> Context
         {
             get; set;
         }

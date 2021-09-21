@@ -46,9 +46,7 @@ namespace SAEA.QueueSocket
 
         string _name;
 
-        public event Action<QueueResult> OnMessage;
-
-        QContext _qContext;
+        public event Action<QueueResult> OnMessage;        
 
         QUnpacker _qUnpacker;
 
@@ -91,14 +89,13 @@ namespace SAEA.QueueSocket
 
             _batcher.OnBatched += _batcher_OnBatched;
 
-            _qContext = new QContext();
 
-            _qUnpacker = (QUnpacker)_qContext.Unpacker;
+            _qUnpacker = new QUnpacker();
 
             _queueCoder = new QueueCoder();
 
             ISocketOption socketOption = SocketOptionBuilder.Instance.SetSocket(Sockets.Model.SAEASocketType.Tcp)
-                .UseIocp(_qContext)
+                .UseIocp<QUnpacker>()
                 .SetIP(ip)
                 .SetPort(port)
                 .SetWriteBufferSize(bufferSize)

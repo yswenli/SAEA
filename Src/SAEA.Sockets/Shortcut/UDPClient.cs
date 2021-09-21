@@ -40,13 +40,17 @@ namespace SAEA.Sockets.Shortcut
     /// <summary>
     /// UDPClient
     /// </summary>
-    public class UDPClient : IDisposable
+    public class UDPClient<Coder> : IDisposable where Coder : class, IUnpacker
     {
         IClientSocket _udpClient;
 
         BaseUnpacker _baseUnpacker;
 
-        public event Action<UDPClient, ISocketProtocal> OnReceive;
+        public event Action<UDPClient<Coder>, ISocketProtocal> OnReceive;
+
+        public event Action<UDPClient<Coder>, Exception> OnError;
+
+        public event Action<UDPClient<Coder>> OnDisconnected;
 
         /// <summary>
         /// UDPClient
@@ -54,7 +58,7 @@ namespace SAEA.Sockets.Shortcut
         /// <param name="endPoint"></param>
         public UDPClient(IPEndPoint endPoint)
         {
-            var bContext = new BaseContext();
+            var bContext = new BaseContext<Coder>();
 
             _udpClient = SocketFactory.CreateClientSocket(SocketOptionBuilder.Instance.SetSocket(SAEASocketType.Udp)
                 .SetIPEndPoint(endPoint)
@@ -101,9 +105,10 @@ namespace SAEA.Sockets.Shortcut
         /// SendAsync
         /// </summary>
         /// <param name="data"></param>
-        public void SendAsync(byte[] data)
+        /// <param name="socketProtocalType"></param>
+        public void SendAsync(byte[] data, SocketProtocalType socketProtocalType = SocketProtocalType.ChatMessage)
         {
-            SendAsync(BaseSocketProtocal.Parse(data, SocketProtocalType.ChatMessage));
+            SendAsync(BaseSocketProtocal.Parse(data, socketProtocalType));
         }
 
         /// <summary>
@@ -118,6 +123,7 @@ namespace SAEA.Sockets.Shortcut
         private void UdpClient_OnError(string ID, Exception ex)
         {
             Console.WriteLine($"UdpClient_OnError {ID} :" + ex.Message);
+            OnError?.Invoke(this, ex);
         }
 
         private void UdpClient_OnReceive(byte[] data)
@@ -131,6 +137,7 @@ namespace SAEA.Sockets.Shortcut
         private void UdpClient_OnDisconnected(string ID, Exception ex)
         {
             Console.WriteLine($"UdpClient_OnDisconnected {ID} :" + ex.Message);
+            OnDisconnected?.Invoke(this);
         }
 
         /// <summary>
@@ -147,6 +154,30 @@ namespace SAEA.Sockets.Shortcut
         public void Dispose()
         {
             _udpClient?.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// UDPClient
+    /// </summary>
+    public class UDPClient : UDPClient<BaseUnpacker>
+    {
+        /// <summary>
+        /// UDPClient
+        /// </summary>
+        /// <param name="endPoint"></param>
+        public UDPClient(IPEndPoint endPoint) : base(endPoint)
+        {
+
+        }
+        /// <summary>
+        /// UDPClient
+        /// </summary>
+        /// <param name="ip"></param>
+        /// <param name="port"></param>
+        public UDPClient(string ip, int port) : base(ip, port)
+        {
+
         }
     }
 }

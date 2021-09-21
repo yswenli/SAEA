@@ -40,11 +40,17 @@ namespace SAEA.Sockets.Shortcut
     /// <summary>
     /// UDPServer
     /// </summary>
-    public class UDPServer
+    public class UDPServer<Coder> where Coder : class, IUnpacker
     {
         IServerSocket _udpServer;
 
-        public event Action<UDPServer, string, ISocketProtocal> OnReceive;
+        public event Action<UDPServer<Coder>, string, ISocketProtocal> OnReceive;
+
+        public event Action<string, Exception> OnError;
+
+        public event Action<string> OnAccepted;
+
+        public event Action<string> OnDisconnected;
 
         /// <summary>
         /// UDPServer
@@ -55,7 +61,7 @@ namespace SAEA.Sockets.Shortcut
         {
             _udpServer = SocketFactory.CreateServerSocket(SocketOptionBuilder.Instance.SetSocket(SAEASocketType.Udp)
                 .SetIPEndPoint(endPoint)
-                .UseIocp<BaseContext>()
+                .UseIocp<Coder>()
                 .SetReadBufferSize(SocketOption.UDPMaxLength)
                 .SetWriteBufferSize(SocketOption.UDPMaxLength)
                 .SetTimeOut(timeOut)
@@ -73,7 +79,7 @@ namespace SAEA.Sockets.Shortcut
         /// <param name="ip"></param>
         /// <param name="port"></param>
         /// <param name="timeOut"></param>
-        public UDPServer(string ip, int port, int timeOut = 5000) : this(new IPEndPoint(IPAddress.Parse(ip), port), timeOut)
+        public UDPServer(int port, int timeOut = 5000) : this(new IPEndPoint(IPAddress.Any, port), timeOut)
         {
 
         }
@@ -101,9 +107,10 @@ namespace SAEA.Sockets.Shortcut
         /// </summary>
         /// <param name="id"></param>
         /// <param name="data"></param>
-        public void SendAsync(string id, byte[] data)
+        /// <param name="socketProtocalType"></param>
+        public void SendAsync(string id, byte[] data, SocketProtocalType socketProtocalType = SocketProtocalType.ChatMessage)
         {
-            SendAsync(id, BaseSocketProtocal.Parse(data, SocketProtocalType.ChatMessage));
+            SendAsync(id, BaseSocketProtocal.Parse(data, socketProtocalType));
         }
 
         /// <summary>
@@ -125,22 +132,49 @@ namespace SAEA.Sockets.Shortcut
             });
         }
 
-        private void UdpServer_OnError(string ID, Exception ex)
+        private void UdpServer_OnError(string id, Exception ex)
         {
-            Console.WriteLine($"UdpServer_OnError: {ID} :" + ex.Message);
+            OnError?.Invoke(id, ex);
         }
 
-        private void UdpServer_OnDisconnected(string ID, Exception ex)
+        private void UdpServer_OnDisconnected(string id, Exception ex)
         {
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"UdpServer_OnDisconnected:{ID}");
+            Console.WriteLine($"UdpServer_OnDisconnected:{id}");
+            OnDisconnected?.Invoke(id);
         }
 
         private void UdpServer_OnAccepted(object obj)
         {
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"UdpServer_OnAccepted:{((IUserToken)obj).ID}");
+            OnAccepted?.Invoke(((IUserToken)obj).ID);
         }
 
+    }
+
+    /// <summary>
+    /// UDPServer
+    /// </summary>
+    public class UDPServer : UDPServer<BaseUnpacker>
+    {
+        /// <summary>
+        /// UDPServer
+        /// </summary>
+        /// <param name="endPoint"></param>
+        /// <param name="timeOut"></param>
+        public UDPServer(IPEndPoint endPoint, int timeOut = 5000) : base(endPoint, timeOut)
+        {
+
+        }
+        /// <summary>
+        /// UDPServer
+        /// </summary>
+        /// <param name="port"></param>
+        /// <param name="timeOut"></param>
+        public UDPServer(int port, int timeOut = 5000) : base(port, timeOut)
+        {
+
+        }
     }
 }

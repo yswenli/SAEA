@@ -15,13 +15,11 @@
 *版 本 号： V1.0.0.0
 *描    述：
 *****************************************************************************/
-using JT808.Protocol;
-using JT808.Protocol.MessageBody;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
+using JT808.Protocol;
+
+using SAEA.Sockets.Shortcut;
 
 namespace SAEA.Sockets.TcpTest
 {
@@ -29,7 +27,7 @@ namespace SAEA.Sockets.TcpTest
     {
         JUnpacker _jUnpacker;
 
-        IClientSocket _clientSokcet;
+        TCPClient<JUnpacker> _client;
 
         public event Action<JClient, JT808Package> OnReceive;
 
@@ -37,45 +35,47 @@ namespace SAEA.Sockets.TcpTest
         {
             _jUnpacker = new JUnpacker();
 
-            _clientSokcet = SocketFactory.CreateClientSocket(SocketOptionBuilder.Instance
-               .SetSocket(Model.SAEASocketType.Tcp)
-               .SetIPEndPoint(new System.Net.IPEndPoint(System.Net.IPAddress.Parse("127.0.0.1"), 39808))
-               .UseIocp<JContext>()
-               .Build());
+            _client = new TCPClient<JUnpacker>("127.0.0.1",39808);
 
-            _clientSokcet.OnReceive += ClientSokcet_OnReceive;
-            _clientSokcet.OnDisconnected += ClientSokcet_OnDisconnected;
-            _clientSokcet.OnError += ClientSokcet_OnError;
+            _client.OnError += _client_OnError;
+
+            _client.OnDisconnect += _client_OnDisconnect;
+
+            _client.OnReceive += _client_OnReceive;
         }
 
-        public void Connect()
+        private void _client_OnReceive(TCPClient<JUnpacker> arg1, byte[] arg2)
         {
-            _clientSokcet.ConnectAsync();
-        }
-
-        public void SendAsync(JT808Package jT808Package)
-        {
-            _clientSokcet.SendAsync(new JT808Serializer().Serialize(jT808Package));
-        }
-
-
-        private void ClientSokcet_OnError(string ID, Exception ex)
-        {
-            Console.WriteLine($"ClientSokcet_OnError:{ex.Message}");
-        }
-
-        private void ClientSokcet_OnDisconnected(string ID, Exception ex)
-        {
-            Console.WriteLine($"ClientSokcet_OnDisconnected:{ex.Message}");
-        }
-
-        private void ClientSokcet_OnReceive(byte[] data)
-        {
-            _jUnpacker.DeCode(data, (b) =>
+            _jUnpacker.DeCode(arg2, (b) =>
             {
                 var package = new JT808Serializer().Deserialize<JT808Package>(b.AsSpan());
                 OnReceive.Invoke(this, package);
             });
+        }
+
+        private void _client_OnDisconnect(TCPClient<JUnpacker> arg1, Exception arg2)
+        {
+            Console.WriteLine($"ClientSokcet_OnDisconnected:{arg1}");
+        }
+
+        private void _client_OnError(TCPClient<JUnpacker> arg1, Exception arg2)
+        {
+            Console.WriteLine($"ClientSokcet_OnError:{arg2.Message}");
+        }
+
+        public void Connect()
+        {
+            _client.Connect();
+        }
+
+        public void Disconnect()
+        {
+            _client.Disconnect();
+        }
+
+        public void SendAsync(JT808Package jT808Package)
+        {
+            _client.SendAsync(new JT808Serializer().Serialize(jT808Package));
         }
     }
 }

@@ -58,17 +58,15 @@ namespace SAEA.FileSocket
 
         AutoResetEvent _autoResetEvent = new AutoResetEvent(true);
 
-        Context _context;
-
         IClientSocket _client;
+
+        BaseUnpacker _unpacker;
 
         public Client(int bufferSize = 100 * 1024, string ip = "127.0.0.1", int port = 39654)
         {
-            _context = new Context();
-
             var option = SocketOptionBuilder.Instance
                 .SetSocket()
-                .UseIocp(_context)
+                .UseIocp<BaseUnpacker>()
                 .SetIP(ip)
                 .SetPort(port)
                 .SetReadBufferSize(bufferSize)
@@ -80,7 +78,11 @@ namespace SAEA.FileSocket
             _client.OnReceive += _client_OnReceive;
 
             _bufferSize = bufferSize;
+
             _buffer = new byte[_bufferSize];
+
+            _unpacker = new BaseUnpacker();
+
             HeartAsync();
         }
 
@@ -88,9 +90,8 @@ namespace SAEA.FileSocket
         {
             if (data != null)
             {
-                _context.Unpacker.Unpack(data, (allow) =>
+                _unpacker.Unpack(data, (allow) =>
                 {
-
                     Action<bool> action;
 
                     if (_eventCollection.TryPop(out action))

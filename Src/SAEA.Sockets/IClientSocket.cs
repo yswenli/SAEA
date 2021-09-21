@@ -28,6 +28,8 @@
 *描述：
 *****************************************************************************/
 using SAEA.Sockets.Handler;
+using SAEA.Sockets.Interface;
+
 using System;
 using System.IO;
 using System.Net;
@@ -42,6 +44,8 @@ namespace SAEA.Sockets
     /// </summary>
     public interface IClientSocket : IDisposable
     {
+        IContext<IUnpacker> Context { get; }
+
         ISocketOption SocketOption { get; set; }
 
         /// <summary>

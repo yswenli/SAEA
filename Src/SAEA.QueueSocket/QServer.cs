@@ -51,7 +51,7 @@ namespace SAEA.QueueSocket
             _exchange.OnBatched += _exchange_OnBatched;
 
             var config = SocketOptionBuilder.Instance
-                .UseIocp<QContext>()
+                .UseIocp<QUnpacker>()
                 .SetSocket(Sockets.Model.SAEASocketType.Tcp)
                 .SetReadBufferSize(bufferSize)
                 .SetWriteBufferSize(bufferSize)

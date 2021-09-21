@@ -88,7 +88,7 @@ namespace SAEA.Sockets
         /// <summary>
         /// iocp模式下的编码会话上下文对象
         /// </summary>
-        IContext Context
+        IContext<IUnpacker> Context
         {
             get; set;
         }
