@@ -5,7 +5,7 @@
 *公司名称：yswenli
 *命名空间：SAEA.Commom
 *文件名： SyncHelper
-*版本号： v6.0.0.1
+*版本号： v7.0.0.1
 *唯一标识：31743e53-5af7-48fb-b248-e1b3504b9c68
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -17,13 +17,15 @@
 *修改标记
 *修改时间：2018/5/17 17:26:35
 *修改人： yswenli
-*版本号： v6.0.0.1
+*版本号： v7.0.0.1
 *描述：
 *
 *****************************************************************************/
 using System;
 using System.Collections.Concurrent;
 using System.Threading;
+
+using SAEA.Common.Caching;
 
 namespace SAEA.Common
 {
@@ -33,7 +35,7 @@ namespace SAEA.Common
     /// <typeparam name="T"></typeparam>
     public class OrderSyncHelper<T>
     {
-        ConcurrentQueue<T> _queue;
+        BlockingQueue<T> _queue;
 
         TimeSpan _timeout;
 
@@ -47,7 +49,7 @@ namespace SAEA.Common
         {
             _timeout = TimeSpan.FromMilliseconds(timeout);
 
-            _queue = new ConcurrentQueue<T>();
+            _queue = new BlockingQueue<T>();
 
             _locker = new object();
         }
@@ -61,22 +63,9 @@ namespace SAEA.Common
         {
             lock (_locker)
             {
-                var date = DateTimeHelper.Now;
-
                 work?.Invoke();
 
-                T t;
-
-                while (!_queue.TryDequeue(out t))
-                {
-                    if (DateTimeHelper.Now - date > _timeout)
-                    {
-                        throw new TimeoutException("request is timeout");
-                    }
-                    Thread.Yield();
-                }
-
-                return t;
+                return _queue.Dequeue(_timeout);
             }
         }
 

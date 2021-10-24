@@ -4,7 +4,7 @@
 *机器名称：WENLI-PC
 *命名空间：SAEA.Common.Caching
 *类 名 称：BlockingQueue
-*版 本 号： v5.0.0.1
+*版本号： v7.0.0.1
 *创建人： yswenli
 *电子邮箱：wenguoli_520@qq.com
 *创建时间：2019/1/16 9:43:28
@@ -12,7 +12,7 @@
 *=====================================================================
 *修改时间：2019/1/16 9:43:28
 *修 改 人： yswenli
-*版 本 号： v5.0.0.1
+*版本号： v7.0.0.1
 *描    述：
 *****************************************************************************/
 using System;
@@ -86,7 +86,7 @@ namespace SAEA.Common.Caching
                 if (!_gate.WaitOne(maxTimeout))
                 {
                     _gate.Set();
-                    return default(TItem);
+                    return default;
                 }
                 lock (_syncRoot)
                 {
@@ -104,6 +104,16 @@ namespace SAEA.Common.Caching
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// 出队
+        /// </summary>
+        /// <param name="timeOut"></param>
+        /// <returns></returns>
+        public TItem Dequeue(TimeSpan timeOut)
+        {
+            return Dequeue((int)timeOut.TotalMilliseconds);
         }
 
         /// <summary>

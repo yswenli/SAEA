@@ -11,8 +11,6 @@ namespace SAEA.Sockets.UdpTest
 {
     class Program
     {
-        static object _locker = new object();
-
         static void Main(string[] args)
         {
             Console.Title = "SAEA.Sockets.UdpTest";
@@ -39,24 +37,21 @@ namespace SAEA.Sockets.UdpTest
             Console.ReadLine();
         }
 
-        private static void Server_OnReceive(UDPServer arg1, string arg2, ISocketProtocal arg3)
+
+
+        private static void Server_OnReceive(UDPServer<BaseUnpacker> arg1, string arg2, ISocketProtocal arg3)
         {
-            lock (_locker)
-            {
-                Console.ForegroundColor = ConsoleColor.DarkGreen;
-                Console.WriteLine($"udp server received a message：{Encoding.UTF8.GetString(arg3.Content)}");
-            }
+            Console.ForegroundColor = ConsoleColor.DarkGreen;
+            Console.WriteLine($"udp server received a message：{Encoding.UTF8.GetString(arg3.Content)}");
+
 
             arg1.SendAsync(arg2, Encoding.UTF8.GetBytes($"udpserver reply:{Encoding.UTF8.GetString(arg3.Content)}"));
         }
 
-        private static void Client_OnReceive(UDPClient arg1, ISocketProtocal arg2)
+        private static void Client_OnReceive(UDPClient<BaseUnpacker> arg1, ISocketProtocal arg2)
         {
-            lock (_locker)
-            {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"udp client received a message：{Encoding.UTF8.GetString(arg2.Content)}");
-            }
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"udp client received a message：{Encoding.UTF8.GetString(arg2.Content)}");
         }
     }
 }

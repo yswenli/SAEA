@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <Authors>yswenli</Authors>
-    <Version>6.2.6.7</Version>
+    <Version>7.0.0.1</Version>
     <Description>This is a message server and client component based on SAEA. Scokets. Messages are transmitted by Pb compression. Messages support private messages, channels, groups, etc.
 这是一个基于SAEA.Scokets的高性能消息服务器、客户端组件，消息使用pb压缩传输，消息支持私信、频道、群组等方式
 https://github.com/yswenli/SAEA</Description>
