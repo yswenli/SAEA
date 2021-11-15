@@ -33,7 +33,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -125,7 +124,7 @@ namespace SAEA.Sockets.Core
         /// <param name="offset"></param>
         /// <param name="count"></param>
         /// <returns></returns>
-        public async Task<int> ReadAsync(byte[] buffer, int offset, int count)
+        public new async Task<int> ReadAsync(byte[] buffer, int offset, int count)
         {
             return await Task.Run(() => Read(buffer, offset, count));
         }
@@ -157,9 +156,9 @@ namespace SAEA.Sockets.Core
         /// <param name="offset"></param>
         /// <param name="count"></param>
         /// <returns></returns>
-        public async Task WriteAsync(byte[] buffer, int offset, int count)
+        public new async Task WriteAsync(byte[] buffer, int offset, int count)
         {
-            return await Task.Run(() => Write(buffer, offset, count));
+            await Task.Run(() => Write(buffer, offset, count));
         }
 
         /// <summary>
