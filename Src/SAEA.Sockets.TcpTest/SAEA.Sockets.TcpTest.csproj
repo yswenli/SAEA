@@ -94,6 +94,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="JClient.cs" />
+    <Compile Include="JClient2.cs" />
     <Compile Include="JContext.cs" />
     <Compile Include="JServer.cs" />
     <Compile Include="Program.cs" />

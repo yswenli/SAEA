@@ -20,15 +20,30 @@ namespace SAEA.Sockets.TcpTest
             jServer.Start();
 
             //jclient
-            JClient jClient = new JClient();
-            jClient.OnReceive += JClient_OnReceive;
-            jClient.Connect();
+            JClient jClient1 = new JClient();
+            jClient1.OnReceive += JClient_OnReceive;
+            jClient1.Connect();
             for (int i = 0; i < 10; i++)
             {
-                jClient.SendAsync(GetJT808PositionData());
-                Thread.Sleep(1000);
+                jClient1.SendAsync(GetJT808PositionData());
+                Thread.Sleep(500);
             }
-            jClient.Disconnect();
+            jClient1.Disconnect();
+
+            //jclient
+            JClient2 jClient2 = new JClient2();
+            jClient2.Connect();
+            for (int i = 0; i < 10; i++)
+            {
+                jClient2.Send(GetJT808PositionData());
+                Thread.Sleep(1000);
+                var data = jClient2.Receive();
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"client 收到平台通用应答,MsgNum:{data.Header.MsgNum}");                              
+            }
+
+            jClient2.Disconnect();
+
             Console.ReadLine();
         }
 

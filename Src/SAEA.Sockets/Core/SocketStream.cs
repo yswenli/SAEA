@@ -29,7 +29,10 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Common.Caching;
+
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -47,13 +50,11 @@ namespace SAEA.Sockets.Core
 
         IClientSocket _client;
 
-        List<byte> _cache = new List<byte>();
+        BlockingQueue<byte[]> _queue;
 
-        object _readLocker = new object();
+        List<byte> _list;
 
-        int _avaliable = 0;
-
-        AutoResetEvent _event = new AutoResetEvent(true);
+        int _length = 0;
 
         /// <summary>
         /// 套节字流
@@ -65,19 +66,14 @@ namespace SAEA.Sockets.Core
             _client = client;
             _ownsClient = ownsClient;
             _client.OnReceive += _client_OnReceive;
+            _queue = new BlockingQueue<byte[]>();
+            _list = new List<byte>();
         }
 
         private void _client_OnReceive(byte[] data)
         {
-            lock (_readLocker)
-            {
-                _cache.AddRange(data);
-            }
-            if (Interlocked.Exchange(ref _avaliable, 1) == 0)
-            {
-                _event.Set();
-            }
-
+            _queue.Enqueue(data);
+            Interlocked.Add(ref _length, data.Length);
         }
 
         public override bool CanRead => _client.Connected;
@@ -86,7 +82,7 @@ namespace SAEA.Sockets.Core
 
         public override bool CanWrite => _client.Connected;
 
-        public override long Length => throw new NotImplementedException();
+        public override long Length => _length;
 
         public override long Position { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
 
@@ -103,19 +99,16 @@ namespace SAEA.Sockets.Core
         /// <returns></returns>
         public override int Read(byte[] buffer, int offset, int count)
         {
-            lock (_readLocker)
+            var data = _queue.Dequeue(_client.SocketOption.TimeOut);
+            if (data != null && data.Length > 0)
             {
-                if (_event.WaitOne(_client.SocketOption.TimeOut))
-                {
-                    var data = _cache.Skip(offset).Take(count).ToArray();
-                    var length = data.Length;
-                    Buffer.BlockCopy(data, 0, buffer, 0, length);
-                    Interlocked.Exchange(ref _avaliable, 0);
-                    return length;
-                }
-                else
-                    throw new TimeoutException("读取数据超时");
+                _list.AddRange(data);
             }
+            var ldata = _list.Take(count - offset).ToArray();
+            if (ldata.Length < 1) return 0;            
+            Buffer.BlockCopy(ldata, 0, buffer, offset, ldata.Length);
+            Interlocked.Add(ref _length, 0 - ldata.Length);
+            return ldata.Length;
         }
         /// <summary>
         /// 读取

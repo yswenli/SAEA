@@ -32,6 +32,7 @@ using System.Net;
 using System.Text;
 
 using SAEA.Sockets.Base;
+using SAEA.Sockets.Core;
 using SAEA.Sockets.Interface;
 
 namespace SAEA.Sockets.Shortcut
@@ -40,7 +41,7 @@ namespace SAEA.Sockets.Shortcut
     /// TCPClient
     /// </summary>
     /// <typeparam name="Coder">IUnpacker</typeparam>
-    public class TCPClient<Coder> :IDisposable where Coder : class, IUnpacker
+    public class TCPClient<Coder> : IDisposable where Coder : class, IUnpacker
     {
         IClientSocket _clientSokcet;
 
@@ -49,6 +50,11 @@ namespace SAEA.Sockets.Shortcut
         public event Action<TCPClient<Coder>, Exception> OnError;
 
         public event Action<TCPClient<Coder>, Exception> OnDisconnect;
+
+        /// <summary>
+        /// 流
+        /// </summary>
+        public SocketStream SocketStream { get; private set; }
 
         /// <summary>
         /// TCPClient
@@ -64,6 +70,8 @@ namespace SAEA.Sockets.Shortcut
             _clientSokcet.OnReceive += ClientSokcet_OnReceive;
             _clientSokcet.OnDisconnected += ClientSokcet_OnDisconnected;
             _clientSokcet.OnError += ClientSokcet_OnError;
+
+            SocketStream = new SocketStream(_clientSokcet);
         }
 
         /// <summary>
@@ -113,7 +121,7 @@ namespace SAEA.Sockets.Shortcut
 
         private void ClientSokcet_OnReceive(byte[] data)
         {
-            OnReceive.Invoke(this, data);
+            OnReceive?.Invoke(this, data);
         }
         /// <summary>
         /// Disconnect
