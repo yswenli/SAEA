@@ -21,6 +21,7 @@
 *描述：
 ******************************************************************************/
 using SAEA.Common;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -179,6 +180,22 @@ namespace SAEA.Http
                 return sb.ToString();
             }
             return string.Empty;
+        }
+
+        /// <summary>
+        /// Expire
+        /// </summary>
+        /// <param name="name"></param>
+        public void Expire(string name)
+        {
+            if (this.ContainsKey(name))
+            {
+                var cookie = this[name];
+                if (cookie != null)
+                {
+                    cookie.Expires = DateTimeHelper.Now;
+                }
+            }
         }
     }
 }
