@@ -44,5 +44,16 @@ namespace SAEA.Common
         {
             return _rnd.Next(min, max);
         }
+
+        /// <summary>
+        /// 创建随机base64 string
+        /// </summary>
+        /// <returns></returns>
+        public static string CreateBase64Key()
+        {
+            var src = new byte[16];
+            new Random(Environment.TickCount).NextBytes(src);
+            return Convert.ToBase64String(src);
+        }
     }
 }

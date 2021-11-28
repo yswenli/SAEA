@@ -91,15 +91,6 @@ namespace SAEA.WebSocket.Model
             return result;
         }
 
-
-
-        private static string CreateBase64Key()
-        {
-            var src = new byte[16];
-            new Random(Environment.TickCount).NextBytes(src);
-            return Convert.ToBase64String(src);
-        }
-
         /// <summary>
         /// 客户端发起握手
         /// </summary>
@@ -124,7 +115,7 @@ namespace SAEA.WebSocket.Model
             sb.AppendFormat("{0}: {1}{2}", "Sec-WebSocket-Version", "13", Enter);
             if (!string.IsNullOrEmpty(subProtocol))
                 sb.AppendFormat("{0}: {1}{2}", "Sec-WebSocket-Protocol", subProtocol, Enter);
-            sb.AppendFormat("{0}: {1}{2}", "Sec-WebSocket-Key", CreateBase64Key(), Enter);
+            sb.AppendFormat("{0}: {1}{2}", "Sec-WebSocket-Key", RandomHelper.CreateBase64Key(), Enter);
             sb.AppendFormat("{0}: {1}{2}", "Sec-WebSocket-Extensions", "permessage-deflate; client_max_window_bits", Enter);
             sb.Append(Enter);
             return Encoding.UTF8.GetBytes(sb.ToString());
