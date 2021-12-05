@@ -43,7 +43,7 @@ namespace SAEA.RedisSocket.Core
 
         public const string MOVED = "-MOVED";
 
-        RedisStream _redisStream = new RedisStream();
+        RedisStream _redisStream;
 
         //DataExtraction _dataExtraction = new DataExtraction();
 
@@ -58,6 +58,8 @@ namespace SAEA.RedisSocket.Core
         public RedisCoder(RClient rclient)
         {
             _rclient = rclient;
+
+            _redisStream = new RedisStream(rclient.SocketOption.TimeOut);
         }
 
         #region 发送编码

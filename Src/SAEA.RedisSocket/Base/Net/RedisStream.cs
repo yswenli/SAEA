@@ -55,7 +55,10 @@ namespace SAEA.RedisSocket.Base.Net
             {
                 while (!IsDisposed)
                 {
-                    byte[] data = _queue.Take();
+                    if (!_queue.TryTake(out byte[] data, timeout))
+                    {
+                        continue;
+                    }
 
                     if (data == null || data.Length == 0) continue;
 
