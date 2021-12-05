@@ -73,6 +73,14 @@ namespace SAEA.RedisSocketTest
 
             #endregion
 
+            for (int i = 0; i < 16; i++)
+            {
+                redisClient.Select(i);
+            }
+
+            redisClient.Select(0);
+
+
             StringPerformanceTest(redisClient);
 
             //BatchTest(redisClient);

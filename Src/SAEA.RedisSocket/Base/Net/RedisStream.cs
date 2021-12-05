@@ -33,26 +33,31 @@ namespace SAEA.RedisSocket.Base.Net
     /// </summary>
     internal class RedisStream : IDisposable
     {
-        BlockingQueue<byte[]> _queue = new BlockingQueue<byte[]>();
+        BlockingCollection<byte[]> _queue = new BlockingCollection<byte[]>();
 
         List<byte> _bytes = new List<byte>();
 
-        ConcurrentQueue<string> _stringQueue = new ConcurrentQueue<string>();
+        BlockingQueue<string> _stringQueue = new BlockingQueue<string>();
 
         public bool IsDisposed { get; private set; } = false;
+
+        int _timeout = 6 * 1000;
 
         /// <summary>
         /// RedisStream
         /// </summary>
-        public RedisStream()
+        /// <param name="timeout"></param>
+        public RedisStream(int timeout = 6 * 1000)
         {
+            _timeout = timeout;
+
             TaskHelper.LongRunning(() =>
             {
                 while (!IsDisposed)
                 {
-                    var data = _queue.Dequeue(5000);
+                    byte[] data = _queue.Take();
 
-                    if (data == null) break;
+                    if (data == null || data.Length == 0) continue;
 
                     _bytes.AddRange(data);
 
@@ -84,8 +89,8 @@ namespace SAEA.RedisSocket.Base.Net
                         _bytes.RemoveRange(0, count);
                     }
                     while (!IsDisposed);
-
                 }
+
             });
         }
 
@@ -95,7 +100,7 @@ namespace SAEA.RedisSocket.Base.Net
         /// <param name="memory"></param>
         public void Write(byte[] memory)
         {
-            _queue.Enqueue(memory);
+            _queue.Add(memory);
         }
 
         /// <summary>
@@ -104,8 +109,7 @@ namespace SAEA.RedisSocket.Base.Net
         /// <returns></returns>
         public string ReadLine()
         {
-            _stringQueue.TryDequeue(out string result);
-            return result;
+            return _stringQueue.Dequeue(_timeout);
         }
 
         /// <summary>
@@ -134,9 +138,7 @@ namespace SAEA.RedisSocket.Base.Net
 
         public void Clear()
         {
-            _queue.Clear();
             _stringQueue.Clear();
-            _bytes.Clear();
         }
 
         public void Dispose()

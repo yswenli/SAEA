@@ -23,16 +23,15 @@
 *****************************************************************************/
 
 using SAEA.Sockets.Interface;
+
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace SAEA.QueueSocket.Model
 {
     public class MessageQueue : ISyncBase, IDisposable
     {
-        ConcurrentDictionary<string, QueueBase> _dic;
+        readonly ConcurrentDictionary<string, BlockingCollection<string>> _dic;
 
         object _syncLocker = new object();
 
@@ -46,48 +45,45 @@ namespace SAEA.QueueSocket.Model
 
         public MessageQueue()
         {
-            _dic = new ConcurrentDictionary<string, QueueBase>();
+            _dic = new ConcurrentDictionary<string, BlockingCollection<string>>();
         }
 
 
         public void Enqueue(string topic, string data)
         {
-            if (!_dic.TryGetValue(topic, out QueueBase queue))
+            if (!_dic.TryGetValue(topic, out BlockingCollection<string> queue))
             {
-                queue = new QueueBase(topic);
+                queue = new BlockingCollection<string>();
                 _dic.TryAdd(topic, queue);
             }
-            queue.Enqueue(data);
+            queue.Add(data);
         }
 
 
         public string Dequeue(string topic)
         {
-            if (_dic.TryGetValue(topic, out QueueBase queue))
+            if (_dic.TryGetValue(topic, out BlockingCollection<string> queue))
             {
                 if (queue != null)
                 {
-                    return queue.Dequeue();
+                    return queue.Take();
                 }
             }
             return null;
         }
 
-        public List<QueueBase> ToList()
+        public ConcurrentDictionary<string, BlockingCollection<string>> ToList()
         {
-            lock (_syncLocker)
-            {
-                return _dic.Values.ToList();
-            }
+            return _dic;
         }
 
         public long GetCount(string topic)
         {
-            if (_dic.TryGetValue(topic, out QueueBase queue))
+            if (_dic.TryGetValue(topic, out BlockingCollection<string> queue))
             {
                 if (queue != null)
                 {
-                    return queue.Length;
+                    return queue.Count;
                 }
             }
             return 0;
@@ -96,7 +92,6 @@ namespace SAEA.QueueSocket.Model
         public void Dispose()
         {
             _dic.Clear();
-            _dic = null;
         }
     }
 }

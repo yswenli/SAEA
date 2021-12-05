@@ -151,27 +151,18 @@ namespace SAEA.QueueSocket.Model
             return new Tuple<long, long, long, long>(_pNum, _cNum, _inNum, _outNum);
         }
 
+
         public List<Tuple<string, long>> GetQueueInfo()
         {
             List<Tuple<string, long>> result = new List<Tuple<string, long>>();
-            lock (_syncLocker)
+            var dic = _messageQueue.ToList();
+            if (!dic.IsEmpty)
             {
-                var list = _messageQueue.ToList();
-                if (list != null)
+                foreach (var item in dic)
                 {
-                    var tlts = list.Select(b => b.Topic).Distinct().ToList();
-
-                    if (tlts != null)
-                    {
-                        foreach (var topic in tlts)
-                        {
-                            var count = _messageQueue.GetCount(topic);
-                            var t = new Tuple<string, long>(topic, count);
-                            result.Add(t);
-                        }
-                        tlts.Clear();
-                    }
-                    list.Clear();
+                    var count = _messageQueue.GetCount(item.Key);
+                    var t = new Tuple<string, long>(item.Key, count);
+                    result.Add(t);
                 }
             }
             return result;
