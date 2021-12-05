@@ -152,7 +152,7 @@ namespace SAEA.MVC
             }
             else
             {
-                result = new EmptyResult();
+                result = beforeResult;
             }
             #endregion
 
