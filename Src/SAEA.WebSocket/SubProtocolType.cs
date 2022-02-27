@@ -15,9 +15,6 @@
 *版本号： v7.0.0.1
 *描    述：
 *****************************************************************************/
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.WebSocket
 {

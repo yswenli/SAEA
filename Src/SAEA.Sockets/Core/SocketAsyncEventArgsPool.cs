@@ -7,7 +7,7 @@
  |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
                                                              
 
-*Copyright (c) 2018-2021yswenli All Rights Reserved.
+*Copyright (c) 2018-2022yswenli All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
 *公司名称：wenli
@@ -30,15 +30,15 @@
 *
 *****************************************************************************/
 using System;
+using System.Collections.Concurrent;
 using System.Net.Sockets;
-
-using SAEA.Common.Caching;
 
 namespace SAEA.Sockets.Core
 {
     class SocketAsyncEventArgsPool
     {
-        BlockingQueue<SocketAsyncEventArgs> _argsPool;
+        //BlockingQueue<SocketAsyncEventArgs> _argsPool;
+        BlockingCollection<SocketAsyncEventArgs> _argsPool;
 
         int _capacity = 1000 * 100;
 
@@ -48,7 +48,8 @@ namespace SAEA.Sockets.Core
         public SocketAsyncEventArgsPool(int capacity = 1000 * 100)
         {
             _capacity = capacity;
-            _argsPool = new BlockingQueue<SocketAsyncEventArgs>();
+            //_argsPool = new BlockingQueue<SocketAsyncEventArgs>();
+            _argsPool = new BlockingCollection<SocketAsyncEventArgs>();
         }
 
 
@@ -58,7 +59,7 @@ namespace SAEA.Sockets.Core
             for (int i = 0; i < _capacity; i++)
             {
                 var args = new SocketAsyncEventArgs();
-                _argsPool.Enqueue(args);
+                _argsPool.Add(args);
             }
         }
 
@@ -67,13 +68,13 @@ namespace SAEA.Sockets.Core
             if (args == null) return;
             args.UserToken = null;
             args.Completed -= _completed;
-            _argsPool.Enqueue(args);
+            _argsPool.Add(args);
         }
 
 
         public SocketAsyncEventArgs Dequeue()
         {
-            SocketAsyncEventArgs args = _argsPool.Dequeue(-1);
+            SocketAsyncEventArgs args = _argsPool.Take();
             args.Completed += _completed;
             return args;
         }

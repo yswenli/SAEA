@@ -1,5 +1,5 @@
 ﻿/****************************************************************************
-*Copyright (c) 2018-2021yswenli All Rights Reserved.
+*Copyright (c) 2018-2022yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：yswenli
@@ -43,8 +43,6 @@ namespace SAEA.Http
 
         bool _isZiped = false;
 
-        bool _staticsCached = false;
-
         protected IUserToken UserToken { get; set; }
 
         internal HttpResponse()
@@ -52,13 +50,12 @@ namespace SAEA.Http
 
         }
 
-        internal void Init(IWebHost webHost, IUserToken userToken, string protocal, bool isZiped = false, bool staticsCached = false)
+        internal void Init(IWebHost webHost, IUserToken userToken, string protocal, bool isZiped = false)
         {
             WebHost = webHost;
             UserToken = userToken;
             Protocal = protocal;
             _isZiped = isZiped;
-            _staticsCached = staticsCached;
             Headers["Connection"] = "close";
         }
 
@@ -322,8 +319,7 @@ namespace SAEA.Http
                 this.Forms.Clear();
             if (this.Parmas != null)
                 this.Parmas.Clear();
-            if (Body != null)
-                Array.Clear(Body, 0, Body.Length);
+            Body.Clear();
         }
 
     }

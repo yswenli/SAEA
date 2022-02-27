@@ -7,7 +7,7 @@
  |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
                                                              
 
-*Copyright (c) 2018-2021yswenli All Rights Reserved.
+*Copyright (c) 2018-2022yswenli All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
 *公司名称：wenli
@@ -72,7 +72,6 @@ namespace SAEA.Sockets.Core
 
                 var readArgs = new SocketAsyncEventArgs();
                 readArgs.Completed += completed;
-                _bufferManager.SetBuffer(readArgs);
                 userToken.ReadArgs = readArgs;
 
                 userToken.ReadArgs.UserToken = userToken.WriteArgs.UserToken = userToken;
@@ -86,7 +85,10 @@ namespace SAEA.Sockets.Core
         /// <returns></returns>
         public IUserToken Dequeue()
         {
-            return _concurrentQueue.Dequeue();
+            var token = _concurrentQueue.Dequeue();
+            if (token != null && token.ReadArgs != null)
+                _bufferManager.SetBuffer(token.ReadArgs);
+            return token;
         }
 
         /// <summary>
@@ -95,14 +97,19 @@ namespace SAEA.Sockets.Core
         /// <param name="userToken"></param>
         public void Enqueue(IUserToken userToken)
         {
-            var socket = userToken.Socket;
-            userToken.Socket = null;
-            try
+            if (userToken != null)
             {
-                socket.Close();
+                if(userToken.ReadArgs != null)
+                    _bufferManager.FreeBuffer(userToken.ReadArgs);
+                var socket = userToken.Socket;
+                try
+                {
+                    socket?.Close();
+                }
+                catch { }
+                userToken.Socket = null;
+                _concurrentQueue.Enqueue(userToken);
             }
-            catch { }
-            _concurrentQueue.Enqueue(userToken);
         }
 
         /// <summary>

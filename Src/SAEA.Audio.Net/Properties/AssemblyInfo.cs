@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("yswenli")]
 [assembly: AssemblyProduct("SAEA.Audio.Net")]
-[assembly: AssemblyCopyright("Copyright yswenli ©  2021")]
+[assembly: AssemblyCopyright("Copyright yswenli ©  2022")]
 [assembly: AssemblyTrademark("SAEA.Audio.Net")]
 [assembly: AssemblyCulture("")]
 
@@ -32,5 +32,5 @@ using System.Runtime.InteropServices;
 //可以指定所有这些值，也可以使用“生成号”和“修订号”的默认值
 //通过使用 "*"，如下所示:
 // [assembly: AssemblyVersion("1.0.*")]
-[assembly: AssemblyVersion("6.2.6.9")]
-[assembly: AssemblyFileVersion("6.2.6.9")]
+[assembly: AssemblyVersion("7.0.0.3")]
+[assembly: AssemblyFileVersion("7.0.0.3")]

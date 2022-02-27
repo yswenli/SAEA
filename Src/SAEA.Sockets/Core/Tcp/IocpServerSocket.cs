@@ -7,7 +7,7 @@
  |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
                                                              
 
-*Copyright (c) 2018-2021yswenli All Rights Reserved.
+*Copyright (c) 2018-2022yswenli All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
 *公司名称：wenli
@@ -90,7 +90,10 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="socketOption"></param>
         public IocpServerSocket(ISocketOption socketOption)
         {
-            _sessionManager = new SessionManager(socketOption.Context, socketOption.ReadBufferSize, socketOption.Count, IO_Completed, new TimeSpan(0, 0, 0, 0, socketOption.FreeTime));
+            _sessionManager = new SessionManager(socketOption.Context, 
+                socketOption.ReadBufferSize, 
+                socketOption.Count, IO_Completed, 
+                new TimeSpan(0, 0, 0, 0, socketOption.FreeTime));
             _sessionManager.OnTimeOut += _sessionManager_OnTimeOut;
             OnServerReceiveBytes = new OnServerReceiveBytesHandler(OnReceiveBytes);
             SocketOption = socketOption;

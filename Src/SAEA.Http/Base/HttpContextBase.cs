@@ -1,5 +1,5 @@
 ﻿/****************************************************************************
-*Copyright (c) 2018-2021yswenli All Rights Reserved.
+*Copyright (c) 2018-2022yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：yswenli
@@ -154,7 +154,7 @@ namespace SAEA.Http.Base
                     Request.Headers["HTTP_X_FORWARDED_FOR"] += "," + this.Request.Headers["REMOTE_ADDR"];
                 }
 
-                Response.Init(_webHost, userToken, Request.Protocal, _webHost.WebConfig.IsZiped, _webHost.WebConfig.IsStaticsCached);
+                Response.Init(_webHost, userToken, Request.Protocal, _webHost.WebConfig.IsZiped);
                 Response.Cookies[ConstHelper.SESSIONID] = new HttpCookie(ConstHelper.SESSIONID, sessionID);
             }
         }
