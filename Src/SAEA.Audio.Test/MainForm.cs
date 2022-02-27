@@ -30,7 +30,7 @@ namespace SAEA.Audio.Test
 
         static void ClientInit1()
         {
-            _audioClient1 = new AudioClient("192.168.31.154", 38083);
+            _audioClient1 = new AudioClient("127.0.0.1", 38083);
             _audioClient1.Start();
             _audioClient1.Join("audiochat");
         }
@@ -39,7 +39,7 @@ namespace SAEA.Audio.Test
 
         static void ClientInit2()
         {
-            _audioClient2 = new AudioClient("192.168.31.154", 38083);
+            _audioClient2 = new AudioClient("127.0.0.1", 38083);
             _audioClient2.Start();
             _audioClient2.Join("audiochat");
 

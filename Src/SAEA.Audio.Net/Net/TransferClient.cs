@@ -69,7 +69,7 @@ namespace SAEA.Audio.Net
         /// <param name="endPoint"></param>
         public TransferClient(IPEndPoint endPoint)
         {
-            var bContext = new BaseContext();
+            var bContext = new BaseContext<BaseUnpacker>();
 
             _udpClient = SocketFactory.CreateClientSocket(SocketOptionBuilder.Instance.SetSocket(SAEASocketType.Udp)
                 .SetIPEndPoint(endPoint)

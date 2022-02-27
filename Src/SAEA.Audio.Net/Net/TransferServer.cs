@@ -22,6 +22,7 @@ using SAEA.Sockets;
 using SAEA.Sockets.Base;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
+
 using System;
 using System.Collections.Concurrent;
 using System.Net;
@@ -30,6 +31,10 @@ using System.Threading.Tasks;
 
 namespace SAEA.Audio.Net
 {
+    /// <summary>
+    /// 语音传输服务器
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
     public class TransferServer<T> where T : IStorage
     {
         IServerSocket _udpServer;
@@ -41,8 +46,15 @@ namespace SAEA.Audio.Net
 
         IStorage _storage;
 
+        /// <summary>
+        /// OnReceive
+        /// </summary>
         public event Action<DataInfo> OnReceive;
 
+        /// <summary>
+        /// 语音传输服务器
+        /// </summary>
+        /// <param name="endPoint"></param>
         public TransferServer(IPEndPoint endPoint)
         {
             _cache = new ConcurrentDictionary<string, IUserToken>();
@@ -51,7 +63,7 @@ namespace SAEA.Audio.Net
 
             _udpServer = SocketFactory.CreateServerSocket(SocketOptionBuilder.Instance.SetSocket(SAEASocketType.Udp)
                 .SetIPEndPoint(endPoint)
-                .UseIocp<BaseContext>()
+                .UseIocp()
                 .SetReadBufferSize(SocketOption.UDPMaxLength)
                 .SetWriteBufferSize(SocketOption.UDPMaxLength)
                 .SetTimeOut(60 * 1000)
