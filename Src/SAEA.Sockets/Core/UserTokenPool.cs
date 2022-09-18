@@ -47,7 +47,7 @@ namespace SAEA.Sockets.Core
 
         UserTokenFactory _userTokenFactory;
 
-        BlockingQueue<IUserToken> _concurrentQueue = new BlockingQueue<IUserToken>();
+        ThreadQueue<IUserToken> _concurrentQueue = new ThreadQueue<IUserToken>();
 
         /// <summary>
         /// UserTokenPool

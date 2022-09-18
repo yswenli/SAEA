@@ -22,7 +22,7 @@ https://github.com/yswenli/SAEA</PackageReleaseNotes>
     <LangVersion>8.0</LangVersion>
     <PackageIcon>favicon.png</PackageIcon>
     <SignAssembly>True</SignAssembly>
-    <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
+    <AssemblyOriginatorKeyFile>E:\Work\SAEA\Src\SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">

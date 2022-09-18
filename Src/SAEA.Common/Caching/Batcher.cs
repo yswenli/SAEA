@@ -221,8 +221,12 @@ namespace SAEA.Common.Caching
             _batcher?.Clear();
         }
 
+        /// <summary>
+        /// Dispose
+        /// </summary>
         public void Dispose()
         {
+            Clear();
             _batcher?.Dispose();
         }
     }

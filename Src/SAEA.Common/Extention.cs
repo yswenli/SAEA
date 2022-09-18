@@ -23,6 +23,7 @@
 *****************************************************************************/
 
 using System;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -62,6 +63,34 @@ namespace SAEA.Common
             {
                 data.Clear();
                 data = null;
+            }
+        }
+
+        /// <summary>
+        /// 遍历
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="collection"></param>
+        /// <param name="action"></param>
+        public static void Each<T>(this IEnumerable<T> collection, Action<T> action)
+        {
+            foreach (var item in collection)
+            {
+                action?.Invoke(item);
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="collection"></param>
+        /// <returns></returns>
+        public static void Each<T>(this IEnumerable<IEnumerable<T>> collection, Action<T> action)
+        {
+            foreach (var item in collection)
+            {
+                item.Each(action);
             }
         }
     }

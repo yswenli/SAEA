@@ -19,7 +19,7 @@ https://github.com/yswenli/SAEA</PackageReleaseNotes>
     <PackageProjectUrl>https://www.cnblogs.com/yswenli/</PackageProjectUrl>
     <RepositoryUrl>https://www.cnblogs.com/yswenli/</RepositoryUrl>
     <SignAssembly>true</SignAssembly>
-    <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
+    <AssemblyOriginatorKeyFile>E:\Work\SAEA\Src\SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
     <LangVersion>8.0</LangVersion>
     <PackageIcon>favicon.png</PackageIcon>
   </PropertyGroup>

@@ -31,6 +31,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace SAEA.QueueSocket.Model
 {
@@ -100,7 +101,7 @@ namespace SAEA.QueueSocket.Model
 
                 _cNum = _binding.GetSubscriberCount();
 
-                ThreadPool.QueueUserWorkItem(new WaitCallback((o) =>
+                Task.Factory.StartNew(() =>
                 {
                     while (_binding.Exists(sInfo))
                     {
@@ -110,12 +111,8 @@ namespace SAEA.QueueSocket.Model
                             Interlocked.Increment(ref _outNum);
                             _classificationBatcher.Insert(sessionID, qcoder.QueueCoder.Data(sInfo.Name, sInfo.Topic, msg));
                         }
-                        else
-                        {
-                            Thread.Yield();
-                        }
                     }
-                }));
+                }, TaskCreationOptions.LongRunning);
             }
         }
 

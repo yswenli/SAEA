@@ -18,8 +18,8 @@ https://github.com/yswenli/SAEA</PackageReleaseNotes>
     <RepositoryUrl>https://www.cnblogs.com/yswenli/</RepositoryUrl>
     <PackageIconUrl></PackageIconUrl>
     <PackageTags>websocket,iocp,websocketclient,socket,tcp</PackageTags>
-    <SignAssembly>true</SignAssembly>
-    <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
+    <SignAssembly>True</SignAssembly>
+    <AssemblyOriginatorKeyFile>E:\Work\SAEA\Src\SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
     <LangVersion>8.0</LangVersion>
     <PackageIcon>favicon.png</PackageIcon>
   </PropertyGroup>

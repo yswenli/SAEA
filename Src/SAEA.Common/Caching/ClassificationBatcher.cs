@@ -127,7 +127,6 @@ namespace SAEA.Common.Caching
                     using (var bacher = (Batcher)b)
                     {
                         bacher.OnBatched -= Bacher_OnBatched;
-                        bacher.Clear();
                     }
                 }
             }

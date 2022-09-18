@@ -16,7 +16,7 @@ SAEA.FTP 是个包含FtpServer和FtpClient的简易组件</Description>
     <PackageReleaseNotes>SAEA.FTP is a lightweight component containing FTP server and FTP client based on SAEA.Socket
 SAEA.FTP 是基于SAEA.Socket的轻量级包含FtpServer和FtpClient的组件</PackageReleaseNotes>
     <SignAssembly>true</SignAssembly>
-    <AssemblyOriginatorKeyFile>SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
+    <AssemblyOriginatorKeyFile>E:\Work\SAEA\Src\SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <LangVersion>8.0</LangVersion>
