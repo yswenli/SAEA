@@ -34,6 +34,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 
 namespace SAEA.QueueSocket
@@ -46,7 +47,7 @@ namespace SAEA.QueueSocket
 
         string _name;
 
-        public event Action<QueueResult> OnMessage;        
+        public event Action<QueueResult> OnMessage;
 
         QUnpacker _qUnpacker;
 
@@ -136,10 +137,7 @@ namespace SAEA.QueueSocket
         {
             Actived = DateTimeHelper.Now;
 
-            _qUnpacker.GetQueueResult(data, (r) =>
-            {
-                OnMessage?.Invoke(r);
-            });
+            _qUnpacker.GetQueueResult(data, OnMessage);
         }
 
         private void _batcher_OnBatched(IBatcher batcher, List<byte[]> data)
@@ -194,7 +192,7 @@ namespace SAEA.QueueSocket
         /// <param name="content"></param>
         public void Publish(string topic, string content)
         {
-            _batcher.Insert(_queueCoder.Publish(_name, topic, content));
+            _batcher.Insert(_queueCoder.Publish(_name, topic, Encoding.UTF8.GetBytes(content)));
         }
 
         #endregion

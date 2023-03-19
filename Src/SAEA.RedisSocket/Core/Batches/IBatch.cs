@@ -32,7 +32,7 @@ namespace SAEA.RedisSocket.Core.Batches
     /// <summary>
     /// 批量操作方法
     /// </summary>
-    public interface IBatch : IDisposable
+    public interface IBatch
     {
         /// <summary>
         /// 执行操作

@@ -22,16 +22,18 @@
 *
 *****************************************************************************/
 
+using SAEA.Common.Caching;
 using SAEA.Sockets.Interface;
 
 using System;
 using System.Collections.Concurrent;
+using System.Threading.Tasks;
 
 namespace SAEA.QueueSocket.Model
 {
     public class MessageQueue : ISyncBase, IDisposable
     {
-        readonly ConcurrentDictionary<string, BlockingCollection<string>> _dic;
+        readonly ConcurrentDictionary<string, FastQueue<byte[]>> _dic;
 
         object _syncLocker = new object();
 
@@ -45,41 +47,43 @@ namespace SAEA.QueueSocket.Model
 
         public MessageQueue()
         {
-            _dic = new ConcurrentDictionary<string, BlockingCollection<string>>();
+            _dic = new ConcurrentDictionary<string, FastQueue<byte[]>>();
         }
 
 
-        public void Enqueue(string topic, string data)
+        public async ValueTask<bool> EnqueueAsync(string topic, byte[] data)
         {
-            if (!_dic.TryGetValue(topic, out BlockingCollection<string> queue))
+            if (!_dic.TryGetValue(topic, out FastQueue<byte[]> queue))
             {
-                queue = new BlockingCollection<string>();
+                queue = new FastQueue<byte[]>();
                 _dic.TryAdd(topic, queue);
             }
-            queue.Add(data);
+            return await queue.EnqueueAsync(data);
         }
 
 
-        public string Dequeue(string topic)
+        public async ValueTask<byte[]> DequeueAsync(string topic)
         {
-            if (_dic.TryGetValue(topic, out BlockingCollection<string> queue))
+            if (_dic.TryGetValue(topic, out FastQueue<byte[]> queue))
             {
                 if (queue != null)
                 {
-                    return queue.Take();
+                    return await queue.DequeueAsync();
                 }
             }
             return null;
         }
 
-        public ConcurrentDictionary<string, BlockingCollection<string>> ToList()
+
+
+        public ConcurrentDictionary<string, FastQueue<byte[]>> ToList()
         {
             return _dic;
         }
 
         public long GetCount(string topic)
         {
-            if (_dic.TryGetValue(topic, out BlockingCollection<string> queue))
+            if (_dic.TryGetValue(topic, out FastQueue<byte[]> queue))
             {
                 if (queue != null)
                 {

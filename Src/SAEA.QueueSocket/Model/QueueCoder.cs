@@ -24,7 +24,9 @@
 using SAEA.Common;
 using SAEA.QueueSocket.Net;
 using SAEA.QueueSocket.Type;
+
 using System.Collections.Generic;
+using System.Text;
 using System.Threading;
 
 namespace SAEA.QueueSocket.Model
@@ -42,7 +44,7 @@ namespace SAEA.QueueSocket.Model
         /// <param name="cmdType"></param>
         /// <param name="contents"></param>
         /// <returns></returns>
-        public byte[] Encode(QueueSocketMsgType cmdType, string name, string topic, string data)
+        public byte[] Encode(QueueSocketMsgType cmdType, string name, string topic, byte[] data)
         {
             return QUnpacker.Encode(new QueueSocketMsg(cmdType, name, topic, data));
         }
@@ -54,14 +56,14 @@ namespace SAEA.QueueSocket.Model
         /// <param name="topic"></param>
         /// <param name="data"></param>
         /// <returns></returns>
-        public byte[] Encode(QueueSocketMsgType cmdType, string name, string topic, string[] data)
+        public byte[] EncodeForList(QueueSocketMsgType cmdType, string name, string topic, List<byte[]> data)
         {
             List<byte> list = new List<byte>();
             if (data != null)
             {
                 foreach (var item in data)
                 {
-                    list.AddRange(Encode(cmdType, name, topic, data));
+                    list.AddRange(Encode(cmdType, name, topic, item));
                 }
             }
             return list.ToArray();
@@ -69,35 +71,35 @@ namespace SAEA.QueueSocket.Model
 
         public byte[] Ping(string name)
         {
-            return Encode(QueueSocketMsgType.Ping, name, string.Empty, string.Empty);
+            return Encode(QueueSocketMsgType.Ping, name, string.Empty, null);
         }
 
         public byte[] Pong(string name)
         {
-            return Encode(QueueSocketMsgType.Pong, name, string.Empty, DateTimeHelper.ToString());
+            return Encode(QueueSocketMsgType.Pong, name, string.Empty, Encoding.UTF8.GetBytes(DateTimeHelper.ToString()));
         }
 
-        public byte[] Publish(string name, string topic, string data)
+        public byte[] Publish(string name, string topic, byte[] data)
         {
             return Encode(QueueSocketMsgType.Publish, name, topic, data);
         }
 
         public byte[] Subscribe(string name, string topic)
         {
-            return Encode(QueueSocketMsgType.Subcribe, name, topic, string.Empty);
+            return Encode(QueueSocketMsgType.Subcribe, name, topic, null);
         }
 
         public byte[] Unsubcribe(string name, string topic)
         {
-            return Encode(QueueSocketMsgType.Unsubcribe, name, topic, string.Empty);
+            return Encode(QueueSocketMsgType.Unsubcribe, name, topic, null);
         }
 
         public byte[] Close(string name)
         {
-            return Encode(QueueSocketMsgType.Close, name, string.Empty, string.Empty);
+            return Encode(QueueSocketMsgType.Close, name, string.Empty, null);
         }
 
-        public byte[] Data(string name, string topic, string data)
+        public byte[] Data(string name, string topic, byte[] data)
         {
             return Encode(QueueSocketMsgType.Data, name, topic, data);
         }

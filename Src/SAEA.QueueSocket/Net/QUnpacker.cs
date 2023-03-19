@@ -26,6 +26,7 @@ using SAEA.Common;
 using SAEA.QueueSocket.Model;
 using SAEA.QueueSocket.Type;
 using SAEA.Sockets.Interface;
+
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -89,6 +90,50 @@ namespace SAEA.QueueSocket.Net
             }
         }
 
+        /// <summary>
+        /// 包解析
+        /// </summary>
+        /// <param name="data"></param>
+        /// <param name="userToken"></param>
+        /// <param name="OnQueueResult"></param>
+        public void GetQueueResult(byte[] data, IUserToken userToken, Action<IUserToken, QueueResult> OnQueueResult)
+        {
+            try
+            {
+                _buffer.AddRange(data);
+
+                if (_buffer.Count > (1 + 4 + 4 + 0 + 4 + 0 + 0))
+                {
+                    var buffer = _buffer.ToArray();
+
+                    QUnpacker.Decode(buffer, (list, offset) =>
+                    {
+                        if (list != null)
+                        {
+                            foreach (var item in list)
+                            {
+                                OnQueueResult?.Invoke(userToken, new QueueResult()
+                                {
+                                    Type = (QueueSocketMsgType)item.Type,
+                                    Name = item.Name,
+                                    Topic = item.Topic,
+                                    Data = item.Data
+                                });
+                            }
+                            _buffer.RemoveRange(0, offset);
+                        }
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                ConsoleHelper.WriteLine("QCoder.GetQueueResult error:" + ex.Message + ex.Source);
+                _buffer.Clear();
+            }
+        }
+
+
+
 
 
         /// <summary>
@@ -123,9 +168,9 @@ namespace SAEA.QueueSocket.Net
                 tlen = tp.Length;
                 total += tlen;
             }
-            if (!string.IsNullOrEmpty(queueSocketMsg.Data))
+            if (queueSocketMsg.Data != null && queueSocketMsg.Data.Length > 0)
             {
-                d = Encoding.UTF8.GetBytes(queueSocketMsg.Data);
+                d = queueSocketMsg.Data;
                 total += d.Length;
             }
 
@@ -195,7 +240,7 @@ namespace SAEA.QueueSocket.Net
                             if (dlen > 0)
                             {
                                 var darr = data.AsSpan().Slice(offset, dlen).ToArray();
-                                qm.Data = Encoding.UTF8.GetString(darr);
+                                qm.Data = darr;
                                 offset += dlen;
                             }
                             list.Add(qm);

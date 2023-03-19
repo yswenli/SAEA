@@ -5,9 +5,12 @@ using SAEA.Common.Threading;
 using SAEA.RPC.Provider;
 using SAEA.RPCTest.Consumer;
 using SAEA.RPCTest.Consumer.Model;
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
+using System.Runtime.Serialization.Formatters.Binary;
 using System.Threading.Tasks;
 
 namespace SAEA.RPCTest
@@ -214,36 +217,31 @@ namespace SAEA.RPCTest
 
             sw.Stop();
         }
-       
+
 
         #region ms serialize
-        public static byte[] SerializeBinary(object request)
-        {
+        //public static byte[] SerializeBinary(object request)
+        //{
+        //    BinaryFormatter serializer = new BinaryFormatter();
 
-            System.Runtime.Serialization.Formatters.Binary.BinaryFormatter serializer =
+        //    using (var memStream = new MemoryStream())
+        //    {
+        //        serializer.Serialize(memStream, request);
 
-            new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
-
-            using (System.IO.MemoryStream memStream = new System.IO.MemoryStream())
-            {
-                serializer.Serialize(memStream, request);
-
-                return memStream.ToArray();
-            }
-        }
+        //        return memStream.ToArray();
+        //    }
+        //}
 
 
-        public static object DeSerializeBinary(byte[] data)
-        {
-            using (System.IO.MemoryStream memStream = new System.IO.MemoryStream(data))
-            {
-                System.Runtime.Serialization.Formatters.Binary.BinaryFormatter deserializer =
+        //public static object DeSerializeBinary(byte[] data)
+        //{
+        //    using (MemoryStream memStream = new MemoryStream(data))
+        //    {
+        //        BinaryFormatter deserializer = new BinaryFormatter();
 
-                new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
-
-                return deserializer.Deserialize(memStream);
-            }
-        }
+        //        return deserializer.Deserialize(memStream);
+        //    }
+        //}
         #endregion
 
 
@@ -285,7 +283,7 @@ namespace SAEA.RPCTest
             List<byte[]> list = new List<byte[]>();
             for (int i = 0; i < count; i++)
             {
-                var bytes = SerializeBinary(groupInfo);
+                var bytes = new byte[0]; //SerializeBinary(groupInfo);
                 len1 = bytes.Length;
                 list.Add(bytes);
             }
@@ -294,7 +292,7 @@ namespace SAEA.RPCTest
             sw.Restart();
             for (int i = 0; i < count; i++)
             {
-                var obj = DeSerializeBinary(list[i]);
+                var obj = new object();//DeSerializeBinary(list[i]);
             }
             ConsoleHelper.WriteLine($"BinaryFormatter实体反序列化平均：{count * 1000 / sw.ElapsedMilliseconds} 次/秒");
             ConsoleHelper.WriteLine($"BinaryFormatter序列化生成bytes大小：{len1 * count * 1.0 / 1024 / 1024} Mb");

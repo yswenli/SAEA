@@ -1,10 +1,10 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Version>7.0.0.3</Version>
+    <Version>7.0.3.19</Version>
     <Authors>yswenli</Authors>
     <Copyright>yswenli</Copyright>
     <Description>This is a websocket server and client component based on SAEA.Socket.

@@ -25,6 +25,7 @@
 using SAEA.Common;
 using SAEA.QueueSocket.Type;
 using SAEA.Sockets.Interface;
+
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -69,33 +70,37 @@ namespace SAEA.QueueSocket.Net
             get; set;
         }
 
-        public string Data
+        public byte[] Data
         {
             get; set;
         }
-        public QueueSocketMsg(QueueSocketMsgType type) : this(type, string.Empty)
+
+        public QueueSocketMsg(QueueSocketMsgType type) : this(type, null)
         {
 
         }
-        public QueueSocketMsg(QueueSocketMsgType type, string name) : this(type, name, string.Empty)
+        public QueueSocketMsg(QueueSocketMsgType type, string name) : this(type, name, null)
         {
 
         }
-        public QueueSocketMsg(QueueSocketMsgType type, string name, string topic) : this(type, name, topic, string.Empty)
+        public QueueSocketMsg(QueueSocketMsgType type, string name, string topic) : this(type, name, topic, null)
         {
 
         }
-        public QueueSocketMsg(QueueSocketMsgType type, string name, string topic, string data)
+        public QueueSocketMsg(QueueSocketMsgType type, string name, string topic, byte[] data)
         {
             this.Type = (byte)type;
             this.Name = name;
             this.Topic = topic;
             this.Data = data;
         }
-        
+
         public void Dispose()
         {
-            this.Name = this.Topic = this.Data = string.Empty;
+            if (this.Data != null && Data.Length > 0)
+            {
+                Array.Clear(Data, 0, Data.Length);
+            }
             this.Total = this.NLen = this.TLen;
             this.Type = 0;
         }

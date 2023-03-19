@@ -82,11 +82,11 @@ namespace SAEA.QueueSocket.Model
             OnBatched?.Invoke(id, data);
         }
 
-        public void AcceptPublish(string sessionID, QueueResult pInfo)
+        public async void AcceptPublish(string sessionID, QueueResult pInfo)
         {
             _binding.Set(sessionID, pInfo.Name, pInfo.Topic);
 
-            _messageQueue.Enqueue(pInfo.Topic, pInfo.Data);
+            await _messageQueue.EnqueueAsync(pInfo.Topic, pInfo.Data);
 
             _pNum = _binding.GetPublisherCount();
 
@@ -101,12 +101,12 @@ namespace SAEA.QueueSocket.Model
 
                 _cNum = _binding.GetSubscriberCount();
 
-                Task.Factory.StartNew(() =>
+                Task.Factory.StartNew(async () =>
                 {
                     while (_binding.Exists(sInfo))
                     {
-                        var msg = _messageQueue.Dequeue(sInfo.Topic);
-                        if (!string.IsNullOrEmpty(msg))
+                        var msg = await _messageQueue.DequeueAsync(sInfo.Topic);
+                        if (msg != null && msg.Length > 0)
                         {
                             Interlocked.Increment(ref _outNum);
                             _classificationBatcher.Insert(sessionID, qcoder.QueueCoder.Data(sInfo.Name, sInfo.Topic, msg));

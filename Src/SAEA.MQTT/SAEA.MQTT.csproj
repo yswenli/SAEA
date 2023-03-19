@@ -1,11 +1,11 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <Authors>yswenli</Authors>
-    <Version>7.0.0.3</Version>
+    <Version>7.0.3.19</Version>
     <Description>MQTT Server and Client Based on SAEA.Socket.SAEA.MQTT基于SAEA.Socket实现的MQTT服务器与客户端
 https://github.com/yswenli/SAEA</Description>
     <PackageReleaseNotes>MQTT Server and Client Based on SAEA.Socket.SAEA.MQTT基于SAEA.Socket实现的MQTT服务器与客户端

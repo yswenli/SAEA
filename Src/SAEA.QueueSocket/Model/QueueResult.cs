@@ -36,6 +36,6 @@ namespace SAEA.QueueSocket.Model
 
         public string Topic { get; set; }
 
-        public string Data { get; set; }
+        public byte[] Data { get; set; }
     }
 }

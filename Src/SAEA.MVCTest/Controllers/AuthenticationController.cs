@@ -42,7 +42,7 @@ namespace SAEA.MVCTest.Controllers
                 NickName = "yswenli"
             }, 180, _pwd);
             var keyValuePair = jwtp.GetAuthorizationBearer();
-            HttpContext.Current.Response.Headers[keyValuePair.Key] = keyValuePair.Value;
+            HttpContext.Current.Response.Headers[keyValuePair.Item1] = keyValuePair.Item2;
             HttpContext.Current.Response.Write("Success");
             HttpContext.Current.Response.End();
             return Empty();

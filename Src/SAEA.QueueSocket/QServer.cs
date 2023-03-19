@@ -42,7 +42,7 @@ namespace SAEA.QueueSocket
 
         IServerSocket _serverSokcet;
 
-        public event OnDisconnectedHandler OnDisconnected;        
+        public event OnDisconnectedHandler OnDisconnected;
 
         public QServer(int port = 39654, string ip = "127.0.0.1", int bufferSize = 100 * 1024, int count = 100)
         {
@@ -83,28 +83,31 @@ namespace SAEA.QueueSocket
 
             var qcoder = (QUnpacker)userToken.Unpacker;
 
-            qcoder.GetQueueResult(data, r =>
-            {
-                switch (r.Type)
-                {
-                    case QueueSocketMsgType.Ping:
-                        ReplyPong(userToken, r);
-                        break;
-                    case QueueSocketMsgType.Publish:
-                        ReplyPublish(userToken, r);
-                        break;
-                    case QueueSocketMsgType.Subcribe:
-                        ReplySubcribe(userToken, r);
-                        break;
-                    case QueueSocketMsgType.Unsubcribe:
-                        ReplyUnsubscribe(userToken, r);
-                        break;
-                    case QueueSocketMsgType.Close:
-                        ReplyClose(userToken, r);
-                        break;
-                }
-            });
+            qcoder.GetQueueResult(data, userToken, Reply);
         }
+
+        void Reply(IUserToken userToken, QueueResult queueResult)
+        {
+            switch (queueResult.Type)
+            {
+                case QueueSocketMsgType.Ping:
+                    ReplyPong(userToken, queueResult);
+                    break;
+                case QueueSocketMsgType.Publish:
+                    ReplyPublish(userToken, queueResult);
+                    break;
+                case QueueSocketMsgType.Subcribe:
+                    ReplySubcribe(userToken, queueResult);
+                    break;
+                case QueueSocketMsgType.Unsubcribe:
+                    ReplyUnsubscribe(userToken, queueResult);
+                    break;
+                case QueueSocketMsgType.Close:
+                    ReplyClose(userToken, queueResult);
+                    break;
+            }
+        }
+
 
         public void Start(int backlog = 10 * 1000)
         {
