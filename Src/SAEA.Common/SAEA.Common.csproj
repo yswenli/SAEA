@@ -15,8 +15,8 @@ SAEA.Common 是SAEA项目中的工具类项目</Description>
     <PackageTags>iocp,tcp,socket</PackageTags>
     <PackageReleaseNotes>SAEA. Common is a tool class project in the SAEA project
 SAEA.Common 是SAEA项目中的工具类项目</PackageReleaseNotes>
-    <SignAssembly>true</SignAssembly>
-    <AssemblyOriginatorKeyFile>E:\Work\SAEA\Src\SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
+    <SignAssembly>False</SignAssembly>
+    <AssemblyOriginatorKeyFile></AssemblyOriginatorKeyFile>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>

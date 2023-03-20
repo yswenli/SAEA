@@ -16,7 +16,7 @@
     <Authors>yswenli</Authors>
     <Copyright>yswenli</Copyright>
     <PackageTags>mvc,webapi,iocp,webserver,tcp,socket</PackageTags>
-    <SignAssembly>true</SignAssembly>
+    <SignAssembly>False</SignAssembly>
     <AssemblyOriginatorKeyFile>E:\Work\SAEA\Src\SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
     <LangVersion>8.0</LangVersion>
     <PackageIcon>favicon.png</PackageIcon>

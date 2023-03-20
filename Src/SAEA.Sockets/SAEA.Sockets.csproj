@@ -21,7 +21,7 @@ https://github.com/yswenli/SAEA</PackageReleaseNotes>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <LangVersion>8.0</LangVersion>
     <PackageIcon>favicon.png</PackageIcon>
-    <SignAssembly>True</SignAssembly>
+    <SignAssembly>False</SignAssembly>
     <AssemblyOriginatorKeyFile>E:\Work\SAEA\Src\SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
   </PropertyGroup>
 

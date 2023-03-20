@@ -16,7 +16,7 @@ https://github.com/yswenli/SAEA</PackageReleaseNotes>
     <PackageTags>mqtt,tcp,socket</PackageTags>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <Copyright>yswenli</Copyright>
-    <SignAssembly>true</SignAssembly>
+    <SignAssembly>False</SignAssembly>
     <AssemblyOriginatorKeyFile>E:\Work\SAEA\Src\SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
     <LangVersion>8.0</LangVersion>
     <PackageIcon>favicon.png</PackageIcon>

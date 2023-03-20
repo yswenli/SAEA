@@ -11,7 +11,7 @@
     <PackageTags>webserver,httpserver,iocp,tcp,socket</PackageTags>
     <PackageReleaseNotes>This is a web component based on SAEA.Sockets. It is lightweight, high performance, easy to use and self hosting. 
 这是一个基于SAEA.Sockets的web组件，轻量高性能，使用简便，自宿主。https://github.com/yswenli/SAEA/tree/master/Src/SAEA.HttpTest。</PackageReleaseNotes>
-    <SignAssembly>true</SignAssembly>
+    <SignAssembly>False</SignAssembly>
     <AssemblyOriginatorKeyFile>E:\Work\SAEA\Src\SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>

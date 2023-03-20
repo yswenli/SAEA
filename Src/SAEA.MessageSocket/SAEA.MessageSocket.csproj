@@ -18,7 +18,7 @@ https://github.com/yswenli/SAEA</Description>
 https://github.com/yswenli/SAEA</PackageReleaseNotes>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <SignAssembly>true</SignAssembly>
+    <SignAssembly>False</SignAssembly>
     <AssemblyOriginatorKeyFile>E:\Work\SAEA\Src\SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
     <LangVersion>8.0</LangVersion>
     <PackageIcon>favicon.png</PackageIcon>
