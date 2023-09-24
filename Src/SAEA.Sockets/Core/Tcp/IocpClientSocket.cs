@@ -112,8 +112,8 @@ namespace SAEA.Sockets.Core.Tcp
                 _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, SocketOption.ReusePort);
             }
             _socket.NoDelay = SocketOption.NoDelay;
-            _socket.SendTimeout = _socket.ReceiveTimeout = SocketOption.TimeOut;
-            _socket.KeepAlive();
+            _socket.SendTimeout = _socket.ReceiveTimeout = SocketOption.TimeOut;            
+            _socket.KeepAlive(SocketOption.FreeTime, SocketOption.TimeOut);
 
             OnClientReceive = new OnClientReceiveBytesHandler(OnReceived);
 
@@ -134,7 +134,8 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="port"></param>
         /// <param name="bufferSize"></param>
         /// <param name="timeOut"></param>
-        public IocpClientSocket(IContext<IUnpacker> context, string ip = "127.0.0.1", int port = 39654, int bufferSize = 100 * 1024, int timeOut = 60 * 1000) : this(new SocketOption() { Context = context, IP = ip, Port = port, ReadBufferSize = bufferSize, WriteBufferSize = bufferSize, TimeOut = timeOut })
+        public IocpClientSocket(IContext<IUnpacker> context, string ip = "127.0.0.1", int port = 39654, int bufferSize = 100 * 1024, int timeOut = 180 * 1000) 
+            : this(new SocketOption() { Context = context, IP = ip, Port = port, ReadBufferSize = bufferSize, WriteBufferSize = bufferSize, TimeOut = timeOut })
         {
 
         }
@@ -177,7 +178,6 @@ namespace SAEA.Sockets.Core.Tcp
         /// <summary>
         /// 连接到服务器
         /// </summary>
-        /// <param name="timeOut"></param>
         public void Connect()
         {
             if (!Connected && !IsDisposed)
@@ -202,7 +202,7 @@ namespace SAEA.Sockets.Core.Tcp
                 ProcessConnected(e);
             else
             {
-                OnError?.Invoke("", new Exception($"connection failed： {e.LastOperation}"));
+                OnError?.Invoke("", new Exception($"SAEA SocketError:连接失败, {e.LastOperation}"));
             }
         }
 
@@ -266,7 +266,6 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 if (readArgs.BytesTransferred > 0 && readArgs.SocketError == SocketError.Success)
                 {
-
                     _userToken.Actived = DateTimeHelper.Now;
 
                     var buffer = readArgs.Buffer.AsSpan().Slice(readArgs.Offset, readArgs.BytesTransferred).ToArray();
@@ -283,7 +282,7 @@ namespace SAEA.Sockets.Core.Tcp
                 }
                 else
                 {
-                    ProcessDisconnected(new Exception("SocketError:the remote server closed connection"));
+                    ProcessDisconnected(new Exception("SAEA SocketError:远程服务器关闭连接"));
                 }
             }
             catch (Exception ex)
@@ -341,7 +340,7 @@ namespace SAEA.Sockets.Core.Tcp
                     }
                     else
                     {
-                        OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", new TimeoutException("Sending data timeout"));
+                        OnError?.Invoke($"SAEA SocketError:发送消息时发生异常,{userToken?.ID}", new TimeoutException("发送数据超时"));
                     }
                 }
             }
@@ -391,7 +390,7 @@ namespace SAEA.Sockets.Core.Tcp
                 }
             }
             else
-                OnError?.Invoke("", new Exception("发送失败：当前连接已断开"));
+                OnError?.Invoke("", new Exception("SAEA SocketError:发送失败,当前连接已断开"));
         }
 
         public void BeginSend(byte[] data)
@@ -417,12 +416,12 @@ namespace SAEA.Sockets.Core.Tcp
 
         public Task<int> ReceiveAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
-            throw new KernelException("当前方法只在stream实现中才能使用!");
+            throw new KernelException("SAEA SocketError:当前方法只在stream实现中才能使用!");
         }
 
         public Stream GetStream()
         {
-            throw new InvalidOperationException("iocp暂不支持流模式");
+            throw new InvalidOperationException("SAEA SocketError:iocp暂不支持流模式");
         }
 
         /// <summary>
@@ -455,7 +454,7 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 if (mex == null)
                 {
-                    mex = new Exception("The current socket has been actively disconnected！");
+                    mex = new Exception("SAEA SocketError:当前连接已主动断开");
                 }
                 if (_userToken != null)
                     OnDisconnected?.Invoke(_userToken.ID, mex);

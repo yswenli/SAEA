@@ -33,29 +33,20 @@ namespace SAEA.Common
     /// </summary>
     public static class DateTimeHelper
     {
-        static DateTime _dt;
-
-        /// <summary>
-        /// 时间工具类
-        /// </summary>
-        static DateTimeHelper()
-        {
-            Task.Factory.StartNew(() =>
-            {
-                while (true)
-                {
-                    _dt = DateTime.Now;
-                    Thread.Sleep(1);
-                }
-            }, TaskCreationOptions.LongRunning);
-        }
 
         public static DateTime Now
         {
             get
             {
-                if (_dt.Year == 1) _dt = DateTime.Now;
-                return _dt;
+                return DateTime.Now;
+            }
+        }
+
+        public static DateTime Today
+        {
+            get
+            {
+                return DateTime.Today;
             }
         }
 
@@ -66,7 +57,7 @@ namespace SAEA.Common
         {
             get
             {
-                return TimeZoneInfo.ConvertTimeToUtc(_dt, TimeZoneInfo.Local);
+                return TimeZoneInfo.ConvertTimeToUtc(Now, TimeZoneInfo.Local);
             }
         }
         /// <summary>

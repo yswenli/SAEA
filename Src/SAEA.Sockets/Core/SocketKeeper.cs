@@ -33,7 +33,7 @@ namespace SAEA.Sockets.Core
         /// <param name="socket"></param>
         /// <param name="keepAliveTime"></param>
         /// <param name="timeOut"></param>
-        public static void KeepAlive(this Socket socket, int keepAliveTime = 30 * 1000, int timeOut = 5 * 1000)
+        public static void KeepAlive(this Socket socket, int keepAliveTime = 180 * 1000, int timeOut = 5 * 1000)
         {
             uint dummy = 0;
             byte[] inOptionValues = new byte[Marshal.SizeOf(dummy) * 3];

@@ -123,7 +123,7 @@ namespace SAEA.RedisSocket.Core
                     }
                     else
                     {
-                        ThreadHelper.Sleep(10);
+                        ThreadHelper.SpinWait(1);
                     }
                 }
                 return result;

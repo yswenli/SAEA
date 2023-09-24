@@ -210,7 +210,7 @@ namespace SAEA.RedisSocket.Core
             catch (TaskCanceledException tex)
             {
                 result.Type = ResponseType.Error;
-                result.Data = "Action Timeout";
+                result.Data = "Action Timeout:" + tex.Message;
             }
             catch (Exception ex)
             {
@@ -280,7 +280,7 @@ namespace SAEA.RedisSocket.Core
                 lock (SyncRoot)
                 {
                     using (var cts = new CancellationTokenSource(_actionTimeout))
-                    {                        
+                    {
                         RedisCoder.Request(type, content);
                         return RedisCoder.Decoder<string>(type, cts.Token);
                     }
@@ -289,7 +289,7 @@ namespace SAEA.RedisSocket.Core
             catch (TaskCanceledException tex)
             {
                 result.Type = ResponseType.Error;
-                result.Data = "Action Timeout";
+                result.Data = "Action Timeout:" + tex.Message;
             }
             catch (Exception ex)
             {
@@ -331,7 +331,7 @@ namespace SAEA.RedisSocket.Core
             catch (TaskCanceledException tex)
             {
                 result.Type = ResponseType.Error;
-                result.Data = "Action Timeout";
+                result.Data = "Action Timeout:" + tex.Message;
             }
             catch (Exception ex)
             {
@@ -370,7 +370,7 @@ namespace SAEA.RedisSocket.Core
             catch (TaskCanceledException tex)
             {
                 result.Type = ResponseType.Error;
-                result.Data = "Action Timeout";
+                result.Data = "Action Timeout:" + tex.Message;
             }
             catch (Exception ex)
             {
@@ -406,7 +406,7 @@ namespace SAEA.RedisSocket.Core
             catch (TaskCanceledException tex)
             {
                 result.Type = ResponseType.Error;
-                result.Data = "Action Timeout";
+                result.Data = "Action Timeout:" + tex.Message;
             }
             catch (Exception ex)
             {
@@ -442,7 +442,7 @@ namespace SAEA.RedisSocket.Core
             catch (TaskCanceledException tex)
             {
                 result.Type = ResponseType.Error;
-                result.Data = "Action Timeout";
+                result.Data = "Action Timeout:" + tex.Message;
             }
             catch (Exception ex)
             {
@@ -484,7 +484,7 @@ namespace SAEA.RedisSocket.Core
             catch (TaskCanceledException tex)
             {
                 result.Type = ResponseType.Error;
-                result.Data = "Action Timeout";
+                result.Data = "Action Timeout:" + tex.Message;
             }
             catch (Exception ex)
             {
@@ -520,7 +520,7 @@ namespace SAEA.RedisSocket.Core
             catch (TaskCanceledException tex)
             {
                 result.Type = ResponseType.Error;
-                result.Data = "Action Timeout";
+                result.Data = "Action Timeout:" + tex.Message;
             }
             catch (Exception ex)
             {
@@ -555,7 +555,7 @@ namespace SAEA.RedisSocket.Core
             catch (TaskCanceledException tex)
             {
                 result.Type = ResponseType.Error;
-                result.Data = "Action Timeout";
+                result.Data = "Action Timeout:" + tex.Message;
             }
             catch (Exception ex)
             {
@@ -591,7 +591,7 @@ namespace SAEA.RedisSocket.Core
             catch (TaskCanceledException tex)
             {
                 result.Type = ResponseType.Error;
-                result.Data = "Action Timeout";
+                result.Data = "Action Timeout:" + tex.Message;
             }
             catch (Exception ex)
             {
@@ -627,7 +627,7 @@ namespace SAEA.RedisSocket.Core
             catch (TaskCanceledException tex)
             {
                 result.Type = ResponseType.Error;
-                result.Data = "Action Timeout";
+                result.Data = "Action Timeout:" + tex.Message;
             }
             catch (Exception ex)
             {
@@ -663,7 +663,7 @@ namespace SAEA.RedisSocket.Core
             catch (TaskCanceledException tex)
             {
                 result.Type = ResponseType.Error;
-                result.Data = "Action Timeout";
+                result.Data = "Action Timeout:" + tex.Message;
             }
             catch (Exception ex)
             {
@@ -700,7 +700,7 @@ namespace SAEA.RedisSocket.Core
             catch (TaskCanceledException tex)
             {
                 result.Type = ResponseType.Error;
-                result.Data = "Action Timeout";
+                result.Data = "Action Timeout:" + tex.Message;
             }
             catch (Exception ex)
             {
@@ -762,7 +762,7 @@ namespace SAEA.RedisSocket.Core
             catch (TaskCanceledException tex)
             {
                 result.Type = ResponseType.Error;
-                result.Data = "Action Timeout";
+                result.Data = "Action Timeout:" + tex.Message;
             }
             catch (Exception ex)
             {
@@ -795,7 +795,7 @@ namespace SAEA.RedisSocket.Core
             catch (TaskCanceledException tex)
             {
                 result.Type = ResponseType.Error;
-                result.Data = "Action Timeout";
+                result.Data = "Action Timeout:" + tex.Message;
             }
             catch (Exception ex)
             {
@@ -818,7 +818,6 @@ namespace SAEA.RedisSocket.Core
                 {
                     using (var cts = new CancellationTokenSource(_actionTimeout))
                     {
-
                         List<string> list = new List<string>();
                         list.Add(type.ToString());
                         list.Add(id);
@@ -837,7 +836,7 @@ namespace SAEA.RedisSocket.Core
             catch (TaskCanceledException tex)
             {
                 result.Type = ResponseType.Error;
-                result.Data = "Action Timeout";
+                result.Data = "Action Timeout:" + tex.Message;
             }
             catch (Exception ex)
             {
@@ -871,7 +870,7 @@ namespace SAEA.RedisSocket.Core
             catch (TaskCanceledException tex)
             {
                 result.Type = ResponseType.Error;
-                result.Data = "Action Timeout";
+                result.Data = "Action Timeout:" + tex.Message;
             }
             catch (Exception ex)
             {
@@ -910,7 +909,7 @@ namespace SAEA.RedisSocket.Core
             catch (TaskCanceledException tex)
             {
                 result.Type = ResponseType.Error;
-                result.Data = "Action Timeout";
+                result.Data = "Action Timeout:" + tex.Message;
             }
             catch (Exception ex)
             {
@@ -1086,7 +1085,7 @@ namespace SAEA.RedisSocket.Core
             catch (TaskCanceledException tex)
             {
                 result.Type = ResponseType.Error;
-                result.Data = "Action Timeout";
+                result.Data = "Action Timeout:" + tex.Message;
             }
             catch (Exception ex)
             {
@@ -1140,7 +1139,7 @@ namespace SAEA.RedisSocket.Core
             catch (TaskCanceledException tex)
             {
                 result.Type = ResponseType.Error;
-                result.Data = "Action Timeout";
+                result.Data = "Action Timeout:" + tex.Message;
             }
             catch (Exception ex)
             {

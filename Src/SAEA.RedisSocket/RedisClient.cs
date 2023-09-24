@@ -130,7 +130,6 @@ namespace SAEA.RedisSocket
             else
             {
                 _cnn.RedisServerType = isMaster ? RedisServerType.Master : RedisServerType.Slave;
-
                 RedisConnectionManager.Set(ipPort, isMaster, _cnn);
             }
             return OK;
@@ -146,7 +145,7 @@ namespace SAEA.RedisSocket
             {
                 while (_cnn.IsConnected)
                 {
-                    if (_cnn.Actived.AddSeconds(120) <= DateTimeHelper.Now)
+                    if (_cnn.Actived.AddSeconds(30) <= DateTimeHelper.Now)
                     {
                         Ping();
                     }

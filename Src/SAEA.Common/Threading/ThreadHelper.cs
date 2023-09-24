@@ -79,6 +79,14 @@ namespace SAEA.Common
             else
                 Thread.Sleep(millisecondsTimeout);
         }
+        /// <summary>
+        /// 阻塞时长
+        /// </summary>
+        /// <param name="millisecondsTimeout"></param>
+        public static void SpinWait(int millisecondsTimeout)
+        {
+            Thread.SpinWait(millisecondsTimeout);
+        }
 
         /// <summary>
         /// 阻塞时长
