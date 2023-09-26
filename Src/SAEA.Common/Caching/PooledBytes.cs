@@ -21,51 +21,60 @@ using System.Buffers;
 namespace SAEA.Common.Caching
 {
     /// <summary>
-    /// SmartArrayPool
+    /// 池化字节数组
     /// </summary>
-    public class BytesPool : IDisposable
+    public class PooledBytes : IDisposable
     {
         static ArrayPool<byte> _pool;
 
         /// <summary>
         /// SmartArrayPool
         /// </summary>
-        static BytesPool()
+        static PooledBytes()
         {
             _pool = ArrayPool<byte>.Shared;
         }
 
-        byte[] _buffer;
+        /// <summary>
+        /// 字节数组
+        /// </summary>
+        public byte[] Bytes { get; private set; }
 
-        int _minLength = 0;
 
         /// <summary>
         /// SmartArrayPool
         /// </summary>
         /// <param name="minLength"></param>
-        public BytesPool(int minLength)
+        public PooledBytes(int minLength)
         {
-            _minLength = minLength;
-            _buffer = _pool.Rent(minLength);
+            Bytes = _pool.Rent(minLength);
+        }
+
+        /// <summary>
+        /// 复制
+        /// </summary>
+        /// <param name="source"></param>
+        /// <param name="startIndex"></param>
+        /// <param name="count"></param>
+        public void BlockCopy(byte[] source, int startIndex, int count)
+        {
+            Buffer.BlockCopy(source, startIndex, Bytes, 0, count);
+        }
+
+        /// <summary>
+        /// 释放资源
+        /// </summary>
+        public void Free()
+        {
+            _pool.Return(Bytes);
         }
 
         /// <summary>
         /// GetBuffer
         /// </summary>
-        /// <param name="data"></param>
-        /// <param name="offset"></param>
-        /// <returns></returns>
-        public ReadOnlyMemory<byte> GetBuffer(byte[] data, int offset)
-        {
-            Buffer.BlockCopy(data, offset, _buffer, 0, _minLength);
-            return _buffer.AsMemory().Slice(0, _minLength);
-        }
-        /// <summary>
-        /// GetBuffer
-        /// </summary>
         public void Dispose()
         {
-            _pool.Return(_buffer);
+            Free();
         }
     }
 }

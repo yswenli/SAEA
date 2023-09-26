@@ -35,6 +35,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 
+using SAEA.Common.Caching;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
@@ -90,9 +91,9 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="socketOption"></param>
         public IocpServerSocket(ISocketOption socketOption)
         {
-            _sessionManager = new SessionManager(socketOption.Context, 
-                socketOption.ReadBufferSize, 
-                socketOption.Count, IO_Completed, 
+            _sessionManager = new SessionManager(socketOption.Context,
+                socketOption.ReadBufferSize,
+                socketOption.Count, IO_Completed,
                 new TimeSpan(0, 0, 0, 0, socketOption.FreeTime));
             _sessionManager.OnTimeOut += _sessionManager_OnTimeOut;
             OnServerReceiveBytes = new OnServerReceiveBytesHandler(OnReceiveBytes);
@@ -306,15 +307,14 @@ namespace SAEA.Sockets.Core.Tcp
                     try
                     {
                         var buffer = readArgs.Buffer.AsSpan().Slice(readArgs.Offset, readArgs.BytesTransferred).ToArray();
-
                         OnServerReceiveBytes.Invoke(userToken, buffer);
-
-                        //using (BytesPool pool = new BytesPool(readArgs.BytesTransferred))
+                        
+                        //在复用数组和线程切换之间
+                        //using (var pooledBytes = new PooledBytes(readArgs.BytesTransferred))
                         //{
-                        //    var m = pool.GetBuffer(readArgs.Buffer, readArgs.Offset);
-                        //    OnServerReceiveBytes.Invoke(userToken, m.ToArray());
+                        //    pooledBytes.BlockCopy(readArgs.Buffer, readArgs.Offset, readArgs.BytesTransferred);
+                        //    OnServerReceiveBytes.Invoke(userToken, pooledBytes.Bytes);
                         //}
-
                     }
                     catch (Exception ex)
                     {

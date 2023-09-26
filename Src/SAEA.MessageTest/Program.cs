@@ -26,6 +26,7 @@ using SAEA.Common;
 using SAEA.Common.Threading;
 using SAEA.MessageSocket;
 using SAEA.MessageSocket.Model.Business;
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -113,7 +114,7 @@ namespace SAEA.MessageTest
 
         private static void Server_OnDisconnected(string ID, Exception ex)
         {
-            ConsoleHelper.WriteLine($"{ID}已断开连接，ex:{ex.Message}", ConsoleColor.Red);
+            ConsoleHelper.WriteLine($"{ID}已断开连接，ex:{ex?.Message}", ConsoleColor.Red);
         }
 
 
