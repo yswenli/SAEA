@@ -82,11 +82,11 @@ namespace SAEA.QueueSocket.Model
             OnBatched?.Invoke(id, data);
         }
 
-        public async void AcceptPublish(string sessionID, QueueResult pInfo)
+        public void AcceptPublish(string sessionID, QueueResult pInfo)
         {
             _binding.Set(sessionID, pInfo.Name, pInfo.Topic);
 
-            await _messageQueue.EnqueueAsync(pInfo.Topic, pInfo.Data);
+            _messageQueue.Enqueue(pInfo.Topic, pInfo.Data);
 
             _pNum = _binding.GetPublisherCount();
 

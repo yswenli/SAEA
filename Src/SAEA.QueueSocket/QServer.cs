@@ -80,10 +80,15 @@ namespace SAEA.QueueSocket
         private void _serverSokcet_OnReceive(ISession ut, byte[] data)
         {
             var userToken = (IUserToken)ut;
-
             var qcoder = (QUnpacker)userToken.Unpacker;
-
-            qcoder.GetQueueResult(data, userToken, Reply);
+            var list = qcoder.GetQueueResult(data);
+            if (list != null && list.Count > 1)
+            {
+                foreach (var item in list)
+                {
+                    Reply(userToken, item);
+                }
+            }
         }
 
         void Reply(IUserToken userToken, QueueResult queueResult)

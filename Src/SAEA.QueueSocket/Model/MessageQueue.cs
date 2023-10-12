@@ -51,14 +51,14 @@ namespace SAEA.QueueSocket.Model
         }
 
 
-        public async ValueTask<bool> EnqueueAsync(string topic, byte[] data)
+        public ValueTask<bool> Enqueue(string topic, byte[] data)
         {
             if (!_dic.TryGetValue(topic, out FastQueue<byte[]> queue))
             {
                 queue = new FastQueue<byte[]>();
                 _dic.TryAdd(topic, queue);
             }
-            return await queue.EnqueueAsync(data);
+            return queue.EnqueueAsync(data);
         }
 
 

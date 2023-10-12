@@ -53,8 +53,8 @@ namespace SAEA.QueueSocket.Net
         /// 包解析
         /// </summary>
         /// <param name="data"></param>
-        /// <param name="OnQueueResult"></param>
-        public void GetQueueResult(byte[] data, Action<QueueResult> OnQueueResult)
+        /// <returns></returns>
+        public List<QueueResult> GetQueueResult(byte[] data)
         {
             try
             {
@@ -64,23 +64,23 @@ namespace SAEA.QueueSocket.Net
                 {
                     var buffer = _buffer.ToArray();
 
-                    QUnpacker.Decode(buffer, (list, offset) =>
+                    var list = QUnpacker.Decode(buffer, out int offset);
+                    if (list != null && list.Count>0)
                     {
-                        if (list != null)
+                        var result = new List<QueueResult>();
+                        foreach (var item in list)
                         {
-                            foreach (var item in list)
+                            result.Add(new QueueResult()
                             {
-                                OnQueueResult?.Invoke(new QueueResult()
-                                {
-                                    Type = (QueueSocketMsgType)item.Type,
-                                    Name = item.Name,
-                                    Topic = item.Topic,
-                                    Data = item.Data
-                                });
-                            }
-                            _buffer.RemoveRange(0, offset);
+                                Type = (QueueSocketMsgType)item.Type,
+                                Name = item.Name,
+                                Topic = item.Topic,
+                                Data = item.Data
+                            });
                         }
-                    });
+                        _buffer.RemoveRange(0, offset);
+                        return result;
+                    }
                 }
             }
             catch (Exception ex)
@@ -88,54 +88,10 @@ namespace SAEA.QueueSocket.Net
                 ConsoleHelper.WriteLine("QCoder.GetQueueResult error:" + ex.Message + ex.Source);
                 _buffer.Clear();
             }
+            return null;
         }
 
-        /// <summary>
-        /// 包解析
-        /// </summary>
-        /// <param name="data"></param>
-        /// <param name="userToken"></param>
-        /// <param name="OnQueueResult"></param>
-        public void GetQueueResult(byte[] data, IUserToken userToken, Action<IUserToken, QueueResult> OnQueueResult)
-        {
-            try
-            {
-                _buffer.AddRange(data);
-
-                if (_buffer.Count > (1 + 4 + 4 + 0 + 4 + 0 + 0))
-                {
-                    var buffer = _buffer.ToArray();
-
-                    QUnpacker.Decode(buffer, (list, offset) =>
-                    {
-                        if (list != null)
-                        {
-                            foreach (var item in list)
-                            {
-                                OnQueueResult?.Invoke(userToken, new QueueResult()
-                                {
-                                    Type = (QueueSocketMsgType)item.Type,
-                                    Name = item.Name,
-                                    Topic = item.Topic,
-                                    Data = item.Data
-                                });
-                            }
-                            _buffer.RemoveRange(0, offset);
-                        }
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                ConsoleHelper.WriteLine("QCoder.GetQueueResult error:" + ex.Message + ex.Source);
-                _buffer.Clear();
-            }
-        }
-
-
-
-
-
+       
         /// <summary>
         /// socket 传输字节编码
         /// 格式为：1+4+4+x+4+x+4
@@ -189,14 +145,10 @@ namespace SAEA.QueueSocket.Net
             return arr;
         }
 
-        /// <summary>
-        /// socket 传输字节解码
-        /// </summary>
-        /// <param name="data"></param>
-        /// <param name="onDecode"></param>
-        public static bool Decode(byte[] data, Action<QueueSocketMsg[], int> onDecode)
+
+        public static List<QueueSocketMsg> Decode(byte[] data,out int offset)
         {
-            int offset = 0;
+            offset = 0;
 
             try
             {
@@ -250,19 +202,15 @@ namespace SAEA.QueueSocket.Net
                             break;
                         }
                     }
-                    if (list.Count > 0)
-                    {
-                        onDecode?.Invoke(list.ToArray(), offset);
-                        return true;
-                    }
+
+                    return list;
                 }
             }
             catch (Exception ex)
             {
                 ConsoleHelper.WriteLine($"QCoder.Decode error:{ex.Message} stack:{ex.StackTrace} data:{data.Length} offset:{offset}");
             }
-            onDecode?.Invoke(null, 0);
-            return false;
+            return null;
         }
 
 

@@ -136,8 +136,14 @@ namespace SAEA.QueueSocket
         private void _clientSocket_OnReceive(byte[] data)
         {
             Actived = DateTimeHelper.Now;
-
-            _qUnpacker.GetQueueResult(data, OnMessage);
+            var list = _qUnpacker.GetQueueResult(data);
+            if (list != null)
+            {
+                foreach (var item in list)
+                {
+                    OnMessage.Invoke(item);
+                }
+            }
         }
 
         private void _batcher_OnBatched(IBatcher batcher, List<byte[]> data)

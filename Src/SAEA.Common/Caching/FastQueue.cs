@@ -64,13 +64,11 @@ namespace SAEA.Common.Caching
         /// <returns></returns>
         public async ValueTask<bool> EnqueueAsync(T t, CancellationToken cancellationToken = default)
         {
-            while (await _channel.Writer.WaitToWriteAsync(cancellationToken))
+            await _channel.Writer.WaitToWriteAsync(cancellationToken);
+            if (_channel.Writer.TryWrite(t))
             {
-                if (_channel.Writer.TryWrite(t))
-                {
-                    Interlocked.Increment(ref _count);
-                    return true;
-                }
+                Interlocked.Increment(ref _count);
+                return true;
             }
             return false;
         }
@@ -108,14 +106,14 @@ namespace SAEA.Common.Caching
         /// <returns></returns>
         public async ValueTask<T> DequeueAsync(CancellationToken cancellationToken = default)
         {
-            while (await _channel.Reader.WaitToReadAsync(cancellationToken))
+            await _channel.Reader.WaitToReadAsync(cancellationToken);
+
+            if (_channel.Reader.TryRead(out var t))
             {
-                if (_channel.Reader.TryRead(out var t))
-                {
-                    Interlocked.Decrement(ref _count);
-                    return t;
-                }
+                Interlocked.Decrement(ref _count);
+                return t;
             }
+
             return default;
         }
 
