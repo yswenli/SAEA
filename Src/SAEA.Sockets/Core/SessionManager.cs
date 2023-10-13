@@ -52,8 +52,6 @@ namespace SAEA.Sockets.Core
 
         TimeSpan _freeTime;
 
-        object _lockObj = new object();
-
         /// <summary>
         /// 心跳过期事件
         /// </summary>
@@ -89,14 +87,15 @@ namespace SAEA.Sockets.Core
 
         /// <summary>
         /// TCP获取usertoken
-        /// 如果IUserToken数量耗尽时会出现死锁
         /// </summary>
         /// <param name="socket"></param>
+        /// <param name="timeOut"></param>
         /// <returns></returns>
-        public IUserToken BindUserToken(Socket socket)
+        /// <exception cref="Exception"></exception>
+        public IUserToken BindUserToken(Socket socket, int timeOut)
         {
-            IUserToken userToken = _userTokenPool.Dequeue();
-            if (userToken == null) return null;
+            IUserToken userToken = _userTokenPool.Dequeue(timeOut);
+            if (userToken == null) throw new Exception("UserToken池中资源已耗尽");
             userToken.Socket = socket;
             userToken.ID = socket.RemoteEndPoint.ToString();
             userToken.Actived = userToken.Linked = DateTimeHelper.Now;
@@ -160,7 +159,7 @@ namespace SAEA.Sockets.Core
         {
             if (userToken != null && userToken.Socket != null)
             {
-                lock (_lockObj)
+                using (var loker = ObjectLock.Create("SessionManager.Free"))
                 {
                     if (userToken != null && userToken.Socket != null)
                     {

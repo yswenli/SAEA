@@ -85,7 +85,7 @@ namespace SAEA.Http
         /// <param name="count">http连接数上限</param>
         /// <param name="timeOut">超时</param>
         /// <param name="isDebug">测试模式</param>
-        public WebHost(Type httpContentType = null, string root = "wwwroot", int port = 39654, bool isStaticsCached = true, bool isZiped = true, int bufferSize = 1024 * 10, int count = 10000, int timeOut = 120 * 1000, bool isDebug = false)
+        public WebHost(Type httpContentType = null, string root = "wwwroot", int port = 39654, bool isStaticsCached = true, bool isZiped = true, int bufferSize = 1024 * 10, int count = 10000, int timeOut = 180 * 1000, bool isDebug = false)
         {
             if (httpContentType != null && _httpContentType.GetInterface("SAEA.Http.Model.IHttpContext", true) != null)
             {

@@ -22,6 +22,9 @@
 *
 *****************************************************************************/
 
+using System;
+using System.Text;
+
 namespace SAEA.Common
 {
     /// <summary>
@@ -29,7 +32,21 @@ namespace SAEA.Common
     /// </summary>
     public static class SAEAVersion
     {
-        const string version = "v7.0.0.2";
+        public const string version = "v7.23.9.24";
+
+        public const string title = "ICBfX19fICAgIF8gICAgX19fX18gICAgXyAgICAgIF9fX18gICAgICAgICAgICAgXyAgICAgICAgXyAgIA0KIC8gX19ffCAgLyBcICB8IF9fX198ICAvIFwgICAgLyBfX198ICBfX18gICBfX198IHwgX19fX198IHxfIA0KIFxfX18gXCAvIF8gXCB8ICBffCAgIC8gXyBcICAgXF9fXyBcIC8gXyBcIC8gX198IHwvIC8gXyBcIF9ffA0KICBfX18pIC8gX19fIFx8IHxfX18gLyBfX18gXCAgIF9fXykgfCAoXykgfCAoX198ICAgPCAgX18vIHxfIA0KIHxfX19fL18vICAgXF9cX19fX18vXy8gICBcX1wgfF9fX18vIFxfX18vIFxfX198X3xcX1xfX198XF9ffA0KIA==";
+
+        public const string author = "eXN3ZW5saQ==";
+
+        public const string mark = "ZGV2ZWxvcCBieSB5c3dlbmxp";
+
+        public static string ConsoleTitle
+        {
+            get
+            {
+                return $"{Encoding.UTF8.GetString(Convert.FromBase64String(title))}{Environment.NewLine}{Encoding.UTF8.GetString(Convert.FromBase64String(mark)).PadLeft(60)}{Environment.NewLine}{version.PadLeft(60)}";
+            }
+        }
 
         /// <summary>
         /// 获取版本

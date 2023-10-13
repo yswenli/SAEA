@@ -26,6 +26,7 @@ SAEA.Common 是SAEA项目中的工具类项目</PackageReleaseNotes>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
+    <PackageReference Include="Nito.AsyncEx" Version="5.1.2" />
     <PackageReference Include="protobuf-net" Version="3.2.16" />
     <PackageReference Include="System.Collections.Concurrent" Version="4.3.0" />
     <PackageReference Include="System.IO.Pipelines" Version="7.0.0" />

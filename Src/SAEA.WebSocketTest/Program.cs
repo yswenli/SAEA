@@ -100,6 +100,7 @@ namespace SAEA.WebSocketTest
                 ConsoleHelper.WriteLine("WSClient 正在断开连接...");
                 client.Close();
 
+                ConsoleHelper.WriteLine("测试已完成");
                 ConsoleHelper.ReadLine();
             }
             else

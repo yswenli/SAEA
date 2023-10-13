@@ -198,7 +198,7 @@ namespace SAEA.Sockets.Core.Tcp
 
                 socket.ReceiveTimeout = socket.SendTimeout = SocketOption.TimeOut;
 
-                var userToken = _sessionManager.BindUserToken(socket);
+                var userToken = _sessionManager.BindUserToken(socket, SocketOption.TimeOut);
 
                 if (userToken == null)
                 {

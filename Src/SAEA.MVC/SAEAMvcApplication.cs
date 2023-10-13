@@ -87,7 +87,7 @@ namespace SAEA.MVC
                 throw new Exception("当前代码无任何Controller或者不符合MVC 命名规范！ err:" + ex.Message);
             }
 
-            _webHost = new WebHost(typeof(HttpContext), root, port, isStaticsCached, isZiped, bufferSize, count, 120 * 1000, isDebug);
+            _webHost = new WebHost(typeof(HttpContext), root, port, isStaticsCached, isZiped, bufferSize, count, 180 * 1000, isDebug);
 
             _webHost.RouteParam = AreaCollection.RouteTable;
         }

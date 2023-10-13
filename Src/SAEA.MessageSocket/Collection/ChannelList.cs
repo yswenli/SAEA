@@ -83,7 +83,7 @@ namespace SAEA.MessageSocket.Collection
                     ci.Members = new List<ChannelMemberInfo>();
                     ci.Members.Add(cm);
 
-                    _cache.Set(name, ci, TimeSpan.FromDays(1));
+                    _cache.Set(name, ci, TimeSpan.FromDays(0));
                 }
                 return true;
             }

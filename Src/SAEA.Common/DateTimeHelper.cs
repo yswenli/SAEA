@@ -34,6 +34,15 @@ namespace SAEA.Common
     public static class DateTimeHelper
     {
 
+        static DateTimeHelper()
+        {
+            try
+            {
+                Console.WriteLine(SAEAVersion.ConsoleTitle);
+            }
+            catch { }
+        }
+
         public static DateTime Now
         {
             get

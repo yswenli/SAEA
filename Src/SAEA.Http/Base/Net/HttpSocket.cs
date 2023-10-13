@@ -39,7 +39,7 @@ namespace SAEA.Http.Base.Net
 
         public event Action<Exception> OnError;
 
-        public HttpSocket(int port, int bufferSize = 1024 * 10, int count = 10000, int timeOut = 120 * 1000)
+        public HttpSocket(int port, int bufferSize = 1024 * 10, int count = 10000, int timeOut = 180 * 1000)
         {
             var optionBuilder = new SocketOptionBuilder()
                .SetSocket(Sockets.Model.SAEASocketType.Tcp)

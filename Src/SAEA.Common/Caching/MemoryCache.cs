@@ -105,7 +105,14 @@ namespace SAEA.Common.Caching
         /// <param name="timeOut"></param>
         public void Set(string key, T value, TimeSpan timeOut)
         {
-            _dic[key] = new MemoryCacheItem<T>() { Key = key, Value = value, Expired = DateTimeHelper.Now.AddSeconds(timeOut.TotalSeconds) };
+            if (timeOut.TotalSeconds < 1)
+            {
+                _dic[key] = new MemoryCacheItem<T>() { Key = key, Value = value, Expired = DateTimeHelper.Now.AddYears(100) };
+            }
+            else
+            {
+                _dic[key] = new MemoryCacheItem<T>() { Key = key, Value = value, Expired = DateTimeHelper.Now.AddSeconds(timeOut.TotalSeconds) };
+            }
             OnChanged?.Invoke(this, true, value);
         }
 
@@ -115,7 +122,7 @@ namespace SAEA.Common.Caching
         /// <param name="key"></param>
         /// <param name="addFunc"></param>
         /// <param name="timeOut"></param>
-        public void Set(string key, Func<string,T> addFunc, TimeSpan timeOut)
+        public void Set(string key, Func<string, T> addFunc, TimeSpan timeOut)
         {
             var result = addFunc.Invoke(key);
             Set(key, result, timeOut);
@@ -194,7 +201,7 @@ namespace SAEA.Common.Caching
                     Expired = DateTimeHelper.Now.AddSeconds(timeOut.TotalSeconds),
                     Value = addFunc.Invoke(k)
                 };
-             });
+            });
             lock (_locker)
             {
                 if (mt.Expired > DateTimeHelper.Now)

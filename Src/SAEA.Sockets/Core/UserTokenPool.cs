@@ -82,10 +82,11 @@ namespace SAEA.Sockets.Core
         /// <summary>
         /// Dequeue
         /// </summary>
+        /// <param name="timeOut"></param>
         /// <returns></returns>
-        public IUserToken Dequeue()
+        public IUserToken Dequeue(int timeOut=1000)
         {
-            var token = _concurrentQueue.Dequeue();
+            var token = _concurrentQueue.Dequeue(timeOut);
             if (token != null && token.ReadArgs != null)
                 _bufferManager.SetBuffer(token.ReadArgs);
             return token;
