@@ -93,39 +93,32 @@ namespace SAEA.QueueSocketTest
             string msg = "123";
             if (string.IsNullOrEmpty(ipPort)) ipPort = "127.0.0.1:39654";
 
-            QClient producer = new QClient("productor" + Guid.NewGuid().ToString("N"), ipPort);
+            Producer producer = new Producer("productor" + Guid.NewGuid().ToString("N"), ipPort);
 
             producer.OnError += Producer_OnError;
 
             producer.OnDisconnected += Client_OnDisconnected;
 
-            producer.ConnectAsync((s) =>
+            TaskHelper.LongRunning(() =>
             {
-                TaskHelper.LongRunning(() =>
-                {
-                    var old = 0;
-                    var speed = 0;
-                    while (producer.Connected)
-                    {
-                        speed = pNum - old;
-                        old = pNum;
-                        ConsoleHelper.WriteLine("生产者已成功发送：{0} 速度：{1}/s", pNum, speed);
-                        Thread.Sleep(1000);
-                    }
-                });
-
-                var list = new List<Tuple<string, byte[]>>();
-
-
+                var old = 0;
+                var speed = 0;
                 while (producer.Connected)
                 {
-
-                    producer.Publish(topic, msg);
-
-                    Interlocked.Increment(ref pNum);
+                    speed = pNum - old;
+                    old = pNum;
+                    ConsoleHelper.WriteLine("生产者已成功发送：{0} 速度：{1}/s", pNum, speed);
+                    Thread.Sleep(1000);
                 }
             });
 
+            while (producer.Connected)
+            {
+
+                producer.Publish(topic, msg);
+
+                Interlocked.Increment(ref pNum);
+            }
 
         }
 
@@ -137,27 +130,25 @@ namespace SAEA.QueueSocketTest
         static void ConsumerInit(string ipPort, string topic)
         {
             if (string.IsNullOrEmpty(ipPort)) ipPort = "127.0.0.1:39654";
-            QClient consumer = new QClient("subscriber-" + Guid.NewGuid().ToString("N"), ipPort);
+            Consumer consumer = new Consumer("subscriber-" + Guid.NewGuid().ToString("N"), ipPort);
             consumer.OnMessage += Subscriber_OnMessage;
             consumer.OnDisconnected += Client_OnDisconnected;
-            consumer.ConnectAsync((s) =>
+
+            consumer.Subscribe(topic);
+            consumer.Start();
+
+            TaskHelper.LongRunning(() =>
             {
-                TaskHelper.LongRunning(() =>
+                var old = 0;
+                var speed = 0;
+                while (consumer.Connected)
                 {
-                    var old = 0;
-                    var speed = 0;
-                    while (consumer.Connected)
-                    {
-                        speed = _outNum - old;
-                        old = _outNum;
-                        ConsoleHelper.WriteLine("消费者已成功接收：{0} 速度：{1}/s", _outNum, speed);
-                        Thread.Sleep(1000);
-                    }
-                });
-
-                consumer.Subscribe(topic);
+                    speed = _outNum - old;
+                    old = _outNum;
+                    ConsoleHelper.WriteLine("消费者已成功接收：{0} 速度：{1}/s", _outNum, speed);
+                    Thread.Sleep(1000);
+                }
             });
-
         }
 
         private static void Client_OnDisconnected(string ID, Exception ex)

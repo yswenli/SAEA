@@ -21,6 +21,8 @@
 *描述：
 *
 *****************************************************************************/
+using System;
+
 using SAEA.QueueSocket.Type;
 
 namespace SAEA.QueueSocket.Model
@@ -28,7 +30,7 @@ namespace SAEA.QueueSocket.Model
     /// <summary>
     /// 队列编辑消息实体
     /// </summary>
-    public class QueueResult
+    public class QueueResult : IDisposable
     {
         public QueueSocketMsgType Type { get; set; }
 
@@ -37,5 +39,14 @@ namespace SAEA.QueueSocket.Model
         public string Topic { get; set; }
 
         public byte[] Data { get; set; }
+
+        /// <summary>
+        /// 释放资源
+        /// </summary>
+        public void Dispose()
+        {
+            if (Data != null && Data.Length > 0) Array.Clear(Data, 0, Data.Length);
+            Data = null;
+        }
     }
 }

@@ -82,7 +82,7 @@ namespace SAEA.QueueSocket
         {
             _name = name;
 
-            HeartSpan = 1000 * 1000;
+            HeartSpan = 60 * 1000;
 
             HeartAsync();
 
@@ -127,11 +127,28 @@ namespace SAEA.QueueSocket
         /// <summary>
         /// 连接
         /// </summary>
+        public void Connect()
+        {
+            _clientSocket.Connect();
+        }
+
+        /// <summary>
+        /// 连接
+        /// </summary>
         /// <param name="callBack"></param>
         public void ConnectAsync(Action<SocketError> callBack = null)
         {
             _clientSocket.ConnectAsync(callBack);
         }
+
+        /// <summary>
+        /// 断开连接
+        /// </summary>
+        public void Disconnect()
+        {
+            _clientSocket.Disconnect();
+        }
+
 
         private void _clientSocket_OnReceive(byte[] data)
         {
@@ -141,14 +158,15 @@ namespace SAEA.QueueSocket
             {
                 foreach (var item in list)
                 {
-                    OnMessage.Invoke(item);
+                    OnMessage?.Invoke(item);
                 }
+                list.Clear();
             }
         }
 
         private void _batcher_OnBatched(IBatcher batcher, List<byte[]> data)
         {
-            if (data != null && data.Any())
+            if (data != null && data.Count > 0)
             {
                 var list = new List<byte>();
 
@@ -156,6 +174,8 @@ namespace SAEA.QueueSocket
                 {
                     list.AddRange(item);
                 }
+
+                data.Clear();
 
                 _clientSocket.Send(list.ToArray());
 
@@ -203,6 +223,7 @@ namespace SAEA.QueueSocket
 
         #endregion
 
+        #region 订阅者
 
         public void Subscribe(string topic)
         {
@@ -213,6 +234,8 @@ namespace SAEA.QueueSocket
         {
             _clientSocket.Send(_queueCoder.Unsubcribe(_name, topic));
         }
+
+        #endregion
 
         public void Close(int wait = 10000)
         {

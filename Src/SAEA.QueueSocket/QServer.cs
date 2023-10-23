@@ -82,13 +82,14 @@ namespace SAEA.QueueSocket
             var userToken = (IUserToken)ut;
             var qcoder = (QUnpacker)userToken.Unpacker;
             var list = qcoder.GetQueueResult(data);
-            if (list != null && list.Count > 1)
+            if (list != null && list.Count > 0)
             {
                 foreach (var item in list)
                 {
                     Reply(userToken, item);
                 }
             }
+            list.Clear();
         }
 
         void Reply(IUserToken userToken, QueueResult queueResult)
