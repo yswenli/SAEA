@@ -39,25 +39,25 @@
       <HintPath>..\packages\Pipelines.Sockets.Unofficial.2.2.2\lib\net461\Pipelines.Sockets.Unofficial.dll</HintPath>
     </Reference>
     <Reference Include="protobuf-net, Version=3.0.0.0, Culture=neutral, PublicKeyToken=257b51d87d2e4d67, processorArchitecture=MSIL">
-      <HintPath>..\packages\protobuf-net.3.2.16\lib\net462\protobuf-net.dll</HintPath>
+      <HintPath>..\packages\protobuf-net.3.2.30\lib\net462\protobuf-net.dll</HintPath>
     </Reference>
     <Reference Include="protobuf-net.Core, Version=3.0.0.0, Culture=neutral, PublicKeyToken=257b51d87d2e4d67, processorArchitecture=MSIL">
-      <HintPath>..\packages\protobuf-net.Core.3.2.16\lib\net462\protobuf-net.Core.dll</HintPath>
+      <HintPath>..\packages\protobuf-net.Core.3.2.30\lib\net462\protobuf-net.Core.dll</HintPath>
     </Reference>
-    <Reference Include="SAEA.Common, Version=7.23.9.24, Culture=neutral, PublicKeyToken=15cd4617b720be44, processorArchitecture=MSIL">
-      <HintPath>..\packages\SAEA.Common.7.23.9.24\lib\netstandard2.0\SAEA.Common.dll</HintPath>
+    <Reference Include="SAEA.Common, Version=7.24.8.4, Culture=neutral, PublicKeyToken=15cd4617b720be44, processorArchitecture=MSIL">
+      <HintPath>..\packages\SAEA.Common.7.24.8.4\lib\netstandard2.0\SAEA.Common.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="SAEA.Http, Version=7.23.9.24, Culture=neutral, PublicKeyToken=15cd4617b720be44, processorArchitecture=MSIL">
-      <HintPath>..\packages\SAEA.Http.7.23.9.24\lib\netstandard2.0\SAEA.Http.dll</HintPath>
+    <Reference Include="SAEA.Http, Version=7.24.8.4, Culture=neutral, PublicKeyToken=15cd4617b720be44, processorArchitecture=MSIL">
+      <HintPath>..\packages\SAEA.Http.7.24.8.4\lib\netstandard2.0\SAEA.Http.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="SAEA.MVC, Version=7.23.9.24, Culture=neutral, PublicKeyToken=15cd4617b720be44, processorArchitecture=MSIL">
-      <HintPath>..\packages\SAEA.MVC.7.23.9.24\lib\netstandard2.0\SAEA.MVC.dll</HintPath>
+    <Reference Include="SAEA.MVC, Version=7.24.8.4, Culture=neutral, PublicKeyToken=15cd4617b720be44, processorArchitecture=MSIL">
+      <HintPath>..\packages\SAEA.MVC.7.24.8.4\lib\netstandard2.0\SAEA.MVC.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="SAEA.Sockets, Version=7.23.9.24, Culture=neutral, PublicKeyToken=15cd4617b720be44, processorArchitecture=MSIL">
-      <HintPath>..\packages\SAEA.Sockets.7.23.9.24\lib\netstandard2.0\SAEA.Sockets.dll</HintPath>
+    <Reference Include="SAEA.Sockets, Version=7.24.8.4, Culture=neutral, PublicKeyToken=15cd4617b720be44, processorArchitecture=MSIL">
+      <HintPath>..\packages\SAEA.Sockets.7.24.8.4\lib\netstandard2.0\SAEA.Sockets.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="System" />
@@ -71,6 +71,7 @@
     <Reference Include="System.Configuration.Install" />
     <Reference Include="System.Core" />
     <Reference Include="System.Data.OracleClient" />
+    <Reference Include="System.DirectoryServices" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.IdentityModel" />
     <Reference Include="System.IO.Pipelines, Version=7.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
@@ -93,8 +94,8 @@
     <Reference Include="System.Security.AccessControl, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>..\packages\System.Security.AccessControl.6.0.0\lib\net461\System.Security.AccessControl.dll</HintPath>
     </Reference>
-    <Reference Include="System.Security.Permissions, Version=7.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
-      <HintPath>..\packages\System.Security.Permissions.7.0.0\lib\net462\System.Security.Permissions.dll</HintPath>
+    <Reference Include="System.Security.Permissions, Version=8.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Security.Permissions.8.0.0\lib\net462\System.Security.Permissions.dll</HintPath>
     </Reference>
     <Reference Include="System.Security.Principal.Windows, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>..\packages\System.Security.Principal.Windows.5.0.0\lib\net461\System.Security.Principal.Windows.dll</HintPath>

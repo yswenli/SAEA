@@ -32,7 +32,7 @@ namespace SAEA.Common
     /// </summary>
     public static class SAEAVersion
     {
-        public const string version = "v7.23.9.24";
+        public const string version = "v7.24.8.4";
 
         public const string title = "ICBfX19fICAgIF8gICAgX19fX18gICAgXyAgICAgIF9fX18gICAgICAgICAgICAgXyAgICAgICAgXyAgIA0KIC8gX19ffCAgLyBcICB8IF9fX198ICAvIFwgICAgLyBfX198ICBfX18gICBfX198IHwgX19fX198IHxfIA0KIFxfX18gXCAvIF8gXCB8ICBffCAgIC8gXyBcICAgXF9fXyBcIC8gXyBcIC8gX198IHwvIC8gXyBcIF9ffA0KICBfX18pIC8gX19fIFx8IHxfX18gLyBfX18gXCAgIF9fXykgfCAoXykgfCAoX198ICAgPCAgX18vIHxfIA0KIHxfX19fL18vICAgXF9cX19fX18vXy8gICBcX1wgfF9fX18vIFxfX18vIFxfX198X3xcX1xfX198XF9ffA0KIA==";
 
