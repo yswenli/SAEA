@@ -32,37 +32,28 @@
 
 using System;
 using System.Net.Sockets;
+using System.Threading;
 
 using SAEA.Common.Caching;
 using SAEA.Sockets.Interface;
 
 namespace SAEA.Sockets.Core
 {
-    /// <summary>
-    /// UserTokenPool
-    /// </summary>
     public class UserTokenPool : IDisposable
     {
         BufferManager _bufferManager;
-
         UserTokenFactory _userTokenFactory;
-
         ThreadQueue<IUserToken> _concurrentQueue = new ThreadQueue<IUserToken>();
 
-        /// <summary>
-        /// UserTokenPool
-        /// </summary>
-        /// <param name="context"></param>
-        /// <param name="count"></param>
-        /// <param name="bufferSize"></param>
-        /// <param name="completed"></param>
-        public UserTokenPool(IContext<IUnpacker> context, int count, int bufferSize, EventHandler<SocketAsyncEventArgs> completed)
+        int _maxCount = 100;
+
+        public UserTokenPool(IContext<IUnpacker> context, int maxCount, int bufferSize, EventHandler<SocketAsyncEventArgs> completed)
         {
+            _maxCount = maxCount;
             _userTokenFactory = new UserTokenFactory();
+            _bufferManager = new BufferManager(bufferSize * maxCount, bufferSize);
 
-            _bufferManager = new BufferManager(bufferSize * count, bufferSize);
-
-            for (int i = 0; i < count; i++)
+            for (int i = 0; i < maxCount; i++)
             {
                 IUserToken userToken = _userTokenFactory.Create(context);
 
@@ -79,12 +70,7 @@ namespace SAEA.Sockets.Core
             }
         }
 
-        /// <summary>
-        /// Dequeue
-        /// </summary>
-        /// <param name="timeOut"></param>
-        /// <returns></returns>
-        public IUserToken Dequeue(int timeOut=1000)
+        public IUserToken Dequeue(int timeOut = 1000)
         {
             var token = _concurrentQueue.Dequeue(timeOut);
             if (token != null && token.ReadArgs != null)
@@ -92,30 +78,31 @@ namespace SAEA.Sockets.Core
             return token;
         }
 
-        /// <summary>
-        /// Enqueue
-        /// </summary>
-        /// <param name="userToken"></param>
-        public void Enqueue(IUserToken userToken)
+
+        public bool Enqueue(IUserToken userToken)
         {
+            if (_concurrentQueue.Count >= _maxCount) return false;
             if (userToken != null)
             {
-                if(userToken.ReadArgs != null)
-                    _bufferManager.FreeBuffer(userToken.ReadArgs);
                 var socket = userToken.Socket;
                 try
                 {
-                    socket?.Close();
+                    if (socket != null)
+                    {
+                        if (socket.Connected)
+                            socket?.Close();
+                        userToken.Socket = null;
+                    }
                 }
                 catch { }
-                userToken.Socket = null;
+                if (userToken.ReadArgs != null)
+                    _bufferManager.FreeBuffer(userToken.ReadArgs);
                 _concurrentQueue.Enqueue(userToken);
+                return true;
             }
+            return false;
         }
 
-        /// <summary>
-        /// Dispose
-        /// </summary>
         public void Dispose()
         {
             _concurrentQueue.Clear();

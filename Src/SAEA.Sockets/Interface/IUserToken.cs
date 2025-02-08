@@ -37,7 +37,12 @@ namespace SAEA.Sockets.Interface
     /// 连接信息类
     /// </summary>
     public interface IUserToken : ISession
-    {       
+    {
+        /// <summary>
+        /// 唯一标识
+        /// </summary>
+        string Guid { get; }
+
         Socket Socket
         {
             get; set;

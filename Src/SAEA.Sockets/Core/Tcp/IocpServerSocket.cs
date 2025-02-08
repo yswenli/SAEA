@@ -167,7 +167,7 @@ namespace SAEA.Sockets.Core.Tcp
             }
             try
             {
-                if (!IsDisposed && _listener != null)
+                if (!IsDisposed && _listener != null && acceptArgs.SocketError == SocketError.Success)
                 {
                     if (!_listener.AcceptAsync(acceptArgs))
                         ProcessAccepted(acceptArgs);
@@ -185,7 +185,7 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 var socket = acceptArgs.AcceptSocket;
 
-                if (socket.Connected == false)
+                if (socket == null || socket.Connected == false)
                 {
                     return;
                 }
@@ -257,7 +257,7 @@ namespace SAEA.Sockets.Core.Tcp
 
 
         /// <summary>
-        /// 
+        /// 处理接收数据
         /// </summary>
         /// <param name="readArgs"></param>
         private void ProcessReceive(SocketAsyncEventArgs readArgs)
@@ -276,6 +276,10 @@ namespace SAEA.Sockets.Core.Tcp
                         Disconnect(userToken, new KernelException("The remote client has been disconnected."));
                 }
 
+            }
+            catch (InvalidOperationException)
+            {
+                ProcessReceive(readArgs);
             }
             catch (Exception exp)
             {
@@ -308,7 +312,7 @@ namespace SAEA.Sockets.Core.Tcp
                     {
                         var buffer = readArgs.Buffer.AsSpan().Slice(readArgs.Offset, readArgs.BytesTransferred).ToArray();
                         OnServerReceiveBytes.Invoke(userToken, buffer);
-                        
+
                         //在复用数组和线程切换之间
                         //using (var pooledBytes = new PooledBytes(readArgs.BytesTransferred))
                         //{
@@ -320,13 +324,27 @@ namespace SAEA.Sockets.Core.Tcp
                     {
                         OnError?.Invoke(userToken.ID, ex);
                     }
-
-                    ProcessReceive(readArgs);
+                    //已断连的
+                    if (userToken.Socket == null || userToken.Socket.Connected == false)
+                    {
+                        Disconnect(userToken, null);
+                    }
+                    else
+                    {
+                        if (!userToken.Socket.ReceiveAsync(readArgs))
+                        {
+                            ProcessReceive(readArgs);
+                        }
+                    }
                 }
                 else
                 {
                     Disconnect(userToken, null);
                 }
+            }
+            catch (InvalidOperationException)
+            {
+                ProcessReceived(readArgs);
             }
             catch (Exception exp)
             {
@@ -352,7 +370,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="data"></param>
         public void SendAsync(IUserToken userToken, byte[] data)
         {
-            if (userToken.WaitOne(SocketOption.TimeOut))
+            if (userToken.WaitOne(SocketOption.TimeOut) && userToken.Socket != null && userToken.Socket.Connected)
             {
                 try
                 {

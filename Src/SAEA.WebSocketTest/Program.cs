@@ -22,13 +22,14 @@
 *
 *****************************************************************************/
 
+using System;
+using System.Text;
+
 using SAEA.Common;
 using SAEA.Common.IO;
 using SAEA.Http;
 using SAEA.WebSocket;
 using SAEA.WebSocket.Model;
-using System;
-using System.Text;
 
 namespace SAEA.WebSocketTest
 {
@@ -86,14 +87,14 @@ namespace SAEA.WebSocketTest
                 //ConsoleHelper.ReadLine();
 
 
+                ConsoleHelper.WriteLine("WSClient 正在ping服务器...", ConsoleColor.DarkGray);
+                client.Ping();
+
+
                 ConsoleHelper.WriteLine("WSClient 正在发送消息...", ConsoleColor.DarkGray);
 
                 client.Send($"hello world!{DateTimeHelper.Now.ToString("HH:mm:ss.fff")}");
                 ConsoleHelper.ReadLine();
-
-
-                ConsoleHelper.WriteLine("WSClient 正在ping服务器...", ConsoleColor.DarkGray);
-                client.Ping();
 
 
                 ConsoleHelper.ReadLine();

@@ -79,7 +79,7 @@ namespace SAEA.WebSocket.Core
 
         void ProcessReceive(Object obj)
         {
-            TaskHelper.Run(() =>
+            TaskHelper.LongRunning(() =>
             {
                 var channelInfo = (ChannelInfo)obj;
 

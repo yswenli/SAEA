@@ -271,8 +271,8 @@ namespace SAEA.Http
             var arr = reponseDataList.ToArray();
 
             reponseDataList.Clear();
-
-            WebHost.Send(UserToken, arr);
+            if (UserToken != null)
+                WebHost.Send(UserToken, arr);
         }
 
 

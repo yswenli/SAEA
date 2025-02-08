@@ -25,6 +25,8 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+using System.Threading;
 
 namespace SAEA.Common.Caching
 {
@@ -35,126 +37,44 @@ namespace SAEA.Common.Caching
     public class MemoryCache<T> : IEnumerable<T>, IDisposable
     {
         ConcurrentDictionary<string, MemoryCacheItem<T>> _dic;
-
-        /// <summary>
-        /// 数据发生变化时事件
-        /// </summary>
+        CancellationTokenSource _cancellationTokenSource;
         public event Action<MemoryCache<T>, bool, T> OnChanged;
 
-        object _locker = new object();
-
-        /// <summary>
-        /// 自定义过期缓存
-        /// </summary>
-        /// <param name="seconds"></param>
-        public MemoryCache(int seconds = 10)
+        public MemoryCache(int seconds = 180)
         {
             _dic = new ConcurrentDictionary<string, MemoryCacheItem<T>>();
-
-            ThreadHelper.PulseAction(() =>
-            {
-                try
-                {
-                    var values = _dic.Values.Where(b => b.Expired < DateTimeHelper.Now);
-                    if (values != null && values.Any())
-                    {
-                        foreach (var val in values)
-                        {
-                            if (val != null)
-                            {
-                                OnChanged?.Invoke(this, false, val.Value);
-                            }
-
-                        }
-                    }
-                }
-                catch { }
-
-            }, new TimeSpan(0, 0, seconds), false);
+            _cancellationTokenSource = new CancellationTokenSource();
+            StartCleanupTimer(seconds, _cancellationTokenSource.Token);
         }
 
-        /// <summary>
-        /// Count
-        /// </summary>
-        public int Count
-        {
-            get
-            {
-                return _dic.Count;
-            }
-        }
+        public int Count => _dic.Count;
 
-        /// <summary>
-        /// 索引器
-        /// </summary>
-        /// <param name="key"></param>
-        /// <returns></returns>
-        public T this[string key]
-        {
-            get
-            {
-                return Get(key);
-            }
-        }
+        public T this[string key] => Get(key);
 
-        /// <summary>
-        /// Set
-        /// </summary>
-        /// <param name="key"></param>
-        /// <param name="value"></param>
-        /// <param name="timeOut"></param>
         public void Set(string key, T value, TimeSpan timeOut)
         {
-            if (timeOut.TotalSeconds < 1)
-            {
-                _dic[key] = new MemoryCacheItem<T>() { Key = key, Value = value, Expired = DateTimeHelper.Now.AddYears(100) };
-            }
-            else
-            {
-                _dic[key] = new MemoryCacheItem<T>() { Key = key, Value = value, Expired = DateTimeHelper.Now.AddSeconds(timeOut.TotalSeconds) };
-            }
+            var expired = timeOut.TotalSeconds < 1 ? DateTime.MaxValue : DateTime.Now.AddSeconds(timeOut.TotalSeconds);
+            _dic[key] = new MemoryCacheItem<T> { Key = key, Value = value, Expired = expired };
             OnChanged?.Invoke(this, true, value);
         }
 
-        /// <summary>
-        /// Set
-        /// </summary>
-        /// <param name="key"></param>
-        /// <param name="addFunc"></param>
-        /// <param name="timeOut"></param>
         public void Set(string key, Func<string, T> addFunc, TimeSpan timeOut)
         {
-            var result = addFunc.Invoke(key);
-            Set(key, result, timeOut);
+            Set(key, addFunc(key), timeOut);
         }
 
-        /// <summary>
-        /// Get
-        /// </summary>
-        /// <param name="key"></param>
-        /// <returns></returns>
         public T Get(string key)
         {
-            _dic.TryGetValue(key, out MemoryCacheItem<T> mc);
-            if (mc != null && mc.Value != null)
+            if (_dic.TryGetValue(key, out var mc) && mc != null && mc.Expired > DateTime.Now)
             {
-                if (mc.Expired <= DateTimeHelper.Now)
-                {
-                    _dic.TryRemove(key, out mc);
-                    OnChanged?.Invoke(this, false, mc.Value);
-                }
-                else
-                {
-                    return mc.Value;
-                }
+                return mc.Value;
             }
-            return default(T);
+            _dic.TryRemove(key, out _);
+            if (mc != null)
+                OnChanged?.Invoke(this, false, mc.Value);
+            return default;
         }
-        /// <summary>
-        /// Active
-        /// </summary>
-        /// <param name="key"></param>
-        /// <param name="timeOut"></param>
+
         public void Active(string key, TimeSpan timeOut)
         {
             var item = Get(key);
@@ -164,131 +84,75 @@ namespace SAEA.Common.Caching
             }
         }
 
-        /// <summary>
-        /// GetAndActive
-        /// </summary>
-        /// <param name="key"></param>
-        /// <param name="timeOut"></param>
-        /// <returns></returns>
         public T GetAndActive(string key, TimeSpan timeOut)
         {
-            _dic.TryGetValue(key, out MemoryCacheItem<T> mc);
-
-            if (mc != null && mc.Value != null)
+            if (_dic.TryGetValue(key, out var mc) && mc != null && mc.Expired > DateTime.Now)
             {
-                if (mc.Expired <= DateTimeHelper.Now)
-                {
-                    _dic.TryRemove(key, out mc);
-                    OnChanged?.Invoke(this, false, mc.Value);
-                }
-                else
-                {
-                    Set(key, mc.Value, timeOut);
-                    return mc.Value;
-                }
+                Set(key, mc.Value, timeOut);
+                return mc.Value;
             }
-            return default(T);
+            return default;
         }
-
 
         public T GetOrAdd(string key, Func<string, T> addFunc, TimeSpan timeOut)
         {
-            var mt = _dic.GetOrAdd(key, (k) =>
-            {
-                return new MemoryCacheItem<T>()
-                {
-                    Key = k,
-                    Expired = DateTimeHelper.Now.AddSeconds(timeOut.TotalSeconds),
-                    Value = addFunc.Invoke(k)
-                };
-            });
-            lock (_locker)
-            {
-                if (mt.Expired > DateTimeHelper.Now)
-                {
-                    return mt.Value;
-                }
-                else
-                {
-                    var result = addFunc.Invoke(key);
-                    Set(key, result, timeOut);
-                    return result;
-                }
-            }
+            var expired = DateTime.Now.AddSeconds(timeOut.TotalSeconds);
+            var mt = _dic.AddOrUpdate(key, new MemoryCacheItem<T> { Key = key, Value = addFunc(key), Expired = expired },
+                (k, v) => v.Expired > DateTime.Now ? v : new MemoryCacheItem<T> { Key = k, Value = addFunc(k), Expired = expired });
+            return mt.Value;
         }
 
-        /// <summary>
-        /// Del
-        /// </summary>
-        /// <param name="key"></param>
-        /// <returns></returns>
         public bool Del(string key)
         {
-            var result = _dic.TryRemove(key, out MemoryCacheItem<T> mc);
-            if (result)
+            if (_dic.TryRemove(key, out var mc))
             {
                 OnChanged?.Invoke(this, false, mc.Value);
+                return true;
             }
-            return result;
+            return false;
         }
-        /// <summary>
-        /// DelWithoutEvent
-        /// </summary>
-        /// <param name="key"></param>
-        /// <returns></returns>
+
         public bool DelWithoutEvent(string key)
         {
-            return _dic.TryRemove(key, out MemoryCacheItem<T> mc);
+            MemoryCacheItem<T> mc;
+            return _dic.TryRemove(key, out mc) && mc != null && mc.Value != null;
         }
 
-        /// <summary>
-        /// List
-        /// </summary>
-        public IEnumerable<T> List
-        {
-            get
-            {
-                return _dic.Values.Select(b => b.Value);
-            }
-        }
+        public IEnumerable<T> List => _dic.Values.Select(b => b.Value);
 
-        /// <summary>
-        /// ToList
-        /// </summary>
-        /// <returns></returns>
-        public ICollection<MemoryCacheItem<T>> ToList()
-        {
-            return _dic.Values;
-        }
+        public ICollection<MemoryCacheItem<T>> ToList() => _dic.Values;
 
-        /// <summary>
-        /// Clear
-        /// </summary>
         public void Clear()
         {
             _dic.Clear();
-            OnChanged?.Invoke(this, false, default(T));
+            OnChanged?.Invoke(this, false, default);
         }
 
+        public IEnumerator<T> GetEnumerator() => List.GetEnumerator();
 
-        public IEnumerator<T> GetEnumerator()
-        {
-            return List.GetEnumerator();
-        }
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
 
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
-        {
-            return GetEnumerator();
-        }
-
-
-        /// <summary>
-        /// Dispose
-        /// </summary>
         public void Dispose()
         {
             Clear();
-            _dic = null;
+            _cancellationTokenSource.Cancel();
+            _cancellationTokenSource.Dispose();
+        }
+
+        void StartCleanupTimer(int seconds, CancellationToken token)
+        {
+            Task.Factory.StartNew(async () =>
+            {
+                while (!token.IsCancellationRequested)
+                {
+                    await Task.Delay(seconds * 1000, token);
+                    var keysToRemove = _dic.Where(kvp => kvp.Value.Expired <= DateTime.Now).Select(kvp => kvp.Key).ToList();
+                    foreach (var key in keysToRemove)
+                    {
+                        Del(key);
+                    }
+                }
+            }, token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         }
     }
 
@@ -298,19 +162,8 @@ namespace SAEA.Common.Caching
     /// <typeparam name="T"></typeparam>
     public class MemoryCacheItem<T>
     {
-        public string Key
-        {
-            get; set;
-        }
-
-        public T Value
-        {
-            get; set;
-        }
-
-        public DateTime Expired
-        {
-            get; set;
-        }
+        public string Key { get; set; }
+        public T Value { get; set; }
+        public DateTime Expired { get; set; }
     }
 }

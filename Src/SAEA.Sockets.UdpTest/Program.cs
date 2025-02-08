@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Text;
 using System.Threading;
 
@@ -26,10 +27,10 @@ namespace SAEA.Sockets.UdpTest
             client.Connect();
 
             //send msg
-            for (int i = 1; i <= 10; i++)
+            for (int i = 1; i <= 100; i++)
             {
-                client.SendAsync(Encoding.UTF8.GetBytes($"hello udpserver {i}"), SocketProtocalType.ChatMessage);
-                Thread.Sleep(1000);
+                client.SendAsync(Encoding.UTF8.GetBytes($"{i}、hello udpserver"), SocketProtocalType.ChatMessage);
+                Thread.Sleep(100);
             }
 
             client.Disconnect();
@@ -50,7 +51,7 @@ namespace SAEA.Sockets.UdpTest
 
         private static void Client_OnReceive(UDPClient<BaseUnpacker> arg1, ISocketProtocal arg2)
         {
-            Console.ForegroundColor = ConsoleColor.Green;
+            Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine($"udp client received a message：{Encoding.UTF8.GetString(arg2.Content)}");
         }
     }

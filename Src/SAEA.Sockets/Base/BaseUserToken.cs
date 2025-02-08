@@ -28,10 +28,11 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Sockets.Interface;
 using System;
 using System.Net.Sockets;
 using System.Threading;
+
+using SAEA.Sockets.Interface;
 
 namespace SAEA.Sockets.Base
 {
@@ -42,10 +43,16 @@ namespace SAEA.Sockets.Base
     {
         AutoResetEvent _autoResetEvent = new AutoResetEvent(true);
 
+        /// <summary>
+        /// 连接信息类
+        /// </summary>
         public BaseUserToken()
         {
             _autoResetEvent = new AutoResetEvent(true);
+            Guid = System.Guid.NewGuid().ToString("N");
         }
+
+        public string Guid { get; private set; }
 
         public string ID
         {

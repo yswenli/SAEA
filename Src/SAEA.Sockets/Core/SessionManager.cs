@@ -33,6 +33,7 @@
 using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
 
 using SAEA.Common;
 using SAEA.Common.Caching;
@@ -57,6 +58,8 @@ namespace SAEA.Sockets.Core
         /// </summary>
         public event Action<IUserToken> OnTimeOut;
 
+        SemaphoreSlim _semaphoreSlim;
+
         /// <summary>
         /// 构造会话管理器
         /// </summary>
@@ -67,13 +70,15 @@ namespace SAEA.Sockets.Core
         /// <param name="freetime"></param>
         public SessionManager(IContext<IUnpacker> context, int bufferSize, int count, EventHandler<SocketAsyncEventArgs> completed, TimeSpan freetime)
         {
-            _sessionCache = new MemoryCache<IUserToken>();
+            _sessionCache = new MemoryCache<IUserToken>((int)freetime.TotalSeconds);
 
             _freeTime = freetime;
 
             _userTokenPool = new UserTokenPool(context, count, bufferSize, completed);
 
             _sessionCache.OnChanged += _sessionCache_OnChanged;
+
+            _semaphoreSlim = new SemaphoreSlim(count, count);
         }
 
 
@@ -94,13 +99,20 @@ namespace SAEA.Sockets.Core
         /// <exception cref="Exception"></exception>
         public IUserToken BindUserToken(Socket socket, int timeOut)
         {
-            IUserToken userToken = _userTokenPool.Dequeue(timeOut);
-            if (userToken == null) throw new Exception("UserToken池中资源已耗尽");
-            userToken.Socket = socket;
-            userToken.ID = socket.RemoteEndPoint.ToString();
-            userToken.Actived = userToken.Linked = DateTimeHelper.Now;
-            _sessionCache.Set(userToken.ID, userToken, _freeTime);
-            return userToken;
+            if (_semaphoreSlim.Wait(timeOut))
+            {
+                IUserToken userToken = _userTokenPool.Dequeue(timeOut);
+                if (userToken == null)
+                    throw new Exception("UserToken池中资源已耗尽");
+
+                userToken.Socket = socket;
+                userToken.ID = socket.RemoteEndPoint.ToString();
+                userToken.Actived = userToken.Linked = DateTimeHelper.Now;
+                _sessionCache.Set(userToken.ID, userToken, _freeTime);
+                return userToken;
+            }
+            else
+                throw new Exception("UserToken池中资源已耗尽");
         }
 
         #region UDP
@@ -112,6 +124,7 @@ namespace SAEA.Sockets.Core
         /// <returns></returns>
         public IUserToken BeginBindUserToken(Socket socket)
         {
+            _semaphoreSlim.Wait();
             IUserToken userToken = _userTokenPool.Dequeue();
             if (userToken == null) return null;
             userToken.ReadArgs.RemoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
@@ -157,19 +170,19 @@ namespace SAEA.Sockets.Core
         /// <param name="userToken"></param>
         public bool Free(IUserToken userToken)
         {
-            if (userToken != null && userToken.Socket != null)
+            using (var locker = ObjectLock.Create("SessionManager.Free"))
             {
-                using (var loker = ObjectLock.Create("SessionManager.Free"))
+                if (userToken != null)
                 {
-                    if (userToken != null && userToken.Socket != null)
+                    if (_sessionCache.DelWithoutEvent(userToken.ID))
                     {
-                        _sessionCache.DelWithoutEvent(userToken.ID);
-                        _userTokenPool.Enqueue(userToken);
+                        if (_userTokenPool.Enqueue(userToken))
+                            _semaphoreSlim.Release();
                         return true;
                     }
                 }
+                return false;
             }
-            return false;
         }
 
         /// <summary>

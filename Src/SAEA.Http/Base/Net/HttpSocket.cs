@@ -75,6 +75,9 @@ namespace SAEA.Http.Base.Net
             {
                 unpacker.Clear();
                 LogHelper.Error("Http解码出现异常", ex, Convert.ToBase64String(data));
+            }
+            finally
+            {
                 Disconnecte(ut);
             }
         }

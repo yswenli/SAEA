@@ -29,11 +29,11 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Common;
-
 using System;
 using System.Collections.Generic;
 using System.Net.Sockets;
+
+using SAEA.Common;
 
 namespace SAEA.Sockets.Core
 {

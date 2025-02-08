@@ -22,12 +22,13 @@
 *
 *****************************************************************************/
 
-using SAEA.Common;
-using SAEA.Sockets.Interface;
-using SAEA.WebSocket.Type;
 using System;
 using System.IO;
 using System.Linq;
+
+using SAEA.Common;
+using SAEA.Sockets.Interface;
+using SAEA.WebSocket.Type;
 
 namespace SAEA.WebSocket.Model
 {

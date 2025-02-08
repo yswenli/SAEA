@@ -29,10 +29,11 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Sockets.Interface;
 using System;
 using System.Collections.Concurrent;
 using System.Net.Sockets;
+
+using SAEA.Sockets.Interface;
 
 namespace SAEA.Sockets.Core
 {
