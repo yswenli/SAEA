@@ -21,11 +21,11 @@ using SAEA.Sockets.Interface;
 
 namespace SAEA.Sockets.Base
 {
-    public class BaseContext<Coder> : IContext<Coder> where Coder : class, IUnpacker
+    public class BaseContext<Coder> : IContext<Coder> where Coder : class, ICoder
     {
         public virtual IUserToken UserToken { get; set; }
 
-        public virtual IUnpacker Unpacker { get; set; }
+        public virtual ICoder Unpacker { get; set; }
 
         /// <summary>
         /// 上下文
@@ -34,7 +34,7 @@ namespace SAEA.Sockets.Base
         {
             this.UserToken = new BaseUserToken();
             this.Unpacker = Activator.CreateInstance<Coder>();
-            this.UserToken.Unpacker = this.Unpacker;
+            this.UserToken.Coder = this.Unpacker;
         }
     }
 }

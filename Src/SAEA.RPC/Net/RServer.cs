@@ -47,7 +47,7 @@ namespace SAEA.RPC.Net
         {
             var option = SocketOptionBuilder.Instance
                 .SetSocket()
-                .UseIocp<RUnpacker>()
+                .UseIocp<RpcCoder>()
                 .SetPort(port)
                 .SetReadBufferSize(bufferSize)
                 .SetWriteBufferSize(bufferSize)
@@ -71,7 +71,7 @@ namespace SAEA.RPC.Net
         {
             var userToken = (IUserToken)currentObj;
 
-            ((RUnpacker)(userToken.Unpacker)).Unpack(data, (r) =>
+            ((RpcCoder)(userToken.Coder)).Unpack(data, (r) =>
             {
                 OnMsg.Invoke(userToken, r);
             });
@@ -83,7 +83,7 @@ namespace SAEA.RPC.Net
         /// <param name="msg"></param>
         internal void Reply(IUserToken userToken, RSocketMsg msg)
         {
-            var data = ((RUnpacker)userToken.Unpacker).Encode(msg);
+            var data = ((RpcCoder)userToken.Coder).Encode(msg);
             _server.SendAsync(userToken.ID, data);
         }
 

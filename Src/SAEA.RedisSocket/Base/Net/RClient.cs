@@ -49,7 +49,7 @@ namespace SAEA.RedisSocket.Base.Net
         public readonly object SyncRoot;
 
         public RClient(int bufferSize = 100 * 1024, string ip = "127.0.0.1", int port = 6379) 
-            : base(new BaseContext<RUnpacker>(), string.IsNullOrEmpty(ip) ? "127.0.0.1" : ip, port, bufferSize)
+            : base(new BaseContext<RedisCoder>(), string.IsNullOrEmpty(ip) ? "127.0.0.1" : ip, port, bufferSize)
         {
             SyncRoot = new object();
         }

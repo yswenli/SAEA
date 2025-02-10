@@ -43,7 +43,7 @@ namespace SAEA.Http.Base.Net
         {
             var optionBuilder = new SocketOptionBuilder()
                .SetSocket(Sockets.Model.SAEASocketType.Tcp)
-               .UseIocp<HUnpacker>()
+               .UseIocp<HttpCoder>()
                .SetPort(port)
                .SetCount(count)
                .SetReadBufferSize(bufferSize)
@@ -62,7 +62,7 @@ namespace SAEA.Http.Base.Net
         {
             var ut = (IUserToken)userToken;
 
-            HUnpacker unpacker = (HUnpacker)ut.Unpacker;
+            HttpCoder unpacker = (HttpCoder)ut.Coder;
 
             try
             {

@@ -33,11 +33,13 @@ using System;
 namespace SAEA.Sockets.Interface
 {
     /// <summary>
-    /// 通信数据接收解析器
+    /// 通信数编码器
     /// </summary>
-    public interface IUnpacker
+    public interface ICoder
     {
-        void Unpack(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null);
+        byte[] Encode(ISocketProtocal protocal);
+
+        void Decode(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null);
 
         void Clear();
     }

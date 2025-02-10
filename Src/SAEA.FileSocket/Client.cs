@@ -60,13 +60,13 @@ namespace SAEA.FileSocket
 
         IClientSocket _client;
 
-        BaseUnpacker _unpacker;
+        BaseCoder _unpacker;
 
         public Client(int bufferSize = 100 * 1024, string ip = "127.0.0.1", int port = 39654)
         {
             var option = SocketOptionBuilder.Instance
                 .SetSocket()
-                .UseIocp<BaseUnpacker>()
+                .UseIocp<BaseCoder>()
                 .SetIP(ip)
                 .SetPort(port)
                 .SetReadBufferSize(bufferSize)
@@ -81,7 +81,7 @@ namespace SAEA.FileSocket
 
             _buffer = new byte[_bufferSize];
 
-            _unpacker = new BaseUnpacker();
+            _unpacker = new BaseCoder();
 
             HeartAsync();
         }
@@ -90,7 +90,7 @@ namespace SAEA.FileSocket
         {
             if (data != null)
             {
-                _unpacker.Unpack(data, (allow) =>
+                _unpacker.Decode(data, (allow) =>
                 {
                     Action<bool> action;
 

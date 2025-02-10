@@ -21,13 +21,14 @@
 *描述：
 *
 *****************************************************************************/
+using System;
+using System.Collections.Generic;
+using System.Text;
+
 using SAEA.Common;
 using SAEA.Common.Threading;
 using SAEA.RPC.Model;
 using SAEA.Sockets.Interface;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SAEA.RPC.Net
 {
@@ -35,11 +36,15 @@ namespace SAEA.RPC.Net
     /// SAEA.RPC传输编解码
     /// 格式为：1+4+8+4+x+4+x+x
     /// </summary>
-    public sealed class RUnpacker : IUnpacker
+    public sealed class RpcCoder : ICoder
     {
+        public byte[] Encode(ISocketProtocal protocal)
+        {
+            return Encode(protocal as RSocketMsg);
+        }
 
         //内置
-        public void Unpack(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
+        public void Decode(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
         {
 
         }
@@ -227,6 +232,5 @@ namespace SAEA.RPC.Net
         {
             _buffer.Clear();
         }
-
     }
 }

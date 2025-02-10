@@ -30,7 +30,7 @@ namespace SAEA.QueueSocket.Model
     /// <summary>
     /// 队列编辑消息实体
     /// </summary>
-    public class QueueResult : IDisposable
+    public class QueueMsg : IDisposable
     {
         public QueueSocketMsgType Type { get; set; }
 

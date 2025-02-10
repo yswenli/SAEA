@@ -47,11 +47,9 @@ namespace SAEA.QueueSocket
 
         string _name;
 
-        public event Action<QueueResult> OnMessage;
+        public event Action<QueueMsg> OnMessage;
 
-        QUnpacker _qUnpacker;
-
-        QueueCoder _queueCoder;
+        Net.QueueCoder _queueCoder;
 
         bool _isClosed = false;
 
@@ -91,12 +89,10 @@ namespace SAEA.QueueSocket
             _batcher.OnBatched += _batcher_OnBatched;
 
 
-            _qUnpacker = new QUnpacker();
-
             _queueCoder = new QueueCoder();
 
             ISocketOption socketOption = SocketOptionBuilder.Instance.SetSocket(Sockets.Model.SAEASocketType.Tcp)
-                .UseIocp<QUnpacker>()
+                .UseIocp<QueueCoder>()
                 .SetIP(ip)
                 .SetPort(port)
                 .SetWriteBufferSize(bufferSize)
@@ -153,7 +149,7 @@ namespace SAEA.QueueSocket
         private void _clientSocket_OnReceive(byte[] data)
         {
             Actived = DateTimeHelper.Now;
-            var list = _qUnpacker.GetQueueResult(data);
+            var list = _queueCoder.GetQueueResult(data);
             if (list != null)
             {
                 foreach (var item in list)

@@ -121,7 +121,7 @@ namespace SAEA.WebSocket.Core
                         else
                         {
                             var coder = _concurrentDictionary[channelInfo.ID];
-                            coder.Unpack(data, (d) =>
+                            coder.Decode(data, (d) =>
                             {
                                 var wsProtocal = (WSProtocal)d;
                                 switch (wsProtocal.Type)

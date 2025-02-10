@@ -31,10 +31,10 @@
 
 namespace SAEA.Sockets.Interface
 {
-    public interface IContext<out Coder> where Coder : class, IUnpacker
+    public interface IContext<out Coder> where Coder : class, ICoder
     {
         IUserToken UserToken { get; set; }
 
-        IUnpacker Unpacker { get; set; }
+        ICoder Unpacker { get; set; }
     }
 }

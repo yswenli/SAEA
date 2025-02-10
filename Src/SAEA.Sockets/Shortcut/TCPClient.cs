@@ -41,7 +41,7 @@ namespace SAEA.Sockets.Shortcut
     /// TCPClient
     /// </summary>
     /// <typeparam name="Coder">IUnpacker</typeparam>
-    public class TCPClient<Coder> : IDisposable where Coder : class, IUnpacker
+    public class TCPClient<Coder> : IDisposable where Coder : class, ICoder
     {
         IClientSocket _clientSokcet;
 
@@ -142,7 +142,7 @@ namespace SAEA.Sockets.Shortcut
     /// <summary>
     /// TCPClient
     /// </summary>
-    public class TCPClient : TCPClient<BaseUnpacker>
+    public class TCPClient : TCPClient<BaseCoder>
     {
         /// <summary>
         /// TCPClient

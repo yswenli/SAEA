@@ -83,7 +83,7 @@ namespace SAEA.Sockets
         /// </summary>
         /// <param name="context"></param>
         /// <returns></returns>
-        public SocketOptionBuilder UseIocp<T>() where T : class, IUnpacker
+        public SocketOptionBuilder UseIocp<T>() where T : class, ICoder
         {
             if (_socketOption.WithSsl) throw new NotSupportedException("ssl模式下暂不支持icop");
             _socketOption.Context = (BaseContext<T>)Activator.CreateInstance(typeof(BaseContext<T>));
@@ -95,7 +95,7 @@ namespace SAEA.Sockets
         /// </summary>
         /// <param name="context"></param>
         /// <returns></returns>
-        public SocketOptionBuilder UseIocp(IContext<IUnpacker> context)
+        public SocketOptionBuilder UseIocp(IContext<ICoder> context)
         {
             if (_socketOption.WithSsl) throw new NotSupportedException("ssl模式下暂不支持icop");
             _socketOption.Context = context;
@@ -110,7 +110,7 @@ namespace SAEA.Sockets
         public SocketOptionBuilder UseIocp()
         {
             if (_socketOption.WithSsl) throw new NotSupportedException("ssl模式下暂不支持icop");
-            _socketOption.Context = new BaseContext<BaseUnpacker>();
+            _socketOption.Context = new BaseContext<BaseCoder>();
             _socketOption.UseIocp = true;
             return this;
         }

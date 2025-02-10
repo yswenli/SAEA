@@ -124,7 +124,7 @@ namespace SAEA.MessageSocket
         {
             var mUserToken = (MessageUserToken)currentObj;
 
-            mUserToken.Unpacker.Unpack(data, (s) =>
+            mUserToken.Coder.Decode(data, (s) =>
             {
                 if (s.Content != null)
                 {

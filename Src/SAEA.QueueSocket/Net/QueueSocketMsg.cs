@@ -22,13 +22,9 @@
 *
 *****************************************************************************/
 
-using SAEA.Common;
-using SAEA.QueueSocket.Type;
-using SAEA.Sockets.Interface;
-
 using System;
-using System.Collections.Generic;
-using System.Text;
+
+using SAEA.QueueSocket.Type;
 
 namespace SAEA.QueueSocket.Net
 {
@@ -37,71 +33,89 @@ namespace SAEA.QueueSocket.Net
     /// </summary>
     public class QueueSocketMsg : IDisposable
     {
+        // 定义一个常量MINLENGTH，表示消息的最小长度
+        public const int MINLENGTH = (1 + 4 + 4 + 0 + 4 + 0 + 0);
 
-        const int MIN = (1 + 4 + 4 + 0 + 4 + 0 + 0);
-
+        // 定义一个属性Total，用于获取或设置消息的总长度
         public int Total
         {
             get; set;
         }
 
-        public byte Type
+        // 定义一个属性Type，用于获取或设置消息的类型
+        public QueueSocketMsgType Type
         {
             get; set;
         }
 
-        public int NLen
+        // 定义一个属性NameLength，用于获取或设置消息名称的长度
+        public int NameLength
         {
             get; set;
         }
 
+        // 定义一个属性Name，用于获取或设置消息的名称
         public string Name
         {
             get; set;
         }
 
-        public int TLen
+        // 定义一个属性TopicLength，用于获取或设置消息主题的长度
+        public int TopicLength
         {
             get; set;
         }
 
+        // 定义一个属性Topic，用于获取或设置消息的主题
         public string Topic
         {
             get; set;
         }
 
+        // 定义一个属性Data，用于获取或设置消息的数据
         public byte[] Data
         {
             get; set;
         }
 
+        // 构造函数，用于创建一个指定类型的消息
         public QueueSocketMsg(QueueSocketMsgType type) : this(type, null)
         {
 
         }
+
+        // 构造函数，用于创建一个指定类型和名称的消息
         public QueueSocketMsg(QueueSocketMsgType type, string name) : this(type, name, null)
         {
 
         }
+
+        // 构造函数，用于创建一个指定类型、名称和主题的消息
         public QueueSocketMsg(QueueSocketMsgType type, string name, string topic) : this(type, name, topic, null)
         {
 
         }
+
+        // 构造函数，用于创建一个指定类型、名称、主题和数据的消息
         public QueueSocketMsg(QueueSocketMsgType type, string name, string topic, byte[] data)
         {
-            this.Type = (byte)type;
-            this.Name = name;
-            this.Topic = topic;
-            this.Data = data;
+            this.Type = type; // 设置消息类型
+            this.Name = name; // 设置消息名称
+            this.Topic = topic; // 设置消息主题
+            this.Data = data; // 设置消息数据
         }
 
+        // 实现IDisposable接口的Dispose方法，用于释放资源
         public void Dispose()
         {
+            // 如果消息数据不为空且长度大于0，则清空数据
             if (this.Data != null && Data.Length > 0)
             {
                 Array.Clear(Data, 0, Data.Length);
             }
-            this.Total = this.NLen = this.TLen;
+            // 将总长度、名称长度和主题长度设置为0
+            this.Total = this.NameLength = this.TopicLength;
+            // 将消息类型设置为0
             this.Type = 0;
         }
     }

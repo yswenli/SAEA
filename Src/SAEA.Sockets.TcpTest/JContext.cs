@@ -28,14 +28,14 @@ namespace SAEA.Sockets.TcpTest
     /// <summary>
     /// 解包
     /// </summary>
-    public class JUnpacker : IUnpacker
+    public class JUnpacker : ICoder
     {
         const byte SplitByte = 126;//0x7E
 
         List<byte> _cache = new List<byte>();
 
 
-        public void Unpack(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
+        public void Decode(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
         {
 
         }

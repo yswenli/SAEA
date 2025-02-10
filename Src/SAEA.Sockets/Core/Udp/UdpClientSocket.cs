@@ -62,7 +62,7 @@ namespace SAEA.Sockets.Core.Udp
 
         public Socket Socket => _udpSocket;
 
-        public IContext<IUnpacker> Context { get; private set; }
+        public IContext<ICoder> Context { get; private set; }
 
         public event OnErrorHandler OnError;
 

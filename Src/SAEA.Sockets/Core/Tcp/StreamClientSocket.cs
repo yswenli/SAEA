@@ -78,7 +78,7 @@ namespace SAEA.Sockets.Core.Tcp
 
         public Socket Socket => _socket;
 
-        public IContext<IUnpacker> Context { get; private set; }
+        public IContext<ICoder> Context { get; private set; }
 
         public event OnDisconnectedHandler OnDisconnected;
 

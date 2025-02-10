@@ -83,7 +83,7 @@ namespace SAEA.Sockets.Base
             get; set;
         }
 
-        public IUnpacker Unpacker
+        public ICoder Coder
         {
             get; set;
         }
@@ -103,7 +103,7 @@ namespace SAEA.Sockets.Base
         public void Clear()
         {
             Socket?.Close();
-            Unpacker?.Clear();
+            Coder?.Clear();
             _autoResetEvent?.Close();
             ReadArgs?.Dispose();
             WriteArgs?.Dispose();

@@ -132,6 +132,7 @@ namespace SAEA.QueueSocketTest
             Consumer consumer = new Consumer("subscriber-" + Guid.NewGuid().ToString("N"), ipPort);
             consumer.OnMessage += Subscriber_OnMessage;
             consumer.OnDisconnected += Client_OnDisconnected;
+            consumer.OnError += Producer_OnError;
 
             consumer.Subscribe(topic);
             consumer.Start();
@@ -157,7 +158,7 @@ namespace SAEA.QueueSocketTest
 
         static int _outNum = 0;
 
-        private static void Subscriber_OnMessage(QueueResult obj)
+        private static void Subscriber_OnMessage(QueueMsg obj)
         {
             if (obj != null)
                 _outNum += 1;

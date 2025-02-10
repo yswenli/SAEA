@@ -44,7 +44,7 @@ namespace SAEA.Sockets
     /// </summary>
     public interface IClientSocket : IDisposable
     {
-        IContext<IUnpacker> Context { get; }
+        IContext<ICoder> Context { get; }
 
         ISocketOption SocketOption { get; set; }
 

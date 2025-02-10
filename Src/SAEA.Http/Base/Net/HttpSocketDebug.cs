@@ -38,7 +38,7 @@ namespace SAEA.Http.Base.Net
         {
             var optionBuilder = new SocketOptionBuilder()
                .SetSocket(SAEASocketType.Tcp)
-               .UseIocp<HUnpacker>()
+               .UseIocp<HttpCoder>()
                .SetPort(port)
                .SetCount(count)
                .SetReadBufferSize(bufferSize)
@@ -63,7 +63,7 @@ namespace SAEA.Http.Base.Net
             {
                 if (ut == null) throw new KernelException("userToken is null");
 
-                HUnpacker unpacker = (HUnpacker)ut.Unpacker;
+                HttpCoder unpacker = (HttpCoder)ut.Coder;
 
                 unpacker.GetRequest(ut.ID, data, (result) =>
                 {

@@ -48,7 +48,7 @@ namespace SAEA.Sockets.Core
         /// 生成基本的IUserToken
         /// </summary>
         /// <returns></returns>
-        public IUserToken Create(IContext<IUnpacker> context)
+        public IUserToken Create(IContext<ICoder> context)
         {
             var type = context.GetType();
             var typeInfo = _concurrentDictionary.GetOrAdd(type, (k) =>
@@ -56,12 +56,12 @@ namespace SAEA.Sockets.Core
                 return new TypeInfo()
                 {
                     UserTokenType = context.UserToken.GetType(),
-                    UnpackerType = context.UserToken.Unpacker.GetType()
+                    UnpackerType = context.UserToken.Coder.GetType()
                 };
             });
             IUserToken userToken = (IUserToken)Activator.CreateInstance(typeInfo.UserTokenType);
-            IUnpacker unpakcer = (IUnpacker)Activator.CreateInstance(typeInfo.UnpackerType);
-            userToken.Unpacker = unpakcer;
+            ICoder unpakcer = (ICoder)Activator.CreateInstance(typeInfo.UnpackerType);
+            userToken.Coder = unpakcer;
             context.UserToken = userToken;
             return userToken;
         }
@@ -73,7 +73,7 @@ namespace SAEA.Sockets.Core
         /// <param name="bufferSize"></param>
         /// <param name="eventHandler"></param>
         /// <returns></returns>
-        public IUserToken Create(IContext<IUnpacker> context, int bufferSize, EventHandler<SocketAsyncEventArgs> eventHandler)
+        public IUserToken Create(IContext<ICoder> context, int bufferSize, EventHandler<SocketAsyncEventArgs> eventHandler)
         {
             IUserToken userToken = Create(context);
 

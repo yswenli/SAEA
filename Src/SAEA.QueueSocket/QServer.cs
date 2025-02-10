@@ -51,7 +51,7 @@ namespace SAEA.QueueSocket
             _exchange.OnBatched += _exchange_OnBatched;
 
             var config = SocketOptionBuilder.Instance
-                .UseIocp<QUnpacker>()
+                .UseIocp<Net.QueueCoder>()
                 .SetSocket(Sockets.Model.SAEASocketType.Tcp)
                 .SetReadBufferSize(bufferSize)
                 .SetWriteBufferSize(bufferSize)
@@ -80,7 +80,7 @@ namespace SAEA.QueueSocket
         private void _serverSokcet_OnReceive(ISession ut, byte[] data)
         {
             var userToken = (IUserToken)ut;
-            var qcoder = (QUnpacker)userToken.Unpacker;
+            var qcoder = (Net.QueueCoder)userToken.Coder;
             var list = qcoder.GetQueueResult(data);
             if (list != null && list.Count > 0)
             {
@@ -88,11 +88,11 @@ namespace SAEA.QueueSocket
                 {
                     Reply(userToken, item);
                 }
+                list.Clear();
             }
-            list.Clear();
         }
 
-        void Reply(IUserToken userToken, QueueResult queueResult)
+        void Reply(IUserToken userToken, QueueMsg queueResult)
         {
             switch (queueResult.Type)
             {
@@ -132,33 +132,33 @@ namespace SAEA.QueueSocket
 
 
 
-        private void ReplyPong(IUserToken ut, QueueResult data)
+        private void ReplyPong(IUserToken ut, QueueMsg data)
         {
-            var qcoder = (QUnpacker)ut.Unpacker;
-            _serverSokcet.Send(ut.ID, qcoder.QueueCoder.Pong(data.Name));
+            var qcoder = (Net.QueueCoder)ut.Coder;
+            _serverSokcet.Send(ut.ID, qcoder.Pong(data.Name));
         }
 
-        private void ReplyPublish(IUserToken ut, QueueResult data)
+        private void ReplyPublish(IUserToken ut, QueueMsg data)
         {
             _exchange.AcceptPublish(ut.ID, data);
         }
 
-        private void ReplySubcribe(IUserToken ut, QueueResult data)
+        private void ReplySubcribe(IUserToken ut, QueueMsg data)
         {
-            var qcoder = (QUnpacker)ut.Unpacker;
+            var qcoder = (Net.QueueCoder)ut.Coder;
 
-            _exchange.GetSubscribeData(ut.ID, new QueueResult() { Name = data.Name, Topic = data.Topic }, qcoder);
+            _exchange.GetSubscribeData(ut.ID, new QueueMsg() { Name = data.Name, Topic = data.Topic }, qcoder);
         }
 
-        private void ReplyUnsubscribe(IUserToken ut, QueueResult data)
+        private void ReplyUnsubscribe(IUserToken ut, QueueMsg data)
         {
             _exchange.Unsubscribe(data);
         }
 
-        private void ReplyClose(IUserToken ut, QueueResult data)
+        private void ReplyClose(IUserToken ut, QueueMsg data)
         {
-            var qcoder = (QUnpacker)ut.Unpacker;
-            _serverSokcet.Send(ut.ID, qcoder.QueueCoder.Close(data.Name));
+            var qcoder = (Net.QueueCoder)ut.Coder;
+            _serverSokcet.Send(ut.ID, qcoder.Close(data.Name));
             _exchange.Clear(ut.ID);
             _serverSokcet.Disconnect(ut.ID);
         }

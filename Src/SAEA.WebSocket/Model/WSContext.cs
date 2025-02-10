@@ -30,7 +30,7 @@ namespace SAEA.WebSocket.Model
     {
         public override IUserToken UserToken { get; set; }
 
-        public override IUnpacker Unpacker { get; set; }
+        public override ICoder Unpacker { get; set; }
 
         /// <summary>
         /// 上下文
@@ -39,7 +39,7 @@ namespace SAEA.WebSocket.Model
         {
             this.UserToken = new WSUserToken();
             this.Unpacker = new WSCoder();
-            this.UserToken.Unpacker = this.Unpacker;
+            this.UserToken.Coder = this.Unpacker;
         }
     }
 }

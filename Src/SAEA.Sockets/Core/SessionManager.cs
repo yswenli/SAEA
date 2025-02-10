@@ -68,7 +68,7 @@ namespace SAEA.Sockets.Core
         /// <param name="count"></param>
         /// <param name="completed"></param>
         /// <param name="freetime"></param>
-        public SessionManager(IContext<IUnpacker> context, int bufferSize, int count, EventHandler<SocketAsyncEventArgs> completed, TimeSpan freetime)
+        public SessionManager(IContext<ICoder> context, int bufferSize, int count, EventHandler<SocketAsyncEventArgs> completed, TimeSpan freetime)
         {
             _sessionCache = new MemoryCache<IUserToken>((int)freetime.TotalSeconds);
 

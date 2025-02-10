@@ -62,7 +62,7 @@ namespace SAEA.FileSocket
         {
             var option = SocketOptionBuilder.Instance
                 .SetSocket()
-                .UseIocp<BaseUnpacker>()
+                .UseIocp<BaseCoder>()
                 .SetPort(port)
                 .ReusePort(false)
                 .SetReadBufferSize(bufferSize)
@@ -86,7 +86,7 @@ namespace SAEA.FileSocket
         {
             var userToken = (IUserToken)currentObj;
 
-            userToken.Unpacker.Unpack(data, (s) =>
+            userToken.Coder.Decode(data, (s) =>
             {
                 string fileName = string.Empty;
 

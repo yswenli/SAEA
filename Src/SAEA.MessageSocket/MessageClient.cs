@@ -114,7 +114,7 @@ namespace SAEA.MessageSocket
         {
             if (data != null)
             {
-                this._messageContext.Unpacker.Unpack(data, (s) =>
+                this._messageContext.Unpacker.Decode(data, (s) =>
                 {
                     if (s.Content != null)
                     {

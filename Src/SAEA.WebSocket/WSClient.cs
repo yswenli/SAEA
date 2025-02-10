@@ -166,7 +166,7 @@ namespace SAEA.WebSocket
             {
                 var coder = (WSCoder)_wsContext.Unpacker;
 
-                coder.Unpack(data, (d) =>
+                coder.Decode(data, (d) =>
                 {
                     var wsProtocal = (WSProtocal)d;
                     switch (wsProtocal.Type)

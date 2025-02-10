@@ -21,17 +21,21 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Sockets.Interface;
 using System;
+
+using SAEA.Sockets.Interface;
 
 namespace SAEA.RedisSocket.Base.Net
 {
     /// <summary>
     /// 通信数据接收解析器
     /// </summary>
-    public sealed class RUnpacker : IUnpacker
+    public sealed class RedisCoder : ICoder
     {
-        private object _locker = new object();
+        public byte[] Encode(ISocketProtocal protocal)
+        {
+            return protocal.ToBytes();
+        }
 
         /// <summary>
         /// 收包处理
@@ -40,15 +44,14 @@ namespace SAEA.RedisSocket.Base.Net
         /// <param name="OnHeart"></param>
         /// <param name="OnUnPackage"></param>
         /// <param name="onFile"></param>
-        public void Unpack(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
+        public void Decode(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
         {
-            
+
         }
 
         public void Clear()
         {
 
         }
-
     }
 }

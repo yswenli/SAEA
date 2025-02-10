@@ -40,7 +40,7 @@ namespace SAEA.Sockets.UdpTest
 
 
 
-        private static void Server_OnReceive(UDPServer<BaseUnpacker> arg1, string arg2, ISocketProtocal arg3)
+        private static void Server_OnReceive(UDPServer<BaseCoder> arg1, string arg2, ISocketProtocal arg3)
         {
             Console.ForegroundColor = ConsoleColor.DarkGreen;
             Console.WriteLine($"udp server received a message：{Encoding.UTF8.GetString(arg3.Content)}");
@@ -49,7 +49,7 @@ namespace SAEA.Sockets.UdpTest
             arg1.SendAsync(arg2, Encoding.UTF8.GetBytes($"udpserver reply:{Encoding.UTF8.GetString(arg3.Content)}"));
         }
 
-        private static void Client_OnReceive(UDPClient<BaseUnpacker> arg1, ISocketProtocal arg2)
+        private static void Client_OnReceive(UDPClient<BaseCoder> arg1, ISocketProtocal arg2)
         {
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine($"udp client received a message：{Encoding.UTF8.GetString(arg2.Content)}");

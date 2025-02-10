@@ -22,16 +22,13 @@
 *
 *****************************************************************************/
 
-using SAEA.Common.Caching;
-using SAEA.Common.Threading;
-using SAEA.QueueSocket.Net;
-using SAEA.Sockets.Interface;
-
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+
+using SAEA.Common.Caching;
+using SAEA.Sockets.Interface;
 
 namespace SAEA.QueueSocket.Model
 {
@@ -82,7 +79,7 @@ namespace SAEA.QueueSocket.Model
             OnBatched?.Invoke(id, data);
         }
 
-        public void AcceptPublish(string sessionID, QueueResult pInfo)
+        public void AcceptPublish(string sessionID, QueueMsg pInfo)
         {
             _binding.Set(sessionID, pInfo.Name, pInfo.Topic);
 
@@ -93,7 +90,7 @@ namespace SAEA.QueueSocket.Model
             Interlocked.Increment(ref _inNum);
         }
 
-        public void GetSubscribeData(string sessionID, QueueResult sInfo, QUnpacker qcoder)
+        public void GetSubscribeData(string sessionID, QueueMsg sInfo, Net.QueueCoder qcoder)
         {
             if (!_binding.Exists(sInfo))
             {
@@ -101,7 +98,7 @@ namespace SAEA.QueueSocket.Model
 
                 _cNum = _binding.GetSubscriberCount();
 
-                Task.Factory.StartNew(async () =>
+                Task.Factory.StartNew((Func<Task>)(async () =>
                 {
                     while (_binding.Exists(sInfo))
                     {
@@ -109,14 +106,14 @@ namespace SAEA.QueueSocket.Model
                         if (msg != null && msg.Length > 0)
                         {
                             Interlocked.Increment(ref _outNum);
-                            _classificationBatcher.Insert(sessionID, qcoder.QueueCoder.Data(sInfo.Name, sInfo.Topic, msg));
+                            _classificationBatcher.Insert(sessionID, qcoder.Data(sInfo.Name, sInfo.Topic, msg));
                         }
                     }
-                }, TaskCreationOptions.LongRunning);
+                }), TaskCreationOptions.LongRunning);
             }
         }
 
-        public void Unsubscribe(QueueResult sInfo)
+        public void Unsubscribe(QueueMsg sInfo)
         {
             Interlocked.Decrement(ref _cNum);
             _binding.Del(sInfo.Name, sInfo.Topic);

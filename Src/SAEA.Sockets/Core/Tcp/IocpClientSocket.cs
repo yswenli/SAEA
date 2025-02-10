@@ -72,7 +72,7 @@ namespace SAEA.Sockets.Core.Tcp
 
         public Socket Socket => _socket;
 
-        public IContext<IUnpacker> Context { get; private set; }
+        public IContext<ICoder> Context { get; private set; }
 
         public event OnErrorHandler OnError;
 
@@ -112,7 +112,7 @@ namespace SAEA.Sockets.Core.Tcp
                 _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, SocketOption.ReusePort);
             }
             _socket.NoDelay = SocketOption.NoDelay;
-            _socket.SendTimeout = _socket.ReceiveTimeout = SocketOption.TimeOut;            
+            _socket.SendTimeout = _socket.ReceiveTimeout = SocketOption.TimeOut;
             _socket.KeepAlive(SocketOption.FreeTime, SocketOption.TimeOut);
 
             OnClientReceive = new OnClientReceiveBytesHandler(OnReceived);
@@ -134,7 +134,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="port"></param>
         /// <param name="bufferSize"></param>
         /// <param name="timeOut"></param>
-        public IocpClientSocket(IContext<IUnpacker> context, string ip = "127.0.0.1", int port = 39654, int bufferSize = 100 * 1024, int timeOut = 180 * 1000) 
+        public IocpClientSocket(IContext<ICoder> context, string ip = "127.0.0.1", int port = 39654, int bufferSize = 100 * 1024, int timeOut = 180 * 1000)
             : this(new SocketOption() { Context = context, IP = ip, Port = port, ReadBufferSize = bufferSize, WriteBufferSize = bufferSize, TimeOut = timeOut })
         {
 
@@ -249,14 +249,15 @@ namespace SAEA.Sockets.Core.Tcp
 
         void ProcessReceive(SocketAsyncEventArgs readArgs)
         {
-            if (_userToken.Socket != null)
+            if (_userToken != null && _userToken.Socket != null && _userToken.Socket.Connected)
             {
                 if (!_userToken.Socket.ReceiveAsync(readArgs))
                 {
                     ProcessReceived(readArgs);
                 }
             }
-
+            else
+                OnError?.Invoke("", new Exception("SAEA SocketError:发送失败,当前连接已断开"));
         }
 
 
@@ -463,21 +464,27 @@ namespace SAEA.Sockets.Core.Tcp
             _userToken.Clear();
         }
 
+
+
         private void _sessionManager_OnTimeOut(IUserToken obj)
         {
             Disconnect();
         }
+
+
+
+        public void Disconnect()
+        {
+            this.Disconnect(null);
+        }
+
+
 
         public void Dispose()
         {
             IsDisposed = true;
             this.Disconnect();
 
-        }
-
-        public void Disconnect()
-        {
-            this.Disconnect(null);
         }
     }
 }

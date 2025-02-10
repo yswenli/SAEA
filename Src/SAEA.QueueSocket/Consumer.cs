@@ -40,7 +40,7 @@ namespace SAEA.QueueSocket
 
         public event OnDisconnectedHandler OnDisconnected;
 
-        public event Action<QueueResult> OnMessage;
+        public event Action<QueueMsg> OnMessage;
 
 
         QClient _consumer;
@@ -72,7 +72,7 @@ namespace SAEA.QueueSocket
         }
 
 
-        private void _consumer_OnMessage(QueueResult obj)
+        private void _consumer_OnMessage(QueueMsg obj)
         {
             if (obj != null)
             {

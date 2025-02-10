@@ -95,8 +95,8 @@ namespace SAEA.WebSocket.Core
                 }
                 else
                 {
-                    var coder = (WSCoder)ut.Unpacker;
-                    coder.Unpack(data, (d) =>
+                    var coder = (WSCoder)ut.Coder;
+                    coder.Decode(data, (d) =>
                     {
                         var wsProtocal = (WSProtocal)d;
                         switch (wsProtocal.Type)

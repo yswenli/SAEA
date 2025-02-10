@@ -40,7 +40,7 @@ namespace SAEA.Sockets.Shortcut
     /// <summary>
     /// UDPServer
     /// </summary>
-    public class UDPServer<Coder> where Coder : class, IUnpacker
+    public class UDPServer<Coder> where Coder : class, ICoder
     {
         IServerSocket _udpServer;
 
@@ -126,7 +126,7 @@ namespace SAEA.Sockets.Shortcut
         private void UdpServer_OnReceive(Interface.ISession currentSession, byte[] data)
         {
             var userToken = (IUserToken)currentSession;
-            userToken.Unpacker.Unpack(data, (msg) =>
+            userToken.Coder.Decode(data, (msg) =>
             {
                 OnReceive?.Invoke(this, userToken.ID, msg);
             });
@@ -156,7 +156,7 @@ namespace SAEA.Sockets.Shortcut
     /// <summary>
     /// UDPServer
     /// </summary>
-    public class UDPServer : UDPServer<BaseUnpacker>
+    public class UDPServer : UDPServer<BaseCoder>
     {
         /// <summary>
         /// UDPServer

@@ -29,13 +29,20 @@ using SAEA.Sockets.Interface;
 
 namespace SAEA.Http.Base.Net
 {
-    class HUnpacker : IUnpacker
+    class HttpCoder : ICoder
     {
         List<byte> _cache = new List<byte>();
 
         int _totlalLen = -1;
 
-        public void Unpack(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
+
+        public byte[] Encode(ISocketProtocal protocal)
+        {
+            return protocal.ToBytes();
+        }
+
+
+        public void Decode(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
         {
 
         }

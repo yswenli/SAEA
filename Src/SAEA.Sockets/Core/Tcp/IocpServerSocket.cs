@@ -287,11 +287,6 @@ namespace SAEA.Sockets.Core.Tcp
                     if (userToken.Socket != null)
                         Disconnect(userToken, new KernelException("The remote client has been disconnected."));
                 }
-
-            }
-            catch (InvalidOperationException)
-            {
-                ProcessReceive(readArgs);
             }
             catch (Exception exp)
             {
@@ -307,13 +302,6 @@ namespace SAEA.Sockets.Core.Tcp
         void ProcessReceived(SocketAsyncEventArgs readArgs)
         {
             var userToken = (IUserToken)readArgs.UserToken;
-
-            if (userToken == null)
-            {
-                OnError?.Invoke("", new NullReferenceException("当前对象已回收!"));
-                return;
-            }
-
             try
             {
                 if (readArgs.SocketError == SocketError.Success && readArgs.BytesTransferred > 0)
@@ -324,30 +312,12 @@ namespace SAEA.Sockets.Core.Tcp
                     {
                         var buffer = readArgs.Buffer.AsSpan().Slice(readArgs.Offset, readArgs.BytesTransferred).ToArray();
                         OnServerReceiveBytes.Invoke(userToken, buffer);
-
-                        //在复用数组和线程切换之间
-                        //using (var pooledBytes = new PooledBytes(readArgs.BytesTransferred))
-                        //{
-                        //    pooledBytes.BlockCopy(readArgs.Buffer, readArgs.Offset, readArgs.BytesTransferred);
-                        //    OnServerReceiveBytes.Invoke(userToken, pooledBytes.Bytes);
-                        //}
                     }
                     catch (Exception ex)
                     {
                         OnError?.Invoke(userToken.ID, ex);
                     }
-                    //已断连的
-                    if (userToken.Socket == null || userToken.Socket.Connected == false)
-                    {
-                        Disconnect(userToken, null);
-                    }
-                    else
-                    {
-                        if (!userToken.Socket.ReceiveAsync(readArgs))
-                        {
-                            ProcessReceive(readArgs);
-                        }
-                    }
+                    ProcessReceive(readArgs);
                 }
                 else
                 {
@@ -356,7 +326,7 @@ namespace SAEA.Sockets.Core.Tcp
             }
             catch (InvalidOperationException)
             {
-                ProcessReceived(readArgs);
+                //ProcessReceived(readArgs);
             }
             catch (Exception exp)
             {

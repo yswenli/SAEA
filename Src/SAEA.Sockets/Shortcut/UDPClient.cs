@@ -40,11 +40,11 @@ namespace SAEA.Sockets.Shortcut
     /// <summary>
     /// UDPClient
     /// </summary>
-    public class UDPClient<Coder> : IDisposable where Coder : class, IUnpacker
+    public class UDPClient<Coder> : IDisposable where Coder : class, ICoder
     {
         IClientSocket _udpClient;
 
-        BaseUnpacker _baseUnpacker;
+        BaseCoder _baseUnpacker;
 
         public event Action<UDPClient<Coder>, ISocketProtocal> OnReceive;
 
@@ -71,7 +71,7 @@ namespace SAEA.Sockets.Shortcut
             _udpClient.OnReceive += UdpClient_OnReceive;
             _udpClient.OnError += UdpClient_OnError;
 
-            _baseUnpacker = (BaseUnpacker)bContext.Unpacker;
+            _baseUnpacker = (BaseCoder)bContext.Unpacker;
         }
 
         /// <summary>
@@ -128,7 +128,7 @@ namespace SAEA.Sockets.Shortcut
 
         private void UdpClient_OnReceive(byte[] data)
         {
-            _baseUnpacker.Unpack(data, (msg) =>
+            _baseUnpacker.Decode(data, (msg) =>
             {
                 OnReceive?.Invoke(this, msg);
             });
@@ -160,7 +160,7 @@ namespace SAEA.Sockets.Shortcut
     /// <summary>
     /// UDPClient
     /// </summary>
-    public class UDPClient : UDPClient<BaseUnpacker>
+    public class UDPClient : UDPClient<BaseCoder>
     {
         /// <summary>
         /// UDPClient

@@ -89,7 +89,7 @@ namespace SAEA.QueueSocket.Model
             }
         }
 
-        public BindInfo GetBingInfo(QueueResult sInfo)
+        public BindInfo GetBingInfo(QueueMsg sInfo)
         {
             if (_mapping.TryGetValue(sInfo.Name, out string sessionID))
             {
@@ -113,7 +113,7 @@ namespace SAEA.QueueSocket.Model
             return null;
         }
 
-        public bool Exists(QueueResult sInfo)
+        public bool Exists(QueueMsg sInfo)
         {
             if (_mapping.TryGetValue(sInfo.Name, out string sessionID))
             {

@@ -28,7 +28,7 @@ using SAEA.Sockets.Interface;
 
 namespace SAEA.WebSocket.Model
 {
-    public class WSCoder : IUnpacker
+    public class WSCoder : ICoder
     {
         private byte[] _buffer;
         private int _bufferLength = 0;
@@ -41,7 +41,12 @@ namespace SAEA.WebSocket.Model
             _buffer = ArrayPool<byte>.Shared.Rent(4096);
         }
 
-        public void Unpack(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
+        public byte[] Encode(ISocketProtocal protocal)
+        {
+            return protocal.ToBytes();
+        }
+
+        public void Decode(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
         {
             DeCode(data, unpackCallback);
         }

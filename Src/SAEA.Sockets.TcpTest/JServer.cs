@@ -42,7 +42,7 @@ namespace SAEA.Sockets.TcpTest
 
         private void _server_OnReceive(TCPServer<JUnpacker> arg1, IUserToken arg2, byte[] arg3)
         {
-            var jUnpacker = (JUnpacker)arg2.Unpacker;
+            var jUnpacker = (JUnpacker)arg2.Coder;
 
             jUnpacker.DeCode(arg3, (b) =>
             {

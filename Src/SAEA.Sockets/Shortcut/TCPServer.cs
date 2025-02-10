@@ -40,7 +40,7 @@ namespace SAEA.Sockets.Shortcut
     /// 
     /// </summary>
     /// <typeparam name="Coder"></typeparam>
-    public class TCPServer<Coder> where Coder : class, IUnpacker
+    public class TCPServer<Coder> where Coder : class, ICoder
     {
         IServerSocket _serverSokcet;
 
@@ -152,7 +152,7 @@ namespace SAEA.Sockets.Shortcut
     /// <summary>
     /// TCPServer
     /// </summary>
-    public class TCPServer : TCPServer<BaseUnpacker>
+    public class TCPServer : TCPServer<BaseCoder>
     {
         /// <summary>
         /// TCPServer

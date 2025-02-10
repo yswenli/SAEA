@@ -16,20 +16,26 @@
 *描    述：
 *****************************************************************************/
 using SAEA.Sockets.Interface;
+
 using System;
 
 namespace SAEA.FTP.Net
 {
-    public class FUnpacker : IUnpacker
+    public class FTPCoder : ICoder
     {
+
+        public byte[] Encode(ISocketProtocal protocal)
+        {
+            return protocal.ToBytes();
+        }
+
+        public void Decode(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
+        {
+
+        }
         public void Clear()
         {
             throw new NotImplementedException();
-        }
-
-        public void Unpack(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
-        {
-            
         }
     }
 }

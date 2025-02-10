@@ -47,7 +47,7 @@ namespace SAEA.Sockets.Core
 
         int _maxCount = 100;
 
-        public UserTokenPool(IContext<IUnpacker> context, int maxCount, int bufferSize, EventHandler<SocketAsyncEventArgs> completed)
+        public UserTokenPool(IContext<ICoder> context, int maxCount, int bufferSize, EventHandler<SocketAsyncEventArgs> completed)
         {
             _maxCount = maxCount;
             _userTokenFactory = new UserTokenFactory();
