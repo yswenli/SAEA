@@ -35,7 +35,6 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 
-using SAEA.Common.Caching;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
@@ -48,34 +47,45 @@ namespace SAEA.Sockets.Core.Tcp
     /// </summary>
     public class IocpServerSocket : IServerSocket, IDisposable
     {
+        // 监听Socket
         Socket _listener = null;
 
+        // 客户端连接数量
         int _clientCounts;
 
+        // 会话管理器
         private SessionManager _sessionManager;
 
+        // 获取会话管理器
         public SessionManager SessionManager
         {
             get { return _sessionManager; }
         }
 
+        // 是否已释放资源
         public bool IsDisposed
         {
             get; set;
         } = false;
 
+        // 获取客户端连接数量
         public int ClientCounts { get => _clientCounts; private set => _clientCounts = value; }
 
+        // Socket选项
         public ISocketOption SocketOption { get; set; }
 
         #region events
 
+        // 客户端连接事件
         public event OnAcceptedHandler OnAccepted;
 
+        // 错误事件
         public event OnErrorHandler OnError;
 
+        // 客户端断开连接事件
         public event OnDisconnectedHandler OnDisconnected;
 
+        // 接收数据事件
         public event OnReceiveHandler OnReceive;
 
         #endregion
@@ -91,6 +101,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="socketOption"></param>
         public IocpServerSocket(ISocketOption socketOption)
         {
+            // 初始化会话管理器
             _sessionManager = new SessionManager(socketOption.Context,
                 socketOption.ReadBufferSize,
                 socketOption.Count, IO_Completed,
@@ -99,7 +110,6 @@ namespace SAEA.Sockets.Core.Tcp
             OnServerReceiveBytes = new OnServerReceiveBytesHandler(OnReceiveBytes);
             SocketOption = socketOption;
         }
-
 
         /// <summary>
         /// 启动服务
@@ -233,6 +243,9 @@ namespace SAEA.Sockets.Core.Tcp
                 case SocketAsyncOperation.Send:
                     ProcessSended(e);
                     break;
+                case SocketAsyncOperation.Accept:
+                    ProcessAccept(e);
+                    break;
                 default:
                     try
                     {
@@ -254,7 +267,6 @@ namespace SAEA.Sockets.Core.Tcp
         {
             OnReceive?.Invoke(userToken, data);
         }
-
 
         /// <summary>
         /// 处理接收数据
@@ -397,7 +409,6 @@ namespace SAEA.Sockets.Core.Tcp
             }
         }
 
-
         /// <summary>
         /// 异步发送
         /// </summary>
@@ -413,7 +424,6 @@ namespace SAEA.Sockets.Core.Tcp
             }
             SendAsync(userToken, data);
         }
-
 
         /// <summary>
         /// 同步发送
@@ -450,7 +460,6 @@ namespace SAEA.Sockets.Core.Tcp
                 Disconnect(userToken, kex);
             }
         }
-
 
         /// <summary>
         /// 同步发送
@@ -528,13 +537,10 @@ namespace SAEA.Sockets.Core.Tcp
         }
         #endregion
 
-
-
         private void _sessionManager_OnTimeOut(IUserToken userToken)
         {
             Disconnect(userToken);
         }
-
 
         public object GetCurrentObj(string sessionID)
         {
@@ -571,7 +577,6 @@ namespace SAEA.Sockets.Core.Tcp
         /// </summary>
         public void Stop()
         {
-
             try
             {
                 _listener.Close(10 * 1000);
@@ -599,8 +604,5 @@ namespace SAEA.Sockets.Core.Tcp
             }
             catch { }
         }
-
-
-
     }
 }
