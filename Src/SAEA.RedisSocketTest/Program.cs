@@ -87,12 +87,14 @@ namespace SAEA.RedisSocketTest
 
 
             var rk = redisClient.GetDataBase().RandomKey();
+            Console.WriteLine($"RandomKey:{rk}");
 
             var crk = redisClient.Console("RandomKey");
-
-            ConsoleHelper.ReadLine();
+            Console.WriteLine($"RandomKey:{crk.Data}");
 
             keysTest(redisClient);
+
+            ConsoleHelper.ReadLine();
 
             var db = redisClient.GetDataBase(0);
 
@@ -149,6 +151,7 @@ namespace SAEA.RedisSocketTest
             var t4 = redisClient.GetDataBase().Pttl("akey0");
 
             var isCluster = redisClient.IsCluster;
+            ConsoleHelper.WriteLine($"IsCluster:{isCluster}");
 
             ConsoleHelper.WriteLine("keys test complete");
 
@@ -384,6 +387,7 @@ namespace SAEA.RedisSocketTest
 
         static void GeoTest(RedisDataBase db)
         {
+            Console.WriteLine("GeoTest start");
             db.GeoAdd("yswenliG", new GeoItem() { Name = "Palermo", Lng = 13.361389, Lat = 38.115556 }, new GeoItem() { Name = "Catania", Lng = 15.087269, Lat = 37.502669 });
 
             var list = db.GeoPos("yswenliG", "Palermo", "Catania");
@@ -393,6 +397,8 @@ namespace SAEA.RedisSocketTest
             var ms1 = db.GeoRandius("yswenliG", 15, 37, 200, GeoUnit.km);
 
             var ms2 = db.GeoRandiusByMember("yswenliG", "Palermo", 200);
+
+            Console.WriteLine("GeoTest end");
 
         }
 

@@ -19,9 +19,11 @@ using SAEA.Common;
 using SAEA.Common.Threading;
 using SAEA.RedisSocket;
 using SAEA.RedisSocket.Core.Stream;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 
 namespace SAEA.RedisSocketTest
 {
@@ -37,49 +39,54 @@ namespace SAEA.RedisSocketTest
 
         public void Test()
         {
-            Console.WriteLine($"回车开始 RedisStream Test");
-            Console.ReadLine();
 
-            var topic = "mystream";
-
-            var producer = _redisClient.GetRedisProducer();
-
-            TaskHelper.LongRunning(() =>
+            try
             {
-                producer.Publish(topic, $"date:{DateTimeHelper.Now:yyyy-MM-dd HH:mm:ss.fff}");
-            }, 1000);
+                Console.WriteLine($"回车开始 RedisStream Test");
+                Console.ReadLine();
+                var topic = "mystream";
 
-            var redisQueue = _redisClient.GetRedisQueue();
-            var data = redisQueue.GetRange(topic, 3);
+                var producer = _redisClient.GetRedisProducer();
 
-            using (var consumer1 = _redisClient.GetRedisConsumer(new List<TopicID>() { new TopicID(topic, "$") }))
-            {
-                var redisFilelds1 = consumer1.Subscribe();
+                TaskHelper.LongRunning(() =>
+                {
+                    producer.Publish(topic, $"date:{DateTimeHelper.Now:yyyy-MM-dd HH:mm:ss.fff}");
+                }, 1000);
+
+                var redisQueue = _redisClient.GetRedisQueue();
+                var data = redisQueue.GetRange(topic, 3);
+
+                using (var consumer1 = _redisClient.GetRedisConsumer(new List<TopicID>() { new TopicID(topic, "$") }))
+                {
+                    var redisFilelds1 = consumer1.Subscribe();
+                }
+
+
+                using (var consumer2 = _redisClient.GetRedisConsumer(new List<TopicID>() { new TopicID(topic, "0") }, 2))
+                {
+                    var redisFilelds2 = consumer2.Subscribe();
+                }
+
+
+                using (var consumer3 = _redisClient.GetRedisGroupConsumer("saea.redisscoket", "yswenli", topic, 1, true))
+                {
+                    var redisFilelds3 = consumer3.SubscribeWithGroup();
+                    consumer3.RemoveGroup();
+                }
+
+
+                var consumer4 = _redisClient.GetRedisGroupConsumer("saea.redisscoket", "yswenli", topic, 1, false, "", false, true);
+                consumer4.OnReceive += Consumer4_OnReceive;
+                consumer4.OnError += Consumer4_OnError;
+                consumer4.Start();
+
+                Console.WriteLine($"RedisStream Test已完成");
+                Console.ReadLine();
             }
-
-
-            using (var consumer2 = _redisClient.GetRedisConsumer(new List<TopicID>() { new TopicID(topic, "0") }, 2))
+            catch (Exception ex)
             {
-                var redisFilelds2 = consumer2.Subscribe();
+                Console.WriteLine($"当前RedisServer版本太低，{JsonSerializer.Serialize(_redisClient.ServerInfo)}，请升级到最新版本");
             }
-
-
-            using (var consumer3 = _redisClient.GetRedisGroupConsumer("saea.redisscoket", "yswenli", topic, 1, true))
-            {
-                var redisFilelds3 = consumer3.SubscribeWithGroup();
-                consumer3.RemoveGroup();
-            }
-
-
-            var consumer4 = _redisClient.GetRedisGroupConsumer("saea.redisscoket", "yswenli", topic, 1, false, "", false, true);
-            consumer4.OnReceive += Consumer4_OnReceive;
-            consumer4.OnError += Consumer4_OnError;
-            consumer4.Start();
-
-
-
-            Console.WriteLine($"RedisStream Test已完成");
-            Console.ReadLine();
 
         }
 
