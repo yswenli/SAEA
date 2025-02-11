@@ -1,5 +1,5 @@
 ﻿/****************************************************************************
-*Copyright (c) 2018-2022yswenli All Rights Reserved.
+*Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
 *公司名称：wenli
@@ -23,7 +23,10 @@
 *****************************************************************************/
 
 using System;
+using System.ComponentModel;
+using System.Diagnostics;
 using System.Text;
+using System.Threading;
 
 using SAEA.Common;
 using SAEA.Common.IO;
@@ -39,13 +42,15 @@ namespace SAEA.WebSocketTest
 
         static void Main(string[] args)
         {
-            Init1();
+            //Init1();
 
             //Init2();
 
             //Init3();
 
             //Init4();
+
+            Init5();
 
             ConsoleHelper.ReadLine();
         }
@@ -149,7 +154,7 @@ namespace SAEA.WebSocketTest
 
             var pfxPath = PathHelper.GetFullName("yswenli.pfx");
             _server = new WSServer(39656, System.Security.Authentication.SslProtocols.Tls12, pfxPath, "yswenli");
-            _server.OnMessage += Server_OnMessage2;
+            _server.OnMessage += Server_OnMessage;
             _server.OnDisconnected += _server_OnDisconnected;
             _server.Start();
 
@@ -163,14 +168,11 @@ namespace SAEA.WebSocketTest
 
         private static void Server_OnMessage2(string id, WSProtocal data)
         {
-            ConsoleHelper.WriteLine("WSSServer 收到{0}的消息：{1}", ConsoleColor.Green, id, Encoding.UTF8.GetString(data.Content));
-
             _server.Reply(id, data);
         }
 
 
         #endregion
-
 
         #region test3 workman
 
@@ -267,6 +269,50 @@ namespace SAEA.WebSocketTest
             }
         }
 
+        static Stopwatch _sw;
+        static int _maxSize = 10000;
+        static int _count = 0;
+
+        static void Init5()
+        {
+            ConsoleHelper.WriteLine("WSServer 正在初始化....", ConsoleColor.Green);
+            _server = new WSServer(count: 1);
+            _server.OnMessage += Server_OnMessage2;
+            _server.OnDisconnected += _server_OnDisconnected;
+            _server.Start();
+            ConsoleHelper.WriteLine("WSServer 就绪,回车启动客户端", ConsoleColor.Green);
+
+            ConsoleHelper.ReadLine();
+
+            WSClient client = new WSClient();
+            client.OnPong += Client_OnPong;
+            client.OnMessage += Client_OnMessage2;
+            client.OnError += Client_OnError;
+            client.OnDisconnected += Client_OnDisconnected;
+
+            ConsoleHelper.WriteLine("WSClient 正在连接到服务器...", ConsoleColor.DarkGray);
+            var connected = client.Connect();
+
+            Console.WriteLine("发送消息到ws服务器，转发测试开始");
+            _sw = Stopwatch.StartNew();
+            for (int i = 0; i < _maxSize; i++)
+            {
+                client.Send($"测试:hello world {i} {DateTimeOffset.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}");
+            }
+        }
+        private static void Client_OnMessage2(WSProtocal protocal)
+        {
+            Interlocked.Increment(ref _count);
+            var str = System.Text.Encoding.UTF8.GetString(protocal.Content);
+            Console.Write($"\r客户端已收到服务器转发消息条数：{_count}");
+            if (_count == _maxSize)
+            {
+                _sw.Stop();
+                Console.WriteLine($"转发测试已完成，用时：{_sw.Elapsed.TotalSeconds}秒");
+            }
+        }
         #endregion
+
+
     }
 }

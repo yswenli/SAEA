@@ -40,7 +40,7 @@ namespace SAEA.WebSocket.Core
 
         ConcurrentDictionary<string, WSCoder> _concurrentDictionary;
 
-        public WSSServerImpl(SslProtocols sslProtocols, string pfxPath, string pwd = "", int port = 16666, int bufferSize = 1024)
+        public WSSServerImpl(SslProtocols sslProtocols, string pfxPath, string pwd = "", int port = 39654, int bufferSize = 1024)
         {
             _bufferSize = bufferSize;
 
@@ -121,9 +121,11 @@ namespace SAEA.WebSocket.Core
                         else
                         {
                             var coder = _concurrentDictionary[channelInfo.ID];
-                            coder.Decode(data, (d) =>
+                            var msgs= coder.Decode(data);
+                            if (msgs == null || msgs.Count < 1) return;
+                            foreach (var msg in msgs)
                             {
-                                var wsProtocal = (WSProtocal)d;
+                                var wsProtocal = (WSProtocal)msg;
                                 switch (wsProtocal.Type)
                                 {
                                     case (byte)WSProtocalType.Close:
@@ -135,16 +137,15 @@ namespace SAEA.WebSocket.Core
                                     case (byte)WSProtocalType.Binary:
                                     case (byte)WSProtocalType.Text:
                                     case (byte)WSProtocalType.Cont:
-                                        OnMessage?.Invoke(channelInfo.ID, (WSProtocal)d);
+                                        OnMessage?.Invoke(channelInfo.ID, (WSProtocal)msg);
                                         break;
                                     case (byte)WSProtocalType.Pong:
                                         break;
                                     default:
-                                        var error = string.Format("收到未定义的Opcode={0}", d.Type);
+                                        var error = string.Format("收到未定义的Opcode={0}", msg.Type);
                                         break;
                                 }
-
-                            }, (h) => { }, null);
+                            }
                         }
                     }
                     catch(Exception ex)

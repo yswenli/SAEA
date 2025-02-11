@@ -1,5 +1,5 @@
 ﻿/****************************************************************************
-*Copyright (c) 2018-2022yswenli All Rights Reserved.
+*Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
 *公司名称：wenli
@@ -33,6 +33,7 @@ using SAEA.Sockets;
 using SAEA.Sockets.Base;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Model;
+
 using System;
 
 namespace SAEA.MessageSocket
@@ -112,72 +113,77 @@ namespace SAEA.MessageSocket
 
         private void _client_OnReceive(byte[] data)
         {
-            if (data != null)
+            if (data == null)
             {
-                this._messageContext.Unpacker.Decode(data, (s) =>
+                return;
+            }
+            var msgs = _messageContext.Unpacker.Decode(data);
+
+            if (msgs == null || msgs.Count < 1) return;
+
+            foreach (var msg in msgs)
+            {
+                if (msg.Content == null)
                 {
-                    if (s.Content != null)
+                    continue;
+                }
+                try
+                {
+                    var cm = SerializeHelper.PBDeserialize<ChatMessage>(msg.Content);
+
+                    switch (cm.Type)
                     {
-                        try
-                        {
-                            var cm = SerializeHelper.PBDeserialize<ChatMessage>(s.Content);
-
-                            switch (cm.Type)
+                        case ChatMessageType.LoginAnswer:
+                            this.Logined = true;
+                            break;
+                        case ChatMessageType.SubscribeAnswer:
+                            if (cm.Content == "1")
                             {
-                                case ChatMessageType.LoginAnswer:
-                                    this.Logined = true;
-                                    break;
-                                case ChatMessageType.SubscribeAnswer:
-                                    if (cm.Content == "1")
-                                    {
-                                        _subscribed = true;
-                                    }
-                                    else
-                                    {
-                                        _subscribed = false;
-                                    }
-                                    break;
-                                case ChatMessageType.UnSubscribeAnswer:
-                                    if (cm.Content == "1")
-                                    {
-                                        _unsubscribed = true;
-                                    }
-                                    else
-                                    {
-                                        _unsubscribed = false;
-                                    }
-                                    break;
-                                case ChatMessageType.ChannelMessage:
-                                    TaskHelper.Run(() => OnChannelMessage?.Invoke(cm.GetIMessage<ChannelMessage>()));
-                                    break;
-                                case ChatMessageType.PrivateMessage:
-                                    TaskHelper.Run(() => OnPrivateMessage?.Invoke(cm.GetIMessage<PrivateMessage>()));
-                                    break;
-                                case ChatMessageType.GroupMessage:
-                                    TaskHelper.Run(() => OnGroupMessage?.Invoke(cm.GetIMessage<GroupMessage>()));
-                                    break;
-                                case ChatMessageType.PrivateMessageAnswer:
-                                    break;
-                                case ChatMessageType.CreateGroupAnswer:
-                                case ChatMessageType.RemoveGroupAnswer:
-                                case ChatMessageType.AddMemberAnswer:
-                                case ChatMessageType.RemoveMemberAnswer:
-                                    break;
-
-                                case ChatMessageType.GroupMessageAnswer:
-                                    break;
-                                default:
-                                    ConsoleHelper.WriteLine("cm.Type", cm.Type);
-                                    break;
+                                _subscribed = true;
                             }
-                        }
-                        catch (Exception ex)
-                        {
-                            OnError?.Invoke(_messageContext.UserToken.ID, ex);
-                        }
-                    }
+                            else
+                            {
+                                _subscribed = false;
+                            }
+                            break;
+                        case ChatMessageType.UnSubscribeAnswer:
+                            if (cm.Content == "1")
+                            {
+                                _unsubscribed = true;
+                            }
+                            else
+                            {
+                                _unsubscribed = false;
+                            }
+                            break;
+                        case ChatMessageType.ChannelMessage:
+                            TaskHelper.Run(() => OnChannelMessage?.Invoke(cm.GetIMessage<ChannelMessage>()));
+                            break;
+                        case ChatMessageType.PrivateMessage:
+                            TaskHelper.Run(() => OnPrivateMessage?.Invoke(cm.GetIMessage<PrivateMessage>()));
+                            break;
+                        case ChatMessageType.GroupMessage:
+                            TaskHelper.Run(() => OnGroupMessage?.Invoke(cm.GetIMessage<GroupMessage>()));
+                            break;
+                        case ChatMessageType.PrivateMessageAnswer:
+                            break;
+                        case ChatMessageType.CreateGroupAnswer:
+                        case ChatMessageType.RemoveGroupAnswer:
+                        case ChatMessageType.AddMemberAnswer:
+                        case ChatMessageType.RemoveMemberAnswer:
+                            break;
 
-                }, null, null);
+                        case ChatMessageType.GroupMessageAnswer:
+                            break;
+                        default:
+                            ConsoleHelper.WriteLine("cm.Type", cm.Type);
+                            break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    OnError?.Invoke(_messageContext.UserToken.ID, ex);
+                }
             }
         }
 

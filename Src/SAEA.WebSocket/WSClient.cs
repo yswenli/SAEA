@@ -1,5 +1,5 @@
 ﻿/****************************************************************************
-*Copyright (c) 2018-2022yswenli All Rights Reserved.
+*Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
 *公司名称：wenli
@@ -27,6 +27,7 @@ using SAEA.Sockets;
 using SAEA.Sockets.Handler;
 using SAEA.WebSocket.Model;
 using SAEA.WebSocket.Type;
+
 using System;
 using System.Text;
 using System.Threading;
@@ -72,7 +73,7 @@ namespace SAEA.WebSocket
         /// <param name="subProtocol"></param>
         /// <param name="origin"></param>
         /// <param name="bufferSize"></param>
-        public WSClient(string ip = "127.0.0.1", int port = 16666, string subProtocol = SubProtocolType.Default, string origin = "", int bufferSize = 10 * 1024)
+        public WSClient(string ip = "127.0.0.1", int port = 39654, string subProtocol = SubProtocolType.Default, string origin = "", int bufferSize = 10 * 1024)
         {
             _serverIP = ip;
             _serverPort = port;
@@ -166,9 +167,16 @@ namespace SAEA.WebSocket
             {
                 var coder = (WSCoder)_wsContext.Unpacker;
 
-                coder.Decode(data, (d) =>
+                var msgs = coder.Decode(data);
+
+                if (msgs == null || msgs.Count == 0)
                 {
-                    var wsProtocal = (WSProtocal)d;
+                    return;
+                }
+
+                foreach (var msg in msgs)
+                {
+                    var wsProtocal = (WSProtocal)msg;
                     switch (wsProtocal.Type)
                     {
                         case (byte)WSProtocalType.Close:
@@ -180,17 +188,16 @@ namespace SAEA.WebSocket
                         case (byte)WSProtocalType.Binary:
                         case (byte)WSProtocalType.Text:
                         case (byte)WSProtocalType.Cont:
-                            OnMessage?.Invoke((WSProtocal)d);
+                            OnMessage?.Invoke((WSProtocal)msg);
                             break;
                         case (byte)WSProtocalType.Ping:
                             ReplyPong();
                             break;
                         default:
-                            var error = string.Format("收到未定义的Opcode={0}", d.Type);
+                            var error = string.Format("收到未定义的Opcode={0}", msg.Type);
                             break;
                     }
-
-                }, null, null);
+                }
             }
         }
 

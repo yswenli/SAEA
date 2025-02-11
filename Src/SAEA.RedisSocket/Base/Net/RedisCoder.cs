@@ -1,5 +1,5 @@
 ﻿/****************************************************************************
-*Copyright (c) 2018-2022yswenli All Rights Reserved.
+*Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
 *公司名称：yswenli
@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 using System;
+using System.Collections.Generic;
 
 using SAEA.Sockets.Interface;
 
@@ -42,11 +43,10 @@ namespace SAEA.RedisSocket.Base.Net
         /// </summary>
         /// <param name="data"></param>
         /// <param name="OnHeart"></param>
-        /// <param name="OnUnPackage"></param>
         /// <param name="onFile"></param>
-        public void Decode(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
+        public List<ISocketProtocal> Decode(byte[] data, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
         {
-
+            throw new NotImplementedException();
         }
 
         public void Clear()

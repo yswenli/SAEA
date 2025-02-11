@@ -6,7 +6,7 @@
  |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
                                                              
 
-*Copyright (c) 2018-2022yswenli All Rights Reserved.
+*Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
 *公司名称：wenli
@@ -128,10 +128,12 @@ namespace SAEA.Sockets.Shortcut
 
         private void UdpClient_OnReceive(byte[] data)
         {
-            _baseUnpacker.Decode(data, (msg) =>
+            var msgs = _baseUnpacker.Decode(data);
+            if (msgs == null || msgs.Count < 1) return;
+            foreach (var msg in msgs)
             {
                 OnReceive?.Invoke(this, msg);
-            });
+            }
         }
 
         private void UdpClient_OnDisconnected(string ID, Exception ex)

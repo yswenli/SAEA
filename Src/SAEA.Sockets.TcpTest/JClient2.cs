@@ -73,11 +73,13 @@ namespace SAEA.Sockets.TcpTest
                 if (rlen > 0)
                 {
                     var data = buffer.AsSpan().Slice(0, rlen).ToArray();
-                    _jUnpacker.DeCode(data, (b) =>
+                    var b = _jUnpacker.Decode(data);
+                    if (b == null)
                     {
-                        var package = new JT808Serializer().Deserialize<JT808Package>(b.AsSpan());
-                        _data.Add(package);
-                    });
+                        continue;
+                    }
+                    var package = new JT808Serializer().Deserialize<JT808Package>(b.AsSpan());
+                    _data.Add(package);
                 }
                 else
                 {

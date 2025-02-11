@@ -1,9 +1,11 @@
-﻿using JT808.Protocol;
-using JT808.Protocol.MessageBody;
-using SAEA.Sockets.Interface;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
+
+using JT808.Protocol;
+using JT808.Protocol.MessageBody;
+
+using SAEA.Common;
 
 namespace SAEA.Sockets.TcpTest
 {
@@ -12,7 +14,8 @@ namespace SAEA.Sockets.TcpTest
 
         static void Main(string[] args)
         {
-            Console.Title = "SAEA.Sockets.TcpTest JT808";
+            Console.Title = $"SAEA.Sockets.TcpTest JT808道路运输车辆卫星定位系统终端通讯协议及数据格式测试 --{DateTimeHelper.Now}";
+            ConsoleHelper.WriteLine("SAEA.Sockets.TcpTest JT808道路运输车辆卫星定位系统终端通讯协议及数据格式测试");
 
             //jserver
             JServer jServer = new JServer();
@@ -39,7 +42,7 @@ namespace SAEA.Sockets.TcpTest
                 Thread.Sleep(1000);
                 var data = jClient2.Receive();
                 Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine($"client 收到平台通用应答,MsgNum:{data.Header.MsgNum}");                              
+                Console.WriteLine($"client 收到平台通用应答,MsgNum:{data.Header.MsgNum}");
             }
 
             jClient2.Disconnect();
@@ -67,7 +70,8 @@ namespace SAEA.Sockets.TcpTest
 
             jT808Package.Header = new JT808Header
             {
-                MsgId = (ushort)JT808.Protocol.Enums.JT808MsgId.位置信息汇报,
+                //位置信息汇报
+                MsgId = (ushort)JT808.Protocol.Enums.JT808MsgId._0x0200,
                 ManualMsgNum = 0,
                 TerminalPhoneNo = "123456789012"
             };
@@ -105,7 +109,8 @@ namespace SAEA.Sockets.TcpTest
 
             jT808Package.Header = new JT808Header
             {
-                MsgId = (ushort)JT808.Protocol.Enums.JT808MsgId.平台通用应答,
+                //平台通用应答
+                MsgId = (ushort)JT808.Protocol.Enums.JT808MsgId._0x8001,
                 ManualMsgNum = 101,
                 TerminalPhoneNo = "123456789012"
             };

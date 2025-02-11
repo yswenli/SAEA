@@ -3,6 +3,7 @@ using SAEA.Common;
 using SAEA.Common.Threading;
 using SAEA.QueueSocket;
 using SAEA.QueueSocket.Model;
+
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -13,6 +14,7 @@ namespace SAEA.QueueSocketTest
     {
         static void Main(string[] args)
         {
+            ConsoleHelper.Title = $"SAEA.QueueSocketTest -- {DateTimeHelper.Now}";
             do
             {
                 ConsoleHelper.WriteLine("输入s启动队列服务器,输入p启动生产者，输入c启动消费者");
@@ -88,7 +90,7 @@ namespace SAEA.QueueSocketTest
         static void ProducerInit(string ipPort, string topic)
         {
             int pNum = 0;
-            
+
             string msg = "123";
             if (string.IsNullOrEmpty(ipPort)) ipPort = "127.0.0.1:39654";
 

@@ -3,6 +3,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 
+using SAEA.Common;
 using SAEA.Sockets.Base;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
@@ -14,7 +15,7 @@ namespace SAEA.Sockets.UdpTest
     {
         static void Main(string[] args)
         {
-            Console.Title = "SAEA.Sockets.UdpTest";
+            Console.Title = $"SAEA.Sockets.UdpTest --{DateTimeHelper.Now}";
 
             //udpserver
             UDPServer server = new UDPServer(39656);

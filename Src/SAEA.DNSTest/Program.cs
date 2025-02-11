@@ -1,4 +1,5 @@
 ﻿using SAEA.Common;
+
 using System;
 
 namespace SAEA.DNSTest
@@ -7,9 +8,9 @@ namespace SAEA.DNSTest
     {
         public static void Main(string[] args)
         {
-            ConsoleHelper.Title = "SAEA.DNS Test";
+            ConsoleHelper.Title = $"SAEA.DNS Test -- {DateTimeHelper.Now}";
 
-            ConsoleHelper.WriteLine("SAEA.DNS Test");           
+            ConsoleHelper.WriteLine("SAEA.DNS Test");
 
             do
             {

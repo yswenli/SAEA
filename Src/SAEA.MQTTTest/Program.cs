@@ -19,6 +19,8 @@
 using System;
 using System.Threading.Tasks;
 
+using SAEA.Common;
+
 namespace SAEA.MQTTTest
 {
     class Program
@@ -28,7 +30,7 @@ namespace SAEA.MQTTTest
 
             while (true)
             {
-                Console.Title = "SAEA.MQTT Test";
+                Console.Title = $"SAEA.MQTT Test -- {DateTimeHelper.Now}";
 
                 Console.WriteLine("1 = Start client");
                 Console.WriteLine("2 = Start server");

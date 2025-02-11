@@ -115,6 +115,10 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\SAEA.Common\SAEA.Common.csproj">
+      <Project>{D68FE725-8F9A-4633-BFBB-034685D0A2C7}</Project>
+      <Name>SAEA.Common</Name>
+    </ProjectReference>
     <ProjectReference Include="..\SAEA.Sockets\SAEA.Sockets.csproj">
       <Project>{83DAF148-B04B-4BA6-ACF2-A061FBA5ECA1}</Project>
       <Name>SAEA.Sockets</Name>

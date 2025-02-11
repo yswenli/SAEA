@@ -35,7 +35,7 @@ namespace SAEA.Sockets.TcpTest
         {
             _jUnpacker = new JUnpacker();
 
-            _client = new TCPClient<JUnpacker>("127.0.0.1",39808);
+            _client = new TCPClient<JUnpacker>("127.0.0.1", 39808);
 
             _client.OnError += _client_OnError;
 
@@ -46,11 +46,10 @@ namespace SAEA.Sockets.TcpTest
 
         private void _client_OnReceive(TCPClient<JUnpacker> arg1, byte[] arg2)
         {
-            _jUnpacker.DeCode(arg2, (b) =>
-            {
-                var package = new JT808Serializer().Deserialize<JT808Package>(b.AsSpan());
-                OnReceive.Invoke(this, package);
-            });
+            var b = _jUnpacker.Decode(arg2);
+            if (b == null) return;
+            var package = new JT808Serializer().Deserialize<JT808Package>(b.AsSpan());
+            OnReceive.Invoke(this, package);
         }
 
         private void _client_OnDisconnect(TCPClient<JUnpacker> arg1, Exception arg2)

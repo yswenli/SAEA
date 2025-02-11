@@ -1,5 +1,5 @@
 ﻿/****************************************************************************
-*Copyright (c) 2018-2022yswenli All Rights Reserved.
+*Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
 *公司名称：wenli
@@ -39,6 +39,8 @@ namespace SAEA.MessageTest
     {
         static void Main(string[] args)
         {
+            ConsoleHelper.Title = $"SAEA.Message测试 -- {DateTimeHelper.Now}";
+
             ConsoleHelper.WriteLine("Message testing ");
 
             ConsoleHelper.WriteLine("S boot server \r\n\t\t\t F starts functional testing \r\n\t\t\t L start pressure testing\r\n\t\t\t T start channelmessage testing\r\n\t\t\t P start performance testing");
@@ -427,8 +429,6 @@ namespace SAEA.MessageTest
                     break;
                 }
             }
-            ConsoleHelper.WriteLine("回车开始频道测试开始...");
-            ConsoleHelper.ReadLine();
         }
 
         static int _pcount = 0;

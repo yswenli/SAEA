@@ -1,5 +1,5 @@
 ﻿/****************************************************************************
-*Copyright (c) 2018-2022yswenli All Rights Reserved.
+*Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
 *公司名称：wenli
@@ -22,80 +22,97 @@
 *
 *****************************************************************************/
 using System;
-using System.Buffers;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
+using SAEA.Common;
 using SAEA.Sockets.Interface;
 
 namespace SAEA.WebSocket.Model
 {
+    /// <summary>
+    /// 编码协议
+    /// </summary>
     public class WSCoder : ICoder
     {
-        private byte[] _buffer;
-        private int _bufferLength = 0;
+        private List<byte> _buffer;
 
-        private object _locker = new object();
-
+        /// <summary>
+        /// 编码协议
+        /// </summary>
         public WSCoder()
         {
-            // 初始化缓冲区
-            _buffer = ArrayPool<byte>.Shared.Rent(4096);
+            _buffer = new List<byte>(4096);
         }
 
+        /// <summary>
+        /// 编码协议数据
+        /// </summary>
+        /// <param name="protocal">协议数据</param>
+        /// <returns>编码后的字节数组</returns>
         public byte[] Encode(ISocketProtocal protocal)
         {
             return protocal.ToBytes();
         }
 
-        public void Decode(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
+        /// <summary>
+        /// 解码数据
+        /// </summary>
+        /// <param name="data">接收到的数据</param>
+        /// <param name="onHeart">心跳回调</param>
+        /// <param name="onFile">文件回调</param>
+        public List<ISocketProtocal> Decode(byte[] data, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
         {
-            DeCode(data, unpackCallback);
+            return Decode(data);
         }
 
-        private void DeCode(byte[] data, Action<ISocketProtocal> callBack)
+        /// <summary>
+        /// 解码数据的具体实现
+        /// </summary>
+        /// <param name="data">接收到的数据</param>
+        private List<ISocketProtocal> Decode(byte[] data)
         {
-            byte[] payloadData = null;
-
-            lock (_locker)
+            // 将新数据添加到缓冲区
+            _buffer.AddRange(data);
+            List<ISocketProtocal> result = new List<ISocketProtocal>();
+            while (_buffer.Count > 3)
             {
-                // 将新数据添加到缓冲区
-                data.CopyTo(_buffer, _bufferLength);
-                _bufferLength += data.Length;
-
-                var buffer = _buffer.AsSpan(0, _bufferLength);
-
-                var opcode = (byte)(buffer[0] & 0x0f);
-                bool mask = (buffer[1] & 0x80) == 0x80; // 是否包含掩码  
-                int payloadLen = buffer[1] & 0x7F; // 数据长度  
-
-                if (payloadLen + 2 > buffer.Length) return;
-
+                byte[] payloadData;
+                var opcode = (byte)(_buffer[0] & 0x0f);
+                bool mask = (_buffer[1] & 0x80) == 0x80; // 是否包含掩码  
+                int payloadLen = _buffer[1] & 0x7F; // 数据长度
+                var buffer = _buffer.ToArray();
+                if (payloadLen + 2 > _buffer.Count) break;
                 if (mask)
                 {
                     var masks = new byte[4];
                     if (payloadLen == 126)
                     {
-                        var len = (ushort)(buffer[2] << 8 | buffer[3]);
-                        if (len + 8 > buffer.Length) return;
-
-                        masks.CopyTo(_buffer, 4);
-                        payloadData = ArrayPool<byte>.Shared.Rent(len);
-                        buffer.Slice(8, len).CopyTo(payloadData);
+                        var len = (ushort)(_buffer[2] << 8 | _buffer[3]);
+                        if (len + 8 > _buffer.Count) break;
+                        buffer.AsSpan().Slice(4, 4).CopyTo(masks);
+                        payloadData = new byte[len];
+                        buffer.AsSpan().Slice(8, len).CopyTo(payloadData);
                         DoMask(payloadData, 0, len, masks);
-                        callBack?.Invoke(new WSProtocal(opcode, payloadData));
-                        ArrayPool<byte>.Shared.Return(payloadData);
-                        _bufferLength -= 8 + len;
-                        Array.Copy(_buffer, 8 + len, _buffer, 0, _bufferLength);
+                        result.Add(new WSProtocal(opcode, payloadData));
+                        if (_buffer.Count >= 8 + len)
+                            _buffer.RemoveRange(0, 8 + len);
+                        else
+                            break;
                     }
                     else
                     {
-                        masks.CopyTo(_buffer, 2);
-                        payloadData = ArrayPool<byte>.Shared.Rent(payloadLen);
-                        buffer.Slice(6, payloadLen).CopyTo(payloadData);
+                        if (_buffer.Count < 6 + payloadLen) break;
+                        buffer.AsSpan().Slice(2, 4).CopyTo(masks);
+                        payloadData = new byte[payloadLen];
+                        buffer.AsSpan().Slice(6, payloadLen).CopyTo(payloadData);
                         DoMask(payloadData, 0, payloadLen, masks);
-                        callBack?.Invoke(new WSProtocal(opcode, payloadData));
-                        ArrayPool<byte>.Shared.Return(payloadData);
-                        _bufferLength -= 6 + payloadLen;
-                        Array.Copy(_buffer, 6 + payloadLen, _buffer, 0, _bufferLength);
+                        result.Add(new WSProtocal(opcode, payloadData));
+                        if (_buffer.Count >= 6 + payloadLen)
+                            _buffer.RemoveRange(0, 6 + payloadLen);
+                        else
+                            break;
                     }
                 }
                 else
@@ -103,28 +120,38 @@ namespace SAEA.WebSocket.Model
                     if (payloadLen == 126)
                     {
                         var len = (ushort)(buffer[2] << 8 | buffer[3]);
-                        if (len + 8 > buffer.Length) return;
-
-                        payloadData = ArrayPool<byte>.Shared.Rent(len);
-                        buffer.Slice(4, len).CopyTo(payloadData);
-                        callBack?.Invoke(new WSProtocal(opcode, payloadData));
-                        ArrayPool<byte>.Shared.Return(payloadData);
-                        _bufferLength -= 4 + len;
-                        Array.Copy(_buffer, 4 + len, _buffer, 0, _bufferLength);
+                        if (len + 8 > buffer.Length) break;
+                        payloadData = new byte[len];
+                        buffer.AsSpan().Slice(4, len).CopyTo(payloadData);
+                        result.Add(new WSProtocal(opcode, payloadData));
+                        if (_buffer.Count >= 4 + len)
+                            _buffer.RemoveRange(0, 4 + len);
+                        else
+                            break;
                     }
                     else
                     {
-                        payloadData = ArrayPool<byte>.Shared.Rent(payloadLen);
-                        buffer.Slice(2, payloadLen).CopyTo(payloadData);
-                        callBack?.Invoke(new WSProtocal(opcode, payloadData));
-                        ArrayPool<byte>.Shared.Return(payloadData);
-                        _bufferLength -= 2 + payloadLen;
-                        Array.Copy(_buffer, 2 + payloadLen, _buffer, 0, _bufferLength);
+                        if (_buffer.Count < 2 + payloadLen) break;
+                        payloadData = new byte[payloadLen];
+                        buffer.AsSpan().Slice(2, payloadLen).CopyTo(payloadData);
+                        result.Add(new WSProtocal(opcode, payloadData));
+                        if (_buffer.Count >= 2 + payloadLen)
+                            _buffer.RemoveRange(0, 2 + payloadLen);
+                        else
+                            break;
                     }
                 }
             }
+            return result;
         }
 
+        /// <summary>
+        /// 对数据进行掩码处理
+        /// </summary>
+        /// <param name="buffer">数据缓冲区</param>
+        /// <param name="offset">偏移量</param>
+        /// <param name="length">数据长度</param>
+        /// <param name="masks">掩码</param>
         public static void DoMask(byte[] buffer, int offset, int length, byte[] masks)
         {
             for (var i = 0; i < length; i++)
@@ -133,19 +160,12 @@ namespace SAEA.WebSocket.Model
             }
         }
 
+        /// <summary>
+        /// 清空缓冲区
+        /// </summary>
         public void Clear()
         {
-            lock (_locker)
-            {
-                ArrayPool<byte>.Shared.Return(_buffer);
-                _buffer = ArrayPool<byte>.Shared.Rent(4096);
-                _bufferLength = 0;
-            }
-        }
-
-        ~WSCoder()
-        {
-            ArrayPool<byte>.Shared.Return(_buffer);
+            _buffer.Clear();
         }
     }
 }

@@ -43,12 +43,10 @@ namespace SAEA.Sockets.TcpTest
         private void _server_OnReceive(TCPServer<JUnpacker> arg1, IUserToken arg2, byte[] arg3)
         {
             var jUnpacker = (JUnpacker)arg2.Coder;
-
-            jUnpacker.DeCode(arg3, (b) =>
-            {
-                var package = new JT808Serializer().Deserialize<JT808Package>(b.AsSpan());
-                OnReceive?.Invoke(this, arg2.ID, package);
-            });
+            var b=jUnpacker.Decode(arg3);
+            if (b == null) return;
+            var package = new JT808Serializer().Deserialize<JT808Package>(b.AsSpan());
+            OnReceive?.Invoke(this, arg2.ID, package);
         }
 
         private void _server_OnError(TCPServer<JUnpacker> arg1, string arg2, Exception arg3)

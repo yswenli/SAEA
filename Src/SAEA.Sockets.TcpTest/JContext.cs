@@ -35,13 +35,13 @@ namespace SAEA.Sockets.TcpTest
         List<byte> _cache = new List<byte>();
 
 
-        public void Decode(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
+        public List<ISocketProtocal> Decode(byte[] data, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
         {
-
+            throw new NotImplementedException();
         }
 
 
-        public void DeCode(byte[] data, Action<byte[]> unpackCallback)
+        public byte[] Decode(byte[] data)
         {
             _cache.AddRange(data);
 
@@ -64,7 +64,7 @@ namespace SAEA.Sockets.TcpTest
                         start++;
                         end++;
                         started = true;
-                    }                   
+                    }
                 }
                 else
                 {
@@ -76,17 +76,21 @@ namespace SAEA.Sockets.TcpTest
             if (ended)
             {
                 var result = _cache.Skip(start).Take(end - start + 1).ToArray();
-
-                unpackCallback?.Invoke(result);
-
                 _cache.RemoveAt(end);
+                return result;
             }
+            return null;
         }
 
 
         public void Clear()
         {
             _cache.Clear();
+        }
+
+        public byte[] Encode(ISocketProtocal protocal)
+        {
+            throw new NotImplementedException();
         }
     }
 }

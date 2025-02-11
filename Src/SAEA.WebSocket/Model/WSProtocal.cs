@@ -1,5 +1,5 @@
 ﻿/****************************************************************************
-*Copyright (c) 2018-2022yswenli All Rights Reserved.
+*Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
 *公司名称：wenli
@@ -133,8 +133,7 @@ namespace SAEA.WebSocket.Model
                     buff.Write(this.Content, 0, (int)this.BodyLength);
                 }
 
-                buff.Flush();
-
+                buff.Seek(0, SeekOrigin.Begin);
                 return buff.ToArray();
             }
         }

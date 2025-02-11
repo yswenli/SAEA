@@ -9,7 +9,7 @@ namespace SAEA.MVCTest
     {
         static void Main(string[] args)
         {
-            ConsoleHelper.Title = "SAEA.MVCTest";
+            ConsoleHelper.Title = $"SAEA.MVCTest  -- {DateTimeHelper.Now}";
 
             var mvcConfig = SAEAMvcApplicationConfigBuilder.Read();
 

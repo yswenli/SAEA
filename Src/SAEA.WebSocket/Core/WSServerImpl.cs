@@ -47,7 +47,7 @@ namespace SAEA.WebSocket.Core
         /// <param name="port"></param>
         /// <param name="bufferSize"></param>
         /// <param name="count"></param>
-        public WSServerImpl(int port = 16666, int bufferSize = 1024, int count = 60000)
+        public WSServerImpl(int port = 39654, int bufferSize = 1024, int count = 60000)
         {
             var option = SocketOptionBuilder.Instance
                 .SetSocket()
@@ -96,9 +96,11 @@ namespace SAEA.WebSocket.Core
                 else
                 {
                     var coder = (WSCoder)ut.Coder;
-                    coder.Decode(data, (d) =>
+                    var msgs= coder.Decode(data);
+                    if (msgs == null || msgs.Count < 1) return;
+                    foreach (var msg in msgs)
                     {
-                        var wsProtocal = (WSProtocal)d;
+                        var wsProtocal = (WSProtocal)msg;
                         switch (wsProtocal.Type)
                         {
                             case (byte)WSProtocalType.Close:
@@ -110,16 +112,15 @@ namespace SAEA.WebSocket.Core
                             case (byte)WSProtocalType.Binary:
                             case (byte)WSProtocalType.Text:
                             case (byte)WSProtocalType.Cont:
-                                OnMessage?.Invoke(ut.ID, (WSProtocal)d);
+                                OnMessage?.Invoke(ut.ID, (WSProtocal)msg);
                                 break;
                             case (byte)WSProtocalType.Pong:
                                 break;
                             default:
-                                var error = string.Format("收到未定义的Opcode={0}", d.Type);
+                                var error = string.Format("收到未定义的Opcode={0}", msg.Type);
                                 break;
                         }
-
-                    }, (h) => { }, null);
+                    }
                 }
             }
             catch(Exception ex)

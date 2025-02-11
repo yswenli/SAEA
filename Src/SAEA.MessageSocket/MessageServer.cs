@@ -1,5 +1,5 @@
 ﻿/****************************************************************************
-*Copyright (c) 2018-2022yswenli All Rights Reserved.
+*Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
 *公司名称：wenli
@@ -34,6 +34,7 @@ using SAEA.Sockets.Base;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
+
 using System;
 using System.Threading.Tasks;
 
@@ -124,13 +125,17 @@ namespace SAEA.MessageSocket
         {
             var mUserToken = (MessageUserToken)currentObj;
 
-            mUserToken.Coder.Decode(data, (s) =>
+            var msgs = mUserToken.Coder.Decode(data);
+
+            if (msgs == null || msgs.Count < 1) return;
+
+            foreach (var msg in msgs)
             {
-                if (s.Content != null)
+                if (msg.Content != null)
                 {
                     try
                     {
-                        var cm = SerializeHelper.PBDeserialize<ChatMessage>(s.Content);
+                        var cm = SerializeHelper.PBDeserialize<ChatMessage>(msg.Content);
 
                         switch (cm.Type)
                         {
@@ -167,16 +172,14 @@ namespace SAEA.MessageSocket
                             default:
                                 throw new Exception("未知的协议");
                         }
-
                     }
                     catch (Exception ex)
                     {
-                        _server.Disconnect(mUserToken.ID);
+                        OnError?.Invoke(mUserToken.ID, ex);
                         LogHelper.Error("MessageServer._server_OnReceive", ex);
                     }
                 }
-
-            }, null, null);
+            }
         }
 
         public void Stop()

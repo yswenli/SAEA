@@ -12,7 +12,7 @@ namespace SAEA.HttpTest
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("WebHost Test");
+            Console.WriteLine($"WebHost Test -- {DateTimeHelper.Now}");
 
             WebHost webHost = new WebHost(port: 18080);
 

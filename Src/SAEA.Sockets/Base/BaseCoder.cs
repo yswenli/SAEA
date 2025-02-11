@@ -6,7 +6,7 @@
  |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
                                                              
 
-*Copyright (c) 2018-2022yswenli All Rights Reserved.
+*Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
 *公司名称：wenli
@@ -64,11 +64,12 @@ namespace SAEA.Sockets.Base
         /// 实现接口方法 Decode，解析接收到的字节数据
         /// </summary>
         /// <param name="data"></param>
-        /// <param name="unpackCallback"></param>
         /// <param name="onHeart"></param>
         /// <param name="onFile"></param>
-        public void Decode(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
+        public List<ISocketProtocal> Decode(byte[] data, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
         {
+            var result = new List<ISocketProtocal>();
+
             // 将接收到的数据添加到缓冲区
             _buffer.AddRange(data);
 
@@ -118,15 +119,16 @@ namespace SAEA.Sockets.Base
                         // 设置长度为0，表示已处理完
                         bodyLen = 0;
                         // 调用解包回调函数
-                        unpackCallback?.Invoke(sm);
+                        result.Add(sm);
                     }
                 }
                 else
                 {
                     // 如果缓冲区数据长度不足以解析一个完整的数据包，则退出循环
-                    return;
+                    break;
                 }
             }
+            return result;
         }
 
         /// <summary>
