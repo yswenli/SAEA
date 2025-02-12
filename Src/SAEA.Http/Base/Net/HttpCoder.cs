@@ -29,37 +29,50 @@ using SAEA.Sockets.Interface;
 
 namespace SAEA.Http.Base.Net
 {
+    /// <summary>
+    /// HttpCoder类实现了ICoder接口，用于处理HTTP协议的编码和解码
+    /// </summary>
     class HttpCoder : ICoder
     {
+        // 缓存接收到的数据
         List<byte> _cache = new List<byte>();
 
+        // 总长度
         int _totlalLen = -1;
 
-
+        /// <summary>
+        /// 将ISocketProtocal对象编码为字节数组
+        /// </summary>
+        /// <param name="protocal">ISocketProtocal对象</param>
+        /// <returns>编码后的字节数组</returns>
         public byte[] Encode(ISocketProtocal protocal)
         {
             return protocal.ToBytes();
         }
 
-
+        /// <summary>
+        /// 将字节数组解码为ISocketProtocal对象列表
+        /// </summary>
+        /// <param name="data">待解码的字节数组</param>
+        /// <param name="onHeart">心跳包处理回调</param>
+        /// <param name="onFile">文件包处理回调</param>
+        /// <returns>解码后的ISocketProtocal对象列表</returns>
         public List<ISocketProtocal> Decode(byte[] data, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
         {
             throw new NotImplementedException();
         }
 
-
         /// <summary>
-        /// GetRequest
+        /// 解析HTTP请求
         /// </summary>
-        /// <param name="id"></param>
-        /// <param name="data"></param>
-        /// <param name="onUnpackage"></param>
-        public void GetRequest(string id, byte[] data, Action<HttpMessage> onUnpackage)
+        /// <param name="id">请求ID</param>
+        /// <param name="data">请求数据</param>
+        /// <returns>解析后的HttpMessage列表</returns>
+        public List<HttpMessage> GetRequest(string id, byte[] data)
         {
+            var result = new List<HttpMessage>();
             _cache.AddRange(data);
-
             var buffer = _cache.ToArray();
-
             if (_totlalLen == -1)
             {
                 if (RequestDataReader.Analysis(buffer, out HttpMessage httpMessage))
@@ -72,12 +85,12 @@ namespace SAEA.Http.Base.Net
 
                     _totlalLen = contentLen + positon;
 
-                    //post需要处理body
+                    // GET请求不需要处理body
                     if (httpMessage.Method == ConstHelper.GET)
                     {
                         _cache.RemoveRange(0, _totlalLen);
                         _totlalLen = -1;
-                        onUnpackage.Invoke(httpMessage);
+                        result.Add(httpMessage);
                     }
                     else
                     {
@@ -86,11 +99,11 @@ namespace SAEA.Http.Base.Net
                             RequestDataReader.AnalysisBody(buffer, httpMessage);
                             _cache.RemoveRange(0, _totlalLen);
                             _totlalLen = -1;
-                            onUnpackage.Invoke(httpMessage);
+                            result.Add(httpMessage);
                         }
                         else
                         {
-                            return;
+                            return result;
                         }
                     }
                 }
@@ -103,21 +116,18 @@ namespace SAEA.Http.Base.Net
                     RequestDataReader.AnalysisBody(buffer, httpMessage1);
                     _cache.RemoveRange(0, _totlalLen);
                     _totlalLen = -1;
-                    onUnpackage.Invoke(httpMessage1);
+                    result.Add(httpMessage1);
                 }
                 else
                 {
                     throw new DataMisalignedException("解析失败");
                 }
             }
-            else
-            {
-                return;
-            }
+            return result;
         }
 
         /// <summary>
-        /// Clear
+        /// 清除编码器内部状态
         /// </summary>
         public void Clear()
         {

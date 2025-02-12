@@ -22,14 +22,13 @@
 *
 *****************************************************************************/
 
+using System;
+
 using SAEA.Common;
-using SAEA.Common.Caching;
 using SAEA.Http.Base;
 using SAEA.Http.Base.Net;
 using SAEA.Http.Model;
 using SAEA.Sockets.Interface;
-
-using System;
 
 namespace SAEA.Http
 {

@@ -284,8 +284,7 @@ namespace SAEA.Sockets.Core.Tcp
                 }
                 else
                 {
-                    if (userToken.Socket != null)
-                        Disconnect(userToken, new KernelException("The remote client has been disconnected."));
+                    Disconnect(userToken, new KernelException("The remote client has been disconnected."));
                 }
             }
             catch (Exception exp)
@@ -340,7 +339,7 @@ namespace SAEA.Sockets.Core.Tcp
             var userToken = (IUserToken)e.UserToken;
             if (userToken == null) return;
             _sessionManager.Active(userToken.ID);
-            userToken?.Set();
+            userToken?.ReleaseWrite();
         }
 
         #region send method
@@ -352,7 +351,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="data"></param>
         public void SendAsync(IUserToken userToken, byte[] data)
         {
-            if (userToken.WaitOne(SocketOption.TimeOut) && userToken.Socket != null && userToken.Socket.Connected)
+            if (userToken.WaitWrite(SocketOption.TimeOut) && userToken.Socket != null && userToken.Socket.Connected)
             {
                 try
                 {

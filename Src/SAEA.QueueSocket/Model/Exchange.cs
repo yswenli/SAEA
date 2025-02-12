@@ -32,10 +32,15 @@ using SAEA.Sockets.Interface;
 
 namespace SAEA.QueueSocket.Model
 {
+    /// <summary>
+    /// Exchange类，实现ISyncBase接口
+    /// </summary>
     class Exchange : ISyncBase
     {
+        // 同步锁对象
         object _syncLocker = new object();
 
+        // 分类批量打包器
         ClassificationBatcher _classificationBatcher;
 
         /// <summary>
@@ -43,6 +48,9 @@ namespace SAEA.QueueSocket.Model
         /// </summary>
         public event OnClassificationBatchedHandler OnBatched;
 
+        /// <summary>
+        /// 获取同步锁对象
+        /// </summary>
         public object SyncLocker
         {
             get
@@ -51,34 +59,53 @@ namespace SAEA.QueueSocket.Model
             }
         }
 
+        // 发布者数量
         long _pNum = 0;
 
+        // 订阅者数量
         long _cNum = 0;
 
+        // 接收消息数量
         long _inNum = 0;
 
+        // 发送消息数量
         long _outNum = 0;
 
+        // 绑定对象
         private Binding _binding;
 
+        // 消息队列对象
         private MessageQueue _messageQueue;
 
+        /// <summary>
+        /// 初始化Exchange类的新实例
+        /// </summary>
         public Exchange()
         {
             _binding = new Binding();
 
             _messageQueue = new MessageQueue();
 
-            _classificationBatcher = ClassificationBatcher.GetInstance(10000, 50);
+            _classificationBatcher = ClassificationBatcher.GetInstance(10000, 100);
 
             _classificationBatcher.OnBatched += _classificationBatcher_OnBatched;
         }
 
+        /// <summary>
+        /// 分类批量打事件处理程序
+        /// </summary>
+        /// <param name="id">分类ID</param>
+        /// <param name="data">数据</param>
         private void _classificationBatcher_OnBatched(string id, byte[] data)
         {
             OnBatched?.Invoke(id, data);
         }
 
+        /// <summary>
+        /// 接受发布消息
+        /// </summary>
+        /// <param name="sessionID">会话ID</param>
+        /// <param name="pInfo">队列消息</param>
         public void AcceptPublish(string sessionID, QueueMsg pInfo)
         {
             _binding.Set(sessionID, pInfo.Name, pInfo.Topic);
@@ -90,6 +117,12 @@ namespace SAEA.QueueSocket.Model
             Interlocked.Increment(ref _inNum);
         }
 
+        /// <summary>
+        /// 获取订阅数据
+        /// </summary>
+        /// <param name="sessionID">会话ID</param>
+        /// <param name="sInfo">队列消息</param>
+        /// <param name="qcoder">队列编码器</param>
         public void GetSubscribeData(string sessionID, QueueMsg sInfo, Net.QueueCoder qcoder)
         {
             if (!_binding.Exists(sInfo))
@@ -113,12 +146,20 @@ namespace SAEA.QueueSocket.Model
             }
         }
 
+        /// <summary>
+        /// 取消订阅
+        /// </summary>
+        /// <param name="sInfo">队列消息</param>
         public void Unsubscribe(QueueMsg sInfo)
         {
             Interlocked.Decrement(ref _cNum);
             _binding.Del(sInfo.Name, sInfo.Topic);
         }
 
+        /// <summary>
+        /// 清除会话
+        /// </summary>
+        /// <param name="sessionID">会话ID</param>
         public void Clear(string sessionID)
         {
             lock (_syncLocker)
@@ -140,12 +181,19 @@ namespace SAEA.QueueSocket.Model
             }
         }
 
+        /// <summary>
+        /// 获取连接信息
+        /// </summary>
+        /// <returns>连接信息元组</returns>
         public Tuple<long, long, long, long> GetConnectInfo()
         {
             return new Tuple<long, long, long, long>(_pNum, _cNum, _inNum, _outNum);
         }
 
-
+        /// <summary>
+        /// 获取队列信息
+        /// </summary>
+        /// <returns>队列信息列表</returns>
         public List<Tuple<string, long>> GetQueueInfo()
         {
             List<Tuple<string, long>> result = new List<Tuple<string, long>>();
@@ -161,6 +209,5 @@ namespace SAEA.QueueSocket.Model
             }
             return result;
         }
-
     }
 }

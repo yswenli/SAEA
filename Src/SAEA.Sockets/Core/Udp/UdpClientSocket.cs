@@ -255,7 +255,7 @@ namespace SAEA.Sockets.Core.Udp
         void ProcessSended(SocketAsyncEventArgs e)
         {
             _userToken.Actived = DateTimeHelper.Now;
-            _userToken.Set();
+            _userToken.ReleaseWrite();
         }
 
 
@@ -285,7 +285,7 @@ namespace SAEA.Sockets.Core.Udp
             {
                 if (data == null || !data.Any() || data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("SendAsync Incorrect length of data sent");
 
-                if (UserToken.WaitOne(SocketOption.TimeOut))
+                if (UserToken.WaitWrite(SocketOption.TimeOut))
                 {
                     var writeArgs = UserToken.WriteArgs;
 
@@ -306,7 +306,7 @@ namespace SAEA.Sockets.Core.Udp
             catch (Exception ex)
             {
                 OnError?.Invoke(_remoteEndPoint.ToString(), ex);
-                UserToken.Set();
+                UserToken.ReleaseWrite();
                 Disconnect();
             }
         }

@@ -41,70 +41,104 @@ namespace SAEA.Sockets.Base
     /// </summary>
     public class BaseUserToken : IUserToken
     {
-        AutoResetEvent _autoResetEvent = new AutoResetEvent(true);
+        AutoResetEvent _writeAutoResetEvent = new AutoResetEvent(true);
 
         /// <summary>
         /// 连接信息类
         /// </summary>
         public BaseUserToken()
         {
-            _autoResetEvent = new AutoResetEvent(true);
+            _writeAutoResetEvent = new AutoResetEvent(true);
             Guid = System.Guid.NewGuid().ToString("N");
         }
 
+        /// <summary>
+        /// 唯一标识
+        /// </summary>
         public string Guid { get; private set; }
 
+        /// <summary>
+        /// 用户ID
+        /// </summary>
         public string ID
         {
             get; set;
         }
+
+        /// <summary>
+        /// 套接字对象
+        /// </summary>
         public Socket Socket
         {
             get; set;
         }
 
+        /// <summary>
+        /// 读取操作的SocketAsyncEventArgs对象
+        /// </summary>
         public SocketAsyncEventArgs ReadArgs
         {
             get; set;
         }
 
+        /// <summary>
+        /// 写入操作的SocketAsyncEventArgs对象
+        /// </summary>
         public SocketAsyncEventArgs WriteArgs
         {
             get; set;
         }
 
+        /// <summary>
+        /// 连接时间
+        /// </summary>
         public DateTime Linked
         {
             get; set;
         }
 
+        /// <summary>
+        /// 活动时间
+        /// </summary>
         public DateTime Actived
         {
             get; set;
         }
 
+        /// <summary>
+        /// 编码器对象
+        /// </summary>
         public ICoder Coder
         {
             get; set;
         }
 
-        public bool WaitOne(int timeout)
+        /// <summary>
+        /// 等待写入操作完成
+        /// </summary>
+        /// <param name="timeout">超时时间</param>
+        /// <returns>是否成功</returns>
+        public bool WaitWrite(int timeout)
         {
-            return _autoResetEvent.WaitOne(timeout);
+            return _writeAutoResetEvent.WaitOne(timeout);
         }
 
-
-        public void Set()
+        /// <summary>
+        /// 释放写入操作
+        /// </summary>
+        public void ReleaseWrite()
         {
-            _autoResetEvent.Set();
+            _writeAutoResetEvent.Set();
         }
 
-
+        /// <summary>
+        /// 清除连接信息
+        /// </summary>
         public void Clear()
         {
             Socket?.Close();
             Coder?.Clear();
-            _autoResetEvent?.Close();
+            _writeAutoResetEvent?.Close();
             ReadArgs?.Dispose();
             WriteArgs?.Dispose();
             Socket = null;

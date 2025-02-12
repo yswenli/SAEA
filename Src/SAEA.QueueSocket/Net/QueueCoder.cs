@@ -33,17 +33,34 @@ using System.Text;
 
 namespace SAEA.QueueSocket.Net
 {
+    /// <summary>
+    /// 队列编码器类，实现ICoder接口
+    /// </summary>
     public sealed class QueueCoder : ICoder
     {
+        // 定义最小消息长度常量
         static readonly int MIN = 1 + 4 + 4 + 0 + 4 + 0 + 0;
 
+        // 定义一个字节列表缓冲区
         private List<byte> _buffer = new List<byte>();
 
+        /// <summary>
+        /// 编码方法，将ISocketProtocal对象编码为字节数组
+        /// </summary>
+        /// <param name="protocal">ISocketProtocal对象</param>
+        /// <returns>编码后的字节数组</returns>
         public byte[] Encode(ISocketProtocal protocal)
         {
             throw new NotImplementedException();
         }
 
+        /// <summary>
+        /// 解码方法，将字节数组解码为ISocketProtocal对象列表
+        /// </summary>
+        /// <param name="data">待解码的字节数组</param>
+        /// <param name="onHeart">心跳包处理回调</param>
+        /// <param name="onFile">文件包处理回调</param>
+        /// <returns>解码后的ISocketProtocal对象列表</returns>
         public List<ISocketProtocal> Decode(byte[] data, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
         {
             throw new NotImplementedException();
@@ -52,50 +69,42 @@ namespace SAEA.QueueSocket.Net
         /// <summary>
         /// 包解析
         /// </summary>
-        /// <param name="data"></param>
-        /// <returns></returns>
+        /// <param name="data">待解析的字节数组</param>
+        /// <returns>解析后的队列消息列表</returns>
         public List<QueueMsg> GetQueueResult(byte[] data)
         {
-            try
+            var result = new List<QueueMsg>();
+            _buffer.AddRange(data);
+            if (_buffer.Count >= MIN)
             {
-                _buffer.AddRange(data);
-                if (_buffer.Count >= MIN)
+                var array = _buffer.ToArray();
+                var list = Decode(array, out int offset);
+                if (list != null && list.Count > 0)
                 {
-                    var buffer = _buffer.ToArray();
-                    var list = Decode(buffer, out int offset);
-                    if (list != null && list.Count > 0)
+                    foreach (var item in list)
                     {
-                        var result = new List<QueueMsg>();
-                        foreach (var item in list)
+                        result.Add(new QueueMsg()
                         {
-                            result.Add(new QueueMsg()
-                            {
-                                Type = item.Type,
-                                Name = item.Name,
-                                Topic = item.Topic,
-                                Data = item.Data
-                            });
-                        }
-                        _buffer.RemoveRange(0, offset);
-                        return result;
+                            Type = item.Type,
+                            Name = item.Name,
+                            Topic = item.Topic,
+                            Data = item.Data
+                        });
                     }
+                    _buffer.RemoveRange(0, offset);
+                    return result;
                 }
+                array.Clear();
             }
-            catch (Exception ex)
-            {
-                _buffer.Clear();
-                ConsoleHelper.WriteLine("QCoder.GetQueueResult error:" + ex.Message + ex.Source);
-            }
-            return null;
+            return result;
         }
-
 
         /// <summary>
         /// socket 传输字节编码
         /// 格式为：1+4+4+x+4+x+x
         /// </summary>
-        /// <param name="queueSocketMsg"></param>
-        /// <returns></returns>
+        /// <param name="queueSocketMsg">队列消息对象</param>
+        /// <returns>编码后的字节数组</returns>
         public static byte[] Encode(QueueSocketMsg queueSocketMsg)
         {
             List<byte> list = new List<byte>();
@@ -143,18 +152,38 @@ namespace SAEA.QueueSocket.Net
             return arr;
         }
 
-
+        /// <summary>
+        /// 解码方法，将字节数组解码为QueueSocketMsg对象列表
+        /// </summary>
+        /// <param name="data">待解码的字节数组</param>
+        /// <param name="offset">解码后的偏移量</param>
+        /// <returns>解码后的QueueSocketMsg对象列表</returns>
         public static List<QueueSocketMsg> Decode(byte[] data, out int offset)
         {
             offset = 0;
             if (data != null && data.Length > offset + MIN)
             {
                 var list = new List<QueueSocketMsg>();
-
                 while (data.Length >= offset + MIN)
                 {
                     var typeValue = data[offset];
-                    if (typeValue < 1 || typeValue > 7) throw new Exception("QueueSocketMsgType is error");
+                    if (typeValue < 1 || typeValue > 7)
+                    {
+                        //丢弃通信中接收到的不正常数据，并在data数组中的找到中找到第一个正确的typeValue
+                        for (var i = 0; i < data.Length; i++)
+                        {
+                            if (data[i] >= 1 && data[i] <= 7)
+                            {
+                                typeValue = data[i];
+                                offset = i;
+                                break;
+                            }
+                        }
+                        if (offset == 0)
+                        {
+                            return list;
+                        }
+                    }
                     QueueSocketMsgType type = (QueueSocketMsgType)typeValue;
                     offset += 1;
                     var total = BitConverter.ToInt32(data, offset);
@@ -205,9 +234,8 @@ namespace SAEA.QueueSocket.Net
             return null;
         }
 
-
         /// <summary>
-        /// dispose
+        /// 清除方法，清除编码器内部状态
         /// </summary>
         public void Clear()
         {
@@ -217,21 +245,24 @@ namespace SAEA.QueueSocket.Net
         /// <summary>
         /// 按指定格式编码
         /// </summary>
-        /// <param name="cmdType"></param>
-        /// <param name="contents"></param>
-        /// <returns></returns>
+        /// <param name="cmdType">命令类型</param>
+        /// <param name="name">名称</param>
+        /// <param name="topic">主题</param>
+        /// <param name="data">数据</param>
+        /// <returns>编码后的字节数组</returns>
         public byte[] Encode(QueueSocketMsgType cmdType, string name, string topic, byte[] data)
         {
             return QueueCoder.Encode(new QueueSocketMsg(cmdType, name, topic, data));
         }
+
         /// <summary>
         /// 按指定格式编码批量处理
         /// </summary>
-        /// <param name="cmdType"></param>
-        /// <param name="name"></param>
-        /// <param name="topic"></param>
-        /// <param name="data"></param>
-        /// <returns></returns>
+        /// <param name="cmdType">命令类型</param>
+        /// <param name="name">名称</param>
+        /// <param name="topic">主题</param>
+        /// <param name="data">数据列表</param>
+        /// <returns>编码后的字节数组</returns>
         public byte[] EncodeForList(QueueSocketMsgType cmdType, string name, string topic, List<byte[]> data)
         {
             List<byte> list = new List<byte>();
@@ -245,36 +276,77 @@ namespace SAEA.QueueSocket.Net
             return list.ToArray();
         }
 
+        /// <summary>
+        /// 生成Ping消息
+        /// </summary>
+        /// <param name="name">名称</param>
+        /// <returns>编码后的字节数组</returns>
         public byte[] Ping(string name)
         {
             return Encode(QueueSocketMsgType.Ping, name, string.Empty, null);
         }
 
+        /// <summary>
+        /// 生成Pong消息
+        /// </summary>
+        /// <param name="name">名称</param>
+        /// <returns>编码后的字节数组</returns>
         public byte[] Pong(string name)
         {
             return Encode(QueueSocketMsgType.Pong, name, string.Empty, Encoding.UTF8.GetBytes(DateTimeHelper.ToString()));
         }
 
+        /// <summary>
+        /// 生成发布消息
+        /// </summary>
+        /// <param name="name">名称</param>
+        /// <param name="topic">主题</param>
+        /// <param name="data">数据</param>
+        /// <returns>编码后的字节数组</returns>
         public byte[] Publish(string name, string topic, byte[] data)
         {
             return Encode(QueueSocketMsgType.Publish, name, topic, data);
         }
 
+        /// <summary>
+        /// 生成订阅消息
+        /// </summary>
+        /// <param name="name">名称</param>
+        /// <param name="topic">主题</param>
+        /// <returns>编码后的字节数组</returns>
         public byte[] Subscribe(string name, string topic)
         {
             return Encode(QueueSocketMsgType.Subcribe, name, topic, null);
         }
 
+        /// <summary>
+        /// 生成取消订阅消息
+        /// </summary>
+        /// <param name="name">名称</param>
+        /// <param name="topic">主题</param>
+        /// <returns>编码后的字节数组</returns>
         public byte[] Unsubcribe(string name, string topic)
         {
             return Encode(QueueSocketMsgType.Unsubcribe, name, topic, null);
         }
 
+        /// <summary>
+        /// 生成关闭消息
+        /// </summary>
+        /// <param name="name">名称</param>
+        /// <returns>编码后的字节数组</returns>
         public byte[] Close(string name)
         {
             return Encode(QueueSocketMsgType.Close, name, string.Empty, null);
         }
 
+        /// <summary>
+        /// 生成数据消息
+        /// </summary>
+        /// <param name="name">名称</param>
+        /// <param name="topic">主题</param>
+        /// <param name="data">数据</param>
+        /// <returns>编码后的字节数组</returns>
         public byte[] Data(string name, string topic, byte[] data)
         {
             return Encode(QueueSocketMsgType.Data, name, topic, data);

@@ -46,6 +46,6 @@ https://github.com/yswenli/SAEA</PackageReleaseNotes>
 
   <ItemGroup>
     <PackageReference Include="Pipelines.Sockets.Unofficial" Version="2.2.8" />
-    <PackageReference Include="System.IO.Pipelines" Version="9.0.1" />
+    <PackageReference Include="System.IO.Pipelines" Version="9.0.2" />
   </ItemGroup>
 </Project>

@@ -36,7 +36,6 @@ namespace SAEA.Http.Base
     /// <typeparam name="T"></typeparam>
     public abstract class HttpContextBase : IHttpContext
     {
-
         protected IWebHost _webHost;
 
         /// <summary>
@@ -49,32 +48,50 @@ namespace SAEA.Http.Base
         /// </summary>
         public abstract event RequestDelegate OnRequestDelegate;
 
+        /// <summary>
+        /// 获取Http请求对象
+        /// </summary>
         public HttpRequest Request
         {
             get;
             private set;
         }
 
+        /// <summary>
+        /// 获取Http响应对象
+        /// </summary>
         public HttpResponse Response
         {
             get;
             private set;
         }
 
+        /// <summary>
+        /// 获取Http服务器实用工具对象
+        /// </summary>
         public HttpUtility Server
         {
             get;
             private set;
         }
 
+        /// <summary>
+        /// 获取Http会话对象
+        /// </summary>
         public HttpSession Session
         {
             get;
             private set;
         }
 
+        /// <summary>
+        /// 获取或设置Web服务器配置
+        /// </summary>
         public WebConfig WebConfig { get; set; }
 
+        /// <summary>
+        /// 获取或设置是否启用静态缓存
+        /// </summary>
         public bool IsStaticsCached { get; set; }
 
         /// <summary>
@@ -91,7 +108,7 @@ namespace SAEA.Http.Base
         /// <summary>
         /// 基础的http上下文类
         /// </summary>
-        /// <param name="webHost"></param>
+        /// <param name="webHost">Web主机对象</param>
         public HttpContextBase(IWebHost webHost)
         {
             _webHost = webHost;
@@ -112,8 +129,8 @@ namespace SAEA.Http.Base
         /// <summary>
         /// 处理业务逻辑
         /// </summary>
-        /// <param name="userToken"></param>
-        /// <param name="httpMessage"></param>
+        /// <param name="userToken">用户令牌</param>
+        /// <param name="httpMessage">Http消息</param>
         public virtual void HttpHandle(IUserToken userToken, HttpMessage httpMessage)
         {
             Request.Init(httpMessage);
@@ -159,10 +176,14 @@ namespace SAEA.Http.Base
             }
         }
 
+        /// <summary>
+        /// 获取操作结果
+        /// </summary>
+        /// <returns>操作结果</returns>
         public abstract IHttpResult GetActionResult();
 
         /// <summary>
-        /// Dispose
+        /// 释放资源
         /// </summary>
         public void Dispose()
         {

@@ -256,7 +256,7 @@ namespace SAEA.Sockets.Core.Udp
             {
                 OnError?.Invoke($"An exception occurs when a message is sended:{userToken?.ID}", ex);
             }
-            userToken?.Set();
+            userToken?.ReleaseWrite();
         }
 
         #region send method
@@ -270,7 +270,7 @@ namespace SAEA.Sockets.Core.Udp
         {
             if (data == null || !data.Any() || data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentException("SendAsync Incorrect length of data sent");
 
-            if (userToken.WaitOne(SocketOption.TimeOut))
+            if (userToken.WaitWrite(SocketOption.TimeOut))
             {
                 try
                 {

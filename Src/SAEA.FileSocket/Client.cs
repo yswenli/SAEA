@@ -28,6 +28,7 @@ using SAEA.FileSocket.Model;
 using SAEA.Sockets;
 using SAEA.Sockets.Base;
 using SAEA.Sockets.Model;
+
 using System;
 using System.Collections.Concurrent;
 using System.IO;
@@ -90,7 +91,12 @@ namespace SAEA.FileSocket
         {
             if (data != null)
             {
-                _unpacker.Decode(data, (allow) =>
+                var msgs = _unpacker.Decode(data, null, null);
+                if (msgs == null || msgs.Count == 0)
+                {
+                    return;
+                }
+                foreach (var msg in msgs)
                 {
                     Action<bool> action;
 
@@ -98,14 +104,14 @@ namespace SAEA.FileSocket
                     {
                         var result = false;
 
-                        if (allow.Type == (byte)SocketProtocalType.AllowReceive)
+                        if (msg.Type == (byte)SocketProtocalType.AllowReceive)
                         {
                             result = true;
                         }
 
                         action?.Invoke(result);
                     }
-                }, null, null);
+                }
             }
         }
 

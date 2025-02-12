@@ -305,7 +305,7 @@ namespace SAEA.Http
         {
             if (UserToken == null) return;
             else
-                WebHost.End(UserToken, this.ToBytes());
+                WebHost.Send(UserToken, this.ToBytes());//WebHost.End(UserToken, this.ToBytes());
         }
 
         /// <summary>

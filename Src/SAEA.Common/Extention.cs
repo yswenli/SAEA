@@ -47,7 +47,7 @@ namespace SAEA.Common
             {
                 while (!list.IsEmpty)
                 {
-                    list.TryDequeue(out T t);
+                    list.TryDequeue(out T _);
                 }
             }
         }

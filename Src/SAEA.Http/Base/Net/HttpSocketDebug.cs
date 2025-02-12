@@ -62,15 +62,13 @@ namespace SAEA.Http.Base.Net
             try
             {
                 if (ut == null) throw new KernelException("userToken is null");
-
                 HttpCoder unpacker = (HttpCoder)ut.Coder;
-
-                unpacker.GetRequest(ut.ID, data, (result) =>
+                var msgs = unpacker.GetRequest(ut.ID, data);
+                if (msgs == null || msgs.Count < 1) return;
+                foreach (var msg in msgs)
                 {
-                    OnRequested?.Invoke(ut, result);
-
-                    LogHelper.Debug("HUnpacker.GetRequest", result);
-                });
+                    OnRequested?.Invoke(ut, msg);
+                }
             }
             catch (Exception ex)
             {

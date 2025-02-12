@@ -297,7 +297,7 @@ namespace SAEA.Sockets.Core.Tcp
         void ProcessSended(SocketAsyncEventArgs e)
         {
             _userToken.Actived = DateTimeHelper.Now;
-            _userToken.Set();
+            _userToken.ReleaseWrite();
         }
 
 
@@ -328,7 +328,7 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 if (userToken != null && userToken.Socket != null && userToken.Socket.Connected)
                 {
-                    if (userToken.WaitOne(SocketOption.TimeOut))
+                    if (userToken.WaitWrite(SocketOption.TimeOut))
                     {
                         var writeArgs = userToken.WriteArgs;
 
@@ -348,7 +348,7 @@ namespace SAEA.Sockets.Core.Tcp
             catch (Exception ex)
             {
                 OnError?.Invoke(userToken.ID, ex);
-                userToken.Set();
+                userToken.ReleaseWrite();
                 Disconnect();
             }
         }

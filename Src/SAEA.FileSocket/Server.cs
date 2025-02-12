@@ -86,15 +86,21 @@ namespace SAEA.FileSocket
         {
             var userToken = (IUserToken)currentObj;
 
-            userToken.Coder.Decode(data, (s) =>
+            var msgs= userToken.Coder.Decode(data, null, (f) =>
+            {
+                Interlocked.Add(ref _in, f.Length);
+                OnFile?.Invoke(userToken, f);
+            });
+            if (msgs == null || msgs.Count < 1) return;
+            foreach (var msg in msgs)
             {
                 string fileName = string.Empty;
 
                 long length = 0;
 
-                if (s.Content != null)
+                if (msg.Content != null)
                 {
-                    var fi = s.Content.ToInstance<FileMessage>();
+                    var fi = msg.Content.ToInstance<FileMessage>();
                     fileName = fi.FileName;
                     length = fi.Length;
                 }
@@ -102,11 +108,7 @@ namespace SAEA.FileSocket
                 OnRequested?.Invoke(userToken.ID, fileName, length);
 
                 _total = length;
-            }, null, (f) =>
-            {
-                Interlocked.Add(ref _in, f.Length);
-                OnFile?.Invoke(userToken, f);
-            });
+            }
         }
 
         public void Allow(string id)

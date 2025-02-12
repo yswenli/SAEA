@@ -43,42 +43,69 @@ namespace SAEA.Sockets.Interface
         /// </summary>
         string Guid { get; }
 
+        /// <summary>
+        /// 套接字对象
+        /// </summary>
         Socket Socket
         {
             get; set;
         }
 
+        /// <summary>
+        /// 连接时间
+        /// </summary>
         DateTime Linked
         {
             get; set;
         }
 
+        /// <summary>
+        /// 活动时间
+        /// </summary>
         DateTime Actived
         {
             get; set;
         }
 
+        /// <summary>
+        /// 读取操作的SocketAsyncEventArgs对象
+        /// </summary>
         SocketAsyncEventArgs ReadArgs
         {
             get; set;
         }
 
+        /// <summary>
+        /// 写入操作的SocketAsyncEventArgs对象
+        /// </summary>
         SocketAsyncEventArgs WriteArgs
         {
             get; set;
         }
 
+        /// <summary>
+        /// 编码器对象
+        /// </summary>
         ICoder Coder
         {
             get; set;
         }
 
-        bool WaitOne(int timeOut);
+        /// <summary>
+        /// 等待写入操作完成
+        /// </summary>
+        /// <param name="timeOut">超时时间</param>
+        /// <returns>是否成功</returns>
+        bool WaitWrite(int timeOut);
 
+        /// <summary>
+        /// 释放写入操作
+        /// </summary>
+        void ReleaseWrite();
 
-        void Set();
-
-
+        /// <summary>
+        /// 清除连接信息
+        /// </summary>
         void Clear();
     }
 }

@@ -31,28 +31,39 @@
 *****************************************************************************/
 
 using System;
+using System.Collections.Concurrent;
 using System.Net.Sockets;
 using System.Threading;
 
-using SAEA.Common.Caching;
+using SAEA.Common;
 using SAEA.Sockets.Interface;
 
 namespace SAEA.Sockets.Core
 {
+    /// <summary>
+    /// 用户令牌池类，用于管理用户令牌的创建和回收
+    /// </summary>
     public class UserTokenPool : IDisposable
     {
         BufferManager _bufferManager;
         UserTokenFactory _userTokenFactory;
-        ThreadQueue<IUserToken> _concurrentQueue = new ThreadQueue<IUserToken>();
+        ConcurrentQueue<IUserToken> _concurrentQueue;
 
         int _maxCount = 100;
 
+        /// <summary>
+        /// 初始化UserTokenPool实例
+        /// </summary>
+        /// <param name="context">上下文对象</param>
+        /// <param name="maxCount">最大用户令牌数量</param>
+        /// <param name="bufferSize">缓冲区大小</param>
+        /// <param name="completed">Socket操作完成事件处理程序</param>
         public UserTokenPool(IContext<ICoder> context, int maxCount, int bufferSize, EventHandler<SocketAsyncEventArgs> completed)
         {
             _maxCount = maxCount;
             _userTokenFactory = new UserTokenFactory();
             _bufferManager = new BufferManager(bufferSize * maxCount, bufferSize);
-
+            _concurrentQueue = new ConcurrentQueue<IUserToken>();
             for (int i = 0; i < maxCount; i++)
             {
                 IUserToken userToken = _userTokenFactory.Create(context);
@@ -70,15 +81,30 @@ namespace SAEA.Sockets.Core
             }
         }
 
+        /// <summary>
+        /// 从池中取出一个用户令牌
+        /// </summary>
+        /// <param name="timeOut">超时时间</param>
+        /// <returns>用户令牌</returns>
         public IUserToken Dequeue(int timeOut = 1000)
         {
-            var token = _concurrentQueue.Dequeue(timeOut);
-            if (token != null && token.ReadArgs != null)
-                _bufferManager.SetBuffer(token.ReadArgs);
-            return token;
+            IUserToken userToken;
+            _concurrentQueue.TryDequeue(out userToken);
+            if (userToken != null)
+                _bufferManager.SetBuffer(userToken.ReadArgs);
+            else
+            {
+                Thread.Sleep(100);
+                return Dequeue(timeOut);
+            }
+            return userToken;
         }
 
-
+        /// <summary>
+        /// 将用户令牌放回池中
+        /// </summary>
+        /// <param name="userToken">用户令牌</param>
+        /// <returns>是否成功放回</returns>
         public bool Enqueue(IUserToken userToken)
         {
             if (_concurrentQueue.Count >= _maxCount) return false;
@@ -97,12 +123,16 @@ namespace SAEA.Sockets.Core
                 catch { }
                 if (userToken.ReadArgs != null)
                     _bufferManager.FreeBuffer(userToken.ReadArgs);
+                userToken.ReleaseWrite();
                 _concurrentQueue.Enqueue(userToken);
                 return true;
             }
             return false;
         }
 
+        /// <summary>
+        /// 释放资源
+        /// </summary>
         public void Dispose()
         {
             _concurrentQueue.Clear();
