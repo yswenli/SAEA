@@ -37,7 +37,7 @@ namespace SAEA.RedisSocket.Core
         protected override void _cnn_OnMessage(byte[] msg)
         {
             RedisCoder.Enqueue(msg);
-            ConsoleHelper.Write(Encoding.UTF8.GetString(msg));
+            ConsoleHelper.WriteLine(Encoding.UTF8.GetString(msg));
         }
     }
 }

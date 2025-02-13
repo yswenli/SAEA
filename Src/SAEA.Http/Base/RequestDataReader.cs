@@ -46,21 +46,21 @@ namespace SAEA.Http.Base
         /// <param name="bufferSpan"></param>
         /// <param name="httpMessage"></param>
         /// <returns></returns>
-        public static bool Analysis(Span<byte> bufferSpan, out HttpMessage httpMessage)
+        public static int Analysis(Span<byte> bufferSpan, out HttpMessage httpMessage)
         {
             httpMessage = null;
 
-            var count = bufferSpan.Length;
+            var length = bufferSpan.Length;
 
             var index = bufferSpan.IndexOf(_dEnterBytes);
 
-            if (index == -1) return false;
+            if (index < 4) return 0;
 
-            if (index == count - 4)
+            if (index == length - 4)
             {
                 httpMessage = new HttpMessage();
                 httpMessage.HeaderStr = Encoding.ASCII.GetString(bufferSpan.ToArray());
-                httpMessage.Position = count;
+                httpMessage.Position = length;
             }
             else
             {
@@ -72,7 +72,7 @@ namespace SAEA.Http.Base
                 }
             }
 
-            if (httpMessage == null) return false;
+            if (httpMessage == null) return 0;
 
             //分析requestHeader
 
@@ -111,7 +111,6 @@ namespace SAEA.Http.Base
             httpMessage.Headers = GetRequestHeaders(lastRows);
 
             //cookies
-
             if (httpMessage.Headers.TryGetValue(RequestHeaderType.Cookie.GetDescription(), out string cookiesStr))
             {
                 httpMessage.Cookies = HttpCookies.Parse(cookiesStr);
@@ -136,7 +135,7 @@ namespace SAEA.Http.Base
                     }
                 }
             }
-            return true;
+            return index + 4;
         }
 
         /// <summary>
@@ -144,27 +143,26 @@ namespace SAEA.Http.Base
         /// </summary>
         /// <param name="requestData"></param>
         /// <param name="httpMessage"></param>
-        public static void AnalysisBody(byte[] requestData, HttpMessage httpMessage)
+        public static bool AnalysisBody(byte[] requestData, HttpMessage httpMessage)
         {
             var contentLen = httpMessage.ContentLength;
-
-            if (contentLen > 0)
+            var positon = httpMessage.Position;
+            try
             {
-                var positon = httpMessage.Position;
-
-                httpMessage.Body = requestData.AsSpan().Slice(positon, contentLen).ToArray();
-
-                if (httpMessage.ContentType.IndexOf(ConstHelper.FORMENCTYPE1) > -1)
+                if (requestData.Length>= positon + contentLen)
                 {
-                    httpMessage.Forms = GetRequestForms(Encoding.UTF8.GetString(httpMessage.Body));
-                }
-                else if (httpMessage.ContentType.IndexOf(ConstHelper.FORMENCTYPE2) > -1)
-                {
-                    using (MemoryStream ms = new MemoryStream(httpMessage.Body))
+                    httpMessage.Body = requestData.AsSpan().Slice(positon, contentLen).ToArray();
+
+                    if (httpMessage.ContentType.IndexOf(ConstHelper.FORMENCTYPE1) > -1)
                     {
-                        ms.Position = 0;
-                        using (var sr = new SAEA.Common.IO.StreamReader(ms))
+                        httpMessage.Forms = GetRequestForms(Encoding.UTF8.GetString(httpMessage.Body));
+                    }
+                    else if (httpMessage.ContentType.IndexOf(ConstHelper.FORMENCTYPE2) > -1)
+                    {
+                        using (MemoryStream ms = new MemoryStream(httpMessage.Body))
                         {
+                            ms.Position = 0;
+                            using var sr = new SAEA.Common.IO.StreamReader(ms);
                             StringBuilder sb = new StringBuilder();
                             var str = string.Empty;
                             do
@@ -200,12 +198,17 @@ namespace SAEA.Http.Base
                             while (true);
                         }
                     }
-                }
-                else
-                {
-                    httpMessage.Json = Encoding.UTF8.GetString(httpMessage.Body);
+                    else
+                    {
+                        httpMessage.Json = Encoding.UTF8.GetString(httpMessage.Body);
+                    }
+                    return true;
                 }
             }
+            catch
+            {
+            }
+            return false;
         }
         #region private
 

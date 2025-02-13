@@ -20,6 +20,7 @@ using SAEA.Common.IO;
 using SAEA.FTP.Core;
 using SAEA.FTP.Model;
 using SAEA.FTP.Net;
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -60,7 +61,7 @@ namespace SAEA.FTP
 
                 var cr = ClientRequest.Parse(msg);
 
-                var cmd = Enum.Parse(typeof(FTPCommand), cr.Cmd);
+                Enum.TryParse(cr.Cmd, out FTPCommand cmd);
 
                 var userName = FTPServerConfigManager.GetUserBind(id);
 
@@ -132,7 +133,7 @@ namespace SAEA.FTP
                     case FTPCommand.SYST:
                         _cmdSocket.Reply(id, ServerResponseCode.系统类型回复, "WINDOWS Type: SAEA FTP Server");
                         return;
-                    case FTPCommand.OPTS:                    
+                    case FTPCommand.OPTS:
                         _cmdSocket.Reply(id, ServerResponseCode.成功, "WINDOWS Type: SAEA FTP Server");
                         break;
                     case FTPCommand.FEAT:
@@ -181,7 +182,7 @@ namespace SAEA.FTP
                         break;
                     case FTPCommand.CDUP:
 
-                        var parentDir = PathHelper.GetParent(user.CurrentPath);
+                        var parentDir = PathHelper.GetParent(user.CurrentFtpPath);
 
                         if (parentDir != null)
                         {
@@ -199,7 +200,7 @@ namespace SAEA.FTP
                         _cmdSocket.Reply(id, ServerResponseCode.找不到文件或文件夹, "No such directory.");
                         break;
                     case FTPCommand.PWD:
-                        _cmdSocket.Reply(id, ServerResponseCode.路径名建立, $"\"{ user.CurrentFtpPath}\"");
+                        _cmdSocket.Reply(id, ServerResponseCode.路径名建立, $"\"{user.CurrentFtpPath}\"");
                         break;
 
                     case FTPCommand.PASV:
@@ -217,8 +218,7 @@ namespace SAEA.FTP
                     case FTPCommand.PORT:
                         _cmdSocket.Reply(id, ServerResponseCode.禁用, "Port is disabled.");
                         break;
-                    case FTPCommand.MLSD:
-
+                    case FTPCommand.LIST:
                         if (!string.IsNullOrEmpty(cr.Arg) && cr.Arg != "/")
                         {
                             PathHelper.Combine(user.CurrentPath, cr.Arg, out newDirPath);
@@ -263,7 +263,57 @@ namespace SAEA.FTP
 
                         var str = sb.ToString();
 
-                        _cmdSocket.SendData(userName, Encoding.UTF8.GetBytes(str));
+                        _cmdSocket.SendData(userName, Encoding.ASCII.GetBytes(str));
+                        OnLog($"已发送数据到{userName}", null);
+
+                        _cmdSocket.Reply(id, ServerResponseCode.文件行为完成, "File status okay; about to open data connection.");
+                        break;
+                    case FTPCommand.MLSD:
+                        if (!string.IsNullOrEmpty(cr.Arg) && cr.Arg != "/")
+                        {
+                            PathHelper.Combine(user.CurrentPath, cr.Arg, out newDirPath);
+
+                            if (string.IsNullOrEmpty(newDirPath))
+                            {
+                                _cmdSocket.Reply(id, ServerResponseCode.找不到文件或文件夹, "No such directory.");
+                                return;
+                            }
+                        }
+
+                        dirList = PathHelper.GetDirectories(user.CurrentPath, out fileList);
+
+                        sb = new StringBuilder();
+
+                        if (dirList != null && dirList.Any())
+                        {
+                            foreach (var item in dirList)
+                            {
+                                if (item == dirList.Last())
+                                    sb.Append($"type=dir;modify={item.LastWriteTime.ToFileTimeUtc()}; {item.Name}");
+                                else
+                                    sb.AppendLine($"type=dir;modify={item.LastWriteTime.ToFileTimeUtc()}; {item.Name}");
+                            }
+                        }
+
+                        if (fileList != null && fileList.Any())
+                        {
+                            if (sb.Length > 0)
+                            {
+                                sb.Append(Environment.NewLine);
+                            }
+
+                            foreach (var item in fileList)
+                            {
+                                if (item == fileList.Last())
+                                    sb.Append($"type=file;modify={item.LastWriteTime.ToFileTimeUtc()};size={item.Length}; {item.Name}");
+                                else
+                                    sb.AppendLine($"type=file;modify={item.LastWriteTime.ToFileTimeUtc()};size={item.Length}; {item.Name}");
+                            }
+                        }
+
+                        str = sb.ToString();
+
+                        _cmdSocket.SendData(userName, Encoding.ASCII.GetBytes(str));
                         OnLog($"已发送数据到{userName}", null);
 
                         _cmdSocket.Reply(id, ServerResponseCode.打开连接, "File status okay; about to open data connection.");

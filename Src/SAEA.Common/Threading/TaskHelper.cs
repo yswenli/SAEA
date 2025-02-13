@@ -63,9 +63,9 @@ namespace SAEA.Common.Threading
             {
                 while (true)
                 {
+                    if (priod > 0)
+                        Thread.Sleep(priod);
                     action?.Invoke();
-
-                    Thread.Sleep(priod);
                 }
             }, TaskCreationOptions.LongRunning);
         }

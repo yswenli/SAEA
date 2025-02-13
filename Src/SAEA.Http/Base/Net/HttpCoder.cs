@@ -37,9 +37,6 @@ namespace SAEA.Http.Base.Net
         // 缓存接收到的数据
         List<byte> _cache = new List<byte>();
 
-        // 总长度
-        int _totlalLen = -1;
-
         /// <summary>
         /// 将ISocketProtocal对象编码为字节数组
         /// </summary>
@@ -72,34 +69,41 @@ namespace SAEA.Http.Base.Net
         {
             var result = new List<HttpMessage>();
             _cache.AddRange(data);
-            var buffer = _cache.ToArray();
-            if (_totlalLen == -1)
+            byte[] buffer;
+
+            while (_cache.Count > 0)
             {
-                if (RequestDataReader.Analysis(buffer, out HttpMessage httpMessage))
+                buffer = _cache.ToArray();
+                try
                 {
-                    httpMessage.ID = id;
-
-                    var contentLen = httpMessage.ContentLength;
-
-                    var positon = httpMessage.Position;
-
-                    _totlalLen = contentLen + positon;
-
-                    // GET请求不需要处理body
-                    if (httpMessage.Method == ConstHelper.GET)
+                    if (RequestDataReader.Analysis(buffer, out HttpMessage httpMessage) > 0)
                     {
-                        _cache.RemoveRange(0, _totlalLen);
-                        _totlalLen = -1;
-                        result.Add(httpMessage);
-                    }
-                    else
-                    {
-                        if (buffer.Length >= _totlalLen)
+                        httpMessage.ID = id;
+
+                        var contentLen = httpMessage.ContentLength;
+
+                        var positon = httpMessage.Position;
+
+                        var offset = contentLen + positon;
+
+                        if (buffer.Length >= offset)
                         {
-                            RequestDataReader.AnalysisBody(buffer, httpMessage);
-                            _cache.RemoveRange(0, _totlalLen);
-                            _totlalLen = -1;
-                            result.Add(httpMessage);
+                            // GET请求没有body
+                            if (httpMessage.Method == ConstHelper.GET)
+                            {
+                                _cache.RemoveRange(0, offset);
+                                result.Add(httpMessage);
+                                continue;
+                            }
+                            else
+                            {
+                                if (RequestDataReader.AnalysisBody(buffer, httpMessage))
+                                {
+                                    _cache.RemoveRange(0, offset);
+                                    result.Add(httpMessage);
+                                    continue;
+                                }
+                            }
                         }
                         else
                         {
@@ -107,20 +111,13 @@ namespace SAEA.Http.Base.Net
                         }
                     }
                 }
-            }
-            else if (buffer.Length >= _totlalLen)
-            {
-                if (RequestDataReader.Analysis(buffer, out HttpMessage httpMessage1))
+                catch
                 {
-                    httpMessage1.ID = id;
-                    RequestDataReader.AnalysisBody(buffer, httpMessage1);
-                    _cache.RemoveRange(0, _totlalLen);
-                    _totlalLen = -1;
-                    result.Add(httpMessage1);
+                    return result;
                 }
-                else
+                finally
                 {
-                    throw new DataMisalignedException("解析失败");
+                    buffer.Clear();
                 }
             }
             return result;
@@ -131,7 +128,6 @@ namespace SAEA.Http.Base.Net
         /// </summary>
         public void Clear()
         {
-            _totlalLen = -1;
             _cache.Clear();
         }
     }

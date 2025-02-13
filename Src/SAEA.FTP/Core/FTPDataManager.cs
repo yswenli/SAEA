@@ -17,6 +17,7 @@
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.Common.IO;
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -124,7 +125,7 @@ namespace SAEA.FTP.Core
 
         public string ReadAllText()
         {
-            while (!_isComplete)
+            while (_list.Count < 1)
             {
                 ThreadHelper.Sleep(500);
             }

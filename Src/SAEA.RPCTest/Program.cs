@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace SAEA.RPCTest
@@ -219,30 +220,17 @@ namespace SAEA.RPCTest
         }
 
 
-        #region ms serialize
-        //public static byte[] SerializeBinary(object request)
-        //{
-        //    BinaryFormatter serializer = new BinaryFormatter();
-
-        //    using (var memStream = new MemoryStream())
-        //    {
-        //        serializer.Serialize(memStream, request);
-
-        //        return memStream.ToArray();
-        //    }
-        //}
+        public static byte[] SerializeBinary(object request)
+        {
+            return JsonSerializer.SerializeToUtf8Bytes(request);
+        }
 
 
-        //public static object DeSerializeBinary(byte[] data)
-        //{
-        //    using (MemoryStream memStream = new MemoryStream(data))
-        //    {
-        //        BinaryFormatter deserializer = new BinaryFormatter();
+        public static object DeSerializeBinary(byte[] data, Type type)
+        {
+            return JsonSerializer.Deserialize(data, type);
+        }
 
-        //        return deserializer.Deserialize(memStream);
-        //    }
-        //}
-        #endregion
 
 
 
@@ -283,7 +271,7 @@ namespace SAEA.RPCTest
             List<byte[]> list = new List<byte[]>();
             for (int i = 0; i < count; i++)
             {
-                var bytes = new byte[0]; //SerializeBinary(groupInfo);
+                var bytes=SerializeBinary(groupInfo);
                 len1 = bytes.Length;
                 list.Add(bytes);
             }
@@ -292,7 +280,7 @@ namespace SAEA.RPCTest
             sw.Restart();
             for (int i = 0; i < count; i++)
             {
-                var obj = new object();//DeSerializeBinary(list[i]);
+                DeSerializeBinary(list[i], typeof(GroupInfo));
             }
             ConsoleHelper.WriteLine($"BinaryFormatter实体反序列化平均：{count * 1000 / sw.ElapsedMilliseconds} 次/秒");
             ConsoleHelper.WriteLine($"BinaryFormatter序列化生成bytes大小：{len1 * count * 1.0 / 1024 / 1024} Mb");

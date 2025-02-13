@@ -18,6 +18,7 @@
 using SAEA.Sockets.Interface;
 
 using System;
+using System.Collections.Generic;
 
 namespace SAEA.FTP.Net
 {
@@ -34,6 +35,11 @@ namespace SAEA.FTP.Net
 
         }
         public void Clear()
+        {
+            throw new NotImplementedException();
+        }
+
+        public List<ISocketProtocal> Decode(byte[] data, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
         {
             throw new NotImplementedException();
         }

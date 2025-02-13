@@ -71,19 +71,19 @@
     <Reference Include="protobuf-net.Core, Version=3.0.0.0, Culture=neutral, PublicKeyToken=257b51d87d2e4d67, processorArchitecture=MSIL">
       <HintPath>..\packages\protobuf-net.Core.3.2.46\lib\net462\protobuf-net.Core.dll</HintPath>
     </Reference>
-    <Reference Include="SAEA.Common, Version=7.25.2.10, Culture=neutral, PublicKeyToken=15cd4617b720be44, processorArchitecture=MSIL">
+    <Reference Include="SAEA.Common, Version=7.25.2.13, Culture=neutral, PublicKeyToken=15cd4617b720be44, processorArchitecture=MSIL">
       <HintPath>..\packages\SAEA.Common.7.25.2.11\lib\netstandard2.0\SAEA.Common.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="SAEA.Http, Version=7.25.2.10, Culture=neutral, PublicKeyToken=15cd4617b720be44, processorArchitecture=MSIL">
+    <Reference Include="SAEA.Http, Version=7.25.2.13, Culture=neutral, PublicKeyToken=15cd4617b720be44, processorArchitecture=MSIL">
       <HintPath>..\packages\SAEA.Http.7.25.2.11\lib\netstandard2.0\SAEA.Http.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="SAEA.MVC, Version=7.25.2.10, Culture=neutral, PublicKeyToken=15cd4617b720be44, processorArchitecture=MSIL">
+    <Reference Include="SAEA.MVC, Version=7.25.2.13, Culture=neutral, PublicKeyToken=15cd4617b720be44, processorArchitecture=MSIL">
       <HintPath>..\packages\SAEA.MVC.7.25.2.11\lib\netstandard2.0\SAEA.MVC.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="SAEA.Sockets, Version=7.25.2.10, Culture=neutral, PublicKeyToken=15cd4617b720be44, processorArchitecture=MSIL">
+    <Reference Include="SAEA.Sockets, Version=7.25.2.13, Culture=neutral, PublicKeyToken=15cd4617b720be44, processorArchitecture=MSIL">
       <HintPath>..\packages\SAEA.Sockets.7.25.2.11\lib\netstandard2.0\SAEA.Sockets.dll</HintPath>
       <Private>True</Private>
     </Reference>

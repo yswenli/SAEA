@@ -42,7 +42,7 @@ namespace SAEA.Common
 
             try
             {
-                using (var fs = File.Open(_filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                using (var fs = File.Open(_filePath, FileMode.OpenOrCreate, FileAccess.Read, FileShare.ReadWrite))
                 {
                     var bytes = new byte[1024];
 

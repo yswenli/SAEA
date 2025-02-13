@@ -1,5 +1,7 @@
-﻿using SAEA.DNS;
+﻿using SAEA.Common;
+using SAEA.DNS;
 using SAEA.DNS.Model;
+
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,22 +23,22 @@ namespace SAEA.DNSTest
 
             _server.OnRequested += (sender, e) =>
             {
-                Console.WriteLine("[DNSServer Requested]: {0}", e.Request);
+                ConsoleHelper.WriteLine("[DNSServer Requested]: {0}", ConsoleColor.Blue, e.Request);
             };
 
             _server.OnResponded += (sender, e) =>
             {
-                Console.WriteLine("[DNSServer Responded]: {0} => {1}", e.Request, e.Response);
+                ConsoleHelper.WriteLine("[DNSServer Responded]: {0} => {1}", ConsoleColor.Green, e.Request, e.Response);
             };
 
             _server.OnErrored += (sender, e) =>
             {
-                Console.WriteLine("[DNSServer Errored]: {0}", e.Exception.Message);
+                ConsoleHelper.WriteLine("[DNSServer Errored]: {0}", ConsoleColor.Red, e.Exception.Message);
             };
 
             _server.OnListening += async (sender, e) =>
             {
-                Console.WriteLine("[DNSServer Listening]");
+                ConsoleHelper.WriteLine("[DNSServer Listening]", ConsoleColor.Green);
 
                 //await new DnsClient("127.0.0.1").Lookup("yswenli.net");
             };
@@ -58,7 +60,7 @@ namespace SAEA.DNSTest
 
             _server.OnRequested += (sender, e) =>
             {
-                Console.WriteLine("[DNSServer Requested]: {0}", e.Request);                
+                Console.WriteLine("[DNSServer Requested]: {0}", e.Request);
             };
 
             _server.OnResponded += (sender, e) =>
