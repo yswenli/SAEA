@@ -120,7 +120,7 @@ namespace SAEA.Http.Base
             if (httpMessage.Method == ConstHelper.POST)
             {
                 //form-data
-                if (httpMessage.ContentType != null && httpMessage.ContentType.AsSpan().Contains(ConstHelper.FORMENCTYPE2.AsSpan(), StringComparison.InvariantCultureIgnoreCase))
+                if (httpMessage.ContentType != null && httpMessage.ContentType.AsSpan().Contains(ConstHelper.FormData.AsSpan(), StringComparison.InvariantCultureIgnoreCase))
                 {
                     httpMessage.IsFormData = true;
 
@@ -149,15 +149,15 @@ namespace SAEA.Http.Base
             var positon = httpMessage.Position;
             try
             {
-                if (requestData.Length>= positon + contentLen)
+                if (requestData.Length >= positon + contentLen)
                 {
                     httpMessage.Body = requestData.AsSpan().Slice(positon, contentLen).ToArray();
 
-                    if (httpMessage.ContentType.IndexOf(ConstHelper.FORMENCTYPE1) > -1)
+                    if (httpMessage.ContentType.IndexOf(ConstHelper.FormUrlEncode, StringComparison.InvariantCultureIgnoreCase) > -1)
                     {
                         httpMessage.Forms = GetRequestForms(Encoding.UTF8.GetString(httpMessage.Body));
                     }
-                    else if (httpMessage.ContentType.IndexOf(ConstHelper.FORMENCTYPE2) > -1)
+                    else if (httpMessage.ContentType.IndexOf(ConstHelper.FormData, StringComparison.InvariantCultureIgnoreCase) > -1)
                     {
                         using (MemoryStream ms = new MemoryStream(httpMessage.Body))
                         {
@@ -198,7 +198,7 @@ namespace SAEA.Http.Base
                             while (true);
                         }
                     }
-                    else
+                    else if (httpMessage.ContentType.IndexOf(ConstHelper.Json, StringComparison.InvariantCultureIgnoreCase) > -1)
                     {
                         httpMessage.Json = Encoding.UTF8.GetString(httpMessage.Body);
                     }
@@ -207,6 +207,7 @@ namespace SAEA.Http.Base
             }
             catch
             {
+                
             }
             return false;
         }

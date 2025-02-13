@@ -95,7 +95,7 @@ namespace SAEA.MVC
             if (beforeResult == null || beforeResult is EmptyResult)
             {
                 if (!string.IsNullOrEmpty(HttpContext.Current.Request.ContentType)
-               && HttpContext.Current.Request.ContentType.IndexOf(ConstHelper.FORMENCTYPE3, StringComparison.InvariantCultureIgnoreCase) > -1
+               && HttpContext.Current.Request.ContentType.IndexOf(ConstHelper.Json, StringComparison.InvariantCultureIgnoreCase) > -1
                && !string.IsNullOrEmpty(HttpContext.Current.Request.Json))
                 {
                     try

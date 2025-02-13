@@ -23,6 +23,7 @@
 *****************************************************************************/
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
@@ -93,49 +94,46 @@ namespace SAEA.WebSocket.Model
                 extPayloadLength = len.InternalToByteArray(EndianOrder.Big);
             }
 
-            using (var buff = new MemoryStream())
+            var buff = new List<byte>();
+
+            var header = (int)0x1;
+            header = (header << 1) + (byte)0x0;
+            header = (header << 1) + (byte)0x0;
+            header = (header << 1) + (byte)0x0;
+            header = (header << 4) + this.Type;
+
+            if (masked)
+                header = (header << 1) + (byte)0x1;
+            else
+                header = (header << 1) + (byte)0x0;
+
+            header = (header << 7) + (byte)payloadLength;
+            buff.AddRange(((ushort)header).InternalToByteArray(EndianOrder.Big));
+
+
+            byte[] maskBytes = null;
+
+            if (masked)
             {
-                var header = (int)0x1;
-                header = (header << 1) + (byte)0x0;
-                header = (header << 1) + (byte)0x0;
-                header = (header << 1) + (byte)0x0;
-                header = (header << 4) + this.Type;
-
-                if (masked)
-                    header = (header << 1) + (byte)0x1;
-                else
-                    header = (header << 1) + (byte)0x0;
-
-                header = (header << 7) + (byte)payloadLength;
-                buff.Write(((ushort)header).InternalToByteArray(EndianOrder.Big), 0, 2);
-
-
-                byte[] maskBytes = null;
-
-                if (masked)
-                {
-                    maskBytes = _mask.ToBytes();
-                    buff.Write(maskBytes, 0, 4);
-                }
-
-
-                if (payloadLength > 125)
-                    buff.Write(extPayloadLength, 0, payloadLength == 126 ? 2 : 8);
-
-
-                if (payloadLength > 0)
-                {
-                    if (masked)
-                    {
-                        WSCoder.DoMask(this.Content, 0, this.Content.Length, maskBytes);
-                    }
-
-                    buff.Write(this.Content, 0, (int)this.BodyLength);
-                }
-
-                buff.Seek(0, SeekOrigin.Begin);
-                return buff.ToArray();
+                maskBytes = _mask.ToBytes();
+                buff.AddRange(maskBytes);
             }
+
+
+            if (payloadLength > 125)
+                buff.AddRange(extPayloadLength);
+
+            if (payloadLength > 0)
+            {
+                if (masked)
+                {
+                    WSCoder.DoMask(this.Content, 0, this.Content.Length, maskBytes);
+                }
+
+                buff.AddRange(this.Content);
+            }
+            return buff.ToArray();
+
         }
 
         /// <summary>
@@ -152,7 +150,7 @@ namespace SAEA.WebSocket.Model
         /// </summary>
         public void Dispose()
         {
-            if(this.Content!=null && this.Content.Any())
+            if (this.Content != null && this.Content.Any())
             {
                 this.Content.Clear();
             }

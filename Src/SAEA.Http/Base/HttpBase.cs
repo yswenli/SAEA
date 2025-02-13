@@ -98,9 +98,19 @@ namespace SAEA.Http.Base
             get
             {
                 var key = ResponseHeaderType.ContentType.GetDescription();
-
                 Headers.TryGetValue(key, out string type);
-                
+                if (string.IsNullOrEmpty(type))
+                {
+                    if (Method.Equals("GET", StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        type = "text/html";
+                    }
+                    else
+                    {
+                        type = "application/json; charset=UTF-8";
+                    }
+                    Headers[key] = type;
+                }
                 return type;
             }
             set

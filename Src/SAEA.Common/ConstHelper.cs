@@ -52,17 +52,17 @@ namespace SAEA.Common
         /// <summary>
         /// application/x-www-form-urlencoded
         /// </summary>
-        public const string FORMENCTYPE1 = "application/x-www-form-urlencoded";
+        public const string FormUrlEncode = "application/x-www-form-urlencoded";
 
         /// <summary>
         /// multipart/form-data
         /// </summary>
-        public const string FORMENCTYPE2 = "multipart/form-data";
+        public const string FormData = "multipart/form-data";
 
         /// <summary>
         /// application/json
         /// </summary>
-        public const string FORMENCTYPE3 = "application/json";
+        public const string Json = "application/json; charset=UTF-8";
 
         public const string ONACTIONEXECUTING = "OnActionExecuting";
 
@@ -86,8 +86,6 @@ namespace SAEA.Common
         public const string DENTER = "\r\n\r\n";
 
         public const string SPACE = " ";
-
-        public const string JSONCONTENTTYPE = "application/json; charset=utf-8";
 
         public const string ASTERRISK = "*";
 
@@ -160,7 +158,7 @@ namespace SAEA.Common
                     //支持跨域
                     builder.AppendLine("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
                     builder.AppendLine("Access-Control-Allow-Origin: *");
-                    builder.Append("Access-Control-Allow-Headers: Content-Type,X-Requested-With,Accept,yswenli");//可自行增加额外的header
+                    builder.Append("Access-Control-Allow-Headers: Content-Type,X-Requested-With,Accept,Authorization,token,yswenli");//可自行增加额外的header
                     if (_crossDomainHeaders.Any())
                     {
                         foreach (var item in _crossDomainHeaders)
@@ -214,7 +212,7 @@ namespace SAEA.Common
 
 
 
-        public const string SESSIONID = "SAEA.Http.Server.SessionID";
+        public const string SESSIONID = "SAEA.HttpServer.SessionID";
 
 
         public const string OUTPUTCACHEATTRIBUTE = "SAEA.MVC.OutputCacheAttribute";

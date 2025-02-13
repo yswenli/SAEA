@@ -21,9 +21,10 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Http.Model;
 using System;
 using System.Collections.Generic;
+
+using SAEA.Http.Model;
 
 namespace SAEA.Http.Base
 {
