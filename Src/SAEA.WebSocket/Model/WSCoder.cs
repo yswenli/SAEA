@@ -73,74 +73,80 @@ namespace SAEA.WebSocket.Model
         /// <param name="data">接收到的数据</param>
         private List<ISocketProtocal> Decode(byte[] data)
         {
-            // 将新数据添加到缓冲区
             _buffer.AddRange(data);
             List<ISocketProtocal> result = new List<ISocketProtocal>();
-            while (_buffer.Count > 3)
+            try
             {
-                byte[] payloadData;
-                var opcode = (byte)(_buffer[0] & 0x0f);
-                bool mask = (_buffer[1] & 0x80) == 0x80; // 是否包含掩码  
-                int payloadLen = _buffer[1] & 0x7F; // 数据长度
-                var buffer = _buffer.ToArray();
-                if (payloadLen + 2 > _buffer.Count) break;
-                if (mask)
+                while (_buffer.Count > 3)
                 {
-                    var masks = new byte[4];
-                    if (payloadLen == 126)
+                    byte[] payloadData;
+                    var opcode = (byte)(_buffer[0] & 0x0f);
+                    bool mask = (_buffer[1] & 0x80) == 0x80; // 是否包含掩码  
+                    int payloadLen = _buffer[1] & 0x7F; // 数据长度
+                    var buffer = _buffer.ToArray();
+                    if (payloadLen + 2 > _buffer.Count) break;
+                    if (mask)
                     {
-                        var len = (ushort)(_buffer[2] << 8 | _buffer[3]);
-                        if (len + 8 > _buffer.Count) break;
-                        buffer.AsSpan().Slice(4, 4).CopyTo(masks);
-                        payloadData = new byte[len];
-                        buffer.AsSpan().Slice(8, len).CopyTo(payloadData);
-                        DoMask(payloadData, 0, len, masks);
-                        result.Add(new WSProtocal(opcode, payloadData));
-                        if (_buffer.Count >= 8 + len)
-                            _buffer.RemoveRange(0, 8 + len);
+                        var masks = new byte[4];
+                        if (payloadLen == 126)
+                        {
+                            var len = (ushort)(_buffer[2] << 8 | _buffer[3]);
+                            if (len + 8 > _buffer.Count) break;
+                            buffer.AsSpan().Slice(4, 4).CopyTo(masks);
+                            payloadData = new byte[len];
+                            buffer.AsSpan().Slice(8, len).CopyTo(payloadData);
+                            DoMask(payloadData, 0, len, masks);
+                            result.Add(new WSProtocal(opcode, payloadData));
+                            if (_buffer.Count >= 8 + len)
+                                _buffer.RemoveRange(0, 8 + len);
+                            else
+                                break;
+                        }
                         else
-                            break;
+                        {
+                            if (_buffer.Count < 6 + payloadLen) break;
+                            buffer.AsSpan().Slice(2, 4).CopyTo(masks);
+                            payloadData = new byte[payloadLen];
+                            buffer.AsSpan().Slice(6, payloadLen).CopyTo(payloadData);
+                            DoMask(payloadData, 0, payloadLen, masks);
+                            result.Add(new WSProtocal(opcode, payloadData));
+                            if (_buffer.Count >= 6 + payloadLen)
+                                _buffer.RemoveRange(0, 6 + payloadLen);
+                            else
+                                break;
+                        }
                     }
                     else
                     {
-                        if (_buffer.Count < 6 + payloadLen) break;
-                        buffer.AsSpan().Slice(2, 4).CopyTo(masks);
-                        payloadData = new byte[payloadLen];
-                        buffer.AsSpan().Slice(6, payloadLen).CopyTo(payloadData);
-                        DoMask(payloadData, 0, payloadLen, masks);
-                        result.Add(new WSProtocal(opcode, payloadData));
-                        if (_buffer.Count >= 6 + payloadLen)
-                            _buffer.RemoveRange(0, 6 + payloadLen);
+                        if (payloadLen == 126)
+                        {
+                            var len = (ushort)(buffer[2] << 8 | buffer[3]);
+                            if (len + 8 > buffer.Length) break;
+                            payloadData = new byte[len];
+                            buffer.AsSpan().Slice(4, len).CopyTo(payloadData);
+                            result.Add(new WSProtocal(opcode, payloadData));
+                            if (_buffer.Count >= 4 + len)
+                                _buffer.RemoveRange(0, 4 + len);
+                            else
+                                break;
+                        }
                         else
-                            break;
+                        {
+                            if (_buffer.Count < 2 + payloadLen) break;
+                            payloadData = new byte[payloadLen];
+                            buffer.AsSpan().Slice(2, payloadLen).CopyTo(payloadData);
+                            result.Add(new WSProtocal(opcode, payloadData));
+                            if (_buffer.Count >= 2 + payloadLen)
+                                _buffer.RemoveRange(0, 2 + payloadLen);
+                            else
+                                break;
+                        }
                     }
                 }
-                else
-                {
-                    if (payloadLen == 126)
-                    {
-                        var len = (ushort)(buffer[2] << 8 | buffer[3]);
-                        if (len + 8 > buffer.Length) break;
-                        payloadData = new byte[len];
-                        buffer.AsSpan().Slice(4, len).CopyTo(payloadData);
-                        result.Add(new WSProtocal(opcode, payloadData));
-                        if (_buffer.Count >= 4 + len)
-                            _buffer.RemoveRange(0, 4 + len);
-                        else
-                            break;
-                    }
-                    else
-                    {
-                        if (_buffer.Count < 2 + payloadLen) break;
-                        payloadData = new byte[payloadLen];
-                        buffer.AsSpan().Slice(2, payloadLen).CopyTo(payloadData);
-                        result.Add(new WSProtocal(opcode, payloadData));
-                        if (_buffer.Count >= 2 + payloadLen)
-                            _buffer.RemoveRange(0, 2 + payloadLen);
-                        else
-                            break;
-                    }
-                }
+            }
+            catch(Exception ex)
+            {
+
             }
             return result;
         }

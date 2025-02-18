@@ -29,23 +29,39 @@ using SAEA.Sockets.Interface;
 
 namespace SAEA.Http.Base.Net
 {
+    /// <summary>
+    /// HttpSocket类，实现IHttpSocket接口
+    /// </summary>
     class HttpSocket : IHttpSocket
     {
         IServerSocket _serverSokcet;
 
         ISocketOption _option;
 
+        /// <summary>
+        /// 请求事件
+        /// </summary>
         public event Action<IUserToken, HttpMessage> OnRequested;
 
+        /// <summary>
+        /// 错误事件
+        /// </summary>
         public event Action<Exception> OnError;
 
-        public HttpSocket(int port, int bufferSize = 1024 * 10, int count = 10000, int timeOut = 180 * 1000)
+        /// <summary>
+        /// HttpSocket构造函数
+        /// </summary>
+        /// <param name="port">端口号</param>
+        /// <param name="bufferSize">缓冲区大小</param>
+        /// <param name="maxConnect">连接数</param>
+        /// <param name="timeOut">超时时间</param>
+        public HttpSocket(int port, int bufferSize = 64 * 1024, int maxConnect = 1000, int timeOut = 180 * 1000)
         {
             var optionBuilder = new SocketOptionBuilder()
                .SetSocket(Sockets.Model.SAEASocketType.Tcp)
                .UseIocp<HttpCoder>()
                .SetPort(port)
-               .SetCount(count)
+               .SetMaxConnects(maxConnect)
                .SetReadBufferSize(bufferSize)
                .SetTimeOut(timeOut)
                .SetFreeTime(timeOut)
@@ -58,6 +74,11 @@ namespace SAEA.Http.Base.Net
             _serverSokcet.OnError += _serverSokcet_OnError;
         }
 
+        /// <summary>
+        /// 接收数据事件处理
+        /// </summary>
+        /// <param name="userToken">用户令牌</param>
+        /// <param name="data">接收的数据</param>
         private void _serverSokcet_OnReceive(object userToken, byte[] data)
         {
             var ut = (IUserToken)userToken;
@@ -81,33 +102,56 @@ namespace SAEA.Http.Base.Net
             }
         }
 
+        /// <summary>
+        /// 错误事件处理
+        /// </summary>
+        /// <param name="ID">会话ID</param>
+        /// <param name="ex">异常信息</param>
         private void _serverSokcet_OnError(string ID, Exception ex)
         {
             OnError?.Invoke(ex);
         }
 
+        /// <summary>
+        /// 发送数据
+        /// </summary>
+        /// <param name="userToken">用户令牌</param>
+        /// <param name="data">发送的数据</param>
         public void Send(IUserToken userToken, byte[] data)
         {
             _serverSokcet.SendAsync(userToken.ID, data);
         }
 
+        /// <summary>
+        /// 断开连接
+        /// </summary>
+        /// <param name="userToken">用户令牌</param>
         public void Disconnecte(IUserToken userToken)
         {
             _serverSokcet.Disconnect(userToken.ID);
         }
 
-
+        /// <summary>
+        /// 结束会话
+        /// </summary>
+        /// <param name="userToken">用户令牌</param>
+        /// <param name="data">结束的数据</param>
         public void End(IUserToken userToken, byte[] data)
         {
             _serverSokcet.End(userToken.ID, data);
         }
 
-
+        /// <summary>
+        /// 启动服务器
+        /// </summary>
         public void Start()
         {
             _serverSokcet.Start();
         }
 
+        /// <summary>
+        /// 停止服务器
+        /// </summary>
         public void Stop()
         {
             _serverSokcet.Stop();

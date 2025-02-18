@@ -328,5 +328,25 @@ namespace SAEA.Common
 
             return len;
         }
+
+        /// <summary>
+        /// 将字符串转为base64字符串
+        /// </summary>
+        /// <param name="str"></param>
+        /// <returns></returns>
+        public static string ToBase64String(this string str)
+        {
+            return System.Convert.ToBase64String(Encoding.UTF8.GetBytes(str));
+        }
+
+        /// <summary>
+        /// 将base64字符串转为字符串
+        /// </summary>
+        /// <param name="base64Str"></param>
+        /// <returns></returns>
+        public static string FromBase64String(this string base64Str)
+        {
+            return Encoding.UTF8.GetString(System.Convert.FromBase64String(base64Str));
+        }
     }
 }

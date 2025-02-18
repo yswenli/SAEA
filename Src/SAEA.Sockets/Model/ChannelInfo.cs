@@ -37,14 +37,29 @@ using SAEA.Common;
 
 namespace SAEA.Sockets.Model
 {
+    /// <summary>
+    /// 表示通道信息的类
+    /// </summary>
     public class ChannelInfo
     {
+        /// <summary>
+        /// 获取或设置通道的唯一标识符
+        /// </summary>
         public string ID { get; set; }
 
+        /// <summary>
+        /// 获取或设置客户端的Socket对象
+        /// </summary>
         public Socket ClientSocket { get; set; }
 
+        /// <summary>
+        /// 获取或设置通道的流对象
+        /// </summary>
         public Stream Stream { get; set; }
 
+        /// <summary>
+        /// 获取或设置通道的过期时间
+        /// </summary>
         public DateTime Expired { get; set; } = DateTimeHelper.Now;
     }
 }

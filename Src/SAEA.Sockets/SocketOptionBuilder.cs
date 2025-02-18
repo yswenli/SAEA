@@ -236,7 +236,7 @@ namespace SAEA.Sockets
         /// </summary>
         /// <param name="size"></param>
         /// <returns></returns>
-        public SocketOptionBuilder SetReadBufferSize(int size = 1024)
+        public SocketOptionBuilder SetReadBufferSize(int size = 64 * 1024)
         {
             _socketOption.ReadBufferSize = size;
             return this;
@@ -247,7 +247,7 @@ namespace SAEA.Sockets
         /// </summary>
         /// <param name="size"></param>
         /// <returns></returns>
-        public SocketOptionBuilder SetWriteBufferSize(int size = 1024)
+        public SocketOptionBuilder SetWriteBufferSize(int size = 64 * 1024)
         {
             _socketOption.WriteBufferSize = size;
             return this;
@@ -256,11 +256,11 @@ namespace SAEA.Sockets
         /// <summary>
         /// 服务器中支持的客户端数
         /// </summary>
-        /// <param name="count"></param>
+        /// <param name="maxConnects"></param>
         /// <returns></returns>
-        public SocketOptionBuilder SetCount(int count = 100)
+        public SocketOptionBuilder SetMaxConnects(int maxConnects = 1000)
         {
-            _socketOption.Count = count;
+            _socketOption.MaxConnects = maxConnects;
             return this;
         }
 

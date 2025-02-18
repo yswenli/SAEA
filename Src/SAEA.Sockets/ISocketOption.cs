@@ -29,6 +29,7 @@
 *****************************************************************************/
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
+
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 
@@ -59,7 +60,7 @@ namespace SAEA.Sockets
         {
             get; set;
         }
-        
+
         /// <summary>
         /// ssl版本
         /// </summary>
@@ -74,7 +75,7 @@ namespace SAEA.Sockets
         bool NoDelay
         {
             get; set;
-        } 
+        }
 
 
         /// <summary>
@@ -133,7 +134,7 @@ namespace SAEA.Sockets
         /// <summary>
         /// 服务器中支持的客户端数
         /// </summary>
-        int Count
+        int MaxConnects
         {
             get; set;
         }

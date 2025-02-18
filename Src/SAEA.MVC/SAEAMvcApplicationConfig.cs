@@ -24,56 +24,91 @@
 
 namespace SAEA.MVC
 {
+    /// <summary>
+    /// SAEA MVC 应用程序配置类
+    /// </summary>
     public class SAEAMvcApplicationConfig
     {
+        /// <summary>
+        /// 网站根目录
+        /// </summary>
         public string Root
         {
             get; set;
         } = "wwwroot";
 
+        /// <summary>
+        /// 监听端口
+        /// </summary>
         public int Port
         {
             get; set;
         } = 28080;
 
+        /// <summary>
+        /// 是否启用静态文件缓存
+        /// </summary>
         public bool IsStaticsCached
         {
             get; set;
         } = true;
 
+        /// <summary>
+        /// 是否启用压缩
+        /// </summary>
         public bool IsZiped
         {
             get; set;
         } = false;
 
+        /// <summary>
+        /// 缓冲区大小
+        /// </summary>
         public int BufferSize
         {
             get; set;
-        } = 10240;
+        } = 64 * 1024;
 
-        public int Count
+        /// <summary>
+        /// 最大连接数
+        /// </summary>
+        public int MaxConnect
         {
             get; set;
-        } = 10000;
+        } = 1000;
 
-
+        /// <summary>
+        /// 默认页面
+        /// </summary>
         public string DefaultPage
         {
             get; set;
         } = "index.html";
 
+        /// <summary>
+        /// 是否启用调试模式
+        /// </summary>
         public bool IsDebug
         {
             get; set;
         } = false;
 
+        /// <summary>
+        /// 控制器命名空间
+        /// </summary>
         public string ControllerNameSpace { get; set; }
 
+        /// <summary>
+        /// 初始化 SAEA MVC 应用程序配置类的新实例
+        /// </summary>
         public SAEAMvcApplicationConfig()
         {
 
         }
 
+        /// <summary>
+        /// 获取默认配置
+        /// </summary>
         public static SAEAMvcApplicationConfig Default
         {
             get

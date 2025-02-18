@@ -23,7 +23,6 @@
 *****************************************************************************/
 using System;
 using System.Collections.Concurrent;
-using System.Drawing;
 using System.Threading;
 
 using SAEA.Common.Threading;
@@ -43,6 +42,8 @@ namespace SAEA.Common
 
         static ConsoleHelper()
         {
+            _ = DateTimeHelper.ToString();
+
             TaskHelper.LongRunning(() =>
             {
                 while (true)
@@ -54,7 +55,10 @@ namespace SAEA.Common
                             var oldColor = Console.ForegroundColor;
                             Console.ForegroundColor = consoleInfo.Color;
                             var writeStr = DateTimeHelper.ToString() + "  " + consoleInfo.Text;
-                            Console.WriteLine(writeStr, consoleInfo.Args);
+                            if (consoleInfo.Args != null && consoleInfo.Args.Length > 0)
+                                Console.WriteLine(writeStr, consoleInfo.Args);
+                            else
+                                Console.WriteLine(writeStr);
                             Console.ForegroundColor = oldColor;
                         }
                         else

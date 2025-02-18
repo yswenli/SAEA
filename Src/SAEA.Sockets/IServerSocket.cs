@@ -28,9 +28,11 @@
 *描述：
 *****************************************************************************/
 
-using SAEA.Sockets.Handler;
 using System;
 using System.Net;
+
+using SAEA.Sockets.Core;
+using SAEA.Sockets.Handler;
 
 namespace SAEA.Sockets
 {
@@ -63,6 +65,11 @@ namespace SAEA.Sockets
         /// 客户端断开事件
         /// </summary>
         event OnDisconnectedHandler OnDisconnected;
+
+        /// <summary>
+        /// 会话管理
+        /// </summary>
+        SessionManager SessionManager { get; }
 
         /// <summary>
         /// 启动

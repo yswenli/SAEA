@@ -29,8 +29,6 @@
 *描述：
 *
 *****************************************************************************/
-using SAEA.Sockets.Handler;
-using SAEA.Sockets.Model;
 using System;
 using System.IO;
 using System.Net;
@@ -39,6 +37,9 @@ using System.Net.Sockets;
 using System.Security.Authentication;
 using System.Threading;
 using System.Threading.Tasks;
+
+using SAEA.Sockets.Handler;
+using SAEA.Sockets.Model;
 
 namespace SAEA.Sockets.Core.Tcp
 {
@@ -53,12 +54,21 @@ namespace SAEA.Sockets.Core.Tcp
 
         private readonly CancellationToken _cancellationToken;
 
+        /// <summary>
+        /// 客户端连接数
+        /// </summary>
         public int ClientCounts { get => _clientCounts; private set => _clientCounts = value; }
 
+        /// <summary>
+        /// 配置项
+        /// </summary>
         public ISocketOption SocketOption { get; set; }
 
         volatile bool _isStoped = true;
 
+        /// <summary>
+        /// 是否已释放
+        /// </summary>
         public bool IsDisposed
         {
             get; set;
@@ -66,9 +76,21 @@ namespace SAEA.Sockets.Core.Tcp
 
         #region events
 
+        /// <summary>
+        /// 客户端连接事件
+        /// </summary>
         public event OnAcceptedHandler OnAccepted;
+        /// <summary>
+        /// 错误事件
+        /// </summary>
         public event OnErrorHandler OnError;
+        /// <summary>
+        /// 客户端断开事件
+        /// </summary>
         public event OnDisconnectedHandler OnDisconnected;
+        /// <summary>
+        /// 接收数据事件
+        /// </summary>
         public event OnReceiveHandler OnReceive;
 
         #endregion
@@ -76,18 +98,18 @@ namespace SAEA.Sockets.Core.Tcp
         /// <summary>
         /// 服务器 socket
         /// </summary>
-        /// <param name="socketOption"></param>
-        /// <param name="cancellationToken"></param>
+        /// <param name="socketOption">socket 配置选项</param>
+        /// <param name="cancellationToken">取消令牌</param>
         public StreamServerSocket(ISocketOption socketOption, CancellationToken cancellationToken)
         {
             SocketOption = socketOption;
             _cancellationToken = cancellationToken;
         }
 
-
         /// <summary>
         /// 启动服务
         /// </summary>
+        /// <param name="backlog">挂起连接队列的最大长度</param>
         public void Start(int backlog = 10 * 1000)
         {
             if (_listener == null && _isStoped)
@@ -116,7 +138,7 @@ namespace SAEA.Sockets.Core.Tcp
                 if (SocketOption.ReusePort)
                     _listener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, SocketOption.ReusePort);
 
-                _listener.NoDelay = SocketOption.NoDelay;                
+                _listener.NoDelay = SocketOption.NoDelay;
 
                 _listener.Bind(ipEndPoint);
 
@@ -128,8 +150,19 @@ namespace SAEA.Sockets.Core.Tcp
             }
         }
 
+        /// <summary>
+        /// 远程证书验证回调
+        /// </summary>
         public System.Net.Security.RemoteCertificateValidationCallback RemoteCertificateValidationCallback { get; set; }
 
+        /// <summary>
+        /// 会话管理器
+        /// </summary>
+        public SessionManager SessionManager => throw new NotImplementedException();
+
+        /// <summary>
+        /// 处理接受客户端连接
+        /// </summary>
         private async Task ProcessAccepte()
         {
             while (!_isStoped)
@@ -198,6 +231,11 @@ namespace SAEA.Sockets.Core.Tcp
             }
         }
 
+        /// <summary>
+        /// 处理已接受的客户端连接
+        /// </summary>
+        /// <param name="id">会话ID</param>
+        /// <param name="nsStream">网络流</param>
         async Task ProcessAccepted(string id, Stream nsStream)
         {
             await Task.Yield();
@@ -233,13 +271,21 @@ namespace SAEA.Sockets.Core.Tcp
             }
         }
 
-
-
+        /// <summary>
+        /// 获取当前会话对象
+        /// </summary>
+        /// <param name="sessionID">会话ID</param>
+        /// <returns>会话对象</returns>
         public object GetCurrentObj(string sessionID)
         {
             return ChannelManager.Instance.Get(sessionID);
         }
 
+        /// <summary>
+        /// 异步发送数据
+        /// </summary>
+        /// <param name="sessionID">会话ID</param>
+        /// <param name="data">数据</param>
         public void SendAsync(string sessionID, byte[] data)
         {
             var channel = ChannelManager.Instance.Get(sessionID);
@@ -249,6 +295,11 @@ namespace SAEA.Sockets.Core.Tcp
             channel.Stream.WriteAsync(data, 0, data.Length);
         }
 
+        /// <summary>
+        /// 同步发送数据
+        /// </summary>
+        /// <param name="sessionID">会话ID</param>
+        /// <param name="data">数据</param>
         public void Send(string sessionID, byte[] data)
         {
             var channel = ChannelManager.Instance.Get(sessionID);
@@ -256,6 +307,11 @@ namespace SAEA.Sockets.Core.Tcp
             channel.Stream.Write(data, 0, data.Length);
         }
 
+        /// <summary>
+        /// 结束会话并发送数据
+        /// </summary>
+        /// <param name="sessionID">会话ID</param>
+        /// <param name="data">数据</param>
         public void End(string sessionID, byte[] data)
         {
             var channel = ChannelManager.Instance.Get(sessionID);
@@ -267,6 +323,11 @@ namespace SAEA.Sockets.Core.Tcp
             }
         }
 
+        /// <summary>
+        /// 异步发送数据到指定终结点
+        /// </summary>
+        /// <param name="ipEndPoint">终结点</param>
+        /// <param name="data">数据</param>
         public void SendAsync(IPEndPoint ipEndPoint, byte[] data)
         {
             SendAsync(ipEndPoint.ToString(), data);
@@ -275,7 +336,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <summary>
         /// 断开连接
         /// </summary>
-        /// <param name="sessionID"></param>
+        /// <param name="sessionID">会话ID</param>
         public void Disconnect(string sessionID)
         {
             var channel = ChannelManager.Instance.Get(sessionID);
@@ -315,6 +376,9 @@ namespace SAEA.Sockets.Core.Tcp
             catch { }
         }
 
+        /// <summary>
+        /// 释放资源
+        /// </summary>
         public void Dispose()
         {
             Stop();

@@ -81,10 +81,10 @@ namespace SAEA.Http
         /// <param name="isStaticsCached">是否启用静态缓存</param>
         /// <param name="isZiped">是压启用内容压缩</param>
         /// <param name="bufferSize">http处理数据缓存大小</param>
-        /// <param name="count">http连接数上限</param>
+        /// <param name="maxConnect">http连接数上限</param>
         /// <param name="timeOut">超时</param>
         /// <param name="isDebug">测试模式</param>
-        public WebHost(Type httpContentType = null, string root = "wwwroot", int port = 39654, bool isStaticsCached = true, bool isZiped = true, int bufferSize = 1024 * 10, int count = 10000, int timeOut = 180 * 1000, bool isDebug = false)
+        public WebHost(Type httpContentType = null, string root = "wwwroot", int port = 39654, bool isStaticsCached = true, bool isZiped = true, int bufferSize = 64 * 1024, int maxConnect = 1000, int timeOut = 180 * 1000, bool isDebug = false)
         {
             if (httpContentType != null && _httpContentType.GetInterface("SAEA.Http.Model.IHttpContext", true) != null)
             {
@@ -102,7 +102,7 @@ namespace SAEA.Http
                 IsStaticsCached = isStaticsCached,
                 IsZiped = isZiped,
                 HandleBufferSize = bufferSize,
-                ClientCounts = count,
+                MaxConnect = maxConnect,
                 TimeOut = timeOut
             };
 
@@ -110,11 +110,11 @@ namespace SAEA.Http
 
             if (isDebug)
 
-                _httpServer = new HttpSocketDebug(port, bufferSize, count, timeOut);
+                _httpServer = new HttpSocketDebug(port, bufferSize, maxConnect, timeOut);
 
             else
 
-                _httpServer = new HttpSocket(port, bufferSize, count, timeOut);
+                _httpServer = new HttpSocket(port, bufferSize, maxConnect, timeOut);
 
             _httpServer.OnRequested += _serverSocket_OnRequested;
             _httpServer.OnError += _httpServer_OnError;

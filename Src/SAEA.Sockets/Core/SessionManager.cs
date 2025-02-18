@@ -65,20 +65,20 @@ namespace SAEA.Sockets.Core
         /// </summary>
         /// <param name="context"></param>
         /// <param name="bufferSize"></param>
-        /// <param name="count"></param>
+        /// <param name="maxConnects"></param>
         /// <param name="completed"></param>
         /// <param name="freetime"></param>
-        public SessionManager(IContext<ICoder> context, int bufferSize, int count, EventHandler<SocketAsyncEventArgs> completed, TimeSpan freetime)
+        public SessionManager(IContext<ICoder> context, int bufferSize, int maxConnects, EventHandler<SocketAsyncEventArgs> completed, TimeSpan freetime)
         {
             _sessionCache = new MemoryCache<IUserToken>((int)freetime.TotalSeconds);
 
             _freeTime = freetime;
 
-            _userTokenPool = new UserTokenPool(context, count, bufferSize, completed);
+            _userTokenPool = new UserTokenPool(context, maxConnects, bufferSize, completed);
 
             _sessionCache.OnChanged += _sessionCache_OnChanged;
 
-            _semaphoreSlim = new SemaphoreSlim(count, count);
+            _semaphoreSlim = new SemaphoreSlim(maxConnects, maxConnects);
         }
 
 

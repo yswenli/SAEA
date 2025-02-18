@@ -51,7 +51,7 @@ namespace SAEA.RPC.Net
                 .SetPort(port)
                 .SetReadBufferSize(bufferSize)
                 .SetWriteBufferSize(bufferSize)
-                .SetCount(count)
+                .SetMaxConnects(count)
                 .Build();
 
             _server = SocketFactory.CreateServerSocket(option);

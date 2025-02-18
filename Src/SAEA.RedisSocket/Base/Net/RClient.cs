@@ -39,8 +39,14 @@ namespace SAEA.RedisSocket.Base.Net
 
     internal class RClient : IocpClientSocket
     {
+        /// <summary>
+        /// 当接收到消息时触发的事件
+        /// </summary>
         public event Action<byte[]> OnMessage;
 
+        /// <summary>
+        /// 当客户端被激活时触发的事件
+        /// </summary>
         public event OnActionHandler OnActived;
 
         /// <summary>
@@ -48,23 +54,36 @@ namespace SAEA.RedisSocket.Base.Net
         /// </summary>
         public readonly object SyncRoot;
 
-        public RClient(int bufferSize = 100 * 1024, string ip = "127.0.0.1", int port = 6379) 
+        /// <summary>
+        /// 初始化 RClient 类的新实例
+        /// </summary>
+        /// <param name="bufferSize">缓冲区大小</param>
+        /// <param name="ip">IP 地址</param>
+        /// <param name="port">端口号</param>
+        public RClient(int bufferSize = 64 * 1024, string ip = "127.0.0.1", int port = 6379)
             : base(new BaseContext<RedisCoder>(), string.IsNullOrEmpty(ip) ? "127.0.0.1" : ip, port, bufferSize)
         {
             SyncRoot = new object();
         }
 
+        /// <summary>
+        /// 当接收到数据时调用
+        /// </summary>
+        /// <param name="data">接收到的数据</param>
         protected override void OnReceived(byte[] data)
         {
-            OnMessage.Invoke(data);
-            OnActived.Invoke(DateTimeHelper.Now);
+            OnMessage?.Invoke(data);
+            OnActived?.Invoke(DateTimeHelper.Now);
         }
 
-
+        /// <summary>
+        /// 发送请求
+        /// </summary>
+        /// <param name="cmd">请求命令</param>
         public void Request(byte[] cmd)
         {
             SendAsync(cmd);
-            OnActived.Invoke(DateTimeHelper.Now);
+            OnActived?.Invoke(DateTimeHelper.Now);
         }
     }
 }

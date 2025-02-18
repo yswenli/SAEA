@@ -32,23 +32,35 @@ using System.Text.RegularExpressions;
 
 namespace SAEA.WebSocket.Model
 {
-    class WSUserToken : BaseUserToken, IUserToken
+    /// <summary>
+    /// WebSocket用户令牌类
+    /// </summary>
+    public class WSUserToken : BaseUserToken, IUserToken
     {
+        /// <summary>
+        /// 换行符
+        /// </summary>
         protected const string Enter = "\r\n";
 
+        /// <summary>
+        /// 是否已握手
+        /// </summary>
         public bool IsHandSharked
         {
             get; set;
         }
 
-
+        /// <summary>
+        /// 缓存字节列表
+        /// </summary>
         List<byte> _cache = new List<byte>();
 
         /// <summary>
         /// 服务器回复握手
         /// </summary>
-        /// <param name="handShakeBytes"></param>
-        /// <returns></returns>
+        /// <param name="handShakeBytes">握手字节数组</param>
+        /// <param name="data">返回的数据</param>
+        /// <returns>是否成功</returns>
         public bool GetReplayHandShake(byte[] handShakeBytes, out byte[] data)
         {
             bool result = false;
@@ -94,12 +106,12 @@ namespace SAEA.WebSocket.Model
         /// <summary>
         /// 客户端发起握手
         /// </summary>
-        /// <param name="url"></param>
-        /// <param name="serverIP"></param>
-        /// <param name="serverPort"></param>
-        /// <param name="subProtocol"></param>
-        /// <param name="origin"></param>
-        /// <returns></returns>
+        /// <param name="url">请求的URL</param>
+        /// <param name="serverIP">服务器IP</param>
+        /// <param name="serverPort">服务器端口</param>
+        /// <param name="subProtocol">子协议</param>
+        /// <param name="origin">来源</param>
+        /// <returns>握手请求字节数组</returns>
         public static byte[] RequestHandShark(string url, string serverIP, int serverPort, string subProtocol = SubProtocolType.Default, string origin = "")
         {
             var sb = new StringBuilder(64);
@@ -121,14 +133,16 @@ namespace SAEA.WebSocket.Model
             return Encoding.UTF8.GetBytes(sb.ToString());
         }
 
-
+        /// <summary>
+        /// 缓冲区字节列表
+        /// </summary>
         static List<byte> _buffer = new List<byte>();
 
         /// <summary>
         /// 解析回复的握手
         /// </summary>
-        /// <param name="data"></param>
-        /// <returns></returns>
+        /// <param name="data">回复的握手数据</param>
+        /// <returns>是否成功</returns>
         public static bool AnalysisHandSharkReply(byte[] data)
         {
             _buffer.AddRange(data);
@@ -144,7 +158,7 @@ namespace SAEA.WebSocket.Model
                 _buffer.Clear();
                 return true;
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 LogHelper.Error("WSUserToken.AnalysisHandSharkReply", ex);
             }

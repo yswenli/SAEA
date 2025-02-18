@@ -104,7 +104,7 @@ namespace SAEA.Sockets.Core.Tcp
             // 初始化会话管理器
             _sessionManager = new SessionManager(socketOption.Context,
                 socketOption.ReadBufferSize,
-                socketOption.Count, IO_Completed,
+                socketOption.MaxConnects, IO_Completed,
                 new TimeSpan(0, 0, 0, 0, socketOption.FreeTime));
             _sessionManager.OnTimeOut += _sessionManager_OnTimeOut;
             OnServerReceiveBytes = new OnServerReceiveBytesHandler(OnReceiveBytes);
@@ -124,7 +124,6 @@ namespace SAEA.Sockets.Core.Tcp
                 if (SocketOption.UseIPV6)
                 {
                     _listener = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp);
-
                     if (string.IsNullOrEmpty(SocketOption.IP))
                         ipEndPoint = (new IPEndPoint(IPAddress.IPv6Any, SocketOption.Port));
                     else
@@ -133,23 +132,17 @@ namespace SAEA.Sockets.Core.Tcp
                 else
                 {
                     _listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-
                     if (string.IsNullOrEmpty(SocketOption.IP))
                         ipEndPoint = (new IPEndPoint(IPAddress.Any, SocketOption.Port));
                     else
                         ipEndPoint = (new IPEndPoint(IPAddress.Parse(SocketOption.IP), SocketOption.Port));
                 }
-
                 if (SocketOption.ReusePort)
                     _listener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, SocketOption.ReusePort);
-
                 _listener.NoDelay = SocketOption.NoDelay;
-
                 _listener.SendBufferSize = SocketOption.WriteBufferSize;
                 _listener.ReceiveBufferSize = SocketOption.ReadBufferSize;
-
                 _listener.Bind(ipEndPoint);
-
                 _listener.Listen(backlog);
 
                 ProcessAccept(null);
@@ -277,7 +270,8 @@ namespace SAEA.Sockets.Core.Tcp
             var userToken = (IUserToken)readArgs.UserToken;
             try
             {
-                if (readArgs != null && userToken != null && userToken.Socket != null && userToken.Socket.Connected)
+                if (readArgs == null || userToken == null) return;
+                if (userToken.Socket != null && userToken.Socket.Connected)
                 {
                     if (!userToken.Socket.ReceiveAsync(readArgs))
                         ProcessReceived(readArgs);
@@ -287,10 +281,14 @@ namespace SAEA.Sockets.Core.Tcp
                     Disconnect(userToken, new KernelException("The remote client has been disconnected."));
                 }
             }
+            catch (InvalidOperationException ioe)
+            {
+                return;
+            }
             catch (Exception exp)
             {
                 var kex = new KernelException("An exception occurs when a message is received:" + exp.Message, exp);
-                Disconnect(userToken, kex);
+                OnError?.Invoke(userToken.ID, kex);
             }
         }
 

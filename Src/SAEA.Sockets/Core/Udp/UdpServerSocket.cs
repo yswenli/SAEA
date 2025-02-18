@@ -82,7 +82,7 @@ namespace SAEA.Sockets.Core.Udp
         /// <param name="socketOption"></param>
         public UdpServerSocket(ISocketOption socketOption)
         {
-            _sessionManager = new SessionManager(socketOption.Context, socketOption.ReadBufferSize, socketOption.Count, IO_Completed, new TimeSpan(0, 0, 0, 0, socketOption.FreeTime));
+            _sessionManager = new SessionManager(socketOption.Context, socketOption.ReadBufferSize, socketOption.MaxConnects, IO_Completed, new TimeSpan(0, 0, 0, 0, socketOption.FreeTime));
             _sessionManager.OnTimeOut += _sessionManager_OnTimeOut;
             OnServerReceiveBytes = new OnServerReceiveBytesHandler(OnReceiveBytes);
             SocketOption = socketOption;

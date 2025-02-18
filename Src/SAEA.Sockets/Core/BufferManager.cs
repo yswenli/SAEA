@@ -42,7 +42,7 @@ namespace SAEA.Sockets.Core
     /// </summary>
     class BufferManager : IDisposable
     {
-        int _numBytes;
+        long _numBytes;
         byte[] _buffer;
         Stack<int> _freeIndexPool;
         int _currentIndex;
@@ -53,7 +53,7 @@ namespace SAEA.Sockets.Core
         /// </summary>
         /// <param name="totalBytes"></param>
         /// <param name="bufferSize"></param>
-        public BufferManager(int totalBytes, int bufferSize)
+        public BufferManager(long totalBytes, int bufferSize)
         {
             _numBytes = totalBytes;
             _currentIndex = 0;

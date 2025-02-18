@@ -24,7 +24,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 
 using SAEA.Common;
@@ -57,7 +56,7 @@ namespace SAEA.WebSocket.Model
         public WSProtocal(WSProtocalType type, byte[] content)
         {
             this.Type = (byte)type;
-            if (content != null)
+            if (content != null && content.Length > 0)
                 this.BodyLength = content.Length;
             else
                 this.BodyLength = 0;

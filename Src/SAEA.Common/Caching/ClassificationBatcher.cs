@@ -47,7 +47,7 @@ namespace SAEA.Common.Caching
         /// <param name="size"></param>
         /// <param name="timeout"></param>
         /// <param name="max"></param>
-        internal ClassificationBatcher(int size = 1000, int timeout = 1000, int max = -1)
+        public ClassificationBatcher(int size = 1000, int timeout = 1000, int max = -1)
         {
             _size = size;
             _timeout = timeout;

@@ -267,9 +267,14 @@ namespace SAEA.WebSocketTest
                 ConsoleHelper.WriteLine("WSClient 连接失败", ConsoleColor.DarkGray);
             }
         }
+        #endregion
+
+
+        #region test5 转发性能测试
+
 
         static Stopwatch _sw;
-        static int _maxSize = 10000;
+        static int _maxSize = 100000;
         static int _count = 0;
 
         static void Init5()
@@ -310,6 +315,7 @@ namespace SAEA.WebSocketTest
                 Console.WriteLine($"转发测试已完成，用时：{_sw.Elapsed.TotalSeconds}秒");
             }
         }
+
         #endregion
 
 

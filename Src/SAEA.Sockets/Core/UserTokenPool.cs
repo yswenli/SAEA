@@ -71,11 +71,9 @@ namespace SAEA.Sockets.Core
                 var writeArgs = new SocketAsyncEventArgs();
                 writeArgs.Completed += completed;
                 userToken.WriteArgs = writeArgs;
-
                 var readArgs = new SocketAsyncEventArgs();
                 readArgs.Completed += completed;
                 userToken.ReadArgs = readArgs;
-
                 userToken.ReadArgs.UserToken = userToken.WriteArgs.UserToken = userToken;
                 _concurrentQueue.Enqueue(userToken);
             }

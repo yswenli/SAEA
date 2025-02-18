@@ -7,7 +7,7 @@
  |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
                                                              
 
-*Copyright (c)  yswenli All Rights Reserved.
+*Copyright (c) yswenli All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
 *公司名称：wenli
@@ -30,17 +30,17 @@
 *
 *****************************************************************************/
 
-using SAEA.Common;
-using SAEA.Sockets.Handler;
-using SAEA.Sockets.Interface;
-using SAEA.Sockets.Model;
-
 using System;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+
+using SAEA.Common;
+using SAEA.Sockets.Handler;
+using SAEA.Sockets.Interface;
+using SAEA.Sockets.Model;
 
 namespace SAEA.Sockets.Core.Tcp
 {
@@ -49,39 +49,96 @@ namespace SAEA.Sockets.Core.Tcp
     /// </summary>
     public class IocpClientSocket : IClientSocket, IDisposable
     {
+        /// <summary>
+        /// 套接字对象
+        /// </summary>
         Socket _socket;
 
+        /// <summary>
+        /// 用户令牌
+        /// </summary>
         IUserToken _userToken;
 
+        /// <summary>
+        /// 异步连接参数
+        /// </summary>
         SocketAsyncEventArgs _connectArgs;
 
+        /// <summary>
+        /// 用户令牌工厂
+        /// </summary>
         UserTokenFactory _userTokenFactory;
 
+        /// <summary>
+        /// 连接回调
+        /// </summary>
         Action<SocketError> _connectCallBack;
 
+        /// <summary>
+        /// 连接事件
+        /// </summary>
         AutoResetEvent _connectEvent = new AutoResetEvent(true);
 
+        /// <summary>
+        /// 套接字选项
+        /// </summary>
         public ISocketOption SocketOption { get; set; }
 
+        /// <summary>
+        /// 远程终结点
+        /// </summary>
         public string Endpoint { get => _socket?.RemoteEndPoint?.ToString(); }
 
+        /// <summary>
+        /// 是否已连接
+        /// </summary>
         public bool Connected { get; private set; }
+
+        /// <summary>
+        /// 用户令牌
+        /// </summary>
         public IUserToken UserToken { get => _userToken; private set => _userToken = value; }
 
+        /// <summary>
+        /// 是否已释放
+        /// </summary>
         public bool IsDisposed { get; private set; } = false;
 
+        /// <summary>
+        /// 套接字对象
+        /// </summary>
         public Socket Socket => _socket;
 
+        /// <summary>
+        /// 上下文对象
+        /// </summary>
         public IContext<ICoder> Context { get; private set; }
 
+        /// <summary>
+        /// 错误事件
+        /// </summary>
         public event OnErrorHandler OnError;
 
+        /// <summary>
+        /// 断开连接事件
+        /// </summary>
         public event OnDisconnectedHandler OnDisconnected;
 
+        /// <summary>
+        /// 接收数据事件
+        /// </summary>
         public event OnClientReceiveHandler OnReceive;
 
+        /// <summary>
+        /// 接收字节数据事件
+        /// </summary>
         protected OnClientReceiveBytesHandler OnClientReceive = null;
 
+        /// <summary>
+        /// 触发错误事件
+        /// </summary>
+        /// <param name="id">错误ID</param>
+        /// <param name="ex">异常对象</param>
         protected void RaiseOnError(string id, Exception ex)
         {
             OnError?.Invoke(id, ex);
@@ -90,7 +147,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <summary>
         /// iocp 客户端 socket
         /// </summary>
-        /// <param name="socketOption"></param>
+        /// <param name="socketOption">Socket选项</param>
         public IocpClientSocket(ISocketOption socketOption)
         {
             SocketOption = socketOption;
@@ -129,12 +186,12 @@ namespace SAEA.Sockets.Core.Tcp
         /// <summary>
         /// iocp 客户端 socket
         /// </summary>
-        /// <param name="context"></param>
-        /// <param name="ip"></param>
-        /// <param name="port"></param>
-        /// <param name="bufferSize"></param>
-        /// <param name="timeOut"></param>
-        public IocpClientSocket(IContext<ICoder> context, string ip = "127.0.0.1", int port = 39654, int bufferSize = 100 * 1024, int timeOut = 180 * 1000)
+        /// <param name="context">上下文</param>
+        /// <param name="ip">IP地址</param>
+        /// <param name="port">端口</param>
+        /// <param name="bufferSize">缓冲区大小</param>
+        /// <param name="timeOut">超时时间</param>
+        public IocpClientSocket(IContext<ICoder> context, string ip = "127.0.0.1", int port = 39654, int bufferSize = 64 * 1024, int timeOut = 180 * 1000)
             : this(new SocketOption() { Context = context, IP = ip, Port = port, ReadBufferSize = bufferSize, WriteBufferSize = bufferSize, TimeOut = timeOut })
         {
 
@@ -143,7 +200,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <summary>
         /// 指定绑定ip
         /// </summary>
-        /// <param name="ipEndPint"></param>
+        /// <param name="ipEndPint">IP终结点</param>
         public void Bind(IPEndPoint ipEndPint)
         {
             _socket.Bind(ipEndPint);
@@ -152,16 +209,16 @@ namespace SAEA.Sockets.Core.Tcp
         /// <summary>
         /// 指定绑定ip
         /// </summary>
-        /// <param name="ip"></param>
+        /// <param name="ip">IP地址</param>
         public void Bind(string ip)
         {
             Bind(new IPEndPoint(IPAddress.Parse(ip), 0));
         }
 
         /// <summary>
-        /// 连接到服务器
+        /// 异步连接到服务器
         /// </summary>
-        /// <param name="callBack"></param>
+        /// <param name="callBack">连接回调</param>
         public void ConnectAsync(Action<SocketError> callBack = null)
         {
             _connectEvent.WaitOne();
@@ -176,7 +233,7 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         /// <summary>
-        /// 连接到服务器
+        /// 同步连接到服务器
         /// </summary>
         public void Connect()
         {
@@ -196,6 +253,11 @@ namespace SAEA.Sockets.Core.Tcp
             }
         }
 
+        /// <summary>
+        /// 连接完成事件处理
+        /// </summary>
+        /// <param name="sender">事件发送者</param>
+        /// <param name="e">事件参数</param>
         void ConnectArgs_Completed(object sender, SocketAsyncEventArgs e)
         {
             if (e.LastOperation == SocketAsyncOperation.Connect)
@@ -206,6 +268,10 @@ namespace SAEA.Sockets.Core.Tcp
             }
         }
 
+        /// <summary>
+        /// 处理连接完成
+        /// </summary>
+        /// <param name="e">事件参数</param>
         void ProcessConnected(SocketAsyncEventArgs e)
         {
             Connected = (e.SocketError == SocketError.Success);
@@ -223,7 +289,11 @@ namespace SAEA.Sockets.Core.Tcp
             _connectEvent.Set();
         }
 
-
+        /// <summary>
+        /// IO完成事件处理
+        /// </summary>
+        /// <param name="sender">事件发送者</param>
+        /// <param name="e">事件参数</param>
         void IO_Completed(object sender, SocketAsyncEventArgs e)
         {
             switch (e.LastOperation)
@@ -240,13 +310,19 @@ namespace SAEA.Sockets.Core.Tcp
             }
         }
 
-
+        /// <summary>
+        /// 处理接收到的数据
+        /// </summary>
+        /// <param name="data">接收到的数据</param>
         protected virtual void OnReceived(byte[] data)
         {
             OnReceive?.Invoke(data);
         }
 
-
+        /// <summary>
+        /// 处理接收操作
+        /// </summary>
+        /// <param name="readArgs">读取操作的SocketAsyncEventArgs对象</param>
         void ProcessReceive(SocketAsyncEventArgs readArgs)
         {
             if (_userToken != null && _userToken.Socket != null && _userToken.Socket.Connected)
@@ -260,26 +336,42 @@ namespace SAEA.Sockets.Core.Tcp
                 OnError?.Invoke("", new Exception("SAEA SocketError:发送失败,当前连接已断开"));
         }
 
-
+        /// <summary>
+        /// 处理接收完成
+        /// </summary>
+        /// <param name="readArgs">读取操作的SocketAsyncEventArgs对象</param>
         void ProcessReceived(SocketAsyncEventArgs readArgs)
         {
             try
             {
-                if (readArgs.BytesTransferred > 0 && readArgs.SocketError == SocketError.Success)
+                if (readArgs == null || readArgs.UserToken == null) return;
+
+                if (readArgs.SocketError == SocketError.Success)
                 {
                     _userToken.Actived = DateTimeHelper.Now;
 
-                    var buffer = readArgs.Buffer.AsSpan().Slice(readArgs.Offset, readArgs.BytesTransferred).ToArray();
+                    if (readArgs.BytesTransferred > 0)
+                    {
+                        var buffer = readArgs.Buffer.AsSpan().Slice(readArgs.Offset, readArgs.BytesTransferred).ToArray();
 
-                    try
-                    {
-                        OnClientReceive?.Invoke(buffer);
+                        try
+                        {
+                            OnClientReceive?.Invoke(buffer);
+                        }
+                        catch (Exception ex)
+                        {
+                            OnError?.Invoke(UserToken.ID, ex);
+                        }
                     }
-                    catch (Exception ex)
+
+                    if (readArgs.SocketError == SocketError.Success && UserToken.Socket != null && UserToken.Socket.Connected)
                     {
-                        OnError?.Invoke(UserToken.ID, ex);
+                        ProcessReceive(readArgs);
                     }
-                    ProcessReceive(readArgs);
+                    else
+                    {
+                        Disconnect();
+                    }
                 }
                 else
                 {
@@ -289,19 +381,23 @@ namespace SAEA.Sockets.Core.Tcp
             catch (Exception ex)
             {
                 OnError?.Invoke(_userToken.ID, ex);
-                Disconnect();
             }
         }
 
-
+        /// <summary>
+        /// 处理发送完成
+        /// </summary>
+        /// <param name="e">事件参数</param>
         void ProcessSended(SocketAsyncEventArgs e)
         {
             _userToken.Actived = DateTimeHelper.Now;
             _userToken.ReleaseWrite();
         }
 
-
-
+        /// <summary>
+        /// 处理断开连接
+        /// </summary>
+        /// <param name="ex">异常对象</param>
         void ProcessDisconnected(Exception ex)
         {
             if (Connected)
@@ -314,14 +410,13 @@ namespace SAEA.Sockets.Core.Tcp
                 }
                 catch { }
             }
-
         }
 
         /// <summary>
-        /// 异步发送
+        /// 异步发送数据
         /// </summary>
-        /// <param name="userToken"></param>
-        /// <param name="data"></param>
+        /// <param name="userToken">用户令牌</param>
+        /// <param name="data">数据</param>
         public void SendAsync(IUserToken userToken, byte[] data)
         {
             try
@@ -354,18 +449,18 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         /// <summary>
-        /// iocp发送
+        /// 异步发送数据
         /// </summary>
-        /// <param name="data"></param>
+        /// <param name="data">数据</param>
         public void SendAsync(byte[] data)
         {
             SendAsync(UserToken, data);
         }
 
         /// <summary>
-        /// 同步发送
+        /// 同步发送数据
         /// </summary>
-        /// <param name="data"></param>
+        /// <param name="data">数据</param>
         public void Send(byte[] data)
         {
             if (data == null) return;
@@ -394,6 +489,10 @@ namespace SAEA.Sockets.Core.Tcp
                 OnError?.Invoke("", new Exception("SAEA SocketError:发送失败,当前连接已断开"));
         }
 
+        /// <summary>
+        /// 异步发送数据
+        /// </summary>
+        /// <param name="data">数据</param>
         public void BeginSend(byte[] data)
         {
             if (Connected)
@@ -402,6 +501,14 @@ namespace SAEA.Sockets.Core.Tcp
             }
         }
 
+        /// <summary>
+        /// 异步发送数据
+        /// </summary>
+        /// <param name="buffer">缓冲区</param>
+        /// <param name="offset">偏移量</param>
+        /// <param name="count">数量</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns></returns>
         public async Task SendAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
             await Task.Run(() =>
@@ -415,11 +522,23 @@ namespace SAEA.Sockets.Core.Tcp
             }, cancellationToken);
         }
 
+        /// <summary>
+        /// 异步接收数据
+        /// </summary>
+        /// <param name="buffer">缓冲区</param>
+        /// <param name="offset">偏移量</param>
+        /// <param name="count">数量</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns></returns>
         public Task<int> ReceiveAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
             throw new KernelException("SAEA SocketError:当前方法只在stream实现中才能使用!");
         }
 
+        /// <summary>
+        /// 获取流
+        /// </summary>
+        /// <returns></returns>
         public Stream GetStream()
         {
             throw new InvalidOperationException("SAEA SocketError:iocp暂不支持流模式");
@@ -428,7 +547,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <summary>
         /// 主动断开连接
         /// </summary>
-        /// <param name="ex"></param>
+        /// <param name="ex">异常对象</param>
         public void Disconnect(Exception ex)
         {
             this.Connected = false;
@@ -464,27 +583,30 @@ namespace SAEA.Sockets.Core.Tcp
             _userToken.Clear();
         }
 
-
-
+        /// <summary>
+        /// 处理会话超时
+        /// </summary>
+        /// <param name="obj">用户令牌</param>
         private void _sessionManager_OnTimeOut(IUserToken obj)
         {
             Disconnect();
         }
 
-
-
+        /// <summary>
+        /// 主动断开连接
+        /// </summary>
         public void Disconnect()
         {
             this.Disconnect(null);
         }
 
-
-
+        /// <summary>
+        /// 释放资源
+        /// </summary>
         public void Dispose()
         {
             IsDisposed = true;
             this.Disconnect();
-
         }
     }
 }

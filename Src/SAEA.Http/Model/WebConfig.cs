@@ -22,9 +22,9 @@
 *
 *****************************************************************************/
 
-using SAEA.Common;
-using SAEA.Common.NameValue;
 using System.Collections.Generic;
+
+using SAEA.Common.NameValue;
 
 namespace SAEA.Http.Model
 {
@@ -55,12 +55,12 @@ namespace SAEA.Http.Model
         /// <summary>
         /// http处理数据缓存大小
         /// </summary>
-        internal int HandleBufferSize { get; set; }
+        internal int HandleBufferSize { get; set; } = 64 * 1024;
 
         /// <summary>
         /// 初始化连接对象复用数
         /// </summary>
-        internal int ClientCounts { get; set; }
+        internal int MaxConnect { get; set; } = 1000;
 
         /// <summary>
         /// 禁止访问列表
@@ -120,7 +120,7 @@ namespace SAEA.Http.Model
         public int TimeOut
         {
             get; set;
-        } = 120;
+        } = 180;
 
     }
 }

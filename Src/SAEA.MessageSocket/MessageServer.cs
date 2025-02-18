@@ -77,7 +77,7 @@ namespace SAEA.MessageSocket
                 .UseIocp(new MessageContext())
                 .SetReadBufferSize(bufferSize)
                 .SetWriteBufferSize(bufferSize)
-                .SetCount(count)
+                .SetMaxConnects(count)
                 .SetTimeOut(timeOut)
                 .Build();
 

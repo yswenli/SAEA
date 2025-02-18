@@ -28,30 +28,41 @@ using System.Text;
 namespace SAEA.Common
 {
     /// <summary>
-    /// 版本
+    /// 版本类，包含版本信息和相关元数据
     /// </summary>
     public static class SAEAVersion
     {
-        public const string version = "v7.25.2.10";
+        /// <summary>
+        /// 版本号
+        /// </summary>
+        public const string version = "djcuMjUuMi4xOA==";
 
-        public const string title = "ICBfX19fICAgIF8gICAgX19fX18gICAgXyAgICAgIF9fX18gICAgICAgICAgICAgXyAgICAgICAgXyAgIA0KIC8gX19ffCAgLyBcICB8IF9fX198ICAvIFwgICAgLyBfX198ICBfX18gICBfX198IHwgX19fX198IHxfIA0KIFxfX18gXCAvIF8gXCB8ICBffCAgIC8gXyBcICAgXF9fXyBcIC8gXyBcIC8gX198IHwvIC8gXyBcIF9ffA0KICBfX18pIC8gX19fIFx8IHxfX18gLyBfX18gXCAgIF9fXykgfCAoXykgfCAoX198ICAgPCAgX18vIHxfIA0KIHxfX19fL18vICAgXF9cX19fX18vXy8gICBcX1wgfF9fX18vIFxfX18vIFxfX198X3xcX1xfX198XF9ffA0KIA==";
+        /// <summary>
+        /// 标题，Base64编码
+        /// </summary>
+        public const string title = "ICBfX19fICAgICBfICAgICBfX19fXyAgICAgXyAgICAgICAgX19fXyAgICAgICAgICAgICAgICBfICAgICAgICAgIF8gICAgICAgIA0KIC8gX19ffCAgIC8gXCAgIHwgX19fX3wgICAvIFwgICAgICAvIF9fX3wgICBfX18gICAgX19fIHwgfCBfXyBfX18gfCB8XyAgX19fIA0KIFxfX18gXCAgLyBfIFwgIHwgIF98ICAgIC8gXyBcICAgICBcX19fIFwgIC8gXyBcICAvIF9ffHwgfC8gLy8gXyBcfCBfX3wvIF9ffA0KICBfX18pIHwvIF9fXyBcIHwgfF9fXyAgLyBfX18gXCAgXyAgX19fKSB8fCAoXykgfHwgKF9fIHwgICA8fCAgX18vfCB8XyBcX18gXA0KIHxfX19fLy9fLyAgIFxfXHxfX19fX3wvXy8gICBcX1woXyl8X19fXy8gIFxfX18vICBcX19ffHxffFxfXFxfX198IFxfX3x8X19fLw0KICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA==";
 
-        public const string author = "eXN3ZW5saQ==";
 
-        public const string mark = "ZGV2ZWxvcCBieSB5c3dlbmxp";
+        /// <summary>
+        /// 标记，Base64编码
+        /// </summary>
+        public const string author = "Q29weXJpZ2h0IChjKSB5c3dlbmxpIEFsbCBSaWdodHMgUmVzZXJ2ZWQ=";
 
-        public static string ConsoleTitle
+        /// <summary>
+        /// 控制台标题
+        /// </summary>
+        public static string MarkText
         {
             get
             {
-                return $"{Encoding.UTF8.GetString(Convert.FromBase64String(title))}{Environment.NewLine}{Encoding.UTF8.GetString(Convert.FromBase64String(mark)).PadLeft(60)}{Environment.NewLine}{version.PadLeft(60)}";
+                return $"{title.FromBase64String()}{Environment.NewLine}{version.FromBase64String().PadLeft(75)}{Environment.NewLine}{author.FromBase64String().PadLeft(75)}{Environment.NewLine}{Environment.NewLine}";
             }
         }
 
         /// <summary>
-        /// 获取版本
+        /// 获取版本号
         /// </summary>
-        /// <returns></returns>
+        /// <returns>版本号字符串</returns>
         public static new string ToString()
         {
             return version;

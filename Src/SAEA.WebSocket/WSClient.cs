@@ -22,15 +22,16 @@
 *
 *****************************************************************************/
 
-using SAEA.Common;
-using SAEA.Sockets;
-using SAEA.Sockets.Handler;
-using SAEA.WebSocket.Model;
-using SAEA.WebSocket.Type;
-
 using System;
 using System.Text;
 using System.Threading;
+
+using SAEA.Common;
+using SAEA.Sockets;
+using SAEA.Sockets.Handler;
+using SAEA.Sockets.Interface;
+using SAEA.WebSocket.Model;
+using SAEA.WebSocket.Type;
 
 namespace SAEA.WebSocket
 {
@@ -66,14 +67,14 @@ namespace SAEA.WebSocket
         WSContext _wsContext;
 
         /// <summary>
-        /// WSClient
+        /// 初始化 WSClient 类的新实例
         /// </summary>
-        /// <param name="ip"></param>
-        /// <param name="port"></param>
-        /// <param name="subProtocol"></param>
-        /// <param name="origin"></param>
-        /// <param name="bufferSize"></param>
-        public WSClient(string ip = "127.0.0.1", int port = 39654, string subProtocol = SubProtocolType.Default, string origin = "", int bufferSize = 10 * 1024)
+        /// <param name="ip">服务器IP地址</param>
+        /// <param name="port">服务器端口</param>
+        /// <param name="subProtocol">子协议</param>
+        /// <param name="origin">请求来源</param>
+        /// <param name="bufferSize">缓冲区大小</param>
+        public WSClient(string ip = "127.0.0.1", int port = 39654, string subProtocol = SubProtocolType.Default, string origin = "", int bufferSize = 64 * 1024)
         {
             _serverIP = ip;
             _serverPort = port;
@@ -102,27 +103,52 @@ namespace SAEA.WebSocket
             _client.OnError += WSClient_OnError;
         }
 
+        /// <summary>
+        /// 初始化 WSClient 类的新实例
+        /// </summary>
+        /// <param name="uri">服务器URI</param>
+        /// <param name="subProtocol">子协议</param>
+        /// <param name="origin">请求来源</param>
         public WSClient(Uri uri, string subProtocol = SubProtocolType.Default, string origin = "") : this(uri.Host, uri.Port, subProtocol, origin)
         {
             _url = uri.ToString();
         }
 
+        /// <summary>
+        /// 初始化 WSClient 类的新实例
+        /// </summary>
+        /// <param name="url">服务器URL</param>
+        /// <param name="subProtocol">子协议</param>
+        /// <param name="origin">请求来源</param>
         public WSClient(string url, string subProtocol = SubProtocolType.Default, string origin = "") : this(new Uri(url), subProtocol, origin)
         {
             _url = url;
         }
 
-
+        /// <summary>
+        /// 处理接收到的数据
+        /// </summary>
+        /// <param name="data">接收到的数据</param>
         private void _client_OnReceive(byte[] data)
         {
             OnReceived(data);
         }
 
+        /// <summary>
+        /// 处理错误事件
+        /// </summary>
+        /// <param name="id">客户端ID</param>
+        /// <param name="ex">异常信息</param>
         private void WSClient_OnError(string id, Exception ex)
         {
             OnError?.Invoke(id, ex);
         }
 
+        /// <summary>
+        /// 处理断开连接事件
+        /// </summary>
+        /// <param name="id">客户端ID</param>
+        /// <param name="ex">异常信息</param>
         private void WSClient_OnDisconnected(string id, Exception ex)
         {
             OnDisconnected?.Invoke(id, ex);
@@ -130,9 +156,10 @@ namespace SAEA.WebSocket
         }
 
         /// <summary>
-        /// 连接websocketServer
+        /// 连接WebSocket服务器
         /// </summary>
-        /// <returns></returns>
+        /// <param name="timeOut">超时时间</param>
+        /// <returns>是否连接成功</returns>
         public bool Connect(int timeOut = 10 * 1000)
         {
             _client.ConnectAsync((e) =>
@@ -157,65 +184,85 @@ namespace SAEA.WebSocket
             return false;
         }
 
+        /// <summary>
+        /// 处理接收到的数据
+        /// </summary>
+        /// <param name="data">接收到的数据</param>
         protected void OnReceived(byte[] data)
         {
-            if (!_isHandSharked)
+            try
             {
-                _isHandSharked = WSUserToken.AnalysisHandSharkReply(data);
-            }
-            else
-            {
-                var coder = (WSCoder)_wsContext.Unpacker;
 
-                var msgs = coder.Decode(data);
-
-                if (msgs == null || msgs.Count == 0)
+                if (!_isHandSharked)
                 {
-                    return;
+                    _isHandSharked = WSUserToken.AnalysisHandSharkReply(data);
                 }
-
-                foreach (var msg in msgs)
+                else
                 {
-                    var wsProtocal = (WSProtocal)msg;
-                    switch (wsProtocal.Type)
+                    var coder = (WSCoder)_wsContext.Unpacker;
+
+                    var msgs = coder.Decode(data);
+
+                    if (msgs == null || msgs.Count == 0)
                     {
-                        case (byte)WSProtocalType.Close:
-                            _client.Disconnect();
-                            break;
-                        case (byte)WSProtocalType.Pong:
-                            OnPong?.Invoke(Encoding.UTF8.GetString(wsProtocal.Content));
-                            break;
-                        case (byte)WSProtocalType.Binary:
-                        case (byte)WSProtocalType.Text:
-                        case (byte)WSProtocalType.Cont:
-                            OnMessage?.Invoke((WSProtocal)msg);
-                            break;
-                        case (byte)WSProtocalType.Ping:
-                            ReplyPong();
-                            break;
-                        default:
-                            var error = string.Format("收到未定义的Opcode={0}", msg.Type);
-                            break;
+                        return;
+                    }
+
+                    foreach (var msg in msgs)
+                    {
+                        var wsProtocal = (WSProtocal)msg;
+                        switch (wsProtocal.Type)
+                        {
+                            case (byte)WSProtocalType.Close:
+                                _client.Disconnect();
+                                break;
+                            case (byte)WSProtocalType.Pong:
+                                OnPong?.Invoke(Encoding.UTF8.GetString(wsProtocal.Content));
+                                break;
+                            case (byte)WSProtocalType.Binary:
+                            case (byte)WSProtocalType.Text:
+                            case (byte)WSProtocalType.Cont:
+                                OnMessage?.Invoke((WSProtocal)msg);
+                                break;
+                            case (byte)WSProtocalType.Ping:
+                                ReplyPong();
+                                break;
+                            default:
+                                var error = string.Format("收到未定义的Opcode={0}", msg.Type);
+                                break;
+                        }
                     }
                 }
             }
+            catch (Exception ex)
+            {
+                OnError?.Invoke(_client.Context.UserToken.ID, ex);
+            }
         }
 
         /// <summary>
-        /// 发送数据到wsserver
+        /// 发送数据到WebSocket服务器
         /// </summary>
-        /// <param name="msg"></param>
-        /// <param name="type"></param>
+        /// <param name="msg">要发送的数据</param>
+        public void SendBase(ISocketProtocal msg)
+        {
+            _client.SendAsync(msg.ToBytes());
+        }
+
+        /// <summary>
+        /// 发送数据到WebSocket服务器
+        /// </summary>
+        /// <param name="msg">要发送的数据</param>
+        /// <param name="type">数据类型</param>
         public void Send(byte[] msg, WSProtocalType type = WSProtocalType.Text)
         {
-            var data = new WSProtocal(type, msg).ToBytes();
-            _client.SendAsync(data);
+            SendBase(new WSProtocal(type, msg));
         }
 
         /// <summary>
-        /// 发送文本到wsserver
+        /// 发送文本数据到WebSocket服务器
         /// </summary>
-        /// <param name="msg"></param>
+        /// <param name="msg">要发送的文本数据</param>
         public void Send(string msg)
         {
             Send(Encoding.UTF8.GetBytes(msg));
@@ -227,27 +274,26 @@ namespace SAEA.WebSocket
         private void ReplyPong()
         {
             var data = new WSProtocal(WSProtocalType.Pong, null).ToBytes();
-            _client.SendAsync(data);
+            SendBase(new WSProtocal(WSProtocalType.Pong, null));
         }
 
-
         /// <summary>
-        /// 发送ping包
+        /// 发送Ping包
         /// </summary>
         public void Ping()
         {
             var msg = DateTimeHelper.ToString();
-            var data = new WSProtocal(WSProtocalType.Ping, Encoding.UTF8.GetBytes(msg)).ToBytes();
-            _client.SendAsync(data);
+            SendBase(new WSProtocal(WSProtocalType.Ping, Encoding.UTF8.GetBytes(msg)));
         }
 
+        /// <summary>
+        /// 关闭连接
+        /// </summary>
+        /// <param name="discription">关闭描述</param>
         public void Close(string discription = "客户端主动断开ws连接")
         {
             var msg = DateTimeHelper.ToString();
-            var data = new WSProtocal(WSProtocalType.Close, Encoding.UTF8.GetBytes(discription)).ToBytes();
-            _client.SendAsync(data);
+            SendBase(new WSProtocal(WSProtocalType.Close, Encoding.UTF8.GetBytes(discription)));
         }
-
-
     }
 }
