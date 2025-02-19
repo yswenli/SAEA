@@ -14,16 +14,37 @@ using SAEA.RPCTest.Consumer.Service;
 
 namespace SAEA.RPCTest.Consumer
 {
+    /// <summary>
+    /// RPC服务代理类
+    /// </summary>
     public class RPCServiceProxy
     {
+        /// <summary>
+        /// 异常处理事件
+        /// </summary>
         public event ExceptionCollector.OnErrHander OnErr;
 
+        /// <summary>
+        /// 通知事件
+        /// </summary>
         public event OnNoticedHandler OnNoticed;
 
         ServiceConsumer _serviceConsumer;
 
-        public RPCServiceProxy(string uri = "rpc://127.0.0.1:39654") : this(uri, 4, 5, 10 * 1000) { }
-        public RPCServiceProxy(string uri, int links = 4, int retry = 5, int timeOut = 10 * 1000)
+        /// <summary>
+        /// 构造函数
+        /// </summary>
+        /// <param name="uri">服务地址</param>
+        public RPCServiceProxy(string uri = "rpc://127.0.0.1:39654") : this(uri, 4, 5, 180 * 1000) { }
+
+        /// <summary>
+        /// 构造函数
+        /// </summary>
+        /// <param name="uri">服务地址</param>
+        /// <param name="links">连接数</param>
+        /// <param name="retry">重试次数</param>
+        /// <param name="timeOut">超时时间</param>
+        public RPCServiceProxy(string uri, int links = 4, int retry = 5, int timeOut = 180 * 1000)
         {
             ExceptionCollector.OnErr += ExceptionCollector_OnErr;
 
@@ -36,48 +57,90 @@ namespace SAEA.RPCTest.Consumer
             _Di = new DicService(_serviceConsumer);
             _Ge = new GenericService(_serviceConsumer);
         }
+
+        /// <summary>
+        /// 异常处理方法
+        /// </summary>
+        /// <param name="name">异常名称</param>
+        /// <param name="ex">异常对象</param>
         private void ExceptionCollector_OnErr(string name, Exception ex)
         {
             OnErr?.Invoke(name, ex);
         }
+
+        /// <summary>
+        /// 通知处理方法
+        /// </summary>
+        /// <param name="serializeData">序列化数据</param>
         private void _serviceConsumer_OnNoticed(byte[] serializeData)
         {
             OnNoticed?.Invoke(serializeData);
         }
+
+        /// <summary>
+        /// 获取连接状态
+        /// </summary>
         public bool IsConnected
         {
             get { return _serviceConsumer.IsConnected; }
         }
+
+        /// <summary>
+        /// 释放资源
+        /// </summary>
         public void Dispose()
         {
             _serviceConsumer.Dispose();
         }
+
         EnumService _En;
+        /// <summary>
+        /// 枚举服务
+        /// </summary>
         public EnumService EnumService
         {
             get { return _En; }
         }
+
         GroupService _Gr;
+        /// <summary>
+        /// 组服务
+        /// </summary>
         public GroupService GroupService
         {
             get { return _Gr; }
         }
+
         HelloService _He;
+        /// <summary>
+        /// Hello服务
+        /// </summary>
         public HelloService HelloService
         {
             get { return _He; }
         }
+
         DicService _Di;
+        /// <summary>
+        /// 字典服务
+        /// </summary>
         public DicService DicService
         {
             get { return _Di; }
         }
+
         GenericService _Ge;
+        /// <summary>
+        /// 泛型服务
+        /// </summary>
         public GenericService GenericService
         {
             get { return _Ge; }
         }
 
+        /// <summary>
+        /// 注册接收通知
+        /// </summary>
         public void RegistReceiveNotice()
         {
             _serviceConsumer.RegistReceiveNotice();
@@ -87,17 +150,37 @@ namespace SAEA.RPCTest.Consumer
 
 namespace SAEA.RPCTest.Consumer.Service
 {
+    /// <summary>
+    /// 枚举服务类
+    /// </summary>
     public class EnumService
     {
         ServiceConsumer _serviceConsumer;
+
+        /// <summary>
+        /// 构造函数
+        /// </summary>
+        /// <param name="serviceConsumer">服务消费者</param>
         public EnumService(ServiceConsumer serviceConsumer)
         {
             _serviceConsumer = serviceConsumer;
         }
+
+        /// <summary>
+        /// 获取枚举值
+        /// </summary>
+        /// <param name="est">枚举服务类型</param>
+        /// <returns>返回枚举值</returns>
         public ReturnEnum GetEnum(EnumServiceType est)
         {
             return _serviceConsumer.RemoteCall<ReturnEnum>("EnumService", "GetEnum", est);
         }
+
+        /// <summary>
+        /// 异步获取枚举值
+        /// </summary>
+        /// <param name="est">枚举服务类型</param>
+        /// <returns>返回枚举值</returns>
         public ReturnEnum GetEnumAsync(EnumServiceType est)
         {
             return _serviceConsumer.RemoteCall<ReturnEnum>("EnumService", "GetEnum", est);
@@ -107,21 +190,48 @@ namespace SAEA.RPCTest.Consumer.Service
 
 namespace SAEA.RPCTest.Consumer.Service
 {
+    /// <summary>
+    /// 组服务类
+    /// </summary>
     public class GroupService
     {
         ServiceConsumer _serviceConsumer;
+
+        /// <summary>
+        /// 构造函数
+        /// </summary>
+        /// <param name="serviceConsumer">服务消费者</param>
         public GroupService(ServiceConsumer serviceConsumer)
         {
             _serviceConsumer = serviceConsumer;
         }
+
+        /// <summary>
+        /// 更新用户列表
+        /// </summary>
+        /// <param name="users">用户列表</param>
+        /// <returns>更新后的用户列表</returns>
         public List<UserInfo> Update(List<UserInfo> users)
         {
             return _serviceConsumer.RemoteCall<List<UserInfo>>("GroupService", "Update", users);
         }
+
+        /// <summary>
+        /// 添加组
+        /// </summary>
+        /// <param name="groupName">组名</param>
+        /// <param name="user">用户信息</param>
+        /// <returns>组信息</returns>
         public GroupInfo Add(String groupName, UserInfo user)
         {
             return _serviceConsumer.RemoteCall<GroupInfo>("GroupService", "Add", groupName, user);
         }
+
+        /// <summary>
+        /// 获取组信息
+        /// </summary>
+        /// <param name="id">组ID</param>
+        /// <returns>组信息</returns>
         public GroupInfo GetGroupInfo(Int32 id)
         {
             return _serviceConsumer.RemoteCall<GroupInfo>("GroupService", "GetGroupInfo", id);

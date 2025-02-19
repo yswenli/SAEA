@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <Version>7.25.2.18</Version>
+    <Version>7.25.2.19</Version>
     <Authors>yswenli</Authors>
     <Company>yswenli</Company>
     <Description>SAEA. Common is a tool class project in the SAEA project
@@ -22,6 +22,7 @@ SAEA.Common 是SAEA项目中的工具类项目</PackageReleaseNotes>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <LangVersion>8.0</LangVersion>
     <PackageIcon>favicon.png</PackageIcon>
+    <Title>SAEA.Common</Title>
   </PropertyGroup>
 
   <ItemGroup>

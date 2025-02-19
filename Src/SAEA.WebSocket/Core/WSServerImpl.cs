@@ -61,8 +61,8 @@ namespace SAEA.WebSocket.Core
         /// </summary>
         /// <param name="port">端口号</param>
         /// <param name="bufferSize">缓冲区大小</param>
-        /// <param name="count">连接数</param>
-        public WSServerImpl(int port = 39654, int bufferSize = 1024, int count = 10000)
+        /// <param name="maxConnects">连接数</param>
+        public WSServerImpl(int port = 39654, int bufferSize = 1024 * 64, int maxConnects = 1000)
         {
             _reader = new ClassificationBatcher(10000, 50);
             _reader.OnBatched += _reader_OnBatched;
@@ -75,7 +75,7 @@ namespace SAEA.WebSocket.Core
                 .SetPort(port)
                 .SetReadBufferSize(bufferSize)
                 .SetWriteBufferSize(bufferSize)
-                .SetMaxConnects(count)
+                .SetMaxConnects(maxConnects)
                 .Build();
 
             _server = SocketFactory.CreateServerSocket(option);

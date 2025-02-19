@@ -30,19 +30,20 @@ namespace SAEA.MQTTTest
 
             while (true)
             {
-                Console.Title = $"SAEA.MQTT Test -- {DateTimeHelper.Now}";
+                ConsoleHelper.Title = $"SAEA.MQTT Test";
 
-                Console.WriteLine("1 = Start client");
-                Console.WriteLine("2 = Start server");
-                Console.WriteLine("3 = Start performance test");
-                Console.WriteLine("4 = Start managed client");
-                Console.WriteLine("5 = Start public broker test");
-                Console.WriteLine("6 = Start server & client");
-                Console.WriteLine("7 = Client flow test");
-                Console.WriteLine("8 = Start performance test (client only)");
-                Console.WriteLine("9 = Start server (no trace)");
+                ConsoleHelper.WriteLine("SAEA.MQTT Test");
+                ConsoleHelper.WriteLine("1 = Start client");
+                ConsoleHelper.WriteLine("2 = Start server");
+                ConsoleHelper.WriteLine("3 = Start performance test");
+                ConsoleHelper.WriteLine("4 = Start managed client");
+                ConsoleHelper.WriteLine("5 = Start public broker test");
+                ConsoleHelper.WriteLine("6 = Start server & client");
+                ConsoleHelper.WriteLine("7 = Client flow test");
+                ConsoleHelper.WriteLine("8 = Start performance test (client only)");
+                ConsoleHelper.WriteLine("9 = Start server (no trace)");
 
-                var pressedKey = Console.ReadLine();
+                var pressedKey = ConsoleHelper.ReadLine();
 
                 switch (pressedKey)
                 {

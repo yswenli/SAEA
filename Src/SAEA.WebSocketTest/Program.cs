@@ -280,7 +280,7 @@ namespace SAEA.WebSocketTest
         static void Init5()
         {
             ConsoleHelper.WriteLine("WSServer 正在初始化....", ConsoleColor.Green);
-            _server = new WSServer(count: 1);
+            _server = new WSServer(maxConnects: 1);
             _server.OnMessage += Server_OnMessage2;
             _server.OnDisconnected += _server_OnDisconnected;
             _server.Start();

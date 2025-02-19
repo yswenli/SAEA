@@ -151,7 +151,7 @@ namespace SAEA.Sockets.Model
         public int MaxConnects
         {
             get; set;
-        } = 100;
+        } = 1000;
 
         /// <summary>
         /// 是否复用端口

@@ -60,7 +60,7 @@ namespace SAEA.Http.Model
         /// <summary>
         /// 初始化连接对象复用数
         /// </summary>
-        internal int MaxConnect { get; set; } = 1000;
+        internal int MaxConnects { get; set; } = 1000;
 
         /// <summary>
         /// 禁止访问列表

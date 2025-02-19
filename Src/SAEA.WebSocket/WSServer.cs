@@ -22,13 +22,13 @@
 *
 *****************************************************************************/
 
-using SAEA.WebSocket.Core;
-using SAEA.WebSocket.Model;
-
 using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Security.Authentication;
+
+using SAEA.WebSocket.Core;
+using SAEA.WebSocket.Model;
 
 namespace SAEA.WebSocket
 {
@@ -73,8 +73,8 @@ namespace SAEA.WebSocket
         /// <param name="pfxPath">证书路径</param>
         /// <param name="pwd">证书密码</param>
         /// <param name="bufferSize">缓冲区大小</param>
-        /// <param name="count">连接数</param>
-        public WSServer(int port = 39654, SslProtocols protocols = SslProtocols.None, string pfxPath = "", string pwd = "", int bufferSize = 64 * 1024, int count = 60000)
+        /// <param name="maxConnects">连接数</param>
+        public WSServer(int port = 39654, SslProtocols protocols = SslProtocols.None, string pfxPath = "", string pwd = "", int bufferSize = 64 * 1024, int maxConnects = 1000)
         {
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
 
@@ -84,7 +84,7 @@ namespace SAEA.WebSocket
             }
             else
             {
-                _wsServer = new WSServerImpl(port, bufferSize, count);
+                _wsServer = new WSServerImpl(port, bufferSize, maxConnects);
             }
             _wsServer.OnConnected += WsServer_OnConnected;
             _wsServer.OnMessage += WsServer_OnMessage;

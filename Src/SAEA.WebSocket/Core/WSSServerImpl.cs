@@ -22,6 +22,7 @@ using SAEA.Sockets.Core;
 using SAEA.Sockets.Model;
 using SAEA.WebSocket.Model;
 using SAEA.WebSocket.Type;
+
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -40,7 +41,7 @@ namespace SAEA.WebSocket.Core
 
         ConcurrentDictionary<string, WSCoder> _concurrentDictionary;
 
-        public WSSServerImpl(SslProtocols sslProtocols, string pfxPath, string pwd = "", int port = 39654, int bufferSize = 1024)
+        public WSSServerImpl(SslProtocols sslProtocols, string pfxPath, string pwd = "", int port = 39654, int bufferSize = 1024 * 64)
         {
             _bufferSize = bufferSize;
 
@@ -121,7 +122,7 @@ namespace SAEA.WebSocket.Core
                         else
                         {
                             var coder = _concurrentDictionary[channelInfo.ID];
-                            var msgs= coder.Decode(data);
+                            var msgs = coder.Decode(data);
                             if (msgs == null || msgs.Count < 1) return;
                             foreach (var msg in msgs)
                             {
@@ -148,7 +149,7 @@ namespace SAEA.WebSocket.Core
                             }
                         }
                     }
-                    catch(Exception ex)
+                    catch (Exception ex)
                     {
                         LogHelper.Error("WServer.OnReceive.Error", ex);
                         channelInfo.Stream.Close();

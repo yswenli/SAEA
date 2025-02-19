@@ -53,15 +53,15 @@ namespace SAEA.Http.Base.Net
         /// </summary>
         /// <param name="port">端口号</param>
         /// <param name="bufferSize">缓冲区大小</param>
-        /// <param name="maxConnect">连接数</param>
+        /// <param name="maxConnects">连接数</param>
         /// <param name="timeOut">超时时间</param>
-        public HttpSocket(int port, int bufferSize = 64 * 1024, int maxConnect = 1000, int timeOut = 180 * 1000)
+        public HttpSocket(int port, int bufferSize = 64 * 1024, int maxConnects = 1000, int timeOut = 180 * 1000)
         {
             var optionBuilder = new SocketOptionBuilder()
                .SetSocket(Sockets.Model.SAEASocketType.Tcp)
                .UseIocp<HttpCoder>()
                .SetPort(port)
-               .SetMaxConnects(maxConnect)
+               .SetMaxConnects(maxConnects)
                .SetReadBufferSize(bufferSize)
                .SetTimeOut(timeOut)
                .SetFreeTime(timeOut)

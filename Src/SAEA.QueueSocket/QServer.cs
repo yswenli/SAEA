@@ -28,10 +28,12 @@ using System.Collections.Generic;
 using SAEA.Common;
 using SAEA.Common.Threading;
 using SAEA.QueueSocket.Model;
+using SAEA.QueueSocket.Net;
 using SAEA.QueueSocket.Type;
 using SAEA.Sockets;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
+using SAEA.Sockets.Model;
 
 namespace SAEA.QueueSocket
 {
@@ -63,8 +65,8 @@ namespace SAEA.QueueSocket
             _exchange.OnBatched += _exchange_OnBatched;
 
             var config = SocketOptionBuilder.Instance
-                .UseIocp<Net.QueueCoder>()
-                .SetSocket(Sockets.Model.SAEASocketType.Tcp)
+                .UseIocp<QueueCoder>()
+                .SetSocket(SAEASocketType.Tcp)
                 .SetReadBufferSize(bufferSize)
                 .SetWriteBufferSize(bufferSize)
                 .SetMaxConnects(maxConnects)

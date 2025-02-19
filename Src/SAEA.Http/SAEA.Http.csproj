@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <Authors>yswenli</Authors>
-    <Version>7.25.2.18</Version>
+    <Version>7.25.2.19</Version>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
     <PackageIconUrl></PackageIconUrl>

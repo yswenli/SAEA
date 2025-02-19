@@ -57,7 +57,7 @@ namespace SAEA.MVC
         /// 构建mvc容器
         /// </summary>
         /// <param name="mvcConfig"></param>
-        public SAEAMvcApplication(SAEAMvcApplicationConfig mvcConfig) : this(mvcConfig.Root, mvcConfig.Port, mvcConfig.IsStaticsCached, mvcConfig.IsZiped, mvcConfig.BufferSize, mvcConfig.MaxConnect, mvcConfig.ControllerNameSpace, mvcConfig.IsDebug)
+        public SAEAMvcApplication(SAEAMvcApplicationConfig mvcConfig) : this(mvcConfig.Root, mvcConfig.Port, mvcConfig.IsStaticsCached, mvcConfig.IsZiped, mvcConfig.BufferSize, mvcConfig.MaxConnects, mvcConfig.ControllerNameSpace, mvcConfig.IsDebug)
         {
             _webHost.WebConfig.HomePage = mvcConfig.DefaultPage;
         }
@@ -70,10 +70,10 @@ namespace SAEA.MVC
         /// <param name="isStaticsCached">是否启用静态缓存</param>
         /// <param name="isZiped">是压启用内容压缩</param>
         /// <param name="bufferSize">http处理数据缓存大小</param>
-        /// <param name="maxCounnect">http连接数上限</param>
+        /// <param name="maxCounnects">http连接数上限</param>
         /// <param name="controllerNameSpace">注册指定的Controlls空间名</param>
         /// <param name="isDebug">调试模式</param>
-        public SAEAMvcApplication(string root = "wwwroot", int port = 28080, bool isStaticsCached = true, bool isZiped = false, int bufferSize = 1024 * 10, int maxCounnect = 1000, string controllerNameSpace = "", bool isDebug = false)
+        public SAEAMvcApplication(string root = "wwwroot", int port = 28080, bool isStaticsCached = true, bool isZiped = false, int bufferSize = 1024 * 64, int maxCounnects= 1000, string controllerNameSpace = "", bool isDebug = false)
         {
             try
             {
@@ -87,7 +87,7 @@ namespace SAEA.MVC
                 throw new Exception("当前代码无任何Controller或者不符合MVC 命名规范！ err:" + ex.Message);
             }
 
-            _webHost = new WebHost(typeof(HttpContext), root, port, isStaticsCached, isZiped, bufferSize, maxCounnect, 180 * 1000, isDebug);
+            _webHost = new WebHost(typeof(HttpContext), root, port, isStaticsCached, isZiped, bufferSize, maxCounnects, 180 * 1000, isDebug);
 
             _webHost.RouteParam = AreaCollection.RouteTable;
         }

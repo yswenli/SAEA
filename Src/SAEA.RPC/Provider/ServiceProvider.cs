@@ -57,8 +57,8 @@ namespace SAEA.RPC.Provider
         /// </summary>
         /// <param name="port"></param>
         /// <param name="bufferSize"></param>
-        /// <param name="count"></param>
-        public ServiceProvider(int port = 39654, int bufferSize = 10 * 1024, int count = 10000) : this(null, port, bufferSize, count)
+        /// <param name="maxConnects"></param>
+        public ServiceProvider(int port = 39654, int bufferSize = 64 * 1024, int maxConnects = 1000) : this(null, port, bufferSize, maxConnects)
         {
 
         }
@@ -70,15 +70,15 @@ namespace SAEA.RPC.Provider
         /// <param name="serviceTypes">null 注册全部rpc服务</param>
         /// <param name="port"></param>
         /// <param name="bufferSize"></param>
-        /// <param name="count"></param>
-        public ServiceProvider(Type[] serviceTypes, int port = 39654, int bufferSize = 10 * 1024, int count = 10000)
+        /// <param name="maxConnects"></param>
+        public ServiceProvider(Type[] serviceTypes, int port = 39654, int bufferSize = 64 * 1024, int maxConnects = 1000)
         {
             _serviceTypes = serviceTypes;
             _port = port;
 
             _noticeCollection = new NoticeCollection();
 
-            _rServer = new RServer(_port, bufferSize, count);
+            _rServer = new RServer(_port, bufferSize, maxConnects);
             _rServer.OnMsg += _RServer_OnMsgAsync;
             _rServer.OnError += _RServer_OnError;
 

@@ -72,7 +72,7 @@ namespace SAEA.MVC
         /// <summary>
         /// 最大连接数
         /// </summary>
-        public int MaxConnect
+        public int MaxConnects
         {
             get; set;
         } = 1000;

@@ -35,7 +35,7 @@ namespace SAEA.Common
         /// <summary>
         /// 版本号
         /// </summary>
-        public const string version = "djcuMjUuMi4xOA==";
+        public const string version = "djcuMjUuMi4xOQ==";
 
         /// <summary>
         /// 标题，Base64编码
