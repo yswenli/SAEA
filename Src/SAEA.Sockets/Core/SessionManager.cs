@@ -112,7 +112,9 @@ namespace SAEA.Sockets.Core
                 return userToken;
             }
             else
+            {
                 throw new Exception("UserToken池中资源已耗尽");
+            }
         }
 
         #region UDP
@@ -170,19 +172,17 @@ namespace SAEA.Sockets.Core
         /// <param name="userToken"></param>
         public bool Free(IUserToken userToken)
         {
-            using (var locker = ObjectLock.Create("SessionManager.Free"))
+            using var locker = ObjectLock.Create("SessionManager.Free");
+            if (userToken != null)
             {
-                if (userToken != null)
+                if (_sessionCache.DelWithoutEvent(userToken.ID))
                 {
-                    if (_sessionCache.DelWithoutEvent(userToken.ID))
-                    {
-                        if (_userTokenPool.Enqueue(userToken))
-                            _semaphoreSlim.Release();
-                        return true;
-                    }
+                    if (_userTokenPool.Enqueue(userToken))
+                        _semaphoreSlim.Release();
+                    return true;
                 }
-                return false;
             }
+            return false;
         }
 
         /// <summary>

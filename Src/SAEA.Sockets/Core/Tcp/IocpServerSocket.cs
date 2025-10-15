@@ -281,10 +281,6 @@ namespace SAEA.Sockets.Core.Tcp
                     Disconnect(userToken, new KernelException("The remote client has been disconnected."));
                 }
             }
-            catch (InvalidOperationException ioe)
-            {
-                return;
-            }
             catch (Exception exp)
             {
                 var kex = new KernelException("An exception occurs when a message is received:" + exp.Message, exp);
@@ -320,10 +316,6 @@ namespace SAEA.Sockets.Core.Tcp
                 {
                     Disconnect(userToken, null);
                 }
-            }
-            catch (InvalidOperationException)
-            {
-                //ProcessReceived(readArgs);
             }
             catch (Exception exp)
             {
