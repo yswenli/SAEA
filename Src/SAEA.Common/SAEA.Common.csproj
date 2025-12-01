@@ -28,12 +28,12 @@ SAEA.Common 是SAEA项目中的工具类项目</PackageReleaseNotes>
   <ItemGroup>
     <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
     <PackageReference Include="Nito.AsyncEx" Version="5.1.2" />
-    <PackageReference Include="protobuf-net" Version="3.2.46" />
+    <PackageReference Include="protobuf-net" Version="3.2.56" />
     <PackageReference Include="System.Collections.Concurrent" Version="4.3.0" />
-    <PackageReference Include="System.IO.Pipelines" Version="9.0.2" />
-    <PackageReference Include="System.Memory" Version="4.6.0" />
-    <PackageReference Include="System.Security.Permissions" Version="9.0.2" />
-    <PackageReference Include="System.Threading.Channels" Version="9.0.2" />
+    <PackageReference Include="System.IO.Pipelines" Version="10.0.0" />
+    <PackageReference Include="System.Memory" Version="4.6.3" />
+    <PackageReference Include="System.Security.Permissions" Version="10.0.0" />
+    <PackageReference Include="System.Threading.Channels" Version="10.0.0" />
   </ItemGroup>
 
   <ItemGroup>

@@ -30,7 +30,7 @@ namespace SAEA.DNSTest
                 switch (input)
                 {
                     case "s":
-                        Server.InitAsync();
+                        Server.Init();
                         break;
 
                     case "c":
@@ -39,7 +39,7 @@ namespace SAEA.DNSTest
                         break;
 
                     default:
-                        Server.InitAsync();
+                        Server.Init();
                         await Client.LookupAsync("baidu.com");
                         await Client.LookupAsync("yswenli.net");
                         break;
