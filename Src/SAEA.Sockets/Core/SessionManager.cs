@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 * 
  ____    _    _____    _      ____             _        _   
 / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
@@ -101,15 +101,35 @@ namespace SAEA.Sockets.Core
         {
             if (_semaphoreSlim.Wait(timeOut))
             {
-                IUserToken userToken = _userTokenPool.Dequeue(timeOut);
-                if (userToken == null)
-                    throw new Exception("UserToken池中资源已耗尽");
+                try
+                {
+                    IUserToken userToken = _userTokenPool.Dequeue(timeOut);
+                    if (userToken == null)
+                        throw new Exception("UserToken池中资源已耗尽");
 
-                userToken.Socket = socket;
-                userToken.ID = socket.RemoteEndPoint.ToString();
-                userToken.Actived = userToken.Linked = DateTimeHelper.Now;
-                _sessionCache.Set(userToken.ID, userToken, _freeTime);
-                return userToken;
+                    userToken.Socket = socket;
+                    userToken.ID = socket.RemoteEndPoint.ToString();
+                    userToken.Actived = userToken.Linked = DateTimeHelper.Now;
+                    _sessionCache.Set(userToken.ID, userToken, _freeTime);
+                    return userToken;
+                }
+                catch
+                {
+                    try
+                    {
+                        _semaphoreSlim.Release();
+                    }
+                    catch (SemaphoreFullException)
+                    {
+                        // 忽略信号量已满的异常，防止计数超过最大限制
+                        LogHelper.Info("SessionManager.BindUserToken 信号量已满，忽略释放操作");
+                    }
+                    catch (Exception ex)
+                    {
+                        LogHelper.Error("SessionManager.BindUserToken 释放信号量错误", ex);
+                    }
+                    throw;
+                }
             }
             else
             {
@@ -127,11 +147,31 @@ namespace SAEA.Sockets.Core
         public IUserToken BeginBindUserToken(Socket socket)
         {
             _semaphoreSlim.Wait();
-            IUserToken userToken = _userTokenPool.Dequeue();
-            if (userToken == null) return null;
-            userToken.ReadArgs.RemoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
-            userToken.Socket = socket;
-            return userToken;
+            try
+            {
+                IUserToken userToken = _userTokenPool.Dequeue();
+                if (userToken == null) return null;
+                userToken.ReadArgs.RemoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
+                userToken.Socket = socket;
+                return userToken;
+            }
+            catch
+            {
+                try
+                {
+                    _semaphoreSlim.Release();
+                }
+                catch (SemaphoreFullException)
+                {
+                    // 忽略信号量已满的异常，防止计数超过最大限制
+                    LogHelper.Info("SessionManager.BeginBindUserToken 信号量已满，忽略释放操作");
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Error("SessionManager.BeginBindUserToken 释放信号量错误", ex);
+                }
+                throw;
+            }
         }
         /// <summary>
         /// UDP 设置usertoken
@@ -175,12 +215,30 @@ namespace SAEA.Sockets.Core
             using var locker = ObjectLock.Create("SessionManager.Free");
             if (userToken != null)
             {
-                if (_sessionCache.DelWithoutEvent(userToken.ID))
+                // 无论userToken是否在缓存中，都将其放回池中并释放信号量
+                _sessionCache.DelWithoutEvent(userToken.ID);
+                try
                 {
-                    if (_userTokenPool.Enqueue(userToken))
-                        _semaphoreSlim.Release();
-                    return true;
+                    _userTokenPool.Enqueue(userToken);
                 }
+                finally
+                {
+                    // 无论是否能将userToken放回池中，都必须释放信号量，否则会导致死锁
+                    try
+                    {
+                        _semaphoreSlim.Release();
+                    }
+                    catch (SemaphoreFullException)
+                    {
+                        // 忽略信号量已满的异常，防止计数超过最大限制
+                        LogHelper.Info("SessionManager.Free 信号量已满，忽略释放操作");
+                    }
+                    catch (Exception ex)
+                    {
+                        LogHelper.Error("SessionManager.Free 释放信号量错误", ex);
+                    }
+                }
+                return true;
             }
             return false;
         }

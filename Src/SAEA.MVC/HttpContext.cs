@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
@@ -121,15 +121,20 @@ namespace SAEA.MVC
                 }
             }
 
-            if (result != null)
+            // 确保连接被释放
+            if (result == null)
             {
-                if (!(result is IBigDataResult || result is IEventStream))
-                {
-                    Response.SetCached(result, this.Session.CacheCalcString);
-
-                    Response.End();
-                }
+                // 如果OnRequestDelegate被调用或没有结果，直接结束连接
+                // 这样可以确保在MaxConnects=1的情况下不会出现连接被永久占用的问题
+                Response.End();
             }
+            else if (!(result is IBigDataResult || result is IEventStream))
+            {
+                // 非大数据结果和非事件流，设置缓存并结束连接
+                Response.SetCached(result, this.Session.CacheCalcString);
+                Response.End();
+            }
+            // IBigDataResult或IEventStream类型会在其他地方处理连接释放
         }
 
         /// <summary>

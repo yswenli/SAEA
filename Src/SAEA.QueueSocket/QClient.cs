@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
@@ -101,7 +101,7 @@ namespace SAEA.QueueSocket
 
             HeartAsync();
 
-            _batcher = new Batcher<byte[]>(3000, 10); //此参数用于控制产生或消费速读，过大会导致溢出异常
+            _batcher = new Batcher<byte[]>(1000, 50); //减小批处理间隔，增大批量大小，提高消费速度
 
             _batcher.OnBatched += _batcher_OnBatched;
 
@@ -189,6 +189,11 @@ namespace SAEA.QueueSocket
         }
 
         /// <summary>
+        /// 消息发送完成事件
+        /// </summary>
+        public event Action<int> OnMessagesSent;
+
+        /// <summary>
         /// 批量处理事件
         /// </summary>
         /// <param name="batcher">批量处理器</param>
@@ -199,6 +204,8 @@ namespace SAEA.QueueSocket
             {
                 var list = new List<byte>();
 
+                int sentCount = data.Count;
+                
                 foreach (var item in data)
                 {
                     list.AddRange(item);
@@ -209,6 +216,9 @@ namespace SAEA.QueueSocket
                 _clientSocket.Send(list.ToArray());
 
                 list.Clear();
+                
+                // 触发消息发送完成事件，通知发送了多少条消息
+                OnMessagesSent?.Invoke(sentCount);
             }
         }
 

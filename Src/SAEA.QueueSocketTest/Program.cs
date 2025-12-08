@@ -1,4 +1,4 @@
-﻿
+
 using SAEA.Common;
 using SAEA.Common.Threading;
 using SAEA.QueueSocket;
@@ -6,6 +6,7 @@ using SAEA.QueueSocket.Model;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 
 namespace SAEA.QueueSocketTest
@@ -17,7 +18,7 @@ namespace SAEA.QueueSocketTest
             ConsoleHelper.Title = $"SAEA.QueueSocketTest -- {DateTimeHelper.Now}";
             do
             {
-                ConsoleHelper.WriteLine("输入s启动队列服务器,输入p启动生产者，输入c启动消费者");
+                ConsoleHelper.WriteLine("输入s启动队列服务器,输入p启动生产者，输入c启动消费者，输入t启动高并发测试");
 
                 var inputStr = ConsoleHelper.ReadLine();
 
@@ -42,6 +43,10 @@ namespace SAEA.QueueSocketTest
                             ConsoleHelper.WriteLine("输入ip:port连接到队列服务器");
                             inputStr = ConsoleHelper.ReadLine();
                             ConsumerInit(inputStr, topic);
+                            break;
+                        case "t":
+                            ConsoleHelper.Title = "SAEA.QueueHighConcurrencyTest";
+                            HighConcurrencyTest.Run();
                             break;
                         default:
                             ServerInit();
@@ -89,7 +94,7 @@ namespace SAEA.QueueSocketTest
 
         static void ProducerInit(string ipPort, string topic)
         {
-            int pNum = 0;
+            long pNum = 0;
 
             string msg = "123";
             if (string.IsNullOrEmpty(ipPort)) ipPort = "127.0.0.1:39654";
@@ -100,25 +105,34 @@ namespace SAEA.QueueSocketTest
 
             producer.OnDisconnected += Client_OnDisconnected;
 
+            // 订阅消息实际发送完成事件
+            producer.OnMessagesSent += (count) =>
+            {
+                Interlocked.Add(ref pNum, count);
+            };
+
             TaskHelper.LongRunning(() =>
             {
-                var old = 0;
-                var speed = 0;
+                var old = 0L;
+                var speed = 0L;
+                var lastTime = DateTime.Now;
                 while (producer.Connected)
                 {
-                    speed = pNum - old;
-                    old = pNum;
-                    ConsoleHelper.WriteLine("生产者已成功发送：{0} 速度：{1}/s", pNum, speed);
                     Thread.Sleep(1000);
+                    var current = Interlocked.Read(ref pNum);
+                    var currentTime = DateTime.Now;
+                    var elapsed = (currentTime - lastTime).TotalSeconds;
+                    speed = (long)((current - old) / elapsed);
+                    old = current;
+                    lastTime = currentTime;
+                    ConsoleHelper.WriteLine("生产者已成功发送：{0} 速度：{1}/s", current, speed);
                 }
             });
 
+            // 发送消息的主任务，不限制速度
             while (producer.Connected)
             {
-
                 producer.Publish(topic, msg);
-
-                Interlocked.Increment(ref pNum);
             }
 
         }

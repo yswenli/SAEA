@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
   ____    _    _____    _      ____             _        _   
  / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
  \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
@@ -218,7 +218,11 @@ namespace SAEA.Sockets.Core.Udp
             {
                 if (!_userToken.Socket.ReceiveAsync(readArgs))
                 {
-                    ProcessReceived(readArgs);
+                    // 使用线程池避免直接递归调用导致栈溢出
+                    ThreadPool.QueueUserWorkItem((state) =>
+                    {
+                        ProcessReceived(readArgs);
+                    });
                 }
             }
 

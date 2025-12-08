@@ -33,7 +33,9 @@ using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
+using System.IO;
 
 namespace SAEA.Sockets.Base
 {
@@ -52,7 +54,7 @@ namespace SAEA.Sockets.Base
         public const int P_Head = 9;
 
         // 定义一个私有字段 _buffer，用于存储接收到的数据
-        private List<byte> _buffer = new List<byte>();
+        private MemoryStream _buffer = new MemoryStream();
 
         // 实现接口方法 Encode，将协议对象转换为字节数组
         public byte[] Encode(ISocketProtocal protocal)
@@ -71,19 +73,25 @@ namespace SAEA.Sockets.Base
             var result = new List<ISocketProtocal>();
 
             // 将接收到的数据添加到缓冲区
-            _buffer.AddRange(data);
+            _buffer.Write(data, 0, data.Length);
+            
+            // 重置流位置到开始
+            _buffer.Position = 0;
 
             // 循环处理缓冲区中的数据
-            while (_buffer.Count >= P_Head)
+            while (_buffer.Length - _buffer.Position >= P_Head)
             {
-                // 将缓冲区数据转换为数组
-                var buffer = _buffer.ToArray();
-
                 // 获取数据包的长度
-                var bodyLen = GetLength(buffer);
-
+                var bodyLen = ReadLengthFromBuffer();
+                
+                // 重置位置到类型字段
+                _buffer.Position = P_LEN;
+                
                 // 获取数据包的类型
-                var type = GetType(buffer);
+                var type = (SocketProtocalType)_buffer.ReadByte();
+                
+                // 重置位置到开始
+                _buffer.Position = 0;
 
                 // 如果数据包长度为0且类型为心跳包，则处理心跳包
                 if (bodyLen == 0 && type == SocketProtocalType.Heart) //空包认为是心跳包
@@ -91,33 +99,29 @@ namespace SAEA.Sockets.Base
                     // 创建一个基础协议对象，设置长度和类型
                     var sm = new BaseSocketProtocal() { BodyLength = bodyLen, Type = (byte)type };
                     // 清空缓冲区
-                    _buffer.Clear();
+                    Clear();
                     // 调用心跳回调函数
                     onHeart?.Invoke(DateTimeHelper.Now);
                 }
                 // 如果缓冲区数据长度足够解析一个完整的数据包
-                else if (buffer.Length >= P_Head + bodyLen)
+                else if (_buffer.Length >= P_Head + bodyLen)
                 {
                     // 如果数据包类型为大数据包
                     if (type == SocketProtocalType.BigData)
                     {
                         // 获取数据包内容
-                        var content = GetContent(buffer, P_Head, (int)bodyLen);
+                        var content = ReadContentFromBuffer(P_Head, (int)bodyLen);
                         // 移除已处理的数据
-                        _buffer.RemoveRange(0, (int)(P_Head + bodyLen));
-                        // 设置长度为0，表示已处理完
-                        bodyLen = 0;
+                        RemoveFromBuffer((int)(P_Head + bodyLen));
                         // 调用文件回调函数
                         onFile?.Invoke(content);
                     }
                     else
                     {
                         // 创建一个基础协议对象，设置长度、类型和内容
-                        var sm = new BaseSocketProtocal() { BodyLength = bodyLen, Type = (byte)type, Content = GetContent(buffer, P_Head, (int)bodyLen) };
+                        var sm = new BaseSocketProtocal() { BodyLength = bodyLen, Type = (byte)type, Content = ReadContentFromBuffer(P_Head, (int)bodyLen) };
                         // 移除已处理的数据
-                        _buffer.RemoveRange(0, (int)(P_Head + bodyLen));
-                        // 设置长度为0，表示已处理完
-                        bodyLen = 0;
+                        RemoveFromBuffer((int)(P_Head + bodyLen));
                         // 调用解包回调函数
                         result.Add(sm);
                     }
@@ -125,10 +129,89 @@ namespace SAEA.Sockets.Base
                 else
                 {
                     // 如果缓冲区数据长度不足以解析一个完整的数据包，则退出循环
+                    // 将位置重置到数据末尾，准备接收新数据
+                    _buffer.Position = _buffer.Length;
                     break;
                 }
             }
             return result;
+        }
+
+        /// <summary>
+        /// 从缓冲区读取长度信息
+        /// </summary>
+        /// <returns></returns>
+        private long ReadLengthFromBuffer()
+        {
+            byte[] lenBytes = ArrayPool<byte>.Shared.Rent(P_LEN);
+            try
+            {
+                _buffer.Read(lenBytes, 0, P_LEN);
+                return lenBytes.ToLong();
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(lenBytes);
+            }
+        }
+
+        /// <summary>
+        /// 从缓冲区读取内容
+        /// </summary>
+        /// <param name="offset"></param>
+        /// <param name="count"></param>
+        /// <returns></returns>
+        private byte[] ReadContentFromBuffer(int offset, int count)
+        {
+            if (count <= 0) return Array.Empty<byte>();
+            
+            // 移动到指定位置
+            _buffer.Position = offset;
+            
+            var content = new byte[count];
+            _buffer.Read(content, 0, count);
+            
+            // 重置位置到开始
+            _buffer.Position = 0;
+            
+            return content;
+        }
+
+        /// <summary>
+        /// 从缓冲区移除指定长度的数据
+        /// </summary>
+        /// <param name="length"></param>
+        private void RemoveFromBuffer(int length)
+        {
+            long remaining = _buffer.Length - length;
+            if (remaining <= 0)
+            {
+                Clear();
+                return;
+            }
+            
+            // 创建临时缓冲区保存剩余数据
+            byte[] tempBuffer = ArrayPool<byte>.Shared.Rent((int)remaining);
+            try
+            {
+                // 移动到已处理数据之后
+                _buffer.Position = length;
+                
+                // 读取剩余数据
+                _buffer.Read(tempBuffer, 0, (int)remaining);
+                
+                // 清空并重置流
+                _buffer.SetLength(0);
+                _buffer.Position = 0;
+                
+                // 写入剩余数据
+                _buffer.Write(tempBuffer, 0, (int)remaining);
+                _buffer.Position = 0;
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(tempBuffer);
+            }
         }
 
         /// <summary>
@@ -138,6 +221,9 @@ namespace SAEA.Sockets.Base
         /// <returns></returns>
         public static long GetLength(byte[] data)
         {
+            if (data == null || data.Length < P_LEN)
+                throw new ArgumentException("数据长度不足");
+                
             return data.ToLong();
         }
 
@@ -148,6 +234,9 @@ namespace SAEA.Sockets.Base
         /// <returns></returns>
         public static SocketProtocalType GetType(byte[] data)
         {
+            if (data == null || data.Length < P_LEN + 1)
+                throw new ArgumentException("数据长度不足");
+                
             return (SocketProtocalType)data[P_LEN];
         }
 
@@ -160,6 +249,9 @@ namespace SAEA.Sockets.Base
         /// <returns></returns>
         public static byte[] GetContent(byte[] data, int offset, int count)
         {
+            if (data == null || offset < 0 || count < 0 || offset + count > data.Length)
+                throw new ArgumentException("参数无效");
+                
             var buffer = new byte[count];
             Buffer.BlockCopy(data, offset, buffer, 0, count);
             return buffer;
@@ -170,8 +262,8 @@ namespace SAEA.Sockets.Base
         /// </summary>
         public void Clear()
         {
-            _buffer?.Clear();
-            _buffer = null;
+            _buffer?.SetLength(0);
+            _buffer?.Seek(0, SeekOrigin.Begin);
         }
     }
 }

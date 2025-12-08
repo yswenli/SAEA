@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
@@ -112,21 +112,26 @@ namespace SAEA.Http
                 result = OnException?.Invoke(this, ex);
             }
 
-            if (result != null)
+            // 确保连接被释放
+            if (result == null)
             {
-                if (!(result is IBigDataResult))
-                {
-                    if (result is IFileResult && _webHost.WebConfig.IsStaticsCached)
-                    {
-                        Response.SetCached(result, "60,60");
-                    }
-                    else
-                    {
-                        Response.SetCached(result, this.Session.CacheCalcString);
-                    }
-                    Response.End();
-                }
+                // 如果没有结果，直接结束连接
+                Response.End();
             }
+            else if (!(result is IBigDataResult))
+            {
+                // 非大数据结果，设置缓存并结束连接
+                if (result is IFileResult && _webHost.WebConfig.IsStaticsCached)
+                {
+                    Response.SetCached(result, "60,60");
+                }
+                else
+                {
+                    Response.SetCached(result, this.Session.CacheCalcString);
+                }
+                Response.End();
+            }
+            // IBigDataResult类型会在其他地方处理连接释放
         }
         public override IHttpResult GetActionResult()
         {

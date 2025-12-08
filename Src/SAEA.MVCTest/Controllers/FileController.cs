@@ -1,4 +1,4 @@
-﻿using SAEA.Common;
+using SAEA.Common;
 using SAEA.Common.IO;
 using SAEA.MVC;
 using System.Threading.Tasks;
@@ -35,7 +35,7 @@ namespace SAEA.MVCTest.Controllers
         /// <returns></returns>
         public ActionResult GetPic()
         {
-            return Data(FileHelper.GetStream(HttpContext.Current.Server.MapPath("/Content/Images/6139455.png")));
+            return File(HttpContext.Current.Server.MapPath("/Content/Images/6139455.png"));
         }
 
         /// <summary>

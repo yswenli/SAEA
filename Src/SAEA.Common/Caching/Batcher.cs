@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *项目名称：SAEA.Common.Caching
 *CLR 版本：4.0.30319.42000
 *机器名称：WALLE-PC
@@ -77,13 +77,20 @@ namespace SAEA.Common.Caching
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="t"></param>
-        public void Insert(T t)
+        public bool Insert(T t)
         {
-            while (_bag.Count >= _max)
+            if (_bag.Count >= _max)
             {
-                ThreadHelper.Sleep(100);
+                // 当队列已满时，丢弃最早的元素
+                if (_bag.TryTake(out T _))
+                {
+                    _bag.Add(t);
+                    return true;
+                }
+                return false;
             }
             _bag.Add(t);
+            return true;
         }
 
         /// <summary>
@@ -98,7 +105,8 @@ namespace SAEA.Common.Caching
                 if (count >= _size || (count > 0 && stopwatch.ElapsedMilliseconds >= _timeout))
                 {
                     var list = new List<T>();
-                    for (int i = 0; i < count; i++)
+                    int takeCount = Math.Min(count, _size); // 限制每次最多取出_size个消息
+                    for (int i = 0; i < takeCount; i++)
                     {
                         if (_bag.TryTake(out T t))
                         {
@@ -207,9 +215,9 @@ namespace SAEA.Common.Caching
         /// 插入
         /// </summary>
         /// <param name="data"></param>
-        public void Insert(byte[] data)
+        public bool Insert(byte[] data)
         {
-            _batcher.Insert(data);
+            return _batcher.Insert(data);
         }
 
 

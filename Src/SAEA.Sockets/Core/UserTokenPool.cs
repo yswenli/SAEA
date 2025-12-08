@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
  * 
   ____    _    _____    _      ____             _        _   
  / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
@@ -86,16 +86,25 @@ namespace SAEA.Sockets.Core
         /// <returns>用户令牌</returns>
         public IUserToken Dequeue(int timeOut = 1000)
         {
-            IUserToken userToken;
-            _concurrentQueue.TryDequeue(out userToken);
-            if (userToken != null)
-                _bufferManager.SetBuffer(userToken.ReadArgs);
-            else
+            DateTime startTime = DateTime.Now;
+            while (true)
             {
-                Thread.Sleep(100);
-                return Dequeue(timeOut);
+                IUserToken userToken;
+                if (_concurrentQueue.TryDequeue(out userToken))
+                {
+                    _bufferManager.SetBuffer(userToken.ReadArgs);
+                    return userToken;
+                }
+                else
+                {
+                    // 检查是否超时
+                    if ((DateTime.Now - startTime).TotalMilliseconds > timeOut)
+                    {
+                        return null;
+                    }
+                    Thread.Sleep(100);
+                }
             }
-            return userToken;
         }
 
         /// <summary>
@@ -120,7 +129,26 @@ namespace SAEA.Sockets.Core
                 }
                 catch { }
                 if (userToken.ReadArgs != null)
+                {
                     _bufferManager.FreeBuffer(userToken.ReadArgs);
+                    userToken.ReadArgs.UserToken = null;
+                    // 重置ReadArgs的RemoteEndPoint（如果有）
+                    if (userToken.ReadArgs.RemoteEndPoint != null)
+                    {
+                        userToken.ReadArgs.RemoteEndPoint = null;
+                    }
+                }
+                if (userToken.WriteArgs != null)
+                {
+                    // 重置WriteArgs的缓冲区
+                    userToken.WriteArgs.SetBuffer(null, 0, 0);
+                    userToken.WriteArgs.UserToken = null;
+                    // 重置WriteArgs的RemoteEndPoint（如果有）
+                    if (userToken.WriteArgs.RemoteEndPoint != null)
+                    {
+                        userToken.WriteArgs.RemoteEndPoint = null;
+                    }
+                }
                 userToken.ReleaseWrite();
                 _concurrentQueue.Enqueue(userToken);
                 return true;

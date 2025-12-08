@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
  * 
   ____    _    _____    _      ____             _        _   
  / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
@@ -329,7 +329,11 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 if (!_userToken.Socket.ReceiveAsync(readArgs))
                 {
-                    ProcessReceived(readArgs);
+                    // 使用线程池避免直接递归调用导致栈溢出
+                    ThreadPool.QueueUserWorkItem((state) =>
+                    {
+                        ProcessReceived(readArgs);
+                    });
                 }
             }
             else

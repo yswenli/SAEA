@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) 2023 RiverLand All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WALLE
@@ -36,6 +36,11 @@ namespace SAEA.QueueSocket
         public event OnErrorHandler OnError;
 
         public event OnDisconnectedHandler OnDisconnected;
+        
+        /// <summary>
+        /// 消息实际发送完成事件
+        /// </summary>
+        public event Action<int> OnMessagesSent;
 
         QClient _producer;
 
@@ -57,6 +62,7 @@ namespace SAEA.QueueSocket
             _producer = new QClient(name, serverAddress);
             _producer.OnError += _consumer_OnError;
             _producer.OnDisconnected += _consumer_OnDisconnected;
+            _producer.OnMessagesSent += _producer_OnMessagesSent;
             _producer.Connect();
         }
 
@@ -68,6 +74,11 @@ namespace SAEA.QueueSocket
         private void _consumer_OnError(string id, Exception ex)
         {
             OnError?.Invoke(id, ex);
+        }
+        
+        private void _producer_OnMessagesSent(int count)
+        {
+            OnMessagesSent?.Invoke(count);
         }
 
         /// <summary>

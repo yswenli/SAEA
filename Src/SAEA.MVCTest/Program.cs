@@ -1,4 +1,5 @@
-﻿
+
+using System;
 using SAEA.Common;
 using SAEA.MVC;
 using SAEA.MVC.Tool;
@@ -43,16 +44,21 @@ namespace SAEA.MVCTest
 
             mvcApplication.SetCrossDomainHeaders("token", "auth", "Authorization");
 
-            mvcApplication.Restart();
-
             ConsoleHelper.WriteLine($"SAEA.MVCApplication 已启动！\t\r\n访问请输入http://127.0.0.1:{mvcConfig.Port}/{{controller}}/{{action}}");
 
             //生成sdk测试
             //TestCodeGenerate1();
             //TestCodeGenerate2();
 
-            ConsoleHelper.WriteLine("回车结束！");
-            ConsoleHelper.ReadLine();
+            ConsoleHelper.WriteLine("服务器正在运行，按任意键结束...");
+            // 使用ManualResetEvent确保服务器持续运行，即使在非交互式环境中
+            var exitEvent = new System.Threading.ManualResetEvent(false);
+            Console.CancelKeyPress += (sender, e) =>
+            {
+                ConsoleHelper.WriteLine("正在关闭服务器...");
+                exitEvent.Set();
+            };
+            exitEvent.WaitOne();
         }
 
         private static Http.Model.IHttpResult MvcApplication_OnException(Http.Model.IHttpContext httpContext, System.Exception ex)

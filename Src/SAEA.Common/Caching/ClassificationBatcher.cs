@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *项目名称：SAEA.Common.Caching
 *CLR 版本：4.0.30319.42000
 *机器名称：WALLE-PC
@@ -92,14 +92,14 @@ namespace SAEA.Common.Caching
         /// </summary>
         /// <param name="name"></param>
         /// <param name="data"></param>
-        public void Insert(string name, byte[] data)
+        public bool Insert(string name, byte[] data)
         {
             if (_dic.TryGetValue(name, out IBatcher b))
             {
                 if (b != null)
                 {
                     var bacher = (Batcher)b;
-                    bacher.Insert(data);
+                    return bacher.Insert(data);
                 }
             }
             else
@@ -108,9 +108,10 @@ namespace SAEA.Common.Caching
                 bacher.OnBatched += Bacher_OnBatched;
                 if (_dic.TryAdd(name, bacher))
                 {
-                    bacher.Insert(data);
+                    return bacher.Insert(data);
                 }
             }
+            return false;
         }
 
         /// <summary>

@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
@@ -24,6 +24,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -35,7 +36,7 @@ namespace SAEA.QueueSocket.Model
     /// <summary>
     /// Exchange类，实现ISyncBase接口
     /// </summary>
-    class Exchange : ISyncBase
+    class Exchange : ISyncBase, IDisposable
     {
         // 同步锁对象
         object _syncLocker = new object();
@@ -77,18 +78,30 @@ namespace SAEA.QueueSocket.Model
         // 消息队列对象
         private MessageQueue _messageQueue;
 
+        // 订阅者消息处理队列
+        private ConcurrentDictionary<string, ConcurrentDictionary<string, Net.QueueCoder>> _subscribers;
+
+        // 消息分发任务字典
+        private ConcurrentDictionary<string, Task> _dispatchTasks;
+
         /// <summary>
         /// 初始化Exchange类的新实例
         /// </summary>
-        public Exchange()
+        /// <param name="maxPendingMsgCount">消息队列最大堆积数量，默认10000000</param>
+        public Exchange(int maxPendingMsgCount = 10000000)
         {
             _binding = new Binding();
 
-            _messageQueue = new MessageQueue();
+            _messageQueue = new MessageQueue(maxPendingMsgCount);
 
-            _classificationBatcher = ClassificationBatcher.GetInstance(10000, 100);
+            // 优化：将批处理超时时间从100ms改为20ms，提高消息处理频率，同时增加批量大小到5000以提高吞吐量
+            _classificationBatcher = ClassificationBatcher.GetInstance(5000, 20);
 
             _classificationBatcher.OnBatched += _classificationBatcher_OnBatched;
+
+            _subscribers = new ConcurrentDictionary<string, ConcurrentDictionary<string, Net.QueueCoder>>();
+
+            _dispatchTasks = new ConcurrentDictionary<string, Task>();
         }
 
         /// <summary>
@@ -117,6 +130,8 @@ namespace SAEA.QueueSocket.Model
             Interlocked.Increment(ref _inNum);
         }
 
+
+
         /// <summary>
         /// 获取订阅数据
         /// </summary>
@@ -131,18 +146,71 @@ namespace SAEA.QueueSocket.Model
 
                 _cNum = _binding.GetSubscriberCount();
 
-                Task.Factory.StartNew((Func<Task>)(async () =>
+                // 将订阅者添加到订阅者字典
+                var topicSubscribers = _subscribers.GetOrAdd(sInfo.Topic,
+                    (topic) => new ConcurrentDictionary<string, Net.QueueCoder>());
+
+                topicSubscribers.AddOrUpdate(sessionID, qcoder, (id, oldCoder) => qcoder);
+
+                // 启动或获取该主题的消息分发任务，使用Task.Run确保任务立即执行
+                _dispatchTasks.GetOrAdd(sInfo.Topic, topic => Task.Run(async () =>
                 {
-                    while (_binding.Exists(sInfo))
+                    // 批量处理参数
+                    const int batchSize = 1000; // 每次处理1000条消息
+                    const int maxWaitTime = 50; // 最大等待时间50ms
+                    var stopwatch = new System.Diagnostics.Stopwatch();
+
+                    while (_subscribers.TryGetValue(topic, out var subs) && subs.Count > 0)
                     {
-                        var msg = await _messageQueue.DequeueAsync(sInfo.Topic);
-                        if (msg != null && msg.Length > 0)
+                        var messages = new List<byte[]>();
+                        stopwatch.Restart();
+
+                        // 批量获取消息
+                        while (messages.Count < batchSize && stopwatch.ElapsedMilliseconds < maxWaitTime)
                         {
-                            Interlocked.Increment(ref _outNum);
-                            _classificationBatcher.Insert(sessionID, qcoder.Data(sInfo.Name, sInfo.Topic, msg));
+                            var msg = await _messageQueue.DequeueAsync(topic);
+                            if (msg != null && msg.Length > 0)
+                            {
+                                messages.Add(msg);
+                            }
+                            else
+                            {
+                                // 没有更多消息，退出循环
+                                break;
+                            }
+                        }
+
+                        // 如果有消息需要处理
+                        if (messages.Count > 0)
+                        {
+                            // 复制当前订阅者列表，避免在分发过程中修改列表
+                            var currentSubs = subs.ToArray();
+
+                            // 对每个订阅者批量发送消息
+                            foreach (var sub in currentSubs)
+                            {
+                                // 检查订阅者是否仍然存在
+                                if (subs.TryGetValue(sub.Key, out var coder))
+                                {
+                                    // 获取订阅者的主题信息（只需要获取一次）
+                                    var bindInfo = _binding.GetBingInfo(sub.Key);
+                                    if (bindInfo != null)
+                                    {
+                                        // 批量处理消息
+                                        foreach (var msg in messages)
+                                        {
+                                            Interlocked.Increment(ref _outNum);
+                                            _classificationBatcher.Insert(sub.Key, coder.Data(bindInfo.Name, topic, msg));
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
-                }), TaskCreationOptions.LongRunning);
+
+                    // 当没有订阅者时，移除该主题的分发任务
+                    _dispatchTasks.TryRemove(topic, out var _);
+                }));
             }
         }
 
@@ -208,6 +276,54 @@ namespace SAEA.QueueSocket.Model
                 }
             }
             return result;
+        }
+
+        /// <summary>
+        /// 处理会话断开
+        /// </summary>
+        /// <param name="sessionID"></param>
+        public void SessionClosed(string sessionID)
+        {
+            _binding.Remove(sessionID);
+            _cNum = _binding.GetSubscriberCount();
+
+            // 从订阅者字典中移除会话ID
+            foreach (var topic in _subscribers.Keys)
+            {
+                if (_subscribers.TryGetValue(topic, out var subscribers))
+                {
+                    subscribers.TryRemove(sessionID, out var _);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 释放资源
+        /// </summary>
+        public void Dispose()
+        {
+            // 清理订阅者字典
+            if (_subscribers != null)
+            {
+                _subscribers.Clear();
+            }
+
+            // 清理分发任务字典
+            if (_dispatchTasks != null)
+            {
+                _dispatchTasks.Clear();
+            }
+
+            // 释放其他资源
+            if (_binding != null)
+            {
+                _binding.Dispose();
+            }
+
+            if (_messageQueue != null)
+            {
+                _messageQueue.Dispose();
+            }
         }
     }
 }

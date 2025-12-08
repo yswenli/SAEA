@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
@@ -45,9 +45,16 @@ namespace SAEA.QueueSocket.Model
             }
         }
 
-        public MessageQueue()
+        private int _maxPendingMsgCount = 10000000;
+
+        /// <summary>
+        /// 消息队列
+        /// </summary>
+        /// <param name="maxPendingMsgCount">消息队列最大堆积数量，默认10000000</param>
+        public MessageQueue(int maxPendingMsgCount = 10000000)
         {
             _dic = new ConcurrentDictionary<string, FastQueue<byte[]>>();
+            _maxPendingMsgCount = maxPendingMsgCount;
         }
 
 
@@ -55,7 +62,7 @@ namespace SAEA.QueueSocket.Model
         {
             if (!_dic.TryGetValue(topic, out FastQueue<byte[]> queue))
             {
-                queue = new FastQueue<byte[]>();
+                queue = new FastQueue<byte[]>(_maxPendingMsgCount);
                 _dic.TryAdd(topic, queue);
             }
             return queue.EnqueueAsync(data);
