@@ -51,11 +51,16 @@ namespace SAEA.Http.Base.Net
         /// <summary>
         /// HttpSocket构造函数
         /// </summary>
-        /// <param name="port">端口号</param>
-        /// <param name="bufferSize">缓冲区大小</param>
-        /// <param name="maxConnects">连接数</param>
-        /// <param name="timeOut">超时时间</param>
-        public HttpSocket(int port, int bufferSize = 64 * 1024, int maxConnects = 1000, int timeOut = 180 * 1000)
+        /// <param name="port"></param>
+        /// <param name="bufferSize"></param>
+        /// <param name="maxConnects"></param>
+        /// <param name="timeout"></param>
+        /// <param name="connectTimeout"></param>
+        public HttpSocket(int port,
+            int bufferSize = 64 * 1024,
+            int maxConnects = 1000,
+            double timeout = 180,
+            double connectTimeout = 2)
         {
             var optionBuilder = new SocketOptionBuilder()
                .SetSocket(Sockets.Model.SAEASocketType.Tcp)
@@ -63,8 +68,9 @@ namespace SAEA.Http.Base.Net
                .SetPort(port)
                .SetMaxConnects(maxConnects)
                .SetReadBufferSize(bufferSize)
-               .SetTimeOut(timeOut)
-               .SetFreeTime(timeOut)
+               .SetTimeOut((int)(timeout * 1000))
+               .SetFreeTime((int)(timeout * 1000))
+               .SetConnectTimeout((int)(connectTimeout * 1000))
                .ReusePort(false);
 
             _option = optionBuilder.Build();

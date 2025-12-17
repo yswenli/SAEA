@@ -216,7 +216,7 @@ namespace SAEA.Sockets.Core.Tcp
                 {
                     OnError?.Invoke(string.Empty, aex);
                     OnDisconnected?.Invoke(SocketOption.IP + "_" + SocketOption.Port, aex);
-                    clientSocket?.Close(SocketOption.TimeOut);
+                    clientSocket?.Close(SocketOption.Timeout);
                 }
                 catch (Exception exception)
                 {
@@ -226,7 +226,7 @@ namespace SAEA.Sockets.Core.Tcp
                     {
                         OnDisconnected?.Invoke(SocketOption.IP + "_" + SocketOption.Port, exception);
                     }
-                    clientSocket?.Close(SocketOption.TimeOut);
+                    clientSocket?.Close(SocketOption.Timeout);
                 }
             }
         }

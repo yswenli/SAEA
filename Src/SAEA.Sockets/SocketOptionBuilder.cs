@@ -280,9 +280,9 @@ namespace SAEA.Sockets
         /// </summary>
         /// <param name="timeOut"></param>
         /// <returns></returns>
-        public SocketOptionBuilder SetTimeOut(int timeOut = 60 * 1000)
+        public SocketOptionBuilder SetTimeOut(int timeOut = 180 * 1000)
         {
-            _socketOption.TimeOut = timeOut;
+            _socketOption.Timeout = timeOut;
             return this;
         }
 
@@ -291,9 +291,20 @@ namespace SAEA.Sockets
         /// </summary>
         /// <param name="timeOut"></param>
         /// <returns></returns>
-        public SocketOptionBuilder SetFreeTime(int timeOut = int.MaxValue)
+        public SocketOptionBuilder SetFreeTime(int timeOut = 180 * 1000)
         {
             _socketOption.FreeTime = timeOut;
+            return this;
+        }
+
+        /// <summary>
+        /// 连接超时
+        /// </summary>
+        /// <param name="connectTimeout"></param>
+        /// <returns></returns>
+        public SocketOptionBuilder SetConnectTimeout(int connectTimeout = 2 * 1000)
+        {
+            _socketOption.ConnectTimeout = connectTimeout;
             return this;
         }
 

@@ -129,6 +129,7 @@ namespace SAEA.Http
                 {
                     Response.SetCached(result, this.Session.CacheCalcString);
                 }
+                
                 Response.End();
             }
             // IBigDataResult类型会在其他地方处理连接释放

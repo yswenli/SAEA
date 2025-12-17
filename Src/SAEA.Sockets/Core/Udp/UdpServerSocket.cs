@@ -134,7 +134,7 @@ namespace SAEA.Sockets.Core.Udp
                     else
                         _udpSocket.Bind(new IPEndPoint(IPAddress.Parse(SocketOption.IP), SocketOption.Port));
                 }
-                _udpSocket.SendTimeout = _udpSocket.ReceiveTimeout = SocketOption.TimeOut;
+                _udpSocket.SendTimeout = _udpSocket.ReceiveTimeout = SocketOption.Timeout;
                 _udpSocket.SendBufferSize = SocketOption.WriteBufferSize;
                 _udpSocket.ReceiveBufferSize = SocketOption.ReadBufferSize;
 
@@ -274,7 +274,7 @@ namespace SAEA.Sockets.Core.Udp
         {
             if (data == null || !data.Any() || data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentException("SendAsync Incorrect length of data sent");
 
-            if (userToken.WaitWrite(SocketOption.TimeOut))
+            if (userToken.WaitWrite(SocketOption.Timeout))
             {
                 try
                 {

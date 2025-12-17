@@ -142,11 +142,22 @@ namespace SAEA.Sockets
         /// <summary>
         /// 操作超时
         /// </summary>
-        int TimeOut
+        int Timeout
         {
             get; set;
         }
 
+        /// <summary>
+        /// 连接超时
+        /// </summary>
+        int ConnectTimeout
+        {
+            get; set;
+        }
+
+        /// <summary>
+        /// 空闲超时
+        /// </summary>
         int FreeTime
         {
             get; set;

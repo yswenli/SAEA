@@ -199,9 +199,9 @@ namespace SAEA.Sockets.Core.Tcp
 
                 socket.SendBufferSize = SocketOption.WriteBufferSize;
 
-                socket.ReceiveTimeout = socket.SendTimeout = SocketOption.TimeOut;
+                socket.ReceiveTimeout = socket.SendTimeout = SocketOption.Timeout;
 
-                var userToken = _sessionManager.BindUserToken(socket, SocketOption.TimeOut);
+                var userToken = _sessionManager.BindUserToken(socket, SocketOption.ConnectTimeout);
 
                 if (userToken == null)
                 {
@@ -347,7 +347,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="data"></param>
         public void SendAsync(IUserToken userToken, byte[] data)
         {
-            if (userToken.WaitWrite(SocketOption.TimeOut) && userToken.Socket != null && userToken.Socket.Connected)
+            if (userToken.WaitWrite(SocketOption.Timeout) && userToken.Socket != null && userToken.Socket.Connected)
             {
                 try
                 {
@@ -484,10 +484,18 @@ namespace SAEA.Sockets.Core.Tcp
 
             if (userToken == null) return;
 
-            if (userToken.Socket != null && userToken.Socket.Connected)
+            try
             {
-                Send(userToken, data);
+                if (userToken.Socket != null && userToken.Socket.Connected)
+                {
+                    Send(userToken, data);
+                }
             }
+            catch (Exception ex)
+            {
+                OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", ex);
+            }
+
             Disconnect(userToken);
         }
 

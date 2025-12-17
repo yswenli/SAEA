@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
@@ -29,6 +29,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SAEA.MVC
@@ -199,40 +200,76 @@ namespace SAEA.MVC
         static ActionResult MethodInvoke(MethodInfo action, object obj, NameValueCollection nameValues)
         {
             ActionResult result = null;
-
-            object data;
+            object data = null;
 
             var @params = action.GetParameters();
+            int timeoutMs = (int)(HttpContext.Current.WebConfig.Timeout * 1000);
 
-            if (@params != null && @params.Any())
+            try
             {
-                var list = ParamsHelper.FillPamars(@params, nameValues);
-
-                data = action.Invoke(obj, list.ToArray());
-            }
-            else
-            {
-                data = action.Invoke(obj, null);
-            }
-
-            if (data.GetType().Name == "AsyncStateMachineBox`1" || data.GetType().Name == "Task`1")
-            {
-                var tdata = data as Task<ActionResult>;
-
-                if (Task.WaitAll(new Task[] { tdata }, HttpContext.Current.WebConfig.TimeOut))
+                // 创建参数列表
+                object[] parameters = null;
+                if (@params != null && @params.Any())
                 {
-                    result = tdata.Result;
+                    var list = ParamsHelper.FillPamars(@params, nameValues);
+                    parameters = list.ToArray();
+                }
+
+                // 检查是否为异步方法
+                bool isAsync = action.ReturnType.IsGenericType && action.ReturnType.GetGenericTypeDefinition() == typeof(Task<>);
+
+                if (isAsync)
+                {
+                    // 处理异步方法
+                    var task = (Task)action.Invoke(obj, parameters);
+                    
+                    // 等待任务完成或超时
+                    if (!task.Wait(timeoutMs))
+                    {
+                        // 超时
+                        return new ContentResult($"{action.Name}: The execution of this asynchronous method has timed out", System.Net.HttpStatusCode.RequestTimeout);
+                    }
+                    
+                    // 任务完成，获取结果
+                    var resultProperty = task.GetType().GetProperty("Result");
+                    data = resultProperty.GetValue(task);
                 }
                 else
                 {
-                    throw new TimeoutException($"{action.Name}: The execution of this asynchronous method has timed out");
+                    // 处理同步方法
+                    var task = Task.Run(() => action.Invoke(obj, parameters));
+                    
+                    // 等待任务完成或超时
+                    if (!task.Wait(timeoutMs))
+                    {
+                        // 超时
+                        return new ContentResult($"{action.Name}: The execution of this method has timed out", System.Net.HttpStatusCode.RequestTimeout);
+                    }
+                    
+                    // 任务完成，获取结果
+                    data = task.Result;
                 }
 
+                // 处理各种返回类型
+                if (data is ActionResult)
+                {
+                    result = data as ActionResult;
+                }
+                else if (data is string)
+                {
+                    result = new ContentResult(data as string);
+                }
+                else
+                {
+                    result = new JsonResult(data);
+                }
             }
-            else
+            catch
             {
-                result = (ActionResult)data;
+                // 处理其他异常
+                throw;
             }
+
             return result;
         }
     }

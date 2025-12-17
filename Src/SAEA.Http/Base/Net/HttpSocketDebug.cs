@@ -19,6 +19,7 @@ using SAEA.Common;
 using SAEA.Sockets;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
+
 using System;
 
 namespace SAEA.Http.Base.Net
@@ -34,7 +35,11 @@ namespace SAEA.Http.Base.Net
         public event Action<Exception> OnError;
 
 
-        public HttpSocketDebug(int port, int bufferSize = 1024 * 64, int maxConnects = 1000, int timeOut = 180 * 1000)
+        public HttpSocketDebug(int port,
+            int bufferSize = 1024 * 64,
+            int maxConnects = 1000,
+            double timeout = 180,
+            double connectTimeout = 2)
         {
             var optionBuilder = new SocketOptionBuilder()
                .SetSocket(SAEASocketType.Tcp)
@@ -42,7 +47,8 @@ namespace SAEA.Http.Base.Net
                .SetPort(port)
                .SetMaxConnects(maxConnects)
                .SetReadBufferSize(bufferSize)
-               .SetTimeOut(timeOut)
+               .SetTimeOut((int)(timeout * 1000))
+               .SetConnectTimeout((int)(connectTimeout * 1000))
                .ReusePort(false);
             _option = optionBuilder.Build();
 

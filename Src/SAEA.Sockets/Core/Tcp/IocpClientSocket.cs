@@ -80,6 +80,11 @@ namespace SAEA.Sockets.Core.Tcp
         AutoResetEvent _connectEvent = new AutoResetEvent(true);
 
         /// <summary>
+        /// 连接超时定时器
+        /// </summary>
+        Timer _connectTimeoutTimer;
+
+        /// <summary>
         /// 套接字选项
         /// </summary>
         public ISocketOption SocketOption { get; set; }
@@ -169,8 +174,8 @@ namespace SAEA.Sockets.Core.Tcp
                 _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, SocketOption.ReusePort);
             }
             _socket.NoDelay = SocketOption.NoDelay;
-            _socket.SendTimeout = _socket.ReceiveTimeout = SocketOption.TimeOut;
-            _socket.KeepAlive(SocketOption.FreeTime, SocketOption.TimeOut);
+            _socket.SendTimeout = _socket.ReceiveTimeout = SocketOption.Timeout;
+            _socket.KeepAlive(SocketOption.FreeTime, SocketOption.Timeout);
 
             OnClientReceive = new OnClientReceiveBytesHandler(OnReceived);
 
@@ -181,6 +186,9 @@ namespace SAEA.Sockets.Core.Tcp
             _connectArgs.Completed += ConnectArgs_Completed;
 
             _userToken = _userTokenFactory.Create(socketOption.Context, socketOption.ReadBufferSize, IO_Completed);
+
+            // 初始化连接超时定时器
+            _connectTimeoutTimer = new Timer(ConnectTimeoutCallback, null, Timeout.Infinite, Timeout.Infinite);
         }
 
         /// <summary>
@@ -192,7 +200,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="bufferSize">缓冲区大小</param>
         /// <param name="timeOut">超时时间</param>
         public IocpClientSocket(IContext<ICoder> context, string ip = "127.0.0.1", int port = 39654, int bufferSize = 64 * 1024, int timeOut = 180 * 1000)
-            : this(new SocketOption() { Context = context, IP = ip, Port = port, ReadBufferSize = bufferSize, WriteBufferSize = bufferSize, TimeOut = timeOut })
+            : this(new SocketOption() { Context = context, IP = ip, Port = port, ReadBufferSize = bufferSize, WriteBufferSize = bufferSize, Timeout = timeOut })
         {
 
         }
@@ -216,6 +224,26 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         /// <summary>
+        /// 连接超时回调
+        /// </summary>
+        /// <param name="state">状态对象</param>
+        private void ConnectTimeoutCallback(object state)
+        {
+            try
+            {
+                _socket.Close(SocketOption.Timeout);
+                OnError?.Invoke("", new TimeoutException($"连接超时，超时时间：{SocketOption.ConnectTimeout}毫秒"));
+                _connectCallBack?.Invoke(SocketError.TimedOut);
+            }
+            catch { }
+            finally
+            {
+                _connectTimeoutTimer.Change(Timeout.Infinite, Timeout.Infinite);
+                _connectEvent.Set();
+            }
+        }
+
+        /// <summary>
         /// 异步连接到服务器
         /// </summary>
         /// <param name="callBack">连接回调</param>
@@ -225,6 +253,10 @@ namespace SAEA.Sockets.Core.Tcp
             if (!Connected)
             {
                 _connectCallBack = callBack;
+                
+                // 启动连接超时定时器
+                _connectTimeoutTimer.Change(SocketOption.ConnectTimeout, Timeout.Infinite);
+                
                 if (!_socket.ConnectAsync(_connectArgs))
                 {
                     ProcessConnected(_connectArgs);
@@ -239,7 +271,12 @@ namespace SAEA.Sockets.Core.Tcp
         {
             if (!Connected && !IsDisposed)
             {
-                _socket.Connect(SocketOption.IP, SocketOption.Port);
+                // 使用ConnectTimeout设置连接超时
+                var connectTask = _socket.ConnectAsync(SocketOption.IP, SocketOption.Port);
+                if (!connectTask.Wait(SocketOption.ConnectTimeout))
+                {
+                    throw new TimeoutException($"连接超时，超时时间：{SocketOption.ConnectTimeout}毫秒");
+                }
 
                 _userToken.ID = _socket.LocalEndPoint.ToString();
                 _userToken.Socket = _socket;
@@ -274,6 +311,9 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="e">事件参数</param>
         void ProcessConnected(SocketAsyncEventArgs e)
         {
+            // 停止连接超时定时器
+            _connectTimeoutTimer.Change(Timeout.Infinite, Timeout.Infinite);
+            
             Connected = (e.SocketError == SocketError.Success);
 
             if (Connected)
@@ -427,7 +467,7 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 if (userToken != null && userToken.Socket != null && userToken.Socket.Connected)
                 {
-                    if (userToken.WaitWrite(SocketOption.TimeOut))
+                    if (userToken.WaitWrite(SocketOption.Timeout))
                     {
                         var writeArgs = userToken.WriteArgs;
 

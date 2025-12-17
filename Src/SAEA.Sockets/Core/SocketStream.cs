@@ -98,7 +98,7 @@ namespace SAEA.Sockets.Core
         /// <returns></returns>
         public override int Read(byte[] buffer, int offset, int count)
         {
-            var data = _queue.Dequeue(_client.SocketOption.TimeOut);
+            var data = _queue.Dequeue(_client.SocketOption.Timeout);
             if (data != null && data.Length > 0)
             {
                 _list.AddRange(data);

@@ -73,18 +73,28 @@ namespace SAEA.Http
 
 
         /// <summary>
-        /// SAEA WebServer
+        /// WebHost
         /// </summary>
-        /// <param name="httpContentType">处理对象</param>
-        /// <param name="root">根目录</param>
-        /// <param name="port">监听端口</param>
-        /// <param name="isStaticsCached">是否启用静态缓存</param>
-        /// <param name="isZiped">是压启用内容压缩</param>
-        /// <param name="bufferSize">http处理数据缓存大小</param>
-        /// <param name="maxConnects">http连接数上限</param>
-        /// <param name="timeOut">超时</param>
-        /// <param name="isDebug">测试模式</param>
-        public WebHost(Type httpContentType = null, string root = "wwwroot", int port = 39654, bool isStaticsCached = true, bool isZiped = true, int bufferSize = 64 * 1024, int maxConnects = 1000, int timeOut = 180 * 1000, bool isDebug = false)
+        /// <param name="httpContentType"></param>
+        /// <param name="root"></param>
+        /// <param name="port"></param>
+        /// <param name="isStaticsCached"></param>
+        /// <param name="isZiped"></param>
+        /// <param name="bufferSize"></param>
+        /// <param name="maxConnects"></param>
+        /// <param name="timeout"></param>
+        /// <param name="connectTimeout"></param>
+        /// <param name="isDebug"></param>
+        public WebHost(Type httpContentType = null,
+            string root = "wwwroot",
+            int port = 39654,
+            bool isStaticsCached = true,
+            bool isZiped = true,
+            int bufferSize = 64 * 1024,
+            int maxConnects = 1000,
+            double timeout = 180,
+            double connectTimeout = 2,
+            bool isDebug = false)
         {
             if (httpContentType != null && _httpContentType.GetInterface("SAEA.Http.Model.IHttpContext", true) != null)
             {
@@ -103,18 +113,18 @@ namespace SAEA.Http
                 IsZiped = isZiped,
                 HandleBufferSize = bufferSize,
                 MaxConnects = maxConnects,
-                TimeOut = timeOut
+                Timeout = timeout
             };
 
             HttpUtility = new HttpUtility(WebConfig.Root);
 
             if (isDebug)
 
-                _httpServer = new HttpSocketDebug(port, bufferSize, maxConnects, timeOut);
+                _httpServer = new HttpSocketDebug(port, bufferSize, maxConnects, timeout, connectTimeout);
 
             else
 
-                _httpServer = new HttpSocket(port, bufferSize, maxConnects, timeOut);
+                _httpServer = new HttpSocket(port, bufferSize, maxConnects, timeout, connectTimeout);
 
             _httpServer.OnRequested += _serverSocket_OnRequested;
             _httpServer.OnError += _httpServer_OnError;
@@ -131,9 +141,7 @@ namespace SAEA.Http
             {
                 LogHelper.Error("httpServer_OnError", ex);
             }
-
         }
-
 
 
         /// <summary>

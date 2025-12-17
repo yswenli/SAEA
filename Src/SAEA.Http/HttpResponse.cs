@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
@@ -56,7 +56,7 @@ namespace SAEA.Http
             UserToken = userToken;
             Protocal = protocal;
             _isZiped = isZiped;
-            Headers["Connection"] = "close";
+            // 默认不设置Connection头，根据客户端请求决定
         }
 
         internal HttpResponse SetContent(byte[] content)
@@ -202,7 +202,8 @@ namespace SAEA.Http
             }
 
             this.SetHeader(ResponseHeaderType.ContentLength, bodyLen.ToString());
-
+            // 总是设置Connection头为close，不支持keep-alive
+            this.SetHeader(ResponseHeaderType.Connection, "close");
             var header = BuildHeader();
 
             byte[] headerBytes = Encoding.UTF8.GetBytes(header);
@@ -257,7 +258,7 @@ namespace SAEA.Http
             if (bodyLen > 0)
                 this.SetHeader(ResponseHeaderType.ContentLength, bodyLen.ToString());
 
-            Headers["Connection"] = "keep-alive";
+            Headers["Connection"] = "close";
 
             var header = BuildHeader();
 
@@ -299,16 +300,28 @@ namespace SAEA.Http
 
 
         /// <summary>
-        /// 结束当前流程
+        /// 发送响应但不关闭连接
         /// </summary>
-        public void End()
+        public void Send()
         {
             if (UserToken == null) return;
             else
             {
-                var ut = UserToken;
-                UserToken = null;
+                WebHost.Send(UserToken, this.ToBytes());
+            }
+        }
+
+        /// <summary>
+        /// 结束当前流程
+        /// </summary>
+        public void End()
+        {
+            var ut = UserToken;
+            if (ut == null) return;
+            else
+            {
                 WebHost.End(ut, this.ToBytes());
+                UserToken = null;
             }
         }
 
@@ -323,7 +336,7 @@ namespace SAEA.Http
                 this.Forms.Clear();
             if (this.Parmas != null)
                 this.Parmas.Clear();
-            Body.Clear();
+            // Body是byte[]类型，由GC自动管理，不需要手动Clear
         }
 
     }

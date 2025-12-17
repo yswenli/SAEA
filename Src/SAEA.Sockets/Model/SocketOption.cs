@@ -164,7 +164,7 @@ namespace SAEA.Sockets.Model
         /// <summary>
         /// 操作超时时间
         /// </summary>
-        public int TimeOut
+        public int Timeout
         {
             get; set;
         } = 60 * 1000;
@@ -176,6 +176,14 @@ namespace SAEA.Sockets.Model
         {
             get; set;
         } = 180 * 1000;
+
+        /// <summary>
+        /// 连接超时时间
+        /// </summary>
+        public int ConnectTimeout
+        {
+            get; set;
+        } = 30 * 1000;
 
         /// <summary>
         /// 组播地址

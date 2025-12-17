@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
@@ -57,23 +57,50 @@ namespace SAEA.MVC
         /// 构建mvc容器
         /// </summary>
         /// <param name="mvcConfig"></param>
-        public SAEAMvcApplication(SAEAMvcApplicationConfig mvcConfig) : this(mvcConfig.Root, mvcConfig.Port, mvcConfig.IsStaticsCached, mvcConfig.IsZiped, mvcConfig.BufferSize, mvcConfig.MaxConnects, mvcConfig.ControllerNameSpace, mvcConfig.IsDebug)
+        public SAEAMvcApplication(SAEAMvcApplicationConfig mvcConfig) :
+            this(mvcConfig.Root,
+                mvcConfig.Port,
+                mvcConfig.IsStaticsCached,
+                mvcConfig.IsZiped,
+                mvcConfig.BufferSize,
+                mvcConfig.MaxConnects,
+                mvcConfig.ControllerNameSpace,
+                mvcConfig.Timeout,
+                mvcConfig.ConnectTimeout,
+                mvcConfig.IsDebug)
         {
             _webHost.WebConfig.HomePage = mvcConfig.DefaultPage;
+            if (mvcConfig.Timeout > 0)
+            {
+                _webHost.WebConfig.Timeout = mvcConfig.Timeout;
+                _webHost.WebConfig.ConnectTimeout = mvcConfig.ConnectTimeout;
+            }
         }
 
         /// <summary>
         /// 构建mvc容器
         /// </summary>
-        /// <param name="root">根目录</param>
-        /// <param name="port">监听端口</param>
-        /// <param name="isStaticsCached">是否启用静态缓存</param>
-        /// <param name="isZiped">是压启用内容压缩</param>
-        /// <param name="bufferSize">http处理数据缓存大小</param>
-        /// <param name="maxCounnects">http连接数上限</param>
-        /// <param name="controllerNameSpace">注册指定的Controlls空间名</param>
-        /// <param name="isDebug">调试模式</param>
-        public SAEAMvcApplication(string root = "wwwroot", int port = 28080, bool isStaticsCached = true, bool isZiped = false, int bufferSize = 1024 * 64, int maxCounnects= 1000, string controllerNameSpace = "", bool isDebug = false)
+        /// <param name="root"></param>
+        /// <param name="port"></param>
+        /// <param name="isStaticsCached"></param>
+        /// <param name="isZiped"></param>
+        /// <param name="bufferSize"></param>
+        /// <param name="maxCounnects"></param>
+        /// <param name="controllerNameSpace"></param>
+        /// <param name="timeout"></param>
+        /// <param name="connectTimeout"></param>
+        /// <param name="isDebug"></param>
+        /// <exception cref="Exception"></exception>
+        public SAEAMvcApplication(string root = "wwwroot",
+            int port = 28080,
+            bool isStaticsCached = true,
+            bool isZiped = false,
+            int bufferSize = 1024 * 64,
+            int maxCounnects = 1000,
+            string controllerNameSpace = "",
+            double timeout = 180,
+            double connectTimeout = 2,
+            bool isDebug = false)
         {
             try
             {
@@ -87,7 +114,7 @@ namespace SAEA.MVC
                 throw new Exception("当前代码无任何Controller或者不符合MVC 命名规范！ err:" + ex.Message);
             }
 
-            _webHost = new WebHost(typeof(HttpContext), root, port, isStaticsCached, isZiped, bufferSize, maxCounnects, 180 * 1000, isDebug);
+            _webHost = new WebHost(typeof(HttpContext), root, port, isStaticsCached, isZiped, bufferSize, maxCounnects, timeout, connectTimeout, isDebug);
 
             _webHost.RouteParam = AreaCollection.RouteTable;
         }

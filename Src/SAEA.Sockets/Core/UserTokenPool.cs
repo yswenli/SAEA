@@ -149,6 +149,16 @@ namespace SAEA.Sockets.Core
                         userToken.WriteArgs.RemoteEndPoint = null;
                     }
                 }
+                // 清理Coder对象
+                if (userToken.Coder != null)
+                {
+                    userToken.Coder.Clear();
+                    // 不要设置为null，因为需要重复使用
+                }
+                // 重置其他属性
+                userToken.ID = null;
+                userToken.Linked = DateTime.MinValue;
+                userToken.Actived = DateTime.MinValue;
                 userToken.ReleaseWrite();
                 _concurrentQueue.Enqueue(userToken);
                 return true;

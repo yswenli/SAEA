@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
  * 
   ____    _    _____    _      ____             _        _   
  / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
@@ -191,8 +191,8 @@ namespace SAEA.Sockets.Core.Tcp
                     _stream = new NetworkStream(_socket, true);
                 }
 
-                _stream.ReadTimeout = SocketOption.TimeOut;
-                _stream.WriteTimeout = SocketOption.TimeOut;
+                _stream.ReadTimeout = SocketOption.Timeout;
+                _stream.WriteTimeout = SocketOption.Timeout;
 
                 Connected = true;
             }
@@ -258,7 +258,21 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 try
                 {
-                    await _socket.ConnectAsync(SocketOption.IP, SocketOption.Port);
+                    // 使用ConnectTimeout设置连接超时
+                    var connectTask = _socket.ConnectAsync(SocketOption.IP, SocketOption.Port);
+                    var timeoutTask = Task.Delay(SocketOption.ConnectTimeout);
+                    
+                    var completedTask = await Task.WhenAny(connectTask, timeoutTask);
+                    
+                    if (completedTask == timeoutTask)
+                    {
+                        // 连接超时
+                        _socket.Close(SocketOption.Timeout);
+                        return SocketError.TimedOut;
+                    }
+                    
+                    // 等待连接任务完成，以捕获任何连接错误
+                    await connectTask;
 
                     if (_isSsl)
                     {
@@ -271,9 +285,9 @@ namespace SAEA.Sockets.Core.Tcp
                         _stream = new NetworkStream(_socket, true);
                     }
 
-                    _stream.ReadTimeout = SocketOption.TimeOut;
+                    _stream.ReadTimeout = SocketOption.Timeout;
 
-                    _stream.WriteTimeout = SocketOption.TimeOut;
+                    _stream.WriteTimeout = SocketOption.Timeout;
 
                     this.Connected = true;
 
@@ -315,7 +329,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <returns></returns>
         public async Task SendAsync(byte[] buffer, int offset, int count)
         {
-            using (CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(SocketOption.TimeOut)))
+            using (CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(SocketOption.Timeout)))
             {
                 await SendAsync(buffer, offset, count, cts.Token);
             }
@@ -344,7 +358,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <returns></returns>
         public async Task ReceiveAsync(byte[] buffer, int offset, int count)
         {
-            using (CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(SocketOption.TimeOut)))
+            using (CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(SocketOption.Timeout)))
             {
                 await _stream.ReadAsync(buffer, offset, count, cts.Token);
             }

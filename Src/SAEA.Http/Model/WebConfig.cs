@@ -117,10 +117,15 @@ namespace SAEA.Http.Model
             get; set;
         } = false;
 
-        public int TimeOut
+        public double Timeout
         {
             get; set;
         } = 180;
+
+        public double ConnectTimeout
+        {
+            get; set;
+        } = 3;
 
     }
 }

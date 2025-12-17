@@ -76,7 +76,8 @@ namespace SAEA.Http.Base.Net
                 buffer = _cache.ToArray();
                 try
                 {
-                    if (RequestDataReader.Analysis(buffer, out HttpMessage httpMessage) > 0)
+                    var analysisResult = RequestDataReader.Analysis(buffer, out HttpMessage httpMessage);
+                    if (analysisResult > 0)
                     {
                         httpMessage.ID = id;
 
@@ -86,16 +87,26 @@ namespace SAEA.Http.Base.Net
 
                         var offset = contentLen + positon;
 
-                        if (buffer.Length >= offset)
+                        // GET请求
+                        if (httpMessage.Method == ConstHelper.GET)
                         {
-                            // GET请求没有body
-                            if (httpMessage.Method == ConstHelper.GET)
+                            // 对于GET请求，如果有Content-Length，需要移除整个请求的长度
+                            if (_cache.Count >= offset)
                             {
                                 _cache.RemoveRange(0, offset);
-                                result.Add(httpMessage);
-                                continue;
                             }
                             else
+                            {
+                                // 数据不完整，等待更多数据
+                                break;
+                            }
+                            
+                            result.Add(httpMessage);
+                            continue;
+                        }
+                        else
+                        {
+                            if (buffer.Length >= offset)
                             {
                                 if (RequestDataReader.AnalysisBody(buffer, httpMessage))
                                 {
@@ -103,21 +114,34 @@ namespace SAEA.Http.Base.Net
                                     result.Add(httpMessage);
                                     continue;
                                 }
+                                else
+                                {
+                                    // 无法解析请求体，返回已解析的结果，保留缓存中的数据
+                                    return result;
+                                }
+                            }
+                            else
+                            {
+                                // 数据不完整，等待更多数据
+                                return result;
                             }
                         }
-                        else
-                        {
-                            return result;
-                        }
+                    }
+                    else
+                    {
+                        // 无法解析请求头，可能是数据不完整，等待更多数据
+                        return result;
                     }
                 }
                 catch
                 {
-                    return result;
+                    // 解析异常，尝试移除一个字节，然后继续解析
+                    _cache.RemoveAt(0);
+                    continue;
                 }
                 finally
                 {
-                    buffer.Clear();
+                    // 字节数组不需要手动清除，GC会自动处理
                 }
             }
             return result;

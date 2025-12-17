@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
@@ -116,6 +116,15 @@ namespace SAEA.Http.Base
                 httpMessage.Cookies = HttpCookies.Parse(cookiesStr);
             }
 
+            // 解析Content-Length，对所有HTTP方法都处理
+            if (httpMessage.Headers.TryGetValue(RequestHeaderType.ContentLength.GetDescription(), out string contentLengthStr))
+            {
+                if (int.TryParse(contentLengthStr, out int cl))
+                {
+                    httpMessage.ContentLength = cl;
+                }
+            }
+
             //post数据分析
             if (httpMessage.Method == ConstHelper.POST)
             {
@@ -125,14 +134,6 @@ namespace SAEA.Http.Base
                     httpMessage.IsFormData = true;
 
                     httpMessage.Boundary = "--" + Regex.Split(httpMessage.ContentType, ConstHelper.SEMICOLON)[1].Replace(ConstHelper.BOUNDARY, "");
-                }
-
-                if (httpMessage.Headers.TryGetValue(RequestHeaderType.ContentLength.GetDescription(), out string contentLengthStr))
-                {
-                    if (int.TryParse(contentLengthStr, out int cl))
-                    {
-                        httpMessage.ContentLength = cl;
-                    }
                 }
             }
             return index + 4;

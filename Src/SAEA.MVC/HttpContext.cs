@@ -121,18 +121,33 @@ namespace SAEA.MVC
                 }
             }
 
-            // 确保连接被释放
-            if (result == null)
-            {
-                // 如果OnRequestDelegate被调用或没有结果，直接结束连接
-                // 这样可以确保在MaxConnects=1的情况下不会出现连接被永久占用的问题
-                Response.End();
-            }
-            else if (!(result is IBigDataResult || result is IEventStream))
+            if (!(result is IBigDataResult || result is IEventStream))
             {
                 // 非大数据结果和非事件流，设置缓存并结束连接
                 Response.SetCached(result, this.Session.CacheCalcString);
-                Response.End();
+
+                // 根据客户端请求头设置Connection头
+                if (Request.Headers.ContainsKey("Connection"))
+                {
+                    var connection = Request.Headers["Connection"].ToLower();
+                    if (connection.Contains("keep-alive"))
+                    {
+                        Response.Headers["Connection"] = "keep-alive";
+                        // 发送响应但不关闭连接
+                        Response.Send();
+                    }
+                    else
+                    {
+                        Response.Headers["Connection"] = "close";
+                        Response.End();
+                    }
+                }
+                else
+                {
+                    // HTTP/1.1默认保持连接
+                    Response.Headers["Connection"] = "keep-alive";
+                    Response.Send();
+                }
             }
             // IBigDataResult或IEventStream类型会在其他地方处理连接释放
         }

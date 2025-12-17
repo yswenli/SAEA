@@ -16,6 +16,10 @@ namespace SAEA.MVCTest
 
             mvcConfig.MaxConnects = 1;
 
+            mvcConfig.Timeout = 1;
+
+            mvcConfig.ConnectTimeout = 3;
+
             mvcConfig.Port = 28080;
 
             mvcConfig.IsStaticsCached = true;

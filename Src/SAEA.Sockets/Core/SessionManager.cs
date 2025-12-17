@@ -94,16 +94,16 @@ namespace SAEA.Sockets.Core
         /// TCP获取usertoken
         /// </summary>
         /// <param name="socket"></param>
-        /// <param name="timeOut"></param>
+        /// <param name="connectTimeOut"></param>
         /// <returns></returns>
         /// <exception cref="Exception"></exception>
-        public IUserToken BindUserToken(Socket socket, int timeOut)
+        public IUserToken BindUserToken(Socket socket, int connectTimeOut)
         {
-            if (_semaphoreSlim.Wait(timeOut))
+            if (_semaphoreSlim.Wait(connectTimeOut))
             {
                 try
                 {
-                    IUserToken userToken = _userTokenPool.Dequeue(timeOut);
+                    IUserToken userToken = _userTokenPool.Dequeue(connectTimeOut);
                     if (userToken == null)
                         throw new Exception("UserToken池中资源已耗尽");
 
@@ -219,7 +219,7 @@ namespace SAEA.Sockets.Core
                 _sessionCache.DelWithoutEvent(userToken.ID);
                 try
                 {
-                    _userTokenPool.Enqueue(userToken);
+                    return _userTokenPool.Enqueue(userToken);
                 }
                 finally
                 {
@@ -238,7 +238,6 @@ namespace SAEA.Sockets.Core
                         LogHelper.Error("SessionManager.Free 释放信号量错误", ex);
                     }
                 }
-                return true;
             }
             return false;
         }

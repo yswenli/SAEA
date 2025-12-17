@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
@@ -97,6 +97,22 @@ namespace SAEA.MVC
         /// 控制器命名空间
         /// </summary>
         public string ControllerNameSpace { get; set; }
+
+        /// <summary>
+        /// 接口超时时间（秒）
+        /// </summary>
+        public double Timeout
+        {
+            get; set;
+        } = 180;
+
+        /// <summary>
+        /// 连接超时时间（秒）
+        /// </summary>
+        public double ConnectTimeout
+        {
+            get; set;
+        } = 3;
 
         /// <summary>
         /// 初始化 SAEA MVC 应用程序配置类的新实例
