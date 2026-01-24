@@ -331,3 +331,4 @@ ASALocalRun/
 # Local History for Visual Studio
 .localhistory/
 /Src/.vscode
+.vscode/settings.json
