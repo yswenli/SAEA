@@ -93,6 +93,11 @@ namespace SAEA.Sockets.Core
                 if (_concurrentQueue.TryDequeue(out userToken))
                 {
                     _bufferManager.SetBuffer(userToken.ReadArgs);
+                    // 重新设置 UserToken，因为 Enqueue 时被设为 null
+                    if (userToken.ReadArgs != null)
+                        userToken.ReadArgs.UserToken = userToken;
+                    if (userToken.WriteArgs != null)
+                        userToken.WriteArgs.UserToken = userToken;
                     return userToken;
                 }
                 else

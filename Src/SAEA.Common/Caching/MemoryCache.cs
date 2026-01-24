@@ -69,9 +69,11 @@ namespace SAEA.Common.Caching
             {
                 return mc.Value;
             }
-            _dic.TryRemove(key, out _);
-            if (mc != null)
-                OnChanged?.Invoke(this, false, mc.Value);
+            // 只有当 TryRemove 成功删除时才触发 OnChanged，避免竞争条件导致重复触发
+            if (_dic.TryRemove(key, out var removed) && removed != null)
+            {
+                OnChanged?.Invoke(this, false, removed.Value);
+            }
             return default;
         }
 
