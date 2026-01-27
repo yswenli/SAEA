@@ -267,19 +267,38 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="readArgs"></param>
         private void ProcessReceive(SocketAsyncEventArgs readArgs)
         {
+            if (readArgs == null) return;
             var userToken = (IUserToken)readArgs.UserToken;
             try
             {
-                if (readArgs == null || userToken == null) return;
+                if (userToken == null) return;
                 if (userToken.Socket != null && userToken.Socket.Connected)
                 {
-                    if (!userToken.Socket.ReceiveAsync(readArgs))
+                    lock (readArgs)
                     {
-                        // 使用线程池避免直接递归调用导致栈溢出
-                        ThreadPool.QueueUserWorkItem((state) =>
+                        if (userToken.Socket != null && userToken.Socket.Connected)
                         {
-                            ProcessReceived(readArgs);
-                        });
+                            bool willRaiseEvent;
+                            try
+                            {
+                                willRaiseEvent = userToken.Socket.ReceiveAsync(readArgs);
+                            }
+                            catch (InvalidOperationException)
+                            {
+                                return;
+                            }
+                            if (!willRaiseEvent)
+                            {
+                                ThreadPool.QueueUserWorkItem((state) =>
+                                {
+                                    ProcessReceived(readArgs);
+                                });
+                            }
+                        }
+                        else
+                        {
+                            Disconnect(userToken, new KernelException("The remote client has been disconnected."));
+                        }
                     }
                 }
                 else
@@ -290,7 +309,7 @@ namespace SAEA.Sockets.Core.Tcp
             catch (Exception exp)
             {
                 var kex = new KernelException("An exception occurs when a message is received:" + exp.Message, exp);
-                OnError?.Invoke(userToken.ID, kex);
+                OnError?.Invoke(userToken?.ID, kex);
             }
         }
 

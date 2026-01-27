@@ -34,7 +34,7 @@ namespace SAEA.Audio.Net
     {
         IClientSocket _udpClient;
 
-        BaseUnpacker _baseUnpacker;
+        BaseCoder _baseUnpacker;
 
         public event Action<Byte[]> OnReceive;
 
@@ -69,7 +69,7 @@ namespace SAEA.Audio.Net
         /// <param name="endPoint"></param>
         public TransferClient(IPEndPoint endPoint)
         {
-            var bContext = new BaseContext<BaseUnpacker>();
+            var bContext = new BaseContext<BaseCoder>();
 
             _udpClient = SocketFactory.CreateClientSocket(SocketOptionBuilder.Instance.SetSocket(SAEASocketType.Udp)
                 .SetIPEndPoint(endPoint)
@@ -78,16 +78,19 @@ namespace SAEA.Audio.Net
                 .SetWriteBufferSize(SocketOption.UDPMaxLength)
                 .Build());
 
-            _baseUnpacker = (BaseUnpacker)bContext.Unpacker;
+            _baseUnpacker = (BaseCoder)bContext.Unpacker;
 
             _udpClient.OnReceive += _udpClient_OnReceive;
         }
 
         private void _udpClient_OnReceive(byte[] data)
         {
-            _baseUnpacker.Unpack(data, (p) =>
+            _baseUnpacker.Decode(data, null, (p) =>
             {
-                var protocalType = (ProtocalType)p.Type;
+
+                var msg = BaseSocketProtocal.ParseRequest(p);
+
+                var protocalType = (ProtocalType)msg.Type;
 
                 switch (protocalType)
                 {
@@ -98,35 +101,35 @@ namespace SAEA.Audio.Net
 
                         break;
                     case ProtocalType.Invite:
-                        var ii = SerializeHelper.Deserialize<InvitedInfo>(Encoding.UTF8.GetString(p.Content));
+                        var ii = SerializeHelper.Deserialize<InvitedInfo>(Encoding.UTF8.GetString(msg.Content));
                         OnInvited?.Invoke(ii);
                         Channel = ii.ChannelID;
                         break;
                     case ProtocalType.Agree:
-                        var ai = SerializeHelper.Deserialize<AgreeInfo>(Encoding.UTF8.GetString(p.Content));
+                        var ai = SerializeHelper.Deserialize<AgreeInfo>(Encoding.UTF8.GetString(msg.Content));
                         OnAgree?.Invoke(ai);
                         Channel = ai.ChannelID;
                         break;
                     case ProtocalType.Disagree:
-                        OnDisagree?.Invoke(Encoding.UTF8.GetString(p.Content));
+                        OnDisagree?.Invoke(Encoding.UTF8.GetString(msg.Content));
                         break;
                     case ProtocalType.Join:
-                        var ji = SerializeHelper.Deserialize<JoinInfo>(Encoding.UTF8.GetString(p.Content));
+                        var ji = SerializeHelper.Deserialize<JoinInfo>(Encoding.UTF8.GetString(msg.Content));
                         OnJoin?.Invoke(ji);
                         Channel = ji.ChannelID;
                         break;
                     case ProtocalType.Data:
-                        OnReceive?.Invoke(p.Content);
+                        OnReceive?.Invoke(msg.Content);
                         break;
                 }
-            }, null, null);
+            });
         }
 
         /// <summary>
         /// 尝试建立udp
         /// </summary>
         public void Connect()
-        {            
+        {
             _udpClient.Connect();
         }
 

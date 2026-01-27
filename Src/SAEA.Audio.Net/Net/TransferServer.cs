@@ -92,9 +92,11 @@ namespace SAEA.Audio.Net
         {
             var userToken = (IUserToken)currentSession;
 
-            userToken.Unpacker.Unpack(data, (p) =>
+            object value = userToken.Coder.Decode(data, null, (p) =>
             {
-                var protocalType = (ProtocalType)p.Type;
+                var msg = BaseSocketProtocal.ParseRequest(p);
+
+                var protocalType = (ProtocalType)msg.Type;
 
                 switch (protocalType)
                 {
@@ -105,7 +107,7 @@ namespace SAEA.Audio.Net
 
                         break;
                     case ProtocalType.Invite:
-                        ReplyInvite(userToken.ID, p.Content);
+                        ReplyInvite(userToken.ID, msg.Content);
                         break;
                     case ProtocalType.Agree:
                         ReplyAgree(userToken.ID);
@@ -114,10 +116,10 @@ namespace SAEA.Audio.Net
                         ReplyDidagree(userToken.ID);
                         break;
                     case ProtocalType.Join:
-                        ReplyJoin(userToken.ID, p.Content);
+                        ReplyJoin(userToken.ID, msg.Content);
                         break;
                     case ProtocalType.Data:
-                        ReplyData(p.Content);
+                        ReplyData(msg.Content);
                         break;
                     case ProtocalType.Quit:
                         ReplyQuit(userToken.ID);

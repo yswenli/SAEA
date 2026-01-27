@@ -54,15 +54,8 @@ namespace SAEA.MVCTest
             //TestCodeGenerate1();
             //TestCodeGenerate2();
 
-            ConsoleHelper.WriteLine("服务器正在运行，按任意键结束...");
-            // 使用ManualResetEvent确保服务器持续运行，即使在非交互式环境中
-            var exitEvent = new System.Threading.ManualResetEvent(false);
-            Console.CancelKeyPress += (sender, e) =>
-            {
-                ConsoleHelper.WriteLine("正在关闭服务器...");
-                exitEvent.Set();
-            };
-            exitEvent.WaitOne();
+            ConsoleHelper.WriteLine("服务器正在运行，按回车键结束...");
+            ConsoleHelper.ReadLine();
         }
 
         private static Http.Model.IHttpResult MvcApplication_OnException(Http.Model.IHttpContext httpContext, System.Exception ex)

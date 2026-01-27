@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ApplicationIcon />
     <OutputType>Exe</OutputType>
     <StartupObject>SAEA.DNSTest.Program</StartupObject>

@@ -18,7 +18,7 @@ namespace SAEA.Audio.Test
 
         static void ServerInit()
         {
-            _audioServer = new AudioServer<VStorage>(38083);
+            _audioServer = new AudioServer<VStorage>(38083);            
             _audioServer.Start();
         }
 
