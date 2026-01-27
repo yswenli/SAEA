@@ -174,8 +174,8 @@ namespace SAEA.Sockets.Core.Tcp
                 _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, SocketOption.ReusePort);
             }
             _socket.NoDelay = SocketOption.NoDelay;
-            _socket.SendTimeout = _socket.ReceiveTimeout = SocketOption.Timeout;
-            _socket.KeepAlive(SocketOption.FreeTime, SocketOption.Timeout);
+            _socket.SendTimeout = _socket.ReceiveTimeout = SocketOption.ActionTimeout;
+            _socket.KeepAlive(SocketOption.FreeTime, SocketOption.ActionTimeout);
 
             OnClientReceive = new OnClientReceiveBytesHandler(OnReceived);
 
@@ -200,7 +200,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="bufferSize">缓冲区大小</param>
         /// <param name="timeOut">超时时间</param>
         public IocpClientSocket(IContext<ICoder> context, string ip = "127.0.0.1", int port = 39654, int bufferSize = 64 * 1024, int timeOut = 180 * 1000)
-            : this(new SocketOption() { Context = context, IP = ip, Port = port, ReadBufferSize = bufferSize, WriteBufferSize = bufferSize, Timeout = timeOut })
+            : this(new SocketOption() { Context = context, IP = ip, Port = port, ReadBufferSize = bufferSize, WriteBufferSize = bufferSize, ActionTimeout = timeOut })
         {
 
         }
@@ -231,7 +231,7 @@ namespace SAEA.Sockets.Core.Tcp
         {
             try
             {
-                _socket.Close(SocketOption.Timeout);
+                _socket.Close(SocketOption.ActionTimeout);
                 OnError?.Invoke("", new TimeoutException($"连接超时，超时时间：{SocketOption.ConnectTimeout}毫秒"));
                 _connectCallBack?.Invoke(SocketError.TimedOut);
             }
@@ -253,10 +253,10 @@ namespace SAEA.Sockets.Core.Tcp
             if (!Connected)
             {
                 _connectCallBack = callBack;
-                
+
                 // 启动连接超时定时器
                 _connectTimeoutTimer.Change(SocketOption.ConnectTimeout, Timeout.Infinite);
-                
+
                 if (!_socket.ConnectAsync(_connectArgs))
                 {
                     ProcessConnected(_connectArgs);
@@ -269,24 +269,51 @@ namespace SAEA.Sockets.Core.Tcp
         /// </summary>
         public void Connect()
         {
-            if (!Connected && !IsDisposed)
+            // 保证同一时刻只有一个连接操作
+            _connectEvent.WaitOne();
+            try
             {
-                // 使用ConnectTimeout设置连接超时
-                var connectTask = _socket.ConnectAsync(SocketOption.IP, SocketOption.Port);
-                if (!connectTask.Wait(SocketOption.ConnectTimeout))
+                if (!Connected && !IsDisposed)
                 {
-                    throw new TimeoutException($"连接超时，超时时间：{SocketOption.ConnectTimeout}毫秒");
+                    // 与 ConnectAsync 保持一致的连接流程：使用 _connectArgs + _connectTimeoutTimer + _connectEvent
+                    _connectCallBack = null;
+
+                    // 启动连接超时定时器
+                    _connectTimeoutTimer.Change(SocketOption.ConnectTimeout, Timeout.Infinite);
+
+                    try
+                    {
+                        // 发起异步连接（使用已有的 SocketAsyncEventArgs）
+                        if (!_socket.ConnectAsync(_connectArgs))
+                        {
+                            // 同步完成
+                            ProcessConnected(_connectArgs);
+                        }
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        // 如果在发起连接时 socket 已被关闭/释放，抛出以便上层处理
+                        throw;
+                    }
+
+                    // 等待连接完成或超时（ConnectTimeoutCallback 或 ProcessConnected 会 Set）
+                    var signaled = _connectEvent.WaitOne(SocketOption.ConnectTimeout + 100);
+
+                    // 停止超时定时器（ProcessConnected 也会停止它；此处为保险）
+                    try { _connectTimeoutTimer.Change(Timeout.Infinite, Timeout.Infinite); } catch { }
+
+                    if (!signaled || !Connected)
+                    {
+                        throw new TimeoutException($"连接超时，超时时间：{SocketOption.ConnectTimeout}毫秒");
+                    }
+
+                    // 此时 ProcessConnected 已处理 userToken 初始化与接收启动
                 }
-
-                _userToken.ID = _socket.LocalEndPoint.ToString();
-                _userToken.Socket = _socket;
-                _userToken.Linked = _userToken.Actived = DateTimeHelper.Now;
-
-                var readArgs = _userToken.ReadArgs;
-
-                ProcessReceive(readArgs);
-
-                Connected = true;
+            }
+            finally
+            {
+                // 释放等待许可，允许后续连接尝试
+                _connectEvent.Set();
             }
         }
 
@@ -313,7 +340,7 @@ namespace SAEA.Sockets.Core.Tcp
         {
             // 停止连接超时定时器
             _connectTimeoutTimer.Change(Timeout.Infinite, Timeout.Infinite);
-            
+
             Connected = (e.SocketError == SocketError.Success);
 
             if (Connected)
@@ -336,17 +363,26 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="e">事件参数</param>
         void IO_Completed(object sender, SocketAsyncEventArgs e)
         {
-            switch (e.LastOperation)
+            try
             {
-                case SocketAsyncOperation.Receive:
-                    ProcessReceived(e);
-                    break;
-                case SocketAsyncOperation.Send:
-                    ProcessSended(e);
-                    break;
-                default:
-                    Disconnect();
-                    break;
+                switch (e.LastOperation)
+                {
+                    case SocketAsyncOperation.Receive:
+                        ProcessReceived(e);
+                        break;
+                    case SocketAsyncOperation.Send:
+                        ProcessSended(e);
+                        break;
+                    default:
+                        Disconnect();
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                // 捕获所有异常，避免未处理异常导致进程退出
+                OnError?.Invoke(_userToken?.ID ?? "", ex);
+                try { Disconnect(ex); } catch { }
             }
         }
 
@@ -419,7 +455,7 @@ namespace SAEA.Sockets.Core.Tcp
                 }
                 else
                 {
-                    ProcessDisconnected(new Exception("SAEA SocketError:远程服务器关闭连接"));
+                    Disconnect(new Exception("SAEA SocketError:远程服务器关闭连接"));
                 }
             }
             catch (Exception ex)
@@ -434,25 +470,14 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="e">事件参数</param>
         void ProcessSended(SocketAsyncEventArgs e)
         {
-            _userToken.Actived = DateTimeHelper.Now;
-            _userToken.ReleaseWrite();
-        }
-
-        /// <summary>
-        /// 处理断开连接
-        /// </summary>
-        /// <param name="ex">异常对象</param>
-        void ProcessDisconnected(Exception ex)
-        {
-            if (Connected)
+            try
             {
-                Connected = false;
-                _connectEvent.Set();
-                try
-                {
-                    _userToken.Clear();
-                }
-                catch { }
+                _userToken.Actived = DateTimeHelper.Now;
+                _userToken.ReleaseWrite();
+            }
+            catch (Exception ex)
+            {
+                OnError?.Invoke(_userToken?.ID ?? "", ex);
             }
         }
 
@@ -467,7 +492,7 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 if (userToken != null && userToken.Socket != null && userToken.Socket.Connected)
                 {
-                    if (userToken.WaitWrite(SocketOption.Timeout))
+                    if (userToken.WaitWrite(SocketOption.ActionTimeout))
                     {
                         var writeArgs = userToken.WriteArgs;
 
@@ -486,9 +511,9 @@ namespace SAEA.Sockets.Core.Tcp
             }
             catch (Exception ex)
             {
-                OnError?.Invoke(userToken.ID, ex);
-                userToken.ReleaseWrite();
-                Disconnect();
+                OnError?.Invoke(userToken?.ID ?? "", ex);
+                try { userToken?.ReleaseWrite(); } catch { }
+                try { Disconnect(); } catch { }
             }
         }
 
@@ -526,7 +551,7 @@ namespace SAEA.Sockets.Core.Tcp
                 }
                 catch (Exception ex)
                 {
-                    ProcessDisconnected(ex);
+                    Disconnect(ex);
                 }
             }
             else
@@ -539,9 +564,16 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="data">数据</param>
         public void BeginSend(byte[] data)
         {
-            if (Connected)
+            try
             {
-                _userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, null, null);
+                if (Connected)
+                {
+                    _userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, null, null);
+                }
+            }
+            catch (Exception ex)
+            {
+                OnError?.Invoke(_userToken?.ID ?? "", ex);
             }
         }
 
@@ -607,7 +639,7 @@ namespace SAEA.Sockets.Core.Tcp
                         _userToken.Socket.Shutdown(SocketShutdown.Both);
                     }
                     catch { }
-                    _userToken.Socket.Close();
+                    try { _userToken.Socket.Close(); } catch { }
                 }
             }
             catch (Exception sex)
@@ -624,16 +656,7 @@ namespace SAEA.Sockets.Core.Tcp
                     OnDisconnected?.Invoke(_userToken.ID, mex);
             }
 
-            _userToken.Clear();
-        }
-
-        /// <summary>
-        /// 处理会话超时
-        /// </summary>
-        /// <param name="obj">用户令牌</param>
-        private void _sessionManager_OnTimeOut(IUserToken obj)
-        {
-            Disconnect();
+            try { _userToken.Clear(); } catch { }
         }
 
         /// <summary>
@@ -650,7 +673,7 @@ namespace SAEA.Sockets.Core.Tcp
         public void Dispose()
         {
             IsDisposed = true;
-            this.Disconnect();
+            Disconnect();
         }
     }
 }

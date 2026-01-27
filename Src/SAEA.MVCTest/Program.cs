@@ -1,5 +1,6 @@
 
 using System;
+
 using SAEA.Common;
 using SAEA.MVC;
 using SAEA.MVC.Tool;
@@ -14,7 +15,7 @@ namespace SAEA.MVCTest
 
             var mvcConfig = SAEAMvcApplicationConfigBuilder.Read();
 
-            mvcConfig.MaxConnects = 1;
+            mvcConfig.MaxConnects = 10;
 
             mvcConfig.Timeout = 1;
 

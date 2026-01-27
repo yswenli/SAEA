@@ -35,6 +35,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 
+using SAEA.Common;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
@@ -199,7 +200,7 @@ namespace SAEA.Sockets.Core.Tcp
 
                 socket.SendBufferSize = SocketOption.WriteBufferSize;
 
-                socket.ReceiveTimeout = socket.SendTimeout = SocketOption.Timeout;
+                socket.ReceiveTimeout = socket.SendTimeout = SocketOption.ActionTimeout;
 
                 var userToken = _sessionManager.BindUserToken(socket, SocketOption.ConnectTimeout);
 
@@ -228,25 +229,26 @@ namespace SAEA.Sockets.Core.Tcp
 
         private void IO_Completed(object sender, SocketAsyncEventArgs e)
         {
-            switch (e.LastOperation)
+            var userToken = (IUserToken)e.UserToken;
+            try
             {
-                case SocketAsyncOperation.Receive:
-                    ProcessReceived(e);
-                    break;
-                case SocketAsyncOperation.Send:
-                    ProcessSended(e);
-                    break;
-                case SocketAsyncOperation.Accept:
-                    ProcessAccept(e);
-                    break;
-                default:
-                    try
-                    {
-                        var userToken = (IUserToken)e.UserToken;
+                switch (e.LastOperation)
+                {
+                    case SocketAsyncOperation.Receive:
+                        ProcessReceived(e);
+                        break;
+                    case SocketAsyncOperation.Send:
+                        ProcessSended(e);
+                        break;
+                    default:
                         Disconnect(userToken, new KernelException("Operation-exceptions，SocketAsyncOperation：" + e.LastOperation));
-                    }
-                    catch { }
-                    break;
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                OnError?.Invoke("", ex);
+                Disconnect(userToken, ex);
             }
         }
 
@@ -309,6 +311,7 @@ namespace SAEA.Sockets.Core.Tcp
             catch (Exception exp)
             {
                 var kex = new KernelException("An exception occurs when a message is received:" + exp.Message, exp);
+                LogHelper.Error($"An exception occurs when receiving:{userToken?.ID}", kex);
                 OnError?.Invoke(userToken?.ID, kex);
             }
         }
@@ -319,42 +322,50 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="readArgs"></param>
         void ProcessReceived(SocketAsyncEventArgs readArgs)
         {
-            var userToken = (IUserToken)readArgs.UserToken;
             try
             {
-                if (readArgs.SocketError == SocketError.Success && readArgs.BytesTransferred > 0)
-                {
-                    _sessionManager.Active(userToken.ID);
+                if (readArgs == null || readArgs.UserToken == null) return;
 
+                if (readArgs.BytesTransferred > 0 && readArgs.SocketError == SocketError.Success)
+                {
+                    var userToken = readArgs.UserToken as IUserToken;
                     try
                     {
+                        userToken.Actived = DateTimeHelper.Now;
                         var buffer = readArgs.Buffer.AsSpan().Slice(readArgs.Offset, readArgs.BytesTransferred).ToArray();
+                        _sessionManager.Active(userToken.ID);
                         OnServerReceiveBytes.Invoke(userToken, buffer);
                     }
                     catch (Exception ex)
                     {
-                        OnError?.Invoke(userToken.ID, ex);
+                        OnError?.Invoke(userToken?.ID ?? "", ex);
+                        LogHelper.Error($"An exception occurs when receiving:{userToken?.ID}", ex);
                     }
                     ProcessReceive(readArgs);
                 }
                 else
                 {
-                    Disconnect(userToken, null);
+                    try { Disconnect(readArgs.UserToken as IUserToken); } catch { }
                 }
             }
-            catch (Exception exp)
+            catch (Exception ex)
             {
-                var kex = new KernelException("An exception occurs when a message is received:" + exp.Message, exp);
-                Disconnect(userToken, kex);
+                OnError?.Invoke("", ex);
             }
         }
 
-        private void ProcessSended(SocketAsyncEventArgs e)
+        void ProcessSended(SocketAsyncEventArgs e)
         {
-            var userToken = (IUserToken)e.UserToken;
-            if (userToken == null) return;
-            _sessionManager.Active(userToken.ID);
-            userToken?.ReleaseWrite();
+            try
+            {
+                var token = e.UserToken as IUserToken;
+                token.Actived = DateTimeHelper.Now;
+                token.ReleaseWrite();
+            }
+            catch (Exception ex)
+            {
+                OnError?.Invoke("", ex);
+            }
         }
 
         #region send method
@@ -366,7 +377,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="data"></param>
         public void SendAsync(IUserToken userToken, byte[] data)
         {
-            if (userToken.WaitWrite(SocketOption.Timeout) && userToken.Socket != null && userToken.Socket.Connected)
+            if (userToken.WaitWrite(SocketOption.ActionTimeout) && userToken.Socket != null && userToken.Socket.Connected)
             {
                 try
                 {
@@ -416,32 +427,26 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="data"></param>
         public void Send(IUserToken userToken, byte[] data)
         {
-            KernelException kex = null;
             try
             {
-                _sessionManager.Active(userToken.ID);
-
-                int sendNum = 0, offset = 0;
-
-                while (true)
+                if (userToken != null && userToken.Socket != null && userToken.Socket.Connected)
                 {
-                    sendNum += userToken.Socket.Send(data, offset, data.Length - offset, SocketFlags.None);
-
-                    offset += sendNum;
-
-                    if (sendNum == data.Length)
+                    if (userToken.WaitWrite(SocketOption.ActionTimeout))
                     {
-                        break;
+                        var writeArgs = userToken.WriteArgs;
+                        writeArgs.SetBuffer(data, 0, data.Length);
+                        if (!userToken.Socket.SendAsync(writeArgs))
+                        {
+                            ProcessSended(writeArgs);
+                        }
                     }
                 }
             }
             catch (Exception ex)
             {
-                kex = new KernelException("An exception occurs when a message is sending:" + ex.Message, ex);
-            }
-            if (kex != null)
-            {
-                Disconnect(userToken, kex);
+                OnError?.Invoke(userToken?.ID ?? "", ex);
+                try { userToken?.ReleaseWrite(); } catch { }
+                try { Disconnect(userToken); } catch { }
             }
         }
 
@@ -512,6 +517,7 @@ namespace SAEA.Sockets.Core.Tcp
             }
             catch (Exception ex)
             {
+                LogHelper.Error($"An exception occurs when a message is sending:{userToken?.ID}", ex);
                 OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", ex);
             }
 
@@ -546,10 +552,19 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="ex"></param>
         public void Disconnect(IUserToken userToken, Exception ex = null)
         {
-            if (_sessionManager.Free(userToken))
+            try
             {
-                Interlocked.Decrement(ref _clientCounts);
-                OnDisconnected?.Invoke(userToken.ID, ex);
+                if (userToken == null) return;
+                if (_sessionManager.Free(userToken))
+                {
+                    Interlocked.Decrement(ref _clientCounts);
+                    OnDisconnected?.Invoke(userToken.ID, ex);
+                }
+            }
+            catch (Exception e)
+            {
+                LogHelper.Error($"An exception occurs when disconnecting:{userToken?.ID}", ex);
+                OnError?.Invoke("", e);
             }
         }
 
@@ -591,10 +606,12 @@ namespace SAEA.Sockets.Core.Tcp
         {
             try
             {
-                Stop();
-                IsDisposed = true;
+                try { Stop(); } catch { }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                OnError?.Invoke("", ex);
+            }
         }
     }
 }

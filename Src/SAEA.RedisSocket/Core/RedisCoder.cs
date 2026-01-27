@@ -59,7 +59,7 @@ namespace SAEA.RedisSocket.Core
         {
             _rclient = rclient;
 
-            _redisStream = new RedisStream(rclient.SocketOption.Timeout);
+            _redisStream = new RedisStream(rclient.SocketOption.ActionTimeout);
         }
 
         #region 发送编码

@@ -24,6 +24,7 @@
 using SAEA.Common.IO;
 using SAEA.Common.Serialization;
 using SAEA.Common.Threading;
+
 using System;
 using System.Collections.Concurrent;
 using System.IO;
@@ -69,7 +70,9 @@ namespace SAEA.Common
                                 try
                                 {
                                     var fileName = PathHelper.GetFilePath(_logPath, logItem.Type + DateTimeHelper.ToString("yyyyMMdd") + ".log");
-                                    File.AppendAllText(fileName, $"{DateTimeHelper.ToString()}   {logItem.Type}   {logItem.Msg}{Environment.NewLine}", Encoding.UTF8);
+                                    var msg = $"{DateTimeHelper.ToString()}   {logItem.Type}   {logItem.Msg}{Environment.NewLine}";
+                                    Console.WriteLine(msg);
+                                    File.AppendAllText(fileName, msg, Encoding.UTF8);
                                 }
                                 catch { }
                             }

@@ -312,7 +312,7 @@ namespace SAEA.WebSocketTest
             if (_count == _maxSize)
             {
                 _sw.Stop();
-                Console.WriteLine($"转发测试已完成，用时：{_sw.Elapsed.TotalSeconds}秒");
+                Console.WriteLine($"转发测试已完成，用时：{_sw.Elapsed.TotalSeconds}秒，回车结束测试");
             }
         }
 

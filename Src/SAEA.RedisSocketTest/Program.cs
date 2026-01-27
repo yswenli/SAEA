@@ -52,7 +52,7 @@ namespace SAEA.RedisSocketTest
 
             if (string.IsNullOrEmpty(cnnStr))
             {
-                cnnStr = "server=127.0.0.1:6379;passwords=yswenli";
+                cnnStr = "127.0.0.1:6379;passwords=yswenli";
             }
             RedisClient redisClient = new RedisClient(cnnStr, false);
 
@@ -81,10 +81,9 @@ namespace SAEA.RedisSocketTest
             redisClient.Select(0);
 
 
-            StringPerformanceTest(redisClient);
+            //StringPerformanceTest(redisClient, 100);
 
-            //BatchTest(redisClient);
-
+            BatchTest(redisClient);
 
             var rk = redisClient.GetDataBase().RandomKey();
             Console.WriteLine($"RandomKey:{rk}");
@@ -430,7 +429,7 @@ namespace SAEA.RedisSocketTest
 
         static void StringPerformanceTest(RedisClient redisClient, int count = 10 * 1000)
         {
-            Console.WriteLine($"string操作{count}次开始");
+            Console.WriteLine($"string操作{count * 3}次开始");
 
             var db = redisClient.GetDataBase();
 
@@ -449,7 +448,7 @@ namespace SAEA.RedisSocketTest
         }
 
 
-        static void BatchTest(RedisClient redisClient, int count = 1000 * 1000)
+        static void BatchTest(RedisClient redisClient, int count = 100 * 1000)
         {
             #region batch
 

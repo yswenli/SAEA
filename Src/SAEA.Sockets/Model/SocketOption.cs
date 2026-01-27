@@ -164,10 +164,10 @@ namespace SAEA.Sockets.Model
         /// <summary>
         /// 操作超时时间
         /// </summary>
-        public int Timeout
+        public int ActionTimeout
         {
             get; set;
-        } = 60 * 1000;
+        } = 180 * 1000;
 
         /// <summary>
         /// 空闲时间

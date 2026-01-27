@@ -53,6 +53,7 @@ namespace SAEA.Common.Caching
 
         public void Set(string key, T value, TimeSpan timeOut)
         {
+            if (string.IsNullOrEmpty(key)) return;
             var expired = timeOut.TotalSeconds < 1 ? DateTime.MaxValue : DateTime.Now.AddSeconds(timeOut.TotalSeconds);
             _dic[key] = new MemoryCacheItem<T> { Key = key, Value = value, Expired = expired };
             OnChanged?.Invoke(this, true, value);
@@ -65,6 +66,7 @@ namespace SAEA.Common.Caching
 
         public T Get(string key)
         {
+            if (string.IsNullOrEmpty(key)) return default;
             if (_dic.TryGetValue(key, out var mc) && mc != null && mc.Expired > DateTime.Now)
             {
                 return mc.Value;
@@ -79,6 +81,7 @@ namespace SAEA.Common.Caching
 
         public void Active(string key, TimeSpan timeOut)
         {
+            if (string.IsNullOrEmpty(key)) return;
             var item = Get(key);
             if (item != null)
             {
@@ -88,6 +91,7 @@ namespace SAEA.Common.Caching
 
         public T GetAndActive(string key, TimeSpan timeOut)
         {
+            if (string.IsNullOrEmpty(key)) return default;
             if (_dic.TryGetValue(key, out var mc) && mc != null && mc.Expired > DateTime.Now)
             {
                 Set(key, mc.Value, timeOut);
@@ -98,6 +102,7 @@ namespace SAEA.Common.Caching
 
         public T GetOrAdd(string key, Func<string, T> addFunc, TimeSpan timeOut)
         {
+            if (string.IsNullOrEmpty(key)) return default;
             var expired = DateTime.Now.AddSeconds(timeOut.TotalSeconds);
             var mt = _dic.AddOrUpdate(key, new MemoryCacheItem<T> { Key = key, Value = addFunc(key), Expired = expired },
                 (k, v) => v.Expired > DateTime.Now ? v : new MemoryCacheItem<T> { Key = k, Value = addFunc(k), Expired = expired });
@@ -106,6 +111,7 @@ namespace SAEA.Common.Caching
 
         public bool Del(string key)
         {
+            if (string.IsNullOrEmpty(key)) return false;
             if (_dic.TryRemove(key, out var mc))
             {
                 OnChanged?.Invoke(this, false, mc.Value);
@@ -116,6 +122,7 @@ namespace SAEA.Common.Caching
 
         public bool DelWithoutEvent(string key)
         {
+            if (string.IsNullOrEmpty(key)) return false;
             MemoryCacheItem<T> mc;
             return _dic.TryRemove(key, out mc) && mc != null && mc.Value != null;
         }

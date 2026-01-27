@@ -191,8 +191,8 @@ namespace SAEA.Sockets.Core.Tcp
                     _stream = new NetworkStream(_socket, true);
                 }
 
-                _stream.ReadTimeout = SocketOption.Timeout;
-                _stream.WriteTimeout = SocketOption.Timeout;
+                _stream.ReadTimeout = SocketOption.ActionTimeout;
+                _stream.WriteTimeout = SocketOption.ActionTimeout;
 
                 Connected = true;
             }
@@ -267,7 +267,7 @@ namespace SAEA.Sockets.Core.Tcp
                     if (completedTask == timeoutTask)
                     {
                         // 连接超时
-                        _socket.Close(SocketOption.Timeout);
+                        _socket.Close(SocketOption.ActionTimeout);
                         return SocketError.TimedOut;
                     }
                     
@@ -285,9 +285,9 @@ namespace SAEA.Sockets.Core.Tcp
                         _stream = new NetworkStream(_socket, true);
                     }
 
-                    _stream.ReadTimeout = SocketOption.Timeout;
+                    _stream.ReadTimeout = SocketOption.ActionTimeout;
 
-                    _stream.WriteTimeout = SocketOption.Timeout;
+                    _stream.WriteTimeout = SocketOption.ActionTimeout;
 
                     this.Connected = true;
 
@@ -329,7 +329,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <returns></returns>
         public async Task SendAsync(byte[] buffer, int offset, int count)
         {
-            using (CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(SocketOption.Timeout)))
+            using (CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(SocketOption.ActionTimeout)))
             {
                 await SendAsync(buffer, offset, count, cts.Token);
             }
@@ -358,7 +358,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <returns></returns>
         public async Task ReceiveAsync(byte[] buffer, int offset, int count)
         {
-            using (CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(SocketOption.Timeout)))
+            using (CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(SocketOption.ActionTimeout)))
             {
                 await _stream.ReadAsync(buffer, offset, count, cts.Token);
             }

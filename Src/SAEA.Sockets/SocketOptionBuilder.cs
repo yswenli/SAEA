@@ -282,7 +282,7 @@ namespace SAEA.Sockets
         /// <returns></returns>
         public SocketOptionBuilder SetTimeOut(int timeOut = 180 * 1000)
         {
-            _socketOption.Timeout = timeOut;
+            _socketOption.ActionTimeout = timeOut;
             return this;
         }
 

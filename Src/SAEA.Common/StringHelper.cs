@@ -74,6 +74,7 @@ namespace SAEA.Common
         /// <returns></returns>
         public static ValueTuple<string, int> ToIPPort(this string ipStr)
         {
+            if (string.IsNullOrEmpty(ipStr)) return new ValueTuple<string, int>("", 0);
             try
             {
                 ValueTuple<string, int> result;

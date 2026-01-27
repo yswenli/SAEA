@@ -142,7 +142,7 @@ namespace SAEA.Sockets
         /// <summary>
         /// 操作超时
         /// </summary>
-        int Timeout
+        int ActionTimeout
         {
             get; set;
         }

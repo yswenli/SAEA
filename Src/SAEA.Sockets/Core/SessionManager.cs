@@ -212,32 +212,43 @@ namespace SAEA.Sockets.Core
         /// <param name="userToken"></param>
         public bool Free(IUserToken userToken)
         {
-            using var locker = ObjectLock.Create("SessionManager.Free");
-            if (userToken != null)
+            try
             {
-                // 无论userToken是否在缓存中，都将其放回池中并释放信号量
-                _sessionCache.DelWithoutEvent(userToken.ID);
-                try
+                using var locker = ObjectLock.Create("SessionManager.Free");
+                if (userToken != null)
                 {
-                    return _userTokenPool.Enqueue(userToken);
-                }
-                finally
-                {
-                    // 无论是否能将userToken放回池中，都必须释放信号量，否则会导致死锁
+                    // 无论userToken是否在缓存中，都将其放回池中并释放信号量
+                    // 避免传入空 key 导致 ConcurrentDictionary 抛出 ArgumentNullException
+                    if (!string.IsNullOrEmpty(userToken.ID))
+                    {
+                        _sessionCache.DelWithoutEvent(userToken.ID);
+                    }
                     try
                     {
-                        _semaphoreSlim.Release();
+                        return _userTokenPool.Enqueue(userToken);
                     }
-                    catch (SemaphoreFullException)
+                    finally
                     {
-                        // 忽略信号量已满的异常，防止计数超过最大限制
-                        LogHelper.Info("SessionManager.Free 信号量已满，忽略释放操作");
-                    }
-                    catch (Exception ex)
-                    {
-                        LogHelper.Error("SessionManager.Free 释放信号量错误", ex);
+                        // 无论是否能将userToken放回池中，都必须释放信号量，否则会导致死锁
+                        try
+                        {
+                            _semaphoreSlim.Release();
+                        }
+                        catch (SemaphoreFullException)
+                        {
+                            // 忽略信号量已满的异常，防止计数超过最大限制
+                            LogHelper.Info("SessionManager.Free 信号量已满，忽略释放操作");
+                        }
+                        catch (Exception ex)
+                        {
+                            LogHelper.Error("SessionManager.Free 释放信号量错误", ex);
+                        }
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Error("SessionManager.Free 错误", ex);
             }
             return false;
         }
