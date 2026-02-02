@@ -30,15 +30,15 @@
 *
 *****************************************************************************/
 
-using System;
-using System.Net;
-using System.Net.Sockets;
-using System.Threading;
-
 using SAEA.Common;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
+
+using System;
+using System.Net;
+using System.Net.Sockets;
+using System.Threading;
 
 namespace SAEA.Sockets.Core.Tcp
 {
@@ -359,6 +359,7 @@ namespace SAEA.Sockets.Core.Tcp
             try
             {
                 var token = e.UserToken as IUserToken;
+                if (token == null) return;
                 token.Actived = DateTimeHelper.Now;
                 token.ReleaseWrite();
             }
@@ -377,6 +378,12 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="data"></param>
         public void SendAsync(IUserToken userToken, byte[] data)
         {
+            try
+            {
+                // 将发送动作也视为会话活跃，避免长连接（如SSE）仅靠服务器推送被判定为超时断开
+                try { _sessionManager.Active(userToken.ID); } catch { }
+            }
+            catch { }
             if (userToken.WaitWrite(SocketOption.ActionTimeout) && userToken.Socket != null && userToken.Socket.Connected)
             {
                 try
@@ -429,6 +436,9 @@ namespace SAEA.Sockets.Core.Tcp
         {
             try
             {
+                // 将发送动作也视为会话活跃，避免长连接被判定为超时断开
+                try { _sessionManager.Active(userToken.ID); } catch { }
+
                 if (userToken != null && userToken.Socket != null && userToken.Socket.Connected)
                 {
                     if (userToken.WaitWrite(SocketOption.ActionTimeout))
@@ -554,7 +564,7 @@ namespace SAEA.Sockets.Core.Tcp
         {
             try
             {
-                if (userToken == null) return;
+                if (userToken == null || string.IsNullOrEmpty(userToken.ID)) return;
                 if (_sessionManager.Free(userToken))
                 {
                     Interlocked.Decrement(ref _clientCounts);
@@ -574,6 +584,10 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="sessionID"></param>
         public void Disconnect(string sessionID)
         {
+            if (string.IsNullOrEmpty(sessionID))
+            {
+                return;
+            }
             var userToken = SessionManager.Get(sessionID);
             if (userToken != null)
                 Disconnect(userToken);

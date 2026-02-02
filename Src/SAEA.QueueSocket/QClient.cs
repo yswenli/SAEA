@@ -128,21 +128,23 @@ namespace SAEA.QueueSocket
         /// <summary>
         /// 错误处理事件
         /// </summary>
-        /// <param name="ID">客户端ID</param>
+        /// <param name="id">客户端ID</param>
         /// <param name="ex">异常信息</param>
-        private void _clientSocket_OnError(string ID, Exception ex)
+        private void _clientSocket_OnError(string id, Exception ex)
         {
-            OnError?.Invoke(ID, ex);
+            if (string.IsNullOrEmpty(id)) return;
+            OnError?.Invoke(id, ex);
         }
 
         /// <summary>
         /// 断开连接处理事件
         /// </summary>
-        /// <param name="ID">客户端ID</param>
+        /// <param name="id">客户端ID</param>
         /// <param name="ex">异常信息</param>
-        private void _clientSocket_OnDisconnected(string ID, Exception ex)
+        private void _clientSocket_OnDisconnected(string id, Exception ex)
         {
-            OnDisconnected?.Invoke(ID, ex);
+            if (string.IsNullOrEmpty(id)) return;
+            OnDisconnected?.Invoke(id, ex);
         }
 
         /// <summary>
@@ -205,7 +207,7 @@ namespace SAEA.QueueSocket
                 var list = new List<byte>();
 
                 int sentCount = data.Count;
-                
+
                 foreach (var item in data)
                 {
                     list.AddRange(item);
@@ -216,7 +218,7 @@ namespace SAEA.QueueSocket
                 _clientSocket.Send(list.ToArray());
 
                 list.Clear();
-                
+
                 // 触发消息发送完成事件，通知发送了多少条消息
                 OnMessagesSent?.Invoke(sentCount);
             }

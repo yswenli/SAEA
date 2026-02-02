@@ -112,7 +112,7 @@ namespace SAEA.MVC
         public double ConnectTimeout
         {
             get; set;
-        } = 3;
+        } = 6;
 
         /// <summary>
         /// 初始化 SAEA MVC 应用程序配置类的新实例

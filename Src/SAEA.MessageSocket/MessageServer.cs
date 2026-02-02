@@ -78,7 +78,7 @@ namespace SAEA.MessageSocket
                 .SetReadBufferSize(bufferSize)
                 .SetWriteBufferSize(bufferSize)
                 .SetMaxConnects(count)
-                .SetTimeOut(timeOut)
+                .SetActionTimeOut(timeOut)
                 .Build();
 
             _server = SocketFactory.CreateServerSocket(option);
@@ -111,9 +111,10 @@ namespace SAEA.MessageSocket
             OnAccepted?.Invoke(obj);
         }
 
-        private void _server_OnDisconnected(string ID, Exception ex)
+        private void _server_OnDisconnected(string id, Exception ex)
         {
-            this.OnDisconnected?.Invoke(ID, ex);
+            if (string.IsNullOrEmpty(id)) return;
+            this.OnDisconnected?.Invoke(id, ex);
         }
 
         public void Start()

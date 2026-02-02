@@ -66,7 +66,7 @@ namespace SAEA.Audio.Net
                 .UseIocp()
                 .SetReadBufferSize(SocketOption.UDPMaxLength)
                 .SetWriteBufferSize(SocketOption.UDPMaxLength)
-                .SetTimeOut(60 * 1000)
+                .SetActionTimeOut(60 * 1000)
                 .Build());
             _udpServer.OnAccepted += _udpServer_OnAccepted;
             _udpServer.OnDisconnected += _udpServer_OnDisconnected;

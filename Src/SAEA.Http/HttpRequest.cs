@@ -127,7 +127,7 @@ namespace SAEA.Http
         {
             _httpMessage = httpMessage;
 
-            this.UserHostAddress = httpMessage.ID.ToIPPort().Item1;
+            this.UserHostAddress = httpMessage.ID;
             this.Method = _httpMessage.Method;
             this.Url = _httpMessage.Url;
             this.RelativeUrl = _httpMessage.RelativeUrl;

@@ -47,7 +47,7 @@ namespace SAEA.Http.Base.Net
                .SetPort(port)
                .SetMaxConnects(maxConnects)
                .SetReadBufferSize(bufferSize)
-               .SetTimeOut((int)(timeout * 1000))
+               .SetActionTimeOut((int)(timeout * 1000))
                .SetConnectTimeout((int)(connectTimeout * 1000))
                .ReusePort(false);
             _option = optionBuilder.Build();

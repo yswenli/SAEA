@@ -82,10 +82,12 @@ namespace SAEA.QueueSocket
 
         private void _consumer_OnDisconnected(string id, Exception ex)
         {
+            if (string.IsNullOrEmpty(id)) return;
             OnDisconnected?.Invoke(id, ex);
         }
         private void _consumer_OnError(string id, Exception ex)
         {
+            if (string.IsNullOrEmpty(id)) return;
             OnError?.Invoke(id, ex);
         }
 

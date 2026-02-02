@@ -31,6 +31,7 @@
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.Sockets.Model;
+
 using System;
 using System.Collections.Concurrent;
 using System.IO;
@@ -52,6 +53,7 @@ namespace SAEA.Sockets.Core
 
         public ChannelInfo Set(string id, Socket socket, Stream stream)
         {
+            if (string.IsNullOrEmpty(id)) return null;
             var ci = new ChannelInfo()
             {
                 ID = id,
@@ -66,6 +68,7 @@ namespace SAEA.Sockets.Core
 
         public ChannelInfo Get(string id)
         {
+            if (string.IsNullOrEmpty(id)) return null;
             if (_concurrentDictionary.TryGetValue(id, out ChannelInfo ci))
             {
                 if (ci != null)
@@ -82,6 +85,7 @@ namespace SAEA.Sockets.Core
 
         public void Refresh(string id)
         {
+            if (string.IsNullOrEmpty(id)) return;
             if (_concurrentDictionary.TryGetValue(id, out ChannelInfo ci))
             {
                 if (ci != null)
@@ -93,6 +97,7 @@ namespace SAEA.Sockets.Core
 
         public void Remove(string id)
         {
+            if (string.IsNullOrEmpty(id)) return;
             _concurrentDictionary.TryRemove(id, out ChannelInfo ci);
         }
 

@@ -27,6 +27,7 @@ using SAEA.RPC.Model;
 using SAEA.RPC.Net;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
+
 using System;
 using System.Collections.Concurrent;
 using System.Linq;
@@ -165,14 +166,16 @@ namespace SAEA.RPC.Consumer
 
         public event OnDisconnectedHandler OnDisconnected;
 
-        private void RClient_OnError(string ID, Exception ex)
+        private void RClient_OnError(string id, Exception ex)
         {
-            OnError?.Invoke(ID, ex);
+            if (string.IsNullOrEmpty(id)) return;
+            OnError?.Invoke(id, ex);
         }
 
-        private void RClient_OnDisconnected(string ID, Exception ex)
+        private void RClient_OnDisconnected(string id, Exception ex)
         {
-            OnDisconnected?.Invoke(ID, ex);
+            if (string.IsNullOrEmpty(id)) return;
+            OnDisconnected?.Invoke(id, ex);
         }
 
 

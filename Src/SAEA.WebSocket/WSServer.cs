@@ -97,6 +97,7 @@ namespace SAEA.WebSocket
         /// <param name="id">客户端ID</param>
         private void WsServer_OnConnected(string id)
         {
+            if (string.IsNullOrEmpty(id)) return;
             OnConnected?.Invoke(id);
         }
 
@@ -116,6 +117,7 @@ namespace SAEA.WebSocket
         /// <param name="id">客户端ID</param>
         private void WsServer_OnDisconnected(string id)
         {
+            if (string.IsNullOrEmpty(id)) return;
             OnDisconnected?.Invoke(id);
         }
 
@@ -135,6 +137,7 @@ namespace SAEA.WebSocket
         /// <param name="data">消息数据</param>
         public void Reply(string id, WSProtocal data)
         {
+            if (string.IsNullOrEmpty(id)) return;
             _wsServer.Reply(id, data);
         }
 
@@ -145,6 +148,7 @@ namespace SAEA.WebSocket
         /// <param name="data">消息数据</param>
         public void Disconnect(string id, WSProtocal data)
         {
+            if (string.IsNullOrEmpty(id)) return;
             _wsServer.Disconnect(id, data);
         }
 
@@ -154,6 +158,7 @@ namespace SAEA.WebSocket
         /// <param name="id">客户端ID</param>
         public void Disconnect(string id)
         {
+            if (string.IsNullOrEmpty(id)) return;
             _wsServer.Disconnect(id);
         }
 

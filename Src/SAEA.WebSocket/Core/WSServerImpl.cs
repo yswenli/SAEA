@@ -139,6 +139,7 @@ namespace SAEA.WebSocket.Core
         /// <param name="ex">异常信息</param>
         private void _server_OnDisconnected(string id, Exception ex)
         {
+            if (string.IsNullOrEmpty(id)) return;
             lock (_locker)
                 Clients.Remove(id);
             OnDisconnected?.Invoke(id);

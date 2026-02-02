@@ -272,7 +272,8 @@ namespace SAEA.Sockets.Core.Udp
             }
             finally
             {
-                OnDisconnected?.Invoke(_userToken.ID, ex);
+                if (_userToken != null && !string.IsNullOrEmpty(_userToken.ID))
+                    OnDisconnected?.Invoke(_userToken.ID, ex);
             }
         }
 
@@ -405,7 +406,8 @@ namespace SAEA.Sockets.Core.Udp
             {
                 mex = new Exception("The current udp has been actively closed");
             }
-            if (_userToken != null)
+
+            if (_userToken != null && !string.IsNullOrEmpty(_userToken.ID))
                 OnDisconnected?.Invoke(_userToken.ID, mex);
 
             _userToken.Clear();

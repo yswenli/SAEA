@@ -151,6 +151,7 @@ namespace SAEA.WebSocket
         /// <param name="ex">异常信息</param>
         private void WSClient_OnDisconnected(string id, Exception ex)
         {
+            if (string.IsNullOrEmpty(id)) return;
             OnDisconnected?.Invoke(id, ex);
             OnClose?.Invoke(id);
         }

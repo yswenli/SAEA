@@ -482,7 +482,9 @@ namespace SAEA.Sockets.Core.Udp
             {
                 if (ex == null) ex = new KernelException("The remote client has been closed.");
                 Interlocked.Decrement(ref _clientCounts);
-                OnDisconnected?.Invoke(userToken.ID, ex);
+
+                if (userToken != null && !string.IsNullOrEmpty(userToken.ID))
+                    OnDisconnected?.Invoke(userToken.ID, ex);
             }
         }
 

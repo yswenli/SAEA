@@ -258,7 +258,17 @@ namespace SAEA.Http
             if (bodyLen > 0)
                 this.SetHeader(ResponseHeaderType.ContentLength, bodyLen.ToString());
 
-            Headers["Connection"] = "close";
+            // 默认情况下，对普通短连接响应使用 Connection: close
+            // 对于长连接/流式场景（如 SSE），调用方可以传入 bodyLen = -1 来表示无限长度流，此时保持连接
+            if (bodyLen >= 0)
+            {
+                Headers["Connection"] = "close";
+            }
+            else
+            {
+                // 长连接/流式响应，使用 keep-alive，允许持续发送数据
+                Headers["Connection"] = "keep-alive";
+            }
 
             var header = BuildHeader();
 

@@ -29,6 +29,9 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Sockets.Handler;
+using SAEA.Sockets.Interface;
+
 using System;
 using System.IO;
 using System.Net;
@@ -37,9 +40,6 @@ using System.Net.Sockets;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
-
-using SAEA.Sockets.Handler;
-using SAEA.Sockets.Interface;
 
 namespace SAEA.Sockets.Core.Tcp
 {

@@ -94,9 +94,10 @@ namespace SAEA.FTP.Net
         }
 
 
-        private void _clientSocket_OnDisconnected(string ID, Exception ex)
+        private void _clientSocket_OnDisconnected(string id, Exception ex)
         {
-            OnDisconnected?.Invoke(ID, ex);
+            if (string.IsNullOrEmpty(id)) return;
+            OnDisconnected?.Invoke(id, ex);
         }
 
 
@@ -177,7 +178,7 @@ namespace SAEA.FTP.Net
             return result;
         }
 
-        
+
 
         public IClientSocket CreateDataConnection()
         {

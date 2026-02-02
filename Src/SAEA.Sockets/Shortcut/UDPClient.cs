@@ -136,9 +136,10 @@ namespace SAEA.Sockets.Shortcut
             }
         }
 
-        private void UdpClient_OnDisconnected(string ID, Exception ex)
+        private void UdpClient_OnDisconnected(string id, Exception ex)
         {
-            Console.WriteLine($"UdpClient_OnDisconnected {ID} :" + ex.Message);
+            if (string.IsNullOrEmpty(id)) return;
+            Console.WriteLine($"UdpClient_OnDisconnected {id} :" + ex.Message);
             OnDisconnected?.Invoke(this);
         }
 

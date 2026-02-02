@@ -29,6 +29,9 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Sockets.Handler;
+using SAEA.Sockets.Model;
+
 using System;
 using System.IO;
 using System.Net;
@@ -37,9 +40,6 @@ using System.Net.Sockets;
 using System.Security.Authentication;
 using System.Threading;
 using System.Threading.Tasks;
-
-using SAEA.Sockets.Handler;
-using SAEA.Sockets.Model;
 
 namespace SAEA.Sockets.Core.Tcp
 {
@@ -238,6 +238,8 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="nsStream">网络流</param>
         async Task ProcessAccepted(string id, Stream nsStream)
         {
+            if (string.IsNullOrEmpty(id)) return;
+
             await Task.Yield();
 
             while (!_isStoped && OnReceive != null)
@@ -339,6 +341,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="sessionID">会话ID</param>
         public void Disconnect(string sessionID)
         {
+            if (string.IsNullOrEmpty(sessionID)) return;
             var channel = ChannelManager.Instance.Get(sessionID);
             var socket = channel.ClientSocket;
             if (socket != null)

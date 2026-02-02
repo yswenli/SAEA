@@ -36,7 +36,7 @@ namespace SAEA.QueueSocket
         public event OnErrorHandler OnError;
 
         public event OnDisconnectedHandler OnDisconnected;
-        
+
         /// <summary>
         /// 消息实际发送完成事件
         /// </summary>
@@ -69,13 +69,15 @@ namespace SAEA.QueueSocket
 
         private void _consumer_OnDisconnected(string id, Exception ex)
         {
+            if (string.IsNullOrEmpty(id)) return;
             OnDisconnected?.Invoke(id, ex);
         }
         private void _consumer_OnError(string id, Exception ex)
         {
+            if (string.IsNullOrEmpty(id)) return;
             OnError?.Invoke(id, ex);
         }
-        
+
         private void _producer_OnMessagesSent(int count)
         {
             OnMessagesSent?.Invoke(count);

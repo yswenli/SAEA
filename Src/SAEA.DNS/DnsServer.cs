@@ -140,7 +140,7 @@ namespace SAEA.DNS
                                                .UseIocp<BaseCoder>()
                                                .SetReadBufferSize(SocketOption.UDPMaxLength)
                                                .SetWriteBufferSize(SocketOption.UDPMaxLength)
-                                               .SetTimeOut(UDP_TIMEOUT)
+                                               .SetActionTimeOut(UDP_TIMEOUT)
                                                .SetFreeTime(30 * 1000)
                                                .Build());
 

@@ -93,7 +93,7 @@ namespace SAEA.Http
             int bufferSize = 64 * 1024,
             int maxConnects = 1000,
             double timeout = 180,
-            double connectTimeout = 2,
+            double connectTimeout = 3,
             bool isDebug = false)
         {
             if (httpContentType != null && _httpContentType.GetInterface("SAEA.Http.Model.IHttpContext", true) != null)

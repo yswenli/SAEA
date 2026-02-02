@@ -63,6 +63,7 @@ namespace SAEA.WebSocket.Core
 
         private void ServerSokcet_OnDisconnected(string id, Exception ex)
         {
+            if (string.IsNullOrEmpty(id)) return;
             Clients.Remove(id);
             OnDisconnected?.Invoke(id);
         }
@@ -185,6 +186,8 @@ namespace SAEA.WebSocket.Core
 
         public void Reply(string id, WSProtocal data)
         {
+            if (string.IsNullOrEmpty(id)) return;
+
             var channelInfo = ChannelManager.Instance.Get(id);
 
             ReplyBase(channelInfo.Stream, data);
@@ -192,6 +195,8 @@ namespace SAEA.WebSocket.Core
 
         public void Disconnect(string id, WSProtocal data)
         {
+            if (string.IsNullOrEmpty(id)) return;
+
             var channelInfo = ChannelManager.Instance.Get(id);
 
             ReplyBase(channelInfo.Stream, data);
@@ -201,6 +206,7 @@ namespace SAEA.WebSocket.Core
 
         public void Disconnect(string id)
         {
+            if (string.IsNullOrEmpty(id)) return;
             var channelInfo = ChannelManager.Instance.Get(id);
             channelInfo.Stream.Close();
         }

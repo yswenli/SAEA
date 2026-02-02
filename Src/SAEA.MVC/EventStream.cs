@@ -19,6 +19,7 @@ using SAEA.Common;
 using SAEA.Common.Serialization;
 using SAEA.Common.Threading;
 using SAEA.Http.Model;
+
 using System.Net;
 using System.Text;
 
@@ -56,19 +57,18 @@ namespace SAEA.MVC
 
             HttpContext.Current.Response.ContentType = "text/event-stream; charset=utf-8";
             HttpContext.Current.Response.SetHeader(ResponseHeaderType.CacheControl, "no-cache");
-            HttpContext.Current.Response.SetHeader(ResponseHeaderType.KeepAlive, "timeout=5");
+            HttpContext.Current.Response.SetHeader(ResponseHeaderType.KeepAlive, "timeout=7200");
             HttpContext.Current.Response.Status = HttpStatusCode.OK;
             HttpContext.Current.Response.SendHeader(-1);
 
             //心跳
             var pong = $"SAEAServer PONG {DateTimeHelper.Now:yyyy:MM:dd HH:mm:ss.fff}";
-            
+
             TaskHelper.LongRunning(() =>
             {
                 ServerSent(Encoding.UTF8.GetBytes($": {SerializeHelper.Serialize(pong)}\n\n"));
             }, 1000);
 
-            //断开重连时长
             ServerSent(Encoding.UTF8.GetBytes($"retry: {retry}\n\n"));
         }
         /// <summary>
@@ -88,6 +88,7 @@ namespace SAEA.MVC
         /// <param name="content"></param>
         public void ServerSent(byte[] content)
         {
+            using var locker = ObjectLock.Create($"EventStream.ServerSent{HttpContext.Current.Request.UserHostAddress}");
             HttpContext.Current.Response.SendData(content);
         }
     }

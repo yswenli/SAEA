@@ -60,7 +60,7 @@ namespace SAEA.Http.Base.Net
             int bufferSize = 64 * 1024,
             int maxConnects = 1000,
             double timeout = 180,
-            double connectTimeout = 2)
+            double connectTimeout = 3)
         {
             var optionBuilder = new SocketOptionBuilder()
                .SetSocket(Sockets.Model.SAEASocketType.Tcp)
@@ -68,7 +68,7 @@ namespace SAEA.Http.Base.Net
                .SetPort(port)
                .SetMaxConnects(maxConnects)
                .SetReadBufferSize(bufferSize)
-               .SetTimeOut((int)(timeout * 1000))
+               .SetActionTimeOut((int)(timeout * 1000))
                .SetFreeTime((int)(timeout * 1000))
                .SetConnectTimeout((int)(connectTimeout * 1000))
                .ReusePort(false);

@@ -17,9 +17,9 @@ namespace SAEA.MVCTest
 
             mvcConfig.MaxConnects = 10;
 
-            mvcConfig.Timeout = 1;
+            mvcConfig.Timeout = 180;
 
-            mvcConfig.ConnectTimeout = 3;
+            mvcConfig.ConnectTimeout = 6;
 
             mvcConfig.Port = 28080;
 

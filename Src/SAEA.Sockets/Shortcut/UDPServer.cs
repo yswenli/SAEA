@@ -64,7 +64,7 @@ namespace SAEA.Sockets.Shortcut
                 .UseIocp<Coder>()
                 .SetReadBufferSize(SocketOption.UDPMaxLength)
                 .SetWriteBufferSize(SocketOption.UDPMaxLength)
-                .SetTimeOut(timeOut)
+                .SetActionTimeOut(timeOut)
                 .Build());
 
             _udpServer.OnAccepted += UdpServer_OnAccepted;
@@ -141,6 +141,7 @@ namespace SAEA.Sockets.Shortcut
 
         private void UdpServer_OnDisconnected(string id, Exception ex)
         {
+            if (string.IsNullOrEmpty(id)) return;
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"UdpServer_OnDisconnected:{id}");
             OnDisconnected?.Invoke(id);

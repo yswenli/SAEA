@@ -86,7 +86,7 @@ namespace SAEA.RPC.Net
                 .SetPort(ipPort.Item2)
                 .SetReadBufferSize(10240)
                 .SetWriteBufferSize(10240)
-                .SetTimeOut(_timeOut)
+                .SetActionTimeOut(_timeOut)
                 .Build();
 
             _client = SocketFactory.CreateClientSocket(option);
@@ -97,9 +97,10 @@ namespace SAEA.RPC.Net
         }
 
 
-        private void _client_OnDisConnected(string ID, Exception ex)
+        private void _client_OnDisConnected(string id, Exception ex)
         {
-            OnDisconnected?.Invoke(ID, ex);
+            if (string.IsNullOrEmpty(id)) return;
+            OnDisconnected?.Invoke(id, ex);
         }
 
         /// <summary>

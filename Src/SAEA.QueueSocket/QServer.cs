@@ -96,11 +96,12 @@ namespace SAEA.QueueSocket
         /// <summary>
         /// 断开连接事件处理
         /// </summary>
-        /// <param name="ID">会话ID</param>
+        /// <param name="id">会话ID</param>
         /// <param name="ex">异常信息</param>
-        private void _serverSokcet_OnDisconnected(string ID, Exception ex)
+        private void _serverSokcet_OnDisconnected(string id, Exception ex)
         {
-            OnDisconnected?.Invoke(ID, ex);
+            if (string.IsNullOrEmpty(id)) return;
+            OnDisconnected?.Invoke(id, ex);
         }
 
         /// <summary>

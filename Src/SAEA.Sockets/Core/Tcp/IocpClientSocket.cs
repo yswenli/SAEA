@@ -652,7 +652,7 @@ namespace SAEA.Sockets.Core.Tcp
                 {
                     mex = new Exception("SAEA SocketError:当前连接已主动断开");
                 }
-                if (_userToken != null)
+                if (_userToken != null && !string.IsNullOrEmpty(_userToken.ID))
                     OnDisconnected?.Invoke(_userToken.ID, mex);
             }
 
