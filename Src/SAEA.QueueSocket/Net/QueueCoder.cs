@@ -200,8 +200,7 @@ namespace SAEA.QueueSocket.Net
                         if (qm.NameLength > 0)
                         {
                             // Use Span without creating intermediate array
-                            var nameSpan = data.AsSpan().Slice(offset, qm.NameLength);
-                            qm.Name = Encoding.UTF8.GetString(nameSpan);
+                            qm.Name = Encoding.UTF8.GetString(data, offset, qm.NameLength);
                         }
                         offset += qm.NameLength;
 
@@ -211,8 +210,7 @@ namespace SAEA.QueueSocket.Net
                         if (qm.TopicLength > 0)
                         {
                             // Use Span without creating intermediate array
-                            var topicSpan = data.AsSpan().Slice(offset, qm.TopicLength);
-                            qm.Topic = Encoding.UTF8.GetString(topicSpan);
+                            qm.Topic = Encoding.UTF8.GetString(data, offset, qm.TopicLength);
                         }
                         offset += qm.TopicLength;
 
@@ -221,8 +219,7 @@ namespace SAEA.QueueSocket.Net
                         if (dlen > 0)
                         {
                             // Use Span to copy data directly
-                            var dataSpan = data.AsSpan().Slice(offset, dlen);
-                            qm.Data = dataSpan.ToArray();
+                            qm.Data = data.AsSpan(offset, dlen).ToArray();
                         }
                         offset += dlen;
                         list.Add(qm);
