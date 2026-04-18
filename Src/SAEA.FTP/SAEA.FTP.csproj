@@ -21,6 +21,7 @@ SAEA.FTP 是基于SAEA.Socket的轻量级包含FtpServer和FtpClient的组件</P
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <LangVersion>8.0</LangVersion>
     <PackageIcon>favicon.png</PackageIcon>
+	<PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -37,6 +38,13 @@ SAEA.FTP 是基于SAEA.Socket的轻量级包含FtpServer和FtpClient的组件</P
   <ItemGroup>
     <ProjectReference Include="..\SAEA.Common\SAEA.Common.csproj" />
     <ProjectReference Include="..\SAEA.Sockets\SAEA.Sockets.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
   </ItemGroup>
 
 </Project>
