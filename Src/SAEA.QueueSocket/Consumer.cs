@@ -88,7 +88,8 @@ namespace SAEA.QueueSocket
                 }
                 finally
                 {
-                    obj.Dispose(); // 确保释放
+                    // 归还到对象池
+                    QueueMsgPool.Return(obj);
                 }
             }
         }
