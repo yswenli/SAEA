@@ -1,6 +1,7 @@
-﻿using System;
+using System;
 using System.Runtime.CompilerServices;
 using System.Text;
+using SAEA.Common.Caching;
 using SAEA.MQTT.Protocol;
 
 namespace SAEA.MQTT.Formatter
@@ -19,11 +20,22 @@ namespace SAEA.MQTT.Formatter
         public static int InitialBufferSize = 128;
         public static int MaxBufferSize = 4096;
 
-        byte[] _buffer = new byte[InitialBufferSize];
+        byte[] _buffer;
+        bool _isPooled;
 
         int _offset;
 
         public int Length { get; private set; }
+
+        /// <summary>
+        /// 构造函数，从内存池租用初始缓冲区
+        /// </summary>
+        public MqttPacketWriter()
+        {
+            _buffer = MemoryPoolManager.Rent(InitialBufferSize);
+            _isPooled = true;
+            _offset = 0;
+        }
 
         public static byte BuildFixedHeader(MqttControlPacketType packetType, byte flags = 0)
         {
@@ -57,24 +69,35 @@ namespace SAEA.MQTT.Formatter
                 return new ArraySegment<byte>(new[] { (byte)value }, 0, 1);
             }
 
-            var buffer = new byte[4];
-            var bufferOffset = 0;
-
-            var x = value;
-            do
+            // 小数据使用stackalloc避免堆分配
+            unsafe
             {
-                var encodedByte = x % 128;
-                x = x / 128;
-                if (x > 0)
+                byte* buffer = stackalloc byte[4];
+                var bufferOffset = 0;
+
+                var x = value;
+                do
                 {
-                    encodedByte = encodedByte | 128;
+                    var encodedByte = x % 128;
+                    x = x / 128;
+                    if (x > 0)
+                    {
+                        encodedByte = encodedByte | 128;
+                    }
+
+                    buffer[bufferOffset] = (byte)encodedByte;
+                    bufferOffset++;
+                } while (x > 0);
+
+                // 将结果复制到托管数组
+                var result = new byte[bufferOffset];
+                fixed (byte* resultPtr = result)
+                {
+                    for (int i = 0; i < bufferOffset; i++)
+                        resultPtr[i] = buffer[i];
                 }
-
-                buffer[bufferOffset] = (byte)encodedByte;
-                bufferOffset++;
-            } while (x > 0);
-
-            return new ArraySegment<byte>(buffer, 0, bufferOffset);
+                return new ArraySegment<byte>(result, 0, bufferOffset);
+            }
         }
 
         public void WriteVariableLengthInteger(uint value)
@@ -188,7 +211,15 @@ namespace SAEA.MQTT.Formatter
                 return;
             }
 
-            Array.Resize(ref _buffer, MaxBufferSize);
+            // 归还旧的大缓冲区到内存池
+            if (_isPooled)
+            {
+                MemoryPoolManager.Return(_buffer, _buffer.Length);
+            }
+
+            // 从内存池租用新的标准大小缓冲区
+            _buffer = MemoryPoolManager.Rent(MaxBufferSize);
+            _isPooled = true;
         }
 
         void Write(ArraySegment<byte> buffer)
@@ -223,7 +254,20 @@ namespace SAEA.MQTT.Formatter
                 newBufferLength *= 2;
             }
 
-            Array.Resize(ref _buffer, newBufferLength);
+            // 从内存池租用更大的缓冲区
+            var newBuffer = MemoryPoolManager.Rent(newBufferLength);
+            
+            // 复制现有数据
+            Buffer.BlockCopy(_buffer, 0, newBuffer, 0, _offset);
+            
+            // 归还旧的缓冲区
+            if (_isPooled)
+            {
+                MemoryPoolManager.Return(_buffer, _buffer.Length);
+            }
+            
+            _buffer = newBuffer;
+            _isPooled = true;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
