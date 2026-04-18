@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
@@ -23,6 +23,7 @@
 *****************************************************************************/
 
 using SAEA.Common;
+using SAEA.Common.Caching;
 using SAEA.Common.Serialization;
 using SAEA.FileSocket.Model;
 using SAEA.Sockets;
@@ -176,38 +177,48 @@ namespace SAEA.FileSocket
         {
             if (File.Exists(fileName))
             {
-                var buffer = new byte[_bufferSize];
+                byte[] buffer = null;
 
-                using (var fs = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.Read))
+                try
                 {
-                    _total = fs.Length;
+                    buffer = MemoryPoolManager.Rent(_bufferSize);
 
-                    int readNum = 0;
-
-                    do
+                    using (var fs = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.Read))
                     {
-                        fs.Position = offset;
+                        _total = fs.Length;
 
-                        readNum = fs.Read(buffer, 0, _bufferSize);
+                        int readNum = 0;
 
-                        offset += readNum;
-
-                        if (readNum > 0)
+                        do
                         {
-                            var content = new byte[readNum];
+                            fs.Position = offset;
 
-                            Buffer.BlockCopy(buffer, 0, content, 0, readNum);
+                            readNum = fs.Read(buffer, 0, _bufferSize);
 
-                            var data = BaseSocketProtocal.ParseStream(content).ToBytes();
+                            offset += readNum;
 
-                            _client.SendAsync(data);
+                            if (readNum > 0)
+                            {
+                                // Use Span to avoid creating new array
+                                var contentSpan = buffer.AsSpan(0, readNum);
+                                var data = BaseSocketProtocal.ParseStream(contentSpan.ToArray()).ToBytes();
 
-                            Interlocked.Add(ref _out, readNum);
+                                _client.SendAsync(data);
+
+                                Interlocked.Add(ref _out, readNum);
+                            }
+                            else
+                                break;
                         }
-                        else
-                            break;
+                        while (true);
                     }
-                    while (true);
+                }
+                finally
+                {
+                    if (buffer != null)
+                    {
+                        MemoryPoolManager.Return(buffer, _bufferSize);
+                    }
                 }
             }
         }
