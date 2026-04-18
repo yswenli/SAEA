@@ -94,8 +94,8 @@ namespace SAEA.QueueSocket.Model
 
             _messageQueue = new MessageQueue(maxPendingMsgCount);
 
-            // 优化：将批处理超时时间从100ms改为20ms，提高消息处理频率，同时增加批量大小到5000以提高吞吐量
-            _classificationBatcher = ClassificationBatcher.GetInstance(5000, 20);
+            // 优化：将批处理超时时间从20ms改为100ms，降低CPU使用率，同时保持批量大小5000以提高吞吐量
+            _classificationBatcher = ClassificationBatcher.GetInstance(5000, 100);
 
             _classificationBatcher.OnBatched += _classificationBatcher_OnBatched;
 
@@ -168,6 +168,13 @@ namespace SAEA.QueueSocket.Model
                         // 批量获取消息
                         while (messages.Count < batchSize && stopwatch.ElapsedMilliseconds < maxWaitTime)
                         {
+                            // 在没有消息时添加适当延迟，避免CPU忙等待
+                            if (_messageQueue.GetCount(topic) == 0)
+                            {
+                                await Task.Delay(10);
+                                continue;
+                            }
+
                             var msg = await _messageQueue.DequeueAsync(topic);
                             if (msg != null && msg.Length > 0)
                             {
@@ -222,6 +229,18 @@ namespace SAEA.QueueSocket.Model
         {
             Interlocked.Decrement(ref _cNum);
             _binding.Del(sInfo.Name, sInfo.Topic);
+
+            // 从 _subscribers 中移除订阅者
+            if (_subscribers.TryGetValue(sInfo.Topic, out var topicSubscribers))
+            {
+                topicSubscribers.TryRemove(sInfo.Name, out var _);
+
+                // 如果该 topic 没有订阅者了，清理分发任务
+                if (topicSubscribers.IsEmpty)
+                {
+                    _subscribers.TryRemove(sInfo.Topic, out var _);
+                }
+            }
         }
 
         /// <summary>
