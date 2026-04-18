@@ -296,7 +296,27 @@ namespace SAEA.QueueSocket
         public void Close(int wait = 10000)
         {
             _isClosed = true;
+            _batcher.OnBatched -= _batcher_OnBatched;
+            _batcher?.Dispose();
             _clientSocket.Send(_queueCoder.Close(_name));
+            _clientSocket.Disconnect();
+        }
+
+        /// <summary>
+        /// 清除编码器缓冲区
+        /// </summary>
+        public void ClearCoderBuffer()
+        {
+            _queueCoder?.Clear();
+        }
+
+        /// <summary>
+        /// 释放资源
+        /// </summary>
+        public void Dispose()
+        {
+            Close();
+            _queueCoder = null;
         }
     }
 }
