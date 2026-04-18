@@ -333,3 +333,7 @@ ASALocalRun/
 /Src/.vscode
 .vscode/settings.json
 /nul
+
+# Git worktrees
+.worktrees/
+worktrees/
