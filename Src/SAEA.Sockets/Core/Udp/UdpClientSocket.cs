@@ -4,8 +4,8 @@
  \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
   ___) / ___ \| |___ / ___ \   ___) | (_) | (__|   <  __/ |_ 
  |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
-                                                             
-
+                                                              
+ 
 *项目名称：SAEA.Sockets.Core.Udp
 *CLR 版本：4.0.30319.42000
 *机器名称：WALLE-PC
@@ -32,6 +32,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using SAEA.Common;
+using SAEA.Common.Caching;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 
@@ -71,6 +72,22 @@ namespace SAEA.Sockets.Core.Udp
         public event OnClientReceiveHandler OnReceive;
 
         protected OnClientReceiveBytesHandler OnClientReceive = null;
+
+        /// <summary>
+        /// 内部委托：接收数据时触发（Span版本）
+        /// </summary>
+        /// <param name="data">数据Span</param>
+        internal delegate void OnClientReceiveSpanHandler(ReadOnlySpan<byte> data);
+
+        /// <summary>
+        /// 内部事件：客户端接收数据（Span版本）
+        /// </summary>
+        internal event OnClientReceiveSpanHandler OnClientReceiveSpan;
+
+        /// <summary>
+        /// 小数据阈值（4KB）
+        /// </summary>
+        internal const int SmallDataThreshold = 4 * 1024;
 
         protected void RaiseOnError(string id, Exception ex)
         {
@@ -237,9 +254,38 @@ namespace SAEA.Sockets.Core.Udp
                 {
                     _userToken.Actived = DateTimeHelper.Now;
 
-                    var data = readArgs.Buffer.AsSpan().Slice(readArgs.Offset, readArgs.BytesTransferred).ToArray();
+                    // 使用Span获取数据，避免立即复制
+                    var dataSpan = readArgs.Buffer.AsSpan(readArgs.Offset, readArgs.BytesTransferred);
 
-                    OnClientReceive?.Invoke(data);
+                    // 触发内部Span事件
+                    OnClientReceiveSpan?.Invoke(dataSpan);
+
+                    // 根据数据大小选择分配策略
+                    byte[] data;
+                    if (readArgs.BytesTransferred < SmallDataThreshold)
+                    {
+                        // 小数据：直接ToArray()
+                        data = dataSpan.ToArray();
+                    }
+                    else
+                    {
+                        // 大数据：从内存池租用并复制
+                        data = MemoryPoolManager.Rent(readArgs.BytesTransferred);
+                        dataSpan.CopyTo(data);
+                    }
+
+                    try
+                    {
+                        OnClientReceive?.Invoke(data);
+                    }
+                    finally
+                    {
+                        // 如果是大数据，归还到内存池
+                        if (readArgs.BytesTransferred >= SmallDataThreshold)
+                        {
+                            MemoryPoolManager.Return(data, readArgs.BytesTransferred);
+                        }
+                    }
 
                     ProcessReceive(readArgs);
                 }
@@ -366,13 +412,35 @@ namespace SAEA.Sockets.Core.Udp
         {
             return Task.Run(() =>
             {
-                var data = new byte[count];
+                // 根据数据大小选择分配策略
+                byte[] data;
+                if (count < SmallDataThreshold)
+                {
+                    // 小数据：直接分配
+                    data = new byte[count];
+                }
+                else
+                {
+                    // 大数据：从内存池租用
+                    data = MemoryPoolManager.Rent(count);
+                }
 
-                Buffer.BlockCopy(buffer, offset, data, 0, count);
+                try
+                {
+                    Buffer.BlockCopy(buffer, offset, data, 0, count);
 
-                if (data == null || !data.Any() || data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("SendAsync Incorrect length of data sent");
+                    if (data == null || !data.Any() || data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("SendAsync Incorrect length of data sent");
 
-                Send(data);
+                    Send(data);
+                }
+                finally
+                {
+                    // 如果是大数据，归还到内存池
+                    if (count >= SmallDataThreshold)
+                    {
+                        MemoryPoolManager.Return(data, count);
+                    }
+                }
 
             }, cancellationToken);
         }

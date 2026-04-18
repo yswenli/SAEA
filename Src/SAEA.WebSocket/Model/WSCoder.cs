@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
@@ -27,6 +27,7 @@ using System.Linq;
 using System.Threading.Tasks;
 
 using SAEA.Common;
+using SAEA.Common.Caching;
 using SAEA.Sockets.Interface;
 
 namespace SAEA.WebSocket.Model
@@ -87,33 +88,65 @@ namespace SAEA.WebSocket.Model
                     if (payloadLen + 2 > _buffer.Count) break;
                     if (mask)
                     {
-                        var masks = new byte[4];
-                        if (payloadLen == 126)
+                        // masks只有4字节，使用stackalloc避免堆分配
+                        unsafe
                         {
-                            var len = (ushort)(_buffer[2] << 8 | _buffer[3]);
-                            if (len + 8 > _buffer.Count) break;
-                            buffer.AsSpan().Slice(4, 4).CopyTo(masks);
-                            payloadData = new byte[len];
-                            buffer.AsSpan().Slice(8, len).CopyTo(payloadData);
-                            DoMask(payloadData, 0, len, masks);
-                            result.Add(new WSProtocal(opcode, payloadData));
-                            if (_buffer.Count >= 8 + len)
-                                _buffer.RemoveRange(0, 8 + len);
+                            byte* masks = stackalloc byte[4];
+                            if (payloadLen == 126)
+                            {
+                                var len = (ushort)(_buffer[2] << 8 | _buffer[3]);
+                                if (len + 8 > _buffer.Count) break;
+                                
+                                // 复制masks到stackalloc
+                                for (int i = 0; i < 4; i++)
+                                    masks[i] = buffer[4 + i];
+                                
+                                // 大数据使用内存池，小数据直接分配
+                                if (len > MemoryPoolManager.SmallThreshold)
+                                {
+                                    payloadData = MemoryPoolManager.Rent(len);
+                                    Buffer.BlockCopy(buffer, 8, payloadData, 0, len);
+                                }
+                                else
+                                {
+                                    payloadData = new byte[len];
+                                    Buffer.BlockCopy(buffer, 8, payloadData, 0, len);
+                                }
+                                
+                                DoMaskUnsafe(payloadData, 0, len, masks);
+                                result.Add(new WSProtocal(opcode, payloadData) { IsPooled = len > MemoryPoolManager.SmallThreshold });
+                                if (_buffer.Count >= 8 + len)
+                                    _buffer.RemoveRange(0, 8 + len);
+                                else
+                                    break;
+                            }
                             else
-                                break;
-                        }
-                        else
-                        {
-                            if (_buffer.Count < 6 + payloadLen) break;
-                            buffer.AsSpan().Slice(2, 4).CopyTo(masks);
-                            payloadData = new byte[payloadLen];
-                            buffer.AsSpan().Slice(6, payloadLen).CopyTo(payloadData);
-                            DoMask(payloadData, 0, payloadLen, masks);
-                            result.Add(new WSProtocal(opcode, payloadData));
-                            if (_buffer.Count >= 6 + payloadLen)
-                                _buffer.RemoveRange(0, 6 + payloadLen);
-                            else
-                                break;
+                            {
+                                if (_buffer.Count < 6 + payloadLen) break;
+                                
+                                // 复制masks到stackalloc
+                                for (int i = 0; i < 4; i++)
+                                    masks[i] = buffer[2 + i];
+                                
+                                // 大数据使用内存池，小数据直接分配
+                                if (payloadLen > MemoryPoolManager.SmallThreshold)
+                                {
+                                    payloadData = MemoryPoolManager.Rent(payloadLen);
+                                    Buffer.BlockCopy(buffer, 6, payloadData, 0, payloadLen);
+                                }
+                                else
+                                {
+                                    payloadData = new byte[payloadLen];
+                                    Buffer.BlockCopy(buffer, 6, payloadData, 0, payloadLen);
+                                }
+                                
+                                DoMaskUnsafe(payloadData, 0, payloadLen, masks);
+                                result.Add(new WSProtocal(opcode, payloadData) { IsPooled = payloadLen > MemoryPoolManager.SmallThreshold });
+                                if (_buffer.Count >= 6 + payloadLen)
+                                    _buffer.RemoveRange(0, 6 + payloadLen);
+                                else
+                                    break;
+                            }
                         }
                     }
                     else
@@ -122,9 +155,18 @@ namespace SAEA.WebSocket.Model
                         {
                             var len = (ushort)(buffer[2] << 8 | buffer[3]);
                             if (len + 8 > buffer.Length) break;
-                            payloadData = new byte[len];
-                            buffer.AsSpan().Slice(4, len).CopyTo(payloadData);
-                            result.Add(new WSProtocal(opcode, payloadData));
+                            
+                            // 大数据使用内存池，小数据直接分配
+                            if (len > MemoryPoolManager.SmallThreshold)
+                            {
+                                payloadData = MemoryPoolManager.Rent(len);
+                            }
+                            else
+                            {
+                                payloadData = new byte[len];
+                            }
+                            Buffer.BlockCopy(buffer, 4, payloadData, 0, len);
+                            result.Add(new WSProtocal(opcode, payloadData) { IsPooled = len > MemoryPoolManager.SmallThreshold });
                             if (_buffer.Count >= 4 + len)
                                 _buffer.RemoveRange(0, 4 + len);
                             else
@@ -133,9 +175,18 @@ namespace SAEA.WebSocket.Model
                         else
                         {
                             if (_buffer.Count < 2 + payloadLen) break;
-                            payloadData = new byte[payloadLen];
-                            buffer.AsSpan().Slice(2, payloadLen).CopyTo(payloadData);
-                            result.Add(new WSProtocal(opcode, payloadData));
+                            
+                            // 大数据使用内存池，小数据直接分配
+                            if (payloadLen > MemoryPoolManager.SmallThreshold)
+                            {
+                                payloadData = MemoryPoolManager.Rent(payloadLen);
+                            }
+                            else
+                            {
+                                payloadData = new byte[payloadLen];
+                            }
+                            Buffer.BlockCopy(buffer, 2, payloadData, 0, payloadLen);
+                            result.Add(new WSProtocal(opcode, payloadData) { IsPooled = payloadLen > MemoryPoolManager.SmallThreshold });
                             if (_buffer.Count >= 2 + payloadLen)
                                 _buffer.RemoveRange(0, 2 + payloadLen);
                             else
@@ -159,6 +210,21 @@ namespace SAEA.WebSocket.Model
         /// <param name="length">数据长度</param>
         /// <param name="masks">掩码</param>
         public static void DoMask(byte[] buffer, int offset, int length, byte[] masks)
+        {
+            for (var i = 0; i < length; i++)
+            {
+                buffer[offset + i] = (byte)(buffer[offset + i] ^ masks[i % 4]);
+            }
+        }
+
+        /// <summary>
+        /// 对数据进行掩码处理（使用stackalloc的unsafe版本）
+        /// </summary>
+        /// <param name="buffer">数据缓冲区</param>
+        /// <param name="offset">偏移量</param>
+        /// <param name="length">数据长度</param>
+        /// <param name="masks">掩码指针</param>
+        unsafe public static void DoMaskUnsafe(byte[] buffer, int offset, int length, byte* masks)
         {
             for (var i = 0; i < length; i++)
             {

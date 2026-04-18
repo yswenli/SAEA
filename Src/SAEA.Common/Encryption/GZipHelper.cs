@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Common.Caching;
 using System;
 using System.IO;
 using System.IO.Compression;
@@ -72,11 +73,23 @@ namespace SAEA.Common.Encryption
                 {
                     using (var ms = new MemoryStream())
                     {
-                        var bytes = new byte[40960];
-                        int n;
-                        while ((n = zipStream.Read(bytes, 0, bytes.Length)) > 0)
-                            ms.Write(bytes, 0, n);
-                        return ms.ToArray();
+                        const int bufferSize = 40960;
+                        byte[] bytes = null;
+                        try
+                        {
+                            bytes = MemoryPoolManager.Rent(bufferSize);
+                            int n;
+                            while ((n = zipStream.Read(bytes, 0, bufferSize)) > 0)
+                                ms.Write(bytes, 0, n);
+                            return ms.ToArray();
+                        }
+                        finally
+                        {
+                            if (bytes != null)
+                            {
+                                MemoryPoolManager.Return(bytes, bufferSize);
+                            }
+                        }
                     }
                 }
             }
@@ -135,6 +148,7 @@ namespace SAEA.Common.Encryption
 
             int deflen = compressedData.Length * 2;
             byte[] buffer = null;
+            byte[] tempbuffer = null;
 
             using (MemoryStream stream = new MemoryStream(compressedData))
             {
@@ -145,18 +159,27 @@ namespace SAEA.Common.Encryption
                         using (BinaryWriter writer = new BinaryWriter(uncompressedstream))
                         {
                             int offset = 0;
-                            while (true)
+                            try
                             {
-                                byte[] tempbuffer = new byte[deflen];
+                                tempbuffer = MemoryPoolManager.Rent(deflen);
+                                while (true)
+                                {
+                                    int bytesread = inflatestream.Read(tempbuffer, offset, deflen);
 
-                                int bytesread = inflatestream.Read(tempbuffer, offset, deflen);
+                                    writer.Write(tempbuffer, 0, bytesread);
 
-                                writer.Write(tempbuffer, 0, bytesread);
-
-                                if (bytesread < deflen || bytesread == 0) break;
+                                    if (bytesread < deflen || bytesread == 0) break;
+                                }
+                                uncompressedstream.Seek(0, SeekOrigin.Begin);
+                                buffer = uncompressedstream.ToArray();
                             }
-                            uncompressedstream.Seek(0, SeekOrigin.Begin);
-                            buffer = uncompressedstream.ToArray();
+                            finally
+                            {
+                                if (tempbuffer != null)
+                                {
+                                    MemoryPoolManager.Return(tempbuffer, deflen);
+                                }
+                            }
                         }
                     }
                 }

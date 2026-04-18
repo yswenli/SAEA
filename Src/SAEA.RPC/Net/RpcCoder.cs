@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
@@ -26,6 +26,7 @@ using System.Collections.Generic;
 using System.Text;
 
 using SAEA.Common;
+using SAEA.Common.Caching;
 using SAEA.Common.Threading;
 using SAEA.RPC.Model;
 using SAEA.Sockets.Interface;
@@ -147,6 +148,7 @@ namespace SAEA.RPC.Net
 
                             if (qm.SLen > 0)
                             {
+                                // ServiceName通常较小，直接复制
                                 var narr = new byte[qm.SLen];
                                 Buffer.BlockCopy(data, (int)offset, narr, 0, narr.Length);
                                 qm.ServiceName = Encoding.UTF8.GetString(narr);
@@ -159,6 +161,7 @@ namespace SAEA.RPC.Net
 
                             if (qm.MLen > 0)
                             {
+                                // MethodName通常较小，直接复制
                                 var tarr = new byte[qm.MLen];
                                 Buffer.BlockCopy(data, (int)offset, tarr, 0, tarr.Length);
                                 qm.MethodName = Encoding.UTF8.GetString(tarr);
@@ -169,9 +172,21 @@ namespace SAEA.RPC.Net
 
                             if (dlen > 0)
                             {
-                                var darr = new byte[dlen];
-                                Buffer.BlockCopy(data, (int)offset, darr, 0, (int)dlen);
-                                qm.Data = darr;
+                                // 大数据使用内存池，小数据直接分配
+                                if (dlen > MemoryPoolManager.SmallThreshold)
+                                {
+                                    var darr = MemoryPoolManager.Rent((int)dlen);
+                                    Buffer.BlockCopy(data, (int)offset, darr, 0, (int)dlen);
+                                    qm.Data = darr;
+                                    qm.IsPooled = true;
+                                }
+                                else
+                                {
+                                    var darr = new byte[dlen];
+                                    Buffer.BlockCopy(data, (int)offset, darr, 0, (int)dlen);
+                                    qm.Data = darr;
+                                    qm.IsPooled = false;
+                                }
                                 offset += dlen;
                             }
                             list.Add(qm);
@@ -217,7 +232,17 @@ namespace SAEA.RPC.Net
                     {
                         foreach (var item in list)
                         {
-                            TaskHelper.Run(() => { onServerUnpacked.Invoke(item); });
+                            TaskHelper.Run(() => 
+                            { 
+                                onServerUnpacked.Invoke(item);
+                                // 消息处理完成后，如果数据来自内存池，归还缓冲区
+                                if (item.IsPooled && item.Data != null)
+                                {
+                                    MemoryPoolManager.Return(item.Data, item.Data.Length);
+                                    item.IsPooled = false;
+                                    item.Data = null;
+                                }
+                            });
                         }
                         _buffer.RemoveRange(0, (int)offset);
                     }

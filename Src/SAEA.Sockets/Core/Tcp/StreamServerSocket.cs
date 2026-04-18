@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
  * 
   ____    _    _____    _      ____             _        _   
  / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
@@ -29,6 +29,7 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Common.Caching;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Model;
 
@@ -53,6 +54,8 @@ namespace SAEA.Sockets.Core.Tcp
         int _clientCounts;
 
         private readonly CancellationToken _cancellationToken;
+
+        private byte[] _receiveBuffer;
 
         /// <summary>
         /// 客户端连接数
@@ -104,6 +107,7 @@ namespace SAEA.Sockets.Core.Tcp
         {
             SocketOption = socketOption;
             _cancellationToken = cancellationToken;
+            _receiveBuffer = MemoryPoolManager.Rent(socketOption.ReadBufferSize);
         }
 
         /// <summary>
@@ -246,14 +250,12 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 try
                 {
-                    var data = new byte[SocketOption.ReadBufferSize];
-
-                    var len = nsStream.Read(data, 0, data.Length);
+                    var len = nsStream.Read(_receiveBuffer, 0, _receiveBuffer.Length);
 
                     if (len > 0)
                     {
                         ChannelManager.Instance.Refresh(id);
-                        OnReceive.Invoke(new Session(id), data.AsSpan().Slice(0, len).ToArray());
+                        OnReceive.Invoke(new Session(id), _receiveBuffer.AsSpan().Slice(0, len).ToArray());
                     }
                 }
                 catch (IOException iex)
@@ -386,6 +388,11 @@ namespace SAEA.Sockets.Core.Tcp
         {
             Stop();
             ChannelManager.Instance.Clear();
+            if (_receiveBuffer != null)
+            {
+                MemoryPoolManager.Return(_receiveBuffer, SocketOption.ReadBufferSize);
+                _receiveBuffer = null;
+            }
             IsDisposed = true;
         }
     }

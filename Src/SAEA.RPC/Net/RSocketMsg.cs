@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
@@ -73,6 +73,12 @@ namespace SAEA.RPC.Net
         {
             get; set;
         }
+
+        /// <summary>
+        /// 数据是否来自内存池
+        /// </summary>
+        public bool IsPooled { get; set; }
+
         public RSocketMsg(RSocketMsgType type) : this(type, string.Empty)
         {
 

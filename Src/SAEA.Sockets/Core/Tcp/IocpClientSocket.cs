@@ -1,12 +1,12 @@
 /****************************************************************************
  * 
-  ____    _    _____    _      ____             _        _   
+   ____    _    _____    _      ____             _        _   
  / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
  \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
   ___) / ___ \| |___ / ___ \   ___) | (_) | (__|   <  __/ |_ 
  |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
-                                                             
-
+                                                              
+ 
 *Copyright (c) yswenli All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
@@ -38,6 +38,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using SAEA.Common;
+using SAEA.Common.Caching;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
@@ -138,6 +139,22 @@ namespace SAEA.Sockets.Core.Tcp
         /// 接收字节数据事件
         /// </summary>
         protected OnClientReceiveBytesHandler OnClientReceive = null;
+
+        /// <summary>
+        /// 内部委托：接收数据时触发（Span版本）
+        /// </summary>
+        /// <param name="data">数据Span</param>
+        internal delegate void OnClientReceiveSpanHandler(ReadOnlySpan<byte> data);
+
+        /// <summary>
+        /// 内部事件：客户端接收数据（Span版本）
+        /// </summary>
+        internal event OnClientReceiveSpanHandler OnClientReceiveSpan;
+
+        /// <summary>
+        /// 小数据阈值（4KB）
+        /// </summary>
+        internal const int SmallDataThreshold = 4 * 1024;
 
         /// <summary>
         /// 触发错误事件
@@ -432,7 +449,25 @@ namespace SAEA.Sockets.Core.Tcp
 
                     if (readArgs.BytesTransferred > 0)
                     {
-                        var buffer = readArgs.Buffer.AsSpan().Slice(readArgs.Offset, readArgs.BytesTransferred).ToArray();
+                        // 使用Span获取数据，避免立即复制
+                        var dataSpan = readArgs.Buffer.AsSpan(readArgs.Offset, readArgs.BytesTransferred);
+
+                        // 触发内部Span事件
+                        OnClientReceiveSpan?.Invoke(dataSpan);
+
+                        // 根据数据大小选择分配策略
+                        byte[] buffer;
+                        if (readArgs.BytesTransferred < SmallDataThreshold)
+                        {
+                            // 小数据：直接ToArray()
+                            buffer = dataSpan.ToArray();
+                        }
+                        else
+                        {
+                            // 大数据：从内存池租用并复制
+                            buffer = MemoryPoolManager.Rent(readArgs.BytesTransferred);
+                            dataSpan.CopyTo(buffer);
+                        }
 
                         try
                         {
@@ -441,6 +476,14 @@ namespace SAEA.Sockets.Core.Tcp
                         catch (Exception ex)
                         {
                             OnError?.Invoke(UserToken.ID, ex);
+                        }
+                        finally
+                        {
+                            // 如果是大数据，归还到内存池
+                            if (readArgs.BytesTransferred >= SmallDataThreshold)
+                            {
+                                MemoryPoolManager.Return(buffer, readArgs.BytesTransferred);
+                            }
                         }
                     }
 

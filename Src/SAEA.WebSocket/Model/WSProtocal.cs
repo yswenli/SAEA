@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
@@ -27,6 +27,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 using SAEA.Common;
+using SAEA.Common.Caching;
 using SAEA.Sockets.Interface;
 using SAEA.WebSocket.Type;
 
@@ -42,6 +43,11 @@ namespace SAEA.WebSocket.Model
         public long BodyLength { get; set; }
         public byte[] Content { get; set; }
         public byte Type { get; set; }
+
+        /// <summary>
+        /// 数据是否来自内存池
+        /// </summary>
+        public bool IsPooled { get; set; }
 
         public WSProtocal(byte type, byte[] content)
         {
@@ -151,7 +157,17 @@ namespace SAEA.WebSocket.Model
         {
             if (this.Content != null && this.Content.Any())
             {
-                this.Content.Clear();
+                // 如果数据来自内存池，归还缓冲区
+                if (this.IsPooled)
+                {
+                    MemoryPoolManager.Return(this.Content, this.Content.Length);
+                    this.IsPooled = false;
+                }
+                else
+                {
+                    this.Content.Clear();
+                }
+                this.Content = null;
             }
         }
     }

@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *项目名称：SAEA.DNS
 *CLR 版本：3.0
 *机器名称：WENLI-PC
@@ -15,6 +15,7 @@
 *版本号： v7.0.0.1
 *描    述：
 *****************************************************************************/
+using SAEA.Common.Caching;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -25,10 +26,38 @@ namespace SAEA.DNS.Common.Utils
     {
         private byte[] buffer;
         private int offset = 0;
+        private bool _usePool = false;
+        private int _capacity = 0;
 
         public ByteStream(int capacity)
         {
-            buffer = new byte[capacity];
+            // Use MemoryPoolManager for small to medium capacity
+            if (capacity <= MemoryPoolManager.MediumThreshold)
+            {
+                buffer = MemoryPoolManager.Rent(capacity);
+                _usePool = true;
+            }
+            else
+            {
+                buffer = new byte[capacity];
+            }
+            _capacity = capacity;
+        }
+
+        /// <summary>
+        /// Releases resources and returns buffer to pool if applicable
+        /// </summary>
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                if (_usePool && buffer != null)
+                {
+                    MemoryPoolManager.Return(buffer, _capacity);
+                    buffer = null;
+                }
+            }
+            base.Dispose(disposing);
         }
 
         public ByteStream Append(IEnumerable<byte[]> buffers)

@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *项目名称：SAEA.Http.Model
 *CLR 版本：4.0.30319.42000
 *机器名称：WALLE-PC
@@ -16,6 +16,7 @@
 *描    述：
 *****************************************************************************/
 using SAEA.Http.Base;
+using SAEA.Common.Caching;
 using System;
 using System.IO;
 using System.Net;
@@ -46,32 +47,41 @@ namespace SAEA.Http.Model
             HttpContext.Current.Response.Status = status;
             HttpContext.Current.Response.SendHeader(total);
 
-            var buffer = new byte[1024];
+            const int bufferSize = 1024;
+            byte[] buffer = null;
 
-            do
+            try
             {
-                var count = stream.Read(buffer, 0, buffer.Length);
+                buffer = MemoryPoolManager.Rent(bufferSize);
 
-                if (count < 1)
+                do
                 {
-                    break;
+                    var count = stream.Read(buffer, 0, bufferSize);
+
+                    if (count < 1)
+                    {
+                        break;
+                    }
+
+                    if (count == bufferSize)
+                    {
+                        HttpContext.Current.Response.SendData(buffer.AsSpan(0, bufferSize).ToArray());
+                    }
+                    else
+                    {
+                        HttpContext.Current.Response.SendData(buffer.AsSpan(0, count).ToArray());
+                    }
+
                 }
-
-                if (count == 1024)
-                {
-                    HttpContext.Current.Response.SendData(buffer);
-                }
-                else
-                {
-                    var b = new byte[count];
-
-                    Buffer.BlockCopy(buffer, 0, b, 0, count);
-
-                    HttpContext.Current.Response.SendData(b);
-                }
-
+                while (true);
             }
-            while (true);
+            finally
+            {
+                if (buffer != null)
+                {
+                    MemoryPoolManager.Return(buffer, bufferSize);
+                }
+            }
 
             HttpContext.Current.Response.SendEnd();
         }

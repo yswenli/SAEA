@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.Common.Caching;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -155,20 +156,33 @@ namespace SAEA.Common.IO
         public byte[] ReadData(int position)
         {
             _stream.Position = position;
-            var data = new byte[_bufferSize];
-            var len = _stream.Read(data, 0, data.Length);
-            if (len > 0)
+            byte[] data = null;
+            try
             {
-                if (len == _bufferSize)
+                data = MemoryPoolManager.Rent(_bufferSize);
+                var len = _stream.Read(data, 0, _bufferSize);
+                if (len > 0)
                 {
-                    return data;
+                    if (len == _bufferSize)
+                    {
+                        // Return a copy and return the buffer to pool
+                        var result = new byte[len];
+                        Buffer.BlockCopy(data, 0, result, 0, len);
+                        return result;
+                    }
+                    var ldata = new byte[len];
+                    Buffer.BlockCopy(data, 0, ldata, 0, len);
+                    return ldata;
                 }
-                var ldata = new byte[len];
-                Buffer.BlockCopy(data, 0, ldata, 0, len);
-                Array.Clear(data, 0, data.Length);
-                return ldata;
+                return null;
             }
-            return null;
+            finally
+            {
+                if (data != null)
+                {
+                    MemoryPoolManager.Return(data, _bufferSize);
+                }
+            }
         }
 
         /// <summary>

@@ -1,12 +1,12 @@
-﻿/****************************************************************************
+/****************************************************************************
  * 
-  ____    _    _____    _      ____             _        _   
+   ____    _    _____    _      ____             _        _   
  / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
  \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
   ___) / ___ \| |___ / ___ \   ___) | (_) | (__|   <  __/ |_ 
  |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
-                                                             
-
+                                                              
+ 
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
@@ -79,7 +79,9 @@ namespace SAEA.Sockets.Core
 
             userToken.ReadArgs = new SocketAsyncEventArgs();
             userToken.ReadArgs.Completed += eventHandler;
-            userToken.ReadArgs.SetBuffer(new byte[bufferSize], 0, bufferSize);
+            // 使用共享的 BufferManager 替代 new byte[bufferSize]
+            var bufferManager = BufferManager.GetOrCreate(bufferSize);
+            bufferManager.SetBuffer(userToken.ReadArgs);
             userToken.WriteArgs = new SocketAsyncEventArgs();
             userToken.WriteArgs.Completed += eventHandler;
             userToken.ReadArgs.UserToken = userToken.WriteArgs.UserToken = userToken;
