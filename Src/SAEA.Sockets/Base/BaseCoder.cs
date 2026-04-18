@@ -1,34 +1,35 @@
-﻿/****************************************************************************
+/****************************************************************************
   ____    _    _____    _      ____             _        _   
  / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
  \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
   ___) / ___ \| |___ / ___ \   ___) | (_) | (__|   <  __/ |_ 
  |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
-                                                             
-
-*Copyright (c)  yswenli All Rights Reserved.
-*CLR版本： 2.1.4
-*机器名称：WENLI-PC
-*公司名称：wenli
-*命名空间：SAEA.Sockets.Model
-*文件名： BaseUnpacker
-*版本号： v7.0.0.1
-*唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
-*当前的用户域：WENLI-PC
-*创建人： yswenli
-*电子邮箱：wenguoli_520@qq.com
-*修改时间：2018/10/26 15:54:21
-*描述：
-*
-*=====================================================================
-*修改标记
-*修改时间：2018/10/26 15:54:21
-*修改人： yswenli
-*版本号： v7.0.0.1
-*描述：
-*
-*****************************************************************************/
+                                                              
+ 
+ *Copyright (c)  yswenli All Rights Reserved.
+ *CLR版本： 2.1.4
+ *机器名称：WENLI-PC
+ *公司名称：wenli
+ *命名空间：SAEA.Sockets.Model
+ *文件名： BaseUnpacker
+ *版本号： v7.0.0.1
+ *唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
+ *当前的用户域：WENLI-PC
+ *创建人： yswenli
+ *电子邮箱：wenguoli_520@qq.com
+ *修改时间：2018/10/26 15:54:21
+ *描述：
+ *
+ *=====================================================================
+ *修改标记
+ *修改时间：2018/10/26 15:54:21
+ *修改人： yswenli
+ *版本号： v7.0.0.1
+ *描述：
+ *
+ *****************************************************************************/
 using SAEA.Common;
+using SAEA.Common.Caching;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
 
@@ -53,8 +54,22 @@ namespace SAEA.Sockets.Base
         // 定义常量 P_Head，表示协议头部长度
         public const int P_Head = 9;
 
+        // 定义常量 SmallDataThreshold，小数据阈值（4KB）
+        public const int SmallDataThreshold = 4 * 1024;
+
         // 定义一个私有字段 _buffer，用于存储接收到的数据
         private MemoryStream _buffer = new MemoryStream();
+
+        /// <summary>
+        /// 内部委托：接收数据时触发（Span版本）
+        /// </summary>
+        /// <param name="data">数据Span</param>
+        internal delegate void OnReceiveSpanHandler(ReadOnlySpan<byte> data);
+
+        /// <summary>
+        /// 内部事件：接收数据时触发（Span版本）
+        /// </summary>
+        internal event OnReceiveSpanHandler OnReceiveSpan;
 
         // 实现接口方法 Encode，将协议对象转换为字节数组
         public byte[] Encode(ISocketProtocal protocal)
@@ -63,18 +78,21 @@ namespace SAEA.Sockets.Base
         }
 
         /// <summary>
-        /// 实现接口方法 Decode，解析接收到的字节数据
+        /// 实现接口方法 Decode，解析接收到的字节数据（Span版本）
         /// </summary>
-        /// <param name="data"></param>
-        /// <param name="onHeart"></param>
-        /// <param name="onFile"></param>
-        public List<ISocketProtocal> Decode(byte[] data, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
+        /// <param name="data">数据Span</param>
+        /// <param name="onHeart">心跳回调</param>
+        /// <param name="onFile">文件回调</param>
+        public List<ISocketProtocal> Decode(ReadOnlySpan<byte> data, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
         {
+            // 触发Span版本事件
+            OnReceiveSpan?.Invoke(data);
+
             var result = new List<ISocketProtocal>();
 
             // 将接收到的数据添加到缓冲区
-            _buffer.Write(data, 0, data.Length);
-            
+            _buffer.Write(data.ToArray(), 0, data.Length);
+
             // 重置流位置到开始
             _buffer.Position = 0;
 
@@ -83,13 +101,13 @@ namespace SAEA.Sockets.Base
             {
                 // 获取数据包的长度
                 var bodyLen = ReadLengthFromBuffer();
-                
+
                 // 重置位置到类型字段
                 _buffer.Position = P_LEN;
-                
+
                 // 获取数据包的类型
                 var type = (SocketProtocalType)_buffer.ReadByte();
-                
+
                 // 重置位置到开始
                 _buffer.Position = 0;
 
@@ -109,8 +127,8 @@ namespace SAEA.Sockets.Base
                     // 如果数据包类型为大数据包
                     if (type == SocketProtocalType.BigData)
                     {
-                        // 获取数据包内容
-                        var content = ReadContentFromBuffer(P_Head, (int)bodyLen);
+                        // 获取数据包内容（使用Span优化）
+                        var content = ReadContentFromBufferSpan(P_Head, (int)bodyLen);
                         // 移除已处理的数据
                         RemoveFromBuffer((int)(P_Head + bodyLen));
                         // 调用文件回调函数
@@ -118,8 +136,10 @@ namespace SAEA.Sockets.Base
                     }
                     else
                     {
+                        // 获取数据包内容（使用Span优化）
+                        var content = ReadContentFromBufferSpan(P_Head, (int)bodyLen);
                         // 创建一个基础协议对象，设置长度、类型和内容
-                        var sm = new BaseSocketProtocal() { BodyLength = bodyLen, Type = (byte)type, Content = ReadContentFromBuffer(P_Head, (int)bodyLen) };
+                        var sm = new BaseSocketProtocal() { BodyLength = bodyLen, Type = (byte)type, Content = content };
                         // 移除已处理的数据
                         RemoveFromBuffer((int)(P_Head + bodyLen));
                         // 调用解包回调函数
@@ -135,6 +155,18 @@ namespace SAEA.Sockets.Base
                 }
             }
             return result;
+        }
+
+        /// <summary>
+        /// 实现接口方法 Decode，解析接收到的字节数据
+        /// </summary>
+        /// <param name="data"></param>
+        /// <param name="onHeart"></param>
+        /// <param name="onFile"></param>
+        public List<ISocketProtocal> Decode(byte[] data, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
+        {
+            // 委托给Span版本的方法
+            return Decode(data.AsSpan(), onHeart, onFile);
         }
 
         /// <summary>
@@ -156,25 +188,49 @@ namespace SAEA.Sockets.Base
         }
 
         /// <summary>
-        /// 从缓冲区读取内容
+        /// 从缓冲区读取内容（Span优化版本）
+        /// </summary>
+        /// <param name="offset"></param>
+        /// <param name="count"></param>
+        /// <returns></returns>
+        private byte[] ReadContentFromBufferSpan(int offset, int count)
+        {
+            if (count <= 0) return Array.Empty<byte>();
+
+            // 根据数据大小选择分配策略
+            byte[] result;
+            if (count < SmallDataThreshold)
+            {
+                // 小数据：直接分配
+                result = new byte[count];
+            }
+            else
+            {
+                // 大数据：从内存池租用
+                result = MemoryPoolManager.Rent(count);
+            }
+
+            // 移动到指定位置
+            _buffer.Position = offset;
+
+            // 读取数据
+            _buffer.Read(result, 0, count);
+
+            // 重置位置到开始
+            _buffer.Position = 0;
+
+            return result;
+        }
+
+        /// <summary>
+        /// 从缓冲区读取内容（保持兼容性的原始版本，内部委托给Span版本）
         /// </summary>
         /// <param name="offset"></param>
         /// <param name="count"></param>
         /// <returns></returns>
         private byte[] ReadContentFromBuffer(int offset, int count)
         {
-            if (count <= 0) return Array.Empty<byte>();
-            
-            // 移动到指定位置
-            _buffer.Position = offset;
-            
-            var content = new byte[count];
-            _buffer.Read(content, 0, count);
-            
-            // 重置位置到开始
-            _buffer.Position = 0;
-            
-            return content;
+            return ReadContentFromBufferSpan(offset, count);
         }
 
         /// <summary>
