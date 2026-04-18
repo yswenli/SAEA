@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
@@ -41,12 +41,29 @@ namespace SAEA.QueueSocket.Model
         public byte[] Data { get; set; }
 
         /// <summary>
+        /// 标记 Data 是否来自 ArrayPool
+        /// </summary>
+        internal bool IsPooled { get; set; }
+
+        /// <summary>
         /// 释放资源
         /// </summary>
         public void Dispose()
         {
-            if (Data != null && Data.Length > 0) Array.Clear(Data, 0, Data.Length);
-            Data = null;
+            if (Data != null)
+            {
+                if (IsPooled)
+                {
+                    // 归还到 ArrayPool
+                    System.Buffers.ArrayPool<byte>.Shared.Return(Data, clearArray: false);
+                }
+                else if (Data.Length > 0)
+                {
+                    Array.Clear(Data, 0, Data.Length);
+                }
+                Data = null;
+            }
+            IsPooled = false;
         }
     }
 }
