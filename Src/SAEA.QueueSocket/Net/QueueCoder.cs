@@ -41,6 +41,9 @@ namespace SAEA.QueueSocket.Net
         // 定义最小消息长度常量
         static readonly int MIN = 1 + 4 + 4 + 0 + 4 + 0 + 0;
 
+        // 定义最大缓冲区大小常量（10MB）
+        private const int MAX_BUFFER_SIZE = 10 * 1024 * 1024; // 10MB
+
         // 定义一个字节列表缓冲区
         private List<byte> _buffer = new List<byte>();
 
@@ -73,6 +76,13 @@ namespace SAEA.QueueSocket.Net
         /// <returns>解析后的队列消息列表</returns>
         public List<QueueMsg> GetQueueResult(byte[] data)
         {
+            // 防止缓冲区无限增长
+            if (_buffer.Count > MAX_BUFFER_SIZE)
+            {
+                _buffer.Clear();
+                ConsoleHelper.WriteLine($"警告: QueueCoder 缓冲区超过 {MAX_BUFFER_SIZE} 字节，已清空", ConsoleColor.Yellow);
+            }
+
             var result = new List<QueueMsg>();
             _buffer.AddRange(data);
             if (_buffer.Count >= MIN)
