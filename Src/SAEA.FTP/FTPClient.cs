@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *项目名称：SAEA.FTP
 *CLR 版本：4.0.30319.42000
 *机器名称：WALLE-PC
@@ -16,6 +16,7 @@
 *描    述：
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.Common.Caching;
 using SAEA.Common.IO;
 using SAEA.Common.Threading;
 using SAEA.FTP.Model;
@@ -280,13 +281,14 @@ namespace SAEA.FTP
                 });
 
 
+                byte[] data = null;
                 try
                 {
+                    data = MemoryPoolManager.Rent(_client.Config.BufferSize);
+
                     using (var fs = File.Open(filePath, FileMode.Open, FileAccess.Read))
                     {
                         count = fs.Length;
-
-                        byte[] data = new byte[_client.Config.BufferSize];
 
                         int numBytesRead = 0;
 
@@ -318,6 +320,10 @@ namespace SAEA.FTP
                 }
                 finally
                 {
+                    if (data != null)
+                    {
+                        MemoryPoolManager.Return(data, _client.Config.BufferSize);
+                    }
                     running = false;
                 }
             }

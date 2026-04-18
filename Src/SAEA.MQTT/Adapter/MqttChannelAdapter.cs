@@ -1,3 +1,4 @@
+using SAEA.Common.Caching;
 using SAEA.MQTT.Channel;
 using SAEA.MQTT.Diagnostics;
 using SAEA.MQTT.Exceptions;
@@ -247,36 +248,61 @@ namespace SAEA.MQTT.Adapter
                 }
 
                 var bodyLength = fixedHeader.RemainingLength;
-                var body = new byte[bodyLength];
+                byte[] body = null;
+                bool rentedBuffer = false;
 
-                var bodyOffset = 0;
-                var chunkSize = Math.Min(ReadBufferSize, bodyLength);
-
-                do
+                try
                 {
-                    var bytesLeft = body.Length - bodyOffset;
-                    if (chunkSize > bytesLeft)
+                    // Use MemoryPoolManager for body buffer if size is reasonable
+                    if (bodyLength <= MemoryPoolManager.MediumThreshold)
                     {
-                        chunkSize = bytesLeft;
+                        body = MemoryPoolManager.Rent(bodyLength);
+                        rentedBuffer = true;
+                    }
+                    else
+                    {
+                        body = new byte[bodyLength];
                     }
 
-                    var readBytes = await _channel.ReadAsync(body, bodyOffset, chunkSize, cancellationToken).ConfigureAwait(false);
+                    var bodyOffset = 0;
+                    var chunkSize = Math.Min(ReadBufferSize, bodyLength);
 
-                    if (cancellationToken.IsCancellationRequested)
+                    do
                     {
-                        return null;
-                    }
+                        var bytesLeft = body.Length - bodyOffset;
+                        if (chunkSize > bytesLeft)
+                        {
+                            chunkSize = bytesLeft;
+                        }
 
-                    if (readBytes == 0)
+                        var readBytes = await _channel.ReadAsync(body, bodyOffset, chunkSize, cancellationToken).ConfigureAwait(false);
+
+                        if (cancellationToken.IsCancellationRequested)
+                        {
+                            return null;
+                        }
+
+                        if (readBytes == 0)
+                        {
+                            return null;
+                        }
+
+                        bodyOffset += readBytes;
+                    } while (bodyOffset < bodyLength);
+
+                    // Create a copy for the body reader since it needs to own the data
+                    var bodyCopy = new byte[bodyLength];
+                    Buffer.BlockCopy(body, 0, bodyCopy, 0, bodyLength);
+                    var bodyReader = new MqttPacketBodyReader(bodyCopy, 0, bodyLength);
+                    return new ReceivedMqttPacket(fixedHeader.Flags, bodyReader, fixedHeader.TotalLength);
+                }
+                finally
+                {
+                    if (rentedBuffer && body != null)
                     {
-                        return null;
+                        MemoryPoolManager.Return(body, bodyLength);
                     }
-
-                    bodyOffset += readBytes;
-                } while (bodyOffset < bodyLength);
-
-                var bodyReader = new MqttPacketBodyReader(body, 0, bodyLength);
-                return new ReceivedMqttPacket(fixedHeader.Flags, bodyReader, fixedHeader.TotalLength);
+                }
             }
             finally
             {

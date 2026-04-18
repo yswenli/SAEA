@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 
+using SAEA.Common.Caching;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -344,105 +345,129 @@ namespace SAEA.Common.Serialization
             offset += 4;
             if (len > 0)
             {
-                data = new byte[len];
-                Buffer.BlockCopy(datas, offset, data, 0, len);
-                offset += len;
+                // Use MemoryPoolManager for small buffers (under 4KB threshold)
+                bool usePool = len < MemoryPoolManager.SmallThreshold;
+                byte[] pooledBuffer = null;
 
-                if (type == stringType)
+                try
                 {
-                    obj = Encoding.UTF8.GetString(data);
-                }
-                else if (type == typeof(byte))
-                {
-                    obj = (data);
-                }
-                else if (type == typeof(bool))
-                {
-                    obj = (BitConverter.ToBoolean(data, 0));
-                }
-                else if (type == typeof(short))
-                {
-                    obj = (BitConverter.ToInt16(data, 0));
-                }
-                else if (type == typeof(int))
-                {
-                    obj = (BitConverter.ToInt32(data, 0));
-                }
-                else if (type == typeof(long))
-                {
-                    obj = (BitConverter.ToInt64(data, 0));
-                }
-                else if (type == typeof(float))
-                {
-                    obj = (BitConverter.ToSingle(data, 0));
-                }
-                else if (type == typeof(double))
-                {
-                    obj = (BitConverter.ToDouble(data, 0));
-                }
-                else if (type == typeof(decimal))
-                {
-                    obj = (BitConverter.ToDouble(data, 0));
-                }
-                else if (type == typeof(DateTime))
-                {
-                    var dstr = Encoding.UTF8.GetString(data);
-                    var ticks = long.Parse(StringHelper.Substring(dstr, 2));
-                    obj = (new DateTime(ticks));
-                }
-                else if (type.BaseType == typeof(Enum))
-                {
-                    var numType = Enum.GetUnderlyingType(type);
-
-                    if (numType == typeof(byte))
+                    if (usePool)
                     {
-                        obj = Enum.ToObject(type, data[0]);
-                    }
-                    else if (numType == typeof(short))
-                    {
-                        obj = Enum.ToObject(type, BitConverter.ToInt16(data, 0));
-                    }
-                    else if (numType == typeof(int))
-                    {
-                        obj = Enum.ToObject(type, BitConverter.ToInt32(data, 0));
+                        pooledBuffer = MemoryPoolManager.Rent(len);
+                        data = pooledBuffer;
                     }
                     else
                     {
-                        obj = Enum.ToObject(type, BitConverter.ToInt64(data, 0));
+                        data = new byte[len];
                     }
-                }
-                else if (type == typeof(byte[]))
-                {
-                    obj = (byte[])data;
-                }
-                else if (type.IsGenericType)
-                {
-                    if (TypeHelper.ListTypeStrs.Contains(type.Name))
+                    Buffer.BlockCopy(datas, offset, data, 0, len);
+                    offset += len;
+
+                    if (type == stringType)
                     {
-                        obj = DeserializeList(type, data);
+                        obj = Encoding.UTF8.GetString(data, 0, len);
                     }
-                    else if (TypeHelper.DicTypeStrs.Contains(type.Name))
+                    else if (type == typeof(byte))
                     {
-                        obj = DeserializeDic(type, data);
+                        obj = (data[0]);
                     }
-                    else
+                    else if (type == typeof(bool))
+                    {
+                        obj = (BitConverter.ToBoolean(data, 0));
+                    }
+                    else if (type == typeof(short))
+                    {
+                        obj = (BitConverter.ToInt16(data, 0));
+                    }
+                    else if (type == typeof(int))
+                    {
+                        obj = (BitConverter.ToInt32(data, 0));
+                    }
+                    else if (type == typeof(long))
+                    {
+                        obj = (BitConverter.ToInt64(data, 0));
+                    }
+                    else if (type == typeof(float))
+                    {
+                        obj = (BitConverter.ToSingle(data, 0));
+                    }
+                    else if (type == typeof(double))
+                    {
+                        obj = (BitConverter.ToDouble(data, 0));
+                    }
+                    else if (type == typeof(decimal))
+                    {
+                        obj = (BitConverter.ToDouble(data, 0));
+                    }
+                    else if (type == typeof(DateTime))
+                    {
+                        var dstr = Encoding.UTF8.GetString(data, 0, len);
+                        var ticks = long.Parse(StringHelper.Substring(dstr, 2));
+                        obj = (new DateTime(ticks));
+                    }
+                    else if (type.BaseType == typeof(Enum))
+                    {
+                        var numType = Enum.GetUnderlyingType(type);
+
+                        if (numType == typeof(byte))
+                        {
+                            obj = Enum.ToObject(type, data[0]);
+                        }
+                        else if (numType == typeof(short))
+                        {
+                            obj = Enum.ToObject(type, BitConverter.ToInt16(data, 0));
+                        }
+                        else if (numType == typeof(int))
+                        {
+                            obj = Enum.ToObject(type, BitConverter.ToInt32(data, 0));
+                        }
+                        else
+                        {
+                            obj = Enum.ToObject(type, BitConverter.ToInt64(data, 0));
+                        }
+                    }
+                    else if (type == typeof(byte[]))
+                    {
+                        // For byte[], create a copy since we need to return it
+                        var byteArrayResult = new byte[len];
+                        Buffer.BlockCopy(data, 0, byteArrayResult, 0, len);
+                        obj = byteArrayResult;
+                    }
+                    else if (type.IsGenericType)
+                    {
+                        if (TypeHelper.ListTypeStrs.Contains(type.Name))
+                        {
+                            obj = DeserializeList(type, data);
+                        }
+                        else if (TypeHelper.DicTypeStrs.Contains(type.Name))
+                        {
+                            obj = DeserializeDic(type, data);
+                        }
+                        else
+                        {
+                            obj = DeserializeClass(type, data);
+                        }
+                    }
+                    else if (type.IsClass)
                     {
                         obj = DeserializeClass(type, data);
                     }
+                    else if (type.IsArray)
+                    {
+                        obj = DeserializeArray(type, data);
+                    }
+                    else
+                    {
+                        throw new Exception("SAEASerialize.Deserialize 未定义的类型：" + type.ToString());
+                    }
                 }
-                else if (type.IsClass)
+                finally
                 {
-                    obj = DeserializeClass(type, data);
+                    if (pooledBuffer != null)
+                    {
+                        MemoryPoolManager.Return(pooledBuffer, len);
+                    }
                 }
-                else if (type.IsArray)
-                {
-                    obj = DeserializeArray(type, data);
-                }
-                else
-                {
-                    throw new Exception("SAEASerialize.Deserialize 未定义的类型：" + type.ToString());
-                }
-
             }
             return obj;
         }

@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
@@ -199,8 +199,9 @@ namespace SAEA.QueueSocket.Net
 
                         if (qm.NameLength > 0)
                         {
-                            var narr = data.AsSpan().Slice(offset, qm.NameLength).ToArray();
-                            qm.Name = Encoding.UTF8.GetString(narr);
+                            // Use Span without creating intermediate array
+                            var nameSpan = data.AsSpan().Slice(offset, qm.NameLength);
+                            qm.Name = Encoding.UTF8.GetString(nameSpan);
                         }
                         offset += qm.NameLength;
 
@@ -209,8 +210,9 @@ namespace SAEA.QueueSocket.Net
 
                         if (qm.TopicLength > 0)
                         {
-                            var tarr = data.AsSpan().Slice(offset, qm.TopicLength).ToArray();
-                            qm.Topic = Encoding.UTF8.GetString(tarr);
+                            // Use Span without creating intermediate array
+                            var topicSpan = data.AsSpan().Slice(offset, qm.TopicLength);
+                            qm.Topic = Encoding.UTF8.GetString(topicSpan);
                         }
                         offset += qm.TopicLength;
 
@@ -218,8 +220,9 @@ namespace SAEA.QueueSocket.Net
 
                         if (dlen > 0)
                         {
-                            var darr = data.AsSpan().Slice(offset, dlen).ToArray();
-                            qm.Data = darr;
+                            // Use Span to copy data directly
+                            var dataSpan = data.AsSpan().Slice(offset, dlen);
+                            qm.Data = dataSpan.ToArray();
                         }
                         offset += dlen;
                         list.Add(qm);

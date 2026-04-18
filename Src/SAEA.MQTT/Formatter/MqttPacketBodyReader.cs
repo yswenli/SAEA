@@ -1,4 +1,5 @@
-﻿using System;
+using SAEA.Common.Caching;
+using System;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -62,10 +63,35 @@ namespace SAEA.MQTT.Formatter
         public byte[] ReadRemainingData()
         {
             var bufferLength = _length - _offset;
-            var buffer = new byte[bufferLength];
-            Array.Copy(_buffer, _offset, buffer, 0, bufferLength);
+            byte[] buffer = null;
+            bool rented = false;
 
-            return buffer;
+            try
+            {
+                // Use MemoryPoolManager for small buffers
+                if (bufferLength <= MemoryPoolManager.SmallThreshold)
+                {
+                    buffer = MemoryPoolManager.Rent(bufferLength);
+                    rented = true;
+                }
+                else
+                {
+                    buffer = new byte[bufferLength];
+                }
+                Array.Copy(_buffer, _offset, buffer, 0, bufferLength);
+
+                // Return a copy that won't be returned to pool
+                var result = new byte[bufferLength];
+                Buffer.BlockCopy(buffer, 0, result, 0, bufferLength);
+                return result;
+            }
+            finally
+            {
+                if (rented && buffer != null)
+                {
+                    MemoryPoolManager.Return(buffer, bufferLength);
+                }
+            }
         }
 
         public ushort ReadTwoByteInteger()
