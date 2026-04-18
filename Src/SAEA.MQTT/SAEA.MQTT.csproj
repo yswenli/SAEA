@@ -5,7 +5,7 @@
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <Authors>yswenli</Authors>
-    <Version>7.26.2.2</Version>
+    <Version>7.26.4.19</Version>
     <Description>MQTT Server and Client Based on SAEA.Socket.SAEA.MQTT基于SAEA.Socket实现的MQTT服务器与客户端
 https://github.com/yswenli/SAEA</Description>
     <PackageReleaseNotes>MQTT Server and Client Based on SAEA.Socket.SAEA.MQTT基于SAEA.Socket实现的MQTT服务器与客户端
@@ -21,7 +21,6 @@ https://github.com/yswenli/SAEA</PackageReleaseNotes>
     <LangVersion>8.0</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <PackageIcon>favicon.png</PackageIcon>
-	<PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -38,13 +37,6 @@ https://github.com/yswenli/SAEA</PackageReleaseNotes>
   <ItemGroup>
     <ProjectReference Include="..\SAEA.Common\SAEA.Common.csproj" />
     <ProjectReference Include="..\SAEA.Sockets\SAEA.Sockets.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="README.md">
-      <Pack>True</Pack>
-      <PackagePath>\</PackagePath>
-    </None>
   </ItemGroup>
 
 </Project>

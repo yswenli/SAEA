@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <Authors>yswenli</Authors>
-    <Version>7.26.2.2</Version>
+    <Version>7.26.4.19</Version>
     <Description>This is a message server and client component based on SAEA. Scokets. Messages are transmitted by Pb compression. Messages support private messages, channels, groups, etc.
 这是一个基于SAEA.Scokets的高性能消息服务器、客户端组件，消息使用pb压缩传输，消息支持私信、频道、群组等方式
 https://github.com/yswenli/SAEA</Description>
@@ -22,7 +22,6 @@ https://github.com/yswenli/SAEA</PackageReleaseNotes>
     <AssemblyOriginatorKeyFile>E:\Work\SAEA\Src\SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
     <LangVersion>8.0</LangVersion>
     <PackageIcon>favicon.png</PackageIcon>
-	<PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -39,13 +38,6 @@ https://github.com/yswenli/SAEA</PackageReleaseNotes>
   <ItemGroup>
     <ProjectReference Include="..\SAEA.Common\SAEA.Common.csproj" />
     <ProjectReference Include="..\SAEA.Sockets\SAEA.Sockets.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="README.md">
-      <Pack>True</Pack>
-      <PackagePath>\</PackagePath>
-    </None>
   </ItemGroup>
 
 </Project>
