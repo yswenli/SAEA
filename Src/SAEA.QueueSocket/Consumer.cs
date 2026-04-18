@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) 2023 RiverLand All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WALLE
@@ -76,7 +76,14 @@ namespace SAEA.QueueSocket
         {
             if (obj != null)
             {
-                OnMessage?.Invoke(obj);
+                try
+                {
+                    OnMessage?.Invoke(obj);
+                }
+                finally
+                {
+                    obj.Dispose(); // 确保释放
+                }
             }
         }
 
