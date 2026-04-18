@@ -76,19 +76,13 @@ namespace SAEA.QueueSocket.Net
         /// <returns>解析后的队列消息列表</returns>
         public List<QueueMsg> GetQueueResult(byte[] data)
         {
-            // 诊断日志：检查缓冲区状态
-            ConsoleHelper.WriteLine($"[QueueCoder] 接收: {data.Length}B, 当前缓冲区: {_buffer.Count}B, Pool: QueueMsg={QueueMsgPool.Count}, List={QueueMsgListPool.Count}");
-
             // 防止缓冲区无限增长
             if (_buffer.Count > MAX_BUFFER_SIZE)
             {
                 _buffer.Clear();
-                ConsoleHelper.WriteLine($"[QueueCoder] 警告: 缓冲区超过 {MAX_BUFFER_SIZE}B，已清空!", ConsoleColor.Yellow);
             }
 
-            // 使用对象池获取列表，而不是 new List<QueueMsg>()
-            var result = QueueMsgListPool.Rent();
-
+            var result = new List<QueueMsg>();
             _buffer.AddRange(data);
             if (_buffer.Count >= MIN)
             {
@@ -98,30 +92,20 @@ namespace SAEA.QueueSocket.Net
                 {
                     foreach (var item in list)
                     {
-                        // 从对象池获取 QueueMsg
-                        var msg = QueueMsgPool.Rent();
-                        msg.Type = item.Type;
-                        msg.Name = item.Name;
-                        msg.Topic = item.Topic;
-                        msg.Data = item.Data;
-                        msg.IsPooled = item.IsPooled;
-                        result.Add(msg);
+                        result.Add(new QueueMsg()
+                        {
+                            Type = item.Type,
+                            Name = item.Name,
+                            Topic = item.Topic,
+                            Data = item.Data
+                        });
                     }
                     _buffer.RemoveRange(0, offset);
-                    ConsoleHelper.WriteLine($"[QueueCoder] 解析成功: {result.Count} 条, 移除 {offset}B, 剩余 {_buffer.Count}B");
                     return result;
                 }
-                // 解码失败，归还列表到池
-                QueueMsgListPool.Return(result);
                 array.Clear();
             }
-            else
-            {
-                // 数据不足，归还列表到池
-                QueueMsgListPool.Return(result);
-                ConsoleHelper.WriteLine($"[QueueCoder] 缓冲区 {MIN}B, 等待更多数据...");
-            }
-            return null; // 返回 null 表示没有完整消息
+            return result;
         }
 
         /// <summary>

@@ -186,8 +186,7 @@ namespace SAEA.QueueSocket
                 {
                     OnMessage?.Invoke(item);
                 }
-                // 归还列表到池
-                QueueMsgListPool.Return(list);
+                list.Clear();
             }
         }
 

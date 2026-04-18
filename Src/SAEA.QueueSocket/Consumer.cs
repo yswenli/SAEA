@@ -82,15 +82,7 @@ namespace SAEA.QueueSocket
         {
             if (obj != null)
             {
-                try
-                {
-                    OnMessage?.Invoke(obj);
-                }
-                finally
-                {
-                    // 归还到对象池
-                    QueueMsgPool.Return(obj);
-                }
+                OnMessage?.Invoke(obj);
             }
         }
 
