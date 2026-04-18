@@ -76,14 +76,19 @@ namespace SAEA.QueueSocket.Net
         /// <returns>解析后的队列消息列表</returns>
         public List<QueueMsg> GetQueueResult(byte[] data)
         {
+            // 诊断日志：检查缓冲区状态
+            ConsoleHelper.WriteLine($"[QueueCoder] 接收: {data.Length}B, 当前缓冲区: {_buffer.Count}B, Pool: QueueMsg={QueueMsgPool.Count}, List={QueueMsgListPool.Count}");
+
             // 防止缓冲区无限增长
             if (_buffer.Count > MAX_BUFFER_SIZE)
             {
                 _buffer.Clear();
-                ConsoleHelper.WriteLine($"警告: QueueCoder 缓冲区超过 {MAX_BUFFER_SIZE} 字节，已清空", ConsoleColor.Yellow);
+                ConsoleHelper.WriteLine($"[QueueCoder] 警告: 缓冲区超过 {MAX_BUFFER_SIZE}B，已清空!", ConsoleColor.Yellow);
             }
 
-            var result = new List<QueueMsg>();
+            // 使用对象池获取列表，而不是 new List<QueueMsg>()
+            var result = QueueMsgListPool.Rent();
+
             _buffer.AddRange(data);
             if (_buffer.Count >= MIN)
             {
@@ -93,20 +98,30 @@ namespace SAEA.QueueSocket.Net
                 {
                     foreach (var item in list)
                     {
-                        result.Add(new QueueMsg()
-                        {
-                            Type = item.Type,
-                            Name = item.Name,
-                            Topic = item.Topic,
-                            Data = item.Data
-                        });
+                        // 从对象池获取 QueueMsg
+                        var msg = QueueMsgPool.Rent();
+                        msg.Type = item.Type;
+                        msg.Name = item.Name;
+                        msg.Topic = item.Topic;
+                        msg.Data = item.Data;
+                        msg.IsPooled = item.IsPooled;
+                        result.Add(msg);
                     }
                     _buffer.RemoveRange(0, offset);
+                    ConsoleHelper.WriteLine($"[QueueCoder] 解析成功: {result.Count} 条, 移除 {offset}B, 剩余 {_buffer.Count}B");
                     return result;
                 }
+                // 解码失败，归还列表到池
+                QueueMsgListPool.Return(result);
                 array.Clear();
             }
-            return result;
+            else
+            {
+                // 数据不足，归还列表到池
+                QueueMsgListPool.Return(result);
+                ConsoleHelper.WriteLine($"[QueueCoder] 缓冲区 {MIN}B, 等待更多数据...");
+            }
+            return null; // 返回 null 表示没有完整消息
         }
 
         /// <summary>
@@ -228,8 +243,10 @@ namespace SAEA.QueueSocket.Net
 
                         if (dlen > 0)
                         {
-                            // Use Span to copy data directly
-                            qm.Data = data.AsSpan(offset, dlen).ToArray();
+                            // 使用 ArrayPool 租用数组，避免频繁分配
+                            qm.Data = System.Buffers.ArrayPool<byte>.Shared.Rent(dlen);
+                            data.AsSpan(offset, dlen).CopyTo(qm.Data);
+                            qm.IsPooled = true;
                         }
                         offset += dlen;
                         list.Add(qm);
