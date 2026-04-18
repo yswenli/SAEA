@@ -24,7 +24,10 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
+using SAEA.Common.Threading;
 using SAEA.QueueSocket.Model;
 using SAEA.Sockets.Handler;
 
@@ -44,6 +47,9 @@ namespace SAEA.QueueSocket
 
 
         QClient _consumer;
+
+        // 定期清理任务取消令牌源
+        private CancellationTokenSource _cleanupCts;
 
         /// <summary>
         /// 队列主题
@@ -116,6 +122,35 @@ namespace SAEA.QueueSocket
             if (string.IsNullOrEmpty(Topic)) throw new Exception("消费者启动前请先订阅队列主题");
             _consumer.Connect();
             _consumer.Subscribe(Topic);
+            StartCleanupTask(); // 启动清理任务
+        }
+
+        /// <summary>
+        /// 启动定期清理任务
+        /// </summary>
+        private void StartCleanupTask()
+        {
+            _cleanupCts = new CancellationTokenSource();
+            TaskHelper.LongRunning(() =>
+            {
+                while (!_cleanupCts.Token.IsCancellationRequested)
+                {
+                    try
+                    {
+                        _consumer?.ClearCoderBuffer();
+                        Thread.Sleep(60000); // 每分钟清理一次
+                    }
+                    catch { }
+                }
+            });
+        }
+
+        /// <summary>
+        /// 停止清理任务
+        /// </summary>
+        private void StopCleanupTask()
+        {
+            _cleanupCts?.Cancel();
         }
 
         /// <summary>
@@ -132,7 +167,13 @@ namespace SAEA.QueueSocket
 
         public void Dispose()
         {
+            StopCleanupTask();
             Stop();
+            // 取消事件订阅
+            _consumer.OnMessage -= _consumer_OnMessage;
+            _consumer.OnDisconnected -= _consumer_OnDisconnected;
+            _consumer.OnError -= _consumer_OnError;
+            _consumer?.Dispose();
         }
     }
 }
