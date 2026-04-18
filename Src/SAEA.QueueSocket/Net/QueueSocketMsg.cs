@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
@@ -74,6 +74,12 @@ namespace SAEA.QueueSocket.Net
 
         // 定义一个属性Data，用于获取或设置消息的数据
         public byte[] Data
+        {
+            get; set;
+        }
+
+        // 定义一个属性IsPooled，用于标记Data是否来自ArrayPool
+        public bool IsPooled
         {
             get; set;
         }
