@@ -114,14 +114,20 @@ namespace SAEA.QueueSocket.Net
         // 实现IDisposable接口的Dispose方法，用于释放资源
         public void Dispose()
         {
-            // 如果消息数据不为空且长度大于0，则清空数据
-            if (this.Data != null && Data.Length > 0)
+            if (this.Data != null)
             {
-                Array.Clear(Data, 0, Data.Length);
+                if (this.IsPooled)
+                {
+                    System.Buffers.ArrayPool<byte>.Shared.Return(this.Data, clearArray: false);
+                }
+                else if (Data.Length > 0)
+                {
+                    Array.Clear(Data, 0, Data.Length);
+                }
+                this.Data = null;
             }
-            // 将总长度、名称长度和主题长度设置为0
-            this.Total = this.NameLength = this.TopicLength;
-            // 将消息类型设置为0
+            this.IsPooled = false;
+            this.Total = this.NameLength = this.TopicLength = 0;
             this.Type = 0;
         }
     }

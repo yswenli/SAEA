@@ -155,8 +155,8 @@ namespace SAEA.QueueSocketTest
 
             TaskHelper.LongRunning(() =>
             {
-                var old = 0;
-                var speed = 0;
+                var old = 0L;
+                var speed = 0L;
                 while (consumer.Connected)
                 {
                     speed = _outNum - old;
@@ -172,12 +172,15 @@ namespace SAEA.QueueSocketTest
             ConsoleHelper.WriteLine("当前连接已关闭");
         }
 
-        static int _outNum = 0;
+        static long _outNum = 0;
 
         private static void Subscriber_OnMessage(QueueMsg obj)
         {
             if (obj != null)
-                _outNum += 1;
+            {
+                Interlocked.Increment(ref _outNum);
+                obj.Dispose();
+            }
         }
     }
 }

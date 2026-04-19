@@ -167,6 +167,7 @@ namespace SAEA.QueueSocketTest
                 if (obj != null)
                 {
                     Interlocked.Increment(ref _outNum);
+                    obj.Dispose();
                 }
             };
 
