@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
@@ -42,6 +42,84 @@ namespace SAEA.Common
 
         static ConcurrentBag<LogItem> _cache;
 
+        static long _maxFileSize = 10 * 1024 * 1024;
+        static int _maxLogFileCount = 10;
+        static bool _fileSizeLimitEnabled = false;
+
+        public static void SetMaxFileSize(long maxSize)
+        {
+            _maxFileSize = maxSize;
+            _fileSizeLimitEnabled = true;
+        }
+
+        public static void SetMaxLogFileCount(int maxCount)
+        {
+            _maxLogFileCount = maxCount;
+        }
+
+        public static void SetLogPath(string path)
+        {
+            _logPath = path;
+        }
+
+        static void WriteToFile(string fileName, string msg)
+        {
+            if (_fileSizeLimitEnabled)
+            {
+                CheckAndRotateFile(fileName);
+            }
+            File.AppendAllText(fileName, msg, Encoding.UTF8);
+        }
+
+        static void CheckAndRotateFile(string fileName)
+        {
+            try
+            {
+                if (File.Exists(fileName))
+                {
+                    var fileInfo = new FileInfo(fileName);
+                    if (fileInfo.Length >= _maxFileSize)
+                    {
+                        RotateFiles(fileName);
+                    }
+                }
+            }
+            catch { }
+        }
+
+        static void RotateFiles(string fileName)
+        {
+            try
+            {
+                var baseName = Path.GetFileNameWithoutExtension(fileName);
+                var ext = Path.GetExtension(fileName);
+                var dir = Path.GetDirectoryName(fileName);
+
+                var timestamp = DateTimeHelper.ToString("yyyyMMdd_HHmmss");
+                var archiveName = Path.Combine(dir, $"{baseName}_{timestamp}{ext}");
+                File.Move(fileName, archiveName);
+
+                CleanupOldFiles(dir, baseName, ext);
+            }
+            catch { }
+        }
+
+        static void CleanupOldFiles(string dir, string baseName, string ext)
+        {
+            try
+            {
+                var files = Directory.GetFiles(dir, $"{baseName}_*{ext}")
+                    .OrderByDescending(f => f)
+                    .Skip(_maxLogFileCount);
+
+                foreach (var file in files)
+                {
+                    try { File.Delete(file); } catch { }
+                }
+            }
+            catch { }
+        }
+
         /// <summary>
         /// 日志
         /// </summary>
@@ -72,7 +150,7 @@ namespace SAEA.Common
                                     var fileName = PathHelper.GetFilePath(_logPath, logItem.Type + DateTimeHelper.ToString("yyyyMMdd") + ".log");
                                     var msg = $"{DateTimeHelper.ToString()}   {logItem.Type}   {logItem.Msg}{Environment.NewLine}";
                                     Console.WriteLine(msg);
-                                    File.AppendAllText(fileName, msg, Encoding.UTF8);
+                                    WriteToFile(fileName, msg);
                                 }
                                 catch { }
                             }
