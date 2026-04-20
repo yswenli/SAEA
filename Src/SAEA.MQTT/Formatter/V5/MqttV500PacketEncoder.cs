@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using SAEA.MQTT.Exceptions;
 using SAEA.MQTT.Packets;
@@ -493,7 +493,7 @@ namespace SAEA.MQTT.Formatter.V5
                 packetWriter.WriteWithLengthPrefix(topicFilter);
             }
 
-            return MqttPacketWriter.BuildFixedHeader(MqttControlPacketType.Unsubscibe, 0x02);
+            return MqttPacketWriter.BuildFixedHeader(MqttControlPacketType.Unsubscribe, 0x02);
         }
 
         static byte EncodeUnsubAckPacket(MqttUnsubAckPacket packet, IMqttPacketWriter packetWriter)
