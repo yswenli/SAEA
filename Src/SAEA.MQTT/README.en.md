@@ -1,38 +1,38 @@
-# SAEA.MQTT - 高性能 MQTT 协议框架 📡
+# SAEA.MQTT - MQTT Protocol Server/Client 🤖
 
 [![NuGet version](https://img.shields.io/nuget/v/SAEA.MQTT.svg?style=flat-square)](https://www.nuget.org/packages/SAEA.MQTT)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 
-**[English Version](README.en.md)** | **中文版**
+**English Version** | **[中文版](README.md)**
 
-> 基于 .NET Standard 2.0 的高性能 MQTT 协议实现，采用 SAEA.Sockets IOCP 技术，支持 MQTT 3.1/3.1.1/5.0 协议，适用于 IoT 设备通信、消息推送等场景。
+> High-performance MQTT protocol implementation based on .NET Standard 2.0, using SAEA.Sockets IOCP technology, supporting MQTT 3.1/3.1.1/5.0 protocols, suitable for IoT device communication, message push, and other scenarios.
 
-## 快速导航 🧭
+## Quick Navigation 🧭
 
-| 章节 | 内容 |
+| Section | Content |
 |------|------|
-| [⚡ 30秒快速开始](#30秒快速开始) | Broker + Client 最快上手 |
-| [🎯 核心特性](#核心特性) | 框架的主要功能 |
-| [📐 架构设计](#架构设计) | 组件关系与消息流程 |
-| [💡 应用场景](#应用场景) | 何时选择 SAEA.MQTT |
-| [📊 性能对比](#性能对比) | QoS 级别对比 |
-| [❓ 常见问题](#常见问题) | FAQ 快速解答 |
-| [🔧 核心类](#核心类) | 主要类一览 |
-| [📝 使用示例](#使用示例) | 详细代码示例 |
+| [⚡ 30-Second Quick Start](#30-second-quick-start) | Fastest way to get started with Broker + Client |
+| [🎯 Core Features](#core-features) | Main features of the framework |
+| [📐 Architecture Design](#architecture-design) | Component relationships and message flow |
+| [💡 Use Cases](#use-cases) | When to choose SAEA.MQTT |
+| [📊 Performance Comparison](#performance-comparison) | QoS level comparison |
+| [❓ FAQ](#faq) | Quick answers to common questions |
+| [🔧 Core Classes](#core-classes) | Overview of main classes |
+| [📝 Usage Examples](#usage-examples) | Detailed code examples |
 
 ---
 
-## 30秒快速开始 ⚡
+## 30-Second Quick Start ⚡
 
-最快上手方式，只需3步即可运行 MQTT Broker 和 Client：
+The fastest way to get started - run MQTT Broker and Client in just 3 steps:
 
-### Step 1: 安装 NuGet 包
+### Step 1: Install NuGet Package
 
 ```bash
 dotnet add package SAEA.MQTT
 ```
 
-### Step 2: 创建 MQTT Broker 服务器（仅需10行代码）
+### Step 2: Create MQTT Broker Server (Just 10 Lines of Code)
 
 ```csharp
 using SAEA.MQTT;
@@ -45,12 +45,12 @@ var options = new MqttServerOptionsBuilder()
     .WithDefaultEndpointPort(1883)
     .Build();
 
-server.ClientConnected += (s, e) => Console.WriteLine($"客户端连接: {e.ClientId}");
+server.ClientConnected += (s, e) => Console.WriteLine($"Client connected: {e.ClientId}");
 await server.StartAsync(options);
-Console.WriteLine("MQTT Broker 已启动，端口: 1883");
+Console.WriteLine("MQTT Broker started, port: 1883");
 ```
 
-### Step 3: 创建 MQTT 客户端连接
+### Step 3: Create MQTT Client Connection
 
 ```csharp
 var factory = new MqttFactory();
@@ -70,44 +70,44 @@ client.Connected += async (s, e) => {
 await client.ConnectAsync(options);
 ```
 
-**就这么简单！** 🎉 你已经实现了一个完整的 MQTT 发布/订阅系统。
+**That's it!** 🎉 You've implemented a complete MQTT publish/subscribe system.
 
 ---
 
-## 核心特性 🎯
+## Core Features 🎯
 
-| 特性 | 说明 | 优势 |
+| Feature | Description | Benefits |
 |------|------|------|
-| 🚀 **高性能 Broker** | IOCP 异步模型 | 支持万级设备并发连接 |
-| 📡 **完整协议支持** | MQTT 3.1/3.1.1/5.0 | 兼容所有主流 MQTT 客户端 |
-| 🔒 **TLS/SSL 加密** | 安全连接支持 | 数据传输加密保护 |
-| 📊 **三种 QoS 级别** | QoS 0/1/2 | 灵活的消息质量保证 |
-| 🔄 **托管客户端** | 自动重连、消息队列 | 断线自动恢复，消息不丢失 |
-| 🎯 **消息拦截器** | 连接/消息/订阅拦截 | 灵活的权限控制与审计 |
-| 💾 **持久会话** | 会话状态持久化 | 离线消息、订阅状态保持 |
-| 🔗 **WebSocket 支持** | WS/WSS 协议 | 浏览器直接连接 |
-| 📨 **遗嘱消息** | 离线状态通知 | 设备异常断开自动通知 |
-| 🏷️ **主题别名** | MQTT 5.0 特性 | 减少网络开销 |
+| 🚀 **High-Performance Broker** | IOCP async model | Supports tens of thousands of concurrent device connections |
+| 📡 **Complete Protocol Support** | MQTT 3.1/3.1.1/5.0 | Compatible with all mainstream MQTT clients |
+| 🔒 **TLS/SSL Encryption** | Secure connection support | Encrypted data transmission protection |
+| 📊 **Three QoS Levels** | QoS 0/1/2 | Flexible message quality assurance |
+| 🔄 **Managed Client** | Auto-reconnect, message queue | Automatic recovery on disconnect, no message loss |
+| 🎯 **Message Interceptors** | Connection/message/subscription interception | Flexible permission control and auditing |
+| 💾 **Persistent Sessions** | Session state persistence | Offline messages and subscription state retention |
+| 🔗 **WebSocket Support** | WS/WSS protocols | Direct browser connection |
+| 📨 **Will Messages** | Offline status notification | Automatic notification on abnormal device disconnect |
+| 🏷️ **Topic Aliases** | MQTT 5.0 feature | Reduced network overhead |
 
 ---
 
-## 架构设计 📐
+## Architecture Design 📐
 
-### 组件架构图
+### Component Architecture Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     SAEA.MQTT 架构                           │
+│                     SAEA.MQTT Architecture                  │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │  ┌──────────────────┐         ┌──────────────────┐        │
 │  │   MqttServer     │         │  MqttClient       │        │
-│  │   (Broker)       │         │  (客户端)         │        │
+│  │   (Broker)       │         │  (Client)        │        │
 │  └────────┬─────────┘         └────────┬─────────┘        │
 │           │                            │                     │
 │           │  ┌────────────────────────┐│                    │
 │           │  │   MqttFactory          ││                    │
-│           └──►   (工厂类)            ◄┘                    │
+│           └──►   (Factory)           ◄┘                    │
 │              └────────────────────────┘                    │
 │                        │                                    │
 │     ┌──────────────────┼──────────────────┐               │
@@ -115,26 +115,26 @@ await client.ConnectAsync(options);
 │  ┌──▼────────┐   ┌─────▼──────┐   ┌──────▼─────┐         │
 │  │ MqttServer │   │ MqttClient │   │ Managed    │         │
 │  │ Options    │   │ Options     │   │ MqttClient │         │
-│  │ Builder    │   │ Builder     │   │ (托管客户端)│        │
+│  │ Builder    │   │ Builder     │   │ (Managed) │         │
 │  └────────────┘   └─────────────┘   └────────────┘         │
 │                                                             │
 │  ┌──────────────────────────────────────────────────────┐ │
-│  │                    核心组件                            │ │
+│  │                    Core Components                  │ │
 │  ├──────────────────────────────────────────────────────┤ │
 │  │ SessionManager │ RetainedMessages │ Interceptors   │ │
 │  └──────────────────────────────────────────────────────┘ │
 │                                                             │
 │  ┌──────────────────────────────────────────────────────┐ │
-│  │                 SAEA.Sockets (IOCP)                   │ │
+│  │                 SAEA.Sockets (IOCP)                  │ │
 │  └──────────────────────────────────────────────────────┘ │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### MQTT 消息流程图
+### MQTT Message Flow Diagram
 
 ```
-发布/订阅流程:
+Publish/Subscribe Flow:
 
 Publisher            Broker              Subscriber
     │                  │                     │
@@ -154,19 +154,19 @@ Publisher            Broker              Subscriber
     │                  │◄────────────────────│
     │                  │                     │
 
-QoS 级别处理流程:
+QoS Level Processing Flow:
 
-QoS 0 - At Most Once (至多一次):
+QoS 0 - At Most Once:
 Publisher ──► Publish ──► Broker ──► Forward ──► Subscriber
-            (无确认)
+            (No confirmation)
 
-QoS 1 - At Least Once (至少一次):
+QoS 1 - At Least Once:
 Publisher ──► Publish ──► Broker ──► Forward ──► Subscriber
      │          │           │            │
      │◄─ PubAck ─┘           │       ┌────┘
      │                       │◄──PubAck──┘
 
-QoS 2 - Exactly Once (恰好一次):
+QoS 2 - Exactly Once:
 Publisher ──► Publish ──► Broker ──► Forward ──► Subscriber
      │          │           │            │
      │◄─ PubRec ─┤           │       ┌────┘
@@ -179,21 +179,21 @@ Publisher ──► Publish ──► Broker ──► Forward ──► Subscri
      │◄─ PubComp─┤           │       │◄───
 ```
 
-### 会话管理流程
+### Session Management Flow
 
 ```
-客户端会话生命周期:
+Client Session Lifecycle:
 
-客户端连接请求
-       │
-       ▼
+Client Connection Request
+        │
+        ▼
 ┌─────────────────┐
-│ ConnectionValidator │ ◄── 连接验证拦截器
-│ (用户名/密码验证)   │
+│ ConnectionValidator │ ◄── Connection Validation Interceptor
+│ (Username/Password) │
 └────────┬────────┘
          │
     ┌────▼────┐
-    │ 验证通过? │
+    │ Valid?  │
     └────┬────┘
          │
     ┌────┴────┐
@@ -202,58 +202,64 @@ Publisher ──► Publish ──► Broker ──► Forward ──► Subscri
     │         │
     ▼         ▼
 ┌─────────┐  ┌──────────────┐
-│ 会话检查 │  │ 返回错误码    │
-│ 持久/临时│  │ BadUserName  │
-└────┬────┘  │ OrPassword   │
-     │       └──────────────┘
+│ Session │  │ Return Error  │
+│ Check   │  │ BadUserName   │
+│Persist/ │  │ OrPassword    │
+│ Temp    │  └──────────────┘
+└────┬────┘
+     │
      ▼
 ┌─────────────────┐
-│ SessionManager   │
-│ 加载/创建会话    │
+│ SessionManager  │
+│ Load/Create     │
+│ Session         │
 └────────┬────────┘
          │
          ▼
 ┌─────────────────┐
-│ 恢复订阅        │
-│ (持久会话)      │
+│ Restore         │
+│ Subscriptions   │
+│ (Persistent)    │
 └────────┬────────┘
          │
          ▼
 ┌─────────────────┐
-│ 发送离线消息     │
+│ Send Offline    │
+│ Messages        │
 │ (QoS 1/2)       │
 └────────┬────────┘
          │
          ▼
-    客户端就绪
+    Client Ready
 ```
 
 ---
 
-## 应用场景 💡
+## Use Cases 💡
 
-### ✅ 适合使用 SAEA.MQTT 的场景
+### ✅ Scenarios Suitable for SAEA.MQTT
 
-| 场景 | 描述 | 推荐理由 |
+| Scenario | Description | Recommendation Reason |
 |------|------|----------|
-| 🏠 **智能家居** | 设备状态同步、远程控制 | 轻量级协议，低功耗设备友好 |
-| 🏭 **工业物联网** | 传感器数据采集、设备监控 | QoS 保证数据可靠性 |
-| 🚗 **车联网** | 车辆位置上报、远程诊断 | 支持移动网络弱网环境 |
-| 📱 **消息推送** | App 推送通知、即时消息 | WebSocket 支持，浏览器直连 |
-| 📊 **实时数据** | 股票行情、体育比分 | 发布订阅模式，高效广播 |
-| 🌡️ **环境监测** | 温湿度、空气质量上报 | 低带宽，适合 NB-IoT |
-| 🏥 **智慧医疗** | 医疗设备数据传输 | TLS 加密，安全可靠 |
-| 🌾 **智慧农业** | 大棚监控、灌溉控制 | 支持大量设备并发 |
+| 🏠 **Smart Home** | Device status sync, remote control | Lightweight protocol, low-power device friendly |
+| 🏭 **Industrial IoT** | Sensor data collection, device monitoring | QoS ensures data reliability |
+| 🚗 **Connected Vehicles** | Vehicle location reporting, remote diagnostics | Supports mobile network weak connections |
+| 📱 **Message Push** | App push notifications, instant messaging | WebSocket support, direct browser connection |
+| 📊 **Real-time Data** | Stock quotes, sports scores | Pub/sub pattern, efficient broadcasting |
+| 🌡️ **Environmental Monitoring** | Temperature/humidity, air quality reporting | Low bandwidth, suitable for NB-IoT |
+| 🏥 **Smart Healthcare** | Medical device data transmission | TLS encryption, secure and reliable |
+| 🌾 **Smart Agriculture** | Greenhouse monitoring, irrigation control | Supports large-scale concurrent devices |
 
-### 典型应用架构示例
+### Typical Application Architecture Example
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      智能家居系统                            │
+│                    Smart Home System                        │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │   ┌─────────┐   ┌─────────┐   ┌─────────┐   ┌─────────┐   │
-│   │温度传感器│   │ 智能灯泡 │   │智能插座 │   │ 门锁    │   │
+│   │Temp     │   │ Smart   │   │ Smart   │   │ Door    │   │
+│   │Sensor   │   │ Bulb    │   │ Plug    │   │ Lock    │   │
 │   └────┬────┘   └────┬────┘   └────┬────┘   └────┬────┘   │
 │        │             │             │             │          │
 │        └──────────────┼──────────────┼──────────────┘       │
@@ -261,53 +267,54 @@ Publisher ──► Publish ──► Broker ──► Forward ──► Subscri
 │                       ▼              ▼                       │
 │              ┌─────────────────────────────┐               │
 │              │      SAEA.MQTT Broker       │               │
-│              │      (端口 1883/8883)       │               │
+│              │      (Port 1883/8883)       │               │
 │              └─────────────┬───────────────┘               │
 │                            │                                │
 │         ┌──────────────────┼──────────────────┐            │
 │         │                  │                  │            │
 │         ▼                  ▼                  ▼            │
 │   ┌──────────┐      ┌──────────┐      ┌──────────┐        │
-│   │ 手机 App │      │ Web 控制台│     │ 数据分析 │        │
-│   │ (WebSocket)│    │ (WebSocket)│    │ (订阅数据)│       │
+│   │ Mobile   │      │ Web       │      │ Data     │        │
+│   │ App      │      │ Console   │      │ Analysis │        │
+│   │(WebSocket)│     │(WebSocket)│     │(Subscribe)│        │
 │   └──────────┘      └──────────┘      └──────────┘        │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### ❌ 不适合的场景
+### ❌ Unsuitable Scenarios
 
-| 场景 | 推荐替代方案 |
+| Scenario | Recommended Alternative |
 |------|--------------|
-| 简单 HTTP API | 使用 SAEA.Http 或 ASP.NET |
-| 大文件传输 | 使用 SAEA.Sockets 直接传输 |
-| 视频流传输 | 使用 RTSP/WebRTC |
-| 数据库访问 | 使用 SAEA.RedisSocket |
+| Simple HTTP API | Use SAEA.Http or ASP.NET |
+| Large file transfer | Use SAEA.Sockets directly |
+| Video streaming | Use RTSP/WebRTC |
+| Database access | Use SAEA.RedisSocket |
 
 ---
 
-## 性能对比 📊
+## Performance Comparison 📊
 
-### QoS 服务质量级别对比
+### QoS Service Quality Level Comparison
 
-| QoS 级别 | 级别名称 | 消息传递次数 | 可靠性 | 延迟 | 带宽消耗 | 适用场景 |
+| QoS Level | Level Name | Message Delivery | Reliability | Latency | Bandwidth | Use Case |
 |----------|----------|--------------|--------|------|----------|----------|
-| **QoS 0** | At Most Once | 至多一次 | ❌ 低 | ⭐ 最低 | ⭐ 最低 | 环境数据、日志上报 |
-| **QoS 1** | At Least Once | 至少一次 | ⚠️ 中 | ⭐⭐ 中等 | ⭐⭐ 中等 | 一般业务消息 |
-| **QoS 2** | Exactly Once | 恰好一次 | ✅ 高 | ⭐⭐⭐ 较高 | ⭐⭐⭐ 较高 | 金融交易、重要指令 |
+| **QoS 0** | At Most Once | At most once | ❌ Low | ⭐ Lowest | ⭐ Lowest | Environmental data, log reporting |
+| **QoS 1** | At Least Once | At least once | ⚠️ Medium | ⭐⭐ Medium | ⭐⭐ Medium | General business messages |
+| **QoS 2** | Exactly Once | Exactly once | ✅ High | ⭐⭐⭐ Higher | ⭐⭐⭐ Higher | Financial transactions, critical commands |
 
-### QoS 详细对比
+### QoS Detailed Comparison
 
 ```
-QoS 0: At Most Once (至多一次)
+QoS 0: At Most Once
 ┌─────────┐      Publish       ┌─────────┐      Forward      ┌─────────┐
 │Publisher│ ─────────────────► │  Broker  │ ─────────────────► │Subscriber│
-└─────────┘    (无确认)         └─────────┘    (无确认)         └─────────┘
+└─────────┘    (No ack)         └─────────┘    (No ack)         └─────────┘
 
-特点: 最快，可能丢失
-适用: 传感器数据（偶尔丢失可接受）
+Features: Fastest, may be lost
+Use case: Sensor data (occasional loss acceptable)
 
-QoS 1: At Least Once (至少一次)
+QoS 1: At Least Once
 ┌─────────┐      Publish       ┌─────────┐      Forward      ┌─────────┐
 │Publisher│ ─────────────────► │  Broker  │ ─────────────────► │Subscriber│
 └─────────┘                    └─────────┘                    └─────────┘
@@ -315,10 +322,10 @@ QoS 1: At Least Once (至少一次)
      │         PubAck               │         PubAck               │
      └──────────────────────────────┴──────────────────────────────┘
 
-特点: 确保送达，可能重复
-适用: 一般业务消息（需去重处理）
+Features: Guaranteed delivery, may duplicate
+Use case: General business messages (deduplication required)
 
-QoS 2: Exactly Once (恰好一次)
+QoS 2: Exactly Once
 ┌─────────┐      Publish       ┌─────────┐      Forward      ┌─────────┐
 │Publisher│ ─────────────────► │  Broker  │ ─────────────────► │Subscriber│
 └─────────┘                    └─────────┘                    └─────────┘
@@ -332,54 +339,54 @@ QoS 2: Exactly Once (恰好一次)
      │         PubComp              │                              │
      └──────────────────────────────┴─────────────────────────────►
 
-特点: 确保唯一，最可靠
-适用: 重要消息、金融交易
+Features: Guaranteed unique, most reliable
+Use case: Critical messages, financial transactions
 ```
 
-### MQTT 协议版本对比
+### MQTT Protocol Version Comparison
 
-| 特性 | MQTT 3.1 | MQTT 3.1.1 | MQTT 5.0 |
+| Feature | MQTT 3.1 | MQTT 3.1.1 | MQTT 5.0 |
 |------|----------|------------|----------|
-| 基本发布订阅 | ✅ | ✅ | ✅ |
+| Basic pub/sub | ✅ | ✅ | ✅ |
 | QoS 0/1/2 | ✅ | ✅ | ✅ |
-| 遗嘱消息 | ✅ | ✅ | ✅ |
-| 清洁会话 | ✅ | ✅ | ✅ |
-| **原因码** | ❌ | ❌ | ✅ |
-| **用户属性** | ❌ | ❌ | ✅ |
-| **主题别名** | ❌ | ❌ | ✅ |
-| **消息过期** | ❌ | ❌ | ✅ |
-| **会话过期** | ❌ | ❌ | ✅ |
-| **共享订阅** | ❌ | ❌ | ✅ |
+| Will messages | ✅ | ✅ | ✅ |
+| Clean session | ✅ | ✅ | ✅ |
+| **Reason codes** | ❌ | ❌ | ✅ |
+| **User properties** | ❌ | ❌ | ✅ |
+| **Topic aliases** | ❌ | ❌ | ✅ |
+| **Message expiry** | ❌ | ❌ | ✅ |
+| **Session expiry** | ❌ | ❌ | ✅ |
+| **Shared subscriptions** | ❌ | ❌ | ✅ |
 
 ---
 
-## 常见问题 ❓
+## FAQ ❓
 
-### Q1: MQTT Broker 能支持多少设备连接？
+### Q1: How many device connections can the MQTT Broker support?
 
-**A**: SAEA.MQTT 基于 SAEA.Sockets 的 IOCP 技术，单机可支持 10,000+ 并发连接。实际性能取决于：
-- 服务器硬件配置（CPU、内存）
-- 网络带宽
-- 消息频率和大小
-- QoS 级别
+**A**: SAEA.MQTT is based on SAEA.Sockets IOCP technology, supporting 10,000+ concurrent connections on a single machine. Actual performance depends on:
+- Server hardware configuration (CPU, memory)
+- Network bandwidth
+- Message frequency and size
+- QoS level
 
-建议：生产环境使用多实例集群部署。
+Recommendation: Use multi-instance cluster deployment in production environments.
 
-### Q2: QoS 0/1/2 如何选择？
+### Q2: How to choose between QoS 0/1/2?
 
-**A**: 根据业务需求选择：
+**A**: Choose based on business requirements:
 
-| 场景 | 推荐 QoS | 理由 |
+| Scenario | Recommended QoS | Reason |
 |------|----------|------|
-| 传感器温度数据 | QoS 0 | 偶尔丢失可接受，追求实时性 |
-| 设备状态同步 | QoS 1 | 确保送达，应用层去重 |
-| 支付指令 | QoS 2 | 确保唯一，不允许重复 |
-| 日志上报 | QoS 0 | 允许少量丢失 |
-| 告警通知 | QoS 1 | 确保送达 |
+| Sensor temperature data | QoS 0 | Occasional loss acceptable, prioritize real-time |
+| Device status sync | QoS 1 | Guaranteed delivery, application-level deduplication |
+| Payment commands | QoS 2 | Guaranteed unique, no duplicates allowed |
+| Log reporting | QoS 0 | Allow minor loss |
+| Alert notifications | QoS 1 | Guaranteed delivery |
 
-### Q3: 如何实现设备认证？
+### Q3: How to implement device authentication?
 
-**A**: 使用连接验证拦截器：
+**A**: Use connection validation interceptor:
 
 ```csharp
 var options = new MqttServerOptionsBuilder()
@@ -396,9 +403,9 @@ var options = new MqttServerOptionsBuilder()
     .Build();
 ```
 
-### Q4: 客户端断线后如何自动重连？
+### Q4: How to auto-reconnect after client disconnect?
 
-**A**: 使用 `ManagedMqttClient` 托管客户端：
+**A**: Use `ManagedMqttClient` managed client:
 
 ```csharp
 var factory = new MqttFactory();
@@ -408,27 +415,27 @@ var options = new ManagedMqttClientOptionsBuilder()
     .WithClientOptions(new MqttClientOptionsBuilder()
         .WithClientId("device_001")
         .WithTcpServer("127.0.0.1", 1883)
-        .WithAutoReconnectDelay(TimeSpan.FromSeconds(5))  // 5秒重连
+        .WithAutoReconnectDelay(TimeSpan.FromSeconds(5))  // 5-second reconnect
         .Build())
     .Build();
 
 await managedClient.StartAsync(options);
-// 自动重连，断线期间消息缓存，重连后自动发送
+// Auto-reconnect, messages cached during disconnect, sent after reconnect
 ```
 
-### Q5: 如何实现消息加密传输？
+### Q5: How to implement encrypted message transmission?
 
-**A**: 使用 TLS/SSL 安全连接：
+**A**: Use TLS/SSL secure connection:
 
 ```csharp
-// 服务端配置证书
+// Server certificate configuration
 var serverOptions = new MqttServerOptionsBuilder()
     .WithDefaultEndpointPort(8883)
     .WithEncryptedEndpoint()
     .WithEncryptionCertificate(File.ReadAllBytes("server.pfx"))
     .Build();
 
-// 客户端连接
+// Client connection
 var clientOptions = new MqttClientOptionsBuilder()
     .WithClientId("secure_client")
     .WithTcpServer("127.0.0.1", 8883)
@@ -438,90 +445,90 @@ var clientOptions = new MqttClientOptionsBuilder()
     .Build();
 ```
 
-### Q6: 主题通配符如何使用？
+### Q6: How to use topic wildcards?
 
-**A**: MQTT 支持两种通配符：
+**A**: MQTT supports two wildcards:
 
-| 通配符 | 说明 | 示例 |
+| Wildcard | Description | Example |
 |--------|------|------|
-| `+` | 单级通配符 | `home/+/temperature` 匹配 `home/living/temperature` |
-| `#` | 多级通配符 | `home/#` 匹配 `home/living/temperature`、`home/bedroom/humidity` |
+| `+` | Single-level wildcard | `home/+/temperature` matches `home/living/temperature` |
+| `#` | Multi-level wildcard | `home/#` matches `home/living/temperature`, `home/bedroom/humidity` |
 
 ```csharp
-// 订阅所有房间的温度
+// Subscribe to all room temperatures
 await client.SubscribeAsync("home/+/temperature");
 
-// 订阅家庭所有消息
+// Subscribe to all home messages
 await client.SubscribeAsync("home/#");
 ```
 
-### Q7: 遗嘱消息是什么？如何使用？
+### Q7: What is a will message? How to use it?
 
-**A**: 遗嘱消息（Will Message）是客户端异常断开时 Broker 自动发布的消息：
+**A**: A will message is a message automatically published by the Broker when a client disconnects abnormally:
 
 ```csharp
 var options = new MqttClientOptionsBuilder()
     .WithClientId("device_001")
     .WithTcpServer("127.0.0.1", 1883)
     .WithWillMessage(new MqttApplicationMessageBuilder()
-        .WithTopic("device/status")          // 遗嘱主题
-        .WithPayload("offline")              // 遗嘱内容
+        .WithTopic("device/status")          // Will topic
+        .WithPayload("offline")              // Will content
         .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
-        .WithRetainFlag(true)                // 保留消息
+        .WithRetainFlag(true)                // Retain message
         .Build())
     .Build();
 
-// 当设备异常断开时，Broker 自动发布 "device/status" -> "offline"
+// When device disconnects abnormally, Broker automatically publishes "device/status" -> "offline"
 ```
 
 ---
 
-## 核心类 🔧
+## Core Classes 🔧
 
-### 主要类
+### Main Classes
 
-| 类名 | 说明 |
+| Class | Description |
 |------|------|
-| `MqttServer` | MQTT Broker 服务器 |
-| `MqttClient` | 标准 MQTT 客户端 |
-| `ManagedMqttClient` | 托管客户端（自动重连、消息队列） |
-| `MqttFactory` | MQTT 对象工厂类 |
-| `MqttApplicationMessage` | 应用消息封装 |
-| `MqttTopicFilter` | 主题过滤器 |
+| `MqttServer` | MQTT Broker server |
+| `MqttClient` | Standard MQTT client |
+| `ManagedMqttClient` | Managed client (auto-reconnect, message queue) |
+| `MqttFactory` | MQTT object factory class |
+| `MqttApplicationMessage` | Application message wrapper |
+| `MqttTopicFilter` | Topic filter |
 
-### 配置构建器
+### Configuration Builders
 
-| 类名 | 说明 |
+| Class | Description |
 |------|------|
-| `MqttServerOptionsBuilder` | 服务器配置构建器 |
-| `MqttClientOptionsBuilder` | 客户端配置构建器 |
-| `ManagedMqttClientOptionsBuilder` | 托管客户端配置构建器 |
-| `MqttApplicationMessageBuilder` | 应用消息构建器 |
-| `MqttTopicFilterBuilder` | 主题过滤器构建器 |
+| `MqttServerOptionsBuilder` | Server configuration builder |
+| `MqttClientOptionsBuilder` | Client configuration builder |
+| `ManagedMqttClientOptionsBuilder` | Managed client configuration builder |
+| `MqttApplicationMessageBuilder` | Application message builder |
+| `MqttTopicFilterBuilder` | Topic filter builder |
 
-### 拦截器接口
+### Interceptor Interfaces
 
-| 接口 | 说明 |
+| Interface | Description |
 |------|------|
-| `IMqttServerConnectionValidator` | 连接验证拦截器 |
-| `IMqttServerApplicationMessageInterceptor` | 消息拦截器 |
-| `IMqttServerSubscriptionInterceptor` | 订阅拦截器 |
-| `IMqttServerUnsubscriptionInterceptor` | 取消订阅拦截器 |
+| `IMqttServerConnectionValidator` | Connection validation interceptor |
+| `IMqttServerApplicationMessageInterceptor` | Message interceptor |
+| `IMqttServerSubscriptionInterceptor` | Subscription interceptor |
+| `IMqttServerUnsubscriptionInterceptor` | Unsubscription interceptor |
 
-### 协议枚举
+### Protocol Enums
 
-| 枚举 | 说明 |
+| Enum | Description |
 |------|------|
-| `MqttProtocolVersion` | 协议版本（V311、V500） |
-| `MqttQualityOfServiceLevel` | QoS 级别（AtMostOnce、AtLeastOnce、ExactlyOnce） |
-| `MqttConnectReasonCode` | 连接原因码 |
-| `MqttRetainHandling` | 保留消息处理方式 |
+| `MqttProtocolVersion` | Protocol version (V311, V500) |
+| `MqttQualityOfServiceLevel` | QoS level (AtMostOnce, AtLeastOnce, ExactlyOnce) |
+| `MqttConnectReasonCode` | Connection reason code |
+| `MqttRetainHandling` | Retained message handling |
 
 ---
 
-## 使用示例 📝
+## Usage Examples 📝
 
-### MQTT Broker 服务器
+### MQTT Broker Server
 
 ```csharp
 using SAEA.MQTT;
@@ -540,20 +547,20 @@ var options = new MqttServerOptionsBuilder()
 server.ApplicationMessageReceived += (sender, e) => 
 {
     var payload = Encoding.UTF8.GetString(e.ApplicationMessage.Payload);
-    Console.WriteLine($"收到消息 [ClientId: {e.ClientId}, Topic: {e.ApplicationMessage.Topic}]: {payload}");
+    Console.WriteLine($"Message received [ClientId: {e.ClientId}, Topic: {e.ApplicationMessage.Topic}]: {payload}");
 };
 
 server.ClientConnected += (sender, e) => 
-    Console.WriteLine($"客户端连接: {e.ClientId}");
+    Console.WriteLine($"Client connected: {e.ClientId}");
 
 server.ClientDisconnected += (sender, e) => 
-    Console.WriteLine($"客户端断开: {e.ClientId}");
+    Console.WriteLine($"Client disconnected: {e.ClientId}");
 
 await server.StartAsync(options);
-Console.WriteLine("MQTT Broker 已启动，端口: 1883");
+Console.WriteLine("MQTT Broker started, port: 1883");
 ```
 
-### MQTT 客户端
+### MQTT Client
 
 ```csharp
 using SAEA.MQTT;
@@ -572,11 +579,11 @@ var options = new MqttClientOptionsBuilder()
 client.ApplicationMessageReceived += (sender, e) => 
 {
     var payload = Encoding.UTF8.GetString(e.ApplicationMessage.Payload);
-    Console.WriteLine($"收到消息 [Topic: {e.ApplicationMessage.Topic}]: {payload}");
+    Console.WriteLine($"Message received [Topic: {e.ApplicationMessage.Topic}]: {payload}");
 };
 
-client.Connected += (sender, e) => Console.WriteLine("已连接");
-client.Disconnected += (sender, e) => Console.WriteLine("已断开");
+client.Connected += (sender, e) => Console.WriteLine("Connected");
+client.Disconnected += (sender, e) => Console.WriteLine("Disconnected");
 
 await client.ConnectAsync(options);
 
@@ -594,7 +601,7 @@ await client.PublishAsync(message);
 await client.DisconnectAsync();
 ```
 
-### 托管 MQTT 客户端
+### Managed MQTT Client
 
 ```csharp
 using SAEA.MQTT;
@@ -621,7 +628,7 @@ await managedClient.PublishAsync(new MqttApplicationMessageBuilder()
 await managedClient.SubscribeAsync("home/#");
 ```
 
-### TLS/SSL 安全连接
+### TLS/SSL Secure Connection
 
 ```csharp
 using SAEA.MQTT.Client;
@@ -637,7 +644,7 @@ var options = new MqttClientOptionsBuilder()
 await client.ConnectAsync(options);
 ```
 
-### 连接验证拦截器
+### Connection Validation Interceptor
 
 ```csharp
 using SAEA.MQTT.Server;
@@ -656,7 +663,7 @@ var options = new MqttServerOptionsBuilder()
     .Build();
 ```
 
-### 消息拦截器
+### Message Interceptor
 
 ```csharp
 using SAEA.MQTT.Server;
@@ -665,13 +672,13 @@ var options = new MqttServerOptionsBuilder()
     .WithDefaultEndpointPort(1883)
     .WithApplicationMessageInterceptor(context => 
     {
-        Console.WriteLine($"拦截消息: {context.ApplicationMessage.Topic}");
+        Console.WriteLine($"Intercepted message: {context.ApplicationMessage.Topic}");
         context.AcceptPublish = true;
     })
     .Build();
 ```
 
-### MQTT 5.0 特性
+### MQTT 5.0 Features
 
 ```csharp
 using SAEA.MQTT.Client;
@@ -693,7 +700,7 @@ var message = new MqttApplicationMessageBuilder()
     .Build();
 ```
 
-### 遗嘱消息
+### Will Message
 
 ```csharp
 using SAEA.MQTT.Client;
@@ -709,7 +716,7 @@ var options = new MqttClientOptionsBuilder()
     .Build();
 ```
 
-### WebSocket 连接
+### WebSocket Connection
 
 ```csharp
 using SAEA.MQTT.Client;
@@ -724,9 +731,9 @@ await client.ConnectAsync(options);
 
 ---
 
-## 支持的协议版本
+## Supported Protocol Versions
 
-| 版本 | 协议名称 | Level |
+| Version | Protocol Name | Level |
 |------|----------|-------|
 | MQTT 3.1 | MQIsdp | 3 |
 | MQTT 3.1.1 | MQTT | 4 |
@@ -734,24 +741,24 @@ await client.ConnectAsync(options);
 
 ---
 
-## 依赖项
+## Dependencies
 
-| 包名 | 版本 | 说明 |
+| Package | Version | Description |
 |------|------|------|
-| SAEA.Sockets | 7.26.2.2 | IOCP 通信框架 |
-| SAEA.Common | 7.26.2.2 | 公共工具类 |
+| SAEA.Sockets | 7.26.2.2 | IOCP communication framework |
+| SAEA.Common | 7.26.2.2 | Common utility classes |
 
 ---
 
-## 更多资源
+## More Resources
 
-- [GitHub 仓库](https://github.com/yswenli/SAEA)
-- [NuGet 包](https://www.nuget.org/packages/SAEA.MQTT)
-- [MQTT 协议规范](http://mqtt.org/)
-- [作者博客](https://www.cnblogs.com/yswenli/)
+- [GitHub Repository](https://github.com/yswenli/SAEA)
+- [NuGet Package](https://www.nuget.org/packages/SAEA.MQTT)
+- [MQTT Protocol Specification](http://mqtt.org/)
+- [Author's Blog](https://www.cnblogs.com/yswenli/)
 
 ---
 
-## 许可证
+## License
 
 Apache License 2.0
