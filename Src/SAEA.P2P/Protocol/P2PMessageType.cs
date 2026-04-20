@@ -10,6 +10,7 @@ namespace SAEA.P2P.Protocol
         RelayRequest = 0x40,
         RelayData = 0x41,
         LocalDiscover = 0x50,
+        LocalDiscoverAck = 0x51,
         AuthChallenge = 0x60,
         Heartbeat = 0x70,
         UserData = 0x80
