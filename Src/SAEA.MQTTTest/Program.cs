@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *项目名称：SAEA.MQTTTest
 *CLR 版本：4.0.30319.42000
 *机器名称：WENLI-PC
@@ -25,8 +25,13 @@ namespace SAEA.MQTTTest
 {
     class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
+            if (args.Length > 0 && args[0] == "emqx")
+            {
+                await EmqxBrokerTest.RunAsync();
+                return;
+            }
 
             while (true)
             {
@@ -42,37 +47,41 @@ namespace SAEA.MQTTTest
                 ConsoleHelper.WriteLine("7 = Client flow test");
                 ConsoleHelper.WriteLine("8 = Start performance test (client only)");
                 ConsoleHelper.WriteLine("9 = Start server (no trace)");
+                ConsoleHelper.WriteLine("10 = Test broker.emqx.io MQTT 5.0");
 
                 var pressedKey = ConsoleHelper.ReadLine();
 
                 switch (pressedKey)
                 {
                     case "1":
-                        Task.Run(ClientTest.RunAsync);
+                        await ClientTest.RunAsync();
                         break;
                     case "2":
-                        Task.Run(ServerTest.RunAsync);
+                        await ServerTest.RunAsync();
                         break;
                     case "3":
-                        Task.Run(PerformanceTest.RunClientAndServer);
+                        await PerformanceTest.RunClientAndServer();
                         break;
                     case "4":
-                        Task.Run(ManagedClientTest.RunAsync);
+                        await ManagedClientTest.RunAsync();
                         break;
                     case "5":
-                        Task.Run(PublicBrokerTest.RunAsync);
+                        await PublicBrokerTest.RunAsync();
                         break;
                     case "6":
-                        Task.Run(ServerAndClientTest.RunAsync);
+                        await ServerAndClientTest.RunAsync();
                         break;
                     case "7":
-                        Task.Run(ClientFlowTest.RunAsync);
+                        await ClientFlowTest.RunAsync();
                         break;
                     case "8":
                         PerformanceTest.RunClientOnly();
                         break;
                     case "9":
                         ServerTest.RunEmptyServer();
+                        break;
+                    case "10":
+                        await EmqxBrokerTest.RunAsync();
                         break;
                 }
             }

@@ -723,7 +723,7 @@ using SAEA.MQTT.Client;
 
 var options = new MqttClientOptionsBuilder()
     .WithClientId("ws_client")
-    .WithWebSocketServer("ws://127.0.0.1:8083/mqtt")
+    .WithWebSocketServer("broker.emqx.io:8083/mqtt")
     .Build();
 
 await client.ConnectAsync(options);

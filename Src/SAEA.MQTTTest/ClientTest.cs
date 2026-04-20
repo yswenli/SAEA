@@ -22,6 +22,7 @@ using SAEA.MQTT.Client.Disconnecting;
 using SAEA.MQTT.Client.Options;
 using SAEA.MQTT.Client.Receiving;
 using SAEA.MQTT.Protocol;
+
 using System;
 using System.Text;
 using System.Threading.Tasks;
@@ -36,13 +37,22 @@ namespace SAEA.MQTTTest
             {
                 MqttNetConsoleLogger.ForwardToConsole();
 
+                var url = "127.0.0.1";
+                Console.WriteLine("请输入服务器地址");
+                var input = Console.ReadLine();
+                if (input.IsNotNullOrEmpty())
+                {
+                    url = input;
+                }
+
                 var factory = new MqttFactory();
                 var client = factory.CreateMqttClient();
                 var clientOptions = new MqttClientOptions
                 {
                     ChannelOptions = new MqttClientTcpOptions
                     {
-                        Server = "127.0.0.1"
+                        Server = url,
+                        Port = 1883
                     }
                 };
 
