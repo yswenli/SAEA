@@ -50,6 +50,7 @@ Select the appropriate component based on your requirements:
 |------------|----------------------|-----------------|
 | Web API Development | **SAEA.MVC** | `dotnet add package SAEA.MVC` |
 | WebSocket Real-time Communication | **SAEA.WebSocket** | `dotnet add package SAEA.WebSocket` |
+| P2P Direct Communication | **SAEA.P2P** | `dotnet add package SAEA.P2P` |
 | Redis Cache Operations | **SAEA.RedisSocket** | `dotnet add package SAEA.RedisSocket` |
 | Microservice RPC | **SAEA.RPC** | `dotnet add package SAEA.RPC` |
 | IoT Device Communication | **SAEA.MQTT** | `dotnet add package SAEA.MQTT` |
@@ -80,6 +81,12 @@ Select the appropriate component based on your requirements:
 | 💬 **SAEA.WebSocket** | WebSocket server/client | [NuGet](https://www.nuget.org/packages/SAEA.WebSocket) | [中文](Src/SAEA.WebSocket/README.md) | [English](Src/SAEA.WebSocket/README.en.md) | Real-time chat, push notifications |
 | 🤖 **SAEA.MQTT** | MQTT protocol implementation | [NuGet](https://www.nuget.org/packages/SAEA.MQTT) | [中文](Src/SAEA.MQTT/README.md) | [English](Src/SAEA.MQTT/README.en.md) | IoT devices, smart home |
 | 📨 **SAEA.MessageSocket** | Message server | [NuGet](https://www.nuget.org/packages/SAEA.MessageSocket) | [中文](Src/SAEA.MessageSocket/README.md) | [English](Src/SAEA.MessageSocket/README.en.md) | Instant messaging, online customer service |
+
+### P2P Communication Components
+
+| Component | Function | NuGet | 中文文档 | English Docs | Use Cases |
+|-----------|----------|-------|---------|--------------|-----------|
+| 🔗 **SAEA.P2P** | P2P direct communication | [NuGet](https://www.nuget.org/packages/SAEA.P2P) | [中文](Src/SAEA.P2P/README.md) | [English](Src/SAEA.P2P/README.en.md) | NAT traversal, LAN discovery, instant messaging, game battles |
 
 ### Data & Storage Components
 
@@ -124,6 +131,11 @@ Select the appropriate component based on your requirements:
 │   │  │  RPC    │  │ MQTT   │  │ Message │      │               │
 │   │  │(Remote) │  │ (IoT)  │  │ Socket  │      │               │
 │   │  └────┬────┘  └───┬────┘  └────┬────┘      │               │
+│   │       │           │            │            │               │
+│   │  ┌────▼────┐  ┌───▼────┐       │            │               │
+│   │  │  P2P    │  │ Redis  │       │            │               │
+│   │  │(NAT)    │  │(Cache) │       │            │               │
+│   │  └────┬────┘  └───┬────┘       │            │               │
 │   │       │           │            │            │               │
 │   └─────────┼───────────┼────────────┼──────────┘               │
 │             │           │            │                           │
@@ -226,6 +238,7 @@ Client Request Flow:
 - 💬 Instant messaging (private chat, group chat, customer service systems)
 - 🔗 Microservice communication (RPC remote calls)
 - 📁 Large file transfer (resumable upload, high-speed transfer)
+- 🌐 P2P direct communication (NAT traversal, LAN discovery)
 
 ### Q2: How to choose the right component?
 
@@ -236,6 +249,7 @@ Your Needs                        Recommended Component
 ─────────────────────────────────────────────
 Web API Development         →  SAEA.MVC
 Real-time Chat/Push         →  SAEA.WebSocket
+P2P Direct Communication    →  SAEA.P2P
 IoT Device Communication    →  SAEA.MQTT
 Redis Cache Operations      →  SAEA.RedisSocket
 Microservice RPC            →  SAEA.RPC
@@ -281,6 +295,7 @@ Each component has detailed usage examples and comments.
 - `SAEA.MVCTest` - MVC Web application examples
 - `SAEA.RedisTest` - Redis operation examples
 - `SAEA.RPCTest` - RPC call examples
+- `SAEA.P2PTest` - P2P NAT traversal examples
 
 ---
 

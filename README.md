@@ -50,6 +50,7 @@ server.Start();
 |----------|----------|----------|
 | Web API 开发 | **SAEA.MVC** | `dotnet add package SAEA.MVC` |
 | WebSocket 实时通信 | **SAEA.WebSocket** | `dotnet add package SAEA.WebSocket` |
+| P2P 直连通信 | **SAEA.P2P** | `dotnet add package SAEA.P2P` |
 | Redis 缓存操作 | **SAEA.RedisSocket** | `dotnet add package SAEA.RedisSocket` |
 | 微服务 RPC | **SAEA.RPC** | `dotnet add package SAEA.RPC` |
 | IoT 设备通信 | **SAEA.MQTT** | `dotnet add package SAEA.MQTT` |
@@ -80,6 +81,12 @@ server.Start();
 | 💬 **SAEA.WebSocket** | WebSocket 服务器/客户端 | [NuGet](https://www.nuget.org/packages/SAEA.WebSocket) | [中文](Src/SAEA.WebSocket/README.md) | [English](Src/SAEA.WebSocket/README.en.md) | 实时聊天、推送通知 |
 | 🤖 **SAEA.MQTT** | MQTT 协议实现 | [NuGet](https://www.nuget.org/packages/SAEA.MQTT) | [中文](Src/SAEA.MQTT/README.md) | [English](Src/SAEA.MQTT/README.en.md) | IoT 设备、智能家居 |
 | 📨 **SAEA.MessageSocket** | 消息服务器 | [NuGet](https://www.nuget.org/packages/SAEA.MessageSocket) | [中文](Src/SAEA.MessageSocket/README.md) | [English](Src/SAEA.MessageSocket/README.en.md) | 即时通讯、在线客服 |
+
+### P2P 通信组件
+
+| 组件 | 功能 | NuGet | 中文文档 | 英文文档 | 适用场景 |
+|------|------|-------|---------|---------|----------|
+| 🔗 **SAEA.P2P** | P2P 直连通信组件 | [NuGet](https://www.nuget.org/packages/SAEA.P2P) | [中文](Src/SAEA.P2P/README.md) | [English](Src/SAEA.P2P/README.en.md) | NAT 穿透、局域网发现、即时通讯、游戏对战 |
 
 ### 数据与存储组件
 
@@ -124,6 +131,11 @@ server.Start();
 │   │  │  RPC    │  │ MQTT   │  │ Message ││                     │
 │   │  │(远程调用)│  │(IoT)  │  │ Socket  ││                     │
 │   │  └────┬────┘  └───┬────┘  └────┬────┘│                     │
+│   │       │           │            │      │                     │
+│   │  ┌────▼────┐  ┌───▼────┐       │      │                     │
+│   │  │  P2P    │  │ Redis  │       │      │                     │
+│   │  │(NAT穿透)│  │(缓存)  │       │      │                     │
+│   │  └────┬────┘  └───┬────┘       │      │                     │
 │   │       │           │            │      │                     │
 │   └─────────┼───────────┼────────────┼─────┘                     │
 │             │           │            │                           │
@@ -226,6 +238,7 @@ server.Start();
 - 💬 即时通讯（私聊、群聊、客服系统）
 - 🔗 微服务通信（RPC 远程调用）
 - 📁 大文件传输（断点续传、高速传输）
+- 🌐 P2P 直连通信（NAT 穿透、局域网发现）
 
 ### Q2: 如何选择合适的组件？
 
@@ -236,6 +249,7 @@ server.Start();
 ─────────────────────────────────────
 Web API 开发              →  SAEA.MVC
 实时聊天/推送             →  SAEA.WebSocket
+P2P 直连通信              →  SAEA.P2P
 IoT 设备通信              →  SAEA.MQTT
 Redis 缓存操作            →  SAEA.RedisSocket
 微服务 RPC                →  SAEA.RPC
@@ -281,6 +295,7 @@ dotnet add package SAEA.Sockets --version 7.26.2.2
 - `SAEA.MVCTest` - MVC Web 应用示例
 - `SAEA.RedisTest` - Redis 操作示例
 - `SAEA.RPCTest` - RPC 调用示例
+- `SAEA.P2PTest` - P2P NAT 穿透示例
 
 ---
 
