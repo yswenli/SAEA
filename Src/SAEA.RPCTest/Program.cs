@@ -1,4 +1,4 @@
-﻿using SAEA.Common;
+using SAEA.Common;
 using SAEA.Common.IO;
 using SAEA.Common.Serialization;
 using SAEA.Common.Threading;
@@ -103,7 +103,10 @@ namespace SAEA.RPCTest
 
         private static void Sp_OnErr(Exception ex)
         {
-            ConsoleHelper.WriteLine("Provider Error:" + ex.Message);
+            var msg = "Provider Error:" + ex.Message;
+            if (ex.InnerException != null)
+                msg += " | Inner:" + ex.InnerException.Message;
+            ConsoleHelper.WriteLine(msg);
         }
 
         static void Generate()

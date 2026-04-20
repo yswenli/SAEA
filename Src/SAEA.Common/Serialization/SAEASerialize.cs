@@ -345,23 +345,9 @@ namespace SAEA.Common.Serialization
             offset += 4;
             if (len > 0)
             {
-                // Use MemoryPoolManager for small buffers (under 4KB threshold)
-                bool usePool = len < MemoryPoolManager.SmallThreshold;
-                byte[] pooledBuffer = null;
-
-                try
-                {
-                    if (usePool)
-                    {
-                        pooledBuffer = MemoryPoolManager.Rent(len);
-                        data = pooledBuffer;
-                    }
-                    else
-                    {
-                        data = new byte[len];
-                    }
-                    Buffer.BlockCopy(datas, offset, data, 0, len);
-                    offset += len;
+                data = new byte[len];
+                Buffer.BlockCopy(datas, offset, data, 0, len);
+                offset += len;
 
                     if (type == stringType)
                     {
@@ -460,14 +446,6 @@ namespace SAEA.Common.Serialization
                     {
                         throw new Exception("SAEASerialize.Deserialize 未定义的类型：" + type.ToString());
                     }
-                }
-                finally
-                {
-                    if (pooledBuffer != null)
-                    {
-                        MemoryPoolManager.Return(pooledBuffer, len);
-                    }
-                }
             }
             return obj;
         }

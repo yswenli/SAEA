@@ -122,16 +122,23 @@ namespace SAEA.RPC.Net
         bool Decode(byte[] data, Action<RSocketMsg[], uint> onDecode)
         {
             uint offset = 0;
+            List<RSocketMsg> list = null;
 
             try
             {
                 if (data != null && data.Length >= offset + MIN)
                 {
-                    var list = new List<RSocketMsg>();
+                    list = new List<RSocketMsg>();
 
                     while (data.Length >= offset + MIN)
                     {
                         var total = BitConverter.ToUInt32(data, (int)offset + 1);
+
+                        // 验证total至少为20（固定头部长度），防止数据错乱导致uint下溢
+                        if (total < 20)
+                        {
+                            break;
+                        }
 
                         if (data.Length >= offset + total + 1)
                         {
@@ -206,6 +213,12 @@ namespace SAEA.RPC.Net
             catch (Exception ex)
             {
                 ConsoleHelper.WriteLine($"RCoder.Decode error:{ex.Message} stack:{ex.StackTrace} data:{data.Length} offset:{offset}");
+                // 如果已经解析出部分消息，先返回已解析的部分，避免已处理数据滞留缓冲区
+                if (list != null && list.Count > 0)
+                {
+                    onDecode?.Invoke(list.ToArray(), offset);
+                    return true;
+                }
             }
             onDecode?.Invoke(null, 0);
             return false;
@@ -222,7 +235,7 @@ namespace SAEA.RPC.Net
         {
             _buffer.AddRange(data);
 
-            if (_buffer.Count >= (1 + 4 + 4 + 0 + 4 + 0 + 0))
+            if (_buffer.Count >= MIN)
             {
                 var buffer = _buffer.ToArray();
 

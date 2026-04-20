@@ -38,7 +38,6 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using SAEA.Common;
-using SAEA.Common.Caching;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
@@ -150,11 +149,6 @@ namespace SAEA.Sockets.Core.Tcp
         /// 内部事件：客户端接收数据（Span版本）
         /// </summary>
         internal event OnClientReceiveSpanHandler OnClientReceiveSpan;
-
-        /// <summary>
-        /// 小数据阈值（4KB）
-        /// </summary>
-        internal const int SmallDataThreshold = 4 * 1024;
 
         /// <summary>
         /// 触发错误事件
@@ -455,19 +449,8 @@ namespace SAEA.Sockets.Core.Tcp
                         // 触发内部Span事件
                         OnClientReceiveSpan?.Invoke(dataSpan);
 
-                        // 根据数据大小选择分配策略
-                        byte[] buffer;
-                        if (readArgs.BytesTransferred < SmallDataThreshold)
-                        {
-                            // 小数据：直接ToArray()
-                            buffer = dataSpan.ToArray();
-                        }
-                        else
-                        {
-                            // 大数据：从内存池租用并复制
-                            buffer = MemoryPoolManager.Rent(readArgs.BytesTransferred);
-                            dataSpan.CopyTo(buffer);
-                        }
+                        // 复制到精确大小的数组，避免内存池返回的超大数组导致下游逻辑错误
+                        var buffer = dataSpan.ToArray();
 
                         try
                         {
@@ -476,14 +459,6 @@ namespace SAEA.Sockets.Core.Tcp
                         catch (Exception ex)
                         {
                             OnError?.Invoke(UserToken.ID, ex);
-                        }
-                        finally
-                        {
-                            // 如果是大数据，归还到内存池
-                            if (readArgs.BytesTransferred >= SmallDataThreshold)
-                            {
-                                MemoryPoolManager.Return(buffer, readArgs.BytesTransferred);
-                            }
                         }
                     }
 

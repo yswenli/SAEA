@@ -260,19 +260,8 @@ namespace SAEA.Sockets.Core.Udp
                     // 触发内部Span事件
                     OnClientReceiveSpan?.Invoke(dataSpan);
 
-                    // 根据数据大小选择分配策略
-                    byte[] data;
-                    if (readArgs.BytesTransferred < SmallDataThreshold)
-                    {
-                        // 小数据：直接ToArray()
-                        data = dataSpan.ToArray();
-                    }
-                    else
-                    {
-                        // 大数据：从内存池租用并复制
-                        data = MemoryPoolManager.Rent(readArgs.BytesTransferred);
-                        dataSpan.CopyTo(data);
-                    }
+                    // 复制到精确大小的数组，避免内存池返回的超大数组导致下游逻辑错误
+                    var data = dataSpan.ToArray();
 
                     try
                     {
@@ -280,11 +269,6 @@ namespace SAEA.Sockets.Core.Udp
                     }
                     finally
                     {
-                        // 如果是大数据，归还到内存池
-                        if (readArgs.BytesTransferred >= SmallDataThreshold)
-                        {
-                            MemoryPoolManager.Return(data, readArgs.BytesTransferred);
-                        }
                     }
 
                     ProcessReceive(readArgs);

@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 4.0.30319.42000
 *机器名称：WENLI-PC
@@ -108,12 +108,22 @@ namespace SAEA.RPC.Provider
 
                         break;
                     case RSocketMsgType.Request:
-
-                        var data = RPCReversal.Reversal(userToken, msg);
-
-                        var rSocketMsg = new RSocketMsg(RSocketMsgType.Response, null, null, data) { SequenceNumber = msg.SequenceNumber };
-
-                        _rServer.Reply(userToken, rSocketMsg);
+                        try
+                        {
+                            var data = RPCReversal.Reversal(userToken, msg);
+                            var rSocketMsg = new RSocketMsg(RSocketMsgType.Response, null, null, data) { SequenceNumber = msg.SequenceNumber };
+                            _rServer.Reply(userToken, rSocketMsg);
+                        }
+                        catch (Exception ex)
+                        {
+                            var errMsg = $"{ex.Message}";
+                            if (ex.InnerException != null)
+                                errMsg += $" | Inner: {ex.InnerException.Message}";
+                            var errData = SAEASerialize.Serialize(errMsg);
+                            var errSocketMsg = new RSocketMsg(RSocketMsgType.Error, null, null, errData) { SequenceNumber = msg.SequenceNumber };
+                            _rServer.Reply(userToken, errSocketMsg);
+                            ExceptionCollector.Add("Provider.Request", ex);
+                        }
                         break;
                     case RSocketMsgType.RegistNotice:
                         _noticeCollection.Set(userToken).GetAwaiter();
