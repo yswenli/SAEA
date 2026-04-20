@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
@@ -28,10 +28,12 @@ using System.Text;
 using System.Threading;
 
 using SAEA.Common;
+using SAEA.Common.Caching;
 using SAEA.Common.IO;
 using SAEA.Http;
 using SAEA.WebSocket;
 using SAEA.WebSocket.Model;
+using SAEA.WebSocket.Type;
 
 namespace SAEA.WebSocketTest
 {
@@ -41,7 +43,7 @@ namespace SAEA.WebSocketTest
 
         static void Main(string[] args)
         {
-            //Init1();
+            Init1();
 
             //Init2();
 
@@ -59,59 +61,112 @@ namespace SAEA.WebSocketTest
 
         static void Init1()
         {
-            WebHost webHost = new WebHost(port: 18080, root: "Html");
 
-            webHost.Start();
+            // Arrange
+            var coder = new WSCoder();
+            var payloadData = new byte[5000]; // > 4KB
+            new Random().NextBytes(payloadData);
 
+            // Create a WebSocket frame
+            var frame = CreateWebSocketFrame(0x01, payloadData, false); // Text frame, no mask
 
-            ConsoleHelper.WriteLine("WSServer 正在初始化....", ConsoleColor.Green);
-            _server = new WSServer();
-            _server.OnMessage += Server_OnMessage;
-            _server.OnDisconnected += _server_OnDisconnected;
-            _server.Start();
-            ConsoleHelper.WriteLine("WSServer 就绪,回车启动客户端", ConsoleColor.Green);
-
-            ConsoleHelper.ReadLine();
-
-            WSClient client = new WSClient();
-            client.OnPong += Client_OnPong;
-            client.OnMessage += Client_OnMessage;
-            client.OnError += Client_OnError;
-            client.OnDisconnected += Client_OnDisconnected;
-
-            ConsoleHelper.WriteLine("WSClient 正在连接到服务器...", ConsoleColor.DarkGray);
-
-            var connected = client.Connect();
-
-            if (connected)
+            // Act
+            var result = coder.Decode(frame);
+            
+            // 解码后，result中的WSProtocal.Content是从池租用的（因为>4KB）
+            // 需要正确Dispose这些对象
+            foreach (var item in result)
             {
-                ConsoleHelper.WriteLine("WSClient 连接成功，回车测试消息", ConsoleColor.DarkGray);
-                ConsoleHelper.ReadLine();
-                //client.Close();
-                //ConsoleHelper.ReadLine();
+                if (item is WSProtocal wsProtocal)
+                {
+                    wsProtocal.Dispose();
+                }
+            }
 
 
-                ConsoleHelper.WriteLine("WSClient 正在ping服务器...", ConsoleColor.DarkGray);
-                client.Ping();
+            // 测试池化缓冲区的正确用法：从池租用
+            var largeData = MemoryPoolManager.Rent(5000);  // 从池租用
+            new Random().NextBytes(largeData);
+            var protocal = new WSProtocal(WSProtocalType.Binary, largeData)
+            {
+                IsPooled = true  // 正确：数组确实是从池租用的
+            };
+
+            protocal.Dispose();  // 正确归还到池
 
 
-                ConsoleHelper.WriteLine("WSClient 正在发送消息...", ConsoleColor.DarkGray);
+            var payloadData1 = Encoding.UTF8.GetBytes("Frame 1");
+            var payloadData2 = Encoding.UTF8.GetBytes("Frame 2");
 
-                client.Send($"hello world!{DateTimeHelper.Now.ToString("HH:mm:ss.fff")}");
-                ConsoleHelper.ReadLine();
+            var frame1 = CreateWebSocketFrame(0x01, payloadData1, false);
+            var frame2 = CreateWebSocketFrame(0x01, payloadData2, false);
 
+            var combinedFrame = new byte[frame1.Length + frame2.Length];
+            Buffer.BlockCopy(frame1, 0, combinedFrame, 0, frame1.Length);
+            Buffer.BlockCopy(frame2, 0, combinedFrame, frame1.Length, frame2.Length);
 
-                ConsoleHelper.ReadLine();
-                ConsoleHelper.WriteLine("WSClient 正在断开连接...");
-                client.Close();
+            // Act
+            result = coder.Decode(combinedFrame);
+            
+            // 小数据(<4KB)不是池化的，不需要特殊处理
+        }
 
-                ConsoleHelper.WriteLine("测试已完成");
-                ConsoleHelper.ReadLine();
+        /// <summary>
+        /// Creates a WebSocket frame for testing
+        /// </summary>
+        static byte[] CreateWebSocketFrame(byte opcode, byte[] payload, bool masked)
+        {
+            var frame = new System.Collections.Generic.List<byte>();
+
+            // First byte: FIN=1, RSV=0, opcode
+            frame.Add((byte)(0x80 | opcode));
+
+            // Second byte: MASK, payload length
+            byte secondByte = 0;
+            if (masked) secondByte |= 0x80;
+
+            if (payload.Length < 126)
+            {
+                secondByte |= (byte)payload.Length;
+                frame.Add(secondByte);
+            }
+            else if (payload.Length < 65536)
+            {
+                secondByte |= 126;
+                frame.Add(secondByte);
+                frame.Add((byte)((payload.Length >> 8) & 0xFF));
+                frame.Add((byte)(payload.Length & 0xFF));
             }
             else
             {
-                ConsoleHelper.WriteLine("WSClient 连接失败", ConsoleColor.DarkGray);
+                secondByte |= 127;
+                frame.Add(secondByte);
+                for (int i = 7; i >= 0; i--)
+                {
+                    frame.Add((byte)((payload.Length >> (i * 8)) & 0xFF));
+                }
             }
+
+            // Masking key (if masked)
+            if (masked)
+            {
+                var maskKey = new byte[] { 0x01, 0x02, 0x03, 0x04 };
+                frame.AddRange(maskKey);
+
+                // Mask payload
+                var maskedPayload = new byte[payload.Length];
+                for (int i = 0; i < payload.Length; i++)
+                {
+                    maskedPayload[i] = (byte)(payload[i] ^ maskKey[i % 4]);
+                }
+                frame.AddRange(maskedPayload);
+            }
+            else
+            {
+                frame.AddRange(payload);
+            }
+
+            return frame.ToArray();
         }
 
 

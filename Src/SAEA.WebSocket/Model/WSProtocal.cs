@@ -72,63 +72,62 @@ namespace SAEA.WebSocket.Model
 
         /// <summary>
         /// 将当前实体转换成websocket所需的结构
+        /// 符合RFC 6455规范的帧格式编码
         /// </summary>
-        /// <param name="masked"></param>
-        /// <returns></returns>
+        /// <param name="masked">是否使用掩码</param>
+        /// <returns>编码后的字节数组</returns>
         public byte[] ToBytes(bool masked)
         {
-            int payloadLength;
-
-            byte[] extPayloadLength;
-
             ulong len = (ulong)this.BodyLength;
+
+            var buff = new List<byte>();
+
+            // RFC 6455 Frame Format:
+            // Byte 1: FIN(1) | RSV1(1) | RSV2(1) | RSV3(1) | Opcode(4)
+            // Byte 2: MASK(1) | Payload Length(7)
+            
+            // 字节1: FIN=1, RSV1-3=0, Opcode
+            byte byte1 = (byte)(0x80 | this.Type);  // 0x80 = FIN位置1
+            
+            // 字节2: MASK位 + Payload Length
+            byte byte2;
+            byte[] extPayloadLength;
 
             if (len < 126)
             {
-                payloadLength = (byte)len;
+                byte2 = (byte)((masked ? 0x80 : 0x00) | (byte)len);
                 extPayloadLength = new byte[0];
             }
-            else if (len < 0x010000)
+            else if (len < 65536)
             {
-                payloadLength = (byte)126;
+                byte2 = (byte)((masked ? 0x80 : 0x00) | 126);
                 extPayloadLength = ((ushort)len).InternalToByteArray(EndianOrder.Big);
             }
             else
             {
-                payloadLength = (byte)127;
+                byte2 = (byte)((masked ? 0x80 : 0x00) | 127);
                 extPayloadLength = len.InternalToByteArray(EndianOrder.Big);
             }
 
-            var buff = new List<byte>();
+            // 添加帧头（字节1和字节2）
+            buff.Add(byte1);
+            buff.Add(byte2);
 
-            var header = (int)0x1;
-            header = (header << 1) + (byte)0x0;
-            header = (header << 1) + (byte)0x0;
-            header = (header << 1) + (byte)0x0;
-            header = (header << 4) + this.Type;
-
-            if (masked)
-                header = (header << 1) + (byte)0x1;
-            else
-                header = (header << 1) + (byte)0x0;
-
-            header = (header << 7) + (byte)payloadLength;
-            buff.AddRange(((ushort)header).InternalToByteArray(EndianOrder.Big));
-
+            // 如果payload长度>=126，添加扩展长度字段
+            if (len >= 126)
+                buff.AddRange(extPayloadLength);
 
             byte[] maskBytes = null;
 
+            // 如果使用掩码，添加4字节掩码
             if (masked)
             {
                 maskBytes = _mask.ToBytes();
                 buff.AddRange(maskBytes);
             }
 
-
-            if (payloadLength > 125)
-                buff.AddRange(extPayloadLength);
-
-            if (payloadLength > 0)
+            // 添加payload数据
+            if (len > 0)
             {
                 if (masked)
                 {
