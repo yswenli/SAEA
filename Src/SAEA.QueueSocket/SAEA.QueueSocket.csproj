@@ -6,7 +6,7 @@
 这是一个基于SAEA.Sockets的高性能内存队列服务器、客户端组件
 https://github.com/yswenli/SAEA</Description>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
-    <Version>7.26.4.20</Version>
+    <Version>7.26.4.21</Version>
     <Copyright>yswenli</Copyright>
     <Authors>yswenli</Authors>
     <PackageTags>queue,iocp,tcp,socket</PackageTags>
@@ -22,6 +22,8 @@ https://github.com/yswenli/SAEA</PackageReleaseNotes>
     <AssemblyOriginatorKeyFile>E:\Work\SAEA\Src\SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
     <LangVersion>8.0</LangVersion>
     <PackageIcon>favicon.png</PackageIcon>
+    <Title>$(AssemblyName)</Title>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -38,6 +40,13 @@ https://github.com/yswenli/SAEA</PackageReleaseNotes>
   <ItemGroup>
     <ProjectReference Include="..\SAEA.Common\SAEA.Common.csproj" />
     <ProjectReference Include="..\SAEA.Sockets\SAEA.Sockets.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
   </ItemGroup>
 
 </Project>
