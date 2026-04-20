@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SAEA.Common\SAEA.Common.csproj" />
+    <ProjectReference Include="..\SAEA.Sockets\SAEA.Sockets.csproj" />
+    <ProjectReference Include="..\SAEA.P2P\SAEA.P2P.csproj" />
+  </ItemGroup>
+</Project>

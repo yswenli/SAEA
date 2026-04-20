@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using SAEA.MQTT.Adapter;
 using SAEA.MQTT.Exceptions;
@@ -37,7 +37,7 @@ namespace SAEA.MQTT.Formatter.V5
                 case MqttControlPacketType.PingResp: return DecodePingRespPacket();
                 case MqttControlPacketType.Subscribe: return DecodeSubscribePacket(receivedMqttPacket.Body);
                 case MqttControlPacketType.SubAck: return DecodeSubAckPacket(receivedMqttPacket.Body);
-                case MqttControlPacketType.Unsubscibe: return DecodeUnsubscribePacket(receivedMqttPacket.Body);
+                case MqttControlPacketType.Unsubscribe: return DecodeUnsubscribePacket(receivedMqttPacket.Body);
                 case MqttControlPacketType.UnsubAck: return DecodeUnsubAckPacket(receivedMqttPacket.Body);
                 case MqttControlPacketType.Auth: return DecodeAuthPacket(receivedMqttPacket.Body);
 
@@ -146,23 +146,23 @@ namespace SAEA.MQTT.Formatter.V5
                 {
                     if (willPropertiesReader.CurrentPropertyId == MqttPropertyId.PayloadFormatIndicator)
                     {
-                        packet.WillMessage.PayloadFormatIndicator = propertiesReader.ReadPayloadFormatIndicator();
+                        packet.WillMessage.PayloadFormatIndicator = willPropertiesReader.ReadPayloadFormatIndicator();
                     }
                     else if (willPropertiesReader.CurrentPropertyId == MqttPropertyId.MessageExpiryInterval)
                     {
-                        packet.WillMessage.MessageExpiryInterval = propertiesReader.ReadMessageExpiryInterval();
+                        packet.WillMessage.MessageExpiryInterval = willPropertiesReader.ReadMessageExpiryInterval();
                     }
                     else if (willPropertiesReader.CurrentPropertyId == MqttPropertyId.TopicAlias)
                     {
-                        packet.WillMessage.TopicAlias = propertiesReader.ReadTopicAlias();
+                        packet.WillMessage.TopicAlias = willPropertiesReader.ReadTopicAlias();
                     }
                     else if (willPropertiesReader.CurrentPropertyId == MqttPropertyId.ResponseTopic)
                     {
-                        packet.WillMessage.ResponseTopic = propertiesReader.ReadResponseTopic();
+                        packet.WillMessage.ResponseTopic = willPropertiesReader.ReadResponseTopic();
                     }
                     else if (willPropertiesReader.CurrentPropertyId == MqttPropertyId.CorrelationData)
                     {
-                        packet.WillMessage.CorrelationData = propertiesReader.ReadCorrelationData();
+                        packet.WillMessage.CorrelationData = willPropertiesReader.ReadCorrelationData();
                     }
                     else if (willPropertiesReader.CurrentPropertyId == MqttPropertyId.SubscriptionIdentifier)
                     {
@@ -171,16 +171,15 @@ namespace SAEA.MQTT.Formatter.V5
                             packet.WillMessage.SubscriptionIdentifiers = new List<uint>();
                         }
 
-                        packet.WillMessage.SubscriptionIdentifiers.Add(propertiesReader.ReadSubscriptionIdentifier());
+                        packet.WillMessage.SubscriptionIdentifiers.Add(willPropertiesReader.ReadSubscriptionIdentifier());
                     }
                     else if (willPropertiesReader.CurrentPropertyId == MqttPropertyId.ContentType)
                     {
-                        packet.WillMessage.ContentType = propertiesReader.ReadContentType();
+                        packet.WillMessage.ContentType = willPropertiesReader.ReadContentType();
                     }
                     else if (willPropertiesReader.CurrentPropertyId == MqttPropertyId.WillDelayInterval)
                     {
-                        // This is a special case!
-                        packet.Properties.WillDelayInterval = propertiesReader.ReadWillDelayInterval();
+                        packet.Properties.WillDelayInterval = willPropertiesReader.ReadWillDelayInterval();
                     }
                     else if (willPropertiesReader.CurrentPropertyId == MqttPropertyId.UserProperty)
                     {
@@ -189,11 +188,11 @@ namespace SAEA.MQTT.Formatter.V5
                             packet.WillMessage.UserProperties = new List<MqttUserProperty>();
                         }
 
-                        propertiesReader.AddUserPropertyTo(packet.Properties.UserProperties);
+                        willPropertiesReader.AddUserPropertyTo(packet.WillMessage.UserProperties);
                     }
                     else
                     {
-                        propertiesReader.ThrowInvalidPropertyIdException(typeof(MqttPublishPacket));
+                        willPropertiesReader.ThrowInvalidPropertyIdException(typeof(MqttPublishPacket));
                     }
                 }
 

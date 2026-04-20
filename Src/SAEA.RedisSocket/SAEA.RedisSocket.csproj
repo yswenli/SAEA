@@ -11,7 +11,7 @@ https://github.com/yswenli/SAEA</Description>
 这是一个基于SAEA.Sockets的redis 高性能驱动，支持redis cluster
 https://github.com/yswenli/SAEA</PackageReleaseNotes>
     <PackageIconUrl></PackageIconUrl>
-    <Version>7.26.4.19</Version>
+    <Version>7.26.4.21</Version>
     <Authors>yswenli</Authors>
     <Copyright>yswenli</Copyright>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
@@ -22,6 +22,8 @@ https://github.com/yswenli/SAEA</PackageReleaseNotes>
     <AssemblyOriginatorKeyFile>E:\Work\SAEA\Src\SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
     <LangVersion>8.0</LangVersion>
     <PackageIcon>favicon.png</PackageIcon>
+    <Title>$(AssemblyName)</Title>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -46,6 +48,13 @@ https://github.com/yswenli/SAEA</PackageReleaseNotes>
   <ItemGroup>
     <ProjectReference Include="..\SAEA.Common\SAEA.Common.csproj" />
     <ProjectReference Include="..\SAEA.Sockets\SAEA.Sockets.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
   </ItemGroup>
 
 </Project>

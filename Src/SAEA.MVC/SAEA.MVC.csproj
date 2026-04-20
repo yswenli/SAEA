@@ -12,7 +12,7 @@
     <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
     <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
-    <Version>7.26.4.19</Version>
+    <Version>7.26.4.21</Version>
     <Authors>yswenli</Authors>
     <Copyright>yswenli</Copyright>
     <PackageTags>mvc,webapi,iocp,webserver,tcp,socket</PackageTags>
@@ -20,6 +20,8 @@
     <AssemblyOriginatorKeyFile>E:\Work\SAEA\Src\SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
     <LangVersion>8.0</LangVersion>
     <PackageIcon>favicon.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Title>$(AssemblyName)</Title>
   </PropertyGroup>
 
   <ItemGroup>
@@ -36,6 +38,13 @@
     <None Include="..\..\LICENSE.txt">
       <Pack>True</Pack>
       <PackagePath></PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
     </None>
   </ItemGroup>
 

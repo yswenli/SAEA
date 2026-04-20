@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using SAEA.MQTT.Adapter;
@@ -75,7 +75,7 @@ namespace SAEA.MQTT.Formatter.V3
                 case MqttControlPacketType.PingResp: return PingRespPacket;
                 case MqttControlPacketType.Subscribe: return DecodeSubscribePacket(receivedMqttPacket.Body);
                 case MqttControlPacketType.SubAck: return DecodeSubAckPacket(receivedMqttPacket.Body);
-                case MqttControlPacketType.Unsubscibe: return DecodeUnsubscribePacket(receivedMqttPacket.Body);
+                case MqttControlPacketType.Unsubscribe: return DecodeUnsubscribePacket(receivedMqttPacket.Body);
                 case MqttControlPacketType.UnsubAck: return DecodeUnsubAckPacket(receivedMqttPacket.Body);
 
                 default: throw new MqttProtocolViolationException($"Packet type ({controlPacketType}) not supported.");
@@ -567,7 +567,7 @@ namespace SAEA.MQTT.Formatter.V3
                 }
             }
 
-            return MqttPacketWriter.BuildFixedHeader(MqttControlPacketType.Unsubscibe, 0x02);
+            return MqttPacketWriter.BuildFixedHeader(MqttControlPacketType.Unsubscribe, 0x02);
         }
 
         static byte EncodeUnsubAckPacket(MqttUnsubAckPacket packet, IMqttPacketWriter packetWriter)

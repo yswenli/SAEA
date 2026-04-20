@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *项目名称：SAEA.MQTTTest
 *CLR 版本：4.0.30319.42000
 *机器名称：WENLI-PC
@@ -68,6 +68,16 @@ namespace SAEA.MQTTTest
             // mqtt.swifitch.cz
             await ExecuteTestAsync("mqtt.swifitch.cz",
                 new MqttClientOptionsBuilder().WithTcpServer("mqtt.swifitch.cz", 1883).WithProtocolVersion(MqttProtocolVersion.V311).Build());
+
+            // broker.emqx.io (MQTT 5.0)
+            await ExecuteTestAsync("broker.emqx.io TCP V311",
+                new MqttClientOptionsBuilder().WithTcpServer("broker.emqx.io", 1883).WithProtocolVersion(MqttProtocolVersion.V311).Build());
+
+            await ExecuteTestAsync("broker.emqx.io TCP V500",
+                new MqttClientOptionsBuilder().WithTcpServer("broker.emqx.io", 1883).WithProtocolVersion(MqttProtocolVersion.V500).Build());
+
+            await ExecuteTestAsync("broker.emqx.io WS V500",
+                new MqttClientOptionsBuilder().WithWebSocketServer("broker.emqx.io:8083/mqtt").WithProtocolVersion(MqttProtocolVersion.V500).Build());
 
             // CloudMQTT
             var configFile = Path.Combine("E:\\CloudMqttTestConfig.json");

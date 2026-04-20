@@ -22,12 +22,13 @@
 *
 *****************************************************************************/
 
-using System;
+using SAEA.Common;
+
 using System.Collections.Generic;
 using System.Net;
 using System.Text;
 
-namespace SAEA.Common
+namespace System
 {
     public static class StringHelper
     {
@@ -349,5 +350,19 @@ namespace SAEA.Common
         {
             return Encoding.UTF8.GetString(System.Convert.FromBase64String(base64Str));
         }
+
+
+        public static bool IsNullOrEmpty(this string str)
+        {
+            return string.IsNullOrEmpty(str);
+        }
+
+
+        public static bool IsNotNullOrEmpty(this string str)
+        {
+            return !string.IsNullOrEmpty(str);
+        }
+
+
     }
 }

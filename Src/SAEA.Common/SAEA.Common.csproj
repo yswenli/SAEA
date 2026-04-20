@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <Version>7.26.4.19</Version>
+    <Version>7.26.4.21</Version>
     <Authors>yswenli</Authors>
     <Company>yswenli</Company>
     <Description>SAEA. Common is a tool class project in the SAEA project
@@ -23,6 +23,7 @@ SAEA.Common 是SAEA项目中的工具类项目</PackageReleaseNotes>
     <LangVersion>8.0</LangVersion>
     <PackageIcon>favicon.png</PackageIcon>
     <Title>SAEA.Common</Title>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -30,10 +31,10 @@ SAEA.Common 是SAEA项目中的工具类项目</PackageReleaseNotes>
     <PackageReference Include="Nito.AsyncEx" Version="5.1.2" />
     <PackageReference Include="protobuf-net" Version="3.2.56" />
     <PackageReference Include="System.Collections.Concurrent" Version="4.3.0" />
-    <PackageReference Include="System.IO.Pipelines" Version="10.0.2" />
+    <PackageReference Include="System.IO.Pipelines" Version="10.0.6" />
     <PackageReference Include="System.Memory" Version="4.6.3" />
-    <PackageReference Include="System.Security.Permissions" Version="10.0.2" />
-    <PackageReference Include="System.Threading.Channels" Version="10.0.2" />
+    <PackageReference Include="System.Security.Permissions" Version="10.0.6" />
+    <PackageReference Include="System.Threading.Channels" Version="10.0.6" />
   </ItemGroup>
 
   <ItemGroup>
@@ -44,6 +45,13 @@ SAEA.Common 是SAEA项目中的工具类项目</PackageReleaseNotes>
     <None Include="..\..\LICENSE.txt">
       <Pack>True</Pack>
       <PackagePath></PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
     </None>
   </ItemGroup>
 
