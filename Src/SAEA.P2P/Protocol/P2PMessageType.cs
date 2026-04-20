@@ -8,6 +8,7 @@ namespace SAEA.P2P.Protocol
         PunchSync = 0x31,
         PunchAck = 0x32,
         RelayRequest = 0x40,
+        RelayData = 0x41,
         LocalDiscover = 0x50,
         AuthChallenge = 0x60,
         Heartbeat = 0x70,

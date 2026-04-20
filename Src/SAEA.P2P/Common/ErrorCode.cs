@@ -29,6 +29,8 @@ namespace SAEA.P2P.Common
 
         public static readonly string RelayFailed = "ER01";
         public static readonly string RelayServerUnavailable = "ER02";
+        public static readonly string RelaySessionNotFound = "ER03";
+        public static readonly string RelayQuotaExceeded = "ER04";
 
         public static readonly string AuthFailed = "EA01";
         public static readonly string AuthTimeout = "EA03";
@@ -62,6 +64,8 @@ namespace SAEA.P2P.Common
                 { HolePunchTimeout, "Hole punch timeout" },
                 { RelayFailed, "Relay connection failed" },
                 { RelayServerUnavailable, "Relay server unavailable" },
+                { RelaySessionNotFound, "Relay session not found" },
+                { RelayQuotaExceeded, "Relay quota exceeded" },
                 { AuthFailed, "Authentication failed" },
                 { AuthTimeout, "Authentication timeout" },
                 { EncryptionFailed, "Encryption failed" },
