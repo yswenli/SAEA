@@ -53,6 +53,8 @@ namespace SAEA.P2P.Builder
     
     public class HolePunchOptions
     {
+        public bool Enabled { get; set; } = false;
+        
         public HolePunchStrategy Strategy { get; set; } = HolePunchStrategy.PreferDirect;
         
         public int MaxAttempts { get; set; } = 5;
@@ -60,6 +62,8 @@ namespace SAEA.P2P.Builder
         public int AttemptIntervalMs { get; set; } = 100;
         
         public int SyncTimeoutMs { get; set; } = 5000;
+        
+        public NATType NATType { get; set; } = NATType.Unknown;
         
         public void Validate()
         {
@@ -83,6 +87,10 @@ namespace SAEA.P2P.Builder
         
         public int RelayBufferSize { get; set; } = 64 * 1024;
         
+        public int TimeoutMs { get; set; } = 30000;
+        
+        public long Quota { get; set; } = 0;
+        
         public void Validate()
         {
             if (MaxRelayConnections <= 0)
@@ -102,6 +110,10 @@ namespace SAEA.P2P.Builder
         public bool EnableLocalDiscovery { get; set; } = true;
         
         public int LocalDiscoveryPort { get; set; } = 39655;
+        
+        public string MulticastAddress { get; set; } = "239.255.255.250";
+        
+        public int DiscoveryIntervalMs { get; set; } = 5000;
         
         public int DiscoveryTimeoutMs { get; set; } = 3000;
         
@@ -128,6 +140,10 @@ namespace SAEA.P2P.Builder
         public string Algorithm { get; set; } = "AES-256-GCM";
         
         public int KeySize { get; set; } = 256;
+        
+        public string Key { get; set; }
+        
+        public bool TlsEnabled { get; set; } = false;
         
         public void Validate()
         {
@@ -160,6 +176,8 @@ namespace SAEA.P2P.Builder
         
         public int SessionTimeoutMs { get; set; } = 60000;
         
+        public int FreeTimeMs { get; set; } = 60000;
+        
         public void Validate()
         {
             if (ConnectTimeoutMs <= 0)
@@ -178,6 +196,8 @@ namespace SAEA.P2P.Builder
     {
         public bool Enabled { get; set; } = true;
         
+        public int Level { get; set; } = 2;
+        
         public LogLevel MinimumLevel { get; set; } = LogLevel.Info;
         
         public bool LogToFile { get; set; } = false;
@@ -189,9 +209,10 @@ namespace SAEA.P2P.Builder
     
     public enum LogLevel
     {
-        Debug = 0,
-        Info = 1,
-        Warning = 2,
-        Error = 3
+        Trace = 0,
+        Debug = 1,
+        Info = 2,
+        Warning = 3,
+        Error = 4
     }
 }

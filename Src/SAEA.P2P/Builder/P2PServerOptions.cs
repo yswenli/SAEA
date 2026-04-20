@@ -53,6 +53,8 @@ namespace SAEA.P2P.Builder
         
         public int MaxRelayBandwidth { get; set; } = 10 * 1024 * 1024;
         
+        public long MaxQuota { get; set; } = 0;
+        
         public void Validate()
         {
             if (MaxRelaySessions <= 0)
@@ -108,6 +110,8 @@ namespace SAEA.P2P.Builder
         public int SessionTimeoutMs { get; set; } = 120000;
         
         public int RegisterTimeoutMs { get; set; } = 10000;
+        
+        public int FreeTimeMs { get; set; } = 120000;
         
         public void Validate()
         {
