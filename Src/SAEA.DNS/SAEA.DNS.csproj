@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>netstandard2.1</TargetFramework>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <SignAssembly>False</SignAssembly>
@@ -12,7 +12,7 @@
     <PackageTags>dns,iocp,tcp,udp,socket</PackageTags>
     <Description>Saea.dns is a lightweight component based on saea.socket, including dnsserver and dnsclient.
 SAEA.DNS 是基于SAEA.Socket的轻量级的包含DnsServer和DnsClient的轻量快捷组件</Description>
-    <Version>7.26.4.21</Version>
+    <Version>26.4.22.1</Version>
     <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
     <PackageIconUrl></PackageIconUrl>
     <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>

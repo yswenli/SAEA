@@ -9,11 +9,12 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>SAEA.Audio</RootNamespace>
     <AssemblyName>SAEA.Audio.Net</AssemblyName>
-    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
     <RestorePackage>true</RestorePackage>
     <BuildPackage>true</BuildPackage>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -25,6 +26,7 @@
     <WarningLevel>4</WarningLevel>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <DocumentationFile>bin\Debug\SAEA.Audio.Net.xml</DocumentationFile>
+    <UseWinFormsOutOfProcDesigner>True</UseWinFormsOutOfProcDesigner>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -33,6 +35,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <UseWinFormsOutOfProcDesigner>True</UseWinFormsOutOfProcDesigner>
   </PropertyGroup>
   <PropertyGroup>
     <SignAssembly>false</SignAssembly>
@@ -40,6 +43,9 @@
   <PropertyGroup>
     <AssemblyOriginatorKeyFile>
     </AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>favicon.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Microsoft.Bcl.AsyncInterfaces, Version=10.0.0.6, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
@@ -693,6 +699,9 @@
     <EmbeddedResource Include="Base\NAudio\Gui\VolumeSlider.resources" />
     <EmbeddedResource Include="Base\NAudio\Gui\WaveViewer.resources" />
     <EmbeddedResource Include="Base\NAudio\Utils\ProgressLog.resources" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="favicon.ico" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
