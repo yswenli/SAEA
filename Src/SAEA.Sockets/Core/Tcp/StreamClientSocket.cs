@@ -317,7 +317,17 @@ namespace SAEA.Sockets.Core.Tcp
         [Obsolete("建议使用SendAsync(byte[] buffer, int offset, int count)或其他方法代替")]
         public void SendAsync(byte[] buffer)
         {
-            Task.WaitAll(_stream.WriteAsync(buffer, 0, buffer.Length));
+            Task.Run(async () =>
+            {
+                try
+                {
+                    await _stream.WriteAsync(buffer, 0, buffer.Length);
+                }
+                catch (Exception ex)
+                {
+                    OnError?.Invoke(Endpoint, ex);
+                }
+            });
         }
 
         /// <summary>

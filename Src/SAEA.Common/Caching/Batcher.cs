@@ -20,182 +20,237 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace SAEA.Common.Caching
 {
-    /// <summary>
-    /// 批量打包委托
-    /// </summary>
-    /// <typeparam name="T"></typeparam>
-    /// <param name="sender"></param>
-    /// <param name="data"></param>
     public delegate void OnBatchedHandler<T>(IBatcher sender, List<T> data);
 
-
-    /// <summary>
-    /// 批量打包类
-    /// </summary>
-    /// <typeparam name="T"></typeparam>
     public sealed class Batcher<T> : IBatcher, IDisposable
     {
         int _size, _timeout, _max;
+        int _concurrencyLimit;
+        int _highWatermark;
 
-        ConcurrentBag<T> _bag;
+        ConcurrentQueue<T> _queue;
+        SemaphoreSlim _sendSemaphore;
+        SemaphoreSlim _capacitySemaphore;
+        bool _stopped;
 
-        /// <summary>
-        /// 触发缓存打包事件
-        /// </summary>
         public event OnBatchedHandler<T> OnBatched;
 
-        /// <summary>
-        /// 名称
-        /// </summary>
         public string Name { get; private set; }
 
-        /// <summary>
-        /// 批量打包类
-        /// </summary>
-        /// <param name="size"></param>
-        /// <param name="timeout"></param>
-        /// <param name="max"></param>
-        /// <param name="name"></param>
-        public Batcher(int size = 1000, int timeout = 1000, int max = -1, string name = "")
-        {
+        public int PendingCount => _queue.Count;
 
+        public int Capacity => _max;
+
+        public int HighWatermark => _highWatermark;
+
+        public bool IsFull => _queue.Count >= _max;
+
+        public bool IsAboveHighWatermark => _queue.Count >= _highWatermark;
+
+        public Batcher(int size = 1000, int timeout = 1000, int max = -1, string name = "", int concurrencyLimit = 10, double highWatermarkRatio = 0.8)
+        {
             _size = size;
             _timeout = timeout;
             if (max == -1) _max = _size * 10;
             else _max = max;
             if (_max < _size) throw new ArgumentOutOfRangeException("max不能小于size");
+            _highWatermark = (int)(_max * highWatermarkRatio);
+            if (_highWatermark < _size) _highWatermark = _size;
+            _concurrencyLimit = concurrencyLimit;
             Name = name;
-            _bag = new ConcurrentBag<T>();
+            _queue = new ConcurrentQueue<T>();
+            _sendSemaphore = new SemaphoreSlim(_concurrencyLimit, _concurrencyLimit);
+            _capacitySemaphore = new SemaphoreSlim(_max, _max);
+            _stopped = false;
             TaskHelper.LongRunning(Handler);
         }
 
-        /// <summary>
-        /// 插入
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="t"></param>
         public bool Insert(T t)
         {
-            if (_bag.Count >= _max)
+            if (_queue.Count >= _max)
             {
-                // 当队列已满时，丢弃最早的元素
-                if (_bag.TryTake(out T _))
-                {
-                    _bag.Add(t);
-                    return true;
-                }
                 return false;
             }
-            _bag.Add(t);
+            _queue.Enqueue(t);
             return true;
         }
 
-        /// <summary>
-        /// 处理过期或已达上限的数据
-        /// </summary>
+        public async Task<bool> InsertAsync(T t, CancellationToken cancellationToken = default)
+        {
+            if (_queue.Count >= _max)
+            {
+                return false;
+            }
+            _queue.Enqueue(t);
+            return true;
+        }
+
+        public async Task<bool> InsertWithBackpressureAsync(T t, int timeoutMs = 5000, CancellationToken cancellationToken = default)
+        {
+            if (_stopped) return false;
+
+            var currentCount = _queue.Count;
+            if (currentCount >= _max)
+            {
+                using var timeoutCts = new CancellationTokenSource(timeoutMs);
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, cancellationToken);
+                
+                try
+                {
+                    await WaitForCapacityAsync(1, linkedCts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    return false;
+                }
+            }
+
+            _queue.Enqueue(t);
+            return true;
+        }
+
+        public async Task WaitForCapacityAsync(int requiredSpace, CancellationToken cancellationToken = default)
+        {
+            if (_stopped) return;
+
+            var currentCount = _queue.Count;
+            var availableSpace = _max - currentCount;
+
+            if (availableSpace >= requiredSpace)
+            {
+                return;
+            }
+
+            var permitsNeeded = requiredSpace - availableSpace;
+
+            for (int i = 0; i < permitsNeeded; i++)
+            {
+                await _capacitySemaphore.WaitAsync(cancellationToken);
+            }
+        }
+
         private void Handler()
         {
             Stopwatch stopwatch = Stopwatch.StartNew();
-            while (true)
+            while (!_stopped)
             {
-                var count = _bag.Count;
+                var count = _queue.Count;
                 if (count >= _size || (count > 0 && stopwatch.ElapsedMilliseconds >= _timeout))
                 {
                     var list = new List<T>();
-                    int takeCount = Math.Min(count, _size); // 限制每次最多取出_size个消息
+                    int takeCount = Math.Min(count, _size);
+                    int actuallyTaken = 0;
                     for (int i = 0; i < takeCount; i++)
                     {
-                        if (_bag.TryTake(out T t))
+                        if (_queue.TryDequeue(out T t))
                         {
                             list.Add(t);
+                            actuallyTaken++;
+                            try
+                            {
+                                _capacitySemaphore.Release();
+                            }
+                            catch (SemaphoreFullException)
+                            {
+                            }
                         }
                     }
-                    OnBatched?.Invoke(this, list);
+                    if (list.Count > 0)
+                    {
+                        FireOnBatchedAsync(list);
+                    }
                     stopwatch.Restart();
                 }
                 else
                 {
-                    ThreadHelper.Sleep(_timeout);
+                    ThreadHelper.Sleep(Math.Min(_timeout, 100));
                 }
             }
         }
 
-        /// <summary>
-        /// 清除数据
-        /// </summary>
+        private void FireOnBatchedAsync(List<T> list)
+        {
+            TaskHelper.Run(async () =>
+            {
+                await _sendSemaphore.WaitAsync();
+                try
+                {
+                    OnBatched?.Invoke(this, list);
+                }
+                finally
+                {
+                    _sendSemaphore.Release();
+                }
+            });
+        }
+
         public void Clear()
         {
-            while (!_bag.IsEmpty)
+            while (!_queue.IsEmpty)
             {
-                _bag.TryTake(out T _);
+                if (_queue.TryDequeue(out T _))
+                {
+                    try
+                    {
+                        _capacitySemaphore.Release();
+                    }
+                    catch (SemaphoreFullException)
+                    {
+                    }
+                }
             }
         }
 
-        /// <summary>
-        /// 释放批量打包缓存
-        /// </summary>
         public void Dispose()
         {
-            var count = _bag.Count;
+            _stopped = true;
+            var count = _queue.Count;
             if (count > 0)
             {
                 var list = new List<T>();
                 for (int i = 0; i < count; i++)
                 {
-                    if (_bag.TryTake(out T t))
+                    if (_queue.TryDequeue(out T t))
                     {
                         list.Add(t);
                     }
                 }
                 OnBatched?.Invoke(this, list);
             }
+            _sendSemaphore?.Dispose();
+            _capacitySemaphore?.Dispose();
         }
     }
 
 
-    /// <summary>
-    /// 批量打包委托
-    /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="data"></param>
     public delegate void OnBatchedHandler(IBatcher sender, byte[] data);
 
-    /// <summary>
-    /// 批量打包
-    /// </summary>
     public sealed class Batcher : IBatcher, IDisposable
     {
         Batcher<byte[]> _batcher;
 
-        /// <summary>
-        /// 触发缓存打包事件
-        /// </summary>
         public event OnBatchedHandler OnBatched;
 
-        /// <summary>
-        /// 名称
-        /// </summary>
-        public string Name
-        {
-            get
-            {
-                return _batcher.Name;
-            }
-        }
+        public string Name => _batcher.Name;
 
-        /// <summary>
-        /// 批量打包类
-        /// </summary>
-        /// <param name="size"></param>
-        /// <param name="timeout"></param>
-        /// <param name="max"></param>
-        /// <param name="name"></param>
-        public Batcher(int size = 1000, int timeout = 1000, int max = -1, string name = "")
+        public int PendingCount => _batcher.PendingCount;
+
+        public int Capacity => _batcher.Capacity;
+
+        public int HighWatermark => _batcher.HighWatermark;
+
+        public bool IsFull => _batcher.IsFull;
+
+        public bool IsAboveHighWatermark => _batcher.IsAboveHighWatermark;
+
+        public Batcher(int size = 1000, int timeout = 1000, int max = -1, string name = "", int concurrencyLimit = 10, double highWatermarkRatio = 0.8)
         {
-            _batcher = new Batcher<byte[]>(size, timeout, max, name);
+            _batcher = new Batcher<byte[]>(size, timeout, max, name, concurrencyLimit, highWatermarkRatio);
 
             _batcher.OnBatched += _batcher_OnBatched;
         }
@@ -211,27 +266,31 @@ namespace SAEA.Common.Caching
             result.Clear();
         }
 
-        /// <summary>
-        /// 插入
-        /// </summary>
-        /// <param name="data"></param>
         public bool Insert(byte[] data)
         {
             return _batcher.Insert(data);
         }
 
+        public async Task<bool> InsertAsync(byte[] data, CancellationToken cancellationToken = default)
+        {
+            return await _batcher.InsertAsync(data, cancellationToken);
+        }
 
-        /// <summary>
-        /// 清除数据
-        /// </summary>
+        public async Task<bool> InsertWithBackpressureAsync(byte[] data, int timeoutMs = 5000, CancellationToken cancellationToken = default)
+        {
+            return await _batcher.InsertWithBackpressureAsync(data, timeoutMs, cancellationToken);
+        }
+
+        public async Task WaitForCapacityAsync(int requiredSpace, CancellationToken cancellationToken = default)
+        {
+            await _batcher.WaitForCapacityAsync(requiredSpace, cancellationToken);
+        }
+
         public void Clear()
         {
             _batcher?.Clear();
         }
 
-        /// <summary>
-        /// Dispose
-        /// </summary>
         public void Dispose()
         {
             Clear();

@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
@@ -406,12 +406,12 @@ namespace SAEA.MessageTest
 
             int size = 100000;
 
-            TaskHelper.LongRunning(() =>
+            TaskHelper.LongRunning(async () =>
             {
                 for (int i = 0; i < size; i++)
                 {
-                    cc1.SendPrivateMsg(cc2.ID, "你好呀,cc2！");
-                    cc2.SendPrivateMsg(cc1.ID, "你好呀,cc2！");
+                    await cc1.SendPrivateMsgAsync(cc2.ID, "你好呀,cc2！");
+                    await cc2.SendPrivateMsgAsync(cc1.ID, "你好呀,cc2！");
                 }
             });
 

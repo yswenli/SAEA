@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
@@ -199,6 +199,15 @@ namespace SAEA.MessageSocket
             _classificationBatcher.Insert(userToken.ID, sp);
         }
 
+        async Task ReplyBaseWithBackpressureAsync(IUserToken userToken, ChatMessage cm, int timeoutMs = 5000)
+        {
+            var data = SerializeHelper.PBSerialize(cm);
+
+            var sp = BaseSocketProtocal.Parse(data, SocketProtocalType.ChatMessage).ToBytes();
+
+            await _classificationBatcher.InsertWithBackpressureAsync(userToken.ID, sp, timeoutMs);
+        }
+
         void ReplyLogin(MessageUserToken userToken, ChatMessage cm)
         {
             userToken.Logined = DateTimeHelper.Now;
@@ -280,6 +289,24 @@ namespace SAEA.MessageSocket
                 var r = (IUserToken)_server.GetCurrentObj(privateMessage.Receiver);
                 if (r != null)
                     ReplyBase(r, new ChatMessage(ChatMessageType.PrivateMessage, SerializeHelper.Serialize(privateMessage)));
+            }
+        }
+
+        async Task ReplyPrivateMessageWithBackpressureAsync(MessageUserToken userToken, ChatMessage cm, int timeoutMs = 5000)
+        {
+            await ReplyBaseWithBackpressureAsync(userToken, new ChatMessage(ChatMessageType.PrivateMessageAnswer, ""), timeoutMs);
+
+            var privateMessage = SerializeHelper.Deserialize<PrivateMessage>(cm.Content);
+
+            if (privateMessage != null && !string.IsNullOrEmpty(privateMessage.Receiver))
+            {
+                privateMessage.Sender = userToken.ID;
+
+                privateMessage.Sended = DateTimeHelper.ToString();
+
+                var r = (IUserToken)_server.GetCurrentObj(privateMessage.Receiver);
+                if (r != null)
+                    await ReplyBaseWithBackpressureAsync(r, new ChatMessage(ChatMessageType.PrivateMessage, SerializeHelper.Serialize(privateMessage)), timeoutMs);
             }
         }
 
