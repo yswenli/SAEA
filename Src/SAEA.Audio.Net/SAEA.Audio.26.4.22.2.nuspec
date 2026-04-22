@@ -1,0 +1,78 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
+  <metadata>
+    <id>SAEA.Audio</id>
+    <version>26.4.22.2</version>
+    <title>SAEA.Audio</title>
+    <authors>yswenli</authors>
+    <owners>yswenli</owners>
+    <developmentDependency>true</developmentDependency>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <icon>content\favicon.png</icon>
+    <readme>content\README.md</readme>
+    <description>SAEA.Audio.Net 是SAEA项目中的语音处理的项目</description>
+    <summary>SAEA.Audio.Net 是SAEA项目中的语音处理的项目</summary>
+    <releaseNotes>SAEA.Audio.Net 是SAEA项目中的语音处理的项目</releaseNotes>
+    <copyright>yswenli</copyright>
+    <language>zh-Hans-CN</language>
+    <tags>audio,iocp,tcp,socket</tags>
+  </metadata>
+  <files>
+    <file src="content\favicon.ico" target="content\favicon.ico" />
+    <file src="content\favicon.png" target="content\favicon.png" />
+    <file src="content\LICENSE.txt" target="content\LICENSE.txt" />
+    <file src="content\README.md" target="content\README.md" />
+    <file src="lib\netstandard2.0\Microsoft.Bcl.AsyncInterfaces.dll" target="lib\netstandard2.0\Microsoft.Bcl.AsyncInterfaces.dll" />
+    <file src="lib\netstandard2.0\Microsoft.Bcl.AsyncInterfaces.xml" target="lib\netstandard2.0\Microsoft.Bcl.AsyncInterfaces.xml" />
+    <file src="lib\netstandard2.0\Nito.AsyncEx.Context.dll" target="lib\netstandard2.0\Nito.AsyncEx.Context.dll" />
+    <file src="lib\netstandard2.0\Nito.AsyncEx.Context.xml" target="lib\netstandard2.0\Nito.AsyncEx.Context.xml" />
+    <file src="lib\netstandard2.0\Nito.AsyncEx.Coordination.dll" target="lib\netstandard2.0\Nito.AsyncEx.Coordination.dll" />
+    <file src="lib\netstandard2.0\Nito.AsyncEx.Coordination.xml" target="lib\netstandard2.0\Nito.AsyncEx.Coordination.xml" />
+    <file src="lib\netstandard2.0\Nito.AsyncEx.Interop.WaitHandles.dll" target="lib\netstandard2.0\Nito.AsyncEx.Interop.WaitHandles.dll" />
+    <file src="lib\netstandard2.0\Nito.AsyncEx.Interop.WaitHandles.xml" target="lib\netstandard2.0\Nito.AsyncEx.Interop.WaitHandles.xml" />
+    <file src="lib\netstandard2.0\Nito.AsyncEx.Oop.dll" target="lib\netstandard2.0\Nito.AsyncEx.Oop.dll" />
+    <file src="lib\netstandard2.0\Nito.AsyncEx.Oop.xml" target="lib\netstandard2.0\Nito.AsyncEx.Oop.xml" />
+    <file src="lib\netstandard2.0\Nito.AsyncEx.Tasks.dll" target="lib\netstandard2.0\Nito.AsyncEx.Tasks.dll" />
+    <file src="lib\netstandard2.0\Nito.AsyncEx.Tasks.xml" target="lib\netstandard2.0\Nito.AsyncEx.Tasks.xml" />
+    <file src="lib\netstandard2.0\Nito.Cancellation.dll" target="lib\netstandard2.0\Nito.Cancellation.dll" />
+    <file src="lib\netstandard2.0\Nito.Cancellation.xml" target="lib\netstandard2.0\Nito.Cancellation.xml" />
+    <file src="lib\netstandard2.0\Nito.Collections.Deque.dll" target="lib\netstandard2.0\Nito.Collections.Deque.dll" />
+    <file src="lib\netstandard2.0\Nito.Collections.Deque.xml" target="lib\netstandard2.0\Nito.Collections.Deque.xml" />
+    <file src="lib\netstandard2.0\Nito.Disposables.dll" target="lib\netstandard2.0\Nito.Disposables.dll" />
+    <file src="lib\netstandard2.0\Nito.Disposables.xml" target="lib\netstandard2.0\Nito.Disposables.xml" />
+    <file src="lib\netstandard2.0\Pipelines.Sockets.Unofficial.dll" target="lib\netstandard2.0\Pipelines.Sockets.Unofficial.dll" />
+    <file src="lib\netstandard2.0\Pipelines.Sockets.Unofficial.xml" target="lib\netstandard2.0\Pipelines.Sockets.Unofficial.xml" />
+    <file src="lib\netstandard2.0\protobuf-net.Core.dll" target="lib\netstandard2.0\protobuf-net.Core.dll" />
+    <file src="lib\netstandard2.0\protobuf-net.Core.xml" target="lib\netstandard2.0\protobuf-net.Core.xml" />
+    <file src="lib\netstandard2.0\protobuf-net.dll" target="lib\netstandard2.0\protobuf-net.dll" />
+    <file src="lib\netstandard2.0\protobuf-net.xml" target="lib\netstandard2.0\protobuf-net.xml" />
+    <file src="lib\netstandard2.0\SAEA.Audio.Net.dll" target="lib\netstandard2.0\SAEA.Audio.Net.dll" />
+    <file src="lib\netstandard2.0\SAEA.Audio.Net.dll.config" target="lib\netstandard2.0\SAEA.Audio.Net.dll.config" />
+    <file src="lib\netstandard2.0\SAEA.Audio.Net.pdb" target="lib\netstandard2.0\SAEA.Audio.Net.pdb" />
+    <file src="lib\netstandard2.0\SAEA.Audio.Net.xml" target="lib\netstandard2.0\SAEA.Audio.Net.xml" />
+    <file src="lib\netstandard2.0\SAEA.Common.dll" target="lib\netstandard2.0\SAEA.Common.dll" />
+    <file src="lib\netstandard2.0\SAEA.Sockets.dll" target="lib\netstandard2.0\SAEA.Sockets.dll" />
+    <file src="lib\netstandard2.0\System.Buffers.dll" target="lib\netstandard2.0\System.Buffers.dll" />
+    <file src="lib\netstandard2.0\System.Buffers.xml" target="lib\netstandard2.0\System.Buffers.xml" />
+    <file src="lib\netstandard2.0\System.Collections.Immutable.dll" target="lib\netstandard2.0\System.Collections.Immutable.dll" />
+    <file src="lib\netstandard2.0\System.Collections.Immutable.xml" target="lib\netstandard2.0\System.Collections.Immutable.xml" />
+    <file src="lib\netstandard2.0\System.IO.Pipelines.dll" target="lib\netstandard2.0\System.IO.Pipelines.dll" />
+    <file src="lib\netstandard2.0\System.IO.Pipelines.xml" target="lib\netstandard2.0\System.IO.Pipelines.xml" />
+    <file src="lib\netstandard2.0\System.Memory.dll" target="lib\netstandard2.0\System.Memory.dll" />
+    <file src="lib\netstandard2.0\System.Memory.xml" target="lib\netstandard2.0\System.Memory.xml" />
+    <file src="lib\netstandard2.0\System.Numerics.Vectors.dll" target="lib\netstandard2.0\System.Numerics.Vectors.dll" />
+    <file src="lib\netstandard2.0\System.Numerics.Vectors.xml" target="lib\netstandard2.0\System.Numerics.Vectors.xml" />
+    <file src="lib\netstandard2.0\System.Runtime.CompilerServices.Unsafe.dll" target="lib\netstandard2.0\System.Runtime.CompilerServices.Unsafe.dll" />
+    <file src="lib\netstandard2.0\System.Runtime.CompilerServices.Unsafe.xml" target="lib\netstandard2.0\System.Runtime.CompilerServices.Unsafe.xml" />
+    <file src="lib\netstandard2.0\System.Security.AccessControl.dll" target="lib\netstandard2.0\System.Security.AccessControl.dll" />
+    <file src="lib\netstandard2.0\System.Security.AccessControl.xml" target="lib\netstandard2.0\System.Security.AccessControl.xml" />
+    <file src="lib\netstandard2.0\System.Security.Permissions.dll" target="lib\netstandard2.0\System.Security.Permissions.dll" />
+    <file src="lib\netstandard2.0\System.Security.Permissions.xml" target="lib\netstandard2.0\System.Security.Permissions.xml" />
+    <file src="lib\netstandard2.0\System.Security.Principal.Windows.dll" target="lib\netstandard2.0\System.Security.Principal.Windows.dll" />
+    <file src="lib\netstandard2.0\System.Security.Principal.Windows.xml" target="lib\netstandard2.0\System.Security.Principal.Windows.xml" />
+    <file src="lib\netstandard2.0\System.Threading.Channels.dll" target="lib\netstandard2.0\System.Threading.Channels.dll" />
+    <file src="lib\netstandard2.0\System.Threading.Channels.xml" target="lib\netstandard2.0\System.Threading.Channels.xml" />
+    <file src="lib\netstandard2.0\System.Threading.Tasks.Extensions.dll" target="lib\netstandard2.0\System.Threading.Tasks.Extensions.dll" />
+    <file src="lib\netstandard2.0\System.Threading.Tasks.Extensions.xml" target="lib\netstandard2.0\System.Threading.Tasks.Extensions.xml" />
+  </files>
+</package>

@@ -17,6 +17,8 @@
 *****************************************************************************/
 using SAEA.Common;
 
+using System;
+
 namespace SAEA.RedisSocket.Core.Stream
 {
     /// <summary>
@@ -54,7 +56,7 @@ namespace SAEA.RedisSocket.Core.Stream
         {
             if (!string.IsNullOrEmpty(redisId) && redisId.IndexOf("-") > 0)
             {
-                var arr = redisId.Split("-");
+                var arr = redisId.Split(new string[] { "-" }, StringSplitOptions.None);
                 if (arr.Length == 2)
                 {
                     if (long.TryParse(arr[0], out long h) && long.TryParse(arr[1], out long t))
