@@ -74,7 +74,7 @@ namespace SAEA.MessageSocket
             {
                 if (string.IsNullOrEmpty(_messageContext.UserToken.ID))
                 {
-                    _messageContext.UserToken.ID = _messageContext.UserToken.Socket.RemoteEndPoint.ToString();
+                    _messageContext.UserToken.ID = _client.Endpoint;
                 }
 
                 return _messageContext.UserToken.ID;
@@ -102,7 +102,7 @@ namespace SAEA.MessageSocket
 
             HeartAsync();
 
-            _batcher = new Batcher(10000, 10);
+            _batcher = new Batcher(10000, 10, 500000);
 
             _batcher.OnBatched += _batcher_OnBatched;
         }

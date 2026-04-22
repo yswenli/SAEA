@@ -396,36 +396,48 @@ namespace SAEA.MessageTest
             var cc2 = new MessageClient();
             cc2.OnPrivateMessage += Client_OnPrivateMessage1;
 
+            ConsoleHelper.WriteLine("cc1 connecting...");
             cc1.Connect();
+            ConsoleHelper.WriteLine("cc1 connected, ID=" + cc1.ID);
+
+            ConsoleHelper.WriteLine("cc2 connecting...");
             cc2.Connect();
+            ConsoleHelper.WriteLine("cc2 connected, ID=" + cc2.ID);
 
             cc1.Login();
             cc2.Login();
+            ConsoleHelper.WriteLine("Login completed");
 
             Stopwatch stopwatch = Stopwatch.StartNew();
 
             int size = 100000;
 
-            TaskHelper.LongRunning(async () =>
+            Task.Run(async () =>
             {
+                ConsoleHelper.WriteLine("Starting send loop, size=" + size);
                 for (int i = 0; i < size; i++)
                 {
                     await cc1.SendPrivateMsgAsync(cc2.ID, "你好呀,cc2！");
                     await cc2.SendPrivateMsgAsync(cc1.ID, "你好呀,cc2！");
+                    if (i % 1000 == 0)
+                    {
+                        ConsoleHelper.WriteLine("Sent " + i + " messages");
+                    }
                 }
+                ConsoleHelper.WriteLine("Send loop completed");
             });
 
             while (true)
             {
                 if (_pcount < 2 * size)
                 {
-                    ConsoleHelper.WriteLine($"已处理私信{_pcount}条");
+                    ConsoleHelper.WriteLine("已处理私信" + _pcount + "条");
                     Thread.Sleep(1000);
                 }
                 else
                 {
                     stopwatch.Stop();
-                    ConsoleHelper.WriteLine($"私信测试已完成，速度：{_pcount / stopwatch.Elapsed.TotalSeconds}");
+                    ConsoleHelper.WriteLine("私信测试已完成，速度：" + _pcount / stopwatch.Elapsed.TotalSeconds);
                     break;
                 }
             }
