@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
@@ -21,11 +21,12 @@
 *描述：控制台帮助类
 *
 *****************************************************************************/
+using SAEA.Common.Threading;
+
 using System;
 using System.Collections.Concurrent;
+using System.IO;
 using System.Threading;
-
-using SAEA.Common.Threading;
 
 
 namespace SAEA.Common
@@ -40,9 +41,27 @@ namespace SAEA.Common
         /// </summary>
         static BlockingCollection<ConsoleInfo> _queue = new BlockingCollection<ConsoleInfo>();
 
+        /// <summary>
+        /// 日志文件路径
+        /// </summary>
+        static string _logFilePath;
+
+        /// <summary>
+        /// 日志文件写入流
+        /// </summary>
+        static StreamWriter _logWriter;
+
+        /// <summary>
+        /// 日志写入队列
+        /// </summary>
+        static BlockingCollection<string> _logQueue = new BlockingCollection<string>();
+
         static ConsoleHelper()
         {
             _ = DateTimeHelper.ToString();
+
+            // 初始化日志文件
+            InitLogFile();
 
             TaskHelper.LongRunning(() =>
             {
@@ -72,6 +91,51 @@ namespace SAEA.Common
                     }
                 }
             });
+
+            // 启动日志写入线程
+            TaskHelper.LongRunning(() =>
+            {
+                while (true)
+                {
+                    try
+                    {
+                        if (_logQueue.TryTake(out string logLine, 100))
+                        {
+                            _logWriter?.WriteLine(logLine);
+                            _logWriter?.Flush();
+                        }
+                    }
+                    catch
+                    {
+                        Thread.Sleep(100);
+                    }
+                }
+            });
+        }
+
+        /// <summary>
+        /// 初始化日志文件
+        /// </summary>
+        static void InitLogFile()
+        {
+            try
+            {
+                var tempPath = Path.GetTempPath();
+                var logDir = Path.Combine(tempPath, "SAEA.Sockets.Logs", "Console");
+                if (!Directory.Exists(logDir))
+                {
+                    Directory.CreateDirectory(logDir);
+                }
+
+                var fileName = DateTime.Now.ToString("yyyyMMdd_HHmmss_fff") + ".log";
+                _logFilePath = Path.Combine(logDir, fileName);
+                _logWriter = new StreamWriter(_logFilePath, true);
+                _logWriter.AutoFlush = true;
+            }
+            catch
+            {
+                // 如果创建日志文件失败，忽略错误
+            }
         }
 
         /// <summary>
@@ -90,6 +154,8 @@ namespace SAEA.Common
         public static void WriteLine(string str)
         {
             _queue.TryAdd(new ConsoleInfo { Text = str });
+            // 同时写入日志文件
+            _logQueue.TryAdd(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + "  " + str);
         }
 
         /// <summary>
@@ -100,6 +166,16 @@ namespace SAEA.Common
         public static void WriteLine(string str, params object[] args)
         {
             _queue.TryAdd(new ConsoleInfo { Text = str, Args = args });
+            // 同时写入日志文件
+            try
+            {
+                var formatted = string.Format(str, args);
+                _logQueue.TryAdd(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + "  " + formatted);
+            }
+            catch
+            {
+                _logQueue.TryAdd(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + "  " + str);
+            }
         }
 
         /// <summary>
@@ -111,6 +187,16 @@ namespace SAEA.Common
         public static void WriteLine(string str, ConsoleColor color, params object[] args)
         {
             _queue.TryAdd(new ConsoleInfo { Text = str, Color = color, Args = args });
+            // 同时写入日志文件
+            try
+            {
+                var formatted = string.Format(str, args);
+                _logQueue.TryAdd(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + "  " + formatted);
+            }
+            catch
+            {
+                _logQueue.TryAdd(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + "  " + str);
+            }
         }
 
         /// <summary>
