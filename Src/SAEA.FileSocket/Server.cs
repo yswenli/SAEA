@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
@@ -100,7 +100,7 @@ namespace SAEA.FileSocket
 
                 if (msg.Content != null)
                 {
-                    var fi = msg.Content.ToInstance<FileMessage>();
+                    var fi = SerializeHelper.PBDeserialize<FileMessage>(msg.Content);
                     fileName = fi.FileName;
                     length = fi.Length;
                 }

@@ -237,7 +237,7 @@ namespace SAEA.FileSocket
             {
                 var fName = Path.GetFileName(fileName);
 
-                var data = SerializeHelper.ByteSerialize(new FileMessage() { FileName = fName, Length = new FileInfo(fileName).Length, Offset = offset });
+                var data = SerializeHelper.PBSerialize(new FileMessage() { FileName = fName, Length = new FileInfo(fileName).Length, Offset = offset });
 
                 sendRequest(data, (d) =>
                 {

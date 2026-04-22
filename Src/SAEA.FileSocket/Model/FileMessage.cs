@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
@@ -21,6 +21,7 @@
 *描述：
 *
 *****************************************************************************/
+using ProtoBuf;
 using System;
 
 namespace SAEA.FileSocket.Model
@@ -28,19 +29,22 @@ namespace SAEA.FileSocket.Model
     /// <summary>
     /// 系统默认文件消息体
     /// </summary>
-    [Serializable]
+    [ProtoContract]
     public sealed class FileMessage
     {
+        [ProtoMember(1)]
         public string FileName
         {
             get; set;
         }
 
+        [ProtoMember(2)]
         public long Length
         {
             get; set;
         }
 
+        [ProtoMember(3)]
         public long Offset
         {
             get; set;
