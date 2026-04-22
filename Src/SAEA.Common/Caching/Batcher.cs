@@ -31,7 +31,6 @@ namespace SAEA.Common.Caching
     {
         int _size, _timeout, _max;
         int _concurrencyLimit;
-        int _highWatermark;
 
         ConcurrentQueue<T> _queue;
         SemaphoreSlim _sendSemaphore;
@@ -46,21 +45,15 @@ namespace SAEA.Common.Caching
 
         public int Capacity => _max;
 
-        public int HighWatermark => _highWatermark;
-
         public bool IsFull => _queue.Count >= _max;
 
-        public bool IsAboveHighWatermark => _queue.Count >= _highWatermark;
-
-        public Batcher(int size = 1000, int timeout = 1000, int max = -1, string name = "", int concurrencyLimit = 10, double highWatermarkRatio = 0.8)
+        public Batcher(int size = 1000, int timeout = 1000, int max = -1, string name = "", int concurrencyLimit = 10)
         {
             _size = size;
             _timeout = timeout;
             if (max == -1) _max = _size * 10;
             else _max = max;
             if (_max < _size) throw new ArgumentOutOfRangeException("max不能小于size");
-            _highWatermark = (int)(_max * highWatermarkRatio);
-            if (_highWatermark < _size) _highWatermark = _size;
             _concurrencyLimit = concurrencyLimit;
             Name = name;
             _queue = new ConcurrentQueue<T>();
@@ -94,44 +87,20 @@ namespace SAEA.Common.Caching
         {
             if (_stopped) return false;
 
-            var currentCount = _queue.Count;
-            if (currentCount >= _max)
+            using var timeoutCts = new CancellationTokenSource(timeoutMs);
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, cancellationToken);
+
+            try
             {
-                using var timeoutCts = new CancellationTokenSource(timeoutMs);
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, cancellationToken);
-                
-                try
-                {
-                    await WaitForCapacityAsync(1, linkedCts.Token);
-                }
-                catch (OperationCanceledException)
-                {
-                    return false;
-                }
+                await _capacitySemaphore.WaitAsync(linkedCts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                return false;
             }
 
             _queue.Enqueue(t);
             return true;
-        }
-
-        public async Task WaitForCapacityAsync(int requiredSpace, CancellationToken cancellationToken = default)
-        {
-            if (_stopped) return;
-
-            var currentCount = _queue.Count;
-            var availableSpace = _max - currentCount;
-
-            if (availableSpace >= requiredSpace)
-            {
-                return;
-            }
-
-            var permitsNeeded = requiredSpace - availableSpace;
-
-            for (int i = 0; i < permitsNeeded; i++)
-            {
-                await _capacitySemaphore.WaitAsync(cancellationToken);
-            }
         }
 
         private void Handler()
@@ -144,13 +113,11 @@ namespace SAEA.Common.Caching
                 {
                     var list = new List<T>();
                     int takeCount = Math.Min(count, _size);
-                    int actuallyTaken = 0;
                     for (int i = 0; i < takeCount; i++)
                     {
                         if (_queue.TryDequeue(out T t))
                         {
                             list.Add(t);
-                            actuallyTaken++;
                             try
                             {
                                 _capacitySemaphore.Release();
@@ -218,6 +185,13 @@ namespace SAEA.Common.Caching
                     if (_queue.TryDequeue(out T t))
                     {
                         list.Add(t);
+                        try
+                        {
+                            _capacitySemaphore.Release();
+                        }
+                        catch (SemaphoreFullException)
+                        {
+                        }
                     }
                 }
                 OnBatched?.Invoke(this, list);
@@ -242,15 +216,11 @@ namespace SAEA.Common.Caching
 
         public int Capacity => _batcher.Capacity;
 
-        public int HighWatermark => _batcher.HighWatermark;
-
         public bool IsFull => _batcher.IsFull;
 
-        public bool IsAboveHighWatermark => _batcher.IsAboveHighWatermark;
-
-        public Batcher(int size = 1000, int timeout = 1000, int max = -1, string name = "", int concurrencyLimit = 10, double highWatermarkRatio = 0.8)
+        public Batcher(int size = 1000, int timeout = 1000, int max = -1, string name = "", int concurrencyLimit = 10)
         {
-            _batcher = new Batcher<byte[]>(size, timeout, max, name, concurrencyLimit, highWatermarkRatio);
+            _batcher = new Batcher<byte[]>(size, timeout, max, name, concurrencyLimit);
 
             _batcher.OnBatched += _batcher_OnBatched;
         }
@@ -279,11 +249,6 @@ namespace SAEA.Common.Caching
         public async Task<bool> InsertWithBackpressureAsync(byte[] data, int timeoutMs = 5000, CancellationToken cancellationToken = default)
         {
             return await _batcher.InsertWithBackpressureAsync(data, timeoutMs, cancellationToken);
-        }
-
-        public async Task WaitForCapacityAsync(int requiredSpace, CancellationToken cancellationToken = default)
-        {
-            await _batcher.WaitForCapacityAsync(requiredSpace, cancellationToken);
         }
 
         public void Clear()

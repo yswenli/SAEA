@@ -31,18 +31,16 @@ namespace SAEA.Common.Caching
         ConcurrentDictionary<string, SemaphoreSlim> _semaphores;
 
         int _size, _timeout, _max, _concurrencyLimit;
-        double _highWatermarkRatio;
 
         public event OnClassificationBatchedHandler OnBatched;
 
-        public ClassificationBatcher(int size = 1000, int timeout = 1000, int max = -1, int concurrencyLimit = 10, double highWatermarkRatio = 0.8)
+        public ClassificationBatcher(int size = 1000, int timeout = 1000, int max = -1, int concurrencyLimit = 10)
         {
             _size = size;
             _timeout = timeout;
             if (max == -1) _max = _size * 10;
             if (_max < _size) throw new ArgumentOutOfRangeException("max不能小于size");
             _concurrencyLimit = concurrencyLimit;
-            _highWatermarkRatio = highWatermarkRatio;
             _dic = new ConcurrentDictionary<string, Batcher>();
             _semaphores = new ConcurrentDictionary<string, SemaphoreSlim>();
         }
@@ -54,7 +52,7 @@ namespace SAEA.Common.Caching
 
         static object _locker = new object();
 
-        public static ClassificationBatcher GetInstance(int size = 1000, int timeout = 1000, int max = -1, int concurrencyLimit = 10, double highWatermarkRatio = 0.8)
+        public static ClassificationBatcher GetInstance(int size = 1000, int timeout = 1000, int max = -1, int concurrencyLimit = 10)
         {
             if (_classificationBatcher == null)
             {
@@ -62,7 +60,7 @@ namespace SAEA.Common.Caching
                 {
                     if (_classificationBatcher == null)
                     {
-                        _classificationBatcher = new ClassificationBatcher(size, timeout, max, concurrencyLimit, highWatermarkRatio);
+                        _classificationBatcher = new ClassificationBatcher(size, timeout, max, concurrencyLimit);
                     }
                 }
             }
@@ -80,7 +78,7 @@ namespace SAEA.Common.Caching
         {
             return _dic.GetOrAdd(name, n =>
             {
-                var b = new Batcher(_size, _timeout, _max, n, _concurrencyLimit, _highWatermarkRatio);
+                var b = new Batcher(_size, _timeout, _max, n, _concurrencyLimit);
                 b.OnBatched += Bacher_OnBatched;
                 return b;
             });
@@ -104,26 +102,11 @@ namespace SAEA.Common.Caching
             return await bacher.InsertWithBackpressureAsync(data, timeoutMs, cancellationToken);
         }
 
-        public async Task WaitForCapacityAsync(string name, int requiredSpace, CancellationToken cancellationToken = default)
-        {
-            var bacher = GetOrCreateBatcher(name);
-            await bacher.WaitForCapacityAsync(requiredSpace, cancellationToken);
-        }
-
         public bool IsFull(string name)
         {
             if (_dic.TryGetValue(name, out Batcher b))
             {
                 return b.IsFull;
-            }
-            return false;
-        }
-
-        public bool IsAboveHighWatermark(string name)
-        {
-            if (_dic.TryGetValue(name, out Batcher b))
-            {
-                return b.IsAboveHighWatermark;
             }
             return false;
         }
