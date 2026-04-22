@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *项目名称：SAEA.DNS
 *CLR 版本：3.0
 *机器名称：WENLI-PC
@@ -142,6 +142,7 @@ namespace SAEA.DNS
                                                .SetWriteBufferSize(SocketOption.UDPMaxLength)
                                                .SetActionTimeOut(UDP_TIMEOUT)
                                                .SetFreeTime(30 * 1000)
+                                               .ReusePort()
                                                .Build());
 
                     _udpServer.OnError += _udpServer_OnError;

@@ -100,7 +100,7 @@ namespace SAEA.DNS
         /// <param name="type"></param>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
-        public async Task<IList<IPAddress>> Lookup(string domain, RecordType type = RecordType.A, CancellationToken cancellationToken = default(CancellationToken))
+        public async Task<IList<IPAddress>> LookupAsync(string domain, RecordType type = RecordType.A, CancellationToken cancellationToken = default(CancellationToken))
         {
             if (type != RecordType.A && type != RecordType.AAAA)
             {

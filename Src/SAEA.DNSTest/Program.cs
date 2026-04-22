@@ -1,4 +1,4 @@
-﻿using SAEA.Common;
+using SAEA.Common;
 
 using System;
 
@@ -34,14 +34,13 @@ namespace SAEA.DNSTest
                         break;
 
                     case "c":
-                        await Client.LookupAsync("baidu.com");
-                        await Client.LookupAsync("yswenli.net");
+                        await Client.LookupAsync("119.29.29.29", "baidu.com");
                         break;
 
                     default:
                         Server.Init();
-                        await Client.LookupAsync("baidu.com");
-                        await Client.LookupAsync("yswenli.net");
+                        await Client.LookupAsync("127.0.0.1", "baidu.com");
+                        await Client.LookupAsync("127.0.0.1", "yswenli.net");
                         break;
                 }
             }

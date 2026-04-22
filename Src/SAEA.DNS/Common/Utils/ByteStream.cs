@@ -78,7 +78,12 @@ namespace SAEA.DNS.Common.Utils
 
         public byte[] ToArray()
         {
-            return buffer;
+            byte[] result = new byte[offset];
+            if (offset > 0)
+            {
+                Array.Copy(buffer, 0, result, 0, offset);
+            }
+            return result;
         }
 
         public void Reset()

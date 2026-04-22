@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *项目名称：SAEA.DNS
 *CLR 版本：3.0
 *机器名称：WENLI-PC
@@ -73,7 +73,6 @@ namespace SAEA.DNS.Coder
                  .UseIocp<BaseCoder>()
                  .SetReadBufferSize(SocketOption.UDPMaxLength)
                  .SetWriteBufferSize(SocketOption.UDPMaxLength)
-                 .ReusePort()
                  .Build()))
             {
                 udpClient.OnReceive += UdpClient_OnReceive;

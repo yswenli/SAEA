@@ -43,7 +43,7 @@ namespace SAEA.DNSTest
 
                 result = true;
 
-                //await new DnsClient("127.0.0.1").Lookup("yswenli.net");
+                await new DnsClient("127.0.0.1").LookupAsync("yswenli.net");
             };
 
             //启动dns服务
