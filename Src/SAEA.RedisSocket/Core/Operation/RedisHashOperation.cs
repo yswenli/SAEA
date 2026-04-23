@@ -14,19 +14,19 @@
 *命名空间：SAEA.RedisSocket.Core
 *文件名： RedisHashOperation
 *版本号： v26.4.23.1
-*唯一标识：b4503c4c-b9cb-4839-971f-184bef8b503d
+*唯一标识：7fc9d001-3a7d-4a77-9bc4-1133d619cdfb
 *当前的用户域：WENLI-PC
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2020/07/24 09:50:43
-*描述：
+*描述：RedisHashOperation接口
 *
 *=====================================================================
 *修改标记
 *修改时间：2020/07/24 09:50:43
 *修改人： yswenli
 *版本号： v26.4.23.1
-*描述：
+*描述：RedisHashOperation接口
 *
 *****************************************************************************/
 using SAEA.Common.Serialization;

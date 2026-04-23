@@ -14,19 +14,19 @@
 *命名空间：SAEA.RedisSocket.Core
 *文件名： RedisGeographyOperation
 *版本号： v26.4.23.1
-*唯一标识：925a0e29-9f98-40e8-9bf1-c000e0bd6a07
+*唯一标识：81117ef4-7f99-4a7f-9227-bb6b1035736c
 *当前的用户域：WENLI-PC
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2020/07/24 09:50:43
-*描述：
+*描述：RedisGeographyOperation接口
 *
 *=====================================================================
 *修改标记
 *修改时间：2020/07/24 09:50:43
 *修改人： yswenli
 *版本号： v26.4.23.1
-*描述：
+*描述：RedisGeographyOperation接口
 *
 *****************************************************************************/
 using SAEA.RedisSocket.Model;
