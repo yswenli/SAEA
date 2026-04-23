@@ -15,45 +15,34 @@
 *版本号： v7.0.0.1
 *描    述：
 *****************************************************************************/
+using SAEA.Common.Threading;
 using System;
 using System.Collections.Concurrent;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace SAEA.Common.Caching
 {
-    /// <summary>
-    /// 分类批量打包委托
-    /// </summary>
-    /// <param name="id"></param>
-    /// <param name="data"></param>
     public delegate void OnClassificationBatchedHandler(string id, byte[] data);
 
-    /// <summary>
-    /// 分类批量打包类
-    /// </summary>
-    public sealed class ClassificationBatcher
+    public sealed class ClassificationBatcher : IDisposable
     {
-        ConcurrentDictionary<string, IBatcher> _dic;
+        ConcurrentDictionary<string, Batcher> _dic;
+        ConcurrentDictionary<string, SemaphoreSlim> _semaphores;
 
-        int _size, _timeout, _max;
+        int _size, _timeout, _max, _concurrencyLimit;
 
-        /// <summary>
-        /// 分类批量打事件
-        /// </summary>
         public event OnClassificationBatchedHandler OnBatched;
 
-        /// <summary>
-        /// 分类批量打包类
-        /// </summary>
-        /// <param name="size"></param>
-        /// <param name="timeout"></param>
-        /// <param name="max"></param>
-        public ClassificationBatcher(int size = 1000, int timeout = 1000, int max = -1)
+        public ClassificationBatcher(int size = 1000, int timeout = 1000, int max = -1, int concurrencyLimit = 10)
         {
             _size = size;
             _timeout = timeout;
             if (max == -1) _max = _size * 10;
             if (_max < _size) throw new ArgumentOutOfRangeException("max不能小于size");
-            _dic = new ConcurrentDictionary<string, IBatcher>();
+            _concurrencyLimit = concurrencyLimit;
+            _dic = new ConcurrentDictionary<string, Batcher>();
+            _semaphores = new ConcurrentDictionary<string, SemaphoreSlim>();
         }
 
 
@@ -63,14 +52,7 @@ namespace SAEA.Common.Caching
 
         static object _locker = new object();
 
-        /// <summary>
-        /// 分类批量打包类
-        /// </summary>
-        /// <param name="size"></param>
-        /// <param name="timeout"></param>
-        /// <param name="max"></param>
-        /// <returns></returns>
-        public static ClassificationBatcher GetInstance(int size = 1000, int timeout = 1000, int max = -1)
+        public static ClassificationBatcher GetInstance(int size = 1000, int timeout = 1000, int max = -1, int concurrencyLimit = 10)
         {
             if (_classificationBatcher == null)
             {
@@ -78,7 +60,7 @@ namespace SAEA.Common.Caching
                 {
                     if (_classificationBatcher == null)
                     {
-                        _classificationBatcher = new ClassificationBatcher(size, timeout, max);
+                        _classificationBatcher = new ClassificationBatcher(size, timeout, max, concurrencyLimit);
                     }
                 }
             }
@@ -87,58 +69,108 @@ namespace SAEA.Common.Caching
 
         #endregion
 
-        /// <summary>
-        /// 插入
-        /// </summary>
-        /// <param name="name"></param>
-        /// <param name="data"></param>
+        private SemaphoreSlim GetOrCreateSemaphore(string name)
+        {
+            return _semaphores.GetOrAdd(name, _ => new SemaphoreSlim(_concurrencyLimit, _concurrencyLimit));
+        }
+
+        private Batcher GetOrCreateBatcher(string name)
+        {
+            return _dic.GetOrAdd(name, n =>
+            {
+                var b = new Batcher(_size, _timeout, _max, n, _concurrencyLimit);
+                b.OnBatched += Bacher_OnBatched;
+                return b;
+            });
+        }
+
         public bool Insert(string name, byte[] data)
         {
-            if (_dic.TryGetValue(name, out IBatcher b))
+            var bacher = GetOrCreateBatcher(name);
+            return bacher.Insert(data);
+        }
+
+        public async Task<bool> InsertAsync(string name, byte[] data, CancellationToken cancellationToken = default)
+        {
+            var bacher = GetOrCreateBatcher(name);
+            return await bacher.InsertAsync(data, cancellationToken);
+        }
+
+        public async Task<bool> InsertWithBackpressureAsync(string name, byte[] data, int timeoutMs = 5000, CancellationToken cancellationToken = default)
+        {
+            var bacher = GetOrCreateBatcher(name);
+            return await bacher.InsertWithBackpressureAsync(data, timeoutMs, cancellationToken);
+        }
+
+        public bool IsFull(string name)
+        {
+            if (_dic.TryGetValue(name, out Batcher b))
             {
-                if (b != null)
-                {
-                    var bacher = (Batcher)b;
-                    return bacher.Insert(data);
-                }
-            }
-            else
-            {
-                var bacher = new Batcher(_size, _timeout, _max, name);
-                bacher.OnBatched += Bacher_OnBatched;
-                if (_dic.TryAdd(name, bacher))
-                {
-                    return bacher.Insert(data);
-                }
+                return b.IsFull;
             }
             return false;
         }
 
-        /// <summary>
-        /// 清理batcher
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="name"></param>
-        public void Clear(string name)
+        public int GetPendingCount(string name)
         {
-            if (_dic.TryGetValue(name, out IBatcher b))
+            if (_dic.TryGetValue(name, out Batcher b))
             {
-                if (b != null)
-                {
-                    using (var bacher = (Batcher)b)
-                    {
-                        bacher.OnBatched -= Bacher_OnBatched;
-                    }
-                }
+                return b.PendingCount;
             }
+            return 0;
         }
 
         private void Bacher_OnBatched(IBatcher sender, byte[] data)
         {
             var bacher = (Batcher)sender;
+            var semaphore = GetOrCreateSemaphore(bacher.Name);
 
-            OnBatched?.Invoke(bacher.Name, data);
+            TaskHelper.Run(async () =>
+            {
+                await semaphore.WaitAsync();
+                try
+                {
+                    OnBatched?.Invoke(bacher.Name, data);
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            });
+        }
 
+        public void Clear(string name)
+        {
+            if (_dic.TryGetValue(name, out Batcher b))
+            {
+                if (b != null)
+                {
+                    b.OnBatched -= Bacher_OnBatched;
+                    b.Dispose();
+                    _dic.TryRemove(name, out _);
+                }
+            }
+            if (_semaphores.TryGetValue(name, out SemaphoreSlim sem))
+            {
+                sem.Dispose();
+                _semaphores.TryRemove(name, out _);
+            }
+        }
+
+        public void Dispose()
+        {
+            foreach (var item in _dic)
+            {
+                item.Value.OnBatched -= Bacher_OnBatched;
+                item.Value.Dispose();
+            }
+            _dic.Clear();
+
+            foreach (var item in _semaphores)
+            {
+                item.Value.Dispose();
+            }
+            _semaphores.Clear();
         }
     }
 }

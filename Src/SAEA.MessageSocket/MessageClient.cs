@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
@@ -35,6 +35,7 @@ using SAEA.Sockets.Handler;
 using SAEA.Sockets.Model;
 
 using System;
+using System.Threading.Tasks;
 
 namespace SAEA.MessageSocket
 {
@@ -73,7 +74,7 @@ namespace SAEA.MessageSocket
             {
                 if (string.IsNullOrEmpty(_messageContext.UserToken.ID))
                 {
-                    _messageContext.UserToken.ID = _messageContext.UserToken.Socket.RemoteEndPoint.ToString();
+                    _messageContext.UserToken.ID = _client.Endpoint;
                 }
 
                 return _messageContext.UserToken.ID;
@@ -101,7 +102,7 @@ namespace SAEA.MessageSocket
 
             HeartAsync();
 
-            _batcher = new Batcher(10000, 10);
+            _batcher = new Batcher(10000, 10, 500000);
 
             _batcher.OnBatched += _batcher_OnBatched;
         }
@@ -252,6 +253,15 @@ namespace SAEA.MessageSocket
             _batcher.Insert(content);
         }
 
+        private async Task SendBaseWithBackpressureAsync(ChatMessage cm, int timeoutMs = 5000)
+        {
+            var data = SerializeHelper.PBSerialize(cm);
+
+            var content = BaseSocketProtocal.Parse(data, SocketProtocalType.ChatMessage).ToBytes();
+
+            await _batcher.InsertWithBackpressureAsync(content, timeoutMs);
+        }
+
 
         public void Login()
         {
@@ -291,6 +301,17 @@ namespace SAEA.MessageSocket
             };
 
             SendBase(new ChatMessage(ChatMessageType.PrivateMessage, pm));
+        }
+
+        public async Task SendPrivateMsgAsync(string receiver, string content, int timeoutMs = 5000)
+        {
+            PrivateMessage pm = new PrivateMessage()
+            {
+                Receiver = receiver,
+                Content = content
+            };
+
+            await SendBaseWithBackpressureAsync(new ChatMessage(ChatMessageType.PrivateMessage, pm), timeoutMs);
         }
 
         #region group

@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c)  yswenli All Rights Reserved.
 *CLR版本： 2.1.4
 *机器名称：WENLI-PC
@@ -91,7 +91,7 @@ namespace SAEA.MessageSocket
 
             _server.OnDisconnected += _server_OnDisconnected;
 
-            _classificationBatcher = ClassificationBatcher.GetInstance(10000, 10);
+            _classificationBatcher = ClassificationBatcher.GetInstance(10000, 10, 500000);
 
             _classificationBatcher.OnBatched += _classificationBatcher_OnBatched;
         }
@@ -122,9 +122,11 @@ namespace SAEA.MessageSocket
             _server.Start();
         }
 
-        private void _server_OnReceive(object currentObj, byte[] data)
+private void _server_OnReceive(object currentObj, byte[] data)
         {
             var mUserToken = (MessageUserToken)currentObj;
+
+            ConsoleHelper.WriteLine("Server received from " + mUserToken.ID + ", data length=" + data.Length);
 
             var msgs = mUserToken.Coder.Decode(data);
 
@@ -153,7 +155,8 @@ namespace SAEA.MessageSocket
                                 ReplyChannelMessage(mUserToken, cm);
                                 break;
                             case ChatMessageType.PrivateMessage:
-                                ReplyPrivateMessage(mUserToken, cm);
+                                ConsoleHelper.WriteLine("PrivateMessage from " + mUserToken.ID);
+                                ReplyPrivateMessageWithBackpressureAsync(mUserToken, cm).ConfigureAwait(false);
                                 break;
                             case ChatMessageType.CreateGroup:
                                 ReplyCreateGroup(mUserToken, cm);
@@ -197,6 +200,15 @@ namespace SAEA.MessageSocket
             var sp = BaseSocketProtocal.Parse(data, SocketProtocalType.ChatMessage).ToBytes();
 
             _classificationBatcher.Insert(userToken.ID, sp);
+        }
+
+        async Task ReplyBaseWithBackpressureAsync(IUserToken userToken, ChatMessage cm, int timeoutMs = 5000)
+        {
+            var data = SerializeHelper.PBSerialize(cm);
+
+            var sp = BaseSocketProtocal.Parse(data, SocketProtocalType.ChatMessage).ToBytes();
+
+            await _classificationBatcher.InsertWithBackpressureAsync(userToken.ID, sp, timeoutMs);
         }
 
         void ReplyLogin(MessageUserToken userToken, ChatMessage cm)
@@ -280,6 +292,27 @@ namespace SAEA.MessageSocket
                 var r = (IUserToken)_server.GetCurrentObj(privateMessage.Receiver);
                 if (r != null)
                     ReplyBase(r, new ChatMessage(ChatMessageType.PrivateMessage, SerializeHelper.Serialize(privateMessage)));
+            }
+        }
+
+        async Task ReplyPrivateMessageWithBackpressureAsync(MessageUserToken userToken, ChatMessage cm, int timeoutMs = 5000)
+        {
+            await ReplyBaseWithBackpressureAsync(userToken, new ChatMessage(ChatMessageType.PrivateMessageAnswer, ""), timeoutMs);
+
+            var privateMessage = SerializeHelper.Deserialize<PrivateMessage>(cm.Content);
+
+            ConsoleHelper.WriteLine("ReplyPrivateMessage: sender=" + userToken.ID + ", receiver=" + privateMessage?.Receiver);
+
+            if (privateMessage != null && !string.IsNullOrEmpty(privateMessage.Receiver))
+            {
+                privateMessage.Sender = userToken.ID;
+
+                privateMessage.Sended = DateTimeHelper.ToString();
+
+                var r = (IUserToken)_server.GetCurrentObj(privateMessage.Receiver);
+                ConsoleHelper.WriteLine("GetCurrentObj result: " + (r != null ? r.ID : "null"));
+                if (r != null)
+                    await ReplyBaseWithBackpressureAsync(r, new ChatMessage(ChatMessageType.PrivateMessage, SerializeHelper.Serialize(privateMessage)), timeoutMs);
             }
         }
 

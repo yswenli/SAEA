@@ -17,6 +17,7 @@
 *****************************************************************************/
 using SAEA.DNS.Coder;
 using SAEA.DNS.Protocol;
+
 using System;
 using System.Net;
 using System.Threading;
@@ -81,7 +82,7 @@ namespace SAEA.DNS.Model
         {
             this._coder = coder;
             this._request = request == null ? new DnsRequestMessage() : new DnsRequestMessage(request);
-        }        
+        }
 
         /// <summary>
         /// 使用提供的DNS信息将此请求解析为响应,给定的请求策略用于检索响应。
@@ -102,7 +103,6 @@ namespace SAEA.DNS.Model
                 {
                     throw new ResponseException(response);
                 }
-
                 return response;
             }
             catch (ArgumentException e)
