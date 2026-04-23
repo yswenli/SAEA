@@ -98,7 +98,7 @@ namespace SAEA.MessageSocket
 
             _client.OnReceive += _client_OnReceive;
 
-            HeartSpan = 10 * 1000;
+            HeartSpan = 30 * 1000;
 
             HeartAsync();
 
@@ -110,6 +110,7 @@ namespace SAEA.MessageSocket
         private void _batcher_OnBatched(IBatcher sender, byte[] data)
         {
             _client.Send(data);
+            _messageContext.UserToken.Actived = DateTimeHelper.Now;
         }
 
         private void _client_OnReceive(byte[] data)
@@ -118,6 +119,7 @@ namespace SAEA.MessageSocket
             {
                 return;
             }
+            _messageContext.UserToken.Actived = DateTimeHelper.Now;
             var msgs = _messageContext.Unpacker.Decode(data);
 
             if (msgs == null || msgs.Count < 1) return;
@@ -199,6 +201,8 @@ namespace SAEA.MessageSocket
                     {
                         if (_client.Connected)
                         {
+                            ThreadHelper.Sleep(1000);
+                            
                             if (_messageContext.UserToken.Actived.AddMilliseconds(HeartSpan) <= DateTimeHelper.Now)
                             {
                                 var sm = new BaseSocketProtocal()
@@ -208,7 +212,6 @@ namespace SAEA.MessageSocket
                                 };
                                 _client.Send(sm.ToBytes());
                             }
-                            ThreadHelper.Sleep(HeartSpan);
                         }
                         else
                         {

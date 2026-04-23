@@ -39,6 +39,7 @@ using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace SAEA.Sockets.Core.Tcp
 {
@@ -360,6 +361,7 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 var token = e.UserToken as IUserToken;
                 if (token == null) return;
+                token.IsSending = false;
                 token.Actived = DateTimeHelper.Now;
                 token.ReleaseWrite();
             }
@@ -394,9 +396,27 @@ namespace SAEA.Sockets.Core.Tcp
                     {
                         writeArgs.SetBuffer(data, 0, data.Length);
 
-                        if (!userToken.Socket.SendAsync(writeArgs))
+                        bool asyncPending = userToken.Socket.SendAsync(writeArgs);
+                        
+                        if (!asyncPending)
                         {
                             ProcessSended(writeArgs);
+                        }
+                        else
+                        {
+                            userToken.IsSending = true;
+                            Task.Run(async () =>
+                            {
+                                await Task.Delay(SocketOption.ActionTimeout);
+                                lock (userToken)
+                                {
+                                    if (userToken.IsSending)
+                                    {
+                                        userToken.IsSending = false;
+                                        userToken.ReleaseWrite();
+                                    }
+                                }
+                            });
                         }
                     }
                 }

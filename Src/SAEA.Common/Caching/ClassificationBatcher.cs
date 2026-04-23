@@ -16,6 +16,7 @@
 *描    述：
 *****************************************************************************/
 using SAEA.Common.Threading;
+
 using System;
 using System.Collections.Concurrent;
 using System.Threading;
@@ -38,7 +39,8 @@ namespace SAEA.Common.Caching
         {
             _size = size;
             _timeout = timeout;
-            if (max == -1) _max = _size * 10;
+            _max = max;
+            if (_max == -1) _max = _size * 10;
             if (_max < _size) throw new ArgumentOutOfRangeException("max不能小于size");
             _concurrencyLimit = concurrencyLimit;
             _dic = new ConcurrentDictionary<string, Batcher>();

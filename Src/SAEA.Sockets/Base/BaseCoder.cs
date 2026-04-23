@@ -85,71 +85,51 @@ namespace SAEA.Sockets.Base
         /// <param name="onFile">文件回调</param>
         public List<ISocketProtocal> Decode(ReadOnlySpan<byte> data, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
         {
-            // 触发Span版本事件
             OnReceiveSpan?.Invoke(data);
 
             var result = new List<ISocketProtocal>();
 
-            // 将接收到的数据添加到缓冲区
+            _buffer.Position = _buffer.Length;
             _buffer.Write(data.ToArray(), 0, data.Length);
 
-            // 重置流位置到开始
             _buffer.Position = 0;
 
-            // 循环处理缓冲区中的数据
             while (_buffer.Length - _buffer.Position >= P_Head)
             {
-                // 获取数据包的长度
-                var bodyLen = ReadLengthFromBuffer();
-
-                // 重置位置到类型字段
-                _buffer.Position = P_LEN;
-
-                // 获取数据包的类型
-                var type = (SocketProtocalType)_buffer.ReadByte();
-
-                // 重置位置到开始
                 _buffer.Position = 0;
 
-                // 如果数据包长度为0且类型为心跳包，则处理心跳包
-                if (bodyLen == 0 && type == SocketProtocalType.Heart) //空包认为是心跳包
+                var bodyLen = ReadLengthFromBuffer();
+
+                _buffer.Position = P_LEN;
+
+                var type = (SocketProtocalType)_buffer.ReadByte();
+
+                _buffer.Position = 0;
+
+                if (bodyLen == 0 && type == SocketProtocalType.Heart)
                 {
-                    // 创建一个基础协议对象，设置长度和类型
                     var sm = new BaseSocketProtocal() { BodyLength = bodyLen, Type = (byte)type };
-                    // 清空缓冲区
-                    Clear();
-                    // 调用心跳回调函数
+                    RemoveFromBuffer(P_Head);
                     onHeart?.Invoke(DateTimeHelper.Now);
                 }
-                // 如果缓冲区数据长度足够解析一个完整的数据包
                 else if (_buffer.Length >= P_Head + bodyLen)
                 {
-                    // 如果数据包类型为大数据包
                     if (type == SocketProtocalType.BigData)
                     {
-                        // 获取数据包内容（使用Span优化）
                         var content = ReadContentFromBufferSpan(P_Head, (int)bodyLen);
-                        // 移除已处理的数据
                         RemoveFromBuffer((int)(P_Head + bodyLen));
-                        // 调用文件回调函数
                         onFile?.Invoke(content);
                     }
                     else
                     {
-                        // 获取数据包内容（使用Span优化）
                         var content = ReadContentFromBufferSpan(P_Head, (int)bodyLen);
-                        // 创建一个基础协议对象，设置长度、类型和内容
                         var sm = new BaseSocketProtocal() { BodyLength = bodyLen, Type = (byte)type, Content = content };
-                        // 移除已处理的数据
                         RemoveFromBuffer((int)(P_Head + bodyLen));
-                        // 调用解包回调函数
                         result.Add(sm);
                     }
                 }
                 else
                 {
-                    // 如果缓冲区数据长度不足以解析一个完整的数据包，则退出循环
-                    // 将位置重置到数据末尾，准备接收新数据
                     _buffer.Position = _buffer.Length;
                     break;
                 }

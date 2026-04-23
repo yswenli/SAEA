@@ -406,38 +406,28 @@ namespace SAEA.MessageTest
 
             cc1.Login();
             cc2.Login();
-            ConsoleHelper.WriteLine("Login completed");
 
             Stopwatch stopwatch = Stopwatch.StartNew();
 
-            int size = 100000;
+            int size = 1000000;
 
             Task.Run(async () =>
             {
-                ConsoleHelper.WriteLine("Starting send loop, size=" + size);
                 for (int i = 0; i < size; i++)
                 {
                     await cc1.SendPrivateMsgAsync(cc2.ID, "你好呀,cc2！");
-                    await cc2.SendPrivateMsgAsync(cc1.ID, "你好呀,cc2！");
-                    if (i % 1000 == 0)
-                    {
-                        ConsoleHelper.WriteLine("Sent " + i + " messages");
-                    }
+                    await cc2.SendPrivateMsgAsync(cc1.ID, "你好呀,cc1！");
                 }
-                ConsoleHelper.WriteLine("Send loop completed");
             });
 
             while (true)
             {
-                if (_pcount < 2 * size)
-                {
-                    ConsoleHelper.WriteLine("已处理私信" + _pcount + "条");
-                    Thread.Sleep(1000);
-                }
-                else
+                Thread.Sleep(1000);
+                ConsoleHelper.WriteLine("已收到转发的私信" + _pcount + "条");
+                if (_pcount >= 2 * size)
                 {
                     stopwatch.Stop();
-                    ConsoleHelper.WriteLine("私信测试已完成，速度：" + _pcount / stopwatch.Elapsed.TotalSeconds);
+                    ConsoleHelper.WriteLine("私信转发测试已完成，速度：" + _pcount / stopwatch.Elapsed.TotalSeconds);
                     break;
                 }
             }
