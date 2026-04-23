@@ -16,20 +16,21 @@ namespace SAEA.QueueSocketTest
             ConsoleHelper.Title = $"SAEA.QueueSocketTest -- {DateTimeHelper.Now}";
 
             var inputStr = "";
+
+            if (args != null && args.Length > 0 && args[0].IsNullOrEmpty())
+            {
+                inputStr = args[0];
+            }
+
             var topic = "hello";
 
             while (true)
             {
                 ConsoleHelper.WriteLine("SAEA.QueueSocketTest\r\n \t输入s启动队列服务器\r\n\t输入p启动生产者\r\n\t输入c启动消费者\r\n\t输入t启动高并发测试");
 
-                if (args == null || args.Length < 1 || args[0].IsNullOrEmpty())
+                if (inputStr.IsNullOrEmpty())
                 {
                     inputStr = ConsoleHelper.ReadLine();
-                }
-                else
-                {
-                    inputStr = args[0];
-                    args = null;
                 }
 
                 if (!string.IsNullOrEmpty(inputStr))
@@ -76,6 +77,8 @@ namespace SAEA.QueueSocketTest
                         default:
                             break;
                     }
+
+                    inputStr = "";
                 }
             }
         }
