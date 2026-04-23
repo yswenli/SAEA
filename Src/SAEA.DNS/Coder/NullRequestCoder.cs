@@ -1,19 +1,19 @@
 /****************************************************************************
-*ÏîÄ¿Ãû³Æ£ºSAEA.DNS
-*CLR °æ±¾£º3.0
-*»úÆ÷Ãû³Æ£ºWENLI-PC
-*ÃüÃû¿Õ¼ä£ºSAEA.DNS.Coder
-*Àà Ãû ³Æ£ºNullRequestResolver
-*°æ ±¾ ºÅ£ºv5.0.0.1
-*´´½¨ÈË£º yswenli
-*µç×ÓÓÊÏä£ºwenguoli_520@qq.com
-*´´½¨Ê±¼ä£º2019/11/28 22:43:28
-*ÃèÊö£º
+*ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½Æ£ï¿½SAEA.DNS
+*CLR ï¿½æ±¾ï¿½ï¿½3.0
+*ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ£ï¿½WENLI-PC
+*ï¿½ï¿½ï¿½ï¿½ï¿½Õ¼ä£ºSAEA.DNS.Coder
+*ï¿½ï¿½ ï¿½ï¿½ ï¿½Æ£ï¿½NullRequestResolver
+*ï¿½ï¿½ ï¿½ï¿½ ï¿½Å£ï¿½v5.0.0.1
+*ï¿½ï¿½ï¿½ï¿½ï¿½Ë£ï¿½ yswenli
+*ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ä£ºyswenli@outlook.com
+*ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ä£º2019/11/28 22:43:28
+*ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 *=====================================================================
-*ÐÞ¸ÄÊ±¼ä£º2019/11/28 22:43:28
-*ÐÞ ¸Ä ÈË£º yswenli
-*°æ±¾ºÅ£º v7.0.0.1
-*Ãè    Êö£º
+*ï¿½Þ¸ï¿½Ê±ï¿½ä£º2019/11/28 22:43:28
+*ï¿½ï¿½ ï¿½ï¿½ ï¿½Ë£ï¿½ yswenli
+*ï¿½æ±¾ï¿½Å£ï¿½ v7.0.0.1
+*ï¿½ï¿½    ï¿½ï¿½ï¿½ï¿½
 *****************************************************************************/
 using SAEA.DNS.Model;
 using SAEA.DNS.Protocol;
@@ -23,7 +23,7 @@ using System.Threading.Tasks;
 namespace SAEA.DNS.Coder
 {
     /// <summary>
-    /// ¿Õ´¦Àí
+    /// ï¿½Õ´ï¿½ï¿½ï¿½
     /// </summary>
     public class NullRequestCoder : IRequestCoder
     {

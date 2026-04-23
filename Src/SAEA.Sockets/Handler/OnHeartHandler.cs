@@ -8,16 +8,16 @@
                                                              
 
 *Copyright (c)  yswenli All Rights Reserved.
-*CLR版本： 4.0.30319.42000
+*CLR版本： netstandard2.0
 *机器名称：WENLI-PC
 *公司名称：yswenli
 *命名空间：SAEA.Sockets.Handler
 *文件名： OnHeartHandler
-*版本号： v7.0.0.1
+*版本号： v26.4.23.1
 *唯一标识：427fe09d-9436-4915-9ff5-fcd36c37612a
 *当前的用户域：WENLI-PC
 *创建人： yswenli
-*电子邮箱：wenguoli_520@qq.com
+*电子邮箱：yswenli@outlook.com
 *创建时间：2018/3/1 17:44:29
 *描述：
 *
@@ -25,7 +25,7 @@
 *修改标记
 *修改时间：2018/3/1 17:44:29
 *修改人： yswenli
-*版本号： v7.0.0.1
+*版本号： v26.4.23.1
 *描述：
 *
 *****************************************************************************/

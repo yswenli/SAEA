@@ -12,19 +12,9 @@
 *=====================================================================
 *修改时间：2019/11/6 16:36:40
 *修 改 人： yswenli
-*版本号： v7.0.0.1
+*版本号： v26.4.23.1
 *描    述：
 *****************************************************************************/
-using Pipelines.Sockets.Unofficial;
-using SAEA.Common;
-using System;
-using System.Buffers;
-using System.Collections.Generic;
-using System.IO.Pipelines;
-using System.Net.Sockets;
-using System.Threading;
-using System.Threading.Tasks;
-
 namespace SAEA.Sockets.Core
 {
     /// <summary>
