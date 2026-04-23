@@ -17,7 +17,7 @@ namespace SAEA.QueueSocketTest
 
             var inputStr = "";
 
-            if (args != null && args.Length > 0 && args[0].IsNullOrEmpty())
+            if (args != null && args.Length > 0 && args[0].IsNotNullOrEmpty())
             {
                 inputStr = args[0];
             }
@@ -41,44 +41,42 @@ namespace SAEA.QueueSocketTest
                     {
                         case "s":
                             ServerInit();
+                            inputStr = "";
                             break;
                         case "p":
                             ConsoleHelper.WriteLine("输入ip:port连接到队列服务器");
                             ipPort = ConsoleHelper.ReadLine();
                             ProducerInit(ipPort, topic);
-                            break;
+                            return;
                         case "c":
                             ConsoleHelper.WriteLine("输入ip:port连接到队列服务器");
                             ipPort = ConsoleHelper.ReadLine();
                             ConsumerInit(ipPort, topic);
-                            break;
+                            return;
                         case "sc":
                             ServerInit();
                             Thread.Sleep(1000);
-                            ConsumerInit(inputStr, topic);
-                            break;
+                            ConsumerInit("127.0.0.1:39654", topic);
+                            return;
                         case "sp":
                             ServerInit();
                             Thread.Sleep(1000);
-                            ipPort = ConsoleHelper.ReadLine();
-                            ProducerInit(ipPort, topic);
-                            break;
+                            ProducerInit("127.0.0.1:39654", topic);
+                            return;
                         case "a":
                             ServerInit();
                             Thread.Sleep(1000);
-                            ipPort = ConsoleHelper.ReadLine();
-                            ConsumerInit(ipPort, topic);
+                            ConsumerInit("127.0.0.1:39654", topic);
                             Thread.Sleep(1000);
-                            ProducerInit(ipPort, topic);
-                            break;
+                            ProducerInit("127.0.0.1:39654", topic);
+                            return;
                         case "t":
                             HighConcurrencyTest.Run();
-                            break;
+                            return;
                         default:
+                            inputStr = "";
                             break;
                     }
-
-                    inputStr = "";
                 }
             }
         }
