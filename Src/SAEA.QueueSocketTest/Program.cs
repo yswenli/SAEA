@@ -74,10 +74,12 @@ namespace SAEA.QueueSocketTest
                             HighConcurrencyTest.Run();
                             return;
                         default:
-                            inputStr = "";
                             break;
                     }
                 }
+
+
+                inputStr = "";
             }
         }
 
