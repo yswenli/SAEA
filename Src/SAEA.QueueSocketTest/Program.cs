@@ -5,8 +5,6 @@ using SAEA.QueueSocket;
 using SAEA.QueueSocket.Model;
 
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.Threading;
 
 namespace SAEA.QueueSocketTest
@@ -16,51 +14,70 @@ namespace SAEA.QueueSocketTest
         static void Main(string[] args)
         {
             ConsoleHelper.Title = $"SAEA.QueueSocketTest -- {DateTimeHelper.Now}";
-            do
-            {
-                ConsoleHelper.WriteLine("输入s启动队列服务器,输入p启动生产者，输入c启动消费者，输入t启动高并发测试");
 
-                var inputStr = ConsoleHelper.ReadLine();
+            var inputStr = "";
+            var topic = "hello";
+
+            while (true)
+            {
+                ConsoleHelper.WriteLine("SAEA.QueueSocketTest\r\n \t输入s启动队列服务器\r\n\t输入p启动生产者\r\n\t输入c启动消费者\r\n\t输入t启动高并发测试");
+
+                if (args == null || args.Length < 1 || args[0].IsNullOrEmpty())
+                {
+                    inputStr = ConsoleHelper.ReadLine();
+                }
+                else
+                {
+                    inputStr = args[0];
+                    args = null;
+                }
 
                 if (!string.IsNullOrEmpty(inputStr))
                 {
-                    var topic = "测试频道";
+                    var ipPort = "";
 
                     switch (inputStr.ToLower())
                     {
                         case "s":
-                            ConsoleHelper.Title = "SAEA.QueueServer";
                             ServerInit();
                             break;
                         case "p":
-                            ConsoleHelper.Title = "SAEA.QueueProducer";
                             ConsoleHelper.WriteLine("输入ip:port连接到队列服务器");
-                            inputStr = ConsoleHelper.ReadLine();
-                            ProducerInit(inputStr, topic);
+                            ipPort = ConsoleHelper.ReadLine();
+                            ProducerInit(ipPort, topic);
                             break;
                         case "c":
-                            ConsoleHelper.Title = "SAEA.QueueConsumer";
                             ConsoleHelper.WriteLine("输入ip:port连接到队列服务器");
-                            inputStr = ConsoleHelper.ReadLine();
+                            ipPort = ConsoleHelper.ReadLine();
+                            ConsumerInit(ipPort, topic);
+                            break;
+                        case "sc":
+                            ServerInit();
+                            Thread.Sleep(1000);
                             ConsumerInit(inputStr, topic);
                             break;
+                        case "sp":
+                            ServerInit();
+                            Thread.Sleep(1000);
+                            ipPort = ConsoleHelper.ReadLine();
+                            ProducerInit(ipPort, topic);
+                            break;
+                        case "a":
+                            ServerInit();
+                            Thread.Sleep(1000);
+                            ipPort = ConsoleHelper.ReadLine();
+                            ConsumerInit(ipPort, topic);
+                            Thread.Sleep(1000);
+                            ProducerInit(ipPort, topic);
+                            break;
                         case "t":
-                            ConsoleHelper.Title = "SAEA.QueueHighConcurrencyTest";
                             HighConcurrencyTest.Run();
                             break;
                         default:
-                            ServerInit();
-                            inputStr = "127.0.0.1:39654";
-                            ProducerInit(inputStr, topic);
-                            ConsumerInit(inputStr, topic);
                             break;
                     }
-                    ConsoleHelper.WriteLine("回车退出！");
-                    ConsoleHelper.ReadLine();
-                    return;
                 }
             }
-            while (true);
         }
 
 

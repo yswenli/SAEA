@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
  * 
   ____    _    _____    _      ____             _        _   
  / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
@@ -166,7 +166,7 @@ namespace SAEA.QueueSocket
         {
             _serverSokcet.Start(backlog);
 
-            _calcBegin = true;
+            _running = true;
         }
 
         /// <summary>
@@ -174,7 +174,7 @@ namespace SAEA.QueueSocket
         /// </summary>
         public void Stop()
         {
-            _calcBegin = false;
+            _running = false;
 
             _serverSokcet.Stop();
         }
@@ -244,7 +244,12 @@ namespace SAEA.QueueSocket
             _exchange.Clear(sessionID);
         }
 
-        bool _calcBegin = false;
+        bool _running = false;
+
+        /// <summary>
+        /// 获取服务器运行状态
+        /// </summary>
+        public bool Status => _running;
 
         /// <summary>
         /// 统计信息
@@ -252,20 +257,19 @@ namespace SAEA.QueueSocket
         /// <param name="callBack">回调函数</param>
         public void CalcInfo(Action<Tuple<long, long, long, long>, List<Tuple<string, long>>> callBack)
         {
-            if (!_calcBegin)
+            TaskHelper.LongRunning(() =>
             {
-                _calcBegin = true;
-                TaskHelper.LongRunning(() =>
+                while (true)
                 {
-                    while (_calcBegin)
+                    ThreadHelper.Sleep(1000);
+                    if (_running)
                     {
                         var ci = _exchange.GetConnectInfo();
                         var qi = _exchange.GetQueueInfo();
-                        callBack?.Invoke(ci, qi);
-                        ThreadHelper.Sleep(1000);
+                        callBack?.Invoke(ci, qi);                        
                     }
-                });
-            }
+                }
+            });
         }
     }
 }
