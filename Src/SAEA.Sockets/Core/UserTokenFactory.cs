@@ -7,23 +7,23 @@
  |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
                                                               
  
-*Copyright (c)  yswenli All Rights Reserved.
+*Copyright (c) yswenli All Rights Reserved.
 *CLR版本： netstandard2.0
 *机器名称：WENLI-PC
 *公司名称：yswenli
 *命名空间：SAEA.Sockets.Core
 *文件名： UserTokenFactory
 *版本号： v26.4.23.1
-*唯一标识：ef84e44b-6fa2-432e-90a2-003ebd059303
+*唯一标识：25369e00-a679-4c4c-9f94-0576261c5fe9
 *当前的用户域：WENLI-PC
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
-*创建时间：2018/10/26 15:54:21
+*创建时间：2018/10/27 18:03:54
 *描述：
 *
 *=====================================================================
 *修改标记
-*创建时间：2018/10/26 15:54:21
+*修改时间：2018/10/27 18:03:54
 *修改人： yswenli
 *版本号： v26.4.23.1
 *描述：

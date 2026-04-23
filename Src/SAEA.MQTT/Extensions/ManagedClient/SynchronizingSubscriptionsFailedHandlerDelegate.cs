@@ -14,19 +14,19 @@
 *命名空间：SAEA.MQTT.Extensions.ManagedClient
 *文件名： SynchronizingSubscriptionsFailedHandlerDelegate
 *版本号： v26.4.23.1
-*唯一标识：745d01b2-9f90-4a00-9fde-16f1e44dd96a
+*唯一标识：e92a3a62-bc14-49ef-9c8c-6139e41b1cde
 *当前的用户域：WENLI-PC
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2021/03/11 16:46:45
-*描述：MQTT扩展功能类
+*描述：
 *
 *=====================================================================
 *修改标记
 *修改时间：2021/03/11 16:46:45
 *修改人： yswenli
 *版本号： v26.4.23.1
-*描述：MQTT扩展功能类
+*描述：
 *
 *****************************************************************************/
 using System;

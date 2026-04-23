@@ -14,19 +14,19 @@
 *命名空间：SAEA.MQTT.Client.Options
 *文件名： MqttClientOptionsBuilderWebSocketParameters
 *版本号： v26.4.23.1
-*唯一标识：2acee660-799e-4aad-8ecc-d9787782cc8b
+*唯一标识：a99cbd60-f162-48a1-8afb-4ac2747b72b9
 *当前的用户域：WENLI-PC
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2021/03/11 16:46:45
-*描述：MQTT客户端类
+*描述：
 *
 *=====================================================================
 *修改标记
 *修改时间：2021/03/11 16:46:45
 *修改人： yswenli
 *版本号： v26.4.23.1
-*描述：MQTT客户端类
+*描述：
 *
 *****************************************************************************/
 using System.Collections.Generic;

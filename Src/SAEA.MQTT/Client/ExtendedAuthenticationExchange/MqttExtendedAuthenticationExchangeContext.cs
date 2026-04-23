@@ -14,19 +14,19 @@
 *命名空间：SAEA.MQTT.Client.ExtendedAuthenticationExchange
 *文件名： MqttExtendedAuthenticationExchangeContext
 *版本号： v26.4.23.1
-*唯一标识：cf391f73-5eb0-4a65-85be-d510a6e3a17d
+*唯一标识：02e3098d-7af6-439c-997f-e6f4c2b31208
 *当前的用户域：WENLI-PC
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2021/03/11 16:46:45
-*描述：MQTT客户端类
+*描述：
 *
 *=====================================================================
 *修改标记
 *修改时间：2021/03/11 16:46:45
 *修改人： yswenli
 *版本号： v26.4.23.1
-*描述：MQTT客户端类
+*描述：
 *
 *****************************************************************************/
 using System;

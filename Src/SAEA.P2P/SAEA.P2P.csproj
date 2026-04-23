@@ -13,7 +13,7 @@
     <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
     <PackageTags>p2p,uat,iocp,webserver,tcp,socket</PackageTags>
     <PackageReleaseNotes>基于 SAEA.Sockets 的 P2P 通信组件，支持NAT穿透、中继降级、局域网发现、身份认证加密。</PackageReleaseNotes>
-    <Version>26.4.22.2</Version>
+    <Version>26.4.23.1</Version>
   </PropertyGroup>
 
   <ItemGroup>

@@ -3,28 +3,27 @@
    ____    _    _____    _      ____             _        _   
  / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
  \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
-   ___) / ___ \| |___ / ___ \   ___) | (_) | (__|   <  __/ |_ 
+  ___) / ___ \| |___ / ___ \   ___) | (_) | (__|   <  __/ |_ 
  |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
-                                                               
+                                                              
  
-
-*Copyright (c)  yswenli All Rights Reserved.
+*Copyright (c) yswenli All Rights Reserved.
 *CLR版本： netstandard2.0
 *机器名称：WENLI-PC
 *公司名称：yswenli
-*命名空间：SAEA.Commom
+*命名空间：SAEA.Common
 *文件名： EnumHelper
 *版本号： v26.4.23.1
-*唯一标识：0957f3bb-7462-4ff0-867d-0a8c9411f2eb
+*唯一标识：6a8e0c5a-51c4-4c06-bb58-8f44a01d46cf
 *当前的用户域：WENLI-PC
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
-*创建时间：2018/4/12 9:33:39
+*创建时间：2018/08/24 16:31:11
 *描述：
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/4/12 9:33:39
+*修改时间：2018/08/24 16:31:11
 *修改人： yswenli
 *版本号： v26.4.23.1
 *描述：
@@ -32,12 +31,10 @@
 *****************************************************************************/
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Net;
 using System.Reflection;
-using System.Text;
 
 namespace SAEA.Common
 {

@@ -14,19 +14,19 @@
 *命名空间：SAEA.MQTT.Client.ExtendedAuthenticationExchange
 *文件名： IMqttExtendedAuthenticationExchangeHandler
 *版本号： v26.4.23.1
-*唯一标识：995d10fb-3b8f-4300-b735-8e000e17456b
+*唯一标识：5f488a63-29e1-4e2f-baf7-a2c55521c2cb
 *当前的用户域：WENLI-PC
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2021/03/11 16:46:45
-*描述：MQTT客户端类
+*描述：
 *
 *=====================================================================
 *修改标记
 *修改时间：2021/03/11 16:46:45
 *修改人： yswenli
 *版本号： v26.4.23.1
-*描述：MQTT客户端类
+*描述：
 *
 *****************************************************************************/
 using System.Threading.Tasks;

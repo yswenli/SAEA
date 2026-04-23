@@ -12,7 +12,7 @@
     <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
     <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
-    <Version>26.4.22.2</Version>
+    <Version>26.4.23.1</Version>
     <Authors>yswenli</Authors>
     <Copyright>yswenli</Copyright>
     <PackageTags>mvc,webapi,iocp,webserver,tcp,socket</PackageTags>

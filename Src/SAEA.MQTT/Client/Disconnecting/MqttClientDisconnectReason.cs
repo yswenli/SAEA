@@ -14,19 +14,19 @@
 *命名空间：SAEA.MQTT.Client.Disconnecting
 *文件名： MqttClientDisconnectReason
 *版本号： v26.4.23.1
-*唯一标识：980e9adf-7f9a-4ca6-bbe2-d8d3e37e9972
+*唯一标识：bacc6852-4f12-47a0-a0aa-778297e36a7f
 *当前的用户域：WENLI-PC
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2021/03/11 16:46:45
-*描述：MQTT客户端类
+*描述：
 *
 *=====================================================================
 *修改标记
 *修改时间：2021/03/11 16:46:45
 *修改人： yswenli
 *版本号： v26.4.23.1
-*描述：MQTT客户端类
+*描述：
 *
 *****************************************************************************/
 namespace SAEA.MQTT.Client.Disconnecting
