@@ -337,3 +337,5 @@ ASALocalRun/
 # Git worktrees
 .worktrees/
 worktrees/
+/.workbuddy/memory
+/docs/plans
