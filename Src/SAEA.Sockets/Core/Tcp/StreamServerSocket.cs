@@ -344,7 +344,17 @@ namespace SAEA.Sockets.Core.Tcp
         public void Disconnect(string sessionID)
         {
             if (string.IsNullOrEmpty(sessionID)) return;
+
             var channel = ChannelManager.Instance.Get(sessionID);
+
+            // 会话可能已被 Stop()/Clear() 回收，或已被先前的一次 Disconnect 移除，
+            // 此处必须判空（否则 channel.ClientSocket 会抛 NullReferenceException）
+            if (channel == null)
+            {
+                ChannelManager.Instance.Remove(sessionID);
+                return;
+            }
+
             var socket = channel.ClientSocket;
             if (socket != null)
             {

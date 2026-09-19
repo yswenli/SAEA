@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+    <Authors>yswenli</Authors>
+    <Version>26.9.20.1</Version>
+    <Description>SOCKS5 Server and Client Based on SAEA.Socket.SAEA.Socket5是基于SAEA.Socket实现的SOCKS5服务器与客户端，支持无认证与用户名密码鉴权，支持CONNECT、BIND与UDP ASSOCIATE。
+https://github.com/yswenli/SAEA</Description>
+    <PackageReleaseNotes>SOCKS5 Server and Client Based on SAEA.Socket.SAEA.Socket5是基于SAEA.Socket实现的SOCKS5服务器与客户端，支持无认证与用户名密码鉴权，支持CONNECT、BIND与UDP ASSOCIATE。</PackageReleaseNotes>
+    <PackageIconUrl></PackageIconUrl>
+    <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
+    <PackageTags>socks5,socks,proxy,tcp,udp,socket</PackageTags>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <Copyright>yswenli</Copyright>
+    <SignAssembly>False</SignAssembly>
+    <LangVersion>8.0</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PackageIcon>favicon.png</PackageIcon>
+    <Title>$(AssemblyName)</Title>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\favicon.png">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
+    <None Include="..\..\LICENSE.txt">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SAEA.Common\SAEA.Common.csproj" />
+    <ProjectReference Include="..\SAEA.Sockets\SAEA.Sockets.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+</Project>
