@@ -75,6 +75,28 @@ namespace SAEA.P2P.Relay
             return _sessions.TryGetValue(sessionId, out var session) ? session : null;
         }
         
+        /// <summary>
+        /// Track an existing relay session (created by the signal server) without
+        /// generating a new id. Used by clients when they receive a RelayAck.
+        /// </summary>
+        public RelaySession AttachSession(string sessionId, string sourceId, string targetId, long? quota = null)
+        {
+            var session = new RelaySession
+            {
+                SessionId = sessionId,
+                SourceNodeId = sourceId,
+                TargetNodeId = targetId,
+                MaxQuota = quota ?? _defaultQuota,
+                CreatedTime = DateTime.UtcNow
+            };
+            session.Activate();
+            
+            _sessions[sessionId] = session;
+            P2PLogHelper.Info("RelayManager", $"Relay session attached: {sessionId} ({sourceId} -> {targetId})");
+            OnRelayStarted?.Invoke(session);
+            return session;
+        }
+        
         public void ActivateSession(string sessionId)
         {
             var session = GetSession(sessionId);
@@ -112,15 +134,25 @@ namespace SAEA.P2P.Relay
             {
                 if (p.GetMessageType() == P2PMessageType.RelayData && p.Content != null)
                 {
-                    var text = System.Text.Encoding.UTF8.GetString(p.Content);
-                    var parts = text.Split('|');
-                    if (parts.Length >= 3)
-                    {
-                        var headerLen = System.Text.Encoding.UTF8.GetBytes($"{parts[0]}|{parts[1]}|{parts[2]}|").Length;
-                        var payload = new byte[p.Content.Length - headerLen];
-                        Buffer.BlockCopy(p.Content, headerLen, payload, 0, payload.Length);
-                        return (parts[0], parts[1], parts[2], payload);
-                    }
+                    // content layout: {sessionId}|{sourceId}|{targetId}|{payload}
+                    var content = p.Content;
+                    var first = Array.IndexOf(content, (byte)'|');
+                    if (first <= 0) continue;
+                    var second = Array.IndexOf(content, (byte)'|', first + 1);
+                    if (second < 0) continue;
+                    var third = Array.IndexOf(content, (byte)'|', second + 1);
+                    if (third < 0) continue;
+                    
+                    var sessionId = System.Text.Encoding.UTF8.GetString(content, 0, first);
+                    var sourceId = System.Text.Encoding.UTF8.GetString(content, first + 1, second - first - 1);
+                    var targetId = System.Text.Encoding.UTF8.GetString(content, second + 1, third - second - 1);
+                    
+                    var payloadOffset = third + 1;
+                    var payload = new byte[content.Length - payloadOffset];
+                    if (payload.Length > 0)
+                        Buffer.BlockCopy(content, payloadOffset, payload, 0, payload.Length);
+                    
+                    return (sessionId, sourceId, targetId, payload);
                 }
             }
             return (null, null, null, null);

@@ -37,7 +37,7 @@ namespace SAEA.P2P.Builder
 {
     public class P2POptions
     {
-        public string ServerAddress { get; set; } = "127.0.0.1";
+        public string ServerAddress { get; set; }
         
         public int ServerPort { get; set; } = 39654;
         
@@ -59,12 +59,10 @@ namespace SAEA.P2P.Builder
         
         public void Validate()
         {
-            if (string.IsNullOrWhiteSpace(ServerAddress))
-            {
-                throw new P2PException(ErrorCode.RegisterServerUnavailable, "Server address is required");
-            }
-            
-            if (ServerPort <= 0 || ServerPort > 65535)
+            // Local-only mode (no signal server) is supported: when ServerAddress is
+            // empty the client relies solely on local discovery. Only validate the
+            // port when a signal server is actually configured.
+            if (!string.IsNullOrWhiteSpace(ServerAddress) && (ServerPort <= 0 || ServerPort > 65535))
             {
                 throw new P2PException(ErrorCode.RegisterServerUnavailable, "Server port must be between 1 and 65535");
             }
@@ -188,6 +186,11 @@ namespace SAEA.P2P.Builder
                 if (KeySize != 128 && KeySize != 192 && KeySize != 256)
                 {
                     throw new P2PException(ErrorCode.EncryptionFailed, "KeySize must be 128, 192, or 256");
+                }
+                
+                if (string.IsNullOrEmpty(Key))
+                {
+                    throw new P2PException(ErrorCode.EncryptionFailed, "Key is required when encryption is enabled");
                 }
             }
         }

@@ -304,9 +304,9 @@ namespace SAEA.P2P.Core
                 P2PLogHelper.Debug(NodeId, $"NAT probe ack: public address {publicAddr}");
             }
             
-            if (parts.Length >= 3)
+            if (parts.Length >= 3 && int.TryParse(parts[2], out var natValue))
             {
-                var natType = (NATType)int.Parse(parts[2]);
+                var natType = (NATType)natValue;
                 if (_holePuncher != null)
                 {
                     _holePuncher.SetNATType(natType);
@@ -342,40 +342,61 @@ namespace SAEA.P2P.Core
         {
             if (content == null || _relayManager == null) return;
             
-            var relaySessionId = Encoding.UTF8.GetString(content);
-            P2PLogHelper.Info(NodeId, $"Relay session created: {relaySessionId}");
+            var text = Encoding.UTF8.GetString(content);
+            var parts = text.Split('|');
+            var relaySessionId = parts[0];
+            var peerId = parts.Length > 1 ? parts[1] : null;
+            
+            if (!string.IsNullOrEmpty(peerId))
+            {
+                var session = _peers.GetOrAdd(peerId, id => new PeerSession(Guid.NewGuid().ToString("N"), id));
+                session.Channel = ChannelType.Relay;
+                session.RelaySessionId = relaySessionId;
+                session.Active();
+                
+                if (_relayManager.GetSession(relaySessionId) == null)
+                    _relayManager.AttachSession(relaySessionId, NodeId, peerId);
+            }
+            
+            P2PLogHelper.Info(NodeId, $"Relay session created: {relaySessionId} peer: {peerId}");
         }
         
         private void ProcessRelayData(byte[] content)
         {
             if (content == null) return;
             
-            var text = Encoding.UTF8.GetString(content);
-            var parts = text.Split('|');
-            if (parts.Length >= 4)
-            {
-                var sourceId = parts[1];
-                var headerLen = Encoding.UTF8.GetBytes($"{parts[0]}|{parts[1]}|{parts[2]}|").Length;
-                var payload = new byte[content.Length - headerLen];
-                Buffer.BlockCopy(content, headerLen, payload, 0, payload.Length);
-                
-                OnMessageReceived?.Invoke(sourceId, payload);
-            }
+            // content layout: {relaySessionId}|{sourceId}|{targetId}|{payload}
+            var first = Array.IndexOf(content, (byte)'|');
+            if (first <= 0) return;
+            var second = Array.IndexOf(content, (byte)'|', first + 1);
+            if (second < 0) return;
+            var third = Array.IndexOf(content, (byte)'|', second + 1);
+            if (third < 0) return;
+            
+            var sourceId = Encoding.UTF8.GetString(content, first + 1, second - first - 1);
+            var payloadOffset = third + 1;
+            var payload = new byte[content.Length - payloadOffset];
+            if (payload.Length > 0)
+                Buffer.BlockCopy(content, payloadOffset, payload, 0, payload.Length);
+            
+            OnMessageReceived?.Invoke(sourceId, payload);
         }
         
         private void ProcessUserData(byte[] content)
         {
             if (content == null) return;
             
-            var text = Encoding.UTF8.GetString(content);
-            var idx = text.IndexOf('|');
-            if (idx > 0)
-            {
-                var peerId = text.Substring(0, idx);
-                var payloadText = text.Substring(idx + 1);
-                var payload = Encoding.UTF8.GetBytes(payloadText);
-                OnMessageReceived?.Invoke(peerId, payload);
-            }
+            // content layout: {sourceId}|{payload}
+            var first = Array.IndexOf(content, (byte)'|');
+            if (first <= 0) return;
+            
+            var peerId = Encoding.UTF8.GetString(content, 0, first);
+            var payloadOffset = first + 1;
+            var payload = new byte[content.Length - payloadOffset];
+            if (payload.Length > 0)
+                Buffer.BlockCopy(content, payloadOffset, payload, 0, payload.Length);
+            
+            OnMessageReceived?.Invoke(peerId, payload);
         }
         
         private void SetState(NodeState newState)
@@ -412,20 +433,24 @@ namespace SAEA.P2P.Core
             if (session == null)
                 throw new P2PException(ErrorCode.DiscoveryNoCandidates);
             
-            if (session.Channel == ChannelType.Direct)
-            {
-                var userDataContent = Encoding.UTF8.GetBytes($"{NodeId}|");
-                var combined = new byte[userDataContent.Length + data.Length];
-                Buffer.BlockCopy(userDataContent, 0, combined, 0, userDataContent.Length);
-                Buffer.BlockCopy(data, 0, combined, userDataContent.Length, data.Length);
-                
-                var packet = _coder.EncodeP2P(P2PMessageType.UserData, combined);
-                _signalSocket.SendAsync(packet);
-            }
-            else if (session.Channel == ChannelType.Relay && _relayManager != null && !string.IsNullOrEmpty(session.RelaySessionId))
+            if (_signalSocket == null)
+                throw new P2PException(ErrorCode.RegisterServerUnavailable, "Signal server is not connected");
+            
+            if (session.Channel == ChannelType.Relay && _relayManager != null && !string.IsNullOrEmpty(session.RelaySessionId))
             {
                 var relayData = _relayManager.EncodeRelayData(session.RelaySessionId, NodeId, peerId, data);
                 _signalSocket.SendAsync(relayData);
+            }
+            else
+            {
+                // Direct delivery through the signal server: {sourceId}|{targetId}|{payload}
+                var header = Encoding.UTF8.GetBytes($"{NodeId}|{peerId}|");
+                var combined = new byte[header.Length + data.Length];
+                Buffer.BlockCopy(header, 0, combined, 0, header.Length);
+                Buffer.BlockCopy(data, 0, combined, header.Length, data.Length);
+                
+                var packet = _coder.EncodeP2P(P2PMessageType.UserData, combined);
+                _signalSocket.SendAsync(packet);
             }
             
             session.Active();
@@ -436,7 +461,10 @@ namespace SAEA.P2P.Core
         {
             if (_relayManager == null)
                 throw new P2PException(ErrorCode.RelayFailed);
-            
+
+            if (_signalSocket == null)
+                throw new P2PException(ErrorCode.RegisterServerUnavailable, "Signal server is not connected");
+
             var requestContent = Encoding.UTF8.GetBytes(peerId);
             var requestPacket = _coder.EncodeP2P(P2PMessageType.RelayRequest, requestContent);
             _signalSocket.SendAsync(requestPacket);
@@ -458,6 +486,9 @@ namespace SAEA.P2P.Core
         
         public void SendHeartbeat()
         {
+            if (_signalSocket == null)
+                throw new P2PException(ErrorCode.RegisterServerUnavailable, "Signal server is not connected");
+
             var heartbeatPacket = _coder.EncodeP2P(P2PMessageType.Heartbeat);
             _signalSocket.SendAsync(heartbeatPacket);
         }
@@ -465,10 +496,18 @@ namespace SAEA.P2P.Core
         private IPEndPoint ParseEndPoint(string addr)
         {
             if (string.IsNullOrEmpty(addr)) return null;
-            var parts = addr.Split(':');
-            if (parts.Length == 2)
-                return new IPEndPoint(IPAddress.Parse(parts[0]), int.Parse(parts[1]));
-            return null;
+            
+            // Support both IPv4 ("1.2.3.4:80") and IPv6 ("::1:80" / "[::1]:80").
+            var idx = addr.LastIndexOf(':');
+            if (idx <= 0 || idx == addr.Length - 1) return null;
+            
+            var ipPart = addr.Substring(0, idx).Trim('[', ']');
+            var portPart = addr.Substring(idx + 1);
+            
+            if (!IPAddress.TryParse(ipPart, out var ip)) return null;
+            if (!int.TryParse(portPart, out var port) || port < 0 || port > 65535) return null;
+            
+            return new IPEndPoint(ip, port);
         }
         
         public PeerSession GetSession(string peerId)

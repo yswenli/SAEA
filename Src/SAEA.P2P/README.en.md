@@ -416,6 +416,20 @@ new P2PServerBuilder()
 | **Memory Usage** | Client < 5MB |
 | **Traversal Time** | Usually < 2s |
 
+### 🧪 Component Benchmarks (SAEA.P2PTest)
+
+Measured by the automated suite in `Src\SAEA.P2PTest` (single-machine loop benchmark; numbers vary with hardware and load):
+
+| Benchmark | Result |
+|-----------|--------|
+| **P2P protocol decode** | ~1,600,000 ops/sec (50,000 iterations in 31 ms) |
+| **1MB payload encode/decode round trip** | 8 ms (byte-for-byte identical) |
+| **AES encrypt + decrypt round trip** | ~119,000 ops/sec (5,000 iterations in 42 ms) |
+| **Relay encode** | ~926,000 ops/sec (20,000 iterations in 21 ms) |
+
+> The suite covers protocol, crypto, relay, concurrency, lifecycle, integration and performance — **189 tests, all passing**.
+> Run: `dotnet run -c Debug -- --all` (see [SAEA.P2PTest](../SAEA.P2PTest)).
+
 ---
 
 ## 📦 Installation

@@ -48,7 +48,7 @@ namespace SAEA.P2PTest.Tests
             crypto1.SetKey("aes-test-key-24");
             ConsoleHelper.WriteLine($"After SetKey (24): IsEnabled={crypto1.IsEnabled}");
 
-            if (!crypto1.IsEnabled && crypto2.IsEnabled)
+            if (crypto1.IsEnabled && crypto2.IsEnabled)
             {
                 ConsoleHelper.WriteLine("TestCryptoServiceCreation: PASSED");
             }

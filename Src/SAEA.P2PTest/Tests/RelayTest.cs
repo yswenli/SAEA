@@ -99,7 +99,7 @@ namespace SAEA.P2PTest.Tests
             session.AddBytes(600);
             ConsoleHelper.WriteLine($"After 1100 bytes: BytesTransferred={session.BytesTransferred}, IsOverQuota={session.IsOverQuota}");
 
-            if (!session.IsOverQuota && session.BytesTransferred == 1100)
+            if (session.IsOverQuota && session.BytesTransferred == 1100)
             {
                 var overQuotaSession = manager.CreateSession("node-C", "node-D", 100);
                 overQuotaSession.AddBytes(150);

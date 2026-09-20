@@ -184,23 +184,38 @@ namespace SAEA.Sockets.Base
             {
                 // 小数据：直接分配
                 result = new byte[count];
+
+                // 移动到指定位置
+                _buffer.Position = offset;
+
+                // 读取数据
+                _buffer.Read(result, 0, count);
+
+                // 重置位置到开始
+                _buffer.Position = 0;
+
+                return result;
             }
             else
             {
-                // 大数据：从内存池租用
-                result = MemoryPoolManager.Rent(count);
+                // 大数据：先租用池化缓冲区读取，再裁剪到精确长度后归还，避免解码内容包含多余字节
+                var pooled = MemoryPoolManager.Rent(count);
+
+                // 移动到指定位置
+                _buffer.Position = offset;
+
+                // 读取数据
+                _buffer.Read(pooled, 0, count);
+
+                // 重置位置到开始
+                _buffer.Position = 0;
+
+                result = new byte[count];
+                Buffer.BlockCopy(pooled, 0, result, 0, count);
+                MemoryPoolManager.Return(pooled, count);
+
+                return result;
             }
-
-            // 移动到指定位置
-            _buffer.Position = offset;
-
-            // 读取数据
-            _buffer.Read(result, 0, count);
-
-            // 重置位置到开始
-            _buffer.Position = 0;
-
-            return result;
         }
 
         /// <summary>

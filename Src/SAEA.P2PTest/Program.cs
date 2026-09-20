@@ -10,6 +10,13 @@ namespace SAEA.P2PTest
     {
         static async Task Main(string[] args)
         {
+            if (args != null && Array.Exists(args, a => a == "--all"))
+            {
+                await RunAllAsync();
+                Environment.ExitCode = TestHarness.HasFailures ? 1 : 0;
+                return;
+            }
+
             while (true)
             {
                 ConsoleHelper.Title = "SAEA.P2P Test";
@@ -25,6 +32,15 @@ namespace SAEA.P2PTest
                 ConsoleHelper.WriteLine("8 = RelayTest");
                 ConsoleHelper.WriteLine("9 = LocalDiscoveryTest");
                 ConsoleHelper.WriteLine("10 = AuthEncryptionTest");
+                ConsoleHelper.WriteLine("11 = EdgeCaseTest");
+                ConsoleHelper.WriteLine("12 = ProtocolAdvancedTest");
+                ConsoleHelper.WriteLine("13 = SecurityAdvancedTest");
+                ConsoleHelper.WriteLine("14 = RelayAdvancedTest");
+                ConsoleHelper.WriteLine("15 = ConcurrencyTest");
+                ConsoleHelper.WriteLine("16 = LifecycleTest");
+                ConsoleHelper.WriteLine("17 = IntegrationTest");
+                ConsoleHelper.WriteLine("18 = PerformanceTest");
+                ConsoleHelper.WriteLine("19 = Run all advanced tests");
                 ConsoleHelper.WriteLine("0 = Exit");
 
                 var pressedKey = ConsoleHelper.ReadLine();
@@ -61,10 +77,56 @@ namespace SAEA.P2PTest
                     case "10":
                         await AuthEncryptionTest.RunAsync();
                         break;
+                    case "11":
+                        EdgeCaseTest.Run();
+                        break;
+                    case "12":
+                        ProtocolAdvancedTest.Run();
+                        break;
+                    case "13":
+                        SecurityAdvancedTest.Run();
+                        break;
+                    case "14":
+                        RelayAdvancedTest.Run();
+                        break;
+                    case "15":
+                        ConcurrencyTest.Run();
+                        break;
+                    case "16":
+                        await LifecycleTest.RunAsync();
+                        break;
+                    case "17":
+                        await IntegrationTest.RunAsync();
+                        break;
+                    case "18":
+                        PerformanceTest.Run();
+                        break;
+                    case "19":
+                        await RunAllAsync();
+                        break;
                     case "0":
                         return;
                 }
             }
+        }
+
+        static async Task RunAllAsync()
+        {
+            TestHarness.Reset();
+
+            EdgeCaseTest.Run();
+            ProtocolAdvancedTest.Run();
+            SecurityAdvancedTest.Run();
+            RelayAdvancedTest.Run();
+            ConcurrencyTest.Run();
+            await LifecycleTest.RunAsync();
+            await IntegrationTest.RunAsync();
+            PerformanceTest.Run();
+
+            TestHarness.WriteSummary("ALL ADVANCED TESTS");
+
+            // ConsoleHelper 输出为异步队列，退出前留出时间刷出。
+            await Task.Delay(500);
         }
     }
 }

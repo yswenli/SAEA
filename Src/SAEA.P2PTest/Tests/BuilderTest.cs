@@ -118,7 +118,7 @@ namespace SAEA.P2PTest.Tests
             ConsoleHelper.WriteLine("--- TestClientBuilderValidation ---");
 
             int passed = 0;
-            int total = 3;
+            int total = 4;
 
             try
             {
@@ -164,6 +164,7 @@ namespace SAEA.P2PTest.Tests
             try
             {
                 new P2PClientBuilder()
+                    .SetServer("", 39654)
                     .SetNodeId("test-node")
                     .Build();
                 ConsoleHelper.WriteLine("EP07 validation: FAILED (should throw)");
@@ -172,13 +173,34 @@ namespace SAEA.P2PTest.Tests
             {
                 if (ex.ErrorCode == ErrorCode.RegisterServerUnavailable)
                 {
-                    ConsoleHelper.WriteLine("EP07 (Server unavailable) validation: PASSED");
+                    ConsoleHelper.WriteLine("EP07 (SetServer with empty address) validation: PASSED");
                     passed++;
                 }
                 else
                 {
                     ConsoleHelper.WriteLine($"EP07 validation: FAILED (wrong error code: {ex.ErrorCode})");
                 }
+            }
+
+            try
+            {
+                var localOptions = new P2PClientBuilder()
+                    .SetNodeId("test-node")
+                    .EnableLocalDiscovery()
+                    .Build();
+                if (string.IsNullOrEmpty(localOptions.ServerAddress) && localOptions.Discovery.EnableLocalDiscovery)
+                {
+                    ConsoleHelper.WriteLine("Local-only (no server) build: PASSED");
+                    passed++;
+                }
+                else
+                {
+                    ConsoleHelper.WriteLine("Local-only (no server) build: FAILED");
+                }
+            }
+            catch (P2PException ex)
+            {
+                ConsoleHelper.WriteLine($"Local-only build: FAILED (unexpected {ex.ErrorCode})");
             }
 
             ConsoleHelper.WriteLine($"TestClientBuilderValidation: {passed}/{total} PASSED");

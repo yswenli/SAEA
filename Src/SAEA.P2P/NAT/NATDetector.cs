@@ -79,10 +79,33 @@ namespace SAEA.P2P.NAT
         
         private IPEndPoint GetLocalAddress()
         {
-            using (var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp))
+            try
             {
-                socket.Connect("8.8.8.8", 80);
-                return (IPEndPoint)socket.LocalEndPoint;
+                using (var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp))
+                {
+                    socket.Connect("8.8.8.8", 80);
+                    return (IPEndPoint)socket.LocalEndPoint;
+                }
+            }
+            catch
+            {
+                // Offline / no route: fall back to a local interface address.
+                try
+                {
+                    var host = Dns.GetHostName();
+                    var addresses = Dns.GetHostAddresses(host);
+                    foreach (var address in addresses)
+                    {
+                        if (address.AddressFamily == AddressFamily.InterNetwork)
+                            return new IPEndPoint(address, 0);
+                    }
+                }
+                catch
+                {
+                    // Ignore and use loopback.
+                }
+                
+                return new IPEndPoint(IPAddress.Loopback, 0);
             }
         }
         

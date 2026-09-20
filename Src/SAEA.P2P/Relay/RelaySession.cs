@@ -49,7 +49,8 @@ namespace SAEA.P2P.Relay
             return (DateTime.UtcNow - LastActiveTime).TotalMilliseconds > timeoutMs;
         }
         
-        public bool IsOverQuota => BytesTransferred > MaxQuota;
+        // MaxQuota <= 0 means unlimited.
+        public bool IsOverQuota => MaxQuota > 0 && BytesTransferred > MaxQuota;
         
         public void AddBytes(long count)
         {

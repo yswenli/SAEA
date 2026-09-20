@@ -105,7 +105,7 @@ namespace SAEA.P2P.Common
 
         public static string GetDescription(string errorCode)
         {
-            if (Descriptions.TryGetValue(errorCode, out var description))
+            if (!string.IsNullOrEmpty(errorCode) && Descriptions.TryGetValue(errorCode, out var description))
             {
                 return description;
             }

@@ -154,6 +154,9 @@ namespace SAEA.P2P.Core
                 case P2PMessageType.RelayData:
                     ProcessRelayData(sessionId, protocol.Content);
                     break;
+                case P2PMessageType.UserData:
+                    ProcessUserData(sessionId, protocol.Content);
+                    break;
                 case P2PMessageType.Heartbeat:
                     SendHeartbeatAck(sessionId);
                     break;
@@ -224,6 +227,15 @@ namespace SAEA.P2P.Core
                 var remoteEP = userToken.Socket.RemoteEndPoint as IPEndPoint;
                 if (remoteEP != null)
                 {
+                    // Remember the observed public endpoint so PunchReady can advertise it.
+                    var nodeId = _sessionToNode.TryGetValue(sessionId, out var nid) ? nid : null;
+                    if (nodeId != null && _nodes.TryGetValue(nodeId, out var node))
+                    {
+                        node.PublicAddress = remoteEP.Address.ToString();
+                        node.PublicPort = remoteEP.Port;
+                        node.LastActiveTime = DateTime.UtcNow;
+                    }
+                    
                     var probeAckContent = Encoding.UTF8.GetBytes($"{remoteEP.Address}|{remoteEP.Port}|{(int)NATType.Unknown}");
                     var probeAckPacket = _coder.EncodeP2P(P2PMessageType.NatProbeAck, probeAckContent);
                     _serverSocket.SendAsync(sessionId, probeAckPacket);
@@ -284,14 +296,15 @@ namespace SAEA.P2P.Core
             
             var relaySession = _relayManager.CreateSession(sourceId, targetId);
             
-            var ackContent = Encoding.UTF8.GetBytes(relaySession.SessionId);
+            // RelayAck layout: {sessionId}|{peerId}. Each side learns who it is talking to.
+            var ackContent = Encoding.UTF8.GetBytes($"{relaySession.SessionId}|{targetId}");
             var ackPacket = _coder.EncodeP2P(P2PMessageType.RelayAck, ackContent);
             _serverSocket.SendAsync(sessionId, ackPacket);
             
             var targetSessionId = _nodeToSession.TryGetValue(targetId, out var ts) ? ts : null;
             if (targetSessionId != null)
             {
-                var targetAckContent = Encoding.UTF8.GetBytes(relaySession.SessionId);
+                var targetAckContent = Encoding.UTF8.GetBytes($"{relaySession.SessionId}|{sourceId}");
                 var targetAckPacket = _coder.EncodeP2P(P2PMessageType.RelayAck, targetAckContent);
                 _serverSocket.SendAsync(targetSessionId, targetAckPacket);
             }
@@ -335,6 +348,41 @@ namespace SAEA.P2P.Core
                     OnError?.Invoke(sessionId, ErrorCode.RelaySessionNotFound);
                 }
             }
+        }
+        
+        private void ProcessUserData(string sessionId, byte[] content)
+        {
+            if (content == null) return;
+            
+            // content layout from client: {sourceId}|{targetId}|{payload}
+            var first = Array.IndexOf(content, (byte)'|');
+            if (first <= 0) return;
+            var second = Array.IndexOf(content, (byte)'|', first + 1);
+            if (second < 0) return;
+            
+            var sourceId = Encoding.UTF8.GetString(content, 0, first);
+            var targetId = Encoding.UTF8.GetString(content, first + 1, second - first - 1);
+            
+            var targetSessionId = _nodeToSession.TryGetValue(targetId, out var ts) ? ts : null;
+            if (targetSessionId == null)
+            {
+                OnError?.Invoke(sessionId, ErrorCode.DiscoveryNoCandidates);
+                return;
+            }
+            
+            // Rebuild as {sourceId}|{payload} and forward raw payload bytes.
+            var sourceBytes = Encoding.UTF8.GetBytes(sourceId + "|");
+            var payloadOffset = second + 1;
+            var payloadLength = content.Length - payloadOffset;
+            var forwardContent = new byte[sourceBytes.Length + payloadLength];
+            Buffer.BlockCopy(sourceBytes, 0, forwardContent, 0, sourceBytes.Length);
+            if (payloadLength > 0)
+                Buffer.BlockCopy(content, payloadOffset, forwardContent, sourceBytes.Length, payloadLength);
+            
+            var forwardPacket = _coder.EncodeP2P(P2PMessageType.UserData, forwardContent);
+            _serverSocket.SendAsync(targetSessionId, forwardPacket);
+            
+            P2PLogHelper.Trace("P2PServer", $"User data forwarded: {sourceId} -> {targetId}");
         }
         
         private void OnDisconnected(string sessionId, Exception ex)

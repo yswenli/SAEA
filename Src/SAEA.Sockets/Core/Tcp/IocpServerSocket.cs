@@ -584,15 +584,17 @@ namespace SAEA.Sockets.Core.Tcp
             try
             {
                 if (userToken == null || string.IsNullOrEmpty(userToken.ID)) return;
+                // Capture the id before Free() resets userToken.ID to null.
+                var sessionId = userToken.ID;
                 if (_sessionManager.Free(userToken))
                 {
                     Interlocked.Decrement(ref _clientCounts);
-                    OnDisconnected?.Invoke(userToken.ID, ex);
+                    OnDisconnected?.Invoke(sessionId, ex);
                 }
             }
             catch (Exception e)
             {
-                LogHelper.Error($"An exception occurs when disconnecting:{userToken?.ID}", ex);
+                LogHelper.Error($"An exception occurs when disconnecting:{userToken?.ID}", e);
                 OnError?.Invoke("", e);
             }
         }
