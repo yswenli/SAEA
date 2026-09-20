@@ -41,6 +41,7 @@ namespace SAEA.P2PTest
                 ConsoleHelper.WriteLine("17 = IntegrationTest");
                 ConsoleHelper.WriteLine("18 = PerformanceTest");
                 ConsoleHelper.WriteLine("19 = Run all advanced tests");
+                ConsoleHelper.WriteLine("20 = StreamDecoderTest");
                 ConsoleHelper.WriteLine("0 = Exit");
 
                 var pressedKey = ConsoleHelper.ReadLine();
@@ -104,6 +105,9 @@ namespace SAEA.P2PTest
                     case "19":
                         await RunAllAsync();
                         break;
+                    case "20":
+                        StreamDecoderTest.Run();
+                        break;
                     case "0":
                         return;
                 }
@@ -122,6 +126,7 @@ namespace SAEA.P2PTest
             await LifecycleTest.RunAsync();
             await IntegrationTest.RunAsync();
             PerformanceTest.Run();
+            StreamDecoderTest.Run();
 
             TestHarness.WriteSummary("ALL ADVANCED TESTS");
 
