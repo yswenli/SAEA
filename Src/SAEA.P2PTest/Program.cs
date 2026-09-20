@@ -17,6 +17,15 @@ namespace SAEA.P2PTest
                 return;
             }
 
+            if (args != null && Array.Exists(args, a => a == "--bench-iocp"))
+            {
+                TestHarness.Reset();
+                await IocpBenchmark.RunAsync();
+                Environment.ExitCode = TestHarness.HasFailures ? 1 : 0;
+                await Task.Delay(500);
+                return;
+            }
+
             while (true)
             {
                 ConsoleHelper.Title = "SAEA.P2P Test";
@@ -42,6 +51,7 @@ namespace SAEA.P2PTest
                 ConsoleHelper.WriteLine("18 = PerformanceTest");
                 ConsoleHelper.WriteLine("19 = Run all advanced tests");
                 ConsoleHelper.WriteLine("20 = StreamDecoderTest");
+                ConsoleHelper.WriteLine("21 = IocpReceiveBenchmark");
                 ConsoleHelper.WriteLine("0 = Exit");
 
                 var pressedKey = ConsoleHelper.ReadLine();
@@ -107,6 +117,9 @@ namespace SAEA.P2PTest
                         break;
                     case "20":
                         StreamDecoderTest.Run();
+                        break;
+                    case "21":
+                        await IocpBenchmark.RunAsync();
                         break;
                     case "0":
                         return;
