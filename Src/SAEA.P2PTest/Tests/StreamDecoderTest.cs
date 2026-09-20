@@ -23,6 +23,7 @@ namespace SAEA.P2PTest.Tests
             EmptyBody();
             BigData();
             LargeFrame();
+            MalformedLength();
             Parity();
 
             TestHarness.WriteSummary("StreamDecoderTest");
@@ -137,6 +138,32 @@ namespace SAEA.P2PTest.Tests
 
             TestHarness.Expect(decoded.Count == 1 && decoded[0].Content != null && decoded[0].Content.SequenceEqual(content),
                 "1MB payload byte-exact");
+        }
+
+        static void MalformedLength()
+        {
+            TestHarness.Section("malformed length");
+            var original = BaseCoder.MaxFrameLength;
+            try
+            {
+                BaseCoder.MaxFrameLength = 1024;
+
+                var coder = new BaseCoder();
+
+                var negative = new byte[BaseCoder.P_Head];
+                BitConverter.GetBytes(-1L).CopyTo(negative, 0);
+                negative[BaseCoder.P_LEN] = (byte)SocketProtocalType.RequestSend;
+                TestHarness.Throws<KernelException>(() => coder.Decode(negative), "negative length throws");
+
+                var tooBig = new byte[BaseCoder.P_Head];
+                BitConverter.GetBytes(2048L).CopyTo(tooBig, 0);
+                tooBig[BaseCoder.P_LEN] = (byte)SocketProtocalType.RequestSend;
+                TestHarness.Throws<KernelException>(() => coder.Decode(tooBig), "length over MaxFrameLength throws");
+            }
+            finally
+            {
+                BaseCoder.MaxFrameLength = original;
+            }
         }
 
         static void Parity()
