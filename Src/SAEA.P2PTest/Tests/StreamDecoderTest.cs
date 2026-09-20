@@ -24,6 +24,7 @@ namespace SAEA.P2PTest.Tests
             BigData();
             LargeFrame();
             MalformedLength();
+            ZeroCopyStream();
             Parity();
 
             TestHarness.WriteSummary("StreamDecoderTest");
@@ -163,6 +164,38 @@ namespace SAEA.P2PTest.Tests
             finally
             {
                 BaseCoder.MaxFrameLength = original;
+            }
+        }
+
+        static void ZeroCopyStream()
+        {
+            TestHarness.Section("zero-copy stream");
+
+            var coder = new BaseCoder();
+            var payload = Encoding.UTF8.GetBytes("zero-copy-payload");
+            var frame = BuildFrame((byte)SocketProtocalType.RequestSend, payload);
+
+            var handler = new CapturingHandler();
+            coder.DecodeStream(frame.AsSpan(0, 5), handler);
+            TestHarness.Expect(handler.Frames == 0, "partial stream input buffered");
+
+            coder.DecodeStream(frame.AsSpan(5), handler);
+            TestHarness.Expect(handler.Frames == 1, "stream frame delivered");
+            TestHarness.Expect(handler.LastCopied != null && handler.LastCopied.SequenceEqual(payload), "stream payload byte-exact");
+            TestHarness.Expect(handler.LastType == (byte)SocketProtocalType.RequestSend, "stream frame type");
+        }
+
+        sealed class CapturingHandler : SAEA.Sockets.Interface.IFrameHandler
+        {
+            public int Frames;
+            public byte[] LastCopied;
+            public byte LastType;
+
+            public void OnFrame(in SocketFrame frame)
+            {
+                LastCopied = frame.Content.ToArray();
+                LastType = frame.Type;
+                Frames++;
             }
         }
 

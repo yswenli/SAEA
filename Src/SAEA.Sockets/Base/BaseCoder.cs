@@ -118,6 +118,34 @@ namespace SAEA.Sockets.Base
         }
 
         /// <summary>
+        /// 零拷贝流式解码：帧体以切片交付，仅在 handler 回调期间有效。
+        /// </summary>
+        public void DecodeStream(ReadOnlySpan<byte> data, IFrameHandler handler, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
+        {
+            if (handler == null) throw new ArgumentNullException(nameof(handler));
+
+            OnReceiveSpan?.Invoke(data);
+
+            _decoder.Append(data);
+
+            while (_decoder.TryReadFrame(out var kind, out var frame, out var fileContent, out var heartAt))
+            {
+                switch (kind)
+                {
+                    case FrameKind.Heart:
+                        onHeart?.Invoke(heartAt);
+                        break;
+                    case FrameKind.File:
+                        onFile?.Invoke(fileContent);
+                        break;
+                    case FrameKind.Data:
+                        handler.OnFrame(in frame);
+                        break;
+                }
+            }
+        }
+
+        /// <summary>
         /// 实现接口方法 Decode，解析接收到的字节数据
         /// </summary>
         /// <param name="data"></param>
