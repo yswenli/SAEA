@@ -139,15 +139,14 @@ namespace SAEA.Sockets.Core.Tcp
         protected OnClientReceiveBytesHandler OnClientReceive = null;
 
         /// <summary>
-        /// 内部委托：接收数据时触发（Span版本）
+        /// 是否为基类客户端类型（非派生类）
         /// </summary>
-        /// <param name="data">数据Span</param>
-        internal delegate void OnClientReceiveSpanHandler(ReadOnlySpan<byte> data);
+        private readonly bool _isBaseClientType;
 
         /// <summary>
-        /// 内部事件：客户端接收数据（Span版本）
+        /// 接收数据事件（Span 版本）。data 仅在回调期间有效。
         /// </summary>
-        internal event OnClientReceiveSpanHandler OnClientReceiveSpan;
+        public event OnClientReceiveSpanHandler OnClientReceiveSpan;
 
         /// <summary>
         /// 触发错误事件
@@ -168,6 +167,8 @@ namespace SAEA.Sockets.Core.Tcp
             SocketOption = socketOption;
 
             Context = socketOption.Context;
+
+            _isBaseClientType = GetType() == typeof(IocpClientSocket);
 
             _userTokenFactory = new UserTokenFactory();
 
@@ -445,19 +446,22 @@ namespace SAEA.Sockets.Core.Tcp
                         // 使用Span获取数据，避免立即复制
                         var dataSpan = readArgs.Buffer.AsSpan(readArgs.Offset, readArgs.BytesTransferred);
 
-                        // 触发内部Span事件
+                        // 零拷贝路径：始终触发（无分配）
                         OnClientReceiveSpan?.Invoke(dataSpan);
 
-                        // 复制到精确大小的数组，避免内存池返回的超大数组导致下游逻辑错误
-                        var buffer = dataSpan.ToArray();
+                        // 兼容路径：仅当存在 byte[] 消费方时才复制
+                        if (!_isBaseClientType || OnReceive != null)
+                        {
+                            var buffer = dataSpan.ToArray();
 
-                        try
-                        {
-                            OnClientReceive?.Invoke(buffer);
-                        }
-                        catch (Exception ex)
-                        {
-                            OnError?.Invoke(UserToken.ID, ex);
+                            try
+                            {
+                                OnClientReceive?.Invoke(buffer);
+                            }
+                            catch (Exception ex)
+                            {
+                                OnError?.Invoke(UserToken.ID, ex);
+                            }
                         }
                     }
 

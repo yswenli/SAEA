@@ -127,6 +127,7 @@ namespace SAEA.P2PTest
             await IntegrationTest.RunAsync();
             PerformanceTest.Run();
             StreamDecoderTest.Run();
+            await StreamDecoderTest.RunIocpClientAsync();
 
             TestHarness.WriteSummary("ALL ADVANCED TESTS");
 
