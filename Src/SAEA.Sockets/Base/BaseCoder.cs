@@ -36,6 +36,7 @@ using SAEA.Sockets.Model;
 
 using System;
 using System.Buffers;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
 
@@ -143,6 +144,55 @@ namespace SAEA.Sockets.Base
                         break;
                 }
             }
+        }
+
+        /// <summary>
+        /// 无状态解码：直接在只读序列上解析（支持多段），帧体物化为精确 byte[]。
+        /// </summary>
+        public List<ISocketProtocal> Decode(ReadOnlySequence<byte> data, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
+        {
+            var result = new List<ISocketProtocal>();
+            Span<byte> header = stackalloc byte[P_Head];
+            long position = 0;
+
+            while (data.Length - position >= P_Head)
+            {
+                data.Slice(position, P_Head).CopyTo(header);
+
+                var bodyLen = BinaryPrimitives.ReadInt64LittleEndian(header);
+                var type = header[P_LEN];
+
+                if (bodyLen < 0 || bodyLen > MaxFrameLength)
+                    throw new KernelException($"非法的数据帧长度: {bodyLen}");
+
+                if (bodyLen == 0 && type == (byte)SocketProtocalType.Heart)
+                {
+                    position += P_Head;
+                    onHeart?.Invoke(DateTimeHelper.Now);
+                    continue;
+                }
+
+                if (data.Length - position < P_Head + bodyLen) break;
+
+                byte[] content;
+                if (bodyLen == 0)
+                {
+                    content = Array.Empty<byte>();
+                }
+                else
+                {
+                    content = data.Slice(position + P_Head, bodyLen).ToArray();
+                }
+
+                position += P_Head + bodyLen;
+
+                if (type == (byte)SocketProtocalType.BigData)
+                    onFile?.Invoke(content);
+                else
+                    result.Add(new BaseSocketProtocal() { BodyLength = bodyLen, Type = type, Content = content });
+            }
+
+            return result;
         }
 
         /// <summary>

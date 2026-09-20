@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -25,6 +26,7 @@ namespace SAEA.P2PTest.Tests
             LargeFrame();
             MalformedLength();
             ZeroCopyStream();
+            MultiSegmentSequence();
             Parity();
 
             TestHarness.WriteSummary("StreamDecoderTest");
@@ -196,6 +198,43 @@ namespace SAEA.P2PTest.Tests
                 LastCopied = frame.Content.ToArray();
                 LastType = frame.Type;
                 Frames++;
+            }
+        }
+
+        static void MultiSegmentSequence()
+        {
+            TestHarness.Section("multi-segment ReadOnlySequence");
+
+            var payload1 = Encoding.UTF8.GetBytes("segment-one");
+            var payload2 = Encoding.UTF8.GetBytes("segment-two");
+            var all = new List<byte>();
+            all.AddRange(BuildFrame((byte)SocketProtocalType.RequestSend, payload1));
+            all.AddRange(BuildFrame((byte)SocketProtocalType.ChatMessage, payload2));
+
+            var array = all.ToArray();
+            var segment = new Segment(new ReadOnlyMemory<byte>(array, 0, 7));
+            segment.Append(new ReadOnlyMemory<byte>(array, 7, array.Length - 7));
+            var sequence = new ReadOnlySequence<byte>(segment, 0, segment.Next, array.Length - 7);
+
+            var decoded = new BaseCoder().Decode(sequence);
+
+            TestHarness.Expect(decoded.Count == 2, "two frames from multi-segment sequence", decoded.Count.ToString());
+            TestHarness.Expect(decoded.Count == 2 && decoded[0].Content.SequenceEqual(payload1), "first segment payload");
+            TestHarness.Expect(decoded.Count == 2 && decoded[1].Content.SequenceEqual(payload2), "second segment payload");
+        }
+
+        sealed class Segment : ReadOnlySequenceSegment<byte>
+        {
+            public Segment(ReadOnlyMemory<byte> memory)
+            {
+                Memory = memory;
+            }
+
+            public Segment Append(ReadOnlyMemory<byte> memory)
+            {
+                var next = new Segment(memory) { RunningIndex = RunningIndex + Memory.Length };
+                Next = next;
+                return next;
             }
         }
 
