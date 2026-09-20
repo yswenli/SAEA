@@ -274,6 +274,39 @@ namespace SAEA.P2PTest.Tests
             listener.Stop();
         }
 
+        public static async System.Threading.Tasks.Task RunIocpServerAsync()
+        {
+            TestHarness.Section("IOCP server span path");
+
+            int port = TestHarness.GetFreeTcpPort();
+            var option = SAEA.Sockets.SocketOptionBuilder.Instance
+                .UseIocp()
+                .SetIP("127.0.0.1")
+                .SetPort(port)
+                .SetReadBufferSize(8192)
+                .Build();
+
+            var server = new SAEA.Sockets.Core.Tcp.IocpServerSocket(option);
+            byte[] spanData = null;
+            server.OnServerReceiveSpan += (token, span) => spanData = span.ToArray();
+            server.Start();
+            await System.Threading.Tasks.Task.Delay(200);
+
+            using (var tcp = new System.Net.Sockets.TcpClient())
+            {
+                await tcp.ConnectAsync(System.Net.IPAddress.Loopback, port);
+                var frame = BuildFrame((byte)SocketProtocalType.RequestSend, Encoding.UTF8.GetBytes("server-span"));
+                await tcp.GetStream().WriteAsync(frame, 0, frame.Length);
+                await tcp.GetStream().FlushAsync();
+
+                await TestHarness.WaitUntil(() => spanData != null, 3000);
+                TestHarness.Expect(spanData != null && spanData.SequenceEqual(frame), "server span event receives frame bytes");
+            }
+
+            try { server.Stop(); } catch { }
+            try { server.Dispose(); } catch { }
+        }
+
         static void Parity()
         {
             TestHarness.Section("legacy parity matrix");

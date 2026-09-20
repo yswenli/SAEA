@@ -89,12 +89,22 @@ namespace SAEA.Sockets.Core.Tcp
         // 接收数据事件
         public event OnReceiveHandler OnReceive;
 
+        /// <summary>
+        /// 接收数据事件（Span 版本）。data 仅在回调期间有效。
+        /// </summary>
+        public event OnServerReceiveSpanHandler OnServerReceiveSpan;
+
         #endregion
 
         /// <summary>
         /// socket收到数据时的代理
         /// </summary>
         private OnServerReceiveBytesHandler OnServerReceiveBytes;
+
+        /// <summary>
+        /// 是否为基类服务端类型（非派生类）
+        /// </summary>
+        private readonly bool _isBaseServerType;
 
         /// <summary>
         /// iocp 服务器 socket
@@ -108,6 +118,7 @@ namespace SAEA.Sockets.Core.Tcp
                 socketOption.MaxConnects, IO_Completed,
                 new TimeSpan(0, 0, 0, 0, socketOption.FreeTime));
             _sessionManager.OnTimeOut += _sessionManager_OnTimeOut;
+            _isBaseServerType = GetType() == typeof(IocpServerSocket);
             OnServerReceiveBytes = new OnServerReceiveBytesHandler(OnReceiveBytes);
             SocketOption = socketOption;
         }
@@ -332,9 +343,13 @@ namespace SAEA.Sockets.Core.Tcp
                     try
                     {
                         userToken.Actived = DateTimeHelper.Now;
-                        var buffer = readArgs.Buffer.AsSpan().Slice(readArgs.Offset, readArgs.BytesTransferred).ToArray();
+                        var dataSpan = readArgs.Buffer.AsSpan().Slice(readArgs.Offset, readArgs.BytesTransferred);
                         _sessionManager.Active(userToken.ID);
-                        OnServerReceiveBytes.Invoke(userToken, buffer);
+
+                        OnServerReceiveSpan?.Invoke(userToken, dataSpan);
+
+                        if (!_isBaseServerType || OnReceive != null)
+                            OnServerReceiveBytes.Invoke(userToken, dataSpan.ToArray());
                     }
                     catch (Exception ex)
                     {
