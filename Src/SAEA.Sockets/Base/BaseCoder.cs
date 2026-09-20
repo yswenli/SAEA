@@ -58,8 +58,13 @@ namespace SAEA.Sockets.Base
         // 定义常量 SmallDataThreshold，小数据阈值（4KB）
         public const int SmallDataThreshold = 4 * 1024;
 
-        // 定义一个私有字段 _buffer，用于存储接收到的数据
-        private MemoryStream _buffer = new MemoryStream();
+        /// <summary>
+        /// 单帧最大帧体长度，可由部署方收紧
+        /// </summary>
+        public static int MaxFrameLength { get; set; } = int.MaxValue - P_Head;
+
+        // 增量式拆帧内核
+        private FrameDecoder _decoder = new FrameDecoder(MaxFrameLength);
 
         /// <summary>
         /// 内部委托：接收数据时触发（Span版本）
@@ -90,51 +95,25 @@ namespace SAEA.Sockets.Base
 
             var result = new List<ISocketProtocal>();
 
-            _buffer.Position = _buffer.Length;
-            _buffer.Write(data.ToArray(), 0, data.Length);
+            _decoder.Append(data);
 
-            _buffer.Position = 0;
-
-            while (_buffer.Length - _buffer.Position >= P_Head)
+            while (_decoder.TryReadFrame(out var kind, out var frame, out var fileContent, out var heartAt))
             {
-                _buffer.Position = 0;
-
-                var bodyLen = ReadLengthFromBuffer();
-
-                _buffer.Position = P_LEN;
-
-                var type = (SocketProtocalType)_buffer.ReadByte();
-
-                _buffer.Position = 0;
-
-                if (bodyLen == 0 && type == SocketProtocalType.Heart)
+                switch (kind)
                 {
-                    var sm = new BaseSocketProtocal() { BodyLength = bodyLen, Type = (byte)type };
-                    RemoveFromBuffer(P_Head);
-                    onHeart?.Invoke(DateTimeHelper.Now);
-                }
-                else if (_buffer.Length >= P_Head + bodyLen)
-                {
-                    if (type == SocketProtocalType.BigData)
-                    {
-                        var content = ReadContentFromBufferSpan(P_Head, (int)bodyLen);
-                        RemoveFromBuffer((int)(P_Head + bodyLen));
-                        onFile?.Invoke(content);
-                    }
-                    else
-                    {
-                        var content = ReadContentFromBufferSpan(P_Head, (int)bodyLen);
-                        var sm = new BaseSocketProtocal() { BodyLength = bodyLen, Type = (byte)type, Content = content };
-                        RemoveFromBuffer((int)(P_Head + bodyLen));
-                        result.Add(sm);
-                    }
-                }
-                else
-                {
-                    _buffer.Position = _buffer.Length;
-                    break;
+                    case FrameKind.Heart:
+                        onHeart?.Invoke(heartAt);
+                        break;
+                    case FrameKind.File:
+                        onFile?.Invoke(fileContent);
+                        break;
+                    case FrameKind.Data:
+                        var content = frame.Content.Length == 0 ? Array.Empty<byte>() : frame.Content.ToArray();
+                        result.Add(new BaseSocketProtocal() { BodyLength = frame.BodyLength, Type = frame.Type, Content = content });
+                        break;
                 }
             }
+
             return result;
         }
 
@@ -148,122 +127,6 @@ namespace SAEA.Sockets.Base
         {
             // 委托给Span版本的方法
             return Decode(data.AsSpan(), onHeart, onFile);
-        }
-
-        /// <summary>
-        /// 从缓冲区读取长度信息
-        /// </summary>
-        /// <returns></returns>
-        private long ReadLengthFromBuffer()
-        {
-            byte[] lenBytes = ArrayPool<byte>.Shared.Rent(P_LEN);
-            try
-            {
-                _buffer.Read(lenBytes, 0, P_LEN);
-                return lenBytes.ToLong();
-            }
-            finally
-            {
-                ArrayPool<byte>.Shared.Return(lenBytes);
-            }
-        }
-
-        /// <summary>
-        /// 从缓冲区读取内容（Span优化版本）
-        /// </summary>
-        /// <param name="offset"></param>
-        /// <param name="count"></param>
-        /// <returns></returns>
-        private byte[] ReadContentFromBufferSpan(int offset, int count)
-        {
-            if (count <= 0) return Array.Empty<byte>();
-
-            // 根据数据大小选择分配策略
-            byte[] result;
-            if (count < SmallDataThreshold)
-            {
-                // 小数据：直接分配
-                result = new byte[count];
-
-                // 移动到指定位置
-                _buffer.Position = offset;
-
-                // 读取数据
-                _buffer.Read(result, 0, count);
-
-                // 重置位置到开始
-                _buffer.Position = 0;
-
-                return result;
-            }
-            else
-            {
-                // 大数据：先租用池化缓冲区读取，再裁剪到精确长度后归还，避免解码内容包含多余字节
-                var pooled = MemoryPoolManager.Rent(count);
-
-                // 移动到指定位置
-                _buffer.Position = offset;
-
-                // 读取数据
-                _buffer.Read(pooled, 0, count);
-
-                // 重置位置到开始
-                _buffer.Position = 0;
-
-                result = new byte[count];
-                Buffer.BlockCopy(pooled, 0, result, 0, count);
-                MemoryPoolManager.Return(pooled, count);
-
-                return result;
-            }
-        }
-
-        /// <summary>
-        /// 从缓冲区读取内容（保持兼容性的原始版本，内部委托给Span版本）
-        /// </summary>
-        /// <param name="offset"></param>
-        /// <param name="count"></param>
-        /// <returns></returns>
-        private byte[] ReadContentFromBuffer(int offset, int count)
-        {
-            return ReadContentFromBufferSpan(offset, count);
-        }
-
-        /// <summary>
-        /// 从缓冲区移除指定长度的数据
-        /// </summary>
-        /// <param name="length"></param>
-        private void RemoveFromBuffer(int length)
-        {
-            long remaining = _buffer.Length - length;
-            if (remaining <= 0)
-            {
-                Clear();
-                return;
-            }
-            
-            // 创建临时缓冲区保存剩余数据
-            byte[] tempBuffer = ArrayPool<byte>.Shared.Rent((int)remaining);
-            try
-            {
-                // 移动到已处理数据之后
-                _buffer.Position = length;
-                
-                // 读取剩余数据
-                _buffer.Read(tempBuffer, 0, (int)remaining);
-                
-                // 清空并重置流
-                _buffer.SetLength(0);
-                _buffer.Position = 0;
-                
-                // 写入剩余数据
-                _buffer.Write(tempBuffer, 0, (int)remaining);
-                _buffer.Position = 0;
-            }
-            finally
-            {
-                ArrayPool<byte>.Shared.Return(tempBuffer);
-            }
         }
 
         /// <summary>
@@ -314,8 +177,7 @@ namespace SAEA.Sockets.Base
         /// </summary>
         public void Clear()
         {
-            _buffer?.SetLength(0);
-            _buffer?.Seek(0, SeekOrigin.Begin);
+            _decoder?.Clear();
         }
     }
 }
