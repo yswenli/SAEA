@@ -45,11 +45,15 @@ namespace SAEA.Sockets.Interface
 
         /// <summary>
         /// 有状态解码（复用半包缓存）。多段序列按段喂入。
-        /// 返回的 <see cref="DecodedFrames"/> 必须 using。
+        /// 返回的 <see cref="DecodedFrames"/> 必须 using，帧内存仅在其 Dispose 前有效。
+        /// 非线程安全；不得并发调用，且与 DecodeStream 共享解码状态。
         /// </summary>
+        /// <param name="data">待解码数据；多段序列按段喂入。</param>
+        /// <param name="onHeart">心跳回调（构造批次时按原顺序触发）。</param>
+        /// <param name="onFile">文件/大帧回调；其 ReadOnlyMemory 仅在返回的 DecodedFrames Dispose 前有效，不得跨 Dispose 捕获。</param>
         DecodedFrames Decode(ReadOnlySequence<byte> data, Action<DateTime> onHeart = null, Action<ReadOnlyMemory<byte>> onFile = null);
 
-        /// <summary>清除内部状态。</summary>
+        /// <summary>清除内部状态（丢弃半包/被拒帧缓存；解码抛错后应调用）。</summary>
         void Clear();
     }
 }

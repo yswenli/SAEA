@@ -29,7 +29,6 @@
  *
  *****************************************************************************/
 using System;
-using SAEA.Sockets.Base;
 
 namespace SAEA.Sockets.Interface
 {
@@ -40,6 +39,7 @@ namespace SAEA.Sockets.Interface
     {
         /// <summary>
         /// 增量零拷贝解码：frame.Content / onFile 仅在回调期间有效。
+        /// 非线程安全；与 Decode 共享解码状态，不得并发调用。
         /// </summary>
         void DecodeStream(ReadOnlySpan<byte> data, IFrameHandler handler, Action<DateTime> onHeart = null, FileSpanHandler onFile = null);
     }
