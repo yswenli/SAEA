@@ -55,6 +55,9 @@ namespace SAEA.Sockets.Base
             BodyLength = content.Length;
         }
 
+        /// <summary>
+        /// 注意：BodyLength 可大于 Content.Length（BigData 帧只携带分块），基类不做一致性校验。
+        /// </summary>
         public BaseSocketProtocal(long bodyLength, byte type, ReadOnlyMemory<byte> content)
         {
             BodyLength = bodyLength;

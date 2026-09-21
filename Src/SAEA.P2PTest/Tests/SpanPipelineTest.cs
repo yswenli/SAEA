@@ -39,7 +39,9 @@ namespace SAEA.P2PTest.Tests
                 p.WriteTo(pw);
                 TestHarness.Expect(pw.WrittenCount == 9 + 3, "BaseSocketProtocal.WriteTo writes 9-byte header + body");
                 TestHarness.Expect(pw.WrittenSpan[8] == 7, "BaseSocketProtocal.WriteTo writes Type at offset 8");
-                TestHarness.Expect(pw.WrittenSpan[9] == 10 && pw.WrittenSpan[11] == 30, "BaseSocketProtocal.WriteTo writes body");
+                TestHarness.Expect(System.Buffers.Binary.BinaryPrimitives.ReadInt64LittleEndian(pw.WrittenSpan) == 3L
+                        && pw.WrittenSpan.Slice(9, 3).SequenceEqual(new byte[] { 10, 20, 30 }),
+                    "BaseSocketProtocal.WriteTo writes 8-byte little-endian length and full body");
             }
 
             var empty = new SAEA.Sockets.Base.BaseSocketProtocal((byte)1, ReadOnlyMemory<byte>.Empty);
