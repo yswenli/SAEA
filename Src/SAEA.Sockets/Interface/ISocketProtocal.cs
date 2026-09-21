@@ -29,14 +29,18 @@
 *描述：ISocketProtocal接口
 *
 *****************************************************************************/
+using System;
+using System.Buffers;
+
 namespace SAEA.Sockets.Interface
 {
     public interface ISocketProtocal
     {
-        long BodyLength { get; set; }
-        byte[] Content { get; set; }
-        byte Type { get; set; }
+        long BodyLength { get; }
+        byte Type { get; }
+        ReadOnlyMemory<byte> Content { get; }
 
-        byte[] ToBytes();
+        /// <summary>按线格式（8B 小端长度 + 1B Type + body）写入 writer。</summary>
+        void WriteTo(IBufferWriter<byte> writer);
     }
 }

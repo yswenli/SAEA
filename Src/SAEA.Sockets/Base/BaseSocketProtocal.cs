@@ -29,50 +29,47 @@
 *描述：BaseSocketProtocal类
 *
 *****************************************************************************/
-using SAEA.Common;
+using System;
+using System.Buffers;
+using System.Buffers.Binary;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
-using System;
-using System.Collections.Generic;
 
 namespace SAEA.Sockets.Base
 {
     /// <summary>
-    /// 系统默认消息协议
+    /// 系统默认消息协议（非 sealed：P2PProtocol 等派生）。
     /// </summary>
     public class BaseSocketProtocal : ISocketProtocal
     {
-        public long BodyLength
+        public long BodyLength { get; protected set; }
+        public byte Type { get; protected set; }
+        public ReadOnlyMemory<byte> Content { get; protected set; } = ReadOnlyMemory<byte>.Empty;
+
+        public BaseSocketProtocal() { }
+
+        public BaseSocketProtocal(byte type, ReadOnlyMemory<byte> content)
         {
-            get; set;
+            Type = type;
+            Content = content;
+            BodyLength = content.Length;
         }
 
-        public byte Type
+        public BaseSocketProtocal(long bodyLength, byte type, ReadOnlyMemory<byte> content)
         {
-            get; set;
+            BodyLength = bodyLength;
+            Type = type;
+            Content = content;
         }
 
-        public Byte[] Content
+        public void WriteTo(IBufferWriter<byte> writer)
         {
-            get; set;
-        }
-
-        public byte[] ToBytes()
-        {
-            var len = BodyLength.ToBytes();
-
-            var data = new List<byte>();
-
-            data.AddRange(len);
-
-            data.Add(Type);
-
-            if (Content != null)
-            {
-                data.AddRange(Content);
-            }
-
-            return data.ToArray();
+            var span = writer.GetSpan(BaseCoder.P_Head);
+            BinaryPrimitives.WriteInt64LittleEndian(span, BodyLength);
+            span[BaseCoder.P_LEN] = Type;
+            writer.Advance(BaseCoder.P_Head);
+            if (!Content.IsEmpty)
+                writer.Write(Content.Span);
         }
 
         public static BaseSocketProtocal Parse(byte[] data, SocketProtocalType type)
@@ -80,51 +77,21 @@ namespace SAEA.Sockets.Base
             return Parse(data, (byte)type);
         }
 
-
         public static BaseSocketProtocal Parse(byte[] data, byte type)
         {
-            var msg = new BaseSocketProtocal();
-
-            if (data != null)
-                msg.BodyLength = data.Length;
-            else
-                msg.BodyLength = 0;
-
-            msg.Type = type;
-
-            if (msg.BodyLength > 0)
-            {
-                msg.Content = data;
-            }
-
-            return msg;
+            var len = data == null ? 0 : data.Length;
+            return new BaseSocketProtocal(len, type, len > 0 ? new ReadOnlyMemory<byte>(data) : ReadOnlyMemory<byte>.Empty);
         }
-
 
         public static BaseSocketProtocal ParseRequest(byte[] data)
         {
             return Parse(data, SocketProtocalType.RequestSend);
         }
 
-
         public static BaseSocketProtocal ParseStream(byte[] data)
         {
-            var msg = new BaseSocketProtocal();
-
-            if (data != null)
-                msg.BodyLength = data.Length;
-            else
-                msg.BodyLength = 0;
-
-            msg.Type = (byte)SocketProtocalType.BigData;
-
-            if (msg.BodyLength > 0)
-            {
-                msg.Content = data;
-            }
-
-            return msg;
+            var len = data == null ? 0 : data.Length;
+            return new BaseSocketProtocal(len, (byte)SocketProtocalType.BigData, len > 0 ? new ReadOnlyMemory<byte>(data) : ReadOnlyMemory<byte>.Empty);
         }
-
     }
 }
