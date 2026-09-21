@@ -386,8 +386,15 @@ Immediately after `SendAsync(IUserToken userToken, byte[] data)` (ends line 539)
             }
             catch (Exception ex)
             {
-                userToken.TakeSendingOwner()?.Dispose();
-                transferred = true;
+                if (transferred)
+                {
+                    userToken.TakeSendingOwner()?.Dispose();
+                }
+                else
+                {
+                    owner?.Dispose();
+                    transferred = true;
+                }
                 OnError?.Invoke(userToken?.ID ?? "", ex);
                 try { userToken?.ReleaseWrite(); } catch { }
                 try { Disconnect(); } catch { }
@@ -544,10 +551,10 @@ Insert after the existing `SendAsync(IUserToken userToken, byte[] data)` (ends l
                 return;
             }
             bool transferred = false;
-            try { _sessionManager.Active(userToken.ID); } catch { }
-            if (userToken.WaitWrite(SocketOption.ActionTimeout) && userToken.Socket != null && userToken.Socket.Connected)
+            try
             {
-                try
+                try { _sessionManager.Active(userToken.ID); } catch { }
+                if (userToken.WaitWrite(SocketOption.ActionTimeout) && userToken.Socket != null && userToken.Socket.Connected)
                 {
                     var writeArgs = userToken.WriteArgs;
                     if (writeArgs != null)
@@ -570,7 +577,7 @@ Insert after the existing `SendAsync(IUserToken userToken, byte[] data)` (ends l
                                 {
                                     if (userToken.IsSending)
                                     {
-                                        try { userToken.TakeSendingOwner()?.Dispose(); } catch { }
+                                        AbandonSendingOwner(userToken);
                                         userToken.IsSending = false;
                                         userToken.ReleaseWrite();
                                     }
@@ -578,27 +585,44 @@ Insert after the existing `SendAsync(IUserToken userToken, byte[] data)` (ends l
                             });
                         }
                     }
-                    else
-                    {
-                        userToken.TakeSendingOwner()?.Dispose();
-                    }
                 }
-                catch (Exception ex)
+                else
                 {
-                    userToken.TakeSendingOwner()?.Dispose();
-                    transferred = true;
-                    OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", ex);
+                    OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", new TimeoutException("Sending data timeout"));
                 }
             }
-            else
+            catch (Exception ex)
             {
-                OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", new TimeoutException("Sending data timeout"));
+                if (transferred)
+                {
+                    try { userToken.TakeSendingOwner()?.Dispose(); } catch { }
+                }
+                else
+                {
+                    owner?.Dispose();
+                    transferred = true;
+                }
+                OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", ex);
             }
-            if (!transferred) owner?.Dispose();
+            finally
+            {
+                if (!transferred) owner?.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// 发送超时后原子摘除发送缓冲所有权，但不释放它。
+        /// 旧的异步发送可能仍在读取该缓冲，此时归还池化数组会被再次租用并覆写，造成线上数据损坏；
+        /// 因此这里主动放弃所有权交由 GC 回收（少量复用损失优于数据损坏），
+        /// 同时避免稍后到达的完成回调误释放一次新的发送缓冲。
+        /// </summary>
+        private static void AbandonSendingOwner(IUserToken userToken)
+        {
+            userToken.TakeSendingOwner();
         }
 ```
 
-> The `Task.Delay(ActionTimeout)` watchdog mirrors the existing `SendAsync(IUserToken, byte[])` timeout behavior. On timeout it now also releases the owner so the pool buffer cannot leak.
+> The `Task.Delay(ActionTimeout)` watchdog mirrors the existing `SendAsync(IUserToken, byte[])` timeout behavior. On timeout it **abandons** (does not dispose) the owner: an in-flight overlapped send may still be reading the pooled array, so returning it to the pool could cause wire corruption; the abandoned writer is left to the GC and its slot is atomically cleared so a late completion cannot dispose a newer buffer. The `finally` guarantees exactly-once release on every non-timeout path.
 
 - [ ] **Step 3: Add the public memory/span/protocal/end/endpoint send members**
 
@@ -767,13 +791,7 @@ Add next to the existing `OnReceive`:
         public event OnServerReceiveSpanHandler OnServerReceiveSpan;
 ```
 
-In the read loop, immediately after the existing receive-byte handling and before/alongside `OnReceive?.Invoke(...)`, raise:
-
-```csharp
-        OnServerReceiveSpan?.Invoke(userToken, buffer.AsSpan(0, bytesRead));
-```
-
-(exact variable names depend on Step 1 inspection; the span must cover exactly the bytes read). Keep the existing `OnReceive` raise untouched (additive).
+In the read loop, keep the existing `OnReceive` raise untouched. **Do NOT raise `OnServerReceiveSpan` on `StreamServerSocket` in 2A:** the handler requires an `IUserToken`, and this backend has no user token (its sessions are `ISession`/`ChannelManager`-based), so raising it would pass `null` for a required parameter and create a landmine for future span-only consumers. The event is declared to satisfy the interface; the real span raise arrives with the `PipeReader` rework in Plan 2B.
 
 Add the send members (delegating to the existing byte[] server send path, e.g. `SendAsync(sessionID, byte[])` / `End`):
 
@@ -1007,3 +1025,7 @@ git commit -m "docs(plan): record Plan 2A outcome"
 - **`End` correctness.** `End` materializes a plain `byte[]` so it is safe across the immediate `Disconnect`; it is intentionally not zero-alloc (not a hot path).
 - **Do not touch** `Src/SAEA.Sockets/Core/Tcp/IocpServerSocket.cs`'s pre-existing ghost stat entry — but note Task 5 legitimately modifies this file, so `git add` of that path is correct at Task 7 Step 6.
 - **No comments policy**: the codebase forbids added comments; keep XML doc comments consistent with surrounding style only, and do not add inline `//` commentary.
+- **IOCP send-timeout buffer abandonment.** On the `ActionTimeout` watchdog, `AbandonSendingOwner` atomically clears the slot **without** disposing: the timed-out overlapped send may still read the pooled array, so returning it to the pool risks wire corruption. This trades a bounded, rare buffer-reuse leak for correctness. Client-side has no such watchdog (completion always drives `ProcessSended`).
+- **Exactly-once owner release.** `SendAsyncRaw` on both IOCP sockets releases the owner on every path: `ProcessSended` (success), the `catch` (synchronous throw, including `WaitWrite` throwing after `Clear()`), and the `finally { if (!transferred) owner?.Dispose(); }`. Never reintroduce the old unconditional `transferred = true` in `catch` — if the throw precedes publication, `TakeSendingOwner()` returns null and the owner would leak.
+- **Stream server does not raise `OnServerReceiveSpan` in 2A.** Its read loop is also gated on `OnReceive != null`; a span-only consumer also requires the byte[] subscriber. Both are resolved by the Plan 2B `PipeReader` rework. Stream/UDP span and send overloads currently have no dedicated tests (IOCP is covered by `IocpBenchmark`/`StreamDecoderTest`); add them in 2B.
+- **`SendAsync(ISocketProtocal)` exception semantics differ by backend.** IOCP catches `Encode` failures and routes them to `OnError`; Stream/UDP let them propagate. Intentional 2A scope, to be unified in 2B.

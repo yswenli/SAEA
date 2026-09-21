@@ -583,8 +583,15 @@ namespace SAEA.Sockets.Core.Tcp
             }
             catch (Exception ex)
             {
-                userToken.TakeSendingOwner()?.Dispose();
-                transferred = true;
+                if (transferred)
+                {
+                    userToken.TakeSendingOwner()?.Dispose();
+                }
+                else
+                {
+                    owner?.Dispose();
+                    transferred = true;
+                }
                 OnError?.Invoke(userToken?.ID ?? "", ex);
                 try { userToken?.ReleaseWrite(); } catch { }
                 try { Disconnect(); } catch { }

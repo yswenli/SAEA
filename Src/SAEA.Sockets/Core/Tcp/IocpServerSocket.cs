@@ -461,10 +461,10 @@ namespace SAEA.Sockets.Core.Tcp
                 return;
             }
             bool transferred = false;
-            try { _sessionManager.Active(userToken.ID); } catch { }
-            if (userToken.WaitWrite(SocketOption.ActionTimeout) && userToken.Socket != null && userToken.Socket.Connected)
+            try
             {
-                try
+                try { _sessionManager.Active(userToken.ID); } catch { }
+                if (userToken.WaitWrite(SocketOption.ActionTimeout) && userToken.Socket != null && userToken.Socket.Connected)
                 {
                     var writeArgs = userToken.WriteArgs;
                     if (writeArgs != null)
@@ -487,7 +487,7 @@ namespace SAEA.Sockets.Core.Tcp
                                 {
                                     if (userToken.IsSending)
                                     {
-                                        try { userToken.TakeSendingOwner()?.Dispose(); } catch { }
+                                        AbandonSendingOwner(userToken);
                                         userToken.IsSending = false;
                                         userToken.ReleaseWrite();
                                     }
@@ -495,23 +495,40 @@ namespace SAEA.Sockets.Core.Tcp
                             });
                         }
                     }
-                    else
-                    {
-                        userToken.TakeSendingOwner()?.Dispose();
-                    }
                 }
-                catch (Exception ex)
+                else
                 {
-                    userToken.TakeSendingOwner()?.Dispose();
-                    transferred = true;
-                    OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", ex);
+                    OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", new TimeoutException("Sending data timeout"));
                 }
             }
-            else
+            catch (Exception ex)
             {
-                OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", new TimeoutException("Sending data timeout"));
+                if (transferred)
+                {
+                    try { userToken.TakeSendingOwner()?.Dispose(); } catch { }
+                }
+                else
+                {
+                    owner?.Dispose();
+                    transferred = true;
+                }
+                OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", ex);
             }
-            if (!transferred) owner?.Dispose();
+            finally
+            {
+                if (!transferred) owner?.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// 发送超时后原子摘除发送缓冲所有权，但不释放它。
+        /// 旧的异步发送可能仍在读取该缓冲，此时归还池化数组会被再次租用并覆写，造成线上数据损坏；
+        /// 因此这里主动放弃所有权交由 GC 回收（少量复用损失优于数据损坏），
+        /// 同时避免稍后到达的完成回调误释放一次新的发送缓冲。
+        /// </summary>
+        private static void AbandonSendingOwner(IUserToken userToken)
+        {
+            userToken.TakeSendingOwner();
         }
 
         /// <summary>

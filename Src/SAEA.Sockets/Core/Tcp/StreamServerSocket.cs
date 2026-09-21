@@ -261,7 +261,6 @@ namespace SAEA.Sockets.Core.Tcp
                     if (len > 0)
                     {
                         ChannelManager.Instance.Refresh(id);
-                        OnServerReceiveSpan?.Invoke(null, _receiveBuffer.AsSpan().Slice(0, len));
                         OnReceive.Invoke(new Session(id), _receiveBuffer.AsSpan().Slice(0, len).ToArray());
                     }
                 }
