@@ -100,7 +100,11 @@ namespace SAEA.Sockets.Shortcut
         /// <param name="protocal"></param>
         protected void SendAsync(BaseSocketProtocal protocal)
         {
-            _udpClient.SendAsync(protocal.ToBytes());
+            using (var w = new SAEA.Common.Caching.PooledBufferWriter(64))
+            {
+                protocal.WriteTo(w);
+                _udpClient.SendAsync(w.WrittenSpan.ToArray());
+            }
         }
 
         /// <summary>
@@ -130,11 +134,11 @@ namespace SAEA.Sockets.Shortcut
 
         private void UdpClient_OnReceive(byte[] data)
         {
-            var msgs = _baseUnpacker.Decode(data);
-            if (msgs == null || msgs.Count < 1) return;
-            foreach (var msg in msgs)
+            using (var msgs = _baseUnpacker.Decode(new System.Buffers.ReadOnlySequence<byte>(data)))
             {
-                OnReceive?.Invoke(this, msg);
+                if (msgs.Count < 1) return;
+                foreach (var msg in msgs.Frames)
+                    OnReceive?.Invoke(this, msg);
             }
         }
 
