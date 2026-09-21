@@ -270,7 +270,7 @@ public delegate void FileSpanHandler(ReadOnlySpan<byte> content);
 - `P2PCoder` 额外公共面须保留：静态 `GetP2PMessageType(byte[])`（`P2PCoder.cs:84`，读 `data[P_LEN]`）；`DecodeP2P` **无 `onFile` 参数**且 BigData/File 帧对 P2P **静默丢弃**（`P2PCoder.cs:45` 只传 `onHeart`）——此语义逐字保持。
 - `EncodeP2P(...)`（**决策：保留 `byte[]` 现签名以限制 churn**，编码侧非验收热路径）：内部改用 `PooledBufferWriter` + `WriteTo` 后 `ToArray()`；另加 `EncodeP2P(..., IBufferWriter<byte>)` 零拷贝重载供新路径/基准。`P2PCoder : BaseCoder` 自动获得 `IFrameCoder`。
 - **`WSProtocal`（重点，非机械）**：现状**无背衬字段**——`Content`（`byte[]`）直接持有 `WSCoder.Decode` 租用的数组，`IsPooled` 标记是否需归还（`WSProtocal.cs:50-57`）；`Dispose` 调 `MemoryPoolManager.Return(this.Content, this.Content.Length)`。改造：`Content` 改 `ReadOnlyMemory<byte>` **并新增私有 `byte[] _buffer` 背衬字段**（供 `Dispose` 归还原始数组），`IsPooled` 保留。删除 `ToBytes()`/`ToBytes(bool)`；改为 `WriteTo(IBufferWriter<byte>)`（**不掩码**，等价旧 `ToBytes(false)`）与 `WriteMaskedTo(IBufferWriter<byte>)`（写入时掩码，等价旧 `ToBytes(true)`），二者**均不得原地改写 `Content`**。
-- **掩码选择下移**：`WSCoder.Encode(ISocketProtocal, writer)` 及 `WSClient`/`WSServerImpl`/`WSSServerImpl` 须显式选择掩码变体（旧默认 `ToBytes()`=掩码、服务端 `Reply` 用 `ToBytes(false)`=不掩码）；掩码算法 `DoMask`/`DoMaskUnsafe` 与线格式保持不变。
+- **掩码选择下移**：`WSCoder.Encode(ISocketProtocal, writer)` 及 `WSClient`/`WSServerImpl`/`WSSServerImpl` 须显式选择掩码变体；掩码算法 `DoMask`/`DoMaskUnsafe` 与线格式保持不变。**事实更正（Task 8 实施时核实）**：`WSServerImpl.Reply` 旧用 `ToBytes(false)`（不掩码），但 `WSSServerImpl.ReplyBase` 旧用**无参 `ToBytes()`=掩码**（`WSSServerImpl.cs:179/186`），即旧实现下 TLS 服务端会发送掩码帧（违反 RFC 6455「服务端 MUST NOT 掩码」）。本次改造**有意统一为服务端不掩码**（`WriteTo`），属行为变更（修正而非保持）；客户端 `WSClient.SendBase` 仍掩码。
 - `FTPCoder`/`WSCoder`/`QueueCoder`/`RpcCoder`/`HttpCoder`/`RedisCoder`/`JUnpacker`：按新 `ICoder` 签名适配，保持各自行为（`HttpCoder.Decode` 现为 `NotImplementedException`，可维持）。
 
 ---

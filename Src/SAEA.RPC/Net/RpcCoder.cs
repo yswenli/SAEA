@@ -49,7 +49,7 @@ namespace SAEA.RPC.Net
     {
         public void Encode(ISocketProtocal protocal, System.Buffers.IBufferWriter<byte> writer)
         {
-            throw new NotImplementedException();
+            System.Buffers.BuffersExtensions.Write(writer, Encode(protocal as RSocketMsg));
         }
 
         //内置
