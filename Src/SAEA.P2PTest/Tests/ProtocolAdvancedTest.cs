@@ -53,7 +53,7 @@ namespace SAEA.P2PTest.Tests
                 TestHarness.Expect(decoded.Count == 1, "empty message decoded");
                 TestHarness.Expect((P2PMessageType)decoded[0].Type == P2PMessageType.Heartbeat, "empty message type preserved");
                 TestHarness.Expect(decoded[0].BodyLength == 0, "empty body length is 0");
-                TestHarness.Expect(decoded[0].Content.Length == 0, "empty content is null or zero length");
+                TestHarness.Expect(decoded[0].Content.Length == 0, "empty content has zero length");
             }
         }
 
