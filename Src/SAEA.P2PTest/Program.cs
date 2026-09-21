@@ -132,6 +132,7 @@ namespace SAEA.P2PTest
             TestHarness.Reset();
 
             EdgeCaseTest.Run();
+            SpanPipelineTest.Run();
             ProtocolAdvancedTest.Run();
             SecurityAdvancedTest.Run();
             RelayAdvancedTest.Run();
