@@ -17,7 +17,7 @@ namespace SAEA.P2PTest.Tests
 {
     /// <summary>
     /// IOCP 端到端接收基准：真实 socket 收包，对比
-    /// 1) 旧路径：库内复制整块 + OnReceive(byte[]) + BaseCoder.Decode（物化）
+    /// 1) 旧路径：处理器内 span.ToArray() 物化 + BaseCoder.Decode(new ReadOnlySequence&lt;byte&gt;(...))（模拟旧库内复制）
     /// 2) 新路径：OnClientReceiveSpan/OnServerReceiveSpan + BaseCoder.DecodeStream（零拷贝）
     /// 3) 纯投递：Span 事件但不解码，用于隔离库内整块复制这一项开销
     /// 接收发生在 IOCP 线程池，故用进程级 GC.GetTotalAllocatedBytes 统计分配。
@@ -35,6 +35,9 @@ namespace SAEA.P2PTest.Tests
         public static async Task RunAsync()
         {
             TestHarness.Section("IOCP end-to-end receive benchmark");
+
+            _clientSpanBytesPerFrame = 0;
+            _clientLegacyBytesPerFrame = 0;
 
             var frame = StreamDecoderTest.BuildFrame((byte)SocketProtocalType.RequestSend, new byte[BodySize]);
             ConsoleHelper.WriteLine($"frame={BodySize}B payload, {frame.Length}B wire, {FrameCount} frames/run, warmup={WarmupFrames}, readBuffer={ReadBufferSize}");
@@ -103,41 +106,36 @@ namespace SAEA.P2PTest.Tests
                     counter.Complete();
                 };
 
-            client.ConnectAsync();
-            var accepted = await listener.AcceptTcpClientAsync();
-            accepted.NoDelay = true;
-            await TestHarness.WaitUntil(() => client.Connected && client.UserToken.Socket != null, 3000);
-            accepted.Client.ReceiveTimeout = 5000;
-
-            client.SendAsync(new ReadOnlyMemory<byte>(frame));
-            var sendCheck = new byte[frame.Length];
-            int read = 0;
-            while (read < frame.Length)
+            BenchResult result = default;
+            TcpClient? accepted = null;
+            try
             {
-                int n = accepted.Client.Receive(sendCheck, read, frame.Length - read, SocketFlags.None);
-                if (n <= 0) break;
-                read += n;
-            }
-            TestHarness.Expect(read == frame.Length, "client SendAsync(ReadOnlyMemory) delivers full frame", $"read={read}");
+                client.ConnectAsync();
+                accepted = await listener.AcceptTcpClientAsync();
+                accepted.NoDelay = true;
+                TestHarness.Expect(await TestHarness.WaitUntil(() => client.Connected && client.UserToken.Socket != null, 3000), "client connected and user token socket ready");
+                accepted.Client.ReceiveTimeout = 5000;
 
-            var protocalContent = new byte[64];
-            client.SendAsync(new BaseSocketProtocal((byte)SocketProtocalType.RequestSend, protocalContent));
-            int protocalLength = 9 + protocalContent.Length;
-            var protocalCheck = new byte[protocalLength];
-            read = 0;
-            while (read < protocalLength)
+                client.SendAsync(new ReadOnlyMemory<byte>(frame));
+                var sendCheck = new byte[frame.Length];
+                int read = ReceiveExact(accepted.Client, sendCheck, frame.Length);
+                TestHarness.Expect(read == frame.Length, "client SendAsync(ReadOnlyMemory) delivers full frame", $"read={read}");
+
+                var protocalContent = new byte[64];
+                client.SendAsync(new BaseSocketProtocal((byte)SocketProtocalType.RequestSend, protocalContent));
+                int protocalLength = 9 + protocalContent.Length;
+                var protocalCheck = new byte[protocalLength];
+                read = ReceiveExact(accepted.Client, protocalCheck, protocalLength);
+                TestHarness.Expect(read == protocalLength, "client SendAsync(ISocketProtocal) delivers full frame", $"read={read}/{protocalLength}");
+
+                result = Drive(accepted.Client, frame, counter);
+            }
+            finally
             {
-                int n = accepted.Client.Receive(protocalCheck, read, protocalLength - read, SocketFlags.None);
-                if (n <= 0) break;
-                read += n;
+                try { client.Dispose(); } catch { }
+                try { accepted?.Close(); } catch { }
+                listener.Stop();
             }
-            TestHarness.Expect(read == protocalLength, "client SendAsync(ISocketProtocal) delivers full frame", $"read={read}/{protocalLength}");
-
-            var result = Drive(accepted.Client, frame, counter);
-
-            try { client.Dispose(); } catch { }
-            try { accepted.Close(); } catch { }
-            listener.Stop();
 
             Report("client", mode, frame, result);
         }
@@ -190,47 +188,40 @@ namespace SAEA.P2PTest.Tests
             server.Start();
             await Task.Delay(200);
 
-            BenchResult result;
-            using (var tcp = new TcpClient())
+            BenchResult result = default;
+            try
             {
-                await tcp.ConnectAsync(IPAddress.Loopback, port);
-                tcp.NoDelay = true;
-                TestHarness.Expect(await TestHarness.WaitUntil(() => sessionToken != null, 3000), "server accepted client session");
-
-                if (sessionToken != null)
+                using (var tcp = new TcpClient())
                 {
-                    tcp.Client.ReceiveTimeout = 5000;
+                    await tcp.ConnectAsync(IPAddress.Loopback, port);
+                    tcp.NoDelay = true;
+                    TestHarness.Expect(await TestHarness.WaitUntil(() => sessionToken != null, 3000), "server accepted client session");
 
-                    server.SendAsync(sessionToken.ID, new ReadOnlyMemory<byte>(frame));
-                    var sendCheck = new byte[frame.Length];
-                    int read = 0;
-                    while (read < frame.Length)
+                    if (sessionToken != null)
                     {
-                        int n = tcp.Client.Receive(sendCheck, read, frame.Length - read, SocketFlags.None);
-                        if (n <= 0) break;
-                        read += n;
-                    }
-                    TestHarness.Expect(read == frame.Length, "server SendAsync(ReadOnlyMemory) delivers full frame", $"read={read}");
+                        tcp.Client.ReceiveTimeout = 5000;
 
-                    var protocalContent = new byte[64];
-                    server.SendAsync(sessionToken.ID, new BaseSocketProtocal((byte)SocketProtocalType.RequestSend, protocalContent));
-                    int protocalLength = 9 + protocalContent.Length;
-                    var protocalCheck = new byte[protocalLength];
-                    read = 0;
-                    while (read < protocalLength)
-                    {
-                        int n = tcp.Client.Receive(protocalCheck, read, protocalLength - read, SocketFlags.None);
-                        if (n <= 0) break;
-                        read += n;
+                        server.SendAsync(sessionToken.ID, new ReadOnlyMemory<byte>(frame));
+                        var sendCheck = new byte[frame.Length];
+                        int read = ReceiveExact(tcp.Client, sendCheck, frame.Length);
+                        TestHarness.Expect(read == frame.Length, "server SendAsync(ReadOnlyMemory) delivers full frame", $"read={read}");
+
+                        var protocalContent = new byte[64];
+                        server.SendAsync(sessionToken.ID, new BaseSocketProtocal((byte)SocketProtocalType.RequestSend, protocalContent));
+                        int protocalLength = 9 + protocalContent.Length;
+                        var protocalCheck = new byte[protocalLength];
+                        read = ReceiveExact(tcp.Client, protocalCheck, protocalLength);
+                        TestHarness.Expect(read == protocalLength, "server SendAsync(ISocketProtocal) delivers full frame", $"read={read}/{protocalLength}");
                     }
-                    TestHarness.Expect(read == protocalLength, "server SendAsync(ISocketProtocal) delivers full frame", $"read={read}/{protocalLength}");
+
+                    result = Drive(tcp.Client, frame, counter);
                 }
-
-                result = Drive(tcp.Client, frame, counter);
             }
-
-            try { server.Stop(); } catch { }
-            try { server.Dispose(); } catch { }
+            finally
+            {
+                try { server.Stop(); } catch { }
+                try { server.Dispose(); } catch { }
+            }
 
             Report("server", mode, frame, result);
         }
@@ -265,6 +256,20 @@ namespace SAEA.P2PTest.Tests
             };
         }
 
+        static int ReceiveExact(Socket socket, byte[] buffer, int count)
+        {
+            int read = 0;
+            while (read < count)
+            {
+                int n;
+                try { n = socket.Receive(buffer, read, count - read, SocketFlags.None); }
+                catch (SocketException) { break; }
+                if (n <= 0) break;
+                read += n;
+            }
+            return read;
+        }
+
         static void SendLoop(Socket socket, byte[] frame, int count)
         {
             for (int i = 0; i < count; i++)
@@ -291,7 +296,7 @@ namespace SAEA.P2PTest.Tests
                 TestHarness.Expect(r.Frames == FrameCount,
                     $"{side} {mode} decoded all frames", $"frames={r.Frames}");
 
-            if (side == "client")
+            if (side == "client" && r.Completed)
             {
                 if (mode == ReceiveMode.LegacyDecode)
                     _clientLegacyBytesPerFrame = bytesPerFrame;
