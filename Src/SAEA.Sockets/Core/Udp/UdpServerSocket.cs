@@ -236,9 +236,11 @@ namespace SAEA.Sockets.Core.Udp
                 {
                     _sessionManager.Active(userToken.ID);
 
-                    var data = readArgs.Buffer.AsSpan().Slice(readArgs.Offset, readArgs.BytesTransferred).ToArray();
+                    var dataSpan = readArgs.Buffer.AsSpan(readArgs.Offset, readArgs.BytesTransferred);
 
-                    OnServerReceiveSpan?.Invoke(userToken, data);
+                    OnServerReceiveSpan?.Invoke(userToken, dataSpan);
+
+                    var data = dataSpan.ToArray();
 
                     try
                     {
@@ -269,6 +271,11 @@ namespace SAEA.Sockets.Core.Udp
             var userToken = (IUserToken)e.UserToken;
             try
             {
+                var owner = userToken?.TakeSendingOwner();
+                if (owner != null)
+                {
+                    try { owner.Dispose(); } catch { }
+                }
                 _sessionManager.Active(userToken.ID);
             }
             catch (Exception ex)
@@ -312,6 +319,62 @@ namespace SAEA.Sockets.Core.Udp
             else
             {
                 OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", new TimeoutException("Sending data timeout"));
+            }
+        }
+
+
+        /// <summary>
+        /// UDP 异步发送核心：seg 指向的内存由 owner 持有；owner 为 null 表示调用方内存（零拷贝）。
+        /// 所有权在发送完成（ProcessSended）或失败路径释放。
+        /// </summary>
+        /// <param name="userToken"></param>
+        /// <param name="seg"></param>
+        /// <param name="owner"></param>
+        private void SendAsyncRaw(IUserToken userToken, ArraySegment<byte> seg, IDisposable owner)
+        {
+            if (userToken == null || seg.Array == null || seg.Count == 0)
+            {
+                owner?.Dispose();
+                return;
+            }
+            bool transferred = false;
+            try
+            {
+                try { _sessionManager.Active(userToken.ID); } catch { }
+                if (userToken.WaitWrite(SocketOption.ActionTimeout) && userToken.Socket != null)
+                {
+                    userToken.SendingOwner = owner;
+                    transferred = true;
+                    var writeArgs = userToken.WriteArgs;
+                    writeArgs.RemoteEndPoint = userToken.ReadArgs.RemoteEndPoint;
+                    writeArgs.SetBuffer(seg.Array, seg.Offset, seg.Count);
+                    if (!userToken.Socket.SendToAsync(writeArgs))
+                    {
+                        ProcessSended(writeArgs);
+                    }
+                }
+                else
+                {
+                    OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", new TimeoutException("Sending data timeout"));
+                }
+            }
+            catch (Exception ex)
+            {
+                if (transferred)
+                {
+                    try { userToken.TakeSendingOwner()?.Dispose(); } catch { }
+                }
+                else
+                {
+                    owner?.Dispose();
+                    transferred = true;
+                }
+                OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", ex);
+                try { userToken.ReleaseWrite(); } catch { }
+            }
+            finally
+            {
+                if (!transferred) owner?.Dispose();
             }
         }
 
@@ -475,13 +538,47 @@ namespace SAEA.Sockets.Core.Udp
         public void Send(string sessionID, ReadOnlySpan<byte> data)
         {
             if (data.Length == 0) return;
-            Send(sessionID, data.ToArray());
+            var userToken = _sessionManager.Get(sessionID);
+            if (userToken == null) return;
+            if (data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("Send Incorrect length of data sent");
+            var writer = new PooledBufferWriter(data.Length);
+            try
+            {
+                data.CopyTo(writer.GetSpan(data.Length));
+                writer.Advance(data.Length);
+                writer.TryGetArray(out var rented);
+                _sessionManager.Active(userToken.ID);
+                userToken.Socket.SendTo(rented.Array, rented.Offset, rented.Count, SocketFlags.None, userToken.ReadArgs.RemoteEndPoint);
+            }
+            catch (Exception ex)
+            {
+                var kex = new KernelException("An exception occurs when a message is sending:" + ex.Message, ex);
+                Disconnect(userToken, kex);
+            }
+            finally
+            {
+                writer.Dispose();
+            }
         }
 
         public void SendAsync(string sessionID, ReadOnlyMemory<byte> data)
         {
             if (data.Length == 0) return;
-            SendAsync(sessionID, data.ToArray());
+            var userToken = _sessionManager.Get(sessionID);
+            if (userToken == null)
+            {
+                throw new KernelException("Failed to send data,current session does not exist！");
+            }
+            if (MemoryMarshal.TryGetArray(data, out var seg))
+            {
+                SendAsyncRaw(userToken, seg, null);
+                return;
+            }
+            var writer = new PooledBufferWriter(data.Length);
+            data.Span.CopyTo(writer.GetSpan(data.Length));
+            writer.Advance(data.Length);
+            writer.TryGetArray(out var rented);
+            SendAsyncRaw(userToken, rented, writer);
         }
 
         public void SendAsync(string sessionID, ISocketProtocal protocal)
@@ -489,21 +586,49 @@ namespace SAEA.Sockets.Core.Udp
             if (protocal == null) return;
             var userToken = _sessionManager.Get(sessionID);
             if (userToken?.Coder == null) return;
-            using (var writer = new PooledBufferWriter(protocal.BodyLength > 0 && protocal.BodyLength < int.MaxValue - 64 ? (int)protocal.BodyLength + 64 : 64))
+            var bodyLen = protocal.BodyLength;
+            var size = bodyLen > 0 && bodyLen < int.MaxValue - 64 ? (int)bodyLen + 64 : 64;
+            var writer = new PooledBufferWriter(size);
+            try
             {
                 userToken.Coder.Encode(protocal, writer);
-                SendAsync(sessionID, writer.WrittenSpan.ToArray());
             }
+            catch (Exception ex)
+            {
+                writer.Dispose();
+                OnError?.Invoke(userToken?.ID ?? "", ex);
+                return;
+            }
+            writer.TryGetArray(out var rented);
+            SendAsyncRaw(userToken, rented, writer);
         }
 
         public void End(string sessionID, ReadOnlyMemory<byte> data)
         {
-            End(sessionID, data.ToArray());
+            if (data.Length == 0) return;
+            var userToken = _sessionManager.Get(sessionID);
+            if (userToken != null && userToken.Socket != null)
+            {
+                _sessionManager.Active(userToken.ID);
+                Send(sessionID, data.Span);
+                Disconnect(userToken);
+            }
         }
 
         public void SendAsync(IPEndPoint ipEndPoint, ReadOnlyMemory<byte> data)
         {
-            SendAsync(ipEndPoint, data.ToArray());
+            if (data.Length == 0) return;
+            var userToken = SessionManager.Get(ipEndPoint.ToString());
+            if (MemoryMarshal.TryGetArray(data, out var seg))
+            {
+                SendAsyncRaw(userToken, seg, null);
+                return;
+            }
+            var writer = new PooledBufferWriter(data.Length);
+            data.Span.CopyTo(writer.GetSpan(data.Length));
+            writer.Advance(data.Length);
+            writer.TryGetArray(out var rented);
+            SendAsyncRaw(userToken, rented, writer);
         }
         #endregion
 

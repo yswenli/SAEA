@@ -287,10 +287,26 @@ namespace SAEA.Sockets.Core.Udp
         }
 
 
+        /// <summary>
+        /// 处理发送完成
+        /// </summary>
+        /// <param name="e">事件参数</param>
         void ProcessSended(SocketAsyncEventArgs e)
         {
-            _userToken.Actived = DateTimeHelper.Now;
-            _userToken.ReleaseWrite();
+            try
+            {
+                var owner = _userToken.TakeSendingOwner();
+                _userToken.Actived = DateTimeHelper.Now;
+                if (owner != null)
+                {
+                    try { owner.Dispose(); } catch { }
+                }
+                _userToken.ReleaseWrite();
+            }
+            catch (Exception ex)
+            {
+                OnError?.Invoke(_userToken?.ID ?? "", ex);
+            }
         }
 
 
@@ -348,6 +364,62 @@ namespace SAEA.Sockets.Core.Udp
         }
 
         /// <summary>
+        /// UDP 异步发送核心：seg 指向的内存由 owner 持有；owner 为 null 表示调用方内存（零拷贝）。
+        /// 所有权在发送完成（ProcessSended）或失败路径释放。
+        /// </summary>
+        private void SendAsyncRaw(IPEndPoint ipEndPoint, ArraySegment<byte> seg, IDisposable owner)
+        {
+            var userToken = _userToken;
+            if (seg.Array == null || seg.Count == 0)
+            {
+                owner?.Dispose();
+                return;
+            }
+            bool transferred = false;
+            try
+            {
+                if (userToken != null && userToken.Socket != null)
+                {
+                    if (userToken.WaitWrite(SocketOption.ActionTimeout))
+                    {
+                        userToken.SendingOwner = owner;
+                        transferred = true;
+                        var writeArgs = userToken.WriteArgs;
+                        writeArgs.RemoteEndPoint = ipEndPoint;
+                        writeArgs.SetBuffer(seg.Array, seg.Offset, seg.Count);
+                        if (!userToken.Socket.SendToAsync(writeArgs))
+                        {
+                            ProcessSended(writeArgs);
+                        }
+                    }
+                    else
+                    {
+                        OnError?.Invoke($"An exception occurs when a message is sending:{ipEndPoint?.ToString()}", new TimeoutException("Sending data timeout"));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                if (transferred)
+                {
+                    try { userToken.TakeSendingOwner()?.Dispose(); } catch { }
+                }
+                else
+                {
+                    owner?.Dispose();
+                    transferred = true;
+                }
+                OnError?.Invoke(userToken?.ID ?? _remoteEndPoint?.ToString(), ex);
+                try { userToken?.ReleaseWrite(); } catch { }
+                try { Disconnect(); } catch { }
+            }
+            finally
+            {
+                if (!transferred) owner?.Dispose();
+            }
+        }
+
+        /// <summary>
         /// iocp发送
         /// </summary>
         /// <param name="data"></param>
@@ -386,27 +458,70 @@ namespace SAEA.Sockets.Core.Udp
         public void Send(ReadOnlySpan<byte> data)
         {
             if (data.Length == 0) return;
-            Send(data.ToArray());
+            if (data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("Send Incorrect length of data sent");
+            var writer = new PooledBufferWriter(data.Length);
+            try
+            {
+                data.CopyTo(writer.GetSpan(data.Length));
+                writer.Advance(data.Length);
+                writer.TryGetArray(out var rented);
+                _udpSocket.SendTo(rented.Array, rented.Offset, rented.Count, SocketFlags.None, _remoteEndPoint);
+                _userToken.Actived = DateTimeHelper.Now;
+            }
+            catch (Exception ex)
+            {
+                ProcessDisconnected(ex);
+            }
+            finally
+            {
+                writer.Dispose();
+            }
         }
 
         public void SendAsync(ReadOnlyMemory<byte> data)
         {
             if (data.Length == 0) return;
-            SendAsync(data.ToArray());
+            if (MemoryMarshal.TryGetArray(data, out var seg))
+            {
+                SendAsyncRaw(_remoteEndPoint, seg, null);
+                return;
+            }
+            var writer = new PooledBufferWriter(data.Length);
+            data.Span.CopyTo(writer.GetSpan(data.Length));
+            writer.Advance(data.Length);
+            writer.TryGetArray(out var rented);
+            SendAsyncRaw(_remoteEndPoint, rented, writer);
         }
 
         public void SendAsync(ISocketProtocal protocal)
         {
-            if (protocal == null || _userToken?.Coder == null) return;
-            using (var writer = new PooledBufferWriter(protocal.BodyLength > 0 && protocal.BodyLength < int.MaxValue - 64 ? (int)protocal.BodyLength + 64 : 64))
+            if (protocal == null) return;
+            var coder = _userToken?.Coder;
+            if (coder == null)
             {
-                _userToken.Coder.Encode(protocal, writer);
-                SendAsync(writer.WrittenSpan.ToArray());
+                OnError?.Invoke(_userToken?.ID ?? "", new InvalidOperationException("SAEA SocketError:coder 未初始化"));
+                return;
             }
+            var bodyLen = protocal.BodyLength;
+            var size = bodyLen > 0 && bodyLen < int.MaxValue - 64 ? (int)bodyLen + 64 : 64;
+            var writer = new PooledBufferWriter(size);
+            try
+            {
+                coder.Encode(protocal, writer);
+            }
+            catch (Exception ex)
+            {
+                writer.Dispose();
+                OnError?.Invoke(_userToken?.ID ?? "", ex);
+                return;
+            }
+            writer.TryGetArray(out var rented);
+            SendAsyncRaw(_remoteEndPoint, rented, writer);
         }
 
         public Task SendAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken)
         {
+            if (data.Length == 0) return Task.CompletedTask;
             return Task.Run(() => SendAsync(data), cancellationToken);
         }
 
