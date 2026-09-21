@@ -135,6 +135,20 @@ namespace SAEA.P2PTest.Tests
             coder.DecodeStream(full, probe);
             TestHarness.Expect(probe.Count == 1 && probe.LastLength == 3 && probe.LastContent != null && probe.LastContent[1] == 2,
                 "BaseCoder.DecodeStream invokes handler per frame with intact body");
+
+            SendingOwnerIsReleasedOnClear();
+        }
+
+        public static void SendingOwnerIsReleasedOnClear()
+        {
+            var token = new SAEA.Sockets.Base.BaseUserToken();
+            var owner = new TrackingDisposable();
+            token.SendingOwner = owner;
+
+            token.Clear();
+
+            TestHarness.Expect(owner.Disposed, "IUserToken.Clear releases SendingOwner");
+            TestHarness.Expect(token.SendingOwner == null, "IUserToken.Clear nulls SendingOwner");
         }
     }
 
@@ -169,6 +183,12 @@ namespace SAEA.P2PTest.Tests
         public byte Type => 0;
         public ReadOnlyMemory<byte> Content => ReadOnlyMemory<byte>.Empty;
         public void WriteTo(System.Buffers.IBufferWriter<byte> writer) { }
+        public bool Disposed;
+        public void Dispose() { Disposed = true; }
+    }
+
+    internal sealed class TrackingDisposable : IDisposable
+    {
         public bool Disposed;
         public void Dispose() { Disposed = true; }
     }

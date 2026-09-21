@@ -65,6 +65,8 @@ namespace SAEA.Sockets.Base
 
         public ICoder Coder { get; set; }
 
+        public IDisposable SendingOwner { get; set; }
+
         public bool IsSending
         {
             get { return _isSending; }
@@ -83,6 +85,8 @@ namespace SAEA.Sockets.Base
 
         public void Clear()
         {
+            try { SendingOwner?.Dispose(); } catch { }
+            SendingOwner = null;
             Socket?.Close();
             Coder?.Clear();
             _writeAutoResetEvent?.Close();

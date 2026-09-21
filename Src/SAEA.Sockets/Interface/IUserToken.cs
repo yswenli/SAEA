@@ -93,6 +93,12 @@ namespace SAEA.Sockets.Interface
         }
 
         /// <summary>
+        /// 发送缓冲区的所有权对象。当发送数据为零拷贝时（调用方内存直接发送）为 null；
+        /// 当库内从池中租用了缓冲区时，指向该池化对象，由发送完成回调负责释放。
+        /// </summary>
+        IDisposable SendingOwner { get; set; }
+
+        /// <summary>
         /// 等待写入操作完成
         /// </summary>
         /// <param name="timeOut">超时时间</param>
