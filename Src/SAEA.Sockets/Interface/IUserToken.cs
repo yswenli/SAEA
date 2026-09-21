@@ -99,6 +99,12 @@ namespace SAEA.Sockets.Interface
         IDisposable SendingOwner { get; set; }
 
         /// <summary>
+        /// 原子地取出并清空发送缓冲区所有权对象；取出后由调用方负责释放。
+        /// 发送完成回调与断开清理可能并发，必须通过本方法保证恰好释放一次。
+        /// </summary>
+        IDisposable TakeSendingOwner();
+
+        /// <summary>
         /// 等待写入操作完成
         /// </summary>
         /// <param name="timeOut">超时时间</param>

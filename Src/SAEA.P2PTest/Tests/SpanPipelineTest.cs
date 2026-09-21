@@ -149,6 +149,14 @@ namespace SAEA.P2PTest.Tests
 
             TestHarness.Expect(owner.Disposed, "IUserToken.Clear releases SendingOwner");
             TestHarness.Expect(token.SendingOwner == null, "IUserToken.Clear nulls SendingOwner");
+
+            TestHarness.Expect(token.TakeSendingOwner() == null, "TakeSendingOwner returns null after Clear");
+
+            var throwing = new ThrowingDisposable();
+            token.SendingOwner = throwing;
+            var threw = false;
+            try { token.Clear(); } catch { threw = true; }
+            TestHarness.Expect(!threw && throwing.Attempted, "IUserToken.Clear swallows dispose exceptions");
         }
     }
 
@@ -191,5 +199,11 @@ namespace SAEA.P2PTest.Tests
     {
         public bool Disposed;
         public void Dispose() { Disposed = true; }
+    }
+
+    internal sealed class ThrowingDisposable : IDisposable
+    {
+        public bool Attempted;
+        public void Dispose() { Attempted = true; throw new InvalidOperationException("boom"); }
     }
 }

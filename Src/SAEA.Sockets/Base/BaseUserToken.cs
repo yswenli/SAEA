@@ -65,7 +65,18 @@ namespace SAEA.Sockets.Base
 
         public ICoder Coder { get; set; }
 
-        public IDisposable SendingOwner { get; set; }
+        IDisposable _sendingOwner;
+
+        public IDisposable SendingOwner
+        {
+            get { return _sendingOwner; }
+            set { _sendingOwner = value; }
+        }
+
+        public IDisposable TakeSendingOwner()
+        {
+            return Interlocked.Exchange(ref _sendingOwner, null);
+        }
 
         public bool IsSending
         {
@@ -85,9 +96,8 @@ namespace SAEA.Sockets.Base
 
         public void Clear()
         {
-            try { SendingOwner?.Dispose(); } catch { }
-            SendingOwner = null;
             Socket?.Close();
+            try { TakeSendingOwner()?.Dispose(); } catch { }
             Coder?.Clear();
             _writeAutoResetEvent?.Close();
             ReadArgs?.Dispose();
