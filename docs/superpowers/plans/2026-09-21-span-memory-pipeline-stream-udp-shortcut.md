@@ -180,9 +180,16 @@ Notes:
 - Remove the shared `_receiveBuffer` field usage for receiving; if the field becomes unused, remove it. Keep `_receiveBuffer` only if another code path uses it (verify with grep).
 - On exit, ensure `OnDisconnected` is raised for error paths as before and `reader.Complete()` runs; wire `Stop`/`Dispose` to cancel the token/complete readers (see Step 3).
 
-- [ ] **Step 3: Token/reader lifecycle on Stop/Dispose**
+- [ ] **Step 3: Stream token/reader lifecycle**
 
-In `Stop`/`Dispose` (lines ~415/437), ensure each channel's `Input` is completed/cancelled and `ChannelInfo.UserToken`'s socket/stream is closed. Reuse `ChannelManager`'s channel set or track tokens; do not change disconnect timing.
+Decide and implement reader/stream ownership for `StreamUserToken`:
+- **Option A (`leaveOpen: true`)** — create the reader via `PipeReader.Create(nsStream, new StreamPipeReaderOptions(leaveOpen: true))` and make stream disposal explicit and single-owner (the accept loop / channel-removal path).
+- **Option B (default `leaveOpen: false`, preferred unless Option A is proven necessary)** — treat `Input` as owning the stream and dispose it exactly once on the loop's exit path (including error/cancel paths), so completing `Input` also closes the network stream.
+
+Then:
+- Override `StreamUserToken.Clear()` to dispose/complete `Input` in coordination with the loop exit (so a concurrent `ReadAsync` cannot surface an `ObjectDisposedException`), null `Stream`/`Input`, and call `base.Clear()` last; document the required ordering (complete reader → stop loop → `base.Clear()`).
+- Wire `StreamServerSocket.Stop`/`Dispose` to complete each channel's `Input`. Note `ChannelManager.Clear()`/`Remove` do **not** touch `ChannelInfo.UserToken`, so `Stop`/`Dispose` must iterate the channels/tokens itself and complete every reader.
+- Do not change disconnect timing (§2.3 #8).
 
 - [ ] **Step 4: Build + smoke**
 
