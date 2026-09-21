@@ -268,10 +268,11 @@ namespace SAEA.Sockets.Core.Udp
 
         private void ProcessSended(SocketAsyncEventArgs e)
         {
-            var userToken = (IUserToken)e.UserToken;
+            var userToken = e.UserToken as IUserToken;
+            if (userToken == null) return;
             try
             {
-                var owner = userToken?.TakeSendingOwner();
+                var owner = userToken.TakeSendingOwner();
                 if (owner != null)
                 {
                     try { owner.Dispose(); } catch { }
@@ -282,7 +283,7 @@ namespace SAEA.Sockets.Core.Udp
             {
                 OnError?.Invoke($"An exception occurs when a message is sended:{userToken?.ID}", ex);
             }
-            userToken?.ReleaseWrite();
+            userToken.ReleaseWrite();
         }
 
         #region send method
@@ -332,21 +333,45 @@ namespace SAEA.Sockets.Core.Udp
         /// <param name="owner"></param>
         private void SendAsyncRaw(IUserToken userToken, ArraySegment<byte> seg, IDisposable owner)
         {
-            if (userToken == null || seg.Array == null || seg.Count == 0)
+            SendAsyncRaw(userToken, null, seg, owner);
+        }
+
+        /// <summary>
+        /// UDP 异步发送核心（可显式指定远端地址，用于广播/组播）。
+        /// userToken 为 null 时释放 owner 并上报错误；ipEndPoint 为 null 时使用会话的远端地址。
+        /// </summary>
+        /// <param name="userToken"></param>
+        /// <param name="ipEndPoint"></param>
+        /// <param name="seg"></param>
+        /// <param name="owner"></param>
+        private void SendAsyncRaw(IUserToken userToken, IPEndPoint ipEndPoint, ArraySegment<byte> seg, IDisposable owner)
+        {
+            if (userToken == null)
+            {
+                owner?.Dispose();
+                if (ipEndPoint != null)
+                {
+                    OnError?.Invoke(ipEndPoint.ToString(), new KernelException("Failed to send data,current session does not exist！"));
+                }
+                return;
+            }
+            if (seg.Array == null || seg.Count == 0)
             {
                 owner?.Dispose();
                 return;
             }
+            bool acquired = false;
             bool transferred = false;
             try
             {
                 try { _sessionManager.Active(userToken.ID); } catch { }
                 if (userToken.WaitWrite(SocketOption.ActionTimeout) && userToken.Socket != null)
                 {
+                    acquired = true;
                     userToken.SendingOwner = owner;
                     transferred = true;
                     var writeArgs = userToken.WriteArgs;
-                    writeArgs.RemoteEndPoint = userToken.ReadArgs.RemoteEndPoint;
+                    writeArgs.RemoteEndPoint = ipEndPoint ?? userToken.ReadArgs.RemoteEndPoint;
                     writeArgs.SetBuffer(seg.Array, seg.Offset, seg.Count);
                     if (!userToken.Socket.SendToAsync(writeArgs))
                     {
@@ -370,7 +395,10 @@ namespace SAEA.Sockets.Core.Udp
                     transferred = true;
                 }
                 OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", ex);
-                try { userToken.ReleaseWrite(); } catch { }
+                if (acquired)
+                {
+                    try { userToken.ReleaseWrite(); } catch { }
+                }
             }
             finally
             {
@@ -535,15 +563,24 @@ namespace SAEA.Sockets.Core.Udp
             }
         }
 
+        /// <summary>
+        /// 同步发送数据（按会话）
+        /// </summary>
+        /// <remarks>
+        /// netstandard2.0 没有 Socket.SendTo(ReadOnlySpan&lt;byte&gt;)，非数组内存会先复制一次到池化缓冲（唯一的边界拷贝）。
+        /// 若输入为调用方数组（MemoryMarshal.TryGetArray 精确匹配）则零拷贝直发，发送完成前调用方不得修改或复用该内存。
+        /// </remarks>
+        /// <param name="sessionID"></param>
+        /// <param name="data"></param>
         public void Send(string sessionID, ReadOnlySpan<byte> data)
         {
             if (data.Length == 0) return;
             var userToken = _sessionManager.Get(sessionID);
             if (userToken == null) return;
-            if (data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("Send Incorrect length of data sent");
             var writer = new PooledBufferWriter(data.Length);
             try
             {
+                if (data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("Send Incorrect length of data sent");
                 data.CopyTo(writer.GetSpan(data.Length));
                 writer.Advance(data.Length);
                 writer.TryGetArray(out var rented);
@@ -561,6 +598,15 @@ namespace SAEA.Sockets.Core.Udp
             }
         }
 
+        /// <summary>
+        /// 异步发送数据（按会话）
+        /// </summary>
+        /// <remarks>
+        /// netstandard2.0 没有 Socket.SendTo(ReadOnlySpan&lt;byte&gt;)，非数组内存会先复制一次到池化缓冲（唯一的边界拷贝）。
+        /// 若输入为调用方数组（MemoryMarshal.TryGetArray 精确匹配）则零拷贝直发，发送完成前调用方不得修改或复用该内存。
+        /// </remarks>
+        /// <param name="sessionID"></param>
+        /// <param name="data"></param>
         public void SendAsync(string sessionID, ReadOnlyMemory<byte> data)
         {
             if (data.Length == 0) return;
@@ -569,6 +615,7 @@ namespace SAEA.Sockets.Core.Udp
             {
                 throw new KernelException("Failed to send data,current session does not exist！");
             }
+            if (data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentException("SendAsync Incorrect length of data sent");
             if (MemoryMarshal.TryGetArray(data, out var seg))
             {
                 SendAsyncRaw(userToken, seg, null);
@@ -581,6 +628,15 @@ namespace SAEA.Sockets.Core.Udp
             SendAsyncRaw(userToken, rented, writer);
         }
 
+        /// <summary>
+        /// 异步发送协议对象（按会话）
+        /// </summary>
+        /// <remarks>
+        /// 编码结果写入池化缓冲；netstandard2.0 没有 Socket.SendTo(ReadOnlySpan&lt;byte&gt;)，
+        /// 因此编码完成后必然发生一次到池化缓冲的边界拷贝（编码本身即写入该缓冲）。
+        /// </remarks>
+        /// <param name="sessionID"></param>
+        /// <param name="protocal"></param>
         public void SendAsync(string sessionID, ISocketProtocal protocal)
         {
             if (protocal == null) return;
@@ -599,10 +655,24 @@ namespace SAEA.Sockets.Core.Udp
                 OnError?.Invoke(userToken?.ID ?? "", ex);
                 return;
             }
+            if (writer.WrittenCount > Model.SocketOption.UDPMaxLength)
+            {
+                writer.Dispose();
+                throw new ArgumentException("SendAsync Incorrect length of data sent");
+            }
             writer.TryGetArray(out var rented);
             SendAsyncRaw(userToken, rented, writer);
         }
 
+        /// <summary>
+        /// 回复并关闭会话
+        /// </summary>
+        /// <remarks>
+        /// netstandard2.0 没有 Socket.SendTo(ReadOnlySpan&lt;byte&gt;)，非数组内存会先复制一次到池化缓冲（唯一的边界拷贝）。
+        /// 若输入为调用方数组（MemoryMarshal.TryGetArray 精确匹配）则零拷贝直发，发送完成前调用方不得修改或复用该内存。
+        /// </remarks>
+        /// <param name="sessionID"></param>
+        /// <param name="data"></param>
         public void End(string sessionID, ReadOnlyMemory<byte> data)
         {
             if (data.Length == 0) return;
@@ -615,20 +685,31 @@ namespace SAEA.Sockets.Core.Udp
             }
         }
 
+        /// <summary>
+        /// 异步发送数据到指定地址（广播/组播）
+        /// </summary>
+        /// <remarks>
+        /// netstandard2.0 没有 Socket.SendTo(ReadOnlySpan&lt;byte&gt;)，非数组内存会先复制一次到池化缓冲（唯一的边界拷贝）。
+        /// 若输入为调用方数组（MemoryMarshal.TryGetArray 精确匹配）则零拷贝直发，发送完成前调用方不得修改或复用该内存。
+        /// </remarks>
+        /// <param name="ipEndPoint"></param>
+        /// <param name="data"></param>
         public void SendAsync(IPEndPoint ipEndPoint, ReadOnlyMemory<byte> data)
         {
             if (data.Length == 0) return;
+            if (data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentException("SendAsync Incorrect length of data sent");
             var userToken = SessionManager.Get(ipEndPoint.ToString());
+            var remoteEndPoint = new IPEndPoint(ipEndPoint.Address, SocketOption.Port);
             if (MemoryMarshal.TryGetArray(data, out var seg))
             {
-                SendAsyncRaw(userToken, seg, null);
+                SendAsyncRaw(userToken, remoteEndPoint, seg, null);
                 return;
             }
             var writer = new PooledBufferWriter(data.Length);
             data.Span.CopyTo(writer.GetSpan(data.Length));
             writer.Advance(data.Length);
             writer.TryGetArray(out var rented);
-            SendAsyncRaw(userToken, rented, writer);
+            SendAsyncRaw(userToken, remoteEndPoint, rented, writer);
         }
         #endregion
 

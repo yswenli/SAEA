@@ -293,19 +293,21 @@ namespace SAEA.Sockets.Core.Udp
         /// <param name="e">事件参数</param>
         void ProcessSended(SocketAsyncEventArgs e)
         {
+            var userToken = _userToken;
+            if (userToken == null) return;
             try
             {
-                var owner = _userToken.TakeSendingOwner();
-                _userToken.Actived = DateTimeHelper.Now;
+                var owner = userToken.TakeSendingOwner();
+                userToken.Actived = DateTimeHelper.Now;
                 if (owner != null)
                 {
                     try { owner.Dispose(); } catch { }
                 }
-                _userToken.ReleaseWrite();
+                userToken.ReleaseWrite();
             }
             catch (Exception ex)
             {
-                OnError?.Invoke(_userToken?.ID ?? "", ex);
+                OnError?.Invoke(userToken?.ID ?? "", ex);
             }
         }
 
@@ -375,6 +377,7 @@ namespace SAEA.Sockets.Core.Udp
                 owner?.Dispose();
                 return;
             }
+            bool acquired = false;
             bool transferred = false;
             try
             {
@@ -382,6 +385,7 @@ namespace SAEA.Sockets.Core.Udp
                 {
                     if (userToken.WaitWrite(SocketOption.ActionTimeout))
                     {
+                        acquired = true;
                         userToken.SendingOwner = owner;
                         transferred = true;
                         var writeArgs = userToken.WriteArgs;
@@ -410,7 +414,10 @@ namespace SAEA.Sockets.Core.Udp
                     transferred = true;
                 }
                 OnError?.Invoke(userToken?.ID ?? _remoteEndPoint?.ToString(), ex);
-                try { userToken?.ReleaseWrite(); } catch { }
+                if (acquired)
+                {
+                    try { userToken.ReleaseWrite(); } catch { }
+                }
                 try { Disconnect(); } catch { }
             }
             finally
@@ -455,6 +462,14 @@ namespace SAEA.Sockets.Core.Udp
             }
         }
 
+        /// <summary>
+        /// 同步发送数据
+        /// </summary>
+        /// <remarks>
+        /// netstandard2.0 没有 Socket.SendTo(ReadOnlySpan&lt;byte&gt;)，非数组内存会先复制一次到池化缓冲（唯一的边界拷贝）。
+        /// 若输入为调用方数组（MemoryMarshal.TryGetArray 精确匹配）则零拷贝直发，发送完成前调用方不得修改或复用该内存。
+        /// </remarks>
+        /// <param name="data"></param>
         public void Send(ReadOnlySpan<byte> data)
         {
             if (data.Length == 0) return;
@@ -478,9 +493,18 @@ namespace SAEA.Sockets.Core.Udp
             }
         }
 
+        /// <summary>
+        /// 异步发送数据
+        /// </summary>
+        /// <remarks>
+        /// netstandard2.0 没有 Socket.SendTo(ReadOnlySpan&lt;byte&gt;)，非数组内存会先复制一次到池化缓冲（唯一的边界拷贝）。
+        /// 若输入为调用方数组（MemoryMarshal.TryGetArray 精确匹配）则零拷贝直发，发送完成前调用方不得修改或复用该内存。
+        /// </remarks>
+        /// <param name="data"></param>
         public void SendAsync(ReadOnlyMemory<byte> data)
         {
             if (data.Length == 0) return;
+            if (data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("SendAsync Incorrect length of data sent");
             if (MemoryMarshal.TryGetArray(data, out var seg))
             {
                 SendAsyncRaw(_remoteEndPoint, seg, null);
@@ -493,6 +517,14 @@ namespace SAEA.Sockets.Core.Udp
             SendAsyncRaw(_remoteEndPoint, rented, writer);
         }
 
+        /// <summary>
+        /// 异步发送协议对象
+        /// </summary>
+        /// <remarks>
+        /// 编码结果写入池化缓冲；netstandard2.0 没有 Socket.SendTo(ReadOnlySpan&lt;byte&gt;)，
+        /// 因此编码完成后必然发生一次到池化缓冲的边界拷贝（编码本身即写入该缓冲）。
+        /// </remarks>
+        /// <param name="protocal"></param>
         public void SendAsync(ISocketProtocal protocal)
         {
             if (protocal == null) return;
@@ -515,10 +547,25 @@ namespace SAEA.Sockets.Core.Udp
                 OnError?.Invoke(_userToken?.ID ?? "", ex);
                 return;
             }
+            if (writer.WrittenCount > Model.SocketOption.UDPMaxLength)
+            {
+                writer.Dispose();
+                throw new ArgumentOutOfRangeException("SendAsync Incorrect length of data sent");
+            }
             writer.TryGetArray(out var rented);
             SendAsyncRaw(_remoteEndPoint, rented, writer);
         }
 
+        /// <summary>
+        /// 异步发送数据（可取消）
+        /// </summary>
+        /// <remarks>
+        /// netstandard2.0 没有 Socket.SendTo(ReadOnlySpan&lt;byte&gt;)，非数组内存会先复制一次到池化缓冲（唯一的边界拷贝）。
+        /// 若输入为调用方数组（MemoryMarshal.TryGetArray 精确匹配）则零拷贝直发，发送完成前调用方不得修改或复用该内存。
+        /// </remarks>
+        /// <param name="data"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
         public Task SendAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken)
         {
             if (data.Length == 0) return Task.CompletedTask;
