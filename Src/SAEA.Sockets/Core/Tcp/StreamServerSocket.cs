@@ -450,30 +450,68 @@ namespace SAEA.Sockets.Core.Tcp
             SendAsync(ipEndPoint.ToString(), data);
         }
 
+        /// <summary>
+        /// 同步发送（Span）。netstandard2.0 的 <see cref="Stream.Write(byte[], int, int)"/> 不接受
+        /// <see cref="ReadOnlySpan{T}"/>，因此在本边界做一次 <c>byte[]</c> 拷贝，随后与
+        /// <see cref="Send(string, byte[])"/> 一样同步写入 <see cref="ChannelInfo.Stream"/>。
+        /// </summary>
+        /// <param name="sessionID">会话ID</param>
+        /// <param name="data">数据</param>
         public void Send(string sessionID, ReadOnlySpan<byte> data)
         {
             if (data.Length == 0) return;
-            Send(sessionID, data.ToArray());
+            var channel = ChannelManager.Instance.Get(sessionID);
+            ChannelManager.Instance.Refresh(sessionID);
+            if (channel == null || channel.ClientSocket == null || !channel.ClientSocket.Connected)
+                throw new KernelException("Failed to send data,current session does not exist！");
+            var copy = data.ToArray();
+            channel.Stream.Write(copy, 0, copy.Length);
         }
 
+        /// <summary>
+        /// 异步发送（Memory）。netstandard2.0 的 <see cref="Stream.WriteAsync(byte[], int, int)"/> 不接受
+        /// <see cref="ReadOnlyMemory{T}"/>，因此在本边界做一次 <c>byte[]</c> 拷贝；随后保持与
+        /// <see cref="SendAsync(string, byte[])"/> 相同的即发即忘语义（不等待返回的 <see cref="Task"/>）。
+        /// </summary>
+        /// <param name="sessionID">会话ID</param>
+        /// <param name="data">数据</param>
         public void SendAsync(string sessionID, ReadOnlyMemory<byte> data)
         {
             if (data.Length == 0) return;
-            SendAsync(sessionID, data.ToArray());
+            var channel = ChannelManager.Instance.Get(sessionID);
+            ChannelManager.Instance.Refresh(sessionID);
+            if (channel == null || channel.ClientSocket == null || !channel.ClientSocket.Connected)
+                throw new KernelException("Failed to send data,current session does not exist！");
+            var copy = data.ToArray();
+            channel.Stream.WriteAsync(copy, 0, copy.Length);
         }
 
+        /// <summary>
+        /// 编码并异步发送协议对象。编码器优先取 <see cref="ISocketOption.Context"/> 中配置的 Unpacker；
+        /// Stream 模式通常不配置 Context，此时回退到 <see cref="CreateCoder"/>，避免因
+        /// <c>SocketOption.Context</c> 为 null 而静默丢弃。编码写入 <see cref="PooledBufferWriter"/> 后，
+        /// 通过 <see cref="SendAsync(string, ReadOnlyMemory{byte})"/> 发送其已写入区间，并确保写入器仅释放一次。
+        /// </summary>
+        /// <param name="sessionID">会话ID</param>
+        /// <param name="protocal">协议对象</param>
         public void SendAsync(string sessionID, ISocketProtocal protocal)
         {
             if (protocal == null) return;
-            var coder = SocketOption?.Context?.Unpacker;
+            var coder = SocketOption?.Context?.Unpacker ?? CreateCoder();
             if (coder == null) return;
             using (var writer = new PooledBufferWriter(protocal.BodyLength > 0 && protocal.BodyLength < int.MaxValue - 64 ? (int)protocal.BodyLength + 64 : 64))
             {
                 coder.Encode(protocal, writer);
-                SendAsync(sessionID, writer.WrittenSpan.ToArray());
+                SendAsync(sessionID, writer.WrittenMemory);
             }
         }
 
+        /// <summary>
+        /// 结束会话并发送数据。与 <see cref="End(string, byte[])"/> 同步语义一致：netstandard2.0 下
+        /// 先在边界做一次 <c>byte[]</c> 拷贝，写入后立即断开，断开时序不变。
+        /// </summary>
+        /// <param name="sessionID">会话ID</param>
+        /// <param name="data">数据</param>
         public void End(string sessionID, ReadOnlyMemory<byte> data)
         {
             End(sessionID, data.ToArray());

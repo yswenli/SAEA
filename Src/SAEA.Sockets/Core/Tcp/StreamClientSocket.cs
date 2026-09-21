@@ -313,31 +313,68 @@ namespace SAEA.Sockets.Core.Tcp
             _stream.Write(buffer, 0, buffer.Length);
         }
 
+        /// <summary>
+        /// 同步发送（Span）。netstandard2.0 的 <see cref="Stream.Write(byte[], int, int)"/> 不接受
+        /// <see cref="ReadOnlySpan{T}"/>，因此在本边界做一次 <c>byte[]</c> 拷贝后同步写入 <see cref="_stream"/>。
+        /// </summary>
+        /// <param name="data">数据</param>
         public void Send(ReadOnlySpan<byte> data)
         {
             if (data.Length == 0) return;
-            Send(data.ToArray());
+            var copy = data.ToArray();
+            _stream.Write(copy, 0, copy.Length);
         }
 
+        /// <summary>
+        /// 即发即忘异步发送（Memory）。netstandard2.0 的 <see cref="Stream.WriteAsync(byte[], int, int)"/> 不接受
+        /// <see cref="ReadOnlyMemory{T}"/>，因此在本边界做一次 <c>byte[]</c> 拷贝后异步写入；失败时通过
+        /// <see cref="OnError"/> 上报，语义与即发即忘的 <see cref="SendAsync(byte[])"/> 一致。
+        /// </summary>
+        /// <param name="data">数据</param>
         public void SendAsync(ReadOnlyMemory<byte> data)
         {
             if (data.Length == 0) return;
-            SendAsync(data.ToArray());
+            var copy = data.ToArray();
+            Task.Run(async () =>
+            {
+                try
+                {
+                    await _stream.WriteAsync(copy, 0, copy.Length);
+                }
+                catch (Exception ex)
+                {
+                    OnError?.Invoke(Endpoint, ex);
+                }
+            });
         }
 
+        /// <summary>
+        /// 编码并发送协议对象。编码写入 <see cref="PooledBufferWriter"/> 后，通过
+        /// <see cref="SendAsync(ReadOnlyMemory{byte})"/> 发送其已写入区间，并确保写入器仅释放一次。
+        /// </summary>
+        /// <param name="protocal">协议对象</param>
         public void SendAsync(ISocketProtocal protocal)
         {
             if (protocal == null || Context?.Unpacker == null) return;
             using (var writer = new PooledBufferWriter(protocal.BodyLength > 0 && protocal.BodyLength < int.MaxValue - 64 ? (int)protocal.BodyLength + 64 : 64))
             {
                 Context.Unpacker.Encode(protocal, writer);
-                SendAsync(writer.WrittenSpan.ToArray());
+                SendAsync(writer.WrittenMemory);
             }
         }
 
+        /// <summary>
+        /// 异步流发送（Memory）。netstandard2.0 下先在本边界做一次 <c>byte[]</c> 拷贝，随后直接把
+        /// <paramref name="cancellationToken"/> 交给 <see cref="_stream"/> 的异步写入（不再用
+        /// <see cref="Task.Run(Action, CancellationToken)"/> 间接调度）。
+        /// </summary>
+        /// <param name="data">数据</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>写入任务</returns>
         public Task SendAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken)
         {
-            return Task.Run(() => SendAsync(data), cancellationToken);
+            var copy = data.ToArray();
+            return _stream.WriteAsync(copy, 0, copy.Length, cancellationToken);
         }
 
         /// <summary>
