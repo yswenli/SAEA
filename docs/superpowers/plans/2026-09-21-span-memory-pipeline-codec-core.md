@@ -1507,7 +1507,9 @@ git commit -m "refactor: adapt all ICoder/ISocketProtocal implementers to Span/M
 
 ## Task 9: Adapt remaining callers across the solution
 
-**Files (from `rg` sweep):** `Src/SAEA.FileSocket/{Server,Client}.cs`, `Src/SAEA.Audio.Net/Net/{TransferServer,TransferClient}.cs`, `Src/SAEA.MessageSocket/{MessageServer,MessageClient}.cs`, `Src/SAEA.MQTT/Implementations/MqttTcpChannel.cs`, `Src/SAEA.DNS/Coder/UdpRequestCoder.cs`, `Src/SAEA.Sockets.UdpTest/Program.cs`, `Src/SAEA.WebSocketTest/Program.cs`, `Src/SAEA.Sockets.TcpTest/StreamServerSocketTests.cs`, all `SAEA.*Test` projects, and the `SAEA.P2PTest` tests.
+**Files (from `rg` sweep):** `Src/SAEA.FileSocket/{Server,Client}.cs`, `Src/SAEA.MessageSocket/{MessageServer,MessageClient}.cs`, `Src/SAEA.MQTT/Implementations/MqttTcpChannel.cs`, `Src/SAEA.DNS/Coder/UdpRequestCoder.cs`, `Src/SAEA.Sockets.UdpTest/Program.cs`, `Src/SAEA.WebSocketTest/Program.cs`, `Src/SAEA.Sockets.TcpTest/StreamServerSocketTests.cs`, all `SAEA.*Test` projects, and the `SAEA.P2PTest` tests.
+
+**Excluded — package-referenced, decoupled from this refactor:** `Src/SAEA.Audio.Net`, `Src/SAEA.FTPTest`, `Src/SAEA.Mvc.ServiceTest` reference the *published* `SAEA.Sockets`/`SAEA.Common` packages (`..\packages\SAEA.*.7.26.2.2` etc.), **not** `ProjectReference`. Their sources compile against the old `byte[]` surface and must **not** be rewritten here (doing so would break them against the pinned packages). Verified 2026-09-21: `SAEA.Audio.Net` (`SAEA.Common.7.26.2.2`, `SAEA.Sockets.7.26.2.2`) and `SAEA.FTPTest` (`SAEA.*.26.4.23.1`) have no `ProjectReference`. Their only pre-existing `dotnet build` failures are unrelated to the refactor and were fixed in standalone commits `14f0e2e1` (Audio.Net Release `AllowUnsafeBlocks`) and `00da3022` (FTPTest `GenerateResourceUsePreserializedResources` + `System.Resources.Extensions`).
 
 - [ ] **Step 1: Apply the caller transformations**
 
@@ -1532,9 +1534,11 @@ Expected: `0 Error(s)`.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add -A
+git add Src/SAEA.FileSocket Src/SAEA.MessageSocket Src/SAEA.MQTT Src/SAEA.DNS Src/SAEA.Sockets.UdpTest Src/SAEA.WebSocketTest Src/SAEA.Sockets.TcpTest Src/SAEA.P2PTest
 git commit -m "refactor: adapt remaining protocol/coder callers solution-wide"
 ```
+
+Do **not** use `git add -A`: `Src/SAEA.Sockets/Core/Tcp/IocpServerSocket.cs` has a stale whitespace-only diff that must never be staged. After staging, confirm with `git diff --cached --name-only`.
 
 ---
 
@@ -1557,9 +1561,11 @@ If `StreamDecoderTest`/`ProtocolTest`/`ProtocolAdvancedTest`/`PerformanceTest` f
 - [ ] **Step 3: Commit**
 
 ```bash
-git add -A
+git add Src/SAEA.P2PTest Src/SAEA.Sockets.UdpTest
 git commit -m "test: migrate remaining tests to Span/Memory coder API; all green (283/283)"
 ```
+
+Do **not** use `git add -A` (avoid staging the phantom `IocpServerSocket.cs` whitespace diff).
 
 - [ ] **Step 4: Update README test count**
 
