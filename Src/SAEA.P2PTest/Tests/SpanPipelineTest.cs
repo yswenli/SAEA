@@ -51,6 +51,16 @@ namespace SAEA.P2PTest.Tests
             TestHarness.Expect(parsed.BodyLength == 2 && parsed.Type == (byte)SAEA.Sockets.Model.SocketProtocalType.ChatMessage,
                 "BaseSocketProtocal.Parse preserves body length + type");
 
+            var batch = new SAEA.Sockets.Base.DecodedFrames(2);
+            batch.Add(new SAEA.Sockets.Base.BaseSocketProtocal(1, new ReadOnlyMemory<byte>(new byte[] { 99 })));
+            TestHarness.Expect(batch.Count == 1 && batch[0].Content.Span[0] == 99, "DecodedFrames indexer + Count");
+            TestHarness.Expect(batch.Frames.Length == 1, "DecodedFrames.Frames span");
+            batch.Dispose();
+            batch.Dispose();
+            var threw = false;
+            try { var _ = batch.Count; } catch (ObjectDisposedException) { threw = true; }
+            TestHarness.Expect(threw, "DecodedFrames throws after Dispose");
+
             w.Dispose();
             w.Dispose(); // idempotent
             TestHarness.Expect(true, "PooledBufferWriter.Dispose idempotent");
