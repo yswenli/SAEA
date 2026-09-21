@@ -57,7 +57,7 @@ namespace SAEA.P2PTest.Tests
                         }
                         else
                         {
-                            result.Add(new BaseSocketProtocal { BodyLength = bodyLen, Type = (byte)type, Content = content });
+                            result.Add(new BaseSocketProtocal(bodyLen, (byte)type, content));
                         }
 
                         Remove(buffer, (int)(BaseCoder.P_Head + bodyLen));

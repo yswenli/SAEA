@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
@@ -74,7 +75,10 @@ namespace SAEA.P2PTest.Tests
                 client.OnReceive += data =>
                 {
                     counter.AddChunk(data.Length);
-                    counter.AddFrames(decoder.Decode(data).Count);
+                    using (var d = decoder.Decode(new ReadOnlySequence<byte>(data)))
+                    {
+                        counter.AddFrames(d.Count);
+                    }
                     counter.Complete();
                 };
             else if (mode == ReceiveMode.SpanDecodeStream)
@@ -122,7 +126,10 @@ namespace SAEA.P2PTest.Tests
                 server.OnReceive += (token, data) =>
                 {
                     counter.AddChunk(data.Length);
-                    counter.AddFrames(decoder.Decode(data).Count);
+                    using (var d = decoder.Decode(new ReadOnlySequence<byte>(data)))
+                    {
+                        counter.AddFrames(d.Count);
+                    }
                     counter.Complete();
                 };
             else if (mode == ReceiveMode.SpanDecodeStream)

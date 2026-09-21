@@ -36,23 +36,25 @@ namespace SAEA.P2PTest.Tests
             var content = new byte[256];
             for (int i = 0; i < content.Length; i++) content[i] = (byte)i;
 
-            var decoded = coder.DecodeP2P(coder.EncodeP2P(P2PMessageType.UserData, content));
-
-            TestHarness.Expect(decoded.Count == 1, "one message decoded");
-            TestHarness.Expect(decoded[0].GetMessageType() == P2PMessageType.UserData, "message type preserved");
-            TestHarness.Expect(decoded[0].Content != null && decoded[0].Content.SequenceEqual(content), "binary content byte-exact");
+            using (var decoded = coder.DecodeP2P(coder.EncodeP2P(P2PMessageType.UserData, content)))
+            {
+                TestHarness.Expect(decoded.Count == 1, "one message decoded");
+                TestHarness.Expect((P2PMessageType)decoded[0].Type == P2PMessageType.UserData, "message type preserved");
+                TestHarness.Expect(decoded[0].Content.Span.SequenceEqual(content), "binary content byte-exact");
+            }
         }
 
         static void EmptyContent()
         {
             TestHarness.Section("empty content");
             var coder = new P2PCoder();
-            var decoded = coder.DecodeP2P(coder.EncodeP2P(P2PMessageType.Heartbeat));
-
-            TestHarness.Expect(decoded.Count == 1, "empty message decoded");
-            TestHarness.Expect(decoded[0].GetMessageType() == P2PMessageType.Heartbeat, "empty message type preserved");
-            TestHarness.Expect(decoded[0].BodyLength == 0, "empty body length is 0");
-            TestHarness.Expect(decoded[0].Content == null || decoded[0].Content.Length == 0, "empty content is null or zero length");
+            using (var decoded = coder.DecodeP2P(coder.EncodeP2P(P2PMessageType.Heartbeat)))
+            {
+                TestHarness.Expect(decoded.Count == 1, "empty message decoded");
+                TestHarness.Expect((P2PMessageType)decoded[0].Type == P2PMessageType.Heartbeat, "empty message type preserved");
+                TestHarness.Expect(decoded[0].BodyLength == 0, "empty body length is 0");
+                TestHarness.Expect(decoded[0].Content.Length == 0, "empty content is null or zero length");
+            }
         }
 
         static void MultipleFramesInOneBuffer()
@@ -64,12 +66,13 @@ namespace SAEA.P2PTest.Tests
             all.AddRange(coder.EncodeP2P(P2PMessageType.Register, "two"));
             all.AddRange(coder.EncodeP2P(P2PMessageType.HeartbeatAck));
 
-            var decoded = coder.DecodeP2P(all.ToArray());
-
-            TestHarness.Expect(decoded.Count == 3, "three messages decoded", decoded.Count.ToString());
-            TestHarness.Expect(decoded[0].GetContentAsString() == "one", "first message content");
-            TestHarness.Expect(decoded[1].GetContentAsString() == "two", "second message content");
-            TestHarness.Expect(decoded[2].GetMessageType() == P2PMessageType.HeartbeatAck, "third message type");
+            using (var decoded = coder.DecodeP2P(all.ToArray()))
+            {
+                TestHarness.Expect(decoded.Count == 3, "three messages decoded", decoded.Count.ToString());
+                TestHarness.Expect(Encoding.UTF8.GetString(decoded[0].Content.Span) == "one", "first message content");
+                TestHarness.Expect(Encoding.UTF8.GetString(decoded[1].Content.Span) == "two", "second message content");
+                TestHarness.Expect((P2PMessageType)decoded[2].Type == P2PMessageType.HeartbeatAck, "third message type");
+            }
         }
 
         static void SplitFrame()
@@ -81,14 +84,18 @@ namespace SAEA.P2PTest.Tests
 
             var first = new byte[half];
             Buffer.BlockCopy(frame, 0, first, 0, half);
-            var firstResult = coder.DecodeP2P(first);
-            TestHarness.Expect(firstResult.Count == 0, "partial frame yields no message");
+            using (var firstResult = coder.DecodeP2P(first))
+            {
+                TestHarness.Expect(firstResult.Count == 0, "partial frame yields no message");
+            }
 
             var second = new byte[frame.Length - half];
             Buffer.BlockCopy(frame, half, second, 0, second.Length);
-            var secondResult = coder.DecodeP2P(second);
-            TestHarness.Expect(secondResult.Count == 1, "remaining bytes complete the frame");
-            TestHarness.Expect(secondResult.Count == 1 && secondResult[0].GetContentAsString() == "split-payload", "reassembled payload intact");
+            using (var secondResult = coder.DecodeP2P(second))
+            {
+                TestHarness.Expect(secondResult.Count == 1, "remaining bytes complete the frame");
+                TestHarness.Expect(secondResult.Count == 1 && Encoding.UTF8.GetString(secondResult[0].Content.Span) == "split-payload", "reassembled payload intact");
+            }
         }
 
         static void MessageTypeLookup()
@@ -124,8 +131,10 @@ namespace SAEA.P2PTest.Tests
             TestHarness.Section("unicode round trip");
             var coder = new P2PCoder();
             var text = "你好，P2P 世界！émoji: 🚀";
-            var decoded = coder.DecodeP2P(coder.EncodeP2P(P2PMessageType.UserData, text));
-            TestHarness.Expect(decoded.Count == 1 && decoded[0].GetContentAsString() == text, "unicode content preserved");
+            using (var decoded = coder.DecodeP2P(coder.EncodeP2P(P2PMessageType.UserData, text)))
+            {
+                TestHarness.Expect(decoded.Count == 1 && Encoding.UTF8.GetString(decoded[0].Content.Span) == text, "unicode content preserved");
+            }
         }
 
         static void LargePayload()
@@ -135,12 +144,13 @@ namespace SAEA.P2PTest.Tests
             var content = new byte[100_000];
             new Random(42).NextBytes(content);
 
-            var decoded = coder.DecodeP2P(coder.EncodeP2P(P2PMessageType.UserData, content));
-
-            TestHarness.Expect(decoded.Count == 1, "large message decoded");
-            TestHarness.Expect(decoded.Count == 1 && decoded[0].Content != null && decoded[0].Content.Length == content.Length,
-                "large payload exact length", decoded.Count == 1 && decoded[0].Content != null ? decoded[0].Content.Length.ToString() : "n/a");
-            TestHarness.Expect(decoded.Count == 1 && decoded[0].Content != null && decoded[0].Content.SequenceEqual(content), "large payload byte-exact");
+            using (var decoded = coder.DecodeP2P(coder.EncodeP2P(P2PMessageType.UserData, content)))
+            {
+                TestHarness.Expect(decoded.Count == 1, "large message decoded");
+                TestHarness.Expect(decoded.Count == 1 && decoded[0].Content.Length == content.Length,
+                    "large payload exact length", decoded.Count == 1 ? decoded[0].Content.Length.ToString() : "n/a");
+                TestHarness.Expect(decoded.Count == 1 && decoded[0].Content.Span.SequenceEqual(content), "large payload byte-exact");
+            }
         }
     }
 }

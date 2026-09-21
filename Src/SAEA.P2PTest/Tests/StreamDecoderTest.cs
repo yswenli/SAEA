@@ -3,6 +3,7 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using SAEA.Common.Caching;
 using SAEA.Sockets.Base;
 using SAEA.Sockets.Model;
 
@@ -34,12 +35,11 @@ namespace SAEA.P2PTest.Tests
 
         internal static byte[] BuildFrame(byte type, byte[] content)
         {
-            return new BaseSocketProtocal
+            using (var w = new PooledBufferWriter(64))
             {
-                BodyLength = content == null ? 0 : content.Length,
-                Type = type,
-                Content = content
-            }.ToBytes();
+                new BaseSocketProtocal(type, content ?? Array.Empty<byte>()).WriteTo(w);
+                return w.WrittenSpan.ToArray();
+            }
         }
 
         static void PartialFrame()
@@ -50,13 +50,17 @@ namespace SAEA.P2PTest.Tests
 
             for (int i = 0; i < frame.Length - 1; i++)
             {
-                var r = coder.Decode(new[] { frame[i] });
-                TestHarness.Expect(r.Count == 0, $"byte {i} yields no frame");
+                using (var r = coder.Decode(new ReadOnlySequence<byte>(new[] { frame[i] })))
+                {
+                    TestHarness.Expect(r.Count == 0, $"byte {i} yields no frame");
+                }
             }
 
-            var last = coder.Decode(new[] { frame[frame.Length - 1] });
-            TestHarness.Expect(last.Count == 1, "final byte completes the frame");
-            TestHarness.Expect(last.Count == 1 && last[0].Content.SequenceEqual(Encoding.UTF8.GetBytes("partial")), "payload intact");
+            using (var last = coder.Decode(new ReadOnlySequence<byte>(new[] { frame[frame.Length - 1] })))
+            {
+                TestHarness.Expect(last.Count == 1, "final byte completes the frame");
+                TestHarness.Expect(last.Count == 1 && last[0].Content.Span.SequenceEqual(Encoding.UTF8.GetBytes("partial")), "payload intact");
+            }
         }
 
         static void FragmentedAcrossAppends()
@@ -67,15 +71,21 @@ namespace SAEA.P2PTest.Tests
             new Random(1).NextBytes(content);
             var frame = BuildFrame((byte)SocketProtocalType.RequestSend, content);
 
-            var first = coder.Decode(frame.AsSpan(0, 300).ToArray());
-            TestHarness.Expect(first.Count == 0, "first fragment buffered");
+            using (var first = coder.Decode(new ReadOnlySequence<byte>(frame.AsSpan(0, 300).ToArray())))
+            {
+                TestHarness.Expect(first.Count == 0, "first fragment buffered");
+            }
 
-            var second = coder.Decode(frame.AsSpan(300, 400).ToArray());
-            TestHarness.Expect(second.Count == 0, "second fragment buffered");
+            using (var second = coder.Decode(new ReadOnlySequence<byte>(frame.AsSpan(300, 400).ToArray())))
+            {
+                TestHarness.Expect(second.Count == 0, "second fragment buffered");
+            }
 
-            var third = coder.Decode(frame.AsSpan(700).ToArray());
-            TestHarness.Expect(third.Count == 1, "third fragment completes");
-            TestHarness.Expect(third.Count == 1 && third[0].Content.SequenceEqual(content), "fragmented payload byte-exact");
+            using (var third = coder.Decode(new ReadOnlySequence<byte>(frame.AsSpan(700).ToArray())))
+            {
+                TestHarness.Expect(third.Count == 1, "third fragment completes");
+                TestHarness.Expect(third.Count == 1 && third[0].Content.Span.SequenceEqual(content), "fragmented payload byte-exact");
+            }
         }
 
         static void MultipleFramesInOneAppend()
@@ -87,11 +97,13 @@ namespace SAEA.P2PTest.Tests
             all.AddRange(BuildFrame((byte)SocketProtocalType.ChatMessage, Encoding.UTF8.GetBytes("two")));
             all.AddRange(BuildFrame((byte)SocketProtocalType.AllowReceive, Encoding.UTF8.GetBytes("three")));
 
-            var decoded = coder.Decode(all.ToArray());
-            TestHarness.Expect(decoded.Count == 3, "three frames decoded", decoded.Count.ToString());
-            TestHarness.Expect(decoded[0].Content.SequenceEqual(Encoding.UTF8.GetBytes("one")), "frame 1 content");
-            TestHarness.Expect(decoded[1].Content.SequenceEqual(Encoding.UTF8.GetBytes("two")), "frame 2 content");
-            TestHarness.Expect(decoded[2].Content.SequenceEqual(Encoding.UTF8.GetBytes("three")), "frame 3 content");
+            using (var decoded = coder.Decode(new ReadOnlySequence<byte>(all.ToArray())))
+            {
+                TestHarness.Expect(decoded.Count == 3, "three frames decoded", decoded.Count.ToString());
+                TestHarness.Expect(decoded[0].Content.Span.SequenceEqual(Encoding.UTF8.GetBytes("one")), "frame 1 content");
+                TestHarness.Expect(decoded[1].Content.Span.SequenceEqual(Encoding.UTF8.GetBytes("two")), "frame 2 content");
+                TestHarness.Expect(decoded[2].Content.Span.SequenceEqual(Encoding.UTF8.GetBytes("three")), "frame 3 content");
+            }
         }
 
         static void Heartbeat()
@@ -101,8 +113,10 @@ namespace SAEA.P2PTest.Tests
             var frame = BuildFrame((byte)SocketProtocalType.Heart, null);
             int heartCount = 0;
 
-            var decoded = coder.Decode(frame, _ => heartCount++);
-            TestHarness.Expect(decoded.Count == 0, "heartbeat produces no frame");
+            using (var decoded = coder.Decode(new ReadOnlySequence<byte>(frame), _ => heartCount++))
+            {
+                TestHarness.Expect(decoded.Count == 0, "heartbeat produces no frame");
+            }
             TestHarness.Expect(heartCount == 1, "heartbeat callback fired");
         }
 
@@ -111,11 +125,13 @@ namespace SAEA.P2PTest.Tests
             TestHarness.Section("empty body");
             var coder = new BaseCoder();
             var frame = BuildFrame((byte)SocketProtocalType.RequestSend, null);
-            var decoded = coder.Decode(frame);
 
-            TestHarness.Expect(decoded.Count == 1, "empty body frame decoded");
-            TestHarness.Expect(decoded[0].Content != null && decoded[0].Content.Length == 0, "empty content is non-null empty");
-            TestHarness.Expect(decoded[0].BodyLength == 0, "empty body length is 0");
+            using (var decoded = coder.Decode(new ReadOnlySequence<byte>(frame)))
+            {
+                TestHarness.Expect(decoded.Count == 1, "empty body frame decoded");
+                TestHarness.Expect(decoded[0].Content.Length == 0, "empty content is non-null empty");
+                TestHarness.Expect(decoded[0].BodyLength == 0, "empty body length is 0");
+            }
         }
 
         static void BigData()
@@ -126,8 +142,10 @@ namespace SAEA.P2PTest.Tests
             var frame = BuildFrame((byte)SocketProtocalType.BigData, content);
             byte[] fileContent = null;
 
-            var decoded = coder.Decode(frame, null, f => fileContent = f);
-            TestHarness.Expect(decoded.Count == 0, "big data produces no frame");
+            using (var decoded = coder.Decode(new ReadOnlySequence<byte>(frame), null, f => fileContent = f.ToArray()))
+            {
+                TestHarness.Expect(decoded.Count == 0, "big data produces no frame");
+            }
             TestHarness.Expect(fileContent != null && fileContent.SequenceEqual(content), "file callback content");
         }
 
@@ -137,10 +155,11 @@ namespace SAEA.P2PTest.Tests
             var coder = new BaseCoder();
             var content = new byte[1024 * 1024];
             new Random(9).NextBytes(content);
-            var decoded = coder.Decode(BuildFrame((byte)SocketProtocalType.RequestSend, content));
-
-            TestHarness.Expect(decoded.Count == 1 && decoded[0].Content != null && decoded[0].Content.SequenceEqual(content),
-                "1MB payload byte-exact");
+            using (var decoded = coder.Decode(new ReadOnlySequence<byte>(BuildFrame((byte)SocketProtocalType.RequestSend, content))))
+            {
+                TestHarness.Expect(decoded.Count == 1 && decoded[0].Content.Span.SequenceEqual(content),
+                    "1MB payload byte-exact");
+            }
         }
 
         static void MalformedLength()
@@ -156,12 +175,12 @@ namespace SAEA.P2PTest.Tests
                 var negative = new byte[BaseCoder.P_Head];
                 BitConverter.GetBytes(-1L).CopyTo(negative, 0);
                 negative[BaseCoder.P_LEN] = (byte)SocketProtocalType.RequestSend;
-                TestHarness.Throws<KernelException>(() => coder.Decode(negative), "negative length throws");
+                TestHarness.Throws<KernelException>(() => coder.Decode(new ReadOnlySequence<byte>(negative)), "negative length throws");
 
                 var tooBig = new byte[BaseCoder.P_Head];
                 BitConverter.GetBytes(2048L).CopyTo(tooBig, 0);
                 tooBig[BaseCoder.P_LEN] = (byte)SocketProtocalType.RequestSend;
-                TestHarness.Throws<KernelException>(() => coder.Decode(tooBig), "length over MaxFrameLength throws");
+                TestHarness.Throws<KernelException>(() => coder.Decode(new ReadOnlySequence<byte>(tooBig)), "length over MaxFrameLength throws");
             }
             finally
             {
@@ -216,11 +235,12 @@ namespace SAEA.P2PTest.Tests
             segment.Append(new ReadOnlyMemory<byte>(array, 7, array.Length - 7));
             var sequence = new ReadOnlySequence<byte>(segment, 0, segment.Next, array.Length - 7);
 
-            var decoded = new BaseCoder().Decode(sequence);
-
-            TestHarness.Expect(decoded.Count == 2, "two frames from multi-segment sequence", decoded.Count.ToString());
-            TestHarness.Expect(decoded.Count == 2 && decoded[0].Content.SequenceEqual(payload1), "first segment payload");
-            TestHarness.Expect(decoded.Count == 2 && decoded[1].Content.SequenceEqual(payload2), "second segment payload");
+            using (var decoded = new BaseCoder().Decode(sequence))
+            {
+                TestHarness.Expect(decoded.Count == 2, "two frames from multi-segment sequence", decoded.Count.ToString());
+                TestHarness.Expect(decoded.Count == 2 && decoded[0].Content.Span.SequenceEqual(payload1), "first segment payload");
+                TestHarness.Expect(decoded.Count == 2 && decoded[1].Content.Span.SequenceEqual(payload2), "second segment payload");
+            }
         }
 
         sealed class Segment : ReadOnlySequenceSegment<byte>
@@ -323,14 +343,15 @@ namespace SAEA.P2PTest.Tests
                 var newFiles = new List<byte[]>();
 
                 var legacy = LegacyDecoder.Decode(frame, _ => legacyHearts++, f => legacyFiles.Add(f));
-                var actual = new BaseCoder().Decode(frame, _ => newHearts++, f => newFiles.Add(f));
-
-                TestHarness.Expect(legacy.Count == actual.Count, "parity frame count");
-                for (int i = 0; i < Math.Min(legacy.Count, actual.Count); i++)
+                using (var actual = new BaseCoder().Decode(new ReadOnlySequence<byte>(frame), _ => newHearts++, f => newFiles.Add(f.ToArray())))
                 {
-                    TestHarness.Expect(legacy[i].BodyLength == actual[i].BodyLength, "parity body length");
-                    TestHarness.Expect(legacy[i].Type == actual[i].Type, "parity type");
-                    TestHarness.Expect(legacy[i].Content.SequenceEqual(actual[i].Content), "parity content");
+                    TestHarness.Expect(legacy.Count == actual.Count, "parity frame count");
+                    for (int i = 0; i < Math.Min(legacy.Count, actual.Count); i++)
+                    {
+                        TestHarness.Expect(legacy[i].BodyLength == actual[i].BodyLength, "parity body length");
+                        TestHarness.Expect(legacy[i].Type == actual[i].Type, "parity type");
+                        TestHarness.Expect(legacy[i].Content.Span.SequenceEqual(actual[i].Content.Span), "parity content");
+                    }
                 }
                 TestHarness.Expect(legacyHearts == newHearts, "parity heartbeat count");
                 TestHarness.Expect(legacyFiles.Count == newFiles.Count, "parity file count");

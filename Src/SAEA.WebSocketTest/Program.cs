@@ -23,6 +23,7 @@
 *****************************************************************************/
 
 using System;
+using System.Buffers;
 using System.Diagnostics;
 using System.Text;
 using System.Threading;
@@ -71,11 +72,11 @@ namespace SAEA.WebSocketTest
             var frame = CreateWebSocketFrame(0x01, payloadData, false); // Text frame, no mask
 
             // Act
-            var result = coder.Decode(frame);
+            var result = coder.Decode(new ReadOnlySequence<byte>(frame));
             
             // 解码后，result中的WSProtocal.Content是从池租用的（因为>4KB）
             // 需要正确Dispose这些对象
-            foreach (var item in result)
+            foreach (var item in result.Frames)
             {
                 if (item is WSProtocal wsProtocal)
                 {
@@ -106,7 +107,7 @@ namespace SAEA.WebSocketTest
             Buffer.BlockCopy(frame2, 0, combinedFrame, frame1.Length, frame2.Length);
 
             // Act
-            result = coder.Decode(combinedFrame);
+            result = coder.Decode(new ReadOnlySequence<byte>(combinedFrame));
             
             // 小数据(<4KB)不是池化的，不需要特殊处理
         }
@@ -172,7 +173,7 @@ namespace SAEA.WebSocketTest
 
         private static void Server_OnMessage(string id, WSProtocal data)
         {
-            ConsoleHelper.WriteLine("WSServer 收到{0}的消息：{1}", ConsoleColor.Green, id, Encoding.UTF8.GetString(data.Content));
+            ConsoleHelper.WriteLine("WSServer 收到{0}的消息：{1}", ConsoleColor.Green, id, Encoding.UTF8.GetString(data.Content.Span));
 
             _server.Reply(id, data);
         }
@@ -185,7 +186,7 @@ namespace SAEA.WebSocketTest
 
         private static void Client_OnMessage(WSProtocal data)
         {
-            ConsoleHelper.WriteLine("WSClient 收到的消息：{0}", ConsoleColor.DarkGray, Encoding.UTF8.GetString(data.Content));
+            ConsoleHelper.WriteLine("WSClient 收到的消息：{0}", ConsoleColor.DarkGray, Encoding.UTF8.GetString(data.Content.Span));
         }
 
         private static void Client_OnPong(string date)
@@ -362,7 +363,7 @@ namespace SAEA.WebSocketTest
         private static void Client_OnMessage2(WSProtocal protocal)
         {
             Interlocked.Increment(ref _count);
-            var str = System.Text.Encoding.UTF8.GetString(protocal.Content);
+            var str = System.Text.Encoding.UTF8.GetString(protocal.Content.Span);
             Console.Write($"\r客户端已收到服务器转发消息条数：{_count}");
             if (_count == _maxSize)
             {

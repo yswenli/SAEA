@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using SAEA.P2P.Builder;
@@ -67,10 +68,12 @@ namespace SAEA.P2PTest.Tests
                 for (int i = 0; i < 2000; i++)
                 {
                     var text = $"w{worker}-i{i}";
-                    var decoded = coder.DecodeP2P(coder.EncodeP2P(P2PMessageType.UserData, text));
-                    if (decoded.Count != 1 || decoded[0].GetContentAsString() != text)
+                    using (var decoded = coder.DecodeP2P(coder.EncodeP2P(P2PMessageType.UserData, text)))
                     {
-                        Interlocked.Increment(ref errors);
+                        if (decoded.Count != 1 || Encoding.UTF8.GetString(decoded[0].Content.Span) != text)
+                        {
+                            Interlocked.Increment(ref errors);
+                        }
                     }
                 }
             });

@@ -2,6 +2,7 @@ using System;
 using System.Text;
 
 using SAEA.Common;
+using SAEA.Common.Caching;
 using SAEA.P2P.Protocol;
 
 namespace SAEA.P2PTest.Tests
@@ -59,13 +60,18 @@ ConsoleHelper.WriteLine("");
 
             var heartbeat = P2PProtocol.Create(P2PMessageType.Heartbeat);
             ConsoleHelper.WriteLine($"Heartbeat Type: {heartbeat.GetMessageType()}");
-            ConsoleHelper.WriteLine($"Heartbeat Content: {(heartbeat.Content == null ? "null" : heartbeat.Content.Length + " bytes")}");
-            if (heartbeat.GetMessageType() == P2PMessageType.Heartbeat && heartbeat.Content == null)
+            ConsoleHelper.WriteLine($"Heartbeat Content: {(heartbeat.Content.Length == 0 ? "null" : heartbeat.Content.Length + " bytes")}");
+            if (heartbeat.GetMessageType() == P2PMessageType.Heartbeat && heartbeat.Content.Length == 0)
             {
                 passed++;
             }
 
-            var heartbeatBytes = heartbeat.ToBytes();
+            byte[] heartbeatBytes;
+            using (var w = new PooledBufferWriter(64))
+            {
+                heartbeat.WriteTo(w);
+                heartbeatBytes = w.WrittenSpan.ToArray();
+            }
             ConsoleHelper.WriteLine($"Heartbeat ToBytes: {heartbeatBytes.Length} bytes");
             if (heartbeatBytes.Length > 0)
             {
@@ -80,7 +86,12 @@ ConsoleHelper.WriteLine("");
                 passed++;
             }
 
-            var userDataBytes = userData.ToBytes();
+            byte[] userDataBytes;
+            using (var w = new PooledBufferWriter(64))
+            {
+                userData.WriteTo(w);
+                userDataBytes = w.WrittenSpan.ToArray();
+            }
             ConsoleHelper.WriteLine($"UserData ToBytes: {userDataBytes.Length} bytes");
             if (userDataBytes.Length > 0)
             {
@@ -113,21 +124,25 @@ ConsoleHelper.WriteLine("");
                 passed++;
             }
 
-            var decodedHeartbeat = coder.DecodeP2P(encodedHeartbeat);
-            ConsoleHelper.WriteLine($"Decoded Heartbeat count: {decodedHeartbeat.Count}");
-            if (decodedHeartbeat.Count == 1 && decodedHeartbeat[0].GetMessageType() == P2PMessageType.Heartbeat)
+            using (var decodedHeartbeat = coder.DecodeP2P(encodedHeartbeat))
             {
-                passed++;
+                ConsoleHelper.WriteLine($"Decoded Heartbeat count: {decodedHeartbeat.Count}");
+                if (decodedHeartbeat.Count == 1 && (P2PMessageType)decodedHeartbeat[0].Type == P2PMessageType.Heartbeat)
+                {
+                    passed++;
+                }
             }
 
-            var decodedUserData = coder.DecodeP2P(encodedUserData);
-            ConsoleHelper.WriteLine($"Decoded UserData count: {decodedUserData.Count}");
-            ConsoleHelper.WriteLine($"Decoded UserData content: {decodedUserData[0].GetContentAsString()}");
-            if (decodedUserData.Count == 1 && 
-                decodedUserData[0].GetMessageType() == P2PMessageType.UserData &&
-                decodedUserData[0].GetContentAsString() == "Test message")
+            using (var decodedUserData = coder.DecodeP2P(encodedUserData))
             {
-                passed++;
+                ConsoleHelper.WriteLine($"Decoded UserData count: {decodedUserData.Count}");
+                ConsoleHelper.WriteLine($"Decoded UserData content: {Encoding.UTF8.GetString(decodedUserData[0].Content.Span)}");
+                if (decodedUserData.Count == 1 &&
+                    (P2PMessageType)decodedUserData[0].Type == P2PMessageType.UserData &&
+                    Encoding.UTF8.GetString(decodedUserData[0].Content.Span) == "Test message")
+                {
+                    passed++;
+                }
             }
 
             ConsoleHelper.WriteLine($"TestP2PCoder: {passed}/{total} PASSED");

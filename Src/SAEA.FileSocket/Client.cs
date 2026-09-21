@@ -38,6 +38,7 @@ using SAEA.Sockets.Base;
 using SAEA.Sockets.Model;
 
 using System;
+using System.Buffers;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Threading;
@@ -99,25 +100,27 @@ namespace SAEA.FileSocket
         {
             if (data != null)
             {
-                var msgs = _unpacker.Decode(data, null, null);
-                if (msgs == null || msgs.Count == 0)
+                using (var msgs = _unpacker.Decode(new ReadOnlySequence<byte>(data), null, null))
                 {
-                    return;
-                }
-                foreach (var msg in msgs)
-                {
-                    Action<bool> action;
-
-                    if (_eventCollection.TryPop(out action))
+                    if (msgs.Count == 0)
                     {
-                        var result = false;
+                        return;
+                    }
+                    foreach (var msg in msgs.Frames)
+                    {
+                        Action<bool> action;
 
-                        if (msg.Type == (byte)SocketProtocalType.AllowReceive)
+                        if (_eventCollection.TryPop(out action))
                         {
-                            result = true;
-                        }
+                            var result = false;
 
-                        action?.Invoke(result);
+                            if (msg.Type == (byte)SocketProtocalType.AllowReceive)
+                            {
+                                result = true;
+                            }
+
+                            action?.Invoke(result);
+                        }
                     }
                 }
             }
@@ -137,12 +140,12 @@ namespace SAEA.FileSocket
                         {
                             if (Actived.AddMilliseconds(HeartSpan) <= DateTimeHelper.Now)
                             {
-                                var sm = new BaseSocketProtocal()
+                                var sm = new BaseSocketProtocal((byte)SocketProtocalType.Heart, ReadOnlyMemory<byte>.Empty);
+                                using (var w = new PooledBufferWriter(64))
                                 {
-                                    BodyLength = 0,
-                                    Type = (byte)SocketProtocalType.Heart
-                                };
-                                _client.Send(sm.ToBytes());
+                                    sm.WriteTo(w);
+                                    _client.Send(w.WrittenSpan.ToArray());
+                                }
                             }
                             Thread.Sleep(HeartSpan);
                         }
@@ -159,8 +162,11 @@ namespace SAEA.FileSocket
 
         void sendMessageBase(byte[] content)
         {
-            var data = BaseSocketProtocal.ParseRequest(content).ToBytes();
-            _client.Send(data);
+            using (var w = new PooledBufferWriter(64))
+            {
+                BaseSocketProtocal.ParseRequest(content).WriteTo(w);
+                _client.Send(w.WrittenSpan.ToArray());
+            }
         }
 
 
@@ -208,9 +214,11 @@ namespace SAEA.FileSocket
                             {
                                 // Use Span to avoid creating new array
                                 var contentSpan = buffer.AsSpan(0, readNum);
-                                var data = BaseSocketProtocal.ParseStream(contentSpan.ToArray()).ToBytes();
-
-                                _client.SendAsync(data);
+                                using (var w = new PooledBufferWriter(64))
+                                {
+                                    BaseSocketProtocal.ParseStream(contentSpan.ToArray()).WriteTo(w);
+                                    _client.SendAsync(w.WrittenSpan.ToArray());
+                                }
 
                                 Interlocked.Add(ref _out, readNum);
                             }

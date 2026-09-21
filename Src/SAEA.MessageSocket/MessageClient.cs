@@ -42,6 +42,7 @@ using SAEA.Sockets.Handler;
 using SAEA.Sockets.Model;
 
 using System;
+using System.Buffers;
 using System.Threading.Tasks;
 
 namespace SAEA.MessageSocket
@@ -127,72 +128,73 @@ namespace SAEA.MessageSocket
                 return;
             }
             _messageContext.UserToken.Actived = DateTimeHelper.Now;
-            var msgs = _messageContext.Unpacker.Decode(data);
-
-            if (msgs == null || msgs.Count < 1) return;
-
-            foreach (var msg in msgs)
+            using (var msgs = _messageContext.Unpacker.Decode(new ReadOnlySequence<byte>(data)))
             {
-                if (msg.Content == null)
-                {
-                    continue;
-                }
-                try
-                {
-                    var cm = SerializeHelper.PBDeserialize<ChatMessage>(msg.Content);
+                if (msgs.Count < 1) return;
 
-                    switch (cm.Type)
+                foreach (var msg in msgs.Frames)
+                {
+                    if (msg.Content.Length == 0)
                     {
-                        case ChatMessageType.LoginAnswer:
-                            this.Logined = true;
-                            break;
-                        case ChatMessageType.SubscribeAnswer:
-                            if (cm.Content == "1")
-                            {
-                                _subscribed = true;
-                            }
-                            else
-                            {
-                                _subscribed = false;
-                            }
-                            break;
-                        case ChatMessageType.UnSubscribeAnswer:
-                            if (cm.Content == "1")
-                            {
-                                _unsubscribed = true;
-                            }
-                            else
-                            {
-                                _unsubscribed = false;
-                            }
-                            break;
-                        case ChatMessageType.ChannelMessage:
-                            TaskHelper.Run(() => OnChannelMessage?.Invoke(cm.GetIMessage<ChannelMessage>()));
-                            break;
-                        case ChatMessageType.PrivateMessage:
-                            TaskHelper.Run(() => OnPrivateMessage?.Invoke(cm.GetIMessage<PrivateMessage>()));
-                            break;
-                        case ChatMessageType.GroupMessage:
-                            TaskHelper.Run(() => OnGroupMessage?.Invoke(cm.GetIMessage<GroupMessage>()));
-                            break;
-                        case ChatMessageType.PrivateMessageAnswer:
-                            break;
-                        case ChatMessageType.CreateGroupAnswer:
-                        case ChatMessageType.RemoveGroupAnswer:
-                        case ChatMessageType.AddMemberAnswer:
-                        case ChatMessageType.RemoveMemberAnswer:
-                            break;
-
-                        case ChatMessageType.GroupMessageAnswer:
-                            break;
-                        default:
-                            ConsoleHelper.WriteLine("cm.Type", cm.Type);
-                            break;
+                        continue;
                     }
-                }
-                catch (Exception ex)
-                {
-                    OnError?.Invoke(_messageContext.UserToken.ID, ex);
+                    try
+                    {
+                        var cm = SerializeHelper.PBDeserialize<ChatMessage>(msg.Content.ToArray());
+
+                        switch (cm.Type)
+                        {
+                            case ChatMessageType.LoginAnswer:
+                                this.Logined = true;
+                                break;
+                            case ChatMessageType.SubscribeAnswer:
+                                if (cm.Content == "1")
+                                {
+                                    _subscribed = true;
+                                }
+                                else
+                                {
+                                    _subscribed = false;
+                                }
+                                break;
+                            case ChatMessageType.UnSubscribeAnswer:
+                                if (cm.Content == "1")
+                                {
+                                    _unsubscribed = true;
+                                }
+                                else
+                                {
+                                    _unsubscribed = false;
+                                }
+                                break;
+                            case ChatMessageType.ChannelMessage:
+                                TaskHelper.Run(() => OnChannelMessage?.Invoke(cm.GetIMessage<ChannelMessage>()));
+                                break;
+                            case ChatMessageType.PrivateMessage:
+                                TaskHelper.Run(() => OnPrivateMessage?.Invoke(cm.GetIMessage<PrivateMessage>()));
+                                break;
+                            case ChatMessageType.GroupMessage:
+                                TaskHelper.Run(() => OnGroupMessage?.Invoke(cm.GetIMessage<GroupMessage>()));
+                                break;
+                            case ChatMessageType.PrivateMessageAnswer:
+                                break;
+                            case ChatMessageType.CreateGroupAnswer:
+                            case ChatMessageType.RemoveGroupAnswer:
+                            case ChatMessageType.AddMemberAnswer:
+                            case ChatMessageType.RemoveMemberAnswer:
+                                break;
+
+                            case ChatMessageType.GroupMessageAnswer:
+                                break;
+                            default:
+                                ConsoleHelper.WriteLine("cm.Type", cm.Type);
+                                break;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        OnError?.Invoke(_messageContext.UserToken.ID, ex);
+                    }
                 }
             }
         }
@@ -212,12 +214,12 @@ namespace SAEA.MessageSocket
                             
                             if (_messageContext.UserToken.Actived.AddMilliseconds(HeartSpan) <= DateTimeHelper.Now)
                             {
-                                var sm = new BaseSocketProtocal()
+                                var sm = new BaseSocketProtocal((byte)SocketProtocalType.Heart, ReadOnlyMemory<byte>.Empty);
+                                using (var w = new PooledBufferWriter(64))
                                 {
-                                    BodyLength = 0,
-                                    Type = (byte)SocketProtocalType.Heart
-                                };
-                                _client.Send(sm.ToBytes());
+                                    sm.WriteTo(w);
+                                    _client.Send(w.WrittenSpan.ToArray());
+                                }
                             }
                         }
                         else
@@ -258,7 +260,12 @@ namespace SAEA.MessageSocket
         {
             var data = SerializeHelper.PBSerialize(cm);
 
-            var content = BaseSocketProtocal.Parse(data, SocketProtocalType.ChatMessage).ToBytes();
+            byte[] content;
+            using (var w = new PooledBufferWriter(64))
+            {
+                BaseSocketProtocal.Parse(data, SocketProtocalType.ChatMessage).WriteTo(w);
+                content = w.WrittenSpan.ToArray();
+            }
 
             _batcher.Insert(content);
         }
@@ -267,7 +274,12 @@ namespace SAEA.MessageSocket
         {
             var data = SerializeHelper.PBSerialize(cm);
 
-            var content = BaseSocketProtocal.Parse(data, SocketProtocalType.ChatMessage).ToBytes();
+            byte[] content;
+            using (var w = new PooledBufferWriter(64))
+            {
+                BaseSocketProtocal.Parse(data, SocketProtocalType.ChatMessage).WriteTo(w);
+                content = w.WrittenSpan.ToArray();
+            }
 
             await _batcher.InsertWithBackpressureAsync(content, timeoutMs);
         }

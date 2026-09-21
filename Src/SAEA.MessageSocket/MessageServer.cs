@@ -43,6 +43,7 @@ using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
 
 using System;
+using System.Buffers;
 using System.Threading.Tasks;
 
 namespace SAEA.MessageSocket
@@ -133,58 +134,59 @@ private void _server_OnReceive(object currentObj, byte[] data)
         {
             var mUserToken = (MessageUserToken)currentObj;
 
-            var msgs = mUserToken.Coder.Decode(data);
-
-            if (msgs == null || msgs.Count < 1) return;
-
-            foreach (var msg in msgs)
+            using (var msgs = mUserToken.Coder.Decode(new ReadOnlySequence<byte>(data)))
             {
-                if (msg.Content != null)
-                {
-                    try
-                    {
-                        var cm = SerializeHelper.PBDeserialize<ChatMessage>(msg.Content);
+                if (msgs.Count < 1) return;
 
-                        switch (cm.Type)
-                        {
-                            case ChatMessageType.Login:
-                                ReplyLogin(mUserToken, cm);
-                                break;
-                            case ChatMessageType.Subscribe:
-                                ReplySubscribe(mUserToken, cm);
-                                break;
-                            case ChatMessageType.UnSubscribe:
-                                ReplyUnsubscribe(mUserToken, cm);
-                                break;
-                            case ChatMessageType.ChannelMessage:
-                                ReplyChannelMessage(mUserToken, cm);
-                                break;
-                            case ChatMessageType.PrivateMessage:
-                                ReplyPrivateMessageWithBackpressureAsync(mUserToken, cm).ConfigureAwait(false);
-                                break;
-                            case ChatMessageType.CreateGroup:
-                                ReplyCreateGroup(mUserToken, cm);
-                                break;
-                            case ChatMessageType.AddMember:
-                                ReplyAddMember(mUserToken, cm);
-                                break;
-                            case ChatMessageType.RemoveMember:
-                                ReplyRemoveMember(mUserToken, cm);
-                                break;
-                            case ChatMessageType.RemoveGroup:
-                                ReplyRemoveGroup(mUserToken, cm);
-                                break;
-                            case ChatMessageType.GroupMessage:
-                                ReplyGroupMessage(mUserToken, cm);
-                                break;
-                            default:
-                                throw new Exception("未知的协议");
-                        }
-                    }
-                    catch (Exception ex)
+                foreach (var msg in msgs.Frames)
+                {
+                    if (msg.Content.Length != 0)
                     {
-                        OnError?.Invoke(mUserToken.ID, ex);
-                        LogHelper.Error("MessageServer._server_OnReceive", ex);
+                        try
+                        {
+                            var cm = SerializeHelper.PBDeserialize<ChatMessage>(msg.Content.ToArray());
+
+                            switch (cm.Type)
+                            {
+                                case ChatMessageType.Login:
+                                    ReplyLogin(mUserToken, cm);
+                                    break;
+                                case ChatMessageType.Subscribe:
+                                    ReplySubscribe(mUserToken, cm);
+                                    break;
+                                case ChatMessageType.UnSubscribe:
+                                    ReplyUnsubscribe(mUserToken, cm);
+                                    break;
+                                case ChatMessageType.ChannelMessage:
+                                    ReplyChannelMessage(mUserToken, cm);
+                                    break;
+                                case ChatMessageType.PrivateMessage:
+                                    ReplyPrivateMessageWithBackpressureAsync(mUserToken, cm).ConfigureAwait(false);
+                                    break;
+                                case ChatMessageType.CreateGroup:
+                                    ReplyCreateGroup(mUserToken, cm);
+                                    break;
+                                case ChatMessageType.AddMember:
+                                    ReplyAddMember(mUserToken, cm);
+                                    break;
+                                case ChatMessageType.RemoveMember:
+                                    ReplyRemoveMember(mUserToken, cm);
+                                    break;
+                                case ChatMessageType.RemoveGroup:
+                                    ReplyRemoveGroup(mUserToken, cm);
+                                    break;
+                                case ChatMessageType.GroupMessage:
+                                    ReplyGroupMessage(mUserToken, cm);
+                                    break;
+                                default:
+                                    throw new Exception("未知的协议");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            OnError?.Invoke(mUserToken.ID, ex);
+                            LogHelper.Error("MessageServer._server_OnReceive", ex);
+                        }
                     }
                 }
             }
@@ -201,7 +203,12 @@ private void _server_OnReceive(object currentObj, byte[] data)
         {
             var data = SerializeHelper.PBSerialize(cm);
 
-            var sp = BaseSocketProtocal.Parse(data, SocketProtocalType.ChatMessage).ToBytes();
+            byte[] sp;
+            using (var w = new PooledBufferWriter(64))
+            {
+                BaseSocketProtocal.Parse(data, SocketProtocalType.ChatMessage).WriteTo(w);
+                sp = w.WrittenSpan.ToArray();
+            }
 
             _classificationBatcher.Insert(userToken.ID, sp);
         }
@@ -210,7 +217,12 @@ private void _server_OnReceive(object currentObj, byte[] data)
         {
             var data = SerializeHelper.PBSerialize(cm);
 
-            var sp = BaseSocketProtocal.Parse(data, SocketProtocalType.ChatMessage).ToBytes();
+            byte[] sp;
+            using (var w = new PooledBufferWriter(64))
+            {
+                BaseSocketProtocal.Parse(data, SocketProtocalType.ChatMessage).WriteTo(w);
+                sp = w.WrittenSpan.ToArray();
+            }
 
             await _classificationBatcher.InsertWithBackpressureAsync(userToken.ID, sp, timeoutMs);
         }
@@ -267,7 +279,12 @@ private void _server_OnReceive(object currentObj, byte[] data)
 
                     var data = SerializeHelper.PBSerialize(ccm);
 
-                    var sp = BaseSocketProtocal.Parse(data, SocketProtocalType.ChatMessage).ToBytes();
+                    byte[] sp;
+                    using (var w = new PooledBufferWriter(64))
+                    {
+                        BaseSocketProtocal.Parse(data, SocketProtocalType.ChatMessage).WriteTo(w);
+                        sp = w.WrittenSpan.ToArray();
+                    }
 
                     Parallel.ForEach(members, (m) =>
                     {
@@ -388,7 +405,12 @@ private void _server_OnReceive(object currentObj, byte[] data)
                     {
                         var ccm = new ChatMessage(ChatMessageType.GroupMessage, groupMsg);
                         var data = SerializeHelper.PBSerialize(cm);
-                        var sp = BaseSocketProtocal.Parse(data, SocketProtocalType.ChatMessage).ToBytes();
+                        byte[] sp;
+                        using (var w = new PooledBufferWriter(64))
+                        {
+                            BaseSocketProtocal.Parse(data, SocketProtocalType.ChatMessage).WriteTo(w);
+                            sp = w.WrittenSpan.ToArray();
+                        }
 
                         Parallel.ForEach(group.Members, (m) =>
                         {

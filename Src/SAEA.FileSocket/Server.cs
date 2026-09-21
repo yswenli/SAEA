@@ -29,6 +29,7 @@
 *描述：Server服务端类
 *
 *****************************************************************************/
+using SAEA.Common.Caching;
 using SAEA.Common.Serialization;
 using SAEA.FileSocket.Model;
 using SAEA.Sockets;
@@ -36,6 +37,8 @@ using SAEA.Sockets.Base;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
+using System;
+using System.Buffers;
 using System.Threading;
 
 namespace SAEA.FileSocket
@@ -93,55 +96,53 @@ namespace SAEA.FileSocket
         {
             var userToken = (IUserToken)currentObj;
 
-            var msgs= userToken.Coder.Decode(data, null, (f) =>
+            using (var msgs = userToken.Coder.Decode(new ReadOnlySequence<byte>(data), null, (f) =>
             {
                 Interlocked.Add(ref _in, f.Length);
-                OnFile?.Invoke(userToken, f);
-            });
-            if (msgs == null || msgs.Count < 1) return;
-            foreach (var msg in msgs)
+                OnFile?.Invoke(userToken, f.ToArray());
+            }))
             {
-                string fileName = string.Empty;
-
-                long length = 0;
-
-                if (msg.Content != null)
+                if (msgs.Count < 1) return;
+                foreach (var msg in msgs.Frames)
                 {
-                    var fi = SerializeHelper.PBDeserialize<FileMessage>(msg.Content);
-                    fileName = fi.FileName;
-                    length = fi.Length;
+                    string fileName = string.Empty;
+
+                    long length = 0;
+
+                    if (msg.Content.Length != 0)
+                    {
+                        var fi = SerializeHelper.PBDeserialize<FileMessage>(msg.Content.ToArray());
+                        fileName = fi.FileName;
+                        length = fi.Length;
+                    }
+
+                    OnRequested?.Invoke(userToken.ID, fileName, length);
+
+                    _total = length;
                 }
-
-                OnRequested?.Invoke(userToken.ID, fileName, length);
-
-                _total = length;
             }
         }
 
         public void Allow(string id)
         {
-            var sm = new BaseSocketProtocal()
+            var sm = new BaseSocketProtocal((byte)SocketProtocalType.AllowReceive, ReadOnlyMemory<byte>.Empty);
+
+            using (var w = new PooledBufferWriter(64))
             {
-                BodyLength = 0,
-                Type = (byte)SocketProtocalType.AllowReceive
-            };
-
-            var data = sm.ToBytes();
-
-            _server.SendAsync(id, data);
+                sm.WriteTo(w);
+                _server.SendAsync(id, w.WrittenSpan.ToArray());
+            }
         }
 
         public void Refuse(string id)
         {
-            var sm = new BaseSocketProtocal()
+            var sm = new BaseSocketProtocal((byte)SocketProtocalType.RefuseReceive, ReadOnlyMemory<byte>.Empty);
+
+            using (var w = new PooledBufferWriter(64))
             {
-                BodyLength = 0,
-                Type = (byte)SocketProtocalType.RefuseReceive
-            };
-
-            var data = sm.ToBytes();
-
-            _server.SendAsync(id, data);
+                sm.WriteTo(w);
+                _server.SendAsync(id, w.WrittenSpan.ToArray());
+            }
         }
 
 

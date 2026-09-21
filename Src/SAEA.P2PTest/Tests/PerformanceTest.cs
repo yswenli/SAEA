@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using SAEA.Common;
+using SAEA.Common.Caching;
 using SAEA.P2P.Protocol;
 using SAEA.P2P.Relay;
 using SAEA.P2P.Security;
@@ -41,7 +42,7 @@ namespace SAEA.P2PTest.Tests
             var sw = Stopwatch.StartNew();
             for (int i = 0; i < iterations; i++)
             {
-                coder.DecodeP2P(frame);
+                using (coder.DecodeP2P(frame)) { }
             }
             sw.Stop();
 
@@ -60,11 +61,13 @@ namespace SAEA.P2PTest.Tests
 
             var sw = Stopwatch.StartNew();
             var frame = coder.EncodeP2P(P2PMessageType.UserData, content);
-            var decoded = coder.DecodeP2P(frame);
-            sw.Stop();
+            using (var decoded = coder.DecodeP2P(frame))
+            {
+                sw.Stop();
 
-            TestHarness.Expect(decoded.Count == 1 && decoded[0].Content != null && decoded[0].Content.SequenceEqual(content),
-                "1MB round trip integrity");
+                TestHarness.Expect(decoded.Count == 1 && decoded[0].Content.Span.SequenceEqual(content),
+                    "1MB round trip integrity");
+            }
             ConsoleHelper.WriteLine($"1MB round trip: {sw.ElapsedMilliseconds} ms");
             TestHarness.Expect(sw.ElapsedMilliseconds < 10000, "1MB round trip under 10s", $"{sw.ElapsedMilliseconds}ms");
         }
@@ -118,12 +121,12 @@ namespace SAEA.P2PTest.Tests
             {
                 var content = new byte[size];
                 new Random(7).NextBytes(content);
-                var frame = new BaseSocketProtocal
+                byte[] frame;
+                using (var w = new PooledBufferWriter(64))
                 {
-                    BodyLength = size,
-                    Type = (byte)SocketProtocalType.RequestSend,
-                    Content = content
-                }.ToBytes();
+                    new BaseSocketProtocal(size, (byte)SocketProtocalType.RequestSend, content).WriteTo(w);
+                    frame = w.WrittenSpan.ToArray();
+                }
 
                 int iterations = size >= 1024 * 1024 ? 100 : 20000;
 
@@ -131,7 +134,7 @@ namespace SAEA.P2PTest.Tests
 
                 // 每次迭代同一帧都会被完整消费，复用 coder 以隔离拆帧内核的开销（不把构造 allocation 计入）。
                 var pooledCoder = new BaseCoder();
-                var newOps = MeasureOps(iterations, () => pooledCoder.Decode(frame), out var newAlloc);
+                var newOps = MeasureOps(iterations, () => { using (pooledCoder.Decode(new ReadOnlySequence<byte>(frame))) { } }, out var newAlloc);
 
                 var streamingCoder = new BaseCoder();
                 var handler = new CountingHandler();
