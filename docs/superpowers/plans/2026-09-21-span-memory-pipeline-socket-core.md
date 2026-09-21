@@ -369,7 +369,6 @@ Immediately after `SendAsync(IUserToken userToken, byte[] data)` (ends line 539)
                 {
                     if (userToken.WaitWrite(SocketOption.ActionTimeout))
                     {
-                        // 所有权移交给令牌；此后只能通过 TakeSendingOwner 释放
                         userToken.SendingOwner = owner;
                         transferred = true;
                         var writeArgs = userToken.WriteArgs;
@@ -415,13 +414,14 @@ Insert after the existing `Send(byte[] data)` method (ends line 580):
             }
             try
             {
+                var copy = data.ToArray();
                 var offset = 0;
                 do
                 {
-                    var iResult = _socket.BeginSend(data.ToArray(), offset, data.Length - offset, SocketFlags.None, null, null);
+                    var iResult = _socket.BeginSend(copy, offset, copy.Length - offset, SocketFlags.None, null, null);
                     offset += _socket.EndSend(iResult);
                 }
-                while (offset < data.Length);
+                while (offset < copy.Length);
 
                 _userToken.Actived = DateTimeHelper.Now;
             }
@@ -552,7 +552,6 @@ Insert after the existing `SendAsync(IUserToken userToken, byte[] data)` (ends l
                     var writeArgs = userToken.WriteArgs;
                     if (writeArgs != null)
                     {
-                        // 所有权移交给令牌；此后只能通过 TakeSendingOwner 释放
                         userToken.SendingOwner = owner;
                         transferred = true;
                         writeArgs.SetBuffer(seg.Array, seg.Offset, seg.Count);
@@ -671,7 +670,6 @@ Insert after the existing `Send(IUserToken userToken, byte[] data)` method (ends
             {
                 if (userToken.Socket != null && userToken.Socket.Connected && data.Length > 0)
                 {
-                    // http end 非热路径：物化一份普通数组，避免池化缓冲在 Disconnect 后无法归还
                     var copy = data.ToArray();
                     var writeArgs = userToken.WriteArgs;
                     if (writeArgs != null && userToken.WaitWrite(SocketOption.ActionTimeout))
@@ -852,7 +850,7 @@ Expected: **0 errors**, full solution (interfaces + all six implementers satisfi
 - [ ] **Step 5: Run the full suite**
 
 Run: `dotnet run --project Src/SAEA.P2PTest/SAEA.P2PTest.csproj -c Debug -- --all`
-Expected: all pass (283 baseline + Task 1's 2 assertions, plus any from earlier tasks). No new failures.
+Expected: all pass (288 baseline — 283 Plan 1 + Task 1's 5 assertions). No new failures.
 
 - [ ] **Step 6: Commit Tasks 2–7 (interfaces + all implementers)**
 
