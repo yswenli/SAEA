@@ -17,13 +17,14 @@ namespace SAEA.P2PTest.Tests
             TestHarness.Expect(w.WrittenCount == 2, "PooledBufferWriter.Advance tracks WrittenCount");
             TestHarness.Expect(w.WrittenSpan[0] == 1 && w.WrittenSpan[1] == 2, "PooledBufferWriter.WrittenSpan content");
 
-            var more = w.GetSpan(8);
-            for (int i = 0; i < 8; i++) more[i] = (byte)(i + 3);
-            w.Advance(8);
-            TestHarness.Expect(w.WrittenCount == 10, "PooledBufferWriter grows past initial capacity");
-            TestHarness.Expect(w.WrittenSpan[9] == 10, "PooledBufferWriter preserves prefix after growth");
+            var more = w.GetSpan(20);
+            for (int i = 0; i < 20; i++) more[i] = (byte)(i + 3);
+            w.Advance(20);
+            TestHarness.Expect(w.WrittenCount == 22, "PooledBufferWriter grows past initial capacity");
+            TestHarness.Expect(w.WrittenSpan[0] == 1 && w.WrittenSpan[1] == 2 && w.WrittenSpan[21] == 22,
+                "PooledBufferWriter preserves prefix after growth");
 
-            TestHarness.Expect(w.TryGetArray(out var seg) && seg.Offset == 0 && seg.Count == 10,
+            TestHarness.Expect(w.TryGetArray(out var seg) && seg.Offset == 0 && seg.Count == 22,
                 "PooledBufferWriter.TryGetArray exposes exact written range");
 
             w.Clear();
