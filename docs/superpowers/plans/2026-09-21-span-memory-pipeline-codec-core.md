@@ -1569,7 +1569,7 @@ Do **not** use `git add -A` (avoid staging the phantom `IocpServerSocket.cs` whi
 
 - [ ] **Step 4: Update README test count**
 
-In `README.md` and `README.en.md`, change `255` → `283` in the test-count line.
+In `Src/SAEA.P2P/README.md` and `Src/SAEA.P2P/README.en.md`, change `255` → `283` in the test-count line (the root `README.md` has no test count; verified 2026-09-21).
 
 ```bash
 git add README.md README.en.md

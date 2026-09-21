@@ -428,7 +428,7 @@ Measured by the automated suite in `Src\SAEA.P2PTest` (single-machine loop bench
 | **Relay encode** | ~926,000 ops/sec (20,000 iterations in 21 ms) |
 | **Streaming zero-copy decode (`DecodeStream`)** | 64B ~7,950,000 ops/sec, 4KB ~7,130,000 ops/sec, 1MB ~39,700 ops/sec; ~0 B/op for 64B/4KB |
 
-> The suite covers protocol, crypto, relay, concurrency, lifecycle, integration and performance — **255 tests, all passing**.
+> The suite covers protocol, crypto, relay, concurrency, lifecycle, integration and performance — **283 tests, all passing**.
 > Run: `dotnet run -c Debug -- --all` (see [SAEA.P2PTest](../SAEA.P2PTest)).
 
 ---

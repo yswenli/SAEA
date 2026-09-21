@@ -428,7 +428,7 @@ new P2PServerBuilder()
 | **中继编码** | ~926,000 ops/sec（20,000 次耗时 21 ms） |
 | **流式零拷贝解码（DecodeStream）** | 64B ~7,950,000 ops/sec、4KB ~7,130,000 ops/sec、1MB ~39,700 ops/sec；64B/4KB 分配 ~0 B/op |
 
-> 测试覆盖协议、加密、中继、并发、生命周期、集成与性能，共 **255 项全部通过**。
+> 测试覆盖协议、加密、中继、并发、生命周期、集成与性能，共 **283 项全部通过**。
 > 运行方式：`dotnet run -c Debug -- --all`（详见 [SAEA.P2PTest](../SAEA.P2PTest)）。
 
 ---
