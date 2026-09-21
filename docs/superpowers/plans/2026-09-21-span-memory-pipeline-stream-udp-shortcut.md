@@ -440,3 +440,25 @@ git commit -m "docs(plan): record Plan 2B outcome"
 - **UDP teardown stall (~10s).** `UdpServerSocket.Stop()` calls `_udpSocket.Close(10 * 1000)` while a `ReceiveFromAsync` is pending, so UDP test teardown blocks ~10s. Pre-existing, bounded (not indefinite), and out of Task 7 scope; the fix (cancel/dispose the pending receive instead of a 10s grace wait) belongs in Plan 2C. Do not modify `UdpServerSocket.Stop` in this commit.
 - **No comments policy** applies to all touched files; XML docs only.
 - **Staging discipline.** Never `git add -A`; stage explicit paths and verify.
+
+---
+
+## Plan 2B outcome (2026-09-21)
+
+**Status: closed, green gate passed.**
+
+- **Plan written:** `d2a8fcfd`. **Implementation range:** `6bf4b908..e474e2e0`.
+  - Task 1: `6bf4b908`, fix `07d189e4` (docs/spec/header only).
+  - Task 2: `836d517a`, fix `b239eabe`.
+  - Task 3: `d485ac04`, fix `63d76f8a`.
+  - Task 4 (UDP): `f62e38a8`, fix `87cb1d8a` (Critical: token-recycle ownership).
+  - Tasks 5+6 (Shortcut + consumers): `e43f78cd`, fix `65097ca5`.
+  - Task 7 (tests): `f1f9a02c`, fix `e474e2e0`.
+- **Builds:** `dotnet build Src/SAEA.Sockets.sln -c Debug` and `-c Release` → 0 errors.
+- **Tests:** `--all` → **301/301 passed, 0 failed** (baseline 288 + 12 new Stream/UDP span assertions + 1 hardened segmentation assertion); ran 3× green to rule out flakiness.
+- **Scope:** changed files under `Src/SAEA.Sockets/` (incl. `Core/UserTokenPool.cs`), `Src/SAEA.P2PTest/`, `Src/SAEA.MQTT/`, `Src/SAEA.DNS/`, `Src/SAEA.Sockets.UdpTest/`, plus compile-coupled `Src/SAEA.Sockets.TcpTest/{JClient,JServer}.cs` and the deleted `Src/SAEA.Sockets.TcpTest/StreamServerSocketTests.cs`; working tree clean.
+- **Stream:** `StreamServerSocket` now runs a per-connection `PipeReader` loop and raises `OnServerReceiveSpan` with a real `StreamUserToken` (`ChannelInfo.UserToken`); `StreamUserToken.Clear()` cancels/completes the reader before `base.Clear()`; `leaveOpen: true` keeps the `NetworkStream` owned by `ChannelInfo.Stream`/the `OnAccepted` consumer. `StreamServerSocket.SessionManager` remains `NotImplementedException` by design.
+- **UDP:** receive raises the span event zero-copy and now guards the legacy `byte[]` copy on subscription (matching TCP); `Span`/`Memory`/`ISocketProtocal` sends use a single pooled boundary copy with `SendingOwner` ownership released exactly once in `ProcessSended`; on token recycle `UserTokenPool.Enqueue` abandons the owner (never disposes) to avoid pooling a buffer the kernel may still read.
+- **Shortcut:** `TCPClient.OnReceive`/`TCPServer.OnReceive` migrated to `ReadOnlyMemory<byte>` payloads and the span receive events; `TCPServer` resolves the Stream token via `ChannelInfo.UserToken`. The signature change is binary/source-breaking and is published by the Plan 2C version bump.
+- **Deferred to Plan 2C:** byte[] receive/send removals and field cleanups; the ~10s `UdpServerSocket.Stop()` teardown stall (see Risks); the Shortcut `OnReceive` breaking signature publication; version bump `26.9.21.1`.
+- **Tests removed:** `StreamServerSocketTests.cs` was orphaned (absent from the legacy csproj `<Compile>` list, no MSTest reference) so it never compiled or ran; the runnable span + fragmentation coverage lives in `Src/SAEA.P2PTest/Tests/StreamPipelineTest.cs`.
