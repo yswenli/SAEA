@@ -64,17 +64,26 @@ namespace SAEA.Sockets.Base
         {
             if (_disposed) return;
             _disposed = true;
-            if (_pooledBuffer != null)
+
+            // 先释放帧，再归还池化背衬：批次帧虽约定“非持有者”，但若其 Dispose 触碰背衬，
+            // 归还后可能被并发租出，形成 use-after-return（code-quality 审查发现）。
+            try
             {
-                MemoryPoolManager.Return(_pooledBuffer, _pooledRequestedSize);
-                _pooledBuffer = null;
+                for (var i = 0; i < _count; i++)
+                {
+                    var d = _frames[i] as IDisposable;
+                    if (d != null) d.Dispose();
+                }
             }
-            for (var i = 0; i < _count; i++)
+            finally
             {
-                var d = _frames[i] as IDisposable;
-                if (d != null) d.Dispose();
+                _count = 0;
+                if (_pooledBuffer != null)
+                {
+                    MemoryPoolManager.Return(_pooledBuffer, _pooledRequestedSize);
+                    _pooledBuffer = null;
+                }
             }
-            _count = 0;
         }
 
         private void ThrowIfDisposed()
@@ -99,7 +108,7 @@ namespace SAEA.Sockets.Base
     /// 驱动 per-instance FrameDecoder 时，把帧体复制进单块可增长池化缓冲；
     /// 回调延迟到缓冲定型后按原顺序触发，从而让 ReadOnlyMemory 在批次 Dispose 前稳定有效。
     /// </summary>
-    internal sealed class FramesCollector : IFrameHandler
+    internal sealed class FramesCollector : IFrameHandler, IDisposable
     {
         private byte[] _pooled;
         private int _pooledRequestedSize;
@@ -139,30 +148,54 @@ namespace SAEA.Sockets.Base
             frames.SetPooledBuffer(_pooled, _pooledRequestedSize);
 
             var buffer = _pooled;
-            for (var i = 0; i < _eventCount; i++)
-            {
-                var e = _events[i];
-                switch (e.Kind)
-                {
-                    case FrameEventKind.Heart:
-                        if (onHeart != null) onHeart(e.HeartAt);
-                        break;
-                    case FrameEventKind.File:
-                        if (onFile != null)
-                            onFile(e.Length == 0 ? ReadOnlyMemory<byte>.Empty : new ReadOnlyMemory<byte>(buffer, e.Offset, e.Length));
-                        break;
-                    case FrameEventKind.Data:
-                        var content = e.Length == 0 ? ReadOnlyMemory<byte>.Empty : new ReadOnlyMemory<byte>(buffer, e.Offset, e.Length);
-                        frames.Add(new BaseSocketProtocal(e.BodyLength, e.Type, content));
-                        break;
-                }
-            }
+            _pooled = null; // 所有权转移给 frames（在触发回调前转移，异常时由下方 catch 释放）
 
-            _pooled = null; // 所有权转移给 frames
+            try
+            {
+                for (var i = 0; i < _eventCount; i++)
+                {
+                    var e = _events[i];
+                    switch (e.Kind)
+                    {
+                        case FrameEventKind.Heart:
+                            if (onHeart != null) onHeart(e.HeartAt);
+                            break;
+                        case FrameEventKind.File:
+                            if (onFile != null)
+                                onFile(e.Length == 0 ? ReadOnlyMemory<byte>.Empty : new ReadOnlyMemory<byte>(buffer, e.Offset, e.Length));
+                            break;
+                        case FrameEventKind.Data:
+                            var content = e.Length == 0 ? ReadOnlyMemory<byte>.Empty : new ReadOnlyMemory<byte>(buffer, e.Offset, e.Length);
+                            frames.Add(new BaseSocketProtocal(e.BodyLength, e.Type, content));
+                            break;
+                    }
+                }
+                return frames;
+            }
+            catch
+            {
+                frames.Dispose();
+                throw;
+            }
+            finally
+            {
+                _offset = 0;
+                _eventCount = 0;
+                _dataCount = 0;
+            }
+        }
+
+        /// <summary>Build 未被调用时归还池化缓冲，避免异常路径泄漏（BaseCoder 在 finally 中调用）。</summary>
+        public void Dispose()
+        {
+            if (_pooled != null)
+            {
+                MemoryPoolManager.Return(_pooled, _pooledRequestedSize);
+                _pooled = null;
+            }
             _offset = 0;
             _eventCount = 0;
             _dataCount = 0;
-            return frames;
         }
 
         private int Append(ReadOnlySpan<byte> content)

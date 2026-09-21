@@ -61,9 +61,26 @@ namespace SAEA.P2PTest.Tests
             try { var _ = batch.Count; } catch (ObjectDisposedException) { threw = true; }
             TestHarness.Expect(threw, "DecodedFrames throws after Dispose");
 
+            // Dispose 必须先释放 IDisposable 帧，再归还池化背衬（否则帧 Dispose 可能读到已归还的缓冲）
+            var disposable = new DisposableFrame();
+            var batch2 = new SAEA.Sockets.Base.DecodedFrames(1);
+            batch2.Add(disposable);
+            batch2.Dispose();
+            TestHarness.Expect(disposable.Disposed, "DecodedFrames.Dispose disposes IDisposable frames");
+
             w.Dispose();
             w.Dispose(); // idempotent
             TestHarness.Expect(true, "PooledBufferWriter.Dispose idempotent");
         }
+    }
+
+    internal sealed class DisposableFrame : SAEA.Sockets.Interface.ISocketProtocal, IDisposable
+    {
+        public long BodyLength => 0;
+        public byte Type => 0;
+        public ReadOnlyMemory<byte> Content => ReadOnlyMemory<byte>.Empty;
+        public void WriteTo(System.Buffers.IBufferWriter<byte> writer) { }
+        public bool Disposed;
+        public void Dispose() { Disposed = true; }
     }
 }
