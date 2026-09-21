@@ -56,7 +56,10 @@ namespace SAEA.Sockets.Base
         public FrameDecoder(int maxFrameLength)
         {
             _buffer = ArrayPool<byte>.Shared.Rent(1024);
-            _maxFrameLength = maxFrameLength < BaseCoder.P_Head ? int.MaxValue - BaseCoder.P_Head : maxFrameLength;
+            // 上限夹逼：total = P_Head + bodyLen 走 int 运算，避免部署方把 MaxFrameLength 设得过大导致 total 溢出为负。
+            _maxFrameLength = maxFrameLength < BaseCoder.P_Head
+                ? int.MaxValue - BaseCoder.P_Head
+                : Math.Min(maxFrameLength, int.MaxValue - BaseCoder.P_Head);
         }
 
         public int BufferedLength => _end - _start;

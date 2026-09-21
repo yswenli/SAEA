@@ -76,7 +76,7 @@ namespace SAEA.P2PTest.Tests
             byte[] Frame(long len, byte type, byte[] body)
             {
                 var buf = new byte[9 + body.Length];
-                BitConverter.GetBytes(len).CopyTo(buf, 0);
+                System.Buffers.Binary.BinaryPrimitives.WriteInt64LittleEndian(buf, len);
                 buf[8] = type;
                 body.CopyTo(buf, 9);
                 return buf;
@@ -94,6 +94,16 @@ namespace SAEA.P2PTest.Tests
                 TestHarness.Expect(rest.Count == 1, "BaseCoder.Decode emits frame after completion");
                 TestHarness.Expect(rest[0].BodyLength == 3 && rest[0].Type == 2, "BaseCoder.Decode frame header");
                 TestHarness.Expect(rest[0].Content.Span[0] == 1 && rest[0].Content.Span[2] == 3, "BaseCoder.Decode frame body");
+            }
+
+            // 多段序列：帧头与帧体跨非连续段，单次 Decode 按段喂入
+            var multi = Frame(3, 2, new byte[] { 4, 5, 6 });
+            var seg1 = new ByteSegment(new ReadOnlyMemory<byte>(multi, 0, 5));
+            var seg2 = seg1.Append(new ReadOnlyMemory<byte>(multi, 5, multi.Length - 5));
+            using (var ms = coder.Decode(new ReadOnlySequence<byte>(seg1, 0, seg2, seg2.Memory.Length)))
+            {
+                TestHarness.Expect(ms.Count == 1 && ms[0].BodyLength == 3, "BaseCoder.Decode handles multi-segment sequence");
+                TestHarness.Expect(ms[0].Content.Span[0] == 4 && ms[0].Content.Span[2] == 6, "BaseCoder.Decode multi-segment body");
             }
 
             // 心跳：bodyLen=0 type=Heart → 回调、不产出
@@ -114,7 +124,7 @@ namespace SAEA.P2PTest.Tests
 
             // 非法长度 → KernelException
             var bad = new byte[9];
-            BitConverter.GetBytes((long)-1).CopyTo(bad, 0);
+            System.Buffers.Binary.BinaryPrimitives.WriteInt64LittleEndian(bad, -1);
             TestHarness.Throws<SAEA.Sockets.Model.KernelException>(
                 () => { using (coder.Decode(new ReadOnlySequence<byte>(bad))) { } },
                 "BaseCoder.Decode rejects negative length");
@@ -123,7 +133,20 @@ namespace SAEA.P2PTest.Tests
             // DecodeStream 零拷贝
             var probe = new FrameProbe();
             coder.DecodeStream(full, probe);
-            TestHarness.Expect(probe.Count == 1 && probe.LastLength == 3, "BaseCoder.DecodeStream invokes handler per frame");
+            TestHarness.Expect(probe.Count == 1 && probe.LastLength == 3 && probe.LastContent != null && probe.LastContent[1] == 2,
+                "BaseCoder.DecodeStream invokes handler per frame with intact body");
+        }
+    }
+
+    internal sealed class ByteSegment : ReadOnlySequenceSegment<byte>
+    {
+        public ByteSegment(ReadOnlyMemory<byte> memory) { Memory = memory; }
+
+        public ByteSegment Append(ReadOnlyMemory<byte> memory)
+        {
+            var next = new ByteSegment(memory) { RunningIndex = RunningIndex + Memory.Length };
+            Next = next;
+            return next;
         }
     }
 
@@ -131,10 +154,12 @@ namespace SAEA.P2PTest.Tests
     {
         public int Count;
         public int LastLength;
+        public byte[]? LastContent;
         public void OnFrame(in SAEA.Sockets.Base.SocketFrame frame)
         {
             Count++;
             LastLength = frame.Content.Length;
+            LastContent = frame.Content.ToArray();
         }
     }
 
