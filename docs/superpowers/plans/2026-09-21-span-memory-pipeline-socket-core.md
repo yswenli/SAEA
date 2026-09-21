@@ -1029,3 +1029,25 @@ git commit -m "docs(plan): record Plan 2A outcome"
 - **Exactly-once owner release.** `SendAsyncRaw` on both IOCP sockets releases the owner on every path: `ProcessSended` (success), the `catch` (synchronous throw, including `WaitWrite` throwing after `Clear()`), and the `finally { if (!transferred) owner?.Dispose(); }`. Never reintroduce the old unconditional `transferred = true` in `catch` — if the throw precedes publication, `TakeSendingOwner()` returns null and the owner would leak.
 - **Stream server does not raise `OnServerReceiveSpan` in 2A.** Its read loop is also gated on `OnReceive != null`; a span-only consumer also requires the byte[] subscriber. Both are resolved by the Plan 2B `PipeReader` rework. Stream/UDP span and send overloads currently have no dedicated tests (IOCP is covered by `IocpBenchmark`/`StreamDecoderTest`); add them in 2B.
 - **`SendAsync(ISocketProtocal)` exception semantics differ by backend.** IOCP catches `Encode` failures and routes them to `OnError`; Stream/UDP let them propagate. Intentional 2A scope, to be unified in 2B.
+
+---
+
+## Plan 2A outcome (2026-09-21)
+
+**Status: closed, green gate passed.**
+
+- **Plan written:** `884f18bb`. **Implementation range:** `e24a4995..020abd8d`.
+  - Task 1: `e24a4995`, `377acd6b`, `43973a35`, `3bb5cb8e` (plan/task-doc commits `20a939bc`, `eba95ec`, `4c17f897` interleaved).
+  - Tasks 2–7: `fa28dc3d`, fix `6964e64f`.
+  - Task 8: `a93f8904`, fix `020abd8d`.
+- **Builds:** `dotnet build Src/SAEA.Sockets.sln -c Debug` and `-c Release` → 0 errors (18/17 pre-existing warnings).
+- **Tests:** `--all` → **288/288 passed, 0 failed** (baseline 283 + 5 `SpanPipelineTest` assertions from Task 1).
+- **Scope:** changed files only under `Src/SAEA.Sockets/` plus `Src/SAEA.P2PTest/Tests/{SpanPipelineTest,IocpBenchmark}.cs`; working tree clean.
+- **Benchmark (`--bench-iocp`, 29/29) before/after per frame:**
+  - client: legacy materialized decode **4659–4660 B/frame, GC0=19–20** → span `DecodeStream` **33–37 B/frame, GC0=0** (~140×).
+  - server: legacy **4695 B/frame, GC0=19** → span `DecodeStream` **63 B/frame, GC0=0**.
+  - `SpanDeliveryOnly` isolates delivery at ~34 (client) / ~67 (server) B/frame.
+  - Allocation assertion `client span < client legacy` passes with a ~140× margin.
+  - Smoke assertions cover the new `SendAsync(ReadOnlyMemory<byte>)` and `SendAsync(ISocketProtocal)` paths on both client and server.
+- **`OnReceive +=` in `IocpBenchmark`: none.** The byte[] receive event is now unused by the benchmark, clearing the way for the 2C removal.
+- **Carry-forward into 2B:** the accepted residual buffer-return timing, IOCP send-timeout abandonment, backend-divergent `SendAsync(ISocketProtocal)` exception semantics, Stream-server not raising `OnServerReceiveSpan` (read loop gated on `OnReceive`), and the missing dedicated Stream/UDP span+send tests (see Risks / watch-items).
