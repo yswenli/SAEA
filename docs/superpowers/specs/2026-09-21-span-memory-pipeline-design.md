@@ -247,7 +247,7 @@ public delegate void FileSpanHandler(ReadOnlySpan<byte> content);
 
 - **rev.2 决策：** `DecodeStream` 的拆帧语义绑定 SAEA 的 8B+1B 线格式，**不属通用 `ICoder`**。`BaseCoder : IFrameCoder`，`P2PCoder` 继承获得；`FTPCoder`/`WSCoder`/`QueueCoder`/`RpcCoder`/`HttpCoder`/`RedisCoder`/`JUnpacker` 只实现 `ICoder`。
 - 删除 `byte[] Encode`、`List<ISocketProtocal> Decode(byte[])`、有状态 `Decode(ReadOnlySpan)` 返回 `List` 的形态。
-- `Decode(ReadOnlySequence)` **无状态**；`DecodeStream` 为 per-instance **有状态**增量解码（半包缓存）。
+- `Decode(ReadOnlySequence)` 与 `DecodeStream` 同为 per-instance **有状态**增量解码（共享 `FrameDecoder` 半包缓存，见上方 rev.3 更正）；`Decode` 额外把帧体复制进批次池化缓冲并延迟回调，以获得 `Dispose` 前稳定的 `ReadOnlyMemory`。
 - `DecodeStream` 回调：`handler.OnFrame` 的 `SocketFrame.Content` 与 `onFile` 的 `ReadOnlySpan<byte>` **仅在回调期间有效**。
 - `Decode` 的 `onFile` 为 `ReadOnlyMemory<byte>`，**在批次 `Dispose` 前有效**。
 
@@ -257,7 +257,7 @@ public delegate void FileSpanHandler(ReadOnlySpan<byte> content);
 
 - 类型改 `public class BaseCoder : IFrameCoder`。
 - 保留常量 `P_LEN`/`P_Type`/`P_Head`/`SmallDataThreshold`/`MaxFrameLength`；静态 `GetLength` 改 `GetLength(ReadOnlySpan<byte>)`（`byte[]` 隐式转换，`ProtocolAdvancedTest` 调用点无需改）。**删除无调用方的 `GetType`/`GetContent`**，并删除从未订阅的 `internal delegate OnReceiveSpanHandler` / `internal event OnReceiveSpan`（`BaseCoder.cs:74/79`）。
-- `Decode(ReadOnlySequence)`：无累加器，直接沿序列拆帧，帧体写入批次池化缓冲；心跳/BigData/空 body 语义不变。
+- `Decode(ReadOnlySequence)`：复用 per-instance `FrameDecoder` 累加器按段喂入（有状态，见 §4.4 rev.3 更正），帧体复制进批次池化缓冲；心跳/BigData/空 body 语义不变。
 - `DecodeStream(ReadOnlySpan, IFrameHandler, ...)`：驱动 per-instance `FrameDecoder`，命中普通帧调 `handler.OnFrame(in frame)`（零拷贝切片）。
 - `Encode(ISocketProtocal, IBufferWriter)`：委托 `p.WriteTo(writer)`（或就地编码）。
 - `Clear()`：归还累加器与批次缓冲并复位。

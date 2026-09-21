@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the `byte[]` protocol/codec public surface with `ReadOnlyMemory`/`ReadOnlySequence`/`IBufferWriter`, add pooled batch decoding (`DecodedFrames`) and the `IFrameCoder` split, and adapt every implementer/caller in the solution so `Src/SAEA.Sockets.sln` compiles green with all 255 existing tests passing.
+**Goal:** Replace the `byte[]` protocol/codec public surface with `ReadOnlyMemory`/`ReadOnlySequence`/`IBufferWriter`, add pooled batch decoding (`DecodedFrames`) and the `IFrameCoder` split, and adapt every implementer/caller in the solution so `Src/SAEA.Sockets.sln` compiles green with all 283 tests (255 existing + 28 new) passing.
 
 **Architecture:** `PooledBufferWriter` (new, `SAEA.Common`) is the single write primitive. `ISocketProtocal` becomes read-only + `WriteTo(IBufferWriter<byte>)`. `ICoder` becomes `Encode(ISocketProtocal, IBufferWriter<byte>)` + stateful `Decode(ReadOnlySequence<byte>) -> DecodedFrames` + `Clear()`. Frame-aware coders additionally implement `IFrameCoder.DecodeStream`. `BaseCoder` keeps its existing `FrameDecoder`; BigData output becomes a span (no `byte[]`). The socket layer (`IClientSocket`/`IServerSocket`) is **untouched** in Plan 1 — it still uses `byte[]`; a later plan (Plan 2) modernizes it.
 
@@ -816,6 +816,16 @@ Add to `SpanPipelineTest.Run()`:
                 TestHarness.Expect(rest[0].Content.Span[0] == 1 && rest[0].Content.Span[2] == 3, "BaseCoder.Decode frame body");
             }
 
+            // 多段序列：帧头与帧体跨非连续段，单次 Decode 按段喂入
+            var multi = Frame(3, 2, new byte[] { 4, 5, 6 });
+            var seg1 = new ByteSegment(new ReadOnlyMemory<byte>(multi, 0, 5));
+            var seg2 = seg1.Append(new ReadOnlyMemory<byte>(multi, 5, multi.Length - 5));
+            using (var ms = coder.Decode(new ReadOnlySequence<byte>(seg1, 0, seg2, seg2.Memory.Length)))
+            {
+                TestHarness.Expect(ms.Count == 1 && ms[0].BodyLength == 3, "BaseCoder.Decode handles multi-segment sequence");
+                TestHarness.Expect(ms[0].Content.Span[0] == 4 && ms[0].Content.Span[2] == 6, "BaseCoder.Decode multi-segment body");
+            }
+
             // 心跳：bodyLen=0 type=Heart → 回调、不产出
             DateTime? heart = null;
             using (var hb = coder.Decode(new ReadOnlySequence<byte>(Frame(0, (byte)SAEA.Sockets.Model.SocketProtocalType.Heart, new byte[0])),
@@ -843,20 +853,35 @@ Add to `SpanPipelineTest.Run()`:
             // DecodeStream 零拷贝
             var probe = new FrameProbe();
             coder.DecodeStream(full, probe);
-            TestHarness.Expect(probe.Count == 1 && probe.LastLength == 3, "BaseCoder.DecodeStream invokes handler per frame");
+            TestHarness.Expect(probe.Count == 1 && probe.LastLength == 3 && probe.LastContent != null && probe.LastContent[1] == 2,
+                "BaseCoder.DecodeStream invokes handler per frame with intact body");
 ```
 
-Add this helper class at the bottom of `SpanPipelineTest.cs` (inside the namespace). Note: `SocketFrame` is a `readonly ref struct`, so `Func<SocketFrame, int>` would be illegal C# (same class of error as spec ⑯) — the probe must implement the interface directly:
+Add these helper classes at the bottom of `SpanPipelineTest.cs` (inside the namespace). Note: `SocketFrame` is a `readonly ref struct`, so `Func<SocketFrame, int>` would be illegal C# (same class of error as spec ⑯) — the probe must implement the interface directly. `ByteSegment` builds a genuine multi-segment `ReadOnlySequence<byte>`:
 
 ```csharp
+    internal sealed class ByteSegment : ReadOnlySequenceSegment<byte>
+    {
+        public ByteSegment(ReadOnlyMemory<byte> memory) { Memory = memory; }
+
+        public ByteSegment Append(ReadOnlyMemory<byte> memory)
+        {
+            var next = new ByteSegment(memory) { RunningIndex = RunningIndex + Memory.Length };
+            Next = next;
+            return next;
+        }
+    }
+
     internal sealed class FrameProbe : SAEA.Sockets.Interface.IFrameHandler
     {
         public int Count;
         public int LastLength;
+        public byte[]? LastContent;
         public void OnFrame(in SAEA.Sockets.Base.SocketFrame frame)
         {
             Count++;
             LastLength = frame.Content.Length;
+            LastContent = frame.Content.ToArray();
         }
     }
 ```
@@ -865,6 +890,7 @@ Add this helper class at the bottom of `SpanPipelineTest.cs` (inside the namespa
 
 Run: `dotnet run --project Src/SAEA.P2PTest/SAEA.P2PTest.csproj -c Debug`
 Expected: build FAIL — `Decode(ReadOnlySequence)`, `DecodeStream`, `DecodedFrames` not present on `BaseCoder`.
+Note: the test project is intentionally uncompilable from here through Task 9 (existing callers in `StreamDecoderTest`/`PerformanceTest`/`ProtocolTest`/`IocpBenchmark` still use the removed `Decode(byte[])`/`ToBytes()`/`Encode(protocal)` APIs and are migrated in Tasks 8–9). Do NOT chase those errors in this task; the real green gate is Task 10.
 
 - [ ] **Step 3: Change `FrameDecoder.TryReadFrame` BigData to span**
 
@@ -914,9 +940,52 @@ In `Src/SAEA.Sockets/Base/FrameDecoder.cs`, replace the `TryReadFrame` signature
 
 (Delete the old `BitConverter.ToInt64(_buffer, _start)` line and the `new byte[(int)bodyLen]`/`Buffer.BlockCopy` BigData block.)
 
+Also harden `EnsureCapacity` against the same `int` overflow class found in Task 1/3 (a ~1GB+ accumulator would otherwise loop forever on `newSize <<= 1`):
+
+```csharp
+        private void EnsureCapacity(int incoming)
+        {
+            if (_start > 0 && _buffer.Length - _end < incoming)
+            {
+                var len = _end - _start;
+                Buffer.BlockCopy(_buffer, _start, _buffer, 0, len);
+                _start = 0;
+                _end = len;
+            }
+
+            long required = (long)_end + incoming;
+            if (required <= _buffer.Length) return;
+            if (required > int.MaxValue)
+                throw new KernelException($"数据帧过大: {required}");
+
+            var newSize = _buffer.Length;
+            while (newSize < required)
+            {
+                if (newSize > int.MaxValue / 2) { newSize = (int)required; break; }
+                newSize <<= 1;
+            }
+
+            var bigger = ArrayPool<byte>.Shared.Rent(newSize);
+            Buffer.BlockCopy(_buffer, _start, bigger, 0, _end - _start);
+            _end -= _start;
+            _start = 0;
+            ArrayPool<byte>.Shared.Return(_buffer);
+            _buffer = bigger;
+        }
+```
+
+Also clamp the `FrameDecoder` constructor's upper bound, so a deployer cannot set `MaxFrameLength` beyond `int.MaxValue - P_Head` and make `total = P_Head + bodyLen` overflow negative:
+
+```csharp
+            // 上限夹逼：total = P_Head + bodyLen 走 int 运算，避免部署方把 MaxFrameLength 设得过大导致 total 溢出为负。
+            _maxFrameLength = maxFrameLength < BaseCoder.P_Head
+                ? int.MaxValue - BaseCoder.P_Head
+                : Math.Min(maxFrameLength, int.MaxValue - BaseCoder.P_Head);
+```
+
 - [ ] **Step 4: Rewrite `BaseCoder`**
 
-Replace the class body in `Src/SAEA.Sockets/Base/BaseCoder.cs` (keep header; `using System; using System.Buffers; using System.Buffers.Binary; using SAEA.Common.Caching; using SAEA.Sockets.Interface; using SAEA.Sockets.Model;`):
+Replace the class body in `Src/SAEA.Sockets/Base/BaseCoder.cs` (keep header; `using System; using System.Buffers; using System.Buffers.Binary; using SAEA.Sockets.Interface;` — drop `SAEA.Common`, `SAEA.Common.Caching`, `SAEA.Sockets.Model`, `System.Collections.Generic`, `System.IO`, which are no longer referenced):
 
 ```csharp
     /// <summary>
@@ -947,7 +1016,8 @@ Replace the class body in `Src/SAEA.Sockets/Base/BaseCoder.cs` (keep header; `us
             {
                 if (data.IsSingleSegment)
                 {
-                    DecodeStream(data.FirstSpan, collector, collector.AddHeart, collector.AddFile);
+                    // netstandard2.0 System.Memory has no ReadOnlySequence<T>.FirstSpan; First.Span is equivalent for a single segment.
+                    DecodeStream(data.First.Span, collector, collector.AddHeart, collector.AddFile);
                 }
                 else
                 {
@@ -1464,7 +1534,7 @@ Run: `dotnet build Src/SAEA.Sockets.sln -c Release`
 Expected: `0 Error(s)`.
 
 Run: `dotnet run --project Src/SAEA.P2PTest/SAEA.P2PTest.csproj -c Debug -- --all`
-Expected: `ALL ADVANCED TESTS: 281/281 passed, 0 failed` (255 existing + 26 new assertions in SpanPipelineTest).
+Expected: `ALL ADVANCED TESTS: 283/283 passed, 0 failed` (255 existing + 28 new assertions in SpanPipelineTest: Task 1 = 7, Task 2 = 7, Task 3 = 4, Task 5 = 10).
 
 - [ ] **Step 2: Fix any legacy-test regressions**
 
@@ -1474,17 +1544,21 @@ If `StreamDecoderTest`/`ProtocolTest`/`ProtocolAdvancedTest`/`PerformanceTest` f
 
 ```bash
 git add -A
-git commit -m "test: migrate remaining tests to Span/Memory coder API; all green (281/281)"
+git commit -m "test: migrate remaining tests to Span/Memory coder API; all green (283/283)"
 ```
 
 - [ ] **Step 4: Update README test count**
 
-In `README.md` and `README.en.md`, change `255` → `281` in the test-count line.
+In `README.md` and `README.en.md`, change `255` → `283` in the test-count line.
 
 ```bash
 git add README.md README.en.md
-git commit -m "docs: update test count to 281"
+git commit -m "docs: update test count to 283"
 ```
+
+- [ ] **Step 5 (deferred, not a gate blocker): batch-path allocation reduction**
+
+`BaseCoder.Decode` allocates a fresh `FramesCollector` (plus its `FrameEvent[4]`, a `DecodedFrames` + `ISocketProtocal[]`, and two method-group delegates per segment) on every call; a half-packet that yields nothing still costs ~5 allocations. Spec §8.2 scopes the `B/frame < 100` / `Gen0 = 0` gate to the **`DecodeStream`** path, so this does not block Plan 1. Recorded here so it is not lost: if a later benchmark targets the batch path, cache a per-instance `FramesCollector` (mirroring `_decoder`) with reusable `FrameEvent[]` and cached `Action<DateTime>`/`FileSpanHandler` delegates.
 
 ---
 
