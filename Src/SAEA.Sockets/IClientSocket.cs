@@ -71,6 +71,11 @@ namespace SAEA.Sockets
         event OnClientReceiveHandler OnReceive;
 
         /// <summary>
+        /// 接收数据事件（Span 版本）。data 仅在回调期间有效，消费方如需跨回调保存必须自行复制。
+        /// </summary>
+        event OnClientReceiveSpanHandler OnClientReceiveSpan;
+
+        /// <summary>
         /// 断开事件
         /// </summary>
         event OnDisconnectedHandler OnDisconnected;
@@ -119,6 +124,32 @@ namespace SAEA.Sockets
         /// </summary>
         /// <param name="data"></param>
         void SendAsync(byte[] data);
+
+        /// <summary>
+        /// 同步发送（Span）。ns2.0 下会租用池化缓冲区拷贝一次后发送。
+        /// </summary>
+        /// <param name="data">数据</param>
+        void Send(ReadOnlySpan<byte> data);
+
+        /// <summary>
+        /// iocp 发送（Memory）。可用时零拷贝，否则租用池化缓冲区拷贝一次。
+        /// </summary>
+        /// <param name="data">数据</param>
+        void SendAsync(ReadOnlyMemory<byte> data);
+
+        /// <summary>
+        /// 编码并发送协议对象（零拷贝优先）。
+        /// </summary>
+        /// <param name="protocal">协议对象</param>
+        void SendAsync(ISocketProtocal protocal);
+
+        /// <summary>
+        /// 异步流发送（Memory）。
+        /// </summary>
+        /// <param name="data">数据</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns></returns>
+        Task SendAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken);
 
         /// <summary>
         /// 异步流发送

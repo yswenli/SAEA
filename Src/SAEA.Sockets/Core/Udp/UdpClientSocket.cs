@@ -81,15 +81,9 @@ namespace SAEA.Sockets.Core.Udp
         protected OnClientReceiveBytesHandler OnClientReceive = null;
 
         /// <summary>
-        /// 内部委托：接收数据时触发（Span版本）
+        /// 接收数据事件（Span 版本）。data 仅在回调期间有效。
         /// </summary>
-        /// <param name="data">数据Span</param>
-        internal delegate void OnClientReceiveSpanHandler(ReadOnlySpan<byte> data);
-
-        /// <summary>
-        /// 内部事件：客户端接收数据（Span版本）
-        /// </summary>
-        internal event OnClientReceiveSpanHandler OnClientReceiveSpan;
+        public event OnClientReceiveSpanHandler OnClientReceiveSpan;
 
         /// <summary>
         /// 小数据阈值（4KB）
@@ -387,6 +381,33 @@ namespace SAEA.Sockets.Core.Udp
             {
                 ProcessDisconnected(ex);
             }
+        }
+
+        public void Send(ReadOnlySpan<byte> data)
+        {
+            if (data.Length == 0) return;
+            Send(data.ToArray());
+        }
+
+        public void SendAsync(ReadOnlyMemory<byte> data)
+        {
+            if (data.Length == 0) return;
+            SendAsync(data.ToArray());
+        }
+
+        public void SendAsync(ISocketProtocal protocal)
+        {
+            if (protocal == null || _userToken?.Coder == null) return;
+            using (var writer = new PooledBufferWriter(protocal.BodyLength > 0 && protocal.BodyLength < int.MaxValue - 64 ? (int)protocal.BodyLength + 64 : 64))
+            {
+                _userToken.Coder.Encode(protocal, writer);
+                SendAsync(writer.WrittenSpan.ToArray());
+            }
+        }
+
+        public Task SendAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken)
+        {
+            return Task.Run(() => SendAsync(data), cancellationToken);
         }
 
         public void BeginSend(byte[] data)

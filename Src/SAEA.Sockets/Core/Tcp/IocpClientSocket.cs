@@ -30,13 +30,17 @@
 *
 *****************************************************************************/
 using System;
+using System.Buffers;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
 using SAEA.Common;
+using SAEA.Common.Caching;
+using SAEA.Sockets.Base;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
@@ -493,7 +497,12 @@ namespace SAEA.Sockets.Core.Tcp
         {
             try
             {
+                var owner = _userToken.TakeSendingOwner();
                 _userToken.Actived = DateTimeHelper.Now;
+                if (owner != null)
+                {
+                    try { owner.Dispose(); } catch { }
+                }
                 _userToken.ReleaseWrite();
             }
             catch (Exception ex)
@@ -539,6 +548,54 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         /// <summary>
+        /// iocp 异步发送核心：seg 指向的内存由 owner 持有；owner 为 null 表示调用方内存（零拷贝）。
+        /// 所有权在发送完成（ProcessSended）或失败路径释放。
+        /// </summary>
+        private void SendAsyncRaw(ArraySegment<byte> seg, IDisposable owner)
+        {
+            var userToken = _userToken;
+            if (seg.Array == null || seg.Count == 0)
+            {
+                owner?.Dispose();
+                return;
+            }
+            bool transferred = false;
+            try
+            {
+                if (userToken != null && userToken.Socket != null && userToken.Socket.Connected)
+                {
+                    if (userToken.WaitWrite(SocketOption.ActionTimeout))
+                    {
+                        userToken.SendingOwner = owner;
+                        transferred = true;
+                        var writeArgs = userToken.WriteArgs;
+                        writeArgs.SetBuffer(seg.Array, seg.Offset, seg.Count);
+                        if (!userToken.Socket.SendAsync(writeArgs))
+                        {
+                            ProcessSended(writeArgs);
+                        }
+                    }
+                    else
+                    {
+                        OnError?.Invoke($"SAEA SocketError:发送消息时发生异常,{userToken?.ID}", new TimeoutException("发送数据超时"));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                userToken.TakeSendingOwner()?.Dispose();
+                transferred = true;
+                OnError?.Invoke(userToken?.ID ?? "", ex);
+                try { userToken?.ReleaseWrite(); } catch { }
+                try { Disconnect(); } catch { }
+            }
+            finally
+            {
+                if (!transferred) owner?.Dispose();
+            }
+        }
+
+        /// <summary>
         /// 异步发送数据
         /// </summary>
         /// <param name="data">数据</param>
@@ -577,6 +634,79 @@ namespace SAEA.Sockets.Core.Tcp
             }
             else
                 OnError?.Invoke("", new Exception("SAEA SocketError:发送失败,当前连接已断开"));
+        }
+
+        public void Send(ReadOnlySpan<byte> data)
+        {
+            if (data.Length == 0) return;
+            if (!Connected)
+            {
+                OnError?.Invoke("", new Exception("SAEA SocketError:发送失败,当前连接已断开"));
+                return;
+            }
+            try
+            {
+                var copy = data.ToArray();
+                var offset = 0;
+                do
+                {
+                    var iResult = _socket.BeginSend(copy, offset, copy.Length - offset, SocketFlags.None, null, null);
+                    offset += _socket.EndSend(iResult);
+                }
+                while (offset < copy.Length);
+
+                _userToken.Actived = DateTimeHelper.Now;
+            }
+            catch (Exception ex)
+            {
+                Disconnect(ex);
+            }
+        }
+
+        public void SendAsync(ReadOnlyMemory<byte> data)
+        {
+            if (data.Length == 0) return;
+            if (MemoryMarshal.TryGetArray(data, out var seg))
+            {
+                SendAsyncRaw(seg, null);
+                return;
+            }
+            var writer = new PooledBufferWriter(data.Length);
+            data.Span.CopyTo(writer.GetSpan(data.Length));
+            writer.Advance(data.Length);
+            writer.TryGetArray(out var rented);
+            SendAsyncRaw(rented, writer);
+        }
+
+        public void SendAsync(ISocketProtocal protocal)
+        {
+            if (protocal == null) return;
+            var coder = _userToken?.Coder;
+            if (coder == null)
+            {
+                OnError?.Invoke(_userToken?.ID ?? "", new InvalidOperationException("SAEA SocketError:coder 未初始化"));
+                return;
+            }
+            var bodyLen = protocal.BodyLength;
+            var size = bodyLen > 0 && bodyLen < int.MaxValue - 64 ? (int)bodyLen + 64 : 64;
+            var writer = new PooledBufferWriter(size);
+            try
+            {
+                coder.Encode(protocal, writer);
+            }
+            catch (Exception ex)
+            {
+                writer.Dispose();
+                OnError?.Invoke(_userToken?.ID ?? "", ex);
+                return;
+            }
+            writer.TryGetArray(out var rented);
+            SendAsyncRaw(rented, writer);
+        }
+
+        public Task SendAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken)
+        {
+            return Task.Run(() => SendAsync(data), cancellationToken);
         }
 
         /// <summary>

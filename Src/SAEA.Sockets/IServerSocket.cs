@@ -34,6 +34,7 @@ using System.Net;
 
 using SAEA.Sockets.Core;
 using SAEA.Sockets.Handler;
+using SAEA.Sockets.Interface;
 
 namespace SAEA.Sockets
 {
@@ -61,6 +62,11 @@ namespace SAEA.Sockets
         /// 接收数据事件
         /// </summary>
         event OnReceiveHandler OnReceive;
+
+        /// <summary>
+        /// 接收数据事件（Span 版本）。data 仅在回调期间有效。
+        /// </summary>
+        event OnServerReceiveSpanHandler OnServerReceiveSpan;
 
         /// <summary>
         /// 客户端断开事件
@@ -96,6 +102,41 @@ namespace SAEA.Sockets
         /// <param name="sessionID"></param>
         /// <param name="data"></param>
         void SendAsync(string sessionID, byte[] data);
+
+        /// <summary>
+        /// 同步发送（Span）。ns2.0 下会租用池化缓冲区拷贝一次后异步发送。
+        /// </summary>
+        /// <param name="sessionID">会话ID</param>
+        /// <param name="data">数据</param>
+        void Send(string sessionID, ReadOnlySpan<byte> data);
+
+        /// <summary>
+        /// 异步发送（Memory）。可用时零拷贝，否则租用池化缓冲区拷贝一次。
+        /// </summary>
+        /// <param name="sessionID">会话ID</param>
+        /// <param name="data">数据</param>
+        void SendAsync(string sessionID, ReadOnlyMemory<byte> data);
+
+        /// <summary>
+        /// 编码并发送协议对象（零拷贝优先）。
+        /// </summary>
+        /// <param name="sessionID">会话ID</param>
+        /// <param name="protocal">协议对象</param>
+        void SendAsync(string sessionID, ISocketProtocal protocal);
+
+        /// <summary>
+        /// http end。
+        /// </summary>
+        /// <param name="sessionID">会话ID</param>
+        /// <param name="data">数据</param>
+        void End(string sessionID, ReadOnlyMemory<byte> data);
+
+        /// <summary>
+        /// 定向发送（Memory）。
+        /// </summary>
+        /// <param name="ipEndPoint">目标地址</param>
+        /// <param name="data">数据</param>
+        void SendAsync(IPEndPoint ipEndPoint, ReadOnlyMemory<byte> data);
 
         /// <summary>
         /// 发送数据

@@ -31,6 +31,7 @@
 *****************************************************************************/
 using SAEA.Common.Caching;
 using SAEA.Sockets.Handler;
+using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
 
 using System;
@@ -95,6 +96,11 @@ namespace SAEA.Sockets.Core.Tcp
         /// 接收数据事件
         /// </summary>
         public event OnReceiveHandler OnReceive;
+
+        /// <summary>
+        /// 接收数据事件（Span 版本）。data 仅在回调期间有效。
+        /// </summary>
+        public event OnServerReceiveSpanHandler OnServerReceiveSpan;
 
         #endregion
 
@@ -255,6 +261,7 @@ namespace SAEA.Sockets.Core.Tcp
                     if (len > 0)
                     {
                         ChannelManager.Instance.Refresh(id);
+                        OnServerReceiveSpan?.Invoke(null, _receiveBuffer.AsSpan().Slice(0, len));
                         OnReceive.Invoke(new Session(id), _receiveBuffer.AsSpan().Slice(0, len).ToArray());
                     }
                 }
@@ -335,6 +342,40 @@ namespace SAEA.Sockets.Core.Tcp
         public void SendAsync(IPEndPoint ipEndPoint, byte[] data)
         {
             SendAsync(ipEndPoint.ToString(), data);
+        }
+
+        public void Send(string sessionID, ReadOnlySpan<byte> data)
+        {
+            if (data.Length == 0) return;
+            Send(sessionID, data.ToArray());
+        }
+
+        public void SendAsync(string sessionID, ReadOnlyMemory<byte> data)
+        {
+            if (data.Length == 0) return;
+            SendAsync(sessionID, data.ToArray());
+        }
+
+        public void SendAsync(string sessionID, ISocketProtocal protocal)
+        {
+            if (protocal == null) return;
+            var coder = SocketOption?.Context?.Unpacker;
+            if (coder == null) return;
+            using (var writer = new PooledBufferWriter(protocal.BodyLength > 0 && protocal.BodyLength < int.MaxValue - 64 ? (int)protocal.BodyLength + 64 : 64))
+            {
+                coder.Encode(protocal, writer);
+                SendAsync(sessionID, writer.WrittenSpan.ToArray());
+            }
+        }
+
+        public void End(string sessionID, ReadOnlyMemory<byte> data)
+        {
+            End(sessionID, data.ToArray());
+        }
+
+        public void SendAsync(IPEndPoint ipEndPoint, ReadOnlyMemory<byte> data)
+        {
+            SendAsync(ipEndPoint.ToString(), data.ToArray());
         }
 
         /// <summary>

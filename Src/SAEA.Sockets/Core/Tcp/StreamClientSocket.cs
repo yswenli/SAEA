@@ -29,6 +29,7 @@
 *描述：StreamClientSocket接口
 *
 *****************************************************************************/
+using SAEA.Common.Caching;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 
@@ -84,6 +85,8 @@ namespace SAEA.Sockets.Core.Tcp
 
         [Obsolete("此方法为IOCP中所用")]
         public event OnClientReceiveHandler OnReceive;
+
+        public event OnClientReceiveSpanHandler OnClientReceiveSpan;
 
 
         public event OnErrorHandler OnError;
@@ -308,6 +311,33 @@ namespace SAEA.Sockets.Core.Tcp
         public void Send(byte[] buffer)
         {
             _stream.Write(buffer, 0, buffer.Length);
+        }
+
+        public void Send(ReadOnlySpan<byte> data)
+        {
+            if (data.Length == 0) return;
+            Send(data.ToArray());
+        }
+
+        public void SendAsync(ReadOnlyMemory<byte> data)
+        {
+            if (data.Length == 0) return;
+            SendAsync(data.ToArray());
+        }
+
+        public void SendAsync(ISocketProtocal protocal)
+        {
+            if (protocal == null || Context?.Unpacker == null) return;
+            using (var writer = new PooledBufferWriter(protocal.BodyLength > 0 && protocal.BodyLength < int.MaxValue - 64 ? (int)protocal.BodyLength + 64 : 64))
+            {
+                Context.Unpacker.Encode(protocal, writer);
+                SendAsync(writer.WrittenSpan.ToArray());
+            }
+        }
+
+        public Task SendAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken)
+        {
+            return Task.Run(() => SendAsync(data), cancellationToken);
         }
 
         /// <summary>
