@@ -246,7 +246,18 @@ namespace SAEA.Sockets.Core.Tcp
 
                         _tokens[id] = token;
 
-                        OnAccepted?.Invoke(ci);
+                        try
+                        {
+                            OnAccepted?.Invoke(ci);
+                        }
+                        catch (Exception ex)
+                        {
+                            OnError?.Invoke(id, ex);
+                            try { token.Clear(); } catch { }
+                            _tokens.TryRemove(id, out _);
+                            ChannelManager.Instance.Remove(id);
+                            continue;
+                        }
 
                         _ = Task.Run(() => ProcessAccepted(ci, token));
                     }
@@ -341,20 +352,30 @@ namespace SAEA.Sockets.Core.Tcp
 
                     var buffer = result.Buffer;
 
+                    ChannelManager.Instance.Refresh(ci.ID);
+
+                    var faulted = false;
+
                     try
                     {
                         foreach (var segment in buffer)
                         {
                             if (segment.Length == 0) continue;
-                            ChannelManager.Instance.Refresh(ci.ID);
                             OnServerReceiveSpan?.Invoke(token, segment.Span);
                             OnReceive?.Invoke(token, segment.ToArray());
                         }
+                    }
+                    catch (Exception ex)
+                    {
+                        if (!_isStoped) OnError?.Invoke(ci.ID, ex);
+                        faulted = true;
                     }
                     finally
                     {
                         try { reader.AdvanceTo(buffer.End); } catch { }
                     }
+
+                    if (faulted) break;
 
                     if (result.IsCompleted) break;
                 }
@@ -362,6 +383,7 @@ namespace SAEA.Sockets.Core.Tcp
             finally
             {
                 try { reader.Complete(); } catch { }
+                try { token.Coder?.Clear(); } catch { }
                 _tokens.TryRemove(ci.ID, out _);
             }
         }
@@ -495,21 +517,28 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         /// <summary>
-        /// 关闭。先置 <c>_isStoped</c>，再逐连接 <see cref="StreamUserToken.Clear"/>（取消挂起读取并完成
-        /// <see cref="StreamUserToken.Input"/>），最后 <see cref="ChannelManager.Clear"/> 关闭底层 Socket。
+        /// 关闭。先置 <c>_isStoped</c>，随后按既定顺序执行：<see cref="ChannelManager.Clear"/>（逐通道
+        /// <c>Shutdown(Both)</c> 后 <c>Close</c>）、逐连接 <see cref="StreamUserToken.Clear"/>（取消挂起读取并完成
+        /// <see cref="StreamUserToken.Input"/>）、清空令牌集合、释放证书、关闭监听器。该顺序与旧实现保持一致。
         /// </summary>
+        /// <remarks>
+        /// 正在执行的订阅者回调不会被等待或排空：<c>_isStoped</c> 置位后不再发起新的读取，但已进入
+        /// <see cref="OnServerReceiveSpan"/>/<see cref="OnReceive"/> 的回调可能仍在运行；若存在共享状态，
+        /// 调用方需自行同步。
+        /// </remarks>
         public void Stop()
         {
             _isStoped = true;
             try
             {
+                ChannelManager.Instance.Clear();
+
                 foreach (var token in _tokens.Values)
                 {
                     try { token.Clear(); } catch { }
                 }
                 _tokens.Clear();
 
-                ChannelManager.Instance.Clear();
                 SocketOption.X509Certificate2?.Dispose();
                 _listener.Close();
             }
@@ -524,7 +553,7 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         /// <summary>
-        /// 释放资源
+        /// 释放资源。见 <see cref="Stop"/>：正在执行的订阅者回调不会被等待或排空。
         /// </summary>
         public void Dispose()
         {

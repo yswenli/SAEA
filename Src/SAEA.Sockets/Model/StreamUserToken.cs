@@ -65,12 +65,11 @@ namespace SAEA.Sockets.Model
         /// <see cref="Input"/> 由 <see cref="Core.Tcp.StreamServerSocket"/> 以
         /// <c>new StreamPipeReaderOptions(leaveOpen: true)</c> 创建，故 <see cref="PipeReader.Complete"/> 不会释放
         /// <see cref="Stream"/>（网络流归 <see cref="ChannelInfo.Stream"/> 所有，此处仅置空引用）。
-        /// <see cref="SAEA.Sockets.Base.BaseUserToken.Clear"/> 未标记为 <c>virtual</c>，故此处以 <c>new</c>
-        /// 隐藏而非重写。经 <see cref="Interface.IUserToken"/> 接口调用仍会落到基类实现；库内唯一调用点
-        /// <see cref="Core.Tcp.StreamServerSocket.Stop"/> 使用具体类型 <see cref="StreamUserToken"/> 调用，
-        /// 会命中本方法。
+        /// 本方法 <c>override</c> 了 <see cref="SAEA.Sockets.Base.BaseUserToken.Clear"/>，因此无论以
+        /// <see cref="StreamUserToken"/>、<see cref="SAEA.Sockets.Base.BaseUserToken"/> 还是
+        /// <see cref="Interface.IUserToken"/> 类型调用，均会命中此实现。
         /// </remarks>
-        public new void Clear()
+        public override void Clear()
         {
             var reader = Input;
             Input = null;

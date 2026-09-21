@@ -94,7 +94,7 @@ namespace SAEA.Sockets.Base
             _writeAutoResetEvent.Set();
         }
 
-        public void Clear()
+        public virtual void Clear()
         {
             Socket?.Close();
             try { TakeSendingOwner()?.Dispose(); } catch { }
