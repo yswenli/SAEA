@@ -34,6 +34,7 @@ using SAEA.DNS.Protocol;
 using SAEA.Sockets;
 using SAEA.Sockets.Base;
 using SAEA.Sockets.Model;
+using System;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -89,13 +90,13 @@ namespace SAEA.DNS.Coder
                  .SetWriteBufferSize(SocketOption.UDPMaxLength)
                  .Build()))
             {
-                udpClient.OnReceive += UdpClient_OnReceive;
+                udpClient.OnClientReceiveSpan += UdpClient_OnReceiveSpan;
 
                 udpClient.Connect();
 
                 var buffer = _orderSyncHelper.Wait(() =>
                 {
-                    udpClient.SendAsync(request.ToArray());
+                    udpClient.SendAsync(new ReadOnlyMemory<byte>(request.ToArray()));
                 });
 
                 DnsResponseMessage response = DnsResponseMessage.FromArray(buffer);
@@ -108,9 +109,9 @@ namespace SAEA.DNS.Coder
             }
         }
 
-        private void UdpClient_OnReceive(byte[] data)
+        private void UdpClient_OnReceiveSpan(ReadOnlySpan<byte> data)
         {
-            _orderSyncHelper.Set(data);
+            _orderSyncHelper.Set(data.ToArray());
         }
     }
 }

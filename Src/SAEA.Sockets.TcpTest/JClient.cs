@@ -44,9 +44,9 @@ namespace SAEA.Sockets.TcpTest
             _client.OnReceive += _client_OnReceive;
         }
 
-        private void _client_OnReceive(TCPClient<JUnpacker> arg1, byte[] arg2)
+        private void _client_OnReceive(TCPClient<JUnpacker> arg1, ReadOnlyMemory<byte> arg2)
         {
-            var b = _jUnpacker.Decode(arg2);
+            var b = _jUnpacker.Decode(arg2.ToArray());
             if (b == null) return;
             var package = new JT808Serializer().Deserialize<JT808Package>(b.AsSpan());
             OnReceive.Invoke(this, package);

@@ -30,7 +30,7 @@ namespace SAEA.Sockets.UdpTest
             //send msg
             for (int i = 1; i <= 100; i++)
             {
-                client.SendAsync(Encoding.UTF8.GetBytes($"{i}、hello udpserver"), SocketProtocalType.ChatMessage);
+                client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes($"{i}、hello udpserver")), SocketProtocalType.ChatMessage);
                 Thread.Sleep(100);
             }
 
@@ -47,7 +47,7 @@ namespace SAEA.Sockets.UdpTest
             Console.WriteLine($"udp server received a message：{Encoding.UTF8.GetString(arg3.Content.Span)}");
 
 
-            arg1.SendAsync(arg2, Encoding.UTF8.GetBytes($"udpserver reply:{Encoding.UTF8.GetString(arg3.Content.Span)}"));
+            arg1.SendAsync(arg2, new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes($"udpserver reply:{Encoding.UTF8.GetString(arg3.Content.Span)}")));
         }
 
         private static void Client_OnReceive(UDPClient<BaseCoder> arg1, ISocketProtocal arg2)

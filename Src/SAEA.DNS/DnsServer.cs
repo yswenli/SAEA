@@ -160,7 +160,7 @@ namespace SAEA.DNS
                                                .Build());
 
                     _udpServer.OnError += _udpServer_OnError;
-                    _udpServer.OnReceive += _udpServer_OnReceive;
+                    _udpServer.OnServerReceiveSpan += _udpServer_OnReceiveSpan;
 
                     _udpServer.Start();
 
@@ -174,11 +174,9 @@ namespace SAEA.DNS
             }
         }
 
-        private void _udpServer_OnReceive(ISession session, byte[] data)
+        private void _udpServer_OnReceiveSpan(IUserToken userToken, ReadOnlySpan<byte> data)
         {
-            var ut = (IUserToken)session;
-
-            HandleRequest(ut.ID, data);
+            HandleRequest(userToken.ID, data.ToArray());
         }
 
         private void _udpServer_OnError(string ID, Exception ex)
@@ -224,7 +222,7 @@ namespace SAEA.DNS
 
                 OnEvent(OnResponded, new RespondedEventArgs(request, response, data));
 
-                _udpServer.SendAsync(sessionID, response.ToArray());
+                _udpServer.SendAsync(sessionID, new ReadOnlyMemory<byte>(response.ToArray()));
             }
             catch (SocketException e) { OnError(e); }
             catch (ArgumentException e) { OnError(e); }
@@ -243,7 +241,7 @@ namespace SAEA.DNS
 
                 try
                 {
-                    _udpServer.SendAsync(sessionID, response.ToArray());
+                    _udpServer.SendAsync(sessionID, new ReadOnlyMemory<byte>(response.ToArray()));
                 }
                 catch (SocketException) { }
                 catch (OperationCanceledException) { }

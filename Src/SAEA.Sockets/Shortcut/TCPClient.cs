@@ -47,7 +47,10 @@ namespace SAEA.Sockets.Shortcut
     {
         IClientSocket _clientSokcet;
 
-        public event Action<TCPClient<Coder>, byte[]> OnReceive;
+        /// <summary>
+        /// 接收数据事件（ReadOnlyMemory 版本）。底层由 Span 事件驱动，回调内数据已完成复制，可跨回调保存。
+        /// </summary>
+        public event Action<TCPClient<Coder>, ReadOnlyMemory<byte>> OnReceive;
 
         public event Action<TCPClient<Coder>, Exception> OnError;
 
@@ -69,7 +72,7 @@ namespace SAEA.Sockets.Shortcut
                .UseIocp<Coder>()
                .Build());
 
-            _clientSokcet.OnReceive += ClientSokcet_OnReceive;
+            _clientSokcet.OnClientReceiveSpan += ClientSokcet_OnReceiveSpan;
             _clientSokcet.OnDisconnected += ClientSokcet_OnDisconnected;
             _clientSokcet.OnError += ClientSokcet_OnError;
 
@@ -99,7 +102,23 @@ namespace SAEA.Sockets.Shortcut
         /// <param name="data"></param>
         public void SendAsync(byte[] data)
         {
+            _clientSokcet.SendAsync(new ReadOnlyMemory<byte>(data));
+        }
+        /// <summary>
+        /// SendAsync
+        /// </summary>
+        /// <param name="data"></param>
+        public void SendAsync(ReadOnlyMemory<byte> data)
+        {
             _clientSokcet.SendAsync(data);
+        }
+        /// <summary>
+        /// Send
+        /// </summary>
+        /// <param name="data"></param>
+        public void Send(ReadOnlySpan<byte> data)
+        {
+            _clientSokcet.Send(data);
         }
         /// <summary>
         /// SendAsync
@@ -107,7 +126,7 @@ namespace SAEA.Sockets.Shortcut
         /// <param name="str"></param>
         public void SendAsync(string str)
         {
-            _clientSokcet.SendAsync(Encoding.UTF8.GetBytes(str));
+            _clientSokcet.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes(str)));
         }
 
 
@@ -121,9 +140,9 @@ namespace SAEA.Sockets.Shortcut
             OnDisconnect?.Invoke(this, ex);
         }
 
-        private void ClientSokcet_OnReceive(byte[] data)
+        private void ClientSokcet_OnReceiveSpan(ReadOnlySpan<byte> data)
         {
-            OnReceive?.Invoke(this, data);
+            OnReceive?.Invoke(this, data.ToArray());
         }
         /// <summary>
         /// Disconnect

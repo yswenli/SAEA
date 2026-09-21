@@ -35,6 +35,7 @@ using System.Text;
 
 using SAEA.Sockets.Base;
 using SAEA.Sockets.Interface;
+using SAEA.Sockets.Model;
 
 namespace SAEA.Sockets.Shortcut
 {
@@ -49,7 +50,10 @@ namespace SAEA.Sockets.Shortcut
 
         public event Action<TCPServer<Coder>, string> OnAccept;
 
-        public event Action<TCPServer<Coder>, IUserToken, byte[]> OnReceive;
+        /// <summary>
+        /// 接收数据事件（ReadOnlyMemory 版本）。底层由 Span 事件驱动，回调内数据已完成复制，可跨回调保存。
+        /// </summary>
+        public event Action<TCPServer<Coder>, IUserToken, ReadOnlyMemory<byte>> OnReceive;
 
         public event Action<TCPServer<Coder>, string, Exception> OnError;
 
@@ -71,7 +75,7 @@ namespace SAEA.Sockets.Shortcut
             _serverSokcet.OnAccepted += ServerSokcet_OnAccepted;
             _serverSokcet.OnDisconnected += ServerSokcet_OnDisconnected;
             _serverSokcet.OnError += ServerSokcet_OnError;
-            _serverSokcet.OnReceive += ServerSokcet_OnReceive;
+            _serverSokcet.OnServerReceiveSpan += ServerSokcet_OnReceiveSpan;
         }
 
         /// <summary>
@@ -106,7 +110,27 @@ namespace SAEA.Sockets.Shortcut
         /// <param name="data"></param>
         public void SendAsync(string id, byte[] data)
         {
+            _serverSokcet.SendAsync(id, new ReadOnlyMemory<byte>(data));
+        }
+
+        /// <summary>
+        /// SendAsync
+        /// </summary>
+        /// <param name="id"></param>
+        /// <param name="data"></param>
+        public void SendAsync(string id, ReadOnlyMemory<byte> data)
+        {
             _serverSokcet.SendAsync(id, data);
+        }
+
+        /// <summary>
+        /// Send
+        /// </summary>
+        /// <param name="id"></param>
+        /// <param name="data"></param>
+        public void Send(string id, ReadOnlySpan<byte> data)
+        {
+            _serverSokcet.Send(id, data);
         }
 
         /// <summary>
@@ -116,14 +140,12 @@ namespace SAEA.Sockets.Shortcut
         /// <param name="str"></param>
         public void SendAsync(string id, string str)
         {
-            _serverSokcet.SendAsync(id, Encoding.UTF8.GetBytes(str));
+            _serverSokcet.SendAsync(id, new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes(str)));
         }
 
-        private void ServerSokcet_OnReceive(Interface.ISession currentSession, byte[] data)
+        private void ServerSokcet_OnReceiveSpan(IUserToken userToken, ReadOnlySpan<byte> data)
         {
-            var userToken = (IUserToken)currentSession;
-
-            OnReceive?.Invoke(this, userToken, data);
+            OnReceive?.Invoke(this, userToken, data.ToArray());
         }
 
         private void ServerSokcet_OnError(string id, Exception ex)
@@ -138,7 +160,25 @@ namespace SAEA.Sockets.Shortcut
 
         private void ServerSokcet_OnAccepted(object obj)
         {
-            OnAccept?.Invoke(this, ((IUserToken)obj).ID);
+            var userToken = ResolveUserToken(obj);
+
+            if (userToken != null)
+            {
+                OnAccept?.Invoke(this, userToken.ID);
+            }
+            else if (obj is ChannelInfo channelInfo)
+            {
+                OnAccept?.Invoke(this, channelInfo.ID);
+            }
+        }
+
+        private static IUserToken ResolveUserToken(object obj)
+        {
+            if (obj is IUserToken userToken) return userToken;
+
+            if (obj is ChannelInfo channelInfo) return channelInfo.UserToken;
+
+            return null;
         }
 
         /// <summary>

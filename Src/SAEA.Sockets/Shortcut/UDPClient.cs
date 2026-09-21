@@ -70,7 +70,7 @@ namespace SAEA.Sockets.Shortcut
                 .Build());
 
             _udpClient.OnDisconnected += UdpClient_OnDisconnected;
-            _udpClient.OnReceive += UdpClient_OnReceive;
+            _udpClient.OnClientReceiveSpan += UdpClient_OnReceiveSpan;
             _udpClient.OnError += UdpClient_OnError;
 
             _baseUnpacker = (BaseCoder)bContext.Unpacker;
@@ -100,11 +100,7 @@ namespace SAEA.Sockets.Shortcut
         /// <param name="protocal"></param>
         protected void SendAsync(BaseSocketProtocal protocal)
         {
-            using (var w = new SAEA.Common.Caching.PooledBufferWriter(64))
-            {
-                protocal.WriteTo(w);
-                _udpClient.SendAsync(w.WrittenSpan.ToArray());
-            }
+            _udpClient.SendAsync(protocal);
         }
 
         /// <summary>
@@ -114,7 +110,17 @@ namespace SAEA.Sockets.Shortcut
         /// <param name="socketProtocalType"></param>
         public void SendAsync(byte[] data, SocketProtocalType socketProtocalType = SocketProtocalType.ChatMessage)
         {
-            SendAsync(BaseSocketProtocal.Parse(data, socketProtocalType));
+            SendAsync(new ReadOnlyMemory<byte>(data), socketProtocalType);
+        }
+
+        /// <summary>
+        /// SendAsync
+        /// </summary>
+        /// <param name="data"></param>
+        /// <param name="socketProtocalType"></param>
+        public void SendAsync(ReadOnlyMemory<byte> data, SocketProtocalType socketProtocalType = SocketProtocalType.ChatMessage)
+        {
+            SendAsync(new BaseSocketProtocal((byte)socketProtocalType, data));
         }
 
         /// <summary>
@@ -123,7 +129,7 @@ namespace SAEA.Sockets.Shortcut
         /// <param name="msg"></param>
         public void SendAsync(string msg)
         {
-            SendAsync(Encoding.UTF8.GetBytes(msg));
+            SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes(msg)));
         }
 
         private void UdpClient_OnError(string ID, Exception ex)
@@ -132,9 +138,10 @@ namespace SAEA.Sockets.Shortcut
             OnError?.Invoke(this, ex);
         }
 
-        private void UdpClient_OnReceive(byte[] data)
+        private void UdpClient_OnReceiveSpan(ReadOnlySpan<byte> data)
         {
-            using (var msgs = _baseUnpacker.Decode(new System.Buffers.ReadOnlySequence<byte>(data)))
+            var buffer = data.ToArray();
+            using (var msgs = _baseUnpacker.Decode(new System.Buffers.ReadOnlySequence<byte>(buffer)))
             {
                 if (msgs.Count < 1) return;
                 foreach (var msg in msgs.Frames)

@@ -72,7 +72,7 @@ namespace SAEA.Sockets.Shortcut
             _udpServer.OnAccepted += UdpServer_OnAccepted;
             _udpServer.OnDisconnected += UdpServer_OnDisconnected;
             _udpServer.OnError += UdpServer_OnError;
-            _udpServer.OnReceive += UdpServer_OnReceive;
+            _udpServer.OnServerReceiveSpan += UdpServer_OnReceiveSpan;
         }
 
         /// <summary>
@@ -101,11 +101,7 @@ namespace SAEA.Sockets.Shortcut
         /// <param name="baseSocketProtocal"></param>
         protected void SendAsync(string id, BaseSocketProtocal baseSocketProtocal)
         {
-            using (var w = new SAEA.Common.Caching.PooledBufferWriter(64))
-            {
-                baseSocketProtocal.WriteTo(w);
-                _udpServer.SendAsync(id, w.WrittenSpan.ToArray());
-            }
+            _udpServer.SendAsync(id, baseSocketProtocal);
         }
 
         /// <summary>
@@ -116,7 +112,28 @@ namespace SAEA.Sockets.Shortcut
         /// <param name="socketProtocalType"></param>
         public void SendAsync(string id, byte[] data, SocketProtocalType socketProtocalType = SocketProtocalType.ChatMessage)
         {
-            SendAsync(id, BaseSocketProtocal.Parse(data, socketProtocalType));
+            SendAsync(id, new ReadOnlyMemory<byte>(data), socketProtocalType);
+        }
+
+        /// <summary>
+        /// SendAsync
+        /// </summary>
+        /// <param name="id"></param>
+        /// <param name="data"></param>
+        /// <param name="socketProtocalType"></param>
+        public void SendAsync(string id, ReadOnlyMemory<byte> data, SocketProtocalType socketProtocalType = SocketProtocalType.ChatMessage)
+        {
+            SendAsync(id, new BaseSocketProtocal((byte)socketProtocalType, data));
+        }
+
+        /// <summary>
+        /// Send
+        /// </summary>
+        /// <param name="id"></param>
+        /// <param name="data"></param>
+        public void Send(string id, ReadOnlySpan<byte> data)
+        {
+            _udpServer.Send(id, data);
         }
 
         /// <summary>
@@ -126,13 +143,13 @@ namespace SAEA.Sockets.Shortcut
         /// <param name="msg"></param>
         public void SendAsync(string id, string msg)
         {
-            SendAsync(id, Encoding.UTF8.GetBytes(msg));
+            SendAsync(id, new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes(msg)));
         }
 
-        private void UdpServer_OnReceive(Interface.ISession currentSession, byte[] data)
+        private void UdpServer_OnReceiveSpan(IUserToken userToken, ReadOnlySpan<byte> data)
         {
-            var userToken = (IUserToken)currentSession;
-            using (var msgs = userToken.Coder.Decode(new System.Buffers.ReadOnlySequence<byte>(data)))
+            var buffer = data.ToArray();
+            using (var msgs = userToken.Coder.Decode(new System.Buffers.ReadOnlySequence<byte>(buffer)))
             {
                 if (msgs.Count == 0) return;
                 foreach (var msg in msgs.Frames)
