@@ -58,6 +58,11 @@ namespace SAEA.Sockets.Model
         public Stream Stream { get; set; }
 
         /// <summary>
+        /// 获取或设置通道对应的用户令牌
+        /// </summary>
+        public SAEA.Sockets.Interface.IUserToken UserToken { get; set; }
+
+        /// <summary>
         /// 获取或设置通道的过期时间
         /// </summary>
         public DateTime Expired { get; set; } = DateTimeHelper.Now;

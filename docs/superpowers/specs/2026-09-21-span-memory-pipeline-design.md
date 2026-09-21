@@ -323,10 +323,10 @@ void SendAsync(IPEndPoint ipEndPoint, ReadOnlyMemory<byte> data);
 **位置：** `Src/SAEA.Sockets/Core/Tcp/*`、`Src/SAEA.Sockets/Core/SocketStream.cs`
 
 - **现状澄清：** `StreamClientSocket` 是薄封装，**没有读循环**，其 `OnReceive` 已 `Obsolete` 且从不触发；因此「读循环 PipeReader 化」**只适用于 `StreamServerSocket` 的 accept 读循环**。
-- `StreamServerSocket`：以 per-connection `PipeReader.Create(networkStream)` 重写 accept 读循环（替换共享 `_receiveBuffer` + `Read`），`ReadAsync()` 拿 `ReadOnlySequence<byte>`；单段按 span、多段按段投递，复用 §4 拆帧内核。`SessionManager` 当前抛 `NotImplementedException`——保持不回归即可，不强行新增语义。
+- `StreamServerSocket`：以 per-connection `PipeReader.Create(networkStream)` 重写 accept 读循环（替换共享 `_receiveBuffer` + `Read`），`ReadAsync()` 拿 `ReadOnlySequence<byte>`；单段按 span、多段按段投递，复用 §4 拆帧内核。`StreamServerSocket` 为每条已接受连接创建一个 `StreamUserToken`（承载该连接的网络流与 `PipeReader`），存放于 `ChannelInfo.UserToken`，并作为 `OnServerReceiveSpan` 事件的载荷传入。
 - 发送：`PipeWriter.Create(networkStream)`（或原 `Stream.WriteAsync`）承接 `ReadOnlyMemory<byte>`；ns2.0 下内部仍有一次 `byte[]` 拷贝，接受。
 - `PipeReader Input` 暴露在 `StreamServerSocket` 的会话/`ChannelInfo`（定义于 `Src/SAEA.Sockets/Model/ChannelInfo.cs`，持有 `Socket`/`Stream`/`Expired`；由 `Core/ChannelManager.cs:Set(id, socket, stream)` 创建）上；`StreamClientSocket` 不新增 Input（无读循环，避免制造第二个真相源）。
-- **现状保留**：`StreamServerSocket.SendAsync(string,byte[])` 当前 `channel.Stream.WriteAsync(...)` **未 await（fire-and-forget）**，`Send`/`End` 用同步 `Stream.Write`（`StreamServerSocket.cs:299/311/325`）；改 Memory 时保持该异步/同步分工，不引入新的时序语义。`StreamServerSocket.SessionManager` 抛 `NotImplementedException`（`:165`），不回归即可。
+- **现状保留**：`StreamServerSocket.SendAsync(string,byte[])` 当前 `channel.Stream.WriteAsync(...)` **未 await（fire-and-forget）**，`Send`/`End` 用同步 `Stream.Write`（`StreamServerSocket.cs:299/311/325`）；改 Memory 时保持该异步/同步分工，不引入新的时序语义。`StreamServerSocket.SessionManager` 有意保持抛 `NotImplementedException`（`:165`）——它是 IOCP 专用的池/binder（`IContext<ICoder>`、`SocketAsyncEventArgs`、池化），复用它作 Stream 会话会改变连接/断开时序（违反 §2.3 #8）；Stream 的真实会话身份改由 `ChannelInfo.UserToken` 承载。
 - `GetStream()` 与 `SocketStream` 保留（`Stream` 契约在 ns2.0 仅 `byte[]`），仅机械现代化。
 
 ### 5.4 UDP（`UdpClientSocket` / `UdpServerSocket`）
