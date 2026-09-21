@@ -149,7 +149,7 @@ Replace `ProcessAccepted(string id, Stream nsStream)` (lines 249+) with `async T
 
 ```csharp
 var reader = token.Input;
-while (!_isStoped)
+while (!_isStoped && (OnReceive != null || OnServerReceiveSpan != null))
 {
     ReadResult result;
     try { result = await reader.ReadAsync(_cancellationToken).ConfigureAwait(false); }
@@ -175,8 +175,9 @@ reader.Complete();
 ```
 
 Notes:
+- The loop is **gated on a receive subscriber** (`!_isStoped && (OnReceive != null || OnServerReceiveSpan != null)`), exactly preserving the old `!_isStoped && OnReceive != null` semantics. Several `UseStream()` servers consume `ci.Stream` themselves through `OnAccepted` and never subscribe a receive event — `SAEA.MQTT/Implementations/MqttTcpServerListener.cs:142`, `SAEA.WebSocket/Core/WSSServerImpl.cs:112/130/149`, `SAEA.Socket5/Server/Socks5Server.cs:111/354/469` — so an unconditional loop would race them for the same `Stream`. Accept-time vs in-loop check is equivalent: the old loop also never executed (and permanently exited) when no subscriber was attached at accept.
 - Deliver **per segment**: single-segment buffers pass a zero-copy `segment.Span`; multi-segment buffers are delivered segment by segment (spec §5.3).
-- The legacy `OnReceive` is **still raised** (byte[] retained through 2C), with `token` as the `ISession` payload — this is a **change** from the old `new Session(id)`; verify no Stream-server consumer depends on the concrete `Session` type (MQTT uses `OnAccepted`/`ChannelInfo`, not this handler).
+- The legacy `OnReceive` is **still raised** (byte[] retained through 2C), with `token` as the `ISession` payload — this is a **change** from the old `new Session(id)`; verified no Stream-server consumer depends on the concrete `Session` type (no `(Session)`/`as Session`/`new Session(` in `Src`; MQTT/WSS/Socks5 use `OnAccepted`/`ChannelInfo` and read `ci.Stream` directly, hence the gate above).
 - Remove the shared `_receiveBuffer` field usage for receiving; if the field becomes unused, remove it. Keep `_receiveBuffer` only if another code path uses it (verify with grep).
 - On exit, ensure `OnDisconnected` is raised for error paths as before and `reader.Complete()` runs; wire `Stop`/`Dispose` to cancel the token/complete readers (see Step 3).
 
@@ -184,10 +185,12 @@ Notes:
 
 Decide and implement reader/stream ownership for `StreamUserToken`:
 - **Option A (`leaveOpen: true`)** — create the reader via `PipeReader.Create(nsStream, new StreamPipeReaderOptions(leaveOpen: true))` and make stream disposal explicit and single-owner (the accept loop / channel-removal path).
-- **Option B (default `leaveOpen: false`, preferred unless Option A is proven necessary)** — treat `Input` as owning the stream and dispose it exactly once on the loop's exit path (including error/cancel paths), so completing `Input` also closes the network stream.
+- **Option B (default `leaveOpen: false`)** — treat `Input` as owning the stream and dispose it exactly once on the loop's exit path (including error/cancel paths), so completing `Input` also closes the network stream.
+
+**Decision (implemented): Option A (`leaveOpen: true`).** The `NetworkStream` is shared with `ChannelInfo.Stream` and, when the loop is gated off, is owned by the `OnAccepted` consumer (MQTT/WSS/Socks5). Completing the reader must therefore never dispose it. `Input` stays inert until `ReadAsync` is first called, so exposing it is safe even when the gate keeps the loop from running.
 
 Then:
-- Override `StreamUserToken.Clear()` to dispose/complete `Input` in coordination with the loop exit (so a concurrent `ReadAsync` cannot surface an `ObjectDisposedException`), null `Stream`/`Input`, and call `base.Clear()` last; document the required ordering (complete reader → stop loop → `base.Clear()`).
+- Override `StreamUserToken.Clear()` to complete `Input` in coordination with the loop exit (so a concurrent `ReadAsync` cannot surface an `ObjectDisposedException`), null `Stream`/`Input`, and call `base.Clear()` last; document the required ordering (cancel/complete reader → loop exits → `base.Clear()`). Note `BaseUserToken.Clear()` is **not `virtual`**, so the derived member is hidden with `new`; the only in-repo caller (`StreamServerSocket.Stop`) invokes it through the concrete `StreamUserToken` type.
 - Wire `StreamServerSocket.Stop`/`Dispose` to complete each channel's `Input`. Note `ChannelManager.Clear()`/`Remove` do **not** touch `ChannelInfo.UserToken`, so `Stop`/`Dispose` must iterate the channels/tokens itself and complete every reader.
 - Do not change disconnect timing (§2.3 #8).
 
@@ -313,7 +316,7 @@ git commit -m "feat(sockets): modernize Shortcut adapters to span/memory surface
 
 - [ ] **Step 1: MQTT**
 
-`MqttTcpServerListener` uses `UseStream()` + `OnAccepted` casting `(ChannelInfo)obj` and `ci.Stream`/`ci.ID` (`:117/140/142/144/164`) — unchanged by Task 2 (payload kept). `MqttTcpChannel` casts to `StreamClientSocket` and calls `ConnectAsync` (`:84`) — verify it still compiles against Task 3's send changes. No behavior change.
+`MqttTcpServerListener` uses `UseStream()` + `OnAccepted` casting `(ChannelInfo)obj` and **reads `ci.Stream` directly** (`:117/140/142/144/164`) — unchanged by Task 2 (payload kept), and it is precisely why Task 2 Step 2 gates the pipe loop on a receive subscriber: with no `OnReceive`/`OnServerReceiveSpan` attached it keeps sole ownership of the stream. The same applies to `SAEA.WebSocket/Core/WSSServerImpl.cs` and `SAEA.Socket5/Server/Socks5Server.cs`. `MqttTcpChannel` casts to `StreamClientSocket` and calls `ConnectAsync` (`:84`) — verify it still compiles against Task 3's send changes. No behavior change.
 
 - [ ] **Step 2: DNS**
 
@@ -409,8 +412,9 @@ git commit -m "docs(plan): record Plan 2B outcome"
 
 ## Risks / watch-items
 - **PipeReader + cancellation/Stop timing.** `reader.ReadAsync` must observe `Stop`/`Dispose` (via `_cancellationToken`/`PipeReader.CancelPendingRead`); otherwise `StreamServerSocket.Dispose` hangs. Verify with the Task 7 test's cleanup, and do not change disconnect ordering (§2.3 #8).
-- **Token lifetime.** `StreamUserToken.Clear()` inherits `BaseUserToken.Clear()`, which closes `Socket` (and, with `NetworkStream(clientSocket, true)`, the stream) but does not complete `Input`. Complete the reader explicitly on disconnect/Stop; if a `PipeReader`-held buffer keeps the stream alive after close, that is a leak to fix at the source.
-- **`OnReceive` payload type change.** Stream server now raises `OnReceive` with `StreamUserToken` instead of `new Session(id)`. Grep for Stream-server `OnReceive` subscribers (none known in-repo except possibly `SocketStream` on the **client**) before committing Task 2.
+- **Token lifetime.** `StreamUserToken.Clear()` (hidden with `new`, since `BaseUserToken.Clear()` is not `virtual`) cancels/completes `Input` before calling `base.Clear()`, which closes `Socket`. The reader is created with `leaveOpen: true`, so `Complete()` never disposes the shared `NetworkStream`; the stream stays owned by `ChannelInfo.Stream`/the `OnAccepted` consumer. `StreamServerSocket.Stop`/`Dispose` iterate `_tokens` and complete every reader exactly once.
+- **`OnReceive` payload type change.** Stream server now raises `OnReceive` with `StreamUserToken` instead of `new Session(id)`. Grep confirmed no in-repo consumer depends on the concrete `Session` type (`(Session)`/`as Session`/`new Session(` absent from `Src`). No Stream-server `OnReceive` subscriber exists at all; IOCP/UDP handlers cast to `IUserToken`, which remains valid.
+- **Gated receive loop (MQTT/WSS/Socks5).** The `StreamServerSocket` pipe loop runs only when `OnReceive`/`OnServerReceiveSpan` is subscribed, preserving the old `OnReceive != null` gate. Otherwise `OnAccepted` consumers that read `ci.Stream` directly (`MqttTcpServerListener`, `WSSServerImpl`, `Socks5Server`) would compete with the loop for the same stream. Any future Stream server that wants span delivery **must** subscribe `OnServerReceiveSpan` (or `OnReceive`) at accept time; a subscription added later is not honored, matching prior behavior.
 - **Multi-segment delivery semantics.** Existing frame consumers assume a single contiguous block per callback (spec §5.3 "复用 §4 拆帧内核"). Delivering per segment is the approved behavior; consumers that need contiguity must use the `IFrameCoder.DecodeStream`/`DecodedFrames` kernel, not assume one callback == one PDU.
 - **Shortcut breaking ripple.** Changing Shortcut events/sends ripples to `SAEA.DNS` and `SAEA.Sockets.UdpTest`; Tasks 5+6 must be committed together if compile is coupled.
 - **ns2.0 write boundaries.** `Stream.Write(ReadOnlySpan)`/`WriteAsync(ReadOnlyMemory)`/`Socket.SendTo(Span)` do not exist in netstandard2.0; each boundary copy must be intentional, documented, and not expanded to the receive path.

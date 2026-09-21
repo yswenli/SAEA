@@ -30,12 +30,15 @@
 *
 *****************************************************************************/
 using SAEA.Common.Caching;
+using SAEA.Sockets.Base;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
 
 using System;
+using System.Collections.Concurrent;
 using System.IO;
+using System.IO.Pipelines;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
@@ -56,7 +59,11 @@ namespace SAEA.Sockets.Core.Tcp
 
         private readonly CancellationToken _cancellationToken;
 
-        private byte[] _receiveBuffer;
+        /// <summary>
+        /// 本服务器已接受连接的用户令牌集合。用于在 <see cref="Stop"/> 时逐连接取消/完成
+        /// <see cref="StreamUserToken.Input"/>（<see cref="ChannelManager.Clear"/> 不会触碰令牌）。
+        /// </summary>
+        private readonly ConcurrentDictionary<string, StreamUserToken> _tokens = new ConcurrentDictionary<string, StreamUserToken>();
 
         /// <summary>
         /// 客户端连接数
@@ -113,7 +120,23 @@ namespace SAEA.Sockets.Core.Tcp
         {
             SocketOption = socketOption;
             _cancellationToken = cancellationToken;
-            _receiveBuffer = MemoryPoolManager.Rent(socketOption.ReadBufferSize);
+        }
+
+        /// <summary>
+        /// 为单条连接创建编码器。镜像 <see cref="SAEA.Sockets.Core.UserTokenFactory"/>：优先按
+        /// <see cref="ISocketOption.Context"/> 中配置的 Unpacker 类型新建实例；Stream 模式通常不设置
+        /// Context（<see cref="SocketOptionBuilder.UseStream"/> 不设置），此时回退到
+        /// <see cref="BaseCoder"/>。
+        /// </summary>
+        /// <returns>新的编码器实例</returns>
+        private ICoder CreateCoder()
+        {
+            var unpacker = SocketOption?.Context?.Unpacker;
+            if (unpacker != null)
+            {
+                return (ICoder)Activator.CreateInstance(unpacker.GetType());
+            }
+            return new BaseCoder();
         }
 
         /// <summary>
@@ -209,9 +232,23 @@ namespace SAEA.Sockets.Core.Tcp
 
                         var ci = ChannelManager.Instance.Set(id, clientSocket, nsStream);
 
+                        var token = new StreamUserToken
+                        {
+                            ID = id,
+                            Socket = clientSocket,
+                            Stream = nsStream,
+                            Coder = CreateCoder()
+                        };
+
+                        token.Input = PipeReader.Create(nsStream, new StreamPipeReaderOptions(leaveOpen: true));
+
+                        ci.UserToken = token;
+
+                        _tokens[id] = token;
+
                         OnAccepted?.Invoke(ci);
 
-                        _ = Task.Run(() => ProcessAccepted(id, nsStream));
+                        _ = Task.Run(() => ProcessAccepted(ci, token));
                     }
                     catch
                     {
@@ -242,42 +279,90 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         /// <summary>
-        /// 处理已接受的客户端连接
+        /// 处理已接受的客户端连接。仅在存在接收订阅者时读取：使用每连接的 <see cref="PipeReader"/>
+        /// 循环读取，逐段触发 <see cref="OnServerReceiveSpan"/>（零拷贝，仅回调期间有效）与
+        /// <see cref="OnReceive"/>（byte[]，Plan 2C 前兼容）。多段 <see cref="ReadOnlySequence{T}"/>
+        /// 按段投递；需要连续帧的消费者应使用 <see cref="IFrameCoder.DecodeStream"/> 拆帧内核，而非假设
+        /// 一次回调等于一个 PDU。
         /// </summary>
-        /// <param name="id">会话ID</param>
-        /// <param name="nsStream">网络流</param>
-        async Task ProcessAccepted(string id, Stream nsStream)
+        /// <remarks>
+        /// 循环条件为 <c>!_isStoped &amp;&amp; (OnReceive != null || OnServerReceiveSpan != null)</c>，
+        /// 精确保持旧实现 <c>!_isStoped &amp;&amp; OnReceive != null</c> 的门控语义。原因：当无人订阅接收事件时，
+        /// 基于 <see cref="OnAcceptedHandler"/> 的消费者会自行读取 <see cref="ChannelInfo.Stream"/>——如
+        /// <c>SAEA.MQTT.Implementations.MqttTcpServerListener</c>、<c>SAEA.WebSocket.Core.WSSServerImpl</c>、
+        /// <c>SAEA.Socket5.Server.Socks5Server</c>——若此处无条件读取会与其争抢同一 <see cref="Stream"/>。
+        /// 在循环内判空与在接纳时判空等价：旧实现在无订阅者时同样永不进入循环并永久退出。
+        /// </remarks>
+        /// <param name="ci">通道信息</param>
+        /// <param name="token">通道用户令牌；其 <see cref="StreamUserToken.Input"/> 以 <c>leaveOpen: true</c>
+        /// 创建，完成/取消读取均不释放 <see cref="StreamUserToken.Stream"/>（网络流归 <see cref="ChannelInfo.Stream"/> 所有）</param>
+        async Task ProcessAccepted(ChannelInfo ci, StreamUserToken token)
         {
-            if (string.IsNullOrEmpty(id)) return;
+            if (ci == null || token == null) return;
 
-            await Task.Yield();
+            var reader = token.Input;
 
-            while (!_isStoped && OnReceive != null)
+            if (reader == null)
             {
-                try
-                {
-                    var len = nsStream.Read(_receiveBuffer, 0, _receiveBuffer.Length);
+                _tokens.TryRemove(ci.ID, out _);
+                return;
+            }
 
-                    if (len > 0)
+            try
+            {
+                while (!_isStoped && (OnReceive != null || OnServerReceiveSpan != null))
+                {
+                    ReadResult result;
+                    try
                     {
-                        ChannelManager.Instance.Refresh(id);
-                        OnReceive.Invoke(new Session(id), _receiveBuffer.AsSpan().Slice(0, len).ToArray());
+                        result = await reader.ReadAsync(_cancellationToken).ConfigureAwait(false);
                     }
+                    catch (IOException iex)
+                    {
+                        if (!_isStoped) OnDisconnected?.Invoke(ci.ID, iex);
+                        break;
+                    }
+                    catch (SocketException sex)
+                    {
+                        if (!_isStoped) OnDisconnected?.Invoke(ci.ID, sex);
+                        break;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        if (!_isStoped) OnError?.Invoke(ci.ID, ex);
+                        break;
+                    }
+
+                    if (result.IsCanceled) break;
+
+                    var buffer = result.Buffer;
+
+                    try
+                    {
+                        foreach (var segment in buffer)
+                        {
+                            if (segment.Length == 0) continue;
+                            ChannelManager.Instance.Refresh(ci.ID);
+                            OnServerReceiveSpan?.Invoke(token, segment.Span);
+                            OnReceive?.Invoke(token, segment.ToArray());
+                        }
+                    }
+                    finally
+                    {
+                        try { reader.AdvanceTo(buffer.End); } catch { }
+                    }
+
+                    if (result.IsCompleted) break;
                 }
-                catch (IOException iex)
-                {
-                    OnDisconnected?.Invoke(id, iex);
-                    break;
-                }
-                catch (SocketException sex)
-                {
-                    OnDisconnected?.Invoke(id, sex);
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    OnError?.Invoke(id, ex);
-                }
+            }
+            finally
+            {
+                try { reader.Complete(); } catch { }
+                _tokens.TryRemove(ci.ID, out _);
             }
         }
 
@@ -410,13 +495,20 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         /// <summary>
-        /// 关闭
+        /// 关闭。先置 <c>_isStoped</c>，再逐连接 <see cref="StreamUserToken.Clear"/>（取消挂起读取并完成
+        /// <see cref="StreamUserToken.Input"/>），最后 <see cref="ChannelManager.Clear"/> 关闭底层 Socket。
         /// </summary>
         public void Stop()
         {
             _isStoped = true;
             try
             {
+                foreach (var token in _tokens.Values)
+                {
+                    try { token.Clear(); } catch { }
+                }
+                _tokens.Clear();
+
                 ChannelManager.Instance.Clear();
                 SocketOption.X509Certificate2?.Dispose();
                 _listener.Close();
@@ -438,11 +530,6 @@ namespace SAEA.Sockets.Core.Tcp
         {
             Stop();
             ChannelManager.Instance.Clear();
-            if (_receiveBuffer != null)
-            {
-                MemoryPoolManager.Return(_receiveBuffer, SocketOption.ReadBufferSize);
-                _receiveBuffer = null;
-            }
             IsDisposed = true;
         }
     }
