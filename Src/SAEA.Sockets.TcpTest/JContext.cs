@@ -35,7 +35,7 @@ namespace SAEA.Sockets.TcpTest
         List<byte> _cache = new List<byte>();
 
 
-        public List<ISocketProtocal> Decode(byte[] data, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
+        public SAEA.Sockets.Base.DecodedFrames Decode(System.Buffers.ReadOnlySequence<byte> data, Action<DateTime> onHeart = null, Action<ReadOnlyMemory<byte>> onFile = null)
         {
             throw new NotImplementedException();
         }
@@ -88,7 +88,7 @@ namespace SAEA.Sockets.TcpTest
             _cache.Clear();
         }
 
-        public byte[] Encode(ISocketProtocal protocal)
+        public void Encode(ISocketProtocal protocal, System.Buffers.IBufferWriter<byte> writer)
         {
             throw new NotImplementedException();
         }

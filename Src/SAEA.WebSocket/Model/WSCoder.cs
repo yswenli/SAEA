@@ -30,6 +30,7 @@
 *
 *****************************************************************************/
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -59,10 +60,12 @@ namespace SAEA.WebSocket.Model
         /// 编码协议数据
         /// </summary>
         /// <param name="protocal">协议数据</param>
-        /// <returns>编码后的字节数组</returns>
-        public byte[] Encode(ISocketProtocal protocal)
+        /// <param name="writer">写入器</param>
+        public void Encode(ISocketProtocal protocal, System.Buffers.IBufferWriter<byte> writer)
         {
-            return protocal.ToBytes();
+            var ws = protocal as WSProtocal;
+            if (ws != null) ws.WriteMaskedTo(writer);
+            else protocal.WriteTo(writer);
         }
 
         /// <summary>
@@ -71,19 +74,11 @@ namespace SAEA.WebSocket.Model
         /// <param name="data">接收到的数据</param>
         /// <param name="onHeart">心跳回调</param>
         /// <param name="onFile">文件回调</param>
-        public List<ISocketProtocal> Decode(byte[] data, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
+        public SAEA.Sockets.Base.DecodedFrames Decode(System.Buffers.ReadOnlySequence<byte> data,
+            Action<DateTime> onHeart = null, Action<ReadOnlyMemory<byte>> onFile = null)
         {
-            return Decode(data);
-        }
-
-        /// <summary>
-        /// 解码数据的具体实现
-        /// </summary>
-        /// <param name="data">接收到的数据</param>
-        private List<ISocketProtocal> Decode(byte[] data)
-        {
-            _buffer.AddRange(data);
-            List<ISocketProtocal> result = new List<ISocketProtocal>();
+            var frames = new SAEA.Sockets.Base.DecodedFrames();
+            _buffer.AddRange(data.ToArray());
             try
             {
                 while (_buffer.Count > 3)
@@ -122,7 +117,7 @@ namespace SAEA.WebSocket.Model
                                 }
                                 
                                 DoMaskUnsafe(payloadData, 0, len, masks);
-                                result.Add(new WSProtocal(opcode, payloadData) { IsPooled = len > MemoryPoolManager.SmallThreshold });
+                                frames.Add(new WSProtocal(opcode, payloadData) { IsPooled = len > MemoryPoolManager.SmallThreshold });
                                 if (_buffer.Count >= 8 + len)
                                     _buffer.RemoveRange(0, 8 + len);
                                 else
@@ -149,7 +144,7 @@ namespace SAEA.WebSocket.Model
                                 }
                                 
                                 DoMaskUnsafe(payloadData, 0, payloadLen, masks);
-                                result.Add(new WSProtocal(opcode, payloadData) { IsPooled = payloadLen > MemoryPoolManager.SmallThreshold });
+                                frames.Add(new WSProtocal(opcode, payloadData) { IsPooled = payloadLen > MemoryPoolManager.SmallThreshold });
                                 if (_buffer.Count >= 6 + payloadLen)
                                     _buffer.RemoveRange(0, 6 + payloadLen);
                                 else
@@ -174,7 +169,7 @@ namespace SAEA.WebSocket.Model
                                 payloadData = new byte[len];
                             }
                             Buffer.BlockCopy(buffer, 4, payloadData, 0, len);
-                            result.Add(new WSProtocal(opcode, payloadData) { IsPooled = len > MemoryPoolManager.SmallThreshold });
+                            frames.Add(new WSProtocal(opcode, payloadData) { IsPooled = len > MemoryPoolManager.SmallThreshold });
                             if (_buffer.Count >= 4 + len)
                                 _buffer.RemoveRange(0, 4 + len);
                             else
@@ -194,7 +189,7 @@ namespace SAEA.WebSocket.Model
                                 payloadData = new byte[payloadLen];
                             }
                             Buffer.BlockCopy(buffer, 2, payloadData, 0, payloadLen);
-                            result.Add(new WSProtocal(opcode, payloadData) { IsPooled = payloadLen > MemoryPoolManager.SmallThreshold });
+                            frames.Add(new WSProtocal(opcode, payloadData) { IsPooled = payloadLen > MemoryPoolManager.SmallThreshold });
                             if (_buffer.Count >= 2 + payloadLen)
                                 _buffer.RemoveRange(0, 2 + payloadLen);
                             else
@@ -207,7 +202,7 @@ namespace SAEA.WebSocket.Model
             {
 
             }
-            return result;
+            return frames;
         }
 
         /// <summary>

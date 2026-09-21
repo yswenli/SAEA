@@ -30,6 +30,7 @@
 *
 *****************************************************************************/
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -47,134 +48,91 @@ namespace SAEA.WebSocket.Model
     {
         int _mask = RandomHelper.GetInt(1);
 
-        public long BodyLength { get; set; }
-        public byte[] Content { get; set; }
-        public byte Type { get; set; }
+        private byte[] _buffer;
 
-        /// <summary>
-        /// 数据是否来自内存池
-        /// </summary>
+        public long BodyLength { get; protected set; }
+        public byte Type { get; protected set; }
+        public ReadOnlyMemory<byte> Content { get; protected set; } = ReadOnlyMemory<byte>.Empty;
         public bool IsPooled { get; set; }
 
         public WSProtocal(byte type, byte[] content)
         {
-            this.Type = type;
-            if (content != null)
-                this.BodyLength = content.Length;
-            else
-                this.BodyLength = 0;
-            this.Content = content;
+            Type = type;
+            _buffer = content;
+            BodyLength = content == null ? 0 : content.Length;
+            Content = content == null ? ReadOnlyMemory<byte>.Empty : new ReadOnlyMemory<byte>(content);
         }
 
         public WSProtocal(WSProtocalType type, byte[] content)
         {
-            this.Type = (byte)type;
-            if (content != null && content.Length > 0)
-                this.BodyLength = content.Length;
-            else
-                this.BodyLength = 0;
-            this.Content = content;
+            Type = (byte)type;
+            _buffer = content;
+            BodyLength = (content == null || content.Length == 0) ? 0 : content.Length;
+            Content = (content == null || content.Length == 0) ? ReadOnlyMemory<byte>.Empty : new ReadOnlyMemory<byte>(content);
         }
 
+        public void WriteTo(IBufferWriter<byte> writer) { WriteFrame(writer, false); }
 
-        /// <summary>
-        /// 将当前实体转换成websocket所需的结构
-        /// 符合RFC 6455规范的帧格式编码
-        /// </summary>
-        /// <param name="masked">是否使用掩码</param>
-        /// <returns>编码后的字节数组</returns>
-        public byte[] ToBytes(bool masked)
+        public void WriteMaskedTo(IBufferWriter<byte> writer) { WriteFrame(writer, true); }
+
+        private void WriteFrame(IBufferWriter<byte> writer, bool masked)
         {
-            ulong len = (ulong)this.BodyLength;
-
-            var buff = new List<byte>();
-
-            // RFC 6455 Frame Format:
-            // Byte 1: FIN(1) | RSV1(1) | RSV2(1) | RSV3(1) | Opcode(4)
-            // Byte 2: MASK(1) | Payload Length(7)
-            
-            // 字节1: FIN=1, RSV1-3=0, Opcode
-            byte byte1 = (byte)(0x80 | this.Type);  // 0x80 = FIN位置1
-            
-            // 字节2: MASK位 + Payload Length
-            byte byte2;
-            byte[] extPayloadLength;
+            ulong len = (ulong)BodyLength;
+            byte byte1 = (byte)(0x80 | Type);
+            byte[] maskBytes = null;
 
             if (len < 126)
             {
-                byte2 = (byte)((masked ? 0x80 : 0x00) | (byte)len);
-                extPayloadLength = new byte[0];
+                var s = writer.GetSpan(2);
+                s[0] = byte1; s[1] = (byte)((masked ? 0x80 : 0) | (byte)len);
+                writer.Advance(2);
             }
             else if (len < 65536)
             {
-                byte2 = (byte)((masked ? 0x80 : 0x00) | 126);
-                extPayloadLength = ((ushort)len).InternalToByteArray(EndianOrder.Big);
+                var s = writer.GetSpan(4);
+                s[0] = byte1; s[1] = (byte)((masked ? 0x80 : 0) | 126);
+                s[2] = (byte)((ushort)len >> 8); s[3] = (byte)(ushort)len;
+                writer.Advance(4);
             }
             else
             {
-                byte2 = (byte)((masked ? 0x80 : 0x00) | 127);
-                extPayloadLength = len.InternalToByteArray(EndianOrder.Big);
+                var s = writer.GetSpan(10);
+                s[0] = byte1; s[1] = (byte)((masked ? 0x80 : 0) | 127);
+                var l = len;
+                for (int i = 0; i < 8; i++) s[2 + i] = (byte)(l >> (56 - 8 * i));
+                writer.Advance(10);
             }
 
-            // 添加帧头（字节1和字节2）
-            buff.Add(byte1);
-            buff.Add(byte2);
-
-            // 如果payload长度>=126，添加扩展长度字段
-            if (len >= 126)
-                buff.AddRange(extPayloadLength);
-
-            byte[] maskBytes = null;
-
-            // 如果使用掩码，添加4字节掩码
             if (masked)
             {
                 maskBytes = _mask.ToBytes();
-                buff.AddRange(maskBytes);
+                var m = writer.GetSpan(4);
+                for (int i = 0; i < 4; i++) m[i] = maskBytes[i];
+                writer.Advance(4);
             }
 
-            // 添加payload数据
             if (len > 0)
             {
+                var payload = writer.GetSpan((int)len);
+                Content.Span.CopyTo(payload);
                 if (masked)
-                {
-                    WSCoder.DoMask(this.Content, 0, this.Content.Length, maskBytes);
-                }
-
-                buff.AddRange(this.Content);
+                    for (int i = 0; i < (int)len; i++) payload[i] = (byte)(payload[i] ^ maskBytes[i % 4]);
+                writer.Advance((int)len);
             }
-            return buff.ToArray();
-
         }
 
-        /// <summary>
-        /// 将当前实体转换成websocket所需的结构
-        /// </summary>
-        /// <returns></returns>
-        public byte[] ToBytes()
-        {
-            return ToBytes(true);
-        }
-
-        /// <summary>
-        /// Dispose
-        /// </summary>
         public void Dispose()
         {
-            if (this.Content != null && this.Content.Any())
+            if (_buffer != null)
             {
-                // 如果数据来自内存池，归还缓冲区
-                if (this.IsPooled)
+                if (IsPooled)
                 {
-                    MemoryPoolManager.Return(this.Content, this.Content.Length);
-                    this.IsPooled = false;
+                    MemoryPoolManager.Return(_buffer, _buffer.Length);
+                    IsPooled = false;
                 }
-                else
-                {
-                    this.Content.Clear();
-                }
-                this.Content = null;
+                _buffer = null;
             }
+            Content = ReadOnlyMemory<byte>.Empty;
         }
     }
 }

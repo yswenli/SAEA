@@ -209,35 +209,36 @@ namespace SAEA.WebSocket
                 {
                     var coder = (WSCoder)_wsContext.Unpacker;
 
-                    var msgs = coder.Decode(data);
-
-                    if (msgs == null || msgs.Count == 0)
+                    using (var msgs = coder.Decode(new System.Buffers.ReadOnlySequence<byte>(data)))
                     {
-                        return;
-                    }
-
-                    foreach (var msg in msgs)
-                    {
-                        var wsProtocal = (WSProtocal)msg;
-                        switch (wsProtocal.Type)
+                        if (msgs.Count == 0)
                         {
-                            case (byte)WSProtocalType.Close:
-                                _client.Disconnect();
-                                break;
-                            case (byte)WSProtocalType.Pong:
-                                OnPong?.Invoke(Encoding.UTF8.GetString(wsProtocal.Content));
-                                break;
-                            case (byte)WSProtocalType.Binary:
-                            case (byte)WSProtocalType.Text:
-                            case (byte)WSProtocalType.Cont:
-                                OnMessage?.Invoke((WSProtocal)msg);
-                                break;
-                            case (byte)WSProtocalType.Ping:
-                                ReplyPong();
-                                break;
-                            default:
-                                var error = string.Format("收到未定义的Opcode={0}", msg.Type);
-                                break;
+                            return;
+                        }
+
+                        foreach (var m in msgs.Frames)
+                        {
+                            var wsProtocal = (WSProtocal)m;
+                            switch (wsProtocal.Type)
+                            {
+                                case (byte)WSProtocalType.Close:
+                                    _client.Disconnect();
+                                    break;
+                                case (byte)WSProtocalType.Pong:
+                                    OnPong?.Invoke(Encoding.UTF8.GetString(wsProtocal.Content.Span.ToArray()));
+                                    break;
+                                case (byte)WSProtocalType.Binary:
+                                case (byte)WSProtocalType.Text:
+                                case (byte)WSProtocalType.Cont:
+                                    OnMessage?.Invoke((WSProtocal)m);
+                                    break;
+                                case (byte)WSProtocalType.Ping:
+                                    ReplyPong();
+                                    break;
+                                default:
+                                    var error = string.Format("收到未定义的Opcode={0}", m.Type);
+                                    break;
+                            }
                         }
                     }
                 }
@@ -254,7 +255,7 @@ namespace SAEA.WebSocket
         /// <param name="msg">要发送的数据</param>
         public void SendBase(ISocketProtocal msg)
         {
-            _client.SendAsync(msg.ToBytes());
+            using (var w = new SAEA.Common.Caching.PooledBufferWriter(64)) { ((WSProtocal)msg).WriteMaskedTo(w); _client.SendAsync(w.WrittenSpan.ToArray()); }
         }
 
         /// <summary>
@@ -281,7 +282,6 @@ namespace SAEA.WebSocket
         /// </summary>
         private void ReplyPong()
         {
-            var data = new WSProtocal(WSProtocalType.Pong, null).ToBytes();
             SendBase(new WSProtocal(WSProtocalType.Pong, null));
         }
 

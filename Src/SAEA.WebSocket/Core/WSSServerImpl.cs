@@ -137,29 +137,31 @@ namespace SAEA.WebSocket.Core
                         else
                         {
                             var coder = _concurrentDictionary[channelInfo.ID];
-                            var msgs = coder.Decode(data);
-                            if (msgs == null || msgs.Count < 1) return;
-                            foreach (var msg in msgs)
+                            using (var msgs = coder.Decode(new System.Buffers.ReadOnlySequence<byte>(data)))
                             {
-                                var wsProtocal = (WSProtocal)msg;
-                                switch (wsProtocal.Type)
+                                if (msgs.Count < 1) return;
+                                foreach (var m in msgs.Frames)
                                 {
-                                    case (byte)WSProtocalType.Close:
-                                        ReplyClose(channelInfo.Stream, wsProtocal);
-                                        break;
-                                    case (byte)WSProtocalType.Ping:
-                                        ReplyPong(channelInfo.Stream, wsProtocal);
-                                        break;
-                                    case (byte)WSProtocalType.Binary:
-                                    case (byte)WSProtocalType.Text:
-                                    case (byte)WSProtocalType.Cont:
-                                        OnMessage?.Invoke(channelInfo.ID, (WSProtocal)msg);
-                                        break;
-                                    case (byte)WSProtocalType.Pong:
-                                        break;
-                                    default:
-                                        var error = string.Format("收到未定义的Opcode={0}", msg.Type);
-                                        break;
+                                    var wsProtocal = (WSProtocal)m;
+                                    switch (wsProtocal.Type)
+                                    {
+                                        case (byte)WSProtocalType.Close:
+                                            ReplyClose(channelInfo.Stream, wsProtocal);
+                                            break;
+                                        case (byte)WSProtocalType.Ping:
+                                            ReplyPong(channelInfo.Stream, wsProtocal);
+                                            break;
+                                        case (byte)WSProtocalType.Binary:
+                                        case (byte)WSProtocalType.Text:
+                                        case (byte)WSProtocalType.Cont:
+                                            OnMessage?.Invoke(channelInfo.ID, (WSProtocal)m);
+                                            break;
+                                        case (byte)WSProtocalType.Pong:
+                                            break;
+                                        default:
+                                            var error = string.Format("收到未定义的Opcode={0}", m.Type);
+                                            break;
+                                    }
                                 }
                             }
                         }
@@ -176,26 +178,32 @@ namespace SAEA.WebSocket.Core
 
         private void ReplyBase(Stream stream, WSProtocalType type, byte[] content)
         {
-            var byts = new WSProtocal(type, content).ToBytes();
-
-            stream.Write(byts, 0, byts.Length);
+            using (var w = new SAEA.Common.Caching.PooledBufferWriter(64))
+            {
+                new WSProtocal(type, content).WriteTo(w);
+                var byts = w.WrittenSpan.ToArray();
+                stream.Write(byts, 0, byts.Length);
+            }
         }
 
         private void ReplyBase(Stream stream, WSProtocal data)
         {
-            var byts = data.ToBytes();
-
-            stream.Write(byts, 0, byts.Length);
+            using (var w = new SAEA.Common.Caching.PooledBufferWriter(64))
+            {
+                data.WriteTo(w);
+                var byts = w.WrittenSpan.ToArray();
+                stream.Write(byts, 0, byts.Length);
+            }
         }
 
         private void ReplyPong(Stream stream, WSProtocal data)
         {
-            ReplyBase(stream, WSProtocalType.Pong, data.Content);
+            ReplyBase(stream, WSProtocalType.Pong, data.Content.ToArray());
         }
 
         private void ReplyClose(Stream stream, WSProtocal data)
         {
-            ReplyBase(stream, WSProtocalType.Close, data.Content);
+            ReplyBase(stream, WSProtocalType.Close, data.Content.ToArray());
         }
 
         public void Reply(string id, WSProtocal data)

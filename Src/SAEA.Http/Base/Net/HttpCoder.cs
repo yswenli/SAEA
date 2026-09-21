@@ -50,9 +50,9 @@ namespace SAEA.Http.Base.Net
         /// </summary>
         /// <param name="protocal">ISocketProtocal对象</param>
         /// <returns>编码后的字节数组</returns>
-        public byte[] Encode(ISocketProtocal protocal)
+        public void Encode(ISocketProtocal protocal, System.Buffers.IBufferWriter<byte> writer)
         {
-            return protocal.ToBytes();
+            throw new NotImplementedException();
         }
 
         /// <summary>
@@ -62,7 +62,7 @@ namespace SAEA.Http.Base.Net
         /// <param name="onHeart">心跳包处理回调</param>
         /// <param name="onFile">文件包处理回调</param>
         /// <returns>解码后的ISocketProtocal对象列表</returns>
-        public List<ISocketProtocal> Decode(byte[] data, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
+        public SAEA.Sockets.Base.DecodedFrames Decode(System.Buffers.ReadOnlySequence<byte> data, Action<DateTime> onHeart = null, Action<ReadOnlyMemory<byte>> onFile = null)
         {
             throw new NotImplementedException();
         }

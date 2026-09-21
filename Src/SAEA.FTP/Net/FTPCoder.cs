@@ -39,9 +39,9 @@ namespace SAEA.FTP.Net
     public class FTPCoder : ICoder
     {
 
-        public byte[] Encode(ISocketProtocal protocal)
+        public void Encode(ISocketProtocal protocal, System.Buffers.IBufferWriter<byte> writer)
         {
-            return protocal.ToBytes();
+            protocal.WriteTo(writer);
         }
 
         public void Decode(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
@@ -53,7 +53,8 @@ namespace SAEA.FTP.Net
             throw new NotImplementedException();
         }
 
-        public List<ISocketProtocal> Decode(byte[] data, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
+        public SAEA.Sockets.Base.DecodedFrames Decode(System.Buffers.ReadOnlySequence<byte> data,
+            Action<DateTime> onHeart = null, Action<ReadOnlyMemory<byte>> onFile = null)
         {
             throw new NotImplementedException();
         }
