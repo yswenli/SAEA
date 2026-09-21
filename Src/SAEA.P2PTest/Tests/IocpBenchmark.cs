@@ -29,6 +29,9 @@ namespace SAEA.P2PTest.Tests
         const int WarmupFrames = 3000;
         const int ReadBufferSize = 8192;
 
+        static long _clientSpanBytesPerFrame;
+        static long _clientLegacyBytesPerFrame;
+
         public static async Task RunAsync()
         {
             TestHarness.Section("IOCP end-to-end receive benchmark");
@@ -43,6 +46,10 @@ namespace SAEA.P2PTest.Tests
             await ServerReceiveAsync(frame, ReceiveMode.LegacyDecode);
             await ServerReceiveAsync(frame, ReceiveMode.SpanDecodeStream);
             await ServerReceiveAsync(frame, ReceiveMode.SpanDeliveryOnly);
+
+            TestHarness.Expect(_clientSpanBytesPerFrame > 0 && _clientSpanBytesPerFrame < _clientLegacyBytesPerFrame,
+                "SpanDecodeStream allocates less per frame than LegacyDecode",
+                $"span={_clientSpanBytesPerFrame} legacy={_clientLegacyBytesPerFrame}");
 
             TestHarness.WriteSummary("IocpBenchmark");
         }
@@ -72,10 +79,11 @@ namespace SAEA.P2PTest.Tests
             var decoder = new BaseCoder();
 
             if (mode == ReceiveMode.LegacyDecode)
-                client.OnReceive += data =>
+                client.OnClientReceiveSpan += span =>
                 {
-                    counter.AddChunk(data.Length);
-                    using (var d = decoder.Decode(new ReadOnlySequence<byte>(data)))
+                    var copy = span.ToArray();
+                    counter.AddChunk(copy.Length);
+                    using (var d = decoder.Decode(new ReadOnlySequence<byte>(copy)))
                     {
                         counter.AddFrames(d.Count);
                     }
@@ -98,6 +106,32 @@ namespace SAEA.P2PTest.Tests
             client.ConnectAsync();
             var accepted = await listener.AcceptTcpClientAsync();
             accepted.NoDelay = true;
+            await TestHarness.WaitUntil(() => client.Connected && client.UserToken.Socket != null, 3000);
+            accepted.Client.ReceiveTimeout = 5000;
+
+            client.SendAsync(new ReadOnlyMemory<byte>(frame));
+            var sendCheck = new byte[frame.Length];
+            int read = 0;
+            while (read < frame.Length)
+            {
+                int n = accepted.Client.Receive(sendCheck, read, frame.Length - read, SocketFlags.None);
+                if (n <= 0) break;
+                read += n;
+            }
+            TestHarness.Expect(read == frame.Length, "client SendAsync(ReadOnlyMemory) delivers full frame", $"read={read}");
+
+            var protocalContent = new byte[64];
+            client.SendAsync(new BaseSocketProtocal((byte)SocketProtocalType.RequestSend, protocalContent));
+            int protocalLength = 9 + protocalContent.Length;
+            var protocalCheck = new byte[protocalLength];
+            read = 0;
+            while (read < protocalLength)
+            {
+                int n = accepted.Client.Receive(protocalCheck, read, protocalLength - read, SocketFlags.None);
+                if (n <= 0) break;
+                read += n;
+            }
+            TestHarness.Expect(read == protocalLength, "client SendAsync(ISocketProtocal) delivers full frame", $"read={read}/{protocalLength}");
 
             var result = Drive(accepted.Client, frame, counter);
 
@@ -123,10 +157,11 @@ namespace SAEA.P2PTest.Tests
             var decoder = new BaseCoder();
 
             if (mode == ReceiveMode.LegacyDecode)
-                server.OnReceive += (token, data) =>
+                server.OnServerReceiveSpan += (token, span) =>
                 {
-                    counter.AddChunk(data.Length);
-                    using (var d = decoder.Decode(new ReadOnlySequence<byte>(data)))
+                    var copy = span.ToArray();
+                    counter.AddChunk(copy.Length);
+                    using (var d = decoder.Decode(new ReadOnlySequence<byte>(copy)))
                     {
                         counter.AddFrames(d.Count);
                     }
@@ -146,6 +181,12 @@ namespace SAEA.P2PTest.Tests
                     counter.Complete();
                 };
 
+            IUserToken? sessionToken = null;
+            server.OnAccepted += obj =>
+            {
+                if (obj is IUserToken t) sessionToken = t;
+            };
+
             server.Start();
             await Task.Delay(200);
 
@@ -154,6 +195,37 @@ namespace SAEA.P2PTest.Tests
             {
                 await tcp.ConnectAsync(IPAddress.Loopback, port);
                 tcp.NoDelay = true;
+                TestHarness.Expect(await TestHarness.WaitUntil(() => sessionToken != null, 3000), "server accepted client session");
+
+                if (sessionToken != null)
+                {
+                    tcp.Client.ReceiveTimeout = 5000;
+
+                    server.SendAsync(sessionToken.ID, new ReadOnlyMemory<byte>(frame));
+                    var sendCheck = new byte[frame.Length];
+                    int read = 0;
+                    while (read < frame.Length)
+                    {
+                        int n = tcp.Client.Receive(sendCheck, read, frame.Length - read, SocketFlags.None);
+                        if (n <= 0) break;
+                        read += n;
+                    }
+                    TestHarness.Expect(read == frame.Length, "server SendAsync(ReadOnlyMemory) delivers full frame", $"read={read}");
+
+                    var protocalContent = new byte[64];
+                    server.SendAsync(sessionToken.ID, new BaseSocketProtocal((byte)SocketProtocalType.RequestSend, protocalContent));
+                    int protocalLength = 9 + protocalContent.Length;
+                    var protocalCheck = new byte[protocalLength];
+                    read = 0;
+                    while (read < protocalLength)
+                    {
+                        int n = tcp.Client.Receive(protocalCheck, read, protocalLength - read, SocketFlags.None);
+                        if (n <= 0) break;
+                        read += n;
+                    }
+                    TestHarness.Expect(read == protocalLength, "server SendAsync(ISocketProtocal) delivers full frame", $"read={read}/{protocalLength}");
+                }
+
                 result = Drive(tcp.Client, frame, counter);
             }
 
@@ -218,6 +290,14 @@ namespace SAEA.P2PTest.Tests
             if (mode != ReceiveMode.SpanDeliveryOnly)
                 TestHarness.Expect(r.Frames == FrameCount,
                     $"{side} {mode} decoded all frames", $"frames={r.Frames}");
+
+            if (side == "client")
+            {
+                if (mode == ReceiveMode.LegacyDecode)
+                    _clientLegacyBytesPerFrame = bytesPerFrame;
+                else if (mode == ReceiveMode.SpanDecodeStream)
+                    _clientSpanBytesPerFrame = bytesPerFrame;
+            }
         }
 
         struct BenchResult
