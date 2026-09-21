@@ -48,6 +48,13 @@ namespace SAEA.Sockets.Shortcut
 
         BaseCoder _baseUnpacker;
 
+        /// <summary>
+        /// 接收数据事件（解析后的 ISocketProtocal 帧）。
+        /// </summary>
+        /// <remarks>
+        /// 回调作用域：帧的 Content 由租用缓冲区支撑，仅在本次回调期间有效，必须同步消费；
+        /// 如需跨回调保存，请复制帧内容。
+        /// </remarks>
         public event Action<UDPClient<Coder>, ISocketProtocal> OnReceive;
 
         public event Action<UDPClient<Coder>, Exception> OnError;
@@ -118,6 +125,10 @@ namespace SAEA.Sockets.Shortcut
         /// </summary>
         /// <param name="data"></param>
         /// <param name="socketProtocalType"></param>
+        /// <remarks>
+        /// 零拷贝契约：数组支撑的 ReadOnlyMemory 在快速路径上零拷贝发送，发送完成前不得修改或复用该缓冲区；
+        /// 非数组内存会在边界处发生一次复制。
+        /// </remarks>
         public void SendAsync(ReadOnlyMemory<byte> data, SocketProtocalType socketProtocalType = SocketProtocalType.ChatMessage)
         {
             SendAsync(new BaseSocketProtocal((byte)socketProtocalType, data));

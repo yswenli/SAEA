@@ -255,21 +255,21 @@ namespace SAEA.Sockets.Core.Udp
                 {
                     _userToken.Actived = DateTimeHelper.Now;
 
-                    // 使用Span获取数据，避免立即复制
                     var dataSpan = readArgs.Buffer.AsSpan(readArgs.Offset, readArgs.BytesTransferred);
 
-                    // 触发内部Span事件
                     OnClientReceiveSpan?.Invoke(dataSpan);
 
-                    // 复制到精确大小的数组，避免内存池返回的超大数组导致下游逻辑错误
-                    var data = dataSpan.ToArray();
+                    if (OnClientReceive != null)
+                    {
+                        var data = dataSpan.ToArray();
 
-                    try
-                    {
-                        OnClientReceive?.Invoke(data);
-                    }
-                    finally
-                    {
+                        try
+                        {
+                            OnClientReceive.Invoke(data);
+                        }
+                        finally
+                        {
+                        }
                     }
 
                     ProcessReceive(readArgs);

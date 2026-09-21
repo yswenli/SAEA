@@ -108,6 +108,10 @@ namespace SAEA.Sockets.Shortcut
         /// SendAsync
         /// </summary>
         /// <param name="data"></param>
+        /// <remarks>
+        /// 零拷贝契约：数组支撑的 ReadOnlyMemory 在快速路径上零拷贝发送，发送完成前不得修改或复用该缓冲区；
+        /// 非数组内存会在边界处发生一次复制。
+        /// </remarks>
         public void SendAsync(ReadOnlyMemory<byte> data)
         {
             _clientSokcet.SendAsync(data);
@@ -116,6 +120,10 @@ namespace SAEA.Sockets.Shortcut
         /// Send
         /// </summary>
         /// <param name="data"></param>
+        /// <remarks>
+        /// 零拷贝契约：数组支撑的 ReadOnlySpan 在快速路径上零拷贝发送，发送完成前不得修改或复用该缓冲区；
+        /// 非数组内存或需要缓冲的实现会在边界处发生一次复制。
+        /// </remarks>
         public void Send(ReadOnlySpan<byte> data)
         {
             _clientSokcet.Send(data);

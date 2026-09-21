@@ -46,6 +46,13 @@ namespace SAEA.Sockets.Shortcut
     {
         IServerSocket _udpServer;
 
+        /// <summary>
+        /// 接收数据事件（解析后的 ISocketProtocal 帧）。
+        /// </summary>
+        /// <remarks>
+        /// 回调作用域：帧的 Content 由租用缓冲区支撑，仅在本次回调期间有效，必须同步消费；
+        /// 如需跨回调保存，请复制帧内容。
+        /// </remarks>
         public event Action<UDPServer<Coder>, string, ISocketProtocal> OnReceive;
 
         public event Action<string, Exception> OnError;
@@ -121,6 +128,10 @@ namespace SAEA.Sockets.Shortcut
         /// <param name="id"></param>
         /// <param name="data"></param>
         /// <param name="socketProtocalType"></param>
+        /// <remarks>
+        /// 零拷贝契约：数组支撑的 ReadOnlyMemory 在快速路径上零拷贝发送，发送完成前不得修改或复用该缓冲区；
+        /// 非数组内存会在边界处发生一次复制。
+        /// </remarks>
         public void SendAsync(string id, ReadOnlyMemory<byte> data, SocketProtocalType socketProtocalType = SocketProtocalType.ChatMessage)
         {
             SendAsync(id, new BaseSocketProtocal((byte)socketProtocalType, data));
@@ -131,6 +142,10 @@ namespace SAEA.Sockets.Shortcut
         /// </summary>
         /// <param name="id"></param>
         /// <param name="data"></param>
+        /// <remarks>
+        /// 零拷贝契约：数组支撑的 ReadOnlySpan 在快速路径上零拷贝发送，发送完成前不得修改或复用该缓冲区；
+        /// 非数组内存或需要缓冲的实现会在边界处发生一次复制。
+        /// </remarks>
         public void Send(string id, ReadOnlySpan<byte> data)
         {
             _udpServer.Send(id, data);

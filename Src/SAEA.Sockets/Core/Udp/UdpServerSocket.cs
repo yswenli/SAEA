@@ -240,15 +240,18 @@ namespace SAEA.Sockets.Core.Udp
 
                     OnServerReceiveSpan?.Invoke(userToken, dataSpan);
 
-                    var data = dataSpan.ToArray();
+                    if (OnServerReceiveBytes != null)
+                    {
+                        var data = dataSpan.ToArray();
 
-                    try
-                    {
-                        OnServerReceiveBytes.Invoke(userToken, data);
-                    }
-                    catch (Exception ex)
-                    {
-                        OnError?.Invoke(userToken.ID, ex);
+                        try
+                        {
+                            OnServerReceiveBytes.Invoke(userToken, data);
+                        }
+                        catch (Exception ex)
+                        {
+                            OnError?.Invoke(userToken.ID, ex);
+                        }
                     }
 
                     ProcessReceive(readArgs);
