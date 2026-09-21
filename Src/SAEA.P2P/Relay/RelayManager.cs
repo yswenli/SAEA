@@ -129,30 +129,32 @@ namespace SAEA.P2P.Relay
         
         public (string sessionId, string sourceId, string targetId, byte[] payload) DecodeRelayData(byte[] data)
         {
-            var protocols = _coder.DecodeP2P(data);
-            foreach (var p in protocols)
+            using (var frames = _coder.DecodeP2P(data))
             {
-                if (p.GetMessageType() == P2PMessageType.RelayData && p.Content != null)
+                foreach (var frame in frames.Frames)
                 {
-                    // content layout: {sessionId}|{sourceId}|{targetId}|{payload}
-                    var content = p.Content;
-                    var first = Array.IndexOf(content, (byte)'|');
-                    if (first <= 0) continue;
-                    var second = Array.IndexOf(content, (byte)'|', first + 1);
-                    if (second < 0) continue;
-                    var third = Array.IndexOf(content, (byte)'|', second + 1);
-                    if (third < 0) continue;
-                    
-                    var sessionId = System.Text.Encoding.UTF8.GetString(content, 0, first);
-                    var sourceId = System.Text.Encoding.UTF8.GetString(content, first + 1, second - first - 1);
-                    var targetId = System.Text.Encoding.UTF8.GetString(content, second + 1, third - second - 1);
-                    
-                    var payloadOffset = third + 1;
-                    var payload = new byte[content.Length - payloadOffset];
-                    if (payload.Length > 0)
-                        Buffer.BlockCopy(content, payloadOffset, payload, 0, payload.Length);
-                    
-                    return (sessionId, sourceId, targetId, payload);
+                    if ((P2PMessageType)frame.Type == P2PMessageType.RelayData && !frame.Content.IsEmpty)
+                    {
+                        // content layout: {sessionId}|{sourceId}|{targetId}|{payload}
+                        var content = frame.Content.ToArray();
+                        var first = Array.IndexOf(content, (byte)'|');
+                        if (first <= 0) continue;
+                        var second = Array.IndexOf(content, (byte)'|', first + 1);
+                        if (second < 0) continue;
+                        var third = Array.IndexOf(content, (byte)'|', second + 1);
+                        if (third < 0) continue;
+                        
+                        var sessionId = System.Text.Encoding.UTF8.GetString(content, 0, first);
+                        var sourceId = System.Text.Encoding.UTF8.GetString(content, first + 1, second - first - 1);
+                        var targetId = System.Text.Encoding.UTF8.GetString(content, second + 1, third - second - 1);
+                        
+                        var payloadOffset = third + 1;
+                        var payload = new byte[content.Length - payloadOffset];
+                        if (payload.Length > 0)
+                            Buffer.BlockCopy(content, payloadOffset, payload, 0, payload.Length);
+                        
+                        return (sessionId, sourceId, targetId, payload);
+                    }
                 }
             }
             return (null, null, null, null);

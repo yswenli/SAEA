@@ -125,37 +125,39 @@ namespace SAEA.P2P.Core
         
         private void OnReceive(ISession session, byte[] data)
         {
-            var protocols = _coder.DecodeP2P(data);
-            foreach (var p in protocols)
+            using (var frames = _coder.DecodeP2P(data))
             {
-                ProcessMessage(session.ID, p);
+                foreach (var frame in frames.Frames)
+                {
+                    ProcessMessage(session.ID, frame);
+                }
             }
         }
         
-        private void ProcessMessage(string sessionId, P2PProtocol protocol)
+        private void ProcessMessage(string sessionId, ISocketProtocal protocol)
         {
-            switch (protocol.GetMessageType())
+            switch ((P2PMessageType)protocol.Type)
             {
                 case P2PMessageType.Register:
-                    ProcessRegister(sessionId, protocol.Content);
+                    ProcessRegister(sessionId, protocol.Content.ToArray());
                     break;
                 case P2PMessageType.AuthResponse:
-                    ProcessAuthResponse(sessionId, protocol.Content);
+                    ProcessAuthResponse(sessionId, protocol.Content.ToArray());
                     break;
                 case P2PMessageType.NatProbe:
                     ProcessNatProbe(sessionId);
                     break;
                 case P2PMessageType.PunchRequest:
-                    ProcessPunchRequest(sessionId, protocol.Content);
+                    ProcessPunchRequest(sessionId, protocol.Content.ToArray());
                     break;
                 case P2PMessageType.RelayRequest:
-                    ProcessRelayRequest(sessionId, protocol.Content);
+                    ProcessRelayRequest(sessionId, protocol.Content.ToArray());
                     break;
                 case P2PMessageType.RelayData:
-                    ProcessRelayData(sessionId, protocol.Content);
+                    ProcessRelayData(sessionId, protocol.Content.ToArray());
                     break;
                 case P2PMessageType.UserData:
-                    ProcessUserData(sessionId, protocol.Content);
+                    ProcessUserData(sessionId, protocol.Content.ToArray());
                     break;
                 case P2PMessageType.Heartbeat:
                     SendHeartbeatAck(sessionId);

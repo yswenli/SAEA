@@ -141,16 +141,18 @@ namespace SAEA.P2P.Discovery
         {
             try
             {
-                var protocols = _coder.DecodeP2P(data);
-                foreach (var p in protocols)
+                using (var frames = _coder.DecodeP2P(data))
                 {
-                    if (p.GetMessageType() == P2PMessageType.LocalDiscover)
+                    foreach (var frame in frames.Frames)
                     {
-                        ProcessDiscoveryPacket(p.Content);
-                    }
-                    else if (p.GetMessageType() == P2PMessageType.LocalDiscoverAck)
-                    {
-                        ProcessDiscoveryAck(p.Content);
+                        if ((P2PMessageType)frame.Type == P2PMessageType.LocalDiscover)
+                        {
+                            ProcessDiscoveryPacket(frame.Content.ToArray());
+                        }
+                        else if ((P2PMessageType)frame.Type == P2PMessageType.LocalDiscoverAck)
+                        {
+                            ProcessDiscoveryAck(frame.Content.ToArray());
+                        }
                     }
                 }
             }

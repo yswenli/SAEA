@@ -101,12 +101,14 @@ namespace SAEA.P2P.NAT
         
         public void ProcessPunchSync(byte[] data, IPEndPoint source)
         {
-            var protocols = _coder.DecodeP2P(data);
-            foreach (var p in protocols)
+            using (var frames = _coder.DecodeP2P(data))
             {
-                if (p.GetMessageType() == P2PMessageType.PunchSync)
+                foreach (var frame in frames.Frames)
                 {
-                    OnPunchPacketReceived?.Invoke(source, p.Content);
+                    if ((P2PMessageType)frame.Type == P2PMessageType.PunchSync)
+                    {
+                        OnPunchPacketReceived?.Invoke(source, frame.Content.ToArray());
+                    }
                 }
             }
         }

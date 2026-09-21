@@ -95,12 +95,14 @@ namespace SAEA.P2P.Channel
         {
             try
             {
-                var protocols = _coder.DecodeP2P(data);
-                foreach (var p in protocols)
+                using (var frames = _coder.DecodeP2P(data))
                 {
-                    if (p.GetMessageType() == P2PMessageType.UserData && p.Content != null)
+                    foreach (var frame in frames.Frames)
                     {
-                        OnDataReceived?.Invoke(p.Content);
+                        if ((P2PMessageType)frame.Type == P2PMessageType.UserData && !frame.Content.IsEmpty)
+                        {
+                            OnDataReceived?.Invoke(frame.Content.ToArray());
+                        }
                     }
                 }
             }

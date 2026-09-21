@@ -36,6 +36,7 @@ using System.Text;
 using System.Threading.Tasks;
 using SAEA.Sockets;
 using SAEA.Sockets.Core.Tcp;
+using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
 using SAEA.P2P.Builder;
 using SAEA.P2P.Channel;
@@ -182,43 +183,45 @@ namespace SAEA.P2P.Core
         
         private void OnSignalReceive(byte[] data)
         {
-            var protocols = _coder.DecodeP2P(data);
-            foreach (var p in protocols)
+            using (var frames = _coder.DecodeP2P(data))
             {
-                ProcessSignalMessage(p);
+                foreach (var frame in frames.Frames)
+                {
+                    ProcessSignalMessage(frame);
+                }
             }
         }
         
-        private void ProcessSignalMessage(P2PProtocol protocol)
+        private void ProcessSignalMessage(ISocketProtocal protocol)
         {
-            switch (protocol.GetMessageType())
+            switch ((P2PMessageType)protocol.Type)
             {
                 case P2PMessageType.RegisterAck:
-                    ProcessRegisterAck(protocol.Content);
+                    ProcessRegisterAck(protocol.Content.ToArray());
                     break;
                 case P2PMessageType.NodeList:
-                    ProcessNodeList(protocol.Content);
+                    ProcessNodeList(protocol.Content.ToArray());
                     break;
                 case P2PMessageType.AuthChallenge:
-                    ProcessAuthChallenge(protocol.Content);
+                    ProcessAuthChallenge(protocol.Content.ToArray());
                     break;
                 case P2PMessageType.AuthSuccess:
                     ProcessAuthSuccess();
                     break;
                 case P2PMessageType.PunchReady:
-                    ProcessPunchReady(protocol.Content);
+                    ProcessPunchReady(protocol.Content.ToArray());
                     break;
                 case P2PMessageType.NatProbeAck:
-                    ProcessNatProbeAck(protocol.Content);
+                    ProcessNatProbeAck(protocol.Content.ToArray());
                     break;
                 case P2PMessageType.RelayAck:
-                    ProcessRelayAck(protocol.Content);
+                    ProcessRelayAck(protocol.Content.ToArray());
                     break;
                 case P2PMessageType.RelayData:
-                    ProcessRelayData(protocol.Content);
+                    ProcessRelayData(protocol.Content.ToArray());
                     break;
                 case P2PMessageType.UserData:
-                    ProcessUserData(protocol.Content);
+                    ProcessUserData(protocol.Content.ToArray());
                     break;
                 case P2PMessageType.Heartbeat:
                     SendHeartbeatAck();
