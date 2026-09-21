@@ -52,6 +52,8 @@ namespace SAEA.P2PTest
                 ConsoleHelper.WriteLine("19 = Run all advanced tests");
                 ConsoleHelper.WriteLine("20 = StreamDecoderTest");
                 ConsoleHelper.WriteLine("21 = IocpReceiveBenchmark");
+                ConsoleHelper.WriteLine("22 = StreamPipelineTest");
+                ConsoleHelper.WriteLine("23 = UdpPipelineTest");
                 ConsoleHelper.WriteLine("0 = Exit");
 
                 var pressedKey = ConsoleHelper.ReadLine();
@@ -121,6 +123,12 @@ namespace SAEA.P2PTest
                     case "21":
                         await IocpBenchmark.RunAsync();
                         break;
+                    case "22":
+                        await StreamPipelineTest.RunAsync();
+                        break;
+                    case "23":
+                        await UdpPipelineTest.RunAsync();
+                        break;
                     case "0":
                         return;
                 }
@@ -143,6 +151,8 @@ namespace SAEA.P2PTest
             StreamDecoderTest.Run();
             await StreamDecoderTest.RunIocpClientAsync();
             await StreamDecoderTest.RunIocpServerAsync();
+            await StreamPipelineTest.RunAsync();
+            await UdpPipelineTest.RunAsync();
 
             TestHarness.WriteSummary("ALL ADVANCED TESTS");
 
