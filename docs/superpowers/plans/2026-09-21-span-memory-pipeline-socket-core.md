@@ -73,26 +73,44 @@ In `Src/SAEA.Sockets/Interface/IUserToken.cs`, after the `ICoder Coder { get; se
         /// 当库内从池中租用了缓冲区时，指向该池化对象，由发送完成回调负责释放。
         /// </summary>
         IDisposable SendingOwner { get; set; }
+
+        /// <summary>
+        /// 原子地取出并清空发送缓冲区所有权对象；取出后由调用方负责释放。
+        /// 发送完成回调与断开清理可能并发，必须通过本方法保证恰好释放一次。
+        /// </summary>
+        IDisposable TakeSendingOwner();
 ```
 
 `using System;` is already present (line 32), so `IDisposable` resolves.
 
 - [ ] **Step 2: Implement it in `BaseUserToken` and release on `Clear()`**
 
-In `Src/SAEA.Sockets/Base/BaseUserToken.cs`, add the property after `public ICoder Coder { get; set; }` (line 66):
+In `Src/SAEA.Sockets/Base/BaseUserToken.cs`, add a field-backed property and the atomic taker after `public ICoder Coder { get; set; }` (line 66):
 
 ```csharp
-        public IDisposable SendingOwner { get; set; }
+        IDisposable _sendingOwner;
+
+        public IDisposable SendingOwner
+        {
+            get { return _sendingOwner; }
+            set { _sendingOwner = value; }
+        }
+
+        public IDisposable TakeSendingOwner()
+        {
+            return Interlocked.Exchange(ref _sendingOwner, null);
+        }
 ```
 
-Then change `Clear()` (lines 84–94) to release the pending owner before nulling fields:
+(`System.Threading` is already imported at line 34, so `Interlocked` resolves.)
+
+Then change `Clear()` (lines 84–94) to **close the socket first**, then atomically take and release the pending owner before nulling fields:
 
 ```csharp
         public void Clear()
         {
-            try { SendingOwner?.Dispose(); } catch { }
-            SendingOwner = null;
             Socket?.Close();
+            try { TakeSendingOwner()?.Dispose(); } catch { }
             Coder?.Clear();
             _writeAutoResetEvent?.Close();
             ReadArgs?.Dispose();
@@ -102,6 +120,8 @@ Then change `Clear()` (lines 84–94) to release the pending owner before nullin
             WriteArgs = null;
         }
 ```
+
+> Ordering rationale: closing the socket aborts any in-flight send so the OS can no longer read the pooled buffer; only then is it safe to return the buffer to the pool. `TakeSendingOwner()` uses `Interlocked.Exchange` so a concurrent `ProcessSended` cannot observe the same owner.
 
 - [ ] **Step 3: Build the sockets project**
 
@@ -123,12 +143,25 @@ public static void SendingOwnerIsReleasedOnClear()
 
     TestHarness.Expect(owner.Disposed, "IUserToken.Clear releases SendingOwner");
     TestHarness.Expect(token.SendingOwner == null, "IUserToken.Clear nulls SendingOwner");
+    TestHarness.Expect(token.TakeSendingOwner() == null, "TakeSendingOwner returns null after Clear");
+
+    var throwing = new ThrowingDisposable();
+    token.SendingOwner = throwing;
+    var threw = false;
+    try { token.Clear(); } catch { threw = true; }
+    TestHarness.Expect(!threw && throwing.Attempted, "IUserToken.Clear swallows dispose exceptions");
 }
 
 sealed class TrackingDisposable : IDisposable
 {
     public bool Disposed;
     public void Dispose() { Disposed = true; }
+}
+
+sealed class ThrowingDisposable : IDisposable
+{
+    public bool Attempted;
+    public void Dispose() { Attempted = true; throw new InvalidOperationException("boom"); }
 }
 ```
 
@@ -137,7 +170,7 @@ Register it wherever the other `SpanPipelineTest` methods are invoked (in `SpanP
 - [ ] **Step 5: Run the suite**
 
 Run: `dotnet run --project Src/SAEA.P2PTest/SAEA.P2PTest.csproj -c Debug -- --all`
-Expected: all pass; count increases by 2 over the 283 baseline.
+Expected: all pass; count increases by 4 over the 283 baseline (287 total).
 
 - [ ] **Step 6: Commit**
 
@@ -290,9 +323,8 @@ Replace `ProcessSended` (lines 492–503) with:
         {
             try
             {
+                var owner = _userToken.TakeSendingOwner();
                 _userToken.Actived = DateTimeHelper.Now;
-                var owner = _userToken.SendingOwner;
-                _userToken.SendingOwner = null;
                 if (owner != null)
                 {
                     try { owner.Dispose(); } catch { }
@@ -323,13 +355,16 @@ Immediately after `SendAsync(IUserToken userToken, byte[] data)` (ends line 539)
                 owner?.Dispose();
                 return;
             }
+            bool transferred = false;
             try
             {
                 if (userToken != null && userToken.Socket != null && userToken.Socket.Connected)
                 {
                     if (userToken.WaitWrite(SocketOption.ActionTimeout))
                     {
+                        // 所有权移交给令牌；此后只能通过 TakeSendingOwner 释放
                         userToken.SendingOwner = owner;
+                        transferred = true;
                         var writeArgs = userToken.WriteArgs;
                         writeArgs.SetBuffer(seg.Array, seg.Offset, seg.Count);
                         if (!userToken.Socket.SendAsync(writeArgs))
@@ -339,23 +374,21 @@ Immediately after `SendAsync(IUserToken userToken, byte[] data)` (ends line 539)
                     }
                     else
                     {
-                        userToken.SendingOwner = null;
-                        owner?.Dispose();
                         OnError?.Invoke($"SAEA SocketError:发送消息时发生异常,{userToken?.ID}", new TimeoutException("发送数据超时"));
                     }
-                }
-                else
-                {
-                    owner?.Dispose();
                 }
             }
             catch (Exception ex)
             {
-                userToken.SendingOwner = null;
-                owner?.Dispose();
+                userToken.TakeSendingOwner()?.Dispose();
+                transferred = true;
                 OnError?.Invoke(userToken?.ID ?? "", ex);
                 try { userToken?.ReleaseWrite(); } catch { }
                 try { Disconnect(); } catch { }
+            }
+            finally
+            {
+                if (!transferred) owner?.Dispose();
             }
         }
 ```
@@ -426,7 +459,16 @@ Insert after the new `Send(ReadOnlySpan<byte>)`:
             var bodyLen = protocal.BodyLength;
             var size = bodyLen > 0 && bodyLen < int.MaxValue - 64 ? (int)bodyLen + 64 : 64;
             var writer = new PooledBufferWriter(size);
-            coder.Encode(protocal, writer);
+            try
+            {
+                coder.Encode(protocal, writer);
+            }
+            catch (Exception ex)
+            {
+                writer.Dispose();
+                OnError?.Invoke(_userToken?.ID ?? "", ex);
+                return;
+            }
             writer.TryGetArray(out var rented);
             SendAsyncRaw(rented, writer);
         }
@@ -466,8 +508,7 @@ Replace `ProcessSended` (lines 372–386) with:
             {
                 var token = e.UserToken as IUserToken;
                 if (token == null) return;
-                var owner = token.SendingOwner;
-                token.SendingOwner = null;
+                var owner = token.TakeSendingOwner();
                 if (owner != null)
                 {
                     try { owner.Dispose(); } catch { }
@@ -495,6 +536,7 @@ Insert after the existing `SendAsync(IUserToken userToken, byte[] data)` (ends l
                 owner?.Dispose();
                 return;
             }
+            bool transferred = false;
             try { _sessionManager.Active(userToken.ID); } catch { }
             if (userToken.WaitWrite(SocketOption.ActionTimeout) && userToken.Socket != null && userToken.Socket.Connected)
             {
@@ -503,7 +545,9 @@ Insert after the existing `SendAsync(IUserToken userToken, byte[] data)` (ends l
                     var writeArgs = userToken.WriteArgs;
                     if (writeArgs != null)
                     {
+                        // 所有权移交给令牌；此后只能通过 TakeSendingOwner 释放
                         userToken.SendingOwner = owner;
+                        transferred = true;
                         writeArgs.SetBuffer(seg.Array, seg.Offset, seg.Count);
                         bool asyncPending = userToken.Socket.SendAsync(writeArgs);
                         if (!asyncPending)
@@ -520,9 +564,7 @@ Insert after the existing `SendAsync(IUserToken userToken, byte[] data)` (ends l
                                 {
                                     if (userToken.IsSending)
                                     {
-                                        var lost = userToken.SendingOwner;
-                                        userToken.SendingOwner = null;
-                                        try { lost?.Dispose(); } catch { }
+                                        try { userToken.TakeSendingOwner()?.Dispose(); } catch { }
                                         userToken.IsSending = false;
                                         userToken.ReleaseWrite();
                                     }
@@ -532,23 +574,21 @@ Insert after the existing `SendAsync(IUserToken userToken, byte[] data)` (ends l
                     }
                     else
                     {
-                        userToken.SendingOwner = null;
-                        owner?.Dispose();
+                        userToken.TakeSendingOwner()?.Dispose();
                     }
                 }
                 catch (Exception ex)
                 {
-                    userToken.SendingOwner = null;
-                    owner?.Dispose();
+                    userToken.TakeSendingOwner()?.Dispose();
+                    transferred = true;
                     OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", ex);
                 }
             }
             else
             {
-                userToken.SendingOwner = null;
-                owner?.Dispose();
                 OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", new TimeoutException("Sending data timeout"));
             }
+            if (!transferred) owner?.Dispose();
         }
 ```
 
@@ -602,7 +642,16 @@ Insert after the existing `Send(IUserToken userToken, byte[] data)` method (ends
             var bodyLen = protocal.BodyLength;
             var size = bodyLen > 0 && bodyLen < int.MaxValue - 64 ? (int)bodyLen + 64 : 64;
             var writer = new PooledBufferWriter(size);
-            coder.Encode(protocal, writer);
+            try
+            {
+                coder.Encode(protocal, writer);
+            }
+            catch (Exception ex)
+            {
+                writer.Dispose();
+                OnError?.Invoke(userToken?.ID ?? "", ex);
+                return;
+            }
             writer.TryGetArray(out var rented);
             SendAsyncRaw(userToken, rented, writer);
         }
