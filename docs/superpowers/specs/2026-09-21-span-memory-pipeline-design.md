@@ -26,7 +26,7 @@ SAEA 已在上一轮完成「流式零拷贝解码器」内核（`FrameDecoder` 
 >
 > **rev.3 修订摘要（第二轮深度审查发现，详见各节）：** ⑨ **P2P 解码所有权**——`DecodeP2P` 改返回 `DecodedFrames`，`P2PProtocol` 降为编码便捷类型（§4.6/§六）；`BaseCoder` 静态 `GetType`/`GetContent` 无调用方删除、`GetLength` 改 Span、删未订阅 `internal event OnReceiveSpan`（§4.5）；⑩ 补受影响文件 `Discovery/LocalDiscovery.cs`、`NAT/HolePuncher.cs`、`Model/ChannelInfo.cs`、`SAEA.Http/WebHost.cs`+`HttpSocket*.cs`、`SAEA.Sockets.UdpTest/Program.cs`（§七/§十一）；⑪ 服务端接收事件载荷由 `ISession` 收紧为 `IUserToken`（§5.1）；⑫ `FTPCoder` 额外 `Decode(byte[], Action<ISocketProtocal>, ...)` 重载须保留（§七）。
 >
-> **rev.3 追加更正（四路并行深挖后）：** ⑬ `WSProtocal` 现状**无背衬字段**且默认 `ToBytes()` **原地掩码改写 `Content`** → 新增私有 `_buffer` + 拆 `WriteTo`/`WriteMaskedTo`（§4.6/§9）；⑭ `SAEA.MQTT`/`SAEA.DNS` **非范围外**（依赖 `StreamClientSocket`/`Shortcut.UDPClient`，须适配）（§七）；⑮ 补全 `IocpServerSocket`/`UdpServerSocket`/`Stream*` 非接口公共发送成员、`P2PCoder.GetP2PMessageType`、BigData 连续性证据、`UserToken.Coder` 已静态确认、sln 实为 33 工程 + 2 文件夹（§一/§5.1/§5.3）。
+> **rev.3 追加更正（四路并行深挖后）：** ⑬ `WSProtocal` 现状**无背衬字段**且默认 `ToBytes()` **原地掩码改写 `Content`** → 新增私有 `_buffer` + 拆 `WriteTo`/`WriteMaskedTo`（§4.6/§9）；⑭ `SAEA.MQTT`/`SAEA.DNS` **非范围外**（依赖 `StreamClientSocket`/`Shortcut.UDPClient`，须适配）（§七）；⑮ 补全 `IocpServerSocket`/`UdpServerSocket`/`Stream*` 非接口公共发送成员、`P2PCoder.GetP2PMessageType`、BigData 连续性证据、`UserToken.Coder` 已静态确认、sln 实为 33 工程 + 2 文件夹（§一/§5.1/§5.3）；⑯ **`Action<ReadOnlySpan<byte>>` 非法** → 新增具名委托 `FileSpanHandler`（§4.4）；⑰ `ICoder.Decode(ReadOnlySequence)` 定为**有状态**（复用 `_decoder` 半包缓存），与旧 `Decode(byte[])` 语义一致，`onFile` 延迟回调保序（§4.4）。
 
 ---
 
@@ -231,13 +231,19 @@ public interface ICoder
 // 帧式（9 字节头 + body）编解码器专用：仅 BaseCoder 及其派生实现。
 public interface IFrameCoder : ICoder
 {
+    // 注意：C# 不允许 Action<ReadOnlySpan<byte>>（ref struct 不能作泛型实参），必须用具名委托。
     void DecodeStream(
         ReadOnlySpan<byte> data,
         IFrameHandler handler,
         Action<DateTime> onHeart = null,
-        Action<ReadOnlySpan<byte>> onFile = null);
+        FileSpanHandler onFile = null);
 }
+
+public delegate void FileSpanHandler(ReadOnlySpan<byte> content);
 ```
+
+- **rev.3 更正（编译性）**：`Action<ReadOnlySpan<byte>>` **不是合法 C#**（`ref struct` 不能作 `Action<T>` 类型实参）。故新增具名委托 `FileSpanHandler`（位于 `Interface/IFrameCoder.cs`）承载 span 版 `onFile`。`Action<ReadOnlyMemory<byte>>`（batch 版）合法。
+- **rev.3 更正（语义）**：`ICoder.Decode(ReadOnlySequence<byte>)` 实现为**有状态**——驱动 per-instance `FrameDecoder`（复用半包缓存），从而与旧 `Decode(byte[])`（有状态）语义一致。旧代码中「无状态 `Decode(ReadOnlySequence)`」无任何生产调用方，故合并为单一有状态方法。多段序列按段喂入；帧体复制进批次池化缓冲以获得 `Dispose` 前稳定的 `ReadOnlyMemory`；`onFile` 采用**事件延迟**（先记录 offset/时间、待缓冲定型后再按原顺序回调），保证顺序与内存有效期。
 
 - **rev.2 决策：** `DecodeStream` 的拆帧语义绑定 SAEA 的 8B+1B 线格式，**不属通用 `ICoder`**。`BaseCoder : IFrameCoder`，`P2PCoder` 继承获得；`FTPCoder`/`WSCoder`/`QueueCoder`/`RpcCoder`/`HttpCoder`/`RedisCoder`/`JUnpacker` 只实现 `ICoder`。
 - 删除 `byte[] Encode`、`List<ISocketProtocal> Decode(byte[])`、有状态 `Decode(ReadOnlySpan)` 返回 `List` 的形态。
@@ -255,7 +261,7 @@ public interface IFrameCoder : ICoder
 - `DecodeStream(ReadOnlySpan, IFrameHandler, ...)`：驱动 per-instance `FrameDecoder`，命中普通帧调 `handler.OnFrame(in frame)`（零拷贝切片）。
 - `Encode(ISocketProtocal, IBufferWriter)`：委托 `p.WriteTo(writer)`（或就地编码）。
 - `Clear()`：归还累加器与批次缓冲并复位。
-- `FrameDecoder`/`SocketFrame`/`IFrameHandler` 形态保持上一轮设计；`FrameDecoder` 的 BigData 产出由 `byte[]` 调整为写入当前 `IBufferWriter`/池化 slice。
+- `FrameDecoder`/`SocketFrame`/`IFrameHandler` 形态保持上一轮设计；`FrameDecoder.TryReadFrame` 的 BigData 产出由 `out byte[] fileContent` 改为 `out ReadOnlySpan<byte> fileContent`（指向 `_buffer` 切片，仅在 `DecodeStream` 回调期间有效），消除 BigData 路径的 `new byte[]` + `Buffer.BlockCopy`。
 
 ### 4.6 连带
 
