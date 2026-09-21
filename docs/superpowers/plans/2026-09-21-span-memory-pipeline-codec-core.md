@@ -1200,30 +1200,38 @@ Replace class body of `Src/SAEA.P2P/Protocol/P2PCoder.cs` (keep header; add `usi
 
 - [ ] **Step 3: Update the 7 call sites**
 
-At each site, replace `List<P2PProtocol> xxx = coder.DecodeP2P(data, ...)` consumption. Exact pattern for `Core/P2PClient.cs:185` (adjust local names per file):
+All 7 sites share the shape `var protocols = _coder.DecodeP2P(data); foreach (var p in protocols) { ... }`. `DecodeP2P` now returns a pooled `DecodedFrames`, so wrap the loop in `using` and iterate `frames.Frames` (a `ReadOnlySpan<ISocketProtocal>`), renaming `p` → `frame`:
 
 ```csharp
 // BEFORE
-var msgs = _p2pCoder.DecodeP2P(data, onHeart);
-foreach (var msg in msgs) ProcessMessage(sessionId, msg);
+var protocols = _coder.DecodeP2P(data);
+foreach (var p in protocols) { /* body */ }
 
 // AFTER
-using (var frames = _p2pCoder.DecodeP2P(data, onHeart))
+using (var frames = _coder.DecodeP2P(data))
 {
-    foreach (var frame in frames.Frames) ProcessMessage(sessionId, frame);
+    foreach (var frame in frames.Frames) { /* body, p -> frame */ }
 }
 ```
 
-Apply the same shape at: `Core/P2PClient.cs:185`, `Core/P2PServer.cs:128`, `Discovery/LocalDiscovery.cs:144`, `Channel/TCPChannel.cs:98`, `Channel/UDPChannel.cs:104`, `Relay/RelayManager.cs:132`, `NAT/HolePuncher.cs:104`.
+Per-file body changes (the batch buffer is returned on `Dispose`, so anything handed to a `byte[]` API or retained must be copied with `frame.Content.ToArray()`):
+
+- `Core/P2PClient.cs:183` (`OnSignalReceive`): `ProcessSignalMessage(p)` → `ProcessSignalMessage(frame)` (param type changes in Step 4).
+- `Core/P2PServer.cs:126` (`OnReceive`): `ProcessMessage(session.ID, p)` → `ProcessMessage(session.ID, frame)`.
+- `Discovery/LocalDiscovery.cs:144`: `p.GetMessageType()` → `(P2PMessageType)frame.Type`; `ProcessDiscoveryPacket(p.Content)` / `ProcessDiscoveryAck(p.Content)` → `(frame.Content.ToArray())` (both helpers are typed `byte[]` and parse/retain).
+- `Channel/TCPChannel.cs:94` and `Channel/UDPChannel.cs:100`: `p.GetMessageType() == P2PMessageType.UserData && p.Content != null` → `(P2PMessageType)frame.Type == P2PMessageType.UserData && !frame.Content.IsEmpty`; `OnDataReceived?.Invoke(p.Content)` → `OnDataReceived?.Invoke(frame.Content.ToArray())` (the event is `Action<byte[]>` and consumers may retain past `Dispose`).
+- `NAT/HolePuncher.cs:102`: `OnPunchPacketReceived?.Invoke(source, p.Content)` → `(source, frame.Content.ToArray())`.
+- `Relay/RelayManager.cs:130` (`DecodeRelayData`): `p.GetMessageType() == P2PMessageType.RelayData && p.Content != null` → `(P2PMessageType)frame.Type == P2PMessageType.RelayData && !frame.Content.IsEmpty`; `var content = p.Content;` → `var content = frame.Content.ToArray();` (the returned `payload` outlives the batch, so the copy is required).
 
 - [ ] **Step 4: Change `ProcessMessage`/`ProcessSignalMessage` parameter types**
 
-For every method that received `P2PProtocol` from `DecodeP2P`, change the parameter to `ISocketProtocal` (add `using SAEA.Sockets.Interface;`). Replace:
-- `msg.GetMessageType()` → `(P2PMessageType)msg.Type`
-- `msg.GetContentAsString()` → `System.Text.Encoding.UTF8.GetString(msg.Content.Span.ToArray())`
-- `msg.BodyLength`/`msg.Content` unchanged (`Content` is now `ReadOnlyMemory<byte>`).
+- `Core/P2PClient.cs`: `private void ProcessSignalMessage(ISocketProtocal protocol)`.
+- `Core/P2PServer.cs`: `private void ProcessMessage(string sessionId, ISocketProtocal protocol)`.
 
-If any site must retain content past the batch, copy: `var copy = frame.Content.ToArray();`.
+Add `using SAEA.Sockets.Interface;` to both files. Then:
+- `protocol.GetMessageType()` → `(P2PMessageType)protocol.Type`.
+- Each switch arm that passes content to an existing `byte[]` helper must pass an explicit copy, e.g. `ProcessRegisterAck(protocol.Content.ToArray())`, `ProcessRegister(sessionId, protocol.Content.ToArray())` (the helpers JSON-parse/serialize and, for channels, hand `byte[]` to event consumers; the batch is disposed at the end of the `using`). Arms that take no content (`ProcessAuthSuccess()`, `ProcessNatProbe(sessionId)`, `SendHeartbeatAck(sessionId)`) are unchanged.
+- Do **not** change the `byte[]` helper signatures (avoids cascading churn; keeps behavior identical to the previous materialized-`byte[]` semantics).
 
 - [ ] **Step 5: Build `SAEA.P2P`**
 
