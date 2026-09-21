@@ -263,7 +263,9 @@ Add to `SpanPipelineTest.Run()` before the final `w.Dispose()` block (keep `w` t
                 p.WriteTo(pw);
                 TestHarness.Expect(pw.WrittenCount == 9 + 3, "BaseSocketProtocal.WriteTo writes 9-byte header + body");
                 TestHarness.Expect(pw.WrittenSpan[8] == 7, "BaseSocketProtocal.WriteTo writes Type at offset 8");
-                TestHarness.Expect(pw.WrittenSpan[9] == 10 && pw.WrittenSpan[11] == 30, "BaseSocketProtocal.WriteTo writes body");
+                TestHarness.Expect(System.Buffers.Binary.BinaryPrimitives.ReadInt64LittleEndian(pw.WrittenSpan) == 3L
+                        && pw.WrittenSpan.Slice(9, 3).SequenceEqual(new byte[] { 10, 20, 30 }),
+                    "BaseSocketProtocal.WriteTo writes 8-byte little-endian length and full body");
             }
 
             var empty = new SAEA.Sockets.Base.BaseSocketProtocal((byte)1, ReadOnlyMemory<byte>.Empty);
@@ -324,6 +326,9 @@ Replace the class body in `Src/SAEA.Sockets/Base/BaseSocketProtocal.cs` (keep he
             BodyLength = content.Length;
         }
 
+        /// <summary>
+        /// 注意：BodyLength 可大于 Content.Length（BigData 帧只携带分块），基类不做一致性校验。
+        /// </summary>
         public BaseSocketProtocal(long bodyLength, byte type, ReadOnlyMemory<byte> content)
         {
             BodyLength = bodyLength;
