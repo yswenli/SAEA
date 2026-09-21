@@ -423,8 +423,8 @@ Insert after the new `Send(ReadOnlySpan<byte>)`:
                 OnError?.Invoke(_userToken?.ID ?? "", new InvalidOperationException("SAEA SocketError:coder 未初始化"));
                 return;
             }
-            var size = protocal.BodyLength + 64;
-            if (size < 64 || size > int.MaxValue) size = 64;
+            var bodyLen = protocal.BodyLength;
+            var size = bodyLen > 0 && bodyLen < int.MaxValue - 64 ? (int)bodyLen + 64 : 64;
             var writer = new PooledBufferWriter(size);
             coder.Encode(protocal, writer);
             writer.TryGetArray(out var rented);
@@ -599,8 +599,8 @@ Insert after the existing `Send(IUserToken userToken, byte[] data)` method (ends
                 OnError?.Invoke(userToken?.ID ?? "", new InvalidOperationException("SAEA SocketError:coder 未初始化"));
                 return;
             }
-            var size = protocal.BodyLength + 64;
-            if (size < 64 || size > int.MaxValue) size = 64;
+            var bodyLen = protocal.BodyLength;
+            var size = bodyLen > 0 && bodyLen < int.MaxValue - 64 ? (int)bodyLen + 64 : 64;
             var writer = new PooledBufferWriter(size);
             coder.Encode(protocal, writer);
             writer.TryGetArray(out var rented);
@@ -690,7 +690,7 @@ Add the send members (adapt to the existing field/method names found in Step 1 �
         public void SendAsync(ISocketProtocal protocal)
         {
             if (protocal == null || _userToken?.Coder == null) return;
-            using (var writer = new PooledBufferWriter(protocal.BodyLength + 64))
+            using (var writer = new PooledBufferWriter(protocal.BodyLength > 0 && protocal.BodyLength < int.MaxValue - 64 ? (int)protocal.BodyLength + 64 : 64))
             {
                 _userToken.Coder.Encode(protocal, writer);
                 SendAsync(writer.WrittenSpan.ToArray());
@@ -741,7 +741,7 @@ Add the send members (delegating to the existing byte[] server send path, e.g. `
             if (protocal == null) return;
             var userToken = _sessionManager.Get(sessionID);
             if (userToken?.Coder == null) return;
-            using (var writer = new PooledBufferWriter(protocal.BodyLength + 64))
+            using (var writer = new PooledBufferWriter(protocal.BodyLength > 0 && protocal.BodyLength < int.MaxValue - 64 ? (int)protocal.BodyLength + 64 : 64))
             {
                 userToken.Coder.Encode(protocal, writer);
                 SendAsync(sessionID, writer.WrittenSpan.ToArray());
