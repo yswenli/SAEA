@@ -1376,6 +1376,8 @@ Keep the existing extra overload `Decode(byte[], Action<ISocketProtocal>, Action
 
 Change the private `Decode(byte[])` return type/body to append into the passed `DecodedFrames`, or inline the loop into the new method. `data.ToArray()` is an accepted one-time copy for this non-frame coder.
 
+The legacy public overload `Decode(byte[] data, Action<DateTime> onHeart, Action<byte[]> onFile)` has no remaining external callers once the three in-repo sites (`WSClient.cs:212`, `WSServerImpl.cs:112`, `WSSServerImpl.cs:140`) are migrated to the `ReadOnlySequence` overload above. Delete both that overload and the private `Decode(byte[])` it delegates to, and fold the frame-splitting loop into the new `Decode(ReadOnlySequence<byte>, ...)`. Keep `DoMask`/`DoMaskUnsafe`/`Clear` verbatim.
+
 - [ ] **Step 3: `WSProtocal`**
 
 Replace the class body (keep header; add `using System.Buffers;`; keep `_mask`, ctor overloads, `IsPooled`):
@@ -1475,11 +1477,15 @@ Replace the class body (keep header; add `using System.Buffers;`; keep `_mask`, 
   ```csharp
   using (var w = new SAEA.Common.Caching.PooledBufferWriter(64)) { msg.WriteMaskedTo(w); _client.SendAsync(w.WrittenSpan.ToArray()); }
   ```
-- `WSClient.cs:284` `new WSProtocal(WSProtocalType.Pong, null).ToBytes()` → same pattern with `WriteMaskedTo`.
 - `WSClient.cs:228` `Encoding.UTF8.GetString(wsProtocal.Content)` → `Encoding.UTF8.GetString(wsProtocal.Content.Span.ToArray())`.
-- `WSServerImpl.cs:112` / `WSSServerImpl.cs:140` `coder.Decode(data)` → `using (var msgs = coder.Decode(new ReadOnlySequence<byte>(data))) { foreach (var m in msgs.Frames) ... }`.
-- `WSSServerImpl.cs:179` `new WSProtocal(type, content).ToBytes()` → `WriteTo` (server: unmasked) into writer then `SendAsync(...ToArray())`.
-- `WSSServerImpl.cs:186` `data.ToBytes()` (byte[] extension) — leave unchanged.
+- `WSServerImpl.cs:112` / `WSSServerImpl.cs:140` / `WSClient.cs:212` `coder.Decode(data)` → `using (var msgs = coder.Decode(new ReadOnlySequence<byte>(data))) { foreach (var m in msgs.Frames) ... }` (keep the existing switch body; `m` is `ISocketProtocal`, so cast `(WSProtocal)m` as before).
+- `WSServerImpl.cs:229` `data.ToBytes(false)` → server is **unmasked**: write via `data.WriteTo(w)` into a `PooledBufferWriter`, then `ReplyBase(id, w.WrittenSpan.ToArray())`.
+- `WSServerImpl.cs:240` and its `ReplyClose` counterpart pass `data.Content` to `ReplyBase(string, WSProtocalType, byte[] content)` → `data.Content.ToArray()`.
+- `WSSServerImpl.cs:179` `new WSProtocal(type, content).ToBytes()` and `WSSServerImpl.cs:186` `data.ToBytes()` are BOTH `WSProtocal.ToBytes` (not a `byte[]` extension) in `ReplyBase(Stream, ...)`. Server is **unmasked**: write via `WriteTo(w)` into a `PooledBufferWriter`, then `stream.Write(w.WrittenSpan.ToArray(), 0, len)`.
+- `WSSServerImpl.cs:193/198` `ReplyBase(stream, WSProtocalType.Pong, data.Content)` → `data.Content.ToArray()`.
+- `WSClient.cs:284` `var data = new WSProtocal(WSProtocalType.Pong, null).ToBytes();` is a dead local (its value is unused; the next line calls `SendBase(...)`). Delete the `var data = ...` line and keep `SendBase(new WSProtocal(WSProtocalType.Pong, null))`.
+
+**Frame-lifetime contract (WSCoder path):** `WSCoder.Decode` produces `WSProtocal` frames that own their own buffers (`IsPooled` for >4KB, matching the existing rent-and-return semantics). `DecodedFrames.Dispose` disposes `IDisposable` frames, so under the `using` above the frames' buffers are returned at the end of the block. Consumers (the `OnMessage` event handlers in `WSClient`/`WSServerImpl`/`WSSServerImpl`) must therefore consume synchronously inside the handler (as the existing callers do); do NOT stash the `WSProtocal` for later use. This is the same consume-or-copy rule as the batch codec path. Do not add compensating copies beyond what the plan lists.
 
 - [ ] **Step 5: Throwing coders — signature only**
 
