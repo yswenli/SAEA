@@ -73,13 +73,14 @@ namespace SAEA.P2PTest.Tests
             TestHarness.Expect(w.WrittenCount == 2, "PooledBufferWriter.Advance tracks WrittenCount");
             TestHarness.Expect(w.WrittenSpan[0] == 1 && w.WrittenSpan[1] == 2, "PooledBufferWriter.WrittenSpan content");
 
-            var more = w.GetSpan(8);
-            for (int i = 0; i < 8; i++) more[i] = (byte)(i + 3);
-            w.Advance(8);
-            TestHarness.Expect(w.WrittenCount == 10, "PooledBufferWriter grows past initial capacity");
-            TestHarness.Expect(w.WrittenSpan[9] == 10, "PooledBufferWriter preserves prefix after growth");
+            var more = w.GetSpan(20);
+            for (int i = 0; i < 20; i++) more[i] = (byte)(i + 3);
+            w.Advance(20);
+            TestHarness.Expect(w.WrittenCount == 22, "PooledBufferWriter grows past initial capacity");
+            TestHarness.Expect(w.WrittenSpan[0] == 1 && w.WrittenSpan[1] == 2 && w.WrittenSpan[21] == 22,
+                "PooledBufferWriter preserves prefix after growth");
 
-            TestHarness.Expect(w.TryGetArray(out var seg) && seg.Offset == 0 && seg.Count == 10,
+            TestHarness.Expect(w.TryGetArray(out var seg) && seg.Offset == 0 && seg.Count == 22,
                 "PooledBufferWriter.TryGetArray exposes exact written range");
 
             w.Clear();
@@ -116,63 +117,60 @@ namespace SAEA.Common.Caching
 {
     /// <summary>
     /// 池化写入器：数组背衬、可归还、可零拷贝直发（TryGetArray 供 SocketAsyncEventArgs.SetBuffer）。
-    /// 非线程安全。
+    /// 非线程安全。注意：GetSpan/GetMemory 取得的 span 在 Dispose 后失效，Dispose 前不得让其外泄。
     /// </summary>
     public sealed class PooledBufferWriter : IBufferWriter<byte>, IDisposable
     {
         private byte[] _buffer;
+        private int _requestedSize;
         private int _written;
         private bool _disposed;
 
         public PooledBufferWriter(int initialCapacity = 4096)
         {
             if (initialCapacity <= 0) initialCapacity = 4096;
+            _requestedSize = initialCapacity;
             _buffer = MemoryPoolManager.Rent(initialCapacity);
         }
 
-        public int WrittenCount { get { return _written; } }
+        public int WrittenCount
+        {
+            get { ThrowIfDisposed(); return _written; }
+        }
 
         public ReadOnlySpan<byte> WrittenSpan
         {
-            get
-            {
-                if (_disposed) throw new ObjectDisposedException(nameof(PooledBufferWriter));
-                return _buffer.AsSpan(0, _written);
-            }
+            get { ThrowIfDisposed(); return _buffer.AsSpan(0, _written); }
         }
 
         public ReadOnlyMemory<byte> WrittenMemory
         {
-            get
-            {
-                if (_disposed) throw new ObjectDisposedException(nameof(PooledBufferWriter));
-                return _buffer.AsMemory(0, _written);
-            }
+            get { ThrowIfDisposed(); return _buffer.AsMemory(0, _written); }
         }
 
         public void Advance(int count)
         {
-            if (_disposed) throw new ObjectDisposedException(nameof(PooledBufferWriter));
-            if (count < 0 || _written + count > _buffer.Length)
+            ThrowIfDisposed();
+            if (count < 0 || count > _buffer.Length - _written)
                 throw new ArgumentOutOfRangeException(nameof(count));
             _written += count;
         }
 
         public Memory<byte> GetMemory(int sizeHint = 0)
         {
-            Ensure(sizeHint <= 0 ? 1 : sizeHint);
+            Ensure(sizeHint);
             return _buffer.AsMemory(_written);
         }
 
         public Span<byte> GetSpan(int sizeHint = 0)
         {
-            Ensure(sizeHint <= 0 ? 1 : sizeHint);
+            Ensure(sizeHint);
             return _buffer.AsSpan(_written);
         }
 
         public bool TryGetArray(out ArraySegment<byte> segment)
         {
-            if (_disposed) throw new ObjectDisposedException(nameof(PooledBufferWriter));
+            ThrowIfDisposed();
             segment = new ArraySegment<byte>(_buffer, 0, _written);
             return true;
         }
@@ -180,7 +178,7 @@ namespace SAEA.Common.Caching
         /// <summary>复位写入位置，不归还缓冲。</summary>
         public void Clear()
         {
-            if (_disposed) throw new ObjectDisposedException(nameof(PooledBufferWriter));
+            ThrowIfDisposed();
             _written = 0;
         }
 
@@ -190,7 +188,7 @@ namespace SAEA.Common.Caching
             _disposed = true;
             if (_buffer != null)
             {
-                MemoryPoolManager.Return(_buffer, _buffer.Length);
+                MemoryPoolManager.Return(_buffer, _requestedSize);
                 _buffer = null;
             }
             _written = 0;
@@ -198,21 +196,37 @@ namespace SAEA.Common.Caching
 
         private void Ensure(int sizeHint)
         {
-            if (_disposed) throw new ObjectDisposedException(nameof(PooledBufferWriter));
-            var required = _written + sizeHint;
+            ThrowIfDisposed();
+            if (sizeHint <= 0) sizeHint = 1;
+
+            long required = (long)_written + sizeHint;
             if (required <= _buffer.Length) return;
+            if (required > int.MaxValue)
+                throw new ArgumentOutOfRangeException(nameof(sizeHint));
 
             var newSize = _buffer.Length;
-            while (newSize < required) newSize <<= 1;
+            while (newSize < required)
+            {
+                if (newSize > int.MaxValue / 2) { newSize = (int)required; break; }
+                newSize <<= 1;
+            }
 
             var bigger = MemoryPoolManager.Rent(newSize);
             Buffer.BlockCopy(_buffer, 0, bigger, 0, _written);
-            MemoryPoolManager.Return(_buffer, _buffer.Length);
+            MemoryPoolManager.Return(_buffer, _requestedSize);
             _buffer = bigger;
+            _requestedSize = newSize;
+        }
+
+        private void ThrowIfDisposed()
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(PooledBufferWriter));
         }
     }
 }
 ```
+
+> **Post-implementation correction (code-quality review of Task 1):** the growth loop `while (newSize < required) newSize <<= 1;` overflows `int` and never terminates for `required > 2^30`; guarded above. `Return(_buffer, _buffer.Length)` mis-tiers the pooled array (a 3000-byte request rents a 4096-byte array from Small but returns it to Medium); the `_requestedSize` field makes the return pool-exact. `Advance`/`Ensure` additions are overflow-checked.
 
 - [ ] **Step 4: Run the test to verify it passes**
 
@@ -597,16 +611,26 @@ namespace SAEA.Sockets.Base
                 _pooled = MemoryPoolManager.Rent(_pooledRequestedSize);
                 return;
             }
-            if (_offset + incoming <= _pooled.Length) return;
+            if ((long)_offset + incoming <= _pooled.Length) return;
+
+            long required = (long)_offset + incoming;
+            if (required > int.MaxValue)
+                throw new ArgumentOutOfRangeException(nameof(incoming));
 
             var newSize = _pooled.Length;
-            while (newSize < _offset + incoming) newSize <<= 1;
+            while (newSize < required)
+            {
+                if (newSize > int.MaxValue / 2) { newSize = (int)required; break; }
+                newSize <<= 1;
+            }
 
-            _pooledRequestedSize = Math.Max(_pooledRequestedSize, newSize);
+            // 归还旧缓冲必须用其“原始请求大小”，否则会被错误分级到更大的池（code-quality 审查发现）。
+            var oldSize = _pooledRequestedSize;
             var bigger = MemoryPoolManager.Rent(newSize);
             Buffer.BlockCopy(_pooled, 0, bigger, 0, _offset);
-            MemoryPoolManager.Return(_pooled, _pooledRequestedSize);
+            MemoryPoolManager.Return(_pooled, oldSize);
             _pooled = bigger;
+            _pooledRequestedSize = newSize;
         }
     }
 }
