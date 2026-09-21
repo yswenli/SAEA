@@ -93,7 +93,7 @@ In `Src/SAEA.Sockets/Base/BaseUserToken.cs`, add a field-backed property and the
         public IDisposable SendingOwner
         {
             get { return _sendingOwner; }
-            set { _sendingOwner = value; }
+            set { Volatile.Write(ref _sendingOwner, value); }
         }
 
         public IDisposable TakeSendingOwner()
@@ -135,6 +135,13 @@ In `Src/SAEA.P2PTest/Tests/SpanPipelineTest.cs`, add a test method and register 
 ```csharp
 public static void SendingOwnerIsReleasedOnClear()
 {
+    var live = new SAEA.Sockets.Base.BaseUserToken();
+    var liveOwner = new TrackingDisposable();
+    live.SendingOwner = liveOwner;
+    var taken = live.TakeSendingOwner();
+    TestHarness.Expect(ReferenceEquals(taken, liveOwner) && live.TakeSendingOwner() == null,
+        "TakeSendingOwner returns the owner once and empties the slot");
+
     var token = new SAEA.Sockets.Base.BaseUserToken();
     var owner = new TrackingDisposable();
     token.SendingOwner = owner;
@@ -170,7 +177,7 @@ Register it wherever the other `SpanPipelineTest` methods are invoked (in `SpanP
 - [ ] **Step 5: Run the suite**
 
 Run: `dotnet run --project Src/SAEA.P2PTest/SAEA.P2PTest.csproj -c Debug -- --all`
-Expected: all pass; count increases by 4 over the 283 baseline (287 total).
+Expected: all pass; count increases by 5 over the 283 baseline (288 total).
 
 - [ ] **Step 6: Commit**
 
@@ -995,7 +1002,8 @@ git commit -m "docs(plan): record Plan 2A outcome"
 
 ## Risks / watch-items
 - **Interface widening breaks external implementers.** Only the six implementers live in-repo; `SAEA.Audio.Net` etc. consume the *published* package and are unaffected. Verified: `SAEA.Sockets` holds all `IClientSocket`/`IServerSocket` implementations.
-- **Send-buffer lifetime.** Every rented `PooledBufferWriter` must be disposed exactly once: on `ProcessSended`, on the `SendAsyncRaw` failure/timeout/completion paths, and on `BaseUserToken.Clear()`. The watchdog in `IocpServerSocket` also releases on `ActionTimeout`.
+- **Send-buffer lifetime.** Every rented `PooledBufferWriter` must be disposed exactly once: on `ProcessSended`, on the `SendAsyncRaw` failure/timeout/completion paths, and on `BaseUserToken.Clear()`. The watchdog in `IocpServerSocket` also releases on `ActionTimeout`. Ownership publication uses `Volatile.Write` in the `SendingOwner` setter and `Interlocked.Exchange` in `TakeSendingOwner()` so a concurrent `Clear()` observes the owner.
+- **Accepted 2A limitation (residual buffer-return timing).** `Socket.Close()` aborts a pending overlapped send but does not guarantee the kernel has finished reading the buffer before it returns, so a pooled buffer could in principle be returned while still in use. This is strictly better than the previous ordering and is knowingly accepted for 2A; a completion-drain / deferred-return belongs in a later pass.
 - **`WaitWrite` serialization.** One in-flight send per token means a single `SendingOwner` slot is sufficient. If a future change allows concurrent sends, this must become a queue.
 - **UDP shadowed delegate.** `UdpClientSocket`'s nested `OnClientReceiveSpanHandler` will silently fail interface satisfaction; Task 7 Step 1 is mandatory.
 - **`End` correctness.** `End` materializes a plain `byte[]` so it is safe across the immediate `Disconnect`; it is intentionally not zero-alloc (not a hot path).
