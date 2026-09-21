@@ -408,6 +408,27 @@ Add to `SpanPipelineTest.Run()`:
             var threw = false;
             try { var _ = batch.Count; } catch (ObjectDisposedException) { threw = true; }
             TestHarness.Expect(threw, "DecodedFrames throws after Dispose");
+
+            // Dispose 必须先释放 IDisposable 帧，再归还池化背衬（否则帧 Dispose 可能读到已归还的缓冲）
+            var disposable = new DisposableFrame();
+            var batch2 = new SAEA.Sockets.Base.DecodedFrames(1);
+            batch2.Add(disposable);
+            batch2.Dispose();
+            TestHarness.Expect(disposable.Disposed, "DecodedFrames.Dispose disposes IDisposable frames");
+```
+
+Add this helper class at the bottom of `SpanPipelineTest.cs` (inside the namespace), alongside `FrameProbe` (defined in Task 5):
+
+```csharp
+    internal sealed class DisposableFrame : SAEA.Sockets.Interface.ISocketProtocal, IDisposable
+    {
+        public long BodyLength => 0;
+        public byte Type => 0;
+        public ReadOnlyMemory<byte> Content => ReadOnlyMemory<byte>.Empty;
+        public void WriteTo(System.Buffers.IBufferWriter<byte> writer) { }
+        public bool Disposed;
+        public void Dispose() { Disposed = true; }
+    }
 ```
 
 - [ ] **Step 2: Run to verify it fails**
@@ -486,17 +507,26 @@ namespace SAEA.Sockets.Base
         {
             if (_disposed) return;
             _disposed = true;
-            if (_pooledBuffer != null)
+
+            // 先释放帧，再归还池化背衬：批次帧虽约定“非持有者”，但若其 Dispose 触碰背衬，
+            // 归还后可能被并发租出，形成 use-after-return（code-quality 审查发现）。
+            try
             {
-                MemoryPoolManager.Return(_pooledBuffer, _pooledRequestedSize);
-                _pooledBuffer = null;
+                for (var i = 0; i < _count; i++)
+                {
+                    var d = _frames[i] as IDisposable;
+                    if (d != null) d.Dispose();
+                }
             }
-            for (var i = 0; i < _count; i++)
+            finally
             {
-                var d = _frames[i] as IDisposable;
-                if (d != null) d.Dispose();
+                _count = 0;
+                if (_pooledBuffer != null)
+                {
+                    MemoryPoolManager.Return(_pooledBuffer, _pooledRequestedSize);
+                    _pooledBuffer = null;
+                }
             }
-            _count = 0;
         }
 
         private void ThrowIfDisposed()
@@ -521,7 +551,7 @@ namespace SAEA.Sockets.Base
     /// 驱动 per-instance FrameDecoder 时，把帧体复制进单块可增长池化缓冲；
     /// 回调延迟到缓冲定型后按原顺序触发，从而让 ReadOnlyMemory 在批次 Dispose 前稳定有效。
     /// </summary>
-    internal sealed class FramesCollector : IFrameHandler
+    internal sealed class FramesCollector : IFrameHandler, IDisposable
     {
         private byte[] _pooled;
         private int _pooledRequestedSize;
@@ -561,30 +591,54 @@ namespace SAEA.Sockets.Base
             frames.SetPooledBuffer(_pooled, _pooledRequestedSize);
 
             var buffer = _pooled;
-            for (var i = 0; i < _eventCount; i++)
-            {
-                var e = _events[i];
-                switch (e.Kind)
-                {
-                    case FrameEventKind.Heart:
-                        if (onHeart != null) onHeart(e.HeartAt);
-                        break;
-                    case FrameEventKind.File:
-                        if (onFile != null)
-                            onFile(e.Length == 0 ? ReadOnlyMemory<byte>.Empty : new ReadOnlyMemory<byte>(buffer, e.Offset, e.Length));
-                        break;
-                    case FrameEventKind.Data:
-                        var content = e.Length == 0 ? ReadOnlyMemory<byte>.Empty : new ReadOnlyMemory<byte>(buffer, e.Offset, e.Length);
-                        frames.Add(new BaseSocketProtocal(e.BodyLength, e.Type, content));
-                        break;
-                }
-            }
+            _pooled = null; // 所有权转移给 frames（在触发回调前转移，异常时由下方 catch 释放）
 
-            _pooled = null; // 所有权转移给 frames
+            try
+            {
+                for (var i = 0; i < _eventCount; i++)
+                {
+                    var e = _events[i];
+                    switch (e.Kind)
+                    {
+                        case FrameEventKind.Heart:
+                            if (onHeart != null) onHeart(e.HeartAt);
+                            break;
+                        case FrameEventKind.File:
+                            if (onFile != null)
+                                onFile(e.Length == 0 ? ReadOnlyMemory<byte>.Empty : new ReadOnlyMemory<byte>(buffer, e.Offset, e.Length));
+                            break;
+                        case FrameEventKind.Data:
+                            var content = e.Length == 0 ? ReadOnlyMemory<byte>.Empty : new ReadOnlyMemory<byte>(buffer, e.Offset, e.Length);
+                            frames.Add(new BaseSocketProtocal(e.BodyLength, e.Type, content));
+                            break;
+                    }
+                }
+                return frames;
+            }
+            catch
+            {
+                frames.Dispose();
+                throw;
+            }
+            finally
+            {
+                _offset = 0;
+                _eventCount = 0;
+                _dataCount = 0;
+            }
+        }
+
+        /// <summary>Build 未被调用时归还池化缓冲，避免异常路径泄漏（BaseCoder 在 finally 中调用）。</summary>
+        public void Dispose()
+        {
+            if (_pooled != null)
+            {
+                MemoryPoolManager.Return(_pooled, _pooledRequestedSize);
+                _pooled = null;
+            }
             _offset = 0;
             _eventCount = 0;
             _dataCount = 0;
-            return frames;
         }
 
         private int Append(ReadOnlySpan<byte> content)
@@ -885,16 +939,24 @@ Replace the class body in `Src/SAEA.Sockets/Base/BaseCoder.cs` (keep header; `us
         public DecodedFrames Decode(ReadOnlySequence<byte> data, Action<DateTime> onHeart = null, Action<ReadOnlyMemory<byte>> onFile = null)
         {
             var collector = new FramesCollector();
-            if (data.IsSingleSegment)
+            try
             {
-                DecodeStream(data.FirstSpan, collector, collector.AddHeart, collector.AddFile);
+                if (data.IsSingleSegment)
+                {
+                    DecodeStream(data.FirstSpan, collector, collector.AddHeart, collector.AddFile);
+                }
+                else
+                {
+                    foreach (var segment in data)
+                        DecodeStream(segment.Span, collector, collector.AddHeart, collector.AddFile);
+                }
+                return collector.Build(onHeart, onFile);
             }
-            else
+            finally
             {
-                foreach (var segment in data)
-                    DecodeStream(segment.Span, collector, collector.AddHeart, collector.AddFile);
+                // Build 成功后 _pooled 已转移（Dispose 为 no-op）；异常路径（如非法帧 KernelException）在此归还缓冲。
+                collector.Dispose();
             }
-            return collector.Build(onHeart, onFile);
         }
 
         /// <summary>零拷贝流式解码：帧体仅在回调期间有效。</summary>
@@ -1398,7 +1460,7 @@ Run: `dotnet build Src/SAEA.Sockets.sln -c Release`
 Expected: `0 Error(s)`.
 
 Run: `dotnet run --project Src/SAEA.P2PTest/SAEA.P2PTest.csproj -c Debug -- --all`
-Expected: `ALL ADVANCED TESTS: 280/280 passed, 0 failed` (255 existing + 25 new assertions in SpanPipelineTest).
+Expected: `ALL ADVANCED TESTS: 281/281 passed, 0 failed` (255 existing + 26 new assertions in SpanPipelineTest).
 
 - [ ] **Step 2: Fix any legacy-test regressions**
 
@@ -1408,16 +1470,16 @@ If `StreamDecoderTest`/`ProtocolTest`/`ProtocolAdvancedTest`/`PerformanceTest` f
 
 ```bash
 git add -A
-git commit -m "test: migrate remaining tests to Span/Memory coder API; all green (280/280)"
+git commit -m "test: migrate remaining tests to Span/Memory coder API; all green (281/281)"
 ```
 
 - [ ] **Step 4: Update README test count**
 
-In `README.md` and `README.en.md`, change `255` → `280` in the test-count line.
+In `README.md` and `README.en.md`, change `255` → `281` in the test-count line.
 
 ```bash
 git add README.md README.en.md
-git commit -m "docs: update test count to 280"
+git commit -m "docs: update test count to 281"
 ```
 
 ---
