@@ -74,16 +74,16 @@ namespace SAEA.Sockets.Base
             _end += data.Length;
         }
 
-        public bool TryReadFrame(out FrameKind kind, out SocketFrame frame, out byte[] fileContent, out DateTime heartAt)
+        public bool TryReadFrame(out FrameKind kind, out SocketFrame frame, out ReadOnlySpan<byte> fileContent, out DateTime heartAt)
         {
             kind = FrameKind.Data;
             frame = default;
-            fileContent = null;
+            fileContent = default;
             heartAt = default;
 
             if (_end - _start < BaseCoder.P_Head) return false;
 
-            var bodyLen = BitConverter.ToInt64(_buffer, _start);
+            var bodyLen = System.Buffers.Binary.BinaryPrimitives.ReadInt64LittleEndian(_buffer.AsSpan(_start, BaseCoder.P_LEN));
             var type = _buffer[_start + BaseCoder.P_LEN];
 
             if (bodyLen < 0 || bodyLen > _maxFrameLength)
@@ -102,9 +102,7 @@ namespace SAEA.Sockets.Base
 
             if (type == (byte)SocketProtocalType.BigData)
             {
-                fileContent = new byte[(int)bodyLen];
-                if (bodyLen > 0)
-                    Buffer.BlockCopy(_buffer, _start + BaseCoder.P_Head, fileContent, 0, (int)bodyLen);
+                fileContent = _buffer.AsSpan(_start + BaseCoder.P_Head, (int)bodyLen);
                 Consume(total);
                 kind = FrameKind.File;
                 return true;
@@ -136,11 +134,17 @@ namespace SAEA.Sockets.Base
                 _end = len;
             }
 
-            var required = _end + incoming;
+            long required = (long)_end + incoming;
             if (required <= _buffer.Length) return;
+            if (required > int.MaxValue)
+                throw new KernelException($"数据帧过大: {required}");
 
             var newSize = _buffer.Length;
-            while (newSize < required) newSize <<= 1;
+            while (newSize < required)
+            {
+                if (newSize > int.MaxValue / 2) { newSize = (int)required; break; }
+                newSize <<= 1;
+            }
 
             var bigger = ArrayPool<byte>.Shared.Rent(newSize);
             Buffer.BlockCopy(_buffer, _start, bigger, 0, _end - _start);

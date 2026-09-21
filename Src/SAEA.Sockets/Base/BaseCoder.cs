@@ -29,104 +29,62 @@
 *描述：BaseCoder编解码类
 *
 *****************************************************************************/
-using SAEA.Common;
-using SAEA.Common.Caching;
-using SAEA.Sockets.Interface;
-using SAEA.Sockets.Model;
-
 using System;
 using System.Buffers;
 using System.Buffers.Binary;
-using System.Collections.Generic;
-using System.IO;
+using SAEA.Sockets.Interface;
 
 namespace SAEA.Sockets.Base
 {
     /// <summary>
-    /// 定义一个基类 BaseCoder，实现 ICoder 接口
+    /// 帧式编解码基类。
     /// </summary>
-    public class BaseCoder : ICoder
+    public class BaseCoder : IFrameCoder
     {
-        // 定义常量 P_LEN，表示协议长度字段的偏移量
         public const int P_LEN = 8;
-
-        // 定义常量 P_Type，表示协议类型字段的偏移量
         public const int P_Type = 1;
-
-        // 定义常量 P_Head，表示协议头部长度
         public const int P_Head = 9;
-
-        // 定义常量 SmallDataThreshold，小数据阈值（4KB）
         public const int SmallDataThreshold = 4 * 1024;
 
-        /// <summary>
-        /// 单帧最大帧体长度，可由部署方收紧
-        /// </summary>
+        /// <summary>单帧最大帧体长度，可由部署方收紧。构造 FrameDecoder 时捕获。</summary>
         public static int MaxFrameLength { get; set; } = int.MaxValue - P_Head;
 
-        // 增量式拆帧内核
         private FrameDecoder _decoder = new FrameDecoder(MaxFrameLength);
 
-        /// <summary>
-        /// 内部委托：接收数据时触发（Span版本）
-        /// </summary>
-        /// <param name="data">数据Span</param>
-        internal delegate void OnReceiveSpanHandler(ReadOnlySpan<byte> data);
-
-        /// <summary>
-        /// 内部事件：接收数据时触发（Span版本）
-        /// </summary>
-        internal event OnReceiveSpanHandler OnReceiveSpan;
-
-        // 实现接口方法 Encode，将协议对象转换为字节数组
-        public byte[] Encode(ISocketProtocal protocal)
+        public void Encode(ISocketProtocal protocal, IBufferWriter<byte> writer)
         {
-            return protocal.ToBytes();
+            protocal.WriteTo(writer);
         }
 
-        /// <summary>
-        /// 实现接口方法 Decode，解析接收到的字节数据（Span版本）
-        /// </summary>
-        /// <param name="data">数据Span</param>
-        /// <param name="onHeart">心跳回调</param>
-        /// <param name="onFile">文件回调</param>
-        public List<ISocketProtocal> Decode(ReadOnlySpan<byte> data, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
+        /// <summary>有状态批量解码。返回批次须 using。</summary>
+        public DecodedFrames Decode(ReadOnlySequence<byte> data, Action<DateTime> onHeart = null, Action<ReadOnlyMemory<byte>> onFile = null)
         {
-            OnReceiveSpan?.Invoke(data);
-
-            var result = new List<ISocketProtocal>();
-
-            _decoder.Append(data);
-
-            while (_decoder.TryReadFrame(out var kind, out var frame, out var fileContent, out var heartAt))
+            var collector = new FramesCollector();
+            try
             {
-                switch (kind)
+                if (data.IsSingleSegment)
                 {
-                    case FrameKind.Heart:
-                        onHeart?.Invoke(heartAt);
-                        break;
-                    case FrameKind.File:
-                        onFile?.Invoke(fileContent);
-                        break;
-                    case FrameKind.Data:
-                        var content = frame.Content.Length == 0 ? Array.Empty<byte>() : frame.Content.ToArray();
-                        result.Add(new BaseSocketProtocal() { BodyLength = frame.BodyLength, Type = frame.Type, Content = content });
-                        break;
+                    DecodeStream(data.First.Span, collector, collector.AddHeart, collector.AddFile);
                 }
+                else
+                {
+                    foreach (var segment in data)
+                        DecodeStream(segment.Span, collector, collector.AddHeart, collector.AddFile);
+                }
+                return collector.Build(onHeart, onFile);
             }
-
-            return result;
+            finally
+            {
+                // Build 成功后 _pooled 已转移（Dispose 为 no-op）；异常路径（如非法帧 KernelException）在此归还缓冲。
+                collector.Dispose();
+            }
         }
 
-        /// <summary>
-        /// 零拷贝流式解码：帧体以切片交付，仅在 handler 回调期间有效。
-        /// </summary>
-        public void DecodeStream(ReadOnlySpan<byte> data, IFrameHandler handler, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
+        /// <summary>零拷贝流式解码：帧体仅在回调期间有效。</summary>
+        public void DecodeStream(ReadOnlySpan<byte> data, IFrameHandler handler, Action<DateTime> onHeart = null, FileSpanHandler onFile = null)
         {
             if (handler == null) throw new ArgumentNullException(nameof(handler));
 
-            OnReceiveSpan?.Invoke(data);
-
             _decoder.Append(data);
 
             while (_decoder.TryReadFrame(out var kind, out var frame, out var fileContent, out var heartAt))
@@ -134,10 +92,10 @@ namespace SAEA.Sockets.Base
                 switch (kind)
                 {
                     case FrameKind.Heart:
-                        onHeart?.Invoke(heartAt);
+                        if (onHeart != null) onHeart(heartAt);
                         break;
                     case FrameKind.File:
-                        onFile?.Invoke(fileContent);
+                        if (onFile != null) onFile(fileContent);
                         break;
                     case FrameKind.Data:
                         handler.OnFrame(in frame);
@@ -146,113 +104,14 @@ namespace SAEA.Sockets.Base
             }
         }
 
-        /// <summary>
-        /// 无状态解码：直接在只读序列上解析（支持多段），帧体物化为精确 byte[]。
-        /// </summary>
-        public List<ISocketProtocal> Decode(ReadOnlySequence<byte> data, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
+        /// <summary>从帧头读取长度（8B 小端）。</summary>
+        public static long GetLength(ReadOnlySpan<byte> data)
         {
-            var result = new List<ISocketProtocal>();
-            Span<byte> header = stackalloc byte[P_Head];
-            long position = 0;
-
-            while (data.Length - position >= P_Head)
-            {
-                data.Slice(position, P_Head).CopyTo(header);
-
-                var bodyLen = BinaryPrimitives.ReadInt64LittleEndian(header);
-                var type = header[P_LEN];
-
-                if (bodyLen < 0 || bodyLen > MaxFrameLength)
-                    throw new KernelException($"非法的数据帧长度: {bodyLen}");
-
-                if (bodyLen == 0 && type == (byte)SocketProtocalType.Heart)
-                {
-                    position += P_Head;
-                    onHeart?.Invoke(DateTimeHelper.Now);
-                    continue;
-                }
-
-                if (data.Length - position < P_Head + bodyLen) break;
-
-                byte[] content;
-                if (bodyLen == 0)
-                {
-                    content = Array.Empty<byte>();
-                }
-                else
-                {
-                    content = data.Slice(position + P_Head, bodyLen).ToArray();
-                }
-
-                position += P_Head + bodyLen;
-
-                if (type == (byte)SocketProtocalType.BigData)
-                    onFile?.Invoke(content);
-                else
-                    result.Add(new BaseSocketProtocal() { BodyLength = bodyLen, Type = type, Content = content });
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// 实现接口方法 Decode，解析接收到的字节数据
-        /// </summary>
-        /// <param name="data"></param>
-        /// <param name="onHeart"></param>
-        /// <param name="onFile"></param>
-        public List<ISocketProtocal> Decode(byte[] data, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
-        {
-            // 委托给Span版本的方法
-            return Decode(data.AsSpan(), onHeart, onFile);
-        }
-
-        /// <summary>
-        /// 静态方法 GetLength，从字节数组中获取数据包长度
-        /// </summary>
-        /// <param name="data"></param>
-        /// <returns></returns>
-        public static long GetLength(byte[] data)
-        {
-            if (data == null || data.Length < P_LEN)
+            if (data.Length < P_LEN)
                 throw new ArgumentException("数据长度不足");
-                
-            return data.ToLong();
+            return BinaryPrimitives.ReadInt64LittleEndian(data);
         }
 
-        /// <summary>
-        /// 静态方法 GetType，从字节数组中获取数据包类型
-        /// </summary>
-        /// <param name="data"></param>
-        /// <returns></returns>
-        public static SocketProtocalType GetType(byte[] data)
-        {
-            if (data == null || data.Length < P_LEN + 1)
-                throw new ArgumentException("数据长度不足");
-                
-            return (SocketProtocalType)data[P_LEN];
-        }
-
-        /// <summary>
-        /// 静态方法 GetContent，从字节数组中获取数据包内容
-        /// </summary>
-        /// <param name="data"></param>
-        /// <param name="offset"></param>
-        /// <param name="count"></param>
-        /// <returns></returns>
-        public static byte[] GetContent(byte[] data, int offset, int count)
-        {
-            if (data == null || offset < 0 || count < 0 || offset + count > data.Length)
-                throw new ArgumentException("参数无效");
-                
-            var buffer = new byte[count];
-            Buffer.BlockCopy(data, offset, buffer, 0, count);
-            return buffer;
-        }
-
-        /// <summary>
-        /// 清空缓冲区
-        /// </summary>
         public void Clear()
         {
             _decoder?.Clear();

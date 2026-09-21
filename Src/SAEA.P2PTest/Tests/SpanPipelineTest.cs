@@ -71,6 +71,70 @@ namespace SAEA.P2PTest.Tests
             w.Dispose();
             w.Dispose(); // idempotent
             TestHarness.Expect(true, "PooledBufferWriter.Dispose idempotent");
+
+            // 线格式：8B 小端长度 + 1B type + body
+            byte[] Frame(long len, byte type, byte[] body)
+            {
+                var buf = new byte[9 + body.Length];
+                BitConverter.GetBytes(len).CopyTo(buf, 0);
+                buf[8] = type;
+                body.CopyTo(buf, 9);
+                return buf;
+            }
+
+            var coder = new SAEA.Sockets.Base.BaseCoder();
+
+            // 半包：先喂 5 字节，不应产出，再喂剩余
+            var full = Frame(3, 2, new byte[] { 1, 2, 3 });
+            var half = coder.Decode(new ReadOnlySequence<byte>(full, 0, 5));
+            TestHarness.Expect(half.Count == 0, "BaseCoder.Decode buffers partial frame");
+            half.Dispose();
+            using (var rest = coder.Decode(new ReadOnlySequence<byte>(full, 5, full.Length - 5)))
+            {
+                TestHarness.Expect(rest.Count == 1, "BaseCoder.Decode emits frame after completion");
+                TestHarness.Expect(rest[0].BodyLength == 3 && rest[0].Type == 2, "BaseCoder.Decode frame header");
+                TestHarness.Expect(rest[0].Content.Span[0] == 1 && rest[0].Content.Span[2] == 3, "BaseCoder.Decode frame body");
+            }
+
+            // 心跳：bodyLen=0 type=Heart → 回调、不产出
+            DateTime? heart = null;
+            using (var hb = coder.Decode(new ReadOnlySequence<byte>(Frame(0, (byte)SAEA.Sockets.Model.SocketProtocalType.Heart, new byte[0])),
+                       t => heart = t))
+            {
+                TestHarness.Expect(hb.Count == 0 && heart.HasValue, "BaseCoder.Decode heart consumed, no frame");
+            }
+
+            // BigData → onFile，不产出；span 有效
+            byte[]? fileCopy = null;
+            using (var big = coder.Decode(new ReadOnlySequence<byte>(Frame(2, (byte)SAEA.Sockets.Model.SocketProtocalType.BigData, new byte[] { 8, 9 })),
+                       null, m => fileCopy = m.ToArray()))
+            {
+                TestHarness.Expect(big.Count == 0 && fileCopy != null && fileCopy[0] == 8, "BaseCoder.Decode BigData onFile, no frame");
+            }
+
+            // 非法长度 → KernelException
+            var bad = new byte[9];
+            BitConverter.GetBytes((long)-1).CopyTo(bad, 0);
+            TestHarness.Throws<SAEA.Sockets.Model.KernelException>(
+                () => { using (coder.Decode(new ReadOnlySequence<byte>(bad))) { } },
+                "BaseCoder.Decode rejects negative length");
+            coder.Clear(); // 丢弃被拒帧，避免污染后续流式解码（_decoder 已缓存该非法帧）
+
+            // DecodeStream 零拷贝
+            var probe = new FrameProbe();
+            coder.DecodeStream(full, probe);
+            TestHarness.Expect(probe.Count == 1 && probe.LastLength == 3, "BaseCoder.DecodeStream invokes handler per frame");
+        }
+    }
+
+    internal sealed class FrameProbe : SAEA.Sockets.Interface.IFrameHandler
+    {
+        public int Count;
+        public int LastLength;
+        public void OnFrame(in SAEA.Sockets.Base.SocketFrame frame)
+        {
+            Count++;
+            LastLength = frame.Content.Length;
         }
     }
 
