@@ -66,6 +66,13 @@ namespace SAEA.Sockets.Core.Tcp
         private readonly ConcurrentDictionary<string, StreamUserToken> _tokens = new ConcurrentDictionary<string, StreamUserToken>();
 
         /// <summary>
+        /// <see cref="SendAsync(string, ISocketProtocal)"/> 在未配置 <see cref="ISocketOption.Context"/>（Stream 模式）
+        /// 时复用的回退编码器。惰性创建并缓存，避免每次发送都新建 <see cref="BaseCoder"/> 而泄漏其持有的
+        /// <c>ArrayPool</c> 缓冲。
+        /// </summary>
+        private ICoder _sendFallbackCoder;
+
+        /// <summary>
         /// 客户端连接数
         /// </summary>
         public int ClientCounts { get => _clientCounts; private set => _clientCounts = value; }
@@ -137,6 +144,18 @@ namespace SAEA.Sockets.Core.Tcp
                 return (ICoder)Activator.CreateInstance(unpacker.GetType());
             }
             return new BaseCoder();
+        }
+
+        /// <summary>
+        /// 获取发送用编码器：优先取 <see cref="ISocketOption.Context"/> 中配置的 Unpacker；Stream 模式通常不配置
+        /// Context，此时回退到缓存的 <see cref="BaseCoder"/>。该回退实例按需创建一次并复用，避免每次发送新建
+        /// <see cref="BaseCoder"/> 泄漏其 <c>ArrayPool</c> 缓冲。<see cref="ICoder.Encode"/> 无状态，
+        /// 因此共享同一实例用于并发发送是安全的。此方法永不返回 null。
+        /// </summary>
+        /// <returns>发送用编码器</returns>
+        private ICoder GetSendCoder()
+        {
+            return SocketOption?.Context?.Unpacker ?? (_sendFallbackCoder ??= new BaseCoder());
         }
 
         /// <summary>
@@ -470,8 +489,9 @@ namespace SAEA.Sockets.Core.Tcp
 
         /// <summary>
         /// 异步发送（Memory）。netstandard2.0 的 <see cref="Stream.WriteAsync(byte[], int, int)"/> 不接受
-        /// <see cref="ReadOnlyMemory{T}"/>，因此在本边界做一次 <c>byte[]</c> 拷贝；随后保持与
-        /// <see cref="SendAsync(string, byte[])"/> 相同的即发即忘语义（不等待返回的 <see cref="Task"/>）。
+        /// <see cref="ReadOnlyMemory{T}"/>，因此在本边界做一次 <c>byte[]</c> 拷贝；随后保持即发即忘语义
+        /// （不等待返回的 <see cref="Task"/>），但通过续接任务观察写入故障并在失败时触发 <see cref="OnError"/>，
+        /// 避免对端已断开/流已关闭时产生未观察的任务异常。
         /// </summary>
         /// <param name="sessionID">会话ID</param>
         /// <param name="data">数据</param>
@@ -483,13 +503,20 @@ namespace SAEA.Sockets.Core.Tcp
             if (channel == null || channel.ClientSocket == null || !channel.ClientSocket.Connected)
                 throw new KernelException("Failed to send data,current session does not exist！");
             var copy = data.ToArray();
-            channel.Stream.WriteAsync(copy, 0, copy.Length);
+            var writeTask = channel.Stream.WriteAsync(copy, 0, copy.Length);
+            _ = writeTask.ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                {
+                    try { OnError?.Invoke(sessionID, t.Exception); } catch { }
+                }
+            }, TaskContinuationOptions.OnlyOnFaulted);
         }
 
         /// <summary>
-        /// 编码并异步发送协议对象。编码器优先取 <see cref="ISocketOption.Context"/> 中配置的 Unpacker；
-        /// Stream 模式通常不配置 Context，此时回退到 <see cref="CreateCoder"/>，避免因
-        /// <c>SocketOption.Context</c> 为 null 而静默丢弃。编码写入 <see cref="PooledBufferWriter"/> 后，
+        /// 编码并异步发送协议对象。编码器通过 <see cref="GetSendCoder"/> 解析：优先 <see cref="ISocketOption.Context"/>
+        /// 中配置的 Unpacker，Stream 模式未配置时复用缓存的回退编码器，避免每次发送新建并泄漏
+        /// <see cref="BaseCoder"/> 的池化缓冲。编码写入 <see cref="PooledBufferWriter"/> 后，
         /// 通过 <see cref="SendAsync(string, ReadOnlyMemory{byte})"/> 发送其已写入区间，并确保写入器仅释放一次。
         /// </summary>
         /// <param name="sessionID">会话ID</param>
@@ -497,8 +524,7 @@ namespace SAEA.Sockets.Core.Tcp
         public void SendAsync(string sessionID, ISocketProtocal protocal)
         {
             if (protocal == null) return;
-            var coder = SocketOption?.Context?.Unpacker ?? CreateCoder();
-            if (coder == null) return;
+            var coder = GetSendCoder();
             using (var writer = new PooledBufferWriter(protocal.BodyLength > 0 && protocal.BodyLength < int.MaxValue - 64 ? (int)protocal.BodyLength + 64 : 64))
             {
                 coder.Encode(protocal, writer);

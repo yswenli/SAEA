@@ -30,6 +30,7 @@
 *
 *****************************************************************************/
 using SAEA.Common.Caching;
+using SAEA.Sockets.Base;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 
@@ -56,6 +57,13 @@ namespace SAEA.Sockets.Core.Tcp
         public ISocketOption SocketOption { get; set; }
 
         Stream _stream;
+
+        /// <summary>
+        /// <see cref="SendAsync(ISocketProtocal)"/> 在未设置 <see cref="Context"/>（如包装
+        /// <see cref="Stream"/> 的构造函数）时复用的回退编码器。惰性创建并缓存，避免每次发送都新建
+        /// <see cref="BaseCoder"/> 而泄漏其持有的 <c>ArrayPool</c> 缓冲。
+        /// </summary>
+        private ICoder _sendFallbackCoder;
 
         public bool Connected
         {
@@ -349,16 +357,19 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         /// <summary>
-        /// 编码并发送协议对象。编码写入 <see cref="PooledBufferWriter"/> 后，通过
+        /// 编码并发送协议对象。编码器优先取 <see cref="Context"/> 中配置的 Unpacker；包装
+        /// <see cref="Stream"/> 的构造函数不设置 Context，此时回退到缓存的 <see cref="BaseCoder"/>，
+        /// 避免静默丢弃。编码写入 <see cref="PooledBufferWriter"/> 后，通过
         /// <see cref="SendAsync(ReadOnlyMemory{byte})"/> 发送其已写入区间，并确保写入器仅释放一次。
         /// </summary>
         /// <param name="protocal">协议对象</param>
         public void SendAsync(ISocketProtocal protocal)
         {
-            if (protocal == null || Context?.Unpacker == null) return;
+            if (protocal == null) return;
+            var coder = Context?.Unpacker ?? (_sendFallbackCoder ??= new BaseCoder());
             using (var writer = new PooledBufferWriter(protocal.BodyLength > 0 && protocal.BodyLength < int.MaxValue - 64 ? (int)protocal.BodyLength + 64 : 64))
             {
-                Context.Unpacker.Encode(protocal, writer);
+                coder.Encode(protocal, writer);
                 SendAsync(writer.WrittenMemory);
             }
         }
@@ -373,6 +384,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <returns>写入任务</returns>
         public Task SendAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken)
         {
+            if (data.Length == 0) return Task.CompletedTask;
             var copy = data.ToArray();
             return _stream.WriteAsync(copy, 0, copy.Length, cancellationToken);
         }
