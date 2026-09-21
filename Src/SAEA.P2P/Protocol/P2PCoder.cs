@@ -47,7 +47,7 @@ namespace SAEA.P2P.Protocol
 
         public DecodedFrames DecodeP2P(byte[] data, Action<DateTime> onHeart = null)
         {
-            return Decode(new ReadOnlySequence<byte>(data), onHeart);
+            return Decode(new ReadOnlySequence<byte>(data ?? Array.Empty<byte>()), onHeart);
         }
 
         public byte[] EncodeP2P(P2PMessageType messageType)
