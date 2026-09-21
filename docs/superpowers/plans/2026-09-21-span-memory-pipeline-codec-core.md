@@ -217,7 +217,7 @@ namespace SAEA.Common.Caching
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `dotnet run --project Src/SAEA.P2PTest/SAEA.P2PTest.csproj -c Debug -- --all`
-Expected: `SpanPipelineTest` 6/6 PASS; overall count `261/261` (255 + 6).
+Expected: `SpanPipelineTest` 7/7 PASS; overall count `262/262` (255 existing + 7).
 
 - [ ] **Step 5: Commit**
 
@@ -751,21 +751,26 @@ Add to `SpanPipelineTest.Run()`:
             TestHarness.Throws<SAEA.Sockets.Model.KernelException>(
                 () => { using (coder.Decode(new ReadOnlySequence<byte>(bad))) { } },
                 "BaseCoder.Decode rejects negative length");
+            coder.Clear(); // 丢弃被拒帧，避免污染后续流式解码（_decoder 已缓存该非法帧）
 
             // DecodeStream 零拷贝
-            var seen = 0;
-            coder.DecodeStream(full, new FrameProbe(f => { seen++; return f.Content.Length; }));
-            TestHarness.Expect(seen == 1, "BaseCoder.DecodeStream invokes handler per frame");
+            var probe = new FrameProbe();
+            coder.DecodeStream(full, probe);
+            TestHarness.Expect(probe.Count == 1 && probe.LastLength == 3, "BaseCoder.DecodeStream invokes handler per frame");
 ```
 
-Add this helper class at the bottom of `SpanPipelineTest.cs` (inside the namespace):
+Add this helper class at the bottom of `SpanPipelineTest.cs` (inside the namespace). Note: `SocketFrame` is a `readonly ref struct`, so `Func<SocketFrame, int>` would be illegal C# (same class of error as spec ⑯) — the probe must implement the interface directly:
 
 ```csharp
     internal sealed class FrameProbe : SAEA.Sockets.Interface.IFrameHandler
     {
-        private readonly Func<SAEA.Sockets.Base.SocketFrame, int> _onFrame;
-        public FrameProbe(Func<SAEA.Sockets.Base.SocketFrame, int> onFrame) { _onFrame = onFrame; }
-        public void OnFrame(in SAEA.Sockets.Base.SocketFrame frame) { _onFrame(frame); }
+        public int Count;
+        public int LastLength;
+        public void OnFrame(in SAEA.Sockets.Base.SocketFrame frame)
+        {
+            Count++;
+            LastLength = frame.Content.Length;
+        }
     }
 ```
 
@@ -1364,7 +1369,7 @@ Run: `dotnet build Src/SAEA.Sockets.sln -c Release`
 Expected: `0 Error(s)`.
 
 Run: `dotnet run --project Src/SAEA.P2PTest/SAEA.P2PTest.csproj -c Debug -- --all`
-Expected: `ALL ADVANCED TESTS: 261/261 passed, 0 failed` (255 + 6 SpanPipelineTest).
+Expected: `ALL ADVANCED TESTS: 280/280 passed, 0 failed` (255 existing + 25 new assertions in SpanPipelineTest).
 
 - [ ] **Step 2: Fix any legacy-test regressions**
 
@@ -1374,16 +1379,16 @@ If `StreamDecoderTest`/`ProtocolTest`/`ProtocolAdvancedTest`/`PerformanceTest` f
 
 ```bash
 git add -A
-git commit -m "test: migrate remaining tests to Span/Memory coder API; all green (261/261)"
+git commit -m "test: migrate remaining tests to Span/Memory coder API; all green (280/280)"
 ```
 
 - [ ] **Step 4: Update README test count**
 
-In `README.md` and `README.en.md`, change `255` → `261` in the test-count line.
+In `README.md` and `README.en.md`, change `255` → `280` in the test-count line.
 
 ```bash
 git add README.md README.en.md
-git commit -m "docs: update test count to 261"
+git commit -m "docs: update test count to 280"
 ```
 
 ---
