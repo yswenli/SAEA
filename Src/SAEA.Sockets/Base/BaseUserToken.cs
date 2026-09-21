@@ -70,7 +70,7 @@ namespace SAEA.Sockets.Base
         public IDisposable SendingOwner
         {
             get { return _sendingOwner; }
-            set { _sendingOwner = value; }
+            set { Volatile.Write(ref _sendingOwner, value); }
         }
 
         public IDisposable TakeSendingOwner()

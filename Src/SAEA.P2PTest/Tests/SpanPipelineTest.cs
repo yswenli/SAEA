@@ -141,6 +141,13 @@ namespace SAEA.P2PTest.Tests
 
         public static void SendingOwnerIsReleasedOnClear()
         {
+            var live = new SAEA.Sockets.Base.BaseUserToken();
+            var liveOwner = new TrackingDisposable();
+            live.SendingOwner = liveOwner;
+            var taken = live.TakeSendingOwner();
+            TestHarness.Expect(ReferenceEquals(taken, liveOwner) && live.TakeSendingOwner() == null,
+                "TakeSendingOwner returns the owner once and empties the slot");
+
             var token = new SAEA.Sockets.Base.BaseUserToken();
             var owner = new TrackingDisposable();
             token.SendingOwner = owner;
@@ -149,7 +156,6 @@ namespace SAEA.P2PTest.Tests
 
             TestHarness.Expect(owner.Disposed, "IUserToken.Clear releases SendingOwner");
             TestHarness.Expect(token.SendingOwner == null, "IUserToken.Clear nulls SendingOwner");
-
             TestHarness.Expect(token.TakeSendingOwner() == null, "TakeSendingOwner returns null after Clear");
 
             var throwing = new ThrowingDisposable();
