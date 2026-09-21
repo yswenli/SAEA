@@ -1,6 +1,6 @@
 # SAEA Span/Memory/Pipe 全链路改造设计文档
 
-**日期：** 2026-09-21（rev.2，深度审查后修订）
+**日期：** 2026-09-21（rev.3，第二轮深度审查后修订）
 **范围：** 全解决方案公共面现代化（`SAEA.Common` 原语 + `SAEA.Sockets` 协议/编解码/Socket 层 + `SAEA.P2P` 优化 + 外部项目全量适配）
 **方案：** 方案 1 —— 原语先行 + 全链路 Span/Memory 化（**破坏性重构**，仅保留 netstandard2.0）
 
@@ -23,6 +23,8 @@ SAEA 已在上一轮完成「流式零拷贝解码器」内核（`FrameDecoder` 
 **非目标：** 不改线格式、不把 socket 接收语义改为「按帧投递」、不发布 nupkg、不引入 `net8.0` 多目标。
 
 > **rev.2 修订摘要（深度审查发现，详见各节）：** ① `BaseSocketProtocal` **不得 sealed**（`P2PProtocol` 继承）；② 成员改 `protected set` + 构造函数，杜绝对象初始化器赋值；③ `WSProtocal` 需保留池化背衬数组；④ 外部适配范围由「7 项目」修正为**全解决方案**（§七）；⑤ `DecodeStream` 从 `ICoder` 拆到 `IFrameCoder`；⑥ 修正 Stream 层前提（`StreamClientSocket` 无读循环）；⑦ 补全待删 `byte[]` Socket 成员清单；⑧ 补 ns2.0 `Encoding.GetString(ReadOnlySpan)` 缺失事实。
+>
+> **rev.3 修订摘要（第二轮深度审查发现，详见各节）：** ⑨ **P2P 解码所有权**——`DecodeP2P` 改返回 `DecodedFrames`，`P2PProtocol` 降为编码便捷类型（§4.6/§六）；`BaseCoder` 静态 `GetType`/`GetContent` 无调用方删除、`GetLength` 改 Span、删未订阅 `internal event OnReceiveSpan`（§4.5）；⑩ 补受影响文件 `Discovery/LocalDiscovery.cs`、`NAT/HolePuncher.cs`、`Core/ChannelManager.cs`(`ChannelInfo`)、`SAEA.Http/WebHost.cs`+`HttpSocket*.cs`、`SAEA.Sockets.UdpTest/Program.cs`（§七/§十一）；⑪ 服务端接收事件载荷由 `ISession` 收紧为 `IUserToken`（§5.1）；⑫ `FTPCoder` 额外 `Decode(byte[], Action<ISocketProtocal>, ...)` 重载须保留（§七）。
 
 ---
 
@@ -239,7 +241,7 @@ public interface IFrameCoder : ICoder
 **位置：** `Src/SAEA.Sockets/Base/BaseCoder.cs`
 
 - 类型改 `public class BaseCoder : IFrameCoder`。
-- 保留常量与静态 `GetLength/GetType/GetContent`、`MaxFrameLength`。
+- 保留常量 `P_LEN`/`P_Type`/`P_Head`/`SmallDataThreshold`/`MaxFrameLength`；静态 `GetLength` 改 `GetLength(ReadOnlySpan<byte>)`（`byte[]` 隐式转换，`ProtocolAdvancedTest` 调用点无需改）。**删除无调用方的 `GetType`/`GetContent`**，并删除从未订阅的 `internal delegate OnReceiveSpanHandler` / `internal event OnReceiveSpan`（`BaseCoder.cs:74/79`）。
 - `Decode(ReadOnlySequence)`：无累加器，直接沿序列拆帧，帧体写入批次池化缓冲；心跳/BigData/空 body 语义不变。
 - `DecodeStream(ReadOnlySpan, IFrameHandler, ...)`：驱动 per-instance `FrameDecoder`，命中普通帧调 `handler.OnFrame(in frame)`（零拷贝切片）。
 - `Encode(ISocketProtocal, IBufferWriter)`：委托 `p.WriteTo(writer)`（或就地编码）。
@@ -248,8 +250,9 @@ public interface IFrameCoder : ICoder
 
 ### 4.6 连带
 
-- `P2PCoder`：`DecodeP2P(ReadOnlySpan, ...)` 改为驱动 `DecodeStream` + handler，或返回 `DecodedFrames`；`EncodeP2P(...)` 由返回 `byte[]` 改为写入 `IBufferWriter<byte>`（或保留一个便捷重载内部租 `PooledBufferWriter`）。`P2PCoder : BaseCoder` 自动获得 `IFrameCoder`。
-- `P2PProtocol`：改经 base ctor 赋值（`base((byte)messageType, content)`）；`GetContentAsString` 因 ns2.0 无 `Encoding.GetString(ReadOnlySpan)`，改用 `Encoding.UTF8.GetString(Content.Span.ToArray())`。
+- `P2PCoder`（**解码所有权，rev.3 明确**）：`DecodeP2P` 现返回 `List<P2PProtocol>`，被 **7 处**内部调用点以 `P2PProtocol` 消费并传入 `ProcessMessage`/`ProcessSignalMessage`——`Core/P2PClient.cs:185`、`Core/P2PServer.cs:128`、`Discovery/LocalDiscovery.cs:144`、`Channel/TCPChannel.cs:98`、`Channel/UDPChannel.cs:104`、`Relay/RelayManager.cs:132`、`NAT/HolePuncher.cs:104`。**决策：解码路径统一到 `DecodedFrames` + `BaseSocketProtocal`**（不新增帧工厂）：`DecodeP2P(ReadOnlySequence<byte>, ...)` 返回 `DecodedFrames`；调用点改 `using var frames = ...; foreach (var frame in frames.Frames) ProcessXxx(sessionId, frame);`；`ProcessMessage`/`ProcessSignalMessage` 参数类型由 `P2PProtocol` 改为 `ISocketProtocal`（`Type` 以 `(P2PMessageType)frame.Type` 读取，`Content` 直接取切片）。批次 `Dispose` 前切片有效；确需跨批留存者由调用方显式复制。
+- `P2PProtocol`：**降为编码便捷类型**——保留 `Create(...)` 与 `GetContentAsString`，删除仅解码用的无参 `new P2PProtocol{...}` 对象初始化器路径；ctor 改经 base ctor 赋值（`base((byte)messageType, content)`）。`GetContentAsString` 因 ns2.0 无 `Encoding.GetString(ReadOnlySpan)`，改用 `Encoding.UTF8.GetString(Content.Span.ToArray())`。
+- `EncodeP2P(...)`（**决策：保留 `byte[]` 现签名以限制 churn**，编码侧非验收热路径）：内部改用 `PooledBufferWriter` + `WriteTo` 后 `ToArray()`；另加 `EncodeP2P(..., IBufferWriter<byte>)` 零拷贝重载供新路径/基准。`P2PCoder : BaseCoder` 自动获得 `IFrameCoder`。
 - **`WSProtocal`（重点，非机械）**：保留私有 `byte[] _buffer` 背衬字段与 `IsPooled`；`Content` 为 `_buffer` 上的 `ReadOnlyMemory<byte>`；`Dispose` 经 `MemoryPoolManager.Return(_buffer, ...)` 归还。`WriteTo` 写帧头 + 掩码后的 body 到 writer，**不得原地改写 `Content`**；`ToBytes(bool)` 删除。
 - `FTPCoder`/`WSCoder`/`QueueCoder`/`RpcCoder`/`HttpCoder`/`RedisCoder`/`JUnpacker`：按新 `ICoder` 签名适配，保持各自行为（`HttpCoder.Decode` 现为 `NotImplementedException`，可维持）。
 
@@ -262,6 +265,7 @@ public interface IFrameCoder : ICoder
 **位置：** `Src/SAEA.Sockets/IClientSocket.cs`、`IServerSocket.cs`、`Handler/*`
 
 - 接收：删除 `byte[]` 事件与 `OnClientReceiveBytesHandler`/`OnServerReceiveBytesHandler` 的公共使用；`OnClientReceiveSpan` / `OnServerReceiveSpan` 成为**唯一**接收事件（`ReadOnlySpan<byte>`，回调内有效）。
+  - rev.3 载荷澄清：`Handler/OnReceiveHandler.cs` 同文件定义 `OnReceiveHandler(ISession, byte[])`（服务端旧事件）与 `OnClientReceiveHandler(byte[])`（客户端旧事件）；服务端旧事件载荷为 `ISession`，新 `OnServerReceiveSpanHandler` 载荷为 `IUserToken`（`IUserToken : ISession`，更具体、兼容更窄），消费者须改签名。
 - 删除 `IocpClientSocket._isBaseClientType` / `IocpServerSocket._isBaseServerType` 兼容开关及其 `.ToArray()` 分支。
 - 发送改为 Span/Memory/`ISocketProtocal`：
 
@@ -304,7 +308,7 @@ void SendAsync(IPEndPoint ipEndPoint, ReadOnlyMemory<byte> data);
 - **现状澄清：** `StreamClientSocket` 是薄封装，**没有读循环**，其 `OnReceive` 已 `Obsolete` 且从不触发；因此「读循环 PipeReader 化」**只适用于 `StreamServerSocket` 的 accept 读循环**。
 - `StreamServerSocket`：以 per-connection `PipeReader.Create(networkStream)` 重写 accept 读循环（替换共享 `_receiveBuffer` + `Read`），`ReadAsync()` 拿 `ReadOnlySequence<byte>`；单段按 span、多段按段投递，复用 §4 拆帧内核。`SessionManager` 当前抛 `NotImplementedException`——保持不回归即可，不强行新增语义。
 - 发送：`PipeWriter.Create(networkStream)`（或原 `Stream.WriteAsync`）承接 `ReadOnlyMemory<byte>`；ns2.0 下内部仍有一次 `byte[]` 拷贝，接受。
-- `PipeReader Input` 暴露在 `StreamServerSocket` 的会话/`ChannelInfo` 上；`StreamClientSocket` 不新增 Input（无读循环，避免制造第二个真相源）。
+- `PipeReader Input` 暴露在 `StreamServerSocket` 的会话/`ChannelInfo`（`Core/ChannelManager.cs`，已持有 `Socket`/`Stream`，`Set(id, socket, stream)`）上；`StreamClientSocket` 不新增 Input（无读循环，避免制造第二个真相源）。
 - `GetStream()` 与 `SocketStream` 保留（`Stream` 契约在 ns2.0 仅 `byte[]`），仅机械现代化。
 
 ### 5.4 UDP（`UdpClientSocket` / `UdpServerSocket`）
@@ -330,11 +334,11 @@ void SendAsync(IPEndPoint ipEndPoint, ReadOnlyMemory<byte> data);
 
 ## 六、P2P / relay 优化（`SAEA.P2P`）
 
-**位置：** `Src/SAEA.P2P/Protocol/P2PCoder.cs`、`P2PProtocol.cs`、`Relay/RelayManager.cs`、`Relay/RelaySession.cs`、`Channel/TCPChannel.cs`、`Channel/UDPChannel.cs`、`Core/P2PClient.cs`、`Core/P2PServer.cs`
+**位置：** `Src/SAEA.P2P/Protocol/P2PCoder.cs`、`P2PProtocol.cs`、`Relay/RelayManager.cs`、`Relay/RelaySession.cs`、`Channel/TCPChannel.cs`、`Channel/UDPChannel.cs`、`Core/P2PClient.cs`、`Core/P2PServer.cs`、`Discovery/LocalDiscovery.cs`、`NAT/HolePuncher.cs`
 
 - `Array.IndexOf` → `Span.IndexOf`。
-- `Buffer.BlockCopy` 拼接 / `new byte[]` → `IBufferWriter` 单次写入或池化 slice。
-- `P2PCoder` 改 `DecodedFrames` / `DecodeStream`；`EncodeP2P` 改写 `IBufferWriter`。
+- **解码路径** `Buffer.BlockCopy` 拼接 / `new byte[]` → `DecodedFrames` 池化切片（见 §4.6，7 处调用点改 `using` + `ISocketProtocal`）。
+- `P2PCoder` 改 `DecodedFrames`；`EncodeP2P` 保留 `byte[]` 签名（内部 `PooledBufferWriter`）并新增 `IBufferWriter<byte>` 重载。编码侧 `new byte[]` 的完全消除为**非目标**（非验收热路径）。
 - 保持协议语义与转发行为不变。
 
 ---
@@ -345,11 +349,11 @@ void SendAsync(IPEndPoint ipEndPoint, ReadOnlyMemory<byte> data);
 
 | 项目 | 关键文件 | 说明 |
 |------|----------|------|
-| SAEA.FTP | `Net/FTPCoder.cs` | `Encode` 返回 `ToBytes()` |
+| SAEA.FTP | `Net/FTPCoder.cs` | `Encode` 返回 `ToBytes()`；**另有额外重载 `Decode(byte[], Action<ISocketProtocal>, ...)` 须保留并适配** |
 | SAEA.WebSocket | `Model/WSCoder.cs`、`Model/WSProtocal.cs`、`WSClient.cs`、`Core/WSServerImpl.cs`、`Core/WSSServerImpl.cs` | `ICoder` + `ISocketProtocal` 双实现；池化/掩码 |
 | SAEA.QueueSocket | `Net/QueueCoder.cs` 及消费方 | `ICoder` |
 | SAEA.RPC | `Net/RpcCoder.cs`、`Net/RServer.cs`、`Net/RClient.cs` | `ICoder` + `Encode` 返回 `byte[]` |
-| SAEA.Http | `Base/Net/HttpCoder.cs`、`HttpResponse.cs` | `ICoder`；`Decode` 已 `NotImplementedException` |
+| SAEA.Http | `Base/Net/HttpCoder.cs`、`HttpResponse.cs`、`WebHost.cs`、`Base/Net/HttpSocket.cs`、`Base/Net/HttpSocketDebug.cs` | `ICoder`（`Decode` 已 `NotImplementedException`）；`HttpResponse.ToBytes()` 是**自有**方法（非 `ISocketProtocal.ToBytes()`），但 `WebHost.Send/End(IUserToken, byte[])` 与 `HttpSocket*` 的 `Send/End(...byte[])` 随服务端发送 API 改 Memory |
 | SAEA.RedisSocket | `Base/Net/RedisCoder.cs` | `ICoder` |
 | SAEA.Sockets.TcpTest | `JContext.cs`(`JUnpacker`)、`JServer.cs`、`JClient.cs`、`JClient2.cs` | `ICoder` + `Decode` 消费方 |
 | SAEA.FileSocket | `Server.cs`、`Client.cs` | `Decode`、`Parse(...).ToBytes()`、`Send(byte[])` |
@@ -357,7 +361,8 @@ void SendAsync(IPEndPoint ipEndPoint, ReadOnlyMemory<byte> data);
 | SAEA.MessageSocket | `MessageServer.cs`、`MessageClient.cs` | `Parse(...).ToBytes()`、`Coder.Decode` |
 | SAEA.MVC | 经 `SAEA.Http` 间接 | 随 Http 迁移 |
 | SAEA.WebSocketTest | `Program.cs` | `coder.Decode(frame)`、`new WSProtocal(...)` |
-| SAEA.Sockets.UdpTest / SAEA.MVCTest / SAEA.FileTest / SAEA.MessageTest / SAEA.FTPTest / SAEA.HttpTest / SAEA.RPCTest / SAEA.QueueSocketTest / SAEA.RedisSocketTest / SAEA.Audio.Test | 各测试 | 随对应库签名编译 |
+| SAEA.Sockets.UdpTest | `Program.cs` | Shortcut `UDPServer<BaseCoder>` 事件 `Action<..., ISocketProtocal>`（`Content` 由 `byte[]` 改 `ReadOnlyMemory`）须适配 |
+| SAEA.MVCTest / SAEA.FileTest / SAEA.MessageTest / SAEA.FTPTest / SAEA.HttpTest / SAEA.RPCTest / SAEA.QueueSocketTest / SAEA.RedisSocketTest / SAEA.Audio.Test | 各测试 | 随对应库签名编译 |
 
 > `SAEA.MQTT`、`SAEA.DNS`、`SAEA.Socket5` 使用独立编解码（不经 `ICoder`/`ISocketProtocal`），范围外；若因共享代码间接受影响则在编译门禁中暴露后处理。
 
@@ -368,7 +373,7 @@ void SendAsync(IPEndPoint ipEndPoint, ReadOnlyMemory<byte> data);
 ### 8.1 测试
 
 - 现有 **255 项**全部迁移到新 API 并保持全绿；`StreamDecoderTest` 继续以 `LegacyDecoder`（旧字节算法副本）作 oracle 做 parity 比对。
-- 已知需迁移的测试调用：`StreamDecoderTest` 全量 `Decode(byte[])`/`ToBytes()`、`IocpBenchmark.cs:77/125` 的 `decoder.Decode(data).Count`、`PerformanceTest` 的 `Decode(...)`+`new BaseSocketProtocal{...}.ToBytes()`、`WebSocketTest/Program.cs` 的 `coder.Decode(frame)`。
+- 已知需迁移的测试调用：`StreamDecoderTest` 全量 `Decode(byte[])`/`ToBytes()`、`IocpBenchmark.cs:77/125` 的 `decoder.Decode(data).Count`、`PerformanceTest` 的 `Decode(...)`+`new BaseSocketProtocal{...}.ToBytes()`、`ProtocolTest`/`ProtocolAdvancedTest` 的 `DecodeP2P(...)` 返回 `List<P2PProtocol>` + `BaseCoder.GetLength(new byte[])`、`WebSocketTest/Program.cs` 的 `coder.Decode(frame)`。
 - 新增：
   - `DecodedFrames` 生命周期：切片正确、多次 `Dispose` 幂等、租用归还到池。
   - `PooledBufferWriter` 单元测试：`GetSpan`/`Advance`/扩容/`TryGetArray`/`Dispose`。
@@ -415,6 +420,7 @@ void SendAsync(IPEndPoint ipEndPoint, ReadOnlyMemory<byte> data);
 | `event ... OnReceive(byte[])` | `OnClientReceiveSpan`/`OnServerReceiveSpan(ReadOnlySpan<byte>)` | 回调内用或复制 |
 | `void Send/BeginSend/SendAsync(byte[]...)` | `Send(ReadOnlySpan<byte>)`/`SendAsync(ReadOnlyMemory<byte>)`/`SendAsync(ISocketProtocal)` | 见 §5.1 清单 |
 | `WSCoder/WSCoder.ToBytes(bool)` | `WSProtocal.WriteTo(IBufferWriter)` + 背衬 `byte[]` | 掩码写入 writer，不原地改 `Content` |
+| `List<P2PProtocol> P2PCoder.DecodeP2P(...)` | `DecodedFrames P2PCoder.DecodeP2P(...)` | 7 处调用点 `using` + `foreach(frames.Frames)`；`ProcessMessage`/`ProcessSignalMessage` 参数改 `ISocketProtocal`；`P2PProtocol` 仅保留编码用途 |
 
 - 属**破坏性发布**，README 增加「byte[] → Span/Memory 迁移对照」小节。
 - 不发布 nupkg。
@@ -452,7 +458,7 @@ void SendAsync(IPEndPoint ipEndPoint, ReadOnlyMemory<byte> data);
 
 **改（`SAEA.Sockets`）**
 
-`Interface/ISocketProtocal.cs`、`Interface/ICoder.cs`、`Base/BaseSocketProtocal.cs`、`Base/BaseCoder.cs`、`Base/FrameDecoder.cs`、`IClientSocket.cs`、`IServerSocket.cs`、`Handler/*`、`Core/Tcp/IocpClientSocket.cs`、`Core/Tcp/IocpServerSocket.cs`、`Core/Tcp/StreamClientSocket.cs`、`Core/Tcp/StreamServerSocket.cs`、`Core/SocketStream.cs`、`Core/Udp/UdpClientSocket.cs`、`Core/Udp/UdpServerSocket.cs`、`Core/BaseUserToken.cs`、`Core/UserTokenPool.cs`、`Core/UserTokenFactory.cs`、`Core/SessionManager.cs`、`Base/BaseContext.cs`、`Shortcut/TCPClient.cs`、`Shortcut/TCPServer.cs`、`Shortcut/UDPClient.cs`、`Shortcut/UDPServer.cs`、`SocketFactory.cs`、`SocketOptionBuilder.cs`
+`Interface/ISocketProtocal.cs`、`Interface/ICoder.cs`、`Base/BaseSocketProtocal.cs`、`Base/BaseCoder.cs`、`Base/FrameDecoder.cs`、`IClientSocket.cs`、`IServerSocket.cs`、`Handler/*`、`Core/Tcp/IocpClientSocket.cs`、`Core/Tcp/IocpServerSocket.cs`、`Core/Tcp/StreamClientSocket.cs`、`Core/Tcp/StreamServerSocket.cs`、`Core/SocketStream.cs`、`Core/Udp/UdpClientSocket.cs`、`Core/Udp/UdpServerSocket.cs`、`Core/ChannelManager.cs`、`Core/BaseUserToken.cs`、`Core/UserTokenPool.cs`、`Core/UserTokenFactory.cs`、`Core/SessionManager.cs`、`Base/BaseContext.cs`、`Shortcut/TCPClient.cs`、`Shortcut/TCPServer.cs`、`Shortcut/UDPClient.cs`、`Shortcut/UDPServer.cs`、`SocketFactory.cs`、`SocketOptionBuilder.cs`
 
 **删除**
 
@@ -460,11 +466,11 @@ void SendAsync(IPEndPoint ipEndPoint, ReadOnlyMemory<byte> data);
 
 **改（其他库，rev.2 扩展）**
 
-`Src/SAEA.P2P/Protocol/P2PCoder.cs`、`Protocol/P2PProtocol.cs`、`Relay/RelayManager.cs`、`Relay/RelaySession.cs`、`Channel/TCPChannel.cs`、`Channel/UDPChannel.cs`、`Core/P2PClient.cs`、`Core/P2PServer.cs`、`Src/SAEA.FTP/Net/FTPCoder.cs`、`Src/SAEA.WebSocket/Model/WSCoder.cs`、`Model/WSProtocal.cs`、`WSClient.cs`、`Core/WSServerImpl.cs`、`Core/WSSServerImpl.cs`、`Src/SAEA.QueueSocket/Net/QueueCoder.cs`、`Src/SAEA.RPC/Net/RpcCoder.cs`、`Net/RServer.cs`、`Net/RClient.cs`、`Src/SAEA.Http/Base/Net/HttpCoder.cs`、`HttpResponse.cs`、`Src/SAEA.RedisSocket/Base/Net/RedisCoder.cs`、`Src/SAEA.Sockets.TcpTest/JContext.cs`、`JServer.cs`、`JClient.cs`、`JClient2.cs`、`Src/SAEA.FileSocket/Server.cs`、`Client.cs`、`Src/SAEA.Audio.Net/Net/TransferServer.cs`、`Net/TransferClient.cs`、`Src/SAEA.MessageSocket/MessageServer.cs`、`MessageClient.cs`、`Src/SAEA.WebSocketTest/Program.cs`
+`Src/SAEA.P2P/Protocol/P2PCoder.cs`、`Protocol/P2PProtocol.cs`、`Relay/RelayManager.cs`、`Relay/RelaySession.cs`、`Channel/TCPChannel.cs`、`Channel/UDPChannel.cs`、`Core/P2PClient.cs`、`Core/P2PServer.cs`、`Discovery/LocalDiscovery.cs`、`NAT/HolePuncher.cs`、`Src/SAEA.FTP/Net/FTPCoder.cs`、`Src/SAEA.WebSocket/Model/WSCoder.cs`、`Model/WSProtocal.cs`、`WSClient.cs`、`Core/WSServerImpl.cs`、`Core/WSSServerImpl.cs`、`Src/SAEA.QueueSocket/Net/QueueCoder.cs`、`Src/SAEA.RPC/Net/RpcCoder.cs`、`Net/RServer.cs`、`Net/RClient.cs`、`Src/SAEA.Http/Base/Net/HttpCoder.cs`、`HttpResponse.cs`、`WebHost.cs`、`Base/Net/HttpSocket.cs`、`Base/Net/HttpSocketDebug.cs`、`Src/SAEA.RedisSocket/Base/Net/RedisCoder.cs`、`Src/SAEA.Sockets.TcpTest/JContext.cs`、`JServer.cs`、`JClient.cs`、`JClient2.cs`、`Src/SAEA.FileSocket/Server.cs`、`Client.cs`、`Src/SAEA.Audio.Net/Net/TransferServer.cs`、`Net/TransferClient.cs`、`Src/SAEA.MessageSocket/MessageServer.cs`、`MessageClient.cs`、`Src/SAEA.Sockets.UdpTest/Program.cs`、`Src/SAEA.WebSocketTest/Program.cs`
 
 **改（测试/文档/版本）**
 
-`Src/SAEA.P2PTest/Tests/*`（含 `IocpBenchmark.cs`、`StreamDecoderTest.cs`、`PerformanceTest.cs`）、`Src/SAEA.P2PTest/TestHarness.cs`、`Program.cs`、`README.md`、`README.en.md`、14 个库 `.csproj` 版本号
+`Src/SAEA.P2PTest/Tests/*`（含 `IocpBenchmark.cs`、`StreamDecoderTest.cs`、`PerformanceTest.cs`、`ProtocolTest.cs`、`ProtocolAdvancedTest.cs`）、`Src/SAEA.P2PTest/TestHarness.cs`、`Program.cs`、`README.md`、`README.en.md`、14 个库 `.csproj` 版本号
 
 ---
 
