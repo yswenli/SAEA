@@ -348,7 +348,7 @@ git commit -m "fix(consumers): adapt MQTT/DNS/UdpTest to span/memory surface"
 - Add: `Src/SAEA.P2PTest/Tests/StreamPipelineTest.cs`
 - Add: `Src/SAEA.P2PTest/Tests/UdpPipelineTest.cs`
 - Modify: `Src/SAEA.P2PTest/Program.cs`
-- Rewrite: `Src/SAEA.Sockets.TcpTest/StreamServerSocketTests.cs` (stale: still asserts the removed `_receiveBuffer` behavior); add a `UseStream` span-receive + fragmentation test.
+- Delete: `Src/SAEA.Sockets.TcpTest/StreamServerSocketTests.cs` — orphaned (not in the legacy csproj `<Compile>` list, no MSTest reference), so it never compiled or ran; the runnable `UseStream` span-receive + fragmentation coverage lives in `StreamPipelineTest`.
 
 - [ ] **Step 1: Stream server span + PipeReader test**
 
@@ -379,6 +379,12 @@ git add Src/SAEA.P2PTest/Tests/StreamPipelineTest.cs Src/SAEA.P2PTest/Tests/UdpP
 git diff --cached --name-only
 git commit -m "test(sockets): Stream PipeReader span and UDP span coverage"
 ```
+
+> **Task 7 note (2026-09-21):** the `StreamServerSocketTests.cs` rewrite was dropped and the file
+> deleted. It is orphaned: absent from `SAEA.Sockets.TcpTest.csproj`'s `<Compile>` list and the
+> legacy project references no MSTest package, so the file never compiled or ran (same pre-existing
+> orphaning as `MemoryPoolTests.cs`/`PerformanceBenchmark.cs`). The runnable fragmentation + span
+> coverage is provided by `StreamPipelineTest` under `--all`.
 
 ---
 
@@ -431,5 +437,6 @@ git commit -m "docs(plan): record Plan 2B outcome"
 - **Client CT-send faults synchronously on null `_stream`.** `StreamClientSocket.SendAsync(ReadOnlyMemory<byte>, CancellationToken)` now returns `_stream.WriteAsync(..., token)` directly instead of deferring via `Task.Run`; a null `_stream` therefore faults synchronously on the caller's thread. This is intended for a `Task`-returning API (the fault is surfaced to the awaiter rather than as an unobserved task exception).
 - **`SessionManager` escalation.** Decision 3 keeps it throwing. If the user wants a real Stream session manager, stop before Task 1 — it materially expands scope and risks §2.3 #8.
 - **UDP token recycle vs. in-flight pooled send.** `UserTokenPool.Enqueue` now abandons (does not dispose) any `SendingOwner` before recycling a token, matching `IocpServerSocket.AbandonSendingOwner`: the kernel may still be reading the pooled buffer, so returning it would cause a use-after-return; it is left to the GC. A late completion callback racing token recycle is a pre-existing IOCP-parity hazard — the abandon removes the buffer leak/use-after-return, not the theoretical double-dispatch.
+- **UDP teardown stall (~10s).** `UdpServerSocket.Stop()` calls `_udpSocket.Close(10 * 1000)` while a `ReceiveFromAsync` is pending, so UDP test teardown blocks ~10s. Pre-existing, bounded (not indefinite), and out of Task 7 scope; the fix (cancel/dispose the pending receive instead of a 10s grace wait) belongs in Plan 2C. Do not modify `UdpServerSocket.Stop` in this commit.
 - **No comments policy** applies to all touched files; XML docs only.
 - **Staging discipline.** Never `git add -A`; stage explicit paths and verify.

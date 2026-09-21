@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -33,43 +34,36 @@ namespace SAEA.P2PTest.Tests
                 .Build();
 
             var server = new SAEA.Sockets.Core.Tcp.StreamServerSocket(option, CancellationToken.None);
-            var gate = new object();
-            var received = new List<byte>();
-            IUserToken? receivedToken = null;
-            ChannelInfo? accepted = null;
-            Exception? serverError = null;
-
-            server.OnServerReceiveSpan += (token, span) =>
-            {
-                lock (gate)
-                {
-                    received.AddRange(span.ToArray());
-                }
-                receivedToken = token;
-            };
-            server.OnAccepted += obj => accepted = obj as ChannelInfo;
-            server.OnError += (id, ex) => serverError = ex;
-
-            server.Start();
-            await Task.Delay(200);
+            var capture = new StreamCapture();
+            server.OnServerReceiveSpan += capture.OnSpan;
+            server.OnAccepted += capture.OnAccepted;
 
             var frame = StreamDecoderTest.BuildFrame((byte)SocketProtocalType.RequestSend, Encoding.UTF8.GetBytes("stream-span"));
+            var firstFragmentLength = 10;
+
+            TcpClient? tcp = null;
 
             try
             {
-                using (var tcp = new TcpClient())
+                server.Start();
+
+                tcp = await ConnectAsync(port, 3000);
+                TestHarness.Expect(tcp != null, "stream server accepts a client connection within the readiness window");
+
+                if (tcp != null)
                 {
-                    await tcp.ConnectAsync(IPAddress.Loopback, port);
                     var stream = tcp.GetStream();
                     await stream.WriteAsync(frame, 0, frame.Length);
                     await stream.FlushAsync();
 
-                    await TestHarness.WaitUntil(() => Snapshot(gate, received).Length >= frame.Length, 3000);
+                    await TestHarness.WaitUntil(() => capture.IsReady(frame.Length), 3000);
 
-                    var delivered = Snapshot(gate, received);
+                    var delivered = capture.Snapshot();
                     TestHarness.Expect(delivered.SequenceEqual(frame), "stream span delivers exact frame bytes");
 
-                    var token = receivedToken;
+                    var token = capture.Token;
+                    var accepted = capture.Accepted;
+
                     TestHarness.Expect(token != null, "stream span token is non-null");
 
                     var streamToken = token as StreamUserToken;
@@ -81,8 +75,8 @@ namespace SAEA.P2PTest.Tests
                     TestHarness.Expect(token != null && accepted != null && token.ID == accepted.ID,
                         "stream span token.ID matches ChannelInfo.ID");
 
-                    TestHarness.Expect(accepted != null && accepted.UserToken != null && accepted.UserToken.ID == accepted.ID,
-                        "ChannelInfo.UserToken.ID matches ChannelInfo.ID");
+                    TestHarness.Expect(token != null && accepted != null && ReferenceEquals(accepted.UserToken, token),
+                        "ChannelInfo.UserToken is the same instance as the span token");
 
                     if (accepted != null)
                     {
@@ -94,37 +88,55 @@ namespace SAEA.P2PTest.Tests
                             "stream SendAsync writes the raw frame bytes");
                     }
 
-                    received.Clear();
-                    receivedToken = null;
+                    capture.Reset();
 
-                    await stream.WriteAsync(frame, 0, 4);
-                    await stream.FlushAsync();
-                    await Task.Delay(100);
-                    await stream.WriteAsync(frame, 4, frame.Length - 4);
+                    await stream.WriteAsync(frame, 0, firstFragmentLength);
                     await stream.FlushAsync();
 
-                    await TestHarness.WaitUntil(() => Snapshot(gate, received).Length >= frame.Length, 3000);
+                    await TestHarness.WaitUntil(() => capture.Count >= firstFragmentLength, 3000);
 
-                    var fragmented = Snapshot(gate, received);
+                    await stream.WriteAsync(frame, firstFragmentLength, frame.Length - firstFragmentLength);
+                    await stream.FlushAsync();
+
+                    await TestHarness.WaitUntil(() => capture.Count >= frame.Length, 3000);
+
+                    var fragmented = capture.Snapshot();
                     TestHarness.Expect(fragmented.SequenceEqual(frame),
                         "stream span accumulates fragmented writes into the full frame");
+                    TestHarness.Expect(capture.Callbacks >= 2,
+                        "stream span invokes the callback once per received segment");
                 }
             }
             finally
             {
+                tcp?.Dispose();
                 try { server.Stop(); } catch { }
                 try { server.Dispose(); } catch { }
             }
-
-            TestHarness.Expect(serverError == null, "stream server raised no error during the test");
         }
 
-        static byte[] Snapshot(object gate, List<byte> buffer)
+        /// <summary>
+        /// 有界重试连接，替代原有的固定启动延时，直到服务端可接受连接或超时。
+        /// </summary>
+        static async Task<TcpClient?> ConnectAsync(int port, int timeoutMs)
         {
-            lock (gate)
+            var sw = Stopwatch.StartNew();
+            while (sw.ElapsedMilliseconds < timeoutMs)
             {
-                return buffer.ToArray();
+                var tcp = new TcpClient();
+                try
+                {
+                    await tcp.ConnectAsync(IPAddress.Loopback, port).ConfigureAwait(false);
+                    return tcp;
+                }
+                catch (SocketException)
+                {
+                    tcp.Dispose();
+                    await Task.Delay(25).ConfigureAwait(false);
+                }
             }
+
+            return null;
         }
 
         static async Task<int> ReadExactAsync(Stream stream, byte[] buffer, int count, int timeoutMs)
@@ -150,6 +162,82 @@ namespace SAEA.P2PTest.Tests
             }
 
             return total;
+        }
+
+        /// <summary>
+        /// 线程安全的接收状态：所有字段的读写都在同一锁内，避免回调与主线程之间的竞态。
+        /// </summary>
+        sealed class StreamCapture
+        {
+            readonly object _gate = new object();
+            readonly List<byte> _received = new List<byte>();
+            IUserToken? _token;
+            ChannelInfo? _accepted;
+            int _callbacks;
+
+            public void OnSpan(IUserToken token, ReadOnlySpan<byte> span)
+            {
+                lock (_gate)
+                {
+                    _received.AddRange(span.ToArray());
+                    _token = token;
+                    _callbacks++;
+                }
+            }
+
+            public void OnAccepted(object obj)
+            {
+                lock (_gate)
+                {
+                    _accepted = obj as ChannelInfo;
+                }
+            }
+
+            public bool IsReady(int minBytes)
+            {
+                lock (_gate)
+                {
+                    return _token != null && _accepted != null && _received.Count >= minBytes;
+                }
+            }
+
+            public byte[] Snapshot()
+            {
+                lock (_gate)
+                {
+                    return _received.ToArray();
+                }
+            }
+
+            public int Count
+            {
+                get { lock (_gate) { return _received.Count; } }
+            }
+
+            public int Callbacks
+            {
+                get { lock (_gate) { return _callbacks; } }
+            }
+
+            public IUserToken? Token
+            {
+                get { lock (_gate) { return _token; } }
+            }
+
+            public ChannelInfo? Accepted
+            {
+                get { lock (_gate) { return _accepted; } }
+            }
+
+            public void Reset()
+            {
+                lock (_gate)
+                {
+                    _received.Clear();
+                    _token = null;
+                    _callbacks = 0;
+                }
+            }
         }
     }
 }

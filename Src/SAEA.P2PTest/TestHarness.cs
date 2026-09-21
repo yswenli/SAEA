@@ -102,6 +102,18 @@ namespace SAEA.P2PTest
         }
 
         /// <summary>
+        /// 获取一个当前空闲的 UDP 端口，降低集成测试端口冲突概率（UDP 端口空间与 TCP 独立）。
+        /// </summary>
+        public static int GetFreeUdpPort()
+        {
+            using (var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp))
+            {
+                socket.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+                return ((IPEndPoint)socket.LocalEndPoint).Port;
+            }
+        }
+
+        /// <summary>
         /// 轮询等待条件成立，用于异步/网络测试，避免脆弱的固定延时。
         /// </summary>
         public static async Task<bool> WaitUntil(Func<bool> condition, int timeoutMs = 3000, int pollMs = 25)
