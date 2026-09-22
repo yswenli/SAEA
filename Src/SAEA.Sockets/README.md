@@ -54,7 +54,7 @@ server.Start();
 
 ```csharp
 var client = SocketFactory.CreateClientSocket(option);
-client.OnClientReceiveSpan += (data) => Console.WriteLine(Encoding.UTF8.GetString(data));
+client.OnClientReceiveSpan += (data) => Console.WriteLine(Encoding.UTF8.GetString(data.ToArray()));
 client.Connect();
 client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!")));
 ```
@@ -222,18 +222,33 @@ client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!"))
 **A**: 实现 `ICoder` 接口或继承 `BaseCoder`：
 
 ```csharp
+using System;
+using System.Buffers;
+using System.Text;
+using SAEA.Sockets.Base;
+
+// 自定义编码器：继承 BaseCoder 复用帧式（8 字节长度 + 1 字节类型 + body）编解码
 public class MyCoder : BaseCoder
 {
-    public override List<byte[]> Decode(byte[] data)
+    public const byte Text = 1;
+
+    // 编码：把业务数据封装为自定义类型帧后写入 writer
+    public void EncodeText(ReadOnlyMemory<byte> payload, IBufferWriter<byte> writer)
     {
-        // 自定义解码逻辑，例如：解析消息头、消息体
-        return base.Decode(data);
+        Encode(new BaseSocketProtocal(Text, payload), writer);
     }
 
-    public override byte[] Encode(byte[] data)
+    // 解码：按段喂入收到的序列，返回的批次必须 using（帧内存在 Dispose 前有效）
+    public void Handle(ReadOnlySequence<byte> data)
     {
-        // 自定义编码逻辑，例如：添加消息头
-        return base.Encode(data);
+        using (var frames = Decode(data))
+        {
+            foreach (var frame in frames.Frames)
+            {
+                if (frame.Type == Text)
+                    Console.WriteLine($"收到文本帧: {Encoding.UTF8.GetString(frame.Content.ToArray())}");
+            }
+        }
     }
 }
 
@@ -323,17 +338,17 @@ var option = SocketOptionBuilder.Instance
 var server = SocketFactory.CreateServerSocket(option);
 
 // 注册事件处理
-server.OnAccepted += (id) => 
-    Console.WriteLine($"客户端连接: {id}");
+server.OnAccepted += (obj) => 
+    Console.WriteLine($"客户端连接: {obj}");
 
 server.OnServerReceiveSpan += (userToken, data) => 
 {
-    var message = Encoding.UTF8.GetString(data);
+    var message = Encoding.UTF8.GetString(data.ToArray());
     Console.WriteLine($"收到数据: {message}");
     server.Send(userToken.ID, data);  // 回复客户端
 };
 
-server.OnDisconnected += (id) => 
+server.OnDisconnected += (id, ex) => 
     Console.WriteLine($"客户端断开: {id}");
 
 server.Start();
@@ -356,9 +371,9 @@ var client = SocketFactory.CreateClientSocket(option);
 
 // 注册事件处理
 client.OnClientReceiveSpan += (data) => 
-    Console.WriteLine($"收到: {Encoding.UTF8.GetString(data)}");
+    Console.WriteLine($"收到: {Encoding.UTF8.GetString(data.ToArray())}");
 
-client.OnDisconnected += () => 
+client.OnDisconnected += (id, ex) => 
     Console.WriteLine("连接断开");
 
 // 连接服务器
@@ -420,7 +435,7 @@ tcpServer.Start();
 
 // TCP 客户端快捷封装
 var tcpClient = new TCPClient("127.0.0.1", 39654);
-tcpClient.OnReceive += (sender, data) => Console.WriteLine(Encoding.UTF8.GetString(data));
+tcpClient.OnReceive += (sender, data) => Console.WriteLine(Encoding.UTF8.GetString(data.ToArray()));
 tcpClient.Connect();
 tcpClient.SendAsync("Hello!");
 
@@ -432,24 +447,33 @@ var udpClient = new UDPClient("127.0.0.1", 39655);
 ### 自定义协议编码器
 
 ```csharp
+using System;
+using System.Buffers;
+using System.Text;
 using SAEA.Sockets.Base;
-using SAEA.Sockets.Interface;
 
-// 实现自定义编码器
+// 实现自定义编码器：继承 BaseCoder 复用帧式（8 字节长度 + 1 字节类型 + body）编解码
 public class MyCoder : BaseCoder
 {
-    public override List<byte[]> Decode(byte[] data)
+    public const byte Text = 1;
+
+    // 编码：把业务数据封装为自定义类型帧后写入 writer
+    public void EncodeText(ReadOnlyMemory<byte> payload, IBufferWriter<byte> writer)
     {
-        // 自定义解码逻辑
-        // 例如：解析自定义消息头、消息体
-        return base.Decode(data);
+        Encode(new BaseSocketProtocal(Text, payload), writer);
     }
 
-    public override byte[] Encode(byte[] data)
+    // 解码：按段喂入收到的序列，返回的批次必须 using（帧内存在 Dispose 前有效）
+    public void Handle(ReadOnlySequence<byte> data)
     {
-        // 自定义编码逻辑
-        // 例如：添加自定义消息头
-        return base.Encode(data);
+        using (var frames = Decode(data))
+        {
+            foreach (var frame in frames.Frames)
+            {
+                if (frame.Type == Text)
+                    Console.WriteLine($"收到文本帧: {Encoding.UTF8.GetString(frame.Content.ToArray())}");
+            }
+        }
     }
 }
 
@@ -469,16 +493,16 @@ public class MyContext : BaseContext<MyCoder>
 | 已删除 | 替代 |
 |--------|------|
 | `IClientSocket.OnReceive`（`OnClientReceiveHandler`，`byte[]`） | `OnClientReceiveSpan`（`ReadOnlySpan<byte>`，回调内同步消费/复制） |
-| `IServerSocket.OnReceive`（`OnReceiveHandler`，`(string, byte[])`） | `OnServerReceiveSpan`（`(IUserToken, ReadOnlySpan<byte>)`） |
-| `IClientSocket.BeginSend(byte[])` / `Send(byte[])` / `SendAsync(byte[])` / `SendAsync(byte[], int, int, CancellationToken)` | `Send(ReadOnlySpan<byte>)` / `SendAsync(ReadOnlyMemory<byte>)` / `SendAsync(ReadOnlyMemory<byte>, CancellationToken)` |
+| `IServerSocket.OnReceive`（`OnReceiveHandler`，`(ISession, byte[])`） | `OnServerReceiveSpan`（`(IUserToken, ReadOnlySpan<byte>)`） |
+| `IClientSocket.BeginSend(byte[])` / `Send(byte[])` / `SendAsync(byte[])` / `SendAsync(byte[], int, int, CancellationToken)` | `Send(ReadOnlySpan<byte>)` / `SendAsync(ReadOnlyMemory<byte>)` / `SendAsync(ReadOnlyMemory<byte>, CancellationToken)`；原 offset/count 语义用 `data.AsMemory(offset, count)` 表达 |
 | `IClientSocket.ReceiveAsync(byte[], int, int, CancellationToken)`（接口成员） | 改用 span 事件；具体实现 `IocpClientSocket.ReceiveAsync` 保留但抛 `KernelException`，`UdpClientSocket.ReceiveAsync` 抛 `NotSupportedException`；原始读取请使用 `GetStream()` |
-| `IServerSocket.SendAsync(string, byte[])` / `Send(string, byte[])` / `End(string, byte[])` / `SendAsync(IPEndPoint, byte[])` | 对应的 `ReadOnlyMemory<byte>` 重载 |
+| `IServerSocket.SendAsync(string, byte[])` / `Send(string, byte[])` / `End(string, byte[])` / `SendAsync(IPEndPoint, byte[])` | `SendAsync(string, ReadOnlyMemory<byte>)` / `Send(string, ReadOnlySpan<byte>)` / `End(string, ReadOnlyMemory<byte>)` / `SendAsync(IPEndPoint, ReadOnlyMemory<byte>)` |
 | `IocpClientSocket.UserToken` | 不再公开；按场景改用 `Connected` 或 `ChannelInfo.UserToken` / `Context.UserToken` |
 | 快捷封装 `TCPClient` / `TCPServer` / `UDPClient` / `UDPServer` 的 `OnReceive` | `TCPClient` / `TCPServer.OnReceive` 由 `byte[]` 改为 `ReadOnlyMemory<byte>`（`UDPClient` / `UDPServer.OnReceive` 交付 `ISocketProtocal` 帧）；**source/binary breaking，需重新编译** |
 
 > ⚠️ **迁移注意**
 > 1. **快捷封装的 `OnReceive` 为签名级 breaking 变更**（`byte[]` → `ReadOnlyMemory<byte>`），由版本号 bump 承载，**不提供兼容 shim**，请重新编译调用方。
-> 2. **不要同时订阅已删除的 `byte[]` 旧事件与新的 span 事件**：`OnReceive` 已删除，直接改用 `OnClientReceiveSpan` / `OnServerReceiveSpan` 即可，避免重复投递。
+> 2. 旧 `OnReceive` 事件已删除，改用 `OnClientReceiveSpan` / `OnServerReceiveSpan` 即可。
 > 3. span 回调参数（`data`）**仅在本次回调期间有效**，必须同步消费或在回调内 `ToArray()` 复制；**切勿将 span 保存到字段或跨线程/异步使用**，否则为 use-after-free。
 
 ---

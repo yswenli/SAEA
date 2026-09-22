@@ -54,7 +54,7 @@ server.Start();
 
 ```csharp
 var client = SocketFactory.CreateClientSocket(option);
-client.OnClientReceiveSpan += (data) => Console.WriteLine(Encoding.UTF8.GetString(data));
+client.OnClientReceiveSpan += (data) => Console.WriteLine(Encoding.UTF8.GetString(data.ToArray()));
 client.Connect();
 client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!")));
 ```
@@ -222,18 +222,33 @@ Network Data ──► IOCP Complete ──► BufferManager Receive
 **A**: Implement the `ICoder` interface or inherit from `BaseCoder`:
 
 ```csharp
+using System;
+using System.Buffers;
+using System.Text;
+using SAEA.Sockets.Base;
+
+// Custom coder: inherit BaseCoder to reuse frame-based (8-byte length + 1-byte type + body) encoding/decoding
 public class MyCoder : BaseCoder
 {
-    public override List<byte[]> Decode(byte[] data)
+    public const byte Text = 1;
+
+    // Encode: wrap the payload into a custom-type frame, then write it to the writer
+    public void EncodeText(ReadOnlyMemory<byte> payload, IBufferWriter<byte> writer)
     {
-        // Custom decoding logic, e.g.: parse message header, message body
-        return base.Decode(data);
+        Encode(new BaseSocketProtocal(Text, payload), writer);
     }
 
-    public override byte[] Encode(byte[] data)
+    // Decode: feed the received sequence segment by segment; the returned batch must be disposed (frame memory is valid until Dispose)
+    public void Handle(ReadOnlySequence<byte> data)
     {
-        // Custom encoding logic, e.g.: add message header
-        return base.Encode(data);
+        using (var frames = Decode(data))
+        {
+            foreach (var frame in frames.Frames)
+            {
+                if (frame.Type == Text)
+                    Console.WriteLine($"Received text frame: {Encoding.UTF8.GetString(frame.Content.ToArray())}");
+            }
+        }
     }
 }
 
@@ -322,17 +337,17 @@ var option = SocketOptionBuilder.Instance
 var server = SocketFactory.CreateServerSocket(option);
 
 // Register event handlers
-server.OnAccepted += (id) => 
-    Console.WriteLine($"Client connected: {id}");
+server.OnAccepted += (obj) => 
+    Console.WriteLine($"Client connected: {obj}");
 
 server.OnServerReceiveSpan += (userToken, data) => 
 {
-    var message = Encoding.UTF8.GetString(data);
+    var message = Encoding.UTF8.GetString(data.ToArray());
     Console.WriteLine($"Received data: {message}");
     server.Send(userToken.ID, data);  // Reply to client
 };
 
-server.OnDisconnected += (id) => 
+server.OnDisconnected += (id, ex) => 
     Console.WriteLine($"Client disconnected: {id}");
 
 server.Start();
@@ -355,9 +370,9 @@ var client = SocketFactory.CreateClientSocket(option);
 
 // Register event handlers
 client.OnClientReceiveSpan += (data) => 
-    Console.WriteLine($"Received: {Encoding.UTF8.GetString(data)}");
+    Console.WriteLine($"Received: {Encoding.UTF8.GetString(data.ToArray())}");
 
-client.OnDisconnected += () => 
+client.OnDisconnected += (id, ex) => 
     Console.WriteLine("Connection disconnected");
 
 // Connect to server
@@ -419,7 +434,7 @@ tcpServer.Start();
 
 // TCP client shortcut wrapper
 var tcpClient = new TCPClient("127.0.0.1", 39654);
-tcpClient.OnReceive += (sender, data) => Console.WriteLine(Encoding.UTF8.GetString(data));
+tcpClient.OnReceive += (sender, data) => Console.WriteLine(Encoding.UTF8.GetString(data.ToArray()));
 tcpClient.Connect();
 tcpClient.SendAsync("Hello!");
 
@@ -431,24 +446,33 @@ var udpClient = new UDPClient("127.0.0.1", 39655);
 ### Custom Protocol Encoder
 
 ```csharp
+using System;
+using System.Buffers;
+using System.Text;
 using SAEA.Sockets.Base;
-using SAEA.Sockets.Interface;
 
-// Implement custom encoder
+// Implement custom encoder: inherit BaseCoder to reuse frame-based (8-byte length + 1-byte type + body) encoding/decoding
 public class MyCoder : BaseCoder
 {
-    public override List<byte[]> Decode(byte[] data)
+    public const byte Text = 1;
+
+    // Encode: wrap the payload into a custom-type frame, then write it to the writer
+    public void EncodeText(ReadOnlyMemory<byte> payload, IBufferWriter<byte> writer)
     {
-        // Custom decoding logic
-        // e.g.: parse custom message header, message body
-        return base.Decode(data);
+        Encode(new BaseSocketProtocal(Text, payload), writer);
     }
 
-    public override byte[] Encode(byte[] data)
+    // Decode: feed the received sequence segment by segment; the returned batch must be disposed (frame memory is valid until Dispose)
+    public void Handle(ReadOnlySequence<byte> data)
     {
-        // Custom encoding logic
-        // e.g.: add custom message header
-        return base.Encode(data);
+        using (var frames = Decode(data))
+        {
+            foreach (var frame in frames.Frames)
+            {
+                if (frame.Type == Text)
+                    Console.WriteLine($"Received text frame: {Encoding.UTF8.GetString(frame.Content.ToArray())}");
+            }
+        }
     }
 }
 
@@ -468,16 +492,16 @@ Recent versions removed the `byte[]` public surface in favor of `Span` / `Memory
 | Removed | Replacement |
 |---------|-------------|
 | `IClientSocket.OnReceive` (`OnClientReceiveHandler`, `byte[]`) | `OnClientReceiveSpan` (`ReadOnlySpan<byte>`; consume/copy synchronously inside the callback) |
-| `IServerSocket.OnReceive` (`OnReceiveHandler`, `(string, byte[])`) | `OnServerReceiveSpan` (`(IUserToken, ReadOnlySpan<byte>)`) |
-| `IClientSocket.BeginSend(byte[])` / `Send(byte[])` / `SendAsync(byte[])` / `SendAsync(byte[], int, int, CancellationToken)` | `Send(ReadOnlySpan<byte>)` / `SendAsync(ReadOnlyMemory<byte>)` / `SendAsync(ReadOnlyMemory<byte>, CancellationToken)` |
+| `IServerSocket.OnReceive` (`OnReceiveHandler`, `(ISession, byte[])`) | `OnServerReceiveSpan` (`(IUserToken, ReadOnlySpan<byte>)`) |
+| `IClientSocket.BeginSend(byte[])` / `Send(byte[])` / `SendAsync(byte[])` / `SendAsync(byte[], int, int, CancellationToken)` | `Send(ReadOnlySpan<byte>)` / `SendAsync(ReadOnlyMemory<byte>)` / `SendAsync(ReadOnlyMemory<byte>, CancellationToken)`; express the old offset/count semantics with `data.AsMemory(offset, count)` |
 | `IClientSocket.ReceiveAsync(byte[], int, int, CancellationToken)` (interface member) | Use the span events; the concrete `IocpClientSocket.ReceiveAsync` is retained but throws `KernelException`, and `UdpClientSocket.ReceiveAsync` throws `NotSupportedException`; use `GetStream()` for raw reads |
-| `IServerSocket.SendAsync(string, byte[])` / `Send(string, byte[])` / `End(string, byte[])` / `SendAsync(IPEndPoint, byte[])` | The matching `ReadOnlyMemory<byte>` overloads |
+| `IServerSocket.SendAsync(string, byte[])` / `Send(string, byte[])` / `End(string, byte[])` / `SendAsync(IPEndPoint, byte[])` | `SendAsync(string, ReadOnlyMemory<byte>)` / `Send(string, ReadOnlySpan<byte>)` / `End(string, ReadOnlyMemory<byte>)` / `SendAsync(IPEndPoint, ReadOnlyMemory<byte>)` |
 | `IocpClientSocket.UserToken` | No longer public; use `Connected`, or `ChannelInfo.UserToken` / `Context.UserToken` depending on the scenario |
 | Shortcut `TCPClient` / `TCPServer` / `UDPClient` / `UDPServer` `OnReceive` | `TCPClient` / `TCPServer.OnReceive` now delivers `ReadOnlyMemory<byte>` instead of `byte[]` (`UDPClient` / `UDPServer.OnReceive` delivers `ISocketProtocal` frames); **source/binary breaking, recompile required** |
 
 > ⚠️ **Migration notes**
 > 1. The Shortcut `OnReceive` signature change (`byte[]` → `ReadOnlyMemory<byte>`) is a **source/binary breaking change** carried by the version bump. There is **no compatibility shim**; recompile your callers.
-> 2. Do **not** subscribe to both the removed `byte[]` event and the span event: `OnReceive` is gone, so just use `OnClientReceiveSpan` / `OnServerReceiveSpan` instead. This avoids duplicate delivery.
+> 2. The old `OnReceive` event is removed; use `OnClientReceiveSpan` / `OnServerReceiveSpan` instead.
 > 3. The span callback argument (`data`) is **only valid for the duration of the callback**. Consume it synchronously or `ToArray()`-copy it inside the callback. **Never store the span in a field or use it across threads/async**, which is a use-after-free.
 
 ---
