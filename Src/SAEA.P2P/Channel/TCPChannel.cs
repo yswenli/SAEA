@@ -67,7 +67,7 @@ namespace SAEA.P2P.Channel
                 .Build();
 
             _socket = SocketFactory.CreateClientSocket(option) as IocpClientSocket;
-            _socket.OnReceive += OnReceive;
+            _socket.OnClientReceiveSpan += OnReceiveSpan;
             _socket.OnDisconnected += (id, ex) =>
             {
                 _state = ChannelState.Closed;
@@ -91,11 +91,11 @@ namespace SAEA.P2P.Channel
             P2PLogHelper.Trace("TCPChannel", $"Sent {data.Length} bytes");
         }
 
-        private void OnReceive(byte[] data)
+        private void OnReceiveSpan(ReadOnlySpan<byte> data)
         {
             try
             {
-                using (var frames = _coder.DecodeP2P(data))
+                using (var frames = _coder.DecodeP2P(data.ToArray()))
                 {
                     foreach (var frame in frames.Frames)
                     {

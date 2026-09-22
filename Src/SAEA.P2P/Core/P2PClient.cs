@@ -142,7 +142,7 @@ namespace SAEA.P2P.Core
                 .Build();
             
             _signalSocket = SocketFactory.CreateClientSocket(option) as IocpClientSocket;
-            _signalSocket.OnReceive += OnSignalReceive;
+            _signalSocket.OnClientReceiveSpan += OnSignalReceiveSpan;
             _signalSocket.OnDisconnected += (id, ex) =>
             {
                 SetState(NodeState.Disconnected);
@@ -181,9 +181,9 @@ namespace SAEA.P2P.Core
             P2PLogHelper.Info(NodeId, "Local discovery started");
         }
         
-        private void OnSignalReceive(byte[] data)
+        private void OnSignalReceiveSpan(ReadOnlySpan<byte> data)
         {
-            using (var frames = _coder.DecodeP2P(data))
+            using (var frames = _coder.DecodeP2P(data.ToArray()))
             {
                 foreach (var frame in frames.Frames)
                 {
@@ -197,31 +197,31 @@ namespace SAEA.P2P.Core
             switch ((P2PMessageType)protocol.Type)
             {
                 case P2PMessageType.RegisterAck:
-                    ProcessRegisterAck(protocol.Content.ToArray());
+                    ProcessRegisterAck(protocol.Content);
                     break;
                 case P2PMessageType.NodeList:
-                    ProcessNodeList(protocol.Content.ToArray());
+                    ProcessNodeList(protocol.Content);
                     break;
                 case P2PMessageType.AuthChallenge:
-                    ProcessAuthChallenge(protocol.Content.ToArray());
+                    ProcessAuthChallenge(protocol.Content);
                     break;
                 case P2PMessageType.AuthSuccess:
                     ProcessAuthSuccess();
                     break;
                 case P2PMessageType.PunchReady:
-                    ProcessPunchReady(protocol.Content.ToArray());
+                    ProcessPunchReady(protocol.Content);
                     break;
                 case P2PMessageType.NatProbeAck:
-                    ProcessNatProbeAck(protocol.Content.ToArray());
+                    ProcessNatProbeAck(protocol.Content);
                     break;
                 case P2PMessageType.RelayAck:
-                    ProcessRelayAck(protocol.Content.ToArray());
+                    ProcessRelayAck(protocol.Content);
                     break;
                 case P2PMessageType.RelayData:
-                    ProcessRelayData(protocol.Content.ToArray());
+                    ProcessRelayData(protocol.Content);
                     break;
                 case P2PMessageType.UserData:
-                    ProcessUserData(protocol.Content.ToArray());
+                    ProcessUserData(protocol.Content);
                     break;
                 case P2PMessageType.Heartbeat:
                     SendHeartbeatAck();
@@ -229,10 +229,9 @@ namespace SAEA.P2P.Core
             }
         }
         
-        private void ProcessRegisterAck(byte[] content)
+        private void ProcessRegisterAck(ReadOnlyMemory<byte> content)
         {
-            if (content == null) return;
-            var text = Encoding.UTF8.GetString(content);
+            var text = P2PContent.GetString(content);
             var parts = text.Split('|');
             
             if (parts[0] == "OK")
@@ -252,13 +251,13 @@ namespace SAEA.P2P.Core
             }
         }
         
-        private void ProcessAuthChallenge(byte[] content)
+        private void ProcessAuthChallenge(ReadOnlyMemory<byte> content)
         {
-            if (_authManager == null || content == null) return;
+            if (_authManager == null) return;
             
             var challenge = new AuthChallenge
             {
-                ChallengeData = Encoding.UTF8.GetString(content)
+                ChallengeData = P2PContent.GetString(content)
             };
             
             var response = _authManager.ComputeResponse(challenge);
@@ -274,10 +273,9 @@ namespace SAEA.P2P.Core
             P2PLogHelper.Info(NodeId, "Authentication successful");
         }
         
-        private void ProcessNodeList(byte[] content)
+        private void ProcessNodeList(ReadOnlyMemory<byte> content)
         {
-            if (content == null) return;
-            var text = Encoding.UTF8.GetString(content);
+            var text = P2PContent.GetString(content);
             var nodeIds = text.Split(',');
             
             foreach (var nodeId in nodeIds)
@@ -291,10 +289,9 @@ namespace SAEA.P2P.Core
             P2PLogHelper.Debug(NodeId, $"Received node list: {nodeIds.Length} nodes");
         }
         
-        private void ProcessNatProbeAck(byte[] content)
+        private void ProcessNatProbeAck(ReadOnlyMemory<byte> content)
         {
-            if (content == null) return;
-            var text = Encoding.UTF8.GetString(content);
+            var text = P2PContent.GetString(content);
             var parts = text.Split('|');
             
             if (parts.Length >= 2)
@@ -317,10 +314,9 @@ namespace SAEA.P2P.Core
             }
         }
         
-        private void ProcessPunchReady(byte[] content)
+        private void ProcessPunchReady(ReadOnlyMemory<byte> content)
         {
-            if (content == null) return;
-            var text = Encoding.UTF8.GetString(content);
+            var text = P2PContent.GetString(content);
             var parts = text.Split('|');
             if (parts.Length < 3) return;
             
@@ -341,11 +337,11 @@ namespace SAEA.P2P.Core
             P2PLogHelper.Debug(NodeId, $"Punch ready for {targetId}");
         }
         
-        private void ProcessRelayAck(byte[] content)
+        private void ProcessRelayAck(ReadOnlyMemory<byte> content)
         {
-            if (content == null || _relayManager == null) return;
+            if (_relayManager == null) return;
             
-            var text = Encoding.UTF8.GetString(content);
+            var text = P2PContent.GetString(content);
             var parts = text.Split('|');
             var relaySessionId = parts[0];
             var peerId = parts.Length > 1 ? parts[1] : null;
@@ -364,40 +360,32 @@ namespace SAEA.P2P.Core
             P2PLogHelper.Info(NodeId, $"Relay session created: {relaySessionId} peer: {peerId}");
         }
         
-        private void ProcessRelayData(byte[] content)
+        private void ProcessRelayData(ReadOnlyMemory<byte> content)
         {
-            if (content == null) return;
-            
             // content layout: {relaySessionId}|{sourceId}|{targetId}|{payload}
-            var first = Array.IndexOf(content, (byte)'|');
+            var span = content.Span;
+            var first = span.IndexOf((byte)'|');
             if (first <= 0) return;
-            var second = Array.IndexOf(content, (byte)'|', first + 1);
+            var second = P2PContent.IndexOf(span, (byte)'|', first + 1);
             if (second < 0) return;
-            var third = Array.IndexOf(content, (byte)'|', second + 1);
+            var third = P2PContent.IndexOf(span, (byte)'|', second + 1);
             if (third < 0) return;
             
-            var sourceId = Encoding.UTF8.GetString(content, first + 1, second - first - 1);
-            var payloadOffset = third + 1;
-            var payload = new byte[content.Length - payloadOffset];
-            if (payload.Length > 0)
-                Buffer.BlockCopy(content, payloadOffset, payload, 0, payload.Length);
+            var sourceId = P2PContent.GetString(content, first + 1, second - first - 1);
+            var payload = content.Slice(third + 1).ToArray();
             
             OnMessageReceived?.Invoke(sourceId, payload);
         }
         
-        private void ProcessUserData(byte[] content)
+        private void ProcessUserData(ReadOnlyMemory<byte> content)
         {
-            if (content == null) return;
-            
             // content layout: {sourceId}|{payload}
-            var first = Array.IndexOf(content, (byte)'|');
+            var span = content.Span;
+            var first = span.IndexOf((byte)'|');
             if (first <= 0) return;
             
-            var peerId = Encoding.UTF8.GetString(content, 0, first);
-            var payloadOffset = first + 1;
-            var payload = new byte[content.Length - payloadOffset];
-            if (payload.Length > 0)
-                Buffer.BlockCopy(content, payloadOffset, payload, 0, payload.Length);
+            var peerId = P2PContent.GetString(content, 0, first);
+            var payload = content.Slice(first + 1).ToArray();
             
             OnMessageReceived?.Invoke(peerId, payload);
         }

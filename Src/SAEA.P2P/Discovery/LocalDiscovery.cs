@@ -104,7 +104,7 @@ namespace SAEA.P2P.Discovery
                     new MulticastOption(IPAddress.Parse(_multicastGroup)));
             }
 
-            _socket.OnReceive += OnReceiveData;
+            _socket.OnClientReceiveSpan += OnReceiveDataSpan;
 
             _broadcastTimer = new Timer(BroadcastDiscovery, null, 0, _interval);
             _running = true;
@@ -137,21 +137,21 @@ namespace SAEA.P2P.Discovery
             P2PLogHelper.Trace("LocalDiscovery", "Broadcast discovery packet");
         }
 
-        private void OnReceiveData(byte[] data)
+        private void OnReceiveDataSpan(ReadOnlySpan<byte> data)
         {
             try
             {
-                using (var frames = _coder.DecodeP2P(data))
+                using (var frames = _coder.DecodeP2P(data.ToArray()))
                 {
                     foreach (var frame in frames.Frames)
                     {
                         if ((P2PMessageType)frame.Type == P2PMessageType.LocalDiscover)
                         {
-                            ProcessDiscoveryPacket(frame.Content.ToArray());
+                            ProcessDiscoveryPacket(frame.Content);
                         }
                         else if ((P2PMessageType)frame.Type == P2PMessageType.LocalDiscoverAck)
                         {
-                            ProcessDiscoveryAck(frame.Content.ToArray());
+                            ProcessDiscoveryAck(frame.Content);
                         }
                     }
                 }
@@ -162,11 +162,9 @@ namespace SAEA.P2P.Discovery
             }
         }
 
-        private void ProcessDiscoveryPacket(byte[] content)
+        private void ProcessDiscoveryPacket(ReadOnlyMemory<byte> content)
         {
-            if (content == null) return;
-
-            var text = Encoding.UTF8.GetString(content);
+            var text = P2PContent.GetString(content);
             var parts = text.Split('|');
             if (parts.Length < 1) return;
 
@@ -184,11 +182,9 @@ namespace SAEA.P2P.Discovery
             P2PLogHelper.Debug("LocalDiscovery", $"Received discovery from {nodeId}, sent ack");
         }
 
-        private void ProcessDiscoveryAck(byte[] content)
+        private void ProcessDiscoveryAck(ReadOnlyMemory<byte> content)
         {
-            if (content == null) return;
-
-            var text = Encoding.UTF8.GetString(content);
+            var text = P2PContent.GetString(content);
             var parts = text.Split('|');
             if (parts.Length < 1) return;
 

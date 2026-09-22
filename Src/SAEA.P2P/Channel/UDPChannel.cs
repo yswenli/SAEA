@@ -68,7 +68,7 @@ namespace SAEA.P2P.Channel
 
             _socket = SocketFactory.CreateClientSocket(option) as UdpClientSocket;
             _socket.Bind(new IPEndPoint(IPAddress.Any, port));
-            _socket.OnReceive += OnReceive;
+            _socket.OnClientReceiveSpan += OnReceiveSpan;
             _socket.OnError += (id, ex) => OnError?.Invoke(ex);
 
             _state = ChannelState.Bound;
@@ -97,11 +97,11 @@ namespace SAEA.P2P.Channel
             _socket.SendAsync(target, data);
         }
 
-        private void OnReceive(byte[] data)
+        private void OnReceiveSpan(ReadOnlySpan<byte> data)
         {
             try
             {
-                using (var frames = _coder.DecodeP2P(data))
+                using (var frames = _coder.DecodeP2P(data.ToArray()))
                 {
                     foreach (var frame in frames.Frames)
                     {
