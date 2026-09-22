@@ -59,11 +59,6 @@ namespace SAEA.Sockets
         event OnErrorHandler OnError;
 
         /// <summary>
-        /// 接收数据事件
-        /// </summary>
-        event OnReceiveHandler OnReceive;
-
-        /// <summary>
         /// 接收数据事件（Span 版本）。data 仅在回调期间有效。
         /// </summary>
         event OnServerReceiveSpanHandler OnServerReceiveSpan;
@@ -95,13 +90,6 @@ namespace SAEA.Sockets
         /// <param name="sessionID"></param>
         /// <returns></returns>
         object GetCurrentObj(string sessionID);
-
-        /// <summary>
-        /// 发送数据
-        /// </summary>
-        /// <param name="sessionID"></param>
-        /// <param name="data"></param>
-        void SendAsync(string sessionID, byte[] data);
 
         /// <summary>
         /// 同步发送（Span）。ns2.0 下会租用池化缓冲区拷贝一次后异步发送。
@@ -137,27 +125,6 @@ namespace SAEA.Sockets
         /// <param name="ipEndPoint">目标地址</param>
         /// <param name="data">数据</param>
         void SendAsync(IPEndPoint ipEndPoint, ReadOnlyMemory<byte> data);
-
-        /// <summary>
-        /// 发送数据
-        /// </summary>
-        /// <param name="sessionID"></param>
-        /// <param name="data"></param>
-        void Send(string sessionID, byte[] data);
-
-        /// <summary>
-        /// http end
-        /// </summary>
-        /// <param name="sessionID"></param>
-        /// <param name="data"></param>
-        void End(string sessionID, byte[] data);
-
-        /// <summary>
-        /// 定向发送
-        /// </summary>
-        /// <param name="ipEndPoint"></param>
-        /// <param name="data"></param>
-        void SendAsync(IPEndPoint ipEndPoint, byte[] data);
 
         /// <summary>
         /// 停止

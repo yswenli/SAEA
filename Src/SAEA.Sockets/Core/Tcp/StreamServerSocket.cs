@@ -107,11 +107,6 @@ namespace SAEA.Sockets.Core.Tcp
         /// </summary>
         public event OnDisconnectedHandler OnDisconnected;
         /// <summary>
-        /// 接收数据事件
-        /// </summary>
-        public event OnReceiveHandler OnReceive;
-
-        /// <summary>
         /// 接收数据事件（Span 版本）。data 仅在回调期间有效。
         /// </summary>
         public event OnServerReceiveSpanHandler OnServerReceiveSpan;
@@ -340,7 +335,7 @@ namespace SAEA.Sockets.Core.Tcp
 
             try
             {
-                while (!_isStoped && (OnReceive != null || OnServerReceiveSpan != null))
+                while (!_isStoped && OnServerReceiveSpan != null)
                 {
                     ReadResult result;
                     try
@@ -381,7 +376,6 @@ namespace SAEA.Sockets.Core.Tcp
                         {
                             if (segment.Length == 0) continue;
                             OnServerReceiveSpan?.Invoke(token, segment.Span);
-                            OnReceive?.Invoke(token, segment.ToArray());
                         }
                     }
                     catch (Exception ex)
@@ -415,58 +409,6 @@ namespace SAEA.Sockets.Core.Tcp
         public object GetCurrentObj(string sessionID)
         {
             return ChannelManager.Instance.Get(sessionID);
-        }
-
-        /// <summary>
-        /// 异步发送数据
-        /// </summary>
-        /// <param name="sessionID">会话ID</param>
-        /// <param name="data">数据</param>
-        public void SendAsync(string sessionID, byte[] data)
-        {
-            var channel = ChannelManager.Instance.Get(sessionID);
-            ChannelManager.Instance.Refresh(sessionID);
-            if (channel == null || channel.ClientSocket == null || !channel.ClientSocket.Connected)
-                throw new KernelException("Failed to send data,current session does not exist！");
-            channel.Stream.WriteAsync(data, 0, data.Length);
-        }
-
-        /// <summary>
-        /// 同步发送数据
-        /// </summary>
-        /// <param name="sessionID">会话ID</param>
-        /// <param name="data">数据</param>
-        public void Send(string sessionID, byte[] data)
-        {
-            var channel = ChannelManager.Instance.Get(sessionID);
-            ChannelManager.Instance.Refresh(sessionID);
-            channel.Stream.Write(data, 0, data.Length);
-        }
-
-        /// <summary>
-        /// 结束会话并发送数据
-        /// </summary>
-        /// <param name="sessionID">会话ID</param>
-        /// <param name="data">数据</param>
-        public void End(string sessionID, byte[] data)
-        {
-            var channel = ChannelManager.Instance.Get(sessionID);
-            ChannelManager.Instance.Refresh(sessionID);
-            if (channel != null && channel.Stream != null && channel.Stream.CanWrite)
-            {
-                channel.Stream.Write(data, 0, data.Length);
-                Disconnect(sessionID);
-            }
-        }
-
-        /// <summary>
-        /// 异步发送数据到指定终结点
-        /// </summary>
-        /// <param name="ipEndPoint">终结点</param>
-        /// <param name="data">数据</param>
-        public void SendAsync(IPEndPoint ipEndPoint, byte[] data)
-        {
-            SendAsync(ipEndPoint.ToString(), data);
         }
 
         /// <summary>
@@ -540,12 +482,19 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="data">数据</param>
         public void End(string sessionID, ReadOnlyMemory<byte> data)
         {
-            End(sessionID, data.ToArray());
+            var channel = ChannelManager.Instance.Get(sessionID);
+            ChannelManager.Instance.Refresh(sessionID);
+            if (channel != null && channel.Stream != null && channel.Stream.CanWrite)
+            {
+                var copy = data.ToArray();
+                channel.Stream.Write(copy, 0, copy.Length);
+                Disconnect(sessionID);
+            }
         }
 
         public void SendAsync(IPEndPoint ipEndPoint, ReadOnlyMemory<byte> data)
         {
-            SendAsync(ipEndPoint.ToString(), data.ToArray());
+            SendAsync(ipEndPoint.ToString(), data);
         }
 
         /// <summary>

@@ -66,11 +66,6 @@ namespace SAEA.Sockets
         bool Connected { get; }
 
         /// <summary>
-        /// 接收数据事件
-        /// </summary>
-        event OnClientReceiveHandler OnReceive;
-
-        /// <summary>
         /// 接收数据事件（Span 版本）。data 仅在回调期间有效，消费方如需跨回调保存必须自行复制。
         /// </summary>
         event OnClientReceiveSpanHandler OnClientReceiveSpan;
@@ -108,24 +103,6 @@ namespace SAEA.Sockets
         void ConnectAsync(Action<SocketError> callBack = null);        
 
         /// <summary>
-        /// 导步发送
-        /// </summary>
-        /// <param name="data"></param>
-        void BeginSend(byte[] data);
-
-        /// <summary>
-        /// 同步发送
-        /// </summary>
-        /// <param name="data"></param>
-        void Send(byte[] data);
-
-        /// <summary>
-        /// iocp发送
-        /// </summary>
-        /// <param name="data"></param>
-        void SendAsync(byte[] data);
-
-        /// <summary>
         /// 同步发送（Span）。ns2.0 下会租用池化缓冲区拷贝一次后发送。
         /// </summary>
         /// <param name="data">数据</param>
@@ -150,26 +127,6 @@ namespace SAEA.Sockets
         /// <param name="cancellationToken">取消令牌</param>
         /// <returns></returns>
         Task SendAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken);
-
-        /// <summary>
-        /// 异步流发送
-        /// </summary>
-        /// <param name="buffer"></param>
-        /// <param name="offset"></param>
-        /// <param name="count"></param>
-        /// <param name="cancellationToken"></param>
-        /// <returns></returns>
-        Task SendAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken);
-
-        /// <summary>
-        /// 异步流接收
-        /// </summary>
-        /// <param name="buffer"></param>
-        /// <param name="offset"></param>
-        /// <param name="count"></param>
-        /// <param name="cancellationToken"></param>
-        /// <returns></returns>
-        Task<int> ReceiveAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken);
 
         /// <summary>
         /// 网络流

@@ -89,25 +89,12 @@ namespace SAEA.Sockets.Core.Tcp
         // 客户端断开连接事件
         public event OnDisconnectedHandler OnDisconnected;
 
-        // 接收数据事件
-        public event OnReceiveHandler OnReceive;
-
         /// <summary>
         /// 接收数据事件（Span 版本）。data 仅在回调期间有效。
         /// </summary>
         public event OnServerReceiveSpanHandler OnServerReceiveSpan;
 
         #endregion
-
-        /// <summary>
-        /// socket收到数据时的代理
-        /// </summary>
-        private OnServerReceiveBytesHandler OnServerReceiveBytes;
-
-        /// <summary>
-        /// 是否为基类服务端类型（非派生类）
-        /// </summary>
-        private readonly bool _isBaseServerType;
 
         /// <summary>
         /// iocp 服务器 socket
@@ -121,8 +108,6 @@ namespace SAEA.Sockets.Core.Tcp
                 socketOption.MaxConnects, IO_Completed,
                 new TimeSpan(0, 0, 0, 0, socketOption.FreeTime));
             _sessionManager.OnTimeOut += _sessionManager_OnTimeOut;
-            _isBaseServerType = GetType() == typeof(IocpServerSocket);
-            OnServerReceiveBytes = new OnServerReceiveBytesHandler(OnReceiveBytes);
             SocketOption = socketOption;
         }
 
@@ -267,17 +252,6 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         /// <summary>
-        /// 收到服务器收到数据时的处理方法
-        /// 需要继承者自行实现具体逻辑
-        /// </summary>
-        /// <param name="userToken"></param>
-        /// <param name="data"></param>
-        protected virtual void OnReceiveBytes(IUserToken userToken, byte[] data)
-        {
-            OnReceive?.Invoke(userToken, data);
-        }
-
-        /// <summary>
         /// 处理接收数据
         /// </summary>
         /// <param name="readArgs"></param>
@@ -350,9 +324,6 @@ namespace SAEA.Sockets.Core.Tcp
                         _sessionManager.Active(userToken.ID);
 
                         OnServerReceiveSpan?.Invoke(userToken, dataSpan);
-
-                        if (!_isBaseServerType || OnReceive != null)
-                            OnServerReceiveBytes.Invoke(userToken, dataSpan.ToArray());
                     }
                     catch (Exception ex)
                     {
@@ -394,64 +365,6 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         #region send method
-
-        /// <summary>
-        /// 异步发送
-        /// </summary>
-        /// <param name="userToken"></param>
-        /// <param name="data"></param>
-        public void SendAsync(IUserToken userToken, byte[] data)
-        {
-            try
-            {
-                // 将发送动作也视为会话活跃，避免长连接（如SSE）仅靠服务器推送被判定为超时断开
-                try { _sessionManager.Active(userToken.ID); } catch { }
-            }
-            catch { }
-            if (userToken.WaitWrite(SocketOption.ActionTimeout) && userToken.Socket != null && userToken.Socket.Connected)
-            {
-                try
-                {
-                    var writeArgs = userToken.WriteArgs;
-
-                    if (writeArgs != null)
-                    {
-                        writeArgs.SetBuffer(data, 0, data.Length);
-
-                        bool asyncPending = userToken.Socket.SendAsync(writeArgs);
-                        
-                        if (!asyncPending)
-                        {
-                            ProcessSended(writeArgs);
-                        }
-                        else
-                        {
-                            userToken.IsSending = true;
-                            Task.Run(async () =>
-                            {
-                                await Task.Delay(SocketOption.ActionTimeout);
-                                lock (userToken)
-                                {
-                                    if (userToken.IsSending)
-                                    {
-                                        userToken.IsSending = false;
-                                        userToken.ReleaseWrite();
-                                    }
-                                }
-                            });
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", ex);
-                }
-            }
-            else
-            {
-                OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", new TimeoutException("Sending data timeout"));
-            }
-        }
 
         private void SendAsyncRaw(IUserToken userToken, ArraySegment<byte> seg, IDisposable owner)
         {
@@ -529,55 +442,6 @@ namespace SAEA.Sockets.Core.Tcp
         private static void AbandonSendingOwner(IUserToken userToken)
         {
             userToken.TakeSendingOwner();
-        }
-
-        /// <summary>
-        /// 异步发送
-        /// </summary>
-        /// <param name="sessionID"></param>
-        /// <param name="data"></param>
-        public void SendAsync(string sessionID, byte[] data)
-        {
-            var userToken = _sessionManager.Get(sessionID);
-
-            if (userToken == null)
-            {
-                return;
-            }
-            SendAsync(userToken, data);
-        }
-
-        /// <summary>
-        /// 同步发送
-        /// </summary>
-        /// <param name="userToken"></param>
-        /// <param name="data"></param>
-        public void Send(IUserToken userToken, byte[] data)
-        {
-            try
-            {
-                // 将发送动作也视为会话活跃，避免长连接被判定为超时断开
-                try { _sessionManager.Active(userToken.ID); } catch { }
-
-                if (userToken != null && userToken.Socket != null && userToken.Socket.Connected)
-                {
-                    if (userToken.WaitWrite(SocketOption.ActionTimeout))
-                    {
-                        var writeArgs = userToken.WriteArgs;
-                        writeArgs.SetBuffer(data, 0, data.Length);
-                        if (!userToken.Socket.SendAsync(writeArgs))
-                        {
-                            ProcessSended(writeArgs);
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                OnError?.Invoke(userToken?.ID ?? "", ex);
-                try { userToken?.ReleaseWrite(); } catch { }
-                try { Disconnect(userToken); } catch { }
-            }
         }
 
         public void Send(string sessionID, ReadOnlySpan<byte> data)
@@ -664,90 +528,6 @@ namespace SAEA.Sockets.Core.Tcp
         public void SendAsync(IPEndPoint ipEndPoint, ReadOnlyMemory<byte> data)
         {
             if (ipEndPoint == null) return;
-            SendAsync(ipEndPoint.ToString(), data);
-        }
-
-        /// <summary>
-        /// 同步发送
-        /// </summary>
-        /// <param name="sessionID"></param>
-        /// <param name="data"></param>
-        public void Send(string sessionID, byte[] data)
-        {
-            var userToken = _sessionManager.Get(sessionID);
-            if (userToken != null)
-            {
-                Send(userToken, data);
-            }
-        }
-
-        /// <summary>
-        /// APM方式发送
-        /// </summary>
-        /// <param name="userToken"></param>
-        /// <param name="data"></param>
-        /// <returns></returns>
-        public IAsyncResult BeginSend(IUserToken userToken, byte[] data)
-        {
-            try
-            {
-                _sessionManager.Active(userToken.ID);
-
-                return userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, null, null);
-            }
-            catch (Exception ex)
-            {
-                Disconnect(userToken);
-                throw new KernelException("An exception occurs when a message is sending:" + ex.Message, ex);
-            }
-        }
-
-        /// <summary>
-        /// APM方式结束发送
-        /// </summary>
-        /// <param name="userToken"></param>
-        /// <param name="result"></param>
-        /// <returns></returns>
-        public int EndSend(IUserToken userToken, IAsyncResult result)
-        {
-            return userToken.Socket.EndSend(result);
-        }
-
-        /// <summary>
-        /// 回复并关闭连接
-        /// 用于http
-        /// </summary>
-        /// <param name="sessionID"></param>
-        /// <param name="data"></param>
-        public void End(string sessionID, byte[] data)
-        {
-            var userToken = _sessionManager.Get(sessionID);
-
-            if (userToken == null) return;
-
-            try
-            {
-                if (userToken.Socket != null && userToken.Socket.Connected)
-                {
-                    Send(userToken, data);
-                }
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Error($"An exception occurs when a message is sending:{userToken?.ID}", ex);
-                OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", ex);
-            }
-
-            Disconnect(userToken);
-        }
-
-        /// <summary>
-        /// 发送数据
-        /// </summary>
-        /// <param name="ipEndPoint"></param>
-        /// <param name="data"></param>
-        public void SendAsync(IPEndPoint ipEndPoint, byte[] data)
-        {
             SendAsync(ipEndPoint.ToString(), data);
         }
         #endregion

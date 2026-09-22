@@ -76,19 +76,10 @@ namespace SAEA.Sockets.Core.Udp
 
         public event OnDisconnectedHandler OnDisconnected;
 
-        public event OnClientReceiveHandler OnReceive;
-
-        protected OnClientReceiveBytesHandler OnClientReceive = null;
-
         /// <summary>
         /// 接收数据事件（Span 版本）。data 仅在回调期间有效。
         /// </summary>
         public event OnClientReceiveSpanHandler OnClientReceiveSpan;
-
-        /// <summary>
-        /// 小数据阈值（4KB）
-        /// </summary>
-        internal const int SmallDataThreshold = 4 * 1024;
 
         protected void RaiseOnError(string id, Exception ex)
         {
@@ -127,8 +118,6 @@ namespace SAEA.Sockets.Core.Udp
             _udpSocket.SendTimeout = _udpSocket.ReceiveTimeout = SocketOption.ActionTimeout;
             _udpSocket.SendBufferSize = SocketOption.WriteBufferSize;
             _udpSocket.ReceiveBufferSize = SocketOption.ReadBufferSize;
-
-            OnClientReceive = new OnClientReceiveBytesHandler(OnReceived);
 
             _connectArgs = new SocketAsyncEventArgs
             {
@@ -224,12 +213,6 @@ namespace SAEA.Sockets.Core.Udp
         }
 
 
-        protected virtual void OnReceived(byte[] data)
-        {
-            OnReceive?.Invoke(data);
-        }
-
-
         void ProcessReceive(SocketAsyncEventArgs readArgs)
         {
             if (_userToken.Socket != null)
@@ -258,19 +241,6 @@ namespace SAEA.Sockets.Core.Udp
                     var dataSpan = readArgs.Buffer.AsSpan(readArgs.Offset, readArgs.BytesTransferred);
 
                     OnClientReceiveSpan?.Invoke(dataSpan);
-
-                    if (OnClientReceive != null)
-                    {
-                        var data = dataSpan.ToArray();
-
-                        try
-                        {
-                            OnClientReceive.Invoke(data);
-                        }
-                        finally
-                        {
-                        }
-                    }
 
                     ProcessReceive(readArgs);
                 }
@@ -327,43 +297,6 @@ namespace SAEA.Sockets.Core.Udp
         }
 
 
-
-        /// <summary>
-        /// 异步发送
-        /// </summary>
-        /// <param name="ipEndPoint"></param>
-        /// <param name="data"></param>
-        public void SendAsync(IPEndPoint ipEndPoint, byte[] data)
-        {
-            try
-            {
-                if (data == null || !data.Any() || data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("SendAsync Incorrect length of data sent");
-
-                if (UserToken.WaitWrite(SocketOption.ActionTimeout))
-                {
-                    var writeArgs = UserToken.WriteArgs;
-
-                    writeArgs.SetBuffer(data, 0, data.Length);
-
-                    writeArgs.RemoteEndPoint = ipEndPoint;
-
-                    if (!UserToken.Socket.SendToAsync(writeArgs))
-                    {
-                        ProcessSended(writeArgs);
-                    }
-                }
-                else
-                {
-                    OnError?.Invoke($"An exception occurs when a message is sending:{ipEndPoint.ToString()}", new TimeoutException("Sending data timeout"));
-                }
-            }
-            catch (Exception ex)
-            {
-                OnError?.Invoke(_remoteEndPoint.ToString(), ex);
-                UserToken.ReleaseWrite();
-                Disconnect();
-            }
-        }
 
         /// <summary>
         /// UDP 异步发送核心：seg 指向的内存由 owner 持有；owner 为 null 表示调用方内存（零拷贝）。
@@ -427,42 +360,6 @@ namespace SAEA.Sockets.Core.Udp
         }
 
         /// <summary>
-        /// iocp发送
-        /// </summary>
-        /// <param name="data"></param>
-        public void SendAsync(byte[] data)
-        {
-            SendAsync(_remoteEndPoint, data);
-        }
-
-        /// <summary>
-        /// 同步发送
-        /// </summary>
-        /// <param name="data"></param>
-        public void Send(byte[] data)
-        {
-            if (data == null || !data.Any() || data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("Send Incorrect length of data sent");
-
-            try
-            {
-                var offset = 0;
-                do
-                {
-                    var iResult = _udpSocket.BeginSendTo(data, offset, data.Length - offset, SocketFlags.None, _remoteEndPoint, null, null);
-
-                    offset += _udpSocket.EndSend(iResult);
-                }
-                while (offset < data.Length);
-
-                _userToken.Actived = DateTimeHelper.Now;
-            }
-            catch (Exception ex)
-            {
-                ProcessDisconnected(ex);
-            }
-        }
-
-        /// <summary>
         /// 同步发送数据
         /// </summary>
         /// <remarks>
@@ -518,6 +415,31 @@ namespace SAEA.Sockets.Core.Udp
         }
 
         /// <summary>
+        /// 异步发送数据（指定远端地址）
+        /// </summary>
+        /// <remarks>
+        /// netstandard2.0 没有 Socket.SendTo(ReadOnlySpan&lt;byte&gt;)，非数组内存会先复制一次到池化缓冲（唯一的边界拷贝）。
+        /// 若输入为调用方数组（MemoryMarshal.TryGetArray 精确匹配）则零拷贝直发，发送完成前调用方不得修改或复用该内存。
+        /// </remarks>
+        /// <param name="ipEndPoint">远端地址</param>
+        /// <param name="data">数据</param>
+        public void SendAsync(IPEndPoint ipEndPoint, ReadOnlyMemory<byte> data)
+        {
+            if (data.Length == 0) return;
+            if (data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("SendAsync Incorrect length of data sent");
+            if (MemoryMarshal.TryGetArray(data, out var seg))
+            {
+                SendAsyncRaw(ipEndPoint, seg, null);
+                return;
+            }
+            var writer = new PooledBufferWriter(data.Length);
+            data.Span.CopyTo(writer.GetSpan(data.Length));
+            writer.Advance(data.Length);
+            writer.TryGetArray(out var rented);
+            SendAsyncRaw(ipEndPoint, rented, writer);
+        }
+
+        /// <summary>
         /// 异步发送协议对象
         /// </summary>
         /// <remarks>
@@ -570,53 +492,6 @@ namespace SAEA.Sockets.Core.Udp
         {
             if (data.Length == 0) return Task.CompletedTask;
             return Task.Run(() => SendAsync(data), cancellationToken);
-        }
-
-        public void BeginSend(byte[] data)
-        {
-            if (data == null || !data.Any() || data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("BeginSend Incorrect length of data sent");
-
-            _userToken.Socket.BeginSendTo(data, 0, data.Length, SocketFlags.None, _remoteEndPoint, null, null);
-
-            _userToken.Actived = DateTimeHelper.Now;
-        }
-
-
-        public Task SendAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
-        {
-            return Task.Run(() =>
-            {
-                // 根据数据大小选择分配策略
-                byte[] data;
-                if (count < SmallDataThreshold)
-                {
-                    // 小数据：直接分配
-                    data = new byte[count];
-                }
-                else
-                {
-                    // 大数据：从内存池租用
-                    data = MemoryPoolManager.Rent(count);
-                }
-
-                try
-                {
-                    Buffer.BlockCopy(buffer, offset, data, 0, count);
-
-                    if (data == null || !data.Any() || data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("SendAsync Incorrect length of data sent");
-
-                    Send(data);
-                }
-                finally
-                {
-                    // 如果是大数据，归还到内存池
-                    if (count >= SmallDataThreshold)
-                    {
-                        MemoryPoolManager.Return(data, count);
-                    }
-                }
-
-            }, cancellationToken);
         }
 
         public Task<int> ReceiveAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)

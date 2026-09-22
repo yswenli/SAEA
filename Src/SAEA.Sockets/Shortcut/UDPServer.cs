@@ -117,17 +117,6 @@ namespace SAEA.Sockets.Shortcut
         /// <param name="id"></param>
         /// <param name="data"></param>
         /// <param name="socketProtocalType"></param>
-        public void SendAsync(string id, byte[] data, SocketProtocalType socketProtocalType = SocketProtocalType.ChatMessage)
-        {
-            SendAsync(id, new ReadOnlyMemory<byte>(data), socketProtocalType);
-        }
-
-        /// <summary>
-        /// SendAsync
-        /// </summary>
-        /// <param name="id"></param>
-        /// <param name="data"></param>
-        /// <param name="socketProtocalType"></param>
         /// <remarks>
         /// 零拷贝契约：数组支撑的 ReadOnlyMemory 在快速路径上零拷贝发送，发送完成前不得修改或复用该缓冲区；
         /// 非数组内存会在边界处发生一次复制。

@@ -108,16 +108,6 @@ namespace SAEA.Sockets.Shortcut
         /// </summary>
         /// <param name="id"></param>
         /// <param name="data"></param>
-        public void SendAsync(string id, byte[] data)
-        {
-            _serverSokcet.SendAsync(id, new ReadOnlyMemory<byte>(data));
-        }
-
-        /// <summary>
-        /// SendAsync
-        /// </summary>
-        /// <param name="id"></param>
-        /// <param name="data"></param>
         /// <remarks>
         /// 零拷贝契约：数组支撑的 ReadOnlyMemory 在快速路径上零拷贝发送，发送完成前不得修改或复用该缓冲区；
         /// 非数组内存会在边界处发生一次复制。

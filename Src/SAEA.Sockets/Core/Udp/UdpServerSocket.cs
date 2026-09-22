@@ -75,19 +75,12 @@ namespace SAEA.Sockets.Core.Udp
 
         public event OnDisconnectedHandler OnDisconnected;
 
-        public event OnReceiveHandler OnReceive;
-
         /// <summary>
         /// 接收数据事件（Span 版本）。data 仅在回调期间有效。
         /// </summary>
         public event OnServerReceiveSpanHandler OnServerReceiveSpan;
 
         #endregion
-
-        /// <summary>
-        /// socket收到数据时的代理
-        /// </summary>
-        private OnServerReceiveBytesHandler OnServerReceiveBytes;
 
         /// <summary>
         /// iocp 服务器 socket
@@ -97,7 +90,6 @@ namespace SAEA.Sockets.Core.Udp
         {
             _sessionManager = new SessionManager(socketOption.Context, socketOption.ReadBufferSize, socketOption.MaxConnects, IO_Completed, new TimeSpan(0, 0, 0, 0, socketOption.FreeTime));
             _sessionManager.OnTimeOut += _sessionManager_OnTimeOut;
-            OnServerReceiveBytes = new OnServerReceiveBytesHandler(OnReceiveBytes);
             SocketOption = socketOption;
         }
 
@@ -179,18 +171,6 @@ namespace SAEA.Sockets.Core.Udp
         }
 
         /// <summary>
-        /// 收到服务器收到数据时的处理方法
-        /// 需要继承者自行实现具体逻辑
-        /// </summary>
-        /// <param name="userToken"></param>
-        /// <param name="data"></param>
-        protected virtual void OnReceiveBytes(IUserToken userToken, byte[] data)
-        {
-            OnReceive?.Invoke(userToken, data);
-        }
-
-
-        /// <summary>
         /// 
         /// </summary>
         /// <param name="readArgs"></param>
@@ -248,20 +228,6 @@ namespace SAEA.Sockets.Core.Udp
 
                     OnServerReceiveSpan?.Invoke(userToken, dataSpan);
 
-                    if (OnServerReceiveBytes != null)
-                    {
-                        var data = dataSpan.ToArray();
-
-                        try
-                        {
-                            OnServerReceiveBytes.Invoke(userToken, data);
-                        }
-                        catch (Exception ex)
-                        {
-                            OnError?.Invoke(userToken.ID, ex);
-                        }
-                    }
-
                     ProcessReceive(readArgs);
                 }
                 else
@@ -298,42 +264,6 @@ namespace SAEA.Sockets.Core.Udp
         }
 
         #region send method
-
-        /// <summary>
-        /// 异步发送
-        /// </summary>
-        /// <param name="userToken"></param>
-        /// <param name="data"></param>
-        public void SendAsync(IUserToken userToken, byte[] data)
-        {
-            if (data == null || !data.Any() || data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentException("SendAsync Incorrect length of data sent");
-
-            if (userToken.WaitWrite(SocketOption.ActionTimeout))
-            {
-                try
-                {
-                    var writeArgs = userToken.WriteArgs;
-
-                    writeArgs.RemoteEndPoint = userToken.ReadArgs.RemoteEndPoint;
-
-                    writeArgs.SetBuffer(data, 0, data.Length);
-
-                    if (!userToken.Socket.SendToAsync(writeArgs))
-                    {
-                        ProcessSended(writeArgs);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", ex);
-                }
-            }
-            else
-            {
-                OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", new TimeoutException("Sending data timeout"));
-            }
-        }
-
 
         /// <summary>
         /// UDP 异步发送核心：seg 指向的内存由 owner 持有；owner 为 null 表示调用方内存（零拷贝）。
@@ -417,162 +347,6 @@ namespace SAEA.Sockets.Core.Udp
             }
         }
 
-
-        /// <summary>
-        /// 异步发送
-        /// </summary>
-        /// <param name="sessionID"></param>
-        /// <param name="data"></param>
-        public void SendAsync(string sessionID, byte[] data)
-        {
-            var userToken = _sessionManager.Get(sessionID);
-
-            if (userToken == null)
-            {
-                throw new KernelException("Failed to send data,current session does not exist！");
-            }
-            SendAsync(userToken, data);
-        }
-
-
-        /// <summary>
-        /// 同步发送
-        /// </summary>
-        /// <param name="userToken"></param>
-        /// <param name="data"></param>
-        public void Send(IUserToken userToken, byte[] data)
-        {
-            try
-            {
-                if (data == null || !data.Any() || data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("SendAsync Incorrect length of data sent");
-
-                _sessionManager.Active(userToken.ID);
-
-                int sendNum = 0, offset = 0;
-
-                while (true)
-                {
-                    sendNum += userToken.Socket.SendTo(data, offset, data.Length - offset, SocketFlags.None, userToken.ReadArgs.RemoteEndPoint);
-
-                    offset += sendNum;
-
-                    if (sendNum == data.Length)
-                    {
-                        break;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                var kex = new KernelException("An exception occurs when a message is sending:" + ex.Message, ex);
-                Disconnect(userToken, kex);
-            }
-        }
-
-
-        /// <summary>
-        /// 同步发送
-        /// </summary>
-        /// <param name="sessionID"></param>
-        /// <param name="data"></param>
-        public void Send(string sessionID, byte[] data)
-        {
-            var userToken = _sessionManager.Get(sessionID);
-            if (userToken != null)
-            {
-                Send(userToken, data);
-            }
-        }
-
-        /// <summary>
-        /// APM方式发送
-        /// </summary>
-        /// <param name="userToken"></param>
-        /// <param name="data"></param>
-        /// <returns></returns>
-        public IAsyncResult BeginSend(IUserToken userToken, byte[] data)
-        {
-            if (data == null || !data.Any() || data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("BeginSend Incorrect length of data sent");
-            try
-            {
-                _sessionManager.Active(userToken.ID);
-
-                return userToken.Socket.BeginSendTo(data, 0, data.Length, SocketFlags.None, userToken.ReadArgs.RemoteEndPoint, null, null);
-            }
-            catch (Exception ex)
-            {
-                var kex = new KernelException("An exception occurs when a message is sending:" + ex.Message, ex);
-                Disconnect(userToken, kex);
-            }
-            return null;
-        }
-
-        /// <summary>
-        /// APM方式结束发送
-        /// </summary>
-        /// <param name="userToken"></param>
-        /// <param name="result"></param>
-        /// <returns></returns>
-        public int EndSend(IUserToken userToken, IAsyncResult result)
-        {
-            return userToken.Socket.EndSend(result);
-        }
-
-
-
-        /// <summary>
-        /// 回复并关闭连接
-        /// 用于http
-        /// </summary>
-        /// <param name="sessionID"></param>
-        /// <param name="data"></param>
-        public void End(string sessionID, byte[] data)
-        {
-            if (data == null || !data.Any() || data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("End Incorrect length of data sent");
-
-            var userToken = _sessionManager.Get(sessionID);
-
-            if (userToken != null && userToken.Socket != null)
-            {
-                _sessionManager.Active(userToken.ID);
-
-                Send(userToken, data);
-
-                Disconnect(userToken);
-            }
-        }
-
-        /// <summary>
-        /// 发送广播或者组播
-        /// </summary>
-        /// <param name="ipEndPoint"></param>
-        /// <param name="data"></param>
-        public void SendAsync(IPEndPoint ipEndPoint, byte[] data)
-        {
-            if (data == null || !data.Any() || data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentException("SendAsync Incorrect length of data sent");
-
-            var userToken = SessionManager.Get(ipEndPoint.ToString());
-
-            try
-            {
-                userToken.WriteArgs.RemoteEndPoint = new IPEndPoint(ipEndPoint.Address, SocketOption.Port);
-
-                userToken.WriteArgs.SetBuffer(data, 0, data.Length);
-
-                if (!_udpSocket.SendToAsync(userToken.WriteArgs))
-                {
-                    ProcessSended(userToken.WriteArgs);
-                }
-            }
-            catch (Exception ex)
-            {
-                OnError?.Invoke($"An exception occurs when a message is sending:{ipEndPoint.ToString()}", ex);
-            }
-            finally
-            {
-                //SessionManager.FreeBuffer(userToken.WriteArgs);
-            }
-        }
 
         /// <summary>
         /// 同步发送数据（按会话）

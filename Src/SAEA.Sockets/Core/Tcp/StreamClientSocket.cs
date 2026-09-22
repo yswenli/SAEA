@@ -91,9 +91,6 @@ namespace SAEA.Sockets.Core.Tcp
 
         public event OnDisconnectedHandler OnDisconnected;
 
-        [Obsolete("此方法为IOCP中所用")]
-        public event OnClientReceiveHandler OnReceive;
-
         public event OnClientReceiveSpanHandler OnClientReceiveSpan;
 
 
@@ -313,15 +310,6 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         /// <summary>
-        /// Send
-        /// </summary>
-        /// <param name="buffer"></param>
-        public void Send(byte[] buffer)
-        {
-            _stream.Write(buffer, 0, buffer.Length);
-        }
-
-        /// <summary>
         /// 同步发送（Span）。netstandard2.0 的 <see cref="Stream.Write(byte[], int, int)"/> 不接受
         /// <see cref="ReadOnlySpan{T}"/>，因此在本边界做一次 <c>byte[]</c> 拷贝后同步写入 <see cref="_stream"/>。
         /// </summary>
@@ -390,83 +378,6 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         /// <summary>
-        /// SendAsync
-        /// </summary>
-        /// <param name="buffer"></param>
-        [Obsolete("建议使用SendAsync(byte[] buffer, int offset, int count)或其他方法代替")]
-        public void SendAsync(byte[] buffer)
-        {
-            Task.Run(async () =>
-            {
-                try
-                {
-                    await _stream.WriteAsync(buffer, 0, buffer.Length);
-                }
-                catch (Exception ex)
-                {
-                    OnError?.Invoke(Endpoint, ex);
-                }
-            });
-        }
-
-        /// <summary>
-        /// 异步发送
-        /// </summary>
-        /// <param name="buffer"></param>
-        /// <param name="offset"></param>
-        /// <param name="count"></param>
-        /// <returns></returns>
-        public async Task SendAsync(byte[] buffer, int offset, int count)
-        {
-            using (CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(SocketOption.ActionTimeout)))
-            {
-                await SendAsync(buffer, offset, count, cts.Token);
-            }
-        }
-
-        /// <summary>
-        /// 异步发送
-        /// </summary>
-        /// <param name="buffer"></param>
-        /// <param name="offset"></param>
-        /// <param name="count"></param>
-        /// <param name="cancellationToken"></param>
-        /// <returns></returns>
-        public async Task SendAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
-        {
-            await _stream.WriteAsync(buffer, offset, count, cancellationToken);
-        }
-
-
-        /// <summary>
-        /// 异步接收
-        /// </summary>
-        /// <param name="buffer"></param>
-        /// <param name="offset"></param>
-        /// <param name="count"></param>
-        /// <returns></returns>
-        public async Task ReceiveAsync(byte[] buffer, int offset, int count)
-        {
-            using (CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(SocketOption.ActionTimeout)))
-            {
-                await _stream.ReadAsync(buffer, offset, count, cts.Token);
-            }
-        }
-
-        /// <summary>
-        /// 异步接收
-        /// </summary>
-        /// <param name="buffer"></param>
-        /// <param name="offset"></param>
-        /// <param name="count"></param>
-        /// <param name="cancellationToken"></param>
-        /// <returns></returns>
-        public async Task<int> ReceiveAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
-        {
-            return await _stream.ReadAsync(buffer, offset, count, cancellationToken);
-        }
-
-        /// <summary>
         /// GetStream
         /// </summary>
         /// <returns></returns>
@@ -530,14 +441,5 @@ namespace SAEA.Sockets.Core.Tcp
             return certificates;
         }
         #endregion
-
-        /// <summary>
-        /// BeginSend
-        /// </summary>
-        /// <param name="data"></param>
-        public void BeginSend(byte[] data)
-        {
-            SendAsync(data);
-        }
     }
 }

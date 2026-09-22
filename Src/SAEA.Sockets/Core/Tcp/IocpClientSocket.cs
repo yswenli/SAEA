@@ -103,11 +103,6 @@ namespace SAEA.Sockets.Core.Tcp
         public bool Connected { get; private set; }
 
         /// <summary>
-        /// 用户令牌
-        /// </summary>
-        public IUserToken UserToken { get => _userToken; private set => _userToken = value; }
-
-        /// <summary>
         /// 是否已释放
         /// </summary>
         public bool IsDisposed { get; private set; } = false;
@@ -131,11 +126,6 @@ namespace SAEA.Sockets.Core.Tcp
         /// 断开连接事件
         /// </summary>
         public event OnDisconnectedHandler OnDisconnected;
-
-        /// <summary>
-        /// 接收数据事件
-        /// </summary>
-        public event OnClientReceiveHandler OnReceive;
 
         /// <summary>
         /// 接收字节数据事件
@@ -407,7 +397,6 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="data">接收到的数据</param>
         protected virtual void OnReceived(byte[] data)
         {
-            OnReceive?.Invoke(data);
         }
 
         /// <summary>
@@ -457,11 +446,11 @@ namespace SAEA.Sockets.Core.Tcp
                         }
                         catch (Exception ex)
                         {
-                            OnError?.Invoke(UserToken.ID, ex);
+                            OnError?.Invoke(_userToken.ID, ex);
                         }
 
                         // 兼容路径：仅当存在 byte[] 消费方时才复制
-                        if (!_isBaseClientType || OnReceive != null)
+                        if (!_isBaseClientType)
                         {
                             var buffer = dataSpan.ToArray();
 
@@ -471,12 +460,12 @@ namespace SAEA.Sockets.Core.Tcp
                             }
                             catch (Exception ex)
                             {
-                                OnError?.Invoke(UserToken.ID, ex);
+                                OnError?.Invoke(_userToken.ID, ex);
                             }
                         }
                     }
 
-                    if (readArgs.SocketError == SocketError.Success && UserToken.Socket != null && UserToken.Socket.Connected)
+                    if (readArgs.SocketError == SocketError.Success && _userToken.Socket != null && _userToken.Socket.Connected)
                     {
                         ProcessReceive(readArgs);
                     }
@@ -515,42 +504,6 @@ namespace SAEA.Sockets.Core.Tcp
             catch (Exception ex)
             {
                 OnError?.Invoke(_userToken?.ID ?? "", ex);
-            }
-        }
-
-        /// <summary>
-        /// 异步发送数据
-        /// </summary>
-        /// <param name="userToken">用户令牌</param>
-        /// <param name="data">数据</param>
-        public void SendAsync(IUserToken userToken, byte[] data)
-        {
-            try
-            {
-                if (userToken != null && userToken.Socket != null && userToken.Socket.Connected)
-                {
-                    if (userToken.WaitWrite(SocketOption.ActionTimeout))
-                    {
-                        var writeArgs = userToken.WriteArgs;
-
-                        writeArgs.SetBuffer(data, 0, data.Length);
-
-                        if (!userToken.Socket.SendAsync(writeArgs))
-                        {
-                            ProcessSended(writeArgs);
-                        }
-                    }
-                    else
-                    {
-                        OnError?.Invoke($"SAEA SocketError:发送消息时发生异常,{userToken?.ID}", new TimeoutException("发送数据超时"));
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                OnError?.Invoke(userToken?.ID ?? "", ex);
-                try { userToken?.ReleaseWrite(); } catch { }
-                try { Disconnect(); } catch { }
             }
         }
 
@@ -607,47 +560,6 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 if (!transferred) owner?.Dispose();
             }
-        }
-
-        /// <summary>
-        /// 异步发送数据
-        /// </summary>
-        /// <param name="data">数据</param>
-        public void SendAsync(byte[] data)
-        {
-            SendAsync(UserToken, data);
-        }
-
-        /// <summary>
-        /// 同步发送数据
-        /// </summary>
-        /// <param name="data">数据</param>
-        public void Send(byte[] data)
-        {
-            if (data == null) return;
-
-            if (Connected)
-            {
-                try
-                {
-                    var offset = 0;
-                    do
-                    {
-                        var iResult = _socket.BeginSend(data, offset, data.Length - offset, SocketFlags.None, null, null);
-
-                        offset += _socket.EndSend(iResult);
-                    }
-                    while (offset < data.Length);
-
-                    _userToken.Actived = DateTimeHelper.Now;
-                }
-                catch (Exception ex)
-                {
-                    Disconnect(ex);
-                }
-            }
-            else
-                OnError?.Invoke("", new Exception("SAEA SocketError:发送失败,当前连接已断开"));
         }
 
         public void Send(ReadOnlySpan<byte> data)
@@ -721,46 +633,6 @@ namespace SAEA.Sockets.Core.Tcp
         public Task SendAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken)
         {
             return Task.Run(() => SendAsync(data), cancellationToken);
-        }
-
-        /// <summary>
-        /// 异步发送数据
-        /// </summary>
-        /// <param name="data">数据</param>
-        public void BeginSend(byte[] data)
-        {
-            try
-            {
-                if (Connected)
-                {
-                    _userToken.Socket.BeginSend(data, 0, data.Length, SocketFlags.None, null, null);
-                }
-            }
-            catch (Exception ex)
-            {
-                OnError?.Invoke(_userToken?.ID ?? "", ex);
-            }
-        }
-
-        /// <summary>
-        /// 异步发送数据
-        /// </summary>
-        /// <param name="buffer">缓冲区</param>
-        /// <param name="offset">偏移量</param>
-        /// <param name="count">数量</param>
-        /// <param name="cancellationToken">取消令牌</param>
-        /// <returns></returns>
-        public async Task SendAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
-        {
-            await Task.Run(() =>
-            {
-                var data = new byte[count];
-
-                Buffer.BlockCopy(buffer, offset, data, 0, count);
-
-                Send(data);
-
-            }, cancellationToken);
         }
 
         /// <summary>
