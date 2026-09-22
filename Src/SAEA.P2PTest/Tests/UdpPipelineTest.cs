@@ -72,7 +72,7 @@ namespace SAEA.P2PTest.Tests
                 if (token != null)
                 {
                     var reply = StreamDecoderTest.BuildFrame((byte)SocketProtocalType.RequestSend, Encoding.UTF8.GetBytes("udp-reply"));
-                    server.SendAsync(token, reply);
+                    server.SendAsync(token.ID, new ReadOnlyMemory<byte>(reply));
 
                     await TestHarness.WaitUntil(() => clientCapture.HasSpan, 3000);
 
