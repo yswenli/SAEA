@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -83,7 +84,15 @@ namespace SAEA.P2PTest.Tests
             finally
             {
                 try { client?.Dispose(); } catch { }
+
+                var stopwatch = Stopwatch.StartNew();
+                try { server?.Stop(); } catch { }
+                stopwatch.Stop();
+
                 try { server?.Dispose(); } catch { }
+
+                TestHarness.Expect(stopwatch.ElapsedMilliseconds < 2000,
+                    "UDP server Stop completes without blocking teardown");
             }
         }
 

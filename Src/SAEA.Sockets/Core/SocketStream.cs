@@ -64,15 +64,16 @@ namespace SAEA.Sockets.Core
         {
             _client = client;
             _ownsClient = ownsClient;
-            _client.OnReceive += _client_OnReceive;
+            _client.OnClientReceiveSpan += _client_OnReceiveSpan;
             _queue = new BlockingQueue<byte[]>();
             _list = new List<byte>();
         }
 
-        private void _client_OnReceive(byte[] data)
+        private void _client_OnReceiveSpan(ReadOnlySpan<byte> data)
         {
-            _queue.Enqueue(data);
-            Interlocked.Add(ref _length, data.Length);
+            var arr = data.ToArray();
+            _queue.Enqueue(arr);
+            Interlocked.Add(ref _length, arr.Length);
         }
 
         public override bool CanRead => _client.Connected;
@@ -139,7 +140,7 @@ namespace SAEA.Sockets.Core
         public override void Write(byte[] buffer, int offset, int count)
         {
             var data = buffer.AsSpan().Slice(offset, count).ToArray();
-            _client.SendAsync(data);
+            _client.SendAsync(new ReadOnlyMemory<byte>(data));
         }
         /// <summary>
         /// 写入

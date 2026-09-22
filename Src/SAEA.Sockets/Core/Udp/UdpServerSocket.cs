@@ -196,6 +196,8 @@ namespace SAEA.Sockets.Core.Udp
         /// <param name="readArgs"></param>
         private void ProcessReceive(SocketAsyncEventArgs readArgs)
         {
+            if (_udpSocket == null) return;
+
             IUserToken token;
             if (readArgs == null)
             {
@@ -764,7 +766,7 @@ namespace SAEA.Sockets.Core.Udp
         {
             try
             {
-                _udpSocket.Close(10 * 1000);
+                _udpSocket.Dispose();
             }
             catch { }
             try
