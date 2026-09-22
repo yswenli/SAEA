@@ -157,7 +157,7 @@
 - 场景参数化：`S1` = 1P/1C/1topic/64B/10s；`S2` = 5P/5C/1topic/1KB/10s。
 - 生产者不限速 `Publish`，计数取 `OnMessagesSent`；消费者计数取 `OnMessage`。
 - 到时长 → 停生产者 → `WaitUntil` 排空 → 断言**无损**（`received == sent`，排空超时则 `received/sent ≥ 0.99` 并在 detail 打印差额）。
-- 指标：有效吞吐（received/elapsed）、投递吞吐（sent/elapsed）、系统级 **B/frame** = `GC.GetTotalAllocatedBytes` 差 ÷ received、Gen0/1/2；延迟 p50/p99 用负载内嵌 `Stopwatch.GetTimestamp()` 计算，**仅打印不断言**。
+- 指标：有效吞吐（received/elapsed）、投递吞吐（sent/elapsed）、系统级 **B/frame** = `GC.GetTotalAllocatedBytes` 差 ÷ received、Gen0/1/2。**延迟 p50/p99 本轮不测**：`Producer.Publish` 仅接受 `string`，内嵌 8B 时间戳需把二进制塞进 UTF8 字符串，会扰动 payload 尺寸与 B/frame 口径，且同进程 loopback 单向延迟对吞吐/分配 KPI 无决策价值（列为后续可选）。
 
 ### 5.3 硬断言阈值（防回归；**provisional，实施步骤 3 用优化前基线校准**）
 
@@ -180,7 +180,7 @@
 |------|------|------|
 | O1 | `Net/QueueCoder.cs:392`（private static） | `ReadInt32` 去 `temp.ToArray()`，改手工小端读取 `data[o] \| data[o+1]<<8 \| ...`；每帧省 4 次分配 |
 | O2 | `QClient.cs:189`、`QServer.cs:123`；`QueueCoder` | 新增 `internal List<QueueMsg> GetQueueResult(ReadOnlySpan<byte>)` + 私有 `AppendData(ReadOnlySpan<byte>)`；两处接收改调它，去整帧 `.ToArray()`；原 `public GetQueueResult(byte[])` 保留 |
-| O3 | `Net/QueueCoder.cs` | 新增内部 `DecodeTo(ReadOnlySpan, List<QueueMsg>, out int)` 直接产出 `QueueMsg`，去掉「`QueueSocketMsg` → `QueueMsg`」双对象；公开 `Decode(...)` 保留 |
+| O3 | `Net/QueueCoder.cs` | 新增内部 `int DecodeTo(ReadOnlySpan<byte>, List<QueueMsg>)`（返回已消费字节数）直接产出 `QueueMsg`，去掉「`QueueSocketMsg` → `QueueMsg`」双对象；公开 `Decode(...)` 保留 |
 | O4 | `QClient.cs:214`（private） | `_batcher_OnBatched` 去 `List<byte>`+`AddRange`+`ToArray`，先求和再精确分配并 `Buffer.BlockCopy`，`Send(span)` |
 | O5 | `Net/QueueCoder.cs:204`（public static） | `Encode` 去 `List<byte>` 与 4×`BitConverter.GetBytes`，精确分配后手工写入 type/长度字段，UTF8 与 data 直接拷贝；线格式字节不变 |
 | O6 | `Model/Exchange.cs:176-232`（private） | `subs.ToArray()` 改复用快照、去每批 `new List<byte[]>`；把逐条 `coder.Data` 再交 batcher 拼接改为**每订阅者每批编码进单个精确缓冲后 `Insert` 一次**，`Insert` 次数由 batchSize 降为 1，线内容等价 |
