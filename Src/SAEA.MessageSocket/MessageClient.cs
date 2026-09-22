@@ -125,10 +125,6 @@ namespace SAEA.MessageSocket
         {
             var data = dataSpan.ToArray();
 
-            if (data == null)
-            {
-                return;
-            }
             _messageContext.UserToken.Actived = DateTimeHelper.Now;
             using (var msgs = _messageContext.Unpacker.Decode(new ReadOnlySequence<byte>(data)))
             {

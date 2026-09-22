@@ -100,29 +100,26 @@ namespace SAEA.FileSocket
         {
             var data = dataSpan.ToArray();
 
-            if (data != null)
+            using (var msgs = _unpacker.Decode(new ReadOnlySequence<byte>(data), null, null))
             {
-                using (var msgs = _unpacker.Decode(new ReadOnlySequence<byte>(data), null, null))
+                if (msgs.Count == 0)
                 {
-                    if (msgs.Count == 0)
-                    {
-                        return;
-                    }
-                    foreach (var msg in msgs.Frames)
-                    {
-                        Action<bool> action;
+                    return;
+                }
+                foreach (var msg in msgs.Frames)
+                {
+                    Action<bool> action;
 
-                        if (_eventCollection.TryPop(out action))
+                    if (_eventCollection.TryPop(out action))
+                    {
+                        var result = false;
+
+                        if (msg.Type == (byte)SocketProtocalType.AllowReceive)
                         {
-                            var result = false;
-
-                            if (msg.Type == (byte)SocketProtocalType.AllowReceive)
-                            {
-                                result = true;
-                            }
-
-                            action?.Invoke(result);
+                            result = true;
                         }
+
+                        action?.Invoke(result);
                     }
                 }
             }

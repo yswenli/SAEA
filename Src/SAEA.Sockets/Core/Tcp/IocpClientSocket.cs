@@ -451,7 +451,14 @@ namespace SAEA.Sockets.Core.Tcp
                         var dataSpan = readArgs.Buffer.AsSpan(readArgs.Offset, readArgs.BytesTransferred);
 
                         // 零拷贝路径：始终触发（无分配）
-                        OnClientReceiveSpan?.Invoke(dataSpan);
+                        try
+                        {
+                            OnClientReceiveSpan?.Invoke(dataSpan);
+                        }
+                        catch (Exception ex)
+                        {
+                            OnError?.Invoke(UserToken.ID, ex);
+                        }
 
                         // 兼容路径：仅当存在 byte[] 消费方时才复制
                         if (!_isBaseClientType || OnReceive != null)

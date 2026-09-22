@@ -116,7 +116,7 @@ namespace SAEA.QueueSocket
         /// </summary>
         /// <param name="ut">会话对象</param>
         /// <param name="data">数据</param>
-private void _serverSokcet_OnReceiveSpan(IUserToken ut, ReadOnlySpan<byte> dataSpan)
+        private void _serverSokcet_OnReceiveSpan(IUserToken ut, ReadOnlySpan<byte> dataSpan)
         {
             var userToken = ut;
             var qcoder = (Net.QueueCoder)userToken.Coder;
