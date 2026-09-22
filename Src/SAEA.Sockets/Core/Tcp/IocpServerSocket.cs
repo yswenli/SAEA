@@ -589,7 +589,7 @@ namespace SAEA.Sockets.Core.Tcp
         {
             try
             {
-                _listener.Close(10 * 1000);
+                _listener?.Close(10 * 1000);
             }
             catch { }
             try
@@ -599,7 +599,7 @@ namespace SAEA.Sockets.Core.Tcp
             catch { }
             try
             {
-                _listener.Dispose();
+                _listener?.Dispose();
                 _listener = null;
             }
             catch { }

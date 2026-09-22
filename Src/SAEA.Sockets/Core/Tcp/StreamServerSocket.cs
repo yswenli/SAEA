@@ -580,7 +580,7 @@ namespace SAEA.Sockets.Core.Tcp
                 _tokens.Clear();
 
                 SocketOption.X509Certificate2?.Dispose();
-                _listener.Close();
+                _listener?.Close();
             }
             catch { }
 
