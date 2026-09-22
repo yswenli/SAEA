@@ -31,7 +31,6 @@
 *****************************************************************************/
 using System;
 using System.IO;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
@@ -394,24 +393,12 @@ namespace SAEA.Sockets.Core.Udp
         /// 异步发送数据
         /// </summary>
         /// <remarks>
-        /// netstandard2.0 没有 Socket.SendTo(ReadOnlySpan&lt;byte&gt;)，非数组内存会先复制一次到池化缓冲（唯一的边界拷贝）。
-        /// 若输入为调用方数组（MemoryMarshal.TryGetArray 精确匹配）则零拷贝直发，发送完成前调用方不得修改或复用该内存。
+        /// 发送到已连接的远端地址；参数与拷贝语义见 <see cref="SendAsync(IPEndPoint, ReadOnlyMemory{byte})"/>。
         /// </remarks>
         /// <param name="data"></param>
         public void SendAsync(ReadOnlyMemory<byte> data)
         {
-            if (data.Length == 0) return;
-            if (data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException("SendAsync Incorrect length of data sent");
-            if (MemoryMarshal.TryGetArray(data, out var seg))
-            {
-                SendAsyncRaw(_remoteEndPoint, seg, null);
-                return;
-            }
-            var writer = new PooledBufferWriter(data.Length);
-            data.Span.CopyTo(writer.GetSpan(data.Length));
-            writer.Advance(data.Length);
-            writer.TryGetArray(out var rented);
-            SendAsyncRaw(_remoteEndPoint, rented, writer);
+            SendAsync(_remoteEndPoint, data);
         }
 
         /// <summary>
@@ -420,6 +407,8 @@ namespace SAEA.Sockets.Core.Udp
         /// <remarks>
         /// netstandard2.0 没有 Socket.SendTo(ReadOnlySpan&lt;byte&gt;)，非数组内存会先复制一次到池化缓冲（唯一的边界拷贝）。
         /// 若输入为调用方数组（MemoryMarshal.TryGetArray 精确匹配）则零拷贝直发，发送完成前调用方不得修改或复用该内存。
+        /// <paramref name="data"/> 为 default 或零长度时直接返回、不发送（旧 byte[] 版对 null/空抛
+        /// <see cref="ArgumentOutOfRangeException"/>，本重载沿用 Memory 面的静默返回语义）。
         /// </remarks>
         /// <param name="ipEndPoint">远端地址</param>
         /// <param name="data">数据</param>

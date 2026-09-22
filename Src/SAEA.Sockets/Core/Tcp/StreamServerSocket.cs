@@ -305,18 +305,17 @@ namespace SAEA.Sockets.Core.Tcp
 
         /// <summary>
         /// 处理已接受的客户端连接。仅在存在接收订阅者时读取：使用每连接的 <see cref="PipeReader"/>
-        /// 循环读取，逐段触发 <see cref="OnServerReceiveSpan"/>（零拷贝，仅回调期间有效）与
-        /// <see cref="OnReceive"/>（byte[]，Plan 2C 前兼容）。多段 <see cref="ReadOnlySequence{T}"/>
-        /// 按段投递；需要连续帧的消费者应使用 <see cref="IFrameCoder.DecodeStream"/> 拆帧内核，而非假设
-        /// 一次回调等于一个 PDU。
+        /// 循环读取，逐段触发 <see cref="OnServerReceiveSpan"/>（零拷贝，仅回调期间有效）。多段
+        /// <see cref="ReadOnlySequence{T}"/> 按段投递；需要连续帧的消费者应使用
+        /// <see cref="IFrameCoder.DecodeStream"/> 拆帧内核，而非假设一次回调等于一个 PDU。
         /// </summary>
         /// <remarks>
-        /// 循环条件为 <c>!_isStoped &amp;&amp; (OnReceive != null || OnServerReceiveSpan != null)</c>，
-        /// 精确保持旧实现 <c>!_isStoped &amp;&amp; OnReceive != null</c> 的门控语义。原因：当无人订阅接收事件时，
-        /// 基于 <see cref="OnAcceptedHandler"/> 的消费者会自行读取 <see cref="ChannelInfo.Stream"/>——如
-        /// <c>SAEA.MQTT.Implementations.MqttTcpServerListener</c>、<c>SAEA.WebSocket.Core.WSSServerImpl</c>、
-        /// <c>SAEA.Socket5.Server.Socks5Server</c>——若此处无条件读取会与其争抢同一 <see cref="Stream"/>。
-        /// 在循环内判空与在接纳时判空等价：旧实现在无订阅者时同样永不进入循环并永久退出。
+        /// 循环条件为单条件门控 <c>!_isStoped &amp;&amp; OnServerReceiveSpan != null</c>：无人订阅接收事件时
+        /// 不进入循环。原因：此时基于 <see cref="OnAcceptedHandler"/> 的消费者会自行读取
+        /// <see cref="ChannelInfo.Stream"/>——如 <c>SAEA.MQTT.Implementations.MqttTcpServerListener</c>、
+        /// <c>SAEA.WebSocket.Core.WSSServerImpl</c>、<c>SAEA.Socket5.Server.Socks5Server</c>——若此处无条件
+        /// 读取会与其争抢同一 <see cref="Stream"/>。在循环内判空与在接纳时判空等价：无订阅者时同样永不进入
+        /// 循环并永久退出。
         /// </remarks>
         /// <param name="ci">通道信息</param>
         /// <param name="token">通道用户令牌；其 <see cref="StreamUserToken.Input"/> 以 <c>leaveOpen: true</c>
@@ -413,8 +412,8 @@ namespace SAEA.Sockets.Core.Tcp
 
         /// <summary>
         /// 同步发送（Span）。netstandard2.0 的 <see cref="Stream.Write(byte[], int, int)"/> 不接受
-        /// <see cref="ReadOnlySpan{T}"/>，因此在本边界做一次 <c>byte[]</c> 拷贝，随后与
-        /// <see cref="Send(string, byte[])"/> 一样同步写入 <see cref="ChannelInfo.Stream"/>。
+        /// <see cref="ReadOnlySpan{T}"/>，因此在本边界做一次 <c>byte[]</c> 拷贝，随后同步写入
+        /// <see cref="ChannelInfo.Stream"/>。
         /// </summary>
         /// <param name="sessionID">会话ID</param>
         /// <param name="data">数据</param>
@@ -475,8 +474,8 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         /// <summary>
-        /// 结束会话并发送数据。与 <see cref="End(string, byte[])"/> 同步语义一致：netstandard2.0 下
-        /// 先在边界做一次 <c>byte[]</c> 拷贝，写入后立即断开，断开时序不变。
+        /// 结束会话并发送数据。沿用既有同步语义：netstandard2.0 下先在边界做一次 <c>byte[]</c> 拷贝，
+        /// 写入后立即断开，断开时序不变。
         /// </summary>
         /// <param name="sessionID">会话ID</param>
         /// <param name="data">数据</param>
@@ -536,8 +535,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// </summary>
         /// <remarks>
         /// 正在执行的订阅者回调不会被等待或排空：<c>_isStoped</c> 置位后不再发起新的读取，但已进入
-        /// <see cref="OnServerReceiveSpan"/>/<see cref="OnReceive"/> 的回调可能仍在运行；若存在共享状态，
-        /// 调用方需自行同步。
+        /// <see cref="OnServerReceiveSpan"/> 的回调可能仍在运行；若存在共享状态，调用方需自行同步。
         /// </remarks>
         public void Stop()
         {

@@ -35,7 +35,6 @@ using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
 
 using System;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;

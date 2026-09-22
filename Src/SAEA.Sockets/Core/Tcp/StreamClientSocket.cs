@@ -324,7 +324,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <summary>
         /// 即发即忘异步发送（Memory）。netstandard2.0 的 <see cref="Stream.WriteAsync(byte[], int, int)"/> 不接受
         /// <see cref="ReadOnlyMemory{T}"/>，因此在本边界做一次 <c>byte[]</c> 拷贝后异步写入；失败时通过
-        /// <see cref="OnError"/> 上报，语义与即发即忘的 <see cref="SendAsync(byte[])"/> 一致。
+        /// <see cref="OnError"/> 上报，保持即发即忘（不等待写入任务）语义。
         /// </summary>
         /// <param name="data">数据</param>
         public void SendAsync(ReadOnlyMemory<byte> data)
