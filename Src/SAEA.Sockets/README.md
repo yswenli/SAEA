@@ -227,7 +227,9 @@ using System.Buffers;
 using System.Text;
 using SAEA.Sockets.Base;
 
-// 自定义编码器：继承 BaseCoder 复用帧式（8 字节长度 + 1 字节类型 + body）编解码
+// 自定义编码器：演示「复用 BaseCoder 的帧式编解码 + 按 Type 过滤」。
+// 注意 BaseCoder.Encode/Decode 非 virtual，无法 override；EncodeText/Handle 仅为包装示意，
+// 框架经 ICoder 调用的是基类的 Encode/Decode。若需自定义线格式，请直接实现 ICoder。
 public class MyCoder : BaseCoder
 {
     public const byte Text = 1;
@@ -238,7 +240,7 @@ public class MyCoder : BaseCoder
         Encode(new BaseSocketProtocal(Text, payload), writer);
     }
 
-    // 解码：按段喂入收到的序列，返回的批次必须 using（帧内存在 Dispose 前有效）
+    // 解码：传入收到的序列，返回的批次必须 using（帧内存在 Dispose 前有效）
     public void Handle(ReadOnlySequence<byte> data)
     {
         using (var frames = Decode(data))
@@ -251,12 +253,18 @@ public class MyCoder : BaseCoder
         }
     }
 }
+```
 
-// 使用自定义编码器
-public class MyContext : BaseContext<MyCoder>
-{
-    public MyContext(BaseUserToken userToken) : base(userToken) { }
-}
+接线方式（`UseIocp<T>()` 内部构造 `BaseContext<T>`，把编码器交给框架使用）：
+
+```csharp
+using SAEA.Sockets;
+
+var option = SocketOptionBuilder.Instance
+    .SetSocket(SAEASocketType.Tcp)
+    .UseIocp<MyCoder>()   // 注入自定义编码器
+    .SetPort(39654)
+    .Build();
 ```
 
 ### Q3: 如何配置 SSL/TLS 加密？
@@ -339,7 +347,7 @@ var server = SocketFactory.CreateServerSocket(option);
 
 // 注册事件处理
 server.OnAccepted += (obj) => 
-    Console.WriteLine($"客户端连接: {obj}");
+    Console.WriteLine($"客户端连接: {((SAEA.Sockets.Interface.IUserToken)obj).ID}");
 
 server.OnServerReceiveSpan += (userToken, data) => 
 {
@@ -452,7 +460,9 @@ using System.Buffers;
 using System.Text;
 using SAEA.Sockets.Base;
 
-// 实现自定义编码器：继承 BaseCoder 复用帧式（8 字节长度 + 1 字节类型 + body）编解码
+// 自定义编码器：演示「复用 BaseCoder 的帧式编解码 + 按 Type 过滤」。
+// 注意 BaseCoder.Encode/Decode 非 virtual，无法 override；EncodeText/Handle 仅为包装示意，
+// 框架经 ICoder 调用的是基类的 Encode/Decode。若需自定义线格式，请直接实现 ICoder。
 public class MyCoder : BaseCoder
 {
     public const byte Text = 1;
@@ -463,7 +473,7 @@ public class MyCoder : BaseCoder
         Encode(new BaseSocketProtocal(Text, payload), writer);
     }
 
-    // 解码：按段喂入收到的序列，返回的批次必须 using（帧内存在 Dispose 前有效）
+    // 解码：传入收到的序列，返回的批次必须 using（帧内存在 Dispose 前有效）
     public void Handle(ReadOnlySequence<byte> data)
     {
         using (var frames = Decode(data))
@@ -476,12 +486,18 @@ public class MyCoder : BaseCoder
         }
     }
 }
+```
 
-// 使用自定义编码器
-public class MyContext : BaseContext<MyCoder>
-{
-    public MyContext(BaseUserToken userToken) : base(userToken) { }
-}
+接线方式（`UseIocp<T>()` 内部构造 `BaseContext<T>`，把编码器交给框架使用）：
+
+```csharp
+using SAEA.Sockets;
+
+var option = SocketOptionBuilder.Instance
+    .SetSocket(SAEASocketType.Tcp)
+    .UseIocp<MyCoder>()   // 注入自定义编码器
+    .SetPort(39654)
+    .Build();
 ```
 
 ---

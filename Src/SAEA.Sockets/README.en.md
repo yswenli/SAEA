@@ -227,7 +227,10 @@ using System.Buffers;
 using System.Text;
 using SAEA.Sockets.Base;
 
-// Custom coder: inherit BaseCoder to reuse frame-based (8-byte length + 1-byte type + body) encoding/decoding
+// Custom coder: shows "reuse BaseCoder's frame-based codec + filter by Type".
+// Note BaseCoder.Encode/Decode are not virtual and cannot be overridden; EncodeText/Handle are
+// only wrappers illustrating the base capabilities — the framework calls the base Encode/Decode via ICoder.
+// To customize the wire format, implement ICoder directly.
 public class MyCoder : BaseCoder
 {
     public const byte Text = 1;
@@ -238,7 +241,7 @@ public class MyCoder : BaseCoder
         Encode(new BaseSocketProtocal(Text, payload), writer);
     }
 
-    // Decode: feed the received sequence segment by segment; the returned batch must be disposed (frame memory is valid until Dispose)
+    // Decode: pass in the received sequence; the returned batch must be disposed (frame memory is valid until Dispose)
     public void Handle(ReadOnlySequence<byte> data)
     {
         using (var frames = Decode(data))
@@ -251,12 +254,18 @@ public class MyCoder : BaseCoder
         }
     }
 }
+```
 
-// Use custom encoder
-public class MyContext : BaseContext<MyCoder>
-{
-    public MyContext(BaseUserToken userToken) : base(userToken) { }
-}
+Wiring (`UseIocp<T>()` internally builds `BaseContext<T>` and hands the coder to the framework):
+
+```csharp
+using SAEA.Sockets;
+
+var option = SocketOptionBuilder.Instance
+    .SetSocket(SAEASocketType.Tcp)
+    .UseIocp<MyCoder>()   // inject the custom coder
+    .SetPort(39654)
+    .Build();
 ```
 
 ### Q3: How to configure SSL/TLS encryption?
@@ -338,7 +347,7 @@ var server = SocketFactory.CreateServerSocket(option);
 
 // Register event handlers
 server.OnAccepted += (obj) => 
-    Console.WriteLine($"Client connected: {obj}");
+    Console.WriteLine($"Client connected: {((SAEA.Sockets.Interface.IUserToken)obj).ID}");
 
 server.OnServerReceiveSpan += (userToken, data) => 
 {
@@ -451,7 +460,10 @@ using System.Buffers;
 using System.Text;
 using SAEA.Sockets.Base;
 
-// Implement custom encoder: inherit BaseCoder to reuse frame-based (8-byte length + 1-byte type + body) encoding/decoding
+// Custom coder: shows "reuse BaseCoder's frame-based codec + filter by Type".
+// Note BaseCoder.Encode/Decode are not virtual and cannot be overridden; EncodeText/Handle are
+// only wrappers illustrating the base capabilities — the framework calls the base Encode/Decode via ICoder.
+// To customize the wire format, implement ICoder directly.
 public class MyCoder : BaseCoder
 {
     public const byte Text = 1;
@@ -462,7 +474,7 @@ public class MyCoder : BaseCoder
         Encode(new BaseSocketProtocal(Text, payload), writer);
     }
 
-    // Decode: feed the received sequence segment by segment; the returned batch must be disposed (frame memory is valid until Dispose)
+    // Decode: pass in the received sequence; the returned batch must be disposed (frame memory is valid until Dispose)
     public void Handle(ReadOnlySequence<byte> data)
     {
         using (var frames = Decode(data))
@@ -475,12 +487,18 @@ public class MyCoder : BaseCoder
         }
     }
 }
+```
 
-// Use custom encoder
-public class MyContext : BaseContext<MyCoder>
-{
-    public MyContext(BaseUserToken userToken) : base(userToken) { }
-}
+Wiring (`UseIocp<T>()` internally builds `BaseContext<T>` and hands the coder to the framework):
+
+```csharp
+using SAEA.Sockets;
+
+var option = SocketOptionBuilder.Instance
+    .SetSocket(SAEASocketType.Tcp)
+    .UseIocp<MyCoder>()   // inject the custom coder
+    .SetPort(39654)
+    .Build();
 ```
 
 ---
