@@ -105,6 +105,35 @@ namespace SAEA.P2PTest.Tests
                         "stream span accumulates fragmented writes into the full frame");
                     TestHarness.Expect(capture.Callbacks >= 2,
                         "stream span invokes the callback once per received segment");
+
+                    var disconnects = new List<string>();
+                    var disconnectGate = new object();
+                    server.OnDisconnected += (id, ex) =>
+                    {
+                        lock (disconnectGate) { disconnects.Add(id); }
+                    };
+
+                    tcp.Dispose();
+                    tcp = null;
+
+                    await TestHarness.WaitUntil(() =>
+                    {
+                        lock (disconnectGate) { return disconnects.Count >= 1; }
+                    }, 3000);
+
+                    lock (disconnectGate)
+                    {
+                        TestHarness.Expect(disconnects.Count == 1,
+                            "stream half-open close triggers OnDisconnected exactly once");
+                    }
+
+                    await Task.Delay(300);
+
+                    lock (disconnectGate)
+                    {
+                        TestHarness.Expect(disconnects.Count == 1,
+                            "stream half-open close does not double-fire OnDisconnected");
+                    }
                 }
             }
             finally
