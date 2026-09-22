@@ -46,7 +46,7 @@ var option = SocketOptionBuilder.Instance
     .Build();
 
 var server = SocketFactory.CreateServerSocket(option);
-server.OnReceive += (id, data) => server.Send(id, data);  // 收到消息立即回复
+server.OnServerReceiveSpan += (userToken, data) => server.Send(userToken.ID, data);  // 收到消息立即回复
 server.Start();
 ```
 
@@ -54,9 +54,9 @@ server.Start();
 
 ```csharp
 var client = SocketFactory.CreateClientSocket(option);
-client.OnReceive += (data) => Console.WriteLine(Encoding.UTF8.GetString(data));
+client.OnClientReceiveSpan += (data) => Console.WriteLine(Encoding.UTF8.GetString(data));
 client.Connect();
-client.SendAsync(Encoding.UTF8.GetBytes("Hello SAEA!"));
+client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!")));
 ```
 
 **就这么简单！** 🎉 你已经实现了一个支持万级并发的高性能 TCP 通信系统。
@@ -145,7 +145,7 @@ client.SendAsync(Encoding.UTF8.GetBytes("Hello SAEA!"));
                       └─────────────────┘
                                 │
                                 ▼
-                      OnReceive 事件触发
+                      OnServerReceiveSpan 事件触发
                                 │
                                 ▼
                       ┌─────────────────┐
@@ -154,7 +154,7 @@ client.SendAsync(Encoding.UTF8.GetBytes("Hello SAEA!"));
                       └─────────────────┘
                                 │
                                 ▼
-                      SendAsync 发送数据
+                      SendAsync(ReadOnlyMemory<byte>) 发送数据
 ```
 
 ---
@@ -326,11 +326,11 @@ var server = SocketFactory.CreateServerSocket(option);
 server.OnAccepted += (id) => 
     Console.WriteLine($"客户端连接: {id}");
 
-server.OnReceive += (id, data) => 
+server.OnServerReceiveSpan += (userToken, data) => 
 {
     var message = Encoding.UTF8.GetString(data);
     Console.WriteLine($"收到数据: {message}");
-    server.Send(id, data);  // 回复客户端
+    server.Send(userToken.ID, data);  // 回复客户端
 };
 
 server.OnDisconnected += (id) => 
@@ -355,7 +355,7 @@ var option = SocketOptionBuilder.Instance
 var client = SocketFactory.CreateClientSocket(option);
 
 // 注册事件处理
-client.OnReceive += (data) => 
+client.OnClientReceiveSpan += (data) => 
     Console.WriteLine($"收到: {Encoding.UTF8.GetString(data)}");
 
 client.OnDisconnected += () => 
@@ -365,7 +365,7 @@ client.OnDisconnected += () =>
 client.Connect();
 
 // 发送数据
-client.SendAsync(Encoding.UTF8.GetBytes("Hello SAEA!"));
+client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!")));
 ```
 
 ### UDP 服务器
@@ -381,10 +381,10 @@ var option = SocketOptionBuilder.Instance
 
 var server = SocketFactory.CreateServerSocket(option);
 
-server.OnReceive += (id, data) => 
+server.OnServerReceiveSpan += (userToken, data) => 
 {
     Console.WriteLine($"收到 UDP 数据");
-    server.Send(id, data);  // 回发数据
+    server.Send(userToken.ID, data);  // 回发数据
 };
 
 server.Start();
@@ -415,14 +415,14 @@ using SAEA.Sockets.Shortcut;
 
 // TCP 服务器快捷封装
 var tcpServer = new TCPServer(39654);
-tcpServer.OnReceive += (id, data) => tcpServer.Send(id, data);
+tcpServer.OnReceive += (sender, userToken, data) => tcpServer.Send(userToken.ID, data);
 tcpServer.Start();
 
 // TCP 客户端快捷封装
 var tcpClient = new TCPClient("127.0.0.1", 39654);
-tcpClient.OnReceive += (data) => Console.WriteLine(Encoding.UTF8.GetString(data));
+tcpClient.OnReceive += (sender, data) => Console.WriteLine(Encoding.UTF8.GetString(data));
 tcpClient.Connect();
-tcpClient.Send("Hello!");
+tcpClient.SendAsync("Hello!");
 
 // UDP 快捷封装
 var udpServer = new UDPServer(39655);
@@ -459,6 +459,27 @@ public class MyContext : BaseContext<MyCoder>
     public MyContext(BaseUserToken userToken) : base(userToken) { }
 }
 ```
+
+---
+
+## 从 byte[] 迁移 🔄
+
+近期版本移除了 `byte[]` 公共面，统一改为 `Span` / `Memory`。下表列出已删除成员及其替代：
+
+| 已删除 | 替代 |
+|--------|------|
+| `IClientSocket.OnReceive`（`OnClientReceiveHandler`，`byte[]`） | `OnClientReceiveSpan`（`ReadOnlySpan<byte>`，回调内同步消费/复制） |
+| `IServerSocket.OnReceive`（`OnReceiveHandler`，`(string, byte[])`） | `OnServerReceiveSpan`（`(IUserToken, ReadOnlySpan<byte>)`） |
+| `IClientSocket.BeginSend(byte[])` / `Send(byte[])` / `SendAsync(byte[])` / `SendAsync(byte[], int, int, CancellationToken)` | `Send(ReadOnlySpan<byte>)` / `SendAsync(ReadOnlyMemory<byte>)` / `SendAsync(ReadOnlyMemory<byte>, CancellationToken)` |
+| `IClientSocket.ReceiveAsync(byte[], int, int, CancellationToken)`（接口成员） | 改用 span 事件；具体实现 `IocpClientSocket.ReceiveAsync` 保留但抛 `KernelException`，`UdpClientSocket.ReceiveAsync` 抛 `NotSupportedException`；原始读取请使用 `GetStream()` |
+| `IServerSocket.SendAsync(string, byte[])` / `Send(string, byte[])` / `End(string, byte[])` / `SendAsync(IPEndPoint, byte[])` | 对应的 `ReadOnlyMemory<byte>` 重载 |
+| `IocpClientSocket.UserToken` | 不再公开；按场景改用 `Connected` 或 `ChannelInfo.UserToken` / `Context.UserToken` |
+| 快捷封装 `TCPClient` / `TCPServer` / `UDPClient` / `UDPServer` 的 `OnReceive` | `TCPClient` / `TCPServer.OnReceive` 由 `byte[]` 改为 `ReadOnlyMemory<byte>`（`UDPClient` / `UDPServer.OnReceive` 交付 `ISocketProtocal` 帧）；**source/binary breaking，需重新编译** |
+
+> ⚠️ **迁移注意**
+> 1. **快捷封装的 `OnReceive` 为签名级 breaking 变更**（`byte[]` → `ReadOnlyMemory<byte>`），由版本号 bump 承载，**不提供兼容 shim**，请重新编译调用方。
+> 2. **不要同时订阅已删除的 `byte[]` 旧事件与新的 span 事件**：`OnReceive` 已删除，直接改用 `OnClientReceiveSpan` / `OnServerReceiveSpan` 即可，避免重复投递。
+> 3. span 回调参数（`data`）**仅在本次回调期间有效**，必须同步消费或在回调内 `ToArray()` 复制；**切勿将 span 保存到字段或跨线程/异步使用**，否则为 use-after-free。
 
 ---
 

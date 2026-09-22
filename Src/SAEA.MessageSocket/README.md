@@ -247,7 +247,7 @@ client.Connect();
 // 连接后发送登录认证
 client.SendLogin("user_id", "token");
 
-// 服务端可在 OnReceive 中处理登录逻辑
+// 服务端在 MessageServer 内部通过 OnServerReceiveSpan 处理登录逻辑
 ```
 
 ### Q3: 频道和群组如何选择？

@@ -247,7 +247,7 @@ client.Connect();
 // Send login authentication after connection
 client.SendLogin("user_id", "token");
 
-// Server can handle login logic in OnReceive
+// MessageServer handles login logic internally via OnServerReceiveSpan
 ```
 
 ### Q3: How to choose between Channel and Group?

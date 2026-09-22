@@ -38,9 +38,11 @@ dotnet add package SAEA.Sockets
 var server = SocketFactory.CreateServerSocket(
     SocketOptionBuilder.Instance.SetSocket(SAEASocketType.Tcp).UseIocp().SetPort(39654).Build()
 );
-server.OnReceive += (id, data) => server.Send(id, data);
+server.OnServerReceiveSpan += (userToken, data) => server.Send(userToken.ID, data);
 server.Start();
 ```
+
+> 💡 `OnServerReceiveSpan` 的 `data` 为 `ReadOnlySpan<byte>`，仅在回调期间有效，请在同一次回调内同步消费（或 `ToArray()` 复制）。
 
 ### 方式 2: 选择适合你的组件
 
@@ -270,10 +272,10 @@ Redis 缓存操作            →  SAEA.RedisSocket
 
 ```bash
 # Package Manager
-Install-Package SAEA.Sockets -Version 7.26.2.2
+Install-Package SAEA.Sockets -Version 26.9.21.1
 
 # .NET CLI
-dotnet add package SAEA.Sockets --version 7.26.2.2
+dotnet add package SAEA.Sockets --version 26.9.21.1
 ```
 
 [NuGet 地址](https://www.nuget.org/packages?q=saea)

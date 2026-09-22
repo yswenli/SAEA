@@ -38,9 +38,11 @@ dotnet add package SAEA.Sockets
 var server = SocketFactory.CreateServerSocket(
     SocketOptionBuilder.Instance.SetSocket(SAEASocketType.Tcp).UseIocp().SetPort(39654).Build()
 );
-server.OnReceive += (id, data) => server.Send(id, data);
+server.OnServerReceiveSpan += (userToken, data) => server.Send(userToken.ID, data);
 server.Start();
 ```
+
+> 💡 `OnServerReceiveSpan`'s `data` is a `ReadOnlySpan<byte>` valid only during the callback; consume it synchronously inside the callback (or copy with `ToArray()`).
 
 ### Option 2: Choose the Right Component for Your Needs
 
@@ -270,10 +272,10 @@ Custom Protocol             →  SAEA.Sockets
 
 ```bash
 # Package Manager
-Install-Package SAEA.Sockets -Version 7.26.2.2
+Install-Package SAEA.Sockets -Version 26.9.21.1
 
 # .NET CLI
-dotnet add package SAEA.Sockets --version 7.26.2.2
+dotnet add package SAEA.Sockets --version 26.9.21.1
 ```
 
 [NuGet Link](https://www.nuget.org/packages?q=saea)

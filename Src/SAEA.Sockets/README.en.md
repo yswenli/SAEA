@@ -46,7 +46,7 @@ var option = SocketOptionBuilder.Instance
     .Build();
 
 var server = SocketFactory.CreateServerSocket(option);
-server.OnReceive += (id, data) => server.Send(id, data);  // Echo message immediately
+server.OnServerReceiveSpan += (userToken, data) => server.Send(userToken.ID, data);  // Echo message immediately
 server.Start();
 ```
 
@@ -54,9 +54,9 @@ server.Start();
 
 ```csharp
 var client = SocketFactory.CreateClientSocket(option);
-client.OnReceive += (data) => Console.WriteLine(Encoding.UTF8.GetString(data));
+client.OnClientReceiveSpan += (data) => Console.WriteLine(Encoding.UTF8.GetString(data));
 client.Connect();
-client.SendAsync(Encoding.UTF8.GetBytes("Hello SAEA!"));
+client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!")));
 ```
 
 **That's it!** 🎉 You've implemented a high-performance TCP communication system supporting tens of thousands of concurrent connections.
@@ -145,7 +145,7 @@ Network Data ──► IOCP Complete ──► BufferManager Receive
                             └─────────────────┘
                                       │
                                       ▼
-                            OnReceive event triggered
+                            OnServerReceiveSpan event triggered
                                       │
                                       ▼
                             ┌─────────────────┐
@@ -154,7 +154,7 @@ Network Data ──► IOCP Complete ──► BufferManager Receive
                             └─────────────────┘
                                       │
                                       ▼
-                            SendAsync send data
+                            SendAsync(ReadOnlyMemory<byte>) send data
 ```
 
 ---
@@ -325,11 +325,11 @@ var server = SocketFactory.CreateServerSocket(option);
 server.OnAccepted += (id) => 
     Console.WriteLine($"Client connected: {id}");
 
-server.OnReceive += (id, data) => 
+server.OnServerReceiveSpan += (userToken, data) => 
 {
     var message = Encoding.UTF8.GetString(data);
     Console.WriteLine($"Received data: {message}");
-    server.Send(id, data);  // Reply to client
+    server.Send(userToken.ID, data);  // Reply to client
 };
 
 server.OnDisconnected += (id) => 
@@ -354,7 +354,7 @@ var option = SocketOptionBuilder.Instance
 var client = SocketFactory.CreateClientSocket(option);
 
 // Register event handlers
-client.OnReceive += (data) => 
+client.OnClientReceiveSpan += (data) => 
     Console.WriteLine($"Received: {Encoding.UTF8.GetString(data)}");
 
 client.OnDisconnected += () => 
@@ -364,7 +364,7 @@ client.OnDisconnected += () =>
 client.Connect();
 
 // Send data
-client.SendAsync(Encoding.UTF8.GetBytes("Hello SAEA!"));
+client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!")));
 ```
 
 ### UDP Server
@@ -380,10 +380,10 @@ var option = SocketOptionBuilder.Instance
 
 var server = SocketFactory.CreateServerSocket(option);
 
-server.OnReceive += (id, data) => 
+server.OnServerReceiveSpan += (userToken, data) => 
 {
     Console.WriteLine($"Received UDP data");
-    server.Send(id, data);  // Send data back
+    server.Send(userToken.ID, data);  // Send data back
 };
 
 server.Start();
@@ -414,14 +414,14 @@ using SAEA.Sockets.Shortcut;
 
 // TCP server shortcut wrapper
 var tcpServer = new TCPServer(39654);
-tcpServer.OnReceive += (id, data) => tcpServer.Send(id, data);
+tcpServer.OnReceive += (sender, userToken, data) => tcpServer.Send(userToken.ID, data);
 tcpServer.Start();
 
 // TCP client shortcut wrapper
 var tcpClient = new TCPClient("127.0.0.1", 39654);
-tcpClient.OnReceive += (data) => Console.WriteLine(Encoding.UTF8.GetString(data));
+tcpClient.OnReceive += (sender, data) => Console.WriteLine(Encoding.UTF8.GetString(data));
 tcpClient.Connect();
-tcpClient.Send("Hello!");
+tcpClient.SendAsync("Hello!");
 
 // UDP shortcut wrapper
 var udpServer = new UDPServer(39655);
@@ -458,6 +458,27 @@ public class MyContext : BaseContext<MyCoder>
     public MyContext(BaseUserToken userToken) : base(userToken) { }
 }
 ```
+
+---
+
+## Migrating from byte[] 🔄
+
+Recent versions removed the `byte[]` public surface in favor of `Span` / `Memory`. The table below maps removed members to their replacements:
+
+| Removed | Replacement |
+|---------|-------------|
+| `IClientSocket.OnReceive` (`OnClientReceiveHandler`, `byte[]`) | `OnClientReceiveSpan` (`ReadOnlySpan<byte>`; consume/copy synchronously inside the callback) |
+| `IServerSocket.OnReceive` (`OnReceiveHandler`, `(string, byte[])`) | `OnServerReceiveSpan` (`(IUserToken, ReadOnlySpan<byte>)`) |
+| `IClientSocket.BeginSend(byte[])` / `Send(byte[])` / `SendAsync(byte[])` / `SendAsync(byte[], int, int, CancellationToken)` | `Send(ReadOnlySpan<byte>)` / `SendAsync(ReadOnlyMemory<byte>)` / `SendAsync(ReadOnlyMemory<byte>, CancellationToken)` |
+| `IClientSocket.ReceiveAsync(byte[], int, int, CancellationToken)` (interface member) | Use the span events; the concrete `IocpClientSocket.ReceiveAsync` is retained but throws `KernelException`, and `UdpClientSocket.ReceiveAsync` throws `NotSupportedException`; use `GetStream()` for raw reads |
+| `IServerSocket.SendAsync(string, byte[])` / `Send(string, byte[])` / `End(string, byte[])` / `SendAsync(IPEndPoint, byte[])` | The matching `ReadOnlyMemory<byte>` overloads |
+| `IocpClientSocket.UserToken` | No longer public; use `Connected`, or `ChannelInfo.UserToken` / `Context.UserToken` depending on the scenario |
+| Shortcut `TCPClient` / `TCPServer` / `UDPClient` / `UDPServer` `OnReceive` | `TCPClient` / `TCPServer.OnReceive` now delivers `ReadOnlyMemory<byte>` instead of `byte[]` (`UDPClient` / `UDPServer.OnReceive` delivers `ISocketProtocal` frames); **source/binary breaking, recompile required** |
+
+> ⚠️ **Migration notes**
+> 1. The Shortcut `OnReceive` signature change (`byte[]` → `ReadOnlyMemory<byte>`) is a **source/binary breaking change** carried by the version bump. There is **no compatibility shim**; recompile your callers.
+> 2. Do **not** subscribe to both the removed `byte[]` event and the span event: `OnReceive` is gone, so just use `OnClientReceiveSpan` / `OnServerReceiveSpan` instead. This avoids duplicate delivery.
+> 3. The span callback argument (`data`) is **only valid for the duration of the callback**. Consume it synchronously or `ToArray()`-copy it inside the callback. **Never store the span in a field or use it across threads/async**, which is a use-after-free.
 
 ---
 
