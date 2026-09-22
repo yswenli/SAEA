@@ -311,7 +311,7 @@ namespace SAEA.P2P.Core
         private void ProcessRelayData(string sessionId, ReadOnlyMemory<byte> content)
         {
             if (_relayManager == null) return;
-            
+
             var span = content.Span;
             var first = span.IndexOf((byte)'|');
             if (first < 0) return;
@@ -319,7 +319,7 @@ namespace SAEA.P2P.Core
             if (second < 0) return;
             var third = P2PContent.IndexOf(span, (byte)'|', second + 1);
             if (third < 0) return;
-            
+
             var relaySessionId = P2PContent.GetString(content, 0, first);
             var targetId = P2PContent.GetString(content, second + 1, third - second - 1);
             var payloadLength = content.Length - (third + 1);

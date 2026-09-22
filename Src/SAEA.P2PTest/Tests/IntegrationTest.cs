@@ -49,6 +49,7 @@ namespace SAEA.P2PTest.Tests
 
             await DuplicateNodeRejected(port);
             await PunchSessions(clients);
+            await DirectUserDataRoundTrip(clients);
             await RelayRoundTrip(server, clients);
             await DisconnectDropsNode(server, clients);
             await StopAll(clients, server);
@@ -102,6 +103,30 @@ namespace SAEA.P2PTest.Tests
             TestHarness.Expect(session != null && session.Channel == ChannelType.Direct, "punch session uses Direct channel");
             TestHarness.Expect(session != null && !string.IsNullOrEmpty(session.PublicAddress), "punch session carries public address");
             TestHarness.Expect(session != null && session.PublicPort > 0, "punch session carries public port");
+        }
+
+        static async Task DirectUserDataRoundTrip(List<P2PClient> clients)
+        {
+            TestHarness.Section("direct user-data round trip");
+
+            var a = clients[0];
+            var b = clients[1];
+
+            TestHarness.Expect(a.GetSession("it-node-1") != null &&
+                               a.GetSession("it-node-1").Channel == ChannelType.Direct,
+                "client0 session is direct before forwarding");
+
+            byte[] fromA = null;
+            string sourceA = null;
+            b.OnMessageReceived += (peer, data) => { sourceA = peer; fromA = data; };
+
+            var payload = Encoding.UTF8.GetBytes("direct-hello");
+            a.Send("it-node-1", payload);
+
+            bool delivered = await TestHarness.WaitUntil(() => fromA != null, 6000);
+            TestHarness.Expect(delivered, "direct user-data delivered to peer");
+            TestHarness.Expect(delivered && sourceA == "it-node-0", "direct user-data source id correct", sourceA);
+            TestHarness.Expect(delivered && fromA.SequenceEqual(payload), "direct user-data payload byte-exact");
         }
 
         static async Task RelayRoundTrip(P2PServer server, List<P2PClient> clients)

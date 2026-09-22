@@ -1,3 +1,34 @@
+/****************************************************************************
+ *
+  ____    _    _____    _      ____             _        _
+ / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_
+ \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
+  ___) / ___ \| |___ / ___ \   ___) | (_) | (__|   <  __/ |_
+ |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
+
+
+ *Copyright (c) yswenli All Rights Reserved.
+ *CLR版本： netstandard2.0
+ *机器名称：WENLI-PC
+ *公司名称：yswenli
+ *命名空间：SAEA.P2P.Common
+ *文件名： P2PContent
+ *版本号： v26.4.23.1
+ *唯一标识：7c2b6f0a-5d34-4a91-8e6f-1b9c3a4d2e50
+ *当前的用户域：WENLI-PC
+ *创建人： yswenli
+ *电子邮箱：yswenli@outlook.com
+ *创建时间：2026/09/22 11:00:00
+ *描述：P2PContent帮助类
+ *
+ *=====================================================================
+ *修改标记
+ *修改时间：2026/09/22 11:00:00
+ *修改人： yswenli
+ *版本号： v26.4.23.1
+ *描述：P2PContent帮助类
+ *
+ *****************************************************************************/
 using System;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -27,7 +58,6 @@ namespace SAEA.P2P.Common
 
         public static int IndexOf(ReadOnlySpan<byte> content, byte value, int start)
         {
-            if (start < 0 || start > content.Length) return -1;
             var relative = content.Slice(start).IndexOf(value);
             return relative < 0 ? -1 : start + relative;
         }
