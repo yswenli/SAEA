@@ -1,0 +1,265 @@
+# SAEA.QueueSocket 三端性能测试与优化设计文档
+
+**日期：** 2026-09-22
+**范围：** `SAEA.QueueSocketTest` 新增无头功能回归 + 三端（Producer/QServer/Consumer）性能基准；`SAEA.QueueSocket` 热路径优化（公共 API 签名不变）
+**方案：** 方案 A —— 进程内三端 harness + 就地小步优化（分层基准：微基准精确测 B/op，端到端测吞吐）
+
+---
+
+## 概述
+
+`SAEA.QueueSocket` 目前只有一个**交互式**测试工程 `SAEA.QueueSocketTest`（菜单 `s/p/c/t` 与硬编码 5×5、`127.0.0.1:39654`、30s 的 `HighConcurrencyTest`），既无法在 CI 中断言功能正确，也无法量化性能。同时其编解码/接收/批处理热路径存在明显的逐帧分配：
+
+- `QClient.cs:189` / `QServer.cs:123`：收到 `ReadOnlySpan<byte>` 先 `.ToArray()`，再被 coder 拷进内部缓冲 → 每帧双拷贝。
+- `QueueCoder.cs:392` `ReadInt32`：`temp.ToArray()`，每帧读 4 个 int 就分配 4 次数组（注释声称「避免堆分配」，与实现相反）。
+- `QueueCoder.Encode`（`:204`）：`List<byte>` + 4×`BitConverter.GetBytes` + `ToArray`，单条消息 6+ 次分配。
+- `QueueCoder.GetQueueResult`（`:101`）：先把帧解成 `QueueSocketMsg` 再逐条复制成 `QueueMsg`，双对象。
+- `QClient._batcher_OnBatched`（`:214`）：`new List<byte>()` + 逐条 `AddRange` + `ToArray`。
+- `Exchange.GetSubscribeData`（`:212`）：每批 `subs.ToArray()` + `new List<byte[]>` + 逐条 `coder.Data(...)` 编码后再交 batcher 拼接。
+
+本设计在**不改公共 API 签名**的前提下：① 给 `SAEA.QueueSocketTest` 增加无头功能回归与三端基准；② 逐项优化上述热路径，并以功能回归作护栏、微基准作前后对比。
+
+**兼容性：** 无破坏性；`Producer`/`Consumer`/`QServer`/`QClient`/`QueueMsg` 的 public 签名不变（新增 `internal` 成员不属公共面）。
+**非目标：** 多进程真实三端 harness、`ArrayPool` 深度池化重写、不引入新测试工程、不改线格式、不改批处理/心跳/断开时序。
+
+---
+
+## 一、关键事实核对（实现前已验证）
+
+| 事实 | 结论 / 出处 | 对设计的影响 |
+|------|------------|-------------|
+| 测试工程现状 | `Src/SAEA.QueueSocketTest`：`net10.0`、`LangVersion 8.0`、`OutputType=Exe`、`StartupObject` 空；仅 `Program.cs`（交互菜单）与 `HighConcurrencyTest.cs` | 单工程改造，保留菜单 |
+| 库目标框架 | `SAEA.QueueSocket` 为 `netstandard2.0`；测试工程 `net10.0` | 库内禁用 ns2.1+ API；测试可用现代 API |
+| 传递引用 | `SAEA.QueueSocketTest` → `SAEA.QueueSocket` → `SAEA.Common`（`ConsoleHelper`/`TaskHelper`） | 无需新增包引用 |
+| `ConsoleHelper` 语义 | 异步队列输出，退出前需留刷出时间 | `Main` 用 `async Task`，退出前 `await Task.Delay(500)` |
+| `QServer` 生命周期 | `QServer(port=39654, ip, bufferSize, maxConnects, maxPendingMsgCount)`；`Start(backlog=10000)`/`Stop()`/`Status`；`OnDisconnected(id, ex)`；`Clear(id)` | 测试用自由端口；断线清理由 handler 调 `Clear` |
+| `QServer.CalcInfo` 泄漏 | 内部 `TaskHelper.LongRunning(() => while(true){...})` 永不退出 | 测试/基准**不调用** `CalcInfo`，自采计数 |
+| `Producer` 语义 | ctor 内 `new QClient(name, ipPort)` 并立即 `Connect()`；`OnMessagesSent(int)`；`Dispose()`→`QClient.Close()` | 先起服务器再建 Producer |
+| `Consumer` 语义 | ctor 不连接；`Subscribe(topic)` 仅记 topic；`Start()` 才 `Connect()`+发订阅+启动清理任务；`OnMessage(Action<QueueMsg>)`；`Dispose()` 取消清理任务并断开 | 先 `Subscribe` 再 `Start`，务必 `Dispose` |
+| 投递语义 | `Exchange`/`MessageQueue` 为**队列语义**：订阅前发布的消息缓冲在 topic 队列，订阅者出现后投递 | 功能用例不假设「迟到订阅者收不到历史消息」 |
+| 心跳任务 | `QClient.HeartAsync` 为长跑任务，`Close()` 置 `_isClosed` 后退出 | 每个客户端必须 `Dispose/Close` |
+| 线格式（QueueSocket） | `type(1) + total(4) + nameLen(4) + name + topicLen(4) + topic + data`，小端；`total = 12 + nameLen + topicLen + dataLen`；`MIN = 1+4+4+4 = 13` | O3/O5 必须逐字节保持；FT9 守 |
+| 既有基准范式 | `Src/SAEA.P2PTest/TestHarness.cs`（`Section/Expect/Throws/WaitUntil/GetFreeTcpPort/WriteSummary/PassCount/FailCount`）；`Tests/IocpBenchmark.cs`（warmup + `GC.GetTotalAllocatedBytes` + 多模式 + `[PASS]` 输出） | 直接照搬范式 |
+| 既有测试基线 | 本轮实跑：`SAEA.P2PTest -- --all` = **310/310 passed**；`-- --bench-iocp` = **29/29 passed** | 回归门禁基线 |
+| 端口冲突 | `GetFreeTcpPort()` 已存在（bind 0 后取端口） | 每个用例独立自由端口 |
+
+---
+
+## 二、目标 / 范围 / 硬不变量
+
+### 2.1 目标
+
+1. `SAEA.QueueSocketTest` 支持无头 CLI：`--all`（功能回归 + 基准）、`--functional`、`--bench-queue`，返回退出码。
+2. 覆盖 Producer/QServer/Consumer 全链路功能回归（无损、广播、隔离、退订、分帧、突发、断线、重连、编解码往返）。
+3. 提供分层基准：微基准精确 B/op，端到端三端吞吐 + 系统级 B/frame，带防回归硬断言。
+4. 优化 O1–O6 热路径，公共 API 签名不变，线格式不变，功能不回退。
+
+### 2.2 范围内 / 范围外
+
+**范围内**
+
+| 领域 | 处理方式 |
+|------|----------|
+| `Src/SAEA.QueueSocketTest/` | 新增 `TestHarness.cs`、`QueueServerHarness.cs`、`FunctionalTests.cs`、`QueueBenchmark.cs`；`Program.cs` 加 CLI 分发 |
+| `Src/SAEA.QueueSocket/Net/QueueCoder.cs` | O1 `ReadInt32`、O2 内部 span 重载、O3 `DecodeTo`、O5 `Encode` 单分配 |
+| `Src/SAEA.QueueSocket/QClient.cs` | O2 接收去 `ToArray`、O4 batcher 单趟 |
+| `Src/SAEA.QueueSocket/QServer.cs` | O2 接收去 `ToArray` |
+| `Src/SAEA.QueueSocket/Model/Exchange.cs` | O6 分发降分配 |
+
+**范围外**
+
+- 多进程三端 harness（`--server`/`--producer`/`--consumer` 编排）。
+- `ArrayPool` 深度池化 / `QClient.Publish` 的二次 `Encoding.UTF8.GetBytes`。
+- 新测试工程、新 NuGet 依赖、线格式变更、批处理/心跳时序变更。
+- 修改 `SAEA.Sockets`/`SAEA.P2P`。
+
+### 2.3 硬不变量（验收必须逐条成立）
+
+1. 线格式字节不变：`type(1)+total(4)+nameLen(4)+name+topicLen(4)+topic+data`，`total=12+nlen+tlen+dlen`。
+2. `Producer`/`Consumer`/`QServer`/`QClient`/`QueueMsg` 的 **public 成员签名不变**（仅新增 `internal`）。
+3. 批处理语义不变：`Batcher` 合并后的字节流与原逐条拼接等价。
+4. 心跳/断开/发送完成时序不变。
+5. 无新增 `//` 行内注释（`///` XML doc 允许）。
+6. 既有 `SAEA.P2PTest -- --all`（310/310）与 `-- --bench-iocp`（29/29）不回退。
+
+---
+
+## 三、架构与工程结构
+
+**单一测试工程**：继续用 `Src/SAEA.QueueSocketTest`（net10.0），不新增项目。保留现有交互菜单为默认行为（无参/`s`/`p`/`c`/`t`/`sc`/`sp`/`a` 均不变）。
+
+**CLI 分发**（`Program.Main` 最前面判参，命中即执行后 `return`，并设 `Environment.ExitCode`）：
+
+| 参数 | 行为 |
+|------|------|
+| `--all` | 功能回归 + 基准；`ExitCode = HasFailures ? 1 : 0` |
+| `--functional` | 仅功能回归 |
+| `--bench-queue` / `--bench` | 仅基准 |
+| 无参 / 其他 | 落入现有交互菜单 |
+
+**新增文件**（均在 `Src/SAEA.QueueSocketTest/`，namespace `SAEA.QueueSocketTest`）：
+
+| 文件 | 职责 |
+|------|------|
+| `TestHarness.cs` | 移植 `SAEA.P2PTest/TestHarness.cs`：`Section/Expect/Expect(bool,string,string)/Throws<T>/WaitUntil/GetFreeTcpPort/WriteSummary/PassCount/FailCount/TotalCount/HasFailures/Reset` |
+| `QueueServerHarness.cs` | 测试装配器：`GetFreeTcpPort()` 起 `QServer(port)`；创建/销毁 `Producer`/`Consumer`；包装计数器与 `WaitUntil` 辅助；统一 start/teardown；**不调用 `CalcInfo`** |
+| `FunctionalTests.cs` | `RunAll()` 跑 FT1–FT9 |
+| `QueueBenchmark.cs` | `RunAsync()` 跑微基准 + 端到端基准 |
+
+**端口**：一律 `TestHarness.GetFreeTcpPort()`；`Producer`/`Consumer` 传 `127.0.0.1:{port}`。
+**计数**：从生产者 `OnMessagesSent` 与消费者 `OnMessage` 两端取，不依赖服务端 `Exchange` 计数。
+
+---
+
+## 四、功能回归用例（`FunctionalTests.RunAll()`）
+
+每个用例自建独立 `QServer`（自由端口）+ 客户端，跑完即 teardown；一律 `WaitUntil` 轮询而非固定 sleep；消费者回调内校验负载并 `obj.Dispose()`；每个用例 try/catch 包住，异常记 `Expect(false, name, ex.Message)`，单条失败不中断整套。
+
+| 编号 | 名称 | 断言 |
+|------|------|------|
+| FT1 | 单发单收·无损 | 消费者先订阅，生产者发 N=500 条唯一负载；收到数 == N，集合无重复、无丢失、内容逐条相等 |
+| FT2 | 同 topic 广播 | 3 消费者订阅同一 topic，发 N=300；每个消费者都收到全部 N 条 |
+| FT3 | 多 topic 隔离 | cA 订阅 `t1`、cB 订阅 `t2`，分别发 N 条；cA 只收 `t1`、cB 只收 `t2`，无跨 topic 泄漏 |
+| FT4 | 取消订阅生效 | 先收发热身并排空，`Unsubscribe(topic)` 后再发 N 条；取消后计数不再增长（留 settle 超时） |
+| FT5 | 大消息 / 分帧重组 | 负载 1B、64B、4096B、64KB；逐条断言字节完全一致 |
+| FT6 | 突发无损 | 3 生产者 × 100 = 300 发到 2 消费者；每个消费者收满 300，无重复、无丢失 |
+| FT7 | 断线清理 | 服务端 `OnDisconnected` 计数；消费者 `Dispose()` 后断言服务端在超时内观测到断开 |
+| FT8 | 重连可用 | 旧消费者断开后新消费者接入同 topic，能收到后续新消息 |
+| FT9 | 编解码往返 | 多种 name/topic/负载尺寸下 `Encode`→`Decode` 的 type/name/topic/data 与 offset 完全一致 |
+
+**语义说明**：`Exchange`/`MessageQueue` 为**队列语义**——订阅前发布的消息会缓冲并在订阅者出现后投递，故 FT 不假设「迟到订阅者收不到历史消息」；FT4 用热身 + settle 规避在途批次的抖动。名称/topic 由 `Encode` 经 `Encoding.UTF8` 编码、`Decode` 还原，FT9 覆盖空/非空/多字节。
+
+---
+
+## 五、基准设计（`QueueBenchmark`）
+
+**两层：微基准测精确 B/op，端到端测三端吞吐。**
+
+### 5.1 Tier 1 — 微基准（无 socket）
+
+| 名称 | 说明 |
+|------|------|
+| `MicroEncode` | 循环 `QueueCoder.Encode(new QueueSocketMsg(Publish, "producer", "bench", payload))`，warmup 2000 + 计 N=20000，结果丢弃 |
+| `MicroDecode` | 预构造单帧 `byte[]`，循环调用公开的 `GetQueueResult(byte[])`（`byte[]` 精确匹配该重载，非新增 span 重载；每次消费完一帧） |
+| `MicroDecodeBatch` | 预构造 K=100 帧拼接缓冲，一次解码后按帧摊薄 |
+
+- 负载：64B / 1KB / 4KB。
+- 采集：`GC.GetTotalAllocatedBytes(precise:true)` 差值 ÷ N = **B/op**；`Stopwatch` = ns/op；`GC.CollectionCount(0/1/2)`。
+- 输出仿 `IocpBenchmark`：`[micro] <name> | <ns/op> | <B/op> | GC0=x`。
+
+### 5.2 Tier 2 — 端到端三端（真实 loopback TCP，自由端口）
+
+- 场景参数化：`S1` = 1P/1C/1topic/64B/10s；`S2` = 5P/5C/1topic/1KB/10s。
+- 生产者不限速 `Publish`，计数取 `OnMessagesSent`；消费者计数取 `OnMessage`。
+- 到时长 → 停生产者 → `WaitUntil` 排空 → 断言**无损**（`received == sent`，排空超时则 `received/sent ≥ 0.99` 并在 detail 打印差额）。
+- 指标：有效吞吐（received/elapsed）、投递吞吐（sent/elapsed）、系统级 **B/frame** = `GC.GetTotalAllocatedBytes` 差 ÷ received、Gen0/1/2；延迟 p50/p99 用负载内嵌 `Stopwatch.GetTimestamp()` 计算，**仅打印不断言**。
+
+### 5.3 硬断言阈值（防回归，取保守值）
+
+| 项 | 场景 | 断言 |
+|----|------|------|
+| Micro Encode | 64B / 1KB / 4KB | ≤ 256 / 1280 / 4400 B/op |
+| Micro Decode | 64B / 1KB | ≤ 512 / 1600 B/op |
+| Micro Gen0 | 每 20k 次 | ≤ 5 |
+| End-to-end 吞吐 | S1 / S2 | ≥ 20000 msg/s |
+| End-to-end B/frame | S1 / S2 | ≤ 8192 / 12288 B/frame |
+| 无损 | S1 / S2 | received == sent（排空超时则 ≥ 0.99） |
+
+**基线证据流**：先记录优化前 B/op 与吞吐（写入 plan outcome），优化后断言「B/op 下降 / 吞吐不降」并留余量；上表为最终守门阈值。
+
+---
+
+## 六、优化清单（公共 API 签名不变）
+
+| 编号 | 位置 | 内容 |
+|------|------|------|
+| O1 | `Net/QueueCoder.cs:392`（private static） | `ReadInt32` 去 `temp.ToArray()`，改手工小端读取 `data[o] \| data[o+1]<<8 \| ...`；每帧省 4 次分配 |
+| O2 | `QClient.cs:189`、`QServer.cs:123`；`QueueCoder` | 新增 `internal List<QueueMsg> GetQueueResult(ReadOnlySpan<byte>)` + 私有 `AppendData(ReadOnlySpan<byte>)`；两处接收改调它，去整帧 `.ToArray()`；原 `public GetQueueResult(byte[])` 保留 |
+| O3 | `Net/QueueCoder.cs` | 新增内部 `DecodeTo(ReadOnlySpan, List<QueueMsg>, out int)` 直接产出 `QueueMsg`，去掉「`QueueSocketMsg` → `QueueMsg`」双对象；公开 `Decode(...)` 保留 |
+| O4 | `QClient.cs:214`（private） | `_batcher_OnBatched` 去 `List<byte>`+`AddRange`+`ToArray`，先求和再精确分配并 `Buffer.BlockCopy`，`Send(span)` |
+| O5 | `Net/QueueCoder.cs:204`（public static） | `Encode` 去 `List<byte>` 与 4×`BitConverter.GetBytes`，精确分配后手工写入 type/长度字段，UTF8 与 data 直接拷贝；线格式字节不变 |
+| O6 | `Model/Exchange.cs:176-232`（private） | `subs.ToArray()` 改复用快照、去每批 `new List<byte[]>`；把逐条 `coder.Data` 再交 batcher 拼接改为**每订阅者每批编码进单个精确缓冲后 `Insert` 一次**，`Insert` 次数由 batchSize 降为 1，线内容等价 |
+
+**不做（本轮 YAGNI）**：`QClient.Publish` 的二次 `Encoding.UTF8.GetBytes`、`ArrayPool` 深度池化、多进程 harness。
+
+**风险与护栏**：O3/O5 动线格式 → FT9；O2 → FT1–FT8；O4/O6 动批处理 → FT2/FT6。全程不新增 `//` 注释。
+
+---
+
+## 七、错误处理、生命周期与稳定性
+
+- **装配顺序**：先起 `QServer(自由端口)` 并确认可连接 → 再建 Consumer（`Subscribe`+`Start`）→ 再建 Producer（ctor 内 `Connect`）。
+- **确定性 teardown**：停生产者标志 → `Producer.Dispose()` → `Consumer.Dispose()` → `QServer.Stop()` → 短暂 settle。每个用例 `finally` 释放所有客户端与服务端，下一用例用新的自由端口与全新 `QServer`。
+- **不调用 `QServer.CalcInfo`**（`while(true)` 泄漏）；基准/回归自采计数。
+- **防抖**：全部 `WaitUntil` 轮询（功能 10s、排空 30s），不用固定 sleep 做时序断言；基准阈值保守。
+- **用例隔离**：try/catch → `Expect(false, name, ex.Message)`，单条失败不中断整套。
+- **后台任务收尾**：`QClient.HeartAsync` 与 `Consumer` 清理任务靠 `Dispose/Close` 退出，保证每个客户端都释放。
+- **输出刷出**：`Main` 为 `async Task`，退出前 `await Task.Delay(500)`。
+
+---
+
+## 八、验证与完成标准（DoD）
+
+1. `dotnet build Src/SAEA.QueueSocket.sln -c Debug` 与 `-c Release` 均 **0 errors**（重点 `SAEA.QueueSocket`、`SAEA.QueueSocketTest`）。
+2. `dotnet run --project Src/SAEA.QueueSocketTest -- --all` → 功能回归 + 基准全过，`ExitCode=0`，汇总 `N/N passed, 0 failed`。
+3. `dotnet run --project Src/SAEA.QueueSocketTest -- --bench-queue` → 打印各场景 ns/op、B/op、msg/s、B/frame、Gen0/1/2，`ExitCode=0`。
+4. 优化前后证据：记录优化前微基准 B/op 与端到端吞吐，优化后断言「B/op 下降 / 吞吐不降」并留余量；最终按 §5.3 守门。
+5. `SAEA.P2PTest -- --all` 仍 **310/310**、`-- --bench-iocp` 仍 **29/29**。
+6. 无新增 `//` 注释（`git diff -U0 -- '*.cs'` 过滤 `+` 行、排除 `///`，结果为空）。
+7. 公共 API 签名无变更（Review `QueueCoder`/`Producer`/`Consumer`/`QServer`/`QClient`/`QueueMsg` 的 public 成员 diff）。
+8. 提交只 stage 显式路径、不用 `git add -A`；未经明确要求不提交。
+
+---
+
+## 九、风险与缓解
+
+| 风险 | 缓解 |
+|------|------|
+| O3/O5 改动破坏线格式 | FT9 往返断言守门；`total`/`MIN` 语义逐字保持 |
+| O2 内部 span 重载与 `AppendData` 缓冲逻辑不一致 | 复用同一 `_bufferOffset/_bufferCount` 状态；FT1–FT8 端到端覆盖分帧/粘包 |
+| O6 合并编码改变批处理字节流 | 线内容等价（同 name/topic 逐帧拼接）；FT2/FT6 覆盖率与无损 |
+| 端到端基准偶发抖动导致假失败 | 阈值保守；无损断言用「停产后排空」；延迟不做硬断言 |
+| 三端同进程导致 B/frame 汇总口径混淆 | 精确 B/op 由 Tier 1 微基准承担，端到端 B/frame 仅作趋势与宽容守门 |
+| 端口/后台任务残留 | 自由端口 + 全量 `Dispose` + try/catch 隔离 + `finally` teardown |
+| ns2.0 缺 `Encoding.GetString(ReadOnlySpan)` | 不引入该 API；name/topic 仍走 `ToArray()`+`GetString`（帧内小开销） |
+
+---
+
+## 十、修改文件清单
+
+**新增（`Src/SAEA.QueueSocketTest/`）**
+
+| 文件 | 说明 |
+|------|------|
+| `TestHarness.cs` | 断言/等待/自由端口/汇总工具（移植自 `SAEA.P2PTest`） |
+| `QueueServerHarness.cs` | 服务器 + 生产/消费客户端装配与 teardown |
+| `FunctionalTests.cs` | FT1–FT9 |
+| `QueueBenchmark.cs` | 微基准 + 端到端基准 |
+
+**改（`Src/SAEA.QueueSocketTest/`）**
+
+`Program.cs`（CLI 分发 + `async Main`）
+
+**改（`Src/SAEA.QueueSocket/`）**
+
+`Net/QueueCoder.cs`（O1/O2/O3/O5）、`QClient.cs`（O2/O4）、`QServer.cs`（O2）、`Model/Exchange.cs`（O6）
+
+**不新增/不修改**：`SAEA.Sockets`、`SAEA.P2P`、`.csproj` 依赖项、线格式相关常量。
+
+---
+
+## 十一、实施顺序（高层，writing-plans 细化）
+
+1. 落 `TestHarness.cs` + `QueueServerHarness.cs` + `Program.cs` CLI 骨架（`--functional`/`--bench-queue`/`--all`）。
+2. 落 FT1–FT9（对齐现有实现，全绿，作为后续优化的护栏）。
+3. 落 `QueueBenchmark.cs`：微基准 + 端到端，先测**优化前**基线并记录。
+4. O1–O6 逐项优化（每项后跑功能回归 + 微基准对比）。
+5. 复核线格式/API/注释合规，跑 `--all`、`--bench-queue`、Debug/Release 构建、`SAEA.P2PTest` 回归，记录最终数字。
+
+---
+
+## 十二、预期收益
+
+- `SAEA.QueueSocketTest` 具备无头、可断言、CI 友好的功能回归与三端基准，退出码可用于门禁。
+- 接收/编码/批处理热路径逐帧分配显著下降（微基准 B/op 对比量化），吞吐不退化。
+- 线格式、公共 API、批处理/心跳/断开时序全部保持不变，既有 310/310 + 29/29 回归不回退。
