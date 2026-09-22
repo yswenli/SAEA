@@ -438,7 +438,7 @@ using SAEA.Sockets.Shortcut;
 
 // TCP 服务器快捷封装
 var tcpServer = new TCPServer(39654);
-tcpServer.OnReceive += (sender, userToken, data) => tcpServer.Send(userToken.ID, data);
+tcpServer.OnReceive += (sender, userToken, data) => tcpServer.SendAsync(userToken.ID, data);
 tcpServer.Start();
 
 // TCP 客户端快捷封装
@@ -541,9 +541,9 @@ var option = SocketOptionBuilder.Instance
 
 | 包名 | 版本 | 说明 |
 |------|------|------|
-| SAEA.Common | 7.26.2.2 | 通用工具类库 |
+| SAEA.Common | 26.9.21.1 | 通用工具类库 |
 | Pipelines.Sockets.Unofficial | 2.2.8 | Pipeline Socket 扩展 |
-| System.IO.Pipelines | 10.0.2 | 高性能 IO 管道 |
+| System.IO.Pipelines | 10.0.6 | 高性能 IO 管道 |
 
 ---
 

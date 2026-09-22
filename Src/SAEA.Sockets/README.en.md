@@ -438,7 +438,7 @@ using SAEA.Sockets.Shortcut;
 
 // TCP server shortcut wrapper
 var tcpServer = new TCPServer(39654);
-tcpServer.OnReceive += (sender, userToken, data) => tcpServer.Send(userToken.ID, data);
+tcpServer.OnReceive += (sender, userToken, data) => tcpServer.SendAsync(userToken.ID, data);
 tcpServer.Start();
 
 // TCP client shortcut wrapper
@@ -542,9 +542,9 @@ Default message protocol implemented by `BaseCoder`:
 
 | Package | Version | Description |
 |---------|---------|-------------|
-| SAEA.Common | 7.26.2.2 | Common utility library |
+| SAEA.Common | 26.9.21.1 | Common utility library |
 | Pipelines.Sockets.Unofficial | 2.2.8 | Pipeline Socket extension |
-| System.IO.Pipelines | 10.0.2 | High-performance IO pipeline |
+| System.IO.Pipelines | 10.0.6 | High-performance IO pipeline |
 
 ---
 

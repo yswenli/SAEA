@@ -132,7 +132,7 @@
 
 ## Plan 2C outcome
 
-- **Commit range:** `ef93e43a..dc92dd14` (15 commits: plan doc + Tasks 1–7).
+- **Commit range:** `ef93e43a..9c0a731d` (plan doc `ef93e43a`; 16 commits: Tasks 1–8).
 - **Green gate (all green):** `dotnet build Src/SAEA.Sockets.sln -c Debug` → 0 errors; `-c Release` → 0 errors; `--all` → **308/308 passed, 0 failed** (DoD number); `--bench-iocp` → **29/29 passed, 0 failed**.
 - **Benchmark B/frame (client / server, 30k frames):** LegacyDecode `4657 / 4677` B/frame (GC0=19); SpanDecodeStream `37 / 75` B/frame (GC0=0 / 1); SpanDeliveryOnly `36 / 74` B/frame (GC0=0). Meets target (`<100` B/frame, Gen0≈0).
 - **Version:** 14 libraries bumped to `26.9.21.1`; `SAEA.Socket5` left at `26.9.20.1`.
@@ -147,3 +147,19 @@
 - **Task 5 Minor #5:** new `UdpClientSocket.SendAsync(IPEndPoint, ReadOnlyMemory<byte>)` silently returns on null/empty, whereas the removed byte[] overload threw `ArgumentOutOfRangeException`.
 - **Pre-existing CS0067 warnings:** `StreamClientSocket.cs:94`, `UdpServerSocket.cs:71/72` (unused events; not introduced by this plan).
 - **`LocalDiscoveryTest` (not in `--all`):** crashes because production `LocalDiscovery.Start()` does not set `SocketOption.IP`, so `UdpClientSocket`'s ctor `IPAddress.Parse(SocketOption.IP)` throws `ArgumentNullException`; a test-side fix would require production changes — recorded as a known limitation.
+
+### Post-2C review hardening
+
+- **Fixes applied after an adversarial review of Plan 2C (16 files; green gate now `--all` 310/310, `--bench-iocp` 29/29, Debug/Release 0 errors):**
+  - `README.md` / `README.en.md`: shortcut example `Send` → `SendAsync` (the `ReadOnlyMemory<byte>` overload; `Send` takes `ReadOnlySpan<byte>` and did not compile).
+  - P2P span decode: new `BaseCoder.DecodeSpan(ReadOnlySpan<byte>, …)` and `P2PCoder.DecodeP2P(ReadOnlySpan<byte>)`; the 5 receive call sites (`P2PServer`, `P2PClient`, `TCPChannel`, `UDPChannel`, `LocalDiscovery`) drop the intermediate `data.ToArray()`.
+  - `UdpServerSocket.ProcessReceived`: null-token guard (`readArgs?.UserToken as IUserToken`) before use; `EndBindUserToken` moved inside `try`.
+  - `StreamServerSocket.ProcessAccepted`: unified `finally` recycling via new `Disconnect(string, Exception)` overload (exactly-once `OnDisconnected`, subscriber exceptions swallowed so `ChannelManager.Remove` always runs); no receive subscriber ⇒ connection ownership stays with `OnAccepted`/`GetStream()`.
+  - `IocpClientSocket`: `RaiseError` helper so the 3 receive-path `OnError` invocations cannot escape to the threadpool.
+  - `P2PServer`: per-session `ConcurrentDictionary<string, P2PCoder>` decode isolation (shared `_coder` now encode-only); null/empty session-id guard; coders are dropped (not `Clear()`d) on disconnect so the pooled framing buffer is never returned while a decode may still be in flight.
+  - `SocketStream.Read`: `Math.Min(count, _list.Count)` slice + `RemoveRange` (fixes the old `Take(count - offset)` truncation that left bytes un-consumed).
+  - `StreamClientSocket.OnClientReceiveSpan` documented as non-firing (interface member; use `GetStream()`); README dependency table (`SAEA.Common 26.9.21.1`, `System.IO.Pipelines 10.0.6`) and this outcome's commit range corrected.
+- **Known limitations left as-is (pre-existing, not introduced by the hardening):**
+  - **I1:** `StreamServerSocket.Disconnect` is not atomic (`Get` → `Close` → `Invoke` → `Remove`), so a public `Disconnect`/`End` racing the read-loop teardown can fire `OnDisconnected` more than once.
+  - **I2:** `IocpClientSocket.RaiseError` guards only the 3 receive-path `OnError` invocations; other IOCP callback paths (`ProcessSended`, `SendAsyncRaw`, the `IO_Completed` catch, etc.) still invoke `OnError` unguarded, so a throwing subscriber can escape onto a threadpool thread.
+  - **`P2PServer._sessionCoders`:** grows only if a session is never routed through `OnDisconnected`; the Stream transport now fires `OnDisconnected` on EOF, and IOCP fires it from `Disconnect` after a successful `SessionManager.Free`.
