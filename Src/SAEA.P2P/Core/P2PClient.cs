@@ -183,7 +183,7 @@ namespace SAEA.P2P.Core
         
         private void OnSignalReceiveSpan(ReadOnlySpan<byte> data)
         {
-            using (var frames = _coder.DecodeP2P(data.ToArray()))
+            using (var frames = _coder.DecodeP2P(data))
             {
                 foreach (var frame in frames.Frames)
                 {

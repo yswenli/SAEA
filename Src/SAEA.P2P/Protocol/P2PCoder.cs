@@ -50,6 +50,12 @@ namespace SAEA.P2P.Protocol
             return Decode(new ReadOnlySequence<byte>(data ?? Array.Empty<byte>()), onHeart);
         }
 
+        /// <summary>有状态解码（Span 直投，省去中间数组拷贝）；BigData/File 对 P2P 静默丢弃。</summary>
+        public DecodedFrames DecodeP2P(ReadOnlySpan<byte> data, Action<DateTime> onHeart = null)
+        {
+            return DecodeSpan(data, onHeart);
+        }
+
         public byte[] EncodeP2P(P2PMessageType messageType)
         {
             return EncodeToArray(P2PProtocol.Create(messageType));

@@ -52,6 +52,7 @@ namespace SAEA.P2P.Core
         private P2PServerOptions _options;
         private IocpServerSocket _serverSocket;
         private P2PCoder _coder = new P2PCoder();
+        private readonly ConcurrentDictionary<string, P2PCoder> _sessionCoders = new ConcurrentDictionary<string, P2PCoder>();
         
         private RelayManager _relayManager;
         private ConcurrentDictionary<string, NodeInfo> _nodes = new ConcurrentDictionary<string, NodeInfo>();
@@ -113,6 +114,7 @@ namespace SAEA.P2P.Core
             _sessionToNode.Clear();
             _nodeToSession.Clear();
             _pendingChallenges.Clear();
+            _sessionCoders.Clear();
             
             P2PLogHelper.Info("P2PServer", "Stopped");
         }
@@ -125,13 +127,26 @@ namespace SAEA.P2P.Core
         
         private void OnServerReceiveSpan(IUserToken userToken, ReadOnlySpan<byte> data)
         {
-            using (var frames = _coder.DecodeP2P(data.ToArray()))
+            var sessionId = userToken?.ID;
+            if (string.IsNullOrEmpty(sessionId)) return;
+
+            var coder = GetSessionCoder(sessionId);
+            using (var frames = coder.DecodeP2P(data))
             {
                 foreach (var frame in frames.Frames)
                 {
-                    ProcessMessage(userToken.ID, frame);
+                    ProcessMessage(sessionId, frame);
                 }
             }
+        }
+        
+        /// <summary>
+        /// 每会话独立的有状态解码器：<see cref="BaseCoder"/> 的半包缓存是实例字段，
+        /// 跨会话并发调用会损坏拆帧状态。编码仍用共享 <see cref="_coder"/>（无状态）。
+        /// </summary>
+        private P2PCoder GetSessionCoder(string sessionId)
+        {
+            return _sessionCoders.GetOrAdd(sessionId, id => new P2PCoder());
         }
         
         private void ProcessMessage(string sessionId, ISocketProtocal protocol)
@@ -379,6 +394,8 @@ namespace SAEA.P2P.Core
         
         private void OnDisconnected(string sessionId, Exception ex)
         {
+            _sessionCoders.TryRemove(sessionId, out _);
+
             var nodeId = _sessionToNode.TryGetValue(sessionId, out var id) ? id : null;
             if (nodeId != null)
             {

@@ -95,7 +95,7 @@ namespace SAEA.P2P.Channel
         {
             try
             {
-                using (var frames = _coder.DecodeP2P(data.ToArray()))
+                using (var frames = _coder.DecodeP2P(data))
                 {
                     foreach (var frame in frames.Frames)
                     {

@@ -80,6 +80,24 @@ namespace SAEA.Sockets.Base
             }
         }
 
+        /// <summary>
+        /// 有状态批量解码（Span 直投）。等价于 <see cref="Decode(ReadOnlySequence{byte}, Action{DateTime}, Action{ReadOnlyMemory{byte}})"/>，
+        /// 但省去调用方把 span 先物化为数组的中间拷贝。返回批次须 using。
+        /// </summary>
+        public DecodedFrames DecodeSpan(ReadOnlySpan<byte> data, Action<DateTime> onHeart = null, Action<ReadOnlyMemory<byte>> onFile = null)
+        {
+            var collector = new FramesCollector();
+            try
+            {
+                DecodeStream(data, collector, collector.AddHeart, collector.AddFile);
+                return collector.Build(onHeart, onFile);
+            }
+            finally
+            {
+                collector.Dispose();
+            }
+        }
+
         /// <summary>零拷贝流式解码：帧体仅在回调期间有效。</summary>
         public void DecodeStream(ReadOnlySpan<byte> data, IFrameHandler handler, Action<DateTime> onHeart = null, FileSpanHandler onFile = null)
         {
