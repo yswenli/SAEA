@@ -127,3 +127,23 @@
 - **UDP `Stop` change** alters shutdown timing; verify no pending-receive exception storms and that sends in flight during `Stop` are not corrupted.
 - **No comments policy.** XML docs only; no inline `//`.
 - **Staging discipline.** Explicit paths only; verify the staged set each commit.
+
+---
+
+## Plan 2C outcome
+
+- **Commit range:** `ef93e43a..dc92dd14` (15 commits: plan doc + Tasks 1–7).
+- **Green gate (all green):** `dotnet build Src/SAEA.Sockets.sln -c Debug` → 0 errors; `-c Release` → 0 errors; `--all` → **308/308 passed, 0 failed** (DoD number); `--bench-iocp` → **29/29 passed, 0 failed**.
+- **Benchmark B/frame (client / server, 30k frames):** LegacyDecode `4657 / 4677` B/frame (GC0=19); SpanDecodeStream `37 / 75` B/frame (GC0=0 / 1); SpanDeliveryOnly `36 / 74` B/frame (GC0=0). Meets target (`<100` B/frame, Gen0≈0).
+- **Version:** 14 libraries bumped to `26.9.21.1`; `SAEA.Socket5` left at `26.9.20.1`.
+- **Diff scope:** confined to `Src/` libs + tests, root `README*.md`, and `docs/superpowers/plans/`; `git status --porcelain` clean.
+- **Breaking surface:** byte[] send/receive/event members removed from `IClientSocket`/`IServerSocket` and implementations; Shortcut `OnReceive` now `ReadOnlyMemory<byte>` (TCP) / `ISocketProtocal` (UDP, unchanged). Migration table added to `Src/SAEA.Sockets/README.md`.
+
+### Residual / known limitations
+
+- **Task 1 (SocketStream span / UDP fast Stop):** 3 non-blocking Minor polish items from code-quality review; none affecting the green gate.
+- **Task 2:** consumer libraries (FTP/Http/WebSocket/Message/RPC/File) span handlers are verified by compilation + the P2P regression suite only — those test harnesses are interactive/headless-unfriendly, so end-to-end runtime verification is absent.
+- **Task 2 Minor #5:** double-delivery hazard when subscribing both legacy byte[] and span events — documented in the Task 6 migration table (subscribe span only).
+- **Task 5 Minor #5:** new `UdpClientSocket.SendAsync(IPEndPoint, ReadOnlyMemory<byte>)` silently returns on null/empty, whereas the removed byte[] overload threw `ArgumentOutOfRangeException`.
+- **Pre-existing CS0067 warnings:** `StreamClientSocket.cs:94`, `UdpServerSocket.cs:71/72` (unused events; not introduced by this plan).
+- **`LocalDiscoveryTest` (not in `--all`):** crashes because production `LocalDiscovery.Start()` does not set `SocketOption.IP`, so `UdpClientSocket`'s ctor `IPAddress.Parse(SocketOption.IP)` throws `ArgumentNullException`; a test-side fix would require production changes — recorded as a known limitation.
