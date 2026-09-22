@@ -14,6 +14,8 @@ namespace SAEA.QueueSocketTest
 
         static long _disconnectedCount;
 
+        static bool _stopped;
+
         public static int Port { get { lock (_lock) { return _port; } } }
 
         public static QServer Server { get { lock (_lock) { return _server; } } }
@@ -33,6 +35,8 @@ namespace SAEA.QueueSocketTest
             {
                 if (_server != null) return;
 
+                if (_stopped) throw new InvalidOperationException("QueueServerHarness cannot be restarted after Stop()");
+
                 _port = TestHarness.GetFreeTcpPort();
 
                 _server = new QServer(port: _port);
@@ -47,10 +51,14 @@ namespace SAEA.QueueSocketTest
         {
             lock (_lock)
             {
+                if (_stopped) return;
+
                 if (_server == null) return;
 
-                try { _server.Stop(); } catch { }
+                try { _server.Stop(); }
+                catch (Exception ex) { SAEA.Common.ConsoleHelper.WriteLine("QueueServerHarness.Stop failed: " + ex.Message); }
 
+                _stopped = true;
                 _server = null;
             }
         }

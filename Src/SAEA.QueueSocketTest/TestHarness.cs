@@ -105,12 +105,25 @@ namespace SAEA.QueueSocketTest
 
         public static void WriteSummary(string title)
         {
-            ConsoleHelper.WriteLine("");
-            ConsoleHelper.WriteLine("=== " + title + ": " + PassCount + "/" + TotalCount + " passed, " + FailCount + " failed ===");
+            int pass;
+            int total;
+            int fail;
+            List<string> failures;
 
-            if (_fail > 0)
+            lock (_lock)
             {
-                foreach (var failure in _failures)
+                pass = _pass;
+                total = _pass + _fail;
+                fail = _fail;
+                failures = new List<string>(_failures);
+            }
+
+            ConsoleHelper.WriteLine("");
+            ConsoleHelper.WriteLine("=== " + title + ": " + pass + "/" + total + " passed, " + fail + " failed ===");
+
+            if (fail > 0)
+            {
+                foreach (var failure in failures)
                 {
                     ConsoleHelper.WriteLine("  FAILED: " + failure);
                 }
