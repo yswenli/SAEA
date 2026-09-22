@@ -6,14 +6,84 @@ using SAEA.QueueSocket.Model;
 
 using System;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace SAEA.QueueSocketTest
 {
     class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             ConsoleHelper.Title = $"SAEA.QueueSocketTest -- {DateTimeHelper.Now}";
+
+            if (args != null && args.Length > 0)
+            {
+                switch (args[0].ToLowerInvariant())
+                {
+                    case "--all":
+                        TestHarness.Reset();
+                        QueueServerHarness.Start();
+                        try
+                        {
+                            await FunctionalTests.RunAllAsync();
+                            await QueueBenchmark.RunAsync();
+                        }
+                        finally
+                        {
+                            QueueServerHarness.Stop();
+                        }
+                        TestHarness.WriteSummary("SAEA.QueueSocketTest --all");
+                        Environment.ExitCode = TestHarness.HasFailures ? 1 : 0;
+                        await Task.Delay(500);
+                        return;
+                    case "--functional":
+                        TestHarness.Reset();
+                        QueueServerHarness.Start();
+                        try
+                        {
+                            await FunctionalTests.RunAllAsync();
+                        }
+                        finally
+                        {
+                            QueueServerHarness.Stop();
+                        }
+                        TestHarness.WriteSummary("SAEA.QueueSocketTest --functional");
+                        Environment.ExitCode = TestHarness.HasFailures ? 1 : 0;
+                        await Task.Delay(500);
+                        return;
+                    case "--bench-queue-baseline":
+                        TestHarness.Reset();
+                        QueueServerHarness.Start();
+                        try
+                        {
+                            await QueueBenchmark.RunAsync(false);
+                        }
+                        finally
+                        {
+                            QueueServerHarness.Stop();
+                        }
+                        TestHarness.WriteSummary("SAEA.QueueSocketTest --bench-queue-baseline");
+                        Environment.ExitCode = TestHarness.HasFailures ? 1 : 0;
+                        await Task.Delay(500);
+                        return;
+                    case "--bench-queue":
+                    case "--bench":
+                        TestHarness.Reset();
+                        QueueServerHarness.Start();
+                        try
+                        {
+                            await QueueBenchmark.RunAsync();
+                        }
+                        finally
+                        {
+                            QueueServerHarness.Stop();
+                        }
+                        TestHarness.WriteSummary("SAEA.QueueSocketTest --bench-queue");
+                        Environment.ExitCode = TestHarness.HasFailures ? 1 : 0;
+                        await Task.Delay(500);
+                        return;
+                }
+            }
 
             var inputStr = "";
 
