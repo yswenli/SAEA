@@ -275,9 +275,7 @@ namespace SAEA.P2PTest.Tests
 
             var client = new SAEA.Sockets.Core.Tcp.IocpClientSocket(option);
             byte[] spanData = null;
-            byte[] legacyData = null;
             client.OnClientReceiveSpan += span => spanData = span.ToArray();
-            client.OnReceive += data => legacyData = data;
 
             client.ConnectAsync();
             var accepted = await listener.AcceptTcpClientAsync();
@@ -287,7 +285,6 @@ namespace SAEA.P2PTest.Tests
 
             await TestHarness.WaitUntil(() => spanData != null, 3000);
             TestHarness.Expect(spanData != null && spanData.SequenceEqual(frame), "client span event receives frame bytes");
-            TestHarness.Expect(legacyData != null && legacyData.SequenceEqual(frame), "client OnReceive still delivers bytes");
 
             try { client.Dispose(); } catch { }
             try { accepted.Close(); } catch { }

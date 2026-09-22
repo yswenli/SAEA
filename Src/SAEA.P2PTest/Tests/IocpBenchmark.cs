@@ -108,12 +108,13 @@ namespace SAEA.P2PTest.Tests
 
             BenchResult result = default;
             TcpClient? accepted = null;
+            bool ready = false;
             try
             {
-                client.ConnectAsync();
+                client.ConnectAsync(se => ready = se == SocketError.Success);
                 accepted = await listener.AcceptTcpClientAsync();
                 accepted.NoDelay = true;
-                TestHarness.Expect(await TestHarness.WaitUntil(() => client.Connected && client.UserToken.Socket != null, 3000), "client connected and user token socket ready");
+                TestHarness.Expect(await TestHarness.WaitUntil(() => ready && client.Connected, 3000), "client connected and ready");
                 accepted.Client.ReceiveTimeout = 5000;
 
                 client.SendAsync(new ReadOnlyMemory<byte>(frame));

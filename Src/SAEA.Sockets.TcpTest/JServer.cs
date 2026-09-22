@@ -71,7 +71,7 @@ namespace SAEA.Sockets.TcpTest
 
         public void SendAsync(string id, JT808Package jT808Package)
         {
-            _server.SendAsync(id, new JT808Serializer().Serialize(jT808Package));
+            _server.SendAsync(id, new ReadOnlyMemory<byte>(new JT808Serializer().Serialize(jT808Package)));
         }
     }
 }
