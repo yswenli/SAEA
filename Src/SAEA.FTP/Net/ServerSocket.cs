@@ -72,7 +72,7 @@ namespace SAEA.FTP.Net
 
             _serverSocket.OnAccepted += _serverSocket_OnAccepted;
 
-            _serverSocket.OnReceive += _serverSocket_OnReceive;
+            _serverSocket.OnServerReceiveSpan += _serverSocket_OnReceiveSpan;
 
             _serverSocket.OnDisconnected += _serverSocket_OnDisconnected;
 
@@ -85,7 +85,7 @@ namespace SAEA.FTP.Net
 
             var data = Encoding.UTF8.GetBytes($"{ServerResponseCode.服务就绪} Welcome to SAEA.FTPServer! {DateTimeHelper.GetUnixTick()}{Environment.NewLine}");
 
-            _serverSocket.SendAsync(ut.ID, data);
+            _serverSocket.SendAsync(ut.ID, data.AsMemory());
         }
 
         public void Start()
@@ -97,7 +97,7 @@ namespace SAEA.FTP.Net
         {
             var data = Encoding.UTF8.GetBytes($"{code} {msg}{Environment.NewLine}");
 
-            _serverSocket.SendAsync(id, data);
+            _serverSocket.SendAsync(id, data.AsMemory());
         }
 
         public void Stop()
@@ -110,8 +110,10 @@ namespace SAEA.FTP.Net
             LogHelper.Error("FTPServer Error", ex);
         }
 
-        private void _serverSocket_OnReceive(object currentObj, byte[] data)
+        private void _serverSocket_OnReceiveSpan(IUserToken currentObj, ReadOnlySpan<byte> dataSpan)
         {
+            var data = dataSpan.ToArray();
+
             _ftpStream.Write(data);
 
             var msg = _ftpStream.ReadLine();

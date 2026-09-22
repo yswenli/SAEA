@@ -99,7 +99,7 @@ namespace SAEA.RPC.Net
 
             _client = SocketFactory.CreateClientSocket(option);
 
-            _client.OnReceive += OnReceived;
+            _client.OnClientReceiveSpan += OnReceivedSpan;
 
             _client.OnDisconnected += _client_OnDisConnected;
         }
@@ -130,8 +130,10 @@ namespace SAEA.RPC.Net
             Connect();
         }
 
-        protected void OnReceived(byte[] data)
+        protected void OnReceivedSpan(ReadOnlySpan<byte> dataSpan)
         {
+            var data = dataSpan.ToArray();
+
             try
             {
                 _rUnpacker.Unpack(data, msg =>
@@ -202,7 +204,7 @@ namespace SAEA.RPC.Net
         {
             var data = _rUnpacker.Encode(msg);
 
-            _client.SendAsync(data);
+            _client.SendAsync(data.AsMemory());
         }
 
         /// <summary>

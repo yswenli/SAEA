@@ -93,7 +93,7 @@ namespace SAEA.MessageSocket
 
             _server.OnAccepted += _server_OnAccepted;
 
-            _server.OnReceive += _server_OnReceive;
+            _server.OnServerReceiveSpan += _server_OnReceiveSpan;
 
             _server.OnError += _server_OnError;
 
@@ -106,7 +106,7 @@ namespace SAEA.MessageSocket
 
         private void _classificationBatcher_OnBatched(string id, byte[] data)
         {
-            _server.SendAsync(id, data);
+            _server.SendAsync(id, data.AsMemory());
         }
 
         private void _server_OnError(string ID, Exception ex)
@@ -130,9 +130,11 @@ namespace SAEA.MessageSocket
             _server.Start();
         }
 
-private void _server_OnReceive(object currentObj, byte[] data)
+private void _server_OnReceiveSpan(IUserToken currentObj, ReadOnlySpan<byte> dataSpan)
         {
             var mUserToken = (MessageUserToken)currentObj;
+
+            var data = dataSpan.ToArray();
 
             using (var msgs = mUserToken.Coder.Decode(new ReadOnlySequence<byte>(data)))
             {
@@ -290,7 +292,7 @@ private void _server_OnReceive(object currentObj, byte[] data)
                     {
                         if (m.ID != userToken.ID)
                         {
-                            _server.SendAsync(m.ID, sp);
+                            _server.SendAsync(m.ID, sp.AsMemory());
                         }
                     });
                 }
@@ -416,7 +418,7 @@ private void _server_OnReceive(object currentObj, byte[] data)
                         {
                             if (m.ID != userToken.ID)
                             {
-                                _server.SendAsync(m.ID, sp);
+                                _server.SendAsync(m.ID, sp.AsMemory());
                             }
                         });
                     }

@@ -84,7 +84,7 @@ namespace SAEA.QueueSocket
 
             _serverSokcet = SocketFactory.CreateServerSocket(config);
 
-            _serverSokcet.OnReceive += _serverSokcet_OnReceive;
+            _serverSokcet.OnServerReceiveSpan += _serverSokcet_OnReceiveSpan;
 
             _serverSokcet.OnDisconnected += _serverSokcet_OnDisconnected;
         }
@@ -97,7 +97,7 @@ namespace SAEA.QueueSocket
         private void _exchange_OnBatched(string id, byte[] data)
         {
             // 使用异步发送，避免阻塞线程
-            _serverSokcet.SendAsync(id, data);
+            _serverSokcet.SendAsync(id, data.AsMemory());
         }
 
         /// <summary>
@@ -116,11 +116,11 @@ namespace SAEA.QueueSocket
         /// </summary>
         /// <param name="ut">会话对象</param>
         /// <param name="data">数据</param>
-        private void _serverSokcet_OnReceive(ISession ut, byte[] data)
+private void _serverSokcet_OnReceiveSpan(IUserToken ut, ReadOnlySpan<byte> dataSpan)
         {
-            var userToken = (IUserToken)ut;
+            var userToken = ut;
             var qcoder = (Net.QueueCoder)userToken.Coder;
-            var list = qcoder.GetQueueResult(data);
+            var list = qcoder.GetQueueResult(dataSpan.ToArray());
             if (list != null && list.Count > 0)
             {
                 foreach (var item in list)
@@ -187,7 +187,7 @@ namespace SAEA.QueueSocket
         private void ReplyPong(IUserToken ut, QueueMsg data)
         {
             var qcoder = (Net.QueueCoder)ut.Coder;
-            _serverSokcet.Send(ut.ID, qcoder.Pong(data.Name));
+            _serverSokcet.Send(ut.ID, qcoder.Pong(data.Name).AsSpan());
         }
 
         /// <summary>
@@ -230,7 +230,7 @@ namespace SAEA.QueueSocket
         private void ReplyClose(IUserToken ut, QueueMsg data)
         {
             var qcoder = (Net.QueueCoder)ut.Coder;
-            _serverSokcet.Send(ut.ID, qcoder.Close(data.Name));
+            _serverSokcet.Send(ut.ID, qcoder.Close(data.Name).AsSpan());
             _exchange.Clear(ut.ID);
             _serverSokcet.Disconnect(ut.ID);
         }

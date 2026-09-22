@@ -75,7 +75,7 @@ namespace SAEA.RPC.Net
 
             _server.OnError += _server_OnError;
 
-            _server.OnReceive += _server_OnReceive;
+            _server.OnServerReceiveSpan += _server_OnReceiveSpan;
 
         }
 
@@ -94,9 +94,11 @@ namespace SAEA.RPC.Net
         /// </summary>
         /// <param name="currentObj">当前对象</param>
         /// <param name="data">接收到的数据</param>
-        private void _server_OnReceive(object currentObj, byte[] data)
+        private void _server_OnReceiveSpan(IUserToken currentObj, ReadOnlySpan<byte> dataSpan)
         {
-            var userToken = (IUserToken)currentObj;
+            var userToken = currentObj;
+
+            var data = dataSpan.ToArray();
 
             ((RpcCoder)(userToken.Coder)).Unpack(data, (r) =>
             {
@@ -112,7 +114,7 @@ namespace SAEA.RPC.Net
         internal void Reply(IUserToken userToken, RSocketMsg msg)
         {
             var data = ((RpcCoder)userToken.Coder).Encode(msg);
-            _server.SendAsync(userToken.ID, data);
+            _server.SendAsync(userToken.ID, data.AsMemory());
         }
 
         /// <summary>

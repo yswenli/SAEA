@@ -85,7 +85,7 @@ namespace SAEA.FileSocket
 
             _client = SocketFactory.CreateClientSocket(option);
 
-            _client.OnReceive += _client_OnReceive;
+            _client.OnClientReceiveSpan += _client_OnReceiveSpan;
 
             _bufferSize = bufferSize;
 
@@ -96,8 +96,10 @@ namespace SAEA.FileSocket
             HeartAsync();
         }
 
-        private void _client_OnReceive(byte[] data)
+        private void _client_OnReceiveSpan(ReadOnlySpan<byte> dataSpan)
         {
+            var data = dataSpan.ToArray();
+
             if (data != null)
             {
                 using (var msgs = _unpacker.Decode(new ReadOnlySequence<byte>(data), null, null))
@@ -144,7 +146,7 @@ namespace SAEA.FileSocket
                                 using (var w = new PooledBufferWriter(64))
                                 {
                                     sm.WriteTo(w);
-                                    _client.Send(w.WrittenSpan.ToArray());
+                                    _client.Send(w.WrittenSpan);
                                 }
                             }
                             Thread.Sleep(HeartSpan);
@@ -165,7 +167,7 @@ namespace SAEA.FileSocket
             using (var w = new PooledBufferWriter(64))
             {
                 BaseSocketProtocal.ParseRequest(content).WriteTo(w);
-                _client.Send(w.WrittenSpan.ToArray());
+                _client.Send(w.WrittenSpan);
             }
         }
 
@@ -217,7 +219,7 @@ namespace SAEA.FileSocket
                                 using (var w = new PooledBufferWriter(64))
                                 {
                                     BaseSocketProtocal.ParseStream(contentSpan.ToArray()).WriteTo(w);
-                                    _client.SendAsync(w.WrittenSpan.ToArray());
+                                    _client.SendAsync(w.WrittenSpan.ToArray().AsMemory());
                                 }
 
                                 Interlocked.Add(ref _out, readNum);

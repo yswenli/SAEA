@@ -65,7 +65,7 @@ namespace SAEA.FTP.Core
             dataSocket.OnAccepted += DataSocket_OnAccepted;
             dataSocket.OnDisconnected += DataSocket_OnDisconnected;
             dataSocket.OnError += _serverSocket_OnError;
-            dataSocket.OnReceive += DataSocket_OnReceive;
+            dataSocket.OnServerReceiveSpan += DataSocket_OnReceiveSpan;
             _dataSocket = dataSocket;
             _userName = userName;
             _dataSocket.Start();
@@ -84,10 +84,10 @@ namespace SAEA.FTP.Core
         }
 
 
-        private void DataSocket_OnReceive(object currentObj, byte[] data)
+        private void DataSocket_OnReceiveSpan(IUserToken currentObj, ReadOnlySpan<byte> dataSpan)
         {
             var ftpUser = FTPServerConfigManager.GetUser(_userName);
-            ftpUser.FTPDataManager.Receive(data);
+            ftpUser.FTPDataManager.Receive(dataSpan.ToArray());
         }
 
 
@@ -97,7 +97,7 @@ namespace SAEA.FTP.Core
             {
                 _autoResetEvent.WaitOne(10);
             }
-            _dataSocket.End(_userToken.ID, data);
+            _dataSocket.End(_userToken.ID, data.AsMemory());
         }
 
         public void SendFile(string filePath)
@@ -108,7 +108,7 @@ namespace SAEA.FTP.Core
             }
             FileHelper.Read(filePath, (data) =>
             {
-                _dataSocket.Send(_userToken.ID, data);
+                _dataSocket.Send(_userToken.ID, data.AsSpan());
             });
             while (IsConnected)
             {

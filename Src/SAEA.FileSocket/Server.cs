@@ -82,7 +82,7 @@ namespace SAEA.FileSocket
 
             _server = SocketFactory.CreateServerSocket(option);
 
-            _server.OnReceive += _server_OnReceive;
+            _server.OnServerReceiveSpan += _server_OnReceiveSpan;
 
             _server.OnError += _server_OnError;
         }
@@ -92,9 +92,11 @@ namespace SAEA.FileSocket
             OnError?.Invoke(ID, ex);
         }
 
-        private void _server_OnReceive(object currentObj, byte[] data)
+        private void _server_OnReceiveSpan(IUserToken currentObj, ReadOnlySpan<byte> dataSpan)
         {
-            var userToken = (IUserToken)currentObj;
+            var userToken = currentObj;
+
+            var data = dataSpan.ToArray();
 
             using (var msgs = userToken.Coder.Decode(new ReadOnlySequence<byte>(data), null, (f) =>
             {
@@ -130,7 +132,7 @@ namespace SAEA.FileSocket
             using (var w = new PooledBufferWriter(64))
             {
                 sm.WriteTo(w);
-                _server.SendAsync(id, w.WrittenSpan.ToArray());
+                _server.SendAsync(id, w.WrittenSpan.ToArray().AsMemory());
             }
         }
 
@@ -141,7 +143,7 @@ namespace SAEA.FileSocket
             using (var w = new PooledBufferWriter(64))
             {
                 sm.WriteTo(w);
-                _server.SendAsync(id, w.WrittenSpan.ToArray());
+                _server.SendAsync(id, w.WrittenSpan.ToArray().AsMemory());
             }
         }
 

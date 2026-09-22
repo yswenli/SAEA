@@ -35,6 +35,7 @@ using System.Collections.Generic;
 using SAEA.Common;
 using SAEA.Common.Caching;
 using SAEA.Sockets;
+using SAEA.Sockets.Interface;
 using SAEA.WebSocket.Model;
 using SAEA.WebSocket.Type;
 
@@ -94,7 +95,7 @@ namespace SAEA.WebSocket.Core
 
             _server = SocketFactory.CreateServerSocket(option);
 
-            _server.OnReceive += _server_OnReceive;
+            _server.OnServerReceiveSpan += _server_OnReceiveSpan;
 
             _server.OnDisconnected += _server_OnDisconnected;
         }
@@ -145,7 +146,7 @@ namespace SAEA.WebSocket.Core
         /// <param name="data">数据</param>
         void _writer_OnBatched(string id, byte[] data)
         {
-            _server.SendAsync(id, data);
+            _server.SendAsync(id, data.AsMemory());
         }
 
         /// <summary>
@@ -166,9 +167,12 @@ namespace SAEA.WebSocket.Core
         /// </summary>
         /// <param name="currentObj">当前对象</param>
         /// <param name="data">数据</param>
-        private void _server_OnReceive(object currentObj, byte[] data)
+        private void _server_OnReceiveSpan(IUserToken currentObj, ReadOnlySpan<byte> dataSpan)
         {
             var ut = (WSUserToken)(currentObj);
+
+            var data = dataSpan.ToArray();
+
             try
             {
                 if (!ut.IsHandSharked)
@@ -179,7 +183,7 @@ namespace SAEA.WebSocket.Core
 
                     if (isHandShark)
                     {
-                        _server.SendAsync(ut.ID, resData);
+                        _server.SendAsync(ut.ID, resData.AsMemory());
                         ut.IsHandSharked = true;
                         lock (_locker)
                             Clients.Add(ut.ID);

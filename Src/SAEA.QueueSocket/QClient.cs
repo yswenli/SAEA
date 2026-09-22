@@ -125,7 +125,7 @@ namespace SAEA.QueueSocket
 
             _clientSocket = SocketFactory.CreateClientSocket(socketOption);
 
-            _clientSocket.OnReceive += _clientSocket_OnReceive;
+            _clientSocket.OnClientReceiveSpan += _clientSocket_OnReceiveSpan;
 
             _clientSocket.OnError += _clientSocket_OnError;
 
@@ -183,10 +183,10 @@ namespace SAEA.QueueSocket
         /// 接收数据处理事件
         /// </summary>
         /// <param name="data">接收到的数据</param>
-        private void _clientSocket_OnReceive(byte[] data)
+        private void _clientSocket_OnReceiveSpan(ReadOnlySpan<byte> dataSpan)
         {
             Actived = DateTimeHelper.Now;
-            var list = _queueCoder.GetQueueResult(data);
+            var list = _queueCoder.GetQueueResult(dataSpan.ToArray());
             if (list != null)
             {
                 foreach (var item in list)
@@ -222,7 +222,7 @@ namespace SAEA.QueueSocket
 
                 data.Clear();
 
-                _clientSocket.Send(list.ToArray());
+                _clientSocket.Send(list.ToArray().AsSpan());
 
                 list.Clear();
 
@@ -246,7 +246,7 @@ namespace SAEA.QueueSocket
                         {
                             if (Actived.AddMilliseconds(HeartSpan) <= DateTimeHelper.Now)
                             {
-                                _clientSocket.Send(_queueCoder.Ping(_name));
+                                _clientSocket.Send(_queueCoder.Ping(_name).AsSpan());
                             }
                             autoResetEvent.WaitOne(HeartSpan / 2);
                         }
@@ -282,7 +282,7 @@ namespace SAEA.QueueSocket
         /// <param name="topic">主题</param>
         public void Subscribe(string topic)
         {
-            _clientSocket.Send(_queueCoder.Subscribe(_name, topic));
+            _clientSocket.Send(_queueCoder.Subscribe(_name, topic).AsSpan());
         }
 
         /// <summary>
@@ -291,7 +291,7 @@ namespace SAEA.QueueSocket
         /// <param name="topic">主题</param>
         public void Unsubscribe(string topic)
         {
-            _clientSocket.Send(_queueCoder.Unsubcribe(_name, topic));
+            _clientSocket.Send(_queueCoder.Unsubcribe(_name, topic).AsSpan());
         }
 
         #endregion
@@ -305,7 +305,7 @@ namespace SAEA.QueueSocket
             _isClosed = true;
             _batcher.OnBatched -= _batcher_OnBatched;
             _batcher?.Dispose();
-            _clientSocket.Send(_queueCoder.Close(_name));
+            _clientSocket.Send(_queueCoder.Close(_name).AsSpan());
             _clientSocket.Disconnect();
         }
 

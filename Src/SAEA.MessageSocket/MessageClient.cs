@@ -104,7 +104,7 @@ namespace SAEA.MessageSocket
 
             _client = SocketFactory.CreateClientSocket(option);
 
-            _client.OnReceive += _client_OnReceive;
+            _client.OnClientReceiveSpan += _client_OnReceiveSpan;
 
             HeartSpan = 30 * 1000;
 
@@ -117,12 +117,14 @@ namespace SAEA.MessageSocket
 
         private void _batcher_OnBatched(IBatcher sender, byte[] data)
         {
-            _client.Send(data);
+            _client.Send(data.AsSpan());
             _messageContext.UserToken.Actived = DateTimeHelper.Now;
         }
 
-        private void _client_OnReceive(byte[] data)
+        private void _client_OnReceiveSpan(ReadOnlySpan<byte> dataSpan)
         {
+            var data = dataSpan.ToArray();
+
             if (data == null)
             {
                 return;
@@ -218,7 +220,7 @@ namespace SAEA.MessageSocket
                                 using (var w = new PooledBufferWriter(64))
                                 {
                                     sm.WriteTo(w);
-                                    _client.Send(w.WrittenSpan.ToArray());
+                                    _client.Send(w.WrittenSpan);
                                 }
                             }
                         }

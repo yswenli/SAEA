@@ -317,11 +317,11 @@ namespace SAEA.FTP
 
                             if (n == _client.Config.BufferSize)
                             {
-                                dataSocket.Send(data);
+                                dataSocket.Send(data.AsSpan(0, n));
                             }
                             else
                             {
-                                dataSocket.Send(data.AsSpan().Slice(0, n).ToArray());
+                                dataSocket.Send(data.AsSpan(0, n));
                                 break;
                             }
                         }

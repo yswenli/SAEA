@@ -67,17 +67,19 @@ namespace SAEA.Http.Base.Net
             _option = optionBuilder.Build();
 
             _serverSokcet = SocketFactory.CreateServerSocket(_option);
-            _serverSokcet.OnReceive += _serverSokcet_OnReceive;
+            _serverSokcet.OnServerReceiveSpan += _serverSokcet_OnReceiveSpan;
             _serverSokcet.OnError += (i, e) => OnError?.Invoke(e);
         }
 
-        private void _serverSokcet_OnReceive(object userToken, byte[] data)
+        private void _serverSokcet_OnReceiveSpan(IUserToken userToken, ReadOnlySpan<byte> dataSpan)
         {
+            var data = dataSpan.ToArray();
+
             LogHelper.Debug(userToken == null ? "userToken is null" : "userToken is not null");
 
             LogHelper.Debug("HttpSocket.Recieve", data);
 
-            var ut = (IUserToken)userToken;
+            var ut = userToken;
 
             try
             {
@@ -99,7 +101,7 @@ namespace SAEA.Http.Base.Net
 
         public void Send(IUserToken userToken, byte[] data)
         {
-            _serverSokcet.Send(userToken.ID, data);
+            _serverSokcet.Send(userToken.ID, data.AsSpan());
         }
 
         public void Disconnecte(IUserToken userToken)
@@ -108,7 +110,7 @@ namespace SAEA.Http.Base.Net
         }
         public void End(IUserToken userToken, byte[] data)
         {
-            _serverSokcet.End(userToken.ID, data);
+            _serverSokcet.End(userToken.ID, data.AsMemory());
         }
         public void Start()
         {

@@ -105,7 +105,7 @@ namespace SAEA.WebSocket
 
             _client = SocketFactory.CreateClientSocket(option);
 
-            _client.OnReceive += _client_OnReceive;
+            _client.OnClientReceiveSpan += _client_OnReceiveSpan;
             _client.OnDisconnected += WSClient_OnDisconnected;
             _client.OnError += WSClient_OnError;
         }
@@ -136,9 +136,9 @@ namespace SAEA.WebSocket
         /// 处理接收到的数据
         /// </summary>
         /// <param name="data">接收到的数据</param>
-        private void _client_OnReceive(byte[] data)
+        private void _client_OnReceiveSpan(ReadOnlySpan<byte> dataSpan)
         {
-            OnReceived(data);
+            OnReceived(dataSpan.ToArray());
         }
 
         /// <summary>
@@ -172,7 +172,7 @@ namespace SAEA.WebSocket
         {
             _client.ConnectAsync((e) =>
             {
-                _client.SendAsync(WSUserToken.RequestHandShark(_url, _serverIP, _serverPort, _subProtocol, _origin));
+                _client.SendAsync(WSUserToken.RequestHandShark(_url, _serverIP, _serverPort, _subProtocol, _origin).AsMemory());
             });
 
             var to = timeOut / 10;
@@ -255,7 +255,7 @@ namespace SAEA.WebSocket
         /// <param name="msg">要发送的数据</param>
         public void SendBase(ISocketProtocal msg)
         {
-            using (var w = new SAEA.Common.Caching.PooledBufferWriter(64)) { ((WSProtocal)msg).WriteMaskedTo(w); _client.SendAsync(w.WrittenSpan.ToArray()); }
+            using (var w = new SAEA.Common.Caching.PooledBufferWriter(64)) { ((WSProtocal)msg).WriteMaskedTo(w); _client.SendAsync(w.WrittenSpan.ToArray().AsMemory()); }
         }
 
         /// <summary>

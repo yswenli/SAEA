@@ -78,7 +78,7 @@ namespace SAEA.FTP.Net
 
             _cmdSocket = SocketFactory.CreateClientSocket(option);
             _cmdSocket.OnError += _clientSocket_OnError;
-            _cmdSocket.OnReceive += _clientSocket_OnReceive;
+            _cmdSocket.OnClientReceiveSpan += _clientSocket_OnReceiveSpan;
             _cmdSocket.OnDisconnected += _clientSocket_OnDisconnected;
 
             _ftpStream = new FTPStream();
@@ -94,8 +94,10 @@ namespace SAEA.FTP.Net
             LogHelper.Error("FTPClient异常", ex);
         }
 
-        private void _clientSocket_OnReceive(byte[] data)
+        private void _clientSocket_OnReceiveSpan(ReadOnlySpan<byte> dataSpan)
         {
+            var data = dataSpan.ToArray();
+
             _ftpStream.Write(data);
 
             if (_isFirst)
@@ -174,7 +176,7 @@ namespace SAEA.FTP.Net
             {
                 return _syncHelper2.Wait(() =>
                 {
-                    _cmdSocket.SendAsync(Encoding.UTF8.GetBytes(cmd + Environment.NewLine));
+                    _cmdSocket.SendAsync(Encoding.UTF8.GetBytes(cmd + Environment.NewLine).AsMemory());
                 });
             }
             catch (Exception ex)
@@ -250,7 +252,7 @@ namespace SAEA.FTP.Net
 
             var dataSocket = SocketFactory.CreateClientSocket(option);
             dataSocket.OnError += _clientSocket_OnError;
-            dataSocket.OnReceive += _dataSocket_OnReceive;
+            dataSocket.OnClientReceiveSpan += _dataSocket_OnReceiveSpan;
             dataSocket.OnDisconnected += DataSocket_OnDisconnected;
             dataSocket.Connect();
             return dataSocket;
@@ -261,9 +263,9 @@ namespace SAEA.FTP.Net
             FTPDataManager.NoticeComplete();
         }
 
-        private void _dataSocket_OnReceive(byte[] data)
+        private void _dataSocket_OnReceiveSpan(ReadOnlySpan<byte> dataSpan)
         {
-            FTPDataManager.Receive(data);
+            FTPDataManager.Receive(dataSpan.ToArray());
         }
 
         public void Disconnect()

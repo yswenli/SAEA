@@ -84,7 +84,7 @@ namespace SAEA.Http.Base.Net
             _option = optionBuilder.Build();
 
             _serverSokcet = SocketFactory.CreateServerSocket(_option);
-            _serverSokcet.OnReceive += _serverSokcet_OnReceive;
+            _serverSokcet.OnServerReceiveSpan += _serverSokcet_OnReceiveSpan;
             _serverSokcet.OnError += _serverSokcet_OnError;
         }
 
@@ -93,9 +93,11 @@ namespace SAEA.Http.Base.Net
         /// </summary>
         /// <param name="userToken">用户令牌</param>
         /// <param name="data">接收的数据</param>
-        private void _serverSokcet_OnReceive(object userToken, byte[] data)
+        private void _serverSokcet_OnReceiveSpan(IUserToken userToken, ReadOnlySpan<byte> dataSpan)
         {
-            var ut = (IUserToken)userToken;
+            var ut = userToken;
+
+            var data = dataSpan.ToArray();
 
             HttpCoder unpacker = (HttpCoder)ut.Coder;
 
@@ -133,7 +135,7 @@ namespace SAEA.Http.Base.Net
         /// <param name="data">发送的数据</param>
         public void Send(IUserToken userToken, byte[] data)
         {
-            _serverSokcet.SendAsync(userToken.ID, data);
+            _serverSokcet.SendAsync(userToken.ID, data.AsMemory());
         }
 
         /// <summary>
@@ -152,7 +154,7 @@ namespace SAEA.Http.Base.Net
         /// <param name="data">结束的数据</param>
         public void End(IUserToken userToken, byte[] data)
         {
-            _serverSokcet.End(userToken.ID, data);
+            _serverSokcet.End(userToken.ID, data.AsMemory());
         }
 
         /// <summary>
