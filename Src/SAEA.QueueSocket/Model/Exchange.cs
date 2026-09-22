@@ -251,18 +251,17 @@ namespace SAEA.QueueSocket.Model
         /// <summary>
         /// 取消订阅
         /// </summary>
+        /// <param name="sessionID">会话ID</param>
         /// <param name="sInfo">队列消息</param>
-        public void Unsubscribe(QueueMsg sInfo)
+        public void Unsubscribe(string sessionID, QueueMsg sInfo)
         {
             Interlocked.Decrement(ref _cNum);
-            _binding.Del(sInfo.Name, sInfo.Topic);
+            _binding.Del(sessionID, sInfo.Topic);
 
-            // 从 _subscribers 中移除订阅者
             if (_subscribers.TryGetValue(sInfo.Topic, out var topicSubscribers))
             {
-                topicSubscribers.TryRemove(sInfo.Name, out var _);
+                topicSubscribers.TryRemove(sessionID, out var _);
 
-                // 如果该 topic 没有订阅者了，清理分发任务
                 if (topicSubscribers.IsEmpty)
                 {
                     _subscribers.TryRemove(sInfo.Topic, out var _);

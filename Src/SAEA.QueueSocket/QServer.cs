@@ -219,7 +219,7 @@ namespace SAEA.QueueSocket
         /// <param name="data">队列消息</param>
         private void ReplyUnsubscribe(IUserToken ut, QueueMsg data)
         {
-            _exchange.Unsubscribe(data);
+            _exchange.Unsubscribe(ut.ID, data);
         }
 
         /// <summary>
