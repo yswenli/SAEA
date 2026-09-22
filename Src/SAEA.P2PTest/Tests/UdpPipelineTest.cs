@@ -91,6 +91,9 @@ namespace SAEA.P2PTest.Tests
 
                 try { server?.Dispose(); } catch { }
 
+                TestHarness.Expect(server != null,
+                    "UDP server instance exists for stop measurement");
+
                 TestHarness.Expect(stopwatch.ElapsedMilliseconds < 2000,
                     "UDP server Stop completes without blocking teardown");
             }

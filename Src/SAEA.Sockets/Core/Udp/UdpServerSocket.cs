@@ -196,30 +196,36 @@ namespace SAEA.Sockets.Core.Udp
         /// <param name="readArgs"></param>
         private void ProcessReceive(SocketAsyncEventArgs readArgs)
         {
-            if (_udpSocket == null) return;
+            var socket = _udpSocket;
+            if (socket == null) return;
 
             IUserToken token;
             if (readArgs == null)
             {
-                token = SessionManager.BeginBindUserToken(_udpSocket);
+                token = SessionManager.BeginBindUserToken(socket);
             }
             else
             {
                 token = (IUserToken)readArgs.UserToken;
             }
 
-            if (token == null)
-            {
-                return;
-            }
+            if (token == null) return;
 
-            if (!_udpSocket.ReceiveFromAsync(token.ReadArgs))
+            try
             {
-                // 使用线程池避免直接递归调用导致栈溢出
-                ThreadPool.QueueUserWorkItem((state) =>
+                if (!socket.ReceiveFromAsync(token.ReadArgs))
                 {
-                    ProcessReceived(token.ReadArgs);
-                });
+                    ThreadPool.QueueUserWorkItem((state) =>
+                    {
+                        ProcessReceived(token.ReadArgs);
+                    });
+                }
+            }
+            catch (ObjectDisposedException) { }
+            catch (Exception ex)
+            {
+                OnError?.Invoke(token.ID, ex);
+                Disconnect(token, ex);
             }
         }
 
@@ -764,22 +770,10 @@ namespace SAEA.Sockets.Core.Udp
         /// </summary>
         public void Stop()
         {
-            try
-            {
-                _udpSocket.Dispose();
-            }
-            catch { }
-            try
-            {
-                _sessionManager.Clear();
-            }
-            catch { }
-            try
-            {
-                _udpSocket.Dispose();
-                _udpSocket = null;
-            }
-            catch { }
+            Socket socket = null;
+            try { socket = Interlocked.Exchange(ref _udpSocket, null); } catch { }
+            try { socket?.Dispose(); } catch { }
+            try { _sessionManager.Clear(); } catch { }
         }
 
         public void Dispose()
