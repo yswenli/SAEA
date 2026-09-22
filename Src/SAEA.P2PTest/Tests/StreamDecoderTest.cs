@@ -327,6 +327,57 @@ namespace SAEA.P2PTest.Tests
             try { server.Dispose(); } catch { }
         }
 
+        public static async System.Threading.Tasks.Task RunIocpClientSpanExceptionAsync()
+        {
+            TestHarness.Section("IOCP client span exception resilience");
+
+            var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+            listener.Start();
+            int port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+
+            var option = SAEA.Sockets.SocketOptionBuilder.Instance
+                .UseIocp()
+                .SetIP("127.0.0.1")
+                .SetPort(port)
+                .SetReadBufferSize(8192)
+                .Build();
+
+            var client = new SAEA.Sockets.Core.Tcp.IocpClientSocket(option);
+            int spanCalls = 0;
+            int errorCount = 0;
+            byte[] secondData = null;
+            client.OnClientReceiveSpan += span =>
+            {
+                int n = System.Threading.Interlocked.Increment(ref spanCalls);
+                if (n == 1)
+                {
+                    throw new InvalidOperationException("span-handler-boom");
+                }
+                secondData = span.ToArray();
+            };
+            client.OnError += (id, ex) => System.Threading.Interlocked.Increment(ref errorCount);
+
+            client.ConnectAsync();
+            var accepted = await listener.AcceptTcpClientAsync();
+
+            var first = BuildFrame((byte)SocketProtocalType.RequestSend, Encoding.UTF8.GetBytes("boom"));
+            await accepted.GetStream().WriteAsync(first, 0, first.Length);
+            await accepted.GetStream().FlushAsync();
+            await TestHarness.WaitUntil(() => spanCalls >= 1, 3000);
+
+            var second = BuildFrame((byte)SocketProtocalType.RequestSend, Encoding.UTF8.GetBytes("survives"));
+            await accepted.GetStream().WriteAsync(second, 0, second.Length);
+            await accepted.GetStream().FlushAsync();
+
+            await TestHarness.WaitUntil(() => secondData != null, 3000);
+            TestHarness.Expect(secondData != null && secondData.SequenceEqual(second), "receive loop continues after span handler threw");
+            TestHarness.Expect(errorCount >= 1, "OnError raised for span handler exception", errorCount.ToString());
+
+            try { client.Dispose(); } catch { }
+            try { accepted.Close(); } catch { }
+            listener.Stop();
+        }
+
         static void Parity()
         {
             TestHarness.Section("legacy parity matrix");

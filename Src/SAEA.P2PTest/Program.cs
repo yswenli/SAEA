@@ -151,6 +151,7 @@ namespace SAEA.P2PTest
             StreamDecoderTest.Run();
             await StreamDecoderTest.RunIocpClientAsync();
             await StreamDecoderTest.RunIocpServerAsync();
+            await StreamDecoderTest.RunIocpClientSpanExceptionAsync();
             await StreamPipelineTest.RunAsync();
             await UdpPipelineTest.RunAsync();
 

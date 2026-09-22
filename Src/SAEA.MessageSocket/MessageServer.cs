@@ -130,7 +130,7 @@ namespace SAEA.MessageSocket
             _server.Start();
         }
 
-private void _server_OnReceiveSpan(IUserToken currentObj, ReadOnlySpan<byte> dataSpan)
+        private void _server_OnReceiveSpan(IUserToken currentObj, ReadOnlySpan<byte> dataSpan)
         {
             var mUserToken = (MessageUserToken)currentObj;
 
