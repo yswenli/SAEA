@@ -91,6 +91,10 @@ namespace SAEA.Sockets.Core.Tcp
 
         public event OnDisconnectedHandler OnDisconnected;
 
+        /// <summary>
+        /// 接收数据事件（Span 版本）。<see cref="StreamClientSocket"/> 不启动接收循环，因此该事件不会被触发
+        /// （仅为实现 <see cref="IClientSocket"/> 契约而保留）；需要接收数据请通过 <see cref="GetStream"/> 自行读取。
+        /// </summary>
         public event OnClientReceiveSpanHandler OnClientReceiveSpan;
 
 

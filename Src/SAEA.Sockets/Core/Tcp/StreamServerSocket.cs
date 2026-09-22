@@ -316,6 +316,12 @@ namespace SAEA.Sockets.Core.Tcp
         /// <c>SAEA.WebSocket.Core.WSSServerImpl</c>、<c>SAEA.Socket5.Server.Socks5Server</c>——若此处无条件
         /// 读取会与其争抢同一 <see cref="Stream"/>。在循环内判空与在接纳时判空等价：无订阅者时同样永不进入
         /// 循环并永久退出。
+        /// <para>
+        /// 关闭语义：仅当本次调用真正进入过读循环（<c>reading</c>）且服务未在停止时，才在 <c>finally</c> 中
+        /// 调用 <see cref="Disconnect(string, Exception)"/> 回收连接并恰好触发一次 <see cref="OnDisconnected"/>；
+        /// 无接收订阅者时连接所有权归 <see cref="OnAcceptedHandler"/>/<c>GetStream()</c> 消费者，<b>不得</b>
+        /// 在此关闭。EOF/取消/回调异常/IO 异常路径均经此统一回收，避免半开连接与通道泄漏。
+        /// </para>
         /// </remarks>
         /// <param name="ci">通道信息</param>
         /// <param name="token">通道用户令牌；其 <see cref="StreamUserToken.Input"/> 以 <c>leaveOpen: true</c>
@@ -332,10 +338,15 @@ namespace SAEA.Sockets.Core.Tcp
                 return;
             }
 
+            var reading = false;
+            Exception disconnectEx = null;
+
             try
             {
                 while (!_isStoped && OnServerReceiveSpan != null)
                 {
+                    reading = true;
+
                     ReadResult result;
                     try
                     {
@@ -343,12 +354,12 @@ namespace SAEA.Sockets.Core.Tcp
                     }
                     catch (IOException iex)
                     {
-                        if (!_isStoped) OnDisconnected?.Invoke(ci.ID, iex);
+                        disconnectEx = iex;
                         break;
                     }
                     catch (SocketException sex)
                     {
-                        if (!_isStoped) OnDisconnected?.Invoke(ci.ID, sex);
+                        disconnectEx = sex;
                         break;
                     }
                     catch (OperationCanceledException)
@@ -357,6 +368,7 @@ namespace SAEA.Sockets.Core.Tcp
                     }
                     catch (Exception ex)
                     {
+                        disconnectEx = ex;
                         if (!_isStoped) OnError?.Invoke(ci.ID, ex);
                         break;
                     }
@@ -379,6 +391,7 @@ namespace SAEA.Sockets.Core.Tcp
                     }
                     catch (Exception ex)
                     {
+                        disconnectEx = ex;
                         if (!_isStoped) OnError?.Invoke(ci.ID, ex);
                         faulted = true;
                     }
@@ -397,6 +410,11 @@ namespace SAEA.Sockets.Core.Tcp
                 try { reader.Complete(); } catch { }
                 try { token.Coder?.Clear(); } catch { }
                 _tokens.TryRemove(ci.ID, out _);
+
+                if (reading && !_isStoped)
+                {
+                    Disconnect(ci.ID, disconnectEx);
+                }
             }
         }
 
@@ -502,6 +520,17 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="sessionID">会话ID</param>
         public void Disconnect(string sessionID)
         {
+            Disconnect(sessionID, null);
+        }
+
+        /// <summary>
+        /// 断开连接并携带触发原因。关闭套接字、恰好触发一次 <see cref="OnDisconnected"/>（订阅者异常被吞掉，
+        /// 以保证通道仍被移除），最后从 <see cref="ChannelManager"/> 移除会话。
+        /// </summary>
+        /// <param name="sessionID">会话ID</param>
+        /// <param name="ex">触发断开的异常；正常关闭/EOF 为 <c>null</c></param>
+        public void Disconnect(string sessionID, Exception ex)
+        {
             if (string.IsNullOrEmpty(sessionID)) return;
 
             var channel = ChannelManager.Instance.Get(sessionID);
@@ -523,7 +552,7 @@ namespace SAEA.Sockets.Core.Tcp
                 }
                 catch { }
 
-                OnDisconnected?.Invoke(sessionID, null);
+                try { OnDisconnected?.Invoke(sessionID, ex); } catch { }
             }
             ChannelManager.Instance.Remove(sessionID);
         }

@@ -99,16 +99,23 @@ namespace SAEA.Sockets.Core
         /// <returns></returns>
         public override int Read(byte[] buffer, int offset, int count)
         {
+            if (buffer == null) throw new ArgumentNullException(nameof(buffer));
+            if (offset < 0 || count < 0 || offset + count > buffer.Length)
+                throw new ArgumentOutOfRangeException(nameof(count));
+
             var data = _queue.Dequeue(_client.SocketOption.ActionTimeout);
             if (data != null && data.Length > 0)
             {
                 _list.AddRange(data);
             }
-            var ldata = _list.Take(count - offset).ToArray();
-            if (ldata.Length < 1) return 0;            
-            Buffer.BlockCopy(ldata, 0, buffer, offset, ldata.Length);
-            Interlocked.Add(ref _length, 0 - ldata.Length);
-            return ldata.Length;
+
+            var take = Math.Min(count, _list.Count);
+            if (take <= 0) return 0;
+
+            _list.CopyTo(0, buffer, offset, take);
+            _list.RemoveRange(0, take);
+            Interlocked.Add(ref _length, 0 - take);
+            return take;
         }
         /// <summary>
         /// 读取

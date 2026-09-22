@@ -421,6 +421,15 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         /// <summary>
+        /// 触发 <see cref="OnError"/>。订阅者自身抛出异常时吞掉，避免在接收循环内二次抛出或被
+        /// 外层 <c>catch</c> 再次触发（去重）。
+        /// </summary>
+        private void RaiseError(string id, Exception ex)
+        {
+            try { OnError?.Invoke(id, ex); } catch { }
+        }
+
+        /// <summary>
         /// 处理接收完成
         /// </summary>
         /// <param name="readArgs">读取操作的SocketAsyncEventArgs对象</param>
@@ -446,7 +455,7 @@ namespace SAEA.Sockets.Core.Tcp
                         }
                         catch (Exception ex)
                         {
-                            OnError?.Invoke(_userToken.ID, ex);
+                            RaiseError(_userToken.ID, ex);
                         }
 
                         // 兼容路径：仅当存在 byte[] 消费方时才复制
@@ -460,7 +469,7 @@ namespace SAEA.Sockets.Core.Tcp
                             }
                             catch (Exception ex)
                             {
-                                OnError?.Invoke(_userToken.ID, ex);
+                                RaiseError(_userToken.ID, ex);
                             }
                         }
                     }
@@ -481,7 +490,7 @@ namespace SAEA.Sockets.Core.Tcp
             }
             catch (Exception ex)
             {
-                OnError?.Invoke(_userToken.ID, ex);
+                RaiseError(_userToken.ID, ex);
             }
         }
 

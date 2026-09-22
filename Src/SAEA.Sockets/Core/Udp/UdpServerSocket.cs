@@ -214,11 +214,14 @@ namespace SAEA.Sockets.Core.Udp
         /// <param name="readArgs"></param>
         void ProcessReceived(SocketAsyncEventArgs readArgs)
         {
-            var userToken = (IUserToken)readArgs.UserToken;
-            if (string.IsNullOrEmpty(userToken.ID))
-                SessionManager.EndBindUserToken(userToken, readArgs.RemoteEndPoint.ToString());
+            var userToken = readArgs?.UserToken as IUserToken;
+            if (userToken == null) return;
+
             try
             {
+                if (string.IsNullOrEmpty(userToken.ID))
+                    SessionManager.EndBindUserToken(userToken, readArgs.RemoteEndPoint.ToString());
+
                 if (readArgs.SocketError == SocketError.Success && readArgs.BytesTransferred > 0)
                 {
                     _sessionManager.Active(userToken.ID);
