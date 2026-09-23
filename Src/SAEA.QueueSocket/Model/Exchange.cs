@@ -154,78 +154,96 @@ namespace SAEA.QueueSocket.Model
                 _cNum = _binding.GetSubscriberCount();
 
                 // 将订阅者添加到订阅者字典
-                var topicSubscribers = _subscribers.GetOrAdd(sInfo.Topic,
-                    (topic) => new ConcurrentDictionary<string, Net.QueueCoder>());
-
-                topicSubscribers.AddOrUpdate(sessionID, qcoder, (id, oldCoder) => qcoder);
-
-                _ = _dispatchTasks.GetOrAdd(sInfo.Topic, topic => new Lazy<Task>(() => Task.Run(async () =>
+                lock (_syncLocker)
                 {
-                    try
-                    {
-                        const int batchSize = 1000;
-                        const int maxWaitTime = 50;
-                        var stopwatch = new System.Diagnostics.Stopwatch();
+                    var topicSubscribers = _subscribers.GetOrAdd(sInfo.Topic,
+                        (topic) => new ConcurrentDictionary<string, Net.QueueCoder>());
 
-                        while (_subscribers.TryGetValue(topic, out var subs) && subs.Count > 0)
+                    topicSubscribers.AddOrUpdate(sessionID, qcoder, (id, oldCoder) => qcoder);
+
+                    EnsureDispatcher(sInfo.Topic);
+                }
+            }
+        }
+
+        void EnsureDispatcher(string topic)
+        {
+            _ = _dispatchTasks.GetOrAdd(topic, t => new Lazy<Task>(() => Task.Run(() => DispatchLoop(t)), LazyThreadSafetyMode.ExecutionAndPublication)).Value;
+        }
+
+        async Task DispatchLoop(string topic)
+        {
+            const int batchSize = 1000;
+            const int maxWaitTime = 50;
+            var stopwatch = new System.Diagnostics.Stopwatch();
+
+            while (true)
+            {
+                if (!(_subscribers.TryGetValue(topic, out var subs) && subs.Count > 0))
+                {
+                    lock (_syncLocker)
+                    {
+                        if (_subscribers.TryGetValue(topic, out subs) && subs.Count > 0)
+                        {
+                            continue;
+                        }
+
+                        _dispatchTasks.TryRemove(topic, out var _);
+
+                        break;
+                    }
+                }
+
+                try
+                {
+                    var messages = new List<byte[]>();
+                    stopwatch.Restart();
+
+                    while (messages.Count < batchSize && stopwatch.ElapsedMilliseconds < maxWaitTime)
+                    {
+                        if (!_messageQueue.TryDequeue(topic, out var msg))
+                        {
+                            await Task.Delay(5);
+                            continue;
+                        }
+
+                        if (msg != null && msg.Length > 0)
+                        {
+                            messages.Add(msg);
+                        }
+                    }
+
+                    if (messages.Count > 0)
+                    {
+                        var currentSubs = subs.ToArray();
+
+                        foreach (var sub in currentSubs)
                         {
                             try
                             {
-                                var messages = new List<byte[]>();
-                                stopwatch.Restart();
-
-                                while (messages.Count < batchSize && stopwatch.ElapsedMilliseconds < maxWaitTime)
+                                if (subs.TryGetValue(sub.Key, out var coder))
                                 {
-                                    if (!_messageQueue.TryDequeue(topic, out var msg))
+                                    var bindInfo = _binding.GetBingInfo(sub.Key);
+                                    if (bindInfo != null)
                                     {
-                                        await Task.Delay(5);
-                                        continue;
-                                    }
-
-                                    if (msg != null && msg.Length > 0)
-                                    {
-                                        messages.Add(msg);
-                                    }
-                                }
-
-                                if (messages.Count > 0)
-                                {
-                                    var currentSubs = subs.ToArray();
-
-                                    foreach (var sub in currentSubs)
-                                    {
-                                        try
+                                        foreach (var msg in messages)
                                         {
-                                            if (subs.TryGetValue(sub.Key, out var coder))
-                                            {
-                                                var bindInfo = _binding.GetBingInfo(sub.Key);
-                                                if (bindInfo != null)
-                                                {
-                                                    foreach (var msg in messages)
-                                                    {
-                                                        Interlocked.Increment(ref _outNum);
-                                                        _classificationBatcher.Insert(sub.Key, coder.Data(bindInfo.Name, topic, msg));
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        catch
-                                        {
+                                            Interlocked.Increment(ref _outNum);
+                                            _classificationBatcher.Insert(sub.Key, coder.Data(bindInfo.Name, topic, msg));
                                         }
                                     }
                                 }
                             }
                             catch
                             {
-                                await Task.Delay(10);
                             }
                         }
                     }
-                    finally
-                    {
-                        _dispatchTasks.TryRemove(topic, out var _);
-                    }
-                }), LazyThreadSafetyMode.ExecutionAndPublication)).Value;
+                }
+                catch
+                {
+                    await Task.Delay(10);
+                }
             }
         }
 
