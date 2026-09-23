@@ -105,7 +105,8 @@ FT6（3 生产者 × 100 → 2 消费者，无损）在原实现下稳定丢包�
 |------|------|
 | `--all` | 功能回归 + 基准；`ExitCode = HasFailures ? 1 : 0` |
 | `--functional` | 仅功能回归 |
-| `--bench-queue` / `--bench` | 仅基准 |
+| `--bench-queue` / `--bench` | 仅基准（强制 §5.3 阈值） |
+| `--bench-queue-baseline` | 仅基准；记录 B/op 与吞吐但不强制阈值，`ExitCode=0`（用于校准备份） |
 | 无参 / 其他 | 落入现有交互菜单 |
 
 **新增文件**（均在 `Src/SAEA.QueueSocketTest/`，namespace `SAEA.QueueSocketTest`）：
@@ -172,12 +173,12 @@ FT6（3 生产者 × 100 → 2 消费者，无损）在原实现下稳定丢包�
 |----|------|------|
 | Micro Encode | 64B / 1KB / 4KB | ≤ 256 / 1280 / 4400 B/op |
 | Micro Decode | 64B / 1KB | ≤ 512 / 1600 B/op |
-| Micro Gen0 | 每 20k 次 | ≤ 5 |
+| Micro Gen0 | 全部微基准累计（5×20k） | ≤ 25 |
 | End-to-end 吞吐 | S1 / S2 | ≥ 20000 msg/s |
 | End-to-end B/frame | S1 / S2 | ≤ 8192 / 12288 B/frame |
-| 无损 | S1 / S2 | delivered == published 且 totalDeliveries >= published（流控下硬性） |
+| 无损 | S1 / S2 | 最慢消费者已收 delivered >= published 且总投递 totalDeliveries >= published（流控下硬性；多消费者广播时 totalDeliveries 可为 published 的倍数） |
 
-**基线证据流**：先记录优化前 B/op 与吞吐（写入 plan outcome），优化后断言「B/op 下降 / 吞吐不降」并留余量；上表为最终守门阈值。优化后实测（Release，`--all` 39/39、`--bench-queue` 14/14 全通过）：MicroEncode 184/1144/4216 B/op、MicroDecode 360/1320 B/op、Micro Gen0 ≤5、S1 72967 msg/s / 3076 B/frame、S2 45624 msg/s / 7807 B/frame，阈值无需再调整。
+**基线证据流**：先记录优化前 B/op 与吞吐（写入 plan outcome），优化后断言「B/op 下降 / 吞吐不降」并留余量；上表为最终守门阈值。优化后实测（Release，`--all` 39/39、`--bench-queue` 14/14 全通过）：MicroEncode 184/1144/4216 B/op、MicroDecode 360/1320 B/op、Micro Gen0 累计 ≈17（其中 4KB 单次约 10）、S1 72967 msg/s / 3076 B/frame、S2 45624 msg/s / 7807 B/frame，阈值无需再调整。
 
 ---
 

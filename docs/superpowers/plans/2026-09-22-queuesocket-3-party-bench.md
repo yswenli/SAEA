@@ -876,8 +876,7 @@ namespace SAEA.QueueSocketTest
                     ok = m.Type == QueueSocketMsgType.Data
                         && m.Name == name
                         && m.Topic == topic
-                        && m.Data != null
-                        && m.Data.Length == data.Length;
+                        && (m.Data == null ? 0 : m.Data.Length) == data.Length;
                     if (ok && data.Length > 0)
                     {
                         for (int i = 0; i < data.Length; i++)
@@ -1741,12 +1740,12 @@ namespace SAEA.QueueSocketTest
 
 ## Task 12: 收口 — 全量门禁 + 回填产物
 
-- [ ] **Step 1:** `dotnet build Src/SAEA.Sockets.sln -c Debug` 与 `-c Release` → 0 errors。
-- [ ] **Step 2:** `dotnet run --project Src/SAEA.QueueSocketTest/SAEA.QueueSocketTest.csproj -c Release -- --all` → 全过，ExitCode 0。
-- [ ] **Step 3:** `dotnet run --project Src/SAEA.QueueSocketTest/SAEA.QueueSocketTest.csproj -c Release -- --bench-queue` → ExitCode 0；此运行默认 `enforceThresholds=true`，强制校验 spec §5.3 的微基准 B/op、Micro Gen0、S1/S2 吞吐与 B/frame 全部达标；记录最终微基准 B/op 与 S1/S2 吞吐、B/frame。若任一守门未达标，继续优化热路径或（仅在实测证明阈值不合理时）按证据调整 spec §5.3 两侧阈值并记录理由，不得单纯放宽。
-- [ ] **Step 4:** 回归：`SAEA.P2PTest -- --all` = 310/310；`-- --bench-iocp` = 29/29。
-- [ ] **Step 5:** 合规：public API diff 为空（`git diff <base>..HEAD -- Src/SAEA.QueueSocket/Producer.cs Src/SAEA.QueueSocket/Consumer.cs Src/SAEA.QueueSocket/QServer.cs Src/SAEA.QueueSocket/QClient.cs` 仅 `internal`/私有改动、无 public 签名变化）；无新增 `//`（用决策 F 的命令校验）。
-- [ ] **Step 6:** 把最终数字回填本 plan 的 “Outcome” 段，并把 Task 4 校准后的阈值同步回 spec §5.3；提交 `docs(plan): record QueueSocket bench outcome and calibrated thresholds`。
+- [x] **Step 1:** `dotnet build Src/SAEA.Sockets.sln -c Debug` 与 `-c Release` → 0 errors。
+- [x] **Step 2:** `dotnet run --project Src/SAEA.QueueSocketTest/SAEA.QueueSocketTest.csproj -c Release -- --all` → 全过，ExitCode 0。
+- [x] **Step 3:** `dotnet run --project Src/SAEA.QueueSocketTest/SAEA.QueueSocketTest.csproj -c Release -- --bench-queue` → ExitCode 0；此运行默认 `enforceThresholds=true`，强制校验 spec §5.3 的微基准 B/op、Micro Gen0、S1/S2 吞吐与 B/frame 全部达标；记录最终微基准 B/op 与 S1/S2 吞吐、B/frame。若任一守门未达标，继续优化热路径或（仅在实测证明阈值不合理时）按证据调整 spec §5.3 两侧阈值并记录理由，不得单纯放宽。
+- [x] **Step 4:** 回归：`SAEA.P2PTest -- --all` = 310/310；`-- --bench-iocp` = 29/29。
+- [x] **Step 5:** 合规：public API diff 为空（`git diff <base>..HEAD -- Src/SAEA.QueueSocket/Producer.cs Src/SAEA.QueueSocket/Consumer.cs Src/SAEA.QueueSocket/QServer.cs Src/SAEA.QueueSocket/QClient.cs` 仅 `internal`/私有改动、无 public 签名变化）；无新增 `//`（用决策 F 的命令校验）。
+- [x] **Step 6:** 把最终数字回填本 plan 的 “Outcome” 段，并把 Task 4 校准后的阈值同步回 spec §5.3；提交 `docs(plan): record QueueSocket bench outcome and calibrated thresholds`。
 
 ---
 
@@ -1758,8 +1757,11 @@ namespace SAEA.QueueSocketTest
 |------|--------|--------|
 | MicroEncode/64B (B/op) | 592 | 184 |
 | MicroEncode/1KB (B/op) | 2512 | 1144 |
+| MicroEncode/4KB (B/op) | 8656 | 4216 |
 | MicroDecode/64B (B/op) | 600 | 360 |
 | MicroDecode/1KB (B/op) | 1560 | 1320 |
+| MicroDecodeBatch/100x64B (B/frame) | 467 | 293 |
+| Micro Gen0（5×20k 累计，信息性） | 33 | ≈17（4KB 单次约 10） |
 | S1 throughput (msg/s) | 41817 | 72967 |
 | S2 throughput (msg/s) | 34076 | 45624 |
 | S1 B/frame | 6107 | 3076 |
