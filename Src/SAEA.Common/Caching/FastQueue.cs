@@ -155,6 +155,21 @@ namespace SAEA.Common.Caching
         }
 
         /// <summary>
+        /// 尝试出队，队列为空时立即返回false
+        /// </summary>
+        /// <param name="t"></param>
+        /// <returns></returns>
+        public bool TryDequeue(out T t)
+        {
+            if (_channel.Reader.TryRead(out t))
+            {
+                Interlocked.Decrement(ref _count);
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
         /// 释放资源
         /// </summary>
         public void Dispose()

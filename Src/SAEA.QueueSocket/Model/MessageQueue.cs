@@ -67,11 +67,7 @@ namespace SAEA.QueueSocket.Model
 
         public ValueTask<bool> Enqueue(string topic, byte[] data)
         {
-            if (!_dic.TryGetValue(topic, out FastQueue<byte[]> queue))
-            {
-                queue = new FastQueue<byte[]>(_maxPendingMsgCount);
-                _dic.TryAdd(topic, queue);
-            }
+            var queue = _dic.GetOrAdd(topic, t => new FastQueue<byte[]>(_maxPendingMsgCount));
             return queue.EnqueueAsync(data);
         }
 
@@ -86,6 +82,20 @@ namespace SAEA.QueueSocket.Model
                 }
             }
             return null;
+        }
+
+
+        public bool TryDequeue(string topic, out byte[] data)
+        {
+            data = null;
+            if (_dic.TryGetValue(topic, out FastQueue<byte[]> queue))
+            {
+                if (queue != null)
+                {
+                    return queue.TryDequeue(out data);
+                }
+            }
+            return false;
         }
 
 

@@ -89,7 +89,7 @@ namespace SAEA.QueueSocket.Model
         private ConcurrentDictionary<string, ConcurrentDictionary<string, Net.QueueCoder>> _subscribers;
 
         // 消息分发任务字典
-        private ConcurrentDictionary<string, Task> _dispatchTasks;
+        private ConcurrentDictionary<string, Lazy<Task>> _dispatchTasks;
 
         /// <summary>
         /// 初始化Exchange类的新实例
@@ -108,7 +108,7 @@ namespace SAEA.QueueSocket.Model
 
             _subscribers = new ConcurrentDictionary<string, ConcurrentDictionary<string, Net.QueueCoder>>();
 
-            _dispatchTasks = new ConcurrentDictionary<string, Task>();
+            _dispatchTasks = new ConcurrentDictionary<string, Lazy<Task>>();
         }
 
         /// <summary>
@@ -159,14 +159,12 @@ namespace SAEA.QueueSocket.Model
 
                 topicSubscribers.AddOrUpdate(sessionID, qcoder, (id, oldCoder) => qcoder);
 
-                // 启动或获取该主题的消息分发任务，使用Task.Run确保任务立即执行
-                _dispatchTasks.GetOrAdd(sInfo.Topic, topic => Task.Run(async () =>
+                _ = _dispatchTasks.GetOrAdd(sInfo.Topic, topic => new Lazy<Task>(() => Task.Run(async () =>
                 {
                     try
                     {
-                        // 批量处理参数
-                        const int batchSize = 1000; // 每次处理1000条消息
-                        const int maxWaitTime = 50; // 最大等待时间50ms
+                        const int batchSize = 1000;
+                        const int maxWaitTime = 50;
                         var stopwatch = new System.Diagnostics.Stopwatch();
 
                         while (_subscribers.TryGetValue(topic, out var subs) && subs.Count > 0)
@@ -176,47 +174,33 @@ namespace SAEA.QueueSocket.Model
                                 var messages = new List<byte[]>();
                                 stopwatch.Restart();
 
-                                // 批量获取消息
                                 while (messages.Count < batchSize && stopwatch.ElapsedMilliseconds < maxWaitTime)
                                 {
-                                    // 在没有消息时添加适当延迟，避免CPU忙等待
-                                    if (_messageQueue.GetCount(topic) == 0)
+                                    if (!_messageQueue.TryDequeue(topic, out var msg))
                                     {
-                                        await Task.Delay(10);
+                                        await Task.Delay(5);
                                         continue;
                                     }
 
-                                    var msg = await _messageQueue.DequeueAsync(topic);
                                     if (msg != null && msg.Length > 0)
                                     {
                                         messages.Add(msg);
                                     }
-                                    else
-                                    {
-                                        // 没有更多消息，退出循环
-                                        break;
-                                    }
                                 }
 
-                                // 如果有消息需要处理
                                 if (messages.Count > 0)
                                 {
-                                    // 复制当前订阅者列表，避免在分发过程中修改列表
                                     var currentSubs = subs.ToArray();
 
-                                    // 对每个订阅者批量发送消息
                                     foreach (var sub in currentSubs)
                                     {
                                         try
                                         {
-                                            // 检查订阅者是否仍然存在
                                             if (subs.TryGetValue(sub.Key, out var coder))
                                             {
-                                                // 获取订阅者的主题信息（只需要获取一次）
                                                 var bindInfo = _binding.GetBingInfo(sub.Key);
                                                 if (bindInfo != null)
                                                 {
-                                                    // 批量处理消息
                                                     foreach (var msg in messages)
                                                     {
                                                         Interlocked.Increment(ref _outNum);
@@ -227,24 +211,21 @@ namespace SAEA.QueueSocket.Model
                                         }
                                         catch
                                         {
-                                            // 单个订阅者发送失败不影响其他订阅者
                                         }
                                     }
                                 }
                             }
                             catch
                             {
-                                // 内层异常：等待一小段时间后重试
                                 await Task.Delay(10);
                             }
                         }
                     }
                     finally
                     {
-                        // 当没有订阅者或异常退出时，确保移除该主题的分发任务
                         _dispatchTasks.TryRemove(topic, out var _);
                     }
-                }));
+                }), LazyThreadSafetyMode.ExecutionAndPublication)).Value;
             }
         }
 

@@ -431,6 +431,72 @@ namespace SAEA.QueueSocketTest
 
 ---
 
+## Task 3.5（插入，先于 Task 3）：修复既有并发缺陷（无损投递）
+
+**Files:**
+- Modify: `Src/SAEA.Common/Caching/FastQueue.cs`
+- Modify: `Src/SAEA.QueueSocket/Model/MessageQueue.cs`
+- Modify: `Src/SAEA.QueueSocket/Model/Exchange.cs`
+
+**背景：** Task 3 落地 FT6（3 生产者 × 100 → 2 消费者，无损）时稳定失败（收到 149–298/300）。诊断证明这是库既有的并发缺陷，与测试无关；不修则 FT6 不可能通过，且后续 O1–O6 优化会建立在错误结构上。
+
+**根因（实测证据）：**
+1. `MessageQueue.Enqueue`：`TryGetValue` 未命中即 `new FastQueue` 再 `TryAdd`；竞态失败者的消息写入**孤儿队列**，永不投递（实测 `calls=300 hit=297 orphan=2`）。
+2. `Exchange.GetSubscribeData` 的 `_dispatchTasks.GetOrAdd(topic, factory)` 在竞态下工厂被多个调用方执行 → 同一 topic 启动 **2 个分发任务**，共同消费同一队列（实测 `tasks=2`）。
+3. 分发内层循环先 `_messageQueue.GetCount(topic)>0` 再**阻塞** `DequeueAsync()`；抢输竞态时任务永久卡在 `channel.Reader.WaitToReadAsync()`，握着已积累批次不投递（实测 `deq=298 added≈296` 但 `msgs≈151`）。
+
+**Step 1: `FastQueue` 增加非阻塞出队（加法性改动）：**
+
+```csharp
+public bool TryDequeue(out T t)
+{
+    if (_channel.Reader.TryRead(out t))
+    {
+        Interlocked.Decrement(ref _count);
+        return true;
+    }
+    return false;
+}
+```
+
+**Step 2: `MessageQueue.Enqueue` 原子化 + 增加 `TryDequeue`：**
+
+```csharp
+public ValueTask<bool> Enqueue(string topic, byte[] data)
+{
+    var queue = _dic.GetOrAdd(topic, t => new FastQueue<byte[]>(_maxPendingMsgCount));
+    return queue.EnqueueAsync(data);
+}
+
+public bool TryDequeue(string topic, out byte[] data)
+{
+    data = null;
+    if (_dic.TryGetValue(topic, out FastQueue<byte[]> queue))
+    {
+        if (queue != null)
+        {
+            return queue.TryDequeue(out data);
+        }
+    }
+    return false;
+}
+```
+
+**Step 3: `Exchange` 分发任务每 topic 只启动一次 + 非阻塞排空：**
+- `_dispatchTasks` 类型改为 `ConcurrentDictionary<string, Lazy<Task>>`。
+- 启动：`_ = _dispatchTasks.GetOrAdd(topic, t => new Lazy<Task>(() => Task.Run(async () => { ... }), LazyThreadSafetyMode.ExecutionAndPublication)).Value;`，保证工厂/任务各只执行一次。
+- 内层循环改为 `if (!_messageQueue.TryDequeue(topic, out var msg)) { await Task.Delay(5); continue; }`；仍受 `batchSize=1000` 与 `maxWaitTime=50ms` 约束；删除 `GetCount`+阻塞 `DequeueAsync` 组合。
+
+**Step 4: Verify + commit.**
+- `dotnet build Src/SAEA.Sockets.sln -c Debug` → 0 errors。
+- `SAEA.QueueSocketTest -- --functional` 连续 3 次 → 25/25（FT6 = 300/300 无损）。
+- `SAEA.P2PTest -- --all` → 310/310。
+- Commit `fix(queuesocket): atomic enqueue, single dispatcher, non-blocking drain`。
+
+**对后续任务的影响：** Task 10（O6）的编码/批处理优化**必须保留**本任务建立的单分发任务 + 非阻塞排空结构，不得回退为 `GetOrAdd(factory)` 或阻塞出队。
+
+---
+
 ## Task 3: 功能回归 FT1–FT9（`FunctionalTests.cs`）
 
 **Files:**

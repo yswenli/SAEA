@@ -57,6 +57,13 @@
 3. 提供分层基准：微基准精确 B/op，端到端三端吞吐 + 系统级 B/frame，带防回归硬断言。
 4. 优化 O1–O6 热路径，公共 API 签名不变，线格式不变，功能不回退。
 5. 修正内部实现缺陷：`Exchange.Unsubscribe` 改按会话 ID 退订（B1）、`QServer` 断线调 `Exchange.SessionClosed` 清理订阅（M1）；公共 API 不变。
+6. 修正既有并发缺陷（无 FT6 无损前提）：`MessageQueue.Enqueue` 原子化（`GetOrAdd`，消除孤儿队列）、`Exchange` 每 topic 仅启动一个分发任务（`Lazy<Task>`）、分发内层改非阻塞 `TryDequeue` + 短延迟排空。详见 2.4。
+
+### 2.4 本轮修复的既有并发缺陷（先于功能性回归验证）
+
+FT6（3 生产者 × 100 → 2 消费者，无损）在原实现下稳定丢包（收到 149–298/300）。根因：**#1** `MessageQueue.Enqueue` 在 `TryGetValue` 未命中时 `new FastQueue` 后 `TryAdd`，竞态失败者消息进入孤儿队列永不投递；**#2** `Exchange` 用 `_dispatchTasks.GetOrAdd(topic, factory)`，工厂竞态下被多次执行 → 同 topic 出现 2 个分发任务；**#3** 内层先 `GetCount>0` 再阻塞 `DequeueAsync()`，抢输者永久卡在 `WaitToReadAsync()` 并扣留已积累批次。
+
+修复：`FastQueue.TryDequeue(out T)`（加法性）、`MessageQueue` 用 `_dic.GetOrAdd(topic, ...)` 原子入队并新增 `TryDequeue`、`Exchange` 改用 `ConcurrentDictionary<string, Lazy<Task>>`（`LazyThreadSafetyMode.ExecutionAndPublication`）保证任务唯一、内层改非阻塞轮询（保留 `batchSize=1000`/`maxWaitTime=50ms`）。公共 API 除新增 `public TryDequeue` 外签名不变；后续 O6 优化须保留该结构。
 
 ### 2.2 范围内 / 范围外
 
@@ -254,7 +261,11 @@
 
 **改（`Src/SAEA.QueueSocket/`）**
 
-`Net/QueueCoder.cs`（O1/O2/O3/O5）、`QClient.cs`（O2/O4）、`QServer.cs`（O2/M1）、`Model/Exchange.cs`（O6/B1）
+`Net/QueueCoder.cs`（O1/O2/O3/O5）、`QClient.cs`（O2/O4）、`QServer.cs`（O2/M1）、`Model/Exchange.cs`（O6/B1，并发缺陷修复）、`Model/MessageQueue.cs`（并发缺陷修复）
+
+**改（`Src/SAEA.Common/`）**
+
+`Caching/FastQueue.cs`（新增 `TryDequeue`，加法性；并发缺陷修复需要）
 
 **不新增/不修改**：`SAEA.Sockets`、`SAEA.P2P`、`.csproj` 依赖项、线格式相关常量。
 
@@ -264,6 +275,7 @@
 
 1. 落 `TestHarness.cs` + `QueueServerHarness.cs` + `Program.cs` CLI 骨架（`--functional`/`--bench-queue`/`--all`）；`QueueServerHarness` 持有**唯一** `QServer` 复用。
 2. 落 FT1–FT9（对齐现有实现，全绿，作为后续优化的护栏）；FT4 需先落 B1 修正（`Exchange.Unsubscribe` 按会话 ID）方能真实验证。
+2.5 落并发缺陷修复（2.4：`FastQueue.TryDequeue` / `MessageQueue` 原子入队 / `Exchange` 单分发任务 + 非阻塞排空），使 FT6 无损；否则 FT1–FT9 无法全绿。
 3. 落 `QueueBenchmark.cs`：微基准 + 端到端，先测**优化前**基线并记录。
 4. O1–O6 逐项优化，并实施 O7（B1 退订）/O8（M1 断线清理）修正（每项后跑功能回归 + 微基准对比）。
 5. 复核线格式/API/注释合规，跑 `--all`、`--bench-queue`、Debug/Release 构建、`SAEA.P2PTest` 回归，记录最终数字。
