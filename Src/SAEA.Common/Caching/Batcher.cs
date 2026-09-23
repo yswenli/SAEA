@@ -79,22 +79,18 @@ namespace SAEA.Common.Caching
 
         public bool Insert(T t)
         {
-            if (_queue.Count >= _max)
-            {
-                return false;
-            }
+            if (_stopped) return false;
+            if (!_capacitySemaphore.Wait(0)) return false;
             _queue.Enqueue(t);
             return true;
         }
 
-        public async Task<bool> InsertAsync(T t, CancellationToken cancellationToken = default)
+        public Task<bool> InsertAsync(T t, CancellationToken cancellationToken = default)
         {
-            if (_queue.Count >= _max)
-            {
-                return false;
-            }
+            if (_stopped) return Task.FromResult(false);
+            if (!_capacitySemaphore.Wait(0)) return Task.FromResult(false);
             _queue.Enqueue(t);
-            return true;
+            return Task.FromResult(true);
         }
 
         public async Task<bool> InsertWithBackpressureAsync(T t, int timeoutMs = 5000, CancellationToken cancellationToken = default)
