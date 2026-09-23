@@ -32,11 +32,14 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
 using SAEA.Common.Caching;
 using SAEA.Sockets.Interface;
+using SAEA.QueueSocket.Net;
+using SAEA.QueueSocket.Type;
 
 namespace SAEA.QueueSocket.Model
 {
@@ -226,11 +229,25 @@ namespace SAEA.QueueSocket.Model
                                     var bindInfo = _binding.GetBingInfo(sub.Key);
                                     if (bindInfo != null)
                                     {
-                                        foreach (var msg in messages)
+                                        var nameBytes = string.IsNullOrEmpty(bindInfo.Name) ? null : Encoding.UTF8.GetBytes(bindInfo.Name);
+                                        var topicBytes = string.IsNullOrEmpty(topic) ? null : Encoding.UTF8.GetBytes(topic);
+                                        var fixedLen = 1 + 12 + (nameBytes == null ? 0 : nameBytes.Length) + (topicBytes == null ? 0 : topicBytes.Length);
+
+                                        long bufferSize = 0;
+                                        for (int i = 0; i < messages.Count; i++)
                                         {
-                                            Interlocked.Increment(ref _outNum);
-                                            _classificationBatcher.Insert(sub.Key, coder.Data(bindInfo.Name, topic, msg));
+                                            bufferSize += fixedLen + messages[i].Length;
                                         }
+
+                                        var buffer = new byte[bufferSize];
+                                        var bufOffset = 0;
+                                        for (int i = 0; i < messages.Count; i++)
+                                        {
+                                            bufOffset = QueueCoder.WriteFrame(buffer, bufOffset, QueueSocketMsgType.Data, nameBytes, topicBytes, messages[i]);
+                                            Interlocked.Increment(ref _outNum);
+                                        }
+
+                                        _classificationBatcher.Insert(sub.Key, buffer);
                                     }
                                 }
                             }
