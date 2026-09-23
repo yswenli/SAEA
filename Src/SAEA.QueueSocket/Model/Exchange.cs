@@ -359,6 +359,11 @@ namespace SAEA.QueueSocket.Model
                     if (_subscribers.TryGetValue(topic, out var subscribers))
                     {
                         subscribers.TryRemove(sessionID, out var _);
+
+                        if (subscribers.IsEmpty)
+                        {
+                            _subscribers.TryRemove(topic, out var _);
+                        }
                     }
                 }
             }
