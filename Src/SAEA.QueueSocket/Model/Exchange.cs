@@ -257,13 +257,16 @@ namespace SAEA.QueueSocket.Model
             Interlocked.Decrement(ref _cNum);
             _binding.Del(sessionID, sInfo.Topic);
 
-            if (_subscribers.TryGetValue(sInfo.Topic, out var topicSubscribers))
+            lock (_syncLocker)
             {
-                topicSubscribers.TryRemove(sessionID, out var _);
-
-                if (topicSubscribers.IsEmpty)
+                if (_subscribers.TryGetValue(sInfo.Topic, out var topicSubscribers))
                 {
-                    _subscribers.TryRemove(sInfo.Topic, out var _);
+                    topicSubscribers.TryRemove(sessionID, out var _);
+
+                    if (topicSubscribers.IsEmpty)
+                    {
+                        _subscribers.TryRemove(sInfo.Topic, out var _);
+                    }
                 }
             }
         }
@@ -332,11 +335,14 @@ namespace SAEA.QueueSocket.Model
             _cNum = _binding.GetSubscriberCount();
 
             // 从订阅者字典中移除会话ID
-            foreach (var topic in _subscribers.Keys)
+            lock (_syncLocker)
             {
-                if (_subscribers.TryGetValue(topic, out var subscribers))
+                foreach (var topic in _subscribers.Keys)
                 {
-                    subscribers.TryRemove(sessionID, out var _);
+                    if (_subscribers.TryGetValue(topic, out var subscribers))
+                    {
+                        subscribers.TryRemove(sessionID, out var _);
+                    }
                 }
             }
         }

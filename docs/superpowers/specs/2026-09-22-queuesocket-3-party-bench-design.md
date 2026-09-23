@@ -63,7 +63,7 @@
 
 FT6（3 生产者 × 100 → 2 消费者，无损）在原实现下稳定丢包（收到 149–298/300）。根因：**#1** `MessageQueue.Enqueue` 在 `TryGetValue` 未命中时 `new FastQueue` 后 `TryAdd`，竞态失败者消息进入孤儿队列永不投递；**#2** `Exchange` 用 `_dispatchTasks.GetOrAdd(topic, factory)`，工厂竞态下被多次执行 → 同 topic 出现 2 个分发任务；**#3** 内层先 `GetCount>0` 再阻塞 `DequeueAsync()`，抢输者永久卡在 `WaitToReadAsync()` 并扣留已积累批次。
 
-修复：`FastQueue.TryDequeue(out T)`（加法性）、`MessageQueue` 用 `_dic.GetOrAdd(topic, ...)` 原子入队并新增 `TryDequeue`、`Exchange` 改用 `ConcurrentDictionary<string, Lazy<Task>>`（`LazyThreadSafetyMode.ExecutionAndPublication`）保证任务唯一、内层改非阻塞轮询（保留 `batchSize=1000`/`maxWaitTime=50ms`）。公共 API 除新增 `public TryDequeue` 外签名不变；后续 O6 优化须保留该结构。
+修复：`FastQueue.TryDequeue(out T)`（加法性）、`MessageQueue` 用 `_dic.GetOrAdd(topic, ...)` 原子入队并新增 `TryDequeue`、`Exchange` 改用 `ConcurrentDictionary<string, Lazy<Task>>`（`LazyThreadSafetyMode.ExecutionAndPublication`）保证任务唯一、内层改非阻塞轮询（保留 `batchSize=1000`/`maxWaitTime=50ms`）。`Exchange` 的「订阅者注册 + 确保分发器」「分发器退出 + 移除条目」以及 `Unsubscribe`/`SessionClosed` 的订阅字典改动统一在 `_syncLocker` 下串行化（热排空循环保持无锁），消除重订阅时任务被提前移除/无分发器的竞态。公共 API 除新增 `public TryDequeue` 外签名不变；后续 O6 优化须保留该结构。
 
 ### 2.2 范围内 / 范围外
 

@@ -484,8 +484,9 @@ public bool TryDequeue(string topic, out byte[] data)
 
 **Step 3: `Exchange` 分发任务每 topic 只启动一次 + 非阻塞排空：**
 - `_dispatchTasks` 类型改为 `ConcurrentDictionary<string, Lazy<Task>>`。
-- 启动：`_ = _dispatchTasks.GetOrAdd(topic, t => new Lazy<Task>(() => Task.Run(async () => { ... }), LazyThreadSafetyMode.ExecutionAndPublication)).Value;`，保证工厂/任务各只执行一次。
-- 内层循环改为 `if (!_messageQueue.TryDequeue(topic, out var msg)) { await Task.Delay(5); continue; }`；仍受 `batchSize=1000` 与 `maxWaitTime=50ms` 约束；删除 `GetCount`+阻塞 `DequeueAsync` 组合。
+- 订阅侧在 `lock (_syncLocker)` 内完成「加入订阅者 + `EnsureDispatcher(topic)`」；`EnsureDispatcher` 用 `_ = _dispatchTasks.GetOrAdd(topic, t => new Lazy<Task>(() => Task.Run(() => DispatchLoop(t)), LazyThreadSafetyMode.ExecutionAndPublication)).Value;` 保证工厂/任务各只执行一次。
+- `DispatchLoop(topic)` 内层用 `if (!_messageQueue.TryDequeue(topic, out var msg)) { await Task.Delay(5); continue; }`，仍受 `batchSize=1000` 与 `maxWaitTime=50ms` 约束；删除 `GetCount`+阻塞 `DequeueAsync`。
+- **退出与移除同样在 `lock (_syncLocker)` 内完成**：仅当订阅者仍为空时才 `TryRemove` 本 topic 条目；否则 `continue` 复用同一任务继续排空。避免「退出任务移除新分发器 / 重订阅后无分发器」竞态（热排空循环保持无锁）。
 
 **Step 4: Verify + commit.**
 - `dotnet build Src/SAEA.Sockets.sln -c Debug` → 0 errors。
