@@ -3,10 +3,12 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
+using SAEA.Common.Caching;
 using SAEA.QueueSocket;
 using SAEA.QueueSocket.Model;
 using SAEA.QueueSocket.Net;
@@ -32,6 +34,7 @@ namespace SAEA.QueueSocketTest
             await SafeAsync("FT9", () => { FT9_EncodeDecodeRoundtrip(); return Task.CompletedTask; });
             await SafeAsync("FT10", FT10_DisconnectCleansSubscription);
             await SafeAsync("FT11", () => { FT11_BatchEncodeMatchesPerFrame(); return Task.CompletedTask; });
+            await SafeAsync("FT12", () => { FT12_BatcherCapacityBalanced(); return Task.CompletedTask; });
         }
 
         static async Task SafeAsync(string name, Func<Task> test)
@@ -484,6 +487,35 @@ namespace SAEA.QueueSocketTest
                 }
 
                 TestHarness.Expect(ok, "FT11 batch matches per-frame case" + idx, "name=" + name + " topic=" + topic + " size=" + size + " len=" + buffer.Length);
+            }
+        }
+
+        static void FT12_BatcherCapacityBalanced()
+        {
+            int overflow = 0;
+            EventHandler<FirstChanceExceptionEventArgs> onFirstChance = (s, e) =>
+            {
+                if (e.Exception is SemaphoreFullException) Interlocked.Increment(ref overflow);
+            };
+            AppDomain.CurrentDomain.FirstChanceException += onFirstChance;
+            try
+            {
+                var flushed = new TaskCompletionSource<bool>();
+                int delivered = 0;
+                var batcher = new Batcher<byte[]>(size: 8, timeout: 20, max: 64, name: "ft12");
+                batcher.OnBatched += (s, list) =>
+                {
+                    if (Interlocked.Add(ref delivered, list.Count) >= 40) flushed.TrySetResult(true);
+                };
+                for (int i = 0; i < 40; i++) batcher.Insert(new byte[] { (byte)i });
+                flushed.Task.Wait(3000);
+                batcher.Dispose();
+                TestHarness.Expect(overflow == 0, "FT12 batcher no SemaphoreFullException", "overflow=" + overflow);
+                TestHarness.Expect(delivered == 40, "FT12 batcher flushed all items", "delivered=" + delivered);
+            }
+            finally
+            {
+                AppDomain.CurrentDomain.FirstChanceException -= onFirstChance;
             }
         }
     }
