@@ -162,9 +162,9 @@ FT6（3 生产者 × 100 → 2 消费者，无损）在原实现下稳定丢包�
 ### 5.2 Tier 2 — 端到端三端（真实 loopback TCP，自由端口）
 
 - 场景参数化：`S1` = 1P/1C/1topic/64B/10s；`S2` = 5P/5C/1topic/1KB/10s。
-- 生产者不限速 `Publish`，计数取 `OnMessagesSent`；消费者计数取 `OnMessage`。
-- 到时长 → 停生产者 → `WaitUntil` 排空 → 断言**无损**（`received == sent`，排空超时则 `received/sent ≥ 0.99` 并在 detail 打印差额）。
-- 指标：有效吞吐（received/elapsed）、投递吞吐（sent/elapsed）、系统级 **B/frame** = `GC.GetTotalAllocatedBytes` 差 ÷ received、Gen0/1/2。**延迟 p50/p99 本轮不测**：`Producer.Publish` 仅接受 `string`，内嵌 8B 时间戳需把二进制塞进 UTF8 字符串，会扰动 payload 尺寸与 B/frame 口径，且同进程 loopback 单向延迟对吞吐/分配 KPI 无决策价值（列为后续可选）。
+- **带流控的无损口径（Task 4 实测勘误，用户批准）**：`Exchange` 分发经进程级单例 `ClassificationBatcher`，其 `Insert` 在队列达到 `_max = size×10 = 50000` 时**静默丢弃**（`Batcher.cs:80-88`）。因此端到端基准不再「无背压饱和发布」，而是对生产者施加在途窗口流控：以「已发布数 − 最慢消费者已收数」为在途量，超过 `maxOutstanding=8192` 即短暂让出，从而在**无损前提**下测最大可持续吞吐。计数：发布侧用本地精确计数（每次 `Publish` 后自增），消费者计数取 `OnMessage`；无损断言保持硬性（`every consumer received all` 且 `totalDeliveries >= published`），不再用 0.99 容忍。
+- 到时长 → 停生产者 → `WaitUntil` 所有消费者追上已发布数 → 断言**无损**。
+- 指标：**吞吐 = published ÷ 发布阶段耗时**（系统入站吞吐，广播场景不再按投递数重复计数）；系统级 **B/frame** = `GC.GetTotalAllocatedBytes` 差 ÷ 总投递数（`sum(counts)`）；Gen0/1/2。**延迟 p50/p99 本轮不测**：`Producer.Publish` 仅接受 `string`，内嵌 8B 时间戳需把二进制塞进 UTF8 字符串，会扰动 payload 尺寸与 B/frame 口径，且同进程 loopback 单向延迟对吞吐/分配 KPI 无决策价值（列为后续可选）。
 
 ### 5.3 硬断言阈值（防回归；**provisional，实施步骤 3 用优化前基线校准**）
 
@@ -175,7 +175,7 @@ FT6（3 生产者 × 100 → 2 消费者，无损）在原实现下稳定丢包�
 | Micro Gen0 | 每 20k 次 | ≤ 5 |
 | End-to-end 吞吐 | S1 / S2 | ≥ 20000 msg/s |
 | End-to-end B/frame | S1 / S2 | ≤ 8192 / 12288 B/frame |
-| 无损 | S1 / S2 | received == sent（排空超时则 ≥ 0.99） |
+| 无损 | S1 / S2 | delivered == published 且 totalDeliveries >= published（流控下硬性） |
 
 **基线证据流**：先记录优化前 B/op 与吞吐（写入 plan outcome），优化后断言「B/op 下降 / 吞吐不降」并留余量；上表为最终守门阈值。
 
@@ -239,7 +239,7 @@ FT6（3 生产者 × 100 → 2 消费者，无损）在原实现下稳定丢包�
 | 单例 `ClassificationBatcher` 跨 QServer 串扰 | 全程仅 1 个 QServer；用例用唯一 topic 隔离（不每例重建） |
 | 退订按 name 清理为 no-op | B1 改按会话 ID 退订；FT4 用未断开连接直测（O7 护栏） |
 | 断连后服务端订阅残留 | M1 在 `OnDisconnected` 调 `Exchange.SessionClosed` 清理（O8 护栏） |
-| 关闭丢弃未批出数据 | 无损用例/基准排空（`OnMessagesSent`）后再 `Dispose()` |
+| 关闭丢弃未批出数据 | 无损用例先 `WaitUntil(sent == N)` 排空（`OnMessagesSent`）后再 `Dispose()`；端到端基准以在途窗口流控 + `WaitUntil` 消费者追上已发布数保证无损 |
 | ns2.0 缺 `Encoding.GetString(ReadOnlySpan)` | 不引入该 API；name/topic 仍走 `ToArray()`+`GetString`（帧内小开销） |
 
 ---

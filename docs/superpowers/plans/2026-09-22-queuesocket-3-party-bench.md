@@ -907,15 +907,14 @@ namespace SAEA.QueueSocketTest
 **Files:**
 - Modify: `Src/SAEA.QueueSocketTest/QueueBenchmark.cs`
 
-**说明：** Tier1 微基准测精确 B/op；Tier2 端到端三端吞吐 + 系统级 B/frame。阈值从本任务实测基线中取「宽松上界」，随后优化任务只收紧不放松。**产物：把优化前数字写入本 plan 的 “Baseline (pre-optimization)” 段并提交。**
+**说明：** Tier1 微基准测精确 B/op；Tier2 端到端三端吞吐 + 系统级 B/frame（带流控的无损口径，见下方勘误）。阈值从本任务实测基线中取「宽松上界」，随后优化任务只收紧不放松。**产物：把优化前数字写入本 plan 的 “Baseline (pre-optimization)” 段并提交。**
 
-- [ ] **Step 1: 写入完整 `QueueBenchmark.cs`：**
+- [x] **Step 1: 写入完整 `QueueBenchmark.cs`：**
 
 ```csharp
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -1065,8 +1064,13 @@ namespace SAEA.QueueSocketTest
 
         static async Task RunScenarioAsync(string name, int producerCount, int consumerCount, int payloadSize, int durationMs, int budgetBytesPerFrame)
         {
+            const int maxOutstanding = 8192;
+
             var topic = QueueServerHarness.NewTopic("bench-" + name);
-            var content = Encoding.UTF8.GetString(BuildPayload(payloadSize));
+
+            var chars = new char[payloadSize];
+            for (int i = 0; i < payloadSize; i++) chars[i] = (char)('a' + (i % 26));
+            var content = new string(chars);
 
             var counts = new int[consumerCount];
             var consumers = new List<Consumer>();
@@ -1080,17 +1084,14 @@ namespace SAEA.QueueSocketTest
 
             await Task.Delay(400);
 
-            long sent = 0;
+            long published = 0;
             var producers = new List<Producer>();
             for (int i = 0; i < producerCount; i++)
             {
-                var p = QueueServerHarness.CreateProducer();
-                p.OnMessagesSent += c => Interlocked.Add(ref sent, c);
-                producers.Add(p);
+                producers.Add(QueueServerHarness.CreateProducer());
             }
 
             var stop = false;
-            long totalReceived = 0;
 
             var gcBefore = GC.GetTotalAllocatedBytes(true);
             var g0 = GC.CollectionCount(0);
@@ -1099,12 +1100,18 @@ namespace SAEA.QueueSocketTest
             var tasks = new List<Task>();
             for (int i = 0; i < producerCount; i++)
             {
-                int idx = i;
-                tasks.Add(Task.Run(() =>
+                var producer = producers[i];
+                tasks.Add(Task.Run(async () =>
                 {
                     while (!Volatile.Read(ref stop))
                     {
-                        producers[idx].Publish(topic, content);
+                        if (Interlocked.Read(ref published) - MinCounts(counts) >= maxOutstanding)
+                        {
+                            await Task.Delay(1);
+                            continue;
+                        }
+                        producer.Publish(topic, content);
+                        Interlocked.Increment(ref published);
                     }
                 }));
             }
@@ -1112,43 +1119,25 @@ namespace SAEA.QueueSocketTest
             await Task.Delay(durationMs);
             Volatile.Write(ref stop, true);
             await Task.WhenAll(tasks);
+            var publishElapsed = sw.Elapsed;
 
-            long last = -1;
-            int stable = 0;
-            while (stable < 5 && sw.ElapsedMilliseconds < durationMs + 30000)
-            {
-                var cur = Interlocked.Read(ref sent);
-                if (cur == last) stable++; else { stable = 0; last = cur; }
-                await Task.Delay(100);
-            }
-
-            for (int i = 0; i < consumerCount; i++) totalReceived += Volatile.Read(ref counts[i]);
-            if (totalReceived < Interlocked.Read(ref sent))
-            {
-                await TestHarness.WaitUntil(() => TotalCounts(counts) >= Interlocked.Read(ref sent), 30000, 50);
-                totalReceived = TotalCounts(counts);
-            }
+            var publishedFinal = Interlocked.Read(ref published);
+            await TestHarness.WaitUntil(() => MinCounts(counts) >= publishedFinal, 30000, 50);
 
             sw.Stop();
+            var delivered = MinCounts(counts);
+            var totalDeliveries = TotalCounts(counts);
             var gcAfter = GC.GetTotalAllocatedBytes(true);
             var g0After = GC.CollectionCount(0);
 
-            var sentFinal = Interlocked.Read(ref sent);
-            var elapsedSec = sw.Elapsed.TotalSeconds;
-            var throughput = elapsedSec > 0 ? (long)(totalReceived / elapsedSec) : 0;
-            var bytesPerFrame = totalReceived > 0 ? (gcAfter - gcBefore) / totalReceived : 0;
+            var elapsedSec = publishElapsed.TotalSeconds;
+            var throughput = elapsedSec > 0 ? (long)(publishedFinal / elapsedSec) : 0;
+            var bytesPerFrame = totalDeliveries > 0 ? (gcAfter - gcBefore) / totalDeliveries : 0;
 
-            ConsoleHelper.WriteLine("[e2e] " + name + " | sent=" + sentFinal + " received=" + totalReceived + " | " + throughput + " msg/s | " + bytesPerFrame + " B/frame | GC0=" + (g0After - g0));
+            ConsoleHelper.WriteLine("[e2e] " + name + " | published=" + publishedFinal + " delivered=" + delivered + " deliveries=" + totalDeliveries + " | " + throughput + " msg/s | " + bytesPerFrame + " B/frame | GC0=" + (g0After - g0));
 
-            var allConsumersSeen = true;
-            for (int i = 0; i < consumerCount; i++)
-            {
-                if (Volatile.Read(ref counts[i]) < sentFinal) { allConsumersSeen = false; break; }
-            }
-
-            var lossless = totalReceived >= sentFinal;
-            TestHarness.Expect(allConsumersSeen, name + " every consumer received all flushed messages", "sent=" + sentFinal + " counts=" + string.Join(",", counts));
-            TestHarness.Expect(lossless || (sentFinal > 0 && totalReceived * 100 >= sentFinal * 99), name + " no message loss", "sent=" + sentFinal + " received=" + totalReceived);
+            TestHarness.Expect(delivered >= publishedFinal, name + " every consumer received all flushed messages", "published=" + publishedFinal + " delivered=" + delivered + " counts=" + string.Join(",", counts));
+            TestHarness.Expect(totalDeliveries >= publishedFinal, name + " no message loss", "published=" + publishedFinal + " deliveries=" + totalDeliveries);
             if (_enforceThresholds)
             {
                 TestHarness.Expect(throughput >= 20000, name + " throughput >= 20000 msg/s", "throughput=" + throughput);
@@ -1157,6 +1146,17 @@ namespace SAEA.QueueSocketTest
 
             foreach (var p in producers) p.Dispose();
             foreach (var c in consumers) c.Dispose();
+        }
+
+        static int MinCounts(int[] counts)
+        {
+            var min = int.MaxValue;
+            for (int i = 0; i < counts.Length; i++)
+            {
+                var v = Volatile.Read(ref counts[i]);
+                if (v < min) min = v;
+            }
+            return min == int.MaxValue ? 0 : min;
         }
 
         static long TotalCounts(int[] counts)
@@ -1171,28 +1171,31 @@ namespace SAEA.QueueSocketTest
 
 > 注：`--bench-queue` 默认 `enforceThresholds=true`（§5.3 最终守门，Task 12 使用）；`--bench-queue-baseline` 传 `false`，只打印不判阈值，供 Task 4 记录优化前基线及 Task 5–11 中间验证使用（此时尚未全部优化，硬阈值必将未达标）。S1/S2 的 B/frame 预算分别取 spec §5.3 的 8192 / 12288；Task 4 以实测基线确认方向后回填 spec §5.3，若实测与阈值差距过大则一并调整两侧并记录。
 
-- [ ] **Step 2: 记录优化前基线。** 运行 `dotnet run --project Src/SAEA.QueueSocketTest/SAEA.QueueSocketTest.csproj -c Release -- --bench-queue-baseline`，把六项微基准 B/op 与 S1/S2 的 msg/s、B/frame、Gen0 写回本 plan 的 “Baseline (pre-optimization)” 段（下方占位）。
+> **Task 4 实测勘误（用户批准的必要修正）：** 初版 `RunScenarioAsync` 以「无背压饱和发布 10s」再断言无损，实测暴露两个问题：(1) `ClassificationBatcher.Insert` 在队列达到 `_max = size×10 = 50000` 时**静默丢弃**（`Batcher.cs:80-88`），饱和下 S1 丢约 2.8%、S2 严重失真；(2) 多消费者时用 `sum(counts)` 与 `sent` 比较的数学错误，且 `--bench-queue-baseline` 仍触发无损断言导致 ExitCode≠0。修正为：以「已发布数 − 最慢消费者已收数」为在途窗口（`maxOutstanding=8192`）对生产者施加流控，从而使端到端在**无损前提**下测最大可持续吞吐；`throughput = published/发布耗时`，`B/frame = 分配增量/总投递数`；无损断言保持硬性（背压后必然成立），性能阈值仍由 `enforceThresholds` 门控；端到端 payload 改用确定长度的 ASCII 字符串（`new string(chars)`）避免 `Encoding.UTF8.GetString` 对无效字节的替换/膨胀。此修正不改变库行为与 spec §5.3 预算。
 
-- [ ] **Step 3: Verify + commit.** Debug 构建 0 errors；`--bench-queue-baseline` ExitCode 0。Commit `test(queuesocket): add micro + end-to-end three-party benchmark with pre-optimization baseline`。
+- [x] **Step 2: 记录优化前基线。** 运行 `dotnet run --project Src/SAEA.QueueSocketTest/SAEA.QueueSocketTest.csproj -c Release -- --bench-queue-baseline`，把六项微基准 B/op 与 S1/S2 的 msg/s、B/frame、Gen0 写回本 plan 的 “Baseline (pre-optimization)” 段（下方占位）。已回填。
+
+- [x] **Step 3: Verify + commit.** Debug 构建 0 errors；`--bench-queue-baseline` ExitCode 0。Commit `test(queuesocket): add micro + end-to-end three-party benchmark with pre-optimization baseline`。
 
 ---
 
 ## Baseline (pre-optimization)
 
-> 由 Task 4 Step 2 回填（Release 运行）。
+> 由 Task 4 Step 2 回填（Release 运行，`--bench-queue-baseline`，带流控无损口径）。
+> 复现：`dotnet run --project Src/SAEA.QueueSocketTest/SAEA.QueueSocketTest.csproj -c Release -- --bench-queue-baseline`
 
 | 指标 | 值 |
 |------|----|
-| MicroEncode/64B | _pending_ |
-| MicroEncode/1KB | _pending_ |
-| MicroEncode/4KB | _pending_ |
-| MicroDecode/64B | _pending_ |
-| MicroDecode/1KB | _pending_ |
-| MicroDecodeBatch/100x64B | _pending_ |
-| S1 throughput | _pending_ |
-| S1 B/frame | _pending_ |
-| S2 throughput | _pending_ |
-| S2 B/frame | _pending_ |
+| MicroEncode/64B | 592 B/op (692 ns/op) |
+| MicroEncode/1KB | 2512 B/op (525 ns/op) |
+| MicroEncode/4KB | 8656 B/op (789 ns/op) |
+| MicroDecode/64B | 600 B/op (772 ns/op) |
+| MicroDecode/1KB | 1560 B/op (636 ns/op) |
+| MicroDecodeBatch/100x64B | 467 B/frame (173 ns/frame) |
+| S1 throughput | 41817 msg/s |
+| S1 B/frame | 6107 |
+| S2 throughput | 34076 msg/s |
+| S2 B/frame | 12978 |
 
 ---
 
