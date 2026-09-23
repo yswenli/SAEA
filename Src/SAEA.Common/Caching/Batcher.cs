@@ -243,13 +243,30 @@ namespace SAEA.Common.Caching
 
         private void _batcher_OnBatched(IBatcher sender, List<byte[]> data)
         {
-            var result = new List<Byte>();
-            foreach (var item in data)
+            if (data == null || data.Count == 0)
             {
-                result.AddRange(item);
+                OnBatched?.Invoke(this, Array.Empty<byte>());
+                return;
             }
-            OnBatched?.Invoke(this, result.ToArray());
-            result.Clear();
+
+            var totalLength = 0;
+            for (int i = 0; i < data.Count; i++)
+            {
+                var item = data[i];
+                if (item != null) totalLength += item.Length;
+            }
+
+            var result = new byte[totalLength];
+            var offset = 0;
+            for (int i = 0; i < data.Count; i++)
+            {
+                var item = data[i];
+                if (item == null || item.Length == 0) continue;
+                Buffer.BlockCopy(item, 0, result, offset, item.Length);
+                offset += item.Length;
+            }
+
+            OnBatched?.Invoke(this, result);
         }
 
         public bool Insert(byte[] data)

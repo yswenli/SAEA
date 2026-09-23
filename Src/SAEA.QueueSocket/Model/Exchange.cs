@@ -184,6 +184,8 @@ namespace SAEA.QueueSocket.Model
             const int batchSize = 1000;
             const int maxWaitTime = 50;
             var stopwatch = new System.Diagnostics.Stopwatch();
+            var topicBytes = string.IsNullOrEmpty(topic) ? null : Encoding.UTF8.GetBytes(topic);
+            var messages = new List<byte[]>();
 
             while (true)
             {
@@ -204,7 +206,7 @@ namespace SAEA.QueueSocket.Model
 
                 try
                 {
-                    var messages = new List<byte[]>();
+                    messages.Clear();
                     stopwatch.Restart();
 
                     while (messages.Count < batchSize && stopwatch.ElapsedMilliseconds < maxWaitTime)
@@ -235,7 +237,6 @@ namespace SAEA.QueueSocket.Model
                                     if (bindInfo != null)
                                     {
                                         var nameBytes = string.IsNullOrEmpty(bindInfo.Name) ? null : Encoding.UTF8.GetBytes(bindInfo.Name);
-                                        var topicBytes = string.IsNullOrEmpty(topic) ? null : Encoding.UTF8.GetBytes(topic);
                                         var fixedLen = 1 + 12 + (nameBytes == null ? 0 : nameBytes.Length) + (topicBytes == null ? 0 : topicBytes.Length);
 
                                         long bufferSize = 0;

@@ -102,6 +102,8 @@ namespace SAEA.QueueSocket
         /// <param name="port">端口号</param>
         public QClient(string name, int bufferSize = 128 * 1024, string ip = "127.0.0.1", int port = 39654)
         {
+            QueueSocketThreadPool.EnsureConfigured();
+
             _name = name;
 
             HeartSpan = 60 * 1000;

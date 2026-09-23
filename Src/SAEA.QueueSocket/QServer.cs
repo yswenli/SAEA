@@ -68,6 +68,8 @@ namespace SAEA.QueueSocket
         /// <param name="maxPendingMsgCount">消息队列最大堆积数量，默认10000000</param>
         public QServer(int port = 39654, string ip = "127.0.0.1", int bufferSize = 128 * 1024, int maxConnects = 100, int maxPendingMsgCount = 10000000)
         {
+            QueueSocketThreadPool.EnsureConfigured();
+
             _exchange = new Exchange(maxPendingMsgCount);
 
             _exchange.OnBatched += _exchange_OnBatched;

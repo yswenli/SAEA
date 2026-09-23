@@ -35,6 +35,7 @@ namespace SAEA.QueueSocketTest
             await SafeAsync("FT10", FT10_DisconnectCleansSubscription);
             await SafeAsync("FT11", () => { FT11_BatchEncodeMatchesPerFrame(); return Task.CompletedTask; });
             await SafeAsync("FT12", () => { FT12_BatcherCapacityBalanced(); return Task.CompletedTask; });
+            await SafeAsync("FT13", () => { FT13_BatcherConcatenationExact(); return Task.CompletedTask; });
         }
 
         static async Task SafeAsync(string name, Func<Task> test)
@@ -517,6 +518,40 @@ namespace SAEA.QueueSocketTest
             {
                 AppDomain.CurrentDomain.FirstChanceException -= onFirstChance;
             }
+        }
+
+        static void FT13_BatcherConcatenationExact()
+        {
+            var flushed = new TaskCompletionSource<byte[]>();
+            var batcher = new Batcher(size: 64, timeout: 20, max: 128, name: "ft13");
+            batcher.OnBatched += (s, data) => flushed.TrySetResult(data);
+
+            var expected = new List<byte>();
+            var rnd = new Random(12345);
+            for (int i = 0; i < 5; i++)
+            {
+                var len = 1 + rnd.Next(0, 90000);
+                var item = new byte[len];
+                rnd.NextBytes(item);
+                expected.AddRange(item);
+                batcher.Insert(item);
+            }
+            batcher.Insert(Array.Empty<byte>());
+
+            byte[] actual = null;
+            if (flushed.Task.Wait(5000)) actual = flushed.Task.Result;
+
+            var ok = actual != null && actual.Length == expected.Count;
+            if (ok)
+            {
+                for (int i = 0; i < actual.Length; i++)
+                {
+                    if (actual[i] != expected[i]) { ok = false; break; }
+                }
+            }
+
+            TestHarness.Expect(ok, "FT13 non-generic batcher concatenation exact", actual == null ? "no flush" : "expected=" + expected.Count + " actual=" + actual.Length);
+            batcher.Dispose();
         }
     }
 }
