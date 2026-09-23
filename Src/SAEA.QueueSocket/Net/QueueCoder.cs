@@ -386,10 +386,7 @@ namespace SAEA.QueueSocket.Net
         /// </summary>
         private static int ReadInt32(ReadOnlySpan<byte> data, int offset)
         {
-            // 使用stackalloc避免堆分配
-            Span<byte> temp = stackalloc byte[4];
-            data.Slice(offset, 4).CopyTo(temp);
-            return BitConverter.ToInt32(temp.ToArray(), 0);
+            return data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24);
         }
 
         /// <summary>
