@@ -108,6 +108,9 @@ namespace SAEA.QueueSocket
         private void _serverSokcet_OnDisconnected(string id, Exception ex)
         {
             if (string.IsNullOrEmpty(id)) return;
+
+            _exchange.SessionClosed(id);
+
             OnDisconnected?.Invoke(id, ex);
         }
 
