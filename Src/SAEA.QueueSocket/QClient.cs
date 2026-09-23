@@ -211,22 +211,27 @@ namespace SAEA.QueueSocket
         {
             if (data != null && data.Count > 0)
             {
-                var list = new List<byte>();
+                var sentCount = data.Count;
 
-                int sentCount = data.Count;
-
-                foreach (var item in data)
+                var totalLength = 0;
+                for (int i = 0; i < data.Count; i++)
                 {
-                    list.AddRange(item);
+                    totalLength += data[i].Length;
+                }
+
+                var buffer = new byte[totalLength];
+                var offset = 0;
+                for (int i = 0; i < data.Count; i++)
+                {
+                    var item = data[i];
+                    Buffer.BlockCopy(item, 0, buffer, offset, item.Length);
+                    offset += item.Length;
                 }
 
                 data.Clear();
 
-                _clientSocket.Send(list.ToArray().AsSpan());
+                _clientSocket.Send(buffer.AsSpan());
 
-                list.Clear();
-
-                // 触发消息发送完成事件，通知发送了多少条消息
                 OnMessagesSent?.Invoke(sentCount);
             }
         }
