@@ -150,15 +150,14 @@ namespace SAEA.QueueSocket.Model
         /// <param name="qcoder">队列编码器</param>
         public void GetSubscribeData(string sessionID, QueueMsg sInfo, Net.QueueCoder qcoder)
         {
-            if (!_binding.Exists(sInfo))
+            lock (_syncLocker)
             {
-                _binding.Set(sessionID, sInfo.Name, sInfo.Topic, false);
-
-                _cNum = _binding.GetSubscriberCount();
-
-                // 将订阅者添加到订阅者字典
-                lock (_syncLocker)
+                if (!_binding.Exists(sInfo))
                 {
+                    _binding.Set(sessionID, sInfo.Name, sInfo.Topic, false);
+
+                    _cNum = _binding.GetSubscriberCount();
+
                     var topicSubscribers = _subscribers.GetOrAdd(sInfo.Topic,
                         (topic) => new ConcurrentDictionary<string, Net.QueueCoder>());
 
@@ -244,10 +243,12 @@ namespace SAEA.QueueSocket.Model
                                         for (int i = 0; i < messages.Count; i++)
                                         {
                                             bufOffset = QueueCoder.WriteFrame(buffer, bufOffset, QueueSocketMsgType.Data, nameBytes, topicBytes, messages[i]);
-                                            Interlocked.Increment(ref _outNum);
                                         }
 
-                                        _classificationBatcher.Insert(sub.Key, buffer);
+                                        if (_classificationBatcher.Insert(sub.Key, buffer))
+                                        {
+                                            Interlocked.Add(ref _outNum, messages.Count);
+                                        }
                                     }
                                 }
                             }
@@ -271,11 +272,11 @@ namespace SAEA.QueueSocket.Model
         /// <param name="sInfo">队列消息</param>
         public void Unsubscribe(string sessionID, QueueMsg sInfo)
         {
-            Interlocked.Decrement(ref _cNum);
-            _binding.Del(sessionID, sInfo.Topic);
-
             lock (_syncLocker)
             {
+                Interlocked.Decrement(ref _cNum);
+                _binding.Del(sessionID, sInfo.Topic);
+
                 if (_subscribers.TryGetValue(sInfo.Topic, out var topicSubscribers))
                 {
                     topicSubscribers.TryRemove(sessionID, out var _);
@@ -348,12 +349,11 @@ namespace SAEA.QueueSocket.Model
         /// <param name="sessionID"></param>
         public void SessionClosed(string sessionID)
         {
-            _binding.Remove(sessionID);
-            _cNum = _binding.GetSubscriberCount();
-
-            // 从订阅者字典中移除会话ID
             lock (_syncLocker)
             {
+                _binding.Remove(sessionID);
+                _cNum = _binding.GetSubscriberCount();
+
                 foreach (var topic in _subscribers.Keys)
                 {
                     if (_subscribers.TryGetValue(topic, out var subscribers))
@@ -367,6 +367,8 @@ namespace SAEA.QueueSocket.Model
                     }
                 }
             }
+
+            _classificationBatcher.Clear(sessionID);
         }
 
         /// <summary>
@@ -374,9 +376,24 @@ namespace SAEA.QueueSocket.Model
         /// </summary>
         public void Dispose()
         {
-            // 清理订阅者字典
+            if (_classificationBatcher != null)
+            {
+                _classificationBatcher.OnBatched -= _classificationBatcher_OnBatched;
+            }
+
             if (_subscribers != null)
             {
+                foreach (var topic in _subscribers.Keys)
+                {
+                    if (_subscribers.TryGetValue(topic, out var subscribers))
+                    {
+                        foreach (var id in subscribers.Keys)
+                        {
+                            _classificationBatcher.Clear(id);
+                        }
+                    }
+                }
+
                 _subscribers.Clear();
             }
 

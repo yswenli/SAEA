@@ -180,6 +180,11 @@ namespace SAEA.QueueSocket
             _running = false;
 
             _serverSokcet.Stop();
+
+            if (_exchange != null)
+            {
+                _exchange.Dispose();
+            }
         }
 
         /// <summary>
