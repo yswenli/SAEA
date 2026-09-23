@@ -1751,7 +1751,7 @@ namespace SAEA.QueueSocketTest
 
 ## Outcome
 
-> 由 Task 12 Step 6 回填。优化前 = Task 4 基线（`--bench-queue-baseline`，Release）；优化后 = Task 12 最终 `--all`（Release，强制 §5.3 全部通过，39/39）。
+> 由 Task 12 Step 6 回填。优化前 = Task 4 基线（`--bench-queue-baseline`，Release）；优化后 = Task 12 最终 `--all`（Release，强制 §5.3 全部通过，53/53）。
 
 | 指标 | 优化前 | 优化后 |
 |------|--------|--------|
@@ -1761,13 +1761,13 @@ namespace SAEA.QueueSocketTest
 | MicroDecode/64B (B/op) | 600 | 360 |
 | MicroDecode/1KB (B/op) | 1560 | 1320 |
 | MicroDecodeBatch/100x64B (B/frame) | 467 | 293 |
-| Micro Gen0（5×20k 累计，信息性） | 33 | ≈17（4KB 单次约 10） |
-| S1 throughput (msg/s) | 41817 | 72967 |
-| S2 throughput (msg/s) | 34076 | 45624 |
-| S1 B/frame | 6107 | 3076 |
-| S2 B/frame | 12978 | 7807 |
+| Micro Gen0（5×20k 累计，信息性） | 33 | 17（单次 0/3/10/1/3） |
+| S1 throughput (msg/s) | 41817 | 72936 |
+| S2 throughput (msg/s) | 34076 | 41768 |
+| S1 B/frame | 6107 | 3201 |
+| S2 B/frame | 12978 | 7764 |
 
-优化提交：`70edff7a`(O1 ReadInt32) → `e8e86b98`(O5 Encode) → `677c70de`(O3 DecodeTo) → `7e34782f`(O2 span 接收) → `d410a407`(O4 batcher) → `1bda30d5`(O6 Exchange 批量编码) → `064f8fc3`(O8 断线清理)。功能回归 25/25、`--all` 39/39、P2P 310/310、`--bench-iocp` 29/29；spec §5.3 阈值无需调整。
+优化提交：`70edff7a`(O1 ReadInt32) → `e8e86b98`(O5 Encode) → `677c70de`(O3 DecodeTo) → `7e34782f`(O2 span 接收) → `d410a407`(O4 batcher) → `1bda30d5`(O6 Exchange 批量编码) → `064f8fc3`(O8 断线清理) → `02b316fc`(订阅拆除串行化 + 回收 batcher) → `0be1c4d4`(FT10/FT11 + 单次 Gen0 门控)。功能回归 25/25、`--all` 53/53、P2P 310/310、`--bench-iocp` 29/29；spec §5.3 阈值无需调整。
 
 ---
 

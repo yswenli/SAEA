@@ -39,7 +39,7 @@
 | 投递语义 | `Exchange`/`MessageQueue` 为**队列语义**：订阅前发布的消息缓冲在 topic 队列，订阅者出现后投递 | 功能用例不假设「迟到订阅者收不到历史消息」 |
 | 心跳任务 | `QClient.HeartAsync` 为长跑任务，`Close()` 置 `_isClosed` 后退出 | 每个客户端必须 `Dispose/Close` |
 | 线格式（QueueSocket） | `type(1) + total(4) + nameLen(4) + name + topicLen(4) + topic + data`，小端；`total = 12 + nameLen + topicLen + dataLen`；`MIN = 1+4+4+0+4+0+0 = 13` | O3/O5 必须逐字节保持；FT9 守 |
-| 分类批处理器单例 | `Exchange` ctor 用 `ClassificationBatcher.GetInstance(5000,100)`（进程级单例，`Exchange.cs:105`/`ClassificationBatcher.cs:67`），`OnBatched +=` 且 `Dispose` 不退订 | **全程仅建 1 个 `QServer` 并复用**（用例用唯一 topic 隔离），避免 handler 叠加与每会话批处理线程泄漏 |
+| 分类批处理器单例 | `Exchange` ctor 用 `ClassificationBatcher.GetInstance(5000,100)`（进程级单例，`Exchange.cs:105`/`ClassificationBatcher.cs:67`），`OnBatched +=`；`Exchange.Dispose` 先 `OnBatched -=` 再按会话 `Clear` | **全程仅建 1 个 `QServer` 并复用**（用例用唯一 topic 隔离），避免 handler 叠加与每会话批处理线程泄漏 |
 | 退订键不匹配 | `Exchange.Unsubscribe` 按 `sInfo.Name` 删除，但 `_subscribers`/`_binding` 键为会话 ID；`SessionManager.cs:110` `ut.ID = RemoteEndPoint.ToString()` ≠ 客户端 name | 属实现 bug；本次修正为按会话 ID 退订（`ReplyUnsubscribe` 传 `ut.ID`），FT4 方可真实验证 |
 | 关闭丢未批出数据 | `QClient.Close` 先退订 `OnBatched` 再 `Dispose`；`Batcher.Dispose` 先 `Clear()`（丢弃）后 flush | 无损用例/基准必须 `WaitUntil(sent==N)` 排空后再 `Dispose()` |
 | 既有基准范式 | `Src/SAEA.P2PTest/TestHarness.cs`（`Section/Expect/Throws/WaitUntil/GetFreeTcpPort/WriteSummary/PassCount/FailCount`）；`Tests/IocpBenchmark.cs`（warmup + `GC.GetTotalAllocatedBytes` + 多模式 + `[PASS]` 输出） | 直接照搬范式 |
@@ -178,7 +178,7 @@ FT6（3 生产者 × 100 → 2 消费者，无损）在原实现下稳定丢包�
 | End-to-end B/frame | S1 / S2 | ≤ 8192 / 12288 B/frame |
 | 无损 | S1 / S2 | 最慢消费者已收 delivered >= published 且总投递 totalDeliveries >= published（流控下硬性；多消费者广播时 totalDeliveries 可为 published 的倍数） |
 
-**基线证据流**：先记录优化前 B/op 与吞吐（写入 plan outcome），优化后断言「B/op 下降 / 吞吐不降」并留余量；上表为最终守门阈值。优化后实测（Release，`--all` 53/53、`--bench-queue` 14/14 全通过）：MicroEncode 184/1144/4216 B/op、MicroDecode 360/1320 B/op、Micro Gen0 单次 0/2/10/0/3（累计 ≈15）、S1 72992 msg/s / 3064 B/frame、S2 40160 msg/s / 7739 B/frame，阈值无需再调整。
+**基线证据流**：先记录优化前 B/op 与吞吐（写入 plan outcome），优化后断言「B/op 下降 / 吞吐不降」并留余量；上表为最终守门阈值。优化后实测（Release，`--all` 53/53、`--bench-queue` 19/19 全通过）：MicroEncode 184/1144/4216 B/op、MicroDecode 360/1320 B/op、Micro Gen0 单次 0/3/10/1/3（累计 17）、S1 72936 msg/s / 3201 B/frame、S2 41768 msg/s / 7764 B/frame，阈值无需再调整。
 
 **回归用例补充（审查后续）**：FT10 经反射读 `QServer._exchange._subscribers`，断言断线后订阅者与空 topic 键被清除（O8 + 空 topic 清理）；FT11 经反射调用内部 `QueueCoder.WriteFrame`，断言批量拼接字节与逐帧 `Encode` 完全一致（O6 字节等价，覆盖空 name/topic、非 ASCII、1/64/4096B）。
 
