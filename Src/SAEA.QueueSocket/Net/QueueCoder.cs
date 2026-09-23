@@ -91,25 +91,12 @@ namespace SAEA.QueueSocket.Net
             {
                 try
                 {
-                    // 直接使用Span解析，避免ToArray复制
                     var span = _buffer.AsSpan(_bufferOffset, _bufferCount);
-                    var list = Decode(span, out int offset);
-                    if (list != null && list.Count > 0)
+                    var offset = DecodeTo(span, result);
+                    if (result.Count > 0)
                     {
-                        foreach (var item in list)
-                        {
-                            result.Add(new QueueMsg()
-                            {
-                                Type = item.Type,
-                                Name = item.Name,
-                                Topic = item.Topic,
-                                Data = item.Data
-                            });
-                        }
-                        // 移动已解析的数据
                         _bufferOffset += offset;
                         _bufferCount -= offset;
-                        // 如果剩余空间较大且数据量较小，压缩缓冲区
                         if (_bufferOffset > 4096 && _bufferCount < _bufferOffset)
                         {
                             CompactBuffer();
@@ -118,7 +105,6 @@ namespace SAEA.QueueSocket.Net
                     }
                     else if (offset > 0)
                     {
-                        // 解析跳过了一段损坏数据，更新偏移
                         _bufferOffset += offset;
                         _bufferCount -= offset;
                     }
@@ -414,6 +400,113 @@ namespace SAEA.QueueSocket.Net
                 return list;
             }
             return null;
+        }
+
+        /// <summary>
+        /// 解码到 QueueMsg 列表，避免生成中间 QueueSocketMsg 对象。
+        /// </summary>
+        /// <param name="data">待解码的字节Span</param>
+        /// <param name="result">解析结果追加目标</param>
+        /// <returns>已消费的偏移量</returns>
+        internal static int DecodeTo(ReadOnlySpan<byte> data, List<QueueMsg> result)
+        {
+            var offset = 0;
+            if (data.Length < MIN)
+            {
+                return 0;
+            }
+
+            while (data.Length >= offset + MIN)
+            {
+                var typeValue = data[offset];
+                if (typeValue < 1 || typeValue > 7)
+                {
+                    bool found = false;
+                    for (var i = offset + 1; i < data.Length; i++)
+                    {
+                        if (data[i] >= 1 && data[i] <= 7)
+                        {
+                            typeValue = data[i];
+                            offset = i;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found)
+                    {
+                        return data.Length;
+                    }
+                }
+
+                var type = (QueueSocketMsgType)typeValue;
+                int packetStart = offset;
+                offset += 1;
+
+                if (offset + 4 > data.Length) { offset = packetStart; break; }
+                var total = ReadInt32(data, offset);
+                if (total < 0 || total > 100 * 1024 * 1024)
+                {
+                    offset = packetStart + 1;
+                    continue;
+                }
+                if (data.Length < offset + total)
+                {
+                    offset = packetStart;
+                    break;
+                }
+
+                var qm = new QueueMsg();
+                qm.Type = type;
+                offset += 4;
+
+                if (offset + 4 > data.Length) { offset = packetStart; break; }
+                var nameLength = ReadInt32(data, offset);
+                if (nameLength < 0 || nameLength > total)
+                {
+                    offset = packetStart + 1;
+                    continue;
+                }
+                offset += 4;
+
+                if (nameLength > 0)
+                {
+                    if (offset + nameLength > data.Length) { offset = packetStart; break; }
+                    qm.Name = Encoding.UTF8.GetString(data.Slice(offset, nameLength).ToArray());
+                }
+                offset += nameLength;
+
+                if (offset + 4 > data.Length) { offset = packetStart; break; }
+                var topicLength = ReadInt32(data, offset);
+                if (topicLength < 0 || topicLength > total)
+                {
+                    offset = packetStart + 1;
+                    continue;
+                }
+                offset += 4;
+
+                if (topicLength > 0)
+                {
+                    if (offset + topicLength > data.Length) { offset = packetStart; break; }
+                    qm.Topic = Encoding.UTF8.GetString(data.Slice(offset, topicLength).ToArray());
+                }
+                offset += topicLength;
+
+                var dlen = total - 4 - 4 - nameLength - 4 - topicLength;
+                if (dlen < 0)
+                {
+                    offset = packetStart + 1;
+                    continue;
+                }
+                if (dlen > 0)
+                {
+                    if (offset + dlen > data.Length) { offset = packetStart; break; }
+                    qm.Data = data.Slice(offset, dlen).ToArray();
+                }
+                offset += dlen;
+                result.Add(qm);
+            }
+
+            return offset;
         }
 
         /// <summary>
