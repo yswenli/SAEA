@@ -143,14 +143,20 @@ namespace SAEA.Common.Caching
 
             TaskHelper.Run(async () =>
             {
-                await semaphore.WaitAsync();
                 try
                 {
-                    OnBatched?.Invoke(bacher.Name, data);
+                    await semaphore.WaitAsync();
+                    try
+                    {
+                        OnBatched?.Invoke(bacher.Name, data);
+                    }
+                    finally
+                    {
+                        semaphore.Release();
+                    }
                 }
-                finally
+                catch (ObjectDisposedException)
                 {
-                    semaphore.Release();
                 }
             });
         }

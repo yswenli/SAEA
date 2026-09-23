@@ -94,6 +94,8 @@ namespace SAEA.QueueSocket.Model
         // 消息分发任务字典
         private ConcurrentDictionary<string, Lazy<Task>> _dispatchTasks;
 
+        volatile bool _disposed;
+
         /// <summary>
         /// 初始化Exchange类的新实例
         /// </summary>
@@ -131,6 +133,8 @@ namespace SAEA.QueueSocket.Model
         /// <param name="pInfo">队列消息</param>
         public void AcceptPublish(string sessionID, QueueMsg pInfo)
         {
+            if (_disposed) return;
+
             _binding.Set(sessionID, pInfo.Name, pInfo.Topic);
 
             _messageQueue.Enqueue(pInfo.Topic, pInfo.Data);
@@ -152,6 +156,8 @@ namespace SAEA.QueueSocket.Model
         {
             lock (_syncLocker)
             {
+                if (_disposed) return;
+
                 if (!_binding.Exists(sInfo))
                 {
                     _binding.Set(sessionID, sInfo.Name, sInfo.Topic, false);
@@ -245,9 +251,17 @@ namespace SAEA.QueueSocket.Model
                                             bufOffset = QueueCoder.WriteFrame(buffer, bufOffset, QueueSocketMsgType.Data, nameBytes, topicBytes, messages[i]);
                                         }
 
-                                        if (_classificationBatcher.Insert(sub.Key, buffer))
+                                        lock (_syncLocker)
                                         {
-                                            Interlocked.Add(ref _outNum, messages.Count);
+                                            if (_disposed || !subs.ContainsKey(sub.Key))
+                                            {
+                                                continue;
+                                            }
+
+                                            if (_classificationBatcher.Insert(sub.Key, buffer))
+                                            {
+                                                Interlocked.Add(ref _outNum, messages.Count);
+                                            }
                                         }
                                     }
                                 }
@@ -274,6 +288,8 @@ namespace SAEA.QueueSocket.Model
         {
             lock (_syncLocker)
             {
+                if (_disposed) return;
+
                 Interlocked.Decrement(ref _cNum);
                 _binding.Del(sessionID, sInfo.Topic);
 
@@ -297,6 +313,8 @@ namespace SAEA.QueueSocket.Model
         {
             lock (_syncLocker)
             {
+                if (_disposed) return;
+
                 var data = _binding.GetBingInfo(sessionID);
 
                 if (data != null)
@@ -330,6 +348,9 @@ namespace SAEA.QueueSocket.Model
         public List<Tuple<string, long>> GetQueueInfo()
         {
             List<Tuple<string, long>> result = new List<Tuple<string, long>>();
+
+            if (_disposed) return result;
+
             var dic = _messageQueue.ToList();
             if (!dic.IsEmpty)
             {
@@ -351,6 +372,8 @@ namespace SAEA.QueueSocket.Model
         {
             lock (_syncLocker)
             {
+                if (_disposed) return;
+
                 _binding.Remove(sessionID);
                 _cNum = _binding.GetSubscriberCount();
 
@@ -366,9 +389,9 @@ namespace SAEA.QueueSocket.Model
                         }
                     }
                 }
-            }
 
-            _classificationBatcher.Clear(sessionID);
+                _classificationBatcher.Clear(sessionID);
+            }
         }
 
         /// <summary>
@@ -376,42 +399,49 @@ namespace SAEA.QueueSocket.Model
         /// </summary>
         public void Dispose()
         {
-            if (_classificationBatcher != null)
+            lock (_syncLocker)
             {
-                _classificationBatcher.OnBatched -= _classificationBatcher_OnBatched;
-            }
+                if (_disposed) return;
 
-            if (_subscribers != null)
-            {
-                foreach (var topic in _subscribers.Keys)
+                _disposed = true;
+
+                if (_classificationBatcher != null)
                 {
-                    if (_subscribers.TryGetValue(topic, out var subscribers))
-                    {
-                        foreach (var id in subscribers.Keys)
-                        {
-                            _classificationBatcher.Clear(id);
-                        }
-                    }
+                    _classificationBatcher.OnBatched -= _classificationBatcher_OnBatched;
                 }
 
-                _subscribers.Clear();
-            }
+                if (_subscribers != null)
+                {
+                    foreach (var topic in _subscribers.Keys)
+                    {
+                        if (_subscribers.TryGetValue(topic, out var subscribers))
+                        {
+                            foreach (var id in subscribers.Keys)
+                            {
+                                _classificationBatcher.Clear(id);
+                            }
+                        }
+                    }
 
-            // 清理分发任务字典
-            if (_dispatchTasks != null)
-            {
-                _dispatchTasks.Clear();
-            }
+                    _subscribers.Clear();
+                }
 
-            // 释放其他资源
-            if (_binding != null)
-            {
-                _binding.Dispose();
-            }
+                // 清理分发任务字典
+                if (_dispatchTasks != null)
+                {
+                    _dispatchTasks.Clear();
+                }
 
-            if (_messageQueue != null)
-            {
-                _messageQueue.Dispose();
+                // 释放其他资源
+                if (_binding != null)
+                {
+                    _binding.Dispose();
+                }
+
+                if (_messageQueue != null)
+                {
+                    _messageQueue.Dispose();
+                }
             }
         }
     }
