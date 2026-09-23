@@ -120,7 +120,7 @@ namespace SAEA.QueueSocket
         {
             var userToken = ut;
             var qcoder = (Net.QueueCoder)userToken.Coder;
-            var list = qcoder.GetQueueResult(dataSpan.ToArray());
+            var list = qcoder.GetQueueResult(dataSpan);
             if (list != null && list.Count > 0)
             {
                 foreach (var item in list)

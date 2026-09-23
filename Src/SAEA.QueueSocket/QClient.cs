@@ -186,7 +186,7 @@ namespace SAEA.QueueSocket
         private void _clientSocket_OnReceiveSpan(ReadOnlySpan<byte> dataSpan)
         {
             Actived = DateTimeHelper.Now;
-            var list = _queueCoder.GetQueueResult(dataSpan.ToArray());
+            var list = _queueCoder.GetQueueResult(dataSpan);
             if (list != null)
             {
                 foreach (var item in list)

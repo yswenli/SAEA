@@ -82,9 +82,18 @@ namespace SAEA.QueueSocket.Net
         /// <returns>解析后的队列消息列表</returns>
         public List<QueueMsg> GetQueueResult(byte[] data)
         {
+            return GetQueueResult(data.AsSpan());
+        }
+
+        /// <summary>
+        /// 包解析（span 版本，避免整帧复制）
+        /// </summary>
+        /// <param name="data">待解析的字节Span</param>
+        /// <returns>解析后的队列消息列表</returns>
+        internal List<QueueMsg> GetQueueResult(ReadOnlySpan<byte> data)
+        {
             var result = new List<QueueMsg>();
 
-            // 追加数据到缓冲区
             AppendData(data);
 
             if (_bufferCount >= MIN)
@@ -111,7 +120,6 @@ namespace SAEA.QueueSocket.Net
                 }
                 catch
                 {
-                    // 解码异常：丢弃前1字节，避免损坏数据永久滞留
                     _bufferOffset += 1;
                     _bufferCount -= 1;
                 }
@@ -122,28 +130,24 @@ namespace SAEA.QueueSocket.Net
         /// <summary>
         /// 追加数据到内部缓冲区
         /// </summary>
-        private void AppendData(byte[] data)
+        private void AppendData(ReadOnlySpan<byte> data)
         {
-            if (data == null || data.Length == 0) return;
+            if (data.Length == 0) return;
 
-            // 如果缓冲区已空，重置偏移以充分利用空间
             if (_bufferCount == 0 && _bufferOffset > 0)
             {
                 _bufferOffset = 0;
             }
 
-            // 检查剩余空间是否足够
             int remainingSpace = _buffer.Length - _bufferOffset - _bufferCount;
             if (remainingSpace < data.Length)
             {
-                // 如果空间不足，先尝试压缩
                 if (_bufferOffset > 0)
                 {
                     CompactBuffer();
                     remainingSpace = _buffer.Length - _bufferCount;
                 }
 
-                // 如果仍然不够，扩容
                 if (remainingSpace < data.Length)
                 {
                     int newCapacity = Math.Max(_buffer.Length * 2, _bufferCount + data.Length);
@@ -157,8 +161,7 @@ namespace SAEA.QueueSocket.Net
                 }
             }
 
-            // 复制新数据到缓冲区
-            Buffer.BlockCopy(data, 0, _buffer, _bufferOffset + _bufferCount, data.Length);
+            data.CopyTo(_buffer.AsSpan(_bufferOffset + _bufferCount));
             _bufferCount += data.Length;
         }
 
