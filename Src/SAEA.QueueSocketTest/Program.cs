@@ -121,12 +121,12 @@ namespace SAEA.QueueSocketTest
                         case "c":
                             ConsoleHelper.WriteLine("输入ip:port连接到队列服务器");
                             ipPort = ConsoleHelper.ReadLine();
-                            ConsumerInit(ipPort, topic);
+                            KeepConsumerAlive(ConsumerInit(ipPort, topic));
                             return;
                         case "sc":
                             ServerInit();
                             Thread.Sleep(1000);
-                            ConsumerInit("127.0.0.1:39654", topic);
+                            KeepConsumerAlive(ConsumerInit("127.0.0.1:39654", topic));
                             return;
                         case "sp":
                             ServerInit();
@@ -232,7 +232,7 @@ namespace SAEA.QueueSocketTest
             ConsoleHelper.WriteLine("id:" + ID + ",error:" + ex.Message);
         }
 
-        static void ConsumerInit(string ipPort, string topic)
+        static Consumer ConsumerInit(string ipPort, string topic)
         {
             if (string.IsNullOrEmpty(ipPort)) ipPort = "127.0.0.1:39654";
             Consumer consumer = new Consumer("subscriber-" + Guid.NewGuid().ToString("N"), ipPort);
@@ -255,6 +255,16 @@ namespace SAEA.QueueSocketTest
                     Thread.Sleep(1000);
                 }
             });
+
+            return consumer;
+        }
+
+        static void KeepConsumerAlive(Consumer consumer)
+        {
+            while (consumer != null && consumer.Connected)
+            {
+                Thread.Sleep(1000);
+            }
         }
 
         private static void Client_OnDisconnected(string ID, Exception ex)
