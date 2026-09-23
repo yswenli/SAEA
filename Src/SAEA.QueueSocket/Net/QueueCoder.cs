@@ -201,17 +201,12 @@ namespace SAEA.QueueSocket.Net
         /// <returns>编码后的字节数组</returns>
         public static byte[] Encode(QueueSocketMsg queueSocketMsg)
         {
-            List<byte> list = new List<byte>();
-
-            var total = 12;
-
-            var nlen = 0;
-
-            var tlen = 0;
-
             byte[] n = null;
             byte[] tp = null;
             byte[] d = null;
+            var nlen = 0;
+            var tlen = 0;
+            var total = 12;
 
             if (!string.IsNullOrEmpty(queueSocketMsg.Name))
             {
@@ -231,19 +226,59 @@ namespace SAEA.QueueSocket.Net
                 total += d.Length;
             }
 
-            list.Add((byte)queueSocketMsg.Type);
-            list.AddRange(BitConverter.GetBytes(total));
-            list.AddRange(BitConverter.GetBytes(nlen));
-            if (nlen > 0)
-                list.AddRange(n);
-            list.AddRange(BitConverter.GetBytes(tlen));
-            if (tlen > 0)
-                list.AddRange(tp);
-            if (d != null)
-                list.AddRange(d);
-            var arr = list.ToArray();
-            list.Clear();
+            var arr = new byte[1 + total];
+            WriteFrame(arr, 0, queueSocketMsg.Type, n, tp, d);
             return arr;
+        }
+
+        /// <summary>
+        /// 按 QueueSocket 线格式将一帧写入指定缓冲区，返回写入结束后的偏移。
+        /// </summary>
+        /// <param name="buffer">目标缓冲区</param>
+        /// <param name="offset">起始偏移</param>
+        /// <param name="type">消息类型</param>
+        /// <param name="nameBytes">已编码的名称</param>
+        /// <param name="topicBytes">已编码的主题</param>
+        /// <param name="data">数据</param>
+        /// <returns>写入结束后的偏移</returns>
+        internal static int WriteFrame(byte[] buffer, int offset, QueueSocketMsgType type, byte[] nameBytes, byte[] topicBytes, byte[] data)
+        {
+            var nlen = nameBytes == null ? 0 : nameBytes.Length;
+            var tlen = topicBytes == null ? 0 : topicBytes.Length;
+            var dlen = data == null ? 0 : data.Length;
+            var total = 12 + nlen + tlen + dlen;
+
+            buffer[offset++] = (byte)type;
+            WriteInt32(buffer, offset, total);
+            offset += 4;
+            WriteInt32(buffer, offset, nlen);
+            offset += 4;
+            if (nlen > 0)
+            {
+                Buffer.BlockCopy(nameBytes, 0, buffer, offset, nlen);
+                offset += nlen;
+            }
+            WriteInt32(buffer, offset, tlen);
+            offset += 4;
+            if (tlen > 0)
+            {
+                Buffer.BlockCopy(topicBytes, 0, buffer, offset, tlen);
+                offset += tlen;
+            }
+            if (dlen > 0)
+            {
+                Buffer.BlockCopy(data, 0, buffer, offset, dlen);
+                offset += dlen;
+            }
+            return offset;
+        }
+
+        private static void WriteInt32(byte[] buffer, int offset, int value)
+        {
+            buffer[offset] = (byte)value;
+            buffer[offset + 1] = (byte)(value >> 8);
+            buffer[offset + 2] = (byte)(value >> 16);
+            buffer[offset + 3] = (byte)(value >> 24);
         }
 
         /// <summary>
