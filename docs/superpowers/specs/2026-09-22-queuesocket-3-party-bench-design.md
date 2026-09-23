@@ -173,12 +173,14 @@ FT6（3 生产者 × 100 → 2 消费者，无损）在原实现下稳定丢包�
 |----|------|------|
 | Micro Encode | 64B / 1KB / 4KB | ≤ 256 / 1280 / 4400 B/op |
 | Micro Decode | 64B / 1KB | ≤ 512 / 1600 B/op |
-| Micro Gen0 | 全部微基准累计（5×20k） | ≤ 25 |
+| Micro Gen0 | 每个微基准单次 20k / 全部累计（5×20k） | 单次 ≤ 15 且累计 ≤ 25 |
 | End-to-end 吞吐 | S1 / S2 | ≥ 20000 msg/s |
 | End-to-end B/frame | S1 / S2 | ≤ 8192 / 12288 B/frame |
 | 无损 | S1 / S2 | 最慢消费者已收 delivered >= published 且总投递 totalDeliveries >= published（流控下硬性；多消费者广播时 totalDeliveries 可为 published 的倍数） |
 
-**基线证据流**：先记录优化前 B/op 与吞吐（写入 plan outcome），优化后断言「B/op 下降 / 吞吐不降」并留余量；上表为最终守门阈值。优化后实测（Release，`--all` 39/39、`--bench-queue` 14/14 全通过）：MicroEncode 184/1144/4216 B/op、MicroDecode 360/1320 B/op、Micro Gen0 累计 ≈17（其中 4KB 单次约 10）、S1 72967 msg/s / 3076 B/frame、S2 45624 msg/s / 7807 B/frame，阈值无需再调整。
+**基线证据流**：先记录优化前 B/op 与吞吐（写入 plan outcome），优化后断言「B/op 下降 / 吞吐不降」并留余量；上表为最终守门阈值。优化后实测（Release，`--all` 53/53、`--bench-queue` 14/14 全通过）：MicroEncode 184/1144/4216 B/op、MicroDecode 360/1320 B/op、Micro Gen0 单次 0/2/10/0/3（累计 ≈15）、S1 72992 msg/s / 3064 B/frame、S2 40160 msg/s / 7739 B/frame，阈值无需再调整。
+
+**回归用例补充（审查后续）**：FT10 经反射读 `QServer._exchange._subscribers`，断言断线后订阅者与空 topic 键被清除（O8 + 空 topic 清理）；FT11 经反射调用内部 `QueueCoder.WriteFrame`，断言批量拼接字节与逐帧 `Encode` 完全一致（O6 字节等价，覆盖空 name/topic、非 ASCII、1/64/4096B）。
 
 ---
 
@@ -197,7 +199,7 @@ FT6（3 生产者 × 100 → 2 消费者，无损）在原实现下稳定丢包�
 
 **不做（本轮 YAGNI）**：`QClient.Publish` 的二次 `Encoding.UTF8.GetBytes`、`ArrayPool` 深度池化、多进程 harness。
 
-**风险与护栏**：O3/O5 动线格式 → FT9；O2 → FT1–FT8；O4/O6 动批处理 → FT2/FT6；O7 → FT4；O8 → FT7/FT8。全程不新增 `//` 注释。
+**风险与护栏**：O3/O5 动线格式 → FT9；O2 → FT1–FT8；O4/O6 动批处理 → FT2/FT6/FT11；O7 → FT4；O8 → FT7/FT8/FT10。全程不新增 `//` 注释。
 
 ---
 

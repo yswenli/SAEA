@@ -21,6 +21,11 @@ namespace SAEA.QueueSocketTest
         static long _microEncode4K;
         static long _microDecode64;
         static long _microDecode1K;
+        static int _microEncode64Gen0;
+        static int _microEncode1KGen0;
+        static int _microEncode4KGen0;
+        static int _microDecode64Gen0;
+        static int _microDecode1KGen0;
         static int _microGen0;
         static bool _enforceThresholds = true;
 
@@ -30,21 +35,29 @@ namespace SAEA.QueueSocketTest
             _microGen0 = 0;
             TestHarness.Section("QueueSocket micro benchmarks");
 
-            MicroEncode("MicroEncode/64B", 64, out _microEncode64);
-            MicroEncode("MicroEncode/1KB", 1024, out _microEncode1K);
-            MicroEncode("MicroEncode/4KB", 4096, out _microEncode4K);
-            MicroDecode("MicroDecode/64B", 64, out _microDecode64);
-            MicroDecode("MicroDecode/1KB", 1024, out _microDecode1K);
+            MicroEncode("MicroEncode/64B", 64, out _microEncode64, out _microEncode64Gen0);
+            MicroEncode("MicroEncode/1KB", 1024, out _microEncode1K, out _microEncode1KGen0);
+            MicroEncode("MicroEncode/4KB", 4096, out _microEncode4K, out _microEncode4KGen0);
+            MicroDecode("MicroDecode/64B", 64, out _microDecode64, out _microDecode64Gen0);
+            MicroDecode("MicroDecode/1KB", 1024, out _microDecode1K, out _microDecode1KGen0);
             MicroDecodeBatch("MicroDecodeBatch/100x64B", 64, 100);
 
             if (enforceThresholds)
             {
+                const int perRunGen0Budget = 15;
+
                 TestHarness.Expect(_microEncode64 <= 256, "MicroEncode/64B within budget", "B/op=" + _microEncode64);
                 TestHarness.Expect(_microEncode1K <= 1280, "MicroEncode/1KB within budget", "B/op=" + _microEncode1K);
                 TestHarness.Expect(_microEncode4K <= 4400, "MicroEncode/4KB within budget", "B/op=" + _microEncode4K);
                 TestHarness.Expect(_microDecode64 <= 512, "MicroDecode/64B within budget", "B/op=" + _microDecode64);
                 TestHarness.Expect(_microDecode1K <= 1600, "MicroDecode/1KB within budget", "B/op=" + _microDecode1K);
-                TestHarness.Expect(_microGen0 <= 25, "Micro Gen0 within budget (5 runs x 20k)", "GC0=" + _microGen0);
+
+                TestHarness.Expect(_microEncode64Gen0 <= perRunGen0Budget, "MicroEncode/64B Gen0 within per-run budget (20k)", "GC0=" + _microEncode64Gen0);
+                TestHarness.Expect(_microEncode1KGen0 <= perRunGen0Budget, "MicroEncode/1KB Gen0 within per-run budget (20k)", "GC0=" + _microEncode1KGen0);
+                TestHarness.Expect(_microEncode4KGen0 <= perRunGen0Budget, "MicroEncode/4KB Gen0 within per-run budget (20k)", "GC0=" + _microEncode4KGen0);
+                TestHarness.Expect(_microDecode64Gen0 <= perRunGen0Budget, "MicroDecode/64B Gen0 within per-run budget (20k)", "GC0=" + _microDecode64Gen0);
+                TestHarness.Expect(_microDecode1KGen0 <= perRunGen0Budget, "MicroDecode/1KB Gen0 within per-run budget (20k)", "GC0=" + _microDecode1KGen0);
+                TestHarness.Expect(_microGen0 <= 25, "Micro Gen0 within aggregate budget (5 runs x 20k)", "GC0=" + _microGen0);
             }
             else
             {
@@ -65,7 +78,7 @@ namespace SAEA.QueueSocketTest
             return payload;
         }
 
-        static void MicroEncode(string name, int payloadSize, out long bytesPerOp)
+        static void MicroEncode(string name, int payloadSize, out long bytesPerOp, out int gen0)
         {
             var payload = BuildPayload(payloadSize);
             var msg = new QueueSocketMsg(QueueSocketMsgType.Publish, "producer", "bench", payload);
@@ -80,12 +93,13 @@ namespace SAEA.QueueSocketTest
             var bytes = GC.GetTotalAllocatedBytes(true) - before;
             var g0After = GC.CollectionCount(0);
 
-            _microGen0 += (g0After - g0);
+            gen0 = g0After - g0;
+            _microGen0 += gen0;
             bytesPerOp = bytes / MicroN;
-            ConsoleHelper.WriteLine("[micro] " + name + " | " + (sw.Elapsed.TotalMilliseconds * 1000000.0 / MicroN).ToString("F0") + " ns/op | " + bytesPerOp + " B/op | GC0=" + (g0After - g0));
+            ConsoleHelper.WriteLine("[micro] " + name + " | " + (sw.Elapsed.TotalMilliseconds * 1000000.0 / MicroN).ToString("F0") + " ns/op | " + bytesPerOp + " B/op | GC0=" + gen0);
         }
 
-        static void MicroDecode(string name, int payloadSize, out long bytesPerOp)
+        static void MicroDecode(string name, int payloadSize, out long bytesPerOp, out int gen0)
         {
             var payload = BuildPayload(payloadSize);
             var frame = QueueCoder.Encode(new QueueSocketMsg(QueueSocketMsgType.Data, "producer", "bench", payload));
@@ -111,9 +125,10 @@ namespace SAEA.QueueSocketTest
             var bytes = GC.GetTotalAllocatedBytes(true) - before;
             var g0After = GC.CollectionCount(0);
 
-            _microGen0 += (g0After - g0);
+            gen0 = g0After - g0;
+            _microGen0 += gen0;
             bytesPerOp = bytes / MicroN;
-            ConsoleHelper.WriteLine("[micro] " + name + " | " + (sw.Elapsed.TotalMilliseconds * 1000000.0 / MicroN).ToString("F0") + " ns/op | " + bytesPerOp + " B/op | GC0=" + (g0After - g0));
+            ConsoleHelper.WriteLine("[micro] " + name + " | " + (sw.Elapsed.TotalMilliseconds * 1000000.0 / MicroN).ToString("F0") + " ns/op | " + bytesPerOp + " B/op | GC0=" + gen0);
         }
 
         static void MicroDecodeBatch(string name, int payloadSize, int frames)

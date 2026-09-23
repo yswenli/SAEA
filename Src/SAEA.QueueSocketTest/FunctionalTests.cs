@@ -1,6 +1,8 @@
 using System;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -28,6 +30,8 @@ namespace SAEA.QueueSocketTest
             await SafeAsync("FT7", FT7_DisconnectCleanup);
             await SafeAsync("FT8", FT8_ReconnectUsable);
             await SafeAsync("FT9", () => { FT9_EncodeDecodeRoundtrip(); return Task.CompletedTask; });
+            await SafeAsync("FT10", FT10_DisconnectCleansSubscription);
+            await SafeAsync("FT11", () => { FT11_BatchEncodeMatchesPerFrame(); return Task.CompletedTask; });
         }
 
         static async Task SafeAsync(string name, Func<Task> test)
@@ -378,6 +382,108 @@ namespace SAEA.QueueSocketTest
                 }
 
                 TestHarness.Expect(ok, "FT9 roundtrip case" + idx, "name=" + name + " topic=" + topic + " len=" + data.Length);
+            }
+        }
+
+        static readonly FieldInfo ExchangeField = typeof(QServer).GetField("_exchange", BindingFlags.NonPublic | BindingFlags.Instance);
+        static readonly FieldInfo SubscribersField = typeof(QServer).Assembly.GetType("SAEA.QueueSocket.Model.Exchange")?.GetField("_subscribers", BindingFlags.NonPublic | BindingFlags.Instance);
+
+        static IDictionary GetSubscribers()
+        {
+            var server = QueueServerHarness.Server;
+            if (server == null || ExchangeField == null || SubscribersField == null) return null;
+            var exchange = ExchangeField.GetValue(server);
+            if (exchange == null) return null;
+            return SubscribersField.GetValue(exchange) as IDictionary;
+        }
+
+        static int TopicSubscriberCount(string topic)
+        {
+            var subs = GetSubscribers();
+            if (subs == null || !subs.Contains(topic)) return 0;
+            var inner = subs[topic] as IDictionary;
+            return inner == null ? 0 : inner.Count;
+        }
+
+        static bool TopicEntryExists(string topic)
+        {
+            var subs = GetSubscribers();
+            return subs != null && subs.Contains(topic);
+        }
+
+        static async Task FT10_DisconnectCleansSubscription()
+        {
+            var topic = QueueServerHarness.NewTopic("ft10");
+
+            var consumer = QueueServerHarness.CreateConsumer(topic);
+            await Task.Delay(SettleMs);
+
+            TestHarness.Expect(await TestHarness.WaitUntil(() => TopicSubscriberCount(topic) == 1, 5000), "FT10 subscription registered", "count=" + TopicSubscriberCount(topic));
+
+            consumer.Dispose();
+
+            TestHarness.Expect(await TestHarness.WaitUntil(() => TopicSubscriberCount(topic) == 0, 10000), "FT10 disconnect removes subscriber", "count=" + TopicSubscriberCount(topic));
+            TestHarness.Expect(await TestHarness.WaitUntil(() => !TopicEntryExists(topic), 5000), "FT10 empty topic entry removed", "exists=" + TopicEntryExists(topic));
+        }
+
+        static void FT11_BatchEncodeMatchesPerFrame()
+        {
+            var writeFrame = typeof(QueueCoder).GetMethod("WriteFrame", BindingFlags.NonPublic | BindingFlags.Static);
+            TestHarness.Expect(writeFrame != null, "FT11 internal WriteFrame available");
+            if (writeFrame == null) return;
+
+            var cases = new List<Tuple<string, string, int>>
+            {
+                new Tuple<string, string, int>("producer", "topic", 0),
+                new Tuple<string, string, int>("", "", 8),
+                new Tuple<string, string, int>("生产者", "主题", 1),
+                new Tuple<string, string, int>("p", "t", 64),
+                new Tuple<string, string, int>("p", "t", 4096)
+            };
+
+            int idx = 0;
+            foreach (var c in cases)
+            {
+                idx++;
+                var name = c.Item1;
+                var topic = c.Item2;
+                var size = c.Item3;
+
+                var data = new byte[size];
+                for (int i = 0; i < size; i++) data[i] = (byte)(i % 250);
+
+                var frames = new[] { data, data, data };
+
+                var perFrame = new List<byte>();
+                foreach (var d in frames)
+                {
+                    perFrame.AddRange(QueueCoder.Encode(new QueueSocketMsg(QueueSocketMsgType.Data, name, topic, d)));
+                }
+
+                var nameBytes = string.IsNullOrEmpty(name) ? null : Encoding.UTF8.GetBytes(name);
+                var topicBytes = string.IsNullOrEmpty(topic) ? null : Encoding.UTF8.GetBytes(topic);
+                var fixedLen = 1 + 12 + (nameBytes == null ? 0 : nameBytes.Length) + (topicBytes == null ? 0 : topicBytes.Length);
+
+                long bufferSize = 0;
+                foreach (var d in frames) bufferSize += fixedLen + d.Length;
+
+                var buffer = new byte[bufferSize];
+                var offset = 0;
+                foreach (var d in frames)
+                {
+                    offset = (int)writeFrame.Invoke(null, new object[] { buffer, offset, QueueSocketMsgType.Data, nameBytes, topicBytes, d });
+                }
+
+                var ok = offset == buffer.Length && buffer.Length == perFrame.Count;
+                if (ok)
+                {
+                    for (int i = 0; i < buffer.Length; i++)
+                    {
+                        if (buffer[i] != perFrame[i]) { ok = false; break; }
+                    }
+                }
+
+                TestHarness.Expect(ok, "FT11 batch matches per-frame case" + idx, "name=" + name + " topic=" + topic + " size=" + size + " len=" + buffer.Length);
             }
         }
     }
