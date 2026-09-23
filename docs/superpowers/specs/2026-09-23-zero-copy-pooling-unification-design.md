@@ -32,7 +32,7 @@
 | 接口/类型 | 位置 | 关键事实 |
 | --- | --- | --- |
 | `IServerSocket` | `Src/SAEA.Sockets/IServerSocket.cs:44` | 已有 `Send(string, ReadOnlySpan<byte>)`、`SendAsync(string, ReadOnlyMemory<byte>)`、`SendAsync(string, ISocketProtocal)`、`SendAsync(IPEndPoint, ReadOnlyMemory<byte>)`；**缺 owner 重载**。 |
-| `IClientSocket` | `Src/SAEA.Sockets/IClientSocket.cs:47` | 已有 `Send(ReadOnlySpan<byte>)`、`SendAsync(ReadOnlyMemory<byte>)`、`SendAsync(ISocketProtocal)`、`SendAsync(ReadOnlyMemory<byte>, CancellationToken)`；**缺 owner 重载**，且 `Send(ReadOnlySpan)` 走拷贝。 |
+| `IClientSocket` | `Src/SAEA.Sockets/IClientSocket.cs:47` | 已有 `Send(ReadOnlySpan<byte>)`、`SendAsync(ReadOnlyMemory<byte>)`、`SendAsync(ISocketProtocal)`、`SendAsync(ReadOnlyMemory<byte>, CancellationToken)`；**本次新增 owner 重载**（IOCP 客户端），`Send(ReadOnlySpan)` 去 `ToArray()` 并纳入写门。 |
 | `IocpServerSocket` | `Src/SAEA.Sockets/Core/Tcp/IocpServerSocket.cs` | `Send :447` 与 `SendAsync :459` 对**非数组背衬**输入会 `MemoryPoolManager.Rent` 并构造 `PooledBufferWriter` 作 owner，交 `SendAsyncRaw(userToken, seg, writer) :369`；`async` 路径数组背衬时 `SendAsyncRaw(..., null)`（零拷贝、所有权归调用方）。`ProcessSended :346` 里 `TakeSendingOwner()?.Dispose()` 完成归还；`AbandonSendingOwner :442` 在发送超时时**放弃所有权交 GC**。`End :504` 仍 `data.ToArray()`。 |
 | `IocpClientSocket` | `Src/SAEA.Sockets/Core/Tcp/IocpClientSocket.cs` | `SendAsyncRaw(ArraySegment<byte>, IDisposable owner) :523` 已支持 owner（`ProcessSended :501` 归还）。但 **`Send(ReadOnlySpan<byte>) :574` 用 `data.ToArray() :584` 拷贝**，再同步 `BeginSend/EndSend :588-589`（阻塞）；`ProcessReceived :436` 的兼容分支 `:464 dataSpan.ToArray()`。 |
 | 其余实现者 | `StreamServerSocket`、`UdpServerSocket`（IServerSocket）；`StreamClientSocket`、`UdpClientSocket`（IClientSocket） | 若把 owner 重载加到接口，需同步实现（拷贝后立即 `owner.Dispose()` 即可保语义）。 |
@@ -121,12 +121,12 @@
 - **R2 payload 所有权（接收侧）**：`DecodeTo` 复制 payload 到 `RentPooled(dlen)`，`QueueMsg.Data` 指向其 `AsMemory()`，owner 挂在 `QueueMsg`。`AcceptPublish` 将 owner **转让**给 `MessageQueue`；其余分支（Ping/Subcribe/Unsubcribe/Close/Data/丢弃/异常）由 `QServer` 在帧处理结束后归还。转让用 `DetachOwner()` 实现，使后续 `QueueMsg.Dispose()` 成为 no-op。
 - **R3 分发缓冲所有权**：`DispatchLoop` 把每条消息的分帧字节写入 `PooledBufferWriter`（精确 `GetSpan`/`Advance`），输入 payload owner 在写完该条后立即归还；batch writer 作为 owner 交给 `SendAsync(id, memory, owner)`，由 `ProcessSended` 归还。
 - **R4 发送超时**：沿用 `AbandonSendingOwner`，放弃所有权（不归还池）以避免对在途缓冲的竞态；该放弃计入 INV-5 的允许偏差。
-- **R5 客户端拼接所有权**：`QClient` 的 batch writer 落 `PooledBufferWriter`；同步 `Send(writer.WrittenSpan)` 返回后立即 `Dispose`（INV-3 同步分支）。
+- **R5 客户端拼接所有权**：`QClient` 的 batch writer 落 `PooledBufferWriter`；IOCP 客户端用 `SendAsync(writer.WrittenMemory, writer)`，owner 由 `ProcessSended` 归还；非 IOCP 客户端实现为「拷贝发送后立即 `owner.Dispose()`」。
 - **R6 异常安全**：任何 `Insert`/`Send`/`SendAsync` 失败都必须 `Dispose` 对应 owner；用 `try/finally` 或「先转让、失败再归还」模式保证。
 
 ### 3.2 服务端 owner 发送重载（IServerSocket）
 
-仅服务端需要 owner 重载（因为 QServer 的分发发送是异步的，batch writer 必须存活至完成）。客户端保持同步发送，用池化临时缓冲即可（3.3），**不新增**客户端 owner 重载（YAGNI）。
+服务端发布分发与客户端批量发布都需要 owner 重载：服务端分发发送是异步的，batch writer 必须存活至完成；客户端因默认使用 IOCP（`IocpClientSocket`）也采用「gated 异步发送」，同样需要 owner 承载批量 writer。**客户端 owner 重载按用户裁决纳入**（见 3.3）。
 
 在 `IServerSocket` 新增：
 
@@ -160,35 +160,68 @@ public void SendAsync(string sessionID, ReadOnlyMemory<byte> data, IDisposable o
 
 旧 `SendAsync(string, ReadOnlyMemory<byte>)` 改为 `SendAsync(sessionID, data, null)` 委派，语义不变。`UdpServerSocket`/`StreamServerSocket` 实现为「拷贝发送后立即 `owner?.Dispose()`」。
 
-### 3.3 客户端同步发送去 `ToArray()`
+### 3.3 客户端发送（owner 异步重载 + 同步去 `ToArray()` + 写门）
 
-`IocpClientSocket.Send(ReadOnlySpan<byte>)` 当前 `data.ToArray() :584` 每次发送都分配。改为池化临时缓冲：
+客户端默认使用 IOCP（`SocketFactory.CreateClientSocket` → `IocpClientSocket`），故**纳入 owner 重载**。
+
+在 `IClientSocket` 新增：
+
+```csharp
+void SendAsync(ReadOnlyMemory<byte> data, IDisposable owner);
+```
+
+`IocpClientSocket` 实现（复用已支持 owner 的 `SendAsyncRaw :523`）：
+
+```csharp
+public void SendAsync(ReadOnlyMemory<byte> data, IDisposable owner)
+{
+    if (data.Length == 0) { owner?.Dispose(); return; }
+    if (MemoryMarshal.TryGetArray(data, out var seg)) { SendAsyncRaw(seg, owner); return; }
+    var writer = new PooledBufferWriter(data.Length);
+    data.Span.CopyTo(writer.GetSpan(data.Length));
+    writer.Advance(data.Length);
+    if (!writer.TryGetArray(out var rented)) { writer.Dispose(); owner?.Dispose(); return; }
+    owner?.Dispose();
+    SendAsyncRaw(rented, writer);
+}
+```
+
+旧 `SendAsync(ReadOnlyMemory<byte>)` 改为 `SendAsync(data, null)` 委派。`StreamClientSocket`/`UdpClientSocket` 实现为「拷贝发送后立即 `owner?.Dispose()`」。
+
+**并发写门（必须）**：`SendAsyncRaw` 已用 `userToken.WaitWrite` 串行化异步发送，但同步 `Send(ReadOnlySpan)` 直接 `BeginSend`，二者并发会交错/损坏。因此同步 `Send` 改为：
 
 ```csharp
 public void Send(ReadOnlySpan<byte> data)
 {
     if (data.Length == 0) return;
+    if (!Connected) { OnError?.Invoke("", new Exception("SAEA SocketError:发送失败,当前连接已断开")); return; }
     var rented = MemoryPoolManager.Rent(data.Length);
     try
     {
         data.CopyTo(rented);
-        var offset = 0;
-        while (offset < data.Length)
+        if (!_userToken.WaitWrite(SocketOption.ActionTimeout))
         {
-            var n = _socket.BeginSend(rented, offset, data.Length - offset, SocketFlags.None, null, null);
-            offset += _socket.EndSend(n);
+            OnError?.Invoke($"SAEA SocketError:发送消息时发生异常,{_userToken?.ID}", new TimeoutException("发送数据超时"));
+            return;
         }
+        try
+        {
+            var offset = 0;
+            while (offset < data.Length)
+            {
+                var n = _socket.BeginSend(rented, offset, data.Length - offset, SocketFlags.None, null, null);
+                offset += _socket.EndSend(n);
+            }
+            _userToken.Actived = DateTimeHelper.Now;
+        }
+        finally { _userToken.ReleaseWrite(); }
     }
-    finally
-    {
-        MemoryPoolManager.Return(rented, data.Length);
-    }
+    catch (Exception ex) { Disconnect(ex); }
+    finally { MemoryPoolManager.Return(rented, data.Length); }
 }
 ```
 
-同步语义与阻塞行为保持不变（不改变与既有线程池缓解措施的配合），但消除逐次 `new byte[]`。`ProcessReceived` 的兼容分支 `:464 dataSpan.ToArray()` 保留（非 owner 型订阅者需要 `byte[]`），不计入热路径。
-
-> 若后续确认某些客户端需要异步零拷贝，再评估新增 `IClientSocket.SendAsync(ReadOnlyMemory<byte>, IDisposable)`；本次不纳入。
+效果：消除 `data.ToArray() :584` 的逐次分配；同步发送与在途异步发送经同一 `WaitWrite` 门串行，避免交错。`ProcessReceived` 的兼容分支 `:464 dataSpan.ToArray()` 保留（非 owner 型订阅者需要 `byte[]`），不计入热路径。
 
 ### 3.4 切片化契约
 
@@ -207,11 +240,7 @@ public void Send(ReadOnlySpan<byte> data)
 - flush 取大小沿用现网参数（`size=5000`、`timeout=100`）。
 - `Clear`/`Dispose` 必须显式排空并 `Dispose` 所有在册 writer（避免泄漏），这不同于 `Batcher<T>.Clear` 的直接丢弃行为。
 
-放置位置（**待用户确认**）：
-
-- **方案 A（推荐）**：放进 `SAEA.Common/Caching/`，作为**新增**类型；不触碰既有 `Batcher`/`ClassificationBatcher`。可被 MessageSocket/WebSocket 等复用，减少重复。
-- **方案 B**：仅放 `SAEA.QueueSocket/Net/` 本地，最大化隔离。
-两方案都满足「不修改共享既有行为」，差异仅在复用范围。
+放置位置（**已裁决**）：放进 `SAEA.Common/Caching/` 作为**新增**类型（`PooledBatcher.cs` / `PooledClassificationBatcher.cs`）；不触碰既有 `Batcher`/`ClassificationBatcher`（MessageSocket/WebSocket 在用），可被其他工程复用。
 
 ---
 
@@ -236,9 +265,9 @@ public void Send(ReadOnlySpan<byte> data)
 
 ### 4.3 客户端
 
-- `QClient._batcher` 改为池化 `PooledBatcher`；`_batcher_OnBatched` 用 `PooledBufferWriter` 拼接，`_clientSocket.Send(writer.WrittenSpan)` 同步返回后 `Dispose`（R5）。
+- `QClient._batcher` 改为池化 `PooledBatcher`；`_batcher_OnBatched` 用 `PooledBufferWriter` 拼接，`_clientSocket.SendAsync(writer.WrittenMemory, writer)` 异步发送、owner 由 `ProcessSended` 归还（R5）。IOCP 客户端因此无需同步阻塞，减轻线程池压力。
 - `Publish` 的 payload 经 `QueueCoder` 写入 writer，避免中间 `byte[]`。
-- `Subscribe/Unsubscribe/Close` 控制帧改用池化 writer + 同步 `Send`。
+- `Subscribe/Unsubscribe/Close`/`HeartAsync` 控制帧仍走同步 `Send`（经 3.3 写门串行），保证 `Close` 帧在 `Disconnect` 前发出。
 
 ### 4.4 编码器内部
 
@@ -250,10 +279,11 @@ public void Send(ReadOnlySpan<byte> data)
 
 ## 五、SAEA.Sockets 补强
 
-1. `IServerSocket` + `IocpServerSocket`/`StreamServerSocket`/`UdpServerSocket` 增加 owner 重载（3.2）。
-2. `IocpClientSocket.Send(ReadOnlySpan)` 改池化临时缓冲（3.3）。
-3. `IocpServerSocket.End :504` 可选：改用 owner 路径或池化临时缓冲，去除 `data.ToArray()`（低优先）。
-4. `BufferManager`/`SocketKeeper`/`UserTokenFactory`/Udp 的少量 `new byte[]`：改池化或按需延后（见第七节表格）。
+1. `IServerSocket` + `IocpServerSocket`/`StreamServerSocket`/`UdpServerSocket` 增加服务端 owner 重载（3.2）。
+2. `IClientSocket` + `IocpClientSocket`/`StreamClientSocket`/`UdpClientSocket` 增加客户端 owner 重载（3.3）。
+3. `IocpClientSocket.Send(ReadOnlySpan)` 改池化临时缓冲（去 `ToArray()`）并纳入 `WaitWrite` 写门（3.3）。
+4. `IocpServerSocket.End :504` 可选：改用 owner 路径或池化临时缓冲，去除 `data.ToArray()`（低优先）。
+5. `BufferManager`/`SocketKeeper`/`UserTokenFactory`/Udp 的少量 `new byte[]`：改池化或按需延后（见第六节表格）。
 
 ---
 
@@ -283,7 +313,7 @@ public void Send(ReadOnlySpan<byte> data)
 ## 七、分期与实施顺序
 
 - **P0 基座校验**：确认 `PooledBufferWriter`/`PooledBuffer`/`MemoryPoolManager`/`SendingOwner` 行为与 `GetStatistics` 可用；补所有权单测。
-- **P1 发送面**：服务端 owner 重载（含 3 个实现者）；客户端 `Send(ReadOnlySpan)` 去 `ToArray()`。
+- **P1 发送面**：服务端 owner 重载（含 3 个实现者）；客户端 owner 重载（含 3 个实现者）；`IocpClientSocket.Send(ReadOnlySpan)` 去 `ToArray()` 并纳入写门。
 - **P2 QueueSocket payload 池化**：`_buffer` 池化、`GetQueueResult` 数组重载、`DecodeTo` 复制进 `RentPooled`、`QueueMsg` owner/`DetachOwner`、`QueueMsgPool` 接线、`MessageQueue` 存 `PooledBuffer`。
 - **P3 QueueSocket 分发生命周期**：`PooledBatcher`/`PooledClassificationBatcher`、`Exchange.DispatchLoop` 使用、`QServer` 发送走 owner 重载。
 - **P4 QueueSocket 客户端**：`QClient` batch writer + 同步发送归还；控制帧池化。
@@ -312,6 +342,7 @@ public void Send(ReadOnlySpan<byte> data)
 - `FT-Pool-3 守恒`：持续流量后静默，断言 `MemoryPoolManager.GetStatistics()` 各层级 `Rented == Returned`（持有允许的在途/超时偏差，且重复采样不增长）。
 - `FT-Pool-4 字节等价`：池化编码输出与旧 `byte[]` 编码逐字节一致（线格式 INV-1）。
 - `FT-Pool-5 发送存活`：异步分发发送期间 buffer 不被归还（压力 + 小批量高频 flush）。
+- `FT-Pool-6 客户端不交错`：并发「批量 `SendAsync(owner)` + 同步控制帧 `Send`」压力下，接收端解析出的帧完整、无字节交错（写门生效）。
 
 **性能**
 
@@ -335,7 +366,8 @@ public void Send(ReadOnlySpan<byte> data)
 | 超时放弃 | `AbandonSendingOwner` 不归还 | 计入 INV-5 允许偏差；文档标注 |
 | 队列满/断开泄漏 | 丢弃分支遗漏归还 | 中央化「归还此批」辅助函数；FT-Pool-2 |
 | 层级错配 | `Return` 无 `originalSize` 按 `Length` 推断 | 统一用 `PooledBuffer`/`PooledBufferWriter`（自带大小）；原始数组路径传 `originalSize` |
-| 接口新增破坏外部实现 | 加 `IServerSocket` owner 重载 | INV-4；仅服务端；文档标注破坏性 |
+| 同步/异步发送交错 | 批量 `SendAsync` 与同步 `Send` 并发导致字节交错 | 同步 `Send` 纳入 `WaitWrite` 写门（3.3）；FT-Pool-6 |
+| 接口新增破坏外部实现 | 加 `IServerSocket`/`IClientSocket` owner 重载 | INV-4；文档标注破坏性 |
 | 多线程 | `PooledBufferWriter` 非线程安全 | 每批次/每发送独占，不跨线程共享 |
 | 共享 Batcher 误改 | MessageSocket/WebSocket 回归 | 只新增池化类型，不改旧类型 |
 
@@ -356,7 +388,7 @@ public void Send(ReadOnlySpan<byte> data)
 **修改**
 
 - `Src/SAEA.Sockets/IServerSocket.cs`、`Core/Tcp/IocpServerSocket.cs`、`Core/Tcp/StreamServerSocket.cs`、`Core/Udp/UdpServerSocket.cs`
-- `Src/SAEA.Sockets/Core/Tcp/IocpClientSocket.cs`（`Send`）、（可选）`End`
+- `Src/SAEA.Sockets/IClientSocket.cs`、`Core/Tcp/IocpClientSocket.cs`（owner 重载 + `Send` 去 `ToArray()` + 写门）、`Core/Tcp/StreamClientSocket.cs`、`Core/Udp/UdpClientSocket.cs`
 - `Src/SAEA.QueueSocket/Model/QueueMsg.cs`、`Model/MessageQueue.cs`、`Model/QueueMsgPool.cs`、`Model/QueueMsgListPool.cs`、`Model/Exchange.cs`
 - `Src/SAEA.QueueSocket/Net/QueueCoder.cs`、`Net/QueueSocketMsg.cs`
 - `Src/SAEA.QueueSocket/QServer.cs`、`QClient.cs`
@@ -364,8 +396,8 @@ public void Send(ReadOnlySpan<byte> data)
 
 **新增**
 
-- `Src/SAEA.Common/Caching/PooledBatcher.cs` + `PooledClassificationBatcher.cs`（方案 A）或 `Src/SAEA.QueueSocket/Net/` 本地（方案 B）
-- `Src/SAEA.QueueSocketTest/FunctionalTests.cs` 内新增 FT-Pool-1..5（及必要时 `TestHarness` 辅助）
+- `Src/SAEA.Common/Caching/PooledBatcher.cs` + `PooledClassificationBatcher.cs`（已定）
+- `Src/SAEA.QueueSocketTest/FunctionalTests.cs` 内新增 FT-Pool-1..6（及必要时 `TestHarness` 辅助）
 
 ---
 
@@ -378,8 +410,8 @@ public void Send(ReadOnlySpan<byte> data)
 
 ---
 
-## 十三、待确认项（请在审阅时裁决）
+## 十三、已裁决项
 
-1. **池化批处理器放置**：方案 A（`SAEA.Common/Caching/` 新增、可复用，推荐）还是方案 B（`SAEA.QueueSocket` 本地隔离）？
-2. **客户端是否也需要 owner 异步重载**：本次按 YAGNI 不加（保持同步 `Send` + 池化临时缓冲），若确认需要再纳入。
-3. **`SAEA.Common` 非网络工具类**（`FileHelper`/`SerializeHelper` 等 26 处）是否也纳入，还是严格只做网络热路径？（当前按非目标跳过。）
+1. **池化批处理器放置**：放入 `SAEA.Common/Caching/`，新增 `PooledBatcher`/`PooledClassificationBatcher`（可复用，不修改旧 `Batcher`/`ClassificationBatcher`）。
+2. **客户端 owner 异步重载**：纳入——客户端默认走 IOCP，故 `IClientSocket`/`IocpClientSocket` 增加 owner 重载，并给同步 `Send` 加 `WaitWrite` 写门（3.3）。
+3. **`SAEA.Common` 非网络工具类**（`FileHelper`/`SerializeHelper` 等）：**跳过**，仅做网络热路径。
