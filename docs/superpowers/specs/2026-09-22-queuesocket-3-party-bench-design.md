@@ -166,7 +166,7 @@ FT6（3 生产者 × 100 → 2 消费者，无损）在原实现下稳定丢包�
 - 到时长 → 停生产者 → `WaitUntil` 所有消费者追上已发布数 → 断言**无损**。
 - 指标：**吞吐 = published ÷ 发布阶段耗时**（系统入站吞吐，广播场景不再按投递数重复计数）；系统级 **B/frame** = `GC.GetTotalAllocatedBytes` 差 ÷ 总投递数（`sum(counts)`）；Gen0/1/2。**延迟 p50/p99 本轮不测**：`Producer.Publish` 仅接受 `string`，内嵌 8B 时间戳需把二进制塞进 UTF8 字符串，会扰动 payload 尺寸与 B/frame 口径，且同进程 loopback 单向延迟对吞吐/分配 KPI 无决策价值（列为后续可选）。
 
-### 5.3 硬断言阈值（防回归；**provisional，实施步骤 3 用优化前基线校准**）
+### 5.3 硬断言阈值（防回归；已用优化前基线校准并经优化后实测守门）
 
 | 项 | 场景 | 断言 |
 |----|------|------|
@@ -177,7 +177,7 @@ FT6（3 生产者 × 100 → 2 消费者，无损）在原实现下稳定丢包�
 | End-to-end B/frame | S1 / S2 | ≤ 8192 / 12288 B/frame |
 | 无损 | S1 / S2 | delivered == published 且 totalDeliveries >= published（流控下硬性） |
 
-**基线证据流**：先记录优化前 B/op 与吞吐（写入 plan outcome），优化后断言「B/op 下降 / 吞吐不降」并留余量；上表为最终守门阈值。
+**基线证据流**：先记录优化前 B/op 与吞吐（写入 plan outcome），优化后断言「B/op 下降 / 吞吐不降」并留余量；上表为最终守门阈值。优化后实测（Release，`--all` 39/39、`--bench-queue` 14/14 全通过）：MicroEncode 184/1144/4216 B/op、MicroDecode 360/1320 B/op、Micro Gen0 ≤5、S1 72967 msg/s / 3076 B/frame、S2 45624 msg/s / 7807 B/frame，阈值无需再调整。
 
 ---
 
