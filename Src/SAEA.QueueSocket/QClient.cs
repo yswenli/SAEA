@@ -30,7 +30,6 @@
 *
 *****************************************************************************/
 using System;
-using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -216,9 +215,12 @@ namespace SAEA.QueueSocket
         /// <param name="count">本批消息数量</param>
         private void _batcher_OnBatched(PooledBufferWriter writer, int count)
         {
-            var sentCount = count;
             _clientSocket.SendAsync(writer.WrittenMemory, writer);
-            OnMessagesSent?.Invoke(sentCount);
+            try
+            {
+                OnMessagesSent?.Invoke(count);
+            }
+            catch { }
         }
 
         /// <summary>
