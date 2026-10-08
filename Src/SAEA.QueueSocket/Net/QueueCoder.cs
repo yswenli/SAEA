@@ -30,6 +30,7 @@
 *
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.Common.Caching;
 using SAEA.QueueSocket.Model;
 using SAEA.QueueSocket.Type;
 using SAEA.Sockets.Interface;
@@ -93,7 +94,7 @@ namespace SAEA.QueueSocket.Net
         /// <returns>解析后的队列消息列表</returns>
         internal List<QueueMsg> GetQueueResult(ReadOnlySpan<byte> data)
         {
-            var result = new List<QueueMsg>();
+            var result = QueueMsgListPool.Rent();
 
             AppendData(data);
 
@@ -101,8 +102,7 @@ namespace SAEA.QueueSocket.Net
             {
                 try
                 {
-                    var span = _buffer.AsSpan(_bufferOffset, _bufferCount);
-                    var offset = DecodeTo(span, result);
+                    var offset = DecodeTo(_buffer, _bufferOffset, _bufferCount, result);
                     if (result.Count > 0)
                     {
                         _bufferOffset += offset;
@@ -268,6 +268,53 @@ namespace SAEA.QueueSocket.Net
                 offset += dlen;
             }
             return offset;
+        }
+
+        /// <summary>
+        /// 按 QueueSocket 线格式将一帧写入 IBufferWriter，支持零复制发送。
+        /// </summary>
+        /// <param name="writer">目标缓冲写入器</param>
+        /// <param name="type">消息类型</param>
+        /// <param name="nameBytes">已编码的名称</param>
+        /// <param name="topicBytes">已编码的主题</param>
+        /// <param name="data">数据</param>
+        internal static void WriteFrameTo(System.Buffers.IBufferWriter<byte> writer, QueueSocketMsgType type, byte[] nameBytes, byte[] topicBytes, ReadOnlySpan<byte> data)
+        {
+            var nlen = nameBytes == null ? 0 : nameBytes.Length;
+            var tlen = topicBytes == null ? 0 : topicBytes.Length;
+            var dlen = data.Length;
+            var total = 12 + nlen + tlen + dlen;
+
+            var span = writer.GetSpan(1 + total);
+            var offset = 0;
+            span[offset++] = (byte)type;
+            WriteInt32(span, offset, total); offset += 4;
+            WriteInt32(span, offset, nlen); offset += 4;
+            if (nlen > 0)
+            {
+                nameBytes.AsSpan().CopyTo(span.Slice(offset));
+                offset += nlen;
+            }
+            WriteInt32(span, offset, tlen); offset += 4;
+            if (tlen > 0)
+            {
+                topicBytes.AsSpan().CopyTo(span.Slice(offset));
+                offset += tlen;
+            }
+            if (dlen > 0)
+            {
+                data.CopyTo(span.Slice(offset));
+                offset += dlen;
+            }
+            writer.Advance(offset);
+        }
+
+        private static void WriteInt32(Span<byte> span, int offset, int value)
+        {
+            span[offset] = (byte)value;
+            span[offset + 1] = (byte)(value >> 8);
+            span[offset + 2] = (byte)(value >> 16);
+            span[offset + 3] = (byte)(value >> 24);
         }
 
         private static void WriteInt32(byte[] buffer, int offset, int value)
@@ -526,6 +573,119 @@ namespace SAEA.QueueSocket.Net
         private static int ReadInt32(ReadOnlySpan<byte> data, int offset)
         {
             return data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24);
+        }
+
+        internal static int DecodeTo(byte[] buffer, int start, int count, List<QueueMsg> result)
+        {
+            var offset = start;
+            var end = start + count;
+            if (count < MIN)
+            {
+                return 0;
+            }
+
+            while (end - offset >= MIN)
+            {
+                var typeValue = buffer[offset];
+                if (typeValue < 1 || typeValue > 7)
+                {
+                    bool found = false;
+                    for (var i = offset + 1; i < end; i++)
+                    {
+                        if (buffer[i] >= 1 && buffer[i] <= 7)
+                        {
+                            typeValue = buffer[i];
+                            offset = i;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found)
+                    {
+                        return end - start;
+                    }
+                }
+
+                var type = (QueueSocketMsgType)typeValue;
+                var packetStart = offset;
+                offset += 1;
+
+                if (offset + 4 > end) { offset = packetStart; break; }
+                var total = ReadInt32(buffer, offset);
+                if (total < 0 || total > 100 * 1024 * 1024)
+                {
+                    offset = packetStart + 1;
+                    continue;
+                }
+                if (end - offset < total)
+                {
+                    offset = packetStart;
+                    break;
+                }
+                offset += 4;
+
+                if (offset + 4 > end) { offset = packetStart; break; }
+                var nameLength = ReadInt32(buffer, offset);
+                if (nameLength < 0 || nameLength > total)
+                {
+                    offset = packetStart + 1;
+                    continue;
+                }
+                offset += 4;
+
+                if (nameLength > 0 && offset + nameLength > end) { offset = packetStart; break; }
+                var name = nameLength > 0 ? Encoding.UTF8.GetString(buffer, offset, nameLength) : null;
+                offset += nameLength;
+
+                if (offset + 4 > end) { offset = packetStart; break; }
+                var topicLength = ReadInt32(buffer, offset);
+                if (topicLength < 0 || topicLength > total)
+                {
+                    offset = packetStart + 1;
+                    continue;
+                }
+                offset += 4;
+
+                if (topicLength > 0 && offset + topicLength > end) { offset = packetStart; break; }
+                var topic = topicLength > 0 ? Encoding.UTF8.GetString(buffer, offset, topicLength) : null;
+                offset += topicLength;
+
+                var dlen = total - 4 - 4 - nameLength - 4 - topicLength;
+                if (dlen < 0)
+                {
+                    offset = packetStart + 1;
+                    continue;
+                }
+                if (dlen > 0 && offset + dlen > end)
+                {
+                    offset = packetStart;
+                    break;
+                }
+
+                var qm = QueueMsgPool.Rent();
+                qm.Type = type;
+                qm.Name = name;
+                qm.Topic = topic;
+                if (dlen > 0)
+                {
+                    var pb = MemoryPoolManager.RentPooled(dlen);
+                    Buffer.BlockCopy(buffer, offset, pb.Buffer, 0, dlen);
+                    qm.SetOwner(pb);
+                }
+                else
+                {
+                    qm.Data = ReadOnlyMemory<byte>.Empty;
+                }
+                result.Add(qm);
+                offset += dlen;
+            }
+
+            return offset - start;
+        }
+
+        private static int ReadInt32(byte[] buffer, int offset)
+        {
+            return buffer[offset] | (buffer[offset + 1] << 8) | (buffer[offset + 2] << 16) | (buffer[offset + 3] << 24);
         }
 
         /// <summary>

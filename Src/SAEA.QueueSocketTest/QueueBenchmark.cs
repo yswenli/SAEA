@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 using SAEA.Common;
 using SAEA.QueueSocket;
+using SAEA.QueueSocket.Model;
 using SAEA.QueueSocket.Net;
 using SAEA.QueueSocket.Type;
 
@@ -108,8 +109,7 @@ namespace SAEA.QueueSocketTest
             for (int i = 0; i < MicroWarmup; i++)
             {
                 var r = coder.GetQueueResult(frame);
-                for (int j = 0; j < r.Count; j++) r[j].Dispose();
-                r.Clear();
+                QueueMsgListPool.Return(r);
             }
 
             var g0 = GC.CollectionCount(0);
@@ -118,8 +118,7 @@ namespace SAEA.QueueSocketTest
             for (int i = 0; i < MicroN; i++)
             {
                 var r = coder.GetQueueResult(frame);
-                for (int j = 0; j < r.Count; j++) r[j].Dispose();
-                r.Clear();
+                QueueMsgListPool.Return(r);
             }
             sw.Stop();
             var bytes = GC.GetTotalAllocatedBytes(true) - before;
@@ -142,8 +141,7 @@ namespace SAEA.QueueSocketTest
             for (int i = 0; i < MicroWarmup; i++)
             {
                 var r = coder.GetQueueResult(batch);
-                for (int j = 0; j < r.Count; j++) r[j].Dispose();
-                r.Clear();
+                QueueMsgListPool.Return(r);
             }
 
             var g0 = GC.CollectionCount(0);
@@ -152,8 +150,7 @@ namespace SAEA.QueueSocketTest
             for (int i = 0; i < MicroN; i++)
             {
                 var r = coder.GetQueueResult(batch);
-                for (int j = 0; j < r.Count; j++) r[j].Dispose();
-                r.Clear();
+                QueueMsgListPool.Return(r);
             }
             sw.Stop();
             var bytes = GC.GetTotalAllocatedBytes(true) - before;
