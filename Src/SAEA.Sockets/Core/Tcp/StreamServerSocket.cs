@@ -472,6 +472,18 @@ namespace SAEA.Sockets.Core.Tcp
             }, TaskContinuationOptions.OnlyOnFaulted);
         }
 
+        public void SendAsync(string sessionID, ReadOnlyMemory<byte> data, IDisposable owner)
+        {
+            try
+            {
+                SendAsync(sessionID, data);
+            }
+            finally
+            {
+                owner?.Dispose();
+            }
+        }
+
         /// <summary>
         /// 编码并异步发送协议对象。编码器通过 <see cref="GetSendCoder"/> 解析：优先 <see cref="ISocketOption.Context"/>
         /// 中配置的 Unpacker，Stream 模式未配置时复用缓存的回退编码器，避免每次发送新建并泄漏

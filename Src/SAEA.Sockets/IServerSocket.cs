@@ -113,6 +113,14 @@ namespace SAEA.Sockets
         void SendAsync(string sessionID, ISocketProtocal protocal);
 
         /// <summary>
+        /// 携带所有权对象的异步发送：发送完成后由实现方归还/释放 <paramref name="owner"/>。
+        /// </summary>
+        /// <param name="sessionID">会话ID</param>
+        /// <param name="data">数据</param>
+        /// <param name="owner">数据的所有者，发送完成或失败时释放</param>
+        void SendAsync(string sessionID, ReadOnlyMemory<byte> data, IDisposable owner);
+
+        /// <summary>
         /// http end。
         /// </summary>
         /// <param name="sessionID">会话ID</param>

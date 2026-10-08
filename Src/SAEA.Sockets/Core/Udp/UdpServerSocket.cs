@@ -415,6 +415,18 @@ namespace SAEA.Sockets.Core.Udp
             SendAsyncRaw(userToken, rented, writer);
         }
 
+        public void SendAsync(string sessionID, ReadOnlyMemory<byte> data, IDisposable owner)
+        {
+            try
+            {
+                SendAsync(sessionID, data);
+            }
+            finally
+            {
+                owner?.Dispose();
+            }
+        }
+
         /// <summary>
         /// 异步发送协议对象（按会话）
         /// </summary>

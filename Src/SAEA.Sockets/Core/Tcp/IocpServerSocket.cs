@@ -473,6 +473,52 @@ namespace SAEA.Sockets.Core.Tcp
             SendAsyncRaw(userToken, rented, writer);
         }
 
+        public void SendAsync(string sessionID, ReadOnlyMemory<byte> data, IDisposable owner)
+        {
+            var userToken = _sessionManager.Get(sessionID);
+            if (userToken == null)
+            {
+                owner?.Dispose();
+                throw new KernelException("Failed to send data,current session does not exist！");
+            }
+            SendAsync(userToken, data, owner);
+        }
+
+        void SendAsync(IUserToken userToken, ReadOnlyMemory<byte> data, IDisposable owner)
+        {
+            if (data.Length == 0)
+            {
+                owner?.Dispose();
+                return;
+            }
+            ArraySegment<byte> rented;
+            if (MemoryMarshal.TryGetArray(data, out var segment) && segment.Array != null)
+            {
+                SendAsyncRaw(userToken, segment, owner);
+                return;
+            }
+            var writer = new PooledBufferWriter(data.Length);
+            try
+            {
+                data.Span.CopyTo(writer.GetSpan(data.Length));
+                writer.Advance(data.Length);
+                if (!writer.TryGetArray(out rented) || rented.Array == null)
+                {
+                    writer.Dispose();
+                    owner?.Dispose();
+                    return;
+                }
+            }
+            catch
+            {
+                writer.Dispose();
+                owner?.Dispose();
+                throw;
+            }
+            owner?.Dispose();
+            SendAsyncRaw(userToken, rented, writer);
+        }
+
         public void SendAsync(string sessionID, ISocketProtocal protocal)
         {
             if (protocal == null) return;
