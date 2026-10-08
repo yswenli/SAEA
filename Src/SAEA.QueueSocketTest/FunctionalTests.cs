@@ -37,6 +37,12 @@ namespace SAEA.QueueSocketTest
             await SafeAsync("FT12", () => { FT12_BatcherCapacityBalanced(); return Task.CompletedTask; });
             await SafeAsync("FT13", () => { FT13_BatcherConcatenationExact(); return Task.CompletedTask; });
             await SafeAsync("FT-Pool-Batch", () => { FT_PoolBatchMergeOwnershipConservation(); return Task.CompletedTask; });
+            await SafeAsync("FT-Pool-1", FT_Pool1_OwnershipTransferAsync);
+            await SafeAsync("FT-Pool-2", FT_Pool2_PoolConservationAsync);
+            await SafeAsync("FT-Pool-3", FT_Pool3_BoundedQueueOverflowAsync);
+            await SafeAsync("FT-Pool-4", FT_Pool4_DispatchMergedWriterAsync);
+            await SafeAsync("FT-Pool-5", FT_Pool5_ClientBatchMergeAsync);
+            await SafeAsync("FT-Pool-6", FT_Pool6_BatcherClearDrainsAsync);
         }
 
         static async Task SafeAsync(string name, Func<Task> test)
@@ -633,6 +639,168 @@ namespace SAEA.QueueSocketTest
             var rejected = new PooledBufferWriter(16);
             TestHarness.Expect(!batcher.Insert(rejected), "FT-Pool-Batch insert after dispose returns false");
             rejected.Dispose();
+        }
+
+        static async Task<bool> PoolBalancedAsync(MemoryPoolStatistics before, int timeoutMs = 3000)
+        {
+            return await TestHarness.WaitUntil(() =>
+            {
+                var after = MemoryPoolManager.GetStatistics();
+                return (after.SmallPoolRented - before.SmallPoolRented) == (after.SmallPoolReturned - before.SmallPoolReturned)
+                    && (after.MediumPoolRented - before.MediumPoolRented) == (after.MediumPoolReturned - before.MediumPoolReturned)
+                    && (after.LargePoolRented - before.LargePoolRented) == (after.LargePoolReturned - before.LargePoolReturned);
+            }, timeoutMs);
+        }
+
+        static async Task FT_Pool1_OwnershipTransferAsync()
+        {
+            var before = MemoryPoolManager.GetStatistics();
+
+            var buffer = MemoryPoolManager.RentPooled(1024);
+            var msg = QueueMsgPool.Rent();
+            msg.SetOwner(buffer);
+
+            TestHarness.Expect(msg.Data.Length == buffer.Length, "FT-Pool-1 SetOwner binds Data to owner");
+
+            var detached = msg.DetachOwner();
+            TestHarness.Expect(ReferenceEquals(detached, buffer), "FT-Pool-1 DetachOwner returns the same owner");
+
+            msg.Dispose();
+            TestHarness.Expect(detached.Length == buffer.Length, "FT-Pool-1 Dispose after detach leaves owner alive");
+
+            detached.Dispose();
+            QueueMsgPool.Return(msg);
+
+            TestHarness.Expect(await PoolBalancedAsync(before), "FT-Pool-1 ownership transfer balanced");
+        }
+
+        static async Task FT_Pool2_PoolConservationAsync()
+        {
+            var before = MemoryPoolManager.GetStatistics();
+
+            var buffers = new List<PooledBuffer>();
+            for (int i = 0; i < 64; i++) buffers.Add(MemoryPoolManager.RentPooled(256 + i * 64));
+            foreach (var b in buffers) b.Dispose();
+
+            var writer = new PooledBufferWriter(512);
+            writer.Advance(200);
+            writer.Dispose();
+
+            TestHarness.Expect(await PoolBalancedAsync(before), "FT-Pool-2 local rents balanced");
+        }
+
+        static async Task FT_Pool3_BoundedQueueOverflowAsync()
+        {
+            var before = MemoryPoolManager.GetStatistics();
+
+            var mq = new MessageQueue(4);
+
+            for (int i = 0; i < 4; i++)
+            {
+                var b = MemoryPoolManager.RentPooled(128);
+                TestHarness.Expect(mq.TryEnqueue("ft-pool3", b), "FT-Pool-3 enqueue within capacity " + i);
+            }
+
+            var extra = MemoryPoolManager.RentPooled(128);
+            TestHarness.Expect(!mq.TryEnqueue("ft-pool3", extra), "FT-Pool-3 overflow rejected without throw");
+            extra.Dispose();
+
+            for (int i = 0; i < 4; i++)
+            {
+                var ok = mq.TryDequeue("ft-pool3", out var d) && d != null;
+                TestHarness.Expect(ok, "FT-Pool-3 dequeue " + i);
+                if (d != null) d.Dispose();
+            }
+
+            mq.Dispose();
+
+            TestHarness.Expect(await PoolBalancedAsync(before), "FT-Pool-3 bounded queue balanced");
+        }
+
+        static async Task FT_Pool4_DispatchMergedWriterAsync()
+        {
+            var topic = QueueServerHarness.NewTopic("ft-pool4");
+            int n = 200;
+
+            var r1 = new ConcurrentDictionary<string, byte>();
+            var r2 = new ConcurrentDictionary<string, byte>();
+
+            var c1 = QueueServerHarness.CreateConsumer(topic);
+            c1.OnMessage += obj => { try { r1.TryAdd(Encoding.UTF8.GetString(obj.Data.Span), 0); } finally { obj.Dispose(); } };
+
+            var c2 = QueueServerHarness.CreateConsumer(topic);
+            c2.OnMessage += obj => { try { r2.TryAdd(Encoding.UTF8.GetString(obj.Data.Span), 0); } finally { obj.Dispose(); } };
+
+            await Task.Delay(SettleMs);
+
+            var producer = QueueServerHarness.CreateProducer();
+            try
+            {
+                for (int i = 0; i < n; i++) producer.Publish(topic, "ft-pool4-" + i);
+
+                TestHarness.Expect(await TestHarness.WaitUntil(() => r1.Count >= n, 30000), "FT-Pool-4 sub1 received all", "r1=" + r1.Count);
+                TestHarness.Expect(await TestHarness.WaitUntil(() => r2.Count >= n, 30000), "FT-Pool-4 sub2 received all", "r2=" + r2.Count);
+            }
+            finally
+            {
+                producer.Dispose();
+                c1.Dispose();
+                c2.Dispose();
+            }
+        }
+
+        static async Task FT_Pool5_ClientBatchMergeAsync()
+        {
+            var topic = QueueServerHarness.NewTopic("ft-pool5");
+            int n = 300;
+
+            var received = new ConcurrentDictionary<string, byte>();
+            var consumer = QueueServerHarness.CreateConsumer(topic);
+            consumer.OnMessage += obj => { try { received.TryAdd(Encoding.UTF8.GetString(obj.Data.Span), 0); } finally { obj.Dispose(); } };
+
+            await Task.Delay(SettleMs);
+
+            var producer = QueueServerHarness.CreateProducer();
+            long sent = 0;
+            producer.OnMessagesSent += c => Interlocked.Add(ref sent, c);
+
+            try
+            {
+                for (int i = 0; i < n; i++) producer.Publish(topic, "ft-pool5-" + i);
+
+                TestHarness.Expect(await TestHarness.WaitUntil(() => Interlocked.Read(ref sent) >= n, 30000), "FT-Pool-5 all client batches submitted", "sent=" + Interlocked.Read(ref sent));
+                TestHarness.Expect(await TestHarness.WaitUntil(() => received.Count >= n, 30000), "FT-Pool-5 merged batches received", "received=" + received.Count);
+            }
+            finally
+            {
+                producer.Dispose();
+                consumer.Dispose();
+            }
+        }
+
+        static async Task FT_Pool6_BatcherClearDrainsAsync()
+        {
+            var before = MemoryPoolManager.GetStatistics();
+
+            int callbacks = 0;
+            var batcher = new PooledBatcher(100, 60000);
+            batcher.OnBatched += (w, c) => { Interlocked.Increment(ref callbacks); w.Dispose(); };
+
+            for (int i = 0; i < 5; i++)
+            {
+                var w = new PooledBufferWriter(64);
+                w.Advance(4);
+                TestHarness.Expect(batcher.Insert(w), "FT-Pool-6 insert " + i);
+            }
+
+            batcher.Clear();
+            TestHarness.Expect(Volatile.Read(ref callbacks) == 0, "FT-Pool-6 clear drains without callback");
+
+            var w2 = new PooledBufferWriter(64);
+            TestHarness.Expect(batcher.Insert(w2), "FT-Pool-6 insert after clear accepted");
+            batcher.Dispose();
+
+            TestHarness.Expect(await PoolBalancedAsync(before), "FT-Pool-6 batcher drain balanced");
         }
     }
 }
