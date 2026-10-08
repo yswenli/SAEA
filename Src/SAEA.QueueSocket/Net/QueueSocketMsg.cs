@@ -31,6 +31,7 @@
 *****************************************************************************/
 using System;
 
+using SAEA.Common.Caching;
 using SAEA.QueueSocket.Type;
 
 namespace SAEA.QueueSocket.Net
@@ -80,15 +81,24 @@ namespace SAEA.QueueSocket.Net
         }
 
         // 定义一个属性Data，用于获取或设置消息的数据
-        public byte[] Data
+        public ReadOnlyMemory<byte> Data
         {
             get; set;
         }
 
-        // 定义一个属性IsPooled，用于标记Data是否来自ArrayPool
-        public bool IsPooled
+        PooledBuffer _owner;
+
+        public void SetOwner(PooledBuffer owner)
         {
-            get; set;
+            _owner = owner;
+            if (owner != null) Data = owner.AsMemory();
+        }
+
+        public PooledBuffer DetachOwner()
+        {
+            var owner = _owner;
+            _owner = null;
+            return owner;
         }
 
         // 构造函数，用于创建一个指定类型的消息
@@ -121,19 +131,10 @@ namespace SAEA.QueueSocket.Net
         // 实现IDisposable接口的Dispose方法，用于释放资源
         public void Dispose()
         {
-            if (this.Data != null)
-            {
-                if (this.IsPooled)
-                {
-                    System.Buffers.ArrayPool<byte>.Shared.Return(this.Data, clearArray: false);
-                }
-                else if (Data.Length > 0)
-                {
-                    Array.Clear(Data, 0, Data.Length);
-                }
-                this.Data = null;
-            }
-            this.IsPooled = false;
+            var owner = _owner;
+            _owner = null;
+            Data = ReadOnlyMemory<byte>.Empty;
+            if (owner != null) owner.Dispose();
             this.Total = this.NameLength = this.TopicLength = 0;
             this.Type = 0;
         }

@@ -137,7 +137,7 @@ namespace SAEA.QueueSocket.Model
 
             _binding.Set(sessionID, pInfo.Name, pInfo.Topic);
 
-            _messageQueue.Enqueue(pInfo.Topic, pInfo.Data);
+            _messageQueue.Enqueue(pInfo.Topic, pInfo.Data.ToArray());
 
             _pNum = _binding.GetPublisherCount();
 

@@ -31,6 +31,7 @@
 *****************************************************************************/
 using System;
 
+using SAEA.Common.Caching;
 using SAEA.QueueSocket.Type;
 
 namespace SAEA.QueueSocket.Model
@@ -46,32 +47,35 @@ namespace SAEA.QueueSocket.Model
 
         public string Topic { get; set; }
 
-        public byte[] Data { get; set; }
+        public ReadOnlyMemory<byte> Data { get; set; }
 
-        /// <summary>
-        /// 标记 Data 是否来自 ArrayPool
-        /// </summary>
-        internal bool IsPooled { get; set; }
+        PooledBuffer _owner;
 
-        /// <summary>
-        /// 释放资源
-        /// </summary>
+        public void SetOwner(PooledBuffer owner)
+        {
+            _owner = owner;
+            if (owner != null) Data = owner.AsMemory();
+        }
+
+        public PooledBuffer DetachOwner()
+        {
+            var owner = _owner;
+            _owner = null;
+            return owner;
+        }
+
         public void Dispose()
         {
-            if (Data != null)
-            {
-                if (IsPooled)
-                {
-                    // 归还到 ArrayPool
-                    System.Buffers.ArrayPool<byte>.Shared.Return(Data, clearArray: false);
-                }
-                else if (Data.Length > 0)
-                {
-                    Array.Clear(Data, 0, Data.Length);
-                }
-                Data = null;
-            }
-            IsPooled = false;
+            var owner = _owner;
+            _owner = null;
+            Data = ReadOnlyMemory<byte>.Empty;
+            if (owner != null) owner.Dispose();
+        }
+
+        internal void Reset()
+        {
+            _owner = null;
+            Data = ReadOnlyMemory<byte>.Empty;
         }
     }
 }

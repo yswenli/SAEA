@@ -60,7 +60,7 @@ namespace SAEA.QueueSocketTest
             var consumer = QueueServerHarness.CreateConsumer(topic);
             consumer.OnMessage += obj =>
             {
-                try { received.TryAdd(Encoding.UTF8.GetString(obj.Data), 0); }
+                try { received.TryAdd(Encoding.UTF8.GetString(obj.Data.Span), 0); }
                 finally { obj.Dispose(); }
             };
 
@@ -215,13 +215,13 @@ namespace SAEA.QueueSocketTest
                     try
                     {
                         var d = obj.Data;
-                        gotLen = d == null ? -1 : d.Length;
-                        identical = d != null && d.Length == size;
+                        gotLen = d.Length;
+                        identical = d.Length == size;
                         if (identical)
                         {
                             for (int i = 0; i < size; i++)
                             {
-                                if (d[i] != payload[i]) { identical = false; break; }
+                                if (d.Span[i] != payload[i]) { identical = false; break; }
                             }
                         }
                         delivered = true;
@@ -375,12 +375,12 @@ namespace SAEA.QueueSocketTest
                     ok = m.Type == QueueSocketMsgType.Data
                         && m.Name == name
                         && m.Topic == topic
-                        && (m.Data == null ? 0 : m.Data.Length) == data.Length;
+                        && m.Data.Length == data.Length;
                     if (ok && data.Length > 0)
                     {
                         for (int i = 0; i < data.Length; i++)
                         {
-                            if (m.Data[i] != data[i]) { ok = false; break; }
+                            if (m.Data.Span[i] != data[i]) { ok = false; break; }
                         }
                     }
                     if (ok) m.Dispose();

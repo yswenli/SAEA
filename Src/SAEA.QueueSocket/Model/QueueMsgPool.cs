@@ -54,8 +54,7 @@ namespace SAEA.QueueSocket.Model
                 msg.Type = QueueSocketMsgType.Ping;
                 msg.Name = null;
                 msg.Topic = null;
-                msg.Data = null;
-                msg.IsPooled = false;
+                msg.Reset();
                 return msg;
             }
             return new QueueMsg();

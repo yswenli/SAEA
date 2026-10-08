@@ -36,6 +36,7 @@ using SAEA.Sockets.Interface;
 
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace SAEA.QueueSocket.Net
@@ -209,9 +210,16 @@ namespace SAEA.QueueSocket.Net
                 tlen = tp.Length;
                 total += tlen;
             }
-            if (queueSocketMsg.Data != null && queueSocketMsg.Data.Length > 0)
+            if (queueSocketMsg.Data.Length > 0)
             {
-                d = queueSocketMsg.Data;
+                if (MemoryMarshal.TryGetArray(queueSocketMsg.Data, out var dataSegment) && dataSegment.Offset == 0 && dataSegment.Count == dataSegment.Array.Length)
+                {
+                    d = dataSegment.Array;
+                }
+                else
+                {
+                    d = queueSocketMsg.Data.ToArray();
+                }
                 total += d.Length;
             }
 
