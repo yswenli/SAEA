@@ -90,7 +90,7 @@
 
 - 不改内嵌第三方：`Src/SAEA.Audio.Net/Base/**`（NAudio/NSpeex）、`Src/SAEA.Common/Newtonsoft.Json/**`。
 - 不改非网络工具类（`SAEA.Common` 的 `FileHelper`/`SerializeHelper`/`ApiHelper` 等）。
-- 不改测试工程源码（仅新增回归测试）；不改 `Src/packages/**`；不改 README。
+- 测试工程与 README **不做语义改动**；仅允许因出参切片（`Data`→`ReadOnlyMemory<byte>`）所需的**最小兼容改动**，并按计划新增回归测试（FT-Pool-1..6）。不改 `Src/packages/**`。
 - 不修改共享的 `Batcher`/`ClassificationBatcher` 既有行为（MessageSocket/WebSocket 在用）。
 - 不引入 `System.IO.Pipelines`；保持 netstandard2.0 可编译。
 - 不追求「彻底删除所有 Span/Memory 兼容分支」；兼容分支可保留但不得位于热路径。
@@ -223,6 +223,8 @@ public void Send(ReadOnlySpan<byte> data)
 
 效果：消除 `data.ToArray() :584` 的逐次分配；同步发送与在途异步发送经同一 `WaitWrite` 门串行，避免交错。`ProcessReceived` 的兼容分支 `:464 dataSpan.ToArray()` 保留（非 owner 型订阅者需要 `byte[]`），不计入热路径。
 
+> **写门语义勘误（深审）**：`BaseUserToken._writeAutoResetEvent` 是 `new AutoResetEvent(true)`（单令牌、非计数信号量），且 `ReleaseWrite()` 由**多来源**调用：`ProcessSended`、发送超时任务、`BaseUserToken.Clear()`、`UserTokenPool` 入池。因此该门是「尽力串行」而非严格互斥：在同步 `Send` 持门期间若外部 `Clear()`/超时释放了令牌，仍可能出现异步写入并发。故：(a) 实现前必须确认 `ReleaseWrite` 各调用点的时序，必要时把写门改为真正的计数/互斥机制；(b) FT-Pool-6 只能验证「常态化下不交错」，不能宣称绝对无竞态；(c) 同步 `Send` 内使用 `_userToken` 前需 null 检查（既有 `Send` 可能被断开后调用）。**此点列为待裁决项 Q10。**
+
 ### 3.4 切片化契约
 
 - **编码输入**：`ICoder.Encode` 家族参数由 `byte[]` 放宽为 `ReadOnlyMemory<byte>`（既有 `byte[]` 入参调用方经隐式转换不破坏）。出参属性是真正破坏点。
@@ -255,11 +257,11 @@ public void Send(ReadOnlySpan<byte> data)
 ### 4.2 队列与分发
 
 1. `MessageQueue` 存储类型 `FastQueue<byte[]>` → `FastQueue<PooledBuffer>`（或 `FastQueue<IDisposable+值>`）。入队即所有权转让（R2）。队列满/丢弃路径必须 `Dispose`。
-2. `Exchange.DispatchLoop`：
-   - 从 `MessageQueue.TryDequeue` 取 `PooledBuffer`（`AsSpan()` 作为 payload 源）。
-   - 每个订阅者用 `PooledBufferWriter` 写帧（3.4 的 span `WriteFrame`），`nameBytes` 缓存于订阅绑定信息（避免每批次 `GetBytes`），`topicBytes` 已在循环外。
-   - 写完一条消息的全部订阅者帧后立即 `Dispose` 该 payload（R3）。
-   - batch writer `Insert` 进 `PooledClassificationBatcher`；`Insert` 失败要 `Dispose`（R6）。
+2. `Exchange.DispatchLoop`（**基数为「批 × 订阅者」；已按源码核对修正**）：
+   - 每轮先 `messages.Clear()`（已存在 `:209`）并出队至多 `batchSize=1000` 条；`messages` 现为 `List<PooledBuffer>`。
+   - `foreach (sub in currentSubs)` 内：**每个订阅者分配一个 buffer**，其中写入**整批所有消息**的 `Data` 帧（当前 `:248 new byte[bufferSize]`，`:250-253` 循环 `WriteFrame`）。池化后改为 `new PooledBufferWriter(bufferSize)`；`nameBytes` 需按订阅者缓存于 `BindInfo`（避免每批次 `GetBytes`），`topicBytes` 已在循环外。
+   - payload `messages[i]` 被**所有订阅者**读取，故只能在 `foreach (sub)` 循环**结束后**统一 `Dispose`（R3）；**不可**在单订阅者循环内提前归还。
+   - 每个订阅者 writer `Insert` 进 `PooledClassificationBatcher`；`Insert` 返回 `false`（容量满，现网静默丢弃 `buffer`）时必须 `Dispose` 该 writer（R6）。
 3. 回调链：`PooledClassificationBatcher` flush → `Exchange._classificationBatcher_OnBatched(id, writer)` → 事件 → `QServer._exchange_OnBatched(id, writer)` → `_serverSokcet.SendAsync(id, writer.WrittenMemory, writer)`（3.2 owner 重载）。
 4. `Unsubscribe`/`Clear`/`Dispose` 需排空并归还所有 in-flight 缓冲。
 
@@ -415,3 +417,32 @@ public void Send(ReadOnlySpan<byte> data)
 1. **池化批处理器放置**：放入 `SAEA.Common/Caching/`，新增 `PooledBatcher`/`PooledClassificationBatcher`（可复用，不修改旧 `Batcher`/`ClassificationBatcher`）。
 2. **客户端 owner 异步重载**：纳入——客户端默认走 IOCP，故 `IClientSocket`/`IocpClientSocket` 增加 owner 重载，并给同步 `Send` 加 `WaitWrite` 写门（3.3）。
 3. **`SAEA.Common` 非网络工具类**（`FileHelper`/`SerializeHelper` 等）：**跳过**，仅做网络热路径。
+
+---
+
+## 十四、深度审查修正与待裁决项（2026-09-23）
+
+对初稿逐条对照源码复核后的结论。**已核对为真**的事实直接修正设计；**影响范围/策略**的项列为待裁决 Q。
+
+### 14.1 已核实并已修正设计
+
+1. **分发缓冲基数**：已按 `Exchange.cs:228-273` 修正 4.2——基数为「批 × 订阅者」，payload 归还点在订阅者循环之后（见上方修订）。
+2. **`QueueMsgPool.Rent` 编译破坏**：`QueueMsgPool.cs:57 msg.Data = null` 在 `Data` 改 `ReadOnlyMemory<byte>` 后**无法编译**（struct 不能赋 null）。必须改为 `default`/`ReadOnlyMemory<byte>.Empty`，并复位新增的 owner 字段（`IsPooled`/`PooledBuffer`）。
+3. **`QueueMsg.Dispose` / `QueueSocketMsg.Dispose` 跨池**：二者现用 `ArrayPool<byte>.Shared.Return`（`QueueMsg.cs:66`、`QueueSocketMsg.cs:128`），与 `MemoryPoolManager` 分层池**不一致**。池化后 owner 必须改为 `PooledBuffer`（持 `_pool`）或 `MemoryPoolManager`，统一归还；`DetachOwner()` 后 `Dispose` 必须 no-op。
+4. **`DecodeTo` 确为多帧循环**（`QueueCoder.cs:422 while`），且 `GetQueueResult` 每次 `new List<QueueMsg>()`（`:95`）。payload 在 `:506 data.Slice(...).ToArray()` 逐帧分配。池化需在循环内逐帧 `RentPooled`；列表池化需 `QServer` 改用 `QueueMsgListPool.Return(list)`（现为 `list.Clear() :135`，会丢弃对象）。
+5. **`AcceptPublish` 是 fire-and-forget**：`Exchange.cs:140 _messageQueue.Enqueue(pInfo.Topic, pInfo.Data)` **丢弃了 `ValueTask<bool>`**。`MessageQueue`/`FastQueue` 为**有界**通道（`BoundedChannelFullMode.Wait`），正常时同步写入成功；但通道关闭时 `TryWrite` 返回 `false` → payload 泄漏。改为存 `PooledBuffer` 后，**入队失败必须归还 owner**（需读取/等待返回值或改为同步 `bool TryEnqueue`）。
+6. **`MessageQueue.Dispose` 泄漏**：仅 `_dic.Clear() :122`，**不排空、不 Dispose 队列内元素**。池化 payload 会泄漏。必须在 `Dispose` 中排空每个 `FastQueue` 并 `Dispose` 全部剩余 `PooledBuffer`；`FastQueue.Dispose` 需提供排空能力（现仅 `Complete`）。
+7. **无「丢弃」路径，只有背压**：`MessageQueue.Enqueue` 满时 `WaitToWriteAsync` 阻塞等待，**不存在主动丢弃**。文中「队列满/丢弃路径必须 Dispose」应改为「背压等待 + 关闭时归还」；`Exchange.Clear/Dispose/SessionClosed` 及 `_dispatchTasks` 中的 in-flight 缓冲需排空归还。
+8. **`GetInstance` 单例解耦**：`Exchange` 现复用全局 `ClassificationBatcher.GetInstance(5000,100)`（`:110`），而 `MessageSocket` 也调 `GetInstance`（先到者参数生效）。改用**独立** `PooledClassificationBatcher` 同时解除跨子系统参数耦合——列为收益。
+9. **`Batcher` 静默丢弃**：非泛型 `Batcher.Dispose → Clear` 直接丢弃在册项、不触发 `OnBatched`。故 `PooledBatcher.Clear/Dispose` 必须显式 `Dispose` 在册 writer（已在 3.5 声明），并覆盖「容量满 `Insert==false`」分支。
+10. **`Stream*` 发送仍有 `ToArray()`**：`StreamClientSocket.cs:337/365`、`StreamServerSocket.cs:464/490`。第六节表补充为 Sockets 范围。
+11. **内存驻留风险**：池化 writer 在 `PooledBatcher` 队列中最多驻留 `size=5000` 项 × 连接数（每项为一个「批 × 订阅者」缓冲）。现网 `byte[]` 同样驻留，故不更差；但池化数组**不被 GC 回收**，长时高堆积会抬高峰值 RSS。实施时需评估并在 `PooledBatcher` 加容量/字节上限。
+12. **构建/测试调用形式**：`SAEA.QueueSocketTest`（net10.0，LangVersion 8.0）以 `-- --functional` / `-- --all` 传参；`SAEA.P2PTest --all` / `--bench-iocp`。DoD 中补充精确命令。
+
+### 14.2 裁决项（已按推荐项默认采纳，可回退）
+
+用户审阅后未逐项裁定，按推荐项默认采纳，实施中如遇阻塞可回退：
+
+- **Q7（测试/文档改动范围）= 采纳 (A)**：`QueueMsg.Data`/`QueueSocketMsg.Data` 改 `ReadOnlyMemory<byte>`，**允许对 `SAEA.QueueSocketTest` 与 README 做最小兼容改动**（仅限 `Data` 的读取方式：`.Span`/`.Length`/`IsEmpty` 替换 `== null`/索引）。2.3 非目标据此修订：允许测试/README 的最小兼容改动，不允许改动测试语义或新增无关测试逻辑。
+- **Q10（客户端写门）= 采纳 (A)**：先收敛写门为严格互斥（`WaitWrite`/`ReleaseWrite` 改为计数/互斥语义，或 `QClient` 自持发送锁），再做同步 `Send` 去 `ToArray()`；正确性优先。
+- **Q11（`IsPooled` 去留）= 采纳「删除/隐藏」**：owner 由 `PooledBuffer` 承载，`QueueMsg.IsPooled`（internal）与 `QueueSocketMsg.IsPooled`（public）删除；破坏面已含于 Q7。
