@@ -378,10 +378,12 @@ namespace SAEA.Sockets.Core.Tcp
                 return;
             }
             bool transferred = false;
+            bool acquired = false;
             try
             {
                 try { _sessionManager.Active(userToken.ID); } catch { }
-                if (userToken.WaitWrite(SocketOption.ActionTimeout) && userToken.Socket != null && userToken.Socket.Connected)
+                acquired = userToken.WaitWrite(SocketOption.ActionTimeout);
+                if (acquired && userToken.Socket != null && userToken.Socket.Connected)
                 {
                     var writeArgs = userToken.WriteArgs;
                     if (writeArgs != null)
@@ -426,12 +428,21 @@ namespace SAEA.Sockets.Core.Tcp
                 {
                     owner?.Dispose();
                     transferred = true;
+                    if (acquired)
+                    {
+                        try { userToken.ReleaseWrite(); } catch { }
+                        acquired = false;
+                    }
                 }
                 OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", ex);
             }
             finally
             {
                 if (!transferred) owner?.Dispose();
+                if (acquired && !transferred)
+                {
+                    try { userToken.ReleaseWrite(); } catch { }
+                }
             }
         }
 
