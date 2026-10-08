@@ -82,9 +82,9 @@ namespace SAEA.Common.Caching
         private static readonly ArrayPool<byte> _mediumPool = ArrayPool<byte>.Create(MediumThreshold, 100);
 
         /// <summary>
-        /// 大型缓冲区池，最大数组长度16MB，每个尺寸桶最大保留4个数组
+        /// 大型缓冲区池，最大数组长度16MB，每个尺寸桶最大保留8个数组
         /// </summary>
-        private static readonly ArrayPool<byte> _largePool = ArrayPool<byte>.Create(LargePoolMaxArrayLength, 4);
+        private static readonly ArrayPool<byte> _largePool = ArrayPool<byte>.Create(LargePoolMaxArrayLength, 8);
 
         /// <summary>
         /// 小型池租用计数
