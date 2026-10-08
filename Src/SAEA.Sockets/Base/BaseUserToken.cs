@@ -40,12 +40,11 @@ namespace SAEA.Sockets.Base
 {
     public class BaseUserToken : IUserToken
     {
-        AutoResetEvent _writeAutoResetEvent = new AutoResetEvent(true);
-        bool _isSending = false;
+        protected readonly SemaphoreSlim _writeSemaphore = new SemaphoreSlim(1, 1);
+        protected bool _isSending = false;
 
         public BaseUserToken()
         {
-            _writeAutoResetEvent = new AutoResetEvent(true);
             Guid = System.Guid.NewGuid().ToString("N");
         }
 
@@ -86,12 +85,13 @@ namespace SAEA.Sockets.Base
 
         public bool WaitWrite(int timeout)
         {
-            return _writeAutoResetEvent.WaitOne(timeout);
+            return _writeSemaphore.Wait(timeout);
         }
 
         public void ReleaseWrite()
         {
-            _writeAutoResetEvent.Set();
+            try { _writeSemaphore.Release(); }
+            catch (SemaphoreFullException) { }
         }
 
         public virtual void Clear()
@@ -99,7 +99,6 @@ namespace SAEA.Sockets.Base
             Socket?.Close();
             try { TakeSendingOwner()?.Dispose(); } catch { }
             Coder?.Clear();
-            _writeAutoResetEvent?.Close();
             ReadArgs?.Dispose();
             WriteArgs?.Dispose();
             Socket = null;

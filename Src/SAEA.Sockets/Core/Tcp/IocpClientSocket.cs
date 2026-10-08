@@ -502,17 +502,24 @@ namespace SAEA.Sockets.Core.Tcp
         {
             try
             {
-                var owner = _userToken.TakeSendingOwner();
-                _userToken.Actived = DateTimeHelper.Now;
-                if (owner != null)
+                var token = _userToken;
+                if (token == null) return;
+                lock (token)
                 {
-                    try { owner.Dispose(); } catch { }
+                    if (!token.IsSending) return;
+                    token.IsSending = false;
+                    var owner = token.TakeSendingOwner();
+                    if (owner != null)
+                    {
+                        try { owner.Dispose(); } catch { }
+                    }
+                    token.Actived = DateTimeHelper.Now;
+                    token.ReleaseWrite();
                 }
-                _userToken.ReleaseWrite();
             }
             catch (Exception ex)
             {
-                OnError?.Invoke(_userToken?.ID ?? "", ex);
+                OnError?.Invoke(_userToken == null ? "" : _userToken.ID, ex);
             }
         }
 
@@ -536,6 +543,7 @@ namespace SAEA.Sockets.Core.Tcp
                     if (userToken.WaitWrite(SocketOption.ActionTimeout))
                     {
                         userToken.SendingOwner = owner;
+                        userToken.IsSending = true;
                         transferred = true;
                         var writeArgs = userToken.WriteArgs;
                         writeArgs.SetBuffer(seg.Array, seg.Offset, seg.Count);
@@ -554,7 +562,7 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 if (transferred)
                 {
-                    userToken.TakeSendingOwner()?.Dispose();
+                    ProcessSended(userToken.WriteArgs);
                 }
                 else
                 {
@@ -562,7 +570,6 @@ namespace SAEA.Sockets.Core.Tcp
                     transferred = true;
                 }
                 OnError?.Invoke(userToken?.ID ?? "", ex);
-                try { userToken?.ReleaseWrite(); } catch { }
                 try { Disconnect(); } catch { }
             }
             finally
@@ -579,6 +586,13 @@ namespace SAEA.Sockets.Core.Tcp
                 OnError?.Invoke("", new Exception("SAEA SocketError:发送失败,当前连接已断开"));
                 return;
             }
+            var userToken = _userToken;
+            if (userToken == null) return;
+            if (!userToken.WaitWrite(SocketOption.ActionTimeout))
+            {
+                OnError?.Invoke($"SAEA SocketError:发送消息时发生异常,{userToken.ID}", new TimeoutException("发送数据超时"));
+                return;
+            }
             try
             {
                 var copy = data.ToArray();
@@ -589,12 +603,15 @@ namespace SAEA.Sockets.Core.Tcp
                     offset += _socket.EndSend(iResult);
                 }
                 while (offset < copy.Length);
-
-                _userToken.Actived = DateTimeHelper.Now;
+                userToken.Actived = DateTimeHelper.Now;
             }
             catch (Exception ex)
             {
                 Disconnect(ex);
+            }
+            finally
+            {
+                userToken.ReleaseWrite();
             }
         }
 

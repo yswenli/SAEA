@@ -349,14 +349,18 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 var token = e.UserToken as IUserToken;
                 if (token == null) return;
-                var owner = token.TakeSendingOwner();
-                if (owner != null)
+                lock (token)
                 {
-                    try { owner.Dispose(); } catch { }
+                    if (!token.IsSending) return;
+                    token.IsSending = false;
+                    var owner = token.TakeSendingOwner();
+                    if (owner != null)
+                    {
+                        try { owner.Dispose(); } catch { }
+                    }
+                    token.Actived = DateTimeHelper.Now;
+                    token.ReleaseWrite();
                 }
-                token.IsSending = false;
-                token.Actived = DateTimeHelper.Now;
-                token.ReleaseWrite();
             }
             catch (Exception ex)
             {
@@ -383,6 +387,7 @@ namespace SAEA.Sockets.Core.Tcp
                     if (writeArgs != null)
                     {
                         userToken.SendingOwner = owner;
+                        userToken.IsSending = true;
                         transferred = true;
                         writeArgs.SetBuffer(seg.Array, seg.Offset, seg.Count);
                         bool asyncPending = userToken.Socket.SendAsync(writeArgs);
@@ -392,7 +397,6 @@ namespace SAEA.Sockets.Core.Tcp
                         }
                         else
                         {
-                            userToken.IsSending = true;
                             Task.Run(async () =>
                             {
                                 await Task.Delay(SocketOption.ActionTimeout);
@@ -401,8 +405,6 @@ namespace SAEA.Sockets.Core.Tcp
                                     if (userToken.IsSending)
                                     {
                                         AbandonSendingOwner(userToken);
-                                        userToken.IsSending = false;
-                                        userToken.ReleaseWrite();
                                     }
                                 }
                             });
@@ -418,7 +420,7 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 if (transferred)
                 {
-                    try { userToken.TakeSendingOwner()?.Dispose(); } catch { }
+                    ProcessSended(userToken.WriteArgs);
                 }
                 else
                 {
@@ -566,6 +568,7 @@ namespace SAEA.Sockets.Core.Tcp
                     if (writeArgs != null && userToken.WaitWrite(SocketOption.ActionTimeout))
                     {
                         writeArgs.SetBuffer(copy, 0, copy.Length);
+                        userToken.IsSending = true;
                         if (!userToken.Socket.SendAsync(writeArgs)) ProcessSended(writeArgs);
                     }
                 }
