@@ -112,6 +112,21 @@ namespace SAEA.Common.Caching
             return await EnqueueAsync(t, (int)timeSpan.TotalMilliseconds);
         }
 
+        /// <summary>
+        /// 尝试入队，队列已满或已关闭时立即返回false
+        /// </summary>
+        /// <param name="t"></param>
+        /// <returns></returns>
+        public bool TryEnqueue(T t)
+        {
+            if (_channel.Writer.TryWrite(t))
+            {
+                Interlocked.Increment(ref _count);
+                return true;
+            }
+            return false;
+        }
+
 
         /// <summary>
         /// 出队

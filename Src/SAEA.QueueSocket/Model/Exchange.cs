@@ -257,6 +257,7 @@ namespace SAEA.QueueSocket.Model
 
                         foreach (var sub in currentSubs)
                         {
+                            PooledBufferWriter writer = null;
                             try
                             {
                                 if (subs.TryGetValue(sub.Key, out var coder))
@@ -277,7 +278,7 @@ namespace SAEA.QueueSocket.Model
                                         {
                                             continue;
                                         }
-                                        var writer = new PooledBufferWriter((int)total);
+                                        writer = new PooledBufferWriter((int)total);
                                         for (int i = 0; i < messages.Count; i++)
                                         {
                                             QueueCoder.WriteFrameTo(writer, QueueSocketMsgType.Data, nameBytes, topicBytes, messages[i].AsSpan());
@@ -287,17 +288,13 @@ namespace SAEA.QueueSocket.Model
                                         {
                                             if (_disposed || !subs.ContainsKey(sub.Key))
                                             {
-                                                writer.Dispose();
                                                 continue;
                                             }
 
                                             if (_pooledBatcher.Insert(sub.Key, writer))
                                             {
+                                                writer = null;
                                                 Interlocked.Add(ref _outNum, messages.Count);
-                                            }
-                                            else
-                                            {
-                                                writer.Dispose();
                                             }
                                         }
                                     }
@@ -305,6 +302,13 @@ namespace SAEA.QueueSocket.Model
                             }
                             catch
                             {
+                            }
+                            finally
+                            {
+                                if (writer != null)
+                                {
+                                    writer.Dispose();
+                                }
                             }
                         }
                     }

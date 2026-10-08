@@ -157,8 +157,6 @@ namespace SAEA.QueueSocket.Model
         public void Dispose()
         {
             _cahce.Clear();
-            _cahce = null;
-
         }
     }
 }

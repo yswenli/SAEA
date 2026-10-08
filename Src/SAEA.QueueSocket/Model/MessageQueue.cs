@@ -54,6 +54,8 @@ namespace SAEA.QueueSocket.Model
 
         private int _maxPendingMsgCount = 10000000;
 
+        private volatile bool _disposed;
+
         /// <summary>
         /// 消息队列
         /// </summary>
@@ -73,15 +75,10 @@ namespace SAEA.QueueSocket.Model
 
         public bool TryEnqueue(string topic, PooledBuffer data)
         {
+            if (_disposed) return false;
             var queue = _dic.GetOrAdd(topic, t => new FastQueue<PooledBuffer>(_maxPendingMsgCount));
-            try
-            {
-                return queue.EnqueueAsync(data).AsTask().GetAwaiter().GetResult();
-            }
-            catch
-            {
-                return false;
-            }
+            if (_disposed) return false;
+            return queue.TryEnqueue(data);
         }
 
 
@@ -132,12 +129,14 @@ namespace SAEA.QueueSocket.Model
 
         public void Dispose()
         {
+            _disposed = true;
             foreach (var queue in _dic.Values)
             {
                 while (queue.TryDequeue(out var payload))
                 {
                     try { payload?.Dispose(); } catch { }
                 }
+                try { queue.Dispose(); } catch { }
             }
             _dic.Clear();
         }
