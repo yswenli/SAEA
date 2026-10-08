@@ -445,14 +445,6 @@ namespace SAEA.Sockets.Core.Udp
                 writer = new PooledBufferWriter(data.Length);
                 data.Span.CopyTo(writer.GetSpan(data.Length));
                 writer.Advance(data.Length);
-                if (!writer.TryGetArray(out rented) || rented.Array == null)
-                {
-                    writer.Dispose();
-                    writer = null;
-                    owner?.Dispose();
-                    return;
-                }
-                owner?.Dispose();
             }
             catch
             {
@@ -461,8 +453,17 @@ namespace SAEA.Sockets.Core.Udp
                     writer.Dispose();
                     writer = null;
                 }
+                owner?.Dispose();
                 throw;
             }
+            if (!writer.TryGetArray(out rented) || rented.Array == null)
+            {
+                writer.Dispose();
+                writer = null;
+                owner?.Dispose();
+                return;
+            }
+            owner?.Dispose();
             SendAsyncRaw(userToken, rented, writer);
         }
 
