@@ -666,9 +666,12 @@ namespace SAEA.QueueSocketTest
             TestHarness.Expect(ReferenceEquals(detached, buffer), "FT-Pool-1 DetachOwner returns the same owner");
 
             msg.Dispose();
-            TestHarness.Expect(detached.Length == buffer.Length, "FT-Pool-1 Dispose after detach leaves owner alive");
+            var afterMsgDispose = MemoryPoolManager.GetStatistics();
+            TestHarness.Expect(afterMsgDispose.SmallPoolReturned == before.SmallPoolReturned, "FT-Pool-1 Dispose after detach leaves owner alive");
 
             detached.Dispose();
+            var afterDetach = MemoryPoolManager.GetStatistics();
+            TestHarness.Expect(afterDetach.SmallPoolReturned == before.SmallPoolReturned + 1, "FT-Pool-1 detached owner returned exactly once");
             QueueMsgPool.Return(msg);
 
             TestHarness.Expect(await PoolBalancedAsync(before), "FT-Pool-1 ownership transfer balanced");
@@ -698,7 +701,9 @@ namespace SAEA.QueueSocketTest
             for (int i = 0; i < 4; i++)
             {
                 var b = MemoryPoolManager.RentPooled(128);
-                TestHarness.Expect(mq.TryEnqueue("ft-pool3", b), "FT-Pool-3 enqueue within capacity " + i);
+                bool enqueued = mq.TryEnqueue("ft-pool3", b);
+                TestHarness.Expect(enqueued, "FT-Pool-3 enqueue within capacity " + i);
+                if (!enqueued) b.Dispose();
             }
 
             var extra = MemoryPoolManager.RentPooled(128);
@@ -762,7 +767,8 @@ namespace SAEA.QueueSocketTest
 
             var producer = QueueServerHarness.CreateProducer();
             long sent = 0;
-            producer.OnMessagesSent += c => Interlocked.Add(ref sent, c);
+            long batches = 0;
+            producer.OnMessagesSent += c => { Interlocked.Increment(ref batches); Interlocked.Add(ref sent, c); };
 
             try
             {
@@ -770,6 +776,7 @@ namespace SAEA.QueueSocketTest
 
                 TestHarness.Expect(await TestHarness.WaitUntil(() => Interlocked.Read(ref sent) >= n, 30000), "FT-Pool-5 all client batches submitted", "sent=" + Interlocked.Read(ref sent));
                 TestHarness.Expect(await TestHarness.WaitUntil(() => received.Count >= n, 30000), "FT-Pool-5 merged batches received", "received=" + received.Count);
+                TestHarness.Expect(Interlocked.Read(ref batches) < n, "FT-Pool-5 publishes merged into fewer batches", "batches=" + Interlocked.Read(ref batches));
             }
             finally
             {
@@ -780,6 +787,8 @@ namespace SAEA.QueueSocketTest
 
         static async Task FT_Pool6_BatcherClearDrainsAsync()
         {
+            await Task.Delay(SettleMs);
+
             var before = MemoryPoolManager.GetStatistics();
 
             int callbacks = 0;
