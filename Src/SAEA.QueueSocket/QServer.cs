@@ -126,13 +126,16 @@ namespace SAEA.QueueSocket
             var userToken = ut;
             var qcoder = (Net.QueueCoder)userToken.Coder;
             var list = qcoder.GetQueueResult(dataSpan);
-            if (list != null && list.Count > 0)
+            if (list != null)
             {
-                foreach (var item in list)
+                if (list.Count > 0)
                 {
-                    Reply(userToken, item);
+                    foreach (var item in list)
+                    {
+                        Reply(userToken, item);
+                    }
                 }
-                list.Clear();
+                QueueMsgListPool.Return(list);
             }
         }
 

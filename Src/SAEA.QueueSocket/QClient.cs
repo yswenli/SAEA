@@ -40,6 +40,7 @@ using SAEA.Common.Caching;
 using SAEA.Common.Threading;
 using SAEA.QueueSocket.Model;
 using SAEA.QueueSocket.Net;
+using SAEA.QueueSocket.Type;
 using SAEA.Sockets;
 using SAEA.Sockets.Handler;
 
@@ -56,6 +57,8 @@ namespace SAEA.QueueSocket
 
         string _name;
 
+        byte[] _nameBytes;
+
         public event Action<QueueMsg> OnMessage;
 
         Net.QueueCoder _queueCoder;
@@ -64,7 +67,7 @@ namespace SAEA.QueueSocket
 
         private AutoResetEvent autoResetEvent = new AutoResetEvent(false);
 
-        Batcher<byte[]> _batcher;
+        PooledBatcher _batcher;
 
         IClientSocket _clientSocket;
 
@@ -106,11 +109,13 @@ namespace SAEA.QueueSocket
 
             _name = name;
 
+            _nameBytes = string.IsNullOrEmpty(name) ? null : Encoding.UTF8.GetBytes(name);
+
             HeartSpan = 60 * 1000;
 
             HeartAsync();
 
-            _batcher = new Batcher<byte[]>(1000, 50); //减小批处理间隔，增大批量大小，提高消费速度
+            _batcher = new PooledBatcher(1000, 50);
 
             _batcher.OnBatched += _batcher_OnBatched;
 
@@ -195,47 +200,25 @@ namespace SAEA.QueueSocket
                 {
                     OnMessage?.Invoke(item);
                 }
-                list.Clear();
+                QueueMsgListPool.Return(list);
             }
         }
 
         /// <summary>
-        /// 消息发送完成事件
+        /// 消息提交事件：消息已提交给 socket 发送（所有权已移交），并非对端已确认收到。
         /// </summary>
         public event Action<int> OnMessagesSent;
 
         /// <summary>
-        /// 批量处理事件
+        /// 批量处理事件。writer 所有权随回调转移给 socket，发送完成后由 socket 释放。
         /// </summary>
-        /// <param name="batcher">批量处理器</param>
-        /// <param name="data">数据列表</param>
-        private void _batcher_OnBatched(IBatcher batcher, List<byte[]> data)
+        /// <param name="writer">合并后的写入器</param>
+        /// <param name="count">本批消息数量</param>
+        private void _batcher_OnBatched(PooledBufferWriter writer, int count)
         {
-            if (data != null && data.Count > 0)
-            {
-                var sentCount = data.Count;
-
-                var totalLength = 0;
-                for (int i = 0; i < data.Count; i++)
-                {
-                    totalLength += data[i].Length;
-                }
-
-                var buffer = new byte[totalLength];
-                var offset = 0;
-                for (int i = 0; i < data.Count; i++)
-                {
-                    var item = data[i];
-                    Buffer.BlockCopy(item, 0, buffer, offset, item.Length);
-                    offset += item.Length;
-                }
-
-                data.Clear();
-
-                _clientSocket.Send(buffer.AsSpan());
-
-                OnMessagesSent?.Invoke(sentCount);
-            }
+            var sentCount = count;
+            _clientSocket.SendAsync(writer.WrittenMemory, writer);
+            OnMessagesSent?.Invoke(sentCount);
         }
 
         /// <summary>
@@ -276,7 +259,16 @@ namespace SAEA.QueueSocket
         /// <param name="content">内容</param>
         public void Publish(string topic, string content)
         {
-            _batcher.Insert(_queueCoder.Publish(_name, topic, Encoding.UTF8.GetBytes(content)));
+            var topicBytes = string.IsNullOrEmpty(topic) ? null : Encoding.UTF8.GetBytes(topic);
+            var contentBytes = Encoding.UTF8.GetBytes(content);
+            var nameLen = _nameBytes == null ? 0 : _nameBytes.Length;
+            var topicLen = topicBytes == null ? 0 : topicBytes.Length;
+            var writer = new PooledBufferWriter(1 + 12 + nameLen + topicLen + contentBytes.Length);
+            QueueCoder.WriteFrameTo(writer, QueueSocketMsgType.Publish, _nameBytes, topicBytes, contentBytes);
+            if (!_batcher.Insert(writer))
+            {
+                writer.Dispose();
+            }
         }
 
         #endregion
