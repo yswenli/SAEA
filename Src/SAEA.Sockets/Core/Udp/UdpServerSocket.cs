@@ -417,14 +417,48 @@ namespace SAEA.Sockets.Core.Udp
 
         public void SendAsync(string sessionID, ReadOnlyMemory<byte> data, IDisposable owner)
         {
-            try
-            {
-                SendAsync(sessionID, data);
-            }
-            finally
+            if (data.Length == 0)
             {
                 owner?.Dispose();
+                return;
             }
+            var userToken = _sessionManager.Get(sessionID);
+            if (userToken == null)
+            {
+                owner?.Dispose();
+                throw new KernelException("Failed to send data,current session does not exist！");
+            }
+            if (data.Length > Model.SocketOption.UDPMaxLength)
+            {
+                owner?.Dispose();
+                throw new ArgumentException("SendAsync Incorrect length of data sent");
+            }
+            ArraySegment<byte> rented;
+            if (MemoryMarshal.TryGetArray(data, out var segment) && segment.Array != null)
+            {
+                SendAsyncRaw(userToken, segment, owner);
+                return;
+            }
+            var writer = new PooledBufferWriter(data.Length);
+            try
+            {
+                data.Span.CopyTo(writer.GetSpan(data.Length));
+                writer.Advance(data.Length);
+                if (!writer.TryGetArray(out rented) || rented.Array == null)
+                {
+                    writer.Dispose();
+                    owner?.Dispose();
+                    return;
+                }
+            }
+            catch
+            {
+                writer.Dispose();
+                owner?.Dispose();
+                throw;
+            }
+            owner?.Dispose();
+            SendAsyncRaw(userToken, rented, writer);
         }
 
         /// <summary>
