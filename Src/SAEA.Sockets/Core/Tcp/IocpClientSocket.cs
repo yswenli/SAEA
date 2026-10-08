@@ -613,6 +613,47 @@ namespace SAEA.Sockets.Core.Tcp
             SendAsyncRaw(rented, writer);
         }
 
+        public void SendAsync(ReadOnlyMemory<byte> data, IDisposable owner)
+        {
+            if (data.Length == 0)
+            {
+                owner?.Dispose();
+                return;
+            }
+            if (MemoryMarshal.TryGetArray(data, out var segment) && segment.Array != null)
+            {
+                SendAsyncRaw(segment, owner);
+                return;
+            }
+            PooledBufferWriter writer = null;
+            ArraySegment<byte> rented;
+            try
+            {
+                writer = new PooledBufferWriter(data.Length);
+                data.Span.CopyTo(writer.GetSpan(data.Length));
+                writer.Advance(data.Length);
+            }
+            catch
+            {
+                if (writer != null)
+                {
+                    writer.Dispose();
+                    writer = null;
+                }
+                owner?.Dispose();
+                throw;
+            }
+            if (!writer.TryGetArray(out rented) || rented.Array == null)
+            {
+                writer.Dispose();
+                writer = null;
+                owner?.Dispose();
+                return;
+            }
+            owner?.Dispose();
+            SendAsyncRaw(rented, writer);
+        }
+
         public void SendAsync(ISocketProtocal protocal)
         {
             if (protocal == null) return;

@@ -348,6 +348,18 @@ namespace SAEA.Sockets.Core.Tcp
             });
         }
 
+        public void SendAsync(ReadOnlyMemory<byte> data, IDisposable owner)
+        {
+            try
+            {
+                SendAsync(data);
+            }
+            finally
+            {
+                owner?.Dispose();
+            }
+        }
+
         /// <summary>
         /// 编码并发送协议对象。编码器优先取 <see cref="Context"/> 中配置的 Unpacker；包装
         /// <see cref="Stream"/> 的构造函数不设置 Context，此时回退到缓存的 <see cref="BaseCoder"/>，

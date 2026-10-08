@@ -115,6 +115,13 @@ namespace SAEA.Sockets
         void SendAsync(ReadOnlyMemory<byte> data);
 
         /// <summary>
+        /// 携带所有权对象的异步发送：发送完成后由实现方归还/释放 <paramref name="owner"/>。
+        /// </summary>
+        /// <param name="data">数据</param>
+        /// <param name="owner">数据的所有者，发送完成或失败时释放</param>
+        void SendAsync(ReadOnlyMemory<byte> data, IDisposable owner);
+
+        /// <summary>
         /// 编码并发送协议对象（零拷贝优先）。
         /// </summary>
         /// <param name="protocal">协议对象</param>

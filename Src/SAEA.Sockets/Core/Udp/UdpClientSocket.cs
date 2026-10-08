@@ -401,6 +401,52 @@ namespace SAEA.Sockets.Core.Udp
             SendAsync(_remoteEndPoint, data);
         }
 
+        public void SendAsync(ReadOnlyMemory<byte> data, IDisposable owner)
+        {
+            if (data.Length == 0)
+            {
+                owner?.Dispose();
+                return;
+            }
+            if (data.Length > Model.SocketOption.UDPMaxLength)
+            {
+                owner?.Dispose();
+                throw new ArgumentOutOfRangeException("SendAsync Incorrect length of data sent");
+            }
+            ArraySegment<byte> rented;
+            if (MemoryMarshal.TryGetArray(data, out var segment) && segment.Array != null)
+            {
+                SendAsyncRaw(_remoteEndPoint, segment, owner);
+                return;
+            }
+            PooledBufferWriter writer = null;
+            try
+            {
+                writer = new PooledBufferWriter(data.Length);
+                data.Span.CopyTo(writer.GetSpan(data.Length));
+                writer.Advance(data.Length);
+            }
+            catch
+            {
+                if (writer != null)
+                {
+                    writer.Dispose();
+                    writer = null;
+                }
+                owner?.Dispose();
+                throw;
+            }
+            if (!writer.TryGetArray(out rented) || rented.Array == null)
+            {
+                writer.Dispose();
+                writer = null;
+                owner?.Dispose();
+                return;
+            }
+            owner?.Dispose();
+            SendAsyncRaw(_remoteEndPoint, rented, writer);
+        }
+
         /// <summary>
         /// 异步发送数据（指定远端地址）
         /// </summary>
