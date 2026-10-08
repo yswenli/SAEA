@@ -439,25 +439,30 @@ namespace SAEA.Sockets.Core.Udp
                 SendAsyncRaw(userToken, segment, owner);
                 return;
             }
-            var writer = new PooledBufferWriter(data.Length);
+            PooledBufferWriter writer = null;
             try
             {
+                writer = new PooledBufferWriter(data.Length);
                 data.Span.CopyTo(writer.GetSpan(data.Length));
                 writer.Advance(data.Length);
                 if (!writer.TryGetArray(out rented) || rented.Array == null)
                 {
                     writer.Dispose();
+                    writer = null;
                     owner?.Dispose();
                     return;
                 }
+                owner?.Dispose();
             }
             catch
             {
-                writer.Dispose();
-                owner?.Dispose();
+                if (writer != null)
+                {
+                    writer.Dispose();
+                    writer = null;
+                }
                 throw;
             }
-            owner?.Dispose();
             SendAsyncRaw(userToken, rented, writer);
         }
 
