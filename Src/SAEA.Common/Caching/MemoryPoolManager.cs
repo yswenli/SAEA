@@ -228,6 +228,21 @@ namespace SAEA.Common.Caching
         }
 
         /// <summary>
+        /// 记录一次由 <see cref="PooledBuffer"/> 归还的缓冲区计数，使 RentPooled 路径的租用/归还守恒。
+        /// </summary>
+        /// <param name="tier">归还缓冲区所属分级</param>
+        internal static void NotifyReturned(BufferSizeTier tier)
+        {
+            switch (tier)
+            {
+                case BufferSizeTier.Small: Interlocked.Increment(ref _smallPoolReturned); break;
+                case BufferSizeTier.Medium: Interlocked.Increment(ref _mediumPoolReturned); break;
+                case BufferSizeTier.Large: Interlocked.Increment(ref _largePoolReturned); break;
+                default: Interlocked.Increment(ref _smallPoolReturned); break;
+            }
+        }
+
+        /// <summary>
         /// 从内存池租用指定大小的池化缓冲区
         /// </summary>
         /// <param name="size">需要租用的缓冲区大小（字节）</param>

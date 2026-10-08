@@ -36,6 +36,7 @@ namespace SAEA.QueueSocketTest
             await SafeAsync("FT11", () => { FT11_BatchEncodeMatchesPerFrame(); return Task.CompletedTask; });
             await SafeAsync("FT12", () => { FT12_BatcherCapacityBalanced(); return Task.CompletedTask; });
             await SafeAsync("FT13", () => { FT13_BatcherConcatenationExact(); return Task.CompletedTask; });
+            await SafeAsync("FT-Pool-Batch", () => { FT_PoolBatchMergeOwnershipConservation(); return Task.CompletedTask; });
         }
 
         static async Task SafeAsync(string name, Func<Task> test)
@@ -552,6 +553,80 @@ namespace SAEA.QueueSocketTest
 
             TestHarness.Expect(ok, "FT13 non-generic batcher concatenation exact", actual == null ? "no flush" : "expected=" + expected.Count + " actual=" + actual.Length);
             batcher.Dispose();
+        }
+
+        static void FT_PoolBatchMergeOwnershipConservation()
+        {
+            var payload1 = Encoding.UTF8.GetBytes("pool-batch-A");
+            var payload2 = Encoding.UTF8.GetBytes("pool-batch-BB");
+            var expected = new List<byte>();
+            expected.AddRange(payload1);
+            expected.AddRange(payload2);
+
+            var before = MemoryPoolManager.GetStatistics();
+
+            var captured = new TaskCompletionSource<PooledBufferWriter>();
+            int capturedCount = -1;
+            var batcher = new PooledBatcher(2, 100);
+            batcher.OnBatched += (w, count) =>
+            {
+                capturedCount = count;
+                captured.TrySetResult(w);
+            };
+
+            var w1 = new PooledBufferWriter(64);
+            var s1 = w1.GetSpan(payload1.Length);
+            new ReadOnlySpan<byte>(payload1).CopyTo(s1);
+            w1.Advance(payload1.Length);
+
+            var w2 = new PooledBufferWriter(64);
+            var s2 = w2.GetSpan(payload2.Length);
+            new ReadOnlySpan<byte>(payload2).CopyTo(s2);
+            w2.Advance(payload2.Length);
+
+            TestHarness.Expect(batcher.Insert(w1), "FT-Pool-Batch insert w1 accepted");
+            TestHarness.Expect(batcher.Insert(w2), "FT-Pool-Batch insert w2 accepted");
+
+            PooledBufferWriter merged = null;
+            if (captured.Task.Wait(2000)) merged = captured.Task.Result;
+
+            TestHarness.Expect(merged != null, "FT-Pool-Batch callback fired");
+            TestHarness.Expect(capturedCount == 2, "FT-Pool-Batch merged count is 2", "count=" + capturedCount);
+
+            bool exact = merged != null;
+            if (exact)
+            {
+                var span = merged.WrittenSpan;
+                exact = span.Length == expected.Count;
+                if (exact)
+                {
+                    for (int i = 0; i < expected.Count; i++)
+                    {
+                        if (span[i] != expected[i]) { exact = false; break; }
+                    }
+                }
+            }
+            TestHarness.Expect(exact, "FT-Pool-Batch merged bytes exact", merged == null ? "no merged writer" : "len=" + merged.WrittenSpan.Length + " expected=" + expected.Count);
+
+            if (merged != null) merged.Dispose();
+            batcher.Dispose();
+
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+
+            bool conserved = TestHarness.WaitUntil(() =>
+            {
+                var after = MemoryPoolManager.GetStatistics();
+                return (after.SmallPoolRented - before.SmallPoolRented) == (after.SmallPoolReturned - before.SmallPoolReturned);
+            }, 2000).GetAwaiter().GetResult();
+
+            var final = MemoryPoolManager.GetStatistics();
+            TestHarness.Expect(conserved, "FT-Pool-Batch small pool rented == returned", "rented+" + (final.SmallPoolRented - before.SmallPoolRented) + " returned+" + (final.SmallPoolReturned - before.SmallPoolReturned));
+
+            var rejected = new PooledBufferWriter(16);
+            TestHarness.Expect(!batcher.Insert(rejected), "FT-Pool-Batch insert after dispose returns false");
+            rejected.Dispose();
         }
     }
 }

@@ -96,6 +96,7 @@ namespace SAEA.Common.Caching
             if (!_disposed)
             {
                 _pool.Return(Buffer);
+                MemoryPoolManager.NotifyReturned(Tier);
                 _disposed = true;
             }
         }
