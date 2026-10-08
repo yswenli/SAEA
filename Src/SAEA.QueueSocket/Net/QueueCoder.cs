@@ -82,6 +82,11 @@ namespace SAEA.QueueSocket.Net
         /// </summary>
         /// <param name="data">待解析的字节数组</param>
         /// <returns>解析后的队列消息列表</returns>
+        /// <remarks>
+        /// 返回的 List 与其中的 QueueMsg（含 Data 背衬缓冲）均来自对象池。
+        /// 调用方必须在处理完成后调用 QueueMsgListPool.Return(list) 归还，
+        /// 且归还后不得再持有其中的 QueueMsg 或 Data 引用，否则会导致池泄漏或数据被复用。
+        /// </remarks>
         public List<QueueMsg> GetQueueResult(byte[] data)
         {
             return GetQueueResult(data.AsSpan());
