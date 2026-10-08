@@ -132,11 +132,11 @@ namespace SAEA.QueueSocket.Model
             _disposed = true;
             foreach (var queue in _dic.Values)
             {
+                try { queue.Dispose(); } catch { }
                 while (queue.TryDequeue(out var payload))
                 {
                     try { payload?.Dispose(); } catch { }
                 }
-                try { queue.Dispose(); } catch { }
             }
             _dic.Clear();
         }

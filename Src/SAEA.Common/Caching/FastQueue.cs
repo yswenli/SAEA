@@ -190,7 +190,6 @@ namespace SAEA.Common.Caching
         public void Dispose()
         {
             _channel.Writer.Complete();
-            _channel.Writer.Complete();
         }
 
     }
