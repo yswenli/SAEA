@@ -52,12 +52,14 @@ namespace SAEA.QueueSocket.Model
         object _syncLocker = new object();
 
         // 分类批量打包器
-        ClassificationBatcher _classificationBatcher;
+        PooledClassificationBatcher _pooledBatcher;
+
+        private readonly ConcurrentDictionary<string, byte[]> _nameBytesCache = new ConcurrentDictionary<string, byte[]>();
 
         /// <summary>
         /// 分类批量打事件
         /// </summary>
-        public event OnClassificationBatchedHandler OnBatched;
+        public event Action<string, PooledBufferWriter> OnBatched;
 
         /// <summary>
         /// 获取同步锁对象
@@ -107,9 +109,9 @@ namespace SAEA.QueueSocket.Model
             _messageQueue = new MessageQueue(maxPendingMsgCount);
 
             // 优化：将批处理超时时间从20ms改为100ms，降低CPU使用率，同时保持批量大小5000以提高吞吐量
-            _classificationBatcher = ClassificationBatcher.GetInstance(5000, 100);
+            _pooledBatcher = new PooledClassificationBatcher(5000, 100);
 
-            _classificationBatcher.OnBatched += _classificationBatcher_OnBatched;
+            _pooledBatcher.OnBatched += _pooledBatcher_OnBatched;
 
             _subscribers = new ConcurrentDictionary<string, ConcurrentDictionary<string, Net.QueueCoder>>();
 
@@ -120,10 +122,25 @@ namespace SAEA.QueueSocket.Model
         /// 分类批量打事件处理程序
         /// </summary>
         /// <param name="id">分类ID</param>
-        /// <param name="data">数据</param>
-        private void _classificationBatcher_OnBatched(string id, byte[] data)
+        /// <param name="writer">写入器</param>
+        /// <param name="count">消息数量</param>
+        private void _pooledBatcher_OnBatched(string id, PooledBufferWriter writer, int count)
         {
-            OnBatched?.Invoke(id, data);
+            var handler = OnBatched;
+            if (handler != null)
+            {
+                handler(id, writer);
+            }
+            else
+            {
+                writer.Dispose();
+            }
+        }
+
+        private byte[] GetNameBytes(string sessionID, string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+            return _nameBytesCache.GetOrAdd(sessionID, n => Encoding.UTF8.GetBytes(name));
         }
 
         /// <summary>
@@ -137,7 +154,12 @@ namespace SAEA.QueueSocket.Model
 
             _binding.Set(sessionID, pInfo.Name, pInfo.Topic);
 
-            _messageQueue.Enqueue(pInfo.Topic, pInfo.Data.ToArray());
+            var payload = pInfo.DetachOwner();
+            if (payload != null && !_messageQueue.TryEnqueue(pInfo.Topic, payload))
+            {
+                payload.Dispose();
+            }
+            pInfo.Dispose();
 
             _pNum = _binding.GetPublisherCount();
 
@@ -162,6 +184,11 @@ namespace SAEA.QueueSocket.Model
                 {
                     _binding.Set(sessionID, sInfo.Name, sInfo.Topic, false);
 
+                    if (!string.IsNullOrEmpty(sInfo.Name))
+                    {
+                        _nameBytesCache[sessionID] = Encoding.UTF8.GetBytes(sInfo.Name);
+                    }
+
                     _cNum = _binding.GetSubscriberCount();
 
                     var topicSubscribers = _subscribers.GetOrAdd(sInfo.Topic,
@@ -185,7 +212,7 @@ namespace SAEA.QueueSocket.Model
             const int maxWaitTime = 50;
             var stopwatch = new System.Diagnostics.Stopwatch();
             var topicBytes = string.IsNullOrEmpty(topic) ? null : Encoding.UTF8.GetBytes(topic);
-            var messages = new List<byte[]>();
+            var messages = new List<PooledBuffer>();
 
             while (true)
             {
@@ -217,9 +244,10 @@ namespace SAEA.QueueSocket.Model
                             continue;
                         }
 
-                        if (msg != null && msg.Length > 0)
+                        if (msg != null)
                         {
-                            messages.Add(msg);
+                            if (msg.Length > 0) messages.Add(msg);
+                            else msg.Dispose();
                         }
                     }
 
@@ -236,32 +264,40 @@ namespace SAEA.QueueSocket.Model
                                     var bindInfo = _binding.GetBingInfo(sub.Key);
                                     if (bindInfo != null)
                                     {
-                                        var nameBytes = string.IsNullOrEmpty(bindInfo.Name) ? null : Encoding.UTF8.GetBytes(bindInfo.Name);
-                                        var fixedLen = 1 + 12 + (nameBytes == null ? 0 : nameBytes.Length) + (topicBytes == null ? 0 : topicBytes.Length);
+                                        var nameBytes = GetNameBytes(sub.Key, bindInfo.Name);
+                                        var nameLen = nameBytes == null ? 0 : nameBytes.Length;
+                                        var topicLen = topicBytes == null ? 0 : topicBytes.Length;
 
-                                        long bufferSize = 0;
+                                        long total = 0;
                                         for (int i = 0; i < messages.Count; i++)
                                         {
-                                            bufferSize += fixedLen + messages[i].Length;
+                                            total += 1 + 12 + nameLen + topicLen + messages[i].Length;
                                         }
-
-                                        var buffer = new byte[bufferSize];
-                                        var bufOffset = 0;
+                                        if (total <= 0 || total > int.MaxValue)
+                                        {
+                                            continue;
+                                        }
+                                        var writer = new PooledBufferWriter((int)total);
                                         for (int i = 0; i < messages.Count; i++)
                                         {
-                                            bufOffset = QueueCoder.WriteFrame(buffer, bufOffset, QueueSocketMsgType.Data, nameBytes, topicBytes, messages[i]);
+                                            QueueCoder.WriteFrameTo(writer, QueueSocketMsgType.Data, nameBytes, topicBytes, messages[i].AsSpan());
                                         }
 
                                         lock (_syncLocker)
                                         {
                                             if (_disposed || !subs.ContainsKey(sub.Key))
                                             {
+                                                writer.Dispose();
                                                 continue;
                                             }
 
-                                            if (_classificationBatcher.Insert(sub.Key, buffer))
+                                            if (_pooledBatcher.Insert(sub.Key, writer))
                                             {
                                                 Interlocked.Add(ref _outNum, messages.Count);
+                                            }
+                                            else
+                                            {
+                                                writer.Dispose();
                                             }
                                         }
                                     }
@@ -276,6 +312,13 @@ namespace SAEA.QueueSocket.Model
                 catch
                 {
                     await Task.Delay(10);
+                }
+                finally
+                {
+                    for (int i = 0; i < messages.Count; i++)
+                    {
+                        try { messages[i].Dispose(); } catch { }
+                    }
                 }
             }
         }
@@ -330,6 +373,8 @@ namespace SAEA.QueueSocket.Model
                     }
                     _binding.Remove(sessionID);
                 }
+
+                _nameBytesCache.TryRemove(sessionID, out var _);
             }
         }
 
@@ -391,7 +436,8 @@ namespace SAEA.QueueSocket.Model
                     }
                 }
 
-                _classificationBatcher.Clear(sessionID);
+                _pooledBatcher.Clear(sessionID);
+                _nameBytesCache.TryRemove(sessionID, out var _);
             }
         }
 
@@ -406,9 +452,9 @@ namespace SAEA.QueueSocket.Model
 
                 _disposed = true;
 
-                if (_classificationBatcher != null)
+                if (_pooledBatcher != null)
                 {
-                    _classificationBatcher.OnBatched -= _classificationBatcher_OnBatched;
+                    _pooledBatcher.OnBatched -= _pooledBatcher_OnBatched;
                 }
 
                 if (_subscribers != null)
@@ -419,12 +465,17 @@ namespace SAEA.QueueSocket.Model
                         {
                             foreach (var id in subscribers.Keys)
                             {
-                                _classificationBatcher.Clear(id);
+                                _pooledBatcher.Clear(id);
                             }
                         }
                     }
 
                     _subscribers.Clear();
+                }
+
+                if (_pooledBatcher != null)
+                {
+                    _pooledBatcher.Dispose();
                 }
 
                 // 清理分发任务字典

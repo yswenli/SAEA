@@ -33,6 +33,7 @@ using System;
 using System.Collections.Generic;
 
 using SAEA.Common;
+using SAEA.Common.Caching;
 using SAEA.Common.Threading;
 using SAEA.QueueSocket.Model;
 using SAEA.QueueSocket.Net;
@@ -95,11 +96,10 @@ namespace SAEA.QueueSocket
         /// 批量处理事件
         /// </summary>
         /// <param name="id">会话ID</param>
-        /// <param name="data">数据</param>
-        private void _exchange_OnBatched(string id, byte[] data)
+        /// <param name="writer">写入器</param>
+        private void _exchange_OnBatched(string id, PooledBufferWriter writer)
         {
-            // 使用异步发送，避免阻塞线程
-            _serverSokcet.SendAsync(id, data.AsMemory());
+            _serverSokcet.SendAsync(id, writer.WrittenMemory, writer);
         }
 
         /// <summary>

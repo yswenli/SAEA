@@ -40,7 +40,7 @@ namespace SAEA.QueueSocket.Model
 {
     public class MessageQueue : ISyncBase, IDisposable
     {
-        readonly ConcurrentDictionary<string, FastQueue<byte[]>> _dic;
+        readonly ConcurrentDictionary<string, FastQueue<PooledBuffer>> _dic;
 
         object _syncLocker = new object();
 
@@ -60,21 +60,34 @@ namespace SAEA.QueueSocket.Model
         /// <param name="maxPendingMsgCount">消息队列最大堆积数量，默认10000000</param>
         public MessageQueue(int maxPendingMsgCount = 10000000)
         {
-            _dic = new ConcurrentDictionary<string, FastQueue<byte[]>>();
+            _dic = new ConcurrentDictionary<string, FastQueue<PooledBuffer>>();
             _maxPendingMsgCount = maxPendingMsgCount;
         }
 
 
-        public ValueTask<bool> Enqueue(string topic, byte[] data)
+        public ValueTask<bool> Enqueue(string topic, PooledBuffer data)
         {
-            var queue = _dic.GetOrAdd(topic, t => new FastQueue<byte[]>(_maxPendingMsgCount));
+            var queue = _dic.GetOrAdd(topic, t => new FastQueue<PooledBuffer>(_maxPendingMsgCount));
             return queue.EnqueueAsync(data);
         }
 
-
-        public async ValueTask<byte[]> DequeueAsync(string topic)
+        public bool TryEnqueue(string topic, PooledBuffer data)
         {
-            if (_dic.TryGetValue(topic, out FastQueue<byte[]> queue))
+            var queue = _dic.GetOrAdd(topic, t => new FastQueue<PooledBuffer>(_maxPendingMsgCount));
+            try
+            {
+                return queue.EnqueueAsync(data).AsTask().GetAwaiter().GetResult();
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+
+        public async ValueTask<PooledBuffer> DequeueAsync(string topic)
+        {
+            if (_dic.TryGetValue(topic, out FastQueue<PooledBuffer> queue))
             {
                 if (queue != null)
                 {
@@ -85,10 +98,10 @@ namespace SAEA.QueueSocket.Model
         }
 
 
-        public bool TryDequeue(string topic, out byte[] data)
+        public bool TryDequeue(string topic, out PooledBuffer data)
         {
             data = null;
-            if (_dic.TryGetValue(topic, out FastQueue<byte[]> queue))
+            if (_dic.TryGetValue(topic, out FastQueue<PooledBuffer> queue))
             {
                 if (queue != null)
                 {
@@ -100,14 +113,14 @@ namespace SAEA.QueueSocket.Model
 
 
 
-        public ConcurrentDictionary<string, FastQueue<byte[]>> ToList()
+        public ConcurrentDictionary<string, FastQueue<PooledBuffer>> ToList()
         {
             return _dic;
         }
 
         public long GetCount(string topic)
         {
-            if (_dic.TryGetValue(topic, out FastQueue<byte[]> queue))
+            if (_dic.TryGetValue(topic, out FastQueue<PooledBuffer> queue))
             {
                 if (queue != null)
                 {
@@ -119,6 +132,13 @@ namespace SAEA.QueueSocket.Model
 
         public void Dispose()
         {
+            foreach (var queue in _dic.Values)
+            {
+                while (queue.TryDequeue(out var payload))
+                {
+                    try { payload?.Dispose(); } catch { }
+                }
+            }
             _dic.Clear();
         }
     }
