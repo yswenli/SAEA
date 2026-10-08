@@ -43,6 +43,7 @@ namespace SAEA.QueueSocketTest
             await SafeAsync("FT-Pool-4", FT_Pool4_DispatchMergedWriterAsync);
             await SafeAsync("FT-Pool-5", FT_Pool5_ClientBatchMergeAsync);
             await SafeAsync("FT-Pool-6", FT_Pool6_BatcherClearDrainsAsync);
+            await SafeAsync("FT-Pool-7", FT_Pool7_LargeWriterPooledAsync);
         }
 
         static async Task SafeAsync(string name, Func<Task> test)
@@ -810,6 +811,28 @@ namespace SAEA.QueueSocketTest
             batcher.Dispose();
 
             TestHarness.Expect(await PoolBalancedAsync(before), "FT-Pool-6 batcher drain balanced");
+        }
+
+        static async Task FT_Pool7_LargeWriterPooledAsync()
+        {
+            var before = MemoryPoolManager.GetStatistics();
+
+            int size = 3 * 1024 * 1024;
+            var first = MemoryPoolManager.RentPooled(size);
+            TestHarness.Expect(first.Tier == BufferSizeTier.Large, "FT-Pool-7 3MB rents from large tier");
+            TestHarness.Expect(first.Capacity >= size, "FT-Pool-7 large capacity covers request");
+            var rentedArray = first.Buffer;
+            first.Dispose();
+
+            var second = MemoryPoolManager.RentPooled(size);
+            TestHarness.Expect(ReferenceEquals(second.Buffer, rentedArray), "FT-Pool-7 above-1MB array reused from pool");
+            second.Dispose();
+
+            var after = MemoryPoolManager.GetStatistics();
+            TestHarness.Expect(after.LargePoolRented - before.LargePoolRented >= 2, "FT-Pool-7 large pool rented counted");
+            TestHarness.Expect(after.LargePoolReturned - before.LargePoolReturned >= 2, "FT-Pool-7 large pool returned counted");
+
+            TestHarness.Expect(await PoolBalancedAsync(before), "FT-Pool-7 large buffer balanced");
         }
     }
 }
