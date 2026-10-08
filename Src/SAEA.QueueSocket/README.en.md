@@ -55,7 +55,7 @@ producer.Publish("orders", "Order data: {id: 123}");
 ```csharp
 var consumer = new Consumer("consumer_1", "127.0.0.1:39654");
 consumer.OnMessage += (msg) => 
-    Console.WriteLine($"Received: {Encoding.UTF8.GetString(msg.Data.Span)}");
+    Console.WriteLine($"Received: {Encoding.UTF8.GetString(msg.Data.ToArray())}");
 consumer.Connect();
 consumer.Subscribe("orders");
 ```
@@ -370,7 +370,7 @@ var consumer = new Consumer("consumer_001", "127.0.0.1:39654");
 
 consumer.OnMessage += (msg) => 
 {
-    var content = Encoding.UTF8.GetString(msg.Data.Span);
+    var content = Encoding.UTF8.GetString(msg.Data.ToArray());
     Console.WriteLine($"[Received] Topic: {msg.Topic}, Message: {content}");
 };
 
@@ -402,7 +402,7 @@ using System.Text;
 var client = new QClient("client_001", "127.0.0.1:39654");
 
 client.OnMessage += (msg) => 
-    Console.WriteLine($"Received: {Encoding.UTF8.GetString(msg.Data.Span)}");
+    Console.WriteLine($"Received: {Encoding.UTF8.GetString(msg.Data.ToArray())}");
 client.OnError += (ex) => Console.WriteLine($"Error: {ex.Message}");
 client.OnDisconnected += () => Console.WriteLine("Disconnected");
 
