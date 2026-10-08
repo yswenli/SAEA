@@ -624,6 +624,12 @@ namespace SAEA.QueueSocketTest
             var final = MemoryPoolManager.GetStatistics();
             TestHarness.Expect(conserved, "FT-Pool-Batch small pool rented == returned", "rented+" + (final.SmallPoolRented - before.SmallPoolRented) + " returned+" + (final.SmallPoolReturned - before.SmallPoolReturned));
 
+            var returnedBefore = MemoryPoolManager.GetStatistics().SmallPoolReturned;
+            var rented = MemoryPoolManager.RentPooled(1024);
+            rented.Dispose();
+            var returnedAfter = MemoryPoolManager.GetStatistics().SmallPoolReturned;
+            TestHarness.Expect(returnedAfter == returnedBefore + 1, "FT-Pool-Batch NotifyReturned increments small returned");
+
             var rejected = new PooledBufferWriter(16);
             TestHarness.Expect(!batcher.Insert(rejected), "FT-Pool-Batch insert after dispose returns false");
             rejected.Dispose();

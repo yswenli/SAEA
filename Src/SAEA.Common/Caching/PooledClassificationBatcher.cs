@@ -13,10 +13,11 @@ namespace SAEA.Common.Caching
     /// </summary>
     public sealed class PooledClassificationBatcher : IDisposable
     {
-        readonly ConcurrentDictionary<string, PooledBatcher> _dic;
+        readonly ConcurrentDictionary<string, Lazy<PooledBatcher>> _dic;
         readonly int _size;
         readonly int _timeout;
         readonly int _max;
+        volatile bool _disposed;
 
         public event OnPooledClassificationBatchedHandler OnBatched;
 
@@ -26,12 +27,12 @@ namespace SAEA.Common.Caching
             _timeout = timeout > 0 ? timeout : 1000;
             _max = max == -1 ? _size * 10 : max;
             if (_max < _size) throw new ArgumentOutOfRangeException(nameof(max), "max不能小于size");
-            _dic = new ConcurrentDictionary<string, PooledBatcher>();
+            _dic = new ConcurrentDictionary<string, Lazy<PooledBatcher>>();
         }
 
         PooledBatcher GetOrCreate(string id)
         {
-            return _dic.GetOrAdd(id, n =>
+            var lazy = _dic.GetOrAdd(id, n => new Lazy<PooledBatcher>(() =>
             {
                 var b = new PooledBatcher(_size, _timeout, _max, n);
                 var captured = n;
@@ -42,24 +43,30 @@ namespace SAEA.Common.Caching
                     else w.Dispose();
                 };
                 return b;
-            });
+            }));
+            return lazy.Value;
         }
 
         public bool Insert(string id, PooledBufferWriter writer)
         {
             if (string.IsNullOrEmpty(id) || writer == null) return false;
+            if (_disposed) return false;
             return GetOrCreate(id).Insert(writer);
         }
 
         public void Clear(string id)
         {
             if (string.IsNullOrEmpty(id)) return;
-            if (_dic.TryRemove(id, out var b)) b.Dispose();
+            if (_dic.TryRemove(id, out var lazy) && lazy.IsValueCreated) lazy.Value.Dispose();
         }
 
         public void Dispose()
         {
-            foreach (var kv in _dic) { try { kv.Value.Dispose(); } catch { } }
+            _disposed = true;
+            foreach (var kv in _dic)
+            {
+                try { if (kv.Value.IsValueCreated) kv.Value.Value.Dispose(); } catch { }
+            }
             _dic.Clear();
         }
     }

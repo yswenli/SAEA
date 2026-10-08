@@ -26,6 +26,7 @@ namespace SAEA.Common.Caching
         readonly int _max;
         readonly ConcurrentQueue<PooledBufferWriter> _queue;
         readonly SemaphoreSlim _capacitySemaphore;
+        readonly object _sync = new object();
         volatile bool _stopped;
 
         public event OnPooledBatchedHandler OnBatched;
@@ -50,10 +51,13 @@ namespace SAEA.Common.Caching
         public bool Insert(PooledBufferWriter writer)
         {
             if (writer == null) return false;
-            if (_stopped) return false;
-            if (!_capacitySemaphore.Wait(0)) return false;
-            _queue.Enqueue(writer);
-            return true;
+            lock (_sync)
+            {
+                if (_stopped) return false;
+                if (!_capacitySemaphore.Wait(0)) return false;
+                _queue.Enqueue(writer);
+                return true;
+            }
         }
 
         void Handler()
@@ -64,7 +68,7 @@ namespace SAEA.Common.Caching
                 var count = _queue.Count;
                 if (count >= _size || (count > 0 && stopwatch.ElapsedMilliseconds >= _timeout))
                 {
-                    Flush();
+                    try { Flush(); } catch { }
                     stopwatch.Restart();
                 }
                 else
@@ -118,6 +122,14 @@ namespace SAEA.Common.Caching
 
         public void Clear()
         {
+            lock (_sync)
+            {
+                DrainLocked();
+            }
+        }
+
+        void DrainLocked()
+        {
             while (_queue.TryDequeue(out var w))
             {
                 try { w.Dispose(); } catch { }
@@ -127,8 +139,11 @@ namespace SAEA.Common.Caching
 
         public void Dispose()
         {
-            _stopped = true;
-            Clear();
+            lock (_sync)
+            {
+                _stopped = true;
+                DrainLocked();
+            }
         }
     }
 }
