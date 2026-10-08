@@ -1,11 +1,11 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <Authors>yswenli</Authors>
-    <Version>26.9.20.1</Version>
+    <Version>26.10.8.1</Version>
     <Description>SOCKS5 Server and Client Based on SAEA.Socket.SAEA.Socket5是基于SAEA.Socket实现的SOCKS5服务器与客户端，支持无认证与用户名密码鉴权，支持CONNECT、BIND与UDP ASSOCIATE。
 https://github.com/yswenli/SAEA</Description>
     <PackageReleaseNotes>SOCKS5 Server and Client Based on SAEA.Socket.SAEA.Socket5是基于SAEA.Socket实现的SOCKS5服务器与客户端，支持无认证与用户名密码鉴权，支持CONNECT、BIND与UDP ASSOCIATE。</PackageReleaseNotes>
