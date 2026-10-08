@@ -6,6 +6,8 @@
 **[English Version](README.en.md)** | **中文版**
 
 > 基于 .NET Standard 2.0 的轻量级 MVC Web 框架，采用 IOCP 技术，自宿主运行，无需 IIS/Kestrel。
+>
+> ⚡ **零拷贝内核**：构建于 SAEA.Sockets 的 Span/Memory 零拷贝收发与内存池通道之上，显著降低分配与 GC。
 
 ## 快速导航 🧭
 
@@ -636,9 +638,9 @@ public class AsyncController : Controller
 
 | 包名           | 版本       | 说明        |
 | ------------ | -------- | --------- |
-| SAEA.Sockets | 7.26.2.2 | IOCP 通信框架 |
-| SAEA.Http    | 7.26.2.2 | HTTP 服务器  |
-| SAEA.Common  | 7.26.2.2 | 公共工具类     |
+| SAEA.Sockets | 26.9.21.1 | IOCP 通信框架 |
+| SAEA.Http    | 26.9.21.1 | HTTP 服务器  |
+| SAEA.Common  | 26.9.21.1 | 公共工具类     |
 
 ***
 

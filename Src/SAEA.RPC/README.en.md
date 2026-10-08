@@ -6,6 +6,8 @@
 **English Version** | **[中文版](README.md)**
 
 > A high-performance RPC framework based on SAEA.Sockets IOCP technology with binary transmission, far exceeding HTTP/JSON RPC performance.
+>
+> ⚡ **Zero-copy core**: built on the SAEA.Sockets Span/Memory zero-copy send/receive path and pooled buffers, significantly reducing allocations and GC.
 
 ## Quick Navigation 🧭
 
@@ -546,8 +548,8 @@ Message types:
 
 | Package | Version | Description |
 |---------|---------|-------------|
-| SAEA.Sockets | 7.26.2.2 | IOCP communication framework |
-| SAEA.Common | 7.26.2.2 | Serialization utilities |
+| SAEA.Sockets | 26.9.21.1 | IOCP communication framework |
+| SAEA.Common | 26.9.21.1 | Serialization utilities |
 
 ---
 

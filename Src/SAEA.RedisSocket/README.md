@@ -6,6 +6,8 @@
 **[English Version](README.en.md)** | **中文版**
 
 > 基于 SAEA.Sockets IOCP 技术的高性能 Redis 客户端，支持 Redis Cluster 集群、Stream、分布式锁等完整功能。
+>
+> ⚡ **零拷贝内核**：构建于 SAEA.Sockets 的 Span/Memory 零拷贝收发与内存池通道之上，显著降低分配与 GC。
 
 ## 快速导航 🧭
 
@@ -802,8 +804,8 @@ server=127.0.0.1:6379;passwords=your_password;actionTimeout=6000
 
 | 包名 | 版本 | 说明 |
 |------|------|------|
-| SAEA.Sockets | 7.26.2.2 | IOCP 通信框架 |
-| SAEA.Common | 7.26.2.2 | 公共工具类 |
+| SAEA.Sockets | 26.9.21.1 | IOCP 通信框架 |
+| SAEA.Common | 26.9.21.1 | 公共工具类 |
 
 ---
 

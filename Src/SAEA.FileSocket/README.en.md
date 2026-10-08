@@ -6,6 +6,8 @@
 **English Version** | **[中文版](README.md)**
 
 > A high-performance file transfer component based on SAEA.Sockets, using IOCP completion port technology, supporting large file chunked transfer, resumable upload/download, and real-time progress monitoring.
+>
+> ⚡ **Zero-copy core**: built on the SAEA.Sockets Span/Memory zero-copy send/receive path and pooled buffers, significantly reducing allocations and GC.
 
 ## Quick Navigation 🧭
 
@@ -498,8 +500,8 @@ FileSocket uses a four-stage handshake protocol:
 
 | Package | Version | Description |
 |---------|---------|-------------|
-| SAEA.Sockets | 7.26.2.2 | IOCP communication framework |
-| SAEA.Common | 7.26.2.2 | Common utilities |
+| SAEA.Sockets | 26.9.21.1 | IOCP communication framework |
+| SAEA.Common | 26.9.21.1 | Common utilities |
 
 ---
 

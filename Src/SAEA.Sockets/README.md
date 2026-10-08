@@ -5,7 +5,7 @@
 
 **[English Version](README.en.md)** | **中文版**
 
-> 基于 .NET Standard 2.0 的高性能 Socket 通信框架，采用 Windows IOCP 完成端口技术，支持万级并发连接。
+> 基于 .NET Standard 2.0 的高性能 Socket 通信框架，采用 Windows IOCP 完成端口技术，支持万级并发连接；收发路径基于 SAEA.Common 零拷贝（Span/Memory）与内存池化。
 
 ## 快速导航 🧭
 
@@ -71,7 +71,7 @@ client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!"))
 | 🔒 **SSL/TLS 加密** | 流模式支持安全连接 | 数据传输加密，保护隐私 |
 | 📡 **双协议支持** | TCP + UDP 双模式 | TCP 可靠传输，UDP 高速广播 |
 | 🌐 **IPv6 支持** | 完全兼容 IPv6 协议 | 适应未来网络环境 |
-| 💾 **内存池优化** | BufferManager、UserTokenPool | 减少内存分配，降低 GC 压力 |
+| 💾 **零拷贝 + 内存池** | `OnServerReceiveSpan` Span 收包、BufferManager、UserTokenPool、MemoryPoolManager | 零拷贝解析，减少内存分配，降低 GC 压力 |
 | 🔄 **会话管理** | SessionManager 自动管理 | 超时自动清理，连接状态追踪 |
 | 🛠️ **自定义协议** | ICoder 接口扩展 | 灵活的协议编解码器 |
 | 🔗 **Builder 配置** | 链式配置构建器 | 代码简洁，易于理解 |
@@ -320,7 +320,7 @@ var option = SocketOptionBuilder.Instance
 | `SocketFactory` | Socket 工厂类 |
 | `SessionManager` | 会话管理器 |
 | `BaseCoder` | 默认协议编码器（8字节长度 + 1字节类型 + 内容） |
-| `BufferManager` | 内存缓冲池 |
+| `BufferManager` | 内存缓冲池（基于 MemoryPoolManager） |
 | `UserTokenPool` | 用户令牌池 |
 
 ---

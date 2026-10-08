@@ -6,6 +6,8 @@
 **English Version** | **[中文版](README.md)**
 
 > High-performance DNS component based on SAEA.Sockets IOCP technology, supporting DNS server/client, UDP/TCP dual protocols, and multiple record types.
+>
+> ⚡ **Zero-copy core**: built on the SAEA.Sockets Span/Memory zero-copy send/receive path and pooled buffers, significantly reducing allocations and GC.
 
 ## Quick Navigation 🧭
 
@@ -592,8 +594,8 @@ DNS Message:
 
 | Package Name | Version | Description |
 |------|------|------|
-| SAEA.Sockets | 7.26.2.2 | IOCP communication framework |
-| SAEA.Common | 7.26.2.2 | Common utility classes |
+| SAEA.Sockets | 26.9.21.1 | IOCP communication framework |
+| SAEA.Common | 26.9.21.1 | Common utility classes |
 
 ---
 

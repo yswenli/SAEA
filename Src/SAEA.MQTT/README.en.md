@@ -6,6 +6,8 @@
 **English Version** | **[中文版](README.md)**
 
 > High-performance MQTT protocol implementation based on .NET Standard 2.0, using SAEA.Sockets IOCP technology, supporting MQTT 3.1/3.1.1/5.0 protocols, suitable for IoT device communication, message push, and other scenarios.
+>
+> ⚡ **Zero-copy core**: built on the SAEA.Sockets Span/Memory zero-copy send/receive path and pooled buffers, significantly reducing allocations and GC.
 
 ## Quick Navigation 🧭
 
@@ -745,8 +747,8 @@ await client.ConnectAsync(options);
 
 | Package | Version | Description |
 |------|------|------|
-| SAEA.Sockets | 7.26.2.2 | IOCP communication framework |
-| SAEA.Common | 7.26.2.2 | Common utility classes |
+| SAEA.Sockets | 26.9.21.1 | IOCP communication framework |
+| SAEA.Common | 26.9.21.1 | Common utility classes |
 
 ---
 

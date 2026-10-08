@@ -1,7 +1,7 @@
 # SAEA.P2P - 高性能 P2P 通信组件
 
 <p align="center">
-  <img src="https://img.shields.io/badge/版本-7.26.4-blue?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/badge/版本-26.9.21.1-blue?style=for-the-badge" alt="Version">
   <img src="https://img.shields.io/badge/NuGet-SAEA.P2P-green?style=for-the-badge" alt="NuGet">
   <img src="https://img.shields.io/badge/.NET-Standard%202.0-purple?style=for-the-badge" alt=".NET">
   <img src="https://img.shields.io/badge/协议-Apache%202-orange?style=for-the-badge" alt="License">
@@ -427,8 +427,9 @@ new P2PServerBuilder()
 | **AES 加密 + 解密往返** | ~119,000 ops/sec（5,000 次耗时 42 ms） |
 | **中继编码** | ~926,000 ops/sec（20,000 次耗时 21 ms） |
 | **流式零拷贝解码（DecodeStream）** | 64B ~7,950,000 ops/sec、4KB ~7,130,000 ops/sec、1MB ~39,700 ops/sec；64B/4KB 分配 ~0 B/op |
+| **IOCP 零拷贝收发（`--bench-iocp`）** | 客户端 SpanDecodeStream 45,344 帧/秒、**34 B/帧、GC0=0**（LegacyDecode：42,345 帧/秒、4,662 B/帧、GC0=18） |
 
-> 测试覆盖协议、加密、中继、并发、生命周期、集成与性能，共 **283 项全部通过**。
+> 测试覆盖协议、加密、中继、并发、生命周期、集成与性能，共 **310 项全部通过**（`--bench-iocp` 另含 29 项零拷贝收发基准）。
 > 运行方式：`dotnet run -c Debug -- --all`（详见 [SAEA.P2PTest](../SAEA.P2PTest)）。
 
 ---

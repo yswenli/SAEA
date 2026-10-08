@@ -6,6 +6,8 @@
 **[English Version](README.en.md)** | **中文版**
 
 > 基于 .NET Standard 2.0 的 SOCKS5 代理实现，采用 SAEA.Sockets 传输层，完整支持 RFC 1928（CONNECT / BIND / UDP ASSOCIATE）与 RFC 1929（用户名/密码认证），可用于正向代理、内网穿透、UDP 转发等场景。
+>
+> ⚡ **零拷贝内核**：构建于 SAEA.Sockets 的 Span/Memory 零拷贝收发与内存池通道之上，显著降低分配与 GC。
 
 ## 快速导航 🧭
 

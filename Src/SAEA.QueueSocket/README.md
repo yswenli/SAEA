@@ -5,7 +5,7 @@
 
 **[English Version](README.en.md)** | **中文版**
 
-> 基于 SAEA.Sockets 的高性能内存消息队列，采用发布/订阅模式，支持万级并发消息分发。
+> 基于 SAEA.Sockets 的高性能内存消息队列，采用发布/订阅模式，支持万级并发消息分发；消息负载与派发路径零拷贝池化复用，大幅降低分配与 GC。
 
 ## 快速导航 🧭
 
@@ -73,7 +73,8 @@ consumer.Subscribe("orders");
 | 📂 **Topic 主题路由** | 按主题分发消息 | 灵活的消息分类 |
 | 👥 **多订阅者支持** | 同一 Topic 多个订阅者 | 消息广播分发 |
 | 💓 **心跳保活** | Ping/Pong 心跳机制 | 自动检测连接状态 |
-| ⚡ **批量处理** | Batcher 优化吞吐量 | 高效消息批处理 |
+| ⚡ **批量处理** | PooledBatcher 池化批处理 | 高效消息批处理 |
+| ♻️ **零拷贝池化** | QueueMsg.Data 为 ReadOnlyMemory<byte>，负载与派发路径池化复用 | 降低分配与 GC，提升吞吐 |
 | 🔒 **连接管理** | 最大连接数和消息堆积限制 | 防止资源耗尽 |
 | 💾 **内存队列** | MessageQueue 内存存储 | 无外部依赖 |
 
@@ -309,7 +310,9 @@ server.CalcInfo((sessionCount, topicCount, queuedCount) =>
 | `Consumer` | 消费者封装类，简化消息订阅 |
 | `MessageQueue` | 基于 Topic 的消息队列存储 |
 | `Exchange` | 消息交换核心类，负责路由分发 |
-| `QueueMsg` | 队列消息实体 |
+| `QueueMsg` | 队列消息实体（`Data` 为池化的 `ReadOnlyMemory<byte>`，`Dispose` 归还） |
+| `QueueMsgPool` | `QueueMsg` 对象池 |
+| `QueueMsgListPool` | `QueueMsg` 列表池 |
 | `QueueSocketMsgType` | 消息类型枚举 |
 
 ---
@@ -446,8 +449,8 @@ public enum QueueSocketMsgType : byte
 
 | 包名 | 版本 | 说明 |
 |------|------|------|
-| SAEA.Sockets | 7.26.2.2 | IOCP 通信框架 |
-| SAEA.Common | 7.26.2.2 | 公共工具类 |
+| SAEA.Sockets | 26.9.21.1 | IOCP 通信框架 |
+| SAEA.Common | 26.9.21.1 | 公共工具类 |
 
 ---
 

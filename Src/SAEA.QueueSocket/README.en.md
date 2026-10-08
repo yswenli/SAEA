@@ -5,7 +5,7 @@
 
 **English Version** | **[中文版](README.md)**
 
-> High-performance in-memory message queue based on SAEA.Sockets, using publish/subscribe pattern, supporting tens of thousands of concurrent message distributions.
+> High-performance in-memory message queue based on SAEA.Sockets, using publish/subscribe pattern, supporting tens of thousands of concurrent message distributions; message payloads and dispatch reuse pooled zero-copy buffers, dramatically reducing allocations and GC.
 
 ## Quick Navigation 🧭
 
@@ -73,7 +73,8 @@ consumer.Subscribe("orders");
 | 📂 **Topic Routing** | Message distribution by topic | Flexible message categorization |
 | 👥 **Multiple Subscribers** | Multiple subscribers per topic | Message broadcast distribution |
 | 💓 **Heartbeat Keep-Alive** | Ping/Pong heartbeat mechanism | Automatic connection status detection |
-| ⚡ **Batch Processing** | Batcher optimizes throughput | Efficient message batching |
+| ⚡ **Batch Processing** | PooledBatcher pooled batching | Efficient message batching |
+| ♻️ **Zero-Copy Pooling** | QueueMsg.Data is ReadOnlyMemory<byte>; payloads and dispatch reuse pooled buffers | Fewer allocations and GC, higher throughput |
 | 🔒 **Connection Management** | Max connections and message backlog limits | Prevents resource exhaustion |
 | 💾 **In-Memory Queue** | MessageQueue in-memory storage | No external dependencies |
 
@@ -312,7 +313,9 @@ server.CalcInfo((sessionCount, topicCount, queuedCount) =>
 | `Consumer` | Consumer wrapper class, simplifies message subscription |
 | `MessageQueue` | Topic-based message queue storage |
 | `Exchange` | Message exchange core class, responsible for routing |
-| `QueueMsg` | Queue message entity |
+| `QueueMsg` | Queue message entity (`Data` is a pooled `ReadOnlyMemory<byte>`; `Dispose` returns it) |
+| `QueueMsgPool` | `QueueMsg` object pool |
+| `QueueMsgListPool` | `QueueMsg` list pool |
 | `QueueSocketMsgType` | Message type enumeration |
 
 ---
@@ -449,8 +452,8 @@ public enum QueueSocketMsgType : byte
 
 | Package | Version | Description |
 |---------|---------|-------------|
-| SAEA.Sockets | 7.26.2.2 | IOCP communication framework |
-| SAEA.Common | 7.26.2.2 | Common utilities |
+| SAEA.Sockets | 26.9.21.1 | IOCP communication framework |
+| SAEA.Common | 26.9.21.1 | Common utilities |
 
 ---
 

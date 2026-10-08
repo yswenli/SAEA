@@ -6,6 +6,8 @@
 **English Version** | **[中文版](README.md)**
 
 > A SOCKS5 proxy implementation based on .NET Standard 2.0, built on the SAEA.Sockets transport layer. It fully supports RFC 1928 (CONNECT / BIND / UDP ASSOCIATE) and RFC 1929 (username/password authentication), suitable for forward proxying, intranet tunneling, UDP forwarding, and similar scenarios.
+>
+> ⚡ **Zero-copy core**: built on the SAEA.Sockets Span/Memory zero-copy send/receive path and pooled buffers, significantly reducing allocations and GC.
 
 ## Quick Navigation 🧭
 

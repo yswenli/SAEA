@@ -5,7 +5,7 @@
 
 **English Version** | **[中文版](README.md)**
 
-> A high-performance IOCP network communication framework based on .NET Standard 2.0, providing complete network application solutions.
+> A high-performance IOCP network communication framework based on .NET Standard 2.0, with a zero-copy (Span/Memory) receive/send path and pooled buffer reuse, providing complete network application solutions.
 
 **SAEA.Socket** is an IOCP high-performance sockets network framework. The Src directory contains its usage scenarios, such as large file transfer, WebSocket client and server, high-performance message queue, RPC, Redis driver, HTTP Server, MQTT, MVC, DNS, message server, etc.
 
@@ -196,7 +196,7 @@ Client Request Flow:
 | Feature | Description |
 |---------|-------------|
 | 🚀 **High-Performance IOCP** | Windows completion port technology, supporting tens of thousands of concurrent connections |
-| 📦 **Memory Pool Optimization** | BufferManager, UserTokenPool reduce GC pressure |
+| 📦 **Zero-Copy + Memory Pool** | Span/Memory zero-copy send/receive path; BufferManager, UserTokenPool and MemoryPoolManager reuse buffers, greatly reducing GC pressure |
 | 🔒 **SSL/TLS Encryption** | Stream mode supports secure connections |
 | 🌐 **IPv6 Support** | Full compatibility with IPv6 protocol |
 | 🔄 **Session Management** | SessionManager automatically manages connection sessions |
@@ -226,6 +226,17 @@ Client Request Flow:
 | **Connection Mode** | Persistent | Short-lived |
 | **Concurrency Model** | IOCP | Blocking |
 | **Performance** | **High** | Medium |
+
+### Zero-Copy Receive Path (Measured)
+
+Under the same send/receive benchmark, the span-based receive path of `SAEA.Sockets` dramatically cuts allocations and GC compared with the legacy decode path:
+
+| Path | Throughput | Allocation | GC0 |
+|------|-----------|------------|-----|
+| Legacy `LegacyDecode` | 42,345 frames/s | 4,662 B/frame | 18 |
+| Zero-copy `SpanDecodeStream` | 45,344 frames/s | **34 B/frame** | **0** |
+
+> Data from `SAEA.P2PTest --bench-iocp` (4KB frames, single-machine loopback; numbers vary with hardware).
 
 ---
 

@@ -5,7 +5,7 @@
 
 **English Version** | **[中文版](README.md)**
 
-> A high-performance common utility library based on .NET Standard 2.0, providing serialization, caching, encryption, network requests and other core capabilities. It's the core dependency of the SAEA project family.
+> A high-performance common utility library based on .NET Standard 2.0, providing serialization, caching, encryption, network requests and other core capabilities, plus a built-in zero-copy (Span/Memory) memory pool. It's the core dependency of the SAEA project family.
 
 ## Quick Navigation 🧭
 
@@ -69,6 +69,7 @@ var val2 = cache.GetOrAdd("key2", () => ComputeExpensiveValue());
 |------|------|------|
 | 📦 **Multi-format Serialization** | JSON / Protobuf / Binary | Flexible choice for different scenarios |
 | ⚡ **High-Performance Caching** | MemoryCache / BlockingQueue / FastQueue | Reduce redundant computation, improve response speed |
+| ♻️ **Zero-Copy Memory Pool** | MemoryPoolManager tiered pool / PooledBuffer / PooledBufferWriter | Reuse buffers, dramatically reduce allocations and GC |
 | 🔒 **Encryption & Compression** | AES / MD5 / GZip / Deflate | Data security and transmission optimization |
 | 🌐 **Network Requests** | HttpClient connection pool / WebClient extensions | Connection reuse, retry mechanism support |
 | 📁 **File Operations** | Sync/Async read/write, stream processing | Efficient IO, supports large file handling |
@@ -323,6 +324,16 @@ var loaded = config.Read();
 | `HashMap<T1,T2,T3>` | Multi-level key-value storage similar to Redis HashSet |
 | `Batcher<T>` | Batch data processing |
 
+### Memory Pool & Zero-Copy
+
+| Class | Description |
+|------|------|
+| `MemoryPoolManager` | Tiered memory pool (Small/Medium/Large), exposing `Rent` / `Return` / `RentPooled` |
+| `PooledBuffer` | Pooled buffer (`Buffer` / `Length` / `Tier` / `AsSpan` / `AsMemory`); returned on `Dispose` |
+| `PooledBufferWriter` | Pool-backed `IBufferWriter<byte>`; assemble incrementally then read `WrittenMemory` |
+| `PooledBatcher` | Pooled batch processing; delivers a `PooledBufferWriter` on timeout/full |
+| `PooledClassificationBatcher` | Pooled batch processing keyed by a classification id |
+
 ### Encryption & Compression
 
 | Class | Description |
@@ -527,6 +538,38 @@ for (int i = 0; i < 500; i++)
 // Manually trigger processing
 batcher.Flush();
 ```
+
+### Zero-Copy Memory Pool
+
+```csharp
+using SAEA.Common.Caching;
+
+// 1) Rent a tiered pooled buffer (Small<=4KB / Medium<=64KB / Large); returned on Dispose
+using (var buffer = MemoryPoolManager.RentPooled(8192))
+{
+    Span<byte> span = buffer.AsSpan();   // write directly, zero-copy
+    span[0] = 0x01;
+    Console.WriteLine($"Tier={buffer.Tier}, Capacity={buffer.Capacity}");
+}
+
+// 2) Assemble incrementally with IBufferWriter<byte>, then read reusable memory
+using (var writer = new PooledBufferWriter())
+{
+    writer.GetSpan(4);
+    writer.Advance(4);
+    ReadOnlyMemory<byte> payload = writer.WrittenMemory;  // pooled memory, valid until Dispose
+    Console.WriteLine($"bytes={payload.Length}");
+}
+
+// 3) Pooled batch processing: delivers a PooledBufferWriter on timeout/full
+using (var poolBatcher = new PooledBatcher(size: 100))
+{
+    poolBatcher.OnBatched += (batch, count) =>
+        Console.WriteLine($"batch={count}, bytes={batch.WrittenCount}");
+}
+```
+
+> ⚠️ Pooled buffers (`PooledBuffer` / `PooledBufferWriter`) return their backing array on `Dispose()`; spans/memory are valid only until then. Consume synchronously and never retain them across threads/async.
 
 ### AES Encryption/Decryption
 

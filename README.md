@@ -5,7 +5,7 @@
 
 **[English Version](README.en.md)** | **中文版**
 
-> 基于 .NET Standard 2.0 的高性能 IOCP 网络通信框架，提供完整的网络应用解决方案。
+> 基于 .NET Standard 2.0 的高性能 IOCP 网络通信框架，收发路径统一为零拷贝（Span/Memory）+ 内存池化复用，提供完整的网络应用解决方案。
 
 **SAEA.Socket** 是一个 IOCP 高性能 sockets 网络框架，Src 中包含其使用场景，例如大文件传输、WebSocket 客户端和服务器、高性能消息队列、RPC、Redis 驱动、HTTP Server、MQTT、MVC、DNS、消息服务器等。
 
@@ -196,7 +196,7 @@ server.Start();
 | 特性 | 说明 |
 |------|------|
 | 🚀 **高性能 IOCP** | Windows 完成端口技术，支持万级并发连接 |
-| 📦 **内存池优化** | BufferManager、UserTokenPool 减少 GC 压力 |
+| 📦 **零拷贝 + 内存池** | 收发路径统一 Span/Memory 零拷贝，BufferManager、UserTokenPool、MemoryPoolManager 池化复用，大幅减少 GC 压力 |
 | 🔒 **SSL/TLS 加密** | Stream 模式支持安全连接 |
 | 🌐 **IPv6 支持** | 完全兼容 IPv6 协议 |
 | 🔄 **会话管理** | SessionManager 自动管理连接会话 |
@@ -226,6 +226,17 @@ server.Start();
 | **连接模式** | 长连接 | 短连接 |
 | **并发模型** | IOCP | 阻塞 |
 | **性能** | **高** | 中 |
+
+### 零拷贝收发路径（实测）
+
+`SAEA.Sockets` 的 span 收包路径在同一收发基准下，相较旧解码路径显著降低分配与 GC：
+
+| 路径 | 吞吐 | 分配 | GC0 |
+|------|------|------|-----|
+| 旧路径 `LegacyDecode` | 42,345 帧/秒 | 4,662 B/帧 | 18 |
+| 零拷贝 `SpanDecodeStream` | 45,344 帧/秒 | **34 B/帧** | **0** |
+
+> 数据来自 `SAEA.P2PTest --bench-iocp`（4KB 帧，单机回环，数值随硬件波动）。
 
 ---
 

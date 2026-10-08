@@ -6,6 +6,8 @@
 **English Version** | **[中文版](README.md)**
 
 > A lightweight MVC web framework based on .NET Standard 2.0, using IOCP technology, self-hosted, no IIS/Kestrel required.
+>
+> ⚡ **Zero-copy core**: built on the SAEA.Sockets Span/Memory zero-copy send/receive path and pooled buffers, significantly reducing allocations and GC.
 
 ## Quick Navigation 🧭
 
@@ -636,9 +638,9 @@ public class AsyncController : Controller
 
 | Package | Version | Description |
 | ------------ | -------- | --------- |
-| SAEA.Sockets | 7.26.2.2 | IOCP Communication Framework |
-| SAEA.Http | 7.26.2.2 | HTTP Server |
-| SAEA.Common | 7.26.2.2 | Common Utility Classes |
+| SAEA.Sockets | 26.9.21.1 | IOCP Communication Framework |
+| SAEA.Http | 26.9.21.1 | HTTP Server |
+| SAEA.Common | 26.9.21.1 | Common Utility Classes |
 
 ***
 

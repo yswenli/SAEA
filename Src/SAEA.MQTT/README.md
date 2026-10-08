@@ -6,6 +6,8 @@
 **[English Version](README.en.md)** | **中文版**
 
 > 基于 .NET Standard 2.0 的高性能 MQTT 协议实现，采用 SAEA.Sockets IOCP 技术，支持 MQTT 3.1/3.1.1/5.0 协议，适用于 IoT 设备通信、消息推送等场景。
+>
+> ⚡ **零拷贝内核**：构建于 SAEA.Sockets 的 Span/Memory 零拷贝收发与内存池通道之上，显著降低分配与 GC。
 
 ## 快速导航 🧭
 
@@ -738,8 +740,8 @@ await client.ConnectAsync(options);
 
 | 包名 | 版本 | 说明 |
 |------|------|------|
-| SAEA.Sockets | 7.26.2.2 | IOCP 通信框架 |
-| SAEA.Common | 7.26.2.2 | 公共工具类 |
+| SAEA.Sockets | 26.9.21.1 | IOCP 通信框架 |
+| SAEA.Common | 26.9.21.1 | 公共工具类 |
 
 ---
 

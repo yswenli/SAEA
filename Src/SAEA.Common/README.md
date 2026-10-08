@@ -5,7 +5,7 @@
 
 **[English Version](README.en.md)** | **中文版**
 
-> 基于 .NET Standard 2.0 的高性能通用工具类库，提供序列化、缓存、加密、网络请求等基础能力，是 SAEA 项目家族的核心依赖。
+> 基于 .NET Standard 2.0 的高性能通用工具类库，提供序列化、缓存、加密、网络请求等基础能力，并内置零拷贝（Span/Memory）内存池；是 SAEA 项目家族的核心依赖。
 
 ## 快速导航 🧭
 
@@ -69,6 +69,7 @@ var val2 = cache.GetOrAdd("key2", () => ComputeExpensiveValue());
 |------|------|------|
 | 📦 **多格式序列化** | JSON / Protobuf / Binary 三种方式 | 灵活选择，满足不同场景需求 |
 | ⚡ **高性能缓存** | MemoryCache / BlockingQueue / FastQueue | 减少重复计算，提升响应速度 |
+| ♻️ **零拷贝内存池** | MemoryPoolManager 分层池 / PooledBuffer / PooledBufferWriter | 复用缓冲，显著降低分配与 GC |
 | 🔒 **加密与压缩** | AES / MD5 / GZip / Deflate | 数据安全与传输优化 |
 | 🌐 **网络请求** | HttpClient 连接池 / WebClient 扩展 | 连接复用，支持重试机制 |
 | 📁 **文件操作** | 同步/异步读写，流式处理 | 高效IO，支持大文件处理 |
@@ -323,6 +324,16 @@ var loaded = config.Read();
 | `HashMap<T1,T2,T3>` | 类似 Redis HashSet 的多层键值存储 |
 | `Batcher<T>` | 批量数据打包处理 |
 
+### 内存池与零拷贝
+
+| 类名 | 说明 |
+|------|------|
+| `MemoryPoolManager` | 分层内存池（Small/Medium/Large），提供 `Rent` / `Return` / `RentPooled` |
+| `PooledBuffer` | 池化缓冲（`Buffer` / `Length` / `Tier` / `AsSpan` / `AsMemory`），`Dispose` 即归还 |
+| `PooledBufferWriter` | 基于内存池的 `IBufferWriter<byte>`，增量拼装后交付 `WrittenMemory` |
+| `PooledBatcher` | 池化批量处理，到期/攒满时交付 `PooledBufferWriter` |
+| `PooledClassificationBatcher` | 按分类 id 的池化批量处理 |
+
 ### 加密与压缩
 
 | 类名 | 说明 |
@@ -527,6 +538,38 @@ for (int i = 0; i < 500; i++)
 // 手动触发处理
 batcher.Flush();
 ```
+
+### 零拷贝内存池
+
+```csharp
+using SAEA.Common.Caching;
+
+// 1) 按尺寸分层租用池化缓冲（Small<=4KB / Medium<=64KB / Large），Dispose 即归还
+using (var buffer = MemoryPoolManager.RentPooled(8192))
+{
+    Span<byte> span = buffer.AsSpan();   // 直接写入，零拷贝
+    span[0] = 0x01;
+    Console.WriteLine($"Tier={buffer.Tier}, Capacity={buffer.Capacity}");
+}
+
+// 2) 用 IBufferWriter<byte> 增量拼装，再取只读内存复用
+using (var writer = new PooledBufferWriter())
+{
+    writer.GetSpan(4);
+    writer.Advance(4);
+    ReadOnlyMemory<byte> payload = writer.WrittenMemory;  // 池化内存，Dispose 前有效
+    Console.WriteLine($"bytes={payload.Length}");
+}
+
+// 3) 池化批处理：到期/攒满时交付 PooledBufferWriter
+using (var poolBatcher = new PooledBatcher(size: 100))
+{
+    poolBatcher.OnBatched += (batch, count) =>
+        Console.WriteLine($"batch={count}, bytes={batch.WrittenCount}");
+}
+```
+
+> ⚠️ 池化缓冲（`PooledBuffer` / `PooledBufferWriter`）在 `Dispose()` 时归还底层数组；span/memory 仅在归还前有效，请同步消费，切勿跨线程/异步保存。
 
 ### AES 加密解密
 

@@ -5,7 +5,7 @@
 
 **English Version** | **[中文版](README.md)**
 
-> A high-performance Socket communication framework based on .NET Standard 2.0, using Windows IOCP completion port technology, supporting tens of thousands of concurrent connections.
+> A high-performance Socket communication framework based on .NET Standard 2.0, using Windows IOCP completion port technology, supporting tens of thousands of concurrent connections; the send/receive path is built on SAEA.Common zero-copy (Span/Memory) and pooled buffers.
 
 ## Quick Navigation 🧭
 
@@ -71,7 +71,7 @@ client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!"))
 | 🔒 **SSL/TLS Encryption** | Stream mode supports secure connections | Encrypted data transmission, privacy protection |
 | 📡 **Dual Protocol Support** | TCP + UDP dual mode | TCP for reliable transmission, UDP for high-speed broadcast |
 | 🌐 **IPv6 Support** | Fully compatible with IPv6 protocol | Future-proof network environment |
-| 💾 **Memory Pool Optimization** | BufferManager, UserTokenPool | Reduces memory allocation, lowers GC pressure |
+| 💾 **Zero-Copy + Memory Pool** | `OnServerReceiveSpan` span receive, BufferManager, UserTokenPool, MemoryPoolManager | Zero-copy parsing, fewer allocations, lower GC pressure |
 | 🔄 **Session Management** | SessionManager auto management | Auto timeout cleanup, connection state tracking |
 | 🛠️ **Custom Protocol** | ICoder interface extension | Flexible protocol encoder/decoder |
 | 🔗 **Builder Configuration** | Fluent configuration builder | Clean code, easy to understand |
@@ -320,7 +320,7 @@ Actual performance depends on server hardware configuration.
 | `SocketFactory` | Socket factory class |
 | `SessionManager` | Session manager |
 | `BaseCoder` | Default protocol encoder (8-byte length + 1-byte type + content) |
-| `BufferManager` | Memory buffer pool |
+| `BufferManager` | Memory buffer pool (backed by MemoryPoolManager) |
 | `UserTokenPool` | User token pool |
 
 ---

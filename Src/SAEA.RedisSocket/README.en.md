@@ -6,6 +6,8 @@
 **English Version** | **[中文版](README.md)**
 
 > A high-performance Redis client based on SAEA.Sockets IOCP technology, supporting Redis Cluster, Stream, distributed locks, and other complete features.
+>
+> ⚡ **Zero-copy core**: built on the SAEA.Sockets Span/Memory zero-copy send/receive path and pooled buffers, significantly reducing allocations and GC.
 
 ## Quick Navigation 🧭
 
@@ -806,8 +808,8 @@ server=127.0.0.1:6379;passwords=your_password;actionTimeout=6000
 
 | Package | Version | Description |
 |---------|---------|-------------|
-| SAEA.Sockets | 7.26.2.2 | IOCP communication framework |
-| SAEA.Common | 7.26.2.2 | Common utility classes |
+| SAEA.Sockets | 26.9.21.1 | IOCP communication framework |
+| SAEA.Common | 26.9.21.1 | Common utility classes |
 
 ---
 

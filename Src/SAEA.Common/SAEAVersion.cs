@@ -42,7 +42,7 @@ namespace SAEA.Common
         /// <summary>
         /// 版本号
         /// </summary>
-        public const string version = "djcuMjUuMi4xOQ==";
+        public const string version = "djI2LjEwLjguMQ==";
 
         /// <summary>
         /// 标题，Base64编码
