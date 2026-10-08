@@ -61,6 +61,12 @@ namespace SAEA.Common.Caching
         /// </summary>
         public const int LargeThreshold = 1024 * 1024;
 
+        /// <summary>
+        /// 大型池可池化的最大数组长度（16MB）。
+        /// 合并批次写入器常超过 1MB；若上限为 1MB 则这些数组不会被池化，每次刷新都会重新分配。
+        /// </summary>
+        private const int LargePoolMaxArrayLength = 16 * 1024 * 1024;
+
         #endregion
 
         #region Private Fields
@@ -76,9 +82,9 @@ namespace SAEA.Common.Caching
         private static readonly ArrayPool<byte> _mediumPool = ArrayPool<byte>.Create(MediumThreshold, 100);
 
         /// <summary>
-        /// 大型缓冲区池，最大数组长度1MB，最大保留50个数组
+        /// 大型缓冲区池，最大数组长度16MB，最大保留16个数组
         /// </summary>
-        private static readonly ArrayPool<byte> _largePool = ArrayPool<byte>.Create(LargeThreshold, 50);
+        private static readonly ArrayPool<byte> _largePool = ArrayPool<byte>.Create(LargePoolMaxArrayLength, 16);
 
         /// <summary>
         /// 小型池租用计数
