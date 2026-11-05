@@ -201,7 +201,7 @@ TLS 下收到的是解密后的明文。
 | 成员 | 说明 | 默认值 |
 | --- | --- | --- |
 | `Enabled` | 是否启用 TLS | `false` |
-| `Role` | `None` / `Server` / `Client`，默认按 Socket 类型推断 | `None` |
+
 | `Protocols` | 协议版本 | `TLS 1.2 \| TLS 1.3` |
 | `TargetHost` | 客户端目标主机（SNI + 校验） | `null` |
 | `ServerCertificate` | 服务端默认证书 | `null` |
@@ -288,7 +288,6 @@ SaeaTlsProtocols.Default // TLS 1.2 | TLS 1.3
 
 - 命名空间 `SAEA.Sockets.Ssl`
   - `SaeaTlsOptions`
-  - `SaeaTlsRole`
   - `SaeaTlsProtocols`
   - `SaeaTlsHandshakeContext`
   - `ISaeaTlsContext`

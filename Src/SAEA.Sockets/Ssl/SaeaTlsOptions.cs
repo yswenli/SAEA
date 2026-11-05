@@ -22,19 +22,6 @@ using System.Security.Cryptography.X509Certificates;
 namespace SAEA.Sockets.Ssl
 {
     /// <summary>
-    /// TLS 角色。由服务端/客户端自动推断，通常无需手工设置。
-    /// </summary>
-    public enum SaeaTlsRole
-    {
-        /// <summary>未指定，由 Socket 类型推断。</summary>
-        None = 0,
-        /// <summary>客户端角色。</summary>
-        Client = 1,
-        /// <summary>服务端角色。</summary>
-        Server = 2
-    }
-
-    /// <summary>
     /// TLS 协议版本常量。
     /// </summary>
     /// <remarks>
@@ -57,9 +44,6 @@ namespace SAEA.Sockets.Ssl
     {
         /// <summary>是否启用 TLS。</summary>
         public bool Enabled { get; set; }
-
-        /// <summary>角色。默认 None，由 Socket 类型推断。</summary>
-        public SaeaTlsRole Role { get; set; } = SaeaTlsRole.None;
 
         /// <summary>启用的协议版本，默认 TLS 1.2 + TLS 1.3。</summary>
         public SslProtocols Protocols { get; set; } = SaeaTlsProtocols.Default;

@@ -141,22 +141,11 @@ SaeaStream.WriteAsync(plain)
 ```csharp
 namespace SAEA.Sockets.Ssl
 {
-    /// <summary>TLS 角色。由服务端/客户端自动推断，通常无需手工设置。</summary>
-    public enum SaeaTlsRole
-    {
-        None = 0,
-        Client = 1,
-        Server = 2
-    }
-
     /// <summary>统一 TLS 配置。所有 SSL 行为都从这里进入。</summary>
     public sealed class SaeaTlsOptions
     {
         /// <summary>是否启用 TLS。</summary>
         public bool Enabled { get; set; }
-
-        /// <summary>角色。默认 None，由 Socket 类型推断。</summary>
-        public SaeaTlsRole Role { get; set; } = SaeaTlsRole.None;
 
         /// <summary>启用的协议版本，默认 TLS 1.2 + TLS 1.3。</summary>
         public SslProtocols Protocols { get; set; } = SslProtocols.Tls12 | SslProtocols.Tls13;
