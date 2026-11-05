@@ -93,6 +93,45 @@ namespace SAEA.MQTT.Tests.TestInfrastructure
             return SendRawAsync(packet, cancellationToken);
         }
 
+        public Task SendPublishAsync(
+            string topic,
+            byte[] payload,
+            MqttQualityOfServiceLevel qualityOfServiceLevel,
+            bool retain,
+            ushort? packetIdentifier,
+            CancellationToken cancellationToken)
+        {
+            var fixedHeader = (byte)(0x30 | (retain ? 0x01 : 0x00) | ((int)qualityOfServiceLevel << 1));
+            var packet = BuildPublishPacketCore(fixedHeader, topic, payload, packetIdentifier, null);
+            return SendRawAsync(packet, cancellationToken);
+        }
+
+        public async Task<MqttSubAckPacket> SubscribeAsync(
+            string topic,
+            MqttQualityOfServiceLevel qualityOfServiceLevel,
+            uint? subscriptionIdentifier,
+            CancellationToken cancellationToken)
+        {
+            var packet = new MqttSubscribePacket
+            {
+                PacketIdentifier = 1,
+                Properties = new MqttSubscribePacketProperties
+                {
+                    SubscriptionIdentifier = subscriptionIdentifier
+                }
+            };
+
+            packet.TopicFilters.Add(new MqttTopicFilter
+            {
+                Topic = topic,
+                QualityOfServiceLevel = qualityOfServiceLevel
+            });
+
+            await SendPacketAsync(packet, cancellationToken).ConfigureAwait(false);
+
+            return await ReadPacketAsync(cancellationToken).ConfigureAwait(false) as MqttSubAckPacket;
+        }
+
         public Task SendQoS1PublishAsync(string topic, string payload, ushort packetId, CancellationToken cancellationToken)
         {
             var packet = BuildPublishPacketCore(
