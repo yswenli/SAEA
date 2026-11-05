@@ -5,9 +5,9 @@
 
 **[English Version](README.en.md)** | **中文版**
 
-> 基于 SAEA.Sockets IOCP 的高性能 FTP 服务器/客户端组件，支持被动模式、进度回调、用户认证。
+> 基于 TCP Socket 的 FTP 服务器/客户端组件，支持被动模式、断点续传、自动重试、同名冲突处理与单文件多连接并行传输。
 >
-> ⚡ **零拷贝内核**：构建于 SAEA.Sockets 的 Span/Memory 零拷贝收发与内存池通道之上，显著降低分配与 GC。
+> ⚡ **可靠传输内核**：`REST` 断点续传 + 指数退避重试 + 自适应缓冲区；大文件自动拆分为多分片，通过多条控制会话并行传输，服务器不支持时自动降级为单连接。
 
 ## 快速导航 🧭
 
@@ -34,19 +34,27 @@
 dotnet add package SAEA.FTP
 ```
 
-### Step 2: 创建 FTP 服务器（仅需8行代码）
+### Step 2: 创建 FTP 服务器
 
 ```csharp
 using SAEA.FTP;
 
-var ftpServer = new FTPServer(
-    ip: "127.0.0.1", 
-    port: 21, 
-    bufferSize: 1024 * 64);
+var config = new ServerConfig
+{
+    IP = "127.0.0.1",
+    Port = 21,
+    BufferSize = 1024 * 64
+};
 
-ftpServer.OnLog += (msg) => Console.WriteLine(msg);
+config.Users["admin"] = new FTPUser("admin", "password", @"C:\FTPRoot");
+
+var ftpServer = new FTPServer(config);
+
+ftpServer.OnLog += (msg, ex) => Console.WriteLine(msg);
 ftpServer.Start();
 ```
+
+> 也可以直接用 `anonymous` 用户名登录：未显式配置时，匿名用户以程序运行目录为根目录。
 
 ### Step 3: 创建 FTP 客户端连接
 
@@ -67,10 +75,14 @@ client.Upload(@"C:\Data\file.txt", (offset, total) =>
 
 | 特性 | 说明 | 优势 |
 |------|------|------|
-| 🚀 **IOCP 高性能** | 基于 SAEA.Sockets 完成端口 | 支持高并发文件传输 |
-| 📡 **被动模式 PASV** | 标准 PASV 数据传输 | 兼容防火墙，稳定可靠 |
-| 📊 **进度回调** | 实时上传/下载进度 | 支持进度条、断点续传 |
-| 🔐 **用户认证** | 支持多用户、匿名登录 | 灵活的权限管理 |
+| 🚀 **高性能传输** | 基于 System.Net.Sockets 的 TCP 连接，每个控制连接独立会话 | 支持多文件并发传输 |
+| 📡 **被动模式 EPSV/PASV** | 标准扩展被动模式，自动回退 PASV | 兼容防火墙与 NAT，稳定可靠 |
+| 📊 **进度回调** | 实时上传/下载进度 | 支持进度条与速率统计 |
+| 🔁 **自动重试与续传** | 网络抖动自动重连，优先 `REST` 断点续传 | 大文件传输更可靠 |
+| ⚡ **单文件并行传输** | 多控制会话分段并行上传/下载 | 显著提升大文件速度 |
+| 🛡️ **同名冲突处理** | 覆盖 / 跳过 / 改名，每文件回调一次 | 默认跳过，绝不静默覆盖 |
+| 🧠 **自适应缓冲** | 16KB–1MB 动态调整 | 兼顾吞吐与内存 |
+| 🔐 **用户认证** | 支持多用户、匿名登录、并发会话上限 | 灵活的权限管理 |
 | 📁 **目录管理** | 完整的目录操作支持 | 创建、删除、遍历目录 |
 | 🔄 **文件操作** | 上传、下载、重命名、删除 | 完整的 FTP 命令支持 |
 | 💾 **配置持久化** | 用户配置自动保存 | 无需数据库，配置即用 |
@@ -95,23 +107,23 @@ client.Upload(@"C:\Data\file.txt", (offset, total) =>
 │            │   ┌───────────────────────┘                    │
 │            │   │                                            │
 │  ┌─────────▼───▼─────────┐                                 │
-│  │   FTPDataManager       │  数据接收管理                   │
-│  │   FTPStream            │  数据流缓存处理                 │
+│  │ FtpControlConnection  │  控制连接 / FEAT / REST 会话    │
+│  │ ServerSession         │  每控制连接独立会话             │
 │  └───────────┬───────────┘                                 │
 │              │                                              │
 │  ┌───────────▼───────────┐                                 │
-│  │   FTPCommand          │  FTP 命令解析                    │
-│  │   (USER/PASV/LIST...) │                                  │
+│  │ FTPTransferOptions    │  重试 / 并行 / 冲突策略         │
+│  │ FTPTransferResult     │  结果与统计                     │
 │  └───────────┬───────────┘                                 │
 │              │                                              │
 │  ┌───────────▼───────────┐                                 │
-│  │   SAEA.Sockets        │  IOCP 底层通信                  │
-│  │   (高性能 Socket)     │                                  │
+│  │ System.Net.Sockets    │  控制与数据 TCP 连接            │
+│  │ (TcpClient / Socket)  │                                  │
 │  └───────────────────────┘                                 │
 │                                                             │
 │  ┌───────────────────────┐                                 │
 │  │   ConfigManager       │  配置管理持久化                 │
-│  │   FTPUser             │  用户模型                       │
+│  │   FTPUser             │  用户凭证与根目录               │
 │  └───────────────────────┘                                 │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
@@ -136,14 +148,14 @@ client.Upload(@"C:\Data\file.txt", (offset, total) =>
                       │ 等待 FTP 命令   │
                       └─────────────────┘
 
-PASV 被动模式文件传输:
+EPSV/PASV 被动模式文件传输:
 
-客户端 ──► PASV 命令 ──► 服务器分配数据端口
+客户端 ──► EPSV 命令（失败回退 PASV）──► 服务器分配数据端口
                               │
                               ▼
                     ┌─────────────────┐
-                    │ 227 响应        │
-                    │ 返回 IP:Port    │
+                    │ 229/227 响应    │
+                    │ 返回 Port/IP:Port│
                     └─────────────────┘
                               │
                               ▼
@@ -173,7 +185,7 @@ PASV 被动模式文件传输:
 
 | 场景 | 描述 | 推荐理由 |
 |------|------|----------|
-| 📁 **企业文件服务器** | 内部文件共享与分发 | IOCP 高性能，支持多用户并发 |
+| 📁 **企业文件服务器** | 内部文件共享与分发 | 每控制连接独立会话，支持多用户并发 |
 | 🔄 **自动化文件传输** | 定时同步、备份任务 | 简洁 API，易于集成到自动化脚本 |
 | 💾 **数据备份系统** | 远程文件备份 | 进度回调，支持大文件传输 |
 | 🖥️ **FTP 客户端工具** | 开发 FTP 管理软件 | 完整客户端实现，支持所有常用命令 |
@@ -187,44 +199,45 @@ PASV 被动模式文件传输:
 | HTTP 文件上传 | 使用 SAEA.Http 或 ASP.NET |
 | 大规模 CDN 分发 | 使用专业 CDN 服务 |
 | 实时视频流 | 使用 SAEA.Sockets 自定义协议 |
-| 需要 PORT 主动模式 | 目前仅支持 PASV 被动模式 |
+| 需要 PORT 主动模式 | 目前仅支持 EPSV/PASV 被动模式 |
 
 ---
 
 ## 性能对比 📊
 
-### 与传统 FTP 方案对比
+### 与固定单连接方案对比
 
-| 指标 | SAEA.FTP | 传统 FTP Server | 优势 |
-|------|----------|-----------------|------|
-| **并发连接** | 1000+ | ~100 | **10倍提升** |
-| **传输速度** | ~100MB/s | ~50MB/s | **2倍提升** |
-| **内存占用** | 池化复用 | 频繁分配 | **GC 压力低** |
-| **CPU 利用率** | ~70% | ~40% | **高效利用** |
-| **代码复杂度** | 简单 | 复杂 | **易集成** |
+| 能力 | SAEA.FTP | 固定单连接方案 |
+|------|----------|----------------|
+| **大文件传输** | 超过 `ParallelThresholdBytes`（默认 8MB）自动多会话分片并行 | 单连接顺序传输 |
+| **中断恢复** | 同一次调用内 `REST` 续传 + 指数退避重试 | 通常整文件重传 |
+| **缓冲区** | 16KB–1MB 自适应调整 | 固定大小 |
+| **同名冲突** | 覆盖 / 跳过 / 改名回调，默认跳过 | 常见为静默覆盖 |
+| **并发扩展** | `MaxSessions` 可配；服务器不支持时自动降级 | 无 |
 
-### PASV 被动模式优势
+> 💡 实际吞吐取决于网络质量、磁盘、服务器并发限制与被动端口配置；上表描述传输策略差异，不承诺固定倍率。
 
-| 特性 | PASV 被动模式 | PORT 主动模式 |
-|------|---------------|---------------|
+### EPSV/PASV 被动模式优势
+
+| 特性 | EPSV/PASV 被动模式 | PORT 主动模式 |
+|------|-------------------|---------------|
 | **防火墙兼容** | ✅ 高 | ❌ 低 |
 | **客户端连接** | 客户端发起数据连接 | 服务器主动连接客户端 |
 | **安全性** | ✅ 较好 | ⚠️ 较差 |
 | **适用场景** | 现代网络环境 | 老旧网络 |
 
-> 💡 **提示**: SAEA.FTP 仅支持 PASV 被动模式，这是现代 FTP 的标准模式，完美兼容防火墙和 NAT。
+> 💡 **提示**: 服务端同时支持 `EPSV` 与 `PASV` 被动模式，客户端优先 `EPSV` 并自动回退 `PASV`；不支持 `PORT` 主动模式。
 
 ---
 
 ## 常见问题 ❓
 
-### Q1: 为什么只支持 PASV 被动模式？
+### Q1: 为什么只支持被动模式？
 
-**A**: PASV 被动模式是现代 FTP 的标准模式：
-- 完美兼容防火墙和 NAT 环境
-- 客户端主动发起数据连接，更安全
-- 无需服务器主动连接客户端，避免被拦截
-- 主流 FTP 云服务（阿里云、腾讯云）均采用 PASV 模式
+**A**: 服务端实现 `EPSV`/`PASV` 被动模式，客户端优先 `EPSV`、失败时回退 `PASV`：
+- 兼容防火墙和 NAT 环境
+- 客户端主动发起数据连接，无需服务器回连客户端
+- 主流 FTP 云服务（阿里云、腾讯云）均采用被动模式
 
 ### Q2: 如何配置用户权限？
 
@@ -232,83 +245,103 @@ PASV 被动模式文件传输:
 
 ```csharp
 var config = new ServerConfig();
-config.Users = new List<FTPUser>
-{
-    new FTPUser 
-    { 
-        Username = "admin", 
-        Password = "password", 
-        HomeDir = @"C:\FTPRoot\Admin" 
-    },
-    new FTPUser 
-    { 
-        Username = "anonymous", 
-        Password = "",  // 匿名用户
-        HomeDir = @"C:\FTPRoot\Public" 
-    }
-};
 
-FTPServerConfigManager.Save();
+config.Users["admin"] = new FTPUser("admin", "password", @"C:\FTPRoot\Admin");
+config.Users["anonymous"] = new FTPUser("anonymous", "", @"C:\FTPRoot\Public");
+
+var ftpServer = new FTPServer(config);
+ftpServer.Start();
 ```
 
 ### Q3: 如何实现断点续传？
 
-**A**: 使用进度回调记录已传输位置：
+**A**: 同一次调用内的网络中断会自动重连，并优先通过 `REST` 从已传输位置继续。跨进程重启的续传需显式开启：
 
 ```csharp
-long uploadedBytes = 0;
-
-client.Upload(filePath, (offset, total) => 
+var options = new FTPTransferOptions
 {
-    uploadedBytes = offset;  // 记录进度
-    // 保存 offset 到数据库或文件
-});
+    EnableResumeAcrossCalls = true,  // 默认 false
+    KeepPartialOnFailure = true      // 失败时保留 .saea-part
+};
 
-// 断点续传时从上次位置继续
-// 需要配合服务端支持 REST 命令
+var result = client.Download("big.zip", @"D:\Data\big.zip", options);
 ```
+
+开启后会使用固定临时文件 `.<目标名>.saea-part` 与 `.meta` 校验信息；远端文件大小或修改时间变化时自动从 0 重新传输。并行传输不跨调用续传。
 
 ### Q4: 如何获取上传/下载进度？
 
 **A**: 使用进度回调参数：
 
 ```csharp
-client.Download("remote.txt", "local.txt", (offset, total) => 
+client.Download("remote.txt", "local.txt", (offset, total) =>
 {
     var percent = (double)offset / total * 100;
-    var speed = offset / 1024 / 1024;  // MB
-    Console.WriteLine($"进度: {percent:F2}% | 已下载: {speed:F2} MB");
+    Console.WriteLine($"进度: {percent:F2}%");
 });
 ```
 
+`FTPTransferResult` 同时提供 `BytesTransferred`、`Attempts`、`SessionsUsed`、`Resumed`、`ConflictAction` 与 `Error` 等统计信息。
+
 ### Q5: 如何支持匿名登录？
 
-**A**: 匿名用户无需密码，配置空密码用户即可：
+**A**: 使用 `anonymous` 用户名即可登录。若在 `ServerConfig.Users` 中配置了同名用户，则使用其根目录；未配置时以程序运行目录为根目录：
 
 ```csharp
-config.Users.Add(new FTPUser 
-{ 
-    Username = "anonymous", 
-    Password = "",  // 空密码
-    HomeDir = @"C:\FTPRoot\Public" 
-});
+config.Users["anonymous"] = new FTPUser("anonymous", "", @"C:\FTPRoot\Public");
 ```
 
 ### Q6: FTP 服务器默认端口是什么？
 
 **A**: 
 - **控制端口**: 默认 21（FTP 命令）
-- **数据端口**: PASV 模式下服务器动态分配（1024-65535 范围）
+- **数据端口**: EPSV/PASV 模式下服务器动态分配；可通过 `PassivePortMin` / `PassivePortMax` 固定范围。
 
-建议在生产环境中使用 21 端口，并开放 PASV 端口范围。
+建议在生产环境中使用 21 端口，并开放被动数据端口范围。
 
 ### Q7: 如何处理大文件上传？
 
-**A**: SAEA.FTP 自动处理大文件传输：
-- 使用流式传输，不一次性加载到内存
-- 提供 64KB 默认缓冲区，可配置调整
-- 进度回调实时反馈传输状态
-- 建议配置 `BufferSize = 1024 * 64` 或更大
+**A**: SAEA.FTP 会自动处理大文件：
+- 流式传输，不一次性加载到内存
+- 默认 64KB 缓冲区，运行时可在 16KB–1MB 之间自适应
+- 超过 `ParallelThresholdBytes`（默认 8MB）时自动启用多连接分片并行
+- 服务器不支持 `REST`、并发受限或达到 `MaxSessions` 时自动降级为单连接
+
+```csharp
+var options = new FTPTransferOptions
+{
+    MaxSessions = 4,                    // 含主连接
+    ParallelThresholdBytes = 8 << 20,   // 8MB
+    MinSegmentSize = 1 << 20,           // 1MB
+    BufferSize = 64 * 1024
+};
+```
+
+### Q8: 同名文件会被覆盖吗？
+
+**A**: 不会静默覆盖。上传与下载都会先检测冲突，默认执行“跳过”，并通过 `ConflictHandler` 由调用方决定：
+
+```csharp
+var options = new FTPTransferOptions
+{
+    ConflictHandler = ctx =>
+    {
+        Console.WriteLine($"冲突: {ctx.RemotePath}");
+        return new FTPConflictResult
+        {
+            Action = FTPConflictAction.Rename,   // Overwrite / Skip / Rename
+            NewName = "backup.zip"
+        };
+    }
+};
+
+var upload = client.Upload(@"D:\Data\file.zip", options);
+
+if (upload.Status == FTPTransferStatus.Skipped)
+    Console.WriteLine("已跳过同名文件");
+```
+
+每个逻辑文件只回调一次，选择的目标名在后续会话与重试中保持一致。`FTPTransferResult.Status` 会返回 `Completed`、`Skipped`、`Renamed` 或 `Failed`，不会因“跳过”抛异常。
 
 ---
 
@@ -316,13 +349,16 @@ config.Users.Add(new FTPUser
 
 | 类名 | 说明 |
 |------|------|
-| `FTPServer` | FTP 服务器主类 |
+| `FTPServer` | FTP 服务器主类，按控制连接隔离会话 |
 | `FTPClient` | FTP 客户端主类 |
-| `FTPDataManager` | 数据接收管理 |
-| `FTPStream` | 数据流缓存处理 |
-| `FTPServerConfigManager` | 服务端配置管理 |
-| `FTPClientConfigManager` | 客户端配置管理 |
-| `FTPUser` | FTP 用户模型 |
+| `FtpControlConnection` | 客户端控制连接（FEAT/REST/EPSV/PASV） |
+| `FTPTransferOptions` | 重试、并行、缓冲与冲突策略 |
+| `FTPTransferResult` | 传输结果与统计 |
+| `FTPConflictContext/FTPConflictResult` | 同名冲突上下文与决策 |
+| `ServerConfig` | 服务端配置（覆盖策略、端口范围、会话上限） |
+| `ClientConfig` | 客户端配置（超时、缓冲区、编码） |
+| `FTPServerConfigManager` | 服务端配置持久化 |
+| `FTPUser` | FTP 用户凭证与根目录 |
 | `FTPCommand` | FTP 命令枚举 |
 
 ---
@@ -336,36 +372,35 @@ using SAEA.FTP;
 
 var serverConfig = new ServerConfig
 {
-    IP = "127.0.0.1",
+    IP = "0.0.0.0",
     Port = 21,
     BufferSize = 1024 * 64,
-    Root = @"C:\FTPRoot",
-    Users = new List<FTPUser>
-    {
-        new FTPUser 
-        { 
-            Username = "admin", 
-            Password = "admin123", 
-            HomeDir = @"C:\FTPRoot\Admin" 
-        }
-    }
+    OverwritePolicy = FTPOverwritePolicy.Overwrite, // 默认：标准覆盖
+    PassivePortMin = 50000,
+    PassivePortMax = 50100,
+    MaxSessionsPerUser = 0 // 0 = 不限制；可限制并行会话数
 };
 
-FTPServerConfigManager.Save();
+serverConfig.Users["admin"] = new FTPUser("admin", "admin123", @"C:\FTPRoot\Admin");
+serverConfig.Users["user1"] = new FTPUser("user1", "pass123", @"C:\FTPRoot\User1");
+serverConfig.Users["anonymous"] = new FTPUser("anonymous", "", @"C:\FTPRoot\Public");
 
-var ftpServer = new FTPServer(
-    serverConfig.IP, 
-    serverConfig.Port, 
-    serverConfig.BufferSize);
+// 需要持久化时再写入配置文件；直接传入配置对象不会读写全局配置
+// FTPServerConfigManager.Get().Users["admin"] = serverConfig.Users["admin"];
+// FTPServerConfigManager.Save();
 
-ftpServer.OnLog += (message) => 
+var ftpServer = new FTPServer(serverConfig);
+
+ftpServer.OnLog += (message, ex) =>
 {
-    Console.WriteLine($"[FTP] {message}");
+    Console.WriteLine(ex == null ? $"[FTP] {message}" : $"[FTP] {message}: {ex.Message}");
 };
 
 ftpServer.Start();
-Console.WriteLine("FTP 服务器已启动，端口: 21");
+Console.WriteLine("FTP 服务器已启动");
 ```
+
+> 服务端 `OverwritePolicy` 默认为 `Overwrite`，以兼容第三方客户端；设为 `Reject` 时已存在文件返回 `550`，设为 `Rename` 时自动改名并在 `226` 回复中附带 `NEWNAME=`。
 
 ### FTP 客户端 - 连接登录
 
@@ -373,12 +408,12 @@ Console.WriteLine("FTP 服务器已启动，端口: 21");
 using SAEA.FTP;
 
 var client = new FTPClient(
-    ip: "127.0.0.1", 
-    port: 21, 
-    username: "admin", 
-    pwd: "admin123");
+    ip: "127.0.0.1",
+    port: 21,
+    userName: "admin",
+    password: "admin123");
 
-client.OnDisconnected += () => Console.WriteLine("连接断开");
+client.Ondisconnected += () => Console.WriteLine("连接断开");
 
 client.Connect();
 
@@ -398,14 +433,22 @@ var fileName = Path.GetFileName(filePath);
 Console.WriteLine($"开始上传: {fileName}");
 var sw = Stopwatch.StartNew();
 
-client.Upload(filePath, (offset, total) => 
+var options = new FTPTransferOptions
+{
+    MaxRetries = 3,
+    RetryDelay = TimeSpan.FromMilliseconds(500),
+    MaxSessions = 4
+};
+
+var result = client.Upload(filePath, options, (offset, total) =>
 {
     var percent = (double)offset / total * 100;
-    Console.Write($"\r上传进度: {percent:F1}% ({offset / 1024 / 1024:F1} MB / {total / 1024 / 1024:F1} MB)");
+    Console.Write($"\r上传进度: {percent:F1}%");
 });
 
 sw.Stop();
-Console.WriteLine($"\n上传完成! 耗时: {sw.Elapsed.TotalSeconds:F1} 秒");
+
+Console.WriteLine($"\n状态: {result.Status}, 会话: {result.SessionsUsed}, 尝试: {result.Attempts}, 耗时: {sw.Elapsed.TotalSeconds:F1}s");
 ```
 
 ### FTP 客户端 - 下载文件（带进度）
@@ -420,14 +463,18 @@ var localPath = @"C:\Downloads\document.pdf";
 Console.WriteLine($"开始下载: {remoteFile}");
 var sw = Stopwatch.StartNew();
 
-client.Download(remoteFile, localPath, (offset, total) => 
+var result = client.Download(remoteFile, localPath, new FTPTransferOptions(), (offset, total) =>
 {
     var percent = (double)offset / total * 100;
-    Console.Write($"\r下载进度: {percent:F1}% ({offset / 1024 / 1024:F1} MB / {total / 1024 / 1024:F1} MB)");
+    Console.Write($"\r下载进度: {percent:F1}%");
 });
 
 sw.Stop();
-Console.WriteLine($"\n下载完成! 耗时: {sw.Elapsed.TotalSeconds:F1} 秒");
+
+if (result.Status == FTPTransferStatus.Completed)
+    Console.WriteLine($"\n下载完成! 本地路径: {result.LocalPath}, 耗时: {sw.Elapsed.TotalSeconds:F1}s");
+else
+    Console.WriteLine($"\n下载未完成: {result.Status}, 错误: {result.Error?.Message}");
 ```
 
 ### FTP 客户端 - 目录操作
@@ -436,23 +483,23 @@ Console.WriteLine($"\n下载完成! 耗时: {sw.Elapsed.TotalSeconds:F1} 秒");
 var client = new FTPClient("127.0.0.1", 21, "admin", "admin123");
 client.Connect();
 
-var list = client.List();
+var list = client.Dir();
 Console.WriteLine("目录列表:");
 foreach (var item in list)
 {
     Console.WriteLine($"  {item}");
 }
 
-client.CWD("subfolder");
-Console.WriteLine($"切换到子目录");
+client.ChangeDir("subfolder");
+Console.WriteLine($"切换到: {client.CurrentDir()}");
 
-client.MKD("new_folder");
+client.MakeDir("new_folder");
 Console.WriteLine("创建新目录");
 
-client.RMD("old_folder");
+client.RemoveDir("old_folder");
 Console.WriteLine("删除目录");
 
-client.CDUP();
+client.ChangeToParentDir();
 Console.WriteLine("返回上级目录");
 ```
 
@@ -462,14 +509,13 @@ Console.WriteLine("返回上级目录");
 var client = new FTPClient("127.0.0.1", 21, "admin", "admin123");
 client.Connect();
 
-var size = client.SIZE("document.pdf");
+var size = client.FileSize("document.pdf");
 Console.WriteLine($"文件大小: {size} bytes");
 
-client.DELE("old_file.txt");
+client.Delete("old_file.txt");
 Console.WriteLine("文件已删除");
 
-client.RNFR("old_name.txt");
-client.RNTO("new_name.txt");
+client.Rename("old_name.txt", "new_name.txt");
 Console.WriteLine("文件已重命名");
 ```
 
@@ -483,27 +529,28 @@ var serverConfig = new ServerConfig
     IP = "0.0.0.0",
     Port = 21,
     BufferSize = 1024 * 64,
-    Root = @"D:\FTPData"
+    OverwritePolicy = FTPOverwritePolicy.Overwrite
 };
 
-serverConfig.Users = new List<FTPUser>
-{
-    new FTPUser { Username = "admin", Password = "password", HomeDir = @"D:\FTPData\Admin" },
-    new FTPUser { Username = "user1", Password = "pass123", HomeDir = @"D:\FTPData\User1" },
-    new FTPUser { Username = "anonymous", Password = "", HomeDir = @"D:\FTPData\Public" }
-};
-
-FTPServerConfigManager.Save();
+serverConfig.Users["admin"] = new FTPUser("admin", "password", @"D:\FTPData\Admin");
+serverConfig.Users["user1"] = new FTPUser("user1", "pass123", @"D:\FTPData\User1");
+serverConfig.Users["anonymous"] = new FTPUser("anonymous", "", @"D:\FTPData\Public");
 
 var clientConfig = new ClientConfig
 {
     IP = "127.0.0.1",
     Port = 21,
-    Username = "admin",
-    Password = "password"
+    UserName = "admin",
+    Password = "password",
+    BufferSize = 64 * 1024,
+    ConnectTimeout = TimeSpan.FromSeconds(30),
+    CommandTimeout = TimeSpan.FromSeconds(30),
+    DataTimeout = TimeSpan.FromSeconds(60),
+    Encoding = System.Text.Encoding.UTF8
 };
 
-FTPClientConfigManager.Write();
+var client = new FTPClient(clientConfig);
+client.Connect();
 ```
 
 ---
@@ -513,27 +560,32 @@ FTPClientConfigManager.Write();
 | 命令 | 功能 | 服务端 | 客户端 |
 |------|------|--------|--------|
 | `USER/PASS` | 用户认证 | ✅ | ✅ |
-| `PASV` | 被动模式 | ✅ | ✅ |
+| `FEAT` | 扩展能力协商 | ✅ | ✅ |
+| `EPSV/PASV` | 扩展/标准被动模式 | ✅ | ✅ |
 | `LIST/MLSD/NLST` | 目录列表 | ✅ | ✅ |
 | `CWD/CDUP/PWD` | 目录操作 | ✅ | ✅ |
 | `MKD/RMD` | 创建/删除目录 | ✅ | ✅ |
+| `REST` | 断点续传偏移 | ✅ | ✅ |
 | `STOR` | 上传文件 | ✅ | ✅ |
 | `RETR` | 下载文件 | ✅ | ✅ |
-| `DELE` | 删除文件 | ✅ | ✅ |
-| `RNFR/RNTO` | 重命名 | - | ✅ |
 | `SIZE` | 文件大小 | ✅ | ✅ |
+| `MDTM` | 修改时间 | ✅ | ✅ |
+| `DELE` | 删除文件 | ✅ | ✅ |
+| `RNFR/RNTO` | 重命名 | ✅ | ✅ |
 | `TYPE` | 传输类型 | ✅ | ✅ |
 | `NOOP` | 心跳保活 | ✅ | ✅ |
 | `QUIT` | 退出连接 | ✅ | ✅ |
+
+> 服务端在 `FEAT` 中声明 `SAEA-OVERWRITE=Overwrite|Reject|Rename`，客户端据此决定并行上传与改名处理。传输范围限定为 `TYPE I` 二进制、UTF-8 文件名与扩展被动模式；不包含 FTPS/SFTP、主动模式与 `MODE B`。
 
 ---
 
 ## 依赖项
 
-| 包名 | 版本 | 说明 |
-|------|------|------|
-| SAEA.Sockets | 26.9.21.1 | IOCP 通信框架 |
-| SAEA.Common | 26.9.21.1 | 公共工具类 |
+| 包名 | 说明 |
+|------|------|
+| SAEA.Sockets | 底层通信框架（项目引用，历史组件仍保留） |
+| SAEA.Common | 配置、工具类与日志支持 |
 
 ---
 

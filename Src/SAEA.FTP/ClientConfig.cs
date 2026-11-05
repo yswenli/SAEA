@@ -57,6 +57,26 @@ namespace SAEA.FTP
             get; set;
         }
 
-        public int BufferSize { get; set; } = 10240;
+        public int BufferSize { get; set; } = 64 * 1024;
+
+        /// <summary>
+        /// 建立控制连接超时
+        /// </summary>
+        public TimeSpan ConnectTimeout { get; set; } = TimeSpan.FromSeconds(30);
+
+        /// <summary>
+        /// 控制命令响应超时
+        /// </summary>
+        public TimeSpan CommandTimeout { get; set; } = TimeSpan.FromSeconds(30);
+
+        /// <summary>
+        /// 数据连接读写超时
+        /// </summary>
+        public TimeSpan DataTimeout { get; set; } = TimeSpan.FromSeconds(60);
+
+        /// <summary>
+        /// 控制命令与目录列表编码，默认 UTF-8
+        /// </summary>
+        public Encoding Encoding { get; set; } = Encoding.UTF8;
     }
 }

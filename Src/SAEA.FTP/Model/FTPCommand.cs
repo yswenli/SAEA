@@ -122,6 +122,26 @@ namespace SAEA.FTP.Model
         /// </summary>
         SIZE = 20,
         /// <summary>
+        /// 断点偏移
+        /// </summary>
+        REST = 24,
+        /// <summary>
+        /// 文件修改时间
+        /// </summary>
+        MDTM = 25,
+        /// <summary>
+        /// 扩展被动模式
+        /// </summary>
+        EPSV = 26,
+        /// <summary>
+        /// 扩展主动模式
+        /// </summary>
+        EPRT = 27,
+        /// <summary>
+        /// 放弃传输
+        /// </summary>
+        ABOR = 28,
+        /// <summary>
         /// 选项
         /// </summary>
         OPTS = 21,

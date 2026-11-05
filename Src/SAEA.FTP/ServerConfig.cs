@@ -30,10 +30,30 @@
 *
 *****************************************************************************/
 using SAEA.FTP.Model;
+using System;
 using System.Collections.Concurrent;
 
 namespace SAEA.FTP
 {
+    /// <summary>
+    /// 服务端收到 STOR 且目标已存在时的策略
+    /// </summary>
+    public enum FTPOverwritePolicy
+    {
+        /// <summary>
+        /// 按 FTP 标准覆盖（默认，兼容第三方客户端）
+        /// </summary>
+        Overwrite,
+        /// <summary>
+        /// 拒绝覆盖，回复 550
+        /// </summary>
+        Reject,
+        /// <summary>
+        /// 自动改名，并在 226 回复中附加 NEWNAME=
+        /// </summary>
+        Rename
+    }
+
     public class ServerConfig
     {
         public string IP { get; set; } = "127.0.0.1";
@@ -43,7 +63,26 @@ namespace SAEA.FTP
             get; set;
         } = 21;
 
-        public int BufferSize { get; set; } = 10240;
+        public int BufferSize { get; set; } = 64 * 1024;
+
+        /// <summary>
+        /// 被动模式端口范围；都为 0 时由系统分配
+        /// </summary>
+        public ushort PassivePortMin { get; set; } = 0;
+
+        public ushort PassivePortMax { get; set; } = 0;
+
+        /// <summary>
+        /// 同一账号允许的并发会话数；0 表示不限制
+        /// </summary>
+        public int MaxSessionsPerUser { get; set; } = 0;
+
+        /// <summary>
+        /// 等待客户端建立数据连接的超时
+        /// </summary>
+        public TimeSpan DataTimeout { get; set; } = TimeSpan.FromSeconds(60);
+
+        public FTPOverwritePolicy OverwritePolicy { get; set; } = FTPOverwritePolicy.Overwrite;
 
         public ConcurrentDictionary<string, FTPUser> Users { get; set; } = new ConcurrentDictionary<string, FTPUser>();
     }

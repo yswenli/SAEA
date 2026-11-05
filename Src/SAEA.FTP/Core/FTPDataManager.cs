@@ -119,8 +119,6 @@ namespace SAEA.FTP.Core
 
         List<byte> _list = null;
 
-        bool _isComplete = false;
-
         public void Refresh()
         {
             this.IsFile = false;
@@ -128,13 +126,10 @@ namespace SAEA.FTP.Core
             if (_list != null) _list.Clear();
 
             _list = new List<byte>();
-
-            _isComplete = false;
         }
 
         public void NoticeComplete()
         {
-            _isComplete = true;
         }
 
         public string ReadAllText()
