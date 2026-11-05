@@ -42,13 +42,29 @@ namespace SAEA.Sockets.Core
     /// <summary>
     /// 用户令牌池类，用于管理用户令牌的创建和回收
     /// </summary>
+    /// <remarks>
+    /// 令牌按需创建：构造期只预热少量令牌，其余在 <see cref="Dequeue"/> 时按需补齐，
+    /// 避免在未建立连接时就为 MaxConnects 个连接预分配 SocketAsyncEventArgs 与缓冲区。
+    /// 缓冲区同样由 <see cref="BufferManager"/> 分块惰性申请。
+    /// </remarks>
     public class UserTokenPool : IDisposable
     {
+        /// <summary>
+        /// 预热令牌数量，用于摊薄首个连接的创建开销
+        /// </summary>
+        const int WarmUpCount = 16;
+
+        readonly object _syncRoot = new object();
+        readonly int _maxCount;
+        readonly IContext<ICoder> _context;
+        readonly EventHandler<SocketAsyncEventArgs> _completed;
+
         BufferManager _bufferManager;
         UserTokenFactory _userTokenFactory;
         ConcurrentQueue<IUserToken> _concurrentQueue;
 
-        int _maxCount = 100;
+        int _createdCount;
+        bool _disposed;
 
         /// <summary>
         /// 初始化UserTokenPool实例
@@ -59,23 +75,49 @@ namespace SAEA.Sockets.Core
         /// <param name="completed">Socket操作完成事件处理程序</param>
         public UserTokenPool(IContext<ICoder> context, int maxCount, int bufferSize, EventHandler<SocketAsyncEventArgs> completed)
         {
-            _maxCount = maxCount;
-            _userTokenFactory = new UserTokenFactory();
-            _bufferManager = new BufferManager(bufferSize * maxCount, bufferSize);
-            _concurrentQueue = new ConcurrentQueue<IUserToken>();
-            for (int i = 0; i < maxCount; i++)
-            {
-                IUserToken userToken = _userTokenFactory.Create(context);
+            if (context == null) throw new ArgumentNullException(nameof(context));
+            if (maxCount <= 0) throw new ArgumentOutOfRangeException(nameof(maxCount));
 
-                var writeArgs = new SocketAsyncEventArgs();
-                writeArgs.Completed += completed;
-                userToken.WriteArgs = writeArgs;
-                var readArgs = new SocketAsyncEventArgs();
-                readArgs.Completed += completed;
-                userToken.ReadArgs = readArgs;
-                userToken.ReadArgs.UserToken = userToken.WriteArgs.UserToken = userToken;
-                _concurrentQueue.Enqueue(userToken);
+            _context = context;
+            _maxCount = maxCount;
+            _completed = completed;
+            _userTokenFactory = new UserTokenFactory();
+            _bufferManager = new BufferManager((long)bufferSize * maxCount, bufferSize);
+            _concurrentQueue = new ConcurrentQueue<IUserToken>();
+
+            var warmUpCount = Math.Min(maxCount, WarmUpCount);
+            for (int i = 0; i < warmUpCount; i++)
+            {
+                _concurrentQueue.Enqueue(CreateUserToken());
+                _createdCount++;
             }
+        }
+
+        IUserToken CreateUserToken()
+        {
+            IUserToken userToken = _userTokenFactory.Create(_context);
+
+            var writeArgs = new SocketAsyncEventArgs();
+            writeArgs.Completed += _completed;
+            userToken.WriteArgs = writeArgs;
+
+            var readArgs = new SocketAsyncEventArgs();
+            readArgs.Completed += _completed;
+            userToken.ReadArgs = readArgs;
+
+            userToken.ReadArgs.UserToken = userToken.WriteArgs.UserToken = userToken;
+            return userToken;
+        }
+
+        IUserToken PrepareUserToken(IUserToken userToken)
+        {
+            _bufferManager.SetBuffer(userToken.ReadArgs);
+            // 重新设置 UserToken，因为 Enqueue 时被设为 null
+            if (userToken.ReadArgs != null)
+                userToken.ReadArgs.UserToken = userToken;
+            if (userToken.WriteArgs != null)
+                userToken.WriteArgs.UserToken = userToken;
+            return userToken;
         }
 
         /// <summary>
@@ -91,22 +133,34 @@ namespace SAEA.Sockets.Core
                 IUserToken userToken;
                 if (_concurrentQueue.TryDequeue(out userToken))
                 {
-                    _bufferManager.SetBuffer(userToken.ReadArgs);
-                    // 重新设置 UserToken，因为 Enqueue 时被设为 null
-                    if (userToken.ReadArgs != null)
-                        userToken.ReadArgs.UserToken = userToken;
-                    if (userToken.WriteArgs != null)
-                        userToken.WriteArgs.UserToken = userToken;
-                    return userToken;
+                    return PrepareUserToken(userToken);
                 }
-                else
+
+                lock (_syncRoot)
                 {
-                    // 检查是否超时
-                    if ((DateTime.Now - startTime).TotalMilliseconds > timeOut)
+                    if (_disposed) return null;
+
+                    // 进入锁后再取一次，避免 Enqueue 与按需创建之间丢失唤醒
+                    if (_concurrentQueue.TryDequeue(out userToken))
+                    {
+                        return PrepareUserToken(userToken);
+                    }
+
+                    // 池中暂无空闲令牌但尚未达到上限时，按需创建
+                    if (_createdCount < _maxCount)
+                    {
+                        userToken = CreateUserToken();
+                        _createdCount++;
+                        return PrepareUserToken(userToken);
+                    }
+
+                    // 已达到上限且无空闲令牌，等待归还
+                    var remaining = timeOut - (int)(DateTime.Now - startTime).TotalMilliseconds;
+                    if (remaining <= 0)
                     {
                         return null;
                     }
-                    Thread.Sleep(100);
+                    Monitor.Wait(_syncRoot, remaining);
                 }
             }
         }
@@ -171,6 +225,12 @@ namespace SAEA.Sockets.Core
                 try { userToken.TakeSendingOwner(); } catch { }
                 userToken.ReleaseWrite();
                 _concurrentQueue.Enqueue(userToken);
+
+                // 唤醒等待空闲令牌的 Dequeue 调用
+                lock (_syncRoot)
+                {
+                    Monitor.Pulse(_syncRoot);
+                }
                 return true;
             }
             return false;
@@ -181,7 +241,13 @@ namespace SAEA.Sockets.Core
         /// </summary>
         public void Dispose()
         {
-            _concurrentQueue.Clear();
+            lock (_syncRoot)
+            {
+                if (_disposed) return;
+                _disposed = true;
+                _concurrentQueue.Clear();
+                Monitor.PulseAll(_syncRoot);
+            }
             _bufferManager.Dispose();
         }
     }

@@ -79,9 +79,10 @@ namespace SAEA.Sockets.Core
 
             userToken.ReadArgs = new SocketAsyncEventArgs();
             userToken.ReadArgs.Completed += eventHandler;
-            // 使用共享的 BufferManager 替代 new byte[bufferSize]
-            var bufferManager = BufferManager.GetOrCreate(bufferSize);
-            bufferManager.SetBuffer(userToken.ReadArgs);
+            // 客户端/UDP 令牌在整个生命周期内不会归还接收缓冲区，因此必须独占分配。
+            // 早前从进程级共享 BufferManager 租用，槽位上限为 100，创建约 100 个客户端后
+            // SetBuffer 会静默失败，ReadArgs.Buffer 为空，后续收包全部失效。
+            userToken.ReadArgs.SetBuffer(new byte[bufferSize], 0, bufferSize);
             userToken.WriteArgs = new SocketAsyncEventArgs();
             userToken.WriteArgs.Completed += eventHandler;
             userToken.ReadArgs.UserToken = userToken.WriteArgs.UserToken = userToken;

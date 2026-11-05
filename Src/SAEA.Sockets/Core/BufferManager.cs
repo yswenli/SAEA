@@ -30,24 +30,36 @@
 *
 *****************************************************************************/
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net.Sockets;
-
-using SAEA.Common;
 
 namespace SAEA.Sockets.Core
 {
     /// <summary>
     /// BufferManager
     /// </summary>
+    /// <remarks>
+    /// 缓冲区按段惰性分配：构造期不再一次性申请 bufferSize * 槽位数 的连续数组，
+    /// 而是每段约 1 MiB，在首次使用时逐段申请，内存占用随实际连接数增长。
+    /// 槽位索引统一编号，释放时按段号还原，避免不同段的相同偏移互相串用。
+    /// </remarks>
     class BufferManager : IDisposable
     {
-        long _numBytes;
-        byte[] _buffer;
-        Stack<int> _freeIndexPool;
-        int _currentIndex;
-        int _bufferSize;
+        /// <summary>
+        /// 单段目标字节数
+        /// </summary>
+        const int SegmentTargetBytes = 1024 * 1024;
+
+        readonly object _syncRoot = new object();
+        readonly int _bufferSize;
+        readonly int _totalSlots;
+        readonly int _slotsPerSegment;
+        readonly Stack<int> _freeSlots;
+        readonly List<byte[]> _segments;
+        readonly bool[] _slotInUse;
+
+        int _nextSlot;
+        bool _disposed;
 
         /// <summary>
         /// BufferManager
@@ -56,11 +68,23 @@ namespace SAEA.Sockets.Core
         /// <param name="bufferSize"></param>
         public BufferManager(long totalBytes, int bufferSize)
         {
-            _numBytes = totalBytes;
-            _currentIndex = 0;
+            if (bufferSize <= 0) throw new ArgumentOutOfRangeException(nameof(bufferSize));
+
             _bufferSize = bufferSize;
-            _freeIndexPool = new Stack<int>();
-            _buffer = new byte[_numBytes];
+
+            var slots = totalBytes / bufferSize;
+            if (slots < 1) slots = 1;
+            if (slots > int.MaxValue) slots = int.MaxValue;
+            _totalSlots = (int)slots;
+
+            var slotsPerSegment = SegmentTargetBytes / bufferSize;
+            if (slotsPerSegment < 1) slotsPerSegment = 1;
+            if (slotsPerSegment > _totalSlots) slotsPerSegment = _totalSlots;
+            _slotsPerSegment = slotsPerSegment;
+
+            _freeSlots = new Stack<int>();
+            _segments = new List<byte[]>();
+            _slotInUse = new bool[_totalSlots];
         }
 
         /// <summary>
@@ -70,20 +94,45 @@ namespace SAEA.Sockets.Core
         /// <returns></returns>
         public bool SetBuffer(SocketAsyncEventArgs args)
         {
-            if (_freeIndexPool.Count > 0)
+            if (args == null) throw new ArgumentNullException(nameof(args));
+
+            lock (_syncRoot)
             {
-                args.SetBuffer(_buffer, _freeIndexPool.Pop(), _bufferSize);
-            }
-            else
-            {
-                if ((_numBytes - _bufferSize) < _currentIndex)
+                if (_disposed) return false;
+
+                int slot;
+                if (_freeSlots.Count > 0)
+                {
+                    slot = _freeSlots.Pop();
+                }
+                else if (_nextSlot < _totalSlots)
+                {
+                    slot = _nextSlot++;
+                }
+                else
                 {
                     return false;
                 }
-                args.SetBuffer(_buffer, _currentIndex, _bufferSize);
-                _currentIndex += _bufferSize;
+
+                var segmentIndex = slot / _slotsPerSegment;
+                EnsureSegment(segmentIndex);
+
+                var offset = (slot % _slotsPerSegment) * _bufferSize;
+                _slotInUse[slot] = true;
+                args.SetBuffer(_segments[segmentIndex], offset, _bufferSize);
+                return true;
             }
-            return true;
+        }
+
+        void EnsureSegment(int segmentIndex)
+        {
+            while (_segments.Count <= segmentIndex)
+            {
+                var index = _segments.Count;
+                var remainingSlots = _totalSlots - index * _slotsPerSegment;
+                var slots = Math.Min(_slotsPerSegment, remainingSlots);
+                _segments.Add(new byte[(int)((long)slots * _bufferSize)]);
+            }
         }
 
         /// <summary>
@@ -92,8 +141,26 @@ namespace SAEA.Sockets.Core
         /// <param name="args"></param>
         public void FreeBuffer(SocketAsyncEventArgs args)
         {
-            if (args != null)
-                _freeIndexPool.Push(args.Offset);
+            if (args == null) return;
+
+            lock (_syncRoot)
+            {
+                if (_disposed) return;
+
+                var buffer = args.Buffer;
+                if (buffer == null) return;
+
+                // 数组按引用比较，定位到所属段后再换算全局槽位
+                var segmentIndex = _segments.IndexOf(buffer);
+                if (segmentIndex < 0) return;
+
+                var slot = segmentIndex * _slotsPerSegment + (args.Offset / _bufferSize);
+                if (slot < 0 || slot >= _totalSlots) return;
+                if (!_slotInUse[slot]) return;
+
+                _slotInUse[slot] = false;
+                _freeSlots.Push(slot);
+            }
         }
 
         /// <summary>
@@ -101,66 +168,13 @@ namespace SAEA.Sockets.Core
         /// </summary>
         public void Dispose()
         {
-            _buffer.Clear();
-        }
-
-        #region Static Factory
-
-        /// <summary>
-        /// BufferManager 缓存字典
-        /// </summary>
-        private static readonly ConcurrentDictionary<int, BufferManager> _managers = new ConcurrentDictionary<int, BufferManager>();
-
-        /// <summary>
-        /// 根据缓冲区大小获取或创建共享的 BufferManager
-        /// </summary>
-        /// <param name="bufferSize">缓冲区大小</param>
-        /// <returns>BufferManager 实例</returns>
-        /// <remarks>
-        /// 此方法用于在 UserTokenFactory 中共享 BufferManager 实例，
-        /// 避免为每个连接创建独立的缓冲区，减少内存占用。
-        /// </remarks>
-        public static BufferManager GetOrCreate(int bufferSize)
-        {
-            return _managers.GetOrAdd(bufferSize, size =>
+            lock (_syncRoot)
             {
-                // 根据缓冲区大小决定总字节数
-                // 64KB 缓冲区：预分配 100 个（约 6.4MB）
-                // 其他大小：按比例调整数量
-                int count;
-                if (size <= 64 * 1024)
-                {
-                    count = 100;
-                }
-                else if (size <= 256 * 1024)
-                {
-                    count = 50;
-                }
-                else
-                {
-                    count = 20;
-                }
-
-                long totalBytes = (long)size * count;
-                return new BufferManager(totalBytes, size);
-            });
-        }
-
-        /// <summary>
-        /// 清除所有缓存的 BufferManager 实例
-        /// </summary>
-        /// <remarks>
-        /// 主要用于测试或在需要释放内存时调用
-        /// </remarks>
-        internal static void ClearCache()
-        {
-            foreach (var manager in _managers.Values)
-            {
-                manager.Dispose();
+                if (_disposed) return;
+                _disposed = true;
+                _freeSlots.Clear();
+                _segments.Clear();
             }
-            _managers.Clear();
         }
-
-        #endregion
     }
 }
