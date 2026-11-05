@@ -32,7 +32,6 @@
 using SAEA.Common;
 using SAEA.Common.Threading;
 using SAEA.Sockets;
-using SAEA.Sockets.Core;
 using SAEA.Sockets.Model;
 using SAEA.WebSocket.Model;
 using SAEA.WebSocket.Type;
