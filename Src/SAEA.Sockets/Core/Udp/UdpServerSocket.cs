@@ -572,13 +572,16 @@ namespace SAEA.Sockets.Core.Udp
         /// <param name="ex"></param>
         public void Disconnect(IUserToken userToken, Exception ex = null)
         {
+            // Free() 会把 userToken.ID 置空，必须在释放前捕获用于 OnDisconnected。
+            var sessionId = userToken?.ID;
+
             if (_sessionManager.Free(userToken))
             {
                 if (ex == null) ex = new KernelException("The remote client has been closed.");
                 Interlocked.Decrement(ref _clientCounts);
 
-                if (userToken != null && !string.IsNullOrEmpty(userToken.ID))
-                    OnDisconnected?.Invoke(userToken.ID, ex);
+                if (!string.IsNullOrEmpty(sessionId))
+                    OnDisconnected?.Invoke(sessionId, ex);
             }
         }
 

@@ -245,39 +245,44 @@ namespace SAEA.Sockets.Core
         /// <param name="userToken"></param>
         public bool Free(IUserToken userToken)
         {
+            if (userToken == null) return false;
+
             try
             {
                 using var locker = ObjectLock.Create("SessionManager.Free");
-                if (userToken != null)
+
+                // 锁内只读取一次 ID 并立即清空：并发的 Disconnect 可能同时到达同一令牌，
+                // 首个调用完成入池后，后续调用若再次 Enqueue 会把同一令牌重复放回池中，
+                // 导致一个令牌同时被两个连接使用，并让信号量计数超过上限。
+                var sessionId = userToken.ID;
+                if (string.IsNullOrEmpty(sessionId))
+                    return false;
+
+                userToken.ID = null;
+
+                // 清理超时豁免，避免会话 ID 复用时泄漏
+                _noTimeoutIds.TryRemove(sessionId, out _);
+                _sessionCache.DelWithoutEvent(sessionId);
+
+                try
                 {
-                    // 无论userToken是否在缓存中，都将其放回池中并释放信号量
-                    // 避免传入空 key 导致 ConcurrentDictionary 抛出 ArgumentNullException
-                    if (!string.IsNullOrEmpty(userToken.ID))
-                    {
-                        // 清理超时豁免，避免会话 ID 复用时泄漏
-                        _noTimeoutIds.TryRemove(userToken.ID, out _);
-                        _sessionCache.DelWithoutEvent(userToken.ID);
-                    }
+                    return _userTokenPool.Enqueue(userToken);
+                }
+                finally
+                {
+                    // 入池失败也必须释放信号量，否则会导致死锁
                     try
                     {
-                        return _userTokenPool.Enqueue(userToken);
+                        _semaphoreSlim.Release();
                     }
-                    finally
+                    catch (SemaphoreFullException)
                     {
-                        // 无论是否能将userToken放回池中，都必须释放信号量，否则会导致死锁
-                        try
-                        {
-                            _semaphoreSlim.Release();
-                        }
-                        catch (SemaphoreFullException)
-                        {
-                            // 忽略信号量已满的异常，防止计数超过最大限制
-                            LogHelper.Info("SessionManager.Free 信号量已满，忽略释放操作");
-                        }
-                        catch (Exception ex)
-                        {
-                            LogHelper.Error("SessionManager.Free 释放信号量错误", ex);
-                        }
+                        // 忽略信号量已满的异常，防止计数超过最大限制
+                        LogHelper.Info("SessionManager.Free 信号量已满，忽略释放操作");
+                    }
+                    catch (Exception ex)
+                    {
+                        LogHelper.Error("SessionManager.Free 释放信号量错误", ex);
                     }
                 }
             }

@@ -319,18 +319,18 @@ var serverOption = SocketOptionBuilder.Instance
 // Client: configure the SNI target host and certificate validation policy.
 var clientOption = SocketOptionBuilder.Instance
     .SetSocket(SAEASocketType.Tcp)
-    .SetIP("api.example.com")
+    .SetIP("127.0.0.1")                    // Actual endpoint: SetIP only accepts IP literals
     .SetPort(443)
     .WithSsl(o =>
     {
-        o.TargetHost = "api.example.com";
+        o.TargetHost = "api.example.com";  // Used for SNI and certificate hostname validation
         o.ClientCertificates = new X509Certificate2Collection(clientCertificate);
         o.CertificateValidationCallback = (sender, cert, chain, errors) => errors == SslPolicyErrors.None;
     })
     .Build();
 ```
 
-`OnAccepted` (server) and `ConnectAsync` (client) only complete after a successful handshake; failures are reported through `OnError` / `Tls.HandshakeFailed`. `ChannelInfo.Tls` / `StreamUserToken.Tls` expose the negotiated protocol, cipher suite and remote certificate. The TLS stack is implemented on BouncyCastle rather than `SslStream`, so it is not tied to stream mode.
+`OnAccepted` (server) and `ConnectAsync` (client) only complete after a successful handshake; failures are reported through `OnError` / `SaeaTlsOptions.HandshakeFailed` (or `OnTlsHandshake(failed: ...)`). `ChannelInfo.Tls` / `StreamUserToken.Tls` expose the negotiated protocol, cipher suite and remote certificate. The TLS stack is implemented on BouncyCastle rather than `SslStream`, so it is not tied to stream mode.
 
 ### Q4: What is the purpose of memory pool?
 
@@ -348,11 +348,11 @@ SAEA.Sockets supports both modes, choose flexibly based on your scenario.
 
 ### Q6: What is the maximum number of connections supported?
 
-**A**: `MaxConnects` defaults to 1000 and can be adjusted with `SetCount()`:
+**A**: `MaxConnects` defaults to 1000 and can be adjusted with `SetMaxConnects()`:
 
 ```csharp
 var option = SocketOptionBuilder.Instance
-    .SetCount(10000)  // Set maximum connection count
+    .SetMaxConnects(10000)  // Set maximum connection count
     .Build();
 ```
 
@@ -367,14 +367,14 @@ The usable connection count is also bounded by the OS: on Linux/macOS raise the 
 | `SaeaServerSocket` / `SaeaClientSocket` | TCP server/client (single IOCP engine; event mode, stream mode and built-in TLS) |
 | `SaeaConnection` | Per-connection Pipe + TLS facade (backpressure, encryption and handshake state) |
 | `SaeaTlsOptions` / `SaeaTlsProtocols` | TLS configuration, protocol versions and callbacks |
-| `SaeaCertificateLoader` | PFX/P12 and PEM certificate loading |
+| `SaeaCertificateLoader` | PFX/P12, PEM, certificate store and directory loading (directory mode supports SNI matching) |
 | `ChannelInfo` | Stream-mode connection info (`Stream`, `Tls`, `UserToken`) |
 | `UdpServerSocket` / `UdpClientSocket` | UDP server/client |
 | `SocketOptionBuilder` | Fluent configuration builder |
 | `SocketFactory` | Socket factory class |
 | `SessionManager` | Session manager |
 | `BaseCoder` | Default protocol encoder (8-byte length + 1-byte type + content) |
-| `BufferManager` | Memory buffer pool (backed by MemoryPoolManager) |
+| `BufferManager` | Memory buffer pool (reuses `byte[]` buffers) |
 | `UserTokenPool` | User token pool |
 
 ---
@@ -393,8 +393,8 @@ var option = SocketOptionBuilder.Instance
     .UseIocp()                       // SocketAsyncEventArgs mode (cross-platform)
     .SetIP("127.0.0.1")              // Listen IP
     .SetPort(39654)                  // Listen port
-    .SetBufferSize(1024 * 64)        // Buffer size 64KB
-    .SetCount(1000)                  // Maximum connections
+    .SetReadBufferSize(1024 * 64)    // Read buffer size 64KB
+    .SetMaxConnects(1000)            // Maximum connections
     .Build();                        // Build configuration
 
 var server = SocketFactory.CreateServerSocket(option);
@@ -473,6 +473,8 @@ Server (event mode; decrypted plaintext is delivered through `OnServerReceiveSpa
 
 ```csharp
 using SAEA.Sockets;
+using SAEA.Sockets.Core.Tcp;
+using SAEA.Sockets.Model;
 using SAEA.Sockets.Ssl;
 
 var option = SocketOptionBuilder.Instance
@@ -617,7 +619,7 @@ Recent versions removed the `byte[]` public surface in favor of `Span` / `Memory
 | `IClientSocket.OnReceive` (`OnClientReceiveHandler`, `byte[]`) | `OnClientReceiveSpan` (`ReadOnlySpan<byte>`; consume/copy synchronously inside the callback) |
 | `IServerSocket.OnReceive` (`OnReceiveHandler`, `(ISession, byte[])`) | `OnServerReceiveSpan` (`(IUserToken, ReadOnlySpan<byte>)`) |
 | `IClientSocket.BeginSend(byte[])` / `Send(byte[])` / `SendAsync(byte[])` / `SendAsync(byte[], int, int, CancellationToken)` | `Send(ReadOnlySpan<byte>)` / `SendAsync(ReadOnlyMemory<byte>)` / `SendAsync(ReadOnlyMemory<byte>, CancellationToken)`; express the old offset/count semantics with `data.AsMemory(offset, count)` |
-| `IClientSocket.ReceiveAsync(byte[], int, int, CancellationToken)` (interface member) | Use the span events; the concrete `SaeaClientSocket.ReceiveAsync` is retained but throws `KernelException`, and `UdpClientSocket.ReceiveAsync` throws `NotSupportedException`; use `GetStream()` for raw reads |
+| `IClientSocket.ReceiveAsync(byte[], int, int, CancellationToken)` (interface member) | Use the span events; the concrete `SaeaClientSocket.ReceiveAsync` is retained and reads from the connection `Pipe` (throws `KernelException` when no connection facade exists), and `UdpClientSocket.ReceiveAsync` throws `NotSupportedException` |
 | `IServerSocket.SendAsync(string, byte[])` / `Send(string, byte[])` / `End(string, byte[])` / `SendAsync(IPEndPoint, byte[])` | `SendAsync(string, ReadOnlyMemory<byte>)` / `Send(string, ReadOnlySpan<byte>)` / `End(string, ReadOnlyMemory<byte>)` / `SendAsync(IPEndPoint, ReadOnlyMemory<byte>)` |
 | `IocpClientSocket.UserToken` | No longer public; use `Connected`, or `ChannelInfo.UserToken` / `Context.UserToken` depending on the scenario |
 | `IocpServerSocket` / `IocpClientSocket` | Renamed to `SaeaServerSocket` / `SaeaClientSocket` (`SocketFactory` already returns the new types) |
@@ -651,7 +653,7 @@ Default message protocol implemented by `BaseCoder`:
 
 | Package | Version | Description |
 |---------|---------|-------------|
-| SAEA.Common | 26.9.21.1 | Common utility library |
+| SAEA.Common | 26.11.5.1 | Common utility library |
 | BouncyCastle.Cryptography | 2.6.2 | Built-in TLS 1.2/1.3 protocol implementation |
 | Pipelines.Sockets.Unofficial | 2.2.16 | Pipeline Socket extension |
 | System.IO.Pipelines | 10.0.14 | High-performance IO pipeline |

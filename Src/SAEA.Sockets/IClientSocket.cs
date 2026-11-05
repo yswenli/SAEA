@@ -136,9 +136,9 @@ namespace SAEA.Sockets
         Task SendAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken);
 
         /// <summary>
-        /// 网络流
+        /// 获取连接的双工流门面（仅 <c>UseStream()</c> 或启用 TLS 时可用）。
         /// </summary>
-        /// <returns></returns>
+        /// <returns>连接门面的 <see cref="Stream"/>；未启用流模式与 TLS 时抛 <see cref="InvalidOperationException"/></returns>
         Stream GetStream();        
 
         /// <summary>

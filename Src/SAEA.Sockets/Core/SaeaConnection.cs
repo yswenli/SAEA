@@ -399,6 +399,12 @@ namespace SAEA.Sockets.Core
                 try { tls.Dispose(); } catch { }
             }
 
+            // 连接关闭时仍有未发出的 TLS 记录：归还池化缓冲区，避免长期占用 ArrayPool。
+            while (_pendingOutput.TryDequeue(out var pending))
+            {
+                try { ArrayPool<byte>.Shared.Return(pending.Buffer); } catch { }
+            }
+
             try { _tlsLock?.Dispose(); } catch { }
             _tlsLock = null;
 

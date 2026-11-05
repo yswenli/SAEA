@@ -318,18 +318,18 @@ var serverOption = SocketOptionBuilder.Instance
 // 客户端：设置 SNI 目标主机与证书校验策略
 var clientOption = SocketOptionBuilder.Instance
     .SetSocket(SAEASocketType.Tcp)
-    .SetIP("api.example.com")
+    .SetIP("127.0.0.1")                    // 实际连接地址：SetIP 只接受 IP 字面量
     .SetPort(443)
     .WithSsl(o =>
     {
-        o.TargetHost = "api.example.com";
+        o.TargetHost = "api.example.com";  // SNI 与证书主机名校验使用
         o.ClientCertificates = new X509Certificate2Collection(clientCertificate);
         o.CertificateValidationCallback = (sender, cert, chain, errors) => errors == SslPolicyErrors.None;
     })
     .Build();
 ```
 
-握手成功后才触发 `OnAccepted`（服务端）或 `ConnectAsync` 完成（客户端）；失败时通过 `OnError` / `Tls.HandshakeFailed` 上报。`ChannelInfo.Tls` / `StreamUserToken.Tls` 可读取协商协议、密码套件与对端证书。内置 TLS 基于 BouncyCastle，不使用 `SslStream`，因此不要求流模式。
+握手成功后才触发 `OnAccepted`（服务端）或 `ConnectAsync` 完成（客户端）；失败时通过 `OnError` / `SaeaTlsOptions.HandshakeFailed`（或 `OnTlsHandshake(failed: ...)`）上报。`ChannelInfo.Tls` / `StreamUserToken.Tls` 可读取协商协议、密码套件与对端证书。内置 TLS 基于 BouncyCastle，不使用 `SslStream`，因此不要求流模式。
 
 ### Q4: 内存池的作用是什么？
 
@@ -348,11 +348,11 @@ SAEA.Sockets 同时支持两种模式，可根据场景灵活选择。
 
 ### Q6: 支持的最大连接数是多少？
 
-**A**: `MaxConnects` 默认 1000，可通过 `SetCount()` 调整：
+**A**: `MaxConnects` 默认 1000，可通过 `SetMaxConnects()` 调整：
 
 ```csharp
 var option = SocketOptionBuilder.Instance
-    .SetCount(10000)  // 设置最大连接数
+    .SetMaxConnects(10000)  // 设置最大连接数
     .Build();
 ```
 
@@ -367,14 +367,14 @@ var option = SocketOptionBuilder.Instance
 | `SaeaServerSocket` / `SaeaClientSocket` | TCP 服务器/客户端（统一 IOCP 引擎，支持事件模式、流模式与内置 TLS） |
 | `SaeaConnection` | 每条 TCP 连接的 Pipe + TLS 门面（背压、加解密与握手状态） |
 | `SaeaTlsOptions` / `SaeaTlsProtocols` | TLS 配置、协议版本与回调 |
-| `SaeaCertificateLoader` | PFX/P12、PEM 证书加载 |
+| `SaeaCertificateLoader` | PFX/P12、PEM、证书库与目录加载（目录模式支持 SNI 匹配） |
 | `ChannelInfo` | 流模式下的连接信息（`Stream`、`Tls`、`UserToken`） |
 | `UdpServerSocket` / `UdpClientSocket` | UDP 服务器/客户端 |
 | `SocketOptionBuilder` | 链式配置构建器 |
 | `SocketFactory` | Socket 工厂类 |
 | `SessionManager` | 会话管理器 |
 | `BaseCoder` | 默认协议编码器（8字节长度 + 1字节类型 + 内容） |
-| `BufferManager` | 内存缓冲池（基于 MemoryPoolManager） |
+| `BufferManager` | 内存缓冲池（复用 `byte[]` 缓冲区） |
 | `UserTokenPool` | 用户令牌池 |
 
 ---
@@ -393,8 +393,8 @@ var option = SocketOptionBuilder.Instance
     .UseIocp()                       // SocketAsyncEventArgs 模式（跨平台）
     .SetIP("127.0.0.1")              // 监听 IP
     .SetPort(39654)                  // 监听端口
-    .SetBufferSize(1024 * 64)        // 缓冲区大小 64KB
-    .SetCount(1000)                  // 最大连接数
+    .SetReadBufferSize(1024 * 64)    // 读缓冲区大小 64KB
+    .SetMaxConnects(1000)            // 最大连接数
     .Build();                        // 构建配置
 
 var server = SocketFactory.CreateServerSocket(option);
@@ -473,6 +473,8 @@ server.Start();
 
 ```csharp
 using SAEA.Sockets;
+using SAEA.Sockets.Core.Tcp;
+using SAEA.Sockets.Model;
 using SAEA.Sockets.Ssl;
 
 var option = SocketOptionBuilder.Instance
@@ -616,7 +618,7 @@ var option = SocketOptionBuilder.Instance
 | `IClientSocket.OnReceive`（`OnClientReceiveHandler`，`byte[]`） | `OnClientReceiveSpan`（`ReadOnlySpan<byte>`，回调内同步消费/复制） |
 | `IServerSocket.OnReceive`（`OnReceiveHandler`，`(ISession, byte[])`） | `OnServerReceiveSpan`（`(IUserToken, ReadOnlySpan<byte>)`） |
 | `IClientSocket.BeginSend(byte[])` / `Send(byte[])` / `SendAsync(byte[])` / `SendAsync(byte[], int, int, CancellationToken)` | `Send(ReadOnlySpan<byte>)` / `SendAsync(ReadOnlyMemory<byte>)` / `SendAsync(ReadOnlyMemory<byte>, CancellationToken)`；原 offset/count 语义用 `data.AsMemory(offset, count)` 表达 |
-| `IClientSocket.ReceiveAsync(byte[], int, int, CancellationToken)`（接口成员） | 改用 span 事件；具体实现 `SaeaClientSocket.ReceiveAsync` 保留但抛 `KernelException`，`UdpClientSocket.ReceiveAsync` 抛 `NotSupportedException`；原始读取请使用 `GetStream()` |
+| `IClientSocket.ReceiveAsync(byte[], int, int, CancellationToken)`（接口成员） | 改用 span 事件；具体实现 `SaeaClientSocket.ReceiveAsync` 保留并从连接 `Pipe` 读取（无连接门面时抛 `KernelException`），`UdpClientSocket.ReceiveAsync` 抛 `NotSupportedException` |
 | `IServerSocket.SendAsync(string, byte[])` / `Send(string, byte[])` / `End(string, byte[])` / `SendAsync(IPEndPoint, byte[])` | `SendAsync(string, ReadOnlyMemory<byte>)` / `Send(string, ReadOnlySpan<byte>)` / `End(string, ReadOnlyMemory<byte>)` / `SendAsync(IPEndPoint, ReadOnlyMemory<byte>)` |
 | `IocpClientSocket.UserToken` | 不再公开；按场景改用 `Connected` 或 `ChannelInfo.UserToken` / `Context.UserToken` |
 | `IocpServerSocket` / `IocpClientSocket` | 重命名为 `SaeaServerSocket` / `SaeaClientSocket`（`SocketFactory` 已返回新类型） |
@@ -650,7 +652,7 @@ var option = SocketOptionBuilder.Instance
 
 | 包名 | 版本 | 说明 |
 |------|------|------|
-| SAEA.Common | 26.9.21.1 | 通用工具类库 |
+| SAEA.Common | 26.11.5.1 | 通用工具类库 |
 | BouncyCastle.Cryptography | 2.6.2 | 内置 TLS 1.2/1.3 协议实现 |
 | Pipelines.Sockets.Unofficial | 2.2.16 | Pipeline Socket 扩展 |
 | System.IO.Pipelines | 10.0.14 | 高性能 IO 管道 |

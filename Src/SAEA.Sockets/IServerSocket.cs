@@ -121,7 +121,7 @@ namespace SAEA.Sockets
         void SendAsync(string sessionID, ReadOnlyMemory<byte> data, IDisposable owner);
 
         /// <summary>
-        /// http end。
+        /// 发送最后一段数据后关闭会话（HTTP 等短连接语义）。
         /// </summary>
         /// <param name="sessionID">会话ID</param>
         /// <param name="data">数据</param>

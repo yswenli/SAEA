@@ -378,7 +378,8 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         /// <summary>
-        /// 流模式 + 事件消费：后台从 Pipe 读取并回调 OnServerReceiveSpan。
+        /// 连接门面的事件消费泵：从 Pipe 读取解密后的明文并回调 <see cref="OnServerReceiveSpan"/>。
+        /// 流模式与 TLS 事件模式共用该路径，且仅在有订阅者时启动。
         /// </summary>
         private void StartSpanPump(IUserToken userToken, SaeaConnection connection)
         {
@@ -815,14 +816,48 @@ namespace SAEA.Sockets.Core.Tcp
             SendAsyncRaw(userToken, rented, writer);
         }
 
+        /// <summary>
+        /// 发送最后一段数据后断开连接。TLS 下会等待应用数据完成加密并提交发送，避免最后一段数据丢失。
+        /// </summary>
+        /// <param name="sessionID">会话 ID</param>
+        /// <param name="data">最后一段数据</param>
         public void End(string sessionID, ReadOnlyMemory<byte> data)
         {
             var userToken = _sessionManager.Get(sessionID);
             if (userToken == null) return;
             if (_useStream) _channelManager.Refresh(sessionID);
-            if (data.Length > 0 && TrySendViaTls(userToken, data.Span))
+
+            if (data.Length > 0 && _tlsEnabled)
             {
-                Disconnect(userToken);
+                // TLS 写入是异步的：必须等应用数据加密并提交到发送路径后再断开，
+                // 否则 Disconnect 会先释放连接与 Socket，导致最后一段数据丢失。
+                var connection = GetConnection(userToken);
+                if (connection == null || connection.Tls == null)
+                {
+                    OnError?.Invoke(userToken.ID ?? "", new SaeaTlsException("TLS 连接尚未就绪。"));
+                    Disconnect(userToken);
+                    return;
+                }
+
+                var copy = data.ToArray();
+                var sessionId = userToken.ID;
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await connection.WriteAsync(copy, 0, copy.Length, CancellationToken.None).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        OnError?.Invoke(sessionId ?? "", ex);
+                    }
+                    finally
+                    {
+                        // 若期间已被其他路径释放（ID 被置空或会话已复用），不要误断新连接。
+                        if (string.Equals(userToken.ID, sessionId, StringComparison.Ordinal))
+                            Disconnect(userToken);
+                    }
+                });
                 return;
             }
             try
@@ -879,9 +914,11 @@ namespace SAEA.Sockets.Core.Tcp
         {
             try
             {
-                if (userToken == null || string.IsNullOrEmpty(userToken.ID)) return;
-                // Capture the id before Free() resets userToken.ID to null.
+                if (userToken == null) return;
+                // 只读取一次 ID：并发的 Disconnect（读错误 / 握手失败 / 空闲超时）会经
+                // SessionManager.Free 把 ID 置空，二次读取可能拿到 null 并让 TryRemove 抛异常。
                 var sessionId = userToken.ID;
+                if (string.IsNullOrEmpty(sessionId)) return;
 
                 SaeaConnection connection;
                 if (_connections.TryRemove(sessionId, out connection))
