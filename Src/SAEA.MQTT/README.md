@@ -88,8 +88,9 @@ await client.ConnectAsync(options);
 | 🎯 **消息拦截器** | 连接/消息/订阅拦截 | 灵活的权限控制与审计 |
 | 💾 **持久会话** | 会话状态持久化 | 离线消息、订阅状态保持 |
 | 🔗 **WebSocket 支持** | WS/WSS 协议 | 浏览器直接连接 |
-| 📨 **遗嘱消息** | 离线状态通知 | 设备异常断开自动通知 |
+| 📨 **遗嘱消息** | 离线状态通知、遗嘱延迟 | 设备异常断开自动通知 |
 | 🏷️ **主题别名** | MQTT 5.0 特性 | 减少网络开销 |
+| 🧩 **MQTT 5.0 运行时语义** | 能力协商、会话/消息过期、共享订阅、流控 | 符合 OASIS 规范的真实运行时行为 |
 
 ---
 
@@ -352,6 +353,11 @@ QoS 2: Exactly Once (恰好一次)
 | **消息过期** | ❌ | ❌ | ✅ |
 | **会话过期** | ❌ | ❌ | ✅ |
 | **共享订阅** | ❌ | ❌ | ✅ |
+| **订阅选项（No Local / RAP / Retain Handling）** | ❌ | ❌ | ✅ |
+| **订阅标识符** | ❌ | ❌ | ✅ |
+| **遗嘱延迟** | ❌ | ❌ | ✅ |
+| **接收上限 / 最大报文长度** | ❌ | ❌ | ✅ |
+| **服务端能力通告** | ❌ | ❌ | ✅ |
 
 ---
 
@@ -675,16 +681,26 @@ var options = new MqttServerOptionsBuilder()
 
 ### MQTT 5.0 特性
 
+> **协议版本默认值**：客户端默认使用 **MQTT 3.1.1（V311）**。服务端在同一端口上自动识别
+> MQTT 3.1 / 3.1.1 / 5.0（由 CONNECT 报文决定）。需要 MQTT 5.0 语义时必须显式调用
+> `WithProtocolVersion(MqttProtocolVersion.V500)`。
+
 ```csharp
 using SAEA.MQTT.Client;
+using SAEA.MQTT.Client.Options;
+using SAEA.MQTT.Formatter;
 
 var options = new MqttClientOptionsBuilder()
-    .WithProtocolVersion(MqttProtocolVersion.V500)
+    .WithProtocolVersion(MqttProtocolVersion.V500)   // 显式启用 MQTT 5.0
     .WithClientId("mqtt5_client")
     .WithTcpServer("127.0.0.1", 1883)
-    .WithSessionExpiryInterval(3600)
+    .WithCleanSession(false)
+    .WithSessionExpiryInterval(3600)                 // 会话过期（秒）
+    .WithReceiveMaximum(20)                          // 可同时处理的服务端 QoS>0 报文数
+    .WithMaximumPacketSize(64 * 1024)                // 可接收的最大报文长度
+    .WithTopicAliasMaximum(10)                       // 愿意接收的主题别名上限
+    .WithWillDelayInterval(30)                       // 遗嘱延迟（秒）
     .WithUserProperty("device", "sensor")
-    .WithTopicAliasMaximum(10)
     .Build();
 
 var message = new MqttApplicationMessageBuilder()
@@ -694,6 +710,49 @@ var message = new MqttApplicationMessageBuilder()
     .WithMessageExpiryInterval(60)
     .Build();
 ```
+
+服务端能力可配置；未显式配置时使用协议默认值：
+
+```csharp
+using SAEA.MQTT.Server;
+using SAEA.MQTT.Protocol;
+
+var serverOptions = new MqttServerOptionsBuilder()
+    .WithDefaultEndpoint()
+    .WithDefaultEndpointPort(1883)
+    .WithReceiveMaximum(100)                     // CONNACK Receive Maximum
+    .WithMaximumPacketSize(1024 * 1024)          // CONNACK Maximum Packet Size
+    .WithTopicAliasMaximum(10)                   // CONNACK Topic Alias Maximum
+    .WithMaximumQoS(MqttQualityOfServiceLevel.ExactlyOnce)
+    .WithRetainAvailable(true)
+    .WithWildcardSubscriptionAvailable(true)
+    .WithSharedSubscriptionAvailable(true)
+    .WithSubscriptionIdentifiersAvailable(true)
+    .WithServerKeepAlive(120)
+    .WithMaximumSessionExpiryInterval(86400)     // 允许的最大会话过期（秒）
+    .Build();
+```
+
+**已实现的 MQTT 5.0 运行时语义**
+
+| 领域 | 行为 |
+| --- | --- |
+| 能力协商 | CONNECT/CONNACK 属性协商；CONNACK 属性仅对 5.0 连接写出，且等于协议默认值时省略 |
+| 会话过期 | CONNECT `Session Expiry Interval`、DISCONNECT 覆盖值、`Maximum Session Expiry Interval` 约束；到期后清理内存会话 |
+| 遗嘱 | `Will Delay Interval`、会话接管/正常断开时的取消与延迟发布 |
+| 消息过期 | 队列、转发、retained 消息均按 `Message Expiry Interval` 过期；转发时写入剩余秒数（向上取整，最小 1） |
+| 主题别名 | 双向解析/分配，`Topic Alias Maximum` 协商；未知或非法别名按原因码断开 |
+| 共享订阅 | `$share/{group}/{filter}` 同组轮转、只投一份、不补发 retained 消息 |
+| 订阅选项 | `No Local`、`Retain As Published`、`Retain Handling` |
+| 订阅标识符 | SUBSCRIBE 中写入，分发时合并写入 PUBLISH |
+| 流控 | 双向 `Receive Maximum`；超限发送 `0x93 Receive Maximum exceeded` |
+| 报文大小 | 双向 `Maximum Packet Size`；越界按 `0x95 Packet Too Large` 断开 |
+| 原因码 | 5.0 连接通过 DISCONNECT / CONNACK / SUBACK / PUBACK 原因码报告错误；3.x 保持原有静默关闭行为 |
+
+**明确不支持**：MQTT-SN、基于 UDP 的传输、QoS 3、具体增强认证方法（OAuth2 等）、
+桥接（Bridge）、集群、服务端重启后的会话恢复（持久化仅保存会话元数据）。
+
+MQTT 3.1 / 3.1.1 的报文编码与运行行为保持不变，由 `Compatibility/V3GoldenBytesTests` 守护。
 
 ### 遗嘱消息
 
@@ -728,11 +787,13 @@ await client.ConnectAsync(options);
 
 ## 支持的协议版本
 
-| 版本 | 协议名称 | Level |
-|------|----------|-------|
-| MQTT 3.1 | MQIsdp | 3 |
-| MQTT 3.1.1 | MQTT | 4 |
-| MQTT 5.0 | MQTT | 5 |
+| 版本 | 协议名称 | Level | 说明 |
+|------|----------|-------|------|
+| MQTT 3.1 | MQIsdp | 3 | 客户端需显式选择 |
+| MQTT 3.1.1 | MQTT | 4 | **客户端默认版本** |
+| MQTT 5.0 | MQTT | 5 | 需显式 `WithProtocolVersion(V500)` |
+
+服务端在同一端口上按 CONNECT 报文自动识别以上三种版本，可混合接入。
 
 ---
 

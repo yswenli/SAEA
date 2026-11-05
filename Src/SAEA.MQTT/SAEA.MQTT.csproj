@@ -5,10 +5,19 @@
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <Authors>yswenli</Authors>
-    <Version>26.11.5.1</Version>
+    <Version>26.11.6.1</Version>
     <Description>MQTT Server and Client Based on SAEA.Socket.SAEA.MQTT基于SAEA.Socket实现的MQTT服务器与客户端
 https://github.com/yswenli/SAEA</Description>
-    <PackageReleaseNotes>MQTT Server and Client Based on SAEA.Socket.SAEA.MQTT基于SAEA.Socket实现的MQTT服务器与客户端
+    <PackageReleaseNotes>26.11.6.1
+- 完整实现 MQTT 5.0 运行时语义：能力协商与 CONNACK 通告、Session Expiry、Will Delay、
+  Message Expiry（含 retained）、双向 Topic Alias、共享订阅与订阅选项/订阅标识符、
+  Receive Maximum、Maximum Packet Size 与原因码断开。
+- 服务端同一端口自动识别 MQTT 3.1 / 3.1.1 / 5.0；客户端默认 MQTT 3.1.1，
+  使用 WithProtocolVersion(MqttProtocolVersion.V500) 显式启用 5.0。
+- 破坏性变更：IMqttServerOptions 新增 Capabilities 属性；IMqttServerPersistedSession
+  新增会话过期相关字段；MqttClientDisconnectOptions 新增 SessionExpiryInterval 与 UserProperties。
+- 服务端支持为空 ClientId 自动分配标识符（V5 Assigned Client Identifier）。
+- MQTT 3.1 / 3.1.1 报文编码与运行行为保持不变（V3 golden bytes 回归通过）。
 https://github.com/yswenli/SAEA</PackageReleaseNotes>
     <PackageIconUrl></PackageIconUrl>
     <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>

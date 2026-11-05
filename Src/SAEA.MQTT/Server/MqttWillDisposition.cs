@@ -14,7 +14,7 @@
  *命名空间：SAEA.MQTT.Server
  *文件名： MqttWillDisposition
  *版本号： v26.4.23.1
- *唯一标识：6f0f0f70-2a4b-4d4d-9a0e-2f0d7a0b1c06
+ *唯一标识：5e1dcf59-67b3-415b-9c5d-707c413cc928
  *当前的用户域：WENLI-PC
  *创建人： yswenli
  *电子邮箱：yswenli@outlook.com

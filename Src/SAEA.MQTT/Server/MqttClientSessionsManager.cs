@@ -702,21 +702,31 @@ namespace SAEA.MQTT.Server
 
             var connectionValidator = _options.ConnectionValidator;
 
-            if (connectionValidator == null)
+            if (connectionValidator != null)
+            {
+                await connectionValidator.ValidateConnectionAsync(context).ConfigureAwait(false);
+            }
+            else
             {
                 context.ReasonCode = MqttConnectReasonCode.Success;
-                return context;
             }
 
-            await connectionValidator.ValidateConnectionAsync(context).ConfigureAwait(false);
-
-            // Check the client ID and set a random one if supported.
-            if (string.IsNullOrEmpty(connectPacket.ClientId) && channelAdapter.PacketFormatterAdapter.ProtocolVersion == MqttProtocolVersion.V500)
+            // MQTT 5 允许服务端为空的 ClientId 分配一个标识符：优先使用验证器给出的值，
+            // 否则生成一个随机值。V3 保持既有行为（仍由验证器决定是否拒绝）。
+            if (string.IsNullOrEmpty(connectPacket.ClientId) &&
+                channelAdapter.PacketFormatterAdapter.ProtocolVersion == MqttProtocolVersion.V500)
             {
                 connectPacket.ClientId = context.AssignedClientIdentifier;
+                if (string.IsNullOrEmpty(connectPacket.ClientId) &&
+                    context.ReasonCode == MqttConnectReasonCode.Success)
+                {
+                    connectPacket.ClientId = "saea-" + Guid.NewGuid().ToString("N");
+                    context.AssignedClientIdentifier = connectPacket.ClientId;
+                }
             }
 
-            if (string.IsNullOrEmpty(connectPacket.ClientId))
+            // 无验证器时保持 V3 既有行为：空 ClientId 交给后续会话逻辑处理。
+            if (connectionValidator != null && string.IsNullOrEmpty(connectPacket.ClientId))
             {
                 context.ReasonCode = MqttConnectReasonCode.ClientIdentifierNotValid;
             }

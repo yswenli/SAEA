@@ -143,7 +143,8 @@ namespace SAEA.MQTT.Server
         public uint SessionExpiryInterval { get; set; }
 
         /// <summary>
-        /// Will 延迟时间（秒）。语义由后续 will 实现使用。
+        /// Will 延迟时间（秒）。为 0 时连接异常断开立即发布遗嘱；
+        /// 大于 0 时由 <see cref="MqttSessionExpiryManager"/> 在到期或会话结束时发布。
         /// </summary>
         public uint WillDelayInterval { get; set; }
 
@@ -158,12 +159,12 @@ namespace SAEA.MQTT.Server
         public DateTimeOffset? DisconnectedAt { get; set; }
 
         /// <summary>
-        /// 已断开但尚未决定发布/丢弃的 will 消息。语义由后续 will 实现使用。
+        /// 已断开但尚未到发布时间的 will 消息；`null` 表示没有待发布的遗嘱。
         /// </summary>
         public MqttApplicationMessage PendingWillMessage { get; set; }
 
         /// <summary>
-        /// will 是否已经发布。语义由后续 will 实现使用。
+        /// will 是否已经被取走并发布；用于保证遗嘱最多发布一次。
         /// </summary>
         public bool WillPublished { get; set; }
 

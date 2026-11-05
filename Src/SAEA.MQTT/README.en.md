@@ -88,8 +88,9 @@ await client.ConnectAsync(options);
 | 🎯 **Message Interceptors** | Connection/message/subscription interception | Flexible permission control and auditing |
 | 💾 **Persistent Sessions** | Session state persistence | Offline messages and subscription state retention |
 | 🔗 **WebSocket Support** | WS/WSS protocols | Direct browser connection |
-| 📨 **Will Messages** | Offline status notification | Automatic notification on abnormal device disconnect |
+| 📨 **Will Messages** | Offline notification, will delay | Automatic notification on abnormal device disconnect |
 | 🏷️ **Topic Aliases** | MQTT 5.0 feature | Reduced network overhead |
+| 🧩 **MQTT 5.0 Runtime Semantics** | Capability negotiation, session/message expiry, shared subscriptions, flow control | Real OASIS-compliant runtime behavior |
 
 ---
 
@@ -359,6 +360,11 @@ Use case: Critical messages, financial transactions
 | **Message expiry** | ❌ | ❌ | ✅ |
 | **Session expiry** | ❌ | ❌ | ✅ |
 | **Shared subscriptions** | ❌ | ❌ | ✅ |
+| **Subscription options (No Local / RAP / Retain Handling)** | ❌ | ❌ | ✅ |
+| **Subscription identifiers** | ❌ | ❌ | ✅ |
+| **Will delay** | ❌ | ❌ | ✅ |
+| **Receive maximum / Maximum packet size** | ❌ | ❌ | ✅ |
+| **Server capability advertisement** | ❌ | ❌ | ✅ |
 
 ---
 
@@ -682,16 +688,26 @@ var options = new MqttServerOptionsBuilder()
 
 ### MQTT 5.0 Features
 
+> **Default protocol version**: the client defaults to **MQTT 3.1.1 (V311)**. The server
+> auto-detects MQTT 3.1 / 3.1.1 / 5.0 on the same port (decided by the CONNECT packet).
+> MQTT 5.0 semantics require an explicit `WithProtocolVersion(MqttProtocolVersion.V500)`.
+
 ```csharp
 using SAEA.MQTT.Client;
+using SAEA.MQTT.Client.Options;
+using SAEA.MQTT.Formatter;
 
 var options = new MqttClientOptionsBuilder()
-    .WithProtocolVersion(MqttProtocolVersion.V500)
+    .WithProtocolVersion(MqttProtocolVersion.V500)   // explicitly enable MQTT 5.0
     .WithClientId("mqtt5_client")
     .WithTcpServer("127.0.0.1", 1883)
-    .WithSessionExpiryInterval(3600)
+    .WithCleanSession(false)
+    .WithSessionExpiryInterval(3600)                 // session expiry (seconds)
+    .WithReceiveMaximum(20)                          // concurrent inbound QoS>0 packets
+    .WithMaximumPacketSize(64 * 1024)                // maximum inbound packet size
+    .WithTopicAliasMaximum(10)                       // accepted topic alias limit
+    .WithWillDelayInterval(30)                       // will delay (seconds)
     .WithUserProperty("device", "sensor")
-    .WithTopicAliasMaximum(10)
     .Build();
 
 var message = new MqttApplicationMessageBuilder()
@@ -701,6 +717,51 @@ var message = new MqttApplicationMessageBuilder()
     .WithMessageExpiryInterval(60)
     .Build();
 ```
+
+Server capabilities are configurable; protocol defaults apply when not set:
+
+```csharp
+using SAEA.MQTT.Server;
+using SAEA.MQTT.Protocol;
+
+var serverOptions = new MqttServerOptionsBuilder()
+    .WithDefaultEndpoint()
+    .WithDefaultEndpointPort(1883)
+    .WithReceiveMaximum(100)                     // CONNACK Receive Maximum
+    .WithMaximumPacketSize(1024 * 1024)          // CONNACK Maximum Packet Size
+    .WithTopicAliasMaximum(10)                   // CONNACK Topic Alias Maximum
+    .WithMaximumQoS(MqttQualityOfServiceLevel.ExactlyOnce)
+    .WithRetainAvailable(true)
+    .WithWildcardSubscriptionAvailable(true)
+    .WithSharedSubscriptionAvailable(true)
+    .WithSubscriptionIdentifiersAvailable(true)
+    .WithServerKeepAlive(120)
+    .WithMaximumSessionExpiryInterval(86400)     // maximum allowed session expiry (seconds)
+    .Build();
+```
+
+**Implemented MQTT 5.0 runtime semantics**
+
+| Area | Behavior |
+| --- | --- |
+| Capability negotiation | CONNECT/CONNACK property negotiation; CONNACK properties are written for 5.0 connections only and omitted when equal to protocol defaults |
+| Session expiry | CONNECT `Session Expiry Interval`, DISCONNECT override, `Maximum Session Expiry Interval` clamping; in-memory sessions are removed on expiry |
+| Will | `Will Delay Interval`, cancel/delay on takeover and clean disconnect |
+| Message expiry | Queued, forwarded, and retained messages expire per `Message Expiry Interval`; remaining seconds (rounded up, minimum 1) are written when forwarding |
+| Topic aliases | Bidirectional resolve/assign with `Topic Alias Maximum` negotiation; unknown or invalid aliases close the connection with a reason code |
+| Shared subscriptions | `$share/{group}/{filter}` round-robins within a group, delivers exactly once, and does not replay retained messages |
+| Subscription options | `No Local`, `Retain As Published`, `Retain Handling` |
+| Subscription identifiers | Written on SUBSCRIBE and merged into PUBLISH on dispatch |
+| Flow control | Bidirectional `Receive Maximum`; exceeding it sends `0x93 Receive Maximum exceeded` |
+| Packet size | Bidirectional `Maximum Packet Size`; oversized packets close with `0x95 Packet Too Large` |
+| Reason codes | 5.0 connections report errors via DISCONNECT / CONNACK / SUBACK / PUBACK reason codes; 3.x keeps the previous silent-close behavior |
+
+**Explicitly unsupported**: MQTT-SN, UDP transport, QoS 3, concrete enhanced authentication
+methods (OAuth2 etc.), bridging, clustering, and session recovery after a server restart
+(persistence stores session metadata only).
+
+MQTT 3.1 / 3.1.1 packet encoding and runtime behavior are unchanged and guarded by
+`Compatibility/V3GoldenBytesTests`.
 
 ### Will Message
 
@@ -735,11 +796,14 @@ await client.ConnectAsync(options);
 
 ## Supported Protocol Versions
 
-| Version | Protocol Name | Level |
-|------|----------|-------|
-| MQTT 3.1 | MQIsdp | 3 |
-| MQTT 3.1.1 | MQTT | 4 |
-| MQTT 5.0 | MQTT | 5 |
+| Version | Protocol Name | Level | Notes |
+|------|----------|-------|-------|
+| MQTT 3.1 | MQIsdp | 3 | Must be selected explicitly |
+| MQTT 3.1.1 | MQTT | 4 | **Client default** |
+| MQTT 5.0 | MQTT | 5 | Requires `WithProtocolVersion(V500)` |
+
+The server auto-detects all three versions from the CONNECT packet on the same port,
+so mixed clients can connect concurrently.
 
 ---
 

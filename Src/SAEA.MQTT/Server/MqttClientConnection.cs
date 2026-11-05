@@ -81,8 +81,9 @@ namespace SAEA.MQTT.Server
         volatile Task _packageReceiverTask;
         DateTime _lastNonKeepAlivePacketReceivedTimestamp;
 
-        long _receivedPacketsCount;
-        long _sentPacketsCount = 1; // Start with 1 because the CONNECT packet is not counted anywhere.
+        // CONNECT 在连接对象创建前已被读取，这里补计 1 次接收。
+        long _receivedPacketsCount = 1;
+        long _sentPacketsCount;
         long _receivedApplicationMessagesCount;
         long _sentApplicationMessagesCount;
         MqttDisconnectReasonCode _disconnectReason;
@@ -231,7 +232,7 @@ namespace SAEA.MQTT.Server
                         return;
                     }
 
-                    Interlocked.Increment(ref _sentPacketsCount);
+                    Interlocked.Increment(ref _receivedPacketsCount);
                     LastPacketReceivedTimestamp = DateTime.UtcNow;
 
                     if (!(packet is MqttPingReqPacket || packet is MqttPingRespPacket))
@@ -545,7 +546,7 @@ namespace SAEA.MQTT.Server
                 return;
             }
 
-            Interlocked.Increment(ref _sentApplicationMessagesCount);
+            Interlocked.Increment(ref _receivedApplicationMessagesCount);
 
             var applicationMessage = _dataConverter.CreateApplicationMessage(publishPacket);
             _sessionsManager.DispatchApplicationMessage(applicationMessage, this);
@@ -947,11 +948,11 @@ namespace SAEA.MQTT.Server
                 throw;
             }
 
-            Interlocked.Increment(ref _receivedPacketsCount);
+            Interlocked.Increment(ref _sentPacketsCount);
 
             if (packet is MqttPublishPacket)
             {
-                Interlocked.Increment(ref _receivedApplicationMessagesCount);
+                Interlocked.Increment(ref _sentApplicationMessagesCount);
             }
         }
     }

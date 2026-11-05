@@ -188,7 +188,7 @@ namespace SAEA.MQTT.Adapter
                             t => _channel.WriteAsync(packetData.Array, packetData.Offset, packetData.Count, t), timeout, cancellationToken).ConfigureAwait(false);
                     }
 
-                    Interlocked.Add(ref _bytesReceived, packetData.Count);
+                    Interlocked.Add(ref _bytesSent, packetData.Count);
 
                     _logger.Verbose("TX ({0} bytes) >>> {1}", packetData.Count, packet);
                 }
@@ -221,7 +221,7 @@ namespace SAEA.MQTT.Adapter
                     return null;
                 }
 
-                Interlocked.Add(ref _bytesSent, receivedPacket.TotalLength);
+                Interlocked.Add(ref _bytesReceived, receivedPacket.TotalLength);
 
                 if (PacketFormatterAdapter.ProtocolVersion == MqttProtocolVersion.Unknown)
                 {
@@ -238,8 +238,10 @@ namespace SAEA.MQTT.Adapter
                     // 解析阶段的结构性错误统一视为 Malformed Packet（0x81）。
                     throw new MqttMalformedPacketException(ex.Message);
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (IsMalformedPacketException(ex))
                 {
+                    // 只把可预期的解析失败归类为 Malformed Packet；解码器自身的内部缺陷
+                    // （空引用、越界、内存不足等）应原样抛出，避免被误报成对端报文非法。
                     throw new MqttMalformedPacketException("Received malformed packet: " + ex.Message);
                 }
 
@@ -401,6 +403,18 @@ namespace SAEA.MQTT.Adapter
                    exception is MqttCommunicationException ||
                    exception is MqttMaximumPacketSizeExceededException ||
                    exception is MqttMalformedPacketException;
+        }
+
+        /// <summary>
+        /// 判断异常是否属于“字节流本身不合法”这一可预期类别。
+        /// 解码器的内部缺陷不在其列，交由上层按普通异常处理。
+        /// </summary>
+        static bool IsMalformedPacketException(Exception exception)
+        {
+            return exception is EndOfStreamException ||
+                   exception is ArgumentException ||
+                   exception is FormatException ||
+                   exception is NotSupportedException;
         }
 
         static MqttControlPacketType? GetPacketType(MqttBasePacket packet)
