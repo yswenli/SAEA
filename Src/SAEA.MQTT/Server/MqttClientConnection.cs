@@ -49,7 +49,9 @@ namespace SAEA.MQTT.Server
 {
     public sealed class MqttClientConnection : IDisposable
     {
-        readonly Dictionary<ushort, string> _topicAlias = new Dictionary<ushort, string>();
+        readonly MqttTopicAliasResolver _topicAliasResolver;
+        readonly MqttTopicAliasAssigner _topicAliasAssigner;
+        readonly MqttInboundFlowControl _inboundFlowControl;
         readonly MqttPacketIdentifierProvider _packetIdentifierProvider = new MqttPacketIdentifierProvider();
         readonly MqttPacketDispatcher _packetDispatcher = new MqttPacketDispatcher();
         readonly CancellationTokenSource _cancellationToken = new CancellationTokenSource();
@@ -65,6 +67,16 @@ namespace SAEA.MQTT.Server
         readonly IMqttDataConverter _dataConverter;
         readonly string _endpoint;
         readonly DateTime _connectedTimestamp;
+        readonly long _connectionEpoch;
+        readonly MqttApplicationMessage _willMessage;
+        readonly uint _willDelayInterval;
+
+        int _willHandled;
+        int _outboundPublishInFlight;
+        bool _stopRequested;
+        bool _disconnectPacketReceived;
+        bool _protocolError;
+        MqttDisconnectReasonCode _clientDisconnectReason;
 
         volatile Task _packageReceiverTask;
         DateTime _lastNonKeepAlivePacketReceivedTimestamp;
@@ -92,6 +104,11 @@ namespace SAEA.MQTT.Server
             _channelAdapter = channelAdapter ?? throw new ArgumentNullException(nameof(channelAdapter));
             _connectionValidatorContext = connectionValidatorContext ?? throw new ArgumentNullException(nameof(connectionValidatorContext));
             _dataConverter = _channelAdapter.PacketFormatterAdapter.DataConverter;
+
+            var capabilities = _channelAdapter.PacketFormatterAdapter.Capabilities;
+            _topicAliasResolver = new MqttTopicAliasResolver(capabilities?.TopicAliasMaximum ?? 0);
+            _topicAliasAssigner = new MqttTopicAliasAssigner(capabilities?.ClientTopicAliasMaximum ?? 0);
+            _inboundFlowControl = new MqttInboundFlowControl(capabilities?.ReceiveMaximum ?? ushort.MaxValue);
             _endpoint = _channelAdapter.Endpoint;
             ConnectPacket = connectPacket ?? throw new ArgumentNullException(nameof(connectPacket));
 
@@ -99,8 +116,12 @@ namespace SAEA.MQTT.Server
             _logger = logger.CreateScopedLogger(nameof(MqttClientConnection));
 
             _connectedTimestamp = DateTime.UtcNow;
+            _connectionEpoch = Session.ConnectionEpoch;
             LastPacketReceivedTimestamp = _connectedTimestamp;
             _lastNonKeepAlivePacketReceivedTimestamp = LastPacketReceivedTimestamp;
+
+            _willMessage = connectPacket.WillMessage;
+            _willDelayInterval = connectPacket.Properties?.WillDelayInterval ?? 0;
         }
 
         public MqttClientConnectionStatus Status { get; private set; } = MqttClientConnectionStatus.Initializing;
@@ -111,6 +132,9 @@ namespace SAEA.MQTT.Server
 
         public bool IsReadingPacket => _channelAdapter.IsReadingPacket;
 
+        internal bool IsV5 => _channelAdapter.PacketFormatterAdapter.Capabilities?.IsV5 ??
+                              (_channelAdapter.PacketFormatterAdapter.ProtocolVersion == MqttProtocolVersion.V500);
+
         public DateTime LastPacketReceivedTimestamp { get; private set; }
 
         public MqttClientSession Session { get; }
@@ -119,6 +143,7 @@ namespace SAEA.MQTT.Server
         {
             Status = MqttClientConnectionStatus.Finalizing;
             _disconnectReason = reason;
+            _stopRequested = true;
 
             if (reason == MqttDisconnectReasonCode.SessionTakenOver || reason == MqttDisconnectReasonCode.KeepAliveTimeout)
             {
@@ -171,6 +196,8 @@ namespace SAEA.MQTT.Server
 
         public void Dispose()
         {
+            _topicAliasResolver.Clear();
+            _topicAliasAssigner.Clear();
             _cancellationToken.Dispose();
         }
 
@@ -186,8 +213,6 @@ namespace SAEA.MQTT.Server
             try
             {
                 _logger.Info("Client '{0}': Session started.", ClientId);
-
-                Session.WillMessage = ConnectPacket.WillMessage;
 
                 await SendAsync(_channelAdapter.PacketFormatterAdapter.DataConverter.CreateConnAckPacket(_connectionValidatorContext), cancellationToken).ConfigureAwait(false);
 
@@ -234,9 +259,28 @@ namespace SAEA.MQTT.Server
                     {
                         await SendAsync(MqttPingRespPacket.Instance, cancellationToken).ConfigureAwait(false);
                     }
-                    else if (packet is MqttDisconnectPacket)
+                    else if (packet is MqttDisconnectPacket disconnectPacket)
                     {
-                        Session.WillMessage = null;
+                        _disconnectPacketReceived = true;
+                        _clientDisconnectReason = disconnectPacket.ReasonCode ?? MqttDisconnectReasonCode.NormalDisconnection;
+
+                        var requestedExpiry = disconnectPacket.Properties?.SessionExpiryInterval;
+                        if (requestedExpiry.HasValue)
+                        {
+                            if (Session.SessionExpiryInterval == 0 && requestedExpiry.Value != 0)
+                            {
+                                // [MQTT-3.1.2-23] 类规则：CONNECT 的 Session Expiry 为 0 时，DISCONNECT 不得改大。
+                                _protocolError = true;
+                                _clientDisconnectReason = MqttDisconnectReasonCode.ProtocolError;
+                            }
+                            else
+                            {
+                                var capabilities = _channelAdapter.PacketFormatterAdapter.Capabilities;
+                                var max = capabilities?.MaximumSessionExpiryInterval ?? uint.MaxValue;
+                                Session.SessionExpiryInterval = requestedExpiry.Value < max ? requestedExpiry.Value : max;
+                            }
+                        }
+
                         disconnectType = MqttClientDisconnectType.Clean;
 
                         StopInternal();
@@ -251,6 +295,40 @@ namespace SAEA.MQTT.Server
             catch (OperationCanceledException)
             {
             }
+            catch (MqttMaximumPacketSizeExceededException exception)
+            {
+                if (exception.Direction == MqttPacketSizeDirection.Inbound)
+                {
+                    _logger.Warning(exception, "Client '{0}': Received a packet exceeding the maximum packet size.", ClientId);
+                    _protocolError = true;
+                    _clientDisconnectReason = MqttDisconnectReasonCode.PacketTooLarge;
+
+                    if (IsV5)
+                    {
+                        await SendDisconnectAsync(MqttDisconnectReasonCode.PacketTooLarge).ConfigureAwait(false);
+                    }
+                }
+                else
+                {
+                    // 本端发包超限：不向对端发送原因码（对端并未违规），直接关闭。
+                    _logger.Error(exception, "Client '{0}': A control packet exceeds the peer maximum packet size.", ClientId);
+                }
+
+                StopInternal();
+            }
+            catch (MqttMalformedPacketException exception)
+            {
+                _logger.Warning(exception, "Client '{0}': Received a malformed packet.", ClientId);
+                _protocolError = true;
+                _clientDisconnectReason = MqttDisconnectReasonCode.MalformedPacket;
+
+                if (IsV5)
+                {
+                    await SendDisconnectAsync(MqttDisconnectReasonCode.MalformedPacket).ConfigureAwait(false);
+                }
+
+                StopInternal();
+            }
             catch (Exception exception)
             {
                 if (exception is MqttCommunicationException)
@@ -262,6 +340,13 @@ namespace SAEA.MQTT.Server
                     _logger.Error(exception, "Client '{0}': Error while receiving client packets.", ClientId);
                 }
 
+                if (IsV5 && exception is MqttProtocolViolationException)
+                {
+                    _protocolError = true;
+                    _clientDisconnectReason = MqttDisconnectReasonCode.ProtocolError;
+                    await SendDisconnectAsync(MqttDisconnectReasonCode.ProtocolError).ConfigureAwait(false);
+                }
+
                 StopInternal();
             }
             finally
@@ -271,15 +356,32 @@ namespace SAEA.MQTT.Server
                     disconnectType = MqttClientDisconnectType.Takeover;
                 }
 
-                if (Session.WillMessage != null)
-                {
-                    _sessionsManager.DispatchApplicationMessage(Session.WillMessage, this);
-                    Session.WillMessage = null;
-                }
-
                 _packetDispatcher.Cancel();
 
                 _logger.Info("Client '{0}': Connection stopped.", ClientId);
+
+                var willDisposition = DetermineWillDisposition();
+                if (Interlocked.CompareExchange(ref _willHandled, 1, 0) != 0)
+                {
+                    willDisposition = MqttWillDisposition.DoNotPublish;
+                }
+
+                try
+                {
+                    _sessionsManager.HandleConnectionClosed(
+                        ClientId,
+                        _connectionEpoch,
+                        disconnectType,
+                        IsV5,
+                        _willMessage,
+                        _willDelayInterval,
+                        willDisposition,
+                        this);
+                }
+                catch (Exception e)
+                {
+                    _logger.Error(e, "Client '{0}': Error while handling connection close", ClientId);
+                }
 
                 try
                 {
@@ -297,16 +399,68 @@ namespace SAEA.MQTT.Server
             _cancellationToken.Cancel();
         }
 
-        async Task EnqueueSubscribedRetainedMessagesAsync(ICollection<MqttTopicFilter> topicFilters)
+        /// <summary>
+        /// 根据本次连接的断开原因决定 Will 的处置。只由连接自身调用一次。
+        /// </summary>
+        MqttWillDisposition DetermineWillDisposition()
         {
-            var retainedMessages = await _retainedMessagesManager.GetSubscribedMessagesAsync(topicFilters).ConfigureAwait(false);
-            foreach (var applicationMessage in retainedMessages)
+            if (_willMessage == null)
             {
-                Session.EnqueueApplicationMessage(applicationMessage, ClientId, true);
+                return MqttWillDisposition.DoNotPublish;
             }
+
+            if (_disconnectPacketReceived)
+            {
+                return _clientDisconnectReason == MqttDisconnectReasonCode.NormalDisconnection
+                    ? MqttWillDisposition.DoNotPublish
+                    : MqttWillDisposition.PublishAfterDelay;
+            }
+
+            if (_protocolError)
+            {
+                return MqttWillDisposition.PublishAfterDelay;
+            }
+
+            if (_stopRequested)
+            {
+                // 服务端主动停止（shutdown/删除会话）按规范允许发布，处置与异常关闭一致。
+                return MqttWillDisposition.PublishAfterDelay;
+            }
+
+            // 异常、I/O 错误、keep-alive 超时、对端关闭：发布（受 Will Delay 约束）。
+            return MqttWillDisposition.PublishAfterDelay;
         }
 
-        Task HandleIncomingPubRelPacketAsync(MqttPubRelPacket pubRelPacket, CancellationToken cancellationToken)
+        /// <summary>
+        /// 会话被新连接接管时，由新连接在停止旧连接之前调用。
+        /// 通过 CAS 保证与 <see cref="DetermineWillDisposition"/> 只有一方生效。
+        /// </summary>
+        internal void ResolveWillOnTakeover(bool newCleanStart)
+        {
+            if (Interlocked.CompareExchange(ref _willHandled, 1, 0) != 0)
+            {
+                return;
+            }
+
+            var willMessage = _willMessage;
+            if (willMessage == null)
+            {
+                return;
+            }
+
+            if (newCleanStart || _willDelayInterval == 0)
+            {
+                _sessionsManager.DispatchApplicationMessage(willMessage, this);
+            }
+            // 否则（CleanStart=0 且 WillDelay>0）：取消旧 will，不发布。
+        }
+
+        Task EnqueueSubscribedRetainedMessagesAsync(ICollection<MqttTopicFilter> topicFilters)
+        {
+            return Session.EnqueueRetainedMessagesAsync(topicFilters);
+        }
+
+        async Task HandleIncomingPubRelPacketAsync(MqttPubRelPacket pubRelPacket, CancellationToken cancellationToken)
         {
             var pubCompPacket = new MqttPubCompPacket
             {
@@ -314,12 +468,28 @@ namespace SAEA.MQTT.Server
                 ReasonCode = MqttPubCompReasonCode.Success
             };
 
-            return SendAsync(pubCompPacket, cancellationToken);
+            await SendAsync(pubCompPacket, cancellationToken).ConfigureAwait(false);
+
+            // QoS2 配额只有在发出 PUBCOMP 之后才释放（不是收到 PUBREL 或发出 PUBREC 时）。
+            _inboundFlowControl.Release(pubRelPacket.PacketIdentifier);
         }
 
         async Task HandleIncomingSubscribePacketAsync(MqttSubscribePacket subscribePacket, CancellationToken cancellationToken)
         {
             var subscribeResult = await Session.SubscriptionsManager.SubscribeAsync(subscribePacket, ConnectPacket).ConfigureAwait(false);
+
+            // V5 协议错误：规范要求发送 DISCONNECT，而不是 SUBACK。
+            if (subscribeResult.DisconnectReasonCode.HasValue)
+            {
+                var reason = subscribeResult.DisconnectReasonCode.Value;
+                _protocolError = true;
+                _clientDisconnectReason = reason;
+
+                await SendDisconnectAsync(reason).ConfigureAwait(false);
+                StopInternal();
+                return;
+            }
+
             var subAckPacket = _channelAdapter.PacketFormatterAdapter.DataConverter.CreateSubAckPacket(subscribePacket, subscribeResult);
 
             await SendAsync(subAckPacket, cancellationToken).ConfigureAwait(false);
@@ -330,7 +500,7 @@ namespace SAEA.MQTT.Server
                 return;
             }
 
-            await EnqueueSubscribedRetainedMessagesAsync(subscribePacket.TopicFilters).ConfigureAwait(false);
+            await EnqueueSubscribedRetainedMessagesAsync(subscribeResult.RetainedMessageFilters).ConfigureAwait(false);
         }
 
         async Task HandleIncomingUnsubscribePacketAsync(MqttUnsubscribePacket unsubscribePacket, CancellationToken cancellationToken)
@@ -341,11 +511,41 @@ namespace SAEA.MQTT.Server
             await SendAsync(unsubAckPacket, cancellationToken).ConfigureAwait(false);
         }
 
-        Task HandleIncomingPublishPacketAsync(MqttPublishPacket publishPacket, CancellationToken cancellationToken)
+        async Task HandleIncomingPublishPacketAsync(MqttPublishPacket publishPacket, CancellationToken cancellationToken)
         {
-            Interlocked.Increment(ref _sentApplicationMessagesCount);
+            MqttDisconnectReasonCode disconnectReason;
+            if (!TryApplyTopicAlias(publishPacket, out disconnectReason))
+            {
+                _protocolError = true;
+                _clientDisconnectReason = disconnectReason;
 
-            HandleTopicAlias(publishPacket);
+                await SendDisconnectAsync(disconnectReason).ConfigureAwait(false);
+                StopInternal();
+                return;
+            }
+
+            if (IsV5 && !TryValidatePublishCapabilities(publishPacket, out disconnectReason))
+            {
+                _protocolError = true;
+                _clientDisconnectReason = disconnectReason;
+
+                await SendDisconnectAsync(disconnectReason).ConfigureAwait(false);
+                StopInternal();
+                return;
+            }
+
+            if (publishPacket.QualityOfServiceLevel > MqttQualityOfServiceLevel.AtMostOnce &&
+                !_inboundFlowControl.TryAcquire(publishPacket.PacketIdentifier, publishPacket.QualityOfServiceLevel))
+            {
+                _protocolError = true;
+                _clientDisconnectReason = MqttDisconnectReasonCode.ReceiveMaximumExceeded;
+
+                await SendDisconnectAsync(MqttDisconnectReasonCode.ReceiveMaximumExceeded).ConfigureAwait(false);
+                StopInternal();
+                return;
+            }
+
+            Interlocked.Increment(ref _sentApplicationMessagesCount);
 
             var applicationMessage = _dataConverter.CreateApplicationMessage(publishPacket);
             _sessionsManager.DispatchApplicationMessage(applicationMessage, this);
@@ -354,51 +554,187 @@ namespace SAEA.MQTT.Server
             {
                 case MqttQualityOfServiceLevel.AtMostOnce:
                     {
-                        return PlatformAbstractionLayer.CompletedTask;
+                        return;
                     }
                 case MqttQualityOfServiceLevel.AtLeastOnce:
                     {
                         var pubAckPacket = _dataConverter.CreatePubAckPacket(publishPacket);
-                        return SendAsync(pubAckPacket, cancellationToken);
+                        await SendAsync(pubAckPacket, cancellationToken).ConfigureAwait(false);
+                        _inboundFlowControl.Release(publishPacket.PacketIdentifier);
+                        return;
                     }
                 case MqttQualityOfServiceLevel.ExactlyOnce:
                     {
                         var pubRecPacket = _dataConverter.CreatePubRecPacket(publishPacket);
-                        return SendAsync(pubRecPacket, cancellationToken);
+                        await SendAsync(pubRecPacket, cancellationToken).ConfigureAwait(false);
+                        return;
                     }
                 default:
                     {
-                        throw new MqttCommunicationException("Received a not supported QoS level.");
+                        throw new MqttProtocolViolationException("Received a not supported QoS level.");
                     }
             }
         }
 
-        void HandleTopicAlias(MqttPublishPacket publishPacket)
+        bool TryApplyTopicAlias(MqttPublishPacket publishPacket, out MqttDisconnectReasonCode disconnectReason)
         {
-            if (publishPacket.Properties?.TopicAlias == null)
+            disconnectReason = MqttDisconnectReasonCode.NormalDisconnection;
+
+            var topicAlias = publishPacket.Properties?.TopicAlias;
+            if (!topicAlias.HasValue)
+            {
+                // V3 没有别名概念，空 Topic 的既有处理路径保持不变。
+                if (IsV5 && string.IsNullOrEmpty(publishPacket.Topic))
+                {
+                    _logger.Warning(
+                        null,
+                        "Client '{0}': Received a PUBLISH packet with an empty topic and no Topic Alias.",
+                        ClientId);
+                    disconnectReason = MqttDisconnectReasonCode.TopicNameInvalid;
+                    return false;
+                }
+
+                return true;
+            }
+
+            string resolvedTopic;
+            MqttTopicAliasResolver.AliasError error;
+            if (!_topicAliasResolver.TryResolve(topicAlias.Value, publishPacket.Topic, out resolvedTopic, out error))
+            {
+                _logger.Warning(
+                    null,
+                    "Client '{0}': Received an invalid Topic Alias '{1}' ({2}).",
+                    ClientId,
+                    topicAlias.Value,
+                    error);
+                disconnectReason = MqttDisconnectReasonCode.TopicAliasInvalid;
+                return false;
+            }
+
+            publishPacket.Topic = resolvedTopic;
+
+            // 入站别名已完成解析，后续分发与持久化不再携带该属性。
+            publishPacket.Properties.TopicAlias = null;
+            return true;
+        }
+
+        bool TryValidatePublishCapabilities(MqttPublishPacket publishPacket, out MqttDisconnectReasonCode disconnectReason)
+        {
+            disconnectReason = MqttDisconnectReasonCode.NormalDisconnection;
+
+            var capabilities = _channelAdapter.PacketFormatterAdapter.Capabilities;
+            if (capabilities == null)
+            {
+                return true;
+            }
+
+            if (!capabilities.RetainAvailable && publishPacket.Retain)
+            {
+                // [MQTT-3.3.1-11]：Retain Available 为 0 时客户端不得发送 Retain=1。
+                _logger.Warning(null, "Client '{0}': Received a retained PUBLISH while retain is not available.", ClientId);
+                disconnectReason = MqttDisconnectReasonCode.RetainNotSupported;
+                return false;
+            }
+
+            if ((int)publishPacket.QualityOfServiceLevel > (int)capabilities.MaximumQoS)
+            {
+                // [MQTT-3.3.1-9]：QoS 超过 Maximum QoS 属于协议错误。
+                _logger.Warning(
+                    null,
+                    "Client '{0}': Received a PUBLISH with QoS '{1}' above the maximum QoS '{2}'.",
+                    ClientId,
+                    publishPacket.QualityOfServiceLevel,
+                    capabilities.MaximumQoS);
+                disconnectReason = MqttDisconnectReasonCode.QoSNotSupported;
+                return false;
+            }
+
+            if (publishPacket.Properties?.SubscriptionIdentifiers != null &&
+                publishPacket.Properties.SubscriptionIdentifiers.Count > 0)
+            {
+                // [MQTT-3.3.4-6]：客户端发往服务端的 PUBLISH 不得包含 Subscription Identifier。
+                _logger.Warning(null, "Client '{0}': Received a PUBLISH with a Subscription Identifier.", ClientId);
+                disconnectReason = MqttDisconnectReasonCode.ProtocolError;
+                return false;
+            }
+
+            return true;
+        }
+
+        bool TryBeginOutboundPublish()
+        {
+            var capabilities = _channelAdapter.PacketFormatterAdapter.Capabilities;
+            var maximum = capabilities == null ? ushort.MaxValue : capabilities.ClientReceiveMaximum;
+            if (maximum == 0)
+            {
+                maximum = 1;
+            }
+
+            var inFlight = Interlocked.Increment(ref _outboundPublishInFlight);
+            if (inFlight > maximum)
+            {
+                Interlocked.Decrement(ref _outboundPublishInFlight);
+                return false;
+            }
+
+            return true;
+        }
+
+        void EndOutboundPublish()
+        {
+            Interlocked.Decrement(ref _outboundPublishInFlight);
+        }
+
+        async Task SendDisconnectAsync(MqttDisconnectReasonCode reasonCode)
+        {
+            if (!IsV5)
             {
                 return;
             }
 
-            var topicAlias = publishPacket.Properties.TopicAlias.Value;
-
-            lock (_topicAlias)
+            try
             {
-                if (!string.IsNullOrEmpty(publishPacket.Topic))
-                {
-                    _topicAlias[topicAlias] = publishPacket.Topic;
-                }
-                else
-                {
-                    if (_topicAlias.TryGetValue(topicAlias, out var topic))
+                await _channelAdapter.SendPacketAsync(
+                    new MqttDisconnectPacket
                     {
-                        publishPacket.Topic = topic;
-                    }
-                    else
-                    {
+                        ReasonCode = reasonCode
+                    },
+                    _serverOptions.DefaultCommunicationTimeout,
+                    CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                _logger.Warning(exception, "Client '{0}': Error while sending DISCONNECT packet.", ClientId);
+            }
+        }
 
-                    }
-                }
+        void ApplyOutboundTopicAlias(MqttPublishPacket publishPacket)
+        {
+            if (!IsV5 || publishPacket?.Properties == null)
+            {
+                return;
+            }
+
+            if (_topicAliasAssigner.Maximum == 0)
+            {
+                publishPacket.Properties.TopicAlias = null;
+                return;
+            }
+
+            ushort alias;
+            bool includeTopic;
+            if (!_topicAliasAssigner.TryAssign(publishPacket.Topic, out alias, out includeTopic))
+            {
+                publishPacket.Properties.TopicAlias = null;
+                return;
+            }
+
+            publishPacket.Properties.TopicAlias = alias;
+
+            if (!includeTopic)
+            {
+                // 已建立映射：后续 PUBLISH 使用空 Topic + 别名。
+                publishPacket.Topic = null;
             }
         }
 
@@ -422,11 +758,24 @@ namespace SAEA.MQTT.Server
                         return;
                     }
 
+                    if (queuedApplicationMessage.ExpiresAt.HasValue &&
+                        MqttTime.UtcNow >= queuedApplicationMessage.ExpiresAt.Value)
+                    {
+                        _logger.Verbose(
+                            "Dropping expired queued message for client '{0}' (topic '{1}').",
+                            ClientId,
+                            queuedApplicationMessage.ApplicationMessage.Topic);
+                        continue;
+                    }
+
                     publishPacket = _dataConverter.CreatePublishPacket(queuedApplicationMessage.ApplicationMessage);
                     publishPacket.QualityOfServiceLevel = queuedApplicationMessage.SubscriptionQualityOfServiceLevel;
 
                     // Set the retain flag to true according to [MQTT-3.3.1-8] and [MQTT-3.3.1-9].
-                    publishPacket.Retain = queuedApplicationMessage.IsRetainedMessage;
+                    // RetainAsPublished=false 时转发消息的 Retain 恒为 false；retained 补发恒为 true。
+                    publishPacket.Retain = queuedApplicationMessage.IsRetainedMessage
+                        ? true
+                        : (queuedApplicationMessage.RetainAsPublished && queuedApplicationMessage.ApplicationMessage.Retain);
 
                     if (_serverOptions.ClientMessageQueueInterceptor != null)
                     {
@@ -451,36 +800,100 @@ namespace SAEA.MQTT.Server
                         publishPacket.QualityOfServiceLevel = context.SubscriptionQualityOfServiceLevel;
                     }
 
+                    if (IsV5 && queuedApplicationMessage.ExpiresAt.HasValue && publishPacket.Properties != null)
+                    {
+                        // 会话中排队的时间也计入过期；转发时写入绝对到期时间对应的剩余整秒。
+                        var remainingSeconds = MqttMessageExpiry.GetRemainingSeconds(queuedApplicationMessage.ExpiresAt, MqttTime.UtcNow);
+                        if (!remainingSeconds.HasValue || remainingSeconds.Value == 0)
+                        {
+                            _logger.Verbose(
+                                "Dropping expired queued message for client '{0}' (topic '{1}').",
+                                ClientId,
+                                queuedApplicationMessage.ApplicationMessage.Topic);
+                            continue;
+                        }
+
+                        publishPacket.Properties.MessageExpiryInterval = remainingSeconds.Value;
+                    }
+
+                    if (publishPacket.Properties != null)
+                    {
+                        var capabilities = _channelAdapter.PacketFormatterAdapter.Capabilities;
+                        var identifiersAvailable = capabilities == null || capabilities.SubscriptionIdentifiersAvailable;
+
+                        if (IsV5 && identifiersAvailable &&
+                            queuedApplicationMessage.SubscriptionIdentifiers != null &&
+                            queuedApplicationMessage.SubscriptionIdentifiers.Count > 0)
+                        {
+                            publishPacket.Properties.SubscriptionIdentifiers = new List<uint>(queuedApplicationMessage.SubscriptionIdentifiers);
+                        }
+                        else
+                        {
+                            // 防止把入站应用消息上残留的标识符透传给订阅者。
+                            publishPacket.Properties.SubscriptionIdentifiers = null;
+                        }
+                    }
+
+                    ApplyOutboundTopicAlias(publishPacket);
+
                     if (publishPacket.QualityOfServiceLevel > 0)
                     {
                         publishPacket.PacketIdentifier = _packetIdentifierProvider.GetNextPacketIdentifier();
                     }
 
-                    if (publishPacket.QualityOfServiceLevel == MqttQualityOfServiceLevel.AtMostOnce)
+                    var outboundInFlight = false;
+                    if (publishPacket.QualityOfServiceLevel > MqttQualityOfServiceLevel.AtMostOnce)
                     {
-                        await SendAsync(publishPacket, cancellationToken).ConfigureAwait(false);
+                        outboundInFlight = TryBeginOutboundPublish();
+                        if (!outboundInFlight)
+                        {
+                            // D3：保持串行发送，此断言仅用于发现并发发送导致的配额越界。
+                            _logger.Error(
+                                null,
+                                "Client '{0}': Outbound in-flight publishes exceeded the client receive maximum.",
+                                ClientId);
+                            _protocolError = true;
+                            _clientDisconnectReason = MqttDisconnectReasonCode.ProtocolError;
+                            StopInternal();
+                            return;
+                        }
                     }
-                    else if (publishPacket.QualityOfServiceLevel == MqttQualityOfServiceLevel.AtLeastOnce)
+
+                    try
                     {
-                        var awaiter = _packetDispatcher.AddAwaiter<MqttPubAckPacket>(publishPacket.PacketIdentifier);
-                        await SendAsync(publishPacket, cancellationToken).ConfigureAwait(false);
-                        await awaiter.WaitOneAsync(_serverOptions.DefaultCommunicationTimeout).ConfigureAwait(false);
-                    }
-                    else if (publishPacket.QualityOfServiceLevel == MqttQualityOfServiceLevel.ExactlyOnce)
-                    {
-                        using (var awaiter1 = _packetDispatcher.AddAwaiter<MqttPubRecPacket>(publishPacket.PacketIdentifier))
-                        using (var awaiter2 = _packetDispatcher.AddAwaiter<MqttPubCompPacket>(publishPacket.PacketIdentifier))
+                        if (publishPacket.QualityOfServiceLevel == MqttQualityOfServiceLevel.AtMostOnce)
                         {
                             await SendAsync(publishPacket, cancellationToken).ConfigureAwait(false);
-                            await awaiter1.WaitOneAsync(_serverOptions.DefaultCommunicationTimeout).ConfigureAwait(false);
-
-                            await SendAsync(new MqttPubRelPacket
+                        }
+                        else if (publishPacket.QualityOfServiceLevel == MqttQualityOfServiceLevel.AtLeastOnce)
+                        {
+                            var awaiter = _packetDispatcher.AddAwaiter<MqttPubAckPacket>(publishPacket.PacketIdentifier);
+                            await SendAsync(publishPacket, cancellationToken).ConfigureAwait(false);
+                            await awaiter.WaitOneAsync(_serverOptions.DefaultCommunicationTimeout).ConfigureAwait(false);
+                        }
+                        else if (publishPacket.QualityOfServiceLevel == MqttQualityOfServiceLevel.ExactlyOnce)
+                        {
+                            using (var awaiter1 = _packetDispatcher.AddAwaiter<MqttPubRecPacket>(publishPacket.PacketIdentifier))
+                            using (var awaiter2 = _packetDispatcher.AddAwaiter<MqttPubCompPacket>(publishPacket.PacketIdentifier))
                             {
-                                PacketIdentifier = publishPacket.PacketIdentifier,
-                                ReasonCode = MqttPubRelReasonCode.Success
-                            }, cancellationToken).ConfigureAwait(false);
+                                await SendAsync(publishPacket, cancellationToken).ConfigureAwait(false);
+                                await awaiter1.WaitOneAsync(_serverOptions.DefaultCommunicationTimeout).ConfigureAwait(false);
 
-                            await awaiter2.WaitOneAsync(_serverOptions.DefaultCommunicationTimeout).ConfigureAwait(false);
+                                await SendAsync(new MqttPubRelPacket
+                                {
+                                    PacketIdentifier = publishPacket.PacketIdentifier,
+                                    ReasonCode = MqttPubRelReasonCode.Success
+                                }, cancellationToken).ConfigureAwait(false);
+
+                                await awaiter2.WaitOneAsync(_serverOptions.DefaultCommunicationTimeout).ConfigureAwait(false);
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        if (outboundInFlight)
+                        {
+                            EndOutboundPublish();
                         }
                     }
 
@@ -518,7 +931,21 @@ namespace SAEA.MQTT.Server
 
         async Task SendAsync(MqttBasePacket packet, CancellationToken cancellationToken)
         {
-            await _channelAdapter.SendPacketAsync(packet, _serverOptions.DefaultCommunicationTimeout, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await _channelAdapter.SendPacketAsync(packet, _serverOptions.DefaultCommunicationTimeout, cancellationToken).ConfigureAwait(false);
+            }
+            catch (MqttMaximumPacketSizeExceededException exception)
+            {
+                if (packet is MqttPublishPacket)
+                {
+                    _logger.Warning(exception, "Client '{0}': Dropping an oversized PUBLISH packet.", ClientId);
+                    return;
+                }
+
+                _logger.Error(exception, "Client '{0}': A control packet exceeds the maximum packet size.", ClientId);
+                throw;
+            }
 
             Interlocked.Increment(ref _receivedPacketsCount);
 

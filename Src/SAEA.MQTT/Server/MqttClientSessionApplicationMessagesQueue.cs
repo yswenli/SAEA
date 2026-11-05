@@ -32,6 +32,7 @@
 using SAEA.MQTT.Internal;
 using SAEA.MQTT.Protocol;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -59,7 +60,34 @@ namespace SAEA.MQTT.Server
                 ApplicationMessage = applicationMessage,
                 SenderClientId = senderClientId,
                 SubscriptionQualityOfServiceLevel = qualityOfServiceLevel,
-                IsRetainedMessage = isRetainedMessage
+                IsRetainedMessage = isRetainedMessage,
+                RetainAsPublished = false,
+                SubscriptionIdentifiers = null,
+                EnqueuedAt = MqttTime.UtcNow
+            });
+        }
+
+        public void Enqueue(
+            MqttApplicationMessage applicationMessage,
+            string senderClientId,
+            MqttQualityOfServiceLevel qualityOfServiceLevel,
+            bool isRetainedMessage,
+            DateTimeOffset? expiresAt,
+            bool retainAsPublished,
+            IList<uint> subscriptionIdentifiers)
+        {
+            if (applicationMessage == null) throw new ArgumentNullException(nameof(applicationMessage));
+
+            Enqueue(new MqttQueuedApplicationMessage
+            {
+                ApplicationMessage = applicationMessage,
+                SenderClientId = senderClientId,
+                SubscriptionQualityOfServiceLevel = qualityOfServiceLevel,
+                IsRetainedMessage = isRetainedMessage,
+                ExpiresAt = expiresAt,
+                RetainAsPublished = retainAsPublished,
+                SubscriptionIdentifiers = subscriptionIdentifiers == null ? null : new List<uint>(subscriptionIdentifiers),
+                EnqueuedAt = MqttTime.UtcNow
             });
         }
 

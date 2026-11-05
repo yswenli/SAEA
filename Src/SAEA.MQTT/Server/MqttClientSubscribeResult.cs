@@ -41,5 +41,15 @@ namespace SAEA.MQTT.Server
         public List<MqttSubscribeReasonCode> ReasonCodes { get; } = new List<MqttSubscribeReasonCode>();
 
         public bool CloseConnection { get; set; }
+
+        /// <summary>
+        /// 整包协议错误时的 DISCONNECT 原因码。设置后不应发送 SUBACK。
+        /// </summary>
+        public MqttDisconnectReasonCode? DisconnectReasonCode { get; set; }
+
+        /// <summary>
+        /// 订阅成功后需要补发 retained 消息的过滤器集合（已按 RetainHandling 过滤，且不含共享过滤器）。
+        /// </summary>
+        internal List<MqttTopicFilter> RetainedMessageFilters { get; } = new List<MqttTopicFilter>();
     }
 }

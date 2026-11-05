@@ -29,6 +29,9 @@
 *描述：MqttClientDisconnectOptions接口
 *
 *****************************************************************************/
+using System.Collections.Generic;
+using SAEA.MQTT.Packets;
+
 namespace SAEA.MQTT.Client.Disconnecting
 {
     public class MqttClientDisconnectOptions
@@ -36,5 +39,15 @@ namespace SAEA.MQTT.Client.Disconnecting
         public MqttClientDisconnectReason ReasonCode { get; set; } = MqttClientDisconnectReason.NormalDisconnection;
 
         public string ReasonString { get; set; }
+
+        /// <summary>
+        /// 仅 MQTT 5.0 生效。CONNECT 的 Session Expiry 为 0 时不得在此改大（F13）。
+        /// </summary>
+        public uint? SessionExpiryInterval { get; set; }
+
+        /// <summary>
+        /// 仅 MQTT 5.0 生效。
+        /// </summary>
+        public List<MqttUserProperty> UserProperties { get; set; }
     }
 }

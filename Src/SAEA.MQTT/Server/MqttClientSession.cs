@@ -30,9 +30,12 @@
 *
 *****************************************************************************/
 using SAEA.MQTT.Diagnostics;
+using SAEA.MQTT.Internal;
+using SAEA.MQTT.Protocol;
 using SAEA.MQTT.Server.Status;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Server
@@ -40,6 +43,7 @@ namespace SAEA.MQTT.Server
     public sealed class MqttClientSession
     {
         readonly IMqttNetScopedLogger _logger;
+        readonly object _willSyncRoot = new object();
 
         readonly DateTime _createdTimestamp = DateTime.UtcNow;
         readonly IMqttRetainedMessagesManager _retainedMessagesManager;
@@ -48,14 +52,26 @@ namespace SAEA.MQTT.Server
             string clientId,
             IDictionary<object, object> items,
             MqttServerEventDispatcher eventDispatcher,
-            IMqttServerOptions serverOptions, 
+            IMqttServerOptions serverOptions,
             IMqttRetainedMessagesManager retainedMessagesManager,
             IMqttNetLogger logger)
+            : this(clientId, items, eventDispatcher, serverOptions, retainedMessagesManager, logger, new MqttSharedSubscriptionRegistry())
+        {
+        }
+
+        internal MqttClientSession(
+            string clientId,
+            IDictionary<object, object> items,
+            MqttServerEventDispatcher eventDispatcher,
+            IMqttServerOptions serverOptions,
+            IMqttRetainedMessagesManager retainedMessagesManager,
+            IMqttNetLogger logger,
+            MqttSharedSubscriptionRegistry sharedSubscriptionRegistry)
         {
             ClientId = clientId ?? throw new ArgumentNullException(nameof(clientId));
             Items = items ?? throw new ArgumentNullException(nameof(items));
             _retainedMessagesManager = retainedMessagesManager ?? throw new ArgumentNullException(nameof(retainedMessagesManager));
-            SubscriptionsManager = new MqttClientSubscriptionsManager(this, eventDispatcher, serverOptions);
+            SubscriptionsManager = new MqttClientSubscriptionsManager(this, eventDispatcher, serverOptions, sharedSubscriptionRegistry);
             ApplicationMessagesQueue = new MqttClientSessionApplicationMessagesQueue(serverOptions);
 
             if (logger == null) throw new ArgumentNullException(nameof(logger));
@@ -64,9 +80,92 @@ namespace SAEA.MQTT.Server
 
         public string ClientId { get; }
 
+        /// <summary>
+        /// 当前连接使用的协议版本是否为 MQTT 5.0。每次建立连接时更新。
+        /// </summary>
+        internal bool IsV5 { get; set; }
+
         public bool IsCleanSession { get; set; } = true;
 
+        /// <summary>
+        /// 旧版本使用的 Will 字段。Will 所有权已迁移到 <see cref="MqttClientConnection"/>，
+        /// 此属性仅为兼容保留，不再参与运行时逻辑。
+        /// </summary>
         public MqttApplicationMessage WillMessage { get; set; }
+
+        /// <summary>
+        /// 标记为“已断开、尚未决定”的悬挂 Will。
+        /// </summary>
+        internal void SetPendingWill(MqttApplicationMessage willMessage)
+        {
+            lock (_willSyncRoot)
+            {
+                PendingWillMessage = willMessage;
+                WillPublished = false;
+            }
+        }
+
+        /// <summary>
+        /// 取消悬挂 Will（不发布）。
+        /// </summary>
+        internal void CancelPendingWill()
+        {
+            lock (_willSyncRoot)
+            {
+                PendingWillMessage = null;
+                WillPublished = true;
+            }
+        }
+
+        /// <summary>
+        /// 原子地取出悬挂 Will；只有第一个调用者会成功。
+        /// </summary>
+        internal bool TryTakePendingWill(out MqttApplicationMessage willMessage)
+        {
+            lock (_willSyncRoot)
+            {
+                if (WillPublished || PendingWillMessage == null)
+                {
+                    willMessage = null;
+                    return false;
+                }
+
+                willMessage = PendingWillMessage;
+                PendingWillMessage = null;
+                WillPublished = true;
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// 协商后的会话过期时间（秒）。0 表示连接关闭即结束会话；<see cref="uint.MaxValue"/> 表示永不过期。
+        /// </summary>
+        public uint SessionExpiryInterval { get; set; }
+
+        /// <summary>
+        /// Will 延迟时间（秒）。语义由后续 will 实现使用。
+        /// </summary>
+        public uint WillDelayInterval { get; set; }
+
+        /// <summary>
+        /// 最后建立连接的代际，用于识别过期回调是否仍属于当前连接。
+        /// </summary>
+        public long ConnectionEpoch { get; set; }
+
+        /// <summary>
+        /// 会话进入断开状态的时间；连接期间为 null。
+        /// </summary>
+        public DateTimeOffset? DisconnectedAt { get; set; }
+
+        /// <summary>
+        /// 已断开但尚未决定发布/丢弃的 will 消息。语义由后续 will 实现使用。
+        /// </summary>
+        public MqttApplicationMessage PendingWillMessage { get; set; }
+
+        /// <summary>
+        /// will 是否已经发布。语义由后续 will 实现使用。
+        /// </summary>
+        public bool WillPublished { get; set; }
 
         public MqttClientSubscriptionsManager SubscriptionsManager { get; }
 
@@ -77,32 +176,149 @@ namespace SAEA.MQTT.Server
         /// </summary>
         public IDictionary<object, object> Items { get; }
 
-        public bool EnqueueApplicationMessage(MqttApplicationMessage applicationMessage, string senderClientId, bool isRetainedApplicationMessage)
+        public bool EnqueueApplicationMessage(
+            MqttApplicationMessage applicationMessage,
+            string senderClientId,
+            bool isRetainedApplicationMessage,
+            DateTimeOffset? expiresAt = null)
         {
-            var checkSubscriptionsResult = SubscriptionsManager.CheckSubscriptions(applicationMessage.Topic, applicationMessage.QualityOfServiceLevel);
+            var checkSubscriptionsResult = SubscriptionsManager.CheckSubscriptions(applicationMessage.Topic, applicationMessage.QualityOfServiceLevel, senderClientId);
             if (!checkSubscriptionsResult.IsSubscribed)
             {
                 return false;
             }
 
+            return EnqueueApplicationMessage(applicationMessage, senderClientId, isRetainedApplicationMessage, expiresAt, checkSubscriptionsResult.Matches);
+        }
+
+        /// <summary>
+        /// 使用调用方给定的订阅匹配集合入队。多个匹配合并为一份消息：
+        /// QoS 取最大，RetainAsPublished 取逻辑或，订阅标识符按匹配顺序合并去重。
+        /// </summary>
+        internal bool EnqueueApplicationMessage(
+            MqttApplicationMessage applicationMessage,
+            string senderClientId,
+            bool isRetainedApplicationMessage,
+            DateTimeOffset? expiresAt,
+            IList<MqttSubscriptionMatch> matches)
+        {
+            if (matches == null || matches.Count == 0)
+            {
+                return false;
+            }
+
+            var qualityOfServiceLevel = matches.Max(m => m.QualityOfServiceLevel);
+
+            var retainAsPublished = false;
+            List<uint> subscriptionIdentifiers = null;
+
+            foreach (var match in matches)
+            {
+                if (match.RetainAsPublished)
+                {
+                    retainAsPublished = true;
+                }
+
+                if (!match.SubscriptionIdentifier.HasValue)
+                {
+                    continue;
+                }
+
+                if (subscriptionIdentifiers == null)
+                {
+                    subscriptionIdentifiers = new List<uint>();
+                }
+
+                if (!subscriptionIdentifiers.Contains(match.SubscriptionIdentifier.Value))
+                {
+                    subscriptionIdentifiers.Add(match.SubscriptionIdentifier.Value);
+                }
+            }
+
+            var now = MqttTime.UtcNow;
+            var effectiveExpiresAt = expiresAt ?? MqttMessageExpiry.GetExpiresAt(applicationMessage.MessageExpiryInterval, now);
+
+            if (effectiveExpiresAt.HasValue && now >= effectiveExpiresAt.Value)
+            {
+                _logger.Verbose("Skipping expired application message with topic '{0}' (ClientId: {1}).", applicationMessage.Topic, ClientId);
+
+                // 会话已订阅但消息已过期：不进入队列，也不参与 undelivered 统计。
+                return true;
+            }
+
             _logger.Verbose("Queued application message with topic '{0}' (ClientId: {1}).", applicationMessage.Topic, ClientId);
 
-            ApplicationMessagesQueue.Enqueue(applicationMessage, senderClientId, checkSubscriptionsResult.QualityOfServiceLevel, isRetainedApplicationMessage);
+            ApplicationMessagesQueue.Enqueue(
+                applicationMessage,
+                senderClientId,
+                qualityOfServiceLevel,
+                isRetainedApplicationMessage,
+                effectiveExpiresAt,
+                retainAsPublished,
+                subscriptionIdentifiers);
 
             return true;
+        }
+
+        /// <summary>
+        /// 对订阅成功后需要补发的过滤器补发匹配的 retained 消息。
+        /// 共享订阅过滤器不会出现在 <paramref name="replayFilters"/> 中；若出现也会被跳过。
+        /// </summary>
+        internal async Task EnqueueRetainedMessagesAsync(ICollection<MqttTopicFilter> replayFilters)
+        {
+            if (replayFilters == null || replayFilters.Count == 0)
+            {
+                return;
+            }
+
+            var matchingRetainedMessages = await _retainedMessagesManager.GetSubscribedMessageEntriesAsync(replayFilters).ConfigureAwait(false);
+            foreach (var matchingRetainedMessage in matchingRetainedMessages)
+            {
+                if (matchingRetainedMessage?.Message == null)
+                {
+                    continue;
+                }
+
+                var matches = new List<MqttSubscriptionMatch>();
+
+                foreach (var filter in replayFilters)
+                {
+                    if (filter == null || filter.ShareName != null)
+                    {
+                        continue;
+                    }
+
+                    var effectiveFilter = filter.ParsedFilter ?? filter.Topic;
+                    if (string.IsNullOrEmpty(effectiveFilter) ||
+                        !MqttTopicFilterComparer.IsMatch(matchingRetainedMessage.Message.Topic, effectiveFilter))
+                    {
+                        continue;
+                    }
+
+                    matches.Add(new MqttSubscriptionMatch
+                    {
+                        Filter = effectiveFilter,
+                        QualityOfServiceLevel = Min(matchingRetainedMessage.Message.QualityOfServiceLevel, filter.QualityOfServiceLevel),
+                        // retained 补发必须 Retain=true，因此不保留原始标志；由 isRetainedApplicationMessage 保证。
+                        RetainAsPublished = false,
+                        RetainHandling = filter.RetainHandling ?? MqttRetainHandling.SendAtSubscribe,
+                        SubscriptionIdentifier = filter.SubscriptionIdentifier,
+                        IsShared = false,
+                        ShareName = null
+                    });
+                }
+
+                // senderClientId 传 null，使 NoLocal 不排除 retained 补发。
+                EnqueueApplicationMessage(matchingRetainedMessage.Message, null, true, matchingRetainedMessage.ExpiresAt, matches);
+            }
         }
 
         public async Task SubscribeAsync(ICollection<MqttTopicFilter> topicFilters)
         {
             if (topicFilters is null) throw new ArgumentNullException(nameof(topicFilters));
 
-            await SubscriptionsManager.SubscribeAsync(topicFilters).ConfigureAwait(false);
-
-            var matchingRetainedMessages = await _retainedMessagesManager.GetSubscribedMessagesAsync(topicFilters).ConfigureAwait(false);
-            foreach (var matchingRetainedMessage in matchingRetainedMessages)
-            {
-                EnqueueApplicationMessage(matchingRetainedMessage, null, true);
-            }
+            var replayFilters = await SubscriptionsManager.SubscribeAsync(topicFilters).ConfigureAwait(false);
+            await EnqueueRetainedMessagesAsync(replayFilters).ConfigureAwait(false);
         }
 
         public Task UnsubscribeAsync(IEnumerable<string> topicFilters)
@@ -118,6 +334,11 @@ namespace SAEA.MQTT.Server
             status.CreatedTimestamp = _createdTimestamp;
             status.PendingApplicationMessagesCount = ApplicationMessagesQueue.Count;
             status.Items = Items;
+        }
+
+        static MqttQualityOfServiceLevel Min(MqttQualityOfServiceLevel left, MqttQualityOfServiceLevel right)
+        {
+            return (int)left <= (int)right ? left : right;
         }
     }
 }

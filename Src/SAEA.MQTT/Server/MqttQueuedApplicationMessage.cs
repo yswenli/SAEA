@@ -30,6 +30,7 @@
 *
 *****************************************************************************/
 using System;
+using System.Collections.Generic;
 using SAEA.MQTT.Protocol;
 
 namespace SAEA.MQTT.Server
@@ -52,5 +53,26 @@ namespace SAEA.MQTT.Server
         }
 
         public bool IsDuplicate { get; set; }
+
+        /// <summary>
+        /// 消息的绝对到期时间。null 表示永不过期（MQTT 3.x 或未携带 Message Expiry Interval）。
+        /// </summary>
+        public DateTimeOffset? ExpiresAt { get; set; }
+
+        /// <summary>
+        /// 消息进入会话队列的时间。
+        /// </summary>
+        public DateTimeOffset EnqueuedAt { get; set; }
+
+        /// <summary>
+        /// 合并后的出站 retain 决策：为 true 时转发保留原始 <see cref="MqttApplicationMessage.Retain"/> 标志，
+        /// 为 false 时出站消息的 Retain 恒为 false（retained 补发除外）。
+        /// </summary>
+        public bool RetainAsPublished { get; set; }
+
+        /// <summary>
+        /// 合并去重后的订阅标识符集合。可能为 null 或空，表示出站 PUBLISH 不携带订阅标识符。
+        /// </summary>
+        public List<uint> SubscriptionIdentifiers { get; set; }
     }
 }

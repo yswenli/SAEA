@@ -12,21 +12,21 @@
 *机器名称：WENLI-PC
 *公司名称：yswenli
 *命名空间：SAEA.Sockets.Core.Tcp
-*文件名： IocpServerSocket
+*文件名： SaeaServerSocket
 *版本号： v26.4.23.1
 *唯一标识：428f30fc-7c1c-4a82-a168-5af3b03cc7fc
 *当前的用户域：WENLI-PC
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2019/01/23 11:16:53
-*描述：IocpServerSocket接口
+*描述：SaeaServerSocket接口
 *
 *=====================================================================
 *修改标记
 *修改时间：2019/01/23 11:16:53
 *修改人： yswenli
 *版本号： v26.4.23.1
-*描述：IocpServerSocket接口
+*描述：SaeaServerSocket接口
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -36,7 +36,6 @@ using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
 
 using System;
-using System.Buffers;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
@@ -46,10 +45,10 @@ using System.Threading.Tasks;
 namespace SAEA.Sockets.Core.Tcp
 {
     /// <summary>
-    /// iocp 服务器 socket
+    /// saea 服务器 socket
     /// 支持使用自定义 IContext 来扩展
     /// </summary>
-    public class IocpServerSocket : IServerSocket, IDisposable
+    public class SaeaServerSocket : IServerSocket, IDisposable
     {
         // 监听Socket
         Socket _listener = null;
@@ -100,7 +99,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// iocp 服务器 socket
         /// </summary>>
         /// <param name="socketOption"></param>
-        public IocpServerSocket(ISocketOption socketOption)
+        public SaeaServerSocket(ISocketOption socketOption)
         {
             // 初始化会话管理器
             _sessionManager = new SessionManager(socketOption.Context,

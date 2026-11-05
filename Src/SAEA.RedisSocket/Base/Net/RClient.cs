@@ -44,7 +44,7 @@ namespace SAEA.RedisSocket.Base.Net
     /// <returns></returns>
     public delegate Task OnActionHandler(DateTime active);
 
-    internal class RClient : IocpClientSocket
+    internal class RClient : SaeaClientSocket
     {
         /// <summary>
         /// 当接收到消息时触发的事件

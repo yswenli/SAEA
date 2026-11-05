@@ -60,6 +60,119 @@ namespace SAEA.MQTT
         /// </summary>
         public MqttRetainHandling? RetainHandling { get; set; }
 
+        /// <summary>
+        /// 共享订阅解析后的内部过滤器；非共享订阅时为 null（调用方使用 <see cref="Topic"/> 兜底）。
+        /// </summary>
+        internal string ParsedFilter { get; set; }
+
+        /// <summary>
+        /// 共享订阅的组名；null 表示非共享订阅。
+        /// </summary>
+        internal string ShareName { get; set; }
+
+        /// <summary>
+        /// MQTT 5.0 SUBSCRIBE 包携带的订阅标识符。
+        /// </summary>
+        internal uint? SubscriptionIdentifier { get; set; }
+
+        internal bool IsShared => ShareName != null;
+
+        /// <summary>
+        /// 解析 <c>$share/{ShareName}/{filter}</c> 形式的共享订阅过滤器。
+        /// 非共享过滤器返回 false，而不是报错。
+        /// </summary>
+        internal static bool TryParseShared(string topic, out string shareName, out string filter)
+        {
+            shareName = null;
+            filter = null;
+
+            if (string.IsNullOrEmpty(topic))
+            {
+                return false;
+            }
+
+            const string prefix = "$share/";
+            if (!topic.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var rest = topic.Substring(prefix.Length);
+            if (rest.Length == 0)
+            {
+                return false;
+            }
+
+            var separatorIndex = rest.IndexOf('/');
+            if (separatorIndex <= 0 || separatorIndex == rest.Length - 1)
+            {
+                return false;
+            }
+
+            var candidateShareName = rest.Substring(0, separatorIndex);
+            if (candidateShareName.IndexOf('+') >= 0 || candidateShareName.IndexOf('#') >= 0)
+            {
+                return false;
+            }
+
+            var candidateFilter = rest.Substring(separatorIndex + 1);
+            if (!IsValidTopicFilter(candidateFilter))
+            {
+                return false;
+            }
+
+            shareName = candidateShareName;
+            filter = candidateFilter;
+            return true;
+        }
+
+        static bool IsValidTopicFilter(string filter)
+        {
+            if (string.IsNullOrEmpty(filter))
+            {
+                return false;
+            }
+
+            for (var i = 0; i < filter.Length; i++)
+            {
+                var current = filter[i];
+
+                if (current == '\0')
+                {
+                    return false;
+                }
+
+                if (current == '#')
+                {
+                    // '#' 只能出现在最后一个 level，且该 level 只能是 '#'。
+                    if (i != filter.Length - 1)
+                    {
+                        return false;
+                    }
+
+                    if (i > 0 && filter[i - 1] != '/')
+                    {
+                        return false;
+                    }
+                }
+                else if (current == '+')
+                {
+                    // '+' 必须独占一个 level。
+                    if (i > 0 && filter[i - 1] != '/')
+                    {
+                        return false;
+                    }
+
+                    if (i < filter.Length - 1 && filter[i + 1] != '/')
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
         public override string ToString()
         {
             return string.Concat(

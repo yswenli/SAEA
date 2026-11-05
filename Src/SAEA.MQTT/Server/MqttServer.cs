@@ -144,6 +144,11 @@ namespace SAEA.MQTT.Server
         public IMqttServerOptions Options { get; private set; }
 
         /// <summary>
+        /// 测试入口：暴露当前会话管理器以驱动到期任务。
+        /// </summary>
+        internal MqttClientSessionsManager ClientSessionsManager => _clientSessionsManager;
+
+        /// <summary>
         /// 获取客户端状态的异步方法
         /// </summary>
         /// <returns>客户端状态列表</returns>

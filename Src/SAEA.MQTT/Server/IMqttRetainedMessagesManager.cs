@@ -48,5 +48,7 @@ namespace SAEA.MQTT.Server
         Task<IList<MqttApplicationMessage>> GetMessagesAsync();
 
         Task<IList<MqttApplicationMessage>> GetSubscribedMessagesAsync(ICollection<MqttTopicFilter> topicFilters);
+
+        Task<IList<MqttRetainedMessageEntry>> GetSubscribedMessageEntriesAsync(ICollection<MqttTopicFilter> topicFilters);
     }
 }

@@ -273,7 +273,7 @@ namespace SAEA.P2PTest.Tests
                 .SetReadBufferSize(8192)
                 .Build();
 
-            var client = new SAEA.Sockets.Core.Tcp.IocpClientSocket(option);
+            var client = new SAEA.Sockets.Core.Tcp.SaeaClientSocket(option);
             byte[] spanData = null;
             client.OnClientReceiveSpan += span => spanData = span.ToArray();
 
@@ -303,7 +303,7 @@ namespace SAEA.P2PTest.Tests
                 .SetReadBufferSize(8192)
                 .Build();
 
-            var server = new SAEA.Sockets.Core.Tcp.IocpServerSocket(option);
+            var server = new SAEA.Sockets.Core.Tcp.SaeaServerSocket(option);
             byte[] spanData = null;
             server.OnServerReceiveSpan += (token, span) => spanData = span.ToArray();
             server.Start();
@@ -339,7 +339,7 @@ namespace SAEA.P2PTest.Tests
                 .SetReadBufferSize(8192)
                 .Build();
 
-            var client = new SAEA.Sockets.Core.Tcp.IocpClientSocket(option);
+            var client = new SAEA.Sockets.Core.Tcp.SaeaClientSocket(option);
             int spanCalls = 0;
             int errorCount = 0;
             byte[] secondData = null;

@@ -180,16 +180,24 @@ namespace SAEA.MQTT.Formatter.V5
         {
             if (connectionValidatorContext == null) throw new ArgumentNullException(nameof(connectionValidatorContext));
 
+            var capabilities = Capabilities;   // 可能为 null（测试/异常路径）
+
+            // Request Problem Information = 0 时，CONNACK 不携带诊断信息。
+            var includeProblemInformation = capabilities == null || capabilities.RequestProblemInformation;
+
             var properties = new MqttConnAckPacketProperties
             {
-                UserProperties = connectionValidatorContext.ResponseUserProperties,
                 AuthenticationMethod = connectionValidatorContext.AuthenticationMethod,
                 AuthenticationData = connectionValidatorContext.ResponseAuthenticationData,
-                AssignedClientIdentifier = connectionValidatorContext.AssignedClientIdentifier,
-                ReasonString = connectionValidatorContext.ReasonString
+                AssignedClientIdentifier = connectionValidatorContext.AssignedClientIdentifier
             };
 
-            var capabilities = Capabilities;   // 可能为 null（测试/异常路径）
+            if (includeProblemInformation)
+            {
+                properties.UserProperties = connectionValidatorContext.ResponseUserProperties;
+                properties.ReasonString = connectionValidatorContext.ReasonString;
+            }
+
             if (capabilities != null)
             {
                 if (capabilities.ReceiveMaximum != ushort.MaxValue)
@@ -255,6 +263,7 @@ namespace SAEA.MQTT.Formatter.V5
             return new MqttConnAckPacket
             {
                 ReasonCode = connectionValidatorContext.ReasonCode,
+                IsSessionPresent = connectionValidatorContext.IsSessionPresent,
                 Properties = properties
             };
         }
@@ -349,15 +358,22 @@ namespace SAEA.MQTT.Formatter.V5
 
         public MqttDisconnectPacket CreateDisconnectPacket(MqttClientDisconnectOptions options)
         {
-            var packet = new MqttDisconnectPacket();
+            var packet = new MqttDisconnectPacket
+            {
+                ReasonCode = options == null
+                    ? MqttDisconnectReasonCode.NormalDisconnection
+                    : (MqttDisconnectReasonCode)options.ReasonCode
+            };
 
-            if (options == null)
+            if (options != null &&
+                (options.SessionExpiryInterval.HasValue || options.UserProperties != null || options.ReasonString != null))
             {
-                packet.ReasonCode = MqttDisconnectReasonCode.NormalDisconnection;
-            }
-            else
-            {
-                packet.ReasonCode = (MqttDisconnectReasonCode)options.ReasonCode;
+                packet.Properties = new MqttDisconnectPacketProperties
+                {
+                    SessionExpiryInterval = options.SessionExpiryInterval,
+                    UserProperties = options.UserProperties,
+                    ReasonString = options.ReasonString
+                };
             }
 
             return packet;

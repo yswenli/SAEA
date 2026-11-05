@@ -41,7 +41,7 @@ namespace SAEA.P2P.Channel
 {
     public class TCPChannel
     {
-        private IocpClientSocket _socket;
+        private SaeaClientSocket _socket;
         private P2PCoder _coder = new P2PCoder();
         private ChannelState _state = ChannelState.Closed;
 
@@ -66,7 +66,7 @@ namespace SAEA.P2P.Channel
                 .SetConnectTimeout(timeout)
                 .Build();
 
-            _socket = SocketFactory.CreateClientSocket(option) as IocpClientSocket;
+            _socket = SocketFactory.CreateClientSocket(option) as SaeaClientSocket;
             _socket.OnClientReceiveSpan += OnReceiveSpan;
             _socket.OnDisconnected += (id, ex) =>
             {

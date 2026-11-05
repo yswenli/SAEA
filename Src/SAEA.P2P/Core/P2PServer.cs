@@ -50,7 +50,7 @@ namespace SAEA.P2P.Core
     public class P2PServer
     {
         private P2PServerOptions _options;
-        private IocpServerSocket _serverSocket;
+        private SaeaServerSocket _serverSocket;
         private P2PCoder _coder = new P2PCoder();
         private readonly ConcurrentDictionary<string, P2PCoder> _sessionCoders = new ConcurrentDictionary<string, P2PCoder>();
         
@@ -94,7 +94,7 @@ namespace SAEA.P2P.Core
                 .SetActionTimeOut(_options.Timeout.ReceiveTimeoutMs)
                 .Build();
             
-            _serverSocket = SocketFactory.CreateServerSocket(option) as IocpServerSocket;
+            _serverSocket = SocketFactory.CreateServerSocket(option) as SaeaServerSocket;
             _serverSocket.OnAccepted += OnAccepted;
             _serverSocket.OnServerReceiveSpan += OnServerReceiveSpan;
             _serverSocket.OnDisconnected += OnDisconnected;

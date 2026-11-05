@@ -168,7 +168,8 @@ namespace SAEA.MQTT.Formatter.V3
 
             return new MqttConnAckPacket
             {
-                ReturnCode = new MqttConnectReasonCodeConverter().ToConnectReturnCode(connectionValidatorContext.ReasonCode)
+                ReturnCode = new MqttConnectReasonCodeConverter().ToConnectReturnCode(connectionValidatorContext.ReasonCode),
+                IsSessionPresent = connectionValidatorContext.IsSessionPresent
             };
         }
 

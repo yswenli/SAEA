@@ -66,6 +66,10 @@ namespace SAEA.MQTT.Server
         readonly IMqttServerOptions _options;
         readonly IMqttNetScopedLogger _logger;
         readonly IMqttNetLogger _rootLogger;
+        readonly MqttSessionExpiryManager _sessionExpiryManager;
+        readonly MqttSharedSubscriptionRegistry _sharedSubscriptionRegistry = new MqttSharedSubscriptionRegistry();
+
+        long _connectionEpoch;
 
         /// <summary>
         /// 服务端能力快照，由 <see cref="MqttServer"/> 启动时注入。
@@ -92,6 +96,53 @@ namespace SAEA.MQTT.Server
             _eventDispatcher = eventDispatcher ?? throw new ArgumentNullException(nameof(eventDispatcher));
             _options = options ?? throw new ArgumentNullException(nameof(options));
             _retainedMessagesManager = retainedMessagesManager ?? throw new ArgumentNullException(nameof(retainedMessagesManager));
+
+            _sessionExpiryManager = new MqttSessionExpiryManager(this, _options, logger);
+        }
+
+        internal MqttSessionExpiryManager SessionExpiryManager => _sessionExpiryManager;
+
+        /// <summary>
+        /// 全局共享订阅注册表。会话结束时必须注销其成员。
+        /// </summary>
+        internal MqttSharedSubscriptionRegistry SharedSubscriptionRegistry => _sharedSubscriptionRegistry;
+
+        internal long NextConnectionEpoch()
+        {
+            return Interlocked.Increment(ref _connectionEpoch);
+        }
+
+        /// <summary>
+        /// 删除会话。仅当会话仍属于指定代际时才删除，保证到期回调幂等。
+        /// </summary>
+        internal bool RemoveSession(string clientId, long epoch)
+        {
+            bool removed;
+            lock (_sessions)
+            {
+                MqttClientSession session;
+                if (!_sessions.TryGetValue(clientId, out session))
+                {
+                    return false;
+                }
+
+                if (session.ConnectionEpoch != epoch)
+                {
+                    return false;
+                }
+
+                _sessions.Remove(clientId);
+                _logger.Verbose("Session for client '{0}' removed (expired).", clientId);
+                removed = true;
+            }
+
+            // registry 与 _sessions 使用不同的锁；统一在释放 _sessions 锁之后调用。
+            if (removed)
+            {
+                _sharedSubscriptionRegistry.RemoveClient(clientId);
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -101,6 +152,8 @@ namespace SAEA.MQTT.Server
         public void Start(CancellationToken cancellation)
         {
             Task.Run(() => TryProcessQueuedApplicationMessagesAsync(cancellation), cancellation).Forget(_logger);
+
+            _sessionExpiryManager.Start();
         }
 
         /// <summary>
@@ -138,6 +191,18 @@ namespace SAEA.MQTT.Server
                     _logger.Warning(null, "Client '{0}' connected but did not sent a CONNECT packet.", channelAdapter.Endpoint);
                     return;
                 }
+                catch (MqttMalformedPacketException ex)
+                {
+                    _logger.Warning(ex, "Client '{0}' sent a malformed first packet.", channelAdapter.Endpoint);
+                    await TrySendConnAckErrorAsync(channelAdapter, MqttConnectReasonCode.MalformedPacket, cancellationToken).ConfigureAwait(false);
+                    return;
+                }
+                catch (MqttProtocolViolationException ex)
+                {
+                    _logger.Warning(ex, "Client '{0}' sent an invalid first packet.", channelAdapter.Endpoint);
+                    await TrySendConnAckErrorAsync(channelAdapter, MqttConnectReasonCode.ProtocolError, cancellationToken).ConfigureAwait(false);
+                    return;
+                }
 
                 var connectionValidatorContext = await ValidateConnectionAsync(connectPacket, channelAdapter).ConfigureAwait(false);
 
@@ -153,10 +218,30 @@ namespace SAEA.MQTT.Server
                 catch (MqttProtocolViolationException ex)
                 {
                     _logger.Warning(ex, "Invalid CONNECT properties from client '{0}'.", connectPacket.ClientId);
-                    return; // 关闭连接；V5 的 CONNACK 0x82 属于后续原因码闭环
+                    await TrySendConnAckErrorAsync(channelAdapter, MqttConnectReasonCode.ProtocolError, cancellationToken).ConfigureAwait(false);
+                    return;
+                }
+
+                // 服务端能力对 CONNECT 携带的 Will 同样生效。
+                var willReasonCode = ValidateWillCapabilities(connectPacket, capabilities);
+                if (willReasonCode.HasValue)
+                {
+                    _logger.Warning(
+                        null,
+                        "Client '{0}' sent a Will which violates the advertised capabilities.",
+                        connectPacket.ClientId);
+                    await TrySendConnAckErrorAsync(channelAdapter, willReasonCode.Value, cancellationToken).ConfigureAwait(false);
+                    return;
                 }
 
                 channelAdapter.PacketFormatterAdapter.AttachCapabilities(capabilities);
+
+                var mqttChannelAdapter = channelAdapter as MqttChannelAdapter;
+                if (mqttChannelAdapter != null)
+                {
+                    mqttChannelAdapter.MaximumInboundPacketSize = capabilities.MaximumPacketSize;
+                    mqttChannelAdapter.MaximumPacketSize = capabilities.ClientMaximumPacketSize;
+                }
 
                 if (connectionValidatorContext.ReasonCode != MqttConnectReasonCode.Success)
                 {
@@ -309,10 +394,14 @@ namespace SAEA.MQTT.Server
                 _connections.TryGetValue(clientId, out connection);
             }
 
+            _sessionExpiryManager.OnSessionRemoved(clientId);
+
             lock (_sessions)
             {
                 _sessions.Remove(clientId);
             }
+
+            _sharedSubscriptionRegistry.RemoveClient(clientId);
 
             if (connection != null)
             {
@@ -340,10 +429,13 @@ namespace SAEA.MQTT.Server
                         _connections.Remove(clientId);
                     }
 
-                    if (!_options.EnablePersistentSessions)
+                    var isV5 = channelAdapter.PacketFormatterAdapter.ProtocolVersion == MqttProtocolVersion.V500;
+                    if (!isV5 && !_options.EnablePersistentSessions)
                     {
                         await DeleteSessionAsync(clientId).ConfigureAwait(false);
                     }
+
+                    // V5 的会话去留由 MqttSessionExpiryManager 决定（见 HandleConnectionClosed）。
                 }
             }
 
@@ -356,11 +448,61 @@ namespace SAEA.MQTT.Server
         }
 
         /// <summary>
+        /// 连接关闭后统一处理会话生命周期。仅 V5 且非接管路径进入过期调度。
+        /// </summary>
+        internal void HandleConnectionClosed(
+            string clientId,
+            long connectionEpoch,
+            MqttClientDisconnectType disconnectType,
+            bool isV5,
+            MqttApplicationMessage willMessage,
+            uint willDelayInterval,
+            MqttWillDisposition willDisposition,
+            MqttClientConnection sender)
+        {
+            if (disconnectType == MqttClientDisconnectType.Takeover)
+            {
+                return;
+            }
+
+            MqttClientSession session;
+            lock (_sessions)
+            {
+                _sessions.TryGetValue(clientId, out session);
+            }
+
+            if (session == null || session.ConnectionEpoch != connectionEpoch)
+            {
+                return;
+            }
+
+            if (!isV5)
+            {
+                // V3 保持原有行为：立即发布 Will，无 Will Delay。
+                if (willDisposition != MqttWillDisposition.DoNotPublish && willMessage != null)
+                {
+                    DispatchApplicationMessage(willMessage, sender);
+                }
+
+                return;
+            }
+
+            _sessionExpiryManager.OnSessionDisconnected(
+                session,
+                connectionEpoch,
+                willMessage,
+                willDelayInterval,
+                willDisposition,
+                sender);
+        }
+
+        /// <summary>
         /// 释放资源
         /// </summary>
         public void Dispose()
         {
             _messageQueue?.Dispose();
+            _sessionExpiryManager?.Dispose();
         }
 
         async Task TryProcessQueuedApplicationMessagesAsync(CancellationToken cancellationToken)
@@ -424,15 +566,66 @@ namespace SAEA.MQTT.Server
 
                 var deliveryCount = 0;
 
+                var expiresAt = MqttMessageExpiry.GetExpiresAt(applicationMessage.MessageExpiryInterval, MqttTime.UtcNow);
+
+                Dictionary<string, MqttClientSession> sessionsSnapshot;
                 lock (_sessions)
                 {
-                    foreach (var clientSession in _sessions.Values)
+                    sessionsSnapshot = new Dictionary<string, MqttClientSession>(_sessions);
+                }
+
+                // 1) 非共享订阅：每个会话最多一份，合并该会话所有匹配项。
+                foreach (var pair in sessionsSnapshot)
+                {
+                    var session = pair.Value;
+
+                    var checkSubscriptionsResult = session.SubscriptionsManager.CheckSubscriptions(
+                        applicationMessage.Topic,
+                        applicationMessage.QualityOfServiceLevel,
+                        senderClientId);
+
+                    if (!checkSubscriptionsResult.IsSubscribed)
                     {
-                        var isSubscribed = clientSession.EnqueueApplicationMessage(applicationMessage, senderClientId, false);
-                        if (isSubscribed)
-                        {
-                            deliveryCount++;
-                        }
+                        continue;
+                    }
+
+                    if (session.EnqueueApplicationMessage(applicationMessage, senderClientId, false, expiresAt, checkSubscriptionsResult.Matches))
+                    {
+                        deliveryCount++;
+                    }
+                }
+
+                // 2) 共享订阅：每个 (ShareName, Filter) 键恰好选一个成员。
+                var sharedKeys = _sharedSubscriptionRegistry.GetMatchingKeys(applicationMessage.Topic);
+                foreach (var sharedKey in sharedKeys)
+                {
+                    MqttSharedSubscriptionMember member;
+                    if (!_sharedSubscriptionRegistry.TrySelect(sharedKey, out member))
+                    {
+                        continue;
+                    }
+
+                    MqttClientSession session;
+                    if (!sessionsSnapshot.TryGetValue(member.ClientId, out session))
+                    {
+                        // 成员已消失（并发清理），不重投。
+                        continue;
+                    }
+
+                    var match = new MqttSubscriptionMatch
+                    {
+                        Filter = sharedKey.Filter,
+                        QualityOfServiceLevel = MinQualityOfService(applicationMessage.QualityOfServiceLevel, member.QualityOfServiceLevel),
+                        RetainAsPublished = member.RetainAsPublished,
+                        RetainHandling = MqttRetainHandling.SendAtSubscribe,
+                        SubscriptionIdentifier = member.SubscriptionIdentifier,
+                        IsShared = true,
+                        ShareName = sharedKey.ShareName
+                    };
+
+                    if (session.EnqueueApplicationMessage(applicationMessage, senderClientId, false, expiresAt, new[] { match }))
+                    {
+                        deliveryCount++;
                     }
                 }
 
@@ -454,6 +647,53 @@ namespace SAEA.MQTT.Server
             {
                 _logger.Error(exception, "Unhandled exception while processing next queued application message.");
             }
+        }
+
+        async Task TrySendConnAckErrorAsync(
+            IMqttChannelAdapter channelAdapter,
+            MqttConnectReasonCode reasonCode,
+            CancellationToken cancellationToken)
+        {
+            if (channelAdapter.PacketFormatterAdapter.ProtocolVersion != MqttProtocolVersion.V500)
+            {
+                return;
+            }
+
+            try
+            {
+                await channelAdapter.SendPacketAsync(
+                    new MqttConnAckPacket
+                    {
+                        ReasonCode = reasonCode
+                    },
+                    _options.DefaultCommunicationTimeout,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                _logger.Warning(exception, "Error while sending CONNACK error response.");
+            }
+        }
+
+        static MqttConnectReasonCode? ValidateWillCapabilities(MqttConnectPacket connectPacket, MqttConnectionCapabilities capabilities)
+        {
+            var willMessage = connectPacket?.WillMessage;
+            if (willMessage == null || capabilities == null || !capabilities.IsV5)
+            {
+                return null;
+            }
+
+            if (willMessage.Retain && !capabilities.RetainAvailable)
+            {
+                return MqttConnectReasonCode.RetainNotSupported;
+            }
+
+            if ((int)willMessage.QualityOfServiceLevel > (int)capabilities.MaximumQoS)
+            {
+                return MqttConnectReasonCode.QoSNotSupported;
+            }
+
+            return null;
         }
 
         async Task<MqttConnectionValidatorContext> ValidateConnectionAsync(MqttConnectPacket connectPacket, IMqttChannelAdapter channelAdapter)
@@ -488,11 +728,16 @@ namespace SAEA.MQTT.Server
         {
             lock (_createConnectionSyncRoot)
             {
+                var connectionEpoch = NextConnectionEpoch();
+
                 MqttClientSession session;
+                bool isSessionPresent;
+
                 lock (_sessions)
                 {
                     if (!_sessions.TryGetValue(connectPacket.ClientId, out session))
                     {
+                        isSessionPresent = false;
                         _logger.Verbose("Created a new session for client '{0}'.", connectPacket.ClientId);
                         session = CreateSession(connectPacket.ClientId, connectionValidatorContext);
                     }
@@ -500,17 +745,43 @@ namespace SAEA.MQTT.Server
                     {
                         if (connectPacket.CleanSession)
                         {
+                            // CleanStart=1 必须删除旧会话状态，CONNACK 的 SessionPresent 为 0。
+                            isSessionPresent = false;
                             _logger.Verbose("Deleting existing session of client '{0}'.", connectPacket.ClientId);
+                            // 旧会话的共享订阅成员先注销，避免幽灵成员。
+                            _sharedSubscriptionRegistry.RemoveClient(connectPacket.ClientId);
                             session = CreateSession(connectPacket.ClientId, connectionValidatorContext);
                         }
                         else
                         {
+                            isSessionPresent = true;
                             _logger.Verbose("Reusing existing session of client '{0}'.", connectPacket.ClientId);
                         }
                     }
 
+                    var capabilities = channelAdapter.PacketFormatterAdapter.Capabilities;
+                    session.IsV5 = capabilities?.IsV5 ??
+                                   (channelAdapter.PacketFormatterAdapter.ProtocolVersion == MqttProtocolVersion.V500);
+                    uint sessionExpiryInterval = capabilities?.SessionExpiryInterval ?? 0;
+                    if (!_options.EnablePersistentSessions)
+                    {
+                        sessionExpiryInterval = 0;
+                    }
+
+                    session.ConnectionEpoch = connectionEpoch;
+                    session.SessionExpiryInterval = sessionExpiryInterval;
+                    session.WillDelayInterval = connectPacket.Properties?.WillDelayInterval ?? 0;
+                    session.DisconnectedAt = null;
+                    // 复用会话时原子取消上一次连接留下的悬挂 will。
+                    session.CancelPendingWill();
+                    session.IsCleanSession = connectPacket.CleanSession;
+
                     _sessions[connectPacket.ClientId] = session;
                 }
+
+                connectionValidatorContext.IsSessionPresent = isSessionPresent;
+
+                _sessionExpiryManager.OnSessionReconnected(session, connectionEpoch);
 
                 MqttClientConnection existingConnection;
                 MqttClientConnection connection;
@@ -521,6 +792,9 @@ namespace SAEA.MQTT.Server
 
                     _connections[connectPacket.ClientId] = connection;
                 }
+
+                // 接管判定必须先于停止旧连接，且与旧连接 finally 的 will 处置通过 CAS 互斥。
+                existingConnection?.ResolveWillOnTakeover(connectPacket.CleanSession);
 
                 existingConnection?.StopAsync(MqttDisconnectReasonCode.SessionTakenOver).GetAwaiter().GetResult();
 
@@ -548,6 +822,11 @@ namespace SAEA.MQTT.Server
             var interceptorContext = new MqttApplicationMessageInterceptorContext(senderClientId, sessionItems, applicationMessage);
             await interceptor.InterceptApplicationMessagePublishAsync(interceptorContext).ConfigureAwait(false);
             return interceptorContext;
+        }
+
+        static MqttQualityOfServiceLevel MinQualityOfService(MqttQualityOfServiceLevel left, MqttQualityOfServiceLevel right)
+        {
+            return (int)left <= (int)right ? left : right;
         }
 
         async Task SafeCleanupChannelAsync(IMqttChannelAdapter channelAdapter)
@@ -596,7 +875,8 @@ namespace SAEA.MQTT.Server
                 _eventDispatcher,
                 _options,
                 _retainedMessagesManager,
-                _rootLogger);
+                _rootLogger,
+                _sharedSubscriptionRegistry);
         }
     }
 }

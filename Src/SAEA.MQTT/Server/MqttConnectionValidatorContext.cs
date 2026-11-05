@@ -95,6 +95,11 @@ namespace SAEA.MQTT.Server
         public uint? WillDelayInterval => _connectPacket?.Properties?.WillDelayInterval;
 
         /// <summary>
+        /// CONNACK 的 Session Present 标志。CleanStart=1 时始终为 false。
+        /// </summary>
+        public bool IsSessionPresent { get; set; }
+
+        /// <summary>
         /// Gets or sets a key/value collection that can be used to share data within the scope of this session.
         /// </summary>
         public IDictionary<object, object> SessionItems { get; }

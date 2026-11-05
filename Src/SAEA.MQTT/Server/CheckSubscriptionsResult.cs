@@ -30,6 +30,7 @@
 *
 *****************************************************************************/
 using SAEA.MQTT.Protocol;
+using System.Collections.Generic;
 
 namespace SAEA.MQTT.Server
 {
@@ -38,5 +39,10 @@ namespace SAEA.MQTT.Server
         public bool IsSubscribed { get; set; }
 
         public MqttQualityOfServiceLevel QualityOfServiceLevel { get; set; }
+
+        /// <summary>
+        /// 所有匹配的订阅过滤器及其选项。无匹配时为空列表而不是 null。
+        /// </summary>
+        internal List<MqttSubscriptionMatch> Matches { get; set; }
     }
 }

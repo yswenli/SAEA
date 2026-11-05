@@ -40,6 +40,7 @@ using SAEA.MQTT.Client.Subscribing;
 using SAEA.MQTT.Client.Unsubscribing;
 using SAEA.MQTT.Diagnostics;
 using SAEA.MQTT.Exceptions;
+using SAEA.MQTT.Formatter;
 using SAEA.MQTT.Internal;
 using SAEA.MQTT.PacketDispatcher;
 using SAEA.MQTT.Packets;
@@ -74,6 +75,15 @@ namespace SAEA.MQTT.Client
         long _isDisconnectPending;
         bool _isConnected;
         MqttClientDisconnectReason _disconnectReason;
+
+        MqttConnectionCapabilities _capabilities;
+        MqttInboundFlowControl _inboundFlowControl;
+        MqttTopicAliasResolver _topicAliasResolver;
+        MqttTopicAliasAssigner _topicAliasAssigner;
+
+        // 出站 Receive Maximum 配额：由服务端 CONNACK 决定，每次连接重建。
+        SemaphoreSlim _publishQuota;
+        CancellationTokenSource _publishQuotaCancellationTokenSource;
 
         public MqttClient(IMqttClientAdapterFactory channelFactory, IMqttNetLogger logger)
         {
@@ -118,6 +128,28 @@ namespace SAEA.MQTT.Client
                 var adapter = _adapterFactory.CreateClientAdapter(options);
                 _adapter = adapter;
 
+                _capabilities = new MqttConnectionCapabilities
+                {
+                    ProtocolVersion = options.ProtocolVersion,
+                    TopicAliasMaximum = options.TopicAliasMaximum ?? 0,
+                    ReceiveMaximum = options.ReceiveMaximum ?? ushort.MaxValue,
+                    MaximumPacketSize = options.MaximumPacketSize ?? 268435455
+                };
+
+                var mqttChannelAdapter = adapter as MqttChannelAdapter;
+                if (mqttChannelAdapter != null)
+                {
+                    mqttChannelAdapter.MaximumInboundPacketSize = _capabilities.MaximumPacketSize;
+                    // CONNACK 之前不知道对端上限，先不限制出站。
+                    mqttChannelAdapter.MaximumPacketSize = 268435455;
+                }
+
+                _inboundFlowControl = new MqttInboundFlowControl(_capabilities.ReceiveMaximum);
+
+                adapter.PacketFormatterAdapter.AttachCapabilities(_capabilities);
+                _topicAliasResolver = new MqttTopicAliasResolver(_capabilities.TopicAliasMaximum);
+                _topicAliasAssigner = null;
+
                 using (var combined = CancellationTokenSource.CreateLinkedTokenSource(backgroundCancellationToken, cancellationToken))
                 {
                     _logger.Verbose($"Trying to connect with server '{options.ChannelOptions}' (Timeout={options.CommunicationTimeout}).");
@@ -131,6 +163,21 @@ namespace SAEA.MQTT.Client
 
                     authenticateResult = await AuthenticateAsync(adapter, options.WillMessage, combined.Token).ConfigureAwait(false);
                 }
+
+                // CONNACK 中的 TopicAliasMaximum 约束客户端出站别名；每次连接重新创建，绝不跨连接复用。
+                _capabilities.ClientTopicAliasMaximum = authenticateResult.TopicAliasMaximum ?? 0;
+                _topicAliasAssigner = new MqttTopicAliasAssigner(_capabilities.ClientTopicAliasMaximum);
+
+                // CONNACK 中的 Maximum Packet Size 约束客户端出站。
+                _capabilities.ClientMaximumPacketSize = authenticateResult.MaximumPacketSize ?? 268435455;
+                if (mqttChannelAdapter != null)
+                {
+                    mqttChannelAdapter.MaximumPacketSize = _capabilities.ClientMaximumPacketSize;
+                }
+
+                // 服务端 Receive Maximum 约束客户端 QoS>0 的在途发布数量。
+                _capabilities.ClientReceiveMaximum = authenticateResult.ReceiveMaximum ?? ushort.MaxValue;
+                InitializePublishQuota(_capabilities.ClientReceiveMaximum);
 
                 _sendTracker.Restart();
                 _receiveTracker.Restart();
@@ -173,9 +220,18 @@ namespace SAEA.MQTT.Client
 
             ThrowIfDisposed();
 
+            if (options.SessionExpiryInterval.HasValue &&
+                options.SessionExpiryInterval.Value != 0 &&
+                (Options.SessionExpiryInterval ?? 0) == 0)
+            {
+                throw new MqttProtocolViolationException(
+                    "It is not allowed to set a non-zero session expiry interval in the DISCONNECT packet when it was zero in the CONNECT packet.");
+            }
+
             try
             {
-                _disconnectReason = MqttClientDisconnectReason.NormalDisconnection;
+                // 不覆盖用户指定的原因码；未指定时 MqttClientDisconnectOptions 默认 NormalDisconnection。
+                _disconnectReason = (MqttClientDisconnectReason)options.ReasonCode;
                 _cleanDisconnectInitiated = true;
 
                 if (IsConnected)
@@ -246,7 +302,7 @@ namespace SAEA.MQTT.Client
             return _adapter.PacketFormatterAdapter.DataConverter.CreateClientUnsubscribeResult(unsubscribePacket, unsubAckPacket);
         }
 
-        public Task<MqttClientPublishResult> PublishAsync(MqttApplicationMessage applicationMessage, CancellationToken cancellationToken)
+        public async Task<MqttClientPublishResult> PublishAsync(MqttApplicationMessage applicationMessage, CancellationToken cancellationToken)
         {
             MqttTopicValidator.ThrowIfInvalid(applicationMessage);
 
@@ -255,29 +311,124 @@ namespace SAEA.MQTT.Client
 
             var publishPacket = _adapter.PacketFormatterAdapter.DataConverter.CreatePublishPacket(applicationMessage);
 
-            switch (applicationMessage.QualityOfServiceLevel)
+            ApplyOutboundTopicAlias(publishPacket, applicationMessage);
+
+            if (applicationMessage.QualityOfServiceLevel == MqttQualityOfServiceLevel.AtMostOnce)
             {
-                case MqttQualityOfServiceLevel.AtMostOnce:
-                    {
-                        return PublishAtMostOnce(publishPacket, cancellationToken);
-                    }
-                case MqttQualityOfServiceLevel.AtLeastOnce:
-                    {
-                        return PublishAtLeastOnceAsync(publishPacket, cancellationToken);
-                    }
-                case MqttQualityOfServiceLevel.ExactlyOnce:
-                    {
-                        return PublishExactlyOnceAsync(publishPacket, cancellationToken);
-                    }
-                default:
-                    {
-                        throw new NotSupportedException();
-                    }
+                // QoS0 不占用 Receive Maximum 配额。
+                return await PublishAtMostOnce(publishPacket, cancellationToken).ConfigureAwait(false);
+            }
+
+            var quota = await AcquirePublishQuotaAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                switch (applicationMessage.QualityOfServiceLevel)
+                {
+                    case MqttQualityOfServiceLevel.AtLeastOnce:
+                        {
+                            return await PublishAtLeastOnceAsync(publishPacket, cancellationToken).ConfigureAwait(false);
+                        }
+                    case MqttQualityOfServiceLevel.ExactlyOnce:
+                        {
+                            return await PublishExactlyOnceAsync(publishPacket, cancellationToken).ConfigureAwait(false);
+                        }
+                    default:
+                        {
+                            throw new NotSupportedException();
+                        }
+                }
+            }
+            finally
+            {
+                ReleasePublishQuota(quota);
+            }
+        }
+
+        async Task<SemaphoreSlim> AcquirePublishQuotaAsync(CancellationToken cancellationToken)
+        {
+            var quota = _publishQuota;
+            if (quota == null)
+            {
+                return null;
+            }
+
+            var quotaCancellationTokenSource = _publishQuotaCancellationTokenSource;
+            if (quotaCancellationTokenSource == null)
+            {
+                await quota.WaitAsync(cancellationToken).ConfigureAwait(false);
+                return quota;
+            }
+
+            using (var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, quotaCancellationTokenSource.Token))
+            {
+                await quota.WaitAsync(linked.Token).ConfigureAwait(false);
+            }
+
+            return quota;
+        }
+
+        void ReleasePublishQuota(SemaphoreSlim quota)
+        {
+            if (quota == null)
+            {
+                return;
+            }
+
+            try
+            {
+                quota.Release();
+            }
+            catch (ObjectDisposedException)
+            {
+                // 连接已重建，旧配额不再需要归还。
+            }
+            catch (SemaphoreFullException)
+            {
+            }
+        }
+
+        void InitializePublishQuota(ushort receiveMaximum)
+        {
+            var oldCancellationTokenSource = _publishQuotaCancellationTokenSource;
+            var oldQuota = _publishQuota;
+
+            _publishQuotaCancellationTokenSource = new CancellationTokenSource();
+            _publishQuota = new SemaphoreSlim(receiveMaximum == 0 ? 1 : receiveMaximum, int.MaxValue);
+
+            // 防止旧连接的等待者永久阻塞。
+            try
+            {
+                oldCancellationTokenSource?.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+
+            oldCancellationTokenSource?.Dispose();
+            oldQuota?.Dispose();
+        }
+
+        void CancelPublishQuotaWaiters()
+        {
+            var cancellationTokenSource = _publishQuotaCancellationTokenSource;
+            if (cancellationTokenSource == null)
+            {
+                return;
+            }
+
+            try
+            {
+                cancellationTokenSource.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
             }
         }
 
         void Cleanup()
         {
+            CancelPublishQuotaWaiters();
+
             try
             {
                 _backgroundCancellationTokenSource?.Cancel(false);
@@ -342,6 +493,7 @@ namespace SAEA.MQTT.Client
             
             TryInitiateDisconnect();
             _isConnected = false;
+            CancelPublishQuotaWaiters();
 
             try
             {
@@ -438,6 +590,13 @@ namespace SAEA.MQTT.Client
                 }
                 catch (Exception e)
                 {
+                    if (e is MqttMaximumPacketSizeExceededException)
+                    {
+                        // 保留原始异常，避免被等待超时覆盖。
+                        packetAwaiter.Cancel();
+                        throw;
+                    }
+
                     _logger.Warning(e, "Error when sending packet of type '{0}'.", typeof(TResponsePacket).Name);
                     packetAwaiter.Cancel();
                 }
@@ -542,6 +701,48 @@ namespace SAEA.MQTT.Client
                     await TryProcessReceivedPacketAsync(packet, cancellationToken).ConfigureAwait(false);
                 }
             }
+            catch (MqttMaximumPacketSizeExceededException exception)
+            {
+                if (_cleanDisconnectInitiated)
+                {
+                    return;
+                }
+
+                _logger.Error(exception, "Received a packet exceeding the maximum packet size.");
+
+                if (_adapter != null && Options.ProtocolVersion == MqttProtocolVersion.V500)
+                {
+                    await TrySendDisconnectAsync(MqttDisconnectReasonCode.PacketTooLarge).ConfigureAwait(false);
+                }
+
+                _packetDispatcher.Dispatch(exception);
+
+                if (!DisconnectIsPending())
+                {
+                    await DisconnectInternalAsync(_packetReceiverTask, exception, null).ConfigureAwait(false);
+                }
+            }
+            catch (MqttMalformedPacketException exception)
+            {
+                if (_cleanDisconnectInitiated)
+                {
+                    return;
+                }
+
+                _logger.Error(exception, "Received a malformed packet.");
+
+                if (Options.ProtocolVersion == MqttProtocolVersion.V500)
+                {
+                    await TrySendDisconnectAsync(MqttDisconnectReasonCode.MalformedPacket).ConfigureAwait(false);
+                }
+
+                _packetDispatcher.Dispatch(exception);
+
+                if (!DisconnectIsPending())
+                {
+                    await DisconnectInternalAsync(_packetReceiverTask, exception, null).ConfigureAwait(false);
+                }
+            }
             catch (Exception exception)
             {
                 if (_cleanDisconnectInitiated)
@@ -559,6 +760,12 @@ namespace SAEA.MQTT.Client
                 else
                 {
                     _logger.Error(exception, "Error while receiving packets.");
+                }
+
+                if (Options.ProtocolVersion == MqttProtocolVersion.V500 &&
+                    exception is MqttProtocolViolationException)
+                {
+                    await TrySendDisconnectAsync(MqttDisconnectReasonCode.ProtocolError).ConfigureAwait(false);
                 }
 
                 _packetDispatcher.Dispatch(exception);
@@ -582,6 +789,35 @@ namespace SAEA.MQTT.Client
 
                 if (packet is MqttPublishPacket publishPacket)
                 {
+                    if (Options.ProtocolVersion == MqttProtocolVersion.V500)
+                    {
+                        bool isAliasFailure;
+                        string error;
+                        if (!TryApplyInboundTopicAlias(publishPacket, out isAliasFailure, out error))
+                        {
+                            if (Options.ProtocolVersion == MqttProtocolVersion.V500)
+                            {
+                                await TrySendDisconnectAsync(
+                                    isAliasFailure
+                                        ? MqttDisconnectReasonCode.TopicAliasInvalid
+                                        : MqttDisconnectReasonCode.TopicNameInvalid).ConfigureAwait(false);
+                            }
+
+                            throw new MqttProtocolViolationException(error);
+                        }
+                    }
+
+                    if (publishPacket.QualityOfServiceLevel > MqttQualityOfServiceLevel.AtMostOnce &&
+                        !_inboundFlowControl.TryAcquire(publishPacket.PacketIdentifier, publishPacket.QualityOfServiceLevel))
+                    {
+                        if (Options.ProtocolVersion == MqttProtocolVersion.V500)
+                        {
+                            await TrySendDisconnectAsync(MqttDisconnectReasonCode.ReceiveMaximumExceeded).ConfigureAwait(false);
+                        }
+
+                        throw new MqttProtocolViolationException("The server exceeded the receive maximum.");
+                    }
+
                     EnqueueReceivedPublishPacket(publishPacket);
                 }
                 else if (packet is MqttPubRelPacket pubRelPacket)
@@ -591,6 +827,9 @@ namespace SAEA.MQTT.Client
                         PacketIdentifier = pubRelPacket.PacketIdentifier,
                         ReasonCode = MqttPubCompReasonCode.Success
                     }, cancellationToken).ConfigureAwait(false);
+
+                    // QoS2 配额在发出 PUBCOMP 之后才释放。
+                    _inboundFlowControl.Release(pubRelPacket.PacketIdentifier);
                 }
                 else if (packet is MqttPingReqPacket)
                 {
@@ -649,6 +888,96 @@ namespace SAEA.MQTT.Client
             }
         }
 
+        bool TryApplyInboundTopicAlias(MqttPublishPacket publishPacket, out bool isAliasFailure, out string error)
+        {
+            isAliasFailure = false;
+            error = null;
+
+            var topicAlias = publishPacket.Properties?.TopicAlias;
+            if (!topicAlias.HasValue)
+            {
+                if (string.IsNullOrEmpty(publishPacket.Topic))
+                {
+                    error = "Received a PUBLISH packet with an empty topic and no Topic Alias.";
+                    return false;
+                }
+
+                return true;
+            }
+
+            isAliasFailure = true;
+
+            if (_topicAliasResolver == null)
+            {
+                error = "Received a PUBLISH packet with a Topic Alias before the connection was initialized.";
+                return false;
+            }
+
+            string resolvedTopic;
+            MqttTopicAliasResolver.AliasError aliasError;
+            if (!_topicAliasResolver.TryResolve(topicAlias.Value, publishPacket.Topic, out resolvedTopic, out aliasError))
+            {
+                error = "Received an invalid Topic Alias '" + topicAlias.Value + "' (" + aliasError + ").";
+                return false;
+            }
+
+            publishPacket.Topic = resolvedTopic;
+            publishPacket.Properties.TopicAlias = null;
+            isAliasFailure = false;
+            return true;
+        }
+
+        async Task TrySendDisconnectAsync(MqttDisconnectReasonCode reasonCode)
+        {
+            try
+            {
+                if (_adapter == null)
+                {
+                    return;
+                }
+
+                await _adapter.SendPacketAsync(
+                    new MqttDisconnectPacket
+                    {
+                        ReasonCode = reasonCode
+                    },
+                    Options.CommunicationTimeout,
+                    CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                _logger.Warning(exception, "Error while sending DISCONNECT packet.");
+            }
+        }
+
+        void ApplyOutboundTopicAlias(MqttPublishPacket publishPacket, MqttApplicationMessage applicationMessage)
+        {
+            if (Options.ProtocolVersion != MqttProtocolVersion.V500)
+            {
+                return;
+            }
+
+            // 用户显式设置的别名优先，框架不再改写。
+            if (applicationMessage.TopicAlias.HasValue || _topicAliasAssigner == null || publishPacket.Properties == null)
+            {
+                return;
+            }
+
+            ushort alias;
+            bool includeTopic;
+            if (!_topicAliasAssigner.TryAssign(publishPacket.Topic, out alias, out includeTopic))
+            {
+                return;
+            }
+
+            publishPacket.Properties.TopicAlias = alias;
+
+            if (!includeTopic)
+            {
+                publishPacket.Topic = null;
+            }
+        }
+
         void EnqueueReceivedPublishPacket(MqttPublishPacket publishPacket)
         {
             try
@@ -688,6 +1017,9 @@ namespace SAEA.MQTT.Client
                                 PacketIdentifier = publishPacket.PacketIdentifier,
                                 ReasonCode = MqttPubAckReasonCode.Success
                             }, cancellationToken).ConfigureAwait(false);
+
+                            // QoS1 配额在发出 PUBACK 之后释放。
+                            _inboundFlowControl.Release(publishPacket.PacketIdentifier);
                         }
                     }
                     else if (publishPacket.QualityOfServiceLevel == MqttQualityOfServiceLevel.ExactlyOnce)

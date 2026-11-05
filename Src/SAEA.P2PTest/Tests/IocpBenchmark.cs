@@ -77,7 +77,7 @@ namespace SAEA.P2PTest.Tests
                 .SetReadBufferSize(ReadBufferSize)
                 .Build();
 
-            var client = new IocpClientSocket(option);
+            var client = new SaeaClientSocket(option);
             var counter = new ReceiveCounter();
             var decoder = new BaseCoder();
 
@@ -152,7 +152,7 @@ namespace SAEA.P2PTest.Tests
                 .SetReadBufferSize(ReadBufferSize)
                 .Build();
 
-            var server = new IocpServerSocket(option);
+            var server = new SaeaServerSocket(option);
             var counter = new ReceiveCounter();
             var decoder = new BaseCoder();
 

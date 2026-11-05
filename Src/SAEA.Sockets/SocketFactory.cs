@@ -59,7 +59,7 @@ namespace SAEA.Sockets
                 }
                 else
                 {
-                    return new IocpServerSocket(socketOption);
+                    return new SaeaServerSocket(socketOption);
                 }
             }
             else
@@ -86,7 +86,7 @@ namespace SAEA.Sockets
             {
                 if (socketOption.UseIocp)
                 {
-                    return new IocpServerSocket(socketOption);
+                    return new SaeaServerSocket(socketOption);
                 }
                 else
                 {
@@ -125,7 +125,7 @@ namespace SAEA.Sockets
                 }
                 else
                 {
-                    return new IocpClientSocket(socketOption);
+                    return new SaeaClientSocket(socketOption);
                 }
             }
             else
@@ -157,7 +157,7 @@ namespace SAEA.Sockets
                 }
                 else
                 {
-                    return new IocpClientSocket(socketOption);
+                    return new SaeaClientSocket(socketOption);
                 }
             }
             else

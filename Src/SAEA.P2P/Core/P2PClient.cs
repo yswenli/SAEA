@@ -53,7 +53,7 @@ namespace SAEA.P2P.Core
     public class P2PClient
     {
         private P2POptions _options;
-        private IocpClientSocket _signalSocket;
+        private SaeaClientSocket _signalSocket;
         private P2PCoder _coder = new P2PCoder();
         
         private CryptoService _cryptoService;
@@ -141,7 +141,7 @@ namespace SAEA.P2P.Core
                 .SetConnectTimeout(_options.Timeout.ConnectTimeoutMs)
                 .Build();
             
-            _signalSocket = SocketFactory.CreateClientSocket(option) as IocpClientSocket;
+            _signalSocket = SocketFactory.CreateClientSocket(option) as SaeaClientSocket;
             _signalSocket.OnClientReceiveSpan += OnSignalReceiveSpan;
             _signalSocket.OnDisconnected += (id, ex) =>
             {

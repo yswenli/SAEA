@@ -48,6 +48,10 @@ namespace SAEA.MQTT.Server
 
         DateTime? SessionExpiryTimestamp { get; }
 
+        uint SessionExpiryInterval { get; }
+
+        DateTimeOffset? DisconnectedAt { get; }
+
         IList<MqttQueuedApplicationMessage> PendingApplicationMessages { get; }
     }
 }

@@ -12,25 +12,30 @@
 *机器名称：WENLI-PC
 *公司名称：yswenli
 *命名空间：SAEA.Sockets.Core.Tcp
-*文件名： IocpClientSocket
+*文件名： SaeaClientSocket
 *版本号： v26.4.23.1
 *唯一标识：0b952b1a-434b-4df2-aab1-7f3c4fed6eb3
 *当前的用户域：WENLI-PC
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2019/01/23 11:16:53
-*描述：IocpClientSocket接口
+*描述：SaeaClientSocket接口
 *
 *=====================================================================
 *修改标记
 *修改时间：2019/01/23 11:16:53
 *修改人： yswenli
 *版本号： v26.4.23.1
-*描述：IocpClientSocket接口
+*描述：SaeaClientSocket接口
 *
 *****************************************************************************/
+using SAEA.Common;
+using SAEA.Common.Caching;
+using SAEA.Sockets.Handler;
+using SAEA.Sockets.Interface;
+using SAEA.Sockets.Model;
+
 using System;
-using System.Buffers;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -38,19 +43,12 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
-using SAEA.Common;
-using SAEA.Common.Caching;
-using SAEA.Sockets.Base;
-using SAEA.Sockets.Handler;
-using SAEA.Sockets.Interface;
-using SAEA.Sockets.Model;
-
 namespace SAEA.Sockets.Core.Tcp
 {
     /// <summary>
-    /// iocp 客户端 socket
+    /// saea 客户端 socket
     /// </summary>
-    public class IocpClientSocket : IClientSocket, IDisposable
+    public class SaeaClientSocket : IClientSocket, IDisposable
     {
         /// <summary>
         /// 套接字对象
@@ -156,13 +154,13 @@ namespace SAEA.Sockets.Core.Tcp
         /// iocp 客户端 socket
         /// </summary>
         /// <param name="socketOption">Socket选项</param>
-        public IocpClientSocket(ISocketOption socketOption)
+        public SaeaClientSocket(ISocketOption socketOption)
         {
             SocketOption = socketOption;
 
             Context = socketOption.Context;
 
-            _isBaseClientType = GetType() == typeof(IocpClientSocket);
+            _isBaseClientType = GetType() == typeof(SaeaClientSocket);
 
             _userTokenFactory = new UserTokenFactory();
 
@@ -204,7 +202,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="port">端口</param>
         /// <param name="bufferSize">缓冲区大小</param>
         /// <param name="timeOut">超时时间</param>
-        public IocpClientSocket(IContext<ICoder> context, string ip = "127.0.0.1", int port = 39654, int bufferSize = 64 * 1024, int timeOut = 180 * 1000)
+        public SaeaClientSocket(IContext<ICoder> context, string ip = "127.0.0.1", int port = 39654, int bufferSize = 64 * 1024, int timeOut = 180 * 1000)
             : this(new SocketOption() { Context = context, IP = ip, Port = port, ReadBufferSize = bufferSize, WriteBufferSize = bufferSize, ActionTimeout = timeOut })
         {
 

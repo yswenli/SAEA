@@ -36,6 +36,7 @@ using SAEA.MQTT.Exceptions;
 using SAEA.MQTT.Formatter;
 using SAEA.MQTT.Internal;
 using SAEA.MQTT.Packets;
+using SAEA.MQTT.Protocol;
 using System;
 using System.IO;
 using System.Net.Sockets;
@@ -82,6 +83,16 @@ namespace SAEA.MQTT.Adapter
         public X509Certificate2 ClientCertificate => _channel.ClientCertificate;
 
         public MqttPacketFormatterAdapter PacketFormatterAdapter { get; }
+
+        /// <summary>
+        /// 出站上限，等于对端通告的 Maximum Packet Size。
+        /// </summary>
+        internal uint MaximumPacketSize { get; set; } = 268435455;
+
+        /// <summary>
+        /// 入站上限，等于本端通告的 Maximum Packet Size。
+        /// </summary>
+        internal uint MaximumInboundPacketSize { get; set; } = 268435455;
 
         public long BytesSent => Interlocked.Read(ref _bytesSent);
 
@@ -158,6 +169,15 @@ namespace SAEA.MQTT.Adapter
                 {
                     var packetData = PacketFormatterAdapter.Encode(packet);
 
+                    if ((uint)packetData.Count > MaximumPacketSize)
+                    {
+                        throw new MqttMaximumPacketSizeExceededException(
+                            MqttPacketSizeDirection.Outbound,
+                            GetPacketType(packet),
+                            MaximumPacketSize,
+                            packetData.Count);
+                    }
+
                     if (timeout == TimeSpan.Zero)
                     {
                         await _channel.WriteAsync(packetData.Array, packetData.Offset, packetData.Count, cancellationToken).ConfigureAwait(false);
@@ -208,10 +228,24 @@ namespace SAEA.MQTT.Adapter
                     PacketFormatterAdapter.DetectProtocolVersion(receivedPacket);
                 }
 
-                var packet = PacketFormatterAdapter.Decode(receivedPacket);
+                MqttBasePacket packet;
+                try
+                {
+                    packet = PacketFormatterAdapter.Decode(receivedPacket);
+                }
+                catch (MqttProtocolViolationException ex)
+                {
+                    // 解析阶段的结构性错误统一视为 Malformed Packet（0x81）。
+                    throw new MqttMalformedPacketException(ex.Message);
+                }
+                catch (Exception ex)
+                {
+                    throw new MqttMalformedPacketException("Received malformed packet: " + ex.Message);
+                }
+
                 if (packet == null)
                 {
-                    throw new MqttProtocolViolationException("Received malformed packet.");
+                    throw new MqttMalformedPacketException("Received malformed packet.");
                 }
 
                 _logger.Verbose("RX ({0} bytes) <<< {1}", receivedPacket.TotalLength, packet);
@@ -256,7 +290,16 @@ namespace SAEA.MQTT.Adapter
 
         async Task<ReceivedMqttPacket> ReceiveAsync(CancellationToken cancellationToken)
         {
-            var readFixedHeaderResult = await _packetReader.ReadFixedHeaderAsync(_fixedHeaderBuffer, cancellationToken).ConfigureAwait(false);
+            ReadFixedHeaderResult readFixedHeaderResult;
+            try
+            {
+                readFixedHeaderResult = await _packetReader.ReadFixedHeaderAsync(_fixedHeaderBuffer, cancellationToken).ConfigureAwait(false);
+            }
+            catch (MqttProtocolViolationException ex)
+            {
+                // 固定头（如 Remaining Length）非法属于 Malformed Packet。
+                throw new MqttMalformedPacketException(ex.Message);
+            }
 
             if (cancellationToken.IsCancellationRequested)
             {
@@ -273,6 +316,16 @@ namespace SAEA.MQTT.Adapter
                 IsReadingPacket = true;
 
                 var fixedHeader = readFixedHeaderResult.FixedHeader;
+
+                if ((uint)fixedHeader.TotalLength > MaximumInboundPacketSize)
+                {
+                    throw new MqttMaximumPacketSizeExceededException(
+                        MqttPacketSizeDirection.Inbound,
+                        (MqttControlPacketType)(fixedHeader.Flags >> 4),
+                        MaximumInboundPacketSize,
+                        fixedHeader.TotalLength);
+                }
+
                 if (fixedHeader.RemainingLength == 0)
                 {
                     return new ReceivedMqttPacket(fixedHeader.Flags, null, 2);
@@ -345,7 +398,29 @@ namespace SAEA.MQTT.Adapter
         {
             return exception is OperationCanceledException ||
                    exception is MqttCommunicationTimedOutException ||
-                   exception is MqttCommunicationException;
+                   exception is MqttCommunicationException ||
+                   exception is MqttMaximumPacketSizeExceededException ||
+                   exception is MqttMalformedPacketException;
+        }
+
+        static MqttControlPacketType? GetPacketType(MqttBasePacket packet)
+        {
+            if (packet is MqttConnectPacket) return MqttControlPacketType.Connect;
+            if (packet is MqttConnAckPacket) return MqttControlPacketType.ConnAck;
+            if (packet is MqttPublishPacket) return MqttControlPacketType.Publish;
+            if (packet is MqttPubAckPacket) return MqttControlPacketType.PubAck;
+            if (packet is MqttPubRecPacket) return MqttControlPacketType.PubRec;
+            if (packet is MqttPubRelPacket) return MqttControlPacketType.PubRel;
+            if (packet is MqttPubCompPacket) return MqttControlPacketType.PubComp;
+            if (packet is MqttSubscribePacket) return MqttControlPacketType.Subscribe;
+            if (packet is MqttSubAckPacket) return MqttControlPacketType.SubAck;
+            if (packet is MqttUnsubscribePacket) return MqttControlPacketType.Unsubscribe;
+            if (packet is MqttUnsubAckPacket) return MqttControlPacketType.UnsubAck;
+            if (packet is MqttPingReqPacket) return MqttControlPacketType.PingReq;
+            if (packet is MqttPingRespPacket) return MqttControlPacketType.PingResp;
+            if (packet is MqttDisconnectPacket) return MqttControlPacketType.Disconnect;
+            if (packet is MqttAuthPacket) return MqttControlPacketType.Auth;
+            return null;
         }
 
         static void WrapAndThrowException(Exception exception)
