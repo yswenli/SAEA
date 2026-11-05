@@ -34,6 +34,7 @@ using System.IO;
 using System.Net.Sockets;
 
 using SAEA.Common;
+using SAEA.Sockets.Ssl;
 
 namespace SAEA.Sockets.Model
 {
@@ -61,6 +62,11 @@ namespace SAEA.Sockets.Model
         /// 获取或设置通道对应的用户令牌
         /// </summary>
         public SAEA.Sockets.Interface.IUserToken UserToken { get; set; }
+
+        /// <summary>
+        /// 获取或设置通道的 TLS 状态；未启用 TLS 时为 null。
+        /// </summary>
+        public ISaeaTlsContext Tls { get; set; }
 
         /// <summary>
         /// 获取或设置通道的过期时间

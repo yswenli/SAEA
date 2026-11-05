@@ -338,7 +338,7 @@ namespace SAEA.Socket5Test
 
         /// <summary>
         /// 回归：会话不存在时 IServerSocket.Disconnect 不应抛异常。
-        /// 背景——SAEA.StreamServerSocket.Disconnect 未对 ChannelManager.Get 的 null 结果判空，
+        /// 背景——SAEA.SaeaServerSocket.Disconnect 未对 ChannelManager.Get 的 null 结果判空，
         /// 当会话已被 Stop()/Clear() 回收或重复断开时，会在 channel.ClientSocket 处抛
         /// NullReferenceException（调试器中可观察到 channel 为 null）。
         /// </summary>

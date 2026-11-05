@@ -17,6 +17,34 @@ namespace SAEA.P2PTest
                 return;
             }
 
+            if (args != null && Array.Exists(args, a => a == "--tls"))
+            {
+                TestHarness.Reset();
+                await TlsTest.RunAsync();
+                await TlsInteropTest.RunAsync();
+                Environment.ExitCode = TestHarness.HasFailures ? 1 : 0;
+                await Task.Delay(500);
+                return;
+            }
+
+            if (args != null && Array.Exists(args, a => a == "--tls-stress"))
+            {
+                TestHarness.Reset();
+                await TlsStressTest.RunAsync();
+                Environment.ExitCode = TestHarness.HasFailures ? 1 : 0;
+                await Task.Delay(500);
+                return;
+            }
+
+            if (args != null && Array.Exists(args, a => a == "--bench-tls"))
+            {
+                TestHarness.Reset();
+                await TlsBenchmark.RunAsync();
+                Environment.ExitCode = TestHarness.HasFailures ? 1 : 0;
+                await Task.Delay(500);
+                return;
+            }
+
             if (args != null && Array.Exists(args, a => a == "--bench-iocp"))
             {
                 TestHarness.Reset();
@@ -54,6 +82,10 @@ namespace SAEA.P2PTest
                 ConsoleHelper.WriteLine("21 = IocpReceiveBenchmark");
                 ConsoleHelper.WriteLine("22 = StreamPipelineTest");
                 ConsoleHelper.WriteLine("23 = UdpPipelineTest");
+                ConsoleHelper.WriteLine("24 = TlsTest");
+                ConsoleHelper.WriteLine("25 = TlsInteropTest");
+                ConsoleHelper.WriteLine("26 = TlsStressTest");
+                ConsoleHelper.WriteLine("27 = TlsBenchmark");
                 ConsoleHelper.WriteLine("0 = Exit");
 
                 var pressedKey = ConsoleHelper.ReadLine();
@@ -129,6 +161,18 @@ namespace SAEA.P2PTest
                     case "23":
                         await UdpPipelineTest.RunAsync();
                         break;
+                    case "24":
+                        await TlsTest.RunAsync();
+                        break;
+                    case "25":
+                        await TlsInteropTest.RunAsync();
+                        break;
+                    case "26":
+                        await TlsStressTest.RunAsync();
+                        break;
+                    case "27":
+                        await TlsBenchmark.RunAsync();
+                        break;
                     case "0":
                         return;
                 }
@@ -154,6 +198,9 @@ namespace SAEA.P2PTest
             await StreamDecoderTest.RunIocpClientSpanExceptionAsync();
             await StreamPipelineTest.RunAsync();
             await UdpPipelineTest.RunAsync();
+            await TlsTest.RunAsync();
+            await TlsInteropTest.RunAsync();
+            await TlsStressTest.RunAsync();
 
             TestHarness.WriteSummary("ALL ADVANCED TESTS");
 

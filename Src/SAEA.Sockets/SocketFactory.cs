@@ -53,14 +53,8 @@ namespace SAEA.Sockets
         {
             if (socketOption.SocketType == SAEASocketType.Tcp)
             {
-                if (!socketOption.UseIocp)
-                {
-                    return new StreamServerSocket(socketOption, cancellationToken);
-                }
-                else
-                {
-                    return new SaeaServerSocket(socketOption);
-                }
+                // TCP 统一由 IOCP 引擎承载；流模式与 TLS 由 SaeaConnection 提供。
+                return new SaeaServerSocket(socketOption);
             }
             else
             {
@@ -84,16 +78,7 @@ namespace SAEA.Sockets
         {
             if (socketOption.SocketType == SAEASocketType.Tcp)
             {
-                if (socketOption.UseIocp)
-                {
-                    return new SaeaServerSocket(socketOption);
-                }
-                else
-                {
-                    CancellationTokenSource source = new CancellationTokenSource();
-                    CancellationToken token = source.Token;
-                    return new StreamServerSocket(socketOption, token);
-                }
+                return new SaeaServerSocket(socketOption);
             }
             else
             {
@@ -119,14 +104,8 @@ namespace SAEA.Sockets
         {
             if (socketOption.SocketType == SAEASocketType.Tcp)
             {
-                if (!socketOption.UseIocp)
-                {
-                    return new StreamClientSocket(socketOption, cancellationToken);
-                }
-                else
-                {
-                    return new SaeaClientSocket(socketOption);
-                }
+                // TCP 统一由 IOCP 引擎承载；流模式与 TLS 由 SaeaConnection 提供。
+                return new SaeaClientSocket(socketOption);
             }
             else
             {
@@ -151,14 +130,7 @@ namespace SAEA.Sockets
         {
             if (socketOption.SocketType == SAEASocketType.Tcp)
             {
-                if (!socketOption.UseIocp)
-                {
-                    return new StreamClientSocket(socketOption);
-                }
-                else
-                {
-                    return new SaeaClientSocket(socketOption);
-                }
+                return new SaeaClientSocket(socketOption);
             }
             else
             {

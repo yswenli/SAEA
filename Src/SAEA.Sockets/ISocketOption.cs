@@ -31,6 +31,7 @@
 *****************************************************************************/
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
+using SAEA.Sockets.Ssl;
 
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
@@ -46,6 +47,22 @@ namespace SAEA.Sockets
         /// socket类型
         /// </summary>
         SAEASocketType SocketType { get; set; }
+
+        /// <summary>
+        /// 是否暴露流门面（不切换引擎，TCP 始终 IOCP）。
+        /// </summary>
+        bool UseStream
+        {
+            get; set;
+        }
+
+        /// <summary>
+        /// 统一 TLS 配置。WithSsl 为兼容属性，内部映射到 Tls.Enabled。
+        /// </summary>
+        SaeaTlsOptions Tls
+        {
+            get; set;
+        }
 
         /// <summary>
         /// 是否使用流模式的SSL

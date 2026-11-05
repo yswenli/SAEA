@@ -33,9 +33,11 @@ using SAEA.Common.IO;
 using SAEA.Sockets.Base;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
+using SAEA.Sockets.Ssl;
 
 using System;
 using System.Net;
+using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
@@ -87,9 +89,9 @@ namespace SAEA.Sockets
         /// <returns></returns>
         public SocketOptionBuilder UseIocp<T>() where T : class, ICoder
         {
-            if (_socketOption.WithSsl) throw new NotSupportedException("ssl模式下暂不支持icop");
             _socketOption.Context = (BaseContext<T>)Activator.CreateInstance(typeof(BaseContext<T>));
             _socketOption.UseIocp = true;
+            _socketOption.UseStream = false;
             return this;
         }
         /// <summary>
@@ -99,9 +101,9 @@ namespace SAEA.Sockets
         /// <returns></returns>
         public SocketOptionBuilder UseIocp(IContext<ICoder> context)
         {
-            if (_socketOption.WithSsl) throw new NotSupportedException("ssl模式下暂不支持icop");
             _socketOption.Context = context;
             _socketOption.UseIocp = true;
+            _socketOption.UseStream = false;
             return this;
         }
 
@@ -111,9 +113,9 @@ namespace SAEA.Sockets
         /// <returns></returns>
         public SocketOptionBuilder UseIocp()
         {
-            if (_socketOption.WithSsl) throw new NotSupportedException("ssl模式下暂不支持icop");
             _socketOption.Context = new BaseContext<BaseCoder>();
             _socketOption.UseIocp = true;
+            _socketOption.UseStream = false;
             return this;
         }
 
@@ -125,7 +127,17 @@ namespace SAEA.Sockets
         {
             if (_socketOption.SocketType == SAEASocketType.Udp) throw new NotSupportedException("udp不支持流");
             _socketOption.SocketType = SAEASocketType.Tcp;
-            _socketOption.UseIocp = false;
+            _socketOption.UseStream = true;
+            _socketOption.UseIocp = true;
+
+            // 流模式默认使用 StreamUserToken，便于消费者通过令牌访问 Stream / Input。
+            if (_socketOption.Context == null)
+            {
+                var context = new BaseContext<BaseCoder>();
+                context.UserToken = new StreamUserToken { Coder = context.Unpacker };
+                _socketOption.Context = context;
+            }
+
             return this;
         }
 
@@ -147,19 +159,23 @@ namespace SAEA.Sockets
         /// <param name="pfxFilePath"></param>
         /// <param name="pwd"></param>
         /// <returns></returns>
-        public SocketOptionBuilder WithSsl(SslProtocols sslProtocols, string pfxFilePath = "*.pfx", string pwd = "")
+        public SocketOptionBuilder WithSsl(SslProtocols sslProtocols, string pfxFilePath = null, string pwd = "")
         {
-            if (_socketOption.UseIocp || _socketOption.SocketType == SAEASocketType.Udp) throw new NotSupportedException("不支持此模式下的ssl");
-            _socketOption.SslProtocol = sslProtocols;
+            if (_socketOption.SocketType == SAEASocketType.Udp) throw new NotSupportedException("udp不支持ssl");
+
+            _socketOption.Tls.Protocols = sslProtocols;
+
             if (!string.IsNullOrEmpty(pfxFilePath))
             {
                 if (!FileHelper.Exists(pfxFilePath))
                 {
                     throw new NotSupportedException("cenFilePath设置有误，找不到该证书文件!");
                 }
-                _socketOption.X509Certificate2 = new X509Certificate2(pfxFilePath, pwd, X509KeyStorageFlags.PersistKeySet);
-                _socketOption.WithSsl = true;
+
+                _socketOption.Tls.ServerCertificate = SaeaCertificateLoader.FromPfx(pfxFilePath, pwd);
+                _socketOption.Tls.Enabled = true;
             }
+
             return this;
         }
 
@@ -169,15 +185,123 @@ namespace SAEA.Sockets
         /// <param name="x509Certificate2"></param>
         /// <param name="sslProtocols"></param>
         /// <returns></returns>
-        public SocketOptionBuilder WithSsl(X509Certificate2 x509Certificate2, SslProtocols sslProtocols)
+        public SocketOptionBuilder WithSsl(X509Certificate2 x509Certificate2,
+            SslProtocols sslProtocols = SaeaTlsProtocols.Default)
         {
-            if (_socketOption.UseIocp || _socketOption.SocketType == SAEASocketType.Udp) throw new NotSupportedException("不支持此模式下的ssl");
-            _socketOption.SslProtocol = sslProtocols;
+            if (_socketOption.SocketType == SAEASocketType.Udp) throw new NotSupportedException("udp不支持ssl");
+
+            _socketOption.Tls.Protocols = sslProtocols;
+
             if (x509Certificate2 != null)
             {
-                _socketOption.X509Certificate2 = x509Certificate2;
-                _socketOption.WithSsl = true;
+                _socketOption.Tls.ServerCertificate = x509Certificate2;
+                _socketOption.Tls.Enabled = true;
             }
+
+            return this;
+        }
+
+        /// <summary>
+        /// 使用统一的 TLS 配置入口。
+        /// </summary>
+        /// <param name="configure"></param>
+        /// <returns></returns>
+        public SocketOptionBuilder WithSsl(Action<SaeaTlsOptions> configure)
+        {
+            if (_socketOption.SocketType == SAEASocketType.Udp) throw new NotSupportedException("udp不支持ssl");
+            if (configure == null) throw new ArgumentNullException(nameof(configure));
+
+            configure(_socketOption.Tls);
+            _socketOption.Tls.Enabled = true;
+            return this;
+        }
+
+        /// <summary>
+        /// 设置服务端 SNI 证书选择器。
+        /// </summary>
+        /// <param name="selector"></param>
+        /// <returns></returns>
+        public SocketOptionBuilder UseServerCertificateSelector(Func<string, X509Certificate2> selector)
+        {
+            _socketOption.Tls.ServerCertificateSelector = selector;
+            return this;
+        }
+
+        /// <summary>
+        /// 添加客户端证书（用于 mTLS）。
+        /// </summary>
+        /// <param name="certificate"></param>
+        /// <returns></returns>
+        public SocketOptionBuilder UseClientCertificate(X509Certificate2 certificate)
+        {
+            if (certificate == null) throw new ArgumentNullException(nameof(certificate));
+
+            if (_socketOption.Tls.ClientCertificates == null)
+                _socketOption.Tls.ClientCertificates = new X509Certificate2Collection();
+
+            _socketOption.Tls.ClientCertificates.Add(certificate);
+            return this;
+        }
+
+        /// <summary>
+        /// 服务端是否要求客户端证书。
+        /// </summary>
+        /// <param name="required"></param>
+        /// <returns></returns>
+        public SocketOptionBuilder RequireClientCertificate(bool required = true)
+        {
+            _socketOption.Tls.ClientCertificateRequired = required;
+            return this;
+        }
+
+        /// <summary>
+        /// 设置自定义证书校验回调。
+        /// </summary>
+        /// <param name="callback"></param>
+        /// <returns></returns>
+        public SocketOptionBuilder SetRemoteCertificateValidation(RemoteCertificateValidationCallback callback)
+        {
+            _socketOption.Tls.CertificateValidationCallback = callback;
+            return this;
+        }
+
+        /// <summary>
+        /// 设置客户端目标主机名（SNI 与证书主机名校验）。
+        /// </summary>
+        /// <param name="targetHost"></param>
+        /// <returns></returns>
+        public SocketOptionBuilder SetTlsTargetHost(string targetHost)
+        {
+            _socketOption.Tls.TargetHost = targetHost;
+            return this;
+        }
+
+        /// <summary>
+        /// 设置握手超时。
+        /// </summary>
+        /// <param name="timeout"></param>
+        /// <returns></returns>
+        public SocketOptionBuilder SetHandshakeTimeout(TimeSpan timeout)
+        {
+            _socketOption.Tls.HandshakeTimeout = timeout;
+            return this;
+        }
+
+        /// <summary>
+        /// 注册 TLS 握手回调。
+        /// </summary>
+        /// <param name="started"></param>
+        /// <param name="completed"></param>
+        /// <param name="failed"></param>
+        /// <returns></returns>
+        public SocketOptionBuilder OnTlsHandshake(
+            Action<SaeaTlsHandshakeContext> started = null,
+            Action<SaeaTlsHandshakeContext> completed = null,
+            Action<SaeaTlsHandshakeContext> failed = null)
+        {
+            _socketOption.Tls.HandshakeStarted = started;
+            _socketOption.Tls.HandshakeCompleted = completed;
+            _socketOption.Tls.HandshakeFailed = failed;
             return this;
         }
 

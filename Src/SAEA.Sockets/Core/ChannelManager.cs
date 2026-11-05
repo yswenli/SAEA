@@ -31,6 +31,7 @@
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.Sockets.Model;
+using SAEA.Sockets.Ssl;
 
 using System;
 using System.Collections.Concurrent;
@@ -46,12 +47,19 @@ namespace SAEA.Sockets.Core
 
         int _timeOut = 60;
 
-        protected ChannelManager(int timeOut = 60)
+        /// <summary>
+        /// 创建通道管理器。每个服务器实例应持有自己的实例。
+        /// </summary>
+        /// <param name="timeOut">通道空闲超时（秒）</param>
+        public ChannelManager(int timeOut = 60)
         {
             _timeOut = timeOut;
         }
 
-        public ChannelInfo Set(string id, Socket socket, Stream stream)
+        /// <summary>
+        /// 添加或更新通道。
+        /// </summary>
+        public ChannelInfo Set(string id, Socket socket, Stream stream, ISaeaTlsContext tls = null)
         {
             if (string.IsNullOrEmpty(id)) return null;
             var ci = new ChannelInfo()
@@ -59,6 +67,7 @@ namespace SAEA.Sockets.Core
                 ID = id,
                 ClientSocket = socket,
                 Stream = stream,
+                Tls = tls,
                 Expired = DateTimeHelper.Now.AddSeconds(_timeOut)
             };
             _concurrentDictionary.AddOrUpdate(id, ci, (k, v) => ci);
@@ -124,7 +133,10 @@ namespace SAEA.Sockets.Core
 
         static ChannelManager _channelManager = null;
 
-
+        /// <summary>
+        /// 全局单例。仅为兼容旧代码保留；新代码应为每个服务器创建独立实例。
+        /// </summary>
+        [Obsolete("ChannelManager.Instance 为兼容旧代码保留。请为每个服务器创建独立的 ChannelManager 实例。")]
         public static ChannelManager Instance
         {
             get
@@ -137,6 +149,10 @@ namespace SAEA.Sockets.Core
             }
         }
 
+        /// <summary>
+        /// 获取全局单例。仅为兼容旧代码保留。
+        /// </summary>
+        [Obsolete("ChannelManager.GetInstance 为兼容旧代码保留。请为每个服务器创建独立的 ChannelManager 实例。")]
         public static ChannelManager GetInstance(int timeOut = 60)
         {
             if (_channelManager == null)

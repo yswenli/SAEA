@@ -117,7 +117,7 @@ namespace SAEA.Sockets.Core
         /// <remarks>
         /// 回收前会主动放弃在途发送缓冲的所有权且不释放：内核可能仍在读取该内存，
         /// 若将其归还池化数组并再次租用会造成 use-after-return，因此此处有意交由 GC 回收，
-        /// 与 IocpServerSocket.AbandonSendingOwner 的处理一致。
+        /// 与 SaeaServerSocket.AbandonSendingOwner 的处理一致。
         /// </remarks>
         /// <param name="userToken">用户令牌</param>
         /// <returns>是否成功放回</returns>

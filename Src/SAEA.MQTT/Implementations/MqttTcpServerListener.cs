@@ -109,7 +109,11 @@ namespace SAEA.MQTT.Implementations
 
                 if (_tlsCertificate != null)
                 {
-                    builder = builder.WithSsl(_tlsCertificate, System.Security.Authentication.SslProtocols.Tls12);
+                    builder = builder.WithSsl(o =>
+                    {
+                        o.ServerCertificate = _tlsCertificate;
+                        o.Protocols = System.Security.Authentication.SslProtocols.Tls12;
+                    });
                 }
 
                 _serverSokcet = SocketFactory.CreateServerSocket(builder.UseStream().SetIPEndPoint(_localEndPoint).Build());
@@ -147,21 +151,15 @@ namespace SAEA.MQTT.Implementations
 
                 if (_tlsCertificate != null)
                 {
-                    SslStream sslStream = (SslStream)stream;
-
-                    clientCertificate = sslStream.RemoteCertificate as X509Certificate2;
-
-                    if (clientCertificate == null && sslStream.RemoteCertificate != null)
-                    {
-                        clientCertificate = new X509Certificate2(sslStream.RemoteCertificate.Export(X509ContentType.Cert));
-                    }
+                    // TLS 由 SAEA.Sockets 在底层完成，客户端证书从连接 TLS 上下文读取。
+                    clientCertificate = ci.Tls?.RemoteCertificate;
                 }
 
                 var clientHandler = ClientHandler;
 
                 if (clientHandler != null)
                 {
-                    using (var clientAdapter = new MqttChannelAdapter(new MqttTcpChannel(stream, remoteEndPoint, clientCertificate), new MqttPacketFormatterAdapter(new MqttPacketWriter()), _rootLogger))
+                    using (var clientAdapter = new MqttChannelAdapter(new MqttTcpChannel(stream, remoteEndPoint, clientCertificate, ci.Tls != null), new MqttPacketFormatterAdapter(new MqttPacketWriter()), _rootLogger))
                     {
                         clientHandler(clientAdapter).ConfigureAwait(false).GetAwaiter().GetResult();
                     }

@@ -69,7 +69,7 @@ client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!"))
 | 特性 | 说明 | 优势 |
 |------|------|------|
 | 🚀 **跨平台异步 IO** | 底层机制由 .NET 运行时在 Windows/Linux/macOS 上自动选择 IOCP / epoll / kqueue | 同一套 API 三平台运行，无需条件编译或切换实现 |
-| 🔒 **SSL/TLS 加密** | 流模式支持安全连接 | 数据传输加密，保护隐私 |
+| 🔒 **SSL/TLS 加密** | 内置 BouncyCastle TLS 1.2/1.3，事件模式与流模式通用 | 自动证书加载、SNI、双向证书与握手回调，不依赖 `SslStream` |
 | 📡 **双协议支持** | TCP + UDP 双模式 | TCP 可靠传输，UDP 高速广播 |
 | 🌐 **IPv6 支持** | 完全兼容 IPv6 协议 | 适应未来网络环境 |
 | 💾 **零拷贝 + 内存池** | `OnServerReceiveSpan` Span 收包、BufferManager、UserTokenPool、MemoryPoolManager | 零拷贝解析，减少内存分配，降低 GC 压力 |
@@ -89,7 +89,9 @@ client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!"))
 
 三平台使用同一套 API，无需条件编译，也无需切换实现。底层机制由 .NET 运行时根据当前操作系统自动选择；框架侧只负责收发调度、协议编解码与会话管理。
 
-> ⚠️ **命名说明**：`UseIocp()` 是历史命名，指框架的 `SocketAsyncEventArgs` 收发实现，**不是 Windows 限定**——它在 Linux/macOS 上同样可用，底层分别落到 epoll/kqueue。需要 UDP 或高吞吐自定义帧时选它；需要 SSL/TLS 时改用 `UseStream()`。
+> ⚠️ **命名说明**：`UseIocp()` 是历史命名，指框架的 `SocketAsyncEventArgs` 收发实现，**不是 Windows 限定**——它在 Linux/macOS 上同样可用，底层分别落到 epoll/kqueue。TCP 只有这一套底层引擎（`SaeaServerSocket` / `SaeaClientSocket`）。
+>
+> `UseStream()` 不再切换引擎，而是在同一引擎上额外暴露双工 `Stream` 门面（`GetStream()` / `ChannelInfo.Stream`），由该门面独占入站数据；TLS 与事件模式、流模式都能组合使用。
 
 ---
 
@@ -102,13 +104,13 @@ client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!"))
 │                     SAEA.Sockets 架构                        │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  ┌──────────────┐      ┌──────────────┐                    │
-│  │ IocpSocket   │      │ StreamSocket │                    │
-│  │(SAEventArgs) │      │ (Pipelines)  │                    │
-│  └──────────────┘      └──────────────┘                    │
-│         │                     │                             │
-│         └──────────┬──────────┘                             │
-│                    │                                         │
+│  ┌──────────────────┐      ┌──────────────────┐            │
+│  │ SaeaServerSocket │      │ SaeaClientSocket │            │
+│  │ (SocketAsyncEvt) │      │ (SocketAsyncEvt) │            │
+│  └────────┬─────────┘      └────────┬─────────┘            │
+│           │        SaeaConnection (Pipe + TLS)              │
+│           └──────────────┬──────────┘                       │
+│                          │                                   │
 │            ┌───────▼───────┐                                │
 │            │  BaseSocket   │                                │
 │            │   (基类)      │                                │
@@ -155,12 +157,18 @@ client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!"))
                                 │
                                 ▼
                       ┌─────────────────┐
-                      │     Coder       │ 解码数据
-                      │   Decode()      │
+                      │ SaeaConnection  │ （可选）TLS 解密
                       └─────────────────┘
                                 │
+                    ┌───────────┴───────────┐
+                    ▼                       ▼
+          ┌─────────────────┐     ┌─────────────────┐
+          │ 流模式：Pipe    │     │ 事件模式：      │
+          │ Stream 门面     │     │ Span 回调       │
+          └─────────────────┘     └─────────────────┘
+                                │
                                 ▼
-                      OnServerReceiveSpan 事件触发
+                      OnServerReceiveSpan 事件触发（事件模式）
                                 │
                                 ▼
                       ┌─────────────────┐
@@ -200,18 +208,18 @@ client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!"))
 
 ## 实现模式对比 📊
 
-两种 TCP 实现都跨平台，按业务需要选择：
+TCP 只有一套底层引擎，`UseIocp()` 与 `UseStream()` 只决定数据如何交付，不再切换实现：
 
-| 对比项 | `SocketAsyncEventArgs` 模式（`UseIocp()`） | Pipelines 流模式（`UseStream()`） |
-|--------|--------------------------------------------|-----------------------------------|
-| 主要类 | `IocpServerSocket` / `IocpClientSocket` | `StreamServerSocket` / `StreamClientSocket` |
-| 接收方式 | 每连接一个 `SocketAsyncEventArgs`，通过 `OnServerReceiveSpan` 交付 | 每连接一个 `PipeReader`，也可用 `GetStream()` 直接读写 |
-| UDP | ✅ 支持（UDP 仅支持此模式） | ❌ 不支持 |
-| SSL/TLS | ❌ 不支持 | ✅ 支持 |
+| 对比项 | 事件模式（`UseIocp()`） | 流模式（`UseStream()`） |
+|--------|-------------------------|--------------------------|
+| 主要类 | `SaeaServerSocket` / `SaeaClientSocket` | 同左（同一引擎） |
+| 接收方式 | 每连接一个 `SocketAsyncEventArgs`，通过 `On*ReceiveSpan` 交付 | 每连接一个 `PipeReader`，通过 `GetStream()` / `ChannelInfo.Stream` 读写 |
+| UDP | ✅ 支持（UDP 仅支持事件模式） | ❌ 不支持 |
+| SSL/TLS | ✅ 支持（解密后走 Span 回调） | ✅ 支持（解密后进入 `Pipe`） |
+| 数据消费 | 只走 Span 事件 | `Stream` 门面独占入站数据 |
 | 底层 IO 机制 | 由 .NET 运行时选择：Windows IOCP / Linux epoll / macOS kqueue | 同上 |
-| 适用场景 | 高吞吐二进制协议、自定义帧、UDP | 需要 SSL/TLS，或希望以流式 API 处理连接 |
 
-> 命名说明：`UseIocp()` 指 `SocketAsyncEventArgs` 收发实现，与操作系统无关。
+> 命名说明：`UseIocp()` 指 `SocketAsyncEventArgs` 收发实现，与操作系统无关。两种模式互斥，后调用的方法生效。
 
 ### 关于性能数字
 
@@ -279,16 +287,49 @@ var option = SocketOptionBuilder.Instance
 
 ### Q3: 如何配置 SSL/TLS 加密？
 
-**A**: 使用 Stream 模式并配置证书：
+**A**: 通过 `WithSsl(...)` 统一入口配置，事件模式与流模式都可以启用：
 
 ```csharp
-var option = SocketOptionBuilder.Instance
+using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
+using SAEA.Sockets;
+using SAEA.Sockets.Ssl;
+
+// 服务端：自动从 PFX 加载证书，默认启用 TLS 1.2 + TLS 1.3
+var serverOption = SocketOptionBuilder.Instance
     .SetSocket(SAEASocketType.Tcp)
-    .UseStream()  // 使用流模式
-    .UseSsl()     // 启用 SSL
-    .SetSslCertificate("server.pfx", "password")
+    .SetIP("0.0.0.0")
+    .SetPort(443)
+    .WithSsl(o =>
+    {
+        o.ServerCertificate = SaeaCertificateLoader.FromPfx("server.pfx", "password");
+        o.Protocols = SaeaTlsProtocols.Default;
+        o.ServerCertificateSelector = sni => sni switch
+        {
+            "api.example.com" => apiCertificate,
+            _ => defaultCertificate
+        };
+        o.ClientCertificateRequired = true;            // 双向证书（mTLS）
+        o.HandshakeCompleted = context =>
+            Console.WriteLine($"TLS 握手完成：{context.NegotiatedProtocol}");
+    })
+    .Build();
+
+// 客户端：设置 SNI 目标主机与证书校验策略
+var clientOption = SocketOptionBuilder.Instance
+    .SetSocket(SAEASocketType.Tcp)
+    .SetIP("api.example.com")
+    .SetPort(443)
+    .WithSsl(o =>
+    {
+        o.TargetHost = "api.example.com";
+        o.ClientCertificates = new X509Certificate2Collection(clientCertificate);
+        o.CertificateValidationCallback = (sender, cert, chain, errors) => errors == SslPolicyErrors.None;
+    })
     .Build();
 ```
+
+握手成功后才触发 `OnAccepted`（服务端）或 `ConnectAsync` 完成（客户端）；失败时通过 `OnError` / `Tls.HandshakeFailed` 上报。`ChannelInfo.Tls` / `StreamUserToken.Tls` 可读取协商协议、密码套件与对端证书。内置 TLS 基于 BouncyCastle，不使用 `SslStream`，因此不要求流模式。
 
 ### Q4: 内存池的作用是什么？
 
@@ -323,8 +364,11 @@ var option = SocketOptionBuilder.Instance
 
 | 类名 | 说明 |
 |------|------|
-| `IocpServerSocket` / `IocpClientSocket` | `SocketAsyncEventArgs` 模式 TCP 服务器/客户端（跨平台） |
-| `StreamServerSocket` / `StreamClientSocket` | 流模式 TCP 服务器/客户端（支持 SSL） |
+| `SaeaServerSocket` / `SaeaClientSocket` | TCP 服务器/客户端（统一 IOCP 引擎，支持事件模式、流模式与内置 TLS） |
+| `SaeaConnection` | 每条 TCP 连接的 Pipe + TLS 门面（背压、加解密与握手状态） |
+| `SaeaTlsOptions` / `SaeaTlsProtocols` | TLS 配置、协议版本与回调 |
+| `SaeaCertificateLoader` | PFX/P12、PEM 证书加载 |
+| `ChannelInfo` | 流模式下的连接信息（`Stream`、`Tls`、`UserToken`） |
 | `UdpServerSocket` / `UdpClientSocket` | UDP 服务器/客户端 |
 | `SocketOptionBuilder` | 链式配置构建器 |
 | `SocketFactory` | Socket 工厂类 |
@@ -425,20 +469,71 @@ server.Start();
 
 ### SSL/TLS 安全连接
 
+服务端（事件模式，TLS 解密后的明文进入 `OnServerReceiveSpan`）：
+
 ```csharp
 using SAEA.Sockets;
+using SAEA.Sockets.Ssl;
 
 var option = SocketOptionBuilder.Instance
     .SetSocket(SAEASocketType.Tcp)
-    .UseStream()              // 使用流模式（支持 SSL）
     .SetIP("127.0.0.1")
     .SetPort(443)
-    .UseSsl()                 // 启用 SSL/TLS
-    .SetSslCertificate("server.pfx", "password")  // 配置证书
+    .WithSsl(o =>
+    {
+        o.ServerCertificate = SaeaCertificateLoader.FromPfx("server.pfx", "password");
+        o.Protocols = SaeaTlsProtocols.Default;
+    })
     .Build();
 
-var server = SocketFactory.CreateServerSocket(option);
+var server = new SAEA.Sockets.Core.Tcp.SaeaServerSocket(option);
 server.Start();
+```
+
+流模式（握手成功后通过 `ChannelInfo.Stream` 读写）：
+
+```csharp
+var option = SocketOptionBuilder.Instance
+    .UseStream()
+    .SetIP("127.0.0.1")
+    .SetPort(443)
+    .WithSsl(o => o.ServerCertificate = SaeaCertificateLoader.FromPfx("server.pfx", "password"))
+    .Build();
+
+var server = new SAEA.Sockets.Core.Tcp.SaeaServerSocket(option);
+server.OnAccepted += payload =>
+{
+    var channel = (ChannelInfo)payload;
+    var buffer = new byte[4096];
+    var read = channel.Stream.Read(buffer, 0, buffer.Length);
+    channel.Stream.Write(buffer, 0, read);
+};
+server.Start();
+```
+
+客户端：
+
+```csharp
+var option = SocketOptionBuilder.Instance
+    .UseStream()                       // 或不调用，使用事件模式
+    .SetIP("127.0.0.1")
+    .SetPort(443)
+    .WithSsl(o =>
+    {
+        o.TargetHost = "localhost";    // SNI + 证书主机名校验
+        o.AllowInvalidCertificates = true;
+    })
+    .Build();
+
+using (var client = new SaeaClientSocket(option))
+{
+    using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
+        await client.ConnectAsync(cts.Token);
+
+    var stream = client.GetStream();   // 流模式下获取双工流
+    var payload = Encoding.UTF8.GetBytes("hello");
+    await stream.WriteAsync(payload, 0, payload.Length);
+}
 ```
 
 ### 快捷封装类
@@ -521,9 +616,13 @@ var option = SocketOptionBuilder.Instance
 | `IClientSocket.OnReceive`（`OnClientReceiveHandler`，`byte[]`） | `OnClientReceiveSpan`（`ReadOnlySpan<byte>`，回调内同步消费/复制） |
 | `IServerSocket.OnReceive`（`OnReceiveHandler`，`(ISession, byte[])`） | `OnServerReceiveSpan`（`(IUserToken, ReadOnlySpan<byte>)`） |
 | `IClientSocket.BeginSend(byte[])` / `Send(byte[])` / `SendAsync(byte[])` / `SendAsync(byte[], int, int, CancellationToken)` | `Send(ReadOnlySpan<byte>)` / `SendAsync(ReadOnlyMemory<byte>)` / `SendAsync(ReadOnlyMemory<byte>, CancellationToken)`；原 offset/count 语义用 `data.AsMemory(offset, count)` 表达 |
-| `IClientSocket.ReceiveAsync(byte[], int, int, CancellationToken)`（接口成员） | 改用 span 事件；具体实现 `IocpClientSocket.ReceiveAsync` 保留但抛 `KernelException`，`UdpClientSocket.ReceiveAsync` 抛 `NotSupportedException`；原始读取请使用 `GetStream()` |
+| `IClientSocket.ReceiveAsync(byte[], int, int, CancellationToken)`（接口成员） | 改用 span 事件；具体实现 `SaeaClientSocket.ReceiveAsync` 保留但抛 `KernelException`，`UdpClientSocket.ReceiveAsync` 抛 `NotSupportedException`；原始读取请使用 `GetStream()` |
 | `IServerSocket.SendAsync(string, byte[])` / `Send(string, byte[])` / `End(string, byte[])` / `SendAsync(IPEndPoint, byte[])` | `SendAsync(string, ReadOnlyMemory<byte>)` / `Send(string, ReadOnlySpan<byte>)` / `End(string, ReadOnlyMemory<byte>)` / `SendAsync(IPEndPoint, ReadOnlyMemory<byte>)` |
 | `IocpClientSocket.UserToken` | 不再公开；按场景改用 `Connected` 或 `ChannelInfo.UserToken` / `Context.UserToken` |
+| `IocpServerSocket` / `IocpClientSocket` | 重命名为 `SaeaServerSocket` / `SaeaClientSocket`（`SocketFactory` 已返回新类型） |
+| `StreamServerSocket` / `StreamClientSocket` | 已删除；改用 `SaeaServerSocket` / `SaeaClientSocket` 并调用 `UseStream()`，通过 `GetStream()` 或 `ChannelInfo.Stream` 读写 |
+| `UseSsl()` / `SetSslCertificate(...)` 与 `SslStream` 直连 | 统一改为 `WithSsl(...)` + `SaeaTlsOptions`；TLS 由 BouncyCastle 实现，事件模式与流模式均可用 |
+| `ChannelManager.Instance` / `ChannelManager.GetInstance` | 每个服务器实例持有自己的 `ChannelManager`；旧静态入口仅为源码兼容保留并标记 `[Obsolete]` |
 | 快捷封装 `TCPClient` / `TCPServer` / `UDPClient` / `UDPServer` 的 `OnReceive` | `TCPClient` / `TCPServer.OnReceive` 由 `byte[]` 改为 `ReadOnlyMemory<byte>`（`UDPClient` / `UDPServer.OnReceive` 交付 `ISocketProtocal` 帧）；**source/binary breaking，需重新编译** |
 
 > ⚠️ **迁移注意**
@@ -552,8 +651,9 @@ var option = SocketOptionBuilder.Instance
 | 包名 | 版本 | 说明 |
 |------|------|------|
 | SAEA.Common | 26.9.21.1 | 通用工具类库 |
-| Pipelines.Sockets.Unofficial | 2.2.8 | Pipeline Socket 扩展 |
-| System.IO.Pipelines | 10.0.6 | 高性能 IO 管道 |
+| BouncyCastle.Cryptography | 2.6.2 | 内置 TLS 1.2/1.3 协议实现 |
+| Pipelines.Sockets.Unofficial | 2.2.16 | Pipeline Socket 扩展 |
+| System.IO.Pipelines | 10.0.14 | 高性能 IO 管道 |
 
 ---
 

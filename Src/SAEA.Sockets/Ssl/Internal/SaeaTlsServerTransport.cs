@@ -1,0 +1,116 @@
+/****************************************************************************
+ * 
+  ____    _    _____    _      ____             _        _   
+ / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
+ \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
+  ___) / ___ \| |___ / ___ \   ___) | (_) | (__|   <  __/ |_ 
+ |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
+                                                               
+ *Copyright (c) yswenli All Rights Reserved.
+ *CLR版本： netstandard2.0
+ *命名空间：SAEA.Sockets.Ssl.Internal
+ *文件名： SaeaTlsServerTransport
+ *描述：BouncyCastle TLS 服务端非阻塞传输
+ *
+ *****************************************************************************/
+using System;
+using System.Security.Cryptography.X509Certificates;
+
+using Org.BouncyCastle.Tls;
+
+namespace SAEA.Sockets.Ssl.Internal
+{
+    /// <summary>
+    /// 服务端 TLS 非阻塞传输适配器。
+    /// </summary>
+    internal sealed class SaeaTlsServerTransport : SaeaTlsTransport
+    {
+        private readonly TlsServerProtocol _protocol;
+        private readonly SaeaTlsServerPeer _peer;
+
+        public SaeaTlsServerTransport(SaeaTlsOptions options)
+            : base(options)
+        {
+            _peer = new SaeaTlsServerPeer(options, this);
+            _protocol = new TlsServerProtocol();
+        }
+
+        private SecurityParameters SecurityParameters => _peer.SecurityParameters;
+
+        /// <inheritdoc />
+        public override bool IsServer => true;
+
+        /// <inheritdoc />
+        public override string SniHostName => _peer.SniHostName;
+
+        /// <inheritdoc />
+        public override string NegotiatedProtocol => SecurityParameters?.NegotiatedVersion?.Name;
+
+        /// <inheritdoc />
+        public override string CipherSuite =>
+            BcKeyConverter.GetCipherSuiteName(SecurityParameters?.CipherSuite ?? 0);
+
+        /// <inheritdoc />
+        public override X509Certificate2 LocalCertificate => _peer.SelectedCertificate;
+
+        /// <inheritdoc />
+        public override X509Certificate2 RemoteCertificate
+        {
+            get
+            {
+                var certificate = base.RemoteCertificate;
+                if (certificate != null) return certificate;
+
+                var peerCertificate = SecurityParameters?.PeerCertificate;
+                if (peerCertificate == null || peerCertificate.IsEmpty) return null;
+
+                certificate = SaeaCertificateValidator.ToX509Certificate2(peerCertificate);
+                if (certificate != null) SetRemoteCertificate(certificate);
+                return certificate;
+            }
+        }
+
+        /// <inheritdoc />
+        public override void StartHandshake() => _protocol.Accept(_peer);
+
+        /// <inheritdoc />
+        public override void OfferInput(byte[] data, int offset, int count)
+            => _protocol.OfferInput(data, offset, count);
+
+        /// <inheritdoc />
+        public override int AvailableInput => _protocol.GetAvailableInputBytes();
+
+        /// <inheritdoc />
+        public override int ReadInput(byte[] buffer, int offset, int count)
+            => _protocol.ReadInput(buffer, offset, count);
+
+        /// <inheritdoc />
+        public override void WriteApplicationData(byte[] buffer, int offset, int count)
+            => _protocol.WriteApplicationData(buffer, offset, count);
+
+        /// <inheritdoc />
+        public override int AvailableOutput => _protocol.GetAvailableOutputBytes();
+
+        /// <inheritdoc />
+        public override int ReadOutput(byte[] buffer, int offset, int count)
+            => _protocol.ReadOutput(buffer, offset, count);
+
+        /// <inheritdoc />
+        public override bool IsHandshaking => _protocol.IsHandshaking;
+
+        /// <inheritdoc />
+        public override bool IsClosed => _protocol.IsClosed;
+
+        /// <inheritdoc />
+        public override void CloseInput()
+        {
+            try { _protocol.CloseInput(); } catch { }
+        }
+
+        /// <inheritdoc />
+        public override void Close()
+        {
+            try { _protocol.Close(); } catch { }
+        }
+    }
+}

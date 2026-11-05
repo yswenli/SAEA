@@ -14,7 +14,7 @@ using SAEA.Sockets.Model;
 namespace SAEA.P2PTest.Tests
 {
     /// <summary>
-    /// StreamServerSocket 的 PipeReader span 接收测试，覆盖真实令牌负载、原始回写与分片投递。
+    /// SaeaServerSocket 的 PipeReader span 接收测试，覆盖真实令牌负载、原始回写与分片投递。
     /// </summary>
     public static class StreamPipelineTest
     {
@@ -33,7 +33,7 @@ namespace SAEA.P2PTest.Tests
                 .SetReadBufferSize(8192)
                 .Build();
 
-            var server = new SAEA.Sockets.Core.Tcp.StreamServerSocket(option, CancellationToken.None);
+            var server = new SAEA.Sockets.Core.Tcp.SaeaServerSocket(option);
             var capture = new StreamCapture();
             server.OnServerReceiveSpan += capture.OnSpan;
             server.OnAccepted += capture.OnAccepted;

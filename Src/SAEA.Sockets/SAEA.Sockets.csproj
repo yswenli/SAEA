@@ -47,6 +47,7 @@ https://github.com/yswenli/SAEA</PackageReleaseNotes>
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="BouncyCastle.Cryptography" Version="2.6.2" />
     <PackageReference Include="Pipelines.Sockets.Unofficial" Version="2.2.16" />
     <PackageReference Include="System.IO.Pipelines" Version="10.0.14" />
   </ItemGroup>

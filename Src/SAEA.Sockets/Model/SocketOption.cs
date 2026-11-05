@@ -33,6 +33,7 @@ using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 
 using SAEA.Sockets.Interface;
+using SAEA.Sockets.Ssl;
 
 namespace SAEA.Sockets.Model
 {
@@ -57,19 +58,40 @@ namespace SAEA.Sockets.Model
         public SAEASocketType SocketType { get; set; } = SAEASocketType.Tcp;
 
         /// <summary>
+        /// 是否暴露流门面（不切换引擎，TCP 始终 IOCP）。
+        /// </summary>
+        public bool UseStream
+        {
+            get; set;
+        } = false;
+
+        /// <summary>
+        /// 统一 TLS 配置。
+        /// </summary>
+        public SaeaTlsOptions Tls
+        {
+            get { return _tls; }
+            set { _tls = value ?? new SaeaTlsOptions(); }
+        }
+
+        SaeaTlsOptions _tls = new SaeaTlsOptions();
+
+        /// <summary>
         /// 是否使用SSL
         /// </summary>
         public bool WithSsl
         {
-            get; set;
-        } = false;
+            get { return _tls.Enabled; }
+            set { _tls.Enabled = value; }
+        }
 
         /// <summary>
         /// SSL证书
         /// </summary>
         public X509Certificate2 X509Certificate2
         {
-            get; set;
+            get { return _tls.ServerCertificate; }
+            set { _tls.ServerCertificate = value; }
         }
 
         /// <summary>
@@ -77,7 +99,8 @@ namespace SAEA.Sockets.Model
         /// </summary>
         public SslProtocols SslProtocol
         {
-            get; set;
+            get { return _tls.Protocols; }
+            set { _tls.Protocols = value; }
         }
 
         /// <summary>
@@ -94,7 +117,7 @@ namespace SAEA.Sockets.Model
         public bool UseIocp
         {
             get; set;
-        }
+        } = true;
 
         /// <summary>
         /// 编码会话上下文对象

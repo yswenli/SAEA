@@ -69,7 +69,7 @@ client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!"))
 | Feature | Description | Benefit |
 |---------|-------------|---------|
 | 🚀 **Cross-Platform Async IO** | The .NET runtime picks IOCP / epoll / kqueue automatically on Windows/Linux/macOS | One API on all three platforms, no conditional compilation or implementation switching |
-| 🔒 **SSL/TLS Encryption** | Stream mode supports secure connections | Encrypted data transmission, privacy protection |
+| 🔒 **SSL/TLS Encryption** | Built-in BouncyCastle TLS 1.2/1.3 for both event and stream modes | Automatic certificate loading, SNI, mutual TLS and handshake callbacks without `SslStream` |
 | 📡 **Dual Protocol Support** | TCP + UDP dual mode | TCP for reliable transmission, UDP for high-speed broadcast |
 | 🌐 **IPv6 Support** | Fully compatible with IPv6 protocol | Future-proof network environment |
 | 💾 **Zero-Copy + Memory Pool** | `OnServerReceiveSpan` span receive, BufferManager, UserTokenPool, MemoryPoolManager | Zero-copy parsing, fewer allocations, lower GC pressure |
@@ -89,7 +89,9 @@ client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!"))
 
 All three platforms share one API — no conditional compilation and no implementation switching. The mechanism is chosen by the .NET runtime for the current OS; this framework only owns send/receive scheduling, protocol codecs, and session management.
 
-> ⚠️ **Naming note**: `UseIocp()` is a historical name for the `SocketAsyncEventArgs` transport, **not a Windows requirement** — it works just as well on Linux/macOS, backed by epoll/kqueue respectively. Use it for UDP or high-throughput custom framing; switch to `UseStream()` when you need SSL/TLS.
+> ⚠️ **Naming note**: `UseIocp()` is a historical name for the `SocketAsyncEventArgs` transport, **not a Windows requirement** — it works just as well on Linux/macOS, backed by epoll/kqueue respectively. TCP has exactly one engine (`SaeaServerSocket` / `SaeaClientSocket`).
+>
+> `UseStream()` no longer switches engines. It only exposes a duplex `Stream` facade (`GetStream()` / `ChannelInfo.Stream`) on the same engine, and that facade exclusively consumes inbound data. TLS works with both event and stream modes.
 
 ---
 
@@ -102,13 +104,13 @@ All three platforms share one API — no conditional compilation and no implemen
 │                     SAEA.Sockets Architecture                │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  ┌──────────────┐      ┌──────────────┐                    │
-│  │ IocpSocket   │      │ StreamSocket │                    │
-│  │(SAEventArgs) │      │ (Pipelines)  │                    │
-│  └──────────────┘      └──────────────┘                    │
-│         │                     │                             │
-│         └──────────┬──────────┘                             │
-│                    │                                         │
+│  ┌──────────────────┐      ┌──────────────────┐            │
+│  │ SaeaServerSocket │      │ SaeaClientSocket │            │
+│  │ (SocketAsyncEvt) │      │ (SocketAsyncEvt) │            │
+│  └────────┬─────────┘      └────────┬─────────┘            │
+│           │        SaeaConnection (Pipe + TLS)              │
+│           └──────────────┬──────────┘                       │
+│                          │                                   │
 │            ┌───────▼───────┐                                │
 │            │  BaseSocket   │                                │
 │            │   (Base Class)│                                │
@@ -155,12 +157,18 @@ Network Data ──► Async IO Complete (IOCP/epoll/kqueue) ──► BufferMan
                                       │
                                       ▼
                             ┌─────────────────┐
-                            │     Coder       │ Decode data
-                            │   Decode()      │
+                            │ SaeaConnection  │ (optional) TLS decrypt
                             └─────────────────┘
                                       │
+                          ┌───────────┴───────────┐
+                          ▼                       ▼
+                 ┌─────────────────┐     ┌─────────────────┐
+                 │ Stream mode:    │     │ Event mode:     │
+                 │ Pipe / Stream   │     │ Span callbacks  │
+                 └─────────────────┘     └─────────────────┘
+                                      │
                                       ▼
-                            OnServerReceiveSpan event triggered
+                            OnServerReceiveSpan event triggered (event mode)
                                       │
                                       ▼
                             ┌─────────────────┐
@@ -200,18 +208,18 @@ Network Data ──► Async IO Complete (IOCP/epoll/kqueue) ──► BufferMan
 
 ## Implementation Modes 📊
 
-Both TCP transports are cross-platform; choose by requirement:
+TCP has exactly one underlying engine. `UseIocp()` and `UseStream()` only choose how data is delivered:
 
-| Aspect | `SocketAsyncEventArgs` mode (`UseIocp()`) | Pipelines stream mode (`UseStream()`) |
-|--------|-------------------------------------------|----------------------------------------|
-| Main types | `IocpServerSocket` / `IocpClientSocket` | `StreamServerSocket` / `StreamClientSocket` |
-| Receive path | One `SocketAsyncEventArgs` per connection, delivered via `OnServerReceiveSpan` | One `PipeReader` per connection, or read/write directly through `GetStream()` |
-| UDP | ✅ Supported (UDP only works in this mode) | ❌ Not supported |
-| SSL/TLS | ❌ Not supported | ✅ Supported |
+| Aspect | Event mode (`UseIocp()`) | Stream mode (`UseStream()`) |
+|--------|--------------------------|------------------------------|
+| Main types | `SaeaServerSocket` / `SaeaClientSocket` | Same (same engine) |
+| Receive path | One `SocketAsyncEventArgs` per connection, delivered via `On*ReceiveSpan` | One `PipeReader` per connection, read/write via `GetStream()` / `ChannelInfo.Stream` |
+| UDP | ✅ Supported (UDP is event-mode only) | ❌ Not supported |
+| SSL/TLS | ✅ Supported (decrypted data goes to span callbacks) | ✅ Supported (decrypted data enters the `Pipe`) |
+| Data consumption | Span events only | The `Stream` facade exclusively consumes inbound data |
 | Underlying IO | Chosen by the .NET runtime: Windows IOCP / Linux epoll / macOS kqueue | Same |
-| Best for | High-throughput binary protocols, custom framing, UDP | SSL/TLS, or stream-style connection handling |
 
-> Naming note: `UseIocp()` means the `SocketAsyncEventArgs` transport; it has nothing to do with the operating system.
+> Naming note: `UseIocp()` means the `SocketAsyncEventArgs` transport; it has nothing to do with the operating system. The two modes are mutually exclusive; the last call wins.
 
 ### About performance numbers
 
@@ -280,16 +288,49 @@ var option = SocketOptionBuilder.Instance
 
 ### Q3: How to configure SSL/TLS encryption?
 
-**A**: Use Stream mode and configure certificate:
+**A**: Configure everything through the single `WithSsl(...)` entry point; both event and stream modes support TLS:
 
 ```csharp
-var option = SocketOptionBuilder.Instance
+using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
+using SAEA.Sockets;
+using SAEA.Sockets.Ssl;
+
+// Server: load the PFX automatically; TLS 1.2 + TLS 1.3 are enabled by default.
+var serverOption = SocketOptionBuilder.Instance
     .SetSocket(SAEASocketType.Tcp)
-    .UseStream()  // Use stream mode
-    .UseSsl()     // Enable SSL
-    .SetSslCertificate("server.pfx", "password")
+    .SetIP("0.0.0.0")
+    .SetPort(443)
+    .WithSsl(o =>
+    {
+        o.ServerCertificate = SaeaCertificateLoader.FromPfx("server.pfx", "password");
+        o.Protocols = SaeaTlsProtocols.Default;
+        o.ServerCertificateSelector = sni => sni switch
+        {
+            "api.example.com" => apiCertificate,
+            _ => defaultCertificate
+        };
+        o.ClientCertificateRequired = true;            // mutual TLS (mTLS)
+        o.HandshakeCompleted = context =>
+            Console.WriteLine($"TLS handshake completed: {context.NegotiatedProtocol}");
+    })
+    .Build();
+
+// Client: configure the SNI target host and certificate validation policy.
+var clientOption = SocketOptionBuilder.Instance
+    .SetSocket(SAEASocketType.Tcp)
+    .SetIP("api.example.com")
+    .SetPort(443)
+    .WithSsl(o =>
+    {
+        o.TargetHost = "api.example.com";
+        o.ClientCertificates = new X509Certificate2Collection(clientCertificate);
+        o.CertificateValidationCallback = (sender, cert, chain, errors) => errors == SslPolicyErrors.None;
+    })
     .Build();
 ```
+
+`OnAccepted` (server) and `ConnectAsync` (client) only complete after a successful handshake; failures are reported through `OnError` / `Tls.HandshakeFailed`. `ChannelInfo.Tls` / `StreamUserToken.Tls` expose the negotiated protocol, cipher suite and remote certificate. The TLS stack is implemented on BouncyCastle rather than `SslStream`, so it is not tied to stream mode.
 
 ### Q4: What is the purpose of memory pool?
 
@@ -323,8 +364,11 @@ The usable connection count is also bounded by the OS: on Linux/macOS raise the 
 
 | Class Name | Description |
 |------------|-------------|
-| `IocpServerSocket` / `IocpClientSocket` | `SocketAsyncEventArgs` mode TCP server/client (cross-platform) |
-| `StreamServerSocket` / `StreamClientSocket` | Stream mode TCP server/client (supports SSL) |
+| `SaeaServerSocket` / `SaeaClientSocket` | TCP server/client (single IOCP engine; event mode, stream mode and built-in TLS) |
+| `SaeaConnection` | Per-connection Pipe + TLS facade (backpressure, encryption and handshake state) |
+| `SaeaTlsOptions` / `SaeaTlsProtocols` | TLS configuration, protocol versions and callbacks |
+| `SaeaCertificateLoader` | PFX/P12 and PEM certificate loading |
+| `ChannelInfo` | Stream-mode connection info (`Stream`, `Tls`, `UserToken`) |
 | `UdpServerSocket` / `UdpClientSocket` | UDP server/client |
 | `SocketOptionBuilder` | Fluent configuration builder |
 | `SocketFactory` | Socket factory class |
@@ -425,20 +469,71 @@ server.Start();
 
 ### SSL/TLS Secure Connection
 
+Server (event mode; decrypted plaintext is delivered through `OnServerReceiveSpan`):
+
 ```csharp
 using SAEA.Sockets;
+using SAEA.Sockets.Ssl;
 
 var option = SocketOptionBuilder.Instance
     .SetSocket(SAEASocketType.Tcp)
-    .UseStream()              // Use stream mode (supports SSL)
     .SetIP("127.0.0.1")
     .SetPort(443)
-    .UseSsl()                 // Enable SSL/TLS
-    .SetSslCertificate("server.pfx", "password")  // Configure certificate
+    .WithSsl(o =>
+    {
+        o.ServerCertificate = SaeaCertificateLoader.FromPfx("server.pfx", "password");
+        o.Protocols = SaeaTlsProtocols.Default;
+    })
     .Build();
 
-var server = SocketFactory.CreateServerSocket(option);
+var server = new SAEA.Sockets.Core.Tcp.SaeaServerSocket(option);
 server.Start();
+```
+
+Stream mode (read/write through `ChannelInfo.Stream` after the handshake):
+
+```csharp
+var option = SocketOptionBuilder.Instance
+    .UseStream()
+    .SetIP("127.0.0.1")
+    .SetPort(443)
+    .WithSsl(o => o.ServerCertificate = SaeaCertificateLoader.FromPfx("server.pfx", "password"))
+    .Build();
+
+var server = new SAEA.Sockets.Core.Tcp.SaeaServerSocket(option);
+server.OnAccepted += payload =>
+{
+    var channel = (ChannelInfo)payload;
+    var buffer = new byte[4096];
+    var read = channel.Stream.Read(buffer, 0, buffer.Length);
+    channel.Stream.Write(buffer, 0, read);
+};
+server.Start();
+```
+
+Client:
+
+```csharp
+var option = SocketOptionBuilder.Instance
+    .UseStream()                       // omit for event mode
+    .SetIP("127.0.0.1")
+    .SetPort(443)
+    .WithSsl(o =>
+    {
+        o.TargetHost = "localhost";    // SNI + certificate host-name validation
+        o.AllowInvalidCertificates = true;
+    })
+    .Build();
+
+using (var client = new SaeaClientSocket(option))
+{
+    using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
+        await client.ConnectAsync(cts.Token);
+
+    var stream = client.GetStream();   // duplex stream in stream mode
+    var payload = Encoding.UTF8.GetBytes("hello");
+    await stream.WriteAsync(payload, 0, payload.Length);
+}
 ```
 
 ### Shortcut Wrapper Classes
@@ -522,9 +617,13 @@ Recent versions removed the `byte[]` public surface in favor of `Span` / `Memory
 | `IClientSocket.OnReceive` (`OnClientReceiveHandler`, `byte[]`) | `OnClientReceiveSpan` (`ReadOnlySpan<byte>`; consume/copy synchronously inside the callback) |
 | `IServerSocket.OnReceive` (`OnReceiveHandler`, `(ISession, byte[])`) | `OnServerReceiveSpan` (`(IUserToken, ReadOnlySpan<byte>)`) |
 | `IClientSocket.BeginSend(byte[])` / `Send(byte[])` / `SendAsync(byte[])` / `SendAsync(byte[], int, int, CancellationToken)` | `Send(ReadOnlySpan<byte>)` / `SendAsync(ReadOnlyMemory<byte>)` / `SendAsync(ReadOnlyMemory<byte>, CancellationToken)`; express the old offset/count semantics with `data.AsMemory(offset, count)` |
-| `IClientSocket.ReceiveAsync(byte[], int, int, CancellationToken)` (interface member) | Use the span events; the concrete `IocpClientSocket.ReceiveAsync` is retained but throws `KernelException`, and `UdpClientSocket.ReceiveAsync` throws `NotSupportedException`; use `GetStream()` for raw reads |
+| `IClientSocket.ReceiveAsync(byte[], int, int, CancellationToken)` (interface member) | Use the span events; the concrete `SaeaClientSocket.ReceiveAsync` is retained but throws `KernelException`, and `UdpClientSocket.ReceiveAsync` throws `NotSupportedException`; use `GetStream()` for raw reads |
 | `IServerSocket.SendAsync(string, byte[])` / `Send(string, byte[])` / `End(string, byte[])` / `SendAsync(IPEndPoint, byte[])` | `SendAsync(string, ReadOnlyMemory<byte>)` / `Send(string, ReadOnlySpan<byte>)` / `End(string, ReadOnlyMemory<byte>)` / `SendAsync(IPEndPoint, ReadOnlyMemory<byte>)` |
 | `IocpClientSocket.UserToken` | No longer public; use `Connected`, or `ChannelInfo.UserToken` / `Context.UserToken` depending on the scenario |
+| `IocpServerSocket` / `IocpClientSocket` | Renamed to `SaeaServerSocket` / `SaeaClientSocket` (`SocketFactory` already returns the new types) |
+| `StreamServerSocket` / `StreamClientSocket` | Removed; use `SaeaServerSocket` / `SaeaClientSocket` with `UseStream()` and read/write through `GetStream()` or `ChannelInfo.Stream` |
+| `UseSsl()` / `SetSslCertificate(...)` and direct `SslStream` usage | Replaced by `WithSsl(...)` + `SaeaTlsOptions`; TLS is implemented on BouncyCastle and works in both event and stream modes |
+| `ChannelManager.Instance` / `ChannelManager.GetInstance` | Each server instance owns its own `ChannelManager`; the old static entries remain source-compatible only and are marked `[Obsolete]` |
 | Shortcut `TCPClient` / `TCPServer` / `UDPClient` / `UDPServer` `OnReceive` | `TCPClient` / `TCPServer.OnReceive` now delivers `ReadOnlyMemory<byte>` instead of `byte[]` (`UDPClient` / `UDPServer.OnReceive` delivers `ISocketProtocal` frames); **source/binary breaking, recompile required** |
 
 > ⚠️ **Migration notes**
@@ -553,8 +652,9 @@ Default message protocol implemented by `BaseCoder`:
 | Package | Version | Description |
 |---------|---------|-------------|
 | SAEA.Common | 26.9.21.1 | Common utility library |
-| Pipelines.Sockets.Unofficial | 2.2.8 | Pipeline Socket extension |
-| System.IO.Pipelines | 10.0.6 | High-performance IO pipeline |
+| BouncyCastle.Cryptography | 2.6.2 | Built-in TLS 1.2/1.3 protocol implementation |
+| Pipelines.Sockets.Unofficial | 2.2.16 | Pipeline Socket extension |
+| System.IO.Pipelines | 10.0.14 | High-performance IO pipeline |
 
 ---
 

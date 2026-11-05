@@ -31,6 +31,8 @@
 using System.IO;
 using System.IO.Pipelines;
 
+using SAEA.Sockets.Ssl;
+
 namespace SAEA.Sockets.Model
 {
     /// <summary>
@@ -56,13 +58,23 @@ namespace SAEA.Sockets.Model
         public PipeReader Input { get; set; }
 
         /// <summary>
+        /// 获取或设置该连接的 TLS 状态；未启用 TLS 时为 null。
+        /// </summary>
+        public ISaeaTlsContext Tls { get; set; }
+
+        /// <summary>
+        /// 获取或设置该连接的内部状态（供框架使用）。
+        /// </summary>
+        internal Core.SaeaConnection Connection { get; set; }
+
+        /// <summary>
         /// 释放令牌资源。执行顺序固定为：先 <see cref="PipeReader.CancelPendingRead"/>（唤醒正在
         /// <c>ReadAsync</c> 的接收循环），再 <see cref="PipeReader.Complete"/>，最后调用
         /// <see cref="SAEA.Sockets.Base.BaseUserToken.Clear"/> 关闭 <c>Socket</c>。先取消后完成可避免挂起的读取
         /// 因读取器被释放而抛出 <see cref="System.ObjectDisposedException"/>；完成与取消均幂等，可安全重复调用。
         /// </summary>
         /// <remarks>
-        /// <see cref="Input"/> 由 <see cref="Core.Tcp.StreamServerSocket"/> 以
+        /// <see cref="Input"/> 由 <see cref="SAEA.Sockets.Core.Tcp.SaeaServerSocket"/> 以
         /// <c>new StreamPipeReaderOptions(leaveOpen: true)</c> 创建，故 <see cref="PipeReader.Complete"/> 不会释放
         /// <see cref="Stream"/>（网络流归 <see cref="ChannelInfo.Stream"/> 所有，此处仅置空引用）。
         /// 本方法 <c>override</c> 了 <see cref="SAEA.Sockets.Base.BaseUserToken.Clear"/>，因此无论以

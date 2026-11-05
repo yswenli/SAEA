@@ -31,11 +31,18 @@
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.Common.Caching;
+using SAEA.Sockets.Base;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
+using SAEA.Sockets.Ssl;
+using SAEA.Sockets.Ssl.Internal;
 
 using System;
+using System.Buffers;
+using System.Collections.Concurrent;
+using System.IO;
+using System.IO.Pipelines;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
@@ -48,7 +55,7 @@ namespace SAEA.Sockets.Core.Tcp
     /// saea 服务器 socket
     /// 支持使用自定义 IContext 来扩展
     /// </summary>
-    public class SaeaServerSocket : IServerSocket, IDisposable
+    public class SaeaServerSocket : IServerSocket, IServerConnectionProvider, IDisposable
     {
         // 监听Socket
         Socket _listener = null;
@@ -59,10 +66,31 @@ namespace SAEA.Sockets.Core.Tcp
         // 会话管理器
         private SessionManager _sessionManager;
 
+        // 每服务器独立的通道管理器
+        private readonly ChannelManager _channelManager;
+
+        // 每连接的流 / TLS 门面
+        private readonly ConcurrentDictionary<string, SaeaConnection> _connections =
+            new ConcurrentDictionary<string, SaeaConnection>(StringComparer.Ordinal);
+
+        // 是否启用流模式
+        private readonly bool _useStream;
+
+        // 是否启用 TLS
+        private readonly bool _tlsEnabled;
+
         // 获取会话管理器
         public SessionManager SessionManager
         {
             get { return _sessionManager; }
+        }
+
+        /// <summary>
+        /// 获取本服务器的通道管理器（每服务器独立实例）。
+        /// </summary>
+        public ChannelManager ChannelManager
+        {
+            get { return _channelManager; }
         }
 
         // 是否已释放资源
@@ -101,6 +129,12 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="socketOption"></param>
         public SaeaServerSocket(ISocketOption socketOption)
         {
+            if (socketOption == null) throw new ArgumentNullException(nameof(socketOption));
+
+            // Stream / TLS 模式可能未设置上下文；补齐默认上下文，避免令牌池初始化失败。
+            if (socketOption.Context == null)
+                socketOption.Context = new BaseContext<BaseCoder>();
+
             // 初始化会话管理器
             _sessionManager = new SessionManager(socketOption.Context,
                 socketOption.ReadBufferSize,
@@ -108,6 +142,10 @@ namespace SAEA.Sockets.Core.Tcp
                 new TimeSpan(0, 0, 0, 0, socketOption.FreeTime));
             _sessionManager.OnTimeOut += _sessionManager_OnTimeOut;
             SocketOption = socketOption;
+
+            _useStream = socketOption.UseStream;
+            _tlsEnabled = socketOption.Tls != null && socketOption.Tls.Enabled;
+            _channelManager = new ChannelManager(Math.Max(1, socketOption.FreeTime / 1000));
         }
 
         /// <summary>
@@ -177,7 +215,7 @@ namespace SAEA.Sockets.Core.Tcp
             }
             catch (Exception ex)
             {
-                OnError?.Invoke("IocpServerSocket.ProcessAccepte", ex);
+                OnError?.Invoke("SaeaServerSocket.ProcessAccept", ex);
             }
         }
 
@@ -209,20 +247,203 @@ namespace SAEA.Sockets.Core.Tcp
 
                 var readArgs = userToken.ReadArgs;
 
+                SaeaConnection connection = null;
+
+                if (_useStream || _tlsEnabled)
+                {
+                    connection = new SaeaConnection(userToken.ID, socket, SocketOption,
+                        (segment, owner) => SendAsyncRaw(userToken, segment, owner),
+                        () => ResumeReceive(userToken));
+
+                    _connections[userToken.ID] = connection;
+
+                    if (_useStream && userToken is StreamUserToken streamToken)
+                    {
+                        streamToken.Stream = connection.Stream;
+                        streamToken.Input = connection.Input;
+                        streamToken.Connection = connection;
+                    }
+
+                    if (_tlsEnabled)
+                    {
+                        try
+                        {
+                            var tls = SaeaTlsTransport.CreateServer(SocketOption.Tls);
+                            connection.AttachTls(tls);
+                        }
+                        catch (Exception ex)
+                        {
+                            SaeaConnection removed;
+                            _connections.TryRemove(userToken.ID, out removed);
+                            try { connection.Dispose(); } catch { }
+                            OnError?.Invoke(userToken.ID, ex);
+                            Disconnect(userToken, ex);
+                            return;
+                        }
+                    }
+                }
+
                 Interlocked.Increment(ref _clientCounts);
 
-                OnAccepted?.Invoke(userToken);
-
                 ProcessReceive(readArgs);
+
+                // 事件消费：由后台泵从 Pipe 读取解密后的数据。流模式与 TLS 事件模式共用该路径。
+                if (connection != null && OnServerReceiveSpan != null)
+                    StartSpanPump(userToken, connection);
+
+                if (_tlsEnabled && connection != null)
+                {
+                    // TLS 握手成功后才通知接入；失败则直接断开。
+                    connection.HandshakeTask.ContinueWith(t =>
+                    {
+                        if (t.IsFaulted || t.IsCanceled)
+                        {
+                            var ex = GetHandshakeException(t);
+                            OnError?.Invoke(userToken.ID, ex);
+                            Disconnect(userToken, ex);
+                            return;
+                        }
+
+                        RaiseAccepted(userToken, connection);
+                    }, TaskContinuationOptions.ExecuteSynchronously);
+                }
+                else
+                {
+                    RaiseAccepted(userToken, connection);
+                }
             }
             catch (Exception ex)
             {
-                OnError?.Invoke("IocpServerSocket.ProcessAccepted", ex);
+                OnError?.Invoke("SaeaServerSocket.ProcessAccepted", ex);
             }
             finally
             {
                 ProcessAccept(acceptArgs);
             }
+        }
+
+        /// <summary>
+        /// 触发 OnAccepted。流模式传 <see cref="ChannelInfo"/>，事件模式传 <see cref="IUserToken"/>。
+        /// </summary>
+        private void RaiseAccepted(IUserToken userToken, SaeaConnection connection)
+        {
+            var handler = OnAccepted;
+            if (handler == null) return;
+
+            if (_useStream && connection != null)
+            {
+                var channel = _channelManager.Set(userToken.ID, userToken.Socket, connection.Stream, connection.Tls);
+                channel.UserToken = userToken;
+                handler(channel);
+            }
+            else
+            {
+                handler(userToken);
+            }
+        }
+
+        private static Exception GetHandshakeException(Task task)
+        {
+            if (task.IsCanceled) return new SaeaTlsException("TLS 握手已取消。");
+            var exception = task.Exception;
+            return exception?.GetBaseException() ?? new SaeaTlsException("TLS 握手失败。");
+        }
+
+        private SaeaConnection GetConnection(IUserToken userToken)
+        {
+            if (userToken == null || string.IsNullOrEmpty(userToken.ID)) return null;
+            SaeaConnection connection;
+            return _connections.TryGetValue(userToken.ID, out connection) ? connection : null;
+        }
+
+        /// <inheritdoc />
+        public Stream GetStream(IUserToken userToken) => GetConnection(userToken)?.Stream;
+
+        /// <inheritdoc />
+        public ISaeaTlsContext GetTlsContext(IUserToken userToken) => GetConnection(userToken)?.Tls;
+
+        /// <summary>
+        /// 背压恢复入口。
+        /// </summary>
+        private void ResumeReceive(IUserToken userToken)
+        {
+            var readArgs = userToken?.ReadArgs;
+            if (readArgs == null) return;
+            if (userToken.Socket == null || !userToken.Socket.Connected) return;
+
+            var connection = GetConnection(userToken);
+            if (connection != null && connection.IsReceivePaused) return;
+
+            ProcessReceive(readArgs);
+        }
+
+        /// <summary>
+        /// 流模式 + 事件消费：后台从 Pipe 读取并回调 OnServerReceiveSpan。
+        /// </summary>
+        private void StartSpanPump(IUserToken userToken, SaeaConnection connection)
+        {
+            var reader = connection.Input;
+            if (reader == null) return;
+
+            Task.Run(async () =>
+            {
+                while (true)
+                {
+                    ReadResult result;
+                    try
+                    {
+                        result = await reader.ReadAsync().ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                        break;
+                    }
+
+                    var buffer = result.Buffer;
+                    try
+                    {
+                        if (!buffer.IsEmpty)
+                        {
+                            foreach (var segment in buffer)
+                            {
+                                if (segment.Length == 0) continue;
+                                try
+                                {
+                                    OnServerReceiveSpan?.Invoke(userToken, segment.Span);
+                                }
+                                catch (Exception ex)
+                                {
+                                    OnError?.Invoke(userToken?.ID ?? "", ex);
+                                }
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        reader.AdvanceTo(buffer.End);
+                    }
+
+                    if (result.IsCompleted) break;
+                }
+            });
+        }
+
+        /// <summary>
+        /// TLS 模式下的应用数据发送。返回 true 表示已由 TLS 通道接管。
+        /// </summary>
+        private bool TrySendViaTls(IUserToken userToken, ReadOnlySpan<byte> data)
+        {
+            if (!_tlsEnabled) return false;
+
+            var connection = GetConnection(userToken);
+            if (connection == null || connection.Tls == null)
+            {
+                OnError?.Invoke(userToken?.ID ?? "", new SaeaTlsException("TLS 连接尚未就绪。"));
+                return true;
+            }
+
+            connection.SendApplicationData(data, ex => OnError?.Invoke(userToken?.ID ?? "", ex));
+            return true;
         }
 
         private void IO_Completed(object sender, SocketAsyncEventArgs e)
@@ -316,19 +537,33 @@ namespace SAEA.Sockets.Core.Tcp
                 if (readArgs.BytesTransferred > 0 && readArgs.SocketError == SocketError.Success)
                 {
                     var userToken = readArgs.UserToken as IUserToken;
+                    var connection = GetConnection(userToken);
                     try
                     {
                         userToken.Actived = DateTimeHelper.Now;
                         var dataSpan = readArgs.Buffer.AsSpan().Slice(readArgs.Offset, readArgs.BytesTransferred);
                         _sessionManager.Active(userToken.ID);
+                        if (_useStream) _channelManager.Refresh(userToken.ID);
 
-                        OnServerReceiveSpan?.Invoke(userToken, dataSpan);
+                        if (connection != null)
+                        {
+                            // 流 / TLS 模式：原始字节交给连接门面（TLS 解密后写入 Pipe）。
+                            connection.OnRawReceived(dataSpan);
+                        }
+                        else
+                        {
+                            OnServerReceiveSpan?.Invoke(userToken, dataSpan);
+                        }
                     }
                     catch (Exception ex)
                     {
                         OnError?.Invoke(userToken?.ID ?? "", ex);
                         LogHelper.Error($"An exception occurs when receiving:{userToken?.ID}", ex);
                     }
+
+                    // Pipe 背压暂停：等待 ResumeReceive 恢复。
+                    if (connection != null && connection.IsReceivePaused) return;
+
                     ProcessReceive(readArgs);
                 }
                 else
@@ -461,6 +696,8 @@ namespace SAEA.Sockets.Core.Tcp
             if (data.Length == 0) return;
             var userToken = _sessionManager.Get(sessionID);
             if (userToken == null) return;
+            if (_useStream) _channelManager.Refresh(sessionID);
+            if (TrySendViaTls(userToken, data)) return;
             var writer = new PooledBufferWriter(data.Length);
             data.CopyTo(writer.GetSpan(data.Length));
             writer.Advance(data.Length);
@@ -473,6 +710,8 @@ namespace SAEA.Sockets.Core.Tcp
             if (data.Length == 0) return;
             var userToken = _sessionManager.Get(sessionID);
             if (userToken == null) return;
+            if (_useStream) _channelManager.Refresh(sessionID);
+            if (TrySendViaTls(userToken, data.Span)) return;
             if (MemoryMarshal.TryGetArray(data, out var seg))
             {
                 SendAsyncRaw(userToken, seg, null);
@@ -499,6 +738,11 @@ namespace SAEA.Sockets.Core.Tcp
         void SendAsync(IUserToken userToken, ReadOnlyMemory<byte> data, IDisposable owner)
         {
             if (data.Length == 0)
+            {
+                owner?.Dispose();
+                return;
+            }
+            if (TrySendViaTls(userToken, data.Span))
             {
                 owner?.Dispose();
                 return;
@@ -542,6 +786,7 @@ namespace SAEA.Sockets.Core.Tcp
             if (protocal == null) return;
             var userToken = _sessionManager.Get(sessionID);
             if (userToken == null) return;
+            if (_useStream) _channelManager.Refresh(sessionID);
             var coder = userToken.Coder;
             if (coder == null)
             {
@@ -562,6 +807,11 @@ namespace SAEA.Sockets.Core.Tcp
                 return;
             }
             writer.TryGetArray(out var rented);
+            if (rented.Array != null && TrySendViaTls(userToken, new ReadOnlySpan<byte>(rented.Array, rented.Offset, rented.Count)))
+            {
+                writer.Dispose();
+                return;
+            }
             SendAsyncRaw(userToken, rented, writer);
         }
 
@@ -569,6 +819,12 @@ namespace SAEA.Sockets.Core.Tcp
         {
             var userToken = _sessionManager.Get(sessionID);
             if (userToken == null) return;
+            if (_useStream) _channelManager.Refresh(sessionID);
+            if (data.Length > 0 && TrySendViaTls(userToken, data.Span))
+            {
+                Disconnect(userToken);
+                return;
+            }
             try
             {
                 if (userToken.Socket != null && userToken.Socket.Connected && data.Length > 0)
@@ -604,6 +860,13 @@ namespace SAEA.Sockets.Core.Tcp
 
         public object GetCurrentObj(string sessionID)
         {
+            if (_useStream)
+            {
+                var channel = _channelManager.Get(sessionID);
+                if (channel != null) _channelManager.Refresh(sessionID);
+                return channel;
+            }
+
             return SessionManager.Get(sessionID);
         }
 
@@ -619,6 +882,14 @@ namespace SAEA.Sockets.Core.Tcp
                 if (userToken == null || string.IsNullOrEmpty(userToken.ID)) return;
                 // Capture the id before Free() resets userToken.ID to null.
                 var sessionId = userToken.ID;
+
+                SaeaConnection connection;
+                if (_connections.TryRemove(sessionId, out connection))
+                {
+                    try { connection.Dispose(); } catch { }
+                }
+                _channelManager.Remove(sessionId);
+
                 if (_sessionManager.Free(userToken))
                 {
                     Interlocked.Decrement(ref _clientCounts);
@@ -652,6 +923,20 @@ namespace SAEA.Sockets.Core.Tcp
         /// </summary>
         public void Stop()
         {
+            try
+            {
+                foreach (var item in _connections)
+                {
+                    try { item.Value.Dispose(); } catch { }
+                }
+                _connections.Clear();
+            }
+            catch { }
+            try
+            {
+                _channelManager.Clear();
+            }
+            catch { }
             try
             {
                 _listener?.Close(10 * 1000);

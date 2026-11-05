@@ -210,7 +210,9 @@ namespace SAEA.WebSocket.Core
         {
             if (string.IsNullOrEmpty(id)) return;
 
-            var channelInfo = ChannelManager.Instance.Get(id);
+            var channelInfo = serverSokcet.GetCurrentObj(id) as ChannelInfo;
+
+            if (channelInfo == null) return;
 
             ReplyBase(channelInfo.Stream, data);
         }
@@ -219,7 +221,9 @@ namespace SAEA.WebSocket.Core
         {
             if (string.IsNullOrEmpty(id)) return;
 
-            var channelInfo = ChannelManager.Instance.Get(id);
+            var channelInfo = serverSokcet.GetCurrentObj(id) as ChannelInfo;
+
+            if (channelInfo == null) return;
 
             ReplyBase(channelInfo.Stream, data);
 
@@ -229,7 +233,8 @@ namespace SAEA.WebSocket.Core
         public void Disconnect(string id)
         {
             if (string.IsNullOrEmpty(id)) return;
-            var channelInfo = ChannelManager.Instance.Get(id);
+            var channelInfo = serverSokcet.GetCurrentObj(id) as ChannelInfo;
+            if (channelInfo == null) return;
             channelInfo.Stream.Close();
         }
 

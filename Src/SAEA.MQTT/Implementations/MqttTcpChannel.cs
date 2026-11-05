@@ -32,20 +32,20 @@ namespace SAEA.MQTT.Implementations
             IsSecureConnection = clientOptions.ChannelOptions?.TlsOptions?.UseTls == true;
         }
 
-        public MqttTcpChannel(Stream stream, string endpoint, X509Certificate2 clientCertificate)
+        public MqttTcpChannel(Stream stream, string endpoint, X509Certificate2 clientCertificate, bool isSecure = false)
         {
             _stream = stream ?? throw new ArgumentNullException(nameof(stream));
 
             Endpoint = endpoint;
 
-            IsSecureConnection = stream is SslStream;
+            IsSecureConnection = isSecure;
 
             ClientCertificate = clientCertificate;
         }
 
         public string Endpoint { get; private set; }
 
-        public bool IsSecureConnection { get; }
+        public bool IsSecureConnection { get; private set; }
 
         public X509Certificate2 ClientCertificate { get; }
 
@@ -55,6 +55,7 @@ namespace SAEA.MQTT.Implementations
             try
             {
                 SocketOptionBuilder sb = SocketOptionBuilder.Instance;
+                sb = sb.UseStream();
                 sb = sb.SetReadBufferSize(_options.BufferSize);
                 sb = sb.SetWriteBufferSize(_options.BufferSize);
                 if (!_options.NoDelay)
@@ -77,11 +78,34 @@ namespace SAEA.MQTT.Implementations
                 {
                     sb = sb.UseIPv6();
                 }
+
                 sb = sb.SetIPEndPoint(new IPEndPoint(ip, _options.GetPort()));
+
+                var tlsOptions = _options.TlsOptions;
+                var useTls = tlsOptions?.UseTls == true;
+
+                if (useTls)
+                {
+                    var certificates = LoadCertificates();
+                    sb = sb.WithSsl(o =>
+                    {
+                        o.Protocols = tlsOptions.SslProtocol;
+                        o.TargetHost = ipStr;
+                        o.CertificateValidationCallback = InternalUserCertificateValidationCallback;
+                        o.AllowInvalidCertificates = tlsOptions.AllowUntrustedCertificates;
+                        o.CheckCertificateRevocation = !tlsOptions.IgnoreCertificateRevocationErrors;
+                        if (certificates.Count > 0)
+                            o.ClientCertificates = certificates;
+                    });
+                }
 
                 client = SocketFactory.CreateClientSocket(sb.Build());
 
-                _stream = await ((StreamClientSocket)client).ConnectAsync(InternalUserCertificateValidationCallback, LoadCertificates, !_options.TlsOptions.IgnoreCertificateRevocationErrors);
+                await ((SaeaClientSocket)client).ConnectAsync(cancellationToken).ConfigureAwait(false);
+
+                _stream = client.GetStream();
+
+                IsSecureConnection = useTls && ((SaeaClientSocket)client).IsAuthenticated;
 
                 Endpoint = client.Endpoint;
             }
@@ -246,9 +270,9 @@ namespace SAEA.MQTT.Implementations
             return _options?.TlsOptions?.AllowUntrustedCertificates == true;
         }
 
-        X509CertificateCollection LoadCertificates()
+        X509Certificate2Collection LoadCertificates()
         {
-            var certificates = new X509CertificateCollection();
+            var certificates = new X509Certificate2Collection();
             if (_options.TlsOptions.Certificates == null)
             {
                 return certificates;
@@ -256,7 +280,8 @@ namespace SAEA.MQTT.Implementations
 
             foreach (var certificate in _options.TlsOptions.Certificates)
             {
-                certificates.Add(certificate);
+                if (certificate == null) continue;
+                certificates.Add(certificate as X509Certificate2 ?? new X509Certificate2(certificate));
             }
 
             return certificates;
