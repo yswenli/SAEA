@@ -123,7 +123,20 @@ namespace SAEA.WebSocket.Model
         public static byte[] RequestHandShark(string url, string serverIP, int serverPort, string subProtocol = SubProtocolType.Default, string origin = "")
         {
             var sb = new StringBuilder(64);
-            sb.AppendFormat("{0} {1} HTTP/{2}{3}", "GET", url, "1.1", Enter);
+
+            // 握手请求行必须是 origin-form（/path?query）；
+            // 传入 ws:// / wss:// 绝对地址时先归一化，否则带路径的服务端无法路由
+            var target = url;
+
+            if (Uri.TryCreate(url, UriKind.Absolute, out var uri) &&
+                (uri.Scheme == "ws" || uri.Scheme == "wss"))
+            {
+                target = uri.PathAndQuery;
+            }
+
+            if (string.IsNullOrEmpty(target)) target = "/";
+
+            sb.AppendFormat("{0} {1} HTTP/{2}{3}", "GET", target, "1.1", Enter);
             sb.AppendFormat("{0}: {1}{2}", "Host", $"{serverIP}:{serverPort}", Enter);
             sb.AppendLine("User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.61 Safari/537.36");
             if (!string.IsNullOrEmpty(origin))

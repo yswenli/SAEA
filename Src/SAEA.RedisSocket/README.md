@@ -5,7 +5,7 @@
 
 **[English Version](README.en.md)** | **中文版**
 
-> 基于 SAEA.Sockets IOCP 技术的高性能 Redis 客户端，支持 Redis Cluster 集群、Stream、分布式锁等完整功能。
+> 基于 SAEA.Sockets 异步 IO 的高性能 Redis 客户端，支持 Redis Cluster 集群、Stream、分布式锁等完整功能。
 >
 > ⚡ **零拷贝内核**：构建于 SAEA.Sockets 的 Span/Memory 零拷贝收发与内存池通道之上，显著降低分配与 GC。
 
@@ -65,7 +65,7 @@ var name = db.HGet("user:1", "name");  // 输出: 张三
 
 | 特性 | 说明 | 优势 |
 |------|------|------|
-| 🚀 **IOCP 高性能** | 基于 SAEA.Sockets IOCP | 万级并发，低延迟响应 |
+| 🚀 **跨平台异步 IO** | 基于 SAEA.Sockets 异步 IO | 高并发，低延迟响应 |
 | 🔧 **完整数据类型** | String、Hash、Set、List、ZSet、GEO | 覆盖所有 Redis 数据结构 |
 | 🌐 **Redis Cluster** | 完整集群支持，自动重定向 | 水平扩展，高可用 |
 | 📡 **Redis Stream** | Producer/Consumer 消息队列 | 分布式消息处理 |
@@ -113,7 +113,7 @@ var name = db.HGet("user:1", "name");  // 输出: 张三
 │         │                                                   │
 │         ▼                                                   │
 │  ┌──────────────────────────────────────────────────┐      │
-│  │          SAEA.Sockets (IOCP 通信层)              │      │
+│  │          SAEA.Sockets (异步 IO)                  │      │
 │  │  ┌────────────┐  ┌────────────┐                 │      │
 │  │  │ BufferPool │  │  Session   │                 │      │
 │  │  │  内存池    │  │  会话管理  │                 │      │
@@ -181,7 +181,7 @@ var name = db.HGet("user:1", "name");  // 输出: 张三
                  ▼
         ┌─────────────────┐
         │  发送到 Redis    │
-        │  (IOCP 异步)    │
+        │    (异步 IO)    │
         └────────┬────────┘
                  │
                  ▼
@@ -202,7 +202,7 @@ var name = db.HGet("user:1", "name");  // 输出: 张三
 
 | 场景 | 描述 | 推荐理由 |
 |------|------|----------|
-| 🎮 **游戏服务器** | 排行榜、玩家数据、会话管理 | IOCP 高并发，ZSet 排行榜天然支持 |
+| 🎮 **游戏服务器** | 排行榜、玩家数据、会话管理 | 异步 IO 支撑高并发，ZSet 天然支持排行榜 |
 | 📊 **实时数据缓存** | 热点数据缓存、计数器 | 低延迟读写，String/Hash 高效存储 |
 | 🛒 **电商系统** | 购物车、库存、秒杀 | 分布式锁保证库存一致性 |
 | 💬 **即时通讯** | 在线状态、消息队列 | Pub/Sub 实时推送，Stream 消息持久化 |
@@ -281,7 +281,7 @@ db.Publish("news", "新品上架通知");
 
 | 指标 | SAEA.RedisSocket | StackExchange.Redis | ServiceStack.Redis |
 |------|------------------|---------------------|---------------------|
-| **底层技术** | IOCP | SocketAsyncEventArgs | Socket |
+| **底层技术** | 异步 IO | SocketAsyncEventArgs | Socket |
 | **连接模式** | 单连接复用 | 多路复用 | 连接池 |
 | **Cluster 支持** | ✅ 完整支持 | ✅ 完整支持 | ⚠️ 有限支持 |
 | **Stream 支持** | ✅ 完整支持 | ✅ 完整支持 | ❌ 不支持 |
@@ -303,9 +303,9 @@ db.Publish("news", "新品上架通知");
 | ZADD | ~90,000 | ~1.1ms |
 | Pipeline (100命令) | ~50,000 batches | ~2.0ms |
 
-> 💡 **测试环境**: Intel i7-10700, 32GB RAM, Redis 7.0, .NET 7.0
+> 💡 **测试环境**: Intel i7-10700, 32GB RAM, Redis 7.0, .NET 7.0；实际数字随硬件、Redis 配置与网络变化，请自行实测。
 
-### IOCP 优势说明
+### 异步 IO 优势说明
 
 ```
 传统同步模型:
@@ -314,12 +314,12 @@ db.Publish("news", "新品上架通知");
 线程3 ──► 阻塞等待 ──► 响应 ──► 处理
         (每连接一线程，资源消耗大)
 
-IOCP 异步模型:
+异步 IO 模型:
 单个线程 ──► 发起请求 ──► 继续处理
          ──► 发起请求 ──► 继续处理
          ──► 发起请求 ──► 继续处理
               ▼
-         完成端口通知 ──► 处理响应
+         IO 完成通知 ──► 处理响应
         (单线程处理多连接，高效利用 CPU)
 ```
 
@@ -804,7 +804,7 @@ server=127.0.0.1:6379;passwords=your_password;actionTimeout=6000
 
 | 包名 | 版本 | 说明 |
 |------|------|------|
-| SAEA.Sockets | 26.9.21.1 | IOCP 通信框架 |
+| SAEA.Sockets | 26.9.21.1 | Socket 通信框架 |
 | SAEA.Common | 26.9.21.1 | 公共工具类 |
 
 ---

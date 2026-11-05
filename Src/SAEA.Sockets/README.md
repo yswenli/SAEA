@@ -1,11 +1,11 @@
-# SAEA.Sockets - 高性能 IOCP Socket 通信框架 🔌
+# SAEA.Sockets - 跨平台高性能 Socket 通信框架 🔌
 
 [![NuGet version](https://img.shields.io/nuget/v/SAEA.Sockets.svg?style=flat-square)](https://www.nuget.org/packages/SAEA.Sockets)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 
 **[English Version](README.en.md)** | **中文版**
 
-> 基于 .NET Standard 2.0 的高性能 Socket 通信框架，采用 Windows IOCP 完成端口技术，支持万级并发连接；收发路径基于 SAEA.Common 零拷贝（Span/Memory）与内存池化。
+> 基于 .NET Standard 2.0 的跨平台 Socket 通信框架。底层异步 IO 机制由 .NET 运行时按操作系统自动选择：Windows 使用 IOCP，Linux 使用 epoll，macOS 使用 kqueue，对外始终是同一套 API。收发路径基于 SAEA.Common 零拷贝（Span/Memory）与内存池化。
 
 ## 快速导航 🧭
 
@@ -13,9 +13,10 @@
 |------|------|
 | [⚡ 30秒快速开始](#30秒快速开始) | 最简单的上手示例 |
 | [🎯 核心特性](#核心特性) | 框架的主要功能 |
+| [🖥️ 平台支持](#平台支持) | 三平台与底层 IO 机制 |
 | [📐 架构设计](#架构设计) | 组件关系与工作流程 |
 | [💡 应用场景](#应用场景) | 何时选择 SAEA.Sockets |
-| [📊 性能对比](#性能对比) | 与其他方案对比 |
+| [📊 实现模式对比](#实现模式对比) | 两种收发实现与选型 |
 | [❓ 常见问题](#常见问题) | FAQ 快速解答 |
 | [🔧 核心类](#核心类) | 主要类一览 |
 | [📝 使用示例](#使用示例) | 详细代码示例 |
@@ -59,7 +60,7 @@ client.Connect();
 client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!")));
 ```
 
-**就这么简单！** 🎉 你已经实现了一个支持万级并发的高性能 TCP 通信系统。
+**就这么简单！** 🎉 你已经实现了一个面向高并发场景的 TCP 通信系统。
 
 ---
 
@@ -67,7 +68,7 @@ client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!"))
 
 | 特性 | 说明 | 优势 |
 |------|------|------|
-| 🚀 **IOCP 高性能** | Windows 完成端口异步模型 | 支持万级并发连接，CPU 利用率高 |
+| 🚀 **跨平台异步 IO** | 底层机制由 .NET 运行时在 Windows/Linux/macOS 上自动选择 IOCP / epoll / kqueue | 同一套 API 三平台运行，无需条件编译或切换实现 |
 | 🔒 **SSL/TLS 加密** | 流模式支持安全连接 | 数据传输加密，保护隐私 |
 | 📡 **双协议支持** | TCP + UDP 双模式 | TCP 可靠传输，UDP 高速广播 |
 | 🌐 **IPv6 支持** | 完全兼容 IPv6 协议 | 适应未来网络环境 |
@@ -75,6 +76,20 @@ client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!"))
 | 🔄 **会话管理** | SessionManager 自动管理 | 超时自动清理，连接状态追踪 |
 | 🛠️ **自定义协议** | ICoder 接口扩展 | 灵活的协议编解码器 |
 | 🔗 **Builder 配置** | 链式配置构建器 | 代码简洁，易于理解 |
+
+---
+
+## 平台支持 🖥️
+
+| 平台 | 底层异步 IO 机制 |
+|------|------------------|
+| Windows | IOCP（I/O Completion Port） |
+| Linux | epoll |
+| macOS | kqueue |
+
+三平台使用同一套 API，无需条件编译，也无需切换实现。底层机制由 .NET 运行时根据当前操作系统自动选择；框架侧只负责收发调度、协议编解码与会话管理。
+
+> ⚠️ **命名说明**：`UseIocp()` 是历史命名，指框架的 `SocketAsyncEventArgs` 收发实现，**不是 Windows 限定**——它在 Linux/macOS 上同样可用，底层分别落到 epoll/kqueue。需要 UDP 或高吞吐自定义帧时选它；需要 SSL/TLS 时改用 `UseStream()`。
 
 ---
 
@@ -89,7 +104,7 @@ client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!"))
 │                                                             │
 │  ┌──────────────┐      ┌──────────────┐                    │
 │  │ IocpSocket   │      │ StreamSocket │                    │
-│  │  (IOCP模式)  │      │  (流模式)    │                    │
+│  │(SAEventArgs) │      │ (Pipelines)  │                    │
 │  └──────────────┘      └──────────────┘                    │
 │         │                     │                             │
 │         └──────────┬──────────┘                             │
@@ -136,7 +151,7 @@ client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!"))
 
 数据接收流程:
 
-网络数据 ──► IOCP 完成 ──► BufferManager 接收
+网络数据 ──► 异步 IO 完成（IOCP/epoll/kqueue）──► BufferManager 接收
                                 │
                                 ▼
                       ┌─────────────────┐
@@ -165,7 +180,7 @@ client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!"))
 
 | 场景 | 描述 | 推荐理由 |
 |------|------|----------|
-| 🎮 **游戏服务器** | 实时对战、状态同步 | IOCP 支持万级玩家同时在线 |
+| 🎮 **游戏服务器** | 实时对战、状态同步 | 异步 IO + 会话管理，适合大量长连接 |
 | 📊 **实时数据推送** | 股票行情、体育比分 | 高吞吐量，低延迟 |
 | 🤖 **IoT 设备通信** | 传感器数据上报 | 支持大量设备并发连接 |
 | 💬 **即时通讯** | 私聊、群聊、客服系统 | 会话管理完善，事件驱动 |
@@ -183,39 +198,34 @@ client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!"))
 
 ---
 
-## 性能对比 📊
+## 实现模式对比 📊
 
-### 与传统 Socket 方案对比
+两种 TCP 实现都跨平台，按业务需要选择：
 
-| 指标 | SAEA.Sockets | 传统 Socket | 优势 |
-|------|--------------|-------------|------|
-| **并发连接数** | 10,000+ | ~1,000 | **10倍提升** |
-| **CPU 利用率** | ~85% | ~30% | **高效利用** |
-| **内存占用** | 池化复用 | 频繁分配 | **GC 压力降低** |
-| **延迟** | ~1ms | ~10ms | **低延迟响应** |
-| **吞吐量** | 高 | 中 | **高吞吐** |
+| 对比项 | `SocketAsyncEventArgs` 模式（`UseIocp()`） | Pipelines 流模式（`UseStream()`） |
+|--------|--------------------------------------------|-----------------------------------|
+| 主要类 | `IocpServerSocket` / `IocpClientSocket` | `StreamServerSocket` / `StreamClientSocket` |
+| 接收方式 | 每连接一个 `SocketAsyncEventArgs`，通过 `OnServerReceiveSpan` 交付 | 每连接一个 `PipeReader`，也可用 `GetStream()` 直接读写 |
+| UDP | ✅ 支持（UDP 仅支持此模式） | ❌ 不支持 |
+| SSL/TLS | ❌ 不支持 | ✅ 支持 |
+| 底层 IO 机制 | 由 .NET 运行时选择：Windows IOCP / Linux epoll / macOS kqueue | 同上 |
+| 适用场景 | 高吞吐二进制协议、自定义帧、UDP | 需要 SSL/TLS，或希望以流式 API 处理连接 |
 
-### IOCP vs 其他异步模型
+> 命名说明：`UseIocp()` 指 `SocketAsyncEventArgs` 收发实现，与操作系统无关。
 
-| 模型 | 并发性能 | 适用平台 | 复杂度 |
-|------|----------|----------|--------|
-| **IOCP (SAEA.Sockets)** | ⭐⭐⭐⭐⭐ | Windows | 中等 |
-| Select | ⭐⭐ | 跨平台 | 简单 |
-| Poll | ⭐⭐ | 跨平台 | 简单 |
-| Epoll (Linux) | ⭐⭐⭐⭐ | Linux | 中等 |
+### 关于性能数字
 
-> 💡 **提示**: IOCP 是 Windows 平台最高效的异步 IO 模型，专为高并发场景设计。
+本 README 不提供跨框架性能对比数字（与 TouchSocket、DotNetty 等的差异请以自己场景的压测为准）。可复现的实测数据只有零拷贝收发路径：运行 `SAEA.P2PTest --bench-iocp`（4KB 帧、单机回环），结果见根目录 README。
 
 ---
 
 ## 常见问题 ❓
 
-### Q1: IOCP 是什么？为什么选择 IOCP？
+### Q1: 这个框架只能在 Windows 上运行吗？
 
-**A**: IOCP (I/O Completion Port) 是 Windows 平台的完成端口技术，是目前 Windows 上最高效的异步 IO 模型。相比传统的 Select/Poll 模型：
-- 支持更大并发连接数（万级以上）
-- CPU 利用率更高（单个线程处理多个连接）
-- 系统资源消耗更低
+**A**: 不是。Windows、Linux、macOS 使用同一套 API。底层异步 IO 机制由 .NET 运行时按操作系统自动选择——Windows 是 IOCP，Linux 是 epoll，macOS 是 kqueue——框架的收发调度、编解码和会话管理逻辑完全一致，不需要条件编译。
+
+`UseIocp()` 中的 "Iocp" 是历史命名，指 `SocketAsyncEventArgs` 收发实现，不表示 Windows 限定。
 
 ### Q2: 如何实现自定义协议？
 
@@ -297,7 +307,7 @@ SAEA.Sockets 同时支持两种模式，可根据场景灵活选择。
 
 ### Q6: 支持的最大连接数是多少？
 
-**A**: 默认配置支持 1000 个连接，可通过 `SetCount()` 调整：
+**A**: `MaxConnects` 默认 1000，可通过 `SetCount()` 调整：
 
 ```csharp
 var option = SocketOptionBuilder.Instance
@@ -305,7 +315,7 @@ var option = SocketOptionBuilder.Instance
     .Build();
 ```
 
-实际性能取决于服务器硬件配置。
+实际可用连接数还受操作系统约束：Linux/macOS 需要同步调高文件描述符上限（如 `ulimit -n`），Windows 取决于句柄与内存；最终值以压测结果为准。
 
 ---
 
@@ -313,7 +323,7 @@ var option = SocketOptionBuilder.Instance
 
 | 类名 | 说明 |
 |------|------|
-| `IocpServerSocket` / `IocpClientSocket` | IOCP 模式 TCP 服务器/客户端 |
+| `IocpServerSocket` / `IocpClientSocket` | `SocketAsyncEventArgs` 模式 TCP 服务器/客户端（跨平台） |
 | `StreamServerSocket` / `StreamClientSocket` | 流模式 TCP 服务器/客户端（支持 SSL） |
 | `UdpServerSocket` / `UdpClientSocket` | UDP 服务器/客户端 |
 | `SocketOptionBuilder` | 链式配置构建器 |
@@ -327,7 +337,7 @@ var option = SocketOptionBuilder.Instance
 
 ## 使用示例 📝
 
-### TCP 服务器（IOCP 模式）
+### TCP 服务器（SocketAsyncEventArgs 模式）
 
 ```csharp
 using SAEA.Sockets;
@@ -336,7 +346,7 @@ using SAEA.Sockets.Handler;
 // 使用 Builder 链式配置服务器
 var option = SocketOptionBuilder.Instance
     .SetSocket(SAEASocketType.Tcp)  // 设置 Socket 类型为 TCP
-    .UseIocp()                       // 使用 IOCP 异步模型
+    .UseIocp()                       // SocketAsyncEventArgs 模式（跨平台）
     .SetIP("127.0.0.1")              // 监听 IP
     .SetPort(39654)                  // 监听端口
     .SetBufferSize(1024 * 64)        // 缓冲区大小 64KB
@@ -363,7 +373,7 @@ server.Start();
 Console.WriteLine("服务器已启动!");
 ```
 
-### TCP 客户端（IOCP 模式）
+### TCP 客户端（SocketAsyncEventArgs 模式）
 
 ```csharp
 using SAEA.Sockets;

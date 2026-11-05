@@ -43,10 +43,11 @@ namespace SAEA.WebSocket.Model
         /// <summary>
         /// 上下文
         /// </summary>
-        public WSContext()
+        /// <param name="requireMask">是否要求收到的帧必须带掩码（服务端为 true，客户端为 false）</param>
+        public WSContext(bool requireMask = false)
         {
             this.UserToken = new WSUserToken();
-            this.Unpacker = new WSCoder();
+            this.Unpacker = new WSCoder() { RequireMask = requireMask };
             this.UserToken.Coder = this.Unpacker;
         }
     }

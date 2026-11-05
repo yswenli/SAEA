@@ -237,7 +237,7 @@ iotClient.Send("control-center", JsonSerializer.Serialize(sensor));
                     └────────────────┬────────────────┘
                                      │
                     ┌────────────────▼────────────────┐
-                    │      SAEA.Sockets (IOCP)        │
+                    │      SAEA.Sockets (Async IO)    │
                     │        High Performance         │
                     └─────────────────────────────────┘
 ```
@@ -427,7 +427,7 @@ Measured by the automated suite in `Src\SAEA.P2PTest` (single-machine loop bench
 | **AES encrypt + decrypt round trip** | ~119,000 ops/sec (5,000 iterations in 42 ms) |
 | **Relay encode** | ~926,000 ops/sec (20,000 iterations in 21 ms) |
 | **Streaming zero-copy decode (`DecodeStream`)** | 64B ~7,950,000 ops/sec, 4KB ~7,130,000 ops/sec, 1MB ~39,700 ops/sec; ~0 B/op for 64B/4KB |
-| **IOCP zero-copy send/receive (`--bench-iocp`)** | Client SpanDecodeStream 45,344 frames/s, **34 B/frame, GC0=0** (LegacyDecode: 42,345 frames/s, 4,662 B/frame, GC0=18) |
+| **Zero-copy send/receive (`--bench-iocp`)** | Client SpanDecodeStream 45,344 frames/s, **34 B/frame, GC0=0** (LegacyDecode: 42,345 frames/s, 4,662 B/frame, GC0=18) |
 
 > The suite covers protocol, crypto, relay, concurrency, lifecycle, integration and performance — **310 tests, all passing** (plus 29 zero-copy send/receive benchmarks under `--bench-iocp`).
 > Run: `dotnet run -c Debug -- --all` (see [SAEA.P2PTest](../SAEA.P2PTest)).

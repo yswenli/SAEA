@@ -51,6 +51,8 @@ namespace SAEA.MQTT.Server
         IMqttServerApplicationMessageInterceptor ApplicationMessageInterceptor { get; }
         IMqttServerClientMessageQueueInterceptor ClientMessageQueueInterceptor { get; }
 
+        MqttServerCapabilities Capabilities { get; }
+
         MqttServerTcpEndpointOptions DefaultEndpointOptions { get; }
         MqttServerTlsTcpEndpointOptions TlsEndpointOptions { get; }
 

@@ -129,7 +129,7 @@ namespace SAEA.WebSocket.Core
                             {
                                 channelInfo.Stream.Write(resData, 0, resData.Length);
                                 wsut.IsHandSharked = true;
-                                _concurrentDictionary[channelInfo.ID] = new WSCoder();
+                                _concurrentDictionary[channelInfo.ID] = new WSCoder() { RequireMask = true };
                                 Clients.Add(channelInfo.ID);
                                 OnConnected?.Invoke(channelInfo.ID);
                             }

@@ -1,7 +1,9 @@
 using SAEA.MVC;
 using SAEA.MVCTest.Attrubutes;
 using SAEA.MVCTest.Model;
+
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace SAEA.MVCTest.Controllers
 {
@@ -45,10 +47,10 @@ namespace SAEA.MVCTest.Controllers
             return Content($"已成功同步等待{milliseconds}毫秒！");
         }
         
-        public async System.Threading.Tasks.Task<ActionResult> SleepAsync(int milliseconds)
+        public async Task<ActionResult> SleepAsync(int milliseconds)
         {
             System.Console.WriteLine($"[{System.DateTime.Now}] 开始执行SleepAsync方法，将睡眠{milliseconds}毫秒...");
-            await System.Threading.Tasks.Task.Delay(milliseconds);
+            await Task.Delay(milliseconds);
             System.Console.WriteLine($"[{System.DateTime.Now}] SleepAsync方法执行完成！");
             return Content($"已成功异步等待{milliseconds}毫秒！");
         }

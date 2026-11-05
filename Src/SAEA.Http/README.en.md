@@ -5,7 +5,7 @@
 
 **English Version** | **[中文版](README.md)**
 
-> A high-performance HTTP server based on .NET Standard 2.0, utilizing IOCP completion port technology, supporting RESTful APIs, static file serving, file uploads, and more.
+> A high-performance HTTP server based on .NET Standard 2.0, utilizing async IO, supporting RESTful APIs, static file serving, file uploads, and more.
 >
 > ⚡ **Zero-copy core**: built on the SAEA.Sockets Span/Memory zero-copy send/receive path and pooled buffers, significantly reducing allocations and GC.
 
@@ -54,7 +54,7 @@ curl http://localhost:28080/api/test
 # Output: {"msg": "Hello SAEA.Http!"}
 ```
 
-**That's it!** 🎉 You've implemented a high-performance HTTP server capable of handling tens of thousands of concurrent connections.
+**That's it!** 🎉 You've implemented a high-performance HTTP server built for high-concurrency connections.
 
 ---
 
@@ -62,7 +62,7 @@ curl http://localhost:28080/api/test
 
 | Feature | Description | Benefits |
 |---------|-------------|----------|
-| 🚀 **IOCP High Performance** | Based on SAEA.Sockets completion ports | Supports tens of thousands of concurrent requests with low latency |
+| 🚀 **Cross-Platform Async IO** | Based on SAEA.Sockets async IO | Built for high-concurrency requests with low latency |
 | 📡 **Standard HTTP Methods** | GET/POST/PUT/DELETE/OPTIONS | Complete RESTful support |
 | 📁 **Static File Serving** | Auto caching, chunked transfer | Efficient large file transfer, memory optimized |
 | 📤 **File Upload** | multipart/form-data parsing | Easy file upload handling |
@@ -113,7 +113,7 @@ curl http://localhost:28080/api/test
 │            │                                                │
 │  ┌─────────▼─────────┐                                     │
 │  │   SAEA.Sockets    │                                     │
-│  │   (IOCP Engine)   │                                     │
+│  │ (Async IO Engine) │                                     │
 │  └───────────────────┘                                     │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
@@ -183,7 +183,7 @@ Client ──► HTTP Request ──► WebHost Receives
 
 | Scenario | Description | Reason |
 |----------|-------------|--------|
-| 🌐 **RESTful API** | Microservices, backend APIs | IOCP high concurrency, low latency response |
+| 🌐 **RESTful API** | Microservices, backend APIs | async IO for high concurrency, low latency response |
 | 📁 **Static File Serving** | Frontend resources, download services | Auto caching, large file chunked transfer |
 | 📤 **File Upload Service** | Image, document uploads | Multipart parsing, memory optimized |
 | 🔄 **Proxy Service** | Reverse proxy, gateway | Lightweight, fast forwarding |
@@ -208,9 +208,9 @@ Client ──► HTTP Request ──► WebHost Receives
 
 | Metric | SAEA.Http | Kestrel | HttpListener | Advantage |
 |--------|-----------|---------|--------------|-----------|
-| **Concurrent Connections** | 10,000+ | 50,000+ | ~1,000 | IOCP optimized |
-| **Memory Usage** | ~30MB | ~60MB | ~50MB | **Lightweight** |
-| **Startup Time** | ~50ms | ~200ms | ~100ms | **Fast Startup** |
+| **Concurrent Connections** | Built for high concurrency | Built for high concurrency | Medium | async IO |
+| **Memory Usage** | Low (lightweight) | Higher | Medium | **Lightweight** |
+| **Startup Time** | Fast | Slower | Medium | **Fast Startup** |
 | **Static Files** | Auto cache | Middleware cache | No cache | **Built-in Cache** |
 | **Dependencies** | Minimal | Many | System component | **Light Dependencies** |
 
@@ -218,13 +218,13 @@ Client ──► HTTP Request ──► WebHost Receives
 
 | Feature | SAEA.Http | Kestrel | HttpListener |
 |---------|:---------:|:-------:|:------------:|
-| IOCP Support | ✅ | ✅ | ❌ |
+| Async IO Model | ✅ | ✅ | ✅ |
 | Static File Cache | ✅ | Needs middleware | ❌ |
 | GZIP Compression | ✅ | Needs middleware | ❌ |
 | Session Management | ✅ | Needs middleware | ❌ |
 | File Upload Parsing | ✅ | Needs parsing | Manual parsing |
 | SSE Push | ✅ | ✅ | ❌ |
-| Cross-platform | Windows priority | ✅ | Windows only |
+| Cross-platform | ✅ | ✅ | Windows only |
 
 > 💡 **Tip**: SAEA.Http is suitable for scenarios requiring lightweight, high-performance HTTP services, especially for embedded systems, game backends, IoT, and other resource-sensitive applications.
 
@@ -553,7 +553,7 @@ var config = new WebConfig
 
 | Package | Version | Description |
 |---------|---------|-------------|
-| SAEA.Sockets | 26.9.21.1 | IOCP communication framework |
+| SAEA.Sockets | 26.9.21.1 | Socket communication framework |
 | SAEA.Common | 26.9.21.1 | Common utility classes |
 
 ---

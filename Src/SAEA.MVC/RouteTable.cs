@@ -69,7 +69,7 @@ namespace SAEA.MVC
             {
                 routing = _cDic.GetOrAdd(getKey, (k) =>
                 {
-                    var actions = controllerType.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly).Where(b => string.Compare(b.Name, actionName, true) == 0).ToList();
+                    var actions = ResolveActions(controllerType, actionName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
 
                     if (actions == null || !actions.Any())
                     {
@@ -129,7 +129,7 @@ namespace SAEA.MVC
 
                                 if (filterAttrs != null && filterAttrs.Count > 0)
                                 {
-                                    var filters = actionAttrs.ToList().ConvertAll(b => b as IFilter);
+                                    var filters = filterAttrs.ConvertAll(b => b as IFilter);
 
                                     if (filters != null && filters.Any())
                                     {
@@ -176,7 +176,7 @@ namespace SAEA.MVC
             {
                 routing = _cDic.GetOrAdd(postKey, (k) =>
                 {
-                    var actions = controllerType.GetMethods().Where(b => string.Compare(b.Name, actionName, true) == 0).ToList();
+                    var actions = ResolveActions(controllerType, actionName, BindingFlags.Instance | BindingFlags.Public);
 
                     if (actions == null || actions.Count == 0)
                     {
@@ -263,6 +263,36 @@ namespace SAEA.MVC
             }
 
             return routing;
+        }
+
+        /// <summary>
+        /// 解析 action 方法。WSController 的入口方法名带 Async 后缀（OpenAsync），
+        /// 路由地址保持 /{controller}/open；GET 与 POST 必须用同一套回退规则，
+        /// 否则 POST /chat/open 会查不到 action 而抛 500
+        /// </summary>
+        static List<MethodInfo> ResolveActions(Type controllerType, string actionName, BindingFlags flags)
+        {
+            var actions = controllerType.GetMethods(flags)
+                .Where(b => string.Compare(b.Name, actionName, true) == 0).ToList();
+
+            if (actions.Count > 0) return actions;
+
+            if (!typeof(WSController).IsAssignableFrom(controllerType)) return actions;
+
+            var asyncName = actionName + "Async";
+
+            actions = controllerType.GetMethods(flags)
+                .Where(b => string.Compare(b.Name, asyncName, true) == 0).ToList();
+
+            // WSController 派生类未 override OpenAsync 时，回落到基类声明的那一层
+            if (actions.Count == 0)
+            {
+                actions = typeof(WSController)
+                    .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                    .Where(b => string.Compare(b.Name, asyncName, true) == 0).ToList();
+            }
+
+            return actions;
         }
     }
 

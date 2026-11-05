@@ -1,11 +1,11 @@
-# SAEA.Sockets - High-Performance IOCP Socket Communication Framework 🔌
+# SAEA.Sockets - Cross-Platform High-Performance Socket Framework 🔌
 
 [![NuGet version](https://img.shields.io/nuget/v/SAEA.Sockets.svg?style=flat-square)](https://www.nuget.org/packages/SAEA.Sockets)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 
 **English Version** | **[中文版](README.md)**
 
-> A high-performance Socket communication framework based on .NET Standard 2.0, using Windows IOCP completion port technology, supporting tens of thousands of concurrent connections; the send/receive path is built on SAEA.Common zero-copy (Span/Memory) and pooled buffers.
+> A cross-platform Socket framework based on .NET Standard 2.0. The underlying async IO mechanism is selected automatically by the .NET runtime: IOCP on Windows, epoll on Linux, kqueue on macOS — always behind the same API. The send/receive path is built on SAEA.Common zero-copy (Span/Memory) and pooled buffers.
 
 ## Quick Navigation 🧭
 
@@ -13,9 +13,10 @@
 |---------|---------|
 | [⚡ 30-Second Quick Start](#30-second-quick-start) | Simplest getting started example |
 | [🎯 Core Features](#core-features) | Main framework capabilities |
+| [🖥️ Platform Support](#platform-support) | Supported platforms and IO mechanisms |
 | [📐 Architecture Design](#architecture-design) | Component relationships and workflow |
 | [💡 Use Cases](#use-cases) | When to choose SAEA.Sockets |
-| [📊 Performance Comparison](#performance-comparison) | Comparison with other solutions |
+| [📊 Implementation Modes](#implementation-modes) | The two transports and how to choose |
 | [❓ FAQ](#faq) | Quick answers |
 | [🔧 Core Classes](#core-classes) | Overview of main classes |
 | [📝 Usage Examples](#usage-examples) | Detailed code examples |
@@ -59,7 +60,7 @@ client.Connect();
 client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!")));
 ```
 
-**That's it!** 🎉 You've implemented a high-performance TCP communication system supporting tens of thousands of concurrent connections.
+**That's it!** 🎉 You've implemented a TCP communication system built for high-concurrency scenarios.
 
 ---
 
@@ -67,7 +68,7 @@ client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!"))
 
 | Feature | Description | Benefit |
 |---------|-------------|---------|
-| 🚀 **High-Performance IOCP** | Windows completion port async model | Supports tens of thousands of concurrent connections, high CPU utilization |
+| 🚀 **Cross-Platform Async IO** | The .NET runtime picks IOCP / epoll / kqueue automatically on Windows/Linux/macOS | One API on all three platforms, no conditional compilation or implementation switching |
 | 🔒 **SSL/TLS Encryption** | Stream mode supports secure connections | Encrypted data transmission, privacy protection |
 | 📡 **Dual Protocol Support** | TCP + UDP dual mode | TCP for reliable transmission, UDP for high-speed broadcast |
 | 🌐 **IPv6 Support** | Fully compatible with IPv6 protocol | Future-proof network environment |
@@ -75,6 +76,20 @@ client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!"))
 | 🔄 **Session Management** | SessionManager auto management | Auto timeout cleanup, connection state tracking |
 | 🛠️ **Custom Protocol** | ICoder interface extension | Flexible protocol encoder/decoder |
 | 🔗 **Builder Configuration** | Fluent configuration builder | Clean code, easy to understand |
+
+---
+
+## Platform Support 🖥️
+
+| Platform | Underlying async IO mechanism |
+|----------|-------------------------------|
+| Windows | IOCP (I/O Completion Port) |
+| Linux | epoll |
+| macOS | kqueue |
+
+All three platforms share one API — no conditional compilation and no implementation switching. The mechanism is chosen by the .NET runtime for the current OS; this framework only owns send/receive scheduling, protocol codecs, and session management.
+
+> ⚠️ **Naming note**: `UseIocp()` is a historical name for the `SocketAsyncEventArgs` transport, **not a Windows requirement** — it works just as well on Linux/macOS, backed by epoll/kqueue respectively. Use it for UDP or high-throughput custom framing; switch to `UseStream()` when you need SSL/TLS.
 
 ---
 
@@ -89,7 +104,7 @@ client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!"))
 │                                                             │
 │  ┌──────────────┐      ┌──────────────┐                    │
 │  │ IocpSocket   │      │ StreamSocket │                    │
-│  │  (IOCP Mode) │      │ (Stream Mode)│                    │
+│  │(SAEventArgs) │      │ (Pipelines)  │                    │
 │  └──────────────┘      └──────────────┘                    │
 │         │                     │                             │
 │         └──────────┬──────────┘                             │
@@ -136,7 +151,7 @@ Client ──► Connect ──► Server.Accepted
 
 Data Receiving Flow:
 
-Network Data ──► IOCP Complete ──► BufferManager Receive
+Network Data ──► Async IO Complete (IOCP/epoll/kqueue) ──► BufferManager Receive
                                       │
                                       ▼
                             ┌─────────────────┐
@@ -165,7 +180,7 @@ Network Data ──► IOCP Complete ──► BufferManager Receive
 
 | Scenario | Description | Recommendation Reason |
 |----------|-------------|----------------------|
-| 🎮 **Game Servers** | Real-time battles, state sync | IOCP supports tens of thousands of players online simultaneously |
+| 🎮 **Game Servers** | Real-time battles, state sync | Async IO plus session management, suited to large numbers of long-lived connections |
 | 📊 **Real-time Data Push** | Stock quotes, sports scores | High throughput, low latency |
 | 🤖 **IoT Device Communication** | Sensor data reporting | Supports massive concurrent device connections |
 | 💬 **Instant Messaging** | Private chat, group chat, customer service | Complete session management, event-driven |
@@ -183,39 +198,34 @@ Network Data ──► IOCP Complete ──► BufferManager Receive
 
 ---
 
-## Performance Comparison 📊
+## Implementation Modes 📊
 
-### Comparison with Traditional Socket Solutions
+Both TCP transports are cross-platform; choose by requirement:
 
-| Metric | SAEA.Sockets | Traditional Socket | Advantage |
-|--------|--------------|-------------------|-----------|
-| **Concurrent Connections** | 10,000+ | ~1,000 | **10x improvement** |
-| **CPU Utilization** | ~85% | ~30% | **High efficiency** |
-| **Memory Usage** | Pooled reuse | Frequent allocation | **Lower GC pressure** |
-| **Latency** | ~1ms | ~10ms | **Low latency response** |
-| **Throughput** | High | Medium | **High throughput** |
+| Aspect | `SocketAsyncEventArgs` mode (`UseIocp()`) | Pipelines stream mode (`UseStream()`) |
+|--------|-------------------------------------------|----------------------------------------|
+| Main types | `IocpServerSocket` / `IocpClientSocket` | `StreamServerSocket` / `StreamClientSocket` |
+| Receive path | One `SocketAsyncEventArgs` per connection, delivered via `OnServerReceiveSpan` | One `PipeReader` per connection, or read/write directly through `GetStream()` |
+| UDP | ✅ Supported (UDP only works in this mode) | ❌ Not supported |
+| SSL/TLS | ❌ Not supported | ✅ Supported |
+| Underlying IO | Chosen by the .NET runtime: Windows IOCP / Linux epoll / macOS kqueue | Same |
+| Best for | High-throughput binary protocols, custom framing, UDP | SSL/TLS, or stream-style connection handling |
 
-### IOCP vs Other Async Models
+> Naming note: `UseIocp()` means the `SocketAsyncEventArgs` transport; it has nothing to do with the operating system.
 
-| Model | Concurrent Performance | Platform | Complexity |
-|-------|----------------------|----------|------------|
-| **IOCP (SAEA.Sockets)** | ⭐⭐⭐⭐⭐ | Windows | Medium |
-| Select | ⭐⭐ | Cross-platform | Simple |
-| Poll | ⭐⭐ | Cross-platform | Simple |
-| Epoll (Linux) | ⭐⭐⭐⭐ | Linux | Medium |
+### About performance numbers
 
-> 💡 **Tip**: IOCP is the most efficient async IO model on Windows platform, designed specifically for high-concurrency scenarios.
+This README does not publish cross-framework performance numbers (for comparisons with TouchSocket, DotNetty, etc., benchmark your own workload). The only reproducible measurement here is the zero-copy receive/send path: run `SAEA.P2PTest --bench-iocp` (4KB frames, single-machine loopback); results are documented in the root README.
 
 ---
 
 ## FAQ ❓
 
-### Q1: What is IOCP? Why choose IOCP?
+### Q1: Does this framework only run on Windows?
 
-**A**: IOCP (I/O Completion Port) is Windows platform's completion port technology, currently the most efficient async IO model on Windows. Compared to traditional Select/Poll models:
-- Supports larger concurrent connections (tens of thousands+)
-- Higher CPU utilization (single thread handles multiple connections)
-- Lower system resource consumption
+**A**: No. Windows, Linux and macOS share one API. The underlying async IO mechanism is selected by the .NET runtime for the current OS — IOCP on Windows, epoll on Linux, kqueue on macOS — while send/receive scheduling, codecs and session management stay identical. No conditional compilation is required.
+
+The "Iocp" in `UseIocp()` is a historical name for the `SocketAsyncEventArgs` transport; it does not mean Windows-only.
 
 ### Q2: How to implement custom protocol?
 
@@ -297,7 +307,7 @@ SAEA.Sockets supports both modes, choose flexibly based on your scenario.
 
 ### Q6: What is the maximum number of connections supported?
 
-**A**: Default configuration supports 1000 connections, adjustable via `SetCount()`:
+**A**: `MaxConnects` defaults to 1000 and can be adjusted with `SetCount()`:
 
 ```csharp
 var option = SocketOptionBuilder.Instance
@@ -305,7 +315,7 @@ var option = SocketOptionBuilder.Instance
     .Build();
 ```
 
-Actual performance depends on server hardware configuration.
+The usable connection count is also bounded by the OS: on Linux/macOS raise the file-descriptor limit (e.g. `ulimit -n`); on Windows it depends on handles and memory. Treat benchmark results as the source of truth.
 
 ---
 
@@ -313,7 +323,7 @@ Actual performance depends on server hardware configuration.
 
 | Class Name | Description |
 |------------|-------------|
-| `IocpServerSocket` / `IocpClientSocket` | IOCP mode TCP server/client |
+| `IocpServerSocket` / `IocpClientSocket` | `SocketAsyncEventArgs` mode TCP server/client (cross-platform) |
 | `StreamServerSocket` / `StreamClientSocket` | Stream mode TCP server/client (supports SSL) |
 | `UdpServerSocket` / `UdpClientSocket` | UDP server/client |
 | `SocketOptionBuilder` | Fluent configuration builder |
@@ -327,7 +337,7 @@ Actual performance depends on server hardware configuration.
 
 ## Usage Examples 📝
 
-### TCP Server (IOCP Mode)
+### TCP Server (SocketAsyncEventArgs Mode)
 
 ```csharp
 using SAEA.Sockets;
@@ -336,7 +346,7 @@ using SAEA.Sockets.Handler;
 // Use Builder fluent configuration for server
 var option = SocketOptionBuilder.Instance
     .SetSocket(SAEASocketType.Tcp)  // Set Socket type to TCP
-    .UseIocp()                       // Use IOCP async model
+    .UseIocp()                       // SocketAsyncEventArgs mode (cross-platform)
     .SetIP("127.0.0.1")              // Listen IP
     .SetPort(39654)                  // Listen port
     .SetBufferSize(1024 * 64)        // Buffer size 64KB
@@ -363,7 +373,7 @@ server.Start();
 Console.WriteLine("Server started!");
 ```
 
-### TCP Client (IOCP Mode)
+### TCP Client (SocketAsyncEventArgs Mode)
 
 ```csharp
 using SAEA.Sockets;

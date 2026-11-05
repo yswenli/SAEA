@@ -5,7 +5,7 @@
 
 **[English Version](README.en.md)** | **中文版**
 
-> 基于 .NET Standard 2.0 的轻量级 MVC Web 框架，采用 IOCP 技术，自宿主运行，无需 IIS/Kestrel。
+> 基于 .NET Standard 2.0 的轻量级 MVC Web 框架，采用异步 IO，自宿主运行，无需 IIS/Kestrel。
 >
 > ⚡ **零拷贝内核**：构建于 SAEA.Sockets 的 Span/Memory 零拷贝收发与内存池通道之上，显著降低分配与 GC。
 
@@ -66,7 +66,7 @@ public class HomeController : Controller
 
 | 特性              | 说明                    | 优势              |
 | --------------- | --------------------- | --------------- |
-| 🚀 **IOCP 高性能** | 基于 SAEA.Sockets 异步模型  | 支持万级并发，CPU 利用率高 |
+| 🚀 **跨平台异步 IO** | 基于 SAEA.Sockets 异步模型  | 面向高并发场景，CPU 利用率高 |
 | 🏠 **自宿主运行**    | 无需 IIS/Kestrel        | 独立进程，部署简单       |
 | 📦 **轻量级**      | 无复杂依赖                 | 启动快，内存占用低       |
 | 🎯 **完整 MVC**   | Controller/Action/路由  | 标准 MVC 开发体验     |
@@ -116,8 +116,8 @@ public class HomeController : Controller
 │         └────────┘  └────────┘  └──────┘                  │
 │                                                             │
 │  ┌──────────────────────────────────────────────────────┐  │
-│  │                   SAEA.Sockets (底层)                  │  │
-│  │                    IOCP 通信引擎                       │  │
+│  │                 SAEA.Sockets (底层)                  │  │
+│  │                   异步 IO 通信引擎                   │  │
 │  └──────────────────────────────────────────────────────┘  │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
@@ -202,7 +202,7 @@ ActionResult ──┬── JsonActionResult ──► JSON 序列化输出
 | 场景              | 描述                | 推荐理由       |
 | --------------- | ----------------- | ---------- |
 | 🔧 **API 服务**   | RESTful API、微服务后端 | 轻量高效，启动快速  |
-| 🎮 **游戏后端**     | 游戏服务器 HTTP 接口     | IOCP 高并发支持 |
+| 🎮 **游戏后端**     | 游戏服务器 HTTP 接口     | 异步 IO 支撑高并发 |
 | 📊 **管理后台**     | 内部管理系统            | 自宿主部署简单    |
 | 🤖 **IoT 网关**   | 设备数据接口服务          | 低资源占用      |
 | 📡 **实时推送**     | SSE 服务器推送         | 内置 SSE 支持  |
@@ -223,11 +223,11 @@ ActionResult ──┬── JsonActionResult ──► JSON 序列化输出
 | 特性             | SAEA.MVC | ASP.NET Core |
 | -------------- | -------- | ------------ |
 | **启动速度**       | 毫秒级      | 秒级           |
-| **内存占用**       | \~20MB   | \~80MB+      |
+| **内存占用**       | 低（轻量自宿主）   | 较高          |
 | **部署复杂度**      | 单文件      | 需运行时/容器      |
 | **Razor 视图**   | ❌        | ✅            |
 | **依赖注入**       | 手动       | 内置           |
-| **Windows 性能** | ⭐⭐⭐⭐⭐    | ⭐⭐⭐⭐         |
+| **异步 IO 性能** | ⭐⭐⭐⭐⭐    | ⭐⭐⭐⭐         |
 | **跨平台**        | 全平台      | 全平台          |
 
 ***
@@ -238,28 +238,30 @@ ActionResult ──┬── JsonActionResult ──► JSON 序列化输出
 
 | 指标            | SAEA.MVC | ASP.NET Core | NancyFX  | HttpListener |
 | ------------- | -------- | ------------ | -------- | ------------ |
-| **吞吐量 (RPS)** | \~50,000 | \~35,000     | \~15,000 | \~8,000      |
-| **平均延迟**      | \~1ms    | \~2ms        | \~5ms    | \~10ms       |
-| **内存占用**      | \~20MB   | \~80MB       | \~50MB   | \~30MB       |
-| **启动时间**      | \~50ms   | \~500ms      | \~200ms  | \~100ms      |
-| **并发连接**      | 10,000+  | 5,000+       | 2,000+   | 1,000+       |
+| **吞吐量**       | 高        | 高            | 中等       | 较低           |
+| **平均延迟**      | 低        | 低            | 中等       | 较高           |
+| **内存占用**      | 低（轻量自宿主） | 中等          | 中等       | 低            |
+| **启动时间**      | 快（无 IIS/Kestrel） | 较慢       | 中等       | 快            |
+| **并发连接**      | 面向高并发 | 面向高并发 | 中等 | 中等 |
 
-### 输出缓存性能
+> 📌 上表为定性比较，SAEA 未发布跨框架基准数据；实际性能取决于硬件与负载，请针对自身场景实测。
 
-| 场景       | 无缓存   | 有缓存 (60s) | 提升      |
-| -------- | ----- | --------- | ------- |
-| JSON API | \~5ms | \~0.1ms   | **50倍** |
-| 静态页面     | \~3ms | \~0.05ms  | **60倍** |
+### 输出缓存效果
 
-### IOCP vs 传统模型
+| 场景       | 无缓存        | 有缓存 (60s)   | 效果            |
+| -------- | ---------- | ----------- | ------------- |
+| JSON API | 每次请求重新生成   | 命中缓存直接返回    | 显著降低 CPU 与延迟  |
+| 静态页面     | 每次请求读取/渲染  | 命中缓存直接返回    | 显著降低 IO 与延迟   |
+
+### 异步 IO vs 阻塞模型
 
 | 模型                  | 并发性能  | 内存效率  | CPU 利用率 |
 | ------------------- | ----- | ----- | ------- |
-| **IOCP (SAEA.MVC)** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐   |
+| **异步 IO（SAEA.MVC）** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐   |
 | Thread Pool         | ⭐⭐⭐   | ⭐⭐⭐   | ⭐⭐⭐     |
 | Blocking            | ⭐⭐    | ⭐⭐    | ⭐⭐      |
 
-> 💡 **提示**: IOCP 是 Windows 平台最高效的异步 IO 模型，专为高并发场景设计。
+> 💡 **提示**: 异步 IO 在高并发场景下能避免线程阻塞与线程膨胀。底层实现由 .NET 运行时按平台选择：Windows 使用 IOCP，Linux 使用 epoll，macOS 使用 kqueue。
 
 ***
 
@@ -430,6 +432,10 @@ sc create SAEAMvc binPath="path/to/your/app.exe" start=auto
 | `ActionFilterAttribute`    | AOP 过滤器基类             |
 | `OutputCacheAttribute`     | 输出缓存特性                |
 | `RouteTable`               | 路由表                   |
+| `WSController`             | WebSocket 控制器基类        |
+| `WebSocketAttribute`       | 标记 WebSocket 入口 action  |
+| `WSMessage`                | WebSocket 收到的消息        |
+| `IWebSocketConnection`     | 已建立的 WebSocket 连接     |
 | `HttpContext`              | HTTP 上下文              |
 | `HttpRequest`              | HTTP 请求对象             |
 | `HttpResponse`             | HTTP 响应对象             |
@@ -632,15 +638,88 @@ public class AsyncController : Controller
 }
 ```
 
+### WebSocket 长连接
+
+WebSocket 复用同一个端口和 `/{controller}/{action}` 路由，不需要额外监听端口：继承 `WSController`，在 `OpenAsync` 上标记 `[WebSocket]` 即可。
+
+```csharp
+using SAEA.MVC;
+using System;
+using System.Threading.Tasks;
+
+public class ChatController : WSController
+{
+    [WebSocket]
+    public override async Task OpenAsync()
+    {
+        // 等价于 HttpContext.Current.WebSockets.AcceptWebSocketAsync()
+        var ws = await WebSockets.AcceptWebSocketAsync();
+        await ws.SendAsync("welcome");
+    }
+
+    public override async Task MessageAsync(WSMessage message)
+    {
+        var ws = WebSockets.Current;
+        if (ws == null) return;
+
+        if (message.IsText) await ws.SendAsync(message.Text);
+        else await ws.SendAsync(message.Data);
+    }
+
+    public override Task CloseAsync(WSCloseReason reason)
+    {
+        // 连接已关闭，这里只做清理
+        return Task.CompletedTask;
+    }
+
+    public override Task ErrorAsync(Exception exception)
+    {
+        return Task.CompletedTask;
+    }
+}
+```
+
+客户端连接：
+
+```javascript
+const ws = new WebSocket("ws://127.0.0.1:28080/chat/open");
+ws.onmessage = e => console.log(e.data);
+ws.send("hello");
+```
+
+要点：
+
+- 入口固定为 `/{controller}/open`（`OpenAsync` 的 `Async` 后缀在路由中会被忽略）；`/chat/message` 之类的地址，以及 `POST/PUT/DELETE /chat/open` 这类非 GET 请求，都会被握手校验拒绝并返回 400。
+- `OpenAsync` 必须调用 `AcceptWebSocketAsync()` 显式接受连接，并尽快返回：它会先写 101 响应，再把连接切到原始字节模式。
+- `MessageAsync` 只会收到完整的 Text/Binary 消息（分片已重组）；Ping 由框架自动回 Pong。
+- 每条连接都有独立的上下文，`WebSockets.Current` 返回当前连接的 `IWebSocketConnection`，`ws.Id` 可作为连接标识。
+- 普通 action、静态文件、SSE 与 WebSocket 共用端口，互不影响。
+- 关闭握手：服务端主动关闭时先写 Close 帧并等待底层发送完成，再对发送方向执行 `Shutdown(Send)`（FIN），最后释放会话。这样客户端收到的是正常的 Close 帧，而不是 RST（10054）。
+
+已知限制：
+
+- 不提供广播辅助类。多连接广播需要自行维护 `IWebSocketConnection` 集合（可按 `ws.Id` 索引）。
+- 服务端不会主动发起 Ping，需要保活请在业务层定时发送消息或自行实现心跳。
+- 握手失败（非升级请求、缺少 `Sec-WebSocket-Key` 等）直接返回 400/426，不进入 MVC 的 `OnException` 异常链。
+- 升级后的连接不再参与 HTTP 会话超时回收，正常断开由 `OnDisconnected` 统一收尾；但底层 token 池已满（`SessionManager.Free` 返回 `false`）时不会触发断开通知，这类连接会残留在内部连接表中，由 5 分钟一次的连接表扫描兜底清理（回收 `Closed` 或底层 socket 已断开的条目）。
+- `Request` 与 `Session` 是握手那一刻的快照：WS 消息不会刷新 `Session` 的滑动过期，需要长会话状态请放到连接对象自己的字段/字典里。
+- Controller 实例按路由共享，**连接相关的状态不能放在 Controller 字段上**，请用 `WebSockets.Current` 或自建字典按连接 id 管理。
+- 每条长连接会一直占用一个 `MaxConnects` 配额，需要按实际并发调大配置。
+- `OpenAsync` 必须接受连接后尽快返回：`MvcInvoker` 会以 `WebConfig.Timeout`（默认 180 秒）同步等待该 Task。超时后已升级的连接不会再写 HTTP 408（那样会污染 WebSocket 流），而是回调 `ErrorAsync` 并以 `ServerShutdown` 关闭；在 `OpenAsync` 里跑接收长循环就会走到这个分支。长活逻辑请放 `MessageAsync`。
+- `HttpSocketDebug`（`IsDebug = true`）的空闲清理时间固定为 180 秒，与 `Timeout` 配置无关；WebSocket 连接已被豁免，不受这条限制影响，但测试其他长连接时不要用 `Timeout` 推断清理时间。
+- 不支持 `permessage-deflate` 扩展，也不提供 `wss://`；需要 TLS 请在反向代理层终止。
+- 每条连接有 1024 帧 / 4MB 的待处理队列上限（含单条消息），超过会以 `ServerShutdown` 主动关闭连接；超大消息请自行分片。
+
 ***
 
 ## 依赖项
 
 | 包名           | 版本       | 说明        |
 | ------------ | -------- | --------- |
-| SAEA.Sockets | 26.9.21.1 | IOCP 通信框架 |
+| SAEA.Sockets | 26.9.21.1 | Socket 通信框架 |
 | SAEA.Http    | 26.9.21.1 | HTTP 服务器  |
 | SAEA.Common  | 26.9.21.1 | 公共工具类     |
+| SAEA.WebSocket | 26.10.8.1 | WebSocket 编解码与协议 |
 
 ***
 

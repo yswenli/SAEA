@@ -2,19 +2,19 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <Version>26.10.8.1</Version>
+    <Version>26.11.5.1</Version>
     <Authors>yswenli</Authors>
-    <Description>SAEA.Socket is a high-performance IOCP framework based on.dotnet standard 2.0; Src contains its application test scenarios, such as websocket,rpc, redis driver, MVC WebAPI, lightweight message server, ultra large file transmission, etc.
-SAEA.Socket是一个高性能IOCP框架，基于.dotnet standard 2.0；Src中含有其应用测试场景，例如websocket、rpc、redis驱动、MVC WebAPI、轻量级消息服务器、超大文件传输等
+    <Description>SAEA.Socket is a cross-platform high-performance Socket framework based on .NET Standard 2.0; Src contains its application test scenarios, such as websocket, rpc, redis driver, MVC WebAPI, lightweight message server, ultra large file transmission, etc.
+SAEA.Socket是一个跨平台高性能 Socket 框架，基于 .NET Standard 2.0；Src 中含有其应用测试场景，例如 websocket、rpc、redis 驱动、MVC WebAPI、轻量级消息服务器、超大文件传输等
 https://github.com/yswenli/SAEA</Description>
     <Copyright>yswenli</Copyright>
     <PackageLicenseExpression></PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
     <PackageIconUrl></PackageIconUrl>
     <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
-    <PackageTags>iocp,tcp,udp,socket</PackageTags>
-    <PackageReleaseNotes>SAEA.Socket is a high-performance IOCP framework based on.dotnet standard 2.0; Src contains its application test scenarios, such as websocket,rpc, redis driver, MVC WebAPI, lightweight message server, ultra large file transmission, etc.
-SAEA.Socket是一个高性能IOCP框架，基于.dotnet standard 2.0；Src中含有其应用测试场景，例如websocket、rpc、redis驱动、MVC WebAPI、轻量级消息服务器、超大文件传输等
+    <PackageTags>cross-platform,tcp,udp,socket</PackageTags>
+    <PackageReleaseNotes>SAEA.Socket is a cross-platform high-performance Socket framework based on .NET Standard 2.0; Src contains its application test scenarios, such as websocket, rpc, redis driver, MVC WebAPI, lightweight message server, ultra large file transmission, etc.
+SAEA.Socket是一个跨平台高性能 Socket 框架，基于 .NET Standard 2.0；Src 中含有其应用测试场景，例如 websocket、rpc、redis 驱动、MVC WebAPI、轻量级消息服务器、超大文件传输等
 https://github.com/yswenli/SAEA</PackageReleaseNotes>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
@@ -47,8 +47,8 @@ https://github.com/yswenli/SAEA</PackageReleaseNotes>
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Pipelines.Sockets.Unofficial" Version="2.2.8" />
-    <PackageReference Include="System.IO.Pipelines" Version="10.0.6" />
+    <PackageReference Include="Pipelines.Sockets.Unofficial" Version="2.2.16" />
+    <PackageReference Include="System.IO.Pipelines" Version="10.0.14" />
   </ItemGroup>
 
   <ItemGroup>

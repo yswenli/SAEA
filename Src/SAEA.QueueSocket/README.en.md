@@ -5,7 +5,7 @@
 
 **English Version** | **[中文版](README.md)**
 
-> High-performance in-memory message queue based on SAEA.Sockets, using publish/subscribe pattern, supporting tens of thousands of concurrent message distributions; message payloads and dispatch reuse pooled zero-copy buffers, dramatically reducing allocations and GC.
+> High-performance in-memory message queue based on SAEA.Sockets, using publish/subscribe pattern, supporting high-concurrency message distribution; message payloads and dispatch reuse pooled zero-copy buffers, dramatically reducing allocations and GC.
 
 ## Quick Navigation 🧭
 
@@ -68,7 +68,7 @@ consumer.Subscribe("orders");
 
 | Feature | Description | Benefit |
 |---------|-------------|---------|
-| 🚀 **IOCP High Performance** | Based on SAEA.Sockets completion ports | Supports tens of thousands of concurrent connections |
+| 🚀 **Cross-Platform Async IO** | Based on SAEA.Sockets async IO | Built for high-concurrency connections |
 | 📮 **Publish/Subscribe Pattern** | Standard Pub/Sub message queue | Decouples producers and consumers |
 | 📂 **Topic Routing** | Message distribution by topic | Flexible message categorization |
 | 👥 **Multiple Subscribers** | Multiple subscribers per topic | Message broadcast distribution |
@@ -198,7 +198,7 @@ Consumer ──► Connect() ──► QServer Establishes Connection
 | 🏢 **System Decoupling** | Asynchronous communication between microservices | Pub/Sub pattern naturally decouples |
 | 📋 **Log Collection** | Distributed log aggregation | Topic categorization, multiple subscribers |
 | 📢 **Message Broadcasting** | Multi-client synchronized notifications | One-to-many message distribution |
-| 🎮 **Game Servers** | Player state synchronization | IOCP high concurrency support |
+| 🎮 **Game Servers** | Player state synchronization | high-concurrency support via async IO |
 
 ### ❌ Unsuitable Scenarios
 
@@ -217,8 +217,8 @@ Consumer ──► Connect() ──► QServer Establishes Connection
 | Metric | SAEA.QueueSocket | Redis Pub/Sub | Advantage |
 |--------|------------------|---------------|-----------|
 | **Dependencies** | Pure memory, no external dependencies | Requires Redis server | **Simpler deployment** |
-| **Latency** | ~0.5ms | ~2-5ms (network) | **Lower latency** |
-| **Throughput** | 100,000+ msg/s | 50,000+ msg/s | **Higher throughput** |
+| **Latency** | Low | Medium (including network) | **Lower latency** |
+| **Throughput** | High | Medium | **Higher throughput** |
 | **Topic Support** | ✅ Full support | ✅ Full support | Same |
 | **Message Persistence** | In-memory queue | Not persisted | Same |
 | **Multiple Subscribers** | ✅ Supported | ✅ Supported | Same |
@@ -232,7 +232,7 @@ Consumer ──► Connect() ──► QServer Establishes Connection
 | Single Topic 10 Subscribers | 11 | 100,000 | 0.5ms |
 | 10 Topics 10 Subscribers Each | 101 | 80,000 | 0.8ms |
 
-> 💡 **Note**: Test environment: Intel i7-10700, 32GB RAM, .NET 6.0
+> 💡 **Note**: Test environment: Intel i7-10700, 32GB RAM, .NET 6.0. Actual numbers vary with hardware, load, and message size; measure your own workload.
 
 ---
 
@@ -242,7 +242,7 @@ Consumer ──► Connect() ──► QServer Establishes Connection
 
 **A**: Main differences:
 - **Deployment**: SAEA.QueueSocket requires no external service, embedded in application; Redis requires separate deployment
-- **Latency**: SAEA.QueueSocket uses direct memory connection, lower latency (~0.5ms vs ~2-5ms)
+- **Latency**: SAEA.QueueSocket uses direct memory connection, significantly lower latency
 - **Persistence**: Both are in-memory queues, messages lost on restart
 - **Use Cases**: SAEA.QueueSocket suitable for single-machine high-performance scenarios; Redis suitable for distributed scenarios
 
@@ -452,7 +452,7 @@ public enum QueueSocketMsgType : byte
 
 | Package | Version | Description |
 |---------|---------|-------------|
-| SAEA.Sockets | 26.9.21.1 | IOCP communication framework |
+| SAEA.Sockets | 26.9.21.1 | Socket communication framework |
 | SAEA.Common | 26.9.21.1 | Common utilities |
 
 ---

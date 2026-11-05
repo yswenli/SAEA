@@ -71,6 +71,20 @@ namespace SAEA.WebSocket.Model
             Content = (content == null || content.Length == 0) ? ReadOnlyMemory<byte>.Empty : new ReadOnlyMemory<byte>(content);
         }
 
+        /// <summary>
+        /// 从可能大于实际内容的池化缓冲区创建协议对象
+        /// </summary>
+        /// <param name="type">opcode</param>
+        /// <param name="content">缓冲区（内容位于 [0, bodyLength)）</param>
+        /// <param name="bodyLength">实际内容长度</param>
+        public WSProtocal(byte type, byte[] content, int bodyLength)
+        {
+            Type = type;
+            _buffer = content;
+            BodyLength = bodyLength <= 0 ? 0 : bodyLength;
+            Content = (content == null || bodyLength <= 0) ? ReadOnlyMemory<byte>.Empty : new ReadOnlyMemory<byte>(content, 0, bodyLength);
+        }
+
         public void WriteTo(IBufferWriter<byte> writer) { WriteFrame(writer, false); }
 
         public void WriteMaskedTo(IBufferWriter<byte> writer) { WriteFrame(writer, true); }
@@ -127,7 +141,8 @@ namespace SAEA.WebSocket.Model
             {
                 if (IsPooled)
                 {
-                    MemoryPoolManager.Return(_buffer, _buffer.Length);
+                    // 必须按租用时的原始长度归还，_buffer.Length 可能已被池放大到更大的分级
+                    MemoryPoolManager.Return(_buffer, (int)BodyLength);
                     IsPooled = false;
                 }
                 _buffer = null;

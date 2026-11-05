@@ -5,7 +5,7 @@
 
 **English Version** | **[中文版](README.md)**
 
-> High-performance MQTT protocol implementation based on .NET Standard 2.0, using SAEA.Sockets IOCP technology, supporting MQTT 3.1/3.1.1/5.0 protocols, suitable for IoT device communication, message push, and other scenarios.
+> High-performance MQTT protocol implementation based on .NET Standard 2.0, using SAEA.Sockets async IO, supporting MQTT 3.1/3.1.1/5.0 protocols, suitable for IoT device communication, message push, and other scenarios.
 >
 > ⚡ **Zero-copy core**: built on the SAEA.Sockets Span/Memory zero-copy send/receive path and pooled buffers, significantly reducing allocations and GC.
 
@@ -80,7 +80,7 @@ await client.ConnectAsync(options);
 
 | Feature | Description | Benefits |
 |------|------|------|
-| 🚀 **High-Performance Broker** | IOCP async model | Supports tens of thousands of concurrent device connections |
+| 🚀 **High-Performance Broker** | Async IO model | Built for high-concurrency device connections |
 | 📡 **Complete Protocol Support** | MQTT 3.1/3.1.1/5.0 | Compatible with all mainstream MQTT clients |
 | 🔒 **TLS/SSL Encryption** | Secure connection support | Encrypted data transmission protection |
 | 📊 **Three QoS Levels** | QoS 0/1/2 | Flexible message quality assurance |
@@ -127,7 +127,7 @@ await client.ConnectAsync(options);
 │  └──────────────────────────────────────────────────────┘ │
 │                                                             │
 │  ┌──────────────────────────────────────────────────────┐ │
-│  │                 SAEA.Sockets (IOCP)                  │ │
+│  │               SAEA.Sockets (Async IO)                │ │
 │  └──────────────────────────────────────────────────────┘ │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
@@ -366,7 +366,7 @@ Use case: Critical messages, financial transactions
 
 ### Q1: How many device connections can the MQTT Broker support?
 
-**A**: SAEA.MQTT is based on SAEA.Sockets IOCP technology, supporting 10,000+ concurrent connections on a single machine. Actual performance depends on:
+**A**: SAEA.MQTT is based on SAEA.Sockets async IO, supporting high-concurrency connections on a single machine. Actual performance depends on:
 - Server hardware configuration (CPU, memory)
 - Network bandwidth
 - Message frequency and size
@@ -747,7 +747,7 @@ await client.ConnectAsync(options);
 
 | Package | Version | Description |
 |------|------|------|
-| SAEA.Sockets | 26.9.21.1 | IOCP communication framework |
+| SAEA.Sockets | 26.9.21.1 | Socket communication framework |
 | SAEA.Common | 26.9.21.1 | Common utility classes |
 
 ---

@@ -90,7 +90,7 @@ namespace SAEA.Http.Base
 
             httpMessage.Method = arr[0];
 
-            httpMessage.RelativeUrl = arr[1];
+            httpMessage.RelativeUrl = NormalizeTarget(arr[1]);
 
             httpMessage.Protocal = arr[2];
 
@@ -145,6 +145,41 @@ namespace SAEA.Http.Base
                 }
             }
             return index + 4;
+        }
+
+        /// <summary>
+        /// 把绝对形式的 request-target（http://host/path、ws://host/path）归一化为路径，
+        /// 以便按普通路由处理（SAEA.WebSocket 的 WSClient 会发送绝对 URI）。
+        /// </summary>
+        static string NormalizeTarget(string target)
+        {
+            if (string.IsNullOrEmpty(target)) return target;
+
+            // 只有 absolute-form（scheme:// 出现在开头）才归一化。
+            // 相对形式必须原样保留：query 里可能带 url=http://... 这类值。
+            int schemeLength;
+
+            if (target.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+                schemeLength = 7;
+            else if (target.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                schemeLength = 8;
+            else if (target.StartsWith("ws://", StringComparison.OrdinalIgnoreCase))
+                schemeLength = 5;
+            else if (target.StartsWith("wss://", StringComparison.OrdinalIgnoreCase))
+                schemeLength = 6;
+            else
+                return target;
+
+            var pathIndex = target.IndexOf('/', schemeLength);
+
+            var queryIndex = target.IndexOf('?', schemeLength);
+
+            // http://host?x=1（甚至在 query 里带 /）这类没有路径的绝对形式：
+            // 补一个根路径并保留 query，不能整段丢掉
+            if (queryIndex >= 0 && (pathIndex < 0 || queryIndex < pathIndex))
+                return "/" + target.Substring(queryIndex);
+
+            return pathIndex < 0 ? "/" : target.Substring(pathIndex);
         }
 
         /// <summary>

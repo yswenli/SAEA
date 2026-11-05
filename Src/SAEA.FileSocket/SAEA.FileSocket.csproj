@@ -4,7 +4,7 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
-    <Version>26.10.8.1</Version>
+    <Version>26.11.5.1</Version>
     <Authors>yswenli</Authors>
     <Copyright>yswenli</Copyright>
     <Description>This is a high-performance file transfer component based on SAEA.Sockets.
@@ -12,7 +12,7 @@
     <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
     <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
     <PackageIconUrl></PackageIconUrl>
-    <PackageTags>iocp,filetransfer,tcp,socket</PackageTags>
+    <PackageTags>cross-platform,filetransfer,tcp,socket</PackageTags>
     <PackageReleaseNotes>This is a high-performance file transfer component based on SAEA.Sockets.
 这是一个基于SAEA.Sockets的高性能文件传输组件</PackageReleaseNotes>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
@@ -21,6 +21,7 @@
     <SignAssembly>False</SignAssembly>
     <AssemblyOriginatorKeyFile>E:\Work\SAEA\Src\SAEA.Sockets.pfx</AssemblyOriginatorKeyFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Title>SAEA.FileSocket</Title>
   </PropertyGroup>
 
   <ItemGroup>

@@ -3,12 +3,12 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <Authors>yswenli</Authors>
-    <Version>26.10.8.1</Version>
+    <Version>26.11.5.1</Version>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
     <PackageIconUrl></PackageIconUrl>
     <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
-    <PackageTags>webserver,httpserver,iocp,tcp,socket</PackageTags>
+    <PackageTags>webserver,httpserver,cross-platform,tcp,socket</PackageTags>
     <PackageReleaseNotes>This is a web component based on SAEA.Sockets. It is lightweight, high performance, easy to use and self hosting. 
 这是一个基于SAEA.Sockets的web组件，轻量高性能，使用简便，自宿主。https://github.com/yswenli/SAEA/tree/master/Src/SAEA.HttpTest。</PackageReleaseNotes>
     <SignAssembly>False</SignAssembly>
@@ -21,6 +21,7 @@
 这是一个基于SAEA.Sockets的web组件，轻量高性能，使用简便，自宿主。https://github.com/yswenli/SAEA/tree/master/Src/SAEA.HttpTest。</Description>
     <Copyright>yswenli</Copyright>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Title>SAEA.Http</Title>
   </PropertyGroup>
 
   <ItemGroup>

@@ -5,7 +5,7 @@
 
 **English Version** | **[中文版](README.md)**
 
-> A high-performance RPC framework based on SAEA.Sockets IOCP technology with binary transmission, far exceeding HTTP/JSON RPC performance.
+> A high-performance RPC framework based on SAEA.Sockets async IO with binary transmission, far exceeding HTTP/JSON RPC performance.
 >
 > ⚡ **Zero-copy core**: built on the SAEA.Sockets Span/Memory zero-copy send/receive path and pooled buffers, significantly reducing allocations and GC.
 
@@ -66,7 +66,7 @@ Console.WriteLine(result);  // Output: Hello, SAEA!
 | Feature | Description | Advantage |
 |---------|-------------|-----------|
 | 🔥 **Minimal Usage** | Just mark with `[RPCService]` | Zero configuration, build services in a few lines of code |
-| ⚡ **High-Performance IOCP** | Based on SAEA.Sockets | 10,000+ concurrent connections, low latency response |
+| ⚡ **Cross-Platform Async IO** | Based on SAEA.Sockets | Built for high-concurrency connections, low latency response |
 | 📦 **Binary Serialization** | Efficient Protobuf transmission | Small data size, fast serialization |
 | 🔌 **Dynamic Proxy** | Auto-generates client code | Invoke remote services like local methods |
 | 🛡️ **AOP Filters** | `ActionFilterAttribute` | Unified interception for logging, authorization, caching |
@@ -108,7 +108,7 @@ Console.WriteLine(result);  // Output: Hello, SAEA!
 │                          │                                  │
 │                 ┌────────▼────────┐                        │
 │                 │  SAEA.Sockets   │                        │
-│                 │  (IOCP Transport)│                        │
+│                 │   (Async IO)    │                        │
 │                 └─────────────────┘                        │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
@@ -135,7 +135,7 @@ Client                        Server
   │    │Serialize│              │
   │    └────┬────┘              │
   │         │                   │
-  │    ┌────▼────┐   TCP/IOCP  ┌▼────────┐
+  │    ┌────▼────┐   TCP/Async ┌▼────────┐
   │    │Send     ├──────────────►Receive  │
   │    │Request  │              │Request  │
   │    └─────────┘              └────┬────┘
@@ -185,7 +185,7 @@ Client                        Server
 | Scenario | Description | Recommendation Reason |
 |----------|-------------|----------------------|
 | 🏢 **Microservice Communication** | High-performance inter-service calls | Binary transmission, low latency, high throughput |
-| 🎮 **Game Backend** | Game server communication | IOCP high concurrency, strong real-time capability |
+| 🎮 **Game Backend** | Game server communication | async IO for high concurrency, strong real-time capability |
 | 🤖 **Distributed Systems** | Node coordination communication | Long connection reuse, reduces handshake overhead |
 | 📊 **Real-time Data Processing** | Data pipeline services | Efficient serialization, fast processing |
 | 🔧 **Internal APIs** | Internal service calls | Significant performance improvement over HTTP REST |
@@ -208,20 +208,22 @@ Client                        Server
 
 | Metric | SAEA.RPC | HTTP/JSON RPC | Advantage |
 |--------|----------|---------------|-----------|
-| **Serialization Method** | Protobuf binary | JSON text | 5-10x smaller size |
+| **Serialization Method** | Protobuf binary | JSON text | Smaller payload |
 | **Transport Protocol** | TCP long connection | HTTP short connection | Reduces handshake overhead |
-| **Concurrency Model** | IOCP async | Blocking/async | Higher CPU utilization |
-| **Latency** | ~0.5ms | ~5-10ms | **10x lower** |
-| **Throughput** | 100,000+ TPS | 10,000 TPS | **10x higher** |
+| **Concurrency Model** | Async IO | Blocking/async | Higher CPU utilization |
+| **Latency** | Low (long connection + binary) | Higher (short connection + text parsing) | Less handshake and parsing overhead |
+| **Throughput** | High | Lower | Higher throughput |
 | **Connection Reuse** | Supported | Requires Keep-Alive | Native support |
+
+> 📌 The table above is a qualitative comparison with no published cross-framework benchmarks; measure your own workload.
 
 ### Serialization Performance Comparison
 
-| Format | Data Size | Serialization Speed | Deserialization Speed |
-|--------|-----------|---------------------|----------------------|
-| **Protobuf** | 100 bytes | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
-| JSON | 500 bytes | ⭐⭐⭐ | ⭐⭐⭐ |
-| XML | 800 bytes | ⭐⭐ | ⭐⭐ |
+| Format | Relative Data Size | Serialization Speed | Deserialization Speed |
+|--------|-------------------|---------------------|----------------------|
+| **Protobuf** | Small | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| JSON | Medium | ⭐⭐⭐ | ⭐⭐⭐ |
+| XML | Large | ⭐⭐ | ⭐⭐ |
 
 > 💡 **Tip**: SAEA.RPC uses Protobuf binary serialization with small data size and fast speed, making it the best choice for high-performance RPC.
 
@@ -548,7 +550,7 @@ Message types:
 
 | Package | Version | Description |
 |---------|---------|-------------|
-| SAEA.Sockets | 26.9.21.1 | IOCP communication framework |
+| SAEA.Sockets | 26.9.21.1 | Socket communication framework |
 | SAEA.Common | 26.9.21.1 | Serialization utilities |
 
 ---

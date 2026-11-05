@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <title>SAEA.MVC WebSocket 测试</title>
+    <style>
+        body { font-family: Consolas, "Microsoft YaHei", monospace; margin: 24px; }
+        input[type=text] { width: 420px; padding: 4px; }
+        button { padding: 4px 12px; margin-right: 6px; }
+        #log { margin-top: 16px; border: 1px solid #ccc; padding: 8px; height: 360px; overflow: auto; background: #fafafa; }
+        .ok { color: #080; }
+        .err { color: #b00; }
+        .info { color: #555; }
+    </style>
+</head>
+<body>
+    <h3>SAEA.MVC 同端口 WebSocket 测试</h3>
+    <p>
+        连接地址：<code id="url"></code>
+    </p>
+    <p>
+        <button id="btnConnect">连接</button>
+        <button id="btnClose">主动关闭</button>
+        <button id="btnClear">清空日志</button>
+    </p>
+    <p>
+        <input type="text" id="text" value="hello saea mvc" />
+        <button id="btnSendText">发送文本</button>
+    </p>
+    <p>
+        <button id="btnSendBinary">发送二进制 [1,2,3,4]</button>
+        <button id="btnSendLarge">发送 200KB 文本（64 位长度）</button>
+        <button id="btnServerClose">服务端主动关闭</button>
+    </p>
+    <div id="log"></div>
+
+    <script>
+        var ws = null;
+        var logEl = document.getElementById('log');
+        var urlEl = document.getElementById('url');
+
+        function wsUrl() {
+            var protocal = location.protocol === 'https:' ? 'wss://' : 'ws://';
+            return protocal + location.host + '/chat/open';
+        }
+
+        urlEl.textContent = wsUrl();
+
+        function log(text, cls) {
+            var div = document.createElement('div');
+            if (cls) div.className = cls;
+            div.textContent = '[' + new Date().toLocaleTimeString() + '] ' + text;
+            logEl.appendChild(div);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function setState(open) {
+            document.getElementById('btnConnect').disabled = open;
+            document.getElementById('btnClose').disabled = !open;
+            document.getElementById('btnSendText').disabled = !open;
+            document.getElementById('btnSendBinary').disabled = !open;
+            document.getElementById('btnSendLarge').disabled = !open;
+        }
+
+        setState(false);
+
+        document.getElementById('btnConnect').onclick = function () {
+            if (ws) return;
+
+            ws = new WebSocket(wsUrl());
+
+            ws.onopen = function () {
+                log('已连接', 'ok');
+                setState(true);
+            };
+
+            ws.onmessage = function (e) {
+                if (typeof e.data === 'string') {
+                    log('收到文本(' + e.data.length + '): ' + (e.data.length > 200 ? e.data.substring(0, 200) + '...' : e.data));
+                } else {
+                    var bytes = new Uint8Array(e.data);
+                    log('收到二进制(' + bytes.length + '): [' + Array.prototype.join.call(bytes.slice(0, 16), ',') + ']');
+                }
+            };
+
+            ws.onerror = function () {
+                log('连接错误', 'err');
+            };
+
+            ws.onclose = function (e) {
+                log('已关闭 code=' + e.code + ' reason=' + (e.reason || ''), 'info');
+                ws = null;
+                setState(false);
+            };
+        };
+
+        document.getElementById('btnClose').onclick = function () {
+            if (!ws) return;
+            ws.close(1000, 'client close');
+        };
+
+        document.getElementById('btnClear').onclick = function () {
+            logEl.innerHTML = '';
+        };
+
+        document.getElementById('btnSendText').onclick = function () {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            var text = document.getElementById('text').value;
+            ws.send(text);
+            log('发送文本(' + text.length + ')');
+        };
+
+        document.getElementById('btnSendBinary').onclick = function () {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            ws.send(new Uint8Array([1, 2, 3, 4]));
+            log('发送二进制 [1,2,3,4]');
+        };
+
+        document.getElementById('btnSendLarge').onclick = function () {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            var text = 'x'.repeat(200 * 1024);
+            ws.send(text);
+            log('发送 200KB 文本');
+        };
+
+        document.getElementById('btnServerClose').onclick = function () {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            ws.send('server-close');
+            log('请求服务端关闭');
+        };
+    </script>
+</body>
+</html>

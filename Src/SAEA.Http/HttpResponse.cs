@@ -32,6 +32,7 @@
 using SAEA.Common;
 using SAEA.Common.Encryption;
 using SAEA.Http.Base;
+using SAEA.Http.Base.Net;
 using SAEA.Http.Model;
 using SAEA.Sockets.Interface;
 
@@ -46,6 +47,16 @@ namespace SAEA.Http
     public class HttpResponse : HttpBase, IDisposable
     {
         public HttpStatusCode Status { get; set; } = HttpStatusCode.OK;
+
+        /// <summary>
+        /// 是否已升级为 WebSocket
+        /// </summary>
+        public bool IsUpgraded { get; private set; }
+
+        /// <summary>
+        /// 是否已直接写过原始响应（如握手失败的 400/426）
+        /// </summary>
+        public bool IsHandled { get; private set; }
 
         internal IWebHost WebHost { get; set; }
 
@@ -247,6 +258,69 @@ namespace SAEA.Http
             SetContent(data);
         }
 
+        #region WebSocket 升级
+
+        /// <summary>
+        /// 升级为 WebSocket 连接：先写 101，再切换到原始字节模式
+        /// </summary>
+        /// <param name="handshake">101 响应原始字节</param>
+        /// <param name="onData">升级后收到的原始字节</param>
+        /// <param name="onError">onData 抛出的异常</param>
+        /// <returns>底层传输通道</returns>
+        public IWebSocketTransport Upgrade(byte[] handshake, Action<byte[]> onData, Action<Exception> onError)
+        {
+            if (IsUpgraded) throw new InvalidOperationException("当前响应已完成 WebSocket 升级");
+            if (IsHandled) throw new InvalidOperationException("当前响应已直接写过原始内容");
+
+            var userToken = UserToken;
+            var webHost = WebHost;
+
+            if (userToken == null || webHost == null)
+                throw new InvalidOperationException("当前上下文没有关联到有效连接，无法升级为 WebSocket");
+
+            var coder = userToken.Coder as HttpCoder;
+            if (coder == null)
+                throw new NotSupportedException("当前 HttpCoder 不支持 WebSocket 升级");
+
+            // 顺序很重要：先把 101 入队，后续 WS 帧才会排在它后面
+            if (handshake != null && handshake.Length > 0)
+                webHost.Send(userToken, handshake);
+
+            IsUpgraded = true;
+
+            coder.UpgradeRaw(onData, onError);
+
+            return new HttpWebSocketTransport(webHost, userToken);
+        }
+
+        /// <summary>
+        /// 直接写原始响应字节（握手失败等场景），绕过 BuildHeader/ToBytes
+        /// </summary>
+        /// <param name="data">原始字节</param>
+        /// <param name="close">写完后是否断开连接</param>
+        /// <returns>是否已写出</returns>
+        public bool WriteRaw(byte[] data, bool close)
+        {
+            if (IsUpgraded || IsHandled) return false;
+
+            var userToken = UserToken;
+            var webHost = WebHost;
+
+            if (userToken == null || webHost == null) return false;
+
+            if (data != null && data.Length > 0)
+                webHost.Send(userToken, data);
+
+            IsHandled = true;
+
+            if (close)
+                webHost.Disconnect(userToken);
+
+            return true;
+        }
+
+        #endregion
+
         #region 针对类似大文件、事件流场景分开处理
 
         /// <summary>
@@ -257,6 +331,8 @@ namespace SAEA.Http
         /// <param name="encoding"></param>
         public void SendHeader(long bodyLen, Encoding encoding = null)
         {
+            if (IsUpgraded || IsHandled) return;
+
             if (encoding == null) encoding = Encoding.UTF8;
 
             List<byte> reponseDataList = new List<byte>();
@@ -302,6 +378,8 @@ namespace SAEA.Http
         /// <param name="data"></param>
         public void SendData(byte[] data)
         {
+            if (IsUpgraded || IsHandled) return;
+
             WebHost.Send(UserToken, data);
         }
 
@@ -311,6 +389,8 @@ namespace SAEA.Http
         /// </summary>
         public void SendEnd()
         {
+            if (IsUpgraded || IsHandled) return;
+
             WebHost.Disconnect(UserToken);
         }
 
@@ -322,6 +402,8 @@ namespace SAEA.Http
         /// </summary>
         public void Send()
         {
+            if (IsUpgraded || IsHandled) return;
+
             if (UserToken == null) return;
             else
             {
@@ -334,6 +416,8 @@ namespace SAEA.Http
         /// </summary>
         public void End()
         {
+            if (IsUpgraded || IsHandled) return;
+
             var ut = UserToken;
             if (ut == null) return;
             else

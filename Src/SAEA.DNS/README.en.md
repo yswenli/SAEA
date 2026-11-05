@@ -5,7 +5,7 @@
 
 **English Version** | **[中文版](README.md)**
 
-> High-performance DNS component based on SAEA.Sockets IOCP technology, supporting DNS server/client, UDP/TCP dual protocols, and multiple record types.
+> High-performance DNS component based on SAEA.Sockets async IO, supporting DNS server/client, UDP/TCP dual protocols, and multiple record types.
 >
 > ⚡ **Zero-copy core**: built on the SAEA.Sockets Span/Memory zero-copy send/receive path and pooled buffers, significantly reducing allocations and GC.
 
@@ -64,7 +64,7 @@ foreach (var record in response.Answers)
 
 | Feature | Description | Advantage |
 |------|------|------|
-| 🚀 **IOCP High Performance** | Based on SAEA.Sockets completion port technology | Supports tens of thousands of concurrent DNS queries |
+| 🚀 **Cross-Platform Async IO** | Based on SAEA.Sockets async IO | Built for high-concurrency DNS queries |
 | 🖥️ **DNS Server** | Complete DNS server implementation | Self-hosted DNS proxy/server |
 | 🔍 **DNS Client** | Forward and reverse queries | Fast domain/IP resolution |
 | 📡 **Dual Protocol Support** | UDP/TCP automatic switching | UDP priority, automatic fallback to TCP on truncation |
@@ -107,7 +107,7 @@ foreach (var record in response.Answers)
 │                        │                                     │
 │              ┌─────────▼─────────┐                         │
 │              │   SAEA.Sockets    │                         │
-│              │   (IOCP Layer)    │                         │
+│              │   (Async IO)      │                         │
 │              └───────────────────┘                         │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
@@ -182,7 +182,7 @@ Application ──► DnsClient.Query ──► Create DnsRequestMessage
 
 | Scenario | Description | Reason |
 |------|------|----------|
-| 🏢 **Enterprise DNS Proxy** | Internal DNS caching proxy server | IOCP high performance, supports tens of thousands of concurrent connections |
+| 🏢 **Enterprise DNS Proxy** | Internal DNS caching proxy server | cross-platform async IO, built for high-concurrency connections |
 | 🛡️ **Ad-Blocking DNS** | Custom resolution rules to filter ads | Local record configuration, flexible control |
 | 🔧 **Development Environment DNS** | Local development domain resolution | Custom domain mapping, no hosts file needed |
 | 📊 **DNS Query Tool** | Batch domain query tool | Supports multiple record types |
@@ -207,9 +207,9 @@ Application ──► DnsClient.Query ──► Create DnsRequestMessage
 
 | Metric | SAEA.DNS | Traditional DNS | Advantage |
 |------|----------|----------|------|
-| **Concurrent Queries** | 10,000+ QPS | ~1,000 QPS | **10x Improvement** |
+| **Concurrent Queries** | Built for high concurrency | Medium | **Async IO** |
 | **Memory Usage** | Pooled Reuse | Frequent Allocation | **Reduced GC Pressure** |
-| **Latency** | ~1ms | ~10ms | **Low Latency Response** |
+| **Latency** | Low | Higher | **Low Latency Response** |
 | **Protocol Support** | UDP+TCP | Single Protocol | **Auto Switching** |
 
 ### UDP vs TCP Protocol Comparison
@@ -594,7 +594,7 @@ DNS Message:
 
 | Package Name | Version | Description |
 |------|------|------|
-| SAEA.Sockets | 26.9.21.1 | IOCP communication framework |
+| SAEA.Sockets | 26.9.21.1 | Socket communication framework |
 | SAEA.Common | 26.9.21.1 | Common utility classes |
 
 ---

@@ -36,6 +36,7 @@ using SAEA.MQTT.Client.Publishing;
 using SAEA.MQTT.Client.Subscribing;
 using SAEA.MQTT.Client.Unsubscribing;
 using SAEA.MQTT.Exceptions;
+using SAEA.MQTT.Internal;
 using SAEA.MQTT.Packets;
 using SAEA.MQTT.Protocol;
 using SAEA.MQTT.Server;
@@ -48,6 +49,8 @@ namespace SAEA.MQTT.Formatter.V5
 {
     public class MqttV500DataConverter : IMqttDataConverter
     {
+        internal MqttConnectionCapabilities Capabilities { get; set; }
+
         public MqttPublishPacket CreatePublishPacket(MqttApplicationMessage applicationMessage)
         {
             if (applicationMessage == null) throw new ArgumentNullException(nameof(applicationMessage));
@@ -175,18 +178,84 @@ namespace SAEA.MQTT.Formatter.V5
 
         public MqttConnAckPacket CreateConnAckPacket(MqttConnectionValidatorContext connectionValidatorContext)
         {
+            if (connectionValidatorContext == null) throw new ArgumentNullException(nameof(connectionValidatorContext));
+
+            var properties = new MqttConnAckPacketProperties
+            {
+                UserProperties = connectionValidatorContext.ResponseUserProperties,
+                AuthenticationMethod = connectionValidatorContext.AuthenticationMethod,
+                AuthenticationData = connectionValidatorContext.ResponseAuthenticationData,
+                AssignedClientIdentifier = connectionValidatorContext.AssignedClientIdentifier,
+                ReasonString = connectionValidatorContext.ReasonString
+            };
+
+            var capabilities = Capabilities;   // 可能为 null（测试/异常路径）
+            if (capabilities != null)
+            {
+                if (capabilities.ReceiveMaximum != ushort.MaxValue)
+                {
+                    properties.ReceiveMaximum = capabilities.ReceiveMaximum;
+                }
+
+                if (capabilities.MaximumPacketSize != 268435455)
+                {
+                    properties.MaximumPacketSize = capabilities.MaximumPacketSize;
+                }
+
+                if (capabilities.TopicAliasMaximum != 0)
+                {
+                    properties.TopicAliasMaximum = capabilities.TopicAliasMaximum;
+                }
+
+                if (capabilities.MaximumQoS != MqttQualityOfServiceLevel.ExactlyOnce)
+                {
+                    properties.MaximumQoS = capabilities.MaximumQoS;
+                }
+
+                if (!capabilities.RetainAvailable)
+                {
+                    properties.RetainAvailable = false;
+                }
+
+                if (!capabilities.WildcardSubscriptionAvailable)
+                {
+                    properties.WildcardSubscriptionAvailable = false;
+                }
+
+                if (!capabilities.SubscriptionIdentifiersAvailable)
+                {
+                    properties.SubscriptionIdentifiersAvailable = false;
+                }
+
+                if (!capabilities.SharedSubscriptionAvailable)
+                {
+                    properties.SharedSubscriptionAvailable = false;
+                }
+
+                // ServerKeepAlive 仅在服务端确实改写时写
+                var clientKeepAlivePeriod = connectionValidatorContext.KeepAlivePeriod;
+                if (capabilities.ServerKeepAlive.HasValue &&
+                    (!clientKeepAlivePeriod.HasValue || capabilities.ServerKeepAlive.Value != clientKeepAlivePeriod.Value))
+                {
+                    properties.ServerKeepAlive = capabilities.ServerKeepAlive.Value;
+                }
+
+                // SessionExpiry 仅在服务端下调时写
+                var clientSessionExpiry = connectionValidatorContext.SessionExpiryInterval ?? 0;
+                if (capabilities.SessionExpiryInterval != clientSessionExpiry)
+                {
+                    properties.SessionExpiryInterval = capabilities.SessionExpiryInterval;
+                }
+            }
+            else
+            {
+                // 无上下文时保持既有语义：仅写 validator 提供的字段（不再硬编码 TopicAliasMaximum）
+            }
+
             return new MqttConnAckPacket
             {
                 ReasonCode = connectionValidatorContext.ReasonCode,
-                Properties = new MqttConnAckPacketProperties
-                {
-                    UserProperties = connectionValidatorContext.ResponseUserProperties,
-                    AuthenticationMethod = connectionValidatorContext.AuthenticationMethod,
-                    AuthenticationData = connectionValidatorContext.ResponseAuthenticationData,
-                    AssignedClientIdentifier = connectionValidatorContext.AssignedClientIdentifier,
-                    ReasonString = connectionValidatorContext.ReasonString,
-                    TopicAliasMaximum = ushort.MaxValue
-                }
+                Properties = properties
             };
         }
 

@@ -125,6 +125,9 @@ namespace SAEA.MVC
             _webHost = new WebHost(typeof(HttpContext), root, port, isStaticsCached, isZiped, bufferSize, maxCounnects, timeout, connectTimeout, isDebug);
 
             _webHost.RouteParam = AreaCollection.RouteTable;
+
+            // 底层断开通知：清理已升级的 WebSocket 连接
+            _webHost.OnDisconnected += WebSocketsFeature.OnDisconnected;
         }
 
 
@@ -221,6 +224,8 @@ namespace SAEA.MVC
         {
             try
             {
+                WebSocketsFeature.StopAll();
+
                 _webHost.Stop();
                 this.Running = false;
             }

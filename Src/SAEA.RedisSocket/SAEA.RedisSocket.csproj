@@ -11,11 +11,11 @@ https://github.com/yswenli/SAEA</Description>
 这是一个基于SAEA.Sockets的redis 高性能驱动，支持redis cluster
 https://github.com/yswenli/SAEA</PackageReleaseNotes>
     <PackageIconUrl></PackageIconUrl>
-    <Version>26.10.8.1</Version>
+    <Version>26.11.5.1</Version>
     <Authors>yswenli</Authors>
     <Copyright>yswenli</Copyright>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
-    <PackageTags>redis,redisclient,redisdrive,rediscluster,iocp,socket,tcp</PackageTags>
+    <PackageTags>redis,redisclient,redisdrive,rediscluster,cross-platform,socket,tcp</PackageTags>
     <PackageProjectUrl>https://www.cnblogs.com/yswenli/</PackageProjectUrl>
     <RepositoryUrl>https://www.cnblogs.com/yswenli/</RepositoryUrl>
     <SignAssembly>False</SignAssembly>

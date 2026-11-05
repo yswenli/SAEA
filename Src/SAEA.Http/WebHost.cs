@@ -78,6 +78,11 @@ namespace SAEA.Http
         /// </summary>
         public event RequestDelegate OnRequestDelegate;
 
+        /// <summary>
+        /// 底层连接断开事件（sessionId, 异常）
+        /// </summary>
+        public event Action<string, Exception> OnDisconnected;
+
 
         /// <summary>
         /// WebHost
@@ -135,6 +140,7 @@ namespace SAEA.Http
 
             _httpServer.OnRequested += _serverSocket_OnRequested;
             _httpServer.OnError += _httpServer_OnError;
+            _httpServer.OnDisconnected += (id, ex) => OnDisconnected?.Invoke(id, ex);
         }
 
         private void _httpServer_OnError(Exception ex)
@@ -188,15 +194,28 @@ namespace SAEA.Http
         /// <param name="httpMessage"></param>
         private void _serverSocket_OnRequested(IUserToken userToken, HttpMessage httpMessage)
         {
-            using IHttpContext httpContext = (IHttpContext)Activator.CreateInstance(_httpContentType, this);
+            // 已升级为 WebSocket 的连接：不再按 HTTP 请求分发
+            // （同一 TCP 段里的第二个请求会在第一个请求升级之后才被分发，必须跳过）
+            if ((userToken?.Coder as HttpCoder)?.IsRaw == true) return;
 
-            if (OnException != null)
-                httpContext.OnException += HttpContext_OnException;
+            var httpContext = (IHttpContext)Activator.CreateInstance(_httpContentType, this);
 
-            if (OnRequestDelegate != null)
-                httpContext.OnRequestDelegate += HttpContext_OnRequestDelegate;
+            try
+            {
+                if (OnException != null)
+                    httpContext.OnException += HttpContext_OnException;
 
-            httpContext.HttpHandle(userToken, httpMessage);
+                if (OnRequestDelegate != null)
+                    httpContext.OnRequestDelegate += HttpContext_OnRequestDelegate;
+
+                httpContext.HttpHandle(userToken, httpMessage);
+            }
+            finally
+            {
+                // 已升级的上下文由 WebSocket 连接负责释放（HttpContextBase.Dispose 只清 Request/Response）
+                if (!httpContext.Response.IsUpgraded)
+                    httpContext.Dispose();
+            }
         }
 
         private void HttpContext_OnRequestDelegate(IHttpContext context)
@@ -226,6 +245,16 @@ namespace SAEA.Http
         public void Disconnect(IUserToken userToken)
         {
             _httpServer.Disconnecte(userToken);
+        }
+
+        /// <summary>
+        /// 设置/取消会话的空闲超时豁免
+        /// </summary>
+        /// <param name="id">会话ID</param>
+        /// <param name="noTimeout">true 表示不参与空闲清理</param>
+        public void SetNoTimeout(string id, bool noTimeout)
+        {
+            _httpServer.SetNoTimeout(id, noTimeout);
         }
 
         /// <summary>

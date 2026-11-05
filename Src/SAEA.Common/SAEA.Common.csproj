@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <Version>26.10.8.1</Version>
+    <Version>26.11.5.1</Version>
     <Authors>yswenli</Authors>
     <Company>yswenli</Company>
     <Description>SAEA. Common is a tool class project in the SAEA project
@@ -12,7 +12,7 @@ SAEA.Common 是SAEA项目中的工具类项目</Description>
     <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
     <PackageIconUrl></PackageIconUrl>
     <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
-    <PackageTags>iocp,tcp,socket</PackageTags>
+    <PackageTags>cross-platform,tcp,socket</PackageTags>
     <PackageReleaseNotes>SAEA. Common is a tool class project in the SAEA project
 SAEA.Common 是SAEA项目中的工具类项目</PackageReleaseNotes>
     <SignAssembly>False</SignAssembly>
@@ -29,12 +29,12 @@ SAEA.Common 是SAEA项目中的工具类项目</PackageReleaseNotes>
   <ItemGroup>
     <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
     <PackageReference Include="Nito.AsyncEx" Version="5.1.2" />
-    <PackageReference Include="protobuf-net" Version="3.2.56" />
+    <PackageReference Include="protobuf-net" Version="3.4.40" />
     <PackageReference Include="System.Collections.Concurrent" Version="4.3.0" />
-    <PackageReference Include="System.IO.Pipelines" Version="10.0.6" />
+    <PackageReference Include="System.IO.Pipelines" Version="10.0.14" />
     <PackageReference Include="System.Memory" Version="4.6.3" />
-    <PackageReference Include="System.Security.Permissions" Version="10.0.6" />
-    <PackageReference Include="System.Threading.Channels" Version="10.0.6" />
+    <PackageReference Include="System.Security.Permissions" Version="10.0.14" />
+    <PackageReference Include="System.Threading.Channels" Version="10.0.14" />
   </ItemGroup>
 
   <ItemGroup>

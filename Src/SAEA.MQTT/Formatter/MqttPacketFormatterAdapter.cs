@@ -35,6 +35,7 @@ using SAEA.MQTT.Adapter;
 using SAEA.MQTT.Exceptions;
 using SAEA.MQTT.Formatter.V3;
 using SAEA.MQTT.Formatter.V5;
+using SAEA.MQTT.Internal;
 using SAEA.MQTT.Packets;
 
 namespace SAEA.MQTT.Formatter
@@ -60,6 +61,18 @@ namespace SAEA.MQTT.Formatter
         }        
 
         public MqttProtocolVersion ProtocolVersion { get; private set; } = MqttProtocolVersion.Unknown;
+
+        internal MqttConnectionCapabilities Capabilities { get; private set; }
+
+        internal void AttachCapabilities(MqttConnectionCapabilities capabilities)
+        {
+            Capabilities = capabilities;
+            var converter = _formatter?.DataConverter as MqttV500DataConverter;
+            if (converter != null)
+            {
+                converter.Capabilities = capabilities;
+            }
+        }
 
         public IMqttDataConverter DataConverter
         {

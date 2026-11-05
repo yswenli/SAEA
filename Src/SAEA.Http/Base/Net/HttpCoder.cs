@@ -45,6 +45,15 @@ namespace SAEA.Http.Base.Net
         // 缓存接收到的数据
         List<byte> _cache = new List<byte>();
 
+        Action<byte[]> _rawOnData;
+
+        Action<Exception> _rawOnError;
+
+        /// <summary>
+        /// 是否已切换为 WebSocket 原始字节模式
+        /// </summary>
+        public bool IsRaw { get; private set; }
+
         /// <summary>
         /// 将ISocketProtocal对象编码为字节数组
         /// </summary>
@@ -76,6 +85,14 @@ namespace SAEA.Http.Base.Net
         public List<HttpMessage> GetRequest(string id, byte[] data)
         {
             var result = new List<HttpMessage>();
+
+            // 已升级为 WebSocket：后续字节不再按 HTTP 解析
+            if (IsRaw)
+            {
+                DispatchRaw(data);
+                return result;
+            }
+
             _cache.AddRange(data);
             byte[] buffer;
 
@@ -108,8 +125,12 @@ namespace SAEA.Http.Base.Net
                                 // 数据不完整，等待更多数据
                                 break;
                             }
-                            
+
                             result.Add(httpMessage);
+
+                            // 升级请求之后可能紧跟客户端首帧，不能继续消费后面的字节
+                            if (IsWebSocketUpgrade(httpMessage)) return result;
+
                             continue;
                         }
                         else
@@ -120,6 +141,9 @@ namespace SAEA.Http.Base.Net
                                 {
                                     _cache.RemoveRange(0, offset);
                                     result.Add(httpMessage);
+
+                                    if (IsWebSocketUpgrade(httpMessage)) return result;
+
                                     continue;
                                 }
                                 else
@@ -143,6 +167,9 @@ namespace SAEA.Http.Base.Net
                 }
                 catch
                 {
+                    // 本轮已经解析出请求时，说明剩余字节可能不是 HTTP（例如升级后的首帧），保留缓存
+                    if (result.Count > 0) return result;
+
                     // 解析异常，尝试移除一个字节，然后继续解析
                     _cache.RemoveAt(0);
                     continue;
@@ -156,11 +183,64 @@ namespace SAEA.Http.Base.Net
         }
 
         /// <summary>
+        /// 切换到 WebSocket 原始字节模式，并把已缓存但未解析的字节立即交给 onData。
+        /// 101 响应与客户端首帧可能落在同一个 TCP 段里，必须 drain，否则会丢首帧。
+        /// </summary>
+        /// <param name="onData">后续收到的原始字节</param>
+        /// <param name="onError">onData 抛出的异常</param>
+        public void UpgradeRaw(Action<byte[]> onData, Action<Exception> onError)
+        {
+            _rawOnData = onData;
+            _rawOnError = onError;
+            IsRaw = true;
+
+            if (_cache.Count > 0)
+            {
+                var rest = _cache.ToArray();
+                _cache.Clear();
+                DispatchRaw(rest);
+            }
+        }
+
+        void DispatchRaw(byte[] data)
+        {
+            if (data == null || data.Length == 0) return;
+
+            try
+            {
+                _rawOnData?.Invoke(data);
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    _rawOnError?.Invoke(ex);
+                }
+                catch
+                {
+                }
+            }
+        }
+
+        static bool IsWebSocketUpgrade(HttpMessage httpMessage)
+        {
+            var headers = httpMessage?.Headers;
+            if (headers == null) return false;
+            if (!headers.TryGetValue("Upgrade", out var upgrade) || string.IsNullOrEmpty(upgrade)) return false;
+            return upgrade.IndexOf("websocket", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        /// <summary>
         /// 清除编码器内部状态
         /// </summary>
         public void Clear()
         {
             _cache.Clear();
+
+            // token 会被复用：不复位 raw 标记的话，后续 HTTP 请求会被当成 WS 帧
+            IsRaw = false;
+            _rawOnData = null;
+            _rawOnError = null;
         }
     }
 }

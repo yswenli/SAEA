@@ -5,7 +5,7 @@
 
 **English Version** | **[中文版](README.md)**
 
-> A lightweight MVC web framework based on .NET Standard 2.0, using IOCP technology, self-hosted, no IIS/Kestrel required.
+> A lightweight MVC web framework based on .NET Standard 2.0, using async IO, self-hosted, no IIS/Kestrel required.
 >
 > ⚡ **Zero-copy core**: built on the SAEA.Sockets Span/Memory zero-copy send/receive path and pooled buffers, significantly reducing allocations and GC.
 
@@ -66,7 +66,7 @@ public class HomeController : Controller
 
 | Feature | Description | Advantage |
 | --------------- | --------------------- | --------------- |
-| 🚀 **IOCP High Performance** | Based on SAEA.Sockets async model | Supports tens of thousands concurrent connections, high CPU utilization |
+| 🚀 **Cross-Platform Async IO** | Based on SAEA.Sockets async model | Built for high-concurrency connections, high CPU utilization |
 | 🏠 **Self-Hosted** | No IIS/Kestrel required | Independent process, simple deployment |
 | 📦 **Lightweight** | No complex dependencies | Fast startup, low memory footprint |
 | 🎯 **Complete MVC** | Controller/Action/Routing | Standard MVC development experience |
@@ -116,8 +116,8 @@ public class HomeController : Controller
 │         └────────┘  └────────┘  └──────┘                  │
 │                                                             │
 │  ┌──────────────────────────────────────────────────────┐  │
-│  │                   SAEA.Sockets (Base Layer)           │  │
-│  │                    IOCP Communication Engine          │  │
+│  │              SAEA.Sockets (Base Layer)               │  │
+│  │             Async IO Communication Engine            │  │
 │  └──────────────────────────────────────────────────────┘  │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
@@ -202,7 +202,7 @@ ActionResult ──┬── JsonActionResult ──► JSON Serialization Outpu
 | Scenario | Description | Reason |
 | --------------- | ----------------- | ---------- |
 | 🔧 **API Services** | RESTful API, Microservice Backend | Lightweight and efficient, fast startup |
-| 🎮 **Game Backend** | Game Server HTTP Interface | IOCP high concurrency support |
+| 🎮 **Game Backend** | Game Server HTTP Interface | high-concurrency support via async IO |
 | 📊 **Admin Dashboard** | Internal Management System | Simple self-hosted deployment |
 | 🤖 **IoT Gateway** | Device Data Interface Service | Low resource usage |
 | 📡 **Real-time Push** | SSE Server Push | Built-in SSE support |
@@ -223,11 +223,11 @@ ActionResult ──┬── JsonActionResult ──► JSON Serialization Outpu
 | Feature | SAEA.MVC | ASP.NET Core |
 | -------------- | -------- | ------------ |
 | **Startup Speed** | Milliseconds | Seconds |
-| **Memory Usage** | ~20MB | ~80MB+ |
+| **Memory Usage** | Low (lightweight self-host) | Higher |
 | **Deployment Complexity** | Single File | Requires Runtime/Container |
 | **Razor Views** | ❌ | ✅ |
 | **Dependency Injection** | Manual | Built-in |
-| **Windows Performance** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+| **Async IO Performance** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
 | **Cross-Platform** | All Platforms | All Platforms |
 
 ***
@@ -238,28 +238,30 @@ ActionResult ──┬── JsonActionResult ──► JSON Serialization Outpu
 
 | Metric | SAEA.MVC | ASP.NET Core | NancyFX | HttpListener |
 | ------------- | -------- | ------------ | -------- | ------------ |
-| **Throughput (RPS)** | ~50,000 | ~35,000 | ~15,000 | ~8,000 |
-| **Average Latency** | ~1ms | ~2ms | ~5ms | ~10ms |
-| **Memory Usage** | ~20MB | ~80MB | ~50MB | ~30MB |
-| **Startup Time** | ~50ms | ~500ms | ~200ms | ~100ms |
-| **Concurrent Connections** | 10,000+ | 5,000+ | 2,000+ | 1,000+ |
+| **Throughput** | High | High | Medium | Lower |
+| **Average Latency** | Low | Low | Medium | Higher |
+| **Memory Usage** | Low (lightweight self-host) | Medium | Medium | Low |
+| **Startup Time** | Fast (no IIS/Kestrel) | Slower | Medium | Fast |
+| **Concurrent Connections** | Built for high concurrency | Built for high concurrency | Medium | Medium |
 
-### Output Cache Performance
+> 📌 The table above is a qualitative comparison. SAEA has not published cross-framework benchmarks; actual performance depends on hardware and workload, so measure your own scenario.
 
-| Scenario | No Cache | Cached (60s) | Improvement |
+### Output Cache Effect
+
+| Scenario | No Cache | Cached (60s) | Effect |
 | -------- | ----- | --------- | ------- |
-| JSON API | ~5ms | ~0.1ms | **50x** |
-| Static Page | ~3ms | ~0.05ms | **60x** |
+| JSON API | Regenerated per request | Served from cache | Significantly lower CPU and latency |
+| Static Page | Read/rendered per request | Served from cache | Significantly lower IO and latency |
 
-### IOCP vs Traditional Model
+### Async IO vs Traditional Model
 
 | Model | Concurrency Performance | Memory Efficiency | CPU Utilization |
 | ------------------- | ----- | ----- | ------- |
-| **IOCP (SAEA.MVC)** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| **Async IO (SAEA.MVC)** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
 | Thread Pool | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ |
 | Blocking | ⭐⭐ | ⭐⭐ | ⭐⭐ |
 
-> 💡 **Tip**: IOCP is the most efficient async IO model on Windows platform, designed for high-concurrency scenarios.
+> 💡 **Tip**: Async IO avoids thread blocking and thread explosion under high concurrency. The underlying implementation is chosen by the .NET runtime per platform: IOCP on Windows, epoll on Linux, kqueue on macOS.
 
 ***
 
@@ -430,6 +432,10 @@ sc create SAEAMvc binPath="path/to/your/app.exe" start=auto
 | `ActionFilterAttribute` | AOP Filter Base Class |
 | `OutputCacheAttribute` | Output Cache Attribute |
 | `RouteTable` | Route Table |
+| `WSController` | WebSocket Controller Base Class |
+| `WebSocketAttribute` | Marks the WebSocket entry action |
+| `WSMessage` | Received WebSocket message |
+| `IWebSocketConnection` | Established WebSocket connection |
 | `HttpContext` | HTTP Context |
 | `HttpRequest` | HTTP Request Object |
 | `HttpResponse` | HTTP Response Object |
@@ -632,15 +638,88 @@ public class AsyncController : Controller
 }
 ```
 
+### WebSocket Long-Lived Connections
+
+WebSocket shares the same port and the same `/{controller}/{action}` routing, so no extra listener is needed: inherit from `WSController` and mark `OpenAsync` with `[WebSocket]`.
+
+```csharp
+using SAEA.MVC;
+using System;
+using System.Threading.Tasks;
+
+public class ChatController : WSController
+{
+    [WebSocket]
+    public override async Task OpenAsync()
+    {
+        // Same as HttpContext.Current.WebSockets.AcceptWebSocketAsync()
+        var ws = await WebSockets.AcceptWebSocketAsync();
+        await ws.SendAsync("welcome");
+    }
+
+    public override async Task MessageAsync(WSMessage message)
+    {
+        var ws = WebSockets.Current;
+        if (ws == null) return;
+
+        if (message.IsText) await ws.SendAsync(message.Text);
+        else await ws.SendAsync(message.Data);
+    }
+
+    public override Task CloseAsync(WSCloseReason reason)
+    {
+        // The connection is already closed; clean up here
+        return Task.CompletedTask;
+    }
+
+    public override Task ErrorAsync(Exception exception)
+    {
+        return Task.CompletedTask;
+    }
+}
+```
+
+Client side:
+
+```javascript
+const ws = new WebSocket("ws://127.0.0.1:28080/chat/open");
+ws.onmessage = e => console.log(e.data);
+ws.send("hello");
+```
+
+Notes:
+
+- The entry point is always `/{controller}/open` (the `Async` suffix of `OpenAsync` is ignored by routing). Addresses such as `/chat/message`, as well as non-GET requests such as `POST/PUT/DELETE /chat/open`, are rejected by the handshake checks with 400.
+- `OpenAsync` must call `AcceptWebSocketAsync()` to accept the connection and return quickly: it writes the 101 response first, then switches the connection to raw byte mode.
+- `MessageAsync` only receives complete Text/Binary messages (fragments are reassembled); Ping frames are answered with Pong automatically.
+- Each connection has its own context. `WebSockets.Current` returns the current `IWebSocketConnection`, and `ws.Id` can be used as a connection identifier.
+- Plain actions, static files, SSE and WebSocket share the same port without interfering with each other.
+- Close handshake: when the server initiates a close, it writes the Close frame, waits for the pending send to complete, then calls `Shutdown(Send)` (FIN) before releasing the session. Clients therefore receive a normal Close frame instead of an RST (10054).
+
+Known limitations:
+
+- No broadcast helper is provided. Multi-connection broadcast requires maintaining your own `IWebSocketConnection` collection (indexed by `ws.Id`).
+- The server does not send Ping proactively; implement keep-alive at the application layer if needed.
+- Handshake failures (non-upgrade request, missing `Sec-WebSocket-Key`, etc.) return 400/426 directly and bypass MVC's `OnException` pipeline.
+- Upgraded connections are exempt from HTTP session timeout reclamation; normal disconnects are finalized through `OnDisconnected`. When the underlying token pool is full (`SessionManager.Free` returns `false`), no disconnect notification is raised; such connections stay in the internal registry until the 5-minute connection-table sweep reclaims entries that are `Closed` or whose underlying socket is gone.
+- `Request` and `Session` are snapshots taken at handshake time: WS messages do not refresh the sliding expiration of `Session`. Keep long-lived session state in connection-scoped fields or a dictionary.
+- Controller instances are shared per route, so **never store connection state in Controller fields**. Use `WebSockets.Current` or your own dictionary keyed by connection id.
+- Every long-lived connection permanently occupies one `MaxConnects` slot; increase the configured limit according to your concurrency.
+- `OpenAsync` must return quickly after accepting the connection: `MvcInvoker` waits synchronously on that Task for `WebConfig.Timeout` (180 seconds by default). On timeout an already-upgraded connection does not get an HTTP 408 (that would corrupt the WebSocket stream); instead `ErrorAsync` is invoked and the connection is closed with `ServerShutdown`. A receive loop inside `OpenAsync` will hit this path. Put long-running logic in `MessageAsync`.
+- The idle-reclamation interval of `HttpSocketDebug` (`IsDebug = true`) is fixed at 180 seconds and is unrelated to the `Timeout` setting. WebSocket connections are exempt from it, but do not infer cleanup timing for other long-lived connections from `Timeout` in debug mode.
+- The `permessage-deflate` extension is not supported and `wss://` is not provided; terminate TLS at a reverse proxy if needed.
+- Each connection has a pending queue limit of 1024 frames / 4MB (including a single message). Exceeding it closes the connection with `ServerShutdown`; split large payloads yourself.
+
 ***
 
 ## Dependencies
 
 | Package | Version | Description |
 | ------------ | -------- | --------- |
-| SAEA.Sockets | 26.9.21.1 | IOCP Communication Framework |
+| SAEA.Sockets | 26.9.21.1 | Socket Communication Framework |
 | SAEA.Http | 26.9.21.1 | HTTP Server |
 | SAEA.Common | 26.9.21.1 | Common Utility Classes |
+| SAEA.WebSocket | 26.10.8.1 | WebSocket codec and protocol |
 
 ***
 

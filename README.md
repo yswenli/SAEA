@@ -5,9 +5,9 @@
 
 **[English Version](README.en.md)** | **中文版**
 
-> 基于 .NET Standard 2.0 的高性能 IOCP 网络通信框架，收发路径统一为零拷贝（Span/Memory）+ 内存池化复用，提供完整的网络应用解决方案。
+> 基于 .NET Standard 2.0 的跨平台高性能网络通信框架，底层异步 IO 由 .NET 运行时按操作系统自动选择（Windows IOCP / Linux epoll / macOS kqueue）；收发路径统一为零拷贝（Span/Memory）+ 内存池化复用，提供完整的网络应用解决方案。
 
-**SAEA.Socket** 是一个 IOCP 高性能 sockets 网络框架，Src 中包含其使用场景，例如大文件传输、WebSocket 客户端和服务器、高性能消息队列、RPC、Redis 驱动、HTTP Server、MQTT、MVC、DNS、消息服务器等。
+**SAEA.Socket** 是一个跨平台高性能 sockets 网络框架，Src 中包含其使用场景，例如大文件传输、WebSocket 客户端和服务器、高性能消息队列、RPC、Redis 驱动、HTTP Server、MQTT、MVC、DNS、消息服务器等。
 
 ---
 
@@ -19,7 +19,7 @@
 | [🧩 组件导航](#组件导航) | 选择合适的组件 |
 | [📐 项目架构](#项目架构) | 整体架构设计 |
 | [✨ 核心特性](#核心特性) | 主要功能亮点 |
-| [📊 性能对比](#性能对比) | 与同类框架对比 |
+| [📊 实现与性能](#实现与性能) | 两种收发实现与实测数据说明 |
 | [❓ 常见问题](#常见问题) | FAQ 快速解答 |
 | [🔗 资源链接](#资源链接) | 更多学习资源 |
 
@@ -66,7 +66,7 @@ server.Start();
 
 | 组件 | 功能 | NuGet | 中文文档 | 英文文档 | 适用场景 |
 |------|------|-------|---------|---------|----------|
-| 🔌 **SAEA.Sockets** | IOCP Socket 通信框架 | [NuGet](https://www.nuget.org/packages/SAEA.Sockets) | [中文](Src/SAEA.Sockets/README.md) | [English](Src/SAEA.Sockets/README.en.md) | 游戏服务器、实时通信、IoT |
+| 🔌 **SAEA.Sockets** | 跨平台高性能 Socket 通信框架 | [NuGet](https://www.nuget.org/packages/SAEA.Sockets) | [中文](Src/SAEA.Sockets/README.md) | [English](Src/SAEA.Sockets/README.en.md) | 游戏服务器、实时通信、IoT |
 | 🔧 **SAEA.Common** | 通用工具类库 | [NuGet](https://www.nuget.org/packages/SAEA.Common) | [中文](Src/SAEA.Common/README.md) | [English](Src/SAEA.Common/README.en.md) | 序列化、缓存、加密 |
 
 ### Web 应用组件
@@ -143,10 +143,10 @@ server.Start();
 │             │           │            │                           │
 │   ┌─────────▼───────────▼────────────▼─────┐                   │
 │   │           SAEA.Sockets (核心层)         │                   │
-│   │        IOCP 高性能 Socket 框架          │                   │
+│   │       跨平台高性能Socket 框架           │                   │
 │   │  ┌──────────┐  ┌──────────┐  ┌──────┐ │                   │
 │   │  │IocpSocket│  │StreamSock│  │UdpSock│ │                   │
-│   │  │ (IOCP)   │  │(流模式)  │  │ (UDP) │ │                   │
+│   │  │ (TCP)    │  │(流模式)  │  │ (UDP) │ │                   │
 │   │  └──────────┘  └──────────┘  └──────┘ │                   │
 │   │  ┌──────────────────────────────────┐ │                   │
 │   │  │  BufferPool │ Session │  Coder   │ │                   │
@@ -173,7 +173,7 @@ server.Start();
 
 ┌─────────┐      ┌──────────┐      ┌──────────┐
 │ 客户端  │─────►│ Sockets  │─────►│  Coder   │
-│ (TCP/UDP)│      │ IOCP接收 │      │  解码    │
+│ (TCP/UDP)│      │异步IO接收│      │  解码    │
 └─────────┘      └──────────┘      └──────────┘
                                          │
                                          ▼
@@ -185,7 +185,7 @@ server.Start();
                                          ▼
                     ┌──────────┐      ┌──────────┐
                     │  Coder   │─────►│ Sockets  │─────► 客户端
-                    │  编码    │      │ IOCP发送 │
+                    │  编码    │      │异步IO发送│
                     └──────────┘      └──────────┘
 ```
 
@@ -195,7 +195,7 @@ server.Start();
 
 | 特性 | 说明 |
 |------|------|
-| 🚀 **高性能 IOCP** | Windows 完成端口技术，支持万级并发连接 |
+| 🚀 **跨平台异步 IO** | Windows/Linux/macOS 由 .NET 运行时自动选择 IOCP / epoll / kqueue，同一套 API |
 | 📦 **零拷贝 + 内存池** | 收发路径统一 Span/Memory 零拷贝，BufferManager、UserTokenPool、MemoryPoolManager 池化复用，大幅减少 GC 压力 |
 | 🔒 **SSL/TLS 加密** | Stream 模式支持安全连接 |
 | 🌐 **IPv6 支持** | 完全兼容 IPv6 协议 |
@@ -206,16 +206,16 @@ server.Start();
 
 ---
 
-## 性能对比 📊
+## 实现与性能 📊
 
-### SAEA.Sockets vs 传统 Socket
+### 两种收发实现
 
-| 指标 | SAEA.Sockets | 传统 Socket | 提升 |
-|------|--------------|-------------|------|
-| **并发连接数** | 10,000+ | ~1,000 | **10倍** |
-| **CPU 利用率** | ~85% | ~30% | **高效** |
-| **内存占用** | 池化复用 | 频繁分配 | **低 GC** |
-| **延迟** | ~1ms | ~10ms | **低延迟** |
+| 实现 | 选择方式 | 适用场景 |
+|------|----------|----------|
+| `SocketAsyncEventArgs` 模式 | `.UseIocp()` | 高吞吐二进制协议、自定义帧、UDP（UDP 仅支持此模式） |
+| Pipelines 流模式 | `.UseStream()` | 需要 SSL/TLS，或希望用 `GetStream()` 流式读写 |
+
+两种实现都跨平台，底层 IO 机制由 .NET 运行时选择（Windows IOCP / Linux epoll / macOS kqueue）。`UseIocp()` 是历史命名，不代表 Windows 限定。
 
 ### SAEA.RPC vs HTTP RPC
 
@@ -224,7 +224,7 @@ server.Start();
 | **序列化** | Protobuf | JSON |
 | **传输协议** | TCP | HTTP |
 | **连接模式** | 长连接 | 短连接 |
-| **并发模型** | IOCP | 阻塞 |
+| **并发模型** | 异步 IO | 阻塞 |
 | **性能** | **高** | 中 |
 
 ### 零拷贝收发路径（实测）
@@ -237,6 +237,8 @@ server.Start();
 | 零拷贝 `SpanDecodeStream` | 45,344 帧/秒 | **34 B/帧** | **0** |
 
 > 数据来自 `SAEA.P2PTest --bench-iocp`（4KB 帧，单机回环，数值随硬件波动）。
+
+> 本 README 不提供跨框架性能对比数字（与 TouchSocket、DotNetty 等的差异请以自己场景的压测为准）。
 
 ---
 
@@ -272,10 +274,13 @@ Redis 缓存操作            →  SAEA.RedisSocket
 
 ### Q3: 是否支持跨平台？
 
-**A**: 基于 .NET Standard 2.0，支持：
-- ✅ Windows（IOCP 最佳性能）
-- ✅ Linux（异步 Socket）
-- ✅ macOS
+**A**: 基于 .NET Standard 2.0，Windows、Linux、macOS 使用同一套 API：
+
+- ✅ Windows（底层 IOCP）
+- ✅ Linux（底层 epoll）
+- ✅ macOS（底层 kqueue）
+
+底层机制由 .NET 运行时自动选择，代码无需条件编译或切换实现。`UseIocp()` 是 `SocketAsyncEventArgs` 收发实现的历史命名，不表示 Windows 限定。
 
 ### Q4: NuGet 如何安装？
 

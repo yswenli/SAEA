@@ -30,6 +30,7 @@
 *
 *****************************************************************************/
 using System;
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -51,6 +52,11 @@ namespace SAEA.Sockets.Core
         MemoryCache<IUserToken> _sessionCache;
 
         TimeSpan _freeTime;
+
+        /// <summary>
+        /// 空闲超时豁免的会话集合（长连接如 WebSocket 使用）
+        /// </summary>
+        readonly ConcurrentDictionary<string, byte> _noTimeoutIds = new ConcurrentDictionary<string, byte>();
 
         /// <summary>
         /// 心跳过期事件
@@ -192,7 +198,35 @@ namespace SAEA.Sockets.Core
         /// <param name="id"></param>
         public void Active(string id)
         {
-            _sessionCache.Active(id, _freeTime);
+            if (string.IsNullOrEmpty(id)) return;
+
+            // TimeSpan.Zero 在 MemoryCache.Set 中即 DateTime.MaxValue（永不过期）
+            var timeout = _noTimeoutIds.ContainsKey(id) ? TimeSpan.Zero : _freeTime;
+
+            _sessionCache.Active(id, timeout);
+        }
+
+        /// <summary>
+        /// 设置/取消会话的空闲超时豁免
+        /// </summary>
+        /// <param name="id">会话ID</param>
+        /// <param name="noTimeout">true 表示不参与空闲清理</param>
+        public void SetNoTimeout(string id, bool noTimeout)
+        {
+            if (string.IsNullOrEmpty(id)) return;
+
+            if (noTimeout)
+            {
+                _noTimeoutIds[id] = 0;
+                // 立即刷新一次，否则下一个清理周期之前仍按旧过期时间被删
+                Active(id);
+            }
+            else
+            {
+                _noTimeoutIds.TryRemove(id, out _);
+                // 恢复成正常的空闲超时（会话已不存在时 Active 自然 no-op）
+                Active(id);
+            }
         }
 
         /// <summary>
@@ -220,6 +254,8 @@ namespace SAEA.Sockets.Core
                     // 避免传入空 key 导致 ConcurrentDictionary 抛出 ArgumentNullException
                     if (!string.IsNullOrEmpty(userToken.ID))
                     {
+                        // 清理超时豁免，避免会话 ID 复用时泄漏
+                        _noTimeoutIds.TryRemove(userToken.ID, out _);
                         _sessionCache.DelWithoutEvent(userToken.ID);
                     }
                     try
@@ -258,6 +294,7 @@ namespace SAEA.Sockets.Core
         public void Clear()
         {
             _sessionCache.Clear();
+            _noTimeoutIds.Clear();
         }
     }
 }

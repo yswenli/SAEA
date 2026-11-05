@@ -13,7 +13,7 @@ SAEA.Audio.Net 是一个基于 .NET 的实时语音通信库，支持多人语�
 - **UDP 实时传输** - 低延迟语音传输
 - **频道管理** - 用户邀请、加入频道、多人语音
 - **质量可配置** - 低/中/高三种语音质量
-- **IOCP 高性能** - 基于 SAEA.Sockets
+- **跨平台异步 IO** - 基于 SAEA.Sockets
 
 ## 核心类
 
@@ -250,7 +250,7 @@ AudioServer
 
 | 项目 | 说明 |
 |------|------|
-| SAEA.Sockets | IOCP 通信框架 |
+| SAEA.Sockets | Socket 通信框架 |
 | SAEA.Common | 公共工具类 |
 | NAudio | Windows 音频引擎（内置） |
 | NSpeex | Speex 编解码（内置） |

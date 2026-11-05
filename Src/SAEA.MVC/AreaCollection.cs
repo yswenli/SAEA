@@ -60,7 +60,7 @@ namespace SAEA.MVC
                 list.AddRange(item.GetMethod().DeclaringType.Assembly.GetTypes());
             }
 
-            var tt = list.Where(b => b.BaseType != null && b.BaseType.FullName == ConstHelper.CONTROLLERFULLNAME).ToList();
+            var tt = list.Where(IsControllerType).ToList();
 
             if (tt == null || !tt.Any())
             {
@@ -83,7 +83,7 @@ namespace SAEA.MVC
             {
                 var fileName = controllerSpaceName + ".dll";
                 var assembly = Assembly.LoadFile(PathHelper.GetFullName(fileName));
-                tt = assembly.GetTypes().Where(b => b.BaseType != null && b.BaseType.FullName == ConstHelper.CONTROLLERFULLNAME).ToList();
+                tt = assembly.GetTypes().Where(IsControllerType).ToList();
             }
             catch
             {
@@ -95,7 +95,7 @@ namespace SAEA.MVC
             {
                 var fileName2 = controllerSpaceName + ".exe";
                 var assembly2 = Assembly.LoadFile(PathHelper.GetFullName(fileName2));
-                tt2 = assembly2.GetTypes().Where(b => b.BaseType != null && b.BaseType.FullName == ConstHelper.CONTROLLERFULLNAME).ToList();
+                tt2 = assembly2.GetTypes().Where(IsControllerType).ToList();
             }
             catch { }
 
@@ -109,6 +109,15 @@ namespace SAEA.MVC
             RouteTable.Types = RouteTable.Types.Distinct().ToList();
         }
 
+
+        /// <summary>
+        /// 是否是控制器类型：基类链上有 Controller，且自身不是抽象类
+        /// （WSController 是抽象类，不会被当成可路由的控制器）
+        /// </summary>
+        static bool IsControllerType(Type type)
+        {
+            return type != null && !type.IsAbstract && typeof(Controller).IsAssignableFrom(type);
+        }
 
         /// <summary>
         /// 是否存在此控制器

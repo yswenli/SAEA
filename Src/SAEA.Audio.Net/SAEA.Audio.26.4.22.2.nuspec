@@ -15,7 +15,7 @@
     <releaseNotes>SAEA.Audio.Net 是SAEA项目中的语音处理的项目</releaseNotes>
     <copyright>yswenli</copyright>
     <language>zh-Hans-CN</language>
-    <tags>audio,iocp,tcp,socket</tags>
+    <tags>audio,cross-platform,tcp,socket</tags>
   </metadata>
   <files>
     <file src="content\favicon.ico" target="content\favicon.ico" />

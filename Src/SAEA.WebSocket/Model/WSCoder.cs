@@ -48,6 +48,20 @@ namespace SAEA.WebSocket.Model
     {
         private List<byte> _buffer;
 
+        private List<byte> _fragments = new List<byte>();
+
+        private byte _fragmentedOpcode;
+
+        /// <summary>
+        /// 单条消息（含分片重组后）允许的最大字节数，超过即按协议错误处理
+        /// </summary>
+        public int MaxMessageSize { get; set; } = 64 * 1024 * 1024;
+
+        /// <summary>
+        /// 是否要求收到的帧必须带掩码（服务端方向为 true，客户端方向为 false）
+        /// </summary>
+        public bool RequireMask { get; set; }
+
         /// <summary>
         /// 编码协议
         /// </summary>
@@ -81,128 +95,174 @@ namespace SAEA.WebSocket.Model
             _buffer.AddRange(data.ToArray());
             try
             {
-                while (_buffer.Count > 3)
+                while (TryDecodeFrame(frames)) { }
+            }
+            catch
+            {
+                // 协议错误：释放已解出的帧（含池化缓冲），并丢弃半成品分片。
+                frames.Dispose();
+                _fragmentedOpcode = 0;
+                _fragments.Clear();
+                throw;
+            }
+            return frames;
+        }
+
+        /// <summary>
+        /// 尝试从缓冲区解出一帧；数据不完整时返回 false，协议错误时抛异常。
+        /// </summary>
+        bool TryDecodeFrame(SAEA.Sockets.Base.DecodedFrames frames)
+        {
+            if (_buffer.Count < 2) return false;
+
+            var b0 = _buffer[0];
+            var b1 = _buffer[1];
+
+            if ((b0 & 0x70) != 0)
+                throw new InvalidOperationException("WebSocket 帧出现未协商的 RSV 位");
+
+            var fin = (b0 & 0x80) != 0;
+            var opcode = (byte)(b0 & 0x0f);
+            var masked = (b1 & 0x80) != 0;
+            var len7 = b1 & 0x7f;
+
+            if (opcode != 0 && opcode != 1 && opcode != 2 && opcode != 8 && opcode != 9 && opcode != 10)
+                throw new InvalidOperationException($"WebSocket 不支持的 opcode: {opcode}");
+
+            if (RequireMask && !masked)
+                throw new InvalidOperationException("WebSocket 客户端帧必须带掩码");
+
+            var extLen = len7 == 126 ? 2 : (len7 == 127 ? 8 : 0);
+            var maskOffset = 2 + extLen;
+            var headerLen = maskOffset + (masked ? 4 : 0);
+
+            if (_buffer.Count < headerLen) return false;
+
+            long payloadLen = len7;
+            if (len7 == 126)
+            {
+                payloadLen = (long)((_buffer[2] << 8) | _buffer[3]);
+            }
+            else if (len7 == 127)
+            {
+                ulong l = 0;
+                for (var i = 0; i < 8; i++) l = (l << 8) | _buffer[2 + i];
+                if ((l & 0x8000000000000000UL) != 0)
+                    throw new InvalidOperationException("WebSocket 帧长度非法");
+                if (l > int.MaxValue)
+                    throw new InvalidOperationException("WebSocket 帧长度超过上限");
+                payloadLen = (long)l;
+            }
+
+            if (opcode >= 8)
+            {
+                if (!fin) throw new InvalidOperationException("WebSocket 控制帧不能分片");
+                if (payloadLen > 125) throw new InvalidOperationException("WebSocket 控制帧长度超过 125");
+            }
+
+            if (payloadLen > MaxMessageSize)
+                throw new InvalidOperationException("WebSocket 帧超过 MaxMessageSize");
+
+            // 分片状态与消息总长的校验必须在分配 buffer 之前完成：
+            // 若在 switch 里抛异常，当前 payload 可能是池化缓冲，就再也没人归还了。
+            if (opcode == 0 && _fragmentedOpcode == 0)
+                throw new InvalidOperationException("WebSocket 收到孤立的 Continuation 帧");
+
+            if ((opcode == 1 || opcode == 2) && _fragmentedOpcode != 0)
+                throw new InvalidOperationException("WebSocket 上一条分片消息尚未结束又收到新的数据帧");
+
+            var appendsFragment = opcode == 0 || !fin;
+
+            if (opcode < 8 && appendsFragment && _fragments.Count + payloadLen > MaxMessageSize)
+                throw new InvalidOperationException("WebSocket 分片消息超过 MaxMessageSize");
+
+            var total = headerLen + (int)payloadLen;
+            if (_buffer.Count < total) return false;
+
+            var len = (int)payloadLen;
+            byte[] payload;
+            var pooled = false;
+            if (len == 0)
+            {
+                payload = Array.Empty<byte>();
+            }
+            else if (len > MemoryPoolManager.SmallThreshold)
+            {
+                payload = MemoryPoolManager.Rent(len);
+                pooled = true;
+            }
+            else
+            {
+                payload = new byte[len];
+            }
+
+            if (len > 0)
+            {
+                if (masked)
                 {
-                    byte[] payloadData;
-                    var opcode = (byte)(_buffer[0] & 0x0f);
-                    bool mask = (_buffer[1] & 0x80) == 0x80; // 是否包含掩码  
-                    int payloadLen = _buffer[1] & 0x7F; // 数据长度
-                    var buffer = _buffer.ToArray();
-                    if (payloadLen + 2 > _buffer.Count) break;
-                    if (mask)
+                    unsafe
                     {
-                        // masks只有4字节，使用stackalloc避免堆分配
-                        unsafe
-                        {
-                            byte* masks = stackalloc byte[4];
-                            if (payloadLen == 126)
-                            {
-                                var len = (ushort)(_buffer[2] << 8 | _buffer[3]);
-                                if (len + 8 > _buffer.Count) break;
-                                
-                                // 复制masks到stackalloc
-                                for (int i = 0; i < 4; i++)
-                                    masks[i] = buffer[4 + i];
-                                
-                                // 大数据使用内存池，小数据直接分配
-                                if (len > MemoryPoolManager.SmallThreshold)
-                                {
-                                    payloadData = MemoryPoolManager.Rent(len);
-                                    Buffer.BlockCopy(buffer, 8, payloadData, 0, len);
-                                }
-                                else
-                                {
-                                    payloadData = new byte[len];
-                                    Buffer.BlockCopy(buffer, 8, payloadData, 0, len);
-                                }
-                                
-                                DoMaskUnsafe(payloadData, 0, len, masks);
-                                frames.Add(new WSProtocal(opcode, payloadData) { IsPooled = len > MemoryPoolManager.SmallThreshold });
-                                if (_buffer.Count >= 8 + len)
-                                    _buffer.RemoveRange(0, 8 + len);
-                                else
-                                    break;
-                            }
-                            else
-                            {
-                                if (_buffer.Count < 6 + payloadLen) break;
-                                
-                                // 复制masks到stackalloc
-                                for (int i = 0; i < 4; i++)
-                                    masks[i] = buffer[2 + i];
-                                
-                                // 大数据使用内存池，小数据直接分配
-                                if (payloadLen > MemoryPoolManager.SmallThreshold)
-                                {
-                                    payloadData = MemoryPoolManager.Rent(payloadLen);
-                                    Buffer.BlockCopy(buffer, 6, payloadData, 0, payloadLen);
-                                }
-                                else
-                                {
-                                    payloadData = new byte[payloadLen];
-                                    Buffer.BlockCopy(buffer, 6, payloadData, 0, payloadLen);
-                                }
-                                
-                                DoMaskUnsafe(payloadData, 0, payloadLen, masks);
-                                frames.Add(new WSProtocal(opcode, payloadData) { IsPooled = payloadLen > MemoryPoolManager.SmallThreshold });
-                                if (_buffer.Count >= 6 + payloadLen)
-                                    _buffer.RemoveRange(0, 6 + payloadLen);
-                                else
-                                    break;
-                            }
-                        }
+                        byte* masks = stackalloc byte[4];
+                        for (var i = 0; i < 4; i++) masks[i] = _buffer[maskOffset + i];
+                        for (var i = 0; i < len; i++)
+                            payload[i] = (byte)(_buffer[headerLen + i] ^ masks[i % 4]);
+                    }
+                }
+                else
+                {
+                    for (var i = 0; i < len; i++) payload[i] = _buffer[headerLen + i];
+                }
+            }
+
+            _buffer.RemoveRange(0, total);
+
+            switch (opcode)
+            {
+                case 0:
+                    if (_fragmentedOpcode == 0)
+                        throw new InvalidOperationException("WebSocket 收到孤立的 Continuation 帧");
+                    AppendFragment(payload, len);
+                    if (pooled) MemoryPoolManager.Return(payload, len);
+                    if (fin)
+                    {
+                        var body = _fragments.ToArray();
+                        var messageOpcode = _fragmentedOpcode;
+                        _fragmentedOpcode = 0;
+                        _fragments.Clear();
+                        frames.Add(new WSProtocal(messageOpcode, body));
+                    }
+                    break;
+
+                case 1:
+                case 2:
+                    if (_fragmentedOpcode != 0)
+                        throw new InvalidOperationException("WebSocket 上一条分片消息尚未结束又收到新的数据帧");
+                    if (fin)
+                    {
+                        frames.Add(new WSProtocal(opcode, payload, len) { IsPooled = pooled });
                     }
                     else
                     {
-                        if (payloadLen == 126)
-                        {
-                            var len = (ushort)(buffer[2] << 8 | buffer[3]);
-                            if (len + 8 > buffer.Length) break;
-                            
-                            // 大数据使用内存池，小数据直接分配
-                            if (len > MemoryPoolManager.SmallThreshold)
-                            {
-                                payloadData = MemoryPoolManager.Rent(len);
-                            }
-                            else
-                            {
-                                payloadData = new byte[len];
-                            }
-                            Buffer.BlockCopy(buffer, 4, payloadData, 0, len);
-                            frames.Add(new WSProtocal(opcode, payloadData) { IsPooled = len > MemoryPoolManager.SmallThreshold });
-                            if (_buffer.Count >= 4 + len)
-                                _buffer.RemoveRange(0, 4 + len);
-                            else
-                                break;
-                        }
-                        else
-                        {
-                            if (_buffer.Count < 2 + payloadLen) break;
-                            
-                            // 大数据使用内存池，小数据直接分配
-                            if (payloadLen > MemoryPoolManager.SmallThreshold)
-                            {
-                                payloadData = MemoryPoolManager.Rent(payloadLen);
-                            }
-                            else
-                            {
-                                payloadData = new byte[payloadLen];
-                            }
-                            Buffer.BlockCopy(buffer, 2, payloadData, 0, payloadLen);
-                            frames.Add(new WSProtocal(opcode, payloadData) { IsPooled = payloadLen > MemoryPoolManager.SmallThreshold });
-                            if (_buffer.Count >= 2 + payloadLen)
-                                _buffer.RemoveRange(0, 2 + payloadLen);
-                            else
-                                break;
-                        }
+                        _fragmentedOpcode = opcode;
+                        _fragments.Clear();
+                        AppendFragment(payload, len);
+                        if (pooled) MemoryPoolManager.Return(payload, len);
                     }
-                }
-            }
-            catch(Exception ex)
-            {
+                    break;
 
+                default:
+                    frames.Add(new WSProtocal(opcode, payload, len) { IsPooled = pooled });
+                    break;
             }
-            return frames;
+
+            return true;
+        }
+
+        void AppendFragment(byte[] payload, int length)
+        {
+            if (_fragments.Count + length > MaxMessageSize)
+                throw new InvalidOperationException("WebSocket 分片消息超过 MaxMessageSize");
+            for (var i = 0; i < length; i++) _fragments.Add(payload[i]);
         }
 
         /// <summary>
@@ -241,6 +301,8 @@ namespace SAEA.WebSocket.Model
         public void Clear()
         {
             _buffer.Clear();
+            _fragments.Clear();
+            _fragmentedOpcode = 0;
         }
     }
 }

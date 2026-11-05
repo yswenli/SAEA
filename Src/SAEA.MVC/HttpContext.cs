@@ -68,6 +68,22 @@ namespace SAEA.MVC
             _routeTable = _webHost.RouteParam as RouteTable;
         }
 
+        WebSocketsFeature _webSockets;
+
+        /// <summary>
+        /// MVC 的 WebSocket 能力入口
+        /// </summary>
+        public override IWebSocketsFeature WebSockets
+        {
+            get
+            {
+                if (_webSockets == null)
+                    _webSockets = new WebSocketsFeature(this);
+
+                return _webSockets;
+            }
+        }
+
         /// <summary>
         /// 处理业务逻辑
         /// </summary>
@@ -121,7 +137,7 @@ namespace SAEA.MVC
             }
             catch (Exception ex)
             {
-                result = OnException.Invoke(this, ex);
+                result = OnException != null ? OnException.Invoke(this, ex) : null;
 
                 if (result == null)
                 {
@@ -129,7 +145,8 @@ namespace SAEA.MVC
                 }
             }
 
-            if (!(result is IBigDataResult || result is IEventStream))
+            // 已升级为 WebSocket 或已直接写过原始响应：不再走普通响应收尾
+            if (!(result is IBigDataResult || result is IEventStream) && !Response.IsUpgraded && !Response.IsHandled)
             {
                 // 非大数据结果和非事件流，设置缓存并结束连接
                 Response.SetCached(result, this.Session.CacheCalcString);

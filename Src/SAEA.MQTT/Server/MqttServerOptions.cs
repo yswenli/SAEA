@@ -35,6 +35,8 @@ namespace SAEA.MQTT.Server
 {
     public class MqttServerOptions : IMqttServerOptions
     {
+        public MqttServerCapabilities Capabilities { get; } = new MqttServerCapabilities();
+
         public MqttServerTcpEndpointOptions DefaultEndpointOptions { get; } = new MqttServerTcpEndpointOptions();
 
         public MqttServerTlsTcpEndpointOptions TlsEndpointOptions { get; } = new MqttServerTlsTcpEndpointOptions();

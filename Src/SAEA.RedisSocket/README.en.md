@@ -5,7 +5,7 @@
 
 **English Version** | **[中文版](README.md)**
 
-> A high-performance Redis client based on SAEA.Sockets IOCP technology, supporting Redis Cluster, Stream, distributed locks, and other complete features.
+> A high-performance Redis client based on SAEA.Sockets async IO, supporting Redis Cluster, Stream, distributed locks, and other complete features.
 >
 > ⚡ **Zero-copy core**: built on the SAEA.Sockets Span/Memory zero-copy send/receive path and pooled buffers, significantly reducing allocations and GC.
 
@@ -65,7 +65,7 @@ var name = db.HGet("user:1", "name");  // Output: John
 
 | Feature | Description | Advantage |
 |---------|-------------|-----------|
-| 🚀 **IOCP High Performance** | Based on SAEA.Sockets IOCP | 10K+ concurrent connections, low latency response |
+| 🚀 **Cross-Platform Async IO** | Based on SAEA.Sockets async IO | Built for high concurrency, low latency response |
 | 🔧 **Complete Data Types** | String, Hash, Set, List, ZSet, GEO | Covers all Redis data structures |
 | 🌐 **Redis Cluster** | Full cluster support, auto redirect | Horizontal scaling, high availability |
 | 📡 **Redis Stream** | Producer/Consumer message queue | Distributed message processing |
@@ -113,7 +113,7 @@ var name = db.HGet("user:1", "name");  // Output: John
 │         │                                                   │
 │         ▼                                                   │
 │  ┌──────────────────────────────────────────────────┐      │
-│  │          SAEA.Sockets (IOCP Layer)               │      │
+│  │          SAEA.Sockets (Async IO)                 │      │
 │  │  ┌────────────┐  ┌────────────┐                 │      │
 │  │  │ BufferPool │  │  Session   │                 │      │
 │  │  │  Memory    │  │  Management │                 │      │
@@ -184,7 +184,7 @@ App Layer ──► db.Set("key", "value")
                   ▼
          ┌─────────────────┐
          │  Send to Redis  │
-         │  (IOCP async)   │
+         │   (Async IO)    │
          └────────┬────────┘
                   │
                   ▼
@@ -206,7 +206,7 @@ App Layer ──► db.Set("key", "value")
 
 | Scenario | Description | Reason for Recommendation |
 |----------|-------------|---------------------------|
-| 🎮 **Game Servers** | Leaderboards, player data, session management | IOCP high concurrency, ZSet natural leaderboard support |
+| 🎮 **Game Servers** | Leaderboards, player data, session management | async IO for high concurrency; ZSet for natural leaderboards |
 | 📊 **Real-time Data Caching** | Hot data caching, counters | Low latency read/write, efficient String/Hash storage |
 | 🛒 **E-commerce Systems** | Shopping carts, inventory, flash sales | Distributed lock ensures inventory consistency |
 | 💬 **Instant Messaging** | Online status, message queues | Pub/Sub real-time push, Stream message persistence |
@@ -285,7 +285,7 @@ db.Publish("news", "New product notification");
 
 | Metric | SAEA.RedisSocket | StackExchange.Redis | ServiceStack.Redis |
 |--------|------------------|---------------------|---------------------|
-| **Underlying Technology** | IOCP | SocketAsyncEventArgs | Socket |
+| **Underlying Technology** | Async IO | SocketAsyncEventArgs | Socket |
 | **Connection Mode** | Single connection reuse | Multiplexing | Connection pool |
 | **Cluster Support** | ✅ Full support | ✅ Full support | ⚠️ Limited support |
 | **Stream Support** | ✅ Full support | ✅ Full support | ❌ Not supported |
@@ -307,9 +307,9 @@ db.Publish("news", "New product notification");
 | ZADD | ~90,000 | ~1.1ms |
 | Pipeline (100 cmds) | ~50,000 batches | ~2.0ms |
 
-> 💡 **Test Environment**: Intel i7-10700, 32GB RAM, Redis 7.0, .NET 7.0
+> 💡 **Test Environment**: Intel i7-10700, 32GB RAM, Redis 7.0, .NET 7.0. Actual numbers vary with hardware, Redis configuration, and network; measure your own workload.
 
-### IOCP Advantage Explanation
+### Async IO Advantage Explanation
 
 ```
 Traditional Synchronous Model:
@@ -318,12 +318,12 @@ Thread2 ──► Block Wait ──► Response ──► Process
 Thread3 ──► Block Wait ──► Response ──► Process
          (One thread per connection, high resource consumption)
 
-IOCP Asynchronous Model:
+Async IO Model:
 Single Thread ──► Initiate Request ──► Continue Processing
               ──► Initiate Request ──► Continue Processing
               ──► Initiate Request ──► Continue Processing
                     ▼
-              Completion Port ──► Process Response
+              IO Completion ──► Process Response
          (Single thread handles multiple connections, efficient CPU usage)
 ```
 
@@ -808,7 +808,7 @@ server=127.0.0.1:6379;passwords=your_password;actionTimeout=6000
 
 | Package | Version | Description |
 |---------|---------|-------------|
-| SAEA.Sockets | 26.9.21.1 | IOCP communication framework |
+| SAEA.Sockets | 26.9.21.1 | Socket communication framework |
 | SAEA.Common | 26.9.21.1 | Common utility classes |
 
 ---

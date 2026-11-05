@@ -63,7 +63,7 @@ client.SendPrivateMsg("user_002", "Hello!");
 
 | Feature | Description | Benefits |
 |---------|-------------|----------|
-| 🚀 **IOCP High Performance** | Based on SAEA.Sockets completion ports | Supports tens of thousands of concurrent connections |
+| 🚀 **Cross-Platform Async IO** | Based on SAEA.Sockets async IO | Built for high-concurrency connections |
 | 📦 **Protobuf Serialization** | Efficient binary message compression | Small transmission size, fast parsing |
 | 💬 **Three Messaging Modes** | Private messaging, channels, groups | Covers various instant messaging scenarios |
 | 📡 **Channel Subscription** | Publish/subscribe pattern | Dynamic subscription, flexible push |
@@ -105,8 +105,8 @@ client.SendPrivateMsg("user_002", "Hello!");
 │    └─────────────────────────────────────────────────┘      │
 │                            │                                 │
 │    ┌───────────────────────▼───────────────────────┐        │
-│    │              SAEA.Sockets (IOCP)               │        │
-│    │              TCP Communication Layer            │        │
+│    │            SAEA.Sockets (Async IO)            │        │
+│    │            TCP Communication Layer            │        │
 │    └───────────────────────────────────────────────┘        │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
@@ -199,19 +199,19 @@ Group Mode (GroupMessage):
 
 | Metric | SAEA.MessageSocket | Traditional WebSocket | Polling HTTP |
 |--------|-------------------|----------------------|--------------|
-| **Concurrent Connections** | 10,000+ | ~5,000 | ~1,000 |
-| **Message Latency** | ~1ms | ~5ms | ~100ms |
+| **Concurrent Connections** | Built for high concurrency | Medium | Low |
+| **Message Latency** | Low | Medium | High |
 | **Transmission Size** | Small (Protobuf) | Medium (JSON) | Large (HTTP Headers) |
-| **CPU Utilization** | High (IOCP) | Medium | Low |
+| **CPU Utilization** | High (async IO) | Medium | Low |
 | **Memory Usage** | Pooled Reuse | Frequent Allocation | High |
 
 ### Message Mode Performance Comparison
 
 | Mode | Concurrency Capability | Applicable Scale | Typical Latency |
 |------|----------------------|------------------|-----------------|
-| **Private Mode** | ⭐⭐⭐⭐⭐ | Tens of thousands users | ~1ms |
-| **Channel Mode** | ⭐⭐⭐⭐⭐ | Million subscriptions | ~2ms |
-| **Group Mode** | ⭐⭐⭐⭐ | Thousand-member groups | ~5ms |
+| **Private Mode** | ⭐⭐⭐⭐⭐ | High-concurrency users | Low |
+| **Channel Mode** | ⭐⭐⭐⭐⭐ | Million subscriptions | Low |
+| **Group Mode** | ⭐⭐⭐⭐ | Thousand-member groups | Medium |
 
 ### Protobuf vs JSON Serialization
 
@@ -309,7 +309,7 @@ client.SendPrivateMsg(userId, JsonSerializer.Serialize(new
 var server = new MessageSocket(1024, 10000, 30 * 60 * 1000);
 ```
 
-Actual performance depends on server hardware configuration. Under IOCP mode, tens of thousands of concurrent connections are easily supported.
+Actual performance depends on hardware and workload; measure your own scenario.
 
 ---
 
@@ -499,7 +499,7 @@ public enum ChatMessageType
 
 | Package | Version | Description |
 |---------|---------|-------------|
-| SAEA.Sockets | 26.9.21.1 | IOCP communication framework |
+| SAEA.Sockets | 26.9.21.1 | Socket communication framework |
 | SAEA.Common | 26.9.21.1 | Common utilities (including Protobuf) |
 
 ---

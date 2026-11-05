@@ -40,9 +40,20 @@ namespace SAEA.Http.Base.Net
 
         event Action<Exception> OnError;
 
+        /// <summary>
+        /// 底层连接断开事件（sessionId, 异常）
+        /// </summary>
+        event Action<string, Exception> OnDisconnected;
+
         void Disconnecte(IUserToken userToken);
         void End(IUserToken userToken, byte[] data);
         void Send(IUserToken userToken, byte[] data);
+
+        /// <summary>
+        /// 设置/取消会话的空闲超时豁免
+        /// </summary>
+        void SetNoTimeout(string id, bool noTimeout);
+
         void Start();
         void Stop();
     }

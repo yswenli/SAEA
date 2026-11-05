@@ -102,6 +102,21 @@ namespace SAEA.Http.Base
         /// </summary>
         public bool IsStaticsCached { get; set; }
 
+        IWebSocketsFeature _webSockets;
+
+        /// <summary>
+        /// 获取 WebSocket 能力入口。默认实现不支持升级，需要 WebSocket 的上下文请覆盖本属性
+        /// </summary>
+        public virtual IWebSocketsFeature WebSockets
+        {
+            get
+            {
+                if (_webSockets == null)
+                    _webSockets = new NotSupportedWebSocketsFeature(this);
+                return _webSockets;
+            }
+        }
+
         /// <summary>
         /// 获取当前上下文IHttpContext
         /// </summary>

@@ -5,9 +5,9 @@
 
 **English Version** | **[中文版](README.md)**
 
-> A high-performance IOCP network communication framework based on .NET Standard 2.0, with a zero-copy (Span/Memory) receive/send path and pooled buffer reuse, providing complete network application solutions.
+> A cross-platform high-performance network communication framework based on .NET Standard 2.0. The underlying async IO mechanism is selected by the .NET runtime for the current OS (IOCP on Windows, epoll on Linux, kqueue on macOS); the send/receive path uses zero-copy (Span/Memory) and pooled buffers, providing complete network application solutions.
 
-**SAEA.Socket** is an IOCP high-performance sockets network framework. The Src directory contains its usage scenarios, such as large file transfer, WebSocket client and server, high-performance message queue, RPC, Redis driver, HTTP Server, MQTT, MVC, DNS, message server, etc.
+**SAEA.Socket** is a cross-platform high-performance sockets network framework. The Src directory contains its usage scenarios, such as large file transfer, WebSocket client and server, high-performance message queue, RPC, Redis driver, HTTP Server, MQTT, MVC, DNS, message server, etc.
 
 ---
 
@@ -19,7 +19,7 @@
 | [🧩 Component Navigation](#component-navigation) | Choose the right component |
 | [📐 Project Architecture](#project-architecture) | Overall architecture design |
 | [✨ Core Features](#core-features) | Key functionality highlights |
-| [📊 Performance Comparison](#performance-comparison) | Comparison with similar frameworks |
+| [📊 Implementation & Performance](#implementation--performance) | The two transports and measured-data notes |
 | [❓ FAQ](#faq) | Quick answers |
 | [🔗 Resource Links](#resource-links) | More learning resources |
 
@@ -66,7 +66,7 @@ Select the appropriate component based on your requirements:
 
 | Component | Function | NuGet | 中文文档 | English Docs | Use Cases |
 |-----------|----------|-------|---------|--------------|-----------|
-| 🔌 **SAEA.Sockets** | IOCP Socket communication framework | [NuGet](https://www.nuget.org/packages/SAEA.Sockets) | [中文](Src/SAEA.Sockets/README.md) | [English](Src/SAEA.Sockets/README.en.md) | Game servers, real-time communication, IoT |
+| 🔌 **SAEA.Sockets** | Cross-platform high-performance Socket framework | [NuGet](https://www.nuget.org/packages/SAEA.Sockets) | [中文](Src/SAEA.Sockets/README.md) | [English](Src/SAEA.Sockets/README.en.md) | Game servers, real-time communication, IoT |
 | 🔧 **SAEA.Common** | Common utility library | [NuGet](https://www.nuget.org/packages/SAEA.Common) | [中文](Src/SAEA.Common/README.md) | [English](Src/SAEA.Common/README.en.md) | Serialization, caching, encryption |
 
 ### Web Application Components
@@ -143,10 +143,10 @@ Select the appropriate component based on your requirements:
 │             │           │            │                           │
 │   ┌─────────▼───────────▼────────────▼─────────┐               │
 │   │           SAEA.Sockets (Core Layer)          │               │
-│   │        IOCP High-Performance Socket          │               │
+│   │        Cross-Platform High-Perf Socket       │               │
 │   │  ┌──────────┐  ┌──────────┐  ┌──────┐      │               │
 │   │  │IocpSocket│  │StreamSock│  │UdpSock│      │               │
-│   │  │ (IOCP)   │  │(Stream)  │  │ (UDP) │      │               │
+│   │  │ (TCP)    │  │(Stream)  │  │ (UDP) │      │               │
 │   │  └──────────┘  └──────────┘  └──────┘      │               │
 │   │  ┌──────────────────────────────────┐       │               │
 │   │  │  BufferPool │ Session │  Coder   │       │               │
@@ -173,7 +173,7 @@ Client Request Flow:
 
 ┌─────────┐      ┌──────────┐      ┌──────────┐
 │ Client  │─────►│ Sockets  │─────►│  Coder   │
-│(TCP/UDP)│      │IOCP Recv │      │  Decode  │
+│(TCP/UDP)│      │Async Recv│      │  Decode  │
 └─────────┘      └──────────┘      └──────────┘
                                           │
                                           ▼
@@ -185,7 +185,7 @@ Client Request Flow:
                                           ▼
                      ┌──────────┐      ┌──────────┐
                      │  Coder   │─────►│ Sockets  │─────► Client
-                     │  Encode  │      │IOCP Send │
+                     │  Encode  │      │Async Send│
                      └──────────┘      └──────────┘
 ```
 
@@ -195,7 +195,7 @@ Client Request Flow:
 
 | Feature | Description |
 |---------|-------------|
-| 🚀 **High-Performance IOCP** | Windows completion port technology, supporting tens of thousands of concurrent connections |
+| 🚀 **Cross-Platform Async IO** | The .NET runtime selects IOCP / epoll / kqueue automatically on Windows/Linux/macOS, behind one API |
 | 📦 **Zero-Copy + Memory Pool** | Span/Memory zero-copy send/receive path; BufferManager, UserTokenPool and MemoryPoolManager reuse buffers, greatly reducing GC pressure |
 | 🔒 **SSL/TLS Encryption** | Stream mode supports secure connections |
 | 🌐 **IPv6 Support** | Full compatibility with IPv6 protocol |
@@ -206,16 +206,16 @@ Client Request Flow:
 
 ---
 
-## Performance Comparison 📊
+## Implementation & Performance 📊
 
-### SAEA.Sockets vs Traditional Socket
+### The Two Transports
 
-| Metric | SAEA.Sockets | Traditional Socket | Improvement |
-|--------|--------------|-------------------|-------------|
-| **Concurrent Connections** | 10,000+ | ~1,000 | **10x** |
-| **CPU Utilization** | ~85% | ~30% | **Efficient** |
-| **Memory Usage** | Pooled reuse | Frequent allocation | **Low GC** |
-| **Latency** | ~1ms | ~10ms | **Low Latency** |
+| Transport | How to select | Best for |
+|-----------|---------------|----------|
+| `SocketAsyncEventArgs` mode | `.UseIocp()` | High-throughput binary protocols, custom framing, UDP (UDP only works in this mode) |
+| Pipelines stream mode | `.UseStream()` | SSL/TLS, or stream-style reads/writes through `GetStream()` |
+
+Both transports are cross-platform; the underlying IO mechanism is chosen by the .NET runtime (IOCP on Windows, epoll on Linux, kqueue on macOS). `UseIocp()` is a historical name and does not imply a Windows requirement.
 
 ### SAEA.RPC vs HTTP RPC
 
@@ -224,7 +224,7 @@ Client Request Flow:
 | **Serialization** | Protobuf | JSON |
 | **Transport Protocol** | TCP | HTTP |
 | **Connection Mode** | Persistent | Short-lived |
-| **Concurrency Model** | IOCP | Blocking |
+| **Concurrency Model** | Async IO | Blocking |
 | **Performance** | **High** | Medium |
 
 ### Zero-Copy Receive Path (Measured)
@@ -237,6 +237,8 @@ Under the same send/receive benchmark, the span-based receive path of `SAEA.Sock
 | Zero-copy `SpanDecodeStream` | 45,344 frames/s | **34 B/frame** | **0** |
 
 > Data from `SAEA.P2PTest --bench-iocp` (4KB frames, single-machine loopback; numbers vary with hardware).
+
+> This README does not publish cross-framework performance numbers (for comparisons with TouchSocket, DotNetty, etc., benchmark your own workload).
 
 ---
 
@@ -272,10 +274,13 @@ Custom Protocol             →  SAEA.Sockets
 
 ### Q3: Is cross-platform supported?
 
-**A**: Based on .NET Standard 2.0, supports:
-- ✅ Windows (IOCP best performance)
-- ✅ Linux (Async Socket)
-- ✅ macOS
+**A**: Based on .NET Standard 2.0, Windows, Linux and macOS share the same API:
+
+- ✅ Windows (IOCP underneath)
+- ✅ Linux (epoll underneath)
+- ✅ macOS (kqueue underneath)
+
+The mechanism is selected automatically by the .NET runtime; no conditional compilation or implementation switching is needed. `UseIocp()` is a historical name for the `SocketAsyncEventArgs` transport and does not imply a Windows requirement.
 
 ### Q4: How to install via NuGet?
 

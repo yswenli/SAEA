@@ -296,7 +296,7 @@ Reference magnitudes on localhost (loopback): ~450 MB/s for a single-connection 
 
 | Project | Description |
 |------|------|
-| SAEA.Sockets | Transport layer (IOCP communication framework) |
+| SAEA.Sockets | Transport layer (Socket communication framework) |
 | SAEA.Common | Common utilities |
 
 ---

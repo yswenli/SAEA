@@ -266,7 +266,10 @@ namespace SAEA.MQTT.Server
             await _retainedMessagesManager.Start(Options, _rootLogger).ConfigureAwait(false);
             await _retainedMessagesManager.LoadMessagesAsync().ConfigureAwait(false);
 
+            var capabilities = CreateCapabilitiesSnapshot(Options);
+
             _clientSessionsManager = new MqttClientSessionsManager(Options, _retainedMessagesManager, _eventDispatcher, _rootLogger);
+            _clientSessionsManager.ServerCapabilities = capabilities;
             _clientSessionsManager.Start(cancellationToken);
 
             _keepAliveMonitor = new MqttServerKeepAliveMonitor(Options, _clientSessionsManager, _rootLogger);
@@ -358,6 +361,61 @@ namespace SAEA.MQTT.Server
         Task OnHandleClient(IMqttChannelAdapter channelAdapter, CancellationToken cancellationToken)
         {
             return _clientSessionsManager.HandleClientConnectionAsync(channelAdapter, cancellationToken);
+        }
+
+        /// <summary>
+        /// 创建并校验服务端能力快照
+        /// </summary>
+        /// <param name="options">服务器选项</param>
+        /// <returns>能力快照</returns>
+        static MqttServerCapabilities CreateCapabilitiesSnapshot(IMqttServerOptions options)
+        {
+            var source = options.Capabilities ?? new MqttServerCapabilities();
+
+            if (source.ReceiveMaximum == 0)
+            {
+                throw new MqttConfigurationException("options.Capabilities.ReceiveMaximum should not be 0.");
+            }
+
+            var maximumPacketSize = source.MaximumPacketSize;
+            if (maximumPacketSize == 0)
+            {
+                maximumPacketSize = 1;
+            }
+            else if (maximumPacketSize > 268435455)
+            {
+                maximumPacketSize = 268435455;
+            }
+
+            switch (source.MaximumQoS)
+            {
+                case MqttQualityOfServiceLevel.AtMostOnce:
+                case MqttQualityOfServiceLevel.AtLeastOnce:
+                case MqttQualityOfServiceLevel.ExactlyOnce:
+                    break;
+
+                default:
+                    throw new MqttConfigurationException($"Invalid options.Capabilities.MaximumQoS value '{source.MaximumQoS}'.");
+            }
+
+            if (source.ServerKeepAlive == 0)
+            {
+                throw new MqttConfigurationException("options.Capabilities.ServerKeepAlive should not be 0.");
+            }
+
+            return new MqttServerCapabilities
+            {
+                ReceiveMaximum = source.ReceiveMaximum,
+                MaximumPacketSize = maximumPacketSize,
+                TopicAliasMaximum = source.TopicAliasMaximum,
+                RetainAvailable = source.RetainAvailable,
+                WildcardSubscriptionAvailable = source.WildcardSubscriptionAvailable,
+                SubscriptionIdentifiersAvailable = source.SubscriptionIdentifiersAvailable,
+                SharedSubscriptionAvailable = source.SharedSubscriptionAvailable,
+                MaximumQoS = source.MaximumQoS,
+                ServerKeepAlive = source.ServerKeepAlive,
+                MaximumSessionExpiryInterval = source.MaximumSessionExpiryInterval
+            };
         }
 
         /// <summary>

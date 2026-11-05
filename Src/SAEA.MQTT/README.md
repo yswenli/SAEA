@@ -5,7 +5,7 @@
 
 **[English Version](README.en.md)** | **中文版**
 
-> 基于 .NET Standard 2.0 的高性能 MQTT 协议实现，采用 SAEA.Sockets IOCP 技术，支持 MQTT 3.1/3.1.1/5.0 协议，适用于 IoT 设备通信、消息推送等场景。
+> 基于 .NET Standard 2.0 的高性能 MQTT 协议实现，采用 SAEA.Sockets 异步 IO，支持 MQTT 3.1/3.1.1/5.0 协议，适用于 IoT 设备通信、消息推送等场景。
 >
 > ⚡ **零拷贝内核**：构建于 SAEA.Sockets 的 Span/Memory 零拷贝收发与内存池通道之上，显著降低分配与 GC。
 
@@ -80,7 +80,7 @@ await client.ConnectAsync(options);
 
 | 特性 | 说明 | 优势 |
 |------|------|------|
-| 🚀 **高性能 Broker** | IOCP 异步模型 | 支持万级设备并发连接 |
+| 🚀 **高性能 Broker** | 跨平台异步 IO | 面向高并发设备连接 |
 | 📡 **完整协议支持** | MQTT 3.1/3.1.1/5.0 | 兼容所有主流 MQTT 客户端 |
 | 🔒 **TLS/SSL 加密** | 安全连接支持 | 数据传输加密保护 |
 | 📊 **三种 QoS 级别** | QoS 0/1/2 | 灵活的消息质量保证 |
@@ -127,7 +127,7 @@ await client.ConnectAsync(options);
 │  └──────────────────────────────────────────────────────┘ │
 │                                                             │
 │  ┌──────────────────────────────────────────────────────┐ │
-│  │                 SAEA.Sockets (IOCP)                   │ │
+│  │                SAEA.Sockets (异步 IO)                │ │
 │  └──────────────────────────────────────────────────────┘ │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
@@ -359,7 +359,7 @@ QoS 2: Exactly Once (恰好一次)
 
 ### Q1: MQTT Broker 能支持多少设备连接？
 
-**A**: SAEA.MQTT 基于 SAEA.Sockets 的 IOCP 技术，单机可支持 10,000+ 并发连接。实际性能取决于：
+**A**: SAEA.MQTT 基于 SAEA.Sockets 的异步 IO，面向高并发连接场景。实际性能取决于：
 - 服务器硬件配置（CPU、内存）
 - 网络带宽
 - 消息频率和大小
@@ -740,7 +740,7 @@ await client.ConnectAsync(options);
 
 | 包名 | 版本 | 说明 |
 |------|------|------|
-| SAEA.Sockets | 26.9.21.1 | IOCP 通信框架 |
+| SAEA.Sockets | 26.9.21.1 | Socket 通信框架 |
 | SAEA.Common | 26.9.21.1 | 公共工具类 |
 
 ---

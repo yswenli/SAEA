@@ -86,7 +86,7 @@ namespace SAEA.WebSocket.Core
 
             var option = SocketOptionBuilder.Instance
                 .SetSocket()
-                .UseIocp(new WSContext())
+                .UseIocp(new WSContext(true))
                 .SetPort(port)
                 .SetReadBufferSize(bufferSize)
                 .SetWriteBufferSize(bufferSize)

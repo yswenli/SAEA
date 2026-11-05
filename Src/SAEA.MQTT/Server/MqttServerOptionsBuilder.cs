@@ -34,6 +34,7 @@ using System.Net;
 using System.Net.Security;
 using System.Security.Authentication;
 using SAEA.MQTT.Certificates;
+using SAEA.MQTT.Protocol;
 
 #if !WINDOWS_UWP
 using System.Security.Cryptography.X509Certificates;
@@ -283,6 +284,66 @@ namespace SAEA.MQTT.Server
         public MqttServerOptionsBuilder WithUndeliveredMessageInterceptor(Action<MqttApplicationMessageInterceptorContext> value)
         {
             _options.UndeliveredMessageInterceptor = new MqttServerApplicationMessageInterceptorDelegate(value);
+            return this;
+        }
+
+        public MqttServerOptionsBuilder WithReceiveMaximum(ushort value)
+        {
+            _options.Capabilities.ReceiveMaximum = value;
+            return this;
+        }
+
+        public MqttServerOptionsBuilder WithMaximumPacketSize(uint value)
+        {
+            _options.Capabilities.MaximumPacketSize = value;
+            return this;
+        }
+
+        public MqttServerOptionsBuilder WithTopicAliasMaximum(ushort value)
+        {
+            _options.Capabilities.TopicAliasMaximum = value;
+            return this;
+        }
+
+        public MqttServerOptionsBuilder WithRetainAvailable(bool value)
+        {
+            _options.Capabilities.RetainAvailable = value;
+            return this;
+        }
+
+        public MqttServerOptionsBuilder WithWildcardSubscriptionAvailable(bool value)
+        {
+            _options.Capabilities.WildcardSubscriptionAvailable = value;
+            return this;
+        }
+
+        public MqttServerOptionsBuilder WithSubscriptionIdentifiersAvailable(bool value)
+        {
+            _options.Capabilities.SubscriptionIdentifiersAvailable = value;
+            return this;
+        }
+
+        public MqttServerOptionsBuilder WithSharedSubscriptionAvailable(bool value)
+        {
+            _options.Capabilities.SharedSubscriptionAvailable = value;
+            return this;
+        }
+
+        public MqttServerOptionsBuilder WithMaximumQoS(MqttQualityOfServiceLevel value)
+        {
+            _options.Capabilities.MaximumQoS = value;
+            return this;
+        }
+
+        public MqttServerOptionsBuilder WithServerKeepAlive(ushort? value)
+        {
+            _options.Capabilities.ServerKeepAlive = value;
+            return this;
+        }
+
+        public MqttServerOptionsBuilder WithMaximumSessionExpiryInterval(uint? value)
+        {
+            _options.Capabilities.MaximumSessionExpiryInterval = value;
             return this;
         }
     }

@@ -5,7 +5,7 @@
 
 **English Version** | **[中文版](README.md)**
 
-> A high-performance file transfer component based on SAEA.Sockets, using IOCP completion port technology, supporting large file chunked transfer, resumable upload/download, and real-time progress monitoring.
+> A high-performance file transfer component based on SAEA.Sockets, using async IO, supporting large file chunked transfer, resumable upload/download, and real-time progress monitoring.
 >
 > ⚡ **Zero-copy core**: built on the SAEA.Sockets Span/Memory zero-copy send/receive path and pooled buffers, significantly reducing allocations and GC.
 
@@ -58,7 +58,7 @@ fileTransfer.SendFile(@"C:\Data\video.mp4", "192.168.1.100");
 
 | Feature | Description | Benefit |
 |---------|-------------|---------|
-| 🚀 **IOCP High Performance** | Based on SAEA.Sockets completion port technology | Supports high-concurrency file transfers |
+| 🚀 **Cross-Platform Async IO** | Based on SAEA.Sockets async IO | Supports high-concurrency file transfers |
 | 📦 **Large File Support** | Chunked transfer mechanism | Supports TB-level ultra-large files |
 | 🔄 **Resumable Transfer** | offset parameter to resume from specified position | Recoverable from network interruptions |
 | 📊 **Real-time Progress** | Send/receive speed, data statistics | Visual monitoring of transfer status |
@@ -103,7 +103,7 @@ fileTransfer.SendFile(@"C:\Data\video.mp4", "192.168.1.100");
 │       └─────────────┘      └──────────────┘               │
 │                                                             │
 │  ┌─────────────────────────────────────────────────────┐  │
-│  │              SAEA.Sockets (IOCP Layer)               │  │
+│  │               SAEA.Sockets (Async IO)               │  │
 │  └─────────────────────────────────────────────────────┘  │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
@@ -208,7 +208,7 @@ Resumable Transfer Flow:
 
 | Scenario | Description | Reason for Recommendation |
 |----------|-------------|---------------------------|
-| 📁 **LAN File Sharing** | Fast transfer of large files | IOCP high performance, 100MB/s transfer speed |
+| 📁 **LAN File Sharing** | Fast transfer of large files | cross-platform async IO, near wire speed on LAN |
 | 💾 **Data Backup** | Scheduled backup of large data | Resumable transfer ensures reliability |
 | 🔄 **File Synchronization** | Multi-server file sync | Chunked transfer, supports large files |
 | 🎬 **Video Transfer** | Large video file transfer | Supports TB-level files |
@@ -231,7 +231,7 @@ Resumable Transfer Flow:
 
 | Metric | SAEA.FileSocket | Traditional HTTP Upload | Advantage |
 |--------|-----------------|------------------------|-----------|
-| **Transfer Speed** | ~100MB/s (LAN) | ~30MB/s | **3x improvement** |
+| **Transfer Speed** | High (wire speed on LAN) | Medium | **Higher throughput** |
 | **Max File Size** | Supports TB-level | Limited by memory | **Ultra-large files** |
 | **Resumable Transfer** | ✅ Native support | ❌ Requires extra implementation | **High reliability** |
 | **Memory Usage** | Low (chunked transfer) | High (full cache) | **Memory friendly** |
@@ -500,7 +500,7 @@ FileSocket uses a four-stage handshake protocol:
 
 | Package | Version | Description |
 |---------|---------|-------------|
-| SAEA.Sockets | 26.9.21.1 | IOCP communication framework |
+| SAEA.Sockets | 26.9.21.1 | Socket communication framework |
 | SAEA.Common | 26.9.21.1 | Common utilities |
 
 ---

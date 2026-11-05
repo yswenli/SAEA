@@ -297,7 +297,7 @@ dotnet run --project Src/SAEA.Socket5Test
 
 | 项目 | 说明 |
 |------|------|
-| SAEA.Sockets | 传输层（IOCP 通信框架） |
+| SAEA.Sockets | 传输层（Socket 通信框架） |
 | SAEA.Common | 公共工具类 |
 
 ---

@@ -57,6 +57,11 @@ namespace SAEA.Http.Base.Net
         public event Action<Exception> OnError;
 
         /// <summary>
+        /// 底层连接断开事件
+        /// </summary>
+        public event Action<string, Exception> OnDisconnected;
+
+        /// <summary>
         /// HttpSocket构造函数
         /// </summary>
         /// <param name="port"></param>
@@ -86,6 +91,7 @@ namespace SAEA.Http.Base.Net
             _serverSokcet = SocketFactory.CreateServerSocket(_option);
             _serverSokcet.OnServerReceiveSpan += _serverSokcet_OnReceiveSpan;
             _serverSokcet.OnError += _serverSokcet_OnError;
+            _serverSokcet.OnDisconnected += (id, ex) => OnDisconnected?.Invoke(id, ex);
         }
 
         /// <summary>
@@ -155,6 +161,16 @@ namespace SAEA.Http.Base.Net
         public void End(IUserToken userToken, byte[] data)
         {
             _serverSokcet.End(userToken.ID, data.AsMemory());
+        }
+
+        /// <summary>
+        /// 设置/取消会话的空闲超时豁免
+        /// </summary>
+        /// <param name="id">会话ID</param>
+        /// <param name="noTimeout">true 表示不参与空闲清理</param>
+        public void SetNoTimeout(string id, bool noTimeout)
+        {
+            _serverSokcet.SessionManager.SetNoTimeout(id, noTimeout);
         }
 
         /// <summary>

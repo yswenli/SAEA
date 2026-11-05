@@ -68,6 +68,11 @@ namespace SAEA.MQTT.Server
         readonly IMqttNetLogger _rootLogger;
 
         /// <summary>
+        /// 服务端能力快照，由 <see cref="MqttServer"/> 启动时注入。
+        /// </summary>
+        internal MqttServerCapabilities ServerCapabilities { get; set; }
+
+        /// <summary>
         /// 初始化MqttClientSessionsManager类的新实例
         /// </summary>
         /// <param name="options">MQTT服务器选项</param>
@@ -135,6 +140,23 @@ namespace SAEA.MQTT.Server
                 }
 
                 var connectionValidatorContext = await ValidateConnectionAsync(connectPacket, channelAdapter).ConfigureAwait(false);
+
+                MqttConnectionCapabilities capabilities;
+                try
+                {
+                    capabilities = MqttCapabilityNegotiator.Negotiate(
+                        ServerCapabilities ?? new MqttServerCapabilities(),
+                        connectPacket,
+                        channelAdapter.PacketFormatterAdapter.ProtocolVersion,
+                        connectionValidatorContext.AssignedClientIdentifier);
+                }
+                catch (MqttProtocolViolationException ex)
+                {
+                    _logger.Warning(ex, "Invalid CONNECT properties from client '{0}'.", connectPacket.ClientId);
+                    return; // 关闭连接；V5 的 CONNACK 0x82 属于后续原因码闭环
+                }
+
+                channelAdapter.PacketFormatterAdapter.AttachCapabilities(capabilities);
 
                 if (connectionValidatorContext.ReasonCode != MqttConnectReasonCode.Success)
                 {

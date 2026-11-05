@@ -67,6 +67,23 @@ namespace SAEA.MVC
                 return new ContentResult($"o_o，找不到：{controller.Name}/{actionName} 当前请求为:{(isPost ? ConstHelper.HTTPPOST : ConstHelper.HTTPGET)}", System.Net.HttpStatusCode.NotFound);
             }
 
+            var websockets = HttpContext.Current.WebSockets as WebSocketsFeature;
+
+            var isWebSocketAction = routing.Action != null && routing.Action.GetCustomAttributes(typeof(WebSocketAttribute), true).Any();
+
+            // WSController 上的非 [WebSocket] action（MessageAsync / CloseAsync / ErrorAsync）不允许普通 HTTP 直连
+            if (routing.Instance is WSController wsController)
+            {
+                websockets?.Attach(wsController);
+
+                if (!isWebSocketAction)
+                    return new ContentResult($"o_o，{routing.ControllerName}/{routing.ActionName} 只能作为 WebSocket 入口使用", System.Net.HttpStatusCode.BadRequest);
+            }
+            else if (isWebSocketAction)
+            {
+                return new ContentResult($"o_o，{routing.ControllerName}/{routing.ActionName} 必须声明在 WSController 派生类上", System.Net.HttpStatusCode.BadRequest);
+            }
+
             ActionResult result;
 
             ActionResult beforeResult = null;
@@ -157,7 +174,42 @@ namespace SAEA.MVC
                     }
                 }
 
-                result = MethodInvoke(routing.Action, routing.Instance, nameValues);
+                if (isWebSocketAction)
+                {
+                    try
+                    {
+                        var invokeResult = MethodInvoke(routing.Action, routing.Instance, nameValues);
+
+                        // 正常返回统一当 EmptyResult：响应已由握手或连接负责
+                        if (invokeResult is ContentResult contentResult && contentResult.Status == System.Net.HttpStatusCode.RequestTimeout)
+                        {
+                            // 已升级的连接不能再写 HTTP 响应：按服务端异常收尾，避免连接悬空
+                            if (websockets?.Current != null)
+                            {
+                                websockets.HandleActionException(new TimeoutException($"{routing.Action.Name}: WebSocket 入口执行超过 {HttpContext.Current.WebConfig.Timeout} 秒，连接已关闭"));
+                                result = new EmptyResult();
+                            }
+                            else
+                            {
+                                result = invokeResult;
+                            }
+                        }
+                        else
+                        {
+                            result = new EmptyResult();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // 不走 HttpHandle 的异常链（OnException 可能没挂），直接交给 WebSocket 错误收尾
+                        websockets?.HandleActionException(Unwrap(ex));
+                        result = new EmptyResult();
+                    }
+                }
+                else
+                {
+                    result = MethodInvoke(routing.Action, routing.Instance, nameValues);
+                }
             }
             else
             {
@@ -199,6 +251,19 @@ namespace SAEA.MVC
         }
 
         /// <summary>
+        /// 解包 Task.Wait 抛出的 AggregateException
+        /// </summary>
+        static Exception Unwrap(Exception exception)
+        {
+            while (exception is AggregateException aggregate && aggregate.InnerException != null)
+            {
+                exception = aggregate.InnerException;
+            }
+
+            return exception;
+        }
+
+        /// <summary>
         /// 代理执行方法
         /// </summary>
         /// <param name="action"></param>
@@ -223,24 +288,27 @@ namespace SAEA.MVC
                     parameters = list.ToArray();
                 }
 
-                // 检查是否为异步方法
-                bool isAsync = action.ReturnType.IsGenericType && action.ReturnType.GetGenericTypeDefinition() == typeof(Task<>);
+                // 检查是否为异步方法（Task / Task<T>）
+                bool isAsync = action.ReturnType != null && typeof(Task).IsAssignableFrom(action.ReturnType);
 
                 if (isAsync)
                 {
                     // 处理异步方法
                     var task = (Task)action.Invoke(obj, parameters);
-                    
+
                     // 等待任务完成或超时
                     if (!task.Wait(timeoutMs))
                     {
                         // 超时
                         return new ContentResult($"{action.Name}: The execution of this asynchronous method has timed out", System.Net.HttpStatusCode.RequestTimeout);
                     }
-                    
-                    // 任务完成，获取结果
-                    var resultProperty = task.GetType().GetProperty("Result");
-                    data = resultProperty.GetValue(task);
+
+                    // 任务完成，Task<T> 取 Result，非泛型 Task 没有结果
+                    if (action.ReturnType.IsGenericType && action.ReturnType.GetGenericTypeDefinition() == typeof(Task<>))
+                    {
+                        var resultProperty = task.GetType().GetProperty("Result");
+                        data = resultProperty?.GetValue(task);
+                    }
                 }
                 else
                 {

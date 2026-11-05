@@ -5,7 +5,7 @@
 
 **English Version** | **[中文版](README.md)**
 
-> A high-performance WebSocket component based on .NET Standard 2.0, fully implementing RFC 6455 protocol, supporting tens of thousands of concurrent connections.
+> A high-performance WebSocket component based on .NET Standard 2.0, fully implementing RFC 6455 protocol, built for high-concurrency connections.
 >
 > ⚡ **Zero-copy core**: built on the SAEA.Sockets Span/Memory zero-copy send/receive path and pooled buffers, significantly reducing allocations and GC.
 
@@ -53,7 +53,7 @@ client.Connect();
 client.Send("Hello WebSocket!");
 ```
 
-**That's it!** 🎉 You've implemented a high-performance WebSocket communication system supporting tens of thousands of concurrent connections.
+**That's it!** 🎉 You've implemented a high-performance WebSocket communication system built for high-concurrency connections.
 
 ---
 
@@ -61,7 +61,7 @@ client.Send("Hello WebSocket!");
 
 | Feature | Description | Benefits |
 |---------|-------------|----------|
-| 🚀 **IOCP High Performance** | Windows completion port async model | Supports tens of thousands of concurrent connections, high CPU utilization |
+| 🚀 **Cross-Platform Async IO** | The .NET runtime selects IOCP/epoll/kqueue | Built for high-concurrency connections, high CPU utilization |
 | 📜 **RFC 6455 Full Implementation** | Standard WebSocket protocol | Compatible with all browsers and clients |
 | 🔒 **SSL/TLS Encryption** | WSS secure connection | Encrypted data transmission, privacy protection |
 | 💬 **Multiple Frame Types Support** | Text, Binary, Ping/Pong, Close | Meets various communication scenarios |
@@ -170,7 +170,7 @@ Client Data ──► Frame Parse ──► WSProtocal.Decode
 |----------|-------------|---------------------|
 | 💬 **Instant Messaging** | Private chat, group chat, customer service systems | Bidirectional real-time communication, low latency |
 | 📊 **Real-time Data Push** | Stock quotes, sports scores, monitoring data | High throughput, strong real-time capability |
-| 🎮 **Game Communication** | Real-time battles, state synchronization | IOCP supports tens of thousands of players online |
+| 🎮 **Game Communication** | Real-time battles, state synchronization | Async IO supports high-concurrency players |
 | 🤖 **IoT Devices** | Device monitoring, remote control | Supports large-scale concurrent device connections |
 | 📝 **Collaboration Tools** | Online editing, whiteboard sharing | Bidirectional sync, real-time collaboration |
 | 🔔 **Push Notifications** | System messages, order notifications | Instant delivery, no polling needed |
@@ -192,10 +192,10 @@ Client Data ──► Frame Parse ──► WSProtocal.Decode
 
 | Metric | SAEA.WebSocket | Traditional WebSocket | Advantage |
 |--------|----------------|----------------------|-----------|
-| **Concurrent Connections** | 10,000+ | ~1,000 | **10x Improvement** |
-| **CPU Utilization** | ~85% | ~30% | **Efficient Use** |
+| **Concurrent Connections** | Built for high concurrency | Medium | **Async IO** |
+| **CPU Utilization** | High | Medium | **Efficient Use** |
 | **Memory Footprint** | Pooled Reuse | Frequent Allocation | **Reduced GC Pressure** |
-| **Latency** | ~1ms | ~10ms | **Low Latency Response** |
+| **Latency** | Low | Higher | **Low Latency Response** |
 | **Throughput** | High | Medium | **High Throughput** |
 
 ### Comparison with SignalR
@@ -204,11 +204,11 @@ Client Data ──► Frame Parse ──► WSProtocal.Decode
 |---------|----------------|---------|-------|
 | **Dependencies** | Lightweight | ASP.NET Core | SAEA is more lightweight |
 | **Protocol Support** | Pure WebSocket | WebSocket + LongPolling, etc. | SignalR is more comprehensive |
-| **Performance** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | SAEA IOCP optimization |
+| **Performance** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | SAEA async IO optimization |
 | **Learning Curve** | Simple | Moderate | SAEA is easier to get started |
 | **Cross-platform** | .NET Standard | .NET Core | Both are cross-platform |
 
-> 💡 **Tip**: SAEA.WebSocket is based on IOCP for high concurrency, suitable for scenarios with extreme performance requirements.
+> 💡 **Tip**: SAEA.WebSocket is based on cross-platform async IO for high concurrency, suitable for scenarios with extreme performance requirements.
 
 ---
 
@@ -464,7 +464,7 @@ public enum WSProtocalType : byte
 
 | Package | Version | Description |
 |---------|---------|-------------|
-| SAEA.Sockets | 26.9.21.1 | IOCP communication framework |
+| SAEA.Sockets | 26.9.21.1 | Socket communication framework |
 | SAEA.Common | 26.9.21.1 | Common utility classes |
 
 ---

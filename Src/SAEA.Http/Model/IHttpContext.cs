@@ -46,6 +46,11 @@ namespace SAEA.Http.Model
         WebConfig WebConfig { get; set; }
 
         /// <summary>
+        /// WebSocket 能力入口
+        /// </summary>
+        IWebSocketsFeature WebSockets { get; }
+
+        /// <summary>
         /// 自定义异常事件
         /// </summary>
         event ExceptionHandler OnException;
