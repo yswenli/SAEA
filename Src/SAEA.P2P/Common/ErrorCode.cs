@@ -23,50 +23,140 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/04/20 15:38:24
+*修改时间：2026/11/6 12:20:16
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ErrorCode代码枚举
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.P2P.Common
 {
+    /// <summary>
+    /// P2P 错误码常量：按阶段用固定前缀编号，便于日志检索与对端识别
+    /// </summary>
     public static class ErrorCode
     {
+        /// <summary>
+        /// 注册请求缺少对端标识
+        /// </summary>
         public static readonly string RegisterPeerIdMissing = "EP01";
+        /// <summary>
+        /// 注册请求中的对端标识非法
+        /// </summary>
         public static readonly string RegisterPeerIdInvalid = "EP02";
+        /// <summary>
+        /// 对端标识已被注册
+        /// </summary>
         public static readonly string RegisterPeerIdDuplicate = "EP03";
+        /// <summary>
+        /// 注册请求缺少 NAT 信息
+        /// </summary>
         public static readonly string RegisterNATInfoMissing = "EP04";
+        /// <summary>
+        /// 注册超时
+        /// </summary>
         public static readonly string RegisterTimeout = "EP05";
+        /// <summary>
+        /// 注册失败
+        /// </summary>
         public static readonly string RegisterFailed = "EP06";
+        /// <summary>
+        /// 注册服务器不可用
+        /// </summary>
         public static readonly string RegisterServerUnavailable = "EP07";
+        /// <summary>
+        /// 注册鉴权失败
+        /// </summary>
         public static readonly string RegisterAuthFailed = "EP08";
+        /// <summary>
+        /// 注册被拒绝
+        /// </summary>
         public static readonly string RegisterRejected = "EP09";
 
+        /// <summary>
+        /// 发现阶段无响应
+        /// </summary>
         public static readonly string DiscoveryNoResponse = "ED01";
+        /// <summary>
+        /// 发现阶段超时
+        /// </summary>
         public static readonly string DiscoveryTimeout = "ED02";
+        /// <summary>
+        /// 发现阶段没有可用候选地址
+        /// </summary>
         public static readonly string DiscoveryNoCandidates = "ED03";
+        /// <summary>
+        /// NAT 类型探测失败
+        /// </summary>
         public static readonly string DiscoveryNatDetectionFailed = "ED04";
+        /// <summary>
+        /// 发现阶段收到的地址非法
+        /// </summary>
         public static readonly string DiscoveryAddressInvalid = "ED05";
+        /// <summary>
+        /// 发现阶段端口被阻断
+        /// </summary>
         public static readonly string DiscoveryPortBlocked = "ED06";
+        /// <summary>
+        /// 发现失败
+        /// </summary>
         public static readonly string DiscoveryFailed = "ED07";
 
+        /// <summary>
+        /// 打洞失败
+        /// </summary>
         public static readonly string PunchFailed = "EO01";
+        /// <summary>
+        /// 打洞超时
+        /// </summary>
         public static readonly string PunchTimeout = "EO02";
+        /// <summary>
+        /// 到对端没有可用路由
+        /// </summary>
         public static readonly string PunchNoRoute = "EO03";
 
+        /// <summary>
+        /// UDP 打洞失败
+        /// </summary>
         public static readonly string HolePunchFailed = "EH01";
+        /// <summary>
+        /// UDP 打洞超时
+        /// </summary>
         public static readonly string HolePunchTimeout = "EH02";
 
+        /// <summary>
+        /// 中继连接失败
+        /// </summary>
         public static readonly string RelayFailed = "ER01";
+        /// <summary>
+        /// 中继服务器不可用
+        /// </summary>
         public static readonly string RelayServerUnavailable = "ER02";
+        /// <summary>
+        /// 中继会话不存在
+        /// </summary>
         public static readonly string RelaySessionNotFound = "ER03";
+        /// <summary>
+        /// 中继配额超限
+        /// </summary>
         public static readonly string RelayQuotaExceeded = "ER04";
 
+        /// <summary>
+        /// 鉴权失败
+        /// </summary>
         public static readonly string AuthFailed = "EA01";
+        /// <summary>
+        /// 鉴权超时
+        /// </summary>
         public static readonly string AuthTimeout = "EA03";
 
+        /// <summary>
+        /// 加密失败
+        /// </summary>
         public static readonly string EncryptionFailed = "EE01";
+        /// <summary>
+        /// 解密失败
+        /// </summary>
         public static readonly string DecryptionFailed = "EE02";
 
         private static readonly System.Collections.Generic.Dictionary<string, string> Descriptions =
@@ -103,6 +193,9 @@ namespace SAEA.P2P.Common
                 { DecryptionFailed, "Decryption failed" }
             };
 
+        /// <summary>获取错误码对应的英文描述；未登记的错误码返回 Unknown error</summary>
+        /// <param name="errorCode">错误码常量，如 EP01</param>
+        /// <returns>描述文本；未登记或为空时返回 Unknown error</returns>
         public static string GetDescription(string errorCode)
         {
             if (!string.IsNullOrEmpty(errorCode) && Descriptions.TryGetValue(errorCode, out var description))

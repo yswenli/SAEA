@@ -23,22 +23,37 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/04/20 16:04:05
+*修改时间：2026/11/6 12:20:16
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：KeyExchange交换类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
 
 namespace SAEA.P2P.Security
 {
+    /// <summary>
+    /// 会话密钥持有者：默认随机生成 128 位密钥，也可由外部共享密钥构造
+    /// </summary>
     public class KeyExchange
     {
+        /// <summary>
+        /// 会话密钥；随机生成时为 32 位小写十六进制串，由共享密钥构造时原样保留外部值
+        /// </summary>
         public string SessionKey { get; private set; }
+        /// <summary>
+        /// 密钥生成时间，UTC
+        /// </summary>
         public DateTime CreatedTime { get; private set; }
+        /// <summary>
+        /// 密钥是否处于可用状态，构造后默认为 true
+        /// </summary>
         public bool IsActive { get; private set; }
 
+        /// <summary>
+        /// 创建实例并随机生成会话密钥，同时置为可用
+        /// </summary>
         public KeyExchange()
         {
             SessionKey = GenerateSessionKey();
@@ -46,11 +61,20 @@ namespace SAEA.P2P.Security
             IsActive = true;
         }
 
+        /// <summary>
+        /// 创建新的随机会话密钥实例
+        /// </summary>
+        /// <returns>已生成密钥并处于可用状态的实例</returns>
         public static KeyExchange Create()
         {
             return new KeyExchange();
         }
 
+        /// <summary>
+        /// 用外部共享密钥构造实例，会先用随机密钥初始化再覆盖为传入值
+        /// </summary>
+        /// <param name="sharedKey">外部共享密钥，原样作为会话密钥，不做校验</param>
+        /// <returns>会话密钥为 sharedKey、处于可用状态的实例</returns>
         public static KeyExchange FromSharedKey(string sharedKey)
         {
             var ke = new KeyExchange();
@@ -68,6 +92,9 @@ namespace SAEA.P2P.Security
             }
         }
 
+        /// <summary>
+        /// 将密钥置为不可用，不清理 SessionKey
+        /// </summary>
         public void Deactivate()
         {
             IsActive = false;

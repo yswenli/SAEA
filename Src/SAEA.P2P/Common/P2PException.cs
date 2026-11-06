@@ -23,30 +23,51 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/04/20 15:38:24
+*修改时间：2026/11/6 12:20:16
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：P2PException接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
 
 namespace SAEA.P2P.Common
 {
+    /// <summary>
+    /// P2P 业务异常，携带固定错误码便于对端与日志检索
+    /// </summary>
     public class P2PException : Exception
     {
+        /// <summary>
+        /// 错误码，取值来自 ErrorCode 常量
+        /// </summary>
         public string ErrorCode { get; }
 
+        /// <summary>
+        /// 以错误码构造异常，异常消息取该错误码的描述文本
+        /// </summary>
+        /// <param name="errorCode">错误码</param>
         public P2PException(string errorCode) : base(Common.ErrorCode.GetDescription(errorCode))
         {
             ErrorCode = errorCode;
         }
 
+        /// <summary>
+        /// 以错误码和自定义消息构造异常
+        /// </summary>
+        /// <param name="errorCode">错误码</param>
+        /// <param name="message">异常消息</param>
         public P2PException(string errorCode, string message) : base(message)
         {
             ErrorCode = errorCode;
         }
 
+        /// <summary>
+        /// 以错误码、自定义消息和内部异常构造异常
+        /// </summary>
+        /// <param name="errorCode">错误码</param>
+        /// <param name="message">异常消息</param>
+        /// <param name="innerException">引发本异常的内部异常</param>
         public P2PException(string errorCode, string message, Exception innerException) 
             : base(message, innerException)
         {

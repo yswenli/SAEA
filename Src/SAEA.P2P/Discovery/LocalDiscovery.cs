@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/04/20 16:16:36
+*修改时间：2026/11/6 12:20:16
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：LocalDiscovery接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -43,6 +43,9 @@ using SAEA.P2P.Common;
 
 namespace SAEA.P2P.Discovery
 {
+    /// <summary>
+    /// 局域网节点发现，周期组播与广播探测报文并维护已发现节点
+    /// </summary>
     public class LocalDiscovery
     {
         private UdpClientSocket _socket;
@@ -60,11 +63,28 @@ namespace SAEA.P2P.Discovery
         private Timer _broadcastTimer;
         private bool _running = false;
 
+        /// <summary>
+        /// 收到其他节点的发现应答时触发，同一节点每次应答都会触发
+        /// </summary>
         public event Action<DiscoveredNode> OnNodeDiscovered;
+        /// <summary>
+        /// 节点因超时被清理时触发，参数为被移除的节点
+        /// </summary>
         public event Action<DiscoveredNode> OnNodeExpired;
 
+        /// <summary>
+        /// 已发现节点集合，键为节点标识
+        /// </summary>
         public ConcurrentDictionary<string, DiscoveredNode> DiscoveredNodes => _discoveredNodes;
 
+        /// <summary>
+        /// 创建发现实例，此时尚未占用端口
+        /// </summary>
+        /// <param name="nodeId">本节点标识，同时作为默认节点名称</param>
+        /// <param name="port">发现报文使用的端口，默认 39655</param>
+        /// <param name="multicastGroup">组播地址，默认 224.0.0.250</param>
+        /// <param name="interval">探测报文广播间隔，单位毫秒，默认 5000</param>
+        /// <param name="timeout">节点过期阈值，单位毫秒，默认 30000</param>
         public LocalDiscovery(string nodeId, int port = 39655, string multicastGroup = "224.0.0.250",
             int interval = 5000, int timeout = 30000)
         {
@@ -76,12 +96,20 @@ namespace SAEA.P2P.Discovery
             _timeout = timeout;
         }
 
+        /// <summary>
+        /// 设置对外广播的节点名称与服务列表，名称为 null 时回退为节点标识
+        /// </summary>
+        /// <param name="nodeName">节点名称</param>
+        /// <param name="services">服务名列表，可为 null</param>
         public void SetNodeInfo(string nodeName, string[] services)
         {
             _nodeName = nodeName ?? _nodeId;
             _services = services;
         }
 
+        /// <summary>
+        /// 绑定发现端口、加入组播组并启动周期广播，已启动时直接返回
+        /// </summary>
         public void Start()
         {
             if (_running) return;
@@ -112,6 +140,9 @@ namespace SAEA.P2P.Discovery
             P2PLogHelper.Info("LocalDiscovery", $"Started on port {_port}, multicast: {_multicastGroup}");
         }
 
+        /// <summary>
+        /// 停止周期广播并断开套接字，未启动时直接返回
+        /// </summary>
         public void Stop()
         {
             if (!_running) return;
@@ -206,6 +237,9 @@ namespace SAEA.P2P.Discovery
             P2PLogHelper.Info("LocalDiscovery", $"Discovered node: {nodeId}");
         }
 
+        /// <summary>
+        /// 清理超过超时阈值的节点并触发 OnNodeExpired，需由调用方周期驱动
+        /// </summary>
         public void CleanupExpiredNodes()
         {
             foreach (var kvp in _discoveredNodes)

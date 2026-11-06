@@ -23,23 +23,42 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/04/20 16:04:05
+*修改时间：2026/11/6 12:20:16
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：AuthChallenge类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
 
 namespace SAEA.P2P.Security
 {
+    /// <summary>
+    /// 一次性鉴权挑战：服务端生成随机数据，客户端据此结合节点口令计算响应
+    /// </summary>
     public class AuthChallenge
     {
+        /// <summary>
+        /// 挑战唯一标识
+        /// </summary>
         public string ChallengeId { get; set; }
+        /// <summary>
+        /// 挑战随机数据，参与响应哈希计算
+        /// </summary>
         public string ChallengeData { get; set; }
+        /// <summary>
+        /// 挑战创建时间，UTC，未赋值的实例为 DateTime.MinValue
+        /// </summary>
         public DateTime CreatedTime { get; set; }
+        /// <summary>
+        /// 挑战有效期，单位毫秒，默认 30000
+        /// </summary>
         public int TimeoutMs { get; set; } = 30000;
 
+        /// <summary>
+        /// 生成新的挑战，标识与随机数据均为 32 位十六进制串
+        /// </summary>
+        /// <returns>创建时间为当前 UTC 时间、有效期为默认值的挑战</returns>
         public static AuthChallenge Create()
         {
             return new AuthChallenge
@@ -50,6 +69,9 @@ namespace SAEA.P2P.Security
             };
         }
 
+        /// <summary>
+        /// 挑战是否已超过有效期；CreatedTime 未赋值时按 MinValue 计算，结果恒为 true
+        /// </summary>
         public bool IsExpired => (DateTime.UtcNow - CreatedTime).TotalMilliseconds > TimeoutMs;
     }
 }

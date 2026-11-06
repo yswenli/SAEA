@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/04/20 16:27:00
+*修改时间：2026/11/6 12:20:16
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：P2PServer服务端类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -47,6 +47,9 @@ using SAEA.P2P.Security;
 
 namespace SAEA.P2P.Core
 {
+    /// <summary>
+    /// P2P 信令服务器，负责节点注册、打洞地址交换、中继转发与节点列表广播
+    /// </summary>
     public class P2PServer
     {
         private P2PServerOptions _options;
@@ -60,18 +63,49 @@ namespace SAEA.P2P.Core
         private ConcurrentDictionary<string, string> _nodeToSession = new ConcurrentDictionary<string, string>();
         private ConcurrentDictionary<string, AuthChallenge> _pendingChallenges = new ConcurrentDictionary<string, AuthChallenge>();
         
+        /// <summary>
+        /// 监听端口，取自服务器配置
+        /// </summary>
         public int Port => _options.Port;
+        /// <summary>
+        /// 当前已注册的节点数
+        /// </summary>
         public int NodeCount => _nodes.Count;
+        /// <summary>
+        /// 服务是否已启动
+        /// </summary>
         public bool IsRunning { get; private set; }
         
+        /// <summary>
+        /// 节点注册成功时触发，参数为节点标识与公网地址，当前实现固定传 null 地址
+        /// </summary>
         public event Action<string, IPEndPoint> OnNodeRegistered;
+        /// <summary>
+        /// 节点掉线时触发，参数为节点标识
+        /// </summary>
         public event Action<string> OnNodeUnregistered;
+        /// <summary>
+        /// 中继会话建立时触发，参数为源节点与目标节点标识
+        /// </summary>
         public event Action<string, string> OnRelayStarted;
+        /// <summary>
+        /// 中继会话结束的通知事件，当前实现未触发
+        /// </summary>
         public event Action<string> OnRelayEnded;
+        /// <summary>
+        /// 发生错误时触发，参数为会话标识或节点标识与错误码
+        /// </summary>
         public event Action<string, string> OnError;
         
+        /// <summary>
+        /// 已注册节点集合，键为节点标识
+        /// </summary>
         public ConcurrentDictionary<string, NodeInfo> Nodes => _nodes;
         
+        /// <summary>
+        /// 按配置创建服务器，启用中继时一并创建中继管理器
+        /// </summary>
+        /// <param name="options">服务器配置，不可为 null</param>
         public P2PServer(P2PServerOptions options)
         {
             _options = options ?? throw new ArgumentNullException(nameof(options));
@@ -82,6 +116,9 @@ namespace SAEA.P2P.Core
             P2PLogHelper.SetLevel(_options.Logging.Level);
         }
         
+        /// <summary>
+        /// 启动 TCP 监听并挂接连接、收包、断开与错误回调，成功后 IsRunning 为 true
+        /// </summary>
         public void Start()
         {
             var option = SocketOptionBuilder.Instance
@@ -106,6 +143,9 @@ namespace SAEA.P2P.Core
             P2PLogHelper.Info("P2PServer", $"Started on {_options.BindIP}:{_options.Port}");
         }
         
+        /// <summary>
+        /// 停止监听并清空节点、会话映射与待处理鉴权挑战
+        /// </summary>
         public void Stop()
         {
             _serverSocket?.Stop();
@@ -428,11 +468,19 @@ namespace SAEA.P2P.Core
             _serverSocket.SendAsync(sessionId, ackPacket);
         }
         
+        /// <summary>
+        /// 取已注册节点的信息
+        /// </summary>
+        /// <param name="nodeId">节点标识</param>
+        /// <returns>节点信息，未注册时返回 null</returns>
         public NodeInfo GetNode(string nodeId)
         {
             return _nodes.TryGetValue(nodeId, out var node) ? node : null;
         }
         
+        /// <summary>
+        /// 当前活跃的中继会话数，未启用中继时为 0
+        /// </summary>
         public int ActiveRelaySessionCount => _relayManager?.ActiveSessionCount ?? 0;
     }
 }

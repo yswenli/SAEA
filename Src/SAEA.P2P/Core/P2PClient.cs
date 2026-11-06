@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/04/20 16:27:00
+*修改时间：2026/11/6 12:20:16
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：P2PClient接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -50,6 +50,9 @@ using SAEA.P2P.Security;
 
 namespace SAEA.P2P.Core
 {
+    /// <summary>
+    /// P2P 客户端，负责信令注册、NAT 探测、打洞、中继与局域网发现
+    /// </summary>
     public class P2PClient
     {
         private P2POptions _options;
@@ -68,22 +71,65 @@ namespace SAEA.P2P.Core
         
         private string _sessionId;
         
+        /// <summary>
+        /// 本节点标识，取自客户端配置
+        /// </summary>
         public string NodeId => _options.NodeId;
+        /// <summary>
+        /// 当前节点状态
+        /// </summary>
         public NodeState State => _state;
+        /// <summary>
+        /// 是否已注册或处于可用状态
+        /// </summary>
         public bool IsConnected => _state == NodeState.Connected || _state == NodeState.Registered;
         
+        /// <summary>
+        /// 状态切换时触发，参数为旧状态与新状态
+        /// </summary>
         public event Action<NodeState, NodeState> OnStateChanged;
+        /// <summary>
+        /// 向信令服务器注册成功时触发
+        /// </summary>
         public event Action OnServerConnected;
+        /// <summary>
+        /// 与信令服务器断开时触发，参数为断开原因描述
+        /// </summary>
         public event Action<string> OnServerDisconnected;
+        /// <summary>
+        /// 对端会话建立的通知事件，当前实现未触发
+        /// </summary>
         public event Action<string, ChannelType> OnPeerConnected;
+        /// <summary>
+        /// 对端会话断开的通知事件，当前实现未触发
+        /// </summary>
         public event Action<string, string> OnPeerDisconnected;
+        /// <summary>
+        /// 收到用户数据时触发，参数为来源节点标识与负载副本
+        /// </summary>
         public event Action<string, byte[]> OnMessageReceived;
+        /// <summary>
+        /// 发生错误时触发，参数为错误码与错误描述
+        /// </summary>
         public event Action<string, string> OnError;
+        /// <summary>
+        /// 局域网发现到其他节点时触发
+        /// </summary>
         public event Action<DiscoveredNode> OnLocalNodeDiscovered;
         
+        /// <summary>
+        /// 已知节点集合，键为节点标识，由信令服务器的节点列表维护
+        /// </summary>
         public ConcurrentDictionary<string, NodeInfo> KnownNodes => _nodes;
+        /// <summary>
+        /// 对端会话集合，键为对端节点标识
+        /// </summary>
         public ConcurrentDictionary<string, PeerSession> PeerSessions => _peers;
         
+        /// <summary>
+        /// 按配置创建客户端，并按需初始化加密、鉴权、打洞、中继与本地发现组件
+        /// </summary>
+        /// <param name="options">客户端配置，不可为 null</param>
         public P2PClient(P2POptions options)
         {
             _options = options ?? throw new ArgumentNullException(nameof(options));
@@ -119,6 +165,10 @@ namespace SAEA.P2P.Core
             P2PLogHelper.SetLevel(_options.Logging.Level);
         }
         
+        /// <summary>
+        /// 连接信令服务器并发送注册请求，已注册或已连接时抛出 P2PException
+        /// </summary>
+        /// <returns>报文发送完成的任务，注册结果由事件异步通知</returns>
         public async Task ConnectAsync()
         {
             if (_state == NodeState.Connected || _state == NodeState.Registered)
@@ -170,6 +220,9 @@ namespace SAEA.P2P.Core
                 StartLocalDiscovery();
         }
         
+        /// <summary>
+        /// 同步等待 ConnectAsync 完成，异常由 AggregateException 包装抛出
+        /// </summary>
         public void Connect()
         {
             ConnectAsync().Wait();
@@ -398,6 +451,11 @@ namespace SAEA.P2P.Core
             P2PLogHelper.Debug(NodeId, $"State changed: {oldState} -> {newState}");
         }
         
+        /// <summary>
+        /// 经信令服务器请求与对端打洞，状态非 Registered 时抛出 P2PException
+        /// </summary>
+        /// <param name="peerId">目标节点标识，不可为空</param>
+        /// <returns>请求已发出即返回 true，实际连通结果由事件通知</returns>
         public async Task<bool> ConnectToPeerAsync(string peerId)
         {
             if (_state != NodeState.Registered)
@@ -415,6 +473,11 @@ namespace SAEA.P2P.Core
             return true;
         }
         
+        /// <summary>
+        /// 向对端发送用户数据，中继会话走中继转发，其余经信令服务器转发
+        /// </summary>
+        /// <param name="peerId">对端节点标识，需已存在会话</param>
+        /// <param name="data">待发送负载，不可为 null 或空数组</param>
         public void Send(string peerId, byte[] data)
         {
             if (data == null || data.Length == 0)
@@ -448,6 +511,10 @@ namespace SAEA.P2P.Core
             P2PLogHelper.Trace(NodeId, $"Sent {data.Length} bytes to {peerId}");
         }
         
+        /// <summary>
+        /// 向信令服务器请求为指定对端建立中继会话，未启用中继时抛出 P2PException
+        /// </summary>
+        /// <param name="peerId">目标节点标识</param>
         public void SendRelayRequest(string peerId)
         {
             if (_relayManager == null)
@@ -475,6 +542,9 @@ namespace SAEA.P2P.Core
             _signalSocket.SendAsync(ackPacket);
         }
         
+        /// <summary>
+        /// 向信令服务器发送心跳，信令连接未建立时抛出 P2PException
+        /// </summary>
         public void SendHeartbeat()
         {
             if (_signalSocket == null)
@@ -501,11 +571,19 @@ namespace SAEA.P2P.Core
             return new IPEndPoint(ip, port);
         }
         
+        /// <summary>
+        /// 取指定对端的会话
+        /// </summary>
+        /// <param name="peerId">对端节点标识</param>
+        /// <returns>会话对象，不存在时返回 null</returns>
         public PeerSession GetSession(string peerId)
         {
             return _peers.TryGetValue(peerId, out var session) ? session : null;
         }
         
+        /// <summary>
+        /// 停止本地发现、断开信令连接并清空节点与会话，状态置为 Disconnected
+        /// </summary>
         public void Disconnect()
         {
             _localDiscovery?.Stop();
