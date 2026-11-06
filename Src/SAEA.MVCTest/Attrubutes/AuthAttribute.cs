@@ -25,17 +25,27 @@ using SAEA.MVCTest.Model;
 
 namespace SAEA.MVCTest.Attrubutes
 {
+    /// <summary>
+    /// JWT 鉴权过滤器，从 Authorization 请求头解析用户令牌并写入会话
+    /// </summary>
     public class AuthAttribute : ActionFilterAttribute
     {
         static readonly string _pwd = "yswenli";
 
         JWTPackage<UserInfo> _jwt = null;
 
+        /// <summary>
+        /// 初始化鉴权过滤器
+        /// </summary>
         public AuthAttribute() : base()
         {
 
         }
 
+        /// <summary>
+        /// 动作执行前解析 Authorization 头中的 JWT，成功时把用户信息写入会话
+        /// </summary>
+        /// <returns>校验通过返回空结果放行，否则返回说明失败原因的文本结果</returns>
         public override ActionResult OnActionExecuting()
         {
             var result = string.Empty;
@@ -82,6 +92,10 @@ namespace SAEA.MVCTest.Attrubutes
         }
 
 
+        /// <summary>
+        /// 动作执行后的回调，当前不做任何处理
+        /// </summary>
+        /// <param name="result">动作执行结果，可在回调中替换</param>
         public override void OnActionExecuted(ref ActionResult result)
         {
 

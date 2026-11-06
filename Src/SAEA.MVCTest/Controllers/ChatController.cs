@@ -84,6 +84,7 @@ namespace SAEA.MVCTest.Controllers
         /// 连接入口：带 token 则校验 JWT（失败写 401 且不升级），
         /// 不带 token 则以匿名身份连接；成功后接受握手、绑定身份、顶掉同用户的旧连接。
         /// </summary>
+        /// <returns>连接建立与旧连接顶替流程的异步任务</returns>
         public override async Task OpenAsync()
         {
             var request = HttpContext.Current?.Request;
@@ -158,6 +159,8 @@ namespace SAEA.MVCTest.Controllers
         /// <summary>
         /// 收到消息：JSON 走聊天协议，其它文本/二进制保持原有回显行为
         /// </summary>
+        /// <param name="message">收到的 WebSocket 消息，二进制与文本按不同分支处理</param>
+        /// <returns>消息处理完成的异步任务</returns>
         public override async Task MessageAsync(WSMessage message)
         {
             var ws = WebSockets.Current;
@@ -272,6 +275,8 @@ namespace SAEA.MVCTest.Controllers
         /// 连接关闭回调：按 ws.Id 确认身份后清理在线表和群成员，并通知群内其他人。
         /// 同一用户被新连接顶替时，旧连接的回调不会误删用户/群关系。
         /// </summary>
+        /// <param name="reason">关闭原因，仅用于日志；群成员离开通知固定标记为 disconnected</param>
+        /// <returns>清理在线表与群成员并广播通知的异步任务</returns>
         public override async Task CloseAsync(WSCloseReason reason)
         {
             var ws = WebSockets.Current;
@@ -357,6 +362,8 @@ namespace SAEA.MVCTest.Controllers
         /// <summary>
         /// 连接内异常回调
         /// </summary>
+        /// <param name="exception">连接内捕获的异常，仅打印消息</param>
+        /// <returns>已完成的异步任务</returns>
         public override Task ErrorAsync(Exception exception)
         {
             Console.WriteLine($"ChatController.ErrorAsync: {exception.Message}");

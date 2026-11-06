@@ -24,7 +24,7 @@ using SAEA.MVCTest.Attrubutes;
 namespace SAEA.MVCTest.Controllers
 {
     /// <summary>
-    /// EventStreamController
+    /// SSE 事件流示例控制器，连接后每秒向客户端推送一条通知
     /// </summary>
     public class EventStreamController : Controller
     {

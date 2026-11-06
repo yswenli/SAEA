@@ -21,8 +21,15 @@ using SAEA.MVC;
 
 namespace SAEA.MVCTest.Controllers
 {
+    /// <summary>
+    /// 异常处理示例控制器，演示未处理异常与过滤器抛出异常两种路径
+    /// </summary>
     public class ErrorController : Controller
     {
+        /// <summary>
+        /// 触发除零异常，用于验证框架对未捕获异常的处理
+        /// </summary>
+        /// <returns>正常执行时的文本结果，当前必然被异常中断</returns>
         public ActionResult Test1()
         {
             var b = 0;
@@ -31,6 +38,10 @@ namespace SAEA.MVCTest.Controllers
         }
 
 
+        /// <summary>
+        /// 空动作，由 ErrorAttribute 在动作执行前后抛异常来验证异常捕获
+        /// </summary>
+        /// <returns>不会被返回，过滤器会先抛出 NotImplementedException</returns>
         [ErrorAttribute]
         public ActionResult Test2()
         {
@@ -38,13 +49,24 @@ namespace SAEA.MVCTest.Controllers
         }
     }
 
+    /// <summary>
+    /// 动作前后均抛出未实现异常的过滤器，用于验证异常路径
+    /// </summary>
     public class ErrorAttribute : ActionFilterAttribute
     {
+        /// <summary>
+        /// 动作执行后回调，直接抛出未实现异常
+        /// </summary>
+        /// <param name="result">动作执行结果</param>
         public override void OnActionExecuted(ref ActionResult result)
         {
             throw new NotImplementedException();
         }
 
+        /// <summary>
+        /// 动作执行前回调，直接抛出未实现异常
+        /// </summary>
+        /// <returns>不会返回，调用即抛出 NotImplementedException</returns>
         public override ActionResult OnActionExecuting()
         {
             throw new NotImplementedException();

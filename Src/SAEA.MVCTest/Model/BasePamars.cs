@@ -25,13 +25,22 @@
 
 namespace SAEA.MVCTest.Model
 {
+    /// <summary>
+    /// 请求公共参数，承载用户标识与登录令牌
+    /// </summary>
     public class BasePamars
     {
+        /// <summary>
+        /// 用户 ID
+        /// </summary>
         public int UID
         {
             get; set;
         }
 
+        /// <summary>
+        /// 登录令牌
+        /// </summary>
         public string Token
         {
             get;

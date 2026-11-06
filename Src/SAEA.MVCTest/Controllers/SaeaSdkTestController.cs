@@ -22,8 +22,15 @@ using System.Text;
 
 namespace SAEA.MVCTest.Controllers
 {
+    /// <summary>
+    /// 生成 API 调用清单的示例控制器，依赖 ApiMapping 的路由映射表
+    /// </summary>
     public class SaeaSdkTestController : Controller
     {
+        /// <summary>
+        /// 遍历路由映射表，输出可直接点击调用的 SDK 方法清单页面
+        /// </summary>
+        /// <returns>由 div + a 标签拼成的 HTML 片段</returns>
         public ActionResult GetList()
         {
             var routings = ApiMapping.GetMapping();

@@ -36,6 +36,10 @@ namespace SAEA.MVCTest.Controllers
 
     public class HomeController : Controller
     {
+        /// <summary>
+        /// 连通性检查，固定返回 PONG
+        /// </summary>
+        /// <returns>文本 PONG</returns>
         public ActionResult Ping()
         {
             return Content("PONG");
@@ -65,6 +69,10 @@ namespace SAEA.MVCTest.Controllers
             return Content($"Hello,I'm SAEA.MVC2,develop by {HttpContext.Current.Session["userID"]} 缓存效果测试");
         }
 
+        /// <summary>
+        /// 返回客户端直连 IP、真实 IP 与浏览器、操作系统信息
+        /// </summary>
+        /// <returns>包含地址与 UA 解析结果的文本</returns>
         [Log2Atrribute]
         public ActionResult Index3()
         {
@@ -140,22 +148,22 @@ namespace SAEA.MVCTest.Controllers
         }
 
         /// <summary>
-        /// Update2
+        /// 两个带默认值的整型参数绑定测试
         /// </summary>
-        /// <param name="roleType"></param>
-        /// <param name="roleID"></param>
-        /// <returns></returns>
+        /// <param name="roleType">角色类型，默认 1</param>
+        /// <param name="roleID">角色 ID，默认 1</param>
+        /// <returns>回显两个参数值的文本</returns>
         public ActionResult Update2(int roleType = 1, int roleID = 1)
         {
             return Content($"Update2 roleType:{roleType},roleID:{roleID}");
         }
 
         /// <summary>
-        /// test model
+        /// 基本类型参数与实体参数混合绑定测试
         /// </summary>
-        /// <param name="isFemale"></param>
-        /// <param name="userInfo"></param>
-        /// <returns></returns>
+        /// <param name="isFemale">性别标识，仅参与绑定不参与返回</param>
+        /// <param name="userInfo">按属性名绑定的用户信息</param>
+        /// <returns>用户信息的 JSON 结果</returns>
         public ActionResult Set(bool isFemale, UserInfo userInfo)
         {
             return Json(userInfo);
@@ -174,9 +182,9 @@ namespace SAEA.MVCTest.Controllers
         }
 
         /// <summary>
-        /// Test
+        /// 仅允许 POST 访问的测试动作
         /// </summary>
-        /// <returns></returns>
+        /// <returns>文本 httppost test</returns>
         [HttpPost]
         public ActionResult Test()
         {

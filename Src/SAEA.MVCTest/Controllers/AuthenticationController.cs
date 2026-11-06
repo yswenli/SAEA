@@ -25,12 +25,21 @@ using SAEA.MVCTest.Model;
 
 namespace SAEA.MVCTest.Controllers
 {
+    /// <summary>
+    /// JWT 登录示例控制器，登录后把 Authorization 响应头返回给客户端
+    /// </summary>
     [LogAtrribute]
     public class AuthenticationController : Controller
     {
 
         static readonly string _pwd = "yswenli";
 
+        /// <summary>
+        /// 按传入账号签发有效期 180 的 JWT，并直接写出响应
+        /// </summary>
+        /// <param name="userName">登录名，写入令牌载荷</param>
+        /// <param name="pwd">登录密码，当前仅打印到控制台</param>
+        /// <returns>空结果，响应内容已在方法内直接写出并结束</returns>
         public ActionResult Login(string userName, string pwd)
         {
             Console.WriteLine($"userName:{userName},pwd:{pwd}");

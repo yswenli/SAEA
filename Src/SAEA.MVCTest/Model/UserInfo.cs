@@ -24,12 +24,24 @@
 
 namespace SAEA.MVCTest.Model
 {
+    /// <summary>
+    /// 用户信息
+    /// </summary>
     public class UserInfo
     {
+        /// <summary>
+        /// 用户 ID
+        /// </summary>
         public int ID { get; set; }
 
+        /// <summary>
+        /// 登录名
+        /// </summary>
         public string UserName { get; set; }
 
+        /// <summary>
+        /// 昵称
+        /// </summary>
         public string NickName { get; set; }
     }
 }

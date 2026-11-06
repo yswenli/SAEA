@@ -20,6 +20,9 @@ using SAEA.MVCTest.Entities;
 
 namespace SAEA.MVCTest.Controllers
 {
+    /// <summary>
+    /// WEF ORM 参数绑定示例控制器，用实体承接请求参数并回显为 JSON
+    /// </summary>
     public class OrmController:Controller
     {
         /// <summary>

@@ -24,10 +24,19 @@
 
 namespace SAEA.MVCTest.Model
 {
+    /// <summary>
+    /// 分页请求参数
+    /// </summary>
     public class PagedPamars
     {
+        /// <summary>
+        /// 页码
+        /// </summary>
         public int PageIndex { get; set; }
 
+        /// <summary>
+        /// 每页记录数
+        /// </summary>
         public int PageSize { get; set; }
     }
 }

@@ -27,9 +27,9 @@ namespace SAEA.MVCTest.Controllers
     public class AsynchronousController : Controller
     {
         /// <summary>
-        /// Hello
+        /// 异步返回文本 Hello，用于验证等待型 action
         /// </summary>
-        /// <returns></returns>
+        /// <returns>文本结果</returns>
         public async Task<ActionResult> Hello()
         {
             return await Task.Run(() =>
@@ -39,10 +39,10 @@ namespace SAEA.MVCTest.Controllers
         }
 
         /// <summary>
-        /// Test
+        /// 异步返回带 id 的测试文本
         /// </summary>
-        /// <param name="id"></param>
-        /// <returns></returns>
+        /// <param name="id">测试标识，默认 1</param>
+        /// <returns>文本结果</returns>
         public async Task<ActionResult> Test(string id = "1")
         {
             return await Task.Run(() =>
