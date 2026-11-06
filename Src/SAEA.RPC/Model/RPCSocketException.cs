@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/05/25 17:28:26
+*修改时间：2026/11/6 12:52:32
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：RPCSocketException接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -35,10 +35,22 @@ using System.Text;
 
 namespace SAEA.RPC.Model
 {
+    /// <summary>
+    /// RPC 底层 socket 通信异常
+    /// </summary>
     public class RPCSocketException : Exception
     {
+        /// <summary>
+        /// 以错误消息创建异常
+        /// </summary>
+        /// <param name="message">错误消息</param>
         public RPCSocketException(string message) : this(message, null) { }
 
+        /// <summary>
+        /// 以错误消息和内部异常创建异常
+        /// </summary>
+        /// <param name="message">错误消息</param>
+        /// <param name="innerException">内部异常</param>
         public RPCSocketException(string message, Exception innerException) : base(message, innerException) { }
     }
 }

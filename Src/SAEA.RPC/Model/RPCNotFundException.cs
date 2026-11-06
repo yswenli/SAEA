@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/05/25 17:28:26
+*修改时间：2026/11/6 12:52:32
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：RPCNotFundException接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -35,9 +35,21 @@ using System.Text;
 
 namespace SAEA.RPC.Model
 {
+    /// <summary>
+    /// 找不到指定服务或方法时抛出
+    /// </summary>
     public class RPCNotFundException : Exception
     {
+        /// <summary>
+        /// 以错误消息创建异常
+        /// </summary>
+        /// <param name="message">错误消息</param>
         public RPCNotFundException(string message) : base(message) { }
+        /// <summary>
+        /// 以错误消息和内部异常创建异常
+        /// </summary>
+        /// <param name="message">错误消息</param>
+        /// <param name="innerException">内部异常</param>
         public RPCNotFundException(string message, Exception innerException) : base(message, innerException) { }
     }
 }

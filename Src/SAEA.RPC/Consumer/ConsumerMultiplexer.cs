@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/05/25 17:28:26
+*修改时间：2026/11/6 12:52:32
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ConsumerMultiplexer接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -64,6 +64,9 @@ namespace SAEA.RPC.Consumer
 
         object _syncLocker = new object();
 
+        /// <summary>
+        /// 同步锁对象
+        /// </summary>
         public object SyncLocker
         {
             get
@@ -72,6 +75,9 @@ namespace SAEA.RPC.Consumer
             }
         }
 
+        /// <summary>
+        /// 多路复用是否可用，连接池耗尽时被置为 false
+        /// </summary>
         public bool IsConnected
         {
             get; private set;
@@ -168,10 +174,19 @@ namespace SAEA.RPC.Consumer
 
         #region events
 
+        /// <summary>
+        /// 收到服务端通知时触发
+        /// </summary>
         public event OnNoticedHandler OnNoticed;
 
+        /// <summary>
+        /// 发生错误时触发
+        /// </summary>
         public event OnErrorHandler OnError;
 
+        /// <summary>
+        /// 连接断开时触发
+        /// </summary>
         public event OnDisconnectedHandler OnDisconnected;
 
         private void RClient_OnError(string id, Exception ex)
@@ -255,6 +270,9 @@ namespace SAEA.RPC.Consumer
             }
         }
 
+        /// <summary>
+        /// 释放全部底层连接，并从共享连接表中移除
+        /// </summary>
         public void Dispose()
         {
             foreach (var rClient in _myClients.Values)

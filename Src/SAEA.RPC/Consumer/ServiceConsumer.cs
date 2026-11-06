@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/05/25 17:28:26
+*修改时间：2026/11/6 12:52:32
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ServiceConsumer接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -51,7 +51,7 @@ namespace SAEA.RPC.Consumer
         /// </summary>
         public event OnNoticedHandler OnNoticed;
         /// <summary>
-        /// IsConnected
+        /// 是否与服务端保持可用连接
         /// </summary>
         public bool IsConnected
         {
@@ -61,6 +61,9 @@ namespace SAEA.RPC.Consumer
             }
         }
 
+        /// <summary>
+        /// 以本机默认地址创建 rpc 消费者
+        /// </summary>
         public ServiceConsumer() : this(new Uri("rpc://127.0.0.1:39654")) { }
 
         /// <summary>
@@ -143,11 +146,17 @@ namespace SAEA.RPC.Consumer
             _consumerMultiplexer.RegistReceiveNotice();
         }
 
+        /// <summary>
+        /// 断开连接并释放多路复用连接池
+        /// </summary>
         public void Disconnect()
         {
             _consumerMultiplexer.Dispose();
         }
 
+        /// <summary>
+        /// 断开连接并释放资源
+        /// </summary>
         public void Dispose()
         {
             Disconnect();

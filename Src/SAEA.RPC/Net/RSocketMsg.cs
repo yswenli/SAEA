@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/05/25 17:28:26
+*修改时间：2026/11/6 12:52:32
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：RSocketMsg类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.RPC.Model;
@@ -42,41 +42,65 @@ namespace SAEA.RPC.Net
 
         const int MIN = (1 + 4 + 8 + 4 + 0 + 4 + 0 + 0);
 
+        /// <summary>
+        /// 消息类型，取值来自 RSocketMsgType
+        /// </summary>
         public byte Type
         {
             get; set;
         }
 
+        /// <summary>
+        /// 整帧总长度，不含类型字节
+        /// </summary>
         public uint Total
         {
             get; set;
         }
 
+        /// <summary>
+        /// 请求序号，用于匹配请求与响应
+        /// </summary>
         public long SequenceNumber
         {
             get; set;
         }
 
+        /// <summary>
+        /// 服务名字节长度
+        /// </summary>
         public uint SLen
         {
             get; set;
         }
 
+        /// <summary>
+        /// 服务名
+        /// </summary>
         public string ServiceName
         {
             get; set;
         }
 
+        /// <summary>
+        /// 方法名字节长度
+        /// </summary>
         public uint MLen
         {
             get; set;
         }
 
+        /// <summary>
+        /// 方法名
+        /// </summary>
         public string MethodName
         {
             get; set;
         }
 
+        /// <summary>
+        /// 序列化后的调用参数或返回值
+        /// </summary>
         public byte[] Data
         {
             get; set;
@@ -87,18 +111,40 @@ namespace SAEA.RPC.Net
         /// </summary>
         public bool IsPooled { get; set; }
 
+        /// <summary>
+        /// 以指定类型创建消息
+        /// </summary>
+        /// <param name="type">消息类型</param>
         public RSocketMsg(RSocketMsgType type) : this(type, string.Empty)
         {
 
         }
+        /// <summary>
+        /// 以指定类型和服务名创建消息
+        /// </summary>
+        /// <param name="type">消息类型</param>
+        /// <param name="serviceName">服务名</param>
         public RSocketMsg(RSocketMsgType type, string serviceName) : this(type, serviceName, string.Empty)
         {
 
         }
+        /// <summary>
+        /// 以指定类型、服务名和方法名创建消息
+        /// </summary>
+        /// <param name="type">消息类型</param>
+        /// <param name="serviceName">服务名</param>
+        /// <param name="method">方法名</param>
         public RSocketMsg(RSocketMsgType type, string serviceName, string method) : this(type, serviceName, method, null)
         {
 
         }
+        /// <summary>
+        /// 以指定类型、服务名、方法名和数据创建消息
+        /// </summary>
+        /// <param name="type">消息类型</param>
+        /// <param name="serviceName">服务名</param>
+        /// <param name="method">方法名</param>
+        /// <param name="data">序列化后的数据</param>
         public RSocketMsg(RSocketMsgType type, string serviceName, string method, byte[] data)
         {
             this.Type = (byte)type;
@@ -107,6 +153,9 @@ namespace SAEA.RPC.Net
             this.Data = data;
         }
 
+        /// <summary>
+        /// 清空名称与数据，便于消息对象复用
+        /// </summary>
         public void Dispose()
         {
             this.ServiceName = this.MethodName =  string.Empty;

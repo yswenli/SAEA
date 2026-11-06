@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2025/02/10 17:07:21
+*修改时间：2026/11/6 12:52:32
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：RpcCoder编解码类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -47,12 +47,24 @@ namespace SAEA.RPC.Net
     /// </summary>
     public sealed class RpcCoder : ICoder
     {
+        /// <summary>
+        /// 按 RPC 线格式将 RSocketMsg 编码写入缓冲写入器
+        /// </summary>
+        /// <param name="protocal">待编码的 RSocketMsg</param>
+        /// <param name="writer">目标缓冲写入器</param>
         public void Encode(ISocketProtocal protocal, System.Buffers.IBufferWriter<byte> writer)
         {
             System.Buffers.BuffersExtensions.Write(writer, Encode(protocal as RSocketMsg));
         }
 
-        //内置
+        /// <summary>
+        /// 流式解帧入口，当前未实现
+        /// </summary>
+        /// <param name="data">待解帧的数据</param>
+        /// <param name="onHeart">心跳包处理回调</param>
+        /// <param name="onFile">文件包处理回调</param>
+        /// <returns>解码后的帧集合</returns>
+        /// <exception cref="NotImplementedException">该重载始终抛出</exception>
         public SAEA.Sockets.Base.DecodedFrames Decode(System.Buffers.ReadOnlySequence<byte> data, Action<DateTime> onHeart = null, Action<ReadOnlyMemory<byte>> onFile = null)
         {
             throw new NotImplementedException();
@@ -272,7 +284,7 @@ namespace SAEA.RPC.Net
         }
 
         /// <summary>
-        /// dispose
+        /// 清空内部接收缓冲区
         /// </summary>
         public void Clear()
         {

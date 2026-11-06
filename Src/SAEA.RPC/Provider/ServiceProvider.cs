@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/05/25 17:28:26
+*修改时间：2026/11/6 12:52:32
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ServiceProvider接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -56,8 +56,15 @@ namespace SAEA.RPC.Provider
 
         NoticeCollection _noticeCollection = null;
 
+        /// <summary>
+        /// 服务端错误回调
+        /// </summary>
+        /// <param name="ex">异常</param>
         public delegate void OnErrHander(Exception ex);
 
+        /// <summary>
+        /// 发生错误时触发
+        /// </summary>
         public event OnErrHander OnErr;
 
         /// <summary>
@@ -182,8 +189,9 @@ namespace SAEA.RPC.Provider
         /// <summary>
         /// 向注册了接收通知的rpc client 发送通知
         /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="t"></param>
+        /// <typeparam name="T">通知数据类型</typeparam>
+        /// <param name="t">通知内容，为 null 时不做任何事</param>
+        /// <returns>通知发送完成的任务</returns>
         public async Task Notice<T>(T t)
         {
             if (t != null)
