@@ -396,7 +396,7 @@ public interface IFrameEncoder
 - `IFrameSplitter` / `IFrameEncoder` 是一层，必须成对配置；`LengthFieldFrameEncoder` 写 **`8B 小端 body 长度` + `1B type` + body**，**不是整帧总长**。依据：`BaseSocketProtocal.WriteTo` 用 `BinaryPrimitives.WriteInt64LittleEndian(span, BodyLength)`（`Src/SAEA.Sockets/Base/BaseSocketProtocal.cs` 的 `WriteTo`）；`FrameDecoder` 侧按 `total = P_Head + bodyLength` 还原，`LengthFieldSplitter` 用 `lengthAdjustment = P_Head - P_LEN = 1` 与该口径对齐（公式见本节上一条）。若误写成总长，对端会多算 9 字节并永久 desync。二者互为逆运算。
 - **type code 只有 1 字节**：`IFrameEncoder.Encode` 收到 `typeCode` 必须校验 `0 <= typeCode <= 255`，越界抛 `ArgumentOutOfRangeException`；`ITypeRegistry.Register` 同样校验。否则 `(byte)typeCode` 会静默截断，帧头 type 与 `Envelope.Type` 对不上——这类错误在联调时表现为"消息偶尔路由到错误的 handler"，极难定位。
 - **出站 type 的来源**：到达 `FrameEncoderHandler` 的消息在 v1 恒为 `EncodedBody`，type code 直接取 `EncodedBody.TypeCode`（该值由 `CodecEncoderHandler` 从 `Envelope.Type` 拷入）。v1 **不引入** `IMessageTypeResolver`——映射只在 `ITypeRegistry` 一处，避免第二个映射源。消息不是 `EncodedBody` 时 `FrameEncoderHandler` 直接抛 `InvalidOperationException`（说明链配错了）。
-- `FrameEncoderHandler`（出站）负责：`EncodedBody` → `IFrameEncoder.Encode` 补包头 → 产出 `TransportFrame`（完整帧 + owner）继续向链头传递；**链头由 `ChannelPipeline` 内置的 head sink 统一调用 `IRawByteStream.SendAsync(data, owner)`**。handler **不允许**直接调 `SendAsync`——head sink 是唯一出口，这样所有出站字节经过同一个终点，owner 的交接点也只有一处。head sink **只接受 `TransportFrame`**：收到其它类型说明这条链缺少 `FrameEncoderHandler` 或出站顺序配错，直接抛 `InvalidOperationException`（不猜、不兜底编码）。没有 `FrameEncoderHandler`，`ICodec.Encode` 写出的只是裸 body，这条链发不出任何合法字节。
+- `FrameEncoderHandler`（出站）负责：`EncodedBody` → `IFrameEncoder.Encode` 补包头 → 产出 `TransportFrame`（完整帧 + owner）继续向链头传递；**链头由 `ChannelPipeline` 内置的 head sink 统一调用 `IRawByteStream.SendAsync(data, owner)`**。handler **不允许**直接调 `SendAsync`——head sink 是唯一出口，这样所有出站字节经过同一个终点，owner 的交接点也只有一处。head sink **只接受 `TransportFrame`**：收到其它类型说明这条链缺少 `FrameEncoderHandler` 或出站顺序配错，直接抛 `InvalidOperationException`（不猜、不兜底编码）。head sink 的判定顺序固定为：**已 Attach 且已收口（`_closed` 或执行器非活动）→ `ChannelClosedException`；类型不是 `TransportFrame` → `InvalidOperationException`；未 Attach → `InvalidOperationException`**。收口判定必须先于类型判定——业务可能还持有已摘链节点的旧 `ctx`，此时写出任何消息都应得到"连接已关闭"而不是"链配错"。未 Attach 时没有执行器可判关闭，因此先报类型错（配置问题更可诊断），类型合法再报未接入。没有 `FrameEncoderHandler`，`ICodec.Encode` 写出的只是裸 body，这条链发不出任何合法字节。
 - **出站不能"后补包头"**：`IBufferWriter` 没有前插能力，`CodecEncoderHandler` 先把 body 写进缓冲后，`FrameEncoderHandler` 无法再往前面塞 8B 长度 + 1B type。v1 在两级之间定死一个显式中间载体：
 
   ```csharp
@@ -909,7 +909,7 @@ public sealed class ChannelPipelineOptions
 
 **断开后的回包（H2）：`DrainInFlight` 保的是副作用，不是回包。**
 
-- 连接一进入收口（第 1 步开始），`IRawByteStream.SendAsync` 与 `ctx.WriteAsync` 立即抛 `ChannelClosedException`，**不排队、不静默丢**——静默丢会让业务以为"回包发出去了"。
+- 连接一进入收口（第 1 步开始），`IRawByteStream.SendAsync` 与 `ctx.WriteAsync` 立即抛 `ChannelClosedException`，**不排队、不静默丢**——静默丢会让业务以为"回包发出去了"。该判定先于消息类型判定：即使业务持有的是已摘链节点的旧 `ctx`、传出的也不是 `TransportFrame`，只要连接在收口，报的就是 `ChannelClosedException`。
 - 在途 handler 仍可跑完自己的副作用；跑到回包那一步若抛 `ChannelClosedException`，按普通 handler 异常走 `ExceptionCaught`（链尾记录），**不延长收口、不影响其它消息**。业务若希望"断线后只做副作用不回包"，调用前判断 `ctx.Channel.IsActive`，或捕获该异常并忽略。
 - 这条语义写进 `DisconnectDrainPolicy` 的 XML 注释原文：**"跑完" = 让已开始的业务副作用完成，不代表回包能送达对端。**
 

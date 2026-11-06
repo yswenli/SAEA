@@ -245,7 +245,7 @@ public sealed class SocketStreamAdapter : IRawByteStream
 - `Attach` 之前不能 `WriteAsync`：链头找不到执行器或字节流，抛 `InvalidOperationException("pipeline 尚未 Attach 到传输层。")`；`ctx.Channel` 同样不可用。
 - `ChannelPipelineExecutor.Attach(pipeline)` 必须在 `Start()` 之前完成，否则 `Start()` 抛 `InvalidOperationException`。
 - `CloseAsync(reason)` 只表示“已进入收口”：调用立即返回，后台收口继续执行，资源是否回收完要看 `ChannelPipelineExecutor.Completion`。
-- 进入收口后再 `WriteAsync` 抛 `ChannelClosedException`；连接已关闭时 `IRawByteStream.SendAsync` 也必须立即抛同一异常。
+- 进入收口后再 `WriteAsync` 抛 `ChannelClosedException`；连接已关闭时 `IRawByteStream.SendAsync` 也必须立即抛同一异常。该判定先于消息类型判定：即使持有的是已摘链节点的旧 `ctx`、传出的也不是 `TransportFrame`，只要连接在收口就按关闭上报。
 - 禁止再调用 `GetStream()` 或 `ChannelInfo.Stream.ReadAsync` 与泵抢 `PipeReader`：配置 `UseInputHandler` 后，该连接的 `PipeReader` 由泵独占，两个读者会互相抢数据并触发 Pipe 非法并发读。出站 `Stream.WriteAsync` 不受影响。
 - 钩子启用后，该连接的 `OnServerReceiveSpan` 不再触发（`StartSpanPump` 不会启动）。
 - `UseInputHandler` 必须与 `UseConnectionOpened` 成对配置，且必须 `.UseStream()`；`SocketOptionBuilder.Build()` 会校验并抛 `InvalidOperationException`。客户端构造 `SaeaClientSocket` 时配置任一钩子会抛 `NotSupportedException`。

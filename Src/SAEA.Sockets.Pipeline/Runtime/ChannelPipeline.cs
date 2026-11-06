@@ -467,6 +467,15 @@ namespace SAEA.Sockets.Pipeline
         /// <summary>链头出站终点：唯一的发送出口，正常返回表示所有权已交给传输层。</summary>
         internal async Task HeadSinkWriteAsync(object msg)
         {
+            var stream = _stream;
+            var executor = _executor;
+
+            // 关闭判定先于类型判定：连接已收口时任何写出站都应按关闭处理，
+            // 不能因为调用方持有的是已摘链节点的旧上下文而报成"链配错"。
+            // 未 Attach 时没有执行器可判定，交给下面的 Attach 校验。
+            if (executor != null && (_closed || !executor.IsActive))
+                throw new ChannelClosedException("连接已进入收口，不能继续发送。");
+
             var frame = msg as TransportFrame;
             if (frame == null)
             {
@@ -474,13 +483,8 @@ namespace SAEA.Sockets.Pipeline
                     "出站链缺少 FrameEncoderHandler：链头只接受 TransportFrame。");
             }
 
-            var stream = _stream;
-            var executor = _executor;
             if (stream == null || executor == null)
                 throw new InvalidOperationException("pipeline 尚未 Attach 到传输层。");
-
-            if (_closed || !executor.IsActive)
-                throw new ChannelClosedException("连接已进入收口，不能继续发送。");
 
             await stream.SendAsync(frame.Data, frame.Owner).ConfigureAwait(false);
         }

@@ -212,6 +212,34 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        [TestMethod]
+        public async Task HeadSink_AfterClose_ReportsClosedBeforeRejectingType()
+        {
+            var stream = new TestRawByteStream();
+            var channel = new DefaultChannel("ch-closed", null);
+            var probe = new CtxCapturingInboundHandler();
+
+            using (var pipeline = ChannelPipeline.Create(NewOptions()))
+            {
+                var executor = new ChannelPipelineExecutor(stream, channel, NewOptions(), CancellationToken.None);
+                executor.Attach(pipeline);
+                pipeline.AddLast(probe);
+
+                await pipeline.FireChannelReadAsync(new object());
+
+                // 摘链后按钮旧 ctx 仍可被业务持有；再让连接进入收口。
+                pipeline.Remove(probe);
+                await pipeline.CloseAsync("test-close");
+
+                // 收口判定必须优先于类型判定：此时写出非 TransportFrame 也只能报关闭。
+                await Assert.ThrowsExceptionAsync<ChannelClosedException>(
+                    () => probe.Context.WriteAsync(new object()));
+
+                await executor.Completion;
+                Assert.AreEqual(0, stream.Sent.Count);
+            }
+        }
+
         private static ChannelPipelineOptions NewOptions()
         {
             return new ChannelPipelineOptions
@@ -294,6 +322,17 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
                 {
                     Captured = ex;
                 }
+            }
+        }
+
+        private sealed class CtxCapturingInboundHandler : InboundHandlerAdapter
+        {
+            public IChannelHandlerContext Context { get; private set; }
+
+            public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+            {
+                Context = ctx;
+                return Task.CompletedTask;
             }
         }
 
