@@ -59,6 +59,7 @@ namespace SAEA.Sockets.PipelineTest
         }
 
         /// <summary>指定鉴权延迟；0 表示不等待。</summary>
+        /// <param name="delayMilliseconds">鉴权延迟毫秒数，小于 0 抛 ArgumentOutOfRangeException</param>
         public LoginHandler(int delayMilliseconds)
         {
             if (delayMilliseconds < 0)
@@ -101,6 +102,8 @@ namespace SAEA.Sockets.PipelineTest
         }
 
         /// <summary>按请求构造响应；出站字节比对用例复用同一方法保证字段一致。</summary>
+        /// <param name="request">登录请求，为 null 抛 ArgumentNullException</param>
+        /// <returns>成功响应，令牌为 "token-" 拼接用户名，用户名为空时回落为 anonymous</returns>
         public static LoginResponse CreateResponse(LoginRequest request)
         {
             if (request == null)
@@ -136,6 +139,7 @@ namespace SAEA.Sockets.PipelineTest
         private int _completed;
 
         /// <summary>按序号顺序给出每条消息的延迟（毫秒），序号 1 对应下标 0，越界时取最后一个。</summary>
+        /// <param name="delays">各心跳序号对应的延迟毫秒数，为空或 null 抛 ArgumentException</param>
         public DelayedAuthHandler(params int[] delays)
         {
             if (delays == null || delays.Length == 0)

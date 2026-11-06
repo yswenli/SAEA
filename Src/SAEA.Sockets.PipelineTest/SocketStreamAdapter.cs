@@ -55,6 +55,10 @@ namespace SAEA.Sockets.PipelineTest
         private readonly IServerSocket _server;
 
         /// <summary>以连接标识、PipeReader、流量控制和服务器实例创建适配器。</summary>
+        /// <param name="channelId">连接标识，为空或 null 抛 ArgumentException</param>
+        /// <param name="input">接收方向的 PipeReader，为 null 抛 ArgumentNullException</param>
+        /// <param name="flow">应用级流量控制闸门，为 null 抛 ArgumentNullException</param>
+        /// <param name="server">底层传输层服务器，为 null 抛 ArgumentNullException</param>
         public SocketStreamAdapter(
             string channelId,
             PipeReader input,
@@ -89,6 +93,9 @@ namespace SAEA.Sockets.PipelineTest
         }
 
         /// <summary>把完整帧交给传输层；连接已关闭时立即抛 <see cref="ChannelClosedException"/>。</summary>
+        /// <param name="data">待发送的完整帧</param>
+        /// <param name="owner">帧缓冲区所有权凭据，由传输层在发送完成或失败后释放，适配器不释放</param>
+        /// <returns>所有权移交后即完成的 Task；失败时同步抛 ChannelClosedException</returns>
         public Task SendAsync(ReadOnlyMemory<byte> data, IDisposable owner)
         {
             try
@@ -119,6 +126,8 @@ namespace SAEA.Sockets.PipelineTest
         }
 
         /// <summary>关闭底层连接；传输层保证幂等。</summary>
+        /// <param name="reason">关闭原因，透传给流量控制层</param>
+        /// <returns>关闭完成的 Task，可重复调用</returns>
         public Task CloseAsync(string reason)
         {
             return _flow.CloseAsync(reason);

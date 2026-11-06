@@ -52,6 +52,7 @@ namespace SAEA.Sockets.PipelineTest
         }
 
         /// <summary>登记一条连接；同一标识覆盖旧值。</summary>
+        /// <param name="channel">待登记的通道，为 null 抛 ArgumentNullException</param>
         public void Set(IChannel channel)
         {
             if (channel == null)
@@ -61,6 +62,8 @@ namespace SAEA.Sockets.PipelineTest
         }
 
         /// <summary>按标识取通道；不存在返回 null。</summary>
+        /// <param name="channelId">连接标识，为 null 返回 null</param>
+        /// <returns>已登记的通道，未登记时为 null</returns>
         public IChannel Get(string channelId)
         {
             IChannel channel;
@@ -78,6 +81,9 @@ namespace SAEA.Sockets.PipelineTest
         /// 解除登记并释放通道持有的属性。通道在此期间已被执行器标记为非活跃，
         /// 这里只做内存清理，不重复触发关闭委托。
         /// </summary>
+        /// <param name="channelId">连接标识，为 null 直接返回 false</param>
+        /// <param name="channel">成功时输出已移除的通道，失败时为 null</param>
+        /// <returns>移除成功返回 true；标识为 null 或未登记返回 false</returns>
         public bool TryRemoveChannel(string channelId, out IChannel channel)
         {
             channel = null;
