@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/02/10 15:16:38
+*修改时间：2026/11/6 12:52:33
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：InvitedInfo接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -37,10 +37,19 @@ using System.Threading.Tasks;
 
 namespace SAEA.Audio.Model
 {
+    /// <summary>
+    /// 邀请信息
+    /// </summary>
     public class InvitedInfo
     {
+        /// <summary>
+        /// 被邀请方的用户标识
+        /// </summary>
         public string ID { get; set; }
 
+        /// <summary>
+        /// 邀请加入的频道标识
+        /// </summary>
         public string ChannelID { get; set; }
 
     }

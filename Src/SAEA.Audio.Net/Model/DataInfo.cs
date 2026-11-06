@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/02/10 15:16:38
+*修改时间：2026/11/6 12:52:33
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：DataInfo接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -37,10 +37,19 @@ using System.Threading.Tasks;
 
 namespace SAEA.Audio.Model
 {
+    /// <summary>
+    /// 频道内传输的语音数据
+    /// </summary>
     public class DataInfo
     {
+        /// <summary>
+        /// 语音数据所属的频道标识
+        /// </summary>
         public string ChannelID { get; set; }
 
+        /// <summary>
+        /// 语音数据内容，格式由所用编解码器决定
+        /// </summary>
         public byte[] Data { get; set; }
     }
 }
