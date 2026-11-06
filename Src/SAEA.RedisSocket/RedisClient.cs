@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/03/20 10:04:58
+*修改时间：2026/11/6 12:40:46
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：RedisClient接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -41,6 +41,9 @@ using System.Threading.Tasks;
 
 namespace SAEA.RedisSocket
 {
+    /// <summary>
+    /// redis 客户端，命令经内部连接下发到服务端
+    /// </summary>
     public partial class RedisClient
     {
         RedisConnection _cnn;
@@ -53,14 +56,25 @@ namespace SAEA.RedisSocket
 
         bool _debugModel = false;
 
+        /// <summary>
+        /// 当前是否已建立连接
+        /// </summary>
         public bool IsConnected { get; set; }
 
+        /// <summary>
+        /// 当前实例使用的连接配置
+        /// </summary>
         public RedisConfig RedisConfig
         {
             get;
             set;
         }
 
+        /// <summary>
+        /// 使用已有配置初始化客户端，仅创建连接对象，需再调用 Connect 才真正连上服务端
+        /// </summary>
+        /// <param name="config">连接配置</param>
+        /// <param name="debugModel">是否启用调试模式，调试模式会改用 RedisConnectionDebug 输出日志</param>
         public RedisClient(RedisConfig config, bool debugModel = false)
         {
             _debugModel = debugModel;
@@ -77,8 +91,20 @@ namespace SAEA.RedisSocket
             _cnn.OnDisconnected += _cnn_OnDisconnected;
         }
 
+        /// <summary>
+        /// 使用连接字符串初始化客户端
+        /// </summary>
+        /// <param name="connectStr">连接字符串，格式如 server=127.0.0.1:6379;passwords=yswenli</param>
+        /// <param name="debugModel">是否启用调试模式</param>
         public RedisClient(string connectStr, bool debugModel = false) : this(new RedisConfig(connectStr), debugModel) { }
 
+        /// <summary>
+        /// 使用地址端口、密码和超时时间初始化客户端
+        /// </summary>
+        /// <param name="ipPort">服务器地址，格式为 ip:port</param>
+        /// <param name="password">连接密码，无密码时传 null 或空字符串</param>
+        /// <param name="acitonTimeout">操作超时时间，单位毫秒</param>
+        /// <param name="debugModel">是否启用调试模式</param>
         public RedisClient(string ipPort, string password, int acitonTimeout = 6 * 1000, bool debugModel = false) : this(new RedisConfig(ipPort, password, acitonTimeout), debugModel)
         {
 
@@ -191,9 +217,9 @@ namespace SAEA.RedisSocket
         }
 
         /// <summary>
-        /// redis ping
+        /// 探测服务端是否可用
         /// </summary>
-        /// <returns></returns>
+        /// <returns>服务端应答，正常时为 PONG</returns>
         public string Ping()
         {
             return _cnn.Do(RequestType.PING).Data;
@@ -239,9 +265,10 @@ namespace SAEA.RedisSocket
             return _cnn.DoWithKey(RequestType.TYPE, key).Data;
         }
         /// <summary>
-        /// redis server的信息
+        /// 获取 redis server 的信息文本
         /// </summary>
-        /// <returns></returns>
+        /// <param name="section">信息段名称，默认 all 表示全部段，也可传 Replication 等段名</param>
+        /// <returns>INFO 命令的原始返回内容</returns>
         public string Info(string section = RedisConst.All)
         {
             return _cnn.DoWithOne(RequestType.INFO, section).Data;
@@ -365,18 +392,18 @@ namespace SAEA.RedisSocket
         RedisProducer _redisProducer = null;
 
         /// <summary>
-        /// RedisQueue
+        /// 创建基于当前连接的 stream 队列操作对象
         /// </summary>
-        /// <returns></returns>
+        /// <returns>新的队列操作对象，每次调用都会新建实例</returns>
         public RedisQueue GetRedisQueue()
         {
             return new RedisQueue(_cnn);
         }
 
         /// <summary>
-        /// GetRedisProducer
+        /// 获取 stream 生产者，实例在首次调用时创建并复用
         /// </summary>
-        /// <returns></returns>
+        /// <returns>生产者实例</returns>
         public RedisProducer GetRedisProducer()
         {
             if (_redisProducer == null)
@@ -387,13 +414,13 @@ namespace SAEA.RedisSocket
 
         }
         /// <summary>
-        /// GetRedisConsumer
+        /// 创建 stream 消费者，使用独立的新连接，不受当前客户端连接影响
         /// </summary>
-        /// <param name="topicIDs"></param>
-        /// <param name="count"></param>
-        /// <param name="blocked"></param>
-        /// <param name="timeout"></param>
-        /// <returns></returns>
+        /// <param name="topicIDs">订阅的 stream 及起始消息 ID</param>
+        /// <param name="count">每次读取的消息条数</param>
+        /// <param name="blocked">是否以阻塞方式读取</param>
+        /// <param name="timeout">阻塞超时时间，单位毫秒</param>
+        /// <returns>新建的消费者，使用后需释放其连接</returns>
         public RedisConsumer GetRedisConsumer(IEnumerable<TopicID> topicIDs, int count = 1, bool blocked = false, int timeout = 1000)
         {
             var cnn = new RedisConnection(RedisConfig.GetIPPort(), RedisConfig.ActionTimeOut);
@@ -405,19 +432,19 @@ namespace SAEA.RedisSocket
             return new RedisConsumer(cnn, topicIDs, count, blocked, timeout);
         }
         /// <summary>
-        /// GetRedisGroupConsumer
+        /// 创建 stream 消费组消费者，使用独立的新连接
         /// </summary>
-        /// <param name="groupName"></param>
-        /// <param name="consumerName"></param>
-        /// <param name="topicName"></param>
-        /// <param name="count"></param>
-        /// <param name="autoCommit"></param>
-        /// <param name="redisId"></param>
-        /// <param name="noAck"></param>
-        /// <param name="blocked"></param>
-        /// <param name="timeout"></param>
-        /// <param name="asc"></param>
-        /// <returns></returns>
+        /// <param name="groupName">消费组名称</param>
+        /// <param name="consumerName">消费者名称</param>
+        /// <param name="topicName">订阅的 stream 名称</param>
+        /// <param name="count">每次读取的消息条数</param>
+        /// <param name="autoCommit">是否读取后自动确认消息</param>
+        /// <param name="redisId">起始消息 ID，空字符串表示由服务端按消费组状态决定</param>
+        /// <param name="noAck">是否不发送确认</param>
+        /// <param name="blocked">是否以阻塞方式读取</param>
+        /// <param name="timeout">阻塞超时时间，单位毫秒</param>
+        /// <param name="asc">是否按消息 ID 升序读取</param>
+        /// <returns>新建的消费组消费者，使用后需释放其连接</returns>
         public RedisGroupConsumer GetRedisGroupConsumer(string groupName, string consumerName, string topicName, int count = 1, bool autoCommit = false, string redisId = "", bool noAck = false, bool blocked = false, int timeout = 1000, bool asc = true)
         {
             var cnn = new RedisConnection(RedisConfig.GetIPPort(), RedisConfig.ActionTimeOut);

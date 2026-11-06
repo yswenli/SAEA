@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/01/08 20:00:21
+*修改时间：2026/11/6 12:40:46
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：RedisConsumer接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -36,8 +36,7 @@ using System.Linq;
 namespace SAEA.RedisSocket.Core.Stream
 {
     /// <summary>
-    /// redisconsumer,
-    /// XREAD BLOCK 5000 COUNT 100 STREAMS mystream $
+    /// Stream 消费者，按 XREAD 命令轮询读取消息
     /// </summary>
     public class RedisConsumer : IDisposable
     {
@@ -80,7 +79,7 @@ namespace SAEA.RedisSocket.Core.Stream
 
 
         /// <summary>
-        /// Start
+        /// 启动阻塞式消费循环，持续读取消息并触发 OnReceive，直到调用 Stop
         /// </summary>
         public void Start()
         {
@@ -107,22 +106,25 @@ namespace SAEA.RedisSocket.Core.Stream
             }
         }
         /// <summary>
-        /// Subscribe
+        /// 执行一次 XREAD 读取，返回本次拉取到的消息条目
         /// </summary>
-        /// <returns></returns>
+        /// <returns>本次读取到的消息条目集合</returns>
         public IEnumerable<StreamEntry> Subscribe()
         {
             return _redisQueue.Subscribe(_topicIDs, _count, _blocked, _timeout);
         }
 
         /// <summary>
-        /// Stop
+        /// 停止消费循环
         /// </summary>
         public void Stop()
         {
             _started = false;
         }
 
+        /// <summary>
+        /// 释放内部使用的队列连接
+        /// </summary>
         public void Dispose()
         {
             _redisQueue.Dispose();

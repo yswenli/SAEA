@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2020/07/24 09:50:43
+*修改时间：2026/11/6 12:40:46
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：Batch类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -101,6 +101,11 @@ namespace SAEA.RedisSocket.Core.Batches
 
         }
 
+        /// <summary>
+        /// 将 APPEND 命令加入批量队列
+        /// </summary>
+        /// <param name="key">键名</param>
+        /// <param name="value">追加到键值末尾的内容</param>
         public void AppendAsync(string key, string value)
         {
             var cmd = _redisCode.Coder(RequestType.APPEND, key, value);
@@ -109,6 +114,10 @@ namespace SAEA.RedisSocket.Core.Batches
         }
 
 
+        /// <summary>
+        /// 将 DECR 命令加入批量队列，键值减一
+        /// </summary>
+        /// <param name="key">键名</param>
         public void DecrementAsync(string key)
         {
             var cmd = _redisCode.Coder(RequestType.DECR, key);
@@ -116,6 +125,11 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.DECR, cmd));
         }
 
+        /// <summary>
+        /// 将 DECRBY 命令加入批量队列，键值减去指定整数
+        /// </summary>
+        /// <param name="key">键名</param>
+        /// <param name="num">减去的整数</param>
         public void DecrementByAsync(string key, int num)
         {
             var cmd = _redisCode.Coder(RequestType.DECRBY, key, num.ToString());
@@ -123,6 +137,10 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.DECRBY, cmd));
         }
 
+        /// <summary>
+        /// 将 DEL 命令加入批量队列，删除一个或多个键
+        /// </summary>
+        /// <param name="keys">要删除的键名集合</param>
         public void DelAsync(params string[] keys)
         {
             var cmd = _redisCode.Coder(RequestType.DEL, keys);
@@ -130,6 +148,10 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.DEL, cmd));
         }
 
+        /// <summary>
+        /// 将 EXISTS 命令加入批量队列，判断键是否存在
+        /// </summary>
+        /// <param name="key">键名</param>
         public void ExistsAsync(string key)
         {
             var cmd = _redisCode.Coder(RequestType.EXISTS, key);
@@ -137,6 +159,11 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.EXISTS, cmd));
         }
 
+        /// <summary>
+        /// 将 EXPIRE 命令加入批量队列，设置键的过期秒数
+        /// </summary>
+        /// <param name="key">键名</param>
+        /// <param name="seconds">过期时间，单位秒</param>
         public void ExpireAsync(string key, int seconds)
         {
             var cmd = _redisCode.Coder(RequestType.EXPIRE, key, seconds.ToString());
@@ -144,6 +171,11 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.EXPIRE, cmd));
         }
 
+        /// <summary>
+        /// 将 EXPIREAT 命令加入批量队列，在指定日期时间过期
+        /// </summary>
+        /// <param name="key">键名</param>
+        /// <param name="dateTime">过期日期时间，按本地时区换算为 Unix 秒级时间戳</param>
         public void ExpireAtAsync(string key, DateTime dateTime)
         {
             var cmd = _redisCode.Coder(RequestType.EXPIREAT, key, dateTime.ToUnixTick().ToString());
@@ -151,6 +183,11 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.EXPIREAT, cmd));
         }
 
+        /// <summary>
+        /// 将 EXPIREAT 命令加入批量队列，在指定 Unix 秒级时间戳过期
+        /// </summary>
+        /// <param name="key">键名</param>
+        /// <param name="timestamp">过期时间，Unix 秒级时间戳</param>
         public void ExpireAtAsync(string key, int timestamp)
         {
             var cmd = _redisCode.Coder(RequestType.EXPIREAT, key, timestamp.ToString());
@@ -158,6 +195,11 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.EXPIREAT, cmd));
         }
 
+        /// <summary>
+        /// 将 GEOADD 命令加入批量队列，添加一个或多个地理位置成员
+        /// </summary>
+        /// <param name="key">键名</param>
+        /// <param name="items">待添加的地理位置成员</param>
         public void GeoAddAsync(string key, params GeoItem[] items)
         {
             var list = new List<string>();
@@ -171,6 +213,13 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.GEOADD, cmd));
         }
 
+        /// <summary>
+        /// 将 GEODIST 命令加入批量队列，计算两个成员间的距离
+        /// </summary>
+        /// <param name="key">键名</param>
+        /// <param name="member1">第一个成员</param>
+        /// <param name="member2">第二个成员</param>
+        /// <param name="geoUnit">距离单位，默认米</param>
         public void GeoDistAsync(string key, string member1, string member2, GeoUnit geoUnit = GeoUnit.m)
         {
             var cmd = _redisCode.Coder(RequestType.GEODIST, key, member1, member2, geoUnit.ToString());
@@ -178,6 +227,10 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.GEODIST, cmd));
         }
 
+        /// <summary>
+        /// 将 GET 命令加入批量队列，读取键值
+        /// </summary>
+        /// <param name="key">键名</param>
         public void GetAsync(string key)
         {
             var cmd = _redisCode.Coder(RequestType.GET, key);
@@ -185,6 +238,11 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.GET, cmd));
         }
 
+        /// <summary>
+        /// 将 GETSET 命令加入批量队列，设置新值并返回旧值
+        /// </summary>
+        /// <param name="key">键名</param>
+        /// <param name="value">新值</param>
         public void GetSetAsync(string key, string value)
         {
             var cmd = _redisCode.Coder(RequestType.GETSET, key, value);
@@ -192,6 +250,11 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.GETSET, cmd));
         }
 
+        /// <summary>
+        /// 将 HDEL 命令加入批量队列，删除哈希表中的一个字段
+        /// </summary>
+        /// <param name="hid">哈希表键名</param>
+        /// <param name="key">待删除的字段名</param>
         public void HDelAsync(string hid, string key)
         {
             var cmd = _redisCode.Coder(RequestType.HDEL, hid, key);
@@ -199,6 +262,11 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.HDEL, cmd));
         }
 
+        /// <summary>
+        /// 将 HDEL 命令加入批量队列，删除哈希表中的多个字段
+        /// </summary>
+        /// <param name="hid">哈希表键名</param>
+        /// <param name="keys">待删除的字段名集合</param>
         public void HDelAsync(string hid, params string[] keys)
         {
             var list = new List<string>();
@@ -212,6 +280,11 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.HDEL, cmd));
         }
 
+        /// <summary>
+        /// 将 HEXISTS 命令加入批量队列，判断哈希表中字段是否存在
+        /// </summary>
+        /// <param name="hid">哈希表键名</param>
+        /// <param name="key">字段名</param>
         public void HExistsAsync(string hid, string key)
         {
             var cmd = _redisCode.Coder(RequestType.HEXISTS, hid, key);
@@ -219,6 +292,11 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.HEXISTS, cmd));
         }
 
+        /// <summary>
+        /// 将 HGET 命令加入批量队列，读取哈希表中字段的值
+        /// </summary>
+        /// <param name="hid">哈希表键名</param>
+        /// <param name="key">字段名</param>
         public void HGetAsync(string hid, string key)
         {
             var cmd = _redisCode.Coder(RequestType.HGET, hid, key);
@@ -226,6 +304,12 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.HGET, cmd));
         }
 
+        /// <summary>
+        /// 将 HINCRBY 命令加入批量队列，对哈希表字段值加上指定整数
+        /// </summary>
+        /// <param name="hid">哈希表键名</param>
+        /// <param name="key">字段名</param>
+        /// <param name="num">增加的整数</param>
         public void HIncrementByAsync(string hid, string key, int num)
         {
             var cmd = _redisCode.Coder(RequestType.HINCRBY, hid, key, num.ToString());
@@ -233,6 +317,12 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.HINCRBY, cmd));
         }
 
+        /// <summary>
+        /// 将 HINCRBYFLOAT 命令加入批量队列，对哈希表字段值加上指定浮点数
+        /// </summary>
+        /// <param name="hid">哈希表键名</param>
+        /// <param name="key">字段名</param>
+        /// <param name="num">增加的浮点数</param>
         public void HIncrementByFloatAsync(string hid, string key, float num)
         {
             var cmd = _redisCode.Coder(RequestType.HINCRBYFLOAT, hid, key, num.ToString());
@@ -240,6 +330,10 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.HINCRBYFLOAT, cmd));
         }
 
+        /// <summary>
+        /// 将 HLEN 命令加入批量队列，读取哈希表字段数量
+        /// </summary>
+        /// <param name="hid">哈希表键名</param>
         public void HLenAsync(string hid)
         {
             var cmd = _redisCode.Coder(RequestType.HLEN, hid);
@@ -247,6 +341,12 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.HLEN, cmd));
         }
 
+        /// <summary>
+        /// 将 HSET 命令加入批量队列，设置哈希表中单个字段的值
+        /// </summary>
+        /// <param name="hid">哈希表键名</param>
+        /// <param name="key">字段名</param>
+        /// <param name="value">字段值</param>
         public void HSetAsync(string hid, string key, string value)
         {
             var cmd = _redisCode.Coder(RequestType.HSET, hid, key, value);
@@ -254,6 +354,11 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.HSET, cmd));
         }
 
+        /// <summary>
+        /// 将 HSTRLEN 命令加入批量队列，读取哈希表字段值的字符串长度
+        /// </summary>
+        /// <param name="hid">哈希表键名</param>
+        /// <param name="key">字段名</param>
         public void HStrLenAsync(string hid, string key)
         {
             var cmd = _redisCode.Coder(RequestType.HSTRLEN, hid, key);
@@ -261,6 +366,10 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.HSTRLEN, cmd));
         }
 
+        /// <summary>
+        /// 将 INCR 命令加入批量队列，键值加一
+        /// </summary>
+        /// <param name="key">键名</param>
         public void IncrementAsync(string key)
         {
             var cmd = _redisCode.Coder(RequestType.INCR, key);
@@ -268,6 +377,11 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.INCR, cmd));
         }
 
+        /// <summary>
+        /// 将 INCRBY 命令加入批量队列，键值加上指定整数
+        /// </summary>
+        /// <param name="key">键名</param>
+        /// <param name="num">增加的整数</param>
         public void IncrementByAsync(string key, int num)
         {
             var cmd = _redisCode.Coder(RequestType.INCRBY, key, num.ToString());
@@ -275,6 +389,11 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.INCRBY, cmd));
         }
 
+        /// <summary>
+        /// 对键值加上指定浮点数
+        /// </summary>
+        /// <param name="key">键名</param>
+        /// <param name="num">增加的浮点数</param>
         public void IncrementByFloatAsync(string key, float num)
         {
             var cmd = _redisCode.Coder(RequestType.INCRBY, key, num.ToString());
@@ -282,6 +401,10 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.INCRBY, cmd));
         }
 
+        /// <summary>
+        /// 将 STRLEN 命令加入批量队列，读取字符串值的长度
+        /// </summary>
+        /// <param name="key">键名</param>
         public void LenAsync(string key)
         {
             var cmd = _redisCode.Coder(RequestType.STRLEN, key);
@@ -289,6 +412,11 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.STRLEN, cmd));
         }
 
+        /// <summary>
+        /// 将 LINDEX 命令加入批量队列，按下标读取列表元素
+        /// </summary>
+        /// <param name="key">键名</param>
+        /// <param name="index">元素下标，负数表示从表尾开始计数</param>
         public void LIndexAsync(string key, int index)
         {
             var cmd = _redisCode.Coder(RequestType.LINDEX, key, index.ToString());
@@ -296,6 +424,13 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.LINDEX, cmd));
         }
 
+        /// <summary>
+        /// 将 LINSERT 命令加入批量队列，在基准元素前后插入新元素
+        /// </summary>
+        /// <param name="key">键名</param>
+        /// <param name="pivot">基准元素</param>
+        /// <param name="isBefore">为 true 插在基准元素之前，否则插在其后</param>
+        /// <param name="value">待插入的元素</param>
         public void LInsertAsync(string key, string pivot, bool isBefore, string value)
         {
             var beforStr = isBefore ? "BEFORE" : "AFTER";
@@ -310,6 +445,10 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.LINSERT, cmd));
         }
 
+        /// <summary>
+        /// 将 LLEN 命令加入批量队列，读取列表长度
+        /// </summary>
+        /// <param name="key">键名</param>
         public void LLenAsync(string key)
         {
             var cmd = _redisCode.Coder(RequestType.LLEN, key);
@@ -317,6 +456,10 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.LLEN, cmd));
         }
 
+        /// <summary>
+        /// 将 LPOP 命令加入批量队列，移除并返回列表头元素
+        /// </summary>
+        /// <param name="key">键名</param>
         public void LPopAsync(string key)
         {
             var cmd = _redisCode.Coder(RequestType.LPOP, key);
@@ -324,6 +467,11 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.LPOP, cmd));
         }
 
+        /// <summary>
+        /// 将 LPUSH 命令加入批量队列，把多个元素依次插入列表头部
+        /// </summary>
+        /// <param name="key">键名</param>
+        /// <param name="lists">待插入的元素集合，按集合顺序入栈</param>
         public void LPushAsync(string key, List<string> lists)
         {
             var list = new List<string>();
@@ -337,6 +485,11 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.LPUSH, cmd));
         }
 
+        /// <summary>
+        /// 将 LPUSH 命令加入批量队列，把单个元素插入列表头部
+        /// </summary>
+        /// <param name="key">键名</param>
+        /// <param name="value">待插入的元素</param>
         public void LPushAsync(string key, string value)
         {
             var cmd = _redisCode.Coder(RequestType.LPUSH, key, value);
@@ -344,6 +497,11 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.LPUSH, cmd));
         }
 
+        /// <summary>
+        /// 将 LPUSHX 命令加入批量队列，仅当列表存在时把元素插入头部
+        /// </summary>
+        /// <param name="key">键名</param>
+        /// <param name="value">待插入的元素</param>
         public void LPushXAsync(string key, string value)
         {
             var cmd = _redisCode.Coder(RequestType.LPUSHX, key, value);
@@ -351,6 +509,12 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.LPUSHX, cmd));
         }
 
+        /// <summary>
+        /// 将 LREM 命令加入批量队列，按数量从列表中移除指定元素
+        /// </summary>
+        /// <param name="key">键名</param>
+        /// <param name="count">移除数量，大于 0 从头到尾移除，小于 0 从尾到头移除，等于 0 移除全部</param>
+        /// <param name="value">待移除的元素</param>
         public void LRemoveAsync(string key, int count, string value)
         {
             var cmd = _redisCode.Coder(RequestType.LREM, key, count.ToString(), value);
@@ -358,6 +522,12 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.LREM, cmd));
         }
 
+        /// <summary>
+        /// 将 LSET 命令加入批量队列，按下标设置列表元素
+        /// </summary>
+        /// <param name="key">键名</param>
+        /// <param name="index">元素下标，负数表示从表尾开始计数</param>
+        /// <param name="value">新的元素值</param>
         public void LSetAsync(string key, int index, string value)
         {
             var cmd = _redisCode.Coder(RequestType.LSET, key, index.ToString(), value);
@@ -365,6 +535,12 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.LSET, cmd));
         }
 
+        /// <summary>
+        /// 将 LTRIM 命令加入批量队列，按区间裁剪列表
+        /// </summary>
+        /// <param name="key">键名</param>
+        /// <param name="begin">起始下标，默认 0</param>
+        /// <param name="end">结束下标，含该位置，默认 -1 表示表尾</param>
         public void LTrimAsync(string key, int begin = 0, int end = -1)
         {
             var cmd = _redisCode.Coder(RequestType.LTRIM, key, begin.ToString(), end.ToString());
@@ -428,6 +604,11 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.RPOP, cmd));
         }
 
+        /// <summary>
+        /// 将 RPOPLPUSH 命令加入批量队列，把源列表尾元素移到目标列表头部
+        /// </summary>
+        /// <param name="source">源列表键名</param>
+        /// <param name="destination">目标列表键名</param>
         public void RpopLPushAsync(string source, string destination)
         {
             var cmd = _redisCode.Coder(RequestType.RPOPLPUSH, source, destination);
@@ -504,6 +685,12 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.SDIFFSTORE, cmd));
         }
 
+        /// <summary>
+        /// 依次加入 SET 与 EXPIRE 命令，写入键值并设置过期时间
+        /// </summary>
+        /// <param name="key">键名</param>
+        /// <param name="value">键值</param>
+        /// <param name="seconds">过期时间，单位秒</param>
         public void SetAsync(string key, string value, int seconds)
         {
             var cmd = _redisCode.Coder(RequestType.SET, key, value);
@@ -515,6 +702,11 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.EXPIRE, cmd));
         }
 
+        /// <summary>
+        /// 将 SET 命令加入批量队列，写入键值且不设过期时间
+        /// </summary>
+        /// <param name="key">键名</param>
+        /// <param name="value">键值</param>
         public void SetAsync(string key, string value)
         {
             var cmd = _redisCode.Coder(RequestType.SET, key, value);
@@ -563,6 +755,10 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.SCARD, cmd));
         }
 
+        /// <summary>
+        /// 将 SPOP 命令加入批量队列，随机移除并返回集合中一个元素
+        /// </summary>
+        /// <param name="key">键名</param>
         public void SPopAsync(string key)
         {
             var cmd = _redisCode.Coder(RequestType.SPOP, key);
@@ -570,6 +766,10 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.SPOP, cmd));
         }
 
+        /// <summary>
+        /// 将 SRANDMEMBER 命令加入批量队列，随机返回集合中一个元素且不删除
+        /// </summary>
+        /// <param name="key">键名</param>
         public void SRandMemeberAsync(string key)
         {
             var cmd = _redisCode.Coder(RequestType.SRANDMEMBER, key);
@@ -577,6 +777,11 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.SRANDMEMBER, cmd));
         }
 
+        /// <summary>
+        /// 将 SREM 命令加入批量队列，从集合中移除一个或多个成员
+        /// </summary>
+        /// <param name="key">键名</param>
+        /// <param name="values">待移除的成员集合</param>
         public void SRemoveAsync(string key, params string[] values)
         {
             var list = new List<string>();
@@ -619,6 +824,11 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.TTL, cmd));
         }
 
+        /// <summary>
+        /// 将 ZADD 命令加入批量队列，按分值批量添加有序集成员
+        /// </summary>
+        /// <param name="key">键名</param>
+        /// <param name="scoreVals">分值到成员名的映射，同一分值只保留一个成员</param>
         public void ZAddAsync(string key, Dictionary<double, string> scoreVals)
         {
             var cmd = _redisCode.CodeForDicWidthID(RequestType.ZADD, key, scoreVals);
@@ -627,6 +837,12 @@ namespace SAEA.RedisSocket.Core.Batches
 
         }
 
+        /// <summary>
+        /// 将 ZADD 命令加入批量队列，添加单个有序集成员
+        /// </summary>
+        /// <param name="key">键名</param>
+        /// <param name="value">成员名</param>
+        /// <param name="score">成员分值</param>
         public void ZAddAsync(string key, string value, double score)
         {
             var cmd = _redisCode.Coder(RequestType.ZADD, key, score.ToString(), value);
@@ -635,6 +851,12 @@ namespace SAEA.RedisSocket.Core.Batches
 
         }
 
+        /// <summary>
+        /// 将 ZCOUNT 命令加入批量队列，统计分值区间内的成员数量
+        /// </summary>
+        /// <param name="key">键名</param>
+        /// <param name="begin">分值区间下界，含边界，默认 int 最小值</param>
+        /// <param name="end">分值区间上界，含边界，默认 int 最大值</param>
         public void ZCountAsync(string key, double begin = -2147483648, double end = 2147483647)
         {
             var cmd = _redisCode.Coder(RequestType.ZCOUNT, key, begin.ToString(), end.ToString());
@@ -642,6 +864,12 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.ZCOUNT, cmd));
         }
 
+        /// <summary>
+        /// 将 ZINCRBY 命令加入批量队列，对指定成员的分值加上浮点增量
+        /// </summary>
+        /// <param name="key">键名</param>
+        /// <param name="increment">分值增量</param>
+        /// <param name="value">成员名</param>
         public void ZIncrByAsync(string key, double increment, string value)
         {
             var cmd = _redisCode.Coder(RequestType.ZINCRBY, key, increment.ToString(), value);
@@ -649,6 +877,12 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.ZINCRBY, cmd));
         }
 
+        /// <summary>
+        /// 将 ZINCRBY 命令加入批量队列，对指定成员的分值加上整数增量
+        /// </summary>
+        /// <param name="key">键名</param>
+        /// <param name="increment">分值增量</param>
+        /// <param name="value">成员名</param>
         public void ZIncrByAsync(string key, long increment, string value)
         {
             var cmd = _redisCode.Coder(RequestType.ZINCRBY, key, increment.ToString(), value);
@@ -656,6 +890,10 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.ZINCRBY, cmd));
         }
 
+        /// <summary>
+        /// 将 ZCARD 命令加入批量队列，读取有序集的成员数量
+        /// </summary>
+        /// <param name="key">键名</param>
         public void ZLenAsync(string key)
         {
             var cmd = _redisCode.Coder(RequestType.ZCARD, key);
@@ -663,6 +901,14 @@ namespace SAEA.RedisSocket.Core.Batches
             _batchData.Add(new BatchItem(RequestType.ZCARD, cmd));
         }
 
+        /// <summary>
+        /// 将 ZLEXCOUNT 命令加入批量队列，统计字典序区间内的成员数量，offset 与 count 一并作为命令参数发送
+        /// </summary>
+        /// <param name="key">键名</param>
+        /// <param name="min">字典序下界，默认 double 最小值</param>
+        /// <param name="max">字典序上界，默认 double 最大值</param>
+        /// <param name="offset">偏移量，默认 -1</param>
+        /// <param name="count">统计数量上限，默认 20</param>
         public void ZLexCountAsync(string key, double min = double.MinValue, double max = double.MaxValue, long offset = -1, int count = 20)
         {
             var cmd = _redisCode.Coder(RequestType.ZLEXCOUNT, key, min.ToString(), max.ToString(), offset.ToString(), count.ToString());
@@ -767,7 +1013,7 @@ namespace SAEA.RedisSocket.Core.Batches
         }
 
         /// <summary>
-        /// Dispose
+        /// 释放批量队列，清空已缓存的命令
         /// </summary>
         public void Dispose()
         {

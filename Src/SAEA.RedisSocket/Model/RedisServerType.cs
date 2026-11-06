@@ -23,22 +23,34 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/10/23 20:05:14
+*修改时间：2026/11/6 12:40:46
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：RedisServerType接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.RedisSocket.Model
 {
     /// <summary>
-    /// redis server type
+    /// redis 服务端的角色类型
     /// </summary>
     public enum RedisServerType
     {
+        /// <summary>
+        /// 单机主节点
+        /// </summary>
         Master = 0,
+        /// <summary>
+        /// 单机从节点
+        /// </summary>
         Slave = 1,
+        /// <summary>
+        /// 集群主节点
+        /// </summary>
         ClusterMaster = 2,
+        /// <summary>
+        /// 集群从节点
+        /// </summary>
         ClusterSlave = 3
     }
 }

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/08/16 18:02:29
+*修改时间：2026/11/6 12:40:46
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：GeoItem接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.Collections.Generic;
@@ -56,23 +56,40 @@ namespace SAEA.RedisSocket.Model
         ft
     }
 
+    /// <summary>
+    /// 地理位置成员，包含名称与经纬度
+    /// </summary>
     public class GeoItem
     {
+        /// <summary>
+        /// 成员名称
+        /// </summary>
         public string Name
         {
             get; set;
         }
 
+        /// <summary>
+        /// 经度
+        /// </summary>
         public double Lng
         {
             get; set;
         }
 
+        /// <summary>
+        /// 纬度
+        /// </summary>
         public double Lat
         {
             get; set;
         }
 
+        /// <summary>
+        /// 把多个成员展开为 GEO 命令参数，每个成员按经度、纬度、名称顺序输出
+        /// </summary>
+        /// <param name="arr">地理位置成员数组</param>
+        /// <returns>经度、纬度、名称依次排列的参数列表</returns>
         public static List<string> ToParams(GeoItem[] arr)
         {
             var result = new List<string>();
@@ -83,6 +100,11 @@ namespace SAEA.RedisSocket.Model
             return result;
         }
 
+        /// <summary>
+        /// 把单个成员转换为 GEO 命令参数
+        /// </summary>
+        /// <param name="item">地理位置成员</param>
+        /// <returns>依次为经度、纬度、名称的参数列表</returns>
         public static List<string> ToParams(GeoItem item)
         {
             var result = new List<string>();
@@ -93,16 +115,31 @@ namespace SAEA.RedisSocket.Model
         }
     }
 
+    /// <summary>
+    /// GEO POS 返回的经纬度坐标
+    /// </summary>
     public class GeoNum
     {
+        /// <summary>
+        /// 经度
+        /// </summary>
         public double Lng { get; set; }
 
+        /// <summary>
+        /// 纬度
+        /// </summary>
         public double Lat { get; set; }
     }
 
 
+    /// <summary>
+    /// 带距离的地理位置信息
+    /// </summary>
     public class GeoDistInfo : GeoItem
     {
+        /// <summary>
+        /// 与中心的距离，单位由查询时的 GeoUnit 决定
+        /// </summary>
         public double Dist { get; set; }
     }
 }

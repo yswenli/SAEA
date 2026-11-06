@@ -23,18 +23,25 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/03/20 10:04:58
+*修改时间：2026/11/6 12:40:46
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ResponseData类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.RedisSocket.Interface;
 
 namespace SAEA.RedisSocket.Model
 {
+    /// <summary>
+    /// 单次命令的应答结果
+    /// </summary>
+    /// <typeparam name="T">应答实体类型</typeparam>
     public class ResponseData<T> : IResult
     {
+        /// <summary>
+        /// 应答类型，用于区分成功、错误、空结果等情形
+        /// </summary>
         public ResponseType Type
         {
             get; set;
@@ -42,6 +49,9 @@ namespace SAEA.RedisSocket.Model
 
         string _data = string.Empty;
 
+        /// <summary>
+        /// 应答的原始文本，读取时已去除末尾空白，赋值 null 后读取会抛空引用异常
+        /// </summary>
         public string Data
         {
             get
@@ -54,6 +64,9 @@ namespace SAEA.RedisSocket.Model
             }
         }
 
+        /// <summary>
+        /// 由应答文本转换出的强类型实体
+        /// </summary>
         public T Entity
         {
             get; set;

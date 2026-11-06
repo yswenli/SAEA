@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/01/08 20:00:21
+*修改时间：2026/11/6 12:40:46
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：RedisID接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -36,25 +36,37 @@ using System;
 namespace SAEA.RedisSocket.Core.Stream
 {
     /// <summary>
-    /// RedisID
+    /// Stream 消息 ID，由时间戳与序列号组成，格式为 head-tail
     /// </summary>
     public class RedisID
     {
+        /// <summary>
+        /// 仅读取新消息的位置标记 $
+        /// </summary>
         public const string Latest = "$";
 
+        /// <summary>
+        /// 从头读取的位置标记 0
+        /// </summary>
         public const string Earliest = "0";
 
         string _str = string.Empty;
 
+        /// <summary>
+        /// ID 的时间戳部分，单位毫秒
+        /// </summary>
         public long Head { get; set; }
 
+        /// <summary>
+        /// ID 的序列号部分
+        /// </summary>
         public long Tail { get; set; }
 
         /// <summary>
-        /// RedisID
+        /// 以时间戳与序列号构造 ID
         /// </summary>
-        /// <param name="head"></param>
-        /// <param name="tail"></param>
+        /// <param name="head">时间戳部分，单位毫秒</param>
+        /// <param name="tail">序列号部分</param>
         public RedisID(long head, long tail)
         {
             Head = head;
@@ -63,9 +75,9 @@ namespace SAEA.RedisSocket.Core.Stream
         }
 
         /// <summary>
-        /// RedisID
+        /// 解析 head-tail 格式的字符串构造 ID，解析失败时保留原始文本且时间戳与序列号均为 0
         /// </summary>
-        /// <param name="redisId"></param>
+        /// <param name="redisId">ID 字符串，也可是 $ 或 0 等特殊标记</param>
         public RedisID(string redisId)
         {
             if (!string.IsNullOrEmpty(redisId) && redisId.IndexOf("-") > 0)
@@ -88,7 +100,7 @@ namespace SAEA.RedisSocket.Core.Stream
         }
 
         /// <summary>
-        /// RedisID
+        /// 创建取值为从头读取标记的 ID
         /// </summary>
         public RedisID()
         {

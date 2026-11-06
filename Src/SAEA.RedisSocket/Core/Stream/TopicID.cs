@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/01/08 20:00:21
+*修改时间：2026/11/6 12:40:46
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：TopicID接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -35,12 +35,26 @@ using System.Text;
 
 namespace SAEA.RedisSocket.Core.Stream
 {
+    /// <summary>
+    /// Stream 主题与起始消息 ID 的组合，用于指定读取位置
+    /// </summary>
     public struct TopicID
     {
+        /// <summary>
+        /// 主题名，即 Stream 的键名
+        /// </summary>
         public string Topic { get; set; }
 
+        /// <summary>
+        /// 起始消息 ID，可用 $ 或 0 等特殊标记
+        /// </summary>
         public string RedisID { get; set; }
 
+        /// <summary>
+        /// 以主题名与起始消息 ID 构造
+        /// </summary>
+        /// <param name="topic">主题名</param>
+        /// <param name="redisID">起始消息 ID</param>
         public TopicID(string topic,string redisID)
         {
             Topic = topic;

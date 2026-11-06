@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/01/08 20:00:21
+*修改时间：2026/11/6 12:40:46
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：RedisQueue接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.RedisSocket.Model;
@@ -165,16 +165,13 @@ namespace SAEA.RedisSocket.Core.Stream
         }
 
         /// <summary>
-        /// Subscribe,
-        /// XREAD COUNT 2 STREAMS mystream writers 0 0,
-        /// XREAD COUNT 2 STREAMS mystream writers 0-0 0-0,
-        /// XREAD BLOCK 5000 COUNT 100 STREAMS mystream $
+        /// 读取一个或多个主题中指定位置之后的消息，blocked 为 true 时按 timeout 毫秒阻塞等待
         /// </summary>
-        /// <param name="topicIDs"></param>
-        /// <param name="count"></param>
-        /// <param name="blocked"></param>
-        /// <param name="timeout"></param>
-        /// <returns></returns>
+        /// <param name="topicIDs">主题与读取起始 ID 的组合集合</param>
+        /// <param name="count">单次最多读取的消息数量</param>
+        /// <param name="blocked">是否阻塞等待新消息</param>
+        /// <param name="timeout">阻塞超时毫秒数，仅 blocked 为 true 时生效</param>
+        /// <returns>读取到的消息条目集合</returns>
         public IEnumerable<StreamEntry> Subscribe(IEnumerable<TopicID> topicIDs, int count = 1, bool blocked = false, int timeout = 1000)
         {
             List<string> @params = new List<string>();
@@ -219,13 +216,12 @@ namespace SAEA.RedisSocket.Core.Stream
 
 
         /// <summary>
-        /// CreateGroup,
-        /// XGROUP CREATE mystream consumer-group-name $ MKSTREAM
+        /// 创建消费组，asc 为 true 时从最早消息开始消费，否则从最新消息开始；组已存在时返回 true
         /// </summary>
-        /// <param name="topic"></param>
-        /// <param name="group"></param>
-        /// <param name="asc"></param>
-        /// <returns></returns>
+        /// <param name="topic">主题名</param>
+        /// <param name="group">消费组名</param>
+        /// <param name="asc">是否从最早消息开始消费</param>
+        /// <returns>创建成功或组已存在返回 true</returns>
         public bool CreateGroup(string topic, string group, bool asc = true)
         {
             List<string> @params = new List<string>();
@@ -318,18 +314,17 @@ namespace SAEA.RedisSocket.Core.Stream
         }
 
         /// <summary>
-        /// Subscribe,
-        /// XREADGROUP GROUP group consumer [COUNT count][BLOCK milliseconds] [NOACK] STREAMS key [key ...]ID [ID ...]
+        /// 以消费组身份读取消息，redisId 为 null 时读取尚未投递的新消息，noAck 为 true 时不写入待确认列表
         /// </summary>
-        /// <param name="groupName"></param>
-        /// <param name="consumerName"></param>
-        /// <param name="topicName"></param>
-        /// <param name="redisId"></param>
-        /// <param name="noAck"></param>
-        /// <param name="count"></param>
-        /// <param name="blocked"></param>
-        /// <param name="timeout"></param>
-        /// <returns></returns>
+        /// <param name="groupName">消费组名</param>
+        /// <param name="consumerName">消费者名</param>
+        /// <param name="topicName">主题名</param>
+        /// <param name="redisId">读取起始 ID，为 null 时按新消息读取</param>
+        /// <param name="noAck">是否跳过待确认列表</param>
+        /// <param name="count">单次最多读取的消息数量</param>
+        /// <param name="blocked">是否阻塞等待新消息</param>
+        /// <param name="timeout">阻塞超时毫秒数，仅 blocked 为 true 时生效</param>
+        /// <returns>读取到的消息条目集合</returns>
         public IEnumerable<StreamEntry> Subscribe(string groupName, string consumerName, string topicName, RedisID redisId, bool noAck = false, int count = 1, bool blocked = false, int timeout = 1000)
         {
             List<string> @params = new List<string>();
@@ -372,11 +367,12 @@ namespace SAEA.RedisSocket.Core.Stream
         }
 
         /// <summary>
-        /// Commit,
-        /// xack mystream groupA 1600590826794-2 1600590826794-3
+        /// 确认消费组中已处理的消息，ID 集合为空时直接返回 0
         /// </summary>
-        /// <param name="redisIDs"></param>
-        /// <returns></returns>
+        /// <param name="topic">主题名</param>
+        /// <param name="group">消费组名</param>
+        /// <param name="redisIDs">待确认的消息 ID 集合</param>
+        /// <returns>成功确认的消息数量</returns>
         public int Commit(string topic, string group, IEnumerable<RedisID> redisIDs)
         {
             if (redisIDs == null || !redisIDs.Any()) return 0;
@@ -400,6 +396,9 @@ namespace SAEA.RedisSocket.Core.Stream
             return int.Parse(responseData.Data);
         }
 
+        /// <summary>
+        /// 释放连接包装类持有的连接
+        /// </summary>
         public void Dispose()
         {
             RedisConnection.Dispose();

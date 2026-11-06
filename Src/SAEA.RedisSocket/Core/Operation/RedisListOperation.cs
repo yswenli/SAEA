@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2020/07/24 09:50:43
+*修改时间：2026/11/6 12:40:46
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：RedisListOperation接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -260,6 +260,12 @@ namespace SAEA.RedisSocket.Core
             return RedisConnection.DoWithMutiParams(RequestType.BLPOP, datas.ToArray()).ToList();
         }
 
+        /// <summary>
+        /// 它是 LPOP key 命令的阻塞版本，当给定列表内没有任何元素可供弹出的时候，连接将被 BLPOP 命令阻塞，直到等待超时或发现可弹出元素为止
+        /// </summary>
+        /// <param name="key">列表键名</param>
+        /// <param name="seconds">阻塞超时秒数，0 表示一直阻塞</param>
+        /// <returns>被弹出的键名与元素值列表</returns>
         public List<string> BLPop(string key, int seconds = 0)
         {
             return BLPop(new List<string>() { key }, seconds);

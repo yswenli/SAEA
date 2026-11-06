@@ -23,19 +23,25 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/01/09 13:47:20
+*修改时间：2026/11/6 12:40:46
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：StreamEntry类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.Collections.Generic;
 
 namespace SAEA.RedisSocket.Core.Stream
 {
+    /// <summary>
+    /// Stream 消息条目，包含所属主题与各消息 ID 的字段内容
+    /// </summary>
     public class StreamEntry
     {
         string _topic;
+        /// <summary>
+        /// 所属主题，即 Stream 的键名，赋值时去除尾部空白
+        /// </summary>
         public string Topic {
             get
             {
@@ -47,13 +53,25 @@ namespace SAEA.RedisSocket.Core.Stream
             }
         }
 
+        /// <summary>
+        /// 消息 ID 及其字段集合
+        /// </summary>
         public IEnumerable<IdFiled> IdFileds { get; set; }
     }
 
+    /// <summary>
+    /// 单个消息 ID 及其字段集合
+    /// </summary>
     public class IdFiled
     {
+        /// <summary>
+        /// 消息 ID
+        /// </summary>
         public RedisID RedisID { get; set; }
 
+        /// <summary>
+        /// 该消息包含的字段键值对
+        /// </summary>
         public IEnumerable<RedisField> RedisFields { get; set; }
     }
 }

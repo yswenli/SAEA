@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/07/24 09:57:22
+*修改时间：2026/11/6 12:40:46
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ResponseExtention接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -36,9 +36,18 @@ using SAEA.RedisSocket.Core;
 
 namespace SAEA.RedisSocket.Model
 {
+    /// <summary>
+    /// 把命令应答文本转换为强类型集合的扩展方法
+    /// </summary>
     public static class ResponseExtention
     {
 
+        /// <summary>
+        /// 把应答文本拆分为字符串列表，末尾的分隔残余项会被忽略
+        /// </summary>
+        /// <typeparam name="T">应答实体类型</typeparam>
+        /// <param name="source">命令应答</param>
+        /// <returns>应答项列表，应答为空时返回 null</returns>
         public static List<string> ToList<T>(this ResponseData<T> source)
         {
             if (source == null) return null;
@@ -66,6 +75,12 @@ namespace SAEA.RedisSocket.Model
             return list;
         }
 
+        /// <summary>
+        /// 把应答文本按相邻两项组成键值对写入字典
+        /// </summary>
+        /// <typeparam name="T">应答实体类型</typeparam>
+        /// <param name="source">命令应答</param>
+        /// <returns>键值字典，应答为空时返回 null</returns>
         public static Dictionary<string, string> ToDic<T>(this ResponseData<T> source)
         {
             if (source == null) return null;
@@ -97,6 +112,12 @@ namespace SAEA.RedisSocket.Model
         }
 
 
+        /// <summary>
+        /// 把应答文本按成员值与分值交替的规则转换为有序集合成员列表
+        /// </summary>
+        /// <typeparam name="T">应答实体类型</typeparam>
+        /// <param name="source">带 WITHSCORES 的有序集合命令应答</param>
+        /// <returns>有序集合成员列表，分值解析失败时该成员分值为 0，应答为空时返回 null</returns>
         public static List<ZItem> ToZList<T>(this ResponseData<T> source)
         {
             if (source == null) return null;
@@ -142,6 +163,12 @@ namespace SAEA.RedisSocket.Model
             return result;
         }
 
+        /// <summary>
+        /// 把应答文本按相邻两项组成键值对写入字典，重复的键会被跳过
+        /// </summary>
+        /// <typeparam name="T">应答实体类型</typeparam>
+        /// <param name="source">命令应答</param>
+        /// <returns>键值字典，缺值的末项对应空字符串，应答为空时返回 null</returns>
         public static Dictionary<string, string> ToKeyValues<T>(this ResponseData<T> source)
         {
             if (source == null) return null;
@@ -184,6 +211,12 @@ namespace SAEA.RedisSocket.Model
             return keyValuePairs;
         }
 
+        /// <summary>
+        /// 解析游标扫描应答，首项为游标、其余为数据项
+        /// </summary>
+        /// <typeparam name="T">应答实体类型</typeparam>
+        /// <param name="source">SCAN、HSCAN、SSCAN、ZSCAN 的应答</param>
+        /// <returns>含新游标与数据项的扫描结果，应答项格式不符时抛异常</returns>
         public static ScanResponse ToScanResponse<T>(this ResponseData<T> source)
         {
             if (source == null) return null;
@@ -216,6 +249,11 @@ namespace SAEA.RedisSocket.Model
         }
 
 
+        /// <summary>
+        /// 把扫描结果中的字段与值两两组合为哈希表
+        /// </summary>
+        /// <param name="source">扫描结果</param>
+        /// <returns>字段与值对应的哈希表，数据为空时 Data 为 null</returns>
         public static HScanResponse ToHScanResponse(this ScanResponse source)
         {
             if (source == null) return null;
@@ -254,6 +292,11 @@ namespace SAEA.RedisSocket.Model
             return result;
         }
 
+        /// <summary>
+        /// 把扫描结果转换为有序集合成员，成员值与分值交替出现
+        /// </summary>
+        /// <param name="source">扫描结果</param>
+        /// <returns>含游标与成员列表的扫描结果，数据为空时 Data 为 null</returns>
         public static ZScanResponse ToZScanResponse(this ScanResponse source)
         {
             if (source == null) return null;
@@ -302,6 +345,12 @@ namespace SAEA.RedisSocket.Model
         }
 
 
+        /// <summary>
+        /// 把应答文本按经度、纬度成对解析为坐标列表
+        /// </summary>
+        /// <typeparam name="T">应答实体类型</typeparam>
+        /// <param name="source">GEOPOS 等返回坐标的命令应答</param>
+        /// <returns>坐标列表，应答项不足两项或为空时返回 null</returns>
         public static List<GeoNum> ToGeoNums<T>(this ResponseData<T> source)
         {
             if (source == null) return null;
@@ -338,6 +387,12 @@ namespace SAEA.RedisSocket.Model
             return result;
         }
 
+        /// <summary>
+        /// 把应答文本按名称、距离、经度、纬度四项一组解析为带距离的地理信息
+        /// </summary>
+        /// <typeparam name="T">应答实体类型</typeparam>
+        /// <param name="source">带 WITHDIST、WITHCOORD 的 GEORADIUS 应答</param>
+        /// <returns>带距离的地理信息列表，应答项不足或为空时返回 null</returns>
         public static List<GeoDistInfo> ToGeoDistInfos<T>(this ResponseData<T> source)
         {
             if (source == null) return null;

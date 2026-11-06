@@ -23,21 +23,24 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/01/08 20:00:21
+*修改时间：2026/11/6 12:40:46
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：RedisField接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.RedisSocket.Core.Stream
 {
     /// <summary>
-    /// RedisField
+    /// Stream 消息中的字段键值对
     /// </summary>
     public class RedisField
     {
         string _field = string.Empty;
 
+        /// <summary>
+        /// 字段名，赋值时去除尾部空白
+        /// </summary>
         public string Field
         {
             get
@@ -52,6 +55,9 @@ namespace SAEA.RedisSocket.Core.Stream
 
         string _str = string.Empty;
 
+        /// <summary>
+        /// 字段值，赋值时去除尾部空白
+        /// </summary>
         public string String
         {
             get
@@ -65,15 +71,15 @@ namespace SAEA.RedisSocket.Core.Stream
         }
 
         /// <summary>
-        /// RedisField
+        /// 创建字段名与字段值均为空字符串的实例
         /// </summary>
         public RedisField() { }
 
         /// <summary>
-        /// RedisField
+        /// 以指定字段名与字段值创建实例
         /// </summary>
-        /// <param name="field"></param>
-        /// <param name="str"></param>
+        /// <param name="field">字段名</param>
+        /// <param name="str">字段值</param>
         public RedisField(string field, string str)
         {
             Field = field;

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/07/31 19:50:00
+*修改时间：2026/11/6 12:40:46
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ClusterInfo接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -35,7 +35,7 @@ using System;
 namespace SAEA.RedisSocket.Model
 {
     /// <summary>
-    /// ClusterInfo
+    /// 集群概览信息，对应 CLUSTER INFO 命令返回的各个字段
     /// </summary>
     public class ClusterInfo
     {
@@ -117,6 +117,11 @@ namespace SAEA.RedisSocket.Model
             get; set;
         }
 
+        /// <summary>
+        /// 解析 CLUSTER INFO 的原始文本
+        /// </summary>
+        /// <param name="info">CLUSTER INFO 以 \r\n 分隔的原始返回内容，字段顺序固定</param>
+        /// <returns>解析后的集群概览信息</returns>
         public static ClusterInfo Parse(string info)
         {
             var lines = info.Split("\r\n", StringSplitOptions.RemoveEmptyEntries);

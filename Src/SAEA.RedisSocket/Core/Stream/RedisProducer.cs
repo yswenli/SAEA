@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/01/08 20:00:21
+*修改时间：2026/11/6 12:40:46
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：RedisProducer接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.RedisSocket.Model;
@@ -37,7 +37,7 @@ using System.Text;
 namespace SAEA.RedisSocket.Core.Stream
 {
     /// <summary>
-    /// RedisProducer
+    /// Stream 生产者，按 XADD 命令发布消息
     /// </summary>
     public class RedisProducer
     {

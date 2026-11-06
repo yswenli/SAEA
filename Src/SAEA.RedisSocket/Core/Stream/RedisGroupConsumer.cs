@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/01/12 19:59:43
+*修改时间：2026/11/6 12:40:46
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：RedisGroupConsumer接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -37,9 +37,7 @@ using System.Text;
 namespace SAEA.RedisSocket.Core.Stream
 {
     /// <summary>
-    /// redisconsumer,
-    /// XREADGROUP GROUP $GroupName $ConsumerName BLOCK 2000 COUNT 10 STREAMS mystream
-    /// XGROUP CREATE mystream consumer-group-name $ MKSTREAM
+    /// Stream 消费组消费者，按 XREADGROUP 命令读取组内消息
     /// </summary>
     public class RedisGroupConsumer : IDisposable
     {
@@ -107,7 +105,7 @@ namespace SAEA.RedisSocket.Core.Stream
         }
 
         /// <summary>
-        /// Start
+        /// 启动阻塞式消费循环，持续读取组内消息并触发 OnReceive，直到调用 Stop
         /// </summary>
         public void Start()
         {
@@ -152,9 +150,9 @@ namespace SAEA.RedisSocket.Core.Stream
         }
 
         /// <summary>
-        /// SubscribeWithGroup
+        /// 执行一次 XREADGROUP 读取，首次调用会先创建消费组；开启自动提交时同时提交本次消息 ID
         /// </summary>
-        /// <returns></returns>
+        /// <returns>本次拉取到的消息条目集合</returns>
         public IEnumerable<StreamEntry> SubscribeWithGroup()
         {
             if (!_inited)
@@ -194,7 +192,7 @@ namespace SAEA.RedisSocket.Core.Stream
 
 
         /// <summary>
-        /// Stop
+        /// 停止消费循环
         /// </summary>
         public void Stop()
         {
@@ -202,7 +200,7 @@ namespace SAEA.RedisSocket.Core.Stream
         }
 
         /// <summary>
-        /// Dispose
+        /// 释放内部使用的队列连接
         /// </summary>
         public void Dispose()
         {

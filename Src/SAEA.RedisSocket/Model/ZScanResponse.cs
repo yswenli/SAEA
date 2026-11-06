@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/07/24 14:03:20
+*修改时间：2026/11/6 12:40:46
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ZScanResponse类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.Collections.Generic;
@@ -34,7 +34,7 @@ using System.Collections.Generic;
 namespace SAEA.RedisSocket.Model
 {
     /// <summary>
-    /// HScan返回值
+    /// 有序集合游标扫描的返回值
     /// </summary>
     public class ZScanResponse
     {
@@ -54,12 +54,21 @@ namespace SAEA.RedisSocket.Model
         }
     }
 
+    /// <summary>
+    /// 有序集合成员，包含成员值与分值
+    /// </summary>
     public class ZItem
     {
+        /// <summary>
+        /// 成员值
+        /// </summary>
         public string Value
         {
             get; set;
         }
+        /// <summary>
+        /// 成员分值
+        /// </summary>
         public double Score
         {
             get; set;

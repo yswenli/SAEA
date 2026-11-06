@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/11/05 23:13:59
+*修改时间：2026/11/6 12:40:46
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：RedirectHandler接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.RedisSocket.Interface;
@@ -34,5 +34,12 @@ using SAEA.RedisSocket.Model;
 
 namespace SAEA.RedisSocket.Base
 {
+    /// <summary>
+    /// 集群重定向委托，按目标节点地址重新投递命令
+    /// </summary>
+    /// <param name="ipPort">目标节点地址，格式为 ip:port</param>
+    /// <param name="operationType">命令操作类型</param>
+    /// <param name="args">命令参数集合</param>
+    /// <returns>命令执行结果</returns>
     public delegate IResult RedirectHandler(string ipPort, OperationType operationType, params object[] args);
 }
