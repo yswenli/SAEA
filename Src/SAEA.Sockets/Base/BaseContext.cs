@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/08/21 19:42:03
+*修改时间：2026/11/6 12:52:27
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：BaseContext上下文类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -35,10 +35,20 @@ using SAEA.Sockets.Interface;
 
 namespace SAEA.Sockets.Base
 {
+    /// <summary>
+    /// 上下文基类，构造时创建默认令牌与编解码器实例，并把令牌的 Coder 指向该实例
+    /// </summary>
+    /// <typeparam name="Coder">编解码器实现类型，须有无参构造函数</typeparam>
     public class BaseContext<Coder> : IContext<Coder> where Coder : class, ICoder
     {
+        /// <summary>
+        /// 当前连接的令牌，默认在构造时创建
+        /// </summary>
         public virtual IUserToken UserToken { get; set; }
 
+        /// <summary>
+        /// 编解码器实例，构造时按 Coder 反射创建，并在构造时赋给 UserToken.Coder
+        /// </summary>
         public virtual ICoder Unpacker { get; set; }
 
         /// <summary>

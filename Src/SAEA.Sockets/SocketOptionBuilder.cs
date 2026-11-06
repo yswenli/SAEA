@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/02/11 17:03:06
+*修改时间：2026/11/6 12:52:27
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：SocketOptionBuilder接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common.IO;
@@ -482,6 +482,10 @@ namespace SAEA.Sockets
             return this;
         }
 
+        /// <summary>
+        /// 构建并校验配置，返回该构建器持有的套接字选项实例
+        /// </summary>
+        /// <returns>构建完成的套接字选项；配置了输入处理器或连接建立钩子却未启用 UseStream，或两者未成对配置时抛 InvalidOperationException</returns>
         public ISocketOption Build()
         {
             var inputHandler = _socketOption.InputHandler;

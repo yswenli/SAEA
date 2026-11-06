@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/10/24 23:36:24
+*修改时间：2026/11/6 12:52:27
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：SocketStream流类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common.Caching;
@@ -76,16 +76,35 @@ namespace SAEA.Sockets.Core
             Interlocked.Add(ref _length, arr.Length);
         }
 
+        /// <summary>
+        /// 是否可读，跟随连接状态
+        /// </summary>
         public override bool CanRead => _client.Connected;
 
+        /// <summary>
+        /// 是否可定位，跟随连接状态；实际定位操作未实现
+        /// </summary>
         public override bool CanSeek => _client.Connected;
 
+        /// <summary>
+        /// 是否可写，跟随连接状态
+        /// </summary>
         public override bool CanWrite => _client.Connected;
 
+        /// <summary>
+        /// 已接收但尚未读取的字节数
+        /// </summary>
         public override long Length => _length;
 
+        /// <summary>
+        /// 当前读写位置，不支持，访问即抛 NotImplementedException
+        /// </summary>
         public override long Position { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
 
+        /// <summary>
+        /// 刷新缓冲，不支持，调用即抛 NotImplementedException
+        /// </summary>
+        /// <exception cref="NotImplementedException">该流不支持刷新</exception>
         public override void Flush()
         {
             throw new NotImplementedException();
@@ -129,11 +148,23 @@ namespace SAEA.Sockets.Core
             return await Task.Run(() => Read(buffer, offset, count));
         }
 
+        /// <summary>
+        /// 定位，不支持，调用即抛 NotImplementedException
+        /// </summary>
+        /// <param name="offset">偏移量</param>
+        /// <param name="origin">定位基准</param>
+        /// <returns>定位后的位置</returns>
+        /// <exception cref="NotImplementedException">该流不支持定位</exception>
         public override long Seek(long offset, SeekOrigin origin)
         {
             throw new NotImplementedException();
         }
 
+        /// <summary>
+        /// 设置流长度，不支持，调用即抛 NotImplementedException
+        /// </summary>
+        /// <param name="value">目标长度</param>
+        /// <exception cref="NotImplementedException">该流不支持修改长度</exception>
         public override void SetLength(long value)
         {
             throw new NotImplementedException();

@@ -23,10 +23,10 @@
  *
  *=====================================================================
  *修改标记
- *修改时间：2026/09/20 17:07:21
+ *修改时间：2026/11/6 12:52:27
  *修改人： yswenli
- *版本号： v26.4.23.1
- *描述：服务端接收数据委托（Span版本）
+ *版本号： v26.11.5.1
+ *描述：补全公开成员的 XML 注释
  *
  *****************************************************************************/
 using System;
@@ -37,5 +37,7 @@ namespace SAEA.Sockets.Handler
     /// <summary>
     /// 服务端接收数据（Span 版本）。data 仅在回调期间有效。
     /// </summary>
+    /// <param name="userToken">发送数据所属会话的令牌</param>
+    /// <param name="data">收到的数据，仅在回调期间有效，跨回调保存必须复制</param>
     public delegate void OnServerReceiveSpanHandler(IUserToken userToken, ReadOnlySpan<byte> data);
 }

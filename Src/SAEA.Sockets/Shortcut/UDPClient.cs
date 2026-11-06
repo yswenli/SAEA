@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/09/20 01:32:10
+*修改时间：2026/11/6 12:52:27
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：UDPClient接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -40,8 +40,9 @@ using SAEA.Sockets.Model;
 namespace SAEA.Sockets.Shortcut
 {
     /// <summary>
-    /// UDPClient
+    /// UDP 客户端快捷封装：包模式下的连接、收发与断开门面
     /// </summary>
+    /// <typeparam name="Coder">编解码器类型，需提供公共无参构造函数</typeparam>
     public class UDPClient<Coder> : IDisposable where Coder : class, ICoder
     {
         IClientSocket _udpClient;
@@ -57,14 +58,20 @@ namespace SAEA.Sockets.Shortcut
         /// </remarks>
         public event Action<UDPClient<Coder>, ISocketProtocal> OnReceive;
 
+        /// <summary>
+        /// 错误事件，参数为本客户端实例与异常
+        /// </summary>
         public event Action<UDPClient<Coder>, Exception> OnError;
 
+        /// <summary>
+        /// 断开事件，参数为本客户端实例；底层会话 ID 为空时不触发
+        /// </summary>
         public event Action<UDPClient<Coder>> OnDisconnected;
 
         /// <summary>
-        /// UDPClient
+        /// 以端地址初始化，收发缓冲区按 UDP 最大报文长度配置
         /// </summary>
-        /// <param name="endPoint"></param>
+        /// <param name="endPoint">服务端地址</param>
         public UDPClient(IPEndPoint endPoint)
         {
             var bContext = new BaseContext<Coder>();
@@ -84,17 +91,17 @@ namespace SAEA.Sockets.Shortcut
         }
 
         /// <summary>
-        /// UDPClient
+        /// 以 IP 与端口初始化
         /// </summary>
-        /// <param name="ip"></param>
-        /// <param name="port"></param>
+        /// <param name="ip">服务端 IP 地址</param>
+        /// <param name="port">服务端端口</param>
         public UDPClient(string ip, int port) : this(new IPEndPoint(IPAddress.Parse(ip), port))
         {
 
         }
 
         /// <summary>
-        /// Connect
+        /// 同步连接服务端
         /// </summary>
         public void Connect()
         {
@@ -102,19 +109,19 @@ namespace SAEA.Sockets.Shortcut
         }
 
         /// <summary>
-        /// SendAsync
+        /// 发送已构造好的协议对象，供派生类复用
         /// </summary>
-        /// <param name="protocal"></param>
+        /// <param name="protocal">协议对象，其 Type 决定帧类型</param>
         protected void SendAsync(BaseSocketProtocal protocal)
         {
             _udpClient.SendAsync(protocal);
         }
 
         /// <summary>
-        /// SendAsync
+        /// 将数据包装为指定类型的协议帧发送；数组支撑的内存在快速路径零拷贝，发送完成前不得修改或复用
         /// </summary>
-        /// <param name="data"></param>
-        /// <param name="socketProtocalType"></param>
+        /// <param name="data">待发送数据（帧 body）</param>
+        /// <param name="socketProtocalType">帧类型，默认 ChatMessage</param>
         /// <remarks>
         /// 零拷贝契约：数组支撑的 ReadOnlyMemory 在快速路径上零拷贝发送，发送完成前不得修改或复用该缓冲区；
         /// 非数组内存会在边界处发生一次复制。
@@ -125,9 +132,9 @@ namespace SAEA.Sockets.Shortcut
         }
 
         /// <summary>
-        /// SendAsync
+        /// 以 UTF-8 编码发送字符串，帧类型为 ChatMessage
         /// </summary>
-        /// <param name="msg"></param>
+        /// <param name="msg">待发送字符串</param>
         public void SendAsync(string msg)
         {
             SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes(msg)));
@@ -158,7 +165,7 @@ namespace SAEA.Sockets.Shortcut
         }
 
         /// <summary>
-        /// Disconnect
+        /// 断开连接
         /// </summary>
         public void Disconnect()
         {
@@ -166,7 +173,7 @@ namespace SAEA.Sockets.Shortcut
         }
 
         /// <summary>
-        /// Dispose
+        /// 释放底层客户端套接字
         /// </summary>
         public void Dispose()
         {
@@ -175,23 +182,23 @@ namespace SAEA.Sockets.Shortcut
     }
 
     /// <summary>
-    /// UDPClient
+    /// UDP 客户端快捷封装，编解码器固定为 BaseCoder
     /// </summary>
     public class UDPClient : UDPClient<BaseCoder>
     {
         /// <summary>
-        /// UDPClient
+        /// 以端地址初始化
         /// </summary>
-        /// <param name="endPoint"></param>
+        /// <param name="endPoint">服务端地址</param>
         public UDPClient(IPEndPoint endPoint) : base(endPoint)
         {
 
         }
         /// <summary>
-        /// UDPClient
+        /// 以 IP 与端口初始化
         /// </summary>
-        /// <param name="ip"></param>
-        /// <param name="port"></param>
+        /// <param name="ip">服务端 IP 地址</param>
+        /// <param name="port">服务端端口</param>
         public UDPClient(string ip, int port) : base(ip, port)
         {
 

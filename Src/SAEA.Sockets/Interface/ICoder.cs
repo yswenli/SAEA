@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/03/18 02:16:04
+*修改时间：2026/11/6 12:52:27
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ICoder接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -41,6 +41,8 @@ namespace SAEA.Sockets.Interface
     public interface ICoder
     {
         /// <summary>编码协议对象，写入 writer。</summary>
+        /// <param name="protocal">待编码的协议对象，其 BodyLength/Type/Content 决定线格式内容</param>
+        /// <param name="writer">目标缓冲区写入器，实现方按 8B 小端长度 + 1B Type + body 顺序写入</param>
         void Encode(ISocketProtocal protocal, IBufferWriter<byte> writer);
 
         /// <summary>
@@ -51,6 +53,7 @@ namespace SAEA.Sockets.Interface
         /// <param name="data">待解码数据；多段序列按段喂入。</param>
         /// <param name="onHeart">心跳回调（构造批次时按原顺序触发）。</param>
         /// <param name="onFile">文件/大帧回调；其 ReadOnlyMemory 仅在返回的 DecodedFrames Dispose 前有效，不得跨 Dispose 捕获。</param>
+        /// <returns>本批次解码结果，必须 using 释放；帧内存仅在 Dispose 前有效</returns>
         DecodedFrames Decode(ReadOnlySequence<byte> data, Action<DateTime> onHeart = null, Action<ReadOnlyMemory<byte>> onFile = null);
 
         /// <summary>清除内部状态（丢弃半包/被拒帧缓存；解码抛错后应调用）。</summary>

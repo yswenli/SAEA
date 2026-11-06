@@ -23,25 +23,39 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2020/10/13 16:01:17
+*修改时间：2026/11/6 12:52:27
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：Session接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Sockets.Interface;
 
 namespace SAEA.Sockets.Model
 {
+    /// <summary>
+    /// 会话标识的默认实现，便于非连接场景直接按 ID 传递
+    /// </summary>
     public class Session : ISession
     {
+        /// <summary>
+        /// 会话标识
+        /// </summary>
         public string ID { get; set; }
 
+        /// <summary>
+        /// 以会话标识初始化
+        /// </summary>
+        /// <param name="id">会话标识</param>
         public Session(string id)
         {
             ID = id;
         }
 
+        /// <summary>
+        /// 返回会话标识；隐藏 object.ToString，以 Session 静态类型调用时得到 ID
+        /// </summary>
+        /// <returns>会话标识，可能为 null</returns>
         public new string ToString()
         {
             return ID;

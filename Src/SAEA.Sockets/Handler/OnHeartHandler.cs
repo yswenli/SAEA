@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/03/18 02:16:04
+*修改时间：2026/11/6 12:52:27
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：OnHeartHandler处理类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Sockets.Interface;
@@ -36,5 +36,10 @@ using System.Text;
 
 namespace SAEA.Sockets.Handler
 {
+    /// <summary>
+    /// 心跳回调
+    /// </summary>
+    /// <param name="userToken">会话令牌</param>
+    /// <param name="dateTime">心跳时间</param>
     public delegate void OnHeartHandler(IUserToken userToken, DateTime dateTime);
 }

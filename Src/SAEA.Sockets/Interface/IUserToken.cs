@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/03/18 02:16:04
+*修改时间：2026/11/6 12:52:27
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：IUserToken接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -102,6 +102,7 @@ namespace SAEA.Sockets.Interface
         /// 原子地取出并清空发送缓冲区所有权对象；取出后由调用方负责释放。
         /// 发送完成回调与断开清理可能并发，必须通过本方法保证恰好释放一次。
         /// </summary>
+        /// <returns>被取出的所有权对象；当前无待释放对象时返回 null</returns>
         IDisposable TakeSendingOwner();
 
         /// <summary>
@@ -111,10 +112,19 @@ namespace SAEA.Sockets.Interface
         /// <returns>是否成功</returns>
         bool WaitWrite(int timeOut);
 
+        /// <summary>
+        /// 释放写信号量；当前未持有时忽略（不会抛 SemaphoreFullException）
+        /// </summary>
         void ReleaseWrite();
 
+        /// <summary>
+        /// 是否有异步发送正在进行，发送完成回调置回 false；Stream 模式的令牌不使用该字段
+        /// </summary>
         bool IsSending { get; set; }
 
+        /// <summary>
+        /// 重置连接状态：关闭套接字、释放发送所有权与收发参数、清空编解码器半包缓存；实现类可追加自身资源释放
+        /// </summary>
         void Clear();
     }
 }

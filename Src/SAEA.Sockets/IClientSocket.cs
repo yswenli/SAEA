@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/08/22 10:00:37
+*修改时间：2026/11/6 12:52:27
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：IClientSocket接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Sockets.Handler;
@@ -46,8 +46,14 @@ namespace SAEA.Sockets
     /// </summary>
     public interface IClientSocket : IDisposable
     {
+        /// <summary>
+        /// 连接上下文：持有用户令牌与编解码器
+        /// </summary>
         IContext<ICoder> Context { get; }
 
+        /// <summary>
+        /// 套接字配置选项
+        /// </summary>
         ISocketOption SocketOption { get; set; }
 
         /// <summary>
@@ -56,7 +62,7 @@ namespace SAEA.Sockets
         string Endpoint { get; }
 
         /// <summary>
-        /// socket
+        /// 底层套接字对象
         /// </summary>
         Socket Socket { get; }
 

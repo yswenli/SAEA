@@ -30,7 +30,7 @@ namespace SAEA.Sockets.Ssl
     /// </remarks>
     public static class SaeaTlsProtocols
     {
-        /// <summary>TLS 1.3。</summary>
+        /// <summary>TLS 1.3 协议值（0x3000），用于在低版本目标框架下表达 TLS 1.3</summary>
         public const SslProtocols Tls13 = (SslProtocols)12288;
 
         /// <summary>默认启用 TLS 1.2 + TLS 1.3。</summary>

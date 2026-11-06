@@ -19,17 +19,29 @@ namespace SAEA.Sockets.Base
         private int _pooledRequestedSize;
         private bool _disposed;
 
+        /// <summary>
+        /// 创建帧批次
+        /// </summary>
+        /// <param name="capacity">初始容量，非正数时按 4 处理</param>
         public DecodedFrames(int capacity = 4)
         {
             if (capacity <= 0) capacity = 4;
             _frames = new ISocketProtocal[capacity];
         }
 
+        /// <summary>
+        /// 当前帧数量，批次释放后访问抛 ObjectDisposedException
+        /// </summary>
         public int Count
         {
             get { ThrowIfDisposed(); return _count; }
         }
 
+        /// <summary>
+        /// 按索引取帧，越界或批次已释放时抛异常
+        /// </summary>
+        /// <param name="index">从 0 开始的帧序号</param>
+        /// <returns>指定位置的帧</returns>
         public ISocketProtocal this[int index]
         {
             get { ThrowIfDisposed(); return _frames[index]; }
@@ -41,7 +53,10 @@ namespace SAEA.Sockets.Base
             get { ThrowIfDisposed(); return _frames.AsSpan(0, _count); }
         }
 
-        /// <summary>供非 BaseCoder 的 coder 组装帧。</summary>
+        /// <summary>
+        /// 供非 BaseCoder 的 coder 组装帧，容量不足时翻倍扩容
+        /// </summary>
+        /// <param name="frame">待加入的帧；批次 Dispose 时会顺带释放实现 IDisposable 的帧</param>
         public void Add(ISocketProtocal frame)
         {
             ThrowIfDisposed();
@@ -60,6 +75,9 @@ namespace SAEA.Sockets.Base
             _pooledRequestedSize = requestedSize;
         }
 
+        /// <summary>
+        /// 释放帧并归还池化背衬，幂等；释放后 Count、索引器与 Frames 均抛 ObjectDisposedException
+        /// </summary>
         public void Dispose()
         {
             if (_disposed) return;

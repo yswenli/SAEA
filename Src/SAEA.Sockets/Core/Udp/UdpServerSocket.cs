@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2020/12/29 15:50:22
+*修改时间：2026/11/6 12:52:27
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：UdpServerSocket套接字类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common.Caching;
@@ -42,6 +42,9 @@ using System.Threading;
 
 namespace SAEA.Sockets.Core.Udp
 {
+    /// <summary>
+    /// UDP 服务器 socket：单套接字接收全部客户端数据报，按远端地址区分会话，仅事件（包）模式收发
+    /// </summary>
     public class UdpServerSocket : IServerSocket, IDisposable
     {
         const int SIO_UDP_CONNRESET = unchecked((int)0x9800000C);
@@ -52,26 +55,47 @@ namespace SAEA.Sockets.Core.Udp
 
         private SessionManager _sessionManager;
 
+        /// <summary>
+        /// 会话管理器，按远端地址维护令牌与会话缓存
+        /// </summary>
         public SessionManager SessionManager
         {
             get { return _sessionManager; }
         }
 
+        /// <summary>
+        /// 是否已释放资源
+        /// </summary>
         public bool IsDisposed
         {
             get; set;
         } = false;
 
+        /// <summary>
+        /// 当前已连接的客户端数量
+        /// </summary>
         public int ClientCounts { get => _clientCounts; private set => _clientCounts = value; }
 
+        /// <summary>
+        /// 本服务器使用的套接字选项
+        /// </summary>
         public ISocketOption SocketOption { get; set; }
 
         #region events
 
+        /// <summary>
+        /// 会话建立事件，预留接口，当前实现不会触发
+        /// </summary>
         public event OnAcceptedHandler OnAccepted;
 
+        /// <summary>
+        /// 收发或内部处理异常时触发，参数为会话标识与异常
+        /// </summary>
         public event OnErrorHandler OnError;
 
+        /// <summary>
+        /// 会话释放后触发，参数为会话标识与断开原因
+        /// </summary>
         public event OnDisconnectedHandler OnDisconnected;
 
         /// <summary>
@@ -415,6 +439,14 @@ namespace SAEA.Sockets.Core.Udp
             SendAsyncRaw(userToken, rented, writer);
         }
 
+        /// <summary>
+        /// 向指定会话异步发送并转移缓冲所有权；数据为空只释放 owner，会话不存在或超过 UDP 单包上限时释放 owner 后抛异常
+        /// </summary>
+        /// <param name="sessionID">会话标识</param>
+        /// <param name="data">待发送数据</param>
+        /// <param name="owner">data 所占缓冲的所有权对象，可为 null</param>
+        /// <exception cref="KernelException">会话不存在</exception>
+        /// <exception cref="ArgumentException">数据长度超过单包上限</exception>
         public void SendAsync(string sessionID, ReadOnlyMemory<byte> data, IDisposable owner)
         {
             if (data.Length == 0)
@@ -560,6 +592,11 @@ namespace SAEA.Sockets.Core.Udp
         }
 
 
+        /// <summary>
+        /// 按会话标识取会话令牌，不存在时为 null
+        /// </summary>
+        /// <param name="sessionID">会话标识</param>
+        /// <returns>会话令牌，不存在时为 null</returns>
         public object GetCurrentObj(string sessionID)
         {
             return SessionManager.Get(sessionID);
@@ -607,6 +644,9 @@ namespace SAEA.Sockets.Core.Udp
             try { _sessionManager.Clear(); } catch { }
         }
 
+        /// <summary>
+        /// 停止监听并释放套接字与会话，标记为已释放；内部异常被吞掉
+        /// </summary>
         public void Dispose()
         {
             try

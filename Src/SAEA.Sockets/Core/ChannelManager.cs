@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/02/11 17:03:06
+*修改时间：2026/11/6 12:52:27
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ChannelManager管理类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -41,6 +41,9 @@ using System.Net.Sockets;
 
 namespace SAEA.Sockets.Core
 {
+    /// <summary>
+    /// 通道管理器：按通道标识保存套接字、流与 TLS 上下文，并记录空闲过期时间
+    /// </summary>
     public class ChannelManager
     {
         ConcurrentDictionary<string, ChannelInfo> _concurrentDictionary = new ConcurrentDictionary<string, ChannelInfo>();
@@ -57,8 +60,13 @@ namespace SAEA.Sockets.Core
         }
 
         /// <summary>
-        /// 添加或更新通道。
+        /// 添加或更新通道，过期时间按构造时的超时从现在起算
         /// </summary>
+        /// <param name="id">通道标识，空标识直接返回 null</param>
+        /// <param name="socket">通道对应的套接字</param>
+        /// <param name="stream">通道使用的流，可为 null</param>
+        /// <param name="tls">TLS 上下文，未启用 TLS 时为 null</param>
+        /// <returns>新建的通道信息，id 为空时为 null</returns>
         public ChannelInfo Set(string id, Socket socket, Stream stream, ISaeaTlsContext tls = null)
         {
             if (string.IsNullOrEmpty(id)) return null;
@@ -75,6 +83,11 @@ namespace SAEA.Sockets.Core
         }
 
 
+        /// <summary>
+        /// 取通道并校验过期，已过期则先移除再返回 null
+        /// </summary>
+        /// <param name="id">通道标识</param>
+        /// <returns>未过期的通道信息，不存在、已过期或 id 为空时为 null</returns>
         public ChannelInfo Get(string id)
         {
             if (string.IsNullOrEmpty(id)) return null;
@@ -92,6 +105,10 @@ namespace SAEA.Sockets.Core
         }
 
 
+        /// <summary>
+        /// 重置通道过期时间，通道不存在或 id 为空时不做处理
+        /// </summary>
+        /// <param name="id">通道标识</param>
         public void Refresh(string id)
         {
             if (string.IsNullOrEmpty(id)) return;
@@ -104,6 +121,10 @@ namespace SAEA.Sockets.Core
         }
 
 
+        /// <summary>
+        /// 移除通道记录，不关闭套接字
+        /// </summary>
+        /// <param name="id">通道标识</param>
         public void Remove(string id)
         {
             if (string.IsNullOrEmpty(id)) return;
@@ -111,6 +132,9 @@ namespace SAEA.Sockets.Core
         }
 
 
+        /// <summary>
+        /// 关闭所有通道的套接字并清空通道记录
+        /// </summary>
         public void Clear()
         {
             var vals = _concurrentDictionary.Values;
@@ -152,6 +176,8 @@ namespace SAEA.Sockets.Core
         /// <summary>
         /// 获取全局单例。仅为兼容旧代码保留。
         /// </summary>
+        /// <param name="timeOut">首次创建单例时的通道空闲超时（秒），已创建则忽略</param>
+        /// <returns>全局通道管理器</returns>
         [Obsolete("ChannelManager.GetInstance 为兼容旧代码保留。请为每个服务器创建独立的 ChannelManager 实例。")]
         public static ChannelManager GetInstance(int timeOut = 60)
         {

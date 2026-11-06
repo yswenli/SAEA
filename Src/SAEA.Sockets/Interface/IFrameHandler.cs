@@ -23,10 +23,10 @@
  *
  *=====================================================================
  *修改标记
- *修改时间：2026/09/20 17:07:21
+ *修改时间：2026/11/6 12:52:27
  *修改人： yswenli
- *版本号： v26.4.23.1
- *描述：IFrameHandler零拷贝帧回调接口
+ *版本号： v26.11.5.1
+ *描述：补全公开成员的 XML 注释
  *
  *****************************************************************************/
 namespace SAEA.Sockets.Interface
@@ -39,6 +39,7 @@ namespace SAEA.Sockets.Interface
         /// <summary>
         /// 收到完整数据帧
         /// </summary>
+        /// <param name="frame">完整数据帧，其 Content 仅在本次调用期间有效</param>
         void OnFrame(in SAEA.Sockets.Base.SocketFrame frame);
     }
 }

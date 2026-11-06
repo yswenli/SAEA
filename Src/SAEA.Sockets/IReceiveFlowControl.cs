@@ -41,6 +41,7 @@ namespace SAEA.Sockets
         /// 关闭该连接。必须幂等：连接已关闭时直接返回。
         /// </summary>
         /// <param name="reason">关闭原因</param>
+        /// <returns>关闭完成的任务；无需异步等待时返回已完成任务</returns>
         Task CloseAsync(string reason);
     }
 }

@@ -23,15 +23,20 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/03/18 02:16:04
+*修改时间：2026/11/6 12:52:27
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：OnFileHandler接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Sockets.Interface;
 
 namespace SAEA.Sockets.Handler
 {
+    /// <summary>
+    /// 文件数据回调
+    /// </summary>
+    /// <param name="userToken">会话令牌</param>
+    /// <param name="content">文件内容</param>
     public delegate void OnFileHandler(IUserToken userToken, byte[] content);
 }

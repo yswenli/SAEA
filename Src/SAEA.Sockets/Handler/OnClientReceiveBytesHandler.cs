@@ -23,13 +23,17 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/03/18 02:16:04
+*修改时间：2026/11/6 12:52:27
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：OnClientReceiveBytesHandler接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.Sockets.Handler
 {
+    /// <summary>
+    /// 客户端接收数据（byte[] 版本），参数为收到的数据副本
+    /// </summary>
+    /// <param name="data">收到的数据</param>
     public delegate void OnClientReceiveBytesHandler(byte[] data);
 }

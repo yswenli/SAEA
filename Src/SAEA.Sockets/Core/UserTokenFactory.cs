@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/10/27 18:03:54
+*修改时间：2026/11/6 12:52:27
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：UserTokenFactory工厂类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -47,7 +47,8 @@ namespace SAEA.Sockets.Core
         /// <summary>
         /// 生成基本的IUserToken
         /// </summary>
-        /// <returns></returns>
+        /// <param name="context">编解码上下文，按其当前令牌与 coder 的类型缓存并创建实例，创建后回写 context.UserToken</param>
+        /// <returns>新建的令牌实例</returns>
         public IUserToken Create(IContext<ICoder> context)
         {
             var type = context.GetType();

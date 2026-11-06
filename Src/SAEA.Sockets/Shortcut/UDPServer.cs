@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/09/20 01:32:10
+*修改时间：2026/11/6 12:52:27
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：UDPServer服务端类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -40,8 +40,9 @@ using SAEA.Sockets.Model;
 namespace SAEA.Sockets.Shortcut
 {
     /// <summary>
-    /// UDPServer
+    /// UDP 服务端快捷封装：包模式下的监听、收发与断开门面
     /// </summary>
+    /// <typeparam name="Coder">编解码器类型，需提供公共无参构造函数</typeparam>
     public class UDPServer<Coder> where Coder : class, ICoder
     {
         IServerSocket _udpServer;
@@ -55,17 +56,26 @@ namespace SAEA.Sockets.Shortcut
         /// </remarks>
         public event Action<UDPServer<Coder>, string, ISocketProtocal> OnReceive;
 
+        /// <summary>
+        /// 错误事件，参数为相关会话 ID 与异常
+        /// </summary>
         public event Action<string, Exception> OnError;
 
+        /// <summary>
+        /// 新会话事件，参数为新会话 ID
+        /// </summary>
         public event Action<string> OnAccepted;
 
+        /// <summary>
+        /// 断开事件，参数为会话 ID；ID 为空时不触发
+        /// </summary>
         public event Action<string> OnDisconnected;
 
         /// <summary>
-        /// UDPServer
+        /// 以监听地址初始化，收发缓冲区按 UDP 最大报文长度配置
         /// </summary>
-        /// <param name="endPoint"></param>
-        /// <param name="timeOut"></param>
+        /// <param name="endPoint">监听地址</param>
+        /// <param name="timeOut">操作超时，单位毫秒，默认 5000</param>
         public UDPServer(IPEndPoint endPoint, int timeOut = 5000)
         {
             _udpServer = SocketFactory.CreateServerSocket(SocketOptionBuilder.Instance.SetSocket(SAEASocketType.Udp)
@@ -83,17 +93,17 @@ namespace SAEA.Sockets.Shortcut
         }
 
         /// <summary>
-        /// UDPServer
+        /// 以端口初始化，监听所有网卡
         /// </summary>
-        /// <param name="port"></param>
-        /// <param name="timeOut"></param>
+        /// <param name="port">监听端口</param>
+        /// <param name="timeOut">操作超时，单位毫秒，默认 5000</param>
         public UDPServer(int port, int timeOut = 5000) : this(new IPEndPoint(IPAddress.Any, port), timeOut)
         {
 
         }
 
         /// <summary>
-        /// Start
+        /// 启动监听
         /// </summary>
         public void Start()
         {
@@ -101,21 +111,21 @@ namespace SAEA.Sockets.Shortcut
         }
 
         /// <summary>
-        /// SendAsync
+        /// 发送已构造好的协议对象，供派生类复用
         /// </summary>
-        /// <param name="id"></param>
-        /// <param name="baseSocketProtocal"></param>
+        /// <param name="id">目标会话 ID</param>
+        /// <param name="baseSocketProtocal">协议对象，其 Type 决定帧类型</param>
         protected void SendAsync(string id, BaseSocketProtocal baseSocketProtocal)
         {
             _udpServer.SendAsync(id, baseSocketProtocal);
         }
 
         /// <summary>
-        /// SendAsync
+        /// 将数据包装为指定类型的协议帧发给指定会话；数组支撑的内存在快速路径零拷贝
         /// </summary>
-        /// <param name="id"></param>
-        /// <param name="data"></param>
-        /// <param name="socketProtocalType"></param>
+        /// <param name="id">目标会话 ID</param>
+        /// <param name="data">待发送数据（帧 body）</param>
+        /// <param name="socketProtocalType">帧类型，默认 ChatMessage</param>
         /// <remarks>
         /// 零拷贝契约：数组支撑的 ReadOnlyMemory 在快速路径上零拷贝发送，发送完成前不得修改或复用该缓冲区；
         /// 非数组内存会在边界处发生一次复制。
@@ -126,10 +136,10 @@ namespace SAEA.Sockets.Shortcut
         }
 
         /// <summary>
-        /// Send
+        /// 向指定会话同步发送原始字节（Span）
         /// </summary>
-        /// <param name="id"></param>
-        /// <param name="data"></param>
+        /// <param name="id">目标会话 ID</param>
+        /// <param name="data">待发送数据</param>
         /// <remarks>
         /// 零拷贝契约：数组支撑的 ReadOnlySpan 在快速路径上零拷贝发送，发送完成前不得修改或复用该缓冲区；
         /// 非数组内存或需要缓冲的实现会在边界处发生一次复制。
@@ -140,10 +150,10 @@ namespace SAEA.Sockets.Shortcut
         }
 
         /// <summary>
-        /// SendAsync
+        /// 向指定会话以 UTF-8 编码发送字符串，帧类型为 ChatMessage
         /// </summary>
-        /// <param name="id"></param>
-        /// <param name="msg"></param>
+        /// <param name="id">目标会话 ID</param>
+        /// <param name="msg">待发送字符串</param>
         public void SendAsync(string id, string msg)
         {
             SendAsync(id, new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes(msg)));
@@ -183,24 +193,24 @@ namespace SAEA.Sockets.Shortcut
     }
 
     /// <summary>
-    /// UDPServer
+    /// UDP 服务端快捷封装，编解码器固定为 BaseCoder
     /// </summary>
     public class UDPServer : UDPServer<BaseCoder>
     {
         /// <summary>
-        /// UDPServer
+        /// 以监听地址初始化
         /// </summary>
-        /// <param name="endPoint"></param>
-        /// <param name="timeOut"></param>
+        /// <param name="endPoint">监听地址</param>
+        /// <param name="timeOut">操作超时，单位毫秒</param>
         public UDPServer(IPEndPoint endPoint, int timeOut = 5000) : base(endPoint, timeOut)
         {
 
         }
         /// <summary>
-        /// UDPServer
+        /// 以端口初始化，监听所有网卡
         /// </summary>
-        /// <param name="port"></param>
-        /// <param name="timeOut"></param>
+        /// <param name="port">监听端口</param>
+        /// <param name="timeOut">操作超时，单位毫秒</param>
         public UDPServer(int port, int timeOut = 5000) : base(port, timeOut)
         {
 

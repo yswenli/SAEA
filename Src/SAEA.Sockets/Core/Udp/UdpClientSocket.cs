@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2020/12/29 15:50:22
+*修改时间：2026/11/6 12:52:27
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：UdpClientSocket接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -44,6 +44,9 @@ using SAEA.Sockets.Interface;
 
 namespace SAEA.Sockets.Core.Udp
 {
+    /// <summary>
+    /// UDP 客户端 socket：单套接字连接固定远端地址，支持广播与多播，仅事件（包）模式收发
+    /// </summary>
     public class UdpClientSocket : IClientSocket, IDisposable
     {
         const int SIO_UDP_CONNRESET = unchecked((int)0x9800000C);
@@ -56,23 +59,50 @@ namespace SAEA.Sockets.Core.Udp
 
         UserTokenFactory _userTokenFactory;
 
+        /// <summary>
+        /// 套接字选项，构造时用于广播、多播、超时与收发缓冲设置
+        /// </summary>
         public ISocketOption SocketOption { get; set; }
 
         IPEndPoint _remoteEndPoint;
 
+        /// <summary>
+        /// 远端地址字符串，套接字未连接时为 null
+        /// </summary>
         public string Endpoint { get => _udpSocket?.RemoteEndPoint?.ToString(); }
 
+        /// <summary>
+        /// 底层套接字是否处于已连接状态
+        /// </summary>
         public bool Connected { get => _udpSocket.Connected; }
+        /// <summary>
+        /// 当前连接的令牌，构造时创建，断开时清空其内部引用
+        /// </summary>
         public IUserToken UserToken { get => _userToken; private set => _userToken = value; }
 
+        /// <summary>
+        /// 是否已释放资源
+        /// </summary>
         public bool IsDisposed { get; private set; } = false;
 
+        /// <summary>
+        /// 底层 UDP 套接字
+        /// </summary>
         public Socket Socket => _udpSocket;
 
+        /// <summary>
+        /// 编解码上下文，取自套接字选项
+        /// </summary>
         public IContext<ICoder> Context { get; private set; }
 
+        /// <summary>
+        /// 收发或内部处理异常时触发，参数为会话标识与异常
+        /// </summary>
         public event OnErrorHandler OnError;
 
+        /// <summary>
+        /// 连接断开后触发，参数为会话标识与断开原因
+        /// </summary>
         public event OnDisconnectedHandler OnDisconnected;
 
         /// <summary>
@@ -80,6 +110,11 @@ namespace SAEA.Sockets.Core.Udp
         /// </summary>
         public event OnClientReceiveSpanHandler OnClientReceiveSpan;
 
+        /// <summary>
+        /// 触发错误事件
+        /// </summary>
+        /// <param name="id">会话标识</param>
+        /// <param name="ex">异常</param>
         protected void RaiseOnError(string id, Exception ex)
         {
             OnError?.Invoke(id, ex);
@@ -400,6 +435,12 @@ namespace SAEA.Sockets.Core.Udp
             SendAsync(_remoteEndPoint, data);
         }
 
+        /// <summary>
+        /// 异步发送并转移缓冲所有权到已连接的远端地址；零拷贝直发时由发送完成回调释放 owner，需复制时先复制再立即释放
+        /// </summary>
+        /// <param name="data">待发送数据，为空时只释放 owner</param>
+        /// <param name="owner">data 所占缓冲的所有权对象，可为 null</param>
+        /// <exception cref="ArgumentOutOfRangeException">数据长度超过单包上限</exception>
         public void SendAsync(ReadOnlyMemory<byte> data, IDisposable owner)
         {
             if (data.Length == 0)
@@ -528,16 +569,34 @@ namespace SAEA.Sockets.Core.Udp
             return Task.Run(() => SendAsync(data), cancellationToken);
         }
 
+        /// <summary>
+        /// UDP 不支持流式接收，调用即抛 NotSupportedException
+        /// </summary>
+        /// <param name="buffer">缓冲区</param>
+        /// <param name="offset">偏移量</param>
+        /// <param name="count">数量</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>接收字节数</returns>
+        /// <exception cref="NotSupportedException">UDP 无流式接收能力</exception>
         public Task<int> ReceiveAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
             throw new NotSupportedException("The current method can only be used in stream implementation!");
         }
 
+        /// <summary>
+        /// UDP 不支持流模式，调用即抛 NotSupportedException
+        /// </summary>
+        /// <returns>数据流</returns>
+        /// <exception cref="NotSupportedException">UDP 无流模式</exception>
         public Stream GetStream()
         {
             throw new NotSupportedException("UDP does not support streaming mode");
         }
 
+        /// <summary>
+        /// 关闭套接字并触发断开事件、清空令牌；ex 为 null 时以主动关闭异常作为原因
+        /// </summary>
+        /// <param name="ex">断开原因，可为 null</param>
         public void Disconnect(Exception ex)
         {
             var mex = ex;
@@ -564,11 +623,17 @@ namespace SAEA.Sockets.Core.Udp
             _userToken.Clear();
         }
 
+        /// <summary>
+        /// 主动断开连接
+        /// </summary>
         public void Disconnect()
         {
             this.Disconnect(null);
         }
 
+        /// <summary>
+        /// 断开连接并标记为已释放
+        /// </summary>
         public void Dispose()
         {
             this.Disconnect();

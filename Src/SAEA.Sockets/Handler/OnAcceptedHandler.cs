@@ -23,13 +23,17 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/03/18 02:16:04
+*修改时间：2026/11/6 12:52:27
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：OnAcceptedHandler处理类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.Sockets.Handler
 {
+    /// <summary>
+    /// 客户端连接建立后触发，参数为通道对象（流模式为 ChannelInfo，事件模式为 IUserToken）
+    /// </summary>
+    /// <param name="obj">承载连接的对象，流模式为 ChannelInfo，事件模式为 IUserToken</param>
     public delegate void OnAcceptedHandler(object obj);
 }

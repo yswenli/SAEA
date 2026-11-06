@@ -28,11 +28,15 @@ namespace SAEA.Sockets
         /// <summary>
         /// 获取指定用户令牌对应的双工流。
         /// </summary>
+        /// <param name="userToken">目标连接的用户令牌</param>
+        /// <returns>连接的双工流；令牌为 null、ID 为空或会话不存在时返回 null</returns>
         Stream GetStream(IUserToken userToken);
 
         /// <summary>
         /// 获取指定用户令牌对应的 TLS 状态；未启用 TLS 时返回 null。
         /// </summary>
+        /// <param name="userToken">目标连接的用户令牌</param>
+        /// <returns>该连接的 TLS 上下文；令牌无效、会话不存在或未启用 TLS 时返回 null</returns>
         ISaeaTlsContext GetTlsContext(IUserToken userToken);
     }
 }

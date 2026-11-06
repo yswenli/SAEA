@@ -22,10 +22,10 @@
  *
  *=====================================================================
  *修改标记
- *修改时间：2018/03/18 02:16:04
+ *修改时间：2026/11/6 12:52:27
  *修改人： yswenli
- *版本号： v26.4.23.1
- *描述：IFrameCoder接口
+ *版本号： v26.11.5.1
+ *描述：补全公开成员的 XML 注释
  *
  *****************************************************************************/
 using System;
@@ -41,11 +41,16 @@ namespace SAEA.Sockets.Interface
         /// 增量零拷贝解码：frame.Content / onFile 仅在回调期间有效。
         /// 非线程安全；与 Decode 共享解码状态，不得并发调用。
         /// </summary>
+        /// <param name="data">本次喂入的增量字节，仅在本次调用期间有效</param>
+        /// <param name="handler">完整数据帧回调，frame.Content 仅在回调期间有效</param>
+        /// <param name="onHeart">心跳回调（可选），收到 body 长度为 0 的心跳帧时触发</param>
+        /// <param name="onFile">大帧/文件内容回调（可选），content 仅在回调期间有效</param>
         void DecodeStream(ReadOnlySpan<byte> data, IFrameHandler handler, Action<DateTime> onHeart = null, FileSpanHandler onFile = null);
     }
 
     /// <summary>
     /// span 版文件回调。C# 不允许 Action&lt;ReadOnlySpan&lt;byte&gt;&gt;，故用具名委托。
     /// </summary>
+    /// <param name="content">大帧/文件内容，仅在本次回调期间有效，跨回调保存必须复制</param>
     public delegate void FileSpanHandler(ReadOnlySpan<byte> content);
 }

@@ -23,15 +23,20 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/03/18 02:16:04
+*修改时间：2026/11/6 12:52:27
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：OnErrorHandler处理类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
 
 namespace SAEA.Sockets.Handler
 {
+    /// <summary>
+    /// 错误通知回调
+    /// </summary>
+    /// <param name="ID">会话标识</param>
+    /// <param name="ex">异常</param>
     public delegate void OnErrorHandler(string ID, Exception ex);
 }

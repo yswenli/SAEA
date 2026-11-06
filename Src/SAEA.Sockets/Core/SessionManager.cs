@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/03/18 02:16:04
+*修改时间：2026/11/6 12:52:27
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：SessionManager接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -193,9 +193,9 @@ namespace SAEA.Sockets.Core
 
 
         /// <summary>
-        /// Active
+        /// 续期会话空闲超时，已登记超时豁免的会话按永不过期处理，id 为空时忽略
         /// </summary>
-        /// <param name="id"></param>
+        /// <param name="id">会话标识</param>
         public void Active(string id)
         {
             if (string.IsNullOrEmpty(id)) return;
@@ -230,19 +230,20 @@ namespace SAEA.Sockets.Core
         }
 
         /// <summary>
-        /// 
+        /// 从会话缓存取出令牌
         /// </summary>
-        /// <param name="id"></param>
-        /// <returns></returns>
+        /// <param name="id">会话标识</param>
+        /// <returns>对应令牌，不存在或已过期时为 null</returns>
         public IUserToken Get(string id)
         {
             return _sessionCache.Get(id);
         }
 
         /// <summary>
-        /// 释放IUserToken
+        /// 释放令牌并放回池中，同时清除会话缓存与超时豁免记录
         /// </summary>
-        /// <param name="userToken"></param>
+        /// <param name="userToken">待释放的令牌</param>
+        /// <returns>是否成功入池，令牌为 null、无会话标识或入池失败时为 false</returns>
         public bool Free(IUserToken userToken)
         {
             if (userToken == null) return false;

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/08/21 19:42:03
+*修改时间：2026/11/6 12:52:27
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：BaseUserToken令牌类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -38,62 +38,119 @@ using SAEA.Sockets.Interface;
 
 namespace SAEA.Sockets.Base
 {
+    /// <summary>
+    /// 默认连接令牌：持有套接字、读写 SocketAsyncEventArgs、编解码器与写锁，供 TCP/UDP 收发实现复用
+    /// </summary>
     public class BaseUserToken : IUserToken
     {
+        /// <summary>
+        /// 写锁信号量，保证同一连接上的发送串行化
+        /// </summary>
         protected readonly SemaphoreSlim _writeSemaphore = new SemaphoreSlim(1, 1);
+        /// <summary>
+        /// 发送进行中标志的后备字段，经 IsSending 属性读写
+        /// </summary>
         protected bool _isSending = false;
 
+        /// <summary>
+        /// 创建令牌并生成唯一标识
+        /// </summary>
         public BaseUserToken()
         {
             Guid = System.Guid.NewGuid().ToString("N");
         }
 
+        /// <summary>
+        /// 连接唯一标识，构造时生成 32 位无连字符形式，之后不变
+        /// </summary>
         public string Guid { get; private set; }
 
+        /// <summary>
+        /// 会话标识，服务端取对端地址字符串、客户端取本地地址字符串
+        /// </summary>
         public string ID { get; set; }
 
+        /// <summary>
+        /// 连接的套接字对象，Clear 后为 null
+        /// </summary>
         public Socket Socket { get; set; }
 
+        /// <summary>
+        /// 读取操作的 SocketAsyncEventArgs，Clear 后为 null
+        /// </summary>
         public SocketAsyncEventArgs ReadArgs { get; set; }
 
+        /// <summary>
+        /// 写入操作的 SocketAsyncEventArgs，Clear 后为 null
+        /// </summary>
         public SocketAsyncEventArgs WriteArgs { get; set; }
 
+        /// <summary>
+        /// 连接建立时间
+        /// </summary>
         public DateTime Linked { get; set; }
 
+        /// <summary>
+        /// 最近一次活动时间
+        /// </summary>
         public DateTime Actived { get; set; }
 
+        /// <summary>
+        /// 该连接使用的编解码器，Clear 时一并清空
+        /// </summary>
         public ICoder Coder { get; set; }
 
         IDisposable _sendingOwner;
 
+        /// <summary>
+        /// 发送缓冲区所有权对象：零拷贝直发时为 null，库内租用池化缓冲时由发送完成回调负责释放
+        /// </summary>
         public IDisposable SendingOwner
         {
             get { return _sendingOwner; }
             set { Volatile.Write(ref _sendingOwner, value); }
         }
 
+        /// <summary>
+        /// 原子取出并清空发送缓冲区所有权对象，取出后由调用方释放，保证恰好释放一次
+        /// </summary>
+        /// <returns>所有权对象，未持有时为 null</returns>
         public IDisposable TakeSendingOwner()
         {
             return Interlocked.Exchange(ref _sendingOwner, null);
         }
 
+        /// <summary>
+        /// 是否有发送正在进行
+        /// </summary>
         public bool IsSending
         {
             get { return _isSending; }
             set { _isSending = value; }
         }
 
+        /// <summary>
+        /// 等待写锁，超时返回 false
+        /// </summary>
+        /// <param name="timeout">超时时间（毫秒）</param>
+        /// <returns>是否取得写锁</returns>
         public bool WaitWrite(int timeout)
         {
             return _writeSemaphore.Wait(timeout);
         }
 
+        /// <summary>
+        /// 释放写锁，未持有时忽略多余释放
+        /// </summary>
         public void ReleaseWrite()
         {
             try { _writeSemaphore.Release(); }
             catch (SemaphoreFullException) { }
         }
 
+        /// <summary>
+        /// 清理令牌：关闭套接字、释放发送所有权与编解码器、释放读写 args 并置空引用，可重复调用
+        /// </summary>
         public virtual void Clear()
         {
             Socket?.Close();

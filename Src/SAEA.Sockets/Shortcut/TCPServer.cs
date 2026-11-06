@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/09/21 19:36:08
+*修改时间：2026/11/6 12:52:27
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：TCPServer服务端类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -40,14 +40,17 @@ using SAEA.Sockets.Model;
 namespace SAEA.Sockets.Shortcut
 {
     /// <summary>
-    /// 
+    /// TCP 服务端快捷封装：包模式下的监听、收发与断开门面
     /// </summary>
-    /// <typeparam name="Coder"></typeparam>
+    /// <typeparam name="Coder">编解码器类型，需提供公共无参构造函数</typeparam>
     public class TCPServer<Coder> where Coder : class, ICoder
     {
         IServerSocket _serverSokcet;
 
 
+        /// <summary>
+        /// 新连接事件，参数为本服务端实例与新连接的会话 ID
+        /// </summary>
         public event Action<TCPServer<Coder>, string> OnAccept;
 
         /// <summary>
@@ -55,14 +58,20 @@ namespace SAEA.Sockets.Shortcut
         /// </summary>
         public event Action<TCPServer<Coder>, IUserToken, ReadOnlyMemory<byte>> OnReceive;
 
+        /// <summary>
+        /// 错误事件，参数为本服务端实例、相关会话 ID 与异常
+        /// </summary>
         public event Action<TCPServer<Coder>, string, Exception> OnError;
 
+        /// <summary>
+        /// 断开事件，参数为本服务端实例、会话 ID 与断开原因；无异常触发时为 null
+        /// </summary>
         public event Action<TCPServer<Coder>, string, Exception> OnDisconnect;
 
         /// <summary>
-        /// TCPServer
+        /// 以监听地址初始化，并订阅底层服务端事件
         /// </summary>
-        /// <param name="endpoint"></param>
+        /// <param name="endpoint">监听地址</param>
         public TCPServer(IPEndPoint endpoint)
         {
             //tcpserver
@@ -79,16 +88,16 @@ namespace SAEA.Sockets.Shortcut
         }
 
         /// <summary>
-        /// TCPServer
+        /// 以端口初始化，监听所有网卡（IPAddress.Any）
         /// </summary>
-        /// <param name="port"></param>
+        /// <param name="port">监听端口</param>
         public TCPServer(int port) : this(new IPEndPoint(IPAddress.Any, port))
         {
 
         }
 
         /// <summary>
-        /// Start
+        /// 启动监听
         /// </summary>
         public void Start()
         {
@@ -96,7 +105,7 @@ namespace SAEA.Sockets.Shortcut
         }
 
         /// <summary>
-        /// Stop
+        /// 停止监听并清理所有连接与会话
         /// </summary>
         public void Stop()
         {
@@ -104,10 +113,10 @@ namespace SAEA.Sockets.Shortcut
         }
 
         /// <summary>
-        /// SendAsync
+        /// 向指定会话发送原始字节（Memory）；数组支撑的内存在快速路径零拷贝，发送完成前不得修改或复用
         /// </summary>
-        /// <param name="id"></param>
-        /// <param name="data"></param>
+        /// <param name="id">目标会话 ID</param>
+        /// <param name="data">待发送数据</param>
         /// <remarks>
         /// 零拷贝契约：数组支撑的 ReadOnlyMemory 在快速路径上零拷贝发送，发送完成前不得修改或复用该缓冲区；
         /// 非数组内存会在边界处发生一次复制。
@@ -118,10 +127,10 @@ namespace SAEA.Sockets.Shortcut
         }
 
         /// <summary>
-        /// Send
+        /// 向指定会话同步发送原始字节（Span）
         /// </summary>
-        /// <param name="id"></param>
-        /// <param name="data"></param>
+        /// <param name="id">目标会话 ID</param>
+        /// <param name="data">待发送数据</param>
         /// <remarks>
         /// 零拷贝契约：数组支撑的 ReadOnlySpan 在快速路径上零拷贝发送，发送完成前不得修改或复用该缓冲区；
         /// 非数组内存或需要缓冲的实现会在边界处发生一次复制。
@@ -132,10 +141,10 @@ namespace SAEA.Sockets.Shortcut
         }
 
         /// <summary>
-        /// SendAsync
+        /// 向指定会话以 UTF-8 编码发送字符串
         /// </summary>
-        /// <param name="id"></param>
-        /// <param name="str"></param>
+        /// <param name="id">目标会话 ID</param>
+        /// <param name="str">待发送字符串</param>
         public void SendAsync(string id, string str)
         {
             _serverSokcet.SendAsync(id, new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes(str)));
@@ -184,9 +193,9 @@ namespace SAEA.Sockets.Shortcut
         }
 
         /// <summary>
-        /// Disconnect
+        /// 断开指定会话
         /// </summary>
-        /// <param name="id"></param>
+        /// <param name="id">目标会话 ID</param>
         public void Disconnect(string id)
         {
             _serverSokcet.Disconnect(id);
@@ -194,22 +203,22 @@ namespace SAEA.Sockets.Shortcut
     }
 
     /// <summary>
-    /// TCPServer
+    /// TCP 服务端快捷封装，编解码器固定为 BaseCoder
     /// </summary>
     public class TCPServer : TCPServer<BaseCoder>
     {
         /// <summary>
-        /// TCPServer
+        /// 以监听地址初始化
         /// </summary>
-        /// <param name="endPoint"></param>
+        /// <param name="endPoint">监听地址</param>
         public TCPServer(IPEndPoint endPoint) : base(endPoint)
         {
 
         }
         /// <summary>
-        /// TCPServer
+        /// 以端口初始化，监听所有网卡
         /// </summary>
-        /// <param name="port"></param>
+        /// <param name="port">监听端口</param>
         public TCPServer(int port) : base(port)
         {
 

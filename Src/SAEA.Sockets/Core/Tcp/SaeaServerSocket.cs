@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/01/23 11:16:53
+*修改时间：2026/11/6 12:52:27
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：SaeaServerSocket接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -90,6 +90,9 @@ namespace SAEA.Sockets.Core.Tcp
             new ConcurrentDictionary<string, CancellationTokenSource>(StringComparer.Ordinal);
 
         // 获取会话管理器
+        /// <summary>
+        /// 会话管理器，负责令牌池、会话缓存与空闲超时清理
+        /// </summary>
         public SessionManager SessionManager
         {
             get { return _sessionManager; }
@@ -104,26 +107,44 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         // 是否已释放资源
+        /// <summary>
+        /// 是否已释放资源
+        /// </summary>
         public bool IsDisposed
         {
             get; set;
         } = false;
 
         // 获取客户端连接数量
+        /// <summary>
+        /// 当前已连接的客户端数量，随连接建立与释放增减
+        /// </summary>
         public int ClientCounts { get => _clientCounts; private set => _clientCounts = value; }
 
         // Socket选项
+        /// <summary>
+        /// 本服务器使用的套接字选项
+        /// </summary>
         public ISocketOption SocketOption { get; set; }
 
         #region events
 
         // 客户端连接事件
+        /// <summary>
+        /// 客户端连接建立后触发，参数为通道对象（流模式为 ChannelInfo，否则为会话令牌）
+        /// </summary>
         public event OnAcceptedHandler OnAccepted;
 
         // 错误事件
+        /// <summary>
+        /// 收发或内部处理异常时触发，参数为会话标识与异常
+        /// </summary>
         public event OnErrorHandler OnError;
 
         // 客户端断开连接事件
+        /// <summary>
+        /// 客户端断开后触发，参数为会话标识与导致断开的异常（正常断开为 null）
+        /// </summary>
         public event OnDisconnectedHandler OnDisconnected;
 
         /// <summary>
@@ -782,6 +803,11 @@ namespace SAEA.Sockets.Core.Tcp
             userToken.TakeSendingOwner();
         }
 
+        /// <summary>
+        /// 向指定会话发送数据：TLS 激活时交给 TLS 通道，否则复制到池化缓冲再异步发出；流模式下同时续期通道空闲超时
+        /// </summary>
+        /// <param name="sessionID">会话标识</param>
+        /// <param name="data">待发送数据，为空或会话不存在时直接返回</param>
         public void Send(string sessionID, ReadOnlySpan<byte> data)
         {
             if (data.Length == 0) return;
@@ -796,6 +822,11 @@ namespace SAEA.Sockets.Core.Tcp
             SendAsyncRaw(userToken, rented, writer);
         }
 
+        /// <summary>
+        /// 向指定会话异步发送：能直接取到底层数组时零拷贝直发，否则复制进池化缓冲；TLS 激活时走 TLS 通道
+        /// </summary>
+        /// <param name="sessionID">会话标识</param>
+        /// <param name="data">待发送数据，为空或会话不存在时直接返回</param>
         public void SendAsync(string sessionID, ReadOnlyMemory<byte> data)
         {
             if (data.Length == 0) return;
@@ -815,6 +846,13 @@ namespace SAEA.Sockets.Core.Tcp
             SendAsyncRaw(userToken, rented, writer);
         }
 
+        /// <summary>
+        /// 向指定会话异步发送并转移缓冲所有权；会话不存在时先释放 owner 再抛异常
+        /// </summary>
+        /// <param name="sessionID">会话标识</param>
+        /// <param name="data">待发送数据，为空时只释放 owner</param>
+        /// <param name="owner">data 所占缓冲的所有权对象，可为 null</param>
+        /// <exception cref="KernelException">会话不存在</exception>
         public void SendAsync(string sessionID, ReadOnlyMemory<byte> data, IDisposable owner)
         {
             var userToken = _sessionManager.Get(sessionID);
@@ -872,6 +910,11 @@ namespace SAEA.Sockets.Core.Tcp
             SendAsyncRaw(userToken, rented, writer);
         }
 
+        /// <summary>
+        /// 先按线格式编码再向指定会话发送；会话不存在时直接返回，coder 未初始化或编码失败时经 OnError 报告
+        /// </summary>
+        /// <param name="sessionID">会话标识</param>
+        /// <param name="protocal">待发送的协议对象，为 null 时直接返回</param>
         public void SendAsync(string sessionID, ISocketProtocal protocal)
         {
             if (protocal == null) return;
@@ -971,6 +1014,11 @@ namespace SAEA.Sockets.Core.Tcp
             Disconnect(userToken);
         }
 
+        /// <summary>
+        /// 按对端地址对应的会话异步发送，等价于以 ipEndPoint 的字符串形式作为会话标识
+        /// </summary>
+        /// <param name="ipEndPoint">对端地址，为 null 时直接返回</param>
+        /// <param name="data">待发送数据</param>
         public void SendAsync(IPEndPoint ipEndPoint, ReadOnlyMemory<byte> data)
         {
             if (ipEndPoint == null) return;
@@ -983,6 +1031,11 @@ namespace SAEA.Sockets.Core.Tcp
             Disconnect(userToken);
         }
 
+        /// <summary>
+        /// 按会话标识取当前承载对象：流模式返回通道信息并续期，事件模式返回会话令牌
+        /// </summary>
+        /// <param name="sessionID">会话标识</param>
+        /// <returns>流模式为 ChannelInfo、事件模式为 IUserToken，会话不存在时为 null</returns>
         public object GetCurrentObj(string sessionID)
         {
             if (_useStream)
@@ -1094,6 +1147,9 @@ namespace SAEA.Sockets.Core.Tcp
             catch { }
         }
 
+        /// <summary>
+        /// 释放服务器资源，内部调用 Stop 停止监听并清理连接、通道与会话；异常经 OnError 报告
+        /// </summary>
         public void Dispose()
         {
             try

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/09/21 19:36:08
+*修改时间：2026/11/6 12:52:27
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：TCPClient接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -40,9 +40,9 @@ using SAEA.Sockets.Interface;
 namespace SAEA.Sockets.Shortcut
 {
     /// <summary>
-    /// TCPClient
+    /// TCP 客户端快捷封装：包模式下的连接、收发与断开门面
     /// </summary>
-    /// <typeparam name="Coder">IUnpacker</typeparam>
+    /// <typeparam name="Coder">编解码器类型，需提供公共无参构造函数</typeparam>
     public class TCPClient<Coder> : IDisposable where Coder : class, ICoder
     {
         IClientSocket _clientSokcet;
@@ -52,8 +52,14 @@ namespace SAEA.Sockets.Shortcut
         /// </summary>
         public event Action<TCPClient<Coder>, ReadOnlyMemory<byte>> OnReceive;
 
+        /// <summary>
+        /// 错误事件，参数为本客户端实例与异常；底层连接、收发失败均从该事件上报
+        /// </summary>
         public event Action<TCPClient<Coder>, Exception> OnError;
 
+        /// <summary>
+        /// 断开事件，参数为本客户端实例与断开原因；无异常触发时为 null
+        /// </summary>
         public event Action<TCPClient<Coder>, Exception> OnDisconnect;
 
         /// <summary>
@@ -62,8 +68,9 @@ namespace SAEA.Sockets.Shortcut
         public SocketStream SocketStream { get; private set; }
 
         /// <summary>
-        /// TCPClient
+        /// 以端地址初始化，同时创建底层客户端与流门面
         /// </summary>
+        /// <param name="endPoint">服务端地址</param>
         public TCPClient(IPEndPoint endPoint)
         {
             _clientSokcet = SocketFactory.CreateClientSocket(SocketOptionBuilder.Instance
@@ -80,26 +87,26 @@ namespace SAEA.Sockets.Shortcut
         }
 
         /// <summary>
-        /// TCPClient
+        /// 以 IP 与端口初始化
         /// </summary>
-        /// <param name="ip"></param>
-        /// <param name="port"></param>
+        /// <param name="ip">服务端 IP 地址</param>
+        /// <param name="port">服务端端口</param>
         public TCPClient(string ip, int port) : this(new IPEndPoint(IPAddress.Parse(ip), port))
         {
 
         }
 
         /// <summary>
-        /// Connect
+        /// 发起异步连接，成功与否通过 OnError / OnDisconnect 事件反馈，调用立即返回
         /// </summary>
         public void Connect()
         {
             _clientSokcet.ConnectAsync();
         }
         /// <summary>
-        /// SendAsync
+        /// 发送原始字节（Memory）；数组支撑的内存在快速路径零拷贝，发送完成前不得修改或复用
         /// </summary>
-        /// <param name="data"></param>
+        /// <param name="data">待发送数据</param>
         /// <remarks>
         /// 零拷贝契约：数组支撑的 ReadOnlyMemory 在快速路径上零拷贝发送，发送完成前不得修改或复用该缓冲区；
         /// 非数组内存会在边界处发生一次复制。
@@ -109,9 +116,9 @@ namespace SAEA.Sockets.Shortcut
             _clientSokcet.SendAsync(data);
         }
         /// <summary>
-        /// Send
+        /// 同步发送原始字节（Span）
         /// </summary>
-        /// <param name="data"></param>
+        /// <param name="data">待发送数据</param>
         /// <remarks>
         /// 零拷贝契约：数组支撑的 ReadOnlySpan 在快速路径上零拷贝发送，发送完成前不得修改或复用该缓冲区；
         /// 非数组内存或需要缓冲的实现会在边界处发生一次复制。
@@ -121,9 +128,9 @@ namespace SAEA.Sockets.Shortcut
             _clientSokcet.Send(data);
         }
         /// <summary>
-        /// SendAsync
+        /// 以 UTF-8 编码发送字符串
         /// </summary>
-        /// <param name="str"></param>
+        /// <param name="str">待发送字符串</param>
         public void SendAsync(string str)
         {
             _clientSokcet.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes(str)));
@@ -145,14 +152,14 @@ namespace SAEA.Sockets.Shortcut
             OnReceive?.Invoke(this, data.ToArray());
         }
         /// <summary>
-        /// Disconnect
+        /// 断开连接
         /// </summary>
         public void Disconnect()
         {
             _clientSokcet.Disconnect();
         }
         /// <summary>
-        /// Dispose
+        /// 释放底层客户端套接字
         /// </summary>
         public void Dispose()
         {
@@ -161,24 +168,24 @@ namespace SAEA.Sockets.Shortcut
     }
 
     /// <summary>
-    /// TCPClient
+    /// TCP 客户端快捷封装，编解码器固定为 BaseCoder
     /// </summary>
     public class TCPClient : TCPClient<BaseCoder>
     {
         /// <summary>
-        /// TCPClient
+        /// 以端地址初始化
         /// </summary>
-        /// <param name="endPoint"></param>
+        /// <param name="endPoint">服务端地址</param>
         public TCPClient(IPEndPoint endPoint) : base(endPoint)
         {
 
         }
 
         /// <summary>
-        /// TCPClient
+        /// 以 IP 与端口初始化
         /// </summary>
-        /// <param name="ip"></param>
-        /// <param name="port"></param>
+        /// <param name="ip">服务端 IP 地址</param>
+        /// <param name="port">服务端端口</param>
         public TCPClient(string ip, int port) : base(ip, port)
         {
 

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/01/23 11:16:53
+*修改时间：2026/11/6 12:52:27
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：SaeaClientSocket接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -818,6 +818,10 @@ namespace SAEA.Sockets.Core.Tcp
             }
         }
 
+        /// <summary>
+        /// 同步发送：TLS 激活时走 TLS 通道，否则用 BeginSend/EndSend 循环发送入参副本；连接断开或超时经 OnError 报告
+        /// </summary>
+        /// <param name="data">待发送数据，为空时直接返回</param>
         public void Send(ReadOnlySpan<byte> data)
         {
             if (data.Length == 0) return;
@@ -856,6 +860,10 @@ namespace SAEA.Sockets.Core.Tcp
             }
         }
 
+        /// <summary>
+        /// 异步发送：能直接取到底层数组时零拷贝直发，否则复制进池化缓冲；TLS 激活时走 TLS 通道
+        /// </summary>
+        /// <param name="data">待发送数据，为空时直接返回</param>
         public void SendAsync(ReadOnlyMemory<byte> data)
         {
             if (data.Length == 0) return;
@@ -872,6 +880,11 @@ namespace SAEA.Sockets.Core.Tcp
             SendAsyncRaw(rented, writer);
         }
 
+        /// <summary>
+        /// 异步发送并转移缓冲所有权：零拷贝直发时由发送完成回调释放 owner，需复制时先复制再立即释放 owner；空数据直接释放
+        /// </summary>
+        /// <param name="data">待发送数据</param>
+        /// <param name="owner">data 所占缓冲的所有权对象，可为 null</param>
         public void SendAsync(ReadOnlyMemory<byte> data, IDisposable owner)
         {
             if (data.Length == 0)
@@ -918,6 +931,10 @@ namespace SAEA.Sockets.Core.Tcp
             SendAsyncRaw(rented, writer);
         }
 
+        /// <summary>
+        /// 先按线格式编码再异步发送；编码失败或 coder 未初始化时经 OnError 报告，缓冲由本方法释放
+        /// </summary>
+        /// <param name="protocal">待发送的协议对象，为 null 时直接返回</param>
         public void SendAsync(ISocketProtocal protocal)
         {
             if (protocal == null) return;
@@ -949,6 +966,12 @@ namespace SAEA.Sockets.Core.Tcp
             SendAsyncRaw(rented, writer);
         }
 
+        /// <summary>
+        /// 在线程池上执行异步发送，取消令牌只作用于排队阶段，不中断已开始的发送
+        /// </summary>
+        /// <param name="data">待发送数据</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>发送任务</returns>
         public Task SendAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken)
         {
             return Task.Run(() => SendAsync(data), cancellationToken);

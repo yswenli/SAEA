@@ -54,6 +54,10 @@ namespace SAEA.Sockets.Ssl
         /// <summary>
         /// 从 PFX/P12 加载。
         /// </summary>
+        /// <param name="path">证书文件路径，不能为空，文件不存在时抛 FileNotFoundException</param>
+        /// <param name="password">证书密码，无密码时为 null</param>
+        /// <param name="flags">密钥存储标志，为 null 时使用 DefaultKeyStorageFlags</param>
+        /// <returns>加载得到的证书对象，PFX 内含私钥时可直接用于 TLS</returns>
         public static X509Certificate2 FromPfx(string path, string password = null,
             X509KeyStorageFlags? flags = null)
         {
@@ -68,6 +72,10 @@ namespace SAEA.Sockets.Ssl
         /// <summary>
         /// 从当前用户/本地计算机证书库按主题或指纹加载。
         /// </summary>
+        /// <param name="subjectOrThumbprint">证书主题或指纹，内部会去掉空格后按指纹查找</param>
+        /// <param name="location">证书库位置，默认 CurrentUser</param>
+        /// <param name="validOnly">是否只返回有效证书</param>
+        /// <returns>首个带私钥的匹配证书；无匹配时返回 null</returns>
         public static X509Certificate2 FromStore(string subjectOrThumbprint,
             StoreLocation location = StoreLocation.CurrentUser, bool validOnly = true)
         {
@@ -100,6 +108,10 @@ namespace SAEA.Sockets.Ssl
         /// <c>netstandard2.0</c> 未提供 <c>X509Certificate2.CreateFromPemFile</c>，因此使用
         /// BouncyCastle 解析私钥并重新打包为 PKCS#12，再交给运行时加载。
         /// </remarks>
+        /// <param name="certificatePath">证书文件路径（PEM），不能为空，文件不存在时抛 FileNotFoundException</param>
+        /// <param name="privateKeyPath">私钥文件路径（PEM），不能为空，文件不存在时抛 FileNotFoundException</param>
+        /// <param name="password">私钥解密密码，未加密时为 null</param>
+        /// <returns>包含私钥的证书对象；相同证书/私钥/密码组合会命中进程内缓存返回同一实例</returns>
         public static X509Certificate2 FromPem(string certificatePath, string privateKeyPath,
             string password = null)
         {
@@ -119,6 +131,10 @@ namespace SAEA.Sockets.Ssl
         /// <summary>
         /// 按目录自动加载：文件名匹配主机名（如 api.example.com.pfx / *.example.com.pfx）。
         /// </summary>
+        /// <param name="directory">证书目录，不能为空，目录不存在时委托返回 null</param>
+        /// <param name="password">证书密码，无密码时为 null</param>
+        /// <param name="searchPattern">搜索模式，默认 *.pfx；为空时回退为 *.pfx</param>
+        /// <returns>主机名到证书的委托；按精确 host、通配符最长后缀、default 的顺序匹配，均未命中返回 null</returns>
         public static Func<string, X509Certificate2> FromDirectory(string directory,
             string password = null, string searchPattern = "*.pfx")
         {

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/03/13 14:33:29
+*修改时间：2026/11/6 12:52:27
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：KernelException接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -38,11 +38,20 @@ namespace SAEA.Sockets.Model
     /// </summary>
     public class KernelException : Exception
     {
+        /// <summary>
+        /// 以错误消息初始化
+        /// </summary>
+        /// <param name="msg">错误消息</param>
         public KernelException(string msg) : base(msg)
         {
 
         }
 
+        /// <summary>
+        /// 以错误消息与内部异常初始化
+        /// </summary>
+        /// <param name="msg">错误消息</param>
+        /// <param name="ex">内部异常</param>
         public KernelException(string msg, Exception ex) : base(msg, ex)
         {
 
