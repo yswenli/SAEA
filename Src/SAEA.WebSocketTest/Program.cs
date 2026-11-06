@@ -15,10 +15,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/3/1 15:54:21
+*修改时间：2026/11/6 13:23:31
 *修改人： yswenli
-*版本号： v7.0.0.1
-*描述：
+*版本号： vnet10.0
+*描述：补齐英文与乱码注释的中文说明
 *
 *****************************************************************************/
 
@@ -113,7 +113,7 @@ namespace SAEA.WebSocketTest
         }
 
         /// <summary>
-        /// Creates a WebSocket frame for testing
+        /// 构造用于测试的 WebSocket 帧
         /// </summary>
         static byte[] CreateWebSocketFrame(byte opcode, byte[] payload, bool masked)
         {
