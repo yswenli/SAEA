@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/26 18:51:09
+*修改时间：2026/11/6 12:40:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：DataExtraction接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -40,6 +40,9 @@ using System.Threading.Tasks;
 
 namespace SAEA.Common.IO
 {
+    /// <summary>
+    /// 基于管道的流式数据抽取器，用于按行或按长度读取文本数据
+    /// </summary>
     public class DataExtraction
     {
         Pipe _pipe;
@@ -50,6 +53,9 @@ namespace SAEA.Common.IO
 
         static readonly byte[] _enter = new byte[] { 13, 10 };
 
+        /// <summary>
+        /// 创建抽取器并初始化内部管道
+        /// </summary>
         public DataExtraction()
         {
             _pipe = new Pipe();
@@ -60,12 +66,22 @@ namespace SAEA.Common.IO
         }
 
 
+        /// <summary>
+        /// 写入数据到管道，由读取端异步消费
+        /// </summary>
+        /// <param name="memory">待写入的内存块</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>写入完成的任务</returns>
         public async ValueTask WriteAsync(ReadOnlyMemory<byte> memory, CancellationToken cancellationToken = default(CancellationToken))
         {
             await _writer.WriteAsync(memory, cancellationToken);
         }
 
 
+        /// <summary>
+        /// 读取一行文本，以 '\n' 为分隔符，原始换行为 CRLF 时保留行尾的 '\r'
+        /// </summary>
+        /// <returns>行内容，当前缓冲区没有换行符时返回 null</returns>
         public async ValueTask<string> ReadLineAsync()
         {
             ReadResult result = await _reader.ReadAsync();
@@ -97,6 +113,12 @@ namespace SAEA.Common.IO
 
 
 
+        /// <summary>
+        /// 按长度读取文本，累计字符数或 UTF-8 字节数任一达到 len 即停止
+        /// </summary>
+        /// <param name="len">目标长度</param>
+        /// <param name="ctoken">取消令牌，取消后返回已累计的内容</param>
+        /// <returns>读取到的文本，异常时返回以「-Err:ReadBlock Timeout,」开头的错误信息而不抛出</returns>
         public async ValueTask<string> ReadBlock(int len, CancellationToken ctoken)
         {
             try
@@ -116,6 +138,10 @@ namespace SAEA.Common.IO
         }
 
 
+        /// <summary>
+        /// 完成读取端，释放管道占用的资源
+        /// </summary>
+        /// <returns>完成操作的任务</returns>
         public async ValueTask CompleteAsync()
         {
             await _reader.CompleteAsync();

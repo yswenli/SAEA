@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/11 17:28:07
+*修改时间：2026/11/6 12:40:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ConfigHelper接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common.IO;
@@ -40,16 +40,25 @@ namespace SAEA.Common
     /// <summary>
     /// 对象持久化
     /// </summary>
-    /// <typeparam name="T"></typeparam>
+    /// <typeparam name="T">配置对象类型，需具备无参构造函数</typeparam>
     public class ConfigHelper<T> where T : class, new()
     {
         string _filePath = string.Empty;
 
+        /// <summary>
+        /// 初始化配置文件路径，目录名换算为程序当前目录下的子目录
+        /// </summary>
+        /// <param name="dirName">配置文件所在子目录名</param>
+        /// <param name="fileName">配置文件名</param>
         public ConfigHelper(string dirName, string fileName)
         {
             _filePath = Path.Combine(PathHelper.GetCurrentPath(dirName), fileName);
         }
 
+        /// <summary>
+        /// 从文件读取并反序列化配置对象，文件不存在时按空文件处理
+        /// </summary>
+        /// <returns>配置对象，内容为空或反序列化失败时为默认值</returns>
         public T Read()
         {
             StringBuilder sb = new StringBuilder();
@@ -91,6 +100,10 @@ namespace SAEA.Common
         }
 
 
+        /// <summary>
+        /// 将配置对象序列化为 json 写入文件，覆盖原有内容
+        /// </summary>
+        /// <param name="t">待写入的配置对象，为 null 时不写文件</param>
         public void Write(T t)
         {
             if (t != null)

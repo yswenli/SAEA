@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2023/09/26 19:09:21
+*修改时间：2026/11/6 12:40:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：PooledBytes类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -42,7 +42,7 @@ namespace SAEA.Common.Caching
         static ArrayPool<byte> _pool;
 
         /// <summary>
-        /// SmartArrayPool
+        /// 静态构造，取共享数组池作为租用来源
         /// </summary>
         static PooledBytes()
         {
@@ -56,9 +56,9 @@ namespace SAEA.Common.Caching
 
 
         /// <summary>
-        /// SmartArrayPool
+        /// 从共享数组池租用不小于指定长度的字节数组
         /// </summary>
-        /// <param name="minLength"></param>
+        /// <param name="minLength">最小长度（字节），实际长度可能更大</param>
         public PooledBytes(int minLength)
         {
             Bytes = _pool.Rent(minLength);
@@ -84,7 +84,7 @@ namespace SAEA.Common.Caching
         }
 
         /// <summary>
-        /// GetBuffer
+        /// 将字节数组归还共享池，重复调用会导致同一数组被多次归还
         /// </summary>
         public void Dispose()
         {

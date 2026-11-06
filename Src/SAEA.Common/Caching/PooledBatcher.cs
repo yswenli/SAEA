@@ -1,3 +1,34 @@
+/****************************************************************************
+ * 
+  ____    _    _____    _      ____             _        _   
+ / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
+ \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
+  ___) / ___ \| |___ / ___ \   ___) | (_) | (__|   <  __/ |_ 
+ |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
+                                                              
+ 
+*Copyright (c) yswenli All Rights Reserved.
+*CLR版本： netstandard2.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：SAEA.Common.Caching
+*文件名： PooledBatcher
+*版本号： v26.11.5.1
+*唯一标识：ba7bd831-b79a-4f85-a7fc-60e180336ca0
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/11/6 12:40:36
+*描述：基于内存池的批量处理器
+*
+*=====================================================================
+*修改标记
+*修改时间：2026/11/6 12:40:45
+*修改人： yswenli
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
+*
+*****************************************************************************/
 using SAEA.Common.Threading;
 using System;
 using System.Collections.Concurrent;
@@ -11,6 +42,8 @@ namespace SAEA.Common.Caching
     /// 池化批处理器：收集 PooledBufferWriter，满 size 或超时后合并为一个 writer 并回调。
     /// 所有权约定：Insert 返回 true 后由本类持有 writer；返回 false 时调用方仍持有并须自行 Dispose。
     /// </summary>
+    /// <param name="batch">合并后的 writer，回调返回后由本类释放，获取缓冲区需在回调内完成</param>
+    /// <param name="count">本批包含的 writer 个数</param>
     public delegate void OnPooledBatchedHandler(PooledBufferWriter batch, int count);
 
     /// <summary>
@@ -29,12 +62,28 @@ namespace SAEA.Common.Caching
         readonly object _sync = new object();
         volatile bool _stopped;
 
+        /// <summary>
+        /// 一批数据合并完成后触发，参数为合并后的 writer 与本批 writer 个数
+        /// </summary>
         public event OnPooledBatchedHandler OnBatched;
 
+        /// <summary>
+        /// 批处理实例名称，用于日志与排查
+        /// </summary>
         public string Name { get; private set; }
 
+        /// <summary>
+        /// 当前队列中尚未取出的 writer 个数
+        /// </summary>
         public int PendingCount { get { return _queue.Count; } }
 
+        /// <summary>
+        /// 创建池化批处理器并启动后台成批线程
+        /// </summary>
+        /// <param name="size">每批最大 writer 个数，小于等于 0 时按 1000 处理</param>
+        /// <param name="timeout">凑不满一批时的最长等待时间（毫秒），小于等于 0 时按 1000 处理</param>
+        /// <param name="max">队列允许积压的最大 writer 个数，-1 表示按 size × 10 计算</param>
+        /// <param name="name">实例名称，null 转为空字符串</param>
         public PooledBatcher(int size = 1000, int timeout = 1000, int max = -1, string name = "")
         {
             _size = size > 0 ? size : 1000;
@@ -48,6 +97,11 @@ namespace SAEA.Common.Caching
             TaskHelper.LongRunning(Handler);
         }
 
+        /// <summary>
+        /// 入队一个 writer，队列满或实例已停止时立即返回 false，此时 writer 仍归调用方所有
+        /// </summary>
+        /// <param name="writer">待入队的 writer</param>
+        /// <returns>入队成功返回 true，此后 writer 由本类释放</returns>
         public bool Insert(PooledBufferWriter writer)
         {
             if (writer == null) return false;
@@ -120,6 +174,9 @@ namespace SAEA.Common.Caching
             }
         }
 
+        /// <summary>
+        /// 清空队列并释放其中全部 writer，不触发回调
+        /// </summary>
         public void Clear()
         {
             lock (_sync)
@@ -137,6 +194,9 @@ namespace SAEA.Common.Caching
             }
         }
 
+        /// <summary>
+        /// 停止后台成批线程并释放队列内全部 writer，不触发回调；内部容量信号量不释放
+        /// </summary>
         public void Dispose()
         {
             lock (_sync)

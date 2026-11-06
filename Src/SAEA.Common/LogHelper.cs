@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/03/12 17:05:14
+*修改时间：2026/11/6 12:40:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：LogHelper帮助类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common.IO;
@@ -54,17 +54,29 @@ namespace SAEA.Common
         static int _maxLogFileCount = 10;
         static bool _fileSizeLimitEnabled = false;
 
+        /// <summary>
+        /// 设置单个日志文件的最大字节数，设置后启用按大小滚动
+        /// </summary>
+        /// <param name="maxSize">最大字节数</param>
         public static void SetMaxFileSize(long maxSize)
         {
             _maxFileSize = maxSize;
             _fileSizeLimitEnabled = true;
         }
 
+        /// <summary>
+        /// 设置滚动归档保留的日志文件数量
+        /// </summary>
+        /// <param name="maxCount">保留的归档文件数，超出部分删除</param>
         public static void SetMaxLogFileCount(int maxCount)
         {
             _maxLogFileCount = maxCount;
         }
 
+        /// <summary>
+        /// 设置日志文件输出目录，默认是当前目录下的 Logs
+        /// </summary>
+        /// <param name="path">目录路径</param>
         public static void SetLogPath(string path)
         {
             _logPath = path;
@@ -179,11 +191,11 @@ namespace SAEA.Common
         }
 
         /// <summary>
-        /// Error
+        /// 记录错误日志，异常与附加参数会被序列化后写入
         /// </summary>
-        /// <param name="des"></param>
-        /// <param name="ex"></param>
-        /// <param name="params"></param>
+        /// <param name="des">错误描述</param>
+        /// <param name="ex">异常对象</param>
+        /// <param name="params">附加参数，可为 null</param>
         public static void Error(string des, Exception ex, params object[] @params)
         {
             string paramStr = string.Empty;
@@ -196,11 +208,11 @@ namespace SAEA.Common
         }
 
         /// <summary>
-        /// Warn
+        /// 记录警告日志，异常与附加参数会被序列化后写入
         /// </summary>
-        /// <param name="des"></param>
-        /// <param name="ex"></param>
-        /// <param name="params"></param>
+        /// <param name="des">警告描述</param>
+        /// <param name="ex">异常对象</param>
+        /// <param name="params">附加参数，可为 null</param>
         public static void Warn(string des, Exception ex, params object[] @params)
         {
             string paramStr = string.Empty;
@@ -213,10 +225,10 @@ namespace SAEA.Common
         }
 
         /// <summary>
-        /// Info
+        /// 记录信息日志，附加参数会被序列化后写入
         /// </summary>
-        /// <param name="des"></param>
-        /// <param name="params"></param>
+        /// <param name="des">信息描述</param>
+        /// <param name="params">附加参数，可为 null</param>
         public static void Info(string des, params object[] @params)
         {
             string paramStr = string.Empty;
@@ -229,10 +241,10 @@ namespace SAEA.Common
         }
 
         /// <summary>
-        /// Debug
+        /// 记录调试日志，同时输出到控制台与日志文件
         /// </summary>
-        /// <param name="des"></param>
-        /// <param name="params"></param>
+        /// <param name="des">调试描述</param>
+        /// <param name="params">附加参数，可为 null</param>
         public static void Debug(string des, params object[] @params)
         {
             string paramStr = string.Empty;
@@ -246,10 +258,10 @@ namespace SAEA.Common
         }
 
         /// <summary>
-        /// Debug
+        /// 记录字节数据的调试日志，按 UTF-8 解码，同时输出到控制台与日志文件
         /// </summary>
-        /// <param name="des"></param>
-        /// <param name="data"></param>
+        /// <param name="des">调试描述</param>
+        /// <param name="data">字节数据，为 null 或空时记录「内容为空」</param>
         public static void Debug(string des, byte[] data)
         {
             var result = "内容为空";

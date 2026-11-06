@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2020/12/16 17:50:24
+*修改时间：2026/11/6 12:40:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MD5Helper帮助类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -36,6 +36,9 @@ using System.Text;
 
 namespace SAEA.Common.Encryption
 {
+    /// <summary>
+    /// MD5 与 HmacMD5 摘要计算
+    /// </summary>
     public static class MD5Helper
     {
         /// <summary>
@@ -92,11 +95,11 @@ namespace SAEA.Common.Encryption
         }
 
         /// <summary>
-        /// HmacMD5
+        /// 计算 HmacMD5 摘要，密钥与内容按系统默认编码转字节，结果不含连字符
         /// </summary>
-        /// <param name="key"></param>
-        /// <param name="source"></param>
-        /// <returns></returns>
+        /// <param name="key">密钥</param>
+        /// <param name="source">待计算的内容</param>
+        /// <returns>32 位小写十六进制摘要</returns>
         public static string HmacMD5(string key, string source)
         {
             HMACMD5 hmacmd = new HMACMD5(Encoding.Default.GetBytes(key));

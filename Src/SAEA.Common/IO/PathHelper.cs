@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2020/12/16 17:50:24
+*修改时间：2026/11/6 12:40:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：PathHelper帮助类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -36,10 +36,17 @@ using System.Linq;
 
 namespace SAEA.Common.IO
 {
+    /// <summary>
+    /// 目录与路径操作类
+    /// </summary>
     public sealed class PathHelper
     {
         static string _currentPath = string.Empty;
 
+        /// <summary>
+        /// 获取当前目录，取基目录的上一级并缓存
+        /// </summary>
+        /// <returns>当前目录路径</returns>
         public static string GetCurrentPath()
         {
             if (string.IsNullOrEmpty(_currentPath))
@@ -78,6 +85,11 @@ namespace SAEA.Common.IO
             return Path.Combine(path, fileName);
         }
 
+        /// <summary>
+        /// 获取当前目录下的子目录，不存在时创建
+        /// </summary>
+        /// <param name="children">子目录名</param>
+        /// <returns>子目录完整路径</returns>
         public static string GetCurrentPath(string children)
         {
             var path = Path.Combine(GetCurrentPath(), children);
@@ -86,11 +98,22 @@ namespace SAEA.Common.IO
             return path;
         }
 
+        /// <summary>
+        /// 拼接目录与文件名得到完整路径
+        /// </summary>
+        /// <param name="path">目录路径</param>
+        /// <param name="fileName">文件名</param>
+        /// <returns>完整路径，不校验是否存在</returns>
         public static string GetFilePath(string path, string fileName)
         {
             return Path.Combine(path, fileName);
         }
 
+        /// <summary>
+        /// 获取路径中的文件名
+        /// </summary>
+        /// <param name="filePath">文件路径</param>
+        /// <returns>文件名，不含目录部分</returns>
         public static string GetFileName(string filePath)
         {
             return Path.GetFileName(filePath);
@@ -220,6 +243,11 @@ namespace SAEA.Common.IO
             return null;
         }
 
+        /// <summary>
+        /// 获取目录的上级目录
+        /// </summary>
+        /// <param name="path">目录路径</param>
+        /// <returns>上级目录信息，路径为空、目录不存在或已是根目录时返回 null</returns>
         public static DirectoryInfo GetParent(string path)
         {
             if (!string.IsNullOrEmpty(path) && Directory.Exists(path))
@@ -229,6 +257,11 @@ namespace SAEA.Common.IO
             return null;
         }
 
+        /// <summary>
+        /// 判断目录是否存在
+        /// </summary>
+        /// <param name="dirPath">目录路径</param>
+        /// <returns>存在返回 true</returns>
         public static bool Exists(string dirPath)
         {
             return Directory.Exists(dirPath);
@@ -263,12 +296,23 @@ namespace SAEA.Common.IO
         }
 
 
+        /// <summary>
+        /// 合并多级目录名
+        /// </summary>
+        /// <param name="dirNames">按顺序拼接的目录名</param>
+        /// <returns>合并后的路径</returns>
         public static string Combine(params string[] dirNames)
         {
             return Path.Combine(dirNames);
         }
 
 
+        /// <summary>
+        /// 以根目录加多级子目录名合并路径
+        /// </summary>
+        /// <param name="dirPath">根目录</param>
+        /// <param name="dirNames">子目录名</param>
+        /// <returns>合并后的路径</returns>
         public static string Combine(string dirPath, params string[] dirNames)
         {
             List<string> list = new List<string>();
@@ -280,6 +324,12 @@ namespace SAEA.Common.IO
             return Combine(list.ToArray());
         }
 
+        /// <summary>
+        /// 判断 targetPath 是否与 sourcePath 构成父子层级，路径相同返回 false
+        /// </summary>
+        /// <param name="sourcePath">源路径</param>
+        /// <param name="targetPath">待比较的目标路径</param>
+        /// <returns>sourcePath 为根目录、其父目录等于 targetPath 或长度小于 targetPath 时返回 true</returns>
         public static bool IsParent(string sourcePath, string targetPath)
         {
             if (sourcePath == targetPath) return false;
@@ -303,6 +353,12 @@ namespace SAEA.Common.IO
         }
 
 
+        /// <summary>
+        /// 在根目录下创建子目录，子目录已存在时不创建
+        /// </summary>
+        /// <param name="root">根目录</param>
+        /// <param name="dirName">子目录名，可含 / 或 \ 分隔的多级</param>
+        /// <returns>目录已存在或创建成功返回 true，根目录下无此目录返回 false</returns>
         public static bool CreateDir(string root, string dirName)
         {
             if (Combine(root, dirName, out string dirPath))
@@ -313,6 +369,11 @@ namespace SAEA.Common.IO
             return false;
         }
 
+        /// <summary>
+        /// 创建目录，异常被记录到日志不向外抛出
+        /// </summary>
+        /// <param name="dirPath">目录路径</param>
+        /// <returns>创建成功返回 true，已存在或创建失败返回 false</returns>
         public static bool CreateDir(string dirPath)
         {
             try
@@ -331,6 +392,11 @@ namespace SAEA.Common.IO
             return false;
         }
 
+        /// <summary>
+        /// 删除目录，仅删除空目录，异常被记录到日志不向外抛出
+        /// </summary>
+        /// <param name="dirPath">目录路径</param>
+        /// <returns>删除成功返回 true，失败返回 false</returns>
         public static bool Remove(string dirPath)
         {
             try

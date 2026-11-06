@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2020/12/16 17:50:24
+*修改时间：2026/11/6 12:40:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：TaskHelper帮助类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -40,31 +40,42 @@ namespace SAEA.Common.Threading
     /// </summary>
     public static class TaskHelper
     {
+        /// <summary>
+        /// 在线程池上异步执行无返回值操作
+        /// </summary>
+        /// <param name="action">待执行的操作</param>
+        /// <returns>表示执行过程的任务</returns>
         public static Task Run(Action action)
         {
             return Task.Run(action);
         }
 
+        /// <summary>
+        /// 在线程池上异步执行有返回值操作
+        /// </summary>
+        /// <typeparam name="T">返回值类型</typeparam>
+        /// <param name="fuc">待执行的委托</param>
+        /// <returns>包含执行结果的任务</returns>
         public static Task<T> Run<T>(Func<T> fuc)
         {
             return Task.Run(fuc);
         }
 
         /// <summary>
-        /// LongRunning
+        /// 以长时间运行方式启动独立线程执行操作
         /// </summary>
-        /// <param name="action"></param>
-        /// <returns></returns>
+        /// <param name="action">待执行的操作</param>
+        /// <returns>表示执行过程的任务</returns>
         public static Task LongRunning(Action action)
         {
             return Task.Factory.StartNew(action, TaskCreationOptions.LongRunning);
         }
         /// <summary>
-        /// LongRunning
+        /// 以长时间运行方式启动独立线程循环执行操作，任务不会自行结束
         /// </summary>
-        /// <param name="action"></param>
-        /// <param name="priod">间隔时长</param>
-        /// <returns></returns>
+        /// <param name="action">待执行的操作，可为 null</param>
+        /// <param name="priod">循环间隔毫秒数，大于 0 时生效</param>
+        /// <returns>表示循环执行过程的任务</returns>
         public static Task LongRunning(Action action, int priod)
         {
             return Task.Factory.StartNew(() =>

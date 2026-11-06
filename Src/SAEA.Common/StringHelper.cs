@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/08/24 16:31:11
+*修改时间：2026/11/6 12:40:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：StringHelper接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -37,6 +37,9 @@ using System.Text;
 
 namespace System
 {
+    /// <summary>
+    /// 字符串扩展工具类，含容量单位格式化、拆分、编解码等辅助方法
+    /// </summary>
     public static class StringHelper
     {
         static int k = 1024;
@@ -47,6 +50,11 @@ namespace System
 
         static long t = g * k;
 
+        /// <summary>
+        /// 将字节数按 1024 进制格式化为 B、KB、MB、GB 字符串，保留两位小数
+        /// </summary>
+        /// <param name="len">字节数</param>
+        /// <returns>带单位的可读字符串</returns>
         public static string Convert(long len)
         {
             string result = string.Empty;
@@ -70,6 +78,11 @@ namespace System
             return result;
         }
 
+        /// <summary>
+        /// 将字节数格式化为带单位的可读字符串
+        /// </summary>
+        /// <param name="l">字节数</param>
+        /// <returns>带单位的可读字符串</returns>
         public static string ToSpeedString(this long l)
         {
             return Convert(l);
@@ -117,6 +130,11 @@ namespace System
             }
         }
 
+        /// <summary>
+        /// 将 ip:port 字符串转为 IPEndPoint，格式错误时抛出异常
+        /// </summary>
+        /// <param name="remote">地址字符串</param>
+        /// <returns>地址端点</returns>
         public static IPEndPoint ToIPEndPoint(this string remote)
         {
             var tuple = remote.ToIPPort();
@@ -124,11 +142,25 @@ namespace System
         }
 
 
+        /// <summary>
+        /// 按多个分隔符拆分字符串
+        /// </summary>
+        /// <param name="str">源字符串</param>
+        /// <param name="none">为 true 时保留空项，否则移除空项</param>
+        /// <param name="splits">分隔符集合</param>
+        /// <returns>拆分结果</returns>
         public static string[] ToArray(this string str, bool none = false, params string[] splits)
         {
             return str.Split(splits, none ? StringSplitOptions.None : StringSplitOptions.RemoveEmptyEntries);
         }
 
+        /// <summary>
+        /// 按单个字符串分隔符拆分，仅供测试使用
+        /// </summary>
+        /// <param name="str">源字符串</param>
+        /// <param name="splitStr">分隔符</param>
+        /// <param name="option">是否移除空项</param>
+        /// <returns>拆分结果</returns>
         [Obsolete("测试用")]
         public static string[] Split2(this string str, string splitStr, StringSplitOptions option)
         {
@@ -177,22 +209,48 @@ namespace System
         }
 
 
+        /// <summary>
+        /// 按字符串分隔符拆分，未命中分隔符时返回仅含原字符串的数组
+        /// </summary>
+        /// <param name="str">源字符串</param>
+        /// <param name="splitStr">分隔符</param>
+        /// <returns>拆分结果</returns>
         public static string[] Split(this string str, string splitStr)
         {
             return str.Split(splitStr, StringSplitOptions.None);
         }
 
 
+        /// <summary>
+        /// 截取指定起始位置与长度的子字符串
+        /// </summary>
+        /// <param name="str">源字符串</param>
+        /// <param name="start">起始索引</param>
+        /// <param name="length">截取长度</param>
+        /// <returns>子字符串</returns>
         public static string Substring(this string str, int start, int length)
         {
             return str.AsSpan(start, length).ToString();
         }
 
+        /// <summary>
+        /// 从指定位置截取到字符串末尾
+        /// </summary>
+        /// <param name="str">源字符串</param>
+        /// <param name="start">起始索引</param>
+        /// <returns>子字符串</returns>
         public static string Substring(this string str, int start)
         {
             return str.AsSpan(start, str.Length - start).ToString();
         }
 
+        /// <summary>
+        /// 截取子串并解析为整数，格式不合法时抛出异常
+        /// </summary>
+        /// <param name="str">源字符串</param>
+        /// <param name="start">起始索引</param>
+        /// <param name="count">截取长度</param>
+        /// <returns>解析得到的整数</returns>
         public static int ParseToInt(this string str, int start, int count)
         {
             return int.Parse(Substring(str, start, count));
@@ -275,16 +333,21 @@ namespace System
         /// </summary>
         /// <param name="str"></param>
         /// <returns></returns>
+        /// <summary>
+        /// 对字符串做 URL 编码
+        /// </summary>
+        /// <param name="str">源字符串</param>
+        /// <returns>编码后的字符串</returns>
         public static string UrlEncode(this string str)
         {
             return System.Web.HttpUtility.UrlEncode(str);
         }
 
         /// <summary>
-        /// url decode
+        /// 对字符串做 URL 解码
         /// </summary>
-        /// <param name="str"></param>
-        /// <returns></returns>
+        /// <param name="str">源字符串</param>
+        /// <returns>解码后的字符串</returns>
         public static string UrlDecode(this string str)
         {
             return System.Web.HttpUtility.UrlDecode(str);
@@ -359,12 +422,22 @@ namespace System
         }
 
 
+        /// <summary>
+        /// 判断字符串是否为 null 或空字符串
+        /// </summary>
+        /// <param name="str">待判断字符串</param>
+        /// <returns>为 null 或空返回 true</returns>
         public static bool IsNullOrEmpty(this string str)
         {
             return string.IsNullOrEmpty(str);
         }
 
 
+        /// <summary>
+        /// 判断字符串是否非 null 且非空
+        /// </summary>
+        /// <param name="str">待判断字符串</param>
+        /// <returns>非 null 且非空返回 true</returns>
         public static bool IsNotNullOrEmpty(this string str)
         {
             return !string.IsNullOrEmpty(str);

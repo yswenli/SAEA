@@ -1,3 +1,34 @@
+/****************************************************************************
+ * 
+  ____    _    _____    _      ____             _        _   
+ / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
+ \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
+  ___) / ___ \| |___ / ___ \   ___) | (_) | (__|   <  __/ |_ 
+ |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
+                                                              
+ 
+*Copyright (c) yswenli All Rights Reserved.
+*CLR版本： netstandard2.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：SAEA.Common.Caching
+*文件名： PooledBufferWriter
+*版本号： v26.11.5.1
+*唯一标识：467886df-1c7f-4e90-93c9-7b5c1703dea8
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/11/6 12:40:36
+*描述：基于内存池的缓冲区写入器
+*
+*=====================================================================
+*修改标记
+*修改时间：2026/11/6 12:40:45
+*修改人： yswenli
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
+*
+*****************************************************************************/
 using System;
 using System.Buffers;
 
@@ -14,6 +45,10 @@ namespace SAEA.Common.Caching
         private int _written;
         private bool _disposed;
 
+        /// <summary>
+        /// 初始化写入器并从内存池租用不小于 initialCapacity 的缓冲区
+        /// </summary>
+        /// <param name="initialCapacity">初始容量（字节），小于等于 0 时按 4096 处理</param>
         public PooledBufferWriter(int initialCapacity = 4096)
         {
             if (initialCapacity <= 0) initialCapacity = 4096;
@@ -21,21 +56,34 @@ namespace SAEA.Common.Caching
             _buffer = MemoryPoolManager.Rent(initialCapacity);
         }
 
+        /// <summary>
+        /// 已写入的字节数
+        /// </summary>
         public int WrittenCount
         {
             get { ThrowIfDisposed(); return _written; }
         }
 
+        /// <summary>
+        /// 已写入数据的只读 Span，长度为 WrittenCount
+        /// </summary>
         public ReadOnlySpan<byte> WrittenSpan
         {
             get { ThrowIfDisposed(); return _buffer.AsSpan(0, _written); }
         }
 
+        /// <summary>
+        /// 已写入数据的只读 Memory，长度为 WrittenCount
+        /// </summary>
         public ReadOnlyMemory<byte> WrittenMemory
         {
             get { ThrowIfDisposed(); return _buffer.AsMemory(0, _written); }
         }
 
+        /// <summary>
+        /// 确认已向 GetMemory 或 GetSpan 返回的区域写入 count 字节，缓冲区不足或 count 为负时抛异常
+        /// </summary>
+        /// <param name="count">本次提交的字节数</param>
         public void Advance(int count)
         {
             ThrowIfDisposed();
@@ -44,18 +92,33 @@ namespace SAEA.Common.Caching
             _written += count;
         }
 
+        /// <summary>
+        /// 获取从当前写入位置到缓冲区末尾的可写 Memory，容量不足时自动扩容
+        /// </summary>
+        /// <param name="sizeHint">期望的最小连续可写字节数，小于等于 0 时按 1 处理</param>
+        /// <returns>从写入位置开始的可写区域，长度可能大于 sizeHint</returns>
         public Memory<byte> GetMemory(int sizeHint = 0)
         {
             Ensure(sizeHint);
             return _buffer.AsMemory(_written);
         }
 
+        /// <summary>
+        /// 获取从当前写入位置到缓冲区末尾的可写 Span，容量不足时自动扩容
+        /// </summary>
+        /// <param name="sizeHint">期望的最小连续可写字节数，小于等于 0 时按 1 处理</param>
+        /// <returns>从写入位置开始的可写区域，长度可能大于 sizeHint</returns>
         public Span<byte> GetSpan(int sizeHint = 0)
         {
             Ensure(sizeHint);
             return _buffer.AsSpan(_written);
         }
 
+        /// <summary>
+        /// 取出已写入数据的数组段，用于零拷贝直发，无需先提交写入
+        /// </summary>
+        /// <param name="segment">指向底层数组、范围从 0 到 WrittenCount</param>
+        /// <returns>始终为 true</returns>
         public bool TryGetArray(out ArraySegment<byte> segment)
         {
             ThrowIfDisposed();
@@ -70,6 +133,9 @@ namespace SAEA.Common.Caching
             _written = 0;
         }
 
+        /// <summary>
+        /// 将缓冲区归还内存池并作废该写入器，重复调用无副作用
+        /// </summary>
         public void Dispose()
         {
             if (_disposed) return;

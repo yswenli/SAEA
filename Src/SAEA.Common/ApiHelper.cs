@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2020/12/25 17:36:47
+*修改时间：2026/11/6 12:40:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ApiHelper接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common.Newtonsoft.Json;
@@ -269,14 +269,14 @@ namespace SAEA.Common
         public static event ApiLogHandler OnLogged;
 
         /// <summary>
-        /// Request
+        /// 发起 HTTP 请求并返回响应文本，GET 时把参数拼在地址后，其余方法按表单编码 POST
         /// </summary>
-        /// <param name="url"></param>
-        /// <param name="params"></param>
-        /// <param name="method"></param>
-        /// <param name="headers"></param>
-        /// <param name="timeout"></param>
-        /// <returns></returns>
+        /// <param name="url">请求地址</param>
+        /// <param name="params">请求参数，GET 拼接到地址后，POST 作为表单内容</param>
+        /// <param name="method">请求方法，包含 get（不区分大小写）时按 GET 处理，其余按 POST</param>
+        /// <param name="headers">附加请求头，可为 null</param>
+        /// <param name="timeout">请求超时时间（毫秒）</param>
+        /// <returns>服务器响应文本</returns>
         public static string Request(string url, string @params = "", string method = "GET", WebHeaderCollection headers = null, int timeout = 3000)
         {
             var func = new Func<string>(() =>
@@ -413,10 +413,11 @@ namespace SAEA.Common
         /// <summary>
         /// 将json发送给远程服务器
         /// </summary>
-        /// <param name="url"></param>
-        /// <param name="json"></param>
-        /// <param name="headers"></param>
-        /// <returns></returns>
+        /// <param name="url">请求地址</param>
+        /// <param name="json">json 请求体</param>
+        /// <param name="headers">附加请求头，可为 null</param>
+        /// <param name="timeOut">请求超时时间（毫秒），默认 5000</param>
+        /// <returns>服务器响应文本</returns>
         public static string Post(string url, string json, WebHeaderCollection headers = null, int timeOut = 5 * 1000)
         {
             var func = new Func<string>(() =>
@@ -780,7 +781,7 @@ namespace SAEA.Common
 
 
     /// <summary>
-    /// APILog
+    /// 接口调用日志，记录操作名、地址、结果、耗时与调用模式
     /// </summary>
     public class APILog
     {
@@ -825,7 +826,7 @@ namespace SAEA.Common
         }
 
         /// <summary>
-        /// Get-Post
+        /// HTTP 方法，默认 GET
         /// </summary>
         public string Method
         {
@@ -833,7 +834,7 @@ namespace SAEA.Common
         } = "GET";
 
         /// <summary>
-        /// Active-Passive
+        /// 调用模式，默认 Passive，主动采集时置为 Active
         /// </summary>
         public string Mode
         {

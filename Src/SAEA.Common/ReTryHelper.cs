@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/08/24 16:31:11
+*修改时间：2026/11/6 12:40:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ReTryHelper帮助类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -39,6 +39,11 @@ namespace SAEA.Common
     /// </summary>
     public static class ReTryHelper
     {
+        /// <summary>
+        /// 执行操作，失败后重试，最终失败时静默返回不抛出异常
+        /// </summary>
+        /// <param name="action">待执行的操作</param>
+        /// <param name="retry">期望的重试次数，当前实现固定最多执行 5 次</param>
         public static void Do(Action action, int retry = 5)
         {
             int error = 0;

@@ -23,24 +23,30 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2020/12/16 17:50:24
+*修改时间：2026/11/6 12:40:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：NameValueItem接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.Common.NameValue
 {
     /// <summary>
-    /// NameValue
+    /// 名称/值对项
     /// </summary>
     public class NameValueItem
     {
+        /// <summary>
+        /// 名称
+        /// </summary>
         public string Name
         {
             get;set;
         }
 
+        /// <summary>
+        /// 值
+        /// </summary>
         public object Value
         {
             get;set;

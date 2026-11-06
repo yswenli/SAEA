@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2020/12/16 17:50:24
+*修改时间：2026/11/6 12:40:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：GZipHelper接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common.Caching;
@@ -124,10 +124,10 @@ namespace SAEA.Common.Encryption
         }
 
         /// <summary>
-        /// Deflate
+        /// 用 Deflate 算法压缩字节数组
         /// </summary>
-        /// <param name="data"></param>
-        /// <returns></returns>
+        /// <param name="data">原始数据</param>
+        /// <returns>压缩后的字节，输入为 null 时返回 null</returns>
         public static byte[] Deflate(byte[] data)
         {
             if (data == null) return null;
@@ -150,6 +150,11 @@ namespace SAEA.Common.Encryption
             return buffer;
         }
 
+        /// <summary>
+        /// 用 Deflate 算法解压字节数组，内部缓冲区从内存池租用并按 2 倍压缩后长度申请
+        /// </summary>
+        /// <param name="compressedData">Deflate 压缩数据</param>
+        /// <returns>解压后的字节，输入为 null 时返回 null</returns>
         public static byte[] UnDeflate(byte[] compressedData)
         {
             if (compressedData == null) return null;

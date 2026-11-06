@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2020/12/16 17:50:24
+*修改时间：2026/11/6 12:40:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：FileHelper接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -43,20 +43,20 @@ namespace SAEA.Common.IO
     public static class FileHelper
     {
         /// <summary>
-        /// Exists
+        /// 判断文件是否存在
         /// </summary>
-        /// <param name="filePath"></param>
-        /// <returns></returns>
+        /// <param name="filePath">文件路径</param>
+        /// <returns>存在返回 true</returns>
         public static bool Exists(string filePath)
         {
             return File.Exists(filePath);
         }
 
         /// <summary>
-        /// CreateFile
+        /// 创建空文件，目录不存在时先创建，文件已存在时被覆盖
         /// </summary>
-        /// <param name="filePath"></param>
-        /// <returns></returns>
+        /// <param name="filePath">文件路径</param>
+        /// <returns>固定返回 true</returns>
         public static bool CreateFile(string filePath)
         {
             GetDirecotry(filePath);
@@ -84,9 +84,9 @@ namespace SAEA.Common.IO
         }
 
         /// <summary>
-        /// CreateIfNotExists
+        /// 文件不存在时创建空文件，目录不存在时先创建
         /// </summary>
-        /// <param name="filePath"></param>
+        /// <param name="filePath">文件路径</param>
         public static void CreateIfNotExists(string filePath)
         {
             GetDirecotry(filePath);
@@ -179,10 +179,11 @@ namespace SAEA.Common.IO
         }
 
         /// <summary>
-        /// 追加
+        /// 异步追加字节数据，文件不存在时自动创建
         /// </summary>
-        /// <param name="filePath"></param>
-        /// <param name="data"></param>
+        /// <param name="filePath">文件路径</param>
+        /// <param name="data">待追加的数据</param>
+        /// <returns>异步追加任务</returns>
         public static async Task AppendAsync(string filePath, byte[] data)
         {
             GetDirecotry(filePath);

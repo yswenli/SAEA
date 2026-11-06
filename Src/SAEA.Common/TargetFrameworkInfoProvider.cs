@@ -23,16 +23,22 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/01/16 15:31:19
+*修改时间：2026/11/6 12:40:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：TargetFrameworkInfoProvider接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.Common
 {
+    /// <summary>
+    /// 提供编译时所采用的目标框架标识
+    /// </summary>
     public static class TargetFrameworkInfoProvider
     {
+        /// <summary>
+        /// 目标框架标识，如 netstandard2.0，由条件编译符号决定
+        /// </summary>
         public static string TargetFramework
         {
             get

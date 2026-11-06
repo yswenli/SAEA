@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/09/29 16:58:49
+*修改时间：2026/11/6 12:40:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ConstHelper帮助类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -36,93 +36,192 @@ using System.Text;
 
 namespace SAEA.Common
 {
+    /// <summary>
+    /// HTTP 协议与 MVC 框架共用常量
+    /// </summary>
     public class ConstHelper
     {
+        /// <summary>
+        /// 路由中控制器段的占位名
+        /// </summary>
         public const string CONTROLLERNAME = "controller";
 
+        /// <summary>
+        /// MVC 控制器基类的全名
+        /// </summary>
         public const string CONTROLLERFULLNAME = "SAEA.MVC.Controller";
 
+        /// <summary>
+        /// HttpGet 特性名
+        /// </summary>
         public const string HTTPGET = "HttpGet";
 
+        /// <summary>
+        /// HttpPost 特性名
+        /// </summary>
         public const string HTTPPOST = "HttpPost";
 
+        /// <summary>
+        /// HTTP 方法名 GET
+        /// </summary>
         public const string GET = "GET";
 
+        /// <summary>
+        /// HTTP 方法名 POST
+        /// </summary>
         public const string POST = "POST";
 
+        /// <summary>
+        /// HTTP 方法名 PUT
+        /// </summary>
         public const string PUT = "PUT";
 
+        /// <summary>
+        /// HTTP 方法名 DELETE
+        /// </summary>
         public const string DELETE = "DELETE";
 
+        /// <summary>
+        /// HTTP 方法名 OPTIONS，用于跨域预检
+        /// </summary>
         public const string OPTIONS = "OPTIONS";
 
         /// <summary>
-        /// application/x-www-form-urlencoded
+        /// 表单 url 编码的内容类型
         /// </summary>
         public const string FormUrlEncode = "application/x-www-form-urlencoded";
 
         /// <summary>
-        /// multipart/form-data
+        /// 多段表单的内容类型前缀，实际发送时需拼接 boundary
         /// </summary>
         public const string FormData = "multipart/form-data";
 
         /// <summary>
-        /// application/json
+        /// json 内容类型，带 UTF-8 字符集
         /// </summary>
         public const string Json = "application/json; charset=UTF-8";
 
+        /// <summary>
+        /// 动作执行前过滤器的方法名
+        /// </summary>
         public const string ONACTIONEXECUTING = "OnActionExecuting";
 
+        /// <summary>
+        /// 动作执行后过滤器的方法名
+        /// </summary>
         public const string ONACTIONEXECUTED = "OnActionExecuted";
 
+        /// <summary>
+        /// Server 响应头内容的 ASCII 码表，以逗号分隔，运行时解码后拼接版本号
+        /// </summary>
         public const string SERVERMVCSERVER = "83,101,114,118,101,114,58,32,83,65,69,65,46,72,116,116,112,46,83,101,114,118,101,114,32";
 
+        /// <summary>
+        /// Content-Type 头名
+        /// </summary>
         public const string CT = "Content-Type";
 
+        /// <summary>
+        /// 多段表单 boundary 参数的前缀，含前导空格
+        /// </summary>
         public const string BOUNDARY = " boundary=";
 
+        /// <summary>
+        /// 查询参数名 id
+        /// </summary>
         public const string ID = "id";
 
         /// <summary>
-        /// ActionFilterAttribute
+        /// 动作过滤器特性基类的名称
         /// </summary>
         public const string ACTIONFILTERATTRIBUTE = "ActionFilterAttribute";
 
+        /// <summary>
+        /// 回车换行符，用于拼接 HTTP 头
+        /// </summary>
         public const string ENTER = "\r\n";
 
+        /// <summary>
+        /// 双回车换行符，用于标记 HTTP 头结束
+        /// </summary>
         public const string DENTER = "\r\n\r\n";
 
+        /// <summary>
+        /// 空格字符
+        /// </summary>
         public const string SPACE = " ";
 
+        /// <summary>
+        /// 星号字符，用于通配 Accept 等头值
+        /// </summary>
         public const string ASTERRISK = "*";
 
+        /// <summary>
+        /// 减号字符
+        /// </summary>
         public const string MINUSSIGN = "-";
 
+        /// <summary>
+        /// 美元符号
+        /// </summary>
         public const string DOLLAR = "$";
 
+        /// <summary>
+        /// 冒号，用于分隔 HTTP 头名与值
+        /// </summary>
         public const string COLON = ":";
 
+        /// <summary>
+        /// 逗号，用于分隔多个头值
+        /// </summary>
         public const string COMMA = ",";
 
+        /// <summary>
+        /// 正斜杠，用于拼接 URL 路径
+        /// </summary>
         public const string SLASH = "/";
 
+        /// <summary>
+        /// 小于号
+        /// </summary>
         public const string LESS_THAN = "<";
 
+        /// <summary>
+        /// 大于号
+        /// </summary>
         public const string GREATER_THAN = ">";
 
+        /// <summary>
+        /// 和号，用于分隔 URL 查询参数
+        /// </summary>
         public const string AMPERSAND = "&";
 
+        /// <summary>
+        /// 等号，用于分隔参数名与值
+        /// </summary>
         public const string EQUO = "=";
 
+        /// <summary>
+        /// 分号
+        /// </summary>
         public const string SEMICOLON = ";";
 
+        /// <summary>
+        /// 问号，用于标记 URL 查询串起始
+        /// </summary>
         public const string QUESTIONMARK = "?";
 
+        /// <summary>
+        /// 双引号
+        /// </summary>
         public const string DOUBLEQUOTES = "\"";
 
 
         static string _serverName = string.Empty;
 
+        /// <summary>
+        /// Server 响应头值，由固定内容拼接框架版本号，首次访问后缓存
+        /// </summary>
         public static string ServerName
         {
             get
@@ -138,6 +237,9 @@ namespace SAEA.Common
 
         static string _contentEncoding = string.Empty;
 
+        /// <summary>
+        /// gzip 内容编码响应头，值固定为 gzip，首次访问后缓存
+        /// </summary>
         public static string ContentEncoding
         {
             get
@@ -155,6 +257,9 @@ namespace SAEA.Common
 
         static string _crossDomain = string.Empty;
 
+        /// <summary>
+        /// 跨域响应头内容，含允许的方法、来源与请求头，首次访问后缓存，自定义头变化时重建
+        /// </summary>
         public static string CrossDomain
         {
             get
@@ -219,9 +324,15 @@ namespace SAEA.Common
 
 
 
+        /// <summary>
+        /// 会话标识使用的 Cookie 名称
+        /// </summary>
         public const string SESSIONID = "SAEA.HttpServer.SessionID";
 
 
+        /// <summary>
+        /// 输出缓存特性的全名
+        /// </summary>
         public const string OUTPUTCACHEATTRIBUTE = "SAEA.MVC.OutputCacheAttribute";
 
 

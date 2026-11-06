@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/04/18 22:46:32
+*修改时间：2026/11/6 12:40:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：PooledBuffer类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -81,11 +81,13 @@ namespace SAEA.Common.Caching
         /// <summary>
         /// 获取有效数据的 Span
         /// </summary>
+        /// <returns>指向缓冲区前 Length 字节的 Span，Dispose 后失效</returns>
         public Span<byte> AsSpan() => Buffer.AsSpan(0, Length);
 
         /// <summary>
         /// 获取有效数据的 Memory
         /// </summary>
+        /// <returns>指向缓冲区前 Length 字节的 Memory，Dispose 后失效</returns>
         public Memory<byte> AsMemory() => Buffer.AsMemory(0, Length);
 
         /// <summary>

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2020/12/16 17:50:24
+*修改时间：2026/11/6 12:40:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：NameValueCollection接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -44,6 +44,11 @@ namespace SAEA.Common.NameValue
     {
         List<NameValueItem> _list = new List<NameValueItem>();
 
+        /// <summary>
+        /// 按名称读写值，读取时忽略大小写，不存在返回 null，写入时覆盖同名项
+        /// </summary>
+        /// <param name="name">名称</param>
+        /// <returns>对应值</returns>
         public object this[string name]
         {
             get
@@ -58,6 +63,10 @@ namespace SAEA.Common.NameValue
             }
         }
 
+        /// <summary>
+        /// 获取按插入顺序排列的枚举器
+        /// </summary>
+        /// <returns>项枚举器</returns>
         public IEnumerator<NameValueItem> GetEnumerator()
         {
             return _list.GetEnumerator();
@@ -73,6 +82,11 @@ namespace SAEA.Common.NameValue
             return GetEnumerator1();
         }
 
+        /// <summary>
+        /// 按名称和值添加一项，不检查重名
+        /// </summary>
+        /// <param name="name">名称</param>
+        /// <param name="value">值</param>
         public void Add(string name, object value)
         {
             var header = new NameValueItem() { Name = name, Value = value };
@@ -80,16 +94,31 @@ namespace SAEA.Common.NameValue
             Add(header);
         }
 
+        /// <summary>
+        /// 添加一项，不检查重名
+        /// </summary>
+        /// <param name="header">待添加项</param>
         public void Add(NameValueItem header)
         {
             _list.Add(header);
         }
 
+        /// <summary>
+        /// 按名称查找项，忽略大小写
+        /// </summary>
+        /// <param name="name">名称</param>
+        /// <returns>第一个匹配项，不存在返回 null</returns>
         public NameValueItem Get(string name)
         {
             return _list.Where(b => string.Compare(b.Name, name, true) == 0).FirstOrDefault();
         }
 
+        /// <summary>
+        /// 尝试按名称取值，忽略大小写
+        /// </summary>
+        /// <param name="name">名称</param>
+        /// <param name="value">取值结果，未找到时为 null</param>
+        /// <returns>找到返回 true</returns>
         public bool TryGetValue(string name, out object value)
         {
             value = null;
@@ -106,16 +135,30 @@ namespace SAEA.Common.NameValue
             return result;
         }
 
+        /// <summary>
+        /// 判断是否存在名称与指定名称字符串比较结果大于等于 0 的项
+        /// </summary>
+        /// <param name="name">名称</param>
+        /// <returns>存在满足比较条件的项返回 true</returns>
         public bool ContainsName(string name)
         {
             return _list.Exists(b => string.Compare(b.Name, name) > -1);
         }
 
+        /// <summary>
+        /// 判断是否存在名称字符串比较结果大于等于 0 且值相等的项
+        /// </summary>
+        /// <param name="header">待比对的项</param>
+        /// <returns>存在满足条件的项返回 true</returns>
         public bool Exists(NameValueItem header)
         {
             return _list.Exists(b => string.Compare(b.Name, header.Name) > -1 && b.Value == header.Value);
         }
 
+        /// <summary>
+        /// 按名称移除第一个匹配项，忽略大小写，不存在时忽略
+        /// </summary>
+        /// <param name="name">名称</param>
         public void Remove(string name)
         {
             var item = Get(name);
@@ -125,6 +168,10 @@ namespace SAEA.Common.NameValue
             }
         }
 
+        /// <summary>
+        /// 移除指定项，值相等的同名项存在时才真正删除
+        /// </summary>
+        /// <param name="header">待移除的项</param>
         public void Remove(NameValueItem header)
         {
             if (Exists(header))
@@ -133,12 +180,21 @@ namespace SAEA.Common.NameValue
             }
         }
 
+        /// <summary>
+        /// 按名称设置值，已存在同名项时替换，否则追加
+        /// </summary>
+        /// <param name="name">名称</param>
+        /// <param name="value">值</param>
         public void Set(string name, object value)
         {
             var header = new NameValueItem() { Name = name, Value = value };
             Set(header);
         }
 
+        /// <summary>
+        /// 设置一项，已存在同名项时移除旧项后追加到末尾
+        /// </summary>
+        /// <param name="header">待设置的项</param>
         public void Set(NameValueItem header)
         {
             var item = Get(header.Name);
@@ -150,6 +206,9 @@ namespace SAEA.Common.NameValue
         }
 
 
+        /// <summary>
+        /// 项数量
+        /// </summary>
         public int Count
         {
             get
@@ -158,6 +217,9 @@ namespace SAEA.Common.NameValue
             }
         }
 
+        /// <summary>
+        /// 所有名称数组，按插入顺序
+        /// </summary>
         public string[] Names
         {
             get
@@ -165,6 +227,9 @@ namespace SAEA.Common.NameValue
                 return _list.Select(b => b.Name).ToArray();
             }
         }
+        /// <summary>
+        /// 所有值数组，按插入顺序
+        /// </summary>
         public object[] Values
         {
             get
@@ -191,6 +256,10 @@ namespace SAEA.Common.NameValue
             return args.ToArray();
         }
 
+        /// <summary>
+        /// 拼接所有项为 Name:名称,Value:值; 格式的字符串
+        /// </summary>
+        /// <returns>拼接结果，集合为空时返回空字符串</returns>
         public new string ToString()
         {
             if (!_list.Any())
@@ -206,14 +275,25 @@ namespace SAEA.Common.NameValue
             return sb.ToString();
         }
 
+        /// <summary>
+        /// 清空所有项
+        /// </summary>
         public void Clear()
         {
             _list.Clear();
         }
     }
 
+    /// <summary>
+    /// Name/Value 集合扩展
+    /// </summary>
     public static class NameValueCollectionExtends
     {
+        /// <summary>
+        /// 将字典转换为 Name/Value 集合，保持字典的枚举顺序
+        /// </summary>
+        /// <param name="dic">源字典，为 null 或空时返回空集合</param>
+        /// <returns>新的 Name/Value 集合</returns>
         public static NameValueCollection ToNameValueCollection(this Dictionary<string, string> dic)
         {
             NameValueCollection result = new NameValueCollection();

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/08/24 17:15:17
+*修改时间：2026/11/6 12:40:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：Extention接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -88,11 +88,11 @@ namespace SAEA.Common
         }
 
         /// <summary>
-        /// 
+        /// 遍历嵌套集合，对每个元素执行回调
         /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="collection"></param>
-        /// <returns></returns>
+        /// <typeparam name="T">元素类型</typeparam>
+        /// <param name="collection">嵌套集合，内部集合不能为 null</param>
+        /// <param name="action">元素回调，为 null 时跳过</param>
         public static void Each<T>(this IEnumerable<IEnumerable<T>> collection, Action<T> action)
         {
             foreach (var item in collection)

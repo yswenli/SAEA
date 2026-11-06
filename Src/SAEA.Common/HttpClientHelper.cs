@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/04/08 20:05:23
+*修改时间：2026/11/6 12:40:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：HttpClientHelper接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -48,7 +48,7 @@ using SAEA.Common.Serialization;
 namespace SAEA.Common
 {
     /// <summary>
-    /// HttpClientHelper
+    /// 基于随机索引复用的 HttpClient 连接池工具类，统一设置超时与证书校验
     /// </summary>
     public static class HttpClientHelper
     {

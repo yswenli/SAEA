@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2020/12/16 17:50:24
+*修改时间：2026/11/6 12:40:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ParamsHelper帮助类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -41,6 +41,10 @@ namespace SAEA.Common.NameValue
     /// </summary>
     public static class ParamsHelper
     {
+        /// <summary>
+        /// 校验字符串数组及其元素均不为 null，否则抛出异常
+        /// </summary>
+        /// <param name="params">待校验的字符串数组</param>
         public static void NotNull(this string[] @params)
         {
             if (@params == null) throw new Exception("params must not allow null");
@@ -51,6 +55,10 @@ namespace SAEA.Common.NameValue
             }
         }
 
+        /// <summary>
+        /// 校验列表及其元素均不为 null，否则抛出异常
+        /// </summary>
+        /// <param name="list">待校验的列表</param>
         public static void NotNull(this List<string> list)
         {
             if (list == null) throw new Exception("list must not allow null");
@@ -61,6 +69,10 @@ namespace SAEA.Common.NameValue
             }
         }
 
+        /// <summary>
+        /// 校验序列及其元素均不为 null，否则抛出异常
+        /// </summary>
+        /// <param name="list">待校验的字符串序列</param>
         public static void NotNull(this IEnumerable<string> list)
         {
             if (list == null) throw new Exception("list must not allow null");
@@ -71,6 +83,10 @@ namespace SAEA.Common.NameValue
             }
         }
 
+        /// <summary>
+        /// 校验字典不为 null、键非空且值不为 null，否则抛出异常
+        /// </summary>
+        /// <param name="dic">待校验的字典</param>
         public static void NotNull(this Dictionary<string, string> dic)
         {
             if (dic == null) throw new Exception("params must not allow null");
@@ -81,6 +97,10 @@ namespace SAEA.Common.NameValue
             }
         }
 
+        /// <summary>
+        /// 校验字典不为 null 且值均不为 null，否则抛出异常
+        /// </summary>
+        /// <param name="dic">待校验的字典</param>
         public static void NotNull(this Dictionary<double, string> dic)
         {
             if (dic == null) throw new Exception("params must not allow null");
@@ -92,11 +112,19 @@ namespace SAEA.Common.NameValue
         }
 
 
+        /// <summary>
+        /// 校验单个键不为 null 或空字符串，否则抛出异常
+        /// </summary>
+        /// <param name="key">待校验的键</param>
         public static void KeyCheck(this string key)
         {
             if (string.IsNullOrEmpty(key)) throw new Exception("key must not allow null");
         }
 
+        /// <summary>
+        /// 校验键数组不为 null 且每个键都非空，否则抛出异常
+        /// </summary>
+        /// <param name="keys">待校验的键数组</param>
         public static void KeyCheck(this string[] keys)
         {
             if (keys == null) throw new Exception("key must not allow null");

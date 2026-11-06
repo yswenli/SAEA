@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/08/24 16:31:11
+*修改时间：2026/11/6 12:40:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：DateTimeHelper帮助类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -177,80 +177,305 @@ namespace SAEA.Common
         /// </summary>
         public class DateTimeZoneID
         {
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 -12 小时
+            /// </summary>
             public const string 日界线西国际日期变更线标准时间 = "Dateline Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 -11 小时
+            /// </summary>
             public const string 中途岛萨摩亚群岛萨摩亚群岛标准时间 = "Samoa Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 -10 小时
+            /// </summary>
             public const string 夏威夷标准时间 = "Hawaiian Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 -9 小时
+            /// </summary>
             public const string 阿拉斯加标准时间 = "Alaskan Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 -8 小时
+            /// </summary>
             public const string 蒂华纳太平洋标准时间 = "Pacific Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 -7 小时
+            /// </summary>
             public const string 亚利桑那美国山地标准时间 = "US Mountain Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 -7 小时
+            /// </summary>
             public const string 山地标准时间 = "Mountain Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 -7 小时
+            /// </summary>
             public const string 墨西哥标准时间2 = "Mexico Standard Time 2";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 -6 小时
+            /// </summary>
             public const string 中美洲标准时间 = "Central America Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 -6 小时
+            /// </summary>
             public const string 中部标准时间 = "Central Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 -6 小时
+            /// </summary>
             public const string 萨斯喀彻温加拿大中部标准时间 = "Canada Central Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 -6 小时
+            /// </summary>
             public const string 墨西哥标准时间 = "Mexico Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 -5 小时
+            /// </summary>
             public const string 东部标准时间 = "Eastern Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 -5 小时
+            /// </summary>
             public const string 美国东部标准时间 = "US Eastern Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 -5 小时
+            /// </summary>
             public const string 南美州太平洋标准时间 = "SA Pacific Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 -4 小时
+            /// </summary>
             public const string 南美州西部标准时间 = "SA Western Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 -4 小时
+            /// </summary>
             public const string 圣地亚哥南美州太平洋标准时间 = "Pacific SA Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 -4 小时
+            /// </summary>
             public const string 大西洋标准时间 = "Atlantic Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 -3 小时 30 分
+            /// </summary>
             public const string 纽芬兰标准时间 = "Newfoundland Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 -3 小时
+            /// </summary>
             public const string 巴西利亚南美州东部标准时间 = "E. South America Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 -3 小时
+            /// </summary>
             public const string 南美州东部标准时间 = "SA Eastern Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 -3 小时
+            /// </summary>
             public const string 格陵兰东部标准时间 = "Greenland Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 -2 小时
+            /// </summary>
             public const string 中大西洋标准时间 = "Mid-Atlantic Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 -1 小时
+            /// </summary>
             public const string 亚速尔群岛标准时间 = "Azores Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 -1 小时
+            /// </summary>
             public const string 佛得角群岛标准时间 = "Cape Verde Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 0 小时
+            /// </summary>
             public const string 格林威治标准时间 = "Greenwich Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 0 小时
+            /// </summary>
             public const string 伦敦都柏林里斯本格林威治标准时间 = "GMT Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +1 小时
+            /// </summary>
             public const string 中非西部标准时间 = "W. Central Africa Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +1 小时
+            /// </summary>
             public const string 罗马标准时间 = "Romance Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +1 小时
+            /// </summary>
             public const string 中欧标准时间1 = "Central European Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +1 小时
+            /// </summary>
             public const string 中欧标准时间2 = "Central Europe Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +1 小时
+            /// </summary>
             public const string 西欧标准时间 = "W. Europe Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +2 小时
+            /// </summary>
             public const string 南非标准时间 = "South Africa Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +2 小时
+            /// </summary>
             public const string 东欧标准时间 = "E. Europe Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +2 小时
+            /// </summary>
             public const string 埃及标准时间 = "Egypt Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +2 小时
+            /// </summary>
             public const string 耶路撒冷标准时间 = "Israel Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +2 小时
+            /// </summary>
             public const string FLE标准时间 = "FLE Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +2 小时
+            /// </summary>
             public const string GTB标准时间 = "GTB Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +3 小时
+            /// </summary>
             public const string 东非标准时间 = "E. Africa Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +3 小时
+            /// </summary>
             public const string 阿拉伯标准时间1 = "Arabic Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +3 小时
+            /// </summary>
             public const string 阿拉伯标准时间2 = "Arab Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +3 小时
+            /// </summary>
             public const string 俄罗斯标准时间 = "Russian Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +3 小时 30 分
+            /// </summary>
             public const string 伊朗标准时间 = "Iran Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +4 小时
+            /// </summary>
             public const string 高加索标准时间 = "Caucasus Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +4 小时
+            /// </summary>
             public const string 阿拉伯半岛标准时间 = "Arabian Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +4 小时 30 分
+            /// </summary>
             public const string 阿富汗标准时间 = "Afghanistan Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +5 小时
+            /// </summary>
             public const string 西亚标准时间 = "West Asia Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +5 小时
+            /// </summary>
             public const string 叶卡捷琳堡标准时间 = "Ekaterinburg Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +5 小时 30 分
+            /// </summary>
             public const string 印度标准时间 = "India Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +5 小时 45 分
+            /// </summary>
             public const string 尼泊尔标准时间 = "Nepal Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +5 小时 30 分
+            /// </summary>
             public const string 斯里兰卡标准时间 = "Sri Lanka Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +6 小时
+            /// </summary>
             public const string 中亚北部标准时间 = "N. Central Asia Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +6 小时
+            /// </summary>
             public const string 中亚标准时间 = "Central Asia Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +6 小时 30 分
+            /// </summary>
             public const string 缅甸标准时间 = "Myanmar Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +7 小时
+            /// </summary>
             public const string 北亚标准时间 = "North Asia Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +7 小时
+            /// </summary>
             public const string 东南亚标准时间 = "SE Asia Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +8 小时
+            /// </summary>
             public const string 北亚东部标准时间 = "North Asia East Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +8 小时
+            /// </summary>
             public const string 中国标准时间 = "China Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +8 小时
+            /// </summary>
             public const string 台北标准时间 = "Taipei Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +8 小时
+            /// </summary>
             public const string 马来西亚半岛标准时间 = "Singapore Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +8 小时
+            /// </summary>
             public const string 澳大利亚西部标准时间 = "W. Australia Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +9 小时
+            /// </summary>
             public const string 东京标准时间 = "Tokyo Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +9 小时
+            /// </summary>
             public const string 韩国标准时间 = "Korea Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +9 小时
+            /// </summary>
             public const string 雅库茨克标准时间 = "Yakutsk Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +9 小时 30 分
+            /// </summary>
             public const string 澳大利亚中部标准时间1 = "AUS Central Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +9 小时 30 分
+            /// </summary>
             public const string 澳大利亚中部标准时间2 = "Cen. Australia Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +10 小时
+            /// </summary>
             public const string 西太平洋标准时间 = "West Pacific Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +10 小时
+            /// </summary>
             public const string 澳大利亚东部标准时间1 = "AUS Eastern Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +10 小时
+            /// </summary>
             public const string 澳大利亚东部标准时间2 = "E. Australia Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +10 小时
+            /// </summary>
             public const string 符拉迪沃斯托克标准时间 = "Vladivostok Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +10 小时
+            /// </summary>
             public const string 塔斯马尼亚岛标准时间 = "Tasmania Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +11 小时
+            /// </summary>
             public const string 太平洋中部标准时间 = "Central Pacific Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +12 小时
+            /// </summary>
             public const string 新西兰标准时间 = "New Zealand Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +12 小时
+            /// </summary>
             public const string 斐济标准时间 = "Fiji Standard Time";
+            /// <summary>
+            /// Windows 时区标识，标准时 UTC 偏移 +13 小时
+            /// </summary>
             public const string 汤加标准时间 = "Tonga Standard Time";
         }
     }

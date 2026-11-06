@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2020/12/16 17:50:24
+*修改时间：2026/11/6 12:40:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：TinyThreadPool接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -248,8 +248,15 @@ namespace SAEA.Common.Threading
             _workThread.Start();
         }
 
+        /// <summary>
+        /// 线程池任务异常，包装内部异常信息抛出
+        /// </summary>
         public class TinyThreadPoolException : Exception
         {
+            /// <summary>
+            /// 包装内部异常，仅复制其消息且不保留 InnerException
+            /// </summary>
+            /// <param name="ex">内部异常</param>
             public TinyThreadPoolException(Exception ex) : base(ex.Message) { }
         }
 

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2020/12/25 17:36:47
+*修改时间：2026/11/6 12:40:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：DisorderSyncHelper接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -109,12 +109,24 @@ namespace SAEA.Common
         }
     }
 
+    /// <summary>
+    /// 乱序同步项，记录等待起点、结果数据与结果是否就绪
+    /// </summary>
     public class DisorderSyncItem<T>
     {
+        /// <summary>
+        /// 等待起始时间，用于判定超时
+        /// </summary>
         public DateTime DateTime { get; set; }
 
+        /// <summary>
+        /// 等待到的结果数据
+        /// </summary>
         public T Data { get; set; }
 
+        /// <summary>
+        /// 结果是否已设置
+        /// </summary>
         public bool HasVal { get; set; }
     }
 

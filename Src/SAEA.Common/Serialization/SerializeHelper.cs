@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2020/12/16 17:50:24
+*修改时间：2026/11/6 12:40:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：SerializeHelper接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common.Newtonsoft.Json;
@@ -79,30 +79,64 @@ namespace SAEA.Common.Serialization
         }
 
         #region byte序列化扩展
+        /// <summary>
+        /// 将对象二进制序列化为字节数组
+        /// </summary>
+        /// <typeparam name="T">对象类型，需可被 BinaryFormatter 序列化</typeparam>
+        /// <param name="t">待序列化对象</param>
+        /// <returns>序列化后的字节数组</returns>
         public static byte[] ToBytes<T>(this T t) where T : class, new()
         {
             return ByteSerialize<T>(t);
         }
 
+        /// <summary>
+        /// 将对象列表二进制序列化为字节数组
+        /// </summary>
+        /// <typeparam name="T">元素类型，需可被 BinaryFormatter 序列化</typeparam>
+        /// <param name="t">待序列化的列表</param>
+        /// <returns>序列化后的字节数组</returns>
         public static byte[] ToBytes<T>(this List<T> t) where T : class, new()
         {
             return ByteSerialize(t);
         }
 
+        /// <summary>
+        /// 将字节数组列表二进制序列化为字节数组
+        /// </summary>
+        /// <param name="t">待序列化的列表</param>
+        /// <returns>序列化后的字节数组</returns>
         public static byte[] ToBytes(this List<byte[]> t)
         {
             return ByteSerialize(t);
         }
 
+        /// <summary>
+        /// 将字节数组反序列化为对象
+        /// </summary>
+        /// <typeparam name="T">目标对象类型</typeparam>
+        /// <param name="buffer">二进制数据</param>
+        /// <returns>反序列化得到的对象</returns>
         public static T ToInstance<T>(this byte[] buffer) where T : class, new()
         {
             return ByteDeserialize<T>(buffer);
         }
 
+        /// <summary>
+        /// 将字节数组反序列化为对象列表
+        /// </summary>
+        /// <typeparam name="T">元素类型</typeparam>
+        /// <param name="buffer">二进制数据</param>
+        /// <returns>反序列化得到的列表</returns>
         public static List<T> ToList<T>(this byte[] buffer) where T : class, new()
         {
             return ByteDeserialize<List<T>>(buffer);
         }
+        /// <summary>
+        /// 将字节数组反序列化为字节数组列表
+        /// </summary>
+        /// <param name="buffer">二进制数据</param>
+        /// <returns>反序列化得到的字节数组列表</returns>
         public static List<byte[]> ToList(this byte[] buffer)
         {
             return ByteDeserialize<List<byte[]>>(buffer);

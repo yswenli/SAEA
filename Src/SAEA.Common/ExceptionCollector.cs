@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/08/24 16:31:11
+*修改时间：2026/11/6 12:40:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ExceptionCollector接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -43,8 +43,16 @@ namespace SAEA.Common
     {
         static bool _isClose = false;
 
+        /// <summary>
+        /// 异常处理委托
+        /// </summary>
+        /// <param name="name">异常所属名称</param>
+        /// <param name="ex">被捕获的异常</param>
         public delegate void OnErrHander(string name, Exception ex);
 
+        /// <summary>
+        /// 异常出队时触发，在后台轮询线程上调用，订阅方需自行保证处理不阻塞
+        /// </summary>
         public static event OnErrHander OnErr;
 
         static ConcurrentDictionary<string, ConcurrentQueue<Exception>> _eDic = new ConcurrentDictionary<string, ConcurrentQueue<Exception>>();

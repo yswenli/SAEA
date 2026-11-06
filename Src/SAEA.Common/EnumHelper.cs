@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/08/24 16:31:11
+*修改时间：2026/11/6 12:40:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：EnumHelper帮助类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -78,12 +78,22 @@ namespace SAEA.Common
             return result;
         }
 
+        /// <summary>
+        /// 将状态码格式化为「状态码 枚举名」形式的字符串
+        /// </summary>
+        /// <param name="enum">Http 状态码</param>
+        /// <returns>状态码数值与枚举名拼接的字符串</returns>
         public static string ToNVString(this HttpStatusCode @enum)
         {
             return $"{(int)@enum}  {@enum.ToString()}";
         }
 
 
+        /// <summary>
+        /// 把数组段的内容复制为新数组
+        /// </summary>
+        /// <param name="source">源数组段</param>
+        /// <returns>新数组，源段未关联数组时返回 null</returns>
         public static byte[] ToArray(this ArraySegment<byte> source)
         {
             if (source.Array == null)

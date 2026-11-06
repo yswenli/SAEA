@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/08/24 16:31:11
+*修改时间：2026/11/6 12:40:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：TypeHelper帮助类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -42,12 +42,22 @@ namespace SAEA.Common
     /// </summary>
     public static class TypeHelper
     {
+        /// <summary>
+        /// 泛型列表类型名称集合，用于反射时识别列表类类型
+        /// </summary>
         public static readonly string[] ListTypeStrs = { "List`1", "HashSet`1", "IList`1", "ISet`1", "ICollection`1", "IEnumerable`1" };
 
+        /// <summary>
+        /// 泛型字典类型名称集合，用于反射时识别字典类类型
+        /// </summary>
         public static readonly string[] DicTypeStrs = { "Dictionary`2", "IDictionary`2" };
 
         static readonly StackTrace StackTrace = new StackTrace(true);
         
+        /// <summary>
+        /// 从类型初始化时抓取的调用栈中查找 Generate 或 Start 方法的下一帧程序集，返回其全部类型
+        /// </summary>
+        /// <returns>程序集中的全部类型，未找到匹配帧时返回 null</returns>
         public static Type[] GetDefalt()
         {
             var frames = StackTrace.GetFrames();
@@ -105,10 +115,11 @@ namespace SAEA.Common
 
 
         /// <summary>
-        /// 添加或获取实例
+        /// 添加或获取实例，按类型全名与方法名缓存类型信息，实例每次调用都重新创建
         /// </summary>
-        /// <param name="type"></param>
-        /// <returns></returns>
+        /// <param name="type">目标类型，接口类型会抛出异常</param>
+        /// <param name="methodName">要缓存的方法名，默认 Add</param>
+        /// <returns>类型信息，类型不是类时返回 null</returns>
         public static TypeInfo GetOrAddInstance(Type type, string methodName = "Add")
         {
             if (type.IsInterface)
@@ -145,6 +156,12 @@ namespace SAEA.Common
             return null;
         }
 
+        /// <summary>
+        /// 按指定方法信息获取类型信息，串行加锁访问缓存，接口类型会抛出异常
+        /// </summary>
+        /// <param name="type">目标类型</param>
+        /// <param name="mb">要缓存的方法信息</param>
+        /// <returns>类型信息，实例每次调用都重新创建</returns>
         public static TypeInfo GetOrAddInstance(Type type, MethodInfo mb)
         {
             lock (SyncRoot)
@@ -170,14 +187,29 @@ namespace SAEA.Common
         }
     }
 
+    /// <summary>
+    /// 类型实例缓存信息
+    /// </summary>
     public class TypeInfo
     {
+        /// <summary>
+        /// 目标类型
+        /// </summary>
         public Type Type { get; set; }
 
+        /// <summary>
+        /// 类型实例，每次获取时重新创建
+        /// </summary>
         public Object Instance { get; set; }
 
+        /// <summary>
+        /// 泛型参数类型，非泛型类型为 null
+        /// </summary>
         public Type[] ArgTypes { get; set; }
 
+        /// <summary>
+        /// 缓存的方法信息
+        /// </summary>
         public MethodInfo MethodInfo { get; set; }
     }
 }

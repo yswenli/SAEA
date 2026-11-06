@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/08/22 17:34:07
+*修改时间：2026/11/6 12:40:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：SpinLock接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.Diagnostics;
@@ -34,18 +34,28 @@ using System.Threading;
 
 namespace SAEA.Common
 {
+    /// <summary>
+    /// 基于 Interlocked 自旋的轻量锁，同一实例不适用于多线程并发等待
+    /// </summary>
     public class SpinLock
     {
         int _signal = 0;
 
         Stopwatch _stopwatch;
 
+        /// <summary>
+        /// 创建自旋锁并启动内部计时器
+        /// </summary>
         public SpinLock()
         {
             _stopwatch = new Stopwatch();
             _stopwatch.Start();
         }
 
+        /// <summary>
+        /// 自旋等待获取锁，超时后释放并直接返回，不抛出异常
+        /// </summary>
+        /// <param name="timeOut">超时毫秒数</param>
         public void WaitOne(int timeOut = 5000)
         {
             _stopwatch.Restart();
@@ -60,6 +70,9 @@ namespace SAEA.Common
             }
         }
 
+        /// <summary>
+        /// 释放锁并停止计时
+        /// </summary>
         public void Set()
         {
             Interlocked.Exchange(ref _signal, 0);

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2020/12/16 17:50:24
+*修改时间：2026/11/6 12:40:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：SAEASerialize接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common.Caching;
@@ -49,10 +49,10 @@ namespace SAEA.Common.Serialization
         #region Serialize
 
         /// <summary>
-        /// len+data
+        /// 序列化单个对象为「4 字节长度头 + 数据」，长度头为本机字节序的 int
         /// </summary>
-        /// <param name="param"></param>
-        /// <returns></returns>
+        /// <param name="param">待序列化对象，为 null 时仅输出长度为 0 的头部</param>
+        /// <returns>序列化后的字节数组</returns>
         public static byte[] Serialize(object param)
         {
             List<byte> datas = new List<byte>();
@@ -279,10 +279,10 @@ namespace SAEA.Common.Serialization
         }
 
         /// <summary>
-        /// len+data
+        /// 依次序列化多个对象，每段均为「4 字节长度头 + 数据」
         /// </summary>
-        /// <param name="params"></param>
-        /// <returns></returns>
+        /// <param name="params">待序列化对象集合</param>
+        /// <returns>拼接后的字节数组，无参数时返回 null</returns>
         public static byte[] Serialize(params object[] @params)
         {
             List<byte> datas = new List<byte>();
