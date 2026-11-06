@@ -31,6 +31,10 @@ namespace SAEA.Socket5Test
 
         private static int _passed = 0;
 
+        /// <summary>
+        /// 依次执行全部 SOCKS5 用例并汇总结果，返回 0 表示全部通过、1 表示存在失败
+        /// </summary>
+        /// <returns>进程退出码，全部用例通过为 0，否则为 1</returns>
         public static int Main()
         {
             // 并发 / 性能用例会产生较多并行阻塞线程，放宽线程池下限避免线程注入延迟干扰测量
