@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/03/18 02:16:04
+*修改时间：2026/11/6 12:52:30
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：WSCoder编解码类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -88,6 +88,7 @@ namespace SAEA.WebSocket.Model
         /// <param name="data">接收到的数据</param>
         /// <param name="onHeart">心跳回调</param>
         /// <param name="onFile">文件回调</param>
+        /// <returns>本次解出的帧集合，其中的池化缓冲由调用方负责释放；协议错误时先释放已解出的帧再抛出异常</returns>
         public SAEA.Sockets.Base.DecodedFrames Decode(System.Buffers.ReadOnlySequence<byte> data,
             Action<DateTime> onHeart = null, Action<ReadOnlyMemory<byte>> onFile = null)
         {

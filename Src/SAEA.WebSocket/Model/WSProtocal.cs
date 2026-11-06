@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/03/18 02:16:04
+*修改时间：2026/11/6 12:52:30
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：WSProtocal类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -50,11 +50,28 @@ namespace SAEA.WebSocket.Model
 
         private byte[] _buffer;
 
+        /// <summary>
+        /// 报文体字节长度
+        /// </summary>
         public long BodyLength { get; protected set; }
+        /// <summary>
+        /// 帧操作码（opcode）
+        /// </summary>
         public byte Type { get; protected set; }
+        /// <summary>
+        /// 报文体只读视图，无内容或已释放时为空
+        /// </summary>
         public ReadOnlyMemory<byte> Content { get; protected set; } = ReadOnlyMemory<byte>.Empty;
+        /// <summary>
+        /// 缓冲区是否从内存池租用，为 true 时 Dispose 需按 BodyLength 归还
+        /// </summary>
         public bool IsPooled { get; set; }
 
+        /// <summary>
+        /// 以操作码与报文体创建协议帧
+        /// </summary>
+        /// <param name="type">帧操作码</param>
+        /// <param name="content">报文体，null 视为空</param>
         public WSProtocal(byte type, byte[] content)
         {
             Type = type;
@@ -63,6 +80,11 @@ namespace SAEA.WebSocket.Model
             Content = content == null ? ReadOnlyMemory<byte>.Empty : new ReadOnlyMemory<byte>(content);
         }
 
+        /// <summary>
+        /// 以帧类型枚举与报文体创建协议帧
+        /// </summary>
+        /// <param name="type">帧类型枚举</param>
+        /// <param name="content">报文体，null 或空数组视为无内容</param>
         public WSProtocal(WSProtocalType type, byte[] content)
         {
             Type = (byte)type;
@@ -74,9 +96,9 @@ namespace SAEA.WebSocket.Model
         /// <summary>
         /// 从可能大于实际内容的池化缓冲区创建协议对象
         /// </summary>
-        /// <param name="type">opcode</param>
+        /// <param name="type">帧操作码（opcode）</param>
         /// <param name="content">缓冲区（内容位于 [0, bodyLength)）</param>
-        /// <param name="bodyLength">实际内容长度</param>
+        /// <param name="bodyLength">实际内容长度，非正数时按空内容处理</param>
         public WSProtocal(byte type, byte[] content, int bodyLength)
         {
             Type = type;
@@ -85,8 +107,16 @@ namespace SAEA.WebSocket.Model
             Content = (content == null || bodyLength <= 0) ? ReadOnlyMemory<byte>.Empty : new ReadOnlyMemory<byte>(content, 0, bodyLength);
         }
 
+        /// <summary>
+        /// 把帧写入缓冲区，不做掩码，供服务端发送
+        /// </summary>
+        /// <param name="writer">目标缓冲区写入器</param>
         public void WriteTo(IBufferWriter<byte> writer) { WriteFrame(writer, false); }
 
+        /// <summary>
+        /// 把帧掩码后写入缓冲区，供客户端发送
+        /// </summary>
+        /// <param name="writer">目标缓冲区写入器</param>
         public void WriteMaskedTo(IBufferWriter<byte> writer) { WriteFrame(writer, true); }
 
         private void WriteFrame(IBufferWriter<byte> writer, bool masked)
@@ -135,6 +165,9 @@ namespace SAEA.WebSocket.Model
             }
         }
 
+        /// <summary>
+        /// 释放缓冲区并清空内容，池化缓冲按 BodyLength 归还内存池
+        /// </summary>
         public void Dispose()
         {
             if (_buffer != null)

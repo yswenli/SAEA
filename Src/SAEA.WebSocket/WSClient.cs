@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/03/18 02:16:04
+*修改时间：2026/11/6 12:52:30
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：WSClient接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -43,7 +43,7 @@ using SAEA.WebSocket.Type;
 namespace SAEA.WebSocket
 {
     /// <summary>
-    /// WSClient
+    /// WebSocket 客户端，负责握手、收发帧与心跳应答
     /// </summary>
     public class WSClient
     {
@@ -59,14 +59,29 @@ namespace SAEA.WebSocket
 
         string _origin;
 
+        /// <summary>
+        /// 连接或解码出错事件，参数为客户端 ID 与异常
+        /// </summary>
         public event OnErrorHandler OnError;
 
+        /// <summary>
+        /// 收到 Pong 帧事件，参数为 Pong 内容文本
+        /// </summary>
         public event Action<string> OnPong;
 
+        /// <summary>
+        /// 收到文本、二进制或续帧消息事件
+        /// </summary>
         public event Action<WSProtocal> OnMessage;
 
+        /// <summary>
+        /// 连接关闭事件，参数为客户端 ID
+        /// </summary>
         public event Action<string> OnClose;
 
+        /// <summary>
+        /// 连接断开事件，参数为客户端 ID 与异常
+        /// </summary>
         public event OnDisconnectedHandler OnDisconnected;
 
         IClientSocket _client;

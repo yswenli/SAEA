@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/06/14 11:19:42
+*修改时间：2026/11/6 12:52:30
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：IWSServer接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -34,27 +34,63 @@ using System.Collections.Generic;
 
 namespace SAEA.WebSocket.Model
 {
+    /// <summary>
+    /// WebSocket 服务端定义，暴露连接、消息事件与主动收发能力
+    /// </summary>
     public interface IWSServer
     {
+        /// <summary>
+        /// 客户端连接成功事件，参数为客户端会话 ID
+        /// </summary>
         event Action<string> OnConnected;
 
+        /// <summary>
+        /// 客户端消息事件，参数为客户端会话 ID 与收到的协议帧
+        /// </summary>
         event Action<string, WSProtocal> OnMessage;
 
+        /// <summary>
+        /// 客户端断开连接事件，参数为客户端会话 ID
+        /// </summary>
         event Action<string> OnDisconnected;
 
+        /// <summary>
+        /// 已连接的客户端会话 ID 列表
+        /// </summary>
         List<string> Clients {  set; get; }
 
+        /// <summary>
+        /// 启动监听
+        /// </summary>
+        /// <param name="backlog">挂起连接队列的最大长度，默认 10000</param>
         void Start(int backlog = 10 * 1000);
        
 
+        /// <summary>
+        /// 向指定客户端回复消息
+        /// </summary>
+        /// <param name="id">客户端会话 ID</param>
+        /// <param name="data">待发送的协议帧</param>
         void Reply(string id, WSProtocal data);
 
 
+        /// <summary>
+        /// 向指定客户端发送关闭帧后断开连接
+        /// </summary>
+        /// <param name="id">客户端会话 ID</param>
+        /// <param name="data">关闭帧内容</param>
         void Disconnect(string id, WSProtocal data);
 
 
+        /// <summary>
+        /// 直接断开指定客户端
+        /// </summary>
+        /// <param name="id">客户端会话 ID</param>
         void Disconnect(string id);
 
+        /// <summary>
+        /// 停止服务器
+        /// </summary>
         void Stop();
     }
 }

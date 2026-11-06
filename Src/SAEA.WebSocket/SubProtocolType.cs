@@ -23,22 +23,37 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2020/06/02 15:29:28
+*修改时间：2026/11/6 12:52:30
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：SubProtocolType类型枚举
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.WebSocket
 {
+    /// <summary>
+    /// WebSocket 握手时协商的子协议名称常量
+    /// </summary>
     public class SubProtocolType
     {
+        /// <summary>
+        /// 空子协议，表示不协商子协议
+        /// </summary>
         public const string Empty = "";
 
+        /// <summary>
+        /// 默认子协议名
+        /// </summary>
         public const string Default = "SAEA.WebSocket";
 
+        /// <summary>
+        /// JSON-RPC 子协议名
+        /// </summary>
         public const string Json = "jsonrpc";
 
+        /// <summary>
+        /// 第二种子协议名
+        /// </summary>
         public const string Protocol2 = "protocol2";
     }
 }
