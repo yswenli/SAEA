@@ -622,13 +622,15 @@ namespace SAEA.Sockets.PipelineTest
 
                         while (true)
                         {
-                            int consumed;
-                            ReadOnlyMemory<byte> frame;
-                            if (!splitter.TrySplit(accumulator.Buffered, out consumed, out frame))
+                            long consumed;
+                            ReadOnlySequence<byte> frame;
+                            if (!splitter.TrySplit(new ReadOnlySequence<byte>(accumulator.Buffered), out consumed, out frame))
                                 break;
 
-                            accumulator.Consume(consumed);
-                            if (codec.Decode(frame) != null)
+                            accumulator.Consume((int)consumed);
+
+                            // 累加器背衬连续，切出的帧必为单段，First 就是整帧。
+                            if (codec.Decode(frame.First) != null)
                                 count++;
                         }
                     }
@@ -1083,12 +1085,12 @@ namespace SAEA.Sockets.PipelineTest
         private static object DecodeFrame(byte[] wire, TypeRegistry registry)
         {
             var splitter = LengthFieldSplitter.Default(MaxFrameLength);
-            int consumed;
-            ReadOnlyMemory<byte> frame;
-            if (!splitter.TrySplit(wire, out consumed, out frame) || consumed != wire.Length)
+            long consumed;
+            ReadOnlySequence<byte> frame;
+            if (!splitter.TrySplit(new ReadOnlySequence<byte>(wire), out consumed, out frame) || consumed != wire.Length)
                 throw new InvalidOperationException("发送出去的字节不是一条完整帧，长度 " + wire.Length + "。");
 
-            var envelope = new EnvelopeCodec().Decode(frame) as Envelope;
+            var envelope = new EnvelopeCodec().Decode(frame.First) as Envelope;
             if (envelope == null)
                 throw new InvalidOperationException("第一层解码未产出 Envelope。");
 

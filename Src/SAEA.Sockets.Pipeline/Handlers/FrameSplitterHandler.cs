@@ -23,13 +23,14 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 09:50:56
+*修改时间：2026/11/6 12:45:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：纯链式场景的分帧处理器：没有 executor 泵时，由它在入站链首把字节流切成帧
+*描述：适配 ReadOnlySequence 分帧签名，纯链式仍用累加器保存半包
 *
 *****************************************************************************/
 using System;
+using System.Buffers;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -86,17 +87,19 @@ namespace SAEA.Sockets.Pipeline
 
             while (true)
             {
-                int consumed;
-                ReadOnlyMemory<byte> frame;
-                if (!_splitter.TrySplit(_accumulator.Buffered, out consumed, out frame))
+                // 累加器背衬连续，包成单段序列交给分帧器；半包继续留在累加器。
+                if (!_splitter.TrySplit(new ReadOnlySequence<byte>(_accumulator.Buffered),
+                        out var consumed, out var frame))
                     return;
+
+                if (consumed <= 0)
+                    throw new FrameProtocolException("分帧器返回成功时必须消费至少 1 字节。");
+                if (consumed > int.MaxValue)
+                    throw new FrameProtocolException("分帧结果超过累加器可索引范围。");
 
                 // 先复制再消费：下传的是独立背衬，不与累加器缓冲共享内存。
                 var bytes = frame.ToArray();
-                if (consumed <= 0)
-                    throw new FrameProtocolException("分帧器返回成功时必须消费至少 1 字节。");
-
-                _accumulator.Consume(consumed);
+                _accumulator.Consume((int)consumed);
 
                 var message = new PooledMessage(bytes, bytes, bytes.Length, false);
                 try

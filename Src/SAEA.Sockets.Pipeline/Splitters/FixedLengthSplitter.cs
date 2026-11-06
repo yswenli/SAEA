@@ -23,13 +23,14 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 09:50:56
+*修改时间：2026/11/6 12:45:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：定长分帧器：每帧字节数固定，缓冲不足一帧时等待继续读取
+*描述：分帧输入改为 ReadOnlySequence，定长切片直接引用原序列
 *
 *****************************************************************************/
 using System;
+using System.Buffers;
 
 namespace SAEA.Sockets.Pipeline
 {
@@ -60,15 +61,15 @@ namespace SAEA.Sockets.Pipeline
         }
 
         /// <inheritdoc />
-        public bool TrySplit(ReadOnlyMemory<byte> buffered, out int consumed, out ReadOnlyMemory<byte> frame)
+        public bool TrySplit(ReadOnlySequence<byte> buffer, out long consumed, out ReadOnlySequence<byte> frame)
         {
             consumed = 0;
-            frame = ReadOnlyMemory<byte>.Empty;
+            frame = default(ReadOnlySequence<byte>);
 
-            if (buffered.Length < _frameLength) return false;
+            if (buffer.Length < _frameLength) return false;
 
             consumed = _frameLength;
-            frame = buffered.Slice(0, _frameLength);
+            frame = buffer.Slice(0, _frameLength);
             return true;
         }
 

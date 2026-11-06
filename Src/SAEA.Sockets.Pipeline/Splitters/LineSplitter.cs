@@ -23,13 +23,14 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 09:50:56
+*修改时间：2026/11/6 12:45:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：按行分帧：以 \n 为分隔符，剥掉分隔符后再去掉帧尾的 \r， 因此 \n 与 \r\n 两种换行都能得到干净的行内容
+*描述：分帧输入改为 ReadOnlySequence，帧尾回车判定兼容跨段
 *
 *****************************************************************************/
 using System;
+using System.Buffers;
 
 namespace SAEA.Sockets.Pipeline
 {
@@ -58,12 +59,17 @@ namespace SAEA.Sockets.Pipeline
         }
 
         /// <inheritdoc />
-        public bool TrySplit(ReadOnlyMemory<byte> buffered, out int consumed, out ReadOnlyMemory<byte> frame)
+        public bool TrySplit(ReadOnlySequence<byte> buffer, out long consumed, out ReadOnlySequence<byte> frame)
         {
-            if (!_inner.TrySplit(buffered, out consumed, out frame)) return false;
+            if (!_inner.TrySplit(buffer, out consumed, out frame)) return false;
 
-            if (frame.Length > 0 && frame.Span[frame.Length - 1] == (byte)'\r')
-                frame = frame.Slice(0, frame.Length - 1);
+            if (frame.Length > 0)
+            {
+                // 只读取末尾一个字节；末段可能落在序列最后一段，不能用 Span 直取。
+                var tail = frame.Slice(frame.Length - 1, 1);
+                if (tail.First.Span[0] == (byte)'\r')
+                    frame = frame.Slice(0, frame.Length - 1);
+            }
 
             return true;
         }

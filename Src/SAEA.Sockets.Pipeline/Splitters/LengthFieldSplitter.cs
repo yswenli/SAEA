@@ -23,13 +23,14 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 09:50:56
+*修改时间：2026/11/6 12:45:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：基于长度字段的分帧器：读取头部里的长度值算出整帧长度，再按配置决定剥掉多少头部字节
+*描述：分帧输入改为 ReadOnlySequence，支持泵直接在 Pipe 缓冲上切帧与跨段帧
 *
 *****************************************************************************/
 using System;
+using System.Buffers;
 using System.Buffers.Binary;
 
 namespace SAEA.Sockets.Pipeline
@@ -129,25 +130,25 @@ namespace SAEA.Sockets.Pipeline
         }
 
         /// <inheritdoc />
-        public bool TrySplit(ReadOnlyMemory<byte> buffered, out int consumed, out ReadOnlyMemory<byte> frame)
+        public bool TrySplit(ReadOnlySequence<byte> buffer, out long consumed, out ReadOnlySequence<byte> frame)
         {
             consumed = 0;
-            frame = ReadOnlyMemory<byte>.Empty;
+            frame = default(ReadOnlySequence<byte>);
 
             var head = _lengthFieldOffset + _lengthFieldLength;
-            if (buffered.Length < head) return false;
+            if (buffer.Length < head) return false;
 
-            var bodyLen = ReadLength(buffered.Span);
+            var bodyLen = ReadLength(buffer);
             if (bodyLen < 0 || bodyLen > _maxFrameLength)
                 throw new FrameProtocolException($"非法的数据帧长度: {bodyLen}");
 
             var total = (long)head + bodyLen + _lengthAdjustment;
             if (total < head || total > int.MaxValue)
                 throw new FrameProtocolException($"帧总长度越界: {total}");
-            if (buffered.Length < total) return false;
+            if (buffer.Length < total) return false;
 
-            consumed = (int)total;
-            frame = buffered.Slice(_initialBytesToStrip, (int)total - _initialBytesToStrip);
+            consumed = total;
+            frame = buffer.Slice(_initialBytesToStrip, total - _initialBytesToStrip);
             return true;
         }
 
@@ -156,9 +157,20 @@ namespace SAEA.Sockets.Pipeline
         {
         }
 
-        private long ReadLength(ReadOnlySpan<byte> span)
+        private long ReadLength(ReadOnlySequence<byte> buffer)
         {
-            var field = span.Slice(_lengthFieldOffset, _lengthFieldLength);
+            var field = buffer.Slice(_lengthFieldOffset, _lengthFieldLength);
+            if (field.IsSingleSegment)
+                return ReadLength(field.First.Span);
+
+            // 长度字段跨段时先并入栈上小缓冲；字段最多 8 字节，不产生堆分配。
+            Span<byte> scratch = stackalloc byte[8];
+            field.CopyTo(scratch);
+            return ReadLength(scratch.Slice(0, _lengthFieldLength));
+        }
+
+        private long ReadLength(ReadOnlySpan<byte> field)
+        {
             switch (_lengthFieldLength)
             {
                 case 1:

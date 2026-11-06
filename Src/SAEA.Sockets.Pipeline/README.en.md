@@ -257,9 +257,11 @@ public sealed class SocketStreamAdapter : IRawByteStream
 
 ## 💰 Known Costs
 
-- Inbound costs exactly **2 copies per frame**: ① `Pipe` → `FrameAccumulator` (`Append`), ② `FrameAccumulator` → `PooledMessage` (`AllocateFrame`). Pipe memory is invalid after `AdvanceTo(buffer.End)`, so ① must finish within the current iteration; the queue entry survives `await`s, so ② needs its own backing store.
+- Inbound costs exactly **1 copy per frame** on the executor pump path: frames are cut directly out of the `Pipe` buffer and copied once into a `PooledMessage` (`AllocateFrame`). `AdvanceTo` only advances to the end of the last complete frame, so un-framed leftover bytes stay in the `Pipe` for the next `ReadAsync`; the queue entry survives `await`s, so this one copy cannot be skipped and its backing store must not point at `Pipe` memory.
+- Pure chaining (no executor, framing done by `FrameSplitterHandler` at the chain head) still costs **2 copies**: ① `Pipe` → `FrameAccumulator`, ② accumulator → standalone `PooledMessage`.
 - Outbound costs exactly **3 copies**: ① entity → `Envelope.Payload` (the `byte[]` produced by the codec), ② `Payload` → `EncodedBody` (codec writer), ③ `EncodedBody` → final frame buffer (frame writer). The transport takes over that same buffer under `owner` semantics and the pipeline copies it no further; an adapter that wants to retain bytes pays for that copy itself.
-- Allocation profile: small frames (`< 512B` by default) use exact allocation and bypass the pool; large frames allocate only a `PooledMessage` plus a queue node. These are the accepted costs of orthogonal two-level codecs and a non-prependable `IBufferWriter`; do not judge this pipeline by zero-copy expectations.
+- Allocation profile: small frames (`< 512B` by default) use exact allocation, so each frame adds one `byte[len]` plus one `PooledMessage`; large frames rent their backing store from `MemoryPoolManager` and add only a `PooledMessage`. These are the accepted costs of orthogonal two-level codecs and a non-prependable `IBufferWriter`; do not judge this pipeline by zero-copy expectations.
+- Measured profile: `PipelineTest --bench` (265B frames) reports about 480B/frame, of which the pipeline itself accounts for about 352B (`byte[265]` at 296B plus a 56B `PooledMessage`); the rest comes from segment allocations while the benchmark harness feeds 64KB chunks into the `Pipe`.
 
 ---
 
@@ -280,12 +282,12 @@ public sealed class SocketStreamAdapter : IRawByteStream
 | `MaxBufferedBytes == 0` | Derived as `Splitter.MaxFrameLength + FrameConstants.P_Head + ReadBufferSize`, i.e. `MaxFrameLength + 9 + ReadBufferSize` |
 | `MaxBufferedBytes != 0` | Must be `>= MaxFrameLength + P_Head`; otherwise `Create` throws `ArgumentOutOfRangeException` (a legal maximum frame could not be buffered whole) |
 | Derived or explicit value > `int.MaxValue` | `Create` throws `ArgumentOutOfRangeException` |
-| Runtime overflow | After each `DrainToQueue`, leftover bytes still above `MaxBufferedBytes` close the connection with `reason = "buffered-bytes-limit"` |
+| Runtime overflow | After each round drains every complete frame into the queue, leftover bytes still above `MaxBufferedBytes` close the connection with `reason = "buffered-bytes-limit"` |
 | Oversized single frame | Checked inside `IFrameSplitter.TrySplit`, which throws `FrameProtocolException` |
 
 - The default `MaxBufferedBytes = 1MB` only fits `MaxFrameLength` up to roughly 960KB; configure it explicitly when the protocol allows larger frames.
-- `ReadBufferSize` is only headroom for "the largest legal frame plus a little tail". It does not limit how much a single `ReadAsync` returns and does not size the physical `FrameAccumulator`.
-- `MaxBufferedBytes` measures un-framed **leftover bytes** in the accumulator, not the size of a single frame. Complete frames are drained before the check, so a burst of legal frames is never killed by mistake.
+- `ReadBufferSize` is only headroom for "the largest legal frame plus a little tail". It does not limit how much a single `ReadAsync` returns and does not affect the `Pipe` capacity or how leftover bytes are accounted.
+- `MaxBufferedBytes` measures un-framed **leftover bytes** in the `Pipe` (the same quantity as `ChannelTraffic.BufferedBytes`), not the size of a single frame. Complete frames are drained before the check, so a burst of legal frames is never killed by mistake.
 
 ---
 

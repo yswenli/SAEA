@@ -30,6 +30,7 @@
 *
 *****************************************************************************/
 using System;
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -379,10 +380,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
                 get { return 8; }
             }
 
-            public bool TrySplit(ReadOnlyMemory<byte> buffered, out int consumed, out ReadOnlyMemory<byte> frame)
+            public bool TrySplit(ReadOnlySequence<byte> buffer, out long consumed, out ReadOnlySequence<byte> frame)
             {
                 consumed = 0;
-                frame = ReadOnlyMemory<byte>.Empty;
+                frame = default(ReadOnlySequence<byte>);
                 return false;
             }
 

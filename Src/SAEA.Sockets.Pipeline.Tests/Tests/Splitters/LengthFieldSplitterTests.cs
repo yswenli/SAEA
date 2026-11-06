@@ -30,6 +30,7 @@
 *
 *****************************************************************************/
 using System;
+using System.Buffers;
 using System.Buffers.Binary;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SAEA.Sockets.Pipeline;
@@ -50,9 +51,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             foreach (var length in new[] { 0, 1, 8 })
             {
                 var buffered = new byte[length];
-                int consumed;
-                ReadOnlyMemory<byte> frame;
-                var result = splitter.TrySplit(buffered, out consumed, out frame);
+                long consumed;
+                ReadOnlySequence<byte> frame;
+                var result = splitter.TrySplit(new ReadOnlySequence<byte>(buffered), out consumed, out frame);
 
                 Assert.IsFalse(result, $"输入 {length} 字节不足头部，应返回 false。");
                 Assert.AreEqual(0, consumed);
@@ -66,20 +67,20 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             var body = new byte[] { 0xA1, 0xA2, 0xA3, 0xA4, 0xA5 };
             var raw = BuildFrame(0x07, body);
 
-            int consumed;
-            ReadOnlyMemory<byte> frame;
-            Assert.IsTrue(LengthFieldSplitter.Default(1024).TrySplit(raw, out consumed, out frame));
+            long consumed;
+            ReadOnlySequence<byte> frame;
+            Assert.IsTrue(LengthFieldSplitter.Default(1024).TrySplit(new ReadOnlySequence<byte>(raw), out consumed, out frame));
             Assert.AreEqual(FrameConstants.P_Head + body.Length, consumed);
             Assert.AreEqual(1 + body.Length, frame.Length);
-            Assert.AreEqual((byte)0x07, frame.Span[0]);
+            Assert.AreEqual((byte)0x07, frame.First.Span[0]);
             CollectionAssert.AreEqual(body, frame.Slice(1).ToArray());
 
-            int legacyConsumed;
-            ReadOnlyMemory<byte> legacyFrame;
-            Assert.IsTrue(LengthFieldSplitter.LegacyCompatible(1024).TrySplit(raw, out legacyConsumed, out legacyFrame));
+            long legacyConsumed;
+            ReadOnlySequence<byte> legacyFrame;
+            Assert.IsTrue(LengthFieldSplitter.LegacyCompatible(1024).TrySplit(new ReadOnlySequence<byte>(raw), out legacyConsumed, out legacyFrame));
             Assert.AreEqual(consumed, legacyConsumed);
             Assert.AreEqual(raw.Length, legacyFrame.Length);
-            Assert.AreEqual(frame.Span[0], legacyFrame.Span[FrameConstants.P_LEN]);
+            Assert.AreEqual(frame.First.Span[0], legacyFrame.First.Span[FrameConstants.P_LEN]);
             CollectionAssert.AreEqual(frame.ToArray(), legacyFrame.Slice(FrameConstants.P_LEN).ToArray());
         }
 
@@ -95,15 +96,15 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
                 for (var prefix = 1; prefix < raw.Length; prefix += chunk)
                 {
                     var partial = raw.AsMemory(0, prefix);
-                    int consumed;
-                    ReadOnlyMemory<byte> frame;
-                    Assert.IsFalse(splitter.TrySplit(partial, out consumed, out frame),
+                    long consumed;
+                    ReadOnlySequence<byte> frame;
+                    Assert.IsFalse(splitter.TrySplit(new ReadOnlySequence<byte>(partial), out consumed, out frame),
                         $"只收到 {prefix} 字节时不应产出帧。");
                 }
 
-                int fullConsumed;
-                ReadOnlyMemory<byte> fullFrame;
-                Assert.IsTrue(splitter.TrySplit(raw, out fullConsumed, out fullFrame), $"按 {chunk} 字节切分后应能产出帧。");
+                long fullConsumed;
+                ReadOnlySequence<byte> fullFrame;
+                Assert.IsTrue(splitter.TrySplit(new ReadOnlySequence<byte>(raw), out fullConsumed, out fullFrame), $"按 {chunk} 字节切分后应能产出帧。");
                 Assert.AreEqual(FrameConstants.P_Head + body.Length, fullConsumed);
                 Assert.AreEqual(1 + body.Length, fullFrame.Length);
                 CollectionAssert.AreEqual(body, fullFrame.Slice(1).ToArray());
@@ -136,11 +137,11 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             Buffer.BlockCopy(third, 0, buffer, first.Length + second.Length, third.Length);
 
             var splitter = LengthFieldSplitter.Default(1024);
-            var offset = 0;
-            var remaining = new ReadOnlyMemory<byte>(buffer);
+            var offset = 0L;
+            var remaining = new ReadOnlySequence<byte>(buffer);
 
-            int consumed;
-            ReadOnlyMemory<byte> frame;
+            long consumed;
+            ReadOnlySequence<byte> frame;
 
             Assert.IsTrue(splitter.TrySplit(remaining, out consumed, out frame));
             Assert.AreEqual(first.Length, consumed);
@@ -169,12 +170,12 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
         {
             var raw = BuildFrame(0x33, new byte[0]);
 
-            int consumed;
-            ReadOnlyMemory<byte> frame;
-            Assert.IsTrue(LengthFieldSplitter.Default(0).TrySplit(raw, out consumed, out frame));
+            long consumed;
+            ReadOnlySequence<byte> frame;
+            Assert.IsTrue(LengthFieldSplitter.Default(0).TrySplit(new ReadOnlySequence<byte>(raw), out consumed, out frame));
             Assert.AreEqual(FrameConstants.P_Head, consumed);
             Assert.AreEqual(1, frame.Length);
-            Assert.AreEqual((byte)0x33, frame.Span[0]);
+            Assert.AreEqual((byte)0x33, frame.First.Span[0]);
         }
 
         [TestMethod]
@@ -188,9 +189,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
                     var raw = BuildCustomFrame(fieldLength, body.Length, body, littleEndian);
                     var splitter = new LengthFieldSplitter(1024, 0, fieldLength, 0, fieldLength, littleEndian);
 
-                    int consumed;
-                    ReadOnlyMemory<byte> frame;
-                    Assert.IsTrue(splitter.TrySplit(raw, out consumed, out frame),
+                    long consumed;
+                    ReadOnlySequence<byte> frame;
+                    Assert.IsTrue(splitter.TrySplit(new ReadOnlySequence<byte>(raw), out consumed, out frame),
                         $"lengthFieldLength={fieldLength}, littleEndian={littleEndian} 应能切出帧。");
                     Assert.AreEqual(fieldLength + body.Length, consumed);
                     CollectionAssert.AreEqual(body, frame.ToArray());
@@ -199,9 +200,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
 
             var single = BuildCustomFrame(1, body.Length, body, true);
             var singleSplitter = new LengthFieldSplitter(1024, 0, 1, 0, 1, true);
-            int singleConsumed;
-            ReadOnlyMemory<byte> singleFrame;
-            Assert.IsTrue(singleSplitter.TrySplit(single, out singleConsumed, out singleFrame));
+            long singleConsumed;
+            ReadOnlySequence<byte> singleFrame;
+            Assert.IsTrue(singleSplitter.TrySplit(new ReadOnlySequence<byte>(single), out singleConsumed, out singleFrame));
             Assert.AreEqual(1 + body.Length, singleConsumed);
             CollectionAssert.AreEqual(body, singleFrame.ToArray());
         }
@@ -226,9 +227,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
 
         private static void SplitIgnoringResult(IFrameSplitter splitter, byte[] buffered)
         {
-            int consumed;
-            ReadOnlyMemory<byte> frame;
-            splitter.TrySplit(buffered, out consumed, out frame);
+            long consumed;
+            ReadOnlySequence<byte> frame;
+            splitter.TrySplit(new ReadOnlySequence<byte>(buffered), out consumed, out frame);
         }
 
         private static byte[] BuildFrame(byte type, byte[] body)

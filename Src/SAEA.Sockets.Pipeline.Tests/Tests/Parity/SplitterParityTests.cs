@@ -30,6 +30,7 @@
 *
 *****************************************************************************/
 using System;
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -190,25 +191,51 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Parity
         private static List<SplitResult> FeedSplitter(IFrameSplitter splitter, IList<byte[]> chunks)
         {
             var results = new List<SplitResult>();
-            using (var accumulator = new FrameAccumulator())
+
+            // 保留原始分片边界，构造真正的多段只读序列，覆盖跨段扫描。
+            var buffer = BuildSequence(chunks);
+            var consumed = 0L;
+
+            while (true)
             {
-                for (var i = 0; i < chunks.Count; i++)
-                {
-                    accumulator.Append(chunks[i]);
+                long frameConsumed;
+                ReadOnlySequence<byte> frame;
+                if (!splitter.TrySplit(buffer.Slice(consumed), out frameConsumed, out frame))
+                    break;
 
-                    int consumed;
-                    ReadOnlyMemory<byte> frame;
-                    while (splitter.TrySplit(accumulator.Buffered, out consumed, out frame))
-                    {
-                        // frame 指向累加器缓冲，Consume 前先复制。
-                        results.Add(new SplitResult(consumed, frame.ToArray()));
-                        accumulator.Consume(consumed);
-                    }
-                }
-
-                Assert.AreEqual(0, accumulator.BufferedLength, "输入排空后累加器不应残留字节。");
+                results.Add(new SplitResult((int)frameConsumed, frame.ToArray()));
+                consumed += frameConsumed;
             }
+
+            Assert.AreEqual(buffer.Length, consumed, "输入排空后不应残留字节。");
             return results;
+        }
+
+        private static ReadOnlySequence<byte> BuildSequence(IList<byte[]> chunks)
+        {
+            if (chunks.Count == 0) return ReadOnlySequence<byte>.Empty;
+
+            var first = new ChunkSegment(chunks[0]);
+            var last = first;
+            for (var i = 1; i < chunks.Count; i++)
+                last = last.Append(chunks[i]);
+
+            return new ReadOnlySequence<byte>(first, 0, last, last.Memory.Length);
+        }
+
+        private sealed class ChunkSegment : ReadOnlySequenceSegment<byte>
+        {
+            public ChunkSegment(ReadOnlyMemory<byte> memory)
+            {
+                Memory = memory;
+            }
+
+            public ChunkSegment Append(ReadOnlyMemory<byte> memory)
+            {
+                var next = new ChunkSegment(memory) { RunningIndex = RunningIndex + Memory.Length };
+                Next = next;
+                return next;
+            }
         }
 
         private static void AssertLegacyMatchesCoder(IList<ObservedFrame> observed, IList<SplitResult> legacy)

@@ -255,9 +255,11 @@ public sealed class SocketStreamAdapter : IRawByteStream
 
 ## 💰 已知成本
 
-- 入站每帧固定 **2 次拷贝**：① `Pipe` → `FrameAccumulator`（`Append`），② `FrameAccumulator` → `PooledMessage`（`AllocateFrame`）。`AdvanceTo(buffer.End)` 之后 Pipe 内存失效，①必须在本次循环内完成；队列条目要跨 `await` 存活，②必须使用独立背衬。
+- 入站每帧固定 **1 次拷贝**（executor 泵路径）：直接在 `Pipe` 缓冲上切帧，成帧后复制这一次成为 `PooledMessage`（`AllocateFrame`）。`AdvanceTo` 只推进到最后一条成帧位置，未成帧残字节留在 `Pipe` 里交给下一次 `ReadAsync`；队列条目要跨 `await` 存活，所以这一次拷贝省不掉，背衬不能指向 `Pipe` 内存。
+- 纯链式（不用 executor、由 `FrameSplitterHandler` 在链首分帧）仍是 **2 次拷贝**：① `Pipe` → `FrameAccumulator`，② 累加器 → 独立 `PooledMessage`。
 - 出站固定 **3 次拷贝**：① 实体 → `Envelope.Payload`（codec 产出的 `byte[]`），② `Payload` → `EncodedBody`（codec writer），③ `EncodedBody` → 最终帧缓冲（frame writer）。传输层按 `owner` 语义接管同一块缓冲，不再由管线额外拷贝；适配器如需留存字节，由适配器自己承担那次拷贝。
-- 分配口径：小帧（默认 `< 512B`）走精确分配，不进池；大帧仅分配 `PooledMessage` 与队列节点。这是“两级正交 + `IBufferWriter` 不能前插”的已知预算，不要按零拷贝要求它。
+- 分配口径：小帧（默认 `< 512B`）走精确分配，每帧多一个 `byte[len]` 与一个 `PooledMessage`；大帧从 `MemoryPoolManager` 借背衬，只多一个 `PooledMessage`。这是“两级正交 + `IBufferWriter` 不能前插”的已知预算，不要按零拷贝要求它。
+- 实测口径：`PipelineTest --bench`（265B 帧）约 480B/帧，其中管线自身约 352B（`byte[265]` 296B + `PooledMessage` 56B），其余来自基准夹具往 `Pipe` 写 64KB 分块时的段分配。
 
 ---
 
@@ -278,12 +280,12 @@ public sealed class SocketStreamAdapter : IRawByteStream
 | `MaxBufferedBytes == 0` | 自动推导为 `Splitter.MaxFrameLength + FrameConstants.P_Head + ReadBufferSize`，即 `MaxFrameLength + 9 + ReadBufferSize` |
 | `MaxBufferedBytes != 0` | 必须 `>= MaxFrameLength + P_Head`，否则 `Create` 抛 `ArgumentOutOfRangeException`（一个合法最大帧连整帧都攒不下） |
 | 推导值或显式值 > `int.MaxValue` | `Create` 抛 `ArgumentOutOfRangeException` |
-| 运行期超限 | 每轮 `DrainToQueue` 之后检查残余字节，仍 `> MaxBufferedBytes` 时以 `reason = "buffered-bytes-limit"` 关闭连接 |
+| 运行期超限 | 每轮把完整帧全部入队后检查 `Pipe` 中残余字节，仍 `> MaxBufferedBytes` 时以 `reason = "buffered-bytes-limit"` 关闭连接 |
 | 单帧超长 | 在 `IFrameSplitter.TrySplit` 内检查，抛 `FrameProtocolException` |
 
 - 默认 `MaxBufferedBytes = 1MB` 只适用于 `MaxFrameLength <= 960KB` 左右；协议允许更大帧时必须显式配置。
-- `ReadBufferSize` 只是给“最大合法帧 + 一点尾巴”留的余量，不限制单次 `ReadAsync` 返回长度，也不参与 `FrameAccumulator` 的物理容量。
-- `MaxBufferedBytes` 统计的是 accumulator 里未成帧的**残余字节**，不是单帧长度；先排空完整帧再检查，避免一次读到很多合法帧被误杀。
+- `ReadBufferSize` 只是给“最大合法帧 + 一点尾巴”留的余量，不限制单次 `ReadAsync` 返回长度，也不影响 `Pipe` 的容量或残余字节的统计口径。
+- `MaxBufferedBytes` 统计的是 `Pipe` 中未成帧的**残余字节**（与 `ChannelTraffic.BufferedBytes` 同口径），不是单帧长度；先排空完整帧再检查，避免一次读到很多合法帧被误杀。
 
 ---
 

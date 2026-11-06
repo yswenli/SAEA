@@ -2,6 +2,7 @@
 
 上游设计：`docs/superpowers/specs/2026-11-05-socket-pipeline-design.md`（下称"设计文档"）。
 本计划只覆盖设计文档已定项，不新增架构决策；实现中发现设计缺陷，先改设计文档再改代码。
+本计划是 v1 的历史记录；当前实现口径（含入站拷贝数）以 `docs/superpowers/specs/2026-11-06-socket-pipeline-v2-executor-design.md` 为准：v2 第二批起 executor 泵入站为每帧 1 次拷贝，纯链式 `FrameSplitterHandler` 仍为 2 次。
 
 ## 目标与交付边界
 

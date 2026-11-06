@@ -23,18 +23,20 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 09:50:56
+*修改时间：2026/11/6 12:45:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：基于分隔符的分帧器：在连续缓冲中查找首个完整分隔符，再按配置决定是否把分隔符留在帧内
+*描述：分帧输入改为 ReadOnlySequence，分隔符可跨段匹配
 *
 *****************************************************************************/
 using System;
+using System.Buffers;
 
 namespace SAEA.Sockets.Pipeline
 {
     /// <summary>
-    /// 基于分隔符的分帧器：在连续缓冲中查找首个完整分隔符，再按配置决定是否把分隔符留在帧内。
+    /// 基于分隔符的分帧器：在尚未消费的缓冲里查找首个完整分隔符（分隔符本身可跨段），
+    /// 再按配置决定是否把分隔符留在帧内。
     /// 无状态、非线程安全，同一实例可按会话复用。
     /// </summary>
     public sealed class DelimiterSplitter : IFrameSplitter
@@ -80,24 +82,24 @@ namespace SAEA.Sockets.Pipeline
         }
 
         /// <inheritdoc />
-        public bool TrySplit(ReadOnlyMemory<byte> buffered, out int consumed, out ReadOnlyMemory<byte> frame)
+        public bool TrySplit(ReadOnlySequence<byte> buffer, out long consumed, out ReadOnlySequence<byte> frame)
         {
             consumed = 0;
-            frame = ReadOnlyMemory<byte>.Empty;
+            frame = default(ReadOnlySequence<byte>);
 
-            var index = IndexOfDelimiter(buffered.Span);
+            var index = IndexOfDelimiter(buffer);
             if (index < 0)
             {
-                if (buffered.Length > _maxFrameLength)
+                if (buffer.Length > _maxFrameLength)
                     throw new FrameProtocolException(
-                        $"未找到分隔符且缓冲长度 {buffered.Length} 超过上限 {_maxFrameLength}。");
+                        $"未找到分隔符且缓冲长度 {buffer.Length} 超过上限 {_maxFrameLength}。");
                 return false;
             }
 
             consumed = index + _delimiter.Length;
             frame = _stripDelimiter
-                ? buffered.Slice(0, index)
-                : buffered.Slice(0, consumed);
+                ? buffer.Slice(0, index)
+                : buffer.Slice(0, consumed);
             return true;
         }
 
@@ -106,27 +108,65 @@ namespace SAEA.Sockets.Pipeline
         {
         }
 
-        private int IndexOfDelimiter(ReadOnlySpan<byte> span)
+        private long IndexOfDelimiter(ReadOnlySequence<byte> buffer)
         {
-            var last = span.Length - _delimiter.Length;
-            for (var i = 0; i <= last; i++)
-            {
-                if (span[i] != _delimiter[0]) continue;
+            var delimiterLength = _delimiter.Length;
+            if (buffer.Length < delimiterLength) return -1;
 
-                var matched = true;
-                for (var j = 1; j < _delimiter.Length; j++)
+            var offset = 0L;
+            foreach (var segment in buffer)
+            {
+                var span = segment.Span;
+                var searchFrom = 0;
+
+                while (searchFrom < span.Length)
                 {
-                    if (span[i + j] != _delimiter[j])
+                    var candidate = span.Slice(searchFrom).IndexOf(_delimiter[0]);
+                    if (candidate < 0) break;
+
+                    var index = searchFrom + candidate;
+                    var absolute = offset + index;
+
+                    // 剩余字节已不足一个分隔符，后面不可能再命中。
+                    if (absolute + delimiterLength > buffer.Length)
+                        return -1;
+
+                    if (index + delimiterLength <= span.Length)
                     {
-                        matched = false;
-                        break;
+                        // 分隔符完整落在本段内，直接比较。
+                        if (span.Slice(index, delimiterLength).SequenceEqual(_delimiter))
+                            return absolute;
                     }
+                    else if (MatchesDelimiter(buffer, absolute))
+                    {
+                        // 分隔符跨越段边界，逐段比对。
+                        return absolute;
+                    }
+
+                    searchFrom = index + 1;
                 }
 
-                if (matched) return i;
+                offset += span.Length;
             }
 
             return -1;
+        }
+
+        private bool MatchesDelimiter(ReadOnlySequence<byte> buffer, long start)
+        {
+            var slice = buffer.Slice(start, _delimiter.Length);
+            var index = 0;
+            foreach (var segment in slice)
+            {
+                var span = segment.Span;
+                for (var i = 0; i < span.Length; i++)
+                {
+                    if (span[i] != _delimiter[index]) return false;
+                    index++;
+                }
+            }
+
+            return index == _delimiter.Length;
         }
     }
 }

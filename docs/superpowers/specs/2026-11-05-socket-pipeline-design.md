@@ -800,6 +800,7 @@ bool DrainToQueue(out bool anyQueued)          // 返回 false = 队列满，剩
 - **守卫检查的放置**：`guard.Allow(Traffic())` 只在 `DrainToQueue` **完整排空**（`complete == true`）的轮次执行一次；因队列满走 `continue` 的轮次、以及读后 `DrainToQueue` 被截断的轮次都跳过——那些轮次没有把已读数据全部消化完，泵也已经被闸门挡住，反复检查只会产生噪声。守卫为 `NullChannelGuard` 时该调用是一次静态空实现，成本可忽略。
 - **每字节固定 2 次拷贝，文档明写、不留歧义**：① Pipe → accumulator（`Append`），② accumulator → `PooledMessage`（`AllocateFrame`）。`AdvanceTo(buffer.End)` 之后 Pipe 内存失效，所以①必须在本次循环内完成；队列条目要跨 `await` 存活，所以②必须独立背衬。
   - 备选的"省掉第二次拷贝"（让 accumulator 直接把帧切走、`PooledMessage` 借用 accumulator 的背衬）需要重写 accumulator 的消费/归位语义，属里程碑 1 的范围扩张，本次**不做**；将来若做，必须回填本节与 §8.4 的口径。
+  - **v2 第二批已按另一条路径落地**（仅 executor 泵）：不再把字节搬进 accumulator，直接在 `ReadResult.Buffer` 上切帧，只保留"成帧 → `PooledMessage`"这一次拷贝，未成帧残字节留在 `Pipe`；`AdvanceTo` 随之改为推进到最后一条成帧位置（`SafeAdvanceTo(consumed, buffer.End)`），本节"必须传 `buffer.End`"只适用于 v1 与纯链式 `FrameSplitterHandler`。详见 `2026-11-06-socket-pipeline-v2-executor-design.md` §九。
 - **队列满（`TryWrite` 失败）**：`stream.Pause()` 后停止本轮后续投递；**未入队的那一帧不 `Consume`、留在 `FrameAccumulator`**，所以不丢。泵随后等待消费侧的低水位信号（`WaitQueueSpaceAsync`，底层 `SemaphoreSlim(0, 1)`，带 ct），**暂停期间不调用 `ReadAsync`**——否则既读不到新数据，恢复信号也没人等。已在队列里的消息继续被消费。
 - **`ChannelReadCompleteAsync` 的轮次口径**：只有 `DrainToQueue` **完整排空**（返回 true）且自上次通知以来确实入过队才触发一次；被队列满截断的轮次**不触发**，其已入队的帧记在 `pendingComplete` 上，与下一次成功排空合并。因此不变量是"**每次成功排空至多 1 次、每次 `ReadAsync` 至多 1 次，且不产生空通知**"。`SafeFireReadCompleteAsync` 内部对通知异常记录后吞掉（§5.1），不让它变成连接错误。
 - **`FrameAccumulator` 的缓冲走 `MemoryPoolManager`**：容量**按需扩容**，`Append` 必须保证"现有残余 + 本次读入"装得下（本次读入长度 = 本轮 `ReadAsync` 返回的字节数，由传输层 Pipe 决定、本身有界）。**不要**把 `MaxBufferedBytes + ReadBufferSize` 当硬上限：`SaeaConnection` 的 `PauseWriterThreshold = max(4 × ReadBufferSize, 64KB)`（默认 256KB），一次 `ReadAsync` 可能返回远超 `ReadBufferSize` 的数据，固定公式会在合法突发下误杀连接。`MaxBufferedBytes` 的检查仍然只对每轮 `DrainToQueue` 之后的**残余字节**做（本节第 2 步）。热路径复用池，`Append` 扩容时先租后还，`Reset()` 归还并把游标归零。不要改用 `ArrayPool<byte>.Shared`——那套计数器不可观测，配平测试会失去依据。
@@ -1016,6 +1017,7 @@ public sealed class ChannelPipelineOptions
 - **分配预算仍未达成**：实测约 475–480B/帧，按 256B body 估算约 4 次对象分配/帧（精确数组、`PooledMessage`、队列节点，以及执行链上的异步机构）。上面"≤2 次"只覆盖数组与队列节点，后续批次要收敛得先做单拷贝（P3）与每帧分配压降。
 - 该测量是单机趋势值，跨机器比较需重跑同一条命令；`--bench` 不进 CI，也不作合并门禁。
 - 基准脚本本身把整段 wire 写入 `Pipe`，含一次基准侧的 Pipe 拷贝；真实 socket 读路径没有这次拷贝，因此完整路径的实际分配应略低于上表。
+- **第二批（单拷贝泵）复测**：executor 泵改为直接在 `Pipe` 序列上切帧、未成帧残字节留在 `Pipe`，入站由每帧 2 次拷贝降为 1 次；四个分帧器改 `ReadOnlySequence<byte>` 输入，纯链式 `FrameSplitterHandler` 仍为 2 次。同一条命令 5 次进程运行：完整接收路径 227–268 万帧/s（中位数 232 万，旧栈 17.4%）、478–480B/帧，与第一批区间（197–317 万、475–480B）重叠。分配归因显示管线自身约 352B/帧（`byte[265]` 296B + `PooledMessage` 56B），有界队列与派发实测 0B/帧，其余约 128B 来自基准夹具向 `Pipe` 写 64KB 分块时的段分配。详见 `2026-11-06-socket-pipeline-v2-executor-design.md` §九–§十。
 
 ---
 

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 11:28:34
+*修改时间：2026/11/6 12:45:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：消息内联启动替代每消息 Task.Run 与闸门，无超时时不建链接令牌
+*描述：接收泵直接在 Pipe 序列上切帧，删除中间累加器与一次拷贝，残帧留在 Pipe
 *
 *****************************************************************************/
 using System;
@@ -60,7 +60,6 @@ namespace SAEA.Sockets.Pipeline
         private readonly System.Threading.Channels.Channel<PooledMessage> _queue;
         private readonly SemaphoreSlim _resumeSignal = new SemaphoreSlim(0, 1);
         private readonly SemaphoreSlim _concurrency;
-        private readonly FrameAccumulator _accumulator = new FrameAccumulator();
         private readonly AsyncLocal<CancellationToken> _ambientToken = new AsyncLocal<CancellationToken>();
 
         private readonly object _shutdownGate = new object();
@@ -74,6 +73,7 @@ namespace SAEA.Sockets.Pipeline
         private int _queuePaused;
         private bool _pendingComplete;
         private long _totalReceived;
+        private long _bufferedBytes;
         private Task _pumpTask;
         private Task _consumerTask;
         private int _closing;
@@ -258,7 +258,7 @@ namespace SAEA.Sockets.Pipeline
         {
             return new ChannelTraffic(
                 Interlocked.Read(ref _totalReceived),
-                _accumulator.BufferedLength,
+                Volatile.Read(ref _bufferedBytes),
                 Volatile.Read(ref _queued));
         }
 
@@ -270,6 +270,7 @@ namespace SAEA.Sockets.Pipeline
         private async Task PumpAsync()
         {
             var ct = _linked.Token;
+            var splitter = _options.Splitter;
 
             try
             {
@@ -279,34 +280,7 @@ namespace SAEA.Sockets.Pipeline
                     if (ct.IsCancellationRequested)
                         break;
 
-                    // 2. 先把上一轮因队列满留下的"已拆出但未 Consume"的帧送出去。
-                    bool anyQueued;
-                    var drained = DrainToQueue(out anyQueued);
-                    _pendingComplete |= anyQueued;
-
-                    if (!drained)
-                    {
-                        // 队列满：该帧未 Consume、仍在 accumulator；暂停期间不得调用 ReadAsync。
-                        if (!await WaitQueueSpaceAsync(ct).ConfigureAwait(false))
-                            break;
-                        continue;
-                    }
-
-                    // 3. 完整帧已全部入队，剩下的是凑不成一帧的尾巴。
-                    if (_accumulator.BufferedLength > _pipeline.EffectiveMaxBufferedBytes)
-                    {
-                        _ = BeginShutdown("buffered-bytes-limit", true);
-                        break;
-                    }
-
-                    // 4. 本轮（或合并的上一轮）的帧已全部入队，只通知一次。
-                    if (_pendingComplete)
-                    {
-                        await SafeFireReadCompleteAsync().ConfigureAwait(false);
-                        _pendingComplete = false;
-                    }
-
-                    // 5. 再读新字节。
+                    // 2. 读一段新字节；残字节不搬出 Pipe，AdvanceTo 只推进到最后一条成帧位置。
                     ReadResult result;
                     try
                     {
@@ -323,38 +297,85 @@ namespace SAEA.Sockets.Pipeline
                         break;
                     }
 
-                    // 6. 传输层 Dispose / 外部 Disconnect 走 CancelPendingRead，必须单独收口，不能当空读。
+                    // 3. 传输层 Dispose / 外部 Disconnect 走 CancelPendingRead，必须单独收口，不能当空读。
                     if (result.IsCanceled)
                     {
-                        SafeAdvanceTo(result.Buffer.End);
+                        SafeAdvanceTo(result.Buffer.Start);
                         _ = BeginShutdown("transport-closed", true);
                         break;
                     }
 
-                    // 7. 拷贝进 accumulator 后再拆帧；异常路径也必须放行本轮 Pipe 缓冲。
+                    var buffer = result.Buffer;
+                    Interlocked.Add(ref _totalReceived, buffer.Length);
+
+                    var consumed = buffer.Start;
                     var complete = false;
                     var queuedThisRead = false;
+                    var aborted = false;
+
+                    // 4. 直接在 Pipe 缓冲上切帧：成帧即复制成 PooledMessage 入队，残帧继续留在 Pipe。
                     try
                     {
-                        foreach (var segment in result.Buffer)
+                        while (true)
                         {
-                            _accumulator.Append(segment);
+                            var pending = buffer.Slice(consumed);
+                            if (!splitter.TrySplit(pending, out var frameConsumed, out var frame))
+                            {
+                                complete = true;
+                                break;
+                            }
+
+                            // 消费量为 0 会让循环原地打转，按协议错误收口。
+                            if (frameConsumed <= 0)
+                                throw new FrameProtocolException("分帧器返回成功时必须消费至少 1 字节。");
+
+                            var msg = AllocateFrame(frame);
+
+                            // 先加计数再写队列：消费者若先取走，计数不会被减成负数。
+                            Interlocked.Increment(ref _queued);
+                            if (!_queue.Writer.TryWrite(msg))
+                            {
+                                Interlocked.Decrement(ref _queued);
+                                msg.Release();
+                                SetQueuePausedOnce();
+
+                                // 队列满：该帧尚未消费、仍在当前 Pipe 缓冲里；暂停期间不得调用 ReadAsync。
+                                if (!await WaitQueueSpaceAsync(ct).ConfigureAwait(false))
+                                {
+                                    aborted = true;
+                                    break;
+                                }
+
+                                continue;
+                            }
+
+                            consumed = pending.GetPosition(frameConsumed);
+                            queuedThisRead = true;
                         }
-                        Interlocked.Add(ref _totalReceived, result.Buffer.Length);
-                        complete = DrainToQueue(out queuedThisRead);
                     }
                     catch (Exception ex)
                     {
                         RecordPumpError(ex);
                         _ = BeginShutdown("split-error", true);
+                        SafeAdvanceTo(buffer.End);
                         break;
                     }
-                    finally
+
+                    if (aborted)
+                        break;
+
+                    // 5. 只消费已入队的完整帧，未成帧残字节留给下一次 ReadAsync。
+                    SafeAdvanceTo(consumed, buffer.End);
+                    Volatile.Write(ref _bufferedBytes, buffer.Slice(consumed).Length);
+
+                    // 6. 完整帧已全部入队，剩下的是凑不成一帧的尾巴。
+                    if (complete && buffer.Slice(consumed).Length > _pipeline.EffectiveMaxBufferedBytes)
                     {
-                        SafeAdvanceTo(result.Buffer.End);
+                        _ = BeginShutdown("buffered-bytes-limit", true);
+                        break;
                     }
 
-                    // 8. 被队列满截断的轮次不通知，与下一次成功排空合并。
+                    // 7. 本轮（或合并的上一轮）的帧已全部入队，只通知一次。
                     _pendingComplete |= queuedThisRead;
                     if (complete && _pendingComplete)
                     {
@@ -362,14 +383,14 @@ namespace SAEA.Sockets.Pipeline
                         _pendingComplete = false;
                     }
 
-                    // 9. 对端 EOF：本轮已处理完，直接收口，不把完成态当空读自旋。
+                    // 8. 对端 EOF：本轮已处理完，直接收口，不把完成态当空读自旋。
                     if (result.IsCompleted)
                     {
                         _ = BeginShutdown("remote-eof", true);
                         break;
                     }
 
-                    // 10. 只有完整排空的轮次才做流量检查；钩子异常按超限处理。
+                    // 9. 只有完整排空的轮次才做流量检查；钩子异常按超限处理。
                     if (complete && !AllowTraffic())
                     {
                         _ = BeginShutdown("guard-rejected", true);
@@ -379,7 +400,7 @@ namespace SAEA.Sockets.Pipeline
             }
             finally
             {
-                try { _accumulator.Reset(); } catch { }
+                Volatile.Write(ref _bufferedBytes, 0);
                 try { _reader.Complete(); } catch (ObjectDisposedException) { } catch (InvalidOperationException) { }
             }
         }
@@ -660,39 +681,18 @@ namespace SAEA.Sockets.Pipeline
             }
         }
 
-        private bool DrainToQueue(out bool anyQueued)
+        private PooledMessage AllocateFrame(ReadOnlySequence<byte> frame)
         {
-            anyQueued = false;
-            var splitter = _options.Splitter;
+            if (frame.Length > int.MaxValue)
+                throw new FrameProtocolException($"帧长度 {frame.Length} 超过可索引上限。");
 
-            while (splitter.TrySplit(_accumulator.Buffered, out var consumed, out var frame))
+            var length = (int)frame.Length;
+
+            if (length >= _options.SmallFrameInlineThreshold)
             {
-                var msg = AllocateFrame(frame);
-
-                // 先加计数再写队列：消费者若先取走，计数不会被减成负数。
-                Interlocked.Increment(ref _queued);
-                if (!_queue.Writer.TryWrite(msg))
-                {
-                    Interlocked.Decrement(ref _queued);
-                    msg.Release();
-                    SetQueuePausedOnce();
-                    return false;
-                }
-
-                _accumulator.Consume(consumed);
-                anyQueued = true;
-            }
-
-            return true;
-        }
-
-        private PooledMessage AllocateFrame(ReadOnlyMemory<byte> frame)
-        {
-            if (frame.Length >= _options.SmallFrameInlineThreshold)
-            {
-                var buffer = MemoryPoolManager.Rent(frame.Length);
-                frame.Span.CopyTo(buffer.AsSpan());
-                return new PooledMessage(new ReadOnlyMemory<byte>(buffer, 0, frame.Length), buffer, frame.Length, true);
+                var buffer = MemoryPoolManager.Rent(length);
+                frame.CopyTo(buffer.AsSpan(0, length));
+                return new PooledMessage(new ReadOnlyMemory<byte>(buffer, 0, length), buffer, length, true);
             }
 
             var exact = frame.ToArray();
@@ -752,6 +752,13 @@ namespace SAEA.Sockets.Pipeline
         private void SafeAdvanceTo(SequencePosition consumed)
         {
             try { _reader.AdvanceTo(consumed); }
+            catch (ObjectDisposedException) { }
+            catch (InvalidOperationException) { }
+        }
+
+        private void SafeAdvanceTo(SequencePosition consumed, SequencePosition examined)
+        {
+            try { _reader.AdvanceTo(consumed, examined); }
             catch (ObjectDisposedException) { }
             catch (InvalidOperationException) { }
         }

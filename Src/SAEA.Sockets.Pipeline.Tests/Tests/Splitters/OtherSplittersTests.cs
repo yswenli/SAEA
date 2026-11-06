@@ -30,6 +30,7 @@
 *
 *****************************************************************************/
 using System;
+using System.Buffers;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SAEA.Sockets.Pipeline;
@@ -52,13 +53,13 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             full[head.Length] = 0xAA;
             full[head.Length + 1] = 0xBB;
 
-            int consumed;
-            ReadOnlyMemory<byte> frame;
+            long consumed;
+            ReadOnlySequence<byte> frame;
 
-            Assert.IsFalse(splitter.TrySplit(new ReadOnlyMemory<byte>(full, 0, 4), out consumed, out frame),
+            Assert.IsFalse(splitter.TrySplit(new ReadOnlySequence<byte>(new ReadOnlyMemory<byte>(full, 0, 4)), out consumed, out frame),
                 "只收到部分帧体时不应产出帧。");
 
-            Assert.IsTrue(splitter.TrySplit(full, out consumed, out frame));
+            Assert.IsTrue(splitter.TrySplit(new ReadOnlySequence<byte>(full), out consumed, out frame));
             Assert.AreEqual(full.Length, consumed);
             CollectionAssert.AreEqual(head, frame.ToArray());
         }
@@ -70,14 +71,14 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             var buffered = Encoding.ASCII.GetBytes("a|bb|ccc|");
             var expected = new[] { "a", "bb", "ccc" };
 
-            var offset = 0;
+            var offset = 0L;
             foreach (var item in expected)
             {
-                int consumed;
-                ReadOnlyMemory<byte> frame;
-                Assert.IsTrue(splitter.TrySplit(new ReadOnlyMemory<byte>(buffered, offset, buffered.Length - offset),
+                long consumed;
+                ReadOnlySequence<byte> frame;
+                Assert.IsTrue(splitter.TrySplit(new ReadOnlySequence<byte>(buffered).Slice(offset),
                     out consumed, out frame));
-                Assert.AreEqual(item + "|", Encoding.ASCII.GetString(buffered, offset, consumed));
+                Assert.AreEqual(item + "|", Encoding.ASCII.GetString(buffered, (int)offset, (int)consumed));
                 Assert.AreEqual(item, Encoding.ASCII.GetString(frame.ToArray()));
                 offset += consumed;
             }
@@ -100,9 +101,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             var splitter = new DelimiterSplitter((byte)'|', 64, stripDelimiter: false);
             var buffered = Encoding.ASCII.GetBytes("abc|");
 
-            int consumed;
-            ReadOnlyMemory<byte> frame;
-            Assert.IsTrue(splitter.TrySplit(buffered, out consumed, out frame));
+            long consumed;
+            ReadOnlySequence<byte> frame;
+            Assert.IsTrue(splitter.TrySplit(new ReadOnlySequence<byte>(buffered), out consumed, out frame));
             Assert.AreEqual(4, consumed);
             Assert.AreEqual("abc|", Encoding.ASCII.GetString(frame.ToArray()));
         }
@@ -114,14 +115,14 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             var splitter = new DelimiterSplitter(delimiter, 64);
             var buffered = Encoding.ASCII.GetBytes("a\r\n\r\nb\r\n\r\n");
 
-            int consumed;
-            ReadOnlyMemory<byte> frame;
+            long consumed;
+            ReadOnlySequence<byte> frame;
 
-            Assert.IsTrue(splitter.TrySplit(buffered, out consumed, out frame));
+            Assert.IsTrue(splitter.TrySplit(new ReadOnlySequence<byte>(buffered), out consumed, out frame));
             Assert.AreEqual(5, consumed);
             Assert.AreEqual("a", Encoding.ASCII.GetString(frame.ToArray()));
 
-            var rest = new ReadOnlyMemory<byte>(buffered, consumed, buffered.Length - consumed);
+            var rest = new ReadOnlySequence<byte>(buffered).Slice(consumed);
             Assert.IsTrue(splitter.TrySplit(rest, out consumed, out frame));
             Assert.AreEqual(5, consumed);
             Assert.AreEqual("b", Encoding.ASCII.GetString(frame.ToArray()));
@@ -142,9 +143,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             var splitter = new LineSplitter(64);
             var buffered = Encoding.ASCII.GetBytes("abc\r\n");
 
-            int consumed;
-            ReadOnlyMemory<byte> frame;
-            Assert.IsTrue(splitter.TrySplit(buffered, out consumed, out frame));
+            long consumed;
+            ReadOnlySequence<byte> frame;
+            Assert.IsTrue(splitter.TrySplit(new ReadOnlySequence<byte>(buffered), out consumed, out frame));
             Assert.AreEqual(5, consumed);
             Assert.AreEqual("abc", Encoding.ASCII.GetString(frame.ToArray()));
         }
@@ -155,14 +156,14 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             var splitter = new LineSplitter(64);
             var buffered = Encoding.ASCII.GetBytes("abc\ndef\n");
 
-            int consumed;
-            ReadOnlyMemory<byte> frame;
+            long consumed;
+            ReadOnlySequence<byte> frame;
 
-            Assert.IsTrue(splitter.TrySplit(buffered, out consumed, out frame));
+            Assert.IsTrue(splitter.TrySplit(new ReadOnlySequence<byte>(buffered), out consumed, out frame));
             Assert.AreEqual(4, consumed);
             Assert.AreEqual("abc", Encoding.ASCII.GetString(frame.ToArray()));
 
-            var rest = new ReadOnlyMemory<byte>(buffered, consumed, buffered.Length - consumed);
+            var rest = new ReadOnlySequence<byte>(buffered).Slice(consumed);
             Assert.IsTrue(splitter.TrySplit(rest, out consumed, out frame));
             Assert.AreEqual(4, consumed);
             Assert.AreEqual("def", Encoding.ASCII.GetString(frame.ToArray()));
@@ -174,13 +175,13 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             var splitter = new LineSplitter(64);
             var buffered = Encoding.ASCII.GetBytes("a\n\nb\n");
 
-            int consumed;
-            ReadOnlyMemory<byte> frame;
+            long consumed;
+            ReadOnlySequence<byte> frame;
 
-            Assert.IsTrue(splitter.TrySplit(buffered, out consumed, out frame));
+            Assert.IsTrue(splitter.TrySplit(new ReadOnlySequence<byte>(buffered), out consumed, out frame));
             Assert.AreEqual("a", Encoding.ASCII.GetString(frame.ToArray()));
 
-            var rest = new ReadOnlyMemory<byte>(buffered, consumed, buffered.Length - consumed);
+            var rest = new ReadOnlySequence<byte>(buffered).Slice(consumed);
             Assert.IsTrue(splitter.TrySplit(rest, out consumed, out frame));
             Assert.AreEqual(1, consumed);
             Assert.IsTrue(frame.IsEmpty, "连续两个换行之间应产出空帧。");
@@ -191,9 +192,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
         {
             var splitter = new FixedLengthSplitter(4);
 
-            int consumed;
-            ReadOnlyMemory<byte> frame;
-            Assert.IsFalse(splitter.TrySplit(new byte[] { 1, 2, 3 }, out consumed, out frame));
+            long consumed;
+            ReadOnlySequence<byte> frame;
+            Assert.IsFalse(splitter.TrySplit(new ReadOnlySequence<byte>(new byte[] { 1, 2, 3 }), out consumed, out frame));
             Assert.AreEqual(0, consumed);
             Assert.IsTrue(frame.IsEmpty);
         }
@@ -204,9 +205,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             var splitter = new FixedLengthSplitter(4);
             var buffered = new byte[] { 1, 2, 3, 4 };
 
-            int consumed;
-            ReadOnlyMemory<byte> frame;
-            Assert.IsTrue(splitter.TrySplit(buffered, out consumed, out frame));
+            long consumed;
+            ReadOnlySequence<byte> frame;
+            Assert.IsTrue(splitter.TrySplit(new ReadOnlySequence<byte>(buffered), out consumed, out frame));
             Assert.AreEqual(4, consumed);
             CollectionAssert.AreEqual(buffered, frame.ToArray());
             Assert.AreEqual(4, splitter.MaxFrameLength);
@@ -219,12 +220,12 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             var buffered = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9 };
             var expected = new[] { new byte[] { 1, 2, 3 }, new byte[] { 4, 5, 6 }, new byte[] { 7, 8, 9 } };
 
-            var offset = 0;
+            var offset = 0L;
             foreach (var item in expected)
             {
-                int consumed;
-                ReadOnlyMemory<byte> frame;
-                Assert.IsTrue(splitter.TrySplit(new ReadOnlyMemory<byte>(buffered, offset, buffered.Length - offset),
+                long consumed;
+                ReadOnlySequence<byte> frame;
+                Assert.IsTrue(splitter.TrySplit(new ReadOnlySequence<byte>(buffered).Slice(offset),
                     out consumed, out frame));
                 Assert.AreEqual(3, consumed);
                 CollectionAssert.AreEqual(item, frame.ToArray());
@@ -243,9 +244,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
 
         private static void SplitIgnoringResult(IFrameSplitter splitter, byte[] buffered)
         {
-            int consumed;
-            ReadOnlyMemory<byte> frame;
-            splitter.TrySplit(buffered, out consumed, out frame);
+            long consumed;
+            ReadOnlySequence<byte> frame;
+            splitter.TrySplit(new ReadOnlySequence<byte>(buffered), out consumed, out frame);
         }
     }
 }
