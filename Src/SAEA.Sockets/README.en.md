@@ -332,6 +332,116 @@ var clientOption = SocketOptionBuilder.Instance
 
 `OnAccepted` (server) and `ConnectAsync` (client) only complete after a successful handshake; failures are reported through `OnError` / `SaeaTlsOptions.HandshakeFailed` (or `OnTlsHandshake(failed: ...)`). `ChannelInfo.Tls` / `StreamUserToken.Tls` expose the negotiated protocol, cipher suite and remote certificate. The TLS stack is implemented on BouncyCastle rather than `SslStream`, so it is not tied to stream mode.
 
+### Where do development certificates come from
+
+The repository ships a command-line tool at `Src/SAEA.Sockets.SslTlsTest`. One command produces development certificates, written to `certs/` under the current directory by default:
+
+```bash
+# A single self-signed certificate (SAN includes localhost and 127.0.0.1)
+dotnet run --project Src/SAEA.Sockets.SslTlsTest -c Release -- --self-signed
+
+# A local root CA plus server/client certificates (mTLS)
+dotnet run --project Src/SAEA.Sockets.SslTlsTest -c Release -- --ca
+```
+
+Both commands accept `--verify` to self-check PFX/PEM read-back, the certificate chain, SAN/EKU and a local loopback handshake after generation. Use `--out` to change the output directory; the full parameter list and exit codes (`0` new files written, `1` invalid arguments, `2` generation or self-check failed, `3` every file already existed, nothing written) are in the tool's own `--help`.
+
+Generated files:
+
+| Mode | Files | Notes |
+|------|-------|-------|
+| `--self-signed` | `certs/localhost.pfx` / `.crt` / `.key` | One self-signed certificate; change the base name with `--name` |
+| `--ca` | `certs/ca.pfx` / `.crt` / `.key` | Local root CA |
+| `--ca` | `certs/server.pfx` / `.crt` / `.key` | Server certificate; SAN defaults to `localhost` + `127.0.0.1` |
+| `--ca` | `certs/client.pfx` / `.crt` / `.key` | Client certificate; EKU is clientAuth and no SAN is written |
+
+`.pfx` is PKCS#12, contains the private key and is password protected; the default password is `saea` (override with `--pwd`). In CA mode `server.pfx` / `client.pfx` also carry the CA that issued them, so external tools such as curl, Java and Node can read them directly. `.crt` / `.key` are PEM text: `.crt` holds a single certificate with no chain, and **`.key` is an unencrypted plaintext private key** (`RSA PRIVATE KEY`) with no password protection at all — `--pwd` and the default `saea` password only protect PFX files, never `.key`. A leaked `.key` is a leaked identity, and a leaked `ca.key` is signing authority; never commit them.
+
+Load the PFX with its password and hand it to `WithSsl(...)`:
+
+```csharp
+.WithSsl(o =>
+{
+    o.ServerCertificate = SaeaCertificateLoader.FromPfx("certs/server.pfx", "saea");
+})
+```
+
+`FromPfx` only carries the leaf certificate: the chain the server sends during the handshake is completed by this library from the system trust store. Therefore **when the CA is not imported into the client's trust store, default client validation fails** (`UntrustedRoot`); a local loopback self-test only passes because it tolerates an unknown root, which is not evidence of successful chain validation. There are only two ways to validate the chain: install the CA in the trust store, or pin it explicitly with `CustomRootTrust` in test code.
+
+When nginx, curl or similar needs a fullchain of leaf + CA, concatenate it yourself (the tool does not emit a chain file):
+
+```bash
+cat certs/server.crt certs/ca.crt > certs/server.fullchain.crt
+```
+
+Import the CA into a trust store (local development only; remove it when done):
+
+Windows, current user:
+
+```powershell
+Import-Certificate -FilePath certs\ca.crt -CertStoreLocation Cert:\CurrentUser\Root
+# Remove (the CA subject is CN=SAEA Dev Root CA)
+Get-ChildItem Cert:\CurrentUser\Root | Where-Object { $_.Subject -eq 'CN=SAEA Dev Root CA' } | Remove-Item
+```
+
+When running as a service account or when machine-wide trust is needed, use `Cert:\LocalMachine\Root` instead (requires administrator rights).
+
+Debian / Ubuntu (applies to curl, OpenSSL and system browsers):
+
+```bash
+sudo cp certs/ca.crt /usr/local/share/ca-certificates/saea-dev-ca.crt
+sudo update-ca-certificates
+# Remove
+sudo rm /usr/local/share/ca-certificates/saea-dev-ca.crt && sudo update-ca-certificates --fresh
+```
+
+macOS:
+
+```bash
+sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain certs/ca.crt
+# Remove
+sudo security remove-trusted-cert -d certs/ca.crt
+```
+
+Java and Node do not read the system trust store, so importing there has no effect on them — configure each separately:
+
+```bash
+# Java
+keytool -importcert -cacerts -alias saea-dev-ca -file certs/ca.crt
+keytool -delete -cacerts -alias saea-dev-ca    # Remove
+
+# Node
+export NODE_EXTRA_CA_CERTS=certs/ca.crt
+```
+
+To generate from your own code, use `SaeaCertificateFactory` / `SaeaCertificateAuthority` (the `Save*` methods do not create directories recursively, so make sure the target directory exists first):
+
+```csharp
+using SAEA.Sockets.Ssl;
+
+// Create and save the CA only once: recreating it replaces the CA and invalidates any trust you imported
+using (var ca = SaeaCertificateAuthority.Create(new SaeaCertificateOptions
+{
+    Subject = "CN=SAEA Dev Root CA"
+}))
+{
+    ca.SavePfx("certs/ca.pfx");
+    ca.SaveCertificatePem("certs/ca.crt");
+
+    using (var server = ca.IssueServerCertificate(new SaeaCertificateOptions
+    {
+        Subject = "CN=localhost"
+    }))
+    {
+        server.SavePfx("certs/server.pfx");
+        server.SaveCertificatePem("certs/server.crt");
+        server.SavePrivateKeyPem("certs/server.key");
+    }
+}
+```
+
+> ⚠️ These certificates are for development and testing only. Never use them in production.
+
 ### Q4: What is the purpose of memory pool?
 
 **A**: `BufferManager` and `UserTokenPool` reduce GC (garbage collection) pressure through pre-allocation and memory reuse:

@@ -315,6 +315,7 @@ dotnet add package SAEA.Sockets --version 26.9.21.1
 - `SAEA.RedisTest` - Redis 操作示例
 - `SAEA.RPCTest` - RPC 调用示例
 - `SAEA.P2PTest` - P2P NAT 穿透示例
+- `SAEA.Sockets.SslTlsTest` - 开发用 SSL/TLS 证书生成工具
 
 ---
 

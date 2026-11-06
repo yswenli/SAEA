@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 13:11:19
+*修改时间：2026/11/6 14:05:12
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：规范文件头 banner
+*描述：将 LoadPkcs12(byte[]) 提升为 internal，并新增可指定密钥存储标志的 PEM 加载重载，供证书生成复用
 *
 *****************************************************************************/
 using System;
@@ -141,7 +141,35 @@ namespace SAEA.Sockets.Ssl
                 throw new FileNotFoundException("找不到私钥文件。", privateKeyPath);
 
             var cacheKey = certificatePath + "|" + privateKeyPath + "|" + (password ?? string.Empty);
-            return _pemCache.GetOrAdd(cacheKey, _ => LoadPemCore(certificatePath, privateKeyPath, password));
+            return _pemCache.GetOrAdd(cacheKey,
+                _ => LoadPemCore(certificatePath, privateKeyPath, password, DefaultKeyStorageFlags));
+        }
+
+        /// <summary>
+        /// 从证书文件 + 私钥文件加载，并指定密钥存储标志，不使用进程内缓存。
+        /// </summary>
+        /// <remarks>
+        /// 供需要导出私钥参数的内部场景使用：临时密钥集在部分平台上不允许导出私钥，
+        /// 此时需改用默认标志加载。返回实例由调用方负责释放。
+        /// </remarks>
+        /// <param name="certificatePath">证书文件路径（PEM）</param>
+        /// <param name="privateKeyPath">私钥文件路径（PEM）</param>
+        /// <param name="password">私钥解密密码，未加密时为 null</param>
+        /// <param name="flags">密钥存储标志</param>
+        /// <returns>包含私钥的证书对象</returns>
+        internal static X509Certificate2 LoadPemWithFlags(string certificatePath, string privateKeyPath,
+            string password, X509KeyStorageFlags flags)
+        {
+            if (string.IsNullOrWhiteSpace(certificatePath))
+                throw new ArgumentNullException(nameof(certificatePath));
+            if (string.IsNullOrWhiteSpace(privateKeyPath))
+                throw new ArgumentNullException(nameof(privateKeyPath));
+            if (!File.Exists(certificatePath))
+                throw new FileNotFoundException("找不到证书文件。", certificatePath);
+            if (!File.Exists(privateKeyPath))
+                throw new FileNotFoundException("找不到私钥文件。", privateKeyPath);
+
+            return LoadPemCore(certificatePath, privateKeyPath, password, flags);
         }
 
         /// <summary>
@@ -228,7 +256,8 @@ namespace SAEA.Sockets.Ssl
             return selector;
         }
 
-        private static X509Certificate2 LoadPemCore(string certificatePath, string privateKeyPath, string password)
+        private static X509Certificate2 LoadPemCore(string certificatePath, string privateKeyPath, string password,
+            X509KeyStorageFlags flags)
         {
             var certificateBytes = File.ReadAllBytes(certificatePath);
             var bcCertificate = new X509CertificateParser().ReadCertificate(certificateBytes);
@@ -256,7 +285,7 @@ namespace SAEA.Sockets.Ssl
             {
                 var pfxPassword = password ?? string.Empty;
                 store.Save(output, pfxPassword.ToCharArray(), new SecureRandom());
-                return LoadPkcs12(output.ToArray(), pfxPassword, DefaultKeyStorageFlags);
+                return LoadPkcs12(output.ToArray(), pfxPassword, flags);
             }
         }
 
@@ -277,7 +306,7 @@ namespace SAEA.Sockets.Ssl
             }
         }
 
-        private static X509Certificate2 LoadPkcs12(byte[] data, string password, X509KeyStorageFlags flags)
+        internal static X509Certificate2 LoadPkcs12(byte[] data, string password, X509KeyStorageFlags flags)
         {
             try
             {

@@ -22,19 +22,18 @@
 *
 *****************************************************************************/
 
+using SAEA.Common;
+using SAEA.Common.Caching;
+using SAEA.Common.IO;
+using SAEA.WebSocket;
+using SAEA.WebSocket.Model;
+using SAEA.WebSocket.Type;
+
 using System;
 using System.Buffers;
 using System.Diagnostics;
 using System.Text;
 using System.Threading;
-
-using SAEA.Common;
-using SAEA.Common.Caching;
-using SAEA.Common.IO;
-using SAEA.Http;
-using SAEA.WebSocket;
-using SAEA.WebSocket.Model;
-using SAEA.WebSocket.Type;
 
 namespace SAEA.WebSocketTest
 {

@@ -331,6 +331,116 @@ var clientOption = SocketOptionBuilder.Instance
 
 握手成功后才触发 `OnAccepted`（服务端）或 `ConnectAsync` 完成（客户端）；失败时通过 `OnError` / `SaeaTlsOptions.HandshakeFailed`（或 `OnTlsHandshake(failed: ...)`）上报。`ChannelInfo.Tls` / `StreamUserToken.Tls` 可读取协商协议、密码套件与对端证书。内置 TLS 基于 BouncyCastle，不使用 `SslStream`，因此不要求流模式。
 
+### 开发用证书怎么来
+
+仓库自带命令行工具 `Src/SAEA.Sockets.SslTlsTest`，一条命令即可产出开发用证书，默认写入当前目录下的 `certs/`：
+
+```bash
+# 自签单张证书（SAN 含 localhost 与 127.0.0.1）
+dotnet run --project Src/SAEA.Sockets.SslTlsTest -c Release -- --self-signed
+
+# 本地根 CA + 服务端/客户端证书（mTLS）
+dotnet run --project Src/SAEA.Sockets.SslTlsTest -c Release -- --ca
+```
+
+两条命令都可追加 `--verify`，生成后自检 PFX/PEM 读回、证书链、SAN/EKU 与本机回环握手。输出目录用 `--out` 改；完整参数与退出码（`0` 有新产物、`1` 参数错误、`2` 生成或自检失败、`3` 文件全部已存在、本次未写入）见工具自身的 `--help`。
+
+产物清单：
+
+| 模式 | 文件 | 说明 |
+|------|------|------|
+| `--self-signed` | `certs/localhost.pfx` / `.crt` / `.key` | 单张自签证书，基名可用 `--name` 修改 |
+| `--ca` | `certs/ca.pfx` / `.crt` / `.key` | 本地根 CA |
+| `--ca` | `certs/server.pfx` / `.crt` / `.key` | 服务端证书，SAN 默认是 `localhost` + `127.0.0.1` |
+| `--ca` | `certs/client.pfx` / `.crt` / `.key` | 客户端证书，EKU 为 clientAuth，不写 SAN |
+
+`.pfx` 是 PKCS#12，含私钥并带口令，默认口令 `saea`（可用 `--pwd` 改）；CA 模式下的 `server.pfx` / `client.pfx` 里同时带签发它们的 CA 证书，方便 curl、Java、Node 等外部工具直接读取。`.crt` / `.key` 是 PEM 文本：`.crt` 只含单张证书、不含链，**`.key` 是不加密的明文私钥**（`RSA PRIVATE KEY`），没有任何口令保护——`--pwd` 和默认口令 `saea` 只保护 PFX，不保护 `.key`。`.key` 泄露等同身份泄露，`ca.key` 泄露更等于签发权泄露，都不要提交到版本库。
+
+用口令读回 PFX 并交给 `WithSsl(...)`：
+
+```csharp
+.WithSsl(o =>
+{
+    o.ServerCertificate = SaeaCertificateLoader.FromPfx("certs/server.pfx", "saea");
+})
+```
+
+`FromPfx` 只承载叶子证书：服务端握手时下发的证书链由本库从系统信任库补齐。所以**CA 没有导入客户端信任库时，客户端默认校验会失败**（`UntrustedRoot`）；本机回环自测只是靠“容忍未知根”放行，不能当成链校验成功的证据。验证链只有两种做法：把 CA 装进信任库，或在测试代码里用 `CustomRootTrust` 显式指定 CA。
+
+nginx、curl 等需要 leaf + CA 拼接的 fullchain 时自行拼接（工具不单独产出链文件）：
+
+```bash
+cat certs/server.crt certs/ca.crt > certs/server.fullchain.crt
+```
+
+把 CA 导入信任库（仅限本机开发，用完请移除）：
+
+Windows 当前用户：
+
+```powershell
+Import-Certificate -FilePath certs\ca.crt -CertStoreLocation Cert:\CurrentUser\Root
+# 移除（CA 主题为 CN=SAEA Dev Root CA）
+Get-ChildItem Cert:\CurrentUser\Root | Where-Object { $_.Subject -eq 'CN=SAEA Dev Root CA' } | Remove-Item
+```
+
+以服务账号运行或需要全机信任时改用 `Cert:\LocalMachine\Root`（需管理员权限）。
+
+Debian / Ubuntu（curl、OpenSSL、系统浏览器生效）：
+
+```bash
+sudo cp certs/ca.crt /usr/local/share/ca-certificates/saea-dev-ca.crt
+sudo update-ca-certificates
+# 移除
+sudo rm /usr/local/share/ca-certificates/saea-dev-ca.crt && sudo update-ca-certificates --fresh
+```
+
+macOS：
+
+```bash
+sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain certs/ca.crt
+# 移除
+sudo security remove-trusted-cert -d certs/ca.crt
+```
+
+Java 与 Node 不读系统信任库，导入系统库对它们无效，必须单独配置：
+
+```bash
+# Java
+keytool -importcert -cacerts -alias saea-dev-ca -file certs/ca.crt
+keytool -delete -cacerts -alias saea-dev-ca    # 移除
+
+# Node
+export NODE_EXTRA_CA_CERTS=certs/ca.crt
+```
+
+需要在自己代码里生成时，用 `SaeaCertificateFactory` / `SaeaCertificateAuthority`（`Save*` 方法不会递归创建目录，先确保目标目录存在）：
+
+```csharp
+using SAEA.Sockets.Ssl;
+
+// CA 只生成一次并保存：反复新建会换掉 CA，已导入的信任随之作废
+using (var ca = SaeaCertificateAuthority.Create(new SaeaCertificateOptions
+{
+    Subject = "CN=SAEA Dev Root CA"
+}))
+{
+    ca.SavePfx("certs/ca.pfx");
+    ca.SaveCertificatePem("certs/ca.crt");
+
+    using (var server = ca.IssueServerCertificate(new SaeaCertificateOptions
+    {
+        Subject = "CN=localhost"
+    }))
+    {
+        server.SavePfx("certs/server.pfx");
+        server.SaveCertificatePem("certs/server.crt");
+        server.SavePrivateKeyPem("certs/server.key");
+    }
+}
+```
+
+> ⚠️ 这些证书只用于开发与测试，请勿用于生产。
+
 ### Q4: 内存池的作用是什么？
 
 **A**: `BufferManager` 和 `UserTokenPool` 通过预分配和复用内存：

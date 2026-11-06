@@ -315,6 +315,7 @@ Each component has detailed usage examples and comments.
 - `SAEA.RedisTest` - Redis operation examples
 - `SAEA.RPCTest` - RPC call examples
 - `SAEA.P2PTest` - P2P NAT traversal examples
+- `SAEA.Sockets.SslTlsTest` - Development SSL/TLS certificate generator
 
 ---
 
