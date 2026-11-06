@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:40:45
+*修改时间：2026/11/6 13:23:31
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：补齐英文与乱码注释的中文说明
 *
 *****************************************************************************/
 using SAEA.Common.IO;
@@ -181,10 +181,10 @@ namespace SAEA.Common
         }
 
         /// <summary>
-        /// Write
+        /// 写入一条日志到内存缓存
         /// </summary>
-        /// <param name="type"></param>
-        /// <param name="msg"></param>
+        /// <param name="type">日志类型</param>
+        /// <param name="msg">日志内容</param>
         static void Write(string type, string msg)
         {
             _cache.Add(new LogItem() { Type = type, Msg = msg });
@@ -275,7 +275,7 @@ namespace SAEA.Common
     }
 
     /// <summary>
-    /// LogItem
+    /// 日志条目，保存日志类型与内容
     /// </summary>
     internal struct LogItem
     {
