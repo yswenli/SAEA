@@ -44,6 +44,8 @@ namespace SAEA.Sockets.Pipeline
         private readonly IMessageCodec _codec;
 
         /// <summary>以类型注册表与第二层编解码器创建出站包装处理器。</summary>
+        /// <param name="registry">类型码与 CLR 类型的双向映射，不能为 null。</param>
+        /// <param name="codec">业务实体到 payload 的编解码器，不能为 null。</param>
         public EnvelopeWrapHandler(ITypeRegistry registry, IMessageCodec codec)
         {
             if (registry == null)
@@ -56,6 +58,9 @@ namespace SAEA.Sockets.Pipeline
         }
 
         /// <summary>实体 → 类型码 + payload；类型未注册时抛 <see cref="InvalidOperationException"/>。</summary>
+        /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+        /// <param name="msg">待包装的业务实体，不能为 null。</param>
+        /// <returns>下游写出完成后结束的任务。</returns>
         public override async Task WriteAsync(IChannelHandlerContext ctx, object msg)
         {
             if (msg == null)

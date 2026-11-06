@@ -45,9 +45,13 @@ namespace SAEA.Sockets.Pipeline
         /// 实现不得保留该内存：返回后调用方会立即释放其背衬，
         /// 需要留存的部分必须复制到独立内存。
         /// </summary>
+        /// <param name="frame">分帧器产出的帧切片，仅在本次调用期间有效。</param>
+        /// <returns>解码得到的信封对象，所有权交给下游处理器。</returns>
         object Decode(ReadOnlyMemory<byte> frame);
 
         /// <summary>把消息编码为 body，只写 body，不写包头。</summary>
+        /// <param name="message">待编码的信封或业务对象。</param>
+        /// <param name="writer">body 的输出目标，由调用方提供背衬。</param>
         void Encode(object message, IBufferWriter<byte> writer);
     }
 }

@@ -41,18 +41,26 @@ namespace SAEA.Sockets.Pipeline
     public abstract class InboundHandlerAdapter : ChannelHandlerAdapter, IChannelInboundHandler
     {
         /// <summary>默认透传到下一入站处理器。</summary>
+        /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+        /// <param name="msg">待透传的消息。</param>
+        /// <returns>下游处理完成后结束的任务。</returns>
         public virtual Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
         {
             return ctx.FireChannelReadAsync(msg);
         }
 
         /// <summary>默认不做事；该通知由泵按链顺序逐个调用，不依赖处理器转发。</summary>
+        /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+        /// <returns>已完成的任务。</returns>
         public virtual Task ChannelReadCompleteAsync(IChannelHandlerContext ctx)
         {
             return Task.CompletedTask;
         }
 
         /// <summary>默认继续向链尾传播。</summary>
+        /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+        /// <param name="ex">待传播的异常。</param>
+        /// <returns>下游异常处理完成后结束的任务。</returns>
         public virtual Task ChannelExceptionCaughtAsync(IChannelHandlerContext ctx, Exception ex)
         {
             return ctx.FireExceptionCaughtAsync(ex);

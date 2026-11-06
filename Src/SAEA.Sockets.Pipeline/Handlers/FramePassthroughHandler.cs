@@ -46,6 +46,9 @@ namespace SAEA.Sockets.Pipeline
     public sealed class FramePassthroughHandler : InboundHandlerAdapter
     {
         /// <summary>只接受 <see cref="PooledMessage"/>；Retain 后原样下传。</summary>
+        /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+        /// <param name="msg">原始帧消息，必须是 <see cref="PooledMessage"/>。</param>
+        /// <returns>下游分支处理完成后结束的任务。</returns>
         public override async Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
         {
             var pooled = msg as PooledMessage;

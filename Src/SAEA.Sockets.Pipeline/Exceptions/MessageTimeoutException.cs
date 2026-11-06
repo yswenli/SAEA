@@ -45,6 +45,8 @@ namespace SAEA.Sockets.Pipeline
         public TimeSpan Timeout { get; }
 
         /// <summary>按连接标识与超时时长创建异常。</summary>
+        /// <param name="channelId">发生超时的连接标识。</param>
+        /// <param name="timeout">该消息配置的超时时长。</param>
         public MessageTimeoutException(string channelId, TimeSpan timeout)
             : base("消息处理超时：channel=" + channelId + "，timeout=" + timeout + "。")
         {

@@ -48,6 +48,8 @@ namespace SAEA.Sockets.Pipeline
         /// 重复注册抛 <see cref="InvalidOperationException"/>。
         /// 写入失败时回滚已写入的一侧，保证两个方向始终一致。
         /// </summary>
+        /// <param name="typeCode">线上帧头的类型码，取值 0..255。</param>
+        /// <param name="clrType">对应的 CLR 类型，不能为 null。</param>
         public void Register(int typeCode, Type clrType)
         {
             if (clrType == null)
@@ -75,6 +77,8 @@ namespace SAEA.Sockets.Pipeline
         }
 
         /// <summary>按类型码查 CLR 类型；未注册返回 null。</summary>
+        /// <param name="typeCode">线上帧头的类型码。</param>
+        /// <returns>对应的 CLR 类型；未注册时为 null。</returns>
         public Type Resolve(int typeCode)
         {
             Type type;
@@ -82,6 +86,8 @@ namespace SAEA.Sockets.Pipeline
         }
 
         /// <summary>按 CLR 类型查类型码；未注册返回 -1。</summary>
+        /// <param name="clrType">待查询的 CLR 类型；为 null 时返回 -1。</param>
+        /// <returns>对应的类型码；未注册时为 -1。</returns>
         public int ResolveCode(Type clrType)
         {
             int code;

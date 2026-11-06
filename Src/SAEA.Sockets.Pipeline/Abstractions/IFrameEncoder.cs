@@ -44,6 +44,9 @@ namespace SAEA.Sockets.Pipeline
         /// <paramref name="typeCode"/> 必须落在 0..255，越界抛
         /// <see cref="ArgumentOutOfRangeException"/>，不得静默截断。
         /// </summary>
+        /// <param name="body">待封帧的帧体，不含协议头。</param>
+        /// <param name="typeCode">消息类型码，取值 0..255。</param>
+        /// <param name="writer">完整帧的输出目标，由调用方提供背衬。</param>
         void Encode(ReadOnlyMemory<byte> body, int typeCode, IBufferWriter<byte> writer);
     }
 }

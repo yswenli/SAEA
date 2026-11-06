@@ -56,6 +56,7 @@ namespace SAEA.Sockets.Pipeline
         private int _disposed;
 
         /// <summary>以分帧器创建纯链式分帧处理器。</summary>
+        /// <param name="splitter">把连续缓冲切成完整帧的分帧器，不能为 null。</param>
         public FrameSplitterHandler(IFrameSplitter splitter)
         {
             if (splitter == null)
@@ -65,6 +66,9 @@ namespace SAEA.Sockets.Pipeline
         }
 
         /// <summary>只接受 <see cref="PooledMessage"/>；把完整帧逐条下传，半包留在内部累加器。</summary>
+        /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+        /// <param name="msg">任意字节片段，必须是 <see cref="PooledMessage"/>。</param>
+        /// <returns>本次输入的所有完整帧处理完成后结束的任务。</returns>
         public override async Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
         {
             var pooled = msg as PooledMessage;

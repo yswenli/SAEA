@@ -49,6 +49,9 @@ namespace SAEA.Sockets.Pipeline
         public const string HandlerExceptionReason = "handler-exception";
 
         /// <summary>消息一路透传到链尾仍无人消费：记录 Debug，实现 <see cref="IDisposable"/> 时释放，不关连接。</summary>
+        /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+        /// <param name="msg">未被消费的消息，可为 null。</param>
+        /// <returns>回收完成后结束的任务。</returns>
         public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
         {
             LogHelper.Debug(
@@ -66,6 +69,9 @@ namespace SAEA.Sockets.Pipeline
         /// 单消息超时与连接已关闭只记录；其它异常记录为 Error 并请求关闭连接，
         /// 关闭自身抛出的 <see cref="ChannelClosedException"/> 同样吞掉。
         /// </summary>
+        /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+        /// <param name="ex">待处理的异常。</param>
+        /// <returns>记录与可能的关闭流程完成后结束的任务。</returns>
         public override async Task ChannelExceptionCaughtAsync(IChannelHandlerContext ctx, Exception ex)
         {
             if (ex is MessageTimeoutException)

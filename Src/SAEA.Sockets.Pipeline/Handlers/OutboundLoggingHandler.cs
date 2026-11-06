@@ -47,6 +47,9 @@ namespace SAEA.Sockets.Pipeline
     public sealed class OutboundLoggingHandler : OutboundHandlerAdapter
     {
         /// <summary>记录连接标识、类型码/body 长度与下游耗时后原样向链首传递。</summary>
+        /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+        /// <param name="msg">待记录的出站消息，可为 null。</param>
+        /// <returns>链首接收完成后结束的任务。</returns>
         public override async Task WriteAsync(IChannelHandlerContext ctx, object msg)
         {
             var watch = Stopwatch.StartNew();

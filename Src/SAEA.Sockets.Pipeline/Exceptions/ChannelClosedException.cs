@@ -39,12 +39,15 @@ namespace SAEA.Sockets.Pipeline
     public sealed class ChannelClosedException : Exception
     {
         /// <summary>创建带说明的已关闭异常。</summary>
+        /// <param name="message">异常说明。</param>
         public ChannelClosedException(string message)
             : base(message)
         {
         }
 
         /// <summary>创建带说明与内部异常的已关闭异常。</summary>
+        /// <param name="message">异常说明。</param>
+        /// <param name="innerException">引发本次关闭的原始异常。</param>
         public ChannelClosedException(string message, Exception innerException)
             : base(message, innerException)
         {

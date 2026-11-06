@@ -99,6 +99,8 @@ namespace SAEA.Sockets.Pipeline
         /// 默认预设：8B 小端 body 长度 + 1B 类型，剥掉 8B 长度字段，产出 <c>[1B type][body]</c>。
         /// 类型字节在解析 Payload 前即可用，是生产默认。
         /// </summary>
+        /// <param name="maxFrameLength">可接受的最大帧长（帧体口径），必须大于 0。</param>
+        /// <returns>生产用分帧器实例。</returns>
         public static LengthFieldSplitter Default(int maxFrameLength)
         {
             return new LengthFieldSplitter(
@@ -113,6 +115,8 @@ namespace SAEA.Sockets.Pipeline
         /// <summary>
         /// 兼容预设：不剥任何头部，产出完整 <c>[8B len][1B type][body]</c>，仅用于与既有拆帧逻辑做逐字段比对。
         /// </summary>
+        /// <param name="maxFrameLength">可接受的最大帧长（帧体口径），必须大于 0。</param>
+        /// <returns>保留完整头部的分帧器实例。</returns>
         public static LengthFieldSplitter LegacyCompatible(int maxFrameLength)
         {
             return new LengthFieldSplitter(

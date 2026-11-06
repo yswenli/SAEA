@@ -88,6 +88,8 @@ namespace SAEA.Sockets.Pipeline
         /// <summary>
         /// 创建一条空链。结构校验在创建时完成，不在运行期补做。
         /// </summary>
+        /// <param name="options">链配置，分帧器等必填项在创建时校验，不能为 null。</param>
+        /// <returns>已通过结构校验的空链。</returns>
         public static ChannelPipeline Create(ChannelPipelineOptions options)
         {
             if (options == null)
@@ -262,6 +264,8 @@ namespace SAEA.Sockets.Pipeline
         /// <summary>
         /// 追加到链尾。入站处理器任何时候都能追加；出站处理器只能在链首仍为出站前缀时追加。
         /// </summary>
+        /// <param name="handler">待追加的处理器实例，不能为 null。</param>
+        /// <returns>当前链，便于链式调用。</returns>
         public IChannelPipeline AddLast(IChannelHandler handler)
         {
             var isInbound = ClassifyHandler(handler);
@@ -296,6 +300,8 @@ namespace SAEA.Sockets.Pipeline
         /// <summary>
         /// 插入链首。出站处理器总是可以插入（前缀向左扩展）；入站处理器只能在链首没有出站处理器时插入。
         /// </summary>
+        /// <param name="handler">待插入的处理器实例，不能为 null。</param>
+        /// <returns>当前链，便于链式调用。</returns>
         public IChannelPipeline AddFirst(IChannelHandler handler)
         {
             var isInbound = ClassifyHandler(handler);
@@ -331,6 +337,8 @@ namespace SAEA.Sockets.Pipeline
         /// 摘除首个与 <paramref name="handler"/> 引用相等的节点并归还注册计数。
         /// 不在链上时抛 <see cref="InvalidOperationException"/>。
         /// </summary>
+        /// <param name="handler">待摘除的处理器实例，不能为 null。</param>
+        /// <returns>当前链，便于链式调用。</returns>
         public IChannelPipeline Remove(IChannelHandler handler)
         {
             if (handler == null)
@@ -363,12 +371,15 @@ namespace SAEA.Sockets.Pipeline
         }
 
         /// <summary>入站唯一入口：从链首开始传播。</summary>
+        /// <param name="msg">待处理的入站消息。</param>
+        /// <returns>整条入站链执行完成后结束的任务。</returns>
         public Task FireChannelReadAsync(object msg)
         {
             return FireChannelReadFromAsync(_head.Next, msg);
         }
 
         /// <summary>按链首到链尾的顺序逐个通知入站处理器；异常不由链吞掉，由调用方记录。</summary>
+        /// <returns>所有入站处理器通知完成后结束的任务。</returns>
         public async Task FireChannelReadCompleteAsync()
         {
             var nodes = InboundNodesSnapshot();
@@ -379,6 +390,8 @@ namespace SAEA.Sockets.Pipeline
         }
 
         /// <summary>异常从链首开始向链尾传播。</summary>
+        /// <param name="ex">待传播的异常。</param>
+        /// <returns>异常处理完成后结束的任务。</returns>
         public Task FireExceptionCaughtAsync(Exception ex)
         {
             return FireExceptionCaughtFromAsync(_head.Next, ex);
@@ -388,6 +401,8 @@ namespace SAEA.Sockets.Pipeline
         /// 请求关闭连接，幂等。未接入执行器时只标记链已关闭；
         /// 接入后交给执行器执行完整收口，返回只表示已进入收口。
         /// </summary>
+        /// <param name="reason">关闭原因，写入日志用于区分收口来源。</param>
+        /// <returns>进入收口流程后即完成的任务，不等待资源回收。</returns>
         public Task CloseAsync(string reason)
         {
             _closed = true;

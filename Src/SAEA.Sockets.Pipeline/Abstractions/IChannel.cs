@@ -53,18 +53,27 @@ namespace SAEA.Sockets.Pipeline
         IReadOnlyDictionary<string, object> Attributes { get; }
 
         /// <summary>写入连接级属性。</summary>
+        /// <param name="key">属性键，不能为 null。</param>
+        /// <param name="value">属性值，允许为 null。</param>
         void SetAttribute(string key, object value);
 
         /// <summary>读取连接级属性；未设置返回 null。</summary>
+        /// <param name="key">属性键。</param>
+        /// <returns>属性值；未设置时为 null。</returns>
         object GetAttribute(string key);
 
         /// <summary>移除连接级属性；键不存在返回 false。</summary>
+        /// <param name="key">属性键。</param>
+        /// <param name="value">被移除的属性值；键不存在时为 null。</param>
+        /// <returns>是否成功移除。</returns>
         bool TryRemoveAttribute(string key, out object value);
 
         /// <summary>
         /// 请求关闭连接，幂等。返回只表示已进入收口流程，不表示资源回收完成；
         /// 收口在后台继续执行，不会等待调用方自身。
         /// </summary>
+        /// <param name="reason">关闭原因，写入日志用于区分收口来源。</param>
+        /// <returns>进入收口流程后即完成的任务，不等待资源回收。</returns>
         Task CloseAsync(string reason);
     }
 }

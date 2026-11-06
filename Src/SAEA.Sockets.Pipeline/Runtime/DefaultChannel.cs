@@ -88,12 +88,16 @@ namespace SAEA.Sockets.Pipeline
         }
 
         /// <summary>写入连接级属性；同名键覆盖旧值。</summary>
+        /// <param name="key">属性键，不能为 null。</param>
+        /// <param name="value">属性值，允许为 null。</param>
         public void SetAttribute(string key, object value)
         {
             _attributes[key] = value;
         }
 
         /// <summary>读取连接级属性；未设置返回 null。</summary>
+        /// <param name="key">属性键。</param>
+        /// <returns>属性值；未设置时为 null。</returns>
         public object GetAttribute(string key)
         {
             object value;
@@ -101,6 +105,9 @@ namespace SAEA.Sockets.Pipeline
         }
 
         /// <summary>移除连接级属性；键不存在返回 false。</summary>
+        /// <param name="key">属性键。</param>
+        /// <param name="value">被移除的属性值；键不存在时为 null。</param>
+        /// <returns>是否成功移除。</returns>
         public bool TryRemoveAttribute(string key, out object value)
         {
             return _attributes.TryRemove(key, out value);
@@ -110,6 +117,8 @@ namespace SAEA.Sockets.Pipeline
         /// 请求关闭连接，幂等：只有第一次调用会置 <see cref="IsActive"/> 为 false 并转调关闭委托，
         /// 之后直接返回已完成任务。返回只表示已进入收口流程，不表示资源回收完成。
         /// </summary>
+        /// <param name="reason">关闭原因，原样传给关闭委托。</param>
+        /// <returns>关闭委托返回的任务；重复调用时为已完成任务。</returns>
         public Task CloseAsync(string reason)
         {
             if (Interlocked.Exchange(ref _closeRequested, 1) != 0)

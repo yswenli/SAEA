@@ -63,15 +63,21 @@ namespace SAEA.Sockets.Pipeline
         /// 把消息传给下一个入站处理器。必须等待返回的 Task；
         /// 处理器不得在返回后继续使用消息，除非已显式持有其所有权。
         /// </summary>
+        /// <param name="msg">待传递给下一个入站处理器的消息。</param>
+        /// <returns>下游处理完成后结束的任务。</returns>
         Task FireChannelReadAsync(object msg);
 
         /// <summary>
         /// 把消息交给下一个出站处理器（向链首方向）。必须等待返回的 Task；
         /// 出站异常原样冒泡，不得记录后返回成功。
         /// </summary>
+        /// <param name="msg">待发送消息。</param>
+        /// <returns>下一个出站处理器处理完成后结束的任务。</returns>
         Task WriteAsync(object msg);
 
         /// <summary>从当前节点之后向链尾传播异常，不会绕回当前处理器自身。</summary>
+        /// <param name="ex">待传播的异常。</param>
+        /// <returns>异常处理完成后结束的任务。</returns>
         Task FireExceptionCaughtAsync(System.Exception ex);
     }
 }

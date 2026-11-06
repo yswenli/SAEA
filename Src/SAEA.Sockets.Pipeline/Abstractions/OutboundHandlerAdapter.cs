@@ -39,6 +39,9 @@ namespace SAEA.Sockets.Pipeline
     public abstract class OutboundHandlerAdapter : ChannelHandlerAdapter, IChannelOutboundHandler
     {
         /// <summary>默认透传；出站异常必须原样冒泡，不得记录后返回成功。</summary>
+        /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+        /// <param name="msg">待发送消息。</param>
+        /// <returns>下一个出站处理器处理完成后结束的任务。</returns>
         public virtual Task WriteAsync(IChannelHandlerContext ctx, object msg)
         {
             return ctx.WriteAsync(msg);

@@ -54,6 +54,9 @@ namespace SAEA.Sockets.Pipeline
         /// 由传输层释放；本 Task 表示所有权已交接，不表示对端已收到。
         /// 连接已关闭时必须立即抛 <see cref="ChannelClosedException"/>，不得排队或静默成功。
         /// </summary>
+        /// <param name="data">完整帧字节，背衬内存须在返回前保持有效。</param>
+        /// <param name="owner">随帧移交的所有权对象，由传输层在发送完成或失败后释放。</param>
+        /// <returns>所有权交接后即完成的任务，不表示对端已收到。</returns>
         Task SendAsync(ReadOnlyMemory<byte> data, IDisposable owner);
 
         /// <summary>同步暂停读取，独立于传输层自身背压。</summary>
@@ -63,6 +66,8 @@ namespace SAEA.Sockets.Pipeline
         void Resume();
 
         /// <summary>关闭底层连接，必须幂等。</summary>
+        /// <param name="reason">关闭原因，写入日志用于区分收口来源。</param>
+        /// <returns>进入收口流程后即完成的任务。</returns>
         Task CloseAsync(string reason);
     }
 }

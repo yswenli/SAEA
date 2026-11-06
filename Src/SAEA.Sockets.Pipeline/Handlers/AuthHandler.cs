@@ -55,6 +55,7 @@ namespace SAEA.Sockets.Pipeline
         /// 以未认证阶段允许通行的 type code 创建第一级鉴权处理器。
         /// 实例无连接状态，可跨连接共享。
         /// </summary>
+        /// <param name="allowedBeforeAuth">未认证阶段允许通行的 type code 集合，不能为 null。</param>
         public AuthHandler(IEnumerable<int> allowedBeforeAuth)
         {
             if (allowedBeforeAuth == null)
@@ -70,6 +71,9 @@ namespace SAEA.Sockets.Pipeline
         }
 
         /// <summary>只接受 <see cref="Envelope"/>；未认证且 type 不在白名单时关闭连接并终止传播。</summary>
+        /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+        /// <param name="msg">待鉴权的入站消息，必须是 <see cref="Envelope"/>。</param>
+        /// <returns>鉴权与下游处理完成后结束的任务。</returns>
         public override async Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
         {
             var envelope = msg as Envelope;

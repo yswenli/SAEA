@@ -77,6 +77,7 @@ namespace SAEA.Sockets.Pipeline
         }
 
         /// <summary>把一段字节追加到未消费字节之后。</summary>
+        /// <param name="data">待追加的字节片段。</param>
         public void Append(ReadOnlyMemory<byte> data)
         {
             if (data.Length == 0)
@@ -87,6 +88,7 @@ namespace SAEA.Sockets.Pipeline
         }
 
         /// <summary>消费未消费字节中的前 <paramref name="count"/> 字节；<paramref name="count"/> 必须在 [0, BufferedLength]。</summary>
+        /// <param name="count">要消费的字节数。</param>
         public void Consume(int count)
         {
             if (count < 0 || count > _end - _start)

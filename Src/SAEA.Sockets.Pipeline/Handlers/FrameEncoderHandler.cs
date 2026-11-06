@@ -44,6 +44,7 @@ namespace SAEA.Sockets.Pipeline
         private readonly IFrameEncoder _encoder;
 
         /// <summary>以出站分帧器创建帧编码处理器。</summary>
+        /// <param name="encoder">把 body 写成完整帧的编码器，不能为 null。</param>
         public FrameEncoderHandler(IFrameEncoder encoder)
         {
             if (encoder == null)
@@ -53,6 +54,9 @@ namespace SAEA.Sockets.Pipeline
         }
 
         /// <summary>只接受 <see cref="EncodedBody"/>；补完包头后只向链头交 <see cref="TransportFrame"/>。</summary>
+        /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+        /// <param name="msg">待补帧头的消息，必须是 <see cref="EncodedBody"/>。</param>
+        /// <returns>链头接收帧后结束的任务。</returns>
         public override async Task WriteAsync(IChannelHandlerContext ctx, object msg)
         {
             var encoded = msg as EncodedBody;

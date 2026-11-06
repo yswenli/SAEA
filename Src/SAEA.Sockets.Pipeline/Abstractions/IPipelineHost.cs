@@ -40,15 +40,24 @@ namespace SAEA.Sockets.Pipeline
     public interface IPipelineHost
     {
         /// <summary>按连接标识查询通道；未建链或已关闭返回 false。</summary>
+        /// <param name="channelId">连接标识。</param>
+        /// <param name="channel">查询到的通道；未命中时为 null。</param>
+        /// <returns>是否命中。</returns>
         bool TryGetChannel(string channelId, out IChannel channel);
 
         /// <summary>
         /// 解除登记并返回该通道；不存在返回 false，幂等。
         /// 实现应同时把通道置为非活跃并清空属性。
         /// </summary>
+        /// <param name="channelId">连接标识。</param>
+        /// <param name="channel">被移除的通道；未命中时为 null。</param>
+        /// <returns>是否移除成功。</returns>
         bool TryRemoveChannel(string channelId, out IChannel channel);
 
         /// <summary>等价于通道的 CloseAsync；连接不存在时为 no-op，幂等。</summary>
+        /// <param name="channelId">连接标识。</param>
+        /// <param name="reason">关闭原因。</param>
+        /// <returns>进入收口流程后即完成的任务。</returns>
         Task CloseAsync(string channelId, string reason);
     }
 }

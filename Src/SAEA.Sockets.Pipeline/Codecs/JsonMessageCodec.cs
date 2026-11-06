@@ -42,6 +42,9 @@ namespace SAEA.Sockets.Pipeline
     public sealed class JsonMessageCodec : IMessageCodec
     {
         /// <summary>按目标 CLR 类型反序列化；空 payload 返回该类型的默认实例。</summary>
+        /// <param name="payload">信封携带的 UTF-8 JSON 字节。</param>
+        /// <param name="targetType">目标 CLR 类型，不能为 null。</param>
+        /// <returns>反序列化得到的业务实体。</returns>
         public object Decode(ReadOnlyMemory<byte> payload, Type targetType)
         {
             if (targetType == null)
@@ -54,6 +57,8 @@ namespace SAEA.Sockets.Pipeline
         }
 
         /// <summary>序列化为 UTF-8 JSON 字节，返回独立数组。</summary>
+        /// <param name="entity">待序列化的业务实体，不能为 null。</param>
+        /// <returns>UTF-8 JSON 字节数组。</returns>
         public byte[] Encode(object entity)
         {
             if (entity == null)

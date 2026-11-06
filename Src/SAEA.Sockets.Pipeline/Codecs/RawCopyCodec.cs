@@ -41,6 +41,8 @@ namespace SAEA.Sockets.Pipeline
     public sealed class RawCopyCodec : ICodec
     {
         /// <summary>首字节仍作为类型码，其余字节精确拷贝为 payload。</summary>
+        /// <param name="frame">分帧器产出的完整帧，首字节为类型码。</param>
+        /// <returns>持有独立 payload 数组的信封对象。</returns>
         public object Decode(ReadOnlyMemory<byte> frame)
         {
             if (frame.Length < FrameConstants.P_Type)
@@ -52,6 +54,8 @@ namespace SAEA.Sockets.Pipeline
         }
 
         /// <summary>只写 body，不写包头。</summary>
+        /// <param name="message">待编码的信封对象，必须是 <see cref="Envelope"/>。</param>
+        /// <param name="writer">body 的输出目标。</param>
         public void Encode(object message, IBufferWriter<byte> writer)
         {
             if (writer == null)

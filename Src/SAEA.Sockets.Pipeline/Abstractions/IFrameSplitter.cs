@@ -46,6 +46,7 @@ namespace SAEA.Sockets.Pipeline
         /// <param name="buffered">自上次消费位置起的未消费连续缓冲。</param>
         /// <param name="consumed">本次应从缓冲中消费掉的字节数（含被剥离的包头）。</param>
         /// <param name="frame">产出的帧切片，背衬内存由调用方持有，实现不得保存该切片。</param>
+        /// <returns>true 表示切出完整帧；false 表示数据不足，需要继续读取。</returns>
         bool TrySplit(ReadOnlyMemory<byte> buffered, out int consumed, out ReadOnlyMemory<byte> frame);
 
         /// <summary>

@@ -40,6 +40,8 @@ namespace SAEA.Sockets.Pipeline
         /// 返回 false 表示超限，调用方以 "guard-rejected" 关闭连接。
         /// 钩子自身抛异常时按超限处理并记录，不放行。
         /// </summary>
+        /// <param name="traffic">当前连接的流量快照，由读循环每次迭代生成。</param>
+        /// <returns>true 表示放行；false 表示超限，调用方按 "guard-rejected" 关闭连接。</returns>
         bool Allow(in ChannelTraffic traffic);
     }
 }

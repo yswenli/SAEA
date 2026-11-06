@@ -58,6 +58,9 @@ namespace SAEA.Sockets.Pipeline
         }
 
         /// <summary>先校验令牌，通过后原样下传；失败抛 <see cref="InvalidOperationException"/>。</summary>
+        /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+        /// <param name="msg">待校验的入站消息。</param>
+        /// <returns>下游处理完成后结束的任务。</returns>
         public override async Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
         {
             if (!ValidateToken(ctx, msg))
@@ -70,6 +73,9 @@ namespace SAEA.Sockets.Pipeline
         /// 校验当前连接的令牌。默认读取 <c>token</c> 属性并检查非空；
         /// 子类可覆盖以实现签名、有效期等规则。返回 <c>false</c> 即拒绝该消息。
         /// </summary>
+        /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+        /// <param name="msg">待校验的入站消息。</param>
+        /// <returns>true 表示令牌有效；false 表示拒绝该消息。</returns>
         protected virtual bool ValidateToken(IChannelHandlerContext ctx, object msg)
         {
             var token = ctx.Channel.GetAttribute(TokenAttributeKey) as string;

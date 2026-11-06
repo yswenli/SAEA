@@ -47,6 +47,9 @@ namespace SAEA.Sockets.Pipeline
         public int QueuedMessages { get; }
 
         /// <summary>创建一份流量快照。</summary>
+        /// <param name="totalReceivedBytes">本连接累计接收的字节数。</param>
+        /// <param name="bufferedBytes">当前已缓冲但未成帧的残余字节数。</param>
+        /// <param name="queuedMessages">当前队列中的消息数。</param>
         public ChannelTraffic(long totalReceivedBytes, long bufferedBytes, int queuedMessages)
         {
             TotalReceivedBytes = totalReceivedBytes;

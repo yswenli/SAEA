@@ -43,12 +43,18 @@ namespace SAEA.Sockets.Pipeline
         /// 同一类型码或同一 CLR 类型重复注册抛 <see cref="InvalidOperationException"/>，
         /// 不做覆盖，避免两份映射悄悄漂移。
         /// </summary>
+        /// <param name="typeCode">线上帧头的类型码，取值 0..255。</param>
+        /// <param name="clrType">对应的 CLR 类型。</param>
         void Register(int typeCode, Type clrType);
 
         /// <summary>按类型码查 CLR 类型；未注册返回 null。</summary>
+        /// <param name="typeCode">线上帧头的类型码。</param>
+        /// <returns>对应的 CLR 类型；未注册时为 null。</returns>
         Type Resolve(int typeCode);
 
         /// <summary>按 CLR 类型查类型码；未注册返回 -1。</summary>
+        /// <param name="clrType">待查询的 CLR 类型。</param>
+        /// <returns>对应的类型码；未注册时为 -1。</returns>
         int ResolveCode(Type clrType);
     }
 }

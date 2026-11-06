@@ -49,6 +49,8 @@ namespace SAEA.Sockets.Pipeline
         private readonly int _copyThreshold;
 
         /// <summary>以默认告警阈值创建入站解包处理器。</summary>
+        /// <param name="registry">类型码与 CLR 类型的双向映射，不能为 null。</param>
+        /// <param name="codec">payload 到业务实体的编解码器，不能为 null。</param>
         public EnvelopeUnwrapHandler(ITypeRegistry registry, IMessageCodec codec)
             : this(registry, codec, DefaultCopyThreshold)
         {
@@ -58,6 +60,9 @@ namespace SAEA.Sockets.Pipeline
         /// 以指定 payload 告警阈值创建入站解包处理器。阈值只影响日志，
         /// 超阈值仍按信封路径完整拷贝，不改变解包方式。
         /// </summary>
+        /// <param name="registry">类型码与 CLR 类型的双向映射，不能为 null。</param>
+        /// <param name="codec">payload 到业务实体的编解码器，不能为 null。</param>
+        /// <param name="envelopeCopyThreshold">payload 拷贝告警阈值（字节），不能为负。</param>
         public EnvelopeUnwrapHandler(ITypeRegistry registry, IMessageCodec codec, int envelopeCopyThreshold)
         {
             if (registry == null)
@@ -73,6 +78,9 @@ namespace SAEA.Sockets.Pipeline
         }
 
         /// <summary>只接受 <see cref="Envelope"/>；类型码未注册时抛 <see cref="InvalidOperationException"/>。</summary>
+        /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+        /// <param name="msg">待解包的消息，必须是 <see cref="Envelope"/>。</param>
+        /// <returns>下游处理完成后结束的任务。</returns>
         public override async Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
         {
             var envelope = msg as Envelope;

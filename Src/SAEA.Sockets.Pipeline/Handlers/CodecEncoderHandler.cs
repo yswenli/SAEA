@@ -44,6 +44,7 @@ namespace SAEA.Sockets.Pipeline
         private readonly ICodec _codec;
 
         /// <summary>以第一层编解码器创建出站编码处理器。</summary>
+        /// <param name="codec">信封到 body 的编解码器，不能为 null。</param>
         public CodecEncoderHandler(ICodec codec)
         {
             if (codec == null)
@@ -53,6 +54,9 @@ namespace SAEA.Sockets.Pipeline
         }
 
         /// <summary>只接受 <see cref="Envelope"/>；编码结果交给下游补帧头。</summary>
+        /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+        /// <param name="msg">待编码的消息，必须是 <see cref="Envelope"/>。</param>
+        /// <returns>下游写出完成后结束的任务。</returns>
         public override async Task WriteAsync(IChannelHandlerContext ctx, object msg)
         {
             var envelope = msg as Envelope;

@@ -43,6 +43,7 @@ namespace SAEA.Sockets.Pipeline
         private readonly ICodec _codec;
 
         /// <summary>以第一层编解码器创建入站解码处理器。</summary>
+        /// <param name="codec">帧字节到信封的编解码器，不能为 null。</param>
         public CodecDecoderHandler(ICodec codec)
         {
             if (codec == null)
@@ -52,6 +53,9 @@ namespace SAEA.Sockets.Pipeline
         }
 
         /// <summary>只接受 <see cref="PooledMessage"/>；解码完成后归还帧字节，再下传解出的信封。</summary>
+        /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+        /// <param name="msg">池化帧消息，必须是 <see cref="PooledMessage"/>。</param>
+        /// <returns>下游处理完成后结束的任务。</returns>
         public override async Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
         {
             var pooled = msg as PooledMessage;

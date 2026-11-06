@@ -57,12 +57,18 @@ namespace SAEA.Sockets.Pipeline
         /// 不等待下游等价于提前放行，可能破坏消息顺序。
         /// 处理器不得在调用返回后继续使用消息，除非先显式持有其所有权。
         /// </summary>
+        /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+        /// <param name="msg">已解帧的消息；所有权归链，处理期间有效。</param>
+        /// <returns>消息处理完成后结束的任务。</returns>
         Task ChannelReadAsync(IChannelHandlerContext ctx, object msg);
 
         /// <summary>
         /// 异常沿链传播的入口。默认实现继续向链尾传递；
         /// 位于链尾的处理器负责记录并按异常类型决定是否关闭连接。
         /// </summary>
+        /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+        /// <param name="ex">待传播的异常。</param>
+        /// <returns>异常处理完成后结束的任务。</returns>
         Task ChannelExceptionCaughtAsync(IChannelHandlerContext ctx, Exception ex);
 
         /// <summary>
@@ -70,6 +76,8 @@ namespace SAEA.Sockets.Pipeline
         /// 不代表这些消息已经执行完成。处理器内只应做轻量同步工作（攒批、记指标），
         /// 禁止阻塞或业务 IO，否则会拖慢该连接的读取。
         /// </summary>
+        /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+        /// <returns>通知处理完成后结束的任务。</returns>
         Task ChannelReadCompleteAsync(IChannelHandlerContext ctx);
     }
 
@@ -83,6 +91,9 @@ namespace SAEA.Sockets.Pipeline
         /// <see cref="IChannelHandlerContext.WriteAsync"/> 并等待；不转发即视为截断出站链。
         /// 出站异常不得被吞掉，必须原样冒泡给发起方。
         /// </summary>
+        /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+        /// <param name="msg">待发送消息；转发时所有权随链移交。</param>
+        /// <returns>消息写入下一跳后结束的任务。</returns>
         Task WriteAsync(IChannelHandlerContext ctx, object msg);
     }
 }

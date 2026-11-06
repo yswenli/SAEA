@@ -45,6 +45,9 @@ namespace SAEA.Sockets.Pipeline
     public sealed class InboundLoggingHandler : InboundHandlerAdapter
     {
         /// <summary>记录连接标识、消息 CLR 类型名与下游耗时后原样下传。</summary>
+        /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+        /// <param name="msg">待记录的入站消息，可为 null。</param>
+        /// <returns>下游处理完成后结束的任务。</returns>
         public override async Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
         {
             var watch = Stopwatch.StartNew();

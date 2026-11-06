@@ -40,12 +40,17 @@ namespace SAEA.Sockets.Pipeline
     public interface IMessageCodec
     {
         /// <summary>按目标 CLR 类型反序列化 payload。</summary>
+        /// <param name="payload">信封携带的序列化字节。</param>
+        /// <param name="targetType">目标 CLR 类型，运行期由类型注册表解析得到。</param>
+        /// <returns>反序列化得到的业务实体。</returns>
         object Decode(ReadOnlyMemory<byte> payload, Type targetType);
 
         /// <summary>
         /// 序列化实体。必须返回独立数组，可直接交给信封持有；
         /// 不得返回池化切片，也不得让返回值指向临时缓冲。
         /// </summary>
+        /// <param name="entity">待序列化的业务实体。</param>
+        /// <returns>独立数组，可直接交给信封持有。</returns>
         byte[] Encode(object entity);
     }
 }

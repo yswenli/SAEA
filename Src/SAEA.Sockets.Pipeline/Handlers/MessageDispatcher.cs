@@ -52,6 +52,8 @@ namespace SAEA.Sockets.Pipeline
         private IMessageHandler _fallback;
 
         /// <summary>按精确 CLR 类型注册处理器；同一类型重复注册以最后一次为准。</summary>
+        /// <param name="handler">处理该类型消息的处理器，不能为 null。</param>
+        /// <returns>当前分发器，便于链式注册。</returns>
         public MessageDispatcher Register<TMessage>(IMessageHandler handler)
         {
             if (handler == null)
@@ -62,6 +64,8 @@ namespace SAEA.Sockets.Pipeline
         }
 
         /// <summary>注册未命中时的兜底处理器；再次调用会替换旧的兜底。</summary>
+        /// <param name="handler">兜底处理器，不能为 null。</param>
+        /// <returns>当前分发器，便于链式注册。</returns>
         public MessageDispatcher RegisterFallback(IMessageHandler handler)
         {
             if (handler == null)
@@ -75,6 +79,9 @@ namespace SAEA.Sockets.Pipeline
         /// 命中则用本节点的 <paramref name="ctx"/> 调用业务处理器（保证回包沿正确节点出站）；
         /// 未命中按兜底、Warn 下传、链尾就地丢弃三级处理。
         /// </summary>
+        /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+        /// <param name="msg">待分发的业务消息，不能为 null。</param>
+        /// <returns>业务处理或下传完成后结束的任务。</returns>
         public override async Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
         {
             if (msg == null)

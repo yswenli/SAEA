@@ -44,6 +44,8 @@ namespace SAEA.Sockets.Pipeline
         }
 
         /// <summary>始终返回 true。</summary>
+        /// <param name="traffic">当前连接的流量快照，本实现忽略该参数。</param>
+        /// <returns>始终为 true。</returns>
         public bool Allow(in ChannelTraffic traffic)
         {
             return true;

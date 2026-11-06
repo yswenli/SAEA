@@ -86,6 +86,11 @@ namespace SAEA.Sockets.Pipeline
         /// 创建执行器。传输层令牌取消表示连接已断开，是消息令牌的兜底来源；
         /// 取消时一定转入收口，而不只是让泵循环退出。
         /// </summary>
+        /// <param name="stream">与传输层解耦的字节流接入面，不能为 null。</param>
+        /// <param name="channel">连接的应用级视图，不能为 null。</param>
+        /// <param name="options">执行器配置，不能为 null。</param>
+        /// <param name="transportToken">传输层断开令牌，取消时转入收口。</param>
+        /// <param name="host">连接登记表；不需要登记时为 null。</param>
         public ChannelPipelineExecutor(
             IRawByteStream stream,
             IChannel channel,
@@ -174,6 +179,7 @@ namespace SAEA.Sockets.Pipeline
         }
 
         /// <summary>把本执行器与通道链双向绑定，必须在 <see cref="Start"/> 之前完成。</summary>
+        /// <param name="pipeline">要绑定的通道链，不能为 null。</param>
         public void Attach(ChannelPipeline pipeline)
         {
             if (pipeline == null)
@@ -187,6 +193,8 @@ namespace SAEA.Sockets.Pipeline
         /// 请求进入收口。只置状态并启动后台收口，不等待收口完成；
         /// 需要彻底回收的调用方等待 <see cref="Completion"/>。
         /// </summary>
+        /// <param name="reason">关闭原因，写入日志用于区分收口来源。</param>
+        /// <returns>启动收口后即完成的任务，不等待资源回收。</returns>
         public Task BeginShutdown(string reason)
         {
             BeginShutdown(reason, false);
