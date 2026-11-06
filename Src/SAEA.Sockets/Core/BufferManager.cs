@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/09/08 01:49:18
+*修改时间：2026/11/6 13:23:31
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：BufferManager管理类
+*版本号： v26.11.5.1
+*描述：补齐英文与乱码注释的中文说明
 *
 *****************************************************************************/
 using System;
@@ -36,7 +36,7 @@ using System.Net.Sockets;
 namespace SAEA.Sockets.Core
 {
     /// <summary>
-    /// BufferManager
+    /// 缓冲区管理器，按段惰性分配并复用固定大小的缓冲区
     /// </summary>
     /// <remarks>
     /// 缓冲区按段惰性分配：构造期不再一次性申请 bufferSize * 槽位数 的连续数组，
@@ -62,7 +62,7 @@ namespace SAEA.Sockets.Core
         bool _disposed;
 
         /// <summary>
-        /// BufferManager
+        /// 初始化缓冲区管理器
         /// </summary>
         /// <param name="totalBytes"></param>
         /// <param name="bufferSize"></param>
@@ -88,7 +88,7 @@ namespace SAEA.Sockets.Core
         }
 
         /// <summary>
-        /// SetBuffer
+        /// 为事件参数分配一块缓冲区
         /// </summary>
         /// <param name="args"></param>
         /// <returns></returns>
@@ -164,7 +164,7 @@ namespace SAEA.Sockets.Core
         }
 
         /// <summary>
-        /// Dispose
+        /// 释放所有缓冲区
         /// </summary>
         public void Dispose()
         {
