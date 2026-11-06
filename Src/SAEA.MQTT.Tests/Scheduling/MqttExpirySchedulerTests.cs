@@ -6,6 +6,9 @@ using SAEA.MQTT.Tests.TestInfrastructure;
 
 namespace SAEA.MQTT.Tests.Scheduling
 {
+    /// <summary>
+    /// 到期任务调度器的排序、取消、一次性执行与异常隔离行为
+    /// </summary>
     [TestClass]
     public class MqttExpirySchedulerTests
     {
@@ -15,6 +18,9 @@ namespace SAEA.MQTT.Tests.Scheduling
         TestClockScope _clockScope;
         MqttExpiryScheduler _scheduler;
 
+        /// <summary>
+        /// 安装假时钟并新建一个调度器实例
+        /// </summary>
         [TestInitialize]
         public void Initialize()
         {
@@ -23,6 +29,9 @@ namespace SAEA.MQTT.Tests.Scheduling
             _scheduler = new MqttExpiryScheduler();
         }
 
+        /// <summary>
+        /// 先释放调度器再恢复时间提供者，避免后台线程在时钟回退后继续运行
+        /// </summary>
         [TestCleanup]
         public void Cleanup()
         {
@@ -37,6 +46,9 @@ namespace SAEA.MQTT.Tests.Scheduling
             }
         }
 
+        /// <summary>
+        /// 验证到期的多个任务按到期时间先后执行，而非按注册顺序
+        /// </summary>
         [TestMethod]
         public void RunDueTasks_ExecutesTasksInDueOrder()
         {
@@ -57,6 +69,9 @@ namespace SAEA.MQTT.Tests.Scheduling
             }
         }
 
+        /// <summary>
+        /// 验证未到期任务不会执行，越过到期时间后才执行且仅执行一次
+        /// </summary>
         [TestMethod]
         public void RunDueTasks_DoesNotExecuteTaskBeforeDue()
         {
@@ -73,6 +88,9 @@ namespace SAEA.MQTT.Tests.Scheduling
             Assert.AreEqual(1, executionCount);
         }
 
+        /// <summary>
+        /// 验证已取消（句柄已释放）的任务即使到期也不执行
+        /// </summary>
         [TestMethod]
         public void RunDueTasks_SkipsCancelledTask()
         {
@@ -87,6 +105,9 @@ namespace SAEA.MQTT.Tests.Scheduling
             Assert.IsFalse(executed);
         }
 
+        /// <summary>
+        /// 验证一次 RunDueTasks 调用会执行所有已到期任务
+        /// </summary>
         [TestMethod]
         public void RunDueTasks_ExecutesAllDueTasksInSingleCall()
         {
@@ -102,6 +123,9 @@ namespace SAEA.MQTT.Tests.Scheduling
             CollectionAssert.AreEqual(new[] { 1, 2, 3 }, executed);
         }
 
+        /// <summary>
+        /// 验证某个任务回调抛异常时异常被调度器吞掉，后续到期任务仍继续执行
+        /// </summary>
         [TestMethod]
         public void RunDueTasks_ContinuesAfterCallbackThrows()
         {
@@ -124,6 +148,9 @@ namespace SAEA.MQTT.Tests.Scheduling
             Assert.IsTrue(secondExecuted);
         }
 
+        /// <summary>
+        /// 验证调度器释放后（重复释放亦安全）不再执行任何到期任务
+        /// </summary>
         [TestMethod]
         public void RunDueTasks_DoesNothingAfterSchedulerDisposed()
         {
@@ -139,6 +166,9 @@ namespace SAEA.MQTT.Tests.Scheduling
             Assert.IsFalse(executed);
         }
 
+        /// <summary>
+        /// 验证到期时间相同的任务按注册顺序执行
+        /// </summary>
         [TestMethod]
         public void RunDueTasks_ExecutesSameDueAtInRegistrationOrder()
         {
@@ -153,6 +183,9 @@ namespace SAEA.MQTT.Tests.Scheduling
             CollectionAssert.AreEqual(new[] { "A", "B" }, executed);
         }
 
+        /// <summary>
+        /// 验证调度器释放后再排程不抛异常，返回的句柄可释放且任务不会被执行
+        /// </summary>
         [TestMethod]
         public void Schedule_AfterSchedulerDisposed_DoesNotExecute()
         {
@@ -170,6 +203,9 @@ namespace SAEA.MQTT.Tests.Scheduling
             Assert.IsFalse(executed);
         }
 
+        /// <summary>
+        /// 验证重复调用 Start 不会重复调度同一条任务，回调只执行一次
+        /// </summary>
         [TestMethod]
         public void Start_CanBeCalledMultipleTimes()
         {

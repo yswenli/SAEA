@@ -11,6 +11,9 @@ using SAEA.MQTT.Tests.TestInfrastructure;
 
 namespace SAEA.MQTT.Tests.SessionExpiry
 {
+    /// <summary>
+    /// 服务端会话过期管理：过期时长、Clean Start 与最大过期上限的下调行为
+    /// </summary>
     [TestClass]
     public class SessionExpiryTests
     {
@@ -20,6 +23,9 @@ namespace SAEA.MQTT.Tests.SessionExpiry
         FakeMqttTimeProvider _time;
         TestClockScope _clockScope;
 
+        /// <summary>
+        /// 安装假时钟，让测试可以手动推进会话过期时间
+        /// </summary>
         [TestInitialize]
         public void Initialize()
         {
@@ -27,6 +33,9 @@ namespace SAEA.MQTT.Tests.SessionExpiry
             _clockScope = new TestClockScope(_time);
         }
 
+        /// <summary>
+        /// 释放时钟作用域并恢复进入测试前的全局时间提供者
+        /// </summary>
         [TestCleanup]
         public void Cleanup()
         {
@@ -36,6 +45,10 @@ namespace SAEA.MQTT.Tests.SessionExpiry
             }
         }
 
+        /// <summary>
+        /// 验证会话过期时间为 0 时会话在断开后立即移除，再次连接报告 Session Present 为 false
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task ExpiryZero_RemovesSessionImmediately()
         {
@@ -65,6 +78,10 @@ namespace SAEA.MQTT.Tests.SessionExpiry
             }
         }
 
+        /// <summary>
+        /// 验证过期时间为 30 秒的会话在断开 29 秒后重连仍报告 Session Present 为 true
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Expiry30_SessionPresentBeforeExpiry()
         {
@@ -96,6 +113,10 @@ namespace SAEA.MQTT.Tests.SessionExpiry
             }
         }
 
+        /// <summary>
+        /// 验证过期时间为 30 秒的会话在超过 31 秒后被移除，重连时 Session Present 为 false
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Expiry30_SessionGoneAfterExpiry()
         {
@@ -132,6 +153,10 @@ namespace SAEA.MQTT.Tests.SessionExpiry
             }
         }
 
+        /// <summary>
+        /// 验证过期时间为 uint.MaxValue 时不登记到期任务，即使推进 100 天会话仍然存在
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task ExpiryMaxValue_NeverExpires()
         {
@@ -169,6 +194,10 @@ namespace SAEA.MQTT.Tests.SessionExpiry
             }
         }
 
+        /// <summary>
+        /// 验证 Clean Start 为 1 的连接会丢弃已有持久会话并报告 Session Present 为 false
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task CleanStartOne_OverridesExistingSession()
         {
@@ -198,6 +227,10 @@ namespace SAEA.MQTT.Tests.SessionExpiry
             }
         }
 
+        /// <summary>
+        /// 验证客户端请求 30 秒会话过期而服务端上限为 10 秒时，CONNACK 回传 10 并在该时长后移除会话
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task MaximumSessionExpiryInterval_DownAdjusted()
         {

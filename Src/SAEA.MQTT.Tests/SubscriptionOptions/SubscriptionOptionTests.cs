@@ -12,12 +12,19 @@ using SAEA.MQTT.Tests.TestInfrastructure;
 
 namespace SAEA.MQTT.Tests.SubscriptionOptions
 {
+    /// <summary>
+    /// 订阅选项（No Local、Retain As Published、Retain Handling）在投递时的生效情况
+    /// </summary>
     [TestClass]
     public class SubscriptionOptionTests
     {
         static readonly TimeSpan WaitTimeout = TimeSpan.FromSeconds(5);
         static readonly TimeSpan NoMessageTimeout = TimeSpan.FromMilliseconds(500);
 
+        /// <summary>
+        /// 验证 No Local 订阅下发布者收不到自己发布的消息，但能收到其他客户端发布的消息
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task NoLocal_PublisherDoesNotReceiveOwnMessage()
         {
@@ -46,6 +53,10 @@ namespace SAEA.MQTT.Tests.SubscriptionOptions
             Assert.AreEqual("other", Encoding.UTF8.GetString(received.Payload));
         }
 
+        /// <summary>
+        /// 验证 Retain As Published 为 false 时，转发实时消息清空 Retain 标记
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task RetainAsPublishedFalse_ClearsRetainFlag()
         {
@@ -72,6 +83,10 @@ namespace SAEA.MQTT.Tests.SubscriptionOptions
             Assert.IsFalse(received.Retain, "RetainAsPublished=false must clear the Retain flag.");
         }
 
+        /// <summary>
+        /// 验证 Retain As Published 为 true 时，转发实时消息保留原始的 Retain 标记
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task RetainAsPublishedTrue_KeepsRetainFlag()
         {
@@ -98,6 +113,10 @@ namespace SAEA.MQTT.Tests.SubscriptionOptions
             Assert.IsTrue(received.Retain, "RetainAsPublished=true must keep the original Retain flag.");
         }
 
+        /// <summary>
+        /// 验证 Retain Handling 为 0 时订阅后立即重放保留消息且置 Retain 标记
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task RetainHandlingSendAtSubscribe_ReplaysRetained()
         {
@@ -125,6 +144,10 @@ namespace SAEA.MQTT.Tests.SubscriptionOptions
             Assert.IsTrue(replayed.Retain, "Retained replays must set the Retain flag.");
         }
 
+        /// <summary>
+        /// 验证 Retain Handling 为 1 时只在首次订阅时重放保留消息，重复订阅同一过滤器不再重放
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task RetainHandlingSendIfNew_ReplaysOnlyOnFirstSubscription()
         {
@@ -165,6 +188,10 @@ namespace SAEA.MQTT.Tests.SubscriptionOptions
                 "RetainHandling=1 must not replay on an existing subscription.");
         }
 
+        /// <summary>
+        /// 验证 Retain Handling 为 2 时订阅不重放保留消息，但后续实时发布仍能正常收到
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task RetainHandlingDoNotSend_DoesNotReplay()
         {
@@ -198,6 +225,10 @@ namespace SAEA.MQTT.Tests.SubscriptionOptions
             Assert.AreEqual("live", Encoding.UTF8.GetString(live.Payload));
         }
 
+        /// <summary>
+        /// 验证多条过滤器同时命中时按最高订阅 QoS 只投递一条消息
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task MultipleMatchingFilters_OneMessageHighestQualityOfService()
         {

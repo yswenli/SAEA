@@ -13,12 +13,19 @@ using SAEA.MQTT.Tests.TestInfrastructure;
 
 namespace SAEA.MQTT.Tests.SharedSubscriptions
 {
+    /// <summary>
+    /// 共享订阅的投递分发：组内轮询、组间独立、取消订阅与成员退出后的选择变化
+    /// </summary>
     [TestClass]
     public class SharedSubscriptionDispatchTests
     {
         static readonly TimeSpan WaitTimeout = TimeSpan.FromSeconds(5);
         static readonly TimeSpan NoMessageTimeout = TimeSpan.FromMilliseconds(500);
 
+        /// <summary>
+        /// 验证同一共享组内两个成员按轮询各分得一半消息，组内每条消息只投递给一个成员
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task SharedSubscription_TwoMembers_RoundRobinsExactlyOnePerGroup()
         {
@@ -58,6 +65,10 @@ namespace SAEA.MQTT.Tests.SharedSubscriptions
             CollectionAssert.AreEquivalent(expectedPayloads, receivedPayloads);
         }
 
+        /// <summary>
+        /// 验证不同共享组名视为独立分组，各自都会收到同一条消息
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task SharedSubscription_DifferentShareNames_EachGroupGetsOne()
         {
@@ -84,6 +95,10 @@ namespace SAEA.MQTT.Tests.SharedSubscriptions
             Assert.AreEqual("one", Encoding.UTF8.GetString(messageB.Payload));
         }
 
+        /// <summary>
+        /// 验证普通订阅与共享订阅并存时，普通订阅者收到一份，共享组内也恰好只有一个成员收到一份
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task SharedSubscription_AndNormalSubscription_BothDelivered()
         {
@@ -122,6 +137,10 @@ namespace SAEA.MQTT.Tests.SharedSubscriptions
                 "The shared group must deliver the message only once.");
         }
 
+        /// <summary>
+        /// 验证共享组成员退订后不再被选中，剩余成员独享全部投递
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task SharedSubscription_UnsubscribedMember_IsNoLongerSelected()
         {
@@ -154,6 +173,10 @@ namespace SAEA.MQTT.Tests.SharedSubscriptions
                 "An unsubscribed shared member must not receive any further messages.");
         }
 
+        /// <summary>
+        /// 验证共享组成员断开后从注册表移除，后续消息全部由剩余成员按序接收
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task SharedSubscription_SessionEndedMember_IsRemovedFromRegistry()
         {
@@ -186,6 +209,10 @@ namespace SAEA.MQTT.Tests.SharedSubscriptions
             Assert.AreEqual("two", Encoding.UTF8.GetString((await collectorB.WaitAsync(WaitTimeout).ConfigureAwait(false)).Payload));
         }
 
+        /// <summary>
+        /// 验证新增的共享订阅成员不会收到保留消息，而普通订阅仍会重放保留消息并置 Retain 标记
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task SharedSubscription_NewMember_DoesNotReceiveRetained()
         {
@@ -218,6 +245,10 @@ namespace SAEA.MQTT.Tests.SharedSubscriptions
             Assert.IsTrue(replayed.Retain, "A retained replay must set the Retain flag.");
         }
 
+        /// <summary>
+        /// 验证轮询选中某成员后按该成员自己的订阅 QoS 投递（QoS 0 成员收 0、QoS 1 成员收 1）
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task SharedSubscription_UsesMemberQualityOfService()
         {

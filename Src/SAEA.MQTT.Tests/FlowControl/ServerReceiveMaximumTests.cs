@@ -8,11 +8,18 @@ using SAEA.MQTT.Tests.TestInfrastructure;
 
 namespace SAEA.MQTT.Tests.FlowControl
 {
+    /// <summary>
+    /// 服务端接收上限（Receive Maximum）超限时的断开与配额释放
+    /// </summary>
     [TestClass]
     public class ServerReceiveMaximumTests
     {
         static readonly TimeSpan WaitTimeout = TimeSpan.FromSeconds(5);
 
+        /// <summary>
+        /// 验证接收上限为 1 时，QoS 2 报文在未完成 PUBCOMP 前再发一条，服务端以 0x93（接收超限）原因码断开
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task QoS2_SecondPublishWithoutPubComp_DisconnectsWith0x93()
         {
@@ -36,6 +43,10 @@ namespace SAEA.MQTT.Tests.FlowControl
             Assert.AreEqual((MqttDisconnectReasonCode)0x93, disconnect.ReasonCode.Value);
         }
 
+        /// <summary>
+        /// 验证 QoS 2 流程在收到 PUBREL 并完成 PUBCOMP 后释放配额，随后的新报文仍可正常处理且连接可用
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task QoS2_QuotaReleasedAfterPubComp_AllowsNextPublish()
         {
@@ -70,6 +81,10 @@ namespace SAEA.MQTT.Tests.FlowControl
             await ReadPacketAsync<MqttPingRespPacket>(rawClient, timeout.Token);
         }
 
+        /// <summary>
+        /// 验证接收上限为 1 时连续发送三条 QoS 1 报文不会泄漏配额，逐条收到 PUBACK 后连接仍然可用
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task QoS1_PipelinedPublishes_DoNotLeakQuota()
         {

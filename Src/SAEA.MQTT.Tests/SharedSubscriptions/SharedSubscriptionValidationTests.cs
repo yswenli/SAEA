@@ -11,11 +11,18 @@ using SAEA.MQTT.Tests.TestInfrastructure;
 
 namespace SAEA.MQTT.Tests.SharedSubscriptions
 {
+    /// <summary>
+    /// 服务端对共享订阅的校验：SUBACK 授予结果、能力开关、非法过滤器与注册表联动
+    /// </summary>
     [TestClass]
     public class SharedSubscriptionValidationTests
     {
         static readonly TimeSpan WaitTimeout = TimeSpan.FromSeconds(5);
 
+        /// <summary>
+        /// 验证合法的共享订阅返回 Granted QoS1，并在注册表中登记为 group/sport/# 的一个成员
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task V5_ValidSharedSubscription_ReturnsGrantedAndRegistersMember()
         {
@@ -37,6 +44,10 @@ namespace SAEA.MQTT.Tests.SharedSubscriptions
             Assert.AreEqual(1, registry.TotalMemberCount);
         }
 
+        /// <summary>
+        /// 验证服务端关闭共享订阅能力时，SUBACK 返回「不支持共享订阅」且不登记成员
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task V5_SharedSubscriptionDisabled_ReturnsSharedSubscriptionsNotSupported()
         {
@@ -58,6 +69,10 @@ namespace SAEA.MQTT.Tests.SharedSubscriptions
             Assert.AreEqual(0, server.ClientSessionsManager.SharedSubscriptionRegistry.TotalMemberCount);
         }
 
+        /// <summary>
+        /// 验证共享组名为空的非法共享订阅返回「主题过滤器无效」且不登记成员
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task V5_MalformedSharedSubscription_ReturnsTopicFilterInvalid()
         {
@@ -76,6 +91,10 @@ namespace SAEA.MQTT.Tests.SharedSubscriptions
             Assert.AreEqual(0, server.ClientSessionsManager.SharedSubscriptionRegistry.TotalMemberCount);
         }
 
+        /// <summary>
+        /// 验证共享订阅同时设置 No Local 属协议错误：服务端不回 SUBACK，直接以协议错误原因码断开且不登记成员
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task V5_SharedSubscriptionWithNoLocal_DisconnectsWithProtocolError()
         {
@@ -97,6 +116,10 @@ namespace SAEA.MQTT.Tests.SharedSubscriptions
             Assert.AreEqual(0, server.ClientSessionsManager.SharedSubscriptionRegistry.TotalMemberCount);
         }
 
+        /// <summary>
+        /// 验证服务端关闭订阅标识符能力时，带订阅标识符的订阅不回 SUBACK，而以「不支持订阅标识符」原因码断开
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task V5_SubscriptionIdentifierDisabled_DisconnectsWithSubscriptionIdentifiersNotSupported()
         {
@@ -122,6 +145,10 @@ namespace SAEA.MQTT.Tests.SharedSubscriptions
                 disconnect.ReasonCode.Value);
         }
 
+        /// <summary>
+        /// 验证服务端关闭通配符订阅能力时，含 # 的过滤器返回「不支持通配符订阅」
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task V5_WildcardSubscriptionDisabled_ReturnsWildcardSubscriptionsNotSupported()
         {
@@ -142,6 +169,10 @@ namespace SAEA.MQTT.Tests.SharedSubscriptions
             Assert.AreEqual(MqttSubscribeReasonCode.WildcardSubscriptionsNotSupported, subAck.ReasonCodes[0]);
         }
 
+        /// <summary>
+        /// 验证关闭通配符能力时，含通配符的共享订阅同样返回「不支持通配符订阅」且不登记成员
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task V5_SharedWildcardWhenWildcardDisabled_ReturnsWildcardSubscriptionsNotSupported()
         {
@@ -163,6 +194,10 @@ namespace SAEA.MQTT.Tests.SharedSubscriptions
             Assert.AreEqual(0, server.ClientSessionsManager.SharedSubscriptionRegistry.TotalMemberCount);
         }
 
+        /// <summary>
+        /// 验证 V3.1.1 下 $share/ 前缀按普通字面量处理，授予 QoS0 且不登记共享订阅成员
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task V311_SharedPrefixRemainsLiteral_AndDoesNotRegisterMember()
         {
@@ -184,6 +219,10 @@ namespace SAEA.MQTT.Tests.SharedSubscriptions
             Assert.AreEqual(0, server.ClientSessionsManager.SharedSubscriptionRegistry.TotalMemberCount);
         }
 
+        /// <summary>
+        /// 验证删除会话后共享订阅注册表中该客户端的成员被移除
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task V5_DeleteSession_RemovesRegistryMember()
         {
@@ -207,6 +246,10 @@ namespace SAEA.MQTT.Tests.SharedSubscriptions
             Assert.AreEqual(0, registry.TotalMemberCount);
         }
 
+        /// <summary>
+        /// 验证取消订阅共享过滤器后返回成功原因码，并从注册表移除该成员
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task V5_Unsubscribe_RemovesRegistryMember()
         {

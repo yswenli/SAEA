@@ -8,9 +8,16 @@ using SAEA.MQTT.Server;
 
 namespace SAEA.MQTT.Tests.SharedSubscriptions
 {
+    /// <summary>
+    /// 会话级订阅匹配：共享订阅不参与本地匹配、No Local 与多过滤器 QoS 取值
+    /// </summary>
     [TestClass]
     public class SubscriptionMatchingTests
     {
+        /// <summary>
+        /// 验证会话订阅 $share/group/sport/# 时本地匹配不命中，但注册表里记录了该共享组成员
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task CheckSubscriptions_SharedFilter_IsNotMatchedLocally()
         {
@@ -38,6 +45,10 @@ namespace SAEA.MQTT.Tests.SharedSubscriptions
             Assert.AreEqual(1, registry.GetMemberCount("group", "sport/#"));
         }
 
+        /// <summary>
+        /// 验证非共享订阅的投递 QoS 取订阅 QoS 与发布 QoS 的较小值（订阅 1、发布 2 得 1）
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task CheckSubscriptions_NonSharedFilter_UsesMinimumQualityOfService()
         {
@@ -66,6 +77,10 @@ namespace SAEA.MQTT.Tests.SharedSubscriptions
             Assert.IsFalse(result.Matches[0].IsShared);
         }
 
+        /// <summary>
+        /// 验证 No Local 订阅只过滤发布者自身，其他客户端的消息正常入队
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task CheckSubscriptions_NoLocal_SkipsOnlyThePublishingClient()
         {
@@ -109,6 +124,10 @@ namespace SAEA.MQTT.Tests.SharedSubscriptions
             Assert.AreEqual(1, session.ApplicationMessagesQueue.Count);
         }
 
+        /// <summary>
+        /// 验证多条过滤器同时命中时返回全部匹配项及其订阅标识符，最终 QoS 取最高订阅 QoS 与发布 QoS 的较小值
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task CheckSubscriptions_MultipleFilters_ReturnsEveryMatchAndHighestQualityOfService()
         {

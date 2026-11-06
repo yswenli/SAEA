@@ -12,12 +12,19 @@ using SAEA.MQTT.Tests.TestInfrastructure;
 
 namespace SAEA.MQTT.Tests.TopicAlias
 {
+    /// <summary>
+    /// 主题别名在服务端入站/出站以及客户端双向通信中的端到端行为
+    /// </summary>
     [TestClass]
     public class TopicAliasIntegrationTests
     {
         static readonly TimeSpan WaitTimeout = TimeSpan.FromSeconds(5);
         static readonly TimeSpan NoMessageTimeout = TimeSpan.FromMilliseconds(300);
 
+        /// <summary>
+        /// 验证客户端使用主题别名 0（协议非法值）时，服务端以 Topic Alias Invalid 原因码断开且不投递该消息
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task ServerInbound_ZeroAlias_DisconnectsWithTopicAliasInvalid()
         {
@@ -43,6 +50,10 @@ namespace SAEA.MQTT.Tests.TopicAlias
                 "A PUBLISH with Topic Alias 0 must not be dispatched.");
         }
 
+        /// <summary>
+        /// 验证别名超过服务端宣告的上限（上限 2 时用 3）时，服务端以 Topic Alias Invalid 原因码断开且不投递
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task ServerInbound_AliasAboveMaximum_DisconnectsWithTopicAliasInvalid()
         {
@@ -68,6 +79,10 @@ namespace SAEA.MQTT.Tests.TopicAlias
                 "A PUBLISH with a Topic Alias above the advertised maximum must not be dispatched.");
         }
 
+        /// <summary>
+        /// 验证主题为空且别名尚未建立映射时，服务端以 Topic Alias Invalid 原因码断开且不投递
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task ServerInbound_UnknownAlias_DisconnectsWithTopicAliasInvalid()
         {
@@ -93,6 +108,10 @@ namespace SAEA.MQTT.Tests.TopicAlias
                 "An empty topic with an unknown Topic Alias must not be dispatched.");
         }
 
+        /// <summary>
+        /// 验证入站别名先建立映射、空主题复用该映射、再用新主题覆盖映射后按解析结果路由消息
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task ServerInbound_MappingAndOverwrite_RoutesResolvedTopic()
         {
@@ -129,6 +148,10 @@ namespace SAEA.MQTT.Tests.TopicAlias
             Assert.AreEqual("four", Encoding.UTF8.GetString(fourth.Payload));
         }
 
+        /// <summary>
+        /// 验证客户端宣告的主题别名上限为 0 时，服务端出站 PUBLISH 始终携带完整主题、不带别名属性
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task ServerOutbound_ClientMaximumZero_NeverSendsAlias()
         {
@@ -162,6 +185,10 @@ namespace SAEA.MQTT.Tests.TopicAlias
             Assert.IsTrue(second.Properties == null || second.Properties.TopicAlias == null);
         }
 
+        /// <summary>
+        /// 验证客户端宣告非零别名上限时，服务端首条 PUBLISH 带完整主题与别名 1，第二条省略主题只带别名
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task ServerOutbound_ClientMaximumPositive_SendsAliasAndOmitsTopicAfterFirst()
         {
@@ -200,6 +227,10 @@ namespace SAEA.MQTT.Tests.TopicAlias
             Assert.AreEqual("two", Encoding.UTF8.GetString(second.Payload));
         }
 
+        /// <summary>
+        /// 验证订阅端与发布端都开启主题别名后，出站与入站双向使用别名且客户端最终解析回原主题
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task ClientBidirectional_UsesAliasesInBothDirections()
         {
@@ -242,6 +273,10 @@ namespace SAEA.MQTT.Tests.TopicAlias
             Assert.AreEqual("two", Encoding.UTF8.GetString(second.Payload));
         }
 
+        /// <summary>
+        /// 验证主题别名映射按连接隔离：新连接沿用旧别名的空主题发布会以 Topic Alias Invalid 原因码断开
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task TopicAlias_IsNotReusedAcrossConnections()
         {

@@ -11,9 +11,16 @@ using SAEA.MQTT.Tests.TestInfrastructure;
 
 namespace SAEA.MQTT.Tests.Capabilities
 {
+    /// <summary>
+    /// V5 连接确认（CONNACK）中服务端能力属性的编码行为
+    /// </summary>
     [TestClass]
     public class ConnAckCapabilityTests
     {
+        /// <summary>
+        /// 验证服务端使用默认配置时，CONNACK 不携带任何默认值属性，客户端各能力字段均为 null
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task V5_DefaultConfiguration_DoesNotWriteDefaultProperties()
         {
@@ -41,6 +48,10 @@ namespace SAEA.MQTT.Tests.Capabilities
             Assert.IsNull(result.ReasonString);
         }
 
+        /// <summary>
+        /// 验证服务端配置了全部非默认能力时，CONNACK 逐项回传接收上限、最大报文长度、主题别名上限与各能力开关
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task V5_NonDefaultCapabilities_AreAllWrittenToConnAck()
         {
@@ -75,6 +86,10 @@ namespace SAEA.MQTT.Tests.Capabilities
             Assert.AreEqual(MqttQualityOfServiceLevel.AtMostOnce, result.MaximumQoS);
         }
 
+        /// <summary>
+        /// 验证主题别名上限取自服务端配置而非写死 65535：默认不下发，配置为 5 时下发 5
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task V5_TopicAliasMaximum_IsNotHardCodedTo65535()
         {
@@ -104,6 +119,10 @@ namespace SAEA.MQTT.Tests.Capabilities
             }
         }
 
+        /// <summary>
+        /// 验证客户端把 Request Problem Information 置为 0 时，连接被拒绝的 CONNACK 不再携带 Reason String
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task V5_RequestProblemInformationZero_SuppressesReasonString()
         {
@@ -130,6 +149,10 @@ namespace SAEA.MQTT.Tests.Capabilities
             Assert.IsNull(exception.Result.ReasonString);
         }
 
+        /// <summary>
+        /// 验证同一端口可依次接受 V3.1.0、V3.1.1、V5.0 三种协议版本的连接
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task SamePort_AcceptsV310V311AndV500Sequentially()
         {

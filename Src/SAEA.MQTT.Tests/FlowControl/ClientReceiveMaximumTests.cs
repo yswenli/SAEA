@@ -11,11 +11,18 @@ using SAEA.MQTT.Tests.TestInfrastructure;
 
 namespace SAEA.MQTT.Tests.FlowControl
 {
+    /// <summary>
+    /// 客户端在 CONNECT 中声明接收上限为 1 时的收发行为
+    /// </summary>
     [TestClass]
     public class ClientReceiveMaximumTests
     {
         static readonly TimeSpan WaitTimeout = TimeSpan.FromSeconds(5);
 
+        /// <summary>
+        /// 验证客户端声明接收上限为 1 时仍能连续发布三条 QoS 1 消息且全部成功
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task ClientDeclaringReceiveMaximumOne_PublishesThreeQoS1Successfully()
         {
@@ -44,6 +51,10 @@ namespace SAEA.MQTT.Tests.FlowControl
             }
         }
 
+        /// <summary>
+        /// 验证声明接收上限为 1 的订阅端能按序收全三条 QoS 1 消息
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task ClientDeclaringReceiveMaximumOne_ReceivesThreeQoS1Messages()
         {

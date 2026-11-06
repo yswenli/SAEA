@@ -9,9 +9,15 @@ using SAEA.MQTT.Tests.TestInfrastructure;
 
 namespace SAEA.MQTT.Tests.Capabilities
 {
+    /// <summary>
+    /// 服务端选项构建器的能力配置项是否如实流入 <see cref="MqttServerCapabilities"/>
+    /// </summary>
     [TestClass]
     public class MqttServerCapabilitiesBuilderTests
     {
+        /// <summary>
+        /// 验证构建器上设置的接收上限、报文长度、主题别名、各能力开关与超时参数全部写入服务端能力对象
+        /// </summary>
         [TestMethod]
         public void Builder_FlowsConfiguredValuesIntoServerCapabilities()
         {
@@ -42,6 +48,10 @@ namespace SAEA.MQTT.Tests.Capabilities
             Assert.AreEqual(60u, capabilities.MaximumSessionExpiryInterval);
         }
 
+        /// <summary>
+        /// 验证把接收上限配置为 0 时服务端启动抛出配置异常
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task StartAsync_RejectsZeroReceiveMaximum()
         {

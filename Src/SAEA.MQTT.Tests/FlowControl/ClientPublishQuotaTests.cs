@@ -9,11 +9,18 @@ using SAEA.MQTT.Tests.TestInfrastructure;
 
 namespace SAEA.MQTT.Tests.FlowControl
 {
+    /// <summary>
+    /// 客户端 QoS 1 发布的发送配额（服务端接收上限）行为
+    /// </summary>
     [TestClass]
     public class ClientPublishQuotaTests
     {
         static readonly TimeSpan WaitTimeout = TimeSpan.FromSeconds(5);
 
+        /// <summary>
+        /// 验证服务端接收上限为 1 时，第一条 QoS 1 未回 PUBACK 前第二条必须等待配额，收到 PUBACK 后才发送并最终成功
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task SecondQoS1Publish_WaitsForFirstPubAck_WhenReceiveMaximumIsOne()
         {
@@ -59,6 +66,10 @@ namespace SAEA.MQTT.Tests.FlowControl
             Assert.AreEqual(MqttClientPublishReasonCode.Success, secondResult.ReasonCode);
         }
 
+        /// <summary>
+        /// 验证连接中断时，因配额不足而挂起的发布会被立即释放而不是无限等待
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task ConnectionClosed_ReleasesPublishesWaitingForQuota()
         {

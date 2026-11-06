@@ -12,11 +12,18 @@ using SAEA.MQTT.Tests.TestInfrastructure;
 
 namespace SAEA.MQTT.Tests.ReasonCodes
 {
+    /// <summary>
+    /// 客户端 DISCONNECT 报文的原因码与属性编码
+    /// </summary>
     [TestClass]
     public class ClientDisconnectTests
     {
         static readonly TimeSpan WaitTimeout = TimeSpan.FromSeconds(5);
 
+        /// <summary>
+        /// 验证客户端主动断开时，原因码、原因字符串、会话过期时间与用户属性原样写入 DISCONNECT 报文
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task DisconnectAsync_PreservesUserReasonCodeAndProperties()
         {
@@ -59,6 +66,10 @@ namespace SAEA.MQTT.Tests.ReasonCodes
             Assert.AreEqual("test", disconnect.Properties.UserProperties[0].Value);
         }
 
+        /// <summary>
+        /// 验证 DISCONNECT 中的会话过期时间超过 CONNECT 值（0 改为 10）时客户端抛出协议违规异常
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task DisconnectAsync_RaisesSessionExpiryAboveConnectValue_IsRejected()
         {

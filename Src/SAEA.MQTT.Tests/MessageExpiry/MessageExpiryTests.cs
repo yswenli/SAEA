@@ -59,6 +59,9 @@ namespace SAEA.MQTT.Tests.MessageExpiry
         FakeMqttTimeProvider _time;
         TestClockScope _clockScope;
 
+        /// <summary>
+        /// 安装假时钟并记录作用域，让测试可以手动推进消息过期时间
+        /// </summary>
         [TestInitialize]
         public void Initialize()
         {
@@ -66,6 +69,9 @@ namespace SAEA.MQTT.Tests.MessageExpiry
             _clockScope = new TestClockScope(_time);
         }
 
+        /// <summary>
+        /// 释放时钟作用域并恢复进入测试前的全局时间提供者
+        /// </summary>
         [TestCleanup]
         public void Cleanup()
         {
@@ -75,6 +81,10 @@ namespace SAEA.MQTT.Tests.MessageExpiry
             }
         }
 
+        /// <summary>
+        /// 验证离线持久会话排队中的消息在会话过期时间内未重新连接时，超过其 Message Expiry 后不再投递
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task QueuedMessageExpired_IsNotSent()
         {
@@ -156,6 +166,10 @@ namespace SAEA.MQTT.Tests.MessageExpiry
             }
         }
 
+        /// <summary>
+        /// 验证离线积压的消息转发时，Message Expiry 属性被改写为剩余秒数（10 秒过期等待 4 秒后为 6）
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task ForwardedExpiry_IsRemainingSeconds()
         {
@@ -240,6 +254,10 @@ namespace SAEA.MQTT.Tests.MessageExpiry
             }
         }
 
+        /// <summary>
+        /// 验证已过期的 retained 消息不会投递给新订阅者，并从 retained 存储中移除
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task RetainedMessageExpired_IsNotDelivered()
         {
@@ -300,6 +318,10 @@ namespace SAEA.MQTT.Tests.MessageExpiry
             }
         }
 
+        /// <summary>
+        /// 验证 retained 消息的过期元数据随持久化保存并在重启后恢复，且仍按原始到期时间失效
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task RetainedMessageExpiry_SurvivesPersistenceReload()
         {
@@ -399,6 +421,10 @@ namespace SAEA.MQTT.Tests.MessageExpiry
             }
         }
 
+        /// <summary>
+        /// 验证 V3.1.1 订阅者能收到 V5 发布的消息，但不携带 Message Expiry Interval 属性
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task V311_DoesNotReceiveMessageExpiryProperty()
         {
@@ -451,6 +477,10 @@ namespace SAEA.MQTT.Tests.MessageExpiry
             }
         }
 
+        /// <summary>
+        /// 验证保留消息被覆盖时刷新到期时间基准，投递剩余有效期按新消息的 20 秒计算
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task RetainedExpiry_OverwriteRefreshesRetainedAt()
         {

@@ -11,9 +11,15 @@ using SAEA.MQTT.Tests.TestInfrastructure;
 
 namespace SAEA.MQTT.Tests.Capabilities
 {
+    /// <summary>
+    /// 客户端协议版本默认值与空 ClientId 分配行为
+    /// </summary>
     [TestClass]
     public class DefaultProtocolVersionTests
     {
+        /// <summary>
+        /// 验证未显式指定版本时客户端选项的协议版本默认为 MQTT 3.1.1
+        /// </summary>
         [TestMethod]
         public void ClientOptions_DefaultProtocolVersion_IsV311()
         {
@@ -22,6 +28,10 @@ namespace SAEA.MQTT.Tests.Capabilities
             Assert.AreEqual(MqttProtocolVersion.V311, options.ProtocolVersion);
         }
 
+        /// <summary>
+        /// 验证不调用 WithProtocolVersion 时服务端在连接校验回调中观察到的版本为 MQTT 3.1.1
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task ClientWithoutExplicitVersion_ConnectsAsV311()
         {
@@ -67,6 +77,10 @@ namespace SAEA.MQTT.Tests.Capabilities
             }
         }
 
+        /// <summary>
+        /// 验证 V5.0 下客户端发送空 ClientId 时，服务端在 CONNACK 中回传以 saea- 开头的分配标识
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task EmptyClientId_V500_GetsAssignedIdentifier()
         {

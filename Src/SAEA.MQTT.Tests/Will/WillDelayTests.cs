@@ -18,6 +18,9 @@ using SAEA.MQTT.Tests.TestInfrastructure;
 
 namespace SAEA.MQTT.Tests.Will
 {
+    /// <summary>
+    /// 遗嘱消息的发布时机：正常断开、Will Delay 与连接接管场景
+    /// </summary>
     [TestClass]
     public class WillDelayTests
     {
@@ -28,6 +31,9 @@ namespace SAEA.MQTT.Tests.Will
         FakeMqttTimeProvider _time;
         TestClockScope _clockScope;
 
+        /// <summary>
+        /// 安装假时钟，让测试可以手动推进遗嘱延迟时间
+        /// </summary>
         [TestInitialize]
         public void Initialize()
         {
@@ -35,6 +41,9 @@ namespace SAEA.MQTT.Tests.Will
             _clockScope = new TestClockScope(_time);
         }
 
+        /// <summary>
+        /// 释放时钟作用域并恢复进入测试前的全局时间提供者
+        /// </summary>
         [TestCleanup]
         public void Cleanup()
         {
@@ -44,6 +53,10 @@ namespace SAEA.MQTT.Tests.Will
             }
         }
 
+        /// <summary>
+        /// 验证原因码为 0x00 的正常断开不登记遗嘱任务也不发布遗嘱
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task NormalDisconnect_DoesNotPublishWill()
         {
@@ -81,6 +94,10 @@ namespace SAEA.MQTT.Tests.Will
                 "A normal DISCONNECT (0x00) must not publish the will.");
         }
 
+        /// <summary>
+        /// 验证客户端以 0x04（带遗嘱断开）断连时，服务端立即按遗嘱主题与载荷发布遗嘱
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task DisconnectWithWillMessage_PublishesWill()
         {
@@ -111,6 +128,10 @@ namespace SAEA.MQTT.Tests.Will
             Assert.AreEqual(payload, Encoding.UTF8.GetString(message.Payload), "The published will must use the will payload.");
         }
 
+        /// <summary>
+        /// 验证因协议错误被服务端断开时仍发布遗嘱，且协商会话过期时间为 0 时会话被移除
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task ProtocolError_PublishesWill()
         {
@@ -141,6 +162,10 @@ namespace SAEA.MQTT.Tests.Will
                 "The session must be removed because the negotiated session expiry interval was 0.");
         }
 
+        /// <summary>
+        /// 验证异常断开后遗嘱延迟 5 秒才到期，期间恢复会话会取消遗嘱，且原到期时刻过后也不再发布
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task WillDelay_ReconnectBeforeDelay_DoesNotPublishWill()
         {
@@ -208,6 +233,10 @@ namespace SAEA.MQTT.Tests.Will
             }
         }
 
+        /// <summary>
+        /// 验证异常断开后遗嘱延迟届满（5 秒延迟推进 6 秒）时发布遗嘱，并清除该遗嘱的调度记录
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task WillDelay_Elapsed_PublishesWill()
         {
@@ -249,6 +278,10 @@ namespace SAEA.MQTT.Tests.Will
                 "The will schedule must be removed after publishing.");
         }
 
+        /// <summary>
+        /// 验证 Clean Start 为 0 且遗嘱延迟为 0 的连接接管时复用会话并立即发布旧连接的遗嘱
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Takeover_CleanStartFalse_DelayZero_PublishesImmediately()
         {
@@ -294,6 +327,10 @@ namespace SAEA.MQTT.Tests.Will
             }
         }
 
+        /// <summary>
+        /// 验证 Clean Start 为 0 且遗嘱延迟大于 0 的连接接管会取消待发的遗嘱，延迟届满后也不发布
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Takeover_CleanStartFalse_DelayPositive_CancelsWill()
         {
@@ -345,6 +382,10 @@ namespace SAEA.MQTT.Tests.Will
             }
         }
 
+        /// <summary>
+        /// 验证 Clean Start=1 接管时丢弃旧会话并立即发布旧连接的遗嘱，主题与载荷均与遗嘱一致
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Takeover_CleanStartTrue_PublishesWillImmediately()
         {
@@ -390,6 +431,10 @@ namespace SAEA.MQTT.Tests.Will
             }
         }
 
+        /// <summary>
+        /// 验证 Retain=1 的遗嘱在异常断开后写入 retained 存储，新订阅者能收到该遗嘱的重放
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task RetainedWill_UpdatesRetainedStorage()
         {

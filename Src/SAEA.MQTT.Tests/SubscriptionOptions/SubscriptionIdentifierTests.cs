@@ -13,12 +13,19 @@ using SAEA.MQTT.Tests.TestInfrastructure;
 
 namespace SAEA.MQTT.Tests.SubscriptionOptions
 {
+    /// <summary>
+    /// 订阅标识符随 PUBLISH 下发的行为（单条与多条订阅的合并、V3 不下发）
+    /// </summary>
     [TestClass]
     public class SubscriptionIdentifierTests
     {
         static readonly TimeSpan WaitTimeout = TimeSpan.FromSeconds(5);
         static readonly TimeSpan NoMessageTimeout = TimeSpan.FromMilliseconds(500);
 
+        /// <summary>
+        /// 验证订阅标识符 7 随投递的 PUBLISH 原样回传给订阅者
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task SubscriptionIdentifier_IsForwardedToSubscriber()
         {
@@ -43,6 +50,10 @@ namespace SAEA.MQTT.Tests.SubscriptionOptions
             CollectionAssert.AreEqual(new List<uint> { 7 }, received.SubscriptionIdentifiers);
         }
 
+        /// <summary>
+        /// 验证两条匹配过滤器各自带订阅标识符时，合并为同一条 PUBLISH 下发且携带 7 与 9
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task MultipleSubscriptionIdentifiers_AreMergedIntoOnePublish()
         {
@@ -81,6 +92,10 @@ namespace SAEA.MQTT.Tests.SubscriptionOptions
                 "Multiple matching subscriptions must still result in a single PUBLISH.");
         }
 
+        /// <summary>
+        /// 验证 V3.1.1 订阅者收到消息但订阅标识符为空，即该属性只对 V5 生效
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task V311_Subscriber_DoesNotReceiveSubscriptionIdentifiers()
         {

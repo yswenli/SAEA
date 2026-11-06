@@ -8,9 +8,15 @@ using SAEA.MQTT.Protocol;
 
 namespace SAEA.MQTT.Tests.Compatibility
 {
+    /// <summary>
+    /// MQTT 3.1.1 报文编码结果与标准字节序列的逐字节比对
+    /// </summary>
     [TestClass]
     public class V3GoldenBytesTests
     {
+        /// <summary>
+        /// 验证 V3.1.1 CONNECT 报文（CleanSession 置位、Keep Alive 60）编码为固定字节序列
+        /// </summary>
         [TestMethod]
         public void V311_Connect_EncodesToGoldenBytes()
         {
@@ -34,6 +40,9 @@ namespace SAEA.MQTT.Tests.Compatibility
                 Encode(packet));
         }
 
+        /// <summary>
+        /// 验证 V3.1.1 连接已接受的 CONNACK（会话不存续）编码为固定字节序列
+        /// </summary>
         [TestMethod]
         public void V311_ConnAck_EncodesToGoldenBytes()
         {
@@ -52,6 +61,9 @@ namespace SAEA.MQTT.Tests.Compatibility
                 Encode(packet));
         }
 
+        /// <summary>
+        /// 验证 V3.1.1 SUBSCRIBE 报文（报文标识符 1、主题 a/b、QoS 1）编码为固定字节序列
+        /// </summary>
         [TestMethod]
         public void V311_Subscribe_EncodesToGoldenBytes()
         {
@@ -77,6 +89,9 @@ namespace SAEA.MQTT.Tests.Compatibility
                 Encode(packet));
         }
 
+        /// <summary>
+        /// 验证 V3.1.1 SUBACK 报文（返回码 QoS 1 授予）编码为固定字节序列
+        /// </summary>
         [TestMethod]
         public void V311_SubAck_EncodesToGoldenBytes()
         {
@@ -97,6 +112,9 @@ namespace SAEA.MQTT.Tests.Compatibility
                 Encode(packet));
         }
 
+        /// <summary>
+        /// 验证 V3.1.1 QoS 0 PUBLISH 报文不含报文标识符且编码为固定字节序列
+        /// </summary>
         [TestMethod]
         public void V311_PublishQoS0_EncodesToGoldenBytes()
         {
@@ -117,6 +135,9 @@ namespace SAEA.MQTT.Tests.Compatibility
                 Encode(packet));
         }
 
+        /// <summary>
+        /// 验证 V3.1.1 QoS 1 PUBLISH 报文的 QoS 位、报文标识符 10 与报文长度编码为固定字节序列
+        /// </summary>
         [TestMethod]
         public void V311_PublishQoS1_EncodesToGoldenBytes()
         {
@@ -139,6 +160,9 @@ namespace SAEA.MQTT.Tests.Compatibility
                 Encode(packet));
         }
 
+        /// <summary>
+        /// 验证 V3.1.1 QoS 2 PUBLISH 报文的 QoS 位、报文标识符 10 与报文长度编码为固定字节序列
+        /// </summary>
         [TestMethod]
         public void V311_PublishQoS2_EncodesToGoldenBytes()
         {
@@ -161,6 +185,9 @@ namespace SAEA.MQTT.Tests.Compatibility
                 Encode(packet));
         }
 
+        /// <summary>
+        /// 验证 V3.1.1 PINGREQ 与 PINGRESP 均为两字节定长报文
+        /// </summary>
         [TestMethod]
         public void V311_Ping_EncodesToGoldenBytes()
         {

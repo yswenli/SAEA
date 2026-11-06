@@ -11,12 +11,19 @@ using SAEA.MQTT.Tests.TestInfrastructure;
 
 namespace SAEA.MQTT.Tests.FlowControl
 {
+    /// <summary>
+    /// 最大报文长度上限在入站、出站两个方向上的处理
+    /// </summary>
     [TestClass]
     public class MaximumPacketSizeTests
     {
         static readonly TimeSpan WaitTimeout = TimeSpan.FromSeconds(5);
         static readonly TimeSpan NoMessageTimeout = TimeSpan.FromMilliseconds(500);
 
+        /// <summary>
+        /// 验证客户端发来的报文超过服务端上限时，服务端以 0x95（报文过大）原因码断开连接
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task InboundOversizedPacket_DisconnectsWith0x95()
         {
@@ -39,6 +46,10 @@ namespace SAEA.MQTT.Tests.FlowControl
             Assert.AreEqual((MqttDisconnectReasonCode)0x95, disconnect.ReasonCode.Value);
         }
 
+        /// <summary>
+        /// 验证订阅端声明的最大报文长度小于消息长度时，服务端丢弃该次投递但不断开连接，后续小报文仍能送达
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task OutboundOversizedPublish_IsDroppedAndConnectionSurvives()
         {
@@ -80,6 +91,10 @@ namespace SAEA.MQTT.Tests.FlowControl
             Assert.AreEqual("small", Encoding.UTF8.GetString(received.Payload));
         }
 
+        /// <summary>
+        /// 验证客户端发布超过服务端声明的最大报文长度时抛出协议违规异常
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task ClientOversizedPublish_ThrowsProtocolViolation()
         {

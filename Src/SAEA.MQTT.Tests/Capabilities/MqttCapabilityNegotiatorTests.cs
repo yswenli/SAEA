@@ -9,9 +9,15 @@ using SAEA.MQTT.Server;
 
 namespace SAEA.MQTT.Tests.Capabilities
 {
+    /// <summary>
+    /// 服务端能力协商器对 V5 / V3 连接报文的解析与校验
+    /// </summary>
     [TestClass]
     public class MqttCapabilityNegotiatorTests
     {
+        /// <summary>
+        /// 验证 V5 连接报文不带属性时各项能力取协议默认值，服务端 Keep Alive 继承客户端值
+        /// </summary>
         [TestMethod]
         public void Negotiate_V5_WithoutProperties_UsesProtocolDefaults()
         {
@@ -48,6 +54,9 @@ namespace SAEA.MQTT.Tests.Capabilities
             Assert.AreEqual(0u, result.SessionExpiryInterval);
         }
 
+        /// <summary>
+        /// 验证 V5 连接报文中的接收上限、最大报文长度、主题别名上限、会话过期与问题信息开关被读取到协商结果
+        /// </summary>
         [TestMethod]
         public void Negotiate_V5_ReadsClientProperties()
         {
@@ -79,6 +88,9 @@ namespace SAEA.MQTT.Tests.Capabilities
             Assert.IsNull(result.AssignedClientIdentifier);
         }
 
+        /// <summary>
+        /// 验证客户端会话过期时间超过服务端上限时被下调到上限，未超限时保持不变
+        /// </summary>
         [TestMethod]
         public void Negotiate_V5_ClampsSessionExpiryToServerMaximum()
         {
@@ -121,6 +133,9 @@ namespace SAEA.MQTT.Tests.Capabilities
             Assert.AreEqual(5u, unchanged.SessionExpiryInterval);
         }
 
+        /// <summary>
+        /// 验证未配置服务端 Keep Alive 时沿用客户端值，配置后以配置值为准
+        /// </summary>
         [TestMethod]
         public void Negotiate_V5_ServerKeepAliveDefaultsToClientKeepAliveUnlessOverridden()
         {
@@ -146,6 +161,9 @@ namespace SAEA.MQTT.Tests.Capabilities
             Assert.AreEqual((ushort)12, overriddenResult.ServerKeepAlive);
         }
 
+        /// <summary>
+        /// 验证 V3.1.1 与 V3.1.0 忽略报文中的 V5 属性，客户端能力保持协议默认且会话过期时间为 0
+        /// </summary>
         [TestMethod]
         public void Negotiate_V3_IgnoresV5PropertiesAndKeepsClientDefaults()
         {
@@ -186,6 +204,9 @@ namespace SAEA.MQTT.Tests.Capabilities
             Assert.AreEqual(0u, result310.SessionExpiryInterval);
         }
 
+        /// <summary>
+        /// 验证 V5 客户端把接收上限声明为 0 时协商抛出协议违规异常
+        /// </summary>
         [TestMethod]
         public void Negotiate_V5_RejectsZeroClientReceiveMaximum()
         {
@@ -206,6 +227,9 @@ namespace SAEA.MQTT.Tests.Capabilities
                     null));
         }
 
+        /// <summary>
+        /// 验证 V5 客户端把最大报文长度声明为 0 时协商抛出协议违规异常
+        /// </summary>
         [TestMethod]
         public void Negotiate_V5_RejectsZeroClientMaximumPacketSize()
         {

@@ -9,11 +9,18 @@ using SAEA.MQTT.Tests.TestInfrastructure;
 
 namespace SAEA.MQTT.Tests.ReasonCodes
 {
+    /// <summary>
+    /// 服务端在协议违规场景下返回的 DISCONNECT 原因码与 SUBACK 授予结果
+    /// </summary>
     [TestClass]
     public class ServerReasonCodeTests
     {
         static readonly TimeSpan WaitTimeout = TimeSpan.FromSeconds(5);
 
+        /// <summary>
+        /// 验证服务端关闭 retain 能力后收到保留发布，以 0x9A（不支持保留消息）原因码断开
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task RetainedPublish_WhenRetainUnavailable_DisconnectsWith0x9A()
         {
@@ -40,6 +47,10 @@ namespace SAEA.MQTT.Tests.ReasonCodes
                 disconnect.ReasonCode.Value);
         }
 
+        /// <summary>
+        /// 验证服务端最大 QoS 为 1 时收到 QoS 2 发布，以 0x9B（不支持该 QoS）原因码断开
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task QoSAboveServerMaximum_DisconnectsWith0x9B()
         {
@@ -61,6 +72,10 @@ namespace SAEA.MQTT.Tests.ReasonCodes
                 disconnect.ReasonCode.Value);
         }
 
+        /// <summary>
+        /// 验证 Remaining Length 使用 4 个以上延续字节编码（非法长度）时，服务端以 0x81（格式错误）原因码断开
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task MalformedRemainingLength_DisconnectsWith0x81()
         {
@@ -84,6 +99,10 @@ namespace SAEA.MQTT.Tests.ReasonCodes
                 disconnect.ReasonCode.Value);
         }
 
+        /// <summary>
+        /// 验证订阅标识符为 0（非法值）时，服务端不回 SUBACK 而是直接以 0x82（协议错误）原因码断开
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task SubscriptionIdentifierZero_DisconnectsWithoutSubAck()
         {
@@ -119,6 +138,10 @@ namespace SAEA.MQTT.Tests.ReasonCodes
                 disconnect.ReasonCode.Value);
         }
 
+        /// <summary>
+        /// 验证订阅请求的 QoS 高于服务端最大值时不断开，而是在 SUBACK 中降级为 QoS 1
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task SubscribeAboveMaximumQoS_IsDowngradedInSubAck()
         {
