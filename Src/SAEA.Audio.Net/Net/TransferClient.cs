@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/02/21 16:29:07
+*修改时间：2026/11/6 13:14:00
 *修改人： yswenli
 *版本号： v26.4.23.1
-*描述：TransferClient接口
+*描述：接收改为 OnClientReceiveSpan 与 DecodeStream，发送改用 SendAsync(ISocketProtocal)
 *
 *****************************************************************************/
 using System;
@@ -37,6 +37,7 @@ using SAEA.Audio.Model;
 using SAEA.Common.Serialization;
 using SAEA.Sockets;
 using SAEA.Sockets.Base;
+using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
 
 namespace SAEA.Audio.Net
@@ -49,6 +50,10 @@ namespace SAEA.Audio.Net
         IClientSocket _udpClient;
 
         BaseCoder _baseUnpacker;
+
+        readonly ClientFrameHandler _frameHandler;
+
+        readonly FileSpanHandler _onFileFrame;
 
         public event Action<Byte[]> OnReceive;
 
@@ -94,49 +99,57 @@ namespace SAEA.Audio.Net
 
             _baseUnpacker = (BaseCoder)bContext.Unpacker;
 
-            _udpClient.OnReceive += _udpClient_OnReceive;
+            _frameHandler = new ClientFrameHandler(this);
+
+            _onFileFrame = OnFileFrame;
+
+            _udpClient.OnClientReceiveSpan += _udpClient_OnReceiveSpan;
         }
 
-        private void _udpClient_OnReceive(byte[] data)
+        private void _udpClient_OnReceiveSpan(ReadOnlySpan<byte> data)
         {
-            _baseUnpacker.Decode(data, null, (p) =>
+            // data 仅在回调期间有效：DecodeStream 同步消费完即返回，不跨回调持有。
+            _baseUnpacker.DecodeStream(data, _frameHandler, null, _onFileFrame);
+        }
+
+        private void OnFileFrame(ReadOnlySpan<byte> content)
+        {
+            // 类型码 3 与 SAEA 的大帧类型重合，会被拆帧器归类为文件帧；本协议中它就是 Agree。
+            DispatchFrame((byte)ProtocalType.Agree, content);
+        }
+
+        private void DispatchFrame(byte type, ReadOnlySpan<byte> content)
+        {
+            switch ((ProtocalType)type)
             {
+                case ProtocalType.Ping:
 
-                var msg = BaseSocketProtocal.ParseRequest(p);
+                    break;
+                case ProtocalType.Pong:
 
-                var protocalType = (ProtocalType)msg.Type;
-
-                switch (protocalType)
-                {
-                    case ProtocalType.Ping:
-
-                        break;
-                    case ProtocalType.Pong:
-
-                        break;
-                    case ProtocalType.Invite:
-                        var ii = SerializeHelper.Deserialize<InvitedInfo>(Encoding.UTF8.GetString(msg.Content));
-                        OnInvited?.Invoke(ii);
-                        Channel = ii.ChannelID;
-                        break;
-                    case ProtocalType.Agree:
-                        var ai = SerializeHelper.Deserialize<AgreeInfo>(Encoding.UTF8.GetString(msg.Content));
-                        OnAgree?.Invoke(ai);
-                        Channel = ai.ChannelID;
-                        break;
-                    case ProtocalType.Disagree:
-                        OnDisagree?.Invoke(Encoding.UTF8.GetString(msg.Content));
-                        break;
-                    case ProtocalType.Join:
-                        var ji = SerializeHelper.Deserialize<JoinInfo>(Encoding.UTF8.GetString(msg.Content));
-                        OnJoin?.Invoke(ji);
-                        Channel = ji.ChannelID;
-                        break;
-                    case ProtocalType.Data:
-                        OnReceive?.Invoke(msg.Content);
-                        break;
-                }
-            });
+                    break;
+                case ProtocalType.Invite:
+                    var ii = SerializeHelper.Deserialize<InvitedInfo>(Encoding.UTF8.GetString(content.ToArray()));
+                    OnInvited?.Invoke(ii);
+                    Channel = ii.ChannelID;
+                    break;
+                case ProtocalType.Agree:
+                    var ai = SerializeHelper.Deserialize<AgreeInfo>(Encoding.UTF8.GetString(content.ToArray()));
+                    OnAgree?.Invoke(ai);
+                    Channel = ai.ChannelID;
+                    break;
+                case ProtocalType.Disagree:
+                    OnDisagree?.Invoke(Encoding.UTF8.GetString(content.ToArray()));
+                    break;
+                case ProtocalType.Join:
+                    var ji = SerializeHelper.Deserialize<JoinInfo>(Encoding.UTF8.GetString(content.ToArray()));
+                    OnJoin?.Invoke(ji);
+                    Channel = ji.ChannelID;
+                    break;
+                case ProtocalType.Data:
+                    OnReceive?.Invoke(content.ToArray());
+                    break;
+            }
         }
 
         /// <summary>
@@ -154,18 +167,9 @@ namespace SAEA.Audio.Net
         /// <param name="data"></param>
         void BaseSend(ProtocalType protocalType, byte[] data)
         {
-            var p = new BaseSocketProtocal();
-            p.Type = (byte)protocalType;
-            p.Content = data;
-            if (p.Content != null)
-            {
-                p.BodyLength = p.Content.Length;
-            }
-            else
-            {
-                p.BodyLength = 0;
-            }
-            _udpClient.SendAsync(p.ToBytes());
+            // 帧头由编码器按 ISocketProtocal 补齐，这里只构造协议对象。
+            var content = data == null ? ReadOnlyMemory<byte>.Empty : new ReadOnlyMemory<byte>(data);
+            _udpClient.SendAsync(new BaseSocketProtocal((byte)protocalType, content));
         }
 
         /// <summary>
@@ -247,6 +251,24 @@ namespace SAEA.Audio.Net
         public void Disconnect()
         {
             _udpClient.Disconnect();
+        }
+
+        /// <summary>
+        /// 把解码出的帧回调到所属实例；帧体仅在回调期间有效。
+        /// </summary>
+        private sealed class ClientFrameHandler : IFrameHandler
+        {
+            readonly TransferClient _owner;
+
+            public ClientFrameHandler(TransferClient owner)
+            {
+                _owner = owner;
+            }
+
+            public void OnFrame(in SocketFrame frame)
+            {
+                _owner.DispatchFrame(frame.Type, frame.Content);
+            }
         }
 
     }

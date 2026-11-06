@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/02/21 16:29:07
+*修改时间：2026/11/6 13:14:00
 *修改人： yswenli
 *版本号： v26.4.23.1
-*描述：TransferServer服务端类
+*描述：接收改为 OnClientReceiveSpan 与 DecodeStream，发送改用 SendAsync(ISocketProtocal)
 *
 *****************************************************************************/
 using SAEA.Audio.Model;
@@ -84,7 +84,7 @@ namespace SAEA.Audio.Net
                 .Build());
             _udpServer.OnAccepted += _udpServer_OnAccepted;
             _udpServer.OnDisconnected += _udpServer_OnDisconnected;
-            _udpServer.OnReceive += _udpServer_OnReceive;
+            _udpServer.OnServerReceiveSpan += _udpServer_OnReceiveSpan;
 
             _storage = StorageFactory.Create<T>();
         }
@@ -102,44 +102,46 @@ namespace SAEA.Audio.Net
         }
 
 
-        private void _udpServer_OnReceive(ISession currentSession, byte[] data)
+        private void _udpServer_OnReceiveSpan(IUserToken userToken, ReadOnlySpan<byte> data)
         {
-            var userToken = (IUserToken)currentSession;
+            var frameCoder = userToken?.Coder as IFrameCoder;
+            if (frameCoder == null) return;
 
-            object value = userToken.Coder.Decode(data, null, (p) =>
+            var handler = new ServerFrameHandler(this, userToken.ID);
+
+            // data 仅在回调期间有效：DecodeStream 同步消费完即返回，不跨回调持有。
+            frameCoder.DecodeStream(data, handler, null, handler.OnFile);
+        }
+
+        private void DispatchFrame(string userTokenId, byte type, ReadOnlySpan<byte> content)
+        {
+            switch ((ProtocalType)type)
             {
-                var msg = BaseSocketProtocal.ParseRequest(p);
+                case ProtocalType.Ping:
+                    BaseReply(userTokenId, ProtocalType.Pong, null);
+                    break;
+                case ProtocalType.Pong:
 
-                var protocalType = (ProtocalType)msg.Type;
-
-                switch (protocalType)
-                {
-                    case ProtocalType.Ping:
-                        BaseReply(userToken.ID, ProtocalType.Pong, null);
-                        break;
-                    case ProtocalType.Pong:
-
-                        break;
-                    case ProtocalType.Invite:
-                        ReplyInvite(userToken.ID, msg.Content);
-                        break;
-                    case ProtocalType.Agree:
-                        ReplyAgree(userToken.ID);
-                        break;
-                    case ProtocalType.Disagree:
-                        ReplyDidagree(userToken.ID);
-                        break;
-                    case ProtocalType.Join:
-                        ReplyJoin(userToken.ID, msg.Content);
-                        break;
-                    case ProtocalType.Data:
-                        ReplyData(msg.Content);
-                        break;
-                    case ProtocalType.Quit:
-                        ReplyQuit(userToken.ID);
-                        break;
-                }
-            });
+                    break;
+                case ProtocalType.Invite:
+                    ReplyInvite(userTokenId, content.ToArray());
+                    break;
+                case ProtocalType.Agree:
+                    ReplyAgree(userTokenId);
+                    break;
+                case ProtocalType.Disagree:
+                    ReplyDidagree(userTokenId);
+                    break;
+                case ProtocalType.Join:
+                    ReplyJoin(userTokenId, content.ToArray());
+                    break;
+                case ProtocalType.Data:
+                    ReplyData(content.ToArray());
+                    break;
+                case ProtocalType.Quit:
+                    ReplyQuit(userTokenId);
+                    break;
+            }
         }
 
         private void _udpServer_OnAccepted(object obj)
@@ -153,18 +155,9 @@ namespace SAEA.Audio.Net
 
         void BaseReply(string id, ProtocalType protocalType, byte[] data)
         {
-            var p = new BaseSocketProtocal();
-            p.Type = (byte)protocalType;
-            p.Content = data;
-            if (p.Content != null)
-            {
-                p.BodyLength = p.Content.Length;
-            }
-            else
-            {
-                p.BodyLength = 0;
-            }
-            _udpServer.SendAsync(id, p.ToBytes());
+            // 帧头由编码器按 ISocketProtocal 补齐，这里只构造协议对象。
+            var content = data == null ? ReadOnlyMemory<byte>.Empty : new ReadOnlyMemory<byte>(data);
+            _udpServer.SendAsync(id, new BaseSocketProtocal((byte)protocalType, content));
         }
 
         /// <summary>
@@ -288,6 +281,36 @@ namespace SAEA.Audio.Net
         private void _udpServer_OnDisconnected(string ID, Exception ex)
         {
             _cache.TryRemove(ID, out IUserToken _);
+        }
+
+        /// <summary>
+        /// 把解码出的帧回调到所属实例；帧体仅在回调期间有效。
+        /// </summary>
+        private sealed class ServerFrameHandler : IFrameHandler
+        {
+            readonly TransferServer<T> _owner;
+
+            readonly string _userTokenId;
+
+            public ServerFrameHandler(TransferServer<T> owner, string userTokenId)
+            {
+                _owner = owner;
+                _userTokenId = userTokenId;
+            }
+
+            public void OnFrame(in SocketFrame frame)
+            {
+                _owner.DispatchFrame(_userTokenId, frame.Type, frame.Content);
+            }
+
+            /// <summary>
+            /// 类型码 3 与 SAEA 的大帧类型重合，会被拆帧器归类为文件帧；本协议中它就是 Agree。
+            /// </summary>
+            /// <param name="content">帧体，仅在回调期间有效。</param>
+            public void OnFile(ReadOnlySpan<byte> content)
+            {
+                _owner.DispatchFrame(_userTokenId, (byte)ProtocalType.Agree, content);
+            }
         }
 
     }
