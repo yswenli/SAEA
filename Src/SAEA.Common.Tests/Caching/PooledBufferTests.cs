@@ -5,9 +5,15 @@ using SAEA.Common.Caching;
 
 namespace SAEA.Common.Tests.Caching
 {
+    /// <summary>
+    /// 校验池化缓冲对象的属性、切片视图与释放行为
+    /// </summary>
     [TestClass]
     public class PooledBufferTests
     {
+        /// <summary>
+        /// 验证构造函数保存数组引用，并暴露逻辑长度、实际容量与档位
+        /// </summary>
         [TestMethod]
         public void PooledBuffer_Constructor_SetsProperties()
         {
@@ -23,6 +29,9 @@ namespace SAEA.Common.Tests.Caching
             }
         }
 
+        /// <summary>
+        /// 验证传入 null 数组时构造函数抛出 ArgumentNullException
+        /// </summary>
         [TestMethod]
         [ExpectedException(typeof(ArgumentNullException))]
         public void PooledBuffer_Constructor_ThrowsOnNullBuffer()
@@ -31,6 +40,9 @@ namespace SAEA.Common.Tests.Caching
             new PooledBuffer(null, 100, BufferSizeTier.Small, pool);
         }
 
+        /// <summary>
+        /// 验证传入 null 池时构造函数抛出 ArgumentNullException
+        /// </summary>
         [TestMethod]
         [ExpectedException(typeof(ArgumentNullException))]
         public void PooledBuffer_Constructor_ThrowsOnNullPool()
@@ -39,6 +51,9 @@ namespace SAEA.Common.Tests.Caching
             new PooledBuffer(buffer, 100, BufferSizeTier.Small, null);
         }
 
+        /// <summary>
+        /// 验证 AsSpan 返回长度为逻辑长度且元素与原数组一致的切片
+        /// </summary>
         [TestMethod]
         public void PooledBuffer_AsSpan_ReturnsCorrectSpan()
         {
@@ -56,6 +71,9 @@ namespace SAEA.Common.Tests.Caching
             }
         }
 
+        /// <summary>
+        /// 验证 AsMemory 返回长度为逻辑长度且元素与原数组一致的内存视图
+        /// </summary>
         [TestMethod]
         public void PooledBuffer_AsMemory_ReturnsCorrectMemory()
         {
@@ -73,6 +91,9 @@ namespace SAEA.Common.Tests.Caching
             }
         }
 
+        /// <summary>
+        /// 验证释放时把底层数组归还给池且不抛异常
+        /// </summary>
         [TestMethod]
         public void PooledBuffer_Dispose_ReturnsBufferToPool()
         {
@@ -87,6 +108,9 @@ namespace SAEA.Common.Tests.Caching
             // but we can verify no exception was thrown and the object is in disposed state
         }
 
+        /// <summary>
+        /// 验证重复调用释放不会抛异常（缓冲只归还一次）
+        /// </summary>
         [TestMethod]
         public void PooledBuffer_Dispose_CanBeCalledMultipleTimes()
         {

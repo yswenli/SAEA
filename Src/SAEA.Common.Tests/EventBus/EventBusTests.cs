@@ -6,27 +6,42 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace SAEA.Common.Tests
 {
+    /// <summary>
+    /// 校验事件总线的注册、订阅发布、失败重试与并发发布
+    /// </summary>
     [TestClass]
     public class EventBusTests
     {
+        /// <summary>
+        /// 每个用例前释放总线单例，避免上个用例的订阅与状态残留
+        /// </summary>
         [TestInitialize]
         public void TestInitialize()
         {
             global::SAEA.Common.EventBus.EventBus.Dispose();
         }
 
+        /// <summary>
+        /// 每个用例后再次释放总线单例，回收后台调度资源
+        /// </summary>
         [TestCleanup]
         public void TestCleanup()
         {
             global::SAEA.Common.EventBus.EventBus.Dispose();
         }
 
+        /// <summary>
+        /// 验证未调用 Start 前 Enabled 为 false
+        /// </summary>
         [TestMethod]
         public void EventBus_ShouldNotBeEnabledBeforeStart()
         {
             Assert.IsFalse(global::SAEA.Common.EventBus.EventBus.Enabled);
         }
 
+        /// <summary>
+        /// 验证注册主题并启动后 Enabled 变为 true
+        /// </summary>
         [TestMethod]
         public void EventBus_ShouldRegisterTopic()
         {
@@ -35,6 +50,10 @@ namespace SAEA.Common.Tests
             Assert.IsTrue(global::SAEA.Common.EventBus.EventBus.Enabled);
         }
 
+        /// <summary>
+        /// 验证订阅后向同主题发布消息可触发一次订阅回调
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task EventBus_ShouldPublishAndSubscribe()
         {
@@ -55,6 +74,10 @@ namespace SAEA.Common.Tests
             global::SAEA.Common.EventBus.EventBus.Unsubscribe("test.topic", subId);
         }
 
+        /// <summary>
+        /// 验证同主题的两个订阅者都能收到同一条消息
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task EventBus_ShouldSupportMultipleSubscribers()
         {
@@ -74,6 +97,10 @@ namespace SAEA.Common.Tests
             global::SAEA.Common.EventBus.EventBus.Unsubscribe("test.multi", sub2);
         }
 
+        /// <summary>
+        /// 验证据重试次数 3，订阅回调抛出异常时会重试至累计执行 3 次
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task EventBus_ShouldRetryOnFailure()
         {
@@ -95,6 +122,10 @@ namespace SAEA.Common.Tests
             global::SAEA.Common.EventBus.EventBus.Unsubscribe("test.retry", subId);
         }
 
+        /// <summary>
+        /// 验证 100 个并发发布全部被同一订阅者收到，计数不丢失
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task EventBus_ShouldHandleConcurrentPublish()
         {

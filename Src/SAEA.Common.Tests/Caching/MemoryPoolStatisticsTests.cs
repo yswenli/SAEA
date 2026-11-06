@@ -3,9 +3,15 @@ using SAEA.Common.Caching;
 
 namespace SAEA.Common.Tests.Caching
 {
+    /// <summary>
+    /// 校验内存池统计快照的默认值、合计值与活动数计算
+    /// </summary>
     [TestClass]
     public class MemoryPoolStatisticsTests
     {
+        /// <summary>
+        /// 验证新建快照的六项分档计数初始值均为 0
+        /// </summary>
         [TestMethod]
         public void MemoryPoolStatistics_DefaultValues_AreZero()
         {
@@ -19,6 +25,9 @@ namespace SAEA.Common.Tests.Caching
             Assert.AreEqual(0, stats.LargePoolReturned);
         }
 
+        /// <summary>
+        /// 验证总租借数为三档租借数之和
+        /// </summary>
         [TestMethod]
         public void MemoryPoolStatistics_TotalRented_CalculatesCorrectly()
         {
@@ -32,6 +41,9 @@ namespace SAEA.Common.Tests.Caching
             Assert.AreEqual(60, stats.TotalRented);
         }
 
+        /// <summary>
+        /// 验证总归还数为三档归还数之和
+        /// </summary>
         [TestMethod]
         public void MemoryPoolStatistics_TotalReturned_CalculatesCorrectly()
         {
@@ -45,6 +57,9 @@ namespace SAEA.Common.Tests.Caching
             Assert.AreEqual(30, stats.TotalReturned);
         }
 
+        /// <summary>
+        /// 验证活动缓冲数为总租借数减总归还数（170 减 135 得 35）
+        /// </summary>
         [TestMethod]
         public void MemoryPoolStatistics_ActiveBuffers_CalculatesCorrectly()
         {
@@ -62,6 +77,9 @@ namespace SAEA.Common.Tests.Caching
             Assert.AreEqual(35, stats.ActiveBuffers);
         }
 
+        /// <summary>
+        /// 验证六项分档计数属性都可写入并按原值读出
+        /// </summary>
         [TestMethod]
         public void MemoryPoolStatistics_CanSetProperties()
         {

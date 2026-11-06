@@ -6,11 +6,17 @@ using SAEA.Common.Caching;
 
 namespace SAEA.Common.Tests.Caching
 {
+    /// <summary>
+    /// 校验内存池管理器的分档判定、租借归还、统计计数与并发安全
+    /// </summary>
     [TestClass]
     public class MemoryPoolManagerTests
     {
         #region GetTier Tests
 
+        /// <summary>
+        /// 验证小于 4KB 阈值的长度归入 Small 档
+        /// </summary>
         [TestMethod]
         public void GetTier_SmallBuffer_ReturnsSmall()
         {
@@ -19,6 +25,9 @@ namespace SAEA.Common.Tests.Caching
             Assert.AreEqual(BufferSizeTier.Small, MemoryPoolManager.GetTier(1));
         }
 
+        /// <summary>
+        /// 验证 4KB 到 64KB 以下（含 65535）的长度归入 Medium 档
+        /// </summary>
         [TestMethod]
         public void GetTier_MediumBuffer_ReturnsMedium()
         {
@@ -27,6 +36,9 @@ namespace SAEA.Common.Tests.Caching
             Assert.AreEqual(BufferSizeTier.Medium, MemoryPoolManager.GetTier(65535));
         }
 
+        /// <summary>
+        /// 验证 64KB 及以上的长度归入 Large 档
+        /// </summary>
         [TestMethod]
         public void GetTier_LargeBuffer_ReturnsLarge()
         {
@@ -35,12 +47,18 @@ namespace SAEA.Common.Tests.Caching
             Assert.AreEqual(BufferSizeTier.Large, MemoryPoolManager.GetTier(1048576));
         }
 
+        /// <summary>
+        /// 验证长度为 0 时按 Small 档处理
+        /// </summary>
         [TestMethod]
         public void GetTier_ZeroSize_ReturnsSmall()
         {
             Assert.AreEqual(BufferSizeTier.Small, MemoryPoolManager.GetTier(0));
         }
 
+        /// <summary>
+        /// 验证负数长度不抛异常，按 Small 档处理
+        /// </summary>
         [TestMethod]
         public void GetTier_NegativeSize_ReturnsSmall()
         {
@@ -51,6 +69,9 @@ namespace SAEA.Common.Tests.Caching
 
         #region Rent Tests
 
+        /// <summary>
+        /// 验证从 Small 池租借的数组非空且长度不小于请求值
+        /// </summary>
         [TestMethod]
         public void Rent_SmallSize_ReturnsValidBuffer()
         {
@@ -59,6 +80,9 @@ namespace SAEA.Common.Tests.Caching
             Assert.IsTrue(buffer.Length >= 1024);
         }
 
+        /// <summary>
+        /// 验证从 Medium 池租借的数组非空且长度不小于请求值
+        /// </summary>
         [TestMethod]
         public void Rent_MediumSize_ReturnsValidBuffer()
         {
@@ -67,6 +91,9 @@ namespace SAEA.Common.Tests.Caching
             Assert.IsTrue(buffer.Length >= 32768);
         }
 
+        /// <summary>
+        /// 验证从 Large 池租借的数组非空且长度不小于请求值
+        /// </summary>
         [TestMethod]
         public void Rent_LargeSize_ReturnsValidBuffer()
         {
@@ -75,6 +102,9 @@ namespace SAEA.Common.Tests.Caching
             Assert.IsTrue(buffer.Length >= 131072);
         }
 
+        /// <summary>
+        /// 验证请求长度为 0 时仍返回可用数组而不抛异常
+        /// </summary>
         [TestMethod]
         public void Rent_ZeroSize_ReturnsBuffer()
         {
@@ -82,6 +112,9 @@ namespace SAEA.Common.Tests.Caching
             Assert.IsNotNull(buffer);
         }
 
+        /// <summary>
+        /// 验证请求长度为负数时仍返回可用数组而不抛异常
+        /// </summary>
         [TestMethod]
         public void Rent_NegativeSize_ReturnsBuffer()
         {
@@ -93,6 +126,9 @@ namespace SAEA.Common.Tests.Caching
 
         #region Return Tests
 
+        /// <summary>
+        /// 验证归还 Small 缓冲并同时传入原始长度时不抛异常
+        /// </summary>
         [TestMethod]
         public void Return_SmallBuffer_ReturnsSuccessfully()
         {
@@ -101,6 +137,9 @@ namespace SAEA.Common.Tests.Caching
             // Should not throw
         }
 
+        /// <summary>
+        /// 验证归还 Medium 缓冲并同时传入原始长度时不抛异常
+        /// </summary>
         [TestMethod]
         public void Return_MediumBuffer_ReturnsSuccessfully()
         {
@@ -109,6 +148,9 @@ namespace SAEA.Common.Tests.Caching
             // Should not throw
         }
 
+        /// <summary>
+        /// 验证归还 Large 缓冲并同时传入原始长度时不抛异常
+        /// </summary>
         [TestMethod]
         public void Return_LargeBuffer_ReturnsSuccessfully()
         {
@@ -117,6 +159,9 @@ namespace SAEA.Common.Tests.Caching
             // Should not throw
         }
 
+        /// <summary>
+        /// 验证不传原始长度（默认 -1）时能自动识别档位并完成归还
+        /// </summary>
         [TestMethod]
         public void Return_WithOriginalSizeMinusOne_AutoDetectsTier()
         {
@@ -125,6 +170,9 @@ namespace SAEA.Common.Tests.Caching
             // Should not throw
         }
 
+        /// <summary>
+        /// 验证归还 null 数组时被忽略而不抛异常
+        /// </summary>
         [TestMethod]
         public void Return_NullBuffer_DoesNotThrow()
         {
@@ -136,6 +184,9 @@ namespace SAEA.Common.Tests.Caching
 
         #region RentPooled Tests
 
+        /// <summary>
+        /// 验证租借 PooledBuffer 后长度等于请求值、容量不小于请求值且档位为 Small
+        /// </summary>
         [TestMethod]
         public void RentPooled_SmallSize_ReturnsPooledBuffer()
         {
@@ -149,6 +200,9 @@ namespace SAEA.Common.Tests.Caching
             }
         }
 
+        /// <summary>
+        /// 验证租借 PooledBuffer 后长度等于请求值、容量不小于请求值且档位为 Medium
+        /// </summary>
         [TestMethod]
         public void RentPooled_MediumSize_ReturnsPooledBuffer()
         {
@@ -162,6 +216,9 @@ namespace SAEA.Common.Tests.Caching
             }
         }
 
+        /// <summary>
+        /// 验证租借 PooledBuffer 后长度等于请求值、容量不小于请求值且档位为 Large
+        /// </summary>
         [TestMethod]
         public void RentPooled_LargeSize_ReturnsPooledBuffer()
         {
@@ -175,6 +232,9 @@ namespace SAEA.Common.Tests.Caching
             }
         }
 
+        /// <summary>
+        /// 验证 PooledBuffer 释放时缓冲回到池中且不抛异常
+        /// </summary>
         [TestMethod]
         public void RentPooled_Dispose_ReturnsBufferToPool()
         {
@@ -187,6 +247,9 @@ namespace SAEA.Common.Tests.Caching
 
         #region GetStatistics Tests
 
+        /// <summary>
+        /// 验证统计快照可正常获取且各计数值非负
+        /// </summary>
         [TestMethod]
         public void GetStatistics_ReturnsValidStatistics()
         {
@@ -197,6 +260,9 @@ namespace SAEA.Common.Tests.Caching
             Assert.IsTrue(stats.ActiveBuffers >= 0);
         }
 
+        /// <summary>
+        /// 验证一次租借后总租借计数至少增加 1
+        /// </summary>
         [TestMethod]
         public void GetStatistics_AfterRent_IncrementsRented()
         {
@@ -209,6 +275,9 @@ namespace SAEA.Common.Tests.Caching
             MemoryPoolManager.Return(buffer, 1024);
         }
 
+        /// <summary>
+        /// 验证一次归还后总归还计数至少增加 1
+        /// </summary>
         [TestMethod]
         public void GetStatistics_AfterReturn_IncrementsReturned()
         {
@@ -224,6 +293,9 @@ namespace SAEA.Common.Tests.Caching
 
         #region Concurrent Access Tests
 
+        /// <summary>
+        /// 验证 10 线程各 100 次并发租借归还数组时数据不错乱且统计累计正确
+        /// </summary>
         [TestMethod]
         public void Rent_Return_ConcurrentAccess_WorksCorrectly()
         {
@@ -246,6 +318,9 @@ namespace SAEA.Common.Tests.Caching
             Assert.IsTrue(stats.TotalReturned >= iterations * concurrency);
         }
 
+        /// <summary>
+        /// 验证 10 线程各 50 次并发租借并释放 PooledBuffer 时不出错且租借计数正确
+        /// </summary>
         [TestMethod]
         public void RentPooled_ConcurrentAccess_WorksCorrectly()
         {
@@ -273,6 +348,9 @@ namespace SAEA.Common.Tests.Caching
 
         #region Constants Tests
 
+        /// <summary>
+        /// 验证三档阈值常量分别为 4KB、64KB 与 1MB
+        /// </summary>
         [TestMethod]
         public void Constants_AreCorrect()
         {

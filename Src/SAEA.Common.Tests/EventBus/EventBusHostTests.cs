@@ -7,9 +7,15 @@ using System.Threading.Tasks;
 
 namespace SAEA.Common.Tests.EventBus
 {
+    /// <summary>
+    /// 校验事件总线宿主对主题通道的调度与启停
+    /// </summary>
     [TestClass]
     public class EventBusHostTests
     {
+        /// <summary>
+        /// 验证构造后实例非空且未启动时 IsRunning 为 false
+        /// </summary>
         [TestMethod]
         public void EventBusHost_ShouldInitializeCorrectly()
         {
@@ -20,6 +26,10 @@ namespace SAEA.Common.Tests.EventBus
             Assert.IsFalse(host.IsRunning);
         }
         
+        /// <summary>
+        /// 验证启动后 IsRunning 为 true，按超时停止后恢复为 false
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task EventBusHost_ShouldStartAndStop()
         {
@@ -33,6 +43,10 @@ namespace SAEA.Common.Tests.EventBus
             Assert.IsFalse(host.IsRunning);
         }
         
+        /// <summary>
+        /// 验证向主题发布消息后宿主把消息派发给已注册的订阅者
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task EventBusHost_ShouldDispatchMessageToSubscribers()
         {
