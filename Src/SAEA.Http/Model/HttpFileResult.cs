@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/10/29 15:01:17
+*修改时间：2026/11/6 12:52:29
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：HttpFileResult接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common.IO;
@@ -43,6 +43,9 @@ namespace SAEA.Http.Model
     /// </summary>
     public class HttpFileResult : HttpActionResult, IFileResult
     {
+        /// <summary>
+        /// 文件内容字节，隐藏基类同名属性
+        /// </summary>
         public new byte[] Content { get; set; }
 
         /// <summary>

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/12/13 15:23:48
+*修改时间：2026/11/6 12:52:29
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：HttpCookie接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -38,36 +38,59 @@ using System.Text;
 
 namespace SAEA.Http
 {
+    /// <summary>
+    /// 单个 Cookie 的键值、过期时间、路径与域
+    /// </summary>
     public class HttpCookie
     {
         internal static string DefaultDomain { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Cookie 名
+        /// </summary>
         public string Key
         {
             get; set;
         }
 
+        /// <summary>
+        /// Cookie 值
+        /// </summary>
         public string Value
         {
             get; set;
         }
 
+        /// <summary>
+        /// 过期时间，年份不大于 1 时按会话 Cookie 输出
+        /// </summary>
         public DateTime Expires
         {
             get; set;
         }
 
+        /// <summary>
+        /// 生效路径
+        /// </summary>
         public string Path
         {
             get; set;
         }
 
+        /// <summary>
+        /// 生效域，未设置时取默认域
+        /// </summary>
         public string Domain
         {
             get; set;
         }
 
 
+        /// <summary>
+        /// 以键值创建 Cookie，路径默认为根路径
+        /// </summary>
+        /// <param name="key">Cookie 名</param>
+        /// <param name="value">Cookie 值</param>
         public HttpCookie(string key, string value)
         {
             this.Key = key;
@@ -75,6 +98,12 @@ namespace SAEA.Http
             this.Path = "/";
         }
 
+        /// <summary>
+        /// 以键值加过期时间创建 Cookie，路径默认为根路径
+        /// </summary>
+        /// <param name="key">Cookie 名</param>
+        /// <param name="value">Cookie 值</param>
+        /// <param name="expires">过期时间</param>
         public HttpCookie(string key, string value, DateTime expires)
         {
             this.Key = key;
@@ -83,6 +112,14 @@ namespace SAEA.Http
             this.Path = "/";
         }
 
+        /// <summary>
+        /// 以键值、过期时间、路径与域创建 Cookie
+        /// </summary>
+        /// <param name="key">Cookie 名</param>
+        /// <param name="value">Cookie 值</param>
+        /// <param name="expires">过期时间</param>
+        /// <param name="path">生效路径</param>
+        /// <param name="domain">生效域</param>
         public HttpCookie(string key, string value, DateTime expires, string path, string domain)
         {
             this.Key = key;
@@ -93,6 +130,10 @@ namespace SAEA.Http
         }
 
 
+        /// <summary>
+        /// 输出 Set-Cookie 报头文本
+        /// </summary>
+        /// <returns>报头文本，Key 为空时返回空字符串</returns>
         public new string ToString()
         {
             StringBuilder sb = new StringBuilder();
@@ -136,15 +177,15 @@ namespace SAEA.Http
     }
 
     /// <summary>
-    /// HttpCookies
+    /// Cookie 集合，键为 Cookie 名
     /// </summary>
     public class HttpCookies : Dictionary<string, HttpCookie>
     {
         /// <summary>
-        /// HttpCookies.Parse
+        /// 解析 Cookie 报头文本，值做 URL 与 HTML 解码
         /// </summary>
-        /// <param name="cookieStr"></param>
-        /// <returns></returns>
+        /// <param name="cookieStr">Cookie 报头文本，分号分隔多个 Cookie</param>
+        /// <returns>解析出的 Cookie 集合，入参为空时返回空集合</returns>
         public static HttpCookies Parse(string cookieStr)
         {
             var result = new HttpCookies();
@@ -170,11 +211,18 @@ namespace SAEA.Http
             return result;
         }
 
+        /// <summary>
+        /// 创建空的 Cookie 集合
+        /// </summary>
         public HttpCookies() : base()
         {
 
         }
 
+        /// <summary>
+        /// 输出全部 Set-Cookie 报头文本，每个 Cookie 一行
+        /// </summary>
+        /// <returns>报头文本，集合为空时返回空字符串</returns>
         public new string ToString()
         {
             if (this.Count > 0)
@@ -192,9 +240,9 @@ namespace SAEA.Http
         }
 
         /// <summary>
-        /// Expire
+        /// 把指定 Cookie 的过期时间置为当前时间，使其立即失效
         /// </summary>
-        /// <param name="name"></param>
+        /// <param name="name">Cookie 名，不存在时不做处理</param>
         public void Expire(string name)
         {
             if (this.ContainsKey(name))

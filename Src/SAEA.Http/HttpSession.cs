@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/12/13 15:23:48
+*修改时间：2026/11/6 12:52:29
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：HttpSession接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -37,7 +37,7 @@ using SAEA.Common;
 namespace SAEA.Http
 {
     /// <summary>
-    /// HttpSession
+    /// Http 会话，按键存放数据，写入时刷新为 20 分钟后过期
     /// </summary>
     public class HttpSession : IDisposable
     {
@@ -46,18 +46,30 @@ namespace SAEA.Http
         /// </summary>
         public string CacheCalcString { get; set; } = "-1,-1";
 
+        /// <summary>
+        /// 是否已释放
+        /// </summary>
         public bool IsDisposed { get; set; } = false;
 
+        /// <summary>
+        /// 会话标识
+        /// </summary>
         public string ID { get; set; }
 
+        /// <summary>
+        /// 会话数据容器，键不区分大小写且线程安全
+        /// </summary>
         public ConcurrentDictionary<string, object> Dictionary { get; set; }
 
+        /// <summary>
+        /// 过期时间，构建与写入时置为当前时间加 20 分钟
+        /// </summary>
         public DateTime Expired { get; set; }
 
         /// <summary>
-        /// HttpSession
+        /// 创建会话，初始过期时间为 20 分钟后
         /// </summary>
-        /// <param name="id"></param>
+        /// <param name="id">会话标识</param>
         internal HttpSession(string id) : base()
         {
             ID = id;
@@ -66,10 +78,10 @@ namespace SAEA.Http
         }
 
         /// <summary>
-        /// HttpSession
+        /// 按 key 读写会话值，写入时刷新过期时间
         /// </summary>
-        /// <param name="key"></param>
-        /// <returns></returns>
+        /// <param name="key">会话键</param>
+        /// <returns>会话值，键不存在或会话已过期时返回 null</returns>
         public object this[string key]
         {
             get
@@ -96,20 +108,20 @@ namespace SAEA.Http
         }
 
         /// <summary>
-        /// ContainsKey
+        /// 判断会话中是否存在指定键，不校验是否过期
         /// </summary>
-        /// <param name="key"></param>
-        /// <returns></returns>
+        /// <param name="key">会话键</param>
+        /// <returns>存在返回 true</returns>
         public bool ContainsKey(string key)
         {
             return Dictionary.ContainsKey(key);
         }
 
         /// <summary>
-        /// Remove
+        /// 移除指定键的会话值
         /// </summary>
-        /// <param name="key"></param>
-        /// <returns></returns>
+        /// <param name="key">会话键</param>
+        /// <returns>移除成功返回 true，键不存在返回 false</returns>
         public bool Remove(string key)
         {
             return Dictionary.TryRemove(key, out object _);
@@ -124,7 +136,7 @@ namespace SAEA.Http
         }
 
         /// <summary>
-        /// Clear
+        /// 清空会话中的全部键值
         /// </summary>
         public void Clear()
         {
@@ -132,7 +144,7 @@ namespace SAEA.Http
         }
 
         /// <summary>
-        /// Dispose
+        /// 清空会话数据并标记为已释放
         /// </summary>
         public void Dispose()
         {

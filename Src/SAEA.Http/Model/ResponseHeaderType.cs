@@ -23,16 +23,19 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/10/28 14:19:50
+*修改时间：2026/11/6 12:52:29
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ResponseHeaderType类型枚举
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.ComponentModel;
 
 namespace SAEA.Http.Model
 {
+    /// <summary>
+    /// Http 响应报头枚举，枚举值经 Description 特性对应实际报头名
+    /// </summary>
     public enum ResponseHeaderType
     {
         /// <summary>

@@ -90,18 +90,21 @@ namespace SAEA.Http.Model
         /// 发送文本消息
         /// </summary>
         /// <param name="text">文本内容，UTF-8 编码后发送</param>
+        /// <returns>发送完成的任务</returns>
         Task SendAsync(string text);
 
         /// <summary>
         /// 发送二进制消息
         /// </summary>
         /// <param name="data">二进制内容</param>
+        /// <returns>发送完成的任务</returns>
         Task SendAsync(byte[] data);
 
         /// <summary>
         /// 关闭连接：发送 Close 帧后断开
         /// </summary>
         /// <param name="reason">关闭原因</param>
+        /// <returns>关闭完成的任务</returns>
         Task CloseAsync(WSCloseReason reason = WSCloseReason.Normal);
 
         /// <summary>

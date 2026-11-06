@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/04/21 23:58:08
+*修改时间：2026/11/6 12:52:29
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：HttpContextBase类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -44,6 +44,9 @@ namespace SAEA.Http.Base
     /// <typeparam name="T"></typeparam>
     public abstract class HttpContextBase : IHttpContext
     {
+        /// <summary>
+        /// 所属的 Web 主机，构造时注入
+        /// </summary>
         protected IWebHost _webHost;
 
         /// <summary>

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/10/28 14:19:50
+*修改时间：2026/11/6 12:52:29
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：HttpRequest类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -44,7 +44,7 @@ namespace SAEA.Http
     public class HttpRequest : HttpBase, IDisposable
     {
         /// <summary>
-        /// Json
+        /// 报文体按 application/json 解析出的原始文本
         /// </summary>
         public string Json
         {
@@ -59,11 +59,18 @@ namespace SAEA.Http
             get; set;
         }
 
+        /// <summary>
+        /// 当前连接的客户端标识，Init 时取自 HttpMessage.ID
+        /// </summary>
         public string UserHostAddress
         {
             get; private set;
         }
 
+        /// <summary>
+        /// 获取客户端真实 IP，依次取代理转发头、远端地址与连接标识
+        /// </summary>
+        /// <returns>IP 地址文本或连接标识</returns>
         public string GetRealIp()
         {
             string result = string.Empty;
@@ -91,6 +98,9 @@ namespace SAEA.Http
             return result;
         }
 
+        /// <summary>
+        /// 客户端 User-Agent，缺失时返回空字符串
+        /// </summary>
         public string UserAgent
         {
             get
@@ -104,6 +114,9 @@ namespace SAEA.Http
         }
 
 
+        /// <summary>
+        /// 由 User-Agent 解析出的浏览器信息，User-Agent 为空时为 null
+        /// </summary>
         public Browser Browser
         {
             get
@@ -169,16 +182,29 @@ namespace SAEA.Http
             }
         }
 
+        /// <summary>
+        /// 读取请求报头
+        /// </summary>
+        /// <param name="header">请求报头枚举</param>
+        /// <returns>报头值，键不存在时抛出 KeyNotFoundException</returns>
         public string GetHeader(RequestHeaderType header)
         {
             return base.GetHeader(header);
         }
 
+        /// <summary>
+        /// 写入请求报头
+        /// </summary>
+        /// <param name="header">请求报头枚举</param>
+        /// <param name="value">报头值</param>
         public void SetHeader(RequestHeaderType header, string value)
         {
             base.SetHeader(header, value);
         }
 
+        /// <summary>
+        /// 释放底层消息资源，未初始化时抛出 NullReferenceException
+        /// </summary>
         public void Dispose()
         {
             _httpMessage.Dispose();

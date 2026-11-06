@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/10/28 14:19:50
+*修改时间：2026/11/6 12:52:29
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：WebConfig接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.Collections.Generic;
@@ -36,7 +36,7 @@ using SAEA.Common.NameValue;
 namespace SAEA.Http.Model
 {
     /// <summary>
-    /// WebServerConfig
+    /// Web 服务器配置，包含端口、根目录、缓存与超时等选项
     /// </summary>
     public class WebConfig
     {
@@ -124,11 +124,17 @@ namespace SAEA.Http.Model
             get; set;
         } = false;
 
+        /// <summary>
+        /// 连接空闲超时时间，单位秒，默认 180，同时用于读写超时与会话释放时间
+        /// </summary>
         public double Timeout
         {
             get; set;
         } = 180;
 
+        /// <summary>
+        /// 连接建立超时时间，单位秒，默认 3
+        /// </summary>
         public double ConnectTimeout
         {
             get; set;

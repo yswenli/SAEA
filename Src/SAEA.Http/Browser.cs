@@ -23,28 +23,42 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/08/27 17:02:37
+*修改时间：2026/11/6 12:52:29
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：Browser类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.Http
 {
+    /// <summary>
+    /// 由 User-Agent 识别的操作系统与浏览器信息
+    /// </summary>
     public class Browser
     {
+        /// <summary>
+        /// 操作系统名称，无法识别时为「未知」
+        /// </summary>
         public string OSName
         {
             get; private set;
         }
 
 
+        /// <summary>
+        /// 浏览器名称，无法识别时为「未知」
+        /// </summary>
         public string BrowserName
         {
             get; private set;
         }
 
 
+        /// <summary>
+        /// 解析 User-Agent 字符串
+        /// </summary>
+        /// <param name="userAgent">User-Agent 内容</param>
+        /// <returns>解析结果，userAgent 为空时返回 null</returns>
         public static Browser Parse(string userAgent)
         {
             if (string.IsNullOrEmpty(userAgent)) return null;

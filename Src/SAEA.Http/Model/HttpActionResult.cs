@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/10/29 15:01:17
+*修改时间：2026/11/6 12:52:29
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：HttpActionResult接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.Net;
@@ -34,39 +34,36 @@ using System.Text;
 
 namespace SAEA.Http.Model
 {
-    // 摘要:
-    //     封装一个操作方法的结果并用于代表该操作方法执行框架级操作。
+    /// <summary>
+    /// 操作方法结果的基类，承载报文体、编码、内容类型与状态码
+    /// </summary>
     public abstract class HttpActionResult : IHttpResult
     {
-        // 摘要:
-        //     初始化 SAEA.Http.ActionResult 类的新实例。
+        /// <summary>
+        /// 初始化结果对象，编码默认 UTF-8，内容类型默认为 application/json
+        /// </summary>
         public HttpActionResult()
         {
 
         }
 
-        // 摘要:
-        //     获取或设置内容。
-        //
-        // 返回结果:
-        //     内容。
+        /// <summary>
+        /// 获取或设置内容
+        /// </summary>
         public byte[] Content { get; set; }
-        //
-        // 摘要:
-        //     获取或设置内容编码。
-        //
-        // 返回结果:
-        //     内容编码。
+        /// <summary>
+        /// 获取或设置内容编码，默认 UTF-8
+        /// </summary>
         public Encoding ContentEncoding { get; set; } = Encoding.UTF8;
-        //
-        // 摘要:
-        //     获取或设置内容的类型。
-        //
-        // 返回结果:
-        //     内容的类型。
+        /// <summary>
+        /// 获取或设置内容的类型，默认 application/json
+        /// </summary>
         public string ContentType { get; set; } = "application/json";
 
 
+        /// <summary>
+        /// 响应状态码，默认 200
+        /// </summary>
         public HttpStatusCode Status
         {
             get; set;

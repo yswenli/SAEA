@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/04/21 23:58:08
+*修改时间：2026/11/6 12:52:29
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：IHttpContext接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -36,13 +36,34 @@ using SAEA.Sockets.Interface;
 
 namespace SAEA.Http.Model
 {
+    /// <summary>
+    /// Http 上下文定义，提供请求、响应、会话与服务器工具入口
+    /// </summary>
     public interface IHttpContext : IDisposable
     {
+        /// <summary>
+        /// 是否启用静态资源缓存
+        /// </summary>
         bool IsStaticsCached { get; set; }
+        /// <summary>
+        /// 当前请求对象
+        /// </summary>
         HttpRequest Request { get; }
+        /// <summary>
+        /// 当前响应对象
+        /// </summary>
         HttpResponse Response { get; }
+        /// <summary>
+        /// Http 服务器实用工具
+        /// </summary>
         HttpUtility Server { get; }
+        /// <summary>
+        /// 当前会话对象
+        /// </summary>
         HttpSession Session { get; }
+        /// <summary>
+        /// Web 服务器配置
+        /// </summary>
         WebConfig WebConfig { get; set; }
 
         /// <summary>
@@ -60,8 +81,17 @@ namespace SAEA.Http.Model
         /// </summary>
         event RequestDelegate OnRequestDelegate;
 
+        /// <summary>
+        /// 解析请求并初始化请求、响应、会话对象
+        /// </summary>
+        /// <param name="userToken">客户端连接令牌</param>
+        /// <param name="httpMessage">已解析的 Http 消息</param>
         void HttpHandle(IUserToken userToken, HttpMessage httpMessage);
 
+        /// <summary>
+        /// 获取业务处理结果
+        /// </summary>
+        /// <returns>业务处理结果，由响应负责输出</returns>
         IHttpResult GetActionResult();
     }
 }

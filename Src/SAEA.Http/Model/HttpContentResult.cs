@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/10/29 15:01:17
+*修改时间：2026/11/6 12:52:29
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：HttpContentResult结果类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.Net;
@@ -34,13 +34,25 @@ using System.Text;
 
 namespace SAEA.Http.Model
 {
+    /// <summary>
+    /// 文本内容结果，按指定编码把字符串输出为报文体
+    /// </summary>
     public class HttpContentResult : HttpActionResult
     {
+        /// <summary>
+        /// 以 UTF-8 输出文本
+        /// </summary>
+        /// <param name="str">响应文本</param>
         public HttpContentResult(string str) : this(str, Encoding.UTF8)
         {
 
         }
 
+        /// <summary>
+        /// 以 UTF-8 输出文本并指定状态码，内容类型固定为 text/html
+        /// </summary>
+        /// <param name="str">响应文本</param>
+        /// <param name="status">响应状态码</param>
         public HttpContentResult(string str, HttpStatusCode status)
         {
             if (!string.IsNullOrEmpty(str))
@@ -50,6 +62,12 @@ namespace SAEA.Http.Model
             this.Status = status;
         }
 
+        /// <summary>
+        /// 按指定编码与内容类型输出文本，状态码保持 200
+        /// </summary>
+        /// <param name="str">响应文本</param>
+        /// <param name="encoding">文本编码</param>
+        /// <param name="contentType">内容类型，默认 text/plane; charset=utf-8</param>
         public HttpContentResult(string str, Encoding encoding, string contentType = "text/plane; charset=utf-8")
         {
             if (!string.IsNullOrEmpty(str))

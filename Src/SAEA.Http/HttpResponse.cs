@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/10/28 14:19:50
+*修改时间：2026/11/6 12:52:29
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：HttpResponse类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -44,8 +44,14 @@ using System.Text;
 
 namespace SAEA.Http
 {
+    /// <summary>
+    /// Http 响应实体，负责组装报头与报文体并下发到连接
+    /// </summary>
     public class HttpResponse : HttpBase, IDisposable
     {
+        /// <summary>
+        /// 响应状态码，默认为 200
+        /// </summary>
         public HttpStatusCode Status { get; set; } = HttpStatusCode.OK;
 
         /// <summary>
@@ -62,6 +68,9 @@ namespace SAEA.Http
 
         bool _isZiped = false;
 
+        /// <summary>
+        /// 当前响应关联的连接令牌，发送与 WebSocket 升级依赖它
+        /// </summary>
         protected IUserToken UserToken { get; set; }
 
         internal HttpResponse()
@@ -94,12 +103,22 @@ namespace SAEA.Http
         }
 
 
+        /// <summary>
+        /// 读取响应报头
+        /// </summary>
+        /// <param name="header">响应报头枚举</param>
+        /// <returns>报头值，键不存在时抛出 KeyNotFoundException</returns>
         public string GetHeader(ResponseHeaderType header)
         {
             return base.GetHeader(header);
         }
 
 
+        /// <summary>
+        /// 写入响应报头
+        /// </summary>
+        /// <param name="header">响应报头枚举</param>
+        /// <param name="value">报头值</param>
         public void SetHeader(ResponseHeaderType header, string value)
         {
             base.SetHeader(header, value);
@@ -145,7 +164,8 @@ namespace SAEA.Http
         /// <summary>
         /// 设置回复内容
         /// </summary>
-        /// <param name="result"></param>
+        /// <param name="result">业务处理结果，决定状态码、Content-Type 与报文体</param>
+        /// <param name="cacheCalcResult">缓存判定参数，逗号分隔两个整数「是否已缓存,缓存秒数」：首项小于 0 表示不缓存并置 no-cache；首项为 0 置 200 并写 Last-Modified；首项为 1 且秒数大于 0 时置 304 并直接返回</param>
         public void SetCached(IHttpResult result, string cacheCalcResult = "-1,-1")
         {
             this.Status = result.Status;
@@ -202,6 +222,7 @@ namespace SAEA.Http
         /// <summary>
         /// 生成数据
         /// </summary>
+        /// <returns>完整响应字节，依次为报头、空行、报文体</returns>
         protected byte[] ToBytes()
         {
             List<byte> reponseDataList = new List<byte>();

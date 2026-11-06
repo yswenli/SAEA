@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/10/28 14:19:50
+*修改时间：2026/11/6 12:52:29
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：RequestDataReader类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -185,8 +185,9 @@ namespace SAEA.Http.Base
         /// <summary>
         /// 分析request body
         /// </summary>
-        /// <param name="requestData"></param>
-        /// <param name="httpMessage"></param>
+        /// <param name="requestData">含报头的完整请求字节</param>
+        /// <param name="httpMessage">已解析出报头的消息对象，解析结果回写其中</param>
+        /// <returns>报文已收全并解析成功返回 true；数据不足或解析异常返回 false</returns>
         public static bool AnalysisBody(byte[] requestData, HttpMessage httpMessage)
         {
             var contentLen = httpMessage.ContentLength;

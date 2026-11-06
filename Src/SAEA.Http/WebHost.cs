@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/10/28 14:19:50
+*修改时间：2026/11/6 12:52:29
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：WebHost类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -40,7 +40,7 @@ using SAEA.Sockets.Interface;
 namespace SAEA.Http
 {
     /// <summary>
-    /// SAEA WebServer
+    /// SAEA Web 主机，组装 HttpSocket、WebConfig 与 HttpUtility 并对外提供收发能力
     /// </summary>
     public class WebHost : IWebHost
     {
@@ -54,16 +54,22 @@ namespace SAEA.Http
         public bool IsRunning { get; set; }
 
         /// <summary>
-        ///  SAEA WebConfig
+        ///  Web 服务器配置
         /// </summary>
         public WebConfig WebConfig { get; set; }
 
+        /// <summary>
+        /// Http 服务器实用工具，负责静态资源路径映射
+        /// </summary>
         public HttpUtility HttpUtility
         {
             get;
             private set;
         }
 
+        /// <summary>
+        /// 路由扩展参数，由业务自行解释
+        /// </summary>
         public object RouteParam { get; set; }
 
 
@@ -85,18 +91,18 @@ namespace SAEA.Http
 
 
         /// <summary>
-        /// WebHost
+        /// 创建 Web 主机，按参数初始化配置、静态资源工具与底层 socket
         /// </summary>
-        /// <param name="httpContentType"></param>
-        /// <param name="root"></param>
-        /// <param name="port"></param>
-        /// <param name="isStaticsCached"></param>
-        /// <param name="isZiped"></param>
-        /// <param name="bufferSize"></param>
-        /// <param name="maxConnects"></param>
-        /// <param name="timeout"></param>
-        /// <param name="connectTimeout"></param>
-        /// <param name="isDebug"></param>
+        /// <param name="httpContentType">自定义 IHttpContext 实现类型，null 或不合规时用内置 HttpContext</param>
+        /// <param name="root">站点根目录名，默认为 wwwroot</param>
+        /// <param name="port">监听端口，默认 39654</param>
+        /// <param name="isStaticsCached">是否启用静态资源缓存</param>
+        /// <param name="isZiped">是否启用 gzip 内容压缩</param>
+        /// <param name="bufferSize">接收缓冲区字节数，默认 64KB</param>
+        /// <param name="maxConnects">最大连接数，默认 1000</param>
+        /// <param name="timeout">连接空闲超时秒数，默认 180</param>
+        /// <param name="connectTimeout">连接建立超时秒数，默认 3</param>
+        /// <param name="isDebug">是否使用调试版 socket 实现</param>
         public WebHost(Type httpContentType = null,
             string root = "wwwroot",
             int port = 39654,

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/10/29 15:01:17
+*修改时间：2026/11/6 12:52:29
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：IHttpResult接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common.Newtonsoft.Json;
@@ -40,11 +40,23 @@ namespace SAEA.Http.Model
     /// </summary>
     public interface IHttpResult
     {
+        /// <summary>
+        /// 报文体字节
+        /// </summary>
         byte[] Content { get; set; }
 
+        /// <summary>
+        /// 报文体编码
+        /// </summary>
         [JsonIgnore]
         Encoding ContentEncoding { get; set; }
+        /// <summary>
+        /// 报文体内容类型
+        /// </summary>
         string ContentType { get; set; }
+        /// <summary>
+        /// 响应状态码
+        /// </summary>
         HttpStatusCode Status { get; set; }
     }
 }

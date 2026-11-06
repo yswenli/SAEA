@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/11/07 14:25:13
+*修改时间：2026/11/6 12:52:29
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：HttpMessage消息类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -36,13 +36,22 @@ using SAEA.Http.Model;
 
 namespace SAEA.Http.Base
 {
+    /// <summary>
+    /// Http 消息实体，承载解析后的请求行、报头与报文体
+    /// </summary>
     public class HttpMessage : HttpBase, IDisposable
     {
+        /// <summary>
+        /// 消息唯一标识
+        /// </summary>
         public string ID
         {
             get; set;
         }
 
+        /// <summary>
+        /// 报文体在接收缓冲区中的起始偏移
+        /// </summary>
         public int Position { get; set; }
 
         /// <summary>
@@ -54,14 +63,16 @@ namespace SAEA.Http.Base
         } = new List<FilePart>();
 
         /// <summary>
-        /// enctype="text/plain"
-        /// application/json
+        /// 报文体按 application/json 解析出的原始文本
         /// </summary>
         public string Json
         {
             get; set;
         }
 
+        /// <summary>
+        /// 清空参数集合与报文体缓冲
+        /// </summary>
         public void Dispose()
         {
             if (this.Query != null)

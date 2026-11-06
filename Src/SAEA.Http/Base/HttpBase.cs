@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/10/28 14:19:50
+*修改时间：2026/11/6 12:52:29
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：HttpBase类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -37,23 +37,38 @@ using SAEA.Http.Model;
 
 namespace SAEA.Http.Base
 {
+    /// <summary>
+    /// Http 请求与响应的公共基类，承载方法、地址、报头、Cookie 与报文体
+    /// </summary>
     public class HttpBase
     {
+        /// <summary>
+        /// 原始报头文本
+        /// </summary>
         public string HeaderStr
         {
             get; set;
         }
 
+        /// <summary>
+        /// 请求方法，如 GET、POST
+        /// </summary>
         public string Method
         {
             get; set;
         }
 
+        /// <summary>
+        /// 不含协议与域名的相对地址
+        /// </summary>
         public string RelativeUrl
         {
             get; set;
         }
 
+        /// <summary>
+        /// 完整请求地址
+        /// </summary>
         public string Url
         {
             get; set;
@@ -82,17 +97,26 @@ namespace SAEA.Http.Base
             get; set;
         } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
+        /// <summary>
+        /// 协议名与版本，如 HTTP/1.1
+        /// </summary>
         public string Protocal
         {
             get; set;
         }
 
+        /// <summary>
+        /// 请求携带的 Cookie 集合
+        /// </summary>
         public HttpCookies Cookies
         {
             get; set;
         } = new HttpCookies();
 
 
+        /// <summary>
+        /// 报头键值集合，键不区分大小写
+        /// </summary>
         public Dictionary<string, string> Headers
         {
             get; set;
@@ -136,23 +160,40 @@ namespace SAEA.Http.Base
         }
 
 
+        /// <summary>
+        /// 是否为 multipart/form-data 表单请求
+        /// </summary>
         public bool IsFormData { get; set; } = false;
 
+        /// <summary>
+        /// multipart 表单的分隔串
+        /// </summary>
         public string Boundary
         {
             get; set;
         }
 
+        /// <summary>
+        /// 报文体字节长度
+        /// </summary>
         public int ContentLength
         {
             get; set;
         }
 
+        /// <summary>
+        /// 报文体内容
+        /// </summary>
         public byte[] Body
         {
             get; set;
         }
 
+        /// <summary>
+        /// 按枚举描述读取报头值
+        /// </summary>
+        /// <param name="header">报头枚举</param>
+        /// <returns>报头值，键不存在时抛出 KeyNotFoundException</returns>
         protected string GetHeader(Enum header)
         {
             var fieldName = header.GetDescription();
@@ -160,6 +201,11 @@ namespace SAEA.Http.Base
             return Headers[fieldName];
         }
 
+        /// <summary>
+        /// 按枚举描述写入报头值
+        /// </summary>
+        /// <param name="header">报头枚举</param>
+        /// <param name="value">报头值</param>
         protected void SetHeader(Enum header, string value)
         {
             var fieldName = header.GetDescription();
@@ -167,6 +213,11 @@ namespace SAEA.Http.Base
             Headers[fieldName] = value;
         }
 
+        /// <summary>
+        /// 按枚举描述移除报头
+        /// </summary>
+        /// <param name="header">报头枚举</param>
+        /// <param name="value">当前实现未使用</param>
         protected void RemoveHeader(Enum header, string value)
         {
             var fieldName = header.GetDescription();

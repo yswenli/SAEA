@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/08/25 12:09:47
+*修改时间：2026/11/6 12:52:29
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：HttpUtility接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -40,8 +40,7 @@ using System.Linq;
 namespace SAEA.Http
 {
     /// <summary>
-    /// HttpUtility
-    /// .core
+    /// Http 服务器静态资源工具，负责把 URL 映射到物理路径并提供编码方法
     /// </summary>
     public class HttpUtility
     {
@@ -54,6 +53,10 @@ namespace SAEA.Http
         static ConcurrentDictionary<string, string> _cache = new ConcurrentDictionary<string, string>();
 
 
+        /// <summary>
+        /// 创建静态资源工具并扫描站点的目录与文件
+        /// </summary>
+        /// <param name="root">网站根目录名，空值回退为 wwwroot，路径分隔符会被去掉</param>
         public HttpUtility(string root = "wwwroot")
         {
             _root = root;
@@ -74,10 +77,10 @@ namespace SAEA.Http
 
 
         /// <summary>
-        /// MapPath
+        /// 把 URL 路径映射为物理路径，结果按 URL 缓存
         /// </summary>
-        /// <param name="uriPath"></param>
-        /// <returns></returns>
+        /// <param name="uriPath">URL 路径</param>
+        /// <returns>命中已扫描文件时返回其完整路径，否则返回拼接出的物理路径</returns>
         public string MapPath(string uriPath)
         {
             return _cache.GetOrAdd(uriPath, (k) =>
@@ -101,39 +104,39 @@ namespace SAEA.Http
             });
         }
         /// <summary>
-        /// UrlEncode
+        /// 对字符串做 URL 编码
         /// </summary>
-        /// <param name="s"></param>
-        /// <returns></returns>
+        /// <param name="s">待编码文本</param>
+        /// <returns>编码后的文本</returns>
         public static string UrlEncode(string s)
         {
             return System.Web.HttpUtility.UrlEncode(s);
 
         }
         /// <summary>
-        /// UrlDecode
+        /// 对字符串做 URL 解码
         /// </summary>
-        /// <param name="s"></param>
-        /// <returns></returns>
+        /// <param name="s">待解码文本</param>
+        /// <returns>解码后的文本</returns>
         public static string UrlDecode(string s)
         {
             return System.Web.HttpUtility.UrlDecode(s);
         }
 
         /// <summary>
-        /// HtmlEncode
+        /// 对字符串做 HTML 编码
         /// </summary>
-        /// <param name="str"></param>
-        /// <returns></returns>
+        /// <param name="str">待编码文本</param>
+        /// <returns>编码后的文本</returns>
         public static string HtmlEncode(string str)
         {
             return System.Web.HttpUtility.HtmlEncode(str);
         }
         /// <summary>
-        /// HtmlDecode
+        /// 对字符串做 HTML 解码
         /// </summary>
-        /// <param name="html"></param>
-        /// <returns></returns>
+        /// <param name="html">待解码文本</param>
+        /// <returns>解码后的文本</returns>
         public static string HtmlDecode(string html)
         {
             return System.Web.HttpUtility.HtmlDecode(html);

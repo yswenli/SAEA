@@ -51,6 +51,7 @@ namespace SAEA.Http.Model
         /// 发送超时或底层已断开时返回 false
         /// </summary>
         /// <param name="timeoutMs">最长等待毫秒数</param>
+        /// <returns>最后一次发送已完成返回 true，超时或连接已断开返回 false</returns>
         bool WaitSendCompleted(int timeoutMs);
 
         /// <summary>
