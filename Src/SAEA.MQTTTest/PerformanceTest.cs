@@ -30,8 +30,14 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTTTest
 {
+    /// <summary>
+    /// MQTT 压测入口，按 QoS 等级统计每秒发送条数
+    /// </summary>
     public static class PerformanceTest
     {
+        /// <summary>
+        /// 只创建客户端连接本机 1883 端口，连续 10 轮统计每秒发送条数
+        /// </summary>
         public static void RunClientOnly()
         {
             try
@@ -73,6 +79,10 @@ namespace SAEA.MQTTTest
             }
         }
 
+        /// <summary>
+        /// 先启动本机服务端再连接客户端，连续 10 轮统计每秒发送条数
+        /// </summary>
+        /// <returns>表示压测执行完成的任务</returns>
         public static async Task RunClientAndServer()
         {
             try
@@ -213,6 +223,10 @@ namespace SAEA.MQTTTest
             return Task.Run(() => client.PublishAsync(applicationMessage));
         }
 
+        /// <summary>
+        /// 启动本机服务端后以 QoS 2 持续发布，逐轮输出每秒发送条数
+        /// </summary>
+        /// <returns>表示压测执行完成的任务；正常情况下不会返回</returns>
         public static async Task RunQoS2Test()
         {
             try
@@ -264,6 +278,10 @@ namespace SAEA.MQTTTest
             }
         }
 
+        /// <summary>
+        /// 启动本机服务端后以 QoS 1 持续发布，逐轮输出每秒发送条数
+        /// </summary>
+        /// <returns>表示压测执行完成的任务；正常情况下不会返回</returns>
         public static async Task RunQoS1Test()
         {
             try
@@ -315,6 +333,10 @@ namespace SAEA.MQTTTest
             }
         }
 
+        /// <summary>
+        /// 启动本机服务端后以 QoS 0 持续发布，逐轮输出每秒发送条数
+        /// </summary>
+        /// <returns>表示压测执行完成的任务；正常情况下不会返回</returns>
         public static async Task RunQoS0Test()
         {
             try

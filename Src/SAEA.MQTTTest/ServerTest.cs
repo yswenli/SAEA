@@ -29,8 +29,14 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTTTest
 {
+    /// <summary>
+    /// MQTT 服务端演示，含连接校验、消息与订阅拦截以及保留消息持久化
+    /// </summary>
     public static class ServerTest
     {
+        /// <summary>
+        /// 以默认选项启动服务端，按回车结束
+        /// </summary>
         public static void RunEmptyServer()
         {
             var mqttServer = new MqttFactory().CreateMqttServer();
@@ -40,6 +46,10 @@ namespace SAEA.MQTTTest
             Console.ReadLine();
         }
 
+        /// <summary>
+        /// 启动带校验与拦截规则的服务端，按回车后停止
+        /// </summary>
+        /// <returns>表示流程执行完成的任务</returns>
         public static async Task RunAsync()
         {
             try
@@ -151,10 +161,18 @@ namespace SAEA.MQTTTest
         }
     }
 
+    /// <summary>
+    /// 服务端存储实现，把保留消息以 JSON 文件持久化到固定目录
+    /// </summary>
     public class RetainedMessageHandler : IMqttServerStorage
     {
         private const string Filename = "C:\\MQTT\\RetainedMessages.json";
 
+        /// <summary>
+        /// 把保留消息序列化为 JSON 写入固定文件，目录不存在时先创建
+        /// </summary>
+        /// <param name="messages">待保存的保留消息集合</param>
+        /// <returns>已完成的空任务</returns>
         public Task SaveRetainedMessagesAsync(IList<MqttApplicationMessage> messages)
         {
             var directory = Path.GetDirectoryName(Filename);
@@ -167,6 +185,10 @@ namespace SAEA.MQTTTest
             return Task.FromResult(0);
         }
 
+        /// <summary>
+        /// 从固定文件读取保留消息
+        /// </summary>
+        /// <returns>反序列化得到的保留消息集合，文件不存在时为空集合</returns>
         public Task<IList<MqttApplicationMessage>> LoadRetainedMessagesAsync()
         {
             IList<MqttApplicationMessage> retainedMessages;

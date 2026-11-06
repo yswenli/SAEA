@@ -21,16 +21,27 @@ using System.Text;
 
 namespace SAEA.MQTTTest
 {
+    /// <summary>
+    /// MQTTnet 全局日志的控制台转发器，按日志等级设置输出颜色
+    /// </summary>
     public static class MqttNetConsoleLogger
     {
         static readonly object _lock = new object();
 
+        /// <summary>
+        /// 订阅全局日志事件并转发到控制台，重复调用不会产生重复订阅
+        /// </summary>
         public static void ForwardToConsole()
         {
             MqttNetGlobalLogger.LogMessagePublished -= PrintToConsole;
             MqttNetGlobalLogger.LogMessagePublished += PrintToConsole;
         }
 
+        /// <summary>
+        /// 加锁按指定颜色输出文本，输出后恢复控制台原色
+        /// </summary>
+        /// <param name="message">待输出的文本</param>
+        /// <param name="color">文本前景色</param>
         public static void PrintToConsole(string message, ConsoleColor color)
         {
             lock (_lock)

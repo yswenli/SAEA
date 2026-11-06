@@ -24,8 +24,15 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTTTest
 {
+    /// <summary>
+    /// 在本进程内同时启动 MQTT 服务端与客户端并保持连接的演示
+    /// </summary>
     public static class ServerAndClientTest
     {
+        /// <summary>
+        /// 启动默认配置的服务端，连接客户端后无限等待，直到进程被终止
+        /// </summary>
+        /// <returns>表示流程执行完成的任务；正常情况下不会返回</returns>
         public static async Task RunAsync()
         {
             MqttNetConsoleLogger.ForwardToConsole();

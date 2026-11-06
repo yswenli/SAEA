@@ -29,8 +29,15 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTTTest
 {
+    /// <summary>
+    /// 公共 MQTT broker 连通性演示，逐个 broker 做订阅、发布与回环校验
+    /// </summary>
     public static class PublicBrokerTest
     {
+        /// <summary>
+        /// 依次测试多个公共 broker 的 TCP、WebSocket 与 TLS 组合，存在本地配置时再测 CloudMQTT
+        /// </summary>
+        /// <returns>表示流程执行完成的任务</returns>
         public static async Task RunAsync()
         {
             //MqttNetConsoleLogger.ForwardToConsole();
@@ -140,20 +147,44 @@ namespace SAEA.MQTTTest
             Console.Write(message);
         }
 
+        /// <summary>
+        /// CloudMQTT 连接配置，从本地 JSON 文件反序列化得到
+        /// </summary>
         public class MqttConfig
         {
+            /// <summary>
+            /// 服务器地址
+            /// </summary>
             public string Server { get; set; }
 
+            /// <summary>
+            /// 登录用户名
+            /// </summary>
             public string Username { get; set; }
 
+            /// <summary>
+            /// 登录密码
+            /// </summary>
             public string Password { get; set; }
 
+            /// <summary>
+            /// 明文 TCP 端口
+            /// </summary>
             public int Port { get; set; }
 
+            /// <summary>
+            /// TLS 端口
+            /// </summary>
             public int SslPort { get; set; }
 
+            /// <summary>
+            /// WebSocket 明文端口，当前演示未使用
+            /// </summary>
             public int WebSocketPort { get; set; }
 
+            /// <summary>
+            /// WebSocket over TLS 端口
+            /// </summary>
             public int SslWebSocketPort { get; set; }
         }
     }

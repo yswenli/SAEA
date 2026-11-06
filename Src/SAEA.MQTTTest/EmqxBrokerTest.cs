@@ -12,8 +12,15 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTTTest
 {
+    /// <summary>
+    /// 公共 EMQX broker 的 MQTT 5.0 连通性演示，经 WebSocket 完成订阅与发布
+    /// </summary>
     public static class EmqxBrokerTest
     {
+        /// <summary>
+        /// 以 MQTT 5.0 连接 broker.emqx.io 的 WebSocket 端口，订阅并发布后校验是否收到消息
+        /// </summary>
+        /// <returns>表示流程执行完成的任务</returns>
         public static async Task RunAsync()
         {
             Console.WriteLine("=== Testing broker.emqx.io with MQTT 5.0 ===");

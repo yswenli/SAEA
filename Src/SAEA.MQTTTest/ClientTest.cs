@@ -29,8 +29,15 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTTTest
 {
+    /// <summary>
+    /// MQTT 客户端交互演示，订阅全部主题并在断开后延时重连
+    /// </summary>
     public static class ClientTest
     {
+        /// <summary>
+        /// 按提示输入服务地址后连接，订阅主题并在断线时自动重连，循环发布直到进程退出
+        /// </summary>
+        /// <returns>表示流程执行完成的任务</returns>
         public static async Task RunAsync()
         {
             try

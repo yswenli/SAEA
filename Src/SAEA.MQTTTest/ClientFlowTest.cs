@@ -25,8 +25,15 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTTTest
 {
+    /// <summary>
+    /// MQTT 客户端连接流程演示，按连接、订阅、发布、断开的顺序打印阶段日志
+    /// </summary>
     public static class ClientFlowTest
     {
+        /// <summary>
+        /// 连接本机 MQTT 服务完成一次订阅与发布后断开，异常只打印不抛出
+        /// </summary>
+        /// <returns>表示流程执行完成的任务</returns>
         public static async Task RunAsync()
         {
             MqttNetConsoleLogger.ForwardToConsole();
