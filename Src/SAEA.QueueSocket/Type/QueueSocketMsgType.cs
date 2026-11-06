@@ -23,22 +23,46 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/03/18 02:16:04
+*修改时间：2026/11/6 12:52:31
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：QueueSocketMsgType类型枚举
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.QueueSocket.Type
 {
+    /// <summary>
+    /// 队列协议消息类型
+    /// </summary>
     public enum QueueSocketMsgType : byte
     {
+        /// <summary>
+        /// 心跳请求
+        /// </summary>
         Ping = 1,
+        /// <summary>
+        /// 心跳响应
+        /// </summary>
         Pong = 2,
+        /// <summary>
+        /// 发布消息到主题
+        /// </summary>
         Publish = 3,
+        /// <summary>
+        /// 订阅主题
+        /// </summary>
         Subcribe = 4,
+        /// <summary>
+        /// 取消订阅主题
+        /// </summary>
         Unsubcribe = 5,
+        /// <summary>
+        /// 关闭连接
+        /// </summary>
         Close = 6,
+        /// <summary>
+        /// 主题数据推送
+        /// </summary>
         Data = 7
     }
 }

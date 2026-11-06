@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/05/09 15:22:09
+*修改时间：2026/11/6 12:52:31
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：QueueCoder编解码类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -59,7 +59,7 @@ namespace SAEA.QueueSocket.Net
         /// 编码方法，将ISocketProtocal对象编码为字节数组
         /// </summary>
         /// <param name="protocal">ISocketProtocal对象</param>
-        /// <returns>编码后的字节数组</returns>
+        /// <param name="writer">目标缓冲写入器</param>
         public void Encode(ISocketProtocal protocal, System.Buffers.IBufferWriter<byte> writer)
         {
             throw new NotImplementedException();

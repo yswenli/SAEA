@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2023/10/23 17:38:33
+*修改时间：2026/11/6 12:52:31
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：Consumer消费者类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -47,10 +47,19 @@ namespace SAEA.QueueSocket
     public class Consumer : IDisposable
     {
 
+        /// <summary>
+        /// 发生错误时触发
+        /// </summary>
         public event OnErrorHandler OnError;
 
+        /// <summary>
+        /// 连接断开时触发
+        /// </summary>
         public event OnDisconnectedHandler OnDisconnected;
 
+        /// <summary>
+        /// 收到订阅主题的消息时触发
+        /// </summary>
         public event Action<QueueMsg> OnMessage;
 
 
@@ -64,6 +73,9 @@ namespace SAEA.QueueSocket
         /// </summary>
         public string Topic { get; private set; }
 
+        /// <summary>
+        /// 当前是否已连接服务端
+        /// </summary>
         public bool Connected
         {
             get
@@ -166,6 +178,9 @@ namespace SAEA.QueueSocket
             }
         }
 
+        /// <summary>
+        /// 停止清理任务、断开连接并释放底层客户端
+        /// </summary>
         public void Dispose()
         {
             StopCleanupTask();

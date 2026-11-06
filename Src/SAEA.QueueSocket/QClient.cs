@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/03/18 02:16:04
+*修改时间：2026/11/6 12:52:31
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：QClient接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -58,6 +58,9 @@ namespace SAEA.QueueSocket
 
         byte[] _nameBytes;
 
+        /// <summary>
+        /// 收到订阅主题的消息时触发
+        /// </summary>
         public event Action<QueueMsg> OnMessage;
 
         Net.QueueCoder _queueCoder;
@@ -70,8 +73,14 @@ namespace SAEA.QueueSocket
 
         IClientSocket _clientSocket;
 
+        /// <summary>
+        /// 发生错误时触发
+        /// </summary>
         public event OnErrorHandler OnError;
 
+        /// <summary>
+        /// 连接断开时触发
+        /// </summary>
         public event OnDisconnectedHandler OnDisconnected;
 
         /// <summary>

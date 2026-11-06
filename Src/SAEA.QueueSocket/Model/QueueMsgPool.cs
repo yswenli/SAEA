@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/04/19 02:47:59
+*修改时间：2026/11/6 12:52:31
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：QueueMsgPool池类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -46,6 +46,7 @@ namespace SAEA.QueueSocket.Model
         /// <summary>
         /// 从池中获取 QueueMsg 实例
         /// </summary>
+        /// <returns>已重置状态的实例</returns>
         public static QueueMsg Rent()
         {
             if (_pool.TryTake(out var msg))
@@ -63,6 +64,7 @@ namespace SAEA.QueueSocket.Model
         /// <summary>
         /// 将 QueueMsg 归还到池
         /// </summary>
+        /// <param name="msg">待归还的实例，为 null 时忽略</param>
         public static void Return(QueueMsg msg)
         {
             if (msg != null)

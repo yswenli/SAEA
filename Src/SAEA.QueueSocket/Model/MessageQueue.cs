@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/03/18 02:16:04
+*修改时间：2026/11/6 12:52:31
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MessageQueue队列类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common.Caching;
@@ -38,12 +38,18 @@ using System.Threading.Tasks;
 
 namespace SAEA.QueueSocket.Model
 {
+    /// <summary>
+    /// 按主题分组的消息队列
+    /// </summary>
     public class MessageQueue : ISyncBase, IDisposable
     {
         readonly ConcurrentDictionary<string, FastQueue<PooledBuffer>> _dic;
 
         object _syncLocker = new object();
 
+        /// <summary>
+        /// 同步锁对象
+        /// </summary>
         public object SyncLocker
         {
             get
@@ -67,12 +73,24 @@ namespace SAEA.QueueSocket.Model
         }
 
 
+        /// <summary>
+        /// 异步入队，队列达到上限时等待
+        /// </summary>
+        /// <param name="topic">主题</param>
+        /// <param name="data">消息负载</param>
+        /// <returns>入队成功返回 true</returns>
         public ValueTask<bool> Enqueue(string topic, PooledBuffer data)
         {
             var queue = _dic.GetOrAdd(topic, t => new FastQueue<PooledBuffer>(_maxPendingMsgCount));
             return queue.EnqueueAsync(data);
         }
 
+        /// <summary>
+        /// 尝试入队，已释放或队列已满时立即返回 false
+        /// </summary>
+        /// <param name="topic">主题</param>
+        /// <param name="data">消息负载</param>
+        /// <returns>入队成功返回 true</returns>
         public bool TryEnqueue(string topic, PooledBuffer data)
         {
             if (_disposed) return false;
@@ -82,6 +100,11 @@ namespace SAEA.QueueSocket.Model
         }
 
 
+        /// <summary>
+        /// 异步出队，队列为空时等待，主题不存在时返回 null
+        /// </summary>
+        /// <param name="topic">主题</param>
+        /// <returns>消息负载，无此主题时为 null</returns>
         public async ValueTask<PooledBuffer> DequeueAsync(string topic)
         {
             if (_dic.TryGetValue(topic, out FastQueue<PooledBuffer> queue))
@@ -95,6 +118,12 @@ namespace SAEA.QueueSocket.Model
         }
 
 
+        /// <summary>
+        /// 尝试出队，主题不存在或无数据时立即返回 false
+        /// </summary>
+        /// <param name="topic">主题</param>
+        /// <param name="data">取出的消息负载，失败时为 null</param>
+        /// <returns>取到数据返回 true</returns>
         public bool TryDequeue(string topic, out PooledBuffer data)
         {
             data = null;
@@ -110,11 +139,20 @@ namespace SAEA.QueueSocket.Model
 
 
 
+        /// <summary>
+        /// 获取主题与队列的内部字典，返回的是实时视图而非副本
+        /// </summary>
+        /// <returns>主题到队列的字典</returns>
         public ConcurrentDictionary<string, FastQueue<PooledBuffer>> ToList()
         {
             return _dic;
         }
 
+        /// <summary>
+        /// 获取指定主题当前堆积的消息数
+        /// </summary>
+        /// <param name="topic">主题</param>
+        /// <returns>消息数，主题不存在时为 0</returns>
         public long GetCount(string topic)
         {
             if (_dic.TryGetValue(topic, out FastQueue<PooledBuffer> queue))
@@ -127,6 +165,9 @@ namespace SAEA.QueueSocket.Model
             return 0;
         }
 
+        /// <summary>
+        /// 释放全部主题队列并清空字典
+        /// </summary>
         public void Dispose()
         {
             _disposed = true;

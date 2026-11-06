@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/04/19 02:48:05
+*修改时间：2026/11/6 12:52:31
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：QueueMsgListPool接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -45,6 +45,7 @@ namespace SAEA.QueueSocket.Model
         /// <summary>
         /// 从池中获取 List&lt;QueueMsg&gt; 实例
         /// </summary>
+        /// <returns>已清空的列表实例</returns>
         public static List<QueueMsg> Rent()
         {
             if (_pool.TryTake(out var list))
@@ -56,8 +57,9 @@ namespace SAEA.QueueSocket.Model
         }
 
         /// <summary>
-        /// 将 List&lt;QueueMsg&gt; 归还到池
+        /// 将 List&lt;QueueMsg&gt; 归还到池，列表内的消息一并归还
         /// </summary>
+        /// <param name="list">待归还的列表，为 null 时忽略</param>
         public static void Return(List<QueueMsg> list)
         {
             if (list != null)

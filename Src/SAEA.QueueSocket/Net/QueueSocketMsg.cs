@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/03/18 02:16:04
+*修改时间：2026/11/6 12:52:31
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：QueueSocketMsg类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -41,46 +41,62 @@ namespace SAEA.QueueSocket.Net
     /// </summary>
     public class QueueSocketMsg : IDisposable
     {
-        // 定义一个常量MINLENGTH，表示消息的最小长度
+        /// <summary>
+        /// 消息最小长度：类型 1 字节 + 总长 4 字节 + 名称长度 4 字节 + 主题长度 4 字节
+        /// </summary>
         public const int MINLENGTH = (1 + 4 + 4 + 0 + 4 + 0 + 0);
 
-        // 定义一个属性Total，用于获取或设置消息的总长度
+        /// <summary>
+        /// 消息总长度，不含类型字节
+        /// </summary>
         public int Total
         {
             get; set;
         }
 
-        // 定义一个属性Type，用于获取或设置消息的类型
+        /// <summary>
+        /// 消息类型
+        /// </summary>
         public QueueSocketMsgType Type
         {
             get; set;
         }
 
-        // 定义一个属性NameLength，用于获取或设置消息名称的长度
+        /// <summary>
+        /// 名称字节长度
+        /// </summary>
         public int NameLength
         {
             get; set;
         }
 
-        // 定义一个属性Name，用于获取或设置消息的名称
+        /// <summary>
+        /// 消息发送方名称
+        /// </summary>
         public string Name
         {
             get; set;
         }
 
-        // 定义一个属性TopicLength，用于获取或设置消息主题的长度
+        /// <summary>
+        /// 主题字节长度
+        /// </summary>
         public int TopicLength
         {
             get; set;
         }
 
-        // 定义一个属性Topic，用于获取或设置消息的主题
+        /// <summary>
+        /// 订阅主题
+        /// </summary>
         public string Topic
         {
             get; set;
         }
 
-        // 定义一个属性Data，用于获取或设置消息的数据
+        /// <summary>
+        /// 消息数据，仅在持有 owner 缓冲期间有效
+        /// </summary>
         public ReadOnlyMemory<byte> Data
         {
             get; set;
@@ -88,12 +104,20 @@ namespace SAEA.QueueSocket.Net
 
         PooledBuffer _owner;
 
+        /// <summary>
+        /// 绑定消息数据所在的池化缓冲区，生命周期随之转移
+        /// </summary>
+        /// <param name="owner">池化缓冲区，为 null 时不改变数据</param>
         public void SetOwner(PooledBuffer owner)
         {
             _owner = owner;
             if (owner != null) Data = owner.AsMemory();
         }
 
+        /// <summary>
+        /// 摘除对池化缓冲区的持有，返回后由调用方负责归还
+        /// </summary>
+        /// <returns>此前持有的池化缓冲区，未持有时为 null</returns>
         public PooledBuffer DetachOwner()
         {
             var owner = _owner;
@@ -101,25 +125,43 @@ namespace SAEA.QueueSocket.Net
             return owner;
         }
 
-        // 构造函数，用于创建一个指定类型的消息
+        /// <summary>
+        /// 以指定类型创建消息
+        /// </summary>
+        /// <param name="type">消息类型</param>
         public QueueSocketMsg(QueueSocketMsgType type) : this(type, null)
         {
 
         }
 
-        // 构造函数，用于创建一个指定类型和名称的消息
+        /// <summary>
+        /// 以指定类型和名称创建消息
+        /// </summary>
+        /// <param name="type">消息类型</param>
+        /// <param name="name">消息发送方名称</param>
         public QueueSocketMsg(QueueSocketMsgType type, string name) : this(type, name, null)
         {
 
         }
 
-        // 构造函数，用于创建一个指定类型、名称和主题的消息
+        /// <summary>
+        /// 以指定类型、名称和主题创建消息
+        /// </summary>
+        /// <param name="type">消息类型</param>
+        /// <param name="name">消息发送方名称</param>
+        /// <param name="topic">订阅主题</param>
         public QueueSocketMsg(QueueSocketMsgType type, string name, string topic) : this(type, name, topic, null)
         {
 
         }
 
-        // 构造函数，用于创建一个指定类型、名称、主题和数据的消息
+        /// <summary>
+        /// 以指定类型、名称、主题和数据创建消息
+        /// </summary>
+        /// <param name="type">消息类型</param>
+        /// <param name="name">消息发送方名称</param>
+        /// <param name="topic">订阅主题</param>
+        /// <param name="data">消息数据，为 null 时数据为空</param>
         public QueueSocketMsg(QueueSocketMsgType type, string name, string topic, byte[] data)
         {
             this.Type = type; // 设置消息类型
@@ -128,7 +170,9 @@ namespace SAEA.QueueSocket.Net
             this.Data = data; // 设置消息数据
         }
 
-        // 实现IDisposable接口的Dispose方法，用于释放资源
+        /// <summary>
+        /// 归还持有的池化缓冲区并清空长度与类型
+        /// </summary>
         public void Dispose()
         {
             var owner = _owner;
