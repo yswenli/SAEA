@@ -23,23 +23,33 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/29 22:58:12
+*修改时间：2026/11/6 12:40:47
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ErroredEventArgs事件参数类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
 
 namespace SAEA.DNS.Model
 {
+    /// <summary>
+    /// DNS 错误事件参数
+    /// </summary>
     public class ErroredEventArgs : EventArgs
     {
+        /// <summary>
+        /// 以异常初始化错误事件参数
+        /// </summary>
+        /// <param name="e">引发错误的异常</param>
         public ErroredEventArgs(Exception e)
         {
             Exception = e;
         }
 
+        /// <summary>
+        /// 引发错误的异常
+        /// </summary>
         public Exception Exception
         {
             get;

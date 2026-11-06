@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/29 20:45:22
+*修改时间：2026/11/6 12:40:47
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：Header类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -36,12 +36,23 @@ using SAEA.DNS.Common.Utils;
 
 namespace SAEA.DNS.Protocol
 {
+    /// <summary>
+    /// DNS 报文头，12 字节定长，按大端序读写
+    /// </summary>
     [Endian(EndianOrder.Big)]
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public struct Header
     {
+        /// <summary>
+        /// 报文头固定长度（12 字节）
+        /// </summary>
         public const int SIZE = 12;
 
+        /// <summary>
+        /// 从字节数组解析报文头，长度不足 12 字节时抛异常
+        /// </summary>
+        /// <param name="header">报文头字节</param>
+        /// <returns>解析出的报文头</returns>
         public static Header FromArray(byte[] header)
         {
             if (header.Length < SIZE)
@@ -69,100 +80,153 @@ namespace SAEA.DNS.Protocol
         // Additional record count: number of records in the Additional section
         private ushort arCount;
 
+        /// <summary>
+        /// 消息标识，写入时截断为 2 字节
+        /// </summary>
         public int Id
         {
             get { return id; }
             set { id = (ushort)value; }
         }
 
+        /// <summary>
+        /// 问题段记录数，写入时截断为 2 字节
+        /// </summary>
         public int QuestionCount
         {
             get { return qdCount; }
             set { qdCount = (ushort)value; }
         }
 
+        /// <summary>
+        /// 应答段记录数，写入时截断为 2 字节
+        /// </summary>
         public int AnswerRecordCount
         {
             get { return anCount; }
             set { anCount = (ushort)value; }
         }
 
+        /// <summary>
+        /// 授权段记录数，写入时截断为 2 字节
+        /// </summary>
         public int AuthorityRecordCount
         {
             get { return nsCount; }
             set { nsCount = (ushort)value; }
         }
 
+        /// <summary>
+        /// 附加段记录数，写入时截断为 2 字节
+        /// </summary>
         public int AdditionalRecordCount
         {
             get { return arCount; }
             set { arCount = (ushort)value; }
         }
 
+        /// <summary>
+        /// 是否为响应报文（QR 标志）
+        /// </summary>
         public bool Response
         {
             get { return Qr == 1; }
             set { Qr = Convert.ToByte(value); }
         }
 
+        /// <summary>
+        /// 操作码（4 位）
+        /// </summary>
         public OperationCode OperationCode
         {
             get { return (OperationCode)Opcode; }
             set { Opcode = (byte)value; }
         }
 
+        /// <summary>
+        /// 是否为授权应答（AA 标志）
+        /// </summary>
         public bool AuthorativeServer
         {
             get { return Aa == 1; }
             set { Aa = Convert.ToByte(value); }
         }
 
+        /// <summary>
+        /// 是否因超长被截断（TC 标志）
+        /// </summary>
         public bool Truncated
         {
             get { return Tc == 1; }
             set { Tc = Convert.ToByte(value); }
         }
 
+        /// <summary>
+        /// 是否期望递归查询（RD 标志）
+        /// </summary>
         public bool RecursionDesired
         {
             get { return Rd == 1; }
             set { Rd = Convert.ToByte(value); }
         }
 
+        /// <summary>
+        /// 服务器是否支持递归查询（RA 标志）
+        /// </summary>
         public bool RecursionAvailable
         {
             get { return Ra == 1; }
             set { Ra = Convert.ToByte(value); }
         }
 
+        /// <summary>
+        /// 数据是否已通过 DNSSEC 验证（AD 标志）
+        /// </summary>
         public bool AuthenticData
         {
             get { return Ad == 1; }
             set { Ad = Convert.ToByte(value); }
         }
 
+        /// <summary>
+        /// 是否禁用 DNSSEC 校验（CD 标志）
+        /// </summary>
         public bool CheckingDisabled
         {
             get { return Cd == 1; }
             set { Cd = Convert.ToByte(value); }
         }
 
+        /// <summary>
+        /// 响应码（4 位）
+        /// </summary>
         public ResponseCode ResponseCode
         {
             get { return (ResponseCode)RCode; }
             set { RCode = (byte)value; }
         }
 
+        /// <summary>
+        /// 报文头长度，固定为 12 字节
+        /// </summary>
         public int Size
         {
             get { return Header.SIZE; }
         }
 
+        /// <summary>
+        /// 按大端序序列化为 12 字节报文头
+        /// </summary>
+        /// <returns>报文头字节</returns>
         public byte[] ToArray()
         {
             return StructHelper.GetBytes(this);
         }
 
+        /// <summary>
+        /// 输出除长度外的各字段可读文本
+        /// </summary>
+        /// <returns>可读的报文头描述</returns>
         public override string ToString()
         {
             return ObjectStringifier.New(this)

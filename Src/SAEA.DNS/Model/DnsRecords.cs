@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/29 22:58:12
+*修改时间：2026/11/6 12:40:47
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：DnsRecords类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.DNS.Coder;
@@ -43,7 +43,7 @@ using System.Threading.Tasks;
 namespace SAEA.DNS.Model
 {
     /// <summary>
-    /// DNSDataFile
+    /// DNS 记录集，按查询匹配已登记的资源记录并生成应答
     /// </summary>
     public class DnsRecords : IRequestCoder
     {
@@ -76,13 +76,24 @@ namespace SAEA.DNS.Model
 
         private TimeSpan ttl = DEFAULT_TTL;
 
+        /// <summary>
+        /// 以指定默认 TTL 初始化记录集
+        /// </summary>
+        /// <param name="ttl">资源记录的默认生存时间</param>
         public DnsRecords(TimeSpan ttl)
         {
             this.ttl = ttl;
         }
 
+        /// <summary>
+        /// 使用零 TTL 初始化空记录集
+        /// </summary>
         public DnsRecords() { }
 
+        /// <summary>
+        /// 添加一条资源记录
+        /// </summary>
+        /// <param name="entry">待添加的资源记录</param>
         public void Add(IResourceRecord entry)
         {
             entries.Add(entry);

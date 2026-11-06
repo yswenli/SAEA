@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/29 22:58:12
+*修改时间：2026/11/6 12:40:47
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：DnsRequestMessage消息类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.DNS.Common.ResourceRecords;
@@ -48,6 +48,11 @@ namespace SAEA.DNS.Protocol
         private Header header;
         private IList<IResourceRecord> additional;
 
+        /// <summary>
+        /// 从字节数组解析请求消息
+        /// </summary>
+        /// <param name="message">请求消息字节</param>
+        /// <returns>解析后的请求消息</returns>
         public static DnsRequestMessage FromArray(byte[] message)
         {
             Header header = Header.FromArray(message);
@@ -110,16 +115,25 @@ namespace SAEA.DNS.Protocol
             RecursionDesired = request.RecursionDesired;
         }
 
+        /// <summary>
+        /// 请求的问题列表
+        /// </summary>
         public IList<Question> Questions
         {
             get { return questions; }
         }
 
+        /// <summary>
+        /// 附加资源记录列表
+        /// </summary>
         public IList<IResourceRecord> AdditionalRecords
         {
             get { return additional; }
         }
 
+        /// <summary>
+        /// 消息序列化后的总字节数
+        /// </summary>
         public int Size
         {
             get
@@ -130,24 +144,37 @@ namespace SAEA.DNS.Protocol
             }
         }
 
+        /// <summary>
+        /// 消息标识，占 2 字节
+        /// </summary>
         public int Id
         {
             get { return header.Id; }
             set { header.Id = value; }
         }
 
+        /// <summary>
+        /// 查询操作码
+        /// </summary>
         public OperationCode OperationCode
         {
             get { return header.OperationCode; }
             set { header.OperationCode = value; }
         }
 
+        /// <summary>
+        /// 是否期望递归查询
+        /// </summary>
         public bool RecursionDesired
         {
             get { return header.RecursionDesired; }
             set { header.RecursionDesired = value; }
         }
 
+        /// <summary>
+        /// 序列化为 DNS 请求报文，序列化前同步问题数与附加记录数
+        /// </summary>
+        /// <returns>请求报文字节</returns>
         public byte[] ToArray()
         {
             UpdateHeader();
@@ -161,6 +188,10 @@ namespace SAEA.DNS.Protocol
             return result.ToArray();
         }
 
+        /// <summary>
+        /// 输出消息头与各段内容的可读文本
+        /// </summary>
+        /// <returns>可读的消息描述</returns>
         public override string ToString()
         {
             UpdateHeader();

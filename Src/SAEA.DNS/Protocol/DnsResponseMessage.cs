@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/29 22:58:12
+*修改时间：2026/11/6 12:40:47
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：DnsResponseMessage消息类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.DNS.Common.ResourceRecords;
@@ -50,6 +50,11 @@ namespace SAEA.DNS.Protocol
         private IList<IResourceRecord> authority;
         private IList<IResourceRecord> additional;
 
+        /// <summary>
+        /// 以请求为基础创建响应，沿用请求标识并复制问题列表
+        /// </summary>
+        /// <param name="request">对应的请求</param>
+        /// <returns>新建的响应消息</returns>
         public static DnsResponseMessage FromRequest(IRequest request)
         {
             DnsResponseMessage response = new DnsResponseMessage();
@@ -64,6 +69,11 @@ namespace SAEA.DNS.Protocol
             return response;
         }
 
+        /// <summary>
+        /// 从字节数组解析响应消息，截断的响应只解析问题段
+        /// </summary>
+        /// <param name="message">响应消息字节</param>
+        /// <returns>解析后的响应消息</returns>
         public static DnsResponseMessage FromArray(byte[] message)
         {
             Header header = Header.FromArray(message);
@@ -144,74 +154,113 @@ namespace SAEA.DNS.Protocol
             ResponseCode = response.ResponseCode;
         }
 
+        /// <summary>
+        /// 响应的问题列表
+        /// </summary>
         public IList<Question> Questions
         {
             get { return questions; }
         }
 
+        /// <summary>
+        /// 应答资源记录列表
+        /// </summary>
         public IList<IResourceRecord> AnswerRecords
         {
             get { return answers; }
         }
 
+        /// <summary>
+        /// 授权资源记录列表
+        /// </summary>
         public IList<IResourceRecord> AuthorityRecords
         {
             get { return authority; }
         }
 
+        /// <summary>
+        /// 附加资源记录列表
+        /// </summary>
         public IList<IResourceRecord> AdditionalRecords
         {
             get { return additional; }
         }
 
+        /// <summary>
+        /// 消息标识，与对应请求一致
+        /// </summary>
         public int Id
         {
             get { return header.Id; }
             set { header.Id = value; }
         }
 
+        /// <summary>
+        /// 服务器是否支持递归查询
+        /// </summary>
         public bool RecursionAvailable
         {
             get { return header.RecursionAvailable; }
             set { header.RecursionAvailable = value; }
         }
 
+        /// <summary>
+        /// 应答数据是否已通过 DNSSEC 验证
+        /// </summary>
         public bool AuthenticData
         {
             get { return header.AuthenticData; }
             set { header.AuthenticData = value; }
         }
 
+        /// <summary>
+        /// 是否禁用 DNSSEC 校验
+        /// </summary>
         public bool CheckingDisabled
         {
             get { return header.CheckingDisabled; }
             set { header.CheckingDisabled = value; }
         }
 
+        /// <summary>
+        /// 是否为授权服务器给出的应答
+        /// </summary>
         public bool AuthorativeServer
         {
             get { return header.AuthorativeServer; }
             set { header.AuthorativeServer = value; }
         }
 
+        /// <summary>
+        /// 响应是否因超出传输长度而被截断
+        /// </summary>
         public bool Truncated
         {
             get { return header.Truncated; }
             set { header.Truncated = value; }
         }
 
+        /// <summary>
+        /// 查询操作码
+        /// </summary>
         public OperationCode OperationCode
         {
             get { return header.OperationCode; }
             set { header.OperationCode = value; }
         }
 
+        /// <summary>
+        /// 响应码
+        /// </summary>
         public ResponseCode ResponseCode
         {
             get { return header.ResponseCode; }
             set { header.ResponseCode = value; }
         }
 
+        /// <summary>
+        /// 消息序列化后的总字节数
+        /// </summary>
         public int Size
         {
             get
@@ -224,6 +273,10 @@ namespace SAEA.DNS.Protocol
             }
         }
 
+        /// <summary>
+        /// 序列化为 DNS 响应报文，序列化前同步各段记录数
+        /// </summary>
+        /// <returns>响应报文字节</returns>
         public byte[] ToArray()
         {
             UpdateHeader();
@@ -239,6 +292,10 @@ namespace SAEA.DNS.Protocol
             return result.ToArray();
         }
 
+        /// <summary>
+        /// 输出消息头与各段内容的可读文本
+        /// </summary>
+        /// <returns>可读的消息描述</returns>
         public override string ToString()
         {
             UpdateHeader();

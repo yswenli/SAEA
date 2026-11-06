@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/29 20:45:22
+*修改时间：2026/11/6 12:40:47
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：CanonicalNameResourceRecord接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.DNS.Protocol;
@@ -34,26 +34,48 @@ using System;
 
 namespace SAEA.DNS.Common.ResourceRecords
 {
+    /// <summary>
+    /// 规范名称（CNAME）资源记录
+    /// </summary>
     public class CanonicalNameResourceRecord : BaseResourceRecord
     {
+        /// <summary>
+        /// 从报文中解析 CNAME 记录
+        /// </summary>
+        /// <param name="record">已解析的记录头</param>
+        /// <param name="message">完整 DNS 报文</param>
+        /// <param name="dataOffset">数据段在报文中的起始偏移</param>
         public CanonicalNameResourceRecord(IResourceRecord record, byte[] message, int dataOffset)
             : base(record)
         {
             CanonicalDomainName = Domain.FromArray(message, dataOffset);
         }
 
+        /// <summary>
+        /// 用域名构造 CNAME 记录
+        /// </summary>
+        /// <param name="domain">记录所属域名</param>
+        /// <param name="cname">别名指向的规范域名</param>
+        /// <param name="ttl">缓存有效期，默认零时长</param>
         public CanonicalNameResourceRecord(Domain domain, Domain cname, TimeSpan ttl = default(TimeSpan)) :
             base(new ResourceRecord(domain, cname.ToArray(), RecordType.CNAME, RecordClass.IN, ttl))
         {
             CanonicalDomainName = cname;
         }
 
+        /// <summary>
+        /// 别名指向的规范域名
+        /// </summary>
         public Domain CanonicalDomainName
         {
             get;
             private set;
         }
 
+        /// <summary>
+        /// 输出记录名、类型、类别、有效期、数据长度与规范域名
+        /// </summary>
+        /// <returns>字段拼接后的文本</returns>
         public override string ToString()
         {
             return Stringify().Add("CanonicalDomainName").ToString();

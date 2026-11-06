@@ -23,21 +23,39 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/29 20:45:22
+*修改时间：2026/11/6 12:40:47
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：OperationCode接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.DNS.Protocol
 {
+    /// <summary>
+    /// DNS 操作码，标识报文头的查询类型
+    /// </summary>
     public enum OperationCode
     {
+        /// <summary>
+        /// 标准查询
+        /// </summary>
         Query = 0,
+        /// <summary>
+        /// 反向查询（已废弃）
+        /// </summary>
         IQuery,
+        /// <summary>
+        /// 服务器状态查询
+        /// </summary>
         Status,
         // Reserved = 3
+        /// <summary>
+        /// 区域变更通知
+        /// </summary>
         Notify = 4,
+        /// <summary>
+        /// 动态更新
+        /// </summary>
         Update,
     }
 }

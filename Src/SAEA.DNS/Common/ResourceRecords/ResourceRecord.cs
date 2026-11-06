@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/29 20:45:22
+*修改时间：2026/11/6 12:40:47
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ResourceRecord记录类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -49,11 +49,26 @@ namespace SAEA.DNS.Common.ResourceRecords
         private TimeSpan ttl;
         private byte[] data;
 
+        /// <summary>
+        /// 从指定偏移开始解析指定数量的资源记录
+        /// </summary>
+        /// <param name="message">完整 DNS 报文</param>
+        /// <param name="offset">起始偏移</param>
+        /// <param name="count">待解析的记录条数</param>
+        /// <returns>解析出的记录列表，顺序与报文一致</returns>
         public static IList<ResourceRecord> GetAllFromArray(byte[] message, int offset, int count)
         {
             return GetAllFromArray(message, offset, count, out offset);
         }
 
+        /// <summary>
+        /// 从指定偏移开始解析指定数量的资源记录，并返回结束偏移
+        /// </summary>
+        /// <param name="message">完整 DNS 报文</param>
+        /// <param name="offset">起始偏移</param>
+        /// <param name="count">待解析的记录条数</param>
+        /// <param name="endOffset">最后一条记录之后的报文偏移</param>
+        /// <returns>解析出的记录列表，顺序与报文一致</returns>
         public static IList<ResourceRecord> GetAllFromArray(byte[] message, int offset, int count, out int endOffset)
         {
             IList<ResourceRecord> records = new List<ResourceRecord>(count);
@@ -67,11 +82,24 @@ namespace SAEA.DNS.Common.ResourceRecords
             return records;
         }
 
+        /// <summary>
+        /// 从指定偏移解析一条资源记录
+        /// </summary>
+        /// <param name="message">完整 DNS 报文</param>
+        /// <param name="offset">起始偏移</param>
+        /// <returns>解析出的记录</returns>
         public static ResourceRecord FromArray(byte[] message, int offset)
         {
             return FromArray(message, offset, out offset);
         }
 
+        /// <summary>
+        /// 从指定偏移解析一条资源记录，并返回结束偏移
+        /// </summary>
+        /// <param name="message">完整 DNS 报文</param>
+        /// <param name="offset">起始偏移</param>
+        /// <param name="endOffset">该记录之后的报文偏移</param>
+        /// <returns>解析出的记录</returns>
         public static ResourceRecord FromArray(byte[] message, int offset, out int endOffset)
         {
             Domain domain = Domain.FromArray(message, offset, out offset);
@@ -87,11 +115,26 @@ namespace SAEA.DNS.Common.ResourceRecords
             return new ResourceRecord(domain, data, tail.Type, tail.Class, tail.TimeToLive);
         }
 
+        /// <summary>
+        /// 复用问题段的域名、类型与类别构造一条资源记录
+        /// </summary>
+        /// <param name="question">作为记录键的问题</param>
+        /// <param name="data">数据段字节</param>
+        /// <param name="ttl">缓存有效期，默认零时长</param>
+        /// <returns>新建的资源记录</returns>
         public static ResourceRecord FromQuestion(Question question, byte[] data, TimeSpan ttl = default(TimeSpan))
         {
             return new ResourceRecord(question.Name, data, question.Type, question.Class, ttl);
         }
 
+        /// <summary>
+        /// 指定域名、数据段、类型、类别与有效期创建资源记录
+        /// </summary>
+        /// <param name="domain">记录所属域名</param>
+        /// <param name="data">数据段字节，长度写入固定头</param>
+        /// <param name="type">记录类型</param>
+        /// <param name="klass">记录类别，默认 IN</param>
+        /// <param name="ttl">缓存有效期，默认零时长</param>
         public ResourceRecord(Domain domain, byte[] data, RecordType type,
                 RecordClass klass = RecordClass.IN, TimeSpan ttl = default(TimeSpan))
         {
@@ -102,41 +145,66 @@ namespace SAEA.DNS.Common.ResourceRecords
             this.data = data;
         }
 
+        /// <summary>
+        /// 记录所属域名
+        /// </summary>
         public Domain Name
         {
             get { return domain; }
         }
 
+        /// <summary>
+        /// 记录类型
+        /// </summary>
         public RecordType Type
         {
             get { return type; }
         }
 
+        /// <summary>
+        /// 记录类别
+        /// </summary>
         public RecordClass Class
         {
             get { return klass; }
         }
 
+        /// <summary>
+        /// 记录可缓存的有效期
+        /// </summary>
         public TimeSpan TimeToLive
         {
             get { return ttl; }
         }
 
+        /// <summary>
+        /// 数据段字节长度
+        /// </summary>
         public int DataLength
         {
             get { return data.Length; }
         }
 
+        /// <summary>
+        /// 数据段原始字节
+        /// </summary>
         public byte[] Data
         {
             get { return data; }
         }
 
+        /// <summary>
+        /// 域名、固定头与数据段合计的字节数
+        /// </summary>
         public int Size
         {
             get { return domain.Size + Tail.SIZE + data.Length; }
         }
 
+        /// <summary>
+        /// 序列化为 DNS 报文片段，固定头按大端写出
+        /// </summary>
+        /// <returns>域名、类型、类别、有效期、数据长度与数据段组成的字节数组</returns>
         public byte[] ToArray()
         {
             ByteStream result = new ByteStream(Size);
@@ -155,6 +223,10 @@ namespace SAEA.DNS.Common.ResourceRecords
             return result.ToArray();
         }
 
+        /// <summary>
+        /// 输出记录名、类型、类别、有效期与数据长度的字段明细
+        /// </summary>
+        /// <returns>字段拼接后的文本</returns>
         public override string ToString()
         {
             return ObjectStringifier.New(this)

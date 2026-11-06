@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/29 20:45:22
+*修改时间：2026/11/6 12:40:47
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ResponseException接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.DNS.Protocol;
@@ -44,24 +44,55 @@ namespace SAEA.DNS.Model
             return string.Format("Invalid response received with code {0}", response.ResponseCode);
         }
 
+        /// <summary>
+        /// 初始化响应异常
+        /// </summary>
         public ResponseException() { }
+
+        /// <summary>
+        /// 以错误消息初始化响应异常
+        /// </summary>
+        /// <param name="message">错误消息</param>
         public ResponseException(string message) : base(message) { }
+
+        /// <summary>
+        /// 以错误消息和内部异常初始化响应异常
+        /// </summary>
+        /// <param name="message">错误消息</param>
+        /// <param name="e">内部异常</param>
         public ResponseException(string message, Exception e) : base(message, e) { }
 
+        /// <summary>
+        /// 以响应码自动生成的消息初始化响应异常
+        /// </summary>
+        /// <param name="response">出错的响应</param>
         public ResponseException(IResponse response) : this(response, Format(response)) { }
 
+        /// <summary>
+        /// 以响应和内部异常初始化响应异常
+        /// </summary>
+        /// <param name="response">出错的响应</param>
+        /// <param name="e">内部异常</param>
         public ResponseException(IResponse response, Exception e)
             : base(Format(response), e)
         {
             Response = response;
         }
 
+        /// <summary>
+        /// 以响应和自定义消息初始化响应异常
+        /// </summary>
+        /// <param name="response">出错的响应</param>
+        /// <param name="message">错误消息</param>
         public ResponseException(IResponse response, string message)
             : base(message)
         {
             Response = response;
         }
 
+        /// <summary>
+        /// 出错的响应
+        /// </summary>
         public IResponse Response
         {
             get;

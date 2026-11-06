@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/29 20:45:22
+*修改时间：2026/11/6 12:40:47
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：NameServerResourceRecord记录类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.DNS.Protocol;
@@ -39,24 +39,43 @@ namespace SAEA.DNS.Common.ResourceRecords
     /// </summary>
     public class NameServerResourceRecord : BaseResourceRecord
     {
+        /// <summary>
+        /// 从报文中解析 NS 记录
+        /// </summary>
+        /// <param name="record">已解析的记录头</param>
+        /// <param name="message">完整 DNS 报文</param>
+        /// <param name="dataOffset">数据段在报文中的起始偏移</param>
         public NameServerResourceRecord(IResourceRecord record, byte[] message, int dataOffset)
             : base(record)
         {
             NSDomainName = Domain.FromArray(message, dataOffset);
         }
 
+        /// <summary>
+        /// 用域名与名称服务器域名构造 NS 记录
+        /// </summary>
+        /// <param name="domain">记录所属域名</param>
+        /// <param name="nsDomain">名称服务器域名</param>
+        /// <param name="ttl">缓存有效期，默认零时长</param>
         public NameServerResourceRecord(Domain domain, Domain nsDomain, TimeSpan ttl = default(TimeSpan)) :
             base(new ResourceRecord(domain, nsDomain.ToArray(), RecordType.NS, RecordClass.IN, ttl))
         {
             NSDomainName = nsDomain;
         }
 
+        /// <summary>
+        /// 名称服务器域名
+        /// </summary>
         public Domain NSDomainName
         {
             get;
             private set;
         }
 
+        /// <summary>
+        /// 输出记录名、类型、类别、有效期、数据长度与名称服务器域名
+        /// </summary>
+        /// <returns>字段拼接后的文本</returns>
         public override string ToString()
         {
             return Stringify().Add("NSDomainName").ToString();

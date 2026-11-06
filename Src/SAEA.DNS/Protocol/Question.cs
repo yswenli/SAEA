@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/29 20:45:22
+*修改时间：2026/11/6 12:40:47
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：Question接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -41,11 +41,26 @@ namespace SAEA.DNS.Protocol
     /// </summary>
     public class Question : IMessageEntry
     {
+        /// <summary>
+        /// 从指定偏移连续解析指定数量的问题
+        /// </summary>
+        /// <param name="message">消息字节</param>
+        /// <param name="offset">起始偏移</param>
+        /// <param name="questionCount">待解析的问题数量</param>
+        /// <returns>解析出的问题集合</returns>
         public static IList<Question> GetAllFromArray(byte[] message, int offset, int questionCount)
         {
             return GetAllFromArray(message, offset, questionCount, out offset);
         }
 
+        /// <summary>
+        /// 从指定偏移连续解析指定数量的问题，并返回结束偏移
+        /// </summary>
+        /// <param name="message">消息字节</param>
+        /// <param name="offset">起始偏移</param>
+        /// <param name="questionCount">待解析的问题数量</param>
+        /// <param name="endOffset">解析结束后的偏移</param>
+        /// <returns>解析出的问题集合</returns>
         public static IList<Question> GetAllFromArray(byte[] message, int offset, int questionCount, out int endOffset)
         {
             IList<Question> questions = new List<Question>(questionCount);
@@ -59,11 +74,24 @@ namespace SAEA.DNS.Protocol
             return questions;
         }
 
+        /// <summary>
+        /// 从指定偏移解析单个问题
+        /// </summary>
+        /// <param name="message">消息字节</param>
+        /// <param name="offset">起始偏移</param>
+        /// <returns>解析出的问题</returns>
         public static Question FromArray(byte[] message, int offset)
         {
             return FromArray(message, offset, out offset);
         }
 
+        /// <summary>
+        /// 从指定偏移解析单个问题，并返回结束偏移
+        /// </summary>
+        /// <param name="message">消息字节</param>
+        /// <param name="offset">起始偏移</param>
+        /// <param name="endOffset">解析结束后的偏移</param>
+        /// <returns>解析出的问题</returns>
         public static Question FromArray(byte[] message, int offset, out int endOffset)
         {
             Domain domain = Domain.FromArray(message, offset, out offset);
@@ -79,6 +107,12 @@ namespace SAEA.DNS.Protocol
         private RecordType type;
         private RecordClass klass;
 
+        /// <summary>
+        /// 以域名、记录类型和类别初始化问题
+        /// </summary>
+        /// <param name="domain">查询域名</param>
+        /// <param name="type">记录类型，默认 A</param>
+        /// <param name="klass">记录类别，默认 IN</param>
         public Question(Domain domain, RecordType type = RecordType.A, RecordClass klass = RecordClass.IN)
         {
             this.domain = domain;
@@ -86,26 +120,42 @@ namespace SAEA.DNS.Protocol
             this.klass = klass;
         }
 
+        /// <summary>
+        /// 查询域名
+        /// </summary>
         public Domain Name
         {
             get { return domain; }
         }
 
+        /// <summary>
+        /// 查询的记录类型
+        /// </summary>
         public RecordType Type
         {
             get { return type; }
         }
 
+        /// <summary>
+        /// 查询的记录类别
+        /// </summary>
         public RecordClass Class
         {
             get { return klass; }
         }
 
+        /// <summary>
+        /// 序列化后的字节数，即域名长度加 4 字节类型与类别
+        /// </summary>
         public int Size
         {
             get { return domain.Size + Tail.SIZE; }
         }
 
+        /// <summary>
+        /// 序列化为域名加类型与类别
+        /// </summary>
+        /// <returns>问题字节</returns>
         public byte[] ToArray()
         {
             ByteStream result = new ByteStream(Size);
@@ -117,6 +167,10 @@ namespace SAEA.DNS.Protocol
             return result.ToArray();
         }
 
+        /// <summary>
+        /// 输出域名、类型与类别的可读文本
+        /// </summary>
+        /// <returns>可读的问题描述</returns>
         public override string ToString()
         {
             return ObjectStringifier.New(this)

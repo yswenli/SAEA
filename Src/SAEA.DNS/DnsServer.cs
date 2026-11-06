@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/29 20:45:22
+*修改时间：2026/11/6 12:40:47
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：DnsServer服务端类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.DNS.Coder;
@@ -45,16 +45,28 @@ using System.Net.Sockets;
 namespace SAEA.DNS
 {
     /// <summary>
-    /// DnsServer
+    /// DNS 服务端，收到查询后按本地记录或上游服务器应答
     /// </summary>
     public class DnsServer : IDisposable
     {
         private const int DEFAULT_PORT = 53;
         private const int UDP_TIMEOUT = 2000;
 
+        /// <summary>
+        /// 收到请求并成功解析后触发
+        /// </summary>
         public event EventHandler<RequestedEventArgs> OnRequested;
+        /// <summary>
+        /// 生成应答、发送之前触发
+        /// </summary>
         public event EventHandler<RespondedEventArgs> OnResponded;
+        /// <summary>
+        /// UDP 监听启动成功后触发
+        /// </summary>
         public event EventHandler<EventArgs> OnListening;
+        /// <summary>
+        /// 收发过程中出错时触发
+        /// </summary>
         public event EventHandler<ErroredEventArgs> OnErrored;
 
         private bool _run = false;
@@ -63,64 +75,64 @@ namespace SAEA.DNS
         private IRequestCoder _coder;
 
         /// <summary>
-        /// DnsServer
+        /// 用本地记录与上游服务器创建服务端，本地无匹配记录时回退到上游
         /// </summary>
-        /// <param name="dnsRecords"></param>
-        /// <param name="parentServer"></param>
+        /// <param name="dnsRecords">本地资源记录集合</param>
+        /// <param name="parentServer">上游 DNS 服务器地址</param>
         public DnsServer(DnsRecords dnsRecords, IPEndPoint parentServer) :
             this(new FallbackRequestCoder(dnsRecords, new UdpRequestCoder(parentServer)))
         { }
 
         /// <summary>
-        /// DnsServer
+        /// 用本地记录与上游服务器 IP、端口创建服务端
         /// </summary>
-        /// <param name="dnsRecords"></param>
-        /// <param name="parentServer"></param>
-        /// <param name="port"></param>
+        /// <param name="dnsRecords">本地资源记录集合</param>
+        /// <param name="parentServer">上游 DNS 服务器 IP</param>
+        /// <param name="port">上游 DNS 服务器端口，默认 53</param>
         public DnsServer(DnsRecords dnsRecords, IPAddress parentServer, int port = DEFAULT_PORT) :
             this(dnsRecords, new IPEndPoint(parentServer, port))
         { }
 
         /// <summary>
-        /// DnsServer
+        /// 用本地记录与上游服务器地址字符串创建服务端
         /// </summary>
-        /// <param name="dnsRecords"></param>
-        /// <param name="parentServer"></param>
-        /// <param name="port"></param>
+        /// <param name="dnsRecords">本地资源记录集合</param>
+        /// <param name="parentServer">上游 DNS 服务器 IP 字符串，默认 119.29.29.29</param>
+        /// <param name="port">上游 DNS 服务器端口，默认 53</param>
         public DnsServer(DnsRecords dnsRecords, string parentServer = "119.29.29.29", int port = DEFAULT_PORT) :
             this(dnsRecords, IPAddress.Parse(parentServer), port)
         { }
 
         /// <summary>
-        /// DnsServer
+        /// 用上游服务器地址创建服务端，不含本地记录
         /// </summary>
-        /// <param name="parentServer"></param>
+        /// <param name="parentServer">上游 DNS 服务器地址</param>
         public DnsServer(IPEndPoint parentServer) :
             this(new UdpRequestCoder(parentServer))
         { }
 
         /// <summary>
-        /// DnsServer
+        /// 用上游服务器 IP 与端口创建服务端，不含本地记录
         /// </summary>
-        /// <param name="parentServer"></param>
-        /// <param name="port"></param>
+        /// <param name="parentServer">上游 DNS 服务器 IP</param>
+        /// <param name="port">上游 DNS 服务器端口，默认 53</param>
         public DnsServer(IPAddress parentServer, int port = DEFAULT_PORT) :
             this(new IPEndPoint(parentServer, port))
         { }
 
         /// <summary>
-        /// DnsServer
+        /// 用上游服务器地址字符串与端口创建服务端，不含本地记录
         /// </summary>
-        /// <param name="parentServer"></param>
-        /// <param name="port"></param>
+        /// <param name="parentServer">上游 DNS 服务器 IP 字符串</param>
+        /// <param name="port">上游 DNS 服务器端口，默认 53</param>
         public DnsServer(string parentServer, int port = DEFAULT_PORT) :
             this(IPAddress.Parse(parentServer), port)
         { }
 
         /// <summary>
-        /// DnsServer
+        /// 用自定义编解码器创建服务端
         /// </summary>
-        /// <param name="coder"></param>
+        /// <param name="coder">请求编解码器</param>
         public DnsServer(IRequestCoder coder)
         {
             this._coder = coder;
@@ -184,11 +196,21 @@ namespace SAEA.DNS
             OnError(ex);
         }
 
+        /// <summary>
+        /// 触发事件，无订阅者时忽略
+        /// </summary>
+        /// <typeparam name="T">事件参数类型</typeparam>
+        /// <param name="handler">待触发的事件</param>
+        /// <param name="args">事件参数</param>
         protected virtual void OnEvent<T>(EventHandler<T> handler, T args)
         {
             if (handler != null) handler(this, args);
         }
 
+        /// <summary>
+        /// 释放 UDP 服务端资源
+        /// </summary>
+        /// <param name="disposing">true 表示由 Dispose 调用而非终结器调用</param>
         protected virtual void Dispose(bool disposing)
         {
             if (!_disposed)
@@ -250,6 +272,9 @@ namespace SAEA.DNS
         }
 
 
+        /// <summary>
+        /// 释放 UDP 服务端资源
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/29 20:45:22
+*修改时间：2026/11/6 12:40:47
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ResourceRecordFactory工厂类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.DNS.Protocol;
@@ -39,11 +39,26 @@ namespace SAEA.DNS.Common.ResourceRecords
     /// </summary>
     public static class ResourceRecordFactory
     {
+        /// <summary>
+        /// 从指定偏移开始解析指定数量的资源记录
+        /// </summary>
+        /// <param name="message">完整 DNS 报文</param>
+        /// <param name="offset">起始偏移</param>
+        /// <param name="count">待解析的记录条数</param>
+        /// <returns>解析出的记录列表，顺序与报文一致</returns>
         public static IList<IResourceRecord> GetAllFromArray(byte[] message, int offset, int count)
         {
             return GetAllFromArray(message, offset, count, out offset);
         }
 
+        /// <summary>
+        /// 从指定偏移开始解析指定数量的资源记录，并返回结束偏移
+        /// </summary>
+        /// <param name="message">完整 DNS 报文</param>
+        /// <param name="offset">起始偏移</param>
+        /// <param name="count">待解析的记录条数</param>
+        /// <param name="endOffset">最后一条记录之后的报文偏移</param>
+        /// <returns>解析出的记录列表，顺序与报文一致</returns>
         public static IList<IResourceRecord> GetAllFromArray(byte[] message, int offset, int count, out int endOffset)
         {
             IList<IResourceRecord> result = new List<IResourceRecord>(count);
@@ -57,11 +72,24 @@ namespace SAEA.DNS.Common.ResourceRecords
             return result;
         }
 
+        /// <summary>
+        /// 从指定偏移解析一条资源记录
+        /// </summary>
+        /// <param name="message">完整 DNS 报文</param>
+        /// <param name="offset">起始偏移</param>
+        /// <returns>解析出的记录</returns>
         public static IResourceRecord FromArray(byte[] message, int offset)
         {
             return FromArray(message, offset, out offset);
         }
 
+        /// <summary>
+        /// 从指定偏移解析一条资源记录，按记录类型返回对应的强类型实例，未知类型返回普通记录
+        /// </summary>
+        /// <param name="message">完整 DNS 报文</param>
+        /// <param name="offset">起始偏移</param>
+        /// <param name="endOffest">该记录之后的报文偏移</param>
+        /// <returns>解析出的记录</returns>
         public static IResourceRecord FromArray(byte[] message, int offset, out int endOffest)
         {
             ResourceRecord record = ResourceRecord.FromArray(message, offset, out endOffest);

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/29 20:45:22
+*修改时间：2026/11/6 12:40:47
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：DnsClient接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -43,7 +43,7 @@ using SAEA.DNS.Common.ResourceRecords;
 namespace SAEA.DNS
 {
     /// <summary>
-    /// DnsClient
+    /// DNS 客户端，向指定服务器发起查询
     /// </summary>
     public class DnsClient
     {
@@ -52,35 +52,35 @@ namespace SAEA.DNS
         private IRequestCoder _coder;
 
         /// <summary>
-        /// DnsClient
+        /// 用服务器地址创建客户端，UDP 响应被截断时自动改用 TCP 重试
         /// </summary>
-        /// <param name="dns"></param>
+        /// <param name="dns">DNS 服务器地址</param>
         public DnsClient(IPEndPoint dns) :
             this(new UdpRequestCoder(dns, new TcpRequestCoder(dns)))
         { }
 
         /// <summary>
-        /// DnsClient
+        /// 用服务器 IP 与端口创建客户端
         /// </summary>
-        /// <param name="ip"></param>
-        /// <param name="port"></param>
+        /// <param name="ip">DNS 服务器 IP</param>
+        /// <param name="port">DNS 服务器端口，默认 53</param>
         public DnsClient(IPAddress ip, int port = DEFAULT_PORT) :
             this(new IPEndPoint(ip, port))
         { }
 
         /// <summary>
-        /// DnsClient
+        /// 用服务器地址字符串与端口创建客户端
         /// </summary>
-        /// <param name="ip"></param>
-        /// <param name="port"></param>
+        /// <param name="ip">DNS 服务器 IP 字符串，默认 119.29.29.29</param>
+        /// <param name="port">DNS 服务器端口，默认 53</param>
         public DnsClient(string ip = "119.29.29.29", int port = DEFAULT_PORT) :
             this(IPAddress.Parse(ip), port)
         { }
 
         /// <summary>
-        /// DnsClient
+        /// 用自定义编解码器创建客户端
         /// </summary>
-        /// <param name="coder"></param>
+        /// <param name="coder">请求编解码器</param>
         public DnsClient(IRequestCoder coder)
         {
             this._coder = coder;

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/29 20:45:22
+*修改时间：2026/11/6 12:40:47
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：IResourceRecord接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.DNS.Protocol;
@@ -34,9 +34,21 @@ using System;
 
 namespace SAEA.DNS.Common.ResourceRecords
 {
+    /// <summary>
+    /// 资源记录契约，在报文条目之上补充有效期与数据段
+    /// </summary>
     public interface IResourceRecord : IMessageEntry {
+        /// <summary>
+        /// 记录可缓存的有效期
+        /// </summary>
         TimeSpan TimeToLive { get; }
+        /// <summary>
+        /// 数据段字节长度
+        /// </summary>
         int DataLength { get; }
+        /// <summary>
+        /// 数据段原始字节
+        /// </summary>
         byte[] Data { get; }
     }
 }

@@ -23,21 +23,43 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/29 20:45:22
+*修改时间：2026/11/6 12:40:47
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：IMessageEntry类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.DNS.Protocol
 {
+    /// <summary>
+    /// DNS 消息条目通用契约，问题与资源记录共用
+    /// </summary>
     public interface IMessageEntry
     {
+        /// <summary>
+        /// 条目域名
+        /// </summary>
         Domain Name { get; }
+
+        /// <summary>
+        /// 记录类型
+        /// </summary>
         RecordType Type { get; }
+
+        /// <summary>
+        /// 记录类别
+        /// </summary>
         RecordClass Class { get; }
 
+        /// <summary>
+        /// 序列化后的字节数
+        /// </summary>
         int Size { get; }
+
+        /// <summary>
+        /// 序列化为报文字节
+        /// </summary>
+        /// <returns>条目字节</returns>
         byte[] ToArray();
     }
 }

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/30 01:33:08
+*修改时间：2026/11/6 12:40:47
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：DnsClientResponse接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.DNS.Common.ResourceRecords;
@@ -45,6 +45,12 @@ namespace SAEA.DNS.Model
 
         private byte[] _message;
 
+        /// <summary>
+        /// 从报文字节构造响应，并关联原请求
+        /// </summary>
+        /// <param name="request">对应的请求</param>
+        /// <param name="message">原始响应报文</param>
+        /// <returns>包装后的响应</returns>
         public static DnsClientResponse FromArray(IRequest request, byte[] message)
         {
             DnsResponseMessage response = DnsResponseMessage.FromArray(message);
@@ -77,90 +83,140 @@ namespace SAEA.DNS.Model
             this._response = response;
         }
 
+        /// <summary>
+        /// 该响应所对应的请求
+        /// </summary>
         public IRequest Request
         {
             get;
             private set;
         }
 
+        /// <summary>
+        /// 报文标识，赋值被忽略
+        /// </summary>
         public int Id
         {
             get { return _response.Id; }
             set { }
         }
 
+        /// <summary>
+        /// 回答段记录，直接返回底层可变集合
+        /// </summary>
         public IList<IResourceRecord> AnswerRecords
         {
             get { return _response.AnswerRecords; }
         }
 
+        /// <summary>
+        /// 授权段记录，只读视图
+        /// </summary>
         public IList<IResourceRecord> AuthorityRecords
         {
             get { return new ReadOnlyCollection<IResourceRecord>(_response.AuthorityRecords); }
         }
 
+        /// <summary>
+        /// 附加段记录，只读视图
+        /// </summary>
         public IList<IResourceRecord> AdditionalRecords
         {
             get { return new ReadOnlyCollection<IResourceRecord>(_response.AdditionalRecords); }
         }
 
+        /// <summary>
+        /// 服务器是否支持递归查询，赋值被忽略
+        /// </summary>
         public bool RecursionAvailable
         {
             get { return _response.RecursionAvailable; }
             set { }
         }
 
+        /// <summary>
+        /// 响应数据是否经过 DNSSEC 验证，赋值被忽略
+        /// </summary>
         public bool AuthenticData
         {
             get { return _response.AuthenticData; }
             set { }
         }
 
+        /// <summary>
+        /// 请求方是否禁用了 DNSSEC 检查，赋值被忽略
+        /// </summary>
         public bool CheckingDisabled
         {
             get { return _response.CheckingDisabled; }
             set { }
         }
 
+        /// <summary>
+        /// 服务器是否为该域的授权服务器，赋值被忽略
+        /// </summary>
         public bool AuthorativeServer
         {
             get { return _response.AuthorativeServer; }
             set { }
         }
 
+        /// <summary>
+        /// 响应是否被截断，赋值被忽略
+        /// </summary>
         public bool Truncated
         {
             get { return _response.Truncated; }
             set { }
         }
 
+        /// <summary>
+        /// 操作码，赋值被忽略
+        /// </summary>
         public OperationCode OperationCode
         {
             get { return _response.OperationCode; }
             set { }
         }
 
+        /// <summary>
+        /// 响应码，赋值被忽略
+        /// </summary>
         public ResponseCode ResponseCode
         {
             get { return _response.ResponseCode; }
             set { }
         }
 
+        /// <summary>
+        /// 问题段，只读视图
+        /// </summary>
         public IList<Question> Questions
         {
             get { return new ReadOnlyCollection<Question>(_response.Questions); }
         }
 
+        /// <summary>
+        /// 原始报文的字节长度
+        /// </summary>
         public int Size
         {
             get { return _message.Length; }
         }
 
+        /// <summary>
+        /// 返回原始报文数组本身，不做复制
+        /// </summary>
+        /// <returns>构造响应时传入的报文字节</returns>
         public byte[] ToArray()
         {
             return _message;
         }
 
+        /// <summary>
+        /// 输出底层响应的字段文本
+        /// </summary>
+        /// <returns>底层响应的 ToString 结果</returns>
         public override string ToString()
         {
             return _response.ToString();

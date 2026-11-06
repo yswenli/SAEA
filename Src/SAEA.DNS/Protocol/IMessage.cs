@@ -23,21 +23,35 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/29 20:45:22
+*修改时间：2026/11/6 12:40:47
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：IMessage消息类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.Collections.Generic;
 
 namespace SAEA.DNS.Protocol
 {
+    /// <summary>
+    /// DNS 消息通用契约
+    /// </summary>
     public interface IMessage
     {
+        /// <summary>
+        /// 问题列表
+        /// </summary>
         IList<Question> Questions { get; }
 
+        /// <summary>
+        /// 消息序列化后的总字节数
+        /// </summary>
         int Size { get; }
+
+        /// <summary>
+        /// 序列化为报文字节
+        /// </summary>
+        /// <returns>报文字节</returns>
         byte[] ToArray();
     }
 }

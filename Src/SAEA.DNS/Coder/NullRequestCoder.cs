@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/29 20:45:22
+*修改时间：2026/11/6 12:40:47
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：NullRequestCoder编解码类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.DNS.Model;
@@ -37,10 +37,16 @@ using System.Threading.Tasks;
 namespace SAEA.DNS.Coder
 {
     /// <summary>
-    /// �մ���
+    /// 空处理编解码器，不发送任何数据
     /// </summary>
     public class NullRequestCoder : IRequestCoder
     {
+        /// <summary>
+        /// 直接抛出响应异常，表示该请求无法处理
+        /// </summary>
+        /// <param name="request">待处理的 DNS 请求</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>不会返回，始终抛出 ResponseException</returns>
         public Task<IResponse> Code(IRequest request, CancellationToken cancellationToken = default(CancellationToken))
         {
             throw new ResponseException("Request failed");

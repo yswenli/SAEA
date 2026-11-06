@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/29 20:45:22
+*修改时间：2026/11/6 12:40:47
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：IRequest接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.DNS.Common.ResourceRecords;
@@ -34,11 +34,29 @@ using System.Collections.Generic;
 
 namespace SAEA.DNS.Protocol
 {
+    /// <summary>
+    /// DNS 请求消息契约
+    /// </summary>
     public interface IRequest : IMessage
     {
+        /// <summary>
+        /// 消息标识
+        /// </summary>
         int Id { get; set; }
+
+        /// <summary>
+        /// 附加资源记录列表
+        /// </summary>
         IList<IResourceRecord> AdditionalRecords { get; }
+
+        /// <summary>
+        /// 查询操作码
+        /// </summary>
         OperationCode OperationCode { get; set; }
+
+        /// <summary>
+        /// 是否期望递归查询
+        /// </summary>
         bool RecursionDesired { get; set; }
     }
 }

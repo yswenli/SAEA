@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/29 20:45:22
+*修改时间：2026/11/6 12:40:47
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：IRequestCoder接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.DNS.Protocol;
@@ -35,7 +35,16 @@ using System.Threading.Tasks;
 
 namespace SAEA.DNS.Coder
 {
+    /// <summary>
+    /// DNS 请求编解码器契约
+    /// </summary>
     public interface IRequestCoder {
+        /// <summary>
+        /// 发出请求并取得响应
+        /// </summary>
+        /// <param name="request">待发送的 DNS 请求</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>对端返回的 DNS 响应</returns>
         Task<IResponse> Code(IRequest request, CancellationToken cancellationToken = default(CancellationToken));
     }
 }

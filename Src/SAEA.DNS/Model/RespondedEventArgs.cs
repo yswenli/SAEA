@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/29 22:58:12
+*修改时间：2026/11/6 12:40:47
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：RespondedEventArgs事件参数类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.DNS.Protocol;
@@ -34,8 +34,17 @@ using System;
 
 namespace SAEA.DNS.Model
 {
+    /// <summary>
+    /// DNS 响应事件参数
+    /// </summary>
     public class RespondedEventArgs : EventArgs
     {
+        /// <summary>
+        /// 初始化响应事件参数
+        /// </summary>
+        /// <param name="request">对应的请求</param>
+        /// <param name="response">生成的响应</param>
+        /// <param name="data">响应原始字节</param>
         public RespondedEventArgs(IRequest request, IResponse response, byte[] data)
         {
             Request = request;
@@ -43,18 +52,27 @@ namespace SAEA.DNS.Model
             Data = data;
         }
 
+        /// <summary>
+        /// 对应的请求
+        /// </summary>
         public IRequest Request
         {
             get;
             private set;
         }
 
+        /// <summary>
+        /// 生成的响应
+        /// </summary>
         public IResponse Response
         {
             get;
             private set;
         }
 
+        /// <summary>
+        /// 响应原始字节
+        /// </summary>
         public byte[] Data
         {
             get;

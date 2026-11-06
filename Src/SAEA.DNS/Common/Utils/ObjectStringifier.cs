@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/28 22:43:28
+*修改时间：2026/11/6 12:40:47
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ObjectStringifier类，提供对象字符串序列化功能
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -38,13 +38,26 @@ using System.Text;
 
 namespace SAEA.DNS.Common.Utils
 {
+    /// <summary>
+    /// 把对象的字段拼装为可读文本的辅助类
+    /// </summary>
     public class ObjectStringifier
     {
+        /// <summary>
+        /// 创建针对指定对象的实例
+        /// </summary>
+        /// <param name="obj">待输出的对象</param>
+        /// <returns>新建的实例</returns>
         public static ObjectStringifier New(object obj)
         {
             return new ObjectStringifier(obj);
         }
 
+        /// <summary>
+        /// 把对象直接转为文本，集合与字典递归展开
+        /// </summary>
+        /// <param name="obj">待转换的对象</param>
+        /// <returns>对象为 null 时返回文本 null，字符串原样返回</returns>
         public static string Stringify(object obj)
         {
             return StringifyObject(obj);
@@ -101,12 +114,21 @@ namespace SAEA.DNS.Common.Utils
         private object obj;
         private Dictionary<string, string> pairs;
 
+        /// <summary>
+        /// 创建实例，初始没有待输出字段
+        /// </summary>
+        /// <param name="obj">待输出的对象</param>
         public ObjectStringifier(object obj)
         {
             this.obj = obj;
             this.pairs = new Dictionary<string, string>();
         }
 
+        /// <summary>
+        /// 移除已加入的字段
+        /// </summary>
+        /// <param name="names">待移除的字段名，不存在时忽略</param>
+        /// <returns>当前实例，便于链式调用</returns>
         public ObjectStringifier Remove(params string[] names)
         {
             foreach (string name in names)
@@ -117,6 +139,11 @@ namespace SAEA.DNS.Common.Utils
             return this;
         }
 
+        /// <summary>
+        /// 反射读取对象同名公共实例属性的值并加入输出
+        /// </summary>
+        /// <param name="names">属性名，必须存在且未被加入过</param>
+        /// <returns>当前实例，便于链式调用</returns>
         public ObjectStringifier Add(params string[] names)
         {
             Type type = obj.GetType();
@@ -132,12 +159,22 @@ namespace SAEA.DNS.Common.Utils
             return this;
         }
 
+        /// <summary>
+        /// 以指定名称加入一个值
+        /// </summary>
+        /// <param name="name">输出中使用的字段名</param>
+        /// <param name="value">字段值，集合与字典递归展开</param>
+        /// <returns>当前实例，便于链式调用</returns>
         public ObjectStringifier Add(string name, object value)
         {
             pairs.Add(name, StringifyObject(value));
             return this;
         }
 
+        /// <summary>
+        /// 加入对象的全部公共实例属性
+        /// </summary>
+        /// <returns>当前实例，便于链式调用</returns>
         public ObjectStringifier AddAll()
         {
             PropertyInfo[] properties = obj.GetType().GetProperties(
@@ -152,6 +189,10 @@ namespace SAEA.DNS.Common.Utils
             return this;
         }
 
+        /// <summary>
+        /// 输出已加入字段的 name=value 文本
+        /// </summary>
+        /// <returns>大括号包裹的字段列表</returns>
         public override string ToString()
         {
             return StringifyDictionary(pairs);

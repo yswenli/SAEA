@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/29 20:45:22
+*修改时间：2026/11/6 12:40:47
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：TextResourceRecord记录类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.DNS.Protocol;
@@ -40,7 +40,7 @@ using System.Text.RegularExpressions;
 namespace SAEA.DNS.Common.ResourceRecords
 {
     /// <summary>
-    /// �ı���Դ��¼
+    /// 文本资源记录，以键值对形式保存 TXT 数据
     /// </summary>
     public class TextResourceRecord : BaseResourceRecord
     {
@@ -80,29 +80,52 @@ namespace SAEA.DNS.Common.ResourceRecords
             return CharacterString.FromString($"{Escape(attributeName)}={attributeValue}");
         }
 
+        /// <summary>
+        /// 从已解析记录的数据段构造 TXT 记录
+        /// </summary>
+        /// <param name="record">已解析的记录，数据段为若干长度前缀字符串</param>
         public TextResourceRecord(IResourceRecord record) :
             base(record)
         {
             TextData = CharacterString.GetAllFromArray(Data, 0);
         }
 
+        /// <summary>
+        /// 用一组字符串构造 TXT 记录，数据段按顺序拼接
+        /// </summary>
+        /// <param name="domain">记录所属域名</param>
+        /// <param name="characterStrings">字符串列表，单条最长 255 字节</param>
+        /// <param name="ttl">缓存有效期，默认零时长</param>
         public TextResourceRecord(Domain domain, IList<CharacterString> characterStrings,
                 TimeSpan ttl = default(TimeSpan)) : base(Create(domain, characterStrings, ttl))
         {
             TextData = new ReadOnlyCollection<CharacterString>(characterStrings);
         }
 
+        /// <summary>
+        /// 用属性名与属性值构造 TXT 记录，按 name=value 写入并对属性名中的等号、反引号转义
+        /// </summary>
+        /// <param name="domain">记录所属域名</param>
+        /// <param name="attributeName">属性名</param>
+        /// <param name="attributeValue">属性值</param>
+        /// <param name="ttl">缓存有效期，默认零时长</param>
         public TextResourceRecord(Domain domain, string attributeName, string attributeValue,
                 TimeSpan ttl = default(TimeSpan)) :
                 this(domain, FormatAttributeNameValue(attributeName, attributeValue), ttl)
         { }
 
+        /// <summary>
+        /// 记录中的字符串列表，为只读视图
+        /// </summary>
         public IList<CharacterString> TextData
         {
             get;
             private set;
         }
 
+        /// <summary>
+        /// 把文本内容解析为属性键值对，缺少未转义等号时键为 null
+        /// </summary>
         public KeyValuePair<string, string> Attribute
         {
             get
@@ -124,16 +147,29 @@ namespace SAEA.DNS.Common.ResourceRecords
             }
         }
 
+        /// <summary>
+        /// 按 ASCII 拼接全部字符串内容
+        /// </summary>
+        /// <returns>拼接后的文本</returns>
         public string ToStringTextData()
         {
             return ToStringTextData(Encoding.ASCII);
         }
 
+        /// <summary>
+        /// 按指定编码拼接全部字符串内容
+        /// </summary>
+        /// <param name="encoding">解码字符串所用的编码</param>
+        /// <returns>拼接后的文本</returns>
         public string ToStringTextData(Encoding encoding)
         {
             return String.Join(string.Empty, TextData.Select(c => c.ToString(encoding)));
         }
 
+        /// <summary>
+        /// 输出记录名、类型、类别、有效期、数据长度与文本内容
+        /// </summary>
+        /// <returns>字段拼接后的文本</returns>
         public override string ToString()
         {
             return Stringify().Add("TextData", (object)ToStringTextData()).ToString();

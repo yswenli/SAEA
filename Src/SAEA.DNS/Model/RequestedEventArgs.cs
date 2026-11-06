@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/29 22:58:12
+*修改时间：2026/11/6 12:40:47
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：RequestedEventArgs事件参数类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.DNS.Protocol;
@@ -34,20 +34,34 @@ using System;
 
 namespace SAEA.DNS.Model
 {
+    /// <summary>
+    /// DNS 请求事件参数
+    /// </summary>
     public class RequestedEventArgs : EventArgs
     {
+        /// <summary>
+        /// 初始化请求事件参数
+        /// </summary>
+        /// <param name="request">解析后的请求</param>
+        /// <param name="data">请求原始字节</param>
         public RequestedEventArgs(IRequest request, byte[] data)
         {
             Request = request;
             Data = data;
         }
 
+        /// <summary>
+        /// 解析后的请求
+        /// </summary>
         public IRequest Request
         {
             get;
             private set;
         }
 
+        /// <summary>
+        /// 请求原始字节
+        /// </summary>
         public byte[] Data
         {
             get;

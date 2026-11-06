@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/29 20:45:22
+*修改时间：2026/11/6 12:40:47
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：Domain接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -52,16 +52,34 @@ namespace SAEA.DNS.Protocol
 
         private byte[][] labels;
 
+        /// <summary>
+        /// 由域名文本创建域名对象
+        /// </summary>
+        /// <param name="domain">点分域名，如 www.example.com</param>
+        /// <returns>域名对象</returns>
         public static Domain FromString(string domain)
         {
             return new Domain(domain);
         }
 
+        /// <summary>
+        /// 从消息指定偏移解析域名
+        /// </summary>
+        /// <param name="message">消息字节</param>
+        /// <param name="offset">起始偏移</param>
+        /// <returns>解析出的域名</returns>
         public static Domain FromArray(byte[] message, int offset)
         {
             return FromArray(message, offset, out offset);
         }
 
+        /// <summary>
+        /// 从消息指定偏移解析域名，并返回结束偏移，支持压缩指针
+        /// </summary>
+        /// <param name="message">消息字节</param>
+        /// <param name="offset">起始偏移</param>
+        /// <param name="endOffset">解析结束后的偏移，遇到压缩指针时为指针之后的位置</param>
+        /// <returns>解析出的域名</returns>
         public static Domain FromArray(byte[] message, int offset, out int endOffset)
         {
             IList<byte[]> labels = new List<byte[]>();
@@ -107,6 +125,11 @@ namespace SAEA.DNS.Protocol
             return new Domain(labels.ToArray());
         }
 
+        /// <summary>
+        /// 生成反向解析域名，IPv4 为 in-addr.arpa，IPv6 为 ip6.arpa
+        /// </summary>
+        /// <param name="ip">待反向解析的 IP 地址</param>
+        /// <returns>反向解析域名</returns>
         public static Domain PointerName(IPAddress ip)
         {
             return new Domain(FormatReverseIP(ip));
@@ -164,25 +187,49 @@ namespace SAEA.DNS.Protocol
             return a.Length - b.Length;
         }
 
+        /// <summary>
+        /// 以已编码的标签数组初始化域名
+        /// </summary>
+        /// <param name="labels">按顺序排列的标签字节</param>
         public Domain(byte[][] labels)
         {
             this.labels = labels;
         }
 
+        /// <summary>
+        /// 以指定编码把标签编码后初始化域名
+        /// </summary>
+        /// <param name="labels">按顺序排列的标签文本</param>
+        /// <param name="encoding">标签编码方式</param>
         public Domain(string[] labels, Encoding encoding)
         {
             this.labels = labels.Select(label => encoding.GetBytes(label)).ToArray();
         }
 
+        /// <summary>
+        /// 由点分域名文本初始化域名，按 '.' 拆分标签
+        /// </summary>
+        /// <param name="domain">点分域名</param>
         public Domain(string domain) : this(domain.Split('.')) { }
 
+        /// <summary>
+        /// 以 ASCII 编码把标签编码后初始化域名
+        /// </summary>
+        /// <param name="labels">按顺序排列的标签文本</param>
         public Domain(string[] labels) : this(labels, Encoding.ASCII) { }
 
+        /// <summary>
+        /// 序列化后的字节数，含各标签长度字节与末尾结束字节
+        /// </summary>
         public int Size
         {
             get { return labels.Sum(l => l.Length) + labels.Length + 1; }
         }
 
+        /// <summary>
+        /// 序列化为长度前缀标签加末尾结束字节
+        /// </summary>
+        /// <returns>序列化后的字节</returns>
         public byte[] ToArray()
         {
             byte[] result = new byte[Size];
@@ -199,16 +246,30 @@ namespace SAEA.DNS.Protocol
             return result;
         }
 
+        /// <summary>
+        /// 以指定编码解码各标签并用 '.' 连接为域名文本
+        /// </summary>
+        /// <param name="encoding">标签解码方式</param>
+        /// <returns>点分域名文本</returns>
         public string ToString(Encoding encoding)
         {
             return string.Join(".", labels.Select(label => encoding.GetString(label)));
         }
 
+        /// <summary>
+        /// 以 ASCII 编码解码各标签并用 '.' 连接为域名文本
+        /// </summary>
+        /// <returns>点分域名文本</returns>
         public override string ToString()
         {
             return ToString(Encoding.ASCII);
         }
 
+        /// <summary>
+        /// 按标签逐字节比较域名，ASCII 字母不区分大小写
+        /// </summary>
+        /// <param name="other">待比较的域名</param>
+        /// <returns>小于 0 表示当前域名靠前，0 表示相等，大于 0 表示靠后</returns>
         public int CompareTo(Domain other)
         {
             int length = Math.Min(labels.Length, other.labels.Length);
@@ -222,6 +283,11 @@ namespace SAEA.DNS.Protocol
             return this.labels.Length - other.labels.Length;
         }
 
+        /// <summary>
+        /// 按域名比较结果判断相等，null 或非域名对象返回 false
+        /// </summary>
+        /// <param name="obj">待比较的对象</param>
+        /// <returns>域名相同时为 true</returns>
         public override bool Equals(object obj)
         {
             if (obj == null)
@@ -236,6 +302,10 @@ namespace SAEA.DNS.Protocol
             return CompareTo(obj as Domain) == 0;
         }
 
+        /// <summary>
+        /// 计算域名哈希值，ASCII 字母统一为大写后参与计算
+        /// </summary>
+        /// <returns>哈希值</returns>
         public override int GetHashCode()
         {
             unchecked
