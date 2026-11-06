@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/03/18 02:16:04
+*修改时间：2026/11/6 12:20:18
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：FileTransfer接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -40,7 +40,7 @@ using System.Threading;
 namespace SAEA.FileSocket
 {
     /// <summary>
-    /// FileTransfer
+    /// 文件传输器，内置接收服务端与发送客户端，可在同一实例上收发文件并输出传输进度
     /// </summary>
     public class FileTransfer : IDisposable
     {
@@ -64,6 +64,9 @@ namespace SAEA.FileSocket
 
         string _fullName = string.Empty;
 
+        /// <summary>
+        /// 单个文件接收完成时触发，参数为保存后的文件完整路径
+        /// </summary>
         public event Action<string> OnReceiveEnd;
 
         bool _connected = false;
@@ -71,14 +74,17 @@ namespace SAEA.FileSocket
         bool _started = false;
 
 
+        /// <summary>
+        /// 传输进行中每秒推送一次进度文本，发送与接收状态合并在一行内
+        /// </summary>
         public event Action<string> OnDisplay;
 
         /// <summary>
-        /// FileTransfer
+        /// 创建接收服务端并订阅其请求、数据与异常事件，发送连接在首次发送时才建立
         /// </summary>
-        /// <param name="filePath"></param>
-        /// <param name="port"></param>
-        /// <param name="bufferSize"></param>
+        /// <param name="filePath">接收文件的保存目录</param>
+        /// <param name="port">接收服务端的监听端口</param>
+        /// <param name="bufferSize">收发缓冲区大小（字节）</param>
         public FileTransfer(string filePath, int port = 39654, int bufferSize = 100 * 1024)
         {
             _filePath = filePath;
@@ -268,7 +274,7 @@ namespace SAEA.FileSocket
         }
 
         /// <summary>
-        /// Dispose
+        /// 释放资源，等于停止接收服务端并断开已建立的发送连接
         /// </summary>
         public void Dispose()
         {

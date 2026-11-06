@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/03/18 02:16:04
+*修改时间：2026/11/6 12:20:18
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：Server服务端类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common.Caching;
@@ -51,10 +51,19 @@ namespace SAEA.FileSocket
     {
         #region events
 
+        /// <summary>
+        /// 收到文件传输请求时触发，参数为会话 ID、文件名与文件总长度，需由订阅方调用 Allow 或 Refuse 应答
+        /// </summary>
         public event OnRequestHandler OnRequested;
 
+        /// <summary>
+        /// 每收到一个文件数据块时触发，参数为用户上下文与本次数据副本
+        /// </summary>
         public event OnFileHandler OnFile;
 
+        /// <summary>
+        /// 服务端发生异常时触发，参数为会话 ID 与异常
+        /// </summary>
         public event OnErrorHandler OnError;
 
         #endregion
@@ -63,11 +72,24 @@ namespace SAEA.FileSocket
 
         private long _in;
 
+        /// <summary>
+        /// 最近一次传输请求声明的文件总长度（字节）
+        /// </summary>
         public long Total { get => _total; set => _total = value; }
+
+        /// <summary>
+        /// 已接收的字节数，在接收回调中以原子方式累加
+        /// </summary>
         public long In { get => _in; set => _in = value; }
 
         IServerSocket _server;
 
+        /// <summary>
+        /// 创建底层服务端并注册接收与异常回调，监听需另调 Start
+        /// </summary>
+        /// <param name="port">监听端口</param>
+        /// <param name="bufferSize">收发缓冲区大小（字节）</param>
+        /// <param name="count">最大连接数</param>
         public Server(int port = 39654, int bufferSize = 100 * 1024, int count = 10)
         {
             var option = SocketOptionBuilder.Instance
@@ -125,6 +147,10 @@ namespace SAEA.FileSocket
             }
         }
 
+        /// <summary>
+        /// 允许指定会话开始发送文件，向该会话回送允许接收协议包
+        /// </summary>
+        /// <param name="id">会话标识</param>
         public void Allow(string id)
         {
             var sm = new BaseSocketProtocal((byte)SocketProtocalType.AllowReceive, ReadOnlyMemory<byte>.Empty);
@@ -136,6 +162,10 @@ namespace SAEA.FileSocket
             }
         }
 
+        /// <summary>
+        /// 拒绝指定会话的文件传输请求，向该会话回送拒绝接收协议包
+        /// </summary>
+        /// <param name="id">会话标识</param>
         public void Refuse(string id)
         {
             var sm = new BaseSocketProtocal((byte)SocketProtocalType.RefuseReceive, ReadOnlyMemory<byte>.Empty);
@@ -148,11 +178,17 @@ namespace SAEA.FileSocket
         }
 
 
+        /// <summary>
+        /// 启动服务端并开始监听
+        /// </summary>
         public void Start()
         {
             _server.Start();
         }
 
+        /// <summary>
+        /// 停止服务端并关闭现有连接
+        /// </summary>
         public void Stop()
         {
             _server.Stop();

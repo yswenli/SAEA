@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/03/18 02:16:04
+*修改时间：2026/11/6 12:20:18
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：Client接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -45,6 +45,9 @@ using System.Threading;
 
 namespace SAEA.FileSocket
 {
+    /// <summary>
+    /// 文件传输客户端，按包模式连接服务器并按块发送文件，构造后自动启动心跳线程
+    /// </summary>
     public class Client
     {
         DateTime Actived;
@@ -58,9 +61,19 @@ namespace SAEA.FileSocket
         private long _total;
 
         private long _out;
+        /// <summary>
+        /// 待发送文件的总字节数，发送前由文件长度赋值
+        /// </summary>
         public long Total { get => _total; set => _total = value; }
+
+        /// <summary>
+        /// 已发送的字节数，发送过程中以原子方式累加
+        /// </summary>
         public long Out { get => _out; set => _out = value; }
 
+        /// <summary>
+        /// 与服务器的连接是否已建立
+        /// </summary>
         public bool Connected { get { return _client.Connected; } }
 
 
@@ -72,6 +85,12 @@ namespace SAEA.FileSocket
 
         BaseCoder _unpacker;
 
+        /// <summary>
+        /// 创建客户端并注册接收回调，同时启动后台心跳线程
+        /// </summary>
+        /// <param name="bufferSize">收发缓冲区大小，同时也是文件分块读取的大小（字节）</param>
+        /// <param name="ip">服务器地址</param>
+        /// <param name="port">服务器端口</param>
         public Client(int bufferSize = 100 * 1024, string ip = "127.0.0.1", int port = 39654)
         {
             var option = SocketOptionBuilder.Instance
@@ -265,11 +284,17 @@ namespace SAEA.FileSocket
             }
         }
 
+        /// <summary>
+        /// 同步连接服务器
+        /// </summary>
         public void Connect()
         {
             _client.Connect();
         }
 
+        /// <summary>
+        /// 断开与服务器的连接
+        /// </summary>
         public void Disconnect()
         {
             _client.Disconnect();

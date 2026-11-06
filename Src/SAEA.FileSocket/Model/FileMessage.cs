@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/03/18 02:16:04
+*修改时间：2026/11/6 12:20:18
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：FileMessage接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using ProtoBuf;
@@ -40,18 +40,27 @@ namespace SAEA.FileSocket.Model
     [ProtoContract]
     public sealed class FileMessage
     {
+        /// <summary>
+        /// 文件名，不含目录部分
+        /// </summary>
         [ProtoMember(1)]
         public string FileName
         {
             get; set;
         }
 
+        /// <summary>
+        /// 文件总长度（字节）
+        /// </summary>
         [ProtoMember(2)]
         public long Length
         {
             get; set;
         }
 
+        /// <summary>
+        /// 本次传输的起始偏移（字节），0 表示从文件头开始；服务端当前未使用该字段
+        /// </summary>
         [ProtoMember(3)]
         public long Offset
         {
