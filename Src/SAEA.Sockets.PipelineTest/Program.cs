@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 09:50:56
+*修改时间：2026/11/6 13:35:40
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：通道链演示与端到端自测入口
+*描述：新增客户端接入通道链的自测场景
 *
 *****************************************************************************/
 using System;
@@ -47,6 +47,7 @@ using System.Threading.Tasks;
 using SAEA.Sockets.Base;
 using SAEA.Sockets.Core.Tcp;
 using SAEA.Sockets.Interface;
+using SAEA.Sockets.Model;
 using SAEA.Sockets.Pipeline;
 
 namespace SAEA.Sockets.PipelineTest
@@ -78,6 +79,12 @@ namespace SAEA.Sockets.PipelineTest
             if (args != null && Array.IndexOf(args, "--tls") >= 0)
                 return RunSocketCaseAsync(useTls: true).GetAwaiter().GetResult();
 
+            if (args != null && Array.IndexOf(args, "--client") >= 0)
+                return RunClientCaseAsync(useTls: false).GetAwaiter().GetResult();
+
+            if (args != null && Array.IndexOf(args, "--client-tls") >= 0)
+                return RunClientCaseAsync(useTls: true).GetAwaiter().GetResult();
+
             if (args != null && Array.IndexOf(args, "--bench") >= 0)
                 return RunBenchAsync().GetAwaiter().GetResult();
 
@@ -91,10 +98,12 @@ namespace SAEA.Sockets.PipelineTest
             Console.WriteLine("  --all     运行全部内存回环用例（粘包/切分、慢鉴权、出站字节、背压、超时、断开、逐字节）");
             Console.WriteLine("  --socket  使用真实 SaeaServerSocket 跑一次端到端登录回包（默认随机空闲端口）");
             Console.WriteLine("  --tls     在 --socket 的基础上启用 TLS，验证首帧在握手成功之后到达");
+            Console.WriteLine("  --client  客户端也接入通道链：连接后由输入处理器接管读循环，事件泵不启动");
+            Console.WriteLine("  --client-tls 在 --client 的基础上启用 TLS，验证握手完成前不启动客户端通道链");
             Console.WriteLine("  --bench   与 BaseCoder.DecodeStream 直连写法对比吞吐与每帧分配（趋势值，Release 下跑）");
             Console.WriteLine("  --help    显示本帮助");
             Console.WriteLine();
-            Console.WriteLine("环境变量：SAEA_PIPELINE_TEST_PORT 指定 --socket/--tls 的监听端口（1-65535）。");
+            Console.WriteLine("环境变量：SAEA_PIPELINE_TEST_PORT 指定 --socket/--tls/--client/--client-tls 的监听端口（1-65535）。");
         }
 
         // ---------- 用例调度 ----------
@@ -496,6 +505,222 @@ namespace SAEA.Sockets.PipelineTest
             {
                 Console.WriteLine("FAIL  " + label + " : " + ex.GetType().Name + ": " + ex.Message);
                 return 1;
+            }
+        }
+
+        // ---------- --client：真实 SaeaClientSocket 接入通道链 ----------
+
+        private static async Task<int> RunClientCaseAsync(bool useTls)
+        {
+            var label = useTls ? "--client-tls" : "--client";
+            Console.WriteLine("SAEA.Sockets.PipelineTest " + label);
+
+            var run = RunClientScenarioAsync(useTls);
+            var winner = await Task.WhenAny(run, Task.Delay(SocketCaseTimeoutMilliseconds)).ConfigureAwait(false);
+
+            if (winner != run)
+            {
+                Console.WriteLine("FAIL  " + label + " : " + (SocketCaseTimeoutMilliseconds / 1000) + " 秒内未完成");
+                return 1;
+            }
+
+            try
+            {
+                await run.ConfigureAwait(false);
+                Console.WriteLine(
+                    "PASS  " + label +
+                    (useTls
+                        ? " 真实 SaeaClientSocket + TLS 由输入处理器接管读循环"
+                        : " 真实 SaeaClientSocket 由输入处理器接管读循环"));
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("FAIL  " + label + " : " + ex.GetType().Name + ": " + ex.Message);
+                return 1;
+            }
+        }
+
+        /// <summary>
+        /// 客户端接入点自测：服务端只做最小回包，客户端通过钩子建立通道链并解出 LoginResponse。
+        /// 同时验证配置输入处理器后客户端事件泵不会启动。
+        /// </summary>
+        private static async Task RunClientScenarioAsync(bool useTls)
+        {
+            var port = ResolvePort();
+            var registry = CreateRegistry();
+            var serverErrors = new ConcurrentQueue<string>();
+            var clientErrors = new ConcurrentQueue<string>();
+            var certificate = useTls ? CreateServerCertificate() : null;
+
+            SaeaServerSocket server = null;
+            SaeaClientSocket client = null;
+            var serverHeartbeat = new TaskCompletionSource<int>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+
+            try
+            {
+                var serverBuilder = new SocketOptionBuilder()
+                    .UseStream()
+                    .SetIP("127.0.0.1")
+                    .SetPort(port);
+
+                if (useTls)
+                    serverBuilder = serverBuilder.WithSsl(o => o.ServerCertificate = certificate);
+
+                server = new SaeaServerSocket(serverBuilder.Build());
+                server.OnError += (id, ex) =>
+                    serverErrors.Enqueue(id + ": " + ex.GetType().Name + ": " + ex.Message);
+                server.OnAccepted += obj =>
+                {
+                    var info = obj as ChannelInfo;
+                    if (info == null)
+                        return;
+
+                    // 服务端验证的是客户端接入点：读一帧登录请求并回包，再读客户端经通道链发出的心跳。
+                    Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var request = DecodeFrame(ReadFrame(info.Stream), registry) as LoginRequest;
+                            if (request == null)
+                                throw new InvalidOperationException("服务端未解出 LoginRequest。");
+
+                            var wire = EncodeFrame(LoginHandler.CreateResponse(request), registry);
+                            await info.Stream.WriteAsync(wire, 0, wire.Length).ConfigureAwait(false);
+                            await info.Stream.FlushAsync().ConfigureAwait(false);
+
+                            // 第二帧由客户端链的出站方向产生，读到它说明适配器的发送委托接通了。
+                            var heartbeat = DecodeFrame(ReadFrame(info.Stream), registry) as Heartbeat;
+                            if (heartbeat == null)
+                                throw new InvalidOperationException("服务端未解出客户端链回写的心跳。");
+
+                            serverHeartbeat.TrySetResult(heartbeat.Seq);
+                        }
+                        catch (Exception ex)
+                        {
+                            serverErrors.Enqueue("server-read: " + ex.GetType().Name + ": " + ex.Message);
+                        }
+                    });
+                };
+                server.Start();
+
+                var host = new PipelineHost();
+                var executorReady = new TaskCompletionSource<ChannelPipelineExecutor>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                var responseHandler = new LoginResponseHandler(heartbeatSeq: 7);
+                var spanEventCount = 0;
+                ChannelPipelineExecutor clientExecutor = null;
+
+                var clientBuilder = new SocketOptionBuilder()
+                    .UseStream()
+                    .SetIP("127.0.0.1")
+                    .SetPort(port)
+                    .SetReadBufferSize(64 * 1024)
+                    .UseConnectionOpened(info =>
+                    {
+                        var channel = new DefaultChannel(info.ID, reason =>
+                        {
+                            var current = clientExecutor;
+                            if (current != null)
+                                return current.BeginShutdown(reason);
+
+                            try { client?.Disconnect(); } catch { }
+                            return Task.CompletedTask;
+                        });
+
+                        channel.SetAttribute(TokenAuthHandler.TokenAttributeKey, "client-seed-token");
+                        host.Set(channel);
+                    })
+                    .UseInputHandler(async (userToken, input, flow, token) =>
+                    {
+                        IChannel channel;
+                        if (!host.TryGetChannel(userToken.ID, out channel))
+                            throw new InvalidOperationException("客户端连接建立钩子未登记通道：" + userToken.ID);
+
+                        var adapter = new SocketStreamAdapter(
+                            userToken.ID,
+                            input,
+                            flow,
+                            (data, owner) =>
+                            {
+                                // 客户端发送重载会按需复制并在完成后释放 owner，适配器不接管所有权。
+                                client.SendAsync(data, owner);
+                                return Task.CompletedTask;
+                            });
+
+                        var options = NewOptions(queueCapacity: 64, maxConcurrentMessages: 4);
+                        var pipeline = BuildClientPipeline(options, registry, responseHandler);
+                        var executor = new ChannelPipelineExecutor(adapter, channel, options, token, host);
+                        executor.Attach(pipeline);
+                        clientExecutor = executor;
+                        executor.Start();
+                        executorReady.TrySetResult(executor);
+
+                        try
+                        {
+                            await executor.Completion.ConfigureAwait(false);
+                        }
+                        finally
+                        {
+                            if (ReferenceEquals(clientExecutor, executor))
+                                clientExecutor = null;
+                        }
+                    });
+
+                if (useTls)
+                    clientBuilder = clientBuilder.WithSsl(o =>
+                    {
+                        o.TargetHost = "localhost";
+                        o.AllowInvalidCertificates = true;
+                    });
+
+                client = new SaeaClientSocket(clientBuilder.Build());
+                client.OnError += (id, ex) =>
+                    clientErrors.Enqueue(id + ": " + ex.GetType().Name + ": " + ex.Message);
+                client.OnClientReceiveSpan += data => Interlocked.Increment(ref spanEventCount);
+                client.Connect();
+
+                if (useTls && !client.IsAuthenticated)
+                    throw new InvalidOperationException("客户端 TLS 握手未完成。");
+
+                var executor = await executorReady.Task.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+                var sessionId = executor.Channel.Id;
+
+                var request = EncodeFrame(new LoginRequest { RequestId = 99, UserName = "client" }, registry);
+                client.SendAsync(new ReadOnlyMemory<byte>(request));
+
+                var response = await responseHandler.Received.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+                if (response.RequestId != 99 || !response.Success || response.Token != "token-client")
+                    throw new InvalidOperationException("客户端通道链解出的 LoginResponse 字段不正确。");
+
+                if (Volatile.Read(ref spanEventCount) != 0)
+                    throw new InvalidOperationException("配置输入处理器后 OnClientReceiveSpan 仍然触发。");
+
+                var heartbeatSeq = await serverHeartbeat.Task.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+                if (heartbeatSeq != 7)
+                    throw new InvalidOperationException("客户端链出站回写的心跳序号不正确：" + heartbeatSeq);
+
+                if (clientErrors.Count > 0)
+                    throw new InvalidOperationException("客户端报告错误：" + string.Join(" | ", clientErrors));
+                if (serverErrors.Count > 0)
+                    throw new InvalidOperationException("服务端报告错误：" + string.Join(" | ", serverErrors));
+
+                Console.WriteLine(
+                    "      客户端 " + sessionId + " 经通道链收到 LoginResponse：RequestId=" + response.RequestId +
+                    "，Token=" + response.Token + "；出站回写心跳 Seq=" + heartbeatSeq);
+
+                client.Disconnect();
+                await executor.Completion.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+                VerifySessionRemoved(host, sessionId);
+            }
+            finally
+            {
+                try { client?.Dispose(); } catch { }
+                try { server?.Stop(); } catch { }
+                try { server?.Dispose(); } catch { }
+                if (certificate != null)
+                    certificate.Dispose();
             }
         }
 
@@ -1022,6 +1247,30 @@ namespace SAEA.Sockets.PipelineTest
                 .Register<LoginRequest>(loginHandler)
                 .Register<Heartbeat>(heartbeatHandler));
             pipeline.AddLast(errors);
+            pipeline.AddLast(new ExceptionTerminalHandler());
+
+            return pipeline;
+        }
+
+        /// <summary>
+        /// 客户端链：出站编码与入站解码复用同一套编解码器，只保留响应分发，不配置服务端鉴权。
+        /// </summary>
+        private static ChannelPipeline BuildClientPipeline(
+            ChannelPipelineOptions options,
+            TypeRegistry registry,
+            LoginResponseHandler responseHandler)
+        {
+            var pipeline = ChannelPipeline.Create(options);
+            var codec = new EnvelopeCodec();
+
+            pipeline.AddLast(new FrameEncoderHandler(new LengthFieldFrameEncoder()));
+            pipeline.AddLast(new CodecEncoderHandler(codec));
+            pipeline.AddLast(new EnvelopeWrapHandler(registry, new JsonMessageCodec()));
+
+            pipeline.AddLast(new CodecDecoderHandler(codec));
+            pipeline.AddLast(new EnvelopeUnwrapHandler(registry, new JsonMessageCodec()));
+            pipeline.AddLast(new MessageDispatcher().Register<LoginResponse>(responseHandler));
+            pipeline.AddLast(new ExceptionRecorder());
             pipeline.AddLast(new ExceptionTerminalHandler());
 
             return pipeline;
@@ -1578,6 +1827,49 @@ namespace SAEA.Sockets.PipelineTest
                 {
                     ClosedWriteError.TrySetResult(ex);
                 }
+            }
+        }
+
+        /// <summary>
+        /// 客户端响应处理器：记录 LoginResponse，并按需经出站方向回写一帧心跳，用于验证适配器的发送委托。
+        /// </summary>
+        private sealed class LoginResponseHandler : IMessageHandler
+        {
+            private readonly int _heartbeatSeq;
+
+            private readonly TaskCompletionSource<LoginResponse> _received =
+                new TaskCompletionSource<LoginResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            /// <summary>指定回写心跳的序号；0 表示不回写。</summary>
+            /// <param name="heartbeatSeq">心跳序号，小于 0 抛 ArgumentOutOfRangeException</param>
+            public LoginResponseHandler(int heartbeatSeq)
+            {
+                if (heartbeatSeq < 0)
+                    throw new ArgumentOutOfRangeException(nameof(heartbeatSeq), "心跳序号不能为负。");
+
+                _heartbeatSeq = heartbeatSeq;
+            }
+
+            /// <summary>等待中的响应；只允许完成一次。</summary>
+            public Task<LoginResponse> Received
+            {
+                get { return _received.Task; }
+            }
+
+            /// <inheritdoc />
+            public Task HandleAsync(IChannelHandlerContext ctx, object message)
+            {
+                var response = message as LoginResponse;
+                if (response == null)
+                    throw new InvalidOperationException("LoginResponseHandler 只接受 LoginResponse。");
+
+                _received.TrySetResult(response);
+
+                if (_heartbeatSeq == 0)
+                    return Task.CompletedTask;
+
+                // 必须用分发器给的 ctx 回写：它会沿出站方向补齐编码与分帧。
+                return ctx.WriteAsync(new Heartbeat { Seq = _heartbeatSeq });
             }
         }
     }

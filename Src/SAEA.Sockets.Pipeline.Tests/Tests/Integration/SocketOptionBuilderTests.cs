@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 09:50:56
+*修改时间：2026/11/6 13:32:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：验收 10 的 ①②③ 与客户端钩子拒绝
+*描述：客户端钩子由拒绝改为构造成功
 *
 *****************************************************************************/
 using System;
@@ -42,7 +42,7 @@ using SAEA.Sockets.Model;
 namespace SAEA.Sockets.Pipeline.Tests.Tests.Integration
 {
     /// <summary>
-    /// 验收 10 的 ①②③ 与客户端钩子拒绝。
+    /// 验收 10 的 ①②③ 与客户端钩子接入。
     /// </summary>
     [TestClass]
     public class SocketOptionBuilderTests
@@ -115,17 +115,24 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Integration
         }
 
         /// <summary>
-        /// 配置了连接打开钩子的选项用于客户端时抛 NotSupportedException
+        /// 客户端配置连接打开钩子时构造成功：v2 起客户端与服务端共用同一套钩子，不再拒绝
         /// </summary>
         [TestMethod]
-        public void ClientWithHook_ThrowsNotSupportedException()
+        public void ClientWithHook_ConstructsSuccessfully()
         {
             var option = SocketOptionBuilder.Instance
                 .UseStream()
+                .SetIP("127.0.0.1")
+                .SetPort(1)
                 .UseConnectionOpened(OnConnectionOpened)
                 .Build();
 
-            Assert.ThrowsException<NotSupportedException>(() => new SaeaClientSocket(option));
+            using (var client = new SaeaClientSocket(option))
+            {
+                Assert.IsNotNull(client);
+            }
+
+            Assert.IsNotNull(((IPipelineSocketOption)option).ConnectionOpened);
         }
     }
 }

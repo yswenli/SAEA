@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:27
+*修改时间：2026/11/6 13:33:30
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：客户端接入通道链钩子：连接成功后登记通道并启动输入处理器，断开时取消
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -51,7 +51,8 @@ using System.Threading.Tasks;
 namespace SAEA.Sockets.Core.Tcp
 {
     /// <summary>
-    /// saea 客户端 socket
+    /// saea 客户端 socket。启用 <see cref="IPipelineSocketOption"/> 的钩子后，
+    /// 连接建立即登记通道并由输入处理器接管读循环，此时 <see cref="OnClientReceiveSpan"/> 不再触发。
     /// </summary>
     public class SaeaClientSocket : IClientSocket, IDisposable
     {
@@ -151,6 +152,21 @@ namespace SAEA.Sockets.Core.Tcp
         private Exception _tlsSetupException;
 
         /// <summary>
+        /// 连接建立回调；未配置通道链时为 null。
+        /// </summary>
+        private readonly Action<ChannelInfo> _connectionOpened;
+
+        /// <summary>
+        /// 接管读循环的输入处理器；未配置通道链时为 null。
+        /// </summary>
+        private readonly Func<IUserToken, PipeReader, IReceiveFlowControl, CancellationToken, Task> _inputHandler;
+
+        /// <summary>
+        /// 输入处理器的取消源；未启用通道链时为 null，由泵自身负责释放。
+        /// </summary>
+        private CancellationTokenSource _pipelineCts;
+
+        /// <summary>
         /// 是否有接收操作在途（0 否，1 是）。
         /// </summary>
         private int _receiving;
@@ -181,12 +197,15 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="socketOption">Socket选项</param>
         public SaeaClientSocket(ISocketOption socketOption)
         {
-            // 管道钩子 v1 仅支持服务端，客户端配置任一钩子即拒绝，不静默忽略。
-            if (socketOption is IPipelineSocketOption pipelineOption &&
-                (pipelineOption.InputHandler != null || pipelineOption.ConnectionOpened != null))
-                throw new NotSupportedException("客户端不支持 UseInputHandler / UseConnectionOpened 钩子，这些钩子仅用于服务端。");
-
             SocketOption = socketOption;
+
+            // 成对配置与 UseStream 要求由 SocketOptionBuilder.Build() 校验，这里只取结果。
+            var pipelineOption = socketOption as IPipelineSocketOption;
+            if (pipelineOption != null)
+            {
+                _connectionOpened = pipelineOption.ConnectionOpened;
+                _inputHandler = pipelineOption.InputHandler;
+            }
 
             // Stream / TLS 模式可能未设置上下文；补齐默认上下文，避免令牌初始化失败。
             if (socketOption.Context == null)
@@ -392,8 +411,8 @@ namespace SAEA.Sockets.Core.Tcp
 
                 ProcessReceive(readArgs);
 
-                // 连接门面存在且有事件订阅者时，由后台泵交付解密/流式数据。
-                if (_connection != null && OnClientReceiveSpan != null)
+                // 连接门面存在且有事件订阅者时，由后台泵交付解密/流式数据；配置了输入处理器时读循环归它独占。
+                if (_connection != null && OnClientReceiveSpan != null && _inputHandler == null)
                     StartSpanPump(_connection);
             }
 
@@ -411,6 +430,14 @@ namespace SAEA.Sockets.Core.Tcp
                     }
                     else
                     {
+                        // TLS 握手完成即明文可读，通道链在回调通知成功之前建立。
+                        if (!StartPipelineIfNeeded())
+                        {
+                            _connectCallBack?.Invoke(SocketError.SocketError);
+                            _connectEvent.Set();
+                            return;
+                        }
+
                         _connectCallBack?.Invoke(SocketError.Success);
                     }
                     _connectEvent.Set();
@@ -424,6 +451,14 @@ namespace SAEA.Sockets.Core.Tcp
                 RaiseError("", ex);
                 _connectCallBack?.Invoke(SocketError.SocketError);
                 try { Disconnect(ex); } catch { }
+                _connectEvent.Set();
+                return;
+            }
+
+            // 明文连接：连接建立即可读取，通道链在回调通知结果之前建立。
+            if (Connected && !StartPipelineIfNeeded())
+            {
+                _connectCallBack?.Invoke(SocketError.SocketError);
                 _connectEvent.Set();
                 return;
             }
@@ -548,6 +583,79 @@ namespace SAEA.Sockets.Core.Tcp
                     if (result.IsCompleted) break;
                 }
             });
+        }
+
+        /// <summary>
+        /// 启动接管读循环的输入处理器。仅在配置了钩子且连接门面存在时启动，
+        /// 与 <see cref="StartSpanPump"/> 互斥：配置处理器时事件泵不再启动。
+        /// </summary>
+        /// <returns>未配置钩子或启动成功返回 true；连接建立回调抛异常时断开连接并返回 false。</returns>
+        private bool StartPipelineIfNeeded()
+        {
+            if (_inputHandler == null || _connection == null) return true;
+
+            var connection = _connection;
+            var userToken = _userToken;
+            if (userToken == null || string.IsNullOrEmpty(userToken.ID)) return true;
+
+            var channel = new ChannelInfo
+            {
+                ID = userToken.ID,
+                ClientSocket = _socket,
+                Stream = connection.Stream,
+                UserToken = userToken,
+                Tls = connection.Tls
+            };
+
+            try
+            {
+                _connectionOpened?.Invoke(channel);
+            }
+            catch (Exception ex)
+            {
+                // 通道未登记时继续启动输入处理器只会放大错误，按建链失败处理。
+                RaiseError(userToken.ID, ex);
+                Disconnect(ex);
+                return false;
+            }
+
+            var cts = new CancellationTokenSource();
+            _pipelineCts = cts;
+
+            var flow = new ReceiveFlowControl(connection, Disconnect);
+            var handler = _inputHandler;
+            var input = connection.Input;
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await handler(userToken, input, flow, cts.Token).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    RaiseError(userToken.ID, ex);
+                }
+                finally
+                {
+                    // 只在仍是当前泵时清空，避免重连后误清新令牌。
+                    if (ReferenceEquals(_pipelineCts, cts)) _pipelineCts = null;
+                    cts.Dispose();
+                }
+            });
+
+            return true;
+        }
+
+        /// <summary>
+        /// 取消输入处理器令牌。取消只置位，取消源由泵自身的收口负责释放。
+        /// </summary>
+        private void StopPipeline()
+        {
+            var cts = _pipelineCts;
+            if (cts == null) return;
+
+            try { cts.Cancel(); } catch (ObjectDisposedException) { }
         }
 
         /// <summary>
@@ -1075,6 +1183,9 @@ namespace SAEA.Sockets.Core.Tcp
         public void Disconnect(Exception ex)
         {
             this.Connected = false;
+
+            // 先取消读循环接手方，再由连接门面收口，避免泵在已完成的 PipeReader 上继续读。
+            StopPipeline();
 
             var mex = ex;
 

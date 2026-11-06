@@ -19,14 +19,14 @@
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2026/11/6 09:50:56
-*描述：把 IServerSocket 接到 IRawByteStream 的适配器
+*描述：把服务端或客户端 socket 接到 IRawByteStream 的适配器
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 09:50:56
+*修改时间：2026/11/6 14:05:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：把 IServerSocket 接到 IRawByteStream 的适配器
+*描述：新增发送委托构造，支持客户端 socket 接入通道链
 *
 *****************************************************************************/
 using System;
@@ -37,10 +37,10 @@ using SAEA.Sockets.Pipeline;
 namespace SAEA.Sockets.PipelineTest
 {
     /// <summary>
-    /// 把 <see cref="IServerSocket"/> 接到 <see cref="IRawByteStream"/> 的适配器。
+    /// 把服务端或客户端 socket 接到 <see cref="IRawByteStream"/> 的适配器。
     /// <para>
     /// <see cref="SendAsync"/> 只表示"所有权已交给传输层"：<paramref name="owner"/> 必须原样
-    /// 传给 <see cref="IServerSocket.SendAsync(string, ReadOnlyMemory{byte}, IDisposable)"/>，
+    /// 交给发送委托或 <see cref="IServerSocket.SendAsync(string, ReadOnlyMemory{byte}, IDisposable)"/>，
     /// 由发送完成回调或失败路径释放，适配器绝不自行释放。
     /// </para>
     /// <para>
@@ -52,7 +52,7 @@ namespace SAEA.Sockets.PipelineTest
         private readonly string _channelId;
         private readonly PipeReader _input;
         private readonly IReceiveFlowControl _flow;
-        private readonly IServerSocket _server;
+        private readonly Func<ReadOnlyMemory<byte>, IDisposable, Task> _send;
 
         /// <summary>以连接标识、PipeReader、流量控制和服务器实例创建适配器。</summary>
         /// <param name="channelId">连接标识，为空或 null 抛 ArgumentException</param>
@@ -64,6 +64,20 @@ namespace SAEA.Sockets.PipelineTest
             PipeReader input,
             IReceiveFlowControl flow,
             IServerSocket server)
+            : this(channelId, input, flow, CreateServerSend(channelId, server))
+        {
+        }
+
+        /// <summary>以连接标识、PipeReader、流量控制和发送委托创建适配器，客户端接入时使用。</summary>
+        /// <param name="channelId">连接标识，为空或 null 抛 ArgumentException</param>
+        /// <param name="input">接收方向的 PipeReader，为 null 抛 ArgumentNullException</param>
+        /// <param name="flow">应用级流量控制闸门，为 null 抛 ArgumentNullException</param>
+        /// <param name="send">发送委托，接收完整帧与所有权凭据，为 null 抛 ArgumentNullException</param>
+        public SocketStreamAdapter(
+            string channelId,
+            PipeReader input,
+            IReceiveFlowControl flow,
+            Func<ReadOnlyMemory<byte>, IDisposable, Task> send)
         {
             if (string.IsNullOrEmpty(channelId))
                 throw new ArgumentException("连接标识不能为空。", nameof(channelId));
@@ -71,13 +85,27 @@ namespace SAEA.Sockets.PipelineTest
                 throw new ArgumentNullException(nameof(input));
             if (flow == null)
                 throw new ArgumentNullException(nameof(flow));
-            if (server == null)
-                throw new ArgumentNullException(nameof(server));
+            if (send == null)
+                throw new ArgumentNullException(nameof(send));
 
             _channelId = channelId;
             _input = input;
             _flow = flow;
-            _server = server;
+            _send = send;
+        }
+
+        private static Func<ReadOnlyMemory<byte>, IDisposable, Task> CreateServerSend(
+            string channelId,
+            IServerSocket server)
+        {
+            if (server == null)
+                throw new ArgumentNullException(nameof(server));
+
+            return (data, owner) =>
+            {
+                server.SendAsync(channelId, data, owner);
+                return Task.CompletedTask;
+            };
         }
 
         /// <inheritdoc />
@@ -100,8 +128,7 @@ namespace SAEA.Sockets.PipelineTest
         {
             try
             {
-                _server.SendAsync(_channelId, data, owner);
-                return Task.CompletedTask;
+                return _send(data, owner);
             }
             catch (ChannelClosedException)
             {

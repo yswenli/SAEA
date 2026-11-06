@@ -144,7 +144,7 @@ pipeline.AddLast(new ExceptionTerminalHandler());
 
 ## 🔌 Connecting a Transport: the IRawByteStream Adapter
 
-The core package does not reference `SAEA.Sockets`, so the consumer adapts `IServerSocket` to `IRawByteStream`. The complete implementation below can be copied directly (it matches `Src/SAEA.Sockets.PipelineTest/SocketStreamAdapter.cs`):
+The core package does not reference `SAEA.Sockets`, so the consumer adapts `IServerSocket` (server) or `SaeaClientSocket` (client) to `IRawByteStream`. The complete implementation below can be copied directly (it matches `Src/SAEA.Sockets.PipelineTest/SocketStreamAdapter.cs`):
 
 ```csharp
 using System;
@@ -159,9 +159,20 @@ public sealed class SocketStreamAdapter : IRawByteStream
     private readonly string _channelId;
     private readonly PipeReader _input;
     private readonly IReceiveFlowControl _flow;
-    private readonly IServerSocket _server;
+    private readonly Func<ReadOnlyMemory<byte>, IDisposable, Task> _send;
 
+    // Server: wrap IServerSocket into a send delegate.
     public SocketStreamAdapter(string channelId, PipeReader input, IReceiveFlowControl flow, IServerSocket server)
+        : this(channelId, input, flow, CreateServerSend(channelId, server))
+    {
+    }
+
+    // Client: pass client.SendAsync(data, owner) as the send delegate.
+    public SocketStreamAdapter(
+        string channelId,
+        PipeReader input,
+        IReceiveFlowControl flow,
+        Func<ReadOnlyMemory<byte>, IDisposable, Task> send)
     {
         if (string.IsNullOrEmpty(channelId))
             throw new ArgumentException("Channel id must not be empty.", nameof(channelId));
@@ -169,13 +180,27 @@ public sealed class SocketStreamAdapter : IRawByteStream
             throw new ArgumentNullException(nameof(input));
         if (flow == null)
             throw new ArgumentNullException(nameof(flow));
-        if (server == null)
-            throw new ArgumentNullException(nameof(server));
+        if (send == null)
+            throw new ArgumentNullException(nameof(send));
 
         _channelId = channelId;
         _input = input;
         _flow = flow;
-        _server = server;
+        _send = send;
+    }
+
+    private static Func<ReadOnlyMemory<byte>, IDisposable, Task> CreateServerSend(
+        string channelId,
+        IServerSocket server)
+    {
+        if (server == null)
+            throw new ArgumentNullException(nameof(server));
+
+        return (data, owner) =>
+        {
+            server.SendAsync(channelId, data, owner);
+            return Task.CompletedTask;
+        };
     }
 
     public string ChannelId
@@ -194,8 +219,7 @@ public sealed class SocketStreamAdapter : IRawByteStream
         {
             // Pass owner straight through: the transport releases it when sending completes or fails.
             // The adapter must never dispose it before returning.
-            _server.SendAsync(_channelId, data, owner);
-            return Task.CompletedTask;
+            return _send(data, owner);
         }
         catch (ChannelClosedException)
         {
@@ -226,7 +250,15 @@ public sealed class SocketStreamAdapter : IRawByteStream
 
 - `SendAsync` returning `Task.CompletedTask` means only that ownership of the frame has been handed to the transport — not that the peer received it. `owner` must stay undisposed until the task returns.
 - When the connection is closed, `SendAsync` must throw `ChannelClosedException` immediately instead of queueing or silently succeeding; other transport exceptions are translated to `ChannelClosedException` too.
-- Only server-side integration is supported. The client rejects both hooks at construction with `NotSupportedException`.
+- Both server and client support integration; both sides share the same `UseInputHandler` / `UseConnectionOpened` hooks and the same configuration validation. On the client, wire it inside `UseInputHandler`:
+
+  ```csharp
+  var adapter = new SocketStreamAdapter(userToken.ID, input, flow, (data, owner) =>
+  {
+      client.SendAsync(data, owner);   // the client copies as needed and releases owner when done
+      return Task.CompletedTask;
+  });
+  ```
 
 ---
 
@@ -249,9 +281,9 @@ public sealed class SocketStreamAdapter : IRawByteStream
 - `CloseAsync(reason)` only means "shutdown has begun": it returns immediately while shutdown continues in the background. Wait on `ChannelPipelineExecutor.Completion` to know that resources have been reclaimed.
 - After shutdown begins, `WriteAsync` throws `ChannelClosedException`; `IRawByteStream.SendAsync` must throw the same exception once the connection is closed. This check precedes message-type validation: an old `ctx` from an already-removed node still reports closed even if the message is not a `TransportFrame`.
 - Never call `GetStream()` or `ChannelInfo.Stream.ReadAsync` again — it would compete with the pump for the `PipeReader`. Once `UseInputHandler` is configured, the pump is the sole reader for that connection; a second reader steals data and triggers illegal concurrent reads on the pipe. Outbound `Stream.WriteAsync` is unaffected.
-- Once the hooks are enabled, `OnServerReceiveSpan` no longer fires for that connection (`StartSpanPump` is not started).
-- `UseInputHandler` must be paired with `UseConnectionOpened` and requires `.UseStream()`. `SocketOptionBuilder.Build()` validates this and throws `InvalidOperationException`. Configuring either hook on `SaeaClientSocket` throws `NotSupportedException` at client construction.
-- `UseConnectionOpened` runs synchronously inside `RaiseAccepted`; keep it to lightweight registration (create the `IChannel`, write initial attributes). Blocking I/O and `await` are forbidden.
+- Once the hooks are enabled, the event pump is not started for that connection: neither server `OnServerReceiveSpan` nor client `OnClientReceiveSpan` fires.
+- `UseInputHandler` must be paired with `UseConnectionOpened` and requires `.UseStream()`. `SocketOptionBuilder.Build()` validates this and throws `InvalidOperationException`.
+- `UseConnectionOpened` runs synchronously: on the server inside `RaiseAccepted`, on the client before the connect callback. Keep it to lightweight registration (create the `IChannel`, write initial attributes). Blocking I/O and `await` are forbidden.
 
 ---
 

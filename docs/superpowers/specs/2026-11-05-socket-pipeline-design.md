@@ -34,7 +34,8 @@
 - 不改既有 `OnServerReceiveSpan` 的语义、时序、线格式；不改 `ICoder` / `BaseCoder` / `FrameDecoder` 的实现与可见性。
 - 不迁移 MQTT / WebSocket / Redis / FTP / RPC 等内部消费方到新链。
 - 不做 UDP 通道链（v1 仅面向 TCP 字节流；UDP 数据报语义另行设计）。
-- **不做客户端通道链**：`SaeaClientSocket` 有同构的 `StartSpanPump`，v1 有意不接；客户端配置了 `UseInputHandler` / `UseConnectionOpened` 时在**客户端构造**阶段抛 `NotSupportedException`（明确不支持，v2 再补），**不做静默忽略**——"配了但悄悄不生效"是排障噩梦。服务端未开 `UseStream` 同样直接抛错（见 §6.1）。
+- **不做客户端通道链（v1）**：`SaeaClientSocket` 有同构的 `StartSpanPump`，v1 有意不接；客户端配置了 `UseInputHandler` / `UseConnectionOpened` 时在**客户端构造**阶段抛 `NotSupportedException`（明确不支持，v2 再补），**不做静默忽略**——"配了但悄悄不生效"是排障噩梦。服务端未开 `UseStream` 同样直接抛错（见 §6.1）。
+  - **v2 已补齐**：客户端连接成功后登记 `ChannelInfo` 并启动输入处理器，断开时取消；事件泵让位。详见 `2026-11-06-socket-pipeline-v2-client-design.md`。
 - 不做服务端 bootstrap、EventLoop 抽象、连接池、自动重连、TLS 特化（链位于明文侧，TLS 由既有 BouncyCastle 通道处理）。
 - 不引入 DotNetty 依赖，不做 `ByteBuf` 的全套引用计数语义。
 - 不做 `net8.0` 多目标。
@@ -685,7 +686,7 @@ public interface IReceiveFlowControl
 
 - 配置了 `UseInputHandler` 的连接：由该委托接管读循环，`StartSpanPump` 不再启动，`OnServerReceiveSpan` 对该连接不再触发。
 - **未配置 `.UseStream()` 却在服务端配置了 `UseInputHandler` → `Build()` 抛 `InvalidOperationException`**，消息写明"通道链需要 `UseStream` 提供的 `PipeReader`，纯 IOCP 事件模式没有"。不自动打开 `UseStream`：那会把 `OnAccepted` 参数改成 `ChannelInfo`、启用 `ChannelManager`、把 token 换成 `StreamUserToken`，属于调用方无感的破坏性变化。
-- 客户端（`SaeaClientSocket`）配置 `UseInputHandler` / `UseConnectionOpened` 时在**客户端构造**阶段抛 `NotSupportedException`，v1 不支持（见 §2.2）；不允许静默忽略。
+- 客户端（`SaeaClientSocket`）自 v2 起与服务端同构接入：连接成功后登记 `ChannelInfo` 并启动 `UseInputHandler`，明文在 `ProcessConnected` 通知之前启动、TLS 在握手完成回调中启动；`StartSpanPump` 让位，断开先取消输入处理器再收口连接（见 §2.2 与 `2026-11-06-socket-pipeline-v2-client-design.md`）。
 - 未配置的连接：行为语义与今天完全一致，但代码路径有改动（§6.2 的双来源闸门是公共路径），需全量回归。
 - 钩子类型定义在 `SAEA.Sockets`，因此 `SAEA.Sockets.Pipeline` 不引用 `SAEA.Sockets`；把 `IRawByteStream` 适配到 `IUserToken`/`IReceiveFlowControl` 的十来行胶水放在**使用方**，演示工程提供一份可直接复制的完整实现，README 给出全文。核心包不提供该适配器——反向依赖 `SAEA.Sockets` 会让"可脱离 socket 复用"这条目标失效。
 
@@ -968,7 +969,7 @@ public sealed class ChannelPipelineOptions
 7. **出站**：`ctx.WriteAsync(entity)` 经 `EnvelopeWrapHandler` + `CodecEncoderHandler` + `FrameEncoderHandler` 后落到底层，字节与"手工 `ICodec.Encode` 得到 body、再按 `BaseSocketProtocal.WriteTo` 手工拼 **8B body 长度 + 1B type**"逐字节一致；`owner` 在发送完成回调后释放（用可观测的 owner 断言）。
 8. **内存**：跑 10 万帧，`MemoryPoolManager` 租借/归还计数配平，无 `PooledMessage` 泄漏。
 9. **暂停来源隔离**：模拟 Pipe 写端背压（flush 续体清位）与通道链应用暂停同时发生，断言应用暂停不被清除、恢复后连接继续收数据。
-10. **配置校验（三组，分别验证三处入口）**：① 服务端只开 `.UseIocp()` 却配 `UseInputHandler`/`UseConnectionOpened` → `SocketOptionBuilder.Build()` 抛 `InvalidOperationException`，且未启动监听；② `MaxBufferedBytes != 0 && MaxBufferedBytes < Splitter.MaxFrameLength + P_Head` → `ChannelPipeline.Create` 抛错；`MaxBufferedBytes = 0` 时推导为 `MaxFrameLength + P_Head + ReadBufferSize`，且一个 `MaxFrameLength` 大小的合法帧（body + 9B 头）能正常拆出（不被缓冲上限误杀）；`Splitter == null` → `Create` 抛；③ 客户端配置任一钩子 → 构造 `SaeaClientSocket` 时抛 `NotSupportedException`。
+10. **配置校验（三组，分别验证三处入口）**：① 服务端只开 `.UseIocp()` 却配 `UseInputHandler`/`UseConnectionOpened` → `SocketOptionBuilder.Build()` 抛 `InvalidOperationException`，且未启动监听；② `MaxBufferedBytes != 0 && MaxBufferedBytes < Splitter.MaxFrameLength + P_Head` → `ChannelPipeline.Create` 抛错；`MaxBufferedBytes = 0` 时推导为 `MaxFrameLength + P_Head + ReadBufferSize`，且一个 `MaxFrameLength` 大小的合法帧（body + 9B 头）能正常拆出（不被缓冲上限误杀）；`Splitter == null` → `Create` 抛；③ 客户端配置任一钩子 → `Build()` 与服务端同规则校验（未 `.UseStream()` 或缺 `UseConnectionOpened` 时抛 `InvalidOperationException`）；配置合法时连接成功后由输入处理器接管读循环，`OnClientReceiveSpan` 不再触发。
 11. **启动时序**：`OnAccepted` 里写入会话映射并做 50ms 延迟，断言第一帧到达时映射已存在；TLS 下断言首帧在握手成功之后。
 12. **出站契约**：① 对同一条 `msg` 调用两次 `ctx.WriteAsync` 的坏 handler，`Debug` 下断言被检出；② 只调用一次的正常 handler，断言不触发；③ **未转发即返回**（截断出站链）在原理上无法自动检测——"明确丢弃"与"忘了转发"对外不可区分，只能靠代码评审与端到端用例（断言回包确实到达）发现。README 必须写明：Debug 断言只覆盖①，不覆盖③。`IRawByteStream.SendAsync` 绕过 head sink 的情形由代码评审禁止（§5.2），不做运行时检测。
 13. **`ChannelReadComplete` 粒度与时机**：一次 `ReadAsync` 产出 3 条帧，断言 `ChannelReadCompleteAsync` 只被调用 **1 次**，且发生在 3 条帧**全部入队之后**、**3 条消息都还没执行完**（用阻塞 handler 卡住，断言通知先到）。不要断言"执行链已启动"——入队与消费者拾取是异步的，没有同步保证。再用一个 50ms 的 `ChannelReadCompleteAsync`，断言它不会让消息执行串行化（3 条仍并发）。

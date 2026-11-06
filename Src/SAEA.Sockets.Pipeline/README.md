@@ -143,7 +143,7 @@ pipeline.AddLast(new ExceptionTerminalHandler());
 
 ## 🔌 接入传输层：IRawByteStream 适配器
 
-核心包不引用 `SAEA.Sockets`，使用方需要把 `IServerSocket` 适配成 `IRawByteStream`。下面是可直接复制的完整实现（与 `Src/SAEA.Sockets.PipelineTest/SocketStreamAdapter.cs` 一致）：
+核心包不引用 `SAEA.Sockets`，使用方需要把 `IServerSocket`（服务端）或 `SaeaClientSocket`（客户端）适配成 `IRawByteStream`。下面是可直接复制的完整实现（与 `Src/SAEA.Sockets.PipelineTest/SocketStreamAdapter.cs` 一致）：
 
 ```csharp
 using System;
@@ -158,9 +158,20 @@ public sealed class SocketStreamAdapter : IRawByteStream
     private readonly string _channelId;
     private readonly PipeReader _input;
     private readonly IReceiveFlowControl _flow;
-    private readonly IServerSocket _server;
+    private readonly Func<ReadOnlyMemory<byte>, IDisposable, Task> _send;
 
+    // 服务端：把 IServerSocket 转成发送委托。
     public SocketStreamAdapter(string channelId, PipeReader input, IReceiveFlowControl flow, IServerSocket server)
+        : this(channelId, input, flow, CreateServerSend(channelId, server))
+    {
+    }
+
+    // 客户端：发送委托直接接到 client.SendAsync(data, owner)。
+    public SocketStreamAdapter(
+        string channelId,
+        PipeReader input,
+        IReceiveFlowControl flow,
+        Func<ReadOnlyMemory<byte>, IDisposable, Task> send)
     {
         if (string.IsNullOrEmpty(channelId))
             throw new ArgumentException("连接标识不能为空。", nameof(channelId));
@@ -168,13 +179,27 @@ public sealed class SocketStreamAdapter : IRawByteStream
             throw new ArgumentNullException(nameof(input));
         if (flow == null)
             throw new ArgumentNullException(nameof(flow));
-        if (server == null)
-            throw new ArgumentNullException(nameof(server));
+        if (send == null)
+            throw new ArgumentNullException(nameof(send));
 
         _channelId = channelId;
         _input = input;
         _flow = flow;
-        _server = server;
+        _send = send;
+    }
+
+    private static Func<ReadOnlyMemory<byte>, IDisposable, Task> CreateServerSend(
+        string channelId,
+        IServerSocket server)
+    {
+        if (server == null)
+            throw new ArgumentNullException(nameof(server));
+
+        return (data, owner) =>
+        {
+            server.SendAsync(channelId, data, owner);
+            return Task.CompletedTask;
+        };
     }
 
     public string ChannelId
@@ -192,8 +217,7 @@ public sealed class SocketStreamAdapter : IRawByteStream
         try
         {
             // owner 原样交给传输层：发送完成或失败由传输层释放，适配器绝不自行 Dispose。
-            _server.SendAsync(_channelId, data, owner);
-            return Task.CompletedTask;
+            return _send(data, owner);
         }
         catch (ChannelClosedException)
         {
@@ -224,7 +248,15 @@ public sealed class SocketStreamAdapter : IRawByteStream
 
 - `SendAsync` 返回 `Task.CompletedTask` 只表示“帧的所有权已交给传输层”，不表示对端已收到；`owner` 必须在返回前保持未释放。
 - 连接已关闭时必须立即抛 `ChannelClosedException`，不能排队或静默成功；其他传输层异常也统一翻译成 `ChannelClosedException`。
-- 只支持服务端接入；客户端不支持两个钩子，配置即 `NotSupportedException`。
+- 服务端与客户端都支持接入；两端共用同一套 `UseInputHandler` / `UseConnectionOpened` 钩子与配置校验。客户端在 `UseInputHandler` 里这样接：
+
+  ```csharp
+  var adapter = new SocketStreamAdapter(userToken.ID, input, flow, (data, owner) =>
+  {
+      client.SendAsync(data, owner);   // 客户端按需复制，并在完成后释放 owner
+      return Task.CompletedTask;
+  });
+  ```
 
 ---
 
@@ -247,9 +279,9 @@ public sealed class SocketStreamAdapter : IRawByteStream
 - `CloseAsync(reason)` 只表示“已进入收口”：调用立即返回，后台收口继续执行，资源是否回收完要看 `ChannelPipelineExecutor.Completion`。
 - 进入收口后再 `WriteAsync` 抛 `ChannelClosedException`；连接已关闭时 `IRawByteStream.SendAsync` 也必须立即抛同一异常。该判定先于消息类型判定：即使持有的是已摘链节点的旧 `ctx`、传出的也不是 `TransportFrame`，只要连接在收口就按关闭上报。
 - 禁止再调用 `GetStream()` 或 `ChannelInfo.Stream.ReadAsync` 与泵抢 `PipeReader`：配置 `UseInputHandler` 后，该连接的 `PipeReader` 由泵独占，两个读者会互相抢数据并触发 Pipe 非法并发读。出站 `Stream.WriteAsync` 不受影响。
-- 钩子启用后，该连接的 `OnServerReceiveSpan` 不再触发（`StartSpanPump` 不会启动）。
-- `UseInputHandler` 必须与 `UseConnectionOpened` 成对配置，且必须 `.UseStream()`；`SocketOptionBuilder.Build()` 会校验并抛 `InvalidOperationException`。客户端构造 `SaeaClientSocket` 时配置任一钩子会抛 `NotSupportedException`。
-- `UseConnectionOpened` 在 `RaiseAccepted` 内同步调用，只做轻量登记（创建 `IChannel`、写初始属性），禁止阻塞 IO 或 `await`。
+- 钩子启用后，该连接的事件泵不再启动：服务端 `OnServerReceiveSpan`、客户端 `OnClientReceiveSpan` 都不再触发。
+- `UseInputHandler` 必须与 `UseConnectionOpened` 成对配置，且必须 `.UseStream()`；`SocketOptionBuilder.Build()` 会校验并抛 `InvalidOperationException`。
+- `UseConnectionOpened` 同步调用：服务端在 `RaiseAccepted` 内、客户端在连接成功回调之前，只做轻量登记（创建 `IChannel`、写初始属性），禁止阻塞 IO 或 `await`。
 
 ---
 
