@@ -8,8 +8,14 @@ using SAEA.RedisSocket;
 
 namespace SAEA.RedisSocketTest
 {
+    /// <summary>
+    /// 连接保活演示：反复触发命令观察长连接是否维持，异常时输出序列化后的异常信息
+    /// </summary>
     public static class KeepOnTest
     {
+        /// <summary>
+        /// 连接本地 Redis 后循环等待回车并输出 INFO 结果，命令异常不退出循环
+        /// </summary>
         public static void Test()
         {
             ConsoleHelper.WriteLine("KeepOnTest Start");
