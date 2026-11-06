@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:40:47
+*修改时间：2026/11/6 13:23:31
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：补齐英文与乱码注释的中文说明
 *
 *****************************************************************************/
 using SAEA.DNS.Protocol;
@@ -44,17 +44,24 @@ namespace SAEA.DNS.Common.ResourceRecords
     /// </summary>
     public class TextResourceRecord : BaseResourceRecord
     {
-        ///��������/ֵƥ���������ʽ��
-        ///��һ��δת��Ⱥ�������/ֵ�ָ����
+        /// <summary>
+        /// 匹配未转义的「名称=值」形式，并保留值中的空白
+        /// </summary>
         private static readonly Regex PATTERN_TXT_RECORD = new Regex(@"^([ -~]*?)(?<!`)=([ -~]*)$");
 
-        ///ƥ��δת��ǰ��/β��հ׵�������ʽ��
+        /// <summary>
+        /// 匹配名称首尾未转义的空白
+        /// </summary>
         private static readonly Regex PATTERN_TRIM_NAME = new Regex(@"^\s+|((?<!`)\s)+$");
 
-        ///ƥ��δת���ַ���������ʽ��
+        /// <summary>
+        /// 匹配需要转义的字符（反引号与等号）
+        /// </summary>
         private static readonly Regex PATTERN_ESCAPE = new Regex(@"([`=])");
 
-        ///ƥ��ת���ַ���������ʽ��
+        /// <summary>
+        /// 匹配已转义的字符（反引号后跟反引号、等号或空白）
+        /// </summary>
         private static readonly Regex PATTERN_UNESCAPE = new Regex(@"`([`=\s])");
 
         private static string Trim(string value) => PATTERN_TRIM_NAME.Replace(value, string.Empty);
