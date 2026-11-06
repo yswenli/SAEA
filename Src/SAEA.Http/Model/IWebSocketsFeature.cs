@@ -5,16 +5,30 @@
  \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
   ___) / ___ \| |___ / ___ \   ___) | (_) | (__|   <  __/ |_ 
  |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
-                                                                
- *Copyright (c) yswenli All Rights Reserved.
- *CLR版本： netstandard2.0
- *机器名称：WENLI-PC
- *公司名称：yswenli
- *命名空间：SAEA.Http.Model
- *文件名： IWebSocketsFeature
- *描述：当前 Http 上下文的 WebSocket 能力入口
- *
- *****************************************************************************/
+                                                              
+ 
+*Copyright (c) yswenli All Rights Reserved.
+*CLR版本： netstandard2.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：SAEA.Http.Model
+*文件名： IWebSocketsFeature
+*版本号： v26.11.5.1
+*唯一标识：891fea02-8793-4f1b-ace9-ef024bace944
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/11/5 11:56:30
+*描述：当前 Http 上下文的 WebSocket 能力入口
+*
+*=====================================================================
+*修改标记
+*修改时间：2026/11/6 13:11:19
+*修改人： yswenli
+*版本号： v26.11.5.1
+*描述：规范文件头 banner
+*
+*****************************************************************************/
 using System.Threading.Tasks;
 
 namespace SAEA.Http.Model

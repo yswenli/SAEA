@@ -5,16 +5,30 @@
  \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
   ___) / ___ \| |___ / ___ \   ___) | (_) | (__|   <  __/ |_ 
  |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
-                                                                
- *Copyright (c) yswenli All Rights Reserved.
- *CLR版本： netstandard2.0
- *机器名称：WENLI-PC
- *公司名称：yswenli
- *命名空间：SAEA.Http.Model
- *文件名： IWebSocketTransport
- *描述：已升级 WebSocket 连接的底层传输抽象
- *
- *****************************************************************************/
+                                                              
+ 
+*Copyright (c) yswenli All Rights Reserved.
+*CLR版本： netstandard2.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：SAEA.Http.Model
+*文件名： IWebSocketTransport
+*版本号： v26.11.5.1
+*唯一标识：212993eb-d0e2-4c66-bdc2-b070e89eb418
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/11/5 11:56:30
+*描述：已升级 WebSocket 连接的底层传输抽象
+*
+*=====================================================================
+*修改标记
+*修改时间：2026/11/6 13:11:19
+*修改人： yswenli
+*版本号： v26.11.5.1
+*描述：规范文件头 banner
+*
+*****************************************************************************/
 namespace SAEA.Http.Model
 {
     /// <summary>
