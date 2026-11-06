@@ -28,15 +28,29 @@ using System.Collections.Generic;
 
 namespace SAEA.RPCTest.Provider
 {
+    /// <summary>
+    /// 组服务示例，验证用户列表与组信息等复杂对象的远程调用
+    /// </summary>
     [RPCService]
     public class GroupService
     {
+        /// <summary>
+        /// 回传传入的用户列表，用于验证列表序列化
+        /// </summary>
+        /// <param name="users">用户列表</param>
+        /// <returns>与入参相同的用户列表</returns>
         public List<UserInfo> Update(List<UserInfo> users)
         {
             return users;
         }
 
 
+        /// <summary>
+        /// 按组名与创建者构造组信息
+        /// </summary>
+        /// <param name="groupName">组名称</param>
+        /// <param name="user">组的创建者</param>
+        /// <returns>组 ID 固定为 1、创建时间为当前时间、非临时的组信息</returns>
         public GroupInfo Add(string groupName, UserInfo user)
         {
             return new GroupInfo() { GroupID = 1, Name = groupName, Created = DateTimeHelper.Now, IsTemporary = false, Creator = user };
@@ -44,6 +58,11 @@ namespace SAEA.RPCTest.Provider
 
 
 
+        /// <summary>
+        /// 返回固定构造的示例组信息
+        /// </summary>
+        /// <param name="id">组 ID，当前实现未使用</param>
+        /// <returns>含 1 个成员和 1 条限制记录的组信息</returns>
         public GroupInfo GetGroupInfo(int id)
         {
             var limit = new Dictionary<int, UserInfo>();

@@ -23,13 +23,17 @@ using System.Diagnostics;
 namespace SAEA.RPCTest.Provider.Attr
 {
     /// <summary>
-    /// SAEA.RPC LogAttribute
+    /// RPC 方法执行日志过滤器，输出服务名、方法名与执行耗时
     /// </summary>
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = true)]
     public class LogAttribute : ActionFilterAtrribute
     {
         Stopwatch stopwatch = new Stopwatch();
 
+        /// <summary>
+        /// 构造函数，设置执行顺序并启动计时器
+        /// </summary>
+        /// <param name="argsNames">需记录的参数名称，当前实现未使用</param>
         public LogAttribute(params string[] argsNames)
         {
             Order = 0;
@@ -37,6 +41,14 @@ namespace SAEA.RPCTest.Provider.Attr
         }
 
 
+        /// <summary>
+        /// 方法执行前重置计时器
+        /// </summary>
+        /// <param name="userToken">用户令牌</param>
+        /// <param name="serviceName">服务名</param>
+        /// <param name="methodName">方法名</param>
+        /// <param name="args">调用参数</param>
+        /// <returns>固定返回 true，表示继续执行目标方法</returns>
         public override bool OnActionExecuting(IUserToken userToken, string serviceName, string methodName, object[] args)
         {
             stopwatch.Reset();
@@ -44,6 +56,14 @@ namespace SAEA.RPCTest.Provider.Attr
             return true;
         }
 
+        /// <summary>
+        /// 方法执行后输出服务名、方法名与耗时（毫秒）
+        /// </summary>
+        /// <param name="userToken">用户令牌</param>
+        /// <param name="serviceName">服务名</param>
+        /// <param name="methodName">方法名</param>
+        /// <param name="args">调用参数</param>
+        /// <param name="result">方法返回值</param>
         public override void OnActionExecuted(IUserToken userToken, string serviceName, string methodName, object[] args, object result)
         {
             Console.WriteLine($"SAEA.RPCTest.LogAttribute.{serviceName}.{methodName} taking {stopwatch.ElapsedMilliseconds} ms");

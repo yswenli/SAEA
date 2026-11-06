@@ -28,15 +28,27 @@ using System.Collections.Generic;
 
 namespace SAEA.RPCTest.Providers
 {
+    /// <summary>
+    /// 泛型服务示例，验证泛型包装与列表的远程调用
+    /// </summary>
     [RPCService]
     public class GenericService
     {
+        /// <summary>
+        /// 回传传入的结果包装，用于验证泛型对象的序列化
+        /// </summary>
+        /// <param name="data">待回传的结果包装</param>
+        /// <returns>与入参相同的结果包装</returns>
         public ActionResult<UserInfo> Get(ActionResult<UserInfo> data)
         {
             return data;
         }
 
 
+        /// <summary>
+        /// 生成固定规模的字符串列表，用于验证大集合的传输
+        /// </summary>
+        /// <returns>含 10000 条「序号 hello」的字符串列表</returns>
         public List<string> GetListString()
         {
             var list = new List<string>();

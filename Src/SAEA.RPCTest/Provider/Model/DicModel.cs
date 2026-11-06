@@ -26,11 +26,20 @@ using System.Collections.Generic;
 
 namespace SAEA.RPCTest.Providers.Model
 {
+    /// <summary>
+    /// 字典传输模型，用于验证字典键值对在 RPC 中的序列化
+    /// </summary>
     public class DicModel
     {
+        /// <summary>
+        /// 整数到字符串的字典数据
+        /// </summary>
         public Dictionary<int, string> MyDate1 { get; set; }
 
 
+        /// <summary>
+        /// 整数到用户信息的字典数据
+        /// </summary>
         public Dictionary<int, UserInfo> MyDate2 { get; set; }
     }
 }

@@ -26,39 +26,63 @@ using System.Collections.Generic;
 
 namespace SAEA.RPCTest.Provider.Model
 {
+    /// <summary>
+    /// 组信息模型，包含创建者、成员列表与限制名单
+    /// </summary>
     [Serializable]
     public class GroupInfo
     {
+        /// <summary>
+        /// 组唯一标识
+        /// </summary>
         public int GroupID
         {
             get; set;
         }
 
+        /// <summary>
+        /// 组名称
+        /// </summary>
         public string Name
         {
             get; set;
         }
 
+        /// <summary>
+        /// 是否为临时组
+        /// </summary>
         public bool IsTemporary
         {
             get; set;
         }
 
+        /// <summary>
+        /// 组的创建时间
+        /// </summary>
         public DateTime Created
         {
             get; set;
         }
 
+        /// <summary>
+        /// 组的创建者
+        /// </summary>
         public UserInfo Creator
         {
             get; set;
         }
 
+        /// <summary>
+        /// 组的成员列表
+        /// </summary>
         public List<UserInfo> Users
         {
             get; set;
         }
 
+        /// <summary>
+        /// 按用户 ID 索引的限制名单
+        /// </summary>
         public Dictionary<int, UserInfo> Limit
         {
             get; set;

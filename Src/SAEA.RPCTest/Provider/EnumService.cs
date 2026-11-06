@@ -26,9 +26,17 @@ using SAEA.RPCTest.Provider.Model;
 
 namespace SAEA.RPCTest.Provider
 {
+    /// <summary>
+    /// 枚举服务示例，验证枚举参数与枚举返回值的远程调用
+    /// </summary>
     [RPCService]
     public class EnumService
     {
+        /// <summary>
+        /// 接收枚举参数并返回固定枚举值
+        /// </summary>
+        /// <param name="est">服务评价等级，当前实现未使用</param>
+        /// <returns>固定返回最大档位 Biggest</returns>
         public ReturnEnum GetEnum(EnumServiceType est)
         {
             return ReturnEnum.Biggest;

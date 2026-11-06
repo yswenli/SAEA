@@ -241,31 +241,63 @@ namespace SAEA.RPCTest.Consumer.Service
 
 namespace SAEA.RPCTest.Consumer.Service
 {
+    /// <summary>
+    /// Hello 服务的客户端代理，把调用转发到服务端同名方法
+    /// </summary>
     public class HelloService
     {
         ServiceConsumer _serviceConsumer;
+        /// <summary>
+        /// 构造函数
+        /// </summary>
+        /// <param name="serviceConsumer">服务消费者</param>
         public HelloService(ServiceConsumer serviceConsumer)
         {
             _serviceConsumer = serviceConsumer;
         }
+        /// <summary>
+        /// 调用服务端的 Hello 方法
+        /// </summary>
+        /// <returns>服务端拼接后的字符串</returns>
         public String Hello()
         {
             return _serviceConsumer.RemoteCall<String>("HelloService", "Hello");
         }
+        /// <summary>
+        /// 调用服务端的加法方法
+        /// </summary>
+        /// <param name="x">被加数</param>
+        /// <param name="y">加数</param>
+        /// <returns>两数之和</returns>
         public Int32 Plus(Int32 x, Int32 y)
         {
             return _serviceConsumer.RemoteCall<Int32>("HelloService", "Plus", x, y);
         }
+        /// <summary>
+        /// 调用服务端的用户信息回传方法
+        /// </summary>
+        /// <param name="info">待回传的用户信息</param>
+        /// <returns>服务端返回的用户信息</returns>
         public UserInfo Update(UserInfo info)
         {
             return _serviceConsumer.RemoteCall<UserInfo>("HelloService", "Update", info);
         }
 
+        /// <summary>
+        /// 更新用户信息；实现为同步远程调用，并非真正的异步
+        /// </summary>
+        /// <param name="info">待更新的用户信息</param>
+        /// <returns>服务端返回的用户信息</returns>
         public UserInfo UpdateAsync(UserInfo info)
         {
             return _serviceConsumer.RemoteCall<UserInfo>("HelloService", "Update", info);
         }
 
+        /// <summary>
+        /// 调用服务端的字节数据处理方法
+        /// </summary>
+        /// <param name="data">待发送的字节数据</param>
+        /// <returns>服务端处理后的字节数据</returns>
         public Byte[] SendData(Byte[] data)
         {
             return _serviceConsumer.RemoteCall<Byte[]>("HelloService", "SendData", data);
@@ -275,13 +307,26 @@ namespace SAEA.RPCTest.Consumer.Service
 
 namespace SAEA.RPCTest.Consumer.Service
 {
+    /// <summary>
+    /// 字典服务的客户端代理，转发字典参数的远程调用
+    /// </summary>
     public class DicService
     {
         ServiceConsumer _serviceConsumer;
+        /// <summary>
+        /// 构造函数
+        /// </summary>
+        /// <param name="serviceConsumer">服务消费者</param>
         public DicService(ServiceConsumer serviceConsumer)
         {
             _serviceConsumer = serviceConsumer;
         }
+        /// <summary>
+        /// 调用服务端的字典回传方法
+        /// </summary>
+        /// <param name="id">用户 ID</param>
+        /// <param name="data">用户字典数据</param>
+        /// <returns>服务端返回的用户字典数据</returns>
         public Dictionary<Int32, UserInfo> Test(Int32 id, Dictionary<Int32, UserInfo> data)
         {
             return _serviceConsumer.RemoteCall<Dictionary<Int32, UserInfo>>("DicService", "Test", id, data);
@@ -291,17 +336,33 @@ namespace SAEA.RPCTest.Consumer.Service
 
 namespace SAEA.RPCTest.Consumer.Service
 {
+    /// <summary>
+    /// 泛型服务的客户端代理，转发泛型包装与列表的远程调用
+    /// </summary>
     public class GenericService
     {
         ServiceConsumer _serviceConsumer;
+        /// <summary>
+        /// 构造函数
+        /// </summary>
+        /// <param name="serviceConsumer">服务消费者</param>
         public GenericService(ServiceConsumer serviceConsumer)
         {
             _serviceConsumer = serviceConsumer;
         }
+        /// <summary>
+        /// 调用服务端的结果包装回传方法
+        /// </summary>
+        /// <param name="data">待回传的结果包装</param>
+        /// <returns>服务端返回的结果包装</returns>
         public ActionResult<UserInfo> Get(ActionResult<UserInfo> data)
         {
             return _serviceConsumer.RemoteCall<ActionResult<UserInfo>>("GenericService", "Get", data);
         }
+        /// <summary>
+        /// 调用服务端的字符串列表生成方法
+        /// </summary>
+        /// <returns>服务端返回的字符串列表</returns>
         public List<String> GetListString()
         {
             return _serviceConsumer.RemoteCall<List<String>>("GenericService", "GetListString");
@@ -311,42 +372,81 @@ namespace SAEA.RPCTest.Consumer.Service
 
 namespace SAEA.RPCTest.Consumer.Model
 {
+    /// <summary>
+    /// 服务返回档位枚举，与服务端定义保持一致以保证反序列化兼容
+    /// </summary>
     public enum ReturnEnum : Int32
     {
+        /// <summary>
+        /// 小档位，值为 0
+        /// </summary>
         Big = 0,
+        /// <summary>
+        /// 中档位，值为 1
+        /// </summary>
         Bigger = 1,
+        /// <summary>
+        /// 大档位，值为 2
+        /// </summary>
         Biggest = 2,
     }
 }
 
 namespace SAEA.RPCTest.Consumer.Model
 {
+    /// <summary>
+    /// 服务评价等级枚举，与服务端定义保持一致以保证反序列化兼容
+    /// </summary>
     public enum EnumServiceType : Int32
     {
+        /// <summary>
+        /// 初级评价，值为 1
+        /// </summary>
         Good = 1,
+        /// <summary>
+        /// 中级评价，值为 2
+        /// </summary>
         Better = 2,
+        /// <summary>
+        /// 高级评价，值为 3
+        /// </summary>
         Best = 3,
     }
 }
 
 namespace SAEA.RPCTest.Consumer.Model
 {
+    /// <summary>
+    /// 用户信息模型，与服务端定义保持一致以保证序列化兼容
+    /// </summary>
     [Serializable]
     public class UserInfo
     {
+        /// <summary>
+        /// 用户唯一标识
+        /// </summary>
         public Int32 ID
         {
             get; set;
         }
+        /// <summary>
+        /// 用户名
+        /// </summary>
         public String UserName
         {
             get; set;
         }
+        /// <summary>
+        /// 出生日期
+        /// </summary>
         public DateTime Birthday
         {
             get; set;
         }
 
+        /// <summary>
+        /// 用户积分
+        /// </summary>
         public decimal Score
         {
             get; set;
@@ -356,33 +456,57 @@ namespace SAEA.RPCTest.Consumer.Model
 
 namespace SAEA.RPCTest.Consumer.Model
 {
+    /// <summary>
+    /// 组信息模型，与服务端定义保持一致以保证序列化兼容
+    /// </summary>
     [Serializable]
     public class GroupInfo
     {
+        /// <summary>
+        /// 组唯一标识
+        /// </summary>
         public Int32 GroupID
         {
             get; set;
         }
+        /// <summary>
+        /// 组名称
+        /// </summary>
         public String Name
         {
             get; set;
         }
+        /// <summary>
+        /// 是否为临时组
+        /// </summary>
         public Boolean IsTemporary
         {
             get; set;
         }
+        /// <summary>
+        /// 组的创建时间
+        /// </summary>
         public DateTime Created
         {
             get; set;
         }
+        /// <summary>
+        /// 组的创建者
+        /// </summary>
         public UserInfo Creator
         {
             get; set;
         }
+        /// <summary>
+        /// 组的成员列表
+        /// </summary>
         public List<UserInfo> Users
         {
             get; set;
         }
+        /// <summary>
+        /// 按用户 ID 索引的限制名单
+        /// </summary>
         public Dictionary<Int32, UserInfo> Limit
         {
             get; set;
@@ -392,20 +516,36 @@ namespace SAEA.RPCTest.Consumer.Model
 
 namespace SAEA.RPCTest.Consumer.Model
 {
+    /// <summary>
+    /// 统一返回结果包装，与服务端定义保持一致以保证序列化兼容
+    /// </summary>
+    /// <typeparam name="T">业务数据类型</typeparam>
     public class ActionResult<T>
     {
+        /// <summary>
+        /// 是否成功
+        /// </summary>
         public Boolean Success
         {
             get; set;
         }
+        /// <summary>
+        /// 失败时的错误描述，成功时为 null
+        /// </summary>
         public String Error
         {
             get; set;
         }
+        /// <summary>
+        /// 结果状态码
+        /// </summary>
         public Int32 Code
         {
             get; set;
         }
+        /// <summary>
+        /// 业务数据
+        /// </summary>
         public T Data
         {
             get; set;
