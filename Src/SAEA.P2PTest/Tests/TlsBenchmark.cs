@@ -20,6 +20,7 @@ namespace SAEA.P2PTest.Tests
         private const int Iterations = 2000;
 
         /// <summary>运行基准。</summary>
+        /// <returns>异步任务，完成后该组场景与断言已全部执行</returns>
         public static async Task RunAsync()
         {
             TestHarness.Section("TLS performance baseline");

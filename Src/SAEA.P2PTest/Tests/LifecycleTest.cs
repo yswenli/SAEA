@@ -12,6 +12,10 @@ namespace SAEA.P2PTest.Tests
     /// </summary>
     public static class LifecycleTest
     {
+        /// <summary>
+        /// 依次校验纯局域网连接与断开、守卫子句抛错，以及接入真实服务端后的注册与注销流程
+        /// </summary>
+        /// <returns>异步任务，完成后该组场景与断言已全部执行</returns>
         public static async Task RunAsync()
         {
             TestHarness.Section("LifecycleTest");

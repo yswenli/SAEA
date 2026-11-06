@@ -13,6 +13,9 @@ namespace SAEA.P2PTest.Tests
     /// </summary>
     public static class EdgeCaseTest
     {
+        /// <summary>
+        /// 依次运行会话与节点模型、错误码、选项校验、构建器守卫与中继配额的边界断言
+        /// </summary>
         public static void Run()
         {
             TestHarness.Section("EdgeCaseTest");

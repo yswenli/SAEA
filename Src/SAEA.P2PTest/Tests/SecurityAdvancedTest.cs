@@ -10,6 +10,9 @@ namespace SAEA.P2PTest.Tests
     /// </summary>
     public static class SecurityAdvancedTest
     {
+        /// <summary>
+        /// 依次校验加密未启用时透传、SetKey 开关、加解密往返、不同密钥、错误密钥失败，以及认证与密钥交换边界
+        /// </summary>
         public static void Run()
         {
             TestHarness.Section("SecurityAdvancedTest");

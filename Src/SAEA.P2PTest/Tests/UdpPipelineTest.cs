@@ -16,6 +16,7 @@ namespace SAEA.P2PTest.Tests
         /// <summary>
         /// 绑定 UDP 服务端与客户端，发送一个数据报并验证服务端与客户端的 span 事件。
         /// </summary>
+        /// <returns>异步任务，完成后该组场景与断言已全部执行</returns>
         public static async Task RunAsync()
         {
             TestHarness.Section("UdpPipelineTest");

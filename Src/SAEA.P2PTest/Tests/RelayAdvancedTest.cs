@@ -13,6 +13,9 @@ namespace SAEA.P2PTest.Tests
     /// </summary>
     public static class RelayAdvancedTest
     {
+        /// <summary>
+        /// 依次校验未知会话抛错、配额限制与零配额不限、编解码往返、激活语义、关闭、过期清理与并发创建
+        /// </summary>
         public static void Run()
         {
             TestHarness.Section("RelayAdvancedTest");

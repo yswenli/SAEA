@@ -20,6 +20,7 @@ namespace SAEA.P2PTest.Tests
         private const int ReadBufferSize = 8192;
 
         /// <summary>运行全部硬化场景。</summary>
+        /// <returns>异步任务，完成后该组场景与断言已全部执行</returns>
         public static async Task RunAsync()
         {
             TestHarness.Section("TlsStressTest");

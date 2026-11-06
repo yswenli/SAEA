@@ -12,6 +12,9 @@ namespace SAEA.P2PTest.Tests
     /// </summary>
     public static class ProtocolAdvancedTest
     {
+        /// <summary>
+        /// 依次校验二进制往返、空内容、粘包拆包、消息类型查表、短包守卫、帧头布局、Unicode 与大载荷
+        /// </summary>
         public static void Run()
         {
             TestHarness.Section("ProtocolAdvancedTest");

@@ -18,6 +18,9 @@ namespace SAEA.P2PTest.Tests
     /// </summary>
     public static class PerformanceTest
     {
+        /// <summary>
+        /// 依次跑协议解码、1MB 载荷、加解密、中继编码与流式解码吞吐，并按宽松下限断言
+        /// </summary>
         public static void Run()
         {
             TestHarness.Section("PerformanceTest");

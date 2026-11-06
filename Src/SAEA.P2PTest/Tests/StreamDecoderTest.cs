@@ -14,6 +14,9 @@ namespace SAEA.P2PTest.Tests
     /// </summary>
     public static class StreamDecoderTest
     {
+        /// <summary>
+        /// 依次校验半包、分片追加、单次多帧、心跳、空包体、大包、超大帧、非法长度、零拷贝、多段序列与新旧解码一致性
+        /// </summary>
         public static void Run()
         {
             TestHarness.Section("StreamDecoderTest");
@@ -258,6 +261,10 @@ namespace SAEA.P2PTest.Tests
             }
         }
 
+        /// <summary>
+        /// 用本地监听端点与真实客户端连接，验证客户端 Span 事件收到完整帧字节
+        /// </summary>
+        /// <returns>异步任务，完成后该组场景与断言已全部执行</returns>
         public static async System.Threading.Tasks.Task RunIocpClientAsync()
         {
             TestHarness.Section("IOCP client span path");
@@ -291,6 +298,10 @@ namespace SAEA.P2PTest.Tests
             listener.Stop();
         }
 
+        /// <summary>
+        /// 用临时端口启动真实服务端，验证服务端 Span 事件收到客户端写入的完整帧字节
+        /// </summary>
+        /// <returns>异步任务，完成后该组场景与断言已全部执行</returns>
         public static async System.Threading.Tasks.Task RunIocpServerAsync()
         {
             TestHarness.Section("IOCP server span path");
@@ -324,6 +335,10 @@ namespace SAEA.P2PTest.Tests
             try { server.Dispose(); } catch { }
         }
 
+        /// <summary>
+        /// 验证 Span 回调首次抛异常后接收循环继续，且异常通过 OnError 上报
+        /// </summary>
+        /// <returns>异步任务，完成后该组场景与断言已全部执行</returns>
         public static async System.Threading.Tasks.Task RunIocpClientSpanExceptionAsync()
         {
             TestHarness.Section("IOCP client span exception resilience");

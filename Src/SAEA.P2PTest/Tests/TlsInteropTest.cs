@@ -21,6 +21,7 @@ namespace SAEA.P2PTest.Tests
     public static class TlsInteropTest
     {
         /// <summary>运行全部互通场景。</summary>
+        /// <returns>异步任务，完成后该组场景与断言已全部执行</returns>
         public static async Task RunAsync()
         {
             TestHarness.Section("TlsInteropTest");

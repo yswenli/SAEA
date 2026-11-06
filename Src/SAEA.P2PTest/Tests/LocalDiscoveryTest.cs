@@ -6,8 +6,15 @@ using SAEA.P2P.Discovery;
 
 namespace SAEA.P2PTest.Tests
 {
+    /// <summary>
+    /// 局域网发现自测：发现实例构造、发现节点模型、启停与多节点互相发现
+    /// </summary>
     public static class LocalDiscoveryTest
     {
+        /// <summary>
+        /// 依次执行发现实例创建、节点模型、启停流程与多节点相互发现各段自测
+        /// </summary>
+        /// <returns>异步任务，完成后该组场景与断言已全部执行</returns>
         public static async Task RunAsync()
         {
             ConsoleHelper.WriteLine("=== LocalDiscoveryTest ===");

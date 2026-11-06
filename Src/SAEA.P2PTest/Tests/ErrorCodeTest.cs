@@ -5,8 +5,14 @@ using SAEA.P2P.Common;
 
 namespace SAEA.P2PTest.Tests
 {
+    /// <summary>
+    /// 错误码自测：错误码描述文本与 P2PException 的错误码、消息、内部异常传递
+    /// </summary>
     public static class ErrorCodeTest
     {
+        /// <summary>
+        /// 依次输出各错误码的描述并校验 P2PException 三种构造方式携带的信息
+        /// </summary>
         public static void Run()
         {
             ConsoleHelper.WriteLine("=== ErrorCodeTest ===");

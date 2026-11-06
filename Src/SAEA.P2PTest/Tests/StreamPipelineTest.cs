@@ -21,6 +21,7 @@ namespace SAEA.P2PTest.Tests
         /// <summary>
         /// 启动 Stream 服务端，验证 span 回调负载、令牌身份、原始发送与分片累积。
         /// </summary>
+        /// <returns>异步任务，完成后该组场景与断言已全部执行</returns>
         public static async Task RunAsync()
         {
             TestHarness.Section("StreamPipelineTest");

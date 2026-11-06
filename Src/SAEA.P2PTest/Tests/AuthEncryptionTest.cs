@@ -7,8 +7,15 @@ using SAEA.P2P.Common;
 
 namespace SAEA.P2PTest.Tests
 {
+    /// <summary>
+    /// 加密与认证自测：加密服务开关、加解密往返、认证管理器的挑战应答与密钥交换
+    /// </summary>
     public static class AuthEncryptionTest
     {
+        /// <summary>
+        /// 依次执行加密服务创建、加解密、未设密钥禁用、认证管理器、挑战应答与密钥交换各段自测
+        /// </summary>
+        /// <returns>异步任务，完成后该组场景与断言已全部执行</returns>
         public static async Task RunAsync()
         {
             ConsoleHelper.WriteLine("=== AuthEncryptionTest ===");

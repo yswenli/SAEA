@@ -8,8 +8,15 @@ using SAEA.P2P.Protocol;
 
 namespace SAEA.P2PTest.Tests
 {
+    /// <summary>
+    /// 中继基础自测：中继管理器与会话创建、会话配额、中继数据编码、会话过期
+    /// </summary>
     public static class RelayTest
     {
+        /// <summary>
+        /// 依次校验中继管理器创建、会话创建、配额限制、数据编码与会话过期各段行为
+        /// </summary>
+        /// <returns>异步任务，完成后该组场景与断言已全部执行</returns>
         public static async Task RunAsync()
         {
             ConsoleHelper.WriteLine("=== RelayTest ===");

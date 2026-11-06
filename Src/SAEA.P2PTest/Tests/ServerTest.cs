@@ -8,8 +8,15 @@ using SAEA.P2P.Core;
 
 namespace SAEA.P2PTest.Tests
 {
+    /// <summary>
+    /// P2P 服务端自测：服务端创建、事件挂接与启停
+    /// </summary>
     public static class ServerTest
     {
+        /// <summary>
+        /// 依次校验服务端创建后的端口与节点数、事件回调，以及启动后停止的完整流程
+        /// </summary>
+        /// <returns>异步任务，完成后该组场景与断言已全部执行</returns>
         public static async Task RunAsync()
         {
             ConsoleHelper.WriteLine("=== ServerTest ===");

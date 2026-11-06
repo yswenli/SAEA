@@ -16,6 +16,9 @@ namespace SAEA.P2PTest.Tests
     /// </summary>
     public static class ConcurrencyTest
     {
+        /// <summary>
+        /// 依次运行会话序号、中继会话表、编解码器、构建器与会话状态的多线程并发断言
+        /// </summary>
         public static void Run()
         {
             TestHarness.Section("ConcurrencyTest");

@@ -8,8 +8,14 @@ using SAEA.P2P.NAT;
 
 namespace SAEA.P2PTest.Tests
 {
+    /// <summary>
+    /// 客户端与服务端构建器自测：链式配置取值、默认值合并与入参校验
+    /// </summary>
     public static class BuilderTest
     {
+        /// <summary>
+        /// 依次校验客户端构建器的基础与完整配置、非法入参抛出，以及服务端构建器取值
+        /// </summary>
         public static void Run()
         {
             ConsoleHelper.WriteLine("=== BuilderTest ===");

@@ -7,8 +7,14 @@ using SAEA.P2P.Protocol;
 
 namespace SAEA.P2PTest.Tests
 {
+    /// <summary>
+    /// 协议基础自测：消息类型枚举取值、协议帧结构与编解码器
+    /// </summary>
     public static class ProtocolTest
     {
+        /// <summary>
+        /// 依次校验消息类型枚举取值、协议帧构造与编解码器的编解码结果
+        /// </summary>
         public static void Run()
         {
             ConsoleHelper.WriteLine("=== ProtocolTest ===");

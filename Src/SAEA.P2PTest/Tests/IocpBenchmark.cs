@@ -32,6 +32,10 @@ namespace SAEA.P2PTest.Tests
         static long _clientSpanBytesPerFrame;
         static long _clientLegacyBytesPerFrame;
 
+        /// <summary>
+        /// 对客户端与服务端分别跑旧路径解码、Span 解码流与仅投递三种接收模式，比较每帧分配字节并断言 Span 路径更省
+        /// </summary>
+        /// <returns>异步任务，完成后该组场景与断言已全部执行</returns>
         public static async Task RunAsync()
         {
             TestHarness.Section("IOCP end-to-end receive benchmark");

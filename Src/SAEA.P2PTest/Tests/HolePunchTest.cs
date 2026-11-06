@@ -7,8 +7,15 @@ using SAEA.P2P.Common;
 
 namespace SAEA.P2PTest.Tests
 {
+    /// <summary>
+    /// 打洞自测：打洞器构造、NAT 类型判定、策略选择、兼容性与打洞结果
+    /// </summary>
     public static class HolePunchTest
     {
+        /// <summary>
+        /// 依次执行打洞器创建、NAT 类型判定、策略、兼容性判定与打洞结果各段自测
+        /// </summary>
+        /// <returns>异步任务，完成后该组场景与断言已全部执行</returns>
         public static async Task RunAsync()
         {
             ConsoleHelper.WriteLine("=== HolePunchTest ===");

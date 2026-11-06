@@ -15,6 +15,10 @@ namespace SAEA.P2PTest.Tests
     /// </summary>
     public static class IntegrationTest
     {
+        /// <summary>
+        /// 用临时端口启动真实服务端并接入 3 个客户端，逐项校验重复节点拒绝、打洞会话、直连与中继收发、断开清理
+        /// </summary>
+        /// <returns>异步任务，完成后该组场景与断言已全部执行</returns>
         public static async Task RunAsync()
         {
             TestHarness.Section("IntegrationTest");

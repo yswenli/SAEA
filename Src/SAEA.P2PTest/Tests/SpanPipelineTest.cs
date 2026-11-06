@@ -4,8 +4,14 @@ using SAEA.Common.Caching;
 
 namespace SAEA.P2PTest.Tests
 {
+    /// <summary>
+    /// Span 与帧管线自测：池化写入器、帧写读、批量解码、半包与多段序列、零拷贝流式解码
+    /// </summary>
     public static class SpanPipelineTest
     {
+        /// <summary>
+        /// 依次校验池化写入器的扩容与清理、协议帧读写、批量帧释放、半包与多段解码、心跳与大包回调及非法长度拒绝
+        /// </summary>
         public static void Run()
         {
             TestHarness.Section("SpanPipelineTest");
@@ -139,6 +145,9 @@ namespace SAEA.P2PTest.Tests
             SendingOwnerIsReleasedOnClear();
         }
 
+        /// <summary>
+        /// 验证发送归属对象只能取出一次，且用户令牌清理时释放它、置空并吞掉释放异常
+        /// </summary>
         public static void SendingOwnerIsReleasedOnClear()
         {
             var live = new SAEA.Sockets.Base.BaseUserToken();

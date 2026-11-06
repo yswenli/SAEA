@@ -6,8 +6,14 @@ using SAEA.P2P.NAT;
 
 namespace SAEA.P2PTest.Tests
 {
+    /// <summary>
+    /// 快速上手示例：演示客户端与服务端构建器的典型链式配置
+    /// </summary>
     public static class QuickStartTest
     {
+        /// <summary>
+        /// 依次演示客户端与服务端构建器的配置方式并打印生成的选项
+        /// </summary>
         public static void Run()
         {
             ConsoleHelper.WriteLine("=== QuickStartTest ===");

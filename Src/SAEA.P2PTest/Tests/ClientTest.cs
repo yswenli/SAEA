@@ -10,8 +10,15 @@ using SAEA.P2P.Common;
 
 namespace SAEA.P2PTest.Tests
 {
+    /// <summary>
+    /// P2P 客户端自测：初始状态、事件挂接、无服务器本地模式与连接断开
+    /// </summary>
     public static class ClientTest
     {
+        /// <summary>
+        /// 依次校验客户端创建后的节点状态、事件回调、仅本地运行以及连接后再断开的流程
+        /// </summary>
+        /// <returns>异步任务，完成后该组场景与断言已全部执行</returns>
         public static async Task RunAsync()
         {
             ConsoleHelper.WriteLine("=== ClientTest ===");
