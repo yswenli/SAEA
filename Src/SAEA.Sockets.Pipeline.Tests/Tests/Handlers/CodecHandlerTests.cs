@@ -55,6 +55,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
             public long Big { get; set; }
         }
 
+        /// <summary>
+        /// 信封包裹、信封编码、帧编码三级出站链写出的一条实体只产生一帧，且字节与旧协议的 JSON 编码加长度头写出一致
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Outbound_FullChain_WritesBytesIdenticalToLegacyProtocol()
         {
@@ -105,6 +109,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
         }
 #endif
 
+        /// <summary>
+        /// 链返回时只归还 body writer，帧缓冲所有权随 TransportFrame 交给传输层且只能释放一次
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Outbound_OwnerTransferredToTransport_NotDisposedEarly_AndDisposedOnce()
         {
@@ -140,6 +148,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
             }
         }
 
+        /// <summary>
+        /// 入站解码器解码后释放池化帧并归还背衬内存，下游收到类型码与负载正确的信封
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Inbound_CodecDecoder_ReleasesPooledMessage_AndForwardsEnvelope()
         {
@@ -177,6 +189,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
             }
         }
 
+        /// <summary>
+        /// 未注册的类型码仍会归还帧，并以携带该类型码的 InvalidOperationException 形式走异常回调
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Inbound_UnknownTypeCode_SurfacesAsExceptionCaught()
         {
@@ -208,6 +224,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
             }
         }
 
+        /// <summary>
+        /// 负载超过拷贝阈值时解包仍能还原实体的字符串、int 与 long 字段
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Inbound_PayloadAboveCopyThreshold_StillDecodesEntity()
         {
@@ -247,6 +267,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
             }
         }
 
+        /// <summary>
+        /// 出站信封编码器收到非 Envelope 消息时抛 InvalidOperationException 且不发送任何字节
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Outbound_CodecEncoder_WrongMessageType_ThrowsInvalidOperationException()
         {
@@ -259,6 +283,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
             }
         }
 
+        /// <summary>
+        /// 出站帧编码器收到非 Envelope 消息时抛 InvalidOperationException 且不发送任何字节
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Outbound_FrameEncoder_WrongMessageType_ThrowsInvalidOperationException()
         {

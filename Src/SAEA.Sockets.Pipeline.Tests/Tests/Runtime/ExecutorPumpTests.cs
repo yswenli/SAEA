@@ -51,6 +51,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
     {
         private const int WaitTimeoutMs = 3000;
 
+        /// <summary>
+        /// 单帧到达时 handler 收到正确的帧体，消息在处理结束的 finally 中被释放且队列清空
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task SingleFrame_ArrivesAtHandlerAndIsReleased()
         {
@@ -85,6 +89,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 一次写入的三个粘包帧按写入顺序交付，且未触发背压时不调用恢复读取
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task ThreeCoalescedFrames_AreProcessedInOrder()
         {
@@ -117,6 +125,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 队列（容量 2）写满时只暂停一次，暂停期间不再读取且队列长度不变，解开阻塞后 5 帧按序处理并在低水位恢复读取一次
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task FullQueue_PausesOnce_ResumesAtLowWatermark_AndKeepsOrder()
         {
@@ -177,6 +189,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 包头只到一部分时不产帧，剩余字节到齐后产出一帧且帧体与原始负载一致
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task PartialHeader_DoesNotProduceFrameUntilRemainderArrives()
         {
@@ -212,6 +228,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 缓冲字节超过 MaxBufferedBytes 时以 buffered-bytes-limit 关闭传输并结束执行器
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task BufferedBytesOverLimit_ShutsDownAndClosesStream()
         {
@@ -238,6 +258,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 取消挂起读后泵停止，以 transport-closed 关闭传输且执行器正常结束、不向外抛异常
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task CancelPendingRead_StopsPumpAndCompletesWithoutThrowing()
         {
@@ -259,6 +283,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 守卫拒绝读取时守卫至少被调用一次，并以 guard-rejected 关闭传输后结束执行器
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task GuardRejection_ClosesWithObservableReason()
         {

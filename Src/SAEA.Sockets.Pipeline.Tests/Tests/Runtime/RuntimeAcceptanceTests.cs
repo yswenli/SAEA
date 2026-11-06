@@ -58,6 +58,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
     {
         private static readonly TimeSpan WaitTimeout = TimeSpan.FromSeconds(2);
 
+        /// <summary>
+        /// 慢鉴权不会把同连接的消息串行化：完成顺序与到达顺序相反、峰值并发大于 1 且总耗时明显低于串行累加值
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Acceptance3_SlowAuth_DoesNotSerializeMessagesOnSameConnection()
         {
@@ -103,6 +107,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 单并发时 50 帧严格按接收顺序处理；并发 4 时消息之间可并行，但同一条消息在两个链节点间仍保持 A 先 B 后
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Concurrency_SameConnection_KeepsReceiveOrder_AndPerMessageChainOrder()
         {
@@ -174,6 +182,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 队列满时只暂停一次且暂停期间不再 ReadAsync，空出一格（4→3）不恢复，降到低水位（3→2）才恢复一次，最终 10 帧按序处理完且并发额度回满
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Acceptance4_Backpressure_PausesOnce_NoReadWhilePaused_ResumesAtLowWatermark()
         {
@@ -242,6 +254,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 同一组帧分别以一次性、逐字节和随机长度切分写入，产出的帧数与每帧字节内容完全一致
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Acceptance2_ArbitrarySplits_ProduceByteIdenticalFrames()
         {
@@ -282,6 +298,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 连续处理 10 万个 20 字节小帧后队列与并发额度清空，包内存池的租借净增量回到基线
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Acceptance8_HundredThousandSmallFrames_PoolRentAndReturnBalanced()
         {
@@ -324,6 +344,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             Assert.AreEqual(baselineNet, NetRented(), "10 万小帧后内存池租借差不为 0");
         }
 
+        /// <summary>
+        /// 每轮成功排空恰好通知一次 ChannelReadCompleteAsync，通知次数与非空 ReadAsync 次数一致，空闲时不产生空通知
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Acceptance13_ReadComplete_OncePerSuccessfulDrain_AndNoEmptyNotifications()
         {
@@ -370,6 +394,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 通知回调抛异常时只记录警告：执行器保持活跃、传输层不关闭，后续帧继续处理
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task ReadComplete_Throws_OnlyWarns_AndKeepsProcessing()
         {
@@ -408,6 +436,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// AddFirst 插入的出站处理器落在链首并参与出站事件，写出的字节原样到达传输层出口
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task PipelineStructure_AddFirstOutbound_IsAccepted_AndOutboundPassesThroughIt()
         {
@@ -435,6 +467,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 16 路并发写属性后数量完整，收口完成后通道转为非活跃并清空全部属性
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Acceptance17_Attributes_ConcurrentWrites_AndClearedAfterShutdown()
         {
@@ -461,6 +497,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 传输令牌取消后泵停止：队列与 accumulator 归零、并发额度回满、在途消息收到取消，传输层以 transport-cancelled 关闭
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Acceptance21_TransportCancellation_StopsPumpAndClearsQueueAndAccumulator()
         {
@@ -500,6 +540,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 预热后 10 万个 20 字节小帧不再租借内存池，8KB 帧租借一次并在处理后归还
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Acceptance22_SmallFrames_DoNotRentPool_AndLargeFrameIsPooledAndReturned()
         {
@@ -562,6 +606,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 单消息超时释放并发额度但不进入收口、不关闭连接，后续消息可在忙等消息结束前完成
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Acceptance24_MessageTimeout_ReleasesConcurrencySlot_WithoutClosingConnection()
         {
@@ -604,6 +652,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 未配置消息超时时 handler 拿到的就是连接令牌本身，收口取消连接令牌后同步取消
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Token_NoMessageTimeout_UsesConnectionTokenDirectly()
         {
@@ -640,6 +692,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             Assert.IsTrue(captured.IsCancellationRequested, "收口后消息令牌未随连接令牌取消");
         }
 
+        /// <summary>
+        /// 外部断开（取消传输令牌并中断挂起读取）后泵退出、队列与 accumulator 归零、属性清空、引用配平，且不再调用 ReadAsync
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Acceptance25_ExternalDisconnect_StopsPump_NoBusyLoop_AndBalance()
         {

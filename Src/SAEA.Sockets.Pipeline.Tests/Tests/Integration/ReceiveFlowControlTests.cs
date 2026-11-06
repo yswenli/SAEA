@@ -94,6 +94,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Integration
                 .SetValue(connection, paused);
         }
 
+        /// <summary>
+        /// 应用级暂停同时置位应用闸门与接收闸门（均从未暂停变为暂停）
+        /// </summary>
         [TestMethod]
         public void PauseApplication_MarksBothGates()
         {
@@ -108,6 +111,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Integration
             Assert.IsTrue(IsReceivePaused(connection));
         }
 
+        /// <summary>
+        /// 未叠加 Pipe 背压时恢复应用级接收会同时清掉应用闸门与接收闸门
+        /// </summary>
         [TestMethod]
         public void ResumeApplication_ClearsApplicationGate()
         {
@@ -120,6 +126,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Integration
             Assert.IsFalse(IsReceivePaused(connection));
         }
 
+        /// <summary>
+        /// Pipe 背压仍在时恢复应用级接收只清应用闸门，接收闸门保持暂停
+        /// </summary>
         [TestMethod]
         public void ResumeApplication_KeepsPipeBackpressureGate()
         {
@@ -133,6 +142,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Integration
             Assert.IsTrue(IsReceivePaused(connection));
         }
 
+        /// <summary>
+        /// 应用闸门与 Pipe 背压闸门互相独立：任一来源暂停都使接收暂停，只有两者都解除才恢复
+        /// </summary>
         [TestMethod]
         public void ApplicationAndPipeGates_AreIndependent()
         {
@@ -152,6 +164,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Integration
             Assert.IsFalse(IsReceivePaused(connection));
         }
 
+        /// <summary>
+        /// 流控适配器的 Pause/Resume 与连接的应用闸门状态保持一致
+        /// </summary>
         [TestMethod]
         public void FlowControl_PauseAndResume_TrackApplicationGate()
         {
@@ -169,6 +184,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Integration
             Assert.IsFalse(IsReceivePaused(connection));
         }
 
+        /// <summary>
+        /// CloseAsync 同步完成并每次调用都触发一次关闭回调（重复调用各自计数）
+        /// </summary>
         [TestMethod]
         public void FlowControl_CloseAsync_InvokesCloseCallbackAndCompletes()
         {

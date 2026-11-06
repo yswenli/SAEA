@@ -45,6 +45,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
     [TestClass]
     public class ChannelPipelineStructureTests
     {
+        /// <summary>
+        /// 入站读取按挂链顺序从链首遍历到链尾
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task FireChannelReadAsync_WalksInboundFromHeadToTail()
         {
@@ -61,6 +65,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 入站处理器发起写出时，出站链从链尾向链首反向遍历（距链头最近的最后一个执行）
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task WriteAsync_WalksOutboundFromTailToHead()
         {
@@ -77,6 +85,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 已挂入站处理器后再 Append 出站处理器抛 InvalidOperationException（出站必须集中在链首前缀）
+        /// </summary>
         [TestMethod]
         public void AddLast_OutboundAfterInbound_Throws()
         {
@@ -90,6 +101,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 链中已有出站前缀时 AddFirst 入站处理器抛 InvalidOperationException，空链上 AddFirst 则接受并置于首位
+        /// </summary>
         [TestMethod]
         public void AddFirst_InboundBeforeOutboundPrefix_ThrowsOtherwiseAccepted()
         {
@@ -112,6 +126,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 移除占用前缀位置的入站处理器后可再挂出站处理器，链上最终只保留两个出站节点
+        /// </summary>
         [TestMethod]
         public void Remove_ThenAddLast_RestoresOutboundPrefixState()
         {
@@ -141,6 +158,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 非共享 handler 实例挂到第二条链时抛 InvalidOperationException，从第一条链移除后才能重新挂载
+        /// </summary>
         [TestMethod]
         public void NonSharableHandler_ReuseOnSecondChain_ThrowsUntilRemoved()
         {
@@ -163,6 +183,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 入站处理器抛出普通异常时不向调用方抛出，而是转为异常回调交给链上后续节点
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task InboundHandlerFailure_IsReportedAsExceptionCaught_WithoutThrowing()
         {
@@ -179,6 +203,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 入站处理器抛 OperationCanceledException 时异常直接传播给调用方
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task InboundCancellation_PropagatesToCaller()
         {
@@ -191,6 +219,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 链头收到非 TransportFrame 消息时以 InvalidOperationException 拒绝，错误信息包含 TransportFrame
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task HeadSink_RejectsNonTransportFrame()
         {
@@ -206,6 +238,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 未 Attach 到传输层时写帧抛 InvalidOperationException，且不提前释放帧的 owner
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task HeadSink_WithoutAttach_Throws()
         {
@@ -222,6 +258,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// Attach 后写帧按原字节交给传输层，且 owner 不在此处释放（所有权交给传输层）
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task HeadSink_AfterAttach_SendsFrameAndLeavesOwnerToTransport()
         {
@@ -246,6 +286,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 连接收口后旧 ctx 写出即使类型非法也按 ChannelClosedException 报错，且不产生发送
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task HeadSink_AfterClose_ReportsClosedBeforeRejectingType()
         {

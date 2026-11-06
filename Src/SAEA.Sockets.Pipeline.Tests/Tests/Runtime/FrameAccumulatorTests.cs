@@ -43,6 +43,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
     [TestClass]
     public class FrameAccumulatorTests
     {
+        /// <summary>
+        /// 连续追加多个分片后缓冲内容按追加顺序拼接、长度累加
+        /// </summary>
         [TestMethod]
         public void Append_ConsecutiveChunks_ConcatenatesContent()
         {
@@ -57,6 +60,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 消费前 2 字节后只保留剩余 3 字节且内容为原缓冲尾部
+        /// </summary>
         [TestMethod]
         public void Consume_Partial_LeavesOnlyRemainingBytes()
         {
@@ -71,6 +77,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 全部消费后缓冲为空，再次追加从头部重新排列且内容正确
+        /// </summary>
         [TestMethod]
         public void Consume_All_ResetsCursorsAndNextAppendStartsFromZero()
         {
@@ -89,6 +98,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 消费数量为负、为空缓冲时的正数或超过已缓冲长度时抛 ArgumentOutOfRangeException，消费 0 则不改动缓冲
+        /// </summary>
         [TestMethod]
         public void Consume_OutOfRange_ThrowsArgumentOutOfRangeException()
         {
@@ -107,6 +119,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 反复追加与部分消费时内容始终正确，先原地紧凑、容量不足才扩容；十万次净增为零的稳态循环不再新租缓冲，Dispose 只归还一次
+        /// </summary>
         [TestMethod]
         public void RepeatedAppendConsume_CompactsThenExpands_KeepsContentAndBalancesPool()
         {
@@ -177,6 +192,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             Assert.AreEqual(returnedBeforeDispose + 1, returnedAfterDispose, "Dispose 应把当前缓冲归还内存池且只归还一次。");
         }
 
+        /// <summary>
+        /// Reset 与重复 Dispose 都只归还缓冲一次；Reset 后实例仍可复用并从空缓冲重新追加，重复 Dispose 不重复归还
+        /// </summary>
         [TestMethod]
         public void ResetAndDispose_ReturnPooledBufferExactlyOnce()
         {

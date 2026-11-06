@@ -45,6 +45,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Abstractions
         {
         }
 
+        /// <summary>
+        /// 注册类型码后可双向解析出原类型与原类型码
+        /// </summary>
         [TestMethod]
         public void Register_ThenResolve_ReturnsRegisteredTypeAndCode()
         {
@@ -56,6 +59,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Abstractions
             Assert.AreEqual(1, registry.ResolveCode(typeof(LoginRequest)));
         }
 
+        /// <summary>
+        /// 重复注册同一类型码时抛 InvalidOperationException
+        /// </summary>
         [TestMethod]
         public void Register_DuplicateCode_ThrowsInvalidOperationException()
         {
@@ -66,6 +72,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Abstractions
                 () => registry.Register(1, typeof(string)));
         }
 
+        /// <summary>
+        /// 类型码超出 0–255 范围（-1 与 256）时抛 ArgumentOutOfRangeException
+        /// </summary>
         [TestMethod]
         public void Register_CodeOutOfRange_ThrowsArgumentOutOfRangeException()
         {
@@ -77,6 +86,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Abstractions
                 () => registry.Register(256, typeof(LoginRequest)));
         }
 
+        /// <summary>
+        /// 解析未注册的类型码返回 null
+        /// </summary>
         [TestMethod]
         public void Resolve_UnregisteredCode_ReturnsNull()
         {
@@ -85,6 +97,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Abstractions
             Assert.IsNull(registry.Resolve(200));
         }
 
+        /// <summary>
+        /// 反查未注册的类型码返回 -1
+        /// </summary>
         [TestMethod]
         public void ResolveCode_UnregisteredType_ReturnsMinusOne()
         {

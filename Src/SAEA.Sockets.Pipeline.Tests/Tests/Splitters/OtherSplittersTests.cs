@@ -43,6 +43,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
     [TestClass]
     public class OtherSplittersTests
     {
+        /// <summary>
+        /// 分隔符未收全时不产出帧，收全后切出 "hello" 并剥离两字节分隔符
+        /// </summary>
         [TestMethod]
         public void DelimiterSplitter_DelimiterSpanningTwoSegments_ProducesFrame()
         {
@@ -64,6 +67,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             CollectionAssert.AreEqual(head, frame.ToArray());
         }
 
+        /// <summary>
+        /// 单次输入含多帧时按顺序逐帧切出，每帧消耗量包含分隔符
+        /// </summary>
         [TestMethod]
         public void DelimiterSplitter_MultipleFramesInOneInput_ProducesAllInOrder()
         {
@@ -86,6 +92,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             Assert.AreEqual(buffered.Length, offset);
         }
 
+        /// <summary>
+        /// 缓冲超过单帧上限仍未出现分隔符时抛 FrameProtocolException
+        /// </summary>
         [TestMethod]
         public void DelimiterSplitter_OverLimitWithoutDelimiter_ThrowsFrameProtocolException()
         {
@@ -95,6 +104,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             Assert.ThrowsException<FrameProtocolException>(() => SplitIgnoringResult(splitter, buffered));
         }
 
+        /// <summary>
+        /// stripDelimiter 为 false 时帧内容保留结尾的分隔符
+        /// </summary>
         [TestMethod]
         public void DelimiterSplitter_StripDelimiterFalse_KeepsDelimiter()
         {
@@ -108,6 +120,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             Assert.AreEqual("abc|", Encoding.ASCII.GetString(frame.ToArray()));
         }
 
+        /// <summary>
+        /// 四字节分隔符按首次出现位置切分，连续两段分隔各自结束一帧
+        /// </summary>
         [TestMethod]
         public void DelimiterSplitter_MultiByteDelimiter_MatchesFirstOccurrence()
         {
@@ -128,6 +143,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             Assert.AreEqual("b", Encoding.ASCII.GetString(frame.ToArray()));
         }
 
+        /// <summary>
+        /// 分隔符为 null 或空数组时抛 ArgumentException，单帧上限为 0 或负数时抛 ArgumentOutOfRangeException
+        /// </summary>
         [TestMethod]
         public void DelimiterSplitter_Constructor_InvalidArguments_Throws()
         {
@@ -137,6 +155,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             Assert.ThrowsException<ArgumentOutOfRangeException>(() => new DelimiterSplitter((byte)'\n', -1));
         }
 
+        /// <summary>
+        /// CRLF 结尾的行剥掉回车符，帧内容为 "abc"
+        /// </summary>
         [TestMethod]
         public void LineSplitter_CrLfLine_StripsCarriageReturn()
         {
@@ -150,6 +171,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             Assert.AreEqual("abc", Encoding.ASCII.GetString(frame.ToArray()));
         }
 
+        /// <summary>
+        /// LF 结尾的两行依次切出 "abc" 与 "def"，行内容保持不变
+        /// </summary>
         [TestMethod]
         public void LineSplitter_LfLine_KeepsContent()
         {
@@ -169,6 +193,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             Assert.AreEqual("def", Encoding.ASCII.GetString(frame.ToArray()));
         }
 
+        /// <summary>
+        /// 连续两个换行之间产出长度为 0 的空帧
+        /// </summary>
         [TestMethod]
         public void LineSplitter_EmptyLine_ProducesEmptyFrame()
         {
@@ -187,6 +214,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             Assert.IsTrue(frame.IsEmpty, "连续两个换行之间应产出空帧。");
         }
 
+        /// <summary>
+        /// 输入不足一个定长帧时返回 false，消耗量为 0 且帧为空
+        /// </summary>
         [TestMethod]
         public void FixedLengthSplitter_LessThanOneFrame_ReturnsFalse()
         {
@@ -199,6 +229,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             Assert.IsTrue(frame.IsEmpty);
         }
 
+        /// <summary>
+        /// 输入恰好一帧时切出全部字节，MaxFrameLength 等于该帧长度
+        /// </summary>
         [TestMethod]
         public void FixedLengthSplitter_ExactlyOneFrame_ProducesFrame()
         {
@@ -213,6 +246,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             Assert.AreEqual(4, splitter.MaxFrameLength);
         }
 
+        /// <summary>
+        /// 9 字节输入按 3 字节帧长依次切出三帧且顺序正确
+        /// </summary>
         [TestMethod]
         public void FixedLengthSplitter_MultipleFrames_ProducesAllInOrder()
         {
@@ -235,6 +271,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             Assert.AreEqual(buffered.Length, offset);
         }
 
+        /// <summary>
+        /// 帧长为 0 或负数时抛 ArgumentOutOfRangeException
+        /// </summary>
         [TestMethod]
         public void FixedLengthSplitter_Constructor_ZeroOrNegative_Throws()
         {

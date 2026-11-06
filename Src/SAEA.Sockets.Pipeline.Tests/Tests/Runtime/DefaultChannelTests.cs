@@ -43,6 +43,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
     [TestClass]
     public class DefaultChannelTests
     {
+        /// <summary>
+        /// 属性写入、覆盖、读取与移除往返正确，读取缺失键返回 null 且重复移除返回 false
+        /// </summary>
         [TestMethod]
         public void SetGetRemove_RoundTripsAndReportsMissing()
         {
@@ -65,6 +68,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             Assert.AreEqual(0, channel.Attributes.Count);
         }
 
+        /// <summary>
+        /// 16 个不同键并发写入后全部保留且各自值未被覆盖
+        /// </summary>
         [TestMethod]
         public void ConcurrentWrites_SixteenDistinctKeys_AllPreserved()
         {
@@ -79,6 +85,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// CloseAsync 把关闭原因透传给关闭委托并把连接标记为非活跃
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task CloseAsync_SetsIsActiveFalse_AndForwardsReason()
         {
@@ -97,6 +107,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             Assert.IsFalse(channel.IsActive);
         }
 
+        /// <summary>
+        /// 未提供关闭委托时 CloseAsync 仍把连接标记为非活跃
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task CloseAsync_WithoutDelegate_StillMarksInactive()
         {
@@ -107,6 +121,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             Assert.IsFalse(channel.IsActive);
         }
 
+        /// <summary>
+        /// 串行重复调用 CloseAsync 只触发一次关闭委托，连接保持非活跃
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task CloseAsync_Repeated_InvokesDelegateOnce()
         {
@@ -125,6 +143,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             Assert.IsFalse(channel.IsActive);
         }
 
+        /// <summary>
+        /// 16 路并发 CloseAsync 仍只触发一次关闭委托
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task CloseAsync_Concurrent_InvokesDelegateOnce()
         {
@@ -147,6 +169,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             Assert.IsFalse(channel.IsActive);
         }
 
+        /// <summary>
+        /// MarkInactive 把连接置为非活跃并清空全部连接属性
+        /// </summary>
         [TestMethod]
         public void MarkInactive_DeactivatesAndClearsAttributes()
         {
@@ -161,6 +186,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             Assert.IsNull(channel.GetAttribute("auth"));
         }
 
+        /// <summary>
+        /// 重复调用 MarkInactive 保持非活跃且属性仍为空
+        /// </summary>
         [TestMethod]
         public void MarkInactive_Repeated_StaysInactiveAndEmpty()
         {
@@ -174,6 +202,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             Assert.AreEqual(0, channel.Attributes.Count);
         }
 
+        /// <summary>
+        /// CloseAsync 只进入收口不清属性，随后 MarkInactive 才清空属性且不再触发关闭委托
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task MarkInactive_AfterCloseAsync_DoesNotInvokeDelegateAgain()
         {
@@ -195,6 +227,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             Assert.AreEqual(0, channel.Attributes.Count);
         }
 
+        /// <summary>
+        /// Dispose 只清空连接属性，不触发关闭委托也不改变活跃状态
+        /// </summary>
         [TestMethod]
         public void Dispose_ClearsAttributesWithoutClosing()
         {

@@ -50,6 +50,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
     [TestClass]
     public class DispatchAndTerminalTests
     {
+        /// <summary>
+        /// 命中路由时业务处理器收到原消息，且 ctx 为分发器节点自身的上下文
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Dispatcher_Hit_InvokesRegisteredHandlerWithOwnNodeContext()
         {
@@ -70,6 +74,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
             }
         }
 
+        /// <summary>
+        /// 未命中路由且配置兜底时只调用兜底处理器并原样传入消息
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Dispatcher_MissWithFallback_InvokesFallbackOnly()
         {
@@ -90,6 +98,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
             }
         }
 
+        /// <summary>
+        /// 未命中且无兜底时把原消息继续传给下一个入站处理器
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Dispatcher_MissWithoutFallback_ForwardsToNextInboundHandler()
         {
@@ -107,6 +119,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
             }
         }
 
+        /// <summary>
+        /// 未命中且无兜底时先输出含「未命中路由，继续下传」的 Warn 日志再下传消息（日志异步刷出，需轮询等待）
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Dispatcher_MissWithoutFallback_EmitsWarnBeforeForwarding()
         {
@@ -141,6 +157,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
             }
         }
 
+        /// <summary>
+        /// 分发器处于入站链尾时未命中的消息就地 Dispose，不静默泄漏
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Dispatcher_MissWithoutFallbackAndNoTail_DisposesMessageInPlace()
         {
@@ -156,6 +176,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
             }
         }
 
+        /// <summary>
+        /// 鉴权在解包之前的场景：非白名单类型码不做反序列化、不下传并以 unauthenticated 关闭连接，白名单类型正常放行
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Auth_BeforeUnwrap_BlocksNonWhitelistTypeWithoutDeserializing()
         {
@@ -201,6 +225,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
             }
         }
 
+        /// <summary>
+        /// 未注册的类型码转成 InvalidOperationException 走异常回调，链尾按 handler-exception 关闭连接
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task UnknownTypeCode_SurfacesAsExceptionCaught_AndClosesChannel()
         {
@@ -221,6 +249,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
             }
         }
 
+        /// <summary>
+        /// 链尾对单消息超时与 ChannelClosedException 只记录且不关闭连接，其它异常记录 Error 并关闭
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Terminal_ExceptionBranches_WarnOrDebugWithoutClosing_AndErrorCloses()
         {
@@ -247,6 +279,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
             }
         }
 
+        /// <summary>
+        /// 入站日志处理器不改变也不吞掉消息，下游异常仍原对象上报
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task InboundLogging_DoesNotChangeMessage_AndExceptionStillPropagates()
         {
@@ -278,6 +314,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
             }
         }
 
+        /// <summary>
+        /// 帧透传分支通过 Retain 交给下游，两份引用全部释放后池化背衬只归还一次
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task FramePassthrough_RetainAndRelease_ReturnsPooledBackingExactlyOnce()
         {

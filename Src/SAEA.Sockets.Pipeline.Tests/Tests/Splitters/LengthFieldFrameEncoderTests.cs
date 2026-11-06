@@ -45,6 +45,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
     [TestClass]
     public class LengthFieldFrameEncoderTests
     {
+        /// <summary>
+        /// 长度字段写入 body 长度而非总长度，类型字节位于长度字段之后，body 原样跟随
+        /// </summary>
         [TestMethod]
         public void Encode_WritesBodyLengthNotTotalLength_AndTypeByte()
         {
@@ -59,6 +62,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             CollectionAssert.AreEqual(body, frame.AsSpan(FrameConstants.P_Head).ToArray());
         }
 
+        /// <summary>
+        /// 类型码 0 与 255 属于合法边界，写入后与入参一致
+        /// </summary>
         [TestMethod]
         public void Encode_TypeCodeZeroAnd255_AreAccepted()
         {
@@ -71,6 +77,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             Assert.AreEqual((byte)255, max[FrameConstants.P_LEN]);
         }
 
+        /// <summary>
+        /// 编码输出与 BaseSocketProtocal.WriteTo 写出的字节逐字节一致
+        /// </summary>
         [TestMethod]
         public void Encode_MatchesBaseSocketProtocalWriteTo_ByteForByte()
         {
@@ -89,6 +98,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             CollectionAssert.AreEqual(expected, actual);
         }
 
+        /// <summary>
+        /// 空 body 只写出 9 字节（8 字节长度字段 0 加 1 字节类型）
+        /// </summary>
         [TestMethod]
         public void Encode_EmptyBody_WritesExactlyNineBytesWithZeroLength()
         {
@@ -99,6 +111,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             Assert.AreEqual((byte)0x42, frame[FrameConstants.P_LEN]);
         }
 
+        /// <summary>
+        /// 类型码小于 0 或大于 255 时抛 ArgumentOutOfRangeException
+        /// </summary>
         [TestMethod]
         public void Encode_TypeCodeOutOfRange_Throws()
         {
@@ -110,6 +125,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
                 () => Encode(encoder, new byte[] { 1 }, 256));
         }
 
+        /// <summary>
+        /// 目标 writer 为 null 时抛 ArgumentNullException
+        /// </summary>
         [TestMethod]
         public void Encode_NullWriter_Throws()
         {
@@ -117,6 +135,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
                 () => new LengthFieldFrameEncoder().Encode(new byte[] { 1 }, 0, null));
         }
 
+        /// <summary>
+        /// 写入已有内容的 writer 时追加在末尾，原有前缀字节保持不变
+        /// </summary>
         [TestMethod]
         public void Encode_AppendsAfterExistingContent_LeavesPrefixUntouched()
         {

@@ -52,6 +52,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Parity
         private const int MaxBodyLength = 4096;
         private const int RandomSeed = 20261105;
 
+        /// <summary>
+        /// 随机内容与随机分片下，LegacyCompatible 模式的分帧结果（数量、消费字节、长度字段、类型与帧体）与 BaseCoder.DecodeStream 一致
+        /// </summary>
         [TestMethod]
         public void LegacyCompatible_RandomChunks_MatchesBaseCoderDecodeStream()
         {
@@ -74,6 +77,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Parity
             Assert.AreEqual(24, legacy.Count, "24 个连着写入的帧应全部产出。");
         }
 
+        /// <summary>
+        /// Default 与 LegacyCompatible 的消费字节数一致，Default 仅多剥掉长度字段（首字节为类型、其后为帧体）
+        /// </summary>
         [TestMethod]
         public void DefaultAndLegacyCompatible_AgreeOnConsumed_AndOnlyStripLengthField()
         {
@@ -95,6 +101,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Parity
             AssertDefaultMatchesLegacy(legacy, def);
         }
 
+        /// <summary>
+        /// 帧体长度取 0、1、头部前后边界值（P_Head-1/P_Head/P_Head+1）与类型码 0/255 时，两档分帧仍与 BaseCoder 一致且每例只产出一帧
+        /// </summary>
         [TestMethod]
         public void BoundaryBodyLengths_AndTypeBounds_MatchBaseCoder()
         {
@@ -135,6 +144,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Parity
             }
         }
 
+        /// <summary>
+        /// 单次输入含三个连续帧（空体、短体与 13 字节体）时两档分帧都产出 3 帧且与 BaseCoder 一致
+        /// </summary>
         [TestMethod]
         public void ThreeConcatenatedFrames_SingleChunk_MatchesBaseCoder()
         {
@@ -157,6 +169,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Parity
             AssertDefaultMatchesLegacy(legacy, def);
         }
 
+        /// <summary>
+        /// 头部与帧体被段边界拆开的多段输入仍产出 3 帧，两档分帧都与 BaseCoder 一致
+        /// </summary>
         [TestMethod]
         public void CrossSegmentFrames_HeaderAndBodySplit_MatchesBaseCoder()
         {

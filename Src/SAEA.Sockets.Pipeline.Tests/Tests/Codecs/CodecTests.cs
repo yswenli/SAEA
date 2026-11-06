@@ -63,6 +63,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Codecs
             public long Big { get; set; }
         }
 
+        /// <summary>
+        /// 信封编码只写出负载内容，解码后类型码与负载原样还原
+        /// </summary>
         [TestMethod]
         public void EnvelopeCodec_RoundTrip_PreservesTypeAndPayload()
         {
@@ -84,6 +87,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Codecs
             CollectionAssert.AreEqual(payload, envelope.Payload);
         }
 
+        /// <summary>
+        /// 类型码边界值 0 与 255 解码后仍保持原值且负载完整
+        /// </summary>
         [TestMethod]
         public void EnvelopeCodec_TypeBoundaries_ZeroAnd255_RoundTrip()
         {
@@ -99,6 +105,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Codecs
             }
         }
 
+        /// <summary>
+        /// 只有类型字节的帧解码出长度为 0 的非 null 负载数组
+        /// </summary>
         [TestMethod]
         public void EnvelopeCodec_Decode_EmptyPayload_ReturnsEmptyArray()
         {
@@ -111,6 +120,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Codecs
             Assert.AreEqual(0, envelope.Payload.Length);
         }
 
+        /// <summary>
+        /// 空帧解码抛 FrameProtocolException
+        /// </summary>
         [TestMethod]
         public void EnvelopeCodec_Decode_EmptyFrame_ThrowsFrameProtocolException()
         {
@@ -120,6 +132,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Codecs
                 () => codec.Decode(ReadOnlyMemory<byte>.Empty));
         }
 
+        /// <summary>
+        /// 解码后的负载是独立副本，改写原始帧不影响它
+        /// </summary>
         [TestMethod]
         public void EnvelopeCodec_Payload_DoesNotShareMemoryWithFrame()
         {
@@ -134,6 +149,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Codecs
             CollectionAssert.AreEqual(new byte[] { 10, 20, 30 }, envelope.Payload);
         }
 
+        /// <summary>
+        /// 编码非 Envelope 消息抛 InvalidOperationException
+        /// </summary>
         [TestMethod]
         public void EnvelopeCodec_Encode_NonEnvelope_ThrowsInvalidOperationException()
         {
@@ -143,6 +161,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Codecs
                 () => codec.Encode(new JsonPoco(), new ArrayBufferWriter<byte>()));
         }
 
+        /// <summary>
+        /// JSON 编解码往返后字符串、int 与 long 字段值与原文一致
+        /// </summary>
         [TestMethod]
         public void JsonMessageCodec_RoundTrip_RestoresEntity()
         {
@@ -157,6 +178,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Codecs
             Assert.AreEqual(9000000000L, restored.Big);
         }
 
+        /// <summary>
+        /// 空负载解码返回字段为默认值的新实例而非 null
+        /// </summary>
         [TestMethod]
         public void JsonMessageCodec_Decode_EmptyPayload_ReturnsNewInstance()
         {
@@ -169,6 +193,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Codecs
             Assert.AreEqual(0, restored.Count);
         }
 
+        /// <summary>
+        /// 目标类型传 null 时解码抛 ArgumentNullException
+        /// </summary>
         [TestMethod]
         public void JsonMessageCodec_Decode_NullTargetType_ThrowsArgumentNullException()
         {
@@ -178,6 +205,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Codecs
                 () => codec.Decode(new byte[] { 0x7B, 0x7D }, null));
         }
 
+        /// <summary>
+        /// Protobuf 编解码往返后字符串、int 与 long 字段值与原文一致
+        /// </summary>
         [TestMethod]
         public void ProtobufMessageCodec_RoundTrip_RestoresEntity()
         {
@@ -192,6 +222,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Codecs
             Assert.AreEqual(9000000000L, restored.Big);
         }
 
+        /// <summary>
+        /// 原始拷贝编解码保留类型码与负载，且负载为独立副本
+        /// </summary>
         [TestMethod]
         public void RawCopyCodec_RoundTrip_PreservesTypeAndPayload()
         {
@@ -216,6 +249,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Codecs
             CollectionAssert.AreEqual(payload, envelope.Payload);
         }
 
+        /// <summary>
+        /// 原始拷贝编解码遇到空帧抛 FrameProtocolException
+        /// </summary>
         [TestMethod]
         public void RawCopyCodec_Decode_EmptyFrame_ThrowsFrameProtocolException()
         {

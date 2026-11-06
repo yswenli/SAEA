@@ -56,6 +56,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Integration
         {
         }
 
+        /// <summary>
+        /// 包模式（UsePacket）下配置输入处理器时 Build 抛 InvalidOperationException
+        /// </summary>
         [TestMethod]
         public void InputHandlerWithoutUseStream_ThrowsInvalidOperationException()
         {
@@ -67,6 +70,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Integration
             Assert.ThrowsException<InvalidOperationException>(() => builder.Build());
         }
 
+        /// <summary>
+        /// 包模式下配置连接打开回调时 Build 抛 InvalidOperationException
+        /// </summary>
         [TestMethod]
         public void ConnectionOpenedWithoutUseStream_ThrowsInvalidOperationException()
         {
@@ -77,6 +83,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Integration
             Assert.ThrowsException<InvalidOperationException>(() => builder.Build());
         }
 
+        /// <summary>
+        /// 流模式下只配置连接打开回调即可 Build 成功，且输入处理器保持为 null
+        /// </summary>
         [TestMethod]
         public void ConnectionOpenedOnlyWithUseStream_BuildsSuccessfully()
         {
@@ -92,6 +101,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Integration
             Assert.IsNull(pipelineOption.InputHandler);
         }
 
+        /// <summary>
+        /// 流模式下只配置输入处理器、未配置连接打开回调时 Build 抛 InvalidOperationException
+        /// </summary>
         [TestMethod]
         public void InputHandlerWithoutConnectionOpened_ThrowsInvalidOperationException()
         {
@@ -102,6 +114,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Integration
             Assert.ThrowsException<InvalidOperationException>(() => builder.Build());
         }
 
+        /// <summary>
+        /// 配置了连接打开钩子的选项用于客户端时抛 NotSupportedException
+        /// </summary>
         [TestMethod]
         public void ClientWithHook_ThrowsNotSupportedException()
         {

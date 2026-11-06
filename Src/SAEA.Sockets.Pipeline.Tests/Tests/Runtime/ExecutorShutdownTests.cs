@@ -51,6 +51,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
     {
         private static readonly TimeSpan WaitTimeout = TimeSpan.FromSeconds(2);
 
+        /// <summary>
+        /// 单条消息超时后链尾收到 MessageTimeoutException，执行器与传输层都保持活跃（不因单消息超时关闭连接）
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task SingleMessageTimeout_ReportsTimeoutAndKeepsConnectionActive()
         {
@@ -89,6 +93,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 处理器忽略取消令牌时不会被强制中止：实际耗时不低于其自身休眠时长，不上报超时且连接保持活跃
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task HandlerIgnoringToken_IsNotKilled_AndFinishesNormally()
         {
@@ -126,6 +134,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 外部收口后泵与消费者停止：在途消息收到取消、队列排空、并发额度回满，按给定原因关闭传输并把执行器与通道置为非活跃，之后不再启动新消息
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task ExternalShutdown_StopsPumpAndConsumer_DrainsQueue_AndClosesStream()
         {
@@ -161,6 +173,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 收口后在途消息的回包抛 ChannelClosedException 并传播到链尾，业务副作用已完成但无数据交给传输层
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task ReplyAfterShutdown_ThrowsChannelClosed_SurfacesAtTail_AndSendsNothing()
         {
@@ -198,6 +214,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// DrainInFlight 策略会等在途消息跑完再完成收口；DrainTimeout 到点则放弃等待直接完成 Completion，且不阻塞在途消息后续结束
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task DrainInFlight_WaitsForRunningMessage_AndGivesUpAfterTimeout()
         {
@@ -257,6 +277,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// CancelPending 策略取消在途消息并完成收口，取消后并发额度回到满额
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task CancelPending_CancelsInFlightMessage_AndCompletes()
         {
@@ -284,6 +308,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 重复 Dispose 幂等：收口仍能完成，并以 disposed 原因关闭传输
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task Dispose_IsIdempotent_AndCompletes()
         {
@@ -308,6 +336,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 传输层取消令牌触发收口：Completion 完成、以 transport-cancelled 关闭传输且执行器转为非活跃
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
         public async Task TransportCancellation_TriggersShutdown_WithTransportCancelledReason()
         {

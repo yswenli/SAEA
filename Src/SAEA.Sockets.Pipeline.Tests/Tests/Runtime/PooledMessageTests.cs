@@ -44,6 +44,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
     {
         private const int PooledFrameLength = 1024;
 
+        /// <summary>
+        /// 池化背衬在引用计数归零时归还到小池，并置为已释放
+        /// </summary>
         [TestMethod]
         public void Release_PooledBacking_ReturnsBufferToSmallPool()
         {
@@ -60,6 +63,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             Assert.IsTrue(message.IsPooled);
         }
 
+        /// <summary>
+        /// 非池化背衬释放时只丢引用，不计入内存池归还计数
+        /// </summary>
         [TestMethod]
         public void Release_NonPooledBacking_DoesNotTouchPoolCounters()
         {
@@ -75,6 +81,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             Assert.IsFalse(message.IsPooled);
         }
 
+        /// <summary>
+        /// 重复 Release 幂等：只归还一次并保持已释放状态
+        /// </summary>
         [TestMethod]
         public void Release_Repeated_IsIdempotentAndReturnsOnce()
         {
@@ -92,6 +101,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             Assert.IsTrue(message.IsReleased);
         }
 
+        /// <summary>
+        /// 释放后访问 Frame 抛 ObjectDisposedException
+        /// </summary>
         [TestMethod]
         public void Frame_AfterRelease_ThrowsObjectDisposedException()
         {
@@ -103,6 +115,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             Assert.ThrowsException<ObjectDisposedException>(() => message.Frame.ToArray());
         }
 
+        /// <summary>
+        /// Retain 后第一次 Release 只减计数不归还背衬，最后一份引用释放时才归还
+        /// </summary>
         [TestMethod]
         public void Retain_DefersReturnUntilLastRelease()
         {
@@ -124,6 +139,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             Assert.IsTrue(message.IsReleased);
         }
 
+        /// <summary>
+        /// 已释放后再 Retain 抛 ObjectDisposedException
+        /// </summary>
         [TestMethod]
         public void Retain_AfterRelease_ThrowsObjectDisposedException()
         {

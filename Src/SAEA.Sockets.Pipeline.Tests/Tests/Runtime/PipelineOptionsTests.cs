@@ -40,12 +40,18 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
     [TestClass]
     public class PipelineOptionsTests
     {
+        /// <summary>
+        /// 传入 null 配置时 Create 抛 ArgumentNullException
+        /// </summary>
         [TestMethod]
         public void NullOptions_ThrowsArgumentNullException()
         {
             Assert.ThrowsException<ArgumentNullException>(() => ChannelPipeline.Create(null));
         }
 
+        /// <summary>
+        /// 分帧器为 null 时 Create 抛 ArgumentException
+        /// </summary>
         [TestMethod]
         public void NullSplitter_ThrowsArgumentException()
         {
@@ -55,6 +61,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             Assert.ThrowsException<ArgumentException>(() => ChannelPipeline.Create(options));
         }
 
+        /// <summary>
+        /// 队列容量小于 2 时 Create 抛 ArgumentOutOfRangeException
+        /// </summary>
         [TestMethod]
         public void QueueCapacityBelowTwo_ThrowsArgumentOutOfRangeException()
         {
@@ -64,6 +73,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             Assert.ThrowsException<ArgumentOutOfRangeException>(() => ChannelPipeline.Create(options));
         }
 
+        /// <summary>
+        /// 最大并发消息数为 0 时 Create 抛 ArgumentOutOfRangeException
+        /// </summary>
         [TestMethod]
         public void MaxConcurrentMessagesBelowOne_ThrowsArgumentOutOfRangeException()
         {
@@ -73,6 +85,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             Assert.ThrowsException<ArgumentOutOfRangeException>(() => ChannelPipeline.Create(options));
         }
 
+        /// <summary>
+        /// 恢复水位为负（-1）时 Create 抛 ArgumentOutOfRangeException
+        /// </summary>
         [TestMethod]
         public void ResumeWatermarkNegative_ThrowsArgumentOutOfRangeException()
         {
@@ -83,6 +98,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             Assert.ThrowsException<ArgumentOutOfRangeException>(() => ChannelPipeline.Create(options));
         }
 
+        /// <summary>
+        /// 恢复水位等于队列容量（16）时不满足小于容量的约束，Create 抛 ArgumentOutOfRangeException
+        /// </summary>
         [TestMethod]
         public void ResumeWatermarkAtOrAboveQueueCapacity_ThrowsArgumentOutOfRangeException()
         {
@@ -93,6 +111,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             Assert.ThrowsException<ArgumentOutOfRangeException>(() => ChannelPipeline.Create(options));
         }
 
+        /// <summary>
+        /// 单消息超时为负值时 Create 抛 ArgumentOutOfRangeException
+        /// </summary>
         [TestMethod]
         public void MessageTimeoutNegative_ThrowsArgumentOutOfRangeException()
         {
@@ -102,6 +123,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             Assert.ThrowsException<ArgumentOutOfRangeException>(() => ChannelPipeline.Create(options));
         }
 
+        /// <summary>
+        /// 排空超时为负值时 Create 抛 ArgumentOutOfRangeException
+        /// </summary>
         [TestMethod]
         public void DrainTimeoutNegative_ThrowsArgumentOutOfRangeException()
         {
@@ -111,6 +135,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             Assert.ThrowsException<ArgumentOutOfRangeException>(() => ChannelPipeline.Create(options));
         }
 
+        /// <summary>
+        /// 小帧内联阈值为负时 Create 抛 ArgumentOutOfRangeException
+        /// </summary>
         [TestMethod]
         public void SmallFrameInlineThresholdNegative_ThrowsArgumentOutOfRangeException()
         {
@@ -120,6 +147,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             Assert.ThrowsException<ArgumentOutOfRangeException>(() => ChannelPipeline.Create(options));
         }
 
+        /// <summary>
+        /// 信封拷贝阈值为负时 Create 抛 ArgumentOutOfRangeException
+        /// </summary>
         [TestMethod]
         public void EnvelopeCopyThresholdNegative_ThrowsArgumentOutOfRangeException()
         {
@@ -129,6 +159,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             Assert.ThrowsException<ArgumentOutOfRangeException>(() => ChannelPipeline.Create(options));
         }
 
+        /// <summary>
+        /// 读缓冲大小为 0 时 Create 抛 ArgumentOutOfRangeException
+        /// </summary>
         [TestMethod]
         public void ReadBufferSizeZero_ThrowsArgumentOutOfRangeException()
         {
@@ -138,6 +171,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             Assert.ThrowsException<ArgumentOutOfRangeException>(() => ChannelPipeline.Create(options));
         }
 
+        /// <summary>
+        /// 恢复水位为 0 时归一化为队列容量的一半（容量 10 得 5、容量 2 得 1）
+        /// </summary>
         [TestMethod]
         public void ResumeWatermarkZero_NormalizesToHalfQueueCapacity()
         {
@@ -158,6 +194,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 最大缓冲字节为 0 时按最大帧长加包头与读缓冲大小推导（128 + P_Head + 4096）
+        /// </summary>
         [TestMethod]
         public void MaxBufferedBytesZero_DerivesFromMaxFrameLengthAndReadBufferSize()
         {
@@ -177,6 +216,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             }
         }
 
+        /// <summary>
+        /// 最大缓冲字节小于「最大帧长 + 包头」时 Create 抛 ArgumentOutOfRangeException
+        /// </summary>
         [TestMethod]
         public void MaxBufferedBytesBelowMaximumFrame_ThrowsArgumentOutOfRangeException()
         {
@@ -188,6 +230,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             Assert.ThrowsException<ArgumentOutOfRangeException>(() => ChannelPipeline.Create(options));
         }
 
+        /// <summary>
+        /// 推导最大缓冲字节时发生溢出则抛 ArgumentOutOfRangeException，且异常信息包含「推导」
+        /// </summary>
         [TestMethod]
         public void MaxBufferedBytesDerivationOverflow_ThrowsArgumentOutOfRangeException()
         {
@@ -200,6 +245,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             StringAssert.Contains(exception.Message, "推导");
         }
 
+        /// <summary>
+        /// 最大缓冲字节超过 int 上限（30 亿）时 Create 抛 ArgumentOutOfRangeException
+        /// </summary>
         [TestMethod]
         public void MaxBufferedBytesAboveIntMaxValue_ThrowsArgumentOutOfRangeException()
         {
@@ -209,6 +257,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             Assert.ThrowsException<ArgumentOutOfRangeException>(() => ChannelPipeline.Create(options));
         }
 
+        /// <summary>
+        /// Create 时对配置做快照：之后修改队列容量、恢复水位、守卫与最大缓冲字节都不影响已生效值（守卫缺省为 NullChannelGuard、最大缓冲默认 1MB）
+        /// </summary>
         [TestMethod]
         public void ChangingOptionsAfterCreate_DoesNotAffectEffectiveValues()
         {

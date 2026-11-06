@@ -43,6 +43,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
     [TestClass]
     public class LengthFieldSplitterTests
     {
+        /// <summary>
+        /// 输入不足 9 字节头部（0、1、8 字节）时返回 false，消耗量为 0 且帧为空
+        /// </summary>
         [TestMethod]
         public void TrySplit_ShorterThanHead_ReturnsFalse()
         {
@@ -61,6 +64,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             }
         }
 
+        /// <summary>
+        /// 完整帧一次消耗头部加 body；Default 剥离 8 字节长度字段只留类型与 body，LegacyCompatible 保留整帧
+        /// </summary>
         [TestMethod]
         public void TrySplit_CompleteFrame_ConsumesHeadPlusBody_AndDefaultStripsLengthField()
         {
@@ -84,6 +90,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             CollectionAssert.AreEqual(frame.ToArray(), legacyFrame.Slice(FrameConstants.P_LEN).ToArray());
         }
 
+        /// <summary>
+        /// body 按 1、2、3、7 字节分批到达时，不足整帧不产出帧，收齐后正常产出
+        /// </summary>
         [TestMethod]
         public void TrySplit_BodyArrivingInChunks_ProducesFrame()
         {
@@ -111,6 +120,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             }
         }
 
+        /// <summary>
+        /// body 长度超过单帧上限或为负数时抛 FrameProtocolException
+        /// </summary>
         [TestMethod]
         public void TrySplit_BodyLengthOverLimit_ThrowsFrameProtocolException()
         {
@@ -124,6 +136,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             Assert.ThrowsException<FrameProtocolException>(() => SplitIgnoringResult(splitter, negative));
         }
 
+        /// <summary>
+        /// 三帧粘连时依次切出，消耗量之和等于缓冲长度且切完后缓冲排空
+        /// </summary>
         [TestMethod]
         public void TrySplit_ThreeConcatenatedFrames_ProducesAllThenDrainsBuffer()
         {
@@ -165,6 +180,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             Assert.IsTrue(remaining.IsEmpty, "三帧全部切完后缓冲应排空。");
         }
 
+        /// <summary>
+        /// 空 body 的帧合法：只消耗 9 字节头部，产出仅含 1 字节类型的帧
+        /// </summary>
         [TestMethod]
         public void TrySplit_EmptyBody_IsValid()
         {
@@ -178,6 +196,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             Assert.AreEqual((byte)0x33, frame.First.Span[0]);
         }
 
+        /// <summary>
+        /// 1、2、3、4、8 字节长度字段在大小端下都能正确读出并切出帧
+        /// </summary>
         [TestMethod]
         public void ReadLength_SupportsOneTwoThreeFourAndEightByteFieldsInBothEndianness()
         {
@@ -207,6 +228,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
             CollectionAssert.AreEqual(body, singleFrame.ToArray());
         }
 
+        /// <summary>
+        /// 上限为负、字段偏移为负、字段宽度不支持、剥离字节为负或超过头部时抛对应异常，负 lengthAdjustment 合法
+        /// </summary>
         [TestMethod]
         public void Constructor_InvalidArguments_Throws()
         {
