@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/03/20 10:04:58
+*修改时间：2026/11/6 13:23:31
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：RedisConnection接口
+*版本号： v26.11.5.1
+*描述：补齐英文与乱码注释的中文说明
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -99,7 +99,7 @@ namespace SAEA.RedisSocket.Core
         int _actionTimeout = 6 * 1000;
 
         /// <summary>
-        /// RedisConnection
+        /// 初始化连接
         /// </summary>
         /// <param name="ipPort"></param>
         /// <param name="actionTimeout"></param>
@@ -460,7 +460,7 @@ namespace SAEA.RedisSocket.Core
         }
 
         /// <summary>
-        /// DoStreamSub
+        /// 订阅 Stream 消息
         /// </summary>
         /// <param name="type"></param>
         /// <param name="keys"></param>
@@ -928,7 +928,7 @@ namespace SAEA.RedisSocket.Core
         }
 
         /// <summary>
-        /// SCAN
+        /// 执行 SCAN 命令做游标迭代
         /// </summary>
         /// <param name="type"></param>
         /// <param name="offset"></param>
@@ -987,7 +987,7 @@ namespace SAEA.RedisSocket.Core
         }
 
         /// <summary>
-        /// Others Scan
+        /// 按 key 执行 SCAN 的变体命令
         /// </summary>
         /// <param name="type"></param>
         /// <param name="key"></param>

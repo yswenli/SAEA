@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:40:46
+*修改时间：2026/11/6 13:23:31
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：补齐英文与乱码注释的中文说明
 *
 *****************************************************************************/
 using System;
@@ -60,7 +60,7 @@ namespace SAEA.RedisSocket.Core.Stream
         public event Action<Exception> OnError;
 
         /// <summary>
-        /// redisconsumer
+        /// 初始化 Stream 消费者
         /// </summary>
         /// <param name="redisConnection"></param>
         /// <param name="topicIDs"></param>

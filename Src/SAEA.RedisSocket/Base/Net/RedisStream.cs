@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/07/24 17:49:08
+*修改时间：2026/11/6 13:23:31
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：RedisStream接口
+*版本号： v26.11.5.1
+*描述：补齐英文与乱码注释的中文说明
 *
 *****************************************************************************/
 using System;
@@ -43,7 +43,7 @@ using SAEA.Common.Threading;
 namespace SAEA.RedisSocket.Base.Net
 {
     /// <summary>
-    /// RedisStream
+    /// Redis 响应流，负责把底层字节切分成完整的 Redis 响应
     /// </summary>
     internal class RedisStream : IDisposable
     {
@@ -58,7 +58,7 @@ namespace SAEA.RedisSocket.Base.Net
         int _timeout = 6 * 1000;
 
         /// <summary>
-        /// RedisStream
+        /// 初始化响应流
         /// </summary>
         /// <param name="timeout"></param>
         public RedisStream(int timeout = 6 * 1000)

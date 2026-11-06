@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/03/20 10:04:58
+*修改时间：2026/11/6 13:23:31
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：RedisCoder接口
+*版本号： v26.11.5.1
+*描述：补齐英文与乱码注释的中文说明
 *
 *****************************************************************************/
 using System;
@@ -43,7 +43,7 @@ using SAEA.RedisSocket.Model;
 namespace SAEA.RedisSocket.Core
 {
     /// <summary>
-    /// redis coder/decoder
+    /// Redis 协议编解码器
     /// </summary>
     internal partial class RedisCoder : IDisposable
     {
@@ -115,7 +115,7 @@ namespace SAEA.RedisSocket.Core
         }
 
         /// <summary>
-        /// RequestOnlyParams
+        /// 仅发送命令参数，不带命令名称
         /// </summary>
         /// <param name="params"></param>
         public void RequestOnlyParams(params string[] @params)

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/10/23 20:05:14
+*修改时间：2026/11/6 13:23:31
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：RedisConnectionManager接口
+*版本号： v26.11.5.1
+*描述：补齐英文与乱码注释的中文说明
 *
 *****************************************************************************/
 using SAEA.RedisSocket.Base;
@@ -39,7 +39,7 @@ using System.Linq;
 namespace SAEA.RedisSocket.Core
 {
     /// <summary>
-    /// redis connection manager
+    /// Redis 连接管理器，按地址与主从角色缓存连接
     /// </summary>
     static class RedisConnectionManager
     {
@@ -50,7 +50,7 @@ namespace SAEA.RedisSocket.Core
 
 
         /// <summary>
-        /// getkey
+        /// 生成连接缓存键
         /// </summary>
         /// <param name="ipPort"></param>
         /// <param name="isMaster"></param>
