@@ -12,6 +12,9 @@ using SAEA.QueueSocket.Type;
 
 namespace SAEA.QueueSocketTest
 {
+    /// <summary>
+    /// QueueSocket 编解码微基准与端到端吞吐、内存分配基准
+    /// </summary>
     public static class QueueBenchmark
     {
         const int MicroN = 20000;
@@ -30,6 +33,11 @@ namespace SAEA.QueueSocketTest
         static int _microGen0;
         static bool _enforceThresholds = true;
 
+        /// <summary>
+        /// 依次执行编解码微基准与 S1、S2 端到端场景并输出汇总
+        /// </summary>
+        /// <param name="enforceThresholds">为 true 时按分配量与吞吐阈值判定失败，为 false 时仅记录基线数据</param>
+        /// <returns>全部基准执行完成的任务</returns>
         public static async Task RunAsync(bool enforceThresholds = true)
         {
             _enforceThresholds = enforceThresholds;

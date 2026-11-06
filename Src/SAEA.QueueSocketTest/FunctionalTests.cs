@@ -16,10 +16,17 @@ using SAEA.QueueSocket.Type;
 
 namespace SAEA.QueueSocketTest
 {
+    /// <summary>
+    /// QueueSocket 功能回归用例集合，覆盖收发、广播、订阅、编解码与内存池所有权
+    /// </summary>
     public static class FunctionalTests
     {
         const int SettleMs = 400;
 
+        /// <summary>
+        /// 顺序执行全部功能回归用例，单条用例抛异常时记为失败而不中断后续用例
+        /// </summary>
+        /// <returns>全部用例执行完成的任务</returns>
         public static async Task RunAllAsync()
         {
             TestHarness.Section("QueueSocket functional regression");
