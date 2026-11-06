@@ -29,8 +29,12 @@
 *描述：SocketOption接口
 *
 *****************************************************************************/
+using System;
+using System.IO.Pipelines;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
+using System.Threading;
+using System.Threading.Tasks;
 
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Ssl;
@@ -40,7 +44,7 @@ namespace SAEA.Sockets.Model
     /// <summary>
     /// 套接字选项配置类
     /// </summary>
-    public class SocketOption : ISocketOption
+    public class SocketOption : ISocketOption, IPipelineSocketOption
     {
         /// <summary>
         /// UDP最大长度
@@ -219,6 +223,22 @@ namespace SAEA.Sockets.Model
         /// 是否广播
         /// </summary>
         public bool Broadcasted
+        {
+            get; set;
+        }
+
+        /// <summary>
+        /// 连接建立回调，在通道登记完成后、通知 OnAccepted 之前同步调用；未配置时为 null。
+        /// </summary>
+        public Action<ChannelInfo> ConnectionOpened
+        {
+            get; set;
+        }
+
+        /// <summary>
+        /// 输入处理器，接管该连接的读循环；未配置时为 null。
+        /// </summary>
+        public Func<IUserToken, PipeReader, IReceiveFlowControl, CancellationToken, Task> InputHandler
         {
             get; set;
         }

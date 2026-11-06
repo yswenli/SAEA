@@ -1,0 +1,60 @@
+using System;
+using System.Collections.Concurrent;
+
+namespace SAEA.Sockets.Pipeline
+{
+    /// <summary>
+    /// 线程安全的类型注册表：注册只在启动期发生，读路径无锁。
+    /// </summary>
+    public sealed class TypeRegistry : ITypeRegistry
+    {
+        private readonly object _gate = new object();
+        private readonly ConcurrentDictionary<int, Type> _codeToType = new ConcurrentDictionary<int, Type>();
+        private readonly ConcurrentDictionary<Type, int> _typeToCode = new ConcurrentDictionary<Type, int>();
+
+        /// <summary>
+        /// 双向注册。类型码越界抛 <see cref="ArgumentOutOfRangeException"/>，
+        /// 重复注册抛 <see cref="InvalidOperationException"/>。
+        /// 写入失败时回滚已写入的一侧，保证两个方向始终一致。
+        /// </summary>
+        public void Register(int typeCode, Type clrType)
+        {
+            if (clrType == null)
+                throw new ArgumentNullException(nameof(clrType));
+            if (typeCode < 0 || typeCode > 255)
+                throw new ArgumentOutOfRangeException(nameof(typeCode), "type code 必须落在 0..255（线上 1 字节）。");
+
+            lock (_gate)
+            {
+                if (_codeToType.ContainsKey(typeCode))
+                    throw new InvalidOperationException("type code " + typeCode + " 已注册。");
+                if (_typeToCode.ContainsKey(clrType))
+                    throw new InvalidOperationException("CLR 类型 " + clrType.FullName + " 已注册。");
+
+                if (!_codeToType.TryAdd(typeCode, clrType))
+                    throw new InvalidOperationException("type code " + typeCode + " 已注册。");
+
+                if (!_typeToCode.TryAdd(clrType, typeCode))
+                {
+                    Type ignored;
+                    _codeToType.TryRemove(typeCode, out ignored);
+                    throw new InvalidOperationException("CLR 类型 " + clrType.FullName + " 已注册。");
+                }
+            }
+        }
+
+        /// <summary>按类型码查 CLR 类型；未注册返回 null。</summary>
+        public Type Resolve(int typeCode)
+        {
+            Type type;
+            return _codeToType.TryGetValue(typeCode, out type) ? type : null;
+        }
+
+        /// <summary>按 CLR 类型查类型码；未注册返回 -1。</summary>
+        public int ResolveCode(Type clrType)
+        {
+            int code;
+            return clrType != null && _typeToCode.TryGetValue(clrType, out code) ? code : -1;
+        }
+    }
+}

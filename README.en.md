@@ -68,6 +68,7 @@ Select the appropriate component based on your requirements:
 |-----------|----------|-------|---------|--------------|-----------|
 | 🔌 **SAEA.Sockets** | Cross-platform high-performance Socket framework | [NuGet](https://www.nuget.org/packages/SAEA.Sockets) | [中文](Src/SAEA.Sockets/README.md) | [English](Src/SAEA.Sockets/README.en.md) | Game servers, real-time communication, IoT |
 | 🔧 **SAEA.Common** | Common utility library | [NuGet](https://www.nuget.org/packages/SAEA.Common) | [中文](Src/SAEA.Common/README.md) | [English](Src/SAEA.Common/README.en.md) | Serialization, caching, encryption |
+| 🧱 **SAEA.Sockets.Pipeline** | Bidirectional channel pipeline with pluggable framing and two-level codecs | [NuGet](https://www.nuget.org/packages/SAEA.Sockets.Pipeline) | [中文](Src/SAEA.Sockets.Pipeline/README.md) | [English](Src/SAEA.Sockets.Pipeline/README.en.md) | Protocol servers needing a handler chain, authentication, timeouts and backpressure |
 
 ### Web Application Components
 

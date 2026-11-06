@@ -181,6 +181,11 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="socketOption">Socket选项</param>
         public SaeaClientSocket(ISocketOption socketOption)
         {
+            // 管道钩子 v1 仅支持服务端，客户端配置任一钩子即拒绝，不静默忽略。
+            if (socketOption is IPipelineSocketOption pipelineOption &&
+                (pipelineOption.InputHandler != null || pipelineOption.ConnectionOpened != null))
+                throw new NotSupportedException("客户端不支持 UseInputHandler / UseConnectionOpened 钩子，这些钩子仅用于服务端。");
+
             SocketOption = socketOption;
 
             // Stream / TLS 模式可能未设置上下文；补齐默认上下文，避免令牌初始化失败。

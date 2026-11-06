@@ -36,11 +36,14 @@ using SAEA.Sockets.Model;
 using SAEA.Sockets.Ssl;
 
 using System;
+using System.IO.Pipelines;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace SAEA.Sockets
 {
@@ -50,7 +53,7 @@ namespace SAEA.Sockets
     public class SocketOptionBuilder
     {
 
-        ISocketOption _socketOption;
+        SocketOption _socketOption;
 
         /// <summary>
         /// socket选项创造器
@@ -138,6 +141,29 @@ namespace SAEA.Sockets
                 _socketOption.Context = context;
             }
 
+            return this;
+        }
+
+        /// <summary>
+        /// 注册连接建立回调（通道登记完成后、通知 OnAccepted 之前同步调用，禁止阻塞 IO）。
+        /// </summary>
+        /// <param name="callback">回调</param>
+        /// <returns></returns>
+        public SocketOptionBuilder UseConnectionOpened(Action<ChannelInfo> callback)
+        {
+            _socketOption.ConnectionOpened = callback;
+            return this;
+        }
+
+        /// <summary>
+        /// 注册输入处理器，由它独占该连接的 PipeReader 并接管读循环。
+        /// </summary>
+        /// <param name="handler">输入处理器</param>
+        /// <returns></returns>
+        public SocketOptionBuilder UseInputHandler(
+            Func<IUserToken, PipeReader, IReceiveFlowControl, CancellationToken, Task> handler)
+        {
+            _socketOption.InputHandler = handler;
             return this;
         }
 
@@ -459,6 +485,21 @@ namespace SAEA.Sockets
 
         public ISocketOption Build()
         {
+            var inputHandler = _socketOption.InputHandler;
+            var connectionOpened = _socketOption.ConnectionOpened;
+
+            // 1. 输入处理器需要 UseStream 提供的 PipeReader，纯 IOCP 事件模式没有。
+            if (inputHandler != null && !_socketOption.UseStream)
+                throw new InvalidOperationException("钩子要求 .UseStream()：通道链需要 UseStream 提供的 PipeReader，纯 IOCP 事件模式没有；请先调用 .UseStream()。");
+
+            // 2. 连接建立钩子同样依赖 UseStream 的连接门面。
+            if (connectionOpened != null && !_socketOption.UseStream)
+                throw new InvalidOperationException("钩子要求 .UseStream()：UseConnectionOpened 需要 UseStream 提供的连接门面，纯 IOCP 事件模式没有；请先调用 .UseStream()。");
+
+            // 3. 输入处理器必须与连接建立钩子成对配置，否则拿不到通道登记信息。
+            if (inputHandler != null && connectionOpened == null)
+                throw new InvalidOperationException("UseInputHandler 必须与 UseConnectionOpened 成对配置：输入处理器需要连接建立钩子登记的通道信息。");
+
             return _socketOption;
         }
     }

@@ -68,6 +68,7 @@ server.Start();
 |------|------|-------|---------|---------|----------|
 | 🔌 **SAEA.Sockets** | 跨平台高性能 Socket 通信框架 | [NuGet](https://www.nuget.org/packages/SAEA.Sockets) | [中文](Src/SAEA.Sockets/README.md) | [English](Src/SAEA.Sockets/README.en.md) | 游戏服务器、实时通信、IoT |
 | 🔧 **SAEA.Common** | 通用工具类库 | [NuGet](https://www.nuget.org/packages/SAEA.Common) | [中文](Src/SAEA.Common/README.md) | [English](Src/SAEA.Common/README.en.md) | 序列化、缓存、加密 |
+| 🧱 **SAEA.Sockets.Pipeline** | 双向通道链 + 可插拔分帧与两级编解码 | [NuGet](https://www.nuget.org/packages/SAEA.Sockets.Pipeline) | [中文](Src/SAEA.Sockets.Pipeline/README.md) | [English](Src/SAEA.Sockets.Pipeline/README.en.md) | 需要 Handler 链、鉴权、超时与背压的协议服务端 |
 
 ### Web 应用组件
 

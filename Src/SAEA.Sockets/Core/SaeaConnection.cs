@@ -74,6 +74,8 @@ namespace SAEA.Sockets.Core
 
         private volatile bool _receivePaused;
 
+        private volatile bool _appPaused;
+
         /// <summary>
         /// 构造连接。
         /// </summary>
@@ -124,8 +126,36 @@ namespace SAEA.Sockets.Core
         /// <summary>是否可写。</summary>
         public bool CanWrite => Volatile.Read(ref _state) == 0 && _socket.Connected;
 
-        /// <summary>是否因 Pipe 背压暂停接收。</summary>
-        public bool IsReceivePaused => _receivePaused;
+        /// <summary>是否暂停接收：Pipe 背压或应用级暂停任一成立。</summary>
+        public bool IsReceivePaused
+        {
+            get { return _receivePaused || _appPaused; }
+        }
+
+        /// <summary>是否因应用级暂停而停止接收。</summary>
+        public bool IsApplicationPaused
+        {
+            get { return _appPaused; }
+        }
+
+        /// <summary>暂停接收（应用级）。幂等。</summary>
+        public void PauseApplication()
+        {
+            _appPaused = true;
+        }
+
+        /// <summary>
+        /// 恢复接收（应用级）。Pipe 背压仍未解除时继续保持暂停，
+        /// 由背压本身的续体负责恢复读取。
+        /// </summary>
+        public void ResumeApplication()
+        {
+            _appPaused = false;
+            if (!_receivePaused)
+            {
+                try { _receiveResume?.Invoke(); } catch { }
+            }
+        }
 
         /// <summary>是否已关闭。</summary>
         public bool IsClosed => Volatile.Read(ref _state) != 0;

@@ -79,6 +79,16 @@ namespace SAEA.Sockets.Core.Tcp
         // 是否启用 TLS
         private readonly bool _tlsEnabled;
 
+        // 连接建立钩子：通道登记完成后、通知 OnAccepted 之前同步调用
+        private readonly Action<ChannelInfo> _connectionOpened;
+
+        // 输入处理器：接管该连接的读循环
+        private readonly Func<IUserToken, PipeReader, IReceiveFlowControl, CancellationToken, Task> _inputHandler;
+
+        // 输入处理器的取消源，按会话 ID 索引
+        private readonly ConcurrentDictionary<string, CancellationTokenSource> _pipelineCts =
+            new ConcurrentDictionary<string, CancellationTokenSource>(StringComparer.Ordinal);
+
         // 获取会话管理器
         public SessionManager SessionManager
         {
@@ -146,6 +156,13 @@ namespace SAEA.Sockets.Core.Tcp
             _useStream = socketOption.UseStream;
             _tlsEnabled = socketOption.Tls != null && socketOption.Tls.Enabled;
             _channelManager = new ChannelManager(Math.Max(1, socketOption.FreeTime / 1000));
+
+            var pipelineOption = socketOption as IPipelineSocketOption;
+            if (pipelineOption != null)
+            {
+                _connectionOpened = pipelineOption.ConnectionOpened;
+                _inputHandler = pipelineOption.InputHandler;
+            }
         }
 
         /// <summary>
@@ -288,7 +305,8 @@ namespace SAEA.Sockets.Core.Tcp
                 ProcessReceive(readArgs);
 
                 // 事件消费：由后台泵从 Pipe 读取解密后的数据。流模式与 TLS 事件模式共用该路径。
-                if (connection != null && OnServerReceiveSpan != null)
+                // 配置了输入处理器时读循环由处理器接管，事件泵不再启动。
+                if (connection != null && OnServerReceiveSpan != null && _inputHandler == null)
                     StartSpanPump(userToken, connection);
 
                 if (_tlsEnabled && connection != null)
@@ -304,12 +322,31 @@ namespace SAEA.Sockets.Core.Tcp
                             return;
                         }
 
-                        RaiseAccepted(userToken, connection);
+                        try
+                        {
+                            RaiseAccepted(userToken, connection);
+                            StartPipelineIfNeeded(userToken, connection);
+                        }
+                        catch (Exception ex)
+                        {
+                            OnError?.Invoke(userToken.ID, ex);
+                            Disconnect(userToken, ex);
+                        }
                     }, TaskContinuationOptions.ExecuteSynchronously);
                 }
                 else
                 {
-                    RaiseAccepted(userToken, connection);
+                    try
+                    {
+                        RaiseAccepted(userToken, connection);
+                        StartPipelineIfNeeded(userToken, connection);
+                    }
+                    catch (Exception ex)
+                    {
+                        OnError?.Invoke(userToken.ID, ex);
+                        Disconnect(userToken, ex);
+                        return;
+                    }
                 }
             }
             catch (Exception ex)
@@ -324,21 +361,74 @@ namespace SAEA.Sockets.Core.Tcp
 
         /// <summary>
         /// 触发 OnAccepted。流模式传 <see cref="ChannelInfo"/>，事件模式传 <see cref="IUserToken"/>。
+        /// 连接建立钩子在通道登记完成后、通知 OnAccepted 之前同步执行。
         /// </summary>
         private void RaiseAccepted(IUserToken userToken, SaeaConnection connection)
         {
             var handler = OnAccepted;
-            if (handler == null) return;
 
             if (_useStream && connection != null)
             {
+                if (_connectionOpened == null && handler == null) return;
+
                 var channel = _channelManager.Set(userToken.ID, userToken.Socket, connection.Stream, connection.Tls);
                 channel.UserToken = userToken;
-                handler(channel);
+
+                _connectionOpened?.Invoke(channel);
+                handler?.Invoke(channel);
             }
             else
             {
-                handler(userToken);
+                handler?.Invoke(userToken);
+            }
+        }
+
+        /// <summary>
+        /// 启动接管读循环的输入处理器。仅在配置了输入处理器且连接门面存在时启动。
+        /// </summary>
+        private void StartPipelineIfNeeded(IUserToken userToken, SaeaConnection connection)
+        {
+            if (_inputHandler == null || connection == null) return;
+
+            var sessionId = userToken.ID;
+            if (string.IsNullOrEmpty(sessionId)) return;
+
+            var cts = new CancellationTokenSource();
+            _pipelineCts[sessionId] = cts;
+
+            var flow = new ReceiveFlowControl(connection, () => Disconnect(userToken));
+            var handler = _inputHandler;
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await handler(userToken, connection.Input, flow, cts.Token).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    OnError?.Invoke(sessionId, ex);
+                }
+                finally
+                {
+                    CancellationTokenSource removed;
+                    _pipelineCts.TryRemove(sessionId, out removed);
+                    cts.Dispose();
+                }
+            });
+        }
+
+        /// <summary>
+        /// 取消该会话输入处理器的令牌。取消只置位，取消源由处理器自身的收口负责释放。
+        /// </summary>
+        private void CancelPipeline(string sessionId)
+        {
+            if (string.IsNullOrEmpty(sessionId)) return;
+
+            CancellationTokenSource cts;
+            if (_pipelineCts.TryRemove(sessionId, out cts))
+            {
+                try { cts.Cancel(); } catch (ObjectDisposedException) { }
             }
         }
 
@@ -920,6 +1010,9 @@ namespace SAEA.Sockets.Core.Tcp
                 var sessionId = userToken.ID;
                 if (string.IsNullOrEmpty(sessionId)) return;
 
+                // 先取消输入处理器的令牌，再释放连接，保证泵先收到取消并走收口。
+                CancelPipeline(sessionId);
+
                 SaeaConnection connection;
                 if (_connections.TryRemove(sessionId, out connection))
                 {
@@ -960,6 +1053,15 @@ namespace SAEA.Sockets.Core.Tcp
         /// </summary>
         public void Stop()
         {
+            try
+            {
+                foreach (var item in _pipelineCts)
+                {
+                    try { item.Value.Cancel(); } catch (ObjectDisposedException) { }
+                }
+                _pipelineCts.Clear();
+            }
+            catch { }
             try
             {
                 foreach (var item in _connections)

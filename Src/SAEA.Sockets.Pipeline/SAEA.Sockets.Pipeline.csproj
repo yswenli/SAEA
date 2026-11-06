@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>8.0</LangVersion>
+    <Version>26.11.5.1</Version>
+    <Authors>yswenli</Authors>
+    <Company>yswenli</Company>
+    <Description>SAEA.Sockets.Pipeline is a bidirectional channel pipeline with pluggable frame splitting and codecs for SAEA.
+SAEA.Sockets.Pipeline 是 SAEA 的双向通道链，带可插拔分帧器与两级编解码器</Description>
+    <Copyright>yswenli</Copyright>
+    <PackageProjectUrl>https://github.com/yswenli/SAEA</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/yswenli/SAEA</RepositoryUrl>
+    <PackageTags>socket,pipeline,codec,dotnetty</PackageTags>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <PackageIcon>favicon.png</PackageIcon>
+    <Title>SAEA.Sockets.Pipeline</Title>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SAEA.Common\SAEA.Common.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\favicon.png">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
+    <None Include="..\..\LICENSE.txt">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
+    <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+</Project>
