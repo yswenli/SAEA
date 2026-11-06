@@ -296,7 +296,7 @@ namespace SAEEA.Sockets.TcpTest
 
                 var option = SocketOptionBuilder.Instance
                     .SetSocket()
-                    .UseIocp<BaseCoder>()
+                    .UsePacket<BaseCoder>()
                     .SetIP("127.0.0.1")
                     .SetPort(0) // Random port
                     .SetReadBufferSize(8192)
