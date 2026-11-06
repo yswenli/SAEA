@@ -23,34 +23,46 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/03/18 02:16:04
+*修改时间：2026/11/6 12:20:17
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ChannelMessage消息类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.MessageSocket.Model.Business
 {
     /// <summary>
-    /// 
+    /// 频道消息，包含频道名称、发送者、发送时间与正文
     /// </summary>
     public class ChannelMessage: IMessage
     {
+        /// <summary>
+        /// 频道名称，客户端发送时必须填写，服务端据此确定转发范围
+        /// </summary>
         public string Name
         {
             get;set;
         }
 
+        /// <summary>
+        /// 发送者标识，由服务端转发时填为发送者会话 ID
+        /// </summary>
         public string Sender
         {
             get;set;
         }
 
+        /// <summary>
+        /// 发送时间字符串，由服务端在转发时填写
+        /// </summary>
         public string Sended
         {
             get;set;
         }
 
+        /// <summary>
+        /// 消息正文
+        /// </summary>
         public string Content
         {
             get;set;

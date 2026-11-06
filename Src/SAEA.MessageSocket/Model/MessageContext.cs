@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/03/18 02:16:04
+*修改时间：2026/11/6 12:20:17
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MessageContext上下文类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Sockets.Base;
@@ -34,10 +34,19 @@ using SAEA.Sockets.Interface;
 
 namespace SAEA.MessageSocket.Model
 {
+    /// <summary>
+    /// 消息通信上下文，持有会话用户令牌与消息解码器，客户端与服务端共用
+    /// </summary>
     public class MessageContext : BaseContext<BaseCoder>
     {
+        /// <summary>
+        /// 当前会话的用户令牌，含登录状态与最近活动时间
+        /// </summary>
         public override IUserToken UserToken { get; set; }
 
+        /// <summary>
+        /// 消息解码器，用于从接收数据中拆出完整协议帧
+        /// </summary>
         public override ICoder Unpacker { get; set; }
 
         /// <summary>

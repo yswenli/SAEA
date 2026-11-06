@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/03/18 02:16:04
+*修改时间：2026/11/6 12:20:17
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MessageServer服务端类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -48,6 +48,9 @@ using System.Threading.Tasks;
 
 namespace SAEA.MessageSocket
 {
+    /// <summary>
+    /// 消息服务端，处理登录、频道订阅与群组管理，并在成员之间转发消息
+    /// </summary>
     public class MessageServer
     {
 
@@ -61,13 +64,25 @@ namespace SAEA.MessageSocket
         ClassificationBatcher _classificationBatcher;
 
 
+        /// <summary>
+        /// 新客户端接入后触发，参数为用户上下文对象，可转为 IUserToken 获取会话标识
+        /// </summary>
         public event OnAcceptedHandler OnAccepted;
 
+        /// <summary>
+        /// 客户端断开时触发，参数为会话 ID 与断开原因异常，会话 ID 为空时不通知
+        /// </summary>
         public event OnDisconnectedHandler OnDisconnected;
 
+        /// <summary>
+        /// 请求处理发生异常时触发，参数为会话 ID 与异常
+        /// </summary>
         public event OnErrorHandler OnError;
 
 
+        /// <summary>
+        /// 当前在线客户端数量
+        /// </summary>
         public int ClientCounts
         {
             get
@@ -78,6 +93,13 @@ namespace SAEA.MessageSocket
 
 
 
+        /// <summary>
+        /// 创建服务端，注册接入、接收、异常与断开回调，并准备按会话批量发送的队列
+        /// </summary>
+        /// <param name="port">监听端口</param>
+        /// <param name="bufferSize">收发缓冲区大小（字节）</param>
+        /// <param name="count">最大连接数</param>
+        /// <param name="timeOut">会话空闲超时时间（毫秒）</param>
         public MessageServer(int port = 39654, int bufferSize = 102400, int count = 1000, int timeOut = 60 * 1000)
         {
             var option = SocketOptionBuilder.Instance
@@ -125,6 +147,9 @@ namespace SAEA.MessageSocket
             this.OnDisconnected?.Invoke(id, ex);
         }
 
+        /// <summary>
+        /// 启动服务端并开始监听
+        /// </summary>
         public void Start()
         {
             _server.Start();
@@ -194,6 +219,9 @@ namespace SAEA.MessageSocket
             }
         }
 
+        /// <summary>
+        /// 停止服务端并关闭所有连接
+        /// </summary>
         public void Stop()
         {
             _server.Stop();
