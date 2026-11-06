@@ -61,7 +61,7 @@ namespace SAEA.Audio.Net
         IStorage _storage;
 
         /// <summary>
-        /// OnReceive
+        /// 收到客户端语音数据帧时触发，在转发给同频道其他用户之前回调
         /// </summary>
         public event Action<DataInfo> OnReceive;
 
@@ -90,12 +90,18 @@ namespace SAEA.Audio.Net
         }
 
 
+        /// <summary>
+        /// 启动 UDP 服务端监听
+        /// </summary>
         public void Start()
         {
             _udpServer.Start();
         }
 
 
+        /// <summary>
+        /// 停止 UDP 服务端监听
+        /// </summary>
         public void Stop()
         {
             _udpServer.Stop();

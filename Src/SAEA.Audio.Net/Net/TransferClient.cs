@@ -55,6 +55,9 @@ namespace SAEA.Audio.Net
 
         readonly FileSpanHandler _onFileFrame;
 
+        /// <summary>
+        /// 收到语音数据帧时触发，参数为已解码的帧负载副本，可在回调之外持有
+        /// </summary>
         public event Action<Byte[]> OnReceive;
 
         /// <summary>
@@ -173,7 +176,7 @@ namespace SAEA.Audio.Net
         }
 
         /// <summary>
-        /// ping
+        /// 发送心跳包，无负载
         /// </summary>
         public void Ping()
         {
@@ -246,7 +249,7 @@ namespace SAEA.Audio.Net
         }
 
         /// <summary>
-        /// Disconnect
+        /// 断开底层 UDP 客户端连接
         /// </summary>
         public void Disconnect()
         {
