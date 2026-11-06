@@ -31,6 +31,7 @@
 using System.IO;
 using System.IO.Pipelines;
 
+using SAEA.Sockets.Base;
 using SAEA.Sockets.Ssl;
 
 namespace SAEA.Sockets.Model
@@ -39,13 +40,13 @@ namespace SAEA.Sockets.Model
     /// Stream 通道的用户令牌，承载连接流与其 PipeReader 输入。
     /// </summary>
     /// <remarks>
-    /// 本令牌用于 Stream 后端。继承自 <see cref="SAEA.Sockets.Base.BaseUserToken"/> 的 IOCP 专用成员
+    /// 本令牌用于 Stream 后端。继承自 <see cref="SAEA.Sockets.Base.BaseUserToken"/> 的 saea 专用成员
     /// （<c>ReadArgs</c>/<c>WriteArgs</c>/<c>IsSending</c>/<c>WaitWrite</c>/<c>ReleaseWrite</c>）在 Stream 场景
     /// 不适用，消费方只应依赖 <see cref="SAEA.Sockets.Interface.IUserToken.ID"/>、<see cref="Stream"/>、
     /// <see cref="Input"/>（以及 <see cref="SAEA.Sockets.Interface.IUserToken.Coder"/>）。
     /// <see cref="Stream"/> 与该连接的 <see cref="ChannelInfo.Stream"/> 是同一实例，不得独立重新赋值。
     /// </remarks>
-    public class StreamUserToken : SAEA.Sockets.Base.BaseUserToken
+    public class StreamUserToken : BaseUserToken
     {
         /// <summary>
         /// 获取或设置通道的网络流

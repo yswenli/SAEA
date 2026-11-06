@@ -11,7 +11,7 @@
  *CLR版本： netstandard2.0
  *命名空间：SAEA.Sockets.Core
  *文件名： SaeaConnection
- *描述：IOCP 连接的双工流门面与 TLS 处理
+ *描述：saea 连接的双工流门面与 TLS 处理
  *
  *****************************************************************************/
 using SAEA.Common.Caching;
@@ -30,14 +30,14 @@ using System.Threading.Tasks;
 namespace SAEA.Sockets.Core
 {
     /// <summary>
-    /// 表示一条 IOCP 连接。流模式与 TLS 都通过本类承载：
+    /// 表示一条 saea 连接。流模式与 TLS 都通过本类承载：
     /// 入站密文/明文写入 <see cref="Pipe"/>，<see cref="Stream"/> 从 <see cref="Pipe"/> 读取；
-    /// 出站写入经 TLS 加密后交给 IOCP 发送。
+    /// 出站写入经 TLS 加密后交给 saea 发送。
     /// </summary>
     internal sealed class SaeaConnection : IDisposable
     {
         /// <summary>
-        /// IOCP 原始发送委托：由 Socket 实现负责串行化与所有权释放。
+        /// saea 原始发送委托：由 Socket 实现负责串行化与所有权释放。
         /// </summary>
         private readonly Action<ArraySegment<byte>, IDisposable> _rawSend;
 
@@ -206,7 +206,7 @@ namespace SAEA.Sockets.Core
         }
 
         /// <summary>
-        /// 由 IOCP 接收回调调用。data 仅在调用期间有效。
+        /// 由 saea 接收回调调用。data 仅在调用期间有效。
         /// </summary>
         public void OnRawReceived(ReadOnlySpan<byte> data)
         {
@@ -646,7 +646,7 @@ namespace SAEA.Sockets.Core
     }
 
     /// <summary>
-    /// 把池化数组的归还封装为 <see cref="IDisposable"/>，交给 IOCP 发送所有权链。
+    /// 把池化数组的归还封装为 <see cref="IDisposable"/>，交给 saea 发送所有权链。
     /// </summary>
     internal sealed class PooledArrayOwner : IDisposable
     {

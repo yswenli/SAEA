@@ -61,7 +61,7 @@ namespace SAEA.P2P.Channel
         {
             var option = SocketOptionBuilder.Instance
                 .SetSocket(SAEASocketType.Udp)
-                .UseIocp()
+                .UsePacket()
                 .SetPort(port)
                 .ReusePort()
                 .Build();

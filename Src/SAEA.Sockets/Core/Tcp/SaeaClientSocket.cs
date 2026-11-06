@@ -176,7 +176,7 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         /// <summary>
-        /// iocp 客户端 socket
+        /// saea 客户端 socket
         /// </summary>
         /// <param name="socketOption">Socket选项</param>
         public SaeaClientSocket(ISocketOption socketOption)
@@ -229,7 +229,7 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         /// <summary>
-        /// iocp 客户端 socket
+        /// saea 客户端 socket
         /// </summary>
         /// <param name="context">上下文</param>
         /// <param name="ip">IP地址</param>
@@ -764,7 +764,7 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         /// <summary>
-        /// iocp 异步发送核心：seg 指向的内存由 owner 持有；owner 为 null 表示调用方内存（零拷贝）。
+        /// saea 异步发送核心：seg 指向的内存由 owner 持有；owner 为 null 表示调用方内存（零拷贝）。
         /// 所有权在发送完成（ProcessSended）或失败路径释放。
         /// </summary>
         private void SendAsyncRaw(ArraySegment<byte> seg, IDisposable owner)

@@ -1,3 +1,34 @@
+/****************************************************************************
+ * 
+  ____    _    _____    _      ____             _        _   
+ / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
+ \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
+  ___) / ___ \| |___ / ___ \   ___) | (_) | (__|   <  __/ |_ 
+ |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
+                                                              
+ 
+*Copyright (c) yswenli All Rights Reserved.
+*CLR版本： net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：SAEA.Sockets.Pipeline.Tests.Tests.Runtime
+*文件名： RuntimeAcceptanceTests
+*版本号： v26.11.5.1
+*唯一标识：1081bf18-03a2-41bd-913e-87f72d9856dc
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/11/6 09:50:56
+*描述：设计文档 §8.1 的运行时验收用例（内存传输替身 + 真执行器）；用例名前缀编号与 §8.1 条目对应， 不带编号的用例覆盖同一设计点下的边界分支
+*
+*=====================================================================
+*修改标记
+*修改时间：2026/11/6 09:50:56
+*修改人： yswenli
+*版本号： v26.11.5.1
+*描述：设计文档 §8.1 的运行时验收用例（内存传输替身 + 真执行器）；用例名前缀编号与 §8.1 条目对应， 不带编号的用例覆盖同一设计点下的边界分支
+*
+*****************************************************************************/
 using System;
 using System.Buffers;
 using System.Buffers.Binary;
@@ -16,9 +47,11 @@ using SAEA.Sockets.Pipeline;
 namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
 {
     /// <summary>
-    /// 设计文档 §8.1 的运行时验收用例（内存传输替身 + 真执行器）。
-    /// 与既有用例重复的条目（验收 15 的 IsSharable 计数）不在此复制，
-    /// 由 <see cref="ChannelPipelineStructureTests.NonSharableHandler_ReuseOnSecondChain_ThrowsUntilRemoved"/> 覆盖。
+    /// 设计文档 §8.1 的运行时验收用例（内存传输替身 + 真执行器）；用例名前缀编号与 §8.1 条目对应，
+    /// 不带编号的用例覆盖同一设计点下的边界分支。其它条目由 splitter、handler、executor
+    /// 契约用例与演示工程覆盖，完整对应关系见实施计划的「验收用例 → 里程碑映射」。
+    /// 与既有用例重复的条目不复刻：验收 16 的 IsSharable 计数由
+    /// <see cref="ChannelPipelineStructureTests.NonSharableHandler_ReuseOnSecondChain_ThrowsUntilRemoved"/> 覆盖。
     /// </summary>
     [TestClass]
     public class RuntimeAcceptanceTests
@@ -26,7 +59,52 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
         private static readonly TimeSpan WaitTimeout = TimeSpan.FromSeconds(2);
 
         [TestMethod]
-        public async Task Acceptance3_SameConnection_KeepsReceiveOrder_AndPerMessageChainOrder()
+        public async Task Acceptance3_SlowAuth_DoesNotSerializeMessagesOnSameConnection()
+        {
+            // 五条消息的鉴权耗时按到达顺序递减，完成顺序必然与到达顺序相反；
+            // 若执行器把同连接消息串行化，总耗时接近 600ms 且完成顺序等于到达顺序。
+            var delays = new[] { 200, 160, 120, 80, 40 };
+            var options = NewOptions(queueCapacity: 16, maxConcurrent: 5);
+
+            using (var pipeline = ChannelPipeline.Create(options))
+            {
+                var stream = new TestRawByteStream("slow-auth");
+                var auth = new SlowAuthHandler(delays);
+                pipeline.AddLast(auth);
+
+                var executor = new ChannelPipelineExecutor(
+                    stream, new TestChannel("slow-auth"), options, CancellationToken.None);
+                executor.Attach(pipeline);
+
+                try
+                {
+                    executor.Start();
+
+                    var frames = new byte[delays.Length][];
+                    for (var i = 0; i < frames.Length; i++)
+                        frames[i] = Frame((byte)i, (byte)i);
+
+                    var watch = Stopwatch.StartNew();
+                    await WriteAsync(stream, Concat(frames));
+                    await WaitUntilAsync(() => auth.Completed == delays.Length, "慢鉴权消息未全部完成");
+                    watch.Stop();
+
+                    CollectionAssert.AreEqual(new byte[] { 4, 3, 2, 1, 0 }, auth.CompletionOrder,
+                        "完成顺序应为 40→80→120→160→200ms，与到达顺序相反");
+                    Assert.IsTrue(auth.PeakConcurrency > 1,
+                        "同连接消息未并发执行，峰值并发=" + auth.PeakConcurrency);
+                    Assert.IsTrue(watch.ElapsedMilliseconds < 1000,
+                        "总耗时 " + watch.ElapsedMilliseconds + "ms 超过 5×200ms，鉴权被串行化");
+                }
+                finally
+                {
+                    await StopAsync(executor);
+                }
+            }
+        }
+
+        [TestMethod]
+        public async Task Concurrency_SameConnection_KeepsReceiveOrder_AndPerMessageChainOrder()
         {
             // 单并发：严格按接收顺序。
             using (var pipeline = ChannelPipeline.Create(NewOptions(queueCapacity: 128, maxConcurrent: 1)))
@@ -165,7 +243,7 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
         }
 
         [TestMethod]
-        public async Task Acceptance5_ArbitrarySplits_ProduceByteIdenticalFrames()
+        public async Task Acceptance2_ArbitrarySplits_ProduceByteIdenticalFrames()
         {
             var frames = new[]
             {
@@ -293,7 +371,7 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
         }
 
         [TestMethod]
-        public async Task Acceptance14_ReadCompleteThrows_OnlyWarns_AndKeepsProcessing()
+        public async Task ReadComplete_Throws_OnlyWarns_AndKeepsProcessing()
         {
             var options = NewOptions(queueCapacity: 32, maxConcurrent: 2);
             using (var pipeline = ChannelPipeline.Create(options))
@@ -331,7 +409,7 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
         }
 
         [TestMethod]
-        public async Task Acceptance16_AddFirstOutbound_IsAccepted_AndOutboundPassesThroughIt()
+        public async Task PipelineStructure_AddFirstOutbound_IsAccepted_AndOutboundPassesThroughIt()
         {
             var options = NewOptions();
             using (var pipeline = ChannelPipeline.Create(options))
@@ -605,7 +683,7 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
 
         private static async Task<List<byte[]>> CollectFramesAsync(byte[] wire, int[] segments, int expectedFrames)
         {
-            // 单并发：本用例只验证"切分不影响帧内容"，帧间顺序由验收 3 单独覆盖；
+            // 单并发：本用例只验证"切分不影响帧内容"，帧间顺序由 Concurrency_SameConnection_KeepsReceiveOrder_AndPerMessageChainOrder 单独覆盖；
             // 并发执行会让收集列表的顺序脱离接收顺序，造成与一次性输入的错误比对。
             var options = NewOptions(queueCapacity: 64, maxConcurrent: 1);
             using (var pipeline = ChannelPipeline.Create(options))
@@ -930,6 +1008,61 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             {
                 _types.Enqueue((byte)TypeOf(msg));
                 await ctx.FireChannelReadAsync(msg);
+            }
+        }
+
+        private sealed class SlowAuthHandler : InboundHandlerAdapter
+        {
+            private readonly int[] _delays;
+            private readonly ConcurrentQueue<byte> _completionOrder = new ConcurrentQueue<byte>();
+            private int _active;
+            private int _peak;
+            private int _completed;
+
+            public SlowAuthHandler(int[] delays)
+            {
+                _delays = delays;
+            }
+
+            public byte[] CompletionOrder
+            {
+                get { return _completionOrder.ToArray(); }
+            }
+
+            public int PeakConcurrency
+            {
+                get { return Volatile.Read(ref _peak); }
+            }
+
+            public int Completed
+            {
+                get { return Volatile.Read(ref _completed); }
+            }
+
+            public override async Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+            {
+                var seq = TypeOf(msg);
+                var active = Interlocked.Increment(ref _active);
+                while (true)
+                {
+                    var peak = Volatile.Read(ref _peak);
+                    if (active <= peak || Interlocked.CompareExchange(ref _peak, active, peak) == peak)
+                        break;
+                }
+
+                try
+                {
+                    await Task.Delay(_delays[seq], ctx.CancellationToken).ConfigureAwait(false);
+                }
+                finally
+                {
+                    Interlocked.Decrement(ref _active);
+                }
+
+                _completionOrder.Enqueue((byte)seq);
+                Interlocked.Increment(ref _completed);
+
+                await ctx.FireChannelReadAsync(msg).ConfigureAwait(false);
             }
         }
 

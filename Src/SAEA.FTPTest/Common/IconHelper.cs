@@ -57,8 +57,9 @@ namespace SAEA.FTPTest.Common
             /// 通过扩展名得到图标和描述 
             /// </summary> 
             /// <param name="ext">扩展名</param> 
-            /// <param name="LargeIcon">得到大图标</param> 
+            /// <param name="largeIcon">得到大图标</param> 
             /// <param name="smallIcon">得到小图标</param> 
+            /// <param name="description">文件类型描述</param> 
             public static void GetExtsIconAndDescription(string ext, out Icon largeIcon, out Icon smallIcon, out string description)
         {
             largeIcon = smallIcon = null;

@@ -40,6 +40,9 @@ using System.Text.RegularExpressions;
 
 namespace SAEA.Common
 {
+    /// <summary>
+    /// IPHelper接口
+    /// </summary>
     public static class IPHelper
     {
         /// <summary>

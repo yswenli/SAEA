@@ -282,7 +282,7 @@ public sealed class SocketStreamAdapter : IRawByteStream
 
 ## 🐞 Debug Assertion Boundary
 
-- In `Debug` builds a lightweight outbound check exists: the same `msg` instance may pass through `ctx.WriteAsync` only once during one outbound traversal. Writing the same message twice triggers the assertion. That covers "same message written twice".
+- In `Debug` builds a lightweight outbound check exists: **the same handler node** may call `ctx.WriteAsync` with the same `msg` instance only once; a second write triggers the assertion. Different nodes forwarding the same instance (for example a logging handler passing an intermediate carrier through) is legal. That covers "one handler writes the same message twice".
 - It does **not** cover "forgot to forward": returning without forwarding and deliberately dropping a message are indistinguishable at runtime, so this relies on code review and end-to-end tests that assert the reply actually arrives.
 - Calling `IRawByteStream.SendAsync` directly and bypassing the chain head is not detected at runtime either; code review forbids it.
 
@@ -307,6 +307,23 @@ public sealed class SocketStreamAdapter : IRawByteStream
 | `FrameSplitterHandler` | Inbound | Only for manual in-chain splitting when not using the receive pump |
 
 Pluggable implementations: `LengthFieldSplitter`, `DelimiterSplitter`, `FixedLengthSplitter`, `LineSplitter`, `LengthFieldFrameEncoder`, `EnvelopeCodec`, `JsonMessageCodec`, `ProtobufMessageCodec`, `RawCopyCodec`, `TypeRegistry`.
+
+---
+
+## 🧪 Demo and Self-Tests
+
+```bash
+dotnet run --project Src/SAEA.Sockets.PipelineTest -c Release -- --all     # in-memory loopback, full chain
+dotnet run --project Src/SAEA.Sockets.PipelineTest -c Release -- --socket  # real SaeaServerSocket integration
+dotnet run --project Src/SAEA.Sockets.PipelineTest -c Release -- --tls     # real socket + TLS, first frame after handshake
+dotnet run --project Src/SAEA.Sockets.PipelineTest -c Release -- --bench   # throughput/allocation trend vs. BaseCoder
+```
+
+Without arguments it only prints usage, so automation must pass one explicitly; `--bench` is a trend observation, not a gate. The unit-test project is not in the solution and must be run on its own:
+
+```bash
+dotnet test Src/SAEA.Sockets.Pipeline.Tests/SAEA.Sockets.Pipeline.Tests.csproj -c Debug
+```
 
 ---
 

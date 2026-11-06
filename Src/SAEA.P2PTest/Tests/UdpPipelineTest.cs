@@ -24,7 +24,7 @@ namespace SAEA.P2PTest.Tests
 
             var serverOption = SAEA.Sockets.SocketOptionBuilder.Instance
                 .SetSocket(SAEASocketType.Udp)
-                .UseIocp()
+                .UsePacket()
                 .SetIP("127.0.0.1")
                 .SetPort(port)
                 .SetReadBufferSize(8192)
@@ -32,7 +32,7 @@ namespace SAEA.P2PTest.Tests
 
             var clientOption = SAEA.Sockets.SocketOptionBuilder.Instance
                 .SetSocket(SAEASocketType.Udp)
-                .UseIocp()
+                .UsePacket()
                 .SetIP("127.0.0.1")
                 .SetPort(port)
                 .SetReadBufferSize(8192)

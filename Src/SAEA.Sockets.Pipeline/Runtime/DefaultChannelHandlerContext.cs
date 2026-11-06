@@ -1,4 +1,37 @@
+/****************************************************************************
+ * 
+  ____    _    _____    _      ____             _        _   
+ / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
+ \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
+  ___) / ___ \| |___ / ___ \   ___) | (_) | (__|   <  __/ |_ 
+ |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
+                                                              
+ 
+*Copyright (c) yswenli All Rights Reserved.
+*CLR版本： netstandard2.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：SAEA.Sockets.Pipeline
+*文件名： DefaultChannelHandlerContext
+*版本号： v26.11.5.1
+*唯一标识：6873286a-a609-4188-b34e-d12ef3ba863e
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/11/6 09:50:56
+*描述：链节点上的处理器上下文
+*
+*=====================================================================
+*修改标记
+*修改时间：2026/11/6 09:50:56
+*修改人： yswenli
+*版本号： v26.11.5.1
+*描述：链节点上的处理器上下文
+*
+*****************************************************************************/
 using System;
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -10,6 +43,19 @@ namespace SAEA.Sockets.Pipeline
     /// </summary>
     internal sealed class DefaultChannelHandlerContext : IChannelHandlerContext
     {
+#if DEBUG
+        private sealed class OutboundWriteMarker
+        {
+            public ChannelPipeline.Node LastNode;
+
+            public int Writes;
+        }
+
+        // 按消息实例记录"最后是哪个节点写的、写了几次"。键为弱引用，实例不再被引用时条目自动消失。
+        private static readonly ConditionalWeakTable<object, OutboundWriteMarker> OutboundWrites =
+            new ConditionalWeakTable<object, OutboundWriteMarker>();
+#endif
+
         private readonly ChannelPipeline.Node _node;
 
         internal DefaultChannelHandlerContext(ChannelPipeline.Node node, ChannelPipeline pipeline)
@@ -66,6 +112,8 @@ namespace SAEA.Sockets.Pipeline
         /// </summary>
         public Task WriteAsync(object msg)
         {
+            VerifySingleOutboundWrite(msg);
+
             var prev = ChannelPipeline.FindPrevOutbound(_node.Prev);
             if (prev == null)
                 return Pipeline.HeadSinkWriteAsync(msg);
@@ -77,6 +125,57 @@ namespace SAEA.Sockets.Pipeline
         public Task FireExceptionCaughtAsync(Exception ex)
         {
             return Pipeline.FireExceptionCaughtFromAsync(_node.Next, ex);
+        }
+
+        /// <summary>
+        /// 出站契约检查：同一个 handler 节点对同一个消息实例只允许调用一次
+        /// <see cref="WriteAsync"/>；不同节点转发同一实例（如日志 handler 透传）是合法的。
+        /// 同一节点重复写入会让下游产生重复帧，属于难以从抓包定位的错误。
+        /// 本检查只在 Debug 构建下生效，Release 构建的调用点被编译器移除，无额外开销。
+        /// </summary>
+        [Conditional("DEBUG")]
+        private void VerifySingleOutboundWrite(object msg)
+        {
+#if DEBUG
+            if (msg == null)
+                return;
+
+            var marker = OutboundWrites.GetOrCreateValue(msg);
+            lock (marker)
+            {
+                if (ReferenceEquals(marker.LastNode, _node))
+                {
+                    marker.Writes++;
+                    if (marker.Writes > 1)
+                    {
+                        throw new InvalidOperationException(
+                            "同一个处理器节点对同一个消息实例只能写一次，重复写入会产生重复帧；处理器：" +
+                            (_node.Handler == null ? "(哨兵)" : _node.Handler.GetType().FullName) +
+                            "；消息类型：" + msg.GetType().FullName);
+                    }
+                }
+                else
+                {
+                    marker.LastNode = _node;
+                    marker.Writes = 1;
+                }
+            }
+#endif
+        }
+
+        /// <summary>
+        /// 移除实例的出站传递标记；链头接收消息后调用，避免标记长期留在表里。
+        /// 与 <see cref="VerifySingleOutboundWrite"/> 一样只在 Debug 构建下生效。
+        /// </summary>
+        [Conditional("DEBUG")]
+        internal static void ClearOutboundWriteMarker(object msg)
+        {
+#if DEBUG
+            if (msg == null)
+                return;
+
+            OutboundWrites.Remove(msg);
+#endif
         }
     }
 }

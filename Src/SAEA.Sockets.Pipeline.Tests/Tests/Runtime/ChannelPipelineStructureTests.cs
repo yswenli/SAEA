@@ -1,3 +1,34 @@
+/****************************************************************************
+ * 
+  ____    _    _____    _      ____             _        _   
+ / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
+ \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
+  ___) / ___ \| |___ / ___ \   ___) | (_) | (__|   <  __/ |_ 
+ |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
+                                                              
+ 
+*Copyright (c) yswenli All Rights Reserved.
+*CLR版本： net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：SAEA.Sockets.Pipeline.Tests.Tests.Runtime
+*文件名： ChannelPipelineStructureTests
+*版本号： v26.11.5.1
+*唯一标识：b6a6ff54-867e-4f8a-bff1-a4aa028b43ed
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/11/6 09:50:56
+*描述：ChannelPipelineStructureTests
+*
+*=====================================================================
+*修改标记
+*修改时间：2026/11/6 09:50:56
+*修改人： yswenli
+*版本号： v26.11.5.1
+*描述：ChannelPipelineStructureTests
+*
+*****************************************************************************/
 using System;
 using System.Collections.Generic;
 using System.IO.Pipelines;
@@ -8,6 +39,9 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
 {
+    /// <summary>
+    /// 通道链结构：入站/出站遍历方向、handler 增删顺序约束与链头交接。
+    /// </summary>
     [TestClass]
     public class ChannelPipelineStructureTests
     {

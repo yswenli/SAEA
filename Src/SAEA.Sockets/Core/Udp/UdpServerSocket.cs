@@ -82,7 +82,7 @@ namespace SAEA.Sockets.Core.Udp
         #endregion
 
         /// <summary>
-        /// iocp 服务器 socket
+        /// saea 服务器 socket
         /// </summary>>
         /// <param name="socketOption"></param>
         public UdpServerSocket(ISocketOption socketOption)

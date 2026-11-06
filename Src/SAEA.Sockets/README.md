@@ -42,7 +42,7 @@ using SAEA.Sockets.Handler;
 // 创建服务器配置
 var option = SocketOptionBuilder.Instance
     .SetSocket(SAEASocketType.Tcp)
-    .UseIocp()
+    .UsePacket()
     .SetPort(39654)
     .Build();
 
@@ -89,7 +89,7 @@ client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!"))
 
 三平台使用同一套 API，无需条件编译，也无需切换实现。底层机制由 .NET 运行时根据当前操作系统自动选择；框架侧只负责收发调度、协议编解码与会话管理。
 
-> ⚠️ **命名说明**：`UseIocp()` 是历史命名，指框架的 `SocketAsyncEventArgs` 收发实现，**不是 Windows 限定**——它在 Linux/macOS 上同样可用，底层分别落到 epoll/kqueue。TCP 只有这一套底层引擎（`SaeaServerSocket` / `SaeaClientSocket`）。
+> ⚠️ **命名说明**：`UsePacket()` 是历史命名，指框架的 `SocketAsyncEventArgs` 收发实现，**不是 Windows 限定**——它在 Linux/macOS 上同样可用，底层分别落到 epoll/kqueue。TCP 只有这一套底层引擎（`SaeaServerSocket` / `SaeaClientSocket`）。
 >
 > `UseStream()` 不再切换引擎，而是在同一引擎上额外暴露双工 `Stream` 门面（`GetStream()` / `ChannelInfo.Stream`），由该门面独占入站数据；TLS 与事件模式、流模式都能组合使用。
 
@@ -208,9 +208,9 @@ client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!"))
 
 ## 实现模式对比 📊
 
-TCP 只有一套底层引擎，`UseIocp()` 与 `UseStream()` 只决定数据如何交付，不再切换实现：
+TCP 只有一套底层引擎，`UsePacket()` 与 `UseStream()` 只决定数据如何交付，不再切换实现：
 
-| 对比项 | 事件模式（`UseIocp()`） | 流模式（`UseStream()`） |
+| 对比项 | 事件模式（`UsePacket()`） | 流模式（`UseStream()`） |
 |--------|-------------------------|--------------------------|
 | 主要类 | `SaeaServerSocket` / `SaeaClientSocket` | 同左（同一引擎） |
 | 接收方式 | 每连接一个 `SocketAsyncEventArgs`，通过 `On*ReceiveSpan` 交付 | 每连接一个 `PipeReader`，通过 `GetStream()` / `ChannelInfo.Stream` 读写 |
@@ -219,7 +219,7 @@ TCP 只有一套底层引擎，`UseIocp()` 与 `UseStream()` 只决定数据如�
 | 数据消费 | 只走 Span 事件 | `Stream` 门面独占入站数据 |
 | 底层 IO 机制 | 由 .NET 运行时选择：Windows IOCP / Linux epoll / macOS kqueue | 同上 |
 
-> 命名说明：`UseIocp()` 指 `SocketAsyncEventArgs` 收发实现，与操作系统无关。两种模式互斥，后调用的方法生效。
+> 命名说明：`UsePacket()` 指 `SocketAsyncEventArgs` 收发实现，与操作系统无关。两种模式互斥，后调用的方法生效。
 
 ### 关于性能数字
 
@@ -233,7 +233,7 @@ TCP 只有一套底层引擎，`UseIocp()` 与 `UseStream()` 只决定数据如�
 
 **A**: 不是。Windows、Linux、macOS 使用同一套 API。底层异步 IO 机制由 .NET 运行时按操作系统自动选择——Windows 是 IOCP，Linux 是 epoll，macOS 是 kqueue——框架的收发调度、编解码和会话管理逻辑完全一致，不需要条件编译。
 
-`UseIocp()` 中的 "Iocp" 是历史命名，指 `SocketAsyncEventArgs` 收发实现，不表示 Windows 限定。
+`UsePacket()` 中的 "Iocp" 是历史命名，指 `SocketAsyncEventArgs` 收发实现，不表示 Windows 限定。
 
 ### Q2: 如何实现自定义协议？
 
@@ -273,14 +273,14 @@ public class MyCoder : BaseCoder
 }
 ```
 
-接线方式（`UseIocp<T>()` 内部构造 `BaseContext<T>`，把编码器交给框架使用）：
+接线方式（`UsePacket<T>()` 内部构造 `BaseContext<T>`，把编码器交给框架使用）：
 
 ```csharp
 using SAEA.Sockets;
 
 var option = SocketOptionBuilder.Instance
     .SetSocket(SAEASocketType.Tcp)
-    .UseIocp<MyCoder>()   // 注入自定义编码器
+    .UsePacket<MyCoder>()   // 注入自定义编码器
     .SetPort(39654)
     .Build();
 ```
@@ -390,7 +390,7 @@ using SAEA.Sockets.Handler;
 // 使用 Builder 链式配置服务器
 var option = SocketOptionBuilder.Instance
     .SetSocket(SAEASocketType.Tcp)  // 设置 Socket 类型为 TCP
-    .UseIocp()                       // SocketAsyncEventArgs 模式（跨平台）
+    .UsePacket()                       // SocketAsyncEventArgs 模式（跨平台）
     .SetIP("127.0.0.1")              // 监听 IP
     .SetPort(39654)                  // 监听端口
     .SetReadBufferSize(1024 * 64)    // 读缓冲区大小 64KB
@@ -424,7 +424,7 @@ using SAEA.Sockets;
 
 var option = SocketOptionBuilder.Instance
     .SetSocket(SAEASocketType.Tcp)
-    .UseIocp()
+    .UsePacket()
     .SetIP("127.0.0.1")
     .SetPort(39654)
     .Build();
@@ -595,14 +595,14 @@ public class MyCoder : BaseCoder
 }
 ```
 
-接线方式（`UseIocp<T>()` 内部构造 `BaseContext<T>`，把编码器交给框架使用）：
+接线方式（`UsePacket<T>()` 内部构造 `BaseContext<T>`，把编码器交给框架使用）：
 
 ```csharp
 using SAEA.Sockets;
 
 var option = SocketOptionBuilder.Instance
     .SetSocket(SAEASocketType.Tcp)
-    .UseIocp<MyCoder>()   // 注入自定义编码器
+    .UsePacket<MyCoder>()   // 注入自定义编码器
     .SetPort(39654)
     .Build();
 ```

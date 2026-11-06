@@ -1,3 +1,34 @@
+/****************************************************************************
+ * 
+  ____    _    _____    _      ____             _        _   
+ / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
+ \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
+  ___) / ___ \| |___ / ___ \   ___) | (_) | (__|   <  __/ |_ 
+ |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
+                                                              
+ 
+*Copyright (c) yswenli All Rights Reserved.
+*CLR版本： net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：SAEA.Sockets.Pipeline.Tests.Tests.Integration
+*文件名： ReceiveFlowControlTests
+*版本号： v26.11.5.1
+*唯一标识：8bbc26d8-b069-411d-be58-62d819a732d3
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/11/6 09:50:56
+*描述：接收闸门的双来源语义：Pipe 背压（_receivePaused）与应用级暂停（_appPaused）互相独立， 以及把这些闸门适配给 IReceiveFlowControl 的适配器行为
+*
+*=====================================================================
+*修改标记
+*修改时间：2026/11/6 09:50:56
+*修改人： yswenli
+*版本号： v26.11.5.1
+*描述：接收闸门的双来源语义：Pipe 背压（_receivePaused）与应用级暂停（_appPaused）互相独立， 以及把这些闸门适配给 IReceiveFlowControl 的适配器行为
+*
+*****************************************************************************/
 using System;
 using System.Reflection;
 using System.Runtime.CompilerServices;

@@ -86,7 +86,7 @@ namespace SAEA.Sockets.Core.Udp
         }
 
         /// <summary>
-        /// iocp 客户端 socket
+        /// saea 客户端 socket
         /// </summary>
         /// <param name="socketOption"></param>
         public UdpClientSocket(ISocketOption socketOption)
@@ -134,7 +134,7 @@ namespace SAEA.Sockets.Core.Udp
         /// <summary>
         /// 指定绑定ip
         /// </summary>
-        /// <param name="ip"></param>
+        /// <param name="ipEndPint"></param>
         public void Bind(IPEndPoint ipEndPint)
         {
             _udpSocket.Bind(ipEndPint);
@@ -164,7 +164,6 @@ namespace SAEA.Sockets.Core.Udp
         /// <summary>
         /// 连接到服务器
         /// </summary>
-        /// <param name="timeOut"></param>
         public void Connect()
         {
             ConnectAsync();

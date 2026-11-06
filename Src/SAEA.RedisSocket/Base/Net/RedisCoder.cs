@@ -50,7 +50,7 @@ namespace SAEA.RedisSocket.Base.Net
         /// 收包处理
         /// </summary>
         /// <param name="data"></param>
-        /// <param name="OnHeart"></param>
+        /// <param name="onHeart"></param>
         /// <param name="onFile"></param>
         public SAEA.Sockets.Base.DecodedFrames Decode(System.Buffers.ReadOnlySequence<byte> data, Action<DateTime> onHeart = null, Action<ReadOnlyMemory<byte>> onFile = null)
         {

@@ -69,7 +69,7 @@ namespace SAEA.Sockets.Shortcut
             _serverSokcet = SocketFactory.CreateServerSocket(SocketOptionBuilder.Instance
                 .SetSocket(Model.SAEASocketType.Tcp)
                 .SetIPEndPoint(endpoint)
-                .UseIocp<Coder>()
+                .UsePacket<Coder>()
                 .Build());
 
             _serverSokcet.OnAccepted += ServerSokcet_OnAccepted;

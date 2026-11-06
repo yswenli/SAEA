@@ -121,7 +121,7 @@ namespace SAEA.QueueSocket
             _queueCoder = new QueueCoder();
 
             ISocketOption socketOption = SocketOptionBuilder.Instance.SetSocket(Sockets.Model.SAEASocketType.Tcp)
-                .UseIocp<QueueCoder>()
+                .UsePacket<QueueCoder>()
                 .SetIP(ip)
                 .SetPort(port)
                 .SetWriteBufferSize(bufferSize)

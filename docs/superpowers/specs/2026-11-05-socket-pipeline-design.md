@@ -274,9 +274,9 @@ public interface IChannelPipeline : IDisposable
 
 1. **要继续往 head 传，必须 `await ctx.WriteAsync(transformedMsg)`**：handler 做完自己的变换（包装、压缩、加密、改写类型）后，用**变换后的消息**调用一次 `ctx.WriteAsync`，并等待它。不调用即视为本 handler 截断了出站链，消息到此为止。合法的终止点只有链头 head sink；handler 若主动终止，必须是"明确丢弃"（第 2 条），不能是"忘了转发"。
 2. **已经丢弃或已在别处完成的消息，禁止再调用 `ctx.WriteAsync()`**：handler 决定丢弃（如鉴权失败不返回业务帧）或已通过其它通道交出结果时，必须直接 `return`，不得再往下传。**handler 不允许直接调用 `IRawByteStream.SendAsync`**——出站唯一出口是链头 head sink（§5.2），绕过它会让 owner 归还散落多处。
-3. **单条输入消息只允许调用一次 `ctx.WriteAsync()`**：禁止拆包成多条、也禁止先传原消息再传变换结果。需要一发多帧（如推送批量），必须由业务显式构造多条消息各走一次出站，而不是在 handler 内对同一条输入调用两次。
+3. **同一个 handler 节点对同一条输入消息只允许调用一次 `ctx.WriteAsync()`**：禁止拆包成多条、也禁止先传原消息再传变换结果。需要一发多帧（如推送批量），必须由业务显式构造多条消息各走一次出站，而不是在 handler 内对同一条输入调用两次。不同节点转发同一实例（如日志 handler 原样透传中间载体）是合法的。
 
-违反第 2、3 条会产生重复输出或"幽灵帧"，且难以从抓包定位。因此 `DefaultChannelHandlerContext` 在 `Debug` 构建下做一次轻量检查：同一个 `msg` 实例在一次出站传递中只允许穿过一次 `ctx.WriteAsync`。实现用 `[Conditional("DEBUG")]` 私有方法 + `ConditionalWeakTable<object, WriteMarker>`（引用相等，跨 `await` 线程切换仍有效）：每次 `ctx.WriteAsync` 把该实例的 `Hops` 加 1，`Hops > 1` 即断言；head sink 接受消息后 `Remove` 条目，避免把消息钉在表里。Release 构建下调用点被编译器移除，零开销。
+违反第 2、3 条会产生重复输出或"幽灵帧"，且难以从抓包定位。因此 `DefaultChannelHandlerContext` 在 `Debug` 构建下做一次轻量检查：同一个 `msg` 实例在**同一个 handler 节点**上只允许穿过一次 `ctx.WriteAsync`。实现用 `[Conditional("DEBUG")]` 私有方法 + `ConditionalWeakTable<object, OutboundWriteMarker>`（引用相等，跨 `await` 线程切换仍有效）：marker 记录 `LastNode` 与写入次数，`LastNode` 仍是当前节点时再次写入即断言，换成别的节点则重置为当前节点；head sink 接受消息后 `Remove` 条目，避免把消息钉在表里。Release 构建下调用点被编译器移除，零开销。
 
 **`IChannel` 与 `Attributes`（实现定义）：**
 
@@ -1001,6 +1001,20 @@ public sealed class ChannelPipelineOptions
 - 与"手写回调 + `BaseCoder.DecodeStream`"的直连写法相比，同机同负载下吞吐下降不超过 15%。
 - **拷贝口径（B2）**：本栈入站每帧固定 **2 次字节拷贝**（Pipe → accumulator、accumulator → `PooledMessage`）；既有直连写法直接消费 Pipe 缓冲，只有 0–1 次。出站另计 **3 次**（实体 → `Envelope.Payload` 的 `byte[]`、`Payload` → `EncodedBody`、`EncodedBody` → 最终帧缓冲），这是"两级正交 + `IBufferWriter` 不能前插"的已知成本，v1 不优化。这 2/3 次是已知预算，性能对比按此口径，**不要拿"零拷贝"要求它**。
 - **分配口径**：每帧额外分配 ≤ 2 次——小帧（`< SmallFrameInlineThreshold`）为 `PooledMessage` 的精确数组 + 队列节点；大帧走池时无数组分配，仅 `PooledMessage` + 队列节点。实测若长期超过 2 次，说明有隐藏拷贝，需回填。
+
+**实测（2026-11-06，Windows / .NET 10.0.403，Release，`Src/SAEA.Sockets.PipelineTest --bench`）**：500000 帧、body 256B、按 64KB 分块喂入，每条路径预热 1 轮后取 5 轮中位数；完整接收路径三次重复差异在 1 个百分点内，解码层因单轮分配量大（约 156MB/轮）受 GC 影响波动较大：
+
+| 路径 | 吞吐 | 每帧分配 |
+|---|---|---|
+| 旧栈 `BaseCoder.DecodeStream` 直连回调 | 约 1370 万帧/s | 约 0–1B |
+| 新栈 分帧 + `EnvelopeCodec` 解码 | 约 1700 万帧/s（旧栈 0.8–1.5×） | 约 312B |
+| 新栈 接收泵 + 入队 + 处理器 | 约 76–84 万帧/s（旧栈 5.6–6.2%） | 约 1.2KB |
+
+- **解码层与旧栈同量级**：分帧 + 解码一层多次重复落在旧栈的 0.8–1.5× 之间，波动来自每轮约 156MB 分配引发的 GC，而不是路径本身更慢；稳定成本是 `Envelope` 与独立 payload 拷贝（256B body 对应约 312B/帧）。
+- **完整接收路径约 6%，§8.4 的"下降不超过 15%"目标未达成**：差距主要来自执行器每消息的 `Task.Run` + `TaskCompletionSource` 闸门 + `CreateLinkedTokenSource`，以及每帧 2 次拷贝；绝对吞吐约 76–84 万帧/s（256B 帧约 195–215MB/s）。该条保留为趋势观测、不作门禁。v2 若要收敛，优先把每消息 `Task.Run` 换成固定 worker 循环、无超时时不建链接令牌。
+- **分配预算未达成**：完整接收路径实测约 1.2KB/帧、对象分配约 6 次/帧（精确数组、`PooledMessage`、队列节点、每消息 `TaskCompletionSource`/`Task`/`CancellationTokenSource`）。上面"≤2 次"只覆盖了数组与队列节点，漏算了执行器的每消息机构，以实测量级为准，v2 再优化。
+- 该测量是单机趋势值，跨机器比较需重跑同一条命令；`--bench` 不进 CI，也不作合并门禁。
+- 基准脚本本身把整段 wire 写入 `Pipe`，含一次基准侧的 Pipe 拷贝；真实 socket 读路径没有这次拷贝，因此完整路径的实际分配应略低于上表。
 
 ---
 

@@ -53,12 +53,12 @@ namespace SAEA.Sockets
         {
             if (socketOption.SocketType == SAEASocketType.Tcp)
             {
-                // TCP 统一由 IOCP 引擎承载；流模式与 TLS 由 SaeaConnection 提供。
+                // TCP 统一由 saea 引擎承载；流模式与 TLS 由 SaeaConnection 提供。
                 return new SaeaServerSocket(socketOption);
             }
             else
             {
-                if (!socketOption.UseIocp)
+                if (!socketOption.UsePacket)
                 {
                     throw new NotImplementedException("udp不支持此模式");
                 }
@@ -70,7 +70,7 @@ namespace SAEA.Sockets
         }
 
         /// <summary>
-        /// 创建iocp服务器Socket
+        /// 创建saea服务器Socket
         /// </summary>
         /// <param name="socketOption"></param>
         /// <returns></returns>
@@ -82,7 +82,7 @@ namespace SAEA.Sockets
             }
             else
             {
-                if (socketOption.UseIocp)
+                if (socketOption.UsePacket)
                 {
                     return new UdpServerSocket(socketOption);
                 }
@@ -104,12 +104,12 @@ namespace SAEA.Sockets
         {
             if (socketOption.SocketType == SAEASocketType.Tcp)
             {
-                // TCP 统一由 IOCP 引擎承载；流模式与 TLS 由 SaeaConnection 提供。
+                // TCP 统一由 saea 引擎承载；流模式与 TLS 由 SaeaConnection 提供。
                 return new SaeaClientSocket(socketOption);
             }
             else
             {
-                if (!socketOption.UseIocp)
+                if (!socketOption.UsePacket)
                 {
                     throw new NotImplementedException("udp不支持此模式");
                 }
@@ -134,7 +134,7 @@ namespace SAEA.Sockets
             }
             else
             {
-                if (!socketOption.UseIocp)
+                if (!socketOption.UsePacket)
                 {
                     throw new NotImplementedException("udp不支持此模式");
                 }

@@ -77,7 +77,7 @@ namespace SAEA.Audio.Net
 
             _udpServer = SocketFactory.CreateServerSocket(SocketOptionBuilder.Instance.SetSocket(SAEASocketType.Udp)
                 .SetIPEndPoint(endPoint)
-                .UseIocp()
+                .UsePacket()
                 .SetReadBufferSize(SocketOption.UDPMaxLength)
                 .SetWriteBufferSize(SocketOption.UDPMaxLength)
                 .SetActionTimeOut(60 * 1000)

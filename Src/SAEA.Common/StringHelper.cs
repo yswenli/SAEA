@@ -198,7 +198,7 @@ namespace System
             return int.Parse(Substring(str, start, count));
         }
 
-        // <summary>
+        /// <summary>
         /// byte[]转为16进制字符串
         /// </summary>
         /// <param name="bytes"></param>

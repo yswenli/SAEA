@@ -134,7 +134,7 @@ namespace SAEA.Sockets.Core.Tcp
         #endregion
 
         /// <summary>
-        /// iocp 服务器 socket
+        /// saea 服务器 socket
         /// </summary>>
         /// <param name="socketOption"></param>
         public SaeaServerSocket(ISocketOption socketOption)

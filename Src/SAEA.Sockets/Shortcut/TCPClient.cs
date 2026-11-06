@@ -69,7 +69,7 @@ namespace SAEA.Sockets.Shortcut
             _clientSokcet = SocketFactory.CreateClientSocket(SocketOptionBuilder.Instance
                .SetSocket(Model.SAEASocketType.Tcp)
                .SetIPEndPoint(endPoint)
-               .UseIocp<Coder>()
+               .UsePacket<Coder>()
                .Build());
 
             _clientSokcet.OnClientReceiveSpan += ClientSokcet_OnReceiveSpan;

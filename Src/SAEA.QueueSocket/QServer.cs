@@ -76,7 +76,7 @@ namespace SAEA.QueueSocket
             _exchange.OnBatched += _exchange_OnBatched;
 
             var config = SocketOptionBuilder.Instance
-                .UseIocp<QueueCoder>()
+                .UsePacket<QueueCoder>()
                 .SetSocket(SAEASocketType.Tcp)
                 .SetReadBufferSize(bufferSize)
                 .SetWriteBufferSize(bufferSize)

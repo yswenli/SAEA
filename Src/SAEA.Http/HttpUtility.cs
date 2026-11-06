@@ -104,7 +104,6 @@ namespace SAEA.Http
         /// UrlEncode
         /// </summary>
         /// <param name="s"></param>
-        /// <param name="isData"></param>
         /// <returns></returns>
         public static string UrlEncode(string s)
         {

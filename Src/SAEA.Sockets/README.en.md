@@ -42,7 +42,7 @@ using SAEA.Sockets.Handler;
 // Create server configuration
 var option = SocketOptionBuilder.Instance
     .SetSocket(SAEASocketType.Tcp)
-    .UseIocp()
+    .UsePacket()
     .SetPort(39654)
     .Build();
 
@@ -89,7 +89,7 @@ client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!"))
 
 All three platforms share one API — no conditional compilation and no implementation switching. The mechanism is chosen by the .NET runtime for the current OS; this framework only owns send/receive scheduling, protocol codecs, and session management.
 
-> ⚠️ **Naming note**: `UseIocp()` is a historical name for the `SocketAsyncEventArgs` transport, **not a Windows requirement** — it works just as well on Linux/macOS, backed by epoll/kqueue respectively. TCP has exactly one engine (`SaeaServerSocket` / `SaeaClientSocket`).
+> ⚠️ **Naming note**: `UsePacket()` is a historical name for the `SocketAsyncEventArgs` transport, **not a Windows requirement** — it works just as well on Linux/macOS, backed by epoll/kqueue respectively. TCP has exactly one engine (`SaeaServerSocket` / `SaeaClientSocket`).
 >
 > `UseStream()` no longer switches engines. It only exposes a duplex `Stream` facade (`GetStream()` / `ChannelInfo.Stream`) on the same engine, and that facade exclusively consumes inbound data. TLS works with both event and stream modes.
 
@@ -208,9 +208,9 @@ Network Data ──► Async IO Complete (IOCP/epoll/kqueue) ──► BufferMan
 
 ## Implementation Modes 📊
 
-TCP has exactly one underlying engine. `UseIocp()` and `UseStream()` only choose how data is delivered:
+TCP has exactly one underlying engine. `UsePacket()` and `UseStream()` only choose how data is delivered:
 
-| Aspect | Event mode (`UseIocp()`) | Stream mode (`UseStream()`) |
+| Aspect | Event mode (`UsePacket()`) | Stream mode (`UseStream()`) |
 |--------|--------------------------|------------------------------|
 | Main types | `SaeaServerSocket` / `SaeaClientSocket` | Same (same engine) |
 | Receive path | One `SocketAsyncEventArgs` per connection, delivered via `On*ReceiveSpan` | One `PipeReader` per connection, read/write via `GetStream()` / `ChannelInfo.Stream` |
@@ -219,7 +219,7 @@ TCP has exactly one underlying engine. `UseIocp()` and `UseStream()` only choose
 | Data consumption | Span events only | The `Stream` facade exclusively consumes inbound data |
 | Underlying IO | Chosen by the .NET runtime: Windows IOCP / Linux epoll / macOS kqueue | Same |
 
-> Naming note: `UseIocp()` means the `SocketAsyncEventArgs` transport; it has nothing to do with the operating system. The two modes are mutually exclusive; the last call wins.
+> Naming note: `UsePacket()` means the `SocketAsyncEventArgs` transport; it has nothing to do with the operating system. The two modes are mutually exclusive; the last call wins.
 
 ### About performance numbers
 
@@ -233,7 +233,7 @@ This README does not publish cross-framework performance numbers (for comparison
 
 **A**: No. Windows, Linux and macOS share one API. The underlying async IO mechanism is selected by the .NET runtime for the current OS — IOCP on Windows, epoll on Linux, kqueue on macOS — while send/receive scheduling, codecs and session management stay identical. No conditional compilation is required.
 
-The "Iocp" in `UseIocp()` is a historical name for the `SocketAsyncEventArgs` transport; it does not mean Windows-only.
+The "Iocp" in `UsePacket()` is a historical name for the `SocketAsyncEventArgs` transport; it does not mean Windows-only.
 
 ### Q2: How to implement custom protocol?
 
@@ -274,14 +274,14 @@ public class MyCoder : BaseCoder
 }
 ```
 
-Wiring (`UseIocp<T>()` internally builds `BaseContext<T>` and hands the coder to the framework):
+Wiring (`UsePacket<T>()` internally builds `BaseContext<T>` and hands the coder to the framework):
 
 ```csharp
 using SAEA.Sockets;
 
 var option = SocketOptionBuilder.Instance
     .SetSocket(SAEASocketType.Tcp)
-    .UseIocp<MyCoder>()   // inject the custom coder
+    .UsePacket<MyCoder>()   // inject the custom coder
     .SetPort(39654)
     .Build();
 ```
@@ -390,7 +390,7 @@ using SAEA.Sockets.Handler;
 // Use Builder fluent configuration for server
 var option = SocketOptionBuilder.Instance
     .SetSocket(SAEASocketType.Tcp)  // Set Socket type to TCP
-    .UseIocp()                       // SocketAsyncEventArgs mode (cross-platform)
+    .UsePacket()                       // SocketAsyncEventArgs mode (cross-platform)
     .SetIP("127.0.0.1")              // Listen IP
     .SetPort(39654)                  // Listen port
     .SetReadBufferSize(1024 * 64)    // Read buffer size 64KB
@@ -424,7 +424,7 @@ using SAEA.Sockets;
 
 var option = SocketOptionBuilder.Instance
     .SetSocket(SAEASocketType.Tcp)
-    .UseIocp()
+    .UsePacket()
     .SetIP("127.0.0.1")
     .SetPort(39654)
     .Build();
@@ -596,14 +596,14 @@ public class MyCoder : BaseCoder
 }
 ```
 
-Wiring (`UseIocp<T>()` internally builds `BaseContext<T>` and hands the coder to the framework):
+Wiring (`UsePacket<T>()` internally builds `BaseContext<T>` and hands the coder to the framework):
 
 ```csharp
 using SAEA.Sockets;
 
 var option = SocketOptionBuilder.Instance
     .SetSocket(SAEASocketType.Tcp)
-    .UseIocp<MyCoder>()   // inject the custom coder
+    .UsePacket<MyCoder>()   // inject the custom coder
     .SetPort(39654)
     .Build();
 ```

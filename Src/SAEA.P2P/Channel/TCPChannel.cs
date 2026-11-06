@@ -60,7 +60,7 @@ namespace SAEA.P2P.Channel
         {
             var option = SocketOptionBuilder.Instance
                 .SetSocket(SAEASocketType.Tcp)
-                .UseIocp()
+                .UsePacket()
                 .SetIP(host)
                 .SetPort(port)
                 .SetConnectTimeout(timeout)

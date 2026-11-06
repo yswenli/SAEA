@@ -167,7 +167,7 @@ namespace SAEA.P2PTest.Tests
                 var port = TestHarness.GetFreeTcpPort();
 
                 var serverOption = SocketOptionBuilder.Instance
-                    .UseIocp()
+                    .UsePacket()
                     .SetIP("127.0.0.1")
                     .SetPort(port)
                     .SetReadBufferSize(ReadBufferSize)

@@ -60,7 +60,7 @@ namespace SAEA.FTP.Net
 
             var option = SocketOptionBuilder.Instance
                .SetSocket()
-               .UseIocp()
+               .UsePacket()
                .SetPort(_serverConfig.Port)
                .SetReadBufferSize(_serverConfig.BufferSize)
                .SetWriteBufferSize(_serverConfig.BufferSize)

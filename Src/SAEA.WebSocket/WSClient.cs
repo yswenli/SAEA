@@ -94,7 +94,7 @@ namespace SAEA.WebSocket
             _wsContext = new WSContext();
 
             var option = SocketOptionBuilder.Instance
-                .UseIocp(_wsContext)
+                .UsePacket(_wsContext)
                 .SetIP(ip)
                 .SetPort(port)
                 .SetReadBufferSize(bufferSize)

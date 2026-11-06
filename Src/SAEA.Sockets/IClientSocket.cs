@@ -109,7 +109,7 @@ namespace SAEA.Sockets
         void Send(ReadOnlySpan<byte> data);
 
         /// <summary>
-        /// iocp 发送（Memory）。可用时零拷贝，否则租用池化缓冲区拷贝一次。
+        /// saea 发送（Memory）。可用时零拷贝，否则租用池化缓冲区拷贝一次。
         /// </summary>
         /// <param name="data">数据</param>
         void SendAsync(ReadOnlyMemory<byte> data);

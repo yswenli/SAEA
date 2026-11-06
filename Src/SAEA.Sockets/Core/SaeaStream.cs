@@ -11,7 +11,7 @@
  *CLR版本： netstandard2.0
  *命名空间：SAEA.Sockets.Core
  *文件名： SaeaStream
- *描述：IOCP 连接的双工流门面
+ *描述：saea 连接的双工流门面
  *
  *****************************************************************************/
 using System;
@@ -22,8 +22,8 @@ using System.Threading.Tasks;
 namespace SAEA.Sockets.Core
 {
     /// <summary>
-    /// IOCP 连接的双工流门面。读操作来自 <see cref="SaeaConnection"/> 的入站 Pipe，
-    /// 写操作经 IOCP（TLS 时先加密）发送。
+    /// saea 连接的双工流门面。读操作来自 <see cref="SaeaConnection"/> 的入站 Pipe，
+    /// 写操作经 saea（TLS 时先加密）发送。
     /// </summary>
     public sealed class SaeaStream : Stream
     {

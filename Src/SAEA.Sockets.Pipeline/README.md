@@ -280,7 +280,7 @@ public sealed class SocketStreamAdapter : IRawByteStream
 
 ## 🐞 调试断言边界
 
-- `Debug` 构建下会对出站做一次轻量检查：同一个 `msg` 实例在一次出站传递中只允许穿过一次 `ctx.WriteAsync`，重复写入会触发断言。它覆盖的是“同一条消息写两次”。
+- `Debug` 构建下会对出站做一次轻量检查：**同一个 handler 节点**对同一个 `msg` 实例只允许调用一次 `ctx.WriteAsync`，重复写入会触发断言；不同节点转发同一实例（例如日志 handler 原样透传中间载体）是合法的。它覆盖的是“同一个处理器把同一条消息写两次”。
 - 它**不覆盖**“忘记转发”：handler 直接返回、截断出站链，与“明确丢弃”在运行时不可区分，只能靠代码评审和端到端用例（断言回包确实到达）发现。
 - 直接调用 `IRawByteStream.SendAsync` 绕过链头的情形也不做运行时检测，属于代码评审禁止项。
 
@@ -305,6 +305,23 @@ public sealed class SocketStreamAdapter : IRawByteStream
 | `FrameSplitterHandler` | 入站 | 不用接收泵、需要链内手工拆帧时才使用 |
 
 可插拔实现：`LengthFieldSplitter`、`DelimiterSplitter`、`FixedLengthSplitter`、`LineSplitter`、`LengthFieldFrameEncoder`、`EnvelopeCodec`、`JsonMessageCodec`、`ProtobufMessageCodec`、`RawCopyCodec`、`TypeRegistry`。
+
+---
+
+## 🧪 演示与自测
+
+```bash
+dotnet run --project Src/SAEA.Sockets.PipelineTest -c Release -- --all     # 内存回环全链路
+dotnet run --project Src/SAEA.Sockets.PipelineTest -c Release -- --socket  # 真实 SaeaServerSocket 接入
+dotnet run --project Src/SAEA.Sockets.PipelineTest -c Release -- --tls     # 真实 socket + TLS，首帧在握手之后
+dotnet run --project Src/SAEA.Sockets.PipelineTest -c Release -- --bench   # 与 BaseCoder 直连的吞吐/分配趋势
+```
+
+不带参数只打印用法，自动化场景必须显式传参；`--bench` 是趋势观测，不作门禁。单元测试工程不在解决方案内，需单独执行：
+
+```bash
+dotnet test Src/SAEA.Sockets.Pipeline.Tests/SAEA.Sockets.Pipeline.Tests.csproj -c Debug
+```
 
 ---
 

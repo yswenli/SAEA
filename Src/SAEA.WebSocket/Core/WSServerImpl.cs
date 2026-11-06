@@ -43,7 +43,7 @@ namespace SAEA.WebSocket.Core
 {
     /// <summary>
     /// websocket server,
-    /// iocp实现
+    /// saea实现
     /// </summary>
     internal class WSServerImpl : IWSServer
     {
@@ -86,7 +86,7 @@ namespace SAEA.WebSocket.Core
 
             var option = SocketOptionBuilder.Instance
                 .SetSocket()
-                .UseIocp(new WSContext(true))
+                .UsePacket(new WSContext(true))
                 .SetPort(port)
                 .SetReadBufferSize(bufferSize)
                 .SetWriteBufferSize(bufferSize)

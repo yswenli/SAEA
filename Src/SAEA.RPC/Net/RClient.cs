@@ -89,7 +89,7 @@ namespace SAEA.RPC.Net
             SocketOptionBuilder builder = SocketOptionBuilder.Instance;
 
             var option = builder.SetSocket()
-                .UseIocp<RpcCoder>()
+                .UsePacket<RpcCoder>()
                 .SetIP(ipPort.Item1)
                 .SetPort(ipPort.Item2)
                 .SetReadBufferSize(10240)

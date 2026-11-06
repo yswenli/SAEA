@@ -43,7 +43,7 @@ namespace SAEA.QueueSocket.Model
         private static readonly ConcurrentBag<List<QueueMsg>> _pool = new ConcurrentBag<List<QueueMsg>>();
 
         /// <summary>
-        /// 从池中获取 List<QueueMsg> 实例
+        /// 从池中获取 List&lt;QueueMsg&gt; 实例
         /// </summary>
         public static List<QueueMsg> Rent()
         {
@@ -56,7 +56,7 @@ namespace SAEA.QueueSocket.Model
         }
 
         /// <summary>
-        /// 将 List<QueueMsg> 归还到池
+        /// 将 List&lt;QueueMsg&gt; 归还到池
         /// </summary>
         public static void Return(List<QueueMsg> list)
         {

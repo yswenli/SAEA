@@ -43,7 +43,7 @@ namespace SAEA.Common.Threading
         /// <summary>
         /// TinyThreadPool异常委托类
         /// </summary>
-        /// <param name="imThreadPoolException"></param>
+        /// <param name="tinyThreadPoolException"></param>
         public delegate void TinyThreadPoolOnErrorHandler(TinyThreadPoolException tinyThreadPoolException);
 
         /// <summary>

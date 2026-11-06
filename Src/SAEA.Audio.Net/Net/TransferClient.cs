@@ -87,7 +87,7 @@ namespace SAEA.Audio.Net
 
             _udpClient = SocketFactory.CreateClientSocket(SocketOptionBuilder.Instance.SetSocket(SAEASocketType.Udp)
                 .SetIPEndPoint(endPoint)
-                .UseIocp(bContext)
+                .UsePacket(bContext)
                 .SetReadBufferSize(SocketOption.UDPMaxLength)
                 .SetWriteBufferSize(SocketOption.UDPMaxLength)
                 .Build());

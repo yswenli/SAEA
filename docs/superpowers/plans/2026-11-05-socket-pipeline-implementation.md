@@ -63,6 +63,8 @@ SAEA.Sockets.Pipeline 是 SAEA 的双向通道链，带可插拔分帧器与两�
     <PackageIcon>favicon.png</PackageIcon>
     <Title>SAEA.Sockets.Pipeline</Title>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReleaseNotes>SAEA.Sockets.Pipeline is a bidirectional channel pipeline with pluggable frame splitting and codecs for SAEA.
+SAEA.Sockets.Pipeline 是 SAEA 的双向通道链，带可插拔分帧器与两级编解码器</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
@@ -1366,31 +1368,34 @@ dotnet run --project Src/SAEA.QueueSocketTest -c Release -- --functional
 
 | 验收 | 归属 | 主要落点 |
 |---|---|---|
-| 1 回环 | M3 + M4 | `EncoderHandlerTests` + 演示 |
-| 2 半包/粘包 | M1 + M2 | `LengthFieldSplitterTests` + 泵测试 + 演示 |
-| 3 慢鉴权不阻塞 | M2 | `ExecutorConcurrencyTests` |
-| 4 背压与低水位 | M2 | `ExecutorBackpressureTests` |
-| 5 异常 | M2 + M3 | `ExecutorShutdownTests` + `ExceptionTerminalTests` |
-| 6 超长帧 | M1 | `LengthFieldSplitterTests` |
-| 7 出站 | M3 | `OutboundPipelineTests` |
-| 8 内存配平 | M2 | `ExecutorAllocationTests` |
-| 9 暂停来源隔离 | M4 | `DualSourceGateTests`（需真实 `SaeaConnection` 或等价替身） |
-| 10 配置校验 | M2 + M4 | `PipelineOptionsTests` + `SocketOptionBuilderTests` |
-| 11 启动时序 | M4 | 演示 `--socket` + `SaeaServerSocketTests` |
-| 12 出站契约 | M3 | `OutboundContractTests` |
-| 13 `ChannelReadComplete` | M2 | `ReadCompleteTests` |
-| 14 断开策略 | M2 | `ExecutorShutdownTests` |
-| 15 半包耗尽 | M2 | `BufferedLimitTests` |
-| 16 `IsSharable` | M2 | `HandlerRegistrationTests` |
-| 17 `Attributes` 并发 | M2 | `DefaultChannelTests` |
-| 18 Envelope 不持池内存 | M3 | `EnvelopeOwnershipTests` |
-| 19 鉴权先于反序列化 | M3 | `AuthOrderTests` |
-| 20 断开后回包 | M2 | `ExecutorShutdownTests` |
-| 21 取消传播 | M2 | `ExecutorCancellationTests` |
-| 22 小帧分配 | M2 | `ExecutorAllocationTests` |
-| 23 未命中路由 | M3 | `MessageDispatcherTests` |
-| 24 单消息超时 | M2 | `MessageTimeoutTests` |
-| 25 外部断开 | M2 | `ExternalDisconnectTests` |
+| 1 回环 | M3 + M4 | 演示 `--all` 的 `LoopbackCaseAsync` + `CodecHandlerTests.Outbound_FullChain_WritesBytesIdenticalToLegacyProtocol` |
+| 2 半包/粘包 | M1 + M2 | `RuntimeAcceptanceTests.Acceptance2_ArbitrarySplits_ProduceByteIdenticalFrames` + `LengthFieldSplitterTests.TrySplit_*` + `ExecutorPumpTests.PartialHeader_DoesNotProduceFrameUntilRemainderArrives` |
+| 3 慢鉴权不阻塞 | M2 | `RuntimeAcceptanceTests.Acceptance3_SlowAuth_DoesNotSerializeMessagesOnSameConnection` + `Concurrency_SameConnection_KeepsReceiveOrder_AndPerMessageChainOrder`（同连接并发处理但单消息内保序）+ 演示 `SlowLoginCaseAsync` |
+| 4 背压与低水位 | M2 | `RuntimeAcceptanceTests.Acceptance4_Backpressure_PausesOnce_NoReadWhilePaused_ResumesAtLowWatermark` + `ExecutorPumpTests.FullQueue_PausesOnce_ResumesAtLowWatermark_AndKeepsOrder` |
+| 5 异常 | M2 + M3 | `DispatchAndTerminalTests.Terminal_ExceptionBranches_WarnOrDebugWithoutClosing_AndErrorCloses`（断连）+ `ExecutorShutdownTests.ExternalShutdown_StopsPumpAndConsumer_DrainsQueue_AndClosesStream`（队列归还） |
+| 6 超长帧 | M1 | `LengthFieldSplitterTests.TrySplit_BodyLengthOverLimit_ThrowsFrameProtocolException` + `ExecutorPumpTests.BufferedBytesOverLimit_ShutsDownAndClosesStream` |
+| 7 出站 | M3 | `CodecHandlerTests.Outbound_FullChain_WritesBytesIdenticalToLegacyProtocol` + `Outbound_OwnerTransferredToTransport_NotDisposedEarly_AndDisposedOnce` |
+| 8 内存配平 | M2 | `RuntimeAcceptanceTests.Acceptance8_HundredThousandSmallFrames_PoolRentAndReturnBalanced` |
+| 9 暂停来源隔离 | M4 | `ReceiveFlowControlTests.ApplicationAndPipeGates_AreIndependent` + `ResumeApplication_KeepsPipeBackpressureGate` |
+| 10 配置校验 | M2 + M4 | `PipelineOptionsTests.*` + `SocketOptionBuilderTests.*` |
+| 11 启动时序 | M4 | 演示 `--socket`（50ms 建连回调后首帧）与 `--tls`（首帧在握手成功之后） |
+| 12 出站契约 | M3 | `CodecHandlerTests.Outbound_SameMessageWrittenTwice_ThrowsContractViolationInDebug`（①，`#if DEBUG`）+ `Outbound_PassthroughHandler_ForwardsSameInstanceWithoutFalsePositive`（不同节点透传不误报）+ 全链路正常用例（②）；③ 只能靠代码评审 |
+| 13 `ChannelReadComplete` | M2 | `RuntimeAcceptanceTests.Acceptance13_ReadComplete_OncePerSuccessfulDrain_AndNoEmptyNotifications` + `ReadComplete_Throws_OnlyWarns_AndKeepsProcessing` |
+| 14 断开策略 | M2 | `ExecutorShutdownTests.DrainInFlight_WaitsForRunningMessage_AndGivesUpAfterTimeout` + `CancelPending_CancelsInFlightMessage_AndCompletes` |
+| 15 半包耗尽 | M2 | `ExecutorPumpTests.BufferedBytesOverLimit_ShutsDownAndClosesStream` + `GuardRejection_ClosesWithObservableReason` |
+| 16 `IsSharable` | M2 | `ChannelPipelineStructureTests.NonSharableHandler_ReuseOnSecondChain_ThrowsUntilRemoved` + `RuntimeAcceptanceTests.PipelineStructure_AddFirstOutbound_IsAccepted_AndOutboundPassesThroughIt` |
+| 17 `Attributes` 并发 | M2 | `RuntimeAcceptanceTests.Acceptance17_Attributes_ConcurrentWrites_AndClearedAfterShutdown` + `DefaultChannelTests.ConcurrentWrites_SixteenDistinctKeys_AllPreserved` |
+| 18 Envelope 不持池内存 | M3 | `CodecTests.EnvelopeCodec_Payload_DoesNotShareMemoryWithFrame` + `CodecHandlerTests.Inbound_CodecDecoder_ReleasesPooledMessage_AndForwardsEnvelope` |
+| 19 鉴权先于反序列化 | M3 | `DispatchAndTerminalTests.Auth_BeforeUnwrap_BlocksNonWhitelistTypeWithoutDeserializing` |
+| 20 断开后回包 | M2 | `ExecutorShutdownTests.ReplyAfterShutdown_ThrowsChannelClosed_SurfacesAtTail_AndSendsNothing` |
+| 21 取消传播 | M2 | `RuntimeAcceptanceTests.Acceptance21_TransportCancellation_StopsPumpAndClearsQueueAndAccumulator` |
+| 22 小帧分配 | M2 | `RuntimeAcceptanceTests.Acceptance22_SmallFrames_DoNotRentPool_AndLargeFrameIsPooledAndReturned` |
+| 23 未命中路由 | M3 | `DispatchAndTerminalTests.Dispatcher_MissWithoutFallback_ForwardsToNextInboundHandler` + `Dispatcher_MissWithoutFallback_EmitsWarnBeforeForwarding`（Warn 文本）+ `Dispatcher_MissWithFallback_InvokesFallbackOnly` + `Dispatcher_MissWithoutFallbackAndNoTail_DisposesMessageInPlace` |
+| 24 单消息超时 | M2 | `RuntimeAcceptanceTests.Acceptance24_MessageTimeout_ReleasesConcurrencySlot_WithoutClosingConnection` + `ExecutorShutdownTests.SingleMessageTimeout_ReportsTimeoutAndKeepsConnectionActive` + `HandlerIgnoringToken_IsNotKilled_AndFinishesNormally` |
+| 25 外部断开 | M2 | `RuntimeAcceptanceTests.Acceptance25_ExternalDisconnect_StopsPump_NoBusyLoop_AndBalance` + `ExecutorShutdownTests.ExternalShutdown_StopsPumpAndConsumer_DrainsQueue_AndClosesStream` |
+| 8.4 性能趋势 | M5 | 演示 `--bench`（500000 帧、5 轮中位数；旧栈直连、新栈解码层、新栈完整接收路径三档吞吐与 B/帧）；实测值回填设计文档 §8.4，不作门禁 |
+
+> 表中类名与用例名以 `Src/SAEA.Sockets.Pipeline.Tests` 的实际代码为准；验收 5 的"队列内剩余消息归还"由执行器收口用例覆盖，不重复造用例。
 
 ---
 

@@ -88,7 +88,7 @@ namespace SAEA.MVC
         /// <summary>
         /// 发送通知
         /// </summary>
-        /// <param name="str"></param>
+        /// <param name="t"></param>
         /// <param name="event"></param>
         /// <param name="id"></param>
         public void ServerSent<T>(T t, string @event = "message", string id = "") where T : class

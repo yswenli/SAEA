@@ -95,7 +95,7 @@ namespace SAEA.MessageSocket
 
             var option = SocketOptionBuilder.Instance
                 .SetSocket()
-                .UseIocp(_messageContext)
+                .UsePacket(_messageContext)
                 .SetIP(ip)
                 .SetPort(port)
                 .SetReadBufferSize(bufferSize)

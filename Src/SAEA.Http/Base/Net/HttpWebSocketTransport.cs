@@ -65,7 +65,7 @@ namespace SAEA.Http.Base.Net
             }
             catch
             {
-                // 断开过程中的发送失败由 CleanupAsync 统一收尾，不能抛回 IOCP 接收线程
+                // 断开过程中的发送失败由 CleanupAsync 统一收尾，不能抛回 saea 接收线程
             }
         }
 

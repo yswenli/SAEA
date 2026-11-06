@@ -76,7 +76,7 @@ namespace SAEA.FileSocket
         {
             var option = SocketOptionBuilder.Instance
                 .SetSocket()
-                .UseIocp<BaseCoder>()
+                .UsePacket<BaseCoder>()
                 .SetIP(ip)
                 .SetPort(port)
                 .SetReadBufferSize(bufferSize)

@@ -86,38 +86,37 @@ namespace SAEA.Sockets
         }
 
         /// <summary>
-        /// 启用iocp
+        /// 启用包模式
         /// </summary>
-        /// <param name="context"></param>
         /// <returns></returns>
-        public SocketOptionBuilder UseIocp<T>() where T : class, ICoder
+        public SocketOptionBuilder UsePacket<T>() where T : class, ICoder
         {
             _socketOption.Context = (BaseContext<T>)Activator.CreateInstance(typeof(BaseContext<T>));
-            _socketOption.UseIocp = true;
+            _socketOption.UsePacket = true;
             _socketOption.UseStream = false;
             return this;
         }
         /// <summary>
-        /// 启用iocp
+        /// 启用包模式
         /// </summary>
         /// <param name="context"></param>
         /// <returns></returns>
-        public SocketOptionBuilder UseIocp(IContext<ICoder> context)
+        public SocketOptionBuilder UsePacket(IContext<ICoder> context)
         {
             _socketOption.Context = context;
-            _socketOption.UseIocp = true;
+            _socketOption.UsePacket = true;
             _socketOption.UseStream = false;
             return this;
         }
 
         /// <summary>
-        /// 启用iocp
+        /// 启用包模式
         /// </summary>
         /// <returns></returns>
-        public SocketOptionBuilder UseIocp()
+        public SocketOptionBuilder UsePacket()
         {
             _socketOption.Context = new BaseContext<BaseCoder>();
-            _socketOption.UseIocp = true;
+            _socketOption.UsePacket = true;
             _socketOption.UseStream = false;
             return this;
         }
@@ -131,7 +130,7 @@ namespace SAEA.Sockets
             if (_socketOption.SocketType == SAEASocketType.Udp) throw new NotSupportedException("udp不支持流");
             _socketOption.SocketType = SAEASocketType.Tcp;
             _socketOption.UseStream = true;
-            _socketOption.UseIocp = true;
+            _socketOption.UsePacket = false;
 
             // 流模式默认使用 StreamUserToken，便于消费者通过令牌访问 Stream / Input。
             if (_socketOption.Context == null)
@@ -488,13 +487,13 @@ namespace SAEA.Sockets
             var inputHandler = _socketOption.InputHandler;
             var connectionOpened = _socketOption.ConnectionOpened;
 
-            // 1. 输入处理器需要 UseStream 提供的 PipeReader，纯 IOCP 事件模式没有。
+            // 1. 输入处理器需要 UseStream 提供的 PipeReader，纯 saea 事件模式没有。
             if (inputHandler != null && !_socketOption.UseStream)
-                throw new InvalidOperationException("钩子要求 .UseStream()：通道链需要 UseStream 提供的 PipeReader，纯 IOCP 事件模式没有；请先调用 .UseStream()。");
+                throw new InvalidOperationException("钩子要求 .UseStream()：通道链需要 UseStream 提供的 PipeReader，纯 saea 事件模式没有；请先调用 .UseStream()。");
 
             // 2. 连接建立钩子同样依赖 UseStream 的连接门面。
             if (connectionOpened != null && !_socketOption.UseStream)
-                throw new InvalidOperationException("钩子要求 .UseStream()：UseConnectionOpened 需要 UseStream 提供的连接门面，纯 IOCP 事件模式没有；请先调用 .UseStream()。");
+                throw new InvalidOperationException("钩子要求 .UseStream()：UseConnectionOpened 需要 UseStream 提供的连接门面，纯 saea 事件模式没有；请先调用 .UseStream()。");
 
             // 3. 输入处理器必须与连接建立钩子成对配置，否则拿不到通道登记信息。
             if (inputHandler != null && connectionOpened == null)

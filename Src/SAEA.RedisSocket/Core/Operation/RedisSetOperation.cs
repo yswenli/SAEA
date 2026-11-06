@@ -110,8 +110,9 @@ namespace SAEA.RedisSocket.Core
         /// <summary>
         /// 将 member 元素从 source 集合移动到 destination 集合
         /// </summary>
+        /// <param name="source"></param>
+        /// <param name="destination"></param>
         /// <param name="key"></param>
-        /// <param name="values"></param>
         /// <returns></returns>
         public int SMove(string source, string destination, string key)
         {

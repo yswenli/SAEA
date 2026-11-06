@@ -1,3 +1,34 @@
+/****************************************************************************
+ * 
+  ____    _    _____    _      ____             _        _   
+ / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
+ \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
+  ___) / ___ \| |___ / ___ \   ___) | (_) | (__|   <  __/ |_ 
+ |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
+                                                              
+ 
+*Copyright (c) yswenli All Rights Reserved.
+*CLR版本： net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：SAEA.Sockets.Pipeline.Tests.Tests.Handlers
+*文件名： CodecHandlerTests
+*版本号： v26.11.5.1
+*唯一标识：bce67743-2def-40ac-9709-16fa6774a312
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/11/6 09:50:56
+*描述：出站/入站编解码 handler 的契约用例：字节一致、所有权交接、异常不吞
+*
+*=====================================================================
+*修改标记
+*修改时间：2026/11/6 09:50:56
+*修改人： yswenli
+*版本号： v26.11.5.1
+*描述：出站/入站编解码 handler 的契约用例：字节一致、所有权交接、异常不吞
+*
+*****************************************************************************/
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -48,6 +79,31 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
                     "出站字节与 JsonMessageCodec.Encode + BaseSocketProtocal.WriteTo 不一致");
             }
         }
+
+#if DEBUG
+        /// <summary>
+        /// 日志 handler 会原样转发同一个中间载体；这是合法的多节点传递，
+        /// Debug 契约检查必须只在"同一节点重复写同一实例"时触发。
+        /// </summary>
+        [TestMethod]
+        public async Task Outbound_PassthroughHandler_ForwardsSameInstanceWithoutFalsePositive()
+        {
+            var registry = NewRegistry(7, typeof(JsonPoco));
+            var entity = new JsonPoco { Name = "透传", Count = 1, Big = 2L };
+
+            using (var rig = new OutboundRig(
+                new FrameEncoderHandler(new LengthFieldFrameEncoder()),
+                new OutboundLoggingHandler(),
+                new CodecEncoderHandler(new EnvelopeCodec()),
+                new EnvelopeWrapHandler(registry, new JsonMessageCodec())))
+            {
+                var ctx = await rig.CaptureContextAsync();
+                await ctx.WriteAsync(entity);
+
+                Assert.AreEqual(1, rig.Stream.SentCount, "透传 handler 不应被误判为重复写入");
+            }
+        }
+#endif
 
         [TestMethod]
         public async Task Outbound_OwnerTransferredToTransport_NotDisposedEarly_AndDisposedOnce()
@@ -214,6 +270,34 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
                 Assert.AreEqual(0, rig.Stream.SentCount, "错误类型不应产生任何发送");
             }
         }
+
+#if DEBUG
+        /// <summary>
+        /// 出站契约检查只在 Debug 构建下编译进来，因此本用例用 <c>#if DEBUG</c> 包裹；
+        /// Release 构建下整个用例不存在，验证它需要跑 <c>dotnet test -c Debug</c>。
+        /// </summary>
+        [TestMethod]
+        public async Task Outbound_SameMessageWrittenTwice_ThrowsContractViolationInDebug()
+        {
+            var registry = NewRegistry(7, typeof(JsonPoco));
+            var entity = new JsonPoco { Name = "重复写入", Count = 2, Big = 3L };
+
+            using (var rig = new OutboundRig(
+                new FrameEncoderHandler(new LengthFieldFrameEncoder()),
+                new CodecEncoderHandler(new EnvelopeCodec()),
+                new EnvelopeWrapHandler(registry, new JsonMessageCodec())))
+            {
+                var ctx = await rig.CaptureContextAsync();
+                await ctx.WriteAsync(entity);
+
+                var failure = await Assert.ThrowsExceptionAsync<InvalidOperationException>(
+                    () => ctx.WriteAsync(entity));
+
+                StringAssert.Contains(failure.Message, "重复写入", "契约异常未说明重复写入");
+                Assert.AreEqual(1, rig.Stream.SentCount, "第二次写入不应产生额外帧");
+            }
+        }
+#endif
 
         // ---------- 测试基础设施 ----------
 

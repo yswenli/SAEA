@@ -151,7 +151,7 @@ namespace SAEA.DNS
                 {
                     _udpServer = SocketFactory.CreateServerSocket(SocketOptionBuilder.Instance.SetSocket(SAEASocketType.Udp)
                                                .SetIPEndPoint(endpoint)
-                                               .UseIocp<BaseCoder>()
+                                               .UsePacket<BaseCoder>()
                                                .SetReadBufferSize(SocketOption.UDPMaxLength)
                                                .SetWriteBufferSize(SocketOption.UDPMaxLength)
                                                .SetActionTimeOut(UDP_TIMEOUT)

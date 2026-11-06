@@ -1,4 +1,36 @@
+/****************************************************************************
+ * 
+  ____    _    _____    _      ____             _        _   
+ / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
+ \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
+  ___) / ___ \| |___ / ___ \   ___) | (_) | (__|   <  __/ |_ 
+ |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
+                                                              
+ 
+*Copyright (c) yswenli All Rights Reserved.
+*CLR版本： net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：SAEA.Sockets.PipelineTest
+*文件名： EchoHandlers
+*版本号： v26.11.5.1
+*唯一标识：411cca2c-31c2-4bbd-8e62-87547fa7421e
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/11/6 09:50:56
+*描述：登录处理器：模拟 30ms 鉴权延迟，成功后写入连接属性并通过当前节点回包
+*
+*=====================================================================
+*修改标记
+*修改时间：2026/11/6 09:50:56
+*修改人： yswenli
+*版本号： v26.11.5.1
+*描述：登录处理器：模拟 30ms 鉴权延迟，成功后写入连接属性并通过当前节点回包
+*
+*****************************************************************************/
 using System;
+using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
 using SAEA.Sockets.Pipeline;
@@ -83,6 +115,86 @@ namespace SAEA.Sockets.PipelineTest
                 Token = "token-" + userName,
                 UserName = userName
             };
+        }
+    }
+
+    /// <summary>
+    /// 慢鉴权替身：按心跳序号延迟不同时长，记录完成顺序与峰值并发。
+    /// 用于演示「同连接消息并发处理、回包顺序可以不同于到达顺序」；
+    /// 真实项目里这段等待应发生在鉴权服务调用处，而不是链上的固定延时。
+    /// </summary>
+    public sealed class DelayedAuthHandler : InboundHandlerAdapter
+    {
+        private readonly int[] _delays;
+
+        private readonly ConcurrentQueue<int> _completionOrder = new ConcurrentQueue<int>();
+
+        private int _active;
+
+        private int _peak;
+
+        private int _completed;
+
+        /// <summary>按序号顺序给出每条消息的延迟（毫秒），序号 1 对应下标 0，越界时取最后一个。</summary>
+        public DelayedAuthHandler(params int[] delays)
+        {
+            if (delays == null || delays.Length == 0)
+                throw new ArgumentException("至少需要一个延迟值。", nameof(delays));
+
+            _delays = delays;
+        }
+
+        /// <summary>完成顺序（心跳序号）。</summary>
+        public int[] CompletionOrder
+        {
+            get { return _completionOrder.ToArray(); }
+        }
+
+        /// <summary>观测到的峰值并发。</summary>
+        public int PeakConcurrency
+        {
+            get { return Volatile.Read(ref _peak); }
+        }
+
+        /// <summary>已完成消息数。</summary>
+        public int Completed
+        {
+            get { return Volatile.Read(ref _completed); }
+        }
+
+        /// <inheritdoc />
+        public override async Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+        {
+            var heartbeat = msg as Heartbeat;
+            if (heartbeat == null)
+            {
+                await ctx.FireChannelReadAsync(msg).ConfigureAwait(false);
+                return;
+            }
+
+            var active = Interlocked.Increment(ref _active);
+            while (true)
+            {
+                var peak = Volatile.Read(ref _peak);
+                if (active <= peak || Interlocked.CompareExchange(ref _peak, active, peak) == peak)
+                    break;
+            }
+
+            try
+            {
+                var index = Math.Min(_delays.Length - 1, Math.Max(0, heartbeat.Seq - 1));
+                if (_delays[index] > 0)
+                    await Task.Delay(_delays[index], ctx.CancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _active);
+            }
+
+            _completionOrder.Enqueue(heartbeat.Seq);
+            Interlocked.Increment(ref _completed);
+
+            await ctx.FireChannelReadAsync(msg).ConfigureAwait(false);
         }
     }
 

@@ -1,3 +1,34 @@
+/****************************************************************************
+ * 
+  ____    _    _____    _      ____             _        _   
+ / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
+ \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
+  ___) / ___ \| |___ / ___ \   ___) | (_) | (__|   <  __/ |_ 
+ |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
+                                                              
+ 
+*Copyright (c) yswenli All Rights Reserved.
+*CLR版本： net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：SAEA.Sockets.Pipeline.Tests.Tests.Runtime
+*文件名： DefaultChannelTests
+*版本号： v26.11.5.1
+*唯一标识：3362d191-908d-4809-bad0-dbc233d73783
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/11/6 09:50:56
+*描述：DefaultChannelTests
+*
+*=====================================================================
+*修改标记
+*修改时间：2026/11/6 09:50:56
+*修改人： yswenli
+*版本号： v26.11.5.1
+*描述：DefaultChannelTests
+*
+*****************************************************************************/
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -6,6 +37,9 @@ using SAEA.Sockets.Pipeline;
 
 namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
 {
+    /// <summary>
+    /// 连接视图：连接属性的并发读写、失活清理与释放语义。
+    /// </summary>
     [TestClass]
     public class DefaultChannelTests
     {

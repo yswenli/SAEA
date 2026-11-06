@@ -87,14 +87,14 @@ namespace SAEA.MVC
             _context = context;
             _controller = controller;
 
-            // 每条连接一个常驻串行泵，保证 MessageAsync 按到达顺序执行且不阻塞 IOCP 接收线程
+            // 每条连接一个常驻串行泵，保证 MessageAsync 按到达顺序执行且不阻塞 saea 接收线程
             Task.Run((Func<Task>)PumpAsync);
         }
 
         #region 接收
 
         /// <summary>
-        /// 接收原始字节（在 IOCP 接收线程调用），只做解码与入队，不执行业务
+        /// 接收原始字节（在 saea 接收线程调用），只做解码与入队，不执行业务
         /// </summary>
         internal void OnData(byte[] data)
         {
@@ -216,7 +216,7 @@ namespace SAEA.MVC
             finally
             {
                 // 泵退出后再释放它持有的上下文引用：
-                // CleanupAsync 可能在 IOCP 线程上结束，此时 MessageAsync 可能仍在执行
+                // CleanupAsync 可能在 saea 线程上结束，此时 MessageAsync 可能仍在执行
                 ReleaseContext();
             }
         }
@@ -443,7 +443,7 @@ namespace SAEA.MVC
                 {
                 }
 
-                // 不在这里 Clear coder：IOCP 线程可能还在 Decode，Clear 会把其内部缓冲清空
+                // 不在这里 Clear coder：saea 线程可能还在 Decode，Clear 会把其内部缓冲清空
                 // 上下文也不在这里 Dispose，见 ReleaseContext
 
                 DrainQueue();
@@ -495,7 +495,7 @@ namespace SAEA.MVC
 
         void SetCurrentContext()
         {
-            // WS 分发发生在 IOCP 线程或线程池任务上，必须恢复当前上下文
+            // WS 分发发生在 saea 线程或线程池任务上，必须恢复当前上下文
             CallContext<IHttpContext>.SetData("ContextBase.Current", _context);
         }
 

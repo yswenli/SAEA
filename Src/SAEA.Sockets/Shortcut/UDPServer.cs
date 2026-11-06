@@ -70,7 +70,7 @@ namespace SAEA.Sockets.Shortcut
         {
             _udpServer = SocketFactory.CreateServerSocket(SocketOptionBuilder.Instance.SetSocket(SAEASocketType.Udp)
                 .SetIPEndPoint(endPoint)
-                .UseIocp<Coder>()
+                .UsePacket<Coder>()
                 .SetReadBufferSize(SocketOption.UDPMaxLength)
                 .SetWriteBufferSize(SocketOption.UDPMaxLength)
                 .SetActionTimeOut(timeOut)
@@ -85,7 +85,6 @@ namespace SAEA.Sockets.Shortcut
         /// <summary>
         /// UDPServer
         /// </summary>
-        /// <param name="ip"></param>
         /// <param name="port"></param>
         /// <param name="timeOut"></param>
         public UDPServer(int port, int timeOut = 5000) : this(new IPEndPoint(IPAddress.Any, port), timeOut)

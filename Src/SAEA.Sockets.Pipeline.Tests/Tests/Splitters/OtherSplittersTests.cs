@@ -1,3 +1,34 @@
+/****************************************************************************
+ * 
+  ____    _    _____    _      ____             _        _   
+ / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
+ \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
+  ___) / ___ \| |___ / ___ \   ___) | (_) | (__|   <  __/ |_ 
+ |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
+                                                              
+ 
+*Copyright (c) yswenli All Rights Reserved.
+*CLR版本： net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：SAEA.Sockets.Pipeline.Tests.Tests.Splitters
+*文件名： OtherSplittersTests
+*版本号： v26.11.5.1
+*唯一标识：4509ff26-9fd2-4f58-a2fe-d67d01305a19
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/11/6 09:50:56
+*描述：OtherSplittersTests
+*
+*=====================================================================
+*修改标记
+*修改时间：2026/11/6 09:50:56
+*修改人： yswenli
+*版本号： v26.11.5.1
+*描述：OtherSplittersTests
+*
+*****************************************************************************/
 using System;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -5,6 +36,9 @@ using SAEA.Sockets.Pipeline;
 
 namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
 {
+    /// <summary>
+    /// 分隔符、行、定长三种分帧器的切分行为与参数校验。
+    /// </summary>
     [TestClass]
     public class OtherSplittersTests
     {

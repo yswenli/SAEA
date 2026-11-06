@@ -108,7 +108,6 @@ namespace SAEA.Http
         /// <summary>
         /// 构建响应头部
         /// </summary>
-        /// <param name="close"></param>
         /// <returns></returns>
         protected string BuildHeader()
         {

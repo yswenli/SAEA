@@ -52,7 +52,8 @@ namespace SAEA.RPC
         /// 方法执行前
         /// </summary>
         /// <param name="userToken"></param>
-        /// <param name="serviceInfo"></param>
+        /// <param name="serviceName"></param>
+        /// <param name="methodName"></param>
         /// <param name="args"></param>
         /// <returns></returns>
         public abstract bool OnActionExecuting(IUserToken userToken, string serviceName, string methodName, object[] args);

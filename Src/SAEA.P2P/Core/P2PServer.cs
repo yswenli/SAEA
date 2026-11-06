@@ -86,7 +86,7 @@ namespace SAEA.P2P.Core
         {
             var option = SocketOptionBuilder.Instance
                 .SetSocket(SAEASocketType.Tcp)
-                .UseIocp()
+                .UsePacket()
                 .SetIP(_options.BindIP)
                 .SetPort(_options.Port)
                 .SetMaxConnects(_options.MaxNodes)

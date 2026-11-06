@@ -135,7 +135,7 @@ namespace SAEA.P2P.Core
             
             var option = SocketOptionBuilder.Instance
                 .SetSocket(SAEASocketType.Tcp)
-                .UseIocp()
+                .UsePacket()
                 .SetIP(_options.ServerAddress)
                 .SetPort(_options.ServerPort)
                 .SetConnectTimeout(_options.Timeout.ConnectTimeoutMs)

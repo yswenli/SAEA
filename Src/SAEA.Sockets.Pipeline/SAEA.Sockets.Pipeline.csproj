@@ -18,6 +18,8 @@ SAEA.Sockets.Pipeline 是 SAEA 的双向通道链，带可插拔分帧器与两�
     <PackageIcon>favicon.png</PackageIcon>
     <Title>SAEA.Sockets.Pipeline</Title>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReleaseNotes>SAEA.Sockets.Pipeline is a bidirectional channel pipeline with pluggable frame splitting and codecs for SAEA.
+SAEA.Sockets.Pipeline 是 SAEA 的双向通道链，带可插拔分帧器与两级编解码器</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

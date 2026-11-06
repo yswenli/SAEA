@@ -565,7 +565,6 @@ namespace SAEA.Common
         /// <param name="url"></param>
         /// <param name="data"></param>
         /// <param name="headers"></param>
-        /// <param name="timeOut"></param>
         /// <returns></returns>
         public static byte[] Post(string url, byte[] data, WebHeaderCollection headers = null)
         {

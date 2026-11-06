@@ -88,7 +88,7 @@ namespace SAEA.P2P.Discovery
 
             var option = SocketOptionBuilder.Instance
                 .SetSocket(SAEASocketType.Udp)
-                .UseIocp()
+                .UsePacket()
                 .SetPort(_port)
                 .ReusePort()
                 .UseBroadcast()

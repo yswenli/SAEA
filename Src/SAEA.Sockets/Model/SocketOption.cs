@@ -62,7 +62,7 @@ namespace SAEA.Sockets.Model
         public SAEASocketType SocketType { get; set; } = SAEASocketType.Tcp;
 
         /// <summary>
-        /// 是否暴露流门面（不切换引擎，TCP 始终 IOCP）。
+        /// 是否暴露流门面（不切换引擎，TCP 始终 SAEA）。
         /// </summary>
         public bool UseStream
         {
@@ -116,9 +116,9 @@ namespace SAEA.Sockets.Model
         } = true;
 
         /// <summary>
-        /// 是否使用IOCP
+        /// 是否使用包模式
         /// </summary>
-        public bool UseIocp
+        public bool UsePacket
         {
             get; set;
         } = true;

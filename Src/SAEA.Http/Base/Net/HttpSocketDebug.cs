@@ -62,7 +62,7 @@ namespace SAEA.Http.Base.Net
         {
             var optionBuilder = new SocketOptionBuilder()
                .SetSocket(SAEASocketType.Tcp)
-               .UseIocp<HttpCoder>()
+               .UsePacket<HttpCoder>()
                .SetPort(port)
                .SetMaxConnects(maxConnects)
                .SetReadBufferSize(bufferSize)

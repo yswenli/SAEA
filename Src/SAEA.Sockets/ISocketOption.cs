@@ -49,7 +49,7 @@ namespace SAEA.Sockets
         SAEASocketType SocketType { get; set; }
 
         /// <summary>
-        /// 是否暴露流门面（不切换引擎，TCP 始终 IOCP）。
+        /// 是否暴露流门面（不切换引擎，TCP 始终 saea）。
         /// </summary>
         bool UseStream
         {
@@ -98,15 +98,15 @@ namespace SAEA.Sockets
 
 
         /// <summary>
-        /// 是否启用iocp
+        /// 是否启用包模式
         /// </summary>
-        bool UseIocp
+        bool UsePacket
         {
             get; set;
         }
 
         /// <summary>
-        /// iocp模式下的编码会话上下文对象
+        /// saea模式下的编码会话上下文对象
         /// </summary>
         IContext<ICoder> Context
         {

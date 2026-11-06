@@ -1,3 +1,34 @@
+/****************************************************************************
+ * 
+  ____    _    _____    _      ____             _        _   
+ / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
+ \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
+  ___) / ___ \| |___ / ___ \   ___) | (_) | (__|   <  __/ |_ 
+ |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
+                                                              
+ 
+*Copyright (c) yswenli All Rights Reserved.
+*CLR版本： net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：SAEA.Sockets.PipelineTest
+*文件名： Program
+*版本号： v26.11.5.1
+*唯一标识：65b632e5-26f8-4122-b383-e5dfc81bffdc
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/11/6 09:50:56
+*描述：通道链演示与端到端自测入口
+*
+*=====================================================================
+*修改标记
+*修改时间：2026/11/6 09:50:56
+*修改人： yswenli
+*版本号： v26.11.5.1
+*描述：通道链演示与端到端自测入口
+*
+*****************************************************************************/
 using System;
 using System.Buffers;
 using System.Buffers.Binary;
@@ -9,8 +40,11 @@ using System.IO.Pipelines;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
+using SAEA.Sockets.Base;
 using SAEA.Sockets.Core.Tcp;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Pipeline;
@@ -39,7 +73,13 @@ namespace SAEA.Sockets.PipelineTest
                 return RunAllAsync().GetAwaiter().GetResult();
 
             if (args != null && Array.IndexOf(args, "--socket") >= 0)
-                return RunSocketCaseAsync().GetAwaiter().GetResult();
+                return RunSocketCaseAsync(useTls: false).GetAwaiter().GetResult();
+
+            if (args != null && Array.IndexOf(args, "--tls") >= 0)
+                return RunSocketCaseAsync(useTls: true).GetAwaiter().GetResult();
+
+            if (args != null && Array.IndexOf(args, "--bench") >= 0)
+                return RunBenchAsync().GetAwaiter().GetResult();
 
             PrintUsage();
             return 0;
@@ -50,9 +90,11 @@ namespace SAEA.Sockets.PipelineTest
             Console.WriteLine("SAEA.Sockets.PipelineTest 用法：");
             Console.WriteLine("  --all     运行全部内存回环用例（粘包/切分、慢鉴权、出站字节、背压、超时、断开、逐字节）");
             Console.WriteLine("  --socket  使用真实 SaeaServerSocket 跑一次端到端登录回包（默认随机空闲端口）");
+            Console.WriteLine("  --tls     在 --socket 的基础上启用 TLS，验证首帧在握手成功之后到达");
+            Console.WriteLine("  --bench   与 BaseCoder.DecodeStream 直连写法对比吞吐与每帧分配（趋势值，Release 下跑）");
             Console.WriteLine("  --help    显示本帮助");
             Console.WriteLine();
-            Console.WriteLine("环境变量：SAEA_PIPELINE_TEST_PORT 指定 --socket 的监听端口（1-65535）。");
+            Console.WriteLine("环境变量：SAEA_PIPELINE_TEST_PORT 指定 --socket/--tls 的监听端口（1-65535）。");
         }
 
         // ---------- 用例调度 ----------
@@ -65,7 +107,7 @@ namespace SAEA.Sockets.PipelineTest
 
             var failures = 0;
             if (!await RunCaseAsync("a 内存回环：3 帧粘包与任意切分", LoopbackCaseAsync)) failures++;
-            if (!await RunCaseAsync("b 慢鉴权：30ms 登录与 3 条并发消息按序号配对", SlowLoginCaseAsync)) failures++;
+            if (!await RunCaseAsync("b 慢鉴权：5 条梯度延迟并发完成，完成顺序≠到达顺序", SlowLoginCaseAsync)) failures++;
             if (!await RunCaseAsync("c 出站字节：全链路输出与手工帧编码逐字节一致", OutboundBytesCaseAsync)) failures++;
             if (!await RunCaseAsync("d 背压：QueueCapacity=2、单并发、10 帧只暂停一次", BackpressureCaseAsync)) failures++;
             if (!await RunCaseAsync("e 单消息超时：100ms 超时 token 被取消且连接保持活跃", MessageTimeoutCaseAsync)) failures++;
@@ -147,47 +189,53 @@ namespace SAEA.Sockets.PipelineTest
         private static async Task SlowLoginCaseAsync()
         {
             var registry = CreateRegistry();
-            var login = new LoginHandler(30);
+            var auth = new DelayedAuthHandler(200, 160, 120, 80, 40);
+            var login = new LoginHandler(0);
             var heartbeat = new HeartbeatHandler();
 
             using (var session = new InMemorySession(
                 "slow-login",
-                NewOptions(queueCapacity: 64, maxConcurrentMessages: 4),
+                NewOptions(queueCapacity: 64, maxConcurrentMessages: 5),
                 registry,
                 login,
-                heartbeat))
+                heartbeat,
+                auth))
             {
                 session.Start();
 
+                // 序号 1..5 的鉴权耗时依次为 200/160/120/80/40ms：
+                // 若同连接消息被串行化，完成顺序等于到达顺序、且总耗时接近 600ms。
                 var wire = Concat(
-                    EncodeFrame(new LoginRequest { RequestId = 100, UserName = "slow" }, registry),
-                    EncodeFrame(new Heartbeat { Seq = 11, Payload = "x" }, registry),
-                    EncodeFrame(new Heartbeat { Seq = 12, Payload = "x" }, registry),
-                    EncodeFrame(new Heartbeat { Seq = 13, Payload = "x" }, registry));
+                    EncodeFrame(new Heartbeat { Seq = 1, Payload = "x" }, registry),
+                    EncodeFrame(new Heartbeat { Seq = 2, Payload = "x" }, registry),
+                    EncodeFrame(new Heartbeat { Seq = 3, Payload = "x" }, registry),
+                    EncodeFrame(new Heartbeat { Seq = 4, Payload = "x" }, registry),
+                    EncodeFrame(new Heartbeat { Seq = 5, Payload = "x" }, registry));
 
                 var watch = Stopwatch.StartNew();
                 await session.Stream.WriteAsync(wire).ConfigureAwait(false);
                 await WaitUntilAsync(
-                    () => session.Stream.SentCount == 4,
-                    "慢鉴权回包数量不足 4").ConfigureAwait(false);
+                    () => session.Stream.SentCount == 5,
+                    "慢鉴权回包数量不足 5").ConfigureAwait(false);
                 watch.Stop();
 
                 var replies = DecodeFrames(session.Stream.SentFrames, registry);
-
-                var loginReplies = replies.OfType<LoginResponse>().ToArray();
-                if (loginReplies.Length != 1)
-                    throw new InvalidOperationException("登录回包数量不是 1：" + loginReplies.Length);
-                if (loginReplies[0].RequestId != 100 || !loginReplies[0].Success)
-                    throw new InvalidOperationException("登录回包字段与请求不匹配。");
-
                 var heartbeatSeqs = replies.OfType<Heartbeat>().Select(item => item.Seq).OrderBy(seq => seq).ToArray();
-                AssertSequenceEqual(new[] { 11, 12, 13 }, heartbeatSeqs, "心跳回包序号与请求不匹配");
+                AssertSequenceEqual(new[] { 1, 2, 3, 4, 5 }, heartbeatSeqs, "心跳回包序号与请求不匹配");
 
-                if (watch.ElapsedMilliseconds >= 2000)
+                AssertSequenceEqual(
+                    new[] { 5, 4, 3, 2, 1 },
+                    auth.CompletionOrder,
+                    "完成顺序应为 40→80→120→160→200ms（序号 5→1）");
+
+                if (auth.PeakConcurrency <= 1)
+                    throw new InvalidOperationException("同连接消息未并发执行，峰值并发=" + auth.PeakConcurrency);
+                if (watch.ElapsedMilliseconds >= 1000)
                     throw new InvalidOperationException("慢鉴权用例耗时异常：" + watch.ElapsedMilliseconds + "ms");
 
                 Console.WriteLine(
-                    "      30ms 登录 + 3 条心跳全部回包，耗时 " + watch.ElapsedMilliseconds + "ms");
+                    "      5 条梯度延迟全部回包，峰值并发 " + auth.PeakConcurrency +
+                    "，耗时 " + watch.ElapsedMilliseconds + "ms");
 
                 await session.StopAsync().ConfigureAwait(false);
             }
@@ -420,33 +468,313 @@ namespace SAEA.Sockets.PipelineTest
 
         // ---------- --socket：真实 SaeaServerSocket ----------
 
-        private static async Task<int> RunSocketCaseAsync()
+        private static async Task<int> RunSocketCaseAsync(bool useTls)
         {
-            Console.WriteLine("SAEA.Sockets.PipelineTest --socket");
+            var label = useTls ? "--tls" : "--socket";
+            Console.WriteLine("SAEA.Sockets.PipelineTest " + label);
 
-            var run = RunSocketScenarioAsync();
+            var run = RunSocketScenarioAsync(useTls);
             var winner = await Task.WhenAny(run, Task.Delay(SocketCaseTimeoutMilliseconds)).ConfigureAwait(false);
 
             if (winner != run)
             {
-                Console.WriteLine("FAIL  --socket : " + (SocketCaseTimeoutMilliseconds / 1000) + " 秒内未完成");
+                Console.WriteLine("FAIL  " + label + " : " + (SocketCaseTimeoutMilliseconds / 1000) + " 秒内未完成");
                 return 1;
             }
 
             try
             {
                 await run.ConfigureAwait(false);
-                Console.WriteLine("PASS  --socket 真实 SaeaServerSocket 登录回包");
+                Console.WriteLine(
+                    "PASS  " + label +
+                    (useTls
+                        ? " 真实 SaeaServerSocket + TLS 登录回包（首帧在握手之后）"
+                        : " 真实 SaeaServerSocket 登录回包"));
                 return 0;
             }
             catch (Exception ex)
             {
-                Console.WriteLine("FAIL  --socket : " + ex.GetType().Name + ": " + ex.Message);
+                Console.WriteLine("FAIL  " + label + " : " + ex.GetType().Name + ": " + ex.Message);
                 return 1;
             }
         }
 
-        private static async Task RunSocketScenarioAsync()
+        // ---------- 性能趋势（--bench） ----------
+
+        private const int BenchChunkSize = 64 * 1024;
+
+        private const int BenchIterations = 5;
+
+        private static async Task<int> RunBenchAsync()
+        {
+            const int frameCount = 500000;
+            const int bodyLength = 256;
+
+            var wire = BuildBenchWire(frameCount, bodyLength);
+            var chunks = Split(wire, BenchChunkSize);
+
+            Console.WriteLine("SAEA.Sockets.PipelineTest --bench");
+            Console.WriteLine(
+                "线格式：8B 小端 body 长度 + 1B 类型码 + " + bodyLength + "B body，共 " + frameCount +
+                " 帧，" + BenchIterations + " 轮取中位数");
+
+            // 预热一轮，把 JIT 与首次租借排除在测量窗口外。
+            BenchLegacy(chunks, frameCount, 1);
+            BenchDecodeLayer(chunks, frameCount, 1);
+            await BenchPumpAsync(chunks, frameCount, 1).ConfigureAwait(false);
+
+            var legacy = BenchLegacy(chunks, frameCount, BenchIterations);
+            var decode = BenchDecodeLayer(chunks, frameCount, BenchIterations);
+            var pump = await BenchPumpAsync(chunks, frameCount, BenchIterations).ConfigureAwait(false);
+
+            Console.WriteLine("  旧栈 BaseCoder.DecodeStream 直连回调：" + legacy);
+            Console.WriteLine("  新栈 分帧 + Envelope 解码：" + decode);
+            Console.WriteLine("  新栈 接收泵 + 入队 + 处理器：" + pump);
+            Console.WriteLine(
+                "  吞吐比（新/旧）：解码层 " +
+                (decode.FramesPerSecond / legacy.FramesPerSecond * 100).ToString("F1") +
+                "%，完整接收路径 " +
+                (pump.FramesPerSecond / legacy.FramesPerSecond * 100).ToString("F1") + "%");
+            Console.WriteLine("（趋势口径，不作门禁；详见设计文档 8.4）");
+            return 0;
+        }
+
+        private static byte[] BuildBenchWire(int frameCount, int bodyLength)
+        {
+            var payload = new byte[bodyLength];
+            for (var i = 0; i < payload.Length; i++)
+                payload[i] = (byte)(i & 0xFF);
+
+            var writer = new ArrayBufferWriter<byte>((bodyLength + FrameConstants.P_Head) * frameCount);
+            var encoder = new LengthFieldFrameEncoder();
+            for (var i = 0; i < frameCount; i++)
+            {
+                // 类型码避开 1（Heart）与 3（BigData），否则 BaseCoder 不会把它们当普通数据帧回调。
+                encoder.Encode(payload, 7, writer);
+            }
+
+            return writer.WrittenSpan.ToArray();
+        }
+
+        private static byte[][] Split(byte[] data, int chunkSize)
+        {
+            var count = (data.Length + chunkSize - 1) / chunkSize;
+            var chunks = new byte[count][];
+            for (var i = 0; i < count; i++)
+            {
+                var offset = i * chunkSize;
+                var length = Math.Min(chunkSize, data.Length - offset);
+                var chunk = new byte[length];
+                Buffer.BlockCopy(data, offset, chunk, 0, length);
+                chunks[i] = chunk;
+            }
+
+            return chunks;
+        }
+
+        private static BenchResult BenchLegacy(byte[][] chunks, int expectedFrames, int iterations)
+        {
+            var samples = new List<BenchResult>(iterations);
+            for (var iteration = 0; iteration < iterations; iteration++)
+            {
+                var coder = new BaseCoder();
+                var counter = new CountingFrameHandler();
+
+                var allocatedBefore = GC.GetTotalAllocatedBytes(false);
+                var watch = Stopwatch.StartNew();
+
+                for (var i = 0; i < chunks.Length; i++)
+                    coder.DecodeStream(chunks[i], counter);
+
+                watch.Stop();
+                var allocated = GC.GetTotalAllocatedBytes(false) - allocatedBefore;
+
+                if (counter.Count != expectedFrames)
+                    throw new InvalidOperationException(
+                        "旧栈解码帧数不符：期望 " + expectedFrames + "，实际 " + counter.Count);
+
+                samples.Add(new BenchResult(counter.Count, watch.ElapsedTicks, allocated));
+            }
+
+            return BenchResult.Median(samples);
+        }
+
+        private static BenchResult BenchDecodeLayer(byte[][] chunks, int expectedFrames, int iterations)
+        {
+            var splitter = LengthFieldSplitter.Default(MaxFrameLength);
+            var codec = new EnvelopeCodec();
+            var samples = new List<BenchResult>(iterations);
+
+            for (var iteration = 0; iteration < iterations; iteration++)
+            {
+                var accumulator = new FrameAccumulator();
+                var count = 0;
+                BenchResult result;
+
+                var allocatedBefore = GC.GetTotalAllocatedBytes(false);
+                var watch = Stopwatch.StartNew();
+
+                try
+                {
+                    for (var i = 0; i < chunks.Length; i++)
+                    {
+                        accumulator.Append(chunks[i]);
+
+                        while (true)
+                        {
+                            int consumed;
+                            ReadOnlyMemory<byte> frame;
+                            if (!splitter.TrySplit(accumulator.Buffered, out consumed, out frame))
+                                break;
+
+                            accumulator.Consume(consumed);
+                            if (codec.Decode(frame) != null)
+                                count++;
+                        }
+                    }
+
+                    watch.Stop();
+                    var allocated = GC.GetTotalAllocatedBytes(false) - allocatedBefore;
+                    result = new BenchResult(count, watch.ElapsedTicks, allocated);
+                }
+                finally
+                {
+                    accumulator.Dispose();
+                }
+
+                if (result.Frames != expectedFrames)
+                    throw new InvalidOperationException(
+                        "解码层帧数不符：期望 " + expectedFrames + "，实际 " + result.Frames);
+
+                samples.Add(result);
+            }
+
+            return BenchResult.Median(samples);
+        }
+
+        private static async Task<BenchResult> BenchPumpAsync(byte[][] chunks, int expectedFrames, int iterations)
+        {
+            var options = NewOptions(queueCapacity: 8192, maxConcurrentMessages: 8);
+            var samples = new List<BenchResult>(iterations);
+
+            for (var iteration = 0; iteration < iterations; iteration++)
+            {
+                using (var pipeline = ChannelPipeline.Create(options))
+                {
+                    var stream = new FakeRawByteStream("bench");
+                    var channel = new DefaultChannel("bench", reason => Task.CompletedTask);
+                    var host = new PipelineHost();
+                    host.Set(channel);
+                    var handler = new BenchCountingHandler();
+                    pipeline.AddLast(handler);
+
+                    var executor = new ChannelPipelineExecutor(stream, channel, options, CancellationToken.None, host);
+                    executor.Attach(pipeline);
+                    executor.Start();
+
+                    var allocatedBefore = GC.GetTotalAllocatedBytes(false);
+                    var watch = Stopwatch.StartNew();
+
+                    for (var i = 0; i < chunks.Length; i++)
+                        await stream.WriteAsync(chunks[i]).ConfigureAwait(false);
+
+                    await WaitUntilAsync(
+                        () => handler.Count == expectedFrames, "性能用例未在超时前处理完所有帧").ConfigureAwait(false);
+
+                    watch.Stop();
+                    var allocated = GC.GetTotalAllocatedBytes(false) - allocatedBefore;
+
+                    await executor.BeginShutdown("bench-done").ConfigureAwait(false);
+                    await executor.Completion.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+
+                    samples.Add(new BenchResult(expectedFrames, watch.ElapsedTicks, allocated));
+                }
+            }
+
+            return BenchResult.Median(samples);
+        }
+
+        private sealed class BenchResult
+        {
+            public BenchResult(int frames, long elapsedTicks, long allocatedBytes)
+            {
+                Frames = frames;
+                ElapsedTicks = elapsedTicks;
+                AllocatedBytes = allocatedBytes;
+            }
+
+            public int Frames { get; }
+
+            public long ElapsedTicks { get; }
+
+            public long AllocatedBytes { get; }
+
+            /// <summary>
+            /// 取各轮样本耗时的中位数，避免单轮 GC 或调度抖动放大吞吐差异。
+            /// </summary>
+            /// <param name="samples">各轮样本，至少一个</param>
+            /// <returns>耗时中位数所在的那一轮样本</returns>
+            public static BenchResult Median(List<BenchResult> samples)
+            {
+                samples.Sort((left, right) => left.ElapsedTicks.CompareTo(right.ElapsedTicks));
+                return samples[samples.Count / 2];
+            }
+
+            public double FramesPerSecond
+            {
+                get { return Frames / (ElapsedTicks / (double)Stopwatch.Frequency); }
+            }
+
+            public double BytesPerFrame
+            {
+                get { return AllocatedBytes / (double)Frames; }
+            }
+
+            public override string ToString()
+            {
+                return FramesPerSecond.ToString("F0") + " 帧/s，耗时 " +
+                    (ElapsedTicks * 1000.0 / Stopwatch.Frequency).ToString("F0") + "ms，" +
+                    BytesPerFrame.ToString("F0") + "B/帧";
+            }
+        }
+
+        private sealed class CountingFrameHandler : IFrameHandler
+        {
+            private int _count;
+
+            public int Count
+            {
+                get { return Volatile.Read(ref _count); }
+            }
+
+            public void OnFrame(in SocketFrame frame)
+            {
+                Interlocked.Increment(ref _count);
+            }
+        }
+
+        private sealed class BenchCountingHandler : InboundHandlerAdapter
+        {
+            private int _count;
+
+            public int Count
+            {
+                get { return Volatile.Read(ref _count); }
+            }
+
+            public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+            {
+                // 空链上没有编解码器，消息就是 PooledMessage，必须在此归还池化缓冲。
+                var disposable = msg as IDisposable;
+                if (disposable != null)
+                    disposable.Dispose();
+
+                Interlocked.Increment(ref _count);
+                return Task.CompletedTask;
+            }
+        }
+
+        private static async Task RunSocketScenarioAsync(bool useTls)
         {
             var port = ResolvePort();
             var registry = CreateRegistry();
@@ -457,113 +785,189 @@ namespace SAEA.Sockets.PipelineTest
                 TaskCreationOptions.RunContinuationsAsynchronously);
 
             SaeaServerSocket server = null;
-
-            var option = new SocketOptionBuilder()
-                .UseStream()
-                .SetIP("127.0.0.1")
-                .SetPort(port)
-                .UseConnectionOpened(info =>
-                {
-                    var channel = new DefaultChannel(info.ID, reason =>
-                    {
-                        ChannelPipelineExecutor executor;
-                        if (executors.TryGetValue(info.ID, out executor))
-                            return executor.BeginShutdown(reason);
-
-                        try { server?.Disconnect(info.ID); } catch { }
-                        return Task.CompletedTask;
-                    });
-
-                    channel.SetAttribute(TokenAuthHandler.TokenAttributeKey, "socket-seed-token");
-                    channel.SetAttribute("openedAt", DateTime.UtcNow);
-                    host.Set(channel);
-
-                    // 验收 11：模拟耗时 50ms 的连接建立回调，首帧仍应在映射已存在之后到达。
-                    Thread.Sleep(50);
-                })
-                .UseInputHandler(async (userToken, input, flow, token) =>
-                {
-                    var id = userToken.ID;
-
-                    IChannel channel;
-                    if (!host.TryGetChannel(id, out channel))
-                        throw new InvalidOperationException("连接建立钩子未登记通道：" + id);
-                    if (channel.GetAttribute("openedAt") == null)
-                        throw new InvalidOperationException("通道缺少 openedAt 属性：" + id);
-
-                    var stream = new SocketStreamAdapter(id, input, flow, server);
-                    var options = NewOptions(queueCapacity: 128, maxConcurrentMessages: 4);
-                    var pipeline = BuildPipeline(
-                        options,
-                        registry,
-                        new LoginHandler(30),
-                        new HeartbeatHandler(),
-                        new ExceptionRecorder());
-
-                    var executor = new ChannelPipelineExecutor(stream, channel, options, token, host);
-                    executor.Attach(pipeline);
-                    executors[id] = executor;
-                    executor.Start();
-                    executorReady.TrySetResult(executor);
-
-                    try
-                    {
-                        await executor.Completion.ConfigureAwait(false);
-                    }
-                    finally
-                    {
-                        ChannelPipelineExecutor removed;
-                        executors.TryRemove(id, out removed);
-                    }
-                })
-                .Build();
-
-            server = new SaeaServerSocket(option);
-            server.OnError += (id, ex) => errors.Enqueue(id + ": " + ex.GetType().Name + ": " + ex.Message);
-            server.Start();
+            var certificate = useTls ? CreateServerCertificate() : null;
+            var handshakeCompletedAt = DateTime.MinValue;
 
             try
             {
-                using (var client = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
-                {
-                    client.ReceiveTimeout = 5000;
-                    client.SendTimeout = 5000;
-                    client.Connect(new IPEndPoint(IPAddress.Loopback, port));
-
-                    var executor = await executorReady.Task.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
-                    var sessionId = executor.Channel.Id;
-
-                    SendAll(client, EncodeFrame(new LoginRequest { RequestId = 42, UserName = "socket" }, registry));
-
-                    var reply = DecodeFrame(ReadFrame(client), registry) as LoginResponse;
-                    if (reply == null)
-                        throw new InvalidOperationException("服务端回包不是 LoginResponse。");
-                    if (reply.RequestId != 42 || !reply.Success || string.IsNullOrEmpty(reply.Token))
-                        throw new InvalidOperationException("登录回包字段不正确。");
-
-                    Console.WriteLine(
-                        "      客户端 " + sessionId + " 收到 LoginResponse：RequestId=" + reply.RequestId +
-                        "，Token=" + reply.Token);
-
-                    client.Shutdown(SocketShutdown.Both);
-
-                    await executor.Completion.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
-
-                    IChannel removed;
-                    if (host.TryGetChannel(sessionId, out removed))
-                        throw new InvalidOperationException("收口后通道仍留在登记表：" + sessionId);
-
-                    if (!errors.IsEmpty)
+                var builder = new SocketOptionBuilder()
+                    .UseStream()
+                    .SetIP("127.0.0.1")
+                    .SetPort(port)
+                    .UseConnectionOpened(info =>
                     {
-                        Console.WriteLine("      服务端上报：" + string.Join(" | ", errors.ToArray()));
+                        var channel = new DefaultChannel(info.ID, reason =>
+                        {
+                            ChannelPipelineExecutor executor;
+                            if (executors.TryGetValue(info.ID, out executor))
+                                return executor.BeginShutdown(reason);
+
+                            try { server?.Disconnect(info.ID); } catch { }
+                            return Task.CompletedTask;
+                        });
+
+                        channel.SetAttribute(TokenAuthHandler.TokenAttributeKey, "socket-seed-token");
+                        channel.SetAttribute("openedAt", DateTime.UtcNow);
+                        host.Set(channel);
+
+                        // 验收 11：TLS 下连接建立回调只应在握手成功后触发。
+                        if (useTls && (info.Tls == null || !info.Tls.IsAuthenticated))
+                            throw new InvalidOperationException("TLS 管道在握手完成之前启动。");
+
+                        // 模拟耗时 50ms 的连接建立回调，首帧仍应在映射已存在之后到达。
+                        Thread.Sleep(50);
+                    })
+                    .UseInputHandler(async (userToken, input, flow, token) =>
+                    {
+                        var id = userToken.ID;
+
+                        IChannel channel;
+                        if (!host.TryGetChannel(id, out channel))
+                            throw new InvalidOperationException("连接建立钩子未登记通道：" + id);
+                        if (channel.GetAttribute("openedAt") == null)
+                            throw new InvalidOperationException("通道缺少 openedAt 属性：" + id);
+                        if (useTls && handshakeCompletedAt == DateTime.MinValue)
+                            throw new InvalidOperationException("TLS 首帧到达时握手尚未完成。");
+
+                        var stream = new SocketStreamAdapter(id, input, flow, server);
+                        var options = NewOptions(queueCapacity: 128, maxConcurrentMessages: 4);
+                        var pipeline = BuildPipeline(
+                            options,
+                            registry,
+                            new LoginHandler(30),
+                            new HeartbeatHandler(),
+                            new ExceptionRecorder());
+
+                        var executor = new ChannelPipelineExecutor(stream, channel, options, token, host);
+                        executor.Attach(pipeline);
+                        executors[id] = executor;
+                        executor.Start();
+                        executorReady.TrySetResult(executor);
+
+                        try
+                        {
+                            await executor.Completion.ConfigureAwait(false);
+                        }
+                        finally
+                        {
+                            ChannelPipelineExecutor removed;
+                            executors.TryRemove(id, out removed);
+                        }
+                    });
+
+                if (useTls)
+                {
+                    builder = builder.WithSsl(o =>
+                    {
+                        o.ServerCertificate = certificate;
+                        o.HandshakeCompleted = context => handshakeCompletedAt = DateTime.UtcNow;
+                    });
+                }
+
+                var option = builder.Build();
+
+                server = new SaeaServerSocket(option);
+                server.OnError += (id, ex) => errors.Enqueue(id + ": " + ex.GetType().Name + ": " + ex.Message);
+                server.Start();
+
+                if (useTls)
+                {
+                    var clientOption = new SocketOptionBuilder()
+                        .UseStream()
+                        .SetIP("127.0.0.1")
+                        .SetPort(port)
+                        .SetReadBufferSize(64 * 1024)
+                        .WithSsl(o =>
+                        {
+                            o.TargetHost = "localhost";
+                            o.AllowInvalidCertificates = true;
+                        })
+                        .Build();
+
+                    using (var client = new SaeaClientSocket(clientOption))
+                    {
+                        client.Connect();
+                        if (!client.IsAuthenticated)
+                            throw new InvalidOperationException("TLS 客户端握手未完成。");
+
+                        var executor = await executorReady.Task.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+                        var sessionId = executor.Channel.Id;
+
+                        var frame = EncodeFrame(new LoginRequest { RequestId = 42, UserName = "tls" }, registry);
+                        var stream = client.GetStream();
+                        await stream.WriteAsync(frame, 0, frame.Length).ConfigureAwait(false);
+                        await stream.FlushAsync().ConfigureAwait(false);
+
+                        var reply = DecodeFrame(ReadFrame(stream), registry) as LoginResponse;
+                        if (reply == null)
+                            throw new InvalidOperationException("服务端回包不是 LoginResponse。");
+                        if (reply.RequestId != 42 || !reply.Success || string.IsNullOrEmpty(reply.Token))
+                            throw new InvalidOperationException("登录回包字段不正确。");
+                        if (handshakeCompletedAt == DateTime.MinValue)
+                            throw new InvalidOperationException("TLS 握手完成回调未触发。");
+
+                        Console.WriteLine(
+                            "      客户端 " + sessionId + " 经 TLS 收到 LoginResponse：RequestId=" + reply.RequestId +
+                            "，握手完成于 " + handshakeCompletedAt.ToString("HH:mm:ss.fff"));
+
+                        client.Disconnect();
+
+                        await executor.Completion.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+                        VerifySessionRemoved(host, sessionId);
+                        ReportErrors(errors);
+                    }
+                }
+                else
+                {
+                    using (var client = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
+                    {
+                        client.ReceiveTimeout = 5000;
+                        client.SendTimeout = 5000;
+                        client.Connect(new IPEndPoint(IPAddress.Loopback, port));
+
+                        var executor = await executorReady.Task.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+                        var sessionId = executor.Channel.Id;
+
+                        SendAll(client, EncodeFrame(new LoginRequest { RequestId = 42, UserName = "socket" }, registry));
+
+                        var reply = DecodeFrame(ReadFrame(client), registry) as LoginResponse;
+                        if (reply == null)
+                            throw new InvalidOperationException("服务端回包不是 LoginResponse。");
+                        if (reply.RequestId != 42 || !reply.Success || string.IsNullOrEmpty(reply.Token))
+                            throw new InvalidOperationException("登录回包字段不正确。");
+
+                        Console.WriteLine(
+                            "      客户端 " + sessionId + " 收到 LoginResponse：RequestId=" + reply.RequestId +
+                            "，Token=" + reply.Token);
+
+                        client.Shutdown(SocketShutdown.Both);
+
+                        await executor.Completion.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+                        VerifySessionRemoved(host, sessionId);
+                        ReportErrors(errors);
                     }
                 }
             }
             finally
             {
-                try { server.Stop(); } catch { }
-                try { server.Dispose(); } catch { }
+                try { server?.Stop(); } catch { }
+                try { server?.Dispose(); } catch { }
+                if (certificate != null)
+                    certificate.Dispose();
             }
+        }
+
+        private static void VerifySessionRemoved(PipelineHost host, string sessionId)
+        {
+            IChannel removed;
+            if (host.TryGetChannel(sessionId, out removed))
+                throw new InvalidOperationException("收口后通道仍留在登记表：" + sessionId);
+        }
+
+        private static void ReportErrors(ConcurrentQueue<string> errors)
+        {
+            if (!errors.IsEmpty)
+                Console.WriteLine("      服务端上报：" + string.Join(" | ", errors.ToArray()));
         }
 
         private static int ResolvePort()
@@ -592,7 +996,8 @@ namespace SAEA.Sockets.PipelineTest
             TypeRegistry registry,
             IMessageHandler loginHandler,
             IMessageHandler heartbeatHandler,
-            ExceptionRecorder errors)
+            ExceptionRecorder errors,
+            IChannelHandler extraInbound = null)
         {
             var pipeline = ChannelPipeline.Create(options);
             var codec = new EnvelopeCodec();
@@ -608,6 +1013,8 @@ namespace SAEA.Sockets.PipelineTest
             pipeline.AddLast(new AuthHandler(new[] { MessageTypeCodes.LoginRequest, MessageTypeCodes.Heartbeat }));
             pipeline.AddLast(new EnvelopeUnwrapHandler(registry, new JsonMessageCodec()));
             pipeline.AddLast(new TokenAuthHandler());
+            if (extraInbound != null)
+                pipeline.AddLast(extraInbound);
             pipeline.AddLast(new InboundLoggingHandler());
             pipeline.AddLast(new MessageDispatcher()
                 .Register<LoginRequest>(loginHandler)
@@ -781,6 +1188,65 @@ namespace SAEA.Sockets.PipelineTest
             }
         }
 
+        private static byte[] ReadFrame(Stream stream)
+        {
+            var head = new byte[FrameConstants.P_Head];
+            ReadExactly(stream, head, 0, head.Length);
+
+            var bodyLength = BinaryPrimitives.ReadInt64LittleEndian(head.AsSpan(0, FrameConstants.P_LEN));
+            if (bodyLength < 0 || bodyLength > MaxFrameLength)
+                throw new InvalidOperationException("回包帧体长度非法：" + bodyLength);
+
+            var frame = new byte[head.Length + (int)bodyLength];
+            Buffer.BlockCopy(head, 0, frame, 0, head.Length);
+            ReadExactly(stream, frame, head.Length, (int)bodyLength);
+            return frame;
+        }
+
+        private static void ReadExactly(Stream stream, byte[] buffer, int offset, int count)
+        {
+            var read = 0;
+            while (read < count)
+            {
+                var current = stream.Read(buffer, offset + read, count - read);
+                if (current <= 0)
+                    throw new EndOfStreamException("对端在读取完整帧之前关闭了连接。");
+                read += current;
+            }
+        }
+
+        /// <summary>
+        /// 生成仅用于本地回环演示的自签名服务端证书；私钥经 PFX 往返，保证可被 TLS 传输层稳定读取。
+        /// </summary>
+        private static X509Certificate2 CreateServerCertificate()
+        {
+            using (var rsa = RSA.Create(2048))
+            {
+                var request = new CertificateRequest(
+                    "CN=localhost", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+
+                request.CertificateExtensions.Add(new X509BasicConstraintsExtension(false, false, 0, false));
+
+                var usages = new OidCollection
+                {
+                    new Oid("1.3.6.1.5.5.7.3.1")
+                };
+                request.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension(usages, false));
+
+                var san = new SubjectAlternativeNameBuilder();
+                san.AddDnsName("localhost");
+                san.AddIpAddress(IPAddress.Loopback);
+                request.CertificateExtensions.Add(san.Build());
+
+                using (var certificate = request.CreateSelfSigned(
+                    DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(30)))
+                {
+                    var pfx = certificate.Export(X509ContentType.Pfx, "saea");
+                    return X509CertificateLoader.LoadPkcs12(pfx, "saea");
+                }
+            }
+        }
+
         // ---------- 内存回环基础设施 ----------
 
         private sealed class InMemorySession : IDisposable
@@ -792,7 +1258,8 @@ namespace SAEA.Sockets.PipelineTest
                 ChannelPipelineOptions options,
                 TypeRegistry registry,
                 IMessageHandler loginHandler,
-                IMessageHandler heartbeatHandler)
+                IMessageHandler heartbeatHandler,
+                IChannelHandler extraInbound = null)
             {
                 Stream = new FakeRawByteStream(id);
                 Channel = new DefaultChannel(id, reason => BeginShutdown(reason));
@@ -801,7 +1268,7 @@ namespace SAEA.Sockets.PipelineTest
                 Host.Set(Channel);
 
                 Errors = new ExceptionRecorder();
-                Pipeline = BuildPipeline(options, registry, loginHandler, heartbeatHandler, Errors);
+                Pipeline = BuildPipeline(options, registry, loginHandler, heartbeatHandler, Errors, extraInbound);
                 Executor = new ChannelPipelineExecutor(Stream, Channel, options, CancellationToken.None, Host);
                 Executor.Attach(Pipeline);
             }

@@ -1,7 +1,41 @@
+/****************************************************************************
+ * 
+  ____    _    _____    _      ____             _        _   
+ / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
+ \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
+  ___) / ___ \| |___ / ___ \   ___) | (_) | (__|   <  __/ |_ 
+ |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
+                                                              
+ 
+*Copyright (c) yswenli All Rights Reserved.
+*CLR版本： net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：SAEA.Sockets.Pipeline.Tests.Tests.Handlers
+*文件名： DispatchAndTerminalTests
+*版本号： v26.11.5.1
+*唯一标识：932c5050-775c-4ac8-bdf9-3c9315faf7d3
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/11/6 09:50:56
+*描述：路由、两级鉴权、日志与链尾处理的契约用例
+*
+*=====================================================================
+*修改标记
+*修改时间：2026/11/6 09:50:56
+*修改人： yswenli
+*版本号： v26.11.5.1
+*描述：路由、两级鉴权、日志与链尾处理的契约用例
+*
+*****************************************************************************/
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.IO.Pipelines;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -69,6 +103,40 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
                 await rig.Pipeline.FireChannelReadAsync(message);
 
                 Assert.AreEqual(1, sink.Calls, "未命中且无兜底时应记 Warn 并继续下传");
+                Assert.AreSame(message, sink.LastMessage, "下传的消息被替换");
+            }
+        }
+
+        [TestMethod]
+        public async Task Dispatcher_MissWithoutFallback_EmitsWarnBeforeForwarding()
+        {
+            var sink = new RecordingInboundHandler();
+            using (var rig = new PipelineRig("dispatch-warn"))
+            {
+                rig.Pipeline.AddLast(new MessageDispatcher());
+                rig.Pipeline.AddLast(sink);
+
+                var message = new OtherMessage();
+                using (var capture = new ConsoleCapture())
+                {
+                    Console.SetOut(capture.Writer);
+                    try
+                    {
+                        await rig.Pipeline.FireChannelReadAsync(message);
+
+                        var found = await capture.WaitForAsync(
+                            "未命中路由，继续下传", TimeSpan.FromSeconds(3));
+                        Assert.IsTrue(
+                            found,
+                            "未命中路由应经 LogHelper 记一条 Warn；捕获到的输出：" + capture.Text);
+                    }
+                    finally
+                    {
+                        Console.SetOut(capture.Original);
+                    }
+                }
+
+                Assert.AreEqual(1, sink.Calls, "记 Warn 后仍必须继续下传");
                 Assert.AreSame(message, sink.LastMessage, "下传的消息被替换");
             }
         }
@@ -288,6 +356,101 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
             public void Dispose()
             {
                 _executor.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// 临时接管 <see cref="Console.Out"/>，用于断言 LogHelper 异步刷出的文本。
+        /// LogHelper 由后台线程写日志（空闲时每 500ms 轮询一次），因此断言只能轮询等待。
+        /// </summary>
+        private sealed class ConsoleCapture : IDisposable
+        {
+            private readonly object _gate = new object();
+
+            private readonly StringBuilder _text = new StringBuilder();
+
+            public ConsoleCapture()
+            {
+                Original = Console.Out;
+                Writer = new LockedTextWriter(this);
+            }
+
+            public TextWriter Original { get; }
+
+            public TextWriter Writer { get; }
+
+            public string Text
+            {
+                get
+                {
+                    lock (_gate)
+                        return _text.ToString();
+                }
+            }
+
+            public async Task<bool> WaitForAsync(string expected, TimeSpan timeout)
+            {
+                var watch = Stopwatch.StartNew();
+                while (watch.Elapsed < timeout)
+                {
+                    if (Contains(expected))
+                        return true;
+
+                    await Task.Delay(50).ConfigureAwait(false);
+                }
+
+                return Contains(expected);
+            }
+
+            public void Dispose()
+            {
+                Console.SetOut(Original);
+            }
+
+            private bool Contains(string expected)
+            {
+                return Text.IndexOf(expected, StringComparison.Ordinal) >= 0;
+            }
+
+            private void Append(string value)
+            {
+                lock (_gate)
+                    _text.Append(value);
+            }
+
+            private sealed class LockedTextWriter : TextWriter
+            {
+                private readonly ConsoleCapture _owner;
+
+                public LockedTextWriter(ConsoleCapture owner)
+                {
+                    _owner = owner;
+                }
+
+                public override Encoding Encoding
+                {
+                    get { return Encoding.UTF8; }
+                }
+
+                public override void Write(char value)
+                {
+                    _owner.Append(value.ToString());
+                }
+
+                public override void Write(string value)
+                {
+                    _owner.Append(value);
+                }
+
+                public override void WriteLine()
+                {
+                    _owner.Append(Environment.NewLine);
+                }
+
+                public override void WriteLine(string value)
+                {
+                    _owner.Append(value + Environment.NewLine);
+                }
             }
         }
 
