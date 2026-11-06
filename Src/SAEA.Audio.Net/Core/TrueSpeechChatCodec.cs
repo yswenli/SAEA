@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/02/10 15:16:38
+*修改时间：2026/11/6 13:23:31
 *修改人： yswenli
 *版本号： v26.4.23.1
-*描述：TrueSpeechChatCodec编解码类
+*描述：补齐英文与乱码注释的中文说明
 *
 *****************************************************************************/
 using SAEA.Audio.Base.NAudio.Wave;
@@ -34,9 +34,8 @@ using SAEA.Audio.Base.NAudio.Wave;
 namespace SAEA.Audio.Core
 {
     /// <summary>
-    /// DSP Group TrueSpeech codec, using ACM
-    /// n.b. Windows XP came with a TrueSpeech codec built in
-    /// - looks like Windows 7 doesn't
+    /// 基于 ACM 的 DSP Group TrueSpeech 编解码器
+    /// Windows XP 自带该编解码器，Windows 7 及之后需单独安装
     /// </summary>
     class TrueSpeechChatCodec : AcmChatCodec
     {

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/02/10 15:16:38
+*修改时间：2026/11/6 13:23:31
 *修改人： yswenli
 *版本号： v26.4.23.1
-*描述：AcmChatCodec编解码类
+*描述：补齐英文与乱码注释的中文说明
 *
 *****************************************************************************/
 using SAEA.Audio.Base.NAudio;
@@ -37,7 +37,7 @@ using System;
 namespace SAEA.Audio.Core
 {
     /// <summary>
-    /// useful base class for deriving any chat codecs that will use ACM for decode and encode
+    /// 基于 ACM 的聊天编解码器抽象基类，供派生类实现具体的编解码格式
     /// </summary>
     abstract class AcmChatCodec : INetworkChatCodec
     {
