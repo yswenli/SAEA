@@ -42,17 +42,17 @@ namespace SAEA.P2PTest.Tests
             var serverCapture = new UdpCapture();
             var clientCapture = new UdpCapture();
 
-            SAEA.Sockets.Core.Udp.UdpServerSocket? server = null;
-            SAEA.Sockets.Core.Udp.UdpClientSocket? client = null;
+            SAEA.Sockets.Core.Udp.SaeaUdpServerSocket? server = null;
+            SAEA.Sockets.Core.Udp.SaeaUdpClientSocket? client = null;
 
             try
             {
-                server = new SAEA.Sockets.Core.Udp.UdpServerSocket(serverOption);
+                server = new SAEA.Sockets.Core.Udp.SaeaUdpServerSocket(serverOption);
                 server.OnServerReceiveSpan += serverCapture.OnServerSpan;
                 server.Start();
                 await Task.Delay(200);
 
-                client = new SAEA.Sockets.Core.Udp.UdpClientSocket(clientOption);
+                client = new SAEA.Sockets.Core.Udp.SaeaUdpClientSocket(clientOption);
                 client.OnClientReceiveSpan += clientCapture.OnClientSpan;
                 client.Connect();
                 await Task.Delay(200);

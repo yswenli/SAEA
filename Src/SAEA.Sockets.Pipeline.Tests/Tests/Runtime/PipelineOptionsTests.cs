@@ -148,6 +148,20 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
         }
 
         /// <summary>
+        /// 分发方式取枚举定义之外的值时 Create 抛 ArgumentOutOfRangeException
+        /// </summary>
+        [TestMethod]
+        public void DispatchModeUndefinedValue_ThrowsArgumentOutOfRangeException()
+        {
+            var options = NewOptions();
+            options.DispatchMode = (ChannelDispatchMode)7;
+
+            var exception = Assert.ThrowsException<ArgumentOutOfRangeException>(
+                () => ChannelPipeline.Create(options));
+            StringAssert.Contains(exception.Message, "DispatchMode");
+        }
+
+        /// <summary>
         /// 信封拷贝阈值为负时 Create 抛 ArgumentOutOfRangeException
         /// </summary>
         [TestMethod]

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 13:11:19
+*修改时间：2026/11/6 14:40:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：规范文件头 banner
+*描述：ECDsa 私钥转换改用 GetKeyPair(AsymmetricAlgorithm)，兼容缺少 GetECDsaKeyPair 重载的运行时
 *
 *****************************************************************************/
 using System;
@@ -120,12 +120,14 @@ namespace SAEA.Sockets.Ssl.Internal
             }
             catch (CryptographicException) { }
 
+            // BouncyCastle 2.6.2 的部分目标框架资产没有 GetECDsaKeyPair(ECDsa) 重载，
+            // 统一走 GetKeyPair(AsymmetricAlgorithm)，避免在 .NET Framework 上首次调用即抛 MissingMethodException。
             try
             {
                 using (var ecdsa = certificate.GetECDsaPrivateKey())
                 {
                     if (ecdsa != null)
-                        return DotNetUtilities.GetECDsaKeyPair(ecdsa).Private;
+                        return DotNetUtilities.GetKeyPair(ecdsa).Private;
                 }
             }
             catch (CryptographicException) { }

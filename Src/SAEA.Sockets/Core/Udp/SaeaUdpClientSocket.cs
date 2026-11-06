@@ -12,14 +12,14 @@
 *机器名称：WENLI-PC
 *公司名称：yswenli
 *命名空间：SAEA.Sockets.Core.Udp
-*文件名： UdpClientSocket
+*文件名： SaeaUdpClientSocket
 *版本号： v26.4.23.1
 *唯一标识：af24961f-6acc-4f24-871a-5dc73a5b97af
 *当前的用户域：WENLI-PC
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2020/12/29 15:50:22
-*描述：UdpClientSocket接口
+*描述：UDP 客户端 socket
 *
 *=====================================================================
 *修改标记
@@ -47,7 +47,7 @@ namespace SAEA.Sockets.Core.Udp
     /// <summary>
     /// UDP 客户端 socket：单套接字连接固定远端地址，支持广播与多播，仅事件（包）模式收发
     /// </summary>
-    public class UdpClientSocket : IClientSocket, IDisposable
+    public class SaeaUdpClientSocket : IClientSocket, IDisposable
     {
         const int SIO_UDP_CONNRESET = unchecked((int)0x9800000C);
 
@@ -124,7 +124,7 @@ namespace SAEA.Sockets.Core.Udp
         /// saea 客户端 socket
         /// </summary>
         /// <param name="socketOption"></param>
-        public UdpClientSocket(ISocketOption socketOption)
+        public SaeaUdpClientSocket(ISocketOption socketOption)
         {
             SocketOption = socketOption;
 

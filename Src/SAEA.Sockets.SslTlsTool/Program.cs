@@ -8,12 +8,12 @@
                                                                
 
 *Copyright (c) yswenli All Rights Reserved.
-*CLR版本： net10
+*CLR版本： net10.0
 *机器名称：WALLE
 *公司名称：yswenli
-*命名空间：SAEA.Sockets.SslTlsTest
+*命名空间：SAEA.Sockets.SslTlsTool
 *文件名： Program
-*版本号： net10
+*版本号： net10.0
 *唯一标识：f48d115d-7e63-488d-b6ef-31ad43f2f02c
 *当前的用户域：WALLE
 *创建人： yswenli
@@ -23,15 +23,15 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 13:50:48
+*修改时间：2026/11/6 14:42:12
 *修改人： yswenli
-*版本号： net10
-*描述：新增开发用证书生成工具
+*版本号： net10.0
+*描述：工程更名为 SslTlsTool；无参数进入交互模式并支持逐行执行同一套参数
 *
 *****************************************************************************/
 using SAEA.Common;
 
-namespace SAEA.Sockets.SslTlsTest;
+namespace SAEA.Sockets.SslTlsTool;
 
 /// <summary>
 /// 开发用证书生成工具：一条命令产出自签证书或本地 CA + server/client 文件。
@@ -44,11 +44,22 @@ internal static class Program
 
     private static int Main(string[] args)
     {
-        if (args == null || args.Length == 0)
+        try
         {
-            PrintHelp();
-            return 0;
+            return Run(args);
         }
+        finally
+        {
+            // 输出由 ConsoleHelper 的后台线程异步写控制台，进程退出前必须等待队列写完；
+            // 否则 --help、参数错误等立即返回的路径会丢掉后半段输出。
+            ConsoleHelper.Flush();
+        }
+    }
+
+    private static int Run(string[] args)
+    {
+        if (args == null || args.Length == 0)
+            return RunInteractive();
 
         foreach (var argument in args)
         {
@@ -60,19 +71,107 @@ internal static class Program
             }
         }
 
-        SslTlsTestOptions options;
+        return Execute(args, false);
+    }
+
+    /// <summary>
+    /// 无参数启动时的交互模式：逐行读取与命令行同构的参数，执行后继续等待下一条命令。
+    /// </summary>
+    /// <returns>正常退出（exit/quit/EOF）时返回 0</returns>
+    private static int RunInteractive()
+    {
+        ConsoleHelper.WriteLine("SAEA.Sockets.SslTlsTool 交互模式", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("输入 help 查看用法，exit 或 quit 退出。", ConsoleColor.Green);
+        ConsoleHelper.WriteLine();
+
+        while (true)
+        {
+            // ConsoleHelper 异步写控制台，读取输入前先等它写完，避免提示符与上一段输出交错。
+            ConsoleHelper.Flush();
+            Console.Write("> ");
+
+            var line = Console.ReadLine();
+            if (line == null)
+            {
+                ConsoleHelper.WriteLine();
+                ConsoleHelper.WriteLine("已退出。", ConsoleColor.Green);
+                return 0;
+            }
+
+            var trimmed = line.Trim();
+            if (trimmed.Length == 0)
+                continue;
+
+            if (string.Equals(trimmed, "exit", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(trimmed, "quit", StringComparison.OrdinalIgnoreCase))
+            {
+                ConsoleHelper.WriteLine("已退出。", ConsoleColor.Green);
+                return 0;
+            }
+
+            if (string.Equals(trimmed, "help", StringComparison.OrdinalIgnoreCase))
+            {
+                PrintHelp();
+                continue;
+            }
+
+            string[] tokens;
+            string? tokenizeError;
+            if (!TryTokenize(line, out tokens, out tokenizeError))
+            {
+                ConsoleHelper.WriteLine(tokenizeError, ConsoleColor.Red);
+                continue;
+            }
+
+            var helpRequested = false;
+            foreach (var token in tokens)
+            {
+                if (string.Equals(token, "--help", StringComparison.Ordinal))
+                {
+                    helpRequested = true;
+                    break;
+                }
+            }
+
+            if (helpRequested)
+            {
+                PrintHelp();
+                continue;
+            }
+
+            if (tokens.Length == 0)
+                continue;
+
+            var exitCode = Execute(tokens, true);
+            if (exitCode != 0)
+                ConsoleHelper.WriteLine("退出码：" + exitCode + "；交互模式继续，输入 exit 退出。", ConsoleColor.Yellow);
+        }
+    }
+
+    /// <summary>
+    /// 执行一次生成（命令行参数或交互模式的一行命令）。
+    /// </summary>
+    /// <param name="args">已拆分的参数</param>
+    /// <param name="interactive">是否来自交互模式，用于选择错误提示措辞</param>
+    /// <returns>退出码</returns>
+    private static int Execute(string[] args, bool interactive)
+    {
+        SslTlsToolOptions options;
         string? error;
-        if (!SslTlsTestOptions.TryParse(args, out options, out error))
+        if (!SslTlsToolOptions.TryParse(args, out options, out error))
         {
             ConsoleHelper.WriteLine(error, ConsoleColor.Red);
-            ConsoleHelper.WriteLine("运行 --help 查看用法。");
+            ConsoleHelper.WriteLine(interactive ? "输入 help 查看用法。" : "运行 --help 查看用法。");
             return 1;
         }
 
         if (!options.SelfSigned && !options.Ca)
         {
             ConsoleHelper.WriteLine("缺少 --self-signed 或 --ca，未执行任何生成。", ConsoleColor.Red);
-            PrintHelp();
+            if (interactive)
+                ConsoleHelper.WriteLine("输入 help 查看用法。");
+            else
+                PrintHelp();
             return 1;
         }
 
@@ -135,6 +234,8 @@ internal static class Program
         var exitCode = 0;
         if (options.Verify)
         {
+            // 自检结果由 CertificateVerifier 同步写 Console；先等生成汇总的异步队列写完，保证输出顺序。
+            ConsoleHelper.Flush();
             var plan = BuildVerificationPlan(options, summary);
             try
             {
@@ -161,7 +262,72 @@ internal static class Program
         return exitCode;
     }
 
-    private static void GenerateSelfSigned(SslTlsTestOptions options, string outDirectory, RunSummary summary)
+    /// <summary>
+    /// 把交互模式的一行拆成参数：空白分隔，双引号可包住含空格的取值，\" 与 \\ 转义。
+    /// </summary>
+    /// <param name="line">输入行</param>
+    /// <param name="tokens">拆分结果</param>
+    /// <param name="error">失败原因，成功时为 null</param>
+    /// <returns>双引号闭合时返回 true</returns>
+    private static bool TryTokenize(string line, out string[] tokens, out string? error)
+    {
+        var list = new List<string>();
+        var current = new StringBuilder();
+        var inQuotes = false;
+        var hasToken = false;
+
+        for (var index = 0; index < line.Length; index++)
+        {
+            var ch = line[index];
+
+            if (ch == '"')
+            {
+                // 引号本身不进入取值，但出现引号要让空串也成为有效 token（如 --pwd ""）。
+                inQuotes = !inQuotes;
+                hasToken = true;
+                continue;
+            }
+
+            if (!inQuotes && char.IsWhiteSpace(ch))
+            {
+                if (hasToken)
+                {
+                    list.Add(current.ToString());
+                    current.Clear();
+                    hasToken = false;
+                }
+
+                continue;
+            }
+
+            // 只把 \" 当作转义，反斜杠本身原样保留，避免 UNC 路径（\\server\share）被吃掉一个分隔符。
+            if (inQuotes && ch == '\\' && index + 1 < line.Length && line[index + 1] == '"')
+            {
+                current.Append(line[++index]);
+                hasToken = true;
+                continue;
+            }
+
+            current.Append(ch);
+            hasToken = true;
+        }
+
+        if (inQuotes)
+        {
+            tokens = Array.Empty<string>();
+            error = "命令里的双引号没有闭合。";
+            return false;
+        }
+
+        if (hasToken)
+            list.Add(current.ToString());
+
+        tokens = list.ToArray();
+        error = null;
+        return true;
+    }
+
+    private static void GenerateSelfSigned(SslTlsToolOptions options, string outDirectory, RunSummary summary)
     {
         var baseName = options.Name ?? "localhost";
         var subject = string.IsNullOrWhiteSpace(options.Subject) ? "CN=" + baseName : options.Subject!;
@@ -169,6 +335,10 @@ internal static class Program
         var pfxPath = Path.Combine(outDirectory, baseName + ".pfx");
         var crtPath = Path.Combine(outDirectory, baseName + ".crt");
         var keyPath = Path.Combine(outDirectory, baseName + ".key");
+
+        // 自签模式没有 CA 与独立客户端证书，回环握手用同一张证书同时充当服务端与客户端证书
+        summary.ServerPfxPath = pfxPath;
+        summary.ClientPfxPath = pfxPath;
 
         var writePfx = options.Force || !File.Exists(pfxPath);
         var writeCrt = options.Force || !File.Exists(crtPath);
@@ -238,7 +408,7 @@ internal static class Program
         });
     }
 
-    private static void GenerateCa(SslTlsTestOptions options, string outDirectory, RunSummary summary)
+    private static void GenerateCa(SslTlsToolOptions options, string outDirectory, RunSummary summary)
     {
         summary.CaMode = true;
 
@@ -465,7 +635,7 @@ internal static class Program
         }
     }
 
-    private static CertificateVerificationPlan BuildVerificationPlan(SslTlsTestOptions options, RunSummary summary)
+    private static CertificateVerificationPlan BuildVerificationPlan(SslTlsToolOptions options, RunSummary summary)
     {
         var plan = new CertificateVerificationPlan
         {
@@ -481,12 +651,12 @@ internal static class Program
         return plan;
     }
 
-    private static string EffectivePfxPassword(SslTlsTestOptions options)
+    private static string EffectivePfxPassword(SslTlsToolOptions options)
     {
         return options.Password ?? DefaultPfxPassword;
     }
 
-    private static string ResolveCaPassword(SslTlsTestOptions options)
+    private static string ResolveCaPassword(SslTlsToolOptions options)
     {
         if (options.CaPasswordSpecified)
             return options.CaPassword ?? string.Empty;
@@ -518,7 +688,7 @@ internal static class Program
         ConsoleHelper.WriteLine("skipped：" + Path.GetFullPath(path) + " 已存在，未覆盖（要覆盖请加 --force）。");
     }
 
-    private static void PrintSummary(SslTlsTestOptions options, RunSummary summary)
+    private static void PrintSummary(SslTlsToolOptions options, RunSummary summary)
     {
         ConsoleHelper.WriteLine();
         ConsoleHelper.WriteLine("生成结果：");
@@ -593,10 +763,14 @@ internal static class Program
 
     private static void PrintHelp()
     {
-        ConsoleHelper.WriteLine("用法：SAEA.Sockets.SslTlsTest [选项]", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("用法：SAEA.Sockets.SslTlsTool [选项]", ConsoleColor.Green);
         ConsoleHelper.WriteLine();
         ConsoleHelper.WriteLine("生成开发用自签证书，或生成本地根 CA 及其签发的服务端/客户端证书（mTLS）。", ConsoleColor.Green);
         ConsoleHelper.WriteLine("产物默认写入 ./certs。证书与私钥仅供开发/测试，请勿用于生产。", ConsoleColor.Green);
+        ConsoleHelper.WriteLine();
+        ConsoleHelper.WriteLine("交互模式：", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  不带任何参数时进入；逐行输入与命令行相同的参数，help 查看帮助，exit 或 quit 退出。", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  取值含空格时用双引号包住，例如：--cn \"CN=localhost, O=SAEA\"；引号内仅 \\\" 转义。", ConsoleColor.Green);
         ConsoleHelper.WriteLine();
         ConsoleHelper.WriteLine("模式（至少选一个）：", ConsoleColor.Green);
         ConsoleHelper.WriteLine("  --self-signed            生成单张自签证书", ConsoleColor.Green);
@@ -631,11 +805,12 @@ internal static class Program
         ConsoleHelper.WriteLine("  1  参数错误（未知参数、缺值、取值越界、ca.* 已存在但未指定 --reuse-ca/--force 等）", ConsoleColor.Green);
         ConsoleHelper.WriteLine("  2  生成、读取 CA、写盘或 --verify 自检失败", ConsoleColor.Green);
         ConsoleHelper.WriteLine("  3  一个文件都没有写入（全部已存在而跳过）；给了 --verify 时自检通过", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  交互模式下的单条命令失败只打印退出码并继续等待；进程最终以 0 退出。", ConsoleColor.Green);
         ConsoleHelper.WriteLine();
         ConsoleHelper.WriteLine("示例：", ConsoleColor.Green);
-        ConsoleHelper.WriteLine("  SAEA.Sockets.SslTlsTest --self-signed --verify", ConsoleColor.Green);
-        ConsoleHelper.WriteLine("  SAEA.Sockets.SslTlsTest --ca --out ./certs --verify", ConsoleColor.Green);
-        ConsoleHelper.WriteLine("  SAEA.Sockets.SslTlsTest --ca --reuse-ca --days 90", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  SAEA.Sockets.SslTlsTool --self-signed --verify", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  SAEA.Sockets.SslTlsTool --ca --out ./certs --verify", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  SAEA.Sockets.SslTlsTool --ca --reuse-ca --days 90", ConsoleColor.Green);
     }
 
     /// <summary>

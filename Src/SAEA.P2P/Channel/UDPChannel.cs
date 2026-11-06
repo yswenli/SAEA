@@ -44,7 +44,7 @@ namespace SAEA.P2P.Channel
     /// </summary>
     public class UDPChannel
     {
-        private UdpClientSocket _socket;
+        private SaeaUdpClientSocket _socket;
         private P2PCoder _coder = new P2PCoder();
         private ChannelState _state = ChannelState.Closed;
         private IPEndPoint _remoteEndPoint;
@@ -91,7 +91,7 @@ namespace SAEA.P2P.Channel
                 .ReusePort()
                 .Build();
 
-            _socket = SocketFactory.CreateClientSocket(option) as UdpClientSocket;
+            _socket = SocketFactory.CreateClientSocket(option) as SaeaUdpClientSocket;
             _socket.Bind(new IPEndPoint(IPAddress.Any, port));
             _socket.OnClientReceiveSpan += OnReceiveSpan;
             _socket.OnError += (id, ex) => OnError?.Invoke(ex);

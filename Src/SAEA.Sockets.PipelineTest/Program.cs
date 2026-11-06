@@ -746,20 +746,25 @@ namespace SAEA.Sockets.PipelineTest
             // 预热一轮，把 JIT 与首次租借排除在测量窗口外。
             BenchLegacy(chunks, frameCount, 1);
             BenchDecodeLayer(chunks, frameCount, 1);
-            await BenchPumpAsync(chunks, frameCount, 1).ConfigureAwait(false);
+            await BenchPumpAsync(chunks, frameCount, 1, false).ConfigureAwait(false);
+            await BenchPumpAsync(chunks, frameCount, 1, true).ConfigureAwait(false);
 
             var legacy = BenchLegacy(chunks, frameCount, BenchIterations);
             var decode = BenchDecodeLayer(chunks, frameCount, BenchIterations);
-            var pump = await BenchPumpAsync(chunks, frameCount, BenchIterations).ConfigureAwait(false);
+            var pump = await BenchPumpAsync(chunks, frameCount, BenchIterations, false).ConfigureAwait(false);
+            var inlinePump = await BenchPumpAsync(chunks, frameCount, BenchIterations, true).ConfigureAwait(false);
 
             Console.WriteLine("  旧栈 BaseCoder.DecodeStream 直连回调：" + legacy);
             Console.WriteLine("  新栈 分帧 + Envelope 解码：" + decode);
-            Console.WriteLine("  新栈 接收泵 + 入队 + 处理器：" + pump);
+            Console.WriteLine("  新栈 接收泵 + 入队 + 处理器（Queued）：" + pump);
+            Console.WriteLine("  新栈 接收泵 + 内联分发 + 处理器（Inline）：" + inlinePump);
             Console.WriteLine(
                 "  吞吐比（新/旧）：解码层 " +
                 (decode.FramesPerSecond / legacy.FramesPerSecond * 100).ToString("F1") +
-                "%，完整接收路径 " +
-                (pump.FramesPerSecond / legacy.FramesPerSecond * 100).ToString("F1") + "%");
+                "%，完整接收路径 Queued " +
+                (pump.FramesPerSecond / legacy.FramesPerSecond * 100).ToString("F1") +
+                "%，Inline " +
+                (inlinePump.FramesPerSecond / legacy.FramesPerSecond * 100).ToString("F1") + "%");
             Console.WriteLine("（趋势口径，不作门禁；详见设计文档 8.4）");
             return 0;
         }
@@ -879,9 +884,12 @@ namespace SAEA.Sockets.PipelineTest
             return BenchResult.Median(samples);
         }
 
-        private static async Task<BenchResult> BenchPumpAsync(byte[][] chunks, int expectedFrames, int iterations)
+        private static async Task<BenchResult> BenchPumpAsync(byte[][] chunks, int expectedFrames, int iterations, bool inline)
         {
             var options = NewOptions(queueCapacity: 8192, maxConcurrentMessages: 8);
+            if (inline)
+                options.DispatchMode = ChannelDispatchMode.Inline;
+
             var samples = new List<BenchResult>(iterations);
 
             for (var iteration = 0; iteration < iterations; iteration++)

@@ -8,13 +8,13 @@
                                                                
 
 *Copyright (c) yswenli All Rights Reserved.
-*CLR版本： net10
+*CLR版本： net10.0
 *机器名称：WALLE
 *公司名称：yswenli
-*命名空间：SAEA.Sockets.SslTlsTest
-*文件名： SslTlsTestOptions
-*版本号： net10
-*唯一标识：9953f425-b59c-4a02-a78e-328dd3779986
+*命名空间：SAEA.Sockets.SslTlsTool
+*文件名： SslTlsToolOptions
+*版本号： net10.0
+*唯一标识：e9b4a684-a875-48e6-8209-f8c5475dcd57
 *当前的用户域：WALLE
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
@@ -23,20 +23,20 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 13:50:48
+*修改时间：2026/11/6 14:42:12
 *修改人： yswenli
-*版本号： net10
-*描述：新增开发用证书生成工具
+*版本号： net10.0
+*描述：工程与选项类型更名为 SslTlsTool，并修正文件唯一标识重复
 *
 *****************************************************************************/
 
 
-namespace SAEA.Sockets.SslTlsTest;
+namespace SAEA.Sockets.SslTlsTool;
 
 /// <summary>
 /// 证书生成工具的命令行参数。解析后即完成取值校验，非法的组合不会进入生成流程。
 /// </summary>
-internal sealed class SslTlsTestOptions
+internal sealed class SslTlsToolOptions
 {
     private static readonly Regex NamePattern =
         new Regex("^[A-Za-z0-9._-]{1,100}$", RegexOptions.CultureInvariant);
@@ -113,9 +113,9 @@ internal sealed class SslTlsTestOptions
     /// <param name="options">解析结果；失败时为未完成校验的实例</param>
     /// <param name="error">失败原因，成功时为 null</param>
     /// <returns>参数合法时返回 true</returns>
-    public static bool TryParse(string[] args, out SslTlsTestOptions options, out string? error)
+    public static bool TryParse(string[] args, out SslTlsToolOptions options, out string? error)
     {
-        options = new SslTlsTestOptions();
+        options = new SslTlsToolOptions();
         error = null;
 
         for (var index = 0; index < args.Length; index++)

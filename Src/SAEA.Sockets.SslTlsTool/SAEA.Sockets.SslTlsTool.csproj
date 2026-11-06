@@ -4,7 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <StartupObject>SAEA.Sockets.SslTlsTest.Program</StartupObject>
+    <StartupObject>SAEA.Sockets.SslTlsTool.Program</StartupObject>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\SAEA.Sockets\SAEA.Sockets.csproj" />

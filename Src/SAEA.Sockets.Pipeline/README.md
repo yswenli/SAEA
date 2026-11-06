@@ -265,7 +265,7 @@ public sealed class SocketStreamAdapter : IRawByteStream
 - `PooledMessage` 创建时引用计数为 1，所有权归链。每条消息的执行包在 `finally` 中无条件 `Release()` 一次，所以无论异常抛在哪一环，引用计数都会归零；`Release()` 对已归零实例是 no-op。
 - 入站 handler 把消息传给下游后不得再使用该消息。需要跨 `await` 或跨回调保存时，必须先 `Retain()`，并在自己的生命周期结束时 `Release()` 那一份；executor 释放的是队列条目那一份，两者不能互相替代。
 - `CodecDecoderHandler` 在解码成功后立即释放队列条目；解码抛异常时不在该 handler 释放，交给执行包的 `finally` 兜底。
-- `PooledMessage.Frame` 的背衬按长度二选一：`>= SmallFrameInlineThreshold`（默认 512B）从 `MemoryPoolManager` 借，`IsPooled == true`；小于阈值时精确 `new byte[len]`，`IsPooled == false`，归零后只丢引用。释放后再访问 `Frame` 会抛 `ObjectDisposedException`。
+- `PooledMessage.Frame` 的背衬按长度二选一：长度 `> 0` 且 `>= SmallFrameInlineThreshold` 时从 `MemoryPoolManager` 借，`IsPooled == true`；小于阈值（含零长，`Rent(0)` 会被放大到最小池档）时精确 `new byte[len]`，`IsPooled == false`，归零后只丢引用。阈值默认 **0**，所有非空帧都走池：`ArrayPool.Shared` 按 2 的幂档发放，257B 帧占 512B 桶，在途峰值内存最多放大到 2 倍，换来每帧分配降到约 1/3。释放后再访问 `Frame` 会抛 `ObjectDisposedException`。
 - `Envelope.Payload` 永远是独立 `new byte[len]`，绝不指向 `PooledMessage` 的池化背衬，因此没有归还责任；`EnvelopeCopyThreshold`（默认 4KB）只控制一条 `Warn` 日志，不改变拷贝方式。
 - 需要原始帧字节（抓包、审计、二进制直通）时改用 `FramePassthroughHandler`：它 `Retain()` 后原样下传，由该分支自己的尾部释放。这条分支与 codec 分支互斥，不能装在同一条链上。
 - 出站中间体 `EncodedBody` / `TransportFrame` 只允许出现在出站链内部；`await ctx.WriteAsync(...)` 正常返回即所有权交给链头/传输层，抛异常时由创建者 `Dispose`。
@@ -290,14 +290,16 @@ public sealed class SocketStreamAdapter : IRawByteStream
 - 入站每帧固定 **1 次拷贝**（executor 泵路径）：直接在 `Pipe` 缓冲上切帧，成帧后复制这一次成为 `PooledMessage`（`AllocateFrame`）。`AdvanceTo` 只推进到最后一条成帧位置，未成帧残字节留在 `Pipe` 里交给下一次 `ReadAsync`；队列条目要跨 `await` 存活，所以这一次拷贝省不掉，背衬不能指向 `Pipe` 内存。
 - 纯链式（不用 executor、由 `FrameSplitterHandler` 在链首分帧）仍是 **2 次拷贝**：① `Pipe` → `FrameAccumulator`，② 累加器 → 独立 `PooledMessage`。
 - 出站固定 **3 次拷贝**：① 实体 → `Envelope.Payload`（codec 产出的 `byte[]`），② `Payload` → `EncodedBody`（codec writer），③ `EncodedBody` → 最终帧缓冲（frame writer）。传输层按 `owner` 语义接管同一块缓冲，不再由管线额外拷贝；适配器如需留存字节，由适配器自己承担那次拷贝。
-- 分配口径：小帧（默认 `< 512B`）走精确分配，每帧多一个 `byte[len]` 与一个 `PooledMessage`；大帧从 `MemoryPoolManager` 借背衬，只多一个 `PooledMessage`。这是“两级正交 + `IBufferWriter` 不能前插”的已知预算，不要按零拷贝要求它。
-- 实测口径：`PipelineTest --bench`（265B 帧）约 480B/帧，其中管线自身约 352B（`byte[265]` 296B + `PooledMessage` 56B），其余来自基准夹具往 `Pipe` 写 64KB 分块时的段分配。
+- 分配口径：默认 `SmallFrameInlineThreshold = 0`，入站每帧只多一个 `PooledMessage`（56B）与一个队列节点，帧字节从池里复用；把阈值调成正数则小于该值的帧改精确分配，省池内存在途峰值但每帧多一个 `byte[len]`。
+- 实测口径：`PipelineTest --bench`（265B 帧）内联分发 191B/帧、入站排队 191–244B/帧；阈值调回 512 会涨到 477–480B/帧（管线自身约 352B：`byte[265]` 296B + `PooledMessage` 56B），其余约 128B 来自基准夹具往 `Pipe` 写 64KB 分块时的段分配。
 
 ---
 
 ## 🧵 消息执行模型
 
 - 每条连接一个消费协程：取出队列条目、拿到并发额度后**直接启动**该消息的执行链，不 `await`、不额外丢线程池；消息同步完成时就在消费协程上返回，继续取下一帧。
+- `DispatchMode` 默认 `Queued`（上面这条）。设为 `Inline` 时：队列为空且没有在途消息的情况下，接收泵在**接收线程**上直接执行该帧；某帧一旦 `await` 挂起，在途数变为非零，后续帧自动回落到排队分发，等在途清零后恢复内联。`MessageTimeout != 0` 时一律按 `Queued` 处理（内联会把每消息令牌注入接收线程的异步流）。
+- 基准里 `Inline` 约为 `Queued` 的 1.8×：省掉每帧的队列往返与跨线程唤醒。代价是**同步阻塞或 CPU 密集的 handler 会直接压住接收线程**，连同一连接后续帧的读取都被推迟，连接收口也要等它返回；需要这种隔离性时保持默认 `Queued`。
 - 并发上限是 `MaxConcurrentMessages`，只在消息 `await` 挂起时才真正并行；单条消息内部（解码 → 鉴权 → 路由）严格串行，响应顺序不等于接收顺序。
 - **同步阻塞或 CPU 密集的 handler 会占住消费协程**，推迟同连接后续帧；这类逻辑请自行 `Task.Run` 或改成异步。异步 handler（例如 20–50ms 的远程鉴权）不受影响。
 - `MessageTimeout == 0`（默认）时 `ctx.CancellationToken` 就是连接级令牌，不额外创建链接令牌；配置超时才为每条消息创建 linked CTS，并在消息结束的 `finally` 中恢复与释放。

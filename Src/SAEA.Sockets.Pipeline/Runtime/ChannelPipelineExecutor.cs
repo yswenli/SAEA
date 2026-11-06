@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:45:00
+*修改时间：2026/11/6 14:25:42
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：接收泵直接在 Pipe 序列上切帧，删除中间累加器与一次拷贝，残帧留在 Pipe
+*描述：新增同步内联分发快路径；小帧默认走内存池，零长帧保持精确分配
 *
 *****************************************************************************/
 using System;
@@ -81,6 +81,7 @@ namespace SAEA.Sockets.Pipeline
         private string _shutdownReason;
         private int _inFlightSeq;
         private int _inFlightCount;
+        private int _inlineDispatched;
 
         /// <summary>
         /// 创建执行器。传输层令牌取消表示连接已断开，是消息令牌的兜底来源；
@@ -176,6 +177,12 @@ namespace SAEA.Sockets.Pipeline
         internal int AvailableConcurrency
         {
             get { return _concurrency.CurrentCount; }
+        }
+
+        /// <summary>已通过内联快路径启动的消息数，仅供测试与诊断读取。</summary>
+        internal int InlineDispatchedCount
+        {
+            get { return Volatile.Read(ref _inlineDispatched); }
         }
 
         /// <summary>把本执行器与通道链双向绑定，必须在 <see cref="Start"/> 之前完成。</summary>
@@ -331,6 +338,15 @@ namespace SAEA.Sockets.Pipeline
 
                             var msg = AllocateFrame(frame);
 
+                            // 内联快路径：无在途、队列空时在接收线程直接执行；同步完成就继续切下一帧。
+                            // 一旦某帧挂起，在途数变为非零，后续帧自动回落到下面的排队分发。
+                            if (CanDispatchInline() && TryStartInline(msg))
+                            {
+                                consumed = pending.GetPosition(frameConsumed);
+                                queuedThisRead = true;
+                                continue;
+                            }
+
                             // 先加计数再写队列：消费者若先取走，计数不会被减成负数。
                             Interlocked.Increment(ref _queued);
                             if (!_queue.Writer.TryWrite(msg))
@@ -416,6 +432,9 @@ namespace SAEA.Sockets.Pipeline
                     PooledMessage msg;
                     while (TryReadQueue(out msg))
                     {
+                        // 先记在途再减队列数：接收泵以「队列数 0 且在途数 0」判定可内联，
+                        // 这个顺序保证已出队但尚未启动的消息不会被看漏。
+                        Interlocked.Increment(ref _inFlightCount);
                         Interlocked.Decrement(ref _queued);
 
                         if (Volatile.Read(ref _queuePaused) == 1
@@ -426,7 +445,7 @@ namespace SAEA.Sockets.Pipeline
 
                         if (Volatile.Read(ref _closing) == 1)
                         {
-                            msg.Release();
+                            AbandonOutstanding(msg);
                             continue;
                         }
 
@@ -436,14 +455,14 @@ namespace SAEA.Sockets.Pipeline
                         }
                         catch
                         {
-                            msg.Release();
+                            AbandonOutstanding(msg);
                             throw;
                         }
 
                         if (Volatile.Read(ref _closing) == 1)
                         {
                             _concurrency.Release();
-                            msg.Release();
+                            AbandonOutstanding(msg);
                             continue;
                         }
 
@@ -468,7 +487,6 @@ namespace SAEA.Sockets.Pipeline
         private void StartMessage(PooledMessage msg)
         {
             var id = Interlocked.Increment(ref _inFlightSeq);
-            Interlocked.Increment(ref _inFlightCount);
 
             // 内联启动：同步完成的消息不排队、不额外分配 Task；挂起后由 async 状态机自带的任务继续，
             // 只有真正挂起的消息才登记进在途表供收口等待。
@@ -484,6 +502,140 @@ namespace SAEA.Sockets.Pipeline
                 Task ignored;
                 _inFlight.TryRemove(id, out ignored);
             }
+        }
+
+        /// <summary>
+        /// 是否允许在当前线程直接执行消息：仅内联模式、未配置消息超时、未收口、队列空且无在途消息。
+        /// 超时模式需要每消息 linked 令牌，内联执行会把令牌注入到接收线程的异步流上，故一律回落排队。
+        /// </summary>
+        private bool CanDispatchInline()
+        {
+            return _options.DispatchMode == ChannelDispatchMode.Inline
+                && _options.MessageTimeout <= TimeSpan.Zero
+                && Volatile.Read(ref _closing) == 0
+                && Volatile.Read(ref _queued) == 0
+                && Volatile.Read(ref _inFlightCount) == 0;
+        }
+
+        /// <summary>
+        /// 在当前线程启动一条消息。抢不到并发额度时返回 false 且不触碰消息，由调用方改走队列。
+        /// </summary>
+        /// <param name="msg">已持有独立背衬的帧消息。</param>
+        /// <returns>消息是否已交给通道链。</returns>
+        private bool TryStartInline(PooledMessage msg)
+        {
+            // 内联判定与额度占用之间可能被消费侧抢先，Wait(0) 是这两条路径的唯一裁决点。
+            if (!_concurrency.Wait(0))
+                return false;
+
+            Interlocked.Increment(ref _inFlightCount);
+
+            // 内联分发只由接收泵发起，递增不需要原子操作。
+            _inlineDispatched++;
+
+            StartInlineMessage(msg);
+            return true;
+        }
+
+        /// <summary>
+        /// 内联执行一条消息：同步完成时就地收口，挂起后才建续接任务并登记在途表。
+        /// </summary>
+        /// <param name="msg">已持有独立背衬的帧消息。</param>
+        private void StartInlineMessage(PooledMessage msg)
+        {
+            Task task;
+            try
+            {
+                task = _pipeline.FireChannelReadAsync(msg);
+            }
+            catch (Exception ex)
+            {
+                // 链内已把普通异常转成 ExceptionCaught，能同步抛出的只有取消与链自身错误。
+                HandleInlineFailure(ex, msg);
+                return;
+            }
+
+            // netstandard2.0 没有 IsCompletedSuccessfully，用状态判断同步成功。
+            if (task.Status == TaskStatus.RanToCompletion)
+            {
+                FinishInline(msg);
+                return;
+            }
+
+            var id = Interlocked.Increment(ref _inFlightSeq);
+            var waiter = AwaitInlineAsync(task, msg);
+
+            // 续接任务通常已挂起；极少数情况同步完成时直接结束，不登记。
+            if (waiter.IsCompleted)
+                return;
+
+            _inFlight[id] = waiter;
+            if (waiter.IsCompleted)
+            {
+                Task ignored;
+                _inFlight.TryRemove(id, out ignored);
+            }
+        }
+
+        private async Task AwaitInlineAsync(Task pending, PooledMessage msg)
+        {
+            try
+            {
+                await pending.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                LogHelper.Debug("通道链消息已取消:" + _stream.ChannelId);
+            }
+            catch (Exception ex)
+            {
+                await ReportInlineExceptionAsync(ex).ConfigureAwait(false);
+            }
+            finally
+            {
+                FinishInline(msg);
+            }
+        }
+
+        private void HandleInlineFailure(Exception ex, PooledMessage msg)
+        {
+            if (ex is OperationCanceledException)
+            {
+                LogHelper.Debug("通道链消息已取消:" + _stream.ChannelId);
+            }
+            else
+            {
+                // 极冷路径：同步等异常链收完，避免把接续任务挂到无人等待的地方。
+                try { ReportInlineExceptionAsync(ex).GetAwaiter().GetResult(); } catch { }
+            }
+
+            FinishInline(msg);
+        }
+
+        private async Task ReportInlineExceptionAsync(Exception ex)
+        {
+            try
+            {
+                await _pipeline.FireExceptionCaughtAsync(ex).ConfigureAwait(false);
+            }
+            catch
+            {
+            }
+        }
+
+        /// <summary>内联消息的收口：先还并发额度再减在途数，最后归还消息。</summary>
+        private void FinishInline(PooledMessage msg)
+        {
+            _concurrency.Release();
+            msg.Release();
+            Interlocked.Decrement(ref _inFlightCount);
+        }
+
+        /// <summary>已出队但未开始执行就退出的消息：归还引用并撤回在途计数。</summary>
+        private void AbandonOutstanding(PooledMessage msg)
+        {
+            msg.Release();
+            Interlocked.Decrement(ref _inFlightCount);
         }
 
         private async Task ExecuteMessageAsync(PooledMessage msg, int id)
@@ -548,10 +700,11 @@ namespace SAEA.Sockets.Pipeline
 
                 Task ignored;
                 _inFlight.TryRemove(id, out ignored);
-                Interlocked.Decrement(ref _inFlightCount);
 
+                // 先还并发额度再减在途数：内联判定以「在途数为 0」代表额度必然满额。
                 _concurrency.Release();
                 msg.Release();
+                Interlocked.Decrement(ref _inFlightCount);
             }
         }
 
@@ -688,7 +841,8 @@ namespace SAEA.Sockets.Pipeline
 
             var length = (int)frame.Length;
 
-            if (length >= _options.SmallFrameInlineThreshold)
+            // 零长帧走精确分配：Rent(0) 会按最小池档发放，反而放大占用。
+            if (length > 0 && length >= _options.SmallFrameInlineThreshold)
             {
                 var buffer = MemoryPoolManager.Rent(length);
                 frame.CopyTo(buffer.AsSpan(0, length));

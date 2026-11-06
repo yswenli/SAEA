@@ -541,13 +541,24 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
         }
 
         /// <summary>
-        /// 预热后 10 万个 20 字节小帧不再租借内存池，8KB 帧租借一次并在处理后归还
+        /// 默认阈值下 20 字节小帧也走内存池且租借归还配平；显式正阈值下小帧精确分配不碰池；
+        /// 两种配置下 8KB 帧都走内存池并在处理后归还
         /// </summary>
         /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
-        public async Task Acceptance22_SmallFrames_DoNotRentPool_AndLargeFrameIsPooledAndReturned()
+        public async Task Acceptance22_SmallFramePooling_FollowsThreshold_AndLargeFrameIsPooledAndReturned()
+        {
+            // 默认阈值 0：小帧也走池，靠引用归零配平。
+            await RunSmallFramePoolingAsync(0, true);
+
+            // 显式正阈值：小于阈值的帧精确分配，不碰池。
+            await RunSmallFramePoolingAsync(512, false);
+        }
+
+        private static async Task RunSmallFramePoolingAsync(int threshold, bool expectPooled)
         {
             var options = NewOptions(queueCapacity: 2048, maxConcurrent: 32);
+            options.SmallFrameInlineThreshold = threshold;
             using (var pipeline = ChannelPipeline.Create(options))
             {
                 var stream = new TestRawByteStream("small-frame-alloc");
@@ -561,7 +572,7 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
                 {
                     executor.Start();
 
-                    // 预热：让 accumulator 扩到稳定容量，之后不再租借。
+                    // 预热：让 Pipe 与内存池进入稳定状态，之后的租借差只反映本条路径。
                     var processed = 0;
                     for (var batch = 0; batch < 5; batch++)
                     {
@@ -575,7 +586,7 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
                         () => executor.QueuedCount == 0 && executor.AvailableConcurrency == options.MaxConcurrentMessages,
                         "预热后队列或在途未清空");
 
-                    var rentedBefore = RentedTotal();
+                    var netBefore = NetRented();
                     for (var batch = 0; batch < 50; batch++)
                     {
                         await WriteAsync(stream, BuildFrames(2000, 20, batch + 5));
@@ -584,18 +595,22 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
                         await WaitUntilAsync(() => handler.Count == target, "小帧批未处理完");
                     }
 
-                    var rentedAfter = RentedTotal();
-                    Assert.AreEqual(rentedBefore, rentedAfter, "预热后 10 万个 20B 帧仍发生内存池租借");
-                    Assert.AreEqual(0, handler.PooledCount, "小帧不应走内存池（IsPooled 应为 false）");
+                    // 消息执行完毕即归还，池化只是中间态，净值必须回到基线。
+                    await WaitUntilAsync(() => NetRented() == netBefore, "小帧处理后内存池租借未配平");
+                    Assert.AreEqual(
+                        expectPooled ? processed : 0,
+                        handler.PooledCount,
+                        expectPooled ? "默认阈值下小帧应走内存池" : "正阈值下小帧不应走内存池");
 
                     var smallCount = handler.Count;
+                    var pooledBefore = handler.PooledCount;
                     var smallRented = RentedTotal();
                     var smallReturned = ReturnedTotal();
 
                     await WriteAsync(stream, Frame(200, new byte[8192]));
                     await WaitUntilAsync(() => handler.Count == smallCount + 1, "8KB 帧未处理");
 
-                    Assert.AreEqual(1, handler.PooledCount, "8KB 帧应走内存池");
+                    Assert.AreEqual(pooledBefore + 1, handler.PooledCount, "8KB 帧应走内存池");
                     Assert.AreEqual(smallRented + 1, RentedTotal(), "8KB 帧应新增一次租借");
                     await WaitUntilAsync(() => ReturnedTotal() == smallReturned + 1, "8KB 帧处理后未归还内存池");
                 }

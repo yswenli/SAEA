@@ -123,7 +123,7 @@ namespace SAEA.P2P.NAT
         /// <param name="targetAddr">打洞目标地址</param>
         /// <param name="sessionId">会话标识，与当前时间戳拼接后作为包负载</param>
         /// <returns>打洞结果；当前实现不等待对端响应，只在 RelayOnly 策略或重试耗尽时返回失败</returns>
-        public async Task<HolePunchResult> PunchAsync(UdpClientSocket socket, IPEndPoint targetAddr, string sessionId)
+        public async Task<HolePunchResult> PunchAsync(SaeaUdpClientSocket socket, IPEndPoint targetAddr, string sessionId)
         {
             if (_strategy == HolePunchStrategy.RelayOnly)
                 return HolePunchResult.Failed("RelayOnly strategy", _detector.DetectedNATType, NATType.Unknown);

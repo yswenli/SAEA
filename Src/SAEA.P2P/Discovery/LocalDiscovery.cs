@@ -48,7 +48,7 @@ namespace SAEA.P2P.Discovery
     /// </summary>
     public class LocalDiscovery
     {
-        private UdpClientSocket _socket;
+        private SaeaUdpClientSocket _socket;
         private P2PCoder _coder = new P2PCoder();
         private ConcurrentDictionary<string, DiscoveredNode> _discoveredNodes = new ConcurrentDictionary<string, DiscoveredNode>();
 
@@ -123,7 +123,7 @@ namespace SAEA.P2P.Discovery
                 .SetMultiCastHost(_multicastGroup)
                 .Build();
 
-            _socket = SocketFactory.CreateClientSocket(option) as UdpClientSocket;
+            _socket = SocketFactory.CreateClientSocket(option) as SaeaUdpClientSocket;
             _socket.Bind(new IPEndPoint(IPAddress.Any, _port));
 
             if (!string.IsNullOrEmpty(_multicastGroup))

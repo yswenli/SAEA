@@ -334,17 +334,19 @@ var clientOption = SocketOptionBuilder.Instance
 
 ### Where do development certificates come from
 
-The repository ships a command-line tool at `Src/SAEA.Sockets.SslTlsTest`. One command produces development certificates, written to `certs/` under the current directory by default:
+The repository ships a command-line tool at `Src/SAEA.Sockets.SslTlsTool`. One command produces development certificates, written to `certs/` under the current directory by default:
 
 ```bash
 # A single self-signed certificate (SAN includes localhost and 127.0.0.1)
-dotnet run --project Src/SAEA.Sockets.SslTlsTest -c Release -- --self-signed
+dotnet run --project Src/SAEA.Sockets.SslTlsTool -c Release -- --self-signed
 
 # A local root CA plus server/client certificates (mTLS)
-dotnet run --project Src/SAEA.Sockets.SslTlsTest -c Release -- --ca
+dotnet run --project Src/SAEA.Sockets.SslTlsTool -c Release -- --ca
 ```
 
 Both commands accept `--verify` to self-check PFX/PEM read-back, the certificate chain, SAN/EKU and a local loopback handshake after generation. Use `--out` to change the output directory; the full parameter list and exit codes (`0` new files written, `1` invalid arguments, `2` generation or self-check failed, `3` every file already existed, nothing written) are in the tool's own `--help`.
+
+Running with no arguments enters interactive mode: type the same arguments as on the command line (for example `--self-signed --verify`), use `help` for help and `exit` or `quit` to leave. Quote values containing spaces, for example `--cn "CN=localhost, O=SAEA"`.
 
 Generated files:
 

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 09:50:56
+*修改时间：2026/11/6 14:25:42
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：每连接的通道链配置
+*描述：新增入站分发方式配置；小帧默认改为走内存池
 *
 *****************************************************************************/
 using System;
@@ -66,8 +66,13 @@ namespace SAEA.Sockets.Pipeline
         /// <summary>读取缓冲大小，用于推导未成帧残余上限；不限制单次读取返回长度。</summary>
         public int ReadBufferSize { get; set; } = 64 * 1024;
 
-        /// <summary>小于此长度的帧按精确分配处理，不走内存池。</summary>
-        public int SmallFrameInlineThreshold { get; set; } = 512;
+        /// <summary>小于此长度的帧按精确分配处理，不走内存池；0 表示全部走池，默认。</summary>
+        public int SmallFrameInlineThreshold { get; set; } = 0;
+
+        /// <summary>
+        /// 入站消息的分发方式；默认 <see cref="ChannelDispatchMode.Queued"/>。
+        /// </summary>
+        public ChannelDispatchMode DispatchMode { get; set; } = ChannelDispatchMode.Queued;
 
         /// <summary>信封负载拷贝告警阈值；超过只记录告警，不改变拷贝方式。</summary>
         public int EnvelopeCopyThreshold { get; set; } = 4 * 1024;

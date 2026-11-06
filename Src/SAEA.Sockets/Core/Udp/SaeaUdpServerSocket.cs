@@ -12,14 +12,14 @@
 *机器名称：WENLI-PC
 *公司名称：yswenli
 *命名空间：SAEA.Sockets.Core.Udp
-*文件名： UdpServerSocket
+*文件名： SaeaUdpServerSocket
 *版本号： v26.4.23.1
 *唯一标识：15d7340f-5df8-4131-b972-1c78d992dfab
 *当前的用户域：WENLI-PC
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2020/12/29 15:50:22
-*描述：UdpServerSocket套接字类
+*描述：SaeaUdpServerSocket套接字类
 *
 *=====================================================================
 *修改标记
@@ -45,7 +45,7 @@ namespace SAEA.Sockets.Core.Udp
     /// <summary>
     /// UDP 服务器 socket：单套接字接收全部客户端数据报，按远端地址区分会话，仅事件（包）模式收发
     /// </summary>
-    public class UdpServerSocket : IServerSocket, IDisposable
+    public class SaeaUdpServerSocket : IServerSocket, IDisposable
     {
         const int SIO_UDP_CONNRESET = unchecked((int)0x9800000C);
 
@@ -109,7 +109,7 @@ namespace SAEA.Sockets.Core.Udp
         /// saea 服务器 socket
         /// </summary>>
         /// <param name="socketOption"></param>
-        public UdpServerSocket(ISocketOption socketOption)
+        public SaeaUdpServerSocket(ISocketOption socketOption)
         {
             _sessionManager = new SessionManager(socketOption.Context, socketOption.ReadBufferSize, socketOption.MaxConnects, IO_Completed, new TimeSpan(0, 0, 0, 0, socketOption.FreeTime));
             _sessionManager.OnTimeOut += _sessionManager_OnTimeOut;

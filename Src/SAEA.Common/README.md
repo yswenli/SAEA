@@ -705,6 +705,9 @@ LogHelper.Error("异常日志", exception);
 ConsoleHelper.WriteLine("成功信息", ConsoleColor.Green);
 ConsoleHelper.WriteLine("警告信息", ConsoleColor.Yellow);
 ConsoleHelper.WriteLineError("错误信息", ConsoleColor.Red);
+
+// 输出由后台线程异步完成；进程退出前调用一次，否则队列里没写出的行会丢失
+ConsoleHelper.Flush();
 ```
 
 ### 配置持久化

@@ -13,7 +13,7 @@
 *公司名称：yswenli
 *命名空间：SAEA.Common
 *文件名： ConsoleHelper
-*版本号： v26.4.23.1
+*版本号： v26.11.5.1
 *唯一标识：537f975a-1f5d-49d6-b1cc-79c7d3aba99f
 *当前的用户域：WENLI-PC
 *创建人： yswenli
@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/08/24 16:31:11
+*修改时间：2026/11/6 14:31:45
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ConsoleHelper帮助类
+*版本号： v26.11.5.1
+*描述：新增 Flush()，退出前等待异步队列写完，避免短生命周期进程丢输出
 *
 *****************************************************************************/
 using SAEA.Common.Threading;
@@ -64,6 +64,16 @@ namespace SAEA.Common
         /// </summary>
         static BlockingCollection<string> _logQueue = new BlockingCollection<string>();
 
+        /// <summary>
+        /// 尚未写出到控制台的行数，供 Flush 判断是否写完
+        /// </summary>
+        static int _consolePending;
+
+        /// <summary>
+        /// 尚未写入日志文件的行数
+        /// </summary>
+        static int _logPending;
+
         static ConsoleHelper()
         {
             _ = DateTimeHelper.ToString();
@@ -79,14 +89,22 @@ namespace SAEA.Common
                     {
                         if (_queue.TryTake(out ConsoleInfo consoleInfo, 100))
                         {
-                            var oldColor = Console.ForegroundColor;
-                            Console.ForegroundColor = consoleInfo.Color;
-                            var writeStr = DateTimeHelper.ToString() + "  " + consoleInfo.Text;
-                            if (consoleInfo.Args != null && consoleInfo.Args.Length > 0)
-                                Console.WriteLine(writeStr, consoleInfo.Args);
-                            else
-                                Console.WriteLine(writeStr);
-                            Console.ForegroundColor = oldColor;
+                            try
+                            {
+                                var oldColor = Console.ForegroundColor;
+                                Console.ForegroundColor = consoleInfo.Color;
+                                var writeStr = DateTimeHelper.ToString() + "  " + consoleInfo.Text;
+                                if (consoleInfo.Args != null && consoleInfo.Args.Length > 0)
+                                    Console.WriteLine(writeStr, consoleInfo.Args);
+                                else
+                                    Console.WriteLine(writeStr);
+                                Console.ForegroundColor = oldColor;
+                            }
+                            finally
+                            {
+                                // 无论写出成功与否都要归零，否则 Flush 会一直等到超时
+                                Interlocked.Decrement(ref _consolePending);
+                            }
                         }
                         else
                         {
@@ -109,8 +127,15 @@ namespace SAEA.Common
                     {
                         if (_logQueue.TryTake(out string logLine, 100))
                         {
-                            _logWriter?.WriteLine(logLine);
-                            _logWriter?.Flush();
+                            try
+                            {
+                                _logWriter?.WriteLine(logLine);
+                                _logWriter?.Flush();
+                            }
+                            finally
+                            {
+                                Interlocked.Decrement(ref _logPending);
+                            }
                         }
                     }
                     catch
@@ -161,8 +186,10 @@ namespace SAEA.Common
         /// <param name="str">要输出的文本</param>
         public static void WriteLine(string str)
         {
+            Interlocked.Increment(ref _consolePending);
             _queue.TryAdd(new ConsoleInfo { Text = str });
             // 同时写入日志文件
+            Interlocked.Increment(ref _logPending);
             _logQueue.TryAdd(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + "  " + str);
         }
 
@@ -171,8 +198,10 @@ namespace SAEA.Common
         /// </summary>
         public static void WriteLine()
         {
+            Interlocked.Increment(ref _consolePending);
             _queue.TryAdd(new ConsoleInfo { Text = Environment.NewLine });
             // 同时写入日志文件
+            Interlocked.Increment(ref _logPending);
             _logQueue.TryAdd(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + "  " + Environment.NewLine);
         }
 
@@ -183,8 +212,10 @@ namespace SAEA.Common
         /// <param name="args">参数</param>
         public static void WriteLine(string str, params object[] args)
         {
+            Interlocked.Increment(ref _consolePending);
             _queue.TryAdd(new ConsoleInfo { Text = str, Args = args });
             // 同时写入日志文件
+            Interlocked.Increment(ref _logPending);
             try
             {
                 var formatted = string.Format(str, args);
@@ -204,8 +235,10 @@ namespace SAEA.Common
         /// <param name="args">参数</param>
         public static void WriteLine(string str, ConsoleColor color, params object[] args)
         {
+            Interlocked.Increment(ref _consolePending);
             _queue.TryAdd(new ConsoleInfo { Text = str, Color = color, Args = args });
             // 同时写入日志文件
+            Interlocked.Increment(ref _logPending);
             try
             {
                 var formatted = string.Format(str, args);
@@ -215,6 +248,31 @@ namespace SAEA.Common
             {
                 _logQueue.TryAdd(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + "  " + str);
             }
+        }
+
+        /// <summary>
+        /// 等待已入队的控制台与日志输出全部写完
+        /// </summary>
+        /// <remarks>
+        /// 输出由后台线程异步完成，短生命周期进程（命令行工具、一次性任务）在退出前必须调用本方法，
+        /// 否则队列里未写出的行会随进程结束丢失。最多等待 2 秒，超时后直接返回。
+        /// </remarks>
+        public static void Flush()
+        {
+            WaitPending(ref _consolePending);
+            WaitPending(ref _logPending);
+            _logWriter?.Flush();
+        }
+
+        /// <summary>
+        /// 等待指定待写计数归零
+        /// </summary>
+        /// <param name="pending">待写计数</param>
+        static void WaitPending(ref int pending)
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(2);
+            while (Volatile.Read(ref pending) > 0 && DateTime.UtcNow < deadline)
+                Thread.Sleep(5);
         }
 
         /// <summary>

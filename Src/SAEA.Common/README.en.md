@@ -705,6 +705,9 @@ LogHelper.Error("Exception log", exception);
 ConsoleHelper.WriteLine("Success message", ConsoleColor.Green);
 ConsoleHelper.WriteLine("Warning message", ConsoleColor.Yellow);
 ConsoleHelper.WriteLineError("Error message", ConsoleColor.Red);
+
+// Output is written asynchronously; flush before the process exits so no queued lines are lost
+ConsoleHelper.Flush();
 ```
 
 ### Configuration Persistence

@@ -127,11 +127,11 @@ v1 实测完整接收路径约 76–84 万帧/s（旧栈 5.6–6.2%）、约 1.2
 - 吞吐与分配都在测量噪声范围内：两次采样的区间重叠（197–317 万 vs 227–268 万），分配 475–480B 对 478–480B。说明这条路径的瓶颈不是这次 `memcpy`，而是每帧一次精确数组分配与随后的 GC、以及每帧一次异步派发。
 - "吞吐下降不超过 15%"仍未达成（中位数 17.4%）。
 
-分配归因（265B 帧，隔离测量，不依赖 `--bench`）：
+分配归因（265B 帧，隔离测量，不依赖 `--bench`；实测于阈值仍为 512 时）：
 
 | 组成部分 | 每帧 | 说明 |
 |---|---|---|
-| `byte[265]` 精确数组 | 296B | `SmallFrameInlineThreshold = 512` 时小帧走 `ToArray()`，不租池 |
+| `byte[265]` 精确数组 | 296B | 仅 `SmallFrameInlineThreshold = 512` 时小帧走 `ToArray()`；默认 0 时该项消失 |
 | `PooledMessage` | 56B | 队列条目对象本身 |
 | 有界队列 `TryWrite`/`TryRead` | 0B | 通道不按条目分配节点 |
 | `WaitToReadAsync` 消费循环 | 0B | 复用同一个等待对象 |
@@ -139,4 +139,55 @@ v1 实测完整接收路径约 76–84 万帧/s（旧栈 5.6–6.2%）、约 1.2
 | `ExecuteMessageAsync` 路径 | 0B | 同步完成，`PooledMessage` 之外无额外分配 |
 | 基准夹具 64KB 分块写 `Pipe` | 约 128B | `BufferSegment` 采样占比约 27%，属传输层/夹具成本，不是管线开销 |
 
-因此管线自身约 352B/帧，与 `--bench` 的 478–480B 之差来自 `Pipe` 段分配。下一批若要继续压降，只有三个方向：小帧改租池（换取归还成本与碎片）、`PooledMessage` 池化复用、或让解码层直接消费 `Pipe` 序列（把 `PooledMessage` 的生命周期交给 `Pipe`）。本批只度量，不改代码。
+因此阈值 512 时管线自身约 352B/帧，与 `--bench` 的 478–480B 之差来自 `Pipe` 段分配。第三批把默认阈值改为 0 后，`byte[265]` 那 296B 消失，实测降到约 191B/帧，见 §十一。
+
+## 十一、第三批：小帧走池 + 可选内联分发（2026-11-06）
+
+### 11.1 问题
+
+第二批之后每帧仍有约 480B 分配，其中 296B 是 `SmallFrameInlineThreshold = 512` 造成的精确 `byte[265]`。同时完整接收路径只有旧栈的约 17%，每帧的队列往返 + 跨线程唤醒是主要耗时。
+
+### 11.2 变更
+
+1. **小帧默认走池**：`SmallFrameInlineThreshold` 默认由 `512` 改为 `0`，即所有非空帧都从 `MemoryPoolManager` 借背衬（`Rent` 走 `ArrayPool<byte>.Shared` 的 2 的幂档，257B 帧占 512B 桶）。零长帧仍走精确分配，因为 `Rent(0)` 会被放大到最小池档。设正数即恢复"小于阈值精确分配"的旧行为。
+2. **新增 `ChannelDispatchMode`**：`Queued`（默认，现有行为）与 `Inline`。`ChannelPipelineOptions.DispatchMode` 在 `ChannelPipeline.Create` 时校验合法性，非法枚举值抛 `ArgumentOutOfRangeException`；执行器按传入的 options 读取该值。
+3. **内联快路径**：`ChannelPipelineExecutor` 在接收泵每次成帧后，若 `DispatchMode == Inline`、队列空、在途消息为 0、未配置 `MessageTimeout`、未收口，则直接在当前（接收）线程执行该帧的 `FireChannelReadAsync`；某帧一旦 `await` 挂起即在途数变为非零，后续帧回落到排队分发，等在途清零后恢复内联。接收泵不因内联而少做任何分帧/背压动作。
+4. **基准扩为四段**：`PipelineTest --bench` 增加 `Inline` 段，并对两段各做一轮预热，避免首轮 JIT 计入。
+
+### 11.3 必须保持的不变量
+
+- 单条消息内部（解码 → 鉴权 → 路由）仍严格串行；`Inline` 只改变"在哪个线程上启动消息"，不改变链内顺序。
+- 内联执行期间 `MaxConcurrentMessages` 仍生效：在途额度不足时该帧回落排队，不得越额执行。
+- 内联帧的 `PooledMessage` 由执行包 `finally` 释放一次；同步完成、抛出、挂起三条路径都必须配平，不得重复释放或泄漏。
+- 队列满时该帧不消费、暂停期间不读新数据的既有约束不受 `Inline` 影响。
+- `MessageTimeout != 0` 时禁止内联，避免每消息令牌注入接收线程的异步流。
+
+### 11.4 已知行为差异
+
+1. `SmallFrameInlineThreshold` 默认值从 512 变为 0：默认配置下小帧会占用 2 的幂档池内存，在途峰值最多放大到 2 倍，但每帧少一次精确数组分配。
+2. `Inline` 是显式可选项，默认 `Queued` 的行为与第二批一致；开启后同步阻塞/CPU 密集 handler 会压住接收线程。
+3. `InlineDispatchedCount` 是新增观测值，只在 `Inline` 模式下增长，可用于确认内联是否真的生效。
+
+### 11.5 实测
+
+3 次独立进程运行、每次 500000 帧、body 256B、`MaxConcurrentMessages = 8`：
+
+| 路径 | 第二批 | 第三批 | 每帧分配（第三批） |
+|---|---|---|---|
+| 旧栈直连回调 | 约 1297–1401 万帧/s | 约 1411–1498 万帧/s | 约 0–1B |
+| 分帧 + `EnvelopeCodec` 解码 | 约 950–2001 万帧/s | 约 901–1057 万帧/s | 约 312B |
+| 接收泵 + 入队 + 处理器（Queued） | 227–268 万帧/s | 214–292 万帧/s（中位数 249 万，旧栈 17.4%） | 200–244B |
+| 接收泵 + 内联分发 + 处理器（Inline） | — | 456–462 万帧/s（中位数 460 万，旧栈 32.1%） | 191B |
+
+结论：
+
+- **分配目标达成**：每帧 477–480B → 191B（−60%），口径是 `--bench` 的 `Allocated` 列；下降来自默认阈值改 0，不是测量误差。
+- **分配不是吞吐瓶颈**：同一轮对照里分配降 60% 而 `Queued` 帧/s 无变化，说明瓶颈在每帧异步链与调度。
+- **内联带来约 1.8× 提升，但仍未达到旧栈 85%**：`Inline` 中位数约 460 万帧/s（旧栈约 32%）。微基准显示 `SemaphoreSlim.Wait(0) + Release` 单项约 34ns/帧，剩余差距与"每帧一条 `FireChannelReadAsync` 异步链 + 1 次拷贝"同向，继续压降需要改派发结构（例如同步 handler 专用环），不在本批范围。
+- 验收口径仍按 §8.4：该比值是趋势值，不作硬门禁。
+
+### 11.6 用例
+
+- `RuntimeAcceptanceTests.Acceptance22_SmallFramePooling_FollowsThreshold_AndLargeFrameIsPooledAndReturned`：阈值 0 时小帧走池且引用配平，阈值 512 时小帧精确分配，两档下 8KB 帧都走池并归还。
+- `InlineDispatchTests`：全同步 handler 全帧内联且保序、同步抛异常路由到 `ExceptionCaught` 后继续、某帧挂起后回落排队并保序、配置 `MessageTimeout` 时自动降级为 `Queued`。
+- `PipelineOptionsTests.DispatchModeUndefinedValue_ThrowsArgumentOutOfRangeException`：非法枚举值在 `Create` 被拒。

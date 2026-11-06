@@ -64,7 +64,7 @@ namespace SAEA.Sockets
                 }
                 else
                 {
-                    return new UdpServerSocket(socketOption);
+                    return new SaeaUdpServerSocket(socketOption);
                 }
             }
         }
@@ -84,7 +84,7 @@ namespace SAEA.Sockets
             {
                 if (socketOption.UsePacket)
                 {
-                    return new UdpServerSocket(socketOption);
+                    return new SaeaUdpServerSocket(socketOption);
                 }
                 else
                 {
@@ -115,7 +115,7 @@ namespace SAEA.Sockets
                 }
                 else
                 {
-                    return new UdpClientSocket(socketOption);
+                    return new SaeaUdpClientSocket(socketOption);
                 }
             }
 
@@ -140,7 +140,7 @@ namespace SAEA.Sockets
                 }
                 else
                 {
-                    return new UdpClientSocket(socketOption);
+                    return new SaeaUdpClientSocket(socketOption);
                 }
             }
 

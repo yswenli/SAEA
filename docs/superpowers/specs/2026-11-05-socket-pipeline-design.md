@@ -540,9 +540,9 @@ public sealed class PooledMessage : IDisposable
 
 规则（必须写进 README 与 XML 注释）：
 
-1. 泵把帧体拷入 `PooledMessage`，引用计数初始为 1，**所有权归链**。背衬按长度二选一：`len >= SmallFrameInlineThreshold`（默认 512B）→ 从 `MemoryPoolManager` 借；`len < 阈值` → 精确 `new byte[len]`（`IsPooled == false`）。
+1. 泵把帧体拷入 `PooledMessage`，引用计数初始为 1，**所有权归链**。背衬按长度二选一：`len > 0` 且 `len >= SmallFrameInlineThreshold`（默认 0）→ 从 `MemoryPoolManager` 借，`IsPooled == true`；否则（包括零长帧）→ 精确 `new byte[len]`，`IsPooled == false`。
 
-   **为什么必须分叉**：`MemoryPoolManager.Rent` 对小于 `SmallThreshold`（4KB）的请求按 4KB 发放（`MemoryPoolManager.cs:150-163`），一个 20B 的帧也占 4KB。若 `QueueCapacity=1024` + 在途 16，单连接最坏就是 1024×4KB ≈ 4MB，千连接到 GB 级。小帧走精确分配后，同样的 20B 帧只占 20B。**已知取舍**：`512B–4KB` 的帧走池仍会被放大到 4KB，这是"少一次精确分配"换来的；生产按实际帧长分布调 `SmallFrameInlineThreshold`，不要指望它在所有分布下都最优。默认 `QueueCapacity` 1024 是"够用"而非"省内存"，高连接数时按连接数下调。
+   **为什么默认全部走池**：`MemoryPoolManager.Rent` 走 `ArrayPool<byte>.Shared`，按 2 的幂档发放（实测 20→32、257→512、2049→4096），单帧放大不到 2 倍，每帧却省掉一次精确数组分配。零长帧不租池，因为 `Rent(0)` 会被放大到最小池档。**已知取舍**：池化会抬高在途峰值内存（257B 帧占 512B 桶），并增加一次归还开销；把 `SmallFrameInlineThreshold` 调成正数可让小于该值的帧改回精确分配，用分配次数换峰值内存。默认 `QueueCapacity` 1024 是"够用"而非"省内存"，高连接数时按连接数下调。
 2. 入站 handler 把消息传给下游后**不得再使用**该消息；要跨 `await` 留存必须先 `Retain()`，用完 `Release()`。
 3. `CodecDecoderHandler` 在 `ICodec.Decode` **成功返回后立即** `Release()` 掉队列条目的原始 `PooledMessage`；因此 codec 契约是"不得保留入参内存"。`Decode` 抛异常时不在这里释放（还没确认解码成功），交给执行包的 `finally`（第 6 条）。executor 在执行包的 `finally` 里再 `Release()` 一次作为保底——`Release()` 对已归零实例是 no-op（见下表），所以重复调用安全，不需要"是否已释放"的判断。
 4. 需要把原始帧字节交给下游（抓包、审计、二进制协议直通）时，不用 codec，改用 `FramePassthroughHandler`：它 `Retain()` 后把 `PooledMessage` 原样下传，由该分支自己的尾部 handler 负责 `Release()` 那份 Retain；executor 的 `finally` 释放的是**队列条目那一份**，两者不是同一个引用，互不替代。这条分支与 codec 分支互斥，避免两套所有权并存。
@@ -1002,23 +1002,24 @@ public sealed class ChannelPipelineOptions
 
 - 与"手写回调 + `BaseCoder.DecodeStream`"的直连写法相比，同机同负载下吞吐下降不超过 15%。
 - **拷贝口径（B2）**：本栈入站每帧固定 **2 次字节拷贝**（Pipe → accumulator、accumulator → `PooledMessage`）；既有直连写法直接消费 Pipe 缓冲，只有 0–1 次。出站另计 **3 次**（实体 → `Envelope.Payload` 的 `byte[]`、`Payload` → `EncodedBody`、`EncodedBody` → 最终帧缓冲），这是"两级正交 + `IBufferWriter` 不能前插"的已知成本，v1 不优化。这 2/3 次是已知预算，性能对比按此口径，**不要拿"零拷贝"要求它**。
-- **分配口径**：每帧额外分配 ≤ 2 次——小帧（`< SmallFrameInlineThreshold`）为 `PooledMessage` 的精确数组 + 队列节点；大帧走池时无数组分配，仅 `PooledMessage` + 队列节点。实测若长期超过 2 次，说明有隐藏拷贝，需回填。
+- **分配口径**：默认 `SmallFrameInlineThreshold = 0`，入站每帧只多一个 `PooledMessage`（约 56B）与一个队列节点，帧字节从池里复用；把阈值调成正数则小于该值的帧改精确 `new byte[len]`（多一次分配、降在途峰值）。队列节点实测 0B/帧（有界通道不按条目分配）。实测若长期超过这个口径，说明有隐藏拷贝，需回填。
 
-**实测（2026-11-06，Windows / .NET 10.0.403，Release，`Src/SAEA.Sockets.PipelineTest --bench`）**：500000 帧、body 256B、按 64KB 分块喂入，每条路径预热 1 轮后取 5 轮中位数；`MaxConcurrentMessages = 8`。同一份基线先测了 v1，再测执行器热路径改造后的 v2 第一批（内联启动 + 令牌按需创建）：
+**实测（2026-11-06，Windows / .NET 10.0.403，Release，`Src/SAEA.Sockets.PipelineTest --bench`）**：500000 帧、body 256B、按 64KB 分块喂入，每条路径预热 1 轮后取 5 轮中位数；`MaxConcurrentMessages = 8`。同一份基线依次测了 v1、v2 第一批（内联启动 + 令牌按需创建）、v2 第二批（单拷贝泵）与 v2 第三批（小帧走池 + 可选内联分发）：
 
-| 路径 | v1 吞吐 | v2 吞吐 | 每帧分配（v2） |
-|---|---|---|---|
-| 旧栈 `BaseCoder.DecodeStream` 直连回调 | 约 1370 万帧/s | 约 1290–1360 万帧/s | 约 0–1B |
-| 新栈 分帧 + `EnvelopeCodec` 解码 | 约 1700 万帧/s（旧栈 0.8–1.5×） | 约 1170–1660 万帧/s（旧栈 0.8–1.3×） | 约 312B |
-| 新栈 接收泵 + 入队 + 处理器 | 约 76–84 万帧/s（旧栈 5.6–6.2%） | 约 197–317 万帧/s，中位数约 267 万（旧栈 15–25%，中位数 21.4%） | 约 475–480B |
+| 路径 | v1 吞吐 | v2 第一/二批吞吐 | v2 第三批吞吐 | 每帧分配（第三批） |
+|---|---|---|---|---|
+| 旧栈 `BaseCoder.DecodeStream` 直连回调 | 约 1370 万帧/s | 约 1290–1401 万帧/s | 约 1411–1498 万帧/s | 约 0–1B |
+| 新栈 分帧 + `EnvelopeCodec` 解码 | 约 1700 万帧/s（旧栈 0.8–1.5×） | 约 950–2001 万帧/s | 约 901–1057 万帧/s | 约 312B |
+| 新栈 接收泵 + 入队 + 处理器（Queued） | 约 76–84 万帧/s（旧栈 5.6–6.2%） | 约 197–317 万帧/s，中位数约 267 万 | 约 214–292 万帧/s，中位数约 249 万（旧栈 17.4%） | 约 200–244B |
+| 新栈 接收泵 + 内联分发 + 处理器（Inline） | — | — | 约 456–462 万帧/s（中位数约 460 万，旧栈 32.1%） | 约 191B |
 
 - **解码层与旧栈同量级**：分帧 + 解码一层多次重复落在旧栈的 0.8–1.3× 之间，波动来自每轮约 156MB 分配引发的 GC，而不是路径本身更慢；稳定成本是 `Envelope` 与独立 payload 拷贝（256B body 对应约 312B/帧）。
-- **完整接收路径从约 6% 提到约 15–25%，"下降不超过 15%"目标仍未达成**：执行器改造把 v1 的每消息 `Task.Run` + `TaskCompletionSource` 闸门 + 每消息 linked CTS 去掉，吞吐提升到 2.4–3.8×、每帧分配从约 1.2KB 降到约 480B。剩余差距来自每帧 2 次拷贝、`PooledMessage` 与队列节点、以及 `FireChannelReadAsync` 的每帧异步链；绝对吞吐约 197–317 万帧/s（256B 帧约 500–810MB/s）。
-- **口径提醒**：基准里的 handler 是同步完成的，v2 之后该路径实际在消费协程上单核串行执行，v1 则靠线程池把 8 条消息并行摊到多核。因此上面的帧/s 提升来自"不再排队"，不是并行度增加；多核同步 handler 场景可以用固定 worker 循环换吞吐，但那会把每连接常驻任务数抬到 `MaxConcurrentMessages`。
-- **分配预算仍未达成**：实测约 475–480B/帧，按 256B body 估算约 4 次对象分配/帧（精确数组、`PooledMessage`、队列节点，以及执行链上的异步机构）。上面"≤2 次"只覆盖数组与队列节点，后续批次要收敛得先做单拷贝（P3）与每帧分配压降。
+- **小帧走池把每帧分配从约 480B 压到约 191B（−60%），吞吐不变**：`SmallFrameInlineThreshold` 从 512 调到 0 后，`byte[265]` 的精确分配消失，只剩 `PooledMessage`（56B）与基准夹具的 `Pipe` 段分配（约 128B）。同一命令对照：480B/帧 → 191B/帧，帧/s 在噪声内。**这证明分配不是当前吞吐瓶颈**。
+- **内联分发把完整路径再提 1.8×，仍只到旧栈的约 32%**：`DispatchMode = Inline` 让接收线程在队列空、无在途消息时直接执行帧，省掉每帧的队列往返与跨线程唤醒；配置 `MessageTimeout` 时自动回落 `Queued`。剩余差距来自每帧一条异步链（`FireChannelReadAsync` → handler）与 1 次拷贝，微基准显示 `SemaphoreSlim.Wait(0)+Release` 单项约 34ns/帧，与实测每帧约 2.0μs 的差距同向。**"下降不超过 15%"（即达到旧栈 85%）仍未达成**，内联是默认关闭的可选项，不改变 `Queued` 的默认行为。
+- **口径提醒**：基准里的 handler 是同步完成的，`Queued` 模式下该路径实际在消费协程上单核串行执行，v1 则靠线程池把 8 条消息并行摊到多核。因此上面的帧/s 提升来自"不再排队"，不是并行度增加；多核同步 handler 场景可以用固定 worker 循环换吞吐，但那会把每连接常驻任务数抬到 `MaxConcurrentMessages`。`Inline` 更极端：同步阻塞的 handler 会直接压住接收线程。
 - 该测量是单机趋势值，跨机器比较需重跑同一条命令；`--bench` 不进 CI，也不作合并门禁。
 - 基准脚本本身把整段 wire 写入 `Pipe`，含一次基准侧的 Pipe 拷贝；真实 socket 读路径没有这次拷贝，因此完整路径的实际分配应略低于上表。
-- **第二批（单拷贝泵）复测**：executor 泵改为直接在 `Pipe` 序列上切帧、未成帧残字节留在 `Pipe`，入站由每帧 2 次拷贝降为 1 次；四个分帧器改 `ReadOnlySequence<byte>` 输入，纯链式 `FrameSplitterHandler` 仍为 2 次。同一条命令 5 次进程运行：完整接收路径 227–268 万帧/s（中位数 232 万，旧栈 17.4%）、478–480B/帧，与第一批区间（197–317 万、475–480B）重叠。分配归因显示管线自身约 352B/帧（`byte[265]` 296B + `PooledMessage` 56B），有界队列与派发实测 0B/帧，其余约 128B 来自基准夹具向 `Pipe` 写 64KB 分块时的段分配。详见 `2026-11-06-socket-pipeline-v2-executor-design.md` §九–§十。
+- **第二批（单拷贝泵）复测**：executor 泵改为直接在 `Pipe` 序列上切帧、未成帧残字节留在 `Pipe`，入站由每帧 2 次拷贝降为 1 次；四个分帧器改 `ReadOnlySequence<byte>` 输入，纯链式 `FrameSplitterHandler` 仍为 2 次。同一条命令 5 次进程运行：完整接收路径 227–268 万帧/s（中位数 232 万，旧栈 17.4%）、478–480B/帧，与第一批区间（197–317 万、475–480B）重叠。分配归因显示管线自身约 352B/帧（`byte[265]` 296B + `PooledMessage` 56B），有界队列与派发实测 0B/帧，其余约 128B 来自基准夹具向 `Pipe` 写 64KB 分块时的段分配。详见 `2026-11-06-socket-pipeline-v2-executor-design.md` §九–§十一。
 
 ---
 
@@ -1041,7 +1042,7 @@ public sealed class ChannelPipelineOptions
 1. **`ChannelPipeline` 的装配入口** —— 已定：公开静态工厂 `ChannelPipeline.Create(ChannelPipelineOptions options)`，校验在 `Create` 内同步执行；不再引入 `ChannelPipelineBuilder`。
 2. **`ChannelReadCompleteAsync`** —— 已定：v1 要，语义见 §5.1（每轮成功排空 1 次、**全部入队之后**触发、不保证执行链已开始、不代表执行完成、不产生空通知）。
 3. **两个日志 handler 的埋点出口** —— 都用 `SAEA.Common.LogHelper`（`Src/SAEA.Common/LogHelper.cs:47`，`Info/Warn/Error/Debug` 那组签名），不引入 `ILogger` 抽象。注意 `SAEA.Common` 里**没有**名为 `Logger` 的类型，早先写的 `Logger` 是笔误。
-4. **`PooledMessage` 的池化阈值** —— 已定：`SmallFrameInlineThreshold`（默认 512B）以下走精确 `new byte[len]`，以上走 `MemoryPoolManager`。原因是 `Rent` 对小于 4KB 的请求按 4KB 发放（`MemoryPoolManager.cs:150-163`），小帧走池等于 200 倍放大。数值 512 可在实现时结合 `2026-09-23` 文档的池化口径微调，并回填。
+4. **`PooledMessage` 的池化阈值** —— 已定：`SmallFrameInlineThreshold` 默认 **0**，所有非空帧都走 `MemoryPoolManager`；调成正数时小于该值的帧改精确 `new byte[len]`。`Rent` 走 `ArrayPool<byte>.Shared` 的 2 的幂档（257B 占 512B 桶），放大不到 2 倍，不再是早先误记的"按 4KB 发放"。
 5. **`FrameAccumulator` 与既有 `FrameDecoder` 是否合并** —— 倾向不合，避免动到既有内核；两者一致性靠 parity 测试守住。
 6. **`Envelope.Payload` 的拷贝实现** —— 已定：独立 `byte[]`，精确 `new byte[len]`，不借用池（无归还责任）；`EnvelopeCopyThreshold` 只用于 `Warn`。若实测 JSON 反序列化开销成为瓶颈，再评估"池化 + owner"方案并回填。
 

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 09:50:56
+*修改时间：2026/11/6 14:25:42
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：单条连接独占的双向处理器链：入站从链首到链尾，出站从链尾到链首
+*描述：校验并快照入站分发方式配置
 *
 *****************************************************************************/
 using System;
@@ -125,6 +125,9 @@ namespace SAEA.Sockets.Pipeline
             if (options.SmallFrameInlineThreshold < 0)
                 throw new ArgumentOutOfRangeException(nameof(options), options.SmallFrameInlineThreshold, "SmallFrameInlineThreshold 不能为负。");
 
+            if (options.DispatchMode != ChannelDispatchMode.Queued && options.DispatchMode != ChannelDispatchMode.Inline)
+                throw new ArgumentOutOfRangeException(nameof(options), options.DispatchMode, "DispatchMode 只支持 Queued 或 Inline。");
+
             if (options.EnvelopeCopyThreshold < 0)
                 throw new ArgumentOutOfRangeException(nameof(options), options.EnvelopeCopyThreshold, "EnvelopeCopyThreshold 不能为负。");
 
@@ -178,6 +181,7 @@ namespace SAEA.Sockets.Pipeline
                 MaxBufferedBytes = maxBufferedBytes,
                 ReadBufferSize = options.ReadBufferSize,
                 SmallFrameInlineThreshold = options.SmallFrameInlineThreshold,
+                DispatchMode = options.DispatchMode,
                 EnvelopeCopyThreshold = options.EnvelopeCopyThreshold,
                 Guard = guard
             };

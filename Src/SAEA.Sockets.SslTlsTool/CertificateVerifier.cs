@@ -8,12 +8,12 @@
                                                                
 
 *Copyright (c) yswenli All Rights Reserved.
-*CLR版本： net10
+*CLR版本： net10.0
 *机器名称：WALLE
 *公司名称：yswenli
-*命名空间：SAEA.Sockets.SslTlsTest
+*命名空间：SAEA.Sockets.SslTlsTool
 *文件名： CertificateVerifier
-*版本号： net10
+*版本号： net10.0
 *唯一标识：bda33210-eff5-4509-a8f3-4665618aadc4
 *当前的用户域：WALLE
 *创建人： yswenli
@@ -23,15 +23,15 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 13:50:48
+*修改时间：2026/11/6 14:42:12
 *修改人： yswenli
-*版本号： net10
-*描述：新增开发用证书生成工具
+*版本号： net10.0
+*描述：工程更名为 SslTlsTool，同步命名空间
 *
 *****************************************************************************/
 
 
-namespace SAEA.Sockets.SslTlsTest;
+namespace SAEA.Sockets.SslTlsTool;
 
 /// <summary>
 /// 自检失败，携带失败项编号。
@@ -259,7 +259,8 @@ internal static class CertificateVerifier
             return;
         }
 
-        using (var authority = new X509Certificate2(plan.AuthorityCertificate))
+        // 用 X509CertificateLoader 而非已过时的 byte[] 构造函数加载 CA，避免 SYSLIB0057。
+        using (var authority = X509CertificateLoader.LoadCertificate(plan.AuthorityCertificate))
         using (var serverCertificate = SaeaCertificateLoader.FromPfx(plan.ServerPfxPath!, plan.PfxPassword))
         using (var clientCertificate = SaeaCertificateLoader.FromPfx(plan.ClientPfxPath!, plan.PfxPassword))
         {

@@ -1,8 +1,8 @@
-# 开发用证书生成器（SaeaCertificateFactory + SslTlsTest 工具）设计
+# 开发用证书生成器（SaeaCertificateFactory + SslTlsTool 工具）设计
 
 - 日期：2026-11-06
-- 状态：已确认，待实施
-- 范围：`SAEA.Sockets` 新增公开生成 API；新增独立控制台工具工程 `SAEA.Sockets.SslTlsTest`
+- 状态：已实施（2026-11-06）
+- 范围：`SAEA.Sockets` 新增公开生成 API；新增独立控制台工具工程 `SAEA.Sockets.SslTlsTool`
 
 ## 1. 为什么做
 
@@ -15,7 +15,7 @@
 ## 2. 目标
 
 - G1：`SAEA.Sockets.Ssl` 暴露易用的生成 API，支持两种模式——单张自签证书、本地根 CA 加由其签发的服务端/客户端证书。
-- G2：新增控制台工具 `Src/SAEA.Sockets.SslTlsTest/`，一条命令产出上述文件，支持 PowerShell/bash/CI 脚本化调用，不依赖交互。
+- G2：新增控制台工具 `Src/SAEA.Sockets.SslTlsTool/`，一条命令产出上述文件；既支持 PowerShell/bash/CI 脚本化调用，也支持无参数进入交互模式逐行执行同一套参数。
 - G3：产物能被 `SaeaCertificateLoader.FromPfx` / `FromPem` 读回，`WithSsl` 现有示例无需修改。
 - G4：默认值贴合本仓库自测场景（`localhost` + `127.0.0.1`、口令 `saea`），同时覆盖 mTLS（服务端要求客户端证书）。
 - G5：纯 BouncyCastle 实现，目标框架仍是 `netstandard2.0`、C# 8，`.NET Framework 4.6.2` 消费方在运行时也能调用。
@@ -52,7 +52,7 @@
 - `BcKeyConverter.ToCertificateChain` 用 `X509VerificationFlags.AllFlags` 构链；CA 未装进信任库时链长度只有 1，服务端只下发叶子。这印证了「必须导入 CA」的前提。
 - `BcKeyConverter` 是程序集内 `internal` 类，`GetPrivateKey(X509Certificate2)` 同程序集可直接复用；它内部走 `GetRSAPrivateKey()` / `GetECDsaPrivateKey()`，依赖私钥可导出（`Exportable`）。
 - 仓库 `.gitignore` 当前只忽略 `*.pfx`，不忽略 `*.key`；仓库内没有被跟踪的 `.crt` / `.key` / `.pem`（已核对）。本期必须补 `*.key` 与 `certs/`，否则 `--out` 任意目录或默认目录下的私钥有被误提交的真实风险。
-- 仓库已有独立演示工程先例（如 `Src/TestConnectionReuseApp`，net10.0 控制台，未加入 sln）；`Src/<组件>/` 是一个目录一个 NuGet 包，`Src/*Test/` 是可运行演示。新工程按 `*Test` 惯例放 `Src/SAEA.Sockets.SslTlsTest/`，并加入 `Src/SAEA.Sockets.sln`（sln 里同时有 net462 老工程，新增 net8.0 工程不影响它们）。
+- 仓库已有独立演示工程先例（如 `Src/TestConnectionReuseApp`，net10.0 控制台，未加入 sln）；`Src/<组件>/` 是一个目录一个 NuGet 包，`Src/*Test/` 是可运行演示。证书生成器是开发者工具而非演示程序，命名为 `Src/SAEA.Sockets.SslTlsTool/`（不以 `*Test` 结尾），并加入 `Src/SAEA.Sockets.sln`（sln 里同时有 net462 老工程，新增 net10.0 工程不影响它们）。
 
 ## 6. 公开 API（命名空间 `SAEA.Sockets.Ssl`）
 
@@ -154,7 +154,7 @@ public static class SaeaCertificateFactory
 
 **口令与保存**
 
-- `PfxPassword` 为 `null` → 取默认 `saea`；显式空字符串 → 生成无口令 PKCS#12（net8 实测可读，net462 待冒烟）。
+- `PfxPassword` 为 `null` → 取默认 `saea`；显式空字符串 → 生成无口令 PKCS#12（net8 实测可读，net462 已冒烟通过，见 §16.2）。
 - `SaeaCertificateBundle.SavePfx(string path, string password = null)`：`password` 为 `null` 时用创建该 bundle 的 `options.PfxPassword`；自签写单张叶子，CA 签发的叶子写 leaf + 签发者 CA 证书（链路给 `openssl pkcs12`、curl、Java/Node 等外部工具用）。
 - `SaeaCertificateAuthority.SavePfx(string path, string password = null)`：只写 CA 自身；`password` 为 `null` 时用创建/加载 CA 时的口令。
 - `SaveCertificatePem` / `SavePrivateKeyPem` 只写单张证书 / 单个私钥，不写链；`FromPem` 只读第一张证书。
@@ -196,12 +196,15 @@ certs/client.pfx  certs/client.crt  certs/client.key      ← EKU clientAuth，�
 - `.key` 是**明文私钥**，没有口令保护；`.pfx` 才有口令。文档、工具输出与 README 都必须分开表述，不能让人以为「口令 saea」保护了 `.key`。
 - 叶子文件命名可用 `--name` 改基名（只影响自签模式；CA 模式固定 `ca`/`server`/`client`，避免脚本猜名字）。
 
-## 8. 工具契约（`Src/SAEA.Sockets.SslTlsTest/`）
+## 8. 工具契约（`Src/SAEA.Sockets.SslTlsTool/`）
 
-- 工程：`net8.0`、`OutputType=Exe`、无 `Version`、`ProjectReference` 到 `SAEA.Sockets`；文件头 banner 的 `CLR版本` 写 `net8.0`，`版本号` 写 `net8.0`（测试/演示工程规则）。
-- 完全无参数运行 → 打印帮助并 `exit 0`；给了参数但既没有 `--self-signed` 也没有 `--ca`（且没有 `--help`）→ 打印帮助并 `exit 1`。
+- 工程：`net10.0`、`OutputType=Exe`、无 `Version`、`ProjectReference` 到 `SAEA.Sockets`；文件头 banner 的 `CLR版本` 写 `net10.0`，`版本号` 写 `net10.0`（测试/演示工程规则）。
+- 完全无参数运行 → 进入交互模式，`exit` / `quit` / EOF 时进程 `exit 0`。
+- 交互模式逐行读取，按空白拆分参数；双引号可包住含空格的取值，引号内只把 `\"` 当转义、反斜杠本身原样保留（避免破坏 Windows/UNC 路径）；引号未闭合只提示该行参数错误并继续。命令与命令行参数完全同构，额外识别 `help` / `exit` / `quit`（不区分大小写）；`--help` 在交互模式只打印帮助并继续。
+- 交互模式下的单条命令失败只打印该次退出码并继续等待，不改变进程最终退出码（正常退出固定为 0）。
+- 给了参数但既没有 `--self-signed` 也没有 `--ca`（且没有 `--help`）→ 命令行模式打印帮助并 `exit 1`；交互模式只打印一句提示并继续下一条命令。
 - `--help` 与其它参数并存时只打印帮助并 `exit 0`，不执行生成。
-- 帮助里必须列出退出码含义（见本节末尾），否则脚本作者只能猜。
+- 帮助里必须列出退出码含义（见本节末尾）与交互模式用法，否则脚本作者只能猜。
 
 ```
 --self-signed            生成单张自签证书
@@ -267,10 +270,10 @@ certs/client.pfx  certs/client.crt  certs/client.key      ← EKU clientAuth，�
 
 1. `SaeaCertificateLoader.FromPfx(pfxPath, pwd)` 成功且 `HasPrivateKey == true`（自签/叶子/CA 三份都要过）。
 2. `SaeaCertificateLoader.FromPem(crtPath, keyPath)` 成功且 `HasPrivateKey == true`。生成器实际写出的是 PKCS#1 `RSA PRIVATE KEY`，loader 已支持，不需要额外分支（§16 实测）。同时按字节断言 `.crt` / `.key` 不含 `\r`、不以 UTF-8 BOM 开头。
-3. CA 模式：`X509Chain` + `X509ChainTrustMode.CustomRootTrust` + `CustomTrustStore` 放 CA，`Build(serverCert)` 成功；同时断言 `Build(clientCert)` 成功。这是**唯一**的链校验证据，且只在工具（net8）里用，库不得引入该 API。
-4. 证书 SAN 与主题断言：按本次实际生效值（`--cn` / `--dns` / `--ip` 或 §6.1 推导结果）检查 `dNSName` 与 `iPAddress`；CA 证书检查 `BasicConstraints.CA == true`；server 证书 EKU 含 serverAuth、client 证书 EKU 含 clientAuth。用 `X509Certificate2.Extensions` 解析（net8 可用 `System.Formats.Asn1`），不依赖 internal 类型。
+3. CA 模式：`X509Chain` + `X509ChainTrustMode.CustomRootTrust` + `CustomTrustStore` 放 CA，`Build(serverCert)` 成功；同时断言 `Build(clientCert)` 成功。这是**唯一**的链校验证据，且只在工具（net10）里用，库不得引入该 API。
+4. 证书 SAN 与主题断言：按本次实际生效值（`--cn` / `--dns` / `--ip` 或 §6.1 推导结果）检查 `dNSName` 与 `iPAddress`；CA 证书检查 `BasicConstraints.CA == true`；server 证书 EKU 含 serverAuth、client 证书 EKU 含 clientAuth。用 `X509Certificate2.Extensions` 解析（工具可用 `System.Formats.Asn1`），不依赖 internal 类型。
    - 期望值由工具按命令行输入独立计算，**不复用**库的 SAN 推导实现；这样才能发现库侧推导错误。两边的规则必须在 §6.1 保持一致。
-5. CA 模式：一次本机回环 TLS 握手——`SocketOptionBuilder` 建服务端（`ServerCertificate = server.pfx` 读回的证书，`ClientCertificateRequired = true`）+ 客户端（`ClientCertificates = client.pfx`，`TargetHost = "localhost"`）。客户端设置 `CertificateValidationCallback`，断言 `(errors & SslPolicyErrors.RemoteCertificateNameMismatch) == 0` 后返回 true（即容忍链错误、但不容忍主机名不匹配）；**不设置 `AllowInvalidCertificates`**。`UseStream()` 各收发一帧并比对。服务端不设 `AllowInvalidCertificates`，靠既有 `allowUnknownRoot: true` 接受客户端证书（§16 实测 `AllowUnknownCertificateAuthority` 下 `Build` 返回 true）。输出写成「握手：主机名匹配通过，未校验证书链；链证据见第 3 项」。
+5. CA 模式：一次本机回环 TLS 握手——`SocketOptionBuilder` 建服务端（`ServerCertificate = server.pfx` 读回的证书，`ClientCertificateRequired = true`）+ 客户端（`ClientCertificates = client.pfx`，`TargetHost = "localhost"`）。客户端设置 `CertificateValidationCallback`，断言 `(errors & SslPolicyErrors.RemoteCertificateNameMismatch) == 0` 后返回 true（即容忍链错误、但不容忍主机名不匹配）；**不设置 `AllowInvalidCertificates`**。`UseStream()` 各收发一帧并比对。服务端不设 `AllowInvalidCertificates`，靠既有 `allowUnknownRoot: true` 接受客户端证书（§16 实测 `AllowUnknownCertificateAuthority` 下 `Build` 返回 true）。输出写成「握手：主机名匹配通过，未校验证书链；链证据见第 3 项」。自签模式没有 CA、也没有独立客户端证书，第 5 项用同一张自签证书同时充当服务端与客户端证书（§16.3 实测通过）。
 
 **端口与超时**
 
@@ -290,7 +293,7 @@ certs/client.pfx  certs/client.crt  certs/client.key      ← EKU clientAuth，�
 - DN：直接交给 `new X509Name(options.Subject)` 解析完整 DN；解析异常包装为 `ArgumentException`（保留 inner exception）。注意 BC 渲染顺序与输入相反：输入 `CN=localhost,O=SAEA` 时 .NET 侧显示 `O=SAEA, CN=localhost`（§16 实测），打印与 README 示例按实际显示写，别让人以为 CN 丢了。推导 SAN 时用 `X509Name.GetValueList(X509Name.CN)`，不要对 DN 字符串做切分。
 - 打包：`Pkcs12StoreBuilder().Build()` → `SetKeyEntry("saea", new AsymmetricKeyEntry(privateKey), chainEntries)` → `Save(stream, pwd.ToCharArray(), random)` → **调用 `SaeaCertificateLoader` 的 internal `LoadPkcs12(byte[], password, flags)`** 加载（复用旧运行时回退），不要直接 `new X509Certificate2`。空口令实测可保存并读回（net8）。
 - PEM 写出：`PemWriter` 写 `Org.BouncyCastle.X509.X509Certificate`（`CERTIFICATE`）；私钥写 `PrivateKeyInfoFactory.CreatePrivateKeyInfo(privateKey)`（命名空间 `Org.BouncyCastle.Pkcs`）—— **BC 2.6.2 实际输出 `RSA PRIVATE KEY`（PKCS#1），不是 PKCS#8**（§16 实测）。若确实需要 PKCS#8，得用 `new PemObject("PRIVATE KEY", keyInfo.GetEncoded())`；本期不要求，按 BC 默认写出即可。用 `StringWriter` 并把 `NewLine` 设为 `"\n"`、`UTF8Encoding(false)` 落盘，避免 CRLF / BOM 影响跨平台工具。
-- 不再改 `SaeaCertificateLoader.ReadPrivateKey`：它已能读 PKCS#1 / PKCS#8（§16），加了分支也没有新的覆盖。允许的内部改动只有两处：把 `byte[]` 版 `LoadPkcs12` 提到 `internal`；新增 `internal LoadPemWithFlags(...)`（公开 `FromPem` 仍走原 flags 与缓存）。
+- 不再改 `SaeaCertificateLoader.ReadPrivateKey`：它已能读 PKCS#1 / PKCS#8（§16），加了分支也没有新的覆盖。允许的内部改动共四处：把 `byte[]` 版 `LoadPkcs12` 提到 `internal`；新增 `internal LoadPemWithFlags(...)`（公开 `FromPem` 仍走原 flags 与缓存）；`BcKeyConverter.GetPrivateKey` 的 ECDsa 分支改用 `DotNetUtilities.GetKeyPair(AsymmetricAlgorithm)`（见 §14 / §16.2，公开 API 不变）；`SAEA.Common.ConsoleHelper` 新增 `public static void Flush()`（见 §14 / §16.3，纯增量，不改既有重载行为）。
 - 生成器内部把 BC 私钥与 `X509Certificate2` 成对持有；生成路径直接保存生成时的 BC 私钥，不要从 `X509Certificate2` 反推。
 - `SaeaCertificateAuthority.FromPfx` / `FromPem` 复用已有 CA 时，私钥转换直接用同程序集的 `BcKeyConverter.GetPrivateKey(X509Certificate2)`，不要复制一份转换逻辑。**该路径必须用 `X509KeyStorageFlags.Exportable`（不带 `EphemeralKeySet`）加载**：实测在 Windows + .NET 8 上，`EphemeralKeySet | Exportable` 加载出的证书调用 `GetRSAPrivateKey().ExportParameters(true)` 会抛 `CryptographicException`（「不支持请求的操作。」），`BcKeyConverter` 因此失败；改用 `Exportable` 后正常。实现上 `LoadAuthorityFromPfx` 传 `Exportable`，`LoadAuthorityFromPem` 走新增的 internal `SaeaCertificateLoader.LoadPemWithFlags(...)`；其它加载路径仍用 `DefaultKeyStorageFlags`，公开行为不变。
 - 内部写出逻辑（PFX / 证书 PEM / 私钥 PEM）抽一个 internal 帮助类，`SaeaCertificateBundle` 与 `SaeaCertificateAuthority` 共用，避免两套实现漂移。
@@ -303,7 +306,7 @@ certs/client.pfx  certs/client.crt  certs/client.key      ← EKU clientAuth，�
 - `Src/SAEA.Sockets/Ssl/SaeaCertificateAuthority.cs`
 - `Src/SAEA.Sockets/Ssl/SaeaCertificateFactory.cs`
 - `Src/SAEA.Sockets/Ssl/Internal/SaeaCertificateWriter.cs`（internal，PFX / PEM 写出与 options 解析）
-- 工具：`Src/SAEA.Sockets.SslTlsTest/Program.cs`、`SslTlsTestOptions.cs`（参数解析）、`CertificateVerifier.cs`（§9 自检）
+- 工具：`Src/SAEA.Sockets.SslTlsTool/Program.cs`、`SslTlsToolOptions.cs`（参数解析）、`CertificateVerifier.cs`（§9 自检）
 
 ## 11. 错误与边界
 
@@ -324,7 +327,10 @@ certs/client.pfx  certs/client.crt  certs/client.key      ← EKU clientAuth，�
 | `--dns` 任一值为空 / 含空白或逗号 / 超长 | 参数错误，退出码 1 |
 | `--dns ""` / `--ip ""` | 参数错误，退出码 1（默认值请省略参数） |
 | 未知参数 / 参数缺少值 | 参数错误，退出码 1，stderr 提示用法 |
-| `--help` 与其它参数并存 | 只打印帮助，退出码 0 |
+| 无参数 | 进入交互模式，`exit` / `quit` / EOF 时退出码 0 |
+| 交互模式单条命令失败 | 打印该次退出码并继续，进程最终退出码 0 |
+| 交互模式引号未闭合 | 提示该行参数错误并继续 |
+| `--help` 与其它参数并存 | 只打印帮助，退出码 0；交互模式打印后继续 |
 | `--pwd ""` | 生成无口令 PFX（允许，但提示风险） |
 | CA 证书没有私钥 | `SaeaTlsException("签发证书需要 CA 私钥。")`，工具退出码 2 |
 | CA 证书不是 CA（`BasicConstraints.CA != true`） | `SaeaTlsException`，工具退出码 2 |
@@ -337,33 +343,36 @@ certs/client.pfx  certs/client.crt  certs/client.key      ← EKU clientAuth，�
 ## 12. 文档
 
 - `Src/SAEA.Sockets/README.md` 与 `README.en.md`：在 Q3「如何配置 SSL/TLS 加密」之后加「开发用证书怎么来」小节，含两条工具命令、产物清单（明确 `.key` 是明文私钥）、`SaeaCertificateLoader.FromPfx` 读回示例、fullchain 拼接命令、CA 信任导入的三平台命令与移除方式、「仅限开发环境」警示。中英必须同步一致。
-- 根 `README.md` 与 `README.en.md`（实测两份都存在）：测试/演示工程列表（Q6）补一行 `SAEA.Sockets.SslTlsTest`，中英同步。
+- 根 `README.md` 与 `README.en.md`（实测两份都存在）：测试/演示工程列表（Q6）补一行 `SAEA.Sockets.SslTlsTool`，中英同步。
 - 公开 API 的 XML 注释按 `Src/SAEA.Common/IPHelper.cs` 体例写全 `summary` / `param` / `returns`；有异常路径的写 `<exception>`。
 - 本篇设计文档即上游依据，勿在代码注释里写「见设计文档」之类溯源标记。
-- 每个新增 `.cs` 文件（库与工具）都要带 AGENTS 规定的文件头 banner：`CLR版本` 按实际目标框架、`版本号` 按组件 `.csproj` 的 `<Version>`（工具写 `net8.0`）、`唯一标识` 每个文件独立生成、`修改标记` 写本次修改。`Src/*Test/` 的存量文件不回填。
+- 每个新增 `.cs` 文件（库与工具）都要带 AGENTS 规定的文件头 banner：`CLR版本` 按实际目标框架、`版本号` 按组件 `.csproj` 的 `<Version>`（工具写 `net10.0`）、`唯一标识` 每个文件独立生成、`修改标记` 写本次修改。`Src/*Test/` 的存量文件不回填。
 - 工具工程的 `--help` 文本就是它自己的使用文档，改参数时同步改帮助，不留过期说明。
 
 ## 13. 验证与测试
 
-- 构建：`dotnet build Src/SAEA.Sockets.sln -c Debug` 必须 0 error；库不得引入 C# 9+ 语法；工具工程是 net8.0，仍按同目录既有 `SAEA.P2PTest` 的写法走，不用 file-scoped namespace。
-- 功能证据：`dotnet run --project Src/SAEA.Sockets.SslTlsTest -c Release -- --self-signed --ca --out <临时目录> --verify`，退出码 0，并核对文件清单与 §9 五项结果。
+- 构建：`dotnet build Src/SAEA.Sockets.sln -c Debug` 必须 0 error；库不得引入 C# 9+ 语法；工具工程是 net10.0，仍按同目录既有 `SAEA.P2PTest` 的写法走，不用 file-scoped namespace。
+- 功能证据：`dotnet run --project Src/SAEA.Sockets.SslTlsTool -c Release -- --self-signed --ca --out <临时目录> --verify`，退出码 0，并核对文件清单与 §9 五项结果。
 - 已存在分支：对同一临时目录只跑 `--self-signed`（不带 `--force`），确认全部 `skipped`、退出码 3；再对 `--ca` 不带 `--reuse-ca` / `--force` 跑一次，确认退出码 1。
 - 复用分支：`--ca --reuse-ca` 在已有 CA 上重签 server/client，确认 `server.*` / `client.*` 被覆盖、CA 指纹不变、叶子指纹变化、`--verify` 通过（退出码 0）。
 - 参数分支：`--keysize 1024`、`--days 0`、`--dns ""`、`--ip not-an-ip`、`--name ca`、`--reuse-ca --force` 各跑一次，确认退出码 1。
+- 交互分支：无参数启动后依次输入 `help`、`--bogus`、`--self-signed --out "<带空格目录>" --verify`、`--cn "CN=localhost, O=SAEA"`、`exit`，确认 `help` 打印完整帮助、非法命令只打印退出码 1 后继续、引号内带空格的目录与 DN 被当成单个取值、进程最终退出码 0；再用管道把 `--self-signed --verify` + `exit` 喂给无参数进程，确认同样可用。
 - 为什么没有 MSTest：仓库四个 MSTest 工程（Common / MQTT / FTP / Sockets.Pipeline）都不覆盖 `SAEA.Sockets` 的 Ssl 目录，新建 `SAEA.Sockets.Tests` 超出本期已确认范围。本期用 `--verify` 自检提供可复现证据；若后续要回归保护，再单独立项建测试工程（这是已知的缺口，不是遗漏）。
 - 四个既有 MSTest 工程仍要跑一遍（`dotnet test` 各自工程），确认没有连带破坏：Common / MQTT / FTP / Sockets.Pipeline。本期不改 loader 公开行为、不改 `WithSsl`，预期全绿。
-- net462 冒烟（一次性，不进仓库）：本机已确认存在 net462 targeting pack（`C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.6.2`，另有 4.7.2 / 4.8 / 4.8.1）。在系统临时目录建一个 net462 控制台工程，用 `ProjectReference` 指向 `Src/SAEA.Sockets/SAEA.Sockets.csproj`（自动带 BouncyCastle / Pipelines 传递依赖，不要裸引用 dll 再手补依赖），执行「生成自签 + PFX 读回 + PEM 读回 + 空口令 PFX 读回」四件事，贴出输出。复用 CA（`FromPfx` → `GetRSAPrivateKey`）不在 net462 冒烟范围内，单列为未验证项。若运行时仍不满足，记录「环境原因：缺 net462 运行时」，报告写「net462 未运行」，不放宽 G5 表述。
+- net462 冒烟（一次性，不进仓库）：本机已确认存在 net462 targeting pack（`C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.6.2`，另有 4.7.2 / 4.8 / 4.8.1）。在系统临时目录建一个 net462 控制台工程，用 `ProjectReference` 指向 `Src/SAEA.Sockets/SAEA.Sockets.csproj`（自动带 BouncyCastle / Pipelines 传递依赖，不要裸引用 dll 再手补依赖），执行「生成自签 + PFX 读回 + PEM 读回 + 空口令 PFX 读回 + 复用 CA（`FromPfx` / `FromPem` 后重签叶子）」五件事，贴出输出。若运行时仍不满足，记录「环境原因：缺 net462 运行时」，报告写「net462 未运行」，不放宽 G5 表述。实测结果见 §16.2。
 
 ## 14. 风险
 
-- BouncyCastle 2.6.2 的生成 API 已实测：`Generate` 只有单参重载、`PemWriter` 输出 PKCS#1、`SubjectKeyIdentifierStructure` 过时（见 §16）。剩余不确定项只有 net462 运行时行为（EphemeralKeySet 回退、空口令 PFX）。
+- BouncyCastle 2.6.2 的生成 API 已实测：`Generate` 只有单参重载、`PemWriter` 输出 PKCS#1、`SubjectKeyIdentifierStructure` 过时（见 §16）。net462 的 `EphemeralKeySet` 回退、空口令 PFX、CA 复用均已冒烟通过（§16.2）。
 - **实测纠正**：先前认为「`Exportable` 标志能保证私钥可导出」，在 `EphemeralKeySet` 下不成立。Windows + .NET 8.0.14 上，用 `EphemeralKeySet | Exportable` 加载由 BouncyCastle 写出的 CA PFX，`HasPrivateKey` 为 true，但 `GetRSAPrivateKey().ExportParameters(true)` 抛 `CryptographicException: 不支持请求的操作。`，`BcKeyConverter.GetPrivateKey` 因而落到「不支持的证书私钥类型」，`--ca --reuse-ca` 必然退出码 2。改用 `X509KeyStorageFlags.Exportable`（非临时密钥集）后正常，CA 指纹不变、叶子可重签。见 §10、§15 #33。
 - CA 复用路径改用非临时密钥集后，私钥会短暂落到当前用户的密钥容器，`Dispose` 时释放；这是复用能力可用的代价，其它加载路径不受影响。
-- net462 上 `EphemeralKeySet` 不生效时会回退到默认 `X509KeyStorageFlags`，私钥可能落到当前用户密钥容器且不一定可导出；这会影响 `SaeaCertificateAuthority.FromPfx` / `FromPem` 的私钥转换（`BcKeyConverter` 走 `GetRSAPrivateKey`）。工具是 net8，不受影响；net462 冒烟只覆盖生成与读回，不复用 CA。
+- net462 上 `EphemeralKeySet` 不生效时会回退到默认 `X509KeyStorageFlags`，私钥可能落到当前用户密钥容器且不一定可导出。CA 复用路径已固定用 `Exportable`，实测 net462 可导出私钥并完成复用（§16.2）；生成与 PFX/PEM 读回也已通过。剩余风险是密钥容器留痕与清理，属运行时行为，本库不额外处理。
+- **实测纠正**：BouncyCastle 2.6.2 的 net461 资产没有 `DotNetUtilities.GetECDsaKeyPair(ECDsa)` 重载（只有 `GetKeyPair(AsymmetricAlgorithm)`、`GetRsaKeyPair`、`GetDsaKeyPair`）。`BcKeyConverter.GetPrivateKey` 的方法体同时引用 RSA 与 ECDsa 两个重载，在 net462 上 JIT 编译整个方法即抛 `MissingMethodException`，连 RSA 分支都走不到。ECDsa 分支改用 `GetKeyPair(AsymmetricAlgorithm)` 后 net462 冒烟全部通过。方法本身只在证书生成/复用路径被调用，不影响既有 TLS 握手。
 - 系统信任库导入需要管理员/用户授权，且会在测试机上留痕。文档要求只导入当前用户或测试机，并给出移除命令；`CurrentUser\Root` 只对当前账号生效，服务账号需单独处理。
 - 生成的 CA 私钥是开发资产，泄露等于签发权泄露。文档与工具输出都要提示不要把 `ca.key` / `ca.pfx` 提交进仓库；`.key` 是明文私钥。仓库 `.gitignore` 本期补 `*.key` 与 `certs/`（`*.pfx` 已有）。
 - 中文或特殊字符 DN 在不同工具解析上有差异，本期按 `X509Name` 原样处理，不做额外转义保证；DN 显示顺序会被 BC 反转（§16），文档按实际显示写。
 - `--verify` 第 5 项刻意容忍链错误，真正的链证据只在第 3 项；两者不能互相替代，输出必须区分。
+- 工具的输出走 `SAEA.Common.ConsoleHelper`（后台线程异步写控制台，并镜像到临时目录日志）。这类队列在进程退出时会丢掉未写出的行，实测 `--help` 只打出 11–17 行（正文约 45 行）。因此 `ConsoleHelper` 新增 `public static void Flush()`（按待写计数等待，最多 2 秒），工具在 `Main` 的 `finally` 里调用。任何短生命周期程序复用 `ConsoleHelper` 都必须自己 Flush，否则同样丢输出。
 
 ## 15. 我替你做过的决定（可逐条否决）
 
@@ -371,7 +380,7 @@ certs/client.pfx  certs/client.crt  certs/client.key      ← EKU clientAuth，�
 2. CA 句柄 `Create` 后返回可签发对象，而不是让用户自己管理 `AsymmetricKeyParameter`；公开签名完全不出现 BC 类型。
 3. 返回 `SaeaCertificateBundle`（证书 + 保存方法），而不是「只返回 `X509Certificate2`，保存另给静态方法」。
 4. PEM 私钥按 BC 默认写出（实测是 PKCS#1 `RSA PRIVATE KEY`），**不改** `SaeaCertificateLoader.ReadPrivateKey`——它已经能读 PKCS#1 与 PKCS#8（§16）。
-5. 工具无参数时打印帮助而非进交互菜单。
+5. 工具无参数时进入交互模式（逐行执行与命令行同构的参数），而不是打印帮助后退出；交互只改变输入方式，不改变任何参数语义与单次命令的退出码。
 6. 默认口令 `saea`、leaf 有效至 30 天后、CA 有效至 3650 天后、RSA 2048、SAN 为 `localhost` + `127.0.0.1`。
 7. CA 模式固定文件名 `ca.*` / `server.*` / `client.*`，不支持 `--name` 改这三个。
 8. `--verify` 第 5 项客户端用 `CertificateValidationCallback` 断言主机名匹配、容忍链错误；服务端不设 `AllowInvalidCertificates`，链校验单独用 `CustomRootTrust` 覆盖。
@@ -400,6 +409,9 @@ certs/client.pfx  certs/client.crt  certs/client.key      ← EKU clientAuth，�
 31. 新增 `--ca-pwd`（复用 CA 的读取口令，默认取 `--pwd`），避免「旧 CA 口令与新叶子口令必须相同」的硬绑定。
 32. `--verify` 第 5 项失败不降级、不自动放宽校验；跨平台不支持按缺陷单独立项。
 33. CA 复用路径用 `X509KeyStorageFlags.Exportable` 而非 `DefaultKeyStorageFlags` 加载：临时密钥集下私钥不可导出，`BcKeyConverter` 会失败（实测，见 §14）。为此给 `SaeaCertificateLoader` 增加 internal 的 `LoadPemWithFlags`，公开 `FromPem` 行为不变。
+34. `BcKeyConverter.GetPrivateKey` 的 ECDsa 分支改用 `DotNetUtilities.GetKeyPair(AsymmetricAlgorithm)`：net461 资产没有 `GetECDsaKeyPair(ECDsa)`，否则 net462 上 JIT 即失败（§16.2）。
+35. `SAEA.Common.ConsoleHelper` 增加 `public static void Flush()`：工具输出走它的异步队列，进程退出前必须等待写完，否则 `--help` 等立即退出路径丢行（§16.3）。纯增量 API，不改既有重载行为。
+36. 自签模式的 `--verify` 第 5 项用同一张自签证书同时充当服务端与客户端证书：自签模式没有 CA 与独立客户端证书，原先按 CA 模式的 `server.pfx` / `client.pfx` 取值会拿到 null 并抛 `ArgumentNullException`（§16.3）。
 
 ## 16. 实测记录（2026-11-06）
 
@@ -444,7 +456,7 @@ dotnet run --project Runner/Runner.csproj -c Release
 | 服务端 mTLS 需要关掉校验才能接受未知根 | 否，`AllowUnknownCertificateAuthority` 下 `Build` 返回 true | §9 第 5 步服务端不用开 `AllowInvalidCertificates` |
 | `GeneralName(GeneralName.DNSName, ...)` 可用 | **不存在**，常量名是 `DnsName` | §10 已修正 |
 | IPv6 SAN 可用 | 是，编码为 16 字节 `::1` | §15 #17 |
-| 空口令 PFX 在 net8 可读 | 是 | net462 仍需冒烟 |
+| 空口令 PFX 在 net8 可读 | 是 | net462 已冒烟通过（§16.2） |
 | DN 显示顺序 | 输入 `CN=localhost,O=SAEA`，显示 `O=SAEA, CN=localhost` | §10 已注明 |
 
 环境：`dotnet` SDK 10.0.403，Windows；net462 / 4.7.2 / 4.8 / 4.8.1 targeting pack 均存在。
@@ -459,3 +471,88 @@ dotnet run --project Runner/Runner.csproj -c Release
 | `Exportable`（非临时密钥集） | true | 成功 | 成功 |
 
 改为 `Exportable` 后：`--ca --reuse-ca --verify` 退出码 0，`ca.crt` 哈希不变，`server` / `client` 指纹变化，`--verify` 5/5 通过。环境同上（Windows + .NET 8.0.14 运行时）。
+
+### 16.2 net462 冒烟与 BouncyCastle 资产差异
+
+一次性 net462 控制台工程（`ProjectReference` 指向 `Src/SAEA.Sockets`，不进仓库）执行结果：
+
+```
+[pfx] hasKey=True subject=CN=localhost
+[pem] hasKey=True subject=CN=localhost
+[empty pwd pfx] hasKey=True
+[ca-issued leaf] hasKey=True subject=CN=localhost
+[reuse pfx] ca=CN=SAEA Dev Root CA
+[reuse issue] ok subject=CN=saea-client
+[reuse pem] ca=CN=SAEA Dev Root CA
+```
+
+首次运行在「复用 CA」两项失败：
+
+```
+MissingMethodException: 找不到方法:
+Org.BouncyCastle.Security.DotNetUtilities.GetECDsaKeyPair(System.Security.Cryptography.ECDsa)
+```
+
+定位：net462 应用加载的是 BouncyCastle 的 **net461 资产**（`BouncyCastle.Cryptography, Version=2.0.0.0`），反射可见其 `DotNetUtilities` 只有 `GetDsaKeyPair`、`GetRsaKeyPair`、`GetKeyPair(AsymmetricAlgorithm)`，没有 `GetECDsaKeyPair(ECDsa)`；而库是按 netstandard 资产编译的。`BcKeyConverter.GetPrivateKey` 同时引用两个重载，JIT 整个方法时即失败，RSA 分支未执行。同一进程内直接调用 `GetRsaKeyPair(rsa)` 是成功的，可排除私钥导出问题。
+
+修复：ECDsa 分支改用 `DotNetUtilities.GetKeyPair(ecdsa)`（两个资产都有此重载），公开 API 与既有 TLS 路径不受影响；修复后上表全部通过。`GetPrivateKey` 全仓库仅被证书生成的 `SaeaCertificateWriter` 调用。
+
+### 16.3 场景矩阵复测与两处缺陷（2026-11-06 14:32）
+
+最终审查阶段按 §8 / §11 的退出码契约逐条复跑，均在临时目录下执行：
+
+| 场景 | 期望 | 实测 |
+|---|---|---|
+| `--self-signed --verify`（新目录） | 0 | 0 |
+| 重复 `--self-signed`（文件已存在） | 3 | 3 |
+| `--self-signed --ca --verify`（新目录） | 0 | 0 |
+| `--ca`（新目录） | 0 | 0 |
+| `--ca --reuse-ca --verify` | 0 | 0 |
+| `--ca --reuse-ca`（空目录） | 2 | 2 |
+| `--ca --force --verify` | 0 | 0 |
+| `--ca`（`ca.*` 已存在、无 flag） | 1 | 1 |
+| `--ca --reuse-ca --force` | 1 | 1 |
+| `--reuse-ca`（单独） | 1 | 1 |
+| `--bogus` | 1 | 1 |
+| `--self-signed --days 0` | 1 | 1 |
+| 无参数（进入交互，EOF 退出） | 0 | 0（改名后复测为交互模式） |
+| `--out` 指向已存在文件 | 2 | 2 |
+| `--ca --reuse-ca --ca-pwd wrong` | 2 | 2 |
+
+过程中发现并修复两处缺陷：
+
+1. **`--help` 丢输出**：输出改由 `ConsoleHelper` 的异步队列写出后，`Main` 一返回进程就退出，队列里未写出的行被丢弃。同一命令连跑 3 次分别只打出 17 / 11 / 14 行（正文约 45 行）。修复：`ConsoleHelper.Flush()` + 工具 `Main` 的 `finally` 调用；修复后连跑 3 次均为 61 行（含 banner 与空行），帮助尾部示例完整。
+2. **自签模式 `--verify` 必然失败**：第 5 项固定读 `server.pfx` / `client.pfx`，自签模式这两项为 null，`SaeaCertificateLoader.FromPfx(null, ...)` 抛 `ArgumentNullException: Value cannot be null. (Parameter 'path')`，退出码 2。此前只验证过 `--self-signed --ca` 组合，漏了单独跑自签。修复：自签模式把同一张证书同时登记为服务端与客户端证书；修复后 5/5 通过。
+
+顺带：`--verify` 第 3 项加载 CA 改用 `X509CertificateLoader.LoadCertificate(bytes)`，消除 .NET 10 的 `SYSLIB0057` 警告。
+
+### 16.4 工具改名与交互模式（2026-11-06 14:42）
+
+- 工程目录、`.csproj`、命名空间、程序集名统一由 `SAEA.Sockets.SslTlsTest` 改为 `SAEA.Sockets.SslTlsTool`；选项类型同步改为 `SslTlsToolOptions`，文件名改为 `SslTlsToolOptions.cs`；sln 只改工程名与路径，项目 GUID 不变。
+- 无参数启动改为交互模式：逐行读取，命令与 CLI 参数完全同构，额外识别 `help` / `exit` / `quit`（不区分大小写）；双引号可包住含空格的取值，引号内只把 `\"` 当转义、反斜杠本身原样保留；引号未闭合按参数错误提示后继续。交互模式下单条命令失败只打印该次退出码，进程最终退出码固定为 0。
+- 改名后按 §8 / §11 完整复跑（临时目录，`dotnet run --no-build`），全部符合预期：
+
+| 场景 | 期望 | 实测 |
+|---|---|---|
+| CLI `--self-signed --verify`（新目录） | 0 | 0 |
+| 重复 `--self-signed`（已存在） | 3 | 3 |
+| CLI `--ca --verify`（新目录） | 0 | 0 |
+| `--ca`（`ca.*` 已存在） | 1 | 1 |
+| `--ca --reuse-ca --verify` | 0 | 0 |
+| `--ca --reuse-ca --force` | 1 | 1 |
+| `--reuse-ca`（单独） | 1 | 1 |
+| `--bogus` | 1 | 1 |
+| `--self-signed --days 0` | 1 | 1 |
+| `--ca --reuse-ca`（空目录） | 2 | 2 |
+| `--out` 指向已存在文件 | 2 | 2 |
+| `--ca --reuse-ca --ca-pwd wrong` | 2 | 2 |
+| `--ca --force --verify`（新目录） | 0 | 0 |
+| `--self-signed --ca --verify`（新目录） | 0 | 0 |
+| 无参数 + EOF | 0 | 0 |
+| 交互 `--bogus` 后 `exit` | 进程 0，打印单次 1 | 0，打印「退出码：1」 |
+| 交互 `help` 后 `quit` | 打印完整帮助后退出 0 | 0，帮助含交互说明与退出码 |
+| 交互 `--cn "CN=localhost, O=SAEA"` | 解析为单个取值 | 主题输出 `O=SAEA, CN=localhost` |
+| 交互 `--self-signed --out "<含空格目录>" --verify` | 0，1/5..5/5 通过 | 0，5/5 通过，目录生成 3 个文件 |
+| 交互引号未闭合 | 提示并继续 | 提示「命令里的双引号没有闭合。」后继续，进程 0 |
+
+- 同轮发现 `SslTlsToolOptions.cs` 的 banner `唯一标识` 与 `GlobalUsing.cs` 重复，已为选项文件重新生成 GUID；banner 的 `命名空间` / `文件名` / `修改标记` 同步改名。
