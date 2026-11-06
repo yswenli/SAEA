@@ -263,6 +263,15 @@ public sealed class SocketStreamAdapter : IRawByteStream
 
 ---
 
+## 🧵 Message Execution Model
+
+- One consumer coroutine per connection: after dequeuing a message and acquiring a concurrency slot it **starts the execution chain inline** — no `await`, no extra thread-pool dispatch. A message that completes synchronously just returns to the consumer loop for the next frame.
+- The concurrency cap is `MaxConcurrentMessages`, and real parallelism only happens when a message suspends on `await`. Within one message (decode → auth → dispatch) everything is strictly sequential; response order is not receive order.
+- **A blocking or CPU-bound handler occupies the consumer coroutine** and delays later frames on the same connection. Offload such work with `Task.Run` or make it asynchronous. Async handlers (for example a 20–50ms remote auth call) are unaffected.
+- With `MessageTimeout == 0` (default) `ctx.CancellationToken` *is* the connection token and no linked token is created. A per-message linked CTS is allocated only when a timeout is configured, and is restored/released in the message's `finally`.
+
+---
+
 ## 🛡️ Capacity Limits: MaxBufferedBytes and MaxFrameLength
 
 | Setting | Rule |

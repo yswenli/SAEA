@@ -821,6 +821,7 @@ try
             await _concurrency.WaitAsync(ct);
             if (_closing == 1) { _concurrency.Release(); msg.Release(); continue; }
             Task.Run(() => ExecuteMessageAsync(msg));       // 不等待
+            // v2 第一批已改为内联启动（直接调用并只在挂起时登记在途），见 `2026-11-06-socket-pipeline-v2-executor-implementation.md`。
         }
     }
 }
@@ -838,6 +839,7 @@ var cts = CancellationTokenSource.CreateLinkedTokenSource(_connectionToken.Token
 if (_options.MessageTimeout > TimeSpan.Zero) cts.CancelAfter(_options.MessageTimeout);
 var previous = _ambientToken.Value;
 _ambientToken.Value = cts.Token;
+// v2 第一批改为"仅 MessageTimeout > Zero 时建 linked CTS 并注入 AsyncLocal"，默认路径直接用连接令牌。
 try
 {
     await _pipeline.FireChannelReadAsync(msg);

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 09:50:56
+*修改时间：2026/11/6 11:28:34
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：设计文档 §8.1 的运行时验收用例（内存传输替身 + 真执行器）；用例名前缀编号与 §8.1 条目对应， 不带编号的用例覆盖同一设计点下的边界分支
+*描述：新增无超时时消息令牌即连接令牌的用例
 *
 *****************************************************************************/
 using System;
@@ -602,6 +602,42 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
                     await StopAsync(executor);
                 }
             }
+        }
+
+        [TestMethod]
+        public async Task Token_NoMessageTimeout_UsesConnectionTokenDirectly()
+        {
+            var options = NewOptions(queueCapacity: 8, maxConcurrent: 1);
+            CancellationToken captured;
+
+            using (var pipeline = ChannelPipeline.Create(options))
+            {
+                var stream = new TestRawByteStream("token-direct");
+                var handler = new TokenCaptureHandler();
+                pipeline.AddLast(handler);
+
+                var executor = new ChannelPipelineExecutor(stream, new TestChannel("token-direct"), options, CancellationToken.None);
+                executor.Attach(pipeline);
+
+                try
+                {
+                    executor.Start();
+                    await WriteAsync(stream, Frame(1));
+                    await handler.Seen.Task.WaitAsync(WaitTimeout);
+                    captured = handler.Token;
+
+                    // 未配置超时时不建链接令牌：handler 拿到的就是连接令牌本身，不是包装出来的新令牌。
+                    Assert.AreEqual(executor.CurrentToken, captured, "未配置超时时消息令牌应是连接令牌本身");
+                    Assert.IsFalse(captured.IsCancellationRequested, "消息执行期间连接令牌不应被取消");
+                }
+                finally
+                {
+                    await StopAsync(executor);
+                }
+            }
+
+            // 令牌同源，收口取消连接令牌时消息令牌必然同步取消。
+            Assert.IsTrue(captured.IsCancellationRequested, "收口后消息令牌未随连接令牌取消");
         }
 
         [TestMethod]
@@ -1388,6 +1424,21 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
                 {
                     ThirdDone.TrySetResult(true);
                 }
+            }
+        }
+
+        private sealed class TokenCaptureHandler : InboundHandlerAdapter
+        {
+            public readonly TaskCompletionSource<bool> Seen =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public CancellationToken Token;
+
+            public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+            {
+                Token = ctx.CancellationToken;
+                Seen.TrySetResult(true);
+                return Task.CompletedTask;
             }
         }
 

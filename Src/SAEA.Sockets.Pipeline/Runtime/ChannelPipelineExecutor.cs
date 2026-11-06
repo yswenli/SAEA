@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 09:50:56
+*修改时间：2026/11/6 11:28:34
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：每连接的运行时载体：一个接收泵把字节切成帧写入有界队列，一个消费者循环把帧交给链
+*描述：消息内联启动替代每消息 Task.Run 与闸门，无超时时不建链接令牌
 *
 *****************************************************************************/
 using System;
@@ -447,44 +447,48 @@ namespace SAEA.Sockets.Pipeline
         private void StartMessage(PooledMessage msg)
         {
             var id = Interlocked.Increment(ref _inFlightSeq);
-            var gate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             Interlocked.Increment(ref _inFlightCount);
 
-            var task = Task.Run(async () =>
-            {
-                await gate.Task.ConfigureAwait(false);
-
-                try
-                {
-                    await ExecuteMessageAsync(msg).ConfigureAwait(false);
-                }
-                finally
-                {
-                    Task ignored;
-                    _inFlight.TryRemove(id, out ignored);
-                    Interlocked.Decrement(ref _inFlightCount);
-                }
-            });
+            // 内联启动：同步完成的消息不排队、不额外分配 Task；挂起后由 async 状态机自带的任务继续，
+            // 只有真正挂起的消息才登记进在途表供收口等待。
+            var task = ExecuteMessageAsync(msg, id);
+            if (task.IsCompleted)
+                return;
 
             _inFlight[id] = task;
-            gate.TrySetResult(true);
+
+            // finally 可能先于登记执行（此时 TryRemove 落空），复查一次，避免残留已完成条目。
+            if (task.IsCompleted)
+            {
+                Task ignored;
+                _inFlight.TryRemove(id, out ignored);
+            }
         }
 
-        private async Task ExecuteMessageAsync(PooledMessage msg)
+        private async Task ExecuteMessageAsync(PooledMessage msg, int id)
         {
-            var cts = CancellationTokenSource.CreateLinkedTokenSource(_connectionToken.Token);
-            if (_options.MessageTimeout > TimeSpan.Zero)
-                cts.CancelAfter(_options.MessageTimeout);
+            CancellationTokenSource timeoutCts = null;
+            var hasScopedToken = false;
+            var previous = default(CancellationToken);
 
-            var previous = _ambientToken.Value;
-            _ambientToken.Value = cts.Token;
+            // 未配置超时时消息令牌直接取连接令牌：不建 linked CTS，也不写 AsyncLocal。
+            if (_options.MessageTimeout > TimeSpan.Zero)
+            {
+                timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(_connectionToken.Token);
+                timeoutCts.CancelAfter(_options.MessageTimeout);
+
+                previous = _ambientToken.Value;
+                _ambientToken.Value = timeoutCts.Token;
+                hasScopedToken = true;
+            }
 
             try
             {
                 await _pipeline.FireChannelReadAsync(msg).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (Volatile.Read(ref _closing) == 0
-                                                     && cts.IsCancellationRequested
+                                                     && timeoutCts != null
+                                                     && timeoutCts.IsCancellationRequested
                                                      && !_connectionToken.IsCancellationRequested)
             {
                 var timeout = _options.MessageTimeout;
@@ -515,8 +519,16 @@ namespace SAEA.Sockets.Pipeline
             }
             finally
             {
-                _ambientToken.Value = previous;
-                cts.Dispose();
+                if (hasScopedToken)
+                    _ambientToken.Value = previous;
+
+                if (timeoutCts != null)
+                    timeoutCts.Dispose();
+
+                Task ignored;
+                _inFlight.TryRemove(id, out ignored);
+                Interlocked.Decrement(ref _inFlightCount);
+
                 _concurrency.Release();
                 msg.Release();
             }

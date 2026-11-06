@@ -261,6 +261,15 @@ public sealed class SocketStreamAdapter : IRawByteStream
 
 ---
 
+## 🧵 消息执行模型
+
+- 每条连接一个消费协程：取出队列条目、拿到并发额度后**直接启动**该消息的执行链，不 `await`、不额外丢线程池；消息同步完成时就在消费协程上返回，继续取下一帧。
+- 并发上限是 `MaxConcurrentMessages`，只在消息 `await` 挂起时才真正并行；单条消息内部（解码 → 鉴权 → 路由）严格串行，响应顺序不等于接收顺序。
+- **同步阻塞或 CPU 密集的 handler 会占住消费协程**，推迟同连接后续帧；这类逻辑请自行 `Task.Run` 或改成异步。异步 handler（例如 20–50ms 的远程鉴权）不受影响。
+- `MessageTimeout == 0`（默认）时 `ctx.CancellationToken` 就是连接级令牌，不额外创建链接令牌；配置超时才为每条消息创建 linked CTS，并在消息结束的 `finally` 中恢复与释放。
+
+---
+
 ## 🛡️ 容量上限：MaxBufferedBytes 与 MaxFrameLength
 
 | 配置 | 规则 |

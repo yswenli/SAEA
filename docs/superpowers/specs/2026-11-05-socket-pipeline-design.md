@@ -195,7 +195,7 @@ public interface IChannelHandlerContext
 ```
 
 - 入站顺序 head→tail，出站顺序 tail→head（与 DotNetty 一致）。
-- **每个执行包一个 `CancellationToken`**：由 executor 为每条消息建 linked `CancellationTokenSource`（连接级 ct + 可选 `MessageTimeout`），执行包 `finally` 里 `Dispose`。**context 是链节点、跨消息复用，不能把令牌存在 context 上**：executor 在 `FireChannelReadAsync` 前把该消息的 token 写入 `AsyncLocal<CancellationToken>`，`ctx.CancellationToken` 读当前异步流的值（消息之外默认是连接级 ct）。`AsyncLocal` 的写入随该消息自己的 `Task.Run` ExecutionContext 隔离，不会串到其它消息。这样"断连取消"与"单消息超时"都只影响该消息，不需要 handler 自己找 token；未配置超时时它仍随连接收口取消。
+- **每个执行包一个 `CancellationToken`**：由 executor 为每条消息提供消息级令牌，执行包 `finally` 里收口。`MessageTimeout == Zero`（默认）时它就是连接级 `_connectionToken.Token`，不建 linked `CancellationTokenSource`；`MessageTimeout > Zero` 时才建 linked CTS（连接级 ct + 超时）并 `Dispose`。**context 是链节点、跨消息复用，不能把令牌存在 context 上**：需要超时时 executor 在 `FireChannelReadAsync` 前把该消息的 token 写入 `AsyncLocal<CancellationToken>`，`ctx.CancellationToken` 读当前异步流的值（消息之外默认是连接级 ct）。这样"断连取消"与"单消息超时"都只影响该消息，不需要 handler 自己找 token；未配置超时时它仍随连接收口取消。
 
 **`IChannelPipeline`（此前只被引用、未定义，现补齐）：**
 
@@ -894,7 +894,7 @@ public sealed class ChannelPipelineOptions
 1. 置 `_closing = true`、`IChannel.IsActive = false`；此后 `IRawByteStream.SendAsync` 与 `ctx.WriteAsync` 立即抛 `ChannelClosedException`（见本节"断开后的回包"），不排队、不静默丢。**本步不取消消息令牌**——是否取消在第 4 步按策略决定，否则 `DrainInFlight` 会退化成 `CancelPending`。
 2. **停泵（仅外部触发时）**：取消泵的 `CancellationToken`（executor 内部的 `_pumpCts`，与传输层传入的 ct 通过 `CreateLinkedTokenSource` 联动；传输层 ct 直接取消时 executor 注册一次回调转调 `BeginShutdown`，保证收口不被跳过）并**等泵协程返回**——`FrameAccumulator` 有线程亲和性，只能由泵自己在 `finally` 里 `Reset()` 归还池化缓冲，收口线程不许直接动它。泵退出后 `queue.Writer.TryComplete()`。泵的等待点只有 `ReadAsync` / `WaitQueueSpaceAsync` / 轻量通知，前两者都吃 ct；通知 handler 被 §5.1 限制为轻量同步工作，因此不设额外超时。**若收口由泵自身触发**（超限、守卫拒绝、读异常、EOF），跳过本步，`accumulator.Reset()` / `reader.Complete()` 由泵的 `finally` 补做。
 3. 队列内**尚未开始**的消息一律丢弃并 `Release()`（两种策略相同）。消费者循环每轮先看 `_closing`：已置位就不再启动新消息，`TryRead` 出来的条目只做 `Release()` 与计数递减，直到队列空。
-4. **策略分叉**：`CancelPending` 取消 `_connectionToken`（每消息的 linked token 随之取消，见本节"消费侧"），不等自然完成，直接推进（`finally` 会很快跑完）；`DrainInFlight` **不取消** `_connectionToken`，等在途消息自然结束，最多 `DrainTimeout`。
+4. **策略分叉**：`CancelPending` 取消 `_connectionToken`（未配置超时时消息令牌就是它；配置超时时 linked token 随之取消，见本节"消费侧"），不等自然完成，直接推进（`finally` 会很快跑完）；`DrainInFlight` **不取消** `_connectionToken`，等在途消息自然结束，最多 `DrainTimeout`。
 5. 等待所有已开始的链走完其 `finally`（`CancelPending` 下即"取消落地"）；`DrainInFlight` 最多等到 `DrainTimeout`，到点后放弃等待、继续收口，剩余在途消息各自跑完后由自己的 `finally` 释放引用计数（收口不再等它们，也不阻止它们结束）。**"引用计数全部归零"只在未超时的路径上可作为收口完成的条件**；超时路径由测试轮询等待归零，不能把它当成 `Completion` 的前提。
 6. 清空 `Attributes`，从 `IPipelineHost` 移除该连接，逐个 handler `Count--`（§5.1.1），最后 `IRawByteStream.CloseAsync(reason)`。
 
@@ -913,12 +913,12 @@ public sealed class ChannelPipelineOptions
 - 在途 handler 仍可跑完自己的副作用；跑到回包那一步若抛 `ChannelClosedException`，按普通 handler 异常走 `ExceptionCaught`（链尾记录），**不延长收口、不影响其它消息**。业务若希望"断线后只做副作用不回包"，调用前判断 `ctx.Channel.IsActive`，或捕获该异常并忽略。
 - 这条语义写进 `DisconnectDrainPolicy` 的 XML 注释原文：**"跑完" = 让已开始的业务副作用完成，不代表回包能送达对端。**
 
-- 消费侧：`Channel<PooledMessage>`（`System.Threading.Channels`，`BoundedChannelFullMode.Wait`）+ **单消费者循环** + `SemaphoreSlim(MaxConcurrentMessages)`：循环 `TryRead` 后先 `await` 信号量、再 `Task.Run` 起该消息的执行链。每条消息起一条独立的链，**不保证完成顺序**（已确认：响应返回顺序 ≠ 接收顺序，客户端按请求 id 自行配对）。
-- **每消息一个 linked CTS**：执行包创建 `CancellationTokenSource.CreateLinkedTokenSource(_connectionToken)`；`MessageTimeout > Zero` 时再 `CancelAfter(MessageTimeout)`。该 CTS 的 `Token` 就是此消息 `ctx.CancellationToken` 的来源；执行包 `finally` 里 `Dispose`。`ShutdownAsync` 的 `CancelPending` 只需取消 `_connectionToken`，所有在途消息自动收到取消。
+- 消费侧：`Channel<PooledMessage>`（`System.Threading.Channels`，`BoundedChannelFullMode.Wait`）+ **单消费者循环** + `SemaphoreSlim(MaxConcurrentMessages)`：循环 `TryRead` 后先 `await` 信号量，再**在该协程上直接启动**该消息的执行链且不等待；消息同步完成时不排队、不额外分配 `Task`，只有真正 `await` 挂起的消息才由 async 状态机自带的任务继续，并登记进在途表供收口等待。每条消息起一条独立的链，**不保证完成顺序**（已确认：响应返回顺序 ≠ 接收顺序，客户端按请求 id 自行配对）。**代价**：同步阻塞或 CPU 密集的 handler 会占用消费协程并推迟同连接后续帧，这类 handler 需要自行 `Task.Run` 或改成异步；异步 handler（如 20–50ms 鉴权）不受影响，仍可并发。
+- **令牌按需创建**：`MessageTimeout == Zero`（默认）时消息令牌就是 `_connectionToken.Token`，不建 linked CTS、不写 `AsyncLocal`；`MessageTimeout > Zero` 时才 `CancellationTokenSource.CreateLinkedTokenSource(_connectionToken.Token)` 并 `CancelAfter(MessageTimeout)`，执行包 `finally` 里恢复 `AsyncLocal` 并 `Dispose`。`ShutdownAsync` 的 `CancelPending` 只需取消 `_connectionToken`，所有在途消息自动收到取消。
 - **执行包（所有权边界）**：`try { await pipeline.FireChannelReadAsync(msg); } finally { msg.Release(); }`——`FireChannelReadAsync` 从链首入站 handler 开始，异常已在链内转成 `ExceptionCaught`，`finally` 只负责引用计数。`QueueCapacity` 管"待处理"，`MaxConcurrentMessages` 管"在途"，两者独立，不能互相替代。
-- **令牌的注入点**：执行包在调用 `FireChannelReadAsync` 前把该消息的 token 赋给 `AsyncLocal<CancellationToken>`，`finally` 恢复原值；`ctx.CancellationToken` 只是它的读取代理。**不要为每条消息新建 context**（context 是链节点，数量固定）。`ChannelReadCompleteAsync` 在消息执行之外调用，读到的是连接级 ct。
+- **令牌的注入点**：只有配置了 `MessageTimeout` 才需要注入——执行包在调用 `FireChannelReadAsync` 前把该消息的 token 赋给 `AsyncLocal<CancellationToken>`，`finally` 恢复原值；未配置超时时 `ctx.CancellationToken` 直接回落到连接级 token。**不要为每条消息新建 context**（context 是链节点，数量固定）。`ChannelReadCompleteAsync` 在消息执行之外调用，读到的是连接级 ct。
 - 单条消息内部严格串行：`解码 → 鉴权 → 路由`，`await` 期间不影响同连接其它消息（分帧已在入队前完成，不在这条链上）。
-- 超时：`MessageTimeout > Zero` 时给该消息的 linked CTS 调 `CancelAfter`（连接 ct + 超时 ct）；`finally` 里 `Dispose`。**判定口径**：执行链抛 `OperationCanceledException` 且此时 `_closing == false`、该消息 token 已取消 → executor 构造 `MessageTimeoutException`（含 `ChannelId` 与超时时长）并 `FireExceptionCaughtAsync`，由链尾 `Warn` 记录、**不关闭连接**；连接收口导致的取消只记 `Debug`，不上报为错误。`CancelAfter` 只影响该消息，绝不取消 `_connectionToken`。**取消是协作式的**：handler 忽略 `ctx.CancellationToken` 就会照常跑完，executor 不强行中止，也不为超时额外等待（验收 24 的第二段就是这条语义）。
+- 超时：`MessageTimeout > Zero` 时才给该消息的 linked CTS 调 `CancelAfter`（连接 ct + 超时 ct）；`finally` 里 `Dispose`。**判定口径**：执行链抛 `OperationCanceledException` 且此时 `_closing == false`、该消息 CTS 已取消、连接令牌未取消 → executor 构造 `MessageTimeoutException`（含 `ChannelId` 与超时时长）并 `FireExceptionCaughtAsync`，由链尾 `Warn` 记录、**不关闭连接**；连接收口导致的取消只记 `Debug`，不上报为错误。`CancelAfter` 只影响该消息，绝不取消 `_connectionToken`。**取消是协作式的**：handler 忽略 `ctx.CancellationToken` 就会照常跑完，executor 不强行中止，也不为超时额外等待（验收 24 的第二段就是这条语义）。
 - 关闭：按上面的"断开收口顺序"执行；`DrainPolicy` 决定在途消息是取消还是跑完，队列内未开始的一律丢弃归还。
 
 ### 6.4 启动时序（硬要求）
@@ -1002,17 +1002,18 @@ public sealed class ChannelPipelineOptions
 - **拷贝口径（B2）**：本栈入站每帧固定 **2 次字节拷贝**（Pipe → accumulator、accumulator → `PooledMessage`）；既有直连写法直接消费 Pipe 缓冲，只有 0–1 次。出站另计 **3 次**（实体 → `Envelope.Payload` 的 `byte[]`、`Payload` → `EncodedBody`、`EncodedBody` → 最终帧缓冲），这是"两级正交 + `IBufferWriter` 不能前插"的已知成本，v1 不优化。这 2/3 次是已知预算，性能对比按此口径，**不要拿"零拷贝"要求它**。
 - **分配口径**：每帧额外分配 ≤ 2 次——小帧（`< SmallFrameInlineThreshold`）为 `PooledMessage` 的精确数组 + 队列节点；大帧走池时无数组分配，仅 `PooledMessage` + 队列节点。实测若长期超过 2 次，说明有隐藏拷贝，需回填。
 
-**实测（2026-11-06，Windows / .NET 10.0.403，Release，`Src/SAEA.Sockets.PipelineTest --bench`）**：500000 帧、body 256B、按 64KB 分块喂入，每条路径预热 1 轮后取 5 轮中位数；完整接收路径三次重复差异在 1 个百分点内，解码层因单轮分配量大（约 156MB/轮）受 GC 影响波动较大：
+**实测（2026-11-06，Windows / .NET 10.0.403，Release，`Src/SAEA.Sockets.PipelineTest --bench`）**：500000 帧、body 256B、按 64KB 分块喂入，每条路径预热 1 轮后取 5 轮中位数；`MaxConcurrentMessages = 8`。同一份基线先测了 v1，再测执行器热路径改造后的 v2 第一批（内联启动 + 令牌按需创建）：
 
-| 路径 | 吞吐 | 每帧分配 |
-|---|---|---|
-| 旧栈 `BaseCoder.DecodeStream` 直连回调 | 约 1370 万帧/s | 约 0–1B |
-| 新栈 分帧 + `EnvelopeCodec` 解码 | 约 1700 万帧/s（旧栈 0.8–1.5×） | 约 312B |
-| 新栈 接收泵 + 入队 + 处理器 | 约 76–84 万帧/s（旧栈 5.6–6.2%） | 约 1.2KB |
+| 路径 | v1 吞吐 | v2 吞吐 | 每帧分配（v2） |
+|---|---|---|---|
+| 旧栈 `BaseCoder.DecodeStream` 直连回调 | 约 1370 万帧/s | 约 1290–1360 万帧/s | 约 0–1B |
+| 新栈 分帧 + `EnvelopeCodec` 解码 | 约 1700 万帧/s（旧栈 0.8–1.5×） | 约 1170–1660 万帧/s（旧栈 0.8–1.3×） | 约 312B |
+| 新栈 接收泵 + 入队 + 处理器 | 约 76–84 万帧/s（旧栈 5.6–6.2%） | 约 197–317 万帧/s，中位数约 267 万（旧栈 15–25%，中位数 21.4%） | 约 475–480B |
 
-- **解码层与旧栈同量级**：分帧 + 解码一层多次重复落在旧栈的 0.8–1.5× 之间，波动来自每轮约 156MB 分配引发的 GC，而不是路径本身更慢；稳定成本是 `Envelope` 与独立 payload 拷贝（256B body 对应约 312B/帧）。
-- **完整接收路径约 6%，§8.4 的"下降不超过 15%"目标未达成**：差距主要来自执行器每消息的 `Task.Run` + `TaskCompletionSource` 闸门 + `CreateLinkedTokenSource`，以及每帧 2 次拷贝；绝对吞吐约 76–84 万帧/s（256B 帧约 195–215MB/s）。该条保留为趋势观测、不作门禁。v2 若要收敛，优先把每消息 `Task.Run` 换成固定 worker 循环、无超时时不建链接令牌。
-- **分配预算未达成**：完整接收路径实测约 1.2KB/帧、对象分配约 6 次/帧（精确数组、`PooledMessage`、队列节点、每消息 `TaskCompletionSource`/`Task`/`CancellationTokenSource`）。上面"≤2 次"只覆盖了数组与队列节点，漏算了执行器的每消息机构，以实测量级为准，v2 再优化。
+- **解码层与旧栈同量级**：分帧 + 解码一层多次重复落在旧栈的 0.8–1.3× 之间，波动来自每轮约 156MB 分配引发的 GC，而不是路径本身更慢；稳定成本是 `Envelope` 与独立 payload 拷贝（256B body 对应约 312B/帧）。
+- **完整接收路径从约 6% 提到约 15–25%，"下降不超过 15%"目标仍未达成**：执行器改造把 v1 的每消息 `Task.Run` + `TaskCompletionSource` 闸门 + 每消息 linked CTS 去掉，吞吐提升到 2.4–3.8×、每帧分配从约 1.2KB 降到约 480B。剩余差距来自每帧 2 次拷贝、`PooledMessage` 与队列节点、以及 `FireChannelReadAsync` 的每帧异步链；绝对吞吐约 197–317 万帧/s（256B 帧约 500–810MB/s）。
+- **口径提醒**：基准里的 handler 是同步完成的，v2 之后该路径实际在消费协程上单核串行执行，v1 则靠线程池把 8 条消息并行摊到多核。因此上面的帧/s 提升来自"不再排队"，不是并行度增加；多核同步 handler 场景可以用固定 worker 循环换吞吐，但那会把每连接常驻任务数抬到 `MaxConcurrentMessages`。
+- **分配预算仍未达成**：实测约 475–480B/帧，按 256B body 估算约 4 次对象分配/帧（精确数组、`PooledMessage`、队列节点，以及执行链上的异步机构）。上面"≤2 次"只覆盖数组与队列节点，后续批次要收敛得先做单拷贝（P3）与每帧分配压降。
 - 该测量是单机趋势值，跨机器比较需重跑同一条命令；`--bench` 不进 CI，也不作合并门禁。
 - 基准脚本本身把整段 wire 写入 `Pipe`，含一次基准侧的 Pipe 拷贝；真实 socket 读路径没有这次拷贝，因此完整路径的实际分配应略低于上表。
 
