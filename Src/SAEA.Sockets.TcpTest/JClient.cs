@@ -23,14 +23,23 @@ using SAEA.Sockets.Shortcut;
 
 namespace SAEA.Sockets.TcpTest
 {
+    /// <summary>
+    /// JT808 客户端演示：用 JUnpacker 从接收字节中拆出完整帧，反序列化后以事件抛给调用方
+    /// </summary>
     public class JClient
     {
         JUnpacker _jUnpacker;
 
         TCPClient<JUnpacker> _client;
 
+        /// <summary>
+        /// 收到并解析出完整 JT808 包时触发，参数为当前客户端与解析后的包
+        /// </summary>
         public event Action<JClient, JT808Package> OnReceive;
 
+        /// <summary>
+        /// 创建指向 127.0.0.1:39808 的客户端并注册接收、断开与错误回调
+        /// </summary>
         public JClient()
         {
             _jUnpacker = new JUnpacker();
@@ -62,16 +71,26 @@ namespace SAEA.Sockets.TcpTest
             Console.WriteLine($"ClientSokcet_OnError:{arg2.Message}");
         }
 
+        /// <summary>
+        /// 连接到服务端，失败由内部错误回调输出
+        /// </summary>
         public void Connect()
         {
             _client.Connect();
         }
 
+        /// <summary>
+        /// 断开与服务端的连接，随后触发断开回调
+        /// </summary>
         public void Disconnect()
         {
             _client.Disconnect();
         }
 
+        /// <summary>
+        /// 序列化 JT808 包后提交发送，不等待底层发送完成
+        /// </summary>
+        /// <param name="jT808Package">待发送的 JT808 包</param>
         public void SendAsync(JT808Package jT808Package)
         {
             _client.SendAsync(new ReadOnlyMemory<byte>(new JT808Serializer().Serialize(jT808Package)));

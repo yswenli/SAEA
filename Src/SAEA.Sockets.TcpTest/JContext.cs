@@ -35,12 +35,24 @@ namespace SAEA.Sockets.TcpTest
         List<byte> _cache = new List<byte>();
 
 
+        /// <summary>
+        /// 直接从序列中解帧，当前未提供实现，调用即抛 NotImplementedException
+        /// </summary>
+        /// <param name="data">待解帧的只读序列</param>
+        /// <param name="onHeart">心跳回调，当前实现忽略</param>
+        /// <param name="onFile">文件数据回调，当前实现忽略</param>
+        /// <returns>解出的帧集合，当前实现不返回</returns>
         public SAEA.Sockets.Base.DecodedFrames Decode(System.Buffers.ReadOnlySequence<byte> data, Action<DateTime> onHeart = null, Action<ReadOnlyMemory<byte>> onFile = null)
         {
             throw new NotImplementedException();
         }
 
 
+        /// <summary>
+        /// 把本次收到的字节追加到内部缓存，再以 0x7E 为分隔符切出一个完整帧
+        /// </summary>
+        /// <param name="data">本次收到的字节</param>
+        /// <returns>含首尾 0x7E 的完整帧；尚未收齐时返回 null，未消费的字节留在缓存中</returns>
         public byte[] Decode(byte[] data)
         {
             _cache.AddRange(data);
@@ -83,11 +95,19 @@ namespace SAEA.Sockets.TcpTest
         }
 
 
+        /// <summary>
+        /// 清空内部缓存，用于连接重建时丢弃残留的半包数据
+        /// </summary>
         public void Clear()
         {
             _cache.Clear();
         }
 
+        /// <summary>
+        /// 把协议对象编码写入缓冲区，当前未提供实现，调用即抛 NotImplementedException
+        /// </summary>
+        /// <param name="protocal">待编码的协议对象</param>
+        /// <param name="writer">输出缓冲区写入器</param>
         public void Encode(ISocketProtocal protocal, System.Buffers.IBufferWriter<byte> writer)
         {
             throw new NotImplementedException();

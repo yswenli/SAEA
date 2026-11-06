@@ -24,12 +24,21 @@ using SAEA.Sockets.Shortcut;
 
 namespace SAEA.Sockets.TcpTest
 {
+    /// <summary>
+    /// JT808 服务端演示：监听 39808 端口，按连接拆包并把解析结果以事件抛出
+    /// </summary>
     public class JServer
     {
         TCPServer<JUnpacker> _server;
 
+        /// <summary>
+        /// 收到并解析出完整 JT808 包时触发，参数为当前服务端、连接标识与解析后的包
+        /// </summary>
         public event Action<JServer, string, JT808Package> OnReceive;
 
+        /// <summary>
+        /// 创建监听 39808 端口的服务端并注册接入、断开、错误与接收回调
+        /// </summary>
         public JServer()
         {
             _server = new TCPServer<JUnpacker>(39808);
@@ -64,11 +73,19 @@ namespace SAEA.Sockets.TcpTest
             Console.WriteLine($"ServerSokcet_OnAccepted:{arg2}");
         }
 
+        /// <summary>
+        /// 启动端口监听
+        /// </summary>
         public void Start()
         {
             _server.Start();
         }
 
+        /// <summary>
+        /// 序列化 JT808 包后按连接标识提交发送，不等待底层发送完成
+        /// </summary>
+        /// <param name="id">目标连接的标识</param>
+        /// <param name="jT808Package">待发送的 JT808 包</param>
         public void SendAsync(string id, JT808Package jT808Package)
         {
             _server.SendAsync(id, new ReadOnlyMemory<byte>(new JT808Serializer().Serialize(jT808Package)));

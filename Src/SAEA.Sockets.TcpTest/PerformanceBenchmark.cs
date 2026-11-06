@@ -369,12 +369,33 @@ namespace SAEEA.Sockets.TcpTest
     /// </summary>
     public class BenchmarkResult
     {
+        /// <summary>
+        /// 基准用例名称
+        /// </summary>
         public string TestName { get; set; }
+        /// <summary>
+        /// 使用内存池时完成全部操作的总耗时（毫秒）
+        /// </summary>
         public long PooledTimeMs { get; set; }
+        /// <summary>
+        /// 未使用内存池（每次新建缓冲区）时完成全部操作的总耗时（毫秒）
+        /// </summary>
         public long NonPooledTimeMs { get; set; }
+        /// <summary>
+        /// 参照实现完成全部操作的总耗时（毫秒）
+        /// </summary>
         public long ReferenceTimeMs { get; set; }
+        /// <summary>
+        /// 池化相对未池化的加速倍数
+        /// </summary>
         public double Speedup { get; set; }
+        /// <summary>
+        /// 使用内存池时每秒完成的操作数
+        /// </summary>
         public double PooledOpsPerSecond { get; set; }
+        /// <summary>
+        /// 未使用内存池时每秒完成的操作数
+        /// </summary>
         public double NonPooledOpsPerSecond { get; set; }
     }
 }

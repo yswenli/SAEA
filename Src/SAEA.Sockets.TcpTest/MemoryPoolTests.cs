@@ -36,6 +36,7 @@ namespace SAEEA.Sockets.TcpTest
         /// <summary>
         /// 运行所有测试
         /// </summary>
+        /// <returns>全部用例通过返回 true，任一用例失败返回 false</returns>
         public static bool RunAllTests()
         {
             Console.WriteLine("=== Memory Pool Tests ===");
