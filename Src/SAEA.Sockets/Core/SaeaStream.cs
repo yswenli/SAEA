@@ -7,13 +7,28 @@
  |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
                                                               
  
- *Copyright (c) yswenli All Rights Reserved.
- *CLR版本： netstandard2.0
- *命名空间：SAEA.Sockets.Core
- *文件名： SaeaStream
- *描述：saea 连接的双工流门面
- *
- *****************************************************************************/
+*Copyright (c) yswenli All Rights Reserved.
+*CLR版本： netstandard2.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：SAEA.Sockets.Core
+*文件名： SaeaStream
+*版本号： v26.11.5.1
+*唯一标识：598e2a80-bb67-4eb1-af50-af4b5297457a
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/11/5 15:06:36
+*描述：saea 连接的双工流门面
+*
+*=====================================================================
+*修改标记
+*修改时间：2026/11/6 13:11:19
+*修改人： yswenli
+*版本号： v26.11.5.1
+*描述：规范文件头 banner
+*
+*****************************************************************************/
 using System;
 using System.IO;
 using System.Threading;

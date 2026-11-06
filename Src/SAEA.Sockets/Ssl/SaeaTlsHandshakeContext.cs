@@ -5,14 +5,30 @@
  \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
   ___) / ___ \| |___ / ___ \   ___) | (_) | (__|   <  __/ |_ 
  |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
-                                                               
- *Copyright (c) yswenli All Rights Reserved.
- *CLR版本： netstandard2.0
- *命名空间：SAEA.Sockets.Ssl
- *文件名： SaeaTlsHandshakeContext
- *描述：TLS 握手回调上下文
- *
- *****************************************************************************/
+                                                              
+ 
+*Copyright (c) yswenli All Rights Reserved.
+*CLR版本： netstandard2.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：SAEA.Sockets.Ssl
+*文件名： SaeaTlsHandshakeContext
+*版本号： v26.11.5.1
+*唯一标识：1e866fa7-c7ac-4fe7-949f-6c412079ddce
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/11/5 15:06:36
+*描述：TLS 握手回调上下文
+*
+*=====================================================================
+*修改标记
+*修改时间：2026/11/6 13:11:19
+*修改人： yswenli
+*版本号： v26.11.5.1
+*描述：规范文件头 banner
+*
+*****************************************************************************/
 using System;
 using System.Security.Cryptography.X509Certificates;
 
