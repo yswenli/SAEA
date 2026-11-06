@@ -29,6 +29,8 @@
 *描述：新增开发用证书生成工具
 *
 *****************************************************************************/
+using SAEA.Common;
+
 namespace SAEA.Sockets.SslTlsTest;
 
 /// <summary>
@@ -62,14 +64,14 @@ internal static class Program
         string? error;
         if (!SslTlsTestOptions.TryParse(args, out options, out error))
         {
-            Console.Error.WriteLine(error);
-            Console.Error.WriteLine("运行 --help 查看用法。");
+            ConsoleHelper.WriteLine(error, ConsoleColor.Red);
+            ConsoleHelper.WriteLine("运行 --help 查看用法。");
             return 1;
         }
 
         if (!options.SelfSigned && !options.Ca)
         {
-            Console.Error.WriteLine("缺少 --self-signed 或 --ca，未执行任何生成。");
+            ConsoleHelper.WriteLine("缺少 --self-signed 或 --ca，未执行任何生成。", ConsoleColor.Red);
             PrintHelp();
             return 1;
         }
@@ -77,7 +79,7 @@ internal static class Program
         var outDirectory = options.OutDirectory;
         if (File.Exists(outDirectory))
         {
-            Console.Error.WriteLine("输出路径是一个已存在的文件，不能作为目录使用：" + Path.GetFullPath(outDirectory));
+            ConsoleHelper.WriteLine("输出路径是一个已存在的文件，不能作为目录使用：" + Path.GetFullPath(outDirectory), ConsoleColor.Red);
             return 2;
         }
 
@@ -87,7 +89,7 @@ internal static class Program
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine("无法创建输出目录 " + Path.GetFullPath(outDirectory) + "：" + ex.Message);
+            ConsoleHelper.WriteLine("无法创建输出目录 " + Path.GetFullPath(outDirectory) + "：" + ex.Message, ConsoleColor.Red);
             return 2;
         }
 
@@ -103,28 +105,28 @@ internal static class Program
         }
         catch (ParameterException ex)
         {
-            Console.Error.WriteLine(ex.Message);
+            ConsoleHelper.WriteLine(ex.Message, ConsoleColor.Red);
             return 1;
         }
         catch (ToolFailureException ex)
         {
-            Console.Error.WriteLine(ex.Message);
+            ConsoleHelper.WriteLine(ex.Message, ConsoleColor.Red);
             return 2;
         }
         catch (ArgumentException ex)
         {
-            Console.Error.WriteLine("证书参数无效：" + ex.Message);
+            ConsoleHelper.WriteLine("证书参数无效：" + ex.Message, ConsoleColor.Red);
             return 1;
         }
         catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
         {
-            Console.Error.WriteLine("写盘失败：" + ex.Message);
-            Console.Error.WriteLine("请检查目标目录权限，或确认文件没有被其它程序占用。");
+            ConsoleHelper.WriteLine("写盘失败：" + ex.Message, ConsoleColor.Red);
+            ConsoleHelper.WriteLine("请检查目标目录权限，或确认文件没有被其它程序占用。");
             return 2;
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine("生成证书失败：" + ex.Message);
+            ConsoleHelper.WriteLine("生成证书失败：" + ex.Message, ConsoleColor.Red);
             return 2;
         }
 
@@ -140,18 +142,18 @@ internal static class Program
             }
             catch (CertificateVerificationException ex)
             {
-                Console.Error.WriteLine("自检第 " + ex.Item + " 项失败：" + ex.Message);
+                ConsoleHelper.WriteLine("自检第 " + ex.Item + " 项失败：" + ex.Message, ConsoleColor.Red);
                 exitCode = 2;
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine("自检失败：" + ex.Message);
+                ConsoleHelper.WriteLine("自检失败：" + ex.Message, ConsoleColor.Red);
                 exitCode = 2;
             }
         }
 
-        Console.WriteLine();
-        Console.WriteLine(DevelopmentOnlyWarning);
+        ConsoleHelper.WriteLine();
+        ConsoleHelper.WriteLine(DevelopmentOnlyWarning, ConsoleColor.Yellow);
 
         if (exitCode == 0 && summary.WrittenFileCount == 0)
             exitCode = 3;
@@ -260,7 +262,7 @@ internal static class Program
 
         if (options.Name != null)
         {
-            Console.WriteLine("提示：--name 只在 --self-signed 模式生效，CA 模式固定使用 ca/server/client 作为文件名。");
+            ConsoleHelper.WriteLine("提示：--name 只在 --self-signed 模式生效，CA 模式固定使用 ca/server/client 作为文件名。");
         }
 
         var now = DateTimeOffset.UtcNow;
@@ -277,12 +279,12 @@ internal static class Program
                 authority = LoadAuthority(caPfxPath, caCrtPath, caKeyPath, caPfxPassword);
 
                 if (options.CaSubject != null)
-                    Console.WriteLine("提示：复用现有 CA，--ca-cn 已忽略。");
+                    ConsoleHelper.WriteLine("提示：复用现有 CA，--ca-cn 已忽略。", ConsoleColor.Yellow);
                 if (options.CaDaysSpecified)
-                    Console.WriteLine("提示：复用现有 CA，--ca-days 已忽略。");
+                    ConsoleHelper.WriteLine("提示：复用现有 CA，--ca-days 已忽略。", ConsoleColor.Yellow);
 
-                Console.WriteLine("复用 CA：" + Path.GetFullPath(File.Exists(caPfxPath) ? caPfxPath : caCrtPath) +
-                    "（CA 文件不改动，server/client 将被覆盖）");
+                ConsoleHelper.WriteLine("复用 CA：" + Path.GetFullPath(File.Exists(caPfxPath) ? caPfxPath : caCrtPath) +
+                    "（CA 文件不改动，server/client 将被覆盖）", ConsoleColor.Green);
 
                 if (now.AddDays(options.Days).UtcDateTime > authority.Certificate.NotAfter.ToUniversalTime())
                 {
@@ -294,7 +296,7 @@ internal static class Program
             else
             {
                 if (caExists)
-                    Console.WriteLine("警告：--force 将重建 CA，已导入该 CA 的信任会作废。");
+                    ConsoleHelper.WriteLine("警告：--force 将重建 CA，已导入该 CA 的信任会作废。");
 
                 var caOptions = new SaeaCertificateOptions
                 {
@@ -513,47 +515,47 @@ internal static class Program
 
     private static void PrintSkipped(string path)
     {
-        Console.WriteLine("skipped：" + Path.GetFullPath(path) + " 已存在，未覆盖（要覆盖请加 --force）。");
+        ConsoleHelper.WriteLine("skipped：" + Path.GetFullPath(path) + " 已存在，未覆盖（要覆盖请加 --force）。");
     }
 
     private static void PrintSummary(SslTlsTestOptions options, RunSummary summary)
     {
-        Console.WriteLine();
-        Console.WriteLine("生成结果：");
+        ConsoleHelper.WriteLine();
+        ConsoleHelper.WriteLine("生成结果：");
 
         foreach (var certificate in summary.Certificates)
         {
-            Console.WriteLine("  " + certificate.Title);
-            Console.WriteLine("    主题： " + certificate.Subject);
-            Console.WriteLine("    SHA-1：" + certificate.Thumbprint);
+            ConsoleHelper.WriteLine("  " + certificate.Title, ConsoleColor.Green);
+            ConsoleHelper.WriteLine("    主题： " + certificate.Subject, ConsoleColor.Green);
+            ConsoleHelper.WriteLine("    SHA-1：" + certificate.Thumbprint, ConsoleColor.Green);
 
             foreach (var file in certificate.Files)
             {
                 var state = file.Written ? "已写入" : "已存在，未改写";
-                Console.WriteLine("    " + file.Kind + "：" + file.Path + "（" + state + "）");
+                ConsoleHelper.WriteLine("    " + file.Kind + "：" + file.Path + "（" + state + "）", ConsoleColor.Green);
             }
         }
 
         if (summary.WrittenFileCount == 0)
-            Console.WriteLine("  本次没有写入任何新文件（全部已存在并跳过）。");
+            ConsoleHelper.WriteLine("  本次没有写入任何新文件（全部已存在并跳过）。", ConsoleColor.Yellow);
 
-        Console.WriteLine();
+        ConsoleHelper.WriteLine();
         if (options.PasswordSpecified)
         {
-            Console.WriteLine("PFX 口令：已按 --pwd 设置（不回显）");
+            ConsoleHelper.WriteLine("PFX 口令：已按 --pwd 设置（不回显）", ConsoleColor.Green);
             if (string.IsNullOrEmpty(options.Password))
-                Console.WriteLine("风险：--pwd 为空，PFX 没有口令保护，拿到文件即可使用私钥。");
+                ConsoleHelper.WriteLine("风险：--pwd 为空，PFX 没有口令保护，拿到文件即可使用私钥。", ConsoleColor.Red);
         }
         else
         {
-            Console.WriteLine("PFX 口令：默认 saea");
+            ConsoleHelper.WriteLine("PFX 口令：默认 saea", ConsoleColor.Green);
         }
 
         if (summary.PlainKeyPaths.Count > 0)
         {
-            Console.WriteLine("注意：以下 .key 是明文私钥（RSA PRIVATE KEY，无口令），泄露等同身份或签发权泄露，请勿提交到版本库：");
+            ConsoleHelper.WriteLine("注意：以下 .key 是明文私钥（RSA PRIVATE KEY，无口令），泄露等同身份或签发权泄露，请勿提交到版本库：", ConsoleColor.Yellow);
             foreach (var path in summary.PlainKeyPaths)
-                Console.WriteLine("  " + path);
+                ConsoleHelper.WriteLine("  " + path, ConsoleColor.Yellow);
         }
 
         if (summary.CaMode && summary.CaCertificatePath != null && summary.CaThumbprint != null)
@@ -565,75 +567,75 @@ internal static class Program
         var windowsPath = caCertificatePath.Replace('/', '\\');
         var unixPath = caCertificatePath.Replace('\\', '/');
 
-        Console.WriteLine();
-        Console.WriteLine("CA 信任导入 / 移除（仅本机开发使用，用完请移除）：");
-        Console.WriteLine("  Windows 当前用户：");
-        Console.WriteLine("    Import-Certificate -FilePath " + windowsPath +
-            " -CertStoreLocation Cert:\\CurrentUser\\Root");
-        Console.WriteLine("    移除：Get-ChildItem Cert:\\CurrentUser\\Root | Where-Object { $_.Thumbprint -eq '" +
-            caThumbprint + "' } | Remove-Item");
-        Console.WriteLine("    以服务账号运行或需要全机信任时改用 Cert:\\LocalMachine\\Root（需管理员权限）。");
-        Console.WriteLine("  Debian / Ubuntu（curl、OpenSSL、系统浏览器生效）：");
-        Console.WriteLine("    sudo cp " + unixPath +
-            " /usr/local/share/ca-certificates/saea-dev-ca.crt && sudo update-ca-certificates");
-        Console.WriteLine("    移除：sudo rm /usr/local/share/ca-certificates/saea-dev-ca.crt && sudo update-ca-certificates --fresh");
-        Console.WriteLine("  macOS：");
-        Console.WriteLine("    sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain " +
-            unixPath);
-        Console.WriteLine("    移除：sudo security remove-trusted-cert -d " + unixPath);
-        Console.WriteLine("  Java 不读系统信任库，需要单独导入：");
-        Console.WriteLine("    keytool -importcert -cacerts -alias saea-dev-ca -file " + unixPath);
-        Console.WriteLine("    移除：keytool -delete -cacerts -alias saea-dev-ca");
-        Console.WriteLine("  Node 不读系统信任库，需要显式指定：");
-        Console.WriteLine("    NODE_EXTRA_CA_CERTS=" + unixPath + "（或使用新版的 --use-system-ca）");
-        Console.WriteLine("  说明：未把 CA 导入客户端信任库时，本库服务端只下发叶子证书，默认链校验会失败。");
+        ConsoleHelper.WriteLine();
+        ConsoleHelper.WriteLine("CA 信任导入 / 移除（仅本机开发使用，用完请移除）：", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  Windows 当前用户：", ConsoleColor.Yellow);
+        ConsoleHelper.WriteLine("    Import-Certificate -FilePath " + windowsPath +
+            " -CertStoreLocation Cert:\\CurrentUser\\Root", ConsoleColor.Yellow);
+        ConsoleHelper.WriteLine("    移除：Get-ChildItem Cert:\\CurrentUser\\Root | Where-Object { $_.Thumbprint -eq '" +
+            caThumbprint + "' } | Remove-Item", ConsoleColor.Yellow);
+        ConsoleHelper.WriteLine("    以服务账号运行或需要全机信任时改用 Cert:\\LocalMachine\\Root（需管理员权限）。", ConsoleColor.Yellow);
+        ConsoleHelper.WriteLine("  Debian / Ubuntu（curl、OpenSSL、系统浏览器生效）：", ConsoleColor.Yellow);
+        ConsoleHelper.WriteLine("    sudo cp " + unixPath +
+            " /usr/local/share/ca-certificates/saea-dev-ca.crt && sudo update-ca-certificates", ConsoleColor.Yellow);
+        ConsoleHelper.WriteLine("    移除：sudo rm /usr/local/share/ca-certificates/saea-dev-ca.crt && sudo update-ca-certificates --fresh", ConsoleColor.Yellow);
+        ConsoleHelper.WriteLine("  macOS：", ConsoleColor.Yellow);
+        ConsoleHelper.WriteLine("    sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain " +
+            unixPath, ConsoleColor.Yellow);
+        ConsoleHelper.WriteLine("    移除：sudo security remove-trusted-cert -d " + unixPath, ConsoleColor.Yellow);
+        ConsoleHelper.WriteLine("  Java 不读系统信任库，需要单独导入：", ConsoleColor.Yellow);
+        ConsoleHelper.WriteLine("    keytool -importcert -cacerts -alias saea-dev-ca -file " + unixPath, ConsoleColor.Yellow);
+        ConsoleHelper.WriteLine("    移除：keytool -delete -cacerts -alias saea-dev-ca", ConsoleColor.Yellow);
+        ConsoleHelper.WriteLine("  Node 不读系统信任库，需要显式指定：", ConsoleColor.Yellow);
+        ConsoleHelper.WriteLine("    NODE_EXTRA_CA_CERTS=" + unixPath + "（或使用新版的 --use-system-ca）", ConsoleColor.Yellow);
+        ConsoleHelper.WriteLine("  说明：未把 CA 导入客户端信任库时，本库服务端只下发叶子证书，默认链校验会失败。", ConsoleColor.Yellow);
     }
 
     private static void PrintHelp()
     {
-        Console.WriteLine("用法：SAEA.Sockets.SslTlsTest [选项]");
-        Console.WriteLine();
-        Console.WriteLine("生成开发用自签证书，或生成本地根 CA 及其签发的服务端/客户端证书（mTLS）。");
-        Console.WriteLine("产物默认写入 ./certs。证书与私钥仅供开发/测试，请勿用于生产。");
-        Console.WriteLine();
-        Console.WriteLine("模式（至少选一个）：");
-        Console.WriteLine("  --self-signed            生成单张自签证书");
-        Console.WriteLine("  --ca                     生成 CA + server + client");
-        Console.WriteLine();
-        Console.WriteLine("输出：");
-        Console.WriteLine("  --out <dir>              输出目录，默认 ./certs；不存在时递归创建");
-        Console.WriteLine("  --name <base>            自签模式文件基名，默认 localhost；未给 --cn 时同时作为 CN");
-        Console.WriteLine("  --cn <subject>           自签证书与服务端叶子的主题 DN，默认 CN=localhost；CA 模式只影响 server");
-        Console.WriteLine("  --ca-cn <subject>        CA 模式：CA 主题 DN，默认 CN=SAEA Dev Root CA");
-        Console.WriteLine("  --client-cn <subject>    CA 模式：客户端主题 DN，默认 CN=saea-client");
-        Console.WriteLine();
-        Console.WriteLine("证书内容：");
-        Console.WriteLine("  --dns <a,b>              服务端 DNS SAN；省略时按 CN 自动推导（CN + localhost）");
-        Console.WriteLine("  --ip <a,b>               服务端 IP SAN，默认 127.0.0.1");
-        Console.WriteLine("  --days <n>               叶子有效至 n 天后，默认 30，范围 1..36500");
-        Console.WriteLine("  --ca-days <n>            CA 有效至 n 天后，默认 3650，范围 1..36500");
-        Console.WriteLine("  --keysize <n>            RSA 密钥长度 2048|3072|4096，默认 2048");
-        Console.WriteLine();
-        Console.WriteLine("口令：");
-        Console.WriteLine("  --pwd <password>         PFX 口令，默认 saea；显式传空串表示无口令（有风险）");
-        Console.WriteLine("  --ca-pwd <password>      复用 CA 时的读取口令，默认取 --pwd");
-        Console.WriteLine();
-        Console.WriteLine("已存在文件：");
-        Console.WriteLine("  --reuse-ca               复用 <out>/ca.pfx（缺失时退回 ca.crt + ca.key）签新叶子；必须与 --ca 同用");
-        Console.WriteLine("  --force                  覆盖已存在文件；与 --reuse-ca 互斥");
-        Console.WriteLine("  --verify                 生成后自检：PFX/PEM 读回、链、SAN/EKU、回环握手");
-        Console.WriteLine("  --help                   打印本帮助");
-        Console.WriteLine();
-        Console.WriteLine("退出码：");
-        Console.WriteLine("  0  至少写入一个新文件；给了 --verify 时自检通过");
-        Console.WriteLine("  1  参数错误（未知参数、缺值、取值越界、ca.* 已存在但未指定 --reuse-ca/--force 等）");
-        Console.WriteLine("  2  生成、读取 CA、写盘或 --verify 自检失败");
-        Console.WriteLine("  3  一个文件都没有写入（全部已存在而跳过）；给了 --verify 时自检通过");
-        Console.WriteLine();
-        Console.WriteLine("示例：");
-        Console.WriteLine("  SAEA.Sockets.SslTlsTest --self-signed --verify");
-        Console.WriteLine("  SAEA.Sockets.SslTlsTest --ca --out ./certs --verify");
-        Console.WriteLine("  SAEA.Sockets.SslTlsTest --ca --reuse-ca --days 90");
+        ConsoleHelper.WriteLine("用法：SAEA.Sockets.SslTlsTest [选项]", ConsoleColor.Green);
+        ConsoleHelper.WriteLine();
+        ConsoleHelper.WriteLine("生成开发用自签证书，或生成本地根 CA 及其签发的服务端/客户端证书（mTLS）。", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("产物默认写入 ./certs。证书与私钥仅供开发/测试，请勿用于生产。", ConsoleColor.Green);
+        ConsoleHelper.WriteLine();
+        ConsoleHelper.WriteLine("模式（至少选一个）：", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  --self-signed            生成单张自签证书", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  --ca                     生成 CA + server + client", ConsoleColor.Green);
+        ConsoleHelper.WriteLine();
+        ConsoleHelper.WriteLine("输出：", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  --out <dir>              输出目录，默认 ./certs；不存在时递归创建", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  --name <base>            自签模式文件基名，默认 localhost；未给 --cn 时同时作为 CN", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  --cn <subject>           自签证书与服务端叶子的主题 DN，默认 CN=localhost；CA 模式只影响 server", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  --ca-cn <subject>        CA 模式：CA 主题 DN，默认 CN=SAEA Dev Root CA", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  --client-cn <subject>    CA 模式：客户端主题 DN，默认 CN=saea-client", ConsoleColor.Green);
+        ConsoleHelper.WriteLine();
+        ConsoleHelper.WriteLine("证书内容：", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  --dns <a,b>              服务端 DNS SAN；省略时按 CN 自动推导（CN + localhost）", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  --ip <a,b>               服务端 IP SAN，默认 127.0.0.1", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  --days <n>               叶子有效至 n 天后，默认 30，范围 1..36500", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  --ca-days <n>            CA 有效至 n 天后，默认 3650，范围 1..36500", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  --keysize <n>            RSA 密钥长度 2048|3072|4096，默认 2048", ConsoleColor.Green);
+        ConsoleHelper.WriteLine();
+        ConsoleHelper.WriteLine("口令：", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  --pwd <password>         PFX 口令，默认 saea；显式传空串表示无口令（有风险）", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  --ca-pwd <password>      复用 CA 时的读取口令，默认取 --pwd", ConsoleColor.Green);
+        ConsoleHelper.WriteLine();
+        ConsoleHelper.WriteLine("已存在文件：", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  --reuse-ca               复用 <out>/ca.pfx（缺失时退回 ca.crt + ca.key）签新叶子；必须与 --ca 同用", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  --force                  覆盖已存在文件；与 --reuse-ca 互斥", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  --verify                 生成后自检：PFX/PEM 读回、链、SAN/EKU、回环握手", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  --help                   打印本帮助", ConsoleColor.Green);
+        ConsoleHelper.WriteLine();
+        ConsoleHelper.WriteLine("退出码：", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  0  至少写入一个新文件；给了 --verify 时自检通过", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  1  参数错误（未知参数、缺值、取值越界、ca.* 已存在但未指定 --reuse-ca/--force 等）", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  2  生成、读取 CA、写盘或 --verify 自检失败", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  3  一个文件都没有写入（全部已存在而跳过）；给了 --verify 时自检通过", ConsoleColor.Green);
+        ConsoleHelper.WriteLine();
+        ConsoleHelper.WriteLine("示例：", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  SAEA.Sockets.SslTlsTest --self-signed --verify", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  SAEA.Sockets.SslTlsTest --ca --out ./certs --verify", ConsoleColor.Green);
+        ConsoleHelper.WriteLine("  SAEA.Sockets.SslTlsTest --ca --reuse-ca --days 90", ConsoleColor.Green);
     }
 
     /// <summary>

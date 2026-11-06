@@ -167,6 +167,16 @@ namespace SAEA.Common
         }
 
         /// <summary>
+        /// 输出一行到控制台
+        /// </summary>
+        public static void WriteLine()
+        {
+            _queue.TryAdd(new ConsoleInfo { Text = Environment.NewLine });
+            // 同时写入日志文件
+            _logQueue.TryAdd(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + "  " + Environment.NewLine);
+        }
+
+        /// <summary>
         /// 输出一行带参数的文本到控制台
         /// </summary>
         /// <param name="str">要输出的文本</param>
