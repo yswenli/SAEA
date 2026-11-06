@@ -30,6 +30,9 @@ namespace SAEA.FTP.Net
     /// </summary>
     public sealed class FtpReply
     {
+        /// <summary>
+        /// 三位响应码
+        /// </summary>
         public int Code { get; set; }
 
         /// <summary>
@@ -37,13 +40,23 @@ namespace SAEA.FTP.Net
         /// </summary>
         public string Message { get; set; } = string.Empty;
 
+        /// <summary>
+        /// 未经解析的原始响应文本，多行以 \n 连接
+        /// </summary>
         public string Raw { get; set; } = string.Empty;
 
+        /// <summary>
+        /// 是否为 2xx 成功响应
+        /// </summary>
         public bool IsPositive
         {
             get { return Code >= 200 && Code < 300; }
         }
 
+        /// <summary>
+        /// 返回「状态码 + 空格 + 响应文本」
+        /// </summary>
+        /// <returns>便于日志输出的响应描述</returns>
         public override string ToString()
         {
             return Code + " " + Message;
@@ -55,10 +68,21 @@ namespace SAEA.FTP.Net
     /// </summary>
     public class FTPCommandException : IOException
     {
+        /// <summary>
+        /// 服务器返回的响应码
+        /// </summary>
         public int Code { get; private set; }
 
+        /// <summary>
+        /// 服务器返回的响应文本
+        /// </summary>
         public string Reply { get; private set; }
 
+        /// <summary>
+        /// 以响应码与响应文本构造异常
+        /// </summary>
+        /// <param name="code">服务器返回的响应码</param>
+        /// <param name="reply">服务器返回的响应文本</param>
         public FTPCommandException(int code, string reply)
             : base("code:" + code + ",reply:" + reply)
         {
@@ -72,6 +96,11 @@ namespace SAEA.FTP.Net
     /// </summary>
     public class FTPLocalException : IOException
     {
+        /// <summary>
+        /// 以错误描述与内部异常构造本地错误
+        /// </summary>
+        /// <param name="message">错误描述</param>
+        /// <param name="inner">内部异常</param>
         public FTPLocalException(string message, Exception inner)
             : base(message, inner)
         {

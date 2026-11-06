@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/09/27 17:50:27
+*修改时间：2026/11/6 12:52:28
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：FTPClient接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -57,20 +57,36 @@ namespace SAEA.FTP
 
         bool _disposed;
 
+        /// <summary>
+        /// 控制连接建立并完成登录后触发
+        /// </summary>
         public event Action OnConnected;
 
+        /// <summary>
+        /// 控制连接关闭后触发
+        /// </summary>
         public event Action Ondisconnected;
 
+        /// <summary>
+        /// 当前客户端配置
+        /// </summary>
         public ClientConfig Config
         {
             get { return _config; }
         }
 
+        /// <summary>
+        /// 控制连接是否处于已连接状态
+        /// </summary>
         public bool Connected
         {
             get { return _control != null && _control.Connected; }
         }
 
+        /// <summary>
+        /// 以现有配置创建客户端
+        /// </summary>
+        /// <param name="config">客户端配置，其中 IP 与端口必须有效</param>
         public FTPClient(ClientConfig config)
         {
             if (config == null) throw new ArgumentNullException(nameof(config));
@@ -82,6 +98,14 @@ namespace SAEA.FTP
             if (_config.Port <= 0) throw new ArgumentException("FTP server port is required.", nameof(config));
         }
 
+        /// <summary>
+        /// 以服务器地址与登录凭据创建客户端
+        /// </summary>
+        /// <param name="ip">服务器 IP 地址</param>
+        /// <param name="port">服务器控制端口</param>
+        /// <param name="userName">登录用户名</param>
+        /// <param name="password">登录密码</param>
+        /// <param name="bufferSize">收发缓冲区大小，0 表示使用默认 64KB</param>
         public FTPClient(string ip, int port, string userName, string password, int bufferSize = 0)
             : this(new ClientConfig()
             {
@@ -96,6 +120,9 @@ namespace SAEA.FTP
 
         #region 连接与会话
 
+        /// <summary>
+        /// 建立控制连接并登录，已连接时直接返回；成功后触发 <see cref="OnConnected"/>
+        /// </summary>
         public void Connect()
         {
             lock (_syncRoot)
@@ -189,6 +216,9 @@ namespace SAEA.FTP
             return session;
         }
 
+        /// <summary>
+        /// 发送 NOOP 心跳命令保持连接；任何异常只记录日志，不向外抛出
+        /// </summary>
         public void Noop()
         {
             try
@@ -210,6 +240,8 @@ namespace SAEA.FTP
         /// <summary>
         /// 更改工作目录
         /// </summary>
+        /// <param name="pathName">远端目录路径，可为相对当前目录或绝对路径</param>
+        /// <returns>切换成功返回 true；目录不存在返回 false，其它错误码抛出异常</returns>
         public bool ChangeDir(string pathName)
         {
             EnsureConnected();
@@ -233,6 +265,7 @@ namespace SAEA.FTP
         /// <summary>
         /// 更改工作目录到父目录
         /// </summary>
+        /// <returns>切换成功返回 true；目录不存在返回 false，其它错误码抛出异常</returns>
         public bool ChangeToParentDir()
         {
             EnsureConnected();
@@ -256,6 +289,7 @@ namespace SAEA.FTP
         /// <summary>
         /// 返回当前工作目录
         /// </summary>
+        /// <returns>当前远端工作目录的虚拟路径，默认根目录 /</returns>
         public string CurrentDir()
         {
             EnsureConnected();
@@ -283,8 +317,11 @@ namespace SAEA.FTP
         }
 
         /// <summary>
-        /// 返回指定路径下的子目录及文件列表，默认为当前工作地址
+        /// 获取指定路径下的目录与文件列表，返回未过滤点目录项的原始列表文本
         /// </summary>
+        /// <param name="pathName">目标远端路径，默认根目录 /</param>
+        /// <param name="dirType">列表命令类型，默认使用 MLSD</param>
+        /// <returns>列表行文本集合；目录为空返回空集合，路径不存在且切换目录也失败时返回 null</returns>
         public List<string> Dir(string pathName = "/", DirType dirType = DirType.MLSD)
         {
             EnsureConnected();
@@ -342,6 +379,10 @@ namespace SAEA.FTP
             return new List<string>(text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries));
         }
 
+        /// <summary>
+        /// 创建远端目录，失败时抛 <see cref="FTPCommandException"/>
+        /// </summary>
+        /// <param name="pathName">要创建的远端目录路径</param>
         public void MakeDir(string pathName)
         {
             EnsureConnected();
@@ -354,6 +395,10 @@ namespace SAEA.FTP
             }
         }
 
+        /// <summary>
+        /// 删除远端目录，失败时抛 <see cref="FTPCommandException"/>
+        /// </summary>
+        /// <param name="pathName">要删除的远端目录路径</param>
         public void RemoveDir(string pathName)
         {
             EnsureConnected();
@@ -366,6 +411,11 @@ namespace SAEA.FTP
             }
         }
 
+        /// <summary>
+        /// 重命名远端文件或目录，先发 RNFR 再发 RNTO，任一步失败抛 <see cref="FTPCommandException"/>
+        /// </summary>
+        /// <param name="oldName">原路径</param>
+        /// <param name="newName">新路径</param>
         public void Rename(string oldName, string newName)
         {
             EnsureConnected();
@@ -385,6 +435,10 @@ namespace SAEA.FTP
             }
         }
 
+        /// <summary>
+        /// 删除远端文件，失败时抛 <see cref="FTPCommandException"/>
+        /// </summary>
+        /// <param name="fileName">要删除的远端文件路径</param>
         public void Delete(string fileName)
         {
             EnsureConnected();
@@ -397,6 +451,11 @@ namespace SAEA.FTP
             }
         }
 
+        /// <summary>
+        /// 获取远端文件长度
+        /// </summary>
+        /// <param name="fileName">远端文件路径</param>
+        /// <returns>文件长度，单位字节；文件不存在或服务器不支持探测时抛 <see cref="FTPCommandException"/></returns>
         public long FileSize(string fileName)
         {
             EnsureConnected();
@@ -517,6 +576,8 @@ namespace SAEA.FTP
         /// <summary>
         /// 上传文件（兼容旧签名）。同名冲突默认跳过；传输失败时抛异常。
         /// </summary>
+        /// <param name="filePath">待上传的本地文件路径</param>
+        /// <param name="uploading">进度回调，参数为已传字节数与文件总字节数</param>
         public void Upload(string filePath, Action<long, long> uploading = null)
         {
             var result = Upload(filePath, (string)null, new FTPTransferOptions(), uploading);
@@ -532,6 +593,10 @@ namespace SAEA.FTP
         /// <summary>
         /// 上传文件，返回详细结果
         /// </summary>
+        /// <param name="filePath">待上传的本地文件路径</param>
+        /// <param name="options">传输选项，为 null 时使用默认选项</param>
+        /// <param name="uploading">进度回调，参数为已传字节数与文件总字节数</param>
+        /// <returns>传输结果，含状态、实际路径与已传字节数</returns>
         public FTPTransferResult Upload(string filePath, FTPTransferOptions options, Action<long, long> uploading = null)
         {
             return Upload(filePath, (string)null, options, uploading);
@@ -540,6 +605,11 @@ namespace SAEA.FTP
         /// <summary>
         /// 上传文件到指定远端文件名，返回详细结果
         /// </summary>
+        /// <param name="filePath">待上传的本地文件路径</param>
+        /// <param name="remoteFileName">远端文件名或相对路径，为空时使用本地文件名并传到当前目录</param>
+        /// <param name="options">传输选项，为 null 时使用默认选项</param>
+        /// <param name="uploading">进度回调，参数为已传字节数与文件总字节数</param>
+        /// <returns>传输结果，含状态、实际路径与已传字节数</returns>
         public FTPTransferResult Upload(string filePath, string remoteFileName, FTPTransferOptions options, Action<long, long> uploading = null)
         {
             if (string.IsNullOrEmpty(filePath)) throw new ArgumentNullException(nameof(filePath));
@@ -1194,6 +1264,10 @@ namespace SAEA.FTP
         /// <summary>
         /// 下载文件（兼容旧签名）。同名冲突默认跳过；跳过或失败返回 null。
         /// </summary>
+        /// <param name="fileName">远端文件路径，相对路径按当前工作目录解析</param>
+        /// <param name="filePath">本地保存路径</param>
+        /// <param name="downing">进度回调，参数为已收字节数与文件总字节数</param>
+        /// <returns>实际写入的本地文件路径；被跳过或传输失败时返回 null</returns>
         public string Download(string fileName, string filePath, Action<long, long> downing = null)
         {
             var result = Download(fileName, filePath, new FTPTransferOptions(), downing);
@@ -1208,6 +1282,11 @@ namespace SAEA.FTP
         /// <summary>
         /// 下载文件，返回详细结果
         /// </summary>
+        /// <param name="fileName">远端文件路径，相对路径按当前工作目录解析</param>
+        /// <param name="filePath">本地保存路径，冲突改名时实际路径见结果的 LocalPath</param>
+        /// <param name="options">传输选项，为 null 时使用默认选项</param>
+        /// <param name="downing">进度回调，参数为已收字节数与文件总字节数</param>
+        /// <returns>传输结果，含状态、实际路径与已收字节数</returns>
         public FTPTransferResult Download(string fileName, string filePath, FTPTransferOptions options, Action<long, long> downing = null)
         {
             if (string.IsNullOrEmpty(fileName)) throw new ArgumentNullException(nameof(fileName));
@@ -2481,6 +2560,9 @@ namespace SAEA.FTP
 
         #region 生命周期
 
+        /// <summary>
+        /// 发送 QUIT 并关闭控制连接，随后触发 <see cref="Ondisconnected"/>，实例不可再复用
+        /// </summary>
         public void Quit()
         {
             var control = _control;
@@ -2504,6 +2586,9 @@ namespace SAEA.FTP
             _disposed = true;
         }
 
+        /// <summary>
+        /// 释放客户端，内部调用 <see cref="Quit"/>，可重复调用
+        /// </summary>
         public void Dispose()
         {
             if (_disposed) return;

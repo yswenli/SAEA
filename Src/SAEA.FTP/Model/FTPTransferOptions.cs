@@ -24,7 +24,13 @@ namespace SAEA.FTP
     /// </summary>
     public enum FTPTransferDirection
     {
+        /// <summary>
+        /// 本地到远端的上传
+        /// </summary>
         Upload,
+        /// <summary>
+        /// 远端到本地的下载
+        /// </summary>
         Download
     }
 
@@ -52,9 +58,21 @@ namespace SAEA.FTP
     /// </summary>
     public enum FTPTransferStatus
     {
+        /// <summary>
+        /// 传输完成
+        /// </summary>
         Completed,
+        /// <summary>
+        /// 因同名冲突被跳过，未做传输
+        /// </summary>
         Skipped,
+        /// <summary>
+        /// 因同名冲突改名后完成传输
+        /// </summary>
         Renamed,
+        /// <summary>
+        /// 传输失败
+        /// </summary>
         Failed
     }
 
@@ -63,10 +81,19 @@ namespace SAEA.FTP
     /// </summary>
     public sealed class FTPConflictContext
     {
+        /// <summary>
+        /// 本次传输方向
+        /// </summary>
         public FTPTransferDirection Direction { get; set; }
 
+        /// <summary>
+        /// 本地文件路径；上传时为源文件，下载时为目标文件
+        /// </summary>
         public string LocalPath { get; set; }
 
+        /// <summary>
+        /// 远端文件路径
+        /// </summary>
         public string RemotePath { get; set; }
 
         /// <summary>
@@ -79,10 +106,19 @@ namespace SAEA.FTP
         /// </summary>
         public bool ExistsUnknown { get; set; }
 
+        /// <summary>
+        /// 本地已存在文件的大小，单位字节；无法获取时为 null
+        /// </summary>
         public long? LocalSize { get; set; }
 
+        /// <summary>
+        /// 远端文件大小，单位字节；探测失败时为 null
+        /// </summary>
         public long? RemoteSize { get; set; }
 
+        /// <summary>
+        /// 远端文件最后修改时间；探测失败时为 null
+        /// </summary>
         public DateTime? RemoteModified { get; set; }
 
         /// <summary>
@@ -96,6 +132,9 @@ namespace SAEA.FTP
     /// </summary>
     public sealed class FTPConflictResult
     {
+        /// <summary>
+        /// 冲突处理动作，默认跳过；绝不静默覆盖
+        /// </summary>
         public FTPConflictAction Action { get; set; } = FTPConflictAction.Skip;
 
         /// <summary>
@@ -109,12 +148,24 @@ namespace SAEA.FTP
     /// </summary>
     public sealed class FTPTransferResult
     {
+        /// <summary>
+        /// 传输结果状态
+        /// </summary>
         public FTPTransferStatus Status { get; set; }
 
+        /// <summary>
+        /// 实际写入的本地文件路径；改名处理时为改名后的路径
+        /// </summary>
         public string LocalPath { get; set; }
 
+        /// <summary>
+        /// 实际使用的远端文件路径；改名处理时为改名后的路径
+        /// </summary>
         public string RemotePath { get; set; }
 
+        /// <summary>
+        /// 传输的数据字节数；完成时为文件总长度，失败时为已传字节数，跳过时为 0
+        /// </summary>
         public long BytesTransferred { get; set; }
 
         /// <summary>
@@ -132,8 +183,14 @@ namespace SAEA.FTP
         /// </summary>
         public bool Resumed { get; set; }
 
+        /// <summary>
+        /// 实际采用的冲突处理动作；未发生同名冲突时为 null
+        /// </summary>
         public FTPConflictAction? ConflictAction { get; set; }
 
+        /// <summary>
+        /// 失败时的异常，成功或跳过时为 null
+        /// </summary>
         public Exception Error { get; set; }
     }
 
@@ -167,8 +224,14 @@ namespace SAEA.FTP
         /// </summary>
         public int BufferSize { get; set; } = 0;
 
+        /// <summary>
+        /// 传输缓冲区下限，单位字节；小于该值按该值使用
+        /// </summary>
         public int MinBufferSize { get; set; } = 16 * 1024;
 
+        /// <summary>
+        /// 传输缓冲区上限，单位字节；大于该值按该值使用
+        /// </summary>
         public int MaxBufferSize { get; set; } = 1024 * 1024;
 
         /// <summary>

@@ -23,16 +23,19 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/11 17:53:24
+*修改时间：2026/11/6 12:52:28
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：FTPClientConfigManager接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
 
 namespace SAEA.FTP.Core
 {
+    /// <summary>
+    /// 客户端配置读写管理，配置文件位于 Configs/FTPClient.config
+    /// </summary>
     public static class FTPClientConfigManager
     {
         static ClientConfig _config;
@@ -46,6 +49,10 @@ namespace SAEA.FTP.Core
         }
 
 
+        /// <summary>
+        /// 读取客户端配置，文件不存在时返回默认配置
+        /// </summary>
+        /// <returns>客户端配置，不会为 null</returns>
         public static ClientConfig Get()
         {
             var cc = _configHelper.Read();
@@ -58,6 +65,13 @@ namespace SAEA.FTP.Core
             return cc;
         }
 
+        /// <summary>
+        /// 使用指定服务器地址与凭据更新当前配置并写入配置文件，须先调用 <see cref="Get"/> 载入配置
+        /// </summary>
+        /// <param name="ip">服务器 IP 地址</param>
+        /// <param name="port">服务器控制端口</param>
+        /// <param name="userName">登录用户名</param>
+        /// <param name="password">登录密码</param>
         public static void Set(string ip, int port, string userName, string password)
         {
             _config.IP = ip;

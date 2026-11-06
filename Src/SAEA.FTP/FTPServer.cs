@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/09/27 17:50:27
+*修改时间：2026/11/6 12:52:28
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：FTPServer服务端类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -46,6 +46,9 @@ using System.Threading.Tasks;
 
 namespace SAEA.FTP
 {
+    /// <summary>
+    /// 轻量 FTP 服务端，支持被动模式数据连接、断点续传与同名覆盖策略
+    /// </summary>
     public class FTPServer : IDisposable
     {
         readonly ServerConfig _serverConfig;
@@ -62,13 +65,25 @@ namespace SAEA.FTP
 
         bool _running;
 
+        /// <summary>
+        /// 是否正在监听客户端连接
+        /// </summary>
         public bool Running
         {
             get { return _running; }
         }
 
+        /// <summary>
+        /// 服务端日志事件，参数为消息与异常，无异常时为 null
+        /// </summary>
         public event Action<string, Exception> OnLog;
 
+        /// <summary>
+        /// 基于全局配置创建服务端，参数非空/非 0 时覆盖对应配置并立即保存
+        /// </summary>
+        /// <param name="ip">监听地址，为空时沿用配置文件中的值</param>
+        /// <param name="port">监听端口，0 表示沿用配置文件中的值</param>
+        /// <param name="bufferSize">读写缓冲区大小，0 表示沿用配置文件中的值</param>
         public FTPServer(string ip, ushort port = 21, int bufferSize = 0)
         {
             _serverConfig = FTPServerConfigManager.Get();
@@ -85,6 +100,7 @@ namespace SAEA.FTP
         /// <summary>
         /// 使用显式配置创建服务端（不读写全局配置文件）
         /// </summary>
+        /// <param name="config">服务端配置</param>
         public FTPServer(ServerConfig config)
         {
             if (config == null) throw new ArgumentNullException(nameof(config));
@@ -102,6 +118,9 @@ namespace SAEA.FTP
 
         #region 生命周期
 
+        /// <summary>
+        /// 开始监听客户端连接，已在运行时直接返回
+        /// </summary>
         public void Start()
         {
             if (_running) return;
@@ -126,6 +145,9 @@ namespace SAEA.FTP
             _acceptTask = Task.Run(() => AcceptLoop(token));
         }
 
+        /// <summary>
+        /// 停止监听并关闭全部现存会话，未运行时直接返回
+        /// </summary>
         public void Stop()
         {
             if (!_running) return;
@@ -180,6 +202,9 @@ namespace SAEA.FTP
             }
         }
 
+        /// <summary>
+        /// 停止服务端并释放监听器，可重复调用
+        /// </summary>
         public void Dispose()
         {
             Stop();

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/09/27 17:50:27
+*修改时间：2026/11/6 12:52:28
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：FTPStream流类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -35,6 +35,9 @@ using System.Text;
 
 namespace SAEA.FTP.Core
 {
+    /// <summary>
+    /// FTP 命令字节缓冲，按 CRLF 切分出完整文本行，内部加锁保证线程安全
+    /// </summary>
     public class FTPStream
     {
 
@@ -42,13 +45,24 @@ namespace SAEA.FTP.Core
 
         List<byte> _cache = new List<byte>();
 
+        /// <summary>
+        /// 创建空缓冲
+        /// </summary>
         public FTPStream() { }
 
+        /// <summary>
+        /// 用初始数据创建缓冲
+        /// </summary>
+        /// <param name="data">初始数据</param>
         public FTPStream(byte[] data)
         {
             _cache.AddRange(data);
         }
 
+        /// <summary>
+        /// 追加数据到缓冲末尾
+        /// </summary>
+        /// <param name="data">要追加的数据</param>
         public void Write(byte[] data)
         {
             lock (_locker)
@@ -57,6 +71,11 @@ namespace SAEA.FTP.Core
             }
         }
 
+        /// <summary>
+        /// 读取并移除缓冲区前 len 字节，缓冲不足时抛出越界异常
+        /// </summary>
+        /// <param name="len">要读取的字节数</param>
+        /// <returns>读取到的字节</returns>
         public byte[] Read(int len)
         {
             lock (_locker)
@@ -74,6 +93,10 @@ namespace SAEA.FTP.Core
             }
         }
 
+        /// <summary>
+        /// 取出一整行（含结尾 CRLF），使用 UTF-8 解码
+        /// </summary>
+        /// <returns>完整文本行；尚未收到 CRLF 时返回 null</returns>
         public string ReadLine()
         {
             lock (_locker)
@@ -101,6 +124,10 @@ namespace SAEA.FTP.Core
             }
         }
 
+        /// <summary>
+        /// 拼接取出当前缓冲内所有完整行
+        /// </summary>
+        /// <returns>各完整行拼接后的文本；没有完整行时返回空字符串</returns>
         public string ReadText()
         {
             StringBuilder sb = new StringBuilder();
@@ -126,6 +153,9 @@ namespace SAEA.FTP.Core
         }
 
 
+        /// <summary>
+        /// 清空缓冲区
+        /// </summary>
         public void Clear()
         {
             lock (_locker)

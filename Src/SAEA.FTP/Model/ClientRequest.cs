@@ -23,20 +23,34 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/12 10:35:26
+*修改时间：2026/11/6 12:52:28
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ClientRequest接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.FTP.Model
 {
+    /// <summary>
+    /// FTP 控制命令请求，拆分为命令字与参数
+    /// </summary>
     public class ClientRequest
     {
+        /// <summary>
+        /// 命令字，如 USER、RETR
+        /// </summary>
         public string Cmd { get; set; }
 
+        /// <summary>
+        /// 命令参数；命令不带参数时为 null
+        /// </summary>
         public string Arg { get; set; }
 
+        /// <summary>
+        /// 解析一行控制命令，空格位于下标 2 之后才按「命令 + 参数」拆分，否则整行作为命令字
+        /// </summary>
+        /// <param name="msg">一行原始命令文本</param>
+        /// <returns>解析结果；输入为空或空白时返回 null</returns>
         public static ClientRequest Parse(string msg)
         {
             ClientRequest result = null;

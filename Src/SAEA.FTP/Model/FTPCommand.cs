@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/08 09:18:57
+*修改时间：2026/11/6 12:52:28
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：FTPCommand类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -36,8 +36,7 @@ using System.Text;
 namespace SAEA.FTP.Model
 {
     /// <summary>
-    /// FTPCommand,
-    /// http://mina.apache.org/ftpserver-project/ftpserver_commands.html
+    /// FTP 控制命令枚举，成员名即发送给服务器的命令字，数值仅用于区分
     /// </summary>
     public enum FTPCommand
     {

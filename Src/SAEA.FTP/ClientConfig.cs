@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/09/27 17:50:27
+*修改时间：2026/11/6 12:52:28
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ClientConfig接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -35,28 +35,46 @@ using System.Text;
 
 namespace SAEA.FTP
 {
+    /// <summary>
+    /// FTP 客户端配置：服务器地址、登录凭据、收发缓冲区与各类超时
+    /// </summary>
     public class ClientConfig
     {
+        /// <summary>
+        /// 服务器 IP 地址
+        /// </summary>
         public string IP
         {
             get; set;
         }
 
+        /// <summary>
+        /// 服务器控制端口
+        /// </summary>
         public int Port
         {
             get; set;
         }
 
+        /// <summary>
+        /// 登录用户名
+        /// </summary>
         public string UserName
         {
             get; set;
         }
 
+        /// <summary>
+        /// 登录密码
+        /// </summary>
         public string Password
         {
             get; set;
         }
 
+        /// <summary>
+        /// 收发缓冲区大小，单位字节，默认 64KB
+        /// </summary>
         public int BufferSize { get; set; } = 64 * 1024;
 
         /// <summary>

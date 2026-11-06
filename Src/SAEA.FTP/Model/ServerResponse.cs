@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/08 09:18:57
+*修改时间：2026/11/6 12:52:28
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ServerResponse类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -35,12 +35,26 @@ using System.Text;
 
 namespace SAEA.FTP.Model
 {
+    /// <summary>
+    /// 服务器单行响应，包含三位状态码与响应文本
+    /// </summary>
     public class ServerResponse
     {
+        /// <summary>
+        /// 三位响应码，取值含义见 <see cref="ServerResponseCode"/>
+        /// </summary>
         public int Code { get; set; }
 
+        /// <summary>
+        /// 响应文本，即状态码与其后空格之后的内容
+        /// </summary>
         public string Reply { get; set; }
 
+        /// <summary>
+        /// 解析一行服务器响应，按前三字符取状态码、第五字符起取文本
+        /// </summary>
+        /// <param name="str">一行原始响应文本</param>
+        /// <returns>解析后的响应对象</returns>
         public static ServerResponse Parse(string str)
         {
             try

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/11/08 09:18:57
+*修改时间：2026/11/6 12:52:28
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：FTPDataManager管理类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -40,6 +40,9 @@ using System.Text;
 
 namespace SAEA.FTP.Core
 {
+    /// <summary>
+    /// 服务端数据通道的接收缓冲：文件传输时落盘到临时文件，目录列表时缓存在内存
+    /// </summary>
     public class FTPDataManager
     {
         #region dowload file
@@ -48,6 +51,10 @@ namespace SAEA.FTP.Core
 
         string _filePath = string.Empty;
 
+        /// <summary>
+        /// 开始接收一个上传文件，创建临时文件并将后续数据写入其中
+        /// </summary>
+        /// <param name="filePath">接收完成后临时文件移动到的目标文件路径</param>
         public void New(string filePath)
         {
             _tempPath = PathHelper.GetFilePath(PathHelper.GetCurrentPath("Data"), Guid.NewGuid().ToString("N") + ".temp");
@@ -61,6 +68,10 @@ namespace SAEA.FTP.Core
             _list = new List<byte>();
         }
 
+        /// <summary>
+        /// 追加接收一段数据；文件模式写入临时文件，目录列表模式追加到内存，空数据直接忽略
+        /// </summary>
+        /// <param name="data">本次收到的数据</param>
         public void Receive(byte[] data)
         {
 
@@ -109,6 +120,9 @@ namespace SAEA.FTP.Core
             FileComplete();
         }
 
+        /// <summary>
+        /// 把临时文件移动到目标路径；目标已存在时抛 <see cref="IOException"/>
+        /// </summary>
         public void FileComplete()
         {
             File.Move(_tempPath, _filePath);
@@ -119,6 +133,9 @@ namespace SAEA.FTP.Core
 
         List<byte> _list = null;
 
+        /// <summary>
+        /// 切换到目录列表模式并清空内存缓存
+        /// </summary>
         public void Refresh()
         {
             this.IsFile = false;
@@ -128,10 +145,17 @@ namespace SAEA.FTP.Core
             _list = new List<byte>();
         }
 
+        /// <summary>
+        /// 通知数据接收完成，目前无附加处理
+        /// </summary>
         public void NoticeComplete()
         {
         }
 
+        /// <summary>
+        /// 阻塞读取当前缓存的全部内容，缓存为空时每 500 毫秒轮询一次
+        /// </summary>
+        /// <returns>按 UTF-8 解码的缓存文本</returns>
         public string ReadAllText()
         {
             while (_list.Count < 1)
@@ -143,6 +167,9 @@ namespace SAEA.FTP.Core
 
         #endregion
 
+        /// <summary>
+        /// 是否按文件方式接收；为 false 时数据缓存在内存
+        /// </summary>
         public bool IsFile { get; set; } = false;
     }
 }

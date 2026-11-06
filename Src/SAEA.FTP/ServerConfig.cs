@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/09/27 17:50:27
+*修改时间：2026/11/6 12:52:28
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ServerConfig接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.FTP.Model;
@@ -54,15 +54,27 @@ namespace SAEA.FTP
         Rename
     }
 
+    /// <summary>
+    /// FTP 服务端配置：监听地址、端口、缓冲区、被动端口范围、覆盖策略与账号表
+    /// </summary>
     public class ServerConfig
     {
+        /// <summary>
+        /// 服务端监听地址，默认 127.0.0.1
+        /// </summary>
         public string IP { get; set; } = "127.0.0.1";
 
+        /// <summary>
+        /// 控制连接监听端口，默认 21
+        /// </summary>
         public ushort Port
         {
             get; set;
         } = 21;
 
+        /// <summary>
+        /// 数据收发缓冲区大小，单位字节，默认 64KB
+        /// </summary>
         public int BufferSize { get; set; } = 64 * 1024;
 
         /// <summary>
@@ -70,6 +82,9 @@ namespace SAEA.FTP
         /// </summary>
         public ushort PassivePortMin { get; set; } = 0;
 
+        /// <summary>
+        /// 被动模式端口范围上限；小于下限或为 0 时由系统分配
+        /// </summary>
         public ushort PassivePortMax { get; set; } = 0;
 
         /// <summary>
@@ -82,8 +97,14 @@ namespace SAEA.FTP
         /// </summary>
         public TimeSpan DataTimeout { get; set; } = TimeSpan.FromSeconds(60);
 
+        /// <summary>
+        /// 收到 STOR 且目标已存在时的处理策略，默认覆盖
+        /// </summary>
         public FTPOverwritePolicy OverwritePolicy { get; set; } = FTPOverwritePolicy.Overwrite;
 
+        /// <summary>
+        /// 账号表，键为账号名称
+        /// </summary>
         public ConcurrentDictionary<string, FTPUser> Users { get; set; } = new ConcurrentDictionary<string, FTPUser>();
     }
 }
