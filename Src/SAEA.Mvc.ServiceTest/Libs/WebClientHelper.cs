@@ -24,8 +24,16 @@ using System.Text;
 
 namespace SAEA.RESTED.Libs
 {
+    /// <summary>
+    /// 简易 HTTP 客户端助手，忽略服务端证书校验，异常时以异常消息作为返回值
+    /// </summary>
     public class WebClientHelper
     {
+        /// <summary>
+        /// 以 GET 方式请求地址并返回响应文本
+        /// </summary>
+        /// <param name="url">目标地址</param>
+        /// <returns>UTF-8 解码的响应正文，请求失败时为异常消息</returns>
         public static string Get(string url)
         {
             try
@@ -49,6 +57,12 @@ namespace SAEA.RESTED.Libs
             }
         }
 
+        /// <summary>
+        /// 以 POST 方式提交 JSON 请求体并返回响应文本
+        /// </summary>
+        /// <param name="url">目标地址</param>
+        /// <param name="json">按 UTF-8 编码写入的请求体</param>
+        /// <returns>UTF-8 解码的响应正文，请求失败时为异常消息</returns>
         public static string Post(string url, string json)
         {
             try

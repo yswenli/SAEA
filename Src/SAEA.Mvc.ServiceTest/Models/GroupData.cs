@@ -20,19 +20,31 @@ using System.Collections.Generic;
 
 namespace SAEA.RESTED.Models
 {
+    /// <summary>
+    /// 接口分组，包含分组名称与其下的接口条目集合
+    /// </summary>
     public class GroupData
     {
+        /// <summary>
+        /// 分组编号，由 Guid 生成的 32 位字符串
+        /// </summary>
         public string GroupID
         {
             get; set;
         }
 
 
+        /// <summary>
+        /// 分组显示名称
+        /// </summary>
         public string GroupName
         {
             get; set;
         }
 
+        /// <summary>
+        /// 分组下的接口条目，默认初始化为空集合
+        /// </summary>
         public List<ListItem> List
         {
             get; set;

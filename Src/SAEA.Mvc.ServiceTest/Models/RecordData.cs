@@ -19,8 +19,14 @@ using System.Collections.Generic;
 
 namespace SAEA.RESTED.Models
 {
+    /// <summary>
+    /// 整份接口数据，是导出与导入文件的结构根
+    /// </summary>
     public class RecordData
     {
+        /// <summary>
+        /// 全部分组，默认初始化为空集合
+        /// </summary>
         public List<GroupData> Groups
         {
             get; set;

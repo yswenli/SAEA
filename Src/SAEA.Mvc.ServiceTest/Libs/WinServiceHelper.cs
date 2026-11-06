@@ -107,7 +107,8 @@ namespace SAEA.Mvc.ServiceTest.Libs
         /// <summary>
         ///     判断某个Windows服务是否运行
         /// </summary>
-        /// <returns></returns>
+        /// <param name="serviceName">Windows 服务名称，需与本机注册的服务名一致</param>
+        /// <returns>服务未处于 Stopped 状态时返回 true；服务不存在时抛出异常</returns>
         public static bool IsStarted(string serviceName)
         {
             var psc = new ServiceController(serviceName);
