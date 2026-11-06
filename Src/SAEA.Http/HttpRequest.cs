@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:29
+*修改时间：2026/11/6 13:23:31
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：补齐英文与乱码注释的中文说明
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -130,7 +130,7 @@ namespace SAEA.Http
         }
 
         /// <summary>
-        /// contruct
+        /// 创建空实例，供连接复用时重置状态
         /// </summary>
         internal HttpRequest()
         {
@@ -140,10 +140,10 @@ namespace SAEA.Http
         HttpMessage _httpMessage;
 
         /// <summary>
-        /// init
+        /// 用底层 HTTP 消息初始化请求对象
         /// </summary>
         /// <param name="userToken"></param>
-        /// <param name="httpMessage"></param>
+        /// <param name="httpMessage">解析后的 HTTP 消息</param>
         internal void Init(HttpMessage httpMessage)
         {
             _httpMessage = httpMessage;

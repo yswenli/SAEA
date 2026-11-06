@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/04/17 18:23:22
+*修改时间：2026/11/6 13:23:31
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：HttpSessionManager接口
+*版本号： v26.11.5.1
+*描述：补齐英文与乱码注释的中文说明
 *
 *****************************************************************************/
 using System;
@@ -39,7 +39,7 @@ using SAEA.Common.Threading;
 namespace SAEA.Http
 {
     /// <summary>
-    /// SessionManager
+    /// HTTP 会话管理器，负责会话的创建与过期清理
     /// </summary>
     internal static class HttpSessionManager
     {
@@ -48,7 +48,7 @@ namespace SAEA.Http
         static Random _random = new Random();
 
         /// <summary>
-        /// SessionManager
+        /// 静态构造函数，启动过期会话的定期清理任务
         /// </summary>
         static HttpSessionManager()
         {
