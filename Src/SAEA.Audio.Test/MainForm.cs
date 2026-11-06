@@ -5,8 +5,14 @@ using SAEA.Audio.Storage;
 
 namespace SAEA.Audio.Test
 {
+    /// <summary>
+    /// 音频聊天演示窗体：按钮分别启动内嵌音频服务器与两个加入同一频道的客户端
+    /// </summary>
     public partial class MainForm : Form
     {
+        /// <summary>
+        /// 初始化窗体控件
+        /// </summary>
         public MainForm()
         {
             InitializeComponent();
