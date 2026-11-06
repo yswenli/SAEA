@@ -23,18 +23,25 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ICertificateProvider接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.Security.Cryptography.X509Certificates;
 
 namespace SAEA.MQTT.Certificates
 {
+    /// <summary>
+    /// 客户端证书提供器
+    /// </summary>
     public interface ICertificateProvider
     {
+        /// <summary>
+        /// 获取用于TLS握手的客户端证书
+        /// </summary>
+        /// <returns>客户端证书实例</returns>
         X509Certificate2 GetCertificate();
     }
 }

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttV310PacketFormatter类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -39,6 +39,9 @@ using SAEA.MQTT.Protocol;
 
 namespace SAEA.MQTT.Formatter.V3
 {
+    /// <summary>
+    /// MQTT 3.1.0 报文编解码器，负责各控制报文的编码与解码
+    /// </summary>
     public class MqttV310PacketFormatter : IMqttPacketFormatter
     {
         const int FixedHeaderSize = 1;
@@ -49,13 +52,25 @@ namespace SAEA.MQTT.Formatter.V3
 
         readonly IMqttPacketWriter _packetWriter;
 
+        /// <summary>
+        /// 绑定报文写入器
+        /// </summary>
+        /// <param name="packetWriter">报文写入器，编码结果写入其内部缓冲区</param>
         public MqttV310PacketFormatter(IMqttPacketWriter packetWriter)
         {
             _packetWriter = packetWriter;
         }
 
+        /// <summary>
+        /// MQTT 3.1.0 的数据转换器
+        /// </summary>
         public IMqttDataConverter DataConverter { get; } = new MqttV310DataConverter();
 
+        /// <summary>
+        /// 编码报文，先在缓冲区前部预留 5 字节固定头空间，写完后回填固定头
+        /// </summary>
+        /// <param name="packet">待编码的报文，不能为 null</param>
+        /// <returns>编码结果片段，指向写入器内部缓冲区，仅在调用 FreeBuffer 之前有效</returns>
         public ArraySegment<byte> Encode(MqttBasePacket packet)
         {
             if (packet == null) throw new ArgumentNullException(nameof(packet));
@@ -82,6 +97,11 @@ namespace SAEA.MQTT.Formatter.V3
             return new ArraySegment<byte>(buffer, headerOffset, _packetWriter.Length - headerOffset);
         }
 
+        /// <summary>
+        /// 按固定头中的报文类型分发解码，报文类型非法或不受支持时抛出协议违规异常
+        /// </summary>
+        /// <param name="receivedMqttPacket">已解析固定头的原始报文，不能为 null</param>
+        /// <returns>解码后的报文</returns>
         public MqttBasePacket Decode(ReceivedMqttPacket receivedMqttPacket)
         {
             if (receivedMqttPacket == null) throw new ArgumentNullException(nameof(receivedMqttPacket));
@@ -113,6 +133,9 @@ namespace SAEA.MQTT.Formatter.V3
             }
         }
 
+        /// <summary>
+        /// 释放写入器的编码缓冲区
+        /// </summary>
         public void FreeBuffer()
         {
             _packetWriter.FreeBuffer();
@@ -342,6 +365,11 @@ namespace SAEA.MQTT.Formatter.V3
             return packet;
         }
 
+        /// <summary>
+        /// 解码 CONNACK 报文，忽略保留字节并读取返回码
+        /// </summary>
+        /// <param name="body">报文体读取器</param>
+        /// <returns>CONNACK 报文</returns>
         protected virtual MqttBasePacket DecodeConnAckPacket(IMqttPacketBodyReader body)
         {
             ThrowIfBodyIsEmpty(body);
@@ -354,6 +382,10 @@ namespace SAEA.MQTT.Formatter.V3
             return packet;
         }
 
+        /// <summary>
+        /// 校验 CONNECT 报文，客户端标识为空时必须清除会话
+        /// </summary>
+        /// <param name="packet">待校验的 CONNECT 报文，不能为 null</param>
         protected void ValidateConnectPacket(MqttConnectPacket packet)
         {
             if (packet == null) throw new ArgumentNullException(nameof(packet));
@@ -373,6 +405,12 @@ namespace SAEA.MQTT.Formatter.V3
             }
         }
 
+        /// <summary>
+        /// 编码 CONNECT 报文，协议名固定为 MQIsdp、协议级别固定为 3，只设置用户名时不允许携带密码
+        /// </summary>
+        /// <param name="packet">待编码的 CONNECT 报文</param>
+        /// <param name="packetWriter">报文写入器</param>
+        /// <returns>固定头首字节</returns>
         protected virtual byte EncodeConnectPacket(MqttConnectPacket packet, IMqttPacketWriter packetWriter)
         {
             ValidateConnectPacket(packet);
@@ -435,6 +473,12 @@ namespace SAEA.MQTT.Formatter.V3
             return MqttPacketWriter.BuildFixedHeader(MqttControlPacketType.Connect);
         }
 
+        /// <summary>
+        /// 编码 CONNACK 报文，写入保留字节与返回码
+        /// </summary>
+        /// <param name="packet">待编码的 CONNACK 报文</param>
+        /// <param name="packetWriter">报文写入器</param>
+        /// <returns>固定头首字节</returns>
         protected virtual byte EncodeConnAckPacket(MqttConnAckPacket packet, IMqttPacketWriter packetWriter)
         {
             packetWriter.Write(0); // Reserved.
@@ -617,6 +661,10 @@ namespace SAEA.MQTT.Formatter.V3
             return MqttPacketWriter.BuildFixedHeader(type);
         }
 
+        /// <summary>
+        /// 校验报文体可读，为 null 或长度为 0 时抛出协议违规异常
+        /// </summary>
+        /// <param name="body">报文体读取器</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected static void ThrowIfBodyIsEmpty(IMqttPacketBodyReader body)
         {

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttClient接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.MQTT.Adapter;
@@ -52,6 +52,9 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Client
 {
+    /// <summary>
+    /// MQTT 客户端实现，负责连接管理、报文收发、保活与主题别名处理
+    /// </summary>
     public class MqttClient : Disposable, IMqttClient
     {
         readonly MqttPacketIdentifierProvider _packetIdentifierProvider = new MqttPacketIdentifierProvider();
@@ -85,6 +88,11 @@ namespace SAEA.MQTT.Client
         SemaphoreSlim _publishQuota;
         CancellationTokenSource _publishQuotaCancellationTokenSource;
 
+        /// <summary>
+        /// 创建 MQTT 客户端
+        /// </summary>
+        /// <param name="channelFactory">客户端通道适配器工厂，不能为 null</param>
+        /// <param name="logger">日志记录器，不能为 null</param>
         public MqttClient(IMqttClientAdapterFactory channelFactory, IMqttNetLogger logger)
         {
             if (logger == null) throw new ArgumentNullException(nameof(logger));
@@ -93,16 +101,37 @@ namespace SAEA.MQTT.Client
             _logger = logger.CreateScopedLogger(nameof(MqttClient));
         }
 
+        /// <summary>
+        /// 连接建立后的回调处理器，null 表示不处理
+        /// </summary>
         public IMqttClientConnectedHandler ConnectedHandler { get; set; }
 
+        /// <summary>
+        /// 连接断开后的回调处理器，null 表示不处理
+        /// </summary>
         public IMqttClientDisconnectedHandler DisconnectedHandler { get; set; }
 
+        /// <summary>
+        /// 收到应用消息时的回调处理器，null 表示不处理
+        /// </summary>
         public IMqttApplicationMessageReceivedHandler ApplicationMessageReceivedHandler { get; set; }
 
+        /// <summary>
+        /// 是否已连接且未处于断开过程中
+        /// </summary>
         public bool IsConnected => _isConnected && Interlocked.Read(ref _isDisconnectPending) == 0;
 
+        /// <summary>
+        /// 最近一次 ConnectAsync 使用的选项，尚未调用过 ConnectAsync 时为 null
+        /// </summary>
         public IMqttClientOptions Options { get; private set; }
 
+        /// <summary>
+        /// 连接服务端并等待 CONNACK，成功后启动收包与保活任务
+        /// </summary>
+        /// <param name="options">连接选项，不能为 null 且必须设置 ChannelOptions</param>
+        /// <param name="cancellationToken">取消令牌，同时作用于连接建立与认证</param>
+        /// <returns>服务端返回的连接认证结果</returns>
         public async Task<MqttClientAuthenticateResult> ConnectAsync(IMqttClientOptions options, CancellationToken cancellationToken)
         {
             if (options == null) throw new ArgumentNullException(nameof(options));
@@ -214,6 +243,12 @@ namespace SAEA.MQTT.Client
             }
         }
 
+        /// <summary>
+        /// 发送 DISCONNECT 报文并释放连接资源；CONNECT 中会话过期时间为 0 时，此处传入非 0 值会抛出协议异常
+        /// </summary>
+        /// <param name="options">断开选项，不能为 null</param>
+        /// <param name="cancellationToken">取消令牌，仅作用于发送 DISCONNECT 报文</param>
+        /// <returns>断开完成的任务</returns>
         public async Task DisconnectAsync(MqttClientDisconnectOptions options, CancellationToken cancellationToken)
         {
             if (options is null) throw new ArgumentNullException(nameof(options));
@@ -249,11 +284,22 @@ namespace SAEA.MQTT.Client
             }
         }
 
+        /// <summary>
+        /// 发送 PINGREQ 并等待服务端的 PINGRESP
+        /// </summary>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>收到 PINGRESP 后完成的任务</returns>
         public Task PingAsync(CancellationToken cancellationToken)
         {
             return SendAndReceiveAsync<MqttPingRespPacket>(new MqttPingReqPacket(), cancellationToken);
         }
 
+        /// <summary>
+        /// 回复服务端的 AUTH 报文，认证方法沿用 CONNECT 中提交的值
+        /// </summary>
+        /// <param name="data">要发送的认证数据，不能为 null</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>报文发出后完成的任务</returns>
         public Task SendExtendedAuthenticationExchangeDataAsync(MqttExtendedAuthenticationExchangeData data, CancellationToken cancellationToken)
         {
             if (data == null) throw new ArgumentNullException(nameof(data));
@@ -274,6 +320,12 @@ namespace SAEA.MQTT.Client
             }, cancellationToken);
         }
 
+        /// <summary>
+        /// 发送 SUBSCRIBE 报文并等待 SUBACK
+        /// </summary>
+        /// <param name="options">订阅选项，不能为 null</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>包含各主题过滤器授权 QoS 的订阅结果</returns>
         public async Task<MqttClientSubscribeResult> SubscribeAsync(MqttClientSubscribeOptions options, CancellationToken cancellationToken)
         {
             if (options == null) throw new ArgumentNullException(nameof(options));
@@ -288,6 +340,12 @@ namespace SAEA.MQTT.Client
             return _adapter.PacketFormatterAdapter.DataConverter.CreateClientSubscribeResult(subscribePacket, subAckPacket);
         }
 
+        /// <summary>
+        /// 发送 UNSUBSCRIBE 报文并等待 UNSUBACK
+        /// </summary>
+        /// <param name="options">取消订阅选项，不能为 null</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>包含各主题过滤器处理结果的取消订阅结果</returns>
         public async Task<MqttClientUnsubscribeResult> UnsubscribeAsync(MqttClientUnsubscribeOptions options, CancellationToken cancellationToken)
         {
             if (options == null) throw new ArgumentNullException(nameof(options));
@@ -302,6 +360,12 @@ namespace SAEA.MQTT.Client
             return _adapter.PacketFormatterAdapter.DataConverter.CreateClientUnsubscribeResult(unsubscribePacket, unsubAckPacket);
         }
 
+        /// <summary>
+        /// 发布应用消息，按消息的 QoS 等级选择对应的确认流程，主题不合法时抛出协议异常
+        /// </summary>
+        /// <param name="applicationMessage">待发布的消息</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>发布结果；QoS 大于 0 时需先占用服务端协商的 Receive Maximum 配额</returns>
         public async Task<MqttClientPublishResult> PublishAsync(MqttApplicationMessage applicationMessage, CancellationToken cancellationToken)
         {
             MqttTopicValidator.ThrowIfInvalid(applicationMessage);
@@ -445,6 +509,10 @@ namespace SAEA.MQTT.Client
             }
         }
 
+        /// <summary>
+        /// 释放通道适配器、后台任务与内部队列
+        /// </summary>
+        /// <param name="disposing">true 表示由 Dispose() 主动调用，false 表示由终结器调用</param>
         protected override void Dispose(bool disposing)
         {
             if (disposing)

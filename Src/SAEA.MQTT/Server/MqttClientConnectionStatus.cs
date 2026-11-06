@@ -23,20 +23,32 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttClientConnectionStatus接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.MQTT.Server
 {
+    /// <summary>
+    /// 客户端连接状态，按连接对象的生命周期单向推进
+    /// </summary>
     public enum MqttClientConnectionStatus
     {
+        /// <summary>
+        /// 连接对象已创建，CONNACK 尚未发出
+        /// </summary>
         Initializing,
 
+        /// <summary>
+        /// 已发出 CONNACK 并进入收包循环
+        /// </summary>
         Running,
 
+        /// <summary>
+        /// 已请求停止，正在关闭通道并清理会话
+        /// </summary>
         Finalizing
     }
 }

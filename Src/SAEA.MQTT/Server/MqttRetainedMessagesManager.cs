@@ -22,10 +22,10 @@
  *
  *=====================================================================
  *修改标记
- *修改时间：2021/03/11 16:46:45
+ *修改时间：2026/11/6 12:04:26
  *修改人： yswenli
- *版本号： v26.4.23.1
- *描述：MqttRetainedMessagesManager接口
+ *版本号： v26.11.5.1
+ *描述：补全公开成员的 XML 注释
  *
  *****************************************************************************/
 using SAEA.MQTT.Diagnostics;
@@ -39,6 +39,9 @@ using SAEA.MQTT.Internal;
 
 namespace SAEA.MQTT.Server
 {
+    /// <summary>
+    /// 管理 retained 消息的内存表与持久化，按主题覆盖保存并在访问时惰性清理到期条目
+    /// </summary>
     public sealed class MqttRetainedMessagesManager : IMqttRetainedMessagesManager
     {
         readonly AsyncLock _storageAccessLock = new AsyncLock();
@@ -48,6 +51,12 @@ namespace SAEA.MQTT.Server
         IMqttServerOptions _options;
 
         // TODO: Get rid of the logger here!
+        /// <summary>
+        /// 注入服务端选项与日志器，完成使用前的初始化
+        /// </summary>
+        /// <param name="options">服务端选项，其中的存储实现决定是否持久化</param>
+        /// <param name="logger">日志器，不能为 null</param>
+        /// <returns>已完成的任务</returns>
         public Task Start(IMqttServerOptions options, IMqttNetLogger logger)
         {
             if (logger == null) throw new ArgumentNullException(nameof(logger));
@@ -57,6 +66,10 @@ namespace SAEA.MQTT.Server
             return PlatformAbstractionLayer.CompletedTask;
         }
 
+        /// <summary>
+        /// 从存储加载 retained 消息并重建内存表，未配置存储时直接返回
+        /// </summary>
+        /// <returns>加载完成的任务，存储异常只记录日志不抛出</returns>
         public async Task LoadMessagesAsync()
         {
             if (_options.Storage == null)
@@ -127,6 +140,12 @@ namespace SAEA.MQTT.Server
             }
         }
 
+        /// <summary>
+        /// 按主题写入或清除 retained 消息，仅在内容或到期时间变化时写回存储
+        /// </summary>
+        /// <param name="clientId">发布方客户端标识，仅用于日志</param>
+        /// <param name="applicationMessage">发布的应用消息，载荷为空的视作清除该主题的 retained 消息</param>
+        /// <returns>处理完成的任务，存储异常只记录日志不抛出</returns>
         public async Task HandleMessageAsync(string clientId, MqttApplicationMessage applicationMessage)
         {
             if (applicationMessage == null) throw new ArgumentNullException(nameof(applicationMessage));
@@ -197,12 +216,22 @@ namespace SAEA.MQTT.Server
             }
         }
 
+        /// <summary>
+        /// 获取与给定主题过滤器匹配的 retained 消息
+        /// </summary>
+        /// <param name="topicFilters">客户端订阅的主题过滤器集合</param>
+        /// <returns>匹配到的 retained 消息列表，无匹配时为空列表</returns>
         public async Task<IList<MqttApplicationMessage>> GetSubscribedMessagesAsync(ICollection<MqttTopicFilter> topicFilters)
         {
             var matchingEntries = await GetSubscribedMessageEntriesAsync(topicFilters).ConfigureAwait(false);
             return matchingEntries.Select(entry => entry.Message).ToList();
         }
 
+        /// <summary>
+        /// 获取与给定主题过滤器匹配的 retained 条目（含存留时间元数据），并清理已到期条目
+        /// </summary>
+        /// <param name="topicFilters">客户端订阅的主题过滤器集合，不能为 null</param>
+        /// <returns>匹配到的 retained 条目列表，同一主题只返回一次</returns>
         public async Task<IList<MqttRetainedMessageEntry>> GetSubscribedMessageEntriesAsync(ICollection<MqttTopicFilter> topicFilters)
         {
             if (topicFilters == null) throw new ArgumentNullException(nameof(topicFilters));
@@ -251,6 +280,10 @@ namespace SAEA.MQTT.Server
             return matchingRetainedMessages;
         }
 
+        /// <summary>
+        /// 获取全部未到期的 retained 消息，并清理已到期条目
+        /// </summary>
+        /// <returns>retained 消息列表，无消息时为空列表</returns>
         public async Task<IList<MqttApplicationMessage>> GetMessagesAsync()
         {
             var now = MqttTime.UtcNow;
@@ -281,6 +314,10 @@ namespace SAEA.MQTT.Server
             return messages;
         }
 
+        /// <summary>
+        /// 清空内存中的 retained 消息，配置了存储时同步写回空集合
+        /// </summary>
+        /// <returns>清空完成的任务</returns>
         public async Task ClearMessagesAsync()
         {
             lock (_messages)

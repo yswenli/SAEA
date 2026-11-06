@@ -23,22 +23,35 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttNetGlobalLogger类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
 
 namespace SAEA.MQTT.Diagnostics
 {
+    /// <summary>
+    /// 进程级全局日志出口，供所有日志记录器汇聚日志消息
+    /// </summary>
     public static class MqttNetGlobalLogger
     {
+        /// <summary>
+        /// 任一记录器向全局出口发布日志消息时触发
+        /// </summary>
         public static event EventHandler<MqttNetLogMessagePublishedEventArgs> LogMessagePublished;
 
+        /// <summary>
+        /// 是否存在全局日志监听器
+        /// </summary>
         public static bool HasListeners => LogMessagePublished != null;
 
+        /// <summary>
+        /// 向全局出口发布一条已组装的日志消息
+        /// </summary>
+        /// <param name="logMessage">待发布的日志消息，不能为 null</param>
         public static void Publish(MqttNetLogMessage logMessage)
         {
             if (logMessage == null) throw new ArgumentNullException(nameof(logMessage));

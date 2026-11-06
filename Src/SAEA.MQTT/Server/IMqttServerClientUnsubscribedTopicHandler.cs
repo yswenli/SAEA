@@ -23,18 +23,26 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：IMqttServerClientUnsubscribedTopicHandler接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Server
 {
+    /// <summary>
+    /// 客户端取消订阅成功后的回调处理器
+    /// </summary>
     public interface IMqttServerClientUnsubscribedTopicHandler
     {
+        /// <summary>
+        /// 处理客户端取消订阅事件，每个请求取消的主题触发一次
+        /// </summary>
+        /// <param name="eventArgs">事件参数，包含客户端标识与取消订阅的主题</param>
+        /// <returns>回调完成的任务</returns>
         Task HandleClientUnsubscribedTopicAsync(MqttServerClientUnsubscribedTopicEventArgs eventArgs);
     }
 }

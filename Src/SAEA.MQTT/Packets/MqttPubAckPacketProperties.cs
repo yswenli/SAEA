@@ -23,20 +23,29 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttPubAckPacketProperties接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.Collections.Generic;
 
 namespace SAEA.MQTT.Packets
 {
+    /// <summary>
+    /// PUBACK 报文的属性集合，均为 MQTT 5.0 新增
+    /// </summary>
     public sealed class MqttPubAckPacketProperties
     {
+        /// <summary>
+        /// 可读的原因描述
+        /// </summary>
         public string ReasonString { get; set; }
 
+        /// <summary>
+        /// 用户自定义属性
+        /// </summary>
         public List<MqttUserProperty> UserProperties { get; set; }
     }
 }

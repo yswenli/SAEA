@@ -23,16 +23,22 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：TargetFrameworkProvider接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.MQTT.Diagnostics
 {
+    /// <summary>
+    /// 提供当前编译目标框架的标识字符串
+    /// </summary>
     public static class TargetFrameworkProvider
     {
+        /// <summary>
+        /// 当前编译目标框架的短标识，未匹配到已知条件编译符号时为 null
+        /// </summary>
         public static string TargetFramework
         {
             get

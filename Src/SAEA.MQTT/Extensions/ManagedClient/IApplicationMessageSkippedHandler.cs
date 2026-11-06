@@ -23,18 +23,26 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：IApplicationMessageSkippedHandler接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Extensions.ManagedClient
 {
+    /// <summary>
+    /// 应用消息被跳过的处理器
+    /// </summary>
     public interface IApplicationMessageSkippedHandler
     {
+        /// <summary>
+        /// 处理应用消息被跳过事件
+        /// </summary>
+        /// <param name="eventArgs">被跳过消息的事件参数</param>
+        /// <returns>处理完成的异步任务</returns>
         Task HandleApplicationMessageSkippedAsync(ApplicationMessageSkippedEventArgs eventArgs);
     }
 }

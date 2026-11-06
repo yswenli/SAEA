@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttTcpServerListener接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.MQTT.Adapter;
@@ -47,6 +47,9 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Implementations
 {
+    /// <summary>
+    /// 单个 TCP 监听端点，绑定指定地址族与端口，接受连接后交给回调处理
+    /// </summary>
     public sealed class MqttTcpServerListener : IDisposable
     {
         readonly IMqttNetScopedLogger _logger;
@@ -61,6 +64,13 @@ namespace SAEA.MQTT.Implementations
 
         IServerSocket _serverSokcet;
 
+        /// <summary>
+        /// 创建监听端点，此时尚未绑定端口
+        /// </summary>
+        /// <param name="addressFamily">监听的地址族，IPv6 时使用选项中的 IPv6 绑定地址</param>
+        /// <param name="options">端点选项，提供绑定地址、端口与收发参数</param>
+        /// <param name="tlsCertificate">TLS 服务端证书，为null表示明文监听</param>
+        /// <param name="logger">根日志记录器，用于创建该端点的子日志记录器</param>
         public MqttTcpServerListener(
             AddressFamily addressFamily,
             MqttServerTcpEndpointBaseOptions options,
@@ -79,8 +89,17 @@ namespace SAEA.MQTT.Implementations
             }
         }
 
+        /// <summary>
+        /// 新连接接入时的处理回调，为null时连接被直接丢弃
+        /// </summary>
         public Func<IMqttChannelAdapter, Task> ClientHandler { get; set; }
 
+        /// <summary>
+        /// 绑定端口并开始接受连接
+        /// </summary>
+        /// <param name="treatErrorsAsWarning">为 true 时启动失败只记录警告并返回 false，为 false 时抛出异常</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>启动是否成功</returns>
         public bool Start(bool treatErrorsAsWarning, CancellationToken cancellationToken)
         {
             try
@@ -169,6 +188,9 @@ namespace SAEA.MQTT.Implementations
 
         }
 
+        /// <summary>
+        /// 释放监听套接字与持有的 TLS 证书
+        /// </summary>
         public void Dispose()
         {
             _serverSokcet?.Dispose();

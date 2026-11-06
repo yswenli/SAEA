@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttPacketWriter接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -38,17 +38,21 @@ using SAEA.MQTT.Protocol;
 namespace SAEA.MQTT.Formatter
 {
     /// <summary>
-    /// This is a custom implementation of a memory stream which provides only MQTTnet relevant features.
-    /// The goal is to avoid lots of argument checks like in the original stream. The growth rule is the
-    /// same as for the original MemoryStream in .net. Also this implementation allows accessing the internal
-    /// buffer for all platforms and .net framework versions (which is not available at the regular MemoryStream).
+    /// MQTT 专用的内存流式写入器，只保留与 MQTT 编码相关的写入能力，扩容规则与 MemoryStream 一致，并可直接访问内部缓冲区
     /// </summary>
     public sealed class MqttPacketWriter : IMqttPacketWriter
     {
         static readonly ArraySegment<byte> ZeroVariableLengthIntegerArray = new ArraySegment<byte>(new byte[1], 0, 1);
         static readonly ArraySegment<byte> ZeroTwoByteIntegerArray = new ArraySegment<byte>(new byte[2], 0, 2);
 
+        /// <summary>
+        /// 初始缓冲区字节数，新建写入器时按此大小从内存池租用
+        /// </summary>
         public static int InitialBufferSize = 128;
+
+        /// <summary>
+        /// 缓冲区上限字节数，释放缓冲区时超过该值则收缩到此大小
+        /// </summary>
         public static int MaxBufferSize = 4096;
 
         byte[] _buffer;
@@ -56,6 +60,9 @@ namespace SAEA.MQTT.Formatter
 
         int _offset;
 
+        /// <summary>
+        /// 已写入的有效字节数
+        /// </summary>
         public int Length { get; private set; }
 
         /// <summary>
@@ -68,6 +75,12 @@ namespace SAEA.MQTT.Formatter
             _offset = 0;
         }
 
+        /// <summary>
+        /// 由报文类型与标志位拼出固定头首字节
+        /// </summary>
+        /// <param name="packetType">控制报文类型，放在高 4 位</param>
+        /// <param name="flags">报文标志位，只使用低 4 位</param>
+        /// <returns>固定头首字节</returns>
         public static byte BuildFixedHeader(MqttControlPacketType packetType, byte flags = 0)
         {
             var fixedHeader = (int)packetType << 4;
@@ -75,6 +88,11 @@ namespace SAEA.MQTT.Formatter
             return (byte)fixedHeader;
         }
 
+        /// <summary>
+        /// 计算变长整数的编码字节数
+        /// </summary>
+        /// <param name="value">待编码的数值</param>
+        /// <returns>编码所需字节数，1 到 4</returns>
         public static int GetLengthOfVariableInteger(uint value)
         {
             var result = 0;
@@ -88,6 +106,11 @@ namespace SAEA.MQTT.Formatter
             return result;
         }
 
+        /// <summary>
+        /// 将数值编码为 MQTT 变长字节整数，每字节低 7 位有效、最高位表示是否续读
+        /// </summary>
+        /// <param name="value">待编码的数值</param>
+        /// <returns>编码结果，长度 1 到 4 字节</returns>
         public static ArraySegment<byte> EncodeVariableLengthInteger(uint value)
         {
             if (value == 0)
@@ -131,11 +154,19 @@ namespace SAEA.MQTT.Formatter
             }
         }
 
+        /// <summary>
+        /// 写入变长字节整数
+        /// </summary>
+        /// <param name="value">待写入的数值</param>
         public void WriteVariableLengthInteger(uint value)
         {
             Write(EncodeVariableLengthInteger(value));
         }
 
+        /// <summary>
+        /// 写入带两字节长度前缀的 UTF-8 字符串，空字符串或 null 写为长度 0
+        /// </summary>
+        /// <param name="value">待写入的字符串</param>
         public void WriteWithLengthPrefix(string value)
         {
             if (string.IsNullOrEmpty(value))
@@ -148,6 +179,10 @@ namespace SAEA.MQTT.Formatter
             }
         }
 
+        /// <summary>
+        /// 写入带两字节长度前缀的二进制数据，空数组或 null 写为长度 0
+        /// </summary>
+        /// <param name="value">待写入的数据</param>
         public void WriteWithLengthPrefix(byte[] value)
         {
             if (value == null || value.Length == 0)
@@ -162,6 +197,10 @@ namespace SAEA.MQTT.Formatter
             }
         }
 
+        /// <summary>
+        /// 写入单字节
+        /// </summary>
+        /// <param name="byte">待写入的字节</param>
         public void Write(byte @byte)
         {
             EnsureAdditionalCapacity(1);
@@ -170,6 +209,10 @@ namespace SAEA.MQTT.Formatter
             IncreasePosition(1);
         }
 
+        /// <summary>
+        /// 以大端序写入两字节整数
+        /// </summary>
+        /// <param name="value">待写入的数值</param>
         public void Write(ushort value)
         {
             EnsureAdditionalCapacity(2);
@@ -180,6 +223,12 @@ namespace SAEA.MQTT.Formatter
             IncreasePosition(1);
         }
 
+        /// <summary>
+        /// 写入字节数组的指定片段，count 为 0 时不写入
+        /// </summary>
+        /// <param name="buffer">数据源</param>
+        /// <param name="offset">数据源起始偏移</param>
+        /// <param name="count">要写入的字节数</param>
         public void Write(byte[] buffer, int offset, int count)
         {
             if (buffer == null) throw new ArgumentNullException(nameof(buffer));
@@ -195,6 +244,10 @@ namespace SAEA.MQTT.Formatter
             IncreasePosition(count);
         }
 
+        /// <summary>
+        /// 追加另一个报文写入器已写入的内容，仅支持 MqttPacketWriter 实例
+        /// </summary>
+        /// <param name="propertyWriter">作为数据来源的写入器</param>
         public void Write(IMqttPacketWriter propertyWriter)
         {
             if (propertyWriter == null) throw new ArgumentNullException(nameof(propertyWriter));
@@ -213,22 +266,37 @@ namespace SAEA.MQTT.Formatter
             throw new InvalidOperationException($"{nameof(propertyWriter)} must be of type {typeof(MqttPacketWriter).Name}");
         }
 
+        /// <summary>
+        /// 仅重置已写入长度，不移动写入位置
+        /// </summary>
+        /// <param name="length">新的已写入长度</param>
         public void Reset(int length)
         {
             Length = length;
         }
 
+        /// <summary>
+        /// 移动写入位置，目标超出容量时按倍数扩容
+        /// </summary>
+        /// <param name="position">目标位置，从 0 开始</param>
         public void Seek(int position)
         {
             EnsureCapacity(position);
             _offset = position;
         }
 
+        /// <summary>
+        /// 获取内部缓冲区，有效数据为前 Length 个字节
+        /// </summary>
+        /// <returns>内部缓冲区数组，不复制</returns>
         public byte[] GetBuffer()
         {
             return _buffer;
         }
 
+        /// <summary>
+        /// 缓冲区达到上限时归还内存池并换成标准大小的缓冲区，避免大报文长期占用内存
+        /// </summary>
         public void FreeBuffer()
         {
             // This method frees the used memory by shrinking the buffer. This is required because the buffer

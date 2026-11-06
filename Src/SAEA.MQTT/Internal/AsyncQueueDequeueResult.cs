@@ -23,24 +23,39 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：AsyncQueueDequeueResult结果类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.MQTT.Internal
 {
+    /// <summary>
+    /// 异步队列的出队结果
+    /// </summary>
+    /// <typeparam name="TItem">队列元素类型</typeparam>
     public class AsyncQueueDequeueResult<TItem>
     {
+        /// <summary>
+        /// 创建出队结果
+        /// </summary>
+        /// <param name="isSuccess">是否成功取出元素</param>
+        /// <param name="item">取出的元素，失败时传元素类型的默认值</param>
         public AsyncQueueDequeueResult(bool isSuccess, TItem item)
         {
             IsSuccess = isSuccess;
             Item = item;
         }
 
+        /// <summary>
+        /// 是否成功取出元素
+        /// </summary>
         public bool IsSuccess { get; }
 
+        /// <summary>
+        /// 取出的元素，IsSuccess 为 false 时为其类型的默认值
+        /// </summary>
         public TItem Item { get; }
     }
 }

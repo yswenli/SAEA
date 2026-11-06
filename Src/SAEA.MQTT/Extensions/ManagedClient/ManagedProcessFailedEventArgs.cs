@@ -23,23 +23,33 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ManagedProcessFailedEventArgs接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
 
 namespace SAEA.MQTT.Extensions.ManagedClient
 {
+    /// <summary>
+    /// 托管客户端后台处理失败的事件参数
+    /// </summary>
     public class ManagedProcessFailedEventArgs : EventArgs
     {
+        /// <summary>
+        /// 使用失败异常初始化实例
+        /// </summary>
+        /// <param name="exception">失败异常，不能为null</param>
         public ManagedProcessFailedEventArgs(Exception exception)
         {
             Exception = exception ?? throw new ArgumentNullException(nameof(exception));
         }
 
+        /// <summary>
+        /// 引起处理失败的异常
+        /// </summary>
         public Exception Exception { get; }
     }
 }

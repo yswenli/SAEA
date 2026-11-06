@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttClientDisconnectOptions接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.Collections.Generic;
@@ -34,10 +34,19 @@ using SAEA.MQTT.Packets;
 
 namespace SAEA.MQTT.Client.Disconnecting
 {
+    /// <summary>
+    /// 主动断开连接的选项
+    /// </summary>
     public class MqttClientDisconnectOptions
     {
+        /// <summary>
+        /// 断开原因码，仅 MQTT 5.0 生效；默认正常断开
+        /// </summary>
         public MqttClientDisconnectReason ReasonCode { get; set; } = MqttClientDisconnectReason.NormalDisconnection;
 
+        /// <summary>
+        /// 断开原因说明，仅 MQTT 5.0 生效
+        /// </summary>
         public string ReasonString { get; set; }
 
         /// <summary>

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：IMqttServerStoppedHandler处理类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -34,8 +34,16 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Server
 {
+    /// <summary>
+    /// 服务端停止完成后的回调处理器
+    /// </summary>
     public interface IMqttServerStoppedHandler
     {
+        /// <summary>
+        /// 处理服务端停止完成事件，所有端点已关闭
+        /// </summary>
+        /// <param name="eventArgs">事件参数，当前无附加信息</param>
+        /// <returns>回调完成的任务</returns>
         Task HandleServerStoppedAsync(EventArgs eventArgs);
     }
 }

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：IManagedMqttClientOptions接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -35,20 +35,44 @@ using SAEA.MQTT.Server;
 
 namespace SAEA.MQTT.Extensions.ManagedClient
 {
+    /// <summary>
+    /// 托管客户端选项
+    /// </summary>
     public interface IManagedMqttClientOptions
     {
+        /// <summary>
+        /// 内部MQTT客户端的连接选项
+        /// </summary>
         IMqttClientOptions ClientOptions { get; }
 
+        /// <summary>
+        /// 是否启用断线自动重连
+        /// </summary>
         bool AutoReconnect { get; }
 
+        /// <summary>
+        /// 重连失败后再次尝试的间隔
+        /// </summary>
         TimeSpan AutoReconnectDelay { get; }
 
+        /// <summary>
+        /// 连接维护循环的检查间隔
+        /// </summary>
         TimeSpan ConnectionCheckInterval { get; }
 
+        /// <summary>
+        /// 待发消息的持久化存储，为null表示不持久化
+        /// </summary>
         IManagedMqttClientStorage Storage { get; }
 
+        /// <summary>
+        /// 待发队列允许的最大消息数
+        /// </summary>
         int MaxPendingMessages { get; }
 
+        /// <summary>
+        /// 待发队列达到上限时的溢出处理策略
+        /// </summary>
         MqttPendingMessagesOverflowStrategy PendingMessagesOverflowStrategy { get; }
     }
 }

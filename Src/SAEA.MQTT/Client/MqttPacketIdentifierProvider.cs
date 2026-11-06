@@ -23,19 +23,25 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttPacketIdentifierProvider接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.MQTT.Client
 {
+    /// <summary>
+    /// 报文标识符生成器，线程安全地递增并跳过 0
+    /// </summary>
     public class MqttPacketIdentifierProvider
     {
         private readonly object _syncRoot = new object();
         private ushort _value;
 
+        /// <summary>
+        /// 将计数归零，下次取值从 1 开始
+        /// </summary>
         public void Reset()
         {
             lock (_syncRoot)
@@ -44,6 +50,10 @@ namespace SAEA.MQTT.Client
             }
         }
 
+        /// <summary>
+        /// 获取下一个报文标识符，回绕到 0 时改为 1
+        /// </summary>
+        /// <returns>取值 1 到 65535 的报文标识符</returns>
         public ushort GetNextPacketIdentifier()
         {
             lock (_syncRoot)

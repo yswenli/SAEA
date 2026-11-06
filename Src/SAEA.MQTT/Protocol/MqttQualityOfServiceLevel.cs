@@ -23,18 +23,30 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttQualityOfServiceLevel接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.MQTT.Protocol
 {
+    /// <summary>
+    /// MQTT 服务质量等级
+    /// </summary>
     public enum MqttQualityOfServiceLevel
     {
+        /// <summary>
+        /// 最多投递一次，不保证送达
+        /// </summary>
         AtMostOnce = 0x00,
+        /// <summary>
+        /// 至少投递一次，可能重复送达
+        /// </summary>
         AtLeastOnce = 0x01,
+        /// <summary>
+        /// 恰好投递一次，通过两阶段握手避免重复
+        /// </summary>
         ExactlyOnce = 0x02
     }
 }

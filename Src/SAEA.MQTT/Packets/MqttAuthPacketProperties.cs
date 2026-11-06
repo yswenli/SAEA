@@ -23,24 +23,39 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttAuthPacketProperties接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.Collections.Generic;
 
 namespace SAEA.MQTT.Packets
 {
+    /// <summary>
+    /// AUTH 报文的属性集合
+    /// </summary>
     public sealed class MqttAuthPacketProperties
     {
+        /// <summary>
+        /// 认证方法名，握手期间必须保持一致
+        /// </summary>
         public string AuthenticationMethod { get; set; }
 
+        /// <summary>
+        /// 认证数据，内容由认证方法定义
+        /// </summary>
         public byte[] AuthenticationData { get; set; }
 
+        /// <summary>
+        /// 可读的原因描述
+        /// </summary>
         public string ReasonString { get; set; }
 
+        /// <summary>
+        /// 用户自定义属性
+        /// </summary>
         public List<MqttUserProperty> UserProperties { get; set; }
     }
 }

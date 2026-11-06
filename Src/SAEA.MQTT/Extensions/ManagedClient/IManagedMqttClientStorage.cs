@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：IManagedMqttClientStorage接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.Collections.Generic;
@@ -34,10 +34,22 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Extensions.ManagedClient
 {
+    /// <summary>
+    /// 托管客户端的待发消息持久化存储
+    /// </summary>
     public interface IManagedMqttClientStorage
     {
+        /// <summary>
+        /// 保存当前排队中的待发消息
+        /// </summary>
+        /// <param name="messages">待发消息集合</param>
+        /// <returns>保存完成的异步任务</returns>
         Task SaveQueuedMessagesAsync(IList<ManagedMqttApplicationMessage> messages);
 
+        /// <summary>
+        /// 读取已保存的待发消息
+        /// </summary>
+        /// <returns>已保存的待发消息集合，无数据时返回空集合</returns>
         Task<IList<ManagedMqttApplicationMessage>> LoadQueuedMessagesAsync();
     }
 }

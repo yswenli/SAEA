@@ -23,33 +23,51 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ManagedMqttApplicationMessageBuilder接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
 
 namespace SAEA.MQTT.Extensions.ManagedClient
 {
+    /// <summary>
+    /// 托管应用消息的构造器
+    /// </summary>
     public class ManagedMqttApplicationMessageBuilder
     {
         private Guid _id = Guid.NewGuid();
         private MqttApplicationMessage _applicationMessage;
 
+        /// <summary>
+        /// 指定消息唯一标识，默认使用新建的GUID
+        /// </summary>
+        /// <param name="id">消息唯一标识</param>
+        /// <returns>当前构造器</returns>
         public ManagedMqttApplicationMessageBuilder WithId(Guid id)
         {
             _id = id;
             return this;
         }
 
+        /// <summary>
+        /// 直接指定要发送的应用消息
+        /// </summary>
+        /// <param name="applicationMessage">应用消息</param>
+        /// <returns>当前构造器</returns>
         public ManagedMqttApplicationMessageBuilder WithApplicationMessage(MqttApplicationMessage applicationMessage)
         {
             _applicationMessage = applicationMessage;
             return this;
         }
 
+        /// <summary>
+        /// 通过回调配置应用消息
+        /// </summary>
+        /// <param name="builder">应用消息构造回调，不能为null</param>
+        /// <returns>当前构造器</returns>
         public ManagedMqttApplicationMessageBuilder WithApplicationMessage(Action<MqttApplicationMessageBuilder> builder)
         {
             if (builder == null) throw new ArgumentNullException(nameof(builder));
@@ -61,6 +79,10 @@ namespace SAEA.MQTT.Extensions.ManagedClient
             return this;
         }
 
+        /// <summary>
+        /// 生成托管应用消息
+        /// </summary>
+        /// <returns>带当前标识与应用消息的实例</returns>
         public ManagedMqttApplicationMessage Build()
         {
             if (_applicationMessage == null)

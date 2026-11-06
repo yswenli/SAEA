@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttServerClientDisconnectedHandlerDelegate接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -34,10 +34,17 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Server
 {
+    /// <summary>
+    /// 把同步或异步回调适配为客户端断开连接事件处理器
+    /// </summary>
     public class MqttServerClientDisconnectedHandlerDelegate : IMqttServerClientDisconnectedHandler
     {
         private readonly Func<MqttServerClientDisconnectedEventArgs, Task> _handler;
 
+        /// <summary>
+        /// 用同步回调创建处理器，回调返回后视为已完成
+        /// </summary>
+        /// <param name="handler">断开连接回调，不能为 null</param>
         public MqttServerClientDisconnectedHandlerDelegate(Action<MqttServerClientDisconnectedEventArgs> handler)
         {
             if (handler == null) throw new ArgumentNullException(nameof(handler));
@@ -49,11 +56,20 @@ namespace SAEA.MQTT.Server
             };
         }
 
+        /// <summary>
+        /// 用异步回调创建处理器
+        /// </summary>
+        /// <param name="handler">断开连接回调，不能为 null</param>
         public MqttServerClientDisconnectedHandlerDelegate(Func<MqttServerClientDisconnectedEventArgs, Task> handler)
         {
             _handler = handler ?? throw new ArgumentNullException(nameof(handler));
         }
 
+        /// <summary>
+        /// 调用注入的回调通知客户端已断开
+        /// </summary>
+        /// <param name="eventArgs">断开连接事件数据</param>
+        /// <returns>回调返回的任务</returns>
         public Task HandleClientDisconnectedAsync(MqttServerClientDisconnectedEventArgs eventArgs)
         {
             return _handler(eventArgs);

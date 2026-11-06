@@ -23,18 +23,26 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：IMqttExtendedAuthenticationExchangeHandler接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Client.ExtendedAuthenticationExchange
 {
+    /// <summary>
+    /// MQTT 5.0 增强认证（AUTH 报文）请求的处理接口
+    /// </summary>
     public interface IMqttExtendedAuthenticationExchangeHandler
     {
+        /// <summary>
+        /// 收到服务端的 AUTH 报文时回调，由实现方决定是否回复认证数据
+        /// </summary>
+        /// <param name="context">本次认证交换的上下文，含原因码、认证方法与数据及客户端实例</param>
+        /// <returns>回调完成的任务</returns>
         Task HandleRequestAsync(MqttExtendedAuthenticationExchangeContext context);
     }
 }

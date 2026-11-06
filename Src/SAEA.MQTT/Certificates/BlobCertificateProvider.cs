@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：BlobCertificateProvider接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -34,17 +34,34 @@ using System.Security.Cryptography.X509Certificates;
 
 namespace SAEA.MQTT.Certificates
 {
+    /// <summary>
+    /// 从证书字节内容创建证书的提供器
+    /// </summary>
     public class BlobCertificateProvider : ICertificateProvider
     {
+        /// <summary>
+        /// 使用证书字节内容初始化实例
+        /// </summary>
+        /// <param name="blob">证书原始字节，不能为null</param>
         public BlobCertificateProvider(byte[] blob)
         {
             Blob = blob ?? throw new ArgumentNullException(nameof(blob));
         }
 
+        /// <summary>
+        /// 证书原始字节内容
+        /// </summary>
         public byte[] Blob { get; }
 
+        /// <summary>
+        /// 读取证书使用的密码，为空时按无密码证书处理
+        /// </summary>
         public string Password { get; set; }
 
+        /// <summary>
+        /// 依据当前 Blob 与 Password 新建证书实例
+        /// </summary>
+        /// <returns>新建的证书实例，调用方负责释放</returns>
         public X509Certificate2 GetCertificate()
         {
             if (string.IsNullOrEmpty(Password))

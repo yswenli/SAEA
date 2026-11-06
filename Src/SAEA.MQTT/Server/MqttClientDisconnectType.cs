@@ -23,18 +23,30 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttClientDisconnectType接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.MQTT.Server
 {
+    /// <summary>
+    /// 客户端连接的断开方式，决定会话保留与遗嘱消息的处理
+    /// </summary>
     public enum MqttClientDisconnectType
     {
+        /// <summary>
+        /// 收到客户端 DISCONNECT 报文后正常断开
+        /// </summary>
         Clean,
+        /// <summary>
+        /// 未收到 DISCONNECT 即断开，含网络错误、协议错误与保活超时
+        /// </summary>
         NotClean,
+        /// <summary>
+        /// 同一 ClientId 的新连接接管，旧连接被服务端主动关闭
+        /// </summary>
         Takeover
     }
 }

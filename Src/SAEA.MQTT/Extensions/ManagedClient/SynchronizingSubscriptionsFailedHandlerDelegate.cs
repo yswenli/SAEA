@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：SynchronizingSubscriptionsFailedHandlerDelegate接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -34,10 +34,17 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Extensions.ManagedClient
 {
+    /// <summary>
+    /// 将同步或异步回调包装为订阅同步失败处理器
+    /// </summary>
     public class SynchronizingSubscriptionsFailedHandlerDelegate : ISynchronizingSubscriptionsFailedHandler
     {
         private readonly Func<ManagedProcessFailedEventArgs, Task> _handler;
 
+        /// <summary>
+        /// 用同步回调初始化实例
+        /// </summary>
+        /// <param name="handler">同步处理回调，不能为null；执行完立即返回已完成任务</param>
         public SynchronizingSubscriptionsFailedHandlerDelegate(Action<ManagedProcessFailedEventArgs> handler)
         {
             if (handler == null) throw new ArgumentNullException(nameof(handler));
@@ -49,11 +56,20 @@ namespace SAEA.MQTT.Extensions.ManagedClient
             };
         }
 
+        /// <summary>
+        /// 用异步回调初始化实例
+        /// </summary>
+        /// <param name="handler">异步处理回调，不能为null</param>
         public SynchronizingSubscriptionsFailedHandlerDelegate(Func<ManagedProcessFailedEventArgs, Task> handler)
         {
             _handler = handler ?? throw new ArgumentNullException(nameof(handler));
         }
 
+        /// <summary>
+        /// 触发订阅同步失败的处理
+        /// </summary>
+        /// <param name="eventArgs">同步失败的事件参数</param>
+        /// <returns>回调执行完成的异步任务</returns>
         public Task HandleSynchronizingSubscriptionsFailedAsync(ManagedProcessFailedEventArgs eventArgs)
         {
             return _handler(eventArgs);

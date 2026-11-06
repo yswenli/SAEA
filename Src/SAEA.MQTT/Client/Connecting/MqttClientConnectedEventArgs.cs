@@ -23,23 +23,33 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttClientConnectedEventArgs接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
 
 namespace SAEA.MQTT.Client.Connecting
 {
+    /// <summary>
+    /// 客户端连接成功事件的参数
+    /// </summary>
     public class MqttClientConnectedEventArgs : EventArgs
     {
+        /// <summary>
+        /// 创建连接成功事件参数
+        /// </summary>
+        /// <param name="authenticateResult">连接认证结果，不能为 null</param>
         public MqttClientConnectedEventArgs(MqttClientAuthenticateResult authenticateResult)
         {
             AuthenticateResult = authenticateResult ?? throw new ArgumentNullException(nameof(authenticateResult));
         }
 
+        /// <summary>
+        /// 服务端返回的连接认证结果
+        /// </summary>
         public MqttClientAuthenticateResult AuthenticateResult { get; }
     }
 }

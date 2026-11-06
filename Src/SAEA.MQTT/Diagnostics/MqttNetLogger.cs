@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttNetLogger类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -40,21 +40,32 @@ namespace SAEA.MQTT.Diagnostics
     {
         readonly string _logId;
 
-        // 默认构造函数
+        /// <summary>
+        /// 创建不带日志标识的日志记录器
+        /// </summary>
         public MqttNetLogger()
         {
         }
 
-        // 带有logId参数的构造函数
+        /// <summary>
+        /// 创建带日志标识的日志记录器
+        /// </summary>
+        /// <param name="logId">日志标识，写入每条日志消息的 LogId，可为 null</param>
         public MqttNetLogger(string logId)
         {
             _logId = logId;
         }
 
-        // 当日志消息发布时触发的事件
+        /// <summary>
+        /// 本记录器发布日志消息时触发
+        /// </summary>
         public event EventHandler<MqttNetLogMessagePublishedEventArgs> LogMessagePublished;
 
-        // 创建一个具有指定来源的作用域日志记录器
+        /// <summary>
+        /// 创建绑定指定来源的作用域日志记录器
+        /// </summary>
+        /// <param name="source">日志来源标识，通常为组件名，不能为 null</param>
+        /// <returns>固定使用该来源的作用域日志记录器</returns>
         public IMqttNetScopedLogger CreateScopedLogger(string source)
         {
             if (source is null) throw new ArgumentNullException(nameof(source));
@@ -62,7 +73,14 @@ namespace SAEA.MQTT.Diagnostics
             return new MqttNetScopedLogger(this, source);
         }
 
-        // 使用指定参数发布日志消息
+        /// <summary>
+        /// 按指定级别发布日志消息，无本地与全局监听器时直接丢弃
+        /// </summary>
+        /// <param name="level">日志级别</param>
+        /// <param name="source">日志来源标识，通常为组件名，可为 null</param>
+        /// <param name="message">消息模板，含 {0} 等占位符，为 null 时按空字符串处理</param>
+        /// <param name="parameters">格式化消息模板的参数数组，不能为 null</param>
+        /// <param name="exception">关联异常，无异常时为 null</param>
         public void Publish(MqttNetLogLevel level, string source, string message, object[] parameters, Exception exception)
         {
             // 检查是否有本地或全局监听器

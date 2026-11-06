@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttApplicationMessageExtensions接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -34,8 +34,16 @@ using System.Text;
 
 namespace SAEA.MQTT
 {
+    /// <summary>
+    /// 应用消息的扩展方法集合
+    /// </summary>
     public static class MqttApplicationMessageExtensions
     {
+        /// <summary>
+        /// 将载荷按 UTF-8 解码为字符串，载荷为null返回null，空载荷返回空字符串
+        /// </summary>
+        /// <param name="applicationMessage">待转换的应用消息，不能为null</param>
+        /// <returns>解码后的文本，载荷为null时为null</returns>
         public static string ConvertPayloadToString(this MqttApplicationMessage applicationMessage)
         {
             if (applicationMessage == null) throw new ArgumentNullException(nameof(applicationMessage));

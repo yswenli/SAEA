@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttClientAdapterFactory接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.MQTT.Adapter;
@@ -37,15 +37,27 @@ using System;
 
 namespace SAEA.MQTT.Implementations
 {
+    /// <summary>
+    /// 客户端信道适配器工厂，按信道选项创建 TCP 或 WebSocket 适配器
+    /// </summary>
     public class MqttClientAdapterFactory : IMqttClientAdapterFactory
     {
         readonly IMqttNetLogger _logger;
 
+        /// <summary>
+        /// 使用指定日志记录器创建客户端信道适配器工厂
+        /// </summary>
+        /// <param name="logger">根日志记录器，不能为null</param>
         public MqttClientAdapterFactory(IMqttNetLogger logger)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
+        /// <summary>
+        /// 按客户端选项的信道类型创建适配器，TCP 走 MqttTcpChannel，WebSocket 走 MqttWebSocketChannel
+        /// </summary>
+        /// <param name="options">客户端连接选项，不能为null</param>
+        /// <returns>尚未建立连接的客户端信道适配器</returns>
         public IMqttChannelAdapter CreateClientAdapter(IMqttClientOptions options)
         {
             if (options == null) throw new ArgumentNullException(nameof(options));

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttFactoryExtensions接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.MQTT.Diagnostics;
@@ -34,8 +34,16 @@ using System;
 
 namespace SAEA.MQTT.Extensions.ManagedClient
 {
+    /// <summary>
+    /// 通过MQTT工厂创建托管客户端的扩展方法
+    /// </summary>
     public static class MqttFactoryExtensions
     {
+        /// <summary>
+        /// 使用工厂的默认日志器创建托管客户端
+        /// </summary>
+        /// <param name="factory">MQTT工厂，不能为null</param>
+        /// <returns>新建的托管客户端，调用方负责释放</returns>
         public static IManagedMqttClient CreateManagedMqttClient(this IMqttFactory factory)
         {
             if (factory == null) throw new ArgumentNullException(nameof(factory));
@@ -43,6 +51,12 @@ namespace SAEA.MQTT.Extensions.ManagedClient
             return new ManagedMqttClient(factory.CreateMqttClient(), factory.DefaultLogger);
         }
 
+        /// <summary>
+        /// 使用指定日志器创建托管客户端
+        /// </summary>
+        /// <param name="factory">MQTT工厂，不能为null</param>
+        /// <param name="logger">日志器，不能为null</param>
+        /// <returns>新建的托管客户端，调用方负责释放</returns>
         public static IManagedMqttClient CreateManagedMqttClient(this IMqttFactory factory, IMqttNetLogger logger)
         {
             if (factory == null) throw new ArgumentNullException(nameof(factory));

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttPacketDispatcher接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.MQTT.Exceptions;
@@ -36,10 +36,17 @@ using System.Collections.Concurrent;
 
 namespace SAEA.MQTT.PacketDispatcher
 {
+    /// <summary>
+    /// 报文调度器，按「包标识符 + 报文类型」把应答报文交给对应的等待器
+    /// </summary>
     public sealed class MqttPacketDispatcher
     {
         readonly ConcurrentDictionary<Tuple<ushort, Type>, IMqttPacketAwaiter> _awaiters = new ConcurrentDictionary<Tuple<ushort, Type>, IMqttPacketAwaiter>();
 
+        /// <summary>
+        /// 以异常结束全部等待并清空等待器
+        /// </summary>
+        /// <param name="exception">传递给各等待器的异常</param>
         public void Dispatch(Exception exception)
         {
             foreach (var awaiter in _awaiters)
@@ -50,6 +57,10 @@ namespace SAEA.MQTT.PacketDispatcher
             _awaiters.Clear();
         }
 
+        /// <summary>
+        /// 把收到的报文交给匹配的等待器；收到 DISCONNECT 时让全部等待器失败，无匹配等待器时抛出协议违约异常
+        /// </summary>
+        /// <param name="packet">收到的报文</param>
         public void Dispatch(MqttBasePacket packet)
         {
             if (packet == null) throw new ArgumentNullException(nameof(packet));
@@ -82,6 +93,9 @@ namespace SAEA.MQTT.PacketDispatcher
             throw new MqttProtocolViolationException($"Received packet '{packet}' at an unexpected time.");
         }
 
+        /// <summary>
+        /// 以取消状态结束全部等待并清空等待器
+        /// </summary>
         public void Cancel()
         {
             foreach (var awaiter in _awaiters)
@@ -92,6 +106,12 @@ namespace SAEA.MQTT.PacketDispatcher
             _awaiters.Clear();
         }
 
+        /// <summary>
+        /// 注册等待器
+        /// </summary>
+        /// <typeparam name="TResponsePacket">期望收到的应答报文类型</typeparam>
+        /// <param name="identifier">报文标识符，null 视为 0</param>
+        /// <returns>新注册的等待器</returns>
         public MqttPacketAwaiter<TResponsePacket> AddAwaiter<TResponsePacket>(ushort? identifier) where TResponsePacket : MqttBasePacket
         {
             if (!identifier.HasValue)
@@ -110,6 +130,11 @@ namespace SAEA.MQTT.PacketDispatcher
             return awaiter;
         }
 
+        /// <summary>
+        /// 注销等待器，不存在时忽略
+        /// </summary>
+        /// <typeparam name="TResponsePacket">等待的应答报文类型</typeparam>
+        /// <param name="identifier">报文标识符，null 视为 0</param>
         public void RemoveAwaiter<TResponsePacket>(ushort? identifier) where TResponsePacket : MqttBasePacket
         {
             if (!identifier.HasValue)

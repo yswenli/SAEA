@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttClientConnection接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.MQTT.Adapter;
@@ -47,6 +47,9 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Server
 {
+    /// <summary>
+    /// 单个客户端连接的运行载体，负责收包分发、待发消息发送、主题别名与流量控制
+    /// </summary>
     public sealed class MqttClientConnection : IDisposable
     {
         readonly MqttTopicAliasResolver _topicAliasResolver;
@@ -88,6 +91,17 @@ namespace SAEA.MQTT.Server
         long _sentApplicationMessagesCount;
         MqttDisconnectReasonCode _disconnectReason;
 
+        /// <summary>
+        /// 创建客户端连接，从通道适配器协商出的能力初始化主题别名与入站流量控制
+        /// </summary>
+        /// <param name="connectPacket">客户端提交的 CONNECT 报文，可提供遗嘱消息与遗嘱延迟</param>
+        /// <param name="channelAdapter">该连接的通道适配器，负责收发报文</param>
+        /// <param name="session">连接绑定的客户端会话</param>
+        /// <param name="connectionValidatorContext">连接校验上下文，用于生成 CONNACK</param>
+        /// <param name="serverOptions">服务端配置</param>
+        /// <param name="sessionsManager">会话管理器，用于断线清理与消息分发</param>
+        /// <param name="retainedMessagesManager">保留消息管理器</param>
+        /// <param name="logger">根日志器，内部创建按类型隔离的作用域日志器</param>
         public MqttClientConnection(MqttConnectPacket connectPacket,
             IMqttChannelAdapter channelAdapter,
             MqttClientSession session,
@@ -125,21 +139,44 @@ namespace SAEA.MQTT.Server
             _willDelayInterval = connectPacket.Properties?.WillDelayInterval ?? 0;
         }
 
+        /// <summary>
+        /// 连接的当前运行状态，由收包循环推进
+        /// </summary>
         public MqttClientConnectionStatus Status { get; private set; } = MqttClientConnectionStatus.Initializing;
 
+        /// <summary>
+        /// 客户端提交的 CONNECT 报文，连接期间只读
+        /// </summary>
         public MqttConnectPacket ConnectPacket { get; }
 
+        /// <summary>
+        /// 客户端标识，取自 CONNECT 报文
+        /// </summary>
         public string ClientId => ConnectPacket.ClientId;
 
+        /// <summary>
+        /// 通道适配器当前是否正在读取报文
+        /// </summary>
         public bool IsReadingPacket => _channelAdapter.IsReadingPacket;
 
         internal bool IsV5 => _channelAdapter.PacketFormatterAdapter.Capabilities?.IsV5 ??
                               (_channelAdapter.PacketFormatterAdapter.ProtocolVersion == MqttProtocolVersion.V500);
 
+        /// <summary>
+        /// 最近一次收到报文的时间（UTC），初始为连接建立时刻
+        /// </summary>
         public DateTime LastPacketReceivedTimestamp { get; private set; }
 
+        /// <summary>
+        /// 连接绑定的客户端会话
+        /// </summary>
         public MqttClientSession Session { get; }
 
+        /// <summary>
+        /// 停止连接并等待收包循环退出
+        /// </summary>
+        /// <param name="reason">断开原因，接管与保活超时需先向客户端发送 DISCONNECT</param>
+        /// <returns>连接停止并等待收包循环退出后完成的任务</returns>
         public async Task StopAsync(MqttDisconnectReasonCode reason)
         {
             Status = MqttClientConnectionStatus.Finalizing;
@@ -170,11 +207,18 @@ namespace SAEA.MQTT.Server
             await (_packageReceiverTask ?? PlatformAbstractionLayer.CompletedTask);
         }
 
+        /// <summary>
+        /// 清零通道适配器的收发字节与报文统计，应用层消息计数不受影响
+        /// </summary>
         public void ResetStatistics()
         {
             _channelAdapter.ResetStatistics();
         }
 
+        /// <summary>
+        /// 把当前连接的标识、协议版本与统计快照写入状态对象，供状态查询使用
+        /// </summary>
+        /// <param name="status">待填充的客户端状态对象，其字段会被整体覆盖</param>
         public void FillStatus(MqttClientStatus status)
         {
             status.ClientId = ClientId;
@@ -195,6 +239,9 @@ namespace SAEA.MQTT.Server
             status.BytesReceived = _channelAdapter.BytesReceived;
         }
 
+        /// <summary>
+        /// 释放主题别名表与取消令牌，不负责关闭底层通道
+        /// </summary>
         public void Dispose()
         {
             _topicAliasResolver.Clear();
@@ -202,6 +249,10 @@ namespace SAEA.MQTT.Server
             _cancellationToken.Dispose();
         }
 
+        /// <summary>
+        /// 启动收包循环并返回其任务，需由调用方等待该任务观察连接结束
+        /// </summary>
+        /// <returns>收包循环任务，连接关闭后完成</returns>
         public Task RunAsync()
         {
             _packageReceiverTask = RunInternalAsync(_cancellationToken.Token);

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：AsyncLock锁类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -35,6 +35,9 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Internal
 {
+    /// <summary>
+    /// 基于信号量的异步互斥锁，获取锁后返回可释放的占用令牌
+    /// </summary>
     public sealed class AsyncLock : IDisposable
     {
         readonly object _syncRoot = new object();
@@ -42,11 +45,19 @@ namespace SAEA.MQTT.Internal
 
         SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
 
+        /// <summary>
+        /// 创建初始未占用的异步互斥锁
+        /// </summary>
         public AsyncLock()
         {
             _releaser = Task.FromResult((IDisposable)new Releaser(this));
         }
 
+        /// <summary>
+        /// 异步等待获取锁，成功时返回占用令牌，释放该令牌即释放锁
+        /// </summary>
+        /// <param name="cancellationToken">取消等待的令牌</param>
+        /// <returns>占用期间需释放的令牌</returns>
         public Task<IDisposable> WaitAsync(CancellationToken cancellationToken)
         {
             Task task;
@@ -78,6 +89,9 @@ namespace SAEA.MQTT.Internal
                 cancellationToken, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
         }
 
+        /// <summary>
+        /// 释放内部信号量，之后调用 WaitAsync 会抛出 ObjectDisposedException
+        /// </summary>
         public void Dispose()
         {
             lock (_syncRoot)

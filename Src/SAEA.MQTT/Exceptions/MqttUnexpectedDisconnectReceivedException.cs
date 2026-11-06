@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttUnexpectedDisconnectReceivedException接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.Collections.Generic;
@@ -35,8 +35,15 @@ using SAEA.MQTT.Protocol;
 
 namespace SAEA.MQTT.Exceptions
 {
+    /// <summary>
+    /// 收到服务端主动下发的DISCONNECT报文时抛出的异常
+    /// </summary>
     public class MqttUnexpectedDisconnectReceivedException : MqttCommunicationException
     {
+        /// <summary>
+        /// 从服务端的DISCONNECT报文提取原因码与属性
+        /// </summary>
+        /// <param name="disconnectPacket">服务端下发的DISCONNECT报文</param>
         public MqttUnexpectedDisconnectReceivedException(MqttDisconnectPacket disconnectPacket) 
             : base($"Unexpected DISCONNECT (Reason code={disconnectPacket.ReasonCode}) received.")
         {
@@ -47,14 +54,29 @@ namespace SAEA.MQTT.Exceptions
             UserProperties = disconnectPacket.Properties?.UserProperties;
         }
 
+        /// <summary>
+        /// 服务端给出的断开原因码，报文中未携带时为null
+        /// </summary>
         public MqttDisconnectReasonCode? ReasonCode { get; }
 
+        /// <summary>
+        /// 会话过期间隔，单位为秒，报文中未携带时为null
+        /// </summary>
         public uint? SessionExpiryInterval { get; }
 
+        /// <summary>
+        /// 服务端附加的原因描述，报文中未携带时为null
+        /// </summary>
         public string ReasonString { get; }
 
+        /// <summary>
+        /// 服务端附加的用户属性，报文中未携带时为null
+        /// </summary>
         public List<MqttUserProperty> UserProperties { get; }
 
+        /// <summary>
+        /// 服务端建议的备用服务器地址，报文中未携带时为null
+        /// </summary>
         public string ServerReference { get; }
     }
 }

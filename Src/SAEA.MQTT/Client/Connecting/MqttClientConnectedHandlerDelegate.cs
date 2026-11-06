@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttClientConnectedHandlerDelegate接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -34,10 +34,17 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Client.Connecting
 {
+    /// <summary>
+    /// 将同步或异步委托适配为 <see cref="IMqttClientConnectedHandler"/>
+    /// </summary>
     public class MqttClientConnectedHandlerDelegate : IMqttClientConnectedHandler
     {
         private readonly Func<MqttClientConnectedEventArgs, Task> _handler;
 
+        /// <summary>
+        /// 用同步委托创建处理器，回调返回后即视为完成
+        /// </summary>
+        /// <param name="handler">连接成功时执行的同步委托，不能为 null</param>
         public MqttClientConnectedHandlerDelegate(Action<MqttClientConnectedEventArgs> handler)
         {
             if (handler == null) throw new ArgumentNullException(nameof(handler));
@@ -49,11 +56,20 @@ namespace SAEA.MQTT.Client.Connecting
             };
         }
 
+        /// <summary>
+        /// 用异步委托创建处理器
+        /// </summary>
+        /// <param name="handler">连接成功时执行的异步委托，不能为 null</param>
         public MqttClientConnectedHandlerDelegate(Func<MqttClientConnectedEventArgs, Task> handler)
         {
             _handler = handler ?? throw new ArgumentNullException(nameof(handler));
         }
 
+        /// <summary>
+        /// 调用被包装的委托
+        /// </summary>
+        /// <param name="eventArgs">连接成功事件参数</param>
+        /// <returns>被包装委托返回的任务</returns>
         public Task HandleConnectedAsync(MqttClientConnectedEventArgs eventArgs)
         {
             return _handler(eventArgs);

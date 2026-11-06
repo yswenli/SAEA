@@ -23,22 +23,31 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttTopicFilterComparer接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
 
 namespace SAEA.MQTT.Server
 {
+    /// <summary>
+    /// 按 MQTT 通配符规则比较主题名与主题过滤器
+    /// </summary>
     public static class MqttTopicFilterComparer
     {
         const char LevelSeparator = '/';
         const char MultiLevelWildcard = '#';
         const char SingleLevelWildcard = '+';
 
+        /// <summary>
+        /// 判断主题名是否匹配主题过滤器，支持 + 与 # 通配符
+        /// </summary>
+        /// <param name="topic">要匹配的主题名，不能为 null</param>
+        /// <param name="filter">主题过滤器，不能为 null</param>
+        /// <returns>匹配返回 true；过滤器结构非法（如 foo+、a/#/b、多字符通配符未独占层级）或不匹配返回 false</returns>
         public static bool IsMatch(string topic, string filter)
         {
             if (topic == null) throw new ArgumentNullException(nameof(topic));

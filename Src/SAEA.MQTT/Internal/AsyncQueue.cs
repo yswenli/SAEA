@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：AsyncQueue队列类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -36,14 +36,25 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Internal
 {
+    /// <summary>
+    /// 支持异步等待出队的线程安全队列
+    /// </summary>
+    /// <typeparam name="TItem">队列元素类型</typeparam>
     public sealed class AsyncQueue<TItem> : IDisposable
     {
         readonly object _syncRoot = new object();
         SemaphoreSlim _semaphore = new SemaphoreSlim(0);
         ConcurrentQueue<TItem> _queue = new ConcurrentQueue<TItem>();
 
+        /// <summary>
+        /// 队列中当前元素数量
+        /// </summary>
         public int Count => _queue.Count;
 
+        /// <summary>
+        /// 入队元素并唤醒一个正在等待的出队操作
+        /// </summary>
+        /// <param name="item">待入队的元素</param>
         public void Enqueue(TItem item)
         {
             lock (_syncRoot)
@@ -53,6 +64,11 @@ namespace SAEA.MQTT.Internal
             }
         }
 
+        /// <summary>
+        /// 异步等待取出队首元素，队列已释放、等待被取消或内部信号量异常时返回失败结果
+        /// </summary>
+        /// <param name="cancellationToken">取消等待的令牌</param>
+        /// <returns>出队结果，失败时 Item 为元素类型的默认值</returns>
         public async Task<AsyncQueueDequeueResult<TItem>> TryDequeueAsync(CancellationToken cancellationToken)
         {
             while (!cancellationToken.IsCancellationRequested)
@@ -96,6 +112,10 @@ namespace SAEA.MQTT.Internal
             return new AsyncQueueDequeueResult<TItem>(false, default);
         }
 
+        /// <summary>
+        /// 立即取出队首元素，不等待
+        /// </summary>
+        /// <returns>出队结果，队列为空时 IsSuccess 为 false</returns>
         public AsyncQueueDequeueResult<TItem> TryDequeue()
         {
             if (_queue.TryDequeue(out var item))
@@ -106,11 +126,17 @@ namespace SAEA.MQTT.Internal
             return new AsyncQueueDequeueResult<TItem>(false, default);
         }
 
+        /// <summary>
+        /// 清空队列，等待中的出队操作不受影响
+        /// </summary>
         public void Clear()
         {            
             Interlocked.Exchange(ref _queue, new ConcurrentQueue<TItem>());
         }
 
+        /// <summary>
+        /// 释放内部信号量，之后入队不再唤醒、异步出队直接返回失败结果
+        /// </summary>
         public void Dispose()
         {
             lock (_syncRoot)

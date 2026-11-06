@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttPacketReader类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -37,17 +37,30 @@ using SAEA.MQTT.Exceptions;
 
 namespace SAEA.MQTT.Formatter
 {
+    /// <summary>
+    /// MQTT 固定头读取器，从信道读取类型字节与剩余长度
+    /// </summary>
     public sealed class MqttPacketReader
     {
         readonly byte[] _singleByteBuffer = new byte[1];
 
         readonly IMqttChannel _channel;
 
+        /// <summary>
+        /// 绑定底层通信信道
+        /// </summary>
+        /// <param name="channel">底层通信信道，不能为 null</param>
         public MqttPacketReader(IMqttChannel channel)
         {
             _channel = channel ?? throw new ArgumentNullException(nameof(channel));
         }
 
+        /// <summary>
+        /// 读取固定头，按剩余长度的续读位继续读取后续字节
+        /// </summary>
+        /// <param name="fixedHeaderBuffer">固定头缓冲区，长度须为 2（类型字节 + 首个剩余长度字节）</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>固定头读取结果；连接被关闭时由 ConnectionClosed 标记，取消时返回 null</returns>
         public async Task<ReadFixedHeaderResult> ReadFixedHeaderAsync(byte[] fixedHeaderBuffer, CancellationToken cancellationToken)
         {
             // The MQTT fixed header contains 1 byte of flags and at least 1 byte for the remaining data length.

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttClientCertificateValidationCallbackContext接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.Net.Security;
@@ -34,14 +34,29 @@ using System.Security.Cryptography.X509Certificates;
 
 namespace SAEA.MQTT.Client.Options
 {
+    /// <summary>
+    /// 证书校验回调的上下文，汇总待校验证书与平台校验结论
+    /// </summary>
     public class MqttClientCertificateValidationCallbackContext
     {
+        /// <summary>
+        /// 服务端提供的证书
+        /// </summary>
         public X509Certificate Certificate { get; set; }
 
+        /// <summary>
+        /// 服务端证书链的构建结果
+        /// </summary>
         public X509Chain Chain { get; set; }
 
+        /// <summary>
+        /// 平台 TLS 校验发现的策略错误
+        /// </summary>
         public SslPolicyErrors SslPolicyErrors { get; set; }
 
+        /// <summary>
+        /// 发起本次连接的通道选项
+        /// </summary>
         public IMqttClientChannelOptions ClientOptions { get; set; }
     }
 }

@@ -23,22 +23,32 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/01/16 15:31:19
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttCommunicationTimedOutException接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
 
 namespace SAEA.MQTT.Exceptions
 {
+    /// <summary>
+    /// MQTT通信超时异常，等待报文超过允许时限时抛出
+    /// </summary>
     public class MqttCommunicationTimedOutException : MqttCommunicationException
     {
+        /// <summary>
+        /// 初始化实例，不指定额外信息
+        /// </summary>
         public MqttCommunicationTimedOutException()
         {
         }
 
+        /// <summary>
+        /// 保留引起超时的内部异常
+        /// </summary>
+        /// <param name="innerException">引起超时的内部异常</param>
         public MqttCommunicationTimedOutException(Exception innerException) : base(innerException)
         {
         }

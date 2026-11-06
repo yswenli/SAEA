@@ -23,17 +23,26 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttPayloadFormatIndicator接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.MQTT.Protocol
 {
+    /// <summary>
+    /// MQTT 5.0 负载格式指示，说明应用消息负载是否为 UTF-8 字符数据
+    /// </summary>
     public enum MqttPayloadFormatIndicator
     {
+        /// <summary>
+        /// 未指明格式，负载按不透明字节处理
+        /// </summary>
         Unspecified = 0,
+        /// <summary>
+        /// 负载为 UTF-8 编码的字符数据
+        /// </summary>
         CharacterData = 1
     }
 }

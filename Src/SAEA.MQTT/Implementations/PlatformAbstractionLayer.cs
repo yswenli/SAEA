@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：PlatformAbstractionLayer接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -34,18 +34,37 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Implementations
 {
+    /// <summary>
+    /// 跨目标框架的兼容层，屏蔽不同框架在已完成任务与空数组上的差异
+    /// </summary>
     public static class PlatformAbstractionLayer
     {
 #if NET452
+        /// <summary>
+        /// 已完成的空任务，用于需要立即返回 Task 的同步实现
+        /// </summary>
         public static Task CompletedTask => Task.FromResult(0);
 
+        /// <summary>
+        /// 共享的空字节数组，调用方不得写入
+        /// </summary>
         public static byte[] EmptyByteArray { get; } = new byte[0];
 #else
+        /// <summary>
+        /// 已完成的空任务，用于需要立即返回 Task 的同步实现
+        /// </summary>
         public static Task CompletedTask => Task.CompletedTask;
 
+        /// <summary>
+        /// 共享的空字节数组，调用方不得写入
+        /// </summary>
         public static byte[] EmptyByteArray { get; } = Array.Empty<byte>();
 #endif
 
+        /// <summary>
+        /// 同步阻塞当前线程指定时长
+        /// </summary>
+        /// <param name="timeout">阻塞时长，负值会由底层 Sleep 抛出异常</param>
         public static void Sleep(TimeSpan timeout)
         {
 #if NET452 || NETSTANDARD2_0 || NETSTANDARD2_1 || NETCOREAPP3_1

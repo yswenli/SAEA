@@ -23,16 +23,22 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttServerTcpEndpointOptions接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.MQTT.Server
 {
+    /// <summary>
+    /// 明文 TCP 端点配置，默认启用并监听 1883 端口
+    /// </summary>
     public class MqttServerTcpEndpointOptions : MqttServerTcpEndpointBaseOptions
     {
+        /// <summary>
+        /// 创建明文端点配置，默认启用并将端口设为 1883
+        /// </summary>
         public MqttServerTcpEndpointOptions()
         {
             IsEnabled = true;

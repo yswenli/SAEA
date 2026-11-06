@@ -23,20 +23,30 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：IMqttClientSession接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Server
 {
+    /// <summary>
+    /// 服务端维护的单个客户端会话，负责该客户端的订阅表和待投递消息队列
+    /// </summary>
     public interface IMqttClientSession
     {
+        /// <summary>
+        /// 客户端标识，由 CONNECT 报文提供或服务端分配
+        /// </summary>
         string ClientId { get; }
 
+        /// <summary>
+        /// 停止会话并释放其占用的订阅与消息队列资源
+        /// </summary>
+        /// <returns>会话停止完成的任务</returns>
         Task StopAsync();
     }
 }

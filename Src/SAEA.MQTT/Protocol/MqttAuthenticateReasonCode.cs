@@ -23,18 +23,30 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttAuthenticateReasonCode接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.MQTT.Protocol
 {
+    /// <summary>
+    /// MQTT 5.0 增强认证（AUTH）原因码
+    /// </summary>
     public enum MqttAuthenticateReasonCode
     {
+        /// <summary>
+        /// 认证成功
+        /// </summary>
         Success = 0,
+        /// <summary>
+        /// 认证尚未完成，需要继续交换认证报文
+        /// </summary>
         ContinueAuthentication = 24,
+        /// <summary>
+        /// 客户端请求重新进行增强认证
+        /// </summary>
         ReAuthenticate = 25
     }
 }

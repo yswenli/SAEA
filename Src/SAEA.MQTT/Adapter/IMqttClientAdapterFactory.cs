@@ -23,18 +23,26 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：IMqttClientAdapterFactory接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.MQTT.Client.Options;
 
 namespace SAEA.MQTT.Adapter
 {
+    /// <summary>
+    /// 客户端信道适配器工厂，按客户端选项创建对应传输方式的适配器
+    /// </summary>
     public interface IMqttClientAdapterFactory
     {
+        /// <summary>
+        /// 创建客户端信道适配器
+        /// </summary>
+        /// <param name="options">客户端连接选项，决定传输方式与安全设置</param>
+        /// <returns>尚未建立连接的客户端适配器</returns>
         IMqttChannelAdapter CreateClientAdapter(IMqttClientOptions options);
     }
 }

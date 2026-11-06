@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ManagedMqttClient接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.MQTT.Client;
@@ -47,6 +47,9 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Extensions.ManagedClient
 {
+    /// <summary>
+    /// 托管MQTT客户端，在底层客户端之上提供自动重连、待发队列与订阅同步
+    /// </summary>
     public class ManagedMqttClient : Disposable, IManagedMqttClient
     {
         readonly BlockingQueue<ManagedMqttApplicationMessage> _messageQueue = new BlockingQueue<ManagedMqttApplicationMessage>();
@@ -74,6 +77,11 @@ namespace SAEA.MQTT.Extensions.ManagedClient
 
         ManagedMqttClientStorageManager _storageManager;
 
+        /// <summary>
+        /// 使用内部客户端与日志器初始化实例
+        /// </summary>
+        /// <param name="mqttClient">内部实际使用的MQTT客户端，不能为null</param>
+        /// <param name="logger">根日志器，不能为null；内部会创建独立作用域的日志器</param>
         public ManagedMqttClient(IMqttClient mqttClient, IMqttNetLogger logger)
         {
             _mqttClient = mqttClient ?? throw new ArgumentNullException(nameof(mqttClient));
@@ -83,42 +91,83 @@ namespace SAEA.MQTT.Extensions.ManagedClient
             _logger = logger.CreateScopedLogger(nameof(ManagedMqttClient));
         }
 
+        /// <summary>
+        /// 内部客户端当前是否已连接
+        /// </summary>
         public bool IsConnected => _mqttClient.IsConnected;
 
+        /// <summary>
+        /// 是否已启动，以连接维护是否已启动为准
+        /// </summary>
         public bool IsStarted => _connectionCancellationToken != null;
         
+        /// <summary>
+        /// 内部实际使用的MQTT客户端
+        /// </summary>
         public IMqttClient InternalClient { get; }
 
+        /// <summary>
+        /// 排队等待发送的应用消息数量
+        /// </summary>
         public int PendingApplicationMessagesCount => _messageQueue.Count;
         
+        /// <summary>
+        /// 当前生效的托管客户端选项，启动前为null
+        /// </summary>
         public IManagedMqttClientOptions Options { get; private set; }
 
+        /// <summary>
+        /// 连接成功事件处理器，读写均转发给内部客户端
+        /// </summary>
         public IMqttClientConnectedHandler ConnectedHandler
         {
             get => _mqttClient.ConnectedHandler;
             set => _mqttClient.ConnectedHandler = value;
         }
 
+        /// <summary>
+        /// 连接断开事件处理器，读写均转发给内部客户端
+        /// </summary>
         public IMqttClientDisconnectedHandler DisconnectedHandler
         {
             get => _mqttClient.DisconnectedHandler;
             set => _mqttClient.DisconnectedHandler = value;
         }
 
+        /// <summary>
+        /// 应用消息接收事件处理器，读写均转发给内部客户端
+        /// </summary>
         public IMqttApplicationMessageReceivedHandler ApplicationMessageReceivedHandler
         {
             get => _mqttClient.ApplicationMessageReceivedHandler;
             set => _mqttClient.ApplicationMessageReceivedHandler = value;
         }
 
+        /// <summary>
+        /// 应用消息处理完成事件处理器
+        /// </summary>
         public IApplicationMessageProcessedHandler ApplicationMessageProcessedHandler { get; set; }
 
+        /// <summary>
+        /// 应用消息被跳过事件处理器
+        /// </summary>
         public IApplicationMessageSkippedHandler ApplicationMessageSkippedHandler { get; set; }
 
+        /// <summary>
+        /// 连接失败事件处理器
+        /// </summary>
         public IConnectingFailedHandler ConnectingFailedHandler { get; set; }
 
+        /// <summary>
+        /// 订阅同步失败事件处理器
+        /// </summary>
         public ISynchronizingSubscriptionsFailedHandler SynchronizingSubscriptionsFailedHandler { get; set; }
 
+        /// <summary>
+        /// 用指定选项启动托管客户端，可选地加载已持久化的待发消息并启动连接维护
+        /// </summary>
+        /// <param name="options">托管客户端选项，其 ClientOptions 不能为null</param>
+        /// <returns>启动完成的异步任务</returns>
         public async Task StartAsync(IManagedMqttClientOptions options)
         {
             ThrowIfDisposed();
@@ -154,6 +203,10 @@ namespace SAEA.MQTT.Extensions.ManagedClient
             _logger.Info("Started");
         }
 
+        /// <summary>
+        /// 停止消息发送与连接维护，并清空待发队列
+        /// </summary>
+        /// <returns>连接维护任务结束后的异步任务</returns>
         public async Task StopAsync()
         {
             ThrowIfDisposed();
@@ -170,11 +223,22 @@ namespace SAEA.MQTT.Extensions.ManagedClient
             }
         }
 
+        /// <summary>
+        /// 通过内部客户端发送心跳
+        /// </summary>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>心跳完成的异步任务</returns>
         public Task PingAsync(CancellationToken cancellationToken)
         {
             return _mqttClient.PingAsync(cancellationToken);
         }
 
+        /// <summary>
+        /// 将应用消息包装后放入待发队列
+        /// </summary>
+        /// <param name="applicationMessage">要发送的应用消息，不能为null</param>
+        /// <param name="cancellationToken">取消令牌，入队本身不使用该令牌</param>
+        /// <returns>始终返回未携带结果的状态对象，实际发送结果通过处理完成事件通知</returns>
         public async Task<MqttClientPublishResult> PublishAsync(MqttApplicationMessage applicationMessage, CancellationToken cancellationToken)
         {
             ThrowIfDisposed();
@@ -185,6 +249,11 @@ namespace SAEA.MQTT.Extensions.ManagedClient
             return new MqttClientPublishResult();
         }
 
+        /// <summary>
+        /// 将托管应用消息放入待发队列，队列满时按配置的溢出策略处理
+        /// </summary>
+        /// <param name="applicationMessage">带唯一标识的待发消息，不能为null</param>
+        /// <returns>入队完成的异步任务</returns>
         public async Task PublishAsync(ManagedMqttApplicationMessage applicationMessage)
         {
             ThrowIfDisposed();
@@ -245,6 +314,11 @@ namespace SAEA.MQTT.Extensions.ManagedClient
             }
         }
 
+        /// <summary>
+        /// 登记订阅，由后台在连接可用时下发并在重连后自动恢复
+        /// </summary>
+        /// <param name="topicFilters">主题过滤条件集合，不能为null</param>
+        /// <returns>登记完成的任务，不等待服务端确认</returns>
         public Task SubscribeAsync(IEnumerable<MqttTopicFilter> topicFilters)
         {
             ThrowIfDisposed();
@@ -265,6 +339,11 @@ namespace SAEA.MQTT.Extensions.ManagedClient
             return Task.FromResult(0);
         }
 
+        /// <summary>
+        /// 登记取消订阅，由后台在连接可用时下发
+        /// </summary>
+        /// <param name="topics">要取消订阅的主题集合，不能为null</param>
+        /// <returns>登记完成的任务，不等待服务端确认</returns>
         public Task UnsubscribeAsync(IEnumerable<string> topics)
         {
             ThrowIfDisposed();
@@ -284,6 +363,10 @@ namespace SAEA.MQTT.Extensions.ManagedClient
             return Task.FromResult(0);
         }
 
+        /// <summary>
+        /// 释放托管客户端，同步等待连接维护结束并释放内部客户端与队列资源
+        /// </summary>
+        /// <param name="disposing">为true时释放托管资源</param>
         protected override void Dispose(bool disposing)
         {
             if (disposing)

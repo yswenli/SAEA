@@ -22,10 +22,10 @@
  *
  *=====================================================================
  *修改标记
- *修改时间：2026/11/05 00:00:00
+ *修改时间：2026/11/6 12:04:26
  *修改人： yswenli
- *版本号： v26.4.23.1
- *描述：补齐共享订阅解析、匹配契约与注册表接入
+ *版本号： v26.11.5.1
+ *描述：补全公开成员的 XML 注释
  *
  *****************************************************************************/
 using SAEA.MQTT.Packets;
@@ -38,6 +38,9 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Server
 {
+    /// <summary>
+    /// 客户端订阅管理器，维护本会话的订阅过滤器表并负责订阅、取消订阅与主题匹配
+    /// </summary>
     public sealed class MqttClientSubscriptionsManager
     {
         // We use a reader writer lock because the subscriptions are only read most of the time.
@@ -50,6 +53,12 @@ namespace SAEA.MQTT.Server
         readonly MqttServerEventDispatcher _eventDispatcher;
         readonly MqttSharedSubscriptionRegistry _sharedSubscriptionRegistry;
 
+        /// <summary>
+        /// 创建订阅管理器并使用新建的共享订阅注册表
+        /// </summary>
+        /// <param name="clientSession">所属会话，用于取客户端标识与会话键值集合</param>
+        /// <param name="eventDispatcher">事件分发器，用于触发订阅与取消订阅回调</param>
+        /// <param name="serverOptions">服务端配置，含订阅拦截器与能力声明</param>
         public MqttClientSubscriptionsManager(
             MqttClientSession clientSession,
             MqttServerEventDispatcher eventDispatcher,
@@ -70,6 +79,12 @@ namespace SAEA.MQTT.Server
             _sharedSubscriptionRegistry = sharedSubscriptionRegistry ?? throw new ArgumentNullException(nameof(sharedSubscriptionRegistry));
         }
 
+        /// <summary>
+        /// 处理 SUBSCRIBE 报文：逐条应用拦截器、校验共享订阅与通配符能力，成功后登记订阅
+        /// </summary>
+        /// <param name="subscribePacket">SUBSCRIBE 报文，不可为 null</param>
+        /// <param name="connectPacket">本次连接的 CONNECT 报文，不可为 null</param>
+        /// <returns>按过滤器顺序填充返回码与原因码的订阅结果；整包协议错误时填充 DisconnectReasonCode</returns>
         public async Task<MqttClientSubscribeResult> SubscribeAsync(MqttSubscribePacket subscribePacket, MqttConnectPacket connectPacket)
         {
             if (subscribePacket == null) throw new ArgumentNullException(nameof(subscribePacket));
@@ -210,6 +225,11 @@ namespace SAEA.MQTT.Server
             return result;
         }
 
+        /// <summary>
+        /// 以服务端身份添加订阅：跳过被拦截器拒绝或非法的过滤器，没有 SUBACK 可返回
+        /// </summary>
+        /// <param name="topicFilters">待添加的订阅过滤器集合，不可为 null；集合内的 null 元素被忽略</param>
+        /// <returns>需要补发 retained 消息的过滤器列表</returns>
         public async Task<List<MqttTopicFilter>> SubscribeAsync(IEnumerable<MqttTopicFilter> topicFilters)
         {
             if (topicFilters == null) throw new ArgumentNullException(nameof(topicFilters));
@@ -275,6 +295,11 @@ namespace SAEA.MQTT.Server
             return replayFilters;
         }
 
+        /// <summary>
+        /// 处理 UNSUBSCRIBE 报文：逐条应用拦截器并移除订阅
+        /// </summary>
+        /// <param name="unsubscribePacket">UNSUBSCRIBE 报文，不可为 null</param>
+        /// <returns>与请求主题顺序一致的原因码列表，含订阅不存在与被拦截两种结果</returns>
         public async Task<List<MqttUnsubscribeReasonCode>> UnsubscribeAsync(MqttUnsubscribePacket unsubscribePacket)
         {
             if (unsubscribePacket == null) throw new ArgumentNullException(nameof(unsubscribePacket));
@@ -320,6 +345,11 @@ namespace SAEA.MQTT.Server
             return reasonCodes;
         }
 
+        /// <summary>
+        /// 以服务端身份移除订阅，被拦截器拒绝的主题直接跳过
+        /// </summary>
+        /// <param name="topicFilters">待移除的订阅主题集合，不可为 null</param>
+        /// <returns>取消订阅完成的任务</returns>
         public async Task UnsubscribeAsync(IEnumerable<string> topicFilters)
         {
             if (topicFilters == null) throw new ArgumentNullException(nameof(topicFilters));
@@ -354,11 +384,24 @@ namespace SAEA.MQTT.Server
             }
         }
 
+        /// <summary>
+        /// 判断主题是否命中本会话订阅，不参与 NoLocal 判断
+        /// </summary>
+        /// <param name="topic">待匹配的消息主题</param>
+        /// <param name="qosLevel">消息发布的 QoS，用于与订阅 QoS 取较小值</param>
+        /// <returns>匹配结果，含最终投递 QoS 与全部匹配项</returns>
         public CheckSubscriptionsResult CheckSubscriptions(string topic, MqttQualityOfServiceLevel qosLevel)
         {
             return CheckSubscriptions(topic, qosLevel, null);
         }
 
+        /// <summary>
+        /// 判断主题是否命中本会话订阅，NoLocal 订阅会排除同客户端发布的消息；共享订阅不参与本地匹配
+        /// </summary>
+        /// <param name="topic">待匹配的消息主题</param>
+        /// <param name="qosLevel">消息发布的 QoS，用于与订阅 QoS 取较小值</param>
+        /// <param name="publisherClientId">发布方标识，为 null 时不排除 NoLocal 订阅</param>
+        /// <returns>匹配结果，含最终投递 QoS 与全部匹配项</returns>
         public CheckSubscriptionsResult CheckSubscriptions(string topic, MqttQualityOfServiceLevel qosLevel, string publisherClientId)
         {
             Dictionary<string, MqttTopicFilter> subscriptionsCopy;

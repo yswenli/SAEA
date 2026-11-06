@@ -23,18 +23,26 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：IMqttApplicationMessageReceivedHandler接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Client.Receiving
 {
+    /// <summary>
+    /// 收到应用消息后的处理器，客户端每收到一条消息调用一次
+    /// </summary>
     public interface IMqttApplicationMessageReceivedHandler
     {
+        /// <summary>
+        /// 处理收到的应用消息，可将事件参数的 ProcessingFailed 置位表示处理失败
+        /// </summary>
+        /// <param name="eventArgs">收到的消息与来源客户端标识</param>
+        /// <returns>处理完成的任务</returns>
         Task HandleApplicationMessageReceivedAsync(MqttApplicationMessageReceivedEventArgs eventArgs);
     }
 }

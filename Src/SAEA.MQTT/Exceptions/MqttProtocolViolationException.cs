@@ -23,18 +23,25 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/01/16 15:31:19
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttProtocolViolationException接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
 
 namespace SAEA.MQTT.Exceptions
 {
+    /// <summary>
+    /// MQTT协议违规异常，报文不符合协议规范时抛出
+    /// </summary>
     public class MqttProtocolViolationException : Exception
     {
+        /// <summary>
+        /// 使用指定消息初始化实例
+        /// </summary>
+        /// <param name="message">异常消息</param>
         public MqttProtocolViolationException(string message)
             : base(message)
         {

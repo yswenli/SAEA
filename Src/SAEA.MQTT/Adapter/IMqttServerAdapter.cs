@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：IMqttServerAdapter适配器类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -35,11 +35,26 @@ using SAEA.MQTT.Server;
 
 namespace SAEA.MQTT.Adapter
 {
+    /// <summary>
+    /// 服务端监听适配器，负责接受连接并把每个连接交给客户端处理器
+    /// </summary>
     public interface IMqttServerAdapter : IDisposable
     {
+        /// <summary>
+        /// 新连接接入时的处理回调，参数为已完成握手的信道适配器
+        /// </summary>
         Func<IMqttChannelAdapter, Task> ClientHandler { get; set; }
 
+        /// <summary>
+        /// 按服务端选项开始监听
+        /// </summary>
+        /// <param name="options">服务端选项，包含监听地址与安全设置</param>
+        /// <returns>开始监听完成的异步任务</returns>
         Task StartAsync(IMqttServerOptions options);
+        /// <summary>
+        /// 停止监听并释放已接受的连接
+        /// </summary>
+        /// <returns>停止完成的异步任务</returns>
         Task StopAsync();
     }
 }

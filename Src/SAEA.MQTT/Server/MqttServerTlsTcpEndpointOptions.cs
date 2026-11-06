@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttServerTlsTcpEndpointOptions接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -35,24 +35,42 @@ using SAEA.MQTT.Certificates;
 
 namespace SAEA.MQTT.Server
 {
+    /// <summary>
+    /// TLS 端点配置，默认端口 8883，需显式启用并配置证书
+    /// </summary>
     public class MqttServerTlsTcpEndpointOptions : MqttServerTcpEndpointBaseOptions
     {
         ICertificateProvider _certificateProvider;
 
+        /// <summary>
+        /// 创建 TLS 端点配置，默认端口为 8883
+        /// </summary>
         public MqttServerTlsTcpEndpointOptions()
         {
             Port = 8883;
         }
 
+        /// <summary>
+        /// 已废弃的证书二进制内容，仅在未设置 CertificateProvider 时用于兼容转换
+        /// </summary>
         [Obsolete("Please use CertificateProvider with 'BlobCertificateProvider' instead.")]
         public byte[] Certificate { get; set; }
 
+        /// <summary>
+        /// 已废弃的证书口令，仅在未设置 CertificateProvider 时与 Certificate 一起用于兼容转换
+        /// </summary>
         [Obsolete("Please use CertificateProvider with 'BlobCertificateProvider' including password property instead.")]
         public IMqttServerCertificateCredentials CertificateCredentials { get; set; }
 
 #if !WINDOWS_UWP
+        /// <summary>
+        /// TLS 握手中对端证书的校验回调，为 null 时使用默认校验
+        /// </summary>
         public System.Net.Security.RemoteCertificateValidationCallback RemoteCertificateValidationCallback { get; set; }
 #endif
+        /// <summary>
+        /// 服务端证书提供者，未显式设置时由已废弃的 Certificate 与 CertificateCredentials 惰性转换得到
+        /// </summary>
         public ICertificateProvider CertificateProvider
         {
             get
@@ -78,10 +96,19 @@ namespace SAEA.MQTT.Server
             set => _certificateProvider = value;
         }
 
+        /// <summary>
+        /// 是否要求客户端提供证书以做双向认证
+        /// </summary>
         public bool ClientCertificateRequired { get; set; }
 
+        /// <summary>
+        /// 是否在 TLS 握手时检查证书吊销状态
+        /// </summary>
         public bool CheckCertificateRevocation { get; set; }
 
+        /// <summary>
+        /// 使用的 SSL/TLS 协议版本，默认 TLS 1.2
+        /// </summary>
         public SslProtocols SslProtocol { get; set; } = SslProtocols.Tls12;
     }
 }

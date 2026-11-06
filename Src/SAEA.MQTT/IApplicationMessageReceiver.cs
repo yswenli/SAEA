@@ -23,18 +23,24 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：IApplicationMessageReceiver接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.MQTT.Client.Receiving;
 
 namespace SAEA.MQTT
 {
+    /// <summary>
+    /// 应用消息接收者，收到的消息交由注入的处理器统一处理
+    /// </summary>
     public interface IApplicationMessageReceiver
     {
+        /// <summary>
+        /// 收到应用消息时调用的处理器，为null时不处理收到的消息
+        /// </summary>
         IMqttApplicationMessageReceivedHandler ApplicationMessageReceivedHandler { get; set; }
     }
 }

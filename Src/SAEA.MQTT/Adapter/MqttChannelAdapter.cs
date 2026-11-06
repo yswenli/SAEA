@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttChannelAdapter适配器类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common.Caching;
@@ -47,6 +47,9 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Adapter
 {
+    /// <summary>
+    /// 基于 IMqttChannel 的信道适配器，负责报文编解码、超时包装与收发计数
+    /// </summary>
     public sealed class MqttChannelAdapter : Disposable, IMqttChannelAdapter
     {
         const uint ErrorOperationAborted = 0x800703E3;
@@ -63,6 +66,12 @@ namespace SAEA.MQTT.Adapter
         long _bytesReceived;
         long _bytesSent;
 
+        /// <summary>
+        /// 创建信道适配器并绑定报文读取器
+        /// </summary>
+        /// <param name="channel">底层信道</param>
+        /// <param name="packetFormatterAdapter">报文编解码器</param>
+        /// <param name="logger">日志记录器，用于创建本适配器的作用域日志</param>
         public MqttChannelAdapter(IMqttChannel channel, MqttPacketFormatterAdapter packetFormatterAdapter, IMqttNetLogger logger)
         {
             if (logger == null) throw new ArgumentNullException(nameof(logger));
@@ -76,12 +85,24 @@ namespace SAEA.MQTT.Adapter
             _logger = logger.CreateScopedLogger(nameof(MqttChannelAdapter));
         }
 
+        /// <summary>
+        /// 对端地址
+        /// </summary>
         public string Endpoint => _channel.Endpoint;
 
+        /// <summary>
+        /// 是否为加密连接
+        /// </summary>
         public bool IsSecureConnection => _channel.IsSecureConnection;
 
+        /// <summary>
+        /// 客户端证书，非双向认证时为 null
+        /// </summary>
         public X509Certificate2 ClientCertificate => _channel.ClientCertificate;
 
+        /// <summary>
+        /// 报文编解码器
+        /// </summary>
         public MqttPacketFormatterAdapter PacketFormatterAdapter { get; }
 
         /// <summary>
@@ -94,12 +115,27 @@ namespace SAEA.MQTT.Adapter
         /// </summary>
         internal uint MaximumInboundPacketSize { get; set; } = 268435455;
 
+        /// <summary>
+        /// 累计已发送字节数
+        /// </summary>
         public long BytesSent => Interlocked.Read(ref _bytesSent);
 
+        /// <summary>
+        /// 累计已接收字节数
+        /// </summary>
         public long BytesReceived => Interlocked.Read(ref _bytesReceived);
 
+        /// <summary>
+        /// 是否正在读取报文
+        /// </summary>
         public bool IsReadingPacket { get; private set; }
 
+        /// <summary>
+        /// 建立连接
+        /// </summary>
+        /// <param name="timeout">超时时间，为 TimeSpan.Zero 时不限时</param>
+        /// <param name="cancellationToken">取消标记</param>
+        /// <returns>连接完成的异步任务</returns>
         public async Task ConnectAsync(TimeSpan timeout, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -127,6 +163,12 @@ namespace SAEA.MQTT.Adapter
             }
         }
 
+        /// <summary>
+        /// 关闭连接
+        /// </summary>
+        /// <param name="timeout">超时时间，为 TimeSpan.Zero 时不限时</param>
+        /// <param name="cancellationToken">取消标记</param>
+        /// <returns>关闭完成的异步任务</returns>
         public async Task DisconnectAsync(TimeSpan timeout, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -155,6 +197,13 @@ namespace SAEA.MQTT.Adapter
             }
         }
 
+        /// <summary>
+        /// 编码并发送一个 MQTT 报文，同一时刻只允许一个发送流程
+        /// </summary>
+        /// <param name="packet">待发送报文</param>
+        /// <param name="timeout">发送超时时间，为 TimeSpan.Zero 时不限时</param>
+        /// <param name="cancellationToken">取消标记</param>
+        /// <returns>发送完成的异步任务</returns>
         public async Task SendPacketAsync(MqttBasePacket packet, TimeSpan timeout, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -208,6 +257,11 @@ namespace SAEA.MQTT.Adapter
             }
         }
 
+        /// <summary>
+        /// 读取并解码一个 MQTT 报文，首次读取时自动识别协议版本
+        /// </summary>
+        /// <param name="cancellationToken">取消标记</param>
+        /// <returns>解码后的报文，连接关闭或读取被取消时返回 null；报文非法或调用前已释放时抛出异常</returns>
         public async Task<MqttBasePacket> ReceivePacketAsync(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -273,12 +327,19 @@ namespace SAEA.MQTT.Adapter
             return null;
         }
 
+        /// <summary>
+        /// 将收发字节计数清零
+        /// </summary>
         public void ResetStatistics()
         {
             Interlocked.Exchange(ref _bytesReceived, 0L);
             Interlocked.Exchange(ref _bytesSent, 0L);
         }
 
+        /// <summary>
+        /// 释放底层信道与发送锁
+        /// </summary>
+        /// <param name="disposing">是否由显式释放触发，true 时释放托管资源</param>
         protected override void Dispose(bool disposing)
         {
             if (disposing)

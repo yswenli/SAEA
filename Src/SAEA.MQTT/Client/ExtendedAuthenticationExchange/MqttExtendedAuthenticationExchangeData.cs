@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttExtendedAuthenticationExchangeData接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.Collections.Generic;
@@ -35,14 +35,29 @@ using SAEA.MQTT.Protocol;
 
 namespace SAEA.MQTT.Client.ExtendedAuthenticationExchange
 {
+    /// <summary>
+    /// 客户端回复服务端的增强认证数据
+    /// </summary>
     public class MqttExtendedAuthenticationExchangeData
     {
+        /// <summary>
+        /// 回复 AUTH 报文的原因码
+        /// </summary>
         public MqttAuthenticateReasonCode ReasonCode { get; set; }
 
+        /// <summary>
+        /// 回复的说明文本
+        /// </summary>
         public string ReasonString { get; set; }
 
+        /// <summary>
+        /// 回复给服务端的认证数据
+        /// </summary>
         public byte[] AuthenticationData { get; set; }
 
+        /// <summary>
+        /// 回复中携带的用户自定义属性
+        /// </summary>
         public List<MqttUserProperty> UserProperties { get; }
     }
 }

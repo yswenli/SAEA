@@ -23,21 +23,42 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttConnectReturnCode代码枚举
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.MQTT.Protocol
 {
+    /// <summary>
+    /// MQTT 3.1.1 连接确认（CONNACK）返回码
+    /// </summary>
     public enum MqttConnectReturnCode
     {
+        /// <summary>
+        /// 连接被服务端接受
+        /// </summary>
         ConnectionAccepted = 0x00,
+        /// <summary>
+        /// 服务端不支持客户端请求的协议版本
+        /// </summary>
         ConnectionRefusedUnacceptableProtocolVersion = 0x01,
+        /// <summary>
+        /// 客户端标识符被服务端拒绝
+        /// </summary>
         ConnectionRefusedIdentifierRejected = 0x02,
+        /// <summary>
+        /// 服务端当前不可用
+        /// </summary>
         ConnectionRefusedServerUnavailable = 0x03,
+        /// <summary>
+        /// 用户名或密码错误
+        /// </summary>
         ConnectionRefusedBadUsernameOrPassword = 0x04,
+        /// <summary>
+        /// 客户端未通过授权
+        /// </summary>
         ConnectionRefusedNotAuthorized = 0x05
     }
 }

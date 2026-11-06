@@ -23,18 +23,26 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：IMqttServerClientMessageQueueInterceptor接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Server
 {
+    /// <summary>
+    /// 客户端消息队列入队拦截器，可逐条决定是否把消息投递给指定接收方
+    /// </summary>
     public interface IMqttServerClientMessageQueueInterceptor
     {
+        /// <summary>
+        /// 拦截消息入队，通过上下文的 AcceptEnqueue 决定是否放入接收方队列
+        /// </summary>
+        /// <param name="context">拦截上下文，包含收发双方标识、应用消息与授予的订阅 QoS</param>
+        /// <returns>拦截完成的任务</returns>
         Task InterceptClientMessageQueueEnqueueAsync(MqttClientMessageQueueInterceptorContext context);
     }
 }

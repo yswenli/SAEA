@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：UserPropertyExtension接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -34,8 +34,18 @@ using System.Linq;
 
 namespace SAEA.MQTT.Extensions
 {
+    /// <summary>
+    /// 应用消息用户属性的读取扩展
+    /// </summary>
     public static class UserPropertyExtension
     {
+        /// <summary>
+        /// 按名称取第一个匹配的用户属性值，消息无属性或未匹配时返回null
+        /// </summary>
+        /// <param name="message">应用消息，不能为null</param>
+        /// <param name="propertyName">属性名称，不能为null</param>
+        /// <param name="comparisonType">名称比较方式，默认按序数比较</param>
+        /// <returns>匹配到的属性值，未匹配时为null</returns>
         public static string GetUserProperty(this MqttApplicationMessage message, string propertyName, StringComparison comparisonType = StringComparison.Ordinal)
         {
             if (message == null) throw new ArgumentNullException(nameof(message));

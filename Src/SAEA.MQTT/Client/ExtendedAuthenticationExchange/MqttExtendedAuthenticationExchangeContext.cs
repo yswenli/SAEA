@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttExtendedAuthenticationExchangeContext接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -36,8 +36,16 @@ using SAEA.MQTT.Protocol;
 
 namespace SAEA.MQTT.Client.ExtendedAuthenticationExchange
 {
+    /// <summary>
+    /// 收到服务端 AUTH 报文时的增强认证交换上下文
+    /// </summary>
     public class MqttExtendedAuthenticationExchangeContext
     {
+        /// <summary>
+        /// 由服务端 AUTH 报文与当前客户端创建上下文
+        /// </summary>
+        /// <param name="authPacket">服务端下发的 AUTH 报文，不能为 null</param>
+        /// <param name="client">发起认证交换的客户端实例，不能为 null</param>
         public MqttExtendedAuthenticationExchangeContext(MqttAuthPacket authPacket, IMqttClient client)
         {
             if (authPacket == null) throw new ArgumentNullException(nameof(authPacket));
@@ -51,16 +59,34 @@ namespace SAEA.MQTT.Client.ExtendedAuthenticationExchange
             Client = client ?? throw new ArgumentNullException(nameof(client));
         }
 
+        /// <summary>
+        /// AUTH 报文的原因码
+        /// </summary>
         public MqttAuthenticateReasonCode ReasonCode { get; }
 
+        /// <summary>
+        /// 服务端给出的说明，未下发时为 null
+        /// </summary>
         public string ReasonString { get; }
 
+        /// <summary>
+        /// 认证方法名，未下发时为 null
+        /// </summary>
         public string AuthenticationMethod { get; }
 
+        /// <summary>
+        /// 服务端下发的认证数据，未下发时为 null
+        /// </summary>
         public byte[] AuthenticationData { get; }
 
+        /// <summary>
+        /// 服务端下发的用户自定义属性，未下发时为 null
+        /// </summary>
         public List<MqttUserProperty> UserProperties { get; }
 
+        /// <summary>
+        /// 发起本次认证交换的客户端实例
+        /// </summary>
         public IMqttClient Client { get; }
     }
 }

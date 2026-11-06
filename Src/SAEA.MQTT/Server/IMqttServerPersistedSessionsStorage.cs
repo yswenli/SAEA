@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：IMqttServerPersistedSessionsStorage接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -35,8 +35,15 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Server
 {
+    /// <summary>
+    /// 持久化会话的存储契约，服务端启动时通过它还原断线前保留的会话
+    /// </summary>
     public interface IMqttServerPersistedSessionsStorage
     {
+        /// <summary>
+        /// 加载全部已持久化的会话
+        /// </summary>
+        /// <returns>会话快照列表，无数据时为空列表</returns>
         Task<IList<IMqttServerPersistedSession>> LoadPersistedSessionsAsync();
     }
 }

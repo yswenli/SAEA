@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttQueuedApplicationMessage接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -35,16 +35,34 @@ using SAEA.MQTT.Protocol;
 
 namespace SAEA.MQTT.Server
 {
+    /// <summary>
+    /// 会话待投递队列入队时封装的出站消息，附带发送方与订阅匹配结果
+    /// </summary>
     public class MqttQueuedApplicationMessage
     {
+        /// <summary>
+        /// 待发送的应用消息本体
+        /// </summary>
         public MqttApplicationMessage ApplicationMessage { get; set; }
 
+        /// <summary>
+        /// 发布该消息的客户端标识，服务端自身发布时为 null
+        /// </summary>
         public string SenderClientId { get; set; }
 
+        /// <summary>
+        /// 是否为订阅时补发的 retained 消息
+        /// </summary>
         public bool IsRetainedMessage { get; set; }
 
+        /// <summary>
+        /// 命中订阅所授予的服务质量等级，决定实际投递使用的 QoS
+        /// </summary>
         public MqttQualityOfServiceLevel SubscriptionQualityOfServiceLevel { get; set; }
 
+        /// <summary>
+        /// 已废弃，等价于 SubscriptionQualityOfServiceLevel
+        /// </summary>
         [Obsolete("Use 'SubscriptionQualityOfServiceLevel' instead.")]
         public MqttQualityOfServiceLevel QualityOfServiceLevel
         {
@@ -52,6 +70,9 @@ namespace SAEA.MQTT.Server
             set => SubscriptionQualityOfServiceLevel = value;
         }
 
+        /// <summary>
+        /// 是否为 QoS 1/2 重传，为 true 时出站 PUBLISH 置 DUP 标志
+        /// </summary>
         public bool IsDuplicate { get; set; }
 
         /// <summary>

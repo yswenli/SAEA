@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttPacketBodyReader类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common.Caching;
@@ -38,6 +38,9 @@ using SAEA.MQTT.Exceptions;
 
 namespace SAEA.MQTT.Formatter
 {
+    /// <summary>
+    /// MQTT 报文体读取器，在已接收的缓冲区上按协议顺序读取字段并推进读取位置
+    /// </summary>
     public sealed class MqttPacketBodyReader : IMqttPacketBodyReader
     {
         readonly byte[] _buffer;
@@ -46,6 +49,12 @@ namespace SAEA.MQTT.Formatter
 
         int _offset;
 
+        /// <summary>
+        /// 在指定缓冲区的片段上创建读取器，底层数据不会被复制
+        /// </summary>
+        /// <param name="buffer">报文体所在缓冲区</param>
+        /// <param name="offset">报文体在缓冲区中的起始索引</param>
+        /// <param name="length">报文体在缓冲区中的结束索引，等于起始索引加报文体字节数</param>
         public MqttPacketBodyReader(byte[] buffer, int offset, int length)
         {
             _buffer = buffer;
@@ -54,24 +63,45 @@ namespace SAEA.MQTT.Formatter
             _length = length;
         }
 
+        /// <summary>
+        /// 当前读取位置在底层缓冲区中的索引
+        /// </summary>
         public int Offset => _offset;
 
+        /// <summary>
+        /// 报文体中从当前读取位置到末尾的字节数
+        /// </summary>
         public int Length => _length - _offset;
 
+        /// <summary>
+        /// 读取位置是否已到达报文体末尾
+        /// </summary>
         public bool EndOfStream => _offset == _length;
 
+        /// <summary>
+        /// 将读取位置移动到相对报文体起始的指定偏移
+        /// </summary>
+        /// <param name="position">相对报文体起始的偏移，超出报文体范围时后续读取会抛异常</param>
         public void Seek(int position)
         {
             _offset = _initialOffset + position;
         }
 
+        /// <summary>
+        /// 读取单字节并推进读取位置
+        /// </summary>
+        /// <returns>读取到的字节</returns>
         public byte ReadByte()
         {
             ValidateReceiveBuffer(1);
 
             return _buffer[_offset++];
         }
-        
+
+        /// <summary>
+        /// 读取布尔值，仅 0 与 1 合法
+        /// </summary>
+        /// <returns>true 表示 1，false 表示 0</returns>
         public bool ReadBoolean()
         {
             ValidateReceiveBuffer(1);
@@ -91,6 +121,10 @@ namespace SAEA.MQTT.Formatter
             throw new MqttProtocolViolationException("Boolean values can be 0 or 1 only.");
         }
 
+        /// <summary>
+        /// 读取从当前读取位置到末尾的全部数据并返回独立副本，不推进读取位置
+        /// </summary>
+        /// <returns>剩余数据的副本，修改它不影响底层缓冲区</returns>
         public byte[] ReadRemainingData()
         {
             var bufferLength = _length - _offset;
@@ -125,6 +159,10 @@ namespace SAEA.MQTT.Formatter
             }
         }
 
+        /// <summary>
+        /// 读取两字节整数（大端序）
+        /// </summary>
+        /// <returns>解码后的无符号两字节整数</returns>
         public ushort ReadTwoByteInteger()
         {
             ValidateReceiveBuffer(2);
@@ -135,6 +173,10 @@ namespace SAEA.MQTT.Formatter
             return (ushort)(msb << 8 | lsb);
         }
 
+        /// <summary>
+        /// 读取四字节整数（大端序）
+        /// </summary>
+        /// <returns>解码后的无符号四字节整数</returns>
         public uint ReadFourByteInteger()
         {
             ValidateReceiveBuffer(4);
@@ -147,6 +189,10 @@ namespace SAEA.MQTT.Formatter
             return (uint)(byte0 << 24 | byte1 << 16 | byte2 << 8 | byte3);
         }
 
+        /// <summary>
+        /// 读取变长字节整数，每字节低 7 位有效、最高位表示是否继续读取
+        /// </summary>
+        /// <returns>解码后的整数值，超过 4 字节时抛出协议违规异常</returns>
         public uint ReadVariableLengthInteger()
         {
             var multiplier = 1;
@@ -168,7 +214,11 @@ namespace SAEA.MQTT.Formatter
 
             return value;
         }
-        
+
+        /// <summary>
+        /// 读取带两字节长度前缀的二进制数据
+        /// </summary>
+        /// <returns>读取到的字节数组副本</returns>
         public byte[] ReadWithLengthPrefix()
         {
             return ReadSegmentWithLengthPrefix().ToArray();
@@ -195,6 +245,10 @@ namespace SAEA.MQTT.Formatter
             }
         }
 
+        /// <summary>
+        /// 读取带两字节长度前缀的 UTF-8 字符串
+        /// </summary>
+        /// <returns>解码后的字符串</returns>
         public string ReadStringWithLengthPrefix()
         {
             var buffer = ReadSegmentWithLengthPrefix();

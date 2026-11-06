@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttServerConnectionValidatorDelegate接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -34,10 +34,17 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Server
 {
+    /// <summary>
+    /// 把同步或异步回调适配为连接校验器
+    /// </summary>
     public class MqttServerConnectionValidatorDelegate : IMqttServerConnectionValidator
     {
         private readonly Func<MqttConnectionValidatorContext, Task> _callback;
 
+        /// <summary>
+        /// 用同步回调创建连接校验器，回调返回后视为校验完成
+        /// </summary>
+        /// <param name="callback">连接校验回调，不能为 null</param>
         public MqttServerConnectionValidatorDelegate(Action<MqttConnectionValidatorContext> callback)
         {
             if (callback == null) throw new ArgumentNullException(nameof(callback));
@@ -49,11 +56,20 @@ namespace SAEA.MQTT.Server
             };
         }
 
+        /// <summary>
+        /// 用异步回调创建连接校验器
+        /// </summary>
+        /// <param name="callback">连接校验回调，不能为 null</param>
         public MqttServerConnectionValidatorDelegate(Func<MqttConnectionValidatorContext, Task> callback)
         {
             _callback = callback ?? throw new ArgumentNullException(nameof(callback));
         }
 
+        /// <summary>
+        /// 调用注入的回调校验连接请求
+        /// </summary>
+        /// <param name="context">连接校验上下文，回调通过其设置拒绝原因</param>
+        /// <returns>回调返回的任务</returns>
         public Task ValidateConnectionAsync(MqttConnectionValidatorContext context)
         {
             return _callback(context);

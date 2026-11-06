@@ -23,19 +23,34 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttSubscribeReturnCode接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.MQTT.Protocol
 {
+    /// <summary>
+    /// MQTT 3.1.1 订阅确认（SUBACK）返回码
+    /// </summary>
     public enum MqttSubscribeReturnCode
     {
+        /// <summary>
+        /// 订阅成功，授予的最大 QoS 为 0
+        /// </summary>
         SuccessMaximumQoS0 = 0x00,
+        /// <summary>
+        /// 订阅成功，授予的最大 QoS 为 1
+        /// </summary>
         SuccessMaximumQoS1 = 0x01,
+        /// <summary>
+        /// 订阅成功，授予的最大 QoS 为 2
+        /// </summary>
         SuccessMaximumQoS2 = 0x02,
+        /// <summary>
+        /// 订阅失败
+        /// </summary>
         Failure = 0x80
     }
 }

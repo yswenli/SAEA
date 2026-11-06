@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttWebSocketChannel通道类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.MQTT.Channel;
@@ -41,6 +41,9 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Implementations
 {
+    /// <summary>
+    /// 基于 WebSocket 的 MQTT 信道，以二进制帧承载 MQTT 报文
+    /// </summary>
     public sealed class MqttWebSocketChannel : IMqttChannel
     {
         readonly MqttClientWebSocketOptions _options;
@@ -48,11 +51,22 @@ namespace SAEA.MQTT.Implementations
         AsyncLock _sendLock = new AsyncLock();
         WebSocket _webSocket;
 
+        /// <summary>
+        /// 以客户端 WebSocket 选项创建信道，创建时尚未建立连接
+        /// </summary>
+        /// <param name="options">客户端 WebSocket 选项，不能为null</param>
         public MqttWebSocketChannel(MqttClientWebSocketOptions options)
         {
             _options = options ?? throw new ArgumentNullException(nameof(options));
         }
 
+        /// <summary>
+        /// 以已建立的 WebSocket 创建信道，用于服务端接管连接
+        /// </summary>
+        /// <param name="webSocket">已建立的 WebSocket，不能为null</param>
+        /// <param name="endpoint">对端地址描述</param>
+        /// <param name="isSecureConnection">是否为加密连接</param>
+        /// <param name="clientCertificate">客户端证书，无证书时为null</param>
         public MqttWebSocketChannel(WebSocket webSocket, string endpoint, bool isSecureConnection, X509Certificate2 clientCertificate)
         {
             _webSocket = webSocket ?? throw new ArgumentNullException(nameof(webSocket));
@@ -62,12 +76,26 @@ namespace SAEA.MQTT.Implementations
             ClientCertificate = clientCertificate;
         }
 
+        /// <summary>
+        /// 通道的对端地址，仅由服务端接管连接时设置，客户端信道恒为null
+        /// </summary>
         public string Endpoint { get; }
 
+        /// <summary>
+        /// 是否为加密连接，客户端侧按连接后的 wss 前缀判定
+        /// </summary>
         public bool IsSecureConnection { get; private set; }
 
+        /// <summary>
+        /// 客户端证书，仅由服务端接管连接时设置，否则为null
+        /// </summary>
         public X509Certificate2 ClientCertificate { get; }
 
+        /// <summary>
+        /// 建立 WebSocket 连接，URI 缺少 ws/wss 前缀时按 TLS 选项补齐
+        /// </summary>
+        /// <param name="cancellationToken">取消令牌，取消时中止连接并释放客户端套接字</param>
+        /// <returns>连接完成的异步任务</returns>
         public async Task ConnectAsync(CancellationToken cancellationToken)
         {
             var uri = _options.Uri;
@@ -101,6 +129,11 @@ namespace SAEA.MQTT.Implementations
             IsSecureConnection = uri.StartsWith("wss://", StringComparison.OrdinalIgnoreCase);
         }
 
+        /// <summary>
+        /// 正常关闭 WebSocket 并释放发送锁，未连接时直接返回
+        /// </summary>
+        /// <param name="cancellationToken">取消令牌，取消时不等待关闭帧返回</param>
+        /// <returns>断开完成的异步任务</returns>
         public async Task DisconnectAsync(CancellationToken cancellationToken)
         {
             if (_webSocket == null)
@@ -116,12 +149,28 @@ namespace SAEA.MQTT.Implementations
             Cleanup();
         }
 
+        /// <summary>
+        /// 接收一帧 WebSocket 数据，单次读取不超过请求的字节数
+        /// </summary>
+        /// <param name="buffer">接收缓冲区</param>
+        /// <param name="offset">写入缓冲区的起始偏移</param>
+        /// <param name="count">本次最多读取的字节数</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>本帧实际读取的字节数</returns>
         public async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
             var response = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer, offset, count), cancellationToken).ConfigureAwait(false);
             return response.Count;
         }
 
+        /// <summary>
+        /// 以二进制帧发送数据，发送锁保证同一时刻只有一个发送操作
+        /// </summary>
+        /// <param name="buffer">待发送缓冲区</param>
+        /// <param name="offset">发送数据的起始偏移</param>
+        /// <param name="count">发送的字节数</param>
+        /// <param name="cancellationToken">取消令牌，等待发送锁与发送过程均可被取消</param>
+        /// <returns>发送完成的异步任务</returns>
         public async Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
             // The lock is required because the client will throw an exception if _SendAsync_ is 
@@ -138,6 +187,9 @@ namespace SAEA.MQTT.Implementations
             }
         }
 
+        /// <summary>
+        /// 释放发送锁与 WebSocket，重复调用安全
+        /// </summary>
         public void Dispose()
         {
             Cleanup();

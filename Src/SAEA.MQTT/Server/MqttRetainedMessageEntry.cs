@@ -22,10 +22,10 @@
  *
  *=====================================================================
  *修改标记
- *修改时间：2026/11/05 00:00:00
+ *修改时间：2026/11/6 12:04:26
  *修改人： yswenli
- *版本号： v26.4.23.1
- *描述：MqttRetainedMessageEntry类
+ *版本号： v26.11.5.1
+ *描述：补全公开成员的 XML 注释
  *
  *****************************************************************************/
 using System;
@@ -37,10 +37,19 @@ namespace SAEA.MQTT.Server
     /// </summary>
     public sealed class MqttRetainedMessageEntry
     {
+        /// <summary>
+        /// 供反序列化创建空实例
+        /// </summary>
         public MqttRetainedMessageEntry()
         {
         }
 
+        /// <summary>
+        /// 用消息内容与存留时间元数据创建实例
+        /// </summary>
+        /// <param name="message">retained 消息本体</param>
+        /// <param name="retainedAt">消息被设为 retained 的时间</param>
+        /// <param name="expiresAt">绝对到期时间，null 表示永不过期</param>
         public MqttRetainedMessageEntry(MqttApplicationMessage message, DateTimeOffset retainedAt, DateTimeOffset? expiresAt)
         {
             Message = message;
@@ -48,10 +57,19 @@ namespace SAEA.MQTT.Server
             ExpiresAt = expiresAt;
         }
 
+        /// <summary>
+        /// retained 消息本体
+        /// </summary>
         public MqttApplicationMessage Message { get; set; }
 
+        /// <summary>
+        /// 消息被设为 retained 的时间
+        /// </summary>
         public DateTimeOffset RetainedAt { get; set; }
 
+        /// <summary>
+        /// 绝对到期时间，null 表示永不过期
+        /// </summary>
         public DateTimeOffset? ExpiresAt { get; set; }
     }
 }

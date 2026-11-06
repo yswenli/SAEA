@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttTopicFilter接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.MQTT.Protocol;
@@ -34,29 +34,41 @@ using System;
 
 namespace SAEA.MQTT
 {
+    /// <summary>
+    /// 已废弃的过滤器类型，等价于 MqttTopicFilter，仅为命名兼容保留
+    /// </summary>
     [Obsolete("Use MqttTopicFilter instead. It is just a renamed version to align with general namings in this lib.")]
     public class TopicFilter : MqttTopicFilter
     {
     }
 
+    /// <summary>
+    /// 订阅过滤器，承载主题通配符表达式与订阅选项
+    /// </summary>
     public class MqttTopicFilter
     {
+        /// <summary>
+        /// 订阅的主题过滤表达式，可含 + 与 # 通配符
+        /// </summary>
         public string Topic { get; set; }
 
+        /// <summary>
+        /// 订阅请求的服务质量等级，默认 AtMostOnce
+        /// </summary>
         public MqttQualityOfServiceLevel QualityOfServiceLevel { get; set; }
 
         /// <summary>
-        /// This is only supported when using MQTTv5.
+        /// 是否禁止接收本客户端自己发布的消息，为null表示不携带该选项，仅在 MQTT 5.0 下生效
         /// </summary>
         public bool? NoLocal { get; set; }
 
         /// <summary>
-        /// This is only supported when using MQTTv5.
+        /// 转发消息时是否保留原始 Retain 标志，为null表示不携带该选项，仅在 MQTT 5.0 下生效
         /// </summary>
         public bool? RetainAsPublished { get; set; }
 
         /// <summary>
-        /// This is only supported when using MQTTv5.
+        /// 订阅建立时保留消息的发送方式，为null表示不携带该选项，仅在 MQTT 5.0 下生效
         /// </summary>
         public MqttRetainHandling? RetainHandling { get; set; }
 
@@ -173,6 +185,10 @@ namespace SAEA.MQTT
             return true;
         }
 
+        /// <summary>
+        /// 返回包含主题与订阅选项的可读描述
+        /// </summary>
+        /// <returns>格式化的描述文本</returns>
         public override string ToString()
         {
             return string.Concat(

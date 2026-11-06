@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttPacketAwaiter接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.MQTT.Exceptions;
@@ -37,12 +37,21 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTT.PacketDispatcher
 {
+    /// <summary>
+    /// 等待指定类型应答报文的等待器，释放时从所属调度器注销
+    /// </summary>
+    /// <typeparam name="TPacket">期望收到的应答报文类型</typeparam>
     public sealed class MqttPacketAwaiter<TPacket> : IMqttPacketAwaiter where TPacket : MqttBasePacket
     {
         readonly TaskCompletionSource<MqttBasePacket> _taskCompletionSource;
         readonly ushort? _packetIdentifier;
         readonly MqttPacketDispatcher _owningPacketDispatcher;
 
+        /// <summary>
+        /// 创建等待器并绑定所属调度器
+        /// </summary>
+        /// <param name="packetIdentifier">期望应答报文的标识符，null 视为 0</param>
+        /// <param name="owningPacketDispatcher">所属调度器，释放时从此处注销</param>
         public MqttPacketAwaiter(ushort? packetIdentifier, MqttPacketDispatcher owningPacketDispatcher)
         {
             _packetIdentifier = packetIdentifier;
@@ -54,6 +63,11 @@ namespace SAEA.MQTT.PacketDispatcher
 #endif
         }
 
+        /// <summary>
+        /// 等待应答报文，超时则以 MqttCommunicationTimedOutException 结束等待
+        /// </summary>
+        /// <param name="timeout">等待超时时间</param>
+        /// <returns>收到的应答报文</returns>
         public async Task<TPacket> WaitOneAsync(TimeSpan timeout)
         {
             using (var timeoutToken = new CancellationTokenSource(timeout))
@@ -66,6 +80,10 @@ namespace SAEA.MQTT.PacketDispatcher
             }
         }
 
+        /// <summary>
+        /// 用收到的报文结束等待，重复调用不生效
+        /// </summary>
+        /// <param name="packet">收到的应答报文</param>
         public void Complete(MqttBasePacket packet)
         {
             if (packet == null) throw new ArgumentNullException(nameof(packet));
@@ -82,6 +100,10 @@ namespace SAEA.MQTT.PacketDispatcher
 #endif
         }
 
+        /// <summary>
+        /// 以异常结束等待，重复调用不生效
+        /// </summary>
+        /// <param name="exception">导致等待失败的异常</param>
         public void Fail(Exception exception)
         {
             if (exception == null) throw new ArgumentNullException(nameof(exception));
@@ -97,6 +119,9 @@ namespace SAEA.MQTT.PacketDispatcher
 #endif
         }
 
+        /// <summary>
+        /// 以取消状态结束等待，重复调用不生效
+        /// </summary>
         public void Cancel()
         {
 #if NET452
@@ -111,6 +136,9 @@ namespace SAEA.MQTT.PacketDispatcher
 #endif
         }
 
+        /// <summary>
+        /// 从所属调度器注销本等待器
+        /// </summary>
         public void Dispose()
         {
             _owningPacketDispatcher.RemoveAwaiter<TPacket>(_packetIdentifier);

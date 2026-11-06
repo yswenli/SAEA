@@ -23,18 +23,26 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttConnectReasonCodeConverter转换器类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.MQTT.Exceptions;
 
 namespace SAEA.MQTT.Protocol
 {
+    /// <summary>
+    /// MQTT 5.0 连接原因码与 MQTT 3.1.1 连接返回码之间的转换
+    /// </summary>
     public class MqttConnectReasonCodeConverter
     {
+        /// <summary>
+        /// 将 MQTT 5.0 连接原因码映射为 MQTT 3.1.1 连接返回码，多个原因码会折叠为同一个返回码
+        /// </summary>
+        /// <param name="reasonCode">MQTT 5.0 连接原因码</param>
+        /// <returns>对应的 MQTT 3.1.1 连接返回码</returns>
         public MqttConnectReturnCode ToConnectReturnCode(MqttConnectReasonCode reasonCode)
         {
             switch (reasonCode)
@@ -78,6 +86,11 @@ namespace SAEA.MQTT.Protocol
             }
         }
 
+        /// <summary>
+        /// 将 MQTT 3.1.1 连接返回码映射为 MQTT 5.0 连接原因码
+        /// </summary>
+        /// <param name="returnCode">MQTT 3.1.1 连接返回码</param>
+        /// <returns>对应的 MQTT 5.0 连接原因码</returns>
         public MqttConnectReasonCode ToConnectReasonCode(MqttConnectReturnCode returnCode)
         {
             switch (returnCode)

@@ -23,23 +23,33 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ApplicationMessageSkippedEventArgs接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
 
 namespace SAEA.MQTT.Extensions.ManagedClient
 {
+    /// <summary>
+    /// 应用消息被跳过的事件参数
+    /// </summary>
     public class ApplicationMessageSkippedEventArgs : EventArgs
     {
+        /// <summary>
+        /// 使用被跳过的应用消息初始化实例
+        /// </summary>
+        /// <param name="applicationMessage">被跳过的应用消息，不能为null</param>
         public ApplicationMessageSkippedEventArgs(ManagedMqttApplicationMessage applicationMessage)
         {
             ApplicationMessage = applicationMessage ?? throw new ArgumentNullException(nameof(applicationMessage));
         }
 
+        /// <summary>
+        /// 被跳过的应用消息
+        /// </summary>
         public ManagedMqttApplicationMessage ApplicationMessage { get; }
     }
 }

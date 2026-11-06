@@ -23,18 +23,27 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttUnsubscriptionInterceptorContext接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.Collections.Generic;
 
 namespace SAEA.MQTT.Server
 {
+    /// <summary>
+    /// 取消订阅拦截的上下文，回调可修改主题、拒绝取消订阅或直接关闭连接
+    /// </summary>
     public class MqttUnsubscriptionInterceptorContext
     {
+        /// <summary>
+        /// 创建取消订阅拦截上下文
+        /// </summary>
+        /// <param name="clientId">发起取消订阅的客户端标识</param>
+        /// <param name="topic">客户端请求取消订阅的主题过滤器</param>
+        /// <param name="sessionItems">会话范围内共享数据的键值集合</param>
         public MqttUnsubscriptionInterceptorContext(string clientId, string topic, IDictionary<object, object> sessionItems)
         {
             ClientId = clientId;
@@ -42,17 +51,29 @@ namespace SAEA.MQTT.Server
             SessionItems = sessionItems;
         }
 
+        /// <summary>
+        /// 发起取消订阅的客户端标识
+        /// </summary>
         public string ClientId { get; }
 
+        /// <summary>
+        /// 客户端请求取消订阅的主题过滤器，可在此拦截器中改写
+        /// </summary>
         public string Topic { get; set; }
 
         /// <summary>
-        /// Gets or sets a key/value collection that can be used to share data within the scope of this session.
+        /// 会话范围内共享数据的键值集合
         /// </summary>
         public IDictionary<object, object> SessionItems { get; }
 
+        /// <summary>
+        /// 是否接受本次取消订阅，默认 true；置为 false 时服务端返回失败应答
+        /// </summary>
         public bool AcceptUnsubscription { get; set; } = true;
 
+        /// <summary>
+        /// 是否在拦截后直接关闭连接，默认 false
+        /// </summary>
         public bool CloseConnection { get; set; }
     }
 }

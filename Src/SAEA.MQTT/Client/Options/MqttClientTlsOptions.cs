@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttClientTlsOptions接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -37,35 +37,71 @@ using System.Security.Cryptography.X509Certificates;
 
 namespace SAEA.MQTT.Client.Options
 {
+    /// <summary>
+    /// TLS 选项，按需应用到 TCP 与 WebSocket 通道
+    /// </summary>
     public class MqttClientTlsOptions
     {
+        /// <summary>
+        /// 是否启用 TLS，默认 false
+        /// </summary>
         public bool UseTls { get; set; }
 
+        /// <summary>
+        /// 是否忽略证书吊销状态校验错误，默认 false
+        /// </summary>
         public bool IgnoreCertificateRevocationErrors { get; set; }
 
+        /// <summary>
+        /// 是否忽略证书链校验错误，默认 false
+        /// </summary>
         public bool IgnoreCertificateChainErrors { get; set; }
 
+        /// <summary>
+        /// 是否接受不受信任的证书，默认 false
+        /// </summary>
         public bool AllowUntrustedCertificates { get; set; }
 
 #if WINDOWS_UWP
+        /// <summary>
+        /// 客户端证书集合，每项为证书原始字节，null 表示不带客户端证书
+        /// </summary>
         public List<byte[]> Certificates { get; set; }
 #else
+        /// <summary>
+        /// 客户端证书集合，null 表示不带客户端证书
+        /// </summary>
         public List<X509Certificate> Certificates { get; set; }
 #endif
 
 #if NETCOREAPP3_1
+        /// <summary>
+        /// TLS 应用层协议协商列表，null 表示不启用 ALPN
+        /// </summary>
         public List<SslApplicationProtocol> ApplicationProtocols { get; set; }
 #endif
 
 #if NETCOREAPP3_1 || NET5_0
+        /// <summary>
+        /// 使用的 TLS 协议版本，默认 TLS 1.3
+        /// </summary>
         public SslProtocols SslProtocol { get; set; } = SslProtocols.Tls13;
 #else
+        /// <summary>
+        /// 使用的 TLS 协议版本，默认 TLS 1.2
+        /// </summary>
         public SslProtocols SslProtocol { get; set; } = SslProtocols.Tls12;
 #endif
 
+        /// <summary>
+        /// 已废弃的证书校验回调，改用 CertificateValidationHandler
+        /// </summary>
         [Obsolete("This property will be removed soon. Use CertificateValidationHandler instead.")]
         public Func<X509Certificate, X509Chain, SslPolicyErrors, IMqttClientOptions, bool> CertificateValidationCallback { get; set; }
 
+        /// <summary>
+        /// 证书校验处理器，返回 true 表示接受该证书，null 表示按默认规则校验
+        /// </summary>
         public Func<MqttClientCertificateValidationCallbackContext, bool> CertificateValidationHandler { get; set; }
     }
 }

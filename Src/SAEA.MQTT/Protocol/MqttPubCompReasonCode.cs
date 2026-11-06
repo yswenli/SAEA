@@ -23,17 +23,26 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttPubCompReasonCode代码枚举
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.MQTT.Protocol
 {
+    /// <summary>
+    /// MQTT 5.0 QoS 2 发布完成（PUBCOMP）原因码
+    /// </summary>
     public enum MqttPubCompReasonCode
     {
+        /// <summary>
+        /// 报文标识符对应的消息流程正常完成
+        /// </summary>
         Success = 0,
+        /// <summary>
+        /// 未找到该报文标识符对应的流程
+        /// </summary>
         PacketIdentifierNotFound = 146
     }
 }

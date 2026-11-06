@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：TaskExtensions接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.MQTT.Diagnostics;
@@ -34,8 +34,16 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Internal
 {
+    /// <summary>
+    /// Task 的扩展方法
+    /// </summary>
     public static class TaskExtensions
     {
+        /// <summary>
+        /// 不等待任务完成，仅在任务异常时通过日志记录器输出错误
+        /// </summary>
+        /// <param name="task">被忽略完成状态的任务，为 null 时不做任何事</param>
+        /// <param name="logger">记录任务异常的目标日志记录器</param>
         public static void Forget(this Task task, IMqttNetScopedLogger logger)
         {
             task?.ContinueWith(t =>

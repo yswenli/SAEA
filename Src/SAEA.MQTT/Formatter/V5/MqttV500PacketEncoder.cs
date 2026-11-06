@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttV500PacketEncoder编解码类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -37,15 +37,27 @@ using SAEA.MQTT.Protocol;
 
 namespace SAEA.MQTT.Formatter.V5
 {
+    /// <summary>
+    /// MQTT 5.0 报文编码器，按控制报文类型写入报文体并回填固定头
+    /// </summary>
     public sealed class MqttV500PacketEncoder
     {
         readonly IMqttPacketWriter _packetWriter;
 
+        /// <summary>
+        /// 绑定报文写入器
+        /// </summary>
+        /// <param name="packetWriter">报文写入器，不能为 null</param>
         public MqttV500PacketEncoder(IMqttPacketWriter packetWriter)
         {
             _packetWriter = packetWriter ?? throw new ArgumentNullException(nameof(packetWriter));
         }
 
+        /// <summary>
+        /// 编码报文，先在缓冲区前部预留 5 字节固定头空间，写完后回填固定头
+        /// </summary>
+        /// <param name="packet">待编码的报文，不能为 null</param>
+        /// <returns>编码结果片段，指向写入器内部缓冲区，仅在调用 FreeBuffer 之前有效</returns>
         public ArraySegment<byte> Encode(MqttBasePacket packet)
         {
             if (packet == null) throw new ArgumentNullException(nameof(packet));
@@ -71,6 +83,9 @@ namespace SAEA.MQTT.Formatter.V5
             return new ArraySegment<byte>(buffer, headerOffset, _packetWriter.Length - headerOffset);
         }
 
+        /// <summary>
+        /// 释放写入器的编码缓冲区
+        /// </summary>
         public void FreeBuffer()
         {
             _packetWriter.FreeBuffer();

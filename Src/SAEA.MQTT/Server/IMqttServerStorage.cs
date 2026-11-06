@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：IMqttServerStorage存储类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.Collections.Generic;
@@ -34,10 +34,22 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Server
 {
+    /// <summary>
+    /// 保留消息的持久化存储契约，仅保存消息本身，不含写入与到期时间
+    /// </summary>
     public interface IMqttServerStorage
     {
+        /// <summary>
+        /// 全量保存当前保留消息，调用方保证列表为完整快照
+        /// </summary>
+        /// <param name="messages">保留消息列表</param>
+        /// <returns>保存完成的任务</returns>
         Task SaveRetainedMessagesAsync(IList<MqttApplicationMessage> messages);
 
+        /// <summary>
+        /// 加载上次保存的保留消息，返回 null 或空列表表示没有可恢复的数据
+        /// </summary>
+        /// <returns>保留消息列表</returns>
         Task<IList<MqttApplicationMessage>> LoadRetainedMessagesAsync();
     }
 }

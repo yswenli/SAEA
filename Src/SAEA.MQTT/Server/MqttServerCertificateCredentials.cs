@@ -23,16 +23,22 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttServerCertificateCredentials接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.MQTT.Server
 {
+    /// <summary>
+    /// 服务端证书的口令凭据，用于加载带密码保护的私钥
+    /// </summary>
     public class MqttServerCertificateCredentials : IMqttServerCertificateCredentials
     {
+        /// <summary>
+        /// 证书私钥的密码
+        /// </summary>
         public string Password { get; set; }
     }
 }

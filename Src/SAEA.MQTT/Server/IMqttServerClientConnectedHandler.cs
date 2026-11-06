@@ -23,18 +23,26 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：IMqttServerClientConnectedHandler接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Server
 {
+    /// <summary>
+    /// 客户端连接成功后的回调处理器
+    /// </summary>
     public interface IMqttServerClientConnectedHandler
     {
+        /// <summary>
+        /// 处理客户端连接事件，在连接对象创建后、会话开始运行前调用
+        /// </summary>
+        /// <param name="eventArgs">事件参数，包含客户端标识</param>
+        /// <returns>回调完成的任务</returns>
         Task HandleClientConnectedAsync(MqttServerClientConnectedEventArgs eventArgs);
     }
 }

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttClientSession接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.MQTT.Diagnostics;
@@ -40,6 +40,9 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTT.Server
 {
+    /// <summary>
+    /// 客户端会话，持有该客户端的订阅表、待投递消息队列、会话过期与遗嘱状态
+    /// </summary>
     public sealed class MqttClientSession
     {
         readonly IMqttNetScopedLogger _logger;
@@ -48,6 +51,15 @@ namespace SAEA.MQTT.Server
         readonly DateTime _createdTimestamp = DateTime.UtcNow;
         readonly IMqttRetainedMessagesManager _retainedMessagesManager;
 
+        /// <summary>
+        /// 创建会话并使用默认的共享订阅注册表
+        /// </summary>
+        /// <param name="clientId">会话所属的客户端标识，不可为 null</param>
+        /// <param name="items">会话级键值集合，不可为 null</param>
+        /// <param name="eventDispatcher">服务端事件分发器，用于触发订阅相关回调</param>
+        /// <param name="serverOptions">服务端配置</param>
+        /// <param name="retainedMessagesManager">保留消息管理器，用于订阅后的补发</param>
+        /// <param name="logger">根日志器，内部创建按类型隔离的作用域日志器</param>
         public MqttClientSession(
             string clientId,
             IDictionary<object, object> items,
@@ -78,6 +90,9 @@ namespace SAEA.MQTT.Server
             _logger = logger.CreateScopedLogger(nameof(MqttClientSession));
         }
 
+        /// <summary>
+        /// 会话所属的客户端标识
+        /// </summary>
         public string ClientId { get; }
 
         /// <summary>
@@ -85,6 +100,9 @@ namespace SAEA.MQTT.Server
         /// </summary>
         internal bool IsV5 { get; set; }
 
+        /// <summary>
+        /// 最近一次 CONNECT 报文申请的 CleanSession/CleanStart 标志
+        /// </summary>
         public bool IsCleanSession { get; set; } = true;
 
         /// <summary>
@@ -168,15 +186,29 @@ namespace SAEA.MQTT.Server
         /// </summary>
         public bool WillPublished { get; set; }
 
+        /// <summary>
+        /// 该会话的订阅管理器，负责订阅增删与主题匹配
+        /// </summary>
         public MqttClientSubscriptionsManager SubscriptionsManager { get; }
 
+        /// <summary>
+        /// 该会话的待投递消息队列，按 FIFO 顺序发往客户端
+        /// </summary>
         public MqttClientSessionApplicationMessagesQueue ApplicationMessagesQueue { get; }
 
         /// <summary>
-        /// Gets or sets a key/value collection that can be used to share data within the scope of this session.
+        /// 会话级键值集合，用于跨请求共享数据
         /// </summary>
         public IDictionary<object, object> Items { get; }
 
+        /// <summary>
+        /// 按会话自身订阅判断是否入队：无匹配订阅时返回 false；有匹配但消息已过期时返回 true 且不入队
+        /// </summary>
+        /// <param name="applicationMessage">待投递的应用消息</param>
+        /// <param name="senderClientId">发布方标识，用于 NoLocal 判断；为 null 时不排除</param>
+        /// <param name="isRetainedApplicationMessage">是否为订阅后的 retained 补发，决定转发时 Retain 恒为 true</param>
+        /// <param name="expiresAt">消息到期时间，为 null 时由消息的 MessageExpiryInterval 推导</param>
+        /// <returns>是否存在匹配订阅并已处理入队</returns>
         public bool EnqueueApplicationMessage(
             MqttApplicationMessage applicationMessage,
             string senderClientId,
@@ -314,6 +346,11 @@ namespace SAEA.MQTT.Server
             }
         }
 
+        /// <summary>
+        /// 以服务端身份为会话添加订阅，并补发匹配的 retained 消息；topicFilters 为 null 时抛出异常
+        /// </summary>
+        /// <param name="topicFilters">要添加的订阅过滤器集合</param>
+        /// <returns>订阅与 retained 补发完成的任务</returns>
         public async Task SubscribeAsync(ICollection<MqttTopicFilter> topicFilters)
         {
             if (topicFilters is null) throw new ArgumentNullException(nameof(topicFilters));
@@ -322,6 +359,11 @@ namespace SAEA.MQTT.Server
             await EnqueueRetainedMessagesAsync(replayFilters).ConfigureAwait(false);
         }
 
+        /// <summary>
+        /// 移除会话的订阅，topicFilters 为 null 时抛出异常
+        /// </summary>
+        /// <param name="topicFilters">要移除的订阅主题集合</param>
+        /// <returns>取消订阅完成的任务</returns>
         public Task UnsubscribeAsync(IEnumerable<string> topicFilters)
         {
             if (topicFilters is null) throw new ArgumentNullException(nameof(topicFilters));
@@ -329,6 +371,10 @@ namespace SAEA.MQTT.Server
             return SubscriptionsManager.UnsubscribeAsync(topicFilters);
         }
 
+        /// <summary>
+        /// 把会话标识、创建时间、待投递数量与键值集合写入状态对象，供状态查询使用
+        /// </summary>
+        /// <param name="status">待填充的会话状态对象，其字段会被整体覆盖</param>
         public void FillStatus(MqttSessionStatus status)
         {
             status.ClientId = ClientId;

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttTopicValidator接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -34,8 +34,15 @@ using SAEA.MQTT.Exceptions;
 
 namespace SAEA.MQTT.Protocol
 {
+    /// <summary>
+    /// 应用消息主题与主题过滤器的合法性校验
+    /// </summary>
     public static class MqttTopicValidator
     {
+        /// <summary>
+        /// 校验应用消息的主题，已设置主题别名时改为校验别名不为 0
+        /// </summary>
+        /// <param name="applicationMessage">待校验的应用消息，不能为 null</param>
         public static void ThrowIfInvalid(MqttApplicationMessage applicationMessage)
         {
             if (applicationMessage == null) throw new ArgumentNullException(nameof(applicationMessage));
@@ -53,6 +60,10 @@ namespace SAEA.MQTT.Protocol
             }
         }
 
+        /// <summary>
+        /// 校验主题名非空且不含通配符 '+' 与 '#'，不合法时抛出 MqttProtocolViolationException
+        /// </summary>
+        /// <param name="topic">待校验的主题名</param>
         public static void ThrowIfInvalid(string topic)
         {
             if (string.IsNullOrEmpty(topic))

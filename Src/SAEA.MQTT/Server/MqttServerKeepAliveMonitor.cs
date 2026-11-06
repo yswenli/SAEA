@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttServerKeepAliveMonitor接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.MQTT.Diagnostics;
@@ -39,12 +39,21 @@ using SAEA.MQTT.Protocol;
 
 namespace SAEA.MQTT.Server
 {
+    /// <summary>
+    /// 周期性检查已连接客户端是否超过 1.5 倍保活期未发报文，超时则断开连接
+    /// </summary>
     public sealed class MqttServerKeepAliveMonitor
     {
         readonly IMqttServerOptions _options;
         readonly MqttClientSessionsManager _sessionsManager;
         readonly IMqttNetScopedLogger _logger;
 
+        /// <summary>
+        /// 创建保活监视器
+        /// </summary>
+        /// <param name="options">服务端选项，提供检查间隔等参数</param>
+        /// <param name="sessionsManager">会话管理器，用于枚举当前连接</param>
+        /// <param name="logger">日志器，不能为 null</param>
         public MqttServerKeepAliveMonitor(IMqttServerOptions options, MqttClientSessionsManager sessionsManager, IMqttNetLogger logger)
         {
             _options = options ?? throw new ArgumentNullException(nameof(options));
@@ -54,6 +63,10 @@ namespace SAEA.MQTT.Server
             _logger = logger.CreateScopedLogger(nameof(MqttServerKeepAliveMonitor));
         }
 
+        /// <summary>
+        /// 启动保活检测，在长运行后台线程中按配置的间隔轮询连接
+        /// </summary>
+        /// <param name="cancellationToken">取消标记，触发后线程退出循环并结束</param>
         public void Start(CancellationToken cancellationToken)
         {
             // The keep alive monitor spawns a real new thread (LongRunning) because it does not 

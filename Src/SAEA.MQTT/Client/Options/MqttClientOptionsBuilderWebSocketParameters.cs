@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttClientOptionsBuilderWebSocketParameters接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.Collections.Generic;
@@ -34,10 +34,19 @@ using System.Net;
 
 namespace SAEA.MQTT.Client.Options
 {
+    /// <summary>
+    /// WebSocket 通道的可选参数，供 WithWebSocketServer 使用
+    /// </summary>
     public class MqttClientOptionsBuilderWebSocketParameters
     {
+        /// <summary>
+        /// 握手请求头，null 表示不附加自定义请求头
+        /// </summary>
         public IDictionary<string, string> RequestHeaders { get; set; }
 
+        /// <summary>
+        /// 握手使用的 Cookie 容器，null 表示不使用 Cookie
+        /// </summary>
         public CookieContainer CookieContainer { get; set; }
     }
 }

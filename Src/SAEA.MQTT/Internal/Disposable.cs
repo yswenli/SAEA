@@ -23,20 +23,29 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：Disposable接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
 
 namespace SAEA.MQTT.Internal
 {
+    /// <summary>
+    /// 统一管理释放状态的抽象基类
+    /// </summary>
     public abstract class Disposable : IDisposable
     {
+        /// <summary>
+        /// 是否已释放
+        /// </summary>
         protected bool IsDisposed { get; private set; }
 
+        /// <summary>
+        /// 已释放时抛出 ObjectDisposedException
+        /// </summary>
         protected void ThrowIfDisposed()
         {
             if (IsDisposed)
@@ -45,11 +54,17 @@ namespace SAEA.MQTT.Internal
             }
         }
 
+        /// <summary>
+        /// 释放派生类的资源，基类实现为空
+        /// </summary>
+        /// <param name="disposing">为 true 表示由 Dispose 显式调用而非终结器回收</param>
         protected virtual void Dispose(bool disposing)
         {
         }
 
-        // This code added to correctly implement the disposable pattern.
+        /// <summary>
+        /// 释放对象，重复调用无副作用
+        /// </summary>
         public void Dispose()
         {
             // Do not change this code. Put cleanup code in Dispose(bool disposing) above.

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttClientSessionsManager接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.MQTT.Adapter;
@@ -161,6 +161,7 @@ namespace SAEA.MQTT.Server
         /// </summary>
         /// <param name="channelAdapter">通道适配器</param>
         /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>连接处理任务，在连接关闭并清理完成后结束</returns>
         public async Task HandleClientConnectionAsync(IMqttChannelAdapter channelAdapter, CancellationToken cancellationToken)
         {
             try
@@ -269,6 +270,7 @@ namespace SAEA.MQTT.Server
         /// <summary>
         /// 关闭所有连接
         /// </summary>
+        /// <returns>全部连接停止完成的任务</returns>
         public async Task CloseAllConnectionsAsync()
         {
             List<MqttClientConnection> connections;
@@ -361,6 +363,7 @@ namespace SAEA.MQTT.Server
         /// </summary>
         /// <param name="clientId">客户端ID</param>
         /// <param name="topicFilters">主题过滤器集合</param>
+        /// <returns>订阅完成的任务，含订阅后 retained 补发</returns>
         public Task SubscribeAsync(string clientId, ICollection<MqttTopicFilter> topicFilters)
         {
             if (clientId == null) throw new ArgumentNullException(nameof(clientId));
@@ -374,6 +377,7 @@ namespace SAEA.MQTT.Server
         /// </summary>
         /// <param name="clientId">客户端ID</param>
         /// <param name="topicFilters">主题过滤器集合</param>
+        /// <returns>取消订阅完成的任务</returns>
         public Task UnsubscribeAsync(string clientId, IEnumerable<string> topicFilters)
         {
             if (clientId == null) throw new ArgumentNullException(nameof(clientId));
@@ -386,6 +390,7 @@ namespace SAEA.MQTT.Server
         /// 删除会话
         /// </summary>
         /// <param name="clientId">客户端ID</param>
+        /// <returns>会话删除与连接停止完成的任务</returns>
         public async Task DeleteSessionAsync(string clientId)
         {
             MqttClientConnection connection;
@@ -417,6 +422,7 @@ namespace SAEA.MQTT.Server
         /// <param name="clientId">客户端ID</param>
         /// <param name="channelAdapter">通道适配器</param>
         /// <param name="disconnectType">断开连接类型</param>
+        /// <returns>连接移除、通道释放与断开通知完成的任务</returns>
         public async Task CleanUpClient(string clientId, IMqttChannelAdapter channelAdapter, MqttClientDisconnectType disconnectType)
         {
             if (clientId != null)

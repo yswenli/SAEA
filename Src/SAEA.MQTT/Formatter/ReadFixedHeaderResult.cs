@@ -23,18 +23,27 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ReadFixedHeaderResult接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.MQTT.Formatter
 {
+    /// <summary>
+    /// 固定头读取结果，标记连接是否已关闭并携带解析出的固定头
+    /// </summary>
     public class ReadFixedHeaderResult
     {
+        /// <summary>
+        /// 对端是否已关闭连接，为 true 时固定头无效
+        /// </summary>
         public bool ConnectionClosed { get; set; }
 
+        /// <summary>
+        /// 读取到的固定头，连接关闭时保持默认值
+        /// </summary>
         public MqttFixedHeader FixedHeader { get; set; }
     }
 }

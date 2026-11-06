@@ -23,18 +23,24 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttClientSubscribeResult接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.Collections.Generic;
 
 namespace SAEA.MQTT.Client.Subscribing
 {
+    /// <summary>
+    /// 订阅操作的结果，按提交的主题过滤器顺序保存每条订阅的服务端应答
+    /// </summary>
     public class MqttClientSubscribeResult
     {
+        /// <summary>
+        /// 各主题过滤器的订阅结果，顺序与提交顺序一致
+        /// </summary>
         public List<MqttClientSubscribeResultItem> Items { get; } = new List<MqttClientSubscribeResultItem>();
     }
 }

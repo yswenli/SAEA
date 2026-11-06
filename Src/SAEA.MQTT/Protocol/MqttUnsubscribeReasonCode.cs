@@ -23,22 +23,46 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttUnsubscribeReasonCode接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.MQTT.Protocol
 {
+    /// <summary>
+    /// MQTT 5.0 取消订阅确认（UNSUBACK）原因码
+    /// </summary>
     public enum MqttUnsubscribeReasonCode
     {
+        /// <summary>
+        /// 取消订阅成功
+        /// </summary>
         Success = 0,
+        /// <summary>
+        /// 服务端不存在该订阅
+        /// </summary>
         NoSubscriptionExisted = 17,
+        /// <summary>
+        /// 未指明错误
+        /// </summary>
         UnspecifiedError = 128,
+        /// <summary>
+        /// 请求有效但当前实现不接受
+        /// </summary>
         ImplementationSpecificError = 131,
+        /// <summary>
+        /// 未通过授权
+        /// </summary>
         NotAuthorized = 135,
+        /// <summary>
+        /// 主题过滤器格式不合法
+        /// </summary>
         TopicFilterInvalid = 143,
+        /// <summary>
+        /// 报文标识符已被占用
+        /// </summary>
         PacketIdentifierInUse = 145
     }
 }

@@ -23,26 +23,40 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttServerClientSubscribedTopicEventArgs接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
 
 namespace SAEA.MQTT.Server
 {
+    /// <summary>
+    /// 客户端订阅成功事件的数据，携带客户端标识与命中的主题过滤器
+    /// </summary>
     public class MqttServerClientSubscribedTopicEventArgs : EventArgs
     {
+        /// <summary>
+        /// 创建订阅成功事件数据
+        /// </summary>
+        /// <param name="clientId">订阅方客户端标识，不能为 null</param>
+        /// <param name="topicFilter">已建立的主题过滤器，不能为 null</param>
         public MqttServerClientSubscribedTopicEventArgs(string clientId, MqttTopicFilter topicFilter)
         {
             ClientId = clientId ?? throw new ArgumentNullException(nameof(clientId));
             TopicFilter = topicFilter ?? throw new ArgumentNullException(nameof(topicFilter));
         }
 
+        /// <summary>
+        /// 订阅方客户端标识
+        /// </summary>
         public string ClientId { get; }
 
+        /// <summary>
+        /// 已建立的主题过滤器
+        /// </summary>
         public MqttTopicFilter TopicFilter { get; }
     }
 }

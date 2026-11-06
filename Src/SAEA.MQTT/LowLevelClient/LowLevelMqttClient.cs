@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：LowLevelMqttClient接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.MQTT.Adapter;
@@ -39,6 +39,9 @@ using System.Threading.Tasks;
 
 namespace SAEA.MQTT.LowLevelClient
 {
+    /// <summary>
+    /// 底层MQTT客户端实现，基于通道适配器直接收发报文
+    /// </summary>
     public sealed class LowLevelMqttClient : ILowLevelMqttClient
     {
         readonly IMqttNetScopedLogger _logger;
@@ -47,6 +50,11 @@ namespace SAEA.MQTT.LowLevelClient
         IMqttChannelAdapter _adapter;
         IMqttClientOptions _options;
 
+        /// <summary>
+        /// 使用通道适配器工厂与日志器初始化实例
+        /// </summary>
+        /// <param name="clientAdapterFactory">通道适配器工厂，不能为null</param>
+        /// <param name="logger">根日志器，不能为null；内部会创建独立作用域的日志器</param>
         public LowLevelMqttClient(IMqttClientAdapterFactory clientAdapterFactory, IMqttNetLogger logger)
         {
             _clientAdapterFactory = clientAdapterFactory ?? throw new ArgumentNullException(nameof(clientAdapterFactory));
@@ -57,6 +65,12 @@ namespace SAEA.MQTT.LowLevelClient
 
         bool IsConnected => _adapter != null;
 
+        /// <summary>
+        /// 建立连接并保存连接选项，已连接时抛出 InvalidOperationException
+        /// </summary>
+        /// <param name="options">连接选项，不能为null</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>连接完成的异步任务</returns>
         public async Task ConnectAsync(IMqttClientOptions options, CancellationToken cancellationToken)
         {
             if (options is null) throw new ArgumentNullException(nameof(options));
@@ -85,6 +99,11 @@ namespace SAEA.MQTT.LowLevelClient
             _adapter = newAdapter;
         }
 
+        /// <summary>
+        /// 断开连接并释放通道适配器，未连接时直接返回
+        /// </summary>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>断开完成的异步任务</returns>
         public async Task DisconnectAsync(CancellationToken cancellationToken)
         {
             if (_adapter == null)
@@ -96,6 +115,12 @@ namespace SAEA.MQTT.LowLevelClient
             _adapter = null;
         }
 
+        /// <summary>
+        /// 发送一个MQTT报文，未连接时抛出异常，发送失败时自动断开
+        /// </summary>
+        /// <param name="packet">待发送报文，不能为null</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>发送完成的异步任务</returns>
         public async Task SendAsync(MqttBasePacket packet, CancellationToken cancellationToken)
         {
             if (packet is null) throw new ArgumentNullException(nameof(packet));
@@ -116,6 +141,11 @@ namespace SAEA.MQTT.LowLevelClient
             }
         }
 
+        /// <summary>
+        /// 接收一个MQTT报文，未连接时抛出异常，接收失败时自动断开
+        /// </summary>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>接收到的报文</returns>
         public async Task<MqttBasePacket> ReceiveAsync(CancellationToken cancellationToken)
         {
             if (_adapter == null)
@@ -134,6 +164,9 @@ namespace SAEA.MQTT.LowLevelClient
             }
         }
 
+        /// <summary>
+        /// 释放当前通道适配器，未连接时不做任何操作
+        /// </summary>
         public void Dispose()
         {
             _adapter?.Dispose();

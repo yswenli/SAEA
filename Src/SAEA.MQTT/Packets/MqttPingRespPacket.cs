@@ -23,19 +23,29 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttPingRespPacket接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.MQTT.Packets
 {
+    /// <summary>
+    /// PINGRESP 报文，服务端对 PINGREQ 的应答
+    /// </summary>
     public sealed class MqttPingRespPacket : MqttBasePacket
     {
+        /// <summary>
+        /// 共享实例，报文无载荷可安全复用
+        /// </summary>
         // This is a minor performance improvement.
         public static MqttPingRespPacket Instance = new MqttPingRespPacket();
 
+        /// <summary>
+        /// 返回固定文本 PingResp
+        /// </summary>
+        /// <returns>报文描述文本</returns>
         public override string ToString()
         {
             return "PingResp";

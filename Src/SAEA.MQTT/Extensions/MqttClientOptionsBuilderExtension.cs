@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttClientOptionsBuilderExtension接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -35,8 +35,17 @@ using SAEA.MQTT.Client.Options;
 
 namespace SAEA.MQTT.Extensions
 {
+    /// <summary>
+    /// 客户端选项构造器的连接地址扩展
+    /// </summary>
     public static class MqttClientOptionsBuilderExtension
     {
+        /// <summary>
+        /// 按地址的协议方案配置服务器与凭据，地址中的用户信息用作账号密码
+        /// </summary>
+        /// <param name="builder">客户端选项构造器，不能为null</param>
+        /// <param name="uri">连接地址，支持tcp、mqtt、mqtts、ws、wss方案</param>
+        /// <returns>当前构造器</returns>
         public static MqttClientOptionsBuilder WithConnectionUri(this MqttClientOptionsBuilder builder, Uri uri)
         {
             var port = uri.IsDefaultPort ? null : (int?) uri.Port;
@@ -71,6 +80,12 @@ namespace SAEA.MQTT.Extensions
             return builder;
         }
 
+        /// <summary>
+        /// 按地址字符串的协议方案配置服务器与凭据
+        /// </summary>
+        /// <param name="builder">客户端选项构造器，不能为null</param>
+        /// <param name="uri">绝对地址字符串，支持tcp、mqtt、mqtts、ws、wss方案</param>
+        /// <returns>当前构造器</returns>
         public static MqttClientOptionsBuilder WithConnectionUri(this MqttClientOptionsBuilder builder, string uri)
         {
             return WithConnectionUri(builder, new Uri(uri, UriKind.Absolute));

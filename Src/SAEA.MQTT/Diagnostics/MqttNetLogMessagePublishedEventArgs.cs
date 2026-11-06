@@ -23,18 +23,25 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttNetLogMessagePublishedEventArgs接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
 
 namespace SAEA.MQTT.Diagnostics
 {
+    /// <summary>
+    /// 日志消息发布事件的参数
+    /// </summary>
     public class MqttNetLogMessagePublishedEventArgs : EventArgs
     {
+        /// <summary>
+        /// 创建日志消息发布事件参数
+        /// </summary>
+        /// <param name="logMessage">已发布的日志消息，不能为 null</param>
         public MqttNetLogMessagePublishedEventArgs(MqttNetLogMessage logMessage)
         {
             LogMessage = logMessage ?? throw new ArgumentNullException(nameof(logMessage));
@@ -44,9 +51,15 @@ namespace SAEA.MQTT.Diagnostics
 #pragma warning restore CS0618 // Type or member is obsolete
         }
 
+        /// <summary>
+        /// 已发布的日志消息，已过时，改用 LogMessage
+        /// </summary>
         [Obsolete("Use new proeprty LogMessage instead.")]
         public MqttNetLogMessage TraceMessage { get; }
 
+        /// <summary>
+        /// 已发布的日志消息
+        /// </summary>
         public MqttNetLogMessage LogMessage { get; }
     }
 }

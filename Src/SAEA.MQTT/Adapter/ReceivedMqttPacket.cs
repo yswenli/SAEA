@@ -23,18 +23,27 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ReceivedMqttPacket接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.MQTT.Formatter;
 
 namespace SAEA.MQTT.Adapter
 {
+    /// <summary>
+    /// 已接收但尚未解码的原始 MQTT 报文
+    /// </summary>
     public sealed class ReceivedMqttPacket
     {
+        /// <summary>
+        /// 以固定头、报文体读取器和总长度构造
+        /// </summary>
+        /// <param name="fixedHeader">固定头首字节，高 4 位为报文类型、低 4 位为标志位</param>
+        /// <param name="body">报文体读取器，无报文体时为 null</param>
+        /// <param name="totalLength">固定头与报文体合计的字节数</param>
         public ReceivedMqttPacket(byte fixedHeader, IMqttPacketBodyReader body, int totalLength)
         {
             FixedHeader = fixedHeader;
@@ -42,10 +51,19 @@ namespace SAEA.MQTT.Adapter
             TotalLength = totalLength;
         }
 
+        /// <summary>
+        /// 固定头首字节，高 4 位为报文类型、低 4 位为标志位
+        /// </summary>
         public byte FixedHeader { get; }
 
+        /// <summary>
+        /// 报文体读取器，无报文体时为 null
+        /// </summary>
         public IMqttPacketBodyReader Body { get; }
 
+        /// <summary>
+        /// 固定头与报文体合计的字节数
+        /// </summary>
         public int TotalLength { get; }
     }
 }

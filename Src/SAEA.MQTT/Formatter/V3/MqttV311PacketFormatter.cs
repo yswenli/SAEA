@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/03/11 16:46:45
+*修改时间：2026/11/6 12:04:26
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MqttV311PacketFormatter类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.MQTT.Exceptions;
@@ -35,13 +35,26 @@ using SAEA.MQTT.Protocol;
 
 namespace SAEA.MQTT.Formatter.V3
 {
+    /// <summary>
+    /// MQTT 3.1.1 报文编解码器，在 3.1.0 实现基础上替换连接报文的协议名、协议级别与连接确认标志
+    /// </summary>
     public sealed class MqttV311PacketFormatter : MqttV310PacketFormatter
     {
+        /// <summary>
+        /// 绑定报文写入器
+        /// </summary>
+        /// <param name="packetWriter">报文写入器，编码结果写入其内部缓冲区</param>
         public MqttV311PacketFormatter(IMqttPacketWriter packetWriter)
             : base(packetWriter)
         {
         }
 
+        /// <summary>
+        /// 编码 CONNECT 报文，协议名为 MQTT、协议级别为 4，只设置用户名时不允许携带密码
+        /// </summary>
+        /// <param name="packet">待编码的 CONNECT 报文</param>
+        /// <param name="packetWriter">报文写入器</param>
+        /// <returns>固定头首字节</returns>
         protected override byte EncodeConnectPacket(MqttConnectPacket packet, IMqttPacketWriter packetWriter)
         {
             ValidateConnectPacket(packet);
@@ -104,6 +117,12 @@ namespace SAEA.MQTT.Formatter.V3
             return MqttPacketWriter.BuildFixedHeader(MqttControlPacketType.Connect);
         }
 
+        /// <summary>
+        /// 编码 CONNACK 报文，用连接确认标志表示会话是否已存在
+        /// </summary>
+        /// <param name="packet">待编码的 CONNACK 报文</param>
+        /// <param name="packetWriter">报文写入器</param>
+        /// <returns>固定头首字节</returns>
         protected override byte EncodeConnAckPacket(MqttConnAckPacket packet, IMqttPacketWriter packetWriter)
         {
             byte connectAcknowledgeFlags = 0x0;
@@ -118,6 +137,11 @@ namespace SAEA.MQTT.Formatter.V3
             return MqttPacketWriter.BuildFixedHeader(MqttControlPacketType.ConnAck);
         }
 
+        /// <summary>
+        /// 解码 CONNACK 报文，从连接确认标志低 1 位读取会话是否已存在
+        /// </summary>
+        /// <param name="body">报文体读取器</param>
+        /// <returns>CONNACK 报文</returns>
         protected override MqttBasePacket DecodeConnAckPacket(IMqttPacketBodyReader body)
         {
             ThrowIfBodyIsEmpty(body);
