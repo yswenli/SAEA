@@ -13,7 +13,7 @@ namespace SAEA.Socket5.Model
     public enum Socks5Version : byte
     {
         /// <summary>
-        /// SOCKS5
+        /// SOCKS 协议版本 5，握手报文首字节固定为该值
         /// </summary>
         V5 = 0x05
     }
@@ -66,7 +66,7 @@ namespace SAEA.Socket5.Model
     public enum Socks5AddressType : byte
     {
         /// <summary>
-        /// IPv4
+        /// IPv4 地址，后跟 4 字节地址
         /// </summary>
         IPv4 = 0x01,
 
@@ -76,7 +76,7 @@ namespace SAEA.Socket5.Model
         Domain = 0x03,
 
         /// <summary>
-        /// IPv6
+        /// IPv6 地址，后跟 16 字节地址
         /// </summary>
         IPv6 = 0x04
     }
