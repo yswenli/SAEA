@@ -91,7 +91,7 @@ All three platforms share one API — no conditional compilation and no implemen
 
 > ⚠️ **Naming note**: `UsePacket()` is a historical name for the `SocketAsyncEventArgs` transport, **not a Windows requirement** — it works just as well on Linux/macOS, backed by epoll/kqueue respectively. TCP has exactly one engine (`SaeaServerSocket` / `SaeaClientSocket`).
 >
-> `UseStream()` no longer switches engines. It only exposes a duplex `Stream` facade (`GetStream()` / `ChannelInfo.Stream`) on the same engine, and that facade exclusively consumes inbound data. TLS works with both event and stream modes.
+> `UseStream()` no longer switches engines. It only exposes a duplex `Stream` facade (`GetStream()` / `ChannelInfo.Stream`) on the same engine, and that facade exclusively consumes inbound data. TLS works with both event and stream modes. With `UseInputHandler` configured, inbound data belongs to the input handler instead: reads through `GetStream()`, `ReceiveAsync()` and `ChannelInfo.Stream` throw `InvalidOperationException`, while the write direction is unaffected.
 
 ---
 
@@ -619,7 +619,7 @@ Recent versions removed the `byte[]` public surface in favor of `Span` / `Memory
 | `IClientSocket.OnReceive` (`OnClientReceiveHandler`, `byte[]`) | `OnClientReceiveSpan` (`ReadOnlySpan<byte>`; consume/copy synchronously inside the callback) |
 | `IServerSocket.OnReceive` (`OnReceiveHandler`, `(ISession, byte[])`) | `OnServerReceiveSpan` (`(IUserToken, ReadOnlySpan<byte>)`) |
 | `IClientSocket.BeginSend(byte[])` / `Send(byte[])` / `SendAsync(byte[])` / `SendAsync(byte[], int, int, CancellationToken)` | `Send(ReadOnlySpan<byte>)` / `SendAsync(ReadOnlyMemory<byte>)` / `SendAsync(ReadOnlyMemory<byte>, CancellationToken)`; express the old offset/count semantics with `data.AsMemory(offset, count)` |
-| `IClientSocket.ReceiveAsync(byte[], int, int, CancellationToken)` (interface member) | Use the span events; the concrete `SaeaClientSocket.ReceiveAsync` is retained and reads from the connection `Pipe` (throws `KernelException` when no connection facade exists), and `UdpClientSocket.ReceiveAsync` throws `NotSupportedException` |
+| `IClientSocket.ReceiveAsync(byte[], int, int, CancellationToken)` (interface member) | Use the span events; the concrete `SaeaClientSocket.ReceiveAsync` is retained and reads from the connection `Pipe` (throws `KernelException` when no connection facade exists, `InvalidOperationException` once `UseInputHandler` is configured), and `UdpClientSocket.ReceiveAsync` throws `NotSupportedException` |
 | `IServerSocket.SendAsync(string, byte[])` / `Send(string, byte[])` / `End(string, byte[])` / `SendAsync(IPEndPoint, byte[])` | `SendAsync(string, ReadOnlyMemory<byte>)` / `Send(string, ReadOnlySpan<byte>)` / `End(string, ReadOnlyMemory<byte>)` / `SendAsync(IPEndPoint, ReadOnlyMemory<byte>)` |
 | `IocpClientSocket.UserToken` | No longer public; use `Connected`, or `ChannelInfo.UserToken` / `Context.UserToken` depending on the scenario |
 | `IocpServerSocket` / `IocpClientSocket` | Renamed to `SaeaServerSocket` / `SaeaClientSocket` (`SocketFactory` already returns the new types) |

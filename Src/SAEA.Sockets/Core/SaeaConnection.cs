@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 13:11:19
+*修改时间：2026/11/6 13:50:40
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：规范文件头 banner
+*描述：增加入站接管闸门：输入处理器接管后其他读取入口立即报错
 *
 *****************************************************************************/
 using SAEA.Common.Caching;
@@ -90,6 +90,11 @@ namespace SAEA.Sockets.Core
         private volatile bool _receivePaused;
 
         private volatile bool _appPaused;
+
+        /// <summary>
+        /// 入站接管者描述；非 null 表示 <see cref="Input"/> 已被输入处理器独占。
+        /// </summary>
+        private volatile string _inputClaimedBy;
 
         /// <summary>
         /// 构造连接。
@@ -174,6 +179,18 @@ namespace SAEA.Sockets.Core
 
         /// <summary>是否已关闭。</summary>
         public bool IsClosed => Volatile.Read(ref _state) != 0;
+
+        /// <summary>
+        /// 标记入站 <see cref="Input"/> 已被独占消费。PipeReader 不允许并发读，
+        /// 标记后 <see cref="ReadAsync"/> 立即报错，避免第二个读者静默抢走字节。
+        /// 首次标记生效，后续调用保留最初的接管者描述。
+        /// </summary>
+        /// <param name="owner">接管者描述，用于异常信息</param>
+        internal void ClaimInput(string owner)
+        {
+            if (_inputClaimedBy != null) return;
+            _inputClaimedBy = string.IsNullOrEmpty(owner) ? "输入处理器" : owner;
+        }
 
         /// <summary>
         /// 附加 TLS 传输并开始握手。必须在接收循环启动前调用。
@@ -303,8 +320,23 @@ namespace SAEA.Sockets.Core
         /// <summary>
         /// 从入站 Pipe 读取明文。
         /// </summary>
+        /// <param name="buffer">目标缓冲区</param>
+        /// <param name="offset">起始偏移</param>
+        /// <param name="count">最大读取字节数</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>实际读取字节数；入站结束时为 0</returns>
+        /// <exception cref="InvalidOperationException">入站数据已被输入处理器接管</exception>
         public async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
+            var claimedBy = _inputClaimedBy;
+            if (claimedBy != null)
+            {
+                // PipeReader 并发读会抢数据或抛异步异常，这里提前给出可定位的失败原因。
+                throw new InvalidOperationException(
+                    $"连接 {Id} 的入站数据已由{claimedBy}接管，不能再通过 GetStream()、ReceiveAsync() 或 ChannelInfo.Stream 读取；" +
+                    "入站数据只能由该处理器消费，写方向不受影响。");
+            }
+
             if (count <= 0) return 0;
 
             while (true)

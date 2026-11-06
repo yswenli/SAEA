@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 13:21:00
+*修改时间：2026/11/6 13:50:40
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：钩子说明补充客户端接入
+*描述：UseInputHandler 注释补充入站接管后的读取限制
 *
 *****************************************************************************/
 using SAEA.Common.IO;
@@ -156,6 +156,7 @@ namespace SAEA.Sockets
 
         /// <summary>
         /// 注册输入处理器，由它独占该连接的 PipeReader 并接管读循环（服务端与客户端都适用）。
+        /// 接管后 GetStream()、ReceiveAsync()、ChannelInfo.Stream 的读取会抛 InvalidOperationException，写方向不受影响。
         /// </summary>
         /// <param name="handler">输入处理器</param>
         /// <returns></returns>

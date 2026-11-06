@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/01/23 11:16:53
+*修改时间：2026/11/6 13:50:40
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：SocketOption接口
+*版本号： v26.11.5.1
+*描述：输入处理器注释补充入站接管后的读取限制
 *
 *****************************************************************************/
 using System;
@@ -236,7 +236,8 @@ namespace SAEA.Sockets.Model
         }
 
         /// <summary>
-        /// 输入处理器，接管该连接的读循环；未配置时为 null。
+        /// 输入处理器，接管该连接的读循环，独占该连接的 PipeReader；
+        /// 接管后其他入站读取入口（GetStream / ReceiveAsync / ChannelInfo.Stream）会抛 InvalidOperationException。未配置时为 null。
         /// </summary>
         public Func<IUserToken, PipeReader, IReceiveFlowControl, CancellationToken, Task> InputHandler
         {

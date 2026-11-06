@@ -3,7 +3,7 @@
 上游依据：`docs/superpowers/specs/2026-11-05-socket-pipeline-design.md` §2.2（v1 非目标：不做客户端通道链）、§5.1（钩子时序）、§6.1（配置校验）、§6.3（断开收口）。
 
 - 目标：`SaeaClientSocket` 与服务端同构地接入通道链，v1 留下的「客户端构造即抛 `NotSupportedException`」退场。
-- 不动：链路核心包（`SAEA.Sockets.Pipeline`）的公开契约、接收泵、分帧器、编解码层；客户端既有事件模式（`OnClientReceiveSpan`）与 `GetStream()` 的语义。
+- 不动：链路核心包（`SAEA.Sockets.Pipeline`）的公开契约、接收泵、分帧器、编解码层；客户端既有事件模式（`OnClientReceiveSpan`）的语义。`GetStream()` 的写方向语义不变，读方向在配置输入处理器后由入站接管闸门拦截（见 §2.3）。
 
 ## 一、v1 的做法与代价
 
@@ -30,7 +30,8 @@ v1 在 `SaeaClientSocket` 构造阶段读到 `IPipelineSocketOption` 上的任�
 1. 用当前 `_userToken` 造 `ChannelInfo`（`ID` / `ClientSocket` / `Stream` / `UserToken` / `Tls`），先同步调用 `_connectionOpened`；
 2. 建 `CancellationTokenSource` 存入 `_pipelineCts`；
 3. `new ReceiveFlowControl(connection, Disconnect)` 作为应用级闸门，泵自行 `Dispose` 连接即走 `Disconnect()`；
-4. `Task.Run` 里 `await handler(_userToken, connection.Input, flow, cts.Token)`，异常走 `RaiseError`，`finally` 里「仍是当前泵才清空」`_pipelineCts` 并释放 `cts`。
+4. `connection.ClaimInput(...)` 标记入站已接管，之后 `GetStream()` / `ReceiveAsync()` 的读取立即报错；
+5. `Task.Run` 里 `await handler(_userToken, connection.Input, flow, cts.Token)`，异常走 `RaiseError`，`finally` 里「仍是当前泵才清空」`_pipelineCts` 并释放 `cts`。
 
 ### 2.3 与事件泵互斥
 
@@ -42,6 +43,8 @@ if (_connection != null && OnClientReceiveSpan != null && _inputHandler == null)
 ```
 
 即：配置了输入处理器时，即使订阅了 `OnClientReceiveSpan` 也不启动事件泵，`OnClientReceiveSpan` 对该连接不再触发。理由是两者读同一个 `PipeReader`，并发读会抢数据并触发 Pipe 的非法并发读。**不静默**：这一条写进 README，并有用例（`--client` 场景里订阅 `OnClientReceiveSpan` 断言计数为 0）。
+
+入站接管同时由运行时把关：服务端与客户端在启动输入处理器前调用 `SaeaConnection.ClaimInput(...)`，`SaeaConnection.ReadAsync` 见到标记立即抛 `InvalidOperationException`，消息写明接管者与被拦截的入口。因此 `GetStream()`、`ReceiveAsync()`、`ChannelInfo.Stream.ReadAsync` 三条读路径都被覆盖，写方向不受影响；首次标记生效，重复标记保留最初的接管者描述。用例见 `InputClaimTests`。
 
 ### 2.4 断开与取消
 
@@ -93,7 +96,7 @@ if (_connection != null && OnClientReceiveSpan != null && _inputHandler == null)
 
 ## 五、已知限制
 
-- `GetStream()` 与 `UseInputHandler` 互斥：配置处理器后 `PipeReader` 归泵独占，调用方不能再对同一连接读流（写不影响）。
+- 读方向与 `UseInputHandler` 互斥：配置处理器后 `PipeReader` 归泵独占，运行时把该连接入站标记为已接管，`GetStream()` / `ReceiveAsync()` / `ChannelInfo.Stream.ReadAsync` 会立即抛 `InvalidOperationException`；写方向（`Stream.WriteAsync`）不受影响。
 - 客户端一次连接对应一个输入处理器；重连会新建 `_connection` 与 `_pipelineCts`，旧泵在 `finally` 里因引用不等而不会误清新令牌。
 - 客户端链不提供「按会话分发」：单连接单通道，多路复用由业务在链上层做。
 
@@ -104,5 +107,6 @@ if (_connection != null && OnClientReceiveSpan != null && _inputHandler == null)
 | 客户端明文接入 | `dotnet run --project Src/SAEA.Sockets.PipelineTest -c Debug -- --client` | PASS，`OnClientReceiveSpan` 计数为 0，出站心跳经链回写成功 |
 | 客户端 TLS 接入 | `--client-tls` | PASS，握手后首帧由链解出，出站心跳经链回写成功 |
 | 服务端既有路径 | `--socket`、`--tls`、`--all` | PASS，无回归 |
+| 入站接管闸门 | `dotnet test Src/SAEA.Sockets.Pipeline.Tests/SAEA.Sockets.Pipeline.Tests.csproj -c Debug --filter "FullyQualifiedName~InputClaimTests"` | 3 passed：反射覆盖读取拦截与首次接管者保留，真实连接覆盖读取抛异常 + 写方向照常送达 |
 | 构建 | `dotnet build Src/SAEA.Sockets.sln -c Debug` | 0 errors |
-| 单元测试 | `SAEA.Common.Tests` / `SAEA.MQTT.Tests` / `SAEA.FTP.Tests` / `SAEA.Sockets.Pipeline.Tests` | 全绿（详见提交说明） |
+| 单元测试 | `SAEA.Common.Tests` / `SAEA.MQTT.Tests` / `SAEA.FTP.Tests` / `SAEA.Sockets.Pipeline.Tests` | 全绿（Pipeline Debug 163 / Release 161） |

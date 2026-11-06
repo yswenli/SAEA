@@ -681,7 +681,7 @@ public interface IReceiveFlowControl
 ```
 
 - **`UseConnectionOpened` 是 `IChannel` 的创建点**：在 `RaiseAccepted` 内部、`_channelManager.Set` 与 `UserToken` 赋值之后、通知 `OnAccepted` 订阅者之前**同步**调用，参数是同一个 `ChannelInfo` 实例（含 `UserToken` / `Stream` / `Tls`），不能另造一份（时序细节见 §5.1）。只允许做轻量登记（创建 `IChannel`、写初始 `Attributes`），**禁止阻塞 IO / await**；回调抛异常按该连接建立失败处理（关闭连接 + `OnError`），不影响其它连接。与 `UseInputHandler` 一样只支持 `.UseStream()`，在纯 `.UseIocp()` 下配置即 `Build()` 抛 `InvalidOperationException`。
-- **`PipeReader` 是独占的**：配置了 `UseInputHandler` 后，该连接的 `PipeReader` 由泵独占读取；**禁止**再对同一连接调用 `GetStream()` 或 `ChannelInfo.Stream.ReadAsync`（`SaeaConnection.ReadAsync` 走的是同一个 `_reader`，两个读者会互相抢数据、触发 Pipe 非法并发读）。出站 `Stream.WriteAsync` 不受影响。README 必须写明。
+- **`PipeReader` 是独占的**：配置了 `UseInputHandler` 后，该连接的 `PipeReader` 由泵独占读取；运行时在泵启动前把入站标记为已接管（`SaeaConnection.ClaimInput`），此后对同一连接调用 `GetStream()`、`ReceiveAsync()` 或 `ChannelInfo.Stream.ReadAsync` 会立即抛 `InvalidOperationException`（消息带接管者与可用替代入口），不再出现两个读者互相抢数据、触发 Pipe 非法并发读。出站 `Stream.WriteAsync` 不受影响。README 必须写明。
 - **`CancellationToken` 是必带的**（H3）：连接断开、服务停止时由 `SAEA.Sockets` 取消，泵循环在 `ReadAsync` 与每轮迭代开头检查它；取消后按 §6.3 的断开收口执行，不把取消当异常上报。没有这个 token，适配层只能靠"读到 EOF"发现断开，服务端停止时会挂住。
 
 - 配置了 `UseInputHandler` 的连接：由该委托接管读循环，`StartSpanPump` 不再启动，`OnServerReceiveSpan` 对该连接不再触发。

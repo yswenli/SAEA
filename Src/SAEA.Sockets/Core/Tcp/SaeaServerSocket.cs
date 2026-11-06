@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:27
+*修改时间：2026/11/6 13:50:40
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：输入处理器启动时标记入站接管，拦截通道流读取
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -416,6 +416,10 @@ namespace SAEA.Sockets.Core.Tcp
 
             var cts = new CancellationTokenSource();
             _pipelineCts[sessionId] = cts;
+
+            // PipeReader 只允许一个读者：接管后 ChannelInfo.Stream / GetStream() 的读取会立即报错，
+            // 防止应用侧再读时与链的接收泵争抢同一条入站字节流。
+            connection.ClaimInput("输入处理器（UseInputHandler）");
 
             var flow = new ReceiveFlowControl(connection, () => Disconnect(userToken));
             var handler = _inputHandler;

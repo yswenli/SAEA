@@ -278,7 +278,7 @@ public sealed class SocketStreamAdapter : IRawByteStream
 - `ChannelPipelineExecutor.Attach(pipeline)` 必须在 `Start()` 之前完成，否则 `Start()` 抛 `InvalidOperationException`。
 - `CloseAsync(reason)` 只表示“已进入收口”：调用立即返回，后台收口继续执行，资源是否回收完要看 `ChannelPipelineExecutor.Completion`。
 - 进入收口后再 `WriteAsync` 抛 `ChannelClosedException`；连接已关闭时 `IRawByteStream.SendAsync` 也必须立即抛同一异常。该判定先于消息类型判定：即使持有的是已摘链节点的旧 `ctx`、传出的也不是 `TransportFrame`，只要连接在收口就按关闭上报。
-- 禁止再调用 `GetStream()` 或 `ChannelInfo.Stream.ReadAsync` 与泵抢 `PipeReader`：配置 `UseInputHandler` 后，该连接的 `PipeReader` 由泵独占，两个读者会互相抢数据并触发 Pipe 非法并发读。出站 `Stream.WriteAsync` 不受影响。
+- 配置 `UseInputHandler` 后，该连接的 `PipeReader` 由泵独占，运行时会把入站标记为“已接管”：此后再调 `GetStream()`、`ReceiveAsync()` 或 `ChannelInfo.Stream.ReadAsync` 会立刻抛 `InvalidOperationException`（信息里带接管者与可用替代入口），不会再出现两个读者互相抢数据。出站 `Stream.WriteAsync` 不受影响。
 - 钩子启用后，该连接的事件泵不再启动：服务端 `OnServerReceiveSpan`、客户端 `OnClientReceiveSpan` 都不再触发。
 - `UseInputHandler` 必须与 `UseConnectionOpened` 成对配置，且必须 `.UseStream()`；`SocketOptionBuilder.Build()` 会校验并抛 `InvalidOperationException`。
 - `UseConnectionOpened` 同步调用：服务端在 `RaiseAccepted` 内、客户端在连接成功回调之前，只做轻量登记（创建 `IChannel`、写初始属性），禁止阻塞 IO 或 `await`。

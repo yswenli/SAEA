@@ -91,7 +91,7 @@ client.SendAsync(new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("Hello SAEA!"))
 
 > ⚠️ **命名说明**：`UsePacket()` 是历史命名，指框架的 `SocketAsyncEventArgs` 收发实现，**不是 Windows 限定**——它在 Linux/macOS 上同样可用，底层分别落到 epoll/kqueue。TCP 只有这一套底层引擎（`SaeaServerSocket` / `SaeaClientSocket`）。
 >
-> `UseStream()` 不再切换引擎，而是在同一引擎上额外暴露双工 `Stream` 门面（`GetStream()` / `ChannelInfo.Stream`），由该门面独占入站数据；TLS 与事件模式、流模式都能组合使用。
+> `UseStream()` 不再切换引擎，而是在同一引擎上额外暴露双工 `Stream` 门面（`GetStream()` / `ChannelInfo.Stream`），由该门面独占入站数据；TLS 与事件模式、流模式都能组合使用。配置 `UseInputHandler` 后入站改由输入处理器独占：`GetStream()`、`ReceiveAsync()`、`ChannelInfo.Stream` 的读取会抛 `InvalidOperationException`，写方向不受影响。
 
 ---
 
@@ -618,7 +618,7 @@ var option = SocketOptionBuilder.Instance
 | `IClientSocket.OnReceive`（`OnClientReceiveHandler`，`byte[]`） | `OnClientReceiveSpan`（`ReadOnlySpan<byte>`，回调内同步消费/复制） |
 | `IServerSocket.OnReceive`（`OnReceiveHandler`，`(ISession, byte[])`） | `OnServerReceiveSpan`（`(IUserToken, ReadOnlySpan<byte>)`） |
 | `IClientSocket.BeginSend(byte[])` / `Send(byte[])` / `SendAsync(byte[])` / `SendAsync(byte[], int, int, CancellationToken)` | `Send(ReadOnlySpan<byte>)` / `SendAsync(ReadOnlyMemory<byte>)` / `SendAsync(ReadOnlyMemory<byte>, CancellationToken)`；原 offset/count 语义用 `data.AsMemory(offset, count)` 表达 |
-| `IClientSocket.ReceiveAsync(byte[], int, int, CancellationToken)`（接口成员） | 改用 span 事件；具体实现 `SaeaClientSocket.ReceiveAsync` 保留并从连接 `Pipe` 读取（无连接门面时抛 `KernelException`），`UdpClientSocket.ReceiveAsync` 抛 `NotSupportedException` |
+| `IClientSocket.ReceiveAsync(byte[], int, int, CancellationToken)`（接口成员） | 改用 span 事件；具体实现 `SaeaClientSocket.ReceiveAsync` 保留并从连接 `Pipe` 读取（无连接门面时抛 `KernelException`，配置 `UseInputHandler` 后抛 `InvalidOperationException`），`UdpClientSocket.ReceiveAsync` 抛 `NotSupportedException` |
 | `IServerSocket.SendAsync(string, byte[])` / `Send(string, byte[])` / `End(string, byte[])` / `SendAsync(IPEndPoint, byte[])` | `SendAsync(string, ReadOnlyMemory<byte>)` / `Send(string, ReadOnlySpan<byte>)` / `End(string, ReadOnlyMemory<byte>)` / `SendAsync(IPEndPoint, ReadOnlyMemory<byte>)` |
 | `IocpClientSocket.UserToken` | 不再公开；按场景改用 `Connected` 或 `ChannelInfo.UserToken` / `Context.UserToken` |
 | `IocpServerSocket` / `IocpClientSocket` | 重命名为 `SaeaServerSocket` / `SaeaClientSocket`（`SocketFactory` 已返回新类型） |

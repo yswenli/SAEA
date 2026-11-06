@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 13:11:19
+*修改时间：2026/11/6 13:50:40
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：规范文件头 banner
+*描述：类注释补充入站接管后读取抛异常
 *
 *****************************************************************************/
 using System;
@@ -39,6 +39,7 @@ namespace SAEA.Sockets.Core
     /// <summary>
     /// saea 连接的双工流门面。读操作来自 <see cref="SaeaConnection"/> 的入站 Pipe，
     /// 写操作经 saea（TLS 时先加密）发送。
+    /// 入站数据被输入处理器接管后，读操作抛 <see cref="InvalidOperationException"/>。
     /// </summary>
     public sealed class SaeaStream : Stream
     {
