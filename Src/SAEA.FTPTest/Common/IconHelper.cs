@@ -28,11 +28,32 @@ using System.Threading.Tasks;
 
 namespace SAEA.FTPTest.Common
 {
+    /// <summary>
+    /// 通过 Windows Shell 接口读取文件、扩展名对应的图标与类型描述
+    /// </summary>
     public class IconHelper
     {
+        /// <summary>
+        /// 从指定文件或 DLL 中按序号提取大、小图标句柄
+        /// </summary>
+        /// <param name="lpszFile">图标来源文件路径，通常是 exe、dll 或 shell32.dll</param>
+        /// <param name="nIconIndex">图标序号，0 表示第一个图标</param>
+        /// <param name="phiconLarge">返回提取到的大图标句柄</param>
+        /// <param name="phiconSmall">返回提取到的小图标句柄</param>
+        /// <param name="nIcons">需要提取的图标数量</param>
+        /// <returns>实际提取成功的图标数量</returns>
         [DllImport("shell32.dll", EntryPoint = "ExtractIconExW", CallingConvention = System.Runtime.InteropServices.CallingConvention.StdCall)]
         public static extern uint ExtractIconExW([System.Runtime.InteropServices.InAttribute()] [System.Runtime.InteropServices.MarshalAsAttribute(UnmanagedType.LPWStr)] string lpszFile, int nIconIndex, ref IntPtr phiconLarge, ref IntPtr phiconSmall, uint nIcons);
 
+        /// <summary>
+        /// 从指定文件或 DLL 中按序号提取大、小图标句柄，句柄以 int 数组首元素返回
+        /// </summary>
+        /// <param name="lpszFile">图标来源文件路径，通常是 exe、dll 或 shell32.dll</param>
+        /// <param name="nIconIndex">图标序号，0 表示第一个图标</param>
+        /// <param name="phiconLarge">返回大图标句柄的数组，至少一个元素</param>
+        /// <param name="phiconSmall">返回小图标句柄的数组，至少一个元素</param>
+        /// <param name="nIcons">需要提取的图标数量</param>
+        /// <returns>实际提取成功的图标数量</returns>
         [DllImport("shell32.dll")]
         public static extern uint ExtractIconEx(string lpszFile, int nIconIndex, int[] phiconLarge, int[] phiconSmall, uint nIcons);
 

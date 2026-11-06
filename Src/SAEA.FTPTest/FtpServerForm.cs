@@ -13,6 +13,9 @@ using System.Windows.Forms;
 
 namespace SAEA.FTPTest
 {
+    /// <summary>
+    /// FTP 服务器演示窗体，管理服务地址、端口与用户列表并启停 FTPServer
+    /// </summary>
     public partial class FtpServerForm : Skin_Mac
     {
         ServerConfig _serverConfig;
@@ -21,6 +24,9 @@ namespace SAEA.FTPTest
 
         FTPServer _ftpServer = null;
 
+        /// <summary>
+        /// 初始化服务器窗体，配置在 Load 时从配置文件读取
+        /// </summary>
         public FtpServerForm()
         {
             InitializeComponent();

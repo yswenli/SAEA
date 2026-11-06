@@ -15,6 +15,9 @@ using System.Windows.Forms;
 
 namespace SAEA.FTPTest
 {
+    /// <summary>
+    /// FTP 客户端演示窗体，提供本地与 FTP 服务器双侧目录浏览、上传、下载、删除与新建目录
+    /// </summary>
     public partial class FtpClientForm : Skin_Mac
     {
         FTPClient _client = null;
@@ -23,6 +26,9 @@ namespace SAEA.FTPTest
 
         DriverHelper _driverHelper;
 
+        /// <summary>
+        /// 初始化客户端窗体并创建本地/远程文件列表的显示驱动器
+        /// </summary>
         public FtpClientForm()
         {
             InitializeComponent();

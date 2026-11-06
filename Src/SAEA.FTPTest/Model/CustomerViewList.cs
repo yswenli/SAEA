@@ -28,10 +28,25 @@ namespace SAEA.FTPTest.Model
     /// </summary>
     public enum CustomerViewList
     {
+        /// <summary>
+        /// 大图标视图，每项以 32x32 图标显示
+        /// </summary>
         大图标 = 1,
+        /// <summary>
+        /// 小图标视图，每项以 20x20 图标显示
+        /// </summary>
         小图标 = 2,
+        /// <summary>
+        /// 平铺视图，图标与说明文字横向排布
+        /// </summary>
         平铺 = 3,
+        /// <summary>
+        /// 列表视图，单列纵向排列
+        /// </summary>
         列表 = 4,
+        /// <summary>
+        /// 详细信息视图，按列显示名称、类型、大小等属性
+        /// </summary>
         详细信息 = 5
     }
 }

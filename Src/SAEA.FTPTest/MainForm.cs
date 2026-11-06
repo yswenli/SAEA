@@ -11,11 +11,17 @@ using System.Windows.Forms;
 
 namespace SAEA.FTPTest
 {
+    /// <summary>
+    /// 演示程序入口窗体，分别打开 FTP 服务端与客户端窗口
+    /// </summary>
     public partial class MainForm : Skin_Mac
     {
         FtpServerForm _serverForm = null;
         FtpClientForm _clientForm = null;
 
+        /// <summary>
+        /// 初始化入口窗体
+        /// </summary>
         public MainForm()
         {
             InitializeComponent();

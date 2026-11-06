@@ -23,12 +23,24 @@ using System.Threading.Tasks;
 
 namespace SAEA.FTPTest.Model
 {
+    /// <summary>
+    /// FTP 目录列表项，描述远程文件的名称、大小与类型
+    /// </summary>
     public class ListInfo
     {
+        /// <summary>
+        /// 文件或文件夹名称
+        /// </summary>
         public string FileName { get; set; }
 
+        /// <summary>
+        /// 文件字节数，文件夹固定为 0
+        /// </summary>
         public long Size { get; set; }
 
+        /// <summary>
+        /// 列表项类型，取值为「文件」或「文件夹」
+        /// </summary>
         public string Type { get; set; }
     }
 }

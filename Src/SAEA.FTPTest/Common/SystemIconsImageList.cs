@@ -23,6 +23,9 @@ using System.Windows.Forms;
 
 namespace SAEA.FTPTest.Common
 {
+    /// <summary>
+    /// 按扩展名缓存系统图标的大、小图像列表，供文件列表控件复用图标索引
+    /// </summary>
     public class SystemIconsImageList : IDisposable
     {
         #region  ImageList大/小图像列表字段
@@ -65,6 +68,9 @@ namespace SAEA.FTPTest.Common
 
         #region 构造函数
 
+        /// <summary>
+        /// 初始化大小图标列表，统一为 32 位色深，小图标 20x20、大图标 32x32
+        /// </summary>
         public SystemIconsImageList()
             : base()
         {
@@ -99,6 +105,9 @@ namespace SAEA.FTPTest.Common
 
             _disposed = true;
         }
+        /// <summary>
+        /// 释放大小图标列表占用的资源
+        /// </summary>
         public void Dispose()
         {
             CleanUp(true);

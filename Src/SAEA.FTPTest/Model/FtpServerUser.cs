@@ -18,12 +18,24 @@
 
 namespace SAEA.FTPTest.Model
 {
+    /// <summary>
+    /// FTP 服务器用户配置，包含认证信息与可访问的根目录
+    /// </summary>
     public class FtpServerUser
     {
+        /// <summary>
+        /// 登录用户名
+        /// </summary>
         public string UserName { get; set; }
 
+        /// <summary>
+        /// 登录密码
+        /// </summary>
         public string Password { get; set; }
 
+        /// <summary>
+        /// 用户可访问的根目录，默认根路径 "/"
+        /// </summary>
         public string Root { get; set; } = "/";
     }
 }

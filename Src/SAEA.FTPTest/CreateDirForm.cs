@@ -5,13 +5,22 @@ using System.Windows.Forms;
 
 namespace SAEA.FTPTest
 {
+    /// <summary>
+    /// 新建目录对话框，校验目录名后通过 PathName 返回
+    /// </summary>
     public partial class CreateDirForm : Form
     {
+        /// <summary>
+        /// 初始化新建目录对话框
+        /// </summary>
         public CreateDirForm()
         {
             InitializeComponent();
         }
 
+        /// <summary>
+        /// 用户输入的目录名称，仅在对话框返回 OK 后有值
+        /// </summary>
         public string PathName { get; set; }
 
         private void skinButton1_Click(object sender, EventArgs e)

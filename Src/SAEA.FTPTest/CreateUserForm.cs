@@ -11,13 +11,23 @@ using System.Windows.Forms;
 
 namespace SAEA.FTPTest
 {
+    /// <summary>
+    /// FTP 用户编辑对话框，收集用户名、密码与根目录
+    /// </summary>
     public partial class CreateUserForm : Form
     {
+        /// <summary>
+        /// 初始化用户编辑对话框
+        /// </summary>
         public CreateUserForm()
         {
             InitializeComponent();
         }
 
+        /// <summary>
+        /// 以已有用户的用户名、密码与根目录预填对话框，用于修改用户
+        /// </summary>
+        /// <param name="ftpServerUser">待修改的用户信息</param>
         public CreateUserForm(FtpServerUser ftpServerUser) : this()
         {
             skinWaterTextBox1.Text = ftpServerUser.UserName;
@@ -26,6 +36,9 @@ namespace SAEA.FTPTest
         }
 
 
+        /// <summary>
+        /// 用户确认后生成的新用户信息，取消时为 null
+        /// </summary>
         public FtpServerUser FtpServerUser
         {
             get; set;
