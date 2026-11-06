@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:04:26
+*修改时间：2026/11/6 13:23:31
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：补齐英文与乱码注释的中文说明
 *
 *****************************************************************************/
 using SAEA.MQTT.Client;
@@ -55,11 +55,9 @@ namespace SAEA.MQTT.Extensions.ManagedClient
         readonly BlockingQueue<ManagedMqttApplicationMessage> _messageQueue = new BlockingQueue<ManagedMqttApplicationMessage>();
 
         /// <summary>
-        /// The subscriptions are managed in 2 separate buckets:
-        /// <see cref="_subscriptions"/> and <see cref="_unsubscriptions"/> are processed during normal operation
-        /// and are moved to the <see cref="_reconnectSubscriptions"/> when they get processed. They can be accessed by
-        /// any thread and are therefore mutex'ed. <see cref="_reconnectSubscriptions"/> get sent to the broker
-        ///  at reconnect and are solely owned by <see cref="MaintainConnectionAsync"/>.
+        /// 订阅状态分两类维护：<see cref="_subscriptions"/> 与 <see cref="_unsubscriptions"/> 在常规运行中处理，
+        /// 处理完成后移入 <see cref="_reconnectSubscriptions"/>；这些集合可被任意线程访问，因此需加锁，
+        /// 而 <see cref="_reconnectSubscriptions"/> 在重连时发送给代理，且仅由 <see cref="MaintainConnectionAsync"/> 独占访问。
         /// </summary>
         readonly Dictionary<string, MqttQualityOfServiceLevel> _reconnectSubscriptions = new Dictionary<string, MqttQualityOfServiceLevel>();
         readonly Dictionary<string, MqttQualityOfServiceLevel> _subscriptions = new Dictionary<string, MqttQualityOfServiceLevel>();
