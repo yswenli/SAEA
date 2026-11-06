@@ -27,6 +27,9 @@ namespace SAEA.Socket5.Protocol
         /// <summary>
         /// 从流中精确读取 count 个字节（循环读取以兼容半包），连接关闭时抛 EndOfStreamException
         /// </summary>
+        /// <param name="stream">源流，按阻塞读取处理</param>
+        /// <param name="count">需要读取的字节数，小于等于 0 时返回空数组</param>
+        /// <returns>长度为 count 的字节数组</returns>
         public static byte[] ReadExactly(Stream stream, int count)
         {
             if (count <= 0) return new byte[0];
@@ -52,6 +55,8 @@ namespace SAEA.Socket5.Protocol
         /// <summary>
         /// 根据主机字符串推断地址类型
         /// </summary>
+        /// <param name="host">主机名或 IP 字符串</param>
+        /// <returns>推断出的地址类型；非 IP 字面量按域名处理</returns>
         public static Socks5AddressType InferAddressType(string host)
         {
             if (IPAddress.TryParse(host, out var ip))
@@ -72,6 +77,8 @@ namespace SAEA.Socket5.Protocol
         /// <summary>
         /// 客户端：写出方法协商包 05 NMETHODS METHODS...
         /// </summary>
+        /// <param name="stream">目标流</param>
+        /// <param name="methods">客户端支持的认证方法，为 null 时按空集合写出</param>
         public static void WriteMethodNegotiation(Stream stream, Socks5AuthMethod[] methods)
         {
             var ms = methods ?? new Socks5AuthMethod[0];
@@ -91,6 +98,8 @@ namespace SAEA.Socket5.Protocol
         /// <summary>
         /// 服务端：读取方法协商包，返回客户端支持的方法
         /// </summary>
+        /// <param name="stream">源流</param>
+        /// <returns>客户端声明支持的方法数组</returns>
         public static Socks5AuthMethod[] ReadMethodNegotiation(Stream stream)
         {
             var header = ReadExactly(stream, 2);
@@ -116,6 +125,8 @@ namespace SAEA.Socket5.Protocol
         /// <summary>
         /// 服务端：写出方法选择包 05 METHOD
         /// </summary>
+        /// <param name="stream">目标流</param>
+        /// <param name="method">服务端选定的认证方法</param>
         public static void WriteMethodSelection(Stream stream, Socks5AuthMethod method)
         {
             stream.Write(new byte[] { Version5, (byte)method }, 0, 2);
@@ -124,6 +135,8 @@ namespace SAEA.Socket5.Protocol
         /// <summary>
         /// 客户端：读取方法选择包，返回服务端选定的方法
         /// </summary>
+        /// <param name="stream">源流</param>
+        /// <returns>服务端选定的认证方法</returns>
         public static Socks5AuthMethod ReadMethodSelection(Stream stream)
         {
             var buf = ReadExactly(stream, 2);
@@ -143,6 +156,9 @@ namespace SAEA.Socket5.Protocol
         /// <summary>
         /// 客户端：写出用户名/密码认证包 01 ULEN UNAME PLEN PASSWD
         /// </summary>
+        /// <param name="stream">目标流</param>
+        /// <param name="userName">用户名，为 null 时按空串处理</param>
+        /// <param name="password">密码，为 null 时按空串处理</param>
         public static void WriteUserPassAuth(Stream stream, string userName, string password)
         {
             var u = Encoding.ASCII.GetBytes(userName ?? string.Empty);
@@ -163,6 +179,9 @@ namespace SAEA.Socket5.Protocol
         /// <summary>
         /// 服务端：读取用户名/密码认证包
         /// </summary>
+        /// <param name="stream">源流</param>
+        /// <param name="userName">读到的用户名</param>
+        /// <param name="password">读到的密码</param>
         public static void ReadUserPassAuth(Stream stream, out string userName, out string password)
         {
             var header = ReadExactly(stream, 2);
@@ -183,6 +202,8 @@ namespace SAEA.Socket5.Protocol
         /// <summary>
         /// 服务端：写出认证状态包 01 STATUS
         /// </summary>
+        /// <param name="stream">目标流</param>
+        /// <param name="status">认证结果状态</param>
         public static void WriteUserPassStatus(Stream stream, Socks5AuthStatus status)
         {
             stream.Write(new byte[] { UserPassVersion, (byte)status }, 0, 2);
@@ -191,6 +212,8 @@ namespace SAEA.Socket5.Protocol
         /// <summary>
         /// 客户端：读取认证状态包
         /// </summary>
+        /// <param name="stream">源流</param>
+        /// <returns>服务端返回的认证结果状态</returns>
         public static Socks5AuthStatus ReadUserPassStatus(Stream stream)
         {
             var buf = ReadExactly(stream, 2);
@@ -210,6 +233,10 @@ namespace SAEA.Socket5.Protocol
         /// <summary>
         /// 编码地址（含 ATYP + 地址 + 2 字节端口），不含 RSV/FRAG
         /// </summary>
+        /// <param name="addressType">地址类型</param>
+        /// <param name="host">主机名或 IP 字符串</param>
+        /// <param name="port">端口，按大端写入</param>
+        /// <returns>ATYP 起始的地址字节</returns>
         public static byte[] EncodeAddressBytes(Socks5AddressType addressType, string host, int port)
         {
             var list = new System.Collections.Generic.List<byte>();
@@ -247,6 +274,10 @@ namespace SAEA.Socket5.Protocol
         /// <summary>
         /// 从流中读取地址（ATYP 已由调用方读取）
         /// </summary>
+        /// <param name="stream">源流</param>
+        /// <param name="addressType">已读取的地址类型</param>
+        /// <param name="host">读到的地址字符串</param>
+        /// <param name="port">读到的端口</param>
         public static void ReadAddress(Stream stream, Socks5AddressType addressType, out string host, out int port)
         {
             if (addressType == Socks5AddressType.IPv4)
@@ -281,6 +312,11 @@ namespace SAEA.Socket5.Protocol
         /// <summary>
         /// 客户端：写出请求包 05 CMD 00 ATYP ADDR PORT
         /// </summary>
+        /// <param name="stream">目标流</param>
+        /// <param name="command">请求命令</param>
+        /// <param name="addressType">目标地址类型</param>
+        /// <param name="host">目标主机名或 IP 字符串</param>
+        /// <param name="port">目标端口</param>
         public static void WriteRequest(Stream stream, Socks5Command command, Socks5AddressType addressType, string host, int port)
         {
             // EncodeAddressBytes 已在 addr 起始处写入 ATYP，此处不要再重复写入，否则地址整体偏移 1 字节。
@@ -298,6 +334,8 @@ namespace SAEA.Socket5.Protocol
         /// <summary>
         /// 服务端：读取请求包
         /// </summary>
+        /// <param name="stream">源流</param>
+        /// <returns>解析出的请求对象</returns>
         public static Socks5Request ReadRequest(Stream stream)
         {
             var header = ReadExactly(stream, 4);
@@ -324,6 +362,11 @@ namespace SAEA.Socket5.Protocol
         /// <summary>
         /// 服务端：写出响应包 05 REP 00 ATYP BND.ADDR BND.PORT
         /// </summary>
+        /// <param name="stream">目标流</param>
+        /// <param name="replyCode">响应码</param>
+        /// <param name="addressType">绑定地址类型</param>
+        /// <param name="host">绑定主机名或 IP 字符串</param>
+        /// <param name="port">绑定端口</param>
         public static void WriteReply(Stream stream, Socks5ReplyCode replyCode, Socks5AddressType addressType, string host, int port)
         {
             // EncodeAddressBytes 已在 addr 起始处写入 ATYP，此处不要再重复写入，否则地址整体偏移 1 字节。
@@ -341,6 +384,8 @@ namespace SAEA.Socket5.Protocol
         /// <summary>
         /// 客户端：读取响应包
         /// </summary>
+        /// <param name="stream">源流</param>
+        /// <returns>解析出的响应对象</returns>
         public static Socks5Reply ReadReply(Stream stream)
         {
             var header = ReadExactly(stream, 4);
@@ -371,6 +416,11 @@ namespace SAEA.Socket5.Protocol
         /// <summary>
         /// 封装 UDP 数据报：RSV(2) FRAG(1) ATYP ADDR PORT DATA
         /// </summary>
+        /// <param name="addressType">目标地址类型</param>
+        /// <param name="host">目标主机名或 IP 字符串</param>
+        /// <param name="port">目标端口</param>
+        /// <param name="data">UDP 负载，不能为 null</param>
+        /// <returns>可直接发送的数据报字节</returns>
         public static byte[] EncodeUdpDatagram(Socks5AddressType addressType, string host, int port, byte[] data)
         {
             var addr = EncodeAddressBytes(addressType, host, port);
@@ -388,6 +438,12 @@ namespace SAEA.Socket5.Protocol
         /// <summary>
         /// 解析 UDP 数据报，去除 RSV/FRAG/ATYP/ADDR/PORT 头，得到目标地址与负载
         /// </summary>
+        /// <param name="buffer">收到的数据报字节</param>
+        /// <param name="addressType">解析出的地址类型</param>
+        /// <param name="host">解析出的主机名或 IP 字符串</param>
+        /// <param name="port">解析出的端口</param>
+        /// <param name="data">去掉头部后的负载</param>
+        /// <returns>true 表示解析成功；长度不足或地址类型不支持时为 false</returns>
         public static bool TryDecodeUdpDatagram(byte[] buffer, out Socks5AddressType addressType, out string host, out int port, out byte[] data)
         {
             addressType = Socks5AddressType.IPv4;

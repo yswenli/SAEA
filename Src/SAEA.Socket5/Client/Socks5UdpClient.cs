@@ -47,6 +47,9 @@ namespace SAEA.Socket5.Client
         /// <summary>
         /// 向目标主机发送 UDP 数据报（自动封装 SOCKS5 UDP 头）
         /// </summary>
+        /// <param name="host">目标主机名或 IP 字符串</param>
+        /// <param name="port">目标端口</param>
+        /// <param name="data">UDP 负载，不能为 null</param>
         public void SendTo(string host, int port, byte[] data)
         {
             var addressType = Socks5Codec.InferAddressType(host);
@@ -57,6 +60,9 @@ namespace SAEA.Socket5.Client
         /// <summary>
         /// 向目标主机发送文本（UTF-8 编码）
         /// </summary>
+        /// <param name="host">目标主机名或 IP 字符串</param>
+        /// <param name="port">目标端口</param>
+        /// <param name="text">待发送文本，按 UTF-8 编码</param>
         public void SendTo(string host, int port, string text)
         {
             SendTo(host, port, Encoding.UTF8.GetBytes(text));
@@ -65,6 +71,11 @@ namespace SAEA.Socket5.Client
         /// <summary>
         /// 接收并解析一个 UDP 数据报（去除 SOCKS5 UDP 头）
         /// </summary>
+        /// <param name="host">解析出的源主机名或 IP 字符串</param>
+        /// <param name="port">解析出的源端口</param>
+        /// <param name="data">去掉头部后的负载</param>
+        /// <param name="timeoutMs">接收超时（毫秒），默认 5000</param>
+        /// <returns>true 表示收到并解析成功；超时或解析失败为 false</returns>
         public bool TryReceive(out string host, out int port, out byte[] data, int timeoutMs = 5000)
         {
             host = null;

@@ -120,6 +120,9 @@ namespace SAEA.Socket5.Client
         /// <summary>
         /// 通过代理建立到目标主机的 TCP 连接，返回透明隧道流
         /// </summary>
+        /// <param name="host">目标主机名或 IP 字符串，不能为空</param>
+        /// <param name="port">目标端口</param>
+        /// <returns>与目标主机通信的透明隧道流</returns>
         public Stream Connect(string host, int port)
         {
             if (string.IsNullOrEmpty(host)) throw new ArgumentNullException(nameof(host));
@@ -149,6 +152,9 @@ namespace SAEA.Socket5.Client
         /// <summary>
         /// 异步建立 CONNECT 隧道
         /// </summary>
+        /// <param name="host">目标主机名或 IP 字符串，不能为空</param>
+        /// <param name="port">目标端口</param>
+        /// <returns>隧道流建立后完成的任务</returns>
         public Task<Stream> ConnectAsync(string host, int port)
         {
             return Task.Run(() => Connect(host, port));
@@ -157,6 +163,9 @@ namespace SAEA.Socket5.Client
         /// <summary>
         /// 通过代理发起 BIND 请求，返回首次响应与等待二次响应的句柄
         /// </summary>
+        /// <param name="host">请求绑定的主机名或 IP 字符串</param>
+        /// <param name="port">请求绑定的端口</param>
+        /// <returns>包含首次响应与等待二次响应委托的结果</returns>
         public Socks5BindResult Bind(string host, int port)
         {
             PrepareForCommand();
@@ -189,6 +198,9 @@ namespace SAEA.Socket5.Client
         /// <summary>
         /// 异步发起 BIND
         /// </summary>
+        /// <param name="host">请求绑定的主机名或 IP 字符串</param>
+        /// <param name="port">请求绑定的端口</param>
+        /// <returns>BIND 结果产生后完成的任务</returns>
         public Task<Socks5BindResult> BindAsync(string host, int port)
         {
             return Task.Run(() => Bind(host, port));
@@ -197,6 +209,7 @@ namespace SAEA.Socket5.Client
         /// <summary>
         /// 通过代理发起 UDP 关联，返回可用于收发 UDP 数据报的客户端
         /// </summary>
+        /// <returns>已绑定代理中继端点的 UDP 客户端</returns>
         public Socks5UdpClient UdpAssociate()
         {
             PrepareForCommand();
@@ -226,6 +239,7 @@ namespace SAEA.Socket5.Client
         /// <summary>
         /// 异步发起 UDP 关联
         /// </summary>
+        /// <returns>UDP 关联建立后完成的任务</returns>
         public Task<Socks5UdpClient> UdpAssociateAsync()
         {
             return Task.Run(() => UdpAssociate());

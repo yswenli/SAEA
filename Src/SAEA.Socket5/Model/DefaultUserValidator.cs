@@ -51,6 +51,8 @@ namespace SAEA.Socket5.Model
         /// <summary>
         /// 添加/更新一个用户
         /// </summary>
+        /// <param name="userName">用户名</param>
+        /// <param name="password">密码</param>
         public void AddUser(string userName, string password)
         {
             _users[userName] = password;
