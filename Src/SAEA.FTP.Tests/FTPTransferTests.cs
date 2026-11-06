@@ -13,6 +13,9 @@ using System.Threading;
 
 namespace SAEA.FTP.Tests
 {
+    /// <summary>
+    /// FTP 传输集成测试：临时目录起本地服务端，覆盖往返传输、冲突处理、并行分片与跨调用续传
+    /// </summary>
     [TestClass]
     public class FTPTransferTests
     {
@@ -26,6 +29,9 @@ namespace SAEA.FTP.Tests
 
         const string Password = "secret";
 
+        /// <summary>
+        /// 为每个用例创建独立的临时根目录并启动覆写策略为 Overwrite 的服务端
+        /// </summary>
         [TestInitialize]
         public void Setup()
         {
@@ -36,6 +42,9 @@ namespace SAEA.FTP.Tests
             StartServer(FTPOverwritePolicy.Overwrite, 0);
         }
 
+        /// <summary>
+        /// 释放服务端并递归删除本用例的临时根目录，清理失败不视为用例失败
+        /// </summary>
         [TestCleanup]
         public void Cleanup()
         {
@@ -115,6 +124,9 @@ namespace SAEA.FTP.Tests
             };
         }
 
+        /// <summary>
+        /// 验证 128KB 文件上传后再下载，状态均为 Completed 且下载内容与源字节完全一致
+        /// </summary>
         [TestMethod]
         public void UploadAndDownload_Roundtrip()
         {
@@ -138,6 +150,9 @@ namespace SAEA.FTP.Tests
             }
         }
 
+        /// <summary>
+        /// 验证远端已存在同名文件且未指定冲突处理时上传被跳过，远端原文件内容不变
+        /// </summary>
         [TestMethod]
         public void Upload_ExistingRemote_SkipsByDefault()
         {
@@ -159,6 +174,9 @@ namespace SAEA.FTP.Tests
             }
         }
 
+        /// <summary>
+        /// 验证冲突回调返回 Overwrite 时上传完成并覆盖远端同名文件
+        /// </summary>
         [TestMethod]
         public void Upload_ExistingRemote_OverwriteViaHandler()
         {
@@ -184,6 +202,9 @@ namespace SAEA.FTP.Tests
             }
         }
 
+        /// <summary>
+        /// 验证冲突回调返回 Rename 时按指定新名上传，结果带回 "/renamed.bin" 且原文件保持不变
+        /// </summary>
         [TestMethod]
         public void Upload_ExistingRemote_RenameViaHandler()
         {
@@ -210,6 +231,9 @@ namespace SAEA.FTP.Tests
             }
         }
 
+        /// <summary>
+        /// 验证下载时本地目标已存在默认跳过且保留原内容，改由回调选择覆盖后写入远端内容
+        /// </summary>
         [TestMethod]
         public void Download_ExistingLocal_SkipsByDefault_AndOverwriteHandlerWorks()
         {
@@ -242,6 +266,9 @@ namespace SAEA.FTP.Tests
             }
         }
 
+        /// <summary>
+        /// 验证 2MB 文件下载超过并行阈值时启用多会话，且内容完整
+        /// </summary>
         [TestMethod]
         public void ParallelDownload_UsesMultipleSessions()
         {
@@ -259,6 +286,9 @@ namespace SAEA.FTP.Tests
             }
         }
 
+        /// <summary>
+        /// 验证 2MB 文件上传超过并行阈值时启用多会话，且远端内容完整
+        /// </summary>
         [TestMethod]
         public void ParallelUpload_UsesMultipleSessions()
         {
@@ -278,6 +308,9 @@ namespace SAEA.FTP.Tests
             }
         }
 
+        /// <summary>
+        /// 验证预置分片文件与 meta 元数据后开启跨调用续传，可从已有字节处继续并清理 meta 文件
+        /// </summary>
         [TestMethod]
         public void Download_ResumeAcrossCalls_UsesPartialFile()
         {
@@ -315,6 +348,9 @@ namespace SAEA.FTP.Tests
             }
         }
 
+        /// <summary>
+        /// 验证服务端覆写策略为 Reject 时，客户端即使选择覆盖也返回 Failed 并带回错误信息
+        /// </summary>
         [TestMethod]
         public void ServerRejectPolicy_OverwriteUploadFails()
         {
@@ -342,6 +378,9 @@ namespace SAEA.FTP.Tests
             }
         }
 
+        /// <summary>
+        /// 验证服务端覆写策略为 Rename 时上传返回 Renamed，且远端路径已由服务端改名
+        /// </summary>
         [TestMethod]
         public void ServerRenamePolicy_UploadReturnsRenamed()
         {
@@ -372,6 +411,9 @@ namespace SAEA.FTP.Tests
             }
         }
 
+        /// <summary>
+        /// 验证 MaxSessions 设为 1 时大文件上传与下载都只使用单个会话，内容仍完整
+        /// </summary>
         [TestMethod]
         public void MaxSessionsOne_UsesSingleSessionForLargeFiles()
         {
@@ -400,6 +442,9 @@ namespace SAEA.FTP.Tests
             }
         }
 
+        /// <summary>
+        /// 验证 FEAT 响应声明 REST STREAM、SIZE、MDTM、MLSD、EPSV 扩展及当前覆写策略
+        /// </summary>
         [TestMethod]
         public void Feat_AdvertisesExtensionsAndOverwritePolicy()
         {
@@ -415,6 +460,9 @@ namespace SAEA.FTP.Tests
             StringAssert.Contains(text, "SAEA-OVERWRITE=Overwrite");
         }
 
+        /// <summary>
+        /// 验证 MLSD 目录列表按标准格式输出 type=file、size 与实际字节数一致的条目
+        /// </summary>
         [TestMethod]
         public void Mlsd_UsesStandardFormat()
         {
