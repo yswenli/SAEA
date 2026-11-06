@@ -5,16 +5,30 @@
  \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
   ___) / ___ \| |___ / ___ \   ___) | (_) | (__|   <  __/ |_ 
  |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
-                                                               
- *Copyright (c) yswenli All Rights Reserved.
- *CLR版本： netstandard2.0
- *机器名称：WENLI-PC
- *公司名称：yswenli
- *命名空间：SAEA.MVC
- *文件名： MVCWebSocketConnection
- *描述：同端口 WebSocket 连接
- *
- *****************************************************************************/
+                                                              
+ 
+*Copyright (c) yswenli All Rights Reserved.
+*CLR版本： netstandard2.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：SAEA.MVC
+*文件名： MVCWebSocketConnection
+*版本号： v26.11.5.1
+*唯一标识：2c899c28-0577-4ea6-a049-37af026f6acc
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/11/5 11:56:30
+*描述：同端口 WebSocket 连接
+*
+*=====================================================================
+*修改标记
+*修改时间：2026/11/6 13:11:19
+*修改人： yswenli
+*版本号： v26.11.5.1
+*描述：规范文件头 banner
+*
+*****************************************************************************/
 using SAEA.Common;
 using SAEA.Common.Caching;
 using SAEA.Http.Base;
