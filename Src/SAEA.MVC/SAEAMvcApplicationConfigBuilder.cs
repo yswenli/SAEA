@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/01/22 15:08:29
+*修改时间：2026/11/6 12:52:32
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：SAEAMvcApplicationConfigBuilder接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -36,6 +36,9 @@ using System;
 
 namespace SAEA.MVC
 {
+    /// <summary>
+    /// SAEAMvcApplicationConfig.json 配置的读写入口
+    /// </summary>
     public static class SAEAMvcApplicationConfigBuilder
     {
         /// <summary>

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/10/28 14:19:50
+*修改时间：2026/11/6 12:52:32
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：HttpGet类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -39,6 +39,9 @@ namespace SAEA.MVC
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = true)]
     public sealed class HttpGet : Attribute, IFilter
     {
+        /// <summary>
+        /// 过滤器执行顺序
+        /// </summary>
         public int Order { get; set; }
     }
 }

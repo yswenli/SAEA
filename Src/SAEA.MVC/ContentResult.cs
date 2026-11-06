@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/10/29 15:01:17
+*修改时间：2026/11/6 12:52:32
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ContentResult结果类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.Net;
@@ -35,14 +35,26 @@ using System.Text;
 
 namespace SAEA.MVC
 {
+    /// <summary>
+    /// 文本内容响应结果，按指定编码输出 body
+    /// </summary>
     [DataContract]
     public class ContentResult : ActionResult
     {
+        /// <summary>
+        /// 以 UTF-8 编码创建文本内容结果
+        /// </summary>
+        /// <param name="str">响应正文</param>
         public ContentResult(string str) : this(str, Encoding.UTF8)
         {
 
         }
 
+        /// <summary>
+        /// 以 UTF-8 编码和指定状态码创建 text/html 文本内容结果
+        /// </summary>
+        /// <param name="str">响应正文</param>
+        /// <param name="status">HTTP 状态码</param>
         public ContentResult(string str, HttpStatusCode status)
         {
             if (!string.IsNullOrEmpty(str))
@@ -52,6 +64,12 @@ namespace SAEA.MVC
             this.Status = status;
         }
 
+        /// <summary>
+        /// 以指定编码和内容类型创建文本内容结果
+        /// </summary>
+        /// <param name="str">响应正文</param>
+        /// <param name="encoding">正文编码</param>
+        /// <param name="contentType">响应内容类型</param>
         public ContentResult(string str, Encoding encoding, string contentType = "text/plane; charset=utf-8")
         {
             if (!string.IsNullOrEmpty(str))
@@ -60,6 +78,11 @@ namespace SAEA.MVC
             this.ContentType = contentType;
         }
 
+        /// <summary>
+        /// 创建 UTF-8 编码的文本内容结果
+        /// </summary>
+        /// <param name="str">响应正文</param>
+        /// <returns>文本内容结果</returns>
         public static ContentResult Get(string str)
         {
             return new ContentResult(str);

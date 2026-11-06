@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/12/14 11:05:54
+*修改时间：2026/11/6 12:52:32
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：OutputCacheAttribute接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common.Caching;
@@ -42,6 +42,10 @@ namespace SAEA.MVC
     {
         int _duration = 60;
 
+        /// <summary>
+        /// 以缓存秒数创建输出缓存过滤器，执行顺序固定为最前
+        /// </summary>
+        /// <param name="Duration">缓存有效秒数</param>
         public OutputCacheAttribute(int Duration = 60)
         {
             _duration = Duration;
@@ -49,11 +53,19 @@ namespace SAEA.MVC
         }
 
 
+        /// <summary>
+        /// 执行 action 前尝试命中缓存
+        /// </summary>
+        /// <returns>命中的缓存结果，未命中返回 null</returns>
         public override ActionResult OnActionExecuting()
         {
             return OutputCacheManager.Get(HttpContext.Current.Request.Url);            
         }
 
+        /// <summary>
+        /// 执行 action 后，无内容的结果补取缓存，有内容的写入缓存
+        /// </summary>
+        /// <param name="result">action 执行结果，可能被替换为缓存结果</param>
         public override void OnActionExecuted(ref ActionResult result)
         {
             if (result.Content == null)

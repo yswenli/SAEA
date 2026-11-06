@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/10/29 15:01:17
+*修改时间：2026/11/6 12:52:32
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：FileResult接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System.IO;
@@ -45,6 +45,9 @@ namespace SAEA.MVC
     /// </summary>
     public class FileResult : ActionResult, IFileResult
     {
+        /// <summary>
+        /// 小文件响应内容
+        /// </summary>
         public new byte[] Content { get; set; }
 
         /// <summary>

@@ -23,16 +23,22 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2020/12/25 17:36:47
+*修改时间：2026/11/6 12:52:32
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：JsTemple模板类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 namespace SAEA.MVC.Tool.CodeGenerte
 {
+    /// <summary>
+    /// JavaScript 版 API SDK 代码生成模板
+    /// </summary>
     public static class JsTemple
     {
+        /// <summary>
+        /// SDK 构造函数模板，[[DateTime]] 为生成时间、[[Method]] 为方法区占位
+        /// </summary>
         public const string TEMPLE = @"//
 //此代码为SAEA.MVC.APISdkCodeGenerator于[[DateTime]]生成，请尽量不要修改
 //
@@ -78,6 +84,9 @@ function SaeaApiSdk(url) {
 [[Method]]
 }";
 
+        /// <summary>
+        /// 无入参 action 的调用方法模板
+        /// </summary>
         public const string MethodTemple1 = @"    // [[Controller]]/[[Action]]
     this.[[Controller]][[Action]][[Type]]= function (sucess, error) {
         request({
@@ -93,6 +102,9 @@ function SaeaApiSdk(url) {
             }
         });
     }";
+        /// <summary>
+        /// 带表单入参 action 的调用方法模板
+        /// </summary>
         public const string MethodTemple2 = @"    // [[Controller]]/[[Action]]
     this.[[Controller]][[Action]][[Type]]= function ([[Inputs1]]sucess, error) {
         request({
@@ -111,6 +123,9 @@ function SaeaApiSdk(url) {
             }
         });
     }";
+        /// <summary>
+        /// 带自定义请求头与表单入参 action 的调用方法模板
+        /// </summary>
         public const string MethodTemple3 = @"    // [[Controller]]/[[Action]]
     this.[[Controller]][[Action]][[Type]]= function ([[Header1]],[[Inputs1]]sucess, error) {
         request({

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/10/28 14:19:50
+*修改时间：2026/11/6 12:52:32
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：RouteTable类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -45,6 +45,9 @@ namespace SAEA.MVC
     {
         ConcurrentDictionary<string, Routing> _cDic = new ConcurrentDictionary<string, Routing>();
 
+        /// <summary>
+        /// 已扫描到的控制器类型集合
+        /// </summary>
         public static List<Type> Types { get; set; } = new List<Type>();
 
         /// <summary>

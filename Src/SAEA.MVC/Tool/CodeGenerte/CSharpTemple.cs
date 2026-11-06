@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2020/12/26 16:34:50
+*修改时间：2026/11/6 12:52:32
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：CSharpTemple模板类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using System;
@@ -35,8 +35,14 @@ using System.Text;
 
 namespace SAEA.MVC.Tool.CodeGenerte
 {
+    /// <summary>
+    /// C# 版 API SDK 代码生成模板
+    /// </summary>
     public static class CSharpTemple
     {
+        /// <summary>
+        /// SDK 类模板，[[DateTime]] 为生成时间、[[Method]] 为方法区占位
+        /// </summary>
         public const string TEMPLE = @"//
 //此代码为SAEA.MVC.APISdkCodeGenerator于[[DateTime]]生成，请尽量不要修改
 //
@@ -64,6 +70,9 @@ namespace SAEA.MVC.Tool.CodeGenerte
     }
 }
 ";
+        /// <summary>
+        /// 无入参 action 的调用方法模板
+        /// </summary>
         public const string MethodTemple1 = @"        /// <summary>
         /// [[Controller]]/[[Action]]
         /// </summary>
@@ -82,6 +91,9 @@ namespace SAEA.MVC.Tool.CodeGenerte
             }
         }";
 
+        /// <summary>
+        /// 带表单入参 action 的调用方法模板
+        /// </summary>
         public const string MethodTemple2 = @"        /// <summary>
         /// [[Controller]]/[[Action]]
         /// </summary>
@@ -101,6 +113,9 @@ namespace SAEA.MVC.Tool.CodeGenerte
         }";
 
 
+        /// <summary>
+        /// 带表单入参与自定义请求头 action 的调用方法模板
+        /// </summary>
         public const string MethodTemple3 = @"        /// <summary>
         /// [[Controller]]/[[Action]]
         /// </summary>

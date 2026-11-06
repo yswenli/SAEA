@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/04/21 23:58:08
+*修改时间：2026/11/6 12:52:32
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：HttpContext上下文类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -43,7 +43,7 @@ using System.Linq;
 namespace SAEA.MVC
 {
     /// <summary>
-    /// mvc HttpContext
+    /// MVC 请求上下文，负责路由到控制器并生成响应
     /// </summary>
     public class HttpContext : HttpContextBase, IHttpContext
     {
@@ -60,9 +60,9 @@ namespace SAEA.MVC
         public override event RequestDelegate OnRequestDelegate;
 
         /// <summary>
-        /// mvc HttpContext
+        /// 以宿主服务创建上下文并绑定其路由表
         /// </summary>
-        /// <param name="webHost"></param>
+        /// <param name="webHost">Web 宿主</param>
         public HttpContext(IWebHost webHost) : base(webHost)
         {
             _routeTable = _webHost.RouteParam as RouteTable;

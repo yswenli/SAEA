@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/10/29 15:01:17
+*修改时间：2026/11/6 12:52:32
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：EmptyResult结果类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Http.Model;
@@ -40,6 +40,9 @@ namespace SAEA.MVC
     public class EmptyResult : ActionResult, IEmptyResult
     {
         static EmptyResult _emptyResult = new EmptyResult();
+        /// <summary>
+        /// 共享的空结果单例
+        /// </summary>
         public static EmptyResult Default
         {
             get

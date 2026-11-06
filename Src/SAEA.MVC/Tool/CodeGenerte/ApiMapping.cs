@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2020/12/25 17:36:47
+*修改时间：2026/11/6 12:52:32
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ApiMapping接口
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -38,7 +38,7 @@ using System.Reflection;
 namespace SAEA.MVC.Tool.CodeGenerte
 {
     /// <summary>
-    /// saea.mvc api mapping
+    /// 扫描控制器并生成 action 路由映射
     /// </summary>
     public static class ApiMapping
     {

@@ -37,6 +37,7 @@ namespace SAEA.MVC
         /// 连接入口：默认接受握手并立即返回。
         /// 注意不要在 OpenAsync 里跑长循环，MvcInvoker 会同步等待该 Task。
         /// </summary>
+        /// <returns>握手完成的任务</returns>
         [WebSocket]
         public virtual Task OpenAsync()
         {
@@ -47,6 +48,7 @@ namespace SAEA.MVC
         /// 收到一条完整的 Text/Binary 消息（分片已重组）
         /// </summary>
         /// <param name="message">消息</param>
+        /// <returns>处理完成的任务</returns>
         public virtual Task MessageAsync(WSMessage message)
         {
             return Task.CompletedTask;
@@ -56,6 +58,7 @@ namespace SAEA.MVC
         /// 连接关闭回调
         /// </summary>
         /// <param name="reason">关闭原因</param>
+        /// <returns>处理完成的任务</returns>
         public virtual Task CloseAsync(WSCloseReason reason)
         {
             return Task.CompletedTask;
@@ -65,6 +68,7 @@ namespace SAEA.MVC
         /// 连接内发生异常
         /// </summary>
         /// <param name="exception">异常</param>
+        /// <returns>处理完成的任务</returns>
         public virtual Task ErrorAsync(Exception exception)
         {
             return Task.CompletedTask;

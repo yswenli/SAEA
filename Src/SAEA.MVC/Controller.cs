@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/10/28 14:19:50
+*修改时间：2026/11/6 12:52:32
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：Controller控制器类
+*版本号： v26.11.5.1
+*描述：补全公开成员的 XML 注释
 *
 *****************************************************************************/
 using SAEA.Common.IO;
@@ -42,7 +42,7 @@ namespace SAEA.MVC
     public abstract class Controller
     {
         /// <summary>
-        /// UserHostAddress
+        /// 客户端 IP 地址
         /// </summary>
         public string UserHostAddress
         {
@@ -73,7 +73,8 @@ namespace SAEA.MVC
         /// <summary>
         /// 返回Json
         /// </summary>
-        /// <param name="data"></param>
+        /// <param name="data">待序列化对象</param>
+        /// <param name="expended">是否输出缩进格式的 JSON</param>
         /// <returns></returns>
         protected JsonResult Json(object data, bool expended = false)
         {
@@ -135,11 +136,24 @@ namespace SAEA.MVC
             return new EmptyResult();
         }
 
+        /// <summary>
+        /// 序列化对象为 JSON 字符串
+        /// </summary>
+        /// <typeparam name="T">对象类型</typeparam>
+        /// <param name="t">待序列化对象</param>
+        /// <param name="expended">是否输出缩进格式的 JSON</param>
+        /// <returns>JSON 字符串</returns>
         protected string Serialize<T>(T t, bool expended = false)
         {
             return SerializeHelper.Serialize(t, expended);
         }
 
+        /// <summary>
+        /// 将 JSON 字符串反序列化为对象
+        /// </summary>
+        /// <typeparam name="T">目标类型</typeparam>
+        /// <param name="json">JSON 字符串</param>
+        /// <returns>反序列化得到的对象</returns>
         protected T Deserialize<T>(string json)
         {
             return SerializeHelper.Deserialize<T>(json);
