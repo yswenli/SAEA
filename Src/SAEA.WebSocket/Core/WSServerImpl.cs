@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/06/14 11:19:42
+*修改时间：2026/11/6 13:23:31
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：WSServerImpl类
+*版本号： v26.11.5.1
+*描述：补齐英文与乱码注释的中文说明
 *
 *****************************************************************************/
 using System;
@@ -42,8 +42,7 @@ using SAEA.WebSocket.Type;
 namespace SAEA.WebSocket.Core
 {
     /// <summary>
-    /// websocket server,
-    /// saea实现
+    /// WebSocket 服务器，基于 SAEA.Sockets 的实现
     /// </summary>
     internal class WSServerImpl : IWSServer
     {
@@ -72,7 +71,7 @@ namespace SAEA.WebSocket.Core
         internal ClassificationBatcher _writer;
 
         /// <summary>
-        /// websocket server
+        /// 初始化 WebSocket 服务器
         /// </summary>
         /// <param name="port">端口号</param>
         /// <param name="bufferSize">缓冲区大小</param>
