@@ -23,15 +23,15 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:31
+*修改时间：2026/11/10 20:10:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：删除发送与生命周期事件，改为透传处理器链装配回调
 *
 *****************************************************************************/
 using System;
 
-using SAEA.Sockets.Handler;
+using SAEA.Sockets.Pipeline;
 
 namespace SAEA.QueueSocket
 {
@@ -40,21 +40,6 @@ namespace SAEA.QueueSocket
     /// </summary>
     public class Producer : IDisposable
     {
-
-        /// <summary>
-        /// 发生错误时触发
-        /// </summary>
-        public event OnErrorHandler OnError;
-
-        /// <summary>
-        /// 连接断开时触发
-        /// </summary>
-        public event OnDisconnectedHandler OnDisconnected;
-
-        /// <summary>
-        /// 消息实际发送完成事件
-        /// </summary>
-        public event Action<int> OnMessagesSent;
 
         QClient _producer;
 
@@ -70,6 +55,22 @@ namespace SAEA.QueueSocket
         }
 
         /// <summary>
+        /// 处理器链装配回调：参数为连接标识与尚未启动的处理器链。
+        /// 发布不需要入站处理器，为 null 时只保留内置处理器。
+        /// </summary>
+        public Action<string, IChannelPipeline> ConfigurePipeline
+        {
+            get
+            {
+                return _producer.ConfigurePipeline;
+            }
+            set
+            {
+                _producer.ConfigurePipeline = value;
+            }
+        }
+
+        /// <summary>
         /// 生产者
         /// </summary>
         /// <param name="name"></param>
@@ -77,27 +78,7 @@ namespace SAEA.QueueSocket
         public Producer(string name, string serverAddress)
         {
             _producer = new QClient(name, serverAddress);
-            _producer.OnError += _consumer_OnError;
-            _producer.OnDisconnected += _consumer_OnDisconnected;
-            _producer.OnMessagesSent += _producer_OnMessagesSent;
             _producer.Connect();
-        }
-
-
-        private void _consumer_OnDisconnected(string id, Exception ex)
-        {
-            if (string.IsNullOrEmpty(id)) return;
-            OnDisconnected?.Invoke(id, ex);
-        }
-        private void _consumer_OnError(string id, Exception ex)
-        {
-            if (string.IsNullOrEmpty(id)) return;
-            OnError?.Invoke(id, ex);
-        }
-
-        private void _producer_OnMessagesSent(int count)
-        {
-            OnMessagesSent?.Invoke(count);
         }
 
         /// <summary>

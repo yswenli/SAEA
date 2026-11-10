@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 
 using SAEA.QueueSocket;
+using SAEA.QueueSocket.Model;
 
 namespace SAEA.QueueSocketTest
 {
@@ -63,7 +64,8 @@ namespace SAEA.QueueSocketTest
                 _port = TestHarness.GetFreeTcpPort();
 
                 _server = new QServer(port: _port);
-                _server.OnDisconnected += Server_OnDisconnected;
+                // 服务端不再暴露断开事件，连接收口统计改由处理器链的 ChannelInactive 通知承担。
+                _server.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new DisconnectCounter(id2 => Interlocked.Increment(ref _disconnectedCount)));
                 _server.Start();
             }
 
@@ -89,11 +91,6 @@ namespace SAEA.QueueSocketTest
             }
         }
 
-        private static void Server_OnDisconnected(string id, Exception ex)
-        {
-            Interlocked.Increment(ref _disconnectedCount);
-        }
-
         /// <summary>
         /// 创建带随机客户端名称的生产者，连接由 Producer 自身按需建立
         /// </summary>
@@ -107,11 +104,17 @@ namespace SAEA.QueueSocketTest
         /// 创建消费者并订阅指定主题，返回前已开始接收消息
         /// </summary>
         /// <param name="topic">订阅的主题名</param>
+        /// <param name="onMessage">收到消息时的处理回调，可为 null；回调内需调用 Dispose 归还缓冲</param>
         /// <returns>已启动的消费者，调用方负责释放</returns>
-        public static Consumer CreateConsumer(string topic)
+        public static Consumer CreateConsumer(string topic, Action<QueueMsg> onMessage = null)
         {
             var consumer = new Consumer("consumer-" + Guid.NewGuid().ToString("N"), Address);
             consumer.Subscribe(topic);
+            // 接收处理器必须在 Start 之前装配，连接建立后链结构不再变化。
+            if (onMessage != null)
+            {
+                consumer.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new QueueMessageSink(onMessage));
+            }
             consumer.Start();
             return consumer;
         }
@@ -120,10 +123,15 @@ namespace SAEA.QueueSocketTest
         /// 创建通用 QClient 并连接、订阅指定主题，用于验证退订行为
         /// </summary>
         /// <param name="topic">订阅的主题名</param>
+        /// <param name="onMessage">收到消息时的处理回调，可为 null；回调内需调用 Dispose 归还缓冲</param>
         /// <returns>已完成连接与订阅的客户端，调用方负责释放</returns>
-        public static QClient CreateSubscriber(string topic)
+        public static QClient CreateSubscriber(string topic, Action<QueueMsg> onMessage = null)
         {
             var client = new QClient("subscriber-" + Guid.NewGuid().ToString("N"), Address);
+            if (onMessage != null)
+            {
+                client.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new QueueMessageSink(onMessage));
+            }
             client.Connect();
             client.Subscribe(topic);
             return client;

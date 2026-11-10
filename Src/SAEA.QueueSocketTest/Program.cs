@@ -2,7 +2,6 @@
 using SAEA.Common;
 using SAEA.Common.Threading;
 using SAEA.QueueSocket;
-using SAEA.QueueSocket.Model;
 
 using System;
 using System.Threading;
@@ -159,7 +158,8 @@ namespace SAEA.QueueSocketTest
         static void ServerInit()
         {
             _server = new QServer();
-            _server.OnDisconnected += Server_OnDisconnected;
+            // 服务端不再暴露断开事件，断开清理与统计改由处理器链的 ChannelInactive 通知承担。
+            _server.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new DisconnectCounter(ServerOnDisconnected));
             _server.CalcInfo((ci, qi) =>
             {
                 var result = string.Format("生产者：{0} 消费者：{1} 收到消息:{2} 推送消息:{3}{4}", ci.Item1, ci.Item2, ci.Item3, ci.Item4, Environment.NewLine);
@@ -173,49 +173,31 @@ namespace SAEA.QueueSocketTest
             _server.Start();
         }
 
-        private static void Server_OnDisconnected(string ID, Exception ex)
+        private static void ServerOnDisconnected(string ID)
         {
             _server.Clear(ID);
-            if (ex != null)
-            {
-                ConsoleHelper.WriteLine("{0} 已从服务器断开，err:{1}", ID, ex.ToString());
-            }
+            ConsoleHelper.WriteLine("{0} 已从服务器断开", ID);
         }
 
         static void ProducerInit(string ipPort, string topic)
         {
-            long pNum = 0;
-
             string msg = "123";
             if (string.IsNullOrEmpty(ipPort)) ipPort = "127.0.0.1:39654";
 
             Producer producer = new Producer("productor" + Guid.NewGuid().ToString("N"), ipPort);
 
-            producer.OnError += Producer_OnError;
-
-            producer.OnDisconnected += Client_OnDisconnected;
-
-            // 订阅消息实际发送完成事件
-            producer.OnMessagesSent += (count) =>
-            {
-                Interlocked.Add(ref pNum, count);
-            };
+            // 发送完成与异常不再通过事件上报，这里统计已提交的发布条数用于展示发送速率。
+            long submitted = 0;
 
             TaskHelper.LongRunning(() =>
             {
                 var old = 0L;
-                var speed = 0L;
-                var lastTime = DateTime.Now;
                 while (producer.Connected)
                 {
                     Thread.Sleep(1000);
-                    var current = Interlocked.Read(ref pNum);
-                    var currentTime = DateTime.Now;
-                    var elapsed = (currentTime - lastTime).TotalSeconds;
-                    speed = (long)((current - old) / elapsed);
+                    var current = Interlocked.Read(ref submitted);
+                    ConsoleHelper.WriteLine("生产者已提交发送：{0} 速度：{1}/s", current, current - old);
                     old = current;
-                    lastTime = currentTime;
-                    ConsoleHelper.WriteLine("生产者已成功发送：{0} 速度：{1}/s", current, speed);
                 }
             });
 
@@ -223,22 +205,22 @@ namespace SAEA.QueueSocketTest
             while (producer.Connected)
             {
                 producer.Publish(topic, msg);
+                Interlocked.Increment(ref submitted);
             }
 
-        }
-
-        private static void Producer_OnError(string ID, Exception ex)
-        {
-            ConsoleHelper.WriteLine("id:" + ID + ",error:" + ex.Message);
         }
 
         static Consumer ConsumerInit(string ipPort, string topic)
         {
             if (string.IsNullOrEmpty(ipPort)) ipPort = "127.0.0.1:39654";
             Consumer consumer = new Consumer("subscriber-" + Guid.NewGuid().ToString("N"), ipPort);
-            consumer.OnMessage += Subscriber_OnMessage;
-            consumer.OnDisconnected += Client_OnDisconnected;
-            consumer.OnError += Producer_OnError;
+
+            // 接收改由处理器链装配的入站处理器承担，回调内计数并归还池化缓冲。
+            consumer.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new QueueMessageSink(obj =>
+            {
+                Interlocked.Increment(ref _outNum);
+                obj.Dispose();
+            }));
 
             consumer.Subscribe(topic);
             consumer.Start();
@@ -246,12 +228,11 @@ namespace SAEA.QueueSocketTest
             TaskHelper.LongRunning(() =>
             {
                 var old = 0L;
-                var speed = 0L;
                 while (consumer.Connected)
                 {
-                    speed = _outNum - old;
-                    old = _outNum;
-                    ConsoleHelper.WriteLine("消费者已成功接收：{0} 速度：{1}/s", _outNum, speed);
+                    var current = Interlocked.Read(ref _outNum);
+                    ConsoleHelper.WriteLine("消费者已成功接收：{0} 速度：{1}/s", current, current - old);
+                    old = current;
                     Thread.Sleep(1000);
                 }
             });
@@ -267,20 +248,6 @@ namespace SAEA.QueueSocketTest
             }
         }
 
-        private static void Client_OnDisconnected(string ID, Exception ex)
-        {
-            ConsoleHelper.WriteLine("当前连接已关闭");
-        }
-
         static long _outNum = 0;
-
-        private static void Subscriber_OnMessage(QueueMsg obj)
-        {
-            if (obj != null)
-            {
-                Interlocked.Increment(ref _outNum);
-                obj.Dispose();
-            }
-        }
     }
 }

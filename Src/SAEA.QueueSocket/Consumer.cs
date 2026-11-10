@@ -23,21 +23,15 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:31
+*修改时间：2026/11/10 20:10:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：删除接收与生命周期事件，改为透传处理器链装配回调，移除编码器缓冲区清理任务
 *
 *****************************************************************************/
 using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 
-using SAEA.Common.Threading;
-using SAEA.QueueSocket.Model;
-using SAEA.Sockets.Handler;
+using SAEA.Sockets.Pipeline;
 
 namespace SAEA.QueueSocket
 {
@@ -47,26 +41,7 @@ namespace SAEA.QueueSocket
     public class Consumer : IDisposable
     {
 
-        /// <summary>
-        /// 发生错误时触发
-        /// </summary>
-        public event OnErrorHandler OnError;
-
-        /// <summary>
-        /// 连接断开时触发
-        /// </summary>
-        public event OnDisconnectedHandler OnDisconnected;
-
-        /// <summary>
-        /// 收到订阅主题的消息时触发
-        /// </summary>
-        public event Action<QueueMsg> OnMessage;
-
-
         QClient _consumer;
-
-        // 定期清理任务取消令牌源
-        private CancellationTokenSource _cleanupCts;
 
         /// <summary>
         /// 队列主题
@@ -85,6 +60,22 @@ namespace SAEA.QueueSocket
         }
 
         /// <summary>
+        /// 处理器链装配回调：收到订阅主题的消息时由使用者处理器处理，
+        /// 参数为连接标识与尚未启动的处理器链。
+        /// </summary>
+        public Action<string, IChannelPipeline> ConfigurePipeline
+        {
+            get
+            {
+                return _consumer.ConfigurePipeline;
+            }
+            set
+            {
+                _consumer.ConfigurePipeline = value;
+            }
+        }
+
+        /// <summary>
         /// 消费者
         /// </summary>
         /// <param name="name"></param>
@@ -92,29 +83,6 @@ namespace SAEA.QueueSocket
         public Consumer(string name, string serverAddress)
         {
             _consumer = new QClient(name, serverAddress);
-            _consumer.OnMessage += _consumer_OnMessage;
-            _consumer.OnDisconnected += _consumer_OnDisconnected;
-            _consumer.OnError += _consumer_OnError;
-        }
-
-
-        private void _consumer_OnMessage(QueueMsg obj)
-        {
-            if (obj != null)
-            {
-                OnMessage?.Invoke(obj);
-            }
-        }
-
-        private void _consumer_OnDisconnected(string id, Exception ex)
-        {
-            if (string.IsNullOrEmpty(id)) return;
-            OnDisconnected?.Invoke(id, ex);
-        }
-        private void _consumer_OnError(string id, Exception ex)
-        {
-            if (string.IsNullOrEmpty(id)) return;
-            OnError?.Invoke(id, ex);
         }
 
         /// <summary>
@@ -135,35 +103,6 @@ namespace SAEA.QueueSocket
             if (string.IsNullOrEmpty(Topic)) throw new Exception("消费者启动前请先订阅队列主题");
             _consumer.Connect();
             _consumer.Subscribe(Topic);
-            StartCleanupTask(); // 启动清理任务
-        }
-
-        /// <summary>
-        /// 启动定期清理任务
-        /// </summary>
-        private void StartCleanupTask()
-        {
-            _cleanupCts = new CancellationTokenSource();
-            TaskHelper.LongRunning(() =>
-            {
-                while (!_cleanupCts.Token.IsCancellationRequested)
-                {
-                    try
-                    {
-                        _consumer?.ClearCoderBuffer();
-                        Thread.Sleep(60000); // 每分钟清理一次
-                    }
-                    catch { }
-                }
-            });
-        }
-
-        /// <summary>
-        /// 停止清理任务
-        /// </summary>
-        private void StopCleanupTask()
-        {
-            _cleanupCts?.Cancel();
         }
 
         /// <summary>
@@ -179,16 +118,11 @@ namespace SAEA.QueueSocket
         }
 
         /// <summary>
-        /// 停止清理任务、断开连接并释放底层客户端
+        /// 断开连接并释放底层客户端
         /// </summary>
         public void Dispose()
         {
-            StopCleanupTask();
             Stop();
-            // 取消事件订阅
-            _consumer.OnMessage -= _consumer_OnMessage;
-            _consumer.OnDisconnected -= _consumer_OnDisconnected;
-            _consumer.OnError -= _consumer_OnError;
             _consumer?.Dispose();
         }
     }

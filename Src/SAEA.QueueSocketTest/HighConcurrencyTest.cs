@@ -1,7 +1,6 @@
 using SAEA.Common;
 using SAEA.Common.Threading;
 using SAEA.QueueSocket;
-using SAEA.QueueSocket.Model;
 
 using System;
 using System.Threading;
@@ -79,7 +78,8 @@ namespace SAEA.QueueSocketTest
         static void ServerInit()
         {
             _server = new QServer();
-            _server.OnDisconnected += Server_OnDisconnected;
+            // 服务端不再暴露断开事件，断开清理与统计改由处理器链的 ChannelInactive 通知承担。
+            _server.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new DisconnectCounter(ServerOnDisconnected));
             _server.CalcInfo((ci, qi) =>
             {
                 var result = string.Format("[Server] Producers: {0} Consumers: {1} Received: {2} Sent: {3}", ci.Item1, ci.Item2, ci.Item3, ci.Item4);
@@ -93,13 +93,10 @@ namespace SAEA.QueueSocketTest
             ConsoleHelper.WriteLine("[Server] Server started on port 39654", ConsoleColor.Cyan);
         }
 
-        private static void Server_OnDisconnected(string ID, Exception ex)
+        private static void ServerOnDisconnected(string ID)
         {
             _server.Clear(ID);
-            if (ex != null)
-            {
-                ConsoleHelper.WriteLine($"[Server] {ID.Substring(0, 16)}... disconnected, error: {ex.Message}", ConsoleColor.Red);
-            }
+            ConsoleHelper.WriteLine($"[Server] {ID.Substring(0, 16)}... disconnected", ConsoleColor.Red);
         }
 
         static void ProducerInit(string ipPort, string topic)
@@ -109,26 +106,13 @@ namespace SAEA.QueueSocketTest
 
             Producer producer = new Producer(producerID, ipPort);
 
-            producer.OnError += (ID, ex) =>
-            {
-                ConsoleHelper.WriteLine($"[Producer Error] {ID}: {ex.Message}", ConsoleColor.Red);
-            };
-
-            producer.OnDisconnected += (ID, ex) =>
-            {
-                ConsoleHelper.WriteLine($"[Producer] {ID} disconnected", ConsoleColor.Green);
-            };
-
-            producer.OnMessagesSent += (count) =>
-            {
-                Interlocked.Add(ref _producerSentCount, count);
-            };
-
+            // 发送完成与异常不再通过事件上报，这里按已提交条数统计发送量。
             while (producer.Connected)
             {
                 try
                 {
                     producer.Publish(topic, msg);
+                    Interlocked.Increment(ref _producerSentCount);
                 }
                 catch (Exception ex)
                 {
@@ -143,24 +127,12 @@ namespace SAEA.QueueSocketTest
             string consumerID = "consumer-" + Guid.NewGuid().ToString("N").Substring(0, 8);
             Consumer consumer = new Consumer(consumerID, ipPort);
 
-            consumer.OnMessage += (QueueMsg obj) =>
+            // 接收改由处理器链装配的入站处理器承担，回调内计数并归还池化缓冲。
+            consumer.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new QueueMessageSink(obj =>
             {
-                if (obj != null)
-                {
-                    Interlocked.Increment(ref _consumerReceivedCount);
-                    obj.Dispose();
-                }
-            };
-
-            consumer.OnDisconnected += (ID, ex) =>
-            {
-                ConsoleHelper.WriteLine($"[Consumer] {ID} disconnected", ConsoleColor.Yellow);
-            };
-
-            consumer.OnError += (ID, ex) =>
-            {
-                ConsoleHelper.WriteLine($"[Consumer Error] {ID}: {ex.Message}", ConsoleColor.Red);
-            };
+                Interlocked.Increment(ref _consumerReceivedCount);
+                obj.Dispose();
+            }));
 
             consumer.Subscribe(topic);
             consumer.Start();

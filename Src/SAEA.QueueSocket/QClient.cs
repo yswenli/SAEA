@@ -23,16 +23,18 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:31
+*修改时间：2026/11/10 20:10:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：改用流式处理器链收发队列帧，删除接收与生命周期事件，接收交给使用者处理器
 *
 *****************************************************************************/
 using System;
+using System.IO.Pipelines;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 
 using SAEA.Common;
 using SAEA.Common.Caching;
@@ -41,7 +43,10 @@ using SAEA.QueueSocket.Model;
 using SAEA.QueueSocket.Net;
 using SAEA.QueueSocket.Type;
 using SAEA.Sockets;
-using SAEA.Sockets.Handler;
+using SAEA.Sockets.Base;
+using SAEA.Sockets.Interface;
+using SAEA.Sockets.Model;
+using SAEA.Sockets.Pipeline;
 
 namespace SAEA.QueueSocket
 {
@@ -58,13 +63,6 @@ namespace SAEA.QueueSocket
 
         byte[] _nameBytes;
 
-        /// <summary>
-        /// 收到订阅主题的消息时触发
-        /// </summary>
-        public event Action<QueueMsg> OnMessage;
-
-        Net.QueueCoder _queueCoder;
-
         bool _isClosed = false;
 
         private AutoResetEvent autoResetEvent = new AutoResetEvent(false);
@@ -74,14 +72,22 @@ namespace SAEA.QueueSocket
         IClientSocket _clientSocket;
 
         /// <summary>
-        /// 发生错误时触发
+        /// 处理器链装配回调：每条连接在解码之后、异常收口之前调用一次，
+        /// 使用者在此追加自己的入站处理器；为 null 时收到的消息由链尾回收。
+        /// 赋值可在连接建立之前或运行期间进行，只影响其后建立的连接。
         /// </summary>
-        public event OnErrorHandler OnError;
+        public Action<string, IChannelPipeline> ConfigurePipeline { get; set; }
 
-        /// <summary>
-        /// 连接断开时触发
-        /// </summary>
-        public event OnDisconnectedHandler OnDisconnected;
+        readonly PipelineHostRegistry _host = new PipelineHostRegistry();
+
+        readonly ChannelPipelineOptions _options;
+
+        readonly int _timeOut = 3000;
+
+        // 业务线程可能在连接已建立但链尚未激活的窗口里发起发送，这里等待链就绪后再写。
+        readonly ManualResetEventSlim _pipelineReady = new ManualResetEventSlim(false);
+
+        volatile IChannelPipeline _pipeline;
 
         /// <summary>
         /// 获取客户端是否已连接
@@ -127,46 +133,44 @@ namespace SAEA.QueueSocket
 
             _batcher.OnBatched += _batcher_OnBatched;
 
-            _queueCoder = new QueueCoder();
+            var readBufferSize = bufferSize > 0 ? bufferSize : 128 * 1024;
 
-            ISocketOption socketOption = SocketOptionBuilder.Instance.SetSocket(Sockets.Model.SAEASocketType.Tcp)
-                .UsePacket<QueueCoder>()
+            // 单帧上限沿用 BaseCoder.MaxFrameLength 的可配置口径，输入残余上限按同一口径显式给出。
+            var maxFrameLength = QueueFrameSplitter.ResolveMaxFrameLength();
+
+            _options = new ChannelPipelineOptions
+            {
+                Splitter = QueueFrameSplitter.Create(maxFrameLength),
+                MaxBufferedBytes = (long)maxFrameLength + FrameConstants.P_Head,
+                ReadBufferSize = readBufferSize,
+                // 订阅消息必须按到达顺序交付，同一连接串行执行。
+                MaxConcurrentMessages = 1
+            };
+
+            var socketOption = new SocketOptionBuilder()
+                .SetSocket(SAEASocketType.Tcp)
+                .UseStream()
+                .UseConnectionOpened(OnConnectionOpened)
+                .UseInputHandler(RunPipelineAsync)
                 .SetIP(ip)
                 .SetPort(port)
-                .SetWriteBufferSize(bufferSize)
-                .SetReadBufferSize(bufferSize)
+                .SetWriteBufferSize(readBufferSize)
+                .SetReadBufferSize(readBufferSize)
                 .ReusePort(false)
                 .Build();
 
             _clientSocket = SocketFactory.CreateClientSocket(socketOption);
 
-            _clientSocket.OnClientReceiveSpan += _clientSocket_OnReceiveSpan;
-
-            _clientSocket.OnError += _clientSocket_OnError;
-
-            _clientSocket.OnDisconnected += _clientSocket_OnDisconnected;
+            _clientSocket.OnError += (id, ex) => LogHelper.Debug("QueueSocket 客户端异常:" + id + "," + ex.Message);
         }
 
         /// <summary>
-        /// 错误处理事件
+        /// 连接门面登记钩子：处理器链只依赖连接标识，这里仅满足
+        /// 「输入处理器必须与连接钩子成对配置」的约定。
         /// </summary>
-        /// <param name="id">客户端ID</param>
-        /// <param name="ex">异常信息</param>
-        private void _clientSocket_OnError(string id, Exception ex)
+        /// <param name="info">底层通道信息</param>
+        private static void OnConnectionOpened(ChannelInfo info)
         {
-            if (string.IsNullOrEmpty(id)) return;
-            OnError?.Invoke(id, ex);
-        }
-
-        /// <summary>
-        /// 断开连接处理事件
-        /// </summary>
-        /// <param name="id">客户端ID</param>
-        /// <param name="ex">异常信息</param>
-        private void _clientSocket_OnDisconnected(string id, Exception ex)
-        {
-            if (string.IsNullOrEmpty(id)) return;
-            OnDisconnected?.Invoke(id, ex);
         }
 
         /// <summary>
@@ -195,41 +199,157 @@ namespace SAEA.QueueSocket
         }
 
         /// <summary>
-        /// 接收数据处理事件
+        /// 接管本连接的读循环：装配处理器链并运行到收口
         /// </summary>
-        /// <param name="data">接收到的数据</param>
-        private void _clientSocket_OnReceiveSpan(ReadOnlySpan<byte> dataSpan)
+        /// <param name="userToken">连接令牌，用于取连接标识</param>
+        /// <param name="reader">接收方向的 PipeReader</param>
+        /// <param name="flow">应用级流量控制闸门</param>
+        /// <param name="token">连接级取消令牌</param>
+        /// <returns>执行器收口完成后结束的任务</returns>
+        private async Task RunPipelineAsync(
+            IUserToken userToken,
+            PipeReader reader,
+            IReceiveFlowControl flow,
+            CancellationToken token)
         {
-            Actived = DateTimeHelper.Now;
-            var list = _queueCoder.GetQueueResult(dataSpan);
-            if (list != null)
+            var channelId = userToken == null ? null : userToken.ID;
+
+            if (string.IsNullOrEmpty(channelId))
+                return;
+
+            var stream = new PipelineRawByteStream(
+                channelId,
+                reader,
+                flow,
+                (data, owner) => _clientSocket.SendAsync(data, owner));
+
+            try
             {
-                foreach (var item in list)
-                {
-                    OnMessage?.Invoke(item);
-                }
-                QueueMsgListPool.Return(list);
+                await PipelineWiring.RunAsync(
+                    channelId,
+                    stream,
+                    flow,
+                    _options,
+                    token,
+                    _host,
+                    ConfigureConnection)
+                    .ConfigureAwait(false);
+            }
+            finally
+            {
+                _pipeline = null;
+                _pipelineReady.Reset();
             }
         }
 
         /// <summary>
-        /// 消息提交事件：消息已提交给 socket 发送（所有权已移交），并非对端已确认收到。
+        /// 装配本连接的处理器链：出站前缀 → 解码 → 激活登记 → 使用者扩展 → 链尾异常处理器
         /// </summary>
-        public event Action<int> OnMessagesSent;
+        /// <param name="channelId">连接标识</param>
+        /// <param name="pipeline">尚未启动的处理器链</param>
+        private void ConfigureConnection(string channelId, IChannelPipeline pipeline)
+        {
+            // 出站必须是链首连续前缀，串行器固定在最右，心跳与批量发布才不会乱序。
+            pipeline.AddLast(new QueueMessageEncoder());
+            pipeline.AddLast(new OutboundSerializingHandler());
+
+            pipeline.AddLast(new QueueMessageDecoder());
+            pipeline.AddLast(new ActiveHandler(this));
+
+            var configure = ConfigurePipeline;
+            if (configure != null)
+                configure(channelId, pipeline);
+
+            pipeline.AddLast(new ExceptionTerminalHandler());
+        }
 
         /// <summary>
-        /// 批量处理事件。writer 所有权随回调转移给 socket，发送完成后由 socket 释放。
+        /// 批量处理事件。writer 所有权随帧移交给处理器链，写完由传输层释放。
         /// </summary>
         /// <param name="writer">合并后的写入器</param>
         /// <param name="count">本批消息数量</param>
         private void _batcher_OnBatched(PooledBufferWriter writer, int count)
         {
-            _clientSocket.SendAsync(writer.WrittenMemory, writer);
+            var pipeline = GetPipeline(_timeOut);
+            if (pipeline == null)
+            {
+                writer.Dispose();
+                return;
+            }
+
+            _ = WriteFrameAsync(pipeline, writer);
+        }
+
+        /// <summary>
+        /// 取当前连接的处理器链，未就绪时在给定时间内等待链激活
+        /// </summary>
+        /// <param name="timeOut">等待毫秒数，小于等于 0 时不等待</param>
+        /// <returns>可用的处理器链；超时仍不可用时为 null</returns>
+        private IChannelPipeline GetPipeline(int timeOut)
+        {
+            var pipeline = _pipeline;
+            if (pipeline != null)
+                return pipeline;
+
+            if (timeOut > 0)
+                _pipelineReady.Wait(timeOut);
+
+            return _pipeline;
+        }
+
+        /// <summary>
+        /// 把已编码的整批帧交给处理器链
+        /// </summary>
+        /// <param name="pipeline">目标连接的处理器链</param>
+        /// <param name="writer">已写入整批帧的写入器，所有权随帧移交</param>
+        /// <returns>写出完成或失败后结束的任务</returns>
+        private static async Task WriteFrameAsync(IChannelPipeline pipeline, PooledBufferWriter writer)
+        {
+            var frame = new RawFrame(writer.WrittenMemory, writer);
             try
             {
-                OnMessagesSent?.Invoke(count);
+                await pipeline.WriteAsync(frame).ConfigureAwait(false);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                // 未成功移交时由本方法归还背衬缓冲，已移交的帧由传输层负责。
+                frame.Dispose();
+                LogHelper.Debug("QueueSocket 批量发布失败:" + ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// 把一条消息交给处理器链，链未就绪时短暂等待
+        /// </summary>
+        /// <param name="msg">待发送消息</param>
+        /// <returns>已交给处理器链返回 true；等待超时返回 false</returns>
+        private bool TrySend(QueueSocketMsg msg)
+        {
+            var pipeline = GetPipeline(_timeOut);
+            if (pipeline == null)
+                return false;
+
+            _ = WriteCoreAsync(pipeline, msg);
+            return true;
+        }
+
+        /// <summary>
+        /// 写出消息并记录失败；写出是通知性质，不向业务线程抛出
+        /// </summary>
+        /// <param name="pipeline">目标连接的处理器链</param>
+        /// <param name="msg">待发送消息</param>
+        /// <returns>写出完成或失败后结束的任务</returns>
+        private static async Task WriteCoreAsync(IChannelPipeline pipeline, object msg)
+        {
+            try
+            {
+                await pipeline.WriteAsync(msg).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                // 编码前的业务对象由创建方回收；这里只有无背衬缓冲的协议对象，交给 GC 即可。
+                LogHelper.Debug("QueueSocket 写出失败:" + ex.Message);
+            }
         }
 
         /// <summary>
@@ -247,7 +367,7 @@ namespace SAEA.QueueSocket
                         {
                             if (Actived.AddMilliseconds(HeartSpan) <= DateTimeHelper.Now)
                             {
-                                _clientSocket.Send(_queueCoder.Ping(_name).AsSpan());
+                                TrySend(new QueueSocketMsg(QueueSocketMsgType.Ping, _name));
                             }
                             autoResetEvent.WaitOne(HeartSpan / 2);
                         }
@@ -275,7 +395,7 @@ namespace SAEA.QueueSocket
             var nameLen = _nameBytes == null ? 0 : _nameBytes.Length;
             var topicLen = topicBytes == null ? 0 : topicBytes.Length;
             var writer = new PooledBufferWriter(1 + 12 + nameLen + topicLen + contentBytes.Length);
-            QueueCoder.WriteFrameTo(writer, QueueSocketMsgType.Publish, _nameBytes, topicBytes, contentBytes);
+            QueueMessageEncoder.WriteFrameTo(writer, QueueSocketMsgType.Publish, _nameBytes, topicBytes, contentBytes);
             if (!_batcher.Insert(writer))
             {
                 writer.Dispose();
@@ -292,7 +412,7 @@ namespace SAEA.QueueSocket
         /// <param name="topic">主题</param>
         public void Subscribe(string topic)
         {
-            _clientSocket.Send(_queueCoder.Subscribe(_name, topic).AsSpan());
+            TrySend(new QueueSocketMsg(QueueSocketMsgType.Subcribe, _name, topic));
         }
 
         /// <summary>
@@ -301,7 +421,7 @@ namespace SAEA.QueueSocket
         /// <param name="topic">主题</param>
         public void Unsubscribe(string topic)
         {
-            _clientSocket.Send(_queueCoder.Unsubcribe(_name, topic).AsSpan());
+            TrySend(new QueueSocketMsg(QueueSocketMsgType.Unsubcribe, _name, topic));
         }
 
         #endregion
@@ -309,22 +429,29 @@ namespace SAEA.QueueSocket
         /// <summary>
         /// 关闭客户端
         /// </summary>
-        /// <param name="wait">等待时间</param>
+        /// <param name="wait">等待关闭帧交接完成的最长毫秒数</param>
         public void Close(int wait = 10000)
         {
             _isClosed = true;
             _batcher.OnBatched -= _batcher_OnBatched;
             _batcher?.Dispose();
-            _clientSocket.Send(_queueCoder.Close(_name).AsSpan());
-            _clientSocket.Disconnect();
-        }
 
-        /// <summary>
-        /// 清除编码器缓冲区
-        /// </summary>
-        public void ClearCoderBuffer()
-        {
-            _queueCoder?.Clear();
+            // 先让关闭帧交接到传输层再断开，否则对端可能读不到关闭通知。
+            var pipeline = GetPipeline(_timeOut);
+            if (pipeline != null)
+            {
+                try
+                {
+                    var sending = pipeline.WriteAsync(new QueueSocketMsg(QueueSocketMsgType.Close, _name));
+                    if (wait > 0)
+                        sending.Wait(wait);
+                }
+                catch
+                {
+                }
+            }
+
+            _clientSocket.Disconnect();
         }
 
         /// <summary>
@@ -333,7 +460,59 @@ namespace SAEA.QueueSocket
         public void Dispose()
         {
             Close();
-            _queueCoder = null;
+        }
+
+        /// <summary>
+        /// 连接激活处理器：登记写入口并刷新最近活动时间，失活时清空写入口
+        /// </summary>
+        private sealed class ActiveHandler : InboundHandlerAdapter
+        {
+            private readonly QClient _owner;
+
+            /// <summary>
+            /// 绑定所属客户端
+            /// </summary>
+            /// <param name="owner">所属客户端实例</param>
+            public ActiveHandler(QClient owner)
+            {
+                _owner = owner;
+            }
+
+            /// <summary>
+            /// 连接启动时登记写入口，供业务线程发起发送
+            /// </summary>
+            /// <param name="ctx">当前处理器在链上的节点上下文</param>
+            /// <returns>登记完成后结束的任务</returns>
+            public override Task ChannelActiveAsync(IChannelHandlerContext ctx)
+            {
+                _owner._pipeline = ctx.Pipeline;
+                _owner._pipelineReady.Set();
+                return Task.CompletedTask;
+            }
+
+            /// <summary>
+            /// 收到消息时刷新最近活动时间，再交给下游使用者处理器
+            /// </summary>
+            /// <param name="ctx">当前处理器在链上的节点上下文</param>
+            /// <param name="msg">已解码的队列消息</param>
+            /// <returns>下游处理完成后结束的任务</returns>
+            public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+            {
+                _owner.Actived = DateTimeHelper.Now;
+                return ctx.FireChannelReadAsync(msg);
+            }
+
+            /// <summary>
+            /// 连接收口时清空写入口
+            /// </summary>
+            /// <param name="ctx">当前处理器在链上的节点上下文</param>
+            /// <returns>清理完成后结束的任务</returns>
+            public override Task ChannelInactiveAsync(IChannelHandlerContext ctx)
+            {
+                _owner._pipeline = null;
+                _owner._pipelineReady.Reset();
+                return Task.CompletedTask;
+            }
         }
     }
 }

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/03/18 02:16:04
+*修改时间：2026/11/10 20:10:00
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：Exchange交换类
+*版本号： v26.11.5.1
+*描述：订阅表不再持有编码器，批量组帧改由出站编码器承担
 *
 *****************************************************************************/
 using System;
@@ -90,8 +90,8 @@ namespace SAEA.QueueSocket.Model
         // 消息队列对象
         private MessageQueue _messageQueue;
 
-        // 订阅者消息处理队列
-        private ConcurrentDictionary<string, ConcurrentDictionary<string, Net.QueueCoder>> _subscribers;
+        // 订阅者消息处理队列：值只作「已订阅」标记，不承载编码职责
+        private ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> _subscribers;
 
         // 消息分发任务字典
         private ConcurrentDictionary<string, Lazy<Task>> _dispatchTasks;
@@ -113,7 +113,7 @@ namespace SAEA.QueueSocket.Model
 
             _pooledBatcher.OnBatched += _pooledBatcher_OnBatched;
 
-            _subscribers = new ConcurrentDictionary<string, ConcurrentDictionary<string, Net.QueueCoder>>();
+            _subscribers = new ConcurrentDictionary<string, ConcurrentDictionary<string, byte>>();
 
             _dispatchTasks = new ConcurrentDictionary<string, Lazy<Task>>();
         }
@@ -173,8 +173,7 @@ namespace SAEA.QueueSocket.Model
         /// </summary>
         /// <param name="sessionID">会话ID</param>
         /// <param name="sInfo">队列消息</param>
-        /// <param name="qcoder">队列编码器</param>
-        public void GetSubscribeData(string sessionID, QueueMsg sInfo, Net.QueueCoder qcoder)
+        public void GetSubscribeData(string sessionID, QueueMsg sInfo)
         {
             lock (_syncLocker)
             {
@@ -192,9 +191,9 @@ namespace SAEA.QueueSocket.Model
                     _cNum = _binding.GetSubscriberCount();
 
                     var topicSubscribers = _subscribers.GetOrAdd(sInfo.Topic,
-                        (topic) => new ConcurrentDictionary<string, Net.QueueCoder>());
+                        (topic) => new ConcurrentDictionary<string, byte>());
 
-                    topicSubscribers.AddOrUpdate(sessionID, qcoder, (id, oldCoder) => qcoder);
+                    topicSubscribers.AddOrUpdate(sessionID, 0, (id, oldValue) => 0);
 
                     EnsureDispatcher(sInfo.Topic);
                 }
@@ -260,7 +259,7 @@ namespace SAEA.QueueSocket.Model
                             PooledBufferWriter writer = null;
                             try
                             {
-                                if (subs.TryGetValue(sub.Key, out var coder))
+                                if (subs.TryGetValue(sub.Key, out _))
                                 {
                                     var bindInfo = _binding.GetBingInfo(sub.Key);
                                     if (bindInfo != null)
@@ -281,7 +280,7 @@ namespace SAEA.QueueSocket.Model
                                         writer = new PooledBufferWriter((int)total);
                                         for (int i = 0; i < messages.Count; i++)
                                         {
-                                            QueueCoder.WriteFrameTo(writer, QueueSocketMsgType.Data, nameBytes, topicBytes, messages[i].AsSpan());
+                                            QueueMessageEncoder.WriteFrameTo(writer, QueueSocketMsgType.Data, nameBytes, topicBytes, messages[i].AsSpan());
                                         }
 
                                         lock (_syncLocker)

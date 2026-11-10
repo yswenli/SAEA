@@ -6,9 +6,71 @@ using System.Net.Sockets;
 using System.Threading.Tasks;
 
 using SAEA.Common;
+using SAEA.QueueSocket.Model;
+using SAEA.Sockets.Pipeline;
 
 namespace SAEA.QueueSocketTest
 {
+    /// <summary>
+    /// 测试用入站处理器：把收到的队列消息交给回调，回调负责归还消息占用的缓冲
+    /// </summary>
+    public sealed class QueueMessageSink : InboundHandlerAdapter
+    {
+        private readonly Action<QueueMsg> _onMessage;
+
+        /// <summary>
+        /// 绑定消息处理回调
+        /// </summary>
+        /// <param name="onMessage">收到消息时调用，回调内必须调用 Dispose 归还池化缓冲</param>
+        public QueueMessageSink(Action<QueueMsg> onMessage)
+        {
+            if (onMessage == null) throw new ArgumentNullException(nameof(onMessage));
+            _onMessage = onMessage;
+        }
+
+        /// <summary>
+        /// 消费消息并交给回调，不再向下游传递
+        /// </summary>
+        /// <param name="ctx">当前处理器在链上的节点上下文</param>
+        /// <param name="msg">已解码的队列消息</param>
+        /// <returns>回调执行完成后结束的任务</returns>
+        public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+        {
+            var queueMsg = msg as QueueMsg;
+            if (queueMsg == null) return Task.CompletedTask;
+
+            _onMessage(queueMsg);
+            return Task.CompletedTask;
+        }
+    }
+
+    /// <summary>
+    /// 测试用入站处理器：只统计连接收口次数，不干预消息
+    /// </summary>
+    public sealed class DisconnectCounter : InboundHandlerAdapter
+    {
+        private readonly Action<string> _onClosed;
+
+        /// <summary>
+        /// 绑定连接收口回调
+        /// </summary>
+        /// <param name="onClosed">连接收口时调用，参数为连接标识</param>
+        public DisconnectCounter(Action<string> onClosed)
+        {
+            _onClosed = onClosed;
+        }
+
+        /// <summary>
+        /// 连接收口时回调
+        /// </summary>
+        /// <param name="ctx">当前处理器在链上的节点上下文</param>
+        /// <returns>回调执行完成后结束的任务</returns>
+        public override Task ChannelInactiveAsync(IChannelHandlerContext ctx)
+        {
+            if (_onClosed != null) _onClosed(ctx.ChannelId);
+            return Task.CompletedTask;
+        }
+    }
     /// <summary>
     /// 测试断言与结果汇总助手，统计通过、失败数量并统一输出
     /// </summary>

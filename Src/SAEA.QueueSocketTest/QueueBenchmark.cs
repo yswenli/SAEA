@@ -183,8 +183,7 @@ namespace SAEA.QueueSocketTest
             for (int i = 0; i < consumerCount; i++)
             {
                 int idx = i;
-                var c = QueueServerHarness.CreateConsumer(topic);
-                c.OnMessage += obj => { try { Interlocked.Increment(ref counts[idx]); } finally { obj.Dispose(); } };
+                var c = QueueServerHarness.CreateConsumer(topic, obj => { try { Interlocked.Increment(ref counts[idx]); } finally { obj.Dispose(); } });
                 consumers.Add(c);
             }
 

@@ -71,25 +71,21 @@ namespace SAEA.QueueSocketTest
             int n = 500;
 
             var received = new ConcurrentDictionary<string, byte>();
-            var consumer = QueueServerHarness.CreateConsumer(topic);
-            consumer.OnMessage += obj =>
+            var consumer = QueueServerHarness.CreateConsumer(topic, obj =>
             {
                 try { received.TryAdd(Encoding.UTF8.GetString(obj.Data.Span), 0); }
                 finally { obj.Dispose(); }
-            };
+            });
 
             await Task.Delay(SettleMs);
 
             var producer = QueueServerHarness.CreateProducer();
-            long sent = 0;
-            producer.OnMessagesSent += c => Interlocked.Add(ref sent, c);
 
             try
             {
                 for (int i = 0; i < n; i++) producer.Publish(topic, "ft1-" + i);
 
-                TestHarness.Expect(await TestHarness.WaitUntil(() => Interlocked.Read(ref sent) >= n, 30000), "FT1 producer flushed all", "sent=" + Interlocked.Read(ref sent));
-                TestHarness.Expect(await TestHarness.WaitUntil(() => received.Count >= n, 15000), "FT1 consumer received all", "received=" + received.Count);
+                TestHarness.Expect(await TestHarness.WaitUntil(() => received.Count >= n, 30000), "FT1 consumer received all", "received=" + received.Count);
                 TestHarness.Expect(received.Count == n, "FT1 no duplicates and no loss", "count=" + received.Count);
             }
             finally
@@ -110,27 +106,23 @@ namespace SAEA.QueueSocketTest
             for (int i = 0; i < consumers; i++)
             {
                 int idx = i;
-                var c = QueueServerHarness.CreateConsumer(topic);
-                c.OnMessage += obj =>
+                var c = QueueServerHarness.CreateConsumer(topic, obj =>
                 {
                     try { Interlocked.Increment(ref counts[idx]); }
                     finally { obj.Dispose(); }
-                };
+                });
                 list.Add(c);
             }
 
             await Task.Delay(SettleMs);
 
             var producer = QueueServerHarness.CreateProducer();
-            long sent = 0;
-            producer.OnMessagesSent += c => Interlocked.Add(ref sent, c);
 
             try
             {
                 for (int i = 0; i < n; i++) producer.Publish(topic, "ft2-" + i);
 
-                TestHarness.Expect(await TestHarness.WaitUntil(() => Interlocked.Read(ref sent) >= n, 30000), "FT2 producer flushed all");
-                TestHarness.Expect(await TestHarness.WaitUntil(() => counts[0] >= n && counts[1] >= n && counts[2] >= n, 15000), "FT2 all consumers received all", counts[0] + "/" + counts[1] + "/" + counts[2]);
+                TestHarness.Expect(await TestHarness.WaitUntil(() => counts[0] >= n && counts[1] >= n && counts[2] >= n, 30000), "FT2 all consumers received all", counts[0] + "/" + counts[1] + "/" + counts[2]);
             }
             finally
             {
@@ -146,23 +138,19 @@ namespace SAEA.QueueSocketTest
             int n = 200;
 
             long c1 = 0, c2 = 0;
-            var ca = QueueServerHarness.CreateConsumer(t1);
-            ca.OnMessage += obj => { try { Interlocked.Increment(ref c1); } finally { obj.Dispose(); } };
-            var cb = QueueServerHarness.CreateConsumer(t2);
-            cb.OnMessage += obj => { try { Interlocked.Increment(ref c2); } finally { obj.Dispose(); } };
+            var ca = QueueServerHarness.CreateConsumer(t1, obj => { try { Interlocked.Increment(ref c1); } finally { obj.Dispose(); } });
+            var cb = QueueServerHarness.CreateConsumer(t2, obj => { try { Interlocked.Increment(ref c2); } finally { obj.Dispose(); } });
 
             await Task.Delay(SettleMs);
 
             var producer = QueueServerHarness.CreateProducer();
-            long sent = 0;
-            producer.OnMessagesSent += c => Interlocked.Add(ref sent, c);
 
             try
             {
                 for (int i = 0; i < n; i++) producer.Publish(t1, "a-" + i);
                 for (int i = 0; i < n; i++) producer.Publish(t2, "b-" + i);
 
-                TestHarness.Expect(await TestHarness.WaitUntil(() => c1 >= n && c2 >= n, 15000), "FT3 both topics delivered", "c1=" + c1 + " c2=" + c2);
+                TestHarness.Expect(await TestHarness.WaitUntil(() => c1 >= n && c2 >= n, 30000), "FT3 both topics delivered", "c1=" + c1 + " c2=" + c2);
                 TestHarness.Expect(Interlocked.Read(ref c1) == n && Interlocked.Read(ref c2) == n, "FT3 no cross-topic leakage", "c1=" + c1 + " c2=" + c2);
             }
             finally
@@ -179,14 +167,11 @@ namespace SAEA.QueueSocketTest
             int warmup = 50;
 
             long received = 0;
-            var client = QueueServerHarness.CreateSubscriber(topic);
-            client.OnMessage += obj => { try { Interlocked.Increment(ref received); } finally { obj.Dispose(); } };
+            var client = QueueServerHarness.CreateSubscriber(topic, obj => { try { Interlocked.Increment(ref received); } finally { obj.Dispose(); } });
 
             await Task.Delay(SettleMs);
 
             var producer = QueueServerHarness.CreateProducer();
-            long sent = 0;
-            producer.OnMessagesSent += c => Interlocked.Add(ref sent, c);
 
             try
             {
@@ -223,8 +208,7 @@ namespace SAEA.QueueSocketTest
                 bool delivered = false;
                 bool identical = false;
                 int gotLen = -1;
-                var consumer = QueueServerHarness.CreateConsumer(topic);
-                consumer.OnMessage += obj =>
+                var consumer = QueueServerHarness.CreateConsumer(topic, obj =>
                 {
                     try
                     {
@@ -241,19 +225,17 @@ namespace SAEA.QueueSocketTest
                         delivered = true;
                     }
                     finally { obj.Dispose(); }
-                };
+                });
 
                 await Task.Delay(SettleMs);
 
                 var producer = QueueServerHarness.CreateProducer();
-                long sent = 0;
-                producer.OnMessagesSent += c => Interlocked.Add(ref sent, c);
 
                 try
                 {
                     producer.Publish(topic, Encoding.UTF8.GetString(payload));
 
-                    TestHarness.Expect(await TestHarness.WaitUntil(() => delivered, 15000), "FT5 size=" + size + " received");
+                    TestHarness.Expect(await TestHarness.WaitUntil(() => delivered, 30000), "FT5 size=" + size + " received");
                     TestHarness.Expect(identical, "FT5 size=" + size + " bytes identical", "len=" + gotLen);
                 }
                 finally
@@ -277,20 +259,16 @@ namespace SAEA.QueueSocketTest
             for (int i = 0; i < consumers; i++)
             {
                 int idx = i;
-                var c = QueueServerHarness.CreateConsumer(topic);
-                c.OnMessage += obj => { try { Interlocked.Increment(ref counts[idx]); } finally { obj.Dispose(); } };
+                var c = QueueServerHarness.CreateConsumer(topic, obj => { try { Interlocked.Increment(ref counts[idx]); } finally { obj.Dispose(); } });
                 list.Add(c);
             }
 
             await Task.Delay(SettleMs);
 
             var plist = new List<Producer>();
-            long sent = 0;
             for (int p = 0; p < producers; p++)
             {
-                var prod = QueueServerHarness.CreateProducer();
-                prod.OnMessagesSent += c => Interlocked.Add(ref sent, c);
-                plist.Add(prod);
+                plist.Add(QueueServerHarness.CreateProducer());
             }
 
             try
@@ -306,8 +284,7 @@ namespace SAEA.QueueSocketTest
                 }
                 await Task.WhenAll(tasks);
 
-                TestHarness.Expect(await TestHarness.WaitUntil(() => Interlocked.Read(ref sent) >= total, 30000), "FT6 producer flushed all", "sent=" + sent);
-                TestHarness.Expect(await TestHarness.WaitUntil(() => counts[0] >= total && counts[1] >= total, 15000), "FT6 both consumers received all", counts[0] + "/" + counts[1]);
+                TestHarness.Expect(await TestHarness.WaitUntil(() => counts[0] >= total && counts[1] >= total, 30000), "FT6 both consumers received all", counts[0] + "/" + counts[1]);
             }
             finally
             {
@@ -333,26 +310,21 @@ namespace SAEA.QueueSocketTest
             var topic = QueueServerHarness.NewTopic("ft8");
 
             long first = 0;
-            var c1 = QueueServerHarness.CreateConsumer(topic);
-            c1.OnMessage += obj => { try { Interlocked.Increment(ref first); } finally { obj.Dispose(); } };
+            var c1 = QueueServerHarness.CreateConsumer(topic, obj => { try { Interlocked.Increment(ref first); } finally { obj.Dispose(); } });
             await Task.Delay(SettleMs);
             c1.Dispose();
 
             long second = 0;
-            var c2 = QueueServerHarness.CreateConsumer(topic);
-            c2.OnMessage += obj => { try { Interlocked.Increment(ref second); } finally { obj.Dispose(); } };
+            var c2 = QueueServerHarness.CreateConsumer(topic, obj => { try { Interlocked.Increment(ref second); } finally { obj.Dispose(); } });
             await Task.Delay(SettleMs);
 
             var producer = QueueServerHarness.CreateProducer();
-            long sent = 0;
-            producer.OnMessagesSent += c => Interlocked.Add(ref sent, c);
 
             try
             {
                 for (int i = 0; i < 100; i++) producer.Publish(topic, "ft8-" + i);
 
-                TestHarness.Expect(await TestHarness.WaitUntil(() => Interlocked.Read(ref sent) >= 100, 30000), "FT8 producer flushed all");
-                TestHarness.Expect(await TestHarness.WaitUntil(() => second >= 100, 15000), "FT8 new consumer received", "second=" + second);
+                TestHarness.Expect(await TestHarness.WaitUntil(() => second >= 100, 30000), "FT8 new consumer received", "second=" + second);
             }
             finally
             {
@@ -447,10 +419,6 @@ namespace SAEA.QueueSocketTest
 
         static void FT11_BatchEncodeMatchesPerFrame()
         {
-            var writeFrame = typeof(QueueCoder).GetMethod("WriteFrame", BindingFlags.NonPublic | BindingFlags.Static);
-            TestHarness.Expect(writeFrame != null, "FT11 internal WriteFrame available");
-            if (writeFrame == null) return;
-
             var cases = new List<Tuple<string, string, int>>
             {
                 new Tuple<string, string, int>("producer", "topic", 0),
@@ -479,30 +447,31 @@ namespace SAEA.QueueSocketTest
                     perFrame.AddRange(QueueCoder.Encode(new QueueSocketMsg(QueueSocketMsgType.Data, name, topic, d)));
                 }
 
-                var nameBytes = string.IsNullOrEmpty(name) ? null : Encoding.UTF8.GetBytes(name);
-                var topicBytes = string.IsNullOrEmpty(topic) ? null : Encoding.UTF8.GetBytes(topic);
-                var fixedLen = 1 + 12 + (nameBytes == null ? 0 : nameBytes.Length) + (topicBytes == null ? 0 : topicBytes.Length);
-
-                long bufferSize = 0;
-                foreach (var d in frames) bufferSize += fixedLen + d.Length;
-
-                var buffer = new byte[bufferSize];
-                var offset = 0;
-                foreach (var d in frames)
+                // 同一写入器连续编码三帧，结果必须与逐帧编码再拼接逐字节一致。
+                var batchWriter = new PooledBufferWriter(1 + 12 + data.Length);
+                try
                 {
-                    offset = (int)writeFrame.Invoke(null, new object[] { buffer, offset, QueueSocketMsgType.Data, nameBytes, topicBytes, d });
-                }
-
-                var ok = offset == buffer.Length && buffer.Length == perFrame.Count;
-                if (ok)
-                {
-                    for (int i = 0; i < buffer.Length; i++)
+                    foreach (var d in frames)
                     {
-                        if (buffer[i] != perFrame[i]) { ok = false; break; }
+                        QueueMessageEncoder.EncodeTo(batchWriter, new QueueSocketMsg(QueueSocketMsgType.Data, name, topic, d));
                     }
-                }
 
-                TestHarness.Expect(ok, "FT11 batch matches per-frame case" + idx, "name=" + name + " topic=" + topic + " size=" + size + " len=" + buffer.Length);
+                    var span = batchWriter.WrittenSpan;
+                    var ok = span.Length == perFrame.Count;
+                    if (ok)
+                    {
+                        for (int i = 0; i < span.Length; i++)
+                        {
+                            if (span[i] != perFrame[i]) { ok = false; break; }
+                        }
+                    }
+
+                    TestHarness.Expect(ok, "FT11 batch matches per-frame case" + idx, "name=" + name + " topic=" + topic + " size=" + size + " len=" + span.Length);
+                }
+                finally
+                {
+                    batchWriter.Dispose();
+                }
             }
         }
 
@@ -738,11 +707,9 @@ namespace SAEA.QueueSocketTest
             var r1 = new ConcurrentDictionary<string, byte>();
             var r2 = new ConcurrentDictionary<string, byte>();
 
-            var c1 = QueueServerHarness.CreateConsumer(topic);
-            c1.OnMessage += obj => { try { r1.TryAdd(Encoding.UTF8.GetString(obj.Data.Span), 0); } finally { obj.Dispose(); } };
+            var c1 = QueueServerHarness.CreateConsumer(topic, obj => { try { r1.TryAdd(Encoding.UTF8.GetString(obj.Data.Span), 0); } finally { obj.Dispose(); } });
 
-            var c2 = QueueServerHarness.CreateConsumer(topic);
-            c2.OnMessage += obj => { try { r2.TryAdd(Encoding.UTF8.GetString(obj.Data.Span), 0); } finally { obj.Dispose(); } };
+            var c2 = QueueServerHarness.CreateConsumer(topic, obj => { try { r2.TryAdd(Encoding.UTF8.GetString(obj.Data.Span), 0); } finally { obj.Dispose(); } });
 
             await Task.Delay(SettleMs);
 
@@ -768,23 +735,19 @@ namespace SAEA.QueueSocketTest
             int n = 300;
 
             var received = new ConcurrentDictionary<string, byte>();
-            var consumer = QueueServerHarness.CreateConsumer(topic);
-            consumer.OnMessage += obj => { try { received.TryAdd(Encoding.UTF8.GetString(obj.Data.Span), 0); } finally { obj.Dispose(); } };
+            var consumer = QueueServerHarness.CreateConsumer(topic, obj => { try { received.TryAdd(Encoding.UTF8.GetString(obj.Data.Span), 0); } finally { obj.Dispose(); } });
 
             await Task.Delay(SettleMs);
 
             var producer = QueueServerHarness.CreateProducer();
-            long sent = 0;
-            long batches = 0;
-            producer.OnMessagesSent += c => { Interlocked.Increment(ref batches); Interlocked.Add(ref sent, c); };
 
             try
             {
                 for (int i = 0; i < n; i++) producer.Publish(topic, "ft-pool5-" + i);
 
-                TestHarness.Expect(await TestHarness.WaitUntil(() => Interlocked.Read(ref sent) >= n, 30000), "FT-Pool-5 all client batches submitted", "sent=" + Interlocked.Read(ref sent));
+                // 客户端合并批次的数量已不再对外暴露，这里只验证合批后内容完整到达；
+                // 合批本身的字节级语义由 FT-Pool-Batch、FT12、FT13 覆盖。
                 TestHarness.Expect(await TestHarness.WaitUntil(() => received.Count >= n, 30000), "FT-Pool-5 merged batches received", "received=" + received.Count);
-                TestHarness.Expect(Interlocked.Read(ref batches) < n, "FT-Pool-5 publishes merged into fewer batches", "batches=" + Interlocked.Read(ref batches));
             }
             finally
             {

@@ -23,29 +23,31 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:31
+*修改时间：2026/11/10 20:10:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：编码委托链上编码器，移除 ICoder 实现与两个未实现的接口方法
 *
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.Common.Caching;
 using SAEA.QueueSocket.Model;
 using SAEA.QueueSocket.Type;
-using SAEA.Sockets.Interface;
 
 using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 using System.Text;
 
 namespace SAEA.QueueSocket.Net
 {
     /// <summary>
-    /// 队列编码器类，实现ICoder接口
+    /// 队列编解码工具类。
+    /// <para>
+    /// 生产收发路径已由处理器链承担（<see cref="QueueMessageEncoder"/> 编码、<see cref="QueueMessageDecoder"/> 解码），
+    /// 这里的流式解码入口只保留给离线校验与基准测试使用，不参与连接收发。
+    /// </para>
     /// </summary>
-    public sealed class QueueCoder : ICoder
+    public sealed class QueueCoder
     {
         // 定义最小消息长度常量
         static readonly int MIN = 1 + 4 + 4 + 0 + 4 + 0 + 0;
@@ -54,28 +56,6 @@ namespace SAEA.QueueSocket.Net
         private byte[] _buffer = new byte[4096];
         private int _bufferOffset = 0;
         private int _bufferCount = 0;
-
-        /// <summary>
-        /// 编码方法，将ISocketProtocal对象编码为字节数组
-        /// </summary>
-        /// <param name="protocal">ISocketProtocal对象</param>
-        /// <param name="writer">目标缓冲写入器</param>
-        public void Encode(ISocketProtocal protocal, System.Buffers.IBufferWriter<byte> writer)
-        {
-            throw new NotImplementedException();
-        }
-
-        /// <summary>
-        /// 解码方法，将字节数组解码为ISocketProtocal对象列表
-        /// </summary>
-        /// <param name="data">待解码的字节数组</param>
-        /// <param name="onHeart">心跳包处理回调</param>
-        /// <param name="onFile">文件包处理回调</param>
-        /// <returns>解码后的ISocketProtocal对象列表</returns>
-        public SAEA.Sockets.Base.DecodedFrames Decode(System.Buffers.ReadOnlySequence<byte> data, Action<DateTime> onHeart = null, Action<ReadOnlyMemory<byte>> onFile = null)
-        {
-            throw new NotImplementedException();
-        }
 
         /// <summary>
         /// 包解析
@@ -196,138 +176,7 @@ namespace SAEA.QueueSocket.Net
         /// <returns>编码后的字节数组</returns>
         public static byte[] Encode(QueueSocketMsg queueSocketMsg)
         {
-            byte[] n = null;
-            byte[] tp = null;
-            byte[] d = null;
-            var nlen = 0;
-            var tlen = 0;
-            var total = 12;
-
-            if (!string.IsNullOrEmpty(queueSocketMsg.Name))
-            {
-                n = Encoding.UTF8.GetBytes(queueSocketMsg.Name);
-                nlen = n.Length;
-                total += nlen;
-            }
-            if (!string.IsNullOrEmpty(queueSocketMsg.Topic))
-            {
-                tp = Encoding.UTF8.GetBytes(queueSocketMsg.Topic);
-                tlen = tp.Length;
-                total += tlen;
-            }
-            if (queueSocketMsg.Data.Length > 0)
-            {
-                if (MemoryMarshal.TryGetArray(queueSocketMsg.Data, out var dataSegment) && dataSegment.Offset == 0 && dataSegment.Count == dataSegment.Array.Length)
-                {
-                    d = dataSegment.Array;
-                }
-                else
-                {
-                    d = queueSocketMsg.Data.ToArray();
-                }
-                total += d.Length;
-            }
-
-            var arr = new byte[1 + total];
-            WriteFrame(arr, 0, queueSocketMsg.Type, n, tp, d);
-            return arr;
-        }
-
-        /// <summary>
-        /// 按 QueueSocket 线格式将一帧写入指定缓冲区，返回写入结束后的偏移。
-        /// </summary>
-        /// <param name="buffer">目标缓冲区</param>
-        /// <param name="offset">起始偏移</param>
-        /// <param name="type">消息类型</param>
-        /// <param name="nameBytes">已编码的名称</param>
-        /// <param name="topicBytes">已编码的主题</param>
-        /// <param name="data">数据</param>
-        /// <returns>写入结束后的偏移</returns>
-        internal static int WriteFrame(byte[] buffer, int offset, QueueSocketMsgType type, byte[] nameBytes, byte[] topicBytes, byte[] data)
-        {
-            var nlen = nameBytes == null ? 0 : nameBytes.Length;
-            var tlen = topicBytes == null ? 0 : topicBytes.Length;
-            var dlen = data == null ? 0 : data.Length;
-            var total = 12 + nlen + tlen + dlen;
-
-            buffer[offset++] = (byte)type;
-            WriteInt32(buffer, offset, total);
-            offset += 4;
-            WriteInt32(buffer, offset, nlen);
-            offset += 4;
-            if (nlen > 0)
-            {
-                Buffer.BlockCopy(nameBytes, 0, buffer, offset, nlen);
-                offset += nlen;
-            }
-            WriteInt32(buffer, offset, tlen);
-            offset += 4;
-            if (tlen > 0)
-            {
-                Buffer.BlockCopy(topicBytes, 0, buffer, offset, tlen);
-                offset += tlen;
-            }
-            if (dlen > 0)
-            {
-                Buffer.BlockCopy(data, 0, buffer, offset, dlen);
-                offset += dlen;
-            }
-            return offset;
-        }
-
-        /// <summary>
-        /// 按 QueueSocket 线格式将一帧写入 IBufferWriter，支持零复制发送。
-        /// </summary>
-        /// <param name="writer">目标缓冲写入器</param>
-        /// <param name="type">消息类型</param>
-        /// <param name="nameBytes">已编码的名称</param>
-        /// <param name="topicBytes">已编码的主题</param>
-        /// <param name="data">数据</param>
-        internal static void WriteFrameTo(System.Buffers.IBufferWriter<byte> writer, QueueSocketMsgType type, byte[] nameBytes, byte[] topicBytes, ReadOnlySpan<byte> data)
-        {
-            var nlen = nameBytes == null ? 0 : nameBytes.Length;
-            var tlen = topicBytes == null ? 0 : topicBytes.Length;
-            var dlen = data.Length;
-            var total = 12 + nlen + tlen + dlen;
-
-            var span = writer.GetSpan(1 + total);
-            var offset = 0;
-            span[offset++] = (byte)type;
-            WriteInt32(span, offset, total); offset += 4;
-            WriteInt32(span, offset, nlen); offset += 4;
-            if (nlen > 0)
-            {
-                nameBytes.AsSpan().CopyTo(span.Slice(offset));
-                offset += nlen;
-            }
-            WriteInt32(span, offset, tlen); offset += 4;
-            if (tlen > 0)
-            {
-                topicBytes.AsSpan().CopyTo(span.Slice(offset));
-                offset += tlen;
-            }
-            if (dlen > 0)
-            {
-                data.CopyTo(span.Slice(offset));
-                offset += dlen;
-            }
-            writer.Advance(offset);
-        }
-
-        private static void WriteInt32(Span<byte> span, int offset, int value)
-        {
-            span[offset] = (byte)value;
-            span[offset + 1] = (byte)(value >> 8);
-            span[offset + 2] = (byte)(value >> 16);
-            span[offset + 3] = (byte)(value >> 24);
-        }
-
-        private static void WriteInt32(byte[] buffer, int offset, int value)
-        {
-            buffer[offset] = (byte)value;
-            buffer[offset + 1] = (byte)(value >> 8);
-            buffer[offset + 2] = (byte)(value >> 16);
-            buffer[offset + 3] = (byte)(value >> 24);
+            return QueueMessageEncoder.Encode(queueSocketMsg);
         }
 
         /// <summary>
