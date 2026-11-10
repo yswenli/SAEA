@@ -7,7 +7,9 @@
 
 > 基于 .NET Standard 2.0 的高性能 WebSocket 组件，完整实现 RFC 6455 协议，面向高并发连接场景。
 >
-> ⚡ **零拷贝内核**：构建于 SAEA.Sockets 的 Span/Memory 零拷贝收发与内存池通道之上，显著降低分配与 GC。
+> ⚡ **零拷贝内核**：构建于 SAEA.Sockets 的 Span/Memory 零拷贝收发、内存池与 `SAEA.Sockets.Pipeline` 处理器链之上，显著降低分配与 GC。
+>
+> 🧩 **处理器链装配**：接收、发送、握手与分帧都由链上节点完成，使用者只在自己的处理器里写业务，不再有面向使用者的收发事件。
 
 ## 快速导航 🧭
 
@@ -34,23 +36,68 @@
 dotnet add package SAEA.WebSocket
 ```
 
-### Step 2: 创建 WebSocket 服务器（仅需5行代码）
+### Step 2: 创建 WebSocket 服务器
 
 ```csharp
+using SAEA.Sockets.Pipeline;
 using SAEA.WebSocket;
+using SAEA.WebSocket.Model;
 
 var server = new WSServer(port: 39654);
-server.OnMessage += (id, data) => server.Reply(id, data);  // 收到消息立即回复
+
+// 每个连接装配一次：收到什么就回什么
+server.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new EchoHandler(server, id));
 server.Start();
+
+sealed class EchoHandler : InboundHandlerAdapter
+{
+    private readonly WSServer _server;
+    private readonly string _id;
+
+    public EchoHandler(WSServer server, string id)
+    {
+        _server = server;
+        _id = id;
+    }
+
+    public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+    {
+        var frame = msg as WSProtocal;
+        if (frame == null)
+            return ctx.FireChannelReadAsync(msg);
+
+        // 帧体由池化缓冲承载，先复制再交给别的线程或延后使用
+        _server.Reply(_id, new WSProtocal(frame.Type, frame.Content.ToArray()));
+        return Task.CompletedTask;
+    }
+}
 ```
 
 ### Step 3: 创建 WebSocket 客户端连接
 
 ```csharp
+using SAEA.Sockets.Pipeline;
+using SAEA.WebSocket;
+using SAEA.WebSocket.Model;
+
 var client = new WSClient("ws://127.0.0.1:39654");
-client.OnMessage += (data) => Console.WriteLine(Encoding.UTF8.GetString(data.Content));
-client.Connect();
-client.Send("Hello WebSocket!");
+client.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new PrintHandler());
+
+if (client.Connect())
+{
+    client.Send("Hello WebSocket!");
+}
+
+sealed class PrintHandler : InboundHandlerAdapter
+{
+    public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+    {
+        if (msg is WSProtocal frame)
+            Console.WriteLine(Encoding.UTF8.GetString(frame.Content.Span));
+
+        return Task.CompletedTask;
+    }
+}
 ```
 
 **就这么简单！** 🎉 你已经实现了一个面向高并发场景的高性能 WebSocket 通信系统。
@@ -63,12 +110,14 @@ client.Send("Hello WebSocket!");
 |------|------|------|
 | 🚀 **跨平台异步 IO** | 底层 IO 由 .NET 运行时选择 | 面向高并发连接场景，CPU 利用率高 |
 | 📜 **RFC 6455 完整实现** | 标准 WebSocket 协议 | 兼容所有浏览器和客户端 |
-| 🔒 **SSL/TLS 加密** | WSS 安全连接 | 数据传输加密，保护隐私 |
+| 🧩 **处理器链** | `ConfigurePipeline` 逐连接装配 | 业务与协议分层，收发不再依赖事件 |
+| 🔒 **SSL/TLS 加密** | `wss://` 与证书配置，TLS 由 BouncyCastle 实现 | 不依赖 `SslStream`，全平台一致 |
 | 💬 **多帧类型支持** | Text、Binary、Ping/Pong、Close | 满足各种通信场景 |
-| 💓 **内置心跳机制** | Ping/Pong 自动检测 | 连接保活，自动断开检测 |
-| 📡 **子协议协商** | Sec-WebSocket-Protocol 支持 | 灵活的协议扩展 |
-| ⚡ **批处理优化** | ClassificationBatcher 读写批处理 | 提升吞吐性能 |
-| 🛠️ **简洁 API** | 事件驱动模型 | 易于理解和使用 |
+| 💓 **内置心跳应答** | Ping 自动回 Pong、Close 自动回 Close 后收口 | 心跳保活不需要业务代码 |
+| 🧵 **分片消息重组** | continuation 拼接、分片间允许控制帧 | 大消息按消息边界交付 |
+| 📏 **消息体积上限** | 单条消息默认 64MB，超限按协议错误收口 | 防止超大消息撑爆内存 |
+| 📡 **子协议协商** | `Sec-WebSocket-Protocol` 支持 | 灵活的协议扩展 |
+| 📦 **内存池复用** | 帧体走 `MemoryPoolManager` 池化缓冲 | GC 压力更低 |
 
 ---
 
@@ -77,85 +126,74 @@ client.Send("Hello WebSocket!");
 ### 组件架构图
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                   SAEA.WebSocket 架构                        │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌──────────────┐      ┌──────────────┐                    │
-│  │   WSServer   │      │   WSClient   │                    │
-│  │  (服务器端)  │      │  (客户端)    │                    │
-│  └──────────────┘      └──────────────┘                    │
-│         │                     │                             │
-│         └──────────┬──────────┘                             │
-│                    │                                         │
-│            ┌───────▼───────┐                                │
-│            │  WSProtocal   │                                │
-│            │  (协议封装)   │                                │
-│            └───────┬───────┘                                │
-│                    │                                         │
-│     ┌──────────────┼──────────────┐                        │
-│     │              │              │                         │
-│  ┌──▼──┐      ┌────▼───┐     ┌───▼────┐                   │
-│  │Coder│      │ Batcher│     │Session │                   │
-│  │编解码│      │批处理器│     │会话管理│                   │
-│  └──┬──┘      └────┬───┘     └───┬────┘                   │
-│     │              │              │                         │
-│  WSCoder      Classfication   WSUserToken                 │
-│  (编解码器)     Batcher       (用户令牌)                   │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────┐
+│                    SAEA.WebSocket 架构                         │
+├───────────────────────────────────────────────────────────────┤
+│                                                               │
+│  ┌──────────────┐        ┌──────────────┐                    │
+│  │   WSServer   │        │   WSClient   │                    │
+│  │  (服务器端)  │        │  (客户端)    │                    │
+│  └──────┬───────┘        └──────┬───────┘                    │
+│         │  每个连接一条链        │                             │
+│         └──────────┬───────────┘                              │
+│                    ▼                                           │
+│         ┌──────────────────────┐                               │
+│         │   IChannelPipeline   │  ← SAEA.Sockets.Pipeline      │
+│         │   (按序经过各节点)   │                               │
+│         └──────────┬───────────┘                               │
+│                    │                                           │
+│   出站 ◄───────────┼───────────► 入站                          │
+│  WsMessageEncoder  │          WsHandshakeHandler               │
+│  OutboundSerializing│          WsFrameDecoder                  │
+│                    │          业务处理器 → ExceptionTerminal   │
+└───────────────────────────────────────────────────────────────┘
 ```
+
+### 链路顺序
+
+| 方向 | 节点顺序（从左到右） | 职责 |
+|------|----------------------|------|
+| 出站 | `WsMessageEncoder` → `OutboundSerializingHandler` | 帧编码（服务端不掩码、客户端掩码）、合并写出 |
+| 入站 | `WsHandshakeHandler` → `WsFrameDecoder` → **业务处理器** → `ExceptionTerminalHandler` | 握手校验与协议切换、分片重组、业务处理、异常收口 |
+
+入站方向还可插入会话处理器（服务端 `SessionHandler`、客户端 `ClientSessionHandler`），它负责 Ping→Pong 自动应答与 Close 收口；这两类控制帧不会出现在业务处理器里，数据帧与 Pong 才会向下派发。
 
 ### 工作流程图
 
 ```
 客户端连接流程:
 
-客户端 ──► HTTP 握手请求 ──► WSServer.Accept
-                                    │
-                                    ▼
-                          ┌─────────────────┐
-                          │  协议升级检测    │
-                          │ Upgrade: WebSocket│
-                          └─────────────────┘
-                                    │
-                                    ▼
-                          ┌─────────────────┐
-                          │  Sec-WebSocket-  │
-                          │  Key 握手验证    │
-                          └─────────────────┘
-                                    │
-                                    ▼
-                          OnConnected 事件触发
+客户端 ──► TCP 建立 ──► ChannelActiveAsync（传输级活跃，握手尚未完成）
+                              │
+                              ▼
+                    WsHandshakeSplitter 切出握手块
+                              │
+                              ▼
+                    WsHandshakeHandler 校验并回 101
+                              │
+                              ▼
+                    切到 WsFrameSplitter（协议升级完成）
+                              │
+                              ▼
+                    首帧到达 = 正式进入数据阶段
 
 数据接收流程:
 
-客户端数据 ──► 帧解析 ──► WSProtocal.Decode
-                                  │
-                                  ▼
-                        ┌─────────────────┐
-                        │   帧类型判断    │
-                        │ Text/Binary/etc │
-                        └─────────────────┘
-                                  │
-                    ┌─────────────┼─────────────┐
-                    │             │             │
-                    ▼             ▼             ▼
-                 Text帧      Binary帧      Ping帧
-                    │             │             │
-                    └─────────────┼─────────────┘
-                                  │
-                                  ▼
-                        OnMessage 事件触发
-                                  │
-                                  ▼
-                        ┌─────────────────┐
-                        │   WSProtocal    │
-                        │   Encode()      │
-                        └─────────────────┘
-                                  │
-                                  ▼
-                        发送响应帧给客户端
+TCP 字节 ──► WsFrameSplitter ──► WsFrameDecoder
+                                      │
+                                      ▼
+                          ┌───────────────────────┐
+                          │ 分片重组 / 消息上限判断│
+                          └───────────┬───────────┘
+                                      │
+                                      ▼
+                            业务处理器 ChannelReadAsync
+                                      │
+                                      ▼
+                          ctx.Pipeline.WriteAsync(WSProtocal)
+                                      │
+                                      ▼
+                    WsMessageEncoder ──► 发送响应帧给客户端
 ```
 
 ---
@@ -222,82 +260,89 @@ client.Send("Hello WebSocket!");
 
 ### Q2: 如何实现 SSL/TLS 安全连接？
 
-**A**: 使用 `WSServer` 配置证书：
+**A**: 服务端按证书启动，客户端用 `wss://` 或显式配置 TLS 选项：
 
 ```csharp
-var server = new WSServer(port: 443, useSSL: true);
-server.SetCertificate("server.pfx", "password");
+// 服务端：pfx 证书
+var server = new WSServer(port: 443, protocols: SslProtocols.Tls12,
+    pfxPath: "server.pfx", pwd: "password");
+server.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new EchoHandler(server, id));
 server.Start();
+
+// 客户端：地址里带 wss:// 即启用 TLS
+var client = new WSClient("wss://127.0.0.1:443");
 ```
 
-客户端使用 `wss://` 协议：
+需要自签证书、指定目标主机或放宽校验时，用带 `Action<SaeaTlsOptions>` 的重载：
+
 ```csharp
-var client = new WSClient("wss://secure.example.com:443");
+var client = new WSClient("127.0.0.1", 443, SubProtocolType.Default, "", 64 * 1024, tls =>
+{
+    tls.TargetHost = "127.0.0.1";
+    tls.AllowInvalidCertificates = true;   // 仅自签证书的测试环境
+});
 ```
 
 ### Q3: 如何处理自定义协议/消息格式？
 
-**A**: 使用 `WSProtocal` 类或继承 `WSCoder`：
+**A**: 帧体还是你自己的字节，在处理器里做序列化即可：
 
 ```csharp
-// 消息帧结构
-public class MyMessage
+sealed class JsonHandler : InboundHandlerAdapter
 {
-    public int Type { get; set; }
-    public string Content { get; set; }
+    public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+    {
+        if (msg is WSProtocal frame)
+        {
+            // 帧体只在本次回调内有效，需要跨线程或延后使用时先复制
+            var json = Encoding.UTF8.GetString(frame.Content.Span);
+            var my = JsonConvert.DeserializeObject<MyMessage>(json);
+            // ...
+        }
+
+        return Task.CompletedTask;
+    }
 }
 
-// 发送时编码
-var json = JsonConvert.SerializeObject(new MyMessage { Type = 1, Content = "Hello" });
-client.Send(json);
-
-// 接收时解码
-client.OnMessage += (data) =>
-{
-    var msg = JsonConvert.DeserializeObject<MyMessage>(Encoding.UTF8.GetString(data.Content));
-};
+client.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new JsonHandler());
+client.Send(JsonConvert.SerializeObject(new MyMessage { Type = 1, Content = "Hello" }));
 ```
 
 ### Q4: 心跳机制是如何工作的？
 
-**A**: 内置 Ping/Pong 心跳检测：
+**A**: 链路内置应答：收到 Ping 自动回 Pong，收到 Close 自动回 Close 后收口，业务处理器只会看到数据帧和 Pong。
 
 ```csharp
-// 客户端发送心跳
+// 客户端主动发心跳
 client.Ping();
 
-// 客户端接收 Pong 响应
-client.OnPong += () => Console.WriteLine("服务器存活");
-
-// 服务器自动响应 Pong，无需额外代码
+// Pong 会作为 WSProtocal（Type = Pong）派发到业务处理器
+if (frame.Type == WSProtocalType.Pong)
+    Console.WriteLine("服务器存活");
 ```
 
 建议定期发送 Ping（如每30秒），超过超时时间未响应则认为连接断开。
 
 ### Q5: 如何设置子协议？
 
-**A**: 通过构造函数参数指定：
+**A**: 客户端在构造函数里指定子协议：
 
 ```csharp
 // 客户端指定子协议
-var client = new WSClient("ws://127.0.0.1:39654", subProtocol: "chat");
+var client = new WSClient("ws://127.0.0.1:39654", SubProtocolType.Json);
 
-// 服务器端检查子协议
-server.OnConnected += (id) =>
-{
-    var protocol = server.GetSubProtocol(id);
-    Console.WriteLine($"子协议: {protocol}");
-};
+// 服务端在业务处理器里按会话判断，不需要额外注册
+server.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ChatHandler(id));
 ```
 
 ### Q6: 支持的最大连接数是多少？
 
-**A**: 默认配置支持 1000 个连接，可根据服务器硬件调整：
+**A**: 服务器构造函数默认 `maxConnects: 1000`，可显式调整：
 
 ```csharp
-// WSServer 内部使用 SAEA.Sockets，继承其配置能力
-var server = new WSServer(port: 39654);
-// 通过 SocketOptionBuilder 配置更大连接数
+var server = new WSServer(port: 39654, bufferSize: 64 * 1024, maxConnects: 10000);
+server.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new EchoHandler(server, id));
+server.Start();
 ```
 
 实际性能取决于服务器硬件配置和网络环境。
@@ -309,23 +354,75 @@ var server = new WSServer(port: 39654);
 ```csharp
 // 发送二进制数据
 byte[] binaryData = new byte[] { 0x01, 0x02, 0x03 };
-client.Send(binaryData);
+client.Send(binaryData, WSProtocalType.Binary);
 
-// 接收时判断类型
-client.OnMessage += (data) =>
+// 接收时按类型分支
+sealed class BinaryAwareHandler : InboundHandlerAdapter
 {
-    if (data.Type == WSProtocalType.Binary)
+    public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
     {
-        // 处理二进制数据
-        ProcessBinary(data.Content);
+        if (msg is WSProtocal frame)
+        {
+            if (frame.Type == WSProtocalType.Binary)
+                ProcessBinary(frame.Content.ToArray());
+            else if (frame.Type == WSProtocalType.Text)
+                Console.WriteLine(Encoding.UTF8.GetString(frame.Content.Span));
+        }
+
+        return Task.CompletedTask;
     }
-    else if (data.Type == WSProtocalType.Text)
-    {
-        // 处理文本数据
-        var text = Encoding.UTF8.GetString(data.Content);
-    }
-};
+}
 ```
+
+### Q8: 连接建立/断开通知在哪里？
+
+**A**: 在自己的处理器里重写 `ChannelActiveAsync` / `ChannelInactiveAsync`，或对服务端使用 `Clients` 快照。
+
+```csharp
+sealed class LifecycleHandler : InboundHandlerAdapter
+{
+    public override Task ChannelActiveAsync(IChannelHandlerContext ctx)
+    {
+        // 传输级已连通；服务端此刻 WebSocket 握手可能还没完成
+        return Task.CompletedTask;
+    }
+
+    public override Task ChannelInactiveAsync(IChannelHandlerContext ctx)
+    {
+        // 连接已收口，可在这里清理会话状态
+        return Task.CompletedTask;
+    }
+
+    public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+    {
+        // 收到第一帧即代表握手已完成、进入数据阶段
+        return ctx.FireChannelReadAsync(msg);
+    }
+}
+```
+
+与旧版 `OnConnected` 的差异：`ChannelActiveAsync` 是**传输级**通知，服务端在 TCP 建立后立即触发（早于握手完成）；客户端因为 `Connect()` 内部要等握手结果，通常在握手成功后才观察到。需要「握手完成」这个确切时机时，以收到首帧为准。
+
+### Q9: 发送被拒绝是怎么回事？
+
+**A**: 出站待写项有上限（默认 `MaxPendingWrites = 256`），超过上限的发送会被拒绝并抛异常，`WSClient.Send` 会记录失败日志而不向业务线程抛出。
+
+```csharp
+// 批量发送时用回包计数节流，避免瞬时打满出站预算
+int sent = 0;
+int acked = 0;   // 在业务处理器的 ChannelReadAsync 里 Interlocked.Increment
+
+for (int i = 0; i < total; i++)
+{
+    client.Send(payload);
+    Interlocked.Increment(ref sent);
+
+    while (Volatile.Read(ref acked) < Volatile.Read(ref sent) - 128)
+        Thread.Sleep(1);
+}
+```
+
+需要自定义链参数时，可在 `ConfigurePipeline` 里加自己的处理器，但链首的出站前缀与链尾的异常收口节点由框架保留。
 
 ---
 
@@ -333,13 +430,15 @@ client.OnMessage += (data) =>
 
 | 类名 | 说明 |
 |------|------|
-| `WSServer` | WebSocket 服务器，支持 SSL/TLS |
-| `WSClient` | WebSocket 客户端，支持 ws:// 和 wss:// |
-| `WSProtocal` | WebSocket 协议帧封装，RFC 6455 实现 |
+| `WSServer` | WebSocket 服务器，支持 SSL/TLS，`ConfigurePipeline` 装配链路 |
+| `WSClient` | WebSocket 客户端，支持 `ws://`、`wss://` 与 TLS 选项重载 |
+| `WSProtocal` | WebSocket 帧封装，`Content` 为池化缓冲的只读视图 |
 | `WSProtocalType` | 协议类型枚举（Text/Binary/Ping/Pong/Close） |
-| `WSCoder` | 消息编解码器，处理帧的解析与构建 |
+| `WSCoder` | 直接的编解码器，需要脱离处理器链手写收发时使用 |
 | `WSUserToken` | 用户会话令牌，管理单个连接状态 |
-| `ClassificationBatcher` | 批处理优化器，提升读写性能 |
+| `WsFrameDecoder` | 分片重组、控制帧穿插与消息上限校验 |
+| `WsMessageEncoder` | 出站帧编码器（服务端不掩码、客户端掩码） |
+| `WsHandshakeHandler` | 握手校验、101/请求应答与协议切换 |
 
 ---
 
@@ -348,60 +447,64 @@ client.OnMessage += (data) =>
 ### WebSocket 服务器
 
 ```csharp
+using SAEA.Sockets.Pipeline;
 using SAEA.WebSocket;
 using SAEA.WebSocket.Model;
 
 var server = new WSServer(port: 39654);
 
-server.OnConnected += (id) => 
-    Console.WriteLine($"客户端连接: {id}");
-
-server.OnMessage += (id, data) => 
-{
-    var msg = Encoding.UTF8.GetString(data.Content);
-    Console.WriteLine($"收到消息: {msg} (类型: {data.Type})");
-    server.Reply(id, data);  // 回复客户端
-};
-
-server.OnDisconnected += (id) => 
-    Console.WriteLine($"客户端断开: {id}");
-
+server.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new EchoHandler(server, id));
 server.Start();
-Console.WriteLine("WebSocket 服务器已启动，端口: 39654");
+
+Console.WriteLine($"WebSocket 服务器已启动，当前连接数: {server.Clients.Count}");
 ```
 
 ### WSS 安全服务器
 
 ```csharp
+using System.Security.Authentication;
 using SAEA.WebSocket;
 
-var server = new WSServer(port: 443, useSSL: true);
-server.SetCertificate("server.pfx", "password");
+var server = new WSServer(port: 443, protocols: SslProtocols.Tls12,
+    pfxPath: "server.pfx", pwd: "password");
 
-server.OnMessage += (id, data) => server.Reply(id, data);
+server.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new EchoHandler(server, id));
 server.Start();
 ```
 
 ### WebSocket 客户端
 
 ```csharp
+using SAEA.Sockets.Pipeline;
 using SAEA.WebSocket;
-using System.Text;
 
 var client = new WSClient("ws://127.0.0.1:39654");
+client.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new PrintHandler());
 
-client.OnPong += () => Console.WriteLine("收到 Pong 响应");
-
-client.OnMessage += (data) => 
-    Console.WriteLine($"收到消息: {Encoding.UTF8.GetString(data.Content)}");
-
-client.OnError += (ex) => Console.WriteLine($"错误: {ex.Message}");
-
-client.OnDisconnected += () => Console.WriteLine("连接断开");
-
-client.Connect();
-client.Send("Hello WebSocket!");
+if (client.Connect())
+{
+    client.Send("Hello WebSocket!");
+    client.Ping();
+}
 ```
+
+### 在处理器里回包
+
+```csharp
+sealed class ReplyHandler : InboundHandlerAdapter
+{
+    public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+    {
+        if (!(msg is WSProtocal frame))
+            return ctx.FireChannelReadAsync(msg);
+
+        // 走当前连接的链路写出，帧编码由 WsMessageEncoder 完成
+        return ctx.Pipeline.WriteAsync(new WSProtocal(frame.Type, frame.Content.ToArray()));
+    }
+}
+```
+
+服务端还可用 `server.Reply(id, frame)` / `server.Disconnect(id)` 从任意处理器按会话操作。
 
 ### URL 格式支持
 
@@ -415,30 +518,42 @@ var client4 = new WSClient(new Uri("ws://example.com/ws"));
 ### 子协议协商
 
 ```csharp
-var client = new WSClient("ws://127.0.0.1:39654", subProtocol: "chat");
+// 常量：Empty / Default / Json / Protocol2，也可直接传自定义字符串
+var client = new WSClient("ws://127.0.0.1:39654", SubProtocolType.Json);
 ```
 
 ### 处理不同帧类型
 
 ```csharp
 using SAEA.WebSocket.Model;
+using SAEA.WebSocket.Type;
 
-client.OnMessage += (data) =>
+sealed class FrameSwitchHandler : InboundHandlerAdapter
 {
-    switch (data.Type)
+    public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
     {
-        case WSProtocalType.Text:
-            Console.WriteLine($"文本消息: {Encoding.UTF8.GetString(data.Content)}");
-            break;
-        case WSProtocalType.Binary:
-            Console.WriteLine($"二进制消息: {data.Content.Length} 字节");
-            break;
-        case WSProtocalType.Close:
-            Console.WriteLine("关闭帧");
-            break;
+        if (!(msg is WSProtocal frame))
+            return ctx.FireChannelReadAsync(msg);
+
+        switch (frame.Type)
+        {
+            case WSProtocalType.Text:
+                Console.WriteLine($"文本消息: {Encoding.UTF8.GetString(frame.Content.Span)}");
+                break;
+            case WSProtocalType.Binary:
+                Console.WriteLine($"二进制消息: {frame.Content.Length} 字节");
+                break;
+            case WSProtocalType.Pong:
+                Console.WriteLine("心跳响应");
+                break;
+        }
+
+        return Task.CompletedTask;
     }
-};
+}
 ```
+
+> ⚠️ `Close` 帧由内置会话处理器处理（回写 Close 后收口），不会进入业务处理器。
 
 ---
 
@@ -462,8 +577,9 @@ public enum WSProtocalType : byte
 
 | 包名 | 版本 | 说明 |
 |------|------|------|
-| SAEA.Sockets | 26.9.21.1 | Socket 通信框架 |
-| SAEA.Common | 26.9.21.1 | 公共工具类 |
+| SAEA.Sockets | 26.11.5.1 | Socket 通信框架 |
+| SAEA.Sockets.Pipeline | 26.11.5.1 | 处理器链与分帧执行器 |
+| SAEA.Common | 26.11.5.1 | 公共工具类 |
 
 ---
 

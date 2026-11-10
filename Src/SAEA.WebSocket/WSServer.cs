@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 15:27:03
+*修改时间：2026/11/10 13:55:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：删除 WSSServerImpl，TLS 配置统一由 WSServerImpl 承载
+*描述：删除面向使用者的接收与生命周期事件，改由 ConfigurePipeline 装配处理器链
 *
 *****************************************************************************/
 using System;
@@ -34,6 +34,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Security.Authentication;
 
+using SAEA.Sockets.Pipeline;
 using SAEA.WebSocket.Core;
 using SAEA.WebSocket.Model;
 
@@ -47,19 +48,20 @@ namespace SAEA.WebSocket
         IWSServer _wsServer;
 
         /// <summary>
-        /// 客户端连接事件
+        /// 处理器链装配回调：每条连接握手完成、帧解码器之后、异常收口之前调用一次，
+        /// 接收会话 ID 与尚未启动的链；为 null 时只保留内置处理器
         /// </summary>
-        public event Action<string> OnConnected;
-
-        /// <summary>
-        /// 客户端消息事件
-        /// </summary>
-        public event Action<string, WSProtocal> OnMessage;
-
-        /// <summary>
-        /// 客户端断开连接事件
-        /// </summary>
-        public event Action<string> OnDisconnected;
+        public Action<string, IChannelPipeline> ConfigurePipeline
+        {
+            get
+            {
+                return _wsServer.ConfigurePipeline;
+            }
+            set
+            {
+                _wsServer.ConfigurePipeline = value;
+            }
+        }
 
         /// <summary>
         /// 已成功连接的客户端
@@ -86,40 +88,6 @@ namespace SAEA.WebSocket
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
 
             _wsServer = new WSServerImpl(port, bufferSize, maxConnects, protocols, pfxPath, pwd);
-
-            _wsServer.OnConnected += WsServer_OnConnected;
-            _wsServer.OnMessage += WsServer_OnMessage;
-            _wsServer.OnDisconnected += WsServer_OnDisconnected;
-        }
-
-        /// <summary>
-        /// 处理客户端连接事件
-        /// </summary>
-        /// <param name="id">客户端ID</param>
-        private void WsServer_OnConnected(string id)
-        {
-            if (string.IsNullOrEmpty(id)) return;
-            OnConnected?.Invoke(id);
-        }
-
-        /// <summary>
-        /// 处理客户端消息事件
-        /// </summary>
-        /// <param name="str">消息内容</param>
-        /// <param name="protocal">协议类型</param>
-        private void WsServer_OnMessage(string str, WSProtocal protocal)
-        {
-            this.OnMessage?.Invoke(str, protocal);
-        }
-
-        /// <summary>
-        /// 处理客户端断开连接事件
-        /// </summary>
-        /// <param name="id">客户端ID</param>
-        private void WsServer_OnDisconnected(string id)
-        {
-            if (string.IsNullOrEmpty(id)) return;
-            OnDisconnected?.Invoke(id);
         }
 
         /// <summary>

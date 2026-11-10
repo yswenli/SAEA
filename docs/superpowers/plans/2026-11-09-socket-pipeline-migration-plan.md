@@ -562,16 +562,16 @@ dotnet run --project Src/SAEA.Sockets.PipelineTest -c Release -- --bench
 - `LengthFieldSplitter` 配置 `0 / 8 / +1 / 0`（保留完整帧）；`MaxFrameLength` 取现有 coder 语义，不放大。
 - `FileMessageDecoder : ByteToMessageDecoder`；`FileMessageEncoder` → `RawFrame`。
 - 删除 `Server` 的 3 个公开事件（`OnRequested` / `OnFile` / `OnError`）与 2 个内部接收订阅；`ConfigurePipeline`；`MaxConcurrentMessages = 1`。
-- 测试：跨段、粘包、边界长度（`bodyLength = 0 / 1 / max`）。
+- 测试：跨段、粘包、边界长度（`bodyLength = 0 / 1 / max`）、发送完成回调时序（服务端暂停收包时不得提前回调）。
 
-### P2-2 WebSocket
+### P2-2 WebSocket（已完成，见 `p2-2-acceptance-2026-11-10.md`）
 
 - 服务端 `WSServerImpl` 与客户端 `WSClient` 都迁；TLS 仍由 `WithSsl`。
 - WS 分帧器只切 wire frame；`WsFrameDecoder : InboundHandlerAdapter` 持分片状态：continuation 拼接、分片间允许控制帧、拒绝新数据帧交织、执行 `MaxMessageSize`。
 - 删除 11 个事件；`ConfigurePipeline`（服务端与客户端对称）。
 - 测试：continuation 分片 + 穿插控制帧、非法数据帧交织、超限消息、`max(HTTP, WS)` 上限、TLS 服务端与客户端各一条。
 
-### P2-3 演示与 README
+### P2-3 演示与 README（已完成，见 `p2-2-acceptance-2026-11-10.md`）
 
 - `FileTest`、`WebSocketTest` 改链装配并人工 smoke；`WebSocketTest` 若为窗口程序，记录人工步骤。`FileTest` 只用 `FileTransfer` 的传输级事件、链在 `FileTransfer` 内装配，源码无需改动。
 - `SAEA.FileSocket`、`SAEA.WebSocket` 中英 README。

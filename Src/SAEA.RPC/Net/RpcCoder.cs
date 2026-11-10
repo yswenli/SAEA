@@ -130,8 +130,6 @@ namespace SAEA.RPC.Net
 
         private List<byte> _buffer = new List<byte>();
 
-        private object _locker = new object();
-
 
         /// <summary>
         /// socket 传输字节解码

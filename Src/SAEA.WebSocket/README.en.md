@@ -1,460 +1,572 @@
-# SAEA.WebSocket - High-Performance WebSocket Server/Client 💬
+# SAEA.WebSocket - High-performance WebSocket Server/Client 🔌
 
 [![NuGet version](https://img.shields.io/nuget/v/SAEA.WebSocket.svg?style=flat-square)](https://www.nuget.org/packages/SAEA.WebSocket)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 
 **English Version** | **[中文版](README.md)**
 
-> A high-performance WebSocket component based on .NET Standard 2.0, fully implementing RFC 6455 protocol, built for high-concurrency connections.
+> A high-performance WebSocket component for .NET Standard 2.0 with a complete RFC 6455 implementation, built for high-concurrency connections.
 >
-> ⚡ **Zero-copy core**: built on the SAEA.Sockets Span/Memory zero-copy send/receive path and pooled buffers, significantly reducing allocations and GC.
+> ⚡ **Zero-copy core**: runs on SAEA.Sockets' Span/Memory zero-copy IO, pooled buffers, and the `SAEA.Sockets.Pipeline` handler chain, keeping allocations and GC low.
+>
+> 🧩 **Handler-chain assembly**: receive, send, handshake, and framing are all pipeline nodes. You write business logic in your own handler; there are no user-facing send/receive events anymore.
 
 ## Quick Navigation 🧭
 
 | Section | Content |
 |---------|---------|
-| [⚡ 30-Second Quick Start](#30-second-quick-start) | Simplest getting started example |
-| [🎯 Core Features](#core-features) | Main framework capabilities |
-| [📐 Architecture Design](#architecture-design) | Component relationships and workflow |
+| [⚡ Quick Start in 30s](#quick-start-in-30s) | The simplest example |
+| [🎯 Key Features](#key-features) | What the component offers |
+| [📐 Architecture](#architecture) | Components and data flow |
 | [💡 Use Cases](#use-cases) | When to choose SAEA.WebSocket |
-| [📊 Performance Comparison](#performance-comparison) | Comparison with other solutions |
-| [❓ FAQ](#faq) | Quick answers to common questions |
-| [🔧 Core Classes](#core-classes) | Overview of main classes |
-| [📝 Usage Examples](#usage-examples) | Detailed code examples |
+| [📊 Performance](#performance) | Comparison with alternatives |
+| [❓ FAQ](#faq) | Quick answers |
+| [🔧 Core Types](#core-types) | Main classes |
+| [📝 Examples](#examples) | Detailed code samples |
 
 ---
 
-## 30-Second Quick Start ⚡
+## Quick Start in 30s ⚡
 
-The fastest way to get started, just 3 steps to run a WebSocket server:
+Three steps to a running WebSocket server:
 
-### Step 1: Install NuGet Package
+### Step 1: Install the NuGet package
 
 ```bash
 dotnet add package SAEA.WebSocket
 ```
 
-### Step 2: Create WebSocket Server (Only 5 Lines of Code)
+### Step 2: Create the WebSocket server
 
 ```csharp
+using SAEA.Sockets.Pipeline;
 using SAEA.WebSocket;
+using SAEA.WebSocket.Model;
 
 var server = new WSServer(port: 39654);
-server.OnMessage += (id, data) => server.Reply(id, data);  // Reply immediately upon receiving message
+
+// Assembled once per connection: echo whatever arrives
+server.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new EchoHandler(server, id));
 server.Start();
+
+sealed class EchoHandler : InboundHandlerAdapter
+{
+    private readonly WSServer _server;
+    private readonly string _id;
+
+    public EchoHandler(WSServer server, string id)
+    {
+        _server = server;
+        _id = id;
+    }
+
+    public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+    {
+        var frame = msg as WSProtocal;
+        if (frame == null)
+            return ctx.FireChannelReadAsync(msg);
+
+        // The payload lives in a pooled buffer; copy before using it elsewhere or later
+        _server.Reply(_id, new WSProtocal(frame.Type, frame.Content.ToArray()));
+        return Task.CompletedTask;
+    }
+}
 ```
 
-### Step 3: Create WebSocket Client Connection
+### Step 3: Create the WebSocket client
 
 ```csharp
+using SAEA.Sockets.Pipeline;
+using SAEA.WebSocket;
+using SAEA.WebSocket.Model;
+
 var client = new WSClient("ws://127.0.0.1:39654");
-client.OnMessage += (data) => Console.WriteLine(Encoding.UTF8.GetString(data.Content));
-client.Connect();
-client.Send("Hello WebSocket!");
+client.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new PrintHandler());
+
+if (client.Connect())
+{
+    client.Send("Hello WebSocket!");
+}
+
+sealed class PrintHandler : InboundHandlerAdapter
+{
+    public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+    {
+        if (msg is WSProtocal frame)
+            Console.WriteLine(Encoding.UTF8.GetString(frame.Content.Span));
+
+        return Task.CompletedTask;
+    }
+}
 ```
 
-**That's it!** 🎉 You've implemented a high-performance WebSocket communication system built for high-concurrency connections.
+**That's it!** 🎉 You now have a high-performance WebSocket system built for concurrent connections.
 
 ---
 
-## Core Features 🎯
+## Key Features 🎯
 
-| Feature | Description | Benefits |
-|---------|-------------|----------|
-| 🚀 **Cross-Platform Async IO** | The .NET runtime selects IOCP/epoll/kqueue | Built for high-concurrency connections, high CPU utilization |
-| 📜 **RFC 6455 Full Implementation** | Standard WebSocket protocol | Compatible with all browsers and clients |
-| 🔒 **SSL/TLS Encryption** | WSS secure connection | Encrypted data transmission, privacy protection |
-| 💬 **Multiple Frame Types Support** | Text, Binary, Ping/Pong, Close | Meets various communication scenarios |
-| 💓 **Built-in Heartbeat Mechanism** | Ping/Pong automatic detection | Connection keep-alive, automatic disconnect detection |
-| 📡 **Subprotocol Negotiation** | Sec-WebSocket-Protocol support | Flexible protocol extension |
-| ⚡ **Batch Processing Optimization** | ClassificationBatcher read/write batch processing | Improved throughput performance |
-| 🛠️ **Simple API** | Event-driven model | Easy to understand and use |
+| Feature | Description | Benefit |
+|---------|-------------|---------|
+| 🚀 **Cross-platform async IO** | The .NET runtime picks the underlying IO | High CPU efficiency under concurrency |
+| 📜 **Complete RFC 6455** | Standard WebSocket protocol | Works with browsers and standard clients |
+| 🧩 **Handler chain** | `ConfigurePipeline` assembles each connection | Clean split between protocol and business logic |
+| 🔒 **SSL/TLS** | `wss://` and certificate configuration, TLS via BouncyCastle | No `SslStream` dependency, consistent across platforms |
+| 💬 **Frame types** | Text, Binary, Ping/Pong, Close | Covers common messaging needs |
+| 💓 **Built-in heartbeat replies** | Ping answered with Pong, Close answered then closed | Keep-alive needs no business code |
+| 🧵 **Fragment reassembly** | Continuation frames joined, control frames allowed in between | Large messages delivered on message boundaries |
+| 📏 **Message size limit** | 64MB per message by default, oversized messages close the connection | Protects memory from giant messages |
+| 📡 **Sub-protocol negotiation** | `Sec-WebSocket-Protocol` support | Flexible protocol extension |
+| 📦 **Pooled buffers** | Payloads come from `MemoryPoolManager` | Lower GC pressure |
 
 ---
 
-## Architecture Design 📐
+## Architecture 📐
 
-### Component Architecture Diagram
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                   SAEA.WebSocket Architecture               │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌──────────────┐      ┌──────────────┐                    │
-│  │   WSServer   │      │   WSClient   │                    │
-│  │  (Server)    │      │  (Client)    │                    │
-│  └──────────────┘      └──────────────┘                    │
-│         │                     │                             │
-│         └──────────┬──────────┘                             │
-│                    │                                         │
-│            ┌───────▼───────┐                                │
-│            │  WSProtocal   │                                │
-│            │(Protocol Wrap)│                                │
-│            └───────┬───────┘                                │
-│                    │                                         │
-│     ┌──────────────┼──────────────┐                        │
-│     │              │              │                         │
-│  ┌──▼──┐      ┌────▼───┐     ┌───▼────┐                   │
-│  │Coder│      │ Batcher│     │Session │                   │
-│  │Codec│      │Batch   │     │Manager │                   │
-│  └──┬──┘      └────┬───┘     └───┬────┘                   │
-│     │              │              │                         │
-│  WSCoder      Classfication   WSUserToken                 │
-│  (Encoder/     Batcher       (User Token)                 │
-│   Decoder)                                               │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Workflow Diagram
+### Component Diagram
 
 ```
-Client Connection Flow:
+┌───────────────────────────────────────────────────────────────┐
+│                    SAEA.WebSocket architecture                 │
+├───────────────────────────────────────────────────────────────┤
+│                                                               │
+│  ┌──────────────┐        ┌──────────────┐                    │
+│  │   WSServer   │        │   WSClient   │                    │
+│  │  (server)    │        │  (client)    │                    │
+│  └──────┬───────┘        └──────┬───────┘                    │
+│         │  one chain per conn   │                             │
+│         └──────────┬───────────┘                              │
+│                    ▼                                           │
+│         ┌──────────────────────┐                               │
+│         │   IChannelPipeline   │  ← SAEA.Sockets.Pipeline      │
+│         │   (nodes in order)   │                               │
+│         └──────────┬───────────┘                               │
+│                    │                                           │
+│   outbound ◄───────┼───────────► inbound                       │
+│  WsMessageEncoder  │          WsHandshakeHandler               │
+│  OutboundSerializing│          WsFrameDecoder                  │
+│                    │          business handler → terminal      │
+└───────────────────────────────────────────────────────────────┘
+```
 
-Client ──► HTTP Handshake Request ──► WSServer.Accept
-                                           │
-                                           ▼
-                                 ┌─────────────────┐
-                                 │ Protocol Upgrade│
-                                 │ Upgrade: WebSocket│
-                                 └─────────────────┘
-                                           │
-                                           ▼
-                                 ┌─────────────────┐
-                                 │  Sec-WebSocket-  │
-                                 │  Key Validation │
-                                 └─────────────────┘
-                                           │
-                                           ▼
-                                 OnConnected Event Triggered
+### Chain Order
 
-Data Reception Flow:
+| Direction | Nodes (left to right) | Responsibility |
+|-----------|-----------------------|----------------|
+| Outbound | `WsMessageEncoder` → `OutboundSerializingHandler` | Frame encoding (server unmasked, client masked), batched writes |
+| Inbound | `WsHandshakeHandler` → `WsFrameDecoder` → **business handler** → `ExceptionTerminalHandler` | Handshake and protocol switch, fragment reassembly, business logic, error termination |
 
-Client Data ──► Frame Parse ──► WSProtocal.Decode
-                                      │
-                                      ▼
-                            ┌─────────────────┐
-                            │  Frame Type     │
-                            │ Determination   │
-                            │ Text/Binary/etc │
-                            └─────────────────┘
-                                      │
-                        ┌─────────────┼─────────────┐
-                        │             │             │
-                        ▼             ▼             ▼
-                     Text Frame  Binary Frame   Ping Frame
-                        │             │             │
-                        └─────────────┼─────────────┘
-                                      │
-                                      ▼
-                            OnMessage Event Triggered
-                                      │
-                                      ▼
-                            ┌─────────────────┐
-                            │   WSProtocal    │
-                            │   Encode()      │
-                            └─────────────────┘
-                                      │
-                                      ▼
-                            Send Response Frame to Client
+A session handler (server `SessionHandler`, client `ClientSessionHandler`) sits in the inbound path too. It answers Ping with Pong and closes on Close; neither control frame reaches business handlers, while data frames and Pong do.
+
+### Flow
+
+```
+Client connection:
+
+client ──► TCP established ──► ChannelActiveAsync (transport up, handshake not done yet)
+                                    │
+                                    ▼
+                        WsHandshakeSplitter cuts the handshake block
+                                    │
+                                    ▼
+                        WsHandshakeHandler validates and writes 101
+                                    │
+                                    ▼
+                        switch to WsFrameSplitter (protocol upgraded)
+                                    │
+                                    ▼
+                        first frame = data phase begins
+
+Receive path:
+
+TCP bytes ──► WsFrameSplitter ──► WsFrameDecoder
+                                        │
+                                        ▼
+                          ┌────────────────────────────┐
+                          │ reassembly / size checks   │
+                          └─────────────┬──────────────┘
+                                        │
+                                        ▼
+                             business handler ChannelReadAsync
+                                        │
+                                        ▼
+                          ctx.Pipeline.WriteAsync(WSProtocal)
+                                        │
+                                        ▼
+                    WsMessageEncoder ──► frame written to client
 ```
 
 ---
 
 ## Use Cases 💡
 
-### ✅ Scenarios Suitable for SAEA.WebSocket
+### ✅ Good fit
 
-| Scenario | Description | Recommended Reason |
-|----------|-------------|---------------------|
-| 💬 **Instant Messaging** | Private chat, group chat, customer service systems | Bidirectional real-time communication, low latency |
-| 📊 **Real-time Data Push** | Stock quotes, sports scores, monitoring data | High throughput, strong real-time capability |
-| 🎮 **Game Communication** | Real-time battles, state synchronization | Async IO supports high-concurrency players |
-| 🤖 **IoT Devices** | Device monitoring, remote control | Supports large-scale concurrent device connections |
-| 📝 **Collaboration Tools** | Online editing, whiteboard sharing | Bidirectional sync, real-time collaboration |
-| 🔔 **Push Notifications** | System messages, order notifications | Instant delivery, no polling needed |
+| Scenario | Description | Why |
+|----------|-------------|-----|
+| 💬 **Messaging** | Private/group chat, support desks | Bidirectional, low latency |
+| 📊 **Live data push** | Quotes, scores, monitoring | High throughput, real time |
+| 🎮 **Game traffic** | Real-time matches, state sync | Async IO handles many players |
+| 🤖 **IoT devices** | Monitoring, remote control | Many concurrent connections |
+| 📝 **Collaboration** | Editors, whiteboards | Bidirectional sync |
+| 🔔 **Notifications** | System and order messages | Instant delivery, no polling |
 
-### ❌ Unsuitable Scenarios
+### ❌ Poor fit
 
-| Scenario | Recommended Alternative |
+| Scenario | Recommended alternative |
 |----------|-------------------------|
-| Simple HTTP API | Use SAEA.Http or ASP.NET |
-| Native TCP Protocol | Use SAEA.Sockets |
-| MQTT Devices | Use SAEA.MQTT |
-| Redis Cache | Use SAEA.RedisSocket |
+| Simple HTTP APIs | SAEA.Http or ASP.NET |
+| Raw TCP protocols | SAEA.Sockets |
+| MQTT devices | SAEA.MQTT |
+| Redis caching | SAEA.RedisSocket |
 
 ---
 
-## Performance Comparison 📊
+## Performance 📊
 
-### Comparison with Traditional WebSocket Solutions
+### Compared with traditional WebSocket stacks
 
-| Metric | SAEA.WebSocket | Traditional WebSocket | Advantage |
-|--------|----------------|----------------------|-----------|
-| **Concurrent Connections** | Built for high concurrency | Medium | **Async IO** |
-| **CPU Utilization** | High | Medium | **Efficient Use** |
-| **Memory Footprint** | Pooled Reuse | Frequent Allocation | **Reduced GC Pressure** |
-| **Latency** | Low | Higher | **Low Latency Response** |
-| **Throughput** | High | Medium | **High Throughput** |
+| Metric | SAEA.WebSocket | Traditional | Advantage |
+|--------|----------------|-------------|-----------|
+| **Concurrent connections** | High concurrency oriented | Moderate | **Async IO** |
+| **CPU utilization** | High | Medium | **Async IO** |
+| **Memory footprint** | Pooled reuse | Frequent allocation | **Less GC pressure** |
+| **Latency** | Low | Higher | **Snappier responses** |
+| **Throughput** | High | Medium | **High throughput** |
 
-### Comparison with SignalR
+### Compared with SignalR
 
-| Feature | SAEA.WebSocket | SignalR | Notes |
-|---------|----------------|---------|-------|
-| **Dependencies** | Lightweight | ASP.NET Core | SAEA is more lightweight |
-| **Protocol Support** | Pure WebSocket | WebSocket + LongPolling, etc. | SignalR is more comprehensive |
-| **Performance** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | SAEA async IO optimization |
-| **Learning Curve** | Simple | Moderate | SAEA is easier to get started |
+| Aspect | SAEA.WebSocket | SignalR | Notes |
+|--------|----------------|---------|-------|
+| **Dependencies** | Lightweight | ASP.NET Core | SAEA is lighter |
+| **Protocols** | Pure WebSocket | WebSocket + LongPolling etc. | SignalR is broader |
+| **Performance** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | SAEA async IO tuning |
+| **Learning curve** | Simple | Moderate | SAEA is easier to start |
 | **Cross-platform** | .NET Standard | .NET Core | Both are cross-platform |
 
-> 💡 **Tip**: SAEA.WebSocket is based on cross-platform async IO for high concurrency, suitable for scenarios with extreme performance requirements.
+> 💡 **Tip**: SAEA.WebSocket relies on cross-platform async IO, so it fits workloads with strict performance requirements.
 
 ---
 
 ## FAQ ❓
 
-### Q1: What's the difference between WebSocket and HTTP long polling?
+### Q1: How is WebSocket different from HTTP long polling?
 
-**A**: WebSocket is a full-duplex communication protocol, compared to HTTP long polling:
-- Connection persistence: WebSocket maintains connection after establishment, no repeated handshakes needed
-- Real-time: Server can actively push, lower latency
-- Efficiency: No HTTP header overhead, more efficient data transmission
-- Resources: Reduced server connections and bandwidth consumption
+**A**: WebSocket is full duplex:
+- Connection: stays open after the handshake, no repeated handshakes
+- Timeliness: the server can push immediately
+- Efficiency: no HTTP header overhead per message
+- Resources: fewer connections and less bandwidth
 
-### Q2: How to implement SSL/TLS secure connection?
+### Q2: How do I enable SSL/TLS?
 
-**A**: Configure certificate using `WSServer`:
+**A**: Start the server with a certificate; use `wss://` or explicit TLS options on the client:
 
 ```csharp
-var server = new WSServer(port: 443, useSSL: true);
-server.SetCertificate("server.pfx", "password");
+// Server: pfx certificate
+var server = new WSServer(port: 443, protocols: SslProtocols.Tls12,
+    pfxPath: "server.pfx", pwd: "password");
+server.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new EchoHandler(server, id));
+server.Start();
+
+// Client: wss:// enables TLS
+var client = new WSClient("wss://127.0.0.1:443");
+```
+
+For self-signed certificates or a custom target host, use the `Action<SaeaTlsOptions>` overload:
+
+```csharp
+var client = new WSClient("127.0.0.1", 443, SubProtocolType.Default, "", 64 * 1024, tls =>
+{
+    tls.TargetHost = "127.0.0.1";
+    tls.AllowInvalidCertificates = true;   // test environments only
+});
+```
+
+### Q3: How do I handle a custom protocol or message format?
+
+**A**: The payload is still your own bytes; serialize in your handler:
+
+```csharp
+sealed class JsonHandler : InboundHandlerAdapter
+{
+    public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+    {
+        if (msg is WSProtocal frame)
+        {
+            // Valid only during this callback; copy before using it elsewhere
+            var json = Encoding.UTF8.GetString(frame.Content.Span);
+            var my = JsonConvert.DeserializeObject<MyMessage>(json);
+            // ...
+        }
+
+        return Task.CompletedTask;
+    }
+}
+
+client.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new JsonHandler());
+client.Send(JsonConvert.SerializeObject(new MyMessage { Type = 1, Content = "Hello" }));
+```
+
+### Q4: How does the heartbeat work?
+
+**A**: The chain answers automatically: Ping is answered with Pong, Close is answered with Close before teardown. Business handlers only see data frames and Pong.
+
+```csharp
+// Client-initiated heartbeat
+client.Ping();
+
+// Pong arrives as WSProtocal (Type = Pong)
+if (frame.Type == WSProtocalType.Pong)
+    Console.WriteLine("server is alive");
+```
+
+Sending a Ping every 30 seconds is a common choice; a missing Pong within the timeout means the connection is gone.
+
+### Q5: How do I set a sub-protocol?
+
+**A**: Pass it to the client constructor:
+
+```csharp
+var client = new WSClient("ws://127.0.0.1:39654", SubProtocolType.Json);
+
+// Server-side decisions happen inside your business handler
+server.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ChatHandler(id));
+```
+
+### Q6: How many connections are supported?
+
+**A**: The server defaults to `maxConnects: 1000` and can be raised:
+
+```csharp
+var server = new WSServer(port: 39654, bufferSize: 64 * 1024, maxConnects: 10000);
+server.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new EchoHandler(server, id));
 server.Start();
 ```
 
-Client uses `wss://` protocol:
-```csharp
-var client = new WSClient("wss://secure.example.com:443");
-```
+Real limits depend on hardware and network conditions.
 
-### Q3: How to handle custom protocol/message format?
-
-**A**: Use `WSProtocal` class or inherit `WSCoder`:
-
-```csharp
-// Message frame structure
-public class MyMessage
-{
-    public int Type { get; set; }
-    public string Content { get; set; }
-}
-
-// Encode when sending
-var json = JsonConvert.SerializeObject(new MyMessage { Type = 1, Content = "Hello" });
-client.Send(json);
-
-// Decode when receiving
-client.OnMessage += (data) =>
-{
-    var msg = JsonConvert.DeserializeObject<MyMessage>(Encoding.UTF8.GetString(data.Content));
-};
-```
-
-### Q4: How does the heartbeat mechanism work?
-
-**A**: Built-in Ping/Pong heartbeat detection:
-
-```csharp
-// Client sends heartbeat
-client.Ping();
-
-// Client receives Pong response
-client.OnPong += () => Console.WriteLine("Server is alive");
-
-// Server automatically responds with Pong, no extra code needed
-```
-
-It's recommended to send Ping periodically (e.g., every 30 seconds), connection is considered disconnected if no response within timeout.
-
-### Q5: How to set subprotocol?
-
-**A**: Specify via constructor parameter:
-
-```csharp
-// Client specifies subprotocol
-var client = new WSClient("ws://127.0.0.1:39654", subProtocol: "chat");
-
-// Server side checks subprotocol
-server.OnConnected += (id) =>
-{
-    var protocol = server.GetSubProtocol(id);
-    Console.WriteLine($"Subprotocol: {protocol}");
-};
-```
-
-### Q6: What's the maximum number of connections supported?
-
-**A**: Default configuration supports 1000 connections, adjustable based on server hardware:
-
-```csharp
-// WSServer internally uses SAEA.Sockets, inheriting its configuration capabilities
-var server = new WSServer(port: 39654);
-// Configure larger connection count via SocketOptionBuilder
-```
-
-Actual performance depends on server hardware configuration and network environment.
-
-### Q7: How to handle binary data?
+### Q7: How do I handle binary payloads?
 
 **A**: Send and receive byte arrays directly:
 
 ```csharp
-// Send binary data
+// Send binary
 byte[] binaryData = new byte[] { 0x01, 0x02, 0x03 };
-client.Send(binaryData);
+client.Send(binaryData, WSProtocalType.Binary);
 
-// Check type when receiving
-client.OnMessage += (data) =>
+// Branch on the frame type
+sealed class BinaryAwareHandler : InboundHandlerAdapter
 {
-    if (data.Type == WSProtocalType.Binary)
+    public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
     {
-        // Handle binary data
-        ProcessBinary(data.Content);
+        if (msg is WSProtocal frame)
+        {
+            if (frame.Type == WSProtocalType.Binary)
+                ProcessBinary(frame.Content.ToArray());
+            else if (frame.Type == WSProtocalType.Text)
+                Console.WriteLine(Encoding.UTF8.GetString(frame.Content.Span));
+        }
+
+        return Task.CompletedTask;
     }
-    else if (data.Type == WSProtocalType.Text)
-    {
-        // Handle text data
-        var text = Encoding.UTF8.GetString(data.Content);
-    }
-};
+}
 ```
 
----
+### Q8: Where are connect/disconnect notifications?
 
-## Core Classes 🔧
-
-| Class Name | Description |
-|------------|-------------|
-| `WSServer` | WebSocket server, supports SSL/TLS |
-| `WSClient` | WebSocket client, supports ws:// and wss:// |
-| `WSProtocal` | WebSocket protocol frame encapsulation, RFC 6455 implementation |
-| `WSProtocalType` | Protocol type enum (Text/Binary/Ping/Pong/Close) |
-| `WSCoder` | Message encoder/decoder, handles frame parsing and construction |
-| `WSUserToken` | User session token, manages individual connection state |
-| `ClassificationBatcher` | Batch processing optimizer, improves read/write performance |
-
----
-
-## Usage Examples 📝
-
-### WebSocket Server
+**A**: Override `ChannelActiveAsync` / `ChannelInactiveAsync` in your own handler, or inspect `Clients` on the server.
 
 ```csharp
+sealed class LifecycleHandler : InboundHandlerAdapter
+{
+    public override Task ChannelActiveAsync(IChannelHandlerContext ctx)
+    {
+        // Transport is up; on the server the WebSocket handshake may still be in progress
+        return Task.CompletedTask;
+    }
+
+    public override Task ChannelInactiveAsync(IChannelHandlerContext ctx)
+    {
+        // Connection closed; clean up session state here
+        return Task.CompletedTask;
+    }
+
+    public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+    {
+        // The first frame means the handshake succeeded and the data phase started
+        return ctx.FireChannelReadAsync(msg);
+    }
+}
+```
+
+Difference from the old `OnConnected` event: `ChannelActiveAsync` is a **transport-level** notification, so on the server it fires right after TCP accept (before the handshake completes). On the client, `Connect()` waits for the handshake, so it is normally observed after a successful handshake. Use the first inbound frame when you need the exact "handshake completed" moment.
+
+### Q9: Why is a send rejected?
+
+**A**: Outbound pending writes are bounded (`MaxPendingWrites = 256` by default). Sends beyond that are rejected with an exception; `WSClient.Send` logs the failure instead of throwing into your thread.
+
+```csharp
+// Throttle batches by the acknowledged count so the outbound budget is never saturated
+int sent = 0;
+int acked = 0;   // Interlocked.Increment inside your handler's ChannelReadAsync
+
+for (int i = 0; i < total; i++)
+{
+    client.Send(payload);
+    Interlocked.Increment(ref sent);
+
+    while (Volatile.Read(ref acked) < Volatile.Read(ref sent) - 128)
+        Thread.Sleep(1);
+}
+```
+
+You can add your own handlers in `ConfigurePipeline`, but the outbound prefix at the head of the chain and the terminal error handler at the tail are reserved by the framework.
+
+---
+
+## Core Types 🔧
+
+| Type | Description |
+|------|-------------|
+| `WSServer` | WebSocket server with SSL/TLS; assemble the chain via `ConfigurePipeline` |
+| `WSClient` | WebSocket client for `ws://`, `wss://`, and the TLS option overloads |
+| `WSProtocal` | WebSocket frame wrapper; `Content` is a read-only view over a pooled buffer |
+| `WSProtocalType` | Frame type enum (Text/Binary/Ping/Pong/Close) |
+| `WSCoder` | Standalone codec for scenarios that bypass the handler chain |
+| `WSUserToken` | Per-connection session token |
+| `WsFrameDecoder` | Fragment reassembly, control-frame interleaving, message size checks |
+| `WsMessageEncoder` | Outbound frame encoder (server unmasked, client masked) |
+| `WsHandshakeHandler` | Handshake validation, 101/request handling, protocol switch |
+
+---
+
+## Examples 📝
+
+### WebSocket server
+
+```csharp
+using SAEA.Sockets.Pipeline;
 using SAEA.WebSocket;
 using SAEA.WebSocket.Model;
 
 var server = new WSServer(port: 39654);
 
-server.OnConnected += (id) => 
-    Console.WriteLine($"Client connected: {id}");
-
-server.OnMessage += (id, data) => 
-{
-    var msg = Encoding.UTF8.GetString(data.Content);
-    Console.WriteLine($"Message received: {msg} (Type: {data.Type})");
-    server.Reply(id, data);  // Reply to client
-};
-
-server.OnDisconnected += (id) => 
-    Console.WriteLine($"Client disconnected: {id}");
-
+server.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new EchoHandler(server, id));
 server.Start();
-Console.WriteLine("WebSocket server started, port: 39654");
+
+Console.WriteLine($"Server started, clients: {server.Clients.Count}");
 ```
 
-### WSS Secure Server
+### Secure WSS server
 
 ```csharp
+using System.Security.Authentication;
 using SAEA.WebSocket;
 
-var server = new WSServer(port: 443, useSSL: true);
-server.SetCertificate("server.pfx", "password");
+var server = new WSServer(port: 443, protocols: SslProtocols.Tls12,
+    pfxPath: "server.pfx", pwd: "password");
 
-server.OnMessage += (id, data) => server.Reply(id, data);
+server.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new EchoHandler(server, id));
 server.Start();
 ```
 
-### WebSocket Client
+### WebSocket client
 
 ```csharp
+using SAEA.Sockets.Pipeline;
 using SAEA.WebSocket;
-using System.Text;
 
 var client = new WSClient("ws://127.0.0.1:39654");
+client.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new PrintHandler());
 
-client.OnPong += () => Console.WriteLine("Pong response received");
-
-client.OnMessage += (data) => 
-    Console.WriteLine($"Message received: {Encoding.UTF8.GetString(data.Content)}");
-
-client.OnError += (ex) => Console.WriteLine($"Error: {ex.Message}");
-
-client.OnDisconnected += () => Console.WriteLine("Connection disconnected");
-
-client.Connect();
-client.Send("Hello WebSocket!");
+if (client.Connect())
+{
+    client.Send("Hello WebSocket!");
+    client.Ping();
+}
 ```
 
-### URL Format Support
+### Writing from a handler
+
+```csharp
+sealed class ReplyHandler : InboundHandlerAdapter
+{
+    public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+    {
+        if (!(msg is WSProtocal frame))
+            return ctx.FireChannelReadAsync(msg);
+
+        // Write through this connection's chain; encoding is done by WsMessageEncoder
+        return ctx.Pipeline.WriteAsync(new WSProtocal(frame.Type, frame.Content.ToArray()));
+    }
+}
+```
+
+On the server you can also use `server.Reply(id, frame)` / `server.Disconnect(id)` from any handler.
+
+### URL formats
 
 ```csharp
 var client1 = new WSClient("ws://127.0.0.1:39654");
 var client2 = new WSClient("wss://secure.example.com:443");  // SSL
-var client3 = new WSClient("127.0.0.1", 39654);  // IP + Port
+var client3 = new WSClient("127.0.0.1", 39654);  // IP + port
 var client4 = new WSClient(new Uri("ws://example.com/ws"));
 ```
 
-### Subprotocol Negotiation
+### Sub-protocol negotiation
 
 ```csharp
-var client = new WSClient("ws://127.0.0.1:39654", subProtocol: "chat");
+// Constants: Empty / Default / Json / Protocol2; custom strings also work
+var client = new WSClient("ws://127.0.0.1:39654", SubProtocolType.Json);
 ```
 
-### Handling Different Frame Types
+### Handling frame types
 
 ```csharp
 using SAEA.WebSocket.Model;
+using SAEA.WebSocket.Type;
 
-client.OnMessage += (data) =>
+sealed class FrameSwitchHandler : InboundHandlerAdapter
 {
-    switch (data.Type)
+    public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
     {
-        case WSProtocalType.Text:
-            Console.WriteLine($"Text message: {Encoding.UTF8.GetString(data.Content)}");
-            break;
-        case WSProtocalType.Binary:
-            Console.WriteLine($"Binary message: {data.Content.Length} bytes");
-            break;
-        case WSProtocalType.Close:
-            Console.WriteLine("Close frame");
-            break;
+        if (!(msg is WSProtocal frame))
+            return ctx.FireChannelReadAsync(msg);
+
+        switch (frame.Type)
+        {
+            case WSProtocalType.Text:
+                Console.WriteLine($"text: {Encoding.UTF8.GetString(frame.Content.Span)}");
+                break;
+            case WSProtocalType.Binary:
+                Console.WriteLine($"binary: {frame.Content.Length} bytes");
+                break;
+            case WSProtocalType.Pong:
+                Console.WriteLine("heartbeat response");
+                break;
+        }
+
+        return Task.CompletedTask;
     }
-};
+}
 ```
+
+> ⚠️ `Close` frames are handled by the built-in session handler (reply then teardown) and never reach business handlers.
 
 ---
 
-## Protocol Frame Types
+## Frame Types
 
 ```csharp
 public enum WSProtocalType : byte
 {
-    Cont = 0,      // Continuation frame
-    Text = 1,      // Text message
-    Binary = 2,    // Binary message
-    Close = 8,     // Close frame
-    Ping = 9,      // Heartbeat request
-    Pong = 10      // Heartbeat response
+    Cont = 0,      // continuation
+    Text = 1,      // text message
+    Binary = 2,    // binary message
+    Close = 8,     // close frame
+    Ping = 9,      // heartbeat request
+    Pong = 10      // heartbeat response
 }
 ```
 
@@ -462,18 +574,19 @@ public enum WSProtocalType : byte
 
 ## Dependencies
 
-| Package | Version | Description |
-|---------|---------|-------------|
-| SAEA.Sockets | 26.9.21.1 | Socket communication framework |
-| SAEA.Common | 26.9.21.1 | Common utility classes |
+| Package | Version | Purpose |
+|---------|---------|---------|
+| SAEA.Sockets | 26.11.5.1 | Socket transport |
+| SAEA.Sockets.Pipeline | 26.11.5.1 | Handler chain and frame executor |
+| SAEA.Common | 26.11.5.1 | Shared utilities |
 
 ---
 
 ## More Resources
 
-- [GitHub Repository](https://github.com/yswenli/SAEA)
-- [NuGet Package](https://www.nuget.org/packages/SAEA.WebSocket)
-- [Author's Blog](https://www.cnblogs.com/yswenli/)
+- [GitHub repository](https://github.com/yswenli/SAEA)
+- [NuGet package](https://www.nuget.org/packages/SAEA.WebSocket)
+- [Author's blog](https://www.cnblogs.com/yswenli/)
 
 ---
 

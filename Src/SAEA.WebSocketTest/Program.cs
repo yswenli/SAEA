@@ -15,16 +15,17 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 13:23:31
+*修改时间：2026/11/10 14:18:00
 *修改人： yswenli
-*版本号： vnet10.0
-*描述：补齐英文与乱码注释的中文说明
+*版本号： net10.0
+*描述：改用处理器链装配，转发压测加发送窗口与末批等待，删除已移除的事件订阅
 *
 *****************************************************************************/
 
 using SAEA.Common;
 using SAEA.Common.Caching;
 using SAEA.Common.IO;
+using SAEA.Sockets.Pipeline;
 using SAEA.WebSocket;
 using SAEA.WebSocket.Model;
 using SAEA.WebSocket.Type;
@@ -34,6 +35,7 @@ using System.Buffers;
 using System.Diagnostics;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace SAEA.WebSocketTest
 {
@@ -169,35 +171,6 @@ namespace SAEA.WebSocketTest
             return frame.ToArray();
         }
 
-
-        private static void Server_OnMessage(string id, WSProtocal data)
-        {
-            ConsoleHelper.WriteLine("WSServer 收到{0}的消息：{1}", ConsoleColor.Green, id, Encoding.UTF8.GetString(data.Content.Span));
-
-            _server.Reply(id, data);
-        }
-
-
-        private static void Client_OnError(string ID, Exception ex)
-        {
-            ConsoleHelper.WriteLine("WSClient 出现异常：{0}", ConsoleColor.DarkGray, ex.Message);
-        }
-
-        private static void Client_OnMessage(WSProtocal data)
-        {
-            ConsoleHelper.WriteLine("WSClient 收到的消息：{0}", ConsoleColor.DarkGray, Encoding.UTF8.GetString(data.Content.Span));
-        }
-
-        private static void Client_OnPong(string date)
-        {
-            ConsoleHelper.WriteLine("WSClient 收到pong：{0}", ConsoleColor.DarkGray, date);
-        }
-
-        private static void Client_OnDisconnected(string ID, Exception ex)
-        {
-            ConsoleHelper.WriteLine("WSClient Client_OnDisconnected 连接已断开：" + ex.Message, ConsoleColor.DarkGray);
-        }
-
         #endregion
 
         #region test2 ssl
@@ -208,23 +181,14 @@ namespace SAEA.WebSocketTest
 
             var pfxPath = PathHelper.GetFullName("yswenli.pfx");
             _server = new WSServer(39656, System.Security.Authentication.SslProtocols.Tls12, pfxPath, "yswenli");
-            _server.OnMessage += Server_OnMessage;
-            _server.OnDisconnected += _server_OnDisconnected;
+
+            // 收包与回包都改在处理器链上完成：帧已被解码成 WSProtocal，链尾的异常处理器负责收口。
+            _server.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ServerEchoHandler(_server, id));
+
             _server.Start();
 
             ConsoleHelper.WriteLine("WSSServer 就绪,回车启动客户端", ConsoleColor.Green);
         }
-
-        private static void _server_OnDisconnected(string id)
-        {
-            ConsoleHelper.WriteLine("WSServer 收到{0}已断开！", ConsoleColor.Green, id);
-        }
-
-        private static void Server_OnMessage2(string id, WSProtocal data)
-        {
-            _server.Reply(id, data);
-        }
-
 
         #endregion
 
@@ -237,10 +201,7 @@ namespace SAEA.WebSocketTest
             var url = "ws://120.79.233.58:7272";
 
             WSClient client = new WSClient(url, SubProtocolType.Json);
-            client.OnPong += Client_OnPong;
-            client.OnMessage += Client_OnMessage;
-            client.OnError += Client_OnError;
-            client.OnDisconnected += Client_OnDisconnected;
+            client.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ClientPrintHandler("WSClient"));
 
             var connected = client.Connect();
 
@@ -278,6 +239,7 @@ namespace SAEA.WebSocketTest
         #endregion
 
         #region test4 other
+
         static void Init4()
         {
             ConsoleHelper.WriteLine("WSClient 正在连接到WorkMan服务器...", ConsoleColor.DarkGray);
@@ -285,10 +247,7 @@ namespace SAEA.WebSocketTest
             var url = "ws://123.207.136.134:9010/ajaxchattest";
 
             WSClient client = new WSClient(url, SubProtocolType.Empty, "http://coolaf.com");
-            client.OnPong += Client_OnPong;
-            client.OnMessage += Client_OnMessage;
-            client.OnError += Client_OnError;
-            client.OnDisconnected += Client_OnDisconnected;
+            client.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ClientPrintHandler("WSClient"));
 
             var connected = client.Connect();
 
@@ -336,18 +295,14 @@ namespace SAEA.WebSocketTest
         {
             ConsoleHelper.WriteLine("WSServer 正在初始化....", ConsoleColor.Green);
             _server = new WSServer(maxConnects: 1);
-            _server.OnMessage += Server_OnMessage2;
-            _server.OnDisconnected += _server_OnDisconnected;
+            _server.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ServerEchoHandler(_server, id));
             _server.Start();
             ConsoleHelper.WriteLine("WSServer 就绪,回车启动客户端", ConsoleColor.Green);
 
             ConsoleHelper.ReadLine();
 
             WSClient client = new WSClient();
-            client.OnPong += Client_OnPong;
-            client.OnMessage += Client_OnMessage2;
-            client.OnError += Client_OnError;
-            client.OnDisconnected += Client_OnDisconnected;
+            client.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ClientPrintHandler("WSClient", true));
 
             ConsoleHelper.WriteLine("WSClient 正在连接到服务器...", ConsoleColor.DarkGray);
             var connected = client.Connect();
@@ -357,17 +312,170 @@ namespace SAEA.WebSocketTest
             for (int i = 0; i < _maxSize; i++)
             {
                 client.Send($"测试:hello world {i} {DateTimeOffset.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")}");
+
+                // 出站待写项默认上限 256，超出即拒绝；压测本身也要控制未回包的消息数，否则丢消息会让统计失真。
+                if ((i & (SendWindow - 1)) == SendWindow - 1)
+                    WaitForEcho(i + 1 - SendWindow, 5000);
+            }
+
+            // 最后一批回包可能仍在途：等它们收完，统计的总耗时与条数才覆盖整轮往返。
+            WaitForEcho(_maxSize, 10000);
+        }
+
+        /// <summary>
+        /// 发送窗口：让未回包的消息数保持在出站预算的一半以内。
+        /// </summary>
+        private const int SendWindow = 128;
+
+        /// <summary>
+        /// 等待回包计数追上给定值；超时即放弃等待，让压测按实际收到的条数收敛。
+        /// </summary>
+        /// <param name="target">期望已回包条数。</param>
+        /// <param name="timeoutMilliseconds">最长等待毫秒数。</param>
+        private static void WaitForEcho(int target, int timeoutMilliseconds)
+        {
+            var sw = Stopwatch.StartNew();
+            while (Volatile.Read(ref _count) < target)
+            {
+                if (sw.ElapsedMilliseconds > timeoutMilliseconds)
+                {
+                    Console.WriteLine($"等待回包超时，已发送 {target} 条、已回包 {_count} 条");
+                    return;
+                }
+
+                Thread.Sleep(1);
             }
         }
-        private static void Client_OnMessage2(WSProtocal protocal)
+
+        /// <summary>
+        /// 客户端打印处理器：逐条打印收到的帧，并在收口时打印断开原因、转发异常给链尾收口。
+        /// </summary>
+        private sealed class ClientPrintHandler : InboundHandlerAdapter
         {
-            Interlocked.Increment(ref _count);
-            var str = System.Text.Encoding.UTF8.GetString(protocal.Content.Span);
-            Console.Write($"\r客户端已收到服务器转发消息条数：{_count}");
-            if (_count == _maxSize)
+            private readonly string _name;
+
+            private readonly bool _perf;
+
+            /// <summary>
+            /// 绑定客户端名称，用于日志前缀。
+            /// </summary>
+            /// <param name="name">日志前缀。</param>
+            /// <param name="perf">是否为转发性能模式：按条计数并统计总耗时。</param>
+            public ClientPrintHandler(string name, bool perf = false)
             {
-                _sw.Stop();
-                Console.WriteLine($"转发测试已完成，用时：{_sw.Elapsed.TotalSeconds}秒，回车结束测试");
+                _name = name;
+                _perf = perf;
+            }
+
+            /// <summary>
+            /// 打印收到的帧；转发性能用例按条计数并统计总耗时。
+            /// </summary>
+            /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+            /// <param name="msg">已解码的协议帧。</param>
+            /// <returns>处理完成后结束的任务。</returns>
+            public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+            {
+                var protocal = msg as WSProtocal;
+                if (protocal == null)
+                    return ctx.FireChannelReadAsync(msg);
+
+                // 帧体由池化缓冲承载，只能在本次回调内读取。
+                var text = Encoding.UTF8.GetString(protocal.Content.Span);
+
+                if (!_perf)
+                {
+                    ConsoleHelper.WriteLine("WSClient 收到的消息：{0}", ConsoleColor.DarkGray, text);
+                    return Task.CompletedTask;
+                }
+
+                Interlocked.Increment(ref _count);
+
+                if (_count == _maxSize)
+                {
+                    _sw.Stop();
+                    Console.WriteLine($"转发测试已完成，用时：{_sw.Elapsed.TotalSeconds}秒，回车结束测试");
+                }
+                else if (_count % 1000 == 0)
+                {
+                    Console.Write($"\r客户端已收到服务器转发消息条数：{_count}");
+                }
+
+                return Task.CompletedTask;
+            }
+
+            /// <summary>
+            /// 打印连接断开。
+            /// </summary>
+            /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+            /// <returns>处理完成后结束的任务。</returns>
+            public override Task ChannelInactiveAsync(IChannelHandlerContext ctx)
+            {
+                ConsoleHelper.WriteLine(_name + " 连接已断开", ConsoleColor.DarkGray);
+                return Task.CompletedTask;
+            }
+
+            /// <summary>
+            /// 打印异常并继续向下游传播，由链尾决定是否断链。
+            /// </summary>
+            /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+            /// <param name="ex">待处理的异常。</param>
+            /// <returns>下游处理完成后结束的任务。</returns>
+            public override Task ChannelExceptionCaughtAsync(IChannelHandlerContext ctx, Exception ex)
+            {
+                ConsoleHelper.WriteLine(_name + " 出现异常：{0}", ConsoleColor.DarkGray, ex.Message);
+                return ctx.FireExceptionCaughtAsync(ex);
+            }
+        }
+
+        /// <summary>
+        /// 服务端回显处理器：打印收到的帧并原样回给同一会话。
+        /// </summary>
+        private sealed class ServerEchoHandler : InboundHandlerAdapter
+        {
+            private readonly WSServer _server;
+
+            private readonly string _id;
+
+            /// <summary>
+            /// 绑定所属服务端与会话标识。
+            /// </summary>
+            /// <param name="server">所属服务端。</param>
+            /// <param name="id">会话标识。</param>
+            public ServerEchoHandler(WSServer server, string id)
+            {
+                _server = server;
+                _id = id;
+            }
+
+            /// <summary>
+            /// 打印并回写收到的帧；帧体先复制，避免回写读取已被归还的池化缓冲。
+            /// </summary>
+            /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+            /// <param name="msg">已解码的协议帧。</param>
+            /// <returns>处理完成后结束的任务。</returns>
+            public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+            {
+                var protocal = msg as WSProtocal;
+                if (protocal == null)
+                    return ctx.FireChannelReadAsync(msg);
+
+                ConsoleHelper.WriteLine("WSServer 收到{0}的消息：{1}", ConsoleColor.Green, _id,
+                    Encoding.UTF8.GetString(protocal.Content.Span));
+
+                _server.Reply(_id, new WSProtocal(protocal.Type, protocal.Content.ToArray()));
+
+                return Task.CompletedTask;
+            }
+
+            /// <summary>
+            /// 打印会话断开。
+            /// </summary>
+            /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+            /// <returns>处理完成后结束的任务。</returns>
+            public override Task ChannelInactiveAsync(IChannelHandlerContext ctx)
+            {
+                ConsoleHelper.WriteLine("WSServer 收到{0}已断开！", ConsoleColor.Green, _id);
+                return Task.CompletedTask;
             }
         }
 

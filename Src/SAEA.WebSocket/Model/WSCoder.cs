@@ -23,21 +23,20 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:30
+*修改时间：2026/11/10 13:56:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：整理 using 顺序，移除未使用的引用
 *
 *****************************************************************************/
+using SAEA.Common;
+using SAEA.Common.Caching;
+using SAEA.Sockets.Interface;
+
 using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
-
-using SAEA.Common;
-using SAEA.Common.Caching;
-using SAEA.Sockets.Interface;
 
 namespace SAEA.WebSocket.Model
 {

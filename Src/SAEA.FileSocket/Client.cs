@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/10 11:30:00
+*修改时间：2026/11/10 11:45:30
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：改用流模式与处理器链，发送统一走管线，删除接收事件订阅
+*描述：改用流模式与处理器链，发送统一走管线，删除接收事件订阅；发送完成回调改为整份文件写出后触发
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -335,11 +335,41 @@ namespace SAEA.FileSocket
             {
                 if (d)
                 {
-                    _ = SendFileCoreAsync(fileName, offset);
+                    // 回调与信号量必须在整份文件写出后才放开，否则同一连接上的两轮文件块会交错。
+                    _ = SendFileAndCompleteAsync(fileName, offset, complete);
+                    return;
                 }
-                complete?.Invoke(d);
+
+                complete?.Invoke(false);
                 _autoResetEvent.Set();
             });
+        }
+
+        /// <summary>
+        /// 发送文件并在发送任务收尾后回调与放开下一个请求
+        /// </summary>
+        /// <param name="fileName">待发送文件路径</param>
+        /// <param name="offset">起始偏移（字节）</param>
+        /// <param name="complete">发送流程结束时以是否允许接收为参数回调，可为 null</param>
+        /// <returns>回调与信号量释放完成后结束的任务</returns>
+        private async Task SendFileAndCompleteAsync(string fileName, long offset, Action<bool> complete)
+        {
+            try
+            {
+                await SendFileCoreAsync(fileName, offset).ConfigureAwait(false);
+            }
+            finally
+            {
+                try
+                {
+                    complete?.Invoke(true);
+                }
+                finally
+                {
+                    // 回调抛异常也要放开信号量，否则后续发送会永久阻塞。
+                    _autoResetEvent.Set();
+                }
+            }
         }
 
         /// <summary>

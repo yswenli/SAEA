@@ -14,20 +14,21 @@
 |---|---|---|
 | `dotnet build Src/SAEA.Sockets.sln -c Debug` | 0 | 0 errors / 0 warnings（增量；P1 记录中的 `CS0168` 属 MVCTest 存量，本轮未重编） |
 | `dotnet build Src/SAEA.FileTest/SAEA.FileTest.csproj -c Debug` | 0 | 0 errors / 0 warnings |
-| `dotnet test Src/SAEA.FileSocket.Tests/… -c Release` | 0 | **9 / 9**（新建工程） |
+| `dotnet test Src/SAEA.FileSocket.Tests/… -c Release` | 0 | **10 / 10**（新建工程） |
 | `dotnet test Src/SAEA.Http.Tests/… -c Release` | 0 | 28 / 28 |
 | `dotnet test Src/SAEA.Sockets.Pipeline.Tests/… -c Release` | 0 | 260 / 260 |
 | `dotnet test Src/SAEA.Common.Tests/… -c Release` | 0 | 59 / 59 |
 | `dotnet test Src/SAEA.MQTT.Tests/… -c Release` | 0 | 153 / 153 |
 | `dotnet test Src/SAEA.FTP.Tests/… -c Release` | 0 | 13 / 13 |
 
-`SAEA.FileSocket.Tests` 为 `net10.0` + MSTest，只引用 `SAEA.FileSocket` 与 `SAEA.Sockets.Pipeline`，不加入 sln，不依赖 demo 与外部服务。9 条用例：
+`SAEA.FileSocket.Tests` 为 `net10.0` + MSTest，只引用 `SAEA.FileSocket` 与 `SAEA.Sockets.Pipeline`，不加入 sln，不依赖 demo 与外部服务。10 条用例：
 
 - 跨段：`FileMessageDecoder_SplitAcrossReads_ProducesSingleMessage`（只写前 4 字节时不产出消息）
 - 粘包：`FileMessageDecoder_TwoFramesInOneRead_ProducesTwoMessagesInOrder`
 - 边界长度：`…_ZeroBodyNonHeartFrame_ProducesEmptyMessage`、`…_SingleByteBody_KeepsBoundary`、`…_BodyAtMaxLength_ProducesFullMessage`
 - 心跳丢弃：`FileMessageDecoder_EmptyHeartFrame_ProducesNoMessage`
 - 出站：`FileMessageEncoder_WithBody_WritesFullWireFrame`、`…_EmptyBody_WritesHeaderOnly`、`…_RawFrame_PassesThroughUnchanged`
+- 发送完成时序：`ClientSendFileTests.SendFile_WhenSendCompletes_ReportsFullLengthAndDeliversAllBytes`（服务端暂停收包时完成回调不得提前触发，放行后 `Client.Out` 等于文件长度且收端字节数一致）
 
 ---
 
@@ -72,6 +73,7 @@
 3. **接收处理器放在 `FileTransfer` 内部**：`ReceiveHandler` 是 `FileTransfer` 的私有嵌套类，`RequestSend` → `OnRequested`，`BigData` → `OnFile`，其余消息 `FireChannelReadAsync` 交下游。
 4. **新增 `ProjectReference`**：`SAEA.FileSocket.csproj` 增加 `SAEA.Sockets.Pipeline` 工程引用（与 `SAEA.Http` 一致），未新增 NuGet 包，已获用户同意。
 5. **`UseConnectionOpened` 成对配置**：`SocketOptionBuilder.Build()` 要求 `UseInputHandler` 与 `UseConnectionOpened` 成对；文件传输链只用连接标识，故补了一个空实现的 `OnConnectionOpened`，未引入连接级状态。
+6. **发送完成回调时序按审查结论修正**：审查发现迁移后 `Client.SendFile` 在收到「允许」时即回调并把 `_autoResetEvent` 放开，与基线「整份文件写出后回调」不一致，会让 demo 提前打印完成、并允许同一连接上的两轮文件块交错。已改为 `SendFileAndCompleteAsync` 在发送任务 `finally` 里回调并放开信号量（回调抛异常也保证 `Set`），对外签名不变；新增 `ClientSendFileTests` 用「服务端暂停收包」构造发送未完成的窗口，回退到旧时序时该用例失败（`Assert.IsFalse 失败。服务端暂停收包时发送尚未结束，完成回调不得提前触发。`），修正后连续 3 次运行均 10/10 通过。
 
 ---
 
@@ -97,4 +99,4 @@
 
 ## 七、下一步
 
-按计划 §四 P2-2 处理 `SAEA.WebSocket`（需先确认其目录中未提交的 TLS 改动如何处理），随后 P2-3 汇总 demo 与 README。
+按计划 §四 P2-2 处理 `SAEA.WebSocket`；其目录中未提交的 TLS 改动已由用户手动提交，P2-2 以该提交为起点。随后 P2-3 汇总 demo 与 README。
