@@ -94,14 +94,14 @@ namespace SAEA.RPCTest
             //var sp = new ServiceProvider(new Type[] { typeof(Provider.HelloService) });
             var sp = new ServiceProvider();
 
-            sp.OnErr += Sp_OnErr;
+            ExceptionCollector.OnErr += Sp_OnErr;
 
             sp.Start();
 
             ConsoleHelper.WriteLine("Provider就绪！");
         }
 
-        private static void Sp_OnErr(Exception ex)
+        private static void Sp_OnErr(string name, Exception ex)
         {
             var msg = "Provider Error:" + ex.Message;
             if (ex.InnerException != null)
@@ -367,7 +367,7 @@ namespace SAEA.RPCTest
 
             var sp = new ServiceProvider();
 
-            sp.OnErr += Sp_OnErr;
+            ExceptionCollector.OnErr += Sp_OnErr;
 
             sp.Start();
 

@@ -32,6 +32,7 @@
 using SAEA.Common;
 using SAEA.Common.Serialization;
 using SAEA.RPC.Model;
+using SAEA.Sockets.Pipeline;
 using System;
 using System.Threading.Tasks;
 
@@ -50,6 +51,17 @@ namespace SAEA.RPC.Consumer
         /// 推送模式下的数据通知事件
         /// </summary>
         public event OnNoticedHandler OnNoticed;
+
+        /// <summary>
+        /// 处理器链装配回调：每条连接在 RPC 解码之后、异常收口之前调用一次，
+        /// 使用者在此追加自己的入站处理器；服务端推送的通知也可在链上观察。
+        /// </summary>
+        public Action<string, IChannelPipeline> ConfigurePipeline
+        {
+            get { return _consumerMultiplexer.ConfigurePipeline; }
+            set { _consumerMultiplexer.ConfigurePipeline = value; }
+        }
+
         /// <summary>
         /// 是否与服务端保持可用连接
         /// </summary>
@@ -77,9 +89,9 @@ namespace SAEA.RPC.Consumer
         {
             _uri = uri;
             _consumerMultiplexer = ConsumerMultiplexer.Create(_uri, links, timeOut, retry);
-            _consumerMultiplexer.OnNoticed += _consumerMultiplexer_OnNoticed;
-            _consumerMultiplexer.OnDisconnected += _consumerMultiplexer_OnDisconnected;
-            _consumerMultiplexer.OnError += _consumerMultiplexer_OnError;
+            _consumerMultiplexer.NoticeHandler = _consumerMultiplexer_OnNoticed;
+            _consumerMultiplexer.DisconnectedHandler = _consumerMultiplexer_OnDisconnected;
+            _consumerMultiplexer.ErrorHandler = _consumerMultiplexer_OnError;
         }
 
         /// <summary>
@@ -93,7 +105,8 @@ namespace SAEA.RPC.Consumer
 
         private void _consumerMultiplexer_OnDisconnected(string ID, Exception ex)
         {
-            ExceptionCollector.Add("Consumer", new RPCSocketException("ServiceConsumer Socket Disconnected:" + ex.Message, ex));
+            var message = ex == null ? "(无异常)" : ex.Message;
+            ExceptionCollector.Add("Consumer", new RPCSocketException("ServiceConsumer Socket Disconnected:" + message, ex));
         }
 
         private void _consumerMultiplexer_OnError(string ID, Exception ex)

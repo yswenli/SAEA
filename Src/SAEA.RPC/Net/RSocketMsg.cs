@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:32
+*修改时间：2026/11/10 15:20:36
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：Dispose 不再清零 Data，避免改写已交给业务线程或下游处理器的数据
 *
 *****************************************************************************/
 using SAEA.RPC.Model;
@@ -154,12 +154,13 @@ namespace SAEA.RPC.Net
         }
 
         /// <summary>
-        /// 清空名称与数据，便于消息对象复用
+        /// 清空消息内容并解除对数据数组的引用
         /// </summary>
         public void Dispose()
         {
             this.ServiceName = this.MethodName =  string.Empty;
-            if (this.Data != null) Array.Clear(this.Data, 0, this.Data.Length);
+            // 不在这里清空 Data：数据数组的所有权可能已经交给业务线程或下游处理器，
+            // 清空会改写它们仍在使用的内容；消息对象本身不被池化，清空没有收益。
             this.Data = null;
             this.Total = this.SLen = this.MLen;
             this.Type = 0;

@@ -33,8 +33,8 @@ using SAEA.Common;
 using SAEA.Common.Caching;
 using SAEA.RPC.Model;
 using SAEA.RPC.Net;
-using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
+using SAEA.Sockets.Pipeline;
 
 using System;
 using System.Collections.Concurrent;
@@ -64,6 +64,8 @@ namespace SAEA.RPC.Consumer
 
         object _syncLocker = new object();
 
+        Action<string, IChannelPipeline> _configurePipeline;
+
         /// <summary>
         /// 同步锁对象
         /// </summary>
@@ -74,6 +76,40 @@ namespace SAEA.RPC.Consumer
                 return _syncLocker;
             }
         }
+
+        /// <summary>
+        /// 处理器链装配回调：向下转发到每个底层连接，在 RPC 解码之后、异常收口之前调用。
+        /// <para>
+        /// 赋值时会同步到本实例已创建的连接；同一地址复用了其他实例建立的连接时，
+        /// 那些连接保持原有装配，需要在首次创建之前赋值。
+        /// </para>
+        /// </summary>
+        public Action<string, IChannelPipeline> ConfigurePipeline
+        {
+            get { return _configurePipeline; }
+            set
+            {
+                _configurePipeline = value;
+
+                foreach (var rClient in _myClients.Values)
+                    rClient.ConfigurePipeline = value;
+            }
+        }
+
+        /// <summary>
+        /// 收到服务端通知时调用，参数为反序列化前的数据
+        /// </summary>
+        internal Action<byte[]> NoticeHandler { get; set; }
+
+        /// <summary>
+        /// 连接收口时调用，第二个参数固定为 null（断开不是异常）
+        /// </summary>
+        internal Action<string, Exception> DisconnectedHandler { get; set; }
+
+        /// <summary>
+        /// 收发出现异常时调用
+        /// </summary>
+        internal Action<string, Exception> ErrorHandler { get; set; }
 
         /// <summary>
         /// 多路复用是否可用，连接池耗尽时被置为 false
@@ -104,12 +140,11 @@ namespace SAEA.RPC.Consumer
                 {
                     var rClient = new RClient(uri, timeOut);
 
-                    rClient.OnDisconnected -= RClient_OnDisconnected;
-                    rClient.OnError -= RClient_OnError;
-                    rClient.OnNoticed -= RClient_OnNoticed;
-                    rClient.OnDisconnected += RClient_OnDisconnected;
-                    rClient.OnError += RClient_OnError;
-                    rClient.OnNoticed += RClient_OnNoticed;
+                    // 连接事件改由具体回调转发，链装配回调同步下发到新连接。
+                    rClient.NoticeHandler = RClient_OnNoticed;
+                    rClient.DisconnectedHandler = RClient_OnDisconnected;
+                    rClient.ErrorHandler = RClient_OnError;
+                    rClient.ConfigurePipeline = _configurePipeline;
 
                     rClient.Connect();
                     rClient.KeepAlive();
@@ -168,41 +203,28 @@ namespace SAEA.RPC.Consumer
 
         private void RClient_OnNoticed(byte[] serializeData)
         {
-            OnNoticed?.Invoke(serializeData);
+            var handler = NoticeHandler;
+            if (handler != null)
+                handler(serializeData);
         }
-
-
-        #region events
-
-        /// <summary>
-        /// 收到服务端通知时触发
-        /// </summary>
-        public event OnNoticedHandler OnNoticed;
-
-        /// <summary>
-        /// 发生错误时触发
-        /// </summary>
-        public event OnErrorHandler OnError;
-
-        /// <summary>
-        /// 连接断开时触发
-        /// </summary>
-        public event OnDisconnectedHandler OnDisconnected;
 
         private void RClient_OnError(string id, Exception ex)
         {
             if (string.IsNullOrEmpty(id)) return;
-            OnError?.Invoke(id, ex);
+
+            var handler = ErrorHandler;
+            if (handler != null)
+                handler(id, ex);
         }
 
         private void RClient_OnDisconnected(string id, Exception ex)
         {
             if (string.IsNullOrEmpty(id)) return;
-            OnDisconnected?.Invoke(id, ex);
+
+            var handler = DisconnectedHandler;
+            if (handler != null)
+                handler(id, ex);
         }
-
-
-        #endregion
 
         /// <summary>
         /// 使用多路连接发送数据

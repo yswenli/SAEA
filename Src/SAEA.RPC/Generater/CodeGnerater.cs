@@ -113,7 +113,7 @@ namespace SAEA.RPC.Generater
             StringBuilder csStr = new StringBuilder();
 
 
-            var header = Header("using System.Collections.Generic;", "using SAEA.Common;", "using SAEA.RPC.Consumer;", "using SAEA.RPC.Model;", $"using {spaceName}.Consumer.Model;", $"using {spaceName}.Consumer.Service;");
+            var header = Header("using System.Collections.Generic;", "using SAEA.Common;", "using SAEA.RPC.Consumer;", "using SAEA.RPC.Model;", "using SAEA.Sockets.Pipeline;", $"using {spaceName}.Consumer.Model;", $"using {spaceName}.Consumer.Service;");
             csStr.AppendLine(header);
 
             csStr.AppendLine($"namespace {spaceName}.Consumer");
@@ -124,8 +124,11 @@ namespace SAEA.RPC.Generater
             csStr.AppendLine(GetSpace(1) + "{");
 
 
-            csStr.AppendLine(GetSpace(2) + "public event ExceptionCollector.OnErrHander OnErr;\r\n");
-            csStr.AppendLine(GetSpace(2) + "public event OnNoticedHandler OnNoticed;\r\n");
+            csStr.AppendLine(GetSpace(2) + "public Action<string, IChannelPipeline> ConfigurePipeline\r\n");
+            csStr.AppendLine(GetSpace(2) + "{");
+            csStr.AppendLine(GetSpace(3) + "get { return _serviceConsumer.ConfigurePipeline; }");
+            csStr.AppendLine(GetSpace(3) + "set { _serviceConsumer.ConfigurePipeline = value; }");
+            csStr.AppendLine(GetSpace(2) + "}\r\n");
             csStr.AppendLine(GetSpace(2) + "ServiceConsumer _serviceConsumer;\r\n");
 
 
@@ -138,11 +141,7 @@ namespace SAEA.RPC.Generater
             csStr.AppendLine(GetSpace(2) + "public RPCServiceProxy(string uri = \"rpc://127.0.0.1:39654\") : this(uri, 4, 5, 10 * 1000) { }");
             csStr.AppendLine(GetSpace(2) + "public RPCServiceProxy(string uri, int links = 4, int retry = 5, int timeOut = 10 * 1000)");
             csStr.AppendLine(GetSpace(2) + "{");
-            csStr.AppendLine(GetSpace(3) + "ExceptionCollector.OnErr += ExceptionCollector_OnErr;");
-
-            
             csStr.AppendLine(GetSpace(3) + "_serviceConsumer = new ServiceConsumer(new Uri(uri), links, retry, timeOut);");
-            csStr.AppendLine(GetSpace(3) + "_serviceConsumer.OnNoticed += _serviceConsumer_OnNoticed;");
 
             var names = RPCMapping.GetServiceNames();
 
@@ -158,16 +157,6 @@ namespace SAEA.RPC.Generater
             csStr.AppendLine(GetSpace(2) + "public bool Reconnect()");
             csStr.AppendLine(GetSpace(2) + "{");
             csStr.AppendLine(GetSpace(3) + "return _serviceConsumer.Reconnect();");
-            csStr.AppendLine(GetSpace(2) + "}");
-
-            csStr.AppendLine(GetSpace(2) + "private void ExceptionCollector_OnErr(string name, Exception ex)");
-            csStr.AppendLine(GetSpace(2) + "{");
-            csStr.AppendLine(GetSpace(3) + "OnErr?.Invoke(name, ex);");
-            csStr.AppendLine(GetSpace(2) + "}");
-
-            csStr.AppendLine(GetSpace(2) + "private void _serviceConsumer_OnNoticed(byte[] serializeData)");
-            csStr.AppendLine(GetSpace(2) + "{");
-            csStr.AppendLine(GetSpace(3) + "OnNoticed?.Invoke(serializeData);");
             csStr.AppendLine(GetSpace(2) + "}");
 
             if (names != null)

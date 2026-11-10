@@ -46,6 +46,7 @@ https://github.com/yswenli/SAEA</PackageReleaseNotes>
   <ItemGroup>
     <ProjectReference Include="..\SAEA.Common\SAEA.Common.csproj" />
     <ProjectReference Include="..\SAEA.Sockets\SAEA.Sockets.csproj" />
+    <ProjectReference Include="..\SAEA.Sockets.Pipeline\SAEA.Sockets.Pipeline.csproj" />
   </ItemGroup>
 
   <ItemGroup>

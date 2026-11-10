@@ -23,14 +23,15 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:40:45
+*修改时间：2026/11/10 15:20:36
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：Set 先写 Data 再发布 HasVal，HasVal 改用 Volatile 读写，避免等待方读到未赋值的空结果
 *
 *****************************************************************************/
 using System;
 using System.Collections.Concurrent;
+using System.Threading;
 
 namespace SAEA.Common
 {
@@ -102,8 +103,10 @@ namespace SAEA.Common
         {
             _cahce.AddOrUpdate(key, new DisorderSyncItem<T>(), (k, v) =>
             {
-                v.HasVal = true;
+                // 先落结果再发布就绪标记：等待方随时可能读到 HasVal=true，
+                // 顺序反了会取到还没赋值的 Data（表现为偶发返回 null）。
                 v.Data = t;
+                v.HasVal = true;
                 return v;
             });
         }
@@ -114,6 +117,8 @@ namespace SAEA.Common
     /// </summary>
     public class DisorderSyncItem<T>
     {
+        private bool _hasVal;
+
         /// <summary>
         /// 等待起始时间，用于判定超时
         /// </summary>
@@ -125,9 +130,15 @@ namespace SAEA.Common
         public T Data { get; set; }
 
         /// <summary>
-        /// 结果是否已设置
+        /// 结果是否已设置；置为 true 即表示 <see cref="Data"/> 已可读
         /// </summary>
-        public bool HasVal { get; set; }
+        public bool HasVal
+        {
+            // 读写都走 Volatile：写入方先写 Data 再发布本标记，读取方看到 true 就必须能看到 Data，
+            // 普通字段在弱内存序平台（ARM64）上不保证这个先后关系。
+            get { return Volatile.Read(ref _hasVal); }
+            set { Volatile.Write(ref _hasVal, value); }
+        }
     }
 
     /// <summary>

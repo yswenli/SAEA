@@ -35,6 +35,7 @@ using SAEA.RPC.Common;
 using SAEA.RPC.Model;
 using SAEA.RPC.Net;
 using SAEA.Sockets.Interface;
+using SAEA.Sockets.Pipeline;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -57,15 +58,14 @@ namespace SAEA.RPC.Provider
         NoticeCollection _noticeCollection = null;
 
         /// <summary>
-        /// 服务端错误回调
+        /// 处理器链装配回调：每条连接在 RPC 解码之后、异常收口之前调用一次，
+        /// 使用者在此追加自己的入站处理器；错误可通过 <see cref="ExceptionCollector.OnErr"/> 观察。
         /// </summary>
-        /// <param name="ex">异常</param>
-        public delegate void OnErrHander(Exception ex);
-
-        /// <summary>
-        /// 发生错误时触发
-        /// </summary>
-        public event OnErrHander OnErr;
+        public Action<string, IChannelPipeline> ConfigurePipeline
+        {
+            get { return _rServer.ConfigurePipeline; }
+            set { _rServer.ConfigurePipeline = value; }
+        }
 
         /// <summary>
         /// RPC服务提供者
@@ -94,15 +94,8 @@ namespace SAEA.RPC.Provider
             _noticeCollection = new NoticeCollection();
 
             _rServer = new RServer(_port, bufferSize, maxConnects);
-            _rServer.OnMsg += _RServer_OnMsgAsync;
-            _rServer.OnError += _RServer_OnError;
-
-            ExceptionCollector.OnErr += ExceptionCollector_OnErr;
-        }
-
-        private void ExceptionCollector_OnErr(string name, Exception ex)
-        {
-            OnErr(ex);
+            _rServer.MessageHandler = OnMessageAsync;
+            _rServer.ErrorHandler = _RServer_OnError;
         }
 
         private void _RServer_OnError(string ID, Exception ex)
@@ -110,14 +103,14 @@ namespace SAEA.RPC.Provider
             ExceptionCollector.Add("Provider", ex);
         }
 
-        private void _RServer_OnMsgAsync(IUserToken userToken, RSocketMsg msg)
+        private async Task OnMessageAsync(IUserToken userToken, RSocketMsg msg)
         {
             try
             {
                 switch ((RSocketMsgType)msg.Type)
                 {
                     case RSocketMsgType.Ping:
-                        _rServer.Reply(userToken, new RSocketMsg(RSocketMsgType.Pong) { SequenceNumber = msg.SequenceNumber });
+                        await _rServer.ReplyAsync(userToken, new RSocketMsg(RSocketMsgType.Pong) { SequenceNumber = msg.SequenceNumber }).ConfigureAwait(false);
                         break;
                     case RSocketMsgType.Pong:
 
@@ -127,7 +120,7 @@ namespace SAEA.RPC.Provider
                         {
                             var data = RPCReversal.Reversal(userToken, msg);
                             var rSocketMsg = new RSocketMsg(RSocketMsgType.Response, null, null, data) { SequenceNumber = msg.SequenceNumber };
-                            _rServer.Reply(userToken, rSocketMsg);
+                            await _rServer.ReplyAsync(userToken, rSocketMsg).ConfigureAwait(false);
                         }
                         catch (Exception ex)
                         {
@@ -136,12 +129,12 @@ namespace SAEA.RPC.Provider
                                 errMsg += $" | Inner: {ex.InnerException.Message}";
                             var errData = SAEASerialize.Serialize(errMsg);
                             var errSocketMsg = new RSocketMsg(RSocketMsgType.Error, null, null, errData) { SequenceNumber = msg.SequenceNumber };
-                            _rServer.Reply(userToken, errSocketMsg);
+                            await _rServer.ReplyAsync(userToken, errSocketMsg).ConfigureAwait(false);
                             ExceptionCollector.Add("Provider.Request", ex);
                         }
                         break;
                     case RSocketMsgType.RegistNotice:
-                        _noticeCollection.Set(userToken).GetAwaiter();
+                        await _noticeCollection.Set(userToken).ConfigureAwait(false);
                         break;
                     case RSocketMsgType.Response:
 
@@ -150,7 +143,7 @@ namespace SAEA.RPC.Provider
 
                         break;
                     case RSocketMsgType.Close:
-                        _rServer.Disconnect(userToken);
+                        await _rServer.DisconnectAsync(userToken).ConfigureAwait(false);
                         break;
                 }
             }
@@ -208,7 +201,7 @@ namespace SAEA.RPC.Provider
                     {
                         try
                         {
-                            _rServer.Reply(item, msg);
+                            await _rServer.ReplyAsync(item, msg).ConfigureAwait(false);
                         }
                         catch (Exception ex)
                         {
