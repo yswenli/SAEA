@@ -23,15 +23,17 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:29
+*修改时间：2026/11/10 9:40:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：新增管线装配回调、请求/异常委托与连接关闭通知，替换旧的接收与生命周期事件
 *
 *****************************************************************************/
+using System;
 using System.Collections.Generic;
 
 using SAEA.Common.NameValue;
+using SAEA.Sockets.Pipeline;
 
 namespace SAEA.Http.Model
 {
@@ -139,6 +141,39 @@ namespace SAEA.Http.Model
         {
             get; set;
         } = 3;
+
+        /// <summary>
+        /// 管线装配回调：每条连接在处理器链装配阶段调用一次，接收连接标识与尚未启动的链。
+        /// 回调里只能追加处理器，链启动后结构冻结；追加的入站处理器排在协议处理器之后、链尾异常处理器之前。
+        /// </summary>
+        public Action<string, IChannelPipeline> ConfigurePipeline
+        {
+            get; set;
+        }
+
+        /// <summary>
+        /// 业务请求处理入口：非空时取代默认的路由处理，由业务自行决定如何响应。
+        /// </summary>
+        public RequestDelegate RequestDelegate
+        {
+            get; set;
+        }
+
+        /// <summary>
+        /// 业务异常处理入口：返回 null 表示继续按默认规则生成错误响应。
+        /// </summary>
+        public ExceptionHandler ExceptionHandler
+        {
+            get; set;
+        }
+
+        /// <summary>
+        /// 连接关闭通知（连接标识, 异常）；正常断开时异常为 null。
+        /// </summary>
+        public Action<string, Exception> ConnectionClosed
+        {
+            get; set;
+        }
 
     }
 }

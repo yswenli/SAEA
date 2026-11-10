@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 13:50:40
+*修改时间：2026/11/9 11:20:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：增加入站接管闸门：输入处理器接管后其他读取入口立即报错
+*描述：增加入站接管闸门：输入处理器接管后其他读取入口立即报错；发送重载返回底层交接完成的 Task，TLS 记录逐条跟踪并等待全部交接
 *
 *****************************************************************************/
 using SAEA.Common.Caching;
@@ -36,6 +36,7 @@ using SAEA.Sockets.Ssl.Internal;
 using System;
 using System.Buffers;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Pipelines;
 using System.Net.Sockets;
@@ -52,9 +53,9 @@ namespace SAEA.Sockets.Core
     internal sealed class SaeaConnection : IDisposable
     {
         /// <summary>
-        /// saea 原始发送委托：由 Socket 实现负责串行化与所有权释放。
+        /// saea 原始发送委托：由 Socket 实现负责串行化与所有权释放，返回本次交接到内核的任务。
         /// </summary>
-        private readonly Action<ArraySegment<byte>, IDisposable> _rawSend;
+        private readonly Func<ArraySegment<byte>, IDisposable, Task> _rawSend;
 
         private readonly Action _receiveResume;
 
@@ -85,6 +86,16 @@ namespace SAEA.Sockets.Core
 
         private int _drainingOutput;
 
+        /// <summary>
+        /// 已交给发送路径的 TLS 记录数，用于验证一次应用数据的全部记录都完成交接。
+        /// </summary>
+        private long _tlsRecordsGenerated;
+
+        /// <summary>
+        /// 已完成底层交接的 TLS 记录数。
+        /// </summary>
+        private long _tlsRecordsHandedOff;
+
         private int _state;
 
         private volatile bool _receivePaused;
@@ -105,7 +116,7 @@ namespace SAEA.Sockets.Core
         /// <param name="rawSend">原始发送委托</param>
         /// <param name="receiveResume">恢复接收回调</param>
         internal SaeaConnection(string id, Socket socket, ISocketOption option,
-            Action<ArraySegment<byte>, IDisposable> rawSend, Action receiveResume)
+            Func<ArraySegment<byte>, IDisposable, Task> rawSend, Action receiveResume)
         {
             Id = id;
             _socket = socket ?? throw new ArgumentNullException(nameof(socket));
@@ -142,6 +153,12 @@ namespace SAEA.Sockets.Core
 
         /// <summary>握手任务；未启用 TLS 时已完成。</summary>
         public Task HandshakeTask => _tls != null ? _tls.HandshakeTask : Task.CompletedTask;
+
+        /// <summary>TLS 记录生成计数（含握手与告警记录），用于验证发送完成点。</summary>
+        internal long TlsRecordsGenerated => Interlocked.Read(ref _tlsRecordsGenerated);
+
+        /// <summary>TLS 记录完成底层交接的计数。</summary>
+        internal long TlsRecordsHandedOff => Interlocked.Read(ref _tlsRecordsHandedOff);
 
         /// <summary>是否可写。</summary>
         public bool CanWrite => Volatile.Read(ref _state) == 0 && _socket.Connected;
@@ -373,10 +390,11 @@ namespace SAEA.Sockets.Core
 
             if (_tls == null)
             {
-                SendRawCopy(buffer, offset, count);
+                await SendRawCopyAsync(buffer, offset, count).ConfigureAwait(false);
                 return;
             }
 
+            List<PendingOutput> records;
             var acquired = false;
             try
             {
@@ -386,44 +404,41 @@ namespace SAEA.Sockets.Core
                     throw new TimeoutException("TLS 出站处理超时。");
 
                 _tls.WriteApplicationData(buffer, offset, count);
-                CaptureOutput();
+                records = CaptureOutputTracked();
             }
             finally
             {
                 if (acquired) _tlsLock.Release();
             }
 
-            FlushOutput();
+            // 必须等本次应用数据拆出的全部 TLS 记录完成底层交接，不能入队后立即返回。
+            await FlushOutputAsync(records).ConfigureAwait(false);
             RaiseCallbacks();
         }
 
         /// <summary>
-        /// 同步路径的应用数据发送（服务端 SendAsync 使用）。握手未完成时在后台等待。
+        /// 应用数据发送（服务端/客户端发送重载使用）。内部先复制入参，返回的 Task 在
+        /// 本次应用数据拆出的全部 TLS 记录完成底层交接后才完成。
         /// </summary>
-        internal void SendApplicationData(ReadOnlySpan<byte> data, Action<Exception> onError)
+        /// <param name="data">待发送的应用数据，为空时返回已完成任务</param>
+        /// <returns>交接完成的任务</returns>
+        internal Task SendApplicationData(ReadOnlySpan<byte> data)
         {
-            if (data.Length == 0) return;
+            if (data.Length == 0) return Task.CompletedTask;
 
             var copy = data.ToArray();
+            return SendApplicationDataAsync(copy);
+        }
 
+        private async Task SendApplicationDataAsync(byte[] copy)
+        {
             if (_tls == null)
             {
-                try { SendRawCopy(copy, 0, copy.Length); }
-                catch (Exception ex) { onError?.Invoke(ex); }
+                await SendRawCopyAsync(copy, 0, copy.Length).ConfigureAwait(false);
                 return;
             }
 
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await WriteAsync(copy, 0, copy.Length, CancellationToken.None).ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    onError?.Invoke(ex);
-                }
-            });
+            await WriteAsync(copy, 0, copy.Length, CancellationToken.None).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -476,10 +491,11 @@ namespace SAEA.Sockets.Core
                 try { tls.Dispose(); } catch { }
             }
 
-            // 连接关闭时仍有未发出的 TLS 记录：归还池化缓冲区，避免长期占用 ArrayPool。
+            // 连接关闭时仍有未发出的 TLS 记录：归还池化缓冲区，并让等待交接的发送方失败。
             while (_pendingOutput.TryDequeue(out var pending))
             {
                 try { ArrayPool<byte>.Shared.Return(pending.Buffer); } catch { }
+                pending.MarkFailed(new IOException("连接已关闭。"));
             }
 
             try { _tlsLock?.Dispose(); } catch { }
@@ -521,8 +537,19 @@ namespace SAEA.Sockets.Core
         /// </summary>
         private void CaptureOutput()
         {
-            if (_tls == null) return;
+            CaptureOutputTracked();
+        }
 
+        /// <summary>
+        /// 与 <see cref="CaptureOutput"/> 相同，并返回本次新入队的记录，
+        /// 供应用数据发送等待这些记录全部完成底层交接。
+        /// </summary>
+        /// <returns>本次新捕获的记录；没有新记录时为 null</returns>
+        private List<PendingOutput> CaptureOutputTracked()
+        {
+            if (_tls == null) return null;
+
+            List<PendingOutput> captured = null;
             while (_tls.AvailableOutput > 0)
             {
                 var size = Math.Min(_tls.AvailableOutput, 64 * 1024);
@@ -534,8 +561,14 @@ namespace SAEA.Sockets.Core
                     break;
                 }
 
-                _pendingOutput.Enqueue(new PendingOutput(buffer, read));
+                var pending = new PendingOutput(buffer, read);
+                Interlocked.Increment(ref _tlsRecordsGenerated);
+                _pendingOutput.Enqueue(pending);
+                if (captured == null) captured = new List<PendingOutput>();
+                captured.Add(pending);
             }
+
+            return captured;
         }
 
         /// <summary>
@@ -543,6 +576,30 @@ namespace SAEA.Sockets.Core
         /// 后续生产者只负责入队，避免乱序。
         /// </summary>
         private void FlushOutput()
+        {
+            StartDrain();
+        }
+
+        /// <summary>
+        /// 等待指定记录全部完成底层交接后返回。
+        /// </summary>
+        /// <param name="records">本次应用数据产生的记录</param>
+        private async Task FlushOutputAsync(List<PendingOutput> records)
+        {
+            StartDrain();
+
+            if (records == null || records.Count == 0) return;
+
+            var tasks = new Task[records.Count];
+            for (var i = 0; i < records.Count; i++)
+            {
+                tasks[i] = records[i].Completion.Task;
+            }
+
+            await Task.WhenAll(tasks).ConfigureAwait(false);
+        }
+
+        private void StartDrain()
         {
             while (true)
             {
@@ -553,15 +610,7 @@ namespace SAEA.Sockets.Core
                 {
                     while (_pendingOutput.TryDequeue(out var pending))
                     {
-                        var owner = new PooledArrayOwner(pending.Buffer);
-                        try
-                        {
-                            _rawSend(new ArraySegment<byte>(pending.Buffer, 0, pending.Length), owner);
-                        }
-                        catch
-                        {
-                            owner.Dispose();
-                        }
+                        SendPending(pending);
                     }
                 }
                 finally
@@ -572,6 +621,60 @@ namespace SAEA.Sockets.Core
                 if (_pendingOutput.IsEmpty)
                     return;
             }
+        }
+
+        /// <summary>
+        /// 把一条记录交给底层发送路径，并在发送任务完成时记录交接结果。
+        /// </summary>
+        /// <param name="pending">待发送记录</param>
+        private void SendPending(PendingOutput pending)
+        {
+            var owner = new PooledArrayOwner(pending.Buffer);
+            Task sendTask;
+            try
+            {
+                sendTask = _rawSend(new ArraySegment<byte>(pending.Buffer, 0, pending.Length), owner);
+            }
+            catch (Exception ex)
+            {
+                owner.Dispose();
+                pending.MarkFailed(ex);
+                return;
+            }
+
+            if (sendTask == null)
+            {
+                pending.MarkHandedOff();
+                return;
+            }
+
+            if (sendTask.IsCompleted)
+            {
+                OnSendCompleted(sendTask, pending);
+                return;
+            }
+
+            sendTask.ContinueWith(t => OnSendCompleted(t, pending), CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+        }
+
+        private void OnSendCompleted(Task sendTask, PendingOutput pending)
+        {
+            if (sendTask.Status == TaskStatus.RanToCompletion)
+            {
+                Interlocked.Increment(ref _tlsRecordsHandedOff);
+                pending.MarkHandedOff();
+                return;
+            }
+
+            if (sendTask.IsCanceled)
+            {
+                pending.MarkFailed(new OperationCanceledException("TLS 记录发送已取消。"));
+                return;
+            }
+
+            var error = sendTask.Exception != null ? sendTask.Exception.GetBaseException() : null;
+            pending.MarkFailed(error ?? new IOException("TLS 记录发送失败。"));
         }
 
         private void DrainOutputLocked()
@@ -592,9 +695,9 @@ namespace SAEA.Sockets.Core
             FlushOutput();
         }
 
-        private void SendRawCopy(byte[] buffer, int offset, int count)
+        private Task SendRawCopyAsync(byte[] buffer, int offset, int count)
         {
-            if (count <= 0 || _rawSend == null) return;
+            if (count <= 0 || _rawSend == null) return Task.CompletedTask;
 
             var writer = new PooledBufferWriter(count);
             try
@@ -611,10 +714,19 @@ namespace SAEA.Sockets.Core
             if (!writer.TryGetArray(out var segment) || segment.Array == null)
             {
                 writer.Dispose();
-                return;
+                return Task.CompletedTask;
             }
 
-            _rawSend(segment, writer);
+            try
+            {
+                return _rawSend(segment, writer);
+            }
+            catch
+            {
+                // 没有交接成功时由这里归还缓冲，交给发送路径的数据所有权随之失效。
+                writer.Dispose();
+                throw;
+            }
         }
 
         private void OnHandshakeTimeout(object state)
@@ -677,19 +789,43 @@ namespace SAEA.Sockets.Core
     }
 
     /// <summary>
-    /// 一条待发送的 TLS 记录，缓冲区由 <see cref="ArrayPool{T}.Shared"/> 租借。
+    /// 一条待发送的 TLS 记录，缓冲区由 <see cref="ArrayPool{T}.Shared"/> 租借；
+    /// <see cref="Completion"/> 标记该记录是否已经完成底层交接。
     /// </summary>
-    internal readonly struct PendingOutput
+    internal sealed class PendingOutput
     {
         internal PendingOutput(byte[] buffer, int length)
         {
             Buffer = buffer;
             Length = length;
+            Completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         }
 
         internal readonly byte[] Buffer;
 
         internal readonly int Length;
+
+        internal readonly TaskCompletionSource<bool> Completion;
+
+        /// <summary>标记记录已完成底层交接。</summary>
+        internal void MarkHandedOff()
+        {
+            Completion.TrySetResult(true);
+        }
+
+        /// <summary>
+        /// 标记记录交接失败。没有等待者的记录（握手、告警）同样需要观察异常，
+        /// 避免未观察的任务异常在终结器线程上报告。
+        /// </summary>
+        /// <param name="exception">失败原因</param>
+        internal void MarkFailed(Exception exception)
+        {
+            if (!Completion.TrySetException(exception)) return;
+
+            _ = Completion.Task.ContinueWith(t => { _ = t.Exception; }, CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+        }
     }
 
     /// <summary>

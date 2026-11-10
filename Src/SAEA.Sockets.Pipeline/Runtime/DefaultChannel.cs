@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 09:50:56
+*修改时间：2026/11/9 10:48:29
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：IChannel 的默认实现：每连接一个实例，属性用并发字典背衬
+*描述：失活只翻转活跃状态，属性改由唯一清理点释放
 *
 *****************************************************************************/
 using System;
@@ -42,7 +42,7 @@ namespace SAEA.Sockets.Pipeline
     /// <para>
     /// <see cref="CloseAsync"/> 只表示"已请求关闭"：第一次调用会把 <see cref="IsActive"/> 置为 false
     /// 并转调注入的关闭委托，重复调用不再触发委托。
-    /// 清空属性属于收口流程的末端，由执行器的 <see cref="MarkInactive"/> 负责。
+    /// 清空属性属于收口流程的末端：失活只翻转活跃状态，属性要等 <see cref="ClearAttributes"/> 才释放。
     /// </para>
     /// </summary>
     public sealed class DefaultChannel : IChannel, IDisposable
@@ -55,6 +55,8 @@ namespace SAEA.Sockets.Pipeline
         private volatile bool _isActive = true;
 
         private int _closeRequested;
+
+        private int _attributesCleared;
 
         /// <summary>
         /// 创建连接视图。
@@ -130,13 +132,27 @@ namespace SAEA.Sockets.Pipeline
         }
 
         /// <summary>
-        /// 执行器收口时调用：置为非活跃并清空连接级属性。可重复调用。
-        /// 只做内存状态清理，不触发关闭委托。
+        /// 执行器进入收口时调用：只把连接置为非活跃，属性保留给 <see cref="ChannelInactiveAsync"/> 读取。
+        /// 可重复调用，不触发关闭委托。
         /// </summary>
         internal void MarkInactive()
         {
             _isActive = false;
+        }
+
+        /// <summary>清空连接级属性，仅供收口流程在失活通知与登记摘除完成后调用；只生效一次。</summary>
+        internal void ClearAttributes()
+        {
+            if (Interlocked.Exchange(ref _attributesCleared, 1) != 0)
+                return;
+
             _attributes.Clear();
+        }
+
+        /// <summary>属性清理的生效次数，仅供测试与诊断读取。</summary>
+        internal int AttributesClearCount
+        {
+            get { return Volatile.Read(ref _attributesCleared); }
         }
 
         /// <summary>清空连接级属性并丢弃引用；不触发关闭委托。</summary>

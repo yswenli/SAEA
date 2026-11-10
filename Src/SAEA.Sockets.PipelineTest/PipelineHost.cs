@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 09:50:56
+*修改时间：2026/11/9 14:10:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：连接登记表：连接建立时写入，收口时由执行器移除
+*描述：摘除登记只移除引用，不释放通道；属性清理统一由执行器单点完成
 *
 *****************************************************************************/
 using System;
@@ -78,8 +78,8 @@ namespace SAEA.Sockets.PipelineTest
         }
 
         /// <summary>
-        /// 解除登记并释放通道持有的属性。通道在此期间已被执行器标记为非活跃，
-        /// 这里只做内存清理，不重复触发关闭委托。
+        /// 解除登记。只从登记表摘除引用，不释放通道、不触发关闭委托；
+        /// 连接属性的清理由执行器在失活通知与摘除之后单点完成，避免同一份属性被清两次。
         /// </summary>
         /// <param name="channelId">连接标识，为 null 直接返回 false</param>
         /// <param name="channel">成功时输出已移除的通道，失败时为 null</param>
@@ -87,14 +87,7 @@ namespace SAEA.Sockets.PipelineTest
         public bool TryRemoveChannel(string channelId, out IChannel channel)
         {
             channel = null;
-            if (channelId == null || !_channels.TryRemove(channelId, out channel))
-                return false;
-
-            var disposable = channel as IDisposable;
-            if (disposable != null)
-                disposable.Dispose();
-
-            return true;
+            return channelId != null && _channels.TryRemove(channelId, out channel);
         }
 
         /// <inheritdoc />

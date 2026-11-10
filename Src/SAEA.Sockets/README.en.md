@@ -17,6 +17,7 @@
 | [📐 Architecture Design](#architecture-design) | Component relationships and workflow |
 | [💡 Use Cases](#use-cases) | When to choose SAEA.Sockets |
 | [📊 Implementation Modes](#implementation-modes) | The two transports and how to choose |
+| [⚠️ Breaking Changes (P0)](#breaking-changes-p0) | The 11 public changes you must check before upgrading |
 | [❓ FAQ](#faq) | Quick answers |
 | [🔧 Core Classes](#core-classes) | Overview of main classes |
 | [📝 Usage Examples](#usage-examples) | Detailed code examples |
@@ -224,6 +225,33 @@ TCP has exactly one underlying engine. `UsePacket()` and `UseStream()` only choo
 ### About performance numbers
 
 This README does not publish cross-framework performance numbers (for comparisons with TouchSocket, DotNetty, etc., benchmark your own workload). The only reproducible measurement here is the zero-copy receive/send path: run `SAEA.P2PTest --bench-iocp` (4KB frames, single-machine loopback); results are documented in the root README.
+
+---
+
+## Breaking Changes (P0) ⚠️
+
+This release ships `SAEA.Sockets` and `SAEA.Sockets.Pipeline` together. The following 11 items affect upgrades; check them one by one:
+
+1. **The 4 Pipeline interfaces gained 6 members in total**: `IChannelHandler.HandlerAdded` / `HandlerRemoved`, `IChannelInboundHandler.ChannelActiveAsync` / `ChannelInactiveAsync`, `IChannelHandlerContext.CloseAfterWriteAsync`, `IChannelPipeline.WriteAsync`. Code that implements these interfaces directly will fail to compile; adapter subclasses are unaffected.
+2. **`ctx.WriteAsync` is only legal inside an outbound callback**: calling it elsewhere throws `InvalidOperationException`; business code sends messages with `ctx.Pipeline.WriteAsync(entity)`.
+3. **An ordinary inbound exception is notified once and then propagates**: it is no longer swallowed; the terminal `ExceptionTerminalHandler` records it and decides whether to disconnect.
+4. **The chain is frozen after `Start()`**: `AddLast` / `AddFirst` / `Remove` all throw `InvalidOperationException`.
+5. **The two `owner`-taking send overloads changed from `void` to `Task`**:
+
+   ```csharp
+   // IServerSocket
+   Task SendAsync(string sessionID, ReadOnlyMemory<byte> data, IDisposable owner);
+   // IClientSocket
+   Task SendAsync(ReadOnlyMemory<byte> data, IDisposable owner);
+   ```
+
+   The four implementations — `SaeaServerSocket`, `SaeaClientSocket`, `SaeaUdpServerSocket`, `SaeaUdpClientSocket` — changed together. `await socket.SendAsync(id, data, owner)` observes the real hand-off result; old code that does not `await` still compiles, but asynchronous failures are silently dropped. Custom implementations of these interfaces must change their signatures.
+6. **`owner` ownership rules**: the owner is released exactly once on success and on every path whose exit can be confirmed; a missing session or a synchronous exception is released by the transport; an asynchronous failure/cancellation is released after the socket operation is confirmed to have exited; a send timeout that cannot prove the kernel exited abandons reclamation. Callers must not `Dispose` the `owner` after receiving the `Task`.
+7. **`ByteToMessageDecoder` does not accumulate partial frames**: it only accepts complete `PooledMessage` instances cut by the pump; `FrameSplitterHandler` is only for pure chain usage without the pump — combining it with the pump splits the same bytes twice.
+8. **`RawFrame` and the envelope model are mutually exclusive**: the `FramePassthroughHandler` raw-frame bypass and the `Envelope*` / `Codec*` envelope chain cannot live in the same chain.
+9. **`CloseAfterWriteAsync` only guarantees submission to the transport layer**: it does not mean the peer has received the data; `DrainTimeout <= 0` is treated as 5 seconds at that entry point.
+10. **Memory guarantees only two bounds**: `MaxBufferedBytes` bounds residual inbound bytes and `MaxPendingWrites` bounds pending outbound items; other queued frames, in-flight frames, TLS copies and socket buffers have no fixed total upper bound.
+11. **Placement rules and limits**: `OutboundSerializingHandler` must appear exactly once and at the far right of the outbound prefix; `SwitchableSplitter` is one instance per connection, `SwitchTo` is the only way to lift the `StopAfterCurrent` barrier, the switch target's `MaxFrameLength` must not exceed the cap fixed at creation, and `SplitterSwitchTimeout` defaults to 10 seconds; `TakeAvailableSplitter` treats one read as one message boundary and does not waive the buffer lower-bound check in `ChannelPipeline.Create`.
 
 ---
 
@@ -733,6 +761,7 @@ Recent versions removed the `byte[]` public surface in favor of `Span` / `Memory
 | `IClientSocket.BeginSend(byte[])` / `Send(byte[])` / `SendAsync(byte[])` / `SendAsync(byte[], int, int, CancellationToken)` | `Send(ReadOnlySpan<byte>)` / `SendAsync(ReadOnlyMemory<byte>)` / `SendAsync(ReadOnlyMemory<byte>, CancellationToken)`; express the old offset/count semantics with `data.AsMemory(offset, count)` |
 | `IClientSocket.ReceiveAsync(byte[], int, int, CancellationToken)` (interface member) | Use the span events; the concrete `SaeaClientSocket.ReceiveAsync` is retained and reads from the connection `Pipe` (throws `KernelException` when no connection facade exists, `InvalidOperationException` once `UseInputHandler` is configured), and `UdpClientSocket.ReceiveAsync` throws `NotSupportedException` |
 | `IServerSocket.SendAsync(string, byte[])` / `Send(string, byte[])` / `End(string, byte[])` / `SendAsync(IPEndPoint, byte[])` | `SendAsync(string, ReadOnlyMemory<byte>)` / `Send(string, ReadOnlySpan<byte>)` / `End(string, ReadOnlyMemory<byte>)` / `SendAsync(IPEndPoint, ReadOnlyMemory<byte>)` |
+| `IServerSocket.SendAsync(string, ReadOnlyMemory<byte>, IDisposable)` / `IClientSocket.SendAsync(ReadOnlyMemory<byte>, IDisposable)` (previously `void`) | Now returns `Task`; only `await` observes asynchronous failures. `SaeaServerSocket` / `SaeaClientSocket` / `SaeaUdpServerSocket` / `SaeaUdpClientSocket` changed together |
 | `IocpClientSocket.UserToken` | No longer public; use `Connected`, or `ChannelInfo.UserToken` / `Context.UserToken` depending on the scenario |
 | `IocpServerSocket` / `IocpClientSocket` | Renamed to `SaeaServerSocket` / `SaeaClientSocket` (`SocketFactory` already returns the new types) |
 | `StreamServerSocket` / `StreamClientSocket` | Removed; use `SaeaServerSocket` / `SaeaClientSocket` with `UseStream()` and read/write through `GetStream()` or `ChannelInfo.Stream` |

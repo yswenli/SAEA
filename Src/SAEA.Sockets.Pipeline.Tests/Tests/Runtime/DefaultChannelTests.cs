@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 09:50:56
+*修改时间：2026/11/9 10:48:29
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：DefaultChannelTests
+*描述：按失活只翻转活跃状态的新语义改写用例，并补充属性清理用例
 *
 *****************************************************************************/
 using System;
@@ -170,10 +170,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
         }
 
         /// <summary>
-        /// MarkInactive 把连接置为非活跃并清空全部连接属性
+        /// MarkInactive 只把连接置为非活跃，连接属性保留给 ChannelInactiveAsync 读取
         /// </summary>
         [TestMethod]
-        public void MarkInactive_DeactivatesAndClearsAttributes()
+        public void MarkInactive_DeactivatesButKeepsAttributes()
         {
             var channel = new DefaultChannel("ch-mark", null);
             channel.SetAttribute("auth", true);
@@ -182,15 +182,16 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             channel.MarkInactive();
 
             Assert.IsFalse(channel.IsActive);
-            Assert.AreEqual(0, channel.Attributes.Count);
-            Assert.IsNull(channel.GetAttribute("auth"));
+            Assert.AreEqual(2, channel.Attributes.Count);
+            Assert.AreEqual(true, channel.GetAttribute("auth"));
+            Assert.AreEqual(42, channel.GetAttribute("session"));
         }
 
         /// <summary>
-        /// 重复调用 MarkInactive 保持非活跃且属性仍为空
+        /// 重复调用 MarkInactive 保持非活跃且属性始终保留
         /// </summary>
         [TestMethod]
-        public void MarkInactive_Repeated_StaysInactiveAndEmpty()
+        public void MarkInactive_Repeated_StaysInactiveAndKeepsAttributes()
         {
             var channel = new DefaultChannel("ch-mark-twice", null);
             channel.SetAttribute("auth", true);
@@ -199,15 +200,15 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             channel.MarkInactive();
 
             Assert.IsFalse(channel.IsActive);
-            Assert.AreEqual(0, channel.Attributes.Count);
+            Assert.AreEqual(1, channel.Attributes.Count);
         }
 
         /// <summary>
-        /// CloseAsync 只进入收口不清属性，随后 MarkInactive 才清空属性且不再触发关闭委托
+        /// CloseAsync 与 MarkInactive 都不清属性；只有 ClearAttributes 才清空，且不触发关闭委托
         /// </summary>
         /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
-        public async Task MarkInactive_AfterCloseAsync_DoesNotInvokeDelegateAgain()
+        public async Task MarkInactive_AfterCloseAsync_KeepsAttributesUntilClear()
         {
             var calls = 0;
             var channel = new DefaultChannel("ch-close-then-mark", reason =>
@@ -221,10 +222,30 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             Assert.AreEqual(1, channel.Attributes.Count, "CloseAsync 只进入收口，不清空属性。");
 
             channel.MarkInactive();
+            Assert.AreEqual(1, channel.Attributes.Count, "MarkInactive 只翻转活跃状态，不清空属性。");
+
+            channel.ClearAttributes();
 
             Assert.AreEqual(1, Volatile.Read(ref calls));
             Assert.IsFalse(channel.IsActive);
             Assert.AreEqual(0, channel.Attributes.Count);
+        }
+
+        /// <summary>
+        /// ClearAttributes 幂等：重复调用只清空一次，清理计数保持为 1
+        /// </summary>
+        [TestMethod]
+        public void ClearAttributes_Repeated_ClearsOnce()
+        {
+            var channel = new DefaultChannel("ch-clear-once", null);
+            channel.SetAttribute("auth", true);
+
+            channel.MarkInactive();
+            channel.ClearAttributes();
+            channel.ClearAttributes();
+
+            Assert.AreEqual(0, channel.Attributes.Count);
+            Assert.AreEqual(1, channel.AttributesClearCount);
         }
 
         /// <summary>

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 09:50:56
+*修改时间：2026/11/9 11:16:22
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：OtherSplittersTests
+*描述：追加无边界分帧器的空缓冲、跨段、超限与整段消费用例
 *
 *****************************************************************************/
 using System;
@@ -279,6 +279,93 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
         {
             Assert.ThrowsException<ArgumentOutOfRangeException>(() => new FixedLengthSplitter(0));
             Assert.ThrowsException<ArgumentOutOfRangeException>(() => new FixedLengthSplitter(-1));
+        }
+
+        /// <summary>
+        /// 空缓冲时不产出帧，消耗量为 0 且帧为空
+        /// </summary>
+        [TestMethod]
+        public void TakeAvailable_EmptyBuffer_ReturnsFalse()
+        {
+            var splitter = new TakeAvailableSplitter(16);
+
+            long consumed;
+            ReadOnlySequence<byte> frame;
+            Assert.IsFalse(splitter.TrySplit(ReadOnlySequence<byte>.Empty, out consumed, out frame));
+            Assert.AreEqual(0, consumed);
+            Assert.IsTrue(frame.IsEmpty);
+        }
+
+        /// <summary>
+        /// 跨两段的输入被整体作为一帧返回，长度与字节内容都覆盖全部段
+        /// </summary>
+        [TestMethod]
+        public void TakeAvailable_MultiSegment_ReturnsWholeSequence()
+        {
+            var splitter = new TakeAvailableSplitter(16);
+            var sequence = BuildSequence(new byte[] { 1, 2, 3 }, new byte[] { 4, 5 });
+
+            long consumed;
+            ReadOnlySequence<byte> frame;
+            Assert.IsTrue(splitter.TrySplit(sequence, out consumed, out frame));
+            Assert.AreEqual(5, consumed);
+            Assert.IsFalse(frame.IsSingleSegment, "跨段输入不应被合并成单段。");
+            CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 4, 5 }, frame.ToArray());
+        }
+
+        /// <summary>
+        /// 可用缓冲超过单次读取上限时抛 FrameProtocolException
+        /// </summary>
+        [TestMethod]
+        public void TakeAvailable_ExceedsMaxFrameLength_Throws()
+        {
+            var splitter = new TakeAvailableSplitter(4);
+
+            Assert.ThrowsException<FrameProtocolException>(
+                () => SplitIgnoringResult(splitter, new byte[] { 1, 2, 3, 4, 5 }));
+        }
+
+        /// <summary>
+        /// 非空缓冲一次消费全部字节，排空后再次调用返回 false
+        /// </summary>
+        [TestMethod]
+        public void TakeAvailable_ConsumesWholeBuffer()
+        {
+            var splitter = new TakeAvailableSplitter(4);
+            var buffered = new byte[] { 9, 8, 7, 6 };
+
+            long consumed;
+            ReadOnlySequence<byte> frame;
+            Assert.IsTrue(splitter.TrySplit(new ReadOnlySequence<byte>(buffered), out consumed, out frame));
+            Assert.AreEqual(4, consumed);
+            CollectionAssert.AreEqual(buffered, frame.ToArray());
+            Assert.IsFalse(splitter.TrySplit(ReadOnlySequence<byte>.Empty, out consumed, out frame),
+                "排空后不应继续产出帧。");
+        }
+
+        private static ReadOnlySequence<byte> BuildSequence(params byte[][] chunks)
+        {
+            var first = new ChunkSegment(chunks[0]);
+            var last = first;
+            for (var i = 1; i < chunks.Length; i++)
+                last = last.Append(chunks[i]);
+
+            return new ReadOnlySequence<byte>(first, 0, last, last.Memory.Length);
+        }
+
+        private sealed class ChunkSegment : ReadOnlySequenceSegment<byte>
+        {
+            public ChunkSegment(ReadOnlyMemory<byte> memory)
+            {
+                Memory = memory;
+            }
+
+            public ChunkSegment Append(ReadOnlyMemory<byte> memory)
+            {
+                var next = new ChunkSegment(memory) { RunningIndex = RunningIndex + Memory.Length };
+                Next = next;
+                return next;
+            }
         }
 
         private static void SplitIgnoringResult(IFrameSplitter splitter, byte[] buffered)

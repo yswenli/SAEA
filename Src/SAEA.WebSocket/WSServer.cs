@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/03/18 02:16:04
+*修改时间：2026/11/6 15:27:03
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：WSServer服务端类
+*版本号： v26.11.5.1
+*描述：删除 WSSServerImpl，TLS 配置统一由 WSServerImpl 承载
 *
 *****************************************************************************/
 using System;
@@ -85,14 +85,8 @@ namespace SAEA.WebSocket
         {
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
 
-            if (protocols != SslProtocols.None && !string.IsNullOrEmpty(pfxPath))
-            {
-                _wsServer = new WSSServerImpl(protocols, pfxPath, pwd, port, bufferSize);
-            }
-            else
-            {
-                _wsServer = new WSServerImpl(port, bufferSize, maxConnects);
-            }
+            _wsServer = new WSServerImpl(port, bufferSize, maxConnects, protocols, pfxPath, pwd);
+
             _wsServer.OnConnected += WsServer_OnConnected;
             _wsServer.OnMessage += WsServer_OnMessage;
             _wsServer.OnDisconnected += WsServer_OnDisconnected;

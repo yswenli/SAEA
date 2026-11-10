@@ -63,7 +63,7 @@ fileTransfer.SendFile(@"C:\Data\video.mp4", "192.168.1.100");
 | 🔄 **断点续传** | offset 参数从指定位置续传 | 网络中断可恢复 |
 | 📊 **实时进度** | 发送/接收速度、数据量统计 | 可视化监控传输状态 |
 | 💓 **心跳保活** | 10秒心跳间隔保持连接 | 自动检测连接状态 |
-| 📡 **事件驱动** | 完善的事件回调机制 | 灵活处理传输状态 |
+| 📡 **处理器链** | 接收方向由 `SAEA.Sockets.Pipeline` 驱动，`ConfigurePipeline` 按需追加处理器 | 无需改动组件即可扩展接收逻辑 |
 | 🤝 **四阶段握手** | 请求/允许/拒绝/数据流协议 | 安全可靠的传输控制 |
 
 ---
@@ -102,6 +102,9 @@ fileTransfer.SendFile(@"C:\Data\video.mp4", "192.168.1.100");
 │       └─────────────┘      └──────────────┘               │
 │                                                             │
 │  ┌─────────────────────────────────────────────────────┐  │
+│  │  SAEA.Sockets.Pipeline (拆帧 / 解码 / 处理器链)      │  │
+│  └─────────────────────────────────────────────────────┘  │
+│  ┌─────────────────────────────────────────────────────┐  │
 │  │               SAEA.Sockets (异步 IO)                │  │
 │  └─────────────────────────────────────────────────────┘  │
 │                                                             │
@@ -123,9 +126,9 @@ fileTransfer.SendFile(@"C:\Data\video.mp4", "192.168.1.100");
   │     └── FileLength                      │
   │────────────────────────────────────────►│
   │                                         │
-  │                              3. OnRequested 事件
-  │                                 ├── 返回 true (允许)
-  │                                 └── 返回 false (拒绝)
+  │                              3. 请求处理器
+  │                                 ├── Server.Allow(id)  允许
+  │                                 └── Server.Refuse(id) 拒绝
   │                                         │
   │  4. 允许接收 (AllowReceive)             │
   │◄────────────────────────────────────────│
@@ -145,8 +148,8 @@ fileTransfer.SendFile(@"C:\Data\video.mp4", "192.168.1.100");
   │                                         │
   │                              6. 写入文件 (File.WriteAllText)
   │                                         │
-  │                              7. OnReceiveEnd 事件
-  │                                 └── 触发接收完成回调
+  │                              7. 内置接收处理器落盘
+  │                                 └── FileTransfer 触发 OnReceiveEnd
   │                                         │
   │  8. 发送完成回调                          │
   │◄────────────────────────────────────────│
@@ -192,7 +195,7 @@ fileTransfer.SendFile(@"C:\Data\video.mp4", "192.168.1.100");
 │                                                             │
 │  阶段4: 完成 (Complete)                                     │
 │  ┌─────────────────────────────────────────────────────┐   │
-│  │ 触发: OnReceiveEnd 事件                              │   │
+│  │ 触发: 内置接收处理器收齐分块后 FileTransfer 抛 OnReceiveEnd │   │
 │  │ 动作: 保存文件、清理资源                              │   │
 │  └─────────────────────────────────────────────────────┘   │
 │                                                             │
@@ -308,41 +311,71 @@ fileTransfer.OnReceiveEnd += (filePath) =>
 
 ### Q4: 如何拒绝接收特定文件？
 
-**A**: 使用 `Server` 类的 `OnRequested` 事件：
+**A**: 用 `ConfigurePipeline` 在接收链上追加自己的处理器，按业务规则调用 `Refuse` 或放行：
 
 ```csharp
+using SAEA.Common.Serialization;
+using SAEA.FileSocket;
+using SAEA.FileSocket.Model;
+using SAEA.Sockets.Base;
+using SAEA.Sockets.Model;
+using SAEA.Sockets.Pipeline;
+
 var server = new Server(port: 39654);
 
-server.OnRequested += (ID, fileName, length) => 
+server.ConfigurePipeline = (id, pipeline) =>
 {
-    // 根据文件名或大小决定是否接收
-    if (length > 1024 * 1024 * 1024)  // 超过 1GB
-    {
-        Console.WriteLine($"拒绝接收大文件: {fileName}");
-        return false;  // 拒绝
-    }
-    return true;  // 允许
+    pipeline.AddLast(new RejectLargeFileHandler(server));
 };
 
 server.Start();
+
+sealed class RejectLargeFileHandler : InboundHandlerAdapter
+{
+    private readonly Server _server;
+
+    public RejectLargeFileHandler(Server server)
+    {
+        _server = server;
+    }
+
+    public override async Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+    {
+        var protocal = msg as BaseSocketProtocal;
+        if (protocal != null && protocal.Type == (byte)SocketProtocalType.RequestSend)
+        {
+            var file = SerializeHelper.PBDeserialize<FileMessage>(protocal.Content.ToArray());
+            if (file.Length > 1024L * 1024 * 1024)
+            {
+                // 拒绝后不再向下游转发，本次请求到此为止。
+                _server.Refuse(ctx.Channel.Id);
+                return;
+            }
+        }
+
+        await ctx.FireChannelReadAsync(msg);
+    }
+}
 ```
+
+放行时调用 `_server.Allow(ctx.Channel.Id)`，再 `await ctx.FireChannelReadAsync(msg)` 让内置处理器继续处理请求帧。
 
 ### Q5: 支持同时传输多个文件吗？
 
-**A**: 支持。创建多个 `Client` 实例或使用同一个 `FileTransfer` 发送多个文件：
+**A**: 支持。多个 `Client` 实例各自建立连接即可并发；同一个 `Client` 串行发送：
 
 ```csharp
 // 方式1: 使用 FileTransfer 顺序发送
 fileTransfer.SendFile(file1, targetIp);
 fileTransfer.SendFile(file2, targetIp);
 
-// 方式2: 创建多个 Client 并发发送
-var client1 = new Client();
-var client2 = new Client();
-client1.Connect(ip, port);
-client2.Connect(ip, port);
-client1.SendFile(file1, callback);
-client2.SendFile(file2, callback);
+// 方式2: 创建多个 Client 并发发送，连接参数在构造函数上
+var client1 = new Client(bufferSize: 100 * 1024, ip: "192.168.1.100", port: 39654);
+var client2 = new Client(bufferSize: 100 * 1024, ip: "192.168.1.100", port: 39654);
+client1.Connect();
+client2.Connect();
+client1.SendFile(file1, 0, success => Console.WriteLine("文件1: " + success));
+client2.SendFile(file2, 0, success => Console.WriteLine("文件2: " + success));
 ```
 
 ### Q6: 传输中断后如何恢复？
@@ -361,14 +394,12 @@ client.SendFile(fileName, lastOffset, callback);
 
 ### Q7: 如何自定义接收路径？
 
-**A**: 在 `FileTransfer` 或 `Server` 构造时指定：
+**A**: 接收路径由 `FileTransfer` 的 `filePath` 参数决定，`Server` 本身不落盘：
 
 ```csharp
-// FileTransfer 方式
+// 收到的文件会保存到 C:\CustomPath 下，文件名沿用发送端的文件名
 var fileTransfer = new FileTransfer(@"C:\CustomPath", port: 39654);
-
-// Server 方式
-var server = new Server(port: 39654, filePath: @"C:\CustomPath");
+fileTransfer.Start();
 ```
 
 ---
@@ -379,9 +410,11 @@ var server = new Server(port: 39654, filePath: @"C:\CustomPath");
 |------|------|
 | `FileTransfer` | 文件传输主协调类，同时支持发送和接收 |
 | `Client` | 文件发送客户端，用于主动发送文件 |
-| `Server` | 文件接收服务器，用于监听和接收文件 |
+| `Server` | 文件接收服务器，提供 `Allow` / `Refuse` 应答与 `ConfigurePipeline` 扩展点 |
 | `FileMessage` | 文件消息数据模型，定义传输协议 |
-| `FileMessageCoder` | 文件消息编解码器 |
+| `FileMessageDecoder` | 入站解码器，把完整帧解成协议对象并丢弃心跳帧 |
+| `FileMessageEncoder` | 出站编码器，把协议对象写成完整线格式帧 |
+| `FileFrameSplitter` | 线格式拆帧配置，统一帧长上限口径 |
 
 ---
 
@@ -408,24 +441,28 @@ fileTransfer.SendFile(@"C:\Data\document.pdf", "192.168.1.100");
 
 ```csharp
 using SAEA.FileSocket;
+using SAEA.Sockets.Pipeline;
 
 var server = new Server(port: 39654, bufferSize: 100 * 1024);
 
-server.OnRequested += (ID, fileName, length) => 
+// 接收链上追加自己的处理器；不追加时只走内置的文件落盘处理器。
+server.ConfigurePipeline = (id, pipeline) =>
 {
-    Console.WriteLine($"请求接收文件: {fileName}, 大小: {length / 1024 / 1024}MB");
-    return true;
+    pipeline.AddLast(new LoggingHandler());
 };
-
-server.OnFile += (userToken, content) => 
-{
-    // 自定义处理接收的数据块
-};
-
-server.OnError += (ID, ex) => 
-    Console.WriteLine($"传输错误: {ex.Message}");
 
 server.Start();
+
+sealed class LoggingHandler : InboundHandlerAdapter
+{
+    public override async Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+    {
+        Console.WriteLine($"收到 {ctx.Channel.Id} 的消息：{msg.GetType().Name}");
+
+        // 交回下游，内置处理器才能继续落盘。
+        await ctx.FireChannelReadAsync(msg);
+    }
+}
 ```
 
 ### Client 端发送（带回调）
@@ -433,11 +470,12 @@ server.Start();
 ```csharp
 using SAEA.FileSocket;
 
-var client = new Client(bufferSize: 100 * 1024);
+// 目标地址在建连时确定，需先 Connect 再发送。
+var client = new Client(bufferSize: 100 * 1024, ip: "192.168.1.100", port: 39654);
 
-client.Connect("192.168.1.100", 39654);
+client.Connect();
 
-client.SendFile(@"C:\Data\document.pdf", (success) => 
+client.SendFile(@"C:\Data\document.pdf", 0, success =>
 {
     if (success)
         Console.WriteLine("发送成功");
@@ -445,9 +483,9 @@ client.SendFile(@"C:\Data\document.pdf", (success) =>
         Console.WriteLine("发送失败");
 });
 
-// 断点续传
+// 断点续传：offset 表示跳过前面已传输的字节数
 long offset = 1024 * 1024 * 100;
-client.SendFile(@"C:\Data\large_file.dat", offset, (success) => 
+client.SendFile(@"C:\Data\large_file.dat", offset, success =>
     Console.WriteLine($"续传结果: {success}"));
 ```
 
@@ -499,8 +537,9 @@ FileSocket 使用四阶段握手协议：
 
 | 包名 | 版本 | 说明 |
 |------|------|------|
-| SAEA.Sockets | 26.9.21.1 | Socket 通信框架 |
-| SAEA.Common | 26.9.21.1 | 公共工具类 |
+| SAEA.Sockets | 26.11.5.1 | Socket 通信框架 |
+| SAEA.Sockets.Pipeline | 26.11.5.1 | 拆帧、编解码与处理器链 |
+| SAEA.Common | 26.11.5.1 | 公共工具类 |
 
 ---
 

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/10/26 16:06:37
+*修改时间：2026/11/9 10:30:00
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：UserTokenPool池类
+*版本号： v26.11.5.1
+*描述：回收令牌前结束在途发送，避免迟到完成回调误伤复用后的发送
 *
 *****************************************************************************/
 using System;
@@ -35,7 +35,9 @@ using System.Net.Sockets;
 using System.Threading;
 
 using SAEA.Common;
+using SAEA.Sockets.Base;
 using SAEA.Sockets.Interface;
+using SAEA.Sockets.Model;
 
 namespace SAEA.Sockets.Core
 {
@@ -222,6 +224,12 @@ namespace SAEA.Sockets.Core
                 userToken.ID = null;
                 userToken.Linked = DateTime.MinValue;
                 userToken.Actived = DateTime.MinValue;
+                // 令牌即将被复用：先结束旧的在途发送，避免迟到的完成回调误伤下一次发送。
+                var baseUserToken = userToken as BaseUserToken;
+                if (baseUserToken != null)
+                {
+                    try { baseUserToken.AbandonPendingSend(new KernelException("连接已断开，发送未完成。")); } catch { }
+                }
                 try { userToken.TakeSendingOwner(); } catch { }
                 userToken.ReleaseWrite();
                 _concurrentQueue.Enqueue(userToken);

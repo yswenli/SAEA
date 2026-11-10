@@ -72,6 +72,24 @@ server.Start();
 
 ---
 
+## ⚠️ Breaking Changes (P0)
+
+The following 11 changes affect both `SAEA.Sockets` and `SAEA.Sockets.Pipeline`; check every call site before upgrading:
+
+1. **Four Pipeline interfaces gain six new members**: `IChannelHandler` adds `HandlerAdded` / `HandlerRemoved`, `IChannelInboundHandler` adds `ChannelActiveAsync` / `ChannelInactiveAsync`, `IChannelHandlerContext` adds `CloseAfterWriteAsync`, and `IChannelPipeline` adds `WriteAsync`. Code that implements these interfaces directly fails to compile; inheriting `ChannelHandlerAdapter` / `InboundHandlerAdapter` / `OutboundHandlerAdapter` is unaffected. `netstandard2.0` with C# 8 has no default interface implementations, so there is no way to hide this with defaults.
+2. **`ctx.WriteAsync` is now legal only inside an outbound callback**: it is a chain-forwarding call and must be used inside `IChannelOutboundHandler.WriteAsync`. Calling it from business handlers, connection lifecycle callbacks, or async continuations throws `InvalidOperationException` synchronously. Use `ctx.Pipeline.WriteAsync(entity)` for business sends.
+3. **Inbound ordinary exceptions are notified once and then rethrown**: they are no longer swallowed. `ChannelExceptionCaughtAsync` is notified once, then the exception keeps propagating to the chain tail where `ExceptionTerminalHandler` records it and decides whether to disconnect. Cancellation is not notified but still propagates.
+4. **The chain freezes after `Start()`**: the fixed order is `Create → Attach → assemble → Start`; after `Start()` succeeds, `AddLast` / `AddFirst` / `Remove` all throw `InvalidOperationException`. Do not use the receive pump when handlers must be added or removed at runtime.
+5. **The two `owner`-carrying send overloads in `SAEA.Sockets` change from `void` to `Task`**: `IServerSocket.SendAsync(string, ReadOnlyMemory<byte>, IDisposable)` and `IClientSocket.SendAsync(ReadOnlyMemory<byte>, IDisposable)` now return `Task`, and all four implementations change together: `SaeaServerSocket` / `SaeaClientSocket` / `SaeaUdpServerSocket` / `SaeaUdpClientSocket`. Existing calls still compile without `await`, but async failures become unobservable; external interface implementations must change their signatures.
+6. **`owner` release contract**: released exactly once on success and on every path whose exit can be confirmed; a missing session or synchronous exception is released by the transport; async failure/cancellation is released after the socket operation is confirmed to have exited; a send-timeout path that cannot prove the kernel has exited may abandon the buffer instead of reclaiming it. The adapter only translates exceptions and never disposes `owner` a second time.
+7. **`ByteToMessageDecoder` does not accumulate partial packets**: its input must be a complete `PooledMessage` cut by the pump; partial bytes stay in the `Pipe` / accumulator. `FrameSplitterHandler` is only for pure chaining without the executor pump; using both splits the same bytes twice.
+8. **`RawFrame` and the envelope model are mutually exclusive**: the `FramePassthroughHandler` raw-frame bypass and the `Envelope*` / `Codec*` envelope chain cannot live on the same chain; pick one.
+9. **`CloseAfterWriteAsync` only guarantees submission to the transport**: a successful return means submitted writes completed their handoff, not that the peer received them; `DrainTimeout <= 0` is treated as 5 seconds at this entry, and a timeout forces shutdown while compensating un-handed-off `RawFrame` instances.
+10. **Only two memory quantities are bounded**: `MaxBufferedBytes` bounds per-connection un-framed input leftovers, and `MaxPendingWrites` bounds the outbound pending-write item count. Queued frames, in-flight frames, decoded business messages, TLS encryption copies, socket send buffers, and pool retention are not covered by a fixed total upper bound.
+11. **Assembly positions and limits**: exactly one `OutboundSerializingHandler` must sit at the rightmost end of the outbound prefix (immediately next to the first inbound node) so writes are queued before encoding; `SwitchableSplitter` must be one instance per connection, `SwitchTo` is the only way to release the `StopAfterCurrent` barrier, its `MaxFrameLength` is fixed at construction to the maximum of every switchable protocol and a switch target may not exceed it, and `SplitterSwitchTimeout` defaults to 10 seconds before failing with `FrameProtocolException`; `TakeAvailableSplitter` treats one read as one message boundary, its `MaxFrameLength` is also the per-read cap, and it does not exempt `ChannelPipeline.Create` from the buffer lower-bound check.
+
+---
+
 ## 🧱 Architecture
 
 ```
@@ -81,8 +99,9 @@ Inbound (head → tail):
        → MessageDispatcher → ExceptionTerminalHandler
 
 Outbound (tail → head):
-  business ctx.WriteAsync(entity) → EnvelopeWrapHandler → CodecEncoderHandler
-       → FrameEncoderHandler → chain head → IRawByteStream.SendAsync(frame, owner) → transport
+  business IChannelPipeline.WriteAsync(entity) → OutboundSerializingHandler → EnvelopeWrapHandler
+       → CodecEncoderHandler → FrameEncoderHandler → chain head
+       → IRawByteStream.SendAsync(frame, owner) → transport
 ```
 
 ---
@@ -116,13 +135,19 @@ var pipeline = ChannelPipeline.Create(options);
 var codec = new EnvelopeCodec();
 
 // Outbound handlers must form a contiguous prefix at the head. AddLast appends at the tail,
-// so add the handler closest to the transport first (FrameEncoderHandler) and the handler
-// closest to business code last (EnvelopeWrapHandler).
+// so add the handler closest to the transport first (FrameEncoderHandler), then
+// CodecEncoderHandler and EnvelopeWrapHandler, and finally OutboundSerializingHandler
+// immediately next to the first inbound node.
 // Outbound traversal is tail → head, so the actual order is:
-// EnvelopeWrapHandler → CodecEncoderHandler → FrameEncoderHandler → transport.
+// OutboundSerializingHandler → EnvelopeWrapHandler → CodecEncoderHandler
+// → FrameEncoderHandler → transport.
 pipeline.AddLast(new FrameEncoderHandler(new LengthFieldFrameEncoder()));
 pipeline.AddLast(new CodecEncoderHandler(codec));
 pipeline.AddLast(new EnvelopeWrapHandler(registry, new JsonMessageCodec()));
+
+// Exactly one serializer, at the rightmost end of the outbound prefix:
+// queue before encoding so an async encoder cannot reorder writes.
+pipeline.AddLast(new OutboundSerializingHandler());
 
 // Inbound: the pump already performs framing, so no FrameSplitterHandler is needed here.
 pipeline.AddLast(new CodecDecoderHandler(codec));
@@ -139,6 +164,7 @@ pipeline.AddLast(new ExceptionTerminalHandler());
 - Outbound handlers must form a contiguous prefix at the head and cannot sit behind inbound handlers. `AddLast` validates this: once an inbound handler is at the head, appending another outbound handler throws `InvalidOperationException`; use `AddFirst` instead.
 - `AddFirst` enforces the symmetric rule: an inbound handler cannot be inserted before an outbound handler already at the head.
 - A handler implementing both inbound and outbound interfaces is rejected; a non-sharable instance cannot be attached to more than one chain (`IChannelHandler.IsSharable`).
+- With `RequireTerminalHandler = true`, `Start()` validates that the last inbound node is an `ExceptionTerminalHandler` and that exactly one `OutboundSerializingHandler` sits at the rightmost end of the outbound prefix; otherwise startup fails and shutdown begins immediately.
 
 ---
 
@@ -196,11 +222,7 @@ public sealed class SocketStreamAdapter : IRawByteStream
         if (server == null)
             throw new ArgumentNullException(nameof(server));
 
-        return (data, owner) =>
-        {
-            server.SendAsync(channelId, data, owner);
-            return Task.CompletedTask;
-        };
+        return (data, owner) => server.SendAsync(channelId, data, owner);
     }
 
     public string ChannelId
@@ -213,13 +235,32 @@ public sealed class SocketStreamAdapter : IRawByteStream
         get { return _input; }
     }
 
-    public Task SendAsync(ReadOnlyMemory<byte> data, IDisposable owner)
+    public async Task SendAsync(ReadOnlyMemory<byte> data, IDisposable owner)
     {
+        Task sending;
         try
         {
             // Pass owner straight through: the transport releases it when sending completes or fails.
             // The adapter must never dispose it before returning.
-            return _send(data, owner);
+            sending = _send(data, owner);
+        }
+        catch (ChannelClosedException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new ChannelClosedException("Connection closed or send failed:" + _channelId + "," + ex.Message, ex);
+        }
+
+        if (sending == null)
+            return;
+
+        try
+        {
+            // Actually await the transport handoff: the Task means ownership was handed off,
+            // not that the peer has received the bytes.
+            await sending.ConfigureAwait(false);
         }
         catch (ChannelClosedException)
         {
@@ -248,16 +289,15 @@ public sealed class SocketStreamAdapter : IRawByteStream
 }
 ```
 
-- `SendAsync` returning `Task.CompletedTask` means only that ownership of the frame has been handed to the transport — not that the peer received it. `owner` must stay undisposed until the task returns.
+- `SendAsync` must actually `await` the send delegate. The returned Task means only that ownership of the frame has been handed to the transport — not that the peer received it. Synchronous exceptions and asynchronous faults are both translated to `ChannelClosedException`; the transport releases `owner`, and the adapter never disposes it a second time.
 - When the connection is closed, `SendAsync` must throw `ChannelClosedException` immediately instead of queueing or silently succeeding; other transport exceptions are translated to `ChannelClosedException` too.
 - Both server and client support integration; both sides share the same `UseInputHandler` / `UseConnectionOpened` hooks and the same configuration validation. On the client, wire it inside `UseInputHandler`:
 
   ```csharp
   var adapter = new SocketStreamAdapter(userToken.ID, input, flow, (data, owner) =>
-  {
-      client.SendAsync(data, owner);   // the client copies as needed and releases owner when done
-      return Task.CompletedTask;
-  });
+      // The client send overload returns a Task; the adapter awaits it, and the transport
+      // releases owner after the underlying handoff completes or fails.
+      client.SendAsync(data, owner));
   ```
 
 ---
@@ -271,15 +311,18 @@ public sealed class SocketStreamAdapter : IRawByteStream
 - `Envelope.Payload` is always an independent `new byte[len]` and never points at pooled backing storage, so it carries no return obligation. `EnvelopeCopyThreshold` (4KB by default) only controls a `Warn` log line; it does not change how copying works.
 - For raw frame bytes (packet capture, auditing, binary passthrough), use `FramePassthroughHandler`: it calls `Retain()` and forwards the `PooledMessage` unchanged, and the branch's own tail handler releases that reference. This branch is mutually exclusive with the codec branch and cannot share a chain with it.
 - Outbound intermediates `EncodedBody` / `TransportFrame` stay inside the outbound chain. When `await ctx.WriteAsync(...)` returns normally, ownership has moved to the chain head/transport; if it throws, the creator disposes them.
+- All business writes go through `IChannelPipeline.WriteAsync`: each write claims one operation and one pending-write slot, starting from the rightmost outbound node. `ctx.WriteAsync` only forwards along the same operation from inside an outbound callback; it never increments the count or consumes another slot.
+- A `RawFrame` is compensated by the outbound boundary until the chain head CAS accepts it for handoff; after a successful handoff only the transport releases it. The outbound boundary does not take ownership of ordinary business `IDisposable` objects.
 
 ---
 
 ## ⏱️ Lifecycle and Close Semantics
 
-- `WriteAsync` before `Attach` is invalid: the head cannot find an executor or byte stream and throws `InvalidOperationException("pipeline 尚未 Attach 到传输层。")`. `ctx.Channel` is unavailable for the same reason.
+- `IChannelPipeline.WriteAsync` before `Attach` is invalid: the head cannot find an executor or byte stream and throws `InvalidOperationException("pipeline 尚未 Attach 到传输层。")`. `ctx.Channel` is unavailable for the same reason.
 - `ChannelPipelineExecutor.Attach(pipeline)` must complete before `Start()`; otherwise `Start()` throws `InvalidOperationException`.
 - `CloseAsync(reason)` only means "shutdown has begun": it returns immediately while shutdown continues in the background. Wait on `ChannelPipelineExecutor.Completion` to know that resources have been reclaimed.
-- After shutdown begins, `WriteAsync` throws `ChannelClosedException`; `IRawByteStream.SendAsync` must throw the same exception once the connection is closed. This check precedes message-type validation: an old `ctx` from an already-removed node still reports closed even if the message is not a `TransportFrame`.
+- The close state machine is `Open → DrainingWrites → Closing`. `CloseAfterWriteAsync` stops accepting new writes first, then waits in the same synchronization boundary for submitted writes to reach zero; a zero `DrainTimeout` means 5 seconds. On timeout only writes still in `Queued` are force-completed and their `RawFrame` compensated; handed-off writes are never faked as complete or released. A plain `CloseAsync` during draining joins the same wait, and repeated calls reuse the same completion.
+- After shutdown begins, `IChannelPipeline.WriteAsync` throws `ChannelClosedException`; `IRawByteStream.SendAsync` must throw the same exception once the connection is closed. This check precedes message-type validation: an old `ctx` from an already-removed node still reports closed even if the message is not a `TransportFrame`.
 - Once `UseInputHandler` is configured, the pump owns that connection's `PipeReader` and the runtime marks inbound data as claimed: later calls to `GetStream()`, `ReceiveAsync()` or `ChannelInfo.Stream.ReadAsync` throw `InvalidOperationException` immediately (the message names the owner and the supported alternative), so two readers can no longer steal bytes from each other. Outbound `Stream.WriteAsync` is unaffected.
 - Once the hooks are enabled, the event pump is not started for that connection: neither server `OnServerReceiveSpan` nor client `OnClientReceiveSpan` fires.
 - `UseInputHandler` must be paired with `UseConnectionOpened` and requires `.UseStream()`. `SocketOptionBuilder.Build()` validates this and throws `InvalidOperationException`.
@@ -325,10 +368,11 @@ public sealed class SocketStreamAdapter : IRawByteStream
 
 ---
 
-## 🐞 Debug Assertion Boundary
+## 🐞 Outbound Forwarding Checks
 
-- In `Debug` builds a lightweight outbound check exists: **the same handler node** may call `ctx.WriteAsync` with the same `msg` instance only once; a second write triggers the assertion. Different nodes forwarding the same instance (for example a logging handler passing an intermediate carrier through) is legal. That covers "one handler writes the same message twice".
-- It does **not** cover "forgot to forward": returning without forwarding and deliberately dropping a message are indistinguishable at runtime, so this relies on code review and end-to-end tests that assert the reply actually arrives.
+- The same outbound node may call `ctx.WriteAsync` at most once per business write; a second forward throws `InvalidOperationException`, and this check is active in `Release` builds too. Different nodes forwarding the same instance in turn (for example a logging handler passing an intermediate carrier through) is legal.
+- A context view is only valid inside its outbound callback: calling `ctx.WriteAsync` outside a callback, or `CloseAfterWriteAsync` / `ctx.Pipeline.WriteAsync` inside an outbound callback, throws `InvalidOperationException` synchronously.
+- It does **not** cover "forgot to forward": returning without forwarding and deliberately dropping a message are indistinguishable at runtime. The outbound boundary only compensates a `RawFrame` that was not handed off; ordinary business objects remain the business code's responsibility.
 - Calling `IRawByteStream.SendAsync` directly and bypassing the chain head is not detected at runtime either; code review forbids it.
 
 ---
@@ -340,6 +384,7 @@ public sealed class SocketStreamAdapter : IRawByteStream
 | `FrameEncoderHandler` | Outbound | Completes an `EncodedBody` into a full frame and wraps it as `TransportFrame` for the head |
 | `CodecEncoderHandler` | Outbound | `Envelope` → `EncodedBody` via `ICodec.Encode` |
 | `EnvelopeWrapHandler` | Outbound | Business entity → `Envelope.Type` + `Envelope.Payload` |
+| `OutboundSerializingHandler` | Outbound | Single-writer FIFO serializer: queue before encoding; must be the rightmost outbound node |
 | `OutboundLoggingHandler` | Outbound | Logs the outbound message type and forwards it |
 | `CodecDecoderHandler` | Inbound | `PooledMessage` → `Envelope`, then releases the frame bytes |
 | `AuthHandler` | Inbound | First-level authentication: checks only the `Envelope.Type` allow-list, never parses the payload |
@@ -351,7 +396,7 @@ public sealed class SocketStreamAdapter : IRawByteStream
 | `FramePassthroughHandler` | Inbound | Raw-frame bypass (`Retain` then forward); mutually exclusive with the codec branch |
 | `FrameSplitterHandler` | Inbound | Only for manual in-chain splitting when not using the receive pump |
 
-Pluggable implementations: `LengthFieldSplitter`, `DelimiterSplitter`, `FixedLengthSplitter`, `LineSplitter`, `LengthFieldFrameEncoder`, `EnvelopeCodec`, `JsonMessageCodec`, `ProtobufMessageCodec`, `RawCopyCodec`, `TypeRegistry`.
+Pluggable implementations: `LengthFieldSplitter`, `DelimiterSplitter`, `FixedLengthSplitter`, `LineSplitter`, `SwitchableSplitter`, `TakeAvailableSplitter`, `LengthFieldFrameEncoder`, `EnvelopeCodec`, `JsonMessageCodec`, `ProtobufMessageCodec`, `RawCopyCodec`, `TypeRegistry`.
 
 ---
 

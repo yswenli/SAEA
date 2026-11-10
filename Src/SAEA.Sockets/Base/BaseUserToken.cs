@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:27
+*修改时间：2026/11/9 10:30:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：增加在途发送操作，断开时让发送 Task 可观察地失败
 *
 *****************************************************************************/
 using System;
@@ -34,7 +34,9 @@ using System.Net.Sockets;
 using System.Threading;
 
 using SAEA.Common;
+using SAEA.Sockets.Core;
 using SAEA.Sockets.Interface;
+using SAEA.Sockets.Model;
 
 namespace SAEA.Sockets.Base
 {
@@ -103,6 +105,40 @@ namespace SAEA.Sockets.Base
         IDisposable _sendingOwner;
 
         /// <summary>
+        /// 当前在途的发送操作；TCP 发送完成、失败或断开时据此完成等待方。
+        /// </summary>
+        private SendOperation _pendingSend;
+
+        /// <summary>
+        /// 当前在途的发送操作，保证一次连接同一时刻只有一个发送持有写闸门。
+        /// </summary>
+        internal SendOperation PendingSend
+        {
+            get { return Volatile.Read(ref _pendingSend); }
+            set { Volatile.Write(ref _pendingSend, value); }
+        }
+
+        /// <summary>
+        /// 原子取出并清空在途发送操作，取出后由调用方负责完成或放弃。
+        /// </summary>
+        /// <returns>在途发送操作；不存在时为 null</returns>
+        internal SendOperation TakePendingSend()
+        {
+            return Interlocked.Exchange(ref _pendingSend, null);
+        }
+
+        /// <summary>
+        /// 以失败结束在途发送（断开、令牌回收等场景）；没有在途发送时忽略。
+        /// </summary>
+        /// <param name="exception">失败原因</param>
+        internal void AbandonPendingSend(Exception exception)
+        {
+            var operation = TakePendingSend();
+            if (operation == null) return;
+            operation.TryCompleteException(exception ?? new KernelException("连接已断开，发送未完成。"));
+        }
+
+        /// <summary>
         /// 发送缓冲区所有权对象：零拷贝直发时为 null，库内租用池化缓冲时由发送完成回调负责释放
         /// </summary>
         public IDisposable SendingOwner
@@ -153,6 +189,8 @@ namespace SAEA.Sockets.Base
         /// </summary>
         public virtual void Clear()
         {
+            // 在途发送对应的 Task 必须可观察地失败，否则调用方会永久等待一个已不可能完成的发送。
+            AbandonPendingSend(new KernelException("连接已关闭，发送未完成。"));
             Socket?.Close();
             try { TakeSendingOwner()?.Dispose(); } catch { }
             Coder?.Clear();

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 09:50:56
+*修改时间：2026/11/9 11:39:22
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：ExecutorShutdownTests
+*描述：收口期回包处理器改用 ctx.Pipeline.WriteAsync
 *
 *****************************************************************************/
 using System;
@@ -532,7 +532,7 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
 
                 try
                 {
-                    await ctx.WriteAsync(new TransportFrame(new byte[] { 0xAA }, null));
+                    await ctx.Pipeline.WriteAsync(new TransportFrame(new byte[] { 0xAA }, null));
                 }
                 catch (Exception ex)
                 {

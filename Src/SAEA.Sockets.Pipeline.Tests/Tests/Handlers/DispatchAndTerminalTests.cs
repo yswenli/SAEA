@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 09:50:56
+*修改时间：2026/11/9 11:04:09
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：路由、两级鉴权、日志与链尾处理的契约用例
+*描述：入站异常改为通知一次后冒泡，同步改写未知类型码与日志透传用例
 *
 *****************************************************************************/
 using System;
@@ -226,7 +226,7 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
         }
 
         /// <summary>
-        /// 未注册的类型码转成 InvalidOperationException 走异常回调，链尾按 handler-exception 关闭连接
+        /// 未注册的类型码转成 InvalidOperationException 走异常回调，链尾按 handler-exception 关闭连接，异常随后冒泡
         /// </summary>
         /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
@@ -239,11 +239,13 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
                 rig.Pipeline.AddLast(captured);
                 rig.Pipeline.AddLast(new ExceptionTerminalHandler());
 
-                await rig.Pipeline.FireChannelReadAsync(new Envelope { Type = 99, Payload = Array.Empty<byte>() });
+                var thrown = await Assert.ThrowsExceptionAsync<InvalidOperationException>(
+                    () => rig.Pipeline.FireChannelReadAsync(new Envelope { Type = 99, Payload = Array.Empty<byte>() }));
 
                 Assert.AreEqual(1, captured.Exceptions.Count, "未知 type code 未进入 ExceptionCaught");
                 Assert.IsInstanceOfType(captured.Exceptions[0], typeof(InvalidOperationException),
                     "未知 type code 的异常类型不符");
+                Assert.AreSame(thrown, captured.Exceptions[0], "通知下游与冒泡给调用方的必须是同一个异常实例");
                 Assert.AreEqual(ExceptionTerminalHandler.HandlerExceptionReason, rig.Channel.LastCloseReason,
                     "链尾未按 handler-exception 关闭连接");
             }
@@ -280,7 +282,7 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
         }
 
         /// <summary>
-        /// 入站日志处理器不改变也不吞掉消息，下游异常仍原对象上报
+        /// 入站日志处理器不改变也不吞掉消息，下游异常仍原对象上报并继续冒泡
         /// </summary>
         /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
@@ -307,8 +309,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
                 rig.Pipeline.AddLast(new ThrowingInboundHandler(thrown));
                 rig.Pipeline.AddLast(captured);
 
-                await rig.Pipeline.FireChannelReadAsync(new OtherMessage());
+                var bubbled = await Assert.ThrowsExceptionAsync<InvalidOperationException>(
+                    () => rig.Pipeline.FireChannelReadAsync(new OtherMessage()));
 
+                Assert.AreSame(thrown, bubbled, "冒泡的异常被替换");
                 Assert.AreEqual(1, captured.Exceptions.Count, "日志处理器吞掉了下游异常");
                 Assert.AreSame(thrown, captured.Exceptions[0], "上报的异常被替换");
             }

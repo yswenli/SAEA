@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 09:50:56
+*修改时间：2026/11/9 11:39:22
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：出站/入站编解码 handler 的契约用例：字节一致、所有权交接、异常不吞
+*描述：业务写改走 pipeline.WriteAsync，补充同实例重复写与出站转发检查用例
 *
 *****************************************************************************/
 using System;
@@ -70,8 +70,7 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
                 new CodecEncoderHandler(new EnvelopeCodec()),
                 new EnvelopeWrapHandler(registry, new JsonMessageCodec())))
             {
-                var ctx = await rig.CaptureContextAsync();
-                await ctx.WriteAsync(entity);
+                await rig.Pipeline.WriteAsync(entity);
 
                 Assert.AreEqual(1, rig.Stream.SentCount, "一条实体应只落到传输层一帧");
 
@@ -84,10 +83,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
             }
         }
 
-#if DEBUG
-        /// <summary>
-        /// 日志 handler 会原样转发同一个中间载体；这是合法的多节点传递，
-        /// Debug 契约检查必须只在"同一节点重复写同一实例"时触发。
+/// <summary>
+        /// 日志 handler 会原样转发同一个中间载体；重复转发检查按「同节点同一次写操作」作用域，
+        /// 多节点依次透传同一实例是合法写法。
         /// </summary>
         [TestMethod]
         public async Task Outbound_PassthroughHandler_ForwardsSameInstanceWithoutFalsePositive()
@@ -101,13 +99,11 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
                 new CodecEncoderHandler(new EnvelopeCodec()),
                 new EnvelopeWrapHandler(registry, new JsonMessageCodec())))
             {
-                var ctx = await rig.CaptureContextAsync();
-                await ctx.WriteAsync(entity);
+                await rig.Pipeline.WriteAsync(entity);
 
                 Assert.AreEqual(1, rig.Stream.SentCount, "透传 handler 不应被误判为重复写入");
             }
         }
-#endif
 
         /// <summary>
         /// 链返回时只归还 body writer，帧缓冲所有权随 TransportFrame 交给传输层且只能释放一次
@@ -124,9 +120,8 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
                 new CodecEncoderHandler(new EnvelopeCodec()),
                 new EnvelopeWrapHandler(registry, new JsonMessageCodec())))
             {
-                var ctx = await rig.CaptureContextAsync();
                 var returnedBefore = ReturnedTotal();
-                await ctx.WriteAsync(entity);
+                await rig.Pipeline.WriteAsync(entity);
 
                 // body writer 在 CodecEncoderHandler 的 finally 中已归还；帧 writer 随 TransportFrame 交给传输层。
                 Assert.AreEqual(returnedBefore + 1, ReturnedTotal(),
@@ -190,7 +185,7 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
         }
 
         /// <summary>
-        /// 未注册的类型码仍会归还帧，并以携带该类型码的 InvalidOperationException 形式走异常回调
+        /// 未注册的类型码仍会归还帧，以携带该类型码的 InvalidOperationException 走异常回调，随后异常继续冒泡给调用方
         /// </summary>
         /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
@@ -209,13 +204,15 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
 
                 try
                 {
-                    await pipeline.FireChannelReadAsync(pooled);
+                    var thrown = await Assert.ThrowsExceptionAsync<InvalidOperationException>(
+                        () => pipeline.FireChannelReadAsync(pooled));
 
                     Assert.IsTrue(pooled.IsReleased, "未识别的类型码也必须在解码后归还帧");
                     Assert.AreEqual(1, tail.Exceptions.Count, "未知 type code 未转成 ExceptionCaught");
                     Assert.IsInstanceOfType(tail.Exceptions[0], typeof(InvalidOperationException),
                         "未知 type code 的异常类型不符");
                     StringAssert.Contains(tail.Exceptions[0].Message, "99", "异常未携带未知的 type code");
+                    Assert.AreSame(thrown, tail.Exceptions[0], "通知下游与冒泡给调用方的必须是同一个异常实例");
                 }
                 finally
                 {
@@ -276,9 +273,8 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
         {
             using (var rig = new OutboundRig(new CodecEncoderHandler(new EnvelopeCodec())))
             {
-                var ctx = await rig.CaptureContextAsync();
                 await Assert.ThrowsExceptionAsync<InvalidOperationException>(
-                    () => ctx.WriteAsync(new object()));
+                    () => rig.Pipeline.WriteAsync(new object()));
                 Assert.AreEqual(0, rig.Stream.SentCount, "错误类型不应产生任何发送");
             }
         }
@@ -292,20 +288,18 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
         {
             using (var rig = new OutboundRig(new FrameEncoderHandler(new LengthFieldFrameEncoder())))
             {
-                var ctx = await rig.CaptureContextAsync();
                 await Assert.ThrowsExceptionAsync<InvalidOperationException>(
-                    () => ctx.WriteAsync(new object()));
+                    () => rig.Pipeline.WriteAsync(new object()));
                 Assert.AreEqual(0, rig.Stream.SentCount, "错误类型不应产生任何发送");
             }
         }
 
-#if DEBUG
-        /// <summary>
-        /// 出站契约检查只在 Debug 构建下编译进来，因此本用例用 <c>#if DEBUG</c> 包裹；
-        /// Release 构建下整个用例不存在，验证它需要跑 <c>dotnet test -c Debug</c>。
+/// <summary>
+        /// 两次独立的业务写各领取一个操作与一份额度；同一次操作内才禁止同节点重复转发，
+        /// 因此同一消息实例分两次提交产生两帧，且不会误报重复写入。
         /// </summary>
         [TestMethod]
-        public async Task Outbound_SameMessageWrittenTwice_ThrowsContractViolationInDebug()
+        public async Task Outbound_SameMessageWrittenTwice_ProducesTwoIndependentWrites()
         {
             var registry = NewRegistry(7, typeof(JsonPoco));
             var entity = new JsonPoco { Name = "重复写入", Count = 2, Big = 3L };
@@ -315,17 +309,12 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
                 new CodecEncoderHandler(new EnvelopeCodec()),
                 new EnvelopeWrapHandler(registry, new JsonMessageCodec())))
             {
-                var ctx = await rig.CaptureContextAsync();
-                await ctx.WriteAsync(entity);
+                await rig.Pipeline.WriteAsync(entity);
+                await rig.Pipeline.WriteAsync(entity);
 
-                var failure = await Assert.ThrowsExceptionAsync<InvalidOperationException>(
-                    () => ctx.WriteAsync(entity));
-
-                StringAssert.Contains(failure.Message, "重复写入", "契约异常未说明重复写入");
-                Assert.AreEqual(1, rig.Stream.SentCount, "第二次写入不应产生额外帧");
+                Assert.AreEqual(2, rig.Stream.SentCount, "两次业务写应各自产生一帧");
             }
         }
-#endif
 
         // ---------- 测试基础设施 ----------
 
@@ -377,14 +366,6 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
             public ChannelPipeline Pipeline { get; }
 
             public CapturingInboundHandler Sink { get; }
-
-            /// <summary>走一次入站读取拿到链上 ctx，后续测试用它发起出站写。</summary>
-            public async Task<IChannelHandlerContext> CaptureContextAsync()
-            {
-                await Pipeline.FireChannelReadAsync(new object());
-                Assert.IsNotNull(Sink.Context, "入站读取后仍未拿到 handler ctx");
-                return Sink.Context;
-            }
 
             public void Dispose()
             {
@@ -470,13 +451,10 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Handlers
 
         private sealed class CapturingInboundHandler : InboundHandlerAdapter
         {
-            public IChannelHandlerContext Context { get; private set; }
-
             public object Message { get; private set; }
 
             public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
             {
-                Context = ctx;
                 Message = msg;
                 return Task.CompletedTask;
             }

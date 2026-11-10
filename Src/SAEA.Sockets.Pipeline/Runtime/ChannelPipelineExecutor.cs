@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 14:25:42
+*修改时间：2026/11/9 12:05:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增同步内联分发快路径；小帧默认走内存池，零长帧保持精确分配
+*描述：分帧协议错误先上链，派发后仍为 Open 才强制收口，已进入收口状态不再起第二个关闭流程
 *
 *****************************************************************************/
 using System;
@@ -47,6 +47,12 @@ namespace SAEA.Sockets.Pipeline
     /// </summary>
     public sealed class ChannelPipelineExecutor : IDisposable
     {
+        private const int StateCreated = 0;
+        private const int StateAttached = 1;
+        private const int StateStarted = 2;
+        private const int StateClosing = 3;
+        private const int StateCompleted = 4;
+
         private readonly IRawByteStream _stream;
         private readonly PipeReader _reader;
         private readonly IChannel _channel;
@@ -61,6 +67,9 @@ namespace SAEA.Sockets.Pipeline
         private readonly SemaphoreSlim _resumeSignal = new SemaphoreSlim(0, 1);
         private readonly SemaphoreSlim _concurrency;
         private readonly AsyncLocal<CancellationToken> _ambientToken = new AsyncLocal<CancellationToken>();
+
+        // 活动与失活回调共用同一把闸门：保证 ChannelActiveAsync 不会晚于 ChannelInactiveAsync。
+        private readonly SemaphoreSlim _lifecycleGate = new SemaphoreSlim(1, 1);
 
         private readonly object _shutdownGate = new object();
         private readonly TaskCompletionSource<bool> _completion =
@@ -82,6 +91,9 @@ namespace SAEA.Sockets.Pipeline
         private int _inFlightSeq;
         private int _inFlightCount;
         private int _inlineDispatched;
+        private int _state;
+        private bool _activeDispatched;
+        private bool _inactiveDispatched;
 
         /// <summary>
         /// 创建执行器。传输层令牌取消表示连接已断开，是消息令牌的兜底来源；
@@ -192,8 +204,22 @@ namespace SAEA.Sockets.Pipeline
             if (pipeline == null)
                 throw new ArgumentNullException(nameof(pipeline));
 
-            _pipeline = pipeline;
-            pipeline.Attach(_stream, this);
+            lock (_shutdownGate)
+            {
+                var state = Volatile.Read(ref _state);
+                if (state == StateCreated)
+                {
+                    _pipeline = pipeline;
+                    pipeline.Attach(_stream, this);
+                    Volatile.Write(ref _state, StateAttached);
+                    return;
+                }
+
+                if (state == StateAttached)
+                    throw new InvalidOperationException("执行器已绑定通道链，不能重复 Attach。");
+
+                throw new InvalidOperationException("连接已进入收口或已完成，不能再 Attach 通道链。");
+            }
         }
 
         /// <summary>
@@ -213,29 +239,188 @@ namespace SAEA.Sockets.Pipeline
         {
             lock (_shutdownGate)
             {
-                if (Interlocked.CompareExchange(ref _closing, 1, 0) == 0)
-                {
-                    _shutdownReason = reason;
-
-                    var defaultChannel = _channel as DefaultChannel;
-                    if (defaultChannel != null)
-                        defaultChannel.MarkInactive();
-
-                    _shutdownTask = Task.Run(() => ShutdownCoreAsync(fromPump));
-                }
-
-                return _shutdownTask ?? Task.CompletedTask;
+                return BeginShutdownLocked(reason, fromPump);
             }
         }
 
-        /// <summary>启动接收泵与消费循环；未 <see cref="Attach"/> 时抛 <see cref="InvalidOperationException"/>。</summary>
+        private Task BeginShutdownLocked(string reason, bool fromPump)
+        {
+            if (Interlocked.CompareExchange(ref _closing, 1, 0) == 0)
+            {
+                _shutdownReason = reason;
+
+                // 状态门先落地：Closing 之后 Attach / Start 必须直接抛，不能再建新资源。
+                Volatile.Write(ref _state, StateClosing);
+
+                var defaultChannel = _channel as DefaultChannel;
+                if (defaultChannel != null)
+                    defaultChannel.MarkInactive();
+
+                _shutdownTask = Task.Run(() => ShutdownCoreAsync(fromPump));
+            }
+
+            return _shutdownTask ?? Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// 启动接收泵与消费循环。必须先 <see cref="Attach"/>，且只能启动一次。
+        /// 启动校验失败时直接转入收口并抛出，避免已建连接悬挂。
+        /// </summary>
         public void Start()
         {
-            if (_pipeline == null)
-                throw new InvalidOperationException("必须先 Attach 通道链再启动接收泵。");
+            lock (_shutdownGate)
+            {
+                var state = Volatile.Read(ref _state);
+                if (state == StateClosing || state == StateCompleted)
+                    throw new InvalidOperationException("连接已进入收口或已完成，不能再启动接收泵。");
 
-            _pumpTask = Task.Run((Func<Task>)PumpAsync);
-            _consumerTask = Task.Run((Func<Task>)ConsumeAsync);
+                if (state == StateStarted)
+                    throw new InvalidOperationException("接收泵已启动，不能重复启动。");
+
+                if (state != StateAttached)
+                    throw new InvalidOperationException("必须先 Attach 通道链再启动接收泵。");
+
+                try
+                {
+                    if (_options.RequireTerminalHandler)
+                        ValidateStartup(_pipeline);
+
+                    // 冻链必须早于泵首次读取：启动校验只对启动那一刻的链形状成立。
+                    _pipeline.Freeze();
+                    Volatile.Write(ref _state, StateStarted);
+                }
+                catch
+                {
+                    BeginShutdownLocked("startup-validation-failed", false);
+                    throw;
+                }
+            }
+
+            Task.Run((Func<Task>)BeginStartAsync);
+        }
+
+        /// <summary>
+        /// 启动期后台序列：建消费循环 → 派发活动通知 → 启动接收泵。
+        /// 活动通知早于泵首次读取，处理器可在其中回包。
+        /// </summary>
+        private async Task BeginStartAsync()
+        {
+            try
+            {
+                _consumerTask = Task.Run((Func<Task>)ConsumeAsync);
+
+                await DispatchActiveAsync().ConfigureAwait(false);
+
+                // 活动通知期间已进入收口时不再启动泵，收口流程负责剩余资源。
+                if (Volatile.Read(ref _closing) != 0)
+                    return;
+
+                _pumpTask = Task.Run((Func<Task>)PumpAsync);
+            }
+            catch (Exception ex)
+            {
+                RecordPumpError(ex);
+                _ = BeginShutdown("start-failure", false);
+            }
+        }
+
+        /// <summary>
+        /// 派发活动通知。与失活派发共用一把闸门，已进入收口或失活已先派发时不再补发。
+        /// </summary>
+        private async Task DispatchActiveAsync()
+        {
+            await _lifecycleGate.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                if (_activeDispatched || _inactiveDispatched || Volatile.Read(ref _closing) != 0)
+                    return;
+
+                _activeDispatched = true;
+
+                var pipeline = _pipeline;
+                if (pipeline != null)
+                    await pipeline.FireChannelActiveAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                _lifecycleGate.Release();
+            }
+        }
+
+        /// <summary>派发失活通知；幂等，异常由链内记录，不阻断收口。</summary>
+        private async Task DispatchInactiveAsync()
+        {
+            await _lifecycleGate.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                if (_inactiveDispatched)
+                    return;
+
+                _inactiveDispatched = true;
+
+                var pipeline = _pipeline;
+                if (pipeline != null)
+                    await pipeline.FireChannelInactiveAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                _lifecycleGate.Release();
+            }
+        }
+
+        /// <summary>
+        /// 启动校验：链尾最后一个入站节点必须是兜底处理器，出站串行器恰好一个且位于出站前缀最右侧。
+        /// </summary>
+        private static void ValidateStartup(ChannelPipeline pipeline)
+        {
+            var handlers = pipeline.Handlers;
+
+            IChannelHandler lastInbound = null;
+            for (var i = handlers.Count - 1; i >= 0; i--)
+            {
+                if (handlers[i] is IChannelInboundHandler)
+                {
+                    lastInbound = handlers[i];
+                    break;
+                }
+            }
+
+            if (!(lastInbound is ExceptionTerminalHandler))
+            {
+                throw new InvalidOperationException(
+                    "RequireTerminalHandler 为 true 时，链尾最后一个入站节点必须是 ExceptionTerminalHandler；"
+                    + "当前为 " + (lastInbound == null ? "(无入站节点)" : lastInbound.GetType().FullName) + "。");
+            }
+
+            var serializerCount = 0;
+            var rightmostOutbound = -1;
+            var rightmostSerializer = -1;
+            for (var i = 0; i < handlers.Count; i++)
+            {
+                if (!(handlers[i] is IChannelOutboundHandler))
+                    continue;
+
+                rightmostOutbound = i;
+                if (handlers[i] is OutboundSerializingHandler)
+                {
+                    serializerCount++;
+                    rightmostSerializer = i;
+                }
+            }
+
+            if (serializerCount != 1)
+            {
+                throw new InvalidOperationException(
+                    "RequireTerminalHandler 为 true 时，链上必须恰好装配一个 OutboundSerializingHandler，实际为 "
+                    + serializerCount + " 个。");
+            }
+
+            if (rightmostSerializer != rightmostOutbound)
+            {
+                throw new InvalidOperationException(
+                    "OutboundSerializingHandler 必须位于出站前缀最右侧（紧贴第一个入站节点），"
+                    + "否则异步编码器会让先发起的写后到。");
+            }
         }
 
         /// <summary>
@@ -321,6 +506,9 @@ namespace SAEA.Sockets.Pipeline
                     var aborted = false;
 
                     // 4. 直接在 Pipe 缓冲上切帧：成帧即复制成 PooledMessage 入队，残帧继续留在 Pipe。
+                    // 可切换分帧器在协议边界置 StopAfterCurrent 后，本轮必须停在同一个 ReadResult 的
+                    // consumed 位置等待切换，不能先 AdvanceTo 再丢缓冲另读：没有新字节时残帧不会被重新返回。
+                    var switchable = splitter as SwitchableSplitter;
                     try
                     {
                         while (true)
@@ -344,6 +532,11 @@ namespace SAEA.Sockets.Pipeline
                             {
                                 consumed = pending.GetPosition(frameConsumed);
                                 queuedThisRead = true;
+
+                                // 内联处理器可能已同步完成切换并复位屏障；未复位时与排队分支走同一等待逻辑。
+                                if (switchable != null && switchable.StopAfterCurrent)
+                                    await switchable.WaitForSwitchAsync(_options.SplitterSwitchTimeout, ct).ConfigureAwait(false);
+
                                 continue;
                             }
 
@@ -367,11 +560,38 @@ namespace SAEA.Sockets.Pipeline
 
                             consumed = pending.GetPosition(frameConsumed);
                             queuedThisRead = true;
+
+                            // 已入队的旧协议消息照常执行；这里只停止继续切分并原地等待切换。
+                            if (switchable != null && switchable.StopAfterCurrent)
+                                await switchable.WaitForSwitchAsync(_options.SplitterSwitchTimeout, ct).ConfigureAwait(false);
                         }
                     }
                     catch (Exception ex)
                     {
                         RecordPumpError(ex);
+
+                        if (ex is FrameProtocolException)
+                        {
+                            // 协议错误先上链，让业务有机会回包并自行收口；分帧器本身绝不直接写 socket。
+                            SafeAdvanceTo(buffer.End);
+
+                            try
+                            {
+                                await _pipeline.FireExceptionCaughtAsync(ex).ConfigureAwait(false);
+                            }
+                            catch (Exception notifyError)
+                            {
+                                RecordPumpError(notifyError);
+                            }
+
+                            // 派发后仍为 Open 说明没有处理器接管收口，由泵强制收口；
+                            // 已进入 DrainingWrites / Closing 时交给既有状态机，避免起第二个关闭流程。
+                            if (_pipeline.IsOpen)
+                                _ = BeginShutdown("split-protocol-error", true);
+
+                            break;
+                        }
+
                         _ = BeginShutdown("split-error", true);
                         SafeAdvanceTo(buffer.End);
                         break;
@@ -550,7 +770,8 @@ namespace SAEA.Sockets.Pipeline
             }
             catch (Exception ex)
             {
-                // 链内已把普通异常转成 ExceptionCaught，能同步抛出的只有取消与链自身错误。
+                // 链内已在出错节点下游通知过一次，能同步抛出的只剩取消与链自身错误；
+                // 执行器只兜底记录，不能再次全链上报。
                 HandleInlineFailure(ex, msg);
                 return;
             }
@@ -589,7 +810,8 @@ namespace SAEA.Sockets.Pipeline
             }
             catch (Exception ex)
             {
-                await ReportInlineExceptionAsync(ex).ConfigureAwait(false);
+                // 链内已通知过下游，执行器只兜底记录。
+                LogHelper.Warn("通道链消息处理异常:" + _stream.ChannelId, ex);
             }
             finally
             {
@@ -605,22 +827,11 @@ namespace SAEA.Sockets.Pipeline
             }
             else
             {
-                // 极冷路径：同步等异常链收完，避免把接续任务挂到无人等待的地方。
-                try { ReportInlineExceptionAsync(ex).GetAwaiter().GetResult(); } catch { }
+                // 链内已通知过下游，执行器只兜底记录。
+                LogHelper.Warn("通道链消息处理异常:" + _stream.ChannelId, ex);
             }
 
             FinishInline(msg);
-        }
-
-        private async Task ReportInlineExceptionAsync(Exception ex)
-        {
-            try
-            {
-                await _pipeline.FireExceptionCaughtAsync(ex).ConfigureAwait(false);
-            }
-            catch
-            {
-            }
         }
 
         /// <summary>内联消息的收口：先还并发额度再减在途数，最后归还消息。</summary>
@@ -681,14 +892,9 @@ namespace SAEA.Sockets.Pipeline
             }
             catch (Exception ex)
             {
-                // 兜底：链内已把普通异常转成 ExceptionCaught；能到这里说明链本身出错，仍上报链尾。
-                try
-                {
-                    await _pipeline.FireExceptionCaughtAsync(ex).ConfigureAwait(false);
-                }
-                catch
-                {
-                }
+                // 兜底：链内已在本节点下游通知过普通异常；能到这里说明是链自身或取消路径出错，
+                // 执行器只记录，不再全链上报，避免同一异常被通知两次。
+                LogHelper.Warn("通道链消息处理异常:" + _stream.ChannelId, ex);
             }
             finally
             {
@@ -725,11 +931,13 @@ namespace SAEA.Sockets.Pipeline
                     }
                 }
 
-                // 3. 关闭写入端并排空尚未开始的消息。
-                try { _queue.Writer.TryComplete(); } catch { }
-                DrainQueue();
+                // 3. 失活通知必须早于 DrainPolicy：处理器此时仍可读取连接级属性，但连接已不可写。
+                await DispatchInactiveAsync().ConfigureAwait(false);
 
-                // 4. 策略分叉：取消在途，或等待其自然结束。
+                // 4. 关闭写入端，阻止消费循环继续等待新帧。
+                try { _queue.Writer.TryComplete(); } catch { }
+
+                // 5. 策略分叉：取消在途，或等待其自然结束。
                 bool drained;
                 if (_options.DrainPolicy == DisconnectDrainPolicy.CancelPending)
                 {
@@ -741,7 +949,10 @@ namespace SAEA.Sockets.Pipeline
                     drained = await WaitForInFlightAsync(_options.DrainTimeout).ConfigureAwait(false);
                 }
 
-                // 5. 等并发额度回到满额：CancelPending 下即取消落地，DrainInFlight 超时后放弃。
+                // 6. 收回尚未开始执行的队列帧。
+                DrainQueue();
+
+                // 7. 等并发额度回到满额：CancelPending 下即取消落地，DrainInFlight 超时后放弃。
                 // 成功等到在途清零时消费循环必然临近退出，等它收尾；超时放弃时不能等，
                 // 否则卡死的处理器会把收口永久挂住。
                 if (drained)
@@ -753,7 +964,7 @@ namespace SAEA.Sockets.Pipeline
                     }
                 }
 
-                // 6. 撤销登记、释放处理器计数、关闭传输层。
+                // 8. 撤销登记、释放处理器计数、清理连接级属性、关闭传输层。
                 var defaultChannel = _channel as DefaultChannel;
                 if (defaultChannel != null)
                     defaultChannel.MarkInactive();
@@ -769,6 +980,10 @@ namespace SAEA.Sockets.Pipeline
                     try { _pipeline.Dispose(); } catch { }
                 }
 
+                // 属性只能在失活通知与登记摘除之后清理，且整个收口只清一次。
+                if (defaultChannel != null)
+                    defaultChannel.ClearAttributes();
+
                 try { await _stream.CloseAsync(_shutdownReason).ConfigureAwait(false); } catch { }
             }
             catch (Exception ex)
@@ -777,6 +992,7 @@ namespace SAEA.Sockets.Pipeline
             }
             finally
             {
+                Volatile.Write(ref _state, StateCompleted);
                 _completion.TrySetResult(true);
             }
         }

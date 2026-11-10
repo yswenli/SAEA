@@ -23,16 +23,16 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:29
+*修改时间：2026/11/10 10:45:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：删除异常与请求委托事件，处理入口改按连接通道
 *
 *****************************************************************************/
 using System;
 
 using SAEA.Http.Base;
-using SAEA.Sockets.Interface;
+using SAEA.Sockets.Pipeline;
 
 namespace SAEA.Http.Model
 {
@@ -72,21 +72,11 @@ namespace SAEA.Http.Model
         IWebSocketsFeature WebSockets { get; }
 
         /// <summary>
-        /// 自定义异常事件
-        /// </summary>
-        event ExceptionHandler OnException;
-
-        /// <summary>
-        /// 自定义http处理
-        /// </summary>
-        event RequestDelegate OnRequestDelegate;
-
-        /// <summary>
         /// 解析请求并初始化请求、响应、会话对象
         /// </summary>
-        /// <param name="userToken">客户端连接令牌</param>
+        /// <param name="channel">连接通道</param>
         /// <param name="httpMessage">已解析的 Http 消息</param>
-        void HttpHandle(IUserToken userToken, HttpMessage httpMessage);
+        void HttpHandle(IChannel channel, HttpMessage httpMessage);
 
         /// <summary>
         /// 获取业务处理结果

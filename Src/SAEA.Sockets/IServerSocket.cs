@@ -23,14 +23,15 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:27
+*修改时间：2026/11/9 10:30:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：携带所有权对象的发送重载改为返回可等待的真实完成 Task
 *
 *****************************************************************************/
 using System;
 using System.Net;
+using System.Threading.Tasks;
 
 using SAEA.Sockets.Core;
 using SAEA.Sockets.Handler;
@@ -113,12 +114,15 @@ namespace SAEA.Sockets
         void SendAsync(string sessionID, ISocketProtocal protocal);
 
         /// <summary>
-        /// 携带所有权对象的异步发送：发送完成后由实现方归还/释放 <paramref name="owner"/>。
+        /// 携带所有权对象的异步发送：返回的 Task 在本次数据完成底层交接后完成，
+        /// 失败（会话不存在、连接断开、超时等）以异常形式可观察；<paramref name="owner"/>
+        /// 由实现方在完成或失败时释放，调用方不得再释放。
         /// </summary>
         /// <param name="sessionID">会话ID</param>
         /// <param name="data">数据</param>
-        /// <param name="owner">数据的所有者，发送完成或失败时释放</param>
-        void SendAsync(string sessionID, ReadOnlyMemory<byte> data, IDisposable owner);
+        /// <param name="owner">数据的所有者，发送完成或失败时由实现方释放</param>
+        /// <returns>底层交接完成的任务；会话不存在等同步失败直接抛出，其余失败为故障 Task</returns>
+        Task SendAsync(string sessionID, ReadOnlyMemory<byte> data, IDisposable owner);
 
         /// <summary>
         /// 发送最后一段数据后关闭会话（HTTP 等短连接语义）。

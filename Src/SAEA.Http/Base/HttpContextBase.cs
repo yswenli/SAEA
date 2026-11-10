@@ -23,15 +23,16 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:29
+*修改时间：2026/11/10 10:40:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：删除异常与请求委托事件，处理入口改按连接通道，远端地址取自连接会话
 *
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.Http.Base.Net;
 using SAEA.Http.Model;
-using SAEA.Sockets.Interface;
+using SAEA.Sockets.Pipeline;
 
 using System;
 using System.Net;
@@ -48,16 +49,6 @@ namespace SAEA.Http.Base
         /// 所属的 Web 主机，构造时注入
         /// </summary>
         protected IWebHost _webHost;
-
-        /// <summary>
-        /// 自定义异常事件
-        /// </summary>
-        public abstract event ExceptionHandler OnException;
-
-        /// <summary>
-        /// 自定义http处理
-        /// </summary>
-        public abstract event RequestDelegate OnRequestDelegate;
 
         /// <summary>
         /// 获取Http请求对象
@@ -155,9 +146,9 @@ namespace SAEA.Http.Base
         /// <summary>
         /// 处理业务逻辑
         /// </summary>
-        /// <param name="userToken">用户令牌</param>
+        /// <param name="channel">连接通道</param>
         /// <param name="httpMessage">Http消息</param>
-        public virtual void HttpHandle(IUserToken userToken, HttpMessage httpMessage)
+        public virtual void HttpHandle(IChannel channel, HttpMessage httpMessage)
         {
             Request.Init(httpMessage);
 
@@ -174,7 +165,7 @@ namespace SAEA.Http.Base
 
             this.Session = HttpSessionManager.GetIfNotExistsSet(sessionID);
 
-            var domain = userToken.ID;
+            var domain = channel == null ? string.Empty : channel.Id;
 
             if (this.Request.Headers.ContainsKey("Host"))
             {
@@ -188,18 +179,34 @@ namespace SAEA.Http.Base
                 HttpCookie.DefaultDomain = domain;
             }
 
-            if (userToken != null && userToken.Socket != null && userToken.Socket.Connected)
+            var clientSocket = GetClientSocket(channel);
+
+            if (clientSocket != null && clientSocket.Connected)
             {
-                Request.Headers["REMOTE_ADDR"] = ((IPEndPoint)userToken.Socket.RemoteEndPoint).Address.ToString();
+                Request.Headers["REMOTE_ADDR"] = ((IPEndPoint)clientSocket.RemoteEndPoint).Address.ToString();
 
                 if (Request.Headers.ContainsKey("HTTP_X_FORWARDED_FOR"))
                 {
                     Request.Headers["HTTP_X_FORWARDED_FOR"] += "," + this.Request.Headers["REMOTE_ADDR"];
                 }
 
-                Response.Init(_webHost, userToken, Request.Protocal, _webHost.WebConfig.IsZiped);
+                Response.Init(_webHost, channel, Request.Protocal, _webHost.WebConfig.IsZiped);
                 Response.Cookies[ConstHelper.SESSIONID] = new HttpCookie(ConstHelper.SESSIONID, sessionID);
             }
+        }
+
+        /// <summary>
+        /// 取连接底层的客户端 socket；连接尚未登记或已回收时返回 null。
+        /// </summary>
+        /// <param name="channel">连接通道</param>
+        /// <returns>客户端 socket；不可用时为 null</returns>
+        private static System.Net.Sockets.Socket GetClientSocket(IChannel channel)
+        {
+            var session = HttpConnectionSession.TryGet(channel);
+            if (session == null || session.Info == null)
+                return null;
+
+            return session.Info.ClientSocket;
         }
 
         /// <summary>

@@ -5,28 +5,28 @@
  \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
   ___) / ___ \| |___ / ___ \   ___) | (_) | (__|   <  __/ |_ 
  |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
-                                                              
- 
-*Copyright (c) yswenli All Rights Reserved.
-*CLR版本： netstandard2.0
-*机器名称：WENLI-PC
-*公司名称：yswenli
-*命名空间：SAEA.Http
-*文件名： WebHost
-*版本号： v26.4.23.1
-*唯一标识：e59016b9-6d64-4c89-8826-f139a38be098
-*当前的用户域：WENLI-PC
-*创建人： yswenli
-*电子邮箱：yswenli@outlook.com
-*创建时间：2018/10/28 14:19:50
-*描述：WebHost类
+                                                               
+  
+ *Copyright (c) yswenli All Rights Reserved.
+ *CLR版本： netstandard2.0
+ *机器名称：WENLI-PC
+ *公司名称：yswenli
+ *命名空间：SAEA.Http
+ *文件名： WebHost
+ *版本号： v26.4.23.1
+ *唯一标识：e59016b9-6d64-4c89-8826-f139a38be098
+ *当前的用户域：WENLI-PC
+ *创建人： yswenli
+ *电子邮箱：yswenli@outlook.com
+ *创建时间：2018/10/28 14:19:50
+ *描述：WebHost类
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:29
+*修改时间：2026/11/10 10:20:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：删除请求、异常与断开事件，收发改由连接通道经处理器链完成
 *
 *****************************************************************************/
 using System;
@@ -35,7 +35,7 @@ using SAEA.Common;
 using SAEA.Http.Base;
 using SAEA.Http.Base.Net;
 using SAEA.Http.Model;
-using SAEA.Sockets.Interface;
+using SAEA.Sockets.Pipeline;
 
 namespace SAEA.Http
 {
@@ -73,23 +73,6 @@ namespace SAEA.Http
         public object RouteParam { get; set; }
 
 
-
-        /// <summary>
-        /// 自定义异常事件
-        /// </summary>
-        public event ExceptionHandler OnException;
-
-        /// <summary>
-        /// 自定义http处理
-        /// </summary>
-        public event RequestDelegate OnRequestDelegate;
-
-        /// <summary>
-        /// 底层连接断开事件（sessionId, 异常）
-        /// </summary>
-        public event Action<string, Exception> OnDisconnected;
-
-
         /// <summary>
         /// 创建 Web 主机，按参数初始化配置、静态资源工具与底层 socket
         /// </summary>
@@ -102,7 +85,7 @@ namespace SAEA.Http
         /// <param name="maxConnects">最大连接数，默认 1000</param>
         /// <param name="timeout">连接空闲超时秒数，默认 180</param>
         /// <param name="connectTimeout">连接建立超时秒数，默认 3</param>
-        /// <param name="isDebug">是否使用调试版 socket 实现</param>
+        /// <param name="isDebug">是否输出调试日志</param>
         public WebHost(Type httpContentType = null,
             string root = "wwwroot",
             int port = 39654,
@@ -136,30 +119,16 @@ namespace SAEA.Http
 
             HttpUtility = new HttpUtility(WebConfig.Root);
 
-            if (isDebug)
-
-                _httpServer = new HttpSocketDebug(port, bufferSize, maxConnects, timeout, connectTimeout);
-
-            else
-
-                _httpServer = new HttpSocket(port, bufferSize, maxConnects, timeout, connectTimeout);
-
-            _httpServer.OnRequested += _serverSocket_OnRequested;
-            _httpServer.OnError += _httpServer_OnError;
-            _httpServer.OnDisconnected += (id, ex) => OnDisconnected?.Invoke(id, ex);
+            _httpServer = new HttpSocket(this, port, bufferSize, maxConnects, timeout, connectTimeout, isDebug);
         }
 
-        private void _httpServer_OnError(Exception ex)
+        /// <summary>
+        /// 按配置的上下文类型创建一次请求的业务上下文。
+        /// </summary>
+        /// <returns>新建的业务上下文</returns>
+        internal IHttpContext CreateContext()
         {
-            var httpContext = HttpContext.Current;
-            if (httpContext != null && OnException != null)
-            {
-                OnException.Invoke(HttpContext.Current, ex);
-            }
-            else
-            {
-                LogHelper.Error("httpServer_OnError", ex);
-            }
+            return (IHttpContext)Activator.CreateInstance(_httpContentType, this);
         }
 
 
@@ -194,63 +163,30 @@ namespace SAEA.Http
         }
 
         /// <summary>
-        /// 处理http请求数据
-        /// </summary>
-        /// <param name="userToken"></param>
-        /// <param name="httpMessage"></param>
-        private void _serverSocket_OnRequested(IUserToken userToken, HttpMessage httpMessage)
-        {
-            // 已升级为 WebSocket 的连接：不再按 HTTP 请求分发
-            // （同一 TCP 段里的第二个请求会在第一个请求升级之后才被分发，必须跳过）
-            if ((userToken?.Coder as HttpCoder)?.IsRaw == true) return;
-
-            var httpContext = (IHttpContext)Activator.CreateInstance(_httpContentType, this);
-
-            try
-            {
-                if (OnException != null)
-                    httpContext.OnException += HttpContext_OnException;
-
-                if (OnRequestDelegate != null)
-                    httpContext.OnRequestDelegate += HttpContext_OnRequestDelegate;
-
-                httpContext.HttpHandle(userToken, httpMessage);
-            }
-            finally
-            {
-                // 已升级的上下文由 WebSocket 连接负责释放（HttpContextBase.Dispose 只清 Request/Response）
-                if (!httpContext.Response.IsUpgraded)
-                    httpContext.Dispose();
-            }
-        }
-
-        private void HttpContext_OnRequestDelegate(IHttpContext context)
-        {
-            OnRequestDelegate?.Invoke(context);
-        }
-
-        private IHttpResult HttpContext_OnException(IHttpContext httpContext, Exception ex)
-        {
-            return OnException?.Invoke(httpContext, ex);
-        }
-
-        /// <summary>
         /// 发送
         /// </summary>
-        /// <param name="userToken"></param>
-        /// <param name="data"></param>
-        public void Send(IUserToken userToken, byte[] data)
+        /// <param name="channel">连接通道</param>
+        /// <param name="data">待发送字节</param>
+        public void Send(IChannel channel, byte[] data)
         {
-            _httpServer.Send(userToken, data);
+            var session = HttpConnectionSession.TryGet(channel);
+            if (session == null)
+                return;
+
+            session.WriteBytes(data);
         }
 
         /// <summary>
         /// 结束
         /// </summary>
-        /// <param name="userToken"></param>
-        public void Disconnect(IUserToken userToken)
+        /// <param name="channel">连接通道</param>
+        public void Disconnect(IChannel channel)
         {
-            _httpServer.Disconnecte(userToken);
+            var session = HttpConnectionSession.TryGet(channel);
+            if (session == null)
+                return;
+
+            session.Close();
         }
 
         /// <summary>
@@ -266,11 +202,15 @@ namespace SAEA.Http
         /// <summary>
         /// 发送并结束
         /// </summary>
-        /// <param name="userToken"></param>
-        /// <param name="data"></param>
-        public void End(IUserToken userToken, byte[] data)
+        /// <param name="channel">连接通道</param>
+        /// <param name="data">待发送字节</param>
+        public void End(IChannel channel, byte[] data)
         {
-            _httpServer.End(userToken, data);
+            var session = HttpConnectionSession.TryGet(channel);
+            if (session == null)
+                return;
+
+            session.WriteBytesAndClose(data);
         }
 
         /// <summary>

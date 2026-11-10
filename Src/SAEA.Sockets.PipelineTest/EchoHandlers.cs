@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 09:50:56
+*修改时间：2026/11/9 11:39:22
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：登录处理器：模拟 30ms 鉴权延迟，成功后写入连接属性并通过当前节点回包
+*描述：入站回包改走 ctx.Pipeline.WriteAsync 业务写入口
 *
 *****************************************************************************/
 using System;
@@ -98,7 +98,7 @@ namespace SAEA.Sockets.PipelineTest
             ctx.Channel.SetAttribute(AuthHandler.AuthedAttributeKey, true);
             ctx.Channel.SetAttribute(TokenAuthHandler.TokenAttributeKey, response.Token);
 
-            await ctx.WriteAsync(response).ConfigureAwait(false);
+            await ctx.Pipeline.WriteAsync(response).ConfigureAwait(false);
         }
 
         /// <summary>按请求构造响应；出站字节比对用例复用同一方法保证字段一致。</summary>
@@ -239,7 +239,7 @@ namespace SAEA.Sockets.PipelineTest
             Volatile.Write(ref _lastResponse, response);
             Interlocked.Increment(ref _handled);
 
-            await ctx.WriteAsync(response).ConfigureAwait(false);
+            await ctx.Pipeline.WriteAsync(response).ConfigureAwait(false);
         }
     }
 }

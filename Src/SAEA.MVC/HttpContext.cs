@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:32
+*修改时间：2026/11/10 11:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：删除异常与请求委托事件，改读 WebConfig 的请求与异常委托，处理入口按连接通道
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -35,7 +35,7 @@ using SAEA.Http;
 using SAEA.Http.Base;
 using SAEA.Http.Common;
 using SAEA.Http.Model;
-using SAEA.Sockets.Interface;
+using SAEA.Sockets.Pipeline;
 
 using System;
 using System.Linq;
@@ -48,16 +48,6 @@ namespace SAEA.MVC
     public class HttpContext : HttpContextBase, IHttpContext
     {
         RouteTable _routeTable = null;
-
-        /// <summary>
-        /// 自定义异常事件
-        /// </summary>
-        public override event ExceptionHandler OnException;
-
-        /// <summary>
-        /// 自定义http处理
-        /// </summary>
-        public override event RequestDelegate OnRequestDelegate;
 
         /// <summary>
         /// 以宿主服务创建上下文并绑定其路由表
@@ -87,11 +77,11 @@ namespace SAEA.MVC
         /// <summary>
         /// 处理业务逻辑
         /// </summary>
-        /// <param name="userToken"></param>
-        /// <param name="httpMessage"></param>
-        public override void HttpHandle(IUserToken userToken, HttpMessage httpMessage)
+        /// <param name="channel">连接通道</param>
+        /// <param name="httpMessage">Http消息</param>
+        public override void HttpHandle(IChannel channel, HttpMessage httpMessage)
         {
-            base.HttpHandle(userToken, httpMessage);
+            base.HttpHandle(channel, httpMessage);
 
             IHttpResult result = null;
 
@@ -118,9 +108,9 @@ namespace SAEA.MVC
                                 this.Request.Parmas[item.Key] = item.Value;
                             }
                         }
-                        if (OnRequestDelegate != null)
+                        if (WebConfig != null && WebConfig.RequestDelegate != null)
                         {
-                            OnRequestDelegate.Invoke(this);
+                            WebConfig.RequestDelegate(this);
                         }
                         else
                         {
@@ -137,7 +127,9 @@ namespace SAEA.MVC
             }
             catch (Exception ex)
             {
-                result = OnException != null ? OnException.Invoke(this, ex) : null;
+                result = WebConfig == null || WebConfig.ExceptionHandler == null
+                    ? null
+                    : WebConfig.ExceptionHandler(this, ex);
 
                 if (result == null)
                 {

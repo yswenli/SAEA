@@ -23,19 +23,25 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:20:18
+*修改时间：2026/11/10 11:30:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：接收改由处理器链接管，移除对已删除服务端事件的订阅
 *
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.Common.Serialization;
 using SAEA.Common.Threading;
-using SAEA.Sockets.Interface;
+using SAEA.FileSocket.Model;
+using SAEA.Sockets.Base;
+using SAEA.Sockets.Model;
+using SAEA.Sockets.Pipeline;
 
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace SAEA.FileSocket
 {
@@ -80,7 +86,7 @@ namespace SAEA.FileSocket
         public event Action<string> OnDisplay;
 
         /// <summary>
-        /// 创建接收服务端并订阅其请求、数据与异常事件，发送连接在首次发送时才建立
+        /// 创建接收服务端并在其处理器链上追加文件接收处理器，发送连接在首次发送时才建立
         /// </summary>
         /// <param name="filePath">接收文件的保存目录</param>
         /// <param name="port">接收服务端的监听端口</param>
@@ -91,43 +97,36 @@ namespace SAEA.FileSocket
             _bufferSize = bufferSize;
 
             _receiver = new Server(port, _bufferSize);
-            _receiver.OnRequested += _receiver_OnRequested;
-            _receiver.OnFile += _receiver_OnFile;
-            _receiver.OnError += _receiver_OnError;
+            _receiver.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ReceiveHandler(this));
         }
 
-        private void _receiver_OnRequested(string ID, string fileName, long length)
+        private void OnRequested(string id, ReadOnlyMemory<byte> content)
         {
+            var fileMessage = SerializeHelper.PBDeserialize<FileMessage>(content.ToArray());
+
             _current = 0;
-            _length = length;
-            _fullName = Path.Combine(_filePath, fileName);
+            _length = fileMessage.Length;
+            _fullName = Path.Combine(_filePath, fileMessage.FileName);
             _fileStream = new FileStream(_fullName, FileMode.OpenOrCreate, FileAccess.Write);
-            _receiver.Allow(ID);
+            _receiver.Allow(id);
             _beginReceive = true;
-
-
-            //ConsoleHelper.WriteLine("收到文件传输请求，Y 为接收 其他为拒绝");
-            //var answer = ConsoleHelper.ReadLine();
-            //if (!string.IsNullOrEmpty(answer) && answer.ToUpper() == "Y")
-            //{
-            //    _current = 0;
-            //    _length = length;
-            //    _fullName = PathHelper.GetFullName(fileName);
-            //    _fileStream = new FileStream(_fullName, FileMode.OpenOrCreate, FileAccess.Write);
-            //    _receiver.Allow(ID);
-            //    _beginReceive = true;
-            //}
-            //else
-            //{
-            //    _receiver.Refuse(ID);
-            //}
         }
 
-        private void _receiver_OnFile(IUserToken userToken, byte[] content)
+        private void OnFile(ReadOnlyMemory<byte> content)
         {
             _current += content.Length;
 
-            _fileStream.Write(content, 0, content.Length);
+            // netstandard2.0 的 FileStream 没有 Span 写入重载；解码结果自带数组，能取到就直接写，避免再复制一次。
+            ArraySegment<byte> segment;
+            if (MemoryMarshal.TryGetArray(content, out segment))
+            {
+                _fileStream.Write(segment.Array, segment.Offset, segment.Count);
+            }
+            else
+            {
+                var copy = content.ToArray();
+                _fileStream.Write(copy, 0, copy.Length);
+            }
 
             if (_current == _length)
             {
@@ -138,11 +137,6 @@ namespace SAEA.FileSocket
                 _beginReceive = false;
                 OnReceiveEnd?.Invoke(_fullName);
             }
-        }
-
-        private void _receiver_OnError(string ID, Exception ex)
-        {
-            ConsoleHelper.WriteLine("接收文件过程发生异常，ID:{0} err:{1}", ID, ex.Message);
         }
 
         /// <summary>
@@ -279,6 +273,47 @@ namespace SAEA.FileSocket
         public void Dispose()
         {
             Stop();
+        }
+
+        /// <summary>
+        /// 接收处理器：把传输请求与文件块分派给所属传输器，其它消息继续交给下游
+        /// </summary>
+        private sealed class ReceiveHandler : InboundHandlerAdapter
+        {
+            private readonly FileTransfer _owner;
+
+            /// <summary>
+            /// 绑定所属传输器
+            /// </summary>
+            /// <param name="owner">所属传输器实例</param>
+            public ReceiveHandler(FileTransfer owner)
+            {
+                _owner = owner;
+            }
+
+            /// <summary>
+            /// 按帧类型处理：请求帧回复允许并建文件，文件块帧落盘，其余消息交给下游
+            /// </summary>
+            /// <param name="ctx">当前处理器在链上的节点上下文</param>
+            /// <param name="msg">已解帧的消息</param>
+            /// <returns>处理完成后结束的任务</returns>
+            public override async Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+            {
+                var protocal = msg as BaseSocketProtocal;
+                if (protocal != null && protocal.Type == (byte)SocketProtocalType.RequestSend)
+                {
+                    _owner.OnRequested(ctx.Channel.Id, protocal.Content);
+                    return;
+                }
+
+                if (protocal != null && protocal.Type == (byte)SocketProtocalType.BigData)
+                {
+                    _owner.OnFile(protocal.Content);
+                    return;
+                }
+
+                await ctx.FireChannelReadAsync(msg).ConfigureAwait(false);
+            }
         }
     }
 }

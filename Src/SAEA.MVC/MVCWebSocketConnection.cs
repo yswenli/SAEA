@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 13:11:19
+*修改时间：2026/11/10 11:30:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：规范文件头 banner
+*描述：断开通知改由 WebConfig.ConnectionClosed 触发，同步更新相关注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -346,7 +346,7 @@ namespace SAEA.MVC
         }
 
         /// <summary>
-        /// 底层连接断开（由 WebHost.OnDisconnected 触发）
+        /// 底层连接断开（由 WebConfig.ConnectionClosed 经 WebSocketsFeature.OnDisconnected 触发）
         /// </summary>
         internal void HandleDisconnected()
         {

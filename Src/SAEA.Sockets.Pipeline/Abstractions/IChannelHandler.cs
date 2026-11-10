@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 09:50:56
+*修改时间：2026/11/9 10:48:29
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：通道处理器的基础契约
+*描述：新增挂链/摘链回调与出入站活动通知
 *
 *****************************************************************************/
 using System;
@@ -44,6 +44,21 @@ namespace SAEA.Sockets.Pipeline
         /// 无连接状态的处理器才能声明为 true，否则连接之间会互相污染状态。
         /// </summary>
         bool IsSharable { get; }
+
+        /// <summary>
+        /// 挂上链之前同步调用，用于登记 ctx、绑定连接级状态。抛出时本次添加失败，节点不会挂链。
+        /// 此时节点尚未链接，禁止传播消息、禁止写出、禁止读取 <see cref="IChannelHandlerContext.Channel"/>；
+        /// 需要连接或回包的初始化放到 <see cref="IChannelInboundHandler.ChannelActiveAsync"/>。
+        /// </summary>
+        /// <param name="ctx">即将挂链的节点上下文；生命周期内与节点绑定。</param>
+        void HandlerAdded(IChannelHandlerContext ctx);
+
+        /// <summary>
+        /// 从链上摘除之后同步调用，用于释放连接级状态、注销登记。异常只记录，不影响摘除结果。
+        /// 只允许释放连接级状态，不得释放与当前消息相关的缓冲：摘链时上游处理器的调用可能仍在栈上。
+        /// </summary>
+        /// <param name="ctx">已摘链节点的上下文；读连接标识与连接仍然有效。</param>
+        void HandlerRemoved(IChannelHandlerContext ctx);
     }
 
     /// <summary>
@@ -79,6 +94,22 @@ namespace SAEA.Sockets.Pipeline
         /// <param name="ctx">当前处理器在链上的节点上下文。</param>
         /// <returns>通知处理完成后结束的任务。</returns>
         Task ChannelReadCompleteAsync(IChannelHandlerContext ctx);
+
+        /// <summary>
+        /// 连接已启动、接收泵首次读取之前按链首到链尾逐条调用；此时允许回包。
+        /// 必须幂等，重复通知不做第二次业务动作；抛出的异常只记录，不阻止后续处理器与接收泵启动。
+        /// </summary>
+        /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+        /// <returns>连接级初始化完成后结束的任务。</returns>
+        Task ChannelActiveAsync(IChannelHandlerContext ctx);
+
+        /// <summary>
+        /// 连接进入收口时、按断开策略处理在途消息之前调用；此时 <see cref="IChannel.IsActive"/> 已为 false，
+        /// 只做通知与登记摘除，禁止回包。必须幂等；抛出的异常只记录，不阻断收口。
+        /// </summary>
+        /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+        /// <returns>连接级清理完成后结束的任务。</returns>
+        Task ChannelInactiveAsync(IChannelHandlerContext ctx);
     }
 
     /// <summary>

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 14:05:00
+*修改时间：2026/11/9 14:12:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增发送委托构造，支持客户端 socket 接入通道链
+*描述：写明发送 Task 只表示所有权交接，不表示对端收到
 *
 *****************************************************************************/
 using System;
@@ -39,12 +39,16 @@ namespace SAEA.Sockets.PipelineTest
     /// <summary>
     /// 把服务端或客户端 socket 接到 <see cref="IRawByteStream"/> 的适配器。
     /// <para>
-    /// <see cref="SendAsync"/> 只表示"所有权已交给传输层"：<paramref name="owner"/> 必须原样
-    /// 交给发送委托或 <see cref="IServerSocket.SendAsync(string, ReadOnlyMemory{byte}, IDisposable)"/>，
-    /// 由发送完成回调或失败路径释放，适配器绝不自行释放。
+    /// <see cref="SendAsync"/> 把<paramref name="owner"/>原样交给发送委托或
+    /// <see cref="IServerSocket.SendAsync(string, ReadOnlyMemory{byte}, IDisposable)"/>，
+    /// 由传输层在发送完成或失败路径释放，适配器绝不自行释放。
     /// </para>
     /// <para>
-    /// 传输层抛出的异常统一翻译成 <see cref="ChannelClosedException"/>，让业务只面对一种关闭形态。
+    /// 返回的 Task 只表示「所有权已交接给传输层」，不表示对端已经收到：
+    /// 内核缓冲区之后的路由、重传与对端读取都不在等待范围内。
+    /// </para>
+    /// <para>
+    /// 同步抛出的异常与异步 fault 统一翻译成 <see cref="ChannelClosedException"/>，让业务只面对一种关闭形态。
     /// </para>
     /// </summary>
     public sealed class SocketStreamAdapter : IRawByteStream
@@ -101,11 +105,7 @@ namespace SAEA.Sockets.PipelineTest
             if (server == null)
                 throw new ArgumentNullException(nameof(server));
 
-            return (data, owner) =>
-            {
-                server.SendAsync(channelId, data, owner);
-                return Task.CompletedTask;
-            };
+            return (data, owner) => server.SendAsync(channelId, data, owner);
         }
 
         /// <inheritdoc />
@@ -120,15 +120,34 @@ namespace SAEA.Sockets.PipelineTest
             get { return _input; }
         }
 
-        /// <summary>把完整帧交给传输层；连接已关闭时立即抛 <see cref="ChannelClosedException"/>。</summary>
+        /// <summary>把完整帧交给传输层，并等待所有权交接完成；失败时以 <see cref="ChannelClosedException"/> 结束。</summary>
         /// <param name="data">待发送的完整帧</param>
         /// <param name="owner">帧缓冲区所有权凭据，由传输层在发送完成或失败后释放，适配器不释放</param>
-        /// <returns>所有权移交后即完成的 Task；失败时同步抛 ChannelClosedException</returns>
-        public Task SendAsync(ReadOnlyMemory<byte> data, IDisposable owner)
+        /// <returns>
+        /// 所有权交接完成后完成的 Task；只表示已交给传输层，不表示对端收到。
+        /// 同步异常与异步 fault 都会翻译成 <see cref="ChannelClosedException"/>。
+        /// </returns>
+        public async Task SendAsync(ReadOnlyMemory<byte> data, IDisposable owner)
         {
+            Task sending;
             try
             {
-                return _send(data, owner);
+                sending = _send(data, owner);
+            }
+            catch (ChannelClosedException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new ChannelClosedException("连接已关闭或发送失败:" + _channelId + "," + ex.Message, ex);
+            }
+
+            if (sending == null) return;
+
+            try
+            {
+                await sending.ConfigureAwait(false);
             }
             catch (ChannelClosedException)
             {

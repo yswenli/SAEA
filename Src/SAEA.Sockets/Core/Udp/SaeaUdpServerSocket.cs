@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:27
+*修改时间：2026/11/9 10:30:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：携带所有权对象的发送重载签名同步为 Task，UDP 收发行为不变
 *
 *****************************************************************************/
 using SAEA.Common.Caching;
@@ -39,6 +39,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace SAEA.Sockets.Core.Udp
 {
@@ -440,19 +441,21 @@ namespace SAEA.Sockets.Core.Udp
         }
 
         /// <summary>
-        /// 向指定会话异步发送并转移缓冲所有权；数据为空只释放 owner，会话不存在或超过 UDP 单包上限时释放 owner 后抛异常
+        /// 向指定会话异步发送并转移缓冲所有权；数据为空只释放 owner，会话不存在或超过 UDP 单包上限时释放 owner 后抛异常。
+        /// UDP 保持原有的投递即返回语义，返回的 Task 仅用于对齐接口签名。
         /// </summary>
         /// <param name="sessionID">会话标识</param>
         /// <param name="data">待发送数据</param>
         /// <param name="owner">data 所占缓冲的所有权对象，可为 null</param>
+        /// <returns>已投递时为完成状态的任务</returns>
         /// <exception cref="KernelException">会话不存在</exception>
         /// <exception cref="ArgumentException">数据长度超过单包上限</exception>
-        public void SendAsync(string sessionID, ReadOnlyMemory<byte> data, IDisposable owner)
+        public Task SendAsync(string sessionID, ReadOnlyMemory<byte> data, IDisposable owner)
         {
             if (data.Length == 0)
             {
                 owner?.Dispose();
-                return;
+                return Task.CompletedTask;
             }
             var userToken = _sessionManager.Get(sessionID);
             if (userToken == null)
@@ -469,7 +472,7 @@ namespace SAEA.Sockets.Core.Udp
             if (MemoryMarshal.TryGetArray(data, out var segment) && segment.Array != null)
             {
                 SendAsyncRaw(userToken, segment, owner);
-                return;
+                return Task.CompletedTask;
             }
             PooledBufferWriter writer = null;
             try
@@ -493,10 +496,11 @@ namespace SAEA.Sockets.Core.Udp
                 writer.Dispose();
                 writer = null;
                 owner?.Dispose();
-                return;
+                return Task.CompletedTask;
             }
             owner?.Dispose();
             SendAsyncRaw(userToken, rented, writer);
+            return Task.CompletedTask;
         }
 
         /// <summary>

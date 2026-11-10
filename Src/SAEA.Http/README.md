@@ -7,7 +7,7 @@
 
 > 基于 .NET Standard 2.0 的高性能 HTTP 服务器，采用异步 IO，支持 RESTful API、静态文件服务、文件上传等功能。
 >
-> ⚡ **零拷贝内核**：构建于 SAEA.Sockets 的 Span/Memory 零拷贝收发与内存池通道之上，显著降低分配与 GC。
+> ⚡ **流式内核**：接收与发送都跑在 `SAEA.Sockets.Pipeline` 的处理器链上，分帧、协议解析、业务派发与响应编码各占一个节点。
 
 ## 快速导航 🧭
 
@@ -15,6 +15,7 @@
 |------|------|
 | [⚡ 30秒快速开始](#30秒快速开始) | 最简单的上手示例 |
 | [🎯 核心特性](#核心特性) | 框架的主要功能 |
+| [🔗 处理器链装配](#处理器链装配) | 自定义处理器与装配顺序约束 |
 | [📐 架构设计](#架构设计) | 组件关系与工作流程 |
 | [💡 应用场景](#应用场景) | 何时选择 SAEA.Http |
 | [📊 性能对比](#性能对比) | 与其他方案对比 |
@@ -37,12 +38,16 @@ dotnet add package SAEA.Http
 ### Step 2: 创建 HTTP 服务器（仅需5行代码）
 
 ```csharp
+using System.Net;
 using SAEA.Http;
 
-var server = new WebHost(new WebConfig { Port = 28080 });
-server.OnRequestDelegate += (ctx) => {
-    ctx.Response.SetContent("{\"msg\": \"Hello SAEA.Http!\"}", "application/json");
-    return true;
+var server = new WebHost(port: 28080);
+server.WebConfig.RequestDelegate = ctx =>
+{
+    ctx.Response.Status = HttpStatusCode.OK;
+    ctx.Response.ContentType = "application/json; charset=utf-8";
+    ctx.Response.Write("{\"msg\": \"Hello SAEA.Http!\"}");
+    ctx.Response.End();
 };
 server.Start();
 ```
@@ -71,7 +76,52 @@ curl http://localhost:28080/api/test
 | 🗜️ **GZIP 压缩** | 响应内容自动压缩 | 减少带宽，提升速度 |
 | 🌍 **CORS 跨域** | 内置跨域支持 | 前后端分离友好 |
 | 📡 **SSE 推送** | Server-Sent Events | 实时服务器推送 |
-| 🔧 **委托处理** | RequestDelegate 模式 | 灵活的自定义处理 |
+| 🔗 **处理器链扩展** | `WebConfig.ConfigurePipeline` | 在协议链上追加自定义入站处理器 |
+
+---
+
+## 处理器链装配 🔗
+
+包内先装好自己的传输接线与协议节点，再把尚未启动的链交给 `WebConfig.ConfigurePipeline`，每条连接调用一次：
+
+```csharp
+using SAEA.Http;
+
+var server = new WebHost(port: 28080);
+
+server.WebConfig.ConfigurePipeline = (channelId, pipeline) =>
+{
+    // 只能在这里追加处理器；Start 之后链结构冻结。
+    pipeline.AddLast(new MyInboundHandler());
+};
+
+server.Start();
+```
+
+装配顺序是硬约束：
+
+- 链首是出站前缀，`HttpResponseEncoder` 在最左、`OutboundSerializingHandler` 在最右；自定义出站处理器必须让出站节点保持连续前缀。
+- 协议节点（`HttpRequestDecoder` → `HttpProtocolHandler` → 派发 → 升级后原始帧收口）固定排在你的处理器之前。
+- 你在 `ConfigurePipeline` 里追加的处理器排在协议节点之后、链尾 `ExceptionTerminalHandler` 之前。
+- 业务写一律用 `pipeline.WriteAsync(...)`（或在处理器内用 `ctx.Pipeline.WriteAsync(...)`）；`ctx.WriteAsync(...)` 只在出站回调内向下游转发。
+
+请求/异常/连接关闭三个业务入口都在 `WebConfig` 上，不再有事件订阅：
+
+| 成员 | 说明 |
+|------|------|
+| `WebConfig.RequestDelegate` | 请求处理入口，签名 `void (IHttpContext)`，非空时取代默认路由处理 |
+| `WebConfig.ExceptionHandler` | 异常处理入口，签名 `IHttpResult (IHttpContext, Exception)`，返回 null 表示按默认规则生成错误响应 |
+| `WebConfig.ConnectionClosed` | 连接关闭通知，签名 `void (string channelId, Exception ex)`，正常断开时 `ex` 为 null |
+
+### 协议上限
+
+| 限制 | 默认值 | 说明 |
+|------|--------|------|
+| 请求体长度 | 64MB | `HttpRequestSplitter` 的 `maxRequestSize`，只限制 body |
+| 请求头长度 | 64KB | 独立上限，超限回 431 |
+| 分帧缓冲 | `MaxFrameLength + 9 + ReadBufferSize` | 由执行器推导，不要手动填小于该值 |
+| 并发消息数 | 1 | HTTP 单工请求/响应，同连接串行处理 |
+| `Transfer-Encoding: chunked` | 不支持 | 显式回 400，避免把 chunk 字节当成下一条请求 |
 
 ---
 
@@ -80,43 +130,48 @@ curl http://localhost:28080/api/test
 ### 组件架构图
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     SAEA.Http 架构                           │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │                    WebHost                           │  │
-│  │                 (HTTP 服务器入口)                     │  │
-│  └──────────────────────────────────────────────────────┘  │
-│                            │                                │
-│         ┌──────────────────┼──────────────────┐           │
-│         │                  │                  │            │
-│  ┌──────▼──────┐   ┌───────▼───────┐   ┌─────▼─────┐     │
-│  │ HttpContext │   │  HttpSession  │   │ WebConfig │     │
-│  │  (上下文)   │   │  (会话管理)   │   │  (配置)   │     │
-│  └──────┬──────┘   └───────────────┘   └───────────┘     │
-│         │                                                   │
-│  ┌──────┴──────┐                                           │
-│  │             │                                           │
-│  ▼             ▼                                           │
-│ ┌─────────┐ ┌──────────┐                                   │
-│ │Request  │ │Response  │                                   │
-│ │(请求)   │ │(响应)    │                                   │
-│ └────┬────┘ └────┬─────┘                                   │
-│      │           │                                          │
-│      └─────┬─────┘                                          │
-│            │                                                │
-│  ┌─────────▼─────────┐                                     │
-│  │     HttpSocket    │                                     │
-│  │   (底层通信层)    │                                     │
-│  └─────────┬─────────┘                                     │
-│            │                                                │
-│  ┌─────────▼─────────┐                                     │
-│  │   SAEA.Sockets    │                                     │
-│  │   异步 IO 引擎    │                                     │
-│  └───────────────────┘                                     │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                       SAEA.Http 架构                          │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │                      WebHost                           │  │
+│  │                   (HTTP 服务器入口)                     │  │
+│  └────────────────────────────────────────────────────────┘  │
+│                            │                                 │
+│         ┌──────────────────┼──────────────────┐              │
+│         │                  │                  │              │
+│  ┌──────▼──────┐   ┌───────▼───────┐   ┌─────▼─────┐         │
+│  │ HttpContext │   │  HttpSession  │   │ WebConfig │         │
+│  │  (上下文)   │   │  (会话管理)   │   │  (配置)   │         │
+│  └──────┬──────┘   └───────────────┘   └───────────┘         │
+│         │                                                    │
+│  ┌──────┴──────┐                                             │
+│  │             │                                             │
+│  ▼             ▼                                             │
+│ ┌─────────┐ ┌──────────┐                                     │
+│ │Request  │ │Response  │                                     │
+│ │(请求)   │ │(响应)    │                                     │
+│ └────┬────┘ └────┬─────┘                                     │
+│      │           │                                           │
+│      └─────┬─────┘                                           │
+│            │                                                 │
+│  ┌─────────▼──────────────────────────┐                      │
+│  │            HttpSocket              │                      │
+│  │       (处理器链装配与收口)          │                      │
+│  └─────────┬──────────────────────────┘                      │
+│            │                                                 │
+│  ┌─────────▼──────────────────────────┐                      │
+│  │      SAEA.Sockets.Pipeline         │                      │
+│  │  分帧 / 解码 / 派发 / 编码 / 发送   │                      │
+│  └─────────┬──────────────────────────┘                      │
+│            │                                                 │
+│  ┌─────────▼──────────────────────────┐                      │
+│  │           SAEA.Sockets             │                      │
+│  │           异步 IO 引擎             │                      │
+│  └────────────────────────────────────┘                      │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ### 请求处理流程图
@@ -124,18 +179,24 @@ curl http://localhost:28080/api/test
 ```
 HTTP 请求处理流程:
 
-客户端 ──► HTTP Request ──► WebHost 接收
+客户端 ──► HTTP Request ──► 接收泵（PipeReader + 分帧器）
                                     │
                                     ▼
                           ┌─────────────────┐
-                          │ RequestDataReader│
-                          │   解析 HTTP 请求 │
+                          │ HttpRequestDecoder│
+                          │  解析报头与报体  │
                           └─────────────────┘
                                     │
                                     ▼
                           ┌─────────────────┐
-                          │   HttpContext   │
-                          │  创建请求上下文  │
+                          │ HttpProtocolHandler│
+                          │ 升级协商 / 413/431│
+                          └─────────────────┘
+                                    │
+                                    ▼
+                          ┌─────────────────┐
+                          │ HttpDispatchHandler│
+                          │  创建并派发上下文 │
                           └─────────────────┘
                                     │
                     ┌───────────────┼───────────────┐
@@ -147,7 +208,7 @@ HTTP 请求处理流程:
                   │               │               │
                   ▼               ▼               ▼
             ┌───────────┐   ┌───────────┐   ┌───────────┐
-            │StaticCache│   │OnRequest  │   │Multipart  │
+            │StaticCache│   │Request    │   │Multipart  │
             │缓存/传输  │   │Delegate   │   │ 解析器    │
             └─────┬─────┘   └─────┬─────┘   └─────┬─────┘
                   │               │               │
@@ -161,12 +222,12 @@ HTTP 请求处理流程:
                                   │
                                   ▼
                         ┌─────────────────┐
-                        │ GZIP 压缩?      │
-                        │ (可选)          │
+                        │HttpResponseEncoder│
+                        │ 编码 + 串行化    │
                         └─────────────────┘
                                   │
                                   ▼
-                          HttpSocket 发送
+                          传输层写出（socket）
                                   │
                                   ▼
                             客户端响应
@@ -239,31 +300,33 @@ HTTP 请求处理流程:
 
 ### Q2: 如何处理跨域 CORS 请求？
 
-**A**: SAEA.Http 内置 CORS 支持，在 `OnRequestDelegate` 中处理：
+**A**: SAEA.Http 内置 CORS 支持，在 `RequestDelegate` 中处理：
 
 ```csharp
-server.OnRequestDelegate += (ctx) =>
+server.WebConfig.RequestDelegate = ctx =>
 {
     ctx.Response.Headers["Access-Control-Allow-Origin"] = "*";
     ctx.Response.Headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE";
     ctx.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type";
-    
+
     if (ctx.Request.Method == "OPTIONS")
     {
-        ctx.Response.SetContent("", "text/plain");
-        return true;
+        ctx.Response.Status = HttpStatusCode.NoContent;
+        ctx.Response.End();
+        return;
     }
     // ... 其他处理
-    return false;
 };
 ```
 
+需要按域名放行时可调用 `server.SetCrossDomainHeaders("token", "auth")` 追加允许的自定义头。
+
 ### Q3: 如何实现大文件上传？
 
-**A**: 使用流式处理避免内存溢出：
+**A**: 上传内容已按 `Content-Length` 完整读入后再交给业务，超过 64MB 会回 413：
 
 ```csharp
-server.OnRequestDelegate += (ctx) =>
+server.WebConfig.RequestDelegate = ctx =>
 {
     var files = ctx.Request.PostFiles;
     foreach (var file in files)
@@ -271,22 +334,18 @@ server.OnRequestDelegate += (ctx) =>
         var savePath = Path.Combine("uploads", file.FileName);
         File.WriteAllBytes(savePath, file.Data);
     }
-    ctx.Response.SetContent("{\"uploaded\": true}", "application/json");
-    return true;
+    ctx.Response.ContentType = "application/json; charset=utf-8";
+    ctx.Response.Write("{\"uploaded\": true}");
+    ctx.Response.End();
 };
 ```
 
 ### Q4: 如何开启 GZIP 压缩？
 
-**A**: 在 `WebConfig` 中配置：
+**A**: 通过 `WebHost` 构造参数开启（默认开启）：
 
 ```csharp
-var config = new WebConfig
-{
-    Port = 28080,
-    IsZiped = true  // 启用 GZIP 压缩
-};
-var server = new WebHost(config);
+var server = new WebHost(port: 28080, isZiped: true);
 ```
 
 ### Q5: 如何配置 Session 超时时间？
@@ -302,21 +361,20 @@ session["key"] = "value";   // 设置值
 
 ### Q6: 如何实现 SSE（服务器推送）？
 
-**A**: 使用 `text/event-stream` 内容类型：
+**A**: 使用 `text/event-stream` 内容类型，`SendHeader(-1)` 表示长度未知、保持连接：
 
 ```csharp
-server.OnRequestDelegate += (ctx) =>
+server.WebConfig.RequestDelegate = ctx =>
 {
     ctx.Response.ContentType = "text/event-stream";
-    ctx.Response.SendHeader();
-    
+    ctx.Response.SendHeader(-1);
+
     for (int i = 0; i < 10; i++)
     {
-        ctx.Response.SendData($"data: Message {i}\n\n");
+        ctx.Response.SendData(Encoding.UTF8.GetBytes($"data: Message {i}\n\n"));
         Thread.Sleep(1000);
     }
     ctx.Response.SendEnd();
-    return true;
 };
 ```
 
@@ -326,7 +384,11 @@ server.OnRequestDelegate += (ctx) =>
 - 小文件（默认 < 1MB）自动缓存到内存
 - 支持 `Cache-Control`、`Last-Modified` 头
 - 支持 `If-Modified-Since` 条件请求
-- 通过 `WebConfig.IsStaticsCached` 控制开关
+- 通过 `WebHost` 的 `isStaticsCached` 参数控制开关
+
+### Q8: 支持 chunked 请求体吗？
+
+**A**: 不支持。收到 `Transfer-Encoding: chunked` 的请求会直接回 400 并关闭连接，因为按 `Content-Length` 切帧会把 chunk 字节误判成下一条请求。
 
 ---
 
@@ -341,9 +403,10 @@ server.OnRequestDelegate += (ctx) =>
 | `HttpSession` | HTTP 会话管理 |
 | `HttpSessionManager` | 会话管理器 |
 | `HttpCookie` / `HttpCookies` | Cookie 管理 |
-| `WebConfig` | Web 服务器配置 |
-| `HttpCoder` | HTTP 协议编/解码器 |
+| `WebConfig` | Web 服务器配置，承载请求/异常/断开委托与链装配回调 |
 | `RequestDataReader` | HTTP 请求解析器 |
+| `IHttpUpgradeTarget` | 协议升级协商入口 |
+| `IChannelPipeline` | 处理器链，业务写入口 `WriteAsync` |
 
 ### HTTP 结果类型
 
@@ -362,196 +425,259 @@ server.OnRequestDelegate += (ctx) =>
 ### 启动 HTTP 服务器
 
 ```csharp
+using System.Net;
 using SAEA.Http;
 
-var config = new WebConfig
-{
-    Root = "wwwroot",
-    Port = 28080,
-    BufferSize = 1024 * 64,
-    MaxConnects = 1000,
-    IsStaticsCached = true,
-    IsZiped = true
-};
+var server = new WebHost(
+    root: "wwwroot",
+    port: 28080,
+    isStaticsCached: true,
+    isZiped: true,
+    bufferSize: 1024 * 64,
+    maxConnects: 1000,
+    timeout: 180,
+    connectTimeout: 3);
 
-var server = new WebHost(config);
-
-server.OnRequestDelegate += (ctx) =>
+server.WebConfig.RequestDelegate = ctx =>
 {
     if (ctx.Request.Url.StartsWith("/api/"))
     {
-        var json = $"{{\"time\": \"{DateTime.Now}\"}}";
-        ctx.Response.SetContent(json, "application/json");
-        return true;
+        ctx.Response.ContentType = "application/json; charset=utf-8";
+        ctx.Response.Write($"{{\"time\": \"{DateTime.Now}\"}}");
+        ctx.Response.End();
     }
-    return false;
 };
 
-server.OnException += (ctx, ex) =>
+server.WebConfig.ExceptionHandler = (ctx, ex) =>
 {
     Console.WriteLine($"错误: {ex.Message}");
+    return null;
 };
 
 server.Start();
-Console.WriteLine($"HTTP 服务器已启动，端口: {config.Port}");
+Console.WriteLine($"HTTP 服务器已启动，端口: 28080");
 ```
 
 ### 处理 GET 请求
 
 ```csharp
-server.OnRequestDelegate += (ctx) =>
+server.WebConfig.RequestDelegate = ctx =>
 {
     var request = ctx.Request;
-    
+
     Console.WriteLine($"GET {request.Url}");
     Console.WriteLine($"Query: {request.Query["id"]}");
     Console.WriteLine($"Headers: {request.Headers["User-Agent"]}");
-    
-    ctx.Response.SetContent("{\"status\": \"ok\"}", "application/json");
-    return true;
+
+    ctx.Response.ContentType = "application/json; charset=utf-8";
+    ctx.Response.Write("{\"status\": \"ok\"}");
+    ctx.Response.End();
 };
 ```
 
 ### 处理 POST 请求
 
 ```csharp
-server.OnRequestDelegate += (ctx) =>
+server.WebConfig.RequestDelegate = ctx =>
 {
     var request = ctx.Request;
-    
+
     if (request.Method == "POST")
     {
         var username = request.Forms["username"];
         var password = request.Forms["password"];
         var jsonBody = request.Json;
         var files = request.PostFiles;
-        
+
         foreach (var file in files)
         {
             Console.WriteLine($"文件: {file.FileName}, 大小: {file.Data.Length}");
         }
-        
-        ctx.Response.SetContent("{\"success\": true}", "application/json");
-        return true;
+
+        ctx.Response.ContentType = "application/json; charset=utf-8";
+        ctx.Response.Write("{\"success\": true}");
+        ctx.Response.End();
+        return;
     }
-    return false;
+
+    ctx.Response.Status = HttpStatusCode.NotFound;
+    ctx.Response.End();
 };
 ```
 
 ### 使用 Session
 
 ```csharp
-server.OnRequestDelegate += (ctx) =>
+server.WebConfig.RequestDelegate = ctx =>
 {
     var session = ctx.Session;
-    
+
     var userId = session["UserId"];
     session["UserId"] = "12345";
     session["LoginTime"] = DateTime.Now.ToString();
-    
-    ctx.Response.SetContent($"Session ID: {session.SessionID}");
-    return true;
+
+    ctx.Response.Write($"Session ID: {session.SessionID}");
+    ctx.Response.End();
 };
 ```
 
 ### 使用 Cookie
 
 ```csharp
-server.OnRequestDelegate += (ctx) =>
+server.WebConfig.RequestDelegate = ctx =>
 {
     var request = ctx.Request;
     var response = ctx.Response;
-    
+
     var token = request.Cookies["token"];
-    
+
     response.Cookies.Add(new HttpCookie
     {
         Name = "token",
         Value = "abc123",
         Expires = DateTime.Now.AddDays(7)
     });
-    
-    ctx.Response.SetContent("Cookie 已设置");
-    return true;
+
+    response.Write("Cookie 已设置");
+    response.End();
 };
 ```
 
 ### 返回文件
 
 ```csharp
-server.OnRequestDelegate += (ctx) =>
+using SAEA.Http.Model;
+
+server.WebConfig.RequestDelegate = ctx =>
 {
     var filePath = ctx.Server.MapPath("/files/document.pdf");
-    ctx.Response.SetCached(filePath);
-    return true;
+    ctx.Response.SetCached(new HttpFileResult(filePath, true));
+    ctx.Response.End();
 };
 
-server.OnRequestDelegate += (ctx) =>
+server.WebConfig.RequestDelegate = ctx =>
 {
     var filePath = ctx.Server.MapPath("/videos/movie.mp4");
-    
+    var fileInfo = new FileInfo(filePath);
+
     ctx.Response.ContentType = "video/mp4";
-    ctx.Response.SendHeader();
-    
+    ctx.Response.SendHeader(fileInfo.Length);
+
     using (var fs = new FileStream(filePath, FileMode.Open))
     {
         var buffer = new byte[1024 * 64];
         int read;
         while ((read = fs.Read(buffer, 0, buffer.Length)) > 0)
         {
-            ctx.Response.SendData(buffer, 0, read);
+            // SendData 立即写出，不持有传入数组，可以复用一个缓冲区。
+            if (read == buffer.Length)
+            {
+                ctx.Response.SendData(buffer);
+            }
+            else
+            {
+                var chunk = new byte[read];
+                Buffer.BlockCopy(buffer, 0, chunk, 0, read);
+                ctx.Response.SendData(chunk);
+            }
         }
     }
-    
+
     ctx.Response.SendEnd();
-    return true;
 };
 ```
 
 ### SSE 服务器推送
 
 ```csharp
-server.OnRequestDelegate += (ctx) =>
+server.WebConfig.RequestDelegate = ctx =>
 {
     ctx.Response.ContentType = "text/event-stream";
-    ctx.Response.SendHeader();
-    
+    ctx.Response.SendHeader(-1);
+
     for (int i = 0; i < 10; i++)
     {
-        ctx.Response.SendData($"data: Message {i}\n\n");
+        ctx.Response.SendData(Encoding.UTF8.GetBytes($"data: Message {i}\n\n"));
         Thread.Sleep(1000);
     }
-    
+
     ctx.Response.SendEnd();
-    return true;
 };
 ```
+
+### 自定义处理器
+
+`ConfigurePipeline` 追加的处理器位于协议节点之后、链尾异常终结器之前。普通 HTTP 请求由派发节点直接交给 `WebConfig.RequestDelegate`，不再往下传；因此这里的入站处理器只适合做连接级观测，或处理升级后下发的原始帧：
+
+```csharp
+using SAEA.Sockets.Pipeline;
+
+public sealed class ConnectionObserver : InboundHandlerAdapter
+{
+    /// <summary>生命周期通知由泵按链顺序逐个调用，不依赖处理器转发。</summary>
+    public override Task ChannelActiveAsync(IChannelHandlerContext ctx)
+    {
+        Console.WriteLine($"[{ctx.ChannelId}] 连接建立");
+        return Task.CompletedTask;
+    }
+
+    public override Task ChannelInactiveAsync(IChannelHandlerContext ctx)
+    {
+        Console.WriteLine($"[{ctx.ChannelId}] 连接断开");
+        return Task.CompletedTask;
+    }
+
+    /// <summary>只有未被协议层消费的消息会到这里，例如协议升级后的原始帧。</summary>
+    public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+    {
+        var frame = msg as PooledMessage;
+        if (frame != null)
+            Console.WriteLine($"[{ctx.ChannelId}] {frame.Frame.Length} 字节");
+
+        return ctx.FireChannelReadAsync(msg);
+    }
+}
+
+server.WebConfig.ConfigurePipeline = (channelId, pipeline) =>
+{
+    pipeline.AddLast(new ConnectionObserver());
+};
+```
+
+升级后的原始帧是池化内存，`Frame` 只能在本次回调内读取；要跨回调或异步保存，必须先复制。
 
 ---
 
 ## 配置项
 
+`WebConfig` 的端口、根目录、缓冲区等由 `WebHost` 构造参数初始化；业务可写的配置项如下：
+
 ```csharp
-var config = new WebConfig
-{
-    Root = "wwwroot",           // 网站根目录
-    Port = 28080,               // 监听端口
-    BufferSize = 1024 * 64,     // 缓冲区大小（64KB）
-    MaxConnects = 1000,         // 最大连接数
-    IsStaticsCached = true,     // 静态文件缓存
-    IsZiped = false,            // GZIP 压缩
-    ConnectTimeout = 6000       // 连接超时（毫秒）
-};
+var server = new WebHost(
+    root: "wwwroot",            // 网站根目录
+    port: 28080,                // 监听端口
+    isStaticsCached: true,      // 静态文件缓存
+    isZiped: false,             // GZIP 压缩
+    bufferSize: 1024 * 64,      // 接收缓冲区（64KB）
+    maxConnects: 1000,          // 最大连接数
+    timeout: 180,               // 连接空闲超时（秒）
+    connectTimeout: 3);         // 连接建立超时（秒）
+
+server.WebConfig.ConfigurePipeline = (id, pipeline) => { /* ... */ };
+server.WebConfig.RequestDelegate = ctx => { /* ... */ };
+server.WebConfig.ExceptionHandler = (ctx, ex) => null;
+server.WebConfig.ConnectionClosed = (id, ex) => { /* ... */ };
 ```
 
 ---
 
 ## 依赖项
 
-| 包名 | 版本 | 说明 |
-|------|------|------|
-| SAEA.Sockets | 26.9.21.1 | Socket 通信框架 |
-| SAEA.Common | 26.9.21.1 | 公共工具类 |
+| 包名 | 说明 |
+|------|------|
+| SAEA.Sockets | Socket 通信框架 |
+| SAEA.Sockets.Pipeline | 处理器链、分帧与编解码基础设施 |
+| SAEA.Common | 公共工具类 |
 
 ---
 

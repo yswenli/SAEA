@@ -3,270 +3,310 @@
 [![NuGet version](https://img.shields.io/nuget/v/SAEA.Http.svg?style=flat-square)](https://www.nuget.org/packages/SAEA.Http)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 
-**English Version** | **[中文版](README.md)**
+**English** | **[中文版](README.md)**
 
-> A high-performance HTTP server based on .NET Standard 2.0, utilizing async IO, supporting RESTful APIs, static file serving, file uploads, and more.
+> A high-performance HTTP server for .NET Standard 2.0 with asynchronous IO, RESTful APIs, static file serving and file upload.
 >
-> ⚡ **Zero-copy core**: built on the SAEA.Sockets Span/Memory zero-copy send/receive path and pooled buffers, significantly reducing allocations and GC.
+> ⚡ **Streaming core**: both receive and send run on a `SAEA.Sockets.Pipeline` handler chain — framing, protocol parsing, dispatching and response encoding are separate chain nodes.
 
-## Quick Navigation 🧭
+## Navigation 🧭
 
 | Section | Content |
 |---------|---------|
-| [⚡ 30-Second Quick Start](#30-second-quick-start-) | Simplest getting started example |
-| [🎯 Core Features](#core-features-) | Main framework features |
-| [📐 Architecture Design](#architecture-design-) | Component relationships and workflow |
-| [💡 Use Cases](#use-cases-) | When to choose SAEA.Http |
-| [📊 Performance Comparison](#performance-comparison-) | Comparison with other solutions |
-| [❓ FAQ](#faq) | Quick FAQ answers |
-| [🔧 Core Classes](#core-classes-) | Overview of main classes |
-| [📝 Usage Examples](#usage-examples-) | Detailed code examples |
+| [⚡ Quick Start](#quick-start) | Smallest working example |
+| [🎯 Features](#features) | What the package offers |
+| [🔗 Pipeline Assembly](#pipeline-assembly) | Custom handlers and ordering rules |
+| [📐 Architecture](#architecture) | Components and request flow |
+| [💡 Scenarios](#scenarios) | When SAEA.Http fits |
+| [📊 Performance](#performance) | Comparison with alternatives |
+| [❓ FAQ](#faq) | Common questions |
+| [🔧 Core Types](#core-types) | Main classes |
+| [📝 Examples](#examples) | Detailed samples |
 
 ---
 
-## 30-Second Quick Start ⚡
+## Quick Start ⚡
 
-The fastest way to get started - run an HTTP server in just 3 steps:
+Three steps to a running HTTP server:
 
-### Step 1: Install NuGet Package
+### Step 1: Install the NuGet package
 
 ```bash
 dotnet add package SAEA.Http
 ```
 
-### Step 2: Create HTTP Server (Just 5 Lines of Code)
+### Step 2: Create the server (5 lines)
 
 ```csharp
+using System.Net;
 using SAEA.Http;
 
-var server = new WebHost(new WebConfig { Port = 28080 });
-server.OnRequestDelegate += (ctx) => {
-    ctx.Response.SetContent("{\"msg\": \"Hello SAEA.Http!\"}", "application/json");
-    return true;
+var server = new WebHost(port: 28080);
+server.WebConfig.RequestDelegate = ctx =>
+{
+    ctx.Response.Status = HttpStatusCode.OK;
+    ctx.Response.ContentType = "application/json; charset=utf-8";
+    ctx.Response.Write("{\"msg\": \"Hello SAEA.Http!\"}");
+    ctx.Response.End();
 };
 server.Start();
 ```
 
-### Step 3: Test Access
+### Step 3: Test it
 
 ```bash
 curl http://localhost:28080/api/test
-# Output: {"msg": "Hello SAEA.Http!"}
+# output: {"msg": "Hello SAEA.Http!"}
 ```
 
-**That's it!** 🎉 You've implemented a high-performance HTTP server built for high-concurrency connections.
+**That's it!** 🎉 You now have a high-throughput HTTP server.
 
 ---
 
-## Core Features 🎯
+## Features 🎯
 
-| Feature | Description | Benefits |
-|---------|-------------|----------|
-| 🚀 **Cross-Platform Async IO** | Based on SAEA.Sockets async IO | Built for high-concurrency requests with low latency |
-| 📡 **Standard HTTP Methods** | GET/POST/PUT/DELETE/OPTIONS | Complete RESTful support |
-| 📁 **Static File Serving** | Auto caching, chunked transfer | Efficient large file transfer, memory optimized |
-| 📤 **File Upload** | multipart/form-data parsing | Easy file upload handling |
-| 🔒 **Session Management** | HttpSession + Manager | Session state tracking, timeout cleanup |
-| 🍪 **Cookie Support** | HttpCookie/HttpCookies | Complete Cookie read/write |
-| 🗜️ **GZIP Compression** | Automatic response compression | Reduces bandwidth, improves speed |
-| 🌍 **CORS Cross-Origin** | Built-in CORS support | Friendly for frontend/backend separation |
-| 📡 **SSE Push** | Server-Sent Events | Real-time server push |
-| 🔧 **Delegate Handling** | RequestDelegate pattern | Flexible custom handling |
+| Feature | Description | Benefit |
+|---------|-------------|---------|
+| 🚀 **Cross-platform async IO** | Built on SAEA.Sockets async IO | Low latency under high concurrency |
+| 📡 **Standard HTTP methods** | GET/POST/PUT/DELETE/OPTIONS | Full RESTful support |
+| 📁 **Static files** | Automatic caching, chunked transfer | Efficient large-file delivery |
+| 📤 **File upload** | multipart/form-data parsing | Uploads without manual parsing |
+| 🔒 **Session management** | HttpSession + Manager | State tracking with idle expiry |
+| 🍪 **Cookies** | HttpCookie/HttpCookies | Full read/write support |
+| 🗜️ **GZIP compression** | Automatic response compression | Less bandwidth |
+| 🌍 **CORS** | Built-in cross-origin support | Front-end friendly |
+| 📡 **SSE** | Server-Sent Events | Server push out of the box |
+| 🔗 **Handler chain** | `WebConfig.ConfigurePipeline` | Append custom inbound handlers |
 
 ---
 
-## Architecture Design 📐
+## Pipeline Assembly 🔗
 
-### Component Architecture Diagram
+The package wires its own transport and protocol nodes, then hands the not-yet-started chain to `WebConfig.ConfigurePipeline` once per connection:
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     SAEA.Http Architecture                   │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │                    WebHost                           │  │
-│  │               (HTTP Server Entry)                    │  │
-│  └──────────────────────────────────────────────────────┘  │
-│                            │                                │
-│         ┌──────────────────┼──────────────────┐           │
-│         │                  │                  │            │
-│  ┌──────▼──────┐   ┌───────▼───────┐   ┌─────▼─────┐     │
-│  │ HttpContext │   │  HttpSession  │   │ WebConfig │     │
-│  │  (Context)  │   │(Session Mgmt)│   │  (Config) │     │
-│  └──────┬──────┘   └───────────────┘   └───────────┘     │
-│         │                                                   │
-│  ┌──────┴──────┐                                           │
-│  │             │                                           │
-│  ▼             ▼                                           │
-│ ┌─────────┐ ┌──────────┐                                   │
-│ │Request  │ │Response  │                                   │
-│ │(Request)│ │(Response)│                                   │
-│ └────┬────┘ └────┬─────┘                                   │
-│      │           │                                          │
-│      └─────┬─────┘                                          │
-│            │                                                │
-│  ┌─────────▼─────────┐                                     │
-│  │     HttpSocket    │                                     │
-│  │(Communication Layer)│                                    │
-│  └─────────┬─────────┘                                     │
-│            │                                                │
-│  ┌─────────▼─────────┐                                     │
-│  │   SAEA.Sockets    │                                     │
-│  │ (Async IO Engine) │                                     │
-│  └───────────────────┘                                     │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+```csharp
+using SAEA.Http;
+
+var server = new WebHost(port: 28080);
+
+server.WebConfig.ConfigurePipeline = (channelId, pipeline) =>
+{
+    // You may only append handlers here; the chain freezes after Start.
+    pipeline.AddLast(new MyInboundHandler());
+};
+
+server.Start();
 ```
 
-### Request Processing Flow
+Ordering is a hard constraint:
+
+- The chain starts with the outbound prefix: `HttpResponseEncoder` leftmost, `OutboundSerializingHandler` rightmost. Custom outbound handlers must keep that prefix contiguous.
+- Protocol nodes (`HttpRequestDecoder` → `HttpProtocolHandler` → dispatch → raw-frame sink) always sit before your handlers.
+- Handlers added in `ConfigurePipeline` run after the protocol nodes and before the tail `ExceptionTerminalHandler`.
+- Business writes go through `pipeline.WriteAsync(...)` (or `ctx.Pipeline.WriteAsync(...)` inside handlers); `ctx.WriteAsync(...)` only forwards to the next outbound node inside an outbound callback.
+
+The three business entry points live on `WebConfig`; there are no receive or lifecycle events to subscribe to:
+
+| Member | Description |
+|--------|-------------|
+| `WebConfig.RequestDelegate` | Request entry, `void (IHttpContext)`; replaces default routing when set |
+| `WebConfig.ExceptionHandler` | Exception entry, `IHttpResult (IHttpContext, Exception)`; return null for the default error response |
+| `WebConfig.ConnectionClosed` | Connection closed notification, `void (string channelId, Exception ex)`; `ex` is null on graceful close |
+
+### Protocol limits
+
+| Limit | Default | Notes |
+|-------|---------|-------|
+| Request body | 64MB | `HttpRequestSplitter` `maxRequestSize`; body only |
+| Request header | 64KB | Separate limit; exceeding it returns 431 |
+| Framing buffer | `MaxFrameLength + 9 + ReadBufferSize` | Derived by the executor; do not set a smaller value |
+| Concurrent messages | 1 | HTTP is half-duplex; one request at a time per connection |
+| `Transfer-Encoding: chunked` | Not supported | Returns 400 instead of misreading chunk bytes |
+
+---
+
+## Architecture 📐
+
+### Components
 
 ```
-HTTP Request Processing Flow:
+┌──────────────────────────────────────────────────────────────┐
+│                       SAEA.Http                              │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │                      WebHost                           │  │
+│  │                   (server entry point)                 │  │
+│  └────────────────────────────────────────────────────────┘  │
+│                            │                                 │
+│         ┌──────────────────┼──────────────────┐              │
+│         │                  │                  │              │
+│  ┌──────▼──────┐   ┌───────▼───────┐   ┌─────▼─────┐         │
+│  │ HttpContext │   │  HttpSession  │   │ WebConfig │         │
+│  └──────┬──────┘   └───────────────┘   └───────────┘         │
+│         │                                                    │
+│  ┌──────┴──────┐                                             │
+│  │             │                                             │
+│  ▼             ▼                                             │
+│ ┌─────────┐ ┌──────────┐                                     │
+│ │Request  │ │Response  │                                     │
+│ └────┬────┘ └────┬─────┘                                     │
+│      └─────┬─────┘                                           │
+│  ┌─────────▼──────────────────────────┐                      │
+│  │            HttpSocket              │                      │
+│  │   (chain assembly and shutdown)    │                      │
+│  └─────────┬──────────────────────────┘                      │
+│  ┌─────────▼──────────────────────────┐                      │
+│  │      SAEA.Sockets.Pipeline         │                      │
+│  │ framing/decoding/dispatch/encoding │                      │
+│  └─────────┬──────────────────────────┘                      │
+│  ┌─────────▼──────────────────────────┐                      │
+│  │           SAEA.Sockets             │                      │
+│  └────────────────────────────────────┘                      │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
 
-Client ──► HTTP Request ──► WebHost Receives
+### Request flow
+
+```
+Client ──► HTTP Request ──► pump (PipeReader + splitter)
                                     │
                                     ▼
-                           ┌─────────────────┐
-                           │ RequestDataReader│
-                           │ Parse HTTP Request│
-                           └─────────────────┘
+                          ┌───────────────────┐
+                          │ HttpRequestDecoder│
+                          └───────────────────┘
                                     │
                                     ▼
-                           ┌─────────────────┐
-                           │   HttpContext   │
-                           │Create Request    │
-                           │    Context       │
-                           └─────────────────┘
+                          ┌────────────────────┐
+                          │ HttpProtocolHandler│
+                          │ upgrade / 413 / 431│
+                          └────────────────────┘
                                     │
-                     ┌───────────────┼───────────────┐
-                     │               │               │
-                     ▼               ▼               ▼
-             ┌───────────┐   ┌───────────┐   ┌───────────┐
-             │Static File│   │API Request│   │File Upload│
-             │    ?      │   │    ?      │   │    ?      │
-             └─────┬─────┘   └─────┬─────┘   └─────┬─────┘
-                   │               │               │
-                   ▼               ▼               ▼
-             ┌───────────┐   ┌───────────┐   ┌───────────┐
-             │StaticCache│   │OnRequest  │   │Multipart  │
-             │Cache/Trans│   │Delegate   │   │  Parser   │
-             └─────┬─────┘   └─────┬─────┘   └─────┬─────┘
-                   │               │               │
-                   └───────────────┼───────────────┘
-                                   │
-                                   ▼
-                         ┌─────────────────┐
-                         │  HttpResponse   │
-                         │Build Response    │
-                         │     Data         │
-                         └─────────────────┘
-                                   │
-                                   ▼
-                         ┌─────────────────┐
-                         │ GZIP Compress?  │
-                         │   (Optional)    │
-                         └─────────────────┘
-                                   │
-                                   ▼
-                           HttpSocket Sends
-                                   │
-                                   ▼
-                             Client Response
+                                    ▼
+                          ┌─────────────────────┐
+                          │ HttpDispatchHandler │
+                          └─────────────────────┘
+                                    │
+                    ┌───────────────┼───────────────┐
+                    ▼               ▼               ▼
+            ┌───────────┐   ┌───────────┐   ┌───────────┐
+            │static?    │   │API?       │   │upload?    │
+            └─────┬─────┘   └─────┬─────┘   └─────┬─────┘
+                  ▼               ▼               ▼
+            ┌───────────┐   ┌───────────┐   ┌───────────┐
+            │StaticCache│   │Request    │   │Multipart  │
+            │           │   │Delegate   │   │           │
+            └─────┬─────┘   └─────┬─────┘   └─────┬─────┘
+                  └───────────────┼───────────────┘
+                                  ▼
+                        ┌───────────────────┐
+                        │  HttpResponse     │
+                        └───────────────────┘
+                                  ▼
+                        ┌───────────────────┐
+                        │HttpResponseEncoder│
+                        └───────────────────┘
+                                  ▼
+                            transport write
+                                  ▼
+                             client response
 ```
 
 ---
 
-## Use Cases 💡
+## Scenarios 💡
 
-### ✅ Suitable Scenarios for SAEA.Http
+### ✅ Good fit
 
-| Scenario | Description | Reason |
-|----------|-------------|--------|
-| 🌐 **RESTful API** | Microservices, backend APIs | async IO for high concurrency, low latency response |
-| 📁 **Static File Serving** | Frontend resources, download services | Auto caching, large file chunked transfer |
-| 📤 **File Upload Service** | Image, document uploads | Multipart parsing, memory optimized |
-| 🔄 **Proxy Service** | Reverse proxy, gateway | Lightweight, fast forwarding |
-| 📡 **SSE Push** | Real-time notifications, stock quotes | Native Server-Sent Events support |
-| 🎮 **Game Backend** | Game server HTTP interfaces | High performance, low resource usage |
-| 📊 **Embedded Services** | IoT device HTTP interfaces | Lightweight, easy to embed |
+| Scenario | Why |
+|----------|-----|
+| 🌐 **RESTful APIs** | Async IO handles high concurrency with low latency |
+| 📁 **Static file serving** | Built-in cache and chunked transfer |
+| 📤 **Upload services** | multipart parsing with bounded memory |
+| 🔄 **Proxies / gateways** | Lightweight forwarding |
+| 📡 **SSE push** | Server-Sent Events supported |
+| 🎮 **Game backends** | High throughput, low footprint |
+| 📊 **Embedded services** | Small and easy to host |
 
-### ❌ Unsuitable Scenarios
+### ❌ Better served elsewhere
 
-| Scenario | Recommended Alternative |
-|----------|------------------------|
-| Complex MVC Applications | Use SAEA.MVC (based on SAEA.Http) |
-| WebSocket Bidirectional Communication | Use SAEA.WebSocket |
-| RPC Microservices | Use SAEA.RPC |
-| Complete Web Framework | Use ASP.NET Core |
+| Scenario | Alternative |
+|----------|-------------|
+| Full MVC applications | SAEA.MVC (built on SAEA.Http) |
+| WebSocket bidirectional traffic | SAEA.WebSocket |
+| RPC microservices | SAEA.RPC |
+| Full web framework | ASP.NET Core |
 
 ---
 
-## Performance Comparison 📊
+## Performance 📊
 
-### Comparison with Other HTTP Servers
+### Server comparison
 
-| Metric | SAEA.Http | Kestrel | HttpListener | Advantage |
-|--------|-----------|---------|--------------|-----------|
-| **Concurrent Connections** | Built for high concurrency | Built for high concurrency | Medium | async IO |
-| **Memory Usage** | Low (lightweight) | Higher | Medium | **Lightweight** |
-| **Startup Time** | Fast | Slower | Medium | **Fast Startup** |
-| **Static Files** | Auto cache | Middleware cache | No cache | **Built-in Cache** |
-| **Dependencies** | Minimal | Many | System component | **Light Dependencies** |
+| Metric | SAEA.Http | Kestrel | HttpListener |
+|--------|-----------|---------|--------------|
+| **Concurrency** | High | High | Medium |
+| **Memory** | Low | Higher | Medium |
+| **Startup** | Fast | Slower | Medium |
+| **Static files** | Built-in cache | Middleware | None |
+| **Dependencies** | Minimal | Many | OS components |
 
-### Feature Comparison
+### Feature comparison
 
 | Feature | SAEA.Http | Kestrel | HttpListener |
 |---------|:---------:|:-------:|:------------:|
-| Async IO Model | ✅ | ✅ | ✅ |
-| Static File Cache | ✅ | Needs middleware | ❌ |
-| GZIP Compression | ✅ | Needs middleware | ❌ |
-| Session Management | ✅ | Needs middleware | ❌ |
-| File Upload Parsing | ✅ | Needs parsing | Manual parsing |
-| SSE Push | ✅ | ✅ | ❌ |
+| Async IO | ✅ | ✅ | ✅ |
+| Static file cache | ✅ | Middleware | ❌ |
+| GZIP | ✅ | Middleware | ❌ |
+| Session | ✅ | Middleware | ❌ |
+| Upload parsing | ✅ | Manual | Manual |
+| SSE | ✅ | ✅ | ❌ |
 | Cross-platform | ✅ | ✅ | Windows only |
 
-> 💡 **Tip**: SAEA.Http is suitable for scenarios requiring lightweight, high-performance HTTP services, especially for embedded systems, game backends, IoT, and other resource-sensitive applications.
+> 💡 SAEA.Http targets lightweight, high-throughput services — embedded, game backends and IoT where resource usage matters.
 
 ---
 
 ## FAQ ❓
 
-### Q1: What's the difference between SAEA.Http and ASP.NET Core?
+### Q1: How is SAEA.Http different from ASP.NET Core?
 
-**A**: SAEA.Http is a lightweight HTTP server component:
-- Smaller memory footprint and faster startup time
-- Built-in static file caching, Session, file upload parsing
-- Suitable for embedded systems, game backends, microservices, and other lightweight scenarios
-- ASP.NET Core is better suited for complex enterprise web applications
+**A**: SAEA.Http is a small HTTP server component:
+- Lower memory footprint and faster startup
+- Built-in static cache, session and upload parsing
+- Suitable for embedded, game backend and microservice scenarios
+- ASP.NET Core is the better choice for large enterprise applications
 
-### Q2: How to handle CORS cross-origin requests?
+### Q2: How do I handle CORS?
 
-**A**: SAEA.Http has built-in CORS support, handle it in `OnRequestDelegate`:
+**A**: SAEA.Http has built-in CORS support; handle it in `RequestDelegate`:
 
 ```csharp
-server.OnRequestDelegate += (ctx) =>
+server.WebConfig.RequestDelegate = ctx =>
 {
     ctx.Response.Headers["Access-Control-Allow-Origin"] = "*";
     ctx.Response.Headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE";
     ctx.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type";
-    
+
     if (ctx.Request.Method == "OPTIONS")
     {
-        ctx.Response.SetContent("", "text/plain");
-        return true;
+        ctx.Response.Status = HttpStatusCode.NoContent;
+        ctx.Response.End();
+        return;
     }
     // ... other handling
-    return false;
 };
 ```
 
-### Q3: How to implement large file uploads?
+Call `server.SetCrossDomainHeaders("token", "auth")` to allow extra custom headers.
 
-**A**: Use streaming to avoid memory overflow:
+### Q3: How do I upload large files?
+
+**A**: The body is fully read according to `Content-Length` before dispatch; anything above 64MB returns 413:
 
 ```csharp
-server.OnRequestDelegate += (ctx) =>
+server.WebConfig.RequestDelegate = ctx =>
 {
     var files = ctx.Request.PostFiles;
     foreach (var file in files)
@@ -274,295 +314,356 @@ server.OnRequestDelegate += (ctx) =>
         var savePath = Path.Combine("uploads", file.FileName);
         File.WriteAllBytes(savePath, file.Data);
     }
-    ctx.Response.SetContent("{\"uploaded\": true}", "application/json");
-    return true;
+    ctx.Response.ContentType = "application/json; charset=utf-8";
+    ctx.Response.Write("{\"uploaded\": true}");
+    ctx.Response.End();
 };
 ```
 
-### Q4: How to enable GZIP compression?
+### Q4: How do I enable GZIP?
 
-**A**: Configure in `WebConfig`:
+**A**: Through the `WebHost` constructor (enabled by default):
 
 ```csharp
-var config = new WebConfig
-{
-    Port = 28080,
-    IsZiped = true  // Enable GZIP compression
-};
-var server = new WebHost(config);
+var server = new WebHost(port: 28080, isZiped: true);
 ```
 
-### Q5: How to configure Session timeout?
+### Q5: How do I change the session timeout?
 
-**A**: Use `HttpSessionManager` for custom configuration:
+**A**: Use `HttpSessionManager`:
 
 ```csharp
-// Session default timeout is 20 minutes
-// Can be adjusted via HttpSessionManager
-var session = ctx.Session;  // Automatically get or create Session
-session["key"] = "value";   // Set value
+// Default session timeout is 20 minutes
+var session = ctx.Session;  // get or create
+session["key"] = "value";
 ```
 
-### Q6: How to implement SSE (Server-Sent Events)?
+### Q6: How do I implement SSE?
 
-**A**: Use `text/event-stream` content type:
+**A**: Use `text/event-stream`; `SendHeader(-1)` means unknown length and keeps the connection alive:
 
 ```csharp
-server.OnRequestDelegate += (ctx) =>
+server.WebConfig.RequestDelegate = ctx =>
 {
     ctx.Response.ContentType = "text/event-stream";
-    ctx.Response.SendHeader();
-    
+    ctx.Response.SendHeader(-1);
+
     for (int i = 0; i < 10; i++)
     {
-        ctx.Response.SendData($"data: Message {i}\n\n");
+        ctx.Response.SendData(Encoding.UTF8.GetBytes($"data: Message {i}\n\n"));
         Thread.Sleep(1000);
     }
     ctx.Response.SendEnd();
-    return true;
 };
 ```
 
 ### Q7: How does static file caching work?
 
-**A**: SAEA.Http automatically handles static file caching:
-- Small files (default < 1MB) are automatically cached in memory
-- Supports `Cache-Control`, `Last-Modified` headers
-- Supports `If-Modified-Since` conditional requests
-- Control via `WebConfig.IsStaticsCached` switch
+**A**: SAEA.Http handles it automatically:
+- Small files (under 1MB by default) are cached in memory
+- `Cache-Control` and `Last-Modified` are supported
+- `If-Modified-Since` conditional requests are supported
+- Toggle with the `isStaticsCached` constructor argument
+
+### Q8: Is chunked request body supported?
+
+**A**: No. A request with `Transfer-Encoding: chunked` gets a 400 and the connection is closed, because framing by `Content-Length` would misinterpret chunk bytes as the next request.
 
 ---
 
-## Core Classes 🔧
+## Core Types 🔧
 
-| Class | Description |
-|-------|-------------|
-| `WebHost` | HTTP server entry class |
-| `HttpRequest` | HTTP request wrapper (method, URL, headers, forms, etc.) |
-| `HttpResponse` | HTTP response wrapper (status code, headers, content, etc.) |
-| `HttpContext` | HTTP context (Request/Response/Session) |
-| `HttpSession` | HTTP session management |
-| `HttpSessionManager` | Session manager |
-| `HttpCookie` / `HttpCookies` | Cookie management |
-| `WebConfig` | Web server configuration |
-| `HttpCoder` | HTTP protocol encoder/decoder |
+| Type | Description |
+|------|-------------|
+| `WebHost` | Server entry point |
+| `HttpRequest` | Request wrapper (method, URL, headers, forms …) |
+| `HttpResponse` | Response wrapper (status, headers, body …) |
+| `HttpContext` | Request context (Request/Response/Session) |
+| `HttpSession` / `HttpSessionManager` | Session state and management |
+| `HttpCookie` / `HttpCookies` | Cookie handling |
+| `WebConfig` | Configuration: request/exception/close delegates and chain callback |
 | `RequestDataReader` | HTTP request parser |
+| `IHttpUpgradeTarget` | Protocol upgrade negotiation |
+| `IChannelPipeline` | Handler chain and the single business write entry `WriteAsync` |
 
-### HTTP Result Types
+### Result types
 
-| Class | Description |
-|-------|-------------|
-| `HttpContentResult` | Text/JSON content result |
+| Type | Description |
+|------|-------------|
+| `HttpContentResult` | Text/JSON result |
 | `HttpFileResult` | File result |
-| `HttpBigDataResult` | Large data streaming result |
+| `HttpBigDataResult` | Streamed large payload |
 | `HttpEmptyResult` | Empty result |
 | `HttpActionResult` | Action result |
 
 ---
 
-## Usage Examples 📝
+## Examples 📝
 
-### Start HTTP Server
+### Start a server
 
 ```csharp
+using System.Net;
 using SAEA.Http;
 
-var config = new WebConfig
-{
-    Root = "wwwroot",
-    Port = 28080,
-    BufferSize = 1024 * 64,
-    MaxConnects = 1000,
-    IsStaticsCached = true,
-    IsZiped = true
-};
+var server = new WebHost(
+    root: "wwwroot",
+    port: 28080,
+    isStaticsCached: true,
+    isZiped: true,
+    bufferSize: 1024 * 64,
+    maxConnects: 1000,
+    timeout: 180,
+    connectTimeout: 3);
 
-var server = new WebHost(config);
-
-server.OnRequestDelegate += (ctx) =>
+server.WebConfig.RequestDelegate = ctx =>
 {
     if (ctx.Request.Url.StartsWith("/api/"))
     {
-        var json = $"{{\"time\": \"{DateTime.Now}\"}}";
-        ctx.Response.SetContent(json, "application/json");
-        return true;
+        ctx.Response.ContentType = "application/json; charset=utf-8";
+        ctx.Response.Write($"{{\"time\": \"{DateTime.Now}\"}}");
+        ctx.Response.End();
     }
-    return false;
 };
 
-server.OnException += (ctx, ex) =>
+server.WebConfig.ExceptionHandler = (ctx, ex) =>
 {
-    Console.WriteLine($"Error: {ex.Message}");
+    Console.WriteLine($"error: {ex.Message}");
+    return null;
 };
 
 server.Start();
-Console.WriteLine($"HTTP server started, port: {config.Port}");
+Console.WriteLine("HTTP server started on port 28080");
 ```
 
-### Handle GET Request
+### Handle GET
 
 ```csharp
-server.OnRequestDelegate += (ctx) =>
+server.WebConfig.RequestDelegate = ctx =>
 {
     var request = ctx.Request;
-    
+
     Console.WriteLine($"GET {request.Url}");
     Console.WriteLine($"Query: {request.Query["id"]}");
     Console.WriteLine($"Headers: {request.Headers["User-Agent"]}");
-    
-    ctx.Response.SetContent("{\"status\": \"ok\"}", "application/json");
-    return true;
+
+    ctx.Response.ContentType = "application/json; charset=utf-8";
+    ctx.Response.Write("{\"status\": \"ok\"}");
+    ctx.Response.End();
 };
 ```
 
-### Handle POST Request
+### Handle POST
 
 ```csharp
-server.OnRequestDelegate += (ctx) =>
+server.WebConfig.RequestDelegate = ctx =>
 {
     var request = ctx.Request;
-    
+
     if (request.Method == "POST")
     {
         var username = request.Forms["username"];
         var password = request.Forms["password"];
         var jsonBody = request.Json;
         var files = request.PostFiles;
-        
+
         foreach (var file in files)
         {
-            Console.WriteLine($"File: {file.FileName}, Size: {file.Data.Length}");
+            Console.WriteLine($"file: {file.FileName}, size: {file.Data.Length}");
         }
-        
-        ctx.Response.SetContent("{\"success\": true}", "application/json");
-        return true;
+
+        ctx.Response.ContentType = "application/json; charset=utf-8";
+        ctx.Response.Write("{\"success\": true}");
+        ctx.Response.End();
+        return;
     }
-    return false;
+
+    ctx.Response.Status = HttpStatusCode.NotFound;
+    ctx.Response.End();
 };
 ```
 
-### Use Session
+### Use sessions
 
 ```csharp
-server.OnRequestDelegate += (ctx) =>
+server.WebConfig.RequestDelegate = ctx =>
 {
     var session = ctx.Session;
-    
+
     var userId = session["UserId"];
     session["UserId"] = "12345";
     session["LoginTime"] = DateTime.Now.ToString();
-    
-    ctx.Response.SetContent($"Session ID: {session.SessionID}");
-    return true;
+
+    ctx.Response.Write($"Session ID: {session.SessionID}");
+    ctx.Response.End();
 };
 ```
 
-### Use Cookie
+### Use cookies
 
 ```csharp
-server.OnRequestDelegate += (ctx) =>
+server.WebConfig.RequestDelegate = ctx =>
 {
     var request = ctx.Request;
     var response = ctx.Response;
-    
+
     var token = request.Cookies["token"];
-    
+
     response.Cookies.Add(new HttpCookie
     {
         Name = "token",
         Value = "abc123",
         Expires = DateTime.Now.AddDays(7)
     });
-    
-    ctx.Response.SetContent("Cookie has been set");
-    return true;
+
+    response.Write("cookie set");
+    response.End();
 };
 ```
 
-### Return File
+### Return files
 
 ```csharp
-server.OnRequestDelegate += (ctx) =>
+using SAEA.Http.Model;
+
+server.WebConfig.RequestDelegate = ctx =>
 {
     var filePath = ctx.Server.MapPath("/files/document.pdf");
-    ctx.Response.SetCached(filePath);
-    return true;
+    ctx.Response.SetCached(new HttpFileResult(filePath, true));
+    ctx.Response.End();
 };
 
-server.OnRequestDelegate += (ctx) =>
+server.WebConfig.RequestDelegate = ctx =>
 {
     var filePath = ctx.Server.MapPath("/videos/movie.mp4");
-    
+    var fileInfo = new FileInfo(filePath);
+
     ctx.Response.ContentType = "video/mp4";
-    ctx.Response.SendHeader();
-    
+    ctx.Response.SendHeader(fileInfo.Length);
+
     using (var fs = new FileStream(filePath, FileMode.Open))
     {
         var buffer = new byte[1024 * 64];
         int read;
         while ((read = fs.Read(buffer, 0, buffer.Length)) > 0)
         {
-            ctx.Response.SendData(buffer, 0, read);
+            // SendData hands the bytes off immediately; a single buffer can be reused.
+            if (read == buffer.Length)
+            {
+                ctx.Response.SendData(buffer);
+            }
+            else
+            {
+                var chunk = new byte[read];
+                Buffer.BlockCopy(buffer, 0, chunk, 0, read);
+                ctx.Response.SendData(chunk);
+            }
         }
     }
-    
+
     ctx.Response.SendEnd();
-    return true;
 };
 ```
 
-### SSE Server Push
+### SSE push
 
 ```csharp
-server.OnRequestDelegate += (ctx) =>
+server.WebConfig.RequestDelegate = ctx =>
 {
     ctx.Response.ContentType = "text/event-stream";
-    ctx.Response.SendHeader();
-    
+    ctx.Response.SendHeader(-1);
+
     for (int i = 0; i < 10; i++)
     {
-        ctx.Response.SendData($"data: Message {i}\n\n");
+        ctx.Response.SendData(Encoding.UTF8.GetBytes($"data: Message {i}\n\n"));
         Thread.Sleep(1000);
     }
-    
+
     ctx.Response.SendEnd();
-    return true;
 };
 ```
+
+### Custom handler
+
+Handlers appended in `ConfigurePipeline` sit after the protocol nodes and before the tail exception terminal. Plain HTTP requests are handed to `WebConfig.RequestDelegate` by the dispatch node and are not propagated further, so an inbound handler here is meant for connection-level observation or for raw frames received after a protocol upgrade:
+
+```csharp
+using SAEA.Sockets.Pipeline;
+
+public sealed class ConnectionObserver : InboundHandlerAdapter
+{
+    /// <summary>Lifecycle notifications are dispatched to every handler in chain order; no forwarding needed.</summary>
+    public override Task ChannelActiveAsync(IChannelHandlerContext ctx)
+    {
+        Console.WriteLine($"[{ctx.ChannelId}] connected");
+        return Task.CompletedTask;
+    }
+
+    public override Task ChannelInactiveAsync(IChannelHandlerContext ctx)
+    {
+        Console.WriteLine($"[{ctx.ChannelId}] disconnected");
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Only messages not consumed by the protocol layer arrive here, e.g. raw frames after an upgrade.</summary>
+    public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+    {
+        var frame = msg as PooledMessage;
+        if (frame != null)
+            Console.WriteLine($"[{ctx.ChannelId}] {frame.Frame.Length} bytes");
+
+        return ctx.FireChannelReadAsync(msg);
+    }
+}
+
+server.WebConfig.ConfigurePipeline = (channelId, pipeline) =>
+{
+    pipeline.AddLast(new ConnectionObserver());
+};
+```
+
+Raw frames after an upgrade live in pooled memory: `Frame` is only valid inside the callback, so copy the bytes before keeping them or handing them to asynchronous code.
 
 ---
 
-## Configuration Options
+## Configuration
+
+`WebConfig` port, root and buffer sizes are initialized by the `WebHost` constructor; business code sets the delegates:
 
 ```csharp
-var config = new WebConfig
-{
-    Root = "wwwroot",           // Website root directory
-    Port = 28080,               // Listening port
-    BufferSize = 1024 * 64,     // Buffer size (64KB)
-    MaxConnects = 1000,         // Maximum connections
-    IsStaticsCached = true,     // Static file caching
-    IsZiped = false,            // GZIP compression
-    ConnectTimeout = 6000       // Connection timeout (milliseconds)
-};
+var server = new WebHost(
+    root: "wwwroot",            // site root
+    port: 28080,                // listen port
+    isStaticsCached: true,      // static cache
+    isZiped: false,             // GZIP
+    bufferSize: 1024 * 64,      // receive buffer (64KB)
+    maxConnects: 1000,          // max connections
+    timeout: 180,               // idle timeout (seconds)
+    connectTimeout: 3);         // connect timeout (seconds)
+
+server.WebConfig.ConfigurePipeline = (id, pipeline) => { /* ... */ };
+server.WebConfig.RequestDelegate = ctx => { /* ... */ };
+server.WebConfig.ExceptionHandler = (ctx, ex) => null;
+server.WebConfig.ConnectionClosed = (id, ex) => { /* ... */ };
 ```
 
 ---
 
 ## Dependencies
 
-| Package | Version | Description |
-|---------|---------|-------------|
-| SAEA.Sockets | 26.9.21.1 | Socket communication framework |
-| SAEA.Common | 26.9.21.1 | Common utility classes |
+| Package | Description |
+|---------|-------------|
+| SAEA.Sockets | Socket transport |
+| SAEA.Sockets.Pipeline | Handler chain, framing and codecs |
+| SAEA.Common | Shared utilities |
 
 ---
 
-## More Resources
+## Resources
 
-- [GitHub Repository](https://github.com/yswenli/SAEA)
-- [NuGet Package](https://www.nuget.org/packages/SAEA.Http)
-- [Author's Blog](https://www.cnblogs.com/yswenli/)
+- [GitHub repository](https://github.com/yswenli/SAEA)
+- [NuGet package](https://www.nuget.org/packages/SAEA.Http)
+- [Author blog](https://www.cnblogs.com/yswenli/)
 
 ---
 

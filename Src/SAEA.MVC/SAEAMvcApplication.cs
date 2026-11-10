@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/09/29 16:58:49
+*修改时间：2026/11/10 11:05:00
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：SAEAMvcApplication接口
+*版本号： v26.11.5.1
+*描述：应用级事件改由 WebConfig 的请求、异常与连接关闭委托承载
 *
 *****************************************************************************/
 using System;
@@ -127,7 +127,7 @@ namespace SAEA.MVC
             _webHost.RouteParam = AreaCollection.RouteTable;
 
             // 底层断开通知：清理已升级的 WebSocket 连接
-            _webHost.OnDisconnected += WebSocketsFeature.OnDisconnected;
+            _webHost.WebConfig.ConnectionClosed += WebSocketsFeature.OnDisconnected;
         }
 
 
@@ -167,10 +167,10 @@ namespace SAEA.MVC
             try
             {
                 if (OnException != null)
-                    _webHost.OnException += _webHost_OnException;
+                    _webHost.WebConfig.ExceptionHandler = _webHost_OnException;
 
                 if (OnRequestDelegate != null)
-                    _webHost.OnRequestDelegate += _webHost_OnRequestDelegate;
+                    _webHost.WebConfig.RequestDelegate = _webHost_OnRequestDelegate;
 
                 _webHost.Start();
                 this.Running = true;

@@ -701,12 +701,12 @@ ws.send("hello");
 - 不提供广播辅助类。多连接广播需要自行维护 `IWebSocketConnection` 集合（可按 `ws.Id` 索引）。
 - 服务端不会主动发起 Ping，需要保活请在业务层定时发送消息或自行实现心跳。
 - 握手失败（非升级请求、缺少 `Sec-WebSocket-Key` 等）直接返回 400/426，不进入 MVC 的 `OnException` 异常链。
-- 升级后的连接不再参与 HTTP 会话超时回收，正常断开由 `OnDisconnected` 统一收尾；但底层 token 池已满（`SessionManager.Free` 返回 `false`）时不会触发断开通知，这类连接会残留在内部连接表中，由 5 分钟一次的连接表扫描兜底清理（回收 `Closed` 或底层 socket 已断开的条目）。
+- 升级后的连接不再参与 HTTP 会话超时回收；正常与异常断开都由 `WebConfig.ConnectionClosed` 通知到 `WebSocketsFeature.OnDisconnected` 统一收尾。通知在连接发布前到达时 `Register` 会补一次存活检查，连接表另有 5 分钟一次的扫描兜底清理 `Closed` 或底层已断开的残项。
 - `Request` 与 `Session` 是握手那一刻的快照：WS 消息不会刷新 `Session` 的滑动过期，需要长会话状态请放到连接对象自己的字段/字典里。
 - Controller 实例按路由共享，**连接相关的状态不能放在 Controller 字段上**，请用 `WebSockets.Current` 或自建字典按连接 id 管理。
 - 每条长连接会一直占用一个 `MaxConnects` 配额，需要按实际并发调大配置。
 - `OpenAsync` 必须接受连接后尽快返回：`MvcInvoker` 会以 `WebConfig.Timeout`（默认 180 秒）同步等待该 Task。超时后已升级的连接不会再写 HTTP 408（那样会污染 WebSocket 流），而是回调 `ErrorAsync` 并以 `ServerShutdown` 关闭；在 `OpenAsync` 里跑接收长循环就会走到这个分支。长活逻辑请放 `MessageAsync`。
-- `HttpSocketDebug`（`IsDebug = true`）的空闲清理时间固定为 180 秒，与 `Timeout` 配置无关；WebSocket 连接已被豁免，不受这条限制影响，但测试其他长连接时不要用 `Timeout` 推断清理时间。
+- `IsDebug = true` 只额外打开请求调试日志，不改变空闲清理策略：长连接的空闲回收统一按 `WebConfig.Timeout`（默认 180 秒）判断，WebSocket 连接在升级后被豁免。
 - 不支持 `permessage-deflate` 扩展，也不提供 `wss://`；需要 TLS 请在反向代理层终止。
 - 每条连接有 1024 帧 / 4MB 的待处理队列上限（含单条消息），超过会以 `ServerShutdown` 主动关闭连接；超大消息请自行分片。
 

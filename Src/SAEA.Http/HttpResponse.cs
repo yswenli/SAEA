@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:29
+*修改时间：2026/11/10 10:55:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：响应改为按连接通道写出，升级时等握手写完再切换分帧器，不再依赖底层令牌与编码器
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -34,7 +34,7 @@ using SAEA.Common.Encryption;
 using SAEA.Http.Base;
 using SAEA.Http.Base.Net;
 using SAEA.Http.Model;
-using SAEA.Sockets.Interface;
+using SAEA.Sockets.Pipeline;
 
 using System;
 using System.Collections.Generic;
@@ -69,19 +69,19 @@ namespace SAEA.Http
         bool _isZiped = false;
 
         /// <summary>
-        /// 当前响应关联的连接令牌，发送与 WebSocket 升级依赖它
+        /// 当前响应关联的连接通道，发送与 WebSocket 升级依赖它
         /// </summary>
-        protected IUserToken UserToken { get; set; }
+        protected IChannel Channel { get; set; }
 
         internal HttpResponse()
         {
 
         }
 
-        internal void Init(IWebHost webHost, IUserToken userToken, string protocal, bool isZiped = false)
+        internal void Init(IWebHost webHost, IChannel channel, string protocal, bool isZiped = false)
         {
             WebHost = webHost;
-            UserToken = userToken;
+            Channel = channel;
             Protocal = protocal;
             _isZiped = isZiped;
             // 默认不设置Connection头，根据客户端请求决定
@@ -219,6 +219,32 @@ namespace SAEA.Http
             }
         }
 
+        /// <summary>生成可直接写入传输层的完整响应字节，依次为状态行、报头、空行与报文体。</summary>
+        /// <returns>完整响应字节；101 升级响应不覆盖 Connection 与 Content-Length，也不写报文体</returns>
+        public byte[] Encode()
+        {
+            // 协议名缺失时按 HTTP/1.1 兜底，否则状态行会以空格开头，客户端无法解析。
+            if (string.IsNullOrEmpty(this.Protocal))
+                this.Protocal = "HTTP/1.1";
+
+            if (this.Status == HttpStatusCode.SwitchingProtocols)
+            {
+                // 101 由业务按握手报头自行组装：此处不能调 ToBytes()，否则会被覆写
+                // Connection: close 并追加 Content-Length，破坏升级握手。
+                var header = BuildHeader();
+                byte[] headerBytes = Encoding.UTF8.GetBytes(header);
+                byte[] lineBytes = Encoding.UTF8.GetBytes(Environment.NewLine);
+
+                // BuildHeader 已用 AppendLine 结束最后一行，这里只补一个空行作为报头结束符。
+                var result = new byte[headerBytes.Length + lineBytes.Length];
+                Buffer.BlockCopy(headerBytes, 0, result, 0, headerBytes.Length);
+                Buffer.BlockCopy(lineBytes, 0, result, headerBytes.Length, lineBytes.Length);
+                return result;
+            }
+
+            return ToBytes();
+        }
+
         /// <summary>
         /// 生成数据
         /// </summary>
@@ -292,25 +318,27 @@ namespace SAEA.Http
             if (IsUpgraded) throw new InvalidOperationException("当前响应已完成 WebSocket 升级");
             if (IsHandled) throw new InvalidOperationException("当前响应已直接写过原始内容");
 
-            var userToken = UserToken;
+            var channel = Channel;
             var webHost = WebHost;
 
-            if (userToken == null || webHost == null)
+            if (channel == null || webHost == null)
                 throw new InvalidOperationException("当前上下文没有关联到有效连接，无法升级为 WebSocket");
 
-            var coder = userToken.Coder as HttpCoder;
-            if (coder == null)
-                throw new NotSupportedException("当前 HttpCoder 不支持 WebSocket 升级");
+            var session = HttpConnectionSession.TryGet(channel);
+            if (session == null)
+                throw new NotSupportedException("当前连接没有可用的处理器链，无法升级为 WebSocket");
 
-            // 顺序很重要：先把 101 入队，后续 WS 帧才会排在它后面
+            // 顺序很重要：必须等 101 真正交接完成再切换分帧器，否则后续帧会越过尚未写出的握手响应。
             if (handshake != null && handshake.Length > 0)
-                webHost.Send(userToken, handshake);
+                session.WriteBytes(handshake);
+
+            // 先做会话升级：登记接收入口、切换分帧器并标记已升级。失败时保持 HTTP 状态，
+            // 响应也不应留在「已升级」的假象里，避免后续重复升级被误判。
+            session.Upgrade(onData, onError);
 
             IsUpgraded = true;
 
-            coder.UpgradeRaw(onData, onError);
-
-            return new HttpWebSocketTransport(webHost, userToken);
+            return new HttpWebSocketTransport(webHost, session);
         }
 
         /// <summary>
@@ -323,18 +351,18 @@ namespace SAEA.Http
         {
             if (IsUpgraded || IsHandled) return false;
 
-            var userToken = UserToken;
+            var channel = Channel;
             var webHost = WebHost;
 
-            if (userToken == null || webHost == null) return false;
+            if (channel == null || webHost == null) return false;
 
             if (data != null && data.Length > 0)
-                webHost.Send(userToken, data);
+                webHost.Send(channel, data);
 
             IsHandled = true;
 
             if (close)
-                webHost.Disconnect(userToken);
+                webHost.Disconnect(channel);
 
             return true;
         }
@@ -386,8 +414,8 @@ namespace SAEA.Http
             var arr = reponseDataList.ToArray();
 
             reponseDataList.Clear();
-            if (UserToken != null)
-                WebHost.Send(UserToken, arr);
+            if (Channel != null)
+                WebHost.Send(Channel, arr);
         }
 
 
@@ -400,7 +428,7 @@ namespace SAEA.Http
         {
             if (IsUpgraded || IsHandled) return;
 
-            WebHost.Send(UserToken, data);
+            WebHost.Send(Channel, data);
         }
 
         /// <summary>
@@ -411,7 +439,7 @@ namespace SAEA.Http
         {
             if (IsUpgraded || IsHandled) return;
 
-            WebHost.Disconnect(UserToken);
+            WebHost.Disconnect(Channel);
         }
 
         #endregion
@@ -424,10 +452,10 @@ namespace SAEA.Http
         {
             if (IsUpgraded || IsHandled) return;
 
-            if (UserToken == null) return;
+            if (Channel == null) return;
             else
             {
-                WebHost.Send(UserToken, this.ToBytes());
+                WebHost.Send(Channel, this.ToBytes());
             }
         }
 
@@ -438,12 +466,12 @@ namespace SAEA.Http
         {
             if (IsUpgraded || IsHandled) return;
 
-            var ut = UserToken;
-            if (ut == null) return;
+            var channel = Channel;
+            if (channel == null) return;
             else
             {
-                WebHost.End(ut, this.ToBytes());
-                UserToken = null;
+                WebHost.End(channel, this.ToBytes());
+                Channel = null;
             }
         }
 

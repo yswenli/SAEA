@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 13:50:40
+*修改时间：2026/11/9 10:30:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：输入处理器启动时标记入站接管，拦截通道流读取
+*描述：发送重载改为可等待的真实完成 Task，超时与断开路径可观察且 owner 恰好释放一次
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -558,7 +558,11 @@ namespace SAEA.Sockets.Core.Tcp
                 return true;
             }
 
-            connection.SendApplicationData(data, ex => OnError?.Invoke(userToken?.ID ?? "", ex));
+            connection.SendApplicationData(data).ContinueWith(
+                t => OnError?.Invoke(userToken?.ID ?? "", t.Exception.GetBaseException()),
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
             return true;
         }
 
@@ -703,11 +707,31 @@ namespace SAEA.Sockets.Core.Tcp
                 {
                     if (!token.IsSending) return;
                     token.IsSending = false;
-                    var owner = token.TakeSendingOwner();
-                    if (owner != null)
+
+                    // 内置令牌以每次发送的操作对象为唯一完成点；完成回调只完成本次操作，
+                    // 迟到的旧回调拿不到新操作，因此不会误释放下一次发送的 owner。
+                    var baseToken = token as BaseUserToken;
+                    var operation = baseToken != null ? baseToken.TakePendingSend() : null;
+
+                    if (operation != null)
                     {
-                        try { owner.Dispose(); } catch { }
+                        if (e.SocketError != SocketError.Success)
+                            operation.TryCompleteException(new SocketException((int)e.SocketError));
+                        else if (operation.IsTimedOut)
+                            operation.TryCompleteException(new TimeoutException("Sending data timeout"));
+                        else
+                            operation.TryCompleteSuccess();
                     }
+                    else
+                    {
+                        // 非内置令牌的回退路径：沿用旧的所有权字段。
+                        var owner = token.TakeSendingOwner();
+                        if (owner != null)
+                        {
+                            try { owner.Dispose(); } catch { }
+                        }
+                    }
+
                     token.Actived = DateTimeHelper.Now;
                     token.ReleaseWrite();
                 }
@@ -720,76 +744,106 @@ namespace SAEA.Sockets.Core.Tcp
 
         #region send method
 
-        private void SendAsyncRaw(IUserToken userToken, ArraySegment<byte> seg, IDisposable owner)
+        private Task SendAsyncRaw(IUserToken userToken, ArraySegment<byte> seg, IDisposable owner)
         {
             if (userToken == null || seg.Array == null || seg.Count == 0)
             {
                 owner?.Dispose();
-                return;
+                return Task.CompletedTask;
             }
-            bool transferred = false;
+
+            var operation = new SendOperation(owner);
+            var baseToken = userToken as BaseUserToken;
+            var associated = false;
+
+            try { _sessionManager.Active(userToken.ID); } catch { }
+
             bool acquired = false;
             try
             {
-                try { _sessionManager.Active(userToken.ID); } catch { }
                 acquired = userToken.WaitWrite(SocketOption.ActionTimeout);
-                if (acquired && userToken.Socket != null && userToken.Socket.Connected)
+                if (!acquired)
                 {
-                    var writeArgs = userToken.WriteArgs;
-                    if (writeArgs != null)
-                    {
-                        userToken.SendingOwner = owner;
-                        userToken.IsSending = true;
-                        transferred = true;
-                        writeArgs.SetBuffer(seg.Array, seg.Offset, seg.Count);
-                        bool asyncPending = userToken.Socket.SendAsync(writeArgs);
-                        if (!asyncPending)
-                        {
-                            ProcessSended(writeArgs);
-                        }
-                        else
-                        {
-                            Task.Run(async () =>
-                            {
-                                await Task.Delay(SocketOption.ActionTimeout);
-                                lock (userToken)
-                                {
-                                    if (userToken.IsSending)
-                                    {
-                                        AbandonSendingOwner(userToken);
-                                    }
-                                }
-                            });
-                        }
-                    }
+                    operation.TryCompleteException(new TimeoutException("Sending data timeout"));
+                    OnError?.Invoke($"An exception occurs when a message is sending:{userToken.ID}", new TimeoutException("Sending data timeout"));
+                    return operation.Task;
+                }
+
+                if (userToken.Socket == null || !userToken.Socket.Connected)
+                {
+                    operation.TryCompleteException(new KernelException("发送失败，当前连接已断开。"));
+                    OnError?.Invoke($"An exception occurs when a message is sending:{userToken.ID}", new KernelException("发送失败，当前连接已断开。"));
+                    return operation.Task;
+                }
+
+                var writeArgs = userToken.WriteArgs;
+                if (writeArgs == null)
+                {
+                    operation.TryCompleteException(new KernelException("发送失败，写入参数未初始化。"));
+                    return operation.Task;
+                }
+
+                // 关联点必须在拿到写闸门之后：并发发送在闸门外排队，提前写入会覆盖在途操作，
+                // 让完成回调取走并释放下一次发送的 owner。
+                if (baseToken != null)
+                {
+                    baseToken.PendingSend = operation;
+                    associated = true;
                 }
                 else
                 {
-                    OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", new TimeoutException("Sending data timeout"));
+                    userToken.SendingOwner = owner;
                 }
+
+                userToken.IsSending = true;
+                writeArgs.SetBuffer(seg.Array, seg.Offset, seg.Count);
+
+                bool asyncPending;
+                try
+                {
+                    asyncPending = userToken.Socket.SendAsync(writeArgs);
+                }
+                catch (Exception ex)
+                {
+                    // SendAsync 抛异常表示本次发送未被内核排队，完成回调不会再来：
+                    // 这里收回关联并释放写闸门，由本方法唯一完成操作。
+                    userToken.IsSending = false;
+                    if (associated) baseToken.TakePendingSend();
+                    associated = false;
+                    try { userToken.ReleaseWrite(); } catch { }
+                    acquired = false;
+                    operation.TryCompleteException(ex);
+                    OnError?.Invoke($"An exception occurs when a message is sending:{userToken.ID}", ex);
+                    return operation.Task;
+                }
+
+                // 所有权已交给完成回调，finally 不再释放写闸门。
+                associated = false;
+                acquired = false;
+
+                if (!asyncPending)
+                {
+                    ProcessSended(writeArgs);
+                }
+                else
+                {
+                    StartSendWatchdog(userToken, operation);
+                }
+
+                return operation.Task;
             }
             catch (Exception ex)
             {
-                if (transferred)
-                {
-                    ProcessSended(userToken.WriteArgs);
-                }
-                else
-                {
-                    owner?.Dispose();
-                    transferred = true;
-                    if (acquired)
-                    {
-                        try { userToken.ReleaseWrite(); } catch { }
-                        acquired = false;
-                    }
-                }
+                if (associated) baseToken.TakePendingSend();
+                operation.TryCompleteException(ex);
                 OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", ex);
+                if (userToken.Socket == null || !userToken.Socket.Connected)
+                    Disconnect(userToken, ex);
+                return operation.Task;
             }
             finally
             {
-                if (!transferred) owner?.Dispose();
-                if (acquired && !transferred)
+                if (acquired)
                 {
                     try { userToken.ReleaseWrite(); } catch { }
                 }
@@ -797,14 +851,34 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         /// <summary>
-        /// 发送超时后原子摘除发送缓冲所有权，但不释放它。
-        /// 旧的异步发送可能仍在读取该缓冲，此时归还池化数组会被再次租用并覆写，造成线上数据损坏；
-        /// 因此这里主动放弃所有权交由 GC 回收（少量复用损失优于数据损坏），
-        /// 同时避免稍后到达的完成回调误释放一次新的发送缓冲。
+        /// 启动发送超时看门狗。超时先关闭 socket 取消在途发送，再等待完成回调证明交接已终止；
+        /// 无法证明时不释放 owner（内核可能仍在读该缓冲），只让等待方以超时失败。
         /// </summary>
-        private static void AbandonSendingOwner(IUserToken userToken)
+        private void StartSendWatchdog(IUserToken userToken, SendOperation operation)
         {
-            userToken.TakeSendingOwner();
+            var timeout = SocketOption.ActionTimeout > 0 ? SocketOption.ActionTimeout : 180 * 1000;
+            _ = RunSendWatchdogAsync(userToken, operation, timeout);
+        }
+
+        private async Task RunSendWatchdogAsync(IUserToken userToken, SendOperation operation, int timeout)
+        {
+            await Task.Delay(timeout).ConfigureAwait(false);
+
+            if (!operation.TryMarkTimedOut()) return;
+
+            // 先关闭 socket，促使内核取消在途发送并由完成回调收口。
+            try { userToken.Socket?.Shutdown(SocketShutdown.Both); } catch { }
+            try { userToken.Socket?.Close(); } catch { }
+
+            // 再等一次完成回调；1 秒内证明不了完成，就放弃释放 owner 并解除写闸门。
+            var completed = await Task.WhenAny(operation.Task, Task.Delay(1000)).ConfigureAwait(false);
+            if (completed != operation.Task)
+            {
+                operation.TryAbandon(new TimeoutException("Sending data timeout"));
+                try { userToken.ReleaseWrite(); } catch { }
+            }
+
+            OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", new TimeoutException("Sending data timeout"));
         }
 
         /// <summary>
@@ -851,13 +925,15 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         /// <summary>
-        /// 向指定会话异步发送并转移缓冲所有权；会话不存在时先释放 owner 再抛异常
+        /// 向指定会话异步发送并转移缓冲所有权；返回的 Task 在底层交接完成后完成，失败可观察。
+        /// 会话不存在时先释放 owner 再同步抛出，调用方不得再次释放 owner。
         /// </summary>
         /// <param name="sessionID">会话标识</param>
         /// <param name="data">待发送数据，为空时只释放 owner</param>
         /// <param name="owner">data 所占缓冲的所有权对象，可为 null</param>
+        /// <returns>底层交接完成的任务</returns>
         /// <exception cref="KernelException">会话不存在</exception>
-        public void SendAsync(string sessionID, ReadOnlyMemory<byte> data, IDisposable owner)
+        public Task SendAsync(string sessionID, ReadOnlyMemory<byte> data, IDisposable owner)
         {
             var userToken = _sessionManager.Get(sessionID);
             if (userToken == null)
@@ -865,27 +941,46 @@ namespace SAEA.Sockets.Core.Tcp
                 owner?.Dispose();
                 throw new KernelException("Failed to send data,current session does not exist！");
             }
-            SendAsync(userToken, data, owner);
+            if (_useStream) _channelManager.Refresh(sessionID);
+            return SendAsyncCore(userToken, data, owner);
         }
 
-        void SendAsync(IUserToken userToken, ReadOnlyMemory<byte> data, IDisposable owner)
+        private async Task SendAsyncCore(IUserToken userToken, ReadOnlyMemory<byte> data, IDisposable owner)
         {
             if (data.Length == 0)
             {
                 owner?.Dispose();
                 return;
             }
-            if (TrySendViaTls(userToken, data.Span))
+
+            if (_tlsEnabled)
             {
-                owner?.Dispose();
+                var connection = GetConnection(userToken);
+                if (connection == null || connection.Tls == null)
+                {
+                    owner?.Dispose();
+                    throw new SaeaTlsException("TLS 连接尚未就绪。");
+                }
+
+                try
+                {
+                    // SendApplicationData 内部先复制，Task 完成点覆盖本次应用数据拆出的全部 TLS 记录。
+                    await connection.SendApplicationData(data.Span).ConfigureAwait(false);
+                }
+                finally
+                {
+                    owner?.Dispose();
+                }
                 return;
             }
-            ArraySegment<byte> rented;
-            if (MemoryMarshal.TryGetArray(data, out var segment) && segment.Array != null)
+
+            ArraySegment<byte> segment;
+            if (MemoryMarshal.TryGetArray(data, out segment) && segment.Array != null)
             {
-                SendAsyncRaw(userToken, segment, owner);
+                await SendAsyncRaw(userToken, segment, owner).ConfigureAwait(false);
                 return;
             }
+
             PooledBufferWriter writer = null;
             try
             {
@@ -895,23 +990,20 @@ namespace SAEA.Sockets.Core.Tcp
             }
             catch
             {
-                if (writer != null)
-                {
-                    writer.Dispose();
-                    writer = null;
-                }
+                writer?.Dispose();
                 owner?.Dispose();
                 throw;
             }
-            if (!writer.TryGetArray(out rented) || rented.Array == null)
+
+            if (!writer.TryGetArray(out segment) || segment.Array == null)
             {
                 writer.Dispose();
-                writer = null;
                 owner?.Dispose();
                 return;
             }
+
             owner?.Dispose();
-            SendAsyncRaw(userToken, rented, writer);
+            await SendAsyncRaw(userToken, segment, writer).ConfigureAwait(false);
         }
 
         /// <summary>

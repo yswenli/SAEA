@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 13:11:19
+*修改时间：2026/11/10 11:30:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：规范文件头 banner
+*描述：断开通知改由 WebConfig.ConnectionClosed 驱动，清理旧的令牌池与调试实现注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -311,7 +311,7 @@ namespace SAEA.MVC
 
             EnsureSweeper();
 
-            // 断开可能发生在发布之前（OnDisconnected 早于 Register 到达），
+            // 断开可能发生在发布之前（ConnectionClosed 早于 Register 到达），
             // 此时 TryRemove 会落空；注册后补一次检查，避免死连接一直留在表里
             if (!connection.IsAlive && _connections.TryRemove(connection.Id, out var dead))
             {
@@ -366,8 +366,8 @@ namespace SAEA.MVC
 
         static void Sweep()
         {
-            // State == Closed 覆盖正常收尾；IsAlive == false 覆盖错过 OnDisconnected 的残项
-            // （例如 SessionManager.Free 返回 false 时不会触发断开事件）
+            // State == Closed 覆盖正常收尾；IsAlive == false 覆盖错过断开通知的残项
+            // （例如连接在登记前就已经断开，通知落到空表上）
             foreach (var item in _connections)
             {
                 var connection = item.Value;

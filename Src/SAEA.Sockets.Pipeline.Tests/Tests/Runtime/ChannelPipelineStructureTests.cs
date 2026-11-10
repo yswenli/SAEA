@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 09:50:56
+*修改时间：2026/11/9 11:39:22
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：ChannelPipelineStructureTests
+*描述：业务写改用 pipeline.WriteAsync 或 ctx.Pipeline，链头与关闭用例同步 RawFrame 语义
 *
 *****************************************************************************/
 using System;
@@ -184,11 +184,11 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
         }
 
         /// <summary>
-        /// 入站处理器抛出普通异常时不向调用方抛出，而是转为异常回调交给链上后续节点
+        /// 入站处理器抛出普通异常时先从该节点下游通知一次，再把原异常冒泡给调用方（不再通知后吞掉）
         /// </summary>
         /// <returns>该用例的异步执行任务</returns>
         [TestMethod]
-        public async Task InboundHandlerFailure_IsReportedAsExceptionCaught_WithoutThrowing()
+        public async Task InboundHandlerFailure_IsReportedAsExceptionCaught_AndBubbles()
         {
             var recorder = new ExceptionRecorderHandler();
             using (var pipeline = ChannelPipeline.Create(NewOptions()))
@@ -196,10 +196,12 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
                 pipeline.AddLast(new ThrowingInboundHandler(new InvalidOperationException("boom")));
                 pipeline.AddLast(recorder);
 
-                await pipeline.FireChannelReadAsync(new object());
+                var thrown = await Assert.ThrowsExceptionAsync<InvalidOperationException>(
+                    () => pipeline.FireChannelReadAsync(new object()));
 
-                Assert.IsNotNull(recorder.Captured);
-                Assert.AreEqual("boom", recorder.Captured.Message);
+                Assert.AreEqual("boom", thrown.Message, "冒泡的异常被替换");
+                Assert.IsNotNull(recorder.Captured, "异常未通知下游");
+                Assert.AreEqual("boom", recorder.Captured.Message, "通知的异常被替换");
             }
         }
 
@@ -311,11 +313,29 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
 
                 // 收口判定必须优先于类型判定：此时写出非 TransportFrame 也只能报关闭。
                 await Assert.ThrowsExceptionAsync<ChannelClosedException>(
-                    () => probe.Context.WriteAsync(new object()));
+                    () => pipeline.WriteAsync(new object()));
 
                 await executor.Completion;
                 Assert.AreEqual(0, stream.Sent.Count);
             }
+        }
+
+        /// <summary>
+        /// 适配器默认生命周期实现只做空操作，不抛异常（编译级契约保护）
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
+        [TestMethod]
+        public async Task ChannelHandlerAdapter_LifecycleDefaults_DoNotThrow()
+        {
+            var inbound = new DefaultLifecycleInboundHandler();
+            inbound.HandlerAdded(null);
+            inbound.HandlerRemoved(null);
+            await inbound.ChannelActiveAsync(null);
+            await inbound.ChannelInactiveAsync(null);
+
+            var outbound = new DefaultLifecycleOutboundHandler();
+            outbound.HandlerAdded(null);
+            outbound.HandlerRemoved(null);
         }
 
         private static ChannelPipelineOptions NewOptions()
@@ -341,6 +361,18 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             {
                 _log.Add(_name);
                 return ctx.FireChannelReadAsync(msg);
+            }
+        }
+
+        private sealed class DefaultLifecycleInboundHandler : InboundHandlerAdapter
+        {
+        }
+
+        private sealed class DefaultLifecycleOutboundHandler : OutboundHandlerAdapter
+        {
+            public override Task WriteAsync(IChannelHandlerContext ctx, object msg)
+            {
+                return Task.CompletedTask;
             }
         }
 
@@ -375,7 +407,7 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
 
             public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
             {
-                return ctx.WriteAsync(_message);
+                return ctx.Pipeline.WriteAsync(_message);
             }
         }
 
@@ -394,7 +426,7 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
             {
                 try
                 {
-                    await ctx.WriteAsync(_message);
+                    await ctx.Pipeline.WriteAsync(_message);
                 }
                 catch (Exception ex)
                 {

@@ -63,7 +63,7 @@ fileTransfer.SendFile(@"C:\Data\video.mp4", "192.168.1.100");
 | 🔄 **Resumable Transfer** | offset parameter to resume from specified position | Recoverable from network interruptions |
 | 📊 **Real-time Progress** | Send/receive speed, data statistics | Visual monitoring of transfer status |
 | 💓 **Heartbeat Keep-alive** | 10-second heartbeat interval maintains connection | Automatic connection status detection |
-| 📡 **Event-driven** | Comprehensive event callback mechanism | Flexible handling of transfer states |
+| 📡 **Handler chain** | Inbound traffic is driven by `SAEA.Sockets.Pipeline`; `ConfigurePipeline` appends handlers on demand | Extend receive logic without forking the component |
 | 🤝 **Four-stage Handshake** | Request/Allow/Reject/Data stream protocol | Secure and reliable transfer control |
 
 ---
@@ -103,6 +103,9 @@ fileTransfer.SendFile(@"C:\Data\video.mp4", "192.168.1.100");
 │       └─────────────┘      └──────────────┘               │
 │                                                             │
 │  ┌─────────────────────────────────────────────────────┐  │
+│  │  SAEA.Sockets.Pipeline (framing / decoding / chain) │  │
+│  └─────────────────────────────────────────────────────┘  │
+│  ┌─────────────────────────────────────────────────────┐  │
 │  │               SAEA.Sockets (Async IO)               │  │
 │  └─────────────────────────────────────────────────────┘  │
 │                                                             │
@@ -124,9 +127,9 @@ Sender                                     Receiver
   │     └── FileLength                      │
   │────────────────────────────────────────►│
   │                                         │
-  │                              3. OnRequested event
-  │                                 ├── return true (allow)
-  │                                 └── return false (reject)
+  │                              3. Request handler
+  │                                 ├── Server.Allow(id)  allow
+  │                                 └── Server.Refuse(id) reject
   │                                         │
   │  4. Allow receive (AllowReceive)       │
   │◄────────────────────────────────────────│
@@ -146,8 +149,8 @@ Sender                                     Receiver
   │                                         │
   │                              6. Write file (File.WriteAllText)
   │                                         │
-  │                              7. OnReceiveEnd event
-  │                                 └── Trigger receive complete callback
+  │                              7. Built-in receive handler writes to disk
+  │                                 └── FileTransfer raises OnReceiveEnd
   │                                         │
   │  8. Send complete callback              │
   │◄────────────────────────────────────────│
@@ -193,7 +196,7 @@ Resumable Transfer Flow:
 │                                                             │
 │  Stage 4: Complete                                          │
 │  ┌─────────────────────────────────────────────────────┐   │
-│  │ Trigger: OnReceiveEnd event                          │   │
+│  │ Trigger: built-in receive handler completes the file and FileTransfer raises OnReceiveEnd event │
 │  │ Action: Save file, cleanup resources                 │   │
 │  └─────────────────────────────────────────────────────┘   │
 │                                                             │
@@ -309,41 +312,71 @@ fileTransfer.OnReceiveEnd += (filePath) =>
 
 ### Q4: How to reject receiving specific files?
 
-**A**: Use the `OnRequested` event of the `Server` class:
+**A**: Append a handler to the receive chain via `ConfigurePipeline` and call `Refuse` or let it pass:
 
 ```csharp
+using SAEA.Common.Serialization;
+using SAEA.FileSocket;
+using SAEA.FileSocket.Model;
+using SAEA.Sockets.Base;
+using SAEA.Sockets.Model;
+using SAEA.Sockets.Pipeline;
+
 var server = new Server(port: 39654);
 
-server.OnRequested += (ID, fileName, length) => 
+server.ConfigurePipeline = (id, pipeline) =>
 {
-    // Decide whether to accept based on file name or size
-    if (length > 1024 * 1024 * 1024)  // Exceeds 1GB
-    {
-        Console.WriteLine($"Reject large file: {fileName}");
-        return false;  // Reject
-    }
-    return true;  // Allow
+    pipeline.AddLast(new RejectLargeFileHandler(server));
 };
 
 server.Start();
+
+sealed class RejectLargeFileHandler : InboundHandlerAdapter
+{
+    private readonly Server _server;
+
+    public RejectLargeFileHandler(Server server)
+    {
+        _server = server;
+    }
+
+    public override async Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+    {
+        var protocal = msg as BaseSocketProtocal;
+        if (protocal != null && protocal.Type == (byte)SocketProtocalType.RequestSend)
+        {
+            var file = SerializeHelper.PBDeserialize<FileMessage>(protocal.Content.ToArray());
+            if (file.Length > 1024L * 1024 * 1024)
+            {
+                // Not forwarding downstream ends processing for this request.
+                _server.Refuse(ctx.Channel.Id);
+                return;
+            }
+        }
+
+        await ctx.FireChannelReadAsync(msg);
+    }
+}
 ```
+
+To accept, call `_server.Allow(ctx.Channel.Id)` and then `await ctx.FireChannelReadAsync(msg)` so the built-in handler still writes the file.
 
 ### Q5: Does it support transferring multiple files simultaneously?
 
-**A**: Yes. Create multiple `Client` instances or use the same `FileTransfer` to send multiple files:
+**A**: Yes. Multiple `Client` instances each own a connection and send concurrently; a single `Client` sends serially:
 
 ```csharp
 // Method 1: Use FileTransfer for sequential sending
 fileTransfer.SendFile(file1, targetIp);
 fileTransfer.SendFile(file2, targetIp);
 
-// Method 2: Create multiple Clients for concurrent sending
-var client1 = new Client();
-var client2 = new Client();
-client1.Connect(ip, port);
-client2.Connect(ip, port);
-client1.SendFile(file1, callback);
-client2.SendFile(file2, callback);
+// Method 2: Create multiple Clients for concurrent sending; endpoint lives on the constructor
+var client1 = new Client(bufferSize: 100 * 1024, ip: "192.168.1.100", port: 39654);
+var client2 = new Client(bufferSize: 100 * 1024, ip: "192.168.1.100", port: 39654);
+client1.Connect();
+client2.Connect();
+client1.SendFile(file1, 0, success => Console.WriteLine("file1: " + success));
+client2.SendFile(file2, 0, success => Console.WriteLine("file2: " + success));
 ```
 
 ### Q6: How to recover after transfer interruption?
@@ -362,14 +395,12 @@ client.SendFile(fileName, lastOffset, callback);
 
 ### Q7: How to customize receive path?
 
-**A**: Specify when constructing `FileTransfer` or `Server`:
+**A**: The receive path comes from the `filePath` argument of `FileTransfer`; `Server` itself never writes files:
 
 ```csharp
-// FileTransfer method
+// Received files land under C:\CustomPath, keeping the sender-side file name
 var fileTransfer = new FileTransfer(@"C:\CustomPath", port: 39654);
-
-// Server method
-var server = new Server(port: 39654, filePath: @"C:\CustomPath");
+fileTransfer.Start();
 ```
 
 ---
@@ -380,9 +411,11 @@ var server = new Server(port: 39654, filePath: @"C:\CustomPath");
 |------------|-------------|
 | `FileTransfer` | File transfer main coordinator class, supports both sending and receiving |
 | `Client` | File sending client, used to actively send files |
-| `Server` | File receiving server, used to listen and receive files |
+| `Server` | File receiving server, exposes `Allow` / `Refuse` replies and the `ConfigurePipeline` extension point |
 | `FileMessage` | File message data model, defines transfer protocol |
-| `FileMessageCoder` | File message encoder/decoder |
+| `FileMessageDecoder` | Inbound decoder that turns a complete frame into a protocol object and drops heartbeat frames |
+| `FileMessageEncoder` | Outbound encoder that writes protocol objects as complete wire frames |
+| `FileFrameSplitter` | Wire-format framing configuration with a single frame-length ceiling |
 
 ---
 
@@ -409,24 +442,28 @@ fileTransfer.SendFile(@"C:\Data\document.pdf", "192.168.1.100");
 
 ```csharp
 using SAEA.FileSocket;
+using SAEA.Sockets.Pipeline;
 
 var server = new Server(port: 39654, bufferSize: 100 * 1024);
 
-server.OnRequested += (ID, fileName, length) => 
+// Append handlers to the receive chain; without one only the built-in disk writer runs.
+server.ConfigurePipeline = (id, pipeline) =>
 {
-    Console.WriteLine($"Request to receive file: {fileName}, Size: {length / 1024 / 1024}MB");
-    return true;
+    pipeline.AddLast(new LoggingHandler());
 };
-
-server.OnFile += (userToken, content) => 
-{
-    // Custom handling of received data chunks
-};
-
-server.OnError += (ID, ex) => 
-    Console.WriteLine($"Transfer error: {ex.Message}");
 
 server.Start();
+
+sealed class LoggingHandler : InboundHandlerAdapter
+{
+    public override async Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+    {
+        Console.WriteLine($"Message from {ctx.Channel.Id}: {msg.GetType().Name}");
+
+        // Hand back downstream so the built-in handler can still write the file.
+        await ctx.FireChannelReadAsync(msg);
+    }
+}
 ```
 
 ### Client-side Sending (with Callback)
@@ -434,11 +471,12 @@ server.Start();
 ```csharp
 using SAEA.FileSocket;
 
-var client = new Client(bufferSize: 100 * 1024);
+// The endpoint lives on the client; connect before sending.
+var client = new Client(bufferSize: 100 * 1024, ip: "192.168.1.100", port: 39654);
 
-client.Connect("192.168.1.100", 39654);
+client.Connect();
 
-client.SendFile(@"C:\Data\document.pdf", (success) => 
+client.SendFile(@"C:\Data\document.pdf", 0, success =>
 {
     if (success)
         Console.WriteLine("Send successful");
@@ -446,9 +484,9 @@ client.SendFile(@"C:\Data\document.pdf", (success) =>
         Console.WriteLine("Send failed");
 });
 
-// Resumable transfer
+// Resumable transfer: offset is the number of bytes already transferred
 long offset = 1024 * 1024 * 100;
-client.SendFile(@"C:\Data\large_file.dat", offset, (success) => 
+client.SendFile(@"C:\Data\large_file.dat", offset, success =>
     Console.WriteLine($"Resume result: {success}"));
 ```
 
@@ -500,8 +538,9 @@ FileSocket uses a four-stage handshake protocol:
 
 | Package | Version | Description |
 |---------|---------|-------------|
-| SAEA.Sockets | 26.9.21.1 | Socket communication framework |
-| SAEA.Common | 26.9.21.1 | Common utilities |
+| SAEA.Sockets | 26.11.5.1 | Socket communication framework |
+| SAEA.Sockets.Pipeline | 26.11.5.1 | Framing, codecs and handler chain |
+| SAEA.Common | 26.11.5.1 | Common utilities |
 
 ---
 

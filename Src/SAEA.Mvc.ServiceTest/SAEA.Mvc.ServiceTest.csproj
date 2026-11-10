@@ -74,17 +74,8 @@
     <Reference Include="protobuf-net.Core, Version=3.0.0.0, Culture=neutral, PublicKeyToken=257b51d87d2e4d67, processorArchitecture=MSIL">
       <HintPath>..\packages\protobuf-net.Core.3.4.40\lib\net462\protobuf-net.Core.dll</HintPath>
     </Reference>
-    <Reference Include="SAEA.Common, Version=26.4.23.1, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\SAEA.Common.26.4.23.1\lib\netstandard2.0\SAEA.Common.dll</HintPath>
-    </Reference>
-    <Reference Include="SAEA.Http, Version=26.4.23.1, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\SAEA.Http.26.4.23.1\lib\netstandard2.0\SAEA.Http.dll</HintPath>
-    </Reference>
-    <Reference Include="SAEA.MVC, Version=26.4.23.1, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\SAEA.MVC.26.4.23.1\lib\netstandard2.0\SAEA.MVC.dll</HintPath>
-    </Reference>
-    <Reference Include="SAEA.Sockets, Version=26.4.23.1, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\SAEA.Sockets.26.4.23.1\lib\netstandard2.0\SAEA.Sockets.dll</HintPath>
+    <Reference Include="BouncyCastle.Cryptography, Version=2.0.0.0, Culture=neutral, PublicKeyToken=072edcf4a5328938, processorArchitecture=MSIL">
+      <HintPath>..\packages\BouncyCastle.Cryptography.2.6.2\lib\net461\BouncyCastle.Cryptography.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Buffers, Version=4.0.5.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
@@ -235,6 +226,20 @@
     <Content Include="wwwroot\Index.html">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SAEA.Common\SAEA.Common.csproj">
+      <Project>{d68fe725-8f9a-4633-bfbb-034685d0a2c7}</Project>
+      <Name>SAEA.Common</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\SAEA.Http\SAEA.Http.csproj">
+      <Project>{73bfa6bd-afe9-459c-84f7-3007f5c453c2}</Project>
+      <Name>SAEA.Http</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\SAEA.MVC\SAEA.MVC.csproj">
+      <Project>{ce20ca18-06db-41b9-accd-9d143deb154a}</Project>
+      <Name>SAEA.MVC</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">

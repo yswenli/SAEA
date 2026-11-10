@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 14:25:42
+*修改时间：2026/11/9 11:39:22
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增入站分发方式配置；小帧默认改为走内存池
+*描述：明确 DrainTimeout 零值按 5 秒收口与 MaxPendingWrites 出站预算口径
 *
 *****************************************************************************/
 using System;
@@ -57,7 +57,11 @@ namespace SAEA.Sockets.Pipeline
         /// <summary>断开收口时对在途消息的处理策略。</summary>
         public DisconnectDrainPolicy DrainPolicy { get; set; } = DisconnectDrainPolicy.CancelPending;
 
-        /// <summary>仅 <see cref="DisconnectDrainPolicy.DrainInFlight"/> 生效的等待上限；零表示无限等待。</summary>
+        /// <summary>
+        /// <see cref="DisconnectDrainPolicy.DrainInFlight"/> 下等待在途消息的上限；零表示无限等待。
+        /// <see cref="IChannelHandlerContext.CloseAfterWriteAsync"/> 使用同一配置，但零值按 5 秒处理，
+        /// 避免一个卡住的写永久挂住收口；超时后强制完成未移交的写。
+        /// </summary>
         public TimeSpan DrainTimeout { get; set; } = TimeSpan.FromSeconds(5);
 
         /// <summary>单连接未成帧残余字节上限；0 表示按分帧器最大帧长与读缓冲推导。</summary>
@@ -79,5 +83,21 @@ namespace SAEA.Sockets.Pipeline
 
         /// <summary>连接级流量防护钩子；未配置时放行全部流量。</summary>
         public IChannelGuard Guard { get; set; } = NullChannelGuard.Instance;
+
+        /// <summary>
+        /// 是否在启动时校验链尾兜底与出站串行器装配；默认 false 保持既有行为。
+        /// 为 true 时链尾最后一个入站节点必须是 <see cref="ExceptionTerminalHandler"/>，
+        /// 且 <see cref="OutboundSerializingHandler"/> 恰好一个并位于出站前缀最右侧。
+        /// </summary>
+        public bool RequireTerminalHandler { get; set; } = false;
+
+        /// <summary>可切换分帧器等待切换屏障的上限；超时按分帧协议错误收口。默认 10 秒。</summary>
+        public TimeSpan SplitterSwitchTimeout { get; set; } = TimeSpan.FromSeconds(10);
+
+        /// <summary>
+        /// 已提交但尚未完成交接的出站写数量上限；业务写入口与出站串行器共用该预算，超限时本次写直接失败。
+        /// 小于等于 0 表示不限制。默认 256。
+        /// </summary>
+        public int MaxPendingWrites { get; set; } = 256;
     }
 }

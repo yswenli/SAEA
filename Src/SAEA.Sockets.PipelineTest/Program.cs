@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 13:35:40
+*修改时间：2026/11/9 14:20:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增客户端接入通道链的自测场景
+*描述：装配出站串行器并补启动校验、冻链与回调外写出站三个演示用例
 *
 *****************************************************************************/
 using System;
@@ -122,6 +122,9 @@ namespace SAEA.Sockets.PipelineTest
             if (!await RunCaseAsync("e 单消息超时：100ms 超时 token 被取消且连接保持活跃", MessageTimeoutCaseAsync)) failures++;
             if (!await RunCaseAsync("f 断开后回包：CloseAsync 后 WriteAsync 抛 ChannelClosedException", CloseThenWriteCaseAsync)) failures++;
             if (!await RunCaseAsync("g 逐字节喂入：每帧拆成 1 字节仍正确还原", OneByteAtATimeCaseAsync)) failures++;
+            if (!await RunCaseAsync("h 启动校验：RequireTerminalHandler 装配齐全后正常启动", RequireTerminalCaseAsync)) failures++;
+            if (!await RunCaseAsync("i 启动后冻链：AddLast 抛 InvalidOperationException", FrozenPipelineCaseAsync)) failures++;
+            if (!await RunCaseAsync("j 出站回调外 ctx.WriteAsync：抛 InvalidOperationException", ContextWriteOutsideCallbackCaseAsync)) failures++;
 
             Console.WriteLine();
             Console.WriteLine(failures == 0 ? "全部用例通过" : "失败用例数：" + failures);
@@ -475,6 +478,107 @@ namespace SAEA.Sockets.PipelineTest
             }
         }
 
+        // ---------- h：启动校验通过 ----------
+
+        private static async Task RequireTerminalCaseAsync()
+        {
+            var registry = CreateRegistry();
+
+            using (var session = new InMemorySession(
+                "require-terminal",
+                NewOptions(queueCapacity: 8, maxConcurrentMessages: 1, requireTerminalHandler: true),
+                registry,
+                new LoginHandler(0),
+                new HeartbeatHandler()))
+            {
+                // BuildPipeline 已装配 OutboundSerializingHandler 与链尾 ExceptionTerminalHandler。
+                session.Start();
+
+                await WriteHeartbeatAsync(session.Stream, registry, 31).ConfigureAwait(false);
+                await WaitUntilAsync(() => session.Stream.SentCount == 1, "启动校验通过后未收到回包").ConfigureAwait(false);
+
+                var seqs = DecodeFrames(session.Stream.SentFrames, registry)
+                    .OfType<Heartbeat>()
+                    .Select(item => item.Seq)
+                    .ToArray();
+
+                AssertSequenceEqual(new[] { 31 }, seqs, "启动校验通过后的回包内容错误");
+
+                await session.StopAsync().ConfigureAwait(false);
+            }
+        }
+
+        // ---------- i：启动后链冻结 ----------
+
+        private static async Task FrozenPipelineCaseAsync()
+        {
+            var registry = CreateRegistry();
+
+            using (var session = new InMemorySession(
+                "frozen-pipeline",
+                NewOptions(queueCapacity: 8, maxConcurrentMessages: 1),
+                registry,
+                new LoginHandler(0),
+                new HeartbeatHandler()))
+            {
+                session.Start();
+
+                try
+                {
+                    session.Pipeline.AddLast(new ContextProbeHandler());
+                }
+                catch (InvalidOperationException)
+                {
+                    await session.StopAsync().ConfigureAwait(false);
+                    return;
+                }
+
+                throw new InvalidOperationException("Start() 之后 AddLast 未抛 InvalidOperationException。");
+            }
+        }
+
+        // ---------- j：出站回调外 ctx.WriteAsync ----------
+
+        private static async Task ContextWriteOutsideCallbackCaseAsync()
+        {
+            var registry = CreateRegistry();
+            var probe = new ContextProbeHandler();
+
+            using (var session = new InMemorySession(
+                "ctx-write-outside-callback",
+                NewOptions(queueCapacity: 8, maxConcurrentMessages: 1),
+                registry,
+                new LoginHandler(0),
+                new HeartbeatHandler(),
+                probe))
+            {
+                session.Start();
+
+                var ctx = await probe.Captured.Task.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+
+                Exception error = null;
+                try
+                {
+                    // 回调外没有绑定本次写操作，入口应同步拒绝而不是排队到下游。
+                    await ctx.WriteAsync(new Heartbeat { Seq = 90 }).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    error = ex;
+                }
+
+                if (!(error is InvalidOperationException))
+                    throw new InvalidOperationException(
+                        "出站回调外 ctx.WriteAsync 未抛 InvalidOperationException，实际：" +
+                        (error == null ? "无异常" : error.GetType().Name) + "。");
+
+                if (!session.Executor.IsActive)
+                    throw new InvalidOperationException("回调外写被拒绝后连接不应进入收口。");
+
+                await session.StopAsync().ConfigureAwait(false);
+            }
+        }
+
         // ---------- --socket：真实 SaeaServerSocket ----------
 
         private static async Task<int> RunSocketCaseAsync(bool useTls)
@@ -644,9 +748,8 @@ namespace SAEA.Sockets.PipelineTest
                             flow,
                             (data, owner) =>
                             {
-                                // 客户端发送重载会按需复制并在完成后释放 owner，适配器不接管所有权。
-                                client.SendAsync(data, owner);
-                                return Task.CompletedTask;
+                                // 客户端发送重载会按需复制，并在底层交接完成或失败后释放 owner，适配器不接管所有权。
+                                return client.SendAsync(data, owner);
                             });
 
                         var options = NewOptions(queueCapacity: 64, maxConcurrentMessages: 4);
@@ -1237,11 +1340,14 @@ namespace SAEA.Sockets.PipelineTest
             var pipeline = ChannelPipeline.Create(options);
             var codec = new EnvelopeCodec();
 
-            // 出站必须是链首连续前缀：实体 → 信封 → body → 完整帧 → 传输层。
+            // 出站必须是链首连续前缀：串行器 → 实体 → 信封 → body → 完整帧 → 传输层。
             pipeline.AddLast(new FrameEncoderHandler(new LengthFieldFrameEncoder()));
             pipeline.AddLast(new OutboundLoggingHandler());
             pipeline.AddLast(new CodecEncoderHandler(codec));
             pipeline.AddLast(new EnvelopeWrapHandler(registry, new JsonMessageCodec()));
+
+            // 串行器必须是出站前缀最右侧（紧贴第一个入站节点）：先排队再编码，避免异步编码器打乱先后。
+            pipeline.AddLast(new OutboundSerializingHandler());
 
             // 入站：分帧由接收泵完成，链上没有 FrameSplitterHandler。
             pipeline.AddLast(new CodecDecoderHandler(codec));
@@ -1275,6 +1381,9 @@ namespace SAEA.Sockets.PipelineTest
             pipeline.AddLast(new CodecEncoderHandler(codec));
             pipeline.AddLast(new EnvelopeWrapHandler(registry, new JsonMessageCodec()));
 
+            // 客户端链与服务端链保持相同位置：串行器在出站前缀最右侧。
+            pipeline.AddLast(new OutboundSerializingHandler());
+
             pipeline.AddLast(new CodecDecoderHandler(codec));
             pipeline.AddLast(new EnvelopeUnwrapHandler(registry, new JsonMessageCodec()));
             pipeline.AddLast(new MessageDispatcher().Register<LoginResponse>(responseHandler));
@@ -1284,10 +1393,15 @@ namespace SAEA.Sockets.PipelineTest
             return pipeline;
         }
 
+        /// <summary>
+        /// 构造演示用例配置。<paramref name="maxConcurrentMessages"/> 取 1 的用例用于验证逐帧保序
+        /// 或稳定制造背压；并发与超时用例分别取 5 与 2，不要把所有用例都压成单并发。
+        /// </summary>
         private static ChannelPipelineOptions NewOptions(
             int queueCapacity,
             int maxConcurrentMessages,
-            TimeSpan? messageTimeout = null)
+            TimeSpan? messageTimeout = null,
+            bool requireTerminalHandler = false)
         {
             return new ChannelPipelineOptions
             {
@@ -1296,7 +1410,8 @@ namespace SAEA.Sockets.PipelineTest
                 MaxConcurrentMessages = maxConcurrentMessages,
                 MessageTimeout = messageTimeout ?? TimeSpan.Zero,
                 DrainPolicy = DisconnectDrainPolicy.CancelPending,
-                Guard = NullChannelGuard.Instance
+                Guard = NullChannelGuard.Instance,
+                RequireTerminalHandler = requireTerminalHandler
             };
         }
 
@@ -1678,6 +1793,19 @@ namespace SAEA.Sockets.PipelineTest
 
         // ---------- 演示专用处理器 ----------
 
+        /// <summary>捕获所属节点上下文，供用例在回调外验证 ctx.WriteAsync 的拒绝行为。</summary>
+        private sealed class ContextProbeHandler : InboundHandlerAdapter
+        {
+            public readonly TaskCompletionSource<IChannelHandlerContext> Captured =
+                new TaskCompletionSource<IChannelHandlerContext>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public override Task ChannelActiveAsync(IChannelHandlerContext ctx)
+            {
+                Captured.TrySetResult(ctx);
+                return Task.CompletedTask;
+            }
+        }
+
         /// <summary>记录异常并继续向链尾传播，用于观察超时与意外错误。</summary>
         private sealed class ExceptionRecorder : InboundHandlerAdapter
         {
@@ -1802,7 +1930,7 @@ namespace SAEA.Sockets.PipelineTest
                 else
                 {
                     await Task.Delay(20, ctx.CancellationToken).ConfigureAwait(false);
-                    await ctx.WriteAsync(new Heartbeat
+                    await ctx.Pipeline.WriteAsync(new Heartbeat
                     {
                         Seq = heartbeat.Seq,
                         Payload = heartbeat.Payload
@@ -1827,7 +1955,7 @@ namespace SAEA.Sockets.PipelineTest
 
                 try
                 {
-                    await ctx.WriteAsync(new Heartbeat { Seq = 99, Payload = "after-close" })
+                    await ctx.Pipeline.WriteAsync(new Heartbeat { Seq = 99, Payload = "after-close" })
                         .ConfigureAwait(false);
                     ClosedWriteError.TrySetResult(null);
                 }
@@ -1876,8 +2004,8 @@ namespace SAEA.Sockets.PipelineTest
                 if (_heartbeatSeq == 0)
                     return Task.CompletedTask;
 
-                // 必须用分发器给的 ctx 回写：它会沿出站方向补齐编码与分帧。
-                return ctx.WriteAsync(new Heartbeat { Seq = _heartbeatSeq });
+                // 业务写只能走通道链入口；ctx.WriteAsync 仅限出站回调内转发。
+                return ctx.Pipeline.WriteAsync(new Heartbeat { Seq = _heartbeatSeq });
             }
         }
     }

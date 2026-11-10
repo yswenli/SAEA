@@ -17,6 +17,7 @@
 | [📐 架构设计](#架构设计) | 组件关系与工作流程 |
 | [💡 应用场景](#应用场景) | 何时选择 SAEA.Sockets |
 | [📊 实现模式对比](#实现模式对比) | 两种收发实现与选型 |
+| [⚠️ 破坏性变更（P0）](#破坏性变更p0) | 本版本必须核对的 11 条公开变化 |
 | [❓ 常见问题](#常见问题) | FAQ 快速解答 |
 | [🔧 核心类](#核心类) | 主要类一览 |
 | [📝 使用示例](#使用示例) | 详细代码示例 |
@@ -224,6 +225,33 @@ TCP 只有一套底层引擎，`UsePacket()` 与 `UseStream()` 只决定数据�
 ### 关于性能数字
 
 本 README 不提供跨框架性能对比数字（与 TouchSocket、DotNetty 等的差异请以自己场景的压测为准）。可复现的实测数据只有零拷贝收发路径：运行 `SAEA.P2PTest --bench-iocp`（4KB 帧、单机回环），结果见根目录 README。
+
+---
+
+## 破坏性变更（P0）⚠️
+
+本版本同时发布 `SAEA.Sockets` 与 `SAEA.Sockets.Pipeline`，以下 11 条影响升级，逐条核对：
+
+1. **Pipeline 4 个接口共新增 6 个成员**：`IChannelHandler.HandlerAdded` / `HandlerRemoved`、`IChannelInboundHandler.ChannelActiveAsync` / `ChannelInactiveAsync`、`IChannelHandlerContext.CloseAfterWriteAsync`、`IChannelPipeline.WriteAsync`。外部直接实现这些接口会编译失败；继承适配器不受影响。
+2. **`ctx.WriteAsync` 仅在出站回调内合法**：回调外调用抛 `InvalidOperationException`；业务发消息用 `ctx.Pipeline.WriteAsync(entity)`。
+3. **入站普通异常通知一次后冒泡**：不再吞掉，链尾 `ExceptionTerminalHandler` 记录并决定是否断开。
+4. **`Start()` 后链结构冻结**：`AddLast` / `AddFirst` / `Remove` 均抛 `InvalidOperationException`。
+5. **两个带 `owner` 的发送重载 `void → Task`**：
+
+   ```csharp
+   // IServerSocket
+   Task SendAsync(string sessionID, ReadOnlyMemory<byte> data, IDisposable owner);
+   // IClientSocket
+   Task SendAsync(ReadOnlyMemory<byte> data, IDisposable owner);
+   ```
+
+   `SaeaServerSocket`、`SaeaClientSocket`、`SaeaUdpServerSocket`、`SaeaUdpClientSocket` 四个实现同步变更。`await socket.SendAsync(id, data, owner)` 能观察真实交接结果；旧代码不 `await` 仍可编译，但异步失败会被静默丢弃。外部自定义接口实现必须改签名。
+6. **`owner` 释放口径**：成功与所有可确认退出的路径恰好释放一次；会话不存在、同步异常由传输层释放；异步失败/取消在确认 socket 操作退出后释放；无法证明内核已退出的发送超时路径放弃回收。调用方不得在拿到 `Task` 后再 `Dispose` `owner`。
+7. **`ByteToMessageDecoder` 不累加半包**：只接受泵切好的完整 `PooledMessage`；`FrameSplitterHandler` 只用于无泵的纯链式场景，与泵共存会把同一批字节拆两次。
+8. **`RawFrame` 与信封模型互斥**：`FramePassthroughHandler` 原始帧旁路与 `Envelope*` / `Codec*` 信封链不能装在同一条链上。
+9. **`CloseAfterWriteAsync` 只保证已提交传输层**：不表示对端已收到；`DrainTimeout <= 0` 在该入口按 5 秒处理。
+10. **内存只承诺两项有界**：`MaxBufferedBytes` 约束输入残余字节，`MaxPendingWrites` 约束出站待写项数；其余排队帧、在途帧、TLS 复制与 socket 缓冲等没有固定总上界。
+11. **装配位置与限制**：`OutboundSerializingHandler` 必须恰好一个且位于出站前缀最右侧；`SwitchableSplitter` 每连接一个实例，`SwitchTo` 是解除 `StopAfterCurrent` 屏障的唯一方式，切换目标 `MaxFrameLength` 不得超过创建时固定的上限，`SplitterSwitchTimeout` 默认 10 秒；`TakeAvailableSplitter` 以一次读取为消息边界，且不豁免 `ChannelPipeline.Create` 的缓冲下限校验。
 
 ---
 
@@ -732,6 +760,7 @@ var option = SocketOptionBuilder.Instance
 | `IClientSocket.BeginSend(byte[])` / `Send(byte[])` / `SendAsync(byte[])` / `SendAsync(byte[], int, int, CancellationToken)` | `Send(ReadOnlySpan<byte>)` / `SendAsync(ReadOnlyMemory<byte>)` / `SendAsync(ReadOnlyMemory<byte>, CancellationToken)`；原 offset/count 语义用 `data.AsMemory(offset, count)` 表达 |
 | `IClientSocket.ReceiveAsync(byte[], int, int, CancellationToken)`（接口成员） | 改用 span 事件；具体实现 `SaeaClientSocket.ReceiveAsync` 保留并从连接 `Pipe` 读取（无连接门面时抛 `KernelException`，配置 `UseInputHandler` 后抛 `InvalidOperationException`），`UdpClientSocket.ReceiveAsync` 抛 `NotSupportedException` |
 | `IServerSocket.SendAsync(string, byte[])` / `Send(string, byte[])` / `End(string, byte[])` / `SendAsync(IPEndPoint, byte[])` | `SendAsync(string, ReadOnlyMemory<byte>)` / `Send(string, ReadOnlySpan<byte>)` / `End(string, ReadOnlyMemory<byte>)` / `SendAsync(IPEndPoint, ReadOnlyMemory<byte>)` |
+| `IServerSocket.SendAsync(string, ReadOnlyMemory<byte>, IDisposable)` / `IClientSocket.SendAsync(ReadOnlyMemory<byte>, IDisposable)`（原 `void`） | 改为返回 `Task`；`await` 才能观察异步失败。`SaeaServerSocket` / `SaeaClientSocket` / `SaeaUdpServerSocket` / `SaeaUdpClientSocket` 四个实现同步 |
 | `IocpClientSocket.UserToken` | 不再公开；按场景改用 `Connected` 或 `ChannelInfo.UserToken` / `Context.UserToken` |
 | `IocpServerSocket` / `IocpClientSocket` | 重命名为 `SaeaServerSocket` / `SaeaClientSocket`（`SocketFactory` 已返回新类型） |
 | `StreamServerSocket` / `StreamClientSocket` | 已删除；改用 `SaeaServerSocket` / `SaeaClientSocket` 并调用 `UseStream()`，通过 `GetStream()` 或 `ChannelInfo.Stream` 读写 |

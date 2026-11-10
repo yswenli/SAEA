@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 09:50:56
+*修改时间：2026/11/9 10:48:29
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：处理器基类：默认不可跨连接共享
+*描述：补挂链/摘链生命周期默认实现
 *
 *****************************************************************************/
 namespace SAEA.Sockets.Pipeline
@@ -41,6 +41,18 @@ namespace SAEA.Sockets.Pipeline
         public virtual bool IsSharable
         {
             get { return false; }
+        }
+
+        /// <summary>默认不做事；需要登记连接级状态时重写。</summary>
+        /// <param name="ctx">即将挂链的节点上下文。</param>
+        public virtual void HandlerAdded(IChannelHandlerContext ctx)
+        {
+        }
+
+        /// <summary>默认不做事；需要释放连接级状态时重写。</summary>
+        /// <param name="ctx">已摘链节点的上下文。</param>
+        public virtual void HandlerRemoved(IChannelHandlerContext ctx)
+        {
         }
     }
 }

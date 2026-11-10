@@ -23,14 +23,15 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 13:23:31
+*修改时间：2026/11/6 15:27:03
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补齐英文与乱码注释的中文说明
+*描述：合并 WSS 传输实现，构造函数支持证书与 TLS 协议配置
 *
 *****************************************************************************/
 using System;
 using System.Collections.Generic;
+using System.Security.Authentication;
 
 using SAEA.Common;
 using SAEA.Common.Caching;
@@ -76,21 +77,30 @@ namespace SAEA.WebSocket.Core
         /// <param name="port">端口号</param>
         /// <param name="bufferSize">缓冲区大小</param>
         /// <param name="maxConnects">连接数</param>
-        public WSServerImpl(int port = 39654, int bufferSize = 1024 * 64, int maxConnects = 1000)
+        /// <param name="sslProtocols">TLS 协议；为 None 或未提供证书时不启用加密</param>
+        /// <param name="pfxPath">服务端证书路径</param>
+        /// <param name="pwd">证书密码</param>
+        public WSServerImpl(int port = 39654, int bufferSize = 1024 * 64, int maxConnects = 1000,
+            SslProtocols sslProtocols = SslProtocols.None, string pfxPath = "", string pwd = "")
         {
             _reader = new ClassificationBatcher(10000, 50);
             _reader.OnBatched += _reader_OnBatched;
             _writer = new ClassificationBatcher(10000, 50);
             _writer.OnBatched += _writer_OnBatched;
 
-            var option = SocketOptionBuilder.Instance
+            var builder = SocketOptionBuilder.Instance
                 .SetSocket()
                 .UsePacket(new WSContext(true))
                 .SetPort(port)
                 .SetReadBufferSize(bufferSize)
                 .SetWriteBufferSize(bufferSize)
-                .SetMaxConnects(maxConnects)
-                .Build();
+                .SetMaxConnects(maxConnects);
+
+            // 只有同时给了协议和证书才启用 TLS；只给其一时退回明文，避免监听方以为已加密。
+            if (sslProtocols != SslProtocols.None && !string.IsNullOrEmpty(pfxPath))
+                builder.WithSsl(sslProtocols, pfxPath, pwd);
+
+            var option = builder.Build();
 
             _server = SocketFactory.CreateServerSocket(option);
 

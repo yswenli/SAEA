@@ -19,9 +19,9 @@ namespace SAEA.HttpTest
             webHost.SetCrossDomainHeaders("token", "auth");
 
             //自定义处理
-            //webHost.OnRequestDelegate += WebHost_OnRequestDelegate;
+            //webHost.WebConfig.RequestDelegate = WebHost_OnRequestDelegate;
 
-            webHost.OnException += WebHost_OnException;
+            webHost.WebConfig.ExceptionHandler = WebHost_OnException;
 
             webHost.Start();
 

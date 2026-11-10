@@ -72,6 +72,24 @@ server.Start();
 
 ---
 
+## ⚠️ 破坏性变更（P0）
+
+以下 11 条同时影响 `SAEA.Sockets` 与 `SAEA.Sockets.Pipeline`，升级前必须逐条核对调用方：
+
+1. **Pipeline 4 个接口共新增 6 个成员**：`IChannelHandler` 增加 `HandlerAdded` / `HandlerRemoved`，`IChannelInboundHandler` 增加 `ChannelActiveAsync` / `ChannelInactiveAsync`，`IChannelHandlerContext` 增加 `CloseAfterWriteAsync`，`IChannelPipeline` 增加 `WriteAsync`。直接实现这些接口会编译失败；继承 `ChannelHandlerAdapter` / `InboundHandlerAdapter` / `OutboundHandlerAdapter` 不受影响。`netstandard2.0` + C# 8 没有默认接口实现，无法用默认成员规避。
+2. **`ctx.WriteAsync` 改为仅出站回调内合法**：它只做链内转发，必须在 `IChannelOutboundHandler.WriteAsync` 回调内调用；在业务 handler、连接生命周期回调或异步续体里调用会同步抛 `InvalidOperationException`。业务发消息统一用 `ctx.Pipeline.WriteAsync(entity)`。
+3. **入站普通异常通知一次后冒泡**：不再吞掉。`ChannelExceptionCaughtAsync` 只通知一次，随后异常继续向链尾传播，由 `ExceptionTerminalHandler` 记录并决定是否断开；取消不通知，但同样冒泡。
+4. **`Start()` 后链结构冻结**：固定顺序为 `Create → Attach → 装配 → Start`；`Start()` 成功后 `AddLast` / `AddFirst` / `Remove` 均抛 `InvalidOperationException`。需要运行时增删 handler 的场景不要使用接收泵。
+5. **`SAEA.Sockets` 两个带 `owner` 的发送重载 `void → Task`**：`IServerSocket.SendAsync(string, ReadOnlyMemory<byte>, IDisposable)` 与 `IClientSocket.SendAsync(ReadOnlyMemory<byte>, IDisposable)` 改为返回 `Task`，`SaeaServerSocket` / `SaeaClientSocket` / `SaeaUdpServerSocket` / `SaeaUdpClientSocket` 四个实现同步。未 `await` 仍可编译，但观察不到异步失败；外部自定义接口实现必须改签名。
+6. **`owner` 释放口径**：成功与所有可确认退出的路径恰好释放一次；会话不存在、同步异常由传输层释放；异步失败/取消在确认 socket 操作退出后释放；无法证明内核已退出的发送超时路径允许放弃回收，不能宣称仍恰好一次。适配器只翻译异常，绝不二次 `Dispose`。
+7. **`ByteToMessageDecoder` 不累加半包**：输入必须是泵切好的完整 `PooledMessage`，半包留在 `Pipe` / 累加器里；`FrameSplitterHandler` 只用于纯链式（无执行器泵）场景，与泵共存会把同一批字节拆两次。
+8. **`RawFrame` 与信封模型互斥**：`FramePassthroughHandler` 原始帧旁路与 `Envelope*` / `Codec*` 信封链不能装在同一条链上，二选一。
+9. **`CloseAfterWriteAsync` 只保证已提交传输层**：返回成功只表示已提交的写出完成交接，不表示对端收到；`DrainTimeout <= 0` 在该入口按 5 秒处理，超时强制收口并补偿未移交的 `RawFrame`。
+10. **内存只承诺两项有界**：`MaxBufferedBytes` 约束单连接未成帧输入残余字节，`MaxPendingWrites` 约束出站待写项数；排队帧、在途帧、解码后业务消息、TLS 加密复制与 socket 发送缓冲、池化保留都不在固定总上界内。
+11. **装配位置与限制**：`OutboundSerializingHandler` 必须恰好一个且位于出站前缀最右侧（紧贴第一个入站节点），先排队再编码；`SwitchableSplitter` 每连接一个实例，`StopAfterCurrent` 屏障期间只能调 `SwitchTo` 解除，`MaxFrameLength` 在创建时按所有可切换协议取最大值、切换目标不得超限，`SplitterSwitchTimeout` 默认 10 秒，超时按 `FrameProtocolException` 收口；`TakeAvailableSplitter` 以一次读取为消息边界，`MaxFrameLength` 同时是单次读取上限，且不豁免 `ChannelPipeline.Create` 的缓冲下限校验。
+
+---
+
 ## 🧱 架构一览
 
 ```
@@ -81,8 +99,9 @@ server.Start();
        → MessageDispatcher → ExceptionTerminalHandler
 
 出站（链尾 → 链首）:
-  业务 ctx.WriteAsync(entity) → EnvelopeWrapHandler → CodecEncoderHandler
-       → FrameEncoderHandler → 链头 → IRawByteStream.SendAsync(frame, owner) → 传输层
+  业务 IChannelPipeline.WriteAsync(entity) → OutboundSerializingHandler → EnvelopeWrapHandler
+       → CodecEncoderHandler → FrameEncoderHandler → 链头
+       → IRawByteStream.SendAsync(frame, owner) → 传输层
 ```
 
 ---
@@ -116,12 +135,17 @@ var pipeline = ChannelPipeline.Create(options);
 var codec = new EnvelopeCodec();
 
 // 出站 handler 必须占据链首连续前缀。AddLast 是追加到链尾，所以先添加离传输层最近的
-// FrameEncoderHandler，最后添加离业务最近的 EnvelopeWrapHandler。
+// FrameEncoderHandler，再添加 CodecEncoderHandler 与 EnvelopeWrapHandler，最后添加
+// 紧贴第一个入站节点的 OutboundSerializingHandler。
 // 出站传播方向是链尾 → 链首，实际经过顺序：
-// EnvelopeWrapHandler → CodecEncoderHandler → FrameEncoderHandler → 传输层。
+// OutboundSerializingHandler → EnvelopeWrapHandler → CodecEncoderHandler
+// → FrameEncoderHandler → 传输层。
 pipeline.AddLast(new FrameEncoderHandler(new LengthFieldFrameEncoder()));
 pipeline.AddLast(new CodecEncoderHandler(codec));
 pipeline.AddLast(new EnvelopeWrapHandler(registry, new JsonMessageCodec()));
+
+// 串行器必须恰好一个，且位于出站前缀最右侧：先排队再编码，避免异步编码器打乱先后。
+pipeline.AddLast(new OutboundSerializingHandler());
 
 // 入站：分帧已由接收泵完成，链上不再需要 FrameSplitterHandler。
 pipeline.AddLast(new CodecDecoderHandler(codec));
@@ -138,6 +162,7 @@ pipeline.AddLast(new ExceptionTerminalHandler());
 - 出站 handler 必须是链首连续前缀，不能夹在入站 handler 之后。`AddLast` 会校验：一旦链首已有入站 handler，再追加出站 handler 会抛 `InvalidOperationException`，此时应改用 `AddFirst` 插到链首。
 - `AddFirst` 也有对称约束：入站 handler 不能插到链首已有的出站 handler 之前。
 - 一个 handler 实例同时实现入站与出站接口会被拒绝；同一非共享实例不能同时挂到多条链（`IChannelHandler.IsSharable`）。
+- `RequireTerminalHandler = true` 时，`Start()` 会校验链尾最后一个入站节点是 `ExceptionTerminalHandler`，且链上恰好有一个 `OutboundSerializingHandler` 位于出站前缀最右侧；不满足则启动失败并直接收口。
 
 ---
 
@@ -195,11 +220,7 @@ public sealed class SocketStreamAdapter : IRawByteStream
         if (server == null)
             throw new ArgumentNullException(nameof(server));
 
-        return (data, owner) =>
-        {
-            server.SendAsync(channelId, data, owner);
-            return Task.CompletedTask;
-        };
+        return (data, owner) => server.SendAsync(channelId, data, owner);
     }
 
     public string ChannelId
@@ -212,12 +233,30 @@ public sealed class SocketStreamAdapter : IRawByteStream
         get { return _input; }
     }
 
-    public Task SendAsync(ReadOnlyMemory<byte> data, IDisposable owner)
+    public async Task SendAsync(ReadOnlyMemory<byte> data, IDisposable owner)
     {
+        Task sending;
         try
         {
             // owner 原样交给传输层：发送完成或失败由传输层释放，适配器绝不自行 Dispose。
-            return _send(data, owner);
+            sending = _send(data, owner);
+        }
+        catch (ChannelClosedException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new ChannelClosedException("连接已关闭或发送失败:" + _channelId + "," + ex.Message, ex);
+        }
+
+        if (sending == null)
+            return;
+
+        try
+        {
+            // 真正 await 传输层交接：Task 只表示所有权已交给传输层，不表示对端已经收到。
+            await sending.ConfigureAwait(false);
         }
         catch (ChannelClosedException)
         {
@@ -246,16 +285,14 @@ public sealed class SocketStreamAdapter : IRawByteStream
 }
 ```
 
-- `SendAsync` 返回 `Task.CompletedTask` 只表示“帧的所有权已交给传输层”，不表示对端已收到；`owner` 必须在返回前保持未释放。
+- `SendAsync` 必须真正 `await` 发送委托，返回的 Task 只表示“帧的所有权已交给传输层”，不表示对端已收到；同步异常与异步 fault 都翻译成 `ChannelClosedException`，`owner` 由传输层释放，适配器绝不二次 `Dispose`。
 - 连接已关闭时必须立即抛 `ChannelClosedException`，不能排队或静默成功；其他传输层异常也统一翻译成 `ChannelClosedException`。
 - 服务端与客户端都支持接入；两端共用同一套 `UseInputHandler` / `UseConnectionOpened` 钩子与配置校验。客户端在 `UseInputHandler` 里这样接：
 
   ```csharp
   var adapter = new SocketStreamAdapter(userToken.ID, input, flow, (data, owner) =>
-  {
-      client.SendAsync(data, owner);   // 客户端按需复制，并在完成后释放 owner
-      return Task.CompletedTask;
-  });
+      // 客户端发送重载返回 Task；适配器会 await 它，并在底层交接完成或失败后由传输层释放 owner。
+      client.SendAsync(data, owner));
   ```
 
 ---
@@ -269,15 +306,18 @@ public sealed class SocketStreamAdapter : IRawByteStream
 - `Envelope.Payload` 永远是独立 `new byte[len]`，绝不指向 `PooledMessage` 的池化背衬，因此没有归还责任；`EnvelopeCopyThreshold`（默认 4KB）只控制一条 `Warn` 日志，不改变拷贝方式。
 - 需要原始帧字节（抓包、审计、二进制直通）时改用 `FramePassthroughHandler`：它 `Retain()` 后原样下传，由该分支自己的尾部释放。这条分支与 codec 分支互斥，不能装在同一条链上。
 - 出站中间体 `EncodedBody` / `TransportFrame` 只允许出现在出站链内部；`await ctx.WriteAsync(...)` 正常返回即所有权交给链头/传输层，抛异常时由创建者 `Dispose`。
+- 业务写统一走 `IChannelPipeline.WriteAsync`：每次写领取一个操作与一份待写计数，从出站前缀最右侧节点启动；`ctx.WriteAsync` 只在出站回调内沿同一操作向链首转发，不重新计数或占额。
+- `RawFrame` 在链头 CAS 移交前由出站边界补偿释放；移交成功后只由传输层释放。出站边界对普通业务 `IDisposable` 不代管。
 
 ---
 
 ## ⏱️ 生命周期与关闭语义
 
-- `Attach` 之前不能 `WriteAsync`：链头找不到执行器或字节流，抛 `InvalidOperationException("pipeline 尚未 Attach 到传输层。")`；`ctx.Channel` 同样不可用。
+- `Attach` 之前不能 `IChannelPipeline.WriteAsync`：链头找不到执行器或字节流，抛 `InvalidOperationException("pipeline 尚未 Attach 到传输层。")`；`ctx.Channel` 同样不可用。
 - `ChannelPipelineExecutor.Attach(pipeline)` 必须在 `Start()` 之前完成，否则 `Start()` 抛 `InvalidOperationException`。
 - `CloseAsync(reason)` 只表示“已进入收口”：调用立即返回，后台收口继续执行，资源是否回收完要看 `ChannelPipelineExecutor.Completion`。
-- 进入收口后再 `WriteAsync` 抛 `ChannelClosedException`；连接已关闭时 `IRawByteStream.SendAsync` 也必须立即抛同一异常。该判定先于消息类型判定：即使持有的是已摘链节点的旧 `ctx`、传出的也不是 `TransportFrame`，只要连接在收口就按关闭上报。
+- 关闭状态机为 `Open → DrainingWrites → Closing`。`CloseAfterWriteAsync` 先停止接纳，再在同一同步边界内等待已提交写归零；`DrainTimeout` 为零时按 5 秒。超时只强制完成仍处于 `Queued` 的写并补偿 `RawFrame`，已移交写不伪造完成、不释放。draining 期间普通 `CloseAsync` 加入同一等待，重复调用复用同一完成源。
+- 进入收口后再调用 `IChannelPipeline.WriteAsync` 抛 `ChannelClosedException`；连接已关闭时 `IRawByteStream.SendAsync` 也必须立即抛同一异常。该判定先于消息类型判定：即使持有的是已摘链节点的旧 `ctx`、传出的也不是 `TransportFrame`，只要连接在收口就按关闭上报。
 - 配置 `UseInputHandler` 后，该连接的 `PipeReader` 由泵独占，运行时会把入站标记为“已接管”：此后再调 `GetStream()`、`ReceiveAsync()` 或 `ChannelInfo.Stream.ReadAsync` 会立刻抛 `InvalidOperationException`（信息里带接管者与可用替代入口），不会再出现两个读者互相抢数据。出站 `Stream.WriteAsync` 不受影响。
 - 钩子启用后，该连接的事件泵不再启动：服务端 `OnServerReceiveSpan`、客户端 `OnClientReceiveSpan` 都不再触发。
 - `UseInputHandler` 必须与 `UseConnectionOpened` 成对配置，且必须 `.UseStream()`；`SocketOptionBuilder.Build()` 会校验并抛 `InvalidOperationException`。
@@ -323,10 +363,11 @@ public sealed class SocketStreamAdapter : IRawByteStream
 
 ---
 
-## 🐞 调试断言边界
+## 🐞 出站转发检查
 
-- `Debug` 构建下会对出站做一次轻量检查：**同一个 handler 节点**对同一个 `msg` 实例只允许调用一次 `ctx.WriteAsync`，重复写入会触发断言；不同节点转发同一实例（例如日志 handler 原样透传中间载体）是合法的。它覆盖的是“同一个处理器把同一条消息写两次”。
-- 它**不覆盖**“忘记转发”：handler 直接返回、截断出站链，与“明确丢弃”在运行时不可区分，只能靠代码评审和端到端用例（断言回包确实到达）发现。
+- 同一个出站节点对同一次业务写只允许调用一次 `ctx.WriteAsync`，重复转发抛 `InvalidOperationException`；该检查在 `Release` 构建同样生效。不同节点依次透传同一实例（例如日志 handler 原样透传中间载体）是合法的。
+- 上下文视图只在出站回调内有效：回调外调用 `ctx.WriteAsync`，或在出站回调内调用 `CloseAfterWriteAsync` / `ctx.Pipeline.WriteAsync`，都会同步抛 `InvalidOperationException`。
+- 它**不覆盖**“忘记转发”：handler 直接返回、截断出站链，与“明确丢弃”在运行时不可区分；出站边界只对未移交的 `RawFrame` 做补偿，普通业务对象需由业务自行管理。
 - 直接调用 `IRawByteStream.SendAsync` 绕过链头的情形也不做运行时检测，属于代码评审禁止项。
 
 ---
@@ -338,6 +379,7 @@ public sealed class SocketStreamAdapter : IRawByteStream
 | `FrameEncoderHandler` | 出站 | 把 `EncodedBody` 补成完整帧，包成 `TransportFrame` 交给链头 |
 | `CodecEncoderHandler` | 出站 | `Envelope` → `EncodedBody`（调用 `ICodec.Encode`） |
 | `EnvelopeWrapHandler` | 出站 | 业务实体 → `Envelope.Type` + `Envelope.Payload` |
+| `OutboundSerializingHandler` | 出站 | 单写者 FIFO 串行器：先排队再编码，必须是出站前缀最右侧节点 |
 | `OutboundLoggingHandler` | 出站 | 记录出站消息类型，原样转发 |
 | `CodecDecoderHandler` | 入站 | `PooledMessage` → `Envelope`，随后释放帧字节 |
 | `AuthHandler` | 入站 | 第一级鉴权：只看 `Envelope.Type` 白名单，不解析 payload |
@@ -349,7 +391,7 @@ public sealed class SocketStreamAdapter : IRawByteStream
 | `FramePassthroughHandler` | 入站 | 原始帧旁路（`Retain` 后下传），与 codec 分支互斥 |
 | `FrameSplitterHandler` | 入站 | 不用接收泵、需要链内手工拆帧时才使用 |
 
-可插拔实现：`LengthFieldSplitter`、`DelimiterSplitter`、`FixedLengthSplitter`、`LineSplitter`、`LengthFieldFrameEncoder`、`EnvelopeCodec`、`JsonMessageCodec`、`ProtobufMessageCodec`、`RawCopyCodec`、`TypeRegistry`。
+可插拔实现：`LengthFieldSplitter`、`DelimiterSplitter`、`FixedLengthSplitter`、`LineSplitter`、`SwitchableSplitter`、`TakeAvailableSplitter`、`LengthFieldFrameEncoder`、`EnvelopeCodec`、`JsonMessageCodec`、`ProtobufMessageCodec`、`RawCopyCodec`、`TypeRegistry`。
 
 ---
 

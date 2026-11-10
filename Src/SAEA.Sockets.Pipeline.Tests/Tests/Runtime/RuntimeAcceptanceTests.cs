@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 11:28:34
+*修改时间：2026/11/9 11:39:22
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增无超时时消息令牌即连接令牌的用例
+*描述：语法型回包处理器改用 ctx.Pipeline.WriteAsync
 *
 *****************************************************************************/
 using System;
@@ -1401,7 +1401,7 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Runtime
 
             public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
             {
-                return ctx.WriteAsync(new TransportFrame(_payload, null));
+                return ctx.Pipeline.WriteAsync(new TransportFrame(_payload, null));
             }
         }
 

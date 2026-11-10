@@ -23,23 +23,26 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:20:18
+*修改时间：2026/11/10 11:30:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：改用流模式与处理器链，删除请求、数据与异常三个公开事件
 *
 *****************************************************************************/
-using SAEA.Common.Caching;
+using SAEA.Common;
 using SAEA.Common.Serialization;
 using SAEA.FileSocket.Model;
 using SAEA.Sockets;
 using SAEA.Sockets.Base;
-using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
+using SAEA.Sockets.Pipeline;
 using System;
 using System.Buffers;
+using System.Collections.Concurrent;
+using System.IO.Pipelines;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace SAEA.FileSocket
 {
@@ -49,25 +52,6 @@ namespace SAEA.FileSocket
     /// </summary>
     public class Server
     {
-        #region events
-
-        /// <summary>
-        /// 收到文件传输请求时触发，参数为会话 ID、文件名与文件总长度，需由订阅方调用 Allow 或 Refuse 应答
-        /// </summary>
-        public event OnRequestHandler OnRequested;
-
-        /// <summary>
-        /// 每收到一个文件数据块时触发，参数为用户上下文与本次数据副本
-        /// </summary>
-        public event OnFileHandler OnFile;
-
-        /// <summary>
-        /// 服务端发生异常时触发，参数为会话 ID 与异常
-        /// </summary>
-        public event OnErrorHandler OnError;
-
-        #endregion
-
         private long _total;
 
         private long _in;
@@ -82,69 +66,133 @@ namespace SAEA.FileSocket
         /// </summary>
         public long In { get => _in; set => _in = value; }
 
-        IServerSocket _server;
+        /// <summary>
+        /// 处理器链装配回调：每条连接在解码器之后、异常收口之前调用一次，
+        /// 使用者在此追加自己的入站处理器；为 null 时只保留内置处理器。
+        /// 赋值可在 Start 之前或运行期间进行，只影响其后建立的连接。
+        /// </summary>
+        public Action<string, IChannelPipeline> ConfigurePipeline { get; set; }
+
+        private readonly IServerSocket _server;
+
+        private readonly PipelineHostRegistry _host = new PipelineHostRegistry();
+
+        private readonly ConcurrentDictionary<string, IChannelPipeline> _pipelines =
+            new ConcurrentDictionary<string, IChannelPipeline>(StringComparer.Ordinal);
+
+        private readonly ChannelPipelineOptions _options;
 
         /// <summary>
-        /// 创建底层服务端并注册接收与异常回调，监听需另调 Start
+        /// 创建底层服务端并注册收连接回调，监听需另调 Start
         /// </summary>
         /// <param name="port">监听端口</param>
         /// <param name="bufferSize">收发缓冲区大小（字节）</param>
         /// <param name="count">最大连接数</param>
         public Server(int port = 39654, int bufferSize = 100 * 1024, int count = 10)
         {
-            var option = SocketOptionBuilder.Instance
+            var readBufferSize = bufferSize > 0 ? bufferSize : 100 * 1024;
+
+            // 单帧上限沿用 BaseCoder.MaxFrameLength 的可配置口径，输入残余上限按同一口径显式给出，
+            // 避免自动推导在默认上限下超出 int 范围。
+            var maxFrameLength = FileFrameSplitter.ResolveMaxFrameLength();
+
+            _options = new ChannelPipelineOptions
+            {
+                Splitter = FileFrameSplitter.Create(maxFrameLength),
+                MaxBufferedBytes = (long)maxFrameLength + FrameConstants.P_Head,
+                ReadBufferSize = readBufferSize,
+                // 文件块按顺序落盘，同一连接必须串行执行，否则分块会乱序写入。
+                MaxConcurrentMessages = 1
+            };
+
+            var option = new SocketOptionBuilder()
                 .SetSocket()
-                .UsePacket<BaseCoder>()
+                .UseStream()
+                .UseConnectionOpened(OnConnectionOpened)
+                .UseInputHandler(RunPipelineAsync)
                 .SetPort(port)
                 .ReusePort(false)
-                .SetReadBufferSize(bufferSize)
-                .SetWriteBufferSize(bufferSize)
-                .SetMaxConnects(count)                
+                .SetReadBufferSize(readBufferSize)
+                .SetWriteBufferSize(readBufferSize)
+                .SetMaxConnects(count)
                 .Build();
 
             _server = SocketFactory.CreateServerSocket(option);
 
-            _server.OnServerReceiveSpan += _server_OnReceiveSpan;
-
-            _server.OnError += _server_OnError;
+            _server.OnError += (id, ex) => LogHelper.Warn("FileSocket:" + id, ex);
         }
 
-        private void _server_OnError(string ID, System.Exception ex)
+        /// <summary>
+        /// 连接门面登记钩子：文件传输链只依赖连接标识，不需要连接级信息，
+        /// 这里仅满足「输入处理器必须与连接钩子成对配置」的约定。
+        /// </summary>
+        /// <param name="info">底层通道信息</param>
+        private static void OnConnectionOpened(ChannelInfo info)
         {
-            OnError?.Invoke(ID, ex);
         }
 
-        private void _server_OnReceiveSpan(IUserToken currentObj, ReadOnlySpan<byte> dataSpan)
+        /// <summary>
+        /// 接管一条连接的读循环：登记连接、装配处理器链并运行到收口
+        /// </summary>
+        /// <param name="userToken">连接令牌，用于取连接标识</param>
+        /// <param name="reader">接收方向的 PipeReader</param>
+        /// <param name="flow">应用级流量控制闸门</param>
+        /// <param name="token">连接级取消令牌</param>
+        /// <returns>执行器收口完成后结束的任务</returns>
+        private async Task RunPipelineAsync(
+            IUserToken userToken,
+            PipeReader reader,
+            IReceiveFlowControl flow,
+            CancellationToken token)
         {
-            var userToken = currentObj;
+            var channelId = userToken == null ? null : userToken.ID;
 
-            var data = dataSpan.ToArray();
+            if (string.IsNullOrEmpty(channelId))
+                return;
 
-            using (var msgs = userToken.Coder.Decode(new ReadOnlySequence<byte>(data), null, (f) =>
+            var stream = new PipelineRawByteStream(channelId, reader, flow, _server);
+
+            try
             {
-                Interlocked.Add(ref _in, f.Length);
-                OnFile?.Invoke(userToken, f.ToArray());
-            }))
-            {
-                if (msgs.Count < 1) return;
-                foreach (var msg in msgs.Frames)
-                {
-                    string fileName = string.Empty;
-
-                    long length = 0;
-
-                    if (msg.Content.Length != 0)
-                    {
-                        var fi = SerializeHelper.PBDeserialize<FileMessage>(msg.Content.ToArray());
-                        fileName = fi.FileName;
-                        length = fi.Length;
-                    }
-
-                    OnRequested?.Invoke(userToken.ID, fileName, length);
-
-                    _total = length;
-                }
+                await PipelineWiring.RunAsync(
+                    channelId,
+                    stream,
+                    flow,
+                    _options,
+                    token,
+                    _host,
+                    ConfigureConnection)
+                    .ConfigureAwait(false);
             }
+            finally
+            {
+                IChannelPipeline ignored;
+                _pipelines.TryRemove(channelId, out ignored);
+            }
+        }
+
+        /// <summary>
+        /// 装配单条连接的处理器链：出站前缀 → 内置入站 → 使用者扩展 → 链尾异常处理器
+        /// </summary>
+        /// <param name="channelId">连接标识</param>
+        /// <param name="pipeline">尚未启动的处理器链</param>
+        private void ConfigureConnection(string channelId, IChannelPipeline pipeline)
+        {
+            // 出站必须是链首连续前缀，串行器固定在最右，允许接收与拒绝应答才不会乱序。
+            pipeline.AddLast(new FileMessageEncoder());
+            pipeline.AddLast(new OutboundSerializingHandler());
+
+            pipeline.AddLast(new FileMessageDecoder());
+            pipeline.AddLast(new TrafficHandler(this));
+
+            var configure = ConfigurePipeline;
+            if (configure != null)
+                configure(channelId, pipeline);
+
+            pipeline.AddLast(new ExceptionTerminalHandler());
+
+            // 链装配完成才登记：主动应答只允许写到结构完整的链上。
+            _pipelines[channelId] = pipeline;
         }
 
         /// <summary>
@@ -153,13 +201,7 @@ namespace SAEA.FileSocket
         /// <param name="id">会话标识</param>
         public void Allow(string id)
         {
-            var sm = new BaseSocketProtocal((byte)SocketProtocalType.AllowReceive, ReadOnlyMemory<byte>.Empty);
-
-            using (var w = new PooledBufferWriter(64))
-            {
-                sm.WriteTo(w);
-                _server.SendAsync(id, w.WrittenSpan.ToArray().AsMemory());
-            }
+            Send(id, SocketProtocalType.AllowReceive);
         }
 
         /// <summary>
@@ -168,15 +210,45 @@ namespace SAEA.FileSocket
         /// <param name="id">会话标识</param>
         public void Refuse(string id)
         {
-            var sm = new BaseSocketProtocal((byte)SocketProtocalType.RefuseReceive, ReadOnlyMemory<byte>.Empty);
-
-            using (var w = new PooledBufferWriter(64))
-            {
-                sm.WriteTo(w);
-                _server.SendAsync(id, w.WrittenSpan.ToArray().AsMemory());
-            }
+            Send(id, SocketProtocalType.RefuseReceive);
         }
 
+        /// <summary>
+        /// 向指定会话写一个空帧体应答；连接尚未装配完成或已断开时静默丢弃
+        /// </summary>
+        /// <param name="id">会话标识</param>
+        /// <param name="type">应答帧类型</param>
+        private void Send(string id, SocketProtocalType type)
+        {
+            if (string.IsNullOrEmpty(id))
+                return;
+
+            IChannelPipeline pipeline;
+            if (!_pipelines.TryGetValue(id, out pipeline))
+                return;
+
+            _ = SendCoreAsync(pipeline, id, type);
+        }
+
+        /// <summary>
+        /// 异步写出应答并记录失败；应答是通知性质，不向业务线程抛出
+        /// </summary>
+        /// <param name="pipeline">目标连接的处理器链</param>
+        /// <param name="id">会话标识</param>
+        /// <param name="type">应答帧类型</param>
+        /// <returns>写出完成或失败后结束的任务</returns>
+        private static async Task SendCoreAsync(IChannelPipeline pipeline, string id, SocketProtocalType type)
+        {
+            try
+            {
+                await pipeline.WriteAsync(new BaseSocketProtocal((byte)type, ReadOnlyMemory<byte>.Empty))
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Warn("FileSocket 应答写出失败:" + id, ex);
+            }
+        }
 
         /// <summary>
         /// 启动服务端并开始监听
@@ -192,6 +264,56 @@ namespace SAEA.FileSocket
         public void Stop()
         {
             _server.Stop();
+            _pipelines.Clear();
+        }
+
+        /// <summary>
+        /// 内置入站处理器：累计已接收的文件字节，并从传输请求中记录声明的文件总长度
+        /// </summary>
+        private sealed class TrafficHandler : InboundHandlerAdapter
+        {
+            private readonly Server _owner;
+
+            /// <summary>
+            /// 绑定所属服务端
+            /// </summary>
+            /// <param name="owner">所属服务端实例</param>
+            public TrafficHandler(Server owner)
+            {
+                _owner = owner;
+            }
+
+            /// <summary>
+            /// 统计文件块字节并解析传输请求的声明长度，然后把消息继续交给下游
+            /// </summary>
+            /// <param name="ctx">当前处理器在链上的节点上下文</param>
+            /// <param name="msg">已解帧的消息</param>
+            /// <returns>下游处理完成后结束的任务</returns>
+            public override async Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+            {
+                var protocal = msg as BaseSocketProtocal;
+                if (protocal != null)
+                {
+                    if (protocal.Type == (byte)SocketProtocalType.BigData)
+                    {
+                        Interlocked.Add(ref _owner._in, protocal.Content.Length);
+                    }
+                    else if (protocal.Type == (byte)SocketProtocalType.RequestSend && !protocal.Content.IsEmpty)
+                    {
+                        try
+                        {
+                            _owner._total = SerializeHelper.PBDeserialize<FileMessage>(protocal.Content.ToArray()).Length;
+                        }
+                        catch (Exception ex)
+                        {
+                            // 请求体不是合法的文件消息：长度统计保持原值，交给下游决定如何处理。
+                            LogHelper.Debug("FileSocket 传输请求解析失败:" + ex.Message);
+                        }
+                    }
+                }
+
+                await ctx.FireChannelReadAsync(msg).ConfigureAwait(false);
+            }
         }
     }
 }

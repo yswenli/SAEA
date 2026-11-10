@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:29
+*修改时间：2026/11/10 12:20:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：请求体解析拆出 ParseBody(HttpMessage)，供解码器在已完成 body 复制的消息上直接产出表单、文件与 JSON
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -192,69 +192,83 @@ namespace SAEA.Http.Base
         {
             var contentLen = httpMessage.ContentLength;
             var positon = httpMessage.Position;
+
+            if (requestData.Length < positon + contentLen)
+                return false;
+
+            httpMessage.Body = requestData.AsSpan().Slice(positon, contentLen).ToArray();
+            return ParseBody(httpMessage);
+        }
+
+        /// <summary>
+        /// 按 ContentType 解析已填充的请求体，产出 Forms / PostFiles / Json。
+        /// 调用方负责先把 <see cref="HttpMessage.Body"/> 填好；解析失败按「无表单」处理，不向调用方抛异常。
+        /// </summary>
+        /// <param name="httpMessage">请求体已填充的消息对象</param>
+        /// <returns>解析完成返回 true；内容类型不参与解析或解析异常返回 false</returns>
+        internal static bool ParseBody(HttpMessage httpMessage)
+        {
             try
             {
-                if (requestData.Length >= positon + contentLen)
+                if (httpMessage.Body == null)
+                    return false;
+
+                if (httpMessage.ContentType.IndexOf(ConstHelper.FormUrlEncode, StringComparison.InvariantCultureIgnoreCase) > -1)
                 {
-                    httpMessage.Body = requestData.AsSpan().Slice(positon, contentLen).ToArray();
-
-                    if (httpMessage.ContentType.IndexOf(ConstHelper.FormUrlEncode, StringComparison.InvariantCultureIgnoreCase) > -1)
+                    httpMessage.Forms = GetRequestForms(Encoding.UTF8.GetString(httpMessage.Body));
+                }
+                else if (httpMessage.ContentType.IndexOf(ConstHelper.FormData, StringComparison.InvariantCultureIgnoreCase) > -1)
+                {
+                    using (MemoryStream ms = new MemoryStream(httpMessage.Body))
                     {
-                        httpMessage.Forms = GetRequestForms(Encoding.UTF8.GetString(httpMessage.Body));
-                    }
-                    else if (httpMessage.ContentType.IndexOf(ConstHelper.FormData, StringComparison.InvariantCultureIgnoreCase) > -1)
-                    {
-                        using (MemoryStream ms = new MemoryStream(httpMessage.Body))
+                        ms.Position = 0;
+                        using var sr = new SAEA.Common.IO.StreamReader(ms);
+                        StringBuilder sb = new StringBuilder();
+                        var str = string.Empty;
+                        do
                         {
-                            ms.Position = 0;
-                            using var sr = new SAEA.Common.IO.StreamReader(ms);
-                            StringBuilder sb = new StringBuilder();
-                            var str = string.Empty;
-                            do
+                            str = sr.ReadLine();
+                            if (str == null)
                             {
-                                str = sr.ReadLine();
-                                if (str == null)
+                                break;
+                            }
+                            else
+                            {
+                                sb.AppendLine(str);
+                                if (str.Contains(ConstHelper.CT))
                                 {
-                                    break;
-                                }
-                                else
-                                {
-                                    sb.AppendLine(str);
-                                    if (str.Contains(ConstHelper.CT))
+                                    var filePart = GetRequestFormsWithMultiPart(sb.ToString(), httpMessage);
+
+                                    if (filePart != null)
                                     {
-                                        var filePart = GetRequestFormsWithMultiPart(sb.ToString(), httpMessage);
-
-                                        if (filePart != null)
-                                        {
-                                            sr.ReadLine();
-
-                                            filePart.Data = sr.ReadData(sr.Position, httpMessage.Boundary);
-                                            if (filePart.Data != null)
-                                            {
-                                                filePart.Data = filePart.Data.Take(filePart.Data.Length - 2).ToArray();
-                                            }
-                                            httpMessage.PostFiles.Add(filePart);
-                                        }
-                                        sb.Clear();
                                         sr.ReadLine();
+
+                                        filePart.Data = sr.ReadData(sr.Position, httpMessage.Boundary);
+                                        if (filePart.Data != null)
+                                        {
+                                            filePart.Data = filePart.Data.Take(filePart.Data.Length - 2).ToArray();
+                                        }
+                                        httpMessage.PostFiles.Add(filePart);
                                     }
+                                    sb.Clear();
+                                    sr.ReadLine();
                                 }
                             }
-                            while (true);
                         }
+                        while (true);
                     }
-                    else if (httpMessage.ContentType.IndexOf(ConstHelper.Json, StringComparison.InvariantCultureIgnoreCase) > -1)
-                    {
-                        httpMessage.Json = Encoding.UTF8.GetString(httpMessage.Body);
-                    }
-                    return true;
                 }
+                else if (httpMessage.ContentType.IndexOf(ConstHelper.Json, StringComparison.InvariantCultureIgnoreCase) > -1)
+                {
+                    httpMessage.Json = Encoding.UTF8.GetString(httpMessage.Body);
+                }
+
+                return true;
             }
             catch
             {
-                
+                return false;
             }
-            return false;
         }
         #region private
 
