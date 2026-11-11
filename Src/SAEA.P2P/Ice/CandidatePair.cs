@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 11:30:00
+*修改时间：2026/11/12 14:30:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：候选对优先级改为 64 位无符号整数
+*描述：候选对优先级支持角色切换后重算
 *
 *****************************************************************************/
 using System;
@@ -34,8 +34,7 @@ using System;
 namespace SAEA.P2P.Ice
 {
     /// <summary>
-    /// 候选对：本地与远端候选的组合，保存 pair priority 与 valid/nominated 标记。
-    /// pair 状态枚举与状态机在检查表任务里加入，本类型当前只保留 valid/nominated 两个标记。
+    /// 候选对：本地与远端候选的组合，保存 pair priority、valid/nominated 标记与检查状态
     /// </summary>
     public sealed class CandidatePair
     {
@@ -76,7 +75,7 @@ namespace SAEA.P2P.Ice
         /// <summary>
         /// 候选对优先级，按控制方与受控方方向由 G/D 公式算出
         /// </summary>
-        public ulong Priority { get; }
+        public ulong Priority { get; private set; }
 
         /// <summary>
         /// 是否已通过连通性检查
@@ -87,6 +86,21 @@ namespace SAEA.P2P.Ice
         /// 是否已被提名
         /// </summary>
         public bool IsNominated { get; private set; }
+
+        /// <summary>
+        /// 检查状态，初始为冻结。
+        /// 允许的迁移：冻结到等待、冻结或等待到检查中、检查中到成功、冻结/等待/检查中到失败、失败回到等待；
+        /// 进入成功或失败后只有失败可以回到等待继续重发。
+        /// </summary>
+        public PairState State { get; private set; }
+
+        /// <summary>
+        /// 是否处于终态：成功或失败都不再被选择器挑出
+        /// </summary>
+        public bool IsTerminal
+        {
+            get { return State == PairState.Succeeded || State == PairState.Failed; }
+        }
 
         /// <summary>
         /// 标记该候选对已通过连通性检查
@@ -103,6 +117,83 @@ namespace SAEA.P2P.Ice
         {
             IsValid = true;
             IsNominated = true;
+        }
+
+        /// <summary>
+        /// 将候选对从冻结状态解冻为等待检查
+        /// </summary>
+        /// <exception cref="InvalidOperationException">候选对不处于冻结状态</exception>
+        public void MarkWaiting()
+        {
+            if (State != PairState.Frozen)
+            {
+                throw new InvalidOperationException(string.Format("候选对只能从冻结迁移到等待，当前状态为 {0}", State));
+            }
+            State = PairState.Waiting;
+        }
+
+        /// <summary>
+        /// 标记候选对进入检查中；检查可由冻结直接触发，因此冻结与等待都允许
+        /// </summary>
+        /// <exception cref="InvalidOperationException">候选对已在检查中或已进入终态</exception>
+        public void MarkInProgress()
+        {
+            if (State != PairState.Frozen && State != PairState.Waiting)
+            {
+                throw new InvalidOperationException(string.Format("候选对只能从冻结或等待迁移到检查中，当前状态为 {0}", State));
+            }
+            State = PairState.InProgress;
+        }
+
+        /// <summary>
+        /// 标记候选对检查成功
+        /// </summary>
+        /// <exception cref="InvalidOperationException">候选对不处于检查中</exception>
+        public void MarkSucceeded()
+        {
+            if (State != PairState.InProgress)
+            {
+                throw new InvalidOperationException(string.Format("候选对只能从检查中迁移到成功，当前状态为 {0}", State));
+            }
+            State = PairState.Succeeded;
+        }
+
+        /// <summary>
+        /// 标记候选对检查失败；成功状态不允许回退
+        /// </summary>
+        /// <exception cref="InvalidOperationException">候选对已成功</exception>
+        public void MarkFailed()
+        {
+            if (State == PairState.Succeeded)
+            {
+                throw new InvalidOperationException(string.Format("候选对已成功，不能迁移到失败，当前状态为 {0}", State));
+            }
+            // 超时与错误回调可能先后报告同一候选对，重复标记失败按幂等处理
+            State = PairState.Failed;
+        }
+
+        /// <summary>
+        /// 把失败的候选对重置为等待检查；角色切换后该候选对需要重发检查
+        /// </summary>
+        /// <exception cref="InvalidOperationException">候选对不处于失败状态</exception>
+        public void ResetToWaiting()
+        {
+            if (State != PairState.Failed)
+            {
+                throw new InvalidOperationException(string.Format("候选对只能从失败重置为等待，当前状态为 {0}", State));
+            }
+            // 角色切换会更换检查角色，该候选对重新回到等待队列等待重发
+            State = PairState.Waiting;
+        }
+
+        /// <summary>
+        /// 按当前角色重算候选对优先级
+        /// </summary>
+        /// <param name="isControlling">本地是否为控制方，决定公式里 G/D 的取值方向</param>
+        public void RecomputePriority(bool isControlling)
+        {
+            // 角色切换后对优先级的方向也跟着变，需要重算；两端候选优先级本身不变，只换 G/D 的归属
+            Priority = IcePriority.ComputePairPriority(Local.Priority, Remote.Priority, isControlling);
         }
 
         /// <summary>
