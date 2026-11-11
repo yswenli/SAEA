@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 10:30:00
+*修改时间：2026/11/11 13:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：IPv6 监听支持双栈（DualMode），仅在绑定 IPv6Any 时生效
+*描述：新增 LocalEndPoint 暴露监听套接字实际绑定端点
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -126,6 +126,24 @@ namespace SAEA.Sockets.Core.Tcp
         /// 本服务器使用的套接字选项
         /// </summary>
         public ISocketOption SocketOption { get; set; }
+
+        /// <summary>
+        /// 监听套接字实际绑定的端点；未启动或已释放时为 null
+        /// </summary>
+        public IPEndPoint LocalEndPoint
+        {
+            get
+            {
+                try
+                {
+                    return _listener?.LocalEndPoint as IPEndPoint;
+                }
+                catch
+                {
+                    return null;
+                }
+            }
+        }
 
         #region events
 
