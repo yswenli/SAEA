@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 17:30:00
+*修改时间：2026/11/11 21:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 STUN 客户端
+*描述：新增可携带额外属性的内部重载，供 NAT 行为探测与 ICE 使用
 *
 *****************************************************************************/
 using System;
@@ -162,7 +162,7 @@ namespace SAEA.P2P.Stun
         /// <returns>Binding 结果，失败时带原因与错误码</returns>
         public Task<StunBindingResult> BindingAsync(IPEndPoint server, CancellationToken cancellationToken = default(CancellationToken))
         {
-            return BindingAsync(server, null, cancellationToken);
+            return BindingAsync(server, null, null, cancellationToken);
         }
 
         /// <summary>
@@ -172,7 +172,21 @@ namespace SAEA.P2P.Stun
         /// <param name="credential">凭据；为 null 时不重试鉴权</param>
         /// <param name="cancellationToken">取消令牌</param>
         /// <returns>Binding 结果，失败时带原因与错误码</returns>
-        public async Task<StunBindingResult> BindingAsync(IPEndPoint server, StunClientCredential credential, CancellationToken cancellationToken = default(CancellationToken))
+        public Task<StunBindingResult> BindingAsync(IPEndPoint server, StunClientCredential credential, CancellationToken cancellationToken = default(CancellationToken))
+        {
+            return BindingAsync(server, credential, null, cancellationToken);
+        }
+
+        /// <summary>
+        /// 发出 Binding 请求，并在请求里附带额外属性（如 CHANGE-REQUEST、ICE 的 PRIORITY）；
+        /// 额外属性会插在 SOFTWARE 与鉴权属性之前
+        /// </summary>
+        /// <param name="server">STUN 服务端端点</param>
+        /// <param name="credential">凭据；为 null 时不重试鉴权</param>
+        /// <param name="additionalAttributes">额外属性；为 null 时与公开重载等价</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>Binding 结果，失败时带原因与错误码</returns>
+        internal async Task<StunBindingResult> BindingAsync(IPEndPoint server, StunClientCredential credential, IReadOnlyList<StunAttribute> additionalAttributes, CancellationToken cancellationToken)
         {
             if (server == null)
             {
@@ -184,7 +198,7 @@ namespace SAEA.P2P.Stun
             var startedAt = _clock.UtcNow;
             var attempts = 0;
 
-            var first = await RunTransactionAsync(CreateRequest(null, null, null, null), server, cancellationToken).ConfigureAwait(false);
+            var first = await RunTransactionAsync(CreateRequest(null, null, null, null, additionalAttributes), server, cancellationToken).ConfigureAwait(false);
             attempts += first.Attempts;
 
             if (first.Response != null && first.Response.Class == StunClass.SuccessResponse)
@@ -210,7 +224,7 @@ namespace SAEA.P2P.Stun
                         : StunIntegrity.CreateLongTermKey(credential.Username, realm, credential.Password);
 
                     var retry = await RunTransactionAsync(
-                        CreateRequest(credential.Username, realm, nonce, key),
+                        CreateRequest(credential.Username, realm, nonce, key, additionalAttributes),
                         server,
                         cancellationToken).ConfigureAwait(false);
                     attempts += retry.Attempts;
@@ -273,11 +287,23 @@ namespace SAEA.P2P.Stun
         /// <param name="realm">认证域</param>
         /// <param name="nonce">一次性随机串</param>
         /// <param name="integrityKey">完整性密钥；为 null 时不计算 MIC</param>
+        /// <param name="additionalAttributes">额外属性；为 null 时不追加</param>
         /// <returns>待发送的请求</returns>
-        private StunMessage CreateRequest(string username, string realm, string nonce, byte[] integrityKey)
+        private StunMessage CreateRequest(string username, string realm, string nonce, byte[] integrityKey, IReadOnlyList<StunAttribute> additionalAttributes)
         {
             var request = new StunMessage(StunMessageType.Binding, StunClass.Request);
             var attributes = new List<StunAttribute>();
+
+            if (additionalAttributes != null)
+            {
+                for (var i = 0; i < additionalAttributes.Count; i++)
+                {
+                    if (additionalAttributes[i] != null)
+                    {
+                        attributes.Add(additionalAttributes[i]);
+                    }
+                }
+            }
 
             if (!string.IsNullOrEmpty(_software))
             {
