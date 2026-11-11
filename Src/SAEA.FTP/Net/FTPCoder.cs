@@ -23,21 +23,20 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:28
+*修改时间：2026/11/11 11:45:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：删除未实现的 byte[] 解码重载，类仅保留接口成员
 *
 *****************************************************************************/
 using SAEA.Sockets.Interface;
 
 using System;
-using System.Collections.Generic;
 
 namespace SAEA.FTP.Net
 {
     /// <summary>
-    /// FTP 协议编解码器：编码直接写出协议对象，解码未实现
+    /// FTP 协议编解码器：编码直接写出协议对象，解码与清缓存未实现
     /// </summary>
     public class FTPCoder : ICoder
     {
@@ -50,18 +49,6 @@ namespace SAEA.FTP.Net
         public void Encode(ISocketProtocal protocal, System.Buffers.IBufferWriter<byte> writer)
         {
             protocal.WriteTo(writer);
-        }
-
-        /// <summary>
-        /// 解码入口，当前为空实现，不解析任何数据
-        /// </summary>
-        /// <param name="data">待解码数据</param>
-        /// <param name="unpackCallback">解包完成回调</param>
-        /// <param name="onHeart">心跳回调</param>
-        /// <param name="onFile">文件数据回调</param>
-        public void Decode(byte[] data, Action<ISocketProtocal> unpackCallback, Action<DateTime> onHeart = null, Action<byte[]> onFile = null)
-        {
-
         }
 
         /// <summary>

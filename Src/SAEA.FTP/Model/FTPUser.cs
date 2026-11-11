@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:28
+*修改时间：2026/11/11 11:45:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：删除指向已废弃数据连接管理器的 FTPDataSocketManager 属性
 *
 *****************************************************************************/
 using SAEA.Common.Newtonsoft.Json;
@@ -82,12 +82,6 @@ namespace SAEA.FTP.Model
         /// </summary>
         [JsonIgnore]
         public string CurrentPath { get; set; } = "C:\\";
-
-        /// <summary>
-        /// 该账号的数据连接管理实例，不参与配置序列化
-        /// </summary>
-        [JsonIgnore]
-        public FTPDataSocketManager FTPDataSocketManager { get; set; }
 
         /// <summary>
         /// 创建空账号，属性取默认值，供配置反序列化使用
