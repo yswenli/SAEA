@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 15:20:00
+*修改时间：2026/11/11 16:55:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 STUN 属性值模型
+*描述：保留解析出的补齐字节，支持逐字节回环
 *
 *****************************************************************************/
 using System;
@@ -45,19 +45,18 @@ namespace SAEA.P2P.Stun
         private readonly byte[] _value;
 
         /// <summary>
+        /// 值区补齐字节；解析时原样保留，新建时为空表示按零补齐
+        /// </summary>
+        private readonly byte[] _padding;
+
+        /// <summary>
         /// 用原始类型创建属性，用于保存未知属性
         /// </summary>
         /// <param name="type">属性类型原值</param>
         /// <param name="value">未补齐的属性值</param>
         public StunAttribute(ushort type, byte[] value)
+            : this(type, value, null)
         {
-            if (value == null)
-            {
-                throw new ArgumentNullException(nameof(value));
-            }
-
-            Type = type;
-            _value = (byte[])value.Clone();
         }
 
         /// <summary>
@@ -71,9 +70,41 @@ namespace SAEA.P2P.Stun
         }
 
         /// <summary>
+        /// 创建属性并指定补齐字节；补齐字节在重新编码时原样写回，保证解析再编码可逐字节回环
+        /// </summary>
+        /// <param name="type">属性类型原值</param>
+        /// <param name="value">未补齐的属性值</param>
+        /// <param name="padding">补齐字节；为 null 时按零补齐</param>
+        internal StunAttribute(ushort type, byte[] value, byte[] padding)
+        {
+            if (value == null)
+            {
+                throw new ArgumentNullException(nameof(value));
+            }
+
+            var padded = (value.Length + 3) & ~3;
+            if (padding != null && padding.Length != padded - value.Length)
+            {
+                throw new ArgumentException("补齐字节数必须与值长度匹配", nameof(padding));
+            }
+
+            Type = type;
+            _value = (byte[])value.Clone();
+            _padding = padding == null ? new byte[padded - value.Length] : (byte[])padding.Clone();
+        }
+
+        /// <summary>
         /// 属性类型原值
         /// </summary>
         public ushort Type { get; }
+
+        /// <summary>
+        /// 补齐字节；长度等于补齐到 4 字节倍数所需字节数
+        /// </summary>
+        internal ReadOnlySpan<byte> Padding
+        {
+            get { return _padding; }
+        }
 
         /// <summary>
         /// 未补齐的属性值；返回只读视图，底层数组不会被外部改写

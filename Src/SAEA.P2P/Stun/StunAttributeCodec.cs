@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 15:20:00
+*修改时间：2026/11/11 16:55:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 STUN 属性 TLV 编解码
+*描述：编解码保留补齐字节
 *
 *****************************************************************************/
 using System;
@@ -65,6 +65,13 @@ namespace SAEA.P2P.Stun
             for (var i = 0; i < value.Length; i++)
             {
                 buffer[StunConstants.AttributeHeaderLength + i] = value[i];
+            }
+
+            // 补齐字节可能是 0x20 等非零值，必须按属性自身保存的内容写回
+            var padding = attribute.Padding;
+            for (var i = 0; i < padding.Length; i++)
+            {
+                buffer[StunConstants.AttributeHeaderLength + value.Length + i] = padding[i];
             }
             return buffer;
         }
@@ -126,7 +133,15 @@ namespace SAEA.P2P.Stun
                     value[i] = data[offset + StunConstants.AttributeHeaderLength + i];
                 }
 
-                list.Add(new StunAttribute(type, value));
+                // 补齐字节按 RFC 允许任意值，原样保留才能在重编码时复现原始报文
+                var paddingLength = padded - length;
+                var padding = new byte[paddingLength];
+                for (var i = 0; i < paddingLength; i++)
+                {
+                    padding[i] = data[offset + StunConstants.AttributeHeaderLength + length + i];
+                }
+
+                list.Add(new StunAttribute(type, value, padding));
                 offset += StunConstants.AttributeHeaderLength + padded;
             }
 
