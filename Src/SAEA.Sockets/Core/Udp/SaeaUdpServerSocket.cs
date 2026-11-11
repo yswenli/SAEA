@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/9 10:30:00
+*修改时间：2026/11/11 10:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：携带所有权对象的发送重载签名同步为 Task，UDP 收发行为不变
+*描述：新增 SendToAsync、LocalEndPoint 与带来源地址的接收回调，供 ICE/TURN 原始收发使用
 *
 *****************************************************************************/
 using SAEA.Common.Caching;
@@ -104,7 +104,25 @@ namespace SAEA.Sockets.Core.Udp
         /// </summary>
         public event OnServerReceiveSpanHandler OnServerReceiveSpan;
 
+        /// <summary>
+        /// 接收数据事件（Span 版本），并给出该数据报的来源地址。地址与 data 均仅在回调期间有效。
+        /// </summary>
+        public event OnServerReceiveSpanFromHandler OnServerReceiveSpanFrom;
+
         #endregion
+
+        /// <summary>
+        /// 套接字实际绑定的本地端点；未启动或已停止时为 null
+        /// </summary>
+        public IPEndPoint LocalEndPoint
+        {
+            get
+            {
+                var socket = _udpSocket;
+                if (socket == null) return null;
+                return socket.LocalEndPoint as IPEndPoint;
+            }
+        }
 
         /// <summary>
         /// saea 服务器 socket
@@ -254,6 +272,12 @@ namespace SAEA.Sockets.Core.Udp
                     var dataSpan = readArgs.Buffer.AsSpan(readArgs.Offset, readArgs.BytesTransferred);
 
                     OnServerReceiveSpan?.Invoke(userToken, dataSpan);
+
+                    // readArgs.RemoteEndPoint 会被下一次接收复用，先复制出独立端点再交给回调
+                    var from = readArgs.RemoteEndPoint as IPEndPoint;
+                    var onReceiveSpanFrom = OnServerReceiveSpanFrom;
+                    if (from != null && onReceiveSpanFrom != null)
+                        onReceiveSpanFrom(new IPEndPoint(from.Address, from.Port), dataSpan);
 
                     ProcessReceive(readArgs);
                 }
@@ -586,6 +610,107 @@ namespace SAEA.Sockets.Core.Udp
             writer.TryGetArray(out var rented);
             SendAsyncRaw(userToken, remoteEndPoint, rented, writer);
         }
+
+        /// <summary>
+        /// 向任意端点异步发送一个数据报：目标端口按原样使用、不查会话缓存，用于 ICE/TURN 的原始收发。
+        /// </summary>
+        /// <remarks>
+        /// netstandard2.0 没有 Socket.SendToAsync(ReadOnlyMemory&lt;byte&gt;)，非数组内存会先复制一次到池化缓冲（唯一的边界拷贝）。
+        /// 若输入为调用方数组（MemoryMarshal.TryGetArray 精确匹配）则零拷贝直发，任务完成前调用方不得修改或复用该内存。
+        /// 每次调用独占一个 SocketAsyncEventArgs，不与按会话发送争用令牌上的写锁。
+        /// </remarks>
+        /// <param name="remoteEndPoint">目标端点，不做端口改写</param>
+        /// <param name="data">待发送数据，长度不得超过 UDP 单包上限</param>
+        /// <returns>发送完成即完成的任务；套接字错误时以 SocketException 失败</returns>
+        /// <exception cref="ArgumentNullException">remoteEndPoint 为 null</exception>
+        /// <exception cref="ArgumentOutOfRangeException">数据长度超过单包上限</exception>
+        /// <exception cref="InvalidOperationException">套接字尚未启动或已停止</exception>
+        public Task SendToAsync(IPEndPoint remoteEndPoint, ReadOnlyMemory<byte> data)
+        {
+            if (remoteEndPoint == null) throw new ArgumentNullException(nameof(remoteEndPoint));
+            if (data.Length == 0) return Task.CompletedTask;
+            if (data.Length > Model.SocketOption.UDPMaxLength) throw new ArgumentOutOfRangeException(nameof(data), "SendToAsync Incorrect length of data sent");
+
+            var socket = _udpSocket;
+            if (socket == null) throw new InvalidOperationException("The UDP server socket has not been started.");
+
+            var context = new SendToContext();
+
+            ArraySegment<byte> seg;
+            if (!MemoryMarshal.TryGetArray(data, out seg) || seg.Array == null)
+            {
+                var writer = new PooledBufferWriter(data.Length);
+                data.Span.CopyTo(writer.GetSpan(data.Length));
+                writer.Advance(data.Length);
+                if (!writer.TryGetArray(out seg) || seg.Array == null)
+                {
+                    writer.Dispose();
+                    return Task.CompletedTask;
+                }
+                context.Writer = writer;
+            }
+
+            context.Completion = new TaskCompletionSource<bool>();
+            context.Args = new SocketAsyncEventArgs();
+            context.Args.UserToken = context;
+            context.Args.RemoteEndPoint = remoteEndPoint;
+            context.Args.SetBuffer(seg.Array, seg.Offset, seg.Count);
+            context.Args.Completed += OnSendToCompleted;
+
+            try
+            {
+                // 返回 true 表示挂起，由 IO 完成线程回调；返回 false 表示已完成，需自行走回调释放上下文
+                if (!socket.SendToAsync(context.Args))
+                {
+                    OnSendToCompleted(socket, context.Args);
+                }
+            }
+            catch
+            {
+                try { context.Args.Completed -= OnSendToCompleted; } catch { }
+                try { context.Args.Dispose(); } catch { }
+                if (context.Writer != null) context.Writer.Dispose();
+                throw;
+            }
+
+            return context.Completion.Task;
+        }
+
+        /// <summary>
+        /// SendToAsync 完成回调：结算结果并释放本次发送独占的上下文
+        /// </summary>
+        /// <param name="sender">发送方套接字</param>
+        /// <param name="e">本次发送使用的参数对象</param>
+        private void OnSendToCompleted(object sender, SocketAsyncEventArgs e)
+        {
+            var context = e == null ? null : e.UserToken as SendToContext;
+            if (context == null) return;
+            var expected = e.Count;
+            try
+            {
+                if (e.SocketError == SocketError.Success && e.BytesTransferred == expected)
+                {
+                    context.Completion.TrySetResult(true);
+                }
+                else if (e.SocketError != SocketError.Success)
+                {
+                    context.Completion.TrySetException(new SocketException((int)e.SocketError));
+                }
+                else
+                {
+                    context.Completion.TrySetException(new KernelException("SendToAsync sent fewer bytes than requested."));
+                }
+            }
+            finally
+            {
+                try { e.Completed -= OnSendToCompleted; } catch { }
+                try { e.Dispose(); } catch { }
+                if (context.Writer != null)
+                {
+                    try { context.Writer.Dispose(); } catch { }
+                }
+            }
+        }
         #endregion
 
 
@@ -659,6 +784,27 @@ namespace SAEA.Sockets.Core.Udp
                 IsDisposed = true;
             }
             catch { }
+        }
+
+        /// <summary>
+        /// 一次 SendToAsync 发送的上下文：独占的发送参数对象与可能借用的池化缓冲
+        /// </summary>
+        private sealed class SendToContext
+        {
+            /// <summary>
+            /// 本次发送独占的发送参数对象
+            /// </summary>
+            public SocketAsyncEventArgs Args { get; set; }
+
+            /// <summary>
+            /// 用于把完成回调转换为任务的完成源
+            /// </summary>
+            public TaskCompletionSource<bool> Completion { get; set; }
+
+            /// <summary>
+            /// 非零拷贝路径借用的池化缓冲，完成后必须归还
+            /// </summary>
+            public PooledBufferWriter Writer { get; set; }
         }
     }
 }
