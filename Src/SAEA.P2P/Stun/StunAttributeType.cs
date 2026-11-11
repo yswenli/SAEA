@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 15:20:00
+*修改时间：2026/11/11 22:30:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 STUN 属性类型表
+*描述：补充请求地址族、附加地址族与连接 ID 三个 TURN 属性
 *
 *****************************************************************************/
 namespace SAEA.P2P.Stun
@@ -194,6 +194,11 @@ namespace SAEA.P2P.Stun
         XorRelayedAddress = 0x0016,
 
         /// <summary>
+        /// 请求的地址族，TURN 专用
+        /// </summary>
+        RequestedAddressFamily = 0x0017,
+
+        /// <summary>
         /// 申请偶数端口
         /// </summary>
         EvenPort = 0x0018,
@@ -211,6 +216,16 @@ namespace SAEA.P2P.Stun
         /// <summary>
         /// 预留令牌
         /// </summary>
-        ReservationToken = 0x0022
+        ReservationToken = 0x0022,
+
+        /// <summary>
+        /// 连接 ID，TURN over TCP 专用
+        /// </summary>
+        ConnectionId = 0x002A,
+
+        /// <summary>
+        /// 附加地址族，TURN 专用；最高位为 1，属于 comprehension-optional
+        /// </summary>
+        AdditionalAddressFamily = 0x8000
     }
 }

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 15:00:00
+*修改时间：2026/11/11 22:30:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 STUN 方法枚举
+*描述：补充 TURN over TCP 的 ConnectionAttempt 方法
 *
 *****************************************************************************/
 namespace SAEA.P2P.Stun
@@ -79,6 +79,11 @@ namespace SAEA.P2P.Stun
         /// <summary>
         /// TURN over TCP 的连接绑定
         /// </summary>
-        ConnectionBind = 0x00B
+        ConnectionBind = 0x00B,
+
+        /// <summary>
+        /// 对端主动连入时服务端发来的连接尝试，属于 TURN over TCP
+        /// </summary>
+        ConnectionAttempt = 0x00C
     }
 }
