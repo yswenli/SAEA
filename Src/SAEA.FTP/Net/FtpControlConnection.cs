@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 15:30:00
+*修改时间：2026/11/11 17:52:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：控制连接迁移到处理器链，收发改为链写入与有界应答队列
+*描述：数据连接改走处理器链与 FtpDataConnector，OpenPassive 返回 FtpDataConnection
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -39,7 +39,6 @@ using System;
 using System.IO;
 using System.IO.Pipelines;
 using System.Net;
-using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -138,6 +137,20 @@ namespace SAEA.FTP.Net
         readonly Encoding _encoding;
 
         readonly ChannelPipelineOptions _options;
+
+        readonly ChannelPipelineOptions _dataOptions = new ChannelPipelineOptions
+        {
+            // 数据通道无消息边界：一次读取就是一块数据，缓冲下限必须覆盖单次读取。
+            Splitter = new TakeAvailableSplitter(64 * 1024),
+            MaxBufferedBytes = 64 * 1024 + FrameConstants.P_Head,
+            ReadBufferSize = 64 * 1024,
+            // 传输是长任务，不设单消息超时；队列满时由解码器阻塞形成背压。
+            MessageTimeout = TimeSpan.Zero,
+            MaxConcurrentMessages = 1,
+            QueueCapacity = 8,
+            // 泵读到 EOF 会丢弃队列帧，同步入队才能保住同批尾帧。
+            DispatchMode = ChannelDispatchMode.Inline
+        };
 
         readonly PipelineHostRegistry _host = new PipelineHostRegistry();
 
@@ -531,8 +544,13 @@ namespace SAEA.FTP.Net
 
         /// <summary>
         /// 打开被动模式数据连接，优先 EPSV，失败回退 PASV。
+        /// <para>
+        /// 返回的是链已启动、可直接读写的数据连接门面；调用方用完必须调用 <see cref="FtpDataConnection.Close"/> 收口。
+        /// </para>
         /// </summary>
-        public TcpClient OpenPassive(TimeSpan timeout)
+        /// <param name="timeout">建立连接并等待链启动的上限，小于等于 0 时按 60 秒处理</param>
+        /// <returns>已启动数据链的连接门面</returns>
+        public FtpDataConnection OpenPassive(TimeSpan timeout)
         {
             if (SupportedEpsv())
             {
@@ -628,33 +646,23 @@ namespace SAEA.FTP.Net
             port = (high << 8) + low;
         }
 
-        TcpClient ConnectData(string host, int port, TimeSpan timeout)
+        /// <summary>
+        /// 连到被动端口并返回数据连接门面；连接器只负责建链，交接后的收口由门面负责。
+        /// </summary>
+        /// <param name="host">数据端口主机</param>
+        /// <param name="port">数据端口</param>
+        /// <param name="timeout">连接与等待链启动的上限，小于等于 0 时按 60 秒处理</param>
+        /// <returns>已启动数据链的连接门面</returns>
+        FtpDataConnection ConnectData(string host, int port, TimeSpan timeout)
         {
-            if (timeout <= TimeSpan.Zero) timeout = TimeSpan.FromSeconds(60);
+            // 与旧 NetworkStream 一致：读写等待至少 1 秒，避免 0 被当成无限等待。
+            var dataTimeout = (int)Math.Max(1000, DataTimeout.TotalMilliseconds);
 
-            var tcp = new TcpClient();
-            tcp.NoDelay = true;
-            tcp.ReceiveBufferSize = 256 * 1024;
-            tcp.SendBufferSize = 256 * 1024;
-
-            try
+            using (var connector = new FtpDataConnector(
+                (id, ex) => LogHelper.Debug("FTP数据连接传输层异常:" + id + "," + ex.Message),
+                _dataOptions))
             {
-                var ar = tcp.BeginConnect(host, port, null, null);
-
-                if (!ar.AsyncWaitHandle.WaitOne(timeout))
-                {
-                    throw new TimeoutException("FTP data connect timeout: " + host + ":" + port);
-                }
-
-                tcp.EndConnect(ar);
-                tcp.GetStream().ReadTimeout = (int)Math.Max(1000, DataTimeout.TotalMilliseconds);
-                tcp.GetStream().WriteTimeout = (int)Math.Max(1000, DataTimeout.TotalMilliseconds);
-                return tcp;
-            }
-            catch
-            {
-                try { tcp.Close(); } catch { }
-                throw;
+                return connector.Connect(host, port, timeout, dataTimeout, dataTimeout);
             }
         }
 

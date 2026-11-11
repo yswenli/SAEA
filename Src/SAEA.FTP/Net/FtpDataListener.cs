@@ -22,10 +22,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 18:20:00
+*修改时间：2026/11/11 17:52:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 FTP 被动模式数据监听器
+*描述：数据连接改由服务端工厂创建，与客户端连接共用门面
 *
 *****************************************************************************/
 using System;
@@ -304,7 +304,7 @@ namespace SAEA.FTP.Net
             if (info == null || adapter == null || server == null)
                 return;
 
-            var connection = new FtpDataConnection(server, channelId, info.ClientSocket, adapter);
+            var connection = FtpDataConnection.CreateForServer(server, channelId, info.ClientSocket, adapter);
 
             if (!_accepted.TrySetResult(connection))
             {

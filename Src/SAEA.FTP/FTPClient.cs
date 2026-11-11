@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 15:30:00
+*修改时间：2026/11/11 17:52:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：控制连接走处理器链，删除 OnConnected/Ondisconnected 事件，新增 ConfigurePipeline
+*描述：数据面改用 FtpDataConnection 门面（Stream 读写与 ShutdownSend 半关闭）
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -385,7 +385,7 @@ namespace SAEA.FTP
 
             try
             {
-                using (var stream = data.GetStream())
+                using (var stream = data.Stream)
                 {
                     while (true)
                     {
@@ -814,7 +814,7 @@ namespace SAEA.FTP
                         {
                             fs.Seek(offset, SeekOrigin.Begin);
 
-                            var stream = data.GetStream();
+                            var stream = data.Stream;
 
                             while (true)
                             {
@@ -834,7 +834,7 @@ namespace SAEA.FTP
                             }
                         }
 
-                        try { data.Client.Shutdown(SocketShutdown.Send); } catch { }
+                        try { data.ShutdownSend(); } catch { }
                     }
 
                     var final = conn.ReadReply();
@@ -1072,7 +1072,7 @@ namespace SAEA.FTP
                             {
                                 fs.Seek(offset, SeekOrigin.Begin);
 
-                                var stream = data.GetStream();
+                                var stream = data.Stream;
 
                                 var remaining = length;
 
@@ -1098,7 +1098,7 @@ namespace SAEA.FTP
                                 }
                             }
 
-                            try { data.Client.Shutdown(SocketShutdown.Send); } catch { }
+                            try { data.ShutdownSend(); } catch { }
                         }
 
                         var final = session.ReadReply();
@@ -1157,7 +1157,7 @@ namespace SAEA.FTP
                     throw new FTPCommandException(reply.Code, reply.Message);
                 }
 
-                try { data.Client.Shutdown(SocketShutdown.Send); } catch { }
+                try { data.ShutdownSend(); } catch { }
             }
 
             var final = session.ReadReply();
@@ -1211,7 +1211,7 @@ namespace SAEA.FTP
 
                     try
                     {
-                        var stream = data.GetStream();
+                        var stream = data.Stream;
 
                         while (read < buffer.Length)
                         {
@@ -1266,11 +1266,11 @@ namespace SAEA.FTP
 
                 try
                 {
-                    data.GetStream().Write(payload, 0, payload.Length);
+                    data.Stream.Write(payload, 0, payload.Length);
 
-                    data.GetStream().Flush();
+                    data.Stream.Flush();
 
-                    data.Client.Shutdown(SocketShutdown.Send);
+                    data.ShutdownSend();
                 }
                 catch
                 {
@@ -1551,7 +1551,7 @@ namespace SAEA.FTP
                         {
                             fs.Seek(offset, SeekOrigin.Begin);
 
-                            var stream = data.GetStream();
+                            var stream = data.Stream;
 
                             while (true)
                             {
@@ -1573,7 +1573,7 @@ namespace SAEA.FTP
                             fs.Flush();
                         }
 
-                        try { data.Client.Shutdown(SocketShutdown.Send); } catch { }
+                        try { data.ShutdownSend(); } catch { }
                     }
 
                     var final = conn.ReadReply();
@@ -1780,7 +1780,7 @@ namespace SAEA.FTP
                         {
                             fs.Seek(offset, SeekOrigin.Begin);
 
-                            var stream = data.GetStream();
+                            var stream = data.Stream;
 
                             var remaining = length;
 
@@ -2291,7 +2291,7 @@ namespace SAEA.FTP
 
             try
             {
-                var stream = data.GetStream();
+                var stream = data.Stream;
 
                 while (true)
                 {

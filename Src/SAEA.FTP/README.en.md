@@ -118,7 +118,7 @@ client.Upload(@"C:\Data\file.txt", (offset, total) =>
 │              │                                              │
 │  ┌───────────▼───────────┐                                 │
 │  │ SAEA.Sockets.Pipeline │  Control link (handler chain)   │
-│  │ TcpClient             │  Data connection                │
+│  │ FtpDataConnection     │  Data connection                │
 │  └───────────────────────┘                                 │
 │                                                             │
 │  ┌───────────────────────┐                                 │
@@ -128,6 +128,8 @@ client.Upload(@"C:\Data\file.txt", (offset, total) =>
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+> The data connection runs on the same `SAEA.Sockets` handler chain as the control connection: the client's `FtpControlConnection.OpenPassive` returns `FtpDataConnection`, a synchronous `Stream` facade with `ShutdownSend()` for half-close and `Close()` for teardown.
 
 ### FTP Transfer Flow Diagram
 
@@ -354,6 +356,7 @@ The handler is invoked once per logical file, and the chosen target name stays c
 | `FTPServer` | FTP server main class; one session per control connection |
 | `FTPClient` | FTP client main class |
 | `FtpControlConnection` | Client control connection (FEAT/REST/EPSV/PASV) |
+| `FtpDataConnection` | Data connection facade: synchronous `Stream` I/O, `ShutdownSend()` half-close, `Close()` teardown |
 | `FtpServerCommandHandler` | Server command dispatcher; commands run synchronously in the session |
 | `FtpCommandDecoder / FtpCommandEncoder` | Control channel command decoder (server) and encoder (client) |
 | `FtpReplyDecoder / FtpReplyEncoder` | Control channel reply decoder (client) and encoder (server) |

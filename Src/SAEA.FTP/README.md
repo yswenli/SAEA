@@ -118,7 +118,7 @@ client.Upload(@"C:\Data\file.txt", (offset, total) =>
 │              │                                              │
 │  ┌───────────▼───────────┐                                 │
 │  │ SAEA.Sockets.Pipeline │  控制连接（处理器链）               │
-│  │ TcpClient             │  数据连接                     │
+│  │ FtpDataConnection     │  数据连接                     │
 │  └───────────────────────┘                                 │
 │                                                             │
 │  ┌───────────────────────┐                                 │
@@ -128,6 +128,8 @@ client.Upload(@"C:\Data\file.txt", (offset, total) =>
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+> 数据连接与控制连接一样跑在 `SAEA.Sockets` 处理器链上：客户端 `FtpControlConnection.OpenPassive` 返回 `FtpDataConnection`（同步 `Stream` 门面，`ShutdownSend()` 半关闭、`Close()` 收口）。
 
 ### FTP 传输流程图
 
@@ -352,6 +354,7 @@ if (upload.Status == FTPTransferStatus.Skipped)
 | `FTPServer` | FTP 服务器主类，按控制连接隔离会话 |
 | `FTPClient` | FTP 客户端主类 |
 | `FtpControlConnection` | 客户端控制连接（FEAT/REST/EPSV/PASV） |
+| `FtpDataConnection` | 数据连接门面：同步 `Stream` 读写、`ShutdownSend()` 半关闭、`Close()` 收口 |
 | `FtpServerCommandHandler` | 服务端命令分发处理器，命令交给会话同步执行 |
 | `FtpCommandDecoder / FtpCommandEncoder` | 控制通道的命令解码（服务端）与编码（客户端） |
 | `FtpReplyDecoder / FtpReplyEncoder` | 控制通道的应答解码（客户端）与编码（服务端） |
