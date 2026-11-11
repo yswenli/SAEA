@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 16:25:00
+*修改时间：2026/11/12 00:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增单个 STUN 请求事务
+*描述：事务完成时在锁外释放取消注册，避免与取消回调互锁
 *
 *****************************************************************************/
 using System;
@@ -202,6 +202,7 @@ namespace SAEA.P2P.Stun
         /// </summary>
         internal void SendFirst()
         {
+            StunTransactionResult failure = null;
             lock (_sync)
             {
                 if (_state != StunTransactionState.Waiting)
@@ -210,7 +211,12 @@ namespace SAEA.P2P.Stun
                 }
 
                 _attempts = 1;
-                SendLocked();
+                failure = SendLocked();
+            }
+
+            if (failure != null)
+            {
+                Finish(failure);
             }
         }
 
@@ -220,6 +226,7 @@ namespace SAEA.P2P.Stun
         /// <param name="now">当前时间</param>
         internal void Tick(DateTime now)
         {
+            StunTransactionResult failure = null;
             lock (_sync)
             {
                 if (_state != StunTransactionState.Waiting)
@@ -229,30 +236,34 @@ namespace SAEA.P2P.Stun
 
                 if (now >= _deadlineAt)
                 {
-                    CompleteLocked(StunTransactionResult.Failed(StunTransactionFailure.Timeout, _attempts));
-                    return;
+                    failure = StunTransactionResult.Failed(StunTransactionFailure.Timeout, _attempts);
                 }
-
-                if (Reliable)
+                else if (!Reliable)
                 {
-                    return;
-                }
-
-                while (_nextSendIndex < StunTransactionTiming.TotalSendCount)
-                {
-                    var offset = StunTransactionTiming.GetSendOffsetMilliseconds(_nextSendIndex, _rtoMilliseconds);
-                    if (now < _startedAt.AddMilliseconds(offset))
+                    while (_nextSendIndex < StunTransactionTiming.TotalSendCount)
                     {
-                        break;
-                    }
+                        var offset = StunTransactionTiming.GetSendOffsetMilliseconds(_nextSendIndex, _rtoMilliseconds);
+                        if (now < _startedAt.AddMilliseconds(offset))
+                        {
+                            break;
+                        }
 
-                    _nextSendIndex++;
-                    _attempts++;
-                    if (!SendLocked())
-                    {
-                        return;
+                        _nextSendIndex++;
+                        _attempts++;
+                        failure = SendLocked();
+                        if (failure != null)
+                        {
+                            break;
+                        }
                     }
                 }
+            }
+
+            // 结束事务要释放取消注册，而释放会等待正在执行的取消回调退出，
+            // 因此必须在锁外完成，否则与正在等待 _sync 的取消回调互等
+            if (failure != null)
+            {
+                Finish(failure);
             }
         }
 
@@ -263,6 +274,7 @@ namespace SAEA.P2P.Stun
         /// <returns>本次是否由该应答完成事务</returns>
         internal bool CompleteWithResponse(StunMessage response)
         {
+            int attempts;
             lock (_sync)
             {
                 if (_state != StunTransactionState.Waiting)
@@ -270,9 +282,10 @@ namespace SAEA.P2P.Stun
                     return false;
                 }
 
-                CompleteLocked(StunTransactionResult.Success(response, _attempts));
-                return true;
+                attempts = _attempts;
             }
+
+            return Finish(StunTransactionResult.Success(response, attempts));
         }
 
         /// <summary>
@@ -281,15 +294,7 @@ namespace SAEA.P2P.Stun
         /// <param name="failure">失败原因</param>
         internal void Fail(StunTransactionFailure failure)
         {
-            lock (_sync)
-            {
-                if (_state != StunTransactionState.Waiting)
-                {
-                    return;
-                }
-
-                CompleteLocked(StunTransactionResult.Failed(failure, _attempts));
-            }
+            Finish(StunTransactionResult.Failed(failure, Attempts));
         }
 
         /// <summary>
@@ -326,40 +331,55 @@ namespace SAEA.P2P.Stun
         /// <summary>
         /// 发送一次报文；异常视为传输不可用
         /// </summary>
-        /// <returns>发送成功返回 true</returns>
-        private bool SendLocked()
+        /// <returns>发送成功返回 null，发送异常返回传输失败结果</returns>
+        private StunTransactionResult SendLocked()
         {
             try
             {
                 _send(_requestBytes);
-                return true;
+                return null;
             }
             catch (Exception ex)
             {
                 P2PLogHelper.Error("StunTransaction", "STUN_SEND_FAILED", "STUN 事务发送失败", ex);
-                CompleteLocked(StunTransactionResult.Failed(StunTransactionFailure.TransportError, _attempts));
-                return false;
+                return StunTransactionResult.Failed(StunTransactionFailure.TransportError, _attempts);
             }
         }
 
         /// <summary>
-        /// 设置最终状态并完成任务；调用方必须已持有锁
+        /// 结束事务：锁内切状态并摘除取消注册，锁外完成任务并释放注册
         /// </summary>
         /// <param name="result">最终结果</param>
-        private void CompleteLocked(StunTransactionResult result)
+        /// <returns>本次是否由该结果结束事务</returns>
+        private bool Finish(StunTransactionResult result)
         {
-            _state = result.Succeeded ? StunTransactionState.Completed : StunTransactionState.Failed;
+            CancellationTokenRegistration registration;
+            lock (_sync)
+            {
+                if (_state != StunTransactionState.Waiting)
+                {
+                    return false;
+                }
 
+                _state = result.Succeeded ? StunTransactionState.Completed : StunTransactionState.Failed;
+                registration = _registration;
+                _registration = default(CancellationTokenRegistration);
+            }
+
+            _completion.TrySetResult(result);
+
+            // Dispose 会等待正在执行的取消回调退出，而回调里还要拿 _sync，
+            // 持锁释放会与回调互等，故必须在锁外释放
             try
             {
-                _registration.Dispose();
+                registration.Dispose();
             }
             catch (ObjectDisposedException)
             {
                 // 令牌源已释放时释放注册为空操作
             }
 
-            _completion.TrySetResult(result);
+            return true;
         }
 
         /// <summary>
