@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
  * 
   ____    _    _____    _      ____             _        _   
  / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/9 10:30:00
+*修改时间：2026/11/11 10:30:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：发送重载改为可等待的真实完成 Task，超时与断开路径可观察且 owner 恰好释放一次
+*描述：IPv6 监听支持双栈（DualMode），仅在绑定 IPv6Any 时生效
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -203,6 +203,10 @@ namespace SAEA.Sockets.Core.Tcp
                         ipEndPoint = (new IPEndPoint(IPAddress.IPv6Any, SocketOption.Port));
                     else
                         ipEndPoint = (new IPEndPoint(IPAddress.Parse(SocketOption.IP), SocketOption.Port));
+
+                    // 只在绑定 IPv6Any 时启用双栈，指定具体地址时保持单栈语义
+                    if (SocketOption.DualMode && string.IsNullOrEmpty(SocketOption.IP))
+                        _listener.DualMode = true;
                 }
                 else
                 {

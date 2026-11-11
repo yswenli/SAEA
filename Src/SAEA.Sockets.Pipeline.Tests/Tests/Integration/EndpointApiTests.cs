@@ -37,6 +37,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SAEA.Sockets;
+using SAEA.Sockets.Core.Tcp;
 using SAEA.Sockets.Core.Udp;
 using SAEA.Sockets.Model;
 
@@ -48,16 +49,20 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Integration
     [TestClass]
     public class EndpointApiTests
     {
-        private static ISocketOption BuildUdpOption(int port)
+        private static ISocketOption BuildUdpOption(int port, bool useIpv6 = false, bool dualMode = false)
         {
-            return SocketOptionBuilder.Instance
+            var builder = SocketOptionBuilder.Instance
                 .SetSocket(SAEASocketType.Udp)
                 .UsePacket()
-                .SetIP("127.0.0.1")
+                .SetIP(useIpv6 ? string.Empty : "127.0.0.1")
                 .SetPort(port)
                 .SetActionTimeOut(10 * 1000)
-                .SetFreeTime(60 * 1000)
-                .Build();
+                .SetFreeTime(60 * 1000);
+
+            if (useIpv6) builder.UseIPv6();
+            if (dualMode) builder.UseDualMode();
+
+            return builder.Build();
         }
 
         private static Socket CreateBoundClient()
@@ -71,6 +76,15 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Integration
         private static int GetFreeUdpPort()
         {
             using (var probe = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp))
+            {
+                probe.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+                return ((IPEndPoint)probe.LocalEndPoint).Port;
+            }
+        }
+
+        private static int GetFreeTcpPort()
+        {
+            using (var probe = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
             {
                 probe.Bind(new IPEndPoint(IPAddress.Loopback, 0));
                 return ((IPEndPoint)probe.LocalEndPoint).Port;
@@ -192,6 +206,84 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Integration
 
                 Assert.IsTrue(countdown.Wait(5000), "未在超时前收到两条报文");
                 CollectionAssert.AreEqual(new[] { senderPort, senderPort }, seenPorts);
+            }
+        }
+
+        /// <summary>
+        /// UseIPv6 配置下 UDP 服务端按配置建 IPv6 套接字，启动成功且本地端点为 IPv6Any
+        /// </summary>
+        [TestMethod]
+        public void SaeaUdpServerSocket_UseIPV6_Start不抛异常且LocalEndPoint为IPv6()
+        {
+            using (var server = new SaeaUdpServerSocket(BuildUdpOption(0, true)))
+            {
+                server.Start();
+
+                Assert.IsNotNull(server.LocalEndPoint);
+                Assert.AreEqual(AddressFamily.InterNetworkV6, server.LocalEndPoint.AddressFamily);
+                Assert.AreEqual(IPAddress.IPv6Any, server.LocalEndPoint.Address);
+            }
+        }
+
+        /// <summary>
+        /// 双栈 UDP 服务端收到 IPv4 报文时，来源地址是 v4 映射的 IPv6 形式
+        /// </summary>
+        [TestMethod]
+        public void SaeaUdpServerSocket_UseIPV6双栈_收到IPv4报文来源为v4映射地址()
+        {
+            using (var server = new SaeaUdpServerSocket(BuildUdpOption(0, true, true)))
+            using (var client = CreateBoundClient())
+            {
+                var received = new ManualResetEventSlim(false);
+                IPEndPoint from = null;
+                byte[] payload = null;
+
+                server.OnServerReceiveSpanFrom += (remoteEndPoint, data) =>
+                {
+                    from = new IPEndPoint(remoteEndPoint.Address, remoteEndPoint.Port);
+                    payload = data.ToArray();
+                    received.Set();
+                };
+
+                server.Start();
+
+                var message = Encoding.UTF8.GetBytes("v4-in-v6");
+                client.SendTo(message, new IPEndPoint(IPAddress.Loopback, server.LocalEndPoint.Port));
+
+                Assert.IsTrue(received.Wait(5000), "未在超时前收到 IPv4 报文");
+                CollectionAssert.AreEqual(message, payload);
+                Assert.AreEqual(AddressFamily.InterNetworkV6, from.AddressFamily);
+                Assert.IsTrue(from.Address.IsIPv4MappedToIPv6, "双栈收到的 IPv4 来源应为 v4 映射地址");
+            }
+        }
+
+        /// <summary>
+        /// 双栈 TCP 监听可以接受 IPv4 客户端连接
+        /// </summary>
+        [TestMethod]
+        public void SaeaServerSocket_UseDualMode_IPv4客户端可连接()
+        {
+            var port = GetFreeTcpPort();
+            var option = SocketOptionBuilder.Instance
+                .SetSocket(SAEASocketType.Tcp)
+                .UsePacket()
+                .UseIPv6()
+                .UseDualMode()
+                .SetPort(port)
+                .SetActionTimeOut(10 * 1000)
+                .SetFreeTime(60 * 1000)
+                .Build();
+
+            using (var server = new SaeaServerSocket(option))
+            using (var client = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
+            {
+                var accepted = new ManualResetEventSlim(false);
+                server.OnAccepted += _ => accepted.Set();
+
+                server.Start();
+                client.Connect(new IPEndPoint(IPAddress.Loopback, port));
+
+                Assert.IsTrue(accepted.Wait(5000), "双栈监听未接受 IPv4 连接");
             }
         }
     }

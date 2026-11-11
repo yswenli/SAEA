@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 10:00:00
+*修改时间：2026/11/11 10:30:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 SendToAsync、LocalEndPoint 与带来源地址的接收回调，供 ICE/TURN 原始收发使用
+*描述：修正 UDP 服务端地址族选择与多播选项级别，支持双栈监听
 *
 *****************************************************************************/
 using SAEA.Common.Caching;
@@ -144,7 +144,9 @@ namespace SAEA.Sockets.Core.Udp
         {
             if (_udpSocket == null)
             {
-                _udpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                // 先按配置决定地址族再建 socket：顺序反了会让 IPv6 配置拿到 IPv4 套接字，Bind 时必然失败
+                var addressFamily = SocketOption.UseIPV6 ? AddressFamily.InterNetworkV6 : AddressFamily.InterNetwork;
+                _udpSocket = new Socket(addressFamily, SocketType.Dgram, ProtocolType.Udp);
 
                 if (SocketOption.ReusePort)
                     _udpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, SocketOption.ReusePort);
@@ -154,12 +156,13 @@ namespace SAEA.Sockets.Core.Udp
                     _udpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, true);
                 }
 
-                //设置多播
+                //设置多播（选项级别必须与地址族一致，IPv6 组播用 SocketOptionLevel.IPv6）
                 if (!string.IsNullOrEmpty(SocketOption.MultiCastHost))
                 {
-                    _udpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastLoopback, true);
+                    var multicastLevel = addressFamily == AddressFamily.InterNetworkV6 ? SocketOptionLevel.IPv6 : SocketOptionLevel.IP;
+                    _udpSocket.SetSocketOption(multicastLevel, SocketOptionName.MulticastLoopback, true);
                     MulticastOption mcastOption = new MulticastOption(IPAddress.Parse(SocketOption.MultiCastHost), IPAddress.Parse(SocketOption.IP));
-                    _udpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership, mcastOption);
+                    _udpSocket.SetSocketOption(multicastLevel, SocketOptionName.AddMembership, mcastOption);
                 }
 
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -169,6 +172,10 @@ namespace SAEA.Sockets.Core.Udp
 
                 if (SocketOption.UseIPV6)
                 {
+                    // 只在绑定 IPv6Any 时启用双栈，指定具体地址时保持单栈语义
+                    if (SocketOption.DualMode && string.IsNullOrEmpty(SocketOption.IP))
+                        _udpSocket.DualMode = true;
+
                     if (string.IsNullOrEmpty(SocketOption.IP))
                         _udpSocket.Bind(new IPEndPoint(IPAddress.IPv6Any, SocketOption.Port));
                     else
