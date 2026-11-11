@@ -1,0 +1,23 @@
+{
+  "ListenAddress": "0.0.0.0",
+  "StunPort": 3478,
+  "TurnPort": 3478,
+  "TurnTlsPort": 0,
+  "EnableIpv6": false,
+  "EnableDualMode": false,
+  "Realm": "saea.p2p",
+  "SharedSecret": "CHANGE_ME_BEFORE_DEPLOY",
+  "CredentialTtlSeconds": 600,
+  "NonceLifetimeSeconds": 600,
+  "RelayPortRange": {
+    "Min": 49152,
+    "Max": 65535
+  },
+  "MaxAllocations": 1024,
+  "MaxAllocationsPerUser": 8,
+  "MaxBytes": 0,
+  "MaxLifetimeSeconds": 3600,
+  "TlsCertificatePath": null,
+  "TlsCertificatePassword": null,
+  "ChangeRequestAddressPair": null
+}
