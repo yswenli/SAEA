@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 18:20:00
+*修改时间：2026/11/11 17:57:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：数据面被动监听与转发迁移到 SAEA 链路，数据连接改为 FtpDataConnection 门面
+*描述：补数据通道参数一致性注释，指明客户端同一组参数的拷贝位置
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -75,6 +75,7 @@ namespace SAEA.FTP
 
         readonly ChannelPipelineOptions _dataOptions = new ChannelPipelineOptions
         {
+            // 客户端 Net\FtpControlConnection.cs 内 _dataOptions 是同一组参数的拷贝，只改一边会导致两端分帧与背压行为不一致。
             // 数据通道无消息边界：一次读取就是一块数据，缓冲下限必须覆盖单次读取。
             Splitter = new TakeAvailableSplitter(64 * 1024),
             MaxBufferedBytes = 64 * 1024 + FrameConstants.P_Head,

@@ -602,6 +602,54 @@ namespace SAEA.FTP.Tests
         }
 
         /// <summary>
+        /// 上传文件后用 MLSD 列根目录，结果中应出现该文件名的行
+        /// </summary>
+        [TestMethod]
+        public void Dir_上传文件后_MLSD列出远端文件名()
+        {
+            var local = Path.Combine(_root, "src-mlsd.bin");
+
+            File.WriteAllBytes(local, CreatePayload(2048, 21));
+
+            using (var client = CreateClient())
+            {
+                var upload = client.Upload(local, "listed-mlsd.bin", new FTPTransferOptions());
+
+                Assert.AreEqual(FTPTransferStatus.Completed, upload.Status);
+
+                var lines = client.Dir("/", DirType.MLSD);
+
+                Assert.IsNotNull(lines);
+                Assert.IsTrue(lines.Exists(line => line.Contains("listed-mlsd.bin")),
+                    "MLSD 结果应包含上传的文件名，实际: " + string.Join(" | ", lines));
+            }
+        }
+
+        /// <summary>
+        /// 上传文件后用 LIST 列根目录，结果中应出现该文件名的行
+        /// </summary>
+        [TestMethod]
+        public void Dir_上传文件后_LIST列出远端文件名()
+        {
+            var local = Path.Combine(_root, "src-list.bin");
+
+            File.WriteAllBytes(local, CreatePayload(3072, 22));
+
+            using (var client = CreateClient())
+            {
+                var upload = client.Upload(local, "listed-list.bin", new FTPTransferOptions());
+
+                Assert.AreEqual(FTPTransferStatus.Completed, upload.Status);
+
+                var lines = client.Dir("/", DirType.LIST);
+
+                Assert.IsNotNull(lines);
+                Assert.IsTrue(lines.Exists(line => line.Contains("listed-list.bin")),
+                    "LIST 结果应包含上传的文件名，实际: " + string.Join(" | ", lines));
+            }
+        }
+
+        /// <summary>
         /// 发送 PASV 并解析 227 回复里的数据端口
         /// </summary>
         static int ReadPassivePort(NetworkStream stream)

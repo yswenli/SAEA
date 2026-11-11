@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 17:52:00
+*修改时间：2026/11/11 17:57:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：数据连接改走处理器链与 FtpDataConnector，OpenPassive 返回 FtpDataConnection
+*描述：补数据通道参数一致性与连接器生命周期注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -140,6 +140,7 @@ namespace SAEA.FTP.Net
 
         readonly ChannelPipelineOptions _dataOptions = new ChannelPipelineOptions
         {
+            // 服务端 FTPServer.cs 内 _dataOptions 是同一组参数的拷贝，只改一边会导致两端分帧与背压行为不一致。
             // 数据通道无消息边界：一次读取就是一块数据，缓冲下限必须覆盖单次读取。
             Splitter = new TakeAvailableSplitter(64 * 1024),
             MaxBufferedBytes = 64 * 1024 + FrameConstants.P_Head,
@@ -658,6 +659,7 @@ namespace SAEA.FTP.Net
             // 与旧 NetworkStream 一致：读写等待至少 1 秒，避免 0 被当成无限等待。
             var dataTimeout = (int)Math.Max(1000, DataTimeout.TotalMilliseconds);
 
+            // 交接成功后 FtpDataConnector.Dispose 是空操作，客户端实例归 FtpDataConnection 所有，这里的 using 只负责失败路径。
             using (var connector = new FtpDataConnector(
                 (id, ex) => LogHelper.Debug("FTP数据连接传输层异常:" + id + "," + ex.Message),
                 _dataOptions))
