@@ -23,14 +23,15 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 11:00:00
+*修改时间：2026/11/12 12:30:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 ICE 候选定义
+*描述：新增链路本地地址标记
 *
 *****************************************************************************/
 using System;
 using System.Net;
+using System.Net.Sockets;
 
 namespace SAEA.P2P.Ice
 {
@@ -65,6 +66,7 @@ namespace SAEA.P2P.Ice
             RelatedPort = 0;
             EndPoint = new IPEndPoint(address, port);
             Foundation = BuildFoundation(type, address, transport, null);
+            IsLinkLocal = IsLinkLocalAddress(address);
         }
 
         /// <summary>
@@ -106,6 +108,7 @@ namespace SAEA.P2P.Ice
             RelatedPort = relatedPort;
             EndPoint = new IPEndPoint(address, port);
             Foundation = BuildFoundation(type, address, transport, relatedAddress);
+            IsLinkLocal = IsLinkLocalAddress(address);
         }
 
         /// <summary>
@@ -164,6 +167,12 @@ namespace SAEA.P2P.Ice
         public IPEndPoint EndPoint { get; }
 
         /// <summary>
+        /// 是否为链路本地地址：IPv4 为 169.254/16，IPv6 为 fe80::/10。
+        /// 链路本地候选只能与链路本地候选配对，配对阶段据此过滤。
+        /// </summary>
+        public bool IsLinkLocal { get; }
+
+        /// <summary>
         /// 判断给定端点是否与本候选的地址与端口都相同
         /// </summary>
         /// <param name="endPoint">待比较的端点，为空时返回 false</param>
@@ -192,6 +201,24 @@ namespace SAEA.P2P.Ice
             // srflx 与 relay 的 base 是关联地址，无关联地址时退回候选自身地址
             IPAddress baseAddress = relatedAddress != null ? relatedAddress : address;
             return string.Format("{0}|{1}|{2}", IcePriority.GetTypePreference(type), baseAddress, transport.ToString().ToLowerInvariant());
+        }
+
+        private static bool IsLinkLocalAddress(IPAddress address)
+        {
+            if (address == null)
+            {
+                return false;
+            }
+            if (address.AddressFamily == AddressFamily.InterNetworkV6)
+            {
+                return address.IsIPv6LinkLocal;
+            }
+            if (address.AddressFamily == AddressFamily.InterNetwork)
+            {
+                byte[] bytes = address.GetAddressBytes();
+                return bytes.Length == 4 && bytes[0] == 169 && bytes[1] == 254;
+            }
+            return false;
         }
 
         private static void ValidateArguments(IPAddress address, int port, int component)
