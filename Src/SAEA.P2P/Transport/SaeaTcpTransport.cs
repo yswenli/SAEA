@@ -6,8 +6,7 @@
   ___) / ___ \| |___ / ___ \   ___) | (_) | (__|   <  __/ |_ 
  |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
                                                               
- 
-*Copyright (c) yswenli All Rights Reserved.
+ *Copyright (c) yswenli All Rights Reserved.
 *CLR版本： netstandard2.0
 *机器名称：WALLE
 *公司名称：yswenli
@@ -39,7 +38,6 @@ using System.Threading.Tasks;
 
 using SAEA.Sockets;
 using SAEA.Sockets.Core.Tcp;
-using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
 
 namespace SAEA.P2P.Transport
@@ -180,9 +178,9 @@ namespace SAEA.P2P.Transport
             get
             {
                 if (_disposed) return false;
-                if (_listener != null && _sessionId != null) return _stream != null;
-                if (_client != null) return _client.Connected;
-                return false;
+                if (_isListener) return _listener != null;
+                if (_sessionId != null) return _stream != null;
+                return _client != null && _client.Connected;
             }
         }
 
@@ -190,7 +188,7 @@ namespace SAEA.P2P.Transport
         /// 连接到远端端点并取得字节流
         /// </summary>
         /// <param name="remoteEndPoint">目标端点</param>
-        /// <param name="cancellationToken">取消令牌，只作用于连接建立阶段</param>
+        /// <param name="cancellationToken">取消令牌，只在发起连接前检查一次；连接建立过程本身不受取消影响</param>
         /// <returns>连接建立后完成的任务</returns>
         /// <exception cref="ArgumentNullException">remoteEndPoint 为 null</exception>
         /// <exception cref="NotSupportedException">本实例是监听侧</exception>
@@ -211,7 +209,18 @@ namespace SAEA.P2P.Transport
             var builder = CreateBuilder(remoteEndPoint.Address);
             var client = new SaeaClientSocket(builder.Build());
 
-            var error = await client.TryConnectAsync(remoteEndPoint).ConfigureAwait(false);
+            SocketError error;
+            try
+            {
+                error = await client.TryConnectAsync(remoteEndPoint).ConfigureAwait(false);
+            }
+            catch
+            {
+                // 连接过程抛异常时套接字所有权还没交给本实例，必须在这里释放，否则句柄泄漏
+                try { client.Dispose(); } catch { }
+                throw;
+            }
+
             if (error != SocketError.Success)
             {
                 try { client.Dispose(); } catch { }
