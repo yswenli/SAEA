@@ -23,15 +23,16 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 14:20:00
+*修改时间：2026/11/12 16:40:00
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增 TURN 客户端 3 个用例
+*描述：去掉压短 RTO 的规避手段，新增释放即返回的回归用例
 *
 *****************************************************************************/
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net;
 using System.Text;
 using System.Threading;
@@ -89,11 +90,9 @@ namespace SAEA.P2P.Tests.Turn
         private static readonly TimeSpan RestartTimeout = TimeSpan.FromSeconds(5);
 
         /// <summary>
-        /// 已分配成功的客户端在释放时要把事务超时压到 1s 以内：
-        /// Dispose 先置位释放标志再发 LIFETIME=0，应答必然被丢帧逻辑丢弃，只能等事务层判超时；
-        /// 事务超时为 79×RTO，取 8ms 约 0.63s，短于释放路径等待应答的 1s，避免与该事务自身的 1s 取消竞争。
+        /// 释放应答的轮询等待上限
         /// </summary>
-        private const int ReleaseSafeRtoMilliseconds = 8;
+        private static readonly TimeSpan ReleaseObserveTimeout = TimeSpan.FromSeconds(2);
 
         /// <summary>
         /// 重连完成事件的等待上限
@@ -167,7 +166,7 @@ namespace SAEA.P2P.Tests.Turn
         /// <summary>
         /// 真实服务端下 permission 续期间隔调到 150ms：700ms 内应至少续期一次，而 allocation 间隔 5s 不应触发。
         /// 计数只统计带 MESSAGE-INTEGRITY 的请求，避免把 401 握手的两次 Allocate 当成两次续期；
-        /// RTO 取 <see cref="ReleaseSafeRtoMilliseconds"/>，让释放请求在 1s 内由事务层判超时。
+        /// RTO 取协议常规的 100ms，释放路径的耗时只由它自己的释放超时决定。
         /// </summary>
         [TestMethod]
         [Timeout(30000)]
@@ -184,7 +183,7 @@ namespace SAEA.P2P.Tests.Turn
                     TransportFactory = () => counting,
                     Username = credential.Username,
                     Password = credential.Password,
-                    RtoMilliseconds = ReleaseSafeRtoMilliseconds,
+                    RtoMilliseconds = 100,
                     PermissionRefreshInterval = TimeSpan.FromMilliseconds(150),
                     AllocationRefreshInterval = TimeSpan.FromSeconds(5),
                     RefreshTimeout = TimeSpan.FromSeconds(10)
@@ -232,7 +231,7 @@ namespace SAEA.P2P.Tests.Turn
                     TransportFactory = () => new UdpTurnClientTransport(new IPEndPoint(IPAddress.Any, 0), harness.EndPoint),
                     Username = credential.Username,
                     Password = credential.Password,
-                    RtoMilliseconds = ReleaseSafeRtoMilliseconds,
+                    RtoMilliseconds = 100,
                     AllocationRefreshInterval = TimeSpan.FromMilliseconds(200),
                     RefreshTimeout = TimeSpan.FromMilliseconds(400),
                     ReconnectBackoffInitial = TimeSpan.FromMilliseconds(100),
@@ -260,6 +259,55 @@ namespace SAEA.P2P.Tests.Turn
                     Assert.AreSame(first, client.Allocation, "重连应复用同一分配实例");
                     Assert.IsNotNull(client.Allocation.RelayedEndPoint, "重新 Allocate 后应拿到中继地址");
                     Assert.IsFalse(client.Allocation.IsExpired, "重连重放完成后分配不应处于失效状态");
+                }
+            }
+        }
+
+        /// <summary>
+        /// 释放时先发 LIFETIME=0 再立即返回：应答在释放阶段必须仍交给事务层，
+        /// 否则只能等满释放事务自身的超时。阈值取 300ms，因为回环往返通常不到 20ms，
+        /// 而修复前最坏要等满 500ms 的 <c>ReleaseTransactionTimeout</c>，两者差距足够大。
+        /// </summary>
+        [TestMethod]
+        [Timeout(30000)]
+        public async Task TurnClient_释放_发送LIFETIME零并立即返回()
+        {
+            var ports = ReserveUdpPorts(2);
+            using (var harness = await TurnHarness.StartAsync(0, ports[0]))
+            {
+                var credential = harness.Server.CredentialService.Create("learner");
+                var options = new TurnClientOptions
+                {
+                    ServerEndPoint = harness.EndPoint,
+                    TransportFactory = () => new UdpTurnClientTransport(new IPEndPoint(Host, 0), harness.EndPoint),
+                    Username = credential.Username,
+                    Password = credential.Password,
+                    RtoMilliseconds = 100,
+                    AllocationRefreshInterval = TimeSpan.FromSeconds(5),
+                    RefreshTimeout = TimeSpan.FromSeconds(10)
+                };
+
+                using (var client = new TurnClientHost(options))
+                {
+                    var allocation = await client.AllocateAsync(null, CancellationToken.None);
+                    Assert.IsNotNull(allocation, "Allocate 应成功");
+                    Assert.AreEqual(1, harness.Server.AllocationCount, "分配成功后服务端应有一条记录");
+
+                    // 对端只用于登记 permission，全程不做真实收发
+                    var peer = new IPEndPoint(Host, ports[1]);
+                    await allocation.CreatePermissionAsync(peer, CancellationToken.None);
+
+                    var stopwatch = Stopwatch.StartNew();
+                    client.Dispose();
+                    stopwatch.Stop();
+
+                    Assert.IsTrue(
+                        stopwatch.ElapsedMilliseconds < 300,
+                        "释放应收到 LIFETIME=0 的应答后立即返回，实际耗时 " + stopwatch.ElapsedMilliseconds + "ms");
+
+                    // 删除在服务端是异步生效的，这里按 2s 轮询等待
+                    var deleted = await WaitUntilAsync(() => harness.Server.AllocationCount == 0, ReleaseObserveTimeout);
+                    Assert.IsTrue(deleted, "释放请求应删除服务端分配，实际剩余 " + harness.Server.AllocationCount);
                 }
             }
         }
@@ -335,6 +383,26 @@ namespace SAEA.P2P.Tests.Turn
             {
                 // 假服务端的发送失败不影响请求计数
             }
+        }
+
+        /// <summary>
+        /// 轮询等待条件成立
+        /// </summary>
+        /// <param name="condition">条件</param>
+        /// <param name="timeout">等待上限</param>
+        /// <returns>成立返回 true，超时返回 false</returns>
+        private static async Task<bool> WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
+        {
+            var deadline = DateTime.UtcNow + timeout;
+            while (DateTime.UtcNow < deadline)
+            {
+                if (condition())
+                {
+                    return true;
+                }
+                await Task.Delay(20);
+            }
+            return condition();
         }
 
         /// <summary>

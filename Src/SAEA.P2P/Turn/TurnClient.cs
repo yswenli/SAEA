@@ -22,10 +22,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 05:00:00
+*修改时间：2026/11/12 16:40:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 TURN 客户端与重连退避
+*描述：释放阶段仍接收 STUN 应答，并把释放事务超时与等待超时拆成两个常量
 *
 *****************************************************************************/
 using System;
@@ -58,9 +58,15 @@ namespace SAEA.P2P.Turn
         private const uint DefaultLifetimeSeconds = 600;
 
         /// <summary>
-        /// 释放分配时最多等待的时长
+        /// 释放事务自身的取消上限：只给 LIFETIME=0 请求一个短超时，避免死服务端把最后一步拖长
         /// </summary>
-        private static readonly TimeSpan ReleaseTimeout = TimeSpan.FromSeconds(1);
+        private static readonly TimeSpan ReleaseTransactionTimeout = TimeSpan.FromMilliseconds(500);
+
+        /// <summary>
+        /// 释放时调用方等待应答的上限；必须明显大于 <see cref="ReleaseTransactionTimeout"/>，
+        /// 否则等待先到期，正常往返的应答也会被当成释放超时
+        /// </summary>
+        private static readonly TimeSpan ReleaseWaitTimeout = TimeSpan.FromSeconds(2);
 
         /// <summary>
         /// TURN 客户端配置
@@ -300,8 +306,8 @@ namespace SAEA.P2P.Turn
                 {
                     var request = TurnMessage.CreateRefresh(0);
                     var signed = CreateSignedCopy(request, _username, realm, nonce, key);
-                    var releasing = RunOnTransportAsync(transport, signed, ReleaseTimeout);
-                    releasing.Wait(ReleaseTimeout);
+                    var releasing = RunOnTransportAsync(transport, signed, ReleaseTransactionTimeout);
+                    releasing.Wait(ReleaseWaitTimeout);
                 }
                 catch (Exception ex)
                 {
@@ -936,21 +942,31 @@ namespace SAEA.P2P.Turn
         }
 
         /// <summary>
-        /// 传输帧回调：STUN 交事务层，Data 指示与 ChannelData 交事件，非法帧静默丢弃
+        /// 传输帧回调：STUN 交事务层，Data 指示与 ChannelData 交事件，非法帧静默丢弃。
+        /// 释放阶段只丢用户事件，STUN 应答仍交事务层。
         /// </summary>
         /// <param name="frame">完整帧副本</param>
         private void OnFrameReceived(byte[] frame)
         {
-            if (frame == null || frame.Length == 0 || IsDisposed)
+            if (frame == null || frame.Length == 0)
             {
                 return;
             }
+
+            // 只取一次，避免每次判断都进锁；释放阶段仍要接收 STUN 应答，
+            // 因为 Dispose 先置位释放标志再发 LIFETIME=0，整体丢弃会让该请求只能等超时
+            var disposed = IsDisposed;
 
             try
             {
                 // STUN 首字节高两位为 0；其余首字节先按 ChannelData 解析，非法通道号静默丢弃
                 if ((frame[0] & 0xC0) != 0)
                 {
+                    // 释放后不再触发用户事件，ChannelData 直接丢弃
+                    if (disposed)
+                    {
+                        return;
+                    }
                     HandleChannelDataFrame(frame);
                     return;
                 }
@@ -965,10 +981,16 @@ namespace SAEA.P2P.Turn
 
                 if (message.Class == StunClass.Indication && message.Method == StunMessageType.Data)
                 {
+                    // 释放后不再触发用户事件
+                    if (disposed)
+                    {
+                        return;
+                    }
                     HandleDataIndication(message);
                     return;
                 }
 
+                // 应答无论是否已释放都交事务层：层已释放时只会查不到事务并记调试日志
                 _transactions.HandleResponse(message);
             }
             catch (Exception ex)
