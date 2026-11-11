@@ -23,18 +23,16 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 00:20:00
+*修改时间：2026/11/12 01:30:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 TURN 分配及其权限、通道与中继 socket
+*描述：控制端点改为控制连接抽象，支持 UDP 与 TCP/TLS 共用分配逻辑
 *
 *****************************************************************************/
 using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
-
-using SAEA.P2P.StunServer;
 
 namespace SAEA.P2P.TurnServer
 {
@@ -210,9 +208,9 @@ namespace SAEA.P2P.TurnServer
         }
 
         /// <summary>
-        /// 发送 Data 指示或 ChannelData 时使用的控制端点；由服务端注入
+        /// 发送 Data 指示或 ChannelData 时使用的控制连接；由服务端注入
         /// </summary>
-        internal StunServerEndpoint ControlEndpoint { get; set; }
+        internal ITurnControlChannel ControlChannel { get; set; }
 
         /// <summary>
         /// 累计中继字节数

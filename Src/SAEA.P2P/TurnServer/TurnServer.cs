@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 00:20:00
+*修改时间：2026/11/12 01:30:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 TURN 服务端分配、中继与权限处理
+*描述：抽出控制连接抽象，支持 TCP 控制连接承载 TURN 请求与 ChannelData
 *
 *****************************************************************************/
 using System;
@@ -172,6 +172,37 @@ namespace SAEA.P2P.TurnServer
                 return null;
             }
 
+            return ProcessRequest(request, new UdpTurnControlChannel(receivedOn, remoteEndPoint));
+        }
+
+        /// <summary>
+        /// 处理一条来自流式控制连接的 STUN/TURN 报文，应答写回同一条连接
+        /// </summary>
+        /// <param name="request">请求或指示</param>
+        /// <param name="control">控制连接</param>
+        internal void HandleStreamRequest(StunMessage request, ITurnControlChannel control)
+        {
+            if (_disposed || request == null || control == null)
+            {
+                return;
+            }
+
+            var response = ProcessRequest(request, control);
+            if (response != null)
+            {
+                control.Send(response);
+            }
+        }
+
+        /// <summary>
+        /// 处理一条已解析的 STUN/TURN 报文；UDP 与流式控制连接共用这条路径
+        /// </summary>
+        /// <param name="request">请求或指示</param>
+        /// <param name="control">控制连接</param>
+        /// <returns>需要回给客户端的字节；不响应时为 null</returns>
+        private byte[] ProcessRequest(StunMessage request, ITurnControlChannel control)
+        {
+            var remoteEndPoint = control.RemoteEndPoint;
             var now = _clock.UtcNow;
 
             // Send 指示没有事务，也不回应答；权限不足时静默丢弃
@@ -179,7 +210,7 @@ namespace SAEA.P2P.TurnServer
             {
                 if (request.Class == StunClass.Indication)
                 {
-                    HandleSendIndication(request, remoteEndPoint, receivedOn, now);
+                    HandleSendIndication(request, control, now);
                 }
                 return null;
             }
@@ -206,13 +237,13 @@ namespace SAEA.P2P.TurnServer
             switch (request.Method)
             {
                 case StunMessageType.Allocate:
-                    return HandleAllocate(request, remoteEndPoint, receivedOn, auth, now);
+                    return HandleAllocate(request, control, auth, now);
                 case StunMessageType.Refresh:
-                    return HandleRefresh(request, remoteEndPoint, receivedOn, key, now);
+                    return HandleRefresh(request, control, key, now);
                 case StunMessageType.CreatePermission:
-                    return HandleCreatePermission(request, remoteEndPoint, receivedOn, key, now);
+                    return HandleCreatePermission(request, control, key, now);
                 case StunMessageType.ChannelBind:
-                    return HandleChannelBind(request, remoteEndPoint, receivedOn, key, now);
+                    return HandleChannelBind(request, control, key, now);
                 default:
                     return BuildError(request, TurnErrorCode.BadRequest, null, null, key);
             }
@@ -245,34 +276,87 @@ namespace SAEA.P2P.TurnServer
                 return false;
             }
 
+            ProcessChannelData(span, new UdpTurnControlChannel(receivedOn, remoteEndPoint));
+            return true;
+        }
+
+        /// <summary>
+        /// 处理一条来自流式控制连接的 ChannelData
+        /// </summary>
+        /// <param name="data">完整 ChannelData 报文</param>
+        /// <param name="control">控制连接</param>
+        internal void HandleStreamChannelData(ReadOnlySpan<byte> data, ITurnControlChannel control)
+        {
+            if (_disposed || control == null || data.Length < ChannelData.HeaderLength)
+            {
+                return;
+            }
+
+            ProcessChannelData(data, control);
+        }
+
+        /// <summary>
+        /// 按通道号把 ChannelData 解出的数据发往对端；通道不存在或无权限时静默丢弃
+        /// </summary>
+        /// <param name="span">完整 ChannelData 报文</param>
+        /// <param name="control">控制连接</param>
+        private void ProcessChannelData(ReadOnlySpan<byte> span, ITurnControlChannel control)
+        {
             ushort channelNumber;
             ReadOnlySpan<byte> payload;
             if (!ChannelData.TryDecode(span, out channelNumber, out payload))
             {
-                return true;
+                return;
             }
 
-            var allocation = FindAllocation(remoteEndPoint, receivedOn);
+            var allocation = FindAllocation(control.RemoteEndPoint, control.LocalEndPoint);
             if (allocation == null)
             {
-                return true;
+                return;
             }
 
             var now = _clock.UtcNow;
             TurnChannel channel;
             if (!allocation.TryGetChannel(channelNumber, now, out channel))
             {
-                return true;
+                return;
             }
 
             if (!allocation.IsPermitted(channel.Peer, now))
             {
                 allocation.AddDroppedDatagram();
-                return true;
+                return;
             }
 
             SendRelay(allocation, channel.Peer, new ReadOnlyMemory<byte>(payload.ToArray()));
-            return true;
+        }
+
+        /// <summary>
+        /// 释放某条控制连接上的全部分配；控制连接断开时由监听器调用，避免中继 socket 与端口泄漏
+        /// </summary>
+        /// <param name="control">已断开的控制连接</param>
+        internal void ReleaseControlChannel(ITurnControlChannel control)
+        {
+            if (control == null)
+            {
+                return;
+            }
+
+            var snapshot = _allocations.Snapshot();
+            for (var i = 0; i < snapshot.Count; i++)
+            {
+                var allocation = snapshot[i];
+                if (!ReferenceEquals(allocation.ControlChannel, control))
+                {
+                    continue;
+                }
+
+                TurnAllocation removed;
+                if (_allocations.TryRemove(allocation.ClientEndPoint, allocation.LocalEndPoint, allocation.Transport, out removed))
+                {
+                    ReleaseAllocation(removed);
+                }
+            }
         }
 
         /// <summary>
@@ -312,14 +396,15 @@ namespace SAEA.P2P.TurnServer
         /// 处理 Allocate：校验传输与地址族，检查配额后创建分配与中继 socket
         /// </summary>
         /// <param name="request">请求</param>
-        /// <param name="remoteEndPoint">客户端来源端点</param>
-        /// <param name="receivedOn">监听端点</param>
+        /// <param name="control">控制连接</param>
         /// <param name="auth">鉴权结果</param>
         /// <param name="now">当前时间</param>
         /// <returns>应答字节</returns>
-        private byte[] HandleAllocate(StunMessage request, IPEndPoint remoteEndPoint, StunServerEndpoint receivedOn, TurnAuthResult auth, DateTimeOffset now)
+        private byte[] HandleAllocate(StunMessage request, ITurnControlChannel control, TurnAuthResult auth, DateTimeOffset now)
         {
             var key = auth.IntegrityKey;
+            var remoteEndPoint = control.RemoteEndPoint;
+            var localEndPoint = control.LocalEndPoint;
 
             byte protocol;
             if (!TurnMessage.TryGetRequestedTransport(request, out protocol))
@@ -329,8 +414,8 @@ namespace SAEA.P2P.TurnServer
 
             if (protocol == TcpTransport)
             {
-                // TCP 中继依赖 RFC 6062，只允许 TCP 或 TLS 控制连接，本轮暂不提供
-                return BuildError(request, TurnErrorCode.UnsupportedTransportProtocol, "TCP relay is not available on UDP control connections", null, key);
+                // TCP 中继依赖 RFC 6062，本轮暂不提供
+                return BuildError(request, TurnErrorCode.UnsupportedTransportProtocol, "TCP relay is not available", null, key);
             }
 
             if (protocol != UdpTransport)
@@ -351,7 +436,7 @@ namespace SAEA.P2P.TurnServer
             }
 
             TurnAllocation existing;
-            if (_allocations.TryGet(remoteEndPoint, receivedOn.LocalEndPoint, protocol, out existing))
+            if (_allocations.TryGet(remoteEndPoint, localEndPoint, protocol, out existing))
             {
                 return BuildError(request, TurnErrorCode.AllocationMismatch, null, null, key);
             }
@@ -376,7 +461,7 @@ namespace SAEA.P2P.TurnServer
             var relayedEndPoint = new IPEndPoint(_options.RelayAddress, relayPort);
             var allocation = new TurnAllocation(
                 remoteEndPoint,
-                receivedOn.LocalEndPoint,
+                localEndPoint,
                 protocol,
                 auth.Username,
                 relayedEndPoint,
@@ -384,7 +469,7 @@ namespace SAEA.P2P.TurnServer
                 key,
                 now);
             allocation.RelaySocket = relaySocket;
-            allocation.ControlEndpoint = receivedOn;
+            allocation.ControlChannel = control;
 
             if (!_allocations.TryAdd(allocation))
             {
@@ -409,15 +494,14 @@ namespace SAEA.P2P.TurnServer
         /// 处理 Refresh：LIFETIME 为 0 时立即删除分配，其余按上限截断后刷新
         /// </summary>
         /// <param name="request">请求</param>
-        /// <param name="remoteEndPoint">客户端来源端点</param>
-        /// <param name="receivedOn">监听端点</param>
+        /// <param name="control">控制连接</param>
         /// <param name="key">长期密钥</param>
         /// <param name="now">当前时间</param>
         /// <returns>应答字节</returns>
-        private byte[] HandleRefresh(StunMessage request, IPEndPoint remoteEndPoint, StunServerEndpoint receivedOn, byte[] key, DateTimeOffset now)
+        private byte[] HandleRefresh(StunMessage request, ITurnControlChannel control, byte[] key, DateTimeOffset now)
         {
             TurnAllocation allocation;
-            if (!_allocations.TryGetAny(remoteEndPoint, receivedOn.LocalEndPoint, out allocation))
+            if (!_allocations.TryGetAny(control.RemoteEndPoint, control.LocalEndPoint, out allocation))
             {
                 return BuildError(request, TurnErrorCode.AllocationMismatch, null, null, key);
             }
@@ -445,15 +529,14 @@ namespace SAEA.P2P.TurnServer
         /// 处理 CreatePermission：为请求里每个 XOR-PEER-ADDRESS 创建或刷新权限
         /// </summary>
         /// <param name="request">请求</param>
-        /// <param name="remoteEndPoint">客户端来源端点</param>
-        /// <param name="receivedOn">监听端点</param>
+        /// <param name="control">控制连接</param>
         /// <param name="key">长期密钥</param>
         /// <param name="now">当前时间</param>
         /// <returns>应答字节</returns>
-        private byte[] HandleCreatePermission(StunMessage request, IPEndPoint remoteEndPoint, StunServerEndpoint receivedOn, byte[] key, DateTimeOffset now)
+        private byte[] HandleCreatePermission(StunMessage request, ITurnControlChannel control, byte[] key, DateTimeOffset now)
         {
             TurnAllocation allocation;
-            if (!_allocations.TryGetAny(remoteEndPoint, receivedOn.LocalEndPoint, out allocation))
+            if (!_allocations.TryGetAny(control.RemoteEndPoint, control.LocalEndPoint, out allocation))
             {
                 return BuildError(request, TurnErrorCode.AllocationMismatch, null, null, key);
             }
@@ -493,15 +576,14 @@ namespace SAEA.P2P.TurnServer
         /// 处理 ChannelBind：绑定通道并同时刷新对应权限
         /// </summary>
         /// <param name="request">请求</param>
-        /// <param name="remoteEndPoint">客户端来源端点</param>
-        /// <param name="receivedOn">监听端点</param>
+        /// <param name="control">控制连接</param>
         /// <param name="key">长期密钥</param>
         /// <param name="now">当前时间</param>
         /// <returns>应答字节</returns>
-        private byte[] HandleChannelBind(StunMessage request, IPEndPoint remoteEndPoint, StunServerEndpoint receivedOn, byte[] key, DateTimeOffset now)
+        private byte[] HandleChannelBind(StunMessage request, ITurnControlChannel control, byte[] key, DateTimeOffset now)
         {
             TurnAllocation allocation;
-            if (!_allocations.TryGetAny(remoteEndPoint, receivedOn.LocalEndPoint, out allocation))
+            if (!_allocations.TryGetAny(control.RemoteEndPoint, control.LocalEndPoint, out allocation))
             {
                 return BuildError(request, TurnErrorCode.AllocationMismatch, null, null, key);
             }
@@ -535,12 +617,11 @@ namespace SAEA.P2P.TurnServer
         /// 处理 Send 指示：有权限才转发，否则丢弃并计数
         /// </summary>
         /// <param name="request">指示</param>
-        /// <param name="remoteEndPoint">客户端来源端点</param>
-        /// <param name="receivedOn">监听端点</param>
+        /// <param name="control">控制连接</param>
         /// <param name="now">当前时间</param>
-        private void HandleSendIndication(StunMessage request, IPEndPoint remoteEndPoint, StunServerEndpoint receivedOn, DateTimeOffset now)
+        private void HandleSendIndication(StunMessage request, ITurnControlChannel control, DateTimeOffset now)
         {
-            var allocation = FindAllocation(remoteEndPoint, receivedOn);
+            var allocation = FindAllocation(control.RemoteEndPoint, control.LocalEndPoint);
             if (allocation == null)
             {
                 return;
@@ -577,12 +658,12 @@ namespace SAEA.P2P.TurnServer
         /// 按客户端与控制端点查分配，不限定中继传输
         /// </summary>
         /// <param name="clientEndPoint">客户端来源端点</param>
-        /// <param name="receivedOn">监听端点</param>
+        /// <param name="localEndPoint">控制连接的服务端本地端点</param>
         /// <returns>分配；不存在时为 null</returns>
-        private TurnAllocation FindAllocation(IPEndPoint clientEndPoint, StunServerEndpoint receivedOn)
+        private TurnAllocation FindAllocation(IPEndPoint clientEndPoint, IPEndPoint localEndPoint)
         {
             TurnAllocation allocation;
-            if (_allocations.TryGetAny(clientEndPoint, receivedOn.LocalEndPoint, out allocation))
+            if (_allocations.TryGetAny(clientEndPoint, localEndPoint, out allocation))
             {
                 return allocation;
             }
@@ -717,16 +798,23 @@ namespace SAEA.P2P.TurnServer
             try
             {
                 var now = _clock.UtcNow;
-                TurnChannel channel;
-                if (allocation.TryGetChannelByPeer(peer, now, out channel))
+                var control = allocation.ControlChannel;
+                if (control == null)
+                {
+                    return;
+                }
+
+                TurnChannel boundChannel;
+                if (allocation.TryGetChannelByPeer(peer, now, out boundChannel))
                 {
                     if (!ReserveBytes(allocation, payload.Length))
                     {
                         return;
                     }
 
-                    var channelData = ChannelData.Encode(channel.ChannelNumber, payload.Span, false);
-                    SendToClient(allocation, channelData);
+                    // 流式控制连接需要按 4 字节补齐，UDP 下补齐字节会被对端当作新报文首字节
+                    var channelData = ChannelData.Encode(boundChannel.ChannelNumber, payload.Span, control.IsStream);
+                    SendToClient(control, channelData);
                     return;
                 }
 
@@ -742,7 +830,7 @@ namespace SAEA.P2P.TurnServer
                 }
 
                 var indication = TurnMessage.CreateData(peer, payload.ToArray());
-                SendToClient(allocation, indication.ToArray());
+                SendToClient(control, indication.ToArray());
             }
             catch (Exception ex)
             {
@@ -802,21 +890,20 @@ namespace SAEA.P2P.TurnServer
         }
 
         /// <summary>
-        /// 把 ChannelData 或 Data 指示发回客户端控制端点
+        /// 把 ChannelData 或 Data 指示发回客户端控制连接
         /// </summary>
-        /// <param name="allocation">分配</param>
+        /// <param name="control">控制连接</param>
         /// <param name="data">待发送字节</param>
-        private void SendToClient(TurnAllocation allocation, byte[] data)
+        private void SendToClient(ITurnControlChannel control, byte[] data)
         {
-            var endpoint = allocation.ControlEndpoint;
-            if (endpoint == null)
+            if (control == null || data == null)
             {
                 return;
             }
 
             try
             {
-                Observe(endpoint.SendAsync(allocation.ClientEndPoint, data));
+                control.Send(data);
             }
             catch (Exception ex)
             {
