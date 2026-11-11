@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 15:30:00
+*修改时间：2026/11/11 18:20:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：控制通道迁移到处理器链，新增 ConfigurePipeline，会话改为按连接标识登记
+*描述：数据面被动监听与转发迁移到 SAEA 链路，数据连接改为 FtpDataConnection 门面
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -71,6 +71,20 @@ namespace SAEA.FTP
             ReadBufferSize = 64 * 1024,
             // 控制命令严格一问一答，同一会话必须按到达顺序处理。
             MaxConcurrentMessages = 1
+        };
+
+        readonly ChannelPipelineOptions _dataOptions = new ChannelPipelineOptions
+        {
+            // 数据通道无消息边界：一次读取就是一块数据，缓冲下限必须覆盖单次读取。
+            Splitter = new TakeAvailableSplitter(64 * 1024),
+            MaxBufferedBytes = 64 * 1024 + FrameConstants.P_Head,
+            ReadBufferSize = 64 * 1024,
+            // 传输是长任务，不设单消息超时；队列满时由解码器阻塞形成背压。
+            MessageTimeout = TimeSpan.Zero,
+            MaxConcurrentMessages = 1,
+            QueueCapacity = 8,
+            // 泵读到 EOF 会丢弃队列帧，同步入队才能保住同批尾帧。
+            DispatchMode = ChannelDispatchMode.Inline
         };
 
         IServerSocket _server;
@@ -376,6 +390,14 @@ namespace SAEA.FTP
             get { return _serverConfig; }
         }
 
+        /// <summary>
+        /// 数据通道链配置，由每个被动监听器共享；链创建时会拷贝，运行期修改不影响已建链
+        /// </summary>
+        internal ChannelPipelineOptions DataOptions
+        {
+            get { return _dataOptions; }
+        }
+
         #endregion
 
         #region 会话实现
@@ -387,7 +409,7 @@ namespace SAEA.FTP
             // 链激活时写入，收口时清空；回复写出只依赖本字段。
             volatile IChannelPipeline _pipeline;
 
-            TcpListener _passive;
+            FtpDataListener _passive;
 
             bool _disposed;
 
@@ -985,7 +1007,7 @@ namespace SAEA.FTP
                     return;
                 }
 
-                var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+                var port = listener.Port;
                 var ip = _server.Config.IP;
 
                 if (string.IsNullOrEmpty(ip)) ip = "127.0.0.1";
@@ -1005,52 +1027,32 @@ namespace SAEA.FTP
                     return;
                 }
 
-                var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+                var port = listener.Port;
 
                 Reply(ServerResponseCode.进入扩展被动模式, "Entering Extended Passive Mode (|||" + port + "|)");
             }
 
-            TcpListener CreatePassiveListener()
+            FtpDataListener CreatePassiveListener()
             {
                 ClosePassive();
 
-                var min = _server.Config.PassivePortMin;
-                var max = _server.Config.PassivePortMax;
+                var listener = new FtpDataListener(_server, _server.DataOptions);
 
-                if (min > 0 && max >= min)
+                if (listener.TryStart())
                 {
-                    for (int port = min; port <= max; port++)
-                    {
-                        try
-                        {
-                            var listener = new TcpListener(IPAddress.Any, port);
-                            listener.Start();
-                            _passive = listener;
-                            return listener;
-                        }
-                        catch (SocketException)
-                        {
-                        }
-                    }
-                }
-
-                try
-                {
-                    var listener = new TcpListener(IPAddress.Any, 0);
-                    listener.Start();
                     _passive = listener;
                     return listener;
                 }
-                catch (Exception ex)
-                {
-                    _server.Log("创建被动端口失败", ex);
-                    return null;
-                }
+
+                listener.Dispose();
+                return null;
             }
 
-            TcpClient AcceptDataConnection()
+            FtpDataConnection AcceptDataConnection()
             {
-                if (_passive == null)
+                var listener = _passive;
+
+                if (listener == null)
                 {
                     throw new FTPCommandException(ServerResponseCode.无法打开数据连接, "Use PASV or EPSV first.");
                 }
@@ -1058,34 +1060,47 @@ namespace SAEA.FTP
                 var timeout = _server.Config.DataTimeout;
                 if (timeout <= TimeSpan.Zero) timeout = TimeSpan.FromSeconds(60);
 
-                var acceptTask = _passive.AcceptTcpClientAsync();
+                FtpDataConnection data;
 
-                if (!acceptTask.Wait(timeout))
+                try
                 {
-                    throw new TimeoutException("Waiting for FTP data connection timed out.");
+                    data = listener.Accept(timeout);
+                }
+                catch
+                {
+                    // 被动端口已随接受失败收口，清掉引用，让下一条传输命令重新 PASV。
+                    _passive = null;
+                    throw;
                 }
 
-                var client = acceptTask.Result;
-                client.NoDelay = true;
-                return client;
+                // 与旧实现用同一个等待上限约束单次收发，避免对端停住后传输线程永久挂起。
+                var milliseconds = timeout.TotalMilliseconds;
+                if (milliseconds > int.MaxValue) milliseconds = int.MaxValue;
+                data.ReadTimeout = (int)milliseconds;
+                data.WriteTimeout = (int)milliseconds;
+
+                return data;
             }
 
             void ClosePassive()
             {
-                if (_passive != null)
-                {
-                    try { _passive.Stop(); } catch { }
-                    _passive = null;
-                }
+                var listener = _passive;
+
+                if (listener == null) return;
+
+                _passive = null;
+
+                try { listener.Dispose(); } catch { }
             }
 
-            void CloseData(TcpClient client)
+            static void CloseData(FtpDataConnection data)
             {
-                if (client == null) return;
+                if (data == null) return;
 
-                try { client.Client.Shutdown(SocketShutdown.Send); } catch { }
+                // 先半关闭发送方向发出 FIN，再断开；只有全部写完成交接后才会走到这里。
+                data.ShutdownSend();
 
-                try { client.Close(); } catch { }
+                try { data.Close(); } catch { }
             }
 
             #endregion
@@ -1114,9 +1129,13 @@ namespace SAEA.FTP
 
                     Reply(ServerResponseCode.打开连接, "File status okay; about to open data connection.");
 
-                    using (var data = AcceptDataConnection())
+                    FtpDataConnection data = null;
+
+                    try
                     {
-                        var stream = data.GetStream();
+                        data = AcceptDataConnection();
+
+                        var stream = data.Stream;
 
                         foreach (var line in BuildListLines(path, detailed))
                         {
@@ -1125,7 +1144,12 @@ namespace SAEA.FTP
                         }
 
                         stream.Flush();
+                    }
+                    finally
+                    {
+                        // 先关数据连接再释放监听器，底层释放会连带杀掉已接受连接。
                         CloseData(data);
+                        ClosePassive();
                     }
 
                     Reply(ServerResponseCode.结束数据连接, "Transfer complete.");
@@ -1208,9 +1232,13 @@ namespace SAEA.FTP
                 {
                     Reply(ServerResponseCode.打开连接, "Opening data connection.");
 
-                    using (var data = AcceptDataConnection())
+                    FtpDataConnection data = null;
+
+                    try
                     {
-                        var stream = data.GetStream();
+                        data = AcceptDataConnection();
+
+                        var stream = data.Stream;
                         var bufferSize = Math.Max(4096, _server.Config.BufferSize);
                         var buffer = new byte[bufferSize];
 
@@ -1228,7 +1256,12 @@ namespace SAEA.FTP
                         }
 
                         stream.Flush();
+                    }
+                    finally
+                    {
+                        // 先关数据连接再释放监听器，底层释放会连带杀掉已接受连接，截断尾部数据。
                         CloseData(data);
+                        ClosePassive();
                     }
 
                     Reply(ServerResponseCode.结束数据连接, "Transfer complete.");
@@ -1286,9 +1319,13 @@ namespace SAEA.FTP
                 {
                     Reply(ServerResponseCode.打开连接, "Opening data connection.");
 
-                    using (var data = AcceptDataConnection())
+                    FtpDataConnection data = null;
+
+                    try
                     {
-                        var stream = data.GetStream();
+                        data = AcceptDataConnection();
+
+                        var stream = data.Stream;
                         var bufferSize = Math.Max(4096, _server.Config.BufferSize);
                         var buffer = new byte[bufferSize];
 
@@ -1305,14 +1342,17 @@ namespace SAEA.FTP
                             {
                                 var count = stream.Read(buffer, 0, buffer.Length);
                                 if (count <= 0) break;
-
                                 fs.Write(buffer, 0, count);
                             }
 
                             fs.Flush();
                         }
-
+                    }
+                    finally
+                    {
+                        // 先关数据连接再释放监听器，底层释放会连带杀掉已接受连接。
                         CloseData(data);
+                        ClosePassive();
                     }
 
                     var message = "Transfer complete.";

@@ -559,6 +559,101 @@ namespace SAEA.FTP.Tests
             }
         }
 
+        /// <summary>
+        /// 验证同一控制会话连续两次 PASV 都能拿到可用端口，且上一轮传输结束后被动端口已释放：
+        /// 两次都传同一个小文件，第二次仍能完整拿到数据
+        /// </summary>
+        [TestMethod]
+        public void Pasv_传输完成后_同一会话可再次打开被动端口()
+        {
+            var payload = CreatePayload(512, 19);
+
+            File.WriteAllBytes(Path.Combine(_root, "again.bin"), payload);
+
+            using (var tcp = new TcpClient())
+            {
+                tcp.Connect(IPAddress.Loopback, _port);
+
+                using (var stream = tcp.GetStream())
+                {
+                    stream.ReadTimeout = 10000;
+                    stream.WriteTimeout = 10000;
+
+                    ReadLine(stream);
+                    WriteLine(stream, "USER " + User);
+                    ReadLine(stream);
+                    WriteLine(stream, "PASS " + Password);
+                    ReadLine(stream);
+                    WriteLine(stream, "TYPE I");
+                    ReadLine(stream);
+
+                    var firstPort = ReadPassivePort(stream);
+
+                    RunRetrieve(stream, "again.bin", firstPort, payload);
+
+                    var secondPort = ReadPassivePort(stream);
+
+                    RunRetrieve(stream, "again.bin", secondPort, payload);
+
+                    Assert.AreNotEqual(0, firstPort);
+                    Assert.AreNotEqual(0, secondPort);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 发送 PASV 并解析 227 回复里的数据端口
+        /// </summary>
+        static int ReadPassivePort(NetworkStream stream)
+        {
+            WriteLine(stream, "PASV");
+
+            var pasv = ReadLine(stream);
+
+            Assert.IsTrue(pasv.StartsWith("227"), pasv);
+
+            var start = pasv.IndexOf('(');
+            var end = pasv.IndexOf(')');
+
+            Assert.IsTrue(start >= 0 && end > start, pasv);
+
+            var parts = pasv.Substring(start + 1, end - start - 1).Split(',');
+
+            return int.Parse(parts[4]) * 256 + int.Parse(parts[5]);
+        }
+
+        /// <summary>
+        /// 执行一次 RETR：断言 150、把数据读到 EOF 并比对字节、再断言 226
+        /// </summary>
+        static void RunRetrieve(NetworkStream stream, string fileName, int port, byte[] expected)
+        {
+            WriteLine(stream, "RETR " + fileName);
+
+            var opening = ReadLine(stream);
+
+            Assert.IsTrue(opening.StartsWith("150"), opening);
+
+            byte[] received;
+
+            using (var data = new TcpClient())
+            {
+                data.Connect(IPAddress.Loopback, port);
+
+                using (var dataStream = data.GetStream())
+                using (var buffer = new MemoryStream())
+                {
+                    dataStream.CopyTo(buffer);
+                    received = buffer.ToArray();
+                }
+            }
+
+            CollectionAssert.AreEqual(expected, received);
+
+            var closing = ReadLine(stream);
+
+            Assert.IsTrue(closing.StartsWith("226"), closing);
+        }
+
         static void WriteLine(NetworkStream stream, string line)
         {
             var data = Encoding.UTF8.GetBytes(line + "\r\n");

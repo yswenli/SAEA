@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 14:30:00
+*修改时间：2026/11/11 18:20:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 FTP 单条连接从建链到收口的装配入口
+*描述：新增链启动后的可选回调，供数据连接在启动完成后再交给传输代码
 *
 *****************************************************************************/
 using System;
@@ -56,6 +56,7 @@ namespace SAEA.FTP
         /// <param name="transportToken">传输层断开令牌，取消时执行器转入收口</param>
         /// <param name="host">连接登记表，为 null 抛 ArgumentNullException</param>
         /// <param name="configure">处理器链装配回调，接收连接标识与空链，为 null 抛 ArgumentNullException</param>
+        /// <param name="onStarted">链已启动后的可选回调，接收连接标识与已启动的链；为 null 时不回调</param>
         /// <returns>执行器收口完成后结束的任务；装配或启动失败时异常原样抛出</returns>
         public static async Task RunAsync(
             string channelId,
@@ -64,7 +65,8 @@ namespace SAEA.FTP
             ChannelPipelineOptions options,
             CancellationToken transportToken,
             PipelineHostRegistry host,
-            Action<string, IChannelPipeline> configure)
+            Action<string, IChannelPipeline> configure,
+            Action<string, IChannelPipeline> onStarted = null)
         {
             if (string.IsNullOrEmpty(channelId))
                 throw new ArgumentException("连接标识不能为空。", nameof(channelId));
@@ -105,6 +107,11 @@ namespace SAEA.FTP
                 configure(channelId, pipeline);
                 executor.Start();
                 started = true;
+
+                // 回调放在启动之后：拿到链的一方可能立刻写出，启动前写会被链结构冻结拒绝。
+                // 也放在 await 之前：调用方需要在收口前拿到运行中的连接。
+                if (onStarted != null)
+                    onStarted(channelId, pipeline);
 
                 await executor.Completion.ConfigureAwait(false);
             }
