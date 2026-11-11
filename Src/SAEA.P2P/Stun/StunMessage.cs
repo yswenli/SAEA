@@ -23,13 +23,14 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 15:00:00
+*修改时间：2026/11/11 15:25:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 STUN 消息头编解码
+*描述：新增属性区解析与未知必选属性标记
 *
 *****************************************************************************/
 using System;
+using System.Collections.Generic;
 using System.Security.Cryptography;
 
 namespace SAEA.P2P.Stun
@@ -49,6 +50,16 @@ namespace SAEA.P2P.Stun
         /// 已按 TLV 编码并补齐的属性区，不含 20 字节消息头
         /// </summary>
         private byte[] _attributes;
+
+        /// <summary>
+        /// 解析后的属性列表，保持报文顺序
+        /// </summary>
+        private IReadOnlyList<StunAttribute> _decodedAttributes;
+
+        /// <summary>
+        /// 本实现不认识、但类型为 comprehension-required 的属性，用于回 420
+        /// </summary>
+        private ushort[] _unknownRequiredTypes;
 
         /// <summary>
         /// 创建消息；不传事务 ID 时用加密随机数生成
@@ -79,6 +90,8 @@ namespace SAEA.P2P.Stun
             }
 
             _attributes = new byte[0];
+            _decodedAttributes = new List<StunAttribute>();
+            _unknownRequiredTypes = new ushort[0];
         }
 
         /// <summary>
@@ -108,6 +121,30 @@ namespace SAEA.P2P.Stun
         }
 
         /// <summary>
+        /// 解析后的属性列表，保持报文中的先后顺序；同一类型可出现多次
+        /// </summary>
+        public IReadOnlyList<StunAttribute> Attributes
+        {
+            get { return _decodedAttributes; }
+        }
+
+        /// <summary>
+        /// 是否存在本实现不认识且为 comprehension-required 的属性；为 true 时应回 420
+        /// </summary>
+        public bool HasUnknownComprehensionRequired
+        {
+            get { return _unknownRequiredTypes.Length > 0; }
+        }
+
+        /// <summary>
+        /// 本实现不认识的 comprehension-required 属性类型，供 UNKNOWN-ATTRIBUTES 原样回填
+        /// </summary>
+        public IReadOnlyList<ushort> UnknownComprehensionRequiredTypes
+        {
+            get { return _unknownRequiredTypes; }
+        }
+
+        /// <summary>
         /// 头部声明长度，即属性区字节数，不含 20 字节消息头
         /// </summary>
         public int Length
@@ -130,7 +167,70 @@ namespace SAEA.P2P.Stun
                 throw new ArgumentException("属性区长度超出 STUN 头部可表示范围", nameof(attributes));
             }
 
+            IReadOnlyList<StunAttribute> decoded;
+            StunParseError error;
+            if (!StunAttributeCodec.TryDecodeAll(attributes, out decoded, out error))
+            {
+                throw new ArgumentException("属性区不是合法的 TLV 序列：" + error, nameof(attributes));
+            }
+
             _attributes = attributes.ToArray();
+            ApplyDecoded(decoded);
+        }
+
+        /// <summary>
+        /// 按属性列表替换当前内容，编码时按列表顺序拼接
+        /// </summary>
+        /// <param name="attributes">属性列表</param>
+        public void SetAttributes(IEnumerable<StunAttribute> attributes)
+        {
+            if (attributes == null)
+            {
+                throw new ArgumentNullException(nameof(attributes));
+            }
+
+            SetAttributesRaw(StunAttributeCodec.EncodeAll(attributes));
+        }
+
+        /// <summary>
+        /// 取第一个指定类型的属性
+        /// </summary>
+        /// <param name="type">属性类型</param>
+        /// <param name="attribute">匹配到的属性</param>
+        /// <returns>存在返回 true</returns>
+        public bool TryGet(StunAttributeType type, out StunAttribute attribute)
+        {
+            var target = (ushort)type;
+            for (var i = 0; i < _decodedAttributes.Count; i++)
+            {
+                if (_decodedAttributes[i].Type == target)
+                {
+                    attribute = _decodedAttributes[i];
+                    return true;
+                }
+            }
+
+            attribute = null;
+            return false;
+        }
+
+        /// <summary>
+        /// 取全部指定类型的属性，保持报文顺序
+        /// </summary>
+        /// <param name="type">属性类型</param>
+        /// <returns>属性列表；没有时为空列表</returns>
+        public IReadOnlyList<StunAttribute> GetAll(StunAttributeType type)
+        {
+            var target = (ushort)type;
+            var result = new List<StunAttribute>();
+            for (var i = 0; i < _decodedAttributes.Count; i++)
+            {
+                if (_decodedAttributes[i].Type == target)
+                {
+                    result.Add(_decodedAttributes[i]);
+                }
+            }
+            return result;
         }
 
         /// <summary>
@@ -236,16 +336,50 @@ namespace SAEA.P2P.Stun
             }
 
             var transactionId = new byte[StunConstants.TransactionIdLength];
-            Buffer.BlockCopy(data.Slice(8, StunConstants.TransactionIdLength).ToArray(), 0, transactionId, 0, StunConstants.TransactionIdLength);
+            for (var i = 0; i < StunConstants.TransactionIdLength; i++)
+            {
+                transactionId[i] = data[8 + i];
+            }
+
+            var attributesRaw = new byte[length];
+            for (var i = 0; i < length; i++)
+            {
+                attributesRaw[i] = data[StunConstants.HeaderLength + i];
+            }
+
+            IReadOnlyList<StunAttribute> decoded;
+            StunParseError attributeError;
+            if (!StunAttributeCodec.TryDecodeAll(attributesRaw, out decoded, out attributeError))
+            {
+                error = attributeError;
+                return false;
+            }
 
             var parsed = new StunMessage(DecodeMethod(type), DecodeClass(type), transactionId);
-            if (length > 0)
-            {
-                parsed._attributes = data.Slice(StunConstants.HeaderLength, length).ToArray();
-            }
+            parsed._attributes = attributesRaw;
+            parsed.ApplyDecoded(decoded);
 
             message = parsed;
             return true;
+        }
+
+        /// <summary>
+        /// 应用解析出的属性列表，并算出未知必选属性
+        /// </summary>
+        /// <param name="decoded">属性列表</param>
+        private void ApplyDecoded(IReadOnlyList<StunAttribute> decoded)
+        {
+            _decodedAttributes = decoded;
+
+            var unknown = new List<ushort>();
+            for (var i = 0; i < decoded.Count; i++)
+            {
+                if (decoded[i].IsComprehensionRequired && !StunAttributeCodec.IsKnownType(decoded[i].Type))
+                {
+                    unknown.Add(decoded[i].Type);
+                }
+            }
+            _unknownRequiredTypes = unknown.ToArray();
         }
 
         /// <summary>
