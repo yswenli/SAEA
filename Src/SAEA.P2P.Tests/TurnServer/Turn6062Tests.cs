@@ -23,16 +23,19 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 06:00:00
+*修改时间：2026/11/12 08:00:00
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增 Connect 与 ConnectionBind 用例
+*描述：新增对端主动连入收到 ConnectionAttempt、TLS 控制连接拒绝明文数据连接两个用例
 *
 *****************************************************************************/
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -50,7 +53,8 @@ namespace SAEA.P2P.Tests.TurnServer
 {
     /// <summary>
     /// TURN over TCP 的 Connect 与 ConnectionBind：Connect 成功后另开一条连接绑定为数据连接并双向中继，
-    /// 同一对端重复 Connect 返回 446，等待 ConnectionBind 超时的中继连接由服务端关闭。
+    /// 同一对端重复 Connect 返回 446，等待 ConnectionBind 超时的中继连接由服务端关闭；
+    /// 对端主动连入中继端口时控制连接收到 ConnectionAttempt，TLS 分配下的明文数据连接按加密层不一致回 403。
     /// </summary>
     [TestClass]
     public class Turn6062Tests
@@ -71,6 +75,11 @@ namespace SAEA.P2P.Tests.TurnServer
         private const string Realm = "saea.p2p";
 
         /// <summary>
+        /// 测试证书口令；证书只写入临时文件，用完即删，不进入版本库
+        /// </summary>
+        private const string CertificatePassword = "saea-turn-tls-test-password";
+
+        /// <summary>
         /// 单次请求与中继等待上限
         /// </summary>
         private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(5);
@@ -87,7 +96,7 @@ namespace SAEA.P2P.Tests.TurnServer
             using (var peer = new TcpPeer(true))
             using (var client = await Turn6062Client.ConnectAsync(harness.TcpControlEndPoint))
             {
-                var allocation = await AllocateAsync(harness, client, relayPort);
+                var allocation = await AllocateAsync(harness.Server, client, relayPort);
 
                 var connectResponse = await client.ExchangeAsync(
                     Sign(TurnMessage.CreateConnect(peer.EndPoint), allocation.Credential, allocation.Nonce),
@@ -129,7 +138,7 @@ namespace SAEA.P2P.Tests.TurnServer
             using (var peer = new TcpPeer(true))
             using (var client = await Turn6062Client.ConnectAsync(harness.TcpControlEndPoint))
             {
-                var allocation = await AllocateAsync(harness, client, relayPort);
+                var allocation = await AllocateAsync(harness.Server, client, relayPort);
 
                 var first = await client.ExchangeAsync(
                     Sign(TurnMessage.CreateConnect(peer.EndPoint), allocation.Credential, allocation.Nonce),
@@ -169,7 +178,7 @@ namespace SAEA.P2P.Tests.TurnServer
             using (var peer = new TcpPeer(false))
             using (var client = await Turn6062Client.ConnectAsync(harness.TcpControlEndPoint))
             {
-                var allocation = await AllocateAsync(harness, client, relayPort);
+                var allocation = await AllocateAsync(harness.Server, client, relayPort);
 
                 var connectResponse = await client.ExchangeAsync(
                     Sign(TurnMessage.CreateConnect(peer.EndPoint), allocation.Credential, allocation.Nonce),
@@ -200,15 +209,154 @@ namespace SAEA.P2P.Tests.TurnServer
         }
 
         /// <summary>
+        /// 对端直接连入中继端口时，控制连接应收到 ConnectionAttempt，
+        /// 凭其中的连接 ID 另开数据连接绑定后双向字节一致
+        /// </summary>
+        [TestMethod]
+        [Timeout(30000)]
+        public async Task Turn6062_对端主动连入_收到ConnectionAttempt()
+        {
+            var relayPort = ReserveTcpPort();
+            using (var harness = Turn6062Harness.Start(relayPort))
+            using (var client = await Turn6062Client.ConnectAsync(harness.TcpControlEndPoint))
+            {
+                var allocation = await AllocateAsync(harness.Server, client, relayPort);
+
+                // 对端主动连入：不先发 Connect，由服务端在中继监听上 accept 后回通知
+                using (var peerSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
+                {
+                    await peerSocket.ConnectAsync(allocation.RelayedEndPoint);
+                    var peerLocal = (IPEndPoint)peerSocket.LocalEndPoint;
+
+                    // 控制连接上可能先到别的帧，按方法与类别过滤，不依赖到达顺序
+                    var attempt = await client.WaitForMessageAsync(
+                        message => message.Method == StunMessageType.ConnectionAttempt
+                            && message.Class == StunClass.Indication,
+                        Timeout);
+                    Assert.IsNotNull(attempt, "对端连入中继端口后控制连接应收到 ConnectionAttempt");
+
+                    uint connectionId;
+                    Assert.IsTrue(TurnMessage.TryGetConnectionId(attempt, out connectionId),
+                        "ConnectionAttempt 应携带 CONNECTION-ID");
+
+                    IPEndPoint peerFromAttempt;
+                    Assert.IsTrue(TurnMessage.TryGetPeerAddress(attempt, out peerFromAttempt),
+                        "ConnectionAttempt 应携带 XOR-PEER-ADDRESS");
+                    Assert.AreEqual(peerLocal, peerFromAttempt, "指示里的对端地址应是发起连入的 socket 本地端点");
+
+                    using (var dataSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
+                    {
+                        await dataSocket.ConnectAsync(harness.TcpControlEndPoint);
+                        await BindDataConnectionAsync(dataSocket, allocation.Credential, connectionId, Timeout);
+
+                        var payload = new byte[64];
+                        for (var i = 0; i < payload.Length; i++)
+                        {
+                            payload[i] = (byte)(0xA0 + i);
+                        }
+
+                        // 客户端到对端方向
+                        await dataSocket.SendAsync(new ArraySegment<byte>(payload), SocketFlags.None);
+                        var atPeer = await ReadExactlyAsync(peerSocket, payload.Length, Timeout);
+                        CollectionAssert.AreEqual(payload, atPeer, "对端收到的字节应与数据连接发送内容一致");
+
+                        // 对端到客户端方向：对端原样回写，服务端再泵回数据连接
+                        await peerSocket.SendAsync(new ArraySegment<byte>(atPeer), SocketFlags.None);
+                        var echoed = await ReadExactlyAsync(dataSocket, payload.Length, Timeout);
+                        CollectionAssert.AreEqual(payload, echoed, "数据连接收到的字节应与对端回写内容一致");
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// TLS 分配下用明文数据连接做 ConnectionBind 时，加密层与控制连接不一致，服务端回 403
+        /// </summary>
+        [TestMethod]
+        [Timeout(30000)]
+        public async Task Turn6062_TLS控制连接_明文数据连接被拒()
+        {
+            var certificatePath = CreateCertificateFile();
+            var relayPort = ReserveTcpPort();
+            var options = new TurnServerOptions
+            {
+                SharedSecret = SharedSecret,
+                Realm = Realm,
+                RelayAddress = Host,
+                RelayPortMin = relayPort,
+                RelayPortMax = relayPort
+            };
+
+            try
+            {
+                // 明文连接穿不过 TLS 监听：BouncyCastle 握手阶段就把非 TLS 记录判为失败并断开，
+                // 报文到不了会话循环。所以明文数据连接走同一服务端下的明文监听，分配与连接表仍共用
+                using (var server = new TurnServerHost(options))
+                using (var tlsListener = new TurnTlsListener(new IPEndPoint(Host, 0), server, certificatePath, CertificatePassword))
+                using (var plainListener = new TurnTcpListenerHost(new IPEndPoint(Host, 0), server))
+                using (var peer = new TcpPeer(false))
+                {
+                    tlsListener.Start();
+                    plainListener.Start();
+
+                    using (var client = await Turn6062Client.ConnectTlsAsync(tlsListener.LocalEndPoint))
+                    {
+                        var allocation = await AllocateAsync(server, client, relayPort);
+
+                        var connectResponse = await client.ExchangeAsync(
+                            Sign(TurnMessage.CreateConnect(peer.EndPoint), allocation.Credential, allocation.Nonce),
+                            Timeout);
+                        Assert.IsNotNull(connectResponse, "Connect 应得到应答");
+                        Assert.AreEqual(StunClass.SuccessResponse, connectResponse.Class, "TLS 控制连接上的 Connect 应成功");
+
+                        uint connectionId;
+                        Assert.IsTrue(TurnMessage.TryGetConnectionId(connectResponse, out connectionId),
+                            "Connect 应答应携带 CONNECTION-ID");
+
+                        using (var dataSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
+                        {
+                            await dataSocket.ConnectAsync(plainListener.LocalEndPoint);
+
+                            // 数据连接是另一条流，源端口与控制连接不同，nonce 与源端点绑定，只能走本条连接的挑战
+                            var challenge = await SendAndReadResponseAsync(
+                                dataSocket, TurnMessage.CreateConnectionBind(connectionId), Timeout);
+                            int code;
+                            string reason;
+                            Assert.IsTrue(StunErrorCode.TryGet(challenge, out code, out reason),
+                                "数据连接首次绑定应得到带 ERROR-CODE 的挑战");
+                            Assert.AreEqual(401, code, "数据连接首次绑定应返回 401 挑战");
+
+                            var nonce = ReadString(challenge, StunAttributeType.Nonce);
+                            Assert.IsFalse(string.IsNullOrEmpty(nonce), "数据连接的挑战必须带 NONCE");
+
+                            var rejected = await SendAndReadResponseAsync(
+                                dataSocket,
+                                Sign(TurnMessage.CreateConnectionBind(connectionId), allocation.Credential, nonce),
+                                Timeout);
+                            Assert.AreEqual(StunClass.ErrorResponse, rejected.Class, "明文数据连接不得接管 TLS 分配");
+                            Assert.IsTrue(StunErrorCode.TryGet(rejected, out code, out reason),
+                                "拒绝应答应携带 ERROR-CODE");
+                            Assert.AreEqual(403, code, "加密层与控制连接不一致时应返回 403");
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                TryDelete(certificatePath);
+            }
+        }
+
+        /// <summary>
         /// 完成一次带鉴权的 TCP 中继 Allocate 并返回凭据与中继地址
         /// </summary>
-        /// <param name="harness">服务端宿主</param>
+        /// <param name="server">TURN 服务端</param>
         /// <param name="client">控制连接客户端</param>
         /// <param name="expectedPort">配置区间唯一允许的中继端口</param>
         /// <returns>本次分配的凭据、nonce 与中继地址</returns>
-        private static async Task<Turn6062Allocation> AllocateAsync(Turn6062Harness harness, Turn6062Client client, int expectedPort)
+        private static async Task<Turn6062Allocation> AllocateAsync(TurnServerHost server, Turn6062Client client, int expectedPort)
         {
-            var credential = harness.CreateCredential("learner");
+            var credential = server.CredentialService.Create("learner");
             var nonce = await GetNonceAsync(client);
 
             var allocate = Sign(TurnMessage.CreateAllocate(TurnServerHost.TcpTransport), credential, nonce);
@@ -453,6 +601,50 @@ namespace SAEA.P2P.Tests.TurnServer
         }
 
         /// <summary>
+        /// 运行时生成自签 PFX 并写入临时文件；同名主题与口令只用于测试
+        /// </summary>
+        /// <returns>临时证书文件路径</returns>
+        private static string CreateCertificateFile()
+        {
+            using (var rsa = RSA.Create(2048))
+            {
+                var request = new CertificateRequest("CN=localhost", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+                request.CertificateExtensions.Add(new X509BasicConstraintsExtension(false, false, 0, false));
+                request.CertificateExtensions.Add(new X509KeyUsageExtension(
+                    X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.KeyEncipherment, false));
+
+                using (var certificate = request.CreateSelfSigned(
+                    DateTimeOffset.UtcNow.AddMinutes(-5), DateTimeOffset.UtcNow.AddHours(1)))
+                {
+                    var path = Path.Combine(Path.GetTempPath(), "saea-turn-tls-" + Guid.NewGuid().ToString("N") + ".pfx");
+                    File.WriteAllBytes(path, certificate.Export(X509ContentType.Pfx, CertificatePassword));
+                    return path;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 删除临时证书文件；文件已不存在时忽略
+        /// </summary>
+        /// <param name="path">证书文件路径</param>
+        private static void TryDelete(string path)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(path) && File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
+
+        /// <summary>
         /// 一次 TCP 中继分配：凭据、nonce 与中继地址
         /// </summary>
         private sealed class Turn6062Allocation
@@ -548,16 +740,6 @@ namespace SAEA.P2P.Tests.TurnServer
             }
 
             /// <summary>
-            /// 按用户名签发临时凭据
-            /// </summary>
-            /// <param name="userId">用户标识</param>
-            /// <returns>临时凭据</returns>
-            public TurnCredential CreateCredential(string userId)
-            {
-                return Server.CredentialService.Create(userId);
-            }
-
-            /// <summary>
             /// 先停监听再停服务端：监听关闭会断开控制连接，服务端随后清掉剩余分配与中继资源
             /// </summary>
             public void Dispose()
@@ -573,9 +755,9 @@ namespace SAEA.P2P.Tests.TurnServer
         private sealed class Turn6062Client : IDisposable
         {
             /// <summary>
-            /// 底层 TCP 传输
+            /// 底层控制传输；TCP 与 TLS 共用同一套整帧接口
             /// </summary>
-            private readonly TcpTurnClientTransport _transport;
+            private readonly ITurnClientTransport _transport;
 
             /// <summary>
             /// 已收到的整帧；读泵在后台线程写，测试线程逐条取。
@@ -587,20 +769,39 @@ namespace SAEA.P2P.Tests.TurnServer
             /// 包装传输并订阅帧事件
             /// </summary>
             /// <param name="transport">已创建的传输</param>
-            private Turn6062Client(TcpTurnClientTransport transport)
+            private Turn6062Client(ITurnClientTransport transport)
             {
                 _transport = transport;
                 _transport.FrameReceived += OnFrameReceived;
             }
 
             /// <summary>
-            /// 连接服务端并启动读泵
+            /// 以明文 TCP 连接服务端并启动读泵
             /// </summary>
             /// <param name="target">服务端控制端点</param>
             /// <returns>已打开的控制连接客户端</returns>
             public static async Task<Turn6062Client> ConnectAsync(IPEndPoint target)
             {
-                var transport = new TcpTurnClientTransport(target);
+                return await OpenAsync(new TcpTurnClientTransport(target)).ConfigureAwait(false);
+            }
+
+            /// <summary>
+            /// 以 TLS 连接服务端并启动读泵；证书是测试内即时生成的自签证书，只能显式放行无效证书
+            /// </summary>
+            /// <param name="target">服务端 TLS 控制端点</param>
+            /// <returns>已打开的控制连接客户端</returns>
+            public static async Task<Turn6062Client> ConnectTlsAsync(IPEndPoint target)
+            {
+                return await OpenAsync(new TurnTlsClientTransport(target, "localhost", true)).ConfigureAwait(false);
+            }
+
+            /// <summary>
+            /// 打开传输并包装成客户端；打开失败时释放已创建的传输
+            /// </summary>
+            /// <param name="transport">已创建的传输</param>
+            /// <returns>已打开的控制连接客户端</returns>
+            private static async Task<Turn6062Client> OpenAsync(ITurnClientTransport transport)
+            {
                 var client = new Turn6062Client(transport);
                 try
                 {
@@ -613,6 +814,37 @@ namespace SAEA.P2P.Tests.TurnServer
                     throw;
                 }
                 return client;
+            }
+
+            /// <summary>
+            /// 等待第一条满足条件的消息；不匹配的帧直接丢弃，适用于没有事务的指示
+            /// </summary>
+            /// <param name="predicate">消息匹配条件</param>
+            /// <param name="timeout">等待上限</param>
+            /// <returns>匹配的消息；超时或连接关闭时为 null</returns>
+            public async Task<StunMessage> WaitForMessageAsync(Func<StunMessage, bool> predicate, TimeSpan timeout)
+            {
+                var deadline = DateTime.UtcNow + timeout;
+                while (true)
+                {
+                    var remaining = deadline - DateTime.UtcNow;
+                    if (remaining <= TimeSpan.Zero)
+                    {
+                        return null;
+                    }
+
+                    var frame = await NextFrameAsync(remaining).ConfigureAwait(false);
+                    if (frame == null)
+                    {
+                        return null;
+                    }
+
+                    StunMessage message;
+                    if (TryParseStun(frame, out message) && predicate(message))
+                    {
+                        return message;
+                    }
+                }
             }
 
             /// <summary>

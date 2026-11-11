@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 22:30:00
+*修改时间：2026/11/12 07:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 TURN 方法判定、必选属性校验与消息构造读取助手
+*描述：新增 ConnectionAttempt 指示的构造方法
 *
 *****************************************************************************/
 using System;
@@ -292,6 +292,31 @@ namespace SAEA.P2P.Turn
                 StunMessageType.ConnectionBind,
                 StunClass.Request,
                 new[] { StunAttributeCodec.CreateUInt32(StunAttributeType.ConnectionId, connectionId) });
+        }
+
+        /// <summary>
+        /// 构造 ConnectionAttempt 指示，用于对端主动连入中继端口时告知客户端连接 ID
+        /// </summary>
+        /// <param name="connectionId">服务端分配的连接 ID</param>
+        /// <param name="peerAddress">发起连入的对端地址</param>
+        /// <returns>ConnectionAttempt 指示</returns>
+        /// <exception cref="ArgumentNullException">peerAddress 为 null</exception>
+        public static StunMessage CreateConnectionAttempt(uint connectionId, IPEndPoint peerAddress)
+        {
+            if (peerAddress == null)
+            {
+                throw new ArgumentNullException(nameof(peerAddress));
+            }
+
+            // XOR-PEER-ADDRESS 的异或掩码来自事务 ID，属性必须在消息建好之后再编码
+            var message = new StunMessage(StunMessageType.ConnectionAttempt, StunClass.Indication);
+            var transactionId = message.TransactionId.ToArray();
+            message.SetAttributes(new[]
+            {
+                StunAttributeCodec.CreateUInt32(StunAttributeType.ConnectionId, connectionId),
+                StunAddressCodec.EncodeAddress(StunAttributeType.XorPeerAddress, peerAddress, true, transactionId)
+            });
+            return message;
         }
 
         /// <summary>

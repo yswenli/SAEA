@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 05:00:00
+*修改时间：2026/11/12 07:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：支持 REQUESTED-TRANSPORT=6 的 TCP 中继，新增 Connect 与 ConnectionBind 处理
+*描述：对端主动连入中继端口时在控制连接上下发 ConnectionAttempt
 *
 *****************************************************************************/
 using System;
@@ -540,6 +540,8 @@ namespace SAEA.P2P.TurnServer
             {
                 // TCP 中继没有报文接收循环，监听由 TurnTcpRelay 接管，等 ConnectionBind 再对接数据连接
                 allocation.TcpRelay = new TurnTcpRelay(allocation, _connections, relayListener, _options.ConnectionBindTimeout);
+                // 回调里捕获本次分配：对端连入时才知道该把 ConnectionAttempt 发到哪条控制连接
+                allocation.TcpRelay.ConnectionAttemptNotifier = record => SendConnectionAttempt(allocation, record);
                 allocation.TcpRelay.Start();
             }
             else
@@ -1175,6 +1177,39 @@ namespace SAEA.P2P.TurnServer
             catch (Exception ex)
             {
                 P2PLogHelper.Debug("TurnServer", "中继发送失败：" + ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// 在分配的控制连接上下发 ConnectionAttempt，把对端主动连入时分配的连接 ID 告知客户端
+        /// </summary>
+        /// <param name="allocation">分配</param>
+        /// <param name="record">新到的中继连接</param>
+        private void SendConnectionAttempt(TurnAllocation allocation, TurnConnectionRecord record)
+        {
+            if (allocation == null || record == null)
+            {
+                return;
+            }
+
+            var control = allocation.ControlChannel;
+            if (control == null || !control.IsStream)
+            {
+                // UDP 控制连接没有可接管的字节流，TCP 中继不可能落到这里，正常流程不应出现
+                P2PLogHelper.Debug("TurnServer", "控制连接不支持 ConnectionAttempt");
+                return;
+            }
+
+            try
+            {
+                var message = TurnMessage.CreateConnectionAttempt(record.ConnectionId, record.PeerEndPoint);
+                StunIntegrity.Append(message, allocation.GetIntegrityKey());
+                control.Send(message.ToArray());
+            }
+            catch (Exception ex)
+            {
+                // 对端已连入，通知失败不能影响中继本身，也不向 accept 线程外抛
+                P2PLogHelper.Debug("TurnServer", "下发 ConnectionAttempt 失败：" + ex.GetType().Name);
             }
         }
 

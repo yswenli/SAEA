@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 05:00:00
+*修改时间：2026/11/12 07:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：过期连接清理限定在本分配名下的记录
+*描述：新增 ConnectionAttempt 通知回调，对端连入时交给服务端下发指示
 *
 *****************************************************************************/
 using System;
@@ -142,6 +142,11 @@ namespace SAEA.P2P.TurnServer
         }
 
         /// <summary>
+        /// 是否有新的中继连接到达的通知回调；由服务端在启动 accept 循环前挂上，负责在控制连接上发 ConnectionAttempt
+        /// </summary>
+        internal Action<TurnConnectionRecord> ConnectionAttemptNotifier { get; set; }
+
+        /// <summary>
         /// 启动 accept 循环；重复调用无副作用
         /// </summary>
         public void Start()
@@ -213,11 +218,25 @@ namespace SAEA.P2P.TurnServer
 
         /// <summary>
         /// 通知服务端有新的中继连接到达，由服务端向客户端发 ConnectionAttempt。
-        /// 目前只是占位：待服务端接入 ConnectionBind 的处理后在这里补发，避免连接号下发时机散落在中继层。
+        /// 这里在 accept 循环线程上执行，回调异常必须就地吞掉，否则会中断后续接受连接
         /// </summary>
         /// <param name="record">新到的连接</param>
         internal void NotifyConnectionAttempt(TurnConnectionRecord record)
         {
+            var notifier = ConnectionAttemptNotifier;
+            if (notifier == null)
+            {
+                return;
+            }
+
+            try
+            {
+                notifier(record);
+            }
+            catch (Exception ex)
+            {
+                P2PLogHelper.Debug("TurnTcpRelay", "通知 ConnectionAttempt 失败：" + ex.GetType().Name);
+            }
         }
 
         /// <summary>
