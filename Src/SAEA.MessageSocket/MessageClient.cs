@@ -13,36 +13,37 @@
 *公司名称：yswenli
 *命名空间：SAEA.MessageSocket
 *文件名： MessageClient
-*版本号： v26.4.23.1
-*唯一标识：e6bb7b6a-f8e7-4813-9565-71ee99a34447
+*版本号： v26.11.5.1
+*唯一标识：1d6c1f66-9a54-4c47-9c1f-2c2a6c6b6f5d
 *当前的用户域：WENLI-PC
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2018/03/18 02:16:04
-*描述：MessageClient接口
+*描述：MessageClient客户端类
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:20:17
+*修改时间：2026/11/11 11:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：迁移到处理器链：删除连接/私信/频道/群组/异常五个事件，改由 ConfigurePipeline 装配，收发改走链路
 *
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.Common.Caching;
 using SAEA.Common.Serialization;
 using SAEA.Common.Threading;
-using SAEA.MessageSocket.Model;
 using SAEA.MessageSocket.Model.Business;
 using SAEA.MessageSocket.Model.Communication;
 using SAEA.Sockets;
 using SAEA.Sockets.Base;
-using SAEA.Sockets.Handler;
+using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
+using SAEA.Sockets.Pipeline;
 
 using System;
-using System.Buffers;
+using System.IO.Pipelines;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SAEA.MessageSocket
@@ -66,171 +67,258 @@ namespace SAEA.MessageSocket
 
         private int HeartSpan;
 
-        /// <summary>
-        /// 连接建立后触发，参数为当前客户端实例；异步连接失败时不触发
-        /// </summary>
-        public event Action<MessageClient> OnConnected;
-
-        /// <summary>
-        /// 收到私聊消息时触发，在独立任务中执行
-        /// </summary>
-        public event Action<PrivateMessage> OnPrivateMessage;
-
-        /// <summary>
-        /// 收到频道消息时触发，在独立任务中执行
-        /// </summary>
-        public event Action<ChannelMessage> OnChannelMessage;
-
-        /// <summary>
-        /// 收到群组消息时触发，在独立任务中执行
-        /// </summary>
-        public event Action<GroupMessage> OnGroupMessage;
-
-        /// <summary>
-        /// 接收内容解析失败时触发，参数为本端用户标识与异常
-        /// </summary>
-        public event OnErrorHandler OnError;
-
         IClientSocket _client;
 
-        MessageContext _messageContext;
+        readonly PipelineHostRegistry _host = new PipelineHostRegistry();
 
-        Batcher _batcher;
+        readonly ChannelPipelineOptions _options;
+
+        readonly int _timeOut = 3000;
+
+        // 业务线程可能在套接字已连接但链尚未激活的窗口里发起发送，这里等待链就绪后再写。
+        readonly ManualResetEventSlim _pipelineReady = new ManualResetEventSlim(false);
+
+        volatile IChannelPipeline _pipeline;
+
+        DateTime _actived = DateTimeHelper.Now;
 
         /// <summary>
-        /// 客户端标识，取服务端分配的用户标识；尚未分配时退化为本地端点地址并写回上下文
+        /// 处理器链装配回调：每条连接在解码之后、异常收口之前调用一次，
+        /// 使用者在此追加自己的入站处理器，收到的对象为已解码的消息；为 null 时只保留内置处理器。
+        /// 赋值可在连接建立之前或运行期间进行，只影响其后建立的连接。
+        /// </summary>
+        public Action<string, IChannelPipeline> ConfigurePipeline { get; set; }
+
+        /// <summary>
+        /// 客户端标识，取底层连接的本地端点地址，与服务端记录该连接的标识一致；
+        /// 连接建立前尚未绑定本地端口，返回 null
         /// </summary>
         public string ID
         {
             get
             {
-                if (string.IsNullOrEmpty(_messageContext.UserToken.ID))
-                {
-                    _messageContext.UserToken.ID = _client.Endpoint;
-                }
+                var socket = _client.Socket;
 
-                return _messageContext.UserToken.ID;
+                var localEndPoint = socket == null ? null : socket.LocalEndPoint;
+
+                return localEndPoint == null ? null : localEndPoint.ToString();
             }
         }
 
         /// <summary>
-        /// 创建客户端，注册接收回调，初始化批量发送队列并启动心跳任务
+        /// 获取客户端是否已连接
+        /// </summary>
+        public bool Connected
+        {
+            get
+            {
+                return _client.Connected;
+            }
+        }
+
+        /// <summary>
+        /// 创建客户端，装配收发链路并启动心跳任务
         /// </summary>
         /// <param name="bufferSize">收发缓冲区大小（字节）</param>
         /// <param name="ip">服务器地址</param>
         /// <param name="port">服务器端口</param>
         public MessageClient(int bufferSize = 102400, string ip = "127.0.0.1", int port = 39654)
         {
-            _messageContext = new MessageContext();
+            var readBufferSize = bufferSize > 0 ? bufferSize : 102400;
 
-            var option = SocketOptionBuilder.Instance
-                .SetSocket()
-                .UsePacket(_messageContext)
+            // 单帧上限沿用 BaseCoder.MaxFrameLength 的可配置口径，输入残余上限按同一口径显式给出。
+            var maxFrameLength = MessageFrameSplitter.ResolveMaxFrameLength();
+
+            _options = new ChannelPipelineOptions
+            {
+                Splitter = MessageFrameSplitter.Create(maxFrameLength),
+                MaxBufferedBytes = (long)maxFrameLength + FrameConstants.P_Head,
+                ReadBufferSize = readBufferSize,
+                // 应答必须先于其后的业务消息被处理，同一连接串行执行。
+                MaxConcurrentMessages = 1
+            };
+
+            var option = new SocketOptionBuilder()
+                .SetSocket(SAEASocketType.Tcp)
+                .UseStream()
+                .UseConnectionOpened(OnConnectionOpened)
+                .UseInputHandler(RunPipelineAsync)
                 .SetIP(ip)
                 .SetPort(port)
-                .SetReadBufferSize(bufferSize)
-                .SetWriteBufferSize(bufferSize)
+                .SetReadBufferSize(readBufferSize)
+                .SetWriteBufferSize(readBufferSize)
                 .Build();
 
             _client = SocketFactory.CreateClientSocket(option);
 
-            _client.OnClientReceiveSpan += _client_OnReceiveSpan;
+            _client.OnError += (id, ex) => LogHelper.Debug("MessageSocket 客户端传输层异常:" + id + "," + ex.Message);
 
             HeartSpan = 30 * 1000;
 
             HeartAsync();
-
-            _batcher = new Batcher(10000, 10, 500000);
-
-            _batcher.OnBatched += _batcher_OnBatched;
         }
 
-        private void _batcher_OnBatched(IBatcher sender, byte[] data)
+        /// <summary>
+        /// 连接门面登记钩子：处理器链只依赖连接标识，这里仅满足
+        /// 「输入处理器必须与连接钩子成对配置」的约定。
+        /// </summary>
+        /// <param name="info">底层通道信息</param>
+        private static void OnConnectionOpened(ChannelInfo info)
         {
-            _client.Send(data.AsSpan());
-            _messageContext.UserToken.Actived = DateTimeHelper.Now;
         }
 
-        private void _client_OnReceiveSpan(ReadOnlySpan<byte> dataSpan)
+        /// <summary>
+        /// 接管本连接的读循环：装配处理器链并运行到收口
+        /// </summary>
+        /// <param name="userToken">连接令牌，用于取连接标识</param>
+        /// <param name="reader">接收方向的 PipeReader</param>
+        /// <param name="flow">应用级流量控制闸门</param>
+        /// <param name="token">连接级取消令牌</param>
+        /// <returns>执行器收口完成后结束的任务</returns>
+        private async Task RunPipelineAsync(
+            IUserToken userToken,
+            PipeReader reader,
+            IReceiveFlowControl flow,
+            CancellationToken token)
         {
-            var data = dataSpan.ToArray();
+            var channelId = userToken == null ? null : userToken.ID;
 
-            _messageContext.UserToken.Actived = DateTimeHelper.Now;
-            using (var msgs = _messageContext.Unpacker.Decode(new ReadOnlySequence<byte>(data)))
+            if (string.IsNullOrEmpty(channelId))
+                return;
+
+            var stream = new PipelineRawByteStream(
+                channelId,
+                reader,
+                flow,
+                (data, owner) => _client.SendAsync(data, owner));
+
+            try
             {
-                if (msgs.Count < 1) return;
-
-                foreach (var msg in msgs.Frames)
-                {
-                    if (msg.Content.Length == 0)
-                    {
-                        continue;
-                    }
-                    try
-                    {
-                        var cm = SerializeHelper.PBDeserialize<ChatMessage>(msg.Content.ToArray());
-
-                        switch (cm.Type)
-                        {
-                            case ChatMessageType.LoginAnswer:
-                                this.Logined = true;
-                                break;
-                            case ChatMessageType.SubscribeAnswer:
-                                if (cm.Content == "1")
-                                {
-                                    _subscribed = true;
-                                }
-                                else
-                                {
-                                    _subscribed = false;
-                                }
-                                break;
-                            case ChatMessageType.UnSubscribeAnswer:
-                                if (cm.Content == "1")
-                                {
-                                    _unsubscribed = true;
-                                }
-                                else
-                                {
-                                    _unsubscribed = false;
-                                }
-                                break;
-                            case ChatMessageType.ChannelMessage:
-                                TaskHelper.Run(() => OnChannelMessage?.Invoke(cm.GetIMessage<ChannelMessage>()));
-                                break;
-                            case ChatMessageType.PrivateMessage:
-                                TaskHelper.Run(() => OnPrivateMessage?.Invoke(cm.GetIMessage<PrivateMessage>()));
-                                break;
-                            case ChatMessageType.GroupMessage:
-                                TaskHelper.Run(() => OnGroupMessage?.Invoke(cm.GetIMessage<GroupMessage>()));
-                                break;
-                            case ChatMessageType.PrivateMessageAnswer:
-                                break;
-                            case ChatMessageType.CreateGroupAnswer:
-                            case ChatMessageType.RemoveGroupAnswer:
-                            case ChatMessageType.AddMemberAnswer:
-                            case ChatMessageType.RemoveMemberAnswer:
-                                break;
-
-                            case ChatMessageType.GroupMessageAnswer:
-                                break;
-                            default:
-                                ConsoleHelper.WriteLine("cm.Type", cm.Type);
-                                break;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        OnError?.Invoke(_messageContext.UserToken.ID, ex);
-                    }
-                }
+                await PipelineWiring.RunAsync(
+                    channelId,
+                    stream,
+                    flow,
+                    _options,
+                    token,
+                    _host,
+                    ConfigureConnection)
+                    .ConfigureAwait(false);
+            }
+            finally
+            {
+                _pipeline = null;
+                _pipelineReady.Reset();
             }
         }
 
+        /// <summary>
+        /// 装配本连接的处理器链：出站前缀 → 解码 → 内置状态登记 → 激活登记 → 使用者扩展 → 链尾异常处理器
+        /// </summary>
+        /// <param name="channelId">连接标识</param>
+        /// <param name="pipeline">尚未启动的处理器链</param>
+        private void ConfigureConnection(string channelId, IChannelPipeline pipeline)
+        {
+            // 出站必须是链首连续前缀，串行器固定在最右，心跳与业务消息才不会乱序。
+            pipeline.AddLast(new MessageEncoder());
+            pipeline.AddLast(new OutboundSerializingHandler());
 
+            pipeline.AddLast(new MessageDecoder());
+            pipeline.AddLast(new InboundDispatcher(this));
+            pipeline.AddLast(new ActiveHandler(this));
+
+            var configure = ConfigurePipeline;
+            if (configure != null)
+                configure(channelId, pipeline);
+
+            pipeline.AddLast(new ExceptionTerminalHandler());
+        }
+
+        /// <summary>
+        /// 取当前连接的处理器链，未就绪时在给定时间内等待链激活
+        /// </summary>
+        /// <param name="timeOut">等待毫秒数，小于等于 0 时不等待</param>
+        /// <returns>可用的处理器链；超时仍不可用时为 null</returns>
+        private IChannelPipeline GetPipeline(int timeOut)
+        {
+            var pipeline = _pipeline;
+            if (pipeline != null)
+                return pipeline;
+
+            if (timeOut > 0)
+                _pipelineReady.Wait(timeOut);
+
+            return _pipeline;
+        }
+
+        /// <summary>
+        /// 把一条消息交给处理器链；链未就绪时在超时后丢弃
+        /// </summary>
+        /// <param name="chatMessage">待发送的消息</param>
+        private void Send(ChatMessage chatMessage)
+        {
+            var pipeline = GetPipeline(_timeOut);
+            if (pipeline == null)
+            {
+                LogHelper.Debug("MessageSocket 客户端尚未就绪，消息被丢弃:" + chatMessage.Type);
+                return;
+            }
+
+            _actived = DateTimeHelper.Now;
+
+            _ = WriteCoreAsync(pipeline, chatMessage);
+        }
+
+        /// <summary>
+        /// 把一条消息交给处理器链并等待交接完成；链未就绪时在超时后静默丢弃
+        /// </summary>
+        /// <param name="chatMessage">待发送的消息</param>
+        /// <param name="timeoutMs">等待链就绪的毫秒数，小于等于 0 时不等待</param>
+        /// <returns>写出完成或失败后结束的任务</returns>
+        private async Task SendAsync(ChatMessage chatMessage, int timeoutMs)
+        {
+            var pipeline = GetPipeline(timeoutMs);
+            if (pipeline == null)
+            {
+                LogHelper.Debug("MessageSocket 客户端尚未就绪，消息被丢弃:" + chatMessage.Type);
+                return;
+            }
+
+            _actived = DateTimeHelper.Now;
+
+            try
+            {
+                await pipeline.WriteAsync(chatMessage).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Debug("MessageSocket 发送失败:" + chatMessage.Type + "," + ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// 写出消息并记录失败；写出是通知性质，不向业务线程抛出
+        /// </summary>
+        /// <param name="pipeline">目标连接的处理器链</param>
+        /// <param name="chatMessage">待发送的消息</param>
+        /// <returns>写出完成或失败后结束的任务</returns>
+        private static async Task WriteCoreAsync(IChannelPipeline pipeline, ChatMessage chatMessage)
+        {
+            try
+            {
+                await pipeline.WriteAsync(chatMessage).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Debug("MessageSocket 发送失败:" + chatMessage.Type + "," + ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// 心跳异步处理：空闲超过心跳间隔时向服务端发送一个空帧
+        /// </summary>
         void HeartAsync()
         {
-            TaskHelper.Run(() =>
+            TaskHelper.LongRunning(() =>
             {
                 try
                 {
@@ -239,16 +327,9 @@ namespace SAEA.MessageSocket
                         if (_client.Connected)
                         {
                             ThreadHelper.Sleep(1000);
-                            
-                            if (_messageContext.UserToken.Actived.AddMilliseconds(HeartSpan) <= DateTimeHelper.Now)
-                            {
-                                var sm = new BaseSocketProtocal((byte)SocketProtocalType.Heart, ReadOnlyMemory<byte>.Empty);
-                                using (var w = new PooledBufferWriter(64))
-                                {
-                                    sm.WriteTo(w);
-                                    _client.Send(w.WrittenSpan);
-                                }
-                            }
+
+                            if (_actived.AddMilliseconds(HeartSpan) <= DateTimeHelper.Now)
+                                _ = WriteHeartAsync();
                         }
                         else
                         {
@@ -261,7 +342,39 @@ namespace SAEA.MessageSocket
         }
 
         /// <summary>
-        /// 异步发起连接，成功后触发 OnConnected；连接失败时在回调线程抛出 KernelException
+        /// 写出一个心跳帧；帧已是完整线格式，故直接交给链路而不再编码
+        /// </summary>
+        /// <returns>写出完成或失败后结束的任务</returns>
+        private async Task WriteHeartAsync()
+        {
+            var pipeline = _pipeline;
+            if (pipeline == null)
+                return;
+
+            var writer = new PooledBufferWriter(FrameConstants.P_Head);
+
+            RawFrame frame = null;
+
+            try
+            {
+                new BaseSocketProtocal((byte)SocketProtocalType.Heart, ReadOnlyMemory<byte>.Empty).WriteTo(writer);
+
+                frame = new RawFrame(writer.WrittenMemory, writer);
+
+                await pipeline.WriteAsync(frame).ConfigureAwait(false);
+            }
+            catch
+            {
+                // 未成功移交时由本方法归还背衬缓冲；已移交的帧由传输层负责。
+                if (frame != null)
+                    frame.Dispose();
+                else
+                    writer.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// 异步发起连接，连接建立后由链路激活回调通知处理器
         /// </summary>
         public void ConnectAsync()
         {
@@ -273,58 +386,27 @@ namespace SAEA.MessageSocket
                     {
                         throw new KernelException("连接到消息服务器失败，Code:" + c.ToString());
                     }
-                    OnConnected?.Invoke(this);
                 });
             }
         }
 
         /// <summary>
-        /// 同步连接服务器，连接后触发 OnConnected
+        /// 同步连接服务器，连接建立后由链路激活回调通知处理器
         /// </summary>
         public void Connect()
         {
             if (!_client.Connected)
             {
                 _client.Connect();
-                OnConnected?.Invoke(this);
             }
         }
-
-        private void SendBase(ChatMessage cm)
-        {
-            var data = SerializeHelper.PBSerialize(cm);
-
-            byte[] content;
-            using (var w = new PooledBufferWriter(64))
-            {
-                BaseSocketProtocal.Parse(data, SocketProtocalType.ChatMessage).WriteTo(w);
-                content = w.WrittenSpan.ToArray();
-            }
-
-            _batcher.Insert(content);
-        }
-
-        private async Task SendBaseWithBackpressureAsync(ChatMessage cm, int timeoutMs = 5000)
-        {
-            var data = SerializeHelper.PBSerialize(cm);
-
-            byte[] content;
-            using (var w = new PooledBufferWriter(64))
-            {
-                BaseSocketProtocal.Parse(data, SocketProtocalType.ChatMessage).WriteTo(w);
-                content = w.WrittenSpan.ToArray();
-            }
-
-            await _batcher.InsertWithBackpressureAsync(content, timeoutMs);
-        }
-
 
         /// <summary>
         /// 发送登录请求，收到服务端应答后 Logined 才置为 true
         /// </summary>
         public void Login()
         {
-            SendBase(new ChatMessage(ChatMessageType.Login, ""));
+            Send(new ChatMessage(ChatMessageType.Login, ""));
         }
 
         /// <summary>
@@ -334,7 +416,7 @@ namespace SAEA.MessageSocket
         /// <returns>本地记录的订阅状态，不代表本次请求的处理结果</returns>
         public bool Subscribe(string name)
         {
-            SendBase(new ChatMessage(ChatMessageType.Subscribe, name));
+            Send(new ChatMessage(ChatMessageType.Subscribe, name));
             return _subscribed;
         }
 
@@ -345,7 +427,7 @@ namespace SAEA.MessageSocket
         /// <returns>本地记录的退订状态，不代表本次请求的处理结果</returns>
         public bool Unsubscribe(string name)
         {
-            SendBase(new ChatMessage(ChatMessageType.UnSubscribe, name));
+            Send(new ChatMessage(ChatMessageType.UnSubscribe, name));
             return _unsubscribed;
         }
 
@@ -362,12 +444,11 @@ namespace SAEA.MessageSocket
                 Content = content
             };
 
-            SendBase(new ChatMessage(ChatMessageType.ChannelMessage, cm));
+            Send(new ChatMessage(ChatMessageType.ChannelMessage, cm));
         }
 
-
         /// <summary>
-        /// 发送私聊消息，不等待批量队列容量，队列已满时本条消息被丢弃
+        /// 发送私聊消息，链未就绪或写出失败时静默丢弃
         /// </summary>
         /// <param name="receiver">接收者标识</param>
         /// <param name="content">消息正文</param>
@@ -379,17 +460,17 @@ namespace SAEA.MessageSocket
                 Content = content
             };
 
-            SendBase(new ChatMessage(ChatMessageType.PrivateMessage, pm));
+            Send(new ChatMessage(ChatMessageType.PrivateMessage, pm));
         }
 
         /// <summary>
-        /// 异步发送私聊消息，在超时时间内等待批量队列容量，超时后静默丢弃本条消息
+        /// 异步发送私聊消息，在超时时间内等待链就绪，超时后静默丢弃本条消息
         /// </summary>
         /// <param name="receiver">接收者标识</param>
         /// <param name="content">消息正文</param>
-        /// <param name="timeoutMs">等待队列容量的超时时间（毫秒）</param>
-        /// <returns>发送任务，不反映消息是否真正入队</returns>
-        public async Task SendPrivateMsgAsync(string receiver, string content, int timeoutMs = 5000)
+        /// <param name="timeoutMs">等待链就绪的超时时间（毫秒）</param>
+        /// <returns>写出完成或失败后结束的任务</returns>
+        public Task SendPrivateMsgAsync(string receiver, string content, int timeoutMs = 5000)
         {
             PrivateMessage pm = new PrivateMessage()
             {
@@ -397,7 +478,7 @@ namespace SAEA.MessageSocket
                 Content = content
             };
 
-            await SendBaseWithBackpressureAsync(new ChatMessage(ChatMessageType.PrivateMessage, pm), timeoutMs);
+            return SendAsync(new ChatMessage(ChatMessageType.PrivateMessage, pm), timeoutMs);
         }
 
         #region group
@@ -408,7 +489,7 @@ namespace SAEA.MessageSocket
         /// <param name="groupName">群组名称</param>
         public void SendCreateGroup(string groupName)
         {
-            SendBase(new ChatMessage(ChatMessageType.CreateGroup, groupName));
+            Send(new ChatMessage(ChatMessageType.CreateGroup, groupName));
         }
 
         /// <summary>
@@ -417,7 +498,7 @@ namespace SAEA.MessageSocket
         /// <param name="groupName">群组名称</param>
         public void SendRemoveGroup(string groupName)
         {
-            SendBase(new ChatMessage(ChatMessageType.RemoveGroup, groupName));
+            Send(new ChatMessage(ChatMessageType.RemoveGroup, groupName));
         }
 
         /// <summary>
@@ -426,7 +507,7 @@ namespace SAEA.MessageSocket
         /// <param name="groupName">群组名称</param>
         public void SendAddMember(string groupName)
         {
-            SendBase(new ChatMessage(ChatMessageType.AddMember, groupName));
+            Send(new ChatMessage(ChatMessageType.AddMember, groupName));
         }
 
         /// <summary>
@@ -435,7 +516,7 @@ namespace SAEA.MessageSocket
         /// <param name="groupName">群组名称</param>
         public void SendRemoveMember(string groupName)
         {
-            SendBase(new ChatMessage(ChatMessageType.RemoveMember, groupName));
+            Send(new ChatMessage(ChatMessageType.RemoveMember, groupName));
         }
 
         /// <summary>
@@ -451,14 +532,111 @@ namespace SAEA.MessageSocket
                 Content = content
             };
 
-            SendBase(new ChatMessage(ChatMessageType.GroupMessage, pm));
+            Send(new ChatMessage(ChatMessageType.GroupMessage, pm));
         }
-
-
 
         #endregion
 
+        /// <summary>
+        /// 入站分发处理器：登记登录与订阅状态，并把消息原样传给下游使用者处理器。
+        /// </summary>
+        private sealed class InboundDispatcher : InboundHandlerAdapter
+        {
+            private readonly MessageClient _owner;
 
+            /// <summary>
+            /// 绑定所属客户端
+            /// </summary>
+            /// <param name="owner">所属客户端实例</param>
+            public InboundDispatcher(MessageClient owner)
+            {
+                _owner = owner;
+            }
 
+            /// <summary>
+            /// 登记内置状态后把消息原样下传；非消息对象直接下传
+            /// </summary>
+            /// <param name="ctx">当前处理器在链上的节点上下文</param>
+            /// <param name="msg">已解码的消息</param>
+            /// <returns>下游处理完成后结束的任务</returns>
+            public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+            {
+                var chatMessage = msg as ChatMessage;
+
+                if (chatMessage != null)
+                {
+                    switch (chatMessage.Type)
+                    {
+                        case ChatMessageType.LoginAnswer:
+                            _owner.Logined = true;
+                            break;
+                        case ChatMessageType.SubscribeAnswer:
+                            _owner._subscribed = chatMessage.Content == "1";
+                            break;
+                        case ChatMessageType.UnSubscribeAnswer:
+                            _owner._unsubscribed = chatMessage.Content == "1";
+                            break;
+                    }
+                }
+
+                return ctx.FireChannelReadAsync(msg);
+            }
+        }
+
+        /// <summary>
+        /// 连接激活处理器：登记写入口并刷新最近活动时间，失活时清空写入口
+        /// </summary>
+        private sealed class ActiveHandler : InboundHandlerAdapter
+        {
+            private readonly MessageClient _owner;
+
+            /// <summary>
+            /// 绑定所属客户端
+            /// </summary>
+            /// <param name="owner">所属客户端实例</param>
+            public ActiveHandler(MessageClient owner)
+            {
+                _owner = owner;
+            }
+
+            /// <summary>
+            /// 连接启动时登记写入口，供业务线程发起发送
+            /// </summary>
+            /// <param name="ctx">当前处理器在链上的节点上下文</param>
+            /// <returns>登记完成后结束的任务</returns>
+            public override Task ChannelActiveAsync(IChannelHandlerContext ctx)
+            {
+                _owner._actived = DateTimeHelper.Now;
+
+                _owner._pipeline = ctx.Pipeline;
+                _owner._pipelineReady.Set();
+
+                return Task.CompletedTask;
+            }
+
+            /// <summary>
+            /// 收到消息时刷新最近活动时间
+            /// </summary>
+            /// <param name="ctx">当前处理器在链上的节点上下文</param>
+            /// <param name="msg">已解码的消息</param>
+            /// <returns>下游处理完成后结束的任务</returns>
+            public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+            {
+                _owner._actived = DateTimeHelper.Now;
+                return ctx.FireChannelReadAsync(msg);
+            }
+
+            /// <summary>
+            /// 连接收口时清空写入口
+            /// </summary>
+            /// <param name="ctx">当前处理器在链上的节点上下文</param>
+            /// <returns>清理完成后结束的任务</returns>
+            public override Task ChannelInactiveAsync(IChannelHandlerContext ctx)
+            {
+                _owner._pipeline = null;
+                _owner._pipelineReady.Reset();
+                return Task.CompletedTask;
+            }
+        }
     }
 }

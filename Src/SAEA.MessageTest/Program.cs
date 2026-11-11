@@ -15,10 +15,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/3/1 15:54:21
+*修改时间：2026/11/11 12:00:00
 *修改人： yswenli
 *版本号： v7.0.0.1
-*描述：
+*描述：改为处理器链装配，新增 --functional 自动化入口
 *
 *****************************************************************************/
 
@@ -26,10 +26,14 @@ using SAEA.Common;
 using SAEA.Common.Threading;
 using SAEA.MessageSocket;
 using SAEA.MessageSocket.Model.Business;
+using SAEA.MessageSocket.Model.Communication;
+using SAEA.Sockets.Pipeline;
 
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Net;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -37,9 +41,14 @@ namespace SAEA.MessageTest
 {
     class Program
     {
-        static void Main(string[] args)
+        static int Main(string[] args)
         {
             ConsoleHelper.Title = $"SAEA.Message测试 -- {DateTimeHelper.Now}";
+
+            if (args != null && args.Length > 0 && args[0] == "--functional")
+            {
+                return FunctionalTest();
+            }
 
             ConsoleHelper.WriteLine("Message testing ");
 
@@ -92,33 +101,302 @@ namespace SAEA.MessageTest
 
             ConsoleHelper.WriteLine("Press enter to finish.");
             ConsoleHelper.ReadLine();
+
+            return 0;
         }
 
-        private static void Client_OnGroupMessage(GroupMessage msg)
+        #region 处理器
+
+        /// <summary>
+        /// 服务端观察者：打印接入、断开与链路异常，不改变消息走向
+        /// </summary>
+        private sealed class ServerObserver : InboundHandlerAdapter
         {
-            ConsoleHelper.WriteLine("收到群组信息：{0}", msg.Content);
+            public override Task ChannelActiveAsync(IChannelHandlerContext ctx)
+            {
+                ConsoleHelper.WriteLine("SAEA.Message服务器收到连接:" + ctx.ChannelId);
+                return Task.CompletedTask;
+            }
+
+            public override Task ChannelInactiveAsync(IChannelHandlerContext ctx)
+            {
+                ConsoleHelper.WriteLine(ctx.ChannelId + "已断开连接", ConsoleColor.Red);
+                return Task.CompletedTask;
+            }
+
+            public override Task ChannelExceptionCaughtAsync(IChannelHandlerContext ctx, Exception ex)
+            {
+                ConsoleHelper.WriteLine($"SAEA.Message服务器发生异常:{ctx.ChannelId}, err:{ex.Message}");
+                return ctx.FireExceptionCaughtAsync(ex);
+            }
         }
 
-        private static void Client_OnPrivateMessage(PrivateMessage msg)
+        /// <summary>
+        /// 客户端状态：记录已收到的各类消息与应答，供演示与自测断言
+        /// </summary>
+        private sealed class ClientState
         {
-            ConsoleHelper.WriteLine("收到私信：{0}", msg.Content);
+            private int _privateCount;
+            private int _channelCount;
+            private int _groupCount;
+
+            public string Tag;
+
+            public volatile bool Subscribed;
+
+            public volatile bool CreateGroupAnswered;
+
+            public volatile bool AddMemberAnswered;
+
+            public PrivateMessage LastPrivate;
+
+            public ChannelMessage LastChannel;
+
+            public GroupMessage LastGroup;
+
+            public int PrivateCount
+            {
+                get { return Volatile.Read(ref _privateCount); }
+            }
+
+            public int ChannelCount
+            {
+                get { return Volatile.Read(ref _channelCount); }
+            }
+
+            public int GroupCount
+            {
+                get { return Volatile.Read(ref _groupCount); }
+            }
+
+            public void OnPrivate(PrivateMessage message)
+            {
+                LastPrivate = message;
+                Interlocked.Increment(ref _privateCount);
+            }
+
+            public void OnChannel(ChannelMessage message)
+            {
+                LastChannel = message;
+                Interlocked.Increment(ref _channelCount);
+            }
+
+            public void OnGroup(GroupMessage message)
+            {
+                LastGroup = message;
+                Interlocked.Increment(ref _groupCount);
+            }
         }
 
-        private static void Client_OnChannelMessage(ChannelMessage msg)
+        /// <summary>
+        /// 客户端观察者：连接建立时打印，按协议类型分发到状态对象
+        /// </summary>
+        private sealed class ClientObserver : InboundHandlerAdapter
         {
-            ConsoleHelper.WriteLine("收到频道消息：{0}", msg.Content);
+            private readonly ClientState _state;
+
+            public ClientObserver(ClientState state)
+            {
+                _state = state;
+            }
+
+            public override Task ChannelActiveAsync(IChannelHandlerContext ctx)
+            {
+                ConsoleHelper.WriteLine($"[{_state.Tag}] 已连接:{ctx.ChannelId}");
+                return Task.CompletedTask;
+            }
+
+            public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+            {
+                var chatMessage = msg as ChatMessage;
+                if (chatMessage == null)
+                    return Task.CompletedTask;
+
+                switch (chatMessage.Type)
+                {
+                    case ChatMessageType.PrivateMessage:
+                        var privateMessage = chatMessage.GetIMessage<PrivateMessage>();
+                        if (privateMessage != null)
+                        {
+                            _state.OnPrivate(privateMessage);
+                            ConsoleHelper.WriteLine($"[{_state.Tag}] 收到私信：{privateMessage.Content}");
+                        }
+                        break;
+
+                    case ChatMessageType.ChannelMessage:
+                        var channelMessage = chatMessage.GetIMessage<ChannelMessage>();
+                        if (channelMessage != null)
+                        {
+                            _state.OnChannel(channelMessage);
+                            ConsoleHelper.WriteLine($"[{_state.Tag}] 收到频道消息：{channelMessage.Content}");
+                        }
+                        break;
+
+                    case ChatMessageType.GroupMessage:
+                        var groupMessage = chatMessage.GetIMessage<GroupMessage>();
+                        if (groupMessage != null)
+                        {
+                            _state.OnGroup(groupMessage);
+                            ConsoleHelper.WriteLine($"[{_state.Tag}] 收到群组信息：{groupMessage.Content}");
+                        }
+                        break;
+
+                    case ChatMessageType.SubscribeAnswer:
+                        _state.Subscribed = chatMessage.Content == "1";
+                        break;
+
+                    case ChatMessageType.CreateGroupAnswer:
+                        _state.CreateGroupAnswered = chatMessage.Content == "1";
+                        break;
+
+                    case ChatMessageType.AddMemberAnswer:
+                        _state.AddMemberAnswered = chatMessage.Content == "1";
+                        break;
+                }
+
+                return Task.CompletedTask;
+            }
         }
 
-        private static void Client_OnChannelMessage2(ChannelMessage msg)
+        #endregion
+
+        #region 功能自测
+
+        /// <summary>
+        /// 自动化功能自测：登录、私信、频道、群组四段，全部通过返回 0
+        /// </summary>
+        private static int FunctionalTest()
         {
-            ConsoleHelper.WriteLine("收到频道消息2：{0}", msg.Content);
+            ConsoleHelper.WriteLine("SAEA.Message 功能自测开始...");
+
+            var port = GetFreePort();
+
+            var server = new MessageServer(port);
+            server.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ServerObserver());
+            server.Start();
+
+            var aliceState = new ClientState { Tag = "alice" };
+            var bobState = new ClientState { Tag = "bob" };
+
+            try
+            {
+                var alice = new MessageClient(102400, "127.0.0.1", port);
+                alice.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ClientObserver(aliceState));
+
+                var bob = new MessageClient(102400, "127.0.0.1", port);
+                bob.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ClientObserver(bobState));
+
+                alice.Connect();
+                bob.Connect();
+
+                alice.Login();
+                bob.Login();
+
+                if (!WaitUntil(() => alice.Logined && bob.Logined, TimeSpan.FromSeconds(10)))
+                    return Fail("两端登录");
+
+                // 私信：alice 发给 bob，服务端填入发送者后转发。
+                alice.SendPrivateMsg(bob.ID, "functional-private");
+
+                if (!WaitUntil(() => bobState.PrivateCount >= 1, TimeSpan.FromSeconds(10)))
+                    return Fail("私信转发");
+
+                var privateMessage = bobState.LastPrivate;
+
+                if (privateMessage.Receiver != bob.ID || privateMessage.Sender != alice.ID
+                    || privateMessage.Content != "functional-private")
+                    return Fail("私信内容");
+
+                // 频道：两端订阅同一频道后，alice 发送，bob 收到。
+                const string ChannelName = "functional-channel";
+
+                alice.Subscribe(ChannelName);
+                bob.Subscribe(ChannelName);
+
+                if (!WaitUntil(() => aliceState.Subscribed && bobState.Subscribed, TimeSpan.FromSeconds(10)))
+                    return Fail("频道订阅");
+
+                alice.SendChannelMsg(ChannelName, "functional-channel-msg");
+
+                if (!WaitUntil(() => bobState.ChannelCount >= 1, TimeSpan.FromSeconds(10)))
+                    return Fail("频道转发");
+
+                var channelMessage = bobState.LastChannel;
+
+                if (channelMessage.Name != ChannelName || channelMessage.Sender != alice.ID
+                    || channelMessage.Content != "functional-channel-msg")
+                    return Fail("频道消息内容");
+
+                // 群组：alice 建群后 bob 入群，群消息只转发给其他成员。
+                const string GroupName = "functional-group";
+
+                alice.SendCreateGroup(GroupName);
+
+                if (!WaitUntil(() => aliceState.CreateGroupAnswered, TimeSpan.FromSeconds(10)))
+                    return Fail("创建群组");
+
+                bob.SendAddMember(GroupName);
+
+                if (!WaitUntil(() => bobState.AddMemberAnswered, TimeSpan.FromSeconds(10)))
+                    return Fail("加入群组");
+
+                alice.SendGroupMessage(GroupName, "functional-group-msg");
+
+                if (!WaitUntil(() => bobState.GroupCount >= 1, TimeSpan.FromSeconds(10)))
+                    return Fail("群组转发");
+
+                var groupMessage = bobState.LastGroup;
+
+                if (groupMessage.Name != GroupName || groupMessage.Sender != alice.ID
+                    || groupMessage.Content != "functional-group-msg")
+                    return Fail("群组消息内容");
+
+                ConsoleHelper.WriteLine("SAEA.Message 功能自测全部通过。");
+                return 0;
+            }
+            finally
+            {
+                server.Stop();
+            }
         }
 
-        private static void Server_OnDisconnected(string ID, Exception ex)
+        private static int Fail(string stage)
         {
-            ConsoleHelper.WriteLine($"{ID}已断开连接，ex:{ex?.Message}", ConsoleColor.Red);
+            ConsoleHelper.WriteLine("SAEA.Message 功能自测失败于：" + stage, ConsoleColor.Red);
+            return 1;
         }
 
+        private static bool WaitUntil(Func<bool> condition, TimeSpan timeout)
+        {
+            var deadline = DateTime.UtcNow + timeout;
+
+            while (!condition())
+            {
+                if (DateTime.UtcNow >= deadline)
+                    return false;
+
+                ThreadHelper.Sleep(20);
+            }
+
+            return true;
+        }
+
+        private static int GetFreePort()
+        {
+            var listener = new TcpListener(IPAddress.Loopback, 0);
+            listener.Start();
+
+            try
+            {
+                return ((IPEndPoint)listener.LocalEndpoint).Port;
+            }
+            finally
+            {
+                listener.Stop();
+            }
+        }
+
+        #endregion
 
         #region MyRegion
 
@@ -128,11 +406,7 @@ namespace SAEA.MessageTest
 
             MessageServer server = new MessageServer(39654, size, count);
 
-            server.OnAccepted += Server_OnAccepted;
-
-            server.OnError += Server_OnError;
-
-            server.OnDisconnected += Server_OnDisconnected;
+            server.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ServerObserver());
 
             server.Start();
 
@@ -142,25 +416,18 @@ namespace SAEA.MessageTest
                 {
                     ConsoleHelper.Title = "MessageServer ClientCounts: " + server.ClientCounts;
 
-                    Thread.Sleep(1000);
+                    ThreadHelper.Sleep(1000);
                 }
             }, TaskCreationOptions.LongRunning);
 
             ConsoleHelper.WriteLine("SAEA.Message服务器已就绪!");
         }
 
-        private static void Server_OnError(string ID, Exception ex)
-        {
-            ConsoleHelper.WriteLine($"SAEA.Message服务器发生异常:{ID}, err:{ex.Message}");
-        }
-
-        private static void Server_OnAccepted(object obj)
-        {
-            //ConsoleHelper.WriteLine("SAEA.Message服务器收到连接" + ((IUserToken)obj).ID);
-        }
-
-
         static int _connectCount = 0;
+
+        /// <summary>
+        /// 单机连接测试：只统计链激活次数，不订阅业务消息
+        /// </summary>
         private static void LinkTest()
         {
             ConsoleHelper.WriteLine("回车开始连接测试...");
@@ -169,16 +436,14 @@ namespace SAEA.MessageTest
 
             var count = 60 * 1000;
 
-            MessageClient mclient;
-
             Task.Run(() =>
             {
                 ConsoleHelper.WriteLine("单机连接测试正在初始化...");
 
                 for (int i = 0; i < count; i++)
                 {
-                    mclient = new MessageClient();
-                    mclient.OnConnected += Mclient_OnConnected;
+                    var mclient = new MessageClient();
+                    mclient.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ConnectingObserver());
                     mclient.ConnectAsync();
                 }
 
@@ -186,7 +451,7 @@ namespace SAEA.MessageTest
                 {
                     while (_connectCount < count)
                     {
-                        Thread.Sleep(1000);
+                        ThreadHelper.Sleep(1000);
                         ConsoleHelper.WriteLine($"单机连接测试已建立连接：{_connectCount} 未连接：{count - _connectCount}");
                     }
                     ConsoleHelper.WriteLine($"单机{count}连接已完成！");
@@ -194,9 +459,16 @@ namespace SAEA.MessageTest
             });
         }
 
-        private static void Mclient_OnConnected(MessageClient messageClient)
+        /// <summary>
+        /// 连接计数处理器：链激活时累加连接数
+        /// </summary>
+        private sealed class ConnectingObserver : InboundHandlerAdapter
         {
-            Interlocked.Increment(ref _connectCount);
+            public override Task ChannelActiveAsync(IChannelHandlerContext ctx)
+            {
+                Interlocked.Increment(ref _connectCount);
+                return Task.CompletedTask;
+            }
         }
 
         private static void FunTest()
@@ -204,11 +476,15 @@ namespace SAEA.MessageTest
             //===============================================================
             ConsoleHelper.WriteLine("回车开始私信测试开始...");
             ConsoleHelper.ReadLine();
+
+            var cc1State = new ClientState { Tag = "cc1" };
+            var cc2State = new ClientState { Tag = "cc2" };
+
             var cc1 = new MessageClient();
-            cc1.OnPrivateMessage += Client_OnPrivateMessage;
+            cc1.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ClientObserver(cc1State));
 
             var cc2 = new MessageClient();
-            cc2.OnPrivateMessage += Client_OnPrivateMessage;
+            cc2.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ClientObserver(cc2State));
 
             cc1.Connect();
             cc2.Connect();
@@ -222,7 +498,7 @@ namespace SAEA.MessageTest
                 {
                     cc1.SendPrivateMsg(cc2.ID, "你好呀,cc2！");
                     cc2.SendPrivateMsg(cc1.ID, "你好呀,cc1！");
-                    Thread.Sleep(500);
+                    ThreadHelper.Sleep(500);
                 }
             }, TaskCreationOptions.LongRunning);
 
@@ -230,9 +506,11 @@ namespace SAEA.MessageTest
             ConsoleHelper.WriteLine("回车开始频道测试开始...");
             ConsoleHelper.ReadLine();
 
+            var clientState = new ClientState { Tag = "channel" };
+
             MessageClient client = new MessageClient();
 
-            client.OnChannelMessage += Client_OnChannelMessage;
+            client.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ClientObserver(clientState));
 
             ConsoleHelper.WriteLine("客户正在连接...");
 
@@ -254,7 +532,7 @@ namespace SAEA.MessageTest
                 {
                     client.SendChannelMsg(channelName, "hello!");
 
-                    Thread.Sleep(500);
+                    ThreadHelper.Sleep(500);
                 }
 
             }, TaskCreationOptions.LongRunning);
@@ -269,7 +547,7 @@ namespace SAEA.MessageTest
                 for (int i = 0; i < 10; i++)
                 {
                     var c = new MessageClient();
-                    c.OnChannelMessage += Client_OnChannelMessage2;
+                    c.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ClientObserver(new ClientState { Tag = "channel-" + i }));
                     list.Add(c);
                     c.Connect();
                     c.Login();
@@ -281,14 +559,10 @@ namespace SAEA.MessageTest
             ConsoleHelper.WriteLine("回车开始群组测试");
             ConsoleHelper.ReadLine();
 
-            cc1.OnGroupMessage += Client_OnGroupMessage;
-            cc2.OnGroupMessage += Client_OnGroupMessage;
-
             var groupName = "萌一号蠢";
 
             cc1.SendCreateGroup(groupName);
             cc2.SendAddMember(groupName);
-
 
             Task.Factory.StartNew(() =>
             {
@@ -296,11 +570,9 @@ namespace SAEA.MessageTest
                 {
                     cc1.SendGroupMessage(groupName, "群主广播了！");
                     cc2.SendGroupMessage(groupName, "群主万岁！");
-                    Thread.Sleep(100);
+                    ThreadHelper.Sleep(100);
                 }
             }, TaskCreationOptions.LongRunning);
-
-
 
             ConsoleHelper.ReadLine();
             ConsoleHelper.WriteLine("The function test has been completed.");
@@ -332,7 +604,7 @@ namespace SAEA.MessageTest
                 for (int i = 0; i < 1000; i++)
                 {
                     var ccc = new MessageClient();
-                    ccc.OnChannelMessage += Ccc_OnChannelMessage;
+                    ccc.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new CountingObserver());
                     list.Add(ccc);
                 }
 
@@ -365,7 +637,7 @@ namespace SAEA.MessageTest
                             ConsoleHelper.WriteLine("测试完毕，当前用时：" + calc + "秒");
                             break;
                         }
-                        Thread.Sleep(1000);
+                        ThreadHelper.Sleep(1000);
                     }
                 }, TaskCreationOptions.LongRunning);
             });
@@ -377,9 +649,19 @@ namespace SAEA.MessageTest
 
         static int cmc = 0;
 
-        private static void Ccc_OnChannelMessage(ChannelMessage obj)
+        /// <summary>
+        /// 频道消息计数处理器：只统计频道消息条数
+        /// </summary>
+        private sealed class CountingObserver : InboundHandlerAdapter
         {
-            Interlocked.Increment(ref cmc);
+            public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+            {
+                var chatMessage = msg as ChatMessage;
+                if (chatMessage != null && chatMessage.Type == ChatMessageType.ChannelMessage)
+                    Interlocked.Increment(ref cmc);
+
+                return Task.CompletedTask;
+            }
         }
         #endregion
 
@@ -390,11 +672,12 @@ namespace SAEA.MessageTest
         {
             ConsoleHelper.WriteLine("回车开始私信测试开始...");
             ConsoleHelper.ReadLine();
+
             var cc1 = new MessageClient();
-            cc1.OnPrivateMessage += Client_OnPrivateMessage1;
+            cc1.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new PrivateCountingObserver());
 
             var cc2 = new MessageClient();
-            cc2.OnPrivateMessage += Client_OnPrivateMessage1;
+            cc2.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new PrivateCountingObserver());
 
             ConsoleHelper.WriteLine("cc1 connecting...");
             cc1.Connect();
@@ -422,7 +705,7 @@ namespace SAEA.MessageTest
 
             while (true)
             {
-                Thread.Sleep(1000);
+                ThreadHelper.Sleep(1000);
                 ConsoleHelper.WriteLine("已收到转发的私信" + _pcount + "条");
                 if (_pcount >= 2 * size)
                 {
@@ -434,9 +717,20 @@ namespace SAEA.MessageTest
         }
 
         static int _pcount = 0;
-        private static void Client_OnPrivateMessage1(PrivateMessage msg)
+
+        /// <summary>
+        /// 私信计数处理器：只统计私信条数
+        /// </summary>
+        private sealed class PrivateCountingObserver : InboundHandlerAdapter
         {
-            Interlocked.Increment(ref _pcount);
+            public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+            {
+                var chatMessage = msg as ChatMessage;
+                if (chatMessage != null && chatMessage.Type == ChatMessageType.PrivateMessage)
+                    Interlocked.Increment(ref _pcount);
+
+                return Task.CompletedTask;
+            }
         }
         #endregion
     }
