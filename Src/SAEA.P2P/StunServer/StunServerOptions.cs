@@ -97,6 +97,12 @@ namespace SAEA.P2P.StunServer
         public Func<StunMessage, IPEndPoint, StunServerEndpoint, byte[]> RequestHandler { get; set; }
 
         /// <summary>
+        /// 原始数据报入口，在 STUN 解析之前调用，供 TURN 的 ChannelData 等非 STUN 报文接入同一端口；
+        /// 参数依次为数据报、客户端来源端点与收到数据报的监听端点，返回 true 表示已处理、不再交给 STUN 解析。
+        /// </summary>
+        public Func<ReadOnlyMemory<byte>, IPEndPoint, StunServerEndpoint, bool> DatagramHandler { get; set; }
+
+        /// <summary>
         /// 是否配置了备用端点
         /// </summary>
         internal bool HasAlternate

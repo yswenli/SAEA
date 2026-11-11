@@ -215,6 +215,13 @@ namespace SAEA.P2P.StunServer
         {
             try
             {
+                // TURN 的 ChannelData 不是 STUN 报文，必须在解析前先给出入口
+                var datagramHandler = _options.DatagramHandler;
+                if (datagramHandler != null && datagramHandler(data, remoteEndPoint, receivedOn))
+                {
+                    return;
+                }
+
                 StunMessage request;
                 StunParseError error;
                 if (!StunMessage.TryParse(data.Span, out request, out error))
@@ -222,9 +229,14 @@ namespace SAEA.P2P.StunServer
                     return;
                 }
 
-                // 指示没有事务，任何情况下都不得回应答或错误
+                // 指示没有事务，任何情况下都不得回应答或错误；
+                // 但 Send 指示必须交给 TURN 处理，因此非 Binding 指示仍要分派一次
                 if (request.Class == StunClass.Indication)
                 {
+                    if (request.Method != StunMessageType.Binding)
+                    {
+                        DispatchOtherMethod(request, remoteEndPoint, receivedOn, false);
+                    }
                     return;
                 }
 
@@ -235,7 +247,7 @@ namespace SAEA.P2P.StunServer
 
                 if (request.Method != StunMessageType.Binding)
                 {
-                    DispatchOtherMethod(request, remoteEndPoint, receivedOn);
+                    DispatchOtherMethod(request, remoteEndPoint, receivedOn, true);
                     return;
                 }
 
@@ -316,7 +328,7 @@ namespace SAEA.P2P.StunServer
         /// <param name="request">请求</param>
         /// <param name="remoteEndPoint">客户端来源端点</param>
         /// <param name="receivedOn">收到请求的监听端点</param>
-        private void DispatchOtherMethod(StunMessage request, IPEndPoint remoteEndPoint, StunServerEndpoint receivedOn)
+        private void DispatchOtherMethod(StunMessage request, IPEndPoint remoteEndPoint, StunServerEndpoint receivedOn, bool allowResponse)
         {
             var handler = _options.RequestHandler;
             if (handler == null)
@@ -335,7 +347,8 @@ namespace SAEA.P2P.StunServer
                 return;
             }
 
-            if (response != null)
+            // 指示没有事务，处理方即使返回了报文也不得回送
+            if (allowResponse && response != null)
             {
                 Send(receivedOn, remoteEndPoint, response);
             }
