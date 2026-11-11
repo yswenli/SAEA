@@ -60,6 +60,8 @@ consumer.Subscribe("orders");
 consumer.Start();
 ```
 
+Assign `ConfigurePipeline` before `Start()`/`Connect()`; assigning it after the chain starts throws `InvalidOperationException`. `Producer` connects in its constructor, so its callback can only be injected through the constructor.
+
 **That's it!** 🎉 You've implemented a high-performance publish/subscribe message queue system.
 
 ---

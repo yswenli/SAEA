@@ -273,7 +273,7 @@ var provider = new ServiceProvider(port: 39654);
 provider.Start();
 ```
 
-需要按连接观察链上异常时，用 `ConfigurePipeline` 追加处理器：
+需要按连接观察链上异常时，用 `ConfigurePipeline` 追加处理器。回调必须在 `Start()` 之前赋值，服务启动后再赋值会抛 `InvalidOperationException`：
 
 ```csharp
 var provider = new ServiceProvider(port: 39654);
@@ -281,7 +281,7 @@ provider.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ExceptionLog
 provider.Start();
 ```
 
-消费者在构造时就建立连接，链启动后即冻结，因此装配回调必须作为构造参数传入：
+消费者在构造时就建立连接，链启动后即冻结，构造完成后再赋值会抛 `InvalidOperationException`，因此装配回调必须作为构造参数传入：
 
 ```csharp
 var proxy = new RPCServiceProxy("rpc://127.0.0.1:39654", 4, 5, 10 * 1000,

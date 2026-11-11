@@ -103,6 +103,7 @@ Ordering is a hard constraint:
 - The chain starts with the outbound prefix: `HttpResponseEncoder` leftmost, `OutboundSerializingHandler` rightmost. Custom outbound handlers must keep that prefix contiguous.
 - Protocol nodes (`HttpRequestDecoder` → `HttpProtocolHandler` → dispatch → raw-frame sink) always sit before your handlers.
 - Handlers added in `ConfigurePipeline` run after the protocol nodes and before the tail `ExceptionTerminalHandler`.
+- Assign `ConfigurePipeline` before `WebHost.Start()`; assigning it after the server starts throws `InvalidOperationException`.
 - Business writes go through `pipeline.WriteAsync(...)` (or `ctx.Pipeline.WriteAsync(...)` inside handlers); `ctx.WriteAsync(...)` only forwards to the next outbound node inside an outbound callback.
 
 The three business entry points live on `WebConfig`; there are no receive or lifecycle events to subscribe to:

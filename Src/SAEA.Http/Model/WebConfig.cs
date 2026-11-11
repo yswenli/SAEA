@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/10 9:40:00
+*修改时间：2026/11/11 11:20:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增管线装配回调、请求/异常委托与连接关闭通知，替换旧的接收与生命周期事件
+*描述：装配回调改为启动前注入：Start/Connect 之后再赋值抛 InvalidOperationException，中英 README 同步说明
 *
 *****************************************************************************/
 using System;
@@ -142,13 +142,47 @@ namespace SAEA.Http.Model
             get; set;
         } = 3;
 
+        private readonly object _configurePipelineLock = new object();
+
+        private Action<string, IChannelPipeline> _configurePipeline;
+
+        private bool _configurePipelineFrozen;
+
         /// <summary>
         /// 管线装配回调：每条连接在处理器链装配阶段调用一次，接收连接标识与尚未启动的链。
         /// 回调里只能追加处理器，链启动后结构冻结；追加的入站处理器排在协议处理器之后、链尾异常处理器之前。
+        /// 必须在 WebHost.Start 之前赋值，启动之后再赋值会抛 InvalidOperationException。
         /// </summary>
         public Action<string, IChannelPipeline> ConfigurePipeline
         {
-            get; set;
+            get
+            {
+                lock (_configurePipelineLock)
+                {
+                    return _configurePipeline;
+                }
+            }
+            set
+            {
+                lock (_configurePipelineLock)
+                {
+                    if (_configurePipelineFrozen)
+                        throw new InvalidOperationException("管线装配回调只能在 WebHost.Start 之前赋值，服务启动后已冻结。");
+
+                    _configurePipeline = value;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 冻结管线装配回调，由 WebHost.Start 调用
+        /// </summary>
+        internal void FreezeConfigurePipeline()
+        {
+            lock (_configurePipelineLock)
+            {
+                _configurePipelineFrozen = true;
+            }
         }
 
         /// <summary>

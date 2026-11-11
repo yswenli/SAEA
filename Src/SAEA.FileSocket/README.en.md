@@ -312,7 +312,8 @@ fileTransfer.OnReceiveEnd += (filePath) =>
 
 ### Q4: How to reject receiving specific files?
 
-**A**: Append a handler to the receive chain via `ConfigurePipeline` and call `Refuse` or let it pass:
+**A**: Append a handler to the receive chain via `ConfigurePipeline` and call `Refuse` or let it pass.
+The callback must be assigned before `Start()`; assigning it after the server starts throws `InvalidOperationException`:
 
 ```csharp
 using SAEA.Common.Serialization;

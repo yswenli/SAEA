@@ -281,7 +281,7 @@ var provider = new ServiceProvider(port: 39654);
 provider.Start();
 ```
 
-To observe pipeline exceptions per connection, append a handler through `ConfigurePipeline`:
+To observe pipeline exceptions per connection, append a handler through `ConfigurePipeline`. Assign the callback before `Start()`; assigning it after the server starts throws `InvalidOperationException`:
 
 ```csharp
 var provider = new ServiceProvider(port: 39654);
@@ -289,7 +289,7 @@ provider.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ExceptionLog
 provider.Start();
 ```
 
-The consumer connects in its constructor and the pipeline freezes once started, so the callback must be passed to the constructor:
+The consumer connects in its constructor and the pipeline freezes once started, so assigning the callback afterwards throws `InvalidOperationException` and it must be passed to the constructor:
 
 ```csharp
 var proxy = new RPCServiceProxy("rpc://127.0.0.1:39654", 4, 5, 10 * 1000,

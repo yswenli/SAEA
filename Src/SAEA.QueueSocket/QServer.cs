@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/****************************************************************************
  * 
   ____    _    _____    _      ____             _        _   
  / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/10 20:10:00
+*修改时间：2026/11/11 11:20:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：改用流式处理器链接收队列帧，删除 OnDisconnected 事件，写回与断开改走连接处理器链
+*描述：装配回调改为启动前注入：Start/Connect 之后再赋值抛 InvalidOperationException，中英 README 同步说明
 *
 *****************************************************************************/
 using System;
@@ -59,12 +59,48 @@ namespace SAEA.QueueSocket
 
         IServerSocket _serverSokcet;
 
+        private readonly object _configurePipelineLock = new object();
+
+        private Action<string, IChannelPipeline> _configurePipeline;
+
+        private bool _configurePipelineFrozen;
+
         /// <summary>
         /// 处理器链装配回调：每条连接在解码器之后、内置分发器与异常收口之前调用一次，
         /// 使用者在此追加自己的入站处理器；为 null 时只保留内置处理器。
-        /// 赋值可在 Start 之前或运行期间进行，只影响其后建立的连接。
+        /// 必须在 Start 之前赋值，Start 之后再赋值会抛 InvalidOperationException。
         /// </summary>
-        public Action<string, IChannelPipeline> ConfigurePipeline { get; set; }
+        public Action<string, IChannelPipeline> ConfigurePipeline
+        {
+            get
+            {
+                lock (_configurePipelineLock)
+                {
+                    return _configurePipeline;
+                }
+            }
+            set
+            {
+                lock (_configurePipelineLock)
+                {
+                    if (_configurePipelineFrozen)
+                        throw new InvalidOperationException("处理器链装配回调只能在 Start 之前赋值，服务端启动后已冻结。");
+
+                    _configurePipeline = value;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 冻结装配回调，由 Start 调用
+        /// </summary>
+        private void FreezeConfigurePipeline()
+        {
+            lock (_configurePipelineLock)
+            {
+                _configurePipelineFrozen = true;
+            }
+        }
 
         readonly PipelineHostRegistry _host = new PipelineHostRegistry();
 
@@ -318,6 +354,9 @@ namespace SAEA.QueueSocket
         /// <param name="backlog">挂起连接队列的最大长度</param>
         public void Start(int backlog = 10 * 1000)
         {
+            // 先冻结再监听：接受连接可能在 Start 返回前发生，冻结必须早于第一个连接建链。
+            FreezeConfigurePipeline();
+
             _serverSokcet.Start(backlog);
 
             _running = true;

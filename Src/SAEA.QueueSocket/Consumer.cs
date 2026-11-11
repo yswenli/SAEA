@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/10 20:10:00
+*修改时间：2026/11/11 11:20:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：删除接收与生命周期事件，改为透传处理器链装配回调，移除编码器缓冲区清理任务
+*描述：装配回调改为启动前注入：Start/Connect 之后再赋值抛 InvalidOperationException，中英 README 同步说明
 *
 *****************************************************************************/
 using System;
@@ -62,6 +62,7 @@ namespace SAEA.QueueSocket
         /// <summary>
         /// 处理器链装配回调：收到订阅主题的消息时由使用者处理器处理，
         /// 参数为连接标识与尚未启动的处理器链。
+        /// 必须在 Start 之前赋值，连接建立后再赋值会抛 InvalidOperationException。
         /// </summary>
         public Action<string, IChannelPipeline> ConfigurePipeline
         {

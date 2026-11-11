@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 11:00:00
+*修改时间：2026/11/11 11:20:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：迁移到处理器链：删除连接/私信/频道/群组/异常五个事件，改由 ConfigurePipeline 装配，收发改走链路
+*描述：装配回调改为启动前注入：Start/Connect 之后再赋值抛 InvalidOperationException，中英 README 同步说明
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -82,12 +82,48 @@ namespace SAEA.MessageSocket
 
         DateTime _actived = DateTimeHelper.Now;
 
+        private readonly object _configurePipelineLock = new object();
+
+        private Action<string, IChannelPipeline> _configurePipeline;
+
+        private bool _configurePipelineFrozen;
+
         /// <summary>
         /// 处理器链装配回调：每条连接在解码之后、异常收口之前调用一次，
         /// 使用者在此追加自己的入站处理器，收到的对象为已解码的消息；为 null 时只保留内置处理器。
-        /// 赋值可在连接建立之前或运行期间进行，只影响其后建立的连接。
+        /// 必须在首次 Connect 之前赋值，连接建立后再赋值会抛 InvalidOperationException。
         /// </summary>
-        public Action<string, IChannelPipeline> ConfigurePipeline { get; set; }
+        public Action<string, IChannelPipeline> ConfigurePipeline
+        {
+            get
+            {
+                lock (_configurePipelineLock)
+                {
+                    return _configurePipeline;
+                }
+            }
+            set
+            {
+                lock (_configurePipelineLock)
+                {
+                    if (_configurePipelineFrozen)
+                        throw new InvalidOperationException("处理器链装配回调只能在首次 Connect 之前赋值，连接建立后已冻结。");
+
+                    _configurePipeline = value;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 冻结装配回调，由 Connect 与 ConnectAsync 调用
+        /// </summary>
+        private void FreezeConfigurePipeline()
+        {
+            lock (_configurePipelineLock)
+            {
+                _configurePipelineFrozen = true;
+            }
+        }
 
         /// <summary>
         /// 客户端标识，取底层连接的本地端点地址，与服务端记录该连接的标识一致；
@@ -378,6 +414,9 @@ namespace SAEA.MessageSocket
         /// </summary>
         public void ConnectAsync()
         {
+            // 首次连接即冻结装配回调：后续重连沿用同一份配置，避免已建链的连接与回调不一致。
+            FreezeConfigurePipeline();
+
             if (!_client.Connected)
             {
                 _client.ConnectAsync((c) =>
@@ -395,6 +434,9 @@ namespace SAEA.MessageSocket
         /// </summary>
         public void Connect()
         {
+            // 首次连接即冻结装配回调，同步连接与异步连接口径一致。
+            FreezeConfigurePipeline();
+
             if (!_client.Connected)
             {
                 _client.Connect();

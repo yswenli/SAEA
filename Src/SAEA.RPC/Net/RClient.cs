@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/10 16:20:00
+*修改时间：2026/11/11 11:20:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：改用流式处理器链收发 RPC 帧，删除 OnNoticed/OnDisconnected/OnError 事件，发送改走连接处理器链
+*描述：装配回调改为启动前注入：Start/Connect 之后再赋值抛 InvalidOperationException，中英 README 同步说明
 *
 *****************************************************************************/
 using System;
@@ -91,11 +91,48 @@ namespace SAEA.RPC.Net
         /// </summary>
         public Action<string, Exception> ErrorHandler { get; set; }
 
+        private readonly object _configurePipelineLock = new object();
+
+        private Action<string, IChannelPipeline> _configurePipeline;
+
+        private bool _configurePipelineFrozen;
+
         /// <summary>
         /// 处理器链装配回调：每条连接在解码之后、异常收口之前调用一次，
         /// 使用者在此追加自己的入站处理器；为 null 时只保留内置处理器。
+        /// 必须在首次 Connect 之前赋值，连接建立后再赋值会抛 InvalidOperationException。
         /// </summary>
-        public Action<string, IChannelPipeline> ConfigurePipeline { get; set; }
+        public Action<string, IChannelPipeline> ConfigurePipeline
+        {
+            get
+            {
+                lock (_configurePipelineLock)
+                {
+                    return _configurePipeline;
+                }
+            }
+            set
+            {
+                lock (_configurePipelineLock)
+                {
+                    if (_configurePipelineFrozen)
+                        throw new InvalidOperationException("处理器链装配回调只能在首次 Connect 之前赋值，连接建立后已冻结。");
+
+                    _configurePipeline = value;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 冻结装配回调，由 Connect 调用
+        /// </summary>
+        private void FreezeConfigurePipeline()
+        {
+            lock (_configurePipelineLock)
+            {
+                _configurePipelineFrozen = true;
+            }
+        }
 
         public RClient(Uri uri, int timeOut = 3000)
         {
@@ -225,6 +262,9 @@ namespace SAEA.RPC.Net
         /// </summary>
         public void Connect()
         {
+            // 首次连接即冻结装配回调：后续重连沿用同一份配置，避免已建链的连接与回调不一致。
+            FreezeConfigurePipeline();
+
             _client.ConnectAsync();
         }
 

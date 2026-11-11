@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:32
+*修改时间：2026/11/11 11:20:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：装配回调改为启动前注入：Start/Connect 之后再赋值抛 InvalidOperationException，中英 README 同步说明
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -60,6 +60,7 @@ namespace SAEA.RPC.Provider
         /// <summary>
         /// 处理器链装配回调：每条连接在 RPC 解码之后、异常收口之前调用一次，
         /// 使用者在此追加自己的入站处理器；错误可通过 <see cref="ExceptionCollector.OnErr"/> 观察。
+        /// 必须在 Start 之前赋值，Start 之后再赋值会抛 InvalidOperationException。
         /// </summary>
         public Action<string, IChannelPipeline> ConfigurePipeline
         {

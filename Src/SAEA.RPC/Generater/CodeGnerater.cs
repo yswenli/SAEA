@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 10:09:00
+*修改时间：2026/11/11 10:47:08
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：生成的代理构造函数增加链装配回调透传
+*描述：生成物补齐 XML 注释、为每个服务方法生成 Async 别名并清理跨次生成缓存
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -98,6 +98,67 @@ namespace SAEA.RPC.Generater
             return sb.ToString();
         }
 
+        /// <summary>
+        /// 追加 XML 摘要注释
+        /// </summary>
+        /// <param name="sb">目标构建器</param>
+        /// <param name="indent">缩进层级</param>
+        /// <param name="summary">摘要文本</param>
+        static void AppendSummary(StringBuilder sb, int indent, string summary)
+        {
+            var space = GetSpace(indent);
+
+            sb.AppendLine(space + "/// <summary>");
+
+            foreach (var line in summary.Split('\n'))
+            {
+                sb.AppendLine(space + "/// " + line.TrimEnd('\r'));
+            }
+
+            sb.AppendLine(space + "/// </summary>");
+        }
+
+        /// <summary>
+        /// 追加 XML 参数注释
+        /// </summary>
+        /// <param name="sb">目标构建器</param>
+        /// <param name="indent">缩进层级</param>
+        /// <param name="name">参数名</param>
+        /// <param name="desc">参数说明</param>
+        static void AppendParam(StringBuilder sb, int indent, string name, string desc)
+        {
+            sb.AppendLine(GetSpace(indent) + $"/// <param name=\"{name}\">{desc}</param>");
+        }
+
+        /// <summary>
+        /// 追加 XML 返回值注释
+        /// </summary>
+        /// <param name="sb">目标构建器</param>
+        /// <param name="indent">缩进层级</param>
+        /// <param name="desc">返回值说明</param>
+        static void AppendReturns(StringBuilder sb, int indent, string desc)
+        {
+            sb.AppendLine(GetSpace(indent) + $"/// <returns>{desc}</returns>");
+        }
+
+        /// <summary>
+        /// 追加服务方法及其同步实现
+        /// </summary>
+        /// <param name="sb">目标构建器</param>
+        /// <param name="serviceName">服务名</param>
+        /// <param name="methodName">本地方法名</param>
+        /// <param name="remoteMethodName">服务端方法名，Async 别名沿用原名</param>
+        /// <param name="returnTypeName">返回类型名</param>
+        /// <param name="argsStr">参数声明</param>
+        /// <param name="argsInput">实参列表</param>
+        static void AppendServiceMethod(StringBuilder sb, string serviceName, string methodName, string remoteMethodName, string returnTypeName, string argsStr, string argsInput)
+        {
+            sb.AppendLine(GetSpace(2) + $"public {returnTypeName} {methodName}({argsStr})");
+            sb.AppendLine(GetSpace(2) + "{");
+            sb.AppendLine(GetSpace(3) + $"return _serviceConsumer.RemoteCall<{returnTypeName}>(\"{serviceName}\", \"{remoteMethodName}\"{argsInput});");
+            sb.AppendLine(GetSpace(2) + "}");
+        }
+
         static string _proxyStr;
 
         static List<string> _serviceStrs = new List<string>();
@@ -120,10 +181,12 @@ namespace SAEA.RPC.Generater
             csStr.AppendLine("{");
 
 
+            AppendSummary(csStr, 1, "RPC服务代理类");
             csStr.AppendLine($"{GetSpace(1)}public class RPCServiceProxy");
             csStr.AppendLine(GetSpace(1) + "{");
 
 
+            AppendSummary(csStr, 2, "处理器链装配回调：每条连接在 RPC 解码之后、异常收口之前调用一次，\n使用者在此追加自己的入站处理器，可观察应答、推送通知与链上异常。\n代理在构造期建立连接，请在构造函数中注入，构造完成后再赋值会抛 InvalidOperationException");
             csStr.AppendLine(GetSpace(2) + "public Action<string, IChannelPipeline> ConfigurePipeline");
             csStr.AppendLine(GetSpace(2) + "{");
             csStr.AppendLine(GetSpace(3) + "get { return _serviceConsumer.ConfigurePipeline; }");
@@ -132,13 +195,25 @@ namespace SAEA.RPC.Generater
             csStr.AppendLine(GetSpace(2) + "ServiceConsumer _serviceConsumer;\r\n");
 
 
+            AppendSummary(csStr, 2, "获取连接状态");
             csStr.AppendLine(GetSpace(2) + "public bool IsConnected");
             csStr.AppendLine(GetSpace(2) + "{");
             csStr.AppendLine(GetSpace(3) + "get { return _serviceConsumer.IsConnected; }");
             csStr.AppendLine(GetSpace(2) + "}");
 
 
+            csStr.AppendLine();
+            AppendSummary(csStr, 2, "构造函数");
+            AppendParam(csStr, 2, "uri", "服务地址");
             csStr.AppendLine(GetSpace(2) + "public RPCServiceProxy(string uri = \"rpc://127.0.0.1:39654\") : this(uri, 4, 5, 10 * 1000) { }");
+
+            csStr.AppendLine();
+            AppendSummary(csStr, 2, "构造函数");
+            AppendParam(csStr, 2, "uri", "服务地址");
+            AppendParam(csStr, 2, "links", "连接数");
+            AppendParam(csStr, 2, "retry", "重试次数");
+            AppendParam(csStr, 2, "timeOut", "超时时间");
+            AppendParam(csStr, 2, "configurePipeline", "处理器链装配回调，在连接建立前写下，建链时生效");
             csStr.AppendLine(GetSpace(2) + "public RPCServiceProxy(string uri, int links = 4, int retry = 5, int timeOut = 10 * 1000, Action<string, IChannelPipeline> configurePipeline = null)");
             csStr.AppendLine(GetSpace(2) + "{");
             csStr.AppendLine(GetSpace(3) + "_serviceConsumer = new ServiceConsumer(new Uri(uri), links, retry, timeOut, configurePipeline);");
@@ -154,10 +229,14 @@ namespace SAEA.RPC.Generater
             }
             csStr.AppendLine(GetSpace(2) + "}");
 
+            csStr.AppendLine();
+            AppendSummary(csStr, 2, "重连");
+            AppendReturns(csStr, 2, "重连成功返回 true");
             csStr.AppendLine(GetSpace(2) + "public bool Reconnect()");
             csStr.AppendLine(GetSpace(2) + "{");
             csStr.AppendLine(GetSpace(3) + "return _serviceConsumer.Reconnect();");
             csStr.AppendLine(GetSpace(2) + "}");
+            csStr.AppendLine();
 
             if (names != null)
             {
@@ -166,10 +245,13 @@ namespace SAEA.RPC.Generater
                     var suffixStr = GetSuffixStr(name);
 
                     csStr.AppendLine(GetSpace(2) + $"{name} {suffixStr};");
+                    csStr.AppendLine();
+                    AppendSummary(csStr, 2, $"{name} 服务客户端代理");
                     csStr.AppendLine(GetSpace(2) + $"public {name} {name}");
                     csStr.AppendLine(GetSpace(2) + "{");
                     csStr.AppendLine($"{GetSpace(3)} get{{ return {suffixStr}; }}");
                     csStr.AppendLine(GetSpace(2) + "}");
+                    csStr.AppendLine();
 
                     var list = RPCMapping.GetAll(name);
                     if (list != null)
@@ -180,12 +262,15 @@ namespace SAEA.RPC.Generater
             }
 
 
+            AppendSummary(csStr, 2, "注册接收通知；注册后服务端推送会以 <see cref=\"SAEA.RPC.Net.RSocketMsg\"/> 形式进入处理器链");
             csStr.AppendLine(GetSpace(2) + "public void RegistReceiveNotice()");
             csStr.AppendLine(GetSpace(2) + "{");
             csStr.AppendLine(GetSpace(3) + "_serviceConsumer.RegistReceiveNotice();");
             csStr.AppendLine(GetSpace(2) + "}");
 
 
+            csStr.AppendLine();
+            AppendSummary(csStr, 2, "释放资源");
             csStr.AppendLine(GetSpace(2) + "public void Dispose()");
             csStr.AppendLine(GetSpace(2) + "{");
             csStr.AppendLine(GetSpace(3) + "_serviceConsumer.Dispose();");
@@ -206,9 +291,13 @@ namespace SAEA.RPC.Generater
             StringBuilder csStr = new StringBuilder();
             csStr.AppendLine($"namespace {spaceName}.Consumer.Service");
             csStr.AppendLine("{");
+            AppendSummary(csStr, 1, $"{serviceName} 的客户端代理");
             csStr.AppendLine($"{GetSpace(1)}public class {serviceName}");
             csStr.AppendLine(GetSpace(1) + "{");
             csStr.AppendLine(GetSpace(2) + "ServiceConsumer _serviceConsumer;");
+            csStr.AppendLine();
+            AppendSummary(csStr, 2, "构造函数");
+            AppendParam(csStr, 2, "serviceConsumer", "服务消费者");
             csStr.AppendLine(GetSpace(2) + $"public {serviceName}(ServiceConsumer serviceConsumer)");
             csStr.AppendLine(GetSpace(2) + "{");
             csStr.AppendLine(GetSpace(3) + "_serviceConsumer = serviceConsumer;");
@@ -378,20 +467,34 @@ namespace SAEA.RPC.Generater
                         argsInput.Append(arg.Key);
                     }
                 }
-                if (rtype.IsGenericType)
-                {
-                    csStr.AppendLine(GetSpace(2) + $"public {TypeHelper.GetTypeName(rtype)} {item.Key}({argsStr.ToString()})");
-                    csStr.AppendLine(GetSpace(2) + "{");
-                    csStr.AppendLine(GetSpace(3) + $"return _serviceConsumer.RemoteCall<{TypeHelper.GetTypeName(rtype)}>(\"{serviceName}\", \"{item.Key}\"{argsInput.ToString()});");
-                    csStr.AppendLine(GetSpace(2) + "}");
+                var returnTypeName = rtype.IsGenericType ? TypeHelper.GetTypeName(rtype) : rtype.Name;
 
-                }
-                else
+                csStr.AppendLine();
+                AppendSummary(csStr, 2, $"调用服务端 {item.Key} 方法");
+                if (item.Value.Pamars != null)
                 {
-                    csStr.AppendLine(GetSpace(2) + $"public {rtype.Name} {item.Key}({argsStr.ToString()})");
-                    csStr.AppendLine(GetSpace(2) + "{");
-                    csStr.AppendLine(GetSpace(3) + $"return _serviceConsumer.RemoteCall<{rtype.Name}>(\"{serviceName}\", \"{item.Key}\"{argsInput.ToString()});");
-                    csStr.AppendLine(GetSpace(2) + "}");
+                    foreach (var arg in item.Value.Pamars)
+                    {
+                        AppendParam(csStr, 2, arg.Key, "参数 " + arg.Key);
+                    }
+                }
+                AppendReturns(csStr, 2, "远程调用结果");
+                AppendServiceMethod(csStr, serviceName, item.Key, item.Key, returnTypeName, argsStr.ToString(), argsInput.ToString());
+
+                // 为每个方法补一个同名的 Async 别名，便于直接以 async 方式调用；实现仍是同步远程调用，服务端方法名不变。
+                if (!item.Key.EndsWith("Async", StringComparison.Ordinal))
+                {
+                    csStr.AppendLine();
+                    AppendSummary(csStr, 2, $"异步调用服务端 {item.Key} 方法；实现为同步远程调用，并非真正的异步");
+                    if (item.Value.Pamars != null)
+                    {
+                        foreach (var arg in item.Value.Pamars)
+                        {
+                            AppendParam(csStr, 2, arg.Key, "参数 " + arg.Key);
+                        }
+                    }
+                    AppendReturns(csStr, 2, "远程调用结果");
+                    AppendServiceMethod(csStr, serviceName, item.Key + "Async", item.Key, returnTypeName, argsStr.ToString(), argsInput.ToString());
                 }
             }
 
@@ -434,15 +537,18 @@ namespace SAEA.RPC.Generater
                     StringBuilder csStr = new StringBuilder();
                     csStr.AppendLine($"namespace {spaceName}.Consumer.Model");
                     csStr.AppendLine("{");
+                    AppendSummary(csStr, 1, $"{TypeHelper.GetTypeName(type)} 实体");
                     csStr.AppendLine($"{GetSpace(1)}public class {TypeHelper.GetTypeName(type)}");
                     csStr.AppendLine(GetSpace(1) + "{");
                     var ps = type.GetProperties();
                     foreach (var p in ps)
                     {
+                        AppendSummary(csStr, 2, $"属性 {p.Name}");
                         csStr.AppendLine($"{GetSpace(2)}public {TypeHelper.GetTypeName(p.PropertyType)} {p.Name}");
                         csStr.AppendLine(GetSpace(2) + "{");
                         csStr.AppendLine(GetSpace(3) + "get;set;");
                         csStr.AppendLine(GetSpace(2) + "}");
+                        csStr.AppendLine();
                     }
                     csStr.AppendLine(GetSpace(1) + "}");
                     csStr.AppendLine("}");
@@ -482,11 +588,13 @@ namespace SAEA.RPC.Generater
                 var baseType = Enum.GetUnderlyingType(type);
                 csStr.AppendLine($"namespace {spaceName}.Consumer.Model");
                 csStr.AppendLine("{");
+                AppendSummary(csStr, 1, $"{type.Name} 枚举");
                 csStr.AppendLine($"{GetSpace(1)}public enum {type.Name}:{baseType.Name}");
                 csStr.AppendLine(GetSpace(1) + "{");
                 var values = Enum.GetValues(type);
                 foreach (var value in values)
                 {
+                    AppendSummary(csStr, 2, $"枚举值 {value}");
                     if (values.GetValue(values.Length - 1) == value)
                     {
                         switch (baseType.Name)
@@ -544,6 +652,11 @@ namespace SAEA.RPC.Generater
         /// <param name="types"></param>
         public static void Generate(string folder, string spaceName, params Type[] types)
         {
+            // 静态缓存跨次生成会累积，先清空，否则同一进程内第二次生成会重复追加服务与实体。
+            _serviceStrs.Clear();
+            _modelStrs.Clear();
+            _proxyStr = null;
+
             RPCMapping.Regists(types);
 
             GenerateProxy(spaceName);

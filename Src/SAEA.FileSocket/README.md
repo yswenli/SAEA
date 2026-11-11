@@ -311,7 +311,8 @@ fileTransfer.OnReceiveEnd += (filePath) =>
 
 ### Q4: 如何拒绝接收特定文件？
 
-**A**: 用 `ConfigurePipeline` 在接收链上追加自己的处理器，按业务规则调用 `Refuse` 或放行：
+**A**: 用 `ConfigurePipeline` 在接收链上追加自己的处理器，按业务规则调用 `Refuse` 或放行。
+装配回调必须在 `Start()` 之前赋值，服务启动后再赋值会抛 `InvalidOperationException`：
 
 ```csharp
 using SAEA.Common.Serialization;

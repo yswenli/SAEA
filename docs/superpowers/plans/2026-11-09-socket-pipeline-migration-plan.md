@@ -602,6 +602,12 @@ dotnet run --project Src/SAEA.Sockets.PipelineTest -c Release -- --bench
 - `RPCTest`、`QueueSocketTest`、`MessageTest` 改链装配；`QueueSocketTest --functional` 自动跑。
 - 对应 3 包中英 README。
 
+### P3-5 装配回调冻结与生成器模板（已完成，见 `p3-5-acceptance-2026-11-11.md`）
+
+- 六个已迁移组件的 `ConfigurePipeline` 统一为「`Start()` / 首次 `Connect()` 之后赋值抛 `InvalidOperationException`」；构造即建链的入口改为构造参数注入。
+- `CodeGnerater` 模板补齐 XML 注释与 `XxxAsync` 别名，生成物与落盘代理一致。
+- 每包新增冻结用例（6 条），十套单测合计 584 条。
+
 ---
 
 ## 六、P4：`SAEA.FTP` 传输重写

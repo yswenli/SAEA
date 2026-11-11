@@ -56,6 +56,8 @@ client.Connect();
 client.SendPrivateMsg("user_002", "Hello!");
 ```
 
+`ConfigurePipeline` 必须在服务端 `Start()`、客户端 `Connect()`/`ConnectAsync()` 之前赋值，链启动后再赋值会抛 `InvalidOperationException`。
+
 **就这么简单！** 🎉 你已经实现了一个支持三种消息模式的高性能消息系统。
 
 ---

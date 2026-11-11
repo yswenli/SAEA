@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/10 13:56:00
+*修改时间：2026/11/11 11:20:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：改用 SAEA.Sockets.Pipeline，删除接收与生命周期事件，握手与分帧由处理器链承接，新增 TLS 配置重载
+*描述：装配回调改为启动前注入：Start/Connect 之后再赋值抛 InvalidOperationException，中英 README 同步说明
 *
 *****************************************************************************/
 using System;
@@ -64,11 +64,48 @@ namespace SAEA.WebSocket
 
         string _origin;
 
+        private readonly object _configurePipelineLock = new object();
+
+        private Action<string, IChannelPipeline> _configurePipeline;
+
+        private bool _configurePipelineFrozen;
+
         /// <summary>
         /// 处理器链装配回调：连接建立、握手处理器之后、异常收口之前调用一次，
-        /// 接收会话 ID 与尚未启动的链；为 null 时只保留内置处理器
+        /// 接收会话 ID 与尚未启动的链；为 null 时只保留内置处理器。
+        /// 必须在首次 Connect 之前赋值，连接建立后再赋值会抛 InvalidOperationException。
         /// </summary>
-        public Action<string, IChannelPipeline> ConfigurePipeline { get; set; }
+        public Action<string, IChannelPipeline> ConfigurePipeline
+        {
+            get
+            {
+                lock (_configurePipelineLock)
+                {
+                    return _configurePipeline;
+                }
+            }
+            set
+            {
+                lock (_configurePipelineLock)
+                {
+                    if (_configurePipelineFrozen)
+                        throw new InvalidOperationException("处理器链装配回调只能在首次 Connect 之前赋值，连接建立后已冻结。");
+
+                    _configurePipeline = value;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 冻结装配回调，由 Connect 调用
+        /// </summary>
+        private void FreezeConfigurePipeline()
+        {
+            lock (_configurePipelineLock)
+            {
+                _configurePipelineFrozen = true;
+            }
+        }
 
         IClientSocket _client;
 
@@ -316,6 +353,9 @@ namespace SAEA.WebSocket
         /// <returns>是否连接成功</returns>
         public bool Connect(int timeOut = 10 * 1000)
         {
+            // 首次连接即冻结装配回调：后续重连沿用同一份配置，避免已建链的连接与回调不一致。
+            FreezeConfigurePipeline();
+
             if (_client.Connected && _isHandSharked)
                 return true;
 

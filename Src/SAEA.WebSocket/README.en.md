@@ -158,6 +158,8 @@ sealed class PrintHandler : InboundHandlerAdapter
 
 A session handler (server `SessionHandler`, client `ClientSessionHandler`) sits in the inbound path too. It answers Ping with Pong and closes on Close; neither control frame reaches business handlers, while data frames and Pong do.
 
+Assign `ConfigurePipeline` before the server `Start()` or the client's first `Connect()`; assigning it after the chain starts throws `InvalidOperationException`. Reconnects reuse the callback assigned the first time.
+
 ### Flow
 
 ```

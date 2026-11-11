@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 10:09:00
+*修改时间：2026/11/11 11:20:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：构造时注入链装配回调，连接建立前完成装配
+*描述：装配回调改为启动前注入：Start/Connect 之后再赋值抛 InvalidOperationException，中英 README 同步说明
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -64,7 +64,51 @@ namespace SAEA.RPC.Consumer
 
         object _syncLocker = new object();
 
-        Action<string, IChannelPipeline> _configurePipeline;
+        private readonly object _configurePipelineLock = new object();
+
+        private Action<string, IChannelPipeline> _configurePipeline;
+
+        private bool _configurePipelineFrozen;
+
+        /// <summary>
+        /// 处理器链装配回调：向下转发到每个底层连接，在 RPC 解码之后、异常收口之前调用。
+        /// <para>
+        /// 连接在构造期建立，因此回调必须通过构造参数注入；构造完成后再赋值会抛
+        /// InvalidOperationException。同一地址复用其他实例已建立的连接时，那些连接
+        /// 保持原有装配。
+        /// </para>
+        /// </summary>
+        public Action<string, IChannelPipeline> ConfigurePipeline
+        {
+            get
+            {
+                lock (_configurePipelineLock)
+                {
+                    return _configurePipeline;
+                }
+            }
+            set
+            {
+                lock (_configurePipelineLock)
+                {
+                    if (_configurePipelineFrozen)
+                        throw new InvalidOperationException("处理器链装配回调只能在构造时注入，连接建立后已冻结。");
+
+                    _configurePipeline = value;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 冻结装配回调，由构造函数在连接建立后调用
+        /// </summary>
+        private void FreezeConfigurePipeline()
+        {
+            lock (_configurePipelineLock)
+            {
+                _configurePipelineFrozen = true;
+            }
+        }
 
         /// <summary>
         /// 同步锁对象
@@ -74,26 +118,6 @@ namespace SAEA.RPC.Consumer
             get
             {
                 return _syncLocker;
-            }
-        }
-
-        /// <summary>
-        /// 处理器链装配回调：向下转发到每个底层连接，在 RPC 解码之后、异常收口之前调用。
-        /// <para>
-        /// 连接建立时读取并装配一次，链启动后即冻结：赋值只对尚未建链的连接生效，
-        /// 已连接的通道不会补装，需要在创建实例时通过构造参数注入。同一地址复用
-        /// 其他实例已建立的连接时，那些连接保持原有装配。
-        /// </para>
-        /// </summary>
-        public Action<string, IChannelPipeline> ConfigurePipeline
-        {
-            get { return _configurePipeline; }
-            set
-            {
-                _configurePipeline = value;
-
-                foreach (var rClient in _myClients.Values)
-                    rClient.ConfigurePipeline = value;
             }
         }
 
@@ -157,6 +181,9 @@ namespace SAEA.RPC.Consumer
                     _myClients.TryAdd(i, rClient);
                 }
             }
+
+            // 连接已在本构造期建立，回调此后不再接受修改。
+            FreezeConfigurePipeline();
         }
 
         /// <summary>

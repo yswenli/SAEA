@@ -235,6 +235,8 @@ server.Start();
 
 处理器继承 `InboundHandlerAdapter`，在 `ChannelReadAsync` 里消费解码后的消息，在 `ChannelInactiveAsync` 里处理断开，在 `ChannelExceptionCaughtAsync` 里观察链上异常；不消费的消息会被链尾回收。传输层异常仍统一汇入 `ExceptionCollector`。
 
+装配回调必须在 `Start()` 或首次 `Connect()` 之前赋值，链启动后再赋值会抛 `InvalidOperationException`。RPC 消费者、`QueueSocket` 的 `Producer` 等构造期即建链的入口只能通过构造参数注入。
+
 ### SAEA.RPC vs HTTP RPC
 
 | 特性 | SAEA.RPC | HTTP RPC |

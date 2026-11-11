@@ -235,6 +235,8 @@ server.Start();
 
 Handlers derive from `InboundHandlerAdapter`: consume decoded messages in `ChannelReadAsync`, react to disconnects in `ChannelInactiveAsync`, and observe pipeline errors in `ChannelExceptionCaughtAsync`. Messages left unconsumed are recycled at the pipeline tail, while transport errors still flow into `ExceptionCollector`.
 
+Assign the callback before `Start()` or the first `Connect()`; assigning it after the chain starts throws `InvalidOperationException`. Entry points that connect in their constructors, such as the RPC consumer and `QueueSocket` `Producer`, only accept the callback through their constructor.
+
 ### SAEA.RPC vs HTTP RPC
 
 | Feature | SAEA.RPC | HTTP RPC |

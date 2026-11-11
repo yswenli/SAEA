@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/10 20:10:00
+*修改时间：2026/11/11 11:20:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：删除发送与生命周期事件，改为透传处理器链装配回调
+*描述：装配回调改为启动前注入：Start/Connect 之后再赋值抛 InvalidOperationException，中英 README 同步说明
 *
 *****************************************************************************/
 using System;
@@ -57,6 +57,8 @@ namespace SAEA.QueueSocket
         /// <summary>
         /// 处理器链装配回调：参数为连接标识与尚未启动的处理器链。
         /// 发布不需要入站处理器，为 null 时只保留内置处理器。
+        /// 构造函数内即建立连接，因此只能在创建实例时通过构造参数注入，之后再赋值会抛
+        /// InvalidOperationException。
         /// </summary>
         public Action<string, IChannelPipeline> ConfigurePipeline
         {
@@ -75,9 +77,23 @@ namespace SAEA.QueueSocket
         /// </summary>
         /// <param name="name"></param>
         /// <param name="serverAddress"></param>
-        public Producer(string name, string serverAddress)
+        public Producer(string name, string serverAddress) : this(name, serverAddress, null)
+        {
+        }
+
+        /// <summary>
+        /// 生产者，并在建立连接前装配处理器链
+        /// </summary>
+        /// <param name="name">生产者名称</param>
+        /// <param name="serverAddress">服务端地址</param>
+        /// <param name="configurePipeline">处理器链装配回调，连接建立前写下，建链时生效</param>
+        public Producer(string name, string serverAddress, Action<string, IChannelPipeline> configurePipeline)
         {
             _producer = new QClient(name, serverAddress);
+
+            if (configurePipeline != null)
+                _producer.ConfigurePipeline = configurePipeline;
+
             _producer.Connect();
         }
 

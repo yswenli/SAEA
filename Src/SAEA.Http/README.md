@@ -103,6 +103,7 @@ server.Start();
 - 链首是出站前缀，`HttpResponseEncoder` 在最左、`OutboundSerializingHandler` 在最右；自定义出站处理器必须让出站节点保持连续前缀。
 - 协议节点（`HttpRequestDecoder` → `HttpProtocolHandler` → 派发 → 升级后原始帧收口）固定排在你的处理器之前。
 - 你在 `ConfigurePipeline` 里追加的处理器排在协议节点之后、链尾 `ExceptionTerminalHandler` 之前。
+- `ConfigurePipeline` 必须在 `WebHost.Start()` 之前赋值，服务启动后再赋值会抛 `InvalidOperationException`。
 - 业务写一律用 `pipeline.WriteAsync(...)`（或在处理器内用 `ctx.Pipeline.WriteAsync(...)`）；`ctx.WriteAsync(...)` 只在出站回调内向下游转发。
 
 请求/异常/连接关闭三个业务入口都在 `WebConfig` 上，不再有事件订阅：

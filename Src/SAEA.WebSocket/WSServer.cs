@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/10 13:55:00
+*修改时间：2026/11/11 11:20:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：删除面向使用者的接收与生命周期事件，改由 ConfigurePipeline 装配处理器链
+*描述：装配回调改为启动前注入：Start/Connect 之后再赋值抛 InvalidOperationException，中英 README 同步说明
 *
 *****************************************************************************/
 using System;
@@ -49,7 +49,8 @@ namespace SAEA.WebSocket
 
         /// <summary>
         /// 处理器链装配回调：每条连接握手完成、帧解码器之后、异常收口之前调用一次，
-        /// 接收会话 ID 与尚未启动的链；为 null 时只保留内置处理器
+        /// 接收会话 ID 与尚未启动的链；为 null 时只保留内置处理器。
+        /// 必须在 Start 之前赋值，Start 之后再赋值会抛 InvalidOperationException。
         /// </summary>
         public Action<string, IChannelPipeline> ConfigurePipeline
         {

@@ -60,6 +60,8 @@ consumer.Subscribe("orders");
 consumer.Start();
 ```
 
+`ConfigurePipeline` 必须在 `Start()`/`Connect()` 之前赋值，链启动后再赋值会抛 `InvalidOperationException`。`Producer` 在构造期建立连接，装配回调只能通过构造参数注入。
+
 **就这么简单！** 🎉 你已经实现了一个高性能的发布/订阅消息队列系统。
 
 ---

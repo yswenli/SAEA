@@ -56,6 +56,8 @@ client.Connect();
 client.SendPrivateMsg("user_002", "Hello!");
 ```
 
+Assign `ConfigurePipeline` before the server `Start()` or the client `Connect()`/`ConnectAsync()`; assigning it after the chain starts throws `InvalidOperationException`.
+
 **That's it!** 🎉 You've implemented a high-performance messaging system supporting three messaging modes.
 
 ---

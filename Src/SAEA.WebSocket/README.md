@@ -158,6 +158,8 @@ sealed class PrintHandler : InboundHandlerAdapter
 
 入站方向还可插入会话处理器（服务端 `SessionHandler`、客户端 `ClientSessionHandler`），它负责 Ping→Pong 自动应答与 Close 收口；这两类控制帧不会出现在业务处理器里，数据帧与 Pong 才会向下派发。
 
+`ConfigurePipeline` 在服务端 `Start()` 之前、客户端首次 `Connect()` 之前赋值；链启动后再赋值会抛 `InvalidOperationException`。之后重连沿用首次赋值的那份回调。
+
 ### 工作流程图
 
 ```
