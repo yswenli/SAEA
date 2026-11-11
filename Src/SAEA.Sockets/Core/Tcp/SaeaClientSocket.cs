@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 11:30:00
+*修改时间：2026/11/11 17:21:26
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：支持按 IPEndPoint 连接，新增连接失败不关闭套接字的 TryConnectAsync
+*描述：流模式下对端 FIN 视为入站结束，输入处理器返回后收尾断开
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -711,6 +711,7 @@ namespace SAEA.Sockets.Core.Tcp
         /// <summary>
         /// 启动接管读循环的输入处理器。仅在配置了钩子且连接门面存在时启动，
         /// 与 <see cref="StartSpanPump"/> 互斥：配置处理器时事件泵不再启动。
+        /// 处理器返回即让出连接所有权：不论正常返回、异常还是取消，都由框架在返回后断开连接。
         /// </summary>
         /// <returns>未配置钩子或启动成功返回 true；连接建立回调抛异常时断开连接并返回 false。</returns>
         private bool StartPipelineIfNeeded()
@@ -765,9 +766,17 @@ namespace SAEA.Sockets.Core.Tcp
                 }
                 finally
                 {
-                    // 只在仍是当前泵时清空，避免重连后误清新令牌。
-                    if (ReferenceEquals(_pipelineCts, cts)) _pipelineCts = null;
+                    // 只在仍是当前泵时清空与收口，避免重连后误清新令牌或误断新连接。
+                    var current = ReferenceEquals(_pipelineCts, cts);
+                    if (current) _pipelineCts = null;
                     cts.Dispose();
+
+                    // 处理器返回即让出连接所有权：连接尚未断开时由框架收口。
+                    // Disconnect 入口会先把 Connected 置 false，据此避免重复触发 OnDisconnected。
+                    if (current && Connected)
+                    {
+                        try { Disconnect(); } catch { }
+                    }
                 }
             });
 
@@ -892,7 +901,10 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         /// <summary>
-        /// 处理接收完成
+        /// 处理接收完成。配置了输入处理器（流模式）时，对端 FIN（0 字节且无错误）视为
+        /// 「入站结束」而不是「连接断开」：只投递 <see cref="SaeaConnection.CompleteInput"/>，
+        /// 让处理器读完 Pipe 剩余字节并看到结束标记，随后由处理器返回后的收口断开连接；
+        /// 该阶段仍允许写方向继续发送。未启用流模式时 0 字节仍按断开处理。
         /// </summary>
         /// <param name="readArgs">读取操作的SocketAsyncEventArgs对象</param>
         void ProcessReceived(SocketAsyncEventArgs readArgs)
@@ -943,6 +955,23 @@ namespace SAEA.Sockets.Core.Tcp
                                 }
                             }
                         }
+                    }
+                    else
+                    {
+                        // 对端 FIN。流模式下输入处理器已启动时只标记入站结束，不再 re-arm 接收，
+                        // 否则 Socket.Connected 仍为 true 会让接收循环空转。
+                        Interlocked.Exchange(ref _receiving, 0);
+
+                        var eofConnection = _connection;
+                        if (eofConnection != null && _pipelineCts != null)
+                        {
+                            eofConnection.CompleteInput();
+                            return;
+                        }
+
+                        // 事件/包模式没有入站接管方，0 字节按断开处理。
+                        Disconnect();
+                        return;
                     }
 
                     // 本次接收已完成，允许下一次接收。

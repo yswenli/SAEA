@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 13:00:00
+*修改时间：2026/11/11 17:21:26
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 LocalEndPoint 暴露监听套接字实际绑定端点
+*描述：流模式下对端 FIN 视为入站结束，输入处理器返回后收尾断开
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -428,6 +428,8 @@ namespace SAEA.Sockets.Core.Tcp
 
         /// <summary>
         /// 启动接管读循环的输入处理器。仅在配置了输入处理器且连接门面存在时启动。
+        /// 处理器返回即让出连接所有权：不论正常返回、异常还是取消，都由框架在返回后断开连接，
+        /// 应用侧不得再持有该会话的读写所有权。
         /// </summary>
         private void StartPipelineIfNeeded(IUserToken userToken, SaeaConnection connection)
         {
@@ -459,8 +461,15 @@ namespace SAEA.Sockets.Core.Tcp
                 finally
                 {
                     CancellationTokenSource removed;
-                    _pipelineCts.TryRemove(sessionId, out removed);
+                    // 只有本次处理器仍是登记的接管者才收口：断开路径会先摘除登记，据此判定为幂等兜底，
+                    // 既不会重复触发 OnDisconnected，也不会在令牌入池复用后误断新连接。
+                    var wasRegistered = _pipelineCts.TryRemove(sessionId, out removed);
                     cts.Dispose();
+
+                    if (wasRegistered)
+                    {
+                        try { Disconnect(userToken); } catch { }
+                    }
                 }
             });
         }
@@ -667,7 +676,10 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         /// <summary>
-        /// 处理接收到数据
+        /// 处理接收到数据。配置了输入处理器（流模式）时，对端 FIN（0 字节且无错误）视为
+        /// 「入站结束」而不是「连接断开」：只投递 <see cref="SaeaConnection.CompleteInput"/>，
+        /// 让处理器读完 Pipe 剩余字节并看到结束标记，随后由处理器返回后的收口断开连接；
+        /// 该阶段仍允许写方向继续发送。未配置输入处理器（事件/包模式）时 0 字节仍按断开处理。
         /// </summary>
         /// <param name="readArgs"></param>
         void ProcessReceived(SocketAsyncEventArgs readArgs)
@@ -710,7 +722,23 @@ namespace SAEA.Sockets.Core.Tcp
                 }
                 else
                 {
-                    try { Disconnect(readArgs.UserToken as IUserToken); } catch { }
+                    var eofToken = readArgs.UserToken as IUserToken;
+                    var eofConnection = GetConnection(eofToken);
+
+                    // 对端 FIN 只把「入站结束」交给连接门面：由输入处理器读完 Pipe 剩余字节后
+                    // 自行收口，期间写方向仍可用。带 SocketError 的失败不等于 FIN，仍按断开处理。
+                    if (readArgs.SocketError == SocketError.Success
+                        && eofToken != null
+                        && !string.IsNullOrEmpty(eofToken.ID)
+                        && eofConnection != null
+                        && _pipelineCts.ContainsKey(eofToken.ID))
+                    {
+                        eofConnection.CompleteInput();
+                        // 对端不会再发数据，不再 re-arm 接收；断开由处理器返回后的兜底完成。
+                        return;
+                    }
+
+                    try { Disconnect(eofToken); } catch { }
                 }
             }
             catch (Exception ex)
@@ -1167,10 +1195,12 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         /// <summary>
-        /// 断开客户端连接
+        /// 断开客户端连接。对端 FIN 不直接触发本方法：流模式下 FIN 先投递入站结束，
+        /// 由输入处理器读完剩余字节后返回，再由本方法收口；重复调用经会话释放判定为幂等，
+        /// 只有首次释放才触发 <see cref="OnDisconnected"/>。
         /// </summary>
-        /// <param name="userToken"></param>
-        /// <param name="ex"></param>
+        /// <param name="userToken">会话令牌，为空或已释放时直接返回</param>
+        /// <param name="ex">触发断开的异常，正常关闭时为 null</param>
         public void Disconnect(IUserToken userToken, Exception ex = null)
         {
             try
