@@ -22,15 +22,18 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 14:40:00
+*修改时间：2026/11/11 16:13:51
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增 UDP/TCP 传输实现用例
+*描述：补充并发连接、接受队列上限与事件订阅者异常用例，并给 AcceptAsync 等待加超时守护
 *
 *****************************************************************************/
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -174,8 +177,8 @@ namespace SAEA.P2P.Tests.Transport
                 Assert.IsNotNull(client.LocalEndPoint);
                 Assert.AreNotEqual(0, client.LocalEndPoint.Port);
 
-                using (var accepted = await listener.AcceptAsync(CancellationToken.None))
                 using (var timeout = new CancellationTokenSource(WaitTimeout))
+                using (var accepted = await listener.AcceptAsync(CancellationToken.None).WaitAsync(WaitTimeout))
                 {
                     Assert.IsTrue(accepted.IsConnected);
                     Assert.IsNotNull(accepted.LocalEndPoint);
@@ -246,6 +249,156 @@ namespace SAEA.P2P.Tests.Transport
         }
 
         /// <summary>
+        /// 同一连接侧实例并发发起两次连接：只有一条能建立，另一条以 InvalidOperationException 拒绝，
+        /// 监听侧也只收到一条连接
+        /// </summary>
+        [TestMethod]
+        public async Task ConnectAsync_并发两次调用_只成功一条()
+        {
+            using (var listener = new SaeaTcpTransport(new IPEndPoint(IPAddress.Loopback, 0)))
+            using (var client = new SaeaTcpTransport())
+            using (var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
+            {
+                var first = CaptureAsync(client.ConnectAsync(listener.LocalEndPoint, CancellationToken.None));
+                var second = CaptureAsync(client.ConnectAsync(listener.LocalEndPoint, CancellationToken.None));
+
+                var outcomes = await Task.WhenAll(first, second).WaitAsync(timeout.Token);
+
+                Assert.AreEqual(1, outcomes.Count(error => error == null), "并发连接只允许成功一条");
+                Assert.AreEqual(1, outcomes.Count(error => error is InvalidOperationException), "被拒绝的一条应报重复连接");
+
+                using (var accepted = await listener.AcceptAsync(CancellationToken.None).WaitAsync(WaitTimeout))
+                {
+                    Assert.IsTrue(accepted.IsConnected);
+                }
+
+                // 失败的那次调用根本没有建链，监听侧不存在第二条连接
+                await Assert.ThrowsExceptionAsync<TimeoutException>(
+                    () => listener.AcceptAsync(CancellationToken.None).WaitAsync(WaitTimeout));
+            }
+        }
+
+        /// <summary>
+        /// 不调用 AcceptAsync 时接受队列在上限处截断：连上 40 条（多于上限）后能取走的仍不超过上限，
+        /// 溢出的连接在入队前就被释放，取空后继续等待只会超时，监听侧没有卡死
+        /// </summary>
+        [TestMethod]
+        public async Task AcceptAsync_未取走的连接不超过上限_溢出连接被释放()
+        {
+            // 连接条数取一个明显大于当前上限的固定值，保证一定触发溢出；上限本身从实现读取，不在用例里硬编码
+            const int total = 40;
+
+            using (var listener = new SaeaTcpTransport(new IPEndPoint(IPAddress.Loopback, 0)))
+            using (var drainTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
+            {
+                // 每条连接都会触发 Accepted：等全部到达就说明监听侧已处理完所有连接，队列状态稳定，可以断言
+                var acceptedSeen = 0;
+                var allSeen = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+                listener.Accepted += _ =>
+                {
+                    if (Interlocked.Increment(ref acceptedSeen) >= total) allSeen.TrySetResult(true);
+                };
+
+                var clients = new List<SaeaTcpTransport>();
+
+                try
+                {
+                    for (var i = 0; i < total; i++)
+                    {
+                        var client = new SaeaTcpTransport();
+                        clients.Add(client);
+
+                        await client.ConnectAsync(listener.LocalEndPoint, CancellationToken.None).WaitAsync(WaitTimeout);
+                    }
+
+                    await allSeen.Task.WaitAsync(WaitTimeout);
+
+                    var taken = new List<ITcpTransport>();
+
+                    try
+                    {
+                        // 一直取到等待超时：既数出实际能取走的条数，也证明监听侧没有卡死
+                        while (true)
+                        {
+                            try
+                            {
+                                taken.Add(await listener.AcceptAsync(drainTimeout.Token).WaitAsync(WaitTimeout));
+                            }
+                            catch (TimeoutException)
+                            {
+                                break;
+                            }
+                        }
+
+                        Assert.IsTrue(taken.Count < total, "溢出的连接应在入队前就被释放");
+
+                        var limit = ReadPendingAcceptedLimit();
+
+                        Assert.IsTrue(limit < total, "用例连接条数应大于接受队列上限");
+                        Assert.IsTrue(taken.Count <= limit, "可取走的连接不应超过接受队列上限");
+                    }
+                    finally
+                    {
+                        foreach (var transport in taken) transport.Dispose();
+                    }
+                }
+                finally
+                {
+                    foreach (var client in clients) client.Dispose();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Accepted 订阅者抛异常不影响底层接收循环：订阅者异常不再连带断掉刚接受的连接，
+        /// 该连接仍能收发字节，随后建立的第二个连接也能正常取到
+        /// </summary>
+        [TestMethod]
+        public async Task Accepted_订阅者抛异常_不影响后续接受()
+        {
+            using (var listener = new SaeaTcpTransport(new IPEndPoint(IPAddress.Loopback, 0)))
+            using (var firstClient = new SaeaTcpTransport())
+            using (var secondClient = new SaeaTcpTransport())
+            using (var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
+            {
+                var notified = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+                listener.Accepted += _ =>
+                {
+                    notified.TrySetResult(true);
+                    throw new InvalidOperationException("订阅者故意抛出的异常");
+                };
+
+                await firstClient.ConnectAsync(listener.LocalEndPoint, CancellationToken.None);
+
+                Assert.IsTrue(await notified.Task.WaitAsync(WaitTimeout));
+
+                using (var firstAccepted = await listener.AcceptAsync(timeout.Token).WaitAsync(WaitTimeout))
+                {
+                    Assert.IsTrue(firstAccepted.IsConnected);
+
+                    // 只有当异常被底层吞掉、没有连带断开该连接时，这条字节流才还能用
+                    var payload = Encoding.UTF8.GetBytes("after-handler-exception");
+                    await firstClient.Stream.WriteAsync(payload, 0, payload.Length, timeout.Token);
+
+                    var buffer = new byte[payload.Length];
+                    var read = await ReadExactAsync(firstAccepted.Stream, buffer, timeout.Token);
+
+                    Assert.AreEqual(payload.Length, read);
+                    CollectionAssert.AreEqual(payload, buffer);
+                }
+
+                await secondClient.ConnectAsync(listener.LocalEndPoint, CancellationToken.None);
+
+                using (var secondAccepted = await listener.AcceptAsync(timeout.Token).WaitAsync(WaitTimeout))
+                {
+                    Assert.IsTrue(secondAccepted.IsConnected);
+                }
+            }
+        }
+
+        /// <summary>
         /// 监听侧只承担接受连接，主动连接应被拒绝
         /// </summary>
         [TestMethod]
@@ -297,6 +450,37 @@ namespace SAEA.P2P.Tests.Transport
                 Assert.IsFalse(client.IsConnected);
                 Assert.IsNull(client.LocalEndPoint);
                 Assert.IsNull(client.Stream);
+            }
+        }
+
+        /// <summary>
+        /// 读取传输实现的接受队列上限；上限是内部约束，按实现值驱动用例，避免第二处硬编码随实现漂移
+        /// </summary>
+        /// <returns>接受队列上限</returns>
+        static int ReadPendingAcceptedLimit()
+        {
+            var field = typeof(SaeaTcpTransport).GetField("MaxPendingAccepted", BindingFlags.NonPublic | BindingFlags.Static);
+
+            Assert.IsNotNull(field, "未找到接受队列上限常量");
+
+            return (int)field.GetRawConstantValue();
+        }
+
+        /// <summary>
+        /// 等待任务结束并返回其异常，用于同时观察并发调用的成功与失败
+        /// </summary>
+        /// <param name="task">被观察的任务</param>
+        /// <returns>任务成功时为 null，失败时为捕获到的异常</returns>
+        static async Task<Exception> CaptureAsync(Task task)
+        {
+            try
+            {
+                await task;
+                return null;
+            }
+            catch (Exception ex)
+            {
+                return ex;
             }
         }
 

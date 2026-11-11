@@ -22,10 +22,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 13:05:00
+*修改时间：2026/11/11 16:13:51
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 TCP 传输实现
+*描述：修正并发连接竞态、接受队列无上限与事件订阅者异常处理
 *
 *****************************************************************************/
 using System;
@@ -83,6 +83,12 @@ namespace SAEA.P2P.Transport
         /// </summary>
         private IPEndPoint _localEndPoint;
 
+        // 超出上限立即释放，避免只订阅事件、从不取用的慢消费者把队列堆到进程内存耗尽
+        /// <summary>
+        /// 已接受但还没有被 AcceptAsync 取走的连接上限
+        /// </summary>
+        private const int MaxPendingAccepted = 32;
+
         /// <summary>
         /// 已接受但还没有被 AcceptAsync 取走的连接
         /// </summary>
@@ -98,8 +104,15 @@ namespace SAEA.P2P.Transport
         /// </summary>
         private bool _disposed;
 
+        // 前置检查与真正的连接建立之间隔着 await，必须用该标记占位，否则并发调用会各自建链
         /// <summary>
-        /// 监听侧接受新连接时触发
+        /// 是否有连接正在进行中
+        /// </summary>
+        private bool _connecting;
+
+        /// <summary>
+        /// 监听侧接受新连接时触发；该事件与 <see cref="AcceptAsync"/> 并列交付，不消费接受队列。
+        /// 接受队列已满时新连接已被释放，事件仍会触发；订阅者抛出的异常会被吞掉，不影响后续接受。
         /// </summary>
         public event Action<ITcpTransport> Accepted;
 
@@ -192,7 +205,8 @@ namespace SAEA.P2P.Transport
         /// <returns>连接建立后完成的任务</returns>
         /// <exception cref="ArgumentNullException">remoteEndPoint 为 null</exception>
         /// <exception cref="NotSupportedException">本实例是监听侧</exception>
-        /// <exception cref="InvalidOperationException">本实例已连接或已释放</exception>
+        /// <exception cref="InvalidOperationException">本实例已连接或正在连接中</exception>
+        /// <exception cref="ObjectDisposedException">本实例已释放</exception>
         /// <exception cref="SocketException">连接失败</exception>
         public async Task ConnectAsync(IPEndPoint remoteEndPoint, CancellationToken cancellationToken)
         {
@@ -204,40 +218,67 @@ namespace SAEA.P2P.Transport
             {
                 if (_disposed) throw new ObjectDisposedException(GetType().Name);
                 if (_client != null) throw new InvalidOperationException("该传输实例已经连接，不能重复连接。");
+                if (_connecting) throw new InvalidOperationException("该传输实例正在连接中，不能重复连接。");
+
+                // 必须在离开锁之前占位，否则并发调用都能通过上面的检查
+                _connecting = true;
             }
 
-            var builder = CreateBuilder(remoteEndPoint.Address);
-            var client = new SaeaClientSocket(builder.Build());
+            SaeaClientSocket client = null;
 
-            SocketError error;
             try
             {
-                error = await client.TryConnectAsync(remoteEndPoint).ConfigureAwait(false);
-            }
-            catch
-            {
-                // 连接过程抛异常时套接字所有权还没交给本实例，必须在这里释放，否则句柄泄漏
-                try { client.Dispose(); } catch { }
-                throw;
-            }
+                var builder = CreateBuilder(remoteEndPoint.Address);
+                client = new SaeaClientSocket(builder.Build());
 
-            if (error != SocketError.Success)
-            {
-                try { client.Dispose(); } catch { }
-                throw new SocketException((int)error);
-            }
-
-            lock (_sync)
-            {
-                if (_disposed)
+                SocketError error;
+                try
                 {
+                    error = await client.TryConnectAsync(remoteEndPoint).ConfigureAwait(false);
+                }
+                catch
+                {
+                    // 连接过程抛异常时套接字所有权还没交给本实例，必须在这里释放，否则句柄泄漏
                     try { client.Dispose(); } catch { }
-                    throw new ObjectDisposedException(GetType().Name);
+                    client = null;
+                    throw;
                 }
 
-                _client = client;
-                _stream = client.GetStream();
-                _localEndPoint = client.Socket?.LocalEndPoint as IPEndPoint;
+                if (error != SocketError.Success)
+                {
+                    try { client.Dispose(); } catch { }
+                    client = null;
+                    throw new SocketException((int)error);
+                }
+
+                // 取流也会失败，放在锁外执行，失败时由 finally 释放尚未接管的套接字
+                var stream = client.GetStream();
+
+                lock (_sync)
+                {
+                    if (_disposed) throw new ObjectDisposedException(GetType().Name);
+
+                    // 先赋字节流再赋客户端：其他线程以 _client 非 null 判定已连接，反过来会读到半连接态
+                    _stream = stream;
+                    _client = client;
+                    _localEndPoint = client.Socket?.LocalEndPoint as IPEndPoint;
+
+                    // 套接字所有权已交给本实例，finally 不能再释放它
+                    client = null;
+                }
+            }
+            finally
+            {
+                // 任何路径都要复位，否则一次失败会让该实例永久拒绝连接
+                lock (_sync)
+                {
+                    _connecting = false;
+                }
+
+                if (client != null)
+                {
+                    try { client.Dispose(); } catch { }
+                }
             }
         }
 
@@ -354,7 +395,7 @@ namespace SAEA.P2P.Transport
         }
 
         /// <summary>
-        /// 监听侧接受连接：包装成传输对象，先交给等待者，没有等待者时入队
+        /// 监听侧接受连接：包装成传输对象，先交给等待者，没有等待者时入队；队列已满则丢弃该连接
         /// </summary>
         /// <param name="obj">流模式下为通道对象</param>
         private void OnListenerAccepted(object obj)
@@ -368,29 +409,50 @@ namespace SAEA.P2P.Transport
             var transport = new SaeaTcpTransport(_listener, channel);
 
             TaskCompletionSource<ITcpTransport> waiter = null;
+            var drop = false;
+            var notify = false;
+
             lock (_sync)
             {
                 if (_disposed)
                 {
-                    try { transport.Dispose(); } catch { }
-                    return;
+                    drop = true;
                 }
-
-                if (_acceptWaiters.Count > 0)
+                else if (_acceptWaiters.Count > 0)
                 {
                     waiter = _acceptWaiters.First.Value;
                     _acceptWaiters.RemoveFirst();
+                    notify = true;
+                }
+                else if (_pendingAccepted.Count >= MaxPendingAccepted)
+                {
+                    // 没有等待者且队列已满：直接丢弃，事件照常触发，事件不消费接受队列
+                    drop = true;
+                    notify = true;
                 }
                 else
                 {
                     _pendingAccepted.Enqueue(transport);
+                    notify = true;
                 }
+            }
+
+            // 释放会回调底层套接字并断开会话，必须放在锁外，避免与 AcceptAsync/Dispose 争锁
+            if (drop)
+            {
+                try { transport.Dispose(); } catch { }
             }
 
             if (waiter != null) waiter.TrySetResult(transport);
 
+            if (!notify) return;
+
             var handler = Accepted;
-            if (handler != null) handler(transport);
+            if (handler != null)
+            {
+                // 订阅者异常不能打断底层接收循环，也不能让刚交付的连接失去归属
+                try { handler(transport); } catch { }
+            }
         }
     }
 }
