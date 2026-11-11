@@ -35,23 +35,14 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 
-using SAEA.P2P.Common;
-using SAEA.P2P.Stun;
-using SAEA.P2P.Turn;
-
 namespace SAEA.P2P.TurnServer
 {
     /// <summary>
     /// TURN over TCP 控制连接监听器：只负责接受连接、按流式分帧器切出 STUN 报文与 ChannelData，
-    /// 再交给同一个 <see cref="TurnServer"/> 处理；传输层只用 System.Net.Sockets，便于后续换成 TLS。
+    /// 再交给同一个 <see cref="TurnServer"/> 处理；分帧与分派走 TCP 与 TLS 共用的会话循环。
     /// </summary>
     public sealed class TurnTcpListener : IDisposable
     {
-        /// <summary>
-        /// 单次读取的最大字节数；分帧器自己保留半包状态，不依赖本次读取的边界
-        /// </summary>
-        private const int ReceiveBufferSize = 8192;
-
         /// <summary>
         /// 监听队列长度
         /// </summary>
@@ -264,13 +255,14 @@ namespace SAEA.P2P.TurnServer
         }
 
         /// <summary>
-        /// 单条连接的读取循环：按分帧器切帧后分派，连接断开时释放该连接上的全部分配
+        /// 单条连接的读取循环：交给共用的流式会话循环处理，连接断开时释放该连接上的全部分配
         /// </summary>
         /// <param name="connection">已连接的 socket</param>
         /// <returns>循环结束的任务</returns>
         private async Task ConnectionLoopAsync(Socket connection)
         {
             TcpTurnControlChannel control = null;
+            TurnStreamSession session = null;
             try
             {
                 var localEndPoint = connection.LocalEndPoint as IPEndPoint;
@@ -281,47 +273,14 @@ namespace SAEA.P2P.TurnServer
                 }
 
                 control = new TcpTurnControlChannel(connection, localEndPoint, remoteEndPoint);
-                var framer = new TurnStreamFramer();
-                var buffer = new byte[ReceiveBufferSize];
-
-                while (true)
-                {
-                    int read;
-                    try
-                    {
-                        read = await connection.ReceiveAsync(new ArraySegment<byte>(buffer), SocketFlags.None).ConfigureAwait(false);
-                    }
-                    catch (ObjectDisposedException)
-                    {
-                        break;
-                    }
-                    catch (SocketException)
-                    {
-                        break;
-                    }
-                    catch (InvalidOperationException)
-                    {
-                        break;
-                    }
-
-                    if (read <= 0)
-                    {
-                        break;
-                    }
-
-                    framer.Feed(new ReadOnlySpan<byte>(buffer, 0, read));
-
-                    TurnStreamFrame frame;
-                    while (framer.TryReadFrame(out frame))
-                    {
-                        Dispatch(frame, control);
-                    }
-                }
+                session = new TurnStreamSession(_turnServer, control,
+                    buffer => connection.ReceiveAsync(new ArraySegment<byte>(buffer), SocketFlags.None));
+                await session.RunAsync().ConfigureAwait(false);
             }
             finally
             {
-                // 连接断开后必须回收该连接上的分配，否则中继 socket 与端口会一直泄漏
-                if (control != null)
+                // 会话循环正常退出时已完成分配回收；构造失败时才需要在这里兜底释放
+                if (control != null && session == null)
                 {
                     _turnServer.ReleaseControlChannel(control);
                 }
@@ -332,31 +291,6 @@ namespace SAEA.P2P.TurnServer
                     _connections.Remove(connection);
                 }
             }
-        }
-
-        /// <summary>
-        /// 按帧类型分派给 TURN 服务端
-        /// </summary>
-        /// <param name="frame">已切出的完整帧</param>
-        /// <param name="control">帧所属的控制连接</param>
-        private void Dispatch(TurnStreamFrame frame, TcpTurnControlChannel control)
-        {
-            if (frame.Kind == TurnStreamFrameKind.ChannelData)
-            {
-                _turnServer.HandleStreamChannelData(frame.Data, control);
-                return;
-            }
-
-            StunMessage message;
-            StunParseError error;
-            if (!StunMessage.TryParse(frame.Data, out message, out error))
-            {
-                // 首字节与长度都对得上但内容非法时无法再重同步，丢弃这一帧
-                P2PLogHelper.Debug("TurnTcpListener", "丢弃无法解析的 STUN 报文：" + error);
-                return;
-            }
-
-            _turnServer.HandleStreamRequest(message, control);
         }
 
         /// <summary>
