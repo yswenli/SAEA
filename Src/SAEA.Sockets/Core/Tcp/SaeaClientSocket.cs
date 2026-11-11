@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/9 10:30:00
+*修改时间：2026/11/11 11:30:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：发送重载改为可等待的真实完成 Task，未连接与断开路径可观察且 owner 恰好释放一次
+*描述：支持按 IPEndPoint 连接，新增连接失败不关闭套接字的 TryConnectAsync
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -217,34 +217,57 @@ namespace SAEA.Sockets.Core.Tcp
 
             _userTokenFactory = new UserTokenFactory();
 
-            if (SocketOption.UseIPV6)
-            {
-                _socket = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp);
-            }
-            else
-            {
-                _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            }
-            if (SocketOption.ReusePort)
-            {
-                _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, SocketOption.ReusePort);
-            }
-            _socket.NoDelay = SocketOption.NoDelay;
-            _socket.SendTimeout = _socket.ReceiveTimeout = SocketOption.ActionTimeout;
-            _socket.KeepAlive(SocketOption.FreeTime, SocketOption.ActionTimeout);
+            _socket = CreateSocket(SocketOption.UseIPV6 ? AddressFamily.InterNetworkV6 : AddressFamily.InterNetwork);
 
             OnClientReceive = new OnClientReceiveBytesHandler(OnReceived);
 
-            _connectArgs = new SocketAsyncEventArgs
-            {
-                RemoteEndPoint = new IPEndPoint(IPAddress.Parse(SocketOption.IP), SocketOption.Port)
-            };
+            _connectArgs = new SocketAsyncEventArgs();
+            // 构造函数允许不带远端端点：调用方可稍后用 Connect(IPEndPoint) 按候选地址连接
+            if (!string.IsNullOrEmpty(SocketOption.IP))
+                _connectArgs.RemoteEndPoint = new IPEndPoint(IPAddress.Parse(SocketOption.IP), SocketOption.Port);
             _connectArgs.Completed += ConnectArgs_Completed;
 
             _userToken = _userTokenFactory.Create(socketOption.Context, socketOption.ReadBufferSize, IO_Completed);
 
             // 初始化连接超时定时器
             _connectTimeoutTimer = new Timer(ConnectTimeoutCallback, null, Timeout.Infinite, Timeout.Infinite);
+        }
+
+        /// <summary>
+        /// 按地址族创建 TCP 套接字并应用选项中的复用、时延与超时设置
+        /// </summary>
+        /// <param name="addressFamily">套接字地址族</param>
+        /// <returns>已应用选项的新套接字</returns>
+        private Socket CreateSocket(AddressFamily addressFamily)
+        {
+            var socket = new Socket(addressFamily, SocketType.Stream, ProtocolType.Tcp);
+            if (SocketOption.ReusePort)
+            {
+                socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, SocketOption.ReusePort);
+            }
+            socket.NoDelay = SocketOption.NoDelay;
+            socket.SendTimeout = socket.ReceiveTimeout = SocketOption.ActionTimeout;
+            socket.KeepAlive(SocketOption.FreeTime, SocketOption.ActionTimeout);
+            return socket;
+        }
+
+        /// <summary>
+        /// 让套接字地址族与目标端点一致：不一致时重建（选项设置保持不变），并在需要时启用双栈
+        /// </summary>
+        /// <param name="remoteEndPoint">本次要连接的目标端点</param>
+        private void PrepareSocketFor(IPEndPoint remoteEndPoint)
+        {
+            if (_socket.AddressFamily != remoteEndPoint.AddressFamily)
+            {
+                var old = _socket;
+                _socket = CreateSocket(remoteEndPoint.AddressFamily);
+                _userToken.Socket = _socket;
+                try { old?.Dispose(); } catch { }
+            }
+
+            // 双栈只在 IPv6 套接字上有效；目标为具体地址时不影响单栈语义
+            if (SocketOption.DualMode && _socket.AddressFamily == AddressFamily.InterNetworkV6)
+                _socket.DualMode = true;
         }
 
         /// <summary>
@@ -308,6 +331,12 @@ namespace SAEA.Sockets.Core.Tcp
             _connectEvent.WaitOne();
             if (!Connected)
             {
+                if (_connectArgs.RemoteEndPoint == null)
+                {
+                    _connectEvent.Set();
+                    throw new InvalidOperationException("未指定远端端点：请使用 Connect(IPEndPoint) 或 ConnectAsync(IPEndPoint) 指定目标地址。");
+                }
+
                 _connectCallBack = callBack;
 
                 // 启动连接超时定时器
@@ -321,6 +350,23 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         /// <summary>
+        /// 异步连接到指定端点；套接字地址族与端点不一致时按端点重建
+        /// </summary>
+        /// <param name="remoteEndPoint">目标端点</param>
+        /// <param name="callBack">连接回调，参数为本次连接的错误码</param>
+        /// <exception cref="ArgumentNullException">remoteEndPoint 为 null</exception>
+        public void ConnectAsync(IPEndPoint remoteEndPoint, Action<SocketError> callBack = null)
+        {
+            if (remoteEndPoint == null) throw new ArgumentNullException(nameof(remoteEndPoint));
+            if (IsDisposed) throw new ObjectDisposedException(GetType().Name);
+
+            PrepareSocketFor(remoteEndPoint);
+            _connectArgs.RemoteEndPoint = remoteEndPoint;
+
+            ConnectAsync(callBack);
+        }
+
+        /// <summary>
         /// 同步连接到服务器
         /// </summary>
         public void Connect()
@@ -331,6 +377,9 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 if (!Connected && !IsDisposed)
                 {
+                    if (_connectArgs.RemoteEndPoint == null)
+                        throw new InvalidOperationException("未指定远端端点：请使用 Connect(IPEndPoint) 或 ConnectAsync(IPEndPoint) 指定目标地址。");
+
                     // 与 ConnectAsync 保持一致的连接流程：使用 _connectArgs + _connectTimeoutTimer + _connectEvent
                     _connectCallBack = null;
 
@@ -371,6 +420,80 @@ namespace SAEA.Sockets.Core.Tcp
                 // 释放等待许可，允许后续连接尝试
                 _connectEvent.Set();
             }
+        }
+
+        /// <summary>
+        /// 同步连接到指定端点；套接字地址族与端点不一致时按端点重建
+        /// </summary>
+        /// <param name="remoteEndPoint">目标端点</param>
+        /// <exception cref="ArgumentNullException">remoteEndPoint 为 null</exception>
+        /// <exception cref="TimeoutException">超过 ConnectTimeout 仍未建立连接</exception>
+        public void Connect(IPEndPoint remoteEndPoint)
+        {
+            if (remoteEndPoint == null) throw new ArgumentNullException(nameof(remoteEndPoint));
+            if (IsDisposed) throw new ObjectDisposedException(GetType().Name);
+
+            PrepareSocketFor(remoteEndPoint);
+            _connectArgs.RemoteEndPoint = remoteEndPoint;
+
+            Connect();
+        }
+
+        /// <summary>
+        /// 异步尝试连接指定端点，失败时只返回错误码、不关闭底层套接字。
+        /// </summary>
+        /// <remarks>
+        /// 供 ICE-TCP 串行尝试多个候选地址使用：一次失败后同一个套接字还能发起下一次连接。
+        /// 成功时走与 <see cref="Connect()"/> 相同的收尾流程（初始化令牌、启动接收、按需握手与建链）。
+        /// 本方法不参与连接超时定时器，超时控制由调用方通过取消令牌或自行计时决定。
+        /// </remarks>
+        /// <param name="remoteEndPoint">目标端点</param>
+        /// <returns>本次连接的套接字错误码，成功为 <see cref="SocketError.Success"/></returns>
+        /// <exception cref="ArgumentNullException">remoteEndPoint 为 null</exception>
+        /// <exception cref="ObjectDisposedException">客户端已释放</exception>
+        public async Task<SocketError> TryConnectAsync(IPEndPoint remoteEndPoint)
+        {
+            if (remoteEndPoint == null) throw new ArgumentNullException(nameof(remoteEndPoint));
+            if (IsDisposed) throw new ObjectDisposedException(GetType().Name);
+            if (Connected) return SocketError.Success;
+
+            PrepareSocketFor(remoteEndPoint);
+
+            var args = new SocketAsyncEventArgs { RemoteEndPoint = remoteEndPoint };
+            var completion = new TaskCompletionSource<SocketError>();
+            EventHandler<SocketAsyncEventArgs> handler = (sender, e) => completion.TrySetResult(e.SocketError);
+            args.Completed += handler;
+
+            try
+            {
+                if (!_socket.ConnectAsync(args))
+                    completion.TrySetResult(args.SocketError);
+            }
+            catch (Exception ex)
+            {
+                args.Completed -= handler;
+                args.Dispose();
+                RaiseOnError(_userToken?.ID ?? "", ex);
+                return SocketError.SocketError;
+            }
+
+            var error = await completion.Task.ConfigureAwait(false);
+
+            if (error != SocketError.Success)
+            {
+                // 失败路径保持套接字可用，调用方可以继续尝试下一个候选
+                Connected = false;
+                args.Completed -= handler;
+                args.Dispose();
+                return error;
+            }
+
+            _connectCallBack = null;
+            ProcessConnected(args);
+            args.Completed -= handler;
+            args.Dispose();
+
+            return Connected ? SocketError.Success : SocketError.SocketError;
         }
 
         /// <summary>

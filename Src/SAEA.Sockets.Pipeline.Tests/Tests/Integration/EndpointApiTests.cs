@@ -22,10 +22,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 11:00:00
+*修改时间：2026/11/11 11:30:00
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增 UDP 发送原语、来源地址回调、客户端端点与未连接接收入口用例
+*描述：新增 UDP 发送原语、来源地址回调、客户端收发入口与 TCP 按端点连接用例
 *
 *****************************************************************************/
 using System;
@@ -63,6 +63,16 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Integration
             if (dualMode) builder.UseDualMode();
 
             return builder.Build();
+        }
+
+        private static ISocketOption BuildTcpOption()
+        {
+            return SocketOptionBuilder.Instance
+                .SetSocket(SAEASocketType.Tcp)
+                .UsePacket()
+                .SetActionTimeOut(10 * 1000)
+                .SetFreeTime(60 * 1000)
+                .Build();
         }
 
         private static Socket CreateBoundClient()
@@ -360,6 +370,69 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Integration
                 sender.SendTo(Encoding.UTF8.GetBytes("second"), client.LocalEndPoint);
 
                 Assert.IsTrue(received.Wait(5000), "重复调用后接收循环失效或重复投递");
+            }
+        }
+
+        /// <summary>
+        /// 按端点同步连接成功后，套接字的远端端点就是目标端点
+        /// </summary>
+        [TestMethod]
+        public void Connect_IPEndPoint_连接成功且RemoteEndPoint一致()
+        {
+            var listener = new TcpListener(IPAddress.Loopback, 0);
+            listener.Start();
+            try
+            {
+                var target = (IPEndPoint)listener.LocalEndpoint;
+
+                using (var client = new SaeaClientSocket(BuildTcpOption()))
+                {
+                    client.Connect(target);
+
+                    Assert.IsTrue(client.Connected, "连接未成功");
+                    Assert.AreEqual(target, client.Socket.RemoteEndPoint);
+                }
+            }
+            finally
+            {
+                listener.Stop();
+            }
+        }
+
+        /// <summary>
+        /// 首个端点连接被拒后套接字仍可用，第二个端点可以连接成功
+        /// </summary>
+        [TestMethod]
+        public async Task ConnectAsync_首个端点拒绝_不关socket可重试第二个端点()
+        {
+            var listener = new TcpListener(IPAddress.Loopback, 0);
+            listener.Start();
+
+            // 取一个刚释放的本地端口作为必然被拒的目标
+            var probe = new TcpListener(IPAddress.Loopback, 0);
+            probe.Start();
+            var refused = (IPEndPoint)probe.LocalEndpoint;
+            probe.Stop();
+
+            try
+            {
+                var target = (IPEndPoint)listener.LocalEndpoint;
+
+                using (var client = new SaeaClientSocket(BuildTcpOption()))
+                {
+                    var first = await client.TryConnectAsync(refused);
+                    Assert.AreNotEqual(SocketError.Success, first, "连接未监听端口不应成功");
+                    Assert.IsFalse(client.Connected, "失败后不应标记为已连接");
+
+                    var second = await client.TryConnectAsync(target);
+                    Assert.AreEqual(SocketError.Success, second, "失败后套接字应仍可用于下一次连接");
+                    Assert.IsTrue(client.Connected, "第二次连接未建立");
+                    Assert.AreEqual(target, client.Socket.RemoteEndPoint);
+                }
+            }
+            finally
+            {
+                listener.Stop();
             }
         }
     }
