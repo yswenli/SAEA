@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 02:30:00
+*修改时间：2026/11/12 05:30:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 TCP 与 TLS 控制连接共用的流式会话循环
+*描述：新增 IsTakenOver，供监听器判断连接被接管后不再关闭连接
 *
 *****************************************************************************/
 using System;
@@ -81,6 +81,16 @@ namespace SAEA.P2P.TurnServer
         private int _started;
 
         /// <summary>
+        /// 保护接管标记；监听器在会话结束后要读它决定是否由自己关闭连接
+        /// </summary>
+        private readonly object _sync = new object();
+
+        /// <summary>
+        /// 控制连接是否已被接管为数据连接；接管后连接所有权交给中继，不能再回收分配
+        /// </summary>
+        private bool _takenOver;
+
+        /// <summary>
         /// 创建会话循环
         /// </summary>
         /// <param name="server">共用的 TURN 服务端</param>
@@ -105,6 +115,21 @@ namespace SAEA.P2P.TurnServer
             _server = server;
             _control = control;
             _readAsync = readAsync;
+        }
+
+        /// <summary>
+        /// 控制连接是否已被接管为数据连接；接管后连接所有权归中继，监听器不得再关闭
+        /// </summary>
+        internal bool IsTakenOver
+        {
+            get
+            {
+                // 接管发生在读循环线程，监听器在会话结束后读取，必须加锁看到最新值
+                lock (_sync)
+                {
+                    return _takenOver;
+                }
+            }
         }
 
         /// <summary>
@@ -140,12 +165,22 @@ namespace SAEA.P2P.TurnServer
                     }
 
                     Dispatch(read);
+
+                    if (IsTakenOver)
+                    {
+                        // 连接已转作数据连接，剩余字节属于数据面，不能再按 TURN 报文继续解析
+                        break;
+                    }
                 }
             }
             finally
             {
-                // 连接断开必须回收该连接上的 allocation，否则中继 socket 与端口会一直泄漏
-                _server.ReleaseControlChannel(_control);
+                // 连接所有权已交给中继时跳过回收：此时关闭分配会连带关掉正在收发的中继 socket 与端口
+                if (!IsTakenOver)
+                {
+                    // 连接断开必须回收该连接上的 allocation，否则中继 socket 与端口会一直泄漏
+                    _server.ReleaseControlChannel(_control);
+                }
             }
         }
 
@@ -176,7 +211,15 @@ namespace SAEA.P2P.TurnServer
                     continue;
                 }
 
-                _server.HandleStreamRequest(message, _control);
+                if (_server.HandleStreamRequest(message, _control))
+                {
+                    // 这条连接已交给中继数据通道，同一批里后续帧不再是 TURN 报文，直接丢弃
+                    lock (_sync)
+                    {
+                        _takenOver = true;
+                    }
+                    break;
+                }
             }
         }
     }

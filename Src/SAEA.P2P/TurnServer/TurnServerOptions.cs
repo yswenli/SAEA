@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 00:20:00
+*修改时间：2026/11/12 03:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 TURN 服务端配置
+*描述：新增 ConnectionBindTimeout 与 RelayConnectTimeout 两项配置
 *
 *****************************************************************************/
 using System;
@@ -99,6 +99,16 @@ namespace SAEA.P2P.TurnServer
         /// 单个分配的累计中继字节上限，0 表示不限制
         /// </summary>
         private long _maxBytes;
+
+        /// <summary>
+        /// 数据连接等待 ConnectionBind 的超时时间
+        /// </summary>
+        private TimeSpan _connectionBindTimeout = TimeSpan.FromSeconds(30);
+
+        /// <summary>
+        /// 中继连接建立超时时间
+        /// </summary>
+        private TimeSpan _relayConnectTimeout = TimeSpan.FromSeconds(10);
 
         /// <summary>
         /// SOFTWARE 属性值
@@ -219,6 +229,24 @@ namespace SAEA.P2P.TurnServer
         }
 
         /// <summary>
+        /// 数据连接等待 ConnectionBind 的超时时间；超时后服务端关闭该条数据连接，默认 30 秒
+        /// </summary>
+        public TimeSpan ConnectionBindTimeout
+        {
+            get { return _connectionBindTimeout; }
+            set { _connectionBindTimeout = value; }
+        }
+
+        /// <summary>
+        /// 中继连接建立超时时间，默认 10 秒
+        /// </summary>
+        public TimeSpan RelayConnectTimeout
+        {
+            get { return _relayConnectTimeout; }
+            set { _relayConnectTimeout = value; }
+        }
+
+        /// <summary>
         /// SOFTWARE 属性值；为空时不携带该属性
         /// </summary>
         public string Software
@@ -282,6 +310,14 @@ namespace SAEA.P2P.TurnServer
             if (_maxAllocationsPerUser <= 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(MaxAllocationsPerUser), "单用户分配上限必须大于 0");
+            }
+            if (_connectionBindTimeout <= TimeSpan.Zero)
+            {
+                throw new ArgumentOutOfRangeException(nameof(ConnectionBindTimeout), "ConnectionBind 超时时间必须大于 0");
+            }
+            if (_relayConnectTimeout <= TimeSpan.Zero)
+            {
+                throw new ArgumentOutOfRangeException(nameof(RelayConnectTimeout), "中继连接超时时间必须大于 0");
             }
         }
     }

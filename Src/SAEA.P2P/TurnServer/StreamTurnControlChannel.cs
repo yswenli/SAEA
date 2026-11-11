@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 02:30:00
+*修改时间：2026/11/12 03:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增基于字节流的 TLS 控制连接
+*描述：构造新增 isTls，并暴露底层流作为数据流
 *
 *****************************************************************************/
 using System;
@@ -59,13 +59,19 @@ namespace SAEA.P2P.TurnServer
         private bool _closed;
 
         /// <summary>
+        /// 是否 TLS 连接
+        /// </summary>
+        private readonly bool _isTls;
+
+        /// <summary>
         /// 包装一条已握手的字节流
         /// </summary>
         /// <param name="stream">双向字节流</param>
         /// <param name="localEndPoint">连接本地端点</param>
         /// <param name="remoteEndPoint">连接对端端点</param>
+        /// <param name="isTls">是否为 TLS 连接</param>
         /// <exception cref="ArgumentNullException">任一参数为 null</exception>
-        public StreamTurnControlChannel(Stream stream, IPEndPoint localEndPoint, IPEndPoint remoteEndPoint)
+        public StreamTurnControlChannel(Stream stream, IPEndPoint localEndPoint, IPEndPoint remoteEndPoint, bool isTls)
         {
             if (stream == null)
             {
@@ -81,6 +87,7 @@ namespace SAEA.P2P.TurnServer
             }
 
             _stream = stream;
+            _isTls = isTls;
             LocalEndPoint = localEndPoint;
             RemoteEndPoint = remoteEndPoint;
         }
@@ -101,6 +108,22 @@ namespace SAEA.P2P.TurnServer
         public bool IsStream
         {
             get { return true; }
+        }
+
+        /// <summary>
+        /// 是否为 TLS 连接；由监听器在建立连接时确定
+        /// </summary>
+        public bool IsTls
+        {
+            get { return _isTls; }
+        }
+
+        /// <summary>
+        /// 接管为数据连接时使用的双向字节流，与控件连接共用同一条流
+        /// </summary>
+        public Stream DataStream
+        {
+            get { return _stream; }
         }
 
         /// <summary>

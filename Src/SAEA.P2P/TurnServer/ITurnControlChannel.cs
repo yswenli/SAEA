@@ -23,12 +23,13 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 01:30:00
+*修改时间：2026/11/12 03:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 TURN 控制连接抽象
+*描述：新增 IsTls 与 DataStream，为连接接管为数据连接预留
 *
 *****************************************************************************/
+using System.IO;
 using System.Net;
 
 namespace SAEA.P2P.TurnServer
@@ -53,6 +54,16 @@ namespace SAEA.P2P.TurnServer
         /// 是否流式连接；为 true 时 ChannelData 必须补齐到 4 字节倍数
         /// </summary>
         bool IsStream { get; }
+
+        /// <summary>
+        /// 是否为 TLS 连接；数据连接必须与申请分配的控制连接保持同一加密层
+        /// </summary>
+        bool IsTls { get; }
+
+        /// <summary>
+        /// 接管为数据连接时使用的双向字节流；UDP 控制连接没有流，返回 null
+        /// </summary>
+        Stream DataStream { get; }
 
         /// <summary>
         /// 把一条完整报文写回这条控制连接

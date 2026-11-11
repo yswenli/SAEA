@@ -23,13 +23,14 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 01:30:00
+*修改时间：2026/11/12 05:30:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增基于已连接 socket 的 TCP/TLS 控制连接
+*描述：接管为数据连接后的 NetworkStream 改由自己拥有 socket，避免中继泵结束时连接泄漏
 *
 *****************************************************************************/
 using System;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 
@@ -57,6 +58,11 @@ namespace SAEA.P2P.TurnServer
         /// 连接是否已关闭；关闭后发送直接丢弃
         /// </summary>
         private bool _closed;
+
+        /// <summary>
+        /// 接管为数据连接后使用的字节流；首次访问时创建并缓存
+        /// </summary>
+        private NetworkStream _dataStream;
 
         /// <summary>
         /// 包装一条已连接的 socket
@@ -101,6 +107,34 @@ namespace SAEA.P2P.TurnServer
         public bool IsStream
         {
             get { return true; }
+        }
+
+        /// <summary>
+        /// 明文 TCP 控制连接
+        /// </summary>
+        public bool IsTls
+        {
+            get { return false; }
+        }
+
+        /// <summary>
+        /// 接管为数据连接时使用的基础流；首次访问时创建并缓存。
+        /// 中继泵结束时必须能连带关闭连接，否则 socket 泄漏；接管后这条连接不再承载 TURN 报文，不会与 Send 抢用
+        /// </summary>
+        public Stream DataStream
+        {
+            get
+            {
+                // 与发送共用同一把锁，避免接管瞬间创建两个 NetworkStream 包同一个 socket
+                lock (_sendSync)
+                {
+                    if (_dataStream == null)
+                    {
+                        _dataStream = new NetworkStream(_socket, true);
+                    }
+                    return _dataStream;
+                }
+            }
         }
 
         /// <summary>

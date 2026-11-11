@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 01:30:00
+*修改时间：2026/11/12 04:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：控制端点改为控制连接抽象，支持 UDP 与 TCP/TLS 共用分配逻辑
+*描述：新增 TCP 中继持有并在释放时先行关闭
 *
 *****************************************************************************/
 using System;
@@ -71,6 +71,11 @@ namespace SAEA.P2P.TurnServer
         /// 中继 socket；UDP 分配由服务端创建并注入
         /// </summary>
         private Socket _relaySocket;
+
+        /// <summary>
+        /// TCP 中继端；UDP 分配为 null
+        /// </summary>
+        private TurnTcpRelay _tcpRelay;
 
         /// <summary>
         /// 是否已释放
@@ -211,6 +216,15 @@ namespace SAEA.P2P.TurnServer
         /// 发送 Data 指示或 ChannelData 时使用的控制连接；由服务端注入
         /// </summary>
         internal ITurnControlChannel ControlChannel { get; set; }
+
+        /// <summary>
+        /// TCP 中继监听与已绑定连接；UDP 分配为 null
+        /// </summary>
+        internal TurnTcpRelay TcpRelay
+        {
+            get { lock (_sync) { return _tcpRelay; } }
+            set { lock (_sync) { _tcpRelay = value; } }
+        }
 
         /// <summary>
         /// 累计中继字节数
@@ -476,11 +490,12 @@ namespace SAEA.P2P.TurnServer
         }
 
         /// <summary>
-        /// 关闭中继 socket 并清空权限与通道；可重复调用
+        /// 关闭 TCP 中继与中继 socket 并清空权限与通道；可重复调用
         /// </summary>
         public void Dispose()
         {
             Socket socket;
+            TurnTcpRelay tcpRelay;
             lock (_sync)
             {
                 if (_disposed)
@@ -489,11 +504,25 @@ namespace SAEA.P2P.TurnServer
                 }
 
                 _disposed = true;
+                tcpRelay = _tcpRelay;
+                _tcpRelay = null;
                 socket = _relaySocket;
                 _relaySocket = null;
                 _permissions.Clear();
                 _channels.Clear();
                 _channelQuarantine.Clear();
+            }
+
+            // 锁外关闭：关 TCP 中继会打断 accept 与正在泵数据的连接，持有分配锁会把其它请求一起卡住
+            if (tcpRelay != null)
+            {
+                try
+                {
+                    tcpRelay.Dispose();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
             }
 
             if (socket != null)

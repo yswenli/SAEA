@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 01:30:00
+*修改时间：2026/11/12 05:30:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 TURN over TCP 控制连接监听与读取循环
+*描述：连接被接管为数据连接后跳过 socket 关闭，仅从连接列表移除
 *
 *****************************************************************************/
 using System;
@@ -285,7 +285,13 @@ namespace SAEA.P2P.TurnServer
                     _turnServer.ReleaseControlChannel(control);
                 }
 
-                DisposeSocket(connection);
+                // 连接被接管为数据连接后所有权归中继：这里再关会立刻打断双向泵，中继泵结束时自行关闭
+                if (session == null || !session.IsTakenOver)
+                {
+                    DisposeSocket(connection);
+                }
+
+                // 接管与否都要从列表摘掉，否则长连接会把 _connections 撑到无界
                 lock (_sync)
                 {
                     _connections.Remove(connection);

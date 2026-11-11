@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 02:30:00
+*修改时间：2026/11/12 05:30:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 TURN over TLS 控制连接监听
+*描述：连接被接管为数据连接后跳过关闭 TLS 流，仅从连接集合移除
 *
 *****************************************************************************/
 using System;
@@ -279,7 +279,7 @@ namespace SAEA.P2P.TurnServer
                 return;
             }
 
-            var control = new StreamTurnControlChannel(channel.Stream, localEndPoint, remoteEndPoint);
+            var control = new StreamTurnControlChannel(channel.Stream, localEndPoint, remoteEndPoint, true);
             var shouldClose = false;
             lock (_sync)
             {
@@ -319,12 +319,17 @@ namespace SAEA.P2P.TurnServer
             }
             finally
             {
+                // 接管与否都要从集合摘掉，否则长连接会让 _channels 无界增长
                 lock (_sync)
                 {
                     _channels.Remove(channel);
                 }
 
-                CloseChannel(channel);
+                // 连接被接管为数据连接后 TLS 流归中继的泵所有：这里再关会把正在收发的流直接打断
+                if (!session.IsTakenOver)
+                {
+                    CloseChannel(channel);
+                }
             }
         }
 

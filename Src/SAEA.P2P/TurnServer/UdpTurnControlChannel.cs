@@ -23,13 +23,14 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 01:30:00
+*修改时间：2026/11/12 03:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增基于 STUN 监听端点的 UDP 控制连接
+*描述：补齐 IsTls 与 DataStream：UDP 无 TLS 也没有数据流
 *
 *****************************************************************************/
 using System;
+using System.IO;
 using System.Net;
 using System.Threading.Tasks;
 
@@ -89,6 +90,22 @@ namespace SAEA.P2P.TurnServer
         public bool IsStream
         {
             get { return false; }
+        }
+
+        /// <summary>
+        /// UDP 控制连接没有加密层
+        /// </summary>
+        public bool IsTls
+        {
+            get { return false; }
+        }
+
+        /// <summary>
+        /// UDP 控制连接没有字节流，数据中继不经过数据连接
+        /// </summary>
+        public Stream DataStream
+        {
+            get { return null; }
         }
 
         /// <summary>

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 01:30:00
+*修改时间：2026/11/12 05:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：抽出控制连接抽象，支持 TCP 控制连接承载 TURN 请求与 ChannelData
+*描述：支持 REQUESTED-TRANSPORT=6 的 TCP 中继，新增 Connect 与 ConnectionBind 处理
 *
 *****************************************************************************/
 using System;
@@ -70,6 +70,11 @@ namespace SAEA.P2P.TurnServer
         private const int RelayBindAttempts = 16;
 
         /// <summary>
+        /// TCP 中继监听的排队上限；中继连接通常一条分配只有少数几条，不需要大 backlog
+        /// </summary>
+        private const int TcpRelayBacklog = 16;
+
+        /// <summary>
         /// 服务端配置
         /// </summary>
         private readonly TurnServerOptions _options;
@@ -93,6 +98,11 @@ namespace SAEA.P2P.TurnServer
         /// 分配表
         /// </summary>
         private readonly TurnAllocationTable _allocations = new TurnAllocationTable();
+
+        /// <summary>
+        /// TCP 中继连接表，跨分配共用；UDP 分配不会用到
+        /// </summary>
+        private readonly TurnConnectionTable _connections = new TurnConnectionTable();
 
         /// <summary>
         /// 中继端口分配器
@@ -172,7 +182,7 @@ namespace SAEA.P2P.TurnServer
                 return null;
             }
 
-            return ProcessRequest(request, new UdpTurnControlChannel(receivedOn, remoteEndPoint));
+            return ProcessRequest(request, new UdpTurnControlChannel(receivedOn, remoteEndPoint), out _);
         }
 
         /// <summary>
@@ -180,18 +190,21 @@ namespace SAEA.P2P.TurnServer
         /// </summary>
         /// <param name="request">请求或指示</param>
         /// <param name="control">控制连接</param>
-        internal void HandleStreamRequest(StunMessage request, ITurnControlChannel control)
+        /// <returns>true 表示这条控制连接已被接管为数据连接，会话循环不能再按 TURN 报文继续读取</returns>
+        internal bool HandleStreamRequest(StunMessage request, ITurnControlChannel control)
         {
             if (_disposed || request == null || control == null)
             {
-                return;
+                return false;
             }
 
-            var response = ProcessRequest(request, control);
+            bool takeOver;
+            var response = ProcessRequest(request, control, out takeOver);
             if (response != null)
             {
                 control.Send(response);
             }
+            return takeOver;
         }
 
         /// <summary>
@@ -199,9 +212,11 @@ namespace SAEA.P2P.TurnServer
         /// </summary>
         /// <param name="request">请求或指示</param>
         /// <param name="control">控制连接</param>
+        /// <param name="takeOver">true 表示处理完成后控制连接要转作数据连接</param>
         /// <returns>需要回给客户端的字节；不响应时为 null</returns>
-        private byte[] ProcessRequest(StunMessage request, ITurnControlChannel control)
+        private byte[] ProcessRequest(StunMessage request, ITurnControlChannel control, out bool takeOver)
         {
+            takeOver = false;
             var remoteEndPoint = control.RemoteEndPoint;
             var now = _clock.UtcNow;
 
@@ -244,6 +259,16 @@ namespace SAEA.P2P.TurnServer
                     return HandleCreatePermission(request, control, key, now);
                 case StunMessageType.ChannelBind:
                     return HandleChannelBind(request, control, key, now);
+                case StunMessageType.Connect:
+                    return HandleConnect(request, control, key, now);
+                case StunMessageType.ConnectionBind:
+                    {
+                        // takeOver 只可能由 ConnectionBind 产生，单独接住再统一赋给输出参数
+                        var bindTakeOver = false;
+                        var response = HandleConnectionBind(request, control, key, now, out bindTakeOver);
+                        takeOver = bindTakeOver;
+                        return response;
+                    }
                 default:
                     return BuildError(request, TurnErrorCode.BadRequest, null, null, key);
             }
@@ -360,14 +385,22 @@ namespace SAEA.P2P.TurnServer
         }
 
         /// <summary>
-        /// 移除并释放全部过期分配；也可由外部定时调用
+        /// 移除并释放全部过期分配与超时未绑定的中继连接；也可由外部定时调用
         /// </summary>
         public void PurgeExpired()
         {
-            var removed = _allocations.RemoveExpired(_clock.UtcNow);
+            var now = _clock.UtcNow;
+            var removed = _allocations.RemoveExpired(now);
             for (var i = 0; i < removed.Count; i++)
             {
                 ReleaseAllocation(removed[i]);
+            }
+
+            // 没等到 ConnectionBind 的连接不属于任何 socket 生命周期，只能在锁外单独关闭
+            var expired = _connections.RemoveExpired(now, _options.ConnectionBindTimeout);
+            for (var i = 0; i < expired.Count; i++)
+            {
+                DisposeSocket(expired[i].PeerSocket);
             }
         }
 
@@ -390,10 +423,13 @@ namespace SAEA.P2P.TurnServer
             {
                 ReleaseAllocation(removed[i]);
             }
+
+            // 兜底：各分配的释放已经带走名下的连接，这里只处理归属不明或竞态中残留的记录
+            CloseAllConnectionRecords();
         }
 
         /// <summary>
-        /// 处理 Allocate：校验传输与地址族，检查配额后创建分配与中继 socket
+        /// 处理 Allocate：校验传输与地址族，检查配额后创建分配与中继端点（UDP socket 或 TCP 监听）
         /// </summary>
         /// <param name="request">请求</param>
         /// <param name="control">控制连接</param>
@@ -412,13 +448,13 @@ namespace SAEA.P2P.TurnServer
                 return BuildError(request, TurnErrorCode.BadRequest, null, null, key);
             }
 
-            if (protocol == TcpTransport)
+            if (protocol == TcpTransport && !control.IsStream)
             {
-                // TCP 中继依赖 RFC 6062，本轮暂不提供
-                return BuildError(request, TurnErrorCode.UnsupportedTransportProtocol, "TCP relay is not available", null, key);
+                // TCP 中继的数据面要接管一条流连接，UDP 控制连接没有可接管的字节流
+                return BuildError(request, TurnErrorCode.UnsupportedTransportProtocol, "TCP relay requires a TCP or TLS control connection", null, key);
             }
 
-            if (protocol != UdpTransport)
+            if (protocol != UdpTransport && protocol != TcpTransport)
             {
                 return BuildError(request, TurnErrorCode.UnsupportedTransportProtocol, null, null, key);
             }
@@ -450,10 +486,20 @@ namespace SAEA.P2P.TurnServer
             }
 
             var lifetime = ResolveLifetime(request);
+            var isTcp = protocol == TcpTransport;
 
-            Socket relaySocket;
+            // UDP 分配要一个裸 UDP socket 直接收发数据报；TCP 分配要一个监听 socket 等对端连入
+            Socket relaySocket = null;
+            Socket relayListener = null;
             int relayPort;
-            if (!TryCreateRelaySocket(out relaySocket, out relayPort))
+            if (isTcp)
+            {
+                if (!TryCreateTcpRelayListener(out relayListener, out relayPort))
+                {
+                    return BuildError(request, TurnErrorCode.InsufficientCapacity, "No relay port available", null, key);
+                }
+            }
+            else if (!TryCreateRelaySocket(out relaySocket, out relayPort))
             {
                 return BuildError(request, TurnErrorCode.InsufficientCapacity, "No relay port available", null, key);
             }
@@ -468,17 +514,38 @@ namespace SAEA.P2P.TurnServer
                 lifetime,
                 key,
                 now);
-            allocation.RelaySocket = relaySocket;
+            if (!isTcp)
+            {
+                // TCP 分配的中继连接来自 TurnTcpRelay 的 accept，不挂 UDP 中继 socket
+                allocation.RelaySocket = relaySocket;
+            }
             allocation.ControlChannel = control;
 
             if (!_allocations.TryAdd(allocation))
             {
-                relaySocket.Dispose();
+                // 加分配失败时监听与端口都要原样退回，否则每次重试都漏一个端口
+                if (isTcp)
+                {
+                    DisposeSocket(relayListener);
+                }
+                else
+                {
+                    DisposeSocket(relaySocket);
+                }
                 _ports.Release(relayPort);
                 return BuildError(request, TurnErrorCode.AllocationMismatch, null, null, key);
             }
 
-            StartRelayLoop(allocation);
+            if (isTcp)
+            {
+                // TCP 中继没有报文接收循环，监听由 TurnTcpRelay 接管，等 ConnectionBind 再对接数据连接
+                allocation.TcpRelay = new TurnTcpRelay(allocation, _connections, relayListener, _options.ConnectionBindTimeout);
+                allocation.TcpRelay.Start();
+            }
+            else
+            {
+                StartRelayLoop(allocation);
+            }
 
             var transactionId = request.TransactionId.ToArray();
             var attributes = new List<StunAttribute>
@@ -488,6 +555,171 @@ namespace SAEA.P2P.TurnServer
                 StunAttributeCodec.CreateUInt32(StunAttributeType.Lifetime, lifetime)
             };
             return BuildSuccess(request, attributes, key);
+        }
+
+        /// <summary>
+        /// 处理 Connect：服务端主动连向对端，成功后在控制连接上回 CONNECTION-ID 等待 ConnectionBind
+        /// </summary>
+        /// <param name="request">请求</param>
+        /// <param name="control">控制连接</param>
+        /// <param name="key">长期密钥</param>
+        /// <param name="now">当前时间</param>
+        /// <returns>应答字节</returns>
+        private byte[] HandleConnect(StunMessage request, ITurnControlChannel control, byte[] key, DateTimeOffset now)
+        {
+            if (!control.IsStream)
+            {
+                // Connect 的中继连接最终要交给另一条流连接承载，UDP 控制连接无法承载 TCP 中继
+                return BuildError(request, TurnErrorCode.BadRequest, "Connect requires a TCP or TLS control connection", null, key);
+            }
+
+            TurnAllocation allocation;
+            if (!_allocations.TryGet(control.RemoteEndPoint, control.LocalEndPoint, TcpTransport, out allocation))
+            {
+                return BuildError(request, TurnErrorCode.AllocationMismatch, null, null, key);
+            }
+
+            IPEndPoint peer;
+            if (!TurnMessage.TryGetPeerAddress(request, out peer))
+            {
+                return BuildError(request, TurnErrorCode.BadRequest, null, null, key);
+            }
+
+            // 同一对端只允许一条连接，重复 Connect 会让两条数据泵争抢同一 peer socket
+            if (_connections.ContainsPeer(allocation, peer))
+            {
+                return BuildError(request, TurnErrorCode.ConnectionAlreadyExists, null, null, key);
+            }
+
+            Socket socket = null;
+            try
+            {
+                socket = new Socket(peer.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+                if (!TryConnect(socket, peer, _options.RelayConnectTimeout))
+                {
+                    DisposeSocket(socket);
+                    return BuildError(request, TurnErrorCode.ConnectionTimeoutOrFailure, null, null, key);
+                }
+            }
+            catch (Exception ex)
+            {
+                // 建链失败与超时对客户端是同一结果，socket 必须就地关掉，不能留给 GC
+                DisposeSocket(socket);
+                P2PLogHelper.Debug("TurnServer", "连接对端失败：" + ex.GetType().Name);
+                return BuildError(request, TurnErrorCode.ConnectionTimeoutOrFailure, null, null, key);
+            }
+
+            var record = new TurnConnectionRecord();
+            record.Allocation = allocation;
+            record.PeerEndPoint = peer;
+            record.PeerSocket = socket;
+            record.IsTls = control.IsTls;
+            record.CreatedAt = now;
+            record.Bound = false;
+
+            try
+            {
+                _connections.Add(record);
+            }
+            catch (InvalidOperationException ex)
+            {
+                // 连接号耗尽时无法再登记，直接关掉已建好的连接，避免它成为没人管的句柄
+                DisposeSocket(socket);
+                P2PLogHelper.Debug("TurnServer", "登记 TCP 中继连接失败：" + ex.Message);
+                return BuildError(request, TurnErrorCode.InsufficientCapacity, null, null, key);
+            }
+
+            return BuildSuccess(request, new[]
+            {
+                StunAttributeCodec.CreateUInt32(StunAttributeType.ConnectionId, record.ConnectionId)
+            }, key);
+        }
+
+        /// <summary>
+        /// 处理 ConnectionBind：把客户端另开的数据连接与指定连接 ID 的对端 socket 对接
+        /// </summary>
+        /// <param name="request">请求</param>
+        /// <param name="control">数据连接（处理完成后会被接管）</param>
+        /// <param name="key">长期密钥</param>
+        /// <param name="now">当前时间</param>
+        /// <param name="takeOver">true 表示这条流连接要转作数据连接</param>
+        /// <returns>应答字节</returns>
+        private byte[] HandleConnectionBind(StunMessage request, ITurnControlChannel control, byte[] key, DateTimeOffset now, out bool takeOver)
+        {
+            takeOver = false;
+
+            // 数据面必须跑在另一条流连接上；UDP 控制连接没有可接管的字节流
+            if (!control.IsStream)
+            {
+                return BuildError(request, TurnErrorCode.BadRequest, "ConnectionBind requires a TCP or TLS control connection", null, key);
+            }
+
+            uint connectionId;
+            // 先解 CONNECTION-ID：定位不到连接，后面所有校验都无从做起
+            if (!TurnMessage.TryGetConnectionId(request, out connectionId))
+            {
+                return BuildError(request, TurnErrorCode.BadRequest, null, null, key);
+            }
+
+            TurnConnectionRecord record;
+            // 未绑定的连接会被定时清理，未知 ID 说明已回收或从未存在，按报文格式错误回
+            if (!_connections.TryGet(connectionId, out record))
+            {
+                return BuildError(request, TurnErrorCode.BadRequest, null, null, key);
+            }
+
+            // 一条中继连接只能绑定一次：重复绑定会把两路数据泵接到同一个 peer socket 上
+            if (record.Bound)
+            {
+                return BuildError(request, TurnErrorCode.BadRequest, null, null, key);
+            }
+
+            // 分配可能已释放而记录尚未清理，此时绑定会让数据泵挂到已关闭的中继上
+            TurnAllocation live;
+            if (!_allocations.TryGet(record.Allocation.ClientEndPoint, record.Allocation.LocalEndPoint, record.Allocation.Transport, out live)
+                || !ReferenceEquals(live, record.Allocation))
+            {
+                return BuildError(request, TurnErrorCode.BadRequest, null, null, key);
+            }
+
+            // 数据连接必须来自控制连接的对端 IP：端口必然不同（客户端另开一条），只比 IP
+            if (!IsSameAddress(record.Allocation.ControlChannel.RemoteEndPoint, control.RemoteEndPoint))
+            {
+                return BuildError(request, TurnErrorCode.Forbidden, null, null, key);
+            }
+
+            // 加密层必须与控制连接一致：TLS 分配不允许被明文连接接管，反之亦然
+            if (record.IsTls != control.IsTls)
+            {
+                return BuildError(request, TurnErrorCode.Forbidden, null, null, key);
+            }
+
+            var relay = record.Allocation.TcpRelay;
+            if (relay == null)
+            {
+                // 没有 TCP 中继端说明这条记录不属于 TCP 分配，正常流程不应出现
+                return BuildError(request, TurnErrorCode.BadRequest, null, null, key);
+            }
+
+            // 先把后置状态与应答准备好，绑定成功就不再回到 TURN 报文循环
+            record.Bound = true;
+            takeOver = true;
+            var response = BuildSuccess(request, new StunAttribute[0], key);
+
+            try
+            {
+                relay.Bind(record, control);
+            }
+            catch (Exception ex)
+            {
+                // 绑定失败必须让会话继续按控制连接处理，否则这条连接会被误当成数据连接而无法再解析报文
+                record.Bound = false;
+                takeOver = false;
+                P2PLogHelper.Debug("TurnServer", "绑定 TCP 中继数据连接失败：" + ex.GetType().Name);
+                return BuildError(request, TurnErrorCode.BadRequest, null, null, key);
+            }
+
+            return response;
         }
 
         /// <summary>
@@ -727,6 +959,62 @@ namespace SAEA.P2P.TurnServer
         }
 
         /// <summary>
+        /// 从中继端口区间取一个可监听的 TCP socket
+        /// </summary>
+        /// <param name="listener">已开始监听的 socket；失败时为 null</param>
+        /// <param name="port">绑定的端口；失败时为 0</param>
+        /// <returns>成功返回 true</returns>
+        private bool TryCreateTcpRelayListener(out Socket listener, out int port)
+        {
+            listener = null;
+            port = 0;
+
+            var attempts = Math.Min(_ports.AvailableCount, RelayBindAttempts);
+            for (var i = 0; i < attempts; i++)
+            {
+                int candidate;
+                if (!_ports.TryAllocate(out candidate))
+                {
+                    return false;
+                }
+
+                Socket created = null;
+                try
+                {
+                    created = new Socket(_options.RelayAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+                    created.Bind(new IPEndPoint(_options.RelayAddress, candidate));
+                    created.Listen(TcpRelayBacklog);
+                }
+                catch (SocketException)
+                {
+                    // 绑定或监听失败说明该端口被外部占用：归还后下次分配很可能又抽到它并同样失败，
+                    // 因此把端口丢弃在池外（不归还），直接换下一个候选
+                    if (created != null)
+                    {
+                        created.Dispose();
+                    }
+                    continue;
+                }
+                catch (Exception)
+                {
+                    // 不是端口冲突类失败，端口没有问题，归还后再抛给上层
+                    if (created != null)
+                    {
+                        created.Dispose();
+                    }
+                    _ports.Release(candidate);
+                    throw;
+                }
+
+                listener = created;
+                port = candidate;
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// 启动分配的中继接收循环
         /// </summary>
         /// <param name="allocation">分配</param>
@@ -857,20 +1145,21 @@ namespace SAEA.P2P.TurnServer
         }
 
         /// <summary>
-        /// 通过中继 socket 把数据发给对端
+        /// 通过中继 socket 把数据发给对端；TCP 分配没有 UDP 中继 socket，直接丢弃
         /// </summary>
         /// <param name="allocation">分配</param>
         /// <param name="peer">对端地址</param>
         /// <param name="payload">中继数据</param>
         private void SendRelay(TurnAllocation allocation, IPEndPoint peer, ReadOnlyMemory<byte> payload)
         {
-            if (!ReserveBytes(allocation, payload.Length))
+            var socket = allocation.RelaySocket;
+            if (socket == null)
             {
+                // TCP 分配的中继数据走 ConnectionBind 建立的字节泵，不会发 Data 指示
                 return;
             }
 
-            var socket = allocation.RelaySocket;
-            if (socket == null)
+            if (!ReserveBytes(allocation, payload.Length))
             {
                 return;
             }
@@ -944,7 +1233,7 @@ namespace SAEA.P2P.TurnServer
         }
 
         /// <summary>
-        /// 归还中继端口并关闭中继 socket
+        /// 关闭中继 socket 与 TCP 监听后归还中继端口
         /// </summary>
         /// <param name="allocation">分配</param>
         private void ReleaseAllocation(TurnAllocation allocation)
@@ -954,8 +1243,91 @@ namespace SAEA.P2P.TurnServer
                 return;
             }
 
-            _ports.Release(allocation.RelayedEndPoint.Port);
+            // 先释放再归还端口：端口一旦回到池里就可能立刻被新分配复用，旧监听还占着会让新分配绑定失败
             allocation.Dispose();
+            _ports.Release(allocation.RelayedEndPoint.Port);
+        }
+
+        /// <summary>
+        /// 摘除并关闭连接表里残留的全部对端连接；释放服务端时兜底用，可重复调用
+        /// </summary>
+        private void CloseAllConnectionRecords()
+        {
+            var records = _connections.RemoveAll();
+            for (var i = 0; i < records.Count; i++)
+            {
+                DisposeSocket(records[i].PeerSocket);
+                records[i].PeerSocket = null;
+            }
+        }
+
+        /// <summary>
+        /// 等待一次 TCP 建链完成；超时或失败返回 false
+        /// </summary>
+        /// <param name="socket">已创建但尚未连接的 socket</param>
+        /// <param name="peer">对端地址</param>
+        /// <param name="timeout">等待上限</param>
+        /// <returns>连上返回 true</returns>
+        private static bool TryConnect(Socket socket, IPEndPoint peer, TimeSpan timeout)
+        {
+            var connectTask = socket.ConnectAsync(peer);
+
+            // 等待期间不持有任何锁：分配表、连接表与同一控制连接上的其它请求都能继续被处理
+            try
+            {
+                if (!connectTask.Wait(timeout))
+                {
+                    // 超时后调用方会关掉 socket，被打断的连接任务会以异常结束，这里挂上观察避免无人处理
+                    Observe(connectTask);
+                    return false;
+                }
+            }
+            catch (AggregateException)
+            {
+                return false;
+            }
+
+            return connectTask.Status == TaskStatus.RanToCompletion;
+        }
+
+        /// <summary>
+        /// 判断两个端点的 IP 是否相同；端口不参与比较
+        /// </summary>
+        /// <param name="left">左端点</param>
+        /// <param name="right">右端点</param>
+        /// <returns>IP 相同返回 true</returns>
+        private static bool IsSameAddress(IPEndPoint left, IPEndPoint right)
+        {
+            if (left == null || right == null)
+            {
+                return false;
+            }
+
+            return Normalize(left.Address).Equals(Normalize(right.Address));
+        }
+
+        /// <summary>
+        /// 关闭 socket 并忽略重复关闭
+        /// </summary>
+        /// <param name="socket">socket；可为 null</param>
+        private static void DisposeSocket(Socket socket)
+        {
+            if (socket == null)
+            {
+                return;
+            }
+
+            try
+            {
+                socket.Dispose();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+            catch (SocketException ex)
+            {
+                P2PLogHelper.Debug("TurnServer", "关闭中继 socket 失败：" + ex.SocketErrorCode);
+            }
         }
 
         /// <summary>
