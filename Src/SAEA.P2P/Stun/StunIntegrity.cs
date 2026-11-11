@@ -23,15 +23,16 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 16:00:00
+*修改时间：2026/11/11 17:25:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 MESSAGE-INTEGRITY 与密码算法协商
+*描述：补充短凭据与长期凭据密钥派生
 *
 *****************************************************************************/
 using System;
 using System.Collections.Generic;
 using System.Security.Cryptography;
+using System.Text;
 
 namespace SAEA.P2P.Stun
 {
@@ -247,6 +248,46 @@ namespace SAEA.P2P.Stun
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// 构造短凭据密钥：直接使用口令的 UTF-8 字节，不派生
+        /// </summary>
+        /// <param name="password">口令</param>
+        /// <returns>HMAC 密钥</returns>
+        public static byte[] CreateShortTermKey(string password)
+        {
+            if (string.IsNullOrEmpty(password))
+            {
+                throw new ArgumentException("口令不能为空", nameof(password));
+            }
+
+            return Encoding.UTF8.GetBytes(password);
+        }
+
+        /// <summary>
+        /// 构造长期凭据密钥：MD5(username ":" realm ":" password)。
+        /// 直接把派生口令当 HMAC 密钥会与服务端校验规则不一致，必须走本方法。
+        /// </summary>
+        /// <param name="username">用户名</param>
+        /// <param name="realm">认证域</param>
+        /// <param name="password">口令</param>
+        /// <returns>16 字节 HMAC 密钥</returns>
+        public static byte[] CreateLongTermKey(string username, string realm, string password)
+        {
+            if (string.IsNullOrEmpty(username))
+            {
+                throw new ArgumentException("用户名不能为空", nameof(username));
+            }
+            if (string.IsNullOrEmpty(password))
+            {
+                throw new ArgumentException("口令不能为空", nameof(password));
+            }
+
+            using (var md5 = MD5.Create())
+            {
+                return md5.ComputeHash(Encoding.UTF8.GetBytes(username + ":" + (realm ?? string.Empty) + ":" + password));
+            }
         }
 
         /// <summary>

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 15:05:00
+*修改时间：2026/11/11 18:20:00
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增 STUN 消息头用例
+*描述：补充四种类别编码解码互逆的回归用例
 *
 *****************************************************************************/
 using System;
@@ -81,6 +81,29 @@ namespace SAEA.P2P.Tests.Stun
             Assert.AreEqual(StunMessageType.Binding, StunMessage.DecodeMethod(0x0111));
             Assert.AreEqual(StunClass.ErrorResponse, StunMessage.DecodeClass(0x0111));
             Assert.AreEqual(0x0101, StunMessage.EncodeType(StunMessageType.Binding, StunClass.SuccessResponse));
+        }
+
+        /// <summary>
+        /// 四种方法与类别组合都必须编码解码互逆；错误应答的类别低位要落在第 4 位
+        /// </summary>
+        [TestMethod]
+        public void StunMessage_四种类别_编码解码互逆()
+        {
+            var cases = new[]
+            {
+                new { Class = StunClass.Request, Type = (ushort)0x0001 },
+                new { Class = StunClass.Indication, Type = (ushort)0x0011 },
+                new { Class = StunClass.SuccessResponse, Type = (ushort)0x0101 },
+                new { Class = StunClass.ErrorResponse, Type = (ushort)0x0111 }
+            };
+
+            foreach (var item in cases)
+            {
+                var encoded = StunMessage.EncodeType(StunMessageType.Binding, item.Class);
+                Assert.AreEqual(item.Type, encoded, item.Class + " 的类型字段编码错误");
+                Assert.AreEqual(StunMessageType.Binding, StunMessage.DecodeMethod(encoded), item.Class + " 的方法解码错误");
+                Assert.AreEqual(item.Class, StunMessage.DecodeClass(encoded), item.Class + " 的类别解码错误");
+            }
         }
 
         /// <summary>
