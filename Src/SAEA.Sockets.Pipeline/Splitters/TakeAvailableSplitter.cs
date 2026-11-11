@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/9 11:16:22
+*修改时间：2026/11/11 18:26:56
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：无边界分帧器：把当前可用缓冲整体作为一帧，消息边界等于一次读取边界
+*描述：无边界分帧器超过单帧上限时按上限切块，不再抛 FrameProtocolException
 *
 *****************************************************************************/
 using System;
@@ -35,10 +35,11 @@ using System.Buffers;
 namespace SAEA.Sockets.Pipeline
 {
     /// <summary>
-    /// 无边界分帧器：把当前可用缓冲整体作为一帧返回，空缓冲返回 false。
-    /// 用于 FTP 数据通道、Socket5 隧道这类「读多少算多少」的协议；消息边界等于一次读取边界，
-    /// 使用方必须在协议文档中写明这一点。它仍然累积残帧于「一次读取」之内，
-    /// 因此 <see cref="ChannelPipeline.Create"/> 的缓冲下限校验不豁免。
+    /// 无边界分帧器：把当前可用缓冲整体作为一帧返回，空缓冲返回 false；
+    /// 可用缓冲超过单帧上限时按上限切块，剩余部分留给后续调用继续切。
+    /// 用于 FTP 数据通道、Socket5 隧道这类「读多少算多少」的协议；消息边界通常等于一次读取边界，
+    /// 只有在一次读取交出多段合并缓冲时才按上限切成多帧，使用方必须在协议文档中写明这一点。
+    /// 它仍然在同一帧内消费「一次读取」的字节，因此 <see cref="ChannelPipeline.Create"/> 的缓冲下限校验不豁免。
     /// </summary>
     public sealed class TakeAvailableSplitter : IFrameSplitter
     {
@@ -47,7 +48,7 @@ namespace SAEA.Sockets.Pipeline
         /// <summary>
         /// 创建无边界分帧器。
         /// </summary>
-        /// <param name="maxFrameLength">单次读取可接受的最大块大小，必须大于 0；超过时抛 <see cref="FrameProtocolException"/>。</param>
+        /// <param name="maxFrameLength">单帧硬上界，必须大于 0；可用缓冲超过该值时按该长度切块，不再抛异常。</param>
         public TakeAvailableSplitter(int maxFrameLength)
         {
             if (maxFrameLength <= 0)
@@ -56,7 +57,7 @@ namespace SAEA.Sockets.Pipeline
             _maxFrameLength = maxFrameLength;
         }
 
-        /// <summary>单次读取上限，也是本分帧器的最大帧长。</summary>
+        /// <summary>单帧硬上界：单次产出的帧长度不会超过该值；缓冲超出时按此切块。</summary>
         public int MaxFrameLength
         {
             get { return _maxFrameLength; }
@@ -71,10 +72,13 @@ namespace SAEA.Sockets.Pipeline
             if (buffer.IsEmpty)
                 return false;
 
+            // 泵落后于下游时 Pipe 会把多次读取合并成一段交出，一次 ReadResult 可能远大于单帧上限；
+            // 这里按上限切块，保证帧大小有界且不丢字节，剩余字节由下一次 TrySplit 继续切。
             if (buffer.Length > _maxFrameLength)
             {
-                throw new FrameProtocolException(
-                    "无边界分帧的可用缓冲长度 " + buffer.Length + " 超过单次读取上限 " + _maxFrameLength + "。");
+                consumed = _maxFrameLength;
+                frame = buffer.Slice(0, _maxFrameLength);
+                return true;
             }
 
             consumed = buffer.Length;

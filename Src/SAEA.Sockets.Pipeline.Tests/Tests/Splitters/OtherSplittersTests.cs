@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/9 11:16:22
+*修改时间：2026/11/11 18:26:56
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：追加无边界分帧器的空缓冲、跨段、超限与整段消费用例
+*描述：无边界分帧器超限用例改为按上限切块断言
 *
 *****************************************************************************/
 using System;
@@ -314,15 +314,24 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Splitters
         }
 
         /// <summary>
-        /// 可用缓冲超过单次读取上限时抛 FrameProtocolException
+        /// 可用缓冲超过单帧上限时按上限切块，剩余字节留给下一次调用继续切
         /// </summary>
         [TestMethod]
-        public void TakeAvailable_ExceedsMaxFrameLength_Throws()
+        public void TakeAvailable_ExceedsMaxFrameLength_SplitsAtLimit()
         {
             var splitter = new TakeAvailableSplitter(4);
+            var buffered = new byte[] { 1, 2, 3, 4, 5 };
+            var sequence = new ReadOnlySequence<byte>(buffered);
 
-            Assert.ThrowsException<FrameProtocolException>(
-                () => SplitIgnoringResult(splitter, new byte[] { 1, 2, 3, 4, 5 }));
+            long consumed;
+            ReadOnlySequence<byte> frame;
+            Assert.IsTrue(splitter.TrySplit(sequence, out consumed, out frame), "超限时应切块而不是报错。");
+            Assert.AreEqual(4, consumed);
+            CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 4 }, frame.ToArray());
+
+            Assert.IsTrue(splitter.TrySplit(sequence.Slice(consumed), out consumed, out frame));
+            Assert.AreEqual(1, consumed);
+            CollectionAssert.AreEqual(new byte[] { 5 }, frame.ToArray());
         }
 
         /// <summary>

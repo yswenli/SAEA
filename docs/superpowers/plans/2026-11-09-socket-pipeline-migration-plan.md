@@ -291,7 +291,7 @@ dotnet test Src/SAEA.MQTT.Tests/SAEA.MQTT.Tests.csproj -c Release
 
 **文件**：新增 `Src/SAEA.Sockets.Pipeline/Splitters/TakeAvailableSplitter.cs`。
 
-**步骤**：空缓冲返回 false；否则整段作为一帧、`consumed = buffer.Length`；`MaxFrameLength` = 单次读取上限，超限抛 `FrameProtocolException`；`Create` 校验不豁免（文档写明）。
+**步骤**：空缓冲返回 false；否则整段作为一帧、`consumed = buffer.Length`；`MaxFrameLength` = 单帧硬上界，超限按上限切块（原设计为抛 `FrameProtocolException`，因数据通道泵被下游背压拖慢时一次 `ReadResult` 会交出多倍读取的合并缓冲而改为切块）；`Create` 校验不豁免（文档写明）。
 
 **测试**（`Tests/Splitters/OtherSplittersTests.cs` 追加）
 

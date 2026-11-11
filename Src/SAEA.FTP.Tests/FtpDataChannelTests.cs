@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 17:05:00
+*修改时间：2026/11/11 18:26:56
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增数据通道适配层用例
+*描述：追加一次到达超过单帧上限时切块读出的用例
 *
 *****************************************************************************/
 using System;
@@ -344,6 +344,70 @@ namespace SAEA.FTP.Tests
                     await transport.InputWriteAsync(expected);
                     var actual = await reading.WaitAsync(WaitTimeout);
 
+                    CollectionAssert.AreEqual(expected, actual);
+                }
+                finally
+                {
+                    adapter.Dispose();
+                    await executor.BeginShutdown("test-done");
+                    await executor.Completion.WaitAsync(WaitTimeout);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 一次到达 256KB（4 倍单帧上限）时按上限切块读出，不抛协议异常且总长与字节一致。
+        /// </summary>
+        /// <returns>该用例的异步执行任务</returns>
+        [TestMethod]
+        public async Task DataChannel_一次到达超过单帧上限_切块读出且不丢字节()
+        {
+            var options = NewDataOptions();
+            var adapter = new ChannelStreamAdapter(8, 512 * 1024);
+            adapter.ReadTimeout = WaitTimeoutMs;
+
+            using (var pipeline = ChannelPipeline.Create(options))
+            {
+                var transport = new TestRawByteStream("data-over-limit");
+                pipeline.AddLast(new FtpDataChunkEncoder());
+                pipeline.AddLast(new OutboundSerializingHandler());
+                pipeline.AddLast(new FtpDataChunkDecoder(adapter));
+                pipeline.AddLast(new ExceptionTerminalHandler());
+
+                var executor = new ChannelPipelineExecutor(
+                    transport, new TestChannel("data-over-limit"), options, CancellationToken.None);
+                executor.Attach(pipeline);
+                adapter.AttachPipeline(pipeline);
+                executor.Start();
+
+                try
+                {
+                    var expected = new byte[4 * 64 * 1024];
+                    for (var i = 0; i < expected.Length; i++)
+                        expected[i] = (byte)(i % 251);
+
+                    var reading = RunBlocking(() =>
+                    {
+                        var received = new List<byte>(expected.Length);
+                        while (received.Count < expected.Length)
+                        {
+                            var buffer = new byte[expected.Length - received.Count];
+                            var read = adapter.Read(buffer, 0, buffer.Length);
+                            if (read == 0)
+                                break;
+
+                            for (var i = 0; i < read; i++)
+                                received.Add(buffer[i]);
+                        }
+
+                        return received.ToArray();
+                    });
+
+                    // 一次写满 4 倍单帧上限，泵的一次 ReadAsync 会交出超过单帧上限的合并缓冲。
+                    await transport.InputWriteAsync(expected);
+                    var actual = await reading.WaitAsync(WaitTimeout);
+
+                    Assert.AreEqual(expected.Length, actual.Length, "切块读出不得丢字节。");
                     CollectionAssert.AreEqual(expected, actual);
                 }
                 finally

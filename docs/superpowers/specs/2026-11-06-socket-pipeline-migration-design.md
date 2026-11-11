@@ -285,9 +285,9 @@ public sealed class TakeAvailableSplitter : IFrameSplitter
 }
 ```
 
-`MaxFrameLength` 对该分帧器取「单次读取上限」，超限抛异常。使用它意味着消息边界等于读边界，文档必须写清楚。
+`MaxFrameLength` 对该分帧器取「单帧硬上界」：可用缓冲超过该值时按上限切块，剩余字节留给下一次 `TrySplit`，**不抛异常**。原因是泵被下游背压拖慢时，`Pipe` 会把多次读取合并成一段交出，一次 `ReadResult` 常常是 `ReadBufferSize` 的数倍；把这种合并缓冲当成「超限」会让合法的透传流量整条断开。使用它意味着消息边界通常等于读边界，只有超限时才切成多帧，文档必须写清楚。
 
-**与 `MaxBufferedBytes` 校验的关系：不豁免，撤回「可以独立给低值」的说法。** `ChannelPipeline.Create` 对显式设置的 `MaxBufferedBytes` 仍强制 `>= Splitter.MaxFrameLength + P_Head`，即使无边界分帧器根本不累积残帧也一样。本设计**不**为此给 `IFrameSplitter` 再加「是否累积半帧」的能力标记——那只是为一个包省一点缓冲，却要让所有分帧器多实现一个成员。取值规则改为：`MaxFrameLength` 填调用方真正能接受的最大单块（数据通道即块大小上限，通常 64KB 量级），`MaxBufferedBytes` 按同一量级给，天然满足公式；不要把「单次读取上限」和「累积缓冲上限」当成可以各自独立取小值的两个旋钮。
+**与 `MaxBufferedBytes` 校验的关系：不豁免，撤回「可以独立给低值」的说法。** `ChannelPipeline.Create` 对显式设置的 `MaxBufferedBytes` 仍强制 `>= Splitter.MaxFrameLength + P_Head`，即使无边界分帧器根本不累积残帧也一样。本设计**不**为此给 `IFrameSplitter` 再加「是否累积半帧」的能力标记——那只是为一个包省一点缓冲，却要让所有分帧器多实现一个成员。取值规则改为：`MaxFrameLength` 填调用方真正能接受的最大单块（数据通道即块大小上限，通常 64KB 量级），`MaxBufferedBytes` 按同一量级给，天然满足公式；不要把「单帧上限」和「累积缓冲上限」当成可以各自独立取小值的两个旋钮。
 
 ### 5.5 传输适配层（每包自带一份）
 
@@ -541,7 +541,7 @@ public sealed class OutboundSerializingHandler : OutboundHandlerAdapter
 
 链只接管**已建立连接后的读写**。本批不把「为了用 Pipeline 而替换 `TcpListener` / `TcpClient`」藏在数据通道适配层里：P4 必须把控制通道与数据通道的建连替换作为同一个传输重写任务显式实施，PASV、REST、上传/下载方向、`226` 完成应答与关闭时序逐项保持。
 
-- 分帧：`TakeAvailableSplitter`，消息边界 = 一次读取；
+- 分帧：`TakeAvailableSplitter`，消息边界 = 一次读取；一次读取超过单帧上限时按上限切成多帧（泵落后于下游背压时 `Pipe` 会把多次读取合并交出，不能因此报错断链）；
 - 解码：`FtpDataChunkDecoder : ByteToMessageDecoder`，把帧转成 `FtpDataChunk`（持有帧的独立拷贝或 `PooledMessage` 所有权）；
 - 传输语义：数据通道是一次性的（连接 → 传完 → 关闭），包内用 `ChannelStreamAdapter` 把「链上分块消息」包成 `Stream` 给现有的文件读写代码用。
 

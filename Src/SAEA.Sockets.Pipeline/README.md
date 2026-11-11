@@ -86,7 +86,7 @@ server.Start();
 8. **`RawFrame` 与信封模型互斥**：`FramePassthroughHandler` 原始帧旁路与 `Envelope*` / `Codec*` 信封链不能装在同一条链上，二选一。
 9. **`CloseAfterWriteAsync` 只保证已提交传输层**：返回成功只表示已提交的写出完成交接，不表示对端收到；`DrainTimeout <= 0` 在该入口按 5 秒处理，超时强制收口并补偿未移交的 `RawFrame`。
 10. **内存只承诺两项有界**：`MaxBufferedBytes` 约束单连接未成帧输入残余字节，`MaxPendingWrites` 约束出站待写项数；排队帧、在途帧、解码后业务消息、TLS 加密复制与 socket 发送缓冲、池化保留都不在固定总上界内。
-11. **装配位置与限制**：`OutboundSerializingHandler` 必须恰好一个且位于出站前缀最右侧（紧贴第一个入站节点），先排队再编码；`SwitchableSplitter` 每连接一个实例，`StopAfterCurrent` 屏障期间只能调 `SwitchTo` 解除，`MaxFrameLength` 在创建时按所有可切换协议取最大值、切换目标不得超限，`SplitterSwitchTimeout` 默认 10 秒，超时按 `FrameProtocolException` 收口；`TakeAvailableSplitter` 以一次读取为消息边界，`MaxFrameLength` 同时是单次读取上限，且不豁免 `ChannelPipeline.Create` 的缓冲下限校验。
+11. **装配位置与限制**：`OutboundSerializingHandler` 必须恰好一个且位于出站前缀最右侧（紧贴第一个入站节点），先排队再编码；`SwitchableSplitter` 每连接一个实例，`StopAfterCurrent` 屏障期间只能调 `SwitchTo` 解除，`MaxFrameLength` 在创建时按所有可切换协议取最大值、切换目标不得超限，`SplitterSwitchTimeout` 默认 10 秒，超时按 `FrameProtocolException` 收口；`TakeAvailableSplitter` 以一次读取为消息边界，`MaxFrameLength` 是单帧硬上界（可用缓冲超出时按上限切块，不抛异常），且不豁免 `ChannelPipeline.Create` 的缓冲下限校验。
 
 ---
 
@@ -355,7 +355,7 @@ public sealed class SocketStreamAdapter : IRawByteStream
 | `MaxBufferedBytes != 0` | 必须 `>= MaxFrameLength + P_Head`，否则 `Create` 抛 `ArgumentOutOfRangeException`（一个合法最大帧连整帧都攒不下） |
 | 推导值或显式值 > `int.MaxValue` | `Create` 抛 `ArgumentOutOfRangeException` |
 | 运行期超限 | 每轮把完整帧全部入队后检查 `Pipe` 中残余字节，仍 `> MaxBufferedBytes` 时以 `reason = "buffered-bytes-limit"` 关闭连接 |
-| 单帧超长 | 在 `IFrameSplitter.TrySplit` 内检查，抛 `FrameProtocolException` |
+| 单帧超长 | 在 `IFrameSplitter.TrySplit` 内检查，抛 `FrameProtocolException`；`TakeAvailableSplitter` 例外——超过单帧上限时按上限切块，不抛异常 |
 
 - 默认 `MaxBufferedBytes = 1MB` 只适用于 `MaxFrameLength <= 960KB` 左右；协议允许更大帧时必须显式配置。
 - `ReadBufferSize` 只是给“最大合法帧 + 一点尾巴”留的余量，不限制单次 `ReadAsync` 返回长度，也不影响 `Pipe` 的容量或残余字节的统计口径。
