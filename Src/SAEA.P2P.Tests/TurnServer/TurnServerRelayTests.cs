@@ -249,6 +249,88 @@ namespace SAEA.P2P.Tests.TurnServer
         }
 
         /// <summary>
+        /// 同一用户的并发分配达到上限时，后续 Allocate 返回 486
+        /// </summary>
+        [TestMethod]
+        [Timeout(20000)]
+        public async Task TurnServer_超配额_返回486()
+        {
+            var relayPort = ReserveUdpPorts(1)[0];
+            using (var harness = await TurnHarness.StartAsync(relayPort, 1))
+            using (var first = new SaeaUdpTransport())
+            using (var second = new SaeaUdpTransport())
+            {
+                await first.BindAsync(new IPEndPoint(Host, 0), CancellationToken.None);
+                await second.BindAsync(new IPEndPoint(Host, 0), CancellationToken.None);
+
+                using (var firstInbox = new Inbox(first))
+                using (var secondInbox = new Inbox(second))
+                {
+                    // 两个请求共用同一个凭据对象，保证用户名完全一致，才能命中单用户上限
+                    var credential = harness.CreateCredential("learner");
+
+                    var firstNonce = await GetNonceAsync(harness, first, firstInbox);
+                    var firstAllocate = Sign(TurnMessage.CreateAllocate(TurnServerHost.UdpTransport), credential, firstNonce);
+                    var firstResponse = await ExchangeAsync(first, firstInbox, harness.EndPoint, firstAllocate, Timeout);
+                    Assert.IsNotNull(firstResponse, "第一个客户端应得到应答");
+                    Assert.AreEqual(StunClass.SuccessResponse, firstResponse.Class, "未超配额时 Allocate 应成功");
+
+                    var secondNonce = await GetNonceAsync(harness, second, secondInbox);
+                    var secondAllocate = Sign(TurnMessage.CreateAllocate(TurnServerHost.UdpTransport), credential, secondNonce);
+                    var secondResponse = await ExchangeAsync(second, secondInbox, harness.EndPoint, secondAllocate, Timeout);
+
+                    Assert.IsNotNull(secondResponse, "第二个客户端应得到应答");
+                    Assert.AreEqual(StunClass.ErrorResponse, secondResponse.Class, "超出单用户上限时应返回错误应答");
+
+                    int code;
+                    string reason;
+                    Assert.IsTrue(StunErrorCode.TryGet(secondResponse, out code, out reason), "应携带 ERROR-CODE");
+                    Assert.AreEqual(486, code, "单用户并发分配超限应返回 486");
+                    Assert.AreEqual(1, harness.Server.AllocationCount, "被拒绝的请求不应产生新分配");
+                }
+            }
+        }
+
+        /// <summary>
+        /// 中继端口区间耗尽时，Allocate 返回 508
+        /// </summary>
+        [TestMethod]
+        [Timeout(20000)]
+        public async Task TurnServer_端口耗尽_返回508()
+        {
+            var relayPort = ReserveUdpPorts(1)[0];
+            using (var harness = await TurnHarness.StartAsync(relayPort))
+            using (var first = new SaeaUdpTransport())
+            using (var second = new SaeaUdpTransport())
+            {
+                await first.BindAsync(new IPEndPoint(Host, 0), CancellationToken.None);
+                await second.BindAsync(new IPEndPoint(Host, 0), CancellationToken.None);
+
+                using (var firstInbox = new Inbox(first))
+                using (var secondInbox = new Inbox(second))
+                {
+                    var relayed = await AllocateAsync(harness, first, firstInbox);
+                    Assert.AreEqual(relayPort, relayed.Port, "中继地址应占用区间内唯一端口");
+
+                    // 换一个用户，避免命中单用户配额而拿到 486
+                    var credential = harness.CreateCredential("other");
+                    var nonce = await GetNonceAsync(harness, second, secondInbox);
+                    var allocate = Sign(TurnMessage.CreateAllocate(TurnServerHost.UdpTransport), credential, nonce);
+                    var response = await ExchangeAsync(second, secondInbox, harness.EndPoint, allocate, Timeout);
+
+                    Assert.IsNotNull(response, "端口耗尽时也应回应答");
+                    Assert.AreEqual(StunClass.ErrorResponse, response.Class, "端口不足时应返回错误应答");
+
+                    int code;
+                    string reason;
+                    Assert.IsTrue(StunErrorCode.TryGet(response, out code, out reason), "应携带 ERROR-CODE");
+                    Assert.AreEqual(508, code, "中继端口耗尽应返回 508");
+                    Assert.AreEqual(1, harness.Server.AllocationCount, "被拒绝的请求不应产生新分配");
+                }
+            }
+        }
+
+        /// <summary>
         /// 完成一次带鉴权的 Allocate 并返回中继地址
         /// </summary>
         /// <param name="harness">服务端宿主</param>
@@ -524,8 +606,9 @@ namespace SAEA.P2P.Tests.TurnServer
             /// 按配置创建并启动服务端；中继端口区间收窄到单个端口，便于断言中继地址
             /// </summary>
             /// <param name="relayPort">中继端口</param>
+            /// <param name="maxAllocationsPerUser">单用户并发分配上限；为 null 时用服务端默认值</param>
             /// <returns>宿主</returns>
-            public static async Task<TurnHarness> StartAsync(int relayPort)
+            public static async Task<TurnHarness> StartAsync(int relayPort, int? maxAllocationsPerUser = null)
             {
                 var options = new TurnServerOptions
                 {
@@ -535,6 +618,10 @@ namespace SAEA.P2P.Tests.TurnServer
                     RelayPortMin = relayPort,
                     RelayPortMax = relayPort
                 };
+                if (maxAllocationsPerUser.HasValue)
+                {
+                    options.MaxAllocationsPerUser = maxAllocationsPerUser.Value;
+                }
                 var server = new TurnServerHost(options);
 
                 var stunOptions = new StunServerOptions(new IPEndPoint(Host, 0))
