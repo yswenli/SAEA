@@ -3,7 +3,7 @@
   ____    _    _____    _      ____             _        _   
  / ___|  / \  | ____|  / \    / ___|  ___   ___| | _____| |_ 
  \___ \ / _ \ |  _|   / _ \   \___ \ / _ \ / __| |/ / _ \ __|
-  ___) / ___ \| |___ / ___ \  ___) | (_) | (__|   <  __/ |_ 
+  ___) / ___ \| |___ / ___ \   ___) | (_) | (__|   <  __/ |_ 
  |____/_/   \_\_____/_/   \_\ |____/ \___/ \___|_|\_\___|\__|
                                                               
  
@@ -26,7 +26,7 @@
 *修改时间：2026/11/11 14:30:00
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增，覆盖服务端问候与多行应答、超长命令收口、客户端多行与非法应答解析
+*描述：新增，覆盖服务端问候、多行应答、QUIT 回复后断连、超长命令收口、客户端多行与非法应答解析
 *
 *****************************************************************************/
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -194,6 +194,34 @@ namespace SAEA.FTP.Tests
                     var user = ReadLine(stream);
 
                     Assert.IsTrue(user.StartsWith("331 ", StringComparison.Ordinal), user);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 收到 QUIT 时应先写出 221 再断开，保证客户端能读到告别应答
+        /// </summary>
+        [TestMethod]
+        public void Server_Quit_Replies221ThenCloses()
+        {
+            using (var client = new TcpClient())
+            {
+                client.Connect(IPAddress.Loopback, _port);
+
+                using (var stream = client.GetStream())
+                {
+                    stream.ReadTimeout = 10000;
+
+                    Assert.IsTrue(ReadLine(stream).StartsWith("220 ", StringComparison.Ordinal), "missing greeting");
+
+                    WriteLine(stream, "QUIT");
+
+                    var bye = ReadLine(stream);
+
+                    Assert.IsTrue(bye.StartsWith("221 ", StringComparison.Ordinal), bye);
+
+                    // 221 之后服务端必须主动关闭：读到 EOF 才算收口，超时会以 IOException 让用例失败。
+                    Assert.AreEqual(-1, stream.ReadByte(), "server should close the control connection after 221");
                 }
             }
         }

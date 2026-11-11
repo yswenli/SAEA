@@ -414,6 +414,7 @@ Console.WriteLine("FTP server started");
 ```csharp
 using SAEA.FTP;
 using SAEA.Sockets.Pipeline;
+using System.Threading.Tasks;
 
 var client = new FTPClient(
     ip: "127.0.0.1",

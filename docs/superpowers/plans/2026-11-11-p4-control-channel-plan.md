@@ -58,11 +58,11 @@ A 的风险：`Stop()` 时正在传输的会话会被收口流程按 `DrainTimeo
 
 ## 三、文件清单
 
-### 新增（8 个）
+### 新增（10 个）
 
 | 文件 | 类型 | 职责 |
 |---|---|---|
-| `Src/SAEA.FTP/Net/Pipeline/PipelineRawByteStream.cs` | `public sealed` | 逐包副本，取自 `SAEA.RPC` 同文件，仅改命名空间为 `SAEA.FTP` |
+| `Src/SAEA.FTP/Net/Pipeline/PipelineRawByteStream.cs` | `public sealed` | 逐包副本，取自 `SAEA.MessageSocket` 同文件，仅改 banner 与命名空间为 `SAEA.FTP` |
 | `Src/SAEA.FTP/Net/Pipeline/PipelineWiring.cs` | `public static` | 同上 |
 | `Src/SAEA.FTP/Net/Pipeline/PipelineHostRegistry.cs` | `public sealed` | 同上 |
 | `Src/SAEA.FTP/Net/Pipeline/FtpCommandDecoder.cs` | `public sealed : ByteToMessageDecoder` | 服务端：一行帧 → `ClientRequest` |
@@ -108,10 +108,10 @@ ExceptionTerminalHandler   （链尾）
 | 阶段 | 位置 | 动作 |
 |---|---|---|
 | 接受连接 | `FTPServer.OnConnectionOpened(ChannelInfo)` | 建 `ServerSession(channelId)`，登记 `_sessions[channelId]`（键从 GUID 改为 channelId） |
-| 装配 | `ConfigureConnection(channelId, pipeline)` | 装链；登记 `_pipelines[channelId] = pipeline`（供会话回复） |
+| 装配 | `ConfigureConnection(channelId, pipeline)` | 装链：`FtpReplyEncoder → OutboundSerializingHandler → FtpCommandDecoder → FtpServerCommandHandler → 使用者扩展 → ExceptionTerminalHandler` |
 | 激活 | `FtpServerCommandHandler.ChannelActiveAsync` | `session.AttachPipeline(ctx.Pipeline)`；`await ctx.Pipeline.WriteAsync(new FtpReply { Code = 220, Message = "Welcome to SAEA.FTPServer!" })` |
 | 命令 | `FtpServerCommandHandler.ChannelReadAsync` | `session.Handle(request)`（同步，见 D2-A） |
-| 失活 | `FtpServerCommandHandler.ChannelInactiveAsync` | `session.MarkClosed()`，`_server.RemoveSession(this)` |
+| 失活 | `FtpServerCommandHandler.ChannelInactiveAsync` | `session.MarkClosed()`（置关闭、释放被动监听器、清空写入口），`_server.RemoveSession(this)` |
 | 异常 | `ChannelExceptionCaughtAsync` | 原 `Run()` 里的分类记录：`IOException`/`ObjectDisposedException` 静默，其余 `Log("FTP会话异常", ex)` |
 
 `ChannelActiveAsync` 内回包是执行器明确支持的（`ChannelPipelineExecutor.BeginStartAsync` 的注释：「活动通知早于泵首次读取，处理器可在其中回包」），依赖 `ServerSession` 在 `OnConnectionOpened` 已建立，故 handler 构造时拿到的是已存在的会话实例。
@@ -124,9 +124,9 @@ IP 映射保持现状：`config.IP` 为空、不能解析或等于 `0.0.0.0` 时
 - `channelId = userToken.ID`；
 - `new PipelineRawByteStream(channelId, reader, flow, _server)`；
 - `await PipelineWiring.RunAsync(channelId, stream, flow, _options, token, _host, ConfigureConnection)`；
-- `finally` 里移除 `_pipelines[channelId]`（`_sessions` 由失活回调移除）。
+- 会话写入口由链激活回调写入（`AttachPipeline`），本方法不额外持有链；`_sessions` 的增删分别由 `OnConnectionOpened` 与失活回调负责。
 
-`Stop()`：`_server.Stop()`（关闭全部通道）→ 逐个 `session.Dispose()` → 清空两张表；`Dispose()` 追加 `_server.Dispose()`。
+`Stop()`：`_server.Stop()`（关闭全部通道）→ 逐个 `session.Dispose()` → 清空会话表；`Dispose()` 追加 `_server.Dispose()`。
 
 ### 4.3 回复写出
 
@@ -269,13 +269,14 @@ public FtpReply ReadReply()               // 现状：从流里读一条完整�
 
 ---
 
-## 七、测试计划（`SAEA.FTP.Tests`，现有 13 条 + 新增 7 条）
+## 七、测试计划（`SAEA.FTP.Tests`，现有 13 条 + 新增 10 条）
 
 | 用例 | 断言 |
 |---|---|
 | `Server_Greeting_OnConnect` | 裸 `TcpClient` 连上后首行以 `220 ` 开头 |
 | `Server_FeatReply_MultiLine` | 登录后 `FEAT` 收到 `211-` 开头、`211 ` 结束的多行块 |
-| `Server_UnknownCommand_Replies500` | 未登录发 `FOO` → `500`，连接仍可继续 `USER` |
+| `Server_UnknownCommand_RepliesNotImplemented` | 未登录发 `FOO` → `502`，连接仍可继续 `USER` |
+| `Server_Quit_Replies221ThenCloses` | 发 `QUIT` → 先收到 `221`，随后读到 EOF（服务端主动断开） |
 | `Server_OverlongCommandLine_ClosesConnection` | 发 9KB 无换行 → 连接在超时内关闭 |
 | `Client_MultiLineGreeting_Connects` | 假服务器发 `220-Welcome\r\n220 Ready\r\n`，`FTPClient.Connect()` 成功（解析错会抛） |
 | `Client_MalformedReply_ThrowsIOException` | 假服务器发 `abc\r\n` → `Connect()` 抛 `IOException` |
@@ -298,7 +299,7 @@ public FtpReply ReadReply()               // 现状：从流里读一条完整�
 | 控制通道换链期间数据通道仍是裸 `TcpClient` | 本步不宣称 P4 完成；第 3 步一并替换后统一验收 |
 | `LineSplitter` 8KB 上限收紧 | 现状无上限，属主动收紧；RFC 959 命令行上限 512 字节，8KB 已留足余量，README 写明 |
 | 客户端阻塞等待的线程占用 | 一对一问答、`CommandTimeout` 兜底；与现状 `NetworkStream` 阻塞读一致 |
-| 失败回滚 | 改动集中在 `FTPServer.cs`、`FtpControlConnection.cs`、`FTPClient.cs` 与 8 个新增文件，`git checkout -- Src/SAEA.FTP` 可整体回退 |
+| 失败回滚 | 改动集中在 `FTPServer.cs`、`FtpControlConnection.cs`、`FTPClient.cs` 与 10 个新增文件，`git checkout -- Src/SAEA.FTP` 可整体回退 |
 
 ---
 
@@ -306,7 +307,7 @@ public FtpReply ReadReply()               // 现状：从流里读一条完整�
 
 ```bash
 dotnet build Src/SAEA.FTP/SAEA.FTP.csproj -c Debug --no-incremental   # 0 errors，警告只来自内嵌 Newtonsoft
-dotnet test  Src/SAEA.FTP.Tests/SAEA.FTP.Tests.csproj -c Release      # 20 passed（13 存量 + 7 新增）
+dotnet test  Src/SAEA.FTP.Tests/SAEA.FTP.Tests.csproj -c Release      # 23 passed（13 存量 + 10 新增：控制通道 8 条 + 冻结 2 条）
 dotnet build Src/SAEA.Sockets.sln -c Debug                            # 0 errors
 ```
 
