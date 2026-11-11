@@ -22,10 +22,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 10:10:00
+*修改时间：2026/11/11 11:00:00
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增 UDP 发送原语与来源地址回调用例
+*描述：新增 UDP 发送原语、来源地址回调、客户端端点与未连接接收入口用例
 *
 *****************************************************************************/
 using System;
@@ -284,6 +284,82 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Integration
                 client.Connect(new IPEndPoint(IPAddress.Loopback, port));
 
                 Assert.IsTrue(accepted.Wait(5000), "双栈监听未接受 IPv4 连接");
+            }
+        }
+
+        /// <summary>
+        /// 未 Connect 的客户端套接字启动接收后，能收到任意来源发来的报文并拿到真实来源地址
+        /// </summary>
+        [TestMethod]
+        public void StartReceive_未连接_可收到任意来源报文()
+        {
+            using (var client = new SaeaUdpClientSocket(BuildUdpOption(9)))
+            using (var sender = CreateBoundClient())
+            {
+                var received = new ManualResetEventSlim(false);
+                IPEndPoint from = null;
+                byte[] payload = null;
+
+                client.OnClientReceiveSpanFrom += (remoteEndPoint, data) =>
+                {
+                    from = new IPEndPoint(remoteEndPoint.Address, remoteEndPoint.Port);
+                    payload = data.ToArray();
+                    received.Set();
+                };
+
+                client.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+                client.StartReceive();
+
+                var message = Encoding.UTF8.GetBytes("discovery");
+                sender.SendTo(message, client.LocalEndPoint);
+
+                Assert.IsTrue(received.Wait(5000), "未连接状态下未收到报文");
+                CollectionAssert.AreEqual(message, payload);
+                Assert.AreEqual(sender.LocalEndPoint, from);
+            }
+        }
+
+        /// <summary>
+        /// 客户端绑定后本地端点报告实际端口
+        /// </summary>
+        [TestMethod]
+        public void LocalEndPoint_绑定后_等于实际端口()
+        {
+            using (var client = new SaeaUdpClientSocket(BuildUdpOption(9)))
+            {
+                Assert.IsNull(client.LocalEndPoint, "未绑定时本地端点应为 null");
+
+                var port = GetFreeUdpPort();
+                client.Bind(new IPEndPoint(IPAddress.Loopback, port));
+
+                Assert.IsNotNull(client.LocalEndPoint);
+                Assert.AreEqual(port, client.LocalEndPoint.Port);
+                Assert.AreEqual(IPAddress.Loopback, client.LocalEndPoint.Address);
+            }
+        }
+
+        /// <summary>
+        /// 重复调用 StartReceive 不抛异常、不重复投递同一个接收参数对象，报文仍被逐条回调
+        /// </summary>
+        [TestMethod]
+        public void StartReceive_重复调用_只启动一个接收循环()
+        {
+            using (var client = new SaeaUdpClientSocket(BuildUdpOption(9)))
+            using (var sender = CreateBoundClient())
+            {
+                var received = new CountdownEvent(2);
+
+                client.OnClientReceiveSpanFrom += (remoteEndPoint, data) => received.Signal();
+
+                client.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+                client.StartReceive();
+                client.StartReceive();
+                client.StartReceive();
+
+                sender.SendTo(Encoding.UTF8.GetBytes("first"), client.LocalEndPoint);
+                sender.SendTo(Encoding.UTF8.GetBytes("second"), client.LocalEndPoint);
+
+                Assert.IsTrue(received.Wait(5000), "重复调用后接收循环失效或重复投递");
             }
         }
     }

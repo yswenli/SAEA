@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/9 10:30:00
+*修改时间：2026/11/11 11:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：携带所有权对象的发送重载签名同步为 Task，UDP 收发行为不变
+*描述：新增 LocalEndPoint、StartReceive 与带来源地址的接收回调，未连接亦可接收
 *
 *****************************************************************************/
 using System;
@@ -58,6 +58,9 @@ namespace SAEA.Sockets.Core.Udp
         SocketAsyncEventArgs _connectArgs;
 
         UserTokenFactory _userTokenFactory;
+
+        // 0 表示未启动，1 表示接收循环已启动；用 Interlocked 保证 StartReceive 幂等
+        int _receiveStarted;
 
         /// <summary>
         /// 套接字选项，构造时用于广播、多播、超时与收发缓冲设置
@@ -109,6 +112,31 @@ namespace SAEA.Sockets.Core.Udp
         /// 接收数据事件（Span 版本）。data 仅在回调期间有效。
         /// </summary>
         public event OnClientReceiveSpanHandler OnClientReceiveSpan;
+
+        /// <summary>
+        /// 接收数据事件（Span 版本），并给出该数据报的来源地址。地址与 data 均仅在回调期间有效。
+        /// </summary>
+        public event OnClientReceiveSpanFromHandler OnClientReceiveSpanFrom;
+
+        /// <summary>
+        /// 本地套接字实际绑定的端点；未绑定或已释放时为 null
+        /// </summary>
+        public IPEndPoint LocalEndPoint
+        {
+            get
+            {
+                try
+                {
+                    var endPoint = _udpSocket?.LocalEndPoint as IPEndPoint;
+                    // 未 Bind 的套接字会给出端口 0，这种端点不能用于后续收发，按 null 处理
+                    return endPoint != null && endPoint.Port != 0 ? endPoint : null;
+                }
+                catch
+                {
+                    return null;
+                }
+            }
+        }
 
         /// <summary>
         /// 触发错误事件
@@ -185,6 +213,37 @@ namespace SAEA.Sockets.Core.Udp
         }
 
         /// <summary>
+        /// 启动接收循环，可重复调用（只有第一次生效）。
+        /// </summary>
+        /// <remarks>
+        /// 走 ReceiveFrom 路径，因此未 Connect 的套接字也能收到任意来源的报文，供局域网发现与 ICE 候选检查使用。
+        /// 已 Connect 的套接字同样走该路径，收到的来源地址就是连接的对端。
+        /// </remarks>
+        /// <exception cref="InvalidOperationException">套接字尚未绑定或已释放</exception>
+        public void StartReceive()
+        {
+            if (Interlocked.CompareExchange(ref _receiveStarted, 1, 0) != 0) return;
+
+            var userToken = _userToken;
+            if (userToken == null || userToken.Socket == null)
+            {
+                Interlocked.Exchange(ref _receiveStarted, 0);
+                throw new InvalidOperationException("The UDP client socket has been disposed.");
+            }
+
+            if (userToken.Socket.LocalEndPoint == null)
+            {
+                Interlocked.Exchange(ref _receiveStarted, 0);
+                throw new InvalidOperationException("The UDP client socket has not been bound.");
+            }
+
+            userToken.ID = userToken.Socket.LocalEndPoint.ToString();
+            userToken.Linked = userToken.Actived = DateTimeHelper.Now;
+
+            ProcessReceive(userToken.ReadArgs);
+        }
+
+        /// <summary>
         /// 连接到服务器
         /// </summary>
         /// <param name="callBack"></param>
@@ -218,12 +277,7 @@ namespace SAEA.Sockets.Core.Udp
 
         void ProcessConnected(SocketAsyncEventArgs e)
         {
-            _userToken.ID = _udpSocket.LocalEndPoint.ToString();
-            _userToken.Socket = _udpSocket;
-            _userToken.Linked = _userToken.Actived = DateTimeHelper.Now;
-
-            var readArgs = _userToken.ReadArgs;
-            ProcessReceive(readArgs);
+            StartReceive();
         }
 
 
@@ -250,7 +304,11 @@ namespace SAEA.Sockets.Core.Udp
         {
             if (_userToken.Socket != null)
             {
-                if (!_userToken.Socket.ReceiveAsync(readArgs))
+                // ReceiveFrom 完成后该对象会被替换成发送方端点，每次投递前保证有一个可写入的空端点
+                if (readArgs.RemoteEndPoint == null)
+                    readArgs.RemoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
+
+                if (!_userToken.Socket.ReceiveFromAsync(readArgs))
                 {
                     // 使用线程池避免直接递归调用导致栈溢出
                     ThreadPool.QueueUserWorkItem((state) =>
@@ -274,6 +332,12 @@ namespace SAEA.Sockets.Core.Udp
                     var dataSpan = readArgs.Buffer.AsSpan(readArgs.Offset, readArgs.BytesTransferred);
 
                     OnClientReceiveSpan?.Invoke(dataSpan);
+
+                    // readArgs.RemoteEndPoint 会被下一次接收替换，先复制出独立端点再交给回调
+                    var from = readArgs.RemoteEndPoint as IPEndPoint;
+                    var onReceiveSpanFrom = OnClientReceiveSpanFrom;
+                    if (from != null && onReceiveSpanFrom != null)
+                        onReceiveSpanFrom(new IPEndPoint(from.Address, from.Port), dataSpan);
 
                     ProcessReceive(readArgs);
                 }
