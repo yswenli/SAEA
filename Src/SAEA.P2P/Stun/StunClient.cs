@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 21:00:00
+*修改时间：2026/11/12 16:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增可携带额外属性的内部重载，供 NAT 行为探测与 ICE 使用
+*描述：新增首个请求即带 MESSAGE-INTEGRITY 并可校验响应完整性的内部重载，供 ICE 连通性检查使用
 *
 *****************************************************************************/
 using System;
@@ -252,6 +252,67 @@ namespace SAEA.P2P.Stun
         }
 
         /// <summary>
+        /// 发出首个请求就携带 MESSAGE-INTEGRITY 的 Binding 请求，并按需校验响应完整性；
+        /// 不做 401/438 挑战重试，也不读取挑战里的认证域与 nonce
+        /// </summary>
+        /// <param name="server">STUN 服务端端点</param>
+        /// <param name="username">USERNAME 属性值；为 null 时不携带</param>
+        /// <param name="integrityKey">完整性密钥；短凭据直接传口令的 UTF-8 字节</param>
+        /// <param name="verifyResponseIntegrity">是否用同一密钥校验响应完整性</param>
+        /// <param name="additionalAttributes">额外属性；为 null 时不追加</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>Binding 结果，完整性校验失败时带协议错误</returns>
+        internal async Task<StunBindingResult> BindingAsync(IPEndPoint server, string username, byte[] integrityKey, bool verifyResponseIntegrity, IReadOnlyList<StunAttribute> additionalAttributes, CancellationToken cancellationToken)
+        {
+            if (server == null)
+            {
+                throw new ArgumentNullException(nameof(server));
+            }
+            if (integrityKey == null || integrityKey.Length == 0)
+            {
+                throw new ArgumentException("完整性密钥不能为空", nameof(integrityKey));
+            }
+
+            ThrowIfDisposed();
+
+            var startedAt = _clock.UtcNow;
+
+            // ICE 没有挑战流程，首个请求必须自带完整性，因此只发一次事务且不做鉴权重试
+            var result = await RunTransactionAsync(
+                CreateRequest(username, null, null, integrityKey, additionalAttributes),
+                server,
+                cancellationToken).ConfigureAwait(false);
+
+            if (result.Response != null && result.Response.Class == StunClass.SuccessResponse)
+            {
+                var bindingResult = ParseSuccess(result, result.Attempts, startedAt);
+
+                if (verifyResponseIntegrity)
+                {
+                    // 未经完整性校验的应答可能是伪造或错配的，按协议错误上报而不是当作成功
+                    if (!StunIntegrity.TryVerify(result.Response, integrityKey))
+                    {
+                        return StunBindingResult.Failed(StunBindingFailure.ProtocolError, 0, "MESSAGE-INTEGRITY 校验失败", _clock.UtcNow - startedAt, result.Attempts);
+                    }
+
+                    bindingResult.MarkIntegrityVerified();
+                }
+
+                return bindingResult;
+            }
+
+            if (result.Response != null && result.Response.Class == StunClass.ErrorResponse)
+            {
+                int code;
+                string reason;
+                StunErrorCode.TryGet(result.Response, out code, out reason);
+                return CreateErrorResult(result, code, reason, result.Attempts, startedAt);
+            }
+
+            return CreateTransactionFailure(result, result.Attempts, startedAt);
+        }
+
+        /// <summary>
         /// 释放客户端：退订接收事件、停止 TCP 读取循环并结束未决事务；不释放调用方的传输
         /// </summary>
         public void Dispose()
@@ -285,7 +346,7 @@ namespace SAEA.P2P.Stun
         /// </summary>
         /// <param name="username">用户名；为 null 时不带鉴权属性</param>
         /// <param name="realm">认证域</param>
-        /// <param name="nonce">一次性随机串</param>
+        /// <param name="nonce">一次性随机串；为 null 时不携带，短凭据路径没有挑战</param>
         /// <param name="integrityKey">完整性密钥；为 null 时不计算 MIC</param>
         /// <param name="additionalAttributes">额外属性；为 null 时不追加</param>
         /// <returns>待发送的请求</returns>
@@ -317,7 +378,11 @@ namespace SAEA.P2P.Stun
                 {
                     attributes.Add(new StunAttribute(StunAttributeType.Realm, Encoding.UTF8.GetBytes(realm)));
                 }
-                attributes.Add(new StunAttribute(StunAttributeType.Nonce, Encoding.UTF8.GetBytes(nonce)));
+                // 短凭据路径没有挑战，也就没有 NONCE 可带
+                if (!string.IsNullOrEmpty(nonce))
+                {
+                    attributes.Add(new StunAttribute(StunAttributeType.Nonce, Encoding.UTF8.GetBytes(nonce)));
+                }
             }
 
             request.SetAttributes(attributes);

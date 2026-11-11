@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 17:20:00
+*修改时间：2026/11/12 16:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 Binding 请求结果模型
+*描述：新增响应完整性校验标记，供 ICE 首包带 MESSAGE-INTEGRITY 的路径使用
 *
 *****************************************************************************/
 using System;
@@ -108,6 +108,11 @@ namespace SAEA.P2P.Stun
         public int Attempts { get; private set; }
 
         /// <summary>
+        /// 响应是否通过 MESSAGE-INTEGRITY 校验：只有调用方提供了完整性密钥并校验通过才为 true
+        /// </summary>
+        public bool IntegrityVerified { get; private set; }
+
+        /// <summary>
         /// 构造成功结果
         /// </summary>
         /// <param name="xorMappedAddress">异或映射地址</param>
@@ -163,6 +168,14 @@ namespace SAEA.P2P.Stun
         {
             Realm = realm;
             Nonce = nonce;
+        }
+
+        /// <summary>
+        /// 标记响应已通过 MESSAGE-INTEGRITY 校验
+        /// </summary>
+        internal void MarkIntegrityVerified()
+        {
+            IntegrityVerified = true;
         }
     }
 }
