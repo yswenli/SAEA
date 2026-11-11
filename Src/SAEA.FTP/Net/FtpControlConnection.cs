@@ -23,19 +23,26 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 13:11:19
+*修改时间：2026/11/11 15:30:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：规范文件头 banner
+*描述：控制连接迁移到处理器链，收发改为链写入与有界应答队列
 *
 *****************************************************************************/
+using SAEA.Common;
 using SAEA.FTP.Model;
+using SAEA.Sockets;
+using SAEA.Sockets.Interface;
+using SAEA.Sockets.Model;
+using SAEA.Sockets.Pipeline;
 using System;
-using System.Collections.Generic;
 using System.IO;
+using System.IO.Pipelines;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace SAEA.FTP.Net
 {
@@ -128,19 +135,19 @@ namespace SAEA.FTP.Net
     {
         readonly ClientConfig _config;
 
-        readonly byte[] _readBuffer = new byte[8192];
-
         readonly Encoding _encoding;
 
-        int _readPos;
+        readonly ChannelPipelineOptions _options;
 
-        int _readLen;
+        readonly PipelineHostRegistry _host = new PipelineHostRegistry();
 
-        TcpClient _tcp;
-
-        NetworkStream _stream;
+        readonly Action<string, IChannelPipeline> _configurePipeline;
 
         readonly object _syncRoot = new object();
+
+        IClientSocket _client;
+
+        FtpControlReplyHandler _replies;
 
         public FtpReply Greeting { get; private set; }
 
@@ -162,7 +169,8 @@ namespace SAEA.FTP.Net
             {
                 try
                 {
-                    var ep = _tcp != null ? _tcp.Client.RemoteEndPoint as IPEndPoint : null;
+                    var socket = _client == null ? null : _client.Socket;
+                    var ep = socket == null ? null : socket.RemoteEndPoint as IPEndPoint;
                     return ep != null ? ep.Address.ToString() : _config.IP;
                 }
                 catch
@@ -174,7 +182,7 @@ namespace SAEA.FTP.Net
 
         public bool Connected
         {
-            get { return _tcp != null && _tcp.Connected; }
+            get { return _client != null && _client.Connected; }
         }
 
         public ClientConfig Config
@@ -190,35 +198,31 @@ namespace SAEA.FTP.Net
         TimeSpan _commandTimeout;
 
         /// <summary>
-        /// 控制命令响应超时
+        /// 控制命令响应超时，仅作为等待应答队列的上限
         /// </summary>
         public TimeSpan CommandTimeout
         {
             get { return _commandTimeout; }
-            set
-            {
-                _commandTimeout = value;
-                ApplyStreamTimeouts();
-            }
+            set { _commandTimeout = value; }
         }
 
-        void ApplyStreamTimeouts()
-        {
-            if (_stream == null) return;
-
-            var ms = (int)Math.Max(1000, _commandTimeout.TotalMilliseconds);
-
-            try { _stream.ReadTimeout = ms; } catch { }
-            try { _stream.WriteTimeout = ms; } catch { }
-        }
-
-        public FtpControlConnection(ClientConfig config)
+        public FtpControlConnection(ClientConfig config, Action<string, IChannelPipeline> configurePipeline)
         {
             if (config == null) throw new ArgumentNullException(nameof(config));
             _config = config;
             _encoding = config.Encoding ?? Encoding.UTF8;
             _commandTimeout = config.CommandTimeout > TimeSpan.Zero ? config.CommandTimeout : TimeSpan.FromSeconds(30);
             DataTimeout = config.DataTimeout > TimeSpan.Zero ? config.DataTimeout : TimeSpan.FromSeconds(60);
+            _configurePipeline = configurePipeline;
+
+            _options = new ChannelPipelineOptions
+            {
+                Splitter = new LineSplitter(8 * 1024),
+                MaxBufferedBytes = 8 * 1024 + FrameConstants.P_Head,
+                ReadBufferSize = 64 * 1024,
+                // 控制通道严格一问一答，应答必须按到达顺序入队。
+                MaxConcurrentMessages = 1
+            };
         }
 
         #region 连接与登录
@@ -230,29 +234,42 @@ namespace SAEA.FTP.Net
             var timeout = _config.ConnectTimeout;
             if (timeout <= TimeSpan.Zero) timeout = TimeSpan.FromSeconds(30);
 
-            _tcp = new TcpClient();
-            _tcp.NoDelay = true;
-            _tcp.ReceiveBufferSize = 64 * 1024;
-            _tcp.SendBufferSize = 64 * 1024;
+            // 应答收集器随连接一起创建：旧连接收口时会对旧实例置关闭，新连接不受影响。
+            var replies = new FtpControlReplyHandler();
+            _replies = replies;
+
+            var option = new SocketOptionBuilder()
+                .SetSocket(SAEASocketType.Tcp)
+                .UseStream()
+                .UseConnectionOpened(OnConnectionOpened)
+                .UseInputHandler((userToken, reader, flow, token) => RunPipelineAsync(replies, userToken, reader, flow, token))
+                .SetIP(_config.IP)
+                .SetPort(_config.Port)
+                .SetReadBufferSize(64 * 1024)
+                .SetWriteBufferSize(64 * 1024)
+                .SetConnectTimeout((int)Math.Max(1, timeout.TotalMilliseconds))
+                .Build();
+
+            var client = SocketFactory.CreateClientSocket(option);
+
+            client.OnError += (id, ex) => LogHelper.Debug("FTP控制连接传输层异常:" + id + "," + ex.Message);
+
+            _client = client;
 
             try
             {
-                var ar = _tcp.BeginConnect(_config.IP, _config.Port, null, null);
-                if (!ar.AsyncWaitHandle.WaitOne(timeout))
+                client.Connect();
+
+                if (!replies.WaitReady(timeout))
                 {
-                    throw new TimeoutException("FTP connect timeout: " + _config.IP + ":" + _config.Port);
+                    throw new IOException("FTP control connection pipeline not ready: " + _config.IP + ":" + _config.Port);
                 }
-                _tcp.EndConnect(ar);
             }
             catch
             {
                 Close();
                 throw;
             }
-
-            _stream = _tcp.GetStream();
-
-            ApplyStreamTimeouts();
 
             Greeting = ReadReply();
 
@@ -369,12 +386,16 @@ namespace SAEA.FTP.Net
                     throw new IOException("FTP control connection is closed");
                 }
 
-                var data = _encoding.GetBytes(command + "\r\n");
+                var pipeline = _replies == null ? null : _replies.Pipeline;
+                if (pipeline == null)
+                {
+                    throw new IOException("FTP control connection is closed");
+                }
 
                 try
                 {
-                    _stream.Write(data, 0, data.Length);
-                    _stream.Flush();
+                    // 与旧实现一致：写出后立刻阻塞等对应应答，同一时刻只有一条命令在途。
+                    pipeline.WriteAsync(command).GetAwaiter().GetResult();
                 }
                 catch (Exception ex)
                 {
@@ -399,95 +420,109 @@ namespace SAEA.FTP.Net
             throw new FTPCommandException(reply.Code, reply.Message);
         }
 
-        int ReadByte()
-        {
-            if (_readPos >= _readLen)
-            {
-                _readLen = _stream.Read(_readBuffer, 0, _readBuffer.Length);
-                _readPos = 0;
-
-                if (_readLen <= 0) return -1;
-            }
-
-            return _readBuffer[_readPos++];
-        }
-
-        string ReadLine()
-        {
-            var bytes = new List<byte>(128);
-
-            while (true)
-            {
-                var value = ReadByte();
-
-                if (value < 0)
-                {
-                    if (bytes.Count == 0) throw new IOException("FTP control connection closed by server");
-                    break;
-                }
-
-                if (value == '\n')
-                {
-                    if (bytes.Count > 0 && bytes[bytes.Count - 1] == '\r')
-                    {
-                        bytes.RemoveAt(bytes.Count - 1);
-                    }
-                    break;
-                }
-
-                bytes.Add((byte)value);
-            }
-
-            return _encoding.GetString(bytes.ToArray());
-        }
-
+        /// <summary>
+        /// 从有界队列取一条应答；解析失败或连接收口时抛 <see cref="IOException"/>
+        /// </summary>
         public FtpReply ReadReply()
         {
-            var first = ReadLine();
+            var replies = _replies;
 
-            if (first.Length < 3)
+            if (replies == null)
             {
-                throw new IOException("Malformed FTP reply: " + first);
+                throw new IOException("FTP control connection is closed");
             }
 
-            int code;
-            if (!int.TryParse(first.Substring(0, 3), out code))
+            object item;
+
+            if (!replies.TryTake(_commandTimeout, out item))
             {
-                throw new IOException("Malformed FTP reply: " + first);
+                throw new IOException("FTP control connection read timeout: " + _config.IP);
             }
 
-            var message = first.Length > 4 ? first.Substring(4) : string.Empty;
-            var raw = first;
-
-            if (first.Length > 3 && first[3] == '-')
+            var fault = item as FtpReplyFault;
+            if (fault != null)
             {
-                var terminator = code.ToString() + " ";
-                var sb = new StringBuilder();
-                sb.Append(message);
-
-                while (true)
-                {
-                    var line = ReadLine();
-                    raw += "\n" + line;
-
-                    if (line.StartsWith(terminator, StringComparison.Ordinal))
-                    {
-                        break;
-                    }
-
-                    if (sb.Length > 0) sb.Append('\n');
-                    sb.Append(line);
-                }
-
-                message = sb.ToString();
+                throw new IOException(fault.Error.Message, fault.Error);
             }
 
-            return new FtpReply
-            {
-                Code = code,
-                Message = message,
-                Raw = raw
-            };
+            return (FtpReply)item;
+        }
+
+        #endregion
+
+        #region 处理器链
+
+        /// <summary>
+        /// 连接门面登记钩子：处理器链只依赖连接标识，这里仅满足「输入处理器必须与连接钩子成对配置」的约定
+        /// </summary>
+        /// <param name="info">底层通道信息</param>
+        static void OnConnectionOpened(ChannelInfo info)
+        {
+        }
+
+        /// <summary>
+        /// 接管本连接的读循环：装配处理器链并运行到收口
+        /// </summary>
+        /// <param name="replies">本次连接专属的应答收集器</param>
+        /// <param name="userToken">连接令牌，用于取连接标识</param>
+        /// <param name="reader">接收方向的 PipeReader</param>
+        /// <param name="flow">应用级流量控制闸门</param>
+        /// <param name="token">连接级取消令牌</param>
+        /// <returns>执行器收口完成后结束的任务</returns>
+        async Task RunPipelineAsync(
+            FtpControlReplyHandler replies,
+            IUserToken userToken,
+            PipeReader reader,
+            IReceiveFlowControl flow,
+            CancellationToken token)
+        {
+            var channelId = userToken == null ? null : userToken.ID;
+
+            if (string.IsNullOrEmpty(channelId))
+                return;
+
+            var client = _client;
+
+            if (client == null)
+                return;
+
+            var stream = new PipelineRawByteStream(
+                channelId,
+                reader,
+                flow,
+                (data, owner) => client.SendAsync(data, owner));
+
+            await PipelineWiring.RunAsync(
+                channelId,
+                stream,
+                flow,
+                _options,
+                token,
+                _host,
+                (id, pipeline) => ConfigureConnection(replies, id, pipeline))
+                .ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// 装配本连接的处理器链：出站前缀 → 应答解码 → 应答入队 → 使用者扩展 → 链尾异常处理器
+        /// </summary>
+        /// <param name="replies">本次连接专属的应答收集器</param>
+        /// <param name="channelId">连接标识</param>
+        /// <param name="pipeline">尚未启动的处理器链</param>
+        void ConfigureConnection(FtpControlReplyHandler replies, string channelId, IChannelPipeline pipeline)
+        {
+            // 出站必须是链首连续前缀，串行器固定在最右，命令写出才不会乱序。
+            pipeline.AddLast(new FtpCommandEncoder(_encoding));
+            pipeline.AddLast(new OutboundSerializingHandler());
+
+            pipeline.AddLast(new FtpReplyDecoder(_encoding));
+            pipeline.AddLast(replies);
+
+            var configure = _configurePipeline;
+            if (configure != null)
+                configure(channelId, pipeline);
+
+            pipeline.AddLast(new ExceptionTerminalHandler());
         }
 
         #endregion
@@ -627,22 +662,23 @@ namespace SAEA.FTP.Net
 
         public void Close()
         {
-            try
-            {
-                if (_stream != null) _stream.Dispose();
-            }
-            catch { }
+            var client = _client;
+            _client = null;
 
-            try
+            if (client != null)
             {
-                if (_tcp != null) _tcp.Close();
+                try { client.Disconnect(); } catch { }
+                try { client.Dispose(); } catch { }
             }
-            catch { }
 
-            _stream = null;
-            _tcp = null;
-            _readPos = 0;
-            _readLen = 0;
+            var replies = _replies;
+            _replies = null;
+
+            // 唤醒还在等应答的线程，避免它挂到超时；队列关闭后迟到的应答直接丢弃。
+            if (replies != null)
+            {
+                try { replies.MarkClosed(null); } catch { }
+            }
         }
 
         public void Dispose()

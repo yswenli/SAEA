@@ -75,7 +75,7 @@ client.Upload(@"C:\Data\file.txt", (offset, total) =>
 
 | Feature | Description | Advantage |
 |---------|-------------|-----------|
-| 🚀 **High Performance** | System.Net.Sockets TCP connections, one session per control link | Supports concurrent file transfers |
+| 🚀 **High Performance** | Control channel runs on the SAEA.Sockets handler chain, one session per control link | Supports concurrent file transfers |
 | 📡 **EPSV/PASV Passive Mode** | Extension passive mode with PASV fallback | Firewall and NAT friendly |
 | 📊 **Progress Callback** | Real-time upload/download progress | Progress bars and throughput stats |
 | 🔁 **Retry & Resume** | Auto reconnect, `REST` resume first | More reliable large-file transfers |
@@ -117,8 +117,8 @@ client.Upload(@"C:\Data\file.txt", (offset, total) =>
 │  └───────────┬───────────┘                                 │
 │              │                                              │
 │  ┌───────────▼───────────┐                                 │
-│  │ System.Net.Sockets    │  Control and data TCP links     │
-│  │ (TcpClient / Socket)  │                                  │
+│  │ SAEA.Sockets.Pipeline │  Control link (handler chain)   │
+│  │ TcpClient             │  Data connection                │
 │  └───────────────────────┘                                 │
 │                                                             │
 │  ┌───────────────────────┐                                 │
@@ -354,6 +354,11 @@ The handler is invoked once per logical file, and the chosen target name stays c
 | `FTPServer` | FTP server main class; one session per control connection |
 | `FTPClient` | FTP client main class |
 | `FtpControlConnection` | Client control connection (FEAT/REST/EPSV/PASV) |
+| `FtpServerCommandHandler` | Server command dispatcher; commands run synchronously in the session |
+| `FtpCommandDecoder / FtpCommandEncoder` | Control channel command decoder (server) and encoder (client) |
+| `FtpReplyDecoder / FtpReplyEncoder` | Control channel reply decoder (client) and encoder (server) |
+| `FtpControlReplyHandler` | Client reply collector that feeds blocking readers |
+| `FtpRawText` | Pre-formatted raw control reply text |
 | `FTPTransferOptions` | Retry, parallel, buffering, and conflict options |
 | `FTPTransferResult` | Transfer result and statistics |
 | `FTPConflictContext/FTPConflictResult` | Conflict context and decision |
@@ -408,6 +413,7 @@ Console.WriteLine("FTP server started");
 
 ```csharp
 using SAEA.FTP;
+using SAEA.Sockets.Pipeline;
 
 var client = new FTPClient(
     ip: "127.0.0.1",
@@ -415,13 +421,39 @@ var client = new FTPClient(
     userName: "admin",
     password: "admin123");
 
-client.Ondisconnected += () => Console.WriteLine("Connection disconnected");
+// Connect/disconnect notifications now come from the handler chain; assign before Connect()
+client.ConfigurePipeline = (id, pipeline) =>
+{
+    pipeline.AddLast(new ControlLifecycleHandler());
+};
 
 client.Connect();
 
 var currentDir = client.CurrentDir();
 Console.WriteLine($"Current directory: {currentDir}");
+
+/// <summary>
+/// Control connection lifecycle observer: logs once on open and once on close
+/// </summary>
+public sealed class ControlLifecycleHandler : InboundHandlerAdapter
+{
+    public override Task ChannelActiveAsync(IChannelHandlerContext ctx)
+    {
+        Console.WriteLine($"Control connection opened: {ctx.ChannelId}");
+        return Task.CompletedTask;
+    }
+
+    public override Task ChannelInactiveAsync(IChannelHandlerContext ctx)
+    {
+        Console.WriteLine($"Control connection closed: {ctx.ChannelId}");
+        return Task.CompletedTask;
+    }
+}
 ```
+
+> The `OnConnected` and `Ondisconnected` events are removed; open/close notifications are delivered through `ChannelActiveAsync`/`ChannelInactiveAsync`. `ConfigurePipeline` runs once per control connection (including the extra sessions created for segmented transfers), and assigning it after `Connect()` throws `InvalidOperationException`. The same applies to `FTPServer.ConfigurePipeline`, which must be assigned before `Start()`; the `FTPServer.OnLog` log event is retained.
+
+> The control channel is framed by lines, so a single command or reply is limited to 8KB (8192 bytes including the newline); connections exceeding the limit are closed.
 
 ### FTP Client - Upload File (with Progress)
 
@@ -587,6 +619,7 @@ client.Connect();
 | Package | Description |
 |---------|-------------|
 | SAEA.Sockets | Underlying communication framework (project reference; legacy components retained) |
+| SAEA.Sockets.Pipeline | Handler chain runtime for control-channel codecs and dispatch (project reference) |
 | SAEA.Common | Configuration, utilities, and logging support |
 
 ---

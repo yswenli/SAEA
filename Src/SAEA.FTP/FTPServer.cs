@@ -23,20 +23,25 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:28
+*修改时间：2026/11/11 15:30:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：控制通道迁移到处理器链，新增 ConfigurePipeline，会话改为按连接标识登记
 *
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.FTP.Core;
 using SAEA.FTP.Model;
 using SAEA.FTP.Net;
+using SAEA.Sockets;
+using SAEA.Sockets.Interface;
+using SAEA.Sockets.Model;
+using SAEA.Sockets.Pipeline;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Pipelines;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -57,13 +62,63 @@ namespace SAEA.FTP
 
         readonly ConcurrentDictionary<string, int> _userSessionCount = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
-        TcpListener _listener;
+        readonly PipelineHostRegistry _host = new PipelineHostRegistry();
 
-        CancellationTokenSource _cts;
+        readonly ChannelPipelineOptions _options = new ChannelPipelineOptions
+        {
+            Splitter = new LineSplitter(8 * 1024),
+            MaxBufferedBytes = 8 * 1024 + FrameConstants.P_Head,
+            ReadBufferSize = 64 * 1024,
+            // 控制命令严格一问一答，同一会话必须按到达顺序处理。
+            MaxConcurrentMessages = 1
+        };
 
-        Task _acceptTask;
+        IServerSocket _server;
+
+        readonly object _configurePipelineLock = new object();
+
+        Action<string, IChannelPipeline> _configurePipeline;
+
+        bool _configurePipelineFrozen;
 
         bool _running;
+
+        /// <summary>
+        /// 处理器链装配回调：每条连接在解码之后、异常收口之前调用一次，
+        /// 参数为连接标识与尚未启动的链，使用者在此追加自己的入站处理器；
+        /// 为 null 时只保留内置处理器。必须在 Start 之前赋值，Start 之后再赋值会抛 InvalidOperationException。
+        /// </summary>
+        public Action<string, IChannelPipeline> ConfigurePipeline
+        {
+            get
+            {
+                lock (_configurePipelineLock)
+                {
+                    return _configurePipeline;
+                }
+            }
+            set
+            {
+                lock (_configurePipelineLock)
+                {
+                    if (_configurePipelineFrozen)
+                        throw new InvalidOperationException("处理器链装配回调只能在 Start 之前赋值，服务端启动后已冻结。");
+
+                    _configurePipeline = value;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 冻结装配回调，由 Start 调用
+        /// </summary>
+        void FreezeConfigurePipeline()
+        {
+            lock (_configurePipelineLock)
+            {
+                _configurePipelineFrozen = true;
+            }
+        }
 
         /// <summary>
         /// 是否正在监听客户端连接
@@ -125,7 +180,8 @@ namespace SAEA.FTP
         {
             if (_running) return;
 
-            _cts = new CancellationTokenSource();
+            // 先冻结再监听：接受连接可能在 Start 返回前发生，冻结必须早于第一个连接建链。
+            FreezeConfigurePipeline();
 
             IPAddress address = IPAddress.Any;
 
@@ -135,14 +191,24 @@ namespace SAEA.FTP
                 address = parsed;
             }
 
-            _listener = new TcpListener(address, _serverConfig.Port);
-            _listener.Start();
+            var option = new SocketOptionBuilder()
+                .SetSocket(SAEASocketType.Tcp)
+                .UseStream()
+                .UseConnectionOpened(OnConnectionOpened)
+                .UseInputHandler(RunPipelineAsync)
+                .SetIP(address.Equals(IPAddress.Any) ? string.Empty : _serverConfig.IP)
+                .SetPort(_serverConfig.Port)
+                .SetReadBufferSize(64 * 1024)
+                .SetWriteBufferSize(64 * 1024)
+                .Build();
+
+            _server = SocketFactory.CreateServerSocket(option);
+
+            _server.OnError += (id, ex) => Log("FTP传输层异常:" + id, ex);
+
+            _server.Start();
 
             _running = true;
-
-            var token = _cts.Token;
-
-            _acceptTask = Task.Run(() => AcceptLoop(token));
         }
 
         /// <summary>
@@ -154,9 +220,7 @@ namespace SAEA.FTP
 
             _running = false;
 
-            try { _cts.Cancel(); } catch { }
-
-            try { _listener.Stop(); } catch { }
+            try { if (_server != null) _server.Stop(); } catch { }
 
             foreach (var session in _sessions.Values)
             {
@@ -166,40 +230,71 @@ namespace SAEA.FTP
             _sessions.Clear();
         }
 
-        async Task AcceptLoop(CancellationToken token)
+        /// <summary>
+        /// 连接建立钩子：按连接标识建立会话并登记
+        /// </summary>
+        /// <param name="info">底层通道信息，含连接标识</param>
+        void OnConnectionOpened(ChannelInfo info)
         {
-            while (!token.IsCancellationRequested)
-            {
-                TcpClient client = null;
+            if (info == null || string.IsNullOrEmpty(info.ID)) return;
 
-                try
-                {
-                    client = await _listener.AcceptTcpClientAsync().ConfigureAwait(false);
-                }
-                catch (ObjectDisposedException)
-                {
-                    break;
-                }
-                catch (SocketException)
-                {
-                    if (token.IsCancellationRequested) break;
-                    continue;
-                }
-                catch (Exception ex)
-                {
-                    if (token.IsCancellationRequested) break;
-                    Log("接受连接失败", ex);
-                    continue;
-                }
+            // 旧实现的控制连接没有空闲超时；这里显式豁免，避免长传输或客户端停顿被会话清理断开。
+            try { _server.SessionManager.SetNoTimeout(info.ID, true); } catch { }
 
-                if (client == null) continue;
+            _sessions[info.ID] = new ServerSession(this, info.ID);
+        }
 
-                var session = new ServerSession(this, client);
+        /// <summary>
+        /// 接管一条连接的读循环：装配处理器链并运行到收口
+        /// </summary>
+        /// <param name="userToken">连接令牌，用于取连接标识</param>
+        /// <param name="reader">接收方向的 PipeReader</param>
+        /// <param name="flow">应用级流量控制闸门</param>
+        /// <param name="token">连接级取消令牌</param>
+        /// <returns>执行器收口完成后结束的任务</returns>
+        async Task RunPipelineAsync(
+            IUserToken userToken,
+            PipeReader reader,
+            IReceiveFlowControl flow,
+            CancellationToken token)
+        {
+            var channelId = userToken == null ? null : userToken.ID;
 
-                _sessions[session.Id] = session;
+            if (string.IsNullOrEmpty(channelId))
+                return;
 
-                _ = Task.Run(() => session.Run());
-            }
+            var stream = new PipelineRawByteStream(channelId, reader, flow, _server);
+
+            await PipelineWiring.RunAsync(
+                channelId,
+                stream,
+                flow,
+                _options,
+                token,
+                _host,
+                ConfigureConnection)
+                .ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// 装配单条控制连接的处理器链：出站前缀 → 命令解码 → 命令执行 → 使用者扩展 → 链尾异常处理器
+        /// </summary>
+        /// <param name="channelId">连接标识</param>
+        /// <param name="pipeline">尚未启动的处理器链</param>
+        void ConfigureConnection(string channelId, IChannelPipeline pipeline)
+        {
+            // 出站必须是链首连续前缀，串行器固定在最右，命令回复才不会乱序。
+            pipeline.AddLast(new FtpReplyEncoder());
+            pipeline.AddLast(new OutboundSerializingHandler());
+
+            pipeline.AddLast(new FtpCommandDecoder());
+            pipeline.AddLast(new FtpServerCommandHandler(this));
+
+            var configure = ConfigurePipeline;
+            if (configure != null)
+                configure(channelId, pipeline);
+
+            pipeline.AddLast(new ExceptionTerminalHandler());
         }
 
         /// <summary>
@@ -208,12 +303,34 @@ namespace SAEA.FTP
         public void Dispose()
         {
             Stop();
-            try { _listener = null; } catch { }
+
+            try
+            {
+                if (_server != null) _server.Dispose();
+            }
+            catch { }
+
+            _server = null;
         }
 
         #endregion
 
         #region 会话
+
+        /// <summary>
+        /// 按连接标识取会话；连接建立钩子已登记时返回实例，否则为 null
+        /// </summary>
+        /// <param name="channelId">连接标识</param>
+        /// <returns>对应的会话实例</returns>
+        internal ServerSession GetSession(string channelId)
+        {
+            if (string.IsNullOrEmpty(channelId)) return null;
+
+            ServerSession session;
+            _sessions.TryGetValue(channelId, out session);
+
+            return session;
+        }
 
         internal void RemoveSession(ServerSession session)
         {
@@ -267,15 +384,8 @@ namespace SAEA.FTP
         {
             readonly FTPServer _server;
 
-            readonly TcpClient _control;
-
-            readonly NetworkStream _stream;
-
-            readonly byte[] _readBuffer = new byte[8192];
-
-            int _readPos;
-
-            int _readLen;
+            // 链激活时写入，收口时清空；回复写出只依赖本字段。
+            volatile IChannelPipeline _pipeline;
 
             TcpListener _passive;
 
@@ -303,6 +413,14 @@ namespace SAEA.FTP
 
             public string RenameFrom { get; set; }
 
+            /// <summary>
+            /// 是否已收到 QUIT 或需要主动结束会话的命令
+            /// </summary>
+            public bool QuitRequested
+            {
+                get { return _quit; }
+            }
+
             public string OverwritePolicyHint
             {
                 get
@@ -316,129 +434,75 @@ namespace SAEA.FTP
                 }
             }
 
-            public ServerSession(FTPServer server, TcpClient control)
+            public ServerSession(FTPServer server, string channelId)
             {
                 _server = server;
-                _control = control;
-                _control.NoDelay = true;
-                _stream = control.GetStream();
-                Id = Guid.NewGuid().ToString("N");
+                Id = channelId;
             }
 
-            public void Run()
+            /// <summary>
+            /// 绑定处理器链的写入口，由命令处理器在链激活时调用
+            /// </summary>
+            /// <param name="pipeline">已启动的处理器链</param>
+            internal void AttachPipeline(IChannelPipeline pipeline)
             {
-                try
-                {
-                    Reply(ServerResponseCode.服务就绪, "Welcome to SAEA.FTPServer!");
-
-                    while (!_disposed && !_quit)
-                    {
-                        var line = ReadCommandLine();
-
-                        if (line == null) break;
-
-                        if (string.IsNullOrWhiteSpace(line)) continue;
-
-                        Handle(line.Trim());
-                    }
-                }
-                catch (IOException)
-                {
-                }
-                catch (ObjectDisposedException)
-                {
-                }
-                catch (Exception ex)
-                {
-                    _server.Log("FTP会话异常", ex);
-                }
-                finally
-                {
-                    _server.RemoveSession(this);
-                }
+                _pipeline = pipeline;
             }
 
-            #region 命令读取与回复
-
-            int ReadByte()
+            /// <summary>
+            /// 标记连接已收口，释放会话持有的被动监听器，之后的回复写出静默丢弃
+            /// </summary>
+            internal void MarkClosed()
             {
-                if (_readPos >= _readLen)
-                {
-                    _readLen = _stream.Read(_readBuffer, 0, _readBuffer.Length);
-                    _readPos = 0;
+                _disposed = true;
 
-                    if (_readLen <= 0) return -1;
-                }
+                // 收口早于 Dispose 调用，被动监听器必须在这里释放，否则端口会一直被占用到进程退出。
+                ClosePassive();
 
-                return _readBuffer[_readPos++];
+                _pipeline = null;
             }
 
-            string ReadCommandLine()
-            {
-                var bytes = new List<byte>(256);
-
-                while (true)
-                {
-                    var value = ReadByte();
-
-                    if (value < 0)
-                    {
-                        return bytes.Count == 0 ? null : Encoding.UTF8.GetString(bytes.ToArray());
-                    }
-
-                    if (value == '\n')
-                    {
-                        if (bytes.Count > 0 && bytes[bytes.Count - 1] == '\r')
-                        {
-                            bytes.RemoveAt(bytes.Count - 1);
-                        }
-                        break;
-                    }
-
-                    bytes.Add((byte)value);
-                }
-
-                return Encoding.UTF8.GetString(bytes.ToArray());
-            }
+            #region 回复写出
 
             internal void Reply(int code, string message)
             {
-                WriteLine(code + " " + message);
+                Write(new FtpReply
+                {
+                    Code = code,
+                    Message = message
+                });
             }
 
             internal void ReplyRaw(string text)
             {
-                var data = Encoding.UTF8.GetBytes(text);
-                _stream.Write(data, 0, data.Length);
-                _stream.Flush();
+                Write(new FtpRawText(text));
             }
 
-            void WriteLine(string text)
+            void Write(object msg)
             {
-                var data = Encoding.UTF8.GetBytes(text + "\r\n");
-                _stream.Write(data, 0, data.Length);
-                _stream.Flush();
+                var pipeline = _pipeline;
+
+                // 链未激活或已收口：命令处理可能晚于失活回调，静默丢弃而不是抛出。
+                if (pipeline == null) return;
+
+                try
+                {
+                    // 出站执行在调用线程上启动，不依赖接收泵，因此在入站处理里同步等待不会自死锁。
+                    pipeline.WriteAsync(msg).GetAwaiter().GetResult();
+                }
+                catch (Exception ex)
+                {
+                    _server.Log("FTP回复写出失败", ex);
+                }
             }
 
             #endregion
 
             #region 命令分发
 
-            void Handle(string line)
+            internal void Handle(ClientRequest request)
             {
-                _server.Log("收到命令：" + line, null);
-
-                ClientRequest request;
-
-                try
-                {
-                    request = ClientRequest.Parse(line);
-                }
-                catch
-                {
-                    Reply(ServerResponseCode.错误参数, "Invalid command.");
-                    return;
-                }
+                _server.Log("收到命令：" + (request == null ? string.Empty : request.Raw), null);
 
                 if (request == null)
                 {
@@ -446,25 +510,27 @@ namespace SAEA.FTP
                     return;
                 }
 
-                FTPCommand command;
-                if (!Enum.TryParse(request.Cmd, true, out command))
+                var command = request.Cmd;
+
+                FTPCommand commandType;
+                if (!Enum.TryParse(command, true, out commandType))
                 {
-                    switch (request.Cmd.ToUpperInvariant())
+                    switch (command.ToUpperInvariant())
                     {
-                        case "SIZE": command = FTPCommand.SIZE; break;
-                        case "MDTM": command = FTPCommand.MDTM; break;
-                        case "REST": command = FTPCommand.REST; break;
-                        case "EPSV": command = FTPCommand.EPSV; break;
-                        case "EPRT": command = FTPCommand.EPRT; break;
-                        case "ABOR": command = FTPCommand.ABOR; break;
-                        case "FEAT": command = FTPCommand.FEAT; break;
+                        case "SIZE": commandType = FTPCommand.SIZE; break;
+                        case "MDTM": commandType = FTPCommand.MDTM; break;
+                        case "REST": commandType = FTPCommand.REST; break;
+                        case "EPSV": commandType = FTPCommand.EPSV; break;
+                        case "EPRT": commandType = FTPCommand.EPRT; break;
+                        case "ABOR": commandType = FTPCommand.ABOR; break;
+                        case "FEAT": commandType = FTPCommand.FEAT; break;
                         default:
                             Reply(ServerResponseCode.命令没有执行, "Command not implemented.");
                             return;
                     }
                 }
 
-                switch (command)
+                switch (commandType)
                 {
                     case FTPCommand.USER: HandleUser(request.Arg); return;
                     case FTPCommand.PASS: HandlePass(request.Arg); return;
@@ -489,7 +555,7 @@ namespace SAEA.FTP
                     return;
                 }
 
-                switch (command)
+                switch (commandType)
                 {
                     case FTPCommand.PWD: Reply(ServerResponseCode.路径名建立, "\"" + CurrentFtpPath + "\""); return;
                     case FTPCommand.CWD: HandleCwd(request.Arg); return;
@@ -1286,8 +1352,7 @@ namespace SAEA.FTP
 
                 ClosePassive();
 
-                try { _stream.Dispose(); } catch { }
-                try { _control.Close(); } catch { }
+                _pipeline = null;
             }
         }
 

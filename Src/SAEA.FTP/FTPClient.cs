@@ -23,15 +23,16 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:28
+*修改时间：2026/11/11 15:30:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：控制连接走处理器链，删除 OnConnected/Ondisconnected 事件，新增 ConfigurePipeline
 *
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.FTP.Model;
 using SAEA.FTP.Net;
+using SAEA.Sockets.Pipeline;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -57,15 +58,11 @@ namespace SAEA.FTP
 
         bool _disposed;
 
-        /// <summary>
-        /// 控制连接建立并完成登录后触发
-        /// </summary>
-        public event Action OnConnected;
+        readonly object _configurePipelineLock = new object();
 
-        /// <summary>
-        /// 控制连接关闭后触发
-        /// </summary>
-        public event Action Ondisconnected;
+        Action<string, IChannelPipeline> _configurePipeline;
+
+        bool _configurePipelineFrozen;
 
         /// <summary>
         /// 当前客户端配置
@@ -73,6 +70,43 @@ namespace SAEA.FTP
         public ClientConfig Config
         {
             get { return _config; }
+        }
+
+        /// <summary>
+        /// 处理器链装配回调：每条控制连接（含并行分片会话）在解码之后、异常收口之前调用一次，
+        /// 参数为连接标识与尚未启动的链，使用者在此追加自己的入站处理器；为 null 时只保留内置处理器。
+        /// 必须在首次建立连接之前赋值，连接建立后再赋值会抛 InvalidOperationException。
+        /// </summary>
+        public Action<string, IChannelPipeline> ConfigurePipeline
+        {
+            get
+            {
+                lock (_configurePipelineLock)
+                {
+                    return _configurePipeline;
+                }
+            }
+            set
+            {
+                lock (_configurePipelineLock)
+                {
+                    if (_configurePipelineFrozen)
+                        throw new InvalidOperationException("处理器链装配回调只能在首次建立连接之前赋值，连接建立后已冻结。");
+
+                    _configurePipeline = value;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 冻结装配回调，由首次建立连接触发
+        /// </summary>
+        void FreezeConfigurePipeline()
+        {
+            lock (_configurePipelineLock)
+            {
+                _configurePipelineFrozen = true;
+            }
         }
 
         /// <summary>
@@ -121,7 +155,7 @@ namespace SAEA.FTP
         #region 连接与会话
 
         /// <summary>
-        /// 建立控制连接并登录，已连接时直接返回；成功后触发 <see cref="OnConnected"/>
+        /// 建立控制连接并登录，已连接时直接返回
         /// </summary>
         public void Connect()
         {
@@ -129,7 +163,10 @@ namespace SAEA.FTP
             {
                 if (_control != null && _control.Connected) return;
 
-                var control = new FtpControlConnection(_config);
+                // 先冻结再建连：装配回调必须早于第一条控制连接的链装配。
+                FreezeConfigurePipeline();
+
+                var control = new FtpControlConnection(_config, ConfigurePipeline);
 
                 control.Connect();
 
@@ -140,9 +177,6 @@ namespace SAEA.FTP
                     try { control.Send("CWD " + _remoteCwd); } catch { }
                 }
             }
-
-            var handler = OnConnected;
-            if (handler != null) handler();
         }
 
         void EnsureConnected()
@@ -153,7 +187,9 @@ namespace SAEA.FTP
             {
                 if (_control != null && _control.Connected) return;
 
-                var control = new FtpControlConnection(_config);
+                FreezeConfigurePipeline();
+
+                var control = new FtpControlConnection(_config, ConfigurePipeline);
 
                 control.Connect();
 
@@ -164,9 +200,6 @@ namespace SAEA.FTP
                     try { control.Send("CWD " + _remoteCwd); } catch { }
                 }
             }
-
-            var handler = OnConnected;
-            if (handler != null) handler();
         }
 
         void DropControl()
@@ -186,7 +219,7 @@ namespace SAEA.FTP
         /// </summary>
         FtpControlConnection CreateSession(TimeSpan dataTimeout)
         {
-            var session = new FtpControlConnection(_config);
+            var session = new FtpControlConnection(_config, ConfigurePipeline);
 
             session.DataTimeout = dataTimeout;
 
@@ -2561,7 +2594,7 @@ namespace SAEA.FTP
         #region 生命周期
 
         /// <summary>
-        /// 发送 QUIT 并关闭控制连接，随后触发 <see cref="Ondisconnected"/>，实例不可再复用
+        /// 发送 QUIT 并关闭控制连接，实例不可再复用
         /// </summary>
         public void Quit()
         {
@@ -2575,13 +2608,6 @@ namespace SAEA.FTP
             }
 
             DropControl();
-
-            var handler = Ondisconnected;
-
-            if (handler != null)
-            {
-                try { handler(); } catch { }
-            }
 
             _disposed = true;
         }

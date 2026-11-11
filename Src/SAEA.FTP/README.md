@@ -75,7 +75,7 @@ client.Upload(@"C:\Data\file.txt", (offset, total) =>
 
 | 特性 | 说明 | 优势 |
 |------|------|------|
-| 🚀 **高性能传输** | 基于 System.Net.Sockets 的 TCP 连接，每个控制连接独立会话 | 支持多文件并发传输 |
+| 🚀 **高性能传输** | 控制通道走 SAEA.Sockets 处理器链，每个控制连接独立会话 | 支持多文件并发传输 |
 | 📡 **被动模式 EPSV/PASV** | 标准扩展被动模式，自动回退 PASV | 兼容防火墙与 NAT，稳定可靠 |
 | 📊 **进度回调** | 实时上传/下载进度 | 支持进度条与速率统计 |
 | 🔁 **自动重试与续传** | 网络抖动自动重连，优先 `REST` 断点续传 | 大文件传输更可靠 |
@@ -117,8 +117,8 @@ client.Upload(@"C:\Data\file.txt", (offset, total) =>
 │  └───────────┬───────────┘                                 │
 │              │                                              │
 │  ┌───────────▼───────────┐                                 │
-│  │ System.Net.Sockets    │  控制与数据 TCP 连接            │
-│  │ (TcpClient / Socket)  │                                  │
+│  │ SAEA.Sockets.Pipeline │  控制连接（处理器链）               │
+│  │ TcpClient             │  数据连接                     │
 │  └───────────────────────┘                                 │
 │                                                             │
 │  ┌───────────────────────┐                                 │
@@ -352,6 +352,11 @@ if (upload.Status == FTPTransferStatus.Skipped)
 | `FTPServer` | FTP 服务器主类，按控制连接隔离会话 |
 | `FTPClient` | FTP 客户端主类 |
 | `FtpControlConnection` | 客户端控制连接（FEAT/REST/EPSV/PASV） |
+| `FtpServerCommandHandler` | 服务端命令分发处理器，命令交给会话同步执行 |
+| `FtpCommandDecoder / FtpCommandEncoder` | 控制通道的命令解码（服务端）与编码（客户端） |
+| `FtpReplyDecoder / FtpReplyEncoder` | 控制通道的应答解码（客户端）与编码（服务端） |
+| `FtpControlReplyHandler` | 客户端应答收集器，把链上应答交给阻塞读取方 |
+| `FtpRawText` | 已自带换行的原样控制回复文本 |
 | `FTPTransferOptions` | 重试、并行、缓冲与冲突策略 |
 | `FTPTransferResult` | 传输结果与统计 |
 | `FTPConflictContext/FTPConflictResult` | 同名冲突上下文与决策 |
@@ -406,6 +411,7 @@ Console.WriteLine("FTP 服务器已启动");
 
 ```csharp
 using SAEA.FTP;
+using SAEA.Sockets.Pipeline;
 
 var client = new FTPClient(
     ip: "127.0.0.1",
@@ -413,13 +419,39 @@ var client = new FTPClient(
     userName: "admin",
     password: "admin123");
 
-client.Ondisconnected += () => Console.WriteLine("连接断开");
+// 连接建立与断开改由处理器链通知；必须在 Connect() 之前赋值
+client.ConfigurePipeline = (id, pipeline) =>
+{
+    pipeline.AddLast(new ControlLifecycleHandler());
+};
 
 client.Connect();
 
 var currentDir = client.CurrentDir();
 Console.WriteLine($"当前目录: {currentDir}");
+
+/// <summary>
+/// 控制连接生命周期观察器：建链与断开各打印一次
+/// </summary>
+public sealed class ControlLifecycleHandler : InboundHandlerAdapter
+{
+    public override Task ChannelActiveAsync(IChannelHandlerContext ctx)
+    {
+        Console.WriteLine($"控制连接已建立: {ctx.ChannelId}");
+        return Task.CompletedTask;
+    }
+
+    public override Task ChannelInactiveAsync(IChannelHandlerContext ctx)
+    {
+        Console.WriteLine($"控制连接已断开: {ctx.ChannelId}");
+        return Task.CompletedTask;
+    }
+}
 ```
+
+> `OnConnected`、`Ondisconnected` 事件已删除，建链/断开通知统一由 `ChannelActiveAsync`/`ChannelInactiveAsync` 承担。`ConfigurePipeline` 会在每条控制连接（含并行分片的独立会话）上调用一次，`Connect()` 之后再赋值会抛 `InvalidOperationException`。服务端 `FTPServer.ConfigurePipeline` 同理，必须在 `Start()` 之前赋值；`FTPServer.OnLog` 日志事件保留。
+
+> 控制通道按行分帧，单条命令或应答最长 8KB（8192 字节，含换行符），超出上限的连接会被直接关闭。
 
 ### FTP 客户端 - 上传文件（带进度）
 
@@ -585,6 +617,7 @@ client.Connect();
 | 包名 | 说明 |
 |------|------|
 | SAEA.Sockets | 底层通信框架（项目引用，历史组件仍保留） |
+| SAEA.Sockets.Pipeline | 处理器链运行时，控制通道的编解码与分发（项目引用） |
 | SAEA.Common | 配置、工具类与日志支持 |
 
 ---
