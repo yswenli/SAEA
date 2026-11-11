@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:20:16
+*修改时间：2026/11/12 19:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：新增业务帧超长错误码，取值 EF01
 *
 *****************************************************************************/
 namespace SAEA.P2P.Common
@@ -159,6 +159,12 @@ namespace SAEA.P2P.Common
         /// </summary>
         public static readonly string DecryptionFailed = "EE02";
 
+        // 数据面：业务帧长度与首字节解复用相关错误
+        /// <summary>
+        /// 业务帧超过单包上限
+        /// </summary>
+        public static readonly string PayloadTooLarge = "EF01";
+
         private static readonly System.Collections.Generic.Dictionary<string, string> Descriptions =
             new System.Collections.Generic.Dictionary<string, string>
             {
@@ -190,7 +196,8 @@ namespace SAEA.P2P.Common
                 { AuthFailed, "Authentication failed" },
                 { AuthTimeout, "Authentication timeout" },
                 { EncryptionFailed, "Encryption failed" },
-                { DecryptionFailed, "Decryption failed" }
+                { DecryptionFailed, "Decryption failed" },
+                { PayloadTooLarge, "Payload too large" }
             };
 
         /// <summary>获取错误码对应的英文描述；未登记的错误码返回 Unknown error</summary>
