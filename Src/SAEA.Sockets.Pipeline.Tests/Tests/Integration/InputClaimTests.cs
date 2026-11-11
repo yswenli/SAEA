@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 13:50:40
+*修改时间：2026/11/11 18:05:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：入站接管闸门：输入处理器接管 PipeReader 后其他读取入口立即报错，写方向不受影响
+*描述：输入处理器改为存活到用例收尾，适配处理器返回即断开的新契约
 *
 *****************************************************************************/
 using System;
@@ -108,7 +108,8 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Integration
         }
 
         /// <summary>
-        /// 客户端配置输入处理器后，GetStream 的读取被闸门拦住，写方向照常可用
+        /// 客户端配置输入处理器后，GetStream 的读取被闸门拦住，写方向照常可用。
+        /// 输入处理器返回即让出连接所有权，因此它在用例断言期间必须保持存活。
         /// </summary>
         [TestMethod]
         public async Task GetStream_WhenInputHandlerConfigured_ReadThrowsAndWriteWorks()
@@ -116,9 +117,12 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Integration
             var listener = new TcpListener(IPAddress.Loopback, 0);
             listener.Start();
 
+            // 处理器存活到用例收尾：返回后框架会断开连接，写方向的断言必须在返回之前完成。
+            var release = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
             try
             {
-                using (var client = ConnectClientWithInputHandler(listener, out var remote))
+                using (var client = ConnectClientWithInputHandler(listener, release.Task, out var remote))
                 using (remote)
                 {
                     var stream = client.GetStream();
@@ -136,6 +140,9 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Integration
 
                     Assert.AreEqual(payload.Length, read);
                     CollectionAssert.AreEqual(payload, received);
+
+                    // 全部断言完成后再让处理器返回，此后连接由框架收口（不在本用例断言范围内）。
+                    release.TrySetResult(true);
                 }
             }
             finally
@@ -144,7 +151,7 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Integration
             }
         }
 
-        private static SaeaClientSocket ConnectClientWithInputHandler(TcpListener listener, out TcpClient remote)
+        private static SaeaClientSocket ConnectClientWithInputHandler(TcpListener listener, Task release, out TcpClient remote)
         {
             var port = ((IPEndPoint)listener.LocalEndpoint).Port;
 
@@ -153,7 +160,7 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Integration
                 .SetIP("127.0.0.1")
                 .SetPort(port)
                 .UseConnectionOpened(_ => { })
-                .UseInputHandler((userToken, input, flow, token) => Task.CompletedTask)
+                .UseInputHandler((userToken, input, flow, token) => release)
                 .Build();
 
             var client = new SaeaClientSocket(option);
