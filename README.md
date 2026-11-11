@@ -218,6 +218,23 @@ server.Start();
 
 两种实现都跨平台，底层 IO 机制由 .NET 运行时选择（Windows IOCP / Linux epoll / macOS kqueue）。`UseIocp()` 是历史命名，不代表 Windows 限定。
 
+### 上层组件的处理器链
+
+`Http`、`WebSocket`、`FileSocket`、`RPC`、`QueueSocket`、`MessageSocket` 的接收与连接生命周期已改由 `SAEA.Sockets.Pipeline` 的处理器链承担，不再暴露 `OnMessage` / `OnDisconnected` / `OnErr` 一类事件。使用方通过 `ConfigurePipeline` 在建链前追加处理器：
+
+```csharp
+using SAEA.MessageSocket;
+using SAEA.Sockets.Pipeline;
+
+var server = new MessageServer(port: 39654);
+
+// 每条连接建链时调用一次，参数是连接标识与尚未启动的处理器链
+server.ConfigurePipeline = (channelId, pipeline) => pipeline.AddLast(new MyInboundHandler());
+server.Start();
+```
+
+处理器继承 `InboundHandlerAdapter`，在 `ChannelReadAsync` 里消费解码后的消息，在 `ChannelInactiveAsync` 里处理断开，在 `ChannelExceptionCaughtAsync` 里观察链上异常；不消费的消息会被链尾回收。传输层异常仍统一汇入 `ExceptionCollector`。
+
 ### SAEA.RPC vs HTTP RPC
 
 | 特性 | SAEA.RPC | HTTP RPC |

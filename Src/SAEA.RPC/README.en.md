@@ -71,7 +71,7 @@ Console.WriteLine(result);  // Output: Hello, SAEA!
 | 🔌 **Dynamic Proxy** | Auto-generates client code | Invoke remote services like local methods |
 | 🛡️ **AOP Filters** | `ActionFilterAttribute` | Unified interception for logging, authorization, caching |
 | 📡 **Server Push** | `Notice<T>` message push | Supports publish-subscribe pattern |
-| ⚖️ **Load Balancing** | `ConsumerMultiplexer` | Automatic balancing across multiple service addresses |
+| ⚖️ **Connection Reuse** | `ConsumerMultiplexer` | Reuses connections to one address according to `links` |
 | 🔗 **Connection Pool** | Long connection reuse | Reduces connection overhead, improves performance |
 
 ---
@@ -245,36 +245,69 @@ Recommended to use SAEA.RPC in pure .NET environments for simplicity and efficie
 
 ### Q2: How to implement service registration and discovery?
 
-**A**: Use `ConsumerMultiplexer` for multi-address load balancing:
+**A**: `ConsumerMultiplexer` multiplexes several connections to the same service address (`links` sets the connection count and calls rotate across them); for multiple addresses, pick one address per consumer:
 
 ```csharp
-var urls = new[] 
+var urls = new[]
 {
     "rpc://192.168.1.1:39654",
     "rpc://192.168.1.2:39654"
 };
-var multiplexer = new ConsumerMultiplexer(urls);
-var proxy = new RPCServiceProxy(multiplexer);
+var index = 0;
+string NextUrl() => urls[index++ % urls.Length];
+
+// Pick one address per consumer; each address then reuses connections according to links
+var proxy = new RPCServiceProxy(NextUrl(), links: 4);
 ```
 
 Can also integrate with service discovery components like Consul or Nacos to dynamically update address lists.
 
 ### Q3: How to handle timeouts and exceptions?
 
-**A**: Capture exceptions through the `OnErr` event:
+**A**: Transport, invocation and timeout errors all flow into `ExceptionCollector`:
 
 ```csharp
-var proxy = new RPCServiceProxy(url);
-proxy.OnErr += (ex) => 
+ExceptionCollector.OnErr += (name, ex) =>
 {
-    Console.WriteLine($"RPC call exception: {ex.Message}");
+    Console.WriteLine($"[{name}] RPC call exception: {ex.Message}");
 };
+
+var proxy = new RPCServiceProxy("rpc://127.0.0.1:39654");
 ```
 
-Server-side also supports:
+The server shares the same sink, so no extra subscription is needed:
 ```csharp
-var provider = new ServiceProvider(port);
-provider.OnErr += (ex) => Console.WriteLine(ex.Message);
+var provider = new ServiceProvider(port: 39654);
+provider.Start();
+```
+
+To observe pipeline exceptions per connection, append a handler through `ConfigurePipeline`:
+
+```csharp
+var provider = new ServiceProvider(port: 39654);
+provider.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ExceptionLogHandler());
+provider.Start();
+```
+
+The consumer connects in its constructor and the pipeline freezes once started, so the callback must be passed to the constructor:
+
+```csharp
+var proxy = new RPCServiceProxy("rpc://127.0.0.1:39654", 4, 5, 10 * 1000,
+    (id, pipeline) => pipeline.AddLast(new ExceptionLogHandler()));
+```
+
+```csharp
+/// <summary>
+/// Pipeline exception observer: logs and passes the exception to the terminal handler
+/// </summary>
+public sealed class ExceptionLogHandler : InboundHandlerAdapter
+{
+    public override Task ChannelExceptionCaughtAsync(IChannelHandlerContext ctx, Exception ex)
+    {
+        Console.WriteLine($"{ctx.ChannelId} RPC exception: {ex.Message}");
+        return ctx.FireExceptionCaughtAsync(ex);
+    }
+}
 ```
 
 ### Q4: How to implement logging and authorization?
@@ -332,18 +365,24 @@ public class UserService
 
 ### Q7: How to implement server push?
 
-**A**: Use the `Notice<T>` method:
+**A**: The consumer registers with `RegistReceiveNotice()` and receives through `OnNoticed`; the server calls `Notice<T>` to broadcast to every registered connection:
 
 ```csharp
-// Server push
-provider.Notice("updates", new { Message = "System update" });
+using SAEA.Common.Serialization;
+
+// Server push (broadcast to every registered consumer)
+await provider.Notice("System update");
 
 // Client subscription
-proxy.Subscribe("updates", (msg) => 
+var proxy = new RPCServiceProxy("rpc://127.0.0.1:39654");
+proxy.OnNoticed += (serializeData) =>
 {
-    Console.WriteLine($"Received push: {msg}");
-});
+    Console.WriteLine($"Received push: {SAEASerialize.Deserialize<string>(serializeData)}");
+};
+proxy.RegistReceiveNotice();
 ```
+
+`OnNoticed` is a domain notification event whose argument is the serialized payload; use the handler pipeline when you need the raw frames per connection.
 
 ---
 
@@ -358,7 +397,7 @@ proxy.Subscribe("updates", (msg) =>
 | `NoRpcAttribute` | Marks a method as not externally accessible |
 | `ActionFilterAttribute` | AOP filter abstract base class |
 | `RPCMapping` | Service mapping cache table |
-| `ConsumerMultiplexer` | Multiplexed connection manager with load balancing support |
+| `ConsumerMultiplexer` | Multiplexes several connections to one service address (`links` sets the count) |
 | `Notice<T>` | Server push message type |
 
 ---
@@ -432,9 +471,8 @@ public class UserService
     }
 }
 
-// Start service
+// Start service (errors flow into ExceptionCollector; subscribe to ExceptionCollector.OnErr beforehand if needed)
 var provider = new ServiceProvider(port: 39654);
-provider.OnErr += (ex) => Console.WriteLine($"Service error: {ex.Message}");
 provider.Start();
 
 Console.WriteLine("RPC service started on port: 39654");
@@ -446,10 +484,9 @@ Console.ReadKey();
 ```csharp
 using SAEA.RPC;
 
-// Connect to RPC service
+// Connect to RPC service (the constructor connects immediately; errors flow into ExceptionCollector)
 var url = "rpc://127.0.0.1:39654";
 var proxy = new RPCServiceProxy(url);
-proxy.OnErr += (ex) => Console.WriteLine($"Call error: {ex.Message}");
 
 // Call remote method - Register user
 var result = proxy.UserService.Register("John");
@@ -466,22 +503,23 @@ Console.WriteLine($"Total users: {users.Count}");
 
 ### Multi-Service Address Load Balancing
 
+One `RPCServiceProxy` instance binds to one service address; connection reuse inside that address is controlled by `links` (`ConsumerMultiplexer` rotates across those connections). Picking among several addresses is up to the caller:
+
 ```csharp
 using SAEA.RPC;
 
-// Configure multiple service addresses
-var urls = new[] 
+// Configure multiple service addresses and rotate them yourself
+var urls = new[]
 {
     "rpc://192.168.1.1:39654",
     "rpc://192.168.1.2:39654",
     "rpc://192.168.1.3:39654"
 };
+var index = 0;
+string NextUrl() => urls[index++ % urls.Length];
 
-// Create multiplexed connection pool
-var multiplexer = new ConsumerMultiplexer(urls);
-var proxy = new RPCServiceProxy(multiplexer);
+var proxy = new RPCServiceProxy(NextUrl(), links: 4);
 
-// Automatic load balancing calls
 for (int i = 0; i < 100; i++)
 {
     var result = proxy.UserService.Register($"User_{i}");
@@ -492,28 +530,26 @@ for (int i = 0; i < 100; i++)
 ### Server Push Example
 
 ```csharp
+using SAEA.Common.Serialization;
 using SAEA.RPC;
 
 // Server side
 var provider = new ServiceProvider(port: 39654);
 provider.Start();
 
-// Periodic message push
-var timer = new Timer(_ => 
+// Periodic message push (broadcast to every registered consumer)
+var timer = new Timer(_ =>
 {
-    provider.Notice("news", new 
-    { 
-        Title = "System Announcement", 
-        Content = $"Current time: {DateTime.Now}" 
-    });
+    provider.Notice($"System announcement, current time: {DateTime.Now}");
 }, null, 0, 5000);
 
 // Client subscription
 var proxy = new RPCServiceProxy("rpc://127.0.0.1:39654");
-proxy.Subscribe("news", (msg) => 
+proxy.OnNoticed += (serializeData) =>
 {
-    Console.WriteLine($"Received push: {msg}");
-});
+    Console.WriteLine($"Received push: {SAEASerialize.Deserialize<string>(serializeData)}");
+};
+proxy.RegistReceiveNotice();
 ```
 
 ---

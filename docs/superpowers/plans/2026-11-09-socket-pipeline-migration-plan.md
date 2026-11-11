@@ -580,24 +580,24 @@ dotnet run --project Src/SAEA.Sockets.PipelineTest -c Release -- --bench
 
 ## 五、P3：`RPC` + `QueueSocket` + `MessageSocket`
 
-### P3-1 RPC
+### P3-1 RPC（已完成，见 `p3-1-acceptance-2026-11-10.md`）
 
 - 分帧 `1 / 4 / -4 / 0`；`RSocketMsg` 编解码从 `RpcCoder` 拆到 `RpcMessageDecoder` + `RpcMessageEncoder`（→ `RawFrame`）。
 - 删 10 个事件（公开 5）；`MaxConcurrentMessages = 1`（请求/响应匹配）。
 - 测试：真实编码帧跨段、粘包、边界 `total`。
 
-### P3-2 QueueSocket
+### P3-2 QueueSocket（已完成，见 `p3-2-acceptance-2026-11-10.md`）
 
 - 分帧 `1 / 4 / -4 / 0`；删 12 个事件（公开 11）。
 - `Exchange.OnBatched` 批处理语义保留：batch 作为一次业务处理，不拆分链上顺序。
 - 测试：`--functional` 入口仍可用，另加跨段/粘包/边界。
 
-### P3-3 MessageSocket
+### P3-3 MessageSocket（已完成，见 `p3-3-acceptance-2026-11-11.md`）
 
 - 分帧 `0 / 8 / +1 / 0`；把 `MessageContext` / `Unpacker` 的包边界职责移到分帧器，解码器只做反序列化。
 - 删 8 个事件；测试真实编码帧跨段、粘包、边界。
 
-### P3-4 演示与 README
+### P3-4 演示与 README（已完成，见 `p3-4-acceptance-2026-11-11.md`）
 
 - `RPCTest`、`QueueSocketTest`、`MessageTest` 改链装配；`QueueSocketTest --functional` 自动跑。
 - 对应 3 包中英 README。

@@ -38,19 +38,20 @@ dotnet add package SAEA.MessageSocket
 
 ```csharp
 using SAEA.MessageSocket;
+using SAEA.Sockets.Pipeline;
 
 var server = new MessageServer(port: 39654);
-server.OnDisconnected += (id) => Console.WriteLine($"User disconnected: {id}");
+// Connect/disconnect notifications come from the handler pipeline; see "Usage Examples" for the handler
+server.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ServerLifecycleHandler());
 server.Start();
 ```
 
 ### Step 3: Create Message Client Connection
 
 ```csharp
-var client = new MessageClient("127.0.0.1", 39654);
-client.OnPrivateMessage += (msg) => Console.WriteLine($"Private: {msg.Content}");
-client.OnChannelMessage += (msg) => Console.WriteLine($"Channel: {msg.Content}");
-client.OnGroupMessage += (msg) => Console.WriteLine($"Group: {msg.Content}");
+var client = new MessageClient(ip: "127.0.0.1", port: 39654);
+// Inbound messages are delivered through the handler pipeline; see "Usage Examples" for the handler
+client.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ChatClientHandler());
 client.Connect();
 client.SendPrivateMsg("user_002", "Hello!");
 ```
@@ -123,7 +124,7 @@ Private Message Mode (PrivateMessage):
                                               Find userB Connection
                                                         │
                                                         ▼
-  ClientB ◄── OnPrivateMessage Event ◄─────────── Send to userB
+  ClientB ◄── Pipeline delivers PrivateMessage ◄─────────── Send to userB
 
 
 Channel Mode (ChannelMessage):
@@ -138,7 +139,7 @@ Channel Mode (ChannelMessage):
                                         Subscriber1  Subscriber2  SubscriberN
                                             │           │           │
                                             ▼           ▼           ▼
-                                      OnChannel   OnChannel   OnChannel
+                                      ChatMessage ChatMessage ChatMessage
 
 
 Group Mode (GroupMessage):
@@ -155,7 +156,7 @@ Group Mode (GroupMessage):
                               Member1     Member2     MemberN
                                   │           │           │
                                   ▼           ▼           ▼
-                             OnGroup     OnGroup     OnGroup
+                             ChatMessage ChatMessage ChatMessage
 ```
 
 ---
@@ -243,13 +244,15 @@ Group Mode (GroupMessage):
 **A**: Send a login message after the client connects:
 
 ```csharp
-var client = new MessageClient("127.0.0.1", 39654);
+var client = new MessageClient(ip: "127.0.0.1", port: 39654);
 client.Connect();
 
-// Send login authentication after connection
-client.SendLogin("user_id", "token");
+// Send login after connecting; the server registers the user by connection id,
+// and Logined becomes true once the LoginAnswer arrives
+client.Login();
 
-// MessageServer handles login logic internally via OnServerReceiveSpan
+// The built-in decoder parses and registers the login; business code can observe it
+// through a handler added in ConfigurePipeline
 ```
 
 ### Q3: How to choose between Channel and Group?
@@ -264,12 +267,19 @@ client.SendLogin("user_id", "token");
 **A**: SAEA.MessageSocket focuses on real-time communication. Offline messages need to be combined with storage solutions:
 
 ```csharp
-// Server example: Store offline messages
-server.OnDisconnected += (id) => 
+// Server example: record the last online time when the connection closes
+// ctx.ChannelId inside ChannelInactiveAsync is the closed connection's id
+public sealed class OfflineTrackHandler : InboundHandlerAdapter
 {
-    // User offline, mark last online time
-    // Combine with database to store offline messages
-};
+    public override Task ChannelInactiveAsync(IChannelHandlerContext ctx)
+    {
+        // User offline, mark last online time
+        // Combine with database to store offline messages
+        return Task.CompletedTask;
+    }
+}
+
+server.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new OfflineTrackHandler());
 
 // Pull offline messages after user comes online
 ```
@@ -303,10 +313,11 @@ client.SendPrivateMsg(userId, JsonSerializer.Serialize(new
 **A**: Default configuration supports 1000 connections, adjustable via constructor:
 
 ```csharp
-// bufferSize: buffer size
-// count: maximum connections
-// timeOut: timeout (milliseconds)
-var server = new MessageSocket(1024, 10000, 30 * 60 * 1000);
+// port: listen port
+// bufferSize: buffer in bytes
+// count: max connections
+// timeOut: heartbeat timeout in ms
+var server = new MessageServer(port: 39654, bufferSize: 1024 * 1024, count: 10000, timeOut: 30 * 60 * 1000);
 ```
 
 Actual performance depends on hardware and workload; measure your own scenario.
@@ -336,43 +347,92 @@ Actual performance depends on hardware and workload; measure your own scenario.
 
 ```csharp
 using SAEA.MessageSocket;
+using SAEA.Sockets.Pipeline;
 
 // Create message server
-// bufferSize: 1024, count: 1000000, timeOut: 30 minutes
-var server = new MessageServer(1024, 1000 * 1000, 30 * 60 * 1000);
+// port: listen port, bufferSize: buffer in bytes, count: max connections, timeOut: heartbeat timeout in ms
+var server = new MessageServer(port: 39654, bufferSize: 1024 * 1024, count: 1000 * 1000, timeOut: 30 * 60 * 1000);
 
-server.OnDisconnected += (id) => 
-    Console.WriteLine($"User disconnected: {id}");
+// Connect/disconnect notifications come from the handler pipeline:
+// the callback runs once when each connection's pipeline is built
+server.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ServerLifecycleHandler());
 
 server.Start();
 Console.WriteLine("Message server started, port: 39654");
+
+/// <summary>
+/// Connection lifecycle observer: prints connect and disconnect
+/// </summary>
+public sealed class ServerLifecycleHandler : InboundHandlerAdapter
+{
+    public override Task ChannelActiveAsync(IChannelHandlerContext ctx)
+    {
+        Console.WriteLine($"User connected: {ctx.ChannelId}");
+        return Task.CompletedTask;
+    }
+
+    public override Task ChannelInactiveAsync(IChannelHandlerContext ctx)
+    {
+        Console.WriteLine($"User disconnected: {ctx.ChannelId}");
+        return Task.CompletedTask;
+    }
+}
 ```
 
 ### Complete Client Example
 
 ```csharp
 using SAEA.MessageSocket;
+using SAEA.MessageSocket.Model.Communication;
+using SAEA.Sockets.Pipeline;
 
-var client = new MessageClient("127.0.0.1", 39654);
+var client = new MessageClient(ip: "127.0.0.1", port: 39654);
 
-// Private message event
-client.OnPrivateMessage += (msg) => 
-    Console.WriteLine($"[Private] From {msg.Sender}: {msg.Content}");
-
-// Channel message event
-client.OnChannelMessage += (msg) => 
-    Console.WriteLine($"[Channel:{msg.Name}] {msg.Content}");
-
-// Group message event
-client.OnGroupMessage += (msg) => 
-    Console.WriteLine($"[Group:{msg.Name}] {msg.Content}");
-
-// Disconnected event
-client.OnDisconnected += () => 
-    Console.WriteLine("Connection disconnected");
+// Inbound messages come from the handler pipeline:
+// the callback runs once when the connection's pipeline is built
+client.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ChatClientHandler());
 
 // Connect to server
 client.Connect();
+
+/// <summary>
+/// Client message observer: dispatches decoded ChatMessage by protocol type
+/// </summary>
+public sealed class ChatClientHandler : InboundHandlerAdapter
+{
+    public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+    {
+        var chatMessage = msg as ChatMessage;
+        if (chatMessage == null)
+            return Task.CompletedTask;
+
+        switch (chatMessage.Type)
+        {
+            case ChatMessageType.PrivateMessage:
+                var privateMessage = chatMessage.GetIMessage<PrivateMessage>();
+                Console.WriteLine($"[Private] From {privateMessage?.Sender}: {privateMessage?.Content}");
+                break;
+
+            case ChatMessageType.ChannelMessage:
+                var channelMessage = chatMessage.GetIMessage<ChannelMessage>();
+                Console.WriteLine($"[Channel:{channelMessage?.Name}] {channelMessage?.Content}");
+                break;
+
+            case ChatMessageType.GroupMessage:
+                var groupMessage = chatMessage.GetIMessage<GroupMessage>();
+                Console.WriteLine($"[Group:{groupMessage?.Name}] {groupMessage?.Content}");
+                break;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public override Task ChannelInactiveAsync(IChannelHandlerContext ctx)
+    {
+        Console.WriteLine("Connection disconnected");
+        return Task.CompletedTask;
+    }
+}
 ```
 
 ### Private Messaging
@@ -381,7 +441,7 @@ client.Connect();
 // Send private message to specified user
 client.SendPrivateMsg("user_002", "Hello, this is a private message!");
 
-// OnPrivateMessage event will receive the reply
+// The receiver's handler gets a ChatMessage(PrivateMessage); read the PrivateMessage out of it to reply
 ```
 
 ### Channel Messaging (Publish/Subscribe)
@@ -396,9 +456,6 @@ client.SendChannelMsg("news_channel", "Today's news headline...");
 
 // Unsubscribe
 client.Unsubscribe("news_channel");
-
-// View currently subscribed channels
-var channels = client.GetSubscribedChannels();
 ```
 
 ### Group Messaging
@@ -424,32 +481,56 @@ client.SendRemoveGroup("project_team");
 
 ```csharp
 using SAEA.MessageSocket;
+using SAEA.MessageSocket.Model.Communication;
+using SAEA.Sockets.Pipeline;
 
 // Server side
-var server = new MessageServer(1024, 1000 * 1000, 30 * 60 * 1000);
+var server = new MessageServer(port: 39654, bufferSize: 1024 * 1024, timeOut: 30 * 60 * 1000);
 server.Start();
 
 // Client1 - Create group
-var client1 = new MessageClient("127.0.0.1", 39654);
-client1.OnGroupMessage += (msg) => Console.WriteLine($"Client1: {msg.Content}");
+var client1 = new MessageClient(ip: "127.0.0.1", port: 39654);
+client1.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ChatRoomHandler("Client1"));
 client1.Connect();
 client1.SendCreateGroup("chat_room");
 
 // Client2 - Join group
-var client2 = new MessageClient("127.0.0.1", 39654);
-client2.OnGroupMessage += (msg) => Console.WriteLine($"Client2: {msg.Content}");
+var client2 = new MessageClient(ip: "127.0.0.1", port: 39654);
+client2.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ChatRoomHandler("Client2"));
 client2.Connect();
 client2.SendAddMember("chat_room");
 
 // Client3 - Join group
-var client3 = new MessageClient("127.0.0.1", 39654);
-client3.OnGroupMessage += (msg) => Console.WriteLine($"Client3: {msg.Content}");
+var client3 = new MessageClient(ip: "127.0.0.1", port: 39654);
+client3.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ChatRoomHandler("Client3"));
 client3.Connect();
 client3.SendAddMember("chat_room");
 
 // Send group messages (all members will receive)
 client1.SendGroupMessage("chat_room", "Hello everyone!");
 client2.SendGroupMessage("chat_room", "Hi client1!");
+
+/// <summary>
+/// Chat room handler: prints group messages only, one instance per client
+/// </summary>
+public sealed class ChatRoomHandler : InboundHandlerAdapter
+{
+    private readonly string _tag;
+
+    public ChatRoomHandler(string tag)
+    {
+        _tag = tag;
+    }
+
+    public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+    {
+        var chatMessage = msg as ChatMessage;
+        if (chatMessage != null && chatMessage.Type == ChatMessageType.GroupMessage)
+            Console.WriteLine($"{_tag}: {chatMessage.GetIMessage<GroupMessage>()?.Content}");
+
+        return Task.CompletedTask;
+    }
+}
 ```
 
 ---

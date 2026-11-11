@@ -38,19 +38,20 @@ dotnet add package SAEA.MessageSocket
 
 ```csharp
 using SAEA.MessageSocket;
+using SAEA.Sockets.Pipeline;
 
 var server = new MessageServer(port: 39654);
-server.OnDisconnected += (id) => Console.WriteLine($"用户断开: {id}");
+// 接入/断开通知由处理器链观察，处理器写法见「使用示例」
+server.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ServerLifecycleHandler());
 server.Start();
 ```
 
 ### Step 3: 创建消息客户端连接
 
 ```csharp
-var client = new MessageClient("127.0.0.1", 39654);
-client.OnPrivateMessage += (msg) => Console.WriteLine($"私信: {msg.Content}");
-client.OnChannelMessage += (msg) => Console.WriteLine($"频道: {msg.Content}");
-client.OnGroupMessage += (msg) => Console.WriteLine($"群组: {msg.Content}");
+var client = new MessageClient(ip: "127.0.0.1", port: 39654);
+// 收消息改由处理器链接管，处理器写法见「使用示例」
+client.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ChatClientHandler());
 client.Connect();
 client.SendPrivateMsg("user_002", "Hello!");
 ```
@@ -123,7 +124,7 @@ client.SendPrivateMsg("user_002", "Hello!");
                                               查找 userB 连接
                                                         │
                                                         ▼
-  客户端B ◄── OnPrivateMessage 事件 ◄─────────── 发送给 userB
+  客户端B ◄── 处理器链收到 PrivateMessage ◄─────────── 发送给 userB
 
 
 频道模式 (ChannelMessage):
@@ -138,7 +139,7 @@ client.SendPrivateMsg("user_002", "Hello!");
                                        订阅者1     订阅者2     订阅者N
                                            │           │           │
                                            ▼           ▼           ▼
-                                     OnChannel  OnChannel  OnChannel
+                                     ChatMessage ChatMessage ChatMessage
 
 
 群组模式 (GroupMessage):
@@ -155,7 +156,7 @@ client.SendPrivateMsg("user_002", "Hello!");
                               成员1       成员2       成员N
                                   │           │           │
                                   ▼           ▼           ▼
-                            OnGroup     OnGroup     OnGroup
+                            ChatMessage ChatMessage ChatMessage
 ```
 
 ---
@@ -243,13 +244,13 @@ client.SendPrivateMsg("user_002", "Hello!");
 **A**: 在客户端连接后发送登录消息：
 
 ```csharp
-var client = new MessageClient("127.0.0.1", 39654);
+var client = new MessageClient(ip: "127.0.0.1", port: 39654);
 client.Connect();
 
-// 连接后发送登录认证
-client.SendLogin("user_id", "token");
+// 连接后发送登录，服务端以连接标识登记用户，收到 LoginAnswer 后 Logined 置为 true
+client.Login();
 
-// 服务端在 MessageServer 内部通过 OnServerReceiveSpan 处理登录逻辑
+// 登录消息由内置解码器解析并登记，业务可在 ConfigurePipeline 的处理器中同步观察
 ```
 
 ### Q3: 频道和群组如何选择？
@@ -264,12 +265,19 @@ client.SendLogin("user_id", "token");
 **A**: SAEA.MessageSocket 专注于实时通信，离线消息需要配合存储方案：
 
 ```csharp
-// 服务端示例：存储离线消息
-server.OnDisconnected += (id) => 
+// 服务端示例：在连接收口时记录最后在线时间
+// 处理器里 ChannelInactiveAsync 的 ctx.ChannelId 即断开的连接标识
+public sealed class OfflineTrackHandler : InboundHandlerAdapter
 {
-    // 用户离线，标记最后在线时间
-    // 配合数据库存储离线消息
-};
+    public override Task ChannelInactiveAsync(IChannelHandlerContext ctx)
+    {
+        // 用户离线，标记最后在线时间
+        // 配合数据库存储离线消息
+        return Task.CompletedTask;
+    }
+}
+
+server.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new OfflineTrackHandler());
 
 // 用户上线后拉取离线消息
 ```
@@ -303,10 +311,11 @@ client.SendPrivateMsg(userId, JsonSerializer.Serialize(new
 **A**: 默认配置支持 1000 个连接，可通过构造函数调整：
 
 ```csharp
-// bufferSize: 缓冲区大小
+// port: 监听端口
+// bufferSize: 收发缓冲区（字节）
 // count: 最大连接数
-// timeOut: 超时时间(毫秒)
-var server = new MessageSocket(1024, 10000, 30 * 60 * 1000);
+// timeOut: 心跳超时（毫秒）
+var server = new MessageServer(port: 39654, bufferSize: 1024 * 1024, count: 10000, timeOut: 30 * 60 * 1000);
 ```
 
 实际性能取决于服务器硬件配置与业务负载，请以自己场景压测为准。
@@ -336,43 +345,90 @@ var server = new MessageSocket(1024, 10000, 30 * 60 * 1000);
 
 ```csharp
 using SAEA.MessageSocket;
+using SAEA.Sockets.Pipeline;
 
 // 创建消息服务器
-// bufferSize: 1024, count: 1000000, timeOut: 30分钟
-var server = new MessageServer(1024, 1000 * 1000, 30 * 60 * 1000);
+// port: 监听端口, bufferSize: 收发缓冲区（字节）, count: 最大连接数, timeOut: 心跳超时（毫秒）
+var server = new MessageServer(port: 39654, bufferSize: 1024 * 1024, count: 1000 * 1000, timeOut: 30 * 60 * 1000);
 
-server.OnDisconnected += (id) => 
-    Console.WriteLine($"用户断开连接: {id}");
+// 接入/断开通知由处理器链承担：每条连接建链时装配一次
+server.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ServerLifecycleHandler());
 
 server.Start();
 Console.WriteLine("消息服务器已启动，端口: 39654");
+
+/// <summary>
+/// 连接生命周期观察器：打印连接建立与断开
+/// </summary>
+public sealed class ServerLifecycleHandler : InboundHandlerAdapter
+{
+    public override Task ChannelActiveAsync(IChannelHandlerContext ctx)
+    {
+        Console.WriteLine($"用户接入: {ctx.ChannelId}");
+        return Task.CompletedTask;
+    }
+
+    public override Task ChannelInactiveAsync(IChannelHandlerContext ctx)
+    {
+        Console.WriteLine($"用户断开连接: {ctx.ChannelId}");
+        return Task.CompletedTask;
+    }
+}
 ```
 
 ### 完整客户端示例
 
 ```csharp
 using SAEA.MessageSocket;
+using SAEA.MessageSocket.Model.Communication;
+using SAEA.Sockets.Pipeline;
 
-var client = new MessageClient("127.0.0.1", 39654);
+var client = new MessageClient(ip: "127.0.0.1", port: 39654);
 
-// 私信事件
-client.OnPrivateMessage += (msg) => 
-    Console.WriteLine($"[私信] 来自 {msg.Sender}: {msg.Content}");
-
-// 频道消息事件
-client.OnChannelMessage += (msg) => 
-    Console.WriteLine($"[频道:{msg.Name}] {msg.Content}");
-
-// 群组消息事件
-client.OnGroupMessage += (msg) => 
-    Console.WriteLine($"[群组:{msg.Name}] {msg.Content}");
-
-// 断开连接事件
-client.OnDisconnected += () => 
-    Console.WriteLine("连接已断开");
+// 收消息由处理器链接管：建链时装配一次，之后所有已解码的 ChatMessage 都经过这里
+client.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ChatClientHandler());
 
 // 连接服务器
 client.Connect();
+
+/// <summary>
+/// 客户端消息观察器：按协议类型分发到业务
+/// </summary>
+public sealed class ChatClientHandler : InboundHandlerAdapter
+{
+    public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+    {
+        var chatMessage = msg as ChatMessage;
+        if (chatMessage == null)
+            return Task.CompletedTask;
+
+        switch (chatMessage.Type)
+        {
+            case ChatMessageType.PrivateMessage:
+                var privateMessage = chatMessage.GetIMessage<PrivateMessage>();
+                Console.WriteLine($"[私信] 来自 {privateMessage?.Sender}: {privateMessage?.Content}");
+                break;
+
+            case ChatMessageType.ChannelMessage:
+                var channelMessage = chatMessage.GetIMessage<ChannelMessage>();
+                Console.WriteLine($"[频道:{channelMessage?.Name}] {channelMessage?.Content}");
+                break;
+
+            case ChatMessageType.GroupMessage:
+                var groupMessage = chatMessage.GetIMessage<GroupMessage>();
+                Console.WriteLine($"[群组:{groupMessage?.Name}] {groupMessage?.Content}");
+                break;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public override Task ChannelInactiveAsync(IChannelHandlerContext ctx)
+    {
+        Console.WriteLine("连接已断开");
+        return Task.CompletedTask;
+    }
+}
 ```
 
 ### 私信消息
@@ -381,7 +437,7 @@ client.Connect();
 // 发送私信给指定用户
 client.SendPrivateMsg("user_002", "你好，这是一条私信！");
 
-// OnPrivateMessage 事件会收到对方回复
+// 接收方的处理器会收到 ChatMessage(PrivateMessage)，从中取出 PrivateMessage 回复
 ```
 
 ### 频道消息（发布/订阅）
@@ -396,9 +452,6 @@ client.SendChannelMsg("news_channel", "今日新闻头条...");
 
 // 取消订阅
 client.Unsubscribe("news_channel");
-
-// 查看当前订阅的频道
-var channels = client.GetSubscribedChannels();
 ```
 
 ### 群组消息
@@ -424,32 +477,56 @@ client.SendRemoveGroup("project_team");
 
 ```csharp
 using SAEA.MessageSocket;
+using SAEA.MessageSocket.Model.Communication;
+using SAEA.Sockets.Pipeline;
 
 // 服务器端
-var server = new MessageServer(1024, 1000 * 1000, 30 * 60 * 1000);
+var server = new MessageServer(port: 39654, bufferSize: 1024 * 1024, timeOut: 30 * 60 * 1000);
 server.Start();
 
 // 客户端1 - 创建群组
-var client1 = new MessageClient("127.0.0.1", 39654);
-client1.OnGroupMessage += (msg) => Console.WriteLine($"Client1: {msg.Content}");
+var client1 = new MessageClient(ip: "127.0.0.1", port: 39654);
+client1.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ChatRoomHandler("Client1"));
 client1.Connect();
 client1.SendCreateGroup("chat_room");
 
 // 客户端2 - 加入群组
-var client2 = new MessageClient("127.0.0.1", 39654);
-client2.OnGroupMessage += (msg) => Console.WriteLine($"Client2: {msg.Content}");
+var client2 = new MessageClient(ip: "127.0.0.1", port: 39654);
+client2.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ChatRoomHandler("Client2"));
 client2.Connect();
 client2.SendAddMember("chat_room");
 
 // 客户端3 - 加入群组
-var client3 = new MessageClient("127.0.0.1", 39654);
-client3.OnGroupMessage += (msg) => Console.WriteLine($"Client3: {msg.Content}");
+var client3 = new MessageClient(ip: "127.0.0.1", port: 39654);
+client3.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ChatRoomHandler("Client3"));
 client3.Connect();
 client3.SendAddMember("chat_room");
 
 // 发送群组消息（所有成员都会收到）
 client1.SendGroupMessage("chat_room", "大家好！");
 client2.SendGroupMessage("chat_room", "你好 client1！");
+
+/// <summary>
+/// 聊天室处理器：仅打印群组消息，每个客户端实例各挂一个
+/// </summary>
+public sealed class ChatRoomHandler : InboundHandlerAdapter
+{
+    private readonly string _tag;
+
+    public ChatRoomHandler(string tag)
+    {
+        _tag = tag;
+    }
+
+    public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+    {
+        var chatMessage = msg as ChatMessage;
+        if (chatMessage != null && chatMessage.Type == ChatMessageType.GroupMessage)
+            Console.WriteLine($"{_tag}: {chatMessage.GetIMessage<GroupMessage>()?.Content}");
+
+        return Task.CompletedTask;
+    }
+}
 ```
 
 ---

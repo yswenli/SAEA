@@ -2,9 +2,12 @@ using SAEA.Common;
 using SAEA.Common.IO;
 using SAEA.Common.Serialization;
 using SAEA.Common.Threading;
+using SAEA.RPC.Model;
+using SAEA.RPC.Net;
 using SAEA.RPC.Provider;
 using SAEA.RPCTest.Consumer;
 using SAEA.RPCTest.Consumer.Model;
+using SAEA.Sockets.Pipeline;
 
 using System;
 using System.Collections.Generic;
@@ -94,6 +97,8 @@ namespace SAEA.RPCTest
             //var sp = new ServiceProvider(new Type[] { typeof(Provider.HelloService) });
             var sp = new ServiceProvider();
 
+            sp.ConfigurePipeline = AttachProviderObserver;
+
             ExceptionCollector.OnErr += Sp_OnErr;
 
             sp.Start();
@@ -107,6 +112,67 @@ namespace SAEA.RPCTest
             if (ex.InnerException != null)
                 msg += " | Inner:" + ex.InnerException.Message;
             ConsoleHelper.WriteLine(msg);
+        }
+
+        /// <summary>
+        /// 给每条 Provider 连接挂上观察器；必须在 Start() 之前赋值，建链时执行
+        /// </summary>
+        /// <param name="channelId">连接标识</param>
+        /// <param name="pipeline">当前连接的处理器链</param>
+        private static void AttachProviderObserver(string channelId, IChannelPipeline pipeline)
+        {
+            pipeline.AddLast(new ProviderObserver());
+        }
+
+        /// <summary>
+        /// Provider 观察器：打印连接建立/断开与链上异常，已由内置分发器处理的请求直接消费
+        /// </summary>
+        private sealed class ProviderObserver : InboundHandlerAdapter
+        {
+            /// <summary>
+            /// 请求已由内置分发器处理，这里消费掉，保持链尾干净
+            /// </summary>
+            /// <param name="ctx">当前处理器在链上的节点上下文</param>
+            /// <param name="msg">解码后的消息</param>
+            /// <returns>处理完成后结束的任务</returns>
+            public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+            {
+                return Task.CompletedTask;
+            }
+
+            /// <summary>
+            /// 打印连接建立
+            /// </summary>
+            /// <param name="ctx">当前处理器在链上的节点上下文</param>
+            /// <returns>处理完成后结束的任务</returns>
+            public override Task ChannelActiveAsync(IChannelHandlerContext ctx)
+            {
+                ConsoleHelper.WriteLine("RPC Provider 收到连接:" + ctx.ChannelId);
+                return Task.CompletedTask;
+            }
+
+            /// <summary>
+            /// 打印连接断开
+            /// </summary>
+            /// <param name="ctx">当前处理器在链上的节点上下文</param>
+            /// <returns>处理完成后结束的任务</returns>
+            public override Task ChannelInactiveAsync(IChannelHandlerContext ctx)
+            {
+                ConsoleHelper.WriteLine("RPC Provider 断开连接:" + ctx.ChannelId);
+                return Task.CompletedTask;
+            }
+
+            /// <summary>
+            /// 打印链上冒泡的异常后继续交给链尾收口
+            /// </summary>
+            /// <param name="ctx">当前处理器在链上的节点上下文</param>
+            /// <param name="ex">被捕获的异常</param>
+            /// <returns>下游处理完成后结束的任务</returns>
+            public override Task ChannelExceptionCaughtAsync(IChannelHandlerContext ctx, Exception ex)
+            {
+                ConsoleHelper.WriteLine($"RPC Provider 发生异常:{ctx.ChannelId}, err:{ex.Message}");
+                return ctx.FireExceptionCaughtAsync(ex);
+            }
         }
 
         static void Generate()
@@ -128,8 +194,7 @@ namespace SAEA.RPCTest
 
             ConsoleHelper.WriteLine($"Consumer正在连接到{url}...");
 
-            RPCServiceProxy cp = new RPCServiceProxy(input, 1, 1, 1000000);
-            cp.OnErr += Cp_OnErr;
+            RPCServiceProxy cp = new RPCServiceProxy(input, 1, 1, 1000000, AttachConsumerObserver);
 
             ConsoleHelper.WriteLine("Consumer连接成功");
 
@@ -318,8 +383,7 @@ namespace SAEA.RPCTest
 
             ConsoleHelper.WriteLine($"Consumer正在连接到{url}...");
 
-            RPCServiceProxy cp = new RPCServiceProxy(url, 1, 1);
-            cp.OnErr += Cp_OnErr;
+            RPCServiceProxy cp = new RPCServiceProxy(url, 1, 1, 10 * 1000, AttachConsumerObserver);
 
             ConsoleHelper.WriteLine("Consumer连接成功");
 
@@ -351,9 +415,43 @@ namespace SAEA.RPCTest
             }
         }
 
-        private static void Cp_OnErr(string name, Exception ex)
+        /// <summary>
+        /// 给每条 RPC 连接挂上消费者观察器；连接建立前由构造函数注入，建链时执行
+        /// </summary>
+        /// <param name="channelId">连接标识</param>
+        /// <param name="pipeline">当前连接的处理器链</param>
+        private static void AttachConsumerObserver(string channelId, IChannelPipeline pipeline)
         {
-            ConsoleHelper.WriteLine($"{name}  {ex.Message}");
+            pipeline.AddLast(new ConsumerObserver());
+        }
+
+        /// <summary>
+        /// 消费者观察器：消费已处理的应答避免链尾回收，并打印链上冒泡的异常
+        /// </summary>
+        private sealed class ConsumerObserver : InboundHandlerAdapter
+        {
+            /// <summary>
+            /// 应答与推送已由内置分发器处理，这里消费掉，保持链尾干净
+            /// </summary>
+            /// <param name="ctx">当前处理器在链上的节点上下文</param>
+            /// <param name="msg">解码后的消息</param>
+            /// <returns>处理完成后结束的任务</returns>
+            public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+            {
+                return Task.CompletedTask;
+            }
+
+            /// <summary>
+            /// 打印链上冒泡的异常后继续交给链尾收口
+            /// </summary>
+            /// <param name="ctx">当前处理器在链上的节点上下文</param>
+            /// <param name="ex">被捕获的异常</param>
+            /// <returns>下游处理完成后结束的任务</returns>
+            public override Task ChannelExceptionCaughtAsync(IChannelHandlerContext ctx, Exception ex)
+            {
+                ConsoleHelper.WriteLine($"{ctx.ChannelId}  {ex.Message}");
+                return ctx.FireExceptionCaughtAsync(ex);
+            }
         }
 
 
@@ -386,9 +484,7 @@ namespace SAEA.RPCTest
 
             ConsoleHelper.WriteLine("Consumer正在连接到SAEA.RPC Service");
 
-            RPCServiceProxy rpcServiceProxy = new RPCServiceProxy();
-
-            rpcServiceProxy.OnNoticed += RpcServiceProxy_OnNoticed;
+            RPCServiceProxy rpcServiceProxy = new RPCServiceProxy("rpc://127.0.0.1:39654", 4, 5, 10 * 1000, AttachNoticeObserver);
 
             ConsoleHelper.WriteLine("Consumer正在注册接收SAEA.RPC Service消息推送...");
 
@@ -396,9 +492,36 @@ namespace SAEA.RPCTest
             rpcServiceProxy.RegistReceiveNotice();
         }
 
-        private static void RpcServiceProxy_OnNoticed(byte[] serializeData)
+        /// <summary>
+        /// 给每条 RPC 连接挂上推送观察器
+        /// </summary>
+        /// <param name="channelId">连接标识</param>
+        /// <param name="pipeline">当前连接的处理器链</param>
+        private static void AttachNoticeObserver(string channelId, IChannelPipeline pipeline)
         {
-            ConsoleHelper.WriteLine($"RPCServiceProxy 收到服务推送的消息： {SAEASerialize.Deserialize<string>(serializeData)}");
+            pipeline.AddLast(new NoticeObserver());
+        }
+
+        /// <summary>
+        /// 推送观察器：把服务端推送的 Notice 帧还原成业务对象打印
+        /// </summary>
+        private sealed class NoticeObserver : InboundHandlerAdapter
+        {
+            /// <summary>
+            /// 观察解码后的 RPC 消息，推送帧打印后消费，其余消息同样消费
+            /// </summary>
+            /// <param name="ctx">当前处理器在链上的节点上下文</param>
+            /// <param name="msg">解码后的消息</param>
+            /// <returns>处理完成后结束的任务</returns>
+            public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+            {
+                var rpcMsg = msg as RSocketMsg;
+
+                if (rpcMsg != null && rpcMsg.Type == (byte)RSocketMsgType.Notice)
+                    ConsoleHelper.WriteLine($"RPCServiceProxy 收到服务推送的消息： {SAEASerialize.Deserialize<string>(rpcMsg.Data)}");
+
+                return Task.CompletedTask;
+            }
         }
 
         #endregion

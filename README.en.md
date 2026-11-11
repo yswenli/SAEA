@@ -218,6 +218,23 @@ Client Request Flow:
 
 Both transports are cross-platform; the underlying IO mechanism is chosen by the .NET runtime (IOCP on Windows, epoll on Linux, kqueue on macOS). `UseIocp()` is a historical name and does not imply a Windows requirement.
 
+### Handler Pipelines in the Upper-Layer Components
+
+Receive callbacks and connection lifecycle in `Http`, `WebSocket`, `FileSocket`, `RPC`, `QueueSocket` and `MessageSocket` are now handled by a `SAEA.Sockets.Pipeline` handler chain instead of `OnMessage` / `OnDisconnected` / `OnErr` style events. Append handlers before the pipeline is built through `ConfigurePipeline`:
+
+```csharp
+using SAEA.MessageSocket;
+using SAEA.Sockets.Pipeline;
+
+var server = new MessageServer(port: 39654);
+
+// Called once per connection with the connection id and the not-yet-started pipeline
+server.ConfigurePipeline = (channelId, pipeline) => pipeline.AddLast(new MyInboundHandler());
+server.Start();
+```
+
+Handlers derive from `InboundHandlerAdapter`: consume decoded messages in `ChannelReadAsync`, react to disconnects in `ChannelInactiveAsync`, and observe pipeline errors in `ChannelExceptionCaughtAsync`. Messages left unconsumed are recycled at the pipeline tail, while transport errors still flow into `ExceptionCollector`.
+
 ### SAEA.RPC vs HTTP RPC
 
 | Feature | SAEA.RPC | HTTP RPC |

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:32
+*修改时间：2026/11/11 10:09:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：构造时注入链装配回调，连接建立前完成装配
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -80,8 +80,9 @@ namespace SAEA.RPC.Consumer
         /// <summary>
         /// 处理器链装配回调：向下转发到每个底层连接，在 RPC 解码之后、异常收口之前调用。
         /// <para>
-        /// 赋值时会同步到本实例已创建的连接；同一地址复用了其他实例建立的连接时，
-        /// 那些连接保持原有装配，需要在首次创建之前赋值。
+        /// 连接建立时读取并装配一次，链启动后即冻结：赋值只对尚未建链的连接生效，
+        /// 已连接的通道不会补装，需要在创建实例时通过构造参数注入。同一地址复用
+        /// 其他实例已建立的连接时，那些连接保持原有装配。
         /// </para>
         /// </summary>
         public Action<string, IChannelPipeline> ConfigurePipeline
@@ -127,12 +128,14 @@ namespace SAEA.RPC.Consumer
         /// <param name="links"></param>
         /// <param name="timeOut"></param>
         /// <param name="retry"></param>
-        ConsumerMultiplexer(Uri uri, int links = 10, int timeOut = 10 * 1000, int retry = 5)
+        /// <param name="configurePipeline">处理器链装配回调，在连接建立前写下，建链时生效</param>
+        ConsumerMultiplexer(Uri uri, int links = 10, int timeOut = 10 * 1000, int retry = 5, Action<string, IChannelPipeline> configurePipeline = null)
         {
             _uri = uri;
             _links = links;
             _timeOut = timeOut;
             _retry = retry;
+            _configurePipeline = configurePipeline;
 
             if (!_hashMap.Exits(uri.ToString()))
             {
@@ -163,10 +166,11 @@ namespace SAEA.RPC.Consumer
         /// <param name="links"></param>
         /// <param name="timeOut"></param>
         /// <param name="retry"></param>
+        /// <param name="configurePipeline">处理器链装配回调，在连接建立前写下，建链时生效</param>
         /// <returns></returns>
-        public static ConsumerMultiplexer Create(Uri uri, int links = 4, int timeOut = 3 * 1000, int retry = 5)
+        public static ConsumerMultiplexer Create(Uri uri, int links = 4, int timeOut = 3 * 1000, int retry = 5, Action<string, IChannelPipeline> configurePipeline = null)
         {
-            var cm = new ConsumerMultiplexer(uri, links, timeOut, retry);
+            var cm = new ConsumerMultiplexer(uri, links, timeOut, retry, configurePipeline);
             cm.IsConnected = true;
             return cm;
         }

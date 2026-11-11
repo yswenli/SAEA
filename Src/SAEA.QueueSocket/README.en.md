@@ -46,7 +46,6 @@ Console.WriteLine("Message queue server started!");
 
 ```csharp
 var producer = new Producer("producer_1", "127.0.0.1:39654");
-producer.Connect();
 producer.Publish("orders", "Order data: {id: 123}");
 ```
 
@@ -54,10 +53,11 @@ producer.Publish("orders", "Order data: {id: 123}");
 
 ```csharp
 var consumer = new Consumer("consumer_1", "127.0.0.1:39654");
-consumer.OnMessage += (msg) => 
-    Console.WriteLine($"Received: {Encoding.UTF8.GetString(msg.Data.ToArray())}");
-consumer.Connect();
+// Inbound messages are delivered through the handler pipeline; see "Complete Consumer Example" for the handler
+consumer.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new QueueMessageHandler(msg =>
+    Console.WriteLine($"Received: {Encoding.UTF8.GetString(msg.Data.ToArray())}")));
 consumer.Subscribe("orders");
+consumer.Start();
 ```
 
 **That's it!** 🎉 You've implemented a high-performance publish/subscribe message queue system.
@@ -157,12 +157,12 @@ Producer ──► Publish(topic, msg) ──► QServer Receives
                          │                  │                  │
                          ▼                  ▼                  ▼
                     Consumer A        Consumer B        Consumer C
-                    OnMessage()       OnMessage()       OnMessage()
+                    Pipeline          Pipeline          Pipeline
 
 
 Consumer Subscription Flow:
 
-Consumer ──► Connect() ──► QServer Establishes Connection
+Consumer ──► Start() ──► QServer Establishes Connection
                                    │
                                    ▼
                             ┌─────────────┐
@@ -182,7 +182,7 @@ Consumer ──► Connect() ──► QServer Establishes Connection
                                    Push
                                    │
                                    ▼
-                            OnMessage() Triggered
+                            ChannelReadAsync Triggered
 ```
 
 ---
@@ -261,16 +261,35 @@ Consumer ──► Connect() ──► QServer Establishes Connection
 
 ### Q4: How to handle consumer disconnection and reconnection?
 
-**A**: Consumer supports event notifications:
+**A**: Disconnections are reported by the pipeline's `ChannelInactiveAsync`; start the reconnect on a background task so the pipeline thread is not blocked:
 
 ```csharp
-consumer.OnDisconnected += () => 
+public sealed class ReconnectHandler : InboundHandlerAdapter
 {
-    Console.WriteLine("Connection lost, reconnecting...");
-    Task.Delay(1000).Wait();
-    consumer.Connect();
-    consumer.Subscribe("orders");
-};
+    private readonly Action _reconnect;
+
+    public ReconnectHandler(Action reconnect)
+    {
+        _reconnect = reconnect;
+    }
+
+    public override Task ChannelInactiveAsync(IChannelHandlerContext ctx)
+    {
+        Task.Run(() =>
+        {
+            Console.WriteLine("Connection lost, reconnecting in 5 seconds...");
+            Task.Delay(5000).Wait();
+            _reconnect();
+        });
+
+        return Task.CompletedTask;
+    }
+}
+
+consumer.ConfigurePipeline = (id, pipeline) =>
+    pipeline.AddLast(new ReconnectHandler(() => consumer.Start()));
+consumer.Subscribe("orders");
+consumer.Start();
 ```
 
 ### Q5: How to handle message backlog?
@@ -344,12 +363,8 @@ Console.ReadLine();
 ```csharp
 using SAEA.QueueSocket;
 
+// The constructor connects immediately; the publish path needs no custom inbound handler
 var producer = new Producer("producer_001", "127.0.0.1:39654");
-
-producer.OnError += (ex) => Console.WriteLine($"Error: {ex.Message}");
-producer.OnDisconnected += () => Console.WriteLine("Disconnected");
-
-producer.Connect();
 
 while (true)
 {
@@ -360,54 +375,89 @@ while (true)
     Console.WriteLine("Message published");
 }
 
-producer.Close();
+producer.Dispose();
 ```
+
+> To observe exceptions on the producer connection, use `QClient` instead: assign `ConfigurePipeline` first, then call `Connect()`.
 
 ### Complete Consumer Example
 
 ```csharp
 using SAEA.QueueSocket;
+using SAEA.QueueSocket.Model;
+using SAEA.Sockets.Pipeline;
 using System.Text;
 
 var consumer = new Consumer("consumer_001", "127.0.0.1:39654");
 
-consumer.OnMessage += (msg) => 
-{
-    var content = Encoding.UTF8.GetString(msg.Data.ToArray());
-    Console.WriteLine($"[Received] Topic: {msg.Topic}, Message: {content}");
-};
+// Inbound messages come from the handler pipeline: assign before Start,
+// then every subscribed message passes through this handler
+consumer.ConfigurePipeline = (id, pipeline) =>
+    pipeline.AddLast(new QueueMessageHandler(msg =>
+        Console.WriteLine($"[Received] Topic: {msg.Topic}, Message: {Encoding.UTF8.GetString(msg.Data.ToArray())}")));
 
-consumer.OnError += (ex) => Console.WriteLine($"Error: {ex.Message}");
-consumer.OnDisconnected += () => 
-{
-    Console.WriteLine("Disconnected, reconnecting in 5 seconds...");
-    Task.Delay(5000).Wait();
-    consumer.Connect();
-    consumer.Subscribe("orders");
-};
-
-consumer.Connect();
 consumer.Subscribe("orders");
-consumer.Subscribe("notifications");
+consumer.Start();
 
 Console.WriteLine("Consumer started, waiting for messages...");
 Console.ReadLine();
 
-consumer.Close();
+consumer.Dispose();
+
+/// <summary>
+/// Queue message handler: hands messages to the business callback and returns the pooled buffer
+/// </summary>
+public sealed class QueueMessageHandler : InboundHandlerAdapter
+{
+    private readonly Action<QueueMsg> _onMessage;
+
+    public QueueMessageHandler(Action<QueueMsg> onMessage)
+    {
+        _onMessage = onMessage;
+    }
+
+    public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+    {
+        var queueMsg = msg as QueueMsg;
+        if (queueMsg == null)
+            return Task.CompletedTask;
+
+        try
+        {
+            _onMessage(queueMsg);
+        }
+        finally
+        {
+            // The payload comes from the memory pool and must be returned after use
+            queueMsg.Dispose();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public override Task ChannelExceptionCaughtAsync(IChannelHandlerContext ctx, Exception ex)
+    {
+        Console.WriteLine($"Error: {ex.Message}");
+        return ctx.FireExceptionCaughtAsync(ex);
+    }
+}
 ```
 
 ### Using QClient Base Class (Both Publish and Subscribe)
 
 ```csharp
 using SAEA.QueueSocket;
+using SAEA.QueueSocket.Model;
+using SAEA.Sockets.Pipeline;
 using System.Text;
 
 var client = new QClient("client_001", "127.0.0.1:39654");
 
-client.OnMessage += (msg) => 
-    Console.WriteLine($"Received: {Encoding.UTF8.GetString(msg.Data.ToArray())}");
-client.OnError += (ex) => Console.WriteLine($"Error: {ex.Message}");
-client.OnDisconnected += () => Console.WriteLine("Disconnected");
+// QClient allows assigning the pipeline before Connect;
+// both inbound messages and pipeline exceptions are handled by handlers
+client.ConfigurePipeline = (id, pipeline) =>
+    pipeline.AddLast(new QueueMessageHandler(msg =>
+        Console.WriteLine($"Received: {Encoding.UTF8.GetString(msg.Data.ToArray())}")));
 
 client.Connect();
 

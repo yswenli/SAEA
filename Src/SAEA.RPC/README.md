@@ -71,7 +71,7 @@ Console.WriteLine(result);  // 输出: Hello, SAEA!
 | 🔌 **动态代理** | 自动生成客户端代码 | 像调用本地方法一样调用远程服务 |
 | 🛡️ **AOP 过滤器** | `ActionFilterAttribute` | 日志、权限、缓存统一拦截 |
 | 📡 **服务端推送** | `Notice<T>` 推送消息 | 支持发布订阅模式 |
-| ⚖️ **负载均衡** | `ConsumerMultiplexer` | 多服务地址自动均衡 |
+| ⚖️ **连接复用** | `ConsumerMultiplexer` | 同一服务地址按 `links` 复用连接 |
 | 🔗 **连接池** | 长连接复用 | 减少连接开销，提升性能 |
 
 ---
@@ -237,36 +237,69 @@ Client                        Server
 
 ### Q2: 如何实现服务注册与发现？
 
-**A**: 配合 `ConsumerMultiplexer` 实现多地址负载均衡：
+**A**: `ConsumerMultiplexer` 负责同一服务地址上的多连接复用（`links` 指定连接数，调用在连接间轮转）；多地址由使用方选好地址后分别创建：
 
 ```csharp
-var urls = new[] 
+var urls = new[]
 {
     "rpc://192.168.1.1:39654",
     "rpc://192.168.1.2:39654"
 };
-var multiplexer = new ConsumerMultiplexer(urls);
-var proxy = new RPCServiceProxy(multiplexer);
+var index = 0;
+string NextUrl() => urls[index++ % urls.Length];
+
+// 取一个地址创建消费者；同一地址内部再按 links 复用连接
+var proxy = new RPCServiceProxy(NextUrl(), links: 4);
 ```
 
 也可结合 Consul、Nacos 等服务发现组件动态更新地址列表。
 
 ### Q3: 如何处理超时和异常？
 
-**A**: 通过 `OnErr` 事件捕获异常：
+**A**: 传输、调用与超时异常统一汇入 `ExceptionCollector`：
 
 ```csharp
-var proxy = new RPCServiceProxy(url);
-proxy.OnErr += (ex) => 
+ExceptionCollector.OnErr += (name, ex) =>
 {
-    Console.WriteLine($"RPC 调用异常: {ex.Message}");
+    Console.WriteLine($"[{name}] RPC 调用异常: {ex.Message}");
 };
+
+var proxy = new RPCServiceProxy("rpc://127.0.0.1:39654");
 ```
 
-服务端同样支持：
+服务端共用同一个异常汇，无需单独订阅：
 ```csharp
-var provider = new ServiceProvider(port);
-provider.OnErr += (ex) => Console.WriteLine(ex.Message);
+var provider = new ServiceProvider(port: 39654);
+provider.Start();
+```
+
+需要按连接观察链上异常时，用 `ConfigurePipeline` 追加处理器：
+
+```csharp
+var provider = new ServiceProvider(port: 39654);
+provider.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new ExceptionLogHandler());
+provider.Start();
+```
+
+消费者在构造时就建立连接，链启动后即冻结，因此装配回调必须作为构造参数传入：
+
+```csharp
+var proxy = new RPCServiceProxy("rpc://127.0.0.1:39654", 4, 5, 10 * 1000,
+    (id, pipeline) => pipeline.AddLast(new ExceptionLogHandler()));
+```
+
+```csharp
+/// <summary>
+/// 链上异常观察器：打印后继续交给链尾收口
+/// </summary>
+public sealed class ExceptionLogHandler : InboundHandlerAdapter
+{
+    public override Task ChannelExceptionCaughtAsync(IChannelHandlerContext ctx, Exception ex)
+    {
+        Console.WriteLine($"{ctx.ChannelId} RPC 异常: {ex.Message}");
+        return ctx.FireExceptionCaughtAsync(ex);
+    }
+}
 ```
 
 ### Q4: 如何实现日志记录和权限验证？
@@ -324,18 +357,24 @@ public class UserService
 
 ### Q7: 如何实现服务端推送？
 
-**A**: 使用 `Notice<T>` 方法：
+**A**: 消费者先 `RegistReceiveNotice()` 登记，再用 `OnNoticed` 接收；服务端调用 `Notice<T>` 广播给所有已登记的连接：
 
 ```csharp
-// 服务端推送
-provider.Notice("updates", new { Message = "系统更新" });
+using SAEA.Common.Serialization;
+
+// 服务端推送（广播给所有已登记的消费者）
+await provider.Notice("系统更新");
 
 // 客户端订阅
-proxy.Subscribe("updates", (msg) => 
+var proxy = new RPCServiceProxy("rpc://127.0.0.1:39654");
+proxy.OnNoticed += (serializeData) =>
 {
-    Console.WriteLine($"收到推送: {msg}");
-});
+    Console.WriteLine($"收到推送: {SAEASerialize.Deserialize<string>(serializeData)}");
+};
+proxy.RegistReceiveNotice();
 ```
+
+`OnNoticed` 是领域通知事件，参数是推送载荷的序列化字节；需要按连接观察原始帧时改用处理器链。
 
 ---
 
@@ -350,7 +389,7 @@ proxy.Subscribe("updates", (msg) =>
 | `NoRpcAttribute` | 标记方法不对外开放 |
 | `ActionFilterAttribute` | AOP 过滤器抽象基类 |
 | `RPCMapping` | 服务映射缓存表 |
-| `ConsumerMultiplexer` | 多路复用连接管理器，支持负载均衡 |
+| `ConsumerMultiplexer` | 同一服务地址上的多连接复用管理器（`links` 决定连接数） |
 | `Notice<T>` | 服务端推送消息类型 |
 
 ---
@@ -424,9 +463,8 @@ public class UserService
     }
 }
 
-// 启动服务
+// 启动服务（异常统一汇入 ExceptionCollector，可按需在此之前订阅 ExceptionCollector.OnErr）
 var provider = new ServiceProvider(port: 39654);
-provider.OnErr += (ex) => Console.WriteLine($"服务错误: {ex.Message}");
 provider.Start();
 
 Console.WriteLine("RPC 服务已启动，端口: 39654");
@@ -438,10 +476,9 @@ Console.ReadKey();
 ```csharp
 using SAEA.RPC;
 
-// 连接 RPC 服务
+// 连接 RPC 服务（构造时即建立连接；异常统一汇入 ExceptionCollector）
 var url = "rpc://127.0.0.1:39654";
 var proxy = new RPCServiceProxy(url);
-proxy.OnErr += (ex) => Console.WriteLine($"调用错误: {ex.Message}");
 
 // 调用远程方法 - 注册用户
 var result = proxy.UserService.Register("张三");
@@ -458,22 +495,23 @@ Console.WriteLine($"总用户数: {users.Count}");
 
 ### 多服务地址负载均衡
 
+`RPCServiceProxy` 一个实例绑定一个服务地址；同一地址内部的连接复用由 `links` 控制（`ConsumerMultiplexer` 轮转使用这些连接）。多地址需要由使用方自己选路：
+
 ```csharp
 using SAEA.RPC;
 
-// 配置多个服务地址
-var urls = new[] 
+// 配置多个服务地址，调用方自行轮转
+var urls = new[]
 {
     "rpc://192.168.1.1:39654",
     "rpc://192.168.1.2:39654",
     "rpc://192.168.1.3:39654"
 };
+var index = 0;
+string NextUrl() => urls[index++ % urls.Length];
 
-// 创建多路复用连接池
-var multiplexer = new ConsumerMultiplexer(urls);
-var proxy = new RPCServiceProxy(multiplexer);
+var proxy = new RPCServiceProxy(NextUrl(), links: 4);
 
-// 自动负载均衡调用
 for (int i = 0; i < 100; i++)
 {
     var result = proxy.UserService.Register($"User_{i}");
@@ -484,28 +522,26 @@ for (int i = 0; i < 100; i++)
 ### 服务端推送示例
 
 ```csharp
+using SAEA.Common.Serialization;
 using SAEA.RPC;
 
 // 服务端
 var provider = new ServiceProvider(port: 39654);
 provider.Start();
 
-// 定时推送消息
-var timer = new Timer(_ => 
+// 定时推送消息（广播给所有已登记的消费者）
+var timer = new Timer(_ =>
 {
-    provider.Notice("news", new 
-    { 
-        Title = "系统公告", 
-        Content = $"当前时间: {DateTime.Now}" 
-    });
+    provider.Notice($"系统公告 当前时间: {DateTime.Now}");
 }, null, 0, 5000);
 
 // 客户端订阅
 var proxy = new RPCServiceProxy("rpc://127.0.0.1:39654");
-proxy.Subscribe("news", (msg) => 
+proxy.OnNoticed += (serializeData) =>
 {
-    Console.WriteLine($"收到推送: {msg}");
-});
+    Console.WriteLine($"收到推送: {SAEASerialize.Deserialize<string>(serializeData)}");
+};
+proxy.RegistReceiveNotice();
 ```
 
 ---

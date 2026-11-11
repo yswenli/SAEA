@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/05/25 17:28:26
+*修改时间：2026/11/11 10:09:00
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：CodeGnerater类
+*版本号： v26.11.5.1
+*描述：生成的代理构造函数增加链装配回调透传
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -124,7 +124,7 @@ namespace SAEA.RPC.Generater
             csStr.AppendLine(GetSpace(1) + "{");
 
 
-            csStr.AppendLine(GetSpace(2) + "public Action<string, IChannelPipeline> ConfigurePipeline\r\n");
+            csStr.AppendLine(GetSpace(2) + "public Action<string, IChannelPipeline> ConfigurePipeline");
             csStr.AppendLine(GetSpace(2) + "{");
             csStr.AppendLine(GetSpace(3) + "get { return _serviceConsumer.ConfigurePipeline; }");
             csStr.AppendLine(GetSpace(3) + "set { _serviceConsumer.ConfigurePipeline = value; }");
@@ -134,14 +134,14 @@ namespace SAEA.RPC.Generater
 
             csStr.AppendLine(GetSpace(2) + "public bool IsConnected");
             csStr.AppendLine(GetSpace(2) + "{");
-            csStr.AppendLine(GetSpace(3) + "get{ return _serviceConsumer.IsConnected; }");
+            csStr.AppendLine(GetSpace(3) + "get { return _serviceConsumer.IsConnected; }");
             csStr.AppendLine(GetSpace(2) + "}");
 
 
             csStr.AppendLine(GetSpace(2) + "public RPCServiceProxy(string uri = \"rpc://127.0.0.1:39654\") : this(uri, 4, 5, 10 * 1000) { }");
-            csStr.AppendLine(GetSpace(2) + "public RPCServiceProxy(string uri, int links = 4, int retry = 5, int timeOut = 10 * 1000)");
+            csStr.AppendLine(GetSpace(2) + "public RPCServiceProxy(string uri, int links = 4, int retry = 5, int timeOut = 10 * 1000, Action<string, IChannelPipeline> configurePipeline = null)");
             csStr.AppendLine(GetSpace(2) + "{");
-            csStr.AppendLine(GetSpace(3) + "_serviceConsumer = new ServiceConsumer(new Uri(uri), links, retry, timeOut);");
+            csStr.AppendLine(GetSpace(3) + "_serviceConsumer = new ServiceConsumer(new Uri(uri), links, retry, timeOut, configurePipeline);");
 
             var names = RPCMapping.GetServiceNames();
 

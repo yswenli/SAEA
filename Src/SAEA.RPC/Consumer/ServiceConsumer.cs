@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:32
+*修改时间：2026/11/11 10:09:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：构造时注入链装配回调，连接建立前完成装配
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -55,6 +55,10 @@ namespace SAEA.RPC.Consumer
         /// <summary>
         /// 处理器链装配回调：每条连接在 RPC 解码之后、异常收口之前调用一次，
         /// 使用者在此追加自己的入站处理器；服务端推送的通知也可在链上观察。
+        /// <para>
+        /// 连接建立时读取，链启动后冻结：构造之后再赋值对已建立的连接无效，
+        /// 需要在创建时通过构造参数注入。
+        /// </para>
         /// </summary>
         public Action<string, IChannelPipeline> ConfigurePipeline
         {
@@ -85,10 +89,11 @@ namespace SAEA.RPC.Consumer
         /// <param name="links"></param>
         /// <param name="retry"></param>
         /// <param name="timeOut"></param>
-        public ServiceConsumer(Uri uri, int links = 4, int retry = 5, int timeOut = 10 * 1000)
+        /// <param name="configurePipeline">处理器链装配回调，在连接建立前写下，建链时生效</param>
+        public ServiceConsumer(Uri uri, int links = 4, int retry = 5, int timeOut = 10 * 1000, Action<string, IChannelPipeline> configurePipeline = null)
         {
             _uri = uri;
-            _consumerMultiplexer = ConsumerMultiplexer.Create(_uri, links, timeOut, retry);
+            _consumerMultiplexer = ConsumerMultiplexer.Create(_uri, links, timeOut, retry, configurePipeline);
             _consumerMultiplexer.NoticeHandler = _consumerMultiplexer_OnNoticed;
             _consumerMultiplexer.DisconnectedHandler = _consumerMultiplexer_OnDisconnected;
             _consumerMultiplexer.ErrorHandler = _consumerMultiplexer_OnError;

@@ -46,7 +46,6 @@ Console.WriteLine("消息队列服务器已启动!");
 
 ```csharp
 var producer = new Producer("producer_1", "127.0.0.1:39654");
-producer.Connect();
 producer.Publish("orders", "订单数据: {id: 123}");
 ```
 
@@ -54,10 +53,11 @@ producer.Publish("orders", "订单数据: {id: 123}");
 
 ```csharp
 var consumer = new Consumer("consumer_1", "127.0.0.1:39654");
-consumer.OnMessage += (msg) => 
-    Console.WriteLine($"收到: {Encoding.UTF8.GetString(msg.Data.ToArray())}");
-consumer.Connect();
+// 接收由处理器链接管，处理器写法见「完整消费者示例」
+consumer.ConfigurePipeline = (id, pipeline) => pipeline.AddLast(new QueueMessageHandler(msg =>
+    Console.WriteLine($"收到: {Encoding.UTF8.GetString(msg.Data.ToArray())}")));
 consumer.Subscribe("orders");
+consumer.Start();
 ```
 
 **就这么简单！** 🎉 你已经实现了一个高性能的发布/订阅消息队列系统。
@@ -156,12 +156,12 @@ Producer ──► Publish(topic, msg) ──► QServer 接收
                         │                  │                  │
                         ▼                  ▼                  ▼
                    Consumer A        Consumer B        Consumer C
-                   OnMessage()       OnMessage()       OnMessage()
+                   处理器链          处理器链          处理器链
 
 
 消费者订阅流程:
 
-Consumer ──► Connect() ──► QServer 建立连接
+Consumer ──► Start() ──► QServer 建立连接
                                   │
                                   ▼
                            ┌─────────────┐
@@ -179,7 +179,7 @@ Consumer ──► Connect() ──► QServer 建立连接
                            等待消息推送
                                   │
                                   ▼
-                           OnMessage() 触发
+                           ChannelReadAsync 触发
 ```
 
 ---
@@ -258,16 +258,35 @@ Consumer ──► Connect() ──► QServer 建立连接
 
 ### Q4: 如何处理消费者断线重连？
 
-**A**: Consumer 支持事件通知：
+**A**: 断线由处理器链的 `ChannelInactiveAsync` 通知，重连在后台任务中发起，避免阻塞链线程：
 
 ```csharp
-consumer.OnDisconnected += () => 
+public sealed class ReconnectHandler : InboundHandlerAdapter
 {
-    Console.WriteLine("连接断开，正在重连...");
-    Task.Delay(1000).Wait();
-    consumer.Connect();
-    consumer.Subscribe("orders");
-};
+    private readonly Action _reconnect;
+
+    public ReconnectHandler(Action reconnect)
+    {
+        _reconnect = reconnect;
+    }
+
+    public override Task ChannelInactiveAsync(IChannelHandlerContext ctx)
+    {
+        Task.Run(() =>
+        {
+            Console.WriteLine("连接断开，5秒后重连...");
+            Task.Delay(5000).Wait();
+            _reconnect();
+        });
+
+        return Task.CompletedTask;
+    }
+}
+
+consumer.ConfigurePipeline = (id, pipeline) =>
+    pipeline.AddLast(new ReconnectHandler(() => consumer.Start()));
+consumer.Subscribe("orders");
+consumer.Start();
 ```
 
 ### Q5: 消息堆积如何处理？
@@ -341,12 +360,8 @@ Console.ReadLine();
 ```csharp
 using SAEA.QueueSocket;
 
+// 构造函数内即建立连接，发布路径不需要自定义入站处理器
 var producer = new Producer("producer_001", "127.0.0.1:39654");
-
-producer.OnError += (ex) => Console.WriteLine($"错误: {ex.Message}");
-producer.OnDisconnected += () => Console.WriteLine("连接断开");
-
-producer.Connect();
 
 while (true)
 {
@@ -357,54 +372,87 @@ while (true)
     Console.WriteLine("消息已发布");
 }
 
-producer.Close();
+producer.Dispose();
 ```
+
+> 需要观察生产者连接上的异常时改用 `QClient`：先装配 `ConfigurePipeline`，再调用 `Connect()`。
 
 ### 完整消费者示例
 
 ```csharp
 using SAEA.QueueSocket;
+using SAEA.QueueSocket.Model;
+using SAEA.Sockets.Pipeline;
 using System.Text;
 
 var consumer = new Consumer("consumer_001", "127.0.0.1:39654");
 
-consumer.OnMessage += (msg) => 
-{
-    var content = Encoding.UTF8.GetString(msg.Data.ToArray());
-    Console.WriteLine($"[收到] Topic: {msg.Topic}, 消息: {content}");
-};
+// 接收由处理器链接管：建链前装配一次，之后每条订阅消息都经过这里
+consumer.ConfigurePipeline = (id, pipeline) =>
+    pipeline.AddLast(new QueueMessageHandler(msg =>
+        Console.WriteLine($"[收到] Topic: {msg.Topic}, 消息: {Encoding.UTF8.GetString(msg.Data.ToArray())}")));
 
-consumer.OnError += (ex) => Console.WriteLine($"错误: {ex.Message}");
-consumer.OnDisconnected += () => 
-{
-    Console.WriteLine("连接断开，5秒后重连...");
-    Task.Delay(5000).Wait();
-    consumer.Connect();
-    consumer.Subscribe("orders");
-};
-
-consumer.Connect();
 consumer.Subscribe("orders");
-consumer.Subscribe("notifications");
+consumer.Start();
 
 Console.WriteLine("消费者已启动，等待消息...");
 Console.ReadLine();
 
-consumer.Close();
+consumer.Dispose();
+
+/// <summary>
+/// 队列消息处理器：把消息交给业务回调，并在处理后归还池化缓冲
+/// </summary>
+public sealed class QueueMessageHandler : InboundHandlerAdapter
+{
+    private readonly Action<QueueMsg> _onMessage;
+
+    public QueueMessageHandler(Action<QueueMsg> onMessage)
+    {
+        _onMessage = onMessage;
+    }
+
+    public override Task ChannelReadAsync(IChannelHandlerContext ctx, object msg)
+    {
+        var queueMsg = msg as QueueMsg;
+        if (queueMsg == null)
+            return Task.CompletedTask;
+
+        try
+        {
+            _onMessage(queueMsg);
+        }
+        finally
+        {
+            // 载荷来自内存池，处理完必须归还
+            queueMsg.Dispose();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public override Task ChannelExceptionCaughtAsync(IChannelHandlerContext ctx, Exception ex)
+    {
+        Console.WriteLine($"错误: {ex.Message}");
+        return ctx.FireExceptionCaughtAsync(ex);
+    }
+}
 ```
 
 ### 使用 QClient 基类（同时发布和订阅）
 
 ```csharp
 using SAEA.QueueSocket;
+using SAEA.QueueSocket.Model;
+using SAEA.Sockets.Pipeline;
 using System.Text;
 
 var client = new QClient("client_001", "127.0.0.1:39654");
 
-client.OnMessage += (msg) => 
-    Console.WriteLine($"收到: {Encoding.UTF8.GetString(msg.Data.ToArray())}");
-client.OnError += (ex) => Console.WriteLine($"错误: {ex.Message}");
-client.OnDisconnected += () => Console.WriteLine("断开连接");
+// QClient 可先装配再 Connect，收到的消息与链上异常都由处理器处理
+client.ConfigurePipeline = (id, pipeline) =>
+    pipeline.AddLast(new QueueMessageHandler(msg =>
+        Console.WriteLine($"收到: {Encoding.UTF8.GetString(msg.Data.ToArray())}")));
 
 client.Connect();
 
