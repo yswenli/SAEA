@@ -436,7 +436,6 @@ You can add your own handlers in `ConfigurePipeline`, but the outbound prefix at
 | `WSProtocal` | WebSocket frame wrapper; `Content` is a read-only view over a pooled buffer |
 | `WSProtocalType` | Frame type enum (Text/Binary/Ping/Pong/Close) |
 | `WSCoder` | Standalone codec for scenarios that bypass the handler chain |
-| `WSUserToken` | Per-connection session token |
 | `WsFrameDecoder` | Fragment reassembly, control-frame interleaving, message size checks |
 | `WsMessageEncoder` | Outbound frame encoder (server unmasked, client masked) |
 | `WsHandshakeHandler` | Handshake validation, 101/request handling, protocol switch |

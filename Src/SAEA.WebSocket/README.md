@@ -437,7 +437,6 @@ for (int i = 0; i < total; i++)
 | `WSProtocal` | WebSocket 帧封装，`Content` 为池化缓冲的只读视图 |
 | `WSProtocalType` | 协议类型枚举（Text/Binary/Ping/Pong/Close） |
 | `WSCoder` | 直接的编解码器，需要脱离处理器链手写收发时使用 |
-| `WSUserToken` | 用户会话令牌，管理单个连接状态 |
 | `WsFrameDecoder` | 分片重组、控制帧穿插与消息上限校验 |
 | `WsMessageEncoder` | 出站帧编码器（服务端不掩码、客户端掩码） |
 | `WsHandshakeHandler` | 握手校验、101/请求应答与协议切换 |

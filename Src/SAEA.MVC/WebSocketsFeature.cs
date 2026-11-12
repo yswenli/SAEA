@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/10 11:30:00
+*修改时间：2026/11/12 16:52:58
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：断开通知改由 WebConfig.ConnectionClosed 驱动，清理旧的令牌池与调试实现注释
+*描述：握手注释改为不依赖已删除的令牌类型
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -152,7 +152,7 @@ namespace SAEA.MVC
                 return Task.FromResult<IWebSocketConnection>(null);
             }
 
-            // 3. 拼 101（不复用 WSUserToken，避免它固定回显子协议）
+            // 3. 拼 101（不复用旧握手令牌，避免它固定回显子协议）
             var acceptKey = ComputeAcceptKey(request.Headers["Sec-WebSocket-Key"]);
 
             var handshake = BuildHandshake(acceptKey, subProtocol);

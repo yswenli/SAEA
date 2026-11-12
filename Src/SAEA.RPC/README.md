@@ -308,17 +308,17 @@ public sealed class ExceptionLogHandler : InboundHandlerAdapter
 
 ```csharp
 using SAEA.RPC;
-using SAEA.Sockets.Interface;
+using SAEA.Sockets.Pipeline;
 
 public class AuthAttribute : ActionFilterAtrribute
 {
     // 返回 false 会中止本次调用并直接返回 null
-    public override bool OnActionExecuting(IUserToken userToken, string serviceName, string methodName, object[] args)
+    public override bool OnActionExecuting(IChannel channel, string serviceName, string methodName, object[] args)
     {
         return true; // 替换为你的权限校验
     }
 
-    public override void OnActionExecuted(IUserToken userToken, string serviceName, string methodName, object[] args, object result)
+    public override void OnActionExecuted(IChannel channel, string serviceName, string methodName, object[] args, object result)
     {
         // 权限校验在调用前完成，调用后无需额外处理
     }
@@ -331,6 +331,8 @@ public class AdminService
     public void DeleteUser(int id) { }
 }
 ```
+
+过滤器拿到的是连接视图 `IChannel`，只暴露 `Id`、`IsActive`、`Attributes` 与关闭入口，拿不到底层 socket；需要客户端地址时用 `channel.GetAttribute(RpcChannelKeys.RemoteEndPoint)` 读取，值为 `System.Net.EndPoint`，连接建立后写入、随连接关闭清空。
 
 ### Q5: 支持异步方法吗？
 
@@ -395,6 +397,7 @@ proxy.RegistReceiveNotice();
 | `RPCServiceAttribute` | 标记类为 RPC 服务 |
 | `NoRpcAttribute` | 标记方法不对外开放 |
 | `ActionFilterAtrribute` | AOP 过滤器抽象基类（类名拼写沿用现有 API） |
+| `RpcChannelKeys` | 通道属性键，`RemoteEndPoint` 对应过滤器可读的客户端地址 |
 | `RPCMapping` | 服务映射缓存表 |
 | `ConsumerMultiplexer` | 同一服务地址上的多连接复用管理器（`links` 决定连接数） |
 | `Notice<T>` | 服务端推送消息类型 |
@@ -409,7 +412,7 @@ proxy.RegistReceiveNotice();
 using SAEA.RPC;
 using SAEA.RPC.Model;
 using SAEA.RPC.Provider;
-using SAEA.Sockets.Interface;
+using SAEA.Sockets.Pipeline;
 
 // 定义用户实体
 public class User
@@ -422,13 +425,13 @@ public class User
 // 定义日志过滤器
 public class LogAttribute : ActionFilterAtrribute
 {
-    public override bool OnActionExecuting(IUserToken userToken, string serviceName, string methodName, object[] args)
+    public override bool OnActionExecuting(IChannel channel, string serviceName, string methodName, object[] args)
     {
         Console.WriteLine($"[{DateTime.Now}] 调用: {serviceName}.{methodName}");
         return true;
     }
 
-    public override void OnActionExecuted(IUserToken userToken, string serviceName, string methodName, object[] args, object result)
+    public override void OnActionExecuted(IChannel channel, string serviceName, string methodName, object[] args, object result)
     {
         Console.WriteLine($"[完成] 返回: {result}");
     }

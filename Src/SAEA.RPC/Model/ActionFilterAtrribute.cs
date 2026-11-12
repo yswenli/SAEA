@@ -23,13 +23,13 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/05/25 17:28:26
+*修改时间：2026/11/12 16:45:50
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ActionFilterAtrribute接口
+*版本号： v26.11.5.1
+*描述：过滤器参数由 IUserToken 收敛为连接视图 IChannel
 *
 *****************************************************************************/
-using SAEA.Sockets.Interface;
+using SAEA.Sockets.Pipeline;
 using System;
 
 namespace SAEA.RPC
@@ -51,21 +51,21 @@ namespace SAEA.RPC
         /// <summary>
         /// 方法执行前
         /// </summary>
-        /// <param name="userToken"></param>
+        /// <param name="channel">连接通道</param>
         /// <param name="serviceName"></param>
         /// <param name="methodName"></param>
         /// <param name="args"></param>
         /// <returns></returns>
-        public abstract bool OnActionExecuting(IUserToken userToken, string serviceName, string methodName, object[] args);
+        public abstract bool OnActionExecuting(IChannel channel, string serviceName, string methodName, object[] args);
 
         /// <summary>
         /// 方法执行后
         /// </summary>
-        /// <param name="userToken"></param>
+        /// <param name="channel">连接通道</param>
         /// <param name="serviceName"></param>
         /// <param name="methodName"></param>
         /// <param name="args"></param>
         /// <param name="result"></param>
-        public abstract void OnActionExecuted(IUserToken userToken, string serviceName, string methodName, object[] args, object result);
+        public abstract void OnActionExecuted(IChannel channel, string serviceName, string methodName, object[] args, object result);
     }
 }

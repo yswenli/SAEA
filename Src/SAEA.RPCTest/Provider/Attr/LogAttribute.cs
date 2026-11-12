@@ -16,7 +16,7 @@
 *描    述：
 *****************************************************************************/
 using SAEA.RPC;
-using SAEA.Sockets.Interface;
+using SAEA.Sockets.Pipeline;
 using System;
 using System.Diagnostics;
 
@@ -44,12 +44,12 @@ namespace SAEA.RPCTest.Provider.Attr
         /// <summary>
         /// 方法执行前重置计时器
         /// </summary>
-        /// <param name="userToken">用户令牌</param>
+        /// <param name="channel">连接通道</param>
         /// <param name="serviceName">服务名</param>
         /// <param name="methodName">方法名</param>
         /// <param name="args">调用参数</param>
         /// <returns>固定返回 true，表示继续执行目标方法</returns>
-        public override bool OnActionExecuting(IUserToken userToken, string serviceName, string methodName, object[] args)
+        public override bool OnActionExecuting(IChannel channel, string serviceName, string methodName, object[] args)
         {
             stopwatch.Reset();
 
@@ -59,12 +59,12 @@ namespace SAEA.RPCTest.Provider.Attr
         /// <summary>
         /// 方法执行后输出服务名、方法名与耗时（毫秒）
         /// </summary>
-        /// <param name="userToken">用户令牌</param>
+        /// <param name="channel">连接通道</param>
         /// <param name="serviceName">服务名</param>
         /// <param name="methodName">方法名</param>
         /// <param name="args">调用参数</param>
         /// <param name="result">方法返回值</param>
-        public override void OnActionExecuted(IUserToken userToken, string serviceName, string methodName, object[] args, object result)
+        public override void OnActionExecuted(IChannel channel, string serviceName, string methodName, object[] args, object result)
         {
             Console.WriteLine($"SAEA.RPCTest.LogAttribute.{serviceName}.{methodName} taking {stopwatch.ElapsedMilliseconds} ms");
         }
