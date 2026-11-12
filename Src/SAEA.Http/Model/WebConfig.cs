@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 11:20:00
+*修改时间：2026/11/12 17:58:57
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：装配回调改为启动前注入：Start/Connect 之后再赋值抛 InvalidOperationException，中英 README 同步说明
+*描述：新增 UseSsl TLS 配置入口与对应冻结语义，供同一端口承载 HTTPS 与 WSS
 *
 *****************************************************************************/
 using System;
@@ -34,6 +34,7 @@ using System.Collections.Generic;
 
 using SAEA.Common.NameValue;
 using SAEA.Sockets.Pipeline;
+using SAEA.Sockets.Ssl;
 
 namespace SAEA.Http.Model
 {
@@ -182,6 +183,57 @@ namespace SAEA.Http.Model
             lock (_configurePipelineLock)
             {
                 _configurePipelineFrozen = true;
+            }
+        }
+
+        private readonly object _sslLock = new object();
+
+        private Action<SaeaTlsOptions> _configureSsl;
+
+        private bool _sslFrozen;
+
+        /// <summary>
+        /// 设置 TLS 配置：必须写在 WebHost.Start 之前，服务启动后再调用会抛 InvalidOperationException。
+        /// 配置后同一端口同时承载 HTTPS 与 WSS，WebSocket 升级与普通请求共用该加密连接。
+        /// 重复调用以最后一次为准，未配置时保持明文 HTTP。
+        /// </summary>
+        /// <param name="configure">TLS 选项配置回调，不能为 null</param>
+        public void UseSsl(Action<SaeaTlsOptions> configure)
+        {
+            if (configure == null)
+                throw new ArgumentNullException(nameof(configure));
+
+            lock (_sslLock)
+            {
+                if (_sslFrozen)
+                    throw new InvalidOperationException("TLS 配置只能在 WebHost.Start 之前设置，服务启动后已冻结。");
+
+                _configureSsl = configure;
+            }
+        }
+
+        /// <summary>
+        /// 当前 TLS 配置回调，未配置时为 null
+        /// </summary>
+        internal Action<SaeaTlsOptions> ConfigureSsl
+        {
+            get
+            {
+                lock (_sslLock)
+                {
+                    return _configureSsl;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 冻结 TLS 配置，由 WebHost.Start 调用
+        /// </summary>
+        internal void FreezeSsl()
+        {
+            lock (_sslLock)
+            {
+                _sslFrozen = true;
             }
         }
 

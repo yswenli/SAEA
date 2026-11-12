@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <LangVersion>10.0</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="MSTest.TestAdapter" Version="3.1.1" />
+    <PackageReference Include="MSTest.TestFramework" Version="3.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SAEA.MVC\SAEA.MVC.csproj" />
+    <ProjectReference Include="..\SAEA.Http\SAEA.Http.csproj" />
+    <ProjectReference Include="..\SAEA.Sockets\SAEA.Sockets.csproj" />
+    <ProjectReference Include="..\SAEA.Sockets.Pipeline\SAEA.Sockets.Pipeline.csproj" />
+  </ItemGroup>
+
+</Project>

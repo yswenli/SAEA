@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 16:52:58
+*修改时间：2026/11/12 17:58:57
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 ConfigurePipeline 透传属性，供使用者在协议节点之后追加自定义入站处理器
+*描述：新增 UseSsl 透传方法，配合 WebHost 在同一端口承载 HTTPS 与 WSS
 *
 *****************************************************************************/
 using System;
@@ -35,6 +35,7 @@ using SAEA.Common;
 using SAEA.Common.NameValue;
 using SAEA.Http;
 using SAEA.Sockets.Pipeline;
+using SAEA.Sockets.Ssl;
 
 namespace SAEA.MVC
 {
@@ -169,6 +170,16 @@ namespace SAEA.MVC
         {
             get { return _webHost.WebConfig.ConfigurePipeline; }
             set { _webHost.WebConfig.ConfigurePipeline = value; }
+        }
+
+        /// <summary>
+        /// TLS 配置：必须在 <see cref="Start"/> 之前调用，Start 之后再调用会抛 InvalidOperationException。
+        /// 配置后同一端口同时承载 HTTPS 与 WSS，WebSocket 升级与普通请求共用该加密连接。
+        /// </summary>
+        /// <param name="configure">TLS 选项配置回调，不能为 null</param>
+        public void UseSsl(Action<SaeaTlsOptions> configure)
+        {
+            _webHost.WebConfig.UseSsl(configure);
         }
 
         /// <summary>

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:32
+*修改时间：2026/11/12 19:40:12
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：未知 action 由抛异常改为返回 null，交由上层返回 404，并更新 GetOrAdd 注释
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -54,10 +54,10 @@ namespace SAEA.MVC
         /// 获取routing中的缓存
         /// 若不存在则创建
         /// </summary>
-        /// <param name="controllerType"></param>
-        /// <param name="actionName"></param>
-        /// <param name="isPost"></param>
-        /// <returns></returns>
+        /// <param name="controllerType">控制器类型</param>
+        /// <param name="actionName">动作名称</param>
+        /// <param name="isPost">是否为 POST 请求</param>
+        /// <returns>匹配到的路由；找不到 action 或 controllerType 为 null 时返回 null</returns>
         public Routing GetOrAdd(Type controllerType, string actionName, bool isPost)
         {
             if (controllerType == null) return null;
@@ -76,7 +76,8 @@ namespace SAEA.MVC
 
                     if (actions == null || !actions.Any())
                     {
-                        throw new Exception($"{controllerType.Name}/{actionName}找不到此action!");
+                        // 未知 action 属于请求错误，返回 null 交给上层回 404；GetOrAdd 会把 null 作为该键的缓存值，后续请求直接命中
+                        return null;
                     }
                     else if (actions.Count > 2)
                     {
@@ -183,7 +184,8 @@ namespace SAEA.MVC
 
                     if (actions == null || actions.Count == 0)
                     {
-                        throw new Exception($"{controllerType.Name}/{actionName}找不到此action!");
+                        // 未知 action 属于请求错误，返回 null 交给上层回 404；GetOrAdd 会把 null 作为该键的缓存值，后续请求直接命中
+                        return null;
                     }
                     else if (actions.Count > 2)
                     {

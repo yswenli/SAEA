@@ -77,6 +77,7 @@ curl http://localhost:28080/api/test
 | 🌍 **CORS** | Built-in cross-origin support | Front-end friendly |
 | 📡 **SSE** | Server-Sent Events | Server push out of the box |
 | 🔗 **Handler chain** | `WebConfig.ConfigurePipeline` | Append custom inbound handlers |
+| 🔐 **TLS / HTTPS** | `WebConfig.UseSsl` | HTTPS and WSS on one port; certificates from file, store or PEM |
 
 ---
 
@@ -123,6 +124,35 @@ The three business entry points live on `WebConfig`; there are no receive or lif
 | Framing buffer | `MaxFrameLength + 9 + ReadBufferSize` | Derived by the executor; do not set a smaller value |
 | Concurrent messages | 1 | HTTP is half-duplex; one request at a time per connection |
 | `Transfer-Encoding: chunked` | Not supported | Returns 400 instead of misreading chunk bytes |
+
+---
+
+## TLS / HTTPS 🔐
+
+`WebConfig.UseSsl(...)` is the only TLS entry point; the SAEA.Sockets TLS wrapper performs the handshake, and once configured HTTPS and `wss://` share a single listening port:
+
+```csharp
+using System.Security.Authentication;
+using SAEA.Http;
+using SAEA.Sockets.Ssl;
+
+var server = new WebHost(root: "wwwroot", port: 28443);
+
+server.WebConfig.UseSsl(o =>
+{
+    o.Protocols = SslProtocols.Tls12;
+    o.ServerCertificate = SaeaCertificateLoader.FromPfx("server.pfx", "password");
+});
+
+server.Start();
+```
+
+Notes:
+
+- Call it before `WebHost.Start()`; calling it after the server starts throws `InvalidOperationException` (same freeze semantics as `ConfigurePipeline`).
+- Without `UseSsl` the server stays on plain HTTP exactly as before; a second call replaces the first.
+- One port serves both HTTPS and WSS: the WebSocket upgrade reuses the same encrypted connection, so the protocol layer needs no distinction.
+- Load certificates with `SaeaCertificateLoader.FromPfx` / `FromStore` / `FromPem`; use `ServerCertificateSelector` for SNI (multiple host names) and `ClientCertificates` plus `ClientCertificateRequired` for mutual TLS.
 
 ---
 
@@ -643,6 +673,7 @@ var server = new WebHost(
     connectTimeout: 3);         // connect timeout (seconds)
 
 server.WebConfig.ConfigurePipeline = (id, pipeline) => { /* ... */ };
+server.WebConfig.UseSsl(o => { /* ... */ });
 server.WebConfig.RequestDelegate = ctx => { /* ... */ };
 server.WebConfig.ExceptionHandler = (ctx, ex) => null;
 server.WebConfig.ConnectionClosed = (id, ex) => { /* ... */ };

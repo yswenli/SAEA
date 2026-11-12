@@ -22,10 +22,10 @@
  *
  *=====================================================================
  *修改标记
- *修改时间：2026/11/10 10:00:00
+ *修改时间：2026/11/12 17:58:57
  *修改人： yswenli
  *版本号： v26.11.5.1
- *描述：改用 UseStream + UseConnectionOpened + UseInputHandler 接管连接，接收走处理器链
+ *描述：构造函数新增 configureSsl 参数，在流模式配置之后统一接入 TLS
  *
  *****************************************************************************/
 using System;
@@ -39,6 +39,7 @@ using SAEA.Sockets;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
 using SAEA.Sockets.Pipeline;
+using SAEA.Sockets.Ssl;
 
 namespace SAEA.Http.Base.Net
 {
@@ -74,6 +75,7 @@ namespace SAEA.Http.Base.Net
         /// <param name="timeout">连接空闲超时秒数，默认 180</param>
         /// <param name="connectTimeout">连接建立超时秒数，默认 3</param>
         /// <param name="isDebug">是否输出调试日志</param>
+        /// <param name="configureSsl">TLS 配置回调，null 表示保持明文 HTTP</param>
         internal HttpSocket(
             WebHost webHost,
             int port,
@@ -81,7 +83,8 @@ namespace SAEA.Http.Base.Net
             int maxConnects = 1000,
             double timeout = 180,
             double connectTimeout = 3,
-            bool isDebug = false)
+            bool isDebug = false,
+            Action<SaeaTlsOptions> configureSsl = null)
         {
             _webHost = webHost;
             _bufferSize = bufferSize > 0 ? bufferSize : DefaultReadBufferSize;
@@ -99,6 +102,10 @@ namespace SAEA.Http.Base.Net
                .SetFreeTime((int)(timeout * 1000))
                .SetConnectTimeout((int)(connectTimeout * 1000))
                .ReusePort(false);
+
+            // TLS 与流模式可共存：加密在底层完成，上层处理器链仍然只处理明文流。
+            if (configureSsl != null)
+                optionBuilder.WithSsl(configureSsl);
 
             _option = optionBuilder.Build();
 
