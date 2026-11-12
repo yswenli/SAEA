@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 11:20:00
+*修改时间：2026/11/12 17:58:57
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：装配回调改为启动前注入：Start/Connect 之后再赋值抛 InvalidOperationException，中英 README 同步说明
+*描述：新增 TLS 入口并把 socket 创建延迟到 Start，Stop 后释放 socket 以便 Restart 按最新配置重建
 *
 *****************************************************************************/
 using System;
@@ -45,6 +45,18 @@ namespace SAEA.Http
     public class WebHost : IWebHost
     {
         IHttpSocket _httpServer;
+
+        private readonly int _port;
+
+        private readonly int _bufferSize;
+
+        private readonly int _maxConnects;
+
+        private readonly double _timeout;
+
+        private readonly double _connectTimeout;
+
+        private readonly bool _isDebug;
 
         Type _httpContentType = typeof(HttpContext);
 
@@ -74,7 +86,8 @@ namespace SAEA.Http
 
 
         /// <summary>
-        /// 创建 Web 主机，按参数初始化配置、静态资源工具与底层 socket
+        /// 创建 Web 主机，按参数初始化配置与静态资源工具；底层 socket 延迟到 Start 时创建，
+        /// 便于在构造之后、启动之前配置 TLS 等只允许启动前设置的项目。
         /// </summary>
         /// <param name="httpContentType">自定义 IHttpContext 实现类型，null 或不合规时用内置 HttpContext</param>
         /// <param name="root">站点根目录名，默认为 wwwroot</param>
@@ -119,7 +132,12 @@ namespace SAEA.Http
 
             HttpUtility = new HttpUtility(WebConfig.Root);
 
-            _httpServer = new HttpSocket(this, port, bufferSize, maxConnects, timeout, connectTimeout, isDebug);
+            _port = port;
+            _bufferSize = bufferSize;
+            _maxConnects = maxConnects;
+            _timeout = timeout;
+            _connectTimeout = connectTimeout;
+            _isDebug = isDebug;
         }
 
         /// <summary>
@@ -141,6 +159,11 @@ namespace SAEA.Http
             {
                 // 先冻结再监听：接受连接可能在 Start 返回前发生，冻结必须早于第一个连接建链。
                 WebConfig.FreezeConfigurePipeline();
+                WebConfig.FreezeSsl();
+
+                // socket 到启动时才创建，让 TLS 配置在构造之后、Start 之前仍可设置。
+                if (_httpServer == null)
+                    _httpServer = new HttpSocket(this, _port, _bufferSize, _maxConnects, _timeout, _connectTimeout, _isDebug, WebConfig.ConfigureSsl);
 
                 _httpServer.Start();
                 IsRunning = true;
@@ -199,7 +222,12 @@ namespace SAEA.Http
         /// <param name="noTimeout">true 表示不参与空闲清理</param>
         public void SetNoTimeout(string id, bool noTimeout)
         {
-            _httpServer.SetNoTimeout(id, noTimeout);
+            // 未启动时底层 socket 还没创建，没有会话需要豁免。
+            var httpServer = _httpServer;
+            if (httpServer == null)
+                return;
+
+            httpServer.SetNoTimeout(id, noTimeout);
         }
 
         /// <summary>
@@ -230,11 +258,14 @@ namespace SAEA.Http
         /// </summary>
         public void Stop()
         {
-            if (IsRunning)
+            if (IsRunning && _httpServer != null)
             {
                 _httpServer.Stop();
-                IsRunning = false;
             }
+
+            // 释放旧 socket：Restart 会在 Start 里按当前配置（含 TLS）重新创建。
+            _httpServer = null;
+            IsRunning = false;
         }
 
 

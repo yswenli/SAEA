@@ -77,6 +77,7 @@ curl http://localhost:28080/api/test
 | 🌍 **CORS 跨域** | 内置跨域支持 | 前后端分离友好 |
 | 📡 **SSE 推送** | Server-Sent Events | 实时服务器推送 |
 | 🔗 **处理器链扩展** | `WebConfig.ConfigurePipeline` | 在协议链上追加自定义入站处理器 |
+| 🔐 **TLS / HTTPS** | `WebConfig.UseSsl` | 同一端口承载 HTTPS 与 WSS，证书可来自文件、存储或 PEM |
 
 ---
 
@@ -123,6 +124,35 @@ server.Start();
 | 分帧缓冲 | `MaxFrameLength + 9 + ReadBufferSize` | 由执行器推导，不要手动填小于该值 |
 | 并发消息数 | 1 | HTTP 单工请求/响应，同连接串行处理 |
 | `Transfer-Encoding: chunked` | 不支持 | 显式回 400，避免把 chunk 字节当成下一条请求 |
+
+---
+
+## TLS / HTTPS 🔐
+
+`WebConfig.UseSsl(...)` 是唯一的 TLS 入口，底层由 SAEA.Sockets 的 TLS 包装层完成握手；配置后 HTTPS 与 `wss://` 共用同一个监听端口：
+
+```csharp
+using System.Security.Authentication;
+using SAEA.Http;
+using SAEA.Sockets.Ssl;
+
+var server = new WebHost(root: "wwwroot", port: 28443);
+
+server.WebConfig.UseSsl(o =>
+{
+    o.Protocols = SslProtocols.Tls12;
+    o.ServerCertificate = SaeaCertificateLoader.FromPfx("server.pfx", "password");
+});
+
+server.Start();
+```
+
+要点：
+
+- 必须在 `WebHost.Start()` 之前调用；服务启动后再调用会抛 `InvalidOperationException`（与 `ConfigurePipeline` 同一套冻结语义）。
+- 不调用 `UseSsl` 时保持明文 HTTP，行为与之前一致；重复调用以最后一次为准。
+- 同一端口同时承载 HTTPS 与 WSS：WebSocket 升级复用同一条加密连接，协议层无需区分。
+- 证书可用 `SaeaCertificateLoader.FromPfx` / `FromStore` / `FromPem`；多域名可配 `ServerCertificateSelector`（SNI），双向认证用 `ClientCertificates` 配合 `ClientCertificateRequired`。
 
 ---
 
@@ -665,6 +695,7 @@ var server = new WebHost(
     connectTimeout: 3);         // 连接建立超时（秒）
 
 server.WebConfig.ConfigurePipeline = (id, pipeline) => { /* ... */ };
+server.WebConfig.UseSsl(o => { /* ... */ });
 server.WebConfig.RequestDelegate = ctx => { /* ... */ };
 server.WebConfig.ExceptionHandler = (ctx, ex) => null;
 server.WebConfig.ConnectionClosed = (id, ex) => { /* ... */ };

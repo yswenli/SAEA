@@ -657,6 +657,33 @@ Assign it before `app.Start()`; assigning after the service starts throws `Inval
 
 Plain HTTP requests are handed to `RequestDelegate` (or MVC routing) by the dispatch node and never reach handlers added in `ConfigurePipeline`, so a custom inbound handler is meant for connection-level observation (online counters, connection logs) or for raw frames received after a WebSocket upgrade.
 
+### 🔐 TLS / HTTPS / WSS
+
+`app.UseSsl(...)` forwards to `WebConfig.UseSsl` and serves both HTTPS and WSS on the same listening port:
+
+```csharp
+using System.Security.Authentication;
+using SAEA.MVC;
+using SAEA.Sockets.Ssl;
+
+var app = new SAEAMvcApplication(root: "wwwroot", port: 28443);
+
+app.UseSsl(o =>
+{
+    o.Protocols = SslProtocols.Tls12;
+    o.ServerCertificate = SaeaCertificateLoader.FromPfx("server.pfx", "password");
+});
+
+app.Start();
+```
+
+Notes:
+
+- Call it before `app.Start()`; calling it after the service starts throws `InvalidOperationException`.
+- Without it the server stays on plain HTTP/WS exactly as before; a second call replaces the first.
+- One port serves both HTTPS and WSS: the WebSocket upgrade reuses the same encrypted connection, so clients simply use `https://` and `wss://`.
+- Load certificates with `SaeaCertificateLoader.FromPfx` / `FromStore` / `FromPem`; use `ServerCertificateSelector` for SNI (multiple host names) and `ClientCertificates` plus `ClientCertificateRequired` for mutual TLS.
+
 ### 📏 Protocol Limits
 
 | Limit | Default | On Exceed |
@@ -756,7 +783,7 @@ Known limitations:
 - Every long-lived connection permanently occupies one `MaxConnects` slot; increase the configured limit according to your concurrency.
 - `OpenAsync` must return quickly after accepting the connection: `MvcInvoker` waits synchronously on that Task for `WebConfig.Timeout` (180 seconds by default). On timeout an already-upgraded connection does not get an HTTP 408 (that would corrupt the WebSocket stream); instead `ErrorAsync` is invoked and the connection is closed with `ServerShutdown`. A receive loop inside `OpenAsync` will hit this path. Put long-running logic in `MessageAsync`.
 - `IsDebug = true` only adds request debug logging; it does not change idle reclamation. Idle reclamation for long-lived connections follows `WebConfig.Timeout` (180 seconds by default), and upgraded WebSocket connections are exempt.
-- The `permessage-deflate` extension is not supported and `wss://` is not provided; terminate TLS at a reverse proxy if needed.
+- `UseSsl` enables HTTPS and WSS; the `permessage-deflate` extension is still not supported, and terminating TLS at a reverse proxy remains a valid option.
 - Each connection has a pending queue limit of 1024 frames / 4MB (including a single message). Exceeding it closes the connection with `ServerShutdown`; split large payloads yourself.
 
 ***

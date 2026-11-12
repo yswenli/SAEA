@@ -657,6 +657,33 @@ app.Start();
 
 普通 HTTP 请求由派发节点直接交给 `RequestDelegate`（或 MVC 路由），不会再流到 `ConfigurePipeline` 追加的处理器，因此自定义入站处理器只适合做连接级观测（在线数统计、连接日志等），或处理 WebSocket 升级后下发的原始帧。
 
+### 🔐 TLS / HTTPS / WSS
+
+`app.UseSsl(...)` 透传到 `WebConfig.UseSsl`，在同一个监听端口上同时提供 HTTPS 与 WSS：
+
+```csharp
+using System.Security.Authentication;
+using SAEA.MVC;
+using SAEA.Sockets.Ssl;
+
+var app = new SAEAMvcApplication(root: "wwwroot", port: 28443);
+
+app.UseSsl(o =>
+{
+    o.Protocols = SslProtocols.Tls12;
+    o.ServerCertificate = SaeaCertificateLoader.FromPfx("server.pfx", "password");
+});
+
+app.Start();
+```
+
+要点：
+
+- 必须在 `app.Start()` 之前调用；Start 之后再调用会抛 `InvalidOperationException`。
+- 不配置时保持明文 HTTP/WS，行为与之前一致；重复调用以最后一次为准。
+- 同一端口同时承载 HTTPS 与 WSS：WebSocket 升级复用同一条加密连接，客户端用 `https://` 与 `wss://` 连接即可。
+- 证书可用 `SaeaCertificateLoader.FromPfx` / `FromStore` / `FromPem`；多域名用 `ServerCertificateSelector`（SNI），双向认证用 `ClientCertificates` 配合 `ClientCertificateRequired`。
+
 ### 📏 协议上限
 
 | 限制 | 默认值 | 超限行为 |
@@ -756,7 +783,7 @@ ws.send("hello");
 - 每条长连接会一直占用一个 `MaxConnects` 配额，需要按实际并发调大配置。
 - `OpenAsync` 必须接受连接后尽快返回：`MvcInvoker` 会以 `WebConfig.Timeout`（默认 180 秒）同步等待该 Task。超时后已升级的连接不会再写 HTTP 408（那样会污染 WebSocket 流），而是回调 `ErrorAsync` 并以 `ServerShutdown` 关闭；在 `OpenAsync` 里跑接收长循环就会走到这个分支。长活逻辑请放 `MessageAsync`。
 - `IsDebug = true` 只额外打开请求调试日志，不改变空闲清理策略：长连接的空闲回收统一按 `WebConfig.Timeout`（默认 180 秒）判断，WebSocket 连接在升级后被豁免。
-- 不支持 `permessage-deflate` 扩展，也不提供 `wss://`；需要 TLS 请在反向代理层终止。
+- 配置 `UseSsl` 后支持 HTTPS 与 WSS；`permessage-deflate` 扩展仍不支持；也可以继续在反向代理层终止 TLS。
 - 每条连接有 1024 帧 / 4MB 的待处理队列上限（含单条消息），超过会以 `ServerShutdown` 主动关闭连接；超大消息请自行分片。
 
 ***
