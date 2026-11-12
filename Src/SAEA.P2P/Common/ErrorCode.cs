@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 18:15:22
+*修改时间：2026/11/12 18:25:03
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增信令协议错误码 ES01、ES02
+*描述：新增信令会话错误码 ES03、ES04、ES05
 *
 *****************************************************************************/
 namespace SAEA.P2P.Common
@@ -198,6 +198,18 @@ namespace SAEA.P2P.Common
         /// 信令报文格式非法或无法解析
         /// </summary>
         public static readonly string ProtocolMalformed = "ES02";
+        /// <summary>
+        /// 会话目标节点不在线
+        /// </summary>
+        public static readonly string SessionTargetOffline = "ES03";
+        /// <summary>
+        /// 信令会话不存在或已拆除
+        /// </summary>
+        public static readonly string SessionNotFound = "ES04";
+        /// <summary>
+        /// 信令会话长时间无活动被判超时
+        /// </summary>
+        public static readonly string SessionTimeout = "ES05";
 
         private static readonly System.Collections.Generic.Dictionary<string, string> Descriptions =
             new System.Collections.Generic.Dictionary<string, string>
@@ -238,7 +250,10 @@ namespace SAEA.P2P.Common
                 { TurnUnavailable, "TURN server unavailable" },
                 { TurnAuthFailed, "TURN authentication failed" },
                 { ProtocolVersionMismatch, "Signaling protocol version mismatch" },
-                { ProtocolMalformed, "Signaling message malformed" }
+                { ProtocolMalformed, "Signaling message malformed" },
+                { SessionTargetOffline, "Session target peer offline" },
+                { SessionNotFound, "Signaling session not found" },
+                { SessionTimeout, "Signaling session timeout" }
             };
 
         /// <summary>获取错误码对应的英文描述；未登记的错误码返回 Unknown error</summary>

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:20:16
+*修改时间：2026/11/12 18:25:03
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：新增信令鉴权与 TURN 凭据下发配置
 *
 *****************************************************************************/
 using System.Security.Authentication;
@@ -76,6 +76,31 @@ namespace SAEA.P2P.Builder
         public LoggingOptions Logging { get; set; } = new LoggingOptions();
         
         /// <summary>
+        /// 与 TURN 共用的共享密钥；为空时不启用信令鉴权、也不签发 TURN 凭据
+        /// </summary>
+        public string SharedSecret { get; set; }
+        
+        /// <summary>
+        /// TURN 认证域，与 TURN 服务端一致，默认 saea
+        /// </summary>
+        public string Realm { get; set; } = "saea";
+        
+        /// <summary>
+        /// 下发 TURN 临时凭据的有效期，单位秒，默认 600，必须大于 0
+        /// </summary>
+        public int CredentialTtlSeconds { get; set; } = 600;
+        
+        /// <summary>
+        /// 下发给客户端的 TURN 服务地址列表；为空时不下发凭据
+        /// </summary>
+        public string[] TurnUrls { get; set; }
+        
+        /// <summary>
+        /// 同一 peerId 重复注册时是否拒绝新连接；默认 false 表示由新连接顶替旧连接
+        /// </summary>
+        public bool RejectDuplicatePeer { get; set; } = false;
+        
+        /// <summary>
         /// 校验绑定地址、端口、容量与各子配置，非法时抛 P2PException
         /// </summary>
         public void Validate()
@@ -98,6 +123,16 @@ namespace SAEA.P2P.Builder
             Relay?.Validate();
             Tls?.Validate();
             Timeout?.Validate();
+
+            if (CredentialTtlSeconds <= 0)
+            {
+                throw new P2PException(ErrorCode.RegisterServerUnavailable, "CredentialTtlSeconds must be greater than 0");
+            }
+
+            if (!string.IsNullOrEmpty(SharedSecret) && string.IsNullOrWhiteSpace(Realm))
+            {
+                throw new P2PException(ErrorCode.RegisterServerUnavailable, "Realm is required when SharedSecret is set");
+            }
         }
     }
     
