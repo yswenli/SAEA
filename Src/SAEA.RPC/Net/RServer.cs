@@ -23,15 +23,16 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 11:20:00
+*修改时间：2026/11/12 16:45:50
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：装配回调改为启动前注入：Start/Connect 之后再赋值抛 InvalidOperationException，中英 README 同步说明
+*描述：业务面由用户令牌收敛为连接视图 IChannel，并把客户端地址透传为通道属性
 *
 *****************************************************************************/
 using System;
 using System.Collections.Concurrent;
 using System.IO.Pipelines;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -56,16 +57,16 @@ namespace SAEA.RPC.Net
         private readonly ConcurrentDictionary<string, IChannelPipeline> _pipelines =
             new ConcurrentDictionary<string, IChannelPipeline>(StringComparer.Ordinal);
 
-        // 业务回调需要用户令牌（反转执行时要传给过滤器），而处理器链只持有连接标识，这里按标识缓存。
-        private readonly ConcurrentDictionary<string, IUserToken> _tokens =
-            new ConcurrentDictionary<string, IUserToken>(StringComparer.Ordinal);
+        // 建链钩子早于处理器链装配，客户端地址先按连接标识暂存，装配时转成通道属性后立即移除。
+        private readonly ConcurrentDictionary<string, EndPoint> _remoteEndPoints =
+            new ConcurrentDictionary<string, EndPoint>(StringComparer.Ordinal);
 
         private readonly ChannelPipelineOptions _options;
 
         /// <summary>
         /// 收到完整 RPC 消息时调用；返回的任务在本条消息处理完成后结束
         /// </summary>
-        public Func<IUserToken, RSocketMsg, Task> MessageHandler { get; set; }
+        public Func<IChannel, RSocketMsg, Task> MessageHandler { get; set; }
 
         /// <summary>
         /// 底层 socket 或链路异常时调用
@@ -160,12 +161,22 @@ namespace SAEA.RPC.Net
         }
 
         /// <summary>
-        /// 连接门面登记钩子：处理器链只依赖连接标识，这里仅满足
-        /// 「输入处理器必须与连接钩子成对配置」的约定。
+        /// 连接门面登记钩子：建链时 socket 已能给出对端地址，而处理器链装配拿不到 socket，
+        /// 这里按连接标识暂存客户端地址，等装配时写入通道属性。
         /// </summary>
         /// <param name="info">底层通道信息</param>
-        private static void OnConnectionOpened(ChannelInfo info)
+        private void OnConnectionOpened(ChannelInfo info)
         {
+            if (info == null || string.IsNullOrEmpty(info.ID))
+                return;
+
+            var endPoint = info.ClientSocket == null ? null : info.ClientSocket.RemoteEndPoint;
+
+            if (endPoint == null && info.UserToken != null && info.UserToken.Socket != null)
+                endPoint = info.UserToken.Socket.RemoteEndPoint;
+
+            if (endPoint != null)
+                _remoteEndPoints[info.ID] = endPoint;
         }
 
         /// <summary>
@@ -187,8 +198,7 @@ namespace SAEA.RPC.Net
             if (string.IsNullOrEmpty(channelId))
                 return;
 
-            _tokens[channelId] = userToken;
-
+            // 传输层只交令牌，应用面统一走 IChannel，这里仅取标识。
             var stream = new PipelineRawByteStream(channelId, reader, flow, _server);
 
             try
@@ -208,8 +218,9 @@ namespace SAEA.RPC.Net
                 IChannelPipeline ignoredPipeline;
                 _pipelines.TryRemove(channelId, out ignoredPipeline);
 
-                IUserToken ignoredToken;
-                _tokens.TryRemove(channelId, out ignoredToken);
+                // 装配失败时建链钩子暂存的地址没人取走，这里兜底清理，避免按连接累积。
+                EndPoint ignoredEndPoint;
+                _remoteEndPoints.TryRemove(channelId, out ignoredEndPoint);
             }
         }
 
@@ -225,7 +236,7 @@ namespace SAEA.RPC.Net
             pipeline.AddLast(new OutboundSerializingHandler());
 
             pipeline.AddLast(new RpcMessageDecoder());
-            pipeline.AddLast(new InboundDispatcher(this, channelId));
+            pipeline.AddLast(new InboundDispatcher(this));
 
             var configure = ConfigurePipeline;
             if (configure != null)
@@ -235,21 +246,30 @@ namespace SAEA.RPC.Net
 
             // 链装配完成才登记：主动应答只允许写到结构完整的链上。
             _pipelines[channelId] = pipeline;
+
+            // 地址只写进通道属性，写失败或没取到都不影响链路装配。
+            EndPoint remoteEndPoint;
+            if (_remoteEndPoints.TryRemove(channelId, out remoteEndPoint))
+            {
+                IChannel channel;
+                if (_host.TryGetChannel(channelId, out channel) && channel != null)
+                    channel.SetAttribute(RpcChannelKeys.RemoteEndPoint, remoteEndPoint);
+            }
         }
 
         /// <summary>
         /// 回复消息；连接尚未装配完成或已收口时静默丢弃，写出失败只记日志
         /// </summary>
-        /// <param name="userToken">用户令牌</param>
+        /// <param name="channel">连接通道</param>
         /// <param name="msg">消息对象</param>
         /// <returns>写出完成或失败后结束的任务</returns>
-        internal async Task ReplyAsync(IUserToken userToken, RSocketMsg msg)
+        internal async Task ReplyAsync(IChannel channel, RSocketMsg msg)
         {
-            if (userToken == null || msg == null)
+            if (channel == null || msg == null)
                 return;
 
             IChannelPipeline pipeline;
-            if (!_pipelines.TryGetValue(userToken.ID, out pipeline))
+            if (!_pipelines.TryGetValue(channel.Id, out pipeline))
                 return;
 
             try
@@ -258,21 +278,21 @@ namespace SAEA.RPC.Net
             }
             catch (Exception ex)
             {
-                LogHelper.Warn("RPC 应答写出失败:" + userToken.ID, ex);
+                LogHelper.Warn("RPC 应答写出失败:" + channel.Id, ex);
             }
         }
 
         /// <summary>
         /// 断开连接
         /// </summary>
-        /// <param name="userToken">用户令牌</param>
+        /// <param name="channel">连接通道</param>
         /// <returns>进入收口流程后即完成的任务</returns>
-        internal Task DisconnectAsync(IUserToken userToken)
+        internal Task DisconnectAsync(IChannel channel)
         {
-            if (userToken == null || string.IsNullOrEmpty(userToken.ID))
+            if (channel == null || string.IsNullOrEmpty(channel.Id))
                 return Task.CompletedTask;
 
-            return _host.CloseAsync(userToken.ID, "rpc-close");
+            return _host.CloseAsync(channel.Id, "rpc-close");
         }
 
         /// <summary>
@@ -293,7 +313,7 @@ namespace SAEA.RPC.Net
         {
             _server.Stop();
             _pipelines.Clear();
-            _tokens.Clear();
+            _remoteEndPoints.Clear();
         }
 
         /// <summary>
@@ -304,17 +324,13 @@ namespace SAEA.RPC.Net
         {
             private readonly RServer _owner;
 
-            private readonly string _channelId;
-
             /// <summary>
-            /// 绑定所属服务端与连接标识
+            /// 绑定所属服务端
             /// </summary>
             /// <param name="owner">所属服务端实例</param>
-            /// <param name="channelId">连接标识</param>
-            public InboundDispatcher(RServer owner, string channelId)
+            public InboundDispatcher(RServer owner)
             {
                 _owner = owner;
-                _channelId = channelId;
             }
 
             /// <summary>
@@ -332,15 +348,14 @@ namespace SAEA.RPC.Net
                     return;
                 }
 
-                IUserToken userToken;
-                _owner._tokens.TryGetValue(_channelId, out userToken);
+                var channel = ctx.Channel;
 
                 var handler = _owner.MessageHandler;
-                if (handler != null && userToken != null)
+                if (handler != null && channel != null)
                 {
                     try
                     {
-                        await handler(userToken, rpcMsg).ConfigureAwait(false);
+                        await handler(channel, rpcMsg).ConfigureAwait(false);
                     }
                     catch (Exception ex)
                     {

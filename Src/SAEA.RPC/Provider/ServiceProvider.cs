@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 11:20:00
+*修改时间：2026/11/12 16:45:50
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：装配回调改为启动前注入：Start/Connect 之后再赋值抛 InvalidOperationException，中英 README 同步说明
+*描述：消息处理入口由 IUserToken 收敛为连接视图 IChannel
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -34,7 +34,6 @@ using SAEA.Common.Serialization;
 using SAEA.RPC.Common;
 using SAEA.RPC.Model;
 using SAEA.RPC.Net;
-using SAEA.Sockets.Interface;
 using SAEA.Sockets.Pipeline;
 using System;
 using System.Linq;
@@ -104,14 +103,14 @@ namespace SAEA.RPC.Provider
             ExceptionCollector.Add("Provider", ex);
         }
 
-        private async Task OnMessageAsync(IUserToken userToken, RSocketMsg msg)
+        private async Task OnMessageAsync(IChannel channel, RSocketMsg msg)
         {
             try
             {
                 switch ((RSocketMsgType)msg.Type)
                 {
                     case RSocketMsgType.Ping:
-                        await _rServer.ReplyAsync(userToken, new RSocketMsg(RSocketMsgType.Pong) { SequenceNumber = msg.SequenceNumber }).ConfigureAwait(false);
+                        await _rServer.ReplyAsync(channel, new RSocketMsg(RSocketMsgType.Pong) { SequenceNumber = msg.SequenceNumber }).ConfigureAwait(false);
                         break;
                     case RSocketMsgType.Pong:
 
@@ -119,9 +118,9 @@ namespace SAEA.RPC.Provider
                     case RSocketMsgType.Request:
                         try
                         {
-                            var data = RPCReversal.Reversal(userToken, msg);
+                            var data = RPCReversal.Reversal(channel, msg);
                             var rSocketMsg = new RSocketMsg(RSocketMsgType.Response, null, null, data) { SequenceNumber = msg.SequenceNumber };
-                            await _rServer.ReplyAsync(userToken, rSocketMsg).ConfigureAwait(false);
+                            await _rServer.ReplyAsync(channel, rSocketMsg).ConfigureAwait(false);
                         }
                         catch (Exception ex)
                         {
@@ -130,12 +129,12 @@ namespace SAEA.RPC.Provider
                                 errMsg += $" | Inner: {ex.InnerException.Message}";
                             var errData = SAEASerialize.Serialize(errMsg);
                             var errSocketMsg = new RSocketMsg(RSocketMsgType.Error, null, null, errData) { SequenceNumber = msg.SequenceNumber };
-                            await _rServer.ReplyAsync(userToken, errSocketMsg).ConfigureAwait(false);
+                            await _rServer.ReplyAsync(channel, errSocketMsg).ConfigureAwait(false);
                             ExceptionCollector.Add("Provider.Request", ex);
                         }
                         break;
                     case RSocketMsgType.RegistNotice:
-                        await _noticeCollection.Set(userToken).ConfigureAwait(false);
+                        await _noticeCollection.Set(channel).ConfigureAwait(false);
                         break;
                     case RSocketMsgType.Response:
 
@@ -144,7 +143,7 @@ namespace SAEA.RPC.Provider
 
                         break;
                     case RSocketMsgType.Close:
-                        await _rServer.DisconnectAsync(userToken).ConfigureAwait(false);
+                        await _rServer.DisconnectAsync(channel).ConfigureAwait(false);
                         break;
                 }
             }

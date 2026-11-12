@@ -316,17 +316,17 @@ public sealed class ExceptionLogHandler : InboundHandlerAdapter
 
 ```csharp
 using SAEA.RPC;
-using SAEA.Sockets.Interface;
+using SAEA.Sockets.Pipeline;
 
 public class AuthAttribute : ActionFilterAtrribute
 {
     // Returning false aborts this invocation and returns null immediately
-    public override bool OnActionExecuting(IUserToken userToken, string serviceName, string methodName, object[] args)
+    public override bool OnActionExecuting(IChannel channel, string serviceName, string methodName, object[] args)
     {
         return true; // Replace with your own authorization check
     }
 
-    public override void OnActionExecuted(IUserToken userToken, string serviceName, string methodName, object[] args, object result)
+    public override void OnActionExecuted(IChannel channel, string serviceName, string methodName, object[] args, object result)
     {
         // Authorization happens before the invocation, nothing to do afterwards
     }
@@ -339,6 +339,8 @@ public class AdminService
     public void DeleteUser(int id) { }
 }
 ```
+
+A filter receives the connection view `IChannel`, which only exposes `Id`, `IsActive`, `Attributes` and the close entry point — no underlying socket. To read the client address, call `channel.GetAttribute(RpcChannelKeys.RemoteEndPoint)`; the value is a `System.Net.EndPoint` written when the connection is established and cleared when it closes.
 
 ### Q5: Does it support async methods?
 
@@ -403,6 +405,7 @@ proxy.RegistReceiveNotice();
 | `RPCServiceAttribute` | Marks a class as an RPC service |
 | `NoRpcAttribute` | Marks a method as not externally accessible |
 | `ActionFilterAtrribute` | AOP filter abstract base class (spelling kept from the existing API) |
+| `RpcChannelKeys` | Channel attribute keys; `RemoteEndPoint` holds the client address readable by filters |
 | `RPCMapping` | Service mapping cache table |
 | `ConsumerMultiplexer` | Multiplexes several connections to one service address (`links` sets the count) |
 | `Notice<T>` | Server push message type |
@@ -417,7 +420,7 @@ proxy.RegistReceiveNotice();
 using SAEA.RPC;
 using SAEA.RPC.Model;
 using SAEA.RPC.Provider;
-using SAEA.Sockets.Interface;
+using SAEA.Sockets.Pipeline;
 
 // Define user entity
 public class User
@@ -430,13 +433,13 @@ public class User
 // Define logging filter
 public class LogAttribute : ActionFilterAtrribute
 {
-    public override bool OnActionExecuting(IUserToken userToken, string serviceName, string methodName, object[] args)
+    public override bool OnActionExecuting(IChannel channel, string serviceName, string methodName, object[] args)
     {
         Console.WriteLine($"[{DateTime.Now}] Invoke: {serviceName}.{methodName}");
         return true;
     }
 
-    public override void OnActionExecuted(IUserToken userToken, string serviceName, string methodName, object[] args, object result)
+    public override void OnActionExecuted(IChannel channel, string serviceName, string methodName, object[] args, object result)
     {
         Console.WriteLine($"[Completed] Return: {result}");
     }

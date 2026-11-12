@@ -23,17 +23,17 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/05/25 17:28:26
+*修改时间：2026/11/12 16:45:50
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：RPCReversal类
+*版本号： v26.11.5.1
+*描述：反转入口参数由 IUserToken 收敛为连接视图 IChannel
 *
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.Common.Serialization;
 using SAEA.RPC.Model;
 using SAEA.RPC.Net;
-using SAEA.Sockets.Interface;
+using SAEA.Sockets.Pipeline;
 using System.Linq;
 using System.Reflection;
 
@@ -69,7 +69,7 @@ namespace SAEA.RPC.Common
         }
 
 
-        public static object Reversal(IUserToken userToken, string serviceName, string methodName, object[] inputs)
+        public static object Reversal(IChannel channel, string serviceName, string methodName, object[] inputs)
         {
             var serviceInfo = RPCMapping.Get(serviceName, methodName);
 
@@ -80,7 +80,7 @@ namespace SAEA.RPC.Common
 
             #region 执行前
 
-            var nargs = new object[] { userToken, serviceName, methodName, inputs };
+            var nargs = new object[] { channel, serviceName, methodName, inputs };
 
             if (serviceInfo.FilterAtrrs != null && serviceInfo.FilterAtrrs.Any())
             {
@@ -114,7 +114,7 @@ namespace SAEA.RPC.Common
 
             #region 执行后
 
-            nargs = new object[] { userToken, serviceName, methodName, inputs, result };
+            nargs = new object[] { channel, serviceName, methodName, inputs, result };
 
             if (serviceInfo.FilterAtrrs != null && serviceInfo.FilterAtrrs.Any())
             {
@@ -140,10 +140,10 @@ namespace SAEA.RPC.Common
         /// <summary>
         /// 反转到具体的方法上
         /// </summary>
-        /// <param name="IUserToken"></param>
+        /// <param name="channel">连接通道</param>
         /// <param name="msg"></param>
         /// <returns></returns>
-        public static byte[] Reversal(IUserToken IUserToken, RSocketMsg msg)
+        public static byte[] Reversal(IChannel channel, RSocketMsg msg)
         {
             byte[] result = null;
 
@@ -162,7 +162,7 @@ namespace SAEA.RPC.Common
                 inputs = SAEASerialize.Deserialize(ptypes, msg.Data);
             }
 
-            var r = Reversal(IUserToken, msg.ServiceName, msg.MethodName, inputs);
+            var r = Reversal(channel, msg.ServiceName, msg.MethodName, inputs);
 
             if (r != null)
             {

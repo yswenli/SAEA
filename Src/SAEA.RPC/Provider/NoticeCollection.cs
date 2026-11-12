@@ -23,13 +23,13 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2019/03/28 18:05:06
+*修改时间：2026/11/12 16:45:50
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：NoticeCollection接口
+*版本号： v26.11.5.1
+*描述：登记对象由 IUserToken 收敛为连接视图 IChannel
 *
 *****************************************************************************/
-using SAEA.Sockets.Interface;
+using SAEA.Sockets.Pipeline;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -39,29 +39,29 @@ namespace SAEA.RPC.Provider
 {
     class NoticeCollection
     {
-        ConcurrentDictionary<string, IUserToken> _collection = new ConcurrentDictionary<string, IUserToken>();
+        ConcurrentDictionary<string, IChannel> _collection = new ConcurrentDictionary<string, IChannel>();
 
 
-        public async Task Set(IUserToken userToken)
+        public async Task Set(IChannel channel)
         {
             await Task.Run(() =>
             {
-                if(userToken!=null && userToken.Socket!=null && userToken.Socket.Connected)
+                if(channel!=null && channel.IsActive)
                 {
-                    _collection.AddOrUpdate(userToken.ID, userToken, (k, v) =>
+                    _collection.AddOrUpdate(channel.Id, channel, (k, v) =>
                     {
-                        return userToken;
+                        return channel;
                     });
                 }
             });
         }
 
 
-        public async Task<List<IUserToken>> GetListAsync()
+        public async Task<List<IChannel>> GetListAsync()
         {
             return await Task.Run(() =>
             {
-                List<IUserToken> result = new List<IUserToken>();
+                List<IChannel> result = new List<IChannel>();
 
                 if (!_collection.IsEmpty)
                 {
@@ -71,9 +71,9 @@ namespace SAEA.RPC.Provider
                     {
                         foreach (var item in list)
                         {
-                            if (item.Socket == null || !item.Socket.Connected)
+                            if (!item.IsActive)
                             {
-                                _collection.TryRemove(item.ID, out IUserToken userToken);
+                                _collection.TryRemove(item.Id, out IChannel channel);
                             }
                         }
                     }
