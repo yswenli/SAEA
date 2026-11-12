@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 07:00:00
+*修改时间：2026/11/12 13:54:41
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 ConnectionAttempt 通知回调，对端连入时交给服务端下发指示
+*描述：把 Bind 拆成 PrepareBind 与启动动作，让调用方先写完 ConnectionBind 应答再启动数据泵
 *
 *****************************************************************************/
 using System;
@@ -171,14 +171,15 @@ namespace SAEA.P2P.TurnServer
         }
 
         /// <summary>
-        /// 把一条已登记的对端连接与数据连接对接；两个方向各自独立泵数据，任一方向结束即双向关闭
+        /// 校验并登记数据流，返回启动双向泵的动作；调用方必须先写完应答再执行该动作，否则数据面字节会与应答交错
         /// </summary>
         /// <param name="record">已 Bound 的连接记录</param>
         /// <param name="dataControl">客户端的数据连接</param>
+        /// <returns>启动两个方向泵数据的动作，执行一次即可</returns>
         /// <exception cref="ArgumentNullException">record、dataControl 或 dataControl.DataStream 为 null</exception>
         /// <exception cref="ArgumentException">记录没有对端 socket</exception>
         /// <exception cref="ObjectDisposedException">本中继端已释放</exception>
-        public void Bind(TurnConnectionRecord record, ITurnControlChannel dataControl)
+        internal Action PrepareBind(TurnConnectionRecord record, ITurnControlChannel dataControl)
         {
             if (record == null)
             {
@@ -212,8 +213,12 @@ namespace SAEA.P2P.TurnServer
                 _boundStreams.Add(stream);
             }
 
-            var ignoredUp = Task.Run(() => PumpPeerToStreamAsync(record, stream));
-            var ignoredDown = Task.Run(() => PumpStreamToPeerAsync(record, stream));
+            // 泵一旦启动就会往数据连接写对端字节，必须由调用方先完成应答写出再触发
+            return () =>
+            {
+                var ignoredUp = Task.Run(() => PumpPeerToStreamAsync(record, stream));
+                var ignoredDown = Task.Run(() => PumpStreamToPeerAsync(record, stream));
+            };
         }
 
         /// <summary>

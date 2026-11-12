@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 08:00:00
+*修改时间：2026/11/12 13:54:41
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增对端主动连入收到 ConnectionAttempt、TLS 控制连接拒绝明文数据连接两个用例
+*描述：新增对端在 ConnectionBind 之前写入数据时 Bind 应答先于数据面字节的回归用例
 *
 *****************************************************************************/
 using System;
@@ -348,6 +348,81 @@ namespace SAEA.P2P.Tests.TurnServer
         }
 
         /// <summary>
+        /// 对端在 ConnectionBind 之前就写入 64KB，客户端必须先完整读出 Bind 应答，再读满对端写入的字节
+        /// </summary>
+        [TestMethod]
+        [Timeout(30000)]
+        public async Task Turn6062_对端连入后立即写数据_Bind应答先于数据()
+        {
+            var relayPort = ReserveTcpPort();
+            using (var harness = Turn6062Harness.Start(relayPort))
+            using (var peer = new TcpPeer(false))
+            using (var client = await Turn6062Client.ConnectAsync(harness.TcpControlEndPoint))
+            {
+                var allocation = await AllocateAsync(harness.Server, client, relayPort);
+
+                var connectResponse = await client.ExchangeAsync(
+                    Sign(TurnMessage.CreateConnect(peer.EndPoint), allocation.Credential, allocation.Nonce),
+                    Timeout);
+                Assert.IsNotNull(connectResponse, "Connect 应得到应答");
+                Assert.AreEqual(StunClass.SuccessResponse, connectResponse.Class, "Connect 应成功");
+
+                uint connectionId;
+                Assert.IsTrue(TurnMessage.TryGetConnectionId(connectResponse, out connectionId),
+                    "Connect 应答应携带 CONNECTION-ID");
+
+                var accepted = await WaitForPeerAsync(peer, Timeout);
+                Assert.IsNotNull(accepted, "对端应收到服务端发起的中继连接");
+
+                // 此刻还没有数据连接，中继不会读这条对端连接：先把数据面字节压进 peer 到服务端的方向，
+                // Bind 成功时这些字节一定早于应答路径发出
+                var payload = new byte[64 * 1024];
+                for (var i = 0; i < payload.Length; i++)
+                {
+                    payload[i] = 0x5A;
+                }
+
+                // 中继在 Bind 之前不读这条连接，放大发送缓冲才能让整段写入立即完成而不必等接收窗口
+                accepted.SendBufferSize = payload.Length * 4;
+                await SendAllAsync(accepted, payload, Timeout);
+
+                using (var dataSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
+                {
+                    await dataSocket.ConnectAsync(harness.TcpControlEndPoint);
+
+                    // 数据连接是另开的一条流，源端口与控制连接不同；nonce 与源端点绑定，
+                    // 控制连接上取到的 nonce 在这里必然失效，必须按本条连接的 401 挑战换新的再重签
+                    var bindRequest = TurnMessage.CreateConnectionBind(connectionId);
+                    var challenge = await SendAndReadResponseAsync(dataSocket, bindRequest, Timeout);
+
+                    if (challenge.Class != StunClass.SuccessResponse)
+                    {
+                        int code;
+                        string reason;
+                        Assert.IsTrue(StunErrorCode.TryGet(challenge, out code, out reason),
+                            "数据连接的拒绝应答应携带 ERROR-CODE");
+                        Assert.AreEqual(401, code, "数据连接首次绑定应返回 401 挑战");
+
+                        var nonce = ReadString(challenge, StunAttributeType.Nonce);
+                        Assert.IsFalse(string.IsNullOrEmpty(nonce), "数据连接的挑战必须带 NONCE");
+
+                        bindRequest = Sign(bindRequest, allocation.Credential, nonce);
+                    }
+
+                    // 应答按 STUN 头精确读取 20 + length 字节，多出来的字节必须留在流里留给数据面
+                    var transactionId = bindRequest.TransactionId.ToArray();
+                    var bindResponse = await SendAndReadResponseAsync(dataSocket, bindRequest, Timeout);
+                    Assert.AreEqual(StunClass.SuccessResponse, bindResponse.Class, "ConnectionBind 应成功");
+                    Assert.AreEqual(StunMessageType.ConnectionBind, bindResponse.Method, "应答方法应为 ConnectionBind");
+                    Assert.IsTrue(HasTransactionId(bindResponse, transactionId), "Bind 应答的事务 ID 应与请求一致");
+
+                    var relayed = await ReadExactlyAsync(dataSocket, payload.Length, Timeout);
+                    CollectionAssert.AreEqual(payload, relayed, "Bind 应答之后读到的字节应全部来自对端写入的数据");
+                }
+            }
+        }
+
+        /// <summary>
         /// 完成一次带鉴权的 TCP 中继 Allocate 并返回凭据与中继地址
         /// </summary>
         /// <param name="server">TURN 服务端</param>
@@ -510,6 +585,44 @@ namespace SAEA.P2P.Tests.TurnServer
                 }
             }
             return buffer;
+        }
+
+        /// <summary>
+        /// 把整段字节全部写入连接
+        /// </summary>
+        /// <param name="socket">连接</param>
+        /// <param name="data">待写入内容</param>
+        /// <param name="timeout">写入上限</param>
+        /// <returns>写入完成的任务</returns>
+        /// <exception cref="TimeoutException">超时或连接已关闭</exception>
+        private static async Task SendAllAsync(Socket socket, byte[] data, TimeSpan timeout)
+        {
+            var offset = 0;
+            using (var cts = new CancellationTokenSource(timeout))
+            {
+                while (offset < data.Length)
+                {
+                    int sent;
+                    try
+                    {
+                        sent = await socket.SendAsync(
+                            new ArraySegment<byte>(data, offset, data.Length - offset),
+                            SocketFlags.None,
+                            cts.Token).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw new TimeoutException("写入对端数据超时");
+                    }
+
+                    if (sent <= 0)
+                    {
+                        throw new TimeoutException("连接已被提前关闭");
+                    }
+
+                    offset += sent;
+                }
+            }
         }
 
         /// <summary>

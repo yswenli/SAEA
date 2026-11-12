@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 11:48:57
+*修改时间：2026/11/12 13:54:41
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：UDP 中继端口绑定失败时不再归还端口池，与 TCP 中继对齐
+*描述：ConnectionBind 先写成功应答再启动 TCP 中继数据泵，避免数据面字节与应答交错
 *
 *****************************************************************************/
 using System;
@@ -645,7 +645,7 @@ namespace SAEA.P2P.TurnServer
         /// <param name="key">长期密钥</param>
         /// <param name="now">当前时间</param>
         /// <param name="takeOver">true 表示这条流连接要转作数据连接</param>
-        /// <returns>应答字节</returns>
+        /// <returns>需要由会话循环写出的应答字节；绑定成功时应答已就地写出，返回 null</returns>
         private byte[] HandleConnectionBind(StunMessage request, ITurnControlChannel control, byte[] key, DateTimeOffset now, out bool takeOver)
         {
             takeOver = false;
@@ -703,14 +703,10 @@ namespace SAEA.P2P.TurnServer
                 return BuildError(request, TurnErrorCode.BadRequest, null, null, key);
             }
 
-            // 先把后置状态与应答准备好，绑定成功就不再回到 TURN 报文循环
-            record.Bound = true;
-            takeOver = true;
-            var response = BuildSuccess(request, new StunAttribute[0], key);
-
+            Action start;
             try
             {
-                relay.Bind(record, control);
+                start = relay.PrepareBind(record, control);
             }
             catch (Exception ex)
             {
@@ -721,7 +717,34 @@ namespace SAEA.P2P.TurnServer
                 return BuildError(request, TurnErrorCode.BadRequest, null, null, key);
             }
 
-            return response;
+            record.Bound = true;
+            takeOver = true;
+            var response = BuildSuccess(request, new StunAttribute[0], key);
+
+            // 应答必须先于数据泵写出：中继一旦启动就会把对端字节写到同一条流，
+            // 若晚于应答写出，客户端会把数据面字节当成 ConnectionBind 应答的内容
+            control.Send(response);
+
+            // 启动失败时应答已经发出，只能关闭连接，不能再回一条错误应答
+            try
+            {
+                start();
+            }
+            catch (Exception ex)
+            {
+                P2PLogHelper.Debug("TurnServer", "启动 TCP 中继数据泵失败：" + ex.GetType().Name);
+                try
+                {
+                    relay.Dispose();
+                }
+                catch
+                {
+                    // 释放阶段的异常不能盖掉已经完成的绑定，这里只做兜底
+                }
+            }
+
+            // 应答已由上面直接写出，会话循环不能再写第二次
+            return null;
         }
 
         /// <summary>
