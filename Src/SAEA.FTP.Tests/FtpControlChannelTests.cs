@@ -23,15 +23,16 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 14:30:00
+*修改时间：2026/11/12 10:32:12
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增，覆盖服务端问候、多行应答、QUIT 回复后断连、超长命令收口、客户端多行与非法应答解析
+*描述：新增控制连接应答配对用例，覆盖迟到传输完成应答的丢弃与连续失步收口
 *
 *****************************************************************************/
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SAEA.FTP;
 using SAEA.FTP.Model;
+using SAEA.FTP.Net;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -334,6 +335,160 @@ namespace SAEA.FTP.Tests
                 CommandTimeout = TimeSpan.FromSeconds(10),
                 DataTimeout = TimeSpan.FromSeconds(30)
             });
+        }
+
+        /// <summary>
+        /// 创建一条直连假服务器的控制连接，用于直接校验命令与应答的配对
+        /// </summary>
+        /// <param name="port">假服务器端口</param>
+        /// <returns>尚未握手的控制连接</returns>
+        FtpControlConnection CreateControl(int port)
+        {
+            return new FtpControlConnection(new ClientConfig()
+            {
+                IP = "127.0.0.1",
+                Port = port,
+                UserName = User,
+                Password = Password,
+                BufferSize = 32 * 1024,
+                ConnectTimeout = TimeSpan.FromSeconds(10),
+                CommandTimeout = TimeSpan.FromSeconds(10),
+                DataTimeout = TimeSpan.FromSeconds(30)
+            }, null);
+        }
+
+        /// <summary>
+        /// 传输命令只回 150 不回完成码后，下一条命令应先丢弃迟到的 426 再取自己的 350
+        /// </summary>
+        [TestMethod]
+        public void Control_LateTransferCompletion_IsDroppedBeforeNextReply()
+        {
+            using (var server = new FakeFtpServer("220 Ready\r\n", command =>
+            {
+                if (command.StartsWith("RETR", StringComparison.OrdinalIgnoreCase))
+                    return "150 Opening data connection.\r\n";
+
+                // 426 是上一条 RETR 的完成码，350 才是 REST 自己的应答，两条同批写出以保证顺序确定。
+                if (command.StartsWith("REST", StringComparison.OrdinalIgnoreCase))
+                    return "426 Transfer aborted.\r\n350 Restarting at 0.\r\n";
+
+                return FakeLoginReply(command);
+            }))
+            using (var control = CreateControl(server.Port))
+            {
+                control.Connect();
+
+                Assert.AreEqual(150, control.Send("RETR remote.bin").Code);
+
+                var rest = control.Send("REST 0");
+
+                Assert.AreEqual(350, rest.Code, "REST should get its own 350 instead of the stale 426");
+                Assert.AreEqual(1, control.StaleReplyCount, "the stale 426 should be counted once");
+
+                Assert.AreEqual(200, control.Send("NOOP").Code, "connection should stay usable after dropping the stale reply");
+            }
+        }
+
+        /// <summary>
+        /// 迟到完成码在下一条非传输命令前同样要被丢弃，不能当成 NOOP 的应答
+        /// </summary>
+        [TestMethod]
+        public void Control_LateTransferCompletion_DoesNotLeakIntoNoop()
+        {
+            using (var server = new FakeFtpServer("220 Ready\r\n", command =>
+            {
+                if (command.StartsWith("RETR", StringComparison.OrdinalIgnoreCase))
+                    return "150 Opening data connection.\r\n";
+
+                if (command.StartsWith("NOOP", StringComparison.OrdinalIgnoreCase))
+                    return "426 Transfer aborted.\r\n200 OK.\r\n";
+
+                return FakeLoginReply(command);
+            }))
+            using (var control = CreateControl(server.Port))
+            {
+                control.Connect();
+
+                Assert.AreEqual(150, control.Send("RETR remote.bin").Code);
+
+                var noop = control.Send("NOOP");
+
+                Assert.AreEqual(200, noop.Code, "NOOP should get its own 200 instead of the stale 426");
+                Assert.AreEqual(1, control.StaleReplyCount);
+            }
+        }
+
+        /// <summary>
+        /// 连续收到不属于在途命令的完成码时应判定失步，收口并让后续命令立刻失败
+        /// </summary>
+        [TestMethod]
+        public void Control_ConsecutiveUnsolicitedCompletions_ClosesConnection()
+        {
+            using (var server = new FakeFtpServer("220 Ready\r\n", command =>
+            {
+                // NOOP 只认 200，这里连给 4 条 226；前三条被判为不匹配即达失步阈值。
+                if (command.StartsWith("NOOP", StringComparison.OrdinalIgnoreCase))
+                    return "226 Completed.\r\n226 Completed.\r\n226 Completed.\r\n226 Completed.\r\n";
+
+                return FakeLoginReply(command);
+            }))
+            using (var control = CreateControl(server.Port))
+            {
+                control.Connect();
+
+                var error = Assert.ThrowsException<IOException>(() => control.Send("NOOP"));
+
+                Assert.IsTrue(error.Message.Contains("out of sync"), "unexpected message: " + error.Message);
+
+                Assert.ThrowsException<IOException>(() => control.Send("NOOP"));
+            }
+        }
+
+        /// <summary>
+        /// 传输命令直接回 550 时是它自己的失败结果，不能被当成迟到应答丢弃
+        /// </summary>
+        [TestMethod]
+        public void Control_TransferFailureReply_IsStillReturned()
+        {
+            using (var server = new FakeFtpServer("220 Ready\r\n", command =>
+            {
+                if (command.StartsWith("RETR", StringComparison.OrdinalIgnoreCase))
+                    return "550 Not found.\r\n";
+
+                return FakeLoginReply(command);
+            }))
+            using (var control = CreateControl(server.Port))
+            {
+                control.Connect();
+
+                var reply = control.Send("RETR missing.bin");
+
+                Assert.AreEqual(550, reply.Code, "the failure reply belongs to RETR and must be returned as-is");
+                Assert.AreEqual(0, control.StaleReplyCount, "a matching failure reply is not a stale reply");
+            }
+        }
+
+        /// <summary>
+        /// 正常命令的终态码不参与丢弃，成功路径不应回归
+        /// </summary>
+        [TestMethod]
+        public void Control_NormalCompletion_IsNotTreatedAsStale()
+        {
+            using (var server = new FakeFtpServer("220 Ready\r\n", command =>
+            {
+                if (command.StartsWith("CWD", StringComparison.OrdinalIgnoreCase))
+                    return "250 Directory changed.\r\n";
+
+                return FakeLoginReply(command);
+            }))
+            using (var control = CreateControl(server.Port))
+            {
+                control.Connect();
+
+                Assert.AreEqual(250, control.Send("CWD /tmp").Code);
+                Assert.AreEqual(0, control.StaleReplyCount);
+                Assert.AreEqual(257, control.Send("PWD").Code);
+            }
         }
 
         static string FakeLoginReply(string command)

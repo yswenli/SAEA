@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 17:57:00
+*修改时间：2026/11/12 10:32:12
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补数据通道参数一致性与连接器生命周期注释
+*描述：控制连接按命令码族配对应答，丢弃迟到的传输完成应答，连续失步时收口
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -36,6 +36,7 @@ using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
 using SAEA.Sockets.Pipeline;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Pipelines;
 using System.Net;
@@ -159,9 +160,113 @@ namespace SAEA.FTP.Net
 
         readonly object _syncRoot = new object();
 
+        /// <summary>
+        /// 连续丢弃应答的上限，达到即判定控制通道失步
+        /// </summary>
+        const int MaxConsecutiveStaleReplies = 3;
+
+        /// <summary>
+        /// 传输类命令：先收 125/150 打开数据连接，数据通道结束后再收一条完成码
+        /// </summary>
+        static readonly HashSet<string> TransferCommands = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "RETR",
+            "STOR",
+            "APPE",
+            "LIST",
+            "NLST",
+            "MLSD"
+        };
+
+        /// <summary>
+        /// 非传输命令的终态码表；未登记的命令不做严格匹配，只要求是终态码
+        /// </summary>
+        static readonly Dictionary<string, int[]> TerminalCodes = new Dictionary<string, int[]>(StringComparer.Ordinal)
+        {
+            { "USER", new[] { ServerResponseCode.登录成功, ServerResponseCode.要求密码, ServerResponseCode.要求帐号 } },
+            { "PASS", new[] { ServerResponseCode.初始命令没有执行, ServerResponseCode.登录成功, ServerResponseCode.要求帐号 } },
+            { "FEAT", new[] { ServerResponseCode.系统状态回复 } },
+            { "OPTS", new[] { ServerResponseCode.成功 } },
+            { "TYPE", new[] { ServerResponseCode.成功 } },
+            { "MODE", new[] { ServerResponseCode.成功 } },
+            { "STRU", new[] { ServerResponseCode.成功 } },
+            { "PWD", new[] { ServerResponseCode.路径名建立 } },
+            { "CWD", new[] { ServerResponseCode.文件行为完成 } },
+            { "CDUP", new[] { ServerResponseCode.成功, ServerResponseCode.文件行为完成 } },
+            { "MKD", new[] { ServerResponseCode.路径名建立 } },
+            { "RMD", new[] { ServerResponseCode.文件行为完成 } },
+            { "DELE", new[] { ServerResponseCode.文件行为完成 } },
+            { "RNFR", new[] { ServerResponseCode.文件行为暂停 } },
+            { "RNTO", new[] { ServerResponseCode.文件行为完成 } },
+            { "REST", new[] { ServerResponseCode.文件行为暂停 } },
+            { "SIZE", new[] { ServerResponseCode.文件状态回复 } },
+            { "MDTM", new[] { ServerResponseCode.文件状态回复 } },
+            { "PASV", new[] { ServerResponseCode.进入被动模式 } },
+            { "EPSV", new[] { ServerResponseCode.进入扩展被动模式 } },
+            { "NOOP", new[] { ServerResponseCode.成功 } },
+            { "QUIT", new[] { ServerResponseCode.退出网络 } },
+            { "SYST", new[] { ServerResponseCode.系统类型回复 } },
+            { "STAT", new[] { ServerResponseCode.系统状态回复, ServerResponseCode.目录状态回复, ServerResponseCode.文件状态回复 } },
+            { "ABOR", new[] { ServerResponseCode.打开数据连接, ServerResponseCode.结束数据连接 } }
+        };
+
         IClientSocket _client;
 
         FtpControlReplyHandler _replies;
+
+        /// <summary>
+        /// 在途命令名，取命令行首个空格前的 token 并转大写
+        /// </summary>
+        string _pendingCommand;
+
+        /// <summary>
+        /// 在途命令是否属于传输类
+        /// </summary>
+        bool _pendingTransfer;
+
+        /// <summary>
+        /// 传输命令是否已收到 125/150、正在等完成码
+        /// </summary>
+        bool _awaitingCompletion;
+
+        /// <summary>
+        /// 是否有在途命令的应答尚未取走
+        /// </summary>
+        bool _hasPending;
+
+        /// <summary>
+        /// 当前阶段允许的终态码；传输命令完成阶段为 null，表示整族 2xx 都接受
+        /// </summary>
+        int[] _pendingTerminal;
+
+        /// <summary>
+        /// 尚未被读走的迟到传输完成应答数量
+        /// </summary>
+        int _owedReplies;
+
+        /// <summary>
+        /// 累计丢弃的迟到或不匹配应答条数
+        /// </summary>
+        int _staleReplyCount;
+
+        /// <summary>
+        /// 本次读取中连续丢弃的应答条数，命中一条即清零
+        /// </summary>
+        int _discardStreak;
+
+        /// <summary>
+        /// 累计丢弃的迟到或不匹配应答条数
+        /// </summary>
+        internal int StaleReplyCount
+        {
+            get
+            {
+                lock (_syncRoot)
+                {
+                    return _staleReplyCount;
+                }
+            }
+        }
 
         public FtpReply Greeting { get; private set; }
 
@@ -251,6 +356,9 @@ namespace SAEA.FTP.Net
             // 应答收集器随连接一起创建：旧连接收口时会对旧实例置关闭，新连接不受影响。
             var replies = new FtpControlReplyHandler();
             _replies = replies;
+
+            // 新连接从零开始配对应答，旧连接遗留的债务与丢弃计数不能带过来。
+            ResetReplyState();
 
             var option = new SocketOptionBuilder()
                 .SetSocket(SAEASocketType.Tcp)
@@ -406,6 +514,9 @@ namespace SAEA.FTP.Net
                     throw new IOException("FTP control connection is closed");
                 }
 
+                // 登记必须早于写出：应答可能先于写完成进入队列，晚登记会把应答错配给上一条命令。
+                BeginCommand(command);
+
                 try
                 {
                     // 与旧实现一致：写出后立刻阻塞等对应应答，同一时刻只有一条命令在途。
@@ -413,6 +524,8 @@ namespace SAEA.FTP.Net
                 }
                 catch (Exception ex)
                 {
+                    // 写出失败说明命令没有真正发出，登记随之作废，后续应答不会错配给它。
+                    ClearPending();
                     throw new IOException("FTP command send failed: " + command, ex);
                 }
 
@@ -435,8 +548,9 @@ namespace SAEA.FTP.Net
         }
 
         /// <summary>
-        /// 从有界队列取一条应答；解析失败或连接收口时抛 <see cref="IOException"/>
+        /// 从有界队列取一条与本轮在途命令匹配的应答；解析失败或连接收口时抛 <see cref="IOException"/>
         /// </summary>
+        /// <returns>匹配当前在途命令的应答；无在途命令时返回队列里的第一条应答</returns>
         public FtpReply ReadReply()
         {
             var replies = _replies;
@@ -446,20 +560,256 @@ namespace SAEA.FTP.Net
                 throw new IOException("FTP control connection is closed");
             }
 
-            object item;
-
-            if (!replies.TryTake(_commandTimeout, out item))
+            while (true)
             {
-                throw new IOException("FTP control connection read timeout: " + _config.IP);
+                object item;
+
+                // 阻塞取值不持锁：写方与收口方需要同一把锁更新状态。
+                if (!replies.TryTake(_commandTimeout, out item))
+                {
+                    throw new IOException("FTP control connection read timeout: " + _config.IP);
+                }
+
+                var fault = item as FtpReplyFault;
+                if (fault != null)
+                {
+                    throw new IOException(fault.Error.Message, fault.Error);
+                }
+
+                var reply = (FtpReply)item;
+
+                // 421 表示服务端主动下线，任何阶段都不能当成普通应答交给调用方。
+                if (reply.Code == ServerResponseCode.服务关闭)
+                {
+                    throw CloseWithError("FTP control connection closed by server: " + reply);
+                }
+
+                bool terminal;
+
+                lock (_syncRoot)
+                {
+                    // 债务只吃完成码：3xx 是中间应答，不属于迟到的传输完成。
+                    if (_owedReplies > 0 && IsCompletionCode(reply.Code))
+                    {
+                        _owedReplies--;
+                        _staleReplyCount++;
+
+                        LogHelper.Debug("FTP控制连接丢弃迟到的传输完成应答:" + reply);
+
+                        continue;
+                    }
+
+                    // 无在途命令（如连接问候）不参与配对，原样返回。
+                    if (!_hasPending)
+                    {
+                        return reply;
+                    }
+
+                    if (TryMatch(reply.Code, out terminal))
+                    {
+                        // 本命令的应答已经对上，说明迟到的完成码不会再来，剩余债务作废，
+                        // 否则会吃掉后续命令自己的完成应答。
+                        _owedReplies = 0;
+                        _discardStreak = 0;
+
+                        if (terminal)
+                        {
+                            ClearPending();
+                        }
+                        else
+                        {
+                            _awaitingCompletion = true;
+                        }
+
+                        return reply;
+                    }
+
+                    _staleReplyCount++;
+                    _discardStreak++;
+
+                    LogHelper.Debug("FTP控制连接丢弃不匹配应答:" + _pendingCommand + "," + reply);
+
+                    if (_discardStreak >= MaxConsecutiveStaleReplies)
+                    {
+                        throw CloseWithError("FTP control connection out of sync: unexpected reply " + reply + " while waiting for " + _pendingCommand);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 写出前登记在途命令与其允许的应答码族
+        /// </summary>
+        /// <param name="command">完整命令行</param>
+        void BeginCommand(string command)
+        {
+            // 上一条传输命令的完成码没被读走，说明调用方放弃了那条应答；
+            // 它一定会先于本轮应答到达，记一笔债务在读取时先丢弃。
+            if (_hasPending && _pendingTransfer && _awaitingCompletion)
+            {
+                _owedReplies++;
             }
 
-            var fault = item as FtpReplyFault;
-            if (fault != null)
+            _discardStreak = 0;
+
+            var name = CommandName(command);
+
+            _pendingCommand = name;
+            _pendingTransfer = TransferCommands.Contains(name);
+            _awaitingCompletion = false;
+            _pendingTerminal = _pendingTransfer ? null : LookupTerminalCodes(name);
+            _hasPending = true;
+        }
+
+        /// <summary>
+        /// 清空在途命令登记，应答已经交给调用方或命令没有发出时调用
+        /// </summary>
+        void ClearPending()
+        {
+            _pendingCommand = null;
+            _pendingTransfer = false;
+            _awaitingCompletion = false;
+            _pendingTerminal = null;
+            _hasPending = false;
+            _discardStreak = 0;
+        }
+
+        /// <summary>
+        /// 新连接建立时重置应答配对状态与计数
+        /// </summary>
+        void ResetReplyState()
+        {
+            lock (_syncRoot)
             {
-                throw new IOException(fault.Error.Message, fault.Error);
+                ClearPending();
+                _owedReplies = 0;
+                _staleReplyCount = 0;
+            }
+        }
+
+        /// <summary>
+        /// 判断应答码是否属于当前在途命令的允许集合
+        /// </summary>
+        /// <param name="code">应答码</param>
+        /// <param name="terminal">命中且为本轮终态时为 true；传输命令的 125/150 为 false</param>
+        /// <returns>属于当前命令时返回 true</returns>
+        bool TryMatch(int code, out bool terminal)
+        {
+            terminal = false;
+
+            // 4xx/5xx 一律作为当前命令的失败结果返回，不在码表里逐条列举。
+            if (code >= 400 && code < 600)
+            {
+                terminal = true;
+                return true;
             }
 
-            return (FtpReply)item;
+            if (_pendingTransfer && !_awaitingCompletion)
+            {
+                if (code == ServerResponseCode.打开数据连接开始传输 || code == ServerResponseCode.打开连接)
+                {
+                    return true;
+                }
+
+                return false;
+            }
+
+            if (_pendingTransfer)
+            {
+                // 完成阶段各服务端用 226/250/200 不等，按整族 2xx 接受。
+                if (code >= 200 && code < 300)
+                {
+                    terminal = true;
+                    return true;
+                }
+
+                return false;
+            }
+
+            var allowed = _pendingTerminal;
+
+            if (allowed == null)
+            {
+                // 未登记的命令没有码表可依，只要求是终态码，避免把正常应答误判成失步。
+                if (code >= 200 && code < 400)
+                {
+                    terminal = true;
+                    return true;
+                }
+
+                return false;
+            }
+
+            for (var i = 0; i < allowed.Length; i++)
+            {
+                if (allowed[i] == code)
+                {
+                    terminal = true;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// 取命令名：命令行首个空格前的 token，统一转大写
+        /// </summary>
+        /// <param name="command">完整命令行</param>
+        /// <returns>命令名；空命令返回空串</returns>
+        static string CommandName(string command)
+        {
+            if (string.IsNullOrEmpty(command)) return string.Empty;
+
+            var index = command.IndexOf(' ');
+
+            var name = index < 0 ? command : command.Substring(0, index);
+
+            return name.Trim().ToUpperInvariant();
+        }
+
+        /// <summary>
+        /// 取命令的终态码表
+        /// </summary>
+        /// <param name="command">命令名</param>
+        /// <returns>允许的终态码；未登记的命令返回 null</returns>
+        static int[] LookupTerminalCodes(string command)
+        {
+            int[] codes;
+
+            return TerminalCodes.TryGetValue(command, out codes) ? codes : null;
+        }
+
+        /// <summary>
+        /// 判断应答码是否属于传输完成码
+        /// </summary>
+        /// <param name="code">应答码</param>
+        /// <returns>2xx/4xx/5xx 返回 true</returns>
+        static bool IsCompletionCode(int code)
+        {
+            return code >= 200 && code < 600;
+        }
+
+        /// <summary>
+        /// 收口当前连接并生成要抛出的错误
+        /// </summary>
+        /// <param name="message">错误描述</param>
+        /// <returns>已绑定关闭原因的异常，由调用方直接抛出</returns>
+        IOException CloseWithError(string message)
+        {
+            var error = new IOException(message);
+
+            var replies = _replies;
+
+            // 先落关闭原因再收口：Close 内的 MarkClosed(null) 不会覆盖已登记的异常。
+            if (replies != null)
+            {
+                replies.MarkClosed(error);
+            }
+
+            Close();
+
+            return error;
         }
 
         #endregion
