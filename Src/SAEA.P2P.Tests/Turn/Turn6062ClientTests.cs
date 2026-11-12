@@ -23,16 +23,18 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 14:06:33
+*修改时间：2026/11/12 14:13:00
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增数据面 ConnectionBind 验收：绑定后明文 TCP 双向裸字节收发，以及非 TCP 分配拒绝绑定
+*描述：新增 TLS 数据连接验收：控制连接为 TLS 时用 SaeaTlsTcpTransport 绑定的中继数据连接双向裸字节收发
 *
 *****************************************************************************/
 using System;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -41,6 +43,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SAEA.P2P.StunServer;
 using SAEA.P2P.Turn;
 using SAEA.P2P.TurnServer;
+using SAEA.P2P.Transport;
 
 using StunServerHost = SAEA.P2P.StunServer.StunServer;
 using TurnServerHost = SAEA.P2P.TurnServer.TurnServer;
@@ -69,6 +72,11 @@ namespace SAEA.P2P.Tests.Turn
         /// 用例共享的认证域
         /// </summary>
         private const string Realm = "saea.p2p";
+
+        /// <summary>
+        /// 临时自签证书的导出与加载口令；只用于测试
+        /// </summary>
+        private const string CertificatePassword = "saea-turn-tls-test-password";
 
         /// <summary>
         /// 等待应答与事件的统一上限
@@ -255,6 +263,102 @@ namespace SAEA.P2P.Tests.Turn
         }
 
         /// <summary>
+        /// TLS 控制连接下用 TLS 数据连接做 ConnectionBind：加密层一致才能绑定，绑定后双向裸字节仍逐一对齐
+        /// </summary>
+        [TestMethod]
+        [Timeout(30000)]
+        public async Task TurnClient6062_TLS数据连接_Bind后双向数据一致()
+        {
+            const int payloadSize = 1024;
+            var certificatePath = CreateCertificateFile();
+            var relayPort = ReserveTcpPort();
+
+            try
+            {
+                using (var server = new TurnServerHost(new TurnServerOptions
+                {
+                    SharedSecret = SharedSecret,
+                    Realm = Realm,
+                    RelayAddress = Host,
+                    RelayPortMin = relayPort,
+                    RelayPortMax = relayPort
+                }))
+                using (var tlsListener = new TurnTlsListener(new IPEndPoint(Host, 0), server, certificatePath, CertificatePassword))
+                using (var peerListener = new TcpListener(Host, 0))
+                {
+                    tlsListener.Start();
+                    peerListener.Start();
+
+                    var clientOptions = new TurnClientOptions
+                    {
+                        ServerEndPoint = tlsListener.LocalEndPoint,
+                        TransportFactory = () => new TurnTlsClientTransport(tlsListener.LocalEndPoint, "localhost", true),
+                        DataTransportFactory = () => new SaeaTlsTcpTransport("localhost", true),
+                        Credential = server.CredentialService.Create("tcp-relay-user"),
+                        RequestedTransportProtocol = TurnServerHost.TcpTransport,
+                        RtoMilliseconds = 100,
+                        RefreshTimeout = TimeSpan.FromSeconds(10)
+                    };
+
+                    using (var client = new TurnClient(clientOptions))
+                    {
+                        var peerEndPoint = (IPEndPoint)peerListener.LocalEndpoint;
+
+                        var allocation = await client.AllocateAsync(null, CancellationToken.None);
+                        Assert.IsNotNull(allocation, "TLS 控制连接上的 TCP 中继分配应成功");
+                        Assert.IsNotNull(allocation.RelayedEndPoint, "TCP 中继分配应返回中继地址");
+
+                        var connectionId = await client.ConnectAsync(peerEndPoint, CancellationToken.None);
+                        Assert.IsTrue(connectionId > 0, "Connect 应答应携带大于 0 的连接号，实际 " + connectionId);
+
+                        var peerSocket = await AcceptWithTimeoutAsync(peerListener, Timeout);
+                        Assert.IsNotNull(peerSocket, "对端应收到服务端发起的中继连接");
+
+                        using (peerSocket)
+                        using (var peerStream = new NetworkStream(peerSocket, false))
+                        {
+                            var data = await client.ConnectionBindAsync(connectionId, CancellationToken.None);
+                            Assert.IsNotNull(data, "TLS 控制连接下的 ConnectionBind 成功应返回数据连接");
+                            using (data)
+                            {
+                                Assert.IsTrue(data.IsConnected, "绑定成功后 TLS 数据连接应保持连接");
+
+                                // 下行：对端写、数据连接读；绑定后是裸字节，不含任何长度前缀
+                                var fromPeer = new byte[payloadSize];
+                                for (var i = 0; i < fromPeer.Length; i++)
+                                {
+                                    fromPeer[i] = 0x33;
+                                }
+                                await peerStream.WriteAsync(fromPeer, 0, fromPeer.Length, CancellationToken.None);
+
+                                var received = new byte[payloadSize];
+                                await data.Stream.ReadExactlyAsync(received, CancellationToken.None);
+                                CollectionAssert.AreEqual(fromPeer, received, "数据连接收到的字节应与对端写入内容一致");
+
+                                // 上行：数据连接写、对端读；同样按裸字节中继，不带前缀
+                                var fromData = new byte[payloadSize];
+                                for (var i = 0; i < fromData.Length; i++)
+                                {
+                                    fromData[i] = 0x44;
+                                }
+                                await data.Stream.WriteAsync(fromData, 0, fromData.Length, CancellationToken.None);
+                                await data.Stream.FlushAsync(CancellationToken.None);
+
+                                var atPeer = new byte[payloadSize];
+                                await peerStream.ReadExactlyAsync(atPeer, CancellationToken.None);
+                                CollectionAssert.AreEqual(fromData, atPeer, "对端收到的字节应与数据连接写入内容一致");
+                            }
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                TryDelete(certificatePath);
+            }
+        }
+
+        /// <summary>
         /// 非 TCP 中继分配没有数据连接可绑，客户端在建立任何连接前就应拒绝
         /// </summary>
         [TestMethod]
@@ -352,6 +456,50 @@ namespace SAEA.P2P.Tests.Turn
             finally
             {
                 probe.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// 运行时生成自签 PFX 并写入临时文件；同名主题与口令只用于测试
+        /// </summary>
+        /// <returns>临时证书文件路径</returns>
+        private static string CreateCertificateFile()
+        {
+            using (var rsa = RSA.Create(2048))
+            {
+                var request = new CertificateRequest("CN=localhost", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+                request.CertificateExtensions.Add(new X509BasicConstraintsExtension(false, false, 0, false));
+                request.CertificateExtensions.Add(new X509KeyUsageExtension(
+                    X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.KeyEncipherment, false));
+
+                using (var certificate = request.CreateSelfSigned(
+                    DateTimeOffset.UtcNow.AddMinutes(-5), DateTimeOffset.UtcNow.AddHours(1)))
+                {
+                    var path = Path.Combine(Path.GetTempPath(), "saea-turn-tls-" + Guid.NewGuid().ToString("N") + ".pfx");
+                    File.WriteAllBytes(path, certificate.Export(X509ContentType.Pfx, CertificatePassword));
+                    return path;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 删除临时证书文件；文件已不存在时忽略
+        /// </summary>
+        /// <param name="path">证书文件路径</param>
+        private static void TryDelete(string path)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(path) && File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
             }
         }
 
