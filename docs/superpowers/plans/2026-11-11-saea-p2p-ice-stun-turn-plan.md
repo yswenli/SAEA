@@ -584,7 +584,7 @@ R3（一任务一提交）不需改设计；R4（阶段 6 一次性替换旧 API
 - 文件：`Src/SAEA.P2P/Ice/RelayCandidateProvider.cs`、`Transport/TurnDataChannel.cs`
 - 要点：
   - UDP relay：`Allocate` → relay 候选（priority 0，related address 为映射地址）→ 检查前对端 IP `CreatePermission` → channel 或 Send/Data 承载业务。
-  - TCP relay（RFC 6062）：TCP/TLS 控制连接申请 `REQUESTED-TRANSPORT=6`，`Connect` 后另开连接 `ConnectionBind`；数据连接只跑业务帧，不承载 TURN 消息。
+  - TCP relay（RFC 6062）：TCP/TLS 控制连接申请 `REQUESTED-TRANSPORT=6`，`Connect` 后另开连接 `ConnectionBind`；数据连接建立后先跑一次 Binding 检查，随后 STUN 帧与业务帧都按 RFC 4571 分帧（`ConnectionBind` 自身不加长度前缀）。
   - relay 候选必须带 `relatedAddress`/`relatedPort`；释放时 `LIFETIME=0`。
   - 每 peer 独立 allocation，不与别的 peer 共享。
 - 测试：`Ice/RelayCandidateTests.cs`：`RelayCandidate_优先级为0`、`RelayCandidate_检查前_已对peerIP建权限`、`RelayCandidate_TCP中继_数据连接仅承载业务帧`、`RelayCandidate_每peer独立_不复用allocation`。
@@ -610,6 +610,20 @@ R3（一任务一提交）不需改设计；R4（阶段 6 一次性替换旧 API
 - 测试：`TcpMatrix_active对passive_直连成功`、`TcpMatrix_passive侧端口保持_可被连接`、`TcpMatrix_so组合_标记跳过并记录原因`、`TcpMatrix_TCP失败_回退TURN UDP`。
 - 验证：`dotnet test Src/SAEA.P2P.Tests/SAEA.P2P.Tests.csproj -c Release --filter "FullyQualifiedName~TcpMatrix"`
 - 提交：`test(ice): TCP 穿透矩阵与 so 跳过记录`
+
+#### T5.6 TURN 级内 RFC 6062 回退
+
+- 文件：`Src/SAEA.P2P/Ice/TcpRelayCandidateProvider.cs`、`Ice/IceSession.cs`、`Src/SAEA.P2P.Tests/Ice/RelayCandidateTests.cs`、`Ice/IceSessionTests.cs`
+- 要点：
+  - 第 4、5 级内固定两段：半个阶段预算试 UDP 中继，剩余预算试 RFC 6062 TCP 中继；第 3 级只用满额预算做 UDP 中继，不试 TCP 中继（UDP 控制不支持 `Connect`/`ConnectionBind`）。
+  - `TcpRelayCandidateProvider` 构造时即订阅 `ConnectionAttemptReceived`（先订阅后申请分配，避免事件早于订阅丢失），产出 `Type=Relay`、`Transport=Tcp`、`TcpType=None` 的候选，不补 `relatedAddress`/`relatedPort`。
+  - 会话级强制分配传输：UDP 段 `REQUESTED-TRANSPORT=17`、TCP 段 `6`；TLS 段为数据连接配 `SaeaTlsTcpTransport`，满足服务端「数据连接与控制连接同加密层」的要求。
+  - 控制方 `Connect` + `ConnectionBind` 后以 `USE-CANDIDATE` 做一次检查并选中；受控方等入向 `ConnectionAttempt` 并 `ConnectionBind`，自身检查成功即选中；数据连接复用 `TcpDirectChannel` 的 RFC 4571 分帧。
+  - 成功时 `_tcpRelayClient`/`_tcpRelayProvider`/`_tcpDirectChannel` 由会话持有并负责刷新，失败与 `Dispose` 路径发 `LIFETIME=0` 后释放；`IceSessionResult` 用 `IsRelay && UsesTcp` 标识 TCP 中继，不加字段。
+  - 已知风险：UDP 段在对端没有 UDP 中继候选时必然吃满半额预算；阶段不对称（一端 UDP 中继成功、另一端失败）不修；受控方提前判定成功存在窄窗口。用例阶段预算随之上调到 10s。
+- 测试：`TcpRelayCandidate_申请与入向连接_产出TCP中继候选并可Bind`、`StartAsync_UdpRelayBlocked_SelectsTurnTcpRelay`、`StartAsync_UdpAndTcpControlBlocked_SelectsTurnTlsTcpRelay`。
+- 验证：`dotnet test Src/SAEA.P2P.Tests/SAEA.P2P.Tests.csproj -c Release --filter "FullyQualifiedName~TcpRelayCandidate|FullyQualifiedName~SelectsTurnTcpRelay|FullyQualifiedName~SelectsTurnTlsTcpRelay"`；全量 Release 为 `197 passed / 1 skipped / 0 failed`。
+- 提交：`feat(ice): TURN TCP 中继候选提供器`、`feat(ice): TURN 级内接入 RFC 6062 TCP 中继回退`、`feat(ice): TLS 控制下接入 TCP 中继数据连接`、`docs(ice): 回写 TCP 中继级内两段设计`
 
 ---
 

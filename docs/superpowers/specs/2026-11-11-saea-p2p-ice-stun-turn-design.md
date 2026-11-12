@@ -330,6 +330,15 @@ ICE restart：
 - 对端主动连入时，服务端在控制连接上发 `ConnectionAttempt`（含 `CONNECTION-ID` + `XOR-PEER-ADDRESS`），客户端同样另开连接 + `ConnectionBind`。
 - 30s 内未收到 `ConnectionBind`，服务端关闭该 peer 数据连接。
 
+客户端侧（ICE 集成）策略（与 §7.12 一致）：
+
+- 会话在 **TCP / TLS 控制**的中继级内分两段：先用半个阶段预算试 UDP 中继（`REQUESTED-TRANSPORT=17`），失败后用剩余预算试 RFC 6062 TCP 中继（`REQUESTED-TRANSPORT=6`）；两段都失败时把两段原因合并上报。固定五五分，不新增公开配置。
+- `TurnUdp` 级（UDP 控制传输）只做 UDP 中继、不尝试 TCP 中继：UDP 控制承载不了 `Connect`/`ConnectionBind`，多打一次分配必然被拒。
+- 本地 TCP 中继候选记为 `Type=Relay`、`Transport=Tcp`、`TcpType=None`，不带 `relatedAddress`/`relatedPort`（中继端点是服务端分配的独立监听，与本地映射地址无对应关系）。选路结果用 `IsRelay && UsesTcp` 共同标识「TCP 中继」，不新增结果字段。
+- 控制方在数据连接上以 `USE-CANDIDATE` 发起一次检查并直接选中；受控方等控制连接上的 `ConnectionAttempt`，用 `ConnectionBind` 拿到数据连接后做自己的检查，自身检查成功即视为选中。
+- `ConnectionBind` 之后的连接按 RFC 4571 两字节长度前缀分帧（同 §7.13 TCP 直连），`Connect`/`ConnectionBind` 自身的 STUN 报文不加长度前缀。
+- 与公共 TURN 服务端的 RFC 6062 互操作本轮只给核对清单，标「未运行」。
+
 #### 7.6.5 属性与错误码
 
 必须实现的属性：`XOR-PEER-ADDRESS`、`XOR-RELAYED-ADDRESS`、`XOR-MAPPED-ADDRESS`、`CHANNEL-NUMBER`、`LIFETIME`、`DATA`、`REQUESTED-TRANSPORT`、`REQUESTED-ADDRESS-FAMILY`(0x0017)、`ADDITIONAL-ADDRESS-FAMILY`(0x8000)、`EVEN-PORT`(0x0018)、`RESERVATION-TOKEN`(0x0022)、`DONT-FRAGMENT`(0x001A)、`CONNECTION-ID`(0x002A)。
@@ -506,6 +515,8 @@ public sealed class P2PClient : IDisposable
 4. TURN over TCP 中继
 5. TURN over TLS/443 中继
 
+第 4、5 级内部再分两段：先用半个阶段预算试 UDP 中继，剩余预算试 RFC 6062 TCP 中继（§7.6.4）；第 3 级用满额预算只做 UDP 中继，不尝试 TCP 中继。
+
 默认值：
 
 | 项 | 默认 | 说明 |
@@ -514,7 +525,7 @@ public sealed class P2PClient : IDisposable
 | 单 pair 检查超时 | 由 RTO 公式推导，上限 39.5s；实际取 `min(该值, 所属阶段剩余预算)` | TCP 上不重传 |
 | UDP 直连阶段预算 | 10s | 可配 |
 | TCP 直连阶段预算 | 10s | 可配 |
-| 每个 TURN 阶段预算 | 15s | 可配 |
+| 每个 TURN 阶段预算 | 15s | 可配；第 4/5 级内 UDP 段与 TCP 段共用该预算 |
 | 会话总预算 | 90s | 必须 ≥ 收集预算 + 各级阶段预算之和（默认 3 + 10 + 10 + 15×3 = 68s）；可配，超时抛错 |
 | 候选收集阶段一预算 | 3s | 到时先发已有候选 |
 | 保活 `Tr` | 15s | 不得小于 15s |
@@ -537,6 +548,7 @@ public sealed class P2PClient : IDisposable
 - **UDP 直连**：一个数据报一帧；首字节 `0x00`~`0x3F` 按 STUN 处理，`0xC0` 按业务帧处理，其余丢弃并计数。
 - **TCP 直连**：整条连接统一用 RFC 4571 两字节大端长度前缀分帧，检查帧与业务帧共用这套分帧；帧内首字节 `0x00`~`0x3F` 是 STUN，`0xC0` 是业务，其余整帧丢弃并记日志。
 - **TURN 中继**：`ChannelData` 或 `Data` 指示的载荷就是业务帧（含 `0xC0` 前缀）；TURN 控制连接本身的报文仍按 §7.6.1 的首字节解复用处理，两者不在同一层冲突。
+- **TURN TCP 中继（RFC 6062）**：`ConnectionBind` 之后的中继数据连接按 TCP 直连规则分帧（RFC 4571 两字节大端长度前缀），帧内首字节同上；`Connect`/`ConnectionBind` 自身的 STUN 报文不加长度前缀。
 - **长度上限**：UDP 帧 ≤ 65507 字节、TURN `ChannelData` 载荷 ≤ 65535 字节、TCP 帧 ≤ 1 MiB（均含前缀）；超限整帧丢弃并抛 `P2PException(PayloadTooLarge)`，不部分投递。
 - **语义**：`Send(peerId, span)` 一次调用对应一个业务帧，`OnDataReceived` 一次回调对应一个完整业务帧，跨传输一致；半包、粘包、超长、未知首字节都必须由接收侧安全处理。
 
