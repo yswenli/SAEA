@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 16:36:13
+*修改时间：2026/11/12 17:49:52
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：接入 TURN over TLS 控制传输阶段
+*描述：TURN 级内接入 RFC 6062 TCP 中继回退
 *
 *****************************************************************************/
 using System;
@@ -151,6 +151,16 @@ namespace SAEA.P2P.Ice
         /// TURN 阶段的中继候选提供器，持有服务端分配与中继数据通道
         /// </summary>
         private RelayCandidateProvider _turnProvider;
+
+        /// <summary>
+        /// TURN TCP 中继段的客户端；选中 TCP 中继通道后继续保留，负责分配与中继连接的刷新
+        /// </summary>
+        private TurnClient _tcpRelayClient;
+
+        /// <summary>
+        /// TURN TCP 中继段的候选提供器，持有服务端分配与入向连接队列
+        /// </summary>
+        private TcpRelayCandidateProvider _tcpRelayProvider;
 
         /// <summary>
         /// 选中的候选对
@@ -404,6 +414,14 @@ namespace SAEA.P2P.Ice
             var turnClient = _turnClient;
             _turnClient = null;
             DisposeQuietly(turnClient, "TURN 客户端");
+
+            var tcpRelayProvider = _tcpRelayProvider;
+            _tcpRelayProvider = null;
+            DisposeQuietly(tcpRelayProvider, "TURN TCP 中继提供器");
+
+            var tcpRelayClient = _tcpRelayClient;
+            _tcpRelayClient = null;
+            DisposeQuietly(tcpRelayClient, "TURN TCP 中继客户端");
 
             lock (_syncRoot)
             {
@@ -712,6 +730,15 @@ namespace SAEA.P2P.Ice
             var client = _turnClient;
             _turnClient = null;
             DisposeQuietly(client, "TURN 客户端");
+
+            // 阶段失败或切换时只做本地清理，分配的 LIFETIME=0 由失败路径显式发过
+            var tcpRelayProvider = _tcpRelayProvider;
+            _tcpRelayProvider = null;
+            DisposeQuietly(tcpRelayProvider, "TURN TCP 中继提供器");
+
+            var tcpRelayClient = _tcpRelayClient;
+            _tcpRelayClient = null;
+            DisposeQuietly(tcpRelayClient, "TURN TCP 中继客户端");
 
             lock (_syncRoot)
             {
@@ -1838,6 +1865,8 @@ namespace SAEA.P2P.Ice
         /// </summary>
         /// <remarks>
         /// 本阶段与 TURN over TCP 的差别只在控制传输，中继对端始终是 UDP。
+        /// UDP 控制传输承载不了 RFC 6062 的 Connect/ConnectionBind，因此本级不尝试 TCP 中继，
+        /// 避免多打一次注定失败的分配。
         /// </remarks>
         /// <param name="stageBudget">本阶段可用预算</param>
         /// <param name="token">联合取消令牌</param>
@@ -1848,55 +1877,405 @@ namespace SAEA.P2P.Ice
         }
 
         /// <summary>
-        /// TURN over TCP 阶段：客户端到 TURN 的控制连接改走 TCP，中继对端仍是 UDP
+        /// TURN over TCP 阶段：先用半个阶段预算试 UDP 中继，剩余预算再试 RFC 6062 TCP 中继
         /// </summary>
         /// <remarks>
-        /// 只有控制连接换传输，分配、权限、通道与中继数据面都沿用 UDP 中继，不做 RFC 6062 的 TCP 中继对端。
+        /// 控制连接走 TCP 时两种中继都可用：UDP 中继的数据面仍是 UDP，TCP 中继的数据面是 Connect/ConnectionBind 得到的 TCP 连接。
         /// </remarks>
         /// <param name="stageBudget">本阶段可用预算</param>
         /// <param name="token">联合取消令牌</param>
         /// <returns>失败原因；选中通道时为 null</returns>
         private async Task<string> RunTurnTcpAsync(TimeSpan stageBudget, CancellationToken token)
         {
-            return await RunTurnRelayAsync(IceStage.TurnTcp, stageBudget, token).ConfigureAwait(false);
+            return await RunTurnStageWithTcpRelayAsync(IceStage.TurnTcp, stageBudget, token).ConfigureAwait(false);
         }
 
         /// <summary>
-        /// TURN over TLS 阶段：客户端到 TURN 的控制连接走 TLS，中继对端仍是 UDP，数据面沿用 UDP 中继
+        /// TURN over TLS 阶段：先用半个阶段预算试 UDP 中继，剩余预算再试 RFC 6062 TCP 中继
         /// </summary>
         /// <remarks>
-        /// 只换控制连接的传输，分配、权限、通道与中继数据面都由同一个 UDP 中继主干完成，不做 TCP 中继对端。
+        /// 控制连接走 TLS 时两种中继都可用：UDP 中继的数据面仍是 UDP，TCP 中继的数据面是 TLS 上的 Connect/ConnectionBind 连接。
         /// </remarks>
         /// <param name="stageBudget">本阶段可用预算</param>
         /// <param name="token">联合取消令牌</param>
         /// <returns>失败原因；选中通道时为 null</returns>
         private async Task<string> RunTurnTlsAsync(TimeSpan stageBudget, CancellationToken token)
         {
-            return await RunTurnRelayAsync(IceStage.TurnTls, stageBudget, token).ConfigureAwait(false);
+            return await RunTurnStageWithTcpRelayAsync(IceStage.TurnTls, stageBudget, token).ConfigureAwait(false);
         }
 
         /// <summary>
-        /// 按阶段生成 TURN 客户端配置：TurnUdp 直接复用调用方实例，其余阶段在副本上替换控制传输工厂
+        /// TCP / TLS 控制下的中继阶段：先用半个阶段预算试 UDP 中继，剩余预算再试 RFC 6062 TCP 中继
         /// </summary>
         /// <remarks>
-        /// TurnUdp 需要保留调用方给的本地绑定与传输工厂；其它阶段不能就地改调用方实例，
-        /// 否则同一次会话里上一级的传输选择会被后一级覆盖。
-        /// TurnTls 换成 TLS 控制传输，目标主机名与是否忽略证书错误取会话配置。
+        /// 五五分是固定切分：UDP 中继是同一控制连接上更省事的路径，成功即返回；
+        /// 两段都失败时把两段失败原因一起返回，便于定位是哪一层不通。
+        /// </remarks>
+        /// <param name="stage">当前阶段</param>
+        /// <param name="stageBudget">本阶段可用预算</param>
+        /// <param name="token">联合取消令牌</param>
+        /// <returns>失败原因；选中通道时为 null</returns>
+        private async Task<string> RunTurnStageWithTcpRelayAsync(IceStage stage, TimeSpan stageBudget, CancellationToken token)
+        {
+            var clock = Stopwatch.StartNew();
+            var udpBudget = TimeSpan.FromTicks(stageBudget.Ticks / 2);
+
+            var udpFailure = await RunTurnRelayAsync(stage, udpBudget, token).ConfigureAwait(false);
+            if (udpFailure == null)
+            {
+                return null;
+            }
+
+            var remaining = stageBudget - clock.Elapsed;
+            if (remaining <= TimeSpan.Zero)
+            {
+                return udpFailure;
+            }
+
+            var tcpFailure = await RunTurnTcpRelayAsync(stage, remaining, token).ConfigureAwait(false);
+            if (tcpFailure == null)
+            {
+                return null;
+            }
+
+            return udpFailure + "；" + tcpFailure;
+        }
+
+        /// <summary>
+        /// RFC 6062 TCP 中继：申请 TCP 分配、等对端的 TCP 中继候选，再按角色主动 Connect 或接受入向连接并做一次检查
+        /// </summary>
+        /// <remarks>
+        /// TCP 中继的数据面是服务端转发后得到的独立 TCP 连接，控制连接只负责分配与转发请求；
+        /// 控制方坚持用 useCandidate 提名，受控方只应答对向检查，两端在同一连接上的检查可以并存。
+        /// 分配成功后字段先于候选发布赋值，失败路径才能释放同一批实例并向服务端发 LIFETIME=0。
+        /// </remarks>
+        /// <param name="stage">当前阶段，决定控制连接走 TCP 还是 TLS</param>
+        /// <param name="stageBudget">本阶段可用预算</param>
+        /// <param name="token">联合取消令牌</param>
+        /// <returns>失败原因；选中通道时为 null</returns>
+        private async Task<string> RunTurnTcpRelayAsync(IceStage stage, TimeSpan stageBudget, CancellationToken token)
+        {
+            if (_options.Turn == null)
+            {
+                return "未配置 TURN 服务";
+            }
+
+            if (_options.Turn.ServerEndPoint == null)
+            {
+                return "TURN 服务端端点未配置";
+            }
+
+            var clock = Stopwatch.StartNew();
+
+            // 客户端与提供器不放进 using：中继阶段成功时它们要继续为数据面服务
+            TurnClient client = null;
+            TcpRelayCandidateProvider provider = null;
+            TcpDirectChannel channel = null;
+            var isControlling = _parameters.Role == IceRole.Controlling;
+
+            try
+            {
+                client = new TurnClient(CreateTurnTcpRelayOptions(stage));
+                provider = new TcpRelayCandidateProvider(client, _parameters.Component);
+
+                var allocateRemaining = stageBudget - clock.Elapsed;
+                if (allocateRemaining <= TimeSpan.Zero)
+                {
+                    await FailTurnTcpRelayStageAsync(provider, client, null).ConfigureAwait(false);
+                    return "TURN TCP 中继分配超时";
+                }
+
+                Candidate relayCandidate;
+                using (var allocateCts = CancellationTokenSource.CreateLinkedTokenSource(token))
+                {
+                    allocateCts.CancelAfter(allocateRemaining);
+
+                    try
+                    {
+                        relayCandidate = await provider.AllocateAsync(allocateCts.Token).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        if (token.IsCancellationRequested)
+                        {
+                            throw;
+                        }
+
+                        await FailTurnTcpRelayStageAsync(provider, client, null).ConfigureAwait(false);
+                        return "TURN TCP 中继分配超时";
+                    }
+                    catch (TurnClientException ex)
+                    {
+                        await FailTurnTcpRelayStageAsync(provider, client, null).ConfigureAwait(false);
+                        P2PLogHelper.Debug(LogNode, "TURN TCP 中继分配失败：" + ex.Message);
+                        return "TURN TCP 中继分配失败：" + ex.Message;
+                    }
+                    catch (Exception ex) when (ex is SocketException || ex is System.IO.IOException)
+                    {
+                        // 控制传输建链被拒绝等传输层失败只说明本级不通，交给阶梯继续下一级
+                        await FailTurnTcpRelayStageAsync(provider, client, null).ConfigureAwait(false);
+                        P2PLogHelper.Debug(LogNode, "TURN TCP 中继控制传输失败：" + ex.Message);
+                        return "TURN TCP 中继控制传输失败：" + ex.Message;
+                    }
+                }
+
+                if (relayCandidate == null)
+                {
+                    await FailTurnTcpRelayStageAsync(provider, client, null).ConfigureAwait(false);
+                    return "TURN TCP 中继分配失败：未返回中继端点";
+                }
+
+                // 字段先于候选发布赋值，后续失败路径的清理才能释放同一批实例
+                lock (_syncRoot)
+                {
+                    _tcpRelayClient = client;
+                    _tcpRelayProvider = provider;
+                }
+
+                if (TryAddLocalCandidate(relayCandidate, false))
+                {
+                    RaiseLocalCandidateDiscovered(relayCandidate);
+                }
+
+                P2PLogHelper.Debug(LogNode, "TURN TCP 中继候选：" + relayCandidate.EndPoint);
+
+                // 两端都要拿到对端的 TCP 中继候选：受控方拿它作为候选对的远端，控制方还要连它的中继地址
+                Candidate remote = FindRemoteTcpRelayCandidate();
+                while (remote == null)
+                {
+                    token.ThrowIfCancellationRequested();
+
+                    var waitRemaining = stageBudget - clock.Elapsed;
+                    if (waitRemaining <= TimeSpan.Zero)
+                    {
+                        break;
+                    }
+
+                    var pollWait = waitRemaining < CandidatePollInterval ? waitRemaining : CandidatePollInterval;
+
+                    // Task.Delay 不接受 0，向上取整到 1 毫秒
+                    await Task.Delay((int)Math.Max(1, Math.Ceiling(pollWait.TotalMilliseconds)), token).ConfigureAwait(false);
+                    remote = FindRemoteTcpRelayCandidate();
+                }
+
+                if (remote == null)
+                {
+                    await FailTurnTcpRelayStageAsync(provider, client, null).ConfigureAwait(false);
+                    return "找不到对端的 TCP 中继候选";
+                }
+
+                var remaining = stageBudget - clock.Elapsed;
+                if (remaining <= TimeSpan.Zero)
+                {
+                    await FailTurnTcpRelayStageAsync(provider, client, null).ConfigureAwait(false);
+                    return "TURN TCP 中继未打通";
+                }
+
+                channel = new TcpDirectChannel(_parameters.LocalUfrag, _parameters.LocalPassword);
+
+                // 单次检查超时不能超过本阶段剩余预算，同时给通道留出最小可用的超时值
+                channel.CheckTimeoutMilliseconds = (int)Math.Max(1, Math.Min(remaining.TotalMilliseconds, 5000));
+
+                TcpDirectResult result = null;
+                string transportFailure = null;
+
+                using (var cts = CancellationTokenSource.CreateLinkedTokenSource(token))
+                {
+                    cts.CancelAfter(remaining);
+
+                    ITcpTransport transport = null;
+                    if (isControlling)
+                    {
+                        try
+                        {
+                            transport = await provider.ConnectAndBindAsync(remote.EndPoint, cts.Token).ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            if (token.IsCancellationRequested)
+                            {
+                                throw;
+                            }
+
+                            transportFailure = "TURN TCP 中继连接超时";
+                        }
+                        catch (TurnClientException ex)
+                        {
+                            P2PLogHelper.Debug(LogNode, "TURN TCP 中继连接失败：" + ex.Message);
+                            transportFailure = "TURN TCP 中继连接失败：" + ex.Message;
+                        }
+                        catch (Exception ex) when (ex is SocketException || ex is System.IO.IOException)
+                        {
+                            P2PLogHelper.Debug(LogNode, "TURN TCP 中继连接失败：" + ex.Message);
+                            transportFailure = "TURN TCP 中继连接失败：" + ex.Message;
+                        }
+                    }
+                    else
+                    {
+                        while (transport == null && transportFailure == null)
+                        {
+                            token.ThrowIfCancellationRequested();
+
+                            TurnConnectionAttempt attempt;
+                            if (provider.TryTakeConnectionAttempt(out attempt))
+                            {
+                                try
+                                {
+                                    transport = await provider.BindInboundAsync(attempt, cts.Token).ConfigureAwait(false);
+                                }
+                                catch (OperationCanceledException)
+                                {
+                                    if (token.IsCancellationRequested)
+                                    {
+                                        throw;
+                                    }
+
+                                    transportFailure = "TURN TCP 中继绑定超时";
+                                }
+                                catch (TurnClientException ex)
+                                {
+                                    P2PLogHelper.Debug(LogNode, "TURN TCP 中继绑定失败：" + ex.Message);
+                                    transportFailure = "TURN TCP 中继绑定失败：" + ex.Message;
+                                }
+                                catch (Exception ex) when (ex is SocketException || ex is System.IO.IOException)
+                                {
+                                    P2PLogHelper.Debug(LogNode, "TURN TCP 中继绑定失败：" + ex.Message);
+                                    transportFailure = "TURN TCP 中继绑定失败：" + ex.Message;
+                                }
+
+                                break;
+                            }
+
+                            var waitRemaining = stageBudget - clock.Elapsed;
+                            if (waitRemaining <= TimeSpan.Zero)
+                            {
+                                // 预算耗尽只是本级没等到连接，不当作异常
+                                transportFailure = "未收到 TURN TCP 中继入向连接";
+                                break;
+                            }
+
+                            var pollWait = waitRemaining < CandidatePollInterval ? waitRemaining : CandidatePollInterval;
+                            await Task.Delay((int)Math.Max(1, Math.Ceiling(pollWait.TotalMilliseconds)), token).ConfigureAwait(false);
+                        }
+                    }
+
+                    if (transportFailure == null && transport != null)
+                    {
+                        var priority = IcePriority.ComputeForTcp(CandidateType.Relay, _parameters.Component, TcpCandidateType.SimultaneousOpen);
+
+                        try
+                        {
+                            result = await channel.CheckAsync(
+                                transport,
+                                remote.EndPoint,
+                                _parameters.RemoteUfrag,
+                                _parameters.RemotePassword,
+                                _parameters.Role,
+                                _parameters.Tiebreaker,
+                                priority,
+                                isControlling,
+                                cts.Token).ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            if (token.IsCancellationRequested)
+                            {
+                                throw;
+                            }
+
+                            result = null;
+                        }
+                    }
+                }
+
+                if (transportFailure != null)
+                {
+                    channel.Dispose();
+                    await FailTurnTcpRelayStageAsync(provider, client, channel).ConfigureAwait(false);
+                    return transportFailure;
+                }
+
+                if (result == null || !result.Succeeded)
+                {
+                    // 检查失败时通道已关闭中继数据连接，这里只需释放本地对象与服务端分配
+                    channel.Dispose();
+                    await FailTurnTcpRelayStageAsync(provider, client, channel).ConfigureAwait(false);
+                    P2PLogHelper.Debug(LogNode, "TURN TCP 中继检查失败："
+                        + (result == null ? "超时" : result.Failure + " / " + result.ErrorReason));
+                    return "TURN TCP 中继检查失败：" + (result == null ? "超时" : result.Failure + " / " + result.ErrorReason);
+                }
+
+                channel.FrameReceived += OnFrameReceived;
+
+                var pair = new CandidatePair(relayCandidate, remote, isControlling);
+                if (pair.State == PairState.Frozen) pair.MarkWaiting();
+                if (pair.State != PairState.InProgress) pair.MarkInProgress();
+                pair.MarkSucceeded();
+                pair.MarkValid();
+                pair.MarkNominated();
+
+                lock (_syncRoot)
+                {
+                    _tcpDirectChannel = channel;
+                    _selectedPair = new SelectedPair(pair);
+                }
+
+                return null;
+            }
+            catch
+            {
+                // 异常与取消路径同样要释放服务端分配，否则中继端口会一直挂在服务端
+                await FailTurnTcpRelayStageAsync(provider, client, channel).ConfigureAwait(false);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// 在对端已登记的候选里找出 TCP 中继候选
+        /// </summary>
+        /// <returns>第一个 Type 为 Relay 且 Transport 为 Tcp 的候选；尚未到达时返回 null</returns>
+        private Candidate FindRemoteTcpRelayCandidate()
+        {
+            var remoteCandidates = _parameters.RemoteCandidates;
+            if (remoteCandidates == null)
+            {
+                return null;
+            }
+
+            for (int i = 0; i < remoteCandidates.Count; i++)
+            {
+                var candidate = remoteCandidates[i];
+                if (candidate != null
+                    && candidate.Type == CandidateType.Relay
+                    && candidate.Transport == IceTransportType.Tcp)
+                {
+                    return candidate;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// 按阶段生成 TURN 客户端配置：始终返回副本，并把 REQUESTED-TRANSPORT 强制为 UDP
+        /// </summary>
+        /// <remarks>
+        /// TurnUdp 也返回副本；副本保留调用方给的传输工厂与本地绑定，因此行为与原「直接复用调用方实例」一致，
+        /// 而 RequestedTransportProtocol 一律被会话改成 17，调用方填的值在会话级不生效。
+        /// 其它阶段不能就地改调用方实例，否则同一次会话里上一级的传输选择会被后一级覆盖。
+        /// TurnTcp / TurnTls 换成内置的 TCP / TLS 控制传输，TurnTls 的目标主机名与是否忽略证书错误取会话配置。
         /// </remarks>
         /// <param name="stage">当前中继阶段</param>
         /// <returns>供本阶段 TurnClient 使用的配置</returns>
         private TurnClientOptions CreateStageTurnOptions(IceStage stage)
         {
-            if (stage == IceStage.TurnUdp)
-            {
-                return _options.Turn;
-            }
-
             var clone = CloneTurnOptions(_options.Turn);
+
+            // 会话在 UDP 中继段只用 UDP 分配；调用方填的 RequestedTransportProtocol 在会话级不生效
+            clone.RequestedTransportProtocol = 17;
 
             if (stage == IceStage.TurnTcp)
             {
-                // 只换控制传输；REQUESTED-TRANSPORT 仍为 17，中继对端依旧由服务端按 UDP 分配
                 clone.TransportFactory = () => new TcpTurnClientTransport(_options.Turn.ServerEndPoint);
             }
 
@@ -1913,6 +2292,20 @@ namespace SAEA.P2P.Ice
                 clone.TransportFactory = () => new TurnTlsClientTransport(_options.Turn.ServerEndPoint, targetHost, allowInvalid);
             }
 
+            return clone;
+        }
+
+        /// <summary>
+        /// 按阶段生成 RFC 6062 TCP 中继的客户端配置
+        /// </summary>
+        /// <param name="stage">当前中继阶段</param>
+        /// <returns>REQUESTED-TRANSPORT 为 6 的配置副本</returns>
+        private TurnClientOptions CreateTurnTcpRelayOptions(IceStage stage)
+        {
+            var clone = CreateStageTurnOptions(stage);
+
+            // RFC 6062 要求 TCP 分配：REQUESTED-TRANSPORT 必须是 6，数据连接也走 TCP / TLS
+            clone.RequestedTransportProtocol = 6;
             return clone;
         }
 
@@ -2154,6 +2547,52 @@ namespace SAEA.P2P.Ice
             }
 
             DisposeQuietly(client, "TURN 客户端");
+        }
+
+        /// <summary>
+        /// TURN TCP 中继段失败收尾：摘字段、释放通道、向服务端发 LIFETIME=0 再释放本地对象
+        /// </summary>
+        /// <param name="provider">候选提供器，可为 null</param>
+        /// <param name="client">TURN 客户端，可为 null</param>
+        /// <param name="channel">已建立的 TCP 中继数据面通道，可为 null</param>
+        /// <returns>收尾完成的任务</returns>
+        private async Task FailTurnTcpRelayStageAsync(TcpRelayCandidateProvider provider, TurnClient client, TcpDirectChannel channel)
+        {
+            // 先摘字段，避免随后的 Dispose 或 CleanupTurnStage 释放同一批实例两次
+            lock (_syncRoot)
+            {
+                if (ReferenceEquals(_tcpRelayProvider, provider))
+                {
+                    _tcpRelayProvider = null;
+                }
+                if (ReferenceEquals(_tcpRelayClient, client))
+                {
+                    _tcpRelayClient = null;
+                }
+                if (ReferenceEquals(_tcpDirectChannel, channel))
+                {
+                    _tcpDirectChannel = null;
+                }
+            }
+
+            DisposeQuietly(channel, "TCP 中继数据面通道");
+
+            if (provider != null)
+            {
+                try
+                {
+                    // 中继端口只有服务端能回收，失败也要继续本地释放，但必须先尝试过
+                    await provider.ReleaseAsync(CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    P2PLogHelper.Debug(LogNode, "释放 TURN TCP 中继分配失败：" + ex.GetType().Name);
+                }
+
+                DisposeQuietly(provider, "TURN TCP 中继提供器");
+            }
+
+            DisposeQuietly(client, "TURN TCP 中继客户端");
         }
 
         /// <summary>

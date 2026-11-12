@@ -23,16 +23,17 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 16:36:13
+*修改时间：2026/11/12 17:56:19
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增 TURN over TLS 控制传输用例
+*描述：新增 TURN TCP 中继选路用例并调整 TURN 阶段预算
 *
 *****************************************************************************/
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
+using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
@@ -58,6 +59,7 @@ namespace SAEA.P2P.Tests.Ice
     /// ICE 会话端到端用例：两个回环地址上的会话互相 trickle 候选，
     /// 分别验证 UDP 直连选路与业务帧双向转发、UDP 不通时回退 TCP 直连、只有中继候选时落 TURN over UDP，
     /// 控制连接改走 TCP 时落 TURN over TCP、改走 TLS 时落 TURN over TLS，以及未连接时的发送与重复启动校验。
+    /// UDP 中继拿不到对端候选时在 TURN over TCP 级内改走 RFC 6062 TCP 中继。
     /// </summary>
     [TestClass]
     public class IceSessionTests
@@ -797,6 +799,160 @@ namespace SAEA.P2P.Tests.Ice
         }
 
         /// <summary>
+        /// TURN TCP 中继：服务端只开 TCP 控制监听，两端又只互发 TCP 中继候选，第 3 级 UDP 控制与本级的 UDP 中继都不通，
+        /// 应落在 TURN over TCP 阶段并通过 RFC 6062 的 TCP 中继建立数据面，双向转发业务帧
+        /// </summary>
+        [TestMethod]
+        [Timeout(120000)]
+        public async Task StartAsync_UdpRelayBlocked_SelectsTurnTcpRelay()
+        {
+            IceSession controller = null;
+            IceSession controlled = null;
+            TurnTcpListener tcpListener = null;
+            TurnServerHost turnServer = null;
+
+            try
+            {
+                // TCP 中继要独占一个监听端口，与 UDP 中继共用同一段区间，预留时同时确认两种协议都空闲
+                var relayPorts = ReserveTcpRelayPorts(6);
+
+                turnServer = new TurnServerHost(new TurnServerOptions
+                {
+                    SharedSecret = TurnSharedSecret,
+                    Realm = TurnRealm,
+                    RelayAddress = TurnAddress,
+                    RelayPortMin = relayPorts[0],
+                    RelayPortMax = relayPorts[relayPorts.Length - 1]
+                });
+
+                // 只开 TCP 控制监听、不建 UDP STUN 监听：第 3 级 UDP 控制的分配拿不到任何应答
+                tcpListener = new TurnTcpListener(new IPEndPoint(TurnAddress, 0), turnServer);
+                tcpListener.Start();
+                var turnEndPoint = tcpListener.LocalEndPoint;
+
+                // 传输工厂仍是 UDP 控制，这是第 3 级用的配置；第 4 级由会话换成内置 TCP 控制传输
+                var controllerTurn = new TurnClientOptions
+                {
+                    ServerEndPoint = turnEndPoint,
+                    TransportFactory = () => new UdpTurnClientTransport(new IPEndPoint(HostA, 0), turnEndPoint),
+                    Credential = turnServer.CredentialService.Create("ice-tcp-relay-user-a"),
+                    RtoMilliseconds = 100,
+                    AllocationRefreshInterval = TimeSpan.FromSeconds(30),
+                    PermissionRefreshInterval = TimeSpan.FromSeconds(30),
+                    ChannelRefreshInterval = TimeSpan.FromSeconds(30),
+                    RefreshTimeout = TimeSpan.FromSeconds(10)
+                };
+                var controlledTurn = new TurnClientOptions
+                {
+                    ServerEndPoint = turnEndPoint,
+                    TransportFactory = () => new UdpTurnClientTransport(new IPEndPoint(HostB, 0), turnEndPoint),
+                    Credential = turnServer.CredentialService.Create("ice-tcp-relay-user-b"),
+                    RtoMilliseconds = 100,
+                    AllocationRefreshInterval = TimeSpan.FromSeconds(30),
+                    PermissionRefreshInterval = TimeSpan.FromSeconds(30),
+                    ChannelRefreshInterval = TimeSpan.FromSeconds(30),
+                    RefreshTimeout = TimeSpan.FromSeconds(10)
+                };
+
+                controller = new IceSession(CreateTurnTcpOptions(HostA, controllerTurn), CreateParameters(true, UfragA, PwdA, UfragB, PwdB, 1));
+                controlled = new IceSession(CreateTurnTcpOptions(HostB, controlledTurn), CreateParameters(false, UfragB, PwdB, UfragA, PwdA, 2));
+
+                // 只转发 TCP 中继候选：本级的 UDP 中继段拿不到对端 UDP 中继候选，只能退到 RFC 6062
+                controller.LocalCandidateDiscovered += candidate =>
+                {
+                    if (candidate.Type == CandidateType.Relay && candidate.Transport == IceTransportType.Tcp)
+                    {
+                        controlled.AddRemoteCandidate(candidate);
+                    }
+                };
+                controlled.LocalCandidateDiscovered += candidate =>
+                {
+                    if (candidate.Type == CandidateType.Relay && candidate.Transport == IceTransportType.Tcp)
+                    {
+                        controller.AddRemoteCandidate(candidate);
+                    }
+                };
+
+                var controllerFrames = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+                var controlledFrames = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+                controller.FrameReceived += CreateFrameHandler(controllerFrames);
+                controlled.FrameReceived += CreateFrameHandler(controlledFrames);
+
+                using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(90)))
+                {
+                    // 受控方只等对向连接与提名，先进入中继阶段完成分配，随后控制方才开始选路
+                    var controlledTask = controlled.StartAsync(cts.Token);
+                    var controllerTask = controller.StartAsync(cts.Token);
+
+                    var controllerResult = await WaitAsync(controllerTask, StartTimeout, "控制方 StartAsync").ConfigureAwait(false);
+                    var controlledResult = await WaitAsync(controlledTask, StartTimeout, "受控方 StartAsync").ConfigureAwait(false);
+
+                    // 落在第 4 级说明第 3 级 UDP 控制确实失败，且本级最终选中的是 RFC 6062 而不是 UDP 中继
+                    Assert.AreEqual(IceStage.TurnTcp, controllerResult.Stage, "控制方应落在 TURN over TCP 阶段");
+                    Assert.AreEqual(IceStage.TurnTcp, controlledResult.Stage, "受控方应落在 TURN over TCP 阶段");
+
+                    Assert.IsTrue(controller.IsConnected, "控制方 TCP 中继选路完成后 IsConnected 应为 true");
+                    Assert.IsTrue(controlled.IsConnected, "受控方 TCP 中继选路完成后 IsConnected 应为 true");
+
+                    Assert.AreEqual(ChannelType.Relay, controllerResult.ChannelType, "控制方通道类型应为中继");
+                    Assert.AreEqual(ChannelType.Relay, controlledResult.ChannelType, "受控方通道类型应为中继");
+
+                    // TCP 中继的数据面就是 Connect/ConnectionBind 得到的 TCP 连接，与 UDP 中继的 UsesTcp=false 相反
+                    Assert.IsTrue(controllerResult.UsesTcp, "控制方数据面应使用 TCP 中继");
+                    Assert.IsTrue(controlledResult.UsesTcp, "受控方数据面应使用 TCP 中继");
+
+                    Assert.AreEqual(TurnAddress, controllerResult.LocalEndPoint.Address, "控制方本地端点应为中继地址");
+                    Assert.AreEqual(TurnAddress, controllerResult.RemoteEndPoint.Address, "控制方远端端点应为对端中继地址");
+                    Assert.AreEqual(TurnAddress, controlledResult.LocalEndPoint.Address, "受控方本地端点应为中继地址");
+                    Assert.AreEqual(TurnAddress, controlledResult.RemoteEndPoint.Address, "受控方远端端点应为对端中继地址");
+
+                    Assert.IsTrue(
+                        controllerResult.LocalEndPoint.Port >= relayPorts[0] && controllerResult.LocalEndPoint.Port <= relayPorts[relayPorts.Length - 1],
+                        "控制方中继端口应落在预留区间内");
+                    Assert.IsTrue(
+                        controlledResult.LocalEndPoint.Port >= relayPorts[0] && controlledResult.LocalEndPoint.Port <= relayPorts[relayPorts.Length - 1],
+                        "受控方中继端口应落在预留区间内");
+                    Assert.AreNotEqual(
+                        controllerResult.LocalEndPoint.Port,
+                        controlledResult.LocalEndPoint.Port,
+                        "两端 TCP 中继应各占一个中继端口");
+
+                    var payload1 = Encoding.UTF8.GetBytes("turn-tcp-relay-hello 控制方经 RFC 6062 中继问好");
+                    controller.Send(payload1);
+                    var received1 = await WaitAsync(controlledFrames.Task, FrameTimeout, "受控方接收控制方 TCP 中继业务帧").ConfigureAwait(false);
+                    CollectionAssert.AreEqual(payload1, received1, "受控方经 TCP 中继收到的业务帧与控制方发送的内容不一致");
+
+                    var payload2 = Encoding.UTF8.GetBytes("turn-tcp-relay-reply 受控方经 RFC 6062 中继回执");
+                    controlled.Send(payload2);
+                    var received2 = await WaitAsync(controllerFrames.Task, FrameTimeout, "控制方接收受控方 TCP 中继业务帧").ConfigureAwait(false);
+                    CollectionAssert.AreEqual(payload2, received2, "控制方经 TCP 中继收到的业务帧与受控方发送的内容不一致");
+                }
+            }
+            finally
+            {
+                if (controller != null)
+                {
+                    controller.Dispose();
+                }
+
+                if (controlled != null)
+                {
+                    controlled.Dispose();
+                }
+
+                if (tcpListener != null)
+                {
+                    tcpListener.Dispose();
+                }
+
+                if (turnServer != null)
+                {
+                    turnServer.Dispose();
+                }
+            }
+        }
+
+        /// <summary>
         /// 构造会话配置：绑定一个回环地址，收集与 TURN 阶段用短预算，总预算按校验要求放宽
         /// </summary>
         /// <param name="bind">本端绑定地址</param>
@@ -821,7 +977,7 @@ namespace SAEA.P2P.Tests.Ice
         }
 
         /// <summary>
-        /// 构造走 TURN 中继的会话配置：直连阶段各 1s，TURN 阶段 8s，总预算容纳收集与三级 TURN 阶段
+        /// 构造走 TURN 中继的会话配置：直连阶段各 1s，TURN 阶段 10s，总预算容纳收集与三级 TURN 阶段
         /// </summary>
         /// <param name="bind">本端绑定地址</param>
         /// <param name="turn">TURN 客户端配置</param>
@@ -838,14 +994,15 @@ namespace SAEA.P2P.Tests.Ice
             options.GatheringBudget = TimeSpan.FromSeconds(1);
             options.UdpDirectBudget = TimeSpan.FromSeconds(1);
             options.TcpDirectBudget = TimeSpan.FromSeconds(1);
-            options.TurnStageBudget = TimeSpan.FromSeconds(8);
+            options.TurnStageBudget = TimeSpan.FromSeconds(10);
             options.SessionBudget = TimeSpan.FromSeconds(40);
             options.Turn = turn;
             return options;
         }
 
         /// <summary>
-        /// 构造 TURN over TCP 用例的会话配置：直连阶段各 1s，TURN 阶段 5s，总预算容纳 UDP 控制失败与随后的 TCP 控制重试
+        /// 构造 TURN over TCP 用例的会话配置：直连阶段各 1s，TURN 阶段 10s，总预算容纳 UDP 控制失败与随后的 TCP 控制重试
+        /// （该级先用半个阶段预算试 UDP 中继，剩余预算试 RFC 6062 TCP 中继）
         /// </summary>
         /// <param name="bind">本端绑定地址</param>
         /// <param name="turn">TURN 客户端配置</param>
@@ -862,14 +1019,15 @@ namespace SAEA.P2P.Tests.Ice
             options.GatheringBudget = TimeSpan.FromSeconds(1);
             options.UdpDirectBudget = TimeSpan.FromSeconds(1);
             options.TcpDirectBudget = TimeSpan.FromSeconds(1);
-            options.TurnStageBudget = TimeSpan.FromSeconds(5);
+            options.TurnStageBudget = TimeSpan.FromSeconds(10);
             options.SessionBudget = TimeSpan.FromSeconds(40);
             options.Turn = turn;
             return options;
         }
 
         /// <summary>
-        /// 构造 TURN over TLS 用例的会话配置：直连阶段各 1s，TURN 阶段 5s，总预算容纳 UDP 与明文 TCP 控制两次失败后再走 TLS
+        /// 构造 TURN over TLS 用例的会话配置：直连阶段各 1s，TURN 阶段 10s，总预算容纳 UDP 与明文 TCP 控制两次失败后再走 TLS
+        /// （该级先用半个阶段预算试 UDP 中继，剩余预算试 RFC 6062 TCP 中继）
         /// </summary>
         /// <param name="bind">本端绑定地址</param>
         /// <param name="turn">TURN 客户端配置</param>
@@ -886,7 +1044,7 @@ namespace SAEA.P2P.Tests.Ice
             options.GatheringBudget = TimeSpan.FromSeconds(1);
             options.UdpDirectBudget = TimeSpan.FromSeconds(1);
             options.TcpDirectBudget = TimeSpan.FromSeconds(1);
-            options.TurnStageBudget = TimeSpan.FromSeconds(5);
+            options.TurnStageBudget = TimeSpan.FromSeconds(10);
             options.SessionBudget = TimeSpan.FromSeconds(60);
             options.Turn = turn;
             // 自签证书只写 CN=localhost，测试用回环地址连接，必须显式给出域名并忽略证书错误
@@ -1014,6 +1172,63 @@ namespace SAEA.P2P.Tests.Ice
                 for (var i = 0; i < probes.Count; i++)
                 {
                     probes[i].Dispose();
+                }
+            }
+        }
+
+        /// <summary>
+        /// 在 TURN 地址上取若干个 UDP 与 TCP 同时空闲的端口并立即释放，用于收窄 TCP 中继用例的中继端口区间
+        /// </summary>
+        /// <param name="count">端口数量</param>
+        /// <returns>升序端口数组</returns>
+        private static int[] ReserveTcpRelayPorts(int count)
+        {
+            var udpProbes = new List<SaeaUdpTransport>();
+            var tcpProbes = new List<TcpListener>();
+            try
+            {
+                var ports = new int[count];
+                var found = 0;
+
+                // 单轮可能撞上已被占用的端口，逐个重试直到凑齐，重试次数上限防止极端情况下死循环
+                for (var attempt = 0; found < count && attempt < count * 50; attempt++)
+                {
+                    var probe = new SaeaUdpTransport();
+                    probe.BindAsync(new IPEndPoint(TurnAddress, 0), CancellationToken.None).GetAwaiter().GetResult();
+                    udpProbes.Add(probe);
+                    var port = probe.LocalEndPoint.Port;
+
+                    TcpListener listener;
+                    try
+                    {
+                        listener = new TcpListener(new IPEndPoint(TurnAddress, port));
+                        listener.Start();
+                    }
+                    catch (SocketException)
+                    {
+                        // 该端口 TCP 已被占用，换下一个候选
+                        continue;
+                    }
+
+                    tcpProbes.Add(listener);
+                    ports[found] = port;
+                    found++;
+                }
+
+                Assert.AreEqual(count, found, "没有找到足够的 UDP/TCP 同时空闲的中继端口");
+                Array.Sort(ports);
+                return ports;
+            }
+            finally
+            {
+                for (var i = 0; i < tcpProbes.Count; i++)
+                {
+                    tcpProbes[i].Stop();
+                }
+
+                for (var i = 0; i < udpProbes.Count; i++)
+                {
+                    udpProbes[i].Dispose();
                 }
             }
         }
