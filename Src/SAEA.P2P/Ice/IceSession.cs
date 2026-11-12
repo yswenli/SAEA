@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 17:49:52
+*修改时间：2026/11/12 18:02:53
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：TURN 级内接入 RFC 6062 TCP 中继回退
+*描述：TLS 控制下的 TCP 中继数据连接改用 TLS 传输
 *
 *****************************************************************************/
 using System;
@@ -2281,13 +2281,7 @@ namespace SAEA.P2P.Ice
 
             if (stage == IceStage.TurnTls)
             {
-                var targetHost = _options.TurnTlsTargetHost;
-                if (string.IsNullOrEmpty(targetHost))
-                {
-                    // 配置没给域名时退回服务端地址，生产建议显式配置证书里的域名
-                    targetHost = _options.Turn.ServerEndPoint.Address.ToString();
-                }
-
+                var targetHost = ResolveTurnTlsTargetHost();
                 var allowInvalid = _options.TurnTlsAllowInvalidCertificates;
                 clone.TransportFactory = () => new TurnTlsClientTransport(_options.Turn.ServerEndPoint, targetHost, allowInvalid);
             }
@@ -2296,16 +2290,41 @@ namespace SAEA.P2P.Ice
         }
 
         /// <summary>
-        /// 按阶段生成 RFC 6062 TCP 中继的客户端配置
+        /// 解析 TURN over TLS 的目标主机名：会话未显式配置时回退到服务端地址的字符串形式
+        /// </summary>
+        /// <returns>用于 TLS 证书校验的主机名</returns>
+        private string ResolveTurnTlsTargetHost()
+        {
+            var targetHost = _options.TurnTlsTargetHost;
+            if (string.IsNullOrEmpty(targetHost))
+            {
+                // 配置没给域名时退回服务端地址，生产建议显式配置证书里的域名
+                targetHost = _options.Turn.ServerEndPoint.Address.ToString();
+            }
+
+            return targetHost;
+        }
+
+        /// <summary>
+        /// 按阶段生成 RFC 6062 TCP 中继的客户端配置，TLS 控制下数据连接也走 TLS
         /// </summary>
         /// <param name="stage">当前中继阶段</param>
-        /// <returns>REQUESTED-TRANSPORT 为 6 的配置副本</returns>
+        /// <returns>REQUESTED-TRANSPORT 为 6、必要时带 TLS 数据连接的配置副本</returns>
         private TurnClientOptions CreateTurnTcpRelayOptions(IceStage stage)
         {
             var clone = CreateStageTurnOptions(stage);
 
             // RFC 6062 要求 TCP 分配：REQUESTED-TRANSPORT 必须是 6，数据连接也走 TCP / TLS
             clone.RequestedTransportProtocol = 6;
+
+            if (stage == IceStage.TurnTls)
+            {
+                // 服务端要求 ConnectionBind 的数据连接与控制连接同加密层，明文数据连接会被拒
+                var targetHost = ResolveTurnTlsTargetHost();
+                var allowInvalid = _options.TurnTlsAllowInvalidCertificates;
+                clone.DataTransportFactory = () => new SaeaTlsTcpTransport(targetHost, allowInvalid);
+            }
+
             return clone;
         }
 

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 17:56:19
+*修改时间：2026/11/12 18:04:08
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增 TURN TCP 中继选路用例并调整 TURN 阶段预算
+*描述：新增 TLS 控制下 TCP 中继选路用例
 *
 *****************************************************************************/
 using System;
@@ -60,6 +60,7 @@ namespace SAEA.P2P.Tests.Ice
     /// 分别验证 UDP 直连选路与业务帧双向转发、UDP 不通时回退 TCP 直连、只有中继候选时落 TURN over UDP，
     /// 控制连接改走 TCP 时落 TURN over TCP、改走 TLS 时落 TURN over TLS，以及未连接时的发送与重复启动校验。
     /// UDP 中继拿不到对端候选时在 TURN over TCP 级内改走 RFC 6062 TCP 中继。
+    /// TLS 控制下同样在级内改走 RFC 6062，数据连接与控制连接同层加密。
     /// </summary>
     [TestClass]
     public class IceSessionTests
@@ -949,6 +950,162 @@ namespace SAEA.P2P.Tests.Ice
                 {
                     turnServer.Dispose();
                 }
+            }
+        }
+
+        /// <summary>
+        /// TURN over TLS 下的 TCP 中继：服务端只开 TLS 控制监听，两端又只互发 TCP 中继候选，
+        /// UDP 控制与明文 TCP 控制都拿不到分配，应落在 TURN over TLS 阶段并经 TLS 上的 RFC 6062 数据连接双向转发业务帧
+        /// </summary>
+        [TestMethod]
+        [Timeout(150000)]
+        public async Task StartAsync_UdpAndTcpControlBlocked_SelectsTurnTlsTcpRelay()
+        {
+            IceSession controller = null;
+            IceSession controlled = null;
+            TurnTlsListener tlsListener = null;
+            TurnServerHost turnServer = null;
+
+            var certificatePath = CreateCertificateFile();
+
+            try
+            {
+                // TCP 中继要独占一个监听端口，与 UDP 中继共用同一段区间，预留时同时确认两种协议都空闲
+                var relayPorts = ReserveTcpRelayPorts(6);
+
+                turnServer = new TurnServerHost(new TurnServerOptions
+                {
+                    SharedSecret = TurnSharedSecret,
+                    Realm = TurnRealm,
+                    RelayAddress = TurnAddress,
+                    RelayPortMin = relayPorts[0],
+                    RelayPortMax = relayPorts[relayPorts.Length - 1]
+                });
+
+                // 只开 TLS 控制监听：第 3 级 UDP 控制拿不到应答，第 4 级明文 TCP 控制连不上
+                tlsListener = new TurnTlsListener(new IPEndPoint(TurnAddress, 0), turnServer, certificatePath, CertificatePassword);
+                tlsListener.Start();
+                var turnEndPoint = tlsListener.LocalEndPoint;
+
+                // 传输工厂仍是 UDP 控制，这是第 3 级用的配置；第 4、5 级由会话换成内置 TCP 与 TLS 控制传输
+                var controllerTurn = new TurnClientOptions
+                {
+                    ServerEndPoint = turnEndPoint,
+                    TransportFactory = () => new UdpTurnClientTransport(new IPEndPoint(HostA, 0), turnEndPoint),
+                    Credential = turnServer.CredentialService.Create("ice-tls-relay-user-a"),
+                    RtoMilliseconds = 100,
+                    AllocationRefreshInterval = TimeSpan.FromSeconds(30),
+                    PermissionRefreshInterval = TimeSpan.FromSeconds(30),
+                    ChannelRefreshInterval = TimeSpan.FromSeconds(30),
+                    RefreshTimeout = TimeSpan.FromSeconds(2)
+                };
+                var controlledTurn = new TurnClientOptions
+                {
+                    ServerEndPoint = turnEndPoint,
+                    TransportFactory = () => new UdpTurnClientTransport(new IPEndPoint(HostB, 0), turnEndPoint),
+                    Credential = turnServer.CredentialService.Create("ice-tls-relay-user-b"),
+                    RtoMilliseconds = 100,
+                    AllocationRefreshInterval = TimeSpan.FromSeconds(30),
+                    PermissionRefreshInterval = TimeSpan.FromSeconds(30),
+                    ChannelRefreshInterval = TimeSpan.FromSeconds(30),
+                    RefreshTimeout = TimeSpan.FromSeconds(2)
+                };
+
+                controller = new IceSession(CreateTurnTlsOptions(HostA, controllerTurn), CreateParameters(true, UfragA, PwdA, UfragB, PwdB, 1));
+                controlled = new IceSession(CreateTurnTlsOptions(HostB, controlledTurn), CreateParameters(false, UfragB, PwdB, UfragA, PwdA, 2));
+
+                // 只转发 TCP 中继候选：本级的 UDP 中继段拿不到对端 UDP 中继候选，只能退到 RFC 6062
+                controller.LocalCandidateDiscovered += candidate =>
+                {
+                    if (candidate.Type == CandidateType.Relay && candidate.Transport == IceTransportType.Tcp)
+                    {
+                        controlled.AddRemoteCandidate(candidate);
+                    }
+                };
+                controlled.LocalCandidateDiscovered += candidate =>
+                {
+                    if (candidate.Type == CandidateType.Relay && candidate.Transport == IceTransportType.Tcp)
+                    {
+                        controller.AddRemoteCandidate(candidate);
+                    }
+                };
+
+                var controllerFrames = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+                var controlledFrames = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+                controller.FrameReceived += CreateFrameHandler(controllerFrames);
+                controlled.FrameReceived += CreateFrameHandler(controlledFrames);
+
+                using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(120)))
+                {
+                    var controlledTask = controlled.StartAsync(cts.Token);
+                    var controllerTask = controller.StartAsync(cts.Token);
+
+                    var controllerResult = await WaitAsync(controllerTask, StartTimeout, "控制方 StartAsync").ConfigureAwait(false);
+                    var controlledResult = await WaitAsync(controlledTask, StartTimeout, "受控方 StartAsync").ConfigureAwait(false);
+
+                    // 落在第 5 级说明前两级的 UDP 与 TCP 控制都确实失败，且本级最终选中的是 RFC 6062 而不是 UDP 中继
+                    Assert.AreEqual(IceStage.TurnTls, controllerResult.Stage, "控制方应落在 TURN over TLS 阶段");
+                    Assert.AreEqual(IceStage.TurnTls, controlledResult.Stage, "受控方应落在 TURN over TLS 阶段");
+
+                    Assert.IsTrue(controller.IsConnected, "控制方 TLS 上的 TCP 中继选路完成后 IsConnected 应为 true");
+                    Assert.IsTrue(controlled.IsConnected, "受控方 TLS 上的 TCP 中继选路完成后 IsConnected 应为 true");
+
+                    Assert.AreEqual(ChannelType.Relay, controllerResult.ChannelType, "控制方通道类型应为中继");
+                    Assert.AreEqual(ChannelType.Relay, controlledResult.ChannelType, "受控方通道类型应为中继");
+
+                    Assert.IsTrue(controllerResult.UsesTcp, "控制方数据面应使用 TCP 中继");
+                    Assert.IsTrue(controlledResult.UsesTcp, "受控方数据面应使用 TCP 中继");
+
+                    Assert.AreEqual(TurnAddress, controllerResult.LocalEndPoint.Address, "控制方本地端点应为中继地址");
+                    Assert.AreEqual(TurnAddress, controllerResult.RemoteEndPoint.Address, "控制方远端端点应为对端中继地址");
+                    Assert.AreEqual(TurnAddress, controlledResult.LocalEndPoint.Address, "受控方本地端点应为中继地址");
+                    Assert.AreEqual(TurnAddress, controlledResult.RemoteEndPoint.Address, "受控方远端端点应为对端中继地址");
+
+                    Assert.IsTrue(
+                        controllerResult.LocalEndPoint.Port >= relayPorts[0] && controllerResult.LocalEndPoint.Port <= relayPorts[relayPorts.Length - 1],
+                        "控制方中继端口应落在预留区间内");
+                    Assert.IsTrue(
+                        controlledResult.LocalEndPoint.Port >= relayPorts[0] && controlledResult.LocalEndPoint.Port <= relayPorts[relayPorts.Length - 1],
+                        "受控方中继端口应落在预留区间内");
+                    Assert.AreNotEqual(
+                        controllerResult.LocalEndPoint.Port,
+                        controlledResult.LocalEndPoint.Port,
+                        "两端 TCP 中继应各占一个中继端口");
+
+                    var payload1 = Encoding.UTF8.GetBytes("turn-tls-tcp-relay-hello 控制方经 TLS 上的 RFC 6062 中继问好");
+                    controller.Send(payload1);
+                    var received1 = await WaitAsync(controlledFrames.Task, FrameTimeout, "受控方接收控制方 TLS 中继业务帧").ConfigureAwait(false);
+                    CollectionAssert.AreEqual(payload1, received1, "受控方经 TLS 上的 TCP 中继收到的业务帧与控制方发送的内容不一致");
+
+                    var payload2 = Encoding.UTF8.GetBytes("turn-tls-tcp-relay-reply 受控方经 TLS 上的 RFC 6062 中继回执");
+                    controlled.Send(payload2);
+                    var received2 = await WaitAsync(controllerFrames.Task, FrameTimeout, "控制方接收受控方 TLS 中继业务帧").ConfigureAwait(false);
+                    CollectionAssert.AreEqual(payload2, received2, "控制方经 TLS 上的 TCP 中继收到的业务帧与受控方发送的内容不一致");
+                }
+            }
+            finally
+            {
+                if (controller != null)
+                {
+                    controller.Dispose();
+                }
+
+                if (controlled != null)
+                {
+                    controlled.Dispose();
+                }
+
+                if (tlsListener != null)
+                {
+                    tlsListener.Dispose();
+                }
+
+                if (turnServer != null)
+                {
+                    turnServer.Dispose();
+                }
+
+                TryDelete(certificatePath);
             }
         }
 
