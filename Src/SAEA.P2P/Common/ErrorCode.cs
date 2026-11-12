@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 14:24:38
+*修改时间：2026/11/12 14:44:17
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 ICE 选路与 TURN 回退错误码，取值 EI01、EI02、ET01、ET02
+*描述：新增未连通错误码 EI03
 *
 *****************************************************************************/
 namespace SAEA.P2P.Common
@@ -174,6 +174,10 @@ namespace SAEA.P2P.Common
         /// ICE 选路会话超出总预算
         /// </summary>
         public static readonly string IceTimeout = "EI02";
+        /// <summary>
+        /// 尚未选出可用通道就尝试发送业务数据
+        /// </summary>
+        public static readonly string NotConnected = "EI03";
 
         // TURN 回退：服务不可用与鉴权失败
         /// <summary>
@@ -220,6 +224,7 @@ namespace SAEA.P2P.Common
                 { PayloadTooLarge, "Payload too large" },
                 { NoCandidatePair, "No candidate pair" },
                 { IceTimeout, "ICE session timeout" },
+                { NotConnected, "ICE channel not selected" },
                 { TurnUnavailable, "TURN server unavailable" },
                 { TurnAuthFailed, "TURN authentication failed" }
             };
