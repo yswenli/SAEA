@@ -22,10 +22,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 16:40:00
+*修改时间：2026/11/12 14:05:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：释放阶段仍接收 STUN 应答，并把释放事务超时与等待超时拆成两个常量
+*描述：新增 RFC 6062 控制面：按 REQUESTED-TRANSPORT 申请中继、Connect 取连接号与 ConnectionAttempt 事件
 *
 *****************************************************************************/
 using System;
@@ -47,11 +47,6 @@ namespace SAEA.P2P.Turn
     /// </summary>
     public sealed class TurnClient : IDisposable
     {
-        /// <summary>
-        /// REQUESTED-TRANSPORT 的 UDP 协议号
-        /// </summary>
-        private const byte UdpTransportProtocol = 17;
-
         /// <summary>
         /// 默认分配生命周期，单位秒
         /// </summary>
@@ -225,6 +220,11 @@ namespace SAEA.P2P.Turn
         public event Action<TurnAllocationClient> Reallocated;
 
         /// <summary>
+        /// 对端主动连入中继端口时触发；订阅方应据连接号另开数据连接完成 ConnectionBind
+        /// </summary>
+        public event Action<TurnConnectionAttempt> ConnectionAttemptReceived;
+
+        /// <summary>
         /// 申请分配：先发无鉴权请求，收到 401/438 后用长期密钥签名重试一次。
         /// 第二次仍返回 401/438 时立即抛异常，不会发出第三次请求。
         /// </summary>
@@ -248,6 +248,40 @@ namespace SAEA.P2P.Turn
                     _allocateGate.Release();
                 }
             }
+        }
+
+        /// <summary>
+        /// 发起 TURN over TCP 的 Connect：请求服务端向对端建立一条中继连接，并返回服务端分配的连接号
+        /// </summary>
+        /// <param name="peerEndPoint">对端地址</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>服务端分配的连接号，用于后续 ConnectionBind</returns>
+        /// <exception cref="ArgumentNullException">peerEndPoint 为 null</exception>
+        /// <exception cref="ObjectDisposedException">客户端已释放</exception>
+        /// <exception cref="InvalidOperationException">当前分配不是 TCP 中继</exception>
+        /// <exception cref="TurnClientException">服务端拒绝、应答应缺少 CONNECTION-ID 或请求超时</exception>
+        public async Task<uint> ConnectAsync(IPEndPoint peerEndPoint, CancellationToken cancellationToken)
+        {
+            if (peerEndPoint == null)
+            {
+                throw new ArgumentNullException(nameof(peerEndPoint));
+            }
+            ThrowIfDisposed();
+
+            if (_options.RequestedTransportProtocol != 6)
+            {
+                throw new InvalidOperationException("只有 TCP 中继分配才能发起 Connect");
+            }
+
+            var response = await SendAuthenticatedAsync(TurnMessage.CreateConnect(peerEndPoint), cancellationToken).ConfigureAwait(false);
+
+            uint connectionId;
+            if (!TurnMessage.TryGetConnectionId(response, out connectionId))
+            {
+                throw new TurnClientException(TurnErrorCode.BadRequest, "Connect 应答应携带 CONNECTION-ID");
+            }
+
+            return connectionId;
         }
 
         /// <summary>
@@ -525,7 +559,22 @@ namespace SAEA.P2P.Turn
         private async Task<TurnAllocationClient> AllocateCoreAsync(uint? lifetime, CancellationToken cancellationToken, TimeSpan? requestTimeout, bool reconnect)
         {
             var transport = await EnsureTransportAsync(cancellationToken).ConfigureAwait(false);
-            var request = TurnMessage.CreateAllocate(UdpTransportProtocol, lifetime);
+
+            // TCP 中继的数据连接要靠控制连接复用同一套凭据与连接记录，UDP 控制连接承载不了 RFC 6062
+            if (_options.RequestedTransportProtocol == 6 && !transport.IsReliable)
+            {
+                try
+                {
+                    transport.Dispose();
+                }
+                catch
+                {
+                    // 建立到一半的传输可能已在内部释放，这里只关心把异常上级路径挡住
+                }
+                throw new InvalidOperationException("TCP 中继必须使用 TCP 或 TLS 控制连接");
+            }
+
+            var request = TurnMessage.CreateAllocate(_options.RequestedTransportProtocol, lifetime);
 
             var first = await RunRequestAsync(request, cancellationToken, requestTimeout).ConfigureAwait(false);
             if (first.Class == StunClass.SuccessResponse)
@@ -990,6 +1039,17 @@ namespace SAEA.P2P.Turn
                     return;
                 }
 
+                if (message.Class == StunClass.Indication && message.Method == StunMessageType.ConnectionAttempt)
+                {
+                    // 释放后不再触发用户事件
+                    if (disposed)
+                    {
+                        return;
+                    }
+                    HandleConnectionAttempt(message);
+                    return;
+                }
+
                 // 应答无论是否已释放都交事务层：层已释放时只会查不到事务并记调试日志
                 _transactions.HandleResponse(message);
             }
@@ -1039,6 +1099,68 @@ namespace SAEA.P2P.Turn
             }
 
             RaiseDataReceived(peer, data.ToArray());
+        }
+
+        /// <summary>
+        /// 解析 ConnectionAttempt 指示并触发事件；缺属性或完整性校验失败时丢弃
+        /// </summary>
+        /// <param name="message">ConnectionAttempt 指示</param>
+        private void HandleConnectionAttempt(StunMessage message)
+        {
+            uint connectionId;
+            if (!TurnMessage.TryGetConnectionId(message, out connectionId))
+            {
+                P2PLogHelper.Debug("TurnClient", "丢弃缺少 CONNECTION-ID 的 ConnectionAttempt");
+                return;
+            }
+
+            IPEndPoint peer;
+            if (!TurnMessage.TryGetPeerAddress(message, out peer))
+            {
+                P2PLogHelper.Debug("TurnClient", "丢弃缺少 XOR-PEER-ADDRESS 的 ConnectionAttempt");
+                return;
+            }
+
+            byte[] key;
+            lock (_sync)
+            {
+                key = _integrityKey;
+            }
+
+            // 服务端要求鉴权时连接号必须可证明来源；未启用鉴权时没有密钥可校验
+            if (key != null && !StunIntegrity.TryVerify(message, key))
+            {
+                P2PLogHelper.Debug("TurnClient", "丢弃 MESSAGE-INTEGRITY 校验失败的 ConnectionAttempt");
+                return;
+            }
+
+            RaiseConnectionAttempt(new TurnConnectionAttempt(connectionId, peer));
+        }
+
+        /// <summary>
+        /// 逐订阅者触发 ConnectionAttempt 事件；单个订阅者异常不影响其余订阅者
+        /// </summary>
+        /// <param name="attempt">连接尝试</param>
+        private void RaiseConnectionAttempt(TurnConnectionAttempt attempt)
+        {
+            var handler = ConnectionAttemptReceived;
+            if (handler == null)
+            {
+                return;
+            }
+
+            var subscribers = handler.GetInvocationList();
+            for (var i = 0; i < subscribers.Length; i++)
+            {
+                try
+                {
+                    ((Action<TurnConnectionAttempt>)subscribers[i])(attempt);
+                }
+                catch (Exception ex)
+                {
+                    P2PLogHelper.Debug("TurnClient", "ConnectionAttempt 事件订阅者异常：" + ex.GetType().Name);
+                }
+            }
         }
 
         /// <summary>

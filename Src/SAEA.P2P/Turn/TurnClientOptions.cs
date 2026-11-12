@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 05:00:00
+*修改时间：2026/11/12 14:05:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增刷新请求超时 RefreshTimeout
+*描述：新增 REQUESTED-TRANSPORT 协议号选项 RequestedTransportProtocol
 *
 *****************************************************************************/
 using System;
@@ -182,6 +182,11 @@ namespace SAEA.P2P.Turn
         }
 
         /// <summary>
+        /// 申请分配时携带的 REQUESTED-TRANSPORT 协议号：17 为 UDP 中继，6 为 TCP 中继（RFC 6062）
+        /// </summary>
+        public byte RequestedTransportProtocol { get; set; } = 17;
+
+        /// <summary>
         /// SOFTWARE 属性值；为 null 时不携带
         /// </summary>
         public string Software { get; set; }
@@ -209,6 +214,10 @@ namespace SAEA.P2P.Turn
             if (ReconnectBackoffMax < ReconnectBackoffInitial)
             {
                 throw new ArgumentException("重连退避上限不能小于初始值", nameof(ReconnectBackoffMax));
+            }
+            if (RequestedTransportProtocol != 17 && RequestedTransportProtocol != 6)
+            {
+                throw new ArgumentException("REQUESTED-TRANSPORT 只支持 17（UDP）或 6（TCP）", nameof(RequestedTransportProtocol));
             }
         }
 
