@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 15:42:37
+*修改时间：2026/11/12 15:48:33
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：接入 TURN over UDP 中继选路，释放会话时回收中继资源
+*描述：接入 TURN over TCP 控制传输阶段
 *
 *****************************************************************************/
 using System;
@@ -559,6 +559,10 @@ namespace SAEA.P2P.Ice
                     CleanupTurnStage();
                     break;
 
+                case IceStage.TurnTcp:
+                    CleanupTurnStage();
+                    break;
+
                 default:
                     break;
             }
@@ -732,7 +736,7 @@ namespace SAEA.P2P.Ice
                     return await RunTurnUdpAsync(stageBudget, token).ConfigureAwait(false);
 
                 case IceStage.TurnTcp:
-                    return "TURN TCP 中继尚未接入";
+                    return await RunTurnTcpAsync(stageBudget, token).ConfigureAwait(false);
 
                 case IceStage.TurnTls:
                     return "TURN TLS 中继尚未接入";
@@ -1474,21 +1478,28 @@ namespace SAEA.P2P.Ice
         }
 
         /// <summary>
-        /// TURN over UDP 阶段：先申请中继候选与中继数据通道，再在中继通道上做连通性检查与提名
+        /// TURN 中继阶段共享主干：先申请中继候选与中继数据通道，再在中继通道上做连通性检查与提名
         /// </summary>
         /// <remarks>
-        /// 中继路径上的检查请求必须从分配的中继端口发出，因此检查与提名都用中继数据通道本身作为传输；
+        /// 控制传输按阶段选择：TurnUdp 用调用方给的传输工厂，TurnTcp 用内置 TCP 控制传输；
+        /// 中继对端仍是 UDP，因此中继路径上的检查请求必须从分配的中继端口发出，检查与提名都用中继数据通道本身作为传输；
         /// 每次检查前还要为该对端地址建立中继权限，否则服务端会直接丢弃发往该地址的报文。
         /// 分配在中继阶段成功时保留给数据面使用，失败时先向服务端发 LIFETIME=0 再清理本地资源。
         /// </remarks>
+        /// <param name="stage">当前中继阶段，决定客户端到 TURN 的控制传输</param>
         /// <param name="stageBudget">本阶段可用预算</param>
         /// <param name="token">联合取消令牌</param>
         /// <returns>失败原因；选中通道时为 null</returns>
-        private async Task<string> RunTurnUdpAsync(TimeSpan stageBudget, CancellationToken token)
+        private async Task<string> RunTurnRelayAsync(IceStage stage, TimeSpan stageBudget, CancellationToken token)
         {
             if (_options.Turn == null)
             {
                 return "未配置 TURN 服务";
+            }
+
+            if (_options.Turn.ServerEndPoint == null)
+            {
+                return "TURN 服务端端点未配置";
             }
 
             var clock = Stopwatch.StartNew();
@@ -1499,7 +1510,7 @@ namespace SAEA.P2P.Ice
 
             try
             {
-                client = new TurnClient(_options.Turn);
+                client = new TurnClient(CreateStageTurnOptions(stage));
                 provider = new RelayCandidateProvider(client, _parameters.Component);
 
                 var allocateRemaining = stageBudget - clock.Elapsed;
@@ -1533,6 +1544,13 @@ namespace SAEA.P2P.Ice
                         await FailTurnStageAsync(provider, client).ConfigureAwait(false);
                         P2PLogHelper.Debug(LogNode, "TURN 分配失败：" + ex.Message);
                         return "TURN 分配失败：" + ex.Message;
+                    }
+                    catch (Exception ex) when (ex is SocketException || ex is System.IO.IOException)
+                    {
+                        // TCP 控制传输建链被拒绝等传输层失败只说明本级不通，交给阶梯继续下一级
+                        await FailTurnStageAsync(provider, client).ConfigureAwait(false);
+                        P2PLogHelper.Debug(LogNode, "TURN 控制传输失败：" + ex.Message);
+                        return "TURN 控制传输失败：" + ex.Message;
                     }
                 }
 
@@ -1624,6 +1642,13 @@ namespace SAEA.P2P.Ice
 
                 var isControlling = _parameters.Role == IceRole.Controlling;
 
+                // 已建权限的地址；对端中继候选常在本阶段内才 trickle 到达，循环里补建缺失的地址
+                var permitted = new HashSet<IPAddress>();
+                for (int i = 0; i < remoteAddresses.Count; i++)
+                {
+                    permitted.Add(remoteAddresses[i]);
+                }
+
                 // 已尝试的候选对按实例记录，避免同一对在每轮重取快照后被反复检查而耗尽预算
                 var attempted = new HashSet<CandidatePair>();
                 var triedAny = false;
@@ -1637,6 +1662,8 @@ namespace SAEA.P2P.Ice
                     {
                         break;
                     }
+
+                    await EnsureRelayPermissionsAsync(channel, permitted, remaining, token).ConfigureAwait(false);
 
                     // 受控方不发起检查也不提名，只等对端 USE-CANDIDATE
                     if (!isControlling)
@@ -1803,6 +1830,91 @@ namespace SAEA.P2P.Ice
         }
 
         /// <summary>
+        /// TURN over UDP 阶段：客户端到 TURN 的控制连接走 UDP，中继对端也是 UDP
+        /// </summary>
+        /// <remarks>
+        /// 本阶段与 TURN over TCP 的差别只在控制传输，中继对端始终是 UDP。
+        /// </remarks>
+        /// <param name="stageBudget">本阶段可用预算</param>
+        /// <param name="token">联合取消令牌</param>
+        /// <returns>失败原因；选中通道时为 null</returns>
+        private async Task<string> RunTurnUdpAsync(TimeSpan stageBudget, CancellationToken token)
+        {
+            return await RunTurnRelayAsync(IceStage.TurnUdp, stageBudget, token).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// TURN over TCP 阶段：客户端到 TURN 的控制连接改走 TCP，中继对端仍是 UDP
+        /// </summary>
+        /// <remarks>
+        /// 只有控制连接换传输，分配、权限、通道与中继数据面都沿用 UDP 中继，不做 RFC 6062 的 TCP 中继对端。
+        /// </remarks>
+        /// <param name="stageBudget">本阶段可用预算</param>
+        /// <param name="token">联合取消令牌</param>
+        /// <returns>失败原因；选中通道时为 null</returns>
+        private async Task<string> RunTurnTcpAsync(TimeSpan stageBudget, CancellationToken token)
+        {
+            return await RunTurnRelayAsync(IceStage.TurnTcp, stageBudget, token).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// 按阶段生成 TURN 客户端配置：TurnUdp 直接复用调用方实例，其余阶段在副本上替换控制传输工厂
+        /// </summary>
+        /// <remarks>
+        /// TurnUdp 需要保留调用方给的本地绑定与传输工厂；其它阶段不能就地改调用方实例，
+        /// 否则同一次会话里上一级的传输选择会被后一级覆盖。
+        /// </remarks>
+        /// <param name="stage">当前中继阶段</param>
+        /// <returns>供本阶段 TurnClient 使用的配置</returns>
+        private TurnClientOptions CreateStageTurnOptions(IceStage stage)
+        {
+            if (stage == IceStage.TurnUdp)
+            {
+                return _options.Turn;
+            }
+
+            var clone = CloneTurnOptions(_options.Turn);
+
+            if (stage == IceStage.TurnTcp)
+            {
+                // 只换控制传输；REQUESTED-TRANSPORT 仍为 17，中继对端依旧由服务端按 UDP 分配
+                clone.TransportFactory = () => new TcpTurnClientTransport(_options.Turn.ServerEndPoint);
+            }
+
+            return clone;
+        }
+
+        /// <summary>
+        /// 按值复制 TURN 客户端配置
+        /// </summary>
+        /// <remarks>
+        /// 按值复制配置对象，避免为某一级改掉调用方实例；复制后由调用方覆盖需要变的项。
+        /// </remarks>
+        /// <param name="source">源配置，非空</param>
+        /// <returns>各项属性与源配置一致的副本</returns>
+        private static TurnClientOptions CloneTurnOptions(TurnClientOptions source)
+        {
+            var clone = new TurnClientOptions();
+            clone.ServerEndPoint = source.ServerEndPoint;
+            clone.TransportFactory = source.TransportFactory;
+            clone.Username = source.Username;
+            clone.Password = source.Password;
+            clone.Credential = source.Credential;
+            clone.RtoMilliseconds = source.RtoMilliseconds;
+            clone.AllocationRefreshInterval = source.AllocationRefreshInterval;
+            clone.PermissionRefreshInterval = source.PermissionRefreshInterval;
+            clone.ChannelRefreshInterval = source.ChannelRefreshInterval;
+            clone.RefreshTimeout = source.RefreshTimeout;
+            clone.ReconnectBackoffInitial = source.ReconnectBackoffInitial;
+            clone.ReconnectBackoffMax = source.ReconnectBackoffMax;
+            clone.TimerFactory = source.TimerFactory;
+            clone.RequestedTransportProtocol = source.RequestedTransportProtocol;
+            clone.DataTransportFactory = source.DataTransportFactory;
+            clone.Software = source.Software;
+            return clone;
+        }
+
+        /// <summary>
         /// 从检查表当前快照中挑出优先级最高的、尚未尝试过的 TURN 中继候选对
         /// </summary>
         /// <remarks>
@@ -1878,6 +1990,87 @@ namespace SAEA.P2P.Ice
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// 为中继阶段新到达的对端地址补建权限，已有权限的地址跳过
+        /// </summary>
+        /// <remarks>
+        /// 阶段开始时只按当时的对端候选快照建了一次权限，trickle 方式下后到的中继候选不在快照里，
+        /// 服务端会直接丢弃这些地址的报文，导致本阶段白耗预算；补建失败只记日志，下一轮按剩余预算重试。
+        /// </remarks>
+        /// <param name="channel">中继数据通道，非空</param>
+        /// <param name="permitted">已建立权限的地址集合，非空</param>
+        /// <param name="budget">本次补建可用的预算</param>
+        /// <param name="token">联合取消令牌</param>
+        /// <returns>补建结束的任务</returns>
+        private async Task EnsureRelayPermissionsAsync(TurnDataChannel channel, HashSet<IPAddress> permitted, TimeSpan budget, CancellationToken token)
+        {
+            var remotes = _parameters.RemoteCandidates;
+            if (remotes == null || budget <= TimeSpan.Zero)
+            {
+                return;
+            }
+
+            List<IPAddress> missing = null;
+            for (int i = 0; i < remotes.Count; i++)
+            {
+                var remote = remotes[i];
+                if (remote == null || remote.Transport != IceTransportType.Udp || remote.Address == null)
+                {
+                    continue;
+                }
+
+                if (permitted.Contains(remote.Address))
+                {
+                    continue;
+                }
+
+                if (missing == null)
+                {
+                    missing = new List<IPAddress>();
+                }
+
+                // 权限按 IP 放行，同一地址的多个候选只需申请一次
+                if (!missing.Contains(remote.Address))
+                {
+                    missing.Add(remote.Address);
+                }
+            }
+
+            if (missing == null)
+            {
+                return;
+            }
+
+            using (var cts = CancellationTokenSource.CreateLinkedTokenSource(token))
+            {
+                cts.CancelAfter(budget);
+
+                try
+                {
+                    await channel.CreatePermissionsAsync(missing, cts.Token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    if (token.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+
+                    return;
+                }
+                catch (TurnClientException ex)
+                {
+                    P2PLogHelper.Debug(LogNode, "TURN 权限补建失败：" + ex.Message);
+                    return;
+                }
+            }
+
+            for (int i = 0; i < missing.Count; i++)
+            {
+                permitted.Add(missing[i]);
+            }
         }
 
         /// <summary>
