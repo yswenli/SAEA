@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 15:00:08
+*修改时间：2026/11/12 15:42:37
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：候选对状态迁移补齐解冻与检查中步骤
+*描述：接入 TURN over UDP 中继选路，释放会话时回收中继资源
 *
 *****************************************************************************/
 using System;
@@ -41,6 +41,7 @@ using System.Threading.Tasks;
 using SAEA.P2P.Common;
 using SAEA.P2P.Stun;
 using SAEA.P2P.Transport;
+using SAEA.P2P.Turn;
 
 namespace SAEA.P2P.Ice
 {
@@ -140,6 +141,16 @@ namespace SAEA.P2P.Ice
         /// 选中的 TCP 数据面通道
         /// </summary>
         private TcpDirectChannel _tcpDirectChannel;
+
+        /// <summary>
+        /// TURN 阶段的客户端；选中中继通道后继续保留，负责分配的刷新与重连
+        /// </summary>
+        private TurnClient _turnClient;
+
+        /// <summary>
+        /// TURN 阶段的中继候选提供器，持有服务端分配与中继数据通道
+        /// </summary>
+        private RelayCandidateProvider _turnProvider;
 
         /// <summary>
         /// 选中的候选对
@@ -385,6 +396,15 @@ namespace SAEA.P2P.Ice
             _udpGatherer = null;
             DisposeQuietly(udpGatherer, "UDP 候选收集器");
 
+            // 这里只做本地释放，不发送 LIFETIME=0；中继端口由服务端按分配租期回收，与 TurnClient / TurnAllocationClient 的释放语义一致
+            var turnProvider = _turnProvider;
+            _turnProvider = null;
+            DisposeQuietly(turnProvider, "TURN 中继提供器");
+
+            var turnClient = _turnClient;
+            _turnClient = null;
+            DisposeQuietly(turnClient, "TURN 客户端");
+
             lock (_syncRoot)
             {
                 _checkList = null;
@@ -536,6 +556,7 @@ namespace SAEA.P2P.Ice
 
                 case IceStage.TurnUdp:
                     CleanupTcpStage();
+                    CleanupTurnStage();
                     break;
 
                 default:
@@ -647,6 +668,50 @@ namespace SAEA.P2P.Ice
         }
 
         /// <summary>
+        /// 释放 TURN 阶段资源，可重复调用
+        /// </summary>
+        /// <remarks>
+        /// 只做本地清理，中继分配的释放由失败路径显式调用释放辅助方法完成；
+        /// 先置空字段再释放，避免同一通道被释放两次。
+        /// </remarks>
+        private void CleanupTurnStage()
+        {
+            var udpChannel = _udpDataChannel;
+            _udpDataChannel = null;
+            DisposeQuietly(udpChannel, "UDP 数据面通道");
+
+            var responder = _responder;
+            _responder = null;
+            if (responder != null)
+            {
+                // 先退订再释放，避免释放过程中仍有接收线程回调进会话
+                try { responder.CheckRequestReceived -= OnInboundCheckRequest; } catch { }
+            }
+            DisposeQuietly(responder, "入向检查应答器");
+
+            var nominator = _nominator;
+            _nominator = null;
+            DisposeQuietly(nominator, "提名器");
+
+            var check = _connectivityCheck;
+            _connectivityCheck = null;
+            DisposeQuietly(check, "连通性检查");
+
+            var provider = _turnProvider;
+            _turnProvider = null;
+            DisposeQuietly(provider, "TURN 中继提供器");
+
+            var client = _turnClient;
+            _turnClient = null;
+            DisposeQuietly(client, "TURN 客户端");
+
+            lock (_syncRoot)
+            {
+                _checkList = null;
+            }
+        }
+
+        /// <summary>
         /// 单个阶段的尝试入口，返回 null 表示该阶段已选中通道，否则返回失败原因
         /// </summary>
         /// <param name="stage">当前阶段</param>
@@ -663,8 +728,17 @@ namespace SAEA.P2P.Ice
                 case IceStage.TcpDirect:
                     return await RunTcpDirectAsync(stageBudget, token).ConfigureAwait(false);
 
+                case IceStage.TurnUdp:
+                    return await RunTurnUdpAsync(stageBudget, token).ConfigureAwait(false);
+
+                case IceStage.TurnTcp:
+                    return "TURN TCP 中继尚未接入";
+
+                case IceStage.TurnTls:
+                    return "TURN TLS 中继尚未接入";
+
                 default:
-                    return "TURN 中继尚未接入";
+                    return "未知的选路阶段：" + stage;
             }
         }
 
@@ -1400,8 +1474,469 @@ namespace SAEA.P2P.Ice
         }
 
         /// <summary>
+        /// TURN over UDP 阶段：先申请中继候选与中继数据通道，再在中继通道上做连通性检查与提名
+        /// </summary>
+        /// <remarks>
+        /// 中继路径上的检查请求必须从分配的中继端口发出，因此检查与提名都用中继数据通道本身作为传输；
+        /// 每次检查前还要为该对端地址建立中继权限，否则服务端会直接丢弃发往该地址的报文。
+        /// 分配在中继阶段成功时保留给数据面使用，失败时先向服务端发 LIFETIME=0 再清理本地资源。
+        /// </remarks>
+        /// <param name="stageBudget">本阶段可用预算</param>
+        /// <param name="token">联合取消令牌</param>
+        /// <returns>失败原因；选中通道时为 null</returns>
+        private async Task<string> RunTurnUdpAsync(TimeSpan stageBudget, CancellationToken token)
+        {
+            if (_options.Turn == null)
+            {
+                return "未配置 TURN 服务";
+            }
+
+            var clock = Stopwatch.StartNew();
+
+            // 客户端与提供器不放进 using：中继阶段成功时它们要继续为数据面服务
+            TurnClient client = null;
+            RelayCandidateProvider provider = null;
+
+            try
+            {
+                client = new TurnClient(_options.Turn);
+                provider = new RelayCandidateProvider(client, _parameters.Component);
+
+                var allocateRemaining = stageBudget - clock.Elapsed;
+                if (allocateRemaining <= TimeSpan.Zero)
+                {
+                    await FailTurnStageAsync(provider, client).ConfigureAwait(false);
+                    return "TURN 分配超时";
+                }
+
+                Candidate relayCandidate;
+                using (var allocateCts = CancellationTokenSource.CreateLinkedTokenSource(token))
+                {
+                    allocateCts.CancelAfter(allocateRemaining);
+
+                    try
+                    {
+                        relayCandidate = await provider.AllocateAsync(allocateCts.Token).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        if (token.IsCancellationRequested)
+                        {
+                            throw;
+                        }
+
+                        await FailTurnStageAsync(provider, client).ConfigureAwait(false);
+                        return "TURN 分配超时";
+                    }
+                    catch (TurnClientException ex)
+                    {
+                        await FailTurnStageAsync(provider, client).ConfigureAwait(false);
+                        P2PLogHelper.Debug(LogNode, "TURN 分配失败：" + ex.Message);
+                        return "TURN 分配失败：" + ex.Message;
+                    }
+                }
+
+                var channel = provider.Channel;
+                if (relayCandidate == null || channel == null)
+                {
+                    await FailTurnStageAsync(provider, client).ConfigureAwait(false);
+                    return "TURN 分配失败：未返回中继端点";
+                }
+
+                P2PLogHelper.Debug(LogNode, "TURN 中继候选：" + relayCandidate.EndPoint);
+
+                // 字段先于候选发布赋值，后续失败路径的清理才能释放同一批实例
+                lock (_syncRoot)
+                {
+                    _turnClient = client;
+                    _turnProvider = provider;
+                }
+
+                if (TryAddLocalCandidate(relayCandidate, false))
+                {
+                    RaiseLocalCandidateDiscovered(relayCandidate);
+                }
+
+                // 中继阶段单独建检查表：只放本地中继候选与对端 UDP 候选，避免混入直连阶段已失败的组合
+                var checkList = new CheckList(_parameters.Role == IceRole.Controlling);
+                checkList.AddLocalCandidate(relayCandidate);
+
+                var remotes = _parameters.RemoteCandidates;
+                if (remotes != null)
+                {
+                    for (int i = 0; i < remotes.Count; i++)
+                    {
+                        if (remotes[i] != null && remotes[i].Transport == IceTransportType.Udp)
+                        {
+                            checkList.AddRemoteCandidate(remotes[i]);
+                        }
+                    }
+                }
+
+                var check = new ConnectivityCheck(_parameters.LocalUfrag, _parameters.LocalPassword);
+
+                lock (_syncRoot)
+                {
+                    _checkList = checkList;
+                }
+
+                _connectivityCheck = check;
+
+                // 中继通道也要应答入向检查：对端从中继端口发来的请求只有本通道能收到
+                var responder = new IceInboundResponder(new IUdpTransport[] { channel }, _parameters.LocalUfrag, _parameters.LocalPassword);
+                _responder = responder;
+                responder.CheckRequestReceived += OnInboundCheckRequest;
+                responder.Start();
+
+                var permissionRemaining = stageBudget - clock.Elapsed;
+                if (permissionRemaining <= TimeSpan.Zero)
+                {
+                    await FailTurnStageAsync(provider, client).ConfigureAwait(false);
+                    return "TURN 分配超时";
+                }
+
+                var remoteAddresses = CollectRemoteUdpAddresses(remotes);
+                using (var permissionCts = CancellationTokenSource.CreateLinkedTokenSource(token))
+                {
+                    permissionCts.CancelAfter(permissionRemaining);
+
+                    try
+                    {
+                        await channel.CreatePermissionsAsync(remoteAddresses, permissionCts.Token).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        if (token.IsCancellationRequested)
+                        {
+                            throw;
+                        }
+
+                        await FailTurnStageAsync(provider, client).ConfigureAwait(false);
+                        return "TURN 权限建立超时";
+                    }
+                    catch (TurnClientException ex)
+                    {
+                        await FailTurnStageAsync(provider, client).ConfigureAwait(false);
+                        P2PLogHelper.Debug(LogNode, "TURN 权限建立失败：" + ex.Message);
+                        return "TURN 权限建立失败：" + ex.Message;
+                    }
+                }
+
+                var isControlling = _parameters.Role == IceRole.Controlling;
+
+                // 已尝试的候选对按实例记录，避免同一对在每轮重取快照后被反复检查而耗尽预算
+                var attempted = new HashSet<CandidatePair>();
+                var triedAny = false;
+
+                while (true)
+                {
+                    token.ThrowIfCancellationRequested();
+
+                    var remaining = stageBudget - clock.Elapsed;
+                    if (remaining <= TimeSpan.Zero)
+                    {
+                        break;
+                    }
+
+                    // 受控方不发起检查也不提名，只等对端 USE-CANDIDATE
+                    if (!isControlling)
+                    {
+                        if (_remoteNomination.Task.IsCompleted)
+                        {
+                            if (TrySelectNominatedPair())
+                            {
+                                return null;
+                            }
+
+                            await FailTurnStageAsync(provider, client).ConfigureAwait(false);
+                            return "对端提名缺少可用传输";
+                        }
+
+                        var nominationWait = remaining < CandidatePollInterval ? remaining : CandidatePollInterval;
+                        await Task.WhenAny(_remoteNomination.Task, Task.Delay(nominationWait, token)).ConfigureAwait(false);
+                        continue;
+                    }
+
+                    var pair = PickNextTurnPair(checkList, attempted);
+                    if (pair == null)
+                    {
+                        // 还没有新的可检查候选对，等对端 trickle 后重取快照
+                        var pollWait = remaining < CandidatePollInterval ? remaining : CandidatePollInterval;
+                        await Task.Delay(pollWait, token).ConfigureAwait(false);
+                        continue;
+                    }
+
+                    attempted.Add(pair);
+                    triedAny = true;
+
+                    var pairTimeout = TimeSpan.FromMilliseconds(
+                        Math.Max(1, Math.Min(StunTransactionTiming.GetTimeoutMilliseconds(500), (stageBudget - clock.Elapsed).TotalMilliseconds)));
+
+                    ConnectivityCheckResult result;
+                    using (var pairCts = CancellationTokenSource.CreateLinkedTokenSource(token))
+                    {
+                        pairCts.CancelAfter(pairTimeout);
+
+                        try
+                        {
+                            result = await check.CheckAsync(
+                                channel,
+                                pair.Remote.EndPoint,
+                                _parameters.RemoteUfrag,
+                                _parameters.RemotePassword,
+                                _parameters.Role,
+                                _parameters.Tiebreaker,
+                                check.ComputePeerReflexivePriority(pair.Local.Component),
+                                false,
+                                channel,
+                                new IPAddress[] { pair.Remote.Address },
+                                pairCts.Token).ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            if (token.IsCancellationRequested)
+                            {
+                                throw;
+                            }
+
+                            // 单对超时不终止本阶段，换下一对继续
+                            pair.MarkFailed();
+                            continue;
+                        }
+                        catch (TurnClientException ex)
+                        {
+                            // 中继权限或通道发送被服务端拒绝时只作废这一对，不能让整级阶段中断
+                            P2PLogHelper.Debug(LogNode, "TURN 中继检查失败：" + ex.Message);
+                            pair.MarkFailed();
+                            continue;
+                        }
+                    }
+
+                    if (result == null || !result.Succeeded)
+                    {
+                        pair.MarkFailed();
+
+                        // 角色冲突说明双方同为控制方或同为受控方，只提示不改变本地角色
+                        if (result != null && result.RoleConflict)
+                        {
+                            P2PLogHelper.Debug(LogNode, "TURN 中继检查出现角色冲突：" + pair.Remote.EndPoint);
+                        }
+
+                        continue;
+                    }
+
+                    if (pair.State == PairState.Frozen) pair.MarkWaiting();
+                    if (pair.State != PairState.InProgress) pair.MarkInProgress();
+                    pair.MarkSucceeded();
+                    pair.MarkValid();
+
+                    var nominateRemaining = stageBudget - clock.Elapsed;
+                    if (nominateRemaining <= TimeSpan.Zero)
+                    {
+                        break;
+                    }
+
+                    if (_nominator == null)
+                    {
+                        _nominator = new Nominator(
+                            _parameters.Role,
+                            _parameters.Tiebreaker,
+                            _parameters.LocalUfrag,
+                            _parameters.LocalPassword,
+                            _parameters.RemoteUfrag,
+                            _parameters.RemotePassword,
+                            checkList);
+                    }
+
+                    bool nominated;
+                    using (var nominateCts = CancellationTokenSource.CreateLinkedTokenSource(token))
+                    {
+                        nominateCts.CancelAfter(nominateRemaining);
+
+                        try
+                        {
+                            nominated = await _nominator.NominateAsync(
+                                channel,
+                                pair,
+                                channel,
+                                new IPAddress[] { pair.Remote.Address },
+                                nominateCts.Token).ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            if (token.IsCancellationRequested)
+                            {
+                                throw;
+                            }
+
+                            nominated = false;
+                        }
+                        catch (TurnClientException ex)
+                        {
+                            P2PLogHelper.Debug(LogNode, "TURN 中继提名失败：" + ex.Message);
+                            nominated = false;
+                        }
+                    }
+
+                    if (nominated)
+                    {
+                        SelectUdpPair(pair, channel);
+                        return null;
+                    }
+                }
+
+                await FailTurnStageAsync(provider, client).ConfigureAwait(false);
+
+                if (!isControlling)
+                {
+                    return "等待对端提名超时";
+                }
+
+                return triedAny ? "TURN 中继未打通" : "没有可配对的 TURN 候选";
+            }
+            catch
+            {
+                // 异常与取消路径同样要释放服务端分配，否则中继端口会一直挂在服务端
+                await FailTurnStageAsync(provider, client).ConfigureAwait(false);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// 从检查表当前快照中挑出优先级最高的、尚未尝试过的 TURN 中继候选对
+        /// </summary>
+        /// <remarks>
+        /// 只让本地中继候选发起检查：对端中继候选要由对端自己从中继端口发出才收得到应答，
+        /// 本端直接向对端中继地址发报文会因缺少权限被服务端丢弃。
+        /// </remarks>
+        /// <param name="checkList">TURN 检查表，非空</param>
+        /// <param name="attempted">已尝试过的候选对集合，非空</param>
+        /// <returns>优先级最高的未尝试候选对；没有可检查的候选对时返回 null</returns>
+        private CandidatePair PickNextTurnPair(CheckList checkList, HashSet<CandidatePair> attempted)
+        {
+            var pairs = new List<CandidatePair>(checkList.Pairs);
+            CandidatePair best = null;
+
+            for (int i = 0; i < pairs.Count; i++)
+            {
+                var pair = pairs[i];
+                if (pair == null || pair.Local == null || pair.Remote == null)
+                {
+                    continue;
+                }
+
+                if (pair.Local.Transport != IceTransportType.Udp || pair.Remote.Transport != IceTransportType.Udp)
+                {
+                    continue;
+                }
+
+                if (pair.Local.Type != CandidateType.Relay)
+                {
+                    continue;
+                }
+
+                if (attempted.Contains(pair))
+                {
+                    continue;
+                }
+
+                if (best == null || pair.Priority > best.Priority)
+                {
+                    best = pair;
+                }
+            }
+
+            return best;
+        }
+
+        /// <summary>
+        /// 收集对端 UDP 候选的地址并去重，用于一次性建立中继权限
+        /// </summary>
+        /// <param name="remotes">对端候选，可为 null</param>
+        /// <returns>去重后的地址列表；没有候选时为空列表</returns>
+        private static List<IPAddress> CollectRemoteUdpAddresses(IReadOnlyList<Candidate> remotes)
+        {
+            var result = new List<IPAddress>();
+            if (remotes == null)
+            {
+                return result;
+            }
+
+            for (int i = 0; i < remotes.Count; i++)
+            {
+                var remote = remotes[i];
+                if (remote == null || remote.Transport != IceTransportType.Udp || remote.Address == null)
+                {
+                    continue;
+                }
+
+                // 权限按 IP 放行，同一地址的多个候选只需申请一次
+                if (!result.Contains(remote.Address))
+                {
+                    result.Add(remote.Address);
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// TURN 阶段失败收尾：先摘掉会话字段，再释放服务端分配与本地资源
+        /// </summary>
+        /// <param name="provider">中继候选提供器，可为 null</param>
+        /// <param name="client">TURN 客户端，可为 null</param>
+        /// <returns>收尾完成的任务</returns>
+        private async Task FailTurnStageAsync(RelayCandidateProvider provider, TurnClient client)
+        {
+            // 先摘字段，避免随后的 CleanupTurnStage 释放同一批实例两次
+            lock (_syncRoot)
+            {
+                if (ReferenceEquals(_turnProvider, provider))
+                {
+                    _turnProvider = null;
+                }
+                if (ReferenceEquals(_turnClient, client))
+                {
+                    _turnClient = null;
+                }
+            }
+
+            await ReleaseTurnResourcesAsync(provider, client).ConfigureAwait(false);
+            CleanupTurnStage();
+        }
+
+        /// <summary>
+        /// 释放 TURN 分配与客户端：先向服务端发 LIFETIME=0，再释放本地对象，异常只记日志
+        /// </summary>
+        /// <param name="provider">中继候选提供器，可为 null</param>
+        /// <param name="client">TURN 客户端，可为 null</param>
+        /// <returns>释放完成的任务</returns>
+        private async Task ReleaseTurnResourcesAsync(RelayCandidateProvider provider, TurnClient client)
+        {
+            if (provider != null)
+            {
+                try
+                {
+                    // 中继端口只有服务端能回收，失败也要继续本地释放，但必须先尝试过
+                    await provider.ReleaseAsync(CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    P2PLogHelper.Debug(LogNode, "释放 TURN 分配失败：" + ex.GetType().Name);
+                }
+
+                DisposeQuietly(provider, "TURN 中继提供器");
+            }
+
+            DisposeQuietly(client, "TURN 客户端");
+        }
+
+        /// <summary>
         /// 按本地候选端点找到对应的 UDP 传输，srflx 候选回退到其基地址与端口
         /// </summary>
+        /// <remarks>
+        /// 中继候选对应中继数据通道，不在本地 UDP 传输数组里
+        /// </remarks>
         /// <param name="local">本地候选</param>
         /// <returns>匹配的传输；没有匹配时返回 null</returns>
         private IUdpTransport FindUdpTransport(Candidate local)
@@ -1409,6 +1944,21 @@ namespace SAEA.P2P.Ice
             if (local == null)
             {
                 return null;
+            }
+
+            if (local.Type == CandidateType.Relay)
+            {
+                var provider = _turnProvider;
+                if (provider != null)
+                {
+                    var relayChannel = provider.Channel;
+                    if (relayChannel != null
+                        && relayChannel.LocalEndPoint != null
+                        && relayChannel.LocalEndPoint.Equals(local.EndPoint))
+                    {
+                        return relayChannel;
+                    }
+                }
             }
 
             var transports = _udpTransports;
@@ -1526,7 +2076,6 @@ namespace SAEA.P2P.Ice
                 {
                     var candidate = _localCandidates[i];
                     if (candidate.Transport == IceTransportType.Udp
-                        && candidate.Type == CandidateType.Host
                         && candidate.EndPoint.Equals(transport.LocalEndPoint))
                     {
                         local = candidate;
@@ -1537,7 +2086,7 @@ namespace SAEA.P2P.Ice
 
             if (local == null)
             {
-                P2PLogHelper.Debug(LogNode, "入向检查请求找不到本地 host 候选：" + transport.LocalEndPoint);
+                P2PLogHelper.Debug(LogNode, "入向检查请求找不到本地候选：" + transport.LocalEndPoint);
                 return;
             }
 

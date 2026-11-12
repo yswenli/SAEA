@@ -23,13 +23,14 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 15:00:08
+*修改时间：2026/11/12 15:42:37
 *修改人： yswenli
 *版本号： net10.0
-*描述：ICE 会话端到端用例：UDP 直连、TCP 回退与启动校验
+*描述：新增 TURN over UDP 中继选路用例
 *
 *****************************************************************************/
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Text;
 using System.Threading;
@@ -37,14 +38,23 @@ using System.Threading.Tasks;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
+using SAEA.P2P.Channel;
 using SAEA.P2P.Common;
 using SAEA.P2P.Ice;
+using SAEA.P2P.StunServer;
+using SAEA.P2P.Transport;
+using SAEA.P2P.Turn;
+using SAEA.P2P.TurnServer;
+
+using StunServerHost = SAEA.P2P.StunServer.StunServer;
+using TurnServerHost = SAEA.P2P.TurnServer.TurnServer;
 
 namespace SAEA.P2P.Tests.Ice
 {
     /// <summary>
     /// ICE 会话端到端用例：两个回环地址上的会话互相 trickle 候选，
-    /// 分别验证 UDP 直连选路与业务帧双向转发、UDP 不通时回退 TCP 直连，以及未连接时的发送与重复启动校验。
+    /// 分别验证 UDP 直连选路与业务帧双向转发、UDP 不通时回退 TCP 直连、只有中继候选时落 TURN over UDP，
+    /// 以及未连接时的发送与重复启动校验。
     /// </summary>
     [TestClass]
     public class IceSessionTests
@@ -58,6 +68,21 @@ namespace SAEA.P2P.Tests.Ice
         /// 受控方绑定地址
         /// </summary>
         private static readonly IPAddress HostB = IPAddress.Parse("127.0.0.42");
+
+        /// <summary>
+        /// TURN 中继对外地址，也是 STUN/TURN 监听地址
+        /// </summary>
+        private static readonly IPAddress TurnAddress = IPAddress.Parse("127.0.0.50");
+
+        /// <summary>
+        /// TURN 测试用共享密钥
+        /// </summary>
+        private const string TurnSharedSecret = "shared-secret-for-ice-session";
+
+        /// <summary>
+        /// TURN 测试用认证域
+        /// </summary>
+        private const string TurnRealm = "saea.p2p";
 
         /// <summary>
         /// 控制方 ufrag
@@ -303,6 +328,159 @@ namespace SAEA.P2P.Tests.Ice
         }
 
         /// <summary>
+        /// TURN over UDP：两端只转发 relay 候选，两级直连拿不到对端候选必然失败，应落到 TURN 中继阶段并双向转发业务帧
+        /// </summary>
+        [TestMethod]
+        [Timeout(120000)]
+        public async Task StartAsync_DirectBlocked_SelectsTurnUdpRelay()
+        {
+            IceSession controller = null;
+            IceSession controlled = null;
+            StunServerHost stunHost = null;
+            TurnServerHost turnServer = null;
+
+            try
+            {
+                // 中继端口区间收窄到预留的 4 个端口，两端各占一个 allocation
+                var relayPorts = ReserveRelayPorts(4);
+
+                turnServer = new TurnServerHost(new TurnServerOptions
+                {
+                    SharedSecret = TurnSharedSecret,
+                    Realm = TurnRealm,
+                    RelayAddress = TurnAddress,
+                    RelayPortMin = relayPorts[0],
+                    RelayPortMax = relayPorts[relayPorts.Length - 1]
+                });
+
+                var stunOptions = new StunServerOptions(new IPEndPoint(TurnAddress, 0))
+                {
+                    RequestHandler = turnServer.HandleRequest,
+                    DatagramHandler = turnServer.HandleDatagram
+                };
+                stunHost = new StunServerHost(stunOptions);
+                await stunHost.StartAsync(CancellationToken.None).ConfigureAwait(false);
+                var turnEndPoint = stunHost.Endpoints[0].LocalEndPoint;
+
+                // 两端各自申请一份分配，凭据分别由服务端凭据服务按用户名签发
+                var controllerTurn = new TurnClientOptions
+                {
+                    ServerEndPoint = turnEndPoint,
+                    TransportFactory = () => new UdpTurnClientTransport(new IPEndPoint(HostA, 0), turnEndPoint),
+                    Credential = turnServer.CredentialService.Create("ice-user-a"),
+                    RtoMilliseconds = 100,
+                    AllocationRefreshInterval = TimeSpan.FromSeconds(30),
+                    PermissionRefreshInterval = TimeSpan.FromSeconds(30),
+                    ChannelRefreshInterval = TimeSpan.FromSeconds(30),
+                    RefreshTimeout = TimeSpan.FromSeconds(10)
+                };
+                var controlledTurn = new TurnClientOptions
+                {
+                    ServerEndPoint = turnEndPoint,
+                    TransportFactory = () => new UdpTurnClientTransport(new IPEndPoint(HostB, 0), turnEndPoint),
+                    Credential = turnServer.CredentialService.Create("ice-user-b"),
+                    RtoMilliseconds = 100,
+                    AllocationRefreshInterval = TimeSpan.FromSeconds(30),
+                    PermissionRefreshInterval = TimeSpan.FromSeconds(30),
+                    ChannelRefreshInterval = TimeSpan.FromSeconds(30),
+                    RefreshTimeout = TimeSpan.FromSeconds(10)
+                };
+
+                controller = new IceSession(CreateTurnOptions(HostA, controllerTurn), CreateParameters(true, UfragA, PwdA, UfragB, PwdB, 1));
+                controlled = new IceSession(CreateTurnOptions(HostB, controlledTurn), CreateParameters(false, UfragB, PwdB, UfragA, PwdA, 2));
+
+                // 只转发 relay 候选：两端都拿不到对端 host 候选，UDP 与 TCP 直连必然失败，只能走 TURN 中继
+                controller.LocalCandidateDiscovered += candidate =>
+                {
+                    if (candidate.Type == CandidateType.Relay && candidate.Transport == IceTransportType.Udp)
+                    {
+                        controlled.AddRemoteCandidate(candidate);
+                    }
+                };
+                controlled.LocalCandidateDiscovered += candidate =>
+                {
+                    if (candidate.Type == CandidateType.Relay && candidate.Transport == IceTransportType.Udp)
+                    {
+                        controller.AddRemoteCandidate(candidate);
+                    }
+                };
+
+                var controllerFrames = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+                var controlledFrames = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+                controller.FrameReceived += CreateFrameHandler(controllerFrames);
+                controlled.FrameReceived += CreateFrameHandler(controlledFrames);
+
+                using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60)))
+                {
+                    // 受控方只等提名，先进 TURN 阶段完成分配，随后控制方才开始选路
+                    var controlledTask = controlled.StartAsync(cts.Token);
+                    var controllerTask = controller.StartAsync(cts.Token);
+
+                    var controllerResult = await WaitAsync(controllerTask, StartTimeout, "控制方 StartAsync").ConfigureAwait(false);
+                    var controlledResult = await WaitAsync(controlledTask, StartTimeout, "受控方 StartAsync").ConfigureAwait(false);
+
+                    Assert.AreEqual(IceStage.TurnUdp, controllerResult.Stage, "控制方应落在 TURN over UDP 阶段");
+                    Assert.AreEqual(IceStage.TurnUdp, controlledResult.Stage, "受控方应落在 TURN over UDP 阶段");
+
+                    Assert.IsTrue(controller.IsConnected, "控制方中继选路完成后 IsConnected 应为 true");
+                    Assert.IsTrue(controlled.IsConnected, "受控方中继选路完成后 IsConnected 应为 true");
+
+                    Assert.IsTrue(controllerResult.IsRelay, "控制方应经中继转发");
+                    Assert.IsTrue(controlledResult.IsRelay, "受控方应经中继转发");
+                    Assert.IsFalse(controllerResult.UsesTcp, "控制方 TURN over UDP 不应使用 TCP");
+                    Assert.IsFalse(controlledResult.UsesTcp, "受控方 TURN over UDP 不应使用 TCP");
+                    Assert.AreEqual(ChannelType.Relay, controllerResult.ChannelType, "控制方通道类型应为中继");
+                    Assert.AreEqual(ChannelType.Relay, controlledResult.ChannelType, "受控方通道类型应为中继");
+
+                    Assert.AreEqual(TurnAddress, controllerResult.LocalEndPoint.Address, "控制方本地端点应为中继地址");
+                    Assert.AreEqual(TurnAddress, controllerResult.RemoteEndPoint.Address, "控制方远端端点应为对端中继地址");
+                    Assert.AreEqual(TurnAddress, controlledResult.LocalEndPoint.Address, "受控方本地端点应为中继地址");
+                    Assert.AreEqual(TurnAddress, controlledResult.RemoteEndPoint.Address, "受控方远端端点应为对端中继地址");
+
+                    Assert.IsTrue(
+                        controllerResult.LocalEndPoint.Port >= relayPorts[0] && controllerResult.LocalEndPoint.Port <= relayPorts[relayPorts.Length - 1],
+                        "控制方中继端口应落在预留区间内");
+                    Assert.IsTrue(
+                        controlledResult.LocalEndPoint.Port >= relayPorts[0] && controlledResult.LocalEndPoint.Port <= relayPorts[relayPorts.Length - 1],
+                        "受控方中继端口应落在预留区间内");
+                    Assert.AreNotEqual(controllerResult.LocalEndPoint, controllerResult.RemoteEndPoint, "两端是不同的 allocation，中继端口不应相同");
+
+                    var payload1 = Encoding.UTF8.GetBytes("turn-udp-hello 控制方经中继问好");
+                    controller.Send(payload1);
+                    var received1 = await WaitAsync(controlledFrames.Task, FrameTimeout, "受控方接收控制方中继业务帧").ConfigureAwait(false);
+                    CollectionAssert.AreEqual(payload1, received1, "受控方经中继收到的业务帧与控制方发送的内容不一致");
+
+                    var payload2 = Encoding.UTF8.GetBytes("turn-udp-reply 受控方经中继回执");
+                    controlled.Send(payload2);
+                    var received2 = await WaitAsync(controllerFrames.Task, FrameTimeout, "控制方接收受控方中继业务帧").ConfigureAwait(false);
+                    CollectionAssert.AreEqual(payload2, received2, "控制方经中继收到的业务帧与受控方发送的内容不一致");
+                }
+            }
+            finally
+            {
+                if (controller != null)
+                {
+                    controller.Dispose();
+                }
+
+                if (controlled != null)
+                {
+                    controlled.Dispose();
+                }
+
+                if (stunHost != null)
+                {
+                    stunHost.Dispose();
+                }
+
+                if (turnServer != null)
+                {
+                    turnServer.Dispose();
+                }
+            }
+        }
+
+        /// <summary>
         /// 构造会话配置：绑定一个回环地址，收集与 TURN 阶段用短预算，总预算按校验要求放宽
         /// </summary>
         /// <param name="bind">本端绑定地址</param>
@@ -322,6 +500,31 @@ namespace SAEA.P2P.Tests.Ice
             options.TcpDirectBudget = TimeSpan.FromSeconds(6);
             options.TurnStageBudget = TimeSpan.FromSeconds(1);
             options.SessionBudget = TimeSpan.FromSeconds(40);
+
+            return options;
+        }
+
+        /// <summary>
+        /// 构造走 TURN 中继的会话配置：直连阶段各 1s，TURN 阶段 8s，总预算容纳收集与三级 TURN 阶段
+        /// </summary>
+        /// <param name="bind">本端绑定地址</param>
+        /// <param name="turn">TURN 客户端配置</param>
+        /// <returns>可直接传给会话的配置</returns>
+        private static IceSessionOptions CreateTurnOptions(IPAddress bind, TurnClientOptions turn)
+        {
+            var ice = new IceOptions();
+            ice.AllowLoopbackCandidates = true;
+            ice.BindAddresses.Add(bind);
+            ice.GatheringTimeout = TimeSpan.FromSeconds(2);
+
+            var options = new IceSessionOptions();
+            options.Ice = ice;
+            options.GatheringBudget = TimeSpan.FromSeconds(1);
+            options.UdpDirectBudget = TimeSpan.FromSeconds(1);
+            options.TcpDirectBudget = TimeSpan.FromSeconds(1);
+            options.TurnStageBudget = TimeSpan.FromSeconds(8);
+            options.SessionBudget = TimeSpan.FromSeconds(40);
+            options.Turn = turn;
             return options;
         }
 
@@ -347,6 +550,28 @@ namespace SAEA.P2P.Tests.Ice
             string remotePwd,
             ulong tiebreaker)
         {
+            var options = CreateOptions(bind, udpBudget);
+            return new IceSession(options, CreateParameters(controlling, localUfrag, localPwd, remoteUfrag, remotePwd, tiebreaker));
+        }
+
+        /// <summary>
+        /// 构造 ICE 会话参数：角色、本地与对端短凭据、角色冲突用的 tiebreaker
+        /// </summary>
+        /// <param name="controlling">是否为控制方</param>
+        /// <param name="localUfrag">本端 ufrag</param>
+        /// <param name="localPwd">本端短凭据口令</param>
+        /// <param name="remoteUfrag">对端 ufrag</param>
+        /// <param name="remotePwd">对端短凭据口令</param>
+        /// <param name="tiebreaker">角色冲突时使用的 tiebreaker</param>
+        /// <returns>可直接传给会话的参数</returns>
+        private static IceSessionParameters CreateParameters(
+            bool controlling,
+            string localUfrag,
+            string localPwd,
+            string remoteUfrag,
+            string remotePwd,
+            ulong tiebreaker)
+        {
             var parameters = new IceSessionParameters();
             parameters.LocalUfrag = localUfrag;
             parameters.LocalPassword = localPwd;
@@ -354,8 +579,7 @@ namespace SAEA.P2P.Tests.Ice
             parameters.RemotePassword = remotePwd;
             parameters.Role = controlling ? IceRole.Controlling : IceRole.Controlled;
             parameters.Tiebreaker = tiebreaker;
-
-            return new IceSession(CreateOptions(bind, udpBudget), parameters);
+            return parameters;
         }
 
         /// <summary>
@@ -394,6 +618,37 @@ namespace SAEA.P2P.Tests.Ice
 
                 source.TrySetResult(frame.ToArray());
             };
+        }
+
+        /// <summary>
+        /// 在 TURN 地址上取若干个空闲 UDP 端口并立即释放，用于收窄中继端口区间
+        /// </summary>
+        /// <param name="count">端口数量</param>
+        /// <returns>升序端口数组</returns>
+        private static int[] ReserveRelayPorts(int count)
+        {
+            var probes = new List<SaeaUdpTransport>();
+            try
+            {
+                var ports = new int[count];
+                for (var i = 0; i < count; i++)
+                {
+                    var probe = new SaeaUdpTransport();
+                    probe.BindAsync(new IPEndPoint(TurnAddress, 0), CancellationToken.None).GetAwaiter().GetResult();
+                    probes.Add(probe);
+                    ports[i] = probe.LocalEndPoint.Port;
+                }
+
+                Array.Sort(ports);
+                return ports;
+            }
+            finally
+            {
+                for (var i = 0; i < probes.Count; i++)
+                {
+                    probes[i].Dispose();
+                }
+            }
         }
     }
 }
