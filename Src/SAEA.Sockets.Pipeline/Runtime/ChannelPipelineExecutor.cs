@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/9 12:05:00
+*修改时间：2026/11/12 11:31:43
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：分帧协议错误先上链，派发后仍为 Open 才强制收口，已进入收口状态不再起第二个关闭流程
+*描述：补残帧上限检查的前置条件说明
 *
 *****************************************************************************/
 using System;
@@ -605,6 +605,9 @@ namespace SAEA.Sockets.Pipeline
                     Volatile.Write(ref _bufferedBytes, buffer.Slice(consumed).Length);
 
                     // 6. 完整帧已全部入队，剩下的是凑不成一帧的尾巴。
+                    // 该上限只对会留下未成帧残字节的有边界分帧器（如 LineSplitter、LengthFieldSplitter）有意义；
+                    // 无边界分帧器（TakeAvailableSplitter）只有缓冲为空才算没有更多数据，残帧恒为 0，
+                    // 检查不会触发，其内存上界由 Pipe 背压（ReadBufferSize × 4）与 MaxFrameLength 超限切块共同保证。
                     if (complete && buffer.Slice(consumed).Length > _pipeline.EffectiveMaxBufferedBytes)
                     {
                         _ = BeginShutdown("buffered-bytes-limit", true);

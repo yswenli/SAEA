@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/9 11:39:22
+*修改时间：2026/11/12 11:31:43
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：明确 DrainTimeout 零值按 5 秒收口与 MaxPendingWrites 出站预算口径
+*描述：补残帧上限检查的前置条件说明
 *
 *****************************************************************************/
 using System;
@@ -64,7 +64,13 @@ namespace SAEA.Sockets.Pipeline
         /// </summary>
         public TimeSpan DrainTimeout { get; set; } = TimeSpan.FromSeconds(5);
 
-        /// <summary>单连接未成帧残余字节上限；0 表示按分帧器最大帧长与读缓冲推导。</summary>
+        /// <summary>
+        /// 单连接未成帧残余字节上限；0 表示按分帧器最大帧长与读缓冲推导。
+        /// 该上限只对会留下未成帧残字节的有边界分帧器（如 <see cref="LineSplitter"/>、
+        /// <see cref="LengthFieldSplitter"/>）生效；无边界分帧器（<see cref="TakeAvailableSplitter"/>）
+        /// 只有缓冲为空才算没有更多数据，残帧恒为 0，其内存上界由 Pipe 背压（ReadBufferSize × 4）
+        /// 与单帧长度超限切块共同保证。
+        /// </summary>
         public long MaxBufferedBytes { get; set; } = 1024 * 1024;
 
         /// <summary>读取缓冲大小，用于推导未成帧残余上限；不限制单次读取返回长度。</summary>
