@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 13:33:14
+*修改时间：2026/11/12 14:16:24
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 TCP 直连通道
+*描述：新增在已建立传输上跑一次 Binding 检查的入口
 *
 *****************************************************************************/
 using System;
@@ -499,6 +499,83 @@ namespace SAEA.P2P.Ice
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// 在已建立的传输上跑一次 Binding 检查，通过后同一条连接转为数据面通道。
+        /// 用于传输不由本通道建链的场景，例如 TURN ConnectionBind 得到的中继数据连接。
+        /// 传入传输的所有权在本次调用后归本通道：检查成功时由数据面继续使用，失败时由本通道关闭。
+        /// </summary>
+        /// <param name="established">已建立且可读写的传输</param>
+        /// <param name="remoteEndPoint">对端候选端点</param>
+        /// <param name="remoteUfrag">对端 ufrag</param>
+        /// <param name="remotePassword">对端口令，用于签发请求与校验应答</param>
+        /// <param name="role">本地角色，决定检查请求携带的角色属性</param>
+        /// <param name="tiebreaker">角色冲突判定用的 64 位随机数</param>
+        /// <param name="priority">检查请求携带的候选优先级</param>
+        /// <param name="useCandidate">是否在请求里提名该候选对</param>
+        /// <param name="cancellationToken">取消令牌；检查阶段取消返回 Cancelled 结果</param>
+        /// <returns>检查结果；失败时连接已被本通道关闭</returns>
+        /// <exception cref="ArgumentNullException">established 或 remoteEndPoint 为 null 时抛出</exception>
+        /// <exception cref="ArgumentException">ufrag 或口令为空时抛出</exception>
+        /// <exception cref="InvalidOperationException">通道已连接时抛出</exception>
+        /// <exception cref="ObjectDisposedException">通道已释放时抛出</exception>
+        public async Task<TcpDirectResult> CheckAsync(
+            ITcpTransport established,
+            IPEndPoint remoteEndPoint,
+            string remoteUfrag,
+            string remotePassword,
+            IceRole role,
+            ulong tiebreaker,
+            uint priority,
+            bool useCandidate,
+            CancellationToken cancellationToken)
+        {
+            if (established == null)
+            {
+                throw new ArgumentNullException(nameof(established));
+            }
+            if (remoteEndPoint == null)
+            {
+                throw new ArgumentNullException(nameof(remoteEndPoint));
+            }
+            if (string.IsNullOrEmpty(remoteUfrag))
+            {
+                throw new ArgumentException("对端 ufrag 不能为空", nameof(remoteUfrag));
+            }
+            if (string.IsNullOrEmpty(remotePassword))
+            {
+                throw new ArgumentException("对端口令不能为空", nameof(remotePassword));
+            }
+
+            ThrowIfDisposed();
+
+            var stopwatch = Stopwatch.StartNew();
+
+            bool attached;
+            lock (_syncRoot)
+            {
+                if (_connected)
+                {
+                    throw new InvalidOperationException("通道已经连接，不能重复发起连接检查");
+                }
+
+                attached = !_disposed;
+                if (attached)
+                {
+                    _transport = established;
+                    _localEndPoint = established.LocalEndPoint;
+                    _remoteEndPoint = remoteEndPoint;
+                }
+            }
+
+            if (!attached)
+            {
+                try { established.Dispose(); } catch { }
+                throw new ObjectDisposedException(GetType().Name);
+            }
+
+            return await RunActiveCheckAsync(remoteUfrag, remotePassword, role, tiebreaker, priority, useCandidate, stopwatch, cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>

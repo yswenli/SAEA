@@ -23,15 +23,16 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 11:39:41
+*修改时间：2026/11/12 14:16:24
 *修改人： yswenli
 *版本号： net10.0
-*描述：权限用例改为在首个检查包到达时断言权限已建立
+*描述：新增 TCP 中继数据连接仅承载业务帧的端到端用例
 *
 *****************************************************************************/
 using System;
 using System.Collections.Generic;
 using System.Net;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -84,6 +85,11 @@ namespace SAEA.P2P.Tests.Ice
         /// 测试用认证域
         /// </summary>
         private const string Realm = "saea.p2p";
+
+        /// <summary>
+        /// 中继数据连接用例等待事件与应答的统一上限
+        /// </summary>
+        private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(15);
 
         /// <summary>
         /// 中继候选的类型优先级为 0，按 UDP 公式算出的优先级低于其余候选类型，且重复申请复用同一候选与分配。
@@ -227,6 +233,87 @@ namespace SAEA.P2P.Tests.Ice
         }
 
         /// <summary>
+        /// 两个 TCP 中继分配对接成一条字节流后，数据连接上只承载 ICE 检查帧与业务帧：
+        /// 检查通过后同一条连接转为数据面，业务载荷原样到达，中间不夹带任何 TURN 报文。
+        /// </summary>
+        [TestMethod]
+        [Timeout(120000)]
+        public async Task RelayCandidate_TCP中继_数据连接仅承载业务帧()
+        {
+            var relayPorts = ReserveTcpPorts(2);
+
+            using (var harness = TcpRelayHarness.Start(relayPorts))
+            using (var clientA = harness.CreateClient("tcp-relay-a"))
+            using (var clientB = harness.CreateClient("tcp-relay-b"))
+            {
+                var allocationA = await clientA.AllocateAsync(null, CancellationToken.None);
+                var allocationB = await clientB.AllocateAsync(null, CancellationToken.None);
+
+                Assert.IsNotNull(allocationA.RelayedEndPoint, "首个客户端应拿到 TCP 中继端点");
+                Assert.IsNotNull(allocationB.RelayedEndPoint, "第二个客户端应拿到 TCP 中继端点");
+                Assert.AreNotEqual(
+                    allocationA.RelayedEndPoint.Port,
+                    allocationB.RelayedEndPoint.Port,
+                    "两个客户端的 TCP 中继端口不应相同");
+
+                // 入向连接通知可能早于后面任何一步到达，必须先订阅再触发 A 的 Connect
+                var attempt = new TaskCompletionSource<TurnConnectionAttempt>(TaskCreationOptions.RunContinuationsAsynchronously);
+                clientB.ConnectionAttemptReceived += received => attempt.TrySetResult(received);
+
+                var connectionIdA = await clientA.ConnectAsync(allocationB.RelayedEndPoint, CancellationToken.None);
+                var accepted = await WaitWithTimeoutAsync(attempt.Task, Timeout);
+
+                using (var dataA = await clientA.ConnectionBindAsync(connectionIdA, CancellationToken.None))
+                using (var dataB = await clientB.ConnectionBindAsync(accepted.ConnectionId, CancellationToken.None))
+                using (var channelA = new TcpDirectChannel("ufrag-a", "password-a"))
+                using (var channelB = new TcpDirectChannel("ufrag-b", "password-b"))
+                {
+                    Assert.IsTrue(dataA.IsConnected, "首个客户端的数据连接应保持连接");
+                    Assert.IsTrue(dataB.IsConnected, "第二个客户端的数据连接应保持连接");
+
+                    var received = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+                    // 回调内的内存只在回调期间有效，必须在这里复制出去
+                    channelB.FrameReceived += payload => received.TrySetResult(payload.ToArray());
+
+                    var attachTask = channelB.AttachAsync(dataB, CancellationToken.None);
+
+                    var check = await channelA.CheckAsync(
+                        dataA,
+                        allocationB.RelayedEndPoint,
+                        "ufrag-b",
+                        "password-b",
+                        IceRole.Controlling,
+                        0x1234UL,
+                        1u,
+                        true,
+                        CancellationToken.None);
+
+                    var attach = await attachTask;
+
+                    Assert.IsTrue(
+                        check.Succeeded,
+                        "中继数据连接上的检查应成功：" + check.Failure + " / " + check.ErrorReason);
+                    Assert.IsTrue(
+                        attach.Succeeded,
+                        "被动侧应应答检查并通过：" + attach.Failure + " / " + attach.ErrorReason);
+                    Assert.IsTrue(channelA.IsConnected, "主动侧检查通过后应转入数据面");
+                    Assert.IsTrue(channelB.IsConnected, "被动侧检查通过后应转入数据面");
+
+                    var payloadBytes = new byte[256];
+                    for (var i = 0; i < payloadBytes.Length; i++)
+                    {
+                        payloadBytes[i] = 0x7E;
+                    }
+
+                    channelA.Send(payloadBytes);
+
+                    var atB = await WaitWithTimeoutAsync(received.Task, Timeout);
+                    CollectionAssert.AreEqual(payloadBytes, atB, "对端收到的业务载荷应与发送内容逐字节一致");
+                }
+            }
+        }
+
+        /// <summary>
         /// 轮询等待条件成立
         /// </summary>
         /// <param name="condition">条件</param>
@@ -263,6 +350,62 @@ namespace SAEA.P2P.Tests.Ice
                     probe.BindAsync(new IPEndPoint(RelayAddress, 0), CancellationToken.None).GetAwaiter().GetResult();
                     probes.Add(probe);
                     ports[i] = probe.LocalEndPoint.Port;
+                }
+
+                Array.Sort(ports);
+                return ports;
+            }
+            finally
+            {
+                for (var i = 0; i < probes.Count; i++)
+                {
+                    probes[i].Dispose();
+                }
+            }
+        }
+
+        /// <summary>
+        /// 等待任务完成；超时抛 <see cref="TimeoutException"/>，不靠线程睡眠
+        /// </summary>
+        /// <typeparam name="T">任务结果类型</typeparam>
+        /// <param name="task">待等待的任务</param>
+        /// <param name="timeout">等待上限</param>
+        /// <returns>任务结果</returns>
+        /// <exception cref="TimeoutException">超过等待上限仍未完成时抛出</exception>
+        private static async Task<T> WaitWithTimeoutAsync<T>(Task<T> task, TimeSpan timeout)
+        {
+            using (var cts = new CancellationTokenSource())
+            {
+                var delay = Task.Delay(timeout, cts.Token);
+                var completed = await Task.WhenAny(task, delay);
+                if (!ReferenceEquals(completed, task))
+                {
+                    throw new TimeoutException("等待超时，上限 " + timeout);
+                }
+
+                cts.Cancel();
+                return await task;
+            }
+        }
+
+        /// <summary>
+        /// 在 127.0.0.10 上取若干个空闲 TCP 端口：TCP 中继监听按 TCP 绑定，用 UDP 预占的端口不具排他性。
+        /// 探测套接字全部绑定成功后才统一释放，保证取到的端口互不相同
+        /// </summary>
+        /// <param name="count">端口数量</param>
+        /// <returns>升序端口数组</returns>
+        private static int[] ReserveTcpPorts(int count)
+        {
+            var probes = new List<Socket>();
+            try
+            {
+                var ports = new int[count];
+                for (var i = 0; i < count; i++)
+                {
+                    var probe = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                    probe.Bind(new IPEndPoint(RelayAddress, 0));
+                    probes.Add(probe);
+                    ports[i] = ((IPEndPoint)probe.LocalEndPoint).Port;
                 }
 
                 Array.Sort(ports);
@@ -477,6 +620,90 @@ namespace SAEA.P2P.Tests.Ice
                 _disposed = true;
                 _server.Dispose();
                 _stun.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// TURN 服务端与 TCP 控制监听；中继端口区间收窄到预留的两个 TCP 端口，
+        /// 两条 TCP 中继分配因此对接成同一条字节流
+        /// </summary>
+        private sealed class TcpRelayHarness : IDisposable
+        {
+            /// <summary>
+            /// TCP 控制监听
+            /// </summary>
+            private readonly TurnTcpListener _listener;
+
+            /// <summary>
+            /// 创建宿主
+            /// </summary>
+            /// <param name="server">TURN 服务端</param>
+            /// <param name="listener">已启动的监听</param>
+            private TcpRelayHarness(TurnServerHost server, TurnTcpListener listener)
+            {
+                Server = server;
+                _listener = listener;
+            }
+
+            /// <summary>
+            /// TURN 服务端
+            /// </summary>
+            public TurnServerHost Server { get; private set; }
+
+            /// <summary>
+            /// 控制连接应访问的端点
+            /// </summary>
+            public IPEndPoint ControlEndPoint
+            {
+                get { return _listener.LocalEndPoint; }
+            }
+
+            /// <summary>
+            /// 按预留的中继端口区间启动服务端与 TCP 控制监听
+            /// </summary>
+            /// <param name="relayPorts">升序的两个中继端口</param>
+            /// <returns>宿主</returns>
+            public static TcpRelayHarness Start(int[] relayPorts)
+            {
+                var server = new TurnServerHost(new TurnServerOptions
+                {
+                    SharedSecret = SharedSecret,
+                    Realm = Realm,
+                    RelayAddress = RelayAddress,
+                    RelayPortMin = relayPorts[0],
+                    RelayPortMax = relayPorts[1]
+                });
+                var listener = new TurnTcpListener(new IPEndPoint(RelayAddress, 0), server);
+                listener.Start();
+                return new TcpRelayHarness(server, listener);
+            }
+
+            /// <summary>
+            /// 用测试凭据创建走 TCP 控制连接、申请 TCP 中继的客户端
+            /// </summary>
+            /// <param name="userName">客户端用户名，两个客户端必须不同才能各占一条分配</param>
+            /// <returns>TURN 客户端</returns>
+            public TurnClient CreateClient(string userName)
+            {
+                var controlEndPoint = ControlEndPoint;
+                return new TurnClient(new TurnClientOptions
+                {
+                    ServerEndPoint = controlEndPoint,
+                    TransportFactory = () => new TcpTurnClientTransport(controlEndPoint),
+                    Credential = Server.CredentialService.Create(userName),
+                    RequestedTransportProtocol = TurnServerHost.TcpTransport,
+                    RtoMilliseconds = 100,
+                    RefreshTimeout = TimeSpan.FromSeconds(10)
+                });
+            }
+
+            /// <summary>
+            /// 先停监听再停服务端：监听关闭会断开控制连接，服务端随后清掉剩余分配与中继资源
+            /// </summary>
+            public void Dispose()
+            {
+                try { _listener.Dispose(); } catch { }
+                try { Server.Dispose(); } catch { }
             }
         }
     }
