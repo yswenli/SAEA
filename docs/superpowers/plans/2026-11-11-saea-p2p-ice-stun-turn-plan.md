@@ -544,7 +544,7 @@ R3（一任务一提交）不需改设计；R4（阶段 6 一次性替换旧 API
   - 按设计 §8.2 表逐格断言：FullCone/Restricted/PortRestricted/Symmetric 四类互连；`relay` 格必须经 TURN 且双向数据往返成功；出现静默失败即失败；UDP 直连成功却选中 TCP/relay 判失败。
   - 每格用新的会话与端口集，避免复用映射表。
   - 每格额外断言 selected pair 的本端与对端地址都落在本次虚拟主机地址集（`127.0.0.2`~`127.0.0.8`）内，否则判失败并输出实际选中端点；`AllowLoopbackCandidates` 会带入真实网卡候选，不这样断言可能经真实网卡直连而误判通过。
-- 测试：`UdpMatrix_同预设组合_期望与实测一致`（数据驱动逐格）、`UdpMatrix_PortRestricted对Symmetric_经relay成功`。
+- 测试：`UdpMatrix_NAT预设组合_期望与实测一致`（数据驱动逐格）、`UdpMatrix_PortRestricted对Symmetric_经relay成功`。
 - 验证：`dotnet test Src/SAEA.P2P.Tests/SAEA.P2P.Tests.csproj -c Release --filter "FullyQualifiedName~UdpMatrix"`
 - 提交：`test(ice): UDP 穿透矩阵与独立期望判定`
 

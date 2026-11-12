@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 11:11:14
+*修改时间：2026/11/12 11:46:53
 *修改人： yswenli
 *版本号： net10.0
-*描述：按快照枚举候选对并让检查循环覆盖 prflx 新增配对，选对要求双向可达
+*描述：用例名改为 NAT预设组合，明确覆盖不同预设的两两组合
 *
 *****************************************************************************/
 using System;
@@ -199,7 +199,7 @@ namespace SAEA.P2P.Tests.Ice
         }
 
         /// <summary>
-        /// NAT 预设两两组合的连通性矩阵，期望值来自独立的连通性判定，不依赖本用例实现
+        /// 不同 NAT 预设两两组合的连通性矩阵，期望值来自独立的连通性判定，不依赖本用例实现
         /// </summary>
         /// <param name="local">本端 NAT 预设</param>
         /// <param name="remote">对端 NAT 预设</param>
@@ -222,7 +222,7 @@ namespace SAEA.P2P.Tests.Ice
         [DataRow(MatrixProfile.Symmetric, MatrixProfile.PortRestricted, MatrixOutcome.Relay)]
         [DataRow(MatrixProfile.Symmetric, MatrixProfile.Symmetric, MatrixOutcome.Relay)]
         [Timeout(180000)]
-        public async Task UdpMatrix_同预设组合_期望与实测一致(MatrixProfile local, MatrixProfile remote, MatrixOutcome expected)
+        public async Task UdpMatrix_NAT预设组合_期望与实测一致(MatrixProfile local, MatrixProfile remote, MatrixOutcome expected)
         {
             await RunCellAsync(local, remote, expected);
         }

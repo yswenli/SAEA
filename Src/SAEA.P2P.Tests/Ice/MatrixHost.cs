@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 11:11:14
+*修改时间：2026/11/12 11:46:53
 *修改人： yswenli
 *版本号： net10.0
-*描述：按检查请求/响应登记双向 peer-reflexive 候选，并加锁提供候选对快照
+*描述：ArgumentException 改为中文提示语，参数名仍作为 paramName
 *
 *****************************************************************************/
 using System;
@@ -160,8 +160,8 @@ namespace SAEA.P2P.Tests.Ice
             if (turnCredential == null) throw new ArgumentNullException(nameof(turnCredential));
 
             // 口令只用于校验，异常消息里不出现具体值
-            if (string.IsNullOrEmpty(localUfrag)) throw new ArgumentException(nameof(localUfrag), nameof(localUfrag));
-            if (string.IsNullOrEmpty(localPassword)) throw new ArgumentException(nameof(localPassword), nameof(localPassword));
+            if (string.IsNullOrEmpty(localUfrag)) throw new ArgumentException("ufrag 不能为空", nameof(localUfrag));
+            if (string.IsNullOrEmpty(localPassword)) throw new ArgumentException("密码不能为空", nameof(localPassword));
 
             _stunEndPoint = stunEndPoint;
             _turnEndPoint = turnEndPoint;

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 11:11:14
+*修改时间：2026/11/12 11:46:53
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增检查请求到达事件与订阅者失败计数，供矩阵测试按请求来源登记 peer-reflexive 候选
+*描述：ArgumentException 改为中文提示语，参数名仍作为 paramName
 *
 *****************************************************************************/
 using System;
@@ -107,13 +107,13 @@ namespace SAEA.P2P.Tests.Ice
         {
             if (transports == null) throw new ArgumentNullException(nameof(transports));
             if (localPassword == null) throw new ArgumentNullException(nameof(localPassword));
-            if (localPassword.Length == 0) throw new ArgumentException(nameof(localPassword), nameof(localPassword));
+            if (localPassword.Length == 0) throw new ArgumentException("密码不能为空", nameof(localPassword));
 
             foreach (var transport in transports)
             {
                 _transports.Add(transport);
             }
-            if (_transports.Count == 0) throw new ArgumentException(nameof(transports), nameof(transports));
+            if (_transports.Count == 0) throw new ArgumentException("至少需要一个本地传输", nameof(transports));
 
             _integrityKey = StunIntegrity.CreateShortTermKey(localPassword);
         }
