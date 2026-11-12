@@ -22,10 +22,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 16:13:51
+*修改时间：2026/11/12 13:28:36
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：修正并发连接竞态、接受队列无上限与事件订阅者异常处理
+*描述：连接侧支持从指定本地端点发起连接
 *
 *****************************************************************************/
 using System;
@@ -45,6 +45,7 @@ namespace SAEA.P2P.Transport
     /// <summary>
     /// 基于 SAEA.Sockets 流模式的 TCP 传输实现。
     /// 无参构造得到连接侧实例，带本地端点的构造得到监听侧实例；两侧都只暴露字节流，分帧由上层约定。
+    /// 连接侧可指定本地端点后再连接，用于从指定网卡地址发起连接。
     /// </summary>
     public sealed class SaeaTcpTransport : ITcpTransport
     {
@@ -198,7 +199,7 @@ namespace SAEA.P2P.Transport
         }
 
         /// <summary>
-        /// 连接到远端端点并取得字节流
+        /// 连接到远端端点并取得字节流；源地址随路由决定，不做本地绑定
         /// </summary>
         /// <param name="remoteEndPoint">目标端点</param>
         /// <param name="cancellationToken">取消令牌，只在发起连接前检查一次；连接建立过程本身不受取消影响</param>
@@ -208,10 +209,47 @@ namespace SAEA.P2P.Transport
         /// <exception cref="InvalidOperationException">本实例已连接或正在连接中</exception>
         /// <exception cref="ObjectDisposedException">本实例已释放</exception>
         /// <exception cref="SocketException">连接失败</exception>
-        public async Task ConnectAsync(IPEndPoint remoteEndPoint, CancellationToken cancellationToken)
+        public Task ConnectAsync(IPEndPoint remoteEndPoint, CancellationToken cancellationToken)
+        {
+            return ConnectCoreAsync(remoteEndPoint, null, cancellationToken);
+        }
+
+        /// <summary>
+        /// 从指定本地端点发起连接并取得字节流，用于从指定网卡地址发起连接；监听侧不支持。
+        /// 本地端点端口传 0 表示由系统分配，地址族必须与远端一致。
+        /// </summary>
+        /// <param name="remoteEndPoint">目标端点</param>
+        /// <param name="localEndPoint">本地绑定端点，用于从指定网卡地址发起连接</param>
+        /// <param name="cancellationToken">取消令牌，只在发起连接前检查一次；连接建立过程本身不受取消影响</param>
+        /// <returns>连接建立后完成的任务</returns>
+        /// <exception cref="ArgumentNullException">remoteEndPoint 或 localEndPoint 为 null</exception>
+        /// <exception cref="ArgumentException">本地与远端地址族不一致</exception>
+        /// <exception cref="NotSupportedException">本实例是监听侧</exception>
+        /// <exception cref="InvalidOperationException">本实例已连接或正在连接中</exception>
+        /// <exception cref="ObjectDisposedException">本实例已释放</exception>
+        /// <exception cref="SocketException">连接失败或本地端点绑定失败</exception>
+        public Task ConnectAsync(IPEndPoint remoteEndPoint, IPEndPoint localEndPoint, CancellationToken cancellationToken)
+        {
+            if (localEndPoint == null) throw new ArgumentNullException(nameof(localEndPoint));
+            return ConnectCoreAsync(remoteEndPoint, localEndPoint, cancellationToken);
+        }
+
+        /// <summary>
+        /// 连接实现：可选先绑定本地端点再连接远端端点
+        /// </summary>
+        /// <param name="remoteEndPoint">目标端点</param>
+        /// <param name="localEndPoint">本地绑定端点，为 null 时不绑定</param>
+        /// <param name="cancellationToken">取消令牌，只在发起连接前检查一次；连接建立过程本身不受取消影响</param>
+        /// <returns>连接建立后完成的任务</returns>
+        private async Task ConnectCoreAsync(IPEndPoint remoteEndPoint, IPEndPoint localEndPoint, CancellationToken cancellationToken)
         {
             if (remoteEndPoint == null) throw new ArgumentNullException(nameof(remoteEndPoint));
             if (_isListener) throw new NotSupportedException("监听侧传输不能主动连接。");
+
+            // 地址族不一致时底层会按远端重建套接字，先绑好的本地端点会被丢掉，只能在这里拦下
+            if (localEndPoint != null && localEndPoint.AddressFamily != remoteEndPoint.AddressFamily)
+                throw new ArgumentException("本地端点与远端地址族必须一致", nameof(localEndPoint));
+
             cancellationToken.ThrowIfCancellationRequested();
 
             lock (_sync)
@@ -228,12 +266,17 @@ namespace SAEA.P2P.Transport
 
             try
             {
-                var builder = CreateBuilder(remoteEndPoint.Address);
+                // 指定本地端点时允许端口复用：复用必须在 Bind 之前设好，否则绑定会被占用中的端口拒绝
+                var builder = localEndPoint != null
+                    ? CreateBuilder(remoteEndPoint.Address, true)
+                    : CreateBuilder(remoteEndPoint.Address);
                 client = new SaeaClientSocket(builder.Build());
 
                 SocketError error;
                 try
                 {
+                    if (localEndPoint != null) client.Bind(localEndPoint);
+
                     error = await client.TryConnectAsync(remoteEndPoint).ConfigureAwait(false);
                 }
                 catch
@@ -379,14 +422,18 @@ namespace SAEA.P2P.Transport
         /// 按地址族创建流模式套接字选项构建器
         /// </summary>
         /// <param name="address">决定地址族的地址</param>
+        /// <param name="reuseAddress">是否在绑定前启用端口复用</param>
         /// <returns>已设置流模式与超时参数的构建器</returns>
-        private static SocketOptionBuilder CreateBuilder(IPAddress address)
+        private static SocketOptionBuilder CreateBuilder(IPAddress address, bool reuseAddress = false)
         {
             var builder = SocketOptionBuilder.Instance
                 .SetSocket(SAEASocketType.Tcp)
                 .UseStream()
                 .SetActionTimeOut(30 * 1000)
                 .SetFreeTime(180 * 1000);
+
+            if (reuseAddress)
+                builder.ReusePort();
 
             if (address != null && address.AddressFamily == AddressFamily.InterNetworkV6)
                 builder.UseIPv6();

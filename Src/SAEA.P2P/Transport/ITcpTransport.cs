@@ -22,10 +22,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 12:10:00
+*修改时间：2026/11/12 13:28:36
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 TCP 传输契约
+*描述：新增从指定本地端点发起连接的重载
 *
 *****************************************************************************/
 using System;
@@ -59,6 +59,16 @@ namespace SAEA.P2P.Transport
         /// <param name="cancellationToken">取消令牌</param>
         /// <returns>连接建立并拿到字节流后完成的任务</returns>
         Task ConnectAsync(IPEndPoint remoteEndPoint, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// 连接侧从指定本地端点发起连接；监听侧不支持。
+        /// 本地端点端口传 0 表示由系统分配，地址族必须与远端一致。
+        /// </summary>
+        /// <param name="remoteEndPoint">目标端点</param>
+        /// <param name="localEndPoint">本地绑定端点，用于从指定网卡地址发起连接</param>
+        /// <param name="cancellationToken">取消令牌，只在发起连接前检查一次；连接建立过程本身不受取消影响</param>
+        /// <returns>连接建立并拿到字节流后完成的任务</returns>
+        Task ConnectAsync(IPEndPoint remoteEndPoint, IPEndPoint localEndPoint, CancellationToken cancellationToken);
 
         /// <summary>
         /// 监听侧等待下一个已接受的连接；连接侧不支持
