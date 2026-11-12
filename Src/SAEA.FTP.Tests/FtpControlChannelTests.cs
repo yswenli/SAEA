@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 10:32:12
+*修改时间：2026/11/12 11:31:43
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增控制连接应答配对用例，覆盖迟到传输完成应答的丢弃与连续失步收口
+*描述：新增 3 条用例，覆盖超时后丢弃迟到应答、无关应答不丢弃与债务复位
 *
 *****************************************************************************/
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -341,8 +341,9 @@ namespace SAEA.FTP.Tests
         /// 创建一条直连假服务器的控制连接，用于直接校验命令与应答的配对
         /// </summary>
         /// <param name="port">假服务器端口</param>
+        /// <param name="commandTimeout">控制命令应答超时；null 时按 10 秒</param>
         /// <returns>尚未握手的控制连接</returns>
-        FtpControlConnection CreateControl(int port)
+        FtpControlConnection CreateControl(int port, TimeSpan? commandTimeout = null)
         {
             return new FtpControlConnection(new ClientConfig()
             {
@@ -352,7 +353,7 @@ namespace SAEA.FTP.Tests
                 Password = Password,
                 BufferSize = 32 * 1024,
                 ConnectTimeout = TimeSpan.FromSeconds(10),
-                CommandTimeout = TimeSpan.FromSeconds(10),
+                CommandTimeout = commandTimeout ?? TimeSpan.FromSeconds(10),
                 DataTimeout = TimeSpan.FromSeconds(30)
             }, null);
         }
@@ -488,6 +489,106 @@ namespace SAEA.FTP.Tests
                 Assert.AreEqual(250, control.Send("CWD /tmp").Code);
                 Assert.AreEqual(0, control.StaleReplyCount);
                 Assert.AreEqual(257, control.Send("PWD").Code);
+            }
+        }
+
+        /// <summary>
+        /// 命令超时后放弃的应答若在下一条命令前到达，必须先丢弃，不能命中新命令的码表
+        /// </summary>
+        [TestMethod]
+        public void Control_TimedOutCommand_LateReply_IsDroppedBeforeNextReply()
+        {
+            using (var server = new FakeFtpServer("220 Ready\r\n", command =>
+            {
+                // PWD 回空：只写 0 字节且保持连接，客户端等到命令超时。
+                if (command.StartsWith("PWD", StringComparison.OrdinalIgnoreCase))
+                    return string.Empty;
+
+                // 257 是上一条已超时 PWD 的迟到应答，250 才是 MKD 自己的应答，两条同批写出。
+                if (command.StartsWith("MKD", StringComparison.OrdinalIgnoreCase))
+                    return "257 \"/late-pwd\" stale PWD.\r\n250 Directory created.\r\n";
+
+                return FakeLoginReply(command);
+            }))
+            using (var control = CreateControl(server.Port, TimeSpan.FromMilliseconds(500)))
+            {
+                control.Connect();
+
+                Assert.ThrowsException<IOException>(() => control.Send("PWD"));
+
+                var mkd = control.Send("MKD /tmp/x");
+
+                Assert.AreEqual(250, mkd.Code, "MKD 应拿到自己的 250，而不是上一条 PWD 迟到的 257");
+                Assert.IsTrue(mkd.Message.Contains("Directory created"), "MKD 的应答文本应来自 250 行，实际: " + mkd.Message);
+                Assert.AreEqual(1, control.StaleReplyCount, "迟到的 257 应被计为一次丢弃");
+
+                Assert.AreEqual(200, control.Send("NOOP").Code, "丢弃迟到应答后连接仍应可用");
+            }
+        }
+
+        /// <summary>
+        /// 超时后的第一条应答若不匹配被放弃命令的期望，应原样交给本轮命令且不计入丢弃
+        /// </summary>
+        [TestMethod]
+        public void Control_TimedOutCommand_UnrelatedReply_IsNotDropped()
+        {
+            var pwdCount = 0;
+
+            using (var server = new FakeFtpServer("220 Ready\r\n", command =>
+            {
+                if (command.StartsWith("PWD", StringComparison.OrdinalIgnoreCase))
+                {
+                    pwdCount++;
+
+                    // 首次 PWD 回空制造超时，第二次正常回 257，用于验证超时期望只对紧邻一条生效。
+                    return pwdCount == 1 ? string.Empty : "257 \"/\" is current directory.\r\n";
+                }
+
+                if (command.StartsWith("NOOP", StringComparison.OrdinalIgnoreCase))
+                    return "200 OK.\r\n";
+
+                return FakeLoginReply(command);
+            }))
+            using (var control = CreateControl(server.Port, TimeSpan.FromMilliseconds(500)))
+            {
+                control.Connect();
+
+                Assert.ThrowsException<IOException>(() => control.Send("PWD"));
+
+                Assert.AreEqual(200, control.Send("NOOP").Code, "200 不在 PWD 码表里，不能被当成迟到应答丢掉");
+                Assert.AreEqual(0, control.StaleReplyCount, "无关应答不应计入丢弃次数");
+
+                Assert.AreEqual(257, control.Send("PWD").Code, "超时期望只对紧邻一条生效，后续 PWD 应正常拿到 257");
+                Assert.AreEqual(0, control.StaleReplyCount, "窗口过期后不应再累计丢弃次数");
+            }
+        }
+
+        /// <summary>
+        /// 债务在本命令应答对上后必须复位，否则会吞掉后续命令自己的完成应答
+        /// </summary>
+        [TestMethod]
+        public void Control_DebtReset_DoesNotSwallowNextCompletion()
+        {
+            using (var server = new FakeFtpServer("220 Ready\r\n", command =>
+            {
+                if (command.StartsWith("RETR", StringComparison.OrdinalIgnoreCase))
+                    return "150 Opening data connection.\r\n";
+
+                if (command.StartsWith("REST", StringComparison.OrdinalIgnoreCase))
+                    return "350 Restarting at 0.\r\n";
+
+                return FakeLoginReply(command);
+            }))
+            using (var control = CreateControl(server.Port))
+            {
+                control.Connect();
+
+                Assert.AreEqual(150, control.Send("RETR a.bin").Code);
+
+                Assert.AreEqual(350, control.Send("REST 0").Code);
+
+                Assert.AreEqual(200, control.Send("NOOP").Code, "REST 应答对上后债务应复位，NOOP 的 200 不能被吞掉");
+                Assert.AreEqual(0, control.StaleReplyCount, "本例没有任何迟到应答，丢弃次数应为 0");
             }
         }
 

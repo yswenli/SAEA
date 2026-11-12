@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 10:32:12
+*修改时间：2026/11/12 11:30:13
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：控制连接按命令码族配对应答，丢弃迟到的传输完成应答，连续失步时收口
+*描述：超时后丢弃迟到应答，放宽 CWD/MKD/RNFR 码表，修正注释与成员顺序
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -137,6 +137,11 @@ namespace SAEA.FTP.Net
 
         readonly Encoding _encoding;
 
+        /// <summary>
+        /// 连续丢弃应答的上限，达到即判定控制通道失步
+        /// </summary>
+        const int MaxConsecutiveStaleReplies = 3;
+
         readonly ChannelPipelineOptions _options;
 
         readonly ChannelPipelineOptions _dataOptions = new ChannelPipelineOptions
@@ -161,11 +166,6 @@ namespace SAEA.FTP.Net
         readonly object _syncRoot = new object();
 
         /// <summary>
-        /// 连续丢弃应答的上限，达到即判定控制通道失步
-        /// </summary>
-        const int MaxConsecutiveStaleReplies = 3;
-
-        /// <summary>
         /// 传输类命令：先收 125/150 打开数据连接，数据通道结束后再收一条完成码
         /// </summary>
         static readonly HashSet<string> TransferCommands = new HashSet<string>(StringComparer.Ordinal)
@@ -179,7 +179,16 @@ namespace SAEA.FTP.Net
         };
 
         /// <summary>
-        /// 非传输命令的终态码表；未登记的命令不做严格匹配，只要求是终态码
+        /// 非传输命令的终态码表。
+        /// <para>
+        /// 表内按 RFC 959/3659 的规范码列举，另含少数服务端常用的替代码：CWD 收 250 或 200、
+        /// MKD 收 250 或 257、RNFR 收 350 或 250。未登记的命令不做严格匹配，走 null 兜底值只认
+        /// 2xx/3xx，属安全降级。
+        /// </para>
+        /// <para>
+        /// 表外码会被判为不匹配并丢弃，连续 3 条即收口。这是「不按 RFC 回码的服务端会先丢应答
+        /// 再断连」的取舍，登记时宁可放宽到调用方也接受的码，也不要让正常应答落进丢弃路径。
+        /// </para>
         /// </summary>
         static readonly Dictionary<string, int[]> TerminalCodes = new Dictionary<string, int[]>(StringComparer.Ordinal)
         {
@@ -191,12 +200,12 @@ namespace SAEA.FTP.Net
             { "MODE", new[] { ServerResponseCode.成功 } },
             { "STRU", new[] { ServerResponseCode.成功 } },
             { "PWD", new[] { ServerResponseCode.路径名建立 } },
-            { "CWD", new[] { ServerResponseCode.文件行为完成 } },
+            { "CWD", new[] { ServerResponseCode.文件行为完成, ServerResponseCode.成功 } },
             { "CDUP", new[] { ServerResponseCode.成功, ServerResponseCode.文件行为完成 } },
-            { "MKD", new[] { ServerResponseCode.路径名建立 } },
+            { "MKD", new[] { ServerResponseCode.文件行为完成, ServerResponseCode.路径名建立 } },
             { "RMD", new[] { ServerResponseCode.文件行为完成 } },
             { "DELE", new[] { ServerResponseCode.文件行为完成 } },
-            { "RNFR", new[] { ServerResponseCode.文件行为暂停 } },
+            { "RNFR", new[] { ServerResponseCode.文件行为暂停, ServerResponseCode.文件行为完成 } },
             { "RNTO", new[] { ServerResponseCode.文件行为完成 } },
             { "REST", new[] { ServerResponseCode.文件行为暂停 } },
             { "SIZE", new[] { ServerResponseCode.文件状态回复 } },
@@ -235,7 +244,8 @@ namespace SAEA.FTP.Net
         bool _hasPending;
 
         /// <summary>
-        /// 当前阶段允许的终态码；传输命令完成阶段为 null，表示整族 2xx 都接受
+        /// 当前阶段允许的终态码；null 表示没有可依的码表——传输命令的开启与完成两个阶段、
+        /// 以及未登记的非传输命令都取 null，具体规则由 <see cref="MatchCode"/> 按阶段判定
         /// </summary>
         int[] _pendingTerminal;
 
@@ -255,7 +265,27 @@ namespace SAEA.FTP.Net
         int _discardStreak;
 
         /// <summary>
-        /// 累计丢弃的迟到或不匹配应答条数
+        /// 超时命令遗留的终态码表快照，仅在 <see cref="_hasStaleExpectation"/> 为真时有效
+        /// </summary>
+        int[] _staleTerminal;
+
+        /// <summary>
+        /// 超时命令是否属于传输类
+        /// </summary>
+        bool _staleTransfer;
+
+        /// <summary>
+        /// 超时命令当时是否已进入传输完成阶段
+        /// </summary>
+        bool _staleAwaitingCompletion;
+
+        /// <summary>
+        /// 是否还有一条超时命令的迟到应答待丢弃
+        /// </summary>
+        bool _hasStaleExpectation;
+
+        /// <summary>
+        /// 读取时加锁，供用例与诊断使用
         /// </summary>
         internal int StaleReplyCount
         {
@@ -567,6 +597,20 @@ namespace SAEA.FTP.Net
                 // 阻塞取值不持锁：写方与收口方需要同一把锁更新状态。
                 if (!replies.TryTake(_commandTimeout, out item))
                 {
+                    lock (_syncRoot)
+                    {
+                        // 控制连接应答有序，被放弃命令的应答一定先于下一条命令的应答到达，
+                        // 所以只丢弃紧邻的一条，记过快照即可覆盖整个窗口。
+                        if (_hasPending && !(_pendingTransfer && _awaitingCompletion))
+                        {
+                            // 传输完成阶段的应答已在 BeginCommand 记进债务，这里重复记录会多丢一条。
+                            _staleTerminal = _pendingTerminal;
+                            _staleTransfer = _pendingTransfer;
+                            _staleAwaitingCompletion = _awaitingCompletion;
+                            _hasStaleExpectation = true;
+                        }
+                    }
+
                     throw new IOException("FTP control connection read timeout: " + _config.IP);
                 }
 
@@ -588,6 +632,27 @@ namespace SAEA.FTP.Net
 
                 lock (_syncRoot)
                 {
+                    // 迟到应答必然先到，早于本轮债务与本轮应答，故先消化超时命令的期望。
+                    if (_hasStaleExpectation)
+                    {
+                        bool staleTerminal;
+
+                        if (MatchCode(reply.Code, _staleTransfer, _staleAwaitingCompletion, _staleTerminal, out staleTerminal))
+                        {
+                            _hasStaleExpectation = false;
+                            _staleTerminal = null;
+                            _staleReplyCount++;
+
+                            LogHelper.Debug("FTP控制连接丢弃超时命令的迟到应答:" + reply);
+
+                            continue;
+                        }
+
+                        // 有序窗口已过：本条不是被放弃命令的应答，既不能丢也不能计入丢弃次数。
+                        _hasStaleExpectation = false;
+                        _staleTerminal = null;
+                    }
+
                     // 债务只吃完成码：3xx 是中间应答，不属于迟到的传输完成。
                     if (_owedReplies > 0 && IsCompletionCode(reply.Code))
                     {
@@ -645,6 +710,8 @@ namespace SAEA.FTP.Net
         {
             // 上一条传输命令的完成码没被读走，说明调用方放弃了那条应答；
             // 它一定会先于本轮应答到达，记一笔债务在读取时先丢弃。
+            // 已知边界：债务深度只记 1，中断的传输常成对发出 426+226，尾随那条会落到
+            // 未登记命令上（走 null 兜底接受任意 2xx），代价是下一条命令可能错位一条应答。
             if (_hasPending && _pendingTransfer && _awaitingCompletion)
             {
                 _owedReplies++;
@@ -672,6 +739,10 @@ namespace SAEA.FTP.Net
             _pendingTerminal = null;
             _hasPending = false;
             _discardStreak = 0;
+            _staleTerminal = null;
+            _staleTransfer = false;
+            _staleAwaitingCompletion = false;
+            _hasStaleExpectation = false;
         }
 
         /// <summary>
@@ -695,16 +766,32 @@ namespace SAEA.FTP.Net
         /// <returns>属于当前命令时返回 true</returns>
         bool TryMatch(int code, out bool terminal)
         {
-            terminal = false;
+            return MatchCode(code, _pendingTransfer, _awaitingCompletion, _pendingTerminal, out terminal);
+        }
+
+        /// <summary>
+        /// 按「是否传输命令 + 所处阶段 + 码表」判断应答码是否命中期望，超时留下的快照与在途命令共用同一套规则
+        /// </summary>
+        /// <param name="code">应答码</param>
+        /// <param name="transfer">该命令是否属于传输类</param>
+        /// <param name="awaitingCompletion">传输命令是否已收到 125/150、正在等完成码</param>
+        /// <param name="terminal">期望的终态码表；null 表示没有可依的码表</param>
+        /// <param name="isTerminal">命中且为终态时为 true；传输命令的 125/150 为 false</param>
+        /// <returns>命中期望时返回 true</returns>
+        static bool MatchCode(int code, bool transfer, bool awaitingCompletion, int[] terminal, out bool isTerminal)
+        {
+            isTerminal = false;
 
             // 4xx/5xx 一律作为当前命令的失败结果返回，不在码表里逐条列举。
+            // 已知窗口：债务为 0 时（上一次完成应答没来或已复位），迟到的 4xx/5xx 会被当作
+            // 下一条命令的失败结果；影响面是下一条命令错一条应答，随后由丢弃计数自愈，连续 3 条则收口。
             if (code >= 400 && code < 600)
             {
-                terminal = true;
+                isTerminal = true;
                 return true;
             }
 
-            if (_pendingTransfer && !_awaitingCompletion)
+            if (transfer && !awaitingCompletion)
             {
                 if (code == ServerResponseCode.打开数据连接开始传输 || code == ServerResponseCode.打开连接)
                 {
@@ -714,26 +801,26 @@ namespace SAEA.FTP.Net
                 return false;
             }
 
-            if (_pendingTransfer)
+            if (transfer)
             {
                 // 完成阶段各服务端用 226/250/200 不等，按整族 2xx 接受。
                 if (code >= 200 && code < 300)
                 {
-                    terminal = true;
+                    isTerminal = true;
                     return true;
                 }
 
                 return false;
             }
 
-            var allowed = _pendingTerminal;
+            var allowed = terminal;
 
             if (allowed == null)
             {
                 // 未登记的命令没有码表可依，只要求是终态码，避免把正常应答误判成失步。
                 if (code >= 200 && code < 400)
                 {
-                    terminal = true;
+                    isTerminal = true;
                     return true;
                 }
 
@@ -744,7 +831,7 @@ namespace SAEA.FTP.Net
             {
                 if (allowed[i] == code)
                 {
-                    terminal = true;
+                    isTerminal = true;
                     return true;
                 }
             }
@@ -787,7 +874,8 @@ namespace SAEA.FTP.Net
         /// <returns>2xx/4xx/5xx 返回 true</returns>
         static bool IsCompletionCode(int code)
         {
-            return code >= 200 && code < 600;
+            // 3xx 是中间应答（如 350 等待后续命令），任何传输都不会用它收尾，不能算进债务。
+            return (code >= 200 && code < 300) || (code >= 400 && code < 600);
         }
 
         /// <summary>
