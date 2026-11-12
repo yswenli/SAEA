@@ -618,6 +618,55 @@ var config = new SAEAMvcApplicationConfig
 SAEAMvcApplicationConfigBuilder.Write(config);
 ```
 
+### 🧩 Handler Chain Wiring
+
+MVC already installs the HTTP/WebSocket protocol nodes and the tail exception terminal; `ConfigurePipeline` exposes only the slot between them and runs once per connection:
+
+```csharp
+using System;
+using System.Threading.Tasks;
+using SAEA.MVC;
+using SAEA.Sockets.Pipeline;
+
+public sealed class MyHandler : InboundHandlerAdapter
+{
+    public override Task ChannelActiveAsync(IChannelHandlerContext ctx)
+    {
+        Console.WriteLine($"[{ctx.ChannelId}] connected");
+        return Task.CompletedTask;
+    }
+
+    public override Task ChannelInactiveAsync(IChannelHandlerContext ctx)
+    {
+        Console.WriteLine($"[{ctx.ChannelId}] disconnected");
+        return Task.CompletedTask;
+    }
+}
+
+var app = new SAEAMvcApplication(root: "wwwroot", port: 28080);
+
+app.ConfigurePipeline = (channelId, pipeline) =>
+{
+    pipeline.AddLast(new MyHandler());
+};
+
+app.Start();
+```
+
+Assign it before `app.Start()`; assigning after the service starts throws `InvalidOperationException`.
+
+Plain HTTP requests are handed to `RequestDelegate` (or MVC routing) by the dispatch node and never reach handlers added in `ConfigurePipeline`, so a custom inbound handler is meant for connection-level observation (online counters, connection logs) or for raw frames received after a WebSocket upgrade.
+
+### 📏 Protocol Limits
+
+| Limit | Default | On Exceed |
+|-------|---------|-----------|
+| Request line + headers | 64KB | Returns 431 Request Header Fields Too Large |
+| Request body | 64MB | Returns 413 Request Entity Too Large |
+| `Transfer-Encoding: chunked` | Not supported | Returns 400 Bad Request; chunked decoding is not implemented |
+
+These limits come from the default `HttpRequestSplitter` constructor; `WebConfig` does not expose them yet.
+
 ### Async Action
 
 ```csharp

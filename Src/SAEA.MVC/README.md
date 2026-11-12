@@ -618,6 +618,55 @@ var config = new SAEAMvcApplicationConfig
 SAEAMvcApplicationConfigBuilder.Write(config);
 ```
 
+### 🧩 处理器链装配
+
+MVC 内部已经装好 HTTP/WebSocket 协议节点与链尾异常终结器，`ConfigurePipeline` 只暴露两者之间的扩展位，每条连接调用一次：
+
+```csharp
+using System;
+using System.Threading.Tasks;
+using SAEA.MVC;
+using SAEA.Sockets.Pipeline;
+
+public sealed class MyHandler : InboundHandlerAdapter
+{
+    public override Task ChannelActiveAsync(IChannelHandlerContext ctx)
+    {
+        Console.WriteLine($"[{ctx.ChannelId}] 连接建立");
+        return Task.CompletedTask;
+    }
+
+    public override Task ChannelInactiveAsync(IChannelHandlerContext ctx)
+    {
+        Console.WriteLine($"[{ctx.ChannelId}] 连接断开");
+        return Task.CompletedTask;
+    }
+}
+
+var app = new SAEAMvcApplication(root: "wwwroot", port: 28080);
+
+app.ConfigurePipeline = (channelId, pipeline) =>
+{
+    pipeline.AddLast(new MyHandler());
+};
+
+app.Start();
+```
+
+必须在 `app.Start()` 之前赋值；Start 之后再赋值会抛 `InvalidOperationException`。
+
+普通 HTTP 请求由派发节点直接交给 `RequestDelegate`（或 MVC 路由），不会再流到 `ConfigurePipeline` 追加的处理器，因此自定义入站处理器只适合做连接级观测（在线数统计、连接日志等），或处理 WebSocket 升级后下发的原始帧。
+
+### 📏 协议上限
+
+| 限制 | 默认值 | 超限行为 |
+|------|--------|----------|
+| 请求行 + 报头 | 64KB | 返回 431 Request Header Fields Too Large |
+| 请求体 | 64MB | 返回 413 Request Entity Too Large |
+| `Transfer-Encoding: chunked` | 不支持 | 返回 400 Bad Request，当前不做 chunked 解码 |
+
+这三个上限取自 `HttpRequestSplitter` 的默认构造，`WebConfig` 暂不提供配置项。
+
 ### 异步 Action
 
 ```csharp

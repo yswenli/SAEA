@@ -1,10 +1,13 @@
 ﻿using SAEA.Common;
 using SAEA.Http;
 using SAEA.Http.Model;
+using SAEA.Sockets.Pipeline;
 
 using System;
 using System.Net;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace SAEA.HttpTest
 {
@@ -22,6 +25,13 @@ namespace SAEA.HttpTest
             //webHost.WebConfig.RequestDelegate = WebHost_OnRequestDelegate;
 
             webHost.WebConfig.ExceptionHandler = WebHost_OnException;
+
+            webHost.WebConfig.ConfigurePipeline = (channelId, pipeline) =>
+            {
+                // 普通 HTTP 请求由派发节点直接交给 RequestDelegate，不会流到这里的处理器；
+                // 此处只做连接级观测，演示自定义节点该挂在哪里。
+                pipeline.AddLast(new ConnectionTraceHandler());
+            };
 
             webHost.Start();
 
@@ -62,6 +72,43 @@ namespace SAEA.HttpTest
             context.Response.Write($"<p>当前请求地址是：{url}</p>");
 
             context.Response.End();
+        }
+
+        /// <summary>
+        /// 连接级观测处理器，演示自定义入站处理器挂载位置
+        /// </summary>
+        private sealed class ConnectionTraceHandler : InboundHandlerAdapter
+        {
+            private static int _online;
+
+            /// <summary>
+            /// 连接建立时登记在线数
+            /// </summary>
+            /// <param name="ctx">当前处理器在链上的节点上下文</param>
+            /// <returns>已完成的任务</returns>
+            public override Task ChannelActiveAsync(IChannelHandlerContext ctx)
+            {
+                var online = Interlocked.Increment(ref _online);
+
+                ConsoleHelper.WriteLine($"连接建立 channelId = {ctx.Channel.Id}，当前在线数 = {online}");
+
+                // 生命周期通知由泵按链顺序逐个调用，不依赖处理器向下游转发。
+                return Task.CompletedTask;
+            }
+
+            /// <summary>
+            /// 连接断开时更新在线数
+            /// </summary>
+            /// <param name="ctx">当前处理器在链上的节点上下文</param>
+            /// <returns>已完成的任务</returns>
+            public override Task ChannelInactiveAsync(IChannelHandlerContext ctx)
+            {
+                var online = Interlocked.Decrement(ref _online);
+
+                ConsoleHelper.WriteLine($"连接断开 channelId = {ctx.Channel.Id}，当前在线数 = {online}");
+
+                return Task.CompletedTask;
+            }
         }
     }
 }

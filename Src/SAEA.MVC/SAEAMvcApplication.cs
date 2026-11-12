@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/10 11:05:00
+*修改时间：2026/11/12 16:52:58
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：应用级事件改由 WebConfig 的请求、异常与连接关闭委托承载
+*描述：新增 ConfigurePipeline 透传属性，供使用者在协议节点之后追加自定义入站处理器
 *
 *****************************************************************************/
 using System;
@@ -34,6 +34,7 @@ using System;
 using SAEA.Common;
 using SAEA.Common.NameValue;
 using SAEA.Http;
+using SAEA.Sockets.Pipeline;
 
 namespace SAEA.MVC
 {
@@ -157,6 +158,17 @@ namespace SAEA.MVC
         public void SetForbiddenAccessList(params string[] list)
         {
             _webHost.WebConfig.SetForbiddenAccessList(list);
+        }
+
+        /// <summary>
+        /// 处理器链装配回调：每条连接在 HTTP/WebSocket 协议节点之后、链尾异常终结器之前调用一次，
+        /// 使用者在此时追加自定义入站处理器。必须在 <see cref="Start"/> 之前赋值，
+        /// Start 之后再赋值会抛 InvalidOperationException。
+        /// </summary>
+        public Action<string, IChannelPipeline> ConfigurePipeline
+        {
+            get { return _webHost.WebConfig.ConfigurePipeline; }
+            set { _webHost.WebConfig.ConfigurePipeline = value; }
         }
 
         /// <summary>
