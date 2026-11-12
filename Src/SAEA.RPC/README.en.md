@@ -69,7 +69,7 @@ Console.WriteLine(result);  // Output: Hello, SAEA!
 | ⚡ **Cross-Platform Async IO** | Based on SAEA.Sockets | Built for high-concurrency connections, low latency response |
 | 📦 **Binary Serialization** | Efficient Protobuf transmission | Small data size, fast serialization |
 | 🔌 **Dynamic Proxy** | Auto-generates client code | Invoke remote services like local methods |
-| 🛡️ **AOP Filters** | `ActionFilterAttribute` | Unified interception for logging, authorization, caching |
+| 🛡️ **AOP Filters** | `ActionFilterAtrribute` | Unified interception for logging, authorization, caching |
 | 📡 **Server Push** | `Notice<T>` message push | Supports publish-subscribe pattern |
 | ⚖️ **Connection Reuse** | `ConsumerMultiplexer` | Reuses connections to one address according to `links` |
 | 🔗 **Connection Pool** | Long connection reuse | Reduces connection overhead, improves performance |
@@ -312,16 +312,23 @@ public sealed class ExceptionLogHandler : InboundHandlerAdapter
 
 ### Q4: How to implement logging and authorization?
 
-**A**: Use the AOP filter `ActionFilterAttribute`:
+**A**: Use the AOP filter `ActionFilterAtrribute`:
 
 ```csharp
-public class AuthAttribute : ActionFilterAttribute
+using SAEA.RPC;
+using SAEA.Sockets.Interface;
+
+public class AuthAttribute : ActionFilterAtrribute
 {
-    public override void OnActionExecuting(string service, string method, object[] args)
+    // Returning false aborts this invocation and returns null immediately
+    public override bool OnActionExecuting(IUserToken userToken, string serviceName, string methodName, object[] args)
     {
-        // Authorization logic
-        if (!ValidateToken())
-            throw new UnauthorizedAccessException();
+        return true; // Replace with your own authorization check
+    }
+
+    public override void OnActionExecuted(IUserToken userToken, string serviceName, string methodName, object[] args, object result)
+    {
+        // Authorization happens before the invocation, nothing to do afterwards
     }
 }
 
@@ -395,7 +402,7 @@ proxy.RegistReceiveNotice();
 | `RPCServiceProxy` | Dynamically generated client proxy base class |
 | `RPCServiceAttribute` | Marks a class as an RPC service |
 | `NoRpcAttribute` | Marks a method as not externally accessible |
-| `ActionFilterAttribute` | AOP filter abstract base class |
+| `ActionFilterAtrribute` | AOP filter abstract base class (spelling kept from the existing API) |
 | `RPCMapping` | Service mapping cache table |
 | `ConsumerMultiplexer` | Multiplexes several connections to one service address (`links` sets the count) |
 | `Notice<T>` | Server push message type |
@@ -409,6 +416,8 @@ proxy.RegistReceiveNotice();
 ```csharp
 using SAEA.RPC;
 using SAEA.RPC.Model;
+using SAEA.RPC.Provider;
+using SAEA.Sockets.Interface;
 
 // Define user entity
 public class User
@@ -419,19 +428,17 @@ public class User
 }
 
 // Define logging filter
-public class LogAttribute : ActionFilterAttribute
+public class LogAttribute : ActionFilterAtrribute
 {
-    public override void OnActionExecuting(string serviceName, string methodName, object[] args)
+    public override bool OnActionExecuting(IUserToken userToken, string serviceName, string methodName, object[] args)
     {
         Console.WriteLine($"[{DateTime.Now}] Invoke: {serviceName}.{methodName}");
+        return true;
     }
 
-    public override void OnActionExecuted(string serviceName, string methodName, object result, Exception ex)
+    public override void OnActionExecuted(IUserToken userToken, string serviceName, string methodName, object[] args, object result)
     {
-        if (ex != null)
-            Console.WriteLine($"[Error] {ex.Message}");
-        else
-            Console.WriteLine($"[Completed] Return: {result}");
+        Console.WriteLine($"[Completed] Return: {result}");
     }
 }
 

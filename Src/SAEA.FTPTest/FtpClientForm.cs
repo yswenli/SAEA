@@ -4,6 +4,7 @@ using SAEA.Common.IO;
 using SAEA.FTP;
 using SAEA.FTPTest.Common;
 using SAEA.FTPTest.Model;
+using SAEA.Sockets.Pipeline;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -526,7 +527,8 @@ namespace SAEA.FTPTest
                     var pwd = skinWaterTextBox4.Text;
 
                     _client = new FTPClient(ip, port, username, pwd);
-                    _client.Ondisconnected += _client_Ondisconnected;
+                    // 控连断开通知改由处理器链的失活回调承担，必须在 Connect() 之前装配
+                    _client.ConfigurePipeline = (channelId, pipeline) => pipeline.AddLast(new DisconnectNotifyHandler(_client_Ondisconnected));
 
                     Task.Run(() =>
                     {
@@ -862,5 +864,37 @@ namespace SAEA.FTPTest
         #endregion
 
 
+        /// <summary>
+        /// 控连失活通知，转交窗体做统一收尾
+        /// </summary>
+        private sealed class DisconnectNotifyHandler : InboundHandlerAdapter
+        {
+            readonly Action _onInactive;
+
+            /// <summary>
+            /// 以失活回调创建处理器
+            /// </summary>
+            /// <param name="onInactive">连接失活时调用的回调</param>
+            public DisconnectNotifyHandler(Action onInactive)
+            {
+                _onInactive = onInactive;
+            }
+
+            /// <summary>
+            /// 连接失活时回调；单个处理器异常不阻断链上其它处理器
+            /// </summary>
+            /// <param name="ctx">当前处理器在链上的节点上下文</param>
+            /// <returns>已完成的任务</returns>
+            public override Task ChannelInactiveAsync(IChannelHandlerContext ctx)
+            {
+                try
+                {
+                    _onInactive?.Invoke();
+                }
+                catch { }
+
+                return Task.CompletedTask;
+            }
+        }
     }
 }
