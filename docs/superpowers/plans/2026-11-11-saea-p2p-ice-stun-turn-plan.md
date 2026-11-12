@@ -556,7 +556,7 @@ R3（一任务一提交）不需改设计；R4（阶段 6 一次性替换旧 API
 
 #### T5.1 TCP 候选收集
 
-- 文件：`Src/SAEA.P2P/Ice/TcpCandidateGatherer.cs`（`Ice/TcpCandidateType.cs` 已存在，直接复用）
+- 文件：`Src/SAEA.P2P/Ice/TcpCandidateGatherer.cs`、`Ice/CandidateCodec.cs`（`Ice/TcpCandidateType.cs` 已存在，直接复用）
 - 要点：
   - 每接口每 component 收集 `passive` 与 `so` 两个 host 候选，各占不同端口；平台不支持 `so` 只收 `passive`。
   - `EnableTcpSimultaneousOpen` 默认 `false`；Windows 上强制 `false` 并记录一次日志（设计 §7.5 平台限制）。

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 12:15:00
+*修改时间：2026/11/12 12:00:19
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 ICE 会话配置
+*描述：新增 TCP 同时打开开关
 *
 *****************************************************************************/
 using System;
@@ -46,6 +46,11 @@ namespace SAEA.P2P.Ice
         /// 是否收集回环地址候选
         /// </summary>
         private bool _allowLoopbackCandidates;
+
+        /// <summary>
+        /// 是否额外收集 TCP 同时打开候选
+        /// </summary>
+        private bool _enableTcpSimultaneousOpen;
 
         /// <summary>
         /// 是否收集 IPv6 地址
@@ -84,6 +89,16 @@ namespace SAEA.P2P.Ice
         {
             get { return _allowLoopbackCandidates; }
             set { _allowLoopbackCandidates = value; }
+        }
+
+        /// <summary>
+        /// 是否额外收集 TCP 同时打开候选，默认关闭。
+        /// 同时打开在 Windows 上不可用，开启后也只会收到被动连接，因此该平台上按关闭处理。
+        /// </summary>
+        public bool EnableTcpSimultaneousOpen
+        {
+            get { return _enableTcpSimultaneousOpen; }
+            set { _enableTcpSimultaneousOpen = value; }
         }
 
         /// <summary>
@@ -146,6 +161,7 @@ namespace SAEA.P2P.Ice
         {
             var clone = new IceOptions();
             clone._allowLoopbackCandidates = _allowLoopbackCandidates;
+            clone._enableTcpSimultaneousOpen = _enableTcpSimultaneousOpen;
             clone._enableIpv6 = _enableIpv6;
             clone._gatheringTimeout = _gatheringTimeout;
             clone._component = _component;
