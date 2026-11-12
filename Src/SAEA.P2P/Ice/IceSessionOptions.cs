@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 14:24:38
+*修改时间：2026/11/12 16:36:13
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 ICE 会话与选路阶梯预算配置
+*描述：新增 TURN over TLS 证书校验配置
 *
 *****************************************************************************/
 using System;
@@ -74,6 +74,16 @@ namespace SAEA.P2P.Ice
         /// TURN 配置
         /// </summary>
         private TurnClientOptions _turn;
+
+        /// <summary>
+        /// TURN over TLS 的证书校验与 SNI 目标主机名
+        /// </summary>
+        private string _turnTlsTargetHost;
+
+        /// <summary>
+        /// 是否忽略 TURN over TLS 的证书错误
+        /// </summary>
+        private bool _turnTlsAllowInvalidCertificates;
 
         /// <summary>
         /// 候选收集预算（阶段一），默认 3s
@@ -139,6 +149,24 @@ namespace SAEA.P2P.Ice
         }
 
         /// <summary>
+        /// TURN over TLS 的证书校验与 SNI 目标主机名；为 null 或空时取 TURN 服务端端点地址的字符串形式
+        /// </summary>
+        public string TurnTlsTargetHost
+        {
+            get { return _turnTlsTargetHost; }
+            set { _turnTlsTargetHost = value; }
+        }
+
+        /// <summary>
+        /// 是否忽略 TURN over TLS 的证书错误，仅本地自动化测试开启，默认 false
+        /// </summary>
+        public bool TurnTlsAllowInvalidCertificates
+        {
+            get { return _turnTlsAllowInvalidCertificates; }
+            set { _turnTlsAllowInvalidCertificates = value; }
+        }
+
+        /// <summary>
         /// 五级阶段预算之和，TURN 的三级按三倍计入
         /// </summary>
         public TimeSpan StageBudgetTotal
@@ -178,7 +206,7 @@ namespace SAEA.P2P.Ice
         /// <summary>
         /// 校验预算组合与必填项，由选路阶梯启动时调用
         /// </summary>
-        /// <exception cref="ArgumentException">ICE 配置为空，或会话总预算小于收集预算与各级阶段预算之和</exception>
+        /// <exception cref="ArgumentException">ICE 配置为空，会话总预算小于收集预算与各级阶段预算之和，或 TURN over TLS 目标主机名为空白</exception>
         /// <exception cref="ArgumentOutOfRangeException">收集预算为负数，或某一级阶段预算、会话总预算不是正数</exception>
         public void Validate()
         {
@@ -211,6 +239,11 @@ namespace SAEA.P2P.Ice
             if (_sessionBudget < minimum)
             {
                 throw new ArgumentException("会话总预算不能小于收集预算与各级阶段预算之和：" + minimum, nameof(SessionBudget));
+            }
+
+            if (_turnTlsTargetHost != null && _turnTlsTargetHost.Trim().Length == 0)
+            {
+                throw new ArgumentException("TURN over TLS 目标主机名不能为空白", nameof(TurnTlsTargetHost));
             }
         }
     }

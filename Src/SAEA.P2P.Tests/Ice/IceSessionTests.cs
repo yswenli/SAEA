@@ -23,15 +23,18 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 15:48:33
+*修改时间：2026/11/12 16:36:13
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增 TURN over TCP 控制传输用例
+*描述：新增 TURN over TLS 控制传输用例
 *
 *****************************************************************************/
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -54,7 +57,7 @@ namespace SAEA.P2P.Tests.Ice
     /// <summary>
     /// ICE 会话端到端用例：两个回环地址上的会话互相 trickle 候选，
     /// 分别验证 UDP 直连选路与业务帧双向转发、UDP 不通时回退 TCP 直连、只有中继候选时落 TURN over UDP，
-    /// 控制连接改走 TCP 时落 TURN over TCP，以及未连接时的发送与重复启动校验。
+    /// 控制连接改走 TCP 时落 TURN over TCP、改走 TLS 时落 TURN over TLS，以及未连接时的发送与重复启动校验。
     /// </summary>
     [TestClass]
     public class IceSessionTests
@@ -83,6 +86,11 @@ namespace SAEA.P2P.Tests.Ice
         /// TURN 测试用认证域
         /// </summary>
         private const string TurnRealm = "saea.p2p";
+
+        /// <summary>
+        /// TURN over TLS 测试证书口令
+        /// </summary>
+        private const string CertificatePassword = "saea-turn-tls-test-password";
 
         /// <summary>
         /// 控制方 ufrag
@@ -633,6 +641,162 @@ namespace SAEA.P2P.Tests.Ice
         }
 
         /// <summary>
+        /// TURN over TLS：服务端只开 TLS 控制监听，UDP 控制拿不到应答、明文 TCP 控制连到 TLS 端口后被握手中断，
+        /// 应落到 TURN over TLS 阶段，数据面仍是 UDP 中继并双向转发业务帧
+        /// </summary>
+        [TestMethod]
+        [Timeout(120000)]
+        public async Task StartAsync_UdpAndTcpControlBlocked_SelectsTurnOverTls()
+        {
+            IceSession controller = null;
+            IceSession controlled = null;
+            TurnTlsListener tlsListener = null;
+            TurnServerHost turnServer = null;
+
+            var certificatePath = CreateCertificateFile();
+
+            try
+            {
+                // 中继端口区间收窄到预留的 4 个端口，两端各占一个 allocation
+                var relayPorts = ReserveRelayPorts(4);
+
+                turnServer = new TurnServerHost(new TurnServerOptions
+                {
+                    SharedSecret = TurnSharedSecret,
+                    Realm = TurnRealm,
+                    RelayAddress = TurnAddress,
+                    RelayPortMin = relayPorts[0],
+                    RelayPortMax = relayPorts[relayPorts.Length - 1]
+                });
+
+                // 只开 TLS 控制监听、不建 UDP STUN 监听与明文 TCP 监听：前两级中继都必须失败
+                tlsListener = new TurnTlsListener(new IPEndPoint(TurnAddress, 0), turnServer, certificatePath, CertificatePassword);
+                tlsListener.Start();
+                var turnEndPoint = tlsListener.LocalEndPoint;
+
+                // 传输工厂仍是 UDP 控制，这是第 3 级用的配置；第 4、5 级由会话换成内置 TCP 与 TLS 控制传输
+                var controllerTurn = new TurnClientOptions
+                {
+                    ServerEndPoint = turnEndPoint,
+                    TransportFactory = () => new UdpTurnClientTransport(new IPEndPoint(HostA, 0), turnEndPoint),
+                    Credential = turnServer.CredentialService.Create("ice-tls-user-a"),
+                    RtoMilliseconds = 100,
+                    AllocationRefreshInterval = TimeSpan.FromSeconds(30),
+                    PermissionRefreshInterval = TimeSpan.FromSeconds(30),
+                    ChannelRefreshInterval = TimeSpan.FromSeconds(30),
+                    RefreshTimeout = TimeSpan.FromSeconds(2)
+                };
+                var controlledTurn = new TurnClientOptions
+                {
+                    ServerEndPoint = turnEndPoint,
+                    TransportFactory = () => new UdpTurnClientTransport(new IPEndPoint(HostB, 0), turnEndPoint),
+                    Credential = turnServer.CredentialService.Create("ice-tls-user-b"),
+                    RtoMilliseconds = 100,
+                    AllocationRefreshInterval = TimeSpan.FromSeconds(30),
+                    PermissionRefreshInterval = TimeSpan.FromSeconds(30),
+                    ChannelRefreshInterval = TimeSpan.FromSeconds(30),
+                    RefreshTimeout = TimeSpan.FromSeconds(2)
+                };
+
+                controller = new IceSession(CreateTurnTlsOptions(HostA, controllerTurn), CreateParameters(true, UfragA, PwdA, UfragB, PwdB, 1));
+                controlled = new IceSession(CreateTurnTlsOptions(HostB, controlledTurn), CreateParameters(false, UfragB, PwdB, UfragA, PwdA, 2));
+
+                // 只转发 relay 候选：两端都拿不到对端 host 候选，UDP 与 TCP 直连必然失败，只能走 TURN 中继
+                controller.LocalCandidateDiscovered += candidate =>
+                {
+                    if (candidate.Type == CandidateType.Relay && candidate.Transport == IceTransportType.Udp)
+                    {
+                        controlled.AddRemoteCandidate(candidate);
+                    }
+                };
+                controlled.LocalCandidateDiscovered += candidate =>
+                {
+                    if (candidate.Type == CandidateType.Relay && candidate.Transport == IceTransportType.Udp)
+                    {
+                        controller.AddRemoteCandidate(candidate);
+                    }
+                };
+
+                var controllerFrames = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+                var controlledFrames = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+                controller.FrameReceived += CreateFrameHandler(controllerFrames);
+                controlled.FrameReceived += CreateFrameHandler(controlledFrames);
+
+                using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(90)))
+                {
+                    // 受控方只等提名，先进入中继阶段完成分配，随后控制方才开始选路
+                    var controlledTask = controlled.StartAsync(cts.Token);
+                    var controllerTask = controller.StartAsync(cts.Token);
+
+                    var controllerResult = await WaitAsync(controllerTask, StartTimeout, "控制方 StartAsync").ConfigureAwait(false);
+                    var controlledResult = await WaitAsync(controlledTask, StartTimeout, "受控方 StartAsync").ConfigureAwait(false);
+
+                    // 落在第 5 级说明第 3 级 UDP 控制与第 4 级明文 TCP 控制都确实失败，只有 TLS 控制拿到了分配
+                    Assert.AreEqual(IceStage.TurnTls, controllerResult.Stage, "控制方应落在 TURN over TLS 阶段");
+                    Assert.AreEqual(IceStage.TurnTls, controlledResult.Stage, "受控方应落在 TURN over TLS 阶段");
+
+                    Assert.IsTrue(controller.IsConnected, "控制方中继选路完成后 IsConnected 应为 true");
+                    Assert.IsTrue(controlled.IsConnected, "受控方中继选路完成后 IsConnected 应为 true");
+
+                    Assert.IsTrue(controllerResult.IsRelay, "控制方应经中继转发");
+                    Assert.IsTrue(controlledResult.IsRelay, "受控方应经中继转发");
+
+                    // 只有控制连接走 TLS，数据面仍是 UDP 中继
+                    Assert.IsFalse(controllerResult.UsesTcp, "控制方数据面不应使用 TCP");
+                    Assert.IsFalse(controlledResult.UsesTcp, "受控方数据面不应使用 TCP");
+                    Assert.AreEqual(ChannelType.Relay, controllerResult.ChannelType, "控制方通道类型应为中继");
+                    Assert.AreEqual(ChannelType.Relay, controlledResult.ChannelType, "受控方通道类型应为中继");
+
+                    Assert.AreEqual(TurnAddress, controllerResult.LocalEndPoint.Address, "控制方本地端点应为中继地址");
+                    Assert.AreEqual(TurnAddress, controllerResult.RemoteEndPoint.Address, "控制方远端端点应为对端中继地址");
+                    Assert.AreEqual(TurnAddress, controlledResult.LocalEndPoint.Address, "受控方本地端点应为中继地址");
+                    Assert.AreEqual(TurnAddress, controlledResult.RemoteEndPoint.Address, "受控方远端端点应为对端中继地址");
+
+                    Assert.IsTrue(
+                        controllerResult.LocalEndPoint.Port >= relayPorts[0] && controllerResult.LocalEndPoint.Port <= relayPorts[relayPorts.Length - 1],
+                        "控制方中继端口应落在预留区间内");
+                    Assert.IsTrue(
+                        controlledResult.LocalEndPoint.Port >= relayPorts[0] && controlledResult.LocalEndPoint.Port <= relayPorts[relayPorts.Length - 1],
+                        "受控方中继端口应落在预留区间内");
+
+                    var payload1 = Encoding.UTF8.GetBytes("turn-tls-hello 控制方经 TLS 控制中继问好");
+                    controller.Send(payload1);
+                    var received1 = await WaitAsync(controlledFrames.Task, FrameTimeout, "受控方接收控制方中继业务帧").ConfigureAwait(false);
+                    CollectionAssert.AreEqual(payload1, received1, "受控方经中继收到的业务帧与控制方发送的内容不一致");
+
+                    var payload2 = Encoding.UTF8.GetBytes("turn-tls-reply 受控方经 TLS 控制中继回执");
+                    controlled.Send(payload2);
+                    var received2 = await WaitAsync(controllerFrames.Task, FrameTimeout, "控制方接收受控方中继业务帧").ConfigureAwait(false);
+                    CollectionAssert.AreEqual(payload2, received2, "控制方经中继收到的业务帧与受控方发送的内容不一致");
+                }
+            }
+            finally
+            {
+                if (controller != null)
+                {
+                    controller.Dispose();
+                }
+
+                if (controlled != null)
+                {
+                    controlled.Dispose();
+                }
+
+                if (tlsListener != null)
+                {
+                    tlsListener.Dispose();
+                }
+
+                if (turnServer != null)
+                {
+                    turnServer.Dispose();
+                }
+
+                TryDelete(certificatePath);
+            }
+        }
+
+        /// <summary>
         /// 构造会话配置：绑定一个回环地址，收集与 TURN 阶段用短预算，总预算按校验要求放宽
         /// </summary>
         /// <param name="bind">本端绑定地址</param>
@@ -701,6 +865,33 @@ namespace SAEA.P2P.Tests.Ice
             options.TurnStageBudget = TimeSpan.FromSeconds(5);
             options.SessionBudget = TimeSpan.FromSeconds(40);
             options.Turn = turn;
+            return options;
+        }
+
+        /// <summary>
+        /// 构造 TURN over TLS 用例的会话配置：直连阶段各 1s，TURN 阶段 5s，总预算容纳 UDP 与明文 TCP 控制两次失败后再走 TLS
+        /// </summary>
+        /// <param name="bind">本端绑定地址</param>
+        /// <param name="turn">TURN 客户端配置</param>
+        /// <returns>可直接传给会话的配置</returns>
+        private static IceSessionOptions CreateTurnTlsOptions(IPAddress bind, TurnClientOptions turn)
+        {
+            var ice = new IceOptions();
+            ice.AllowLoopbackCandidates = true;
+            ice.BindAddresses.Add(bind);
+            ice.GatheringTimeout = TimeSpan.FromSeconds(2);
+
+            var options = new IceSessionOptions();
+            options.Ice = ice;
+            options.GatheringBudget = TimeSpan.FromSeconds(1);
+            options.UdpDirectBudget = TimeSpan.FromSeconds(1);
+            options.TcpDirectBudget = TimeSpan.FromSeconds(1);
+            options.TurnStageBudget = TimeSpan.FromSeconds(5);
+            options.SessionBudget = TimeSpan.FromSeconds(60);
+            options.Turn = turn;
+            // 自签证书只写 CN=localhost，测试用回环地址连接，必须显式给出域名并忽略证书错误
+            options.TurnTlsTargetHost = "localhost";
+            options.TurnTlsAllowInvalidCertificates = true;
             return options;
         }
 
@@ -824,6 +1015,50 @@ namespace SAEA.P2P.Tests.Ice
                 {
                     probes[i].Dispose();
                 }
+            }
+        }
+
+        /// <summary>
+        /// 运行时生成自签 PFX 并写入临时文件；同名主题与口令只用于测试
+        /// </summary>
+        /// <returns>临时证书文件路径</returns>
+        private static string CreateCertificateFile()
+        {
+            using (var rsa = RSA.Create(2048))
+            {
+                var request = new CertificateRequest("CN=localhost", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+                request.CertificateExtensions.Add(new X509BasicConstraintsExtension(false, false, 0, false));
+                request.CertificateExtensions.Add(new X509KeyUsageExtension(
+                    X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.KeyEncipherment, false));
+
+                using (var certificate = request.CreateSelfSigned(
+                    DateTimeOffset.UtcNow.AddMinutes(-5), DateTimeOffset.UtcNow.AddHours(1)))
+                {
+                    var path = Path.Combine(Path.GetTempPath(), "saea-turn-tls-" + Guid.NewGuid().ToString("N") + ".pfx");
+                    File.WriteAllBytes(path, certificate.Export(X509ContentType.Pfx, CertificatePassword));
+                    return path;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 删除临时证书文件；文件已不存在时忽略
+        /// </summary>
+        /// <param name="path">证书文件路径</param>
+        private static void TryDelete(string path)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(path) && File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
             }
         }
     }

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 15:48:33
+*修改时间：2026/11/12 16:36:13
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：接入 TURN over TCP 控制传输阶段
+*描述：接入 TURN over TLS 控制传输阶段
 *
 *****************************************************************************/
 using System;
@@ -563,6 +563,10 @@ namespace SAEA.P2P.Ice
                     CleanupTurnStage();
                     break;
 
+                case IceStage.TurnTls:
+                    CleanupTurnStage();
+                    break;
+
                 default:
                     break;
             }
@@ -739,7 +743,7 @@ namespace SAEA.P2P.Ice
                     return await RunTurnTcpAsync(stageBudget, token).ConfigureAwait(false);
 
                 case IceStage.TurnTls:
-                    return "TURN TLS 中继尚未接入";
+                    return await RunTurnTlsAsync(stageBudget, token).ConfigureAwait(false);
 
                 default:
                     return "未知的选路阶段：" + stage;
@@ -1481,7 +1485,7 @@ namespace SAEA.P2P.Ice
         /// TURN 中继阶段共享主干：先申请中继候选与中继数据通道，再在中继通道上做连通性检查与提名
         /// </summary>
         /// <remarks>
-        /// 控制传输按阶段选择：TurnUdp 用调用方给的传输工厂，TurnTcp 用内置 TCP 控制传输；
+        /// 控制传输按阶段选择：TurnUdp 用调用方给的传输工厂，TurnTcp / TurnTls 用内置 TCP / TLS 控制传输；
         /// 中继对端仍是 UDP，因此中继路径上的检查请求必须从分配的中继端口发出，检查与提名都用中继数据通道本身作为传输；
         /// 每次检查前还要为该对端地址建立中继权限，否则服务端会直接丢弃发往该地址的报文。
         /// 分配在中继阶段成功时保留给数据面使用，失败时先向服务端发 LIFETIME=0 再清理本地资源。
@@ -1858,11 +1862,26 @@ namespace SAEA.P2P.Ice
         }
 
         /// <summary>
+        /// TURN over TLS 阶段：客户端到 TURN 的控制连接走 TLS，中继对端仍是 UDP，数据面沿用 UDP 中继
+        /// </summary>
+        /// <remarks>
+        /// 只换控制连接的传输，分配、权限、通道与中继数据面都由同一个 UDP 中继主干完成，不做 TCP 中继对端。
+        /// </remarks>
+        /// <param name="stageBudget">本阶段可用预算</param>
+        /// <param name="token">联合取消令牌</param>
+        /// <returns>失败原因；选中通道时为 null</returns>
+        private async Task<string> RunTurnTlsAsync(TimeSpan stageBudget, CancellationToken token)
+        {
+            return await RunTurnRelayAsync(IceStage.TurnTls, stageBudget, token).ConfigureAwait(false);
+        }
+
+        /// <summary>
         /// 按阶段生成 TURN 客户端配置：TurnUdp 直接复用调用方实例，其余阶段在副本上替换控制传输工厂
         /// </summary>
         /// <remarks>
         /// TurnUdp 需要保留调用方给的本地绑定与传输工厂；其它阶段不能就地改调用方实例，
         /// 否则同一次会话里上一级的传输选择会被后一级覆盖。
+        /// TurnTls 换成 TLS 控制传输，目标主机名与是否忽略证书错误取会话配置。
         /// </remarks>
         /// <param name="stage">当前中继阶段</param>
         /// <returns>供本阶段 TurnClient 使用的配置</returns>
@@ -1879,6 +1898,19 @@ namespace SAEA.P2P.Ice
             {
                 // 只换控制传输；REQUESTED-TRANSPORT 仍为 17，中继对端依旧由服务端按 UDP 分配
                 clone.TransportFactory = () => new TcpTurnClientTransport(_options.Turn.ServerEndPoint);
+            }
+
+            if (stage == IceStage.TurnTls)
+            {
+                var targetHost = _options.TurnTlsTargetHost;
+                if (string.IsNullOrEmpty(targetHost))
+                {
+                    // 配置没给域名时退回服务端地址，生产建议显式配置证书里的域名
+                    targetHost = _options.Turn.ServerEndPoint.Address.ToString();
+                }
+
+                var allowInvalid = _options.TurnTlsAllowInvalidCertificates;
+                clone.TransportFactory = () => new TurnTlsClientTransport(_options.Turn.ServerEndPoint, targetHost, allowInvalid);
             }
 
             return clone;
