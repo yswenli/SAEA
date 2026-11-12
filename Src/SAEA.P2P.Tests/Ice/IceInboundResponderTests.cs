@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 14:31:40
+*修改时间：2026/11/12 15:00:08
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增 UDP 入向 ICE 检查应答器用例
+*描述：USERNAME 采用冒号前为本端 ufrag 的约定
 *
 *****************************************************************************/
 using System;
@@ -107,7 +107,7 @@ namespace SAEA.P2P.Tests.Ice
                     responder.Start();
 
                     var peerEndPoint = peerTransport.LocalEndPoint;
-                    var request = BuildRequest("peerUfrag:" + LocalUfrag, CheckPriority, false);
+                    var request = BuildRequest(LocalUfrag + ":peerUfrag", CheckPriority, false);
                     var requestBytes = SignRequest(request, LocalPassword);
 
                     await peerTransport.SendToAsync(responderTransport.LocalEndPoint, requestBytes, CancellationToken.None).ConfigureAwait(false);
@@ -167,7 +167,7 @@ namespace SAEA.P2P.Tests.Ice
                     };
                     responder.Start();
 
-                    var request = BuildRequest("peerUfrag:" + LocalUfrag, CheckPriority, true);
+                    var request = BuildRequest(LocalUfrag + ":peerUfrag", CheckPriority, true);
                     var requestBytes = SignRequest(request, LocalPassword);
 
                     await peerTransport.SendToAsync(responderTransport.LocalEndPoint, requestBytes, CancellationToken.None).ConfigureAwait(false);
@@ -186,7 +186,7 @@ namespace SAEA.P2P.Tests.Ice
         }
 
         /// <summary>
-        /// USERNAME 后缀与本端 ufrag 不符时既不回包也不上报，避免向对端暴露口令线索
+        /// USERNAME 冒号前的本端 ufrag 不符时既不回包也不上报，避免向对端暴露口令线索
         /// </summary>
         [TestMethod]
         [Timeout(15000)]
@@ -209,7 +209,7 @@ namespace SAEA.P2P.Tests.Ice
                     responder.Start();
 
                     // 口令正确但 USERNAME 指向别的 ufrag，必须按凭据不符静默丢弃
-                    var request = BuildRequest("peerUfrag:otherUfrag", CheckPriority, false);
+                    var request = BuildRequest("otherUfrag:peerUfrag", CheckPriority, false);
                     var requestBytes = SignRequest(request, LocalPassword);
 
                     await peerTransport.SendToAsync(responderTransport.LocalEndPoint, requestBytes, CancellationToken.None).ConfigureAwait(false);

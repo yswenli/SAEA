@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 14:31:40
+*修改时间：2026/11/12 15:00:08
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 UDP 入向 ICE 检查应答器
+*描述：USERNAME 校验改为取冒号前的本端 ufrag
 *
 *****************************************************************************/
 using System;
@@ -71,7 +71,7 @@ namespace SAEA.P2P.Ice
         private readonly byte[] _integrityKey;
 
         /// <summary>
-        /// 本端 ufrag，用于校验 USERNAME 的后缀
+        /// 本端 ufrag，用于校验 USERNAME 中冒号前的本端段
         /// </summary>
         private readonly string _localUfrag;
 
@@ -192,11 +192,11 @@ namespace SAEA.P2P.Ice
             StunAttribute usernameAttribute;
             if (!message.TryGet(StunAttributeType.Username, out usernameAttribute)) return;
 
-            // USERNAME 形如 "远端ufrag:本端ufrag"，只认最后一段，远端 ufrag 本身允许含冒号
+            // USERNAME 形如 "本端ufrag:对端ufrag"，接收方自己的 ufrag 在冒号前
             var userName = Encoding.UTF8.GetString(usernameAttribute.Value.ToArray());
-            var separator = userName.LastIndexOf(':');
-            if (separator < 0 || separator == userName.Length - 1) return;
-            var targetUfrag = userName.Substring(separator + 1);
+            var separator = userName.IndexOf(':');
+            if (separator <= 0 || separator == userName.Length - 1) return;
+            var targetUfrag = userName.Substring(0, separator);
             if (!string.Equals(targetUfrag, _localUfrag, StringComparison.Ordinal)) return;
 
             // 短凭据场景不回 401：凭据不符直接丢弃，避免把口令线索暴露给对端
