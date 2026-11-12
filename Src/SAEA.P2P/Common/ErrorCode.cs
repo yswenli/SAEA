@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 19:00:00
+*修改时间：2026/11/12 14:24:38
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增业务帧超长错误码，取值 EF01
+*描述：新增 ICE 选路与 TURN 回退错误码，取值 EI01、EI02、ET01、ET02
 *
 *****************************************************************************/
 namespace SAEA.P2P.Common
@@ -165,6 +165,26 @@ namespace SAEA.P2P.Common
         /// </summary>
         public static readonly string PayloadTooLarge = "EF01";
 
+        // ICE 选路：阶梯耗尽与总预算超时
+        /// <summary>
+        /// 所有选路阶段均失败，没有可用的候选对
+        /// </summary>
+        public static readonly string NoCandidatePair = "EI01";
+        /// <summary>
+        /// ICE 选路会话超出总预算
+        /// </summary>
+        public static readonly string IceTimeout = "EI02";
+
+        // TURN 回退：服务不可用与鉴权失败
+        /// <summary>
+        /// TURN 服务器不可用
+        /// </summary>
+        public static readonly string TurnUnavailable = "ET01";
+        /// <summary>
+        /// TURN 鉴权失败
+        /// </summary>
+        public static readonly string TurnAuthFailed = "ET02";
+
         private static readonly System.Collections.Generic.Dictionary<string, string> Descriptions =
             new System.Collections.Generic.Dictionary<string, string>
             {
@@ -197,7 +217,11 @@ namespace SAEA.P2P.Common
                 { AuthTimeout, "Authentication timeout" },
                 { EncryptionFailed, "Encryption failed" },
                 { DecryptionFailed, "Decryption failed" },
-                { PayloadTooLarge, "Payload too large" }
+                { PayloadTooLarge, "Payload too large" },
+                { NoCandidatePair, "No candidate pair" },
+                { IceTimeout, "ICE session timeout" },
+                { TurnUnavailable, "TURN server unavailable" },
+                { TurnAuthFailed, "TURN authentication failed" }
             };
 
         /// <summary>获取错误码对应的英文描述；未登记的错误码返回 Unknown error</summary>
