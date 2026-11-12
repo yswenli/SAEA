@@ -22,10 +22,10 @@
  *
  *=====================================================================
  *修改标记
- *修改时间：2026/11/10 12:00:00
+ *修改时间：2026/11/12 10:00:00
  *修改人： yswenli
  *版本号： net10.0
- *描述：补会话升级、chunked 400 与同段「101 + 首帧」用例
+ *描述：补协议升级后单次到达超过分帧上限的切块透传用例
  *
  *****************************************************************************/
 using System;
@@ -450,6 +450,108 @@ namespace SAEA.Http.Tests
         }
 
         /// <summary>
+        /// 升级后的无边界分帧器在单次读取交出 4 倍单帧上限时，应按上限切成多帧按序透传，
+        /// 既不能丢字节，也不能按分帧协议错误收口。
+        /// </summary>
+        /// <returns>该用例的异步执行任务。</returns>
+        [TestMethod]
+        public async Task HttpProtocolHandler_Upgrade后单次到达超过分帧上限_切块透传且不丢字节()
+        {
+            const int frameLimit = 64 * 1024;
+            const int payloadLength = frameLimit * 4;
+
+            var http = new HttpRequestSplitter();
+            var upgraded = new TakeAvailableSplitter(frameLimit);
+            var barrier = new SwitchableSplitter(http, upgraded);
+            http.Barrier = barrier;
+
+            var options = PipelineTestKit.CreateOptions(barrier);
+            var stream = new TestRawByteStream("http-upgrade-chunk-split");
+            var channel = new TestChannel("http-upgrade-chunk-split");
+            var capturing = new FrameSnapshotHandler();
+            var target = new StubUpgradeTarget(CreateUpgradeResponse());
+
+            using (var pipeline = ChannelPipeline.Create(options))
+            {
+                pipeline.AddLast(new HttpResponseEncoder());
+                pipeline.AddLast(new OutboundSerializingHandler());
+                pipeline.AddLast(new HttpRequestDecoder());
+                pipeline.AddLast(new HttpProtocolHandler(barrier, upgraded, target));
+                pipeline.AddLast(capturing);
+
+                // 会话与生产链一致：解码器据 IsUpgraded 放行原始帧，不会把升级后的字节再当 HTTP 报文解析。
+                var session = CreateSession(channel, pipeline, barrier, upgraded);
+                channel.SetAttribute(SessionAttributeKey, session);
+
+                var executor = new ChannelPipelineExecutor(
+                    stream, channel, options, CancellationToken.None);
+                executor.Attach(pipeline);
+
+                try
+                {
+                    executor.Start();
+
+                    await PipelineTestKit.WriteAsync(stream, UpgradeRequest());
+
+                    // 等会话真正标记已升级再写数据：只看屏障会与 IsUpgraded 的写入错开一个窗口。
+                    Assert.IsTrue(
+                        await WaitUntilAsync(() => IsSessionUpgraded(session), WaitTimeout),
+                        "101 写成功后应完成会话升级。");
+                    Assert.AreSame(upgraded, barrier.Current, "升级后应切到无边界分帧器。");
+
+                    var payload = new byte[payloadLength];
+                    for (var i = 0; i < payload.Length; i++)
+                        payload[i] = (byte)(i % 251);
+
+                    // 一次性写入 4 倍上限：只有整段落在同一次 ReadAsync 里，才会走到按上限切块的分支；
+                    // 拆成多次小块写会让每次读取天然不超限，覆盖不到目标路径。
+                    await PipelineTestKit.WriteAsync(stream, payload);
+
+                    Assert.IsTrue(
+                        await WaitUntilAsync(
+                            () => stream.Closed.Task.IsCompleted || ReceivedLength(capturing) >= payloadLength,
+                            WaitTimeout),
+                        "升级后的 256KB 未在等待上限内全部下发。");
+
+                    var reason = stream.Closed.Task.IsCompleted ? stream.Closed.Task.Result : null;
+                    Assert.IsNull(reason, "切块透传不应触发收口，实际收口原因：" + reason);
+
+                    var segments = ReceivedSegments(capturing);
+                    var receivedLength = 0;
+                    foreach (var segment in segments)
+                        receivedLength += segment.Length;
+
+                    Assert.AreEqual(payloadLength, receivedLength, "升级后收到的总字节数应与写入量一致。");
+                    Assert.IsTrue(
+                        segments.Count >= payloadLength / frameLimit,
+                        "单次交出 " + payloadLength + " 字节且单帧上限 " + frameLimit
+                            + " 时至少应切成 " + (payloadLength / frameLimit) + " 帧，实际 " + segments.Count + " 帧。");
+
+                    foreach (var segment in segments)
+                    {
+                        Assert.IsTrue(
+                            segment.Length <= frameLimit,
+                            "单帧长度不得超过分帧上限 " + frameLimit + "，实际 " + segment.Length + " 字节。");
+                    }
+
+                    var received = new byte[receivedLength];
+                    var offset = 0;
+                    foreach (var segment in segments)
+                    {
+                        Buffer.BlockCopy(segment, 0, received, offset, segment.Length);
+                        offset += segment.Length;
+                    }
+
+                    CollectionAssert.AreEqual(payload, received, "切块后应按原顺序还原全部字节，不能丢字节或重排。");
+                }
+                finally
+                {
+                    await PipelineTestKit.StopAsync(executor);
+                }
+            }
+        }
+
+        /// <summary>
         /// chunked 请求不支持，链上回写 400 并按协议错误收口。
         /// </summary>
         /// <returns>该用例的异步执行任务。</returns>
@@ -540,6 +642,34 @@ namespace SAEA.Http.Tests
                 builder.Append(Encoding.ASCII.GetString(frame));
 
             return builder.ToString();
+        }
+
+        /// <summary>已下发的帧字节总量，用于带上限地等待全部字节到齐。</summary>
+        private static int ReceivedLength(FrameSnapshotHandler handler)
+        {
+            var total = 0;
+            foreach (var item in handler.Items)
+            {
+                var segment = item as byte[];
+                if (segment != null)
+                    total += segment.Length;
+            }
+
+            return total;
+        }
+
+        /// <summary>按到达顺序取出链尾快照的帧字节；快照已在回调内复制，断言时可安全读取。</summary>
+        private static List<byte[]> ReceivedSegments(FrameSnapshotHandler handler)
+        {
+            var segments = new List<byte[]>();
+            foreach (var item in handler.Items)
+            {
+                var segment = item as byte[];
+                if (segment != null)
+                    segments.Add(segment);
+            }
+
+            return segments;
         }
 
         /// <summary>
