@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 14:16:24
+*修改时间：2026/11/12 17:40:32
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增 TCP 中继数据连接仅承载业务帧的端到端用例
+*描述：新增 TURN TCP 中继候选提供器用例
 *
 *****************************************************************************/
 using System;
@@ -310,6 +310,112 @@ namespace SAEA.P2P.Tests.Ice
                     var atB = await WaitWithTimeoutAsync(received.Task, Timeout);
                     CollectionAssert.AreEqual(payloadBytes, atB, "对端收到的业务载荷应与发送内容逐字节一致");
                 }
+            }
+        }
+
+        /// <summary>
+        /// TURN TCP 中继候选提供器：两端各申请一次 TCP 中继，主动侧 Connect 后立即 ConnectionBind，
+        /// 被动侧据入向连接通知做 ConnectionBind，两条数据连接对接后能跑通检查与业务帧。
+        /// </summary>
+        [TestMethod]
+        [Timeout(120000)]
+        public async Task TcpRelayCandidate_申请与入向连接_产出TCP中继候选并可Bind()
+        {
+            var relayPorts = ReserveTcpPorts(2);
+
+            using (var harness = TcpRelayHarness.Start(relayPorts))
+            using (var clientA = harness.CreateClient("tcp-relay-provider-a"))
+            using (var clientB = harness.CreateClient("tcp-relay-provider-b"))
+            using (var providerA = new TcpRelayCandidateProvider(clientA, 1))
+            using (var providerB = new TcpRelayCandidateProvider(clientB, 1))
+            {
+                var candidateA = await providerA.AllocateAsync(CancellationToken.None);
+                var candidateB = await providerB.AllocateAsync(CancellationToken.None);
+
+                Assert.IsNotNull(candidateA, "首个客户端应拿到 TCP 中继候选");
+                Assert.IsNotNull(candidateB, "第二个客户端应拿到 TCP 中继候选");
+                Assert.AreEqual(CandidateType.Relay, candidateA.Type, "候选类型应为 relay");
+                Assert.AreEqual(IceTransportType.Tcp, candidateA.Transport, "TCP 中继候选的传输类型应为 Tcp");
+                Assert.AreEqual(TcpCandidateType.None, candidateA.TcpType, "显式优先级构造的候选不携带 TCP 方向类型");
+                Assert.AreEqual(1, candidateA.Component, "候选分量应与构造参数一致");
+                Assert.AreEqual(
+                    IcePriority.ComputeForTcp(CandidateType.Relay, 1, TcpCandidateType.SimultaneousOpen),
+                    candidateA.Priority,
+                    "候选优先级应按同时打开方向偏好算出");
+                Assert.AreNotEqual(
+                    candidateA.EndPoint.Port,
+                    candidateB.EndPoint.Port,
+                    "两个客户端的中继端点端口不应相同");
+
+                var againA = await providerA.AllocateAsync(CancellationToken.None);
+                Assert.AreSame(candidateA, againA, "重复申请应返回同一候选");
+
+                var outbound = await providerA.ConnectAndBindAsync(candidateB.EndPoint, CancellationToken.None);
+                Assert.IsTrue(outbound.IsConnected, "主动侧数据连接应保持连接");
+
+                Assert.IsTrue(
+                    await WaitUntilAsync(() => providerB.PendingConnectionAttemptCount > 0, TimeSpan.FromSeconds(15)),
+                    "被动侧应收到入向连接通知");
+
+                TurnConnectionAttempt inboundAttempt;
+                Assert.IsTrue(providerB.TryTakeConnectionAttempt(out inboundAttempt), "应能取走入向连接通知");
+                // 入向连接的来源是服务端 Connect 套接字的源地址：该套接字未显式绑定，连向回环地址时由系统选 127.0.0.1，
+                // 中继地址 127.0.0.10 只是连接目标，不会是来源
+                Assert.IsTrue(
+                    IPAddress.IsLoopback(inboundAttempt.PeerEndPoint.Address),
+                    "入向通知的来源地址应为服务端 Connect 套接字的回环地址，实际 " + inboundAttempt.PeerEndPoint.Address);
+
+                var inbound = await providerB.BindInboundAsync(inboundAttempt, CancellationToken.None);
+                Assert.IsTrue(inbound.IsConnected, "被动侧数据连接应保持连接");
+
+                using (var channelA = new TcpDirectChannel("ufrag-a", "password-a"))
+                using (var channelB = new TcpDirectChannel("ufrag-b", "password-b"))
+                {
+                    var received = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+                    // 回调内的内存只在回调期间有效，必须在这里复制出去
+                    channelB.FrameReceived += payload => received.TrySetResult(payload.ToArray());
+
+                    var attachTask = channelB.AttachAsync(inbound, CancellationToken.None);
+
+                    var check = await channelA.CheckAsync(
+                        outbound,
+                        candidateB.EndPoint,
+                        "ufrag-b",
+                        "password-b",
+                        IceRole.Controlling,
+                        0x1234UL,
+                        1u,
+                        true,
+                        CancellationToken.None);
+
+                    var attach = await attachTask;
+
+                    Assert.IsTrue(
+                        check.Succeeded,
+                        "中继数据连接上的检查应成功：" + check.Failure + " / " + check.ErrorReason);
+                    Assert.IsTrue(
+                        attach.Succeeded,
+                        "被动侧应应答检查并通过：" + attach.Failure + " / " + attach.ErrorReason);
+                    Assert.IsTrue(channelA.IsConnected, "主动侧检查通过后应转入数据面");
+                    Assert.IsTrue(channelB.IsConnected, "被动侧检查通过后应转入数据面");
+
+                    var payloadBytes = new byte[256];
+                    for (var i = 0; i < payloadBytes.Length; i++)
+                    {
+                        payloadBytes[i] = 0x5A;
+                    }
+
+                    channelA.Send(payloadBytes);
+
+                    var atB = await WaitWithTimeoutAsync(received.Task, Timeout);
+                    CollectionAssert.AreEqual(payloadBytes, atB, "对端收到的业务载荷应与发送内容逐字节一致");
+                }
+
+                await providerA.ReleaseAsync(CancellationToken.None);
+                await providerB.ReleaseAsync(CancellationToken.None);
+                Assert.IsTrue(
+                    await WaitUntilAsync(() => harness.Server.AllocationCount == 0, TimeSpan.FromSeconds(5)),
+                    "全部释放后服务端不应保留分配，实际剩余 " + harness.Server.AllocationCount);
             }
         }
 
