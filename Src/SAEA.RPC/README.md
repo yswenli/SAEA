@@ -69,7 +69,7 @@ Console.WriteLine(result);  // 输出: Hello, SAEA!
 | ⚡ **跨平台异步 IO** | 基于 SAEA.Sockets | 面向高并发，低延迟响应 |
 | 📦 **二进制序列化** | Protobuf 高效传输 | 数据量小，序列化快 |
 | 🔌 **动态代理** | 自动生成客户端代码 | 像调用本地方法一样调用远程服务 |
-| 🛡️ **AOP 过滤器** | `ActionFilterAttribute` | 日志、权限、缓存统一拦截 |
+| 🛡️ **AOP 过滤器** | `ActionFilterAtrribute` | 日志、权限、缓存统一拦截 |
 | 📡 **服务端推送** | `Notice<T>` 推送消息 | 支持发布订阅模式 |
 | ⚖️ **连接复用** | `ConsumerMultiplexer` | 同一服务地址按 `links` 复用连接 |
 | 🔗 **连接池** | 长连接复用 | 减少连接开销，提升性能 |
@@ -304,16 +304,23 @@ public sealed class ExceptionLogHandler : InboundHandlerAdapter
 
 ### Q4: 如何实现日志记录和权限验证？
 
-**A**: 使用 AOP 过滤器 `ActionFilterAttribute`：
+**A**: 使用 AOP 过滤器 `ActionFilterAtrribute`：
 
 ```csharp
-public class AuthAttribute : ActionFilterAttribute
+using SAEA.RPC;
+using SAEA.Sockets.Interface;
+
+public class AuthAttribute : ActionFilterAtrribute
 {
-    public override void OnActionExecuting(string service, string method, object[] args)
+    // 返回 false 会中止本次调用并直接返回 null
+    public override bool OnActionExecuting(IUserToken userToken, string serviceName, string methodName, object[] args)
     {
-        // 权限验证逻辑
-        if (!ValidateToken())
-            throw new UnauthorizedAccessException();
+        return true; // 替换为你的权限校验
+    }
+
+    public override void OnActionExecuted(IUserToken userToken, string serviceName, string methodName, object[] args, object result)
+    {
+        // 权限校验在调用前完成，调用后无需额外处理
     }
 }
 
@@ -387,7 +394,7 @@ proxy.RegistReceiveNotice();
 | `RPCServiceProxy` | 动态生成的客户端代理基类 |
 | `RPCServiceAttribute` | 标记类为 RPC 服务 |
 | `NoRpcAttribute` | 标记方法不对外开放 |
-| `ActionFilterAttribute` | AOP 过滤器抽象基类 |
+| `ActionFilterAtrribute` | AOP 过滤器抽象基类（类名拼写沿用现有 API） |
 | `RPCMapping` | 服务映射缓存表 |
 | `ConsumerMultiplexer` | 同一服务地址上的多连接复用管理器（`links` 决定连接数） |
 | `Notice<T>` | 服务端推送消息类型 |
@@ -401,6 +408,8 @@ proxy.RegistReceiveNotice();
 ```csharp
 using SAEA.RPC;
 using SAEA.RPC.Model;
+using SAEA.RPC.Provider;
+using SAEA.Sockets.Interface;
 
 // 定义用户实体
 public class User
@@ -411,19 +420,17 @@ public class User
 }
 
 // 定义日志过滤器
-public class LogAttribute : ActionFilterAttribute
+public class LogAttribute : ActionFilterAtrribute
 {
-    public override void OnActionExecuting(string serviceName, string methodName, object[] args)
+    public override bool OnActionExecuting(IUserToken userToken, string serviceName, string methodName, object[] args)
     {
         Console.WriteLine($"[{DateTime.Now}] 调用: {serviceName}.{methodName}");
+        return true;
     }
 
-    public override void OnActionExecuted(string serviceName, string methodName, object result, Exception ex)
+    public override void OnActionExecuted(IUserToken userToken, string serviceName, string methodName, object[] args, object result)
     {
-        if (ex != null)
-            Console.WriteLine($"[错误] {ex.Message}");
-        else
-            Console.WriteLine($"[完成] 返回: {result}");
+        Console.WriteLine($"[完成] 返回: {result}");
     }
 }
 
