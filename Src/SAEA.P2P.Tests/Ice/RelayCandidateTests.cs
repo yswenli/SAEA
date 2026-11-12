@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 20:00:00
+*修改时间：2026/11/12 11:39:41
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增中继候选用例
+*描述：权限用例改为在首个检查包到达时断言权限已建立
 *
 *****************************************************************************/
 using System;
@@ -135,6 +135,8 @@ namespace SAEA.P2P.Tests.Ice
 
         /// <summary>
         /// 从 relay 候选发起检查前，先对 peer IP 建一条权限，且检查包从本通道的中继端点到达对端。
+        /// 权限的先后顺序只能靠「对端收到首个检查包的瞬间读取 PermissionCount」来证明：
+        /// 对端是裸 STUN 服务端、不校验权限，检查结束后再数一遍无法区分权限是建在检查包之前还是之后。
         /// </summary>
         [TestMethod]
         [Timeout(30000)]
@@ -149,6 +151,10 @@ namespace SAEA.P2P.Tests.Ice
             using (var client = harness.CreateClient(new IPEndPoint(ClientAddress, 0)))
             using (var provider = new RelayCandidateProvider(client, 1))
             {
+                // 在检查包到达对端的同一时刻取权限数快照，这才是权限先于检查包的证据
+                int? permissionCountAtRequest = null;
+                recorder.RequestObserved = () => { permissionCountAtRequest = client.Allocation.PermissionCount; };
+
                 await peer.StartAsync();
                 var peerEndPoint = peer.Endpoints[0].LocalEndPoint;
 
@@ -174,7 +180,9 @@ namespace SAEA.P2P.Tests.Ice
                     Assert.IsNotNull(result, "检查应返回结果");
                 }
 
-                Assert.AreEqual(1, client.Allocation.PermissionCount, "检查前应只对 peer IP 建一条权限");
+                Assert.IsNotNull(permissionCountAtRequest, "对端应收到检查包");
+                Assert.AreEqual(1, permissionCountAtRequest.Value, "首个检查包到达对端时，peer IP 的权限应已建立");
+                Assert.AreEqual(1, client.Allocation.PermissionCount, "检查后仍只对 peer IP 保留一条权限");
                 Assert.IsNotNull(recorder.SourceEndPoint, "对端应收到检查包");
                 Assert.AreEqual(RelayAddress, recorder.SourceEndPoint.Address, "对端看到的来源地址应为中继地址");
                 Assert.AreEqual(peerEndPoint, recorder.DestinationEndPoint, "检查包目标应为对端 STUN 端点");
@@ -306,6 +314,11 @@ namespace SAEA.P2P.Tests.Ice
             }
 
             /// <summary>
+            /// 记录到首个 Binding 请求的同一时刻回调一次，用于读取此刻的外部状态
+            /// </summary>
+            public Action RequestObserved { get; set; }
+
+            /// <summary>
             /// 数据报入口：只记录不拦截，返回 false 让 STUN 层继续应答
             /// </summary>
             /// <param name="data">数据报内容</param>
@@ -325,12 +338,30 @@ namespace SAEA.P2P.Tests.Ice
                     return false;
                 }
 
+                var firstObserved = false;
                 lock (_sync)
                 {
                     if (_sourceEndPoint == null)
                     {
                         _destinationEndPoint = receivedOn.LocalEndPoint;
                         _sourceEndPoint = remoteEndPoint;
+                        firstObserved = true;
+                    }
+                }
+
+                if (firstObserved)
+                {
+                    var observer = RequestObserved;
+                    if (observer != null)
+                    {
+                        try
+                        {
+                            observer();
+                        }
+                        catch
+                        {
+                            // 测试夹具的订阅者异常不应影响 STUN 层应答
+                        }
                     }
                 }
 
