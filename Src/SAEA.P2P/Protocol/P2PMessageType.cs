@@ -23,16 +23,16 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:20:16
+*修改时间：2026/11/12 18:15:22
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：新增 0x90 段信令会话消息类型
 *
 *****************************************************************************/
 namespace SAEA.P2P.Protocol
 {
     /// <summary>
-    /// P2P 协议消息类型，单字节取值按阶段分段：0x10 注册、0x20 NAT 探测、0x30 打洞、0x40 中继、0x50 局域网发现、0x60 鉴权、0x70 心跳、0x80 业务数据
+    /// P2P 协议消息类型，单字节取值按阶段分段：0x10 注册、0x20 NAT 探测、0x30 打洞、0x40 中继、0x50 局域网发现、0x60 鉴权、0x70 心跳、0x80 业务数据、0x90 信令会话
     /// </summary>
     public enum P2PMessageType : byte
     {
@@ -115,6 +115,38 @@ namespace SAEA.P2P.Protocol
         /// <summary>
         /// 业务数据，直连时原样承载上层负载，经信令服务器转发时前置来源与目标标识
         /// </summary>
-        UserData = 0x80
+        UserData = 0x80,
+        /// <summary>
+        /// 客户端请求与目标节点建立会话，负载含目标节点标识与会话标识
+        /// </summary>
+        ConnectRequest = 0x90,
+        /// <summary>
+        /// 发起方下发本端 ICE 参数（ufrag/pwd/role/tiebreaker）与候选列表
+        /// </summary>
+        SessionOffer = 0x91,
+        /// <summary>
+        /// 应答方下发本端 ICE 参数与候选列表，role 与 tiebreaker 填自身值
+        /// </summary>
+        SessionAnswer = 0x92,
+        /// <summary>
+        /// 会话期间增量补充候选
+        /// </summary>
+        TrickleCandidate = 0x93,
+        /// <summary>
+        /// 本端候选已发送完毕
+        /// </summary>
+        EndOfCandidates = 0x94,
+        /// <summary>
+        /// 服务端下发 TURN 临时凭据
+        /// </summary>
+        TurnCredential = 0x95,
+        /// <summary>
+        /// 请求拆除会话
+        /// </summary>
+        SessionClose = 0x96,
+        /// <summary>
+        /// 错误应答，负载含错误码与说明
+        /// </summary>
+        Error = 0x97
     }
 }

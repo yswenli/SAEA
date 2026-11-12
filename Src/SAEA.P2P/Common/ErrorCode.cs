@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 14:44:17
+*修改时间：2026/11/12 18:15:22
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增未连通错误码 EI03
+*描述：新增信令协议错误码 ES01、ES02
 *
 *****************************************************************************/
 namespace SAEA.P2P.Common
@@ -189,6 +189,16 @@ namespace SAEA.P2P.Common
         /// </summary>
         public static readonly string TurnAuthFailed = "ET02";
 
+        // 信令协议：版本协商与报文格式
+        /// <summary>
+        /// 信令协议版本不匹配
+        /// </summary>
+        public static readonly string ProtocolVersionMismatch = "ES01";
+        /// <summary>
+        /// 信令报文格式非法或无法解析
+        /// </summary>
+        public static readonly string ProtocolMalformed = "ES02";
+
         private static readonly System.Collections.Generic.Dictionary<string, string> Descriptions =
             new System.Collections.Generic.Dictionary<string, string>
             {
@@ -226,7 +236,9 @@ namespace SAEA.P2P.Common
                 { IceTimeout, "ICE session timeout" },
                 { NotConnected, "ICE channel not selected" },
                 { TurnUnavailable, "TURN server unavailable" },
-                { TurnAuthFailed, "TURN authentication failed" }
+                { TurnAuthFailed, "TURN authentication failed" },
+                { ProtocolVersionMismatch, "Signaling protocol version mismatch" },
+                { ProtocolMalformed, "Signaling message malformed" }
             };
 
         /// <summary>获取错误码对应的英文描述；未登记的错误码返回 Unknown error</summary>
