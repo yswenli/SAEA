@@ -22,14 +22,15 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 14:05:00
+*修改时间：2026/11/12 14:06:33
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 RFC 6062 控制面：按 REQUESTED-TRANSPORT 申请中继、Connect 取连接号与 ConnectionAttempt 事件
+*描述：新增 RFC 6062 数据面 ConnectionBind：另开一条明文 TCP 连接完成绑定后只承载业务字节
 *
 *****************************************************************************/
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net;
 using System.Text;
 using System.Threading;
@@ -37,6 +38,7 @@ using System.Threading.Tasks;
 
 using SAEA.P2P.Common;
 using SAEA.P2P.Stun;
+using SAEA.P2P.Transport;
 
 namespace SAEA.P2P.Turn
 {
@@ -51,6 +53,11 @@ namespace SAEA.P2P.Turn
         /// 默认分配生命周期，单位秒
         /// </summary>
         private const uint DefaultLifetimeSeconds = 600;
+
+        /// <summary>
+        /// STUN 应答本体的长度上限，用于挡住被篡改或错位的头部长度
+        /// </summary>
+        private const int MaxStunBodyLength = 65536;
 
         /// <summary>
         /// 释放事务自身的取消上限：只给 LIFETIME=0 请求一个短超时，避免死服务端把最后一步拖长
@@ -282,6 +289,122 @@ namespace SAEA.P2P.Turn
             }
 
             return connectionId;
+        }
+
+        /// <summary>
+        /// 发起 RFC 6062 的 ConnectionBind：另开一条 TCP 连接与之绑定，绑定成功后该连接只承载业务字节，
+        /// 不再有长度前缀，STUN 靠自身头部长度自定界。
+        /// </summary>
+        /// <param name="connectionId">Connect 或 ConnectionAttempt 得到的连接号</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>已完成绑定的数据连接，所有权交给调用方</returns>
+        /// <exception cref="ObjectDisposedException">客户端已释放</exception>
+        /// <exception cref="InvalidOperationException">当前分配不是 TCP 中继、控制连接未就绪或数据连接工厂未返回实例</exception>
+        /// <exception cref="TurnClientException">服务端拒绝、应答无法解析或鉴权失败</exception>
+        /// <exception cref="IOException">数据连接在读完应答前被关闭</exception>
+        public async Task<ITcpTransport> ConnectionBindAsync(uint connectionId, CancellationToken cancellationToken)
+        {
+            ThrowIfDisposed();
+
+            if (_options.RequestedTransportProtocol != 6)
+            {
+                throw new InvalidOperationException("只有 TCP 中继分配才能发起 ConnectionBind");
+            }
+
+            ITurnClientTransport control;
+            lock (_sync)
+            {
+                control = _transport;
+            }
+            if (control == null || !control.IsConnected)
+            {
+                throw new InvalidOperationException("控制连接尚未就绪");
+            }
+
+            var factory = _options.DataTransportFactory;
+            var data = factory == null ? new SaeaTcpTransport() : factory();
+            if (data == null)
+            {
+                throw new InvalidOperationException("数据连接工厂没有返回可用的传输实例");
+            }
+
+            try
+            {
+                await data.ConnectAsync(_options.ServerEndPoint, cancellationToken).ConfigureAwait(false);
+
+                var stream = data.Stream;
+                if (stream == null)
+                {
+                    throw new InvalidOperationException("数据连接没有可读写的字节流");
+                }
+
+                string username;
+                string realm;
+                string nonce;
+                byte[] key;
+                lock (_sync)
+                {
+                    username = _username;
+                    realm = _realm;
+                    nonce = _nonce;
+                    key = _integrityKey;
+                }
+
+                var plain = TurnMessage.CreateConnectionBind(connectionId);
+                var first = key != null && !string.IsNullOrEmpty(nonce)
+                    ? CreateSignedCopy(plain, username, realm, nonce, key)
+                    : plain;
+
+                // 绑定后的字节直接属于数据面，请求帧不能加任何长度前缀；STUN 报文自身带长度，服务端按头部分帧
+                var frame = first.ToArray();
+                await stream.WriteAsync(frame, 0, frame.Length, cancellationToken).ConfigureAwait(false);
+                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+                var response = await ReadStunResponseAsync(stream, cancellationToken).ConfigureAwait(false);
+
+                var code = GetErrorCode(response);
+                if (code == TurnErrorCode.Unauthorized || code == TurnErrorCode.StaleNonce)
+                {
+                    var renewedRealm = ReadString(response, StunAttributeType.Realm);
+                    if (string.IsNullOrEmpty(renewedRealm))
+                    {
+                        renewedRealm = realm ?? string.Empty;
+                    }
+                    var renewedNonce = ReadString(response, StunAttributeType.Nonce);
+                    if (string.IsNullOrEmpty(renewedNonce))
+                    {
+                        throw CreateError(response);
+                    }
+
+                    // nonce 与源端点绑定：数据连接的源端口与控制连接不同，只能用本条连接的挑战重签，
+                    // 且不能写回控制连接的鉴权状态，否则会污染后续刷新
+                    var renewedKey = StunIntegrity.CreateLongTermKey(username, renewedRealm, _password);
+                    var retryFrame = CreateSignedCopy(TurnMessage.CreateConnectionBind(connectionId), username, renewedRealm, renewedNonce, renewedKey).ToArray();
+                    await stream.WriteAsync(retryFrame, 0, retryFrame.Length, cancellationToken).ConfigureAwait(false);
+                    await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+                    response = await ReadStunResponseAsync(stream, cancellationToken).ConfigureAwait(false);
+                }
+
+                if (response.Class != StunClass.SuccessResponse)
+                {
+                    throw CreateError(response);
+                }
+
+                // 绑定成功后连接只承载业务字节，所有权随之交给调用方，本方法不再持有引用
+                return data;
+            }
+            catch
+            {
+                // 失败路径（含取消）必须就地关掉数据连接，否则这条 socket 再没人持有
+                try
+                {
+                    data.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    P2PLogHelper.Debug("TurnClient", "释放数据连接失败：" + ex.GetType().Name);
+                }
+                throw;
+            }
         }
 
         /// <summary>
@@ -1326,6 +1449,67 @@ namespace SAEA.P2P.Turn
             var copy = new StunMessage(request.Method, request.Class, request.TransactionId.ToArray());
             copy.SetAttributes(request.Attributes);
             return copy;
+        }
+
+        /// <summary>
+        /// 从字节流读一条完整的 STUN 应答：先读 20 字节头，再按头里的长度精确读本体。
+        /// 数据连接在应答之后立刻承载业务字节，多读一个字节都会丢掉数据面的开头
+        /// </summary>
+        /// <param name="stream">数据连接的字节流</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>解析出的应答</returns>
+        /// <exception cref="IOException">读取期间连接被关闭</exception>
+        /// <exception cref="TurnClientException">长度非法或报文无法解析</exception>
+        private static async Task<StunMessage> ReadStunResponseAsync(Stream stream, CancellationToken cancellationToken)
+        {
+            var header = new byte[StunConstants.HeaderLength];
+            await ReadExactAsync(stream, header, header.Length, cancellationToken).ConfigureAwait(false);
+
+            // 长度字段位于头部第 2~3 字节，大端，且恒为 4 的倍数
+            var bodyLength = (header[2] << 8) | header[3];
+            if (bodyLength % 4 != 0 || bodyLength > MaxStunBodyLength)
+            {
+                throw new TurnClientException(TurnErrorCode.BadRequest, "ConnectionBind 应答无法解析");
+            }
+
+            var frame = new byte[StunConstants.HeaderLength + bodyLength];
+            Buffer.BlockCopy(header, 0, frame, 0, StunConstants.HeaderLength);
+            if (bodyLength > 0)
+            {
+                var body = new byte[bodyLength];
+                await ReadExactAsync(stream, body, bodyLength, cancellationToken).ConfigureAwait(false);
+                Buffer.BlockCopy(body, 0, frame, StunConstants.HeaderLength, bodyLength);
+            }
+
+            StunMessage message;
+            StunParseError error;
+            if (!StunMessage.TryParse(frame, out message, out error))
+            {
+                throw new TurnClientException(TurnErrorCode.BadRequest, "ConnectionBind 应答无法解析");
+            }
+            return message;
+        }
+
+        /// <summary>
+        /// 从字节流精确读满指定字节数；读不满说明连接已被关闭
+        /// </summary>
+        /// <param name="stream">字节流</param>
+        /// <param name="buffer">接收缓冲</param>
+        /// <param name="count">需要读取的字节数</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <exception cref="IOException">连接在读完之前被关闭</exception>
+        private static async Task ReadExactAsync(Stream stream, byte[] buffer, int count, CancellationToken cancellationToken)
+        {
+            var offset = 0;
+            while (offset < count)
+            {
+                var read = await stream.ReadAsync(buffer, offset, count - offset, cancellationToken).ConfigureAwait(false);
+                if (read <= 0)
+                {
+                    throw new IOException("连接已关闭");
+                }
+                offset += read;
+            }
         }
 
         /// <summary>

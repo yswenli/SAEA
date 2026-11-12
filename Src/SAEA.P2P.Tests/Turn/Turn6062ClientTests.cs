@@ -23,13 +23,14 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 14:10:00
+*修改时间：2026/11/12 14:06:33
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增 TURN over TCP 客户端控制面验收
+*描述：新增数据面 ConnectionBind 验收：绑定后明文 TCP 双向裸字节收发，以及非 TCP 分配拒绝绑定
 *
 *****************************************************************************/
 using System;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -47,8 +48,9 @@ using TurnServerHost = SAEA.P2P.TurnServer.TurnServer;
 namespace SAEA.P2P.Tests.Turn
 {
     /// <summary>
-    /// TURN over TCP 客户端控制面：按 REQUESTED-TRANSPORT 申请 TCP 中继、Connect 取连接号、
-    /// 同一对端重复 Connect 返回 446、UDP 控制连接不能申请 TCP 中继、对端主动连入触发 ConnectionAttempt。
+    /// TURN over TCP 客户端：按 REQUESTED-TRANSPORT 申请 TCP 中继、Connect 取连接号、
+    /// 同一对端重复 Connect 返回 446、UDP 控制连接不能申请 TCP 中继、对端主动连入触发 ConnectionAttempt，
+    /// 并在另开的数据连接上完成 ConnectionBind 后双向收发裸字节。
     /// </summary>
     [TestClass]
     public class Turn6062ClientTests
@@ -186,6 +188,93 @@ namespace SAEA.P2P.Tests.Turn
                     Assert.IsTrue(received.ConnectionId > 0, "ConnectionAttempt 应携带大于 0 的连接号");
                     Assert.AreEqual(Host, received.PeerEndPoint.Address, "对端地址应是本机回环地址");
                 }
+            }
+        }
+
+        /// <summary>
+        /// ConnectionBind 成功后数据连接只承载业务字节：对端写入的字节原样到达数据连接，反向同样成立
+        /// </summary>
+        [TestMethod]
+        [Timeout(30000)]
+        public async Task TurnClient6062_TCP中继_Bind后双向数据一致()
+        {
+            const int payloadSize = 1024;
+            var relayPort = ReserveTcpPort();
+            using (var harness = Tcp6062Harness.Start(relayPort))
+            using (var peerListener = new TcpListener(Host, 0))
+            using (var client = new TurnClient(CreateOptions(harness.TcpControlEndPoint, harness.Server, TurnServerHost.TcpTransport)))
+            {
+                peerListener.Start();
+                var peerEndPoint = (IPEndPoint)peerListener.LocalEndpoint;
+
+                var allocation = await client.AllocateAsync(null, CancellationToken.None);
+                Assert.IsNotNull(allocation.RelayedEndPoint, "TCP 中继分配应返回中继地址");
+
+                var connectionId = await client.ConnectAsync(peerEndPoint, CancellationToken.None);
+                Assert.IsTrue(connectionId > 0, "Connect 应答应携带大于 0 的连接号，实际 " + connectionId);
+
+                var peerSocket = await AcceptWithTimeoutAsync(peerListener, Timeout);
+                Assert.IsNotNull(peerSocket, "对端应收到服务端发起的中继连接");
+
+                using (peerSocket)
+                using (var peerStream = new NetworkStream(peerSocket, false))
+                {
+                    var data = await client.ConnectionBindAsync(connectionId, CancellationToken.None);
+                    Assert.IsNotNull(data, "ConnectionBind 成功应返回数据连接");
+                    using (data)
+                    {
+                        Assert.IsTrue(data.IsConnected, "绑定成功后数据连接应保持连接");
+
+                        // 下行：对端写、数据连接读；不含任何长度前缀，字节必须逐一对齐
+                        var fromPeer = new byte[payloadSize];
+                        for (var i = 0; i < fromPeer.Length; i++)
+                        {
+                            fromPeer[i] = 0x11;
+                        }
+                        await peerStream.WriteAsync(fromPeer, 0, fromPeer.Length, CancellationToken.None);
+
+                        var received = new byte[payloadSize];
+                        await data.Stream.ReadExactlyAsync(received, CancellationToken.None);
+                        CollectionAssert.AreEqual(fromPeer, received, "数据连接收到的字节应与对端写入内容一致");
+
+                        // 上行：数据连接写、对端读；同样按裸字节中继，不带前缀
+                        var fromData = new byte[payloadSize];
+                        for (var i = 0; i < fromData.Length; i++)
+                        {
+                            fromData[i] = 0x22;
+                        }
+                        await data.Stream.WriteAsync(fromData, 0, fromData.Length, CancellationToken.None);
+                        await data.Stream.FlushAsync(CancellationToken.None);
+
+                        var atPeer = new byte[payloadSize];
+                        await peerStream.ReadExactlyAsync(atPeer, CancellationToken.None);
+                        CollectionAssert.AreEqual(fromData, atPeer, "对端收到的字节应与数据连接写入内容一致");
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 非 TCP 中继分配没有数据连接可绑，客户端在建立任何连接前就应拒绝
+        /// </summary>
+        [TestMethod]
+        [Timeout(30000)]
+        public async Task TurnClient6062_非TCP分配_ConnectionBind抛异常()
+        {
+            // 只有协议号参与判定，这里的端点与传输工厂都不会被用到，因此不需要起服务端
+            using (var client = new TurnClient(new TurnClientOptions
+            {
+                ServerEndPoint = new IPEndPoint(Host, 1),
+                TransportFactory = () => new TcpTurnClientTransport(new IPEndPoint(Host, 1)),
+                Username = "tcp-relay-user",
+                Password = "tcp-relay-password",
+                RequestedTransportProtocol = 17,
+                RtoMilliseconds = 100
+            }))
+            {
+                var error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(
+                    () => client.ConnectionBindAsync(1, CancellationToken.None));
+                StringAssert.Contains(error.Message, "ConnectionBind", "拒绝原因应说明只有 TCP 中继分配才能绑定数据连接");
             }
         }
 

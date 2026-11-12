@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 14:05:00
+*修改时间：2026/11/12 14:06:33
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 REQUESTED-TRANSPORT 协议号选项 RequestedTransportProtocol
+*描述：新增 TCP 中继数据连接传输工厂 DataTransportFactory
 *
 *****************************************************************************/
 using System;
@@ -35,6 +35,7 @@ using System.Threading;
 
 using SAEA.P2P.Common;
 using SAEA.P2P.Stun;
+using SAEA.P2P.Transport;
 
 namespace SAEA.P2P.Turn
 {
@@ -185,6 +186,12 @@ namespace SAEA.P2P.Turn
         /// 申请分配时携带的 REQUESTED-TRANSPORT 协议号：17 为 UDP 中继，6 为 TCP 中继（RFC 6062）
         /// </summary>
         public byte RequestedTransportProtocol { get; set; } = 17;
+
+        /// <summary>
+        /// TCP 中继数据连接使用的传输工厂：返回未连接的 <see cref="ITcpTransport"/>，由客户端连到 TURN 服务端；
+        /// 为 null 时使用内置的明文 TCP 实现。TLS 控制连接必须返回同样启用 TLS 的实现（同一证书与校验策略）。
+        /// </summary>
+        public Func<ITcpTransport> DataTransportFactory { get; set; }
 
         /// <summary>
         /// SOFTWARE 属性值；为 null 时不携带
