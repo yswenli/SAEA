@@ -30,7 +30,7 @@ $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ('saea-ssltls-' + [guid]::New
 New-Item -ItemType Directory -Path $tmp -Force | Out-Null
 try {
     Invoke-Case -Name 'version 输出兼容子集标记' -Body {
-        $r = Invoke-Tool -Arguments @('version'); $r.ExitCode -eq 0 -and $r.StdOut -like '*兼容子集*'
+        $r = Invoke-Tool -Arguments @('version'); $r.ExitCode -eq 0 -and $r.StdOut -like '*兼容子集*' -and $r.StdOut -notlike '*yswenli*'
     }
     Invoke-Case -Name '未知子命令报错' -Body {
         $r = Invoke-Tool -Arguments @('foo'); $r.ExitCode -eq 1 -and $r.StdErr -like '*不支持的子命令*'

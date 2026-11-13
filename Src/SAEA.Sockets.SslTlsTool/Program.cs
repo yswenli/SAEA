@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 13:40:21
+*修改时间：2026/11/13 13:50:42
 *修改人： yswenli
 *版本号： net10.0
-*描述：首 token 为子命令时交给 openssl 兼容层，命令行与交互模式同一套分派
+*描述：兼容分支移到 try/finally 之前，避免 ConsoleHelper 的版权横幅污染 stdout
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -45,12 +45,12 @@ internal static class Program
 
     private static int Main(string[] args)
     {
+        // 兼容分支只用 Console.Out/Console.Error，不经过 ConsoleHelper，避免 SAEA.Common 的启动横幅污染 stdout。
+        if (args is { Length: > 0 } && OpenSslCommand.IsCompat(args[0]))
+            return OpenSslCommand.Run(args, interactive: false);
+
         try
         {
-            // 首 token 非选项时进入兼容分支；遗留 --self-signed/--ca/--verify 路径不受影响。
-            if (args != null && args.Length > 0 && OpenSslCommand.IsCompat(args[0]))
-                return OpenSslCommand.Run(args, interactive: false);
-
             return Run(args);
         }
         finally
