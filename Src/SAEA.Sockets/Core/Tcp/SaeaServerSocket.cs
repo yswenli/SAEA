@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 16:42:11
+*修改时间：2026/11/13 17:33:09
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：发送看门狗放弃路径改为令牌退役并补建容量；接收提交异常与发送完成异常统一收口并落日志
+*描述：接收提交时的 ObjectDisposedException 单独分支处理，按信息级记录关闭竞态
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -698,6 +698,22 @@ namespace SAEA.Sockets.Core.Tcp
                             try
                             {
                                 willRaiseEvent = userToken.Socket.ReceiveAsync(readArgs);
+                            }
+                            catch (ObjectDisposedException ex)
+                            {
+                                // 连接正在关闭时 socket 句柄已释放，提交接收必然失败：属预期竞态，按信息记录，
+                                // 仍要断开并回滚在途计数，CompleteOperation 之后不再触碰令牌。
+                                var tokenId = userToken.ID;
+                                try
+                                {
+                                    LogHelper.Info($"接收提交时连接已关闭:{tokenId}/{ex.ObjectName}");
+                                }
+                                finally
+                                {
+                                    try { Disconnect(userToken, null); } catch { }
+                                    _sessionManager.CompleteOperation(userToken);
+                                }
+                                return;
                             }
                             catch (InvalidOperationException ex)
                             {
