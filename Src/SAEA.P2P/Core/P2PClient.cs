@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:20:16
+*修改时间：2026/11/13 10:21:07
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：通道类型改为 ICE 选路结果
 *
 *****************************************************************************/
 using System;
@@ -402,7 +402,7 @@ namespace SAEA.P2P.Core
             if (!string.IsNullOrEmpty(peerId))
             {
                 var session = _peers.GetOrAdd(peerId, id => new PeerSession(Guid.NewGuid().ToString("N"), id));
-                session.Channel = ChannelType.Relay;
+                session.Channel = ChannelType.RelayUdp;
                 session.RelaySessionId = relaySessionId;
                 session.Active();
                 
@@ -490,7 +490,7 @@ namespace SAEA.P2P.Core
             if (_signalSocket == null)
                 throw new P2PException(ErrorCode.RegisterServerUnavailable, "Signal server is not connected");
             
-            if (session.Channel == ChannelType.Relay && _relayManager != null && !string.IsNullOrEmpty(session.RelaySessionId))
+            if (session.Channel == ChannelType.RelayUdp && _relayManager != null && !string.IsNullOrEmpty(session.RelaySessionId))
             {
                 var relayData = _relayManager.EncodeRelayData(session.RelaySessionId, NodeId, peerId, data);
                 _signalSocket.SendAsync(relayData);

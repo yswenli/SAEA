@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 14:44:17
+*修改时间：2026/11/13 10:21:07
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 ICE 选路结果
+*描述：通道类型改为 ICE 选路结果
 *
 *****************************************************************************/
 using System;
@@ -63,11 +63,31 @@ namespace SAEA.P2P.Ice
         public SelectedPair Pair { get; }
 
         /// <summary>
-        /// 通道类型：选中候选对为中继时为 Relay，否则为 Direct
+        /// 通道类型：按打通的阶段映射，未选出候选对时返回默认值 UdpDirect
         /// </summary>
         public ChannelType ChannelType
         {
-            get { return Pair != null && Pair.IsRelay ? ChannelType.Relay : ChannelType.Direct; }
+            get
+            {
+                if (Pair == null)
+                {
+                    return ChannelType.UdpDirect;
+                }
+
+                switch (Stage)
+                {
+                    case IceStage.TcpDirect:
+                        return ChannelType.TcpDirect;
+                    case IceStage.TurnUdp:
+                        return ChannelType.RelayUdp;
+                    case IceStage.TurnTcp:
+                        return ChannelType.RelayTcp;
+                    case IceStage.TurnTls:
+                        return ChannelType.RelayTls;
+                    default:
+                        return ChannelType.UdpDirect;
+                }
+            }
         }
 
         /// <summary>

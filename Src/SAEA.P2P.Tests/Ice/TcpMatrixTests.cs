@@ -22,10 +22,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 16:44:01
+*修改时间：2026/11/13 10:21:07
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增 TCP 直连矩阵用例
+*描述：通道类型断言改为 ICE 选路结果
 *
  *****************************************************************************/
 using System;
@@ -395,8 +395,8 @@ namespace SAEA.P2P.Tests.Ice
 
                     Assert.IsTrue(controllerResult.IsRelay, "控制方应经中继转发");
                     Assert.IsTrue(controlledResult.IsRelay, "受控方应经中继转发");
-                    Assert.AreEqual(ChannelType.Relay, controllerResult.ChannelType, "控制方通道类型应为中继");
-                    Assert.AreEqual(ChannelType.Relay, controlledResult.ChannelType, "受控方通道类型应为中继");
+                    Assert.AreEqual(ChannelType.RelayUdp, controllerResult.ChannelType, "控制方通道类型应为 UDP 中继");
+                    Assert.AreEqual(ChannelType.RelayUdp, controlledResult.ChannelType, "受控方通道类型应为 UDP 中继");
                     Assert.IsFalse(controllerResult.UsesTcp, "控制方数据面不应使用 TCP");
                     Assert.IsFalse(controlledResult.UsesTcp, "受控方数据面不应使用 TCP");
 

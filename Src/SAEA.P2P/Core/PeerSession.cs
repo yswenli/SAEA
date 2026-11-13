@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:20:16
+*修改时间：2026/11/13 10:21:07
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：通道类型改为 ICE 选路结果
 *
 *****************************************************************************/
 using System;
@@ -78,7 +78,7 @@ namespace SAEA.P2P.Core
         /// <summary>
         /// 当前使用的通道类型，默认直连
         /// </summary>
-        public ChannelType Channel { get; set; } = ChannelType.Direct;
+        public ChannelType Channel { get; set; } = ChannelType.UdpDirect;
         
         /// <summary>
         /// 会话创建时间，UTC

@@ -23,30 +23,42 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:20:16
+*修改时间：2026/11/13 10:21:07
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：通道类型改为 ICE 选路结果
 *
 *****************************************************************************/
 namespace SAEA.P2P.Channel
 {
     /// <summary>
-    /// 节点间通信通道类型
+    /// 节点间通信通道类型，由选路结果写入，不是默认值
     /// </summary>
     public enum ChannelType
     {
         /// <summary>
-        /// 打洞成功后的端到端直连
+        /// UDP 直连
         /// </summary>
-        Direct = 0,
+        UdpDirect = 0,
         /// <summary>
-        /// 经信令服务器或中继节点转发
+        /// TCP 直连（active ↔ passive）
         /// </summary>
-        Relay = 1,
+        TcpDirect = 1,
         /// <summary>
-        /// 局域网内通过本地发现建立的直连
+        /// TURN over UDP 中继
         /// </summary>
-        Local = 2
+        RelayUdp = 2,
+        /// <summary>
+        /// TURN over TCP 中继
+        /// </summary>
+        RelayTcp = 3,
+        /// <summary>
+        /// TURN over TLS 中继
+        /// </summary>
+        RelayTls = 4,
+        /// <summary>
+        /// 局域网发现直连
+        /// </summary>
+        Local = 5
     }
 }

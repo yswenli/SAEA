@@ -172,7 +172,7 @@ var gameClient = new P2PClientBuilder()
 
 gameClient.OnPeerConnected += (peerId, channelType) =>
 {
-    if (channelType == ChannelType.Direct)
+    if (channelType == ChannelType.UdpDirect)
         Console.WriteLine($"🎯 Direct connection! Latency < 50ms");
 };
 

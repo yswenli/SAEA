@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 18:04:08
+*修改时间：2026/11/13 10:21:07
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增 TLS 控制下 TCP 中继选路用例
+*描述：通道类型断言改为 ICE 选路结果
 *
 *****************************************************************************/
 using System;
@@ -440,8 +440,8 @@ namespace SAEA.P2P.Tests.Ice
                     Assert.IsTrue(controlledResult.IsRelay, "受控方应经中继转发");
                     Assert.IsFalse(controllerResult.UsesTcp, "控制方 TURN over UDP 不应使用 TCP");
                     Assert.IsFalse(controlledResult.UsesTcp, "受控方 TURN over UDP 不应使用 TCP");
-                    Assert.AreEqual(ChannelType.Relay, controllerResult.ChannelType, "控制方通道类型应为中继");
-                    Assert.AreEqual(ChannelType.Relay, controlledResult.ChannelType, "受控方通道类型应为中继");
+                    Assert.AreEqual(ChannelType.RelayUdp, controllerResult.ChannelType, "控制方通道类型应为 UDP 中继");
+                    Assert.AreEqual(ChannelType.RelayUdp, controlledResult.ChannelType, "受控方通道类型应为 UDP 中继");
 
                     Assert.AreEqual(TurnAddress, controllerResult.LocalEndPoint.Address, "控制方本地端点应为中继地址");
                     Assert.AreEqual(TurnAddress, controllerResult.RemoteEndPoint.Address, "控制方远端端点应为对端中继地址");
@@ -593,8 +593,8 @@ namespace SAEA.P2P.Tests.Ice
                     // 只有控制连接走 TCP，数据面仍是 UDP 中继
                     Assert.IsFalse(controllerResult.UsesTcp, "控制方数据面不应使用 TCP");
                     Assert.IsFalse(controlledResult.UsesTcp, "受控方数据面不应使用 TCP");
-                    Assert.AreEqual(ChannelType.Relay, controllerResult.ChannelType, "控制方通道类型应为中继");
-                    Assert.AreEqual(ChannelType.Relay, controlledResult.ChannelType, "受控方通道类型应为中继");
+                    Assert.AreEqual(ChannelType.RelayTcp, controllerResult.ChannelType, "控制方通道类型应为 TCP 中继");
+                    Assert.AreEqual(ChannelType.RelayTcp, controlledResult.ChannelType, "受控方通道类型应为 TCP 中继");
 
                     Assert.AreEqual(TurnAddress, controllerResult.LocalEndPoint.Address, "控制方本地端点应为中继地址");
                     Assert.AreEqual(TurnAddress, controllerResult.RemoteEndPoint.Address, "控制方远端端点应为对端中继地址");
@@ -747,8 +747,8 @@ namespace SAEA.P2P.Tests.Ice
                     // 只有控制连接走 TLS，数据面仍是 UDP 中继
                     Assert.IsFalse(controllerResult.UsesTcp, "控制方数据面不应使用 TCP");
                     Assert.IsFalse(controlledResult.UsesTcp, "受控方数据面不应使用 TCP");
-                    Assert.AreEqual(ChannelType.Relay, controllerResult.ChannelType, "控制方通道类型应为中继");
-                    Assert.AreEqual(ChannelType.Relay, controlledResult.ChannelType, "受控方通道类型应为中继");
+                    Assert.AreEqual(ChannelType.RelayTls, controllerResult.ChannelType, "控制方通道类型应为 TLS 中继");
+                    Assert.AreEqual(ChannelType.RelayTls, controlledResult.ChannelType, "受控方通道类型应为 TLS 中继");
 
                     Assert.AreEqual(TurnAddress, controllerResult.LocalEndPoint.Address, "控制方本地端点应为中继地址");
                     Assert.AreEqual(TurnAddress, controllerResult.RemoteEndPoint.Address, "控制方远端端点应为对端中继地址");
@@ -895,8 +895,8 @@ namespace SAEA.P2P.Tests.Ice
                     Assert.IsTrue(controller.IsConnected, "控制方 TCP 中继选路完成后 IsConnected 应为 true");
                     Assert.IsTrue(controlled.IsConnected, "受控方 TCP 中继选路完成后 IsConnected 应为 true");
 
-                    Assert.AreEqual(ChannelType.Relay, controllerResult.ChannelType, "控制方通道类型应为中继");
-                    Assert.AreEqual(ChannelType.Relay, controlledResult.ChannelType, "受控方通道类型应为中继");
+                    Assert.AreEqual(ChannelType.RelayTcp, controllerResult.ChannelType, "控制方通道类型应为 TCP 中继");
+                    Assert.AreEqual(ChannelType.RelayTcp, controlledResult.ChannelType, "受控方通道类型应为 TCP 中继");
 
                     // TCP 中继的数据面就是 Connect/ConnectionBind 得到的 TCP 连接，与 UDP 中继的 UsesTcp=false 相反
                     Assert.IsTrue(controllerResult.UsesTcp, "控制方数据面应使用 TCP 中继");
@@ -1050,8 +1050,8 @@ namespace SAEA.P2P.Tests.Ice
                     Assert.IsTrue(controller.IsConnected, "控制方 TLS 上的 TCP 中继选路完成后 IsConnected 应为 true");
                     Assert.IsTrue(controlled.IsConnected, "受控方 TLS 上的 TCP 中继选路完成后 IsConnected 应为 true");
 
-                    Assert.AreEqual(ChannelType.Relay, controllerResult.ChannelType, "控制方通道类型应为中继");
-                    Assert.AreEqual(ChannelType.Relay, controlledResult.ChannelType, "受控方通道类型应为中继");
+                    Assert.AreEqual(ChannelType.RelayTls, controllerResult.ChannelType, "控制方通道类型应为 TLS 中继");
+                    Assert.AreEqual(ChannelType.RelayTls, controlledResult.ChannelType, "受控方通道类型应为 TLS 中继");
 
                     Assert.IsTrue(controllerResult.UsesTcp, "控制方数据面应使用 TCP 中继");
                     Assert.IsTrue(controlledResult.UsesTcp, "受控方数据面应使用 TCP 中继");
