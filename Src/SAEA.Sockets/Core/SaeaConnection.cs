@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/9 11:20:00
+*修改时间：2026/11/13 10:48:34
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：增加入站接管闸门：输入处理器接管后其他读取入口立即报错；发送重载返回底层交接完成的 Task，TLS 记录逐条跟踪并等待全部交接
+*描述：修复对端不发 close_notify 直接断开时收尾路径访问已释放 TLS 锁导致的 NullReferenceException：TLS 锁生命周期跟随连接对象，Release 改为本地快照
 *
 *****************************************************************************/
 using SAEA.Common.Caching;
@@ -73,6 +73,11 @@ namespace SAEA.Sockets.Core
 
         private SaeaTlsTransport _tls;
 
+        /// <summary>
+        /// TLS 读写的互斥锁。不能在 <see cref="Dispose"/> 中释放或置空：收尾阶段仍有并发等待与释放，
+        /// 字段被置空后 <c>Release()</c> 会抛 NullReferenceException；未使用 AvailableWaitHandle 的
+        /// SemaphoreSlim 不持有操作系统句柄，随连接对象一起交给 GC 即可。
+        /// </summary>
         private SemaphoreSlim _tlsLock;
 
         private Timer _handshakeTimer;
@@ -279,10 +284,11 @@ namespace SAEA.Sockets.Core
                 var acquired = false;
                 var writer = _writer;
                 var written = false;
+                var tlsLock = _tlsLock;
 
                 try
                 {
-                    acquired = _tlsLock.Wait(_option.ActionTimeout > 0 ? _option.ActionTimeout : 30 * 1000);
+                    acquired = tlsLock.Wait(_option.ActionTimeout > 0 ? _option.ActionTimeout : 30 * 1000);
                     if (!acquired)
                         throw new SaeaTlsException("TLS 入站处理超时。");
 
@@ -305,7 +311,7 @@ namespace SAEA.Sockets.Core
                 }
                 finally
                 {
-                    if (acquired) _tlsLock.Release();
+                    if (acquired) tlsLock.Release();
                 }
 
                 FlushOutput();
@@ -394,11 +400,12 @@ namespace SAEA.Sockets.Core
                 return;
             }
 
+            var tlsLock = _tlsLock;
             List<PendingOutput> records;
             var acquired = false;
             try
             {
-                acquired = await _tlsLock.WaitAsync(_option.ActionTimeout > 0 ? _option.ActionTimeout : 30 * 1000, cancellationToken)
+                acquired = await tlsLock.WaitAsync(_option.ActionTimeout > 0 ? _option.ActionTimeout : 30 * 1000, cancellationToken)
                     .ConfigureAwait(false);
                 if (!acquired)
                     throw new TimeoutException("TLS 出站处理超时。");
@@ -408,7 +415,7 @@ namespace SAEA.Sockets.Core
             }
             finally
             {
-                if (acquired) _tlsLock.Release();
+                if (acquired) tlsLock.Release();
             }
 
             // 必须等本次应用数据拆出的全部 TLS 记录完成底层交接，不能入队后立即返回。
@@ -448,25 +455,34 @@ namespace SAEA.Sockets.Core
         {
             try { _writer.Complete(ex); } catch { }
 
-            if (_tls != null && !_tls.IsClosed)
+            // 快照字段：Dispose 与接收回调可能并发执行，收尾路径不允许再向外抛异常。
+            var tls = _tls;
+            var tlsLock = _tlsLock;
+
+            if (tls == null || tlsLock == null || tls.IsClosed) return;
+
+            try
             {
                 var acquired = false;
                 try
                 {
-                    acquired = _tlsLock.Wait(1000);
+                    acquired = tlsLock.Wait(1000);
                     if (acquired)
                     {
-                        try { _tls.CloseInput(); } catch { }
+                        try { tls.CloseInput(); } catch { }
                         CaptureOutput();
                     }
                 }
-                catch { }
                 finally
                 {
-                    if (acquired) _tlsLock.Release();
+                    if (acquired) tlsLock.Release();
                 }
 
                 FlushOutput();
+            }
+            catch
+            {
+                // 连接已进入关闭流程，TLS 收尾失败只影响本次告警记录，不再冒泡到接收循环。
             }
         }
 
@@ -497,9 +513,6 @@ namespace SAEA.Sockets.Core
                 try { ArrayPool<byte>.Shared.Return(pending.Buffer); } catch { }
                 pending.MarkFailed(new IOException("连接已关闭。"));
             }
-
-            try { _tlsLock?.Dispose(); } catch { }
-            _tlsLock = null;
 
             try { _socket.Shutdown(SocketShutdown.Both); } catch { }
             try { _socket.Close(); } catch { }
@@ -679,17 +692,20 @@ namespace SAEA.Sockets.Core
 
         private void DrainOutputLocked()
         {
+            var tlsLock = _tlsLock;
+            if (tlsLock == null) return;
+
             var acquired = false;
             try
             {
-                acquired = _tlsLock.Wait(_option.ActionTimeout > 0 ? _option.ActionTimeout : 30 * 1000);
+                acquired = tlsLock.Wait(_option.ActionTimeout > 0 ? _option.ActionTimeout : 30 * 1000);
                 if (!acquired) return;
                 CaptureOutput();
             }
             catch { }
             finally
             {
-                if (acquired) _tlsLock.Release();
+                if (acquired) tlsLock.Release();
             }
 
             FlushOutput();
