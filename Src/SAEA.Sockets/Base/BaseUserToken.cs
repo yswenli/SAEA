@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/9 10:30:00
+*修改时间：2026/11/13 16:42:11
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：增加在途发送操作，断开时让发送 Task 可观察地失败
+*描述：增加退役位：退役令牌禁止复用、禁止入池与归还池化缓冲
 *
 *****************************************************************************/
 using System;
@@ -53,6 +53,26 @@ namespace SAEA.Sockets.Base
         /// 发送进行中标志的后备字段，经 IsSending 属性读写
         /// </summary>
         protected bool _isSending = false;
+
+        /// <summary>
+        /// 回收占位标志：置位后不再提交新的内核操作
+        /// </summary>
+        const int RecycleRequestedBit = 1;
+
+        /// <summary>
+        /// 在途操作数在状态中的增量，低位留给回收占位标志
+        /// </summary>
+        const int OperationUnit = 2;
+
+        /// <summary>
+        /// 令牌状态：低 1 位为回收已请求，其余位为在途内核操作数
+        /// </summary>
+        int _recycleState;
+
+        /// <summary>
+        /// 退役标志：置位后令牌永不复用、永不归还池化缓冲
+        /// </summary>
+        int _retired;
 
         /// <summary>
         /// 创建令牌并生成唯一标识
@@ -182,6 +202,139 @@ namespace SAEA.Sockets.Base
         {
             try { _writeSemaphore.Release(); }
             catch (SemaphoreFullException) { }
+        }
+
+        /// <summary>
+        /// 登记一次即将提交的内核操作；已请求回收时拒绝登记，调用方不得再提交。
+        /// </summary>
+        /// <returns>true 表示可以提交，提交后必须由完成点调用 <see cref="EndOperation"/></returns>
+        internal bool TryBeginOperation()
+        {
+            if (Volatile.Read(ref _retired) != 0) return false;
+
+            // netstandard2.0 没有 Interlocked.Or，只能按 CAS 循环维护「回收位 + 在途计数」的复合状态
+            var state = Volatile.Read(ref _recycleState);
+            while (true)
+            {
+                if ((state & RecycleRequestedBit) != 0) return false;
+
+                var next = state + OperationUnit;
+                var observed = Interlocked.CompareExchange(ref _recycleState, next, state);
+                if (observed == state) return true;
+
+                state = observed;
+            }
+        }
+
+        /// <summary>
+        /// 结束一次已登记的内核操作；回收已请求且计数归零时返回 true（仅返回一次）。
+        /// </summary>
+        /// <returns>true 表示此刻可以安全入池</returns>
+        internal bool EndOperation()
+        {
+            var state = Volatile.Read(ref _recycleState);
+            while (true)
+            {
+                if ((state >> 1) == 0)
+                {
+                    // 提交与完成必须一一配对；计数已为 0 时再减会让状态反转成巨大的正数，
+                    // 从此再也回不到 0 而永久拒绝入池，因此这里只记录错误并忽略。
+                    LogHelper.Error($"BaseUserToken.EndOperation 在途操作计数已为 0:{ID}/{Guid}", new KernelException("令牌操作计数异常。"));
+                    return false;
+                }
+
+                var next = state - OperationUnit;
+                var observed = Interlocked.CompareExchange(ref _recycleState, next, state);
+                if (observed == state)
+                {
+                    return (next & RecycleRequestedBit) != 0 && (next >> 1) == 0;
+                }
+
+                state = observed;
+            }
+        }
+
+        /// <summary>
+        /// 请求回收：置回收位并停止接受新操作。
+        /// </summary>
+        /// <returns>true 表示当前已无在途操作，调用方应立即入池；false 表示由最后一个完成点入池</returns>
+        internal bool RequestRecycle()
+        {
+            // 退役令牌的 args 与缓冲可能仍被内核持有，一旦入池就会被新连接复用，
+            // 因此这里直接拒绝，连回收位都不改。
+            if (Volatile.Read(ref _retired) != 0) return false;
+
+            var state = Volatile.Read(ref _recycleState);
+            while (true)
+            {
+                // 已请求过就返回 false，避免同一令牌被两条路径重复入池
+                if ((state & RecycleRequestedBit) != 0) return false;
+
+                var next = state | RecycleRequestedBit;
+                var observed = Interlocked.CompareExchange(ref _recycleState, next, state);
+                if (observed == state)
+                {
+                    return (state >> 1) == 0;
+                }
+
+                state = observed;
+            }
+        }
+
+        /// <summary>
+        /// 复位操作状态，供令牌投入新连接前调用；状态非法时拒绝并保持原值。
+        /// </summary>
+        /// <remarks>
+        /// 允许复用的状态只有两种来源：池内令牌（状态为 <see cref="RecycleRequestedBit"/>，
+        /// 即回收已请求且在途计数已归零）与从未使用的新令牌（状态为 0）。
+        /// 其它取值说明令牌仍在途却被放进了池中，清零后复用会让同一组 args 被两个连接同时使用，
+        /// 因此这里不做修改并返回 false。
+        /// </remarks>
+        /// <returns>true 表示状态合法并已清零；false 表示令牌仍在途，未做任何修改</returns>
+        internal bool TryResetForReuse()
+        {
+            // 退役令牌不复用：清零状态会让被放弃的内核操作与新连接共用同一组 args
+            if (Volatile.Read(ref _retired) != 0) return false;
+
+            var state = Volatile.Read(ref _recycleState);
+            while (true)
+            {
+                if (state != 0 && state != RecycleRequestedBit) return false;
+
+                var observed = Interlocked.CompareExchange(ref _recycleState, 0, state);
+                if (observed == state) return true;
+
+                state = observed;
+            }
+        }
+
+        /// <summary>
+        /// 当前操作状态原始值：低 1 位为回收已请求，其余位为在途操作数
+        /// </summary>
+        internal int OperationState
+        {
+            get { return Volatile.Read(ref _recycleState); }
+        }
+
+        /// <summary>
+        /// 令牌是否已退役；退役后永不复用，其 args 与池化缓冲也不得归还
+        /// </summary>
+        internal bool IsRetired
+        {
+            get { return Volatile.Read(ref _retired) != 0; }
+        }
+
+        /// <summary>
+        /// 将令牌标记为退役，仅首次调用生效
+        /// </summary>
+        /// <remarks>
+        /// 用于发送看门狗放弃等待的场景：内核可能仍在读该令牌的发送缓冲，
+        /// 复用会让新连接与残留操作共用同一组 args，因此令牌只能永久退场。
+        /// </remarks>
+        /// <returns>true 表示本次完成退役；false 表示此前已退役</returns>
+        internal bool TryRetire()
+        {
+            return Interlocked.CompareExchange(ref _retired, 1, 0) == 0;
         }
 
         /// <summary>

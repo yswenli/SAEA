@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:27
+*修改时间：2026/11/13 16:42:11
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：新增 RetireUserToken，供发送看门狗放弃路径转调令牌退役
 *
 *****************************************************************************/
 using System;
@@ -37,6 +37,7 @@ using System.Threading;
 
 using SAEA.Common;
 using SAEA.Common.Caching;
+using SAEA.Sockets.Base;
 using SAEA.Sockets.Interface;
 
 namespace SAEA.Sockets.Core
@@ -242,6 +243,10 @@ namespace SAEA.Sockets.Core
         /// <summary>
         /// 释放令牌并放回池中，同时清除会话缓存与超时豁免记录
         /// </summary>
+        /// <remarks>
+        /// 首次调用即返回 true 并释放信号量；令牌若仍有在途内核操作，则改为延迟回收：
+        /// 由最后一个完成点经 <see cref="CompleteOperation"/> 入池，避免复用时 args 仍在使用。
+        /// </remarks>
         /// <param name="userToken">待释放的令牌</param>
         /// <returns>是否成功入池，令牌为 null、无会话标识或入池失败时为 false</returns>
         public bool Free(IUserToken userToken)
@@ -267,6 +272,26 @@ namespace SAEA.Sockets.Core
 
                 try
                 {
+                    // 非内置实现没有在途操作计数，退回立即入池。
+                    var baseUserToken = userToken as BaseUserToken;
+                    if (baseUserToken != null)
+                    {
+                        // 先关闭 socket：关闭会让内核立即取消在途接收/发送并投递完成回调，
+                        // 否则延迟回收要等对端下一次发包，令牌与 socket 会长期滞留在途。
+                        try
+                        {
+                            if (userToken.Socket != null && userToken.Socket.Connected)
+                                userToken.Socket.Close();
+                        }
+                        catch { }
+
+                        if (!baseUserToken.RequestRecycle())
+                        {
+                            // 仍有在途接收/发送：此刻入池会让下一次复用的 SetBuffer 抛异常并永久丢失令牌，
+                            // 因此交给最后一个完成点入池；本次仍返回 true，保持计数与断线回调只触发一次。
+                            return true;
+                        }
+                    }
                     return _userTokenPool.Enqueue(userToken);
                 }
                 finally
@@ -292,6 +317,39 @@ namespace SAEA.Sockets.Core
                 LogHelper.Error("SessionManager.Free 错误", ex);
             }
             return false;
+        }
+
+        /// <summary>
+        /// 退役令牌：令牌永不复用，池容量改由后续取用时补建
+        /// </summary>
+        /// <param name="userToken">待退役的令牌</param>
+        internal void RetireUserToken(IUserToken userToken)
+        {
+            // 不走 Free 的幂等分支：看门狗放弃时 ID 可能已被置空，Free 会直接返回 false
+            _userTokenPool.Retire(userToken);
+        }
+
+        /// <summary>
+        /// 结束令牌上一次内核操作；延迟回收的令牌在最后一个操作结束时入池
+        /// </summary>
+        /// <param name="userToken">完成回调所属的令牌</param>
+        internal void CompleteOperation(IUserToken userToken)
+        {
+            var baseUserToken = userToken as BaseUserToken;
+            if (baseUserToken == null) return;
+
+            try
+            {
+                // ID 已置空、信号量已释放，这里只做入池，不再走 Free 的幂等分支
+                if (baseUserToken.EndOperation())
+                {
+                    _userTokenPool.Enqueue(baseUserToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Error($"SessionManager.CompleteOperation 错误:{baseUserToken.ID}/{baseUserToken.Guid}", ex);
+            }
         }
 
         /// <summary>
