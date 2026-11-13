@@ -84,6 +84,21 @@ try {
     Invoke-Case -Name 'req -addext subjectAltName 生成 CSR 且含 SAN 扩展' -Body { $o = Join-Path $tmp 'san.csr'; $r = Invoke-Tool -Arguments @('req', '-new', '-newkey', 'rsa:2048', '-keyout', (Join-Path $tmp 'san.pem'), '-subj', '/CN=localhost', '-addext', 'subjectAltName=DNS:localhost,IP:127.0.0.1', '-out', $o); $der = [Convert]::FromBase64String((((Get-Content $o -Raw) -replace '-----[^-]+-----', '') -replace '\s', '')); $r.ExitCode -eq 0 -and (Get-Content $o -Raw) -like '*BEGIN CERTIFICATE REQUEST*' -and [BitConverter]::ToString($der).Replace('-', '').Contains('0603551D11') }
     Invoke-Case -Name 'req -new 与 -x509 同给退出 1' -Body { $r = Invoke-Tool -Arguments @('req', '-new', '-x509', '-newkey', 'rsa:2048', '-keyout', (Join-Path $tmp 'both.pem'), '-subj', '/CN=localhost'); $r.ExitCode -eq 1 -and $r.StdErr -like '*不能同时使用*' }
     Invoke-Case -Name 'req -addext 未知扩展退出 1' -Body { $r = Invoke-Tool -Arguments @('req', '-new', '-newkey', 'rsa:2048', '-keyout', (Join-Path $tmp 'bad.pem'), '-subj', '/CN=localhost', '-addext', 'authorityInfoAccess=OCSP;URI:http://ocsp.example', '-out', (Join-Path $tmp 'bad.csr')); $r.ExitCode -eq 1 -and $r.StdErr -like '*不支持的扩展*' }
+    $ca = Join-Path $tmp 'ca.crt'; $caKey = Join-Path $tmp 'ca.key'
+    $csr = Join-Path $tmp 'leaf.csr'; $leaf = Join-Path $tmp 'leaf.crt'; $srl = Join-Path $tmp 'ca.srl'
+    $null = Invoke-Tool -Arguments @('req', '-x509', '-newkey', 'rsa:2048', '-keyout', $caKey, '-subj', '/CN=SAEA Test CA', '-days', '3650', '-out', $ca)
+    $null = Invoke-Tool -Arguments @('req', '-new', '-newkey', 'rsa:2048', '-keyout', (Join-Path $tmp 'leaf.key'), '-subj', '/CN=localhost', '-addext', 'subjectAltName=DNS:localhost,IP:127.0.0.1', '-out', $csr)
+    Invoke-Case -Name 'x509 -req 用 CA 签发 CSR 并写序列号文件' -Body {
+        $r = Invoke-Tool -Arguments @('x509', '-req', '-in', $csr, '-CA', $ca, '-CAkey', $caKey, '-CAcreateserial', '-days', '30', '-copy_extensions', 'copy', '-out', $leaf)
+        $caCert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromPem((Get-Content -LiteralPath $ca -Raw))
+        $leafCert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromPem((Get-Content -LiteralPath $leaf -Raw))
+        $leafSan = ($leafCert.Extensions | Where-Object { $_.Oid.Value -eq '2.5.29.17' }).RawData
+        $csrDer = [Convert]::FromBase64String((((Get-Content -LiteralPath $csr -Raw) -replace '-----[^-]+-----', '') -replace '\s', ''))
+        $r.ExitCode -eq 0 -and (Test-Path -LiteralPath $srl) -and
+            ((Get-Content -LiteralPath $srl -Raw).Trim() -cmatch '^[0-9A-F]+$') -and
+            ($leafCert.Issuer -eq $caCert.Subject) -and ($leafSan.Length -gt 0) -and
+            ([Convert]::ToHexString($csrDer).Contains([Convert]::ToHexString($leafSan)))
+    }
 }
 finally { Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue }
 '{0} passed, {1} failed' -f $script:passed, $script:failed

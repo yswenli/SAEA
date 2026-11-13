@@ -24,12 +24,15 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 13:54:11
+*修改时间：2026/11/13 14:30:26
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增 x509 子命令的读取与格式转换
+*描述：新增 x509 -req 用 CA 签发 CSR
 *
 *****************************************************************************/
+using Org.BouncyCastle.Asn1.X509;
+using Org.BouncyCastle.Math;
+using Org.BouncyCastle.Pkcs;
 using Org.BouncyCastle.X509;
 using X509Certificate = Org.BouncyCastle.X509.X509Certificate;
 
@@ -42,7 +45,7 @@ internal static class X509Command
     {
         "-in", "-inform", "-out", "-outform", "-noout", "-subject", "-issuer", "-dates", "-serial",
         "-fingerprint", "-sha256", "-pubkey", "-text", "-nameopt", "-req", "-CA", "-CAkey",
-        "-CAcreateserial", "-days", "-extfile", "-extensions", "-copy_extensions",
+        "-passin", "-CAcreateserial", "-days", "-extfile", "-extensions", "-copy_extensions",
     };
     /// <summary>执行一次 x509 调用。</summary>
     /// <param name="args">子命令之后的参数</param>
@@ -51,15 +54,15 @@ internal static class X509Command
     public static int Run(string[] args, bool interactive)
     {
         var reader = new OptionReader("x509", args, Allowed);
-        // -text / -nameopt 无论其它参数是否合法都先报错；-req 的签发分支在 Task 5 接入。
+        // -text / -nameopt 无论其它参数是否合法都先报错；-req 走签发分支。
         if (reader.Has("-text"))
             throw new OpenSslException("x509: -text 暂不支持；请用 -subject/-issuer/-dates/-serial/-fingerprint，或用外部工具查看完整 ASN.1。");
         if (reader.Has("-nameopt"))
             throw new OpenSslException("x509: -nameopt 暂不支持；姓名固定 oneline 风格（CN = localhost, O = SAEA）。");
         if (reader.Has("-req"))
-            throw new OpenSslException("x509: -req 将在任务 5 实现。");
+            return SignRequest(reader, interactive);
         foreach (var option in new[]
-                 { "-CA", "-CAkey", "-CAcreateserial", "-days", "-extfile", "-extensions", "-copy_extensions" })
+                 { "-CA", "-CAkey", "-passin", "-CAcreateserial", "-days", "-extfile", "-extensions", "-copy_extensions" })
             if (reader.Has(option))
                 throw new OpenSslException($"x509: 参数 \"{option}\" 只与 -req 一起使用。");
         var derIn = IsDer(reader, "-inform"); var derOut = IsDer(reader, "-outform");
@@ -89,8 +92,45 @@ internal static class X509Command
             return buffer.ToArray();
         }
         var path = reader.GetRequired("-in");
-        return File.Exists(path) ? File.ReadAllBytes(path) : throw new OpenSslException($"error: 找不到文件 \"{path}\"。");
+        return ReadFile(path);
     }
+    private static int SignRequest(OptionReader reader, bool interactive)
+    {
+        var copy = reader.Get("-copy_extensions");
+        if (copy is not null && copy != "copy" && copy != "none")
+            throw new OpenSslException($"x509: -copy_extensions 只支持 copy 或 none，实际为 \"{copy}\"。");
+        if (copy == "copy" && reader.Has("-extfile"))
+            throw new OpenSslException("x509: -copy_extensions 与 -extfile 不能同时使用。");
+        if (reader.Has("-extfile") != reader.Has("-extensions"))
+            throw new OpenSslException("x509: -extfile 与 -extensions 必须同时给出。");
+        var days = reader.GetInt("-days", 30);
+        if (days <= 0) throw new OpenSslException("x509: -days 必须是正整数。");
+        var derIn = IsDer(reader, "-inform");
+        var csr = CsrCodec.Read(ReadInput(reader, derIn), derIn);
+        var caPath = reader.GetRequired("-CA");
+        var caCert = CertificateCodec.ReadFirst(ReadFile(caPath), false);
+        var keyPath = reader.GetRequired("-CAkey");
+        // 未给 -passin 时按明文私钥读取，不隐式提示，避免脚本卡在终端。
+        var key = KeyCodec.ReadPrivateKey(ReadFile(keyPath), reader.Has("-passin")
+            ? PasswordResolver.Resolve(reader.Get("-passin"), keyPath, false, interactive)
+            : null, false);
+        var extensions = ExtensionsFor(reader, csr, copy);
+        // 序列号文件用 System.Numerics，CsrCodec 用 BouncyCastle 的 BigInteger，按十进制字符串转接。
+        var serial = new BigInteger(SerialFile.Next(caPath, reader.Has("-CAcreateserial")).ToString(CultureInfo.InvariantCulture));
+        var cert = CsrCodec.Sign(csr, key, caCert, serial,
+            DateTime.UtcNow.AddMinutes(-5), DateTime.UtcNow.AddDays(days), extensions, "SHA256");
+        var derOut = IsDer(reader, "-outform");
+        WriteOutput(reader, derOut, CertificateCodec.Write(cert, derOut));
+        return 0;
+    }
+
+    private static IList<Extension> ExtensionsFor(OptionReader reader, Pkcs10CertificationRequest csr, string? copy) =>
+        reader.Has("-extfile")
+            ? ExtensionSpec.FromConfig(MiniConfigReader.Load(reader.GetRequired("-extfile")), reader.GetRequired("-extensions"))
+            : copy == "copy" ? ExtensionSpec.CopyFromRequest(csr) : new List<Extension>();
+
+    private static byte[] ReadFile(string path) =>
+        File.Exists(path) ? File.ReadAllBytes(path) : throw new OpenSslException($"error: 找不到文件 \"{path}\"。");
     private static void WriteOutput(OptionReader reader, bool der, byte[] payload)
     {
         if (reader.Has("-out"))

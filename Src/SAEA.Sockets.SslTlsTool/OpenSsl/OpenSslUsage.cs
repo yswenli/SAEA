@@ -24,10 +24,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 14:21:12
+*修改时间：2026/11/13 14:32:28
 *修改人： yswenli
 *版本号： net10.0
-*描述：补 pkcs8、pkey 与 req 子命令的帮助文本
+*描述：x509 签发帮助补 -passin
 *
 *****************************************************************************/
 namespace SAEA.Sockets.SslTlsTool.OpenSsl;
@@ -56,7 +56,7 @@ internal static class OpenSslUsage
                     + "读取证书、打印所选信息并在 PEM 与 DER 之间转换；-in 缺省 stdin，-out 缺省 stdout。\n"
                     + "读取/输出：-inform PEM|DER（默认 PEM）、-outform PEM|DER（默认 PEM）、-noout\n"
                     + "打印：-subject、-issuer、-dates、-serial、-fingerprint（默认 SHA-1）、-sha256、-pubkey\n"
-                    + "签发：-req、-CA <文件>、-CAkey <文件>、-CAcreateserial、-days <正整数>、-extfile <文件>、-extensions <段名>、-copy_extensions copy|none\n"
+                    + "签发：-req、-CA <文件>、-CAkey <文件>、-passin <口令源>、-CAcreateserial、-days <正整数>、-extfile <文件>、-extensions <段名>、-copy_extensions copy|none\n"
                     + "不支持：-text、-nameopt（姓名固定 oneline 风格）；打印项写 stdout 且位于证书数据之前。\n";
             case "pkcs8":
                 return "用法：SAEA.Sockets.SslTlsTool pkcs8 [选项]\n在 PKCS#1 与 PKCS#8 之间转换私钥；-in 缺省 stdin，-out 缺省 stdout。\n"
