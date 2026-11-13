@@ -23,14 +23,15 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 14:30:00
+*修改时间：2026/11/13 21:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 ICE 检查表与增量配对
+*描述：配对地址族比较归一化 v4-mapped
 *
 *****************************************************************************/
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Net.Sockets;
 using SAEA.P2P.Common;
 
@@ -292,7 +293,8 @@ namespace SAEA.P2P.Ice
 
         private static bool CanPair(Candidate local, Candidate remote)
         {
-            if (local.Address.AddressFamily != remote.Address.AddressFamily)
+            // 配对阶段同样归一化，避免对端候选携带 v4-mapped 时被误判为跨族
+            if (GetFamily(local.Address) != GetFamily(remote.Address))
             {
                 return false;
             }
@@ -316,6 +318,24 @@ namespace SAEA.P2P.Ice
                 return false;
             }
             return true;
+        }
+
+        /// <summary>
+        /// 取配对用的地址族，v4-mapped 地址按 IPv4 处理
+        /// </summary>
+        /// <param name="address">候选地址，可为空</param>
+        /// <returns>归一化后的地址族；空地址返回 Unknown，使其与任何有效地址都不相等</returns>
+        private static AddressFamily GetFamily(IPAddress address)
+        {
+            if (address == null)
+            {
+                return AddressFamily.Unknown;
+            }
+            if (address.AddressFamily == AddressFamily.InterNetworkV6 && address.IsIPv4MappedToIPv6)
+            {
+                return AddressFamily.InterNetwork;
+            }
+            return address.AddressFamily;
         }
 
         private bool IsDuplicate(Candidate local, Candidate remote)

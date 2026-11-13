@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 18:02:53
+*修改时间：2026/11/13 21:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：TLS 控制下的 TCP 中继数据连接改用 TLS 传输
+*描述：TCP 被动候选匹配归一化 v4-mapped
 *
 *****************************************************************************/
 using System;
@@ -1106,7 +1106,7 @@ namespace SAEA.P2P.Ice
                                 continue;
                             }
 
-                            if (local.Address.AddressFamily != remote.Address.AddressFamily)
+                            if (GetAddressFamily(local.Address) != GetAddressFamily(remote.Address))
                             {
                                 continue;
                             }
@@ -1422,6 +1422,25 @@ namespace SAEA.P2P.Ice
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// 取配对用的地址族，v4-mapped 地址按 IPv4 处理
+        /// </summary>
+        /// <param name="address">候选地址，可为空</param>
+        /// <returns>归一化后的地址族；空地址返回 Unknown，使其与任何有效地址都不相等</returns>
+        private static AddressFamily GetAddressFamily(IPAddress address)
+        {
+            if (address == null)
+            {
+                return AddressFamily.Unknown;
+            }
+            // 对端候选可能携带 v4-mapped 形式，直接比较原值会把同一地址判成跨族
+            if (address.AddressFamily == AddressFamily.InterNetworkV6 && address.IsIPv4MappedToIPv6)
+            {
+                return AddressFamily.InterNetwork;
+            }
+            return address.AddressFamily;
         }
 
         /// <summary>

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 12:30:00
+*修改时间：2026/11/13 21:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增链路本地地址标记
+*描述：v4-mapped 地址在候选构造时归一化
 *
 *****************************************************************************/
 using System;
@@ -42,6 +42,7 @@ namespace SAEA.P2P.Ice
     {
         /// <summary>
         /// 按已确定的优先级创建候选，供对端反射等优先级已明确的场景使用
+        /// v4-mapped IPv6 地址会归一化为对应 IPv4。
         /// </summary>
         /// <param name="type">候选类型</param>
         /// <param name="transport">传输协议</param>
@@ -54,6 +55,7 @@ namespace SAEA.P2P.Ice
         public Candidate(CandidateType type, IceTransportType transport, int component, IPAddress address, int port, uint priority)
         {
             ValidateArguments(address, port, component);
+            address = NormalizeAddress(address);
 
             Type = type;
             Transport = transport;
@@ -71,6 +73,7 @@ namespace SAEA.P2P.Ice
 
         /// <summary>
         /// 按类型与 TCP 方向偏好自动计算优先级后创建候选
+        /// v4-mapped IPv6 地址会归一化为对应 IPv4。
         /// </summary>
         /// <param name="type">候选类型</param>
         /// <param name="transport">传输协议</param>
@@ -86,6 +89,10 @@ namespace SAEA.P2P.Ice
         public Candidate(CandidateType type, IceTransportType transport, int component, IPAddress address, int port, TcpCandidateType tcpType, IPAddress relatedAddress, int relatedPort)
         {
             ValidateArguments(address, port, component);
+
+            // 归一化必须在派生值之前完成，foundation 与链路本地判定都基于归一化后的地址
+            address = NormalizeAddress(address);
+            relatedAddress = NormalizeAddress(relatedAddress);
 
             uint priority;
             if (transport == IceTransportType.Tcp)
@@ -201,6 +208,25 @@ namespace SAEA.P2P.Ice
             // srflx 与 relay 的 base 是关联地址，无关联地址时退回候选自身地址
             IPAddress baseAddress = relatedAddress != null ? relatedAddress : address;
             return string.Format("{0}|{1}|{2}", IcePriority.GetTypePreference(type), baseAddress, transport.ToString().ToLowerInvariant());
+        }
+
+        /// <summary>
+        /// 把 v4-mapped IPv6 地址归一化为对应 IPv4 地址，其余地址原样返回
+        /// </summary>
+        /// <param name="address">待归一化的地址，可为空</param>
+        /// <returns>归一化后的地址；入参为空时返回空</returns>
+        private static IPAddress NormalizeAddress(IPAddress address)
+        {
+            if (address == null)
+            {
+                return null;
+            }
+            // v4-mapped 与对应 IPv4 是同一地址，不归一化会让地址族比较与 foundation 分组分裂
+            if (address.AddressFamily == AddressFamily.InterNetworkV6 && address.IsIPv4MappedToIPv6)
+            {
+                return address.MapToIPv4();
+            }
+            return address;
         }
 
         private static bool IsLinkLocalAddress(IPAddress address)
