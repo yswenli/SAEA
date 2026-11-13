@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 12:10:00
+*修改时间：2026/11/13 18:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：删除旧总配置构造，改用信令与 ICE 配置
+*描述：新增无信令局域网发现模式，发现节点后建立 Local 通道
 *
 *****************************************************************************/
 using System;
@@ -35,7 +35,9 @@ using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
+using SAEA.P2P.Channel;
 using SAEA.P2P.Common;
+using SAEA.P2P.Discovery;
 using SAEA.P2P.Ice;
 using SAEA.P2P.Model;
 using SAEA.P2P.Protocol;
@@ -45,12 +47,16 @@ using SAEA.P2P.Turn;
 namespace SAEA.P2P.Core
 {
     /// <summary>
-    /// P2P 客户端：用信令客户端完成会话协商，用 ICE 会话完成候选收集与选路，并对外提供收发与断开入口
+    /// P2P 客户端：信令模式下用信令客户端协商会话，无信令模式下用局域网发现交换 ICE 参数；
+    /// 两种模式都由 ICE 会话完成候选收集与选路，并对外提供收发与断开入口
     /// </summary>
     public sealed class P2PClient : IDisposable
     {
+        private readonly string _peerId;
         private readonly SignalingClient _signaling;
         private readonly SignalingOptions _signalingOptions;
+        private readonly LocalDiscovery _discovery;
+        private readonly LocalDiscoveryOptions _discoveryOptions;
         private readonly IceSessionOptions _iceOptions;
         private readonly CancellationTokenSource _lifetimeCts;
         private readonly ConcurrentDictionary<string, PeerSession> _sessionsById;
@@ -58,13 +64,19 @@ namespace SAEA.P2P.Core
         private readonly ConcurrentDictionary<string, TaskCompletionSource<SignalingMessage>> _pendingAnswers;
         // 候选早于会话描述到达时先暂存，挂载 ICE 会话后统一补加
         private readonly ConcurrentDictionary<string, List<Candidate>> _pendingCandidates;
+        // 无信令模式的短凭据与角色裁决值：构造时生成一次，整个进程生命周期内复用
+        private readonly string _localUfrag;
+        private readonly string _localPwd;
+        private readonly ulong _localTiebreaker;
         private volatile bool _registered;
+        private int _localStarted;
+        private NodeInfo _localNodeInfo;
         private int _disposed;
 
         /// <summary>
-        /// 本端节点标识，取自信令配置
+        /// 本端节点标识，信令模式取自信令配置，无信令模式取自构造参数
         /// </summary>
-        public string PeerId => _signalingOptions.PeerId;
+        public string PeerId => _peerId;
 
         /// <summary>
         /// 是否已注册到信令服务器
@@ -109,6 +121,7 @@ namespace SAEA.P2P.Core
             if (ice == null) throw new ArgumentNullException(nameof(ice));
             if (string.IsNullOrWhiteSpace(signaling.PeerId)) throw new P2PException(ErrorCode.RegisterPeerIdMissing, "节点标识不能为空");
 
+            _peerId = signaling.PeerId;
             _signalingOptions = signaling;
             _iceOptions = ice;
             _lifetimeCts = new CancellationTokenSource();
@@ -130,6 +143,88 @@ namespace SAEA.P2P.Core
         }
 
         /// <summary>
+        /// 按局域网发现与 ICE 配置创建无信令客户端，构造时不占用发现端口
+        /// </summary>
+        /// <param name="peerId">本端节点标识，不能为空白</param>
+        /// <param name="discovery">局域网发现配置，不可为 null</param>
+        /// <param name="ice">ICE 会话配置，不可为 null</param>
+        /// <exception cref="ArgumentNullException">任一配置为 null</exception>
+        /// <exception cref="P2PException">节点标识为空</exception>
+        public P2PClient(string peerId, LocalDiscoveryOptions discovery, IceSessionOptions ice)
+        {
+            if (string.IsNullOrWhiteSpace(peerId)) throw new P2PException(ErrorCode.RegisterPeerIdMissing, "节点标识不能为空");
+            if (discovery == null) throw new ArgumentNullException(nameof(discovery));
+            if (ice == null) throw new ArgumentNullException(nameof(ice));
+
+            _peerId = peerId;
+            _discoveryOptions = discovery;
+            _iceOptions = ice;
+            _lifetimeCts = new CancellationTokenSource();
+            _sessionsById = new ConcurrentDictionary<string, PeerSession>(StringComparer.Ordinal);
+            _sessionsByPeer = new ConcurrentDictionary<string, PeerSession>(StringComparer.Ordinal);
+            _pendingAnswers = new ConcurrentDictionary<string, TaskCompletionSource<SignalingMessage>>(StringComparer.Ordinal);
+            _pendingCandidates = new ConcurrentDictionary<string, List<Candidate>>(StringComparer.Ordinal);
+
+            _localUfrag = CreateUfrag();
+            _localPwd = CreatePassword();
+            _localTiebreaker = CreateTiebreaker();
+            // 发现实例只做配置校验，端口要等 StartLocalAsync 才占用
+            _discovery = new LocalDiscovery(peerId, discovery);
+        }
+
+        /// <summary>
+        /// 启动无信令局域网发现并返回本端节点信息；无信令模式没有请求/应答，两端都要调用
+        /// <see cref="ConnectToPeerAsync(string, CancellationToken)"/> 才会建立连接，发现事件只上报节点，
+        /// 是否连接由应用决定
+        /// </summary>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>启动后的本端节点信息；重复调用返回首次启动的结果</returns>
+        /// <exception cref="ObjectDisposedException">客户端已释放</exception>
+        /// <exception cref="P2PException">当前客户端不是无信令模式</exception>
+        public Task<NodeInfo> StartLocalAsync(CancellationToken cancellationToken = default)
+        {
+            ThrowIfDisposed();
+            if (_discovery == null) throw new P2PException(ErrorCode.NotConnected, "当前客户端不是无信令模式，请使用 RegisterAsync");
+
+            if (Interlocked.CompareExchange(ref _localStarted, 1, 0) != 0)
+                return Task.FromResult(_localNodeInfo);
+
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                _discovery.SetLocalIceParameters(_localUfrag, _localPwd, "controlling", _localTiebreaker);
+                _discovery.OnNodeDiscovered += HandleLocalNodeDiscovered;
+                _discovery.OnNodeUpdated += HandleLocalNodeUpdated;
+                _discovery.OnNodeExpired += HandleLocalNodeExpired;
+                _discovery.Start();
+                _registered = true;
+                P2PLogHelper.Info(PeerId, "无信令模式已启动，发现端口 " + _discoveryOptions.Port);
+
+                var localEndPoint = _discovery.LocalEndPoint;
+                var nodeInfo = new NodeInfo
+                {
+                    NodeId = PeerId, NodeName = PeerId,
+                    LocalAddress = localEndPoint == null ? null : localEndPoint.Address.ToString(),
+                    LocalPort = localEndPoint == null ? 0 : localEndPoint.Port,
+                    State = NodeState.Registered,
+                    RegisteredTime = DateTime.UtcNow, LastActiveTime = DateTime.UtcNow
+                };
+                _localNodeInfo = nodeInfo;
+                return Task.FromResult(nodeInfo);
+            }
+            catch
+            {
+                // 启动失败要退回未启动状态，否则后续重试会直接拿到空的节点信息
+                _discovery.OnNodeDiscovered -= HandleLocalNodeDiscovered;
+                _discovery.OnNodeUpdated -= HandleLocalNodeUpdated;
+                _discovery.OnNodeExpired -= HandleLocalNodeExpired;
+                Interlocked.Exchange(ref _localStarted, 0);
+                throw;
+            }
+        }
+
+        /// <summary>
         /// 连接信令服务器并完成注册
         /// </summary>
         /// <param name="cancellationToken">取消令牌</param>
@@ -138,6 +233,7 @@ namespace SAEA.P2P.Core
         public async Task<NodeInfo> RegisterAsync(CancellationToken cancellationToken = default)
         {
             ThrowIfDisposed();
+            if (_discovery != null) throw new P2PException(ErrorCode.NotConnected, "无信令模式请调用 StartLocalAsync");
             await _signaling.RegisterAsync(cancellationToken).ConfigureAwait(false);
             _registered = true;
             return new NodeInfo
@@ -164,6 +260,8 @@ namespace SAEA.P2P.Core
             PeerSession current;
             if (_sessionsByPeer.TryGetValue(peerId, out current) && current.Phase == PeerSession.PeerSessionState.Connected)
                 return current.Connection;
+
+            if (_discovery != null) return await ConnectLocalAsync(peerId, cancellationToken).ConfigureAwait(false);
 
             var sessionId = Guid.NewGuid().ToString("N");
             var session = new PeerSession(sessionId, peerId, true, CreateUfrag(), CreatePassword(), IceRole.Controlling, CreateTiebreaker());
@@ -220,6 +318,184 @@ namespace SAEA.P2P.Core
             {
                 _pendingAnswers.TryRemove(sessionId, out _);
             }
+        }
+
+        /// <summary>
+        /// 无信令模式建连：直接取发现报文里对端公布的 ICE 参数建会话，之后到达的候选由发现更新增量补入
+        /// </summary>
+        /// <param name="peerId">对端节点标识</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>已建立的连接描述，通道类型固定为 Local</returns>
+        /// <exception cref="P2PException">对端尚未被发现、对端尚未公布 ICE 参数或选路失败</exception>
+        private async Task<P2PConnection> ConnectLocalAsync(string peerId, CancellationToken cancellationToken)
+        {
+            DiscoveredNode node;
+            if (!_discovery.DiscoveredNodes.TryGetValue(peerId, out node))
+                throw new P2PException(ErrorCode.NoCandidatePair, "尚未发现该节点：" + peerId);
+            if (string.IsNullOrEmpty(node.Ufrag) || string.IsNullOrEmpty(node.Pwd))
+                throw new P2PException(ErrorCode.NoCandidatePair, "对端尚未公布 ICE 参数");
+
+            // 两端会同时发起，等对端候选会互相等待死锁；这里只建会话，候选靠发现更新与阶段内重取快照补齐
+            var role = DecideLocalRole(node);
+            var sessionId = Guid.NewGuid().ToString("N");
+            var session = new PeerSession(sessionId, peerId, true, _localUfrag, _localPwd, role, _localTiebreaker);
+            _sessionsById[sessionId] = session;
+            _sessionsByPeer[peerId] = session;
+
+            var parameters = new IceSessionParameters
+            {
+                LocalUfrag = _localUfrag, LocalPassword = _localPwd,
+                RemoteUfrag = node.Ufrag, RemotePassword = node.Pwd,
+                Role = role, Tiebreaker = _localTiebreaker, Component = 1
+            };
+
+            var candidates = node.Candidates;
+            if (candidates != null)
+            {
+                for (int i = 0; i < candidates.Length; i++)
+                    parameters.AddRemoteCandidate(candidates[i]);
+            }
+
+            IceSession ice = null;
+            try
+            {
+                ice = new IceSession(_iceOptions, parameters);
+                AttachIceHandlers(session, ice);
+                session.AttachIceSession(ice, parameters);
+
+                session.MarkPhase(PeerSession.PeerSessionState.Checking);
+                var result = await ice.StartAsync(cancellationToken).ConfigureAwait(false);
+                session.MarkConnected(result, ChannelType.Local);
+                OnPeerConnected?.Invoke(session.Connection);
+                return session.Connection;
+            }
+            catch
+            {
+                if (ice != null) { try { ice.Dispose(); } catch { } }
+                CloseAndRemove(session);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// 用双方都能一致计算的裁决值决定本端角色：大者控制、小者受控，相等时按 ufrag 序做兜底
+        /// </summary>
+        /// <remarks>
+        /// 发现报文里双方都声明 controlling，而当前入向应答器不实现 487 角色冲突应答，
+        /// 因此提前用 tiebreaker 比较收敛角色，等价于 487 的裁决结果，避免双方都当控制方。
+        /// </remarks>
+        /// <param name="node">已发现的对端节点</param>
+        /// <returns>本端应使用的 ICE 角色</returns>
+        private IceRole DecideLocalRole(DiscoveredNode node)
+        {
+            if (_localTiebreaker > node.Tiebreaker) return IceRole.Controlling;
+            if (_localTiebreaker < node.Tiebreaker) return IceRole.Controlled;
+            return string.CompareOrdinal(_localUfrag, node.Ufrag) >= 0 ? IceRole.Controlling : IceRole.Controlled;
+        }
+
+        /// <summary>
+        /// 判断参数里是否已登记同一候选，去重口径与协商参数一致：传输、TCP 方向与端点相同即视为同一条
+        /// </summary>
+        /// <param name="parameters">会话协商参数</param>
+        /// <param name="candidate">待检查的候选</param>
+        /// <returns>已存在返回 true</returns>
+        private static bool ContainsCandidate(IceSessionParameters parameters, Candidate candidate)
+        {
+            var existing = parameters.RemoteCandidates;
+            for (int i = 0; i < existing.Count; i++)
+            {
+                var item = existing[i];
+                if (item.Transport == candidate.Transport
+                    && item.TcpType == candidate.TcpType
+                    && item.EndPoint.Equals(candidate.EndPoint))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 首次发现节点：先把对端候选补进会话，再上报节点信息
+        /// </summary>
+        /// <param name="node">已发现的节点</param>
+        private void HandleLocalNodeDiscovered(DiscoveredNode node)
+        {
+            ApplyLocalCandidates(node);
+            OnPeerDiscovered?.Invoke(ToNodeInfo(node));
+        }
+
+        /// <summary>
+        /// 节点报文刷新：只补入新候选，不重复触发发现事件
+        /// </summary>
+        /// <param name="node">刷新后的节点</param>
+        private void HandleLocalNodeUpdated(DiscoveredNode node)
+        {
+            ApplyLocalCandidates(node);
+        }
+
+        /// <summary>
+        /// 节点超时：只记日志，数据面不因发现超时拆除，与信令断开的处理口径一致
+        /// </summary>
+        /// <param name="node">被移除的节点</param>
+        private void HandleLocalNodeExpired(DiscoveredNode node)
+        {
+            P2PLogHelper.Debug(PeerId, "局域网节点已过期：" + (node == null || node.NodeId == null ? string.Empty : node.NodeId));
+        }
+
+        /// <summary>
+        /// 把发现报文里的对端候选增量补进已登记的会话，重复候选跳过
+        /// </summary>
+        /// <param name="node">已发现的节点</param>
+        private void ApplyLocalCandidates(DiscoveredNode node)
+        {
+            if (node == null || node.NodeId == null || node.Candidates == null || node.Candidates.Length == 0) return;
+
+            PeerSession session;
+            if (!_sessionsByPeer.TryGetValue(node.NodeId, out session)) return;
+
+            var parameters = session.Parameters;
+            var ice = session.Ice;
+            if (parameters == null || ice == null) return;
+
+            for (int i = 0; i < node.Candidates.Length; i++)
+            {
+                var candidate = node.Candidates[i];
+                if (candidate == null) continue;
+                if (ContainsCandidate(parameters, candidate)) continue;
+
+                parameters.AddRemoteCandidate(candidate);
+                ice.AddRemoteCandidate(candidate);
+            }
+        }
+
+        /// <summary>
+        /// 把发现到的节点转成对外的节点信息；无信令报文只公布服务名，不携带服务说明
+        /// </summary>
+        /// <param name="node">已发现的节点</param>
+        /// <returns>对外的节点信息</returns>
+        private static NodeInfo ToNodeInfo(DiscoveredNode node)
+        {
+            var info = new NodeInfo
+            {
+                NodeId = node.NodeId,
+                NodeName = node.NodeName,
+                LocalAddress = node.LocalAddress == null ? null : node.LocalAddress.Address.ToString(),
+                LocalPort = node.LocalAddress == null ? 0 : node.LocalAddress.Port,
+                State = NodeState.Registered,
+                LastActiveTime = DateTime.UtcNow
+            };
+
+            if (node.Services != null)
+            {
+                for (int i = 0; i < node.Services.Length; i++)
+                {
+                    var name = node.Services[i];
+                    if (!string.IsNullOrEmpty(name)) info.Services[name] = string.Empty;
+                }
+            }
+
+            return info;
         }
 
         // 具名方法才能在释放时退订，匿名订阅无法退订
@@ -433,6 +709,26 @@ namespace SAEA.P2P.Core
         }
 
         /// <summary>
+        /// 本地候选回调：无信令模式把候选并入发现报文，信令模式仍走 trickle 报文
+        /// </summary>
+        /// <param name="session">候选所属会话</param>
+        /// <param name="candidate">本地候选</param>
+        private void OnIceLocalCandidateDiscovered(PeerSession session, Candidate candidate)
+        {
+            if (candidate == null) return;
+
+            if (_discovery != null)
+            {
+                // srflx/relay 候选属于单个会话，广播给其他对端会指向错误端口，因此只广播 host 候选
+                if (candidate.Type != CandidateType.Host) return;
+                _discovery.AddLocalCandidate(candidate);
+                return;
+            }
+
+            OnLocalCandidateDiscovered(session, candidate);
+        }
+
+        /// <summary>
         /// 向已建立连接的对端发送业务帧
         /// </summary>
         /// <param name="peerId">对端节点标识</param>
@@ -467,10 +763,14 @@ namespace SAEA.P2P.Core
 
             try
             {
-                await _signaling.SendAsync(new SignalingMessage
+                // 无信令模式没有对端可通知，只做本地清理
+                if (_signaling != null)
                 {
-                    Type = P2PMessageType.SessionClose, SessionId = session.SessionId, PeerId = PeerId, Reason = "本端关闭"
-                }, cancellationToken).ConfigureAwait(false);
+                    await _signaling.SendAsync(new SignalingMessage
+                    {
+                        Type = P2PMessageType.SessionClose, SessionId = session.SessionId, PeerId = PeerId, Reason = "本端关闭"
+                    }, cancellationToken).ConfigureAwait(false);
+                }
             }
             catch (Exception ex)
             {
@@ -483,7 +783,7 @@ namespace SAEA.P2P.Core
         }
 
         /// <summary>
-        /// 释放客户端：取消生命周期令牌、退订信令事件、关闭全部会话并释放信令连接；可重复调用
+        /// 释放客户端：取消生命周期令牌、退订信令或发现事件、关闭全部会话并释放对应客户端；可重复调用
         /// </summary>
         public void Dispose()
         {
@@ -491,20 +791,31 @@ namespace SAEA.P2P.Core
 
             try { _lifetimeCts.Cancel(); } catch (ObjectDisposedException) { }
 
-            _signaling.OnRegistered -= HandleRegistered;
-            _signaling.OnConnectRequest -= HandleConnectRequest;
-            _signaling.OnSessionOffer -= HandleSessionOffer;
-            _signaling.OnSessionAnswer -= HandleSessionAnswer;
-            _signaling.OnTrickleCandidate -= HandleTrickleCandidate;
-            _signaling.OnTurnCredential -= HandleTurnCredential;
-            _signaling.OnSessionClose -= HandleSessionClose;
-            _signaling.OnDisconnected -= HandleDisconnected;
-            _signaling.OnError -= HandleSignalingError;
+            if (_signaling != null)
+            {
+                _signaling.OnRegistered -= HandleRegistered;
+                _signaling.OnConnectRequest -= HandleConnectRequest;
+                _signaling.OnSessionOffer -= HandleSessionOffer;
+                _signaling.OnSessionAnswer -= HandleSessionAnswer;
+                _signaling.OnTrickleCandidate -= HandleTrickleCandidate;
+                _signaling.OnTurnCredential -= HandleTurnCredential;
+                _signaling.OnSessionClose -= HandleSessionClose;
+                _signaling.OnDisconnected -= HandleDisconnected;
+                _signaling.OnError -= HandleSignalingError;
+            }
+
+            if (_discovery != null)
+            {
+                _discovery.OnNodeDiscovered -= HandleLocalNodeDiscovered;
+                _discovery.OnNodeUpdated -= HandleLocalNodeUpdated;
+                _discovery.OnNodeExpired -= HandleLocalNodeExpired;
+                _discovery.Dispose();
+            }
 
             foreach (var item in _sessionsById) CloseAndRemove(item.Value);
 
             _lifetimeCts.Dispose();
-            _signaling.Dispose();
+            if (_signaling != null) _signaling.Dispose();
             _sessionsById.Clear();
             _sessionsByPeer.Clear();
             _pendingAnswers.Clear();
@@ -529,7 +840,7 @@ namespace SAEA.P2P.Core
         private void AttachIceHandlers(PeerSession session, IceSession ice)
         {
             // 闭包捕获会话，回调里不必再按会话标识反查，也不会因字典清理丢失目标
-            ice.LocalCandidateDiscovered += candidate => OnLocalCandidateDiscovered(session, candidate);
+            ice.LocalCandidateDiscovered += candidate => OnIceLocalCandidateDiscovered(session, candidate);
             ice.FrameReceived += frame => OnDataReceived?.Invoke(session.PeerId, frame.Span);
             ice.RouteSelected += result => P2PLogHelper.Info(PeerId, "对端 " + session.PeerId + " 选路完成：" + result);
         }

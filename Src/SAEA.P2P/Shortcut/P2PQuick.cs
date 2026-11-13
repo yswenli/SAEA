@@ -23,22 +23,23 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 12:10:00
+*修改时间：2026/11/13 18:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：快捷入口改用 BuildClient，删除打洞与自定义中继参数
+*描述：恢复无信令局域网直连入口，改用局域网发现与 ICE 建链
 *
 *****************************************************************************/
 using System;
 using SAEA.P2P.Builder;
 using SAEA.P2P.Core;
+using SAEA.P2P.Discovery;
 using SAEA.P2P.Ice;
 using SAEA.P2P.Turn;
 
 namespace SAEA.P2P
 {
     /// <summary>
-    /// P2P 客户端与服务端的快捷构造入口：预置信令与 ICE/TURN 配置
+    /// P2P 客户端与服务端的快捷构造入口：预置信令、局域网发现与 ICE/TURN 配置
     /// </summary>
     public static class P2PQuick
     {
@@ -108,27 +109,37 @@ namespace SAEA.P2P
         }
 
         /// <summary>
-        /// 无信令局域网直连的客户端入口，参数保留以便后续版本兼容
+        /// 无信令局域网直连入口：按默认发现配置（39655 端口、224.0.0.250 组播）启动发现。
+        /// 无信令模式没有身份鉴权，只应在可信局域网使用；HMAC 只保证报文完整性，需要时通过
+        /// <see cref="LocalDiscoveryOptions.SharedKey"/> 配置共享密钥
         /// </summary>
-        /// <param name="nodeId">本地节点标识，参数保留以便后续版本兼容</param>
-        /// <returns>客户端实例，当前版本不会返回</returns>
-        /// <exception cref="NotSupportedException">当前版本未实现无信令局域网直连</exception>
+        /// <param name="nodeId">本地节点标识，不能为空白</param>
+        /// <returns>已启动局域网发现的客户端实例</returns>
+        /// <exception cref="Common.P2PException">节点标识为空白</exception>
         public static P2PClient LocalNet(string nodeId)
         {
-            throw new NotSupportedException("无信令局域网直连尚未接入，请配置信令服务器");
+            var client = new P2PClient(nodeId, new LocalDiscoveryOptions(), new IceSessionOptions());
+            // StartLocalAsync 只做绑定与启动，没有真正的异步等待，这里同步取结果不会死锁
+            client.StartLocalAsync().GetAwaiter().GetResult();
+            return client;
         }
 
         /// <summary>
-        /// 指定发现端口与组播地址的无信令局域网直连入口，参数保留以便后续版本兼容
+        /// 指定发现端口与组播地址的无信令局域网直连入口。无信令模式没有身份鉴权，只应在可信局域网使用；
+        /// HMAC 只保证报文完整性，需要时通过 <see cref="LocalDiscoveryOptions.SharedKey"/> 配置共享密钥
         /// </summary>
-        /// <param name="nodeId">本地节点标识，参数保留以便后续版本兼容</param>
-        /// <param name="port">发现用 UDP 端口，参数保留以便后续版本兼容</param>
-        /// <param name="multicast">组播地址，默认 224.0.0.250，参数保留以便后续版本兼容</param>
-        /// <returns>客户端实例，当前版本不会返回</returns>
-        /// <exception cref="NotSupportedException">当前版本未实现无信令局域网直连</exception>
+        /// <param name="nodeId">本地节点标识，不能为空白</param>
+        /// <param name="port">发现用 UDP 端口，发送与接收共用</param>
+        /// <param name="multicast">组播地址，默认 224.0.0.250；为空表示只发广播</param>
+        /// <returns>已启动局域网发现的客户端实例</returns>
+        /// <exception cref="Common.P2PException">节点标识为空白</exception>
+        /// <exception cref="ArgumentOutOfRangeException">发现端口越界或间隔、阈值非法</exception>
         public static P2PClient LocalNet(string nodeId, int port, string multicast = "224.0.0.250")
         {
-            throw new NotSupportedException("无信令局域网直连尚未接入，请配置信令服务器");
+            var discovery = new LocalDiscoveryOptions { Port = port, MulticastGroup = multicast };
+            var client = new P2PClient(nodeId, discovery, new IceSessionOptions());
+            client.StartLocalAsync().GetAwaiter().GetResult();
+            return client;
         }
 
         /// <summary>

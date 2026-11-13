@@ -13,19 +13,19 @@ using SAEA.P2P.Signaling;
 namespace SAEA.P2PTest.Tests
 {
     /// <summary>
-    /// 客户端生命周期测试：无信令入口被明确拒绝、配置守卫子句、接入真实服务端后的注册与注销。
+    /// 客户端生命周期测试：无信令入口的启动、配置守卫子句、接入真实服务端后的注册与注销。
     /// </summary>
     public static class LifecycleTest
     {
         /// <summary>
-        /// 依次校验无信令局域网入口的拒绝、信令配置非法值抛错，以及接入真实服务端后的注册与注销流程
+        /// 依次校验无信令局域网入口的启动、信令配置非法值抛错，以及接入真实服务端后的注册与注销流程
         /// </summary>
         /// <returns>异步任务，完成后该组场景与断言已全部执行</returns>
         public static async Task RunAsync()
         {
             TestHarness.Section("LifecycleTest");
 
-            LocalNetUnsupported();
+            LocalNetEntry();
             await ClientGuardClauses();
             await ServerRegisterLifecycle();
 
@@ -57,17 +57,35 @@ namespace SAEA.P2PTest.Tests
             return new P2PClient(signaling, new IceSessionOptions());
         }
 
-        static void LocalNetUnsupported()
+        static void LocalNetEntry()
         {
             TestHarness.Section("local-only lifecycle");
 
-            // 无信令局域网直连已下线，两个重载都必须显式拒绝而不是返回半可用客户端
-            var single = TestHarness.Throws<NotSupportedException>(() => P2PQuick.LocalNet("life-local"),
-                "P2PQuick.LocalNet(nodeId) throws NotSupportedException");
-            TestHarness.Expect(single != null && single.Message.Contains("信令服务器"),
-                "LocalNet message explains the signaling server is required", single?.Message);
-            TestHarness.Throws<NotSupportedException>(() => P2PQuick.LocalNet("life-local", 39655, "224.0.0.250"),
-                "P2PQuick.LocalNet(nodeId, port, multicast) throws NotSupportedException");
+            // 无信令入口已恢复：两个重载都返回已启动发现的客户端，生命周期由 Dispose 收尾
+            var single = P2PQuick.LocalNet("life-local");
+            try
+            {
+                TestHarness.Expect(single != null && single.PeerId == "life-local",
+                    "P2PQuick.LocalNet(nodeId) returns a client with the node id", single == null ? "null" : single.PeerId);
+                TestHarness.Expect(single.IsRegistered,
+                    "LocalNet client is registered without a signaling server", single.IsRegistered.ToString());
+            }
+            finally
+            {
+                single.Dispose();
+            }
+
+            var withDiscovery = P2PQuick.LocalNet("life-local", 39655, "224.0.0.250");
+            try
+            {
+                TestHarness.Expect(withDiscovery != null && withDiscovery.PeerId == "life-local",
+                    "P2PQuick.LocalNet(nodeId, port, multicast) returns a client with the node id",
+                    withDiscovery == null ? "null" : withDiscovery.PeerId);
+            }
+            finally
+            {
+                withDiscovery.Dispose();
+            }
         }
 
         static async Task ClientGuardClauses()

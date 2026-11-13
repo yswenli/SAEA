@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 11:40:00
+*修改时间：2026/11/13 18:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：删除已迁移到 ICE 会话的旧成员
+*描述：新增可覆盖通道类型的选路完成标记，供局域网发现模式写入 Local 通道
 *
 *****************************************************************************/
 using System;
@@ -219,8 +219,23 @@ namespace SAEA.P2P.Core
                 throw new ArgumentNullException(nameof(result));
             }
 
-            Connection = new P2PConnection(PeerId, result.ChannelType, result.LocalEndPoint, result.RemoteEndPoint);
-            Channel = result.ChannelType;
+            MarkConnected(result, result.ChannelType);
+        }
+
+        /// <summary>
+        /// 标记选路完成并覆盖通道类型：局域网发现模式把通道覆盖为 Local，端点仍取选中候选对
+        /// </summary>
+        /// <param name="result">选路结果，不可为 null</param>
+        /// <param name="channelType">要写入连接的通道类型</param>
+        internal void MarkConnected(IceSessionResult result, ChannelType channelType)
+        {
+            if (result == null)
+            {
+                throw new ArgumentNullException(nameof(result));
+            }
+
+            Connection = new P2PConnection(PeerId, channelType, result.LocalEndPoint, result.RemoteEndPoint);
+            Channel = channelType;
             Phase = PeerSessionState.Connected;
             Active();
         }

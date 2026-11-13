@@ -287,12 +287,30 @@ namespace SAEA.P2PTest.Tests
 
             TestHarness.Section("P2PQuick edges");
 
-            var localNet = TestHarness.Throws<NotSupportedException>(() => P2PQuick.LocalNet("edge-local"),
-                "P2PQuick.LocalNet(nodeId) throws NotSupportedException");
-            TestHarness.Expect(localNet != null && localNet.Message.Contains("信令服务器"),
-                "LocalNet message points at the signaling server", localNet?.Message);
-            TestHarness.Throws<NotSupportedException>(() => P2PQuick.LocalNet("edge-local", 39655, "224.0.0.250"),
-                "P2PQuick.LocalNet(nodeId, port, multicast) throws NotSupportedException");
+            // 无信令入口恢复后构造即启动发现，这里只校验返回实例与标识，Dispose 负责停止发现
+            var localNet = P2PQuick.LocalNet("edge-local");
+            try
+            {
+                TestHarness.Expect(localNet != null && localNet.PeerId == "edge-local",
+                    "P2PQuick.LocalNet(nodeId) returns a client with the node id",
+                    localNet == null ? "null" : localNet.PeerId);
+            }
+            finally
+            {
+                localNet.Dispose();
+            }
+
+            var localNetWithDiscovery = P2PQuick.LocalNet("edge-local", 39655, "224.0.0.250");
+            try
+            {
+                TestHarness.Expect(localNetWithDiscovery != null && localNetWithDiscovery.PeerId == "edge-local",
+                    "P2PQuick.LocalNet(nodeId, port, multicast) returns a client with the node id",
+                    localNetWithDiscovery == null ? "null" : localNetWithDiscovery.PeerId);
+            }
+            finally
+            {
+                localNetWithDiscovery.Dispose();
+            }
         }
     }
 }

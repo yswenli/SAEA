@@ -12,7 +12,7 @@ using SAEA.P2P.Signaling;
 namespace SAEA.P2PTest.Tests
 {
     /// <summary>
-    /// P2P 客户端自测：创建后的初始状态、事件订阅、未连接时的发送守卫、重复释放、无信令入口的拒绝，以及接入本地信令服务器的注册流程
+    /// P2P 客户端自测：创建后的初始状态、事件订阅、未连接时的发送守卫、重复释放、无信令入口的启动，以及接入本地信令服务器的注册流程
     /// </summary>
     public static class ClientTest
     {
@@ -28,7 +28,7 @@ namespace SAEA.P2PTest.Tests
             TestClientEvents();
             TestClientSendBeforeRegister();
             TestClientDisposeIsIdempotent();
-            TestLocalNetUnsupported();
+            TestLocalNetEntry();
             await TestClientRegister();
 
             TestHarness.WriteSummary("ClientTest");
@@ -148,15 +148,36 @@ namespace SAEA.P2PTest.Tests
             TestHarness.Expect(failure == null, "Dispose can be called repeatedly", failure);
         }
 
-        static void TestLocalNetUnsupported()
+        static void TestLocalNetEntry()
         {
             TestHarness.Section("local-only entry");
 
-            // 无信令局域网直连已下线，两个重载都必须显式拒绝而不是返回半可用客户端
-            TestHarness.Throws<NotSupportedException>(() => P2PQuick.LocalNet("client-local"),
-                "P2PQuick.LocalNet(nodeId) throws NotSupportedException");
-            TestHarness.Throws<NotSupportedException>(() => P2PQuick.LocalNet("client-local", 39655, "224.0.0.250"),
-                "P2PQuick.LocalNet(nodeId, port, multicast) throws NotSupportedException");
+            // 无信令入口已恢复，两个重载都应返回可直接启动发现的客户端，不再依赖信令服务器
+            var single = P2PQuick.LocalNet("client-local");
+            try
+            {
+                TestHarness.Expect(single != null, "P2PQuick.LocalNet(nodeId) returns a client");
+                TestHarness.Expect(single.PeerId == "client-local", "LocalNet keeps the node id", single.PeerId);
+                single.StartLocalAsync().GetAwaiter().GetResult();
+                TestHarness.Expect(single.IsRegistered, "LocalNet client is registered after StartLocalAsync", single.IsRegistered.ToString());
+            }
+            finally
+            {
+                single.Dispose();
+            }
+
+            var withDiscovery = P2PQuick.LocalNet("client-local", 39655, "224.0.0.250");
+            try
+            {
+                TestHarness.Expect(withDiscovery != null, "P2PQuick.LocalNet(nodeId, port, multicast) returns a client");
+                TestHarness.Expect(withDiscovery.PeerId == "client-local", "LocalNet keeps the node id with explicit discovery options", withDiscovery.PeerId);
+                withDiscovery.StartLocalAsync().GetAwaiter().GetResult();
+                TestHarness.Expect(withDiscovery.IsRegistered, "LocalNet client is registered after StartLocalAsync", withDiscovery.IsRegistered.ToString());
+            }
+            finally
+            {
+                withDiscovery.Dispose();
+            }
         }
 
         /// <summary>
