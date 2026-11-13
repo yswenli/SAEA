@@ -24,10 +24,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 14:32:28
+*修改时间：2026/11/13 14:57:04
 *修改人： yswenli
 *版本号： net10.0
-*描述：x509 签发帮助补 -passin
+*描述：补 pkcs12 帮助文本
 *
 *****************************************************************************/
 namespace SAEA.Sockets.SslTlsTool.OpenSsl;
@@ -58,6 +58,12 @@ internal static class OpenSslUsage
                     + "打印：-subject、-issuer、-dates、-serial、-fingerprint（默认 SHA-1）、-sha256、-pubkey\n"
                     + "签发：-req、-CA <文件>、-CAkey <文件>、-passin <口令源>、-CAcreateserial、-days <正整数>、-extfile <文件>、-extensions <段名>、-copy_extensions copy|none\n"
                     + "不支持：-text、-nameopt（姓名固定 oneline 风格）；打印项写 stdout 且位于证书数据之前。\n";
+            case "pkcs12":
+                return "用法：SAEA.Sockets.SslTlsTool pkcs12 [选项]\n"
+                    + "导出：-export -in <叶子证书> -inkey <私钥> [-certfile <链>]... [-name <friendlyName>] [-passout <口令源>] [-legacy] [-nodes|-nomac]\n"
+                    + "读取：-in <PFX> [-passin <口令源>] [-out <PEM>] [-nocerts|-clcerts|-cacerts] [-nokeys] [-nodes] [-info]\n"
+                    + "口令源：pass:<文本>、env:<变量>、file:<路径>、stdin；-in 缺省 stdin，-out 缺省 stdout。\n"
+                    + "读取输出顺序为私钥（PKCS#8）、叶子、链；-info 摘要写 stderr，-noout 不支持。\n";
             case "pkcs8":
                 return "用法：SAEA.Sockets.SslTlsTool pkcs8 [选项]\n在 PKCS#1 与 PKCS#8 之间转换私钥；-in 缺省 stdin，-out 缺省 stdout。\n"
                     + "选项：-in、-out、-inform PEM|DER、-outform PEM|DER、-topk8、-nocrypt、-v1 PBE-SHA1-3DES、-v2 aes-128-cbc|aes-192-cbc|aes-256-cbc|des3（默认 aes-256-cbc）、-passin、-passout；-v1 与 -v2 互斥，非 -topk8 不支持 -passout。\n";

@@ -99,6 +99,21 @@ try {
             ($leafCert.Issuer -eq $caCert.Subject) -and ($leafSan.Length -gt 0) -and
             ([Convert]::ToHexString($csrDer).Contains([Convert]::ToHexString($leafSan)))
     }
+    $pfx = Join-Path $tmp 'leaf.pfx'
+    Invoke-Case -Name 'pkcs12 -export 导出 PFX' -Body {
+        $r = Invoke-Tool -Arguments @('pkcs12', '-export', '-in', $leaf, '-inkey', (Join-Path $tmp 'leaf.key'), '-out', $pfx, '-passout', 'pass:test')
+        $r.ExitCode -eq 0 -and $r.StdErr -notmatch 'error' -and (Test-Path -LiteralPath $pfx) -and (Get-Item -LiteralPath $pfx).Length -gt 0
+    }
+    Invoke-Case -Name 'pkcs12 -in 读回私钥' -Body {
+        $pfxKey = Join-Path $tmp 'pfx.key'
+        $r = Invoke-Tool -Arguments @('pkcs12', '-in', $pfx, '-passin', 'pass:test', '-nocerts', '-nodes', '-out', $pfxKey)
+        $r.ExitCode -eq 0 -and (Get-Content -LiteralPath $pfxKey -Raw) -match '-----BEGIN PRIVATE KEY-----'
+    }
+    Invoke-Case -Name 'pkcs12 -legacy 导出成功' -Body { $o = Join-Path $tmp 'legacy.pfx'; $r = Invoke-Tool -Arguments @('pkcs12', '-export', '-in', $leaf, '-inkey', (Join-Path $tmp 'leaf.key'), '-legacy', '-out', $o, '-passout', 'pass:test'); $r.ExitCode -eq 0 -and (Test-Path -LiteralPath $o) -and (Get-Item -LiteralPath $o).Length -gt 0 }
+    Invoke-Case -Name 'pkcs12 -clcerts -nokeys 只输出证书' -Body { $r = Invoke-Tool -Arguments @('pkcs12', '-in', $pfx, '-passin', 'pass:test', '-clcerts', '-nokeys'); $r.ExitCode -eq 0 -and $r.StdOut -like '*BEGIN CERTIFICATE*' -and $r.StdOut -notlike '*PRIVATE KEY*' }
+    Invoke-Case -Name 'pkcs12 -name 导出并读回' -Body { $named = Join-Path $tmp 'alias.pfx'; $e = Invoke-Tool -Arguments @('pkcs12', '-export', '-in', $leaf, '-inkey', (Join-Path $tmp 'leaf.key'), '-name', 'myalias', '-out', $named, '-passout', 'pass:test'); $r = Invoke-Tool -Arguments @('pkcs12', '-in', $named, '-passin', 'pass:test', '-out', (Join-Path $tmp 'alias.pem')); $e.ExitCode -eq 0 -and $r.ExitCode -eq 0 -and $r.StdErr -notmatch 'error' }
+    Invoke-Case -Name 'pkcs12 错误口令退出 1 且报口令错误' -Body { $r = Invoke-Tool -Arguments @('pkcs12', '-in', $pfx, '-passin', 'pass:bad', '-out', (Join-Path $tmp 'bad.pem')); $r.ExitCode -eq 1 -and $r.StdErr -like '*口令错误*' }
+    Invoke-Case -Name 'pkcs12 -export 缺 -inkey 退出 1' -Body { $r = Invoke-Tool -Arguments @('pkcs12', '-export', '-in', $leaf, '-out', (Join-Path $tmp 'nokey.pfx'), '-passout', 'pass:test'); $r.ExitCode -eq 1 -and $r.StdErr -like '*需要 -in 与 -inkey*' }
 }
 finally { Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue }
 '{0} passed, {1} failed' -f $script:passed, $script:failed
