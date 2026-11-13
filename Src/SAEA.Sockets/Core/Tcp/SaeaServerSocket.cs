@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 15:24:39
+*修改时间：2026/11/13 16:42:11
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：接收提交异常路径补回断开收口：先断开再回滚在途计数，CompleteOperation 作为令牌最后一次访问
+*描述：发送看门狗放弃路径改为令牌退役并补建容量；接收提交异常与发送完成异常统一收口并落日志
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -701,11 +701,20 @@ namespace SAEA.Sockets.Core.Tcp
                             }
                             catch (InvalidOperationException ex)
                             {
-                                // 入池会清空 ID，日志用快照；CompleteOperation 之后不再触碰令牌
+                                // 入池会清空 ID：日志、回调与断开都用入池前的快照；
+                                // 先断开再回滚在途计数，CompleteOperation 之后不再触碰令牌。
                                 var tokenId = userToken.ID;
-                                // 提交失败必须回滚在途计数，否则该令牌再也回不到 0、永远无法入池
-                                _sessionManager.CompleteOperation(userToken);
-                                LogHelper.Error($"An exception occurs when receiving:{tokenId}", ex);
+                                var kex = new KernelException("An exception occurs when receiving:" + ex.Message, ex);
+                                try
+                                {
+                                    LogHelper.Error($"An exception occurs when receiving:{tokenId}", kex);
+                                    OnError?.Invoke(tokenId, kex);
+                                }
+                                finally
+                                {
+                                    try { Disconnect(userToken, kex); } catch { }
+                                    _sessionManager.CompleteOperation(userToken);
+                                }
                                 return;
                             }
                             catch (Exception ex)
@@ -876,7 +885,10 @@ namespace SAEA.Sockets.Core.Tcp
             catch (Exception ex)
             {
                 // 同步完成回调中的异常不能冒泡回提交流程：那里会再次触碰可能已入池的令牌。
-                try { OnError?.Invoke("", ex); } catch { }
+                // 回池会清空 ID，日志与回调都用快照。
+                var tokenId = (e.UserToken as IUserToken)?.ID;
+                LogHelper.Error($"An exception occurs when sended:{tokenId}", ex);
+                try { OnError?.Invoke(tokenId, ex); } catch { }
             }
             finally
             {
@@ -1047,6 +1059,11 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 operation.TryAbandon(new TimeoutException("Sending data timeout"));
                 try { userToken.ReleaseWrite(); } catch { }
+
+                // 内核可能仍在读该令牌的发送缓冲：让它永久退役（不回池、不归还缓冲），
+                // 由池核销创建计数后补建新令牌。退役不动在途计数；即便迟到的完成回调把计数减到 0，
+                // 退役位仍会拦住入池。
+                _sessionManager.RetireUserToken(userToken);
             }
 
             OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", new TimeoutException("Sending data timeout"));

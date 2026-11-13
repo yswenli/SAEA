@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 15:19:56
+*修改时间：2026/11/13 16:42:11
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：回收时序收口：接收提交失败先断开再回滚计数，发送提交失败由外层 catch 回滚，CompleteOperation 为最后一次令牌访问
+*描述：发送完成异常补日志，并用入池前的令牌标识快照
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -346,7 +346,10 @@ namespace SAEA.Sockets.Core.Udp
             catch (Exception ex)
             {
                 // 同步完成回调中的异常不能冒泡回提交流程：那里会再次触碰可能已入池的令牌。
-                try { OnError?.Invoke($"An exception occurs when a message is sended:{userToken?.ID}", ex); } catch { }
+                // 回池会清空 ID，日志与回调都用快照。
+                var tokenId = (e.UserToken as IUserToken)?.ID;
+                LogHelper.Error($"An exception occurs when sended:{tokenId}", ex);
+                try { OnError?.Invoke(tokenId, ex); } catch { }
             }
             finally
             {

@@ -23,15 +23,17 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 13:29:37
+*修改时间：2026/11/13 16:42:11
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：SetBuffer 失败时归还槽位，避免缓冲区槽位泄漏
+*描述：槽位耗尽时在硬上限内整段扩容，补偿退役令牌永久占用的槽位
 *
 *****************************************************************************/
 using System;
 using System.Collections.Generic;
 using System.Net.Sockets;
+using SAEA.Common;
+using SAEA.Sockets.Model;
 
 namespace SAEA.Sockets.Core
 {
@@ -52,11 +54,18 @@ namespace SAEA.Sockets.Core
 
         readonly object _syncRoot = new object();
         readonly int _bufferSize;
-        readonly int _totalSlots;
+        /// <summary>
+        /// 当前可分配的槽位总数；退役令牌会永久占住槽位，因此允许在硬上限内扩容
+        /// </summary>
+        int _totalSlots;
+        /// <summary>
+        /// 扩容硬上限，防止退役持续发生时无限申请内存
+        /// </summary>
+        readonly int _maxSlots;
         readonly int _slotsPerSegment;
         readonly Stack<int> _freeSlots;
         readonly List<byte[]> _segments;
-        readonly bool[] _slotInUse;
+        bool[] _slotInUse;
 
         int _nextSlot;
         bool _disposed;
@@ -76,6 +85,7 @@ namespace SAEA.Sockets.Core
             if (slots < 1) slots = 1;
             if (slots > int.MaxValue) slots = int.MaxValue;
             _totalSlots = (int)slots;
+            _maxSlots = _totalSlots > int.MaxValue / 2 ? int.MaxValue : _totalSlots * 2;
 
             var slotsPerSegment = SegmentTargetBytes / bufferSize;
             if (slotsPerSegment < 1) slotsPerSegment = 1;
@@ -111,7 +121,9 @@ namespace SAEA.Sockets.Core
                 }
                 else
                 {
-                    return false;
+                    // 槽位全部占用时按需扩容：退役令牌会永久占住槽位，容量不能因此衰减
+                    if (!TryGrowLocked()) return false;
+                    slot = _nextSlot++;
                 }
 
                 var segmentIndex = slot / _slotsPerSegment;
@@ -132,6 +144,37 @@ namespace SAEA.Sockets.Core
                 _slotInUse[slot] = true;
                 return true;
             }
+        }
+
+        /// <summary>
+        /// 在硬上限内扩容缓冲区槽位
+        /// </summary>
+        /// <remarks>
+        /// 退役令牌会永久占住槽位且缓冲不能归还，容量不能因此衰减；扩容只用于补偿这部分损失，
+        /// 硬上限防止退役持续发生时无界申请内存。
+        /// 槽位到段的映射固定为 slot / _slotsPerSegment，且段长度是建段时的剩余槽位数，
+        /// 因此只能整段追加：末尾短段若继续使用会越界，所以短段尾部槽位永久弃用，
+        /// 新槽位一律从下一个段起点开始。
+        /// </remarks>
+        /// <returns>true 表示扩容成功；false 表示已达上限或没有完整段可追加</returns>
+        bool TryGrowLocked()
+        {
+            var aligned = _totalSlots;
+            var remainder = aligned % _slotsPerSegment;
+            if (remainder != 0) aligned += _slotsPerSegment - remainder;
+
+            if (_totalSlots >= _maxSlots || aligned >= _maxSlots)
+            {
+                LogHelper.Error($"BufferManager 缓冲区槽位已达扩容上限:{_totalSlots}/{_maxSlots}", new KernelException("缓冲区槽位不足。"));
+                return false;
+            }
+
+            var newTotal = (int)Math.Min((long)_maxSlots, (long)aligned + _slotsPerSegment);
+            Array.Resize(ref _slotInUse, newTotal);
+            _totalSlots = newTotal;
+            // 跳过短段尾部不可用的槽位，从整段起点继续分配
+            _nextSlot = aligned;
+            return true;
         }
 
         void EnsureSegment(int segmentIndex)

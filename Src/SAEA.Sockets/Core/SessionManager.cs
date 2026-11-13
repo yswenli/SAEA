@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 13:29:37
+*修改时间：2026/11/13 16:42:11
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：拆除令牌改为两阶段回收，仍有在途操作时由完成点入池
+*描述：新增 RetireUserToken，供发送看门狗放弃路径转调令牌退役
 *
 *****************************************************************************/
 using System;
@@ -317,6 +317,16 @@ namespace SAEA.Sockets.Core
                 LogHelper.Error("SessionManager.Free 错误", ex);
             }
             return false;
+        }
+
+        /// <summary>
+        /// 退役令牌：令牌永不复用，池容量改由后续取用时补建
+        /// </summary>
+        /// <param name="userToken">待退役的令牌</param>
+        internal void RetireUserToken(IUserToken userToken)
+        {
+            // 不走 Free 的幂等分支：看门狗放弃时 ID 可能已被置空，Free 会直接返回 false
+            _userTokenPool.Retire(userToken);
         }
 
         /// <summary>

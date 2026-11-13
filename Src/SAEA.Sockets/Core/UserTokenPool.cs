@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 13:29:37
+*修改时间：2026/11/13 16:42:11
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：args 仍被占用时不丢令牌，转入待重试队列并在下次取用时重试
+*描述：新增令牌退役：退役令牌不入池、不释放缓冲，核销创建计数以补建新令牌
 *
 *****************************************************************************/
 using System;
@@ -158,9 +158,14 @@ namespace SAEA.Sockets.Core
         /// 重置令牌以便复用；args 仍被在途操作占用时转入待重试队列
         /// </summary>
         /// <param name="userToken">待重置的令牌</param>
-        /// <returns>false 表示已转入待重试队列，稍后由取用方重试</returns>
+        /// <returns>false 表示未能重置：已转入待重试队列，或令牌已退役被丢弃</returns>
         bool TryResetToken(IUserToken userToken)
         {
+            // 退役令牌的 args 与缓冲可能仍被内核持有：重置会把缓冲槽位还给池、被新连接复用，
+            // 也不能留在待重试队列里反复空转，因此直接丢弃。
+            var baseUserToken = userToken as BaseUserToken;
+            if (baseUserToken != null && baseUserToken.IsRetired) return false;
+
             try
             {
                 ResetToken(userToken);
@@ -240,6 +245,33 @@ namespace SAEA.Sockets.Core
         }
 
         /// <summary>
+        /// 退役令牌：从池容量中核销该令牌，改由 <see cref="Dequeue"/> 补建新令牌
+        /// </summary>
+        /// <remarks>
+        /// 退役令牌的 args 与缓冲可能仍被内核持有，因此这里不释放缓冲、不入池、也不清空 args；
+        /// 只把创建计数减一，让后续取用时可以补建等量新令牌，避免容量随退役永久衰减。
+        /// </remarks>
+        /// <param name="userToken">待退役的令牌</param>
+        /// <returns>true 表示本次完成退役；false 表示令牌为 null、非内置实现或此前已退役</returns>
+        internal bool Retire(IUserToken userToken)
+        {
+            var baseUserToken = userToken as BaseUserToken;
+            if (baseUserToken == null) return false;
+
+            if (!baseUserToken.TryRetire())
+            {
+                LogHelper.Info($"UserTokenPool.Retire 令牌已退役:{userToken.ID}/{userToken.Guid}");
+                return false;
+            }
+
+            // 核销创建计数：Dequeue 在未达上限时会补建新令牌，容量不因退役而衰减
+            Interlocked.Decrement(ref _createdCount);
+
+            LogHelper.Error($"UserTokenPool.Retire 令牌已退役:{userToken.ID}/{userToken.Guid}/state={baseUserToken.OperationState}", new KernelException("在途操作无法确认完成，令牌退役。"));
+            return true;
+        }
+
+        /// <summary>
         /// 将用户令牌放回池中
         /// </summary>
         /// <remarks>
@@ -254,6 +286,10 @@ namespace SAEA.Sockets.Core
         {
             if (_concurrentQueue.Count >= _maxCount) return false;
             if (userToken == null) return false;
+
+            // 退役令牌可能仍有内核操作引用其缓冲：既不能回池，也不能 FreeBuffer
+            var baseUserToken = userToken as BaseUserToken;
+            if (baseUserToken != null && baseUserToken.IsRetired) return false;
 
             if (!TryResetToken(userToken)) return true;
 
