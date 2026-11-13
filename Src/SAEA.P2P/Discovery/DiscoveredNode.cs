@@ -23,15 +23,15 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 16:59:24
+*修改时间：2026/11/13 17:05:13
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增无信令发现的 ICE 参数、候选与协议版本字段
+*描述：候选字段改为还原后的 ICE 候选
 *
 *****************************************************************************/
 using System;
 using System.Net;
-using SAEA.P2P.Signaling;
+using SAEA.P2P.Ice;
 
 namespace SAEA.P2P.Discovery
 {
@@ -85,9 +85,9 @@ namespace SAEA.P2P.Discovery
         /// </summary>
         public ulong Tiebreaker { get; set; }
         /// <summary>
-        /// 节点公布的可直连候选，未携带时为 null
+        /// 节点公布的可直连候选，已还原为 ICE 候选；未携带或全部非法时为 null
         /// </summary>
-        public SignalingCandidate[] Candidates { get; set; }
+        public Candidate[] Candidates { get; set; }
 
         /// <summary>
         /// 判断节点是否已超过指定时长未刷新
