@@ -22,10 +22,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 12:15:00
+*修改时间：2026/11/13 20:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 UDP 传输实现
+*描述：新增双栈绑定构造参数
 *
 *****************************************************************************/
 using System;
@@ -57,9 +57,23 @@ namespace SAEA.P2P.Transport
         private SaeaUdpServerSocket _server;
 
         /// <summary>
+        /// 是否绑定为双栈套接字
+        /// </summary>
+        private readonly bool _dualMode;
+
+        /// <summary>
         /// 是否已释放
         /// </summary>
         private bool _disposed;
+
+        /// <summary>
+        /// 创建传输
+        /// </summary>
+        /// <param name="dualMode">是否启用双栈绑定：仅当本地端点为 IPv6 任意地址时生效，此时用一个套接字同时收发 IPv4 与 IPv6 数据报</param>
+        public SaeaUdpTransport(bool dualMode = false)
+        {
+            _dualMode = dualMode;
+        }
 
         /// <summary>
         /// 收到数据报时触发，参数为来源端点与已复制的数据
@@ -103,13 +117,24 @@ namespace SAEA.P2P.Transport
 
                 var builder = SocketOptionBuilder.Instance
                     .SetSocket(SAEASocketType.Udp)
-                    .UsePacket()
-                    .SetIPEndPoint(localEndPoint)
-                    .SetActionTimeOut(30 * 1000)
-                    .SetFreeTime(180 * 1000);
+                    .UsePacket();
 
-                if (localEndPoint.AddressFamily == AddressFamily.InterNetworkV6)
-                    builder.UseIPv6();
+                if (_dualMode
+                    && localEndPoint.AddressFamily == AddressFamily.InterNetworkV6
+                    && localEndPoint.Address.Equals(IPAddress.IPv6Any))
+                {
+                    // 底层只在未指定具体 IP 且启用 IPv6 时才打开 DualMode 并绑定 IPv6Any，
+                    // 因此这条路径不能调用 SetIPEndPoint，否则会退化成单栈绑定
+                    builder.SetPort(localEndPoint.Port).UseIPv6().UseDualMode();
+                }
+                else
+                {
+                    builder.SetIPEndPoint(localEndPoint);
+                    if (localEndPoint.AddressFamily == AddressFamily.InterNetworkV6)
+                        builder.UseIPv6();
+                }
+
+                builder.SetActionTimeOut(30 * 1000).SetFreeTime(180 * 1000);
 
                 var server = new SaeaUdpServerSocket(builder.Build());
                 server.OnServerReceiveSpanFrom += OnServerReceiveSpanFrom;

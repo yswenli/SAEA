@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 13:54:41
+*修改时间：2026/11/13 20:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：ConnectionBind 先写成功应答再启动 TCP 中继数据泵，避免数据面字节与应答交错
+*描述：解析并忽略 ADDITIONAL-ADDRESS-FAMILY
 *
 *****************************************************************************/
 using System;
@@ -469,6 +469,12 @@ namespace SAEA.P2P.TurnServer
                 {
                     return BuildError(request, TurnErrorCode.AddressFamilyNotSupported, null, null, key);
                 }
+            }
+
+            TurnAddressFamily additionalFamily;
+            if (TurnMessage.TryGetAdditionalAddressFamily(request, out additionalFamily))
+            {
+                // 本实现只分配单族中继，RFC 8656 允许不支持附加地址族时忽略该属性，不能回 440
             }
 
             TurnAllocation existing;

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 07:00:00
+*修改时间：2026/11/13 20:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 ConnectionAttempt 指示的构造方法
+*描述：新增 ADDITIONAL-ADDRESS-FAMILY 解析
 *
 *****************************************************************************/
 using System;
@@ -471,6 +471,46 @@ namespace SAEA.P2P.Turn
 
             StunAttribute attribute;
             if (!message.TryGet(StunAttributeType.RequestedAddressFamily, out attribute))
+            {
+                return false;
+            }
+
+            var value = attribute.Value.Span;
+            if (value.Length != FixedValueLength)
+            {
+                return false;
+            }
+
+            if (value[0] == (byte)TurnAddressFamily.IPv4)
+            {
+                family = TurnAddressFamily.IPv4;
+                return true;
+            }
+            if (value[0] == (byte)TurnAddressFamily.IPv6)
+            {
+                family = TurnAddressFamily.IPv6;
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// 读取 ADDITIONAL-ADDRESS-FAMILY 属性
+        /// </summary>
+        /// <param name="message">消息</param>
+        /// <param name="family">附加地址族</param>
+        /// <returns>存在、长度正确且地址族已知时返回 true</returns>
+        public static bool TryGetAdditionalAddressFamily(StunMessage message, out TurnAddressFamily family)
+        {
+            family = TurnAddressFamily.IPv4;
+            if (message == null)
+            {
+                return false;
+            }
+
+            StunAttribute attribute;
+            if (!message.TryGet(StunAttributeType.AdditionalAddressFamily, out attribute))
             {
                 return false;
             }

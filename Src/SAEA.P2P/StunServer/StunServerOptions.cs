@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 19:00:00
+*修改时间：2026/11/13 20:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 STUN 服务端配置
+*描述：新增双栈监听开关
 *
 *****************************************************************************/
 using System;
@@ -91,6 +91,12 @@ namespace SAEA.P2P.StunServer
         public Func<IUdpTransport> TransportFactory { get; set; }
 
         /// <summary>
+        /// 是否使用双栈监听；默认 false。
+        /// 仅当主端点为 <see cref="IPAddress.IPv6Any"/> 且未配置备用端点时生效，此时用一个双栈 UDP 套接字同时接收 IPv4 与 IPv6。
+        /// </summary>
+        public bool EnableDualMode { get; set; }
+
+        /// <summary>
         /// 非 Binding 方法的分派点，供 TURN 等方法接入同一端口；返回 null 表示不处理。
         /// 参数依次为请求、客户端来源端点与收到请求的监听端点。
         /// </summary>
@@ -133,7 +139,7 @@ namespace SAEA.P2P.StunServer
         internal IUdpTransport CreateTransport()
         {
             var factory = TransportFactory;
-            return factory != null ? factory() : new SaeaUdpTransport();
+            return factory != null ? factory() : new SaeaUdpTransport(EnableDualMode);
         }
 
         /// <summary>
@@ -169,10 +175,28 @@ namespace SAEA.P2P.StunServer
         }
 
         /// <summary>
-        /// 校验端点组合；两个端点必须使用同一地址族，且端口不能为 0
+        /// 校验端点组合；启用双栈时主端点必须是 IPv6 任意地址且不能配置备用端点，
+        /// 否则两个端点必须使用同一地址族，且端口不能为 0
         /// </summary>
         private void Validate()
         {
+            if (EnableDualMode)
+            {
+                if (PrimaryEndPoint.AddressFamily != AddressFamily.InterNetworkV6
+                    || !PrimaryEndPoint.Address.Equals(IPAddress.IPv6Any))
+                {
+                    throw new ArgumentException("启用双栈监听时主端点必须是 IPv6 任意地址（::）");
+                }
+
+                if (AlternateEndPoint != null)
+                {
+                    // 双栈套接字已同时覆盖两个地址族，再配备用端点会与换地址探测的语义冲突
+                    throw new ArgumentException("启用双栈监听时不能配置备用端点");
+                }
+
+                return;
+            }
+
             if (AlternateEndPoint == null)
             {
                 return;
