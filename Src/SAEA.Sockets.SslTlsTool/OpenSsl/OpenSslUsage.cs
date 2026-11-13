@@ -24,10 +24,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 14:04:10
+*修改时间：2026/11/13 14:21:12
 *修改人： yswenli
 *版本号： net10.0
-*描述：补 pkcs8 与 pkey 子命令的帮助文本
+*描述：补 pkcs8、pkey 与 req 子命令的帮助文本
 *
 *****************************************************************************/
 namespace SAEA.Sockets.SslTlsTool.OpenSsl;
@@ -48,6 +48,9 @@ internal static class OpenSslUsage
         {
             case "version":
                 return "用法：SAEA.Sockets.SslTlsTool version\n\n输出本工具版本，并声明与 openssl version 不兼容。";
+            case "req":
+                return "用法：SAEA.Sockets.SslTlsTool req [选项]\n生成 CSR（-new）或直接自签证书（-x509）；-out 缺省 stdout，-newkey 生成的私钥写 -keyout。\n"
+                    + "选项：-new、-x509（二选一）、-newkey rsa:1024|2048|3072|4096（必须配 -keyout）、-key、-nodes/-noenc、-days（默认 30）、-subj、-addext、-sha256、-out、-passout。\n";
             case "x509":
                 return "用法：SAEA.Sockets.SslTlsTool x509 [选项]\n"
                     + "读取证书、打印所选信息并在 PEM 与 DER 之间转换；-in 缺省 stdin，-out 缺省 stdout。\n"
