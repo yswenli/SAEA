@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:20:16
+*修改时间：2026/11/13 11:19:45
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：删除与新流程不对应的节点状态
 *
 *****************************************************************************/
 namespace SAEA.P2P.Common
@@ -45,36 +45,24 @@ namespace SAEA.P2P.Common
         /// </summary>
         Connecting = 1,
         /// <summary>
-        /// 已发出注册请求，等待鉴权或注册应答
-        /// </summary>
-        Authenticating = 2,
-        /// <summary>
         /// 已在信令服务器注册成功并持有会话标识
         /// </summary>
-        Registered = 3,
+        Registered = 2,
         /// <summary>
-        /// 正在与对端进行 NAT 打洞
+        /// 已与对端建立可用通道
         /// </summary>
-        HolePunching = 4,
-        /// <summary>
-        /// 与对端走中继转发
-        /// </summary>
-        Relaying = 5,
-        /// <summary>
-        /// 无需信令服务器的可用状态（未配置服务器地址时由 ConnectAsync 置位）
-        /// </summary>
-        Connected = 6,
+        Connected = 3,
         /// <summary>
         /// 空闲，无进行中的会话
         /// </summary>
-        Idle = 7,
+        Idle = 4,
         /// <summary>
         /// 与信令服务器或对端断开
         /// </summary>
-        Disconnected = 8,
+        Disconnected = 5,
         /// <summary>
-        /// 连接、注册或打洞失败
+        /// 连接、注册或选路失败
         /// </summary>
-        Error = 9
+        Error = 6
     }
 }

@@ -23,575 +23,617 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 10:21:07
+*修改时间：2026/11/13 10:56:15
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：通道类型改为 ICE 选路结果
+*描述：按信令与 ICE 重写客户端编排
 *
 *****************************************************************************/
 using System;
 using System.Collections.Concurrent;
-using System.Net;
-using System.Text;
+using System.Collections.Generic;
+using System.Security.Cryptography;
+using System.Threading;
 using System.Threading.Tasks;
-using SAEA.Sockets;
-using SAEA.Sockets.Core.Tcp;
-using SAEA.Sockets.Interface;
-using SAEA.Sockets.Model;
 using SAEA.P2P.Builder;
-using SAEA.P2P.Channel;
 using SAEA.P2P.Common;
-using SAEA.P2P.Discovery;
+using SAEA.P2P.Ice;
 using SAEA.P2P.Model;
-using SAEA.P2P.NAT;
 using SAEA.P2P.Protocol;
-using SAEA.P2P.Relay;
-using SAEA.P2P.Security;
+using SAEA.P2P.Signaling;
+using SAEA.P2P.Turn;
 
 namespace SAEA.P2P.Core
 {
     /// <summary>
-    /// P2P 客户端，负责信令注册、NAT 探测、打洞、中继与局域网发现
+    /// P2P 客户端：用信令客户端完成会话协商，用 ICE 会话完成候选收集与选路，并对外提供收发与断开入口
     /// </summary>
-    public class P2PClient
+    public sealed class P2PClient : IDisposable
     {
-        private P2POptions _options;
-        private SaeaClientSocket _signalSocket;
-        private P2PCoder _coder = new P2PCoder();
-        
-        private CryptoService _cryptoService;
-        private AuthManager _authManager;
-        private HolePuncher _holePuncher;
-        private RelayManager _relayManager;
-        private LocalDiscovery _localDiscovery;
-        
-        private NodeState _state = NodeState.Init;
-        private ConcurrentDictionary<string, PeerSession> _peers = new ConcurrentDictionary<string, PeerSession>();
-        private ConcurrentDictionary<string, NodeInfo> _nodes = new ConcurrentDictionary<string, NodeInfo>();
-        
-        private string _sessionId;
-        
+        private readonly SignalingClient _signaling;
+        private readonly SignalingOptions _signalingOptions;
+        private readonly IceSessionOptions _iceOptions;
+        private readonly CancellationTokenSource _lifetimeCts;
+        private readonly ConcurrentDictionary<string, PeerSession> _sessionsById;
+        private readonly ConcurrentDictionary<string, PeerSession> _sessionsByPeer;
+        private readonly ConcurrentDictionary<string, TaskCompletionSource<SignalingMessage>> _pendingAnswers;
+        // 候选早于会话描述到达时先暂存，挂载 ICE 会话后统一补加
+        private readonly ConcurrentDictionary<string, List<Candidate>> _pendingCandidates;
+        private volatile bool _registered;
+        private int _disposed;
+
         /// <summary>
-        /// 本节点标识，取自客户端配置
+        /// 本端节点标识，取自信令配置
         /// </summary>
-        public string NodeId => _options.NodeId;
+        public string PeerId => _signalingOptions.PeerId;
+
         /// <summary>
-        /// 当前节点状态
+        /// 是否已注册到信令服务器
         /// </summary>
-        public NodeState State => _state;
+        public bool IsRegistered => _registered;
+
         /// <summary>
-        /// 是否已注册或处于可用状态
+        /// 对端会话建立并选出通道时触发
         /// </summary>
-        public bool IsConnected => _state == NodeState.Connected || _state == NodeState.Registered;
-        
+        public event Action<P2PConnection> OnPeerConnected;
+
         /// <summary>
-        /// 状态切换时触发，参数为旧状态与新状态
-        /// </summary>
-        public event Action<NodeState, NodeState> OnStateChanged;
-        /// <summary>
-        /// 向信令服务器注册成功时触发
-        /// </summary>
-        public event Action OnServerConnected;
-        /// <summary>
-        /// 与信令服务器断开时触发，参数为断开原因描述
-        /// </summary>
-        public event Action<string> OnServerDisconnected;
-        /// <summary>
-        /// 对端会话建立的通知事件，当前实现未触发
-        /// </summary>
-        public event Action<string, ChannelType> OnPeerConnected;
-        /// <summary>
-        /// 对端会话断开的通知事件，当前实现未触发
+        /// 对端会话关闭时触发，参数为对端标识与关闭原因
         /// </summary>
         public event Action<string, string> OnPeerDisconnected;
+
         /// <summary>
-        /// 收到用户数据时触发，参数为来源节点标识与负载副本
+        /// 发现对端节点时触发
         /// </summary>
-        public event Action<string, byte[]> OnMessageReceived;
+        public event Action<NodeInfo> OnPeerDiscovered;
+
         /// <summary>
-        /// 发生错误时触发，参数为错误码与错误描述
+        /// 收到业务帧时触发，载荷仅在回调期间有效，跨回调保存必须复制
+        /// </summary>
+        public event P2PDataReceivedHandler OnDataReceived;
+
+        /// <summary>
+        /// 发生错误时触发，参数为错误码与中文说明
         /// </summary>
         public event Action<string, string> OnError;
+
         /// <summary>
-        /// 局域网发现到其他节点时触发
+        /// 按信令与 ICE 配置创建客户端，构造时完成配置校验
         /// </summary>
-        public event Action<DiscoveredNode> OnLocalNodeDiscovered;
-        
-        /// <summary>
-        /// 已知节点集合，键为节点标识，由信令服务器的节点列表维护
-        /// </summary>
-        public ConcurrentDictionary<string, NodeInfo> KnownNodes => _nodes;
-        /// <summary>
-        /// 对端会话集合，键为对端节点标识
-        /// </summary>
-        public ConcurrentDictionary<string, PeerSession> PeerSessions => _peers;
-        
-        /// <summary>
-        /// 按配置创建客户端，并按需初始化加密、鉴权、打洞、中继与本地发现组件
-        /// </summary>
-        /// <param name="options">客户端配置，不可为 null</param>
-        public P2PClient(P2POptions options)
+        /// <param name="signaling">信令配置，不可为 null，且节点标识不能为空白</param>
+        /// <param name="ice">ICE 会话配置，不可为 null</param>
+        /// <exception cref="ArgumentNullException">任一配置为 null</exception>
+        /// <exception cref="P2PException">节点标识为空，或信令配置校验失败</exception>
+        public P2PClient(SignalingOptions signaling, IceSessionOptions ice)
         {
-            _options = options ?? throw new ArgumentNullException(nameof(options));
-            
-            if (_options.Encryption.Enabled)
-                _cryptoService = new CryptoService(_options.Encryption.Key);
-            
-            if (!string.IsNullOrEmpty(_options.NodeIdPassword))
-                _authManager = new AuthManager(_options.NodeIdPassword, _cryptoService);
-            
-            if (_options.HolePunch.Enabled)
-            {
-                _holePuncher = new HolePuncher(
-                    _options.HolePunch.Strategy,
-                    _options.HolePunch.SyncTimeoutMs,
-                    _options.HolePunch.MaxAttempts);
-            }
-            
-            if (_options.Relay.Enabled)
-                _relayManager = new RelayManager(_options.Relay.TimeoutMs, _options.Relay.Quota);
-            
-            if (_options.Discovery.EnableLocalDiscovery)
-            {
-                _localDiscovery = new LocalDiscovery(
-                    _options.NodeId,
-                    _options.Discovery.LocalDiscoveryPort,
-                    _options.Discovery.MulticastAddress,
-                    _options.Discovery.DiscoveryIntervalMs,
-                    _options.Discovery.DiscoveryTimeoutMs);
-                _localDiscovery.OnNodeDiscovered += node => OnLocalNodeDiscovered?.Invoke(node);
-            }
-            
-            P2PLogHelper.SetLevel(_options.Logging.Level);
+            if (signaling == null) throw new ArgumentNullException(nameof(signaling));
+            if (ice == null) throw new ArgumentNullException(nameof(ice));
+            if (string.IsNullOrWhiteSpace(signaling.PeerId)) throw new P2PException(ErrorCode.RegisterPeerIdMissing, "节点标识不能为空");
+
+            _signalingOptions = signaling;
+            _iceOptions = ice;
+            _lifetimeCts = new CancellationTokenSource();
+            _sessionsById = new ConcurrentDictionary<string, PeerSession>(StringComparer.Ordinal);
+            _sessionsByPeer = new ConcurrentDictionary<string, PeerSession>(StringComparer.Ordinal);
+            _pendingAnswers = new ConcurrentDictionary<string, TaskCompletionSource<SignalingMessage>>(StringComparer.Ordinal);
+            _pendingCandidates = new ConcurrentDictionary<string, List<Candidate>>(StringComparer.Ordinal);
+
+            _signaling = new SignalingClient(signaling);
+            _signaling.OnRegistered += HandleRegistered;
+            _signaling.OnConnectRequest += HandleConnectRequest;
+            _signaling.OnSessionOffer += HandleSessionOffer;
+            _signaling.OnSessionAnswer += HandleSessionAnswer;
+            _signaling.OnTrickleCandidate += HandleTrickleCandidate;
+            _signaling.OnTurnCredential += HandleTurnCredential;
+            _signaling.OnSessionClose += HandleSessionClose;
+            _signaling.OnDisconnected += HandleDisconnected;
+            _signaling.OnError += HandleSignalingError;
         }
-        
+
         /// <summary>
-        /// 连接信令服务器并发送注册请求，已注册或已连接时抛出 P2PException
+        /// 用总配置创建客户端，信令与 ICE 子配置按默认值补齐
         /// </summary>
-        /// <returns>报文发送完成的任务，注册结果由事件异步通知</returns>
-        public async Task ConnectAsync()
+        /// <param name="options">总配置，不可为 null</param>
+        public P2PClient(P2POptions options) : this(CreateSignalingOptions(options), new IceSessionOptions())
         {
-            if (_state == NodeState.Connected || _state == NodeState.Registered)
-                throw new P2PException(ErrorCode.RegisterFailed);
-            
-            SetState(NodeState.Connecting);
-            
-            if (string.IsNullOrEmpty(_options.ServerAddress))
+        }
+
+        /// <summary>
+        /// 连接信令服务器并完成注册
+        /// </summary>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>注册成功后的本端节点信息</returns>
+        /// <exception cref="P2PException">连接失败、注册超时或服务端返回错误</exception>
+        public async Task<NodeInfo> RegisterAsync(CancellationToken cancellationToken = default)
+        {
+            ThrowIfDisposed();
+            await _signaling.RegisterAsync(cancellationToken).ConfigureAwait(false);
+            _registered = true;
+            return new NodeInfo
             {
-                SetState(NodeState.Connected);
-                StartLocalDiscovery();
+                NodeId = PeerId, NodeName = _signalingOptions.NodeName, State = NodeState.Registered,
+                RegisteredTime = DateTime.UtcNow, LastActiveTime = DateTime.UtcNow
+            };
+        }
+
+        /// <summary>
+        /// 与指定对端建立 P2P 连接：先经信令交换 ICE 参数，再由 ICE 会话选出可用通道
+        /// </summary>
+        /// <param name="peerId">对端节点标识，不可为空白</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>已建立的连接描述</returns>
+        /// <exception cref="ArgumentException">peerId 为空白</exception>
+        /// <exception cref="P2PException">尚未注册、等待应答超时或选路失败</exception>
+        public async Task<P2PConnection> ConnectToPeerAsync(string peerId, CancellationToken cancellationToken = default)
+        {
+            ThrowIfDisposed();
+            if (string.IsNullOrWhiteSpace(peerId)) throw new ArgumentException("对端标识不能为空", nameof(peerId));
+            if (!_registered) throw new P2PException(ErrorCode.NotConnected, "尚未注册到信令服务器");
+
+            PeerSession current;
+            if (_sessionsByPeer.TryGetValue(peerId, out current) && current.Phase == PeerSession.PeerSessionState.Connected)
+                return current.Connection;
+
+            var sessionId = Guid.NewGuid().ToString("N");
+            var session = new PeerSession(sessionId, peerId, true, CreateUfrag(), CreatePassword(), IceRole.Controlling, CreateTiebreaker());
+            _sessionsById[sessionId] = session;
+            _sessionsByPeer[peerId] = session;
+            var answerTcs = new TaskCompletionSource<SignalingMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _pendingAnswers[sessionId] = answerTcs;
+
+            IceSession ice = null;
+            try
+            {
+                // 服务端要先由 ConnectRequest 为会话登记收发双方，否则后续会话内消息会被直接丢弃
+                await _signaling.SendAsync(new SignalingMessage
+                {
+                    Type = P2PMessageType.ConnectRequest, PeerId = PeerId, TargetPeerId = peerId, SessionId = sessionId
+                }, cancellationToken).ConfigureAwait(false);
+
+                await _signaling.SendAsync(new SignalingMessage
+                {
+                    Type = P2PMessageType.SessionOffer, SessionId = sessionId, PeerId = PeerId,
+                    Ufrag = session.LocalUfrag, Pwd = session.LocalPassword, Role = "controlling",
+                    Tiebreaker = session.Tiebreaker, Candidates = new SignalingCandidate[0], EndOfCandidates = false
+                }, cancellationToken).ConfigureAwait(false);
+
+                var budget = _iceOptions.SessionBudget + TimeSpan.FromSeconds(5);
+                var completed = await Task.WhenAny(answerTcs.Task, Task.Delay(budget, cancellationToken)).ConfigureAwait(false);
+                if (completed != answerTcs.Task)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    throw new P2PException(ErrorCode.SessionTimeout, "等待对端应答超时");
+                }
+
+                var answer = await answerTcs.Task.ConfigureAwait(false);
+                var parameters = CreateParameters(session, answer.Ufrag, answer.Pwd, IceRole.Controlling);
+                AddCandidates(parameters, answer.Candidates);
+                ice = new IceSession(_iceOptions, parameters);
+                AttachIceHandlers(session, ice);
+                session.AttachIceSession(ice, parameters);
+                DrainPendingCandidates(sessionId, parameters, ice);
+
+                session.MarkPhase(PeerSession.PeerSessionState.Checking);
+                var result = await ice.StartAsync(cancellationToken).ConfigureAwait(false);
+                session.MarkConnected(result);
+                OnPeerConnected?.Invoke(session.Connection);
+                return session.Connection;
+            }
+            catch
+            {
+                if (ice != null) { try { ice.Dispose(); } catch { } }
+                CloseAndRemove(session);
+                throw;
+            }
+            finally
+            {
+                _pendingAnswers.TryRemove(sessionId, out _);
+            }
+        }
+
+        // 具名方法才能在释放时退订，匿名订阅无法退订
+        private void HandleRegistered(SignalingMessage message)
+        {
+            _registered = true;
+        }
+
+        private void HandleDisconnected(string reason)
+        {
+            _registered = false;
+            // 数据面由 ICE 会话独立维护，信令断开只影响后续协商，不拆已建立的会话
+            P2PLogHelper.Warning(PeerId, "信令连接已断开：" + reason);
+        }
+
+        private void HandleSignalingError(string code, string message)
+        {
+            var errorCode = string.IsNullOrEmpty(code) ? ErrorCode.RegisterFailed : code;
+            var text = string.IsNullOrEmpty(message) ? "信令错误" : message;
+            // 在途请求失去信令通道后不会再有应答，逐个唤醒避免调用方一直等到超时
+            foreach (var item in _pendingAnswers)
+            {
+                TaskCompletionSource<SignalingMessage> pending;
+                if (_pendingAnswers.TryRemove(item.Key, out pending))
+                    pending.TrySetException(new P2PException(errorCode, text));
+            }
+            OnError?.Invoke(code, message);
+        }
+
+        private void HandleConnectRequest(SignalingMessage message)
+        {
+            if (message == null || string.IsNullOrWhiteSpace(message.SessionId) || string.IsNullOrWhiteSpace(message.PeerId))
+            {
+                P2PLogHelper.Warning(PeerId, "连接请求缺少会话标识或对端标识，已忽略");
                 return;
             }
-            
-            var option = SocketOptionBuilder.Instance
-                .SetSocket(SAEASocketType.Tcp)
-                .UsePacket()
-                .SetIP(_options.ServerAddress)
-                .SetPort(_options.ServerPort)
-                .SetConnectTimeout(_options.Timeout.ConnectTimeoutMs)
-                .Build();
-            
-            _signalSocket = SocketFactory.CreateClientSocket(option) as SaeaClientSocket;
-            _signalSocket.OnClientReceiveSpan += OnSignalReceiveSpan;
-            _signalSocket.OnDisconnected += (id, ex) =>
-            {
-                SetState(NodeState.Disconnected);
-                OnServerDisconnected?.Invoke("Signal server disconnected");
-            };
-            _signalSocket.OnError += (id, ex) => OnError?.Invoke(ErrorCode.RegisterServerUnavailable, ex.Message);
-            
-            _signalSocket.Connect();
-            
-            if (!_signalSocket.Connected)
-            {
-                SetState(NodeState.Error);
-                throw new P2PException(ErrorCode.RegisterServerUnavailable);
-            }
-            
-            SetState(NodeState.Authenticating);
-            
-            var registerContent = Encoding.UTF8.GetBytes(_options.NodeId);
-            var registerPacket = _coder.EncodeP2P(P2PMessageType.Register, registerContent);
-            _signalSocket.SendAsync(registerPacket);
-            
-            P2PLogHelper.Info(NodeId, "Connecting to signal server");
-            
-            if (_localDiscovery != null)
-                StartLocalDiscovery();
-        }
-        
-        /// <summary>
-        /// 同步等待 ConnectAsync 完成，异常由 AggregateException 包装抛出
-        /// </summary>
-        public void Connect()
-        {
-            ConnectAsync().Wait();
-        }
-        
-        private void StartLocalDiscovery()
-        {
-            _localDiscovery?.Start();
-            P2PLogHelper.Info(NodeId, "Local discovery started");
-        }
-        
-        private void OnSignalReceiveSpan(ReadOnlySpan<byte> data)
-        {
-            using (var frames = _coder.DecodeP2P(data))
-            {
-                foreach (var frame in frames.Frames)
-                {
-                    ProcessSignalMessage(frame);
-                }
-            }
-        }
-        
-        private void ProcessSignalMessage(ISocketProtocal protocol)
-        {
-            switch ((P2PMessageType)protocol.Type)
-            {
-                case P2PMessageType.RegisterAck:
-                    ProcessRegisterAck(protocol.Content);
-                    break;
-                case P2PMessageType.NodeList:
-                    ProcessNodeList(protocol.Content);
-                    break;
-                case P2PMessageType.AuthChallenge:
-                    ProcessAuthChallenge(protocol.Content);
-                    break;
-                case P2PMessageType.AuthSuccess:
-                    ProcessAuthSuccess();
-                    break;
-                case P2PMessageType.PunchReady:
-                    ProcessPunchReady(protocol.Content);
-                    break;
-                case P2PMessageType.NatProbeAck:
-                    ProcessNatProbeAck(protocol.Content);
-                    break;
-                case P2PMessageType.RelayAck:
-                    ProcessRelayAck(protocol.Content);
-                    break;
-                case P2PMessageType.RelayData:
-                    ProcessRelayData(protocol.Content);
-                    break;
-                case P2PMessageType.UserData:
-                    ProcessUserData(protocol.Content);
-                    break;
-                case P2PMessageType.Heartbeat:
-                    SendHeartbeatAck();
-                    break;
-            }
-        }
-        
-        private void ProcessRegisterAck(ReadOnlyMemory<byte> content)
-        {
-            var text = P2PContent.GetString(content);
-            var parts = text.Split('|');
-            
-            if (parts[0] == "OK")
-            {
-                _sessionId = parts.Length > 1 ? parts[1] : Guid.NewGuid().ToString("N");
-                SetState(NodeState.Registered);
-                OnServerConnected?.Invoke();
-                P2PLogHelper.Info(NodeId, "Registered successfully");
-                
-                SendNatProbe();
-            }
-            else
-            {
-                SetState(NodeState.Error);
-                var errorCode = parts.Length > 1 ? parts[1] : ErrorCode.RegisterFailed;
-                OnError?.Invoke(errorCode, "Registration failed");
-            }
-        }
-        
-        private void ProcessAuthChallenge(ReadOnlyMemory<byte> content)
-        {
-            if (_authManager == null) return;
-            
-            var challenge = new AuthChallenge
-            {
-                ChallengeData = P2PContent.GetString(content)
-            };
-            
-            var response = _authManager.ComputeResponse(challenge);
-            var responsePacket = _coder.EncodeP2P(P2PMessageType.AuthResponse,
-                Encoding.UTF8.GetBytes(response));
-            _signalSocket.SendAsync(responsePacket);
-            
-            P2PLogHelper.Debug(NodeId, "Sent auth response");
-        }
-        
-        private void ProcessAuthSuccess()
-        {
-            P2PLogHelper.Info(NodeId, "Authentication successful");
-        }
-        
-        private void ProcessNodeList(ReadOnlyMemory<byte> content)
-        {
-            var text = P2PContent.GetString(content);
-            var nodeIds = text.Split(',');
-            
-            foreach (var nodeId in nodeIds)
-            {
-                if (!string.IsNullOrEmpty(nodeId) && nodeId != _options.NodeId)
-                {
-                    _nodes[nodeId] = new NodeInfo { NodeId = nodeId, State = NodeState.Registered };
-                }
-            }
-            
-            P2PLogHelper.Debug(NodeId, $"Received node list: {nodeIds.Length} nodes");
-        }
-        
-        private void ProcessNatProbeAck(ReadOnlyMemory<byte> content)
-        {
-            var text = P2PContent.GetString(content);
-            var parts = text.Split('|');
-            
-            if (parts.Length >= 2)
-            {
-                var publicAddr = ParseEndPoint(parts[0] + ":" + parts[1]);
-                if (_holePuncher != null)
-                {
-                    _holePuncher.SetPublicAddress(publicAddr);
-                }
-                P2PLogHelper.Debug(NodeId, $"NAT probe ack: public address {publicAddr}");
-            }
-            
-            if (parts.Length >= 3 && int.TryParse(parts[2], out var natValue))
-            {
-                var natType = (NATType)natValue;
-                if (_holePuncher != null)
-                {
-                    _holePuncher.SetNATType(natType);
-                }
-            }
-        }
-        
-        private void ProcessPunchReady(ReadOnlyMemory<byte> content)
-        {
-            var text = P2PContent.GetString(content);
-            var parts = text.Split('|');
-            if (parts.Length < 3) return;
-            
-            var targetId = parts[0];
-            var targetPublicAddr = ParseEndPoint(parts[1]);
-            var targetLocalAddr = ParseEndPoint(parts[2]);
-            
-            SetState(NodeState.HolePunching);
-            
-            var session = new PeerSession(Guid.NewGuid().ToString("N"), targetId);
-            session.PublicAddress = targetPublicAddr?.Address.ToString();
-            session.PublicPort = targetPublicAddr?.Port ?? 0;
-            session.LocalAddress = targetLocalAddr?.Address.ToString();
-            session.LocalPort = targetLocalAddr?.Port ?? 0;
-            
-            _peers[targetId] = session;
-            
-            P2PLogHelper.Debug(NodeId, $"Punch ready for {targetId}");
-        }
-        
-        private void ProcessRelayAck(ReadOnlyMemory<byte> content)
-        {
-            if (_relayManager == null) return;
-            
-            var text = P2PContent.GetString(content);
-            var parts = text.Split('|');
-            var relaySessionId = parts[0];
-            var peerId = parts.Length > 1 ? parts[1] : null;
-            
-            if (!string.IsNullOrEmpty(peerId))
-            {
-                var session = _peers.GetOrAdd(peerId, id => new PeerSession(Guid.NewGuid().ToString("N"), id));
-                session.Channel = ChannelType.RelayUdp;
-                session.RelaySessionId = relaySessionId;
-                session.Active();
-                
-                if (_relayManager.GetSession(relaySessionId) == null)
-                    _relayManager.AttachSession(relaySessionId, NodeId, peerId);
-            }
-            
-            P2PLogHelper.Info(NodeId, $"Relay session created: {relaySessionId} peer: {peerId}");
-        }
-        
-        private void ProcessRelayData(ReadOnlyMemory<byte> content)
-        {
-            // content layout: {relaySessionId}|{sourceId}|{targetId}|{payload}
-            var span = content.Span;
-            var first = span.IndexOf((byte)'|');
-            if (first <= 0) return;
-            var second = P2PContent.IndexOf(span, (byte)'|', first + 1);
-            if (second < 0) return;
-            var third = P2PContent.IndexOf(span, (byte)'|', second + 1);
-            if (third < 0) return;
-            
-            var sourceId = P2PContent.GetString(content, first + 1, second - first - 1);
-            var payload = content.Slice(third + 1).ToArray();
-            
-            OnMessageReceived?.Invoke(sourceId, payload);
-        }
-        
-        private void ProcessUserData(ReadOnlyMemory<byte> content)
-        {
-            // content layout: {sourceId}|{payload}
-            var span = content.Span;
-            var first = span.IndexOf((byte)'|');
-            if (first <= 0) return;
-            
-            var peerId = P2PContent.GetString(content, 0, first);
-            var payload = content.Slice(first + 1).ToArray();
-            
-            OnMessageReceived?.Invoke(peerId, payload);
-        }
-        
-        private void SetState(NodeState newState)
-        {
-            var oldState = _state;
-            _state = newState;
-            OnStateChanged?.Invoke(oldState, newState);
-            P2PLogHelper.Debug(NodeId, $"State changed: {oldState} -> {newState}");
-        }
-        
-        /// <summary>
-        /// 经信令服务器请求与对端打洞，状态非 Registered 时抛出 P2PException
-        /// </summary>
-        /// <param name="peerId">目标节点标识，不可为空</param>
-        /// <returns>请求已发出即返回 true，实际连通结果由事件通知</returns>
-        public async Task<bool> ConnectToPeerAsync(string peerId)
-        {
-            if (_state != NodeState.Registered)
-                throw new P2PException(ErrorCode.PunchFailed);
-            
-            if (string.IsNullOrEmpty(peerId))
-                throw new ArgumentException("Peer ID cannot be null or empty", nameof(peerId));
-            
-            var requestContent = Encoding.UTF8.GetBytes(peerId);
-            var requestPacket = _coder.EncodeP2P(P2PMessageType.PunchRequest, requestContent);
-            _signalSocket.SendAsync(requestPacket);
-            
-            P2PLogHelper.Info(NodeId, $"Requesting connection to peer: {peerId}");
-            
-            return true;
-        }
-        
-        /// <summary>
-        /// 向对端发送用户数据，中继会话走中继转发，其余经信令服务器转发
-        /// </summary>
-        /// <param name="peerId">对端节点标识，需已存在会话</param>
-        /// <param name="data">待发送负载，不可为 null 或空数组</param>
-        public void Send(string peerId, byte[] data)
-        {
-            if (data == null || data.Length == 0)
-                throw new P2PException(ErrorCode.DiscoveryNoResponse);
-            
-            var session = _peers.TryGetValue(peerId, out var s) ? s : null;
-            if (session == null)
-                throw new P2PException(ErrorCode.DiscoveryNoCandidates);
-            
-            if (_signalSocket == null)
-                throw new P2PException(ErrorCode.RegisterServerUnavailable, "Signal server is not connected");
-            
-            if (session.Channel == ChannelType.RelayUdp && _relayManager != null && !string.IsNullOrEmpty(session.RelaySessionId))
-            {
-                var relayData = _relayManager.EncodeRelayData(session.RelaySessionId, NodeId, peerId, data);
-                _signalSocket.SendAsync(relayData);
-            }
-            else
-            {
-                // Direct delivery through the signal server: {sourceId}|{targetId}|{payload}
-                var header = Encoding.UTF8.GetBytes($"{NodeId}|{peerId}|");
-                var combined = new byte[header.Length + data.Length];
-                Buffer.BlockCopy(header, 0, combined, 0, header.Length);
-                Buffer.BlockCopy(data, 0, combined, header.Length, data.Length);
-                
-                var packet = _coder.EncodeP2P(P2PMessageType.UserData, combined);
-                _signalSocket.SendAsync(packet);
-            }
-            
-            session.Active();
-            P2PLogHelper.Trace(NodeId, $"Sent {data.Length} bytes to {peerId}");
-        }
-        
-        /// <summary>
-        /// 向信令服务器请求为指定对端建立中继会话，未启用中继时抛出 P2PException
-        /// </summary>
-        /// <param name="peerId">目标节点标识</param>
-        public void SendRelayRequest(string peerId)
-        {
-            if (_relayManager == null)
-                throw new P2PException(ErrorCode.RelayFailed);
 
-            if (_signalSocket == null)
-                throw new P2PException(ErrorCode.RegisterServerUnavailable, "Signal server is not connected");
+            if (_sessionsById.ContainsKey(message.SessionId)) return;
 
-            var requestContent = Encoding.UTF8.GetBytes(peerId);
-            var requestPacket = _coder.EncodeP2P(P2PMessageType.RelayRequest, requestContent);
-            _signalSocket.SendAsync(requestPacket);
-            
-            P2PLogHelper.Info(NodeId, $"Requesting relay to: {peerId}");
+            var session = new PeerSession(message.SessionId, message.PeerId, false, CreateUfrag(), CreatePassword(), IceRole.Controlled, CreateTiebreaker());
+            if (_sessionsById.TryAdd(session.SessionId, session)) _sessionsByPeer[session.PeerId] = session;
         }
-        
-        private void SendNatProbe()
-        {
-            var probePacket = _coder.EncodeP2P(P2PMessageType.NatProbe);
-            _signalSocket.SendAsync(probePacket);
-        }
-        
-        private void SendHeartbeatAck()
-        {
-            var ackPacket = _coder.EncodeP2P(P2PMessageType.HeartbeatAck);
-            _signalSocket.SendAsync(ackPacket);
-        }
-        
-        /// <summary>
-        /// 向信令服务器发送心跳，信令连接未建立时抛出 P2PException
-        /// </summary>
-        public void SendHeartbeat()
-        {
-            if (_signalSocket == null)
-                throw new P2PException(ErrorCode.RegisterServerUnavailable, "Signal server is not connected");
 
-            var heartbeatPacket = _coder.EncodeP2P(P2PMessageType.Heartbeat);
-            _signalSocket.SendAsync(heartbeatPacket);
-        }
-        
-        private IPEndPoint ParseEndPoint(string addr)
+        private void HandleSessionOffer(SignalingMessage message)
         {
-            if (string.IsNullOrEmpty(addr)) return null;
-            
-            // Support both IPv4 ("1.2.3.4:80") and IPv6 ("::1:80" / "[::1]:80").
-            var idx = addr.LastIndexOf(':');
-            if (idx <= 0 || idx == addr.Length - 1) return null;
-            
-            var ipPart = addr.Substring(0, idx).Trim('[', ']');
-            var portPart = addr.Substring(idx + 1);
-            
-            if (!IPAddress.TryParse(ipPart, out var ip)) return null;
-            if (!int.TryParse(portPart, out var port) || port < 0 || port > 65535) return null;
-            
-            return new IPEndPoint(ip, port);
+            if (message == null || string.IsNullOrWhiteSpace(message.SessionId))
+            {
+                P2PLogHelper.Warning(PeerId, "会话描述缺少会话标识，已忽略");
+                return;
+            }
+
+            PeerSession session;
+            if (!_sessionsById.TryGetValue(message.SessionId, out session))
+            {
+                if (string.IsNullOrWhiteSpace(message.PeerId))
+                {
+                    P2PLogHelper.Warning(PeerId, "会话描述缺少对端标识，已忽略");
+                    return;
+                }
+                session = new PeerSession(message.SessionId, message.PeerId, false, CreateUfrag(), CreatePassword(), IceRole.Controlled, CreateTiebreaker());
+                _sessionsById[session.SessionId] = session;
+                _sessionsByPeer[session.PeerId] = session;
+            }
+
+            IceSession ice = null;
+            try
+            {
+                var parameters = CreateParameters(session, message.Ufrag, message.Pwd, IceRole.Controlled);
+                AddCandidates(parameters, message.Candidates);
+                ice = new IceSession(_iceOptions, parameters);
+                AttachIceHandlers(session, ice);
+                session.AttachIceSession(ice, parameters);
+                DrainPendingCandidates(session.SessionId, parameters, ice);
+
+                // 先回本端参数再启动选路，对端拿到 ufrag 与口令后才能开始连通性检查
+                _ = SendAndLogAsync(new SignalingMessage
+                {
+                    Type = P2PMessageType.SessionAnswer, SessionId = session.SessionId, PeerId = PeerId,
+                    Ufrag = session.LocalUfrag, Pwd = session.LocalPassword, Role = "controlled",
+                    Tiebreaker = session.Tiebreaker, Candidates = new SignalingCandidate[0], EndOfCandidates = false
+                }, "会话应答");
+                _ = StartInboundAsync(session, _lifetimeCts.Token);
+            }
+            catch (Exception ex)
+            {
+                // 入向报文异常不能打断接收线程，也不能留下没有被挂载的会话
+                P2PLogHelper.Error(PeerId, ErrorCode.ProtocolMalformed, "处理会话描述失败", ex);
+                if (ice != null) { try { ice.Dispose(); } catch { } }
+                CloseAndRemove(session);
+            }
         }
-        
+
+        private void HandleSessionAnswer(SignalingMessage message)
+        {
+            if (message == null || string.IsNullOrEmpty(message.SessionId)) return;
+            TaskCompletionSource<SignalingMessage> pending;
+            if (_pendingAnswers.TryGetValue(message.SessionId, out pending)) pending.TrySetResult(message);
+        }
+
+        private void HandleTrickleCandidate(SignalingMessage message)
+        {
+            if (message == null || string.IsNullOrEmpty(message.SessionId) || message.Candidates == null || message.Candidates.Length == 0)
+                return;
+
+            PeerSession session;
+            if (!_sessionsById.TryGetValue(message.SessionId, out session))
+            {
+                P2PLogHelper.Warning(PeerId, "收到未知会话的候选，已丢弃：" + message.SessionId);
+                return;
+            }
+
+            for (int i = 0; i < message.Candidates.Length; i++)
+            {
+                Candidate candidate;
+                if (!SignalingCandidateMapper.TryToCandidate(message.Candidates[i], out candidate))
+                {
+                    P2PLogHelper.Warning(PeerId, "收到非法的远端候选，已跳过");
+                    continue;
+                }
+
+                var parameters = session.Parameters;
+                var ice = session.Ice;
+                if (parameters == null && ice == null)
+                {
+                    // 会话还在等对端描述，先暂存，避免候选丢失
+                    var pending = _pendingCandidates.GetOrAdd(message.SessionId, id => new List<Candidate>());
+                    lock (pending) { pending.Add(candidate); }
+                    continue;
+                }
+
+                if (parameters != null) parameters.AddRemoteCandidate(candidate);
+                if (ice != null) ice.AddRemoteCandidate(candidate);
+            }
+        }
+
+        private void HandleTurnCredential(SignalingMessage message)
+        {
+            var turn = _iceOptions.Turn;
+            if (message == null || turn == null)
+            {
+                P2PLogHelper.Warning(PeerId, "未配置 TURN，忽略下发的临时凭据");
+                return;
+            }
+
+            // 日志只记领域与有效期，用户名与口令都属于凭据，不能落盘
+            if (string.IsNullOrWhiteSpace(message.Username) || string.IsNullOrWhiteSpace(message.Password)
+                || string.IsNullOrWhiteSpace(message.Realm) || message.Ttl <= 0)
+            {
+                P2PLogHelper.Warning(PeerId, "TURN 临时凭据不完整，已忽略：realm=" + message.Realm + "，ttl=" + message.Ttl);
+                return;
+            }
+
+            turn.Username = null;
+            turn.Password = null;
+            var expiresAt = DateTimeOffset.UtcNow.AddSeconds(message.Ttl);
+            turn.Credential = new TurnCredential(message.Username, message.Password, message.Realm, message.Username, expiresAt, expiresAt.ToUnixTimeSeconds());
+            P2PLogHelper.Info(PeerId, "已更新 TURN 临时凭据：realm=" + message.Realm + "，ttl=" + message.Ttl);
+        }
+
+        private void HandleSessionClose(SignalingMessage message)
+        {
+            if (message == null || string.IsNullOrEmpty(message.SessionId)) return;
+            PeerSession session;
+            if (!_sessionsById.TryGetValue(message.SessionId, out session)) return;
+
+            var peerId = session.PeerId;
+            CloseAndRemove(session);
+            OnPeerDisconnected?.Invoke(peerId, message.Reason ?? "对端已关闭会话");
+        }
+
+        private async Task StartInboundAsync(PeerSession session, CancellationToken token)
+        {
+            try
+            {
+                session.MarkPhase(PeerSession.PeerSessionState.Checking);
+                var result = await session.Ice.StartAsync(token).ConfigureAwait(false);
+                session.MarkConnected(result);
+                OnPeerConnected?.Invoke(session.Connection);
+            }
+            catch (OperationCanceledException)
+            {
+                CloseAndRemove(session);
+            }
+            catch (ObjectDisposedException)
+            {
+                CloseAndRemove(session);
+            }
+            catch (P2PException ex)
+            {
+                P2PLogHelper.Error(PeerId, ex.ErrorCode, "入向会话选路失败：" + ex.Message);
+                OnError?.Invoke(ex.ErrorCode, ex.Message);
+                CloseAndRemove(session);
+            }
+            catch (Exception ex)
+            {
+                // 后台任务上的异常无人观察，这里兜住并通知调用方
+                P2PLogHelper.Error(PeerId, ErrorCode.NoCandidatePair, "入向会话选路异常", ex);
+                OnError?.Invoke(ErrorCode.NoCandidatePair, ex.Message);
+                CloseAndRemove(session);
+            }
+        }
+
+        private void OnLocalCandidateDiscovered(PeerSession session, Candidate candidate)
+        {
+            if (candidate == null) return;
+            _ = SendAndLogAsync(new SignalingMessage
+            {
+                Type = P2PMessageType.TrickleCandidate, SessionId = session.SessionId, PeerId = PeerId,
+                Candidates = new[] { SignalingCandidateMapper.ToSignaling(candidate) }
+            }, "本地候选");
+        }
+
         /// <summary>
-        /// 取指定对端的会话
+        /// 向已建立连接的对端发送业务帧
         /// </summary>
         /// <param name="peerId">对端节点标识</param>
-        /// <returns>会话对象，不存在时返回 null</returns>
-        public PeerSession GetSession(string peerId)
+        /// <param name="data">业务载荷，仅在调用期间读取</param>
+        /// <exception cref="P2PException">与对端的通道尚未建立</exception>
+        public void Send(string peerId, ReadOnlySpan<byte> data)
         {
-            return _peers.TryGetValue(peerId, out var session) ? session : null;
+            ThrowIfDisposed();
+            PeerSession session;
+            if (string.IsNullOrEmpty(peerId) || !_sessionsByPeer.TryGetValue(peerId, out session)
+                || session.Phase != PeerSession.PeerSessionState.Connected || session.Ice == null)
+            {
+                throw new P2PException(ErrorCode.NotConnected, "与对端的通道尚未建立");
+            }
+
+            session.Ice.Send(data);
+            session.Active();
         }
-        
+
         /// <summary>
-        /// 停止本地发现、断开信令连接并清空节点与会话，状态置为 Disconnected
+        /// 关闭与指定对端的会话并通知对端；会话不存在时直接返回
         /// </summary>
-        public void Disconnect()
+        /// <param name="peerId">对端节点标识</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>关闭完成的任务</returns>
+        public async Task DisconnectPeerAsync(string peerId, CancellationToken cancellationToken = default)
         {
-            _localDiscovery?.Stop();
-            _signalSocket?.Disconnect();
-            _peers.Clear();
-            _nodes.Clear();
-            SetState(NodeState.Disconnected);
-            P2PLogHelper.Info(NodeId, "Disconnected");
+            ThrowIfDisposed();
+            if (string.IsNullOrEmpty(peerId)) return;
+            PeerSession session;
+            if (!_sessionsByPeer.TryGetValue(peerId, out session)) return;
+
+            try
+            {
+                await _signaling.SendAsync(new SignalingMessage
+                {
+                    Type = P2PMessageType.SessionClose, SessionId = session.SessionId, PeerId = PeerId, Reason = "本端关闭"
+                }, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                // 关闭通知尽力而为，发送失败不能阻止本地会话清理
+                P2PLogHelper.Warning(PeerId, "发送会话关闭报文失败：" + ex.GetType().Name);
+            }
+
+            CloseAndRemove(session);
+            OnPeerDisconnected?.Invoke(peerId, "本端已关闭会话");
+        }
+
+        /// <summary>
+        /// 释放客户端：取消生命周期令牌、退订信令事件、关闭全部会话并释放信令连接；可重复调用
+        /// </summary>
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+
+            try { _lifetimeCts.Cancel(); } catch (ObjectDisposedException) { }
+
+            _signaling.OnRegistered -= HandleRegistered;
+            _signaling.OnConnectRequest -= HandleConnectRequest;
+            _signaling.OnSessionOffer -= HandleSessionOffer;
+            _signaling.OnSessionAnswer -= HandleSessionAnswer;
+            _signaling.OnTrickleCandidate -= HandleTrickleCandidate;
+            _signaling.OnTurnCredential -= HandleTurnCredential;
+            _signaling.OnSessionClose -= HandleSessionClose;
+            _signaling.OnDisconnected -= HandleDisconnected;
+            _signaling.OnError -= HandleSignalingError;
+
+            foreach (var item in _sessionsById) CloseAndRemove(item.Value);
+
+            _lifetimeCts.Dispose();
+            _signaling.Dispose();
+            _sessionsById.Clear();
+            _sessionsByPeer.Clear();
+            _pendingAnswers.Clear();
+            _pendingCandidates.Clear();
+        }
+
+        private void ThrowIfDisposed()
+        {
+            if (Volatile.Read(ref _disposed) != 0) throw new ObjectDisposedException(nameof(P2PClient));
+        }
+
+        private void CloseAndRemove(PeerSession session)
+        {
+            if (session == null) return;
+            var ice = session.Ice;
+            if (ice != null) { try { ice.Dispose(); } catch { } }
+            session.Close();
+            _sessionsById.TryRemove(session.SessionId, out _);
+            _sessionsByPeer.TryRemove(session.PeerId, out _);
+        }
+
+        private void AttachIceHandlers(PeerSession session, IceSession ice)
+        {
+            // 闭包捕获会话，回调里不必再按会话标识反查，也不会因字典清理丢失目标
+            ice.LocalCandidateDiscovered += candidate => OnLocalCandidateDiscovered(session, candidate);
+            ice.FrameReceived += frame => OnDataReceived?.Invoke(session.PeerId, frame.Span);
+            ice.RouteSelected += result => P2PLogHelper.Info(PeerId, "对端 " + session.PeerId + " 选路完成：" + result);
+        }
+
+        private void DrainPendingCandidates(string sessionId, IceSessionParameters parameters, IceSession ice)
+        {
+            List<Candidate> pending;
+            if (!_pendingCandidates.TryRemove(sessionId, out pending)) return;
+            lock (pending)
+            {
+                for (int i = 0; i < pending.Count; i++)
+                {
+                    parameters.AddRemoteCandidate(pending[i]);
+                    ice.AddRemoteCandidate(pending[i]);
+                }
+            }
+        }
+
+        private async Task SendAndLogAsync(SignalingMessage message, string subject)
+        {
+            try
+            {
+                await _signaling.SendAsync(message, _lifetimeCts.Token).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                // 候选与应答都是辅助报文，发送失败只记日志，不打断选路
+                P2PLogHelper.Warning(PeerId, subject + "发送失败：" + ex.GetType().Name);
+            }
+        }
+
+        private static SignalingOptions CreateSignalingOptions(P2POptions options)
+        {
+            if (options == null) throw new ArgumentNullException(nameof(options));
+            var timeout = options.Timeout ?? new TimeoutOptions();
+            var encryption = options.Encryption ?? new EncryptionOptions();
+            return new SignalingOptions
+            {
+                ServerAddress = options.ServerAddress, ServerPort = options.ServerPort, PeerId = options.NodeId,
+                SharedSecret = options.NodeIdPassword, ConnectTimeoutMs = timeout.ConnectTimeoutMs,
+                HeartbeatIntervalMs = timeout.HeartbeatIntervalMs, EnableTls = encryption.TlsEnabled,
+                TlsTargetHost = options.ServerAddress
+            };
+        }
+
+        private static IceSessionParameters CreateParameters(PeerSession session, string remoteUfrag, string remotePassword, IceRole role)
+        {
+            return new IceSessionParameters
+            {
+                LocalUfrag = session.LocalUfrag, LocalPassword = session.LocalPassword,
+                RemoteUfrag = remoteUfrag, RemotePassword = remotePassword,
+                Role = role, Tiebreaker = session.Tiebreaker, Component = 1
+            };
+        }
+
+        private static void AddCandidates(IceSessionParameters parameters, SignalingCandidate[] candidates)
+        {
+            if (candidates == null) return;
+            for (int i = 0; i < candidates.Length; i++)
+            {
+                Candidate candidate;
+                if (SignalingCandidateMapper.TryToCandidate(candidates[i], out candidate))
+                    parameters.AddRemoteCandidate(candidate);
+            }
+        }
+
+        private static string CreateUfrag()
+        {
+            return CreateRandomToken(6).Substring(0, 8);
+        }
+
+        private static string CreatePassword()
+        {
+            return CreateRandomToken(18).Substring(0, 24);
+        }
+
+        private static ulong CreateTiebreaker()
+        {
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                var buffer = new byte[8];
+                rng.GetBytes(buffer);
+                return BitConverter.ToUInt64(buffer, 0);
+            }
+        }
+
+        private static string CreateRandomToken(int byteCount)
+        {
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                var buffer = new byte[byteCount];
+                rng.GetBytes(buffer);
+                // 换成 URL 安全字符集：信令 JSON 与 SDP 风格参数都不需要再转义
+                return Convert.ToBase64String(buffer).Replace("=", string.Empty).Replace('+', '-').Replace('/', '_');
+            }
         }
     }
 }

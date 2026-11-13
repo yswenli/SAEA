@@ -23,15 +23,16 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 10:21:07
+*修改时间：2026/11/13 10:56:15
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：通道类型改为 ICE 选路结果
+*描述：补充 ICE 会话与阶段状态
 *
 *****************************************************************************/
 using System;
 using SAEA.P2P.Channel;
 using SAEA.P2P.Common;
+using SAEA.P2P.Ice;
 
 namespace SAEA.P2P.Core
 {
@@ -105,6 +106,51 @@ namespace SAEA.P2P.Core
         /// </summary>
         public string RelaySessionId { get; set; }
         
+        /// <summary>
+        /// 是否为本端发起（发起方为控制方）
+        /// </summary>
+        internal bool IsInitiator { get; }
+        
+        /// <summary>
+        /// 本端 ufrag，用于连通性检查的短凭据
+        /// </summary>
+        internal string LocalUfrag { get; }
+        
+        /// <summary>
+        /// 本端口令，用于连通性检查的完整性校验
+        /// </summary>
+        internal string LocalPassword { get; }
+        
+        /// <summary>
+        /// 本端 ICE 角色
+        /// </summary>
+        internal IceRole Role { get; }
+        
+        /// <summary>
+        /// 角色冲突裁决值，大者优先
+        /// </summary>
+        internal ulong Tiebreaker { get; }
+        
+        /// <summary>
+        /// 会话阶段，由客户端推进
+        /// </summary>
+        internal PeerSessionState Phase { get; private set; }
+        
+        /// <summary>
+        /// 选路会话，登记后由客户端创建并挂载
+        /// </summary>
+        internal IceSession Ice { get; private set; }
+        
+        /// <summary>
+        /// 协商参数，trickle 候选通过它增量加入
+        /// </summary>
+        internal IceSessionParameters Parameters { get; private set; }
+        
+        /// <summary>
+        /// 选路完成后才有值
+        /// </summary>
+        internal P2PConnection Connection { get; private set; }
+        
         private readonly object _lock = new object();
         
         /// <summary>
@@ -126,6 +172,37 @@ namespace SAEA.P2P.Core
             
             SessionId = sessionId;
             PeerId = peerId;
+        }
+        
+        /// <summary>
+        /// 创建带 ICE 参数的会话
+        /// </summary>
+        /// <param name="sessionId">会话唯一标识，不可为空</param>
+        /// <param name="peerId">对端节点标识，不可为空</param>
+        /// <param name="isInitiator">是否为本端发起</param>
+        /// <param name="localUfrag">本端 ufrag，不可为空</param>
+        /// <param name="localPassword">本端口令，不可为空</param>
+        /// <param name="role">本端 ICE 角色</param>
+        /// <param name="tiebreaker">角色冲突裁决值</param>
+        internal PeerSession(string sessionId, string peerId, bool isInitiator, string localUfrag, string localPassword, IceRole role, ulong tiebreaker)
+            : this(sessionId, peerId)
+        {
+            if (string.IsNullOrWhiteSpace(localUfrag))
+            {
+                throw new ArgumentException("本端 ufrag 不能为空", nameof(localUfrag));
+            }
+
+            if (string.IsNullOrWhiteSpace(localPassword))
+            {
+                throw new ArgumentException("本端口令不能为空", nameof(localPassword));
+            }
+
+            IsInitiator = isInitiator;
+            LocalUfrag = localUfrag;
+            LocalPassword = localPassword;
+            Role = role;
+            Tiebreaker = tiebreaker;
+            Phase = PeerSessionState.Signaling;
         }
         
         /// <summary>
@@ -177,6 +254,65 @@ namespace SAEA.P2P.Core
         }
         
         /// <summary>
+        /// 挂载选路会话与协商参数，会话进入候选收集阶段
+        /// </summary>
+        /// <param name="ice">选路会话，不可为 null</param>
+        /// <param name="parameters">协商参数，不可为 null</param>
+        internal void AttachIceSession(IceSession ice, IceSessionParameters parameters)
+        {
+            if (ice == null)
+            {
+                throw new ArgumentNullException(nameof(ice));
+            }
+
+            if (parameters == null)
+            {
+                throw new ArgumentNullException(nameof(parameters));
+            }
+
+            Ice = ice;
+            Parameters = parameters;
+            Phase = PeerSessionState.Gathering;
+            Active();
+        }
+        
+        /// <summary>
+        /// 推进会话阶段
+        /// </summary>
+        /// <param name="phase">目标阶段</param>
+        internal void MarkPhase(PeerSessionState phase)
+        {
+            Phase = phase;
+            Active();
+        }
+        
+        /// <summary>
+        /// 标记选路完成，记录通道类型与两端端点
+        /// </summary>
+        /// <param name="result">选路结果，不可为 null</param>
+        internal void MarkConnected(IceSessionResult result)
+        {
+            if (result == null)
+            {
+                throw new ArgumentNullException(nameof(result));
+            }
+
+            Connection = new P2PConnection(PeerId, result.ChannelType, result.LocalEndPoint, result.RemoteEndPoint);
+            Channel = result.ChannelType;
+            Phase = PeerSessionState.Connected;
+            Active();
+        }
+        
+        /// <summary>
+        /// 把会话标记为已关闭
+        /// </summary>
+        internal void Close()
+        {
+            Phase = PeerSessionState.Closed;
+            Active();
+        }
+        
+        /// <summary>
         /// 取对端公网地址的「地址:端口」文本
         /// </summary>
         /// <returns>公网地址为空时返回 null</returns>
@@ -209,6 +345,23 @@ namespace SAEA.P2P.Core
         public override string ToString()
         {
             return $"PeerSession[SessionId={SessionId}, PeerId={PeerId}, State={State}, Channel={Channel}]";
+        }
+        
+        /// <summary>
+        /// 会话阶段，从信令协商到选路完成
+        /// </summary>
+        internal enum PeerSessionState
+        {
+            /// <summary>信令协商中：已登记会话，尚未拿到对端参数</summary>
+            Signaling = 0,
+            /// <summary>候选收集中</summary>
+            Gathering = 1,
+            /// <summary>连通性检查中</summary>
+            Checking = 2,
+            /// <summary>选路完成，可收发业务帧</summary>
+            Connected = 3,
+            /// <summary>会话已关闭</summary>
+            Closed = 4
         }
     }
 }
