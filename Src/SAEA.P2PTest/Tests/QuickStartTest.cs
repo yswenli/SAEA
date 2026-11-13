@@ -2,7 +2,7 @@ using System;
 
 using SAEA.Common;
 using SAEA.P2P.Builder;
-using SAEA.P2P.NAT;
+using SAEA.P2P.Ice;
 
 namespace SAEA.P2PTest.Tests
 {
@@ -32,20 +32,18 @@ namespace SAEA.P2PTest.Tests
         {
             ConsoleHelper.WriteLine("--- DemoClientBuilder ---");
 
-            var options = new P2PClientBuilder()
+            var client = new P2PClientBuilder()
                 .SetServer("p2p.example.com", 39654)
                 .SetNodeId("client-001")
-                .EnableHolePunch()
-                .EnableRelay()
-                .EnableLocalDiscovery()
-                .Build();
+                .UseIce(new IceSessionOptions())
+                .BuildClient();
 
-            ConsoleHelper.WriteLine("Client options configured:");
-            ConsoleHelper.WriteLine($"  Server: {options.ServerAddress}:{options.ServerPort}");
-            ConsoleHelper.WriteLine($"  NodeId: {options.NodeId}");
-            ConsoleHelper.WriteLine($"  HolePunch: {options.HolePunch.Enabled}");
-            ConsoleHelper.WriteLine($"  Relay: {options.Relay.Enabled}");
-            ConsoleHelper.WriteLine($"  LocalDiscovery: {options.Discovery.EnableLocalDiscovery}");
+            ConsoleHelper.WriteLine("Client configured:");
+            ConsoleHelper.WriteLine($"  NodeId: {client.PeerId}");
+            ConsoleHelper.WriteLine($"  Registered: {client.IsRegistered}");
+
+            // 构建即创建生命周期令牌，演示结束立即释放，避免未连接实例挂住资源
+            client.Dispose();
 
             ConsoleHelper.WriteLine("DemoClientBuilder: PASSED");
         }
@@ -56,15 +54,12 @@ namespace SAEA.P2PTest.Tests
 
             var options = new P2PServerBuilder()
                 .SetPort(39654)
-                .SetIP("0.0.0.0")
-                .EnableRelay()
-                .EnableLogging()
+                .SetMaxNodes(100)
                 .Build();
 
             ConsoleHelper.WriteLine("Server options configured:");
             ConsoleHelper.WriteLine($"  Bind: {options.BindIP}:{options.Port}");
             ConsoleHelper.WriteLine($"  MaxNodes: {options.MaxNodes}");
-            ConsoleHelper.WriteLine($"  Relay: {options.Relay.Enabled}");
             ConsoleHelper.WriteLine($"  Logging: {options.Logging.Enabled}");
 
             ConsoleHelper.WriteLine("DemoServerBuilder: PASSED");

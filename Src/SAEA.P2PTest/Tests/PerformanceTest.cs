@@ -6,7 +6,6 @@ using System.Text;
 using SAEA.Common;
 using SAEA.Common.Caching;
 using SAEA.P2P.Protocol;
-using SAEA.P2P.Relay;
 using SAEA.P2P.Security;
 using SAEA.Sockets.Base;
 using SAEA.Sockets.Model;
@@ -14,21 +13,21 @@ using SAEA.Sockets.Model;
 namespace SAEA.P2PTest.Tests
 {
     /// <summary>
-    /// 性能测试：协议编解码、大载荷、加解密、中继编码吞吐。阈值宽松以避免抖动。
+    /// 性能测试：协议编解码、编解码往返、大载荷、加解密与流式解码。阈值宽松以避免抖动。
     /// </summary>
     public static class PerformanceTest
     {
         /// <summary>
-        /// 依次跑协议解码、1MB 载荷、加解密、中继编码与流式解码吞吐，并按宽松下限断言
+        /// 依次跑协议解码、编解码往返、1MB 载荷、加解密与流式解码吞吐，并按宽松下限断言
         /// </summary>
         public static void Run()
         {
             TestHarness.Section("PerformanceTest");
 
             ProtocolThroughput();
+            CoderRoundTripThroughput();
             LargePayloadThroughput();
             CryptoThroughput();
-            RelayEncodeThroughput();
             StreamingDecodeBenchmark();
 
             TestHarness.WriteSummary("PerformanceTest");
@@ -39,7 +38,7 @@ namespace SAEA.P2PTest.Tests
             TestHarness.Section("protocol decode throughput");
 
             var coder = new P2PCoder();
-            var frame = coder.EncodeP2P(P2PMessageType.UserData, "perf-payload");
+            var frame = coder.EncodeP2P(P2PMessageType.SessionOffer, "perf-payload");
             const int iterations = 50000;
 
             var sw = Stopwatch.StartNew();
@@ -63,7 +62,7 @@ namespace SAEA.P2PTest.Tests
             new Random(1).NextBytes(content);
 
             var sw = Stopwatch.StartNew();
-            var frame = coder.EncodeP2P(P2PMessageType.UserData, content);
+            var frame = coder.EncodeP2P(P2PMessageType.SessionOffer, content);
             using (var decoded = coder.DecodeP2P(frame))
             {
                 sw.Stop();
@@ -95,25 +94,25 @@ namespace SAEA.P2PTest.Tests
             TestHarness.Expect(ops > 200, "crypto throughput above floor", $"{ops:F0} ops/sec");
         }
 
-        static void RelayEncodeThroughput()
+        static void CoderRoundTripThroughput()
         {
-            TestHarness.Section("relay encode throughput");
+            TestHarness.Section("coder encode+decode throughput");
 
-            var manager = new RelayManager(defaultQuota: 0);
-            var session = manager.CreateSession("a", "b");
-            var payload = new byte[256];
+            var coder = new P2PCoder();
+            var payload = Encoding.UTF8.GetBytes("perf-payload-0123456789abcdef");
             const int iterations = 20000;
 
             var sw = Stopwatch.StartNew();
             for (int i = 0; i < iterations; i++)
             {
-                manager.EncodeRelayData(session.SessionId, "a", "b", payload);
+                var frame = coder.EncodeP2P(P2PMessageType.SessionOffer, payload);
+                using (coder.DecodeP2P(frame)) { }
             }
             sw.Stop();
 
             double ops = iterations / sw.Elapsed.TotalSeconds;
-            ConsoleHelper.WriteLine($"Relay encode: {ops:F0} ops/sec ({sw.ElapsedMilliseconds} ms)");
-            TestHarness.Expect(sw.ElapsedMilliseconds < 15000, "relay encode throughput acceptable", $"{sw.ElapsedMilliseconds}ms");
+            ConsoleHelper.WriteLine($"Coder encode+decode: {ops:F0} ops/sec ({sw.ElapsedMilliseconds} ms)");
+            TestHarness.Expect(sw.ElapsedMilliseconds < 15000, "coder encode+decode throughput acceptable", $"{sw.ElapsedMilliseconds}ms");
         }
 
         static void StreamingDecodeBenchmark()

@@ -35,19 +35,29 @@ namespace SAEA.P2PTest.Tests
             {
                 (ErrorCode.RegisterPeerIdMissing, "EP01"),
                 (ErrorCode.RegisterPeerIdInvalid, "EP02"),
-                (ErrorCode.DiscoveryNoResponse, "EO01"),
-                (ErrorCode.HolePunchFailed, "EH01"),
-                (ErrorCode.RelayFailed, "ER01"),
+                (ErrorCode.DiscoveryNoResponse, "ED01"),
+                (ErrorCode.NoCandidatePair, "EI01"),
+                (ErrorCode.IceTcpSimultaneousOpenUnsupported, "EI04"),
+                (ErrorCode.TurnUnavailable, "ET01"),
+                (ErrorCode.TurnAuthFailed, "ET02"),
+                (ErrorCode.ProtocolVersionMismatch, "ES01"),
                 (ErrorCode.AuthFailed, "EA01")
             };
 
+            bool allMatched = true;
             foreach (var (code, expectedCode) in errorCodes)
             {
                 var description = ErrorCode.GetDescription(code);
                 ConsoleHelper.WriteLine($"{expectedCode}: {code} - {description}");
+
+                if (code != expectedCode || description == "Unknown error")
+                {
+                    allMatched = false;
+                    ConsoleHelper.WriteLine($"  Mismatch: expected {expectedCode}, registered description missing or code differs");
+                }
             }
 
-            ConsoleHelper.WriteLine("TestErrorCodeDefinitions: PASSED");
+            ConsoleHelper.WriteLine(allMatched ? "TestErrorCodeDefinitions: PASSED" : "TestErrorCodeDefinitions: FAILED");
         }
 
         static void TestP2PException()
@@ -73,13 +83,13 @@ namespace SAEA.P2PTest.Tests
 
             try
             {
-                throw new P2PException(ErrorCode.HolePunchFailed, "Custom message");
+                throw new P2PException(ErrorCode.NoCandidatePair, "Custom message");
             }
             catch (P2PException ex)
             {
                 ConsoleHelper.WriteLine($"ErrorCode: {ex.ErrorCode}");
                 ConsoleHelper.WriteLine($"Message: {ex.Message}");
-                if (ex.ErrorCode == ErrorCode.HolePunchFailed && ex.Message == "Custom message")
+                if (ex.ErrorCode == ErrorCode.NoCandidatePair && ex.Message == "Custom message")
                 {
                     passed++;
                 }
@@ -87,14 +97,14 @@ namespace SAEA.P2PTest.Tests
 
             try
             {
-                throw new P2PException(ErrorCode.RelayFailed, "With inner", new InvalidOperationException("Inner"));
+                throw new P2PException(ErrorCode.TurnUnavailable, "With inner", new InvalidOperationException("Inner"));
             }
             catch (P2PException ex)
             {
                 ConsoleHelper.WriteLine($"ErrorCode: {ex.ErrorCode}");
                 ConsoleHelper.WriteLine($"Message: {ex.Message}");
                 ConsoleHelper.WriteLine($"InnerException: {ex.InnerException?.Message}");
-                if (ex.ErrorCode == ErrorCode.RelayFailed && 
+                if (ex.ErrorCode == ErrorCode.TurnUnavailable && 
                     ex.Message == "With inner" && 
                     ex.InnerException?.Message == "Inner")
                 {

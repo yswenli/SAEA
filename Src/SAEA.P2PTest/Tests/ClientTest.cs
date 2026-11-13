@@ -1,212 +1,231 @@
 using System;
-using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
-using SAEA.Common;
+
 using SAEA.P2P;
 using SAEA.P2P.Builder;
-using SAEA.P2P.Core;
 using SAEA.P2P.Common;
+using SAEA.P2P.Core;
+using SAEA.P2P.Ice;
+using SAEA.P2P.Model;
+using SAEA.P2P.Signaling;
 
 namespace SAEA.P2PTest.Tests
 {
     /// <summary>
-    /// P2P 客户端自测：初始状态、事件挂接、无服务器本地模式与连接断开
+    /// P2P 客户端自测：创建后的初始状态、事件订阅、未连接时的发送守卫、重复释放、无信令入口的拒绝，以及接入本地信令服务器的注册流程
     /// </summary>
     public static class ClientTest
     {
         /// <summary>
-        /// 依次校验客户端创建后的节点状态、事件回调、仅本地运行以及连接后再断开的流程
+        /// 依次校验客户端创建后的节点状态、事件订阅、未注册发送、重复释放、无信令入口，以及注册到本地信令服务器的流程
         /// </summary>
         /// <returns>异步任务，完成后该组场景与断言已全部执行</returns>
         public static async Task RunAsync()
         {
-            ConsoleHelper.WriteLine("=== ClientTest ===");
-            ConsoleHelper.WriteLine("");
+            TestHarness.Section("ClientTest");
 
             TestClientCreation();
-            ConsoleHelper.WriteLine("");
-
             TestClientEvents();
-            ConsoleHelper.WriteLine("");
+            TestClientSendBeforeRegister();
+            TestClientDisposeIsIdempotent();
+            TestLocalNetUnsupported();
+            await TestClientRegister();
 
-            TestClientLocalOnly();
-            ConsoleHelper.WriteLine("");
+            TestHarness.WriteSummary("ClientTest");
+        }
 
-            await TestClientConnectDisconnect();
-            ConsoleHelper.WriteLine("");
+        /// <summary>
+        /// 构造指向指定信令服务器的客户端配置，超时取秒级以便用例快速失败
+        /// </summary>
+        /// <param name="peerId">本端节点标识</param>
+        /// <param name="serverAddress">信令服务器地址</param>
+        /// <param name="serverPort">信令服务器端口</param>
+        /// <returns>可直接交给客户端构造器的信令配置</returns>
+        static SignalingOptions CreateSignaling(string peerId, string serverAddress = "127.0.0.1", int serverPort = 39654)
+        {
+            return new SignalingOptions
+            {
+                PeerId = peerId,
+                ServerAddress = serverAddress,
+                ServerPort = serverPort,
+                ConnectTimeoutMs = 5000,
+                RegisterTimeoutMs = 8000,
+                HeartbeatIntervalMs = 30000
+            };
+        }
 
-            ConsoleHelper.WriteLine("=== ClientTest Complete ===");
+        /// <summary>
+        /// 用默认 ICE 配置创建客户端，信令配置由调用方提供
+        /// </summary>
+        /// <param name="signaling">信令配置</param>
+        /// <returns>尚未注册的客户端实例</returns>
+        static P2PClient CreateClient(SignalingOptions signaling)
+        {
+            return new P2PClient(signaling, new IceSessionOptions());
         }
 
         static void TestClientCreation()
         {
-            ConsoleHelper.WriteLine("--- TestClientCreation ---");
+            TestHarness.Section("client creation");
 
-            var options = new P2PClientBuilder()
-                .SetServer("127.0.0.1", 39654)
-                .SetNodeId("test-client-001")
-                .EnableHolePunch()
-                .EnableRelay()
-                .EnableLogging()
-                .Build();
-
-            var client = new P2PClient(options);
-
-            ConsoleHelper.WriteLine($"NodeId: {client.NodeId}");
-            ConsoleHelper.WriteLine($"State: {client.State}");
-            ConsoleHelper.WriteLine($"IsConnected: {client.IsConnected}");
-
-            if (client.NodeId == "test-client-001" && client.State == NodeState.Init && !client.IsConnected)
+            var client = CreateClient(CreateSignaling("client-create"));
+            try
             {
-                ConsoleHelper.WriteLine("TestClientCreation: PASSED");
+                TestHarness.Expect(client.PeerId == "client-create", "PeerId comes from the signaling options", client.PeerId);
+                TestHarness.Expect(!client.IsRegistered, "client is not registered before RegisterAsync", client.IsRegistered.ToString());
             }
-            else
+            finally
             {
-                ConsoleHelper.WriteLine("TestClientCreation: FAILED");
+                client.Dispose();
             }
         }
 
         static void TestClientEvents()
         {
-            ConsoleHelper.WriteLine("--- TestClientEvents ---");
+            TestHarness.Section("client events");
 
-            var options = new P2PClientBuilder()
-                .SetNodeId("event-test-node")
-                .EnableLocalDiscovery()
-                .Build();
-
-            var client = new P2PClient(options);
-
-            int eventCount = 0;
-            client.OnStateChanged += (old, new_) =>
-            {
-                eventCount++;
-                ConsoleHelper.WriteLine($"OnStateChanged: {old} -> {new_}");
-            };
-            client.OnServerConnected += () =>
-            {
-                eventCount++;
-                ConsoleHelper.WriteLine("OnServerConnected");
-            };
-            client.OnServerDisconnected += (reason) =>
-            {
-                eventCount++;
-                ConsoleHelper.WriteLine($"OnServerDisconnected: {reason}");
-            };
-            client.OnMessageReceived += (peerId, data) =>
-            {
-                eventCount++;
-                ConsoleHelper.WriteLine($"OnMessageReceived: {peerId}, {data.Length} bytes");
-            };
-            client.OnError += (code, msg) =>
-            {
-                eventCount++;
-                ConsoleHelper.WriteLine($"OnError: {code} - {msg}");
-            };
-
-            ConsoleHelper.WriteLine($"Events registered: 5");
-            ConsoleHelper.WriteLine("TestClientEvents: PASSED");
-        }
-
-        static void TestClientLocalOnly()
-        {
-            ConsoleHelper.WriteLine("--- TestClientLocalOnly ---");
-
-            var options = new P2PClientBuilder()
-                .SetNodeId("local-only-node")
-                .EnableLocalDiscovery(39657, "224.0.0.250")
-                .SetDiscoveryInterval(3000)
-                .EnableLogging()
-                .Build();
-
-            var client = new P2PClient(options);
-
-            ConsoleHelper.WriteLine($"NodeId: {client.NodeId}");
-            ConsoleHelper.WriteLine($"State: {client.State}");
-            ConsoleHelper.WriteLine($"No server configured: {string.IsNullOrEmpty(options.ServerAddress)}");
-
-            if (string.IsNullOrEmpty(options.ServerAddress) && options.Discovery.EnableLocalDiscovery)
-            {
-                ConsoleHelper.WriteLine("TestClientLocalOnly: PASSED");
-            }
-            else
-            {
-                ConsoleHelper.WriteLine("TestClientLocalOnly: FAILED");
-            }
-        }
-
-        static async Task TestClientConnectDisconnect()
-        {
-            ConsoleHelper.WriteLine("--- TestClientConnectDisconnect ---");
-
-            var serverOptions = new P2PServerBuilder()
-                .SetPort(39658)
-                .SetMaxNodes(10)
-                .EnableRelay()
-                .EnableLogging()
-                .Build();
-
-            var server = new P2PServer(serverOptions);
-            server.Start();
-
-            ConsoleHelper.WriteLine($"Server started on port {server.Port}");
-
-            await Task.Delay(500);
-
-            var clientOptions = new P2PClientBuilder()
-                .SetServer("127.0.0.1", 39658)
-                .SetNodeId("connect-test-node")
-                .EnableRelay()
-                .EnableLogging()
-                .Build();
-
-            var client = new P2PClient(clientOptions);
-
-            bool connected = false;
-            bool stateChanged = false;
-            client.OnServerConnected += () => connected = true;
-            client.OnStateChanged += (old, new_) =>
-            {
-                ConsoleHelper.WriteLine($"State: {old} -> {new_}");
-                stateChanged = true;
-            };
-
-            ConsoleHelper.WriteLine($"Before Connect: State={client.State}");
-
+            var client = CreateClient(CreateSignaling("client-events"));
+            bool subscribed;
             try
             {
-                client.Connect();
-                await Task.Delay(2000);
-
-                ConsoleHelper.WriteLine($"After Connect: State={client.State}, IsConnected={client.IsConnected}");
-
-                if (client.IsConnected && connected && stateChanged)
-                {
-                    ConsoleHelper.WriteLine("Client connected successfully");
-                }
-                else
-                {
-                    ConsoleHelper.WriteLine("Client connect FAILED or timed out");
-                }
+                // 回调体留空：本用例只验证五个事件都能挂接，不触发任何回调
+                client.OnPeerConnected += connection => { };
+                client.OnPeerDisconnected += (peerId, reason) => { };
+                client.OnPeerDiscovered += node => { };
+                client.OnDataReceived += (peerId, data) => { };
+                client.OnError += (code, message) => { };
+                subscribed = true;
             }
             catch (Exception ex)
             {
-                ConsoleHelper.WriteLine($"Connect exception: {ex.Message}");
+                subscribed = false;
+                TestHarness.Expect(false, "all five client events accept subscriptions", ex.GetType().Name + ": " + ex.Message);
             }
 
-            client.Disconnect();
-            server.Stop();
-
-            ConsoleHelper.WriteLine($"After Disconnect: State={client.State}");
-
-            if (client.State == NodeState.Disconnected)
+            if (subscribed)
             {
-                ConsoleHelper.WriteLine("TestClientConnectDisconnect: PASSED");
+                TestHarness.Expect(true, "all five client events accept subscriptions");
             }
-            else
+
+            client.Dispose();
+        }
+
+        static void TestClientSendBeforeRegister()
+        {
+            TestHarness.Section("client send before register");
+
+            var client = CreateClient(CreateSignaling("client-send"));
+            try
             {
-                ConsoleHelper.WriteLine("TestClientConnectDisconnect: FAILED (check if server was reachable)");
+                // Send 只校验会话是否可用，未注册时没有会话，必须报 NotConnected 而不是静默丢弃
+                var sendError = TestHarness.Throws<P2PException>(() => client.Send("peer", new byte[] { 1 }),
+                    "send before register throws P2PException");
+                TestHarness.Expect(sendError != null && sendError.ErrorCode == ErrorCode.NotConnected,
+                    "send before register reports NotConnected", sendError?.ErrorCode);
+            }
+            finally
+            {
+                client.Dispose();
+            }
+        }
+
+        static void TestClientDisposeIsIdempotent()
+        {
+            TestHarness.Section("client dispose");
+
+            var client = CreateClient(CreateSignaling("client-dispose"));
+            string? failure = null;
+            try
+            {
+                client.Dispose();
+                client.Dispose();
+            }
+            catch (Exception ex)
+            {
+                failure = ex.GetType().Name + ": " + ex.Message;
+            }
+
+            TestHarness.Expect(failure == null, "Dispose can be called repeatedly", failure);
+        }
+
+        static void TestLocalNetUnsupported()
+        {
+            TestHarness.Section("local-only entry");
+
+            // 无信令局域网直连已下线，两个重载都必须显式拒绝而不是返回半可用客户端
+            TestHarness.Throws<NotSupportedException>(() => P2PQuick.LocalNet("client-local"),
+                "P2PQuick.LocalNet(nodeId) throws NotSupportedException");
+            TestHarness.Throws<NotSupportedException>(() => P2PQuick.LocalNet("client-local", 39655, "224.0.0.250"),
+                "P2PQuick.LocalNet(nodeId, port, multicast) throws NotSupportedException");
+        }
+
+        /// <summary>
+        /// 等待注册完成；返回 null 表示成功，否则返回失败原因，避免用例无限等待
+        /// </summary>
+        /// <param name="client">待注册的客户端</param>
+        /// <param name="timeoutMs">等待注册完成的毫秒数</param>
+        /// <returns>成功时为 null；超时或异常时为失败原因</returns>
+        static async Task<string?> TryRegisterAsync(P2PClient client, int timeoutMs)
+        {
+            Task<NodeInfo> registerTask;
+            try
+            {
+                registerTask = client.RegisterAsync();
+            }
+            catch (Exception ex)
+            {
+                return ex.GetType().Name + ": " + ex.Message;
+            }
+
+            var completed = await Task.WhenAny(registerTask, Task.Delay(timeoutMs));
+            if (!ReferenceEquals(completed, registerTask))
+            {
+                return "register timed out after " + timeoutMs + "ms";
+            }
+
+            try
+            {
+                await registerTask;
+                return client.IsRegistered ? null : "client reports not registered";
+            }
+            catch (Exception ex)
+            {
+                return ex.GetType().Name + ": " + ex.Message;
+            }
+        }
+
+        static async Task TestClientRegister()
+        {
+            TestHarness.Section("client register");
+
+            int port = TestHarness.GetFreeTcpPort();
+            // 共享密钥留空：服务端不启鉴权挑战，注册即视为鉴权通过
+            var serverOptions = new P2PServerBuilder()
+                .SetPort(port)
+                .SetIP("127.0.0.1")
+                .SetMaxNodes(10)
+                .SetFreeTime(60000)
+                .EnableLogging(4)
+                .Build();
+
+            var server = new P2PServer(serverOptions);
+            var client = CreateClient(CreateSignaling("client-register", "127.0.0.1", port));
+
+            try
+            {
+                server.Start();
+                TestHarness.Expect(await TestHarness.WaitUntil(() => server.IsRunning, 3000),
+                    "server starts listening for client registration", server.IsRunning.ToString());
+
+                var registerFailure = await TryRegisterAsync(client, 15000);
+                TestHarness.Expect(registerFailure == null, "client registers with the local signaling server", registerFailure);
+                TestHarness.Expect(client.IsRegistered, "client reports IsRegistered after RegisterAsync");
+            }
+            finally
+            {
+                // 先释放客户端即断开信令连接，再停服务端，避免服务端在停止过程中处理断开
+                client.Dispose();
+                server.Stop();
             }
         }
     }

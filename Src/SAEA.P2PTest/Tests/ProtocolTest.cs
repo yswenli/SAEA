@@ -37,17 +37,29 @@ ConsoleHelper.WriteLine("");
             ConsoleHelper.WriteLine("--- TestMessageTypeEnum ---");
 
             ConsoleHelper.WriteLine($"Register: 0x{((byte)P2PMessageType.Register):X2} ({(byte)P2PMessageType.Register})");
-            ConsoleHelper.WriteLine($"NatProbe: 0x{((byte)P2PMessageType.NatProbe):X2} ({(byte)P2PMessageType.NatProbe})");
-            ConsoleHelper.WriteLine($"PunchRequest: 0x{((byte)P2PMessageType.PunchRequest):X2} ({(byte)P2PMessageType.PunchRequest})");
-            ConsoleHelper.WriteLine($"RelayRequest: 0x{((byte)P2PMessageType.RelayRequest):X2} ({(byte)P2PMessageType.RelayRequest})");
             ConsoleHelper.WriteLine($"LocalDiscover: 0x{((byte)P2PMessageType.LocalDiscover):X2} ({(byte)P2PMessageType.LocalDiscover})");
             ConsoleHelper.WriteLine($"AuthChallenge: 0x{((byte)P2PMessageType.AuthChallenge):X2} ({(byte)P2PMessageType.AuthChallenge})");
             ConsoleHelper.WriteLine($"Heartbeat: 0x{((byte)P2PMessageType.Heartbeat):X2} ({(byte)P2PMessageType.Heartbeat})");
-            ConsoleHelper.WriteLine($"UserData: 0x{((byte)P2PMessageType.UserData):X2} ({(byte)P2PMessageType.UserData})");
+            ConsoleHelper.WriteLine($"SessionOffer: 0x{((byte)P2PMessageType.SessionOffer):X2} ({(byte)P2PMessageType.SessionOffer})");
 
-            if ((byte)P2PMessageType.Register == 0x10 &&
-                (byte)P2PMessageType.Heartbeat == 0x70 &&
-                (byte)P2PMessageType.UserData == 0x80)
+            // 逐项比对期望取值；用表驱动避免全常量条件被判定为恒真而让分支不可达
+            var expectedTypes = new[]
+            {
+                (Type: P2PMessageType.Register, Value: (byte)0x10),
+                (Type: P2PMessageType.Heartbeat, Value: (byte)0x70),
+                (Type: P2PMessageType.SessionOffer, Value: (byte)0x91)
+            };
+
+            bool enumMatched = true;
+            foreach (var expected in expectedTypes)
+            {
+                if ((byte)expected.Type != expected.Value)
+                {
+                    enumMatched = false;
+                }
+            }
+
+            if (enumMatched)
             {
                 ConsoleHelper.WriteLine("TestMessageTypeEnum: PASSED");
             }
@@ -84,22 +96,22 @@ ConsoleHelper.WriteLine("");
                 passed++;
             }
 
-            var userData = P2PProtocol.Create(P2PMessageType.UserData, "Hello P2P");
-            ConsoleHelper.WriteLine($"UserData Type: {userData.GetMessageType()}");
-            ConsoleHelper.WriteLine($"UserData Content: {userData.GetContentAsString()}");
-            if (userData.GetMessageType() == P2PMessageType.UserData && userData.GetContentAsString() == "Hello P2P")
+            var sessionOffer = P2PProtocol.Create(P2PMessageType.SessionOffer, "Hello P2P");
+            ConsoleHelper.WriteLine($"SessionOffer Type: {sessionOffer.GetMessageType()}");
+            ConsoleHelper.WriteLine($"SessionOffer Content: {sessionOffer.GetContentAsString()}");
+            if (sessionOffer.GetMessageType() == P2PMessageType.SessionOffer && sessionOffer.GetContentAsString() == "Hello P2P")
             {
                 passed++;
             }
 
-            byte[] userDataBytes;
+            byte[] sessionOfferBytes;
             using (var w = new PooledBufferWriter(64))
             {
-                userData.WriteTo(w);
-                userDataBytes = w.WrittenSpan.ToArray();
+                sessionOffer.WriteTo(w);
+                sessionOfferBytes = w.WrittenSpan.ToArray();
             }
-            ConsoleHelper.WriteLine($"UserData ToBytes: {userDataBytes.Length} bytes");
-            if (userDataBytes.Length > 0)
+            ConsoleHelper.WriteLine($"SessionOffer ToBytes: {sessionOfferBytes.Length} bytes");
+            if (sessionOfferBytes.Length > 0)
             {
                 passed++;
             }
@@ -123,9 +135,9 @@ ConsoleHelper.WriteLine("");
                 passed++;
             }
 
-            var encodedUserData = coder.EncodeP2P(P2PMessageType.UserData, "Test message");
-            ConsoleHelper.WriteLine($"Encoded UserData: {encodedUserData.Length} bytes");
-            if (encodedUserData.Length > 0)
+            var encodedSessionOffer = coder.EncodeP2P(P2PMessageType.SessionOffer, "Test message");
+            ConsoleHelper.WriteLine($"Encoded SessionOffer: {encodedSessionOffer.Length} bytes");
+            if (encodedSessionOffer.Length > 0)
             {
                 passed++;
             }
@@ -139,13 +151,13 @@ ConsoleHelper.WriteLine("");
                 }
             }
 
-            using (var decodedUserData = coder.DecodeP2P(encodedUserData))
+            using (var decodedSessionOffer = coder.DecodeP2P(encodedSessionOffer))
             {
-                ConsoleHelper.WriteLine($"Decoded UserData count: {decodedUserData.Count}");
-                ConsoleHelper.WriteLine($"Decoded UserData content: {Encoding.UTF8.GetString(decodedUserData[0].Content.Span)}");
-                if (decodedUserData.Count == 1 &&
-                    (P2PMessageType)decodedUserData[0].Type == P2PMessageType.UserData &&
-                    Encoding.UTF8.GetString(decodedUserData[0].Content.Span) == "Test message")
+                ConsoleHelper.WriteLine($"Decoded SessionOffer count: {decodedSessionOffer.Count}");
+                ConsoleHelper.WriteLine($"Decoded SessionOffer content: {Encoding.UTF8.GetString(decodedSessionOffer[0].Content.Span)}");
+                if (decodedSessionOffer.Count == 1 &&
+                    (P2PMessageType)decodedSessionOffer[0].Type == P2PMessageType.SessionOffer &&
+                    Encoding.UTF8.GetString(decodedSessionOffer[0].Content.Span) == "Test message")
                 {
                     passed++;
                 }

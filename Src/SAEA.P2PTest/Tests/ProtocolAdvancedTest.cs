@@ -39,10 +39,10 @@ namespace SAEA.P2PTest.Tests
             var content = new byte[256];
             for (int i = 0; i < content.Length; i++) content[i] = (byte)i;
 
-            using (var decoded = coder.DecodeP2P(coder.EncodeP2P(P2PMessageType.UserData, content)))
+            using (var decoded = coder.DecodeP2P(coder.EncodeP2P(P2PMessageType.SessionOffer, content)))
             {
                 TestHarness.Expect(decoded.Count == 1, "one message decoded");
-                TestHarness.Expect((P2PMessageType)decoded[0].Type == P2PMessageType.UserData, "message type preserved");
+                TestHarness.Expect((P2PMessageType)decoded[0].Type == P2PMessageType.SessionOffer, "message type preserved");
                 TestHarness.Expect(decoded[0].Content.Span.SequenceEqual(content), "binary content byte-exact");
             }
         }
@@ -65,7 +65,7 @@ namespace SAEA.P2PTest.Tests
             TestHarness.Section("multiple frames in one buffer");
             var coder = new P2PCoder();
             var all = new List<byte>();
-            all.AddRange(coder.EncodeP2P(P2PMessageType.UserData, "one"));
+            all.AddRange(coder.EncodeP2P(P2PMessageType.SessionOffer, "one"));
             all.AddRange(coder.EncodeP2P(P2PMessageType.Register, "two"));
             all.AddRange(coder.EncodeP2P(P2PMessageType.HeartbeatAck));
 
@@ -82,7 +82,7 @@ namespace SAEA.P2PTest.Tests
         {
             TestHarness.Section("split frame");
             var coder = new P2PCoder();
-            var frame = coder.EncodeP2P(P2PMessageType.UserData, "split-payload");
+            var frame = coder.EncodeP2P(P2PMessageType.SessionOffer, "split-payload");
             var half = frame.Length / 2;
 
             var first = new byte[half];
@@ -105,8 +105,8 @@ namespace SAEA.P2PTest.Tests
         {
             TestHarness.Section("message type lookup");
             var coder = new P2PCoder();
-            var frame = coder.EncodeP2P(P2PMessageType.RelayRequest, "x");
-            TestHarness.Expect(P2PCoder.GetP2PMessageType(frame) == P2PMessageType.RelayRequest, "GetP2PMessageType reads type");
+            var frame = coder.EncodeP2P(P2PMessageType.SessionOffer, "x");
+            TestHarness.Expect(P2PCoder.GetP2PMessageType(frame) == P2PMessageType.SessionOffer, "GetP2PMessageType reads type");
         }
 
         static void ShortDataGuard()
@@ -134,7 +134,7 @@ namespace SAEA.P2PTest.Tests
             TestHarness.Section("unicode round trip");
             var coder = new P2PCoder();
             var text = "你好，P2P 世界！émoji: 🚀";
-            using (var decoded = coder.DecodeP2P(coder.EncodeP2P(P2PMessageType.UserData, text)))
+            using (var decoded = coder.DecodeP2P(coder.EncodeP2P(P2PMessageType.SessionOffer, text)))
             {
                 TestHarness.Expect(decoded.Count == 1 && Encoding.UTF8.GetString(decoded[0].Content.Span) == text, "unicode content preserved");
             }
@@ -147,7 +147,7 @@ namespace SAEA.P2PTest.Tests
             var content = new byte[100_000];
             new Random(42).NextBytes(content);
 
-            using (var decoded = coder.DecodeP2P(coder.EncodeP2P(P2PMessageType.UserData, content)))
+            using (var decoded = coder.DecodeP2P(coder.EncodeP2P(P2PMessageType.SessionOffer, content)))
             {
                 TestHarness.Expect(decoded.Count == 1, "large message decoded");
                 TestHarness.Expect(decoded.Count == 1 && decoded[0].Content.Length == content.Length,

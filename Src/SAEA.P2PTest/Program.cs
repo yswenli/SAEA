@@ -63,6 +63,12 @@ namespace SAEA.P2PTest
                 return;
             }
 
+            if (args != null && Array.Exists(args, a => a == "--smoke"))
+            {
+                await RunSmokeAsync();
+                return;
+            }
+
             if (args != null && Array.Exists(args, a => a == "--tls"))
             {
                 TestHarness.Reset();
@@ -111,14 +117,14 @@ namespace SAEA.P2PTest
                 ConsoleHelper.WriteLine("4 = QuickStartTest");
                 ConsoleHelper.WriteLine("5 = ServerTest");
                 ConsoleHelper.WriteLine("6 = ClientTest");
-                ConsoleHelper.WriteLine("7 = HolePunchTest");
-                ConsoleHelper.WriteLine("8 = RelayTest");
+                ConsoleHelper.WriteLine("7 = HolePunchTest（ICE 打洞）");
+                ConsoleHelper.WriteLine("8 = RelayTest（TURN 中继）");
                 ConsoleHelper.WriteLine("9 = LocalDiscoveryTest");
                 ConsoleHelper.WriteLine("10 = AuthEncryptionTest");
                 ConsoleHelper.WriteLine("11 = EdgeCaseTest");
                 ConsoleHelper.WriteLine("12 = ProtocolAdvancedTest");
                 ConsoleHelper.WriteLine("13 = SecurityAdvancedTest");
-                ConsoleHelper.WriteLine("14 = RelayAdvancedTest");
+                ConsoleHelper.WriteLine("14 = RelayAdvancedTest（TURN 中继进阶）");
                 ConsoleHelper.WriteLine("15 = ConcurrencyTest");
                 ConsoleHelper.WriteLine("16 = LifecycleTest");
                 ConsoleHelper.WriteLine("17 = IntegrationTest");
@@ -178,7 +184,7 @@ namespace SAEA.P2PTest
                         SecurityAdvancedTest.Run();
                         break;
                     case "14":
-                        RelayAdvancedTest.Run();
+                        await RelayAdvancedTest.RunAsync();
                         break;
                     case "15":
                         ConcurrencyTest.Run();
@@ -229,11 +235,19 @@ namespace SAEA.P2PTest
         {
             TestHarness.Reset();
 
+            BuilderTest.Run();
+            ErrorCodeTest.Run();
+            ProtocolTest.Run();
+            QuickStartTest.Run();
             EdgeCaseTest.Run();
             SpanPipelineTest.Run();
             ProtocolAdvancedTest.Run();
             SecurityAdvancedTest.Run();
-            RelayAdvancedTest.Run();
+            await ServerTest.RunAsync();
+            await ClientTest.RunAsync();
+            await HolePunchTest.RunAsync();
+            await RelayTest.RunAsync();
+            await RelayAdvancedTest.RunAsync();
             ConcurrencyTest.Run();
             await LifecycleTest.RunAsync();
             await IntegrationTest.RunAsync();
@@ -255,6 +269,33 @@ namespace SAEA.P2PTest
         }
 
         /// <summary>
+        /// 离线冒烟自测：只跑不依赖外网、不启动 TLS/TURN/ICE 重活的套件
+        /// </summary>
+        static async Task RunSmokeAsync()
+        {
+            TestHarness.Reset();
+
+            BuilderTest.Run();
+            ErrorCodeTest.Run();
+            QuickStartTest.Run();
+            ProtocolTest.Run();
+            ProtocolAdvancedTest.Run();
+            EdgeCaseTest.Run();
+            ConcurrencyTest.Run();
+            SecurityAdvancedTest.Run();
+            await ServerTest.RunAsync();
+            await ClientTest.RunAsync();
+            await LifecycleTest.RunAsync();
+            await IntegrationTest.RunAsync();
+
+            TestHarness.WriteSummary("SMOKE");
+            Environment.ExitCode = TestHarness.HasFailures ? 1 : 0;
+
+            // ConsoleHelper 输出为异步队列，退出前留出时间刷出。
+            await Task.Delay(500);
+        }
+
+        /// <summary>
         /// 打印用法；只有开关与配置项名称，不回显任何密钥或口令
         /// </summary>
         static void PrintUsage()
@@ -262,6 +303,7 @@ namespace SAEA.P2PTest
             Console.WriteLine("SAEA.P2P 自测程序用法：");
             Console.WriteLine("  （不带参数）进入交互菜单");
             Console.WriteLine("  --all                运行全部高级自测");
+            Console.WriteLine("  --smoke              离线冒烟自测（不跑 TLS/TURN/ICE/性能）");
             Console.WriteLine("  --tls                TLS 互通自测");
             Console.WriteLine("  --tls-stress         TLS 压力自测");
             Console.WriteLine("  --bench-tls          TLS 基准测试");
