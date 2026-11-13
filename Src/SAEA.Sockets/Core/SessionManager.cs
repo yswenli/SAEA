@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 16:42:11
+*修改时间：2026/11/13 20:30:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 RetireUserToken，供发送看门狗放弃路径转调令牌退役
+*描述：UDP 接收端点模板按套接字地址族选择
 *
 *****************************************************************************/
 using System;
@@ -157,7 +157,10 @@ namespace SAEA.Sockets.Core
             {
                 IUserToken userToken = _userTokenPool.Dequeue();
                 if (userToken == null) return null;
-                userToken.ReadArgs.RemoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
+                // ReceiveFromAsync 要求端点模板与套接字地址族一致，IPv6 单栈套接字传 IPv4 模板会抛 ArgumentException
+                userToken.ReadArgs.RemoteEndPoint = socket != null && socket.AddressFamily == AddressFamily.InterNetworkV6
+                    ? new IPEndPoint(IPAddress.IPv6Any, 0)
+                    : new IPEndPoint(IPAddress.Any, 0);
                 userToken.Socket = socket;
                 return userToken;
             }

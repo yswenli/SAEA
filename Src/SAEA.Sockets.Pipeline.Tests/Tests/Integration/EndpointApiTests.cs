@@ -22,10 +22,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 11:30:00
+*修改时间：2026/11/13 20:30:00
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增 UDP 发送原语、来源地址回调、客户端收发入口与 TCP 按端点连接用例
+*描述：补充 IPv6 单栈 UDP 接收回归
 *
 *****************************************************************************/
 using System;
@@ -264,6 +264,50 @@ namespace SAEA.Sockets.Pipeline.Tests.Tests.Integration
                 CollectionAssert.AreEqual(message, payload);
                 Assert.AreEqual(AddressFamily.InterNetworkV6, from.AddressFamily);
                 Assert.IsTrue(from.Address.IsIPv4MappedToIPv6, "双栈收到的 IPv4 来源应为 v4 映射地址");
+            }
+        }
+
+        /// <summary>
+        /// 单栈 IPv6 服务端绑定回环地址后，能收到 IPv6 客户端发来的报文，来源为 IPv6 端点
+        /// </summary>
+        [TestMethod]
+        public void SaeaUdpServerSocket_UseIPV6单栈_回环IPv6报文可接收()
+        {
+            var option = SocketOptionBuilder.Instance
+                .SetSocket(SAEASocketType.Udp)
+                .UsePacket()
+                .UseIPv6()
+                .SetIP("::1")
+                .SetPort(0)
+                .SetActionTimeOut(10 * 1000)
+                .SetFreeTime(60 * 1000)
+                .Build();
+
+            using (var server = new SaeaUdpServerSocket(option))
+            using (var client = new Socket(AddressFamily.InterNetworkV6, SocketType.Dgram, ProtocolType.Udp))
+            {
+                var received = new ManualResetEventSlim(false);
+                IPEndPoint from = null;
+                byte[] payload = null;
+
+                server.OnServerReceiveSpanFrom += (remoteEndPoint, data) =>
+                {
+                    from = new IPEndPoint(remoteEndPoint.Address, remoteEndPoint.Port);
+                    payload = data.ToArray();
+                    received.Set();
+                };
+
+                server.Start();
+
+                client.Bind(new IPEndPoint(IPAddress.IPv6Loopback, 0));
+                var senderPort = ((IPEndPoint)client.LocalEndPoint).Port;
+                var message = Encoding.UTF8.GetBytes("v6-loopback");
+                client.SendTo(message, new IPEndPoint(IPAddress.IPv6Loopback, server.LocalEndPoint.Port));
+
+                Assert.IsTrue(received.Wait(5000), "未在超时前收到 IPv6 报文");
+                CollectionAssert.AreEqual(message, payload);
+                Assert.AreEqual(AddressFamily.InterNetworkV6, from.AddressFamily);
+                Assert.AreEqual(senderPort, from.Port);
             }
         }
 

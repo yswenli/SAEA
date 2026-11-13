@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 11:00:00
+*修改时间：2026/11/13 20:30:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 LocalEndPoint、StartReceive 与带来源地址的接收回调，未连接亦可接收
+*描述：UDP 接收端点模板按套接字地址族选择
 *
 *****************************************************************************/
 using System;
@@ -305,8 +305,11 @@ namespace SAEA.Sockets.Core.Udp
             if (_userToken.Socket != null)
             {
                 // ReceiveFrom 完成后该对象会被替换成发送方端点，每次投递前保证有一个可写入的空端点
+                // ReceiveFromAsync 要求端点模板与套接字地址族一致，IPv6 单栈套接字传 IPv4 模板会抛 ArgumentException
                 if (readArgs.RemoteEndPoint == null)
-                    readArgs.RemoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
+                    readArgs.RemoteEndPoint = _userToken.Socket.AddressFamily == AddressFamily.InterNetworkV6
+                        ? new IPEndPoint(IPAddress.IPv6Any, 0)
+                        : new IPEndPoint(IPAddress.Any, 0);
 
                 if (!_userToken.Socket.ReceiveFromAsync(readArgs))
                 {
