@@ -24,10 +24,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 14:57:04
+*修改时间：2026/11/13 15:06:07
 *修改人： yswenli
 *版本号： net10.0
-*描述：pkcs12 接到 Pkcs12Command.Run
+*描述：crl2pkcs7 与 pkcs7 接到各自 Command.Run
 *
 *****************************************************************************/
 using SAEA.Sockets.SslTlsTool.OpenSsl.Commands;
@@ -69,9 +69,7 @@ internal static class OpenSslCommand
                 if (!string.Equals(token, "-help", StringComparison.Ordinal))
                     continue;
                 // -help 短路：不读文件、不校验其它参数，帮助只写 stdout。
-                string text;
-                try { text = OpenSslUsage.For(command); }
-                catch (OpenSslException) { text = OpenSslUsage.Pending(command); }
+                var text = OpenSslUsage.For(command);
                 Console.Out.WriteLine(text);
                 return 0;
             }
@@ -91,6 +89,10 @@ internal static class OpenSslCommand
                     return X509Command.Run(tail, interactive);
                 case "pkcs12":
                     return Pkcs12Command.Run(tail, interactive);
+                case "crl2pkcs7":
+                    return Crl2Pkcs7Command.Run(tail, interactive);
+                case "pkcs7":
+                    return Pkcs7Command.Run(tail, interactive);
                 case "req":
                     return ReqCommand.Run(tail, interactive);
                 case "pkcs8":

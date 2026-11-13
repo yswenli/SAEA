@@ -114,6 +114,25 @@ try {
     Invoke-Case -Name 'pkcs12 -name 导出并读回' -Body { $named = Join-Path $tmp 'alias.pfx'; $e = Invoke-Tool -Arguments @('pkcs12', '-export', '-in', $leaf, '-inkey', (Join-Path $tmp 'leaf.key'), '-name', 'myalias', '-out', $named, '-passout', 'pass:test'); $r = Invoke-Tool -Arguments @('pkcs12', '-in', $named, '-passin', 'pass:test', '-out', (Join-Path $tmp 'alias.pem')); $e.ExitCode -eq 0 -and $r.ExitCode -eq 0 -and $r.StdErr -notmatch 'error' }
     Invoke-Case -Name 'pkcs12 错误口令退出 1 且报口令错误' -Body { $r = Invoke-Tool -Arguments @('pkcs12', '-in', $pfx, '-passin', 'pass:bad', '-out', (Join-Path $tmp 'bad.pem')); $r.ExitCode -eq 1 -and $r.StdErr -like '*口令错误*' }
     Invoke-Case -Name 'pkcs12 -export 缺 -inkey 退出 1' -Body { $r = Invoke-Tool -Arguments @('pkcs12', '-export', '-in', $leaf, '-out', (Join-Path $tmp 'nokey.pfx'), '-passout', 'pass:test'); $r.ExitCode -eq 1 -and $r.StdErr -like '*需要 -in 与 -inkey*' }
+    $p7 = Join-Path $tmp 'b.p7b'
+    Invoke-Case -Name 'crl2pkcs7 -nocrl 生成 PKCS7 PEM' -Body {
+        $r = Invoke-Tool -Arguments @('crl2pkcs7', '-nocrl', '-certfile', $leaf, '-out', $p7)
+        $r.ExitCode -eq 0 -and (Test-Path -LiteralPath $p7) -and ((Get-Content -LiteralPath $p7 -Raw) -like '*BEGIN PKCS7*')
+    }
+    Invoke-Case -Name 'pkcs7 -print_certs 输出包内证书' -Body {
+        $null = Invoke-Tool -Arguments @('crl2pkcs7', '-nocrl', '-certfile', $leaf, '-out', $p7)
+        $r = Invoke-Tool -Arguments @('pkcs7', '-in', $p7, '-print_certs')
+        $r.ExitCode -eq 0 -and $r.StdOut -like '*BEGIN CERTIFICATE*'
+    }
+    Invoke-Case -Name 'crl2pkcs7 缺 -nocrl 退出 1 且报不支持 CRL' -Body {
+        $r = Invoke-Tool -Arguments @('crl2pkcs7', '-certfile', $leaf)
+        $r.ExitCode -eq 1 -and $r.StdErr -like '*不支持读取 CRL*'
+    }
+    Invoke-Case -Name 'pkcs7 -outform DER 有 -out 时输出非空文件' -Body {
+        $d = Join-Path $tmp 'b.p7c'; $null = Invoke-Tool -Arguments @('crl2pkcs7', '-nocrl', '-certfile', $leaf, '-out', $p7)
+        $r = Invoke-Tool -Arguments @('pkcs7', '-in', $p7, '-outform', 'DER', '-out', $d)
+        $r.ExitCode -eq 0 -and (Test-Path -LiteralPath $d) -and (Get-Item -LiteralPath $d).Length -gt 0
+    }
 }
 finally { Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue }
 '{0} passed, {1} failed' -f $script:passed, $script:failed
