@@ -507,7 +507,15 @@ public class HomeController : Controller
 
     public ActionResult Download()
     {
-        return File(HttpContext.Server.MapPath("/files/document.pdf"));
+        var filePath = HttpContext.Server.MapPath("/files/document.pdf");
+
+        // null means the path escapes the site root or is invalid; respond with 404
+        if (filePath == null)
+        {
+            return new ContentResult("o_o, no content found", System.Net.HttpStatusCode.NotFound);
+        }
+
+        return File(filePath);
     }
 
     [OutputCache(Duration = 60)]
@@ -517,6 +525,8 @@ public class HomeController : Controller
     }
 }
 ```
+
+`Server.MapPath` returns `null` for paths that escape the site root or are invalid; callers must check for null before using the result as a file path.
 
 ### ActionResult Types
 

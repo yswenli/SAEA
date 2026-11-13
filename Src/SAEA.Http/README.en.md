@@ -554,12 +554,23 @@ server.WebConfig.RequestDelegate = ctx =>
 
 ### Return files
 
+`Server.MapPath` returns `null` for paths that escape the site root or are invalid; callers must check for null before using the result as a file path.
+
 ```csharp
 using SAEA.Http.Model;
 
 server.WebConfig.RequestDelegate = ctx =>
 {
     var filePath = ctx.Server.MapPath("/files/document.pdf");
+
+    // null means the path escapes the site root or is invalid; respond with 404
+    if (filePath == null)
+    {
+        ctx.Response.SetCached(new HttpContentResult("o_o, no content found", System.Net.HttpStatusCode.NotFound));
+        ctx.Response.End();
+        return;
+    }
+
     ctx.Response.SetCached(new HttpFileResult(filePath, true));
     ctx.Response.End();
 };

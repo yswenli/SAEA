@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 12:04:00
+*修改时间：2026/11/13 13:14:00
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增，覆盖 .. 、反斜杠与编码形式的越界请求及正常路径归一化
+*描述：穿越用例只保留字面 .. 与反斜杠两种真实形式，%2e%2e 另立断言说明服务端不解码
 *
 *****************************************************************************/
 using System;
@@ -50,11 +50,12 @@ namespace SAEA.MVC.Tests
     public class StaticFileSecurityTests
     {
         /// <summary>
-        /// 父目录越界文件在字面 ..、反斜杠与 URL 编码三种形式下都必须 404，且正文不含文件内容。
+        /// 父目录越界文件在字面 .. 与反斜杠两种真实穿越形式下都必须 404，且正文不含文件内容；
+        /// %2e%2e 因服务端不解码，只按字面文件名处理，同样读不到站外文件。
         /// </summary>
         /// <returns>该用例的异步执行任务。</returns>
         [TestMethod]
-        public async Task StaticFile_ParentTraversal_Returns404WithoutSecretContent()
+        public async Task StaticFile_ParentTraversalAndEncodedSegment_Returns404WithoutSecretContent()
         {
             var port = TestAppFactory.GetFreePort();
             var rootName = TestAppFactory.CreateRootName();
@@ -76,8 +77,7 @@ namespace SAEA.MVC.Tests
                 var paths = new[]
                 {
                     "/../" + secretName,
-                    "/..\\" + secretName,
-                    "/%2e%2e/" + secretName
+                    "/..\\" + secretName
                 };
 
                 foreach (var path in paths)
@@ -89,6 +89,16 @@ namespace SAEA.MVC.Tests
                         response.Body.Contains(secretContent, StringComparison.Ordinal),
                         "GET " + path + " 的正文不得包含站点根目录之外的文件内容");
                 }
+
+                // 服务端全程不解码 URL，%2e%2e 只是一个普通的文件名字段，响应内容与本轮修复的归一化逻辑无关；
+                // 这里只校验读不到父目录文件，不把它当成编码形态的穿越回归。
+                var encodedPath = "/%2e%2e/" + secretName;
+                var encodedResponse = await SendRawAsync(port, encodedPath).ConfigureAwait(false);
+
+                Assert.AreEqual(404, encodedResponse.StatusCode, "GET " + encodedPath + " 应返回 404，实际响应行：" + encodedResponse.StatusLine);
+                Assert.IsFalse(
+                    encodedResponse.Body.Contains(secretContent, StringComparison.Ordinal),
+                    "GET " + encodedPath + " 的正文不得包含站点根目录之外的文件内容");
             }
             finally
             {
