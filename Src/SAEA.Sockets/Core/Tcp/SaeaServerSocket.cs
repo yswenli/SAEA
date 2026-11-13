@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 17:21:26
+*修改时间：2026/11/13 11:06:41
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：流模式下对端 FIN 视为入站结束，输入处理器返回后收尾断开
+*描述：会话 ID 只读一次局部副本，避免并发置空后以 null 作字典键
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -497,9 +497,15 @@ namespace SAEA.Sockets.Core.Tcp
 
         private SaeaConnection GetConnection(IUserToken userToken)
         {
-            if (userToken == null || string.IsNullOrEmpty(userToken.ID)) return null;
+            if (userToken == null) return null;
+
+            // ID 会被 SessionManager / UserTokenPool 与接收回调并发置空，只读一次局部副本：
+            // 多次读取会让空判断与实际字典查找看到不同的值，null 键会让 ConcurrentDictionary 抛异常。
+            var sessionId = userToken.ID;
+            if (string.IsNullOrEmpty(sessionId)) return null;
+
             SaeaConnection connection;
-            return _connections.TryGetValue(userToken.ID, out connection) ? connection : null;
+            return _connections.TryGetValue(sessionId, out connection) ? connection : null;
         }
 
         /// <inheritdoc />
@@ -725,13 +731,15 @@ namespace SAEA.Sockets.Core.Tcp
                     var eofToken = readArgs.UserToken as IUserToken;
                     var eofConnection = GetConnection(eofToken);
 
+                    // 与接收回调并发时 ID 可能被置空，只读一次局部副本，空判断与字典查找用同一个值。
+                    var eofSessionId = eofToken?.ID;
+
                     // 对端 FIN 只把「入站结束」交给连接门面：由输入处理器读完 Pipe 剩余字节后
                     // 自行收口，期间写方向仍可用。带 SocketError 的失败不等于 FIN，仍按断开处理。
                     if (readArgs.SocketError == SocketError.Success
-                        && eofToken != null
-                        && !string.IsNullOrEmpty(eofToken.ID)
+                        && !string.IsNullOrEmpty(eofSessionId)
                         && eofConnection != null
-                        && _pipelineCts.ContainsKey(eofToken.ID))
+                        && _pipelineCts.ContainsKey(eofSessionId))
                     {
                         eofConnection.CompleteInput();
                         // 对端不会再发数据，不再 re-arm 接收；断开由处理器返回后的兜底完成。
