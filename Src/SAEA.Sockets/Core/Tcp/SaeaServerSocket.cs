@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 15:19:56
+*修改时间：2026/11/13 15:24:39
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：回收时序收口：提交失败路径先断开再回滚在途计数，CompleteOperation 作为令牌最后一次访问，日志改用入池前的会话标识快照
+*描述：接收提交异常路径补回断开收口：先断开再回滚在途计数，CompleteOperation 作为令牌最后一次访问
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -710,13 +710,20 @@ namespace SAEA.Sockets.Core.Tcp
                             }
                             catch (Exception ex)
                             {
-                                // 提交失败必须回滚在途计数，否则该令牌再也回不到 0、永远无法入池；
-                                // 入池会清空 ID，日志与回调都用快照，CompleteOperation 之后不再触碰令牌。
+                                // 入池会清空 ID：日志、回调与断开都用入池前的快照；
+                                // 先断开再回滚在途计数，CompleteOperation 之后不再触碰令牌。
                                 var tokenId = userToken.ID;
-                                _sessionManager.CompleteOperation(userToken);
                                 var kex = new KernelException("An exception occurs when receiving:" + ex.Message, ex);
-                                LogHelper.Error($"An exception occurs when receiving:{tokenId}", kex);
-                                OnError?.Invoke(tokenId, kex);
+                                try
+                                {
+                                    LogHelper.Error($"An exception occurs when receiving:{tokenId}", kex);
+                                    OnError?.Invoke(tokenId, kex);
+                                }
+                                finally
+                                {
+                                    try { Disconnect(userToken, kex); } catch { }
+                                    _sessionManager.CompleteOperation(userToken);
+                                }
                                 return;
                             }
 
