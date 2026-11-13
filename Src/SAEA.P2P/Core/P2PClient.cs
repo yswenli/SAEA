@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 10:56:15
+*修改时间：2026/11/13 12:10:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：按信令与 ICE 重写客户端编排
+*描述：删除旧总配置构造，改用信令与 ICE 配置
 *
 *****************************************************************************/
 using System;
@@ -35,7 +35,6 @@ using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
-using SAEA.P2P.Builder;
 using SAEA.P2P.Common;
 using SAEA.P2P.Ice;
 using SAEA.P2P.Model;
@@ -128,14 +127,6 @@ namespace SAEA.P2P.Core
             _signaling.OnSessionClose += HandleSessionClose;
             _signaling.OnDisconnected += HandleDisconnected;
             _signaling.OnError += HandleSignalingError;
-        }
-
-        /// <summary>
-        /// 用总配置创建客户端，信令与 ICE 子配置按默认值补齐
-        /// </summary>
-        /// <param name="options">总配置，不可为 null</param>
-        public P2PClient(P2POptions options) : this(CreateSignalingOptions(options), new IceSessionOptions())
-        {
         }
 
         /// <summary>
@@ -568,20 +559,6 @@ namespace SAEA.P2P.Core
                 // 候选与应答都是辅助报文，发送失败只记日志，不打断选路
                 P2PLogHelper.Warning(PeerId, subject + "发送失败：" + ex.GetType().Name);
             }
-        }
-
-        private static SignalingOptions CreateSignalingOptions(P2POptions options)
-        {
-            if (options == null) throw new ArgumentNullException(nameof(options));
-            var timeout = options.Timeout ?? new TimeoutOptions();
-            var encryption = options.Encryption ?? new EncryptionOptions();
-            return new SignalingOptions
-            {
-                ServerAddress = options.ServerAddress, ServerPort = options.ServerPort, PeerId = options.NodeId,
-                SharedSecret = options.NodeIdPassword, ConnectTimeoutMs = timeout.ConnectTimeoutMs,
-                HeartbeatIntervalMs = timeout.HeartbeatIntervalMs, EnableTls = encryption.TlsEnabled,
-                TlsTargetHost = options.ServerAddress
-            };
         }
 
         private static IceSessionParameters CreateParameters(PeerSession session, string remoteUfrag, string remotePassword, IceRole role)

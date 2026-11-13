@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 18:25:03
+*修改时间：2026/11/13 12:10:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增信令会话错误码 ES03、ES04、ES05
+*描述：新增不支持的 TCP 同时打开错误码
 *
 *****************************************************************************/
 namespace SAEA.P2P.Common
@@ -178,6 +178,10 @@ namespace SAEA.P2P.Common
         /// 尚未选出可用通道就尝试发送业务数据
         /// </summary>
         public static readonly string NotConnected = "EI03";
+        /// <summary>
+        /// 当前平台不支持 TCP 同时打开，配置校验失败
+        /// </summary>
+        public static readonly string IceTcpSimultaneousOpenUnsupported = "EI04";
 
         // TURN 回退：服务不可用与鉴权失败
         /// <summary>
@@ -247,6 +251,7 @@ namespace SAEA.P2P.Common
                 { NoCandidatePair, "No candidate pair" },
                 { IceTimeout, "ICE session timeout" },
                 { NotConnected, "ICE channel not selected" },
+                { IceTcpSimultaneousOpenUnsupported, "TCP simultaneous open is not supported on this platform" },
                 { TurnUnavailable, "TURN server unavailable" },
                 { TurnAuthFailed, "TURN authentication failed" },
                 { ProtocolVersionMismatch, "Signaling protocol version mismatch" },
