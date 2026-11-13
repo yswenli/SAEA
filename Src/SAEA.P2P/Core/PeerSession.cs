@@ -23,21 +23,20 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 10:56:15
+*修改时间：2026/11/13 11:40:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补充 ICE 会话与阶段状态
+*描述：删除已迁移到 ICE 会话的旧成员
 *
 *****************************************************************************/
 using System;
 using SAEA.P2P.Channel;
-using SAEA.P2P.Common;
 using SAEA.P2P.Ice;
 
 namespace SAEA.P2P.Core
 {
     /// <summary>
-    /// 与单个对端的会话，记录地址、通道类型、收发序号与活跃时间
+    /// 与单个对端的会话：本端短凭据、ICE 选路会话与选路后的连接描述，阶段由客户端推进
     /// </summary>
     public class PeerSession
     {
@@ -50,31 +49,6 @@ namespace SAEA.P2P.Core
         /// 对端节点标识，创建后不可变
         /// </summary>
         public string PeerId { get; }
-        
-        /// <summary>
-        /// 会话所处的节点状态，初始为 Init
-        /// </summary>
-        public NodeState State { get; set; } = NodeState.Init;
-        
-        /// <summary>
-        /// 对端公网地址，尚未探测到时为 null
-        /// </summary>
-        public string PublicAddress { get; set; }
-        
-        /// <summary>
-        /// 对端公网端口，未获取时为 0
-        /// </summary>
-        public int PublicPort { get; set; }
-        
-        /// <summary>
-        /// 对端内网地址，尚未获取时为 null
-        /// </summary>
-        public string LocalAddress { get; set; }
-        
-        /// <summary>
-        /// 对端内网端口，未获取时为 0
-        /// </summary>
-        public int LocalPort { get; set; }
         
         /// <summary>
         /// 当前使用的通道类型，默认直连
@@ -90,21 +64,6 @@ namespace SAEA.P2P.Core
         /// 最近一次活跃时间，UTC，由 Active 刷新
         /// </summary>
         public DateTime LastActiveTime { get; private set; } = DateTime.UtcNow;
-        
-        /// <summary>
-        /// 已发送数据序号，由 NextSendSeq 自增
-        /// </summary>
-        public long SendSequence { get; private set; }
-        
-        /// <summary>
-        /// 已接收数据序号，由 NextReceiveSeq 自增
-        /// </summary>
-        public long ReceiveSequence { get; set; }
-        
-        /// <summary>
-        /// 中继会话标识，仅中继通道下有值
-        /// </summary>
-        public string RelaySessionId { get; set; }
         
         /// <summary>
         /// 是否为本端发起（发起方为控制方）
@@ -206,19 +165,6 @@ namespace SAEA.P2P.Core
         }
         
         /// <summary>
-        /// 判断会话是否已超过指定时长未活跃
-        /// </summary>
-        /// <param name="timeoutMs">超时阈值，单位毫秒</param>
-        /// <returns>已超时返回 true，否则返回 false</returns>
-        public bool IsExpired(int timeoutMs)
-        {
-            lock (_lock)
-            {
-                return (DateTime.UtcNow - LastActiveTime).TotalMilliseconds > timeoutMs;
-            }
-        }
-        
-        /// <summary>
         /// 把最近活跃时间刷新为当前 UTC 时间
         /// </summary>
         public void Active()
@@ -226,30 +172,6 @@ namespace SAEA.P2P.Core
             lock (_lock)
             {
                 LastActiveTime = DateTime.UtcNow;
-            }
-        }
-        
-        /// <summary>
-        /// 取下一个发送序号
-        /// </summary>
-        /// <returns>自增后的发送序号，从 1 开始</returns>
-        public long NextSendSeq()
-        {
-            lock (_lock)
-            {
-                return ++SendSequence;
-            }
-        }
-        
-        /// <summary>
-        /// 取下一个接收序号
-        /// </summary>
-        /// <returns>自增后的接收序号，从 1 开始</returns>
-        public long NextReceiveSeq()
-        {
-            lock (_lock)
-            {
-                return ++ReceiveSequence;
             }
         }
         
@@ -313,38 +235,12 @@ namespace SAEA.P2P.Core
         }
         
         /// <summary>
-        /// 取对端公网地址的「地址:端口」文本
-        /// </summary>
-        /// <returns>公网地址为空时返回 null</returns>
-        public string GetPublicEndPoint()
-        {
-            if (string.IsNullOrEmpty(PublicAddress))
-            {
-                return null;
-            }
-            return $"{PublicAddress}:{PublicPort}";
-        }
-        
-        /// <summary>
-        /// 取对端内网地址的「地址:端口」文本
-        /// </summary>
-        /// <returns>内网地址为空时返回 null</returns>
-        public string GetLocalEndPoint()
-        {
-            if (string.IsNullOrEmpty(LocalAddress))
-            {
-                return null;
-            }
-            return $"{LocalAddress}:{LocalPort}";
-        }
-        
-        /// <summary>
-        /// 返回包含会话标识、对端标识、状态与通道类型的描述
+        /// 返回包含会话标识、对端标识与阶段的描述
         /// </summary>
         /// <returns>会话描述字符串</returns>
         public override string ToString()
         {
-            return $"PeerSession[SessionId={SessionId}, PeerId={PeerId}, State={State}, Channel={Channel}]";
+            return $"PeerSession[SessionId={SessionId}, PeerId={PeerId}, Phase={Phase}]";
         }
         
         /// <summary>

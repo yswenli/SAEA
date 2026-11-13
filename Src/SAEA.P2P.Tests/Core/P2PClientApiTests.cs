@@ -23,15 +23,16 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 11:19:45
+*修改时间：2026/11/13 11:40:00
 *修改人： yswenli
 *版本号： net10.0
-*描述：客户端信令与 ICE 编排用例
+*描述：补充数据面双向收发与超限用例
 *
 *****************************************************************************/
 using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading.Tasks;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -46,8 +47,8 @@ using SAEA.P2P.Signaling;
 namespace SAEA.P2P.Tests.Core
 {
     /// <summary>
-    /// P2P 客户端：未注册时的连接与发送校验，以及两端经信令交换参数后在同一回环地址上选出 UDP 直连通道、
-    /// 断开时由对端收到会话关闭通知的端到端用例。
+    /// P2P 客户端：未注册时的连接与发送校验，两端经信令交换参数后在同一回环地址上选出 UDP 直连通道、
+    /// 断开时由对端收到会话关闭通知，以及直连后双向业务帧收发与超限载荷拦截的端到端用例。
     /// 需要服务端的用例都在本机回环上起真实信令服务端，不依赖任何外部服务。
     /// </summary>
     [TestClass]
@@ -120,82 +121,104 @@ namespace SAEA.P2P.Tests.Core
         [Timeout(120000)]
         public async Task ConnectToPeerAsync_双方直连_两端建立UdpDirect并通知断开()
         {
-            // 服务端与客户端都绑回环，避免依赖本机实际网卡与外网环境
-            var port = ReserveTcpPort();
-            P2PServer server = null;
-            P2PClient clientA = null;
-            P2PClient clientB = null;
-
-            try
+            using (var pair = await ConnectPairAsync().ConfigureAwait(false))
             {
-                server = new P2PServer(CreateServerOptions(port));
-                server.Start();
+                Assert.IsTrue(pair.ClientA.IsRegistered, "client-a 注册成功后 IsRegistered 应为 true");
+                Assert.IsTrue(pair.ClientB.IsRegistered, "client-b 注册成功后 IsRegistered 应为 true");
 
-                clientA = new P2PClient(CreateSignaling(PeerA, port), CreateIceOptions());
-                clientB = new P2PClient(CreateSignaling(PeerB, port), CreateIceOptions());
+                Assert.AreEqual(PeerB, pair.ConnectionA.PeerId, "发起方连接描述的对端标识不一致");
+                Assert.AreEqual(ChannelType.UdpDirect, pair.ConnectionA.Channel, "发起方应选出 UDP 直连通道");
+                Assert.IsNotNull(pair.ConnectionA.LocalEndPoint, "发起方连接的本地端点不应为空");
+                Assert.IsNotNull(pair.ConnectionA.RemoteEndPoint, "发起方连接的远端端点不应为空");
+                Assert.IsTrue(IPAddress.IsLoopback(pair.ConnectionA.LocalEndPoint.Address), "发起方本地端点应落在回环地址上");
+                Assert.IsTrue(IPAddress.IsLoopback(pair.ConnectionA.RemoteEndPoint.Address), "发起方远端端点应落在回环地址上");
 
-                // 两端都可能在发起方任务返回前就触发事件，用异步续延避免回调重入选路线程
-                var aConnected = new TaskCompletionSource<P2PConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
-                var bConnected = new TaskCompletionSource<P2PConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
-                clientA.OnPeerConnected += connection => aConnected.TrySetResult(connection);
-                clientB.OnPeerConnected += connection => bConnected.TrySetResult(connection);
-
-                await clientA.RegisterAsync().ConfigureAwait(false);
-                await clientB.RegisterAsync().ConfigureAwait(false);
-                Assert.IsTrue(clientA.IsRegistered, "client-a 注册成功后 IsRegistered 应为 true");
-                Assert.IsTrue(clientB.IsRegistered, "client-b 注册成功后 IsRegistered 应为 true");
-
-                var connectTask = clientA.ConnectToPeerAsync(PeerB);
-                var completed = await Task.WhenAny(connectTask, Task.Delay(30000)).ConfigureAwait(false);
-                if (completed != connectTask)
-                {
-                    Assert.Fail("等待客户端连接超时（30s 内未完成与 " + PeerB + " 的选路）");
-                }
-
-                var connection = await connectTask.ConfigureAwait(false);
-                var bConnection = await WaitAsync(bConnected.Task, EventTimeout).ConfigureAwait(false);
-                // 发起方的事件可能早于 ConnectToPeerAsync 返回，单独等一次事件以确认通知确实到达
-                await WaitAsync(aConnected.Task, EventTimeout).ConfigureAwait(false);
-
-                Assert.AreEqual(PeerB, connection.PeerId, "发起方连接描述的对端标识不一致");
-                Assert.AreEqual(ChannelType.UdpDirect, connection.Channel, "发起方应选出 UDP 直连通道");
-                Assert.IsNotNull(connection.LocalEndPoint, "发起方连接的本地端点不应为空");
-                Assert.IsNotNull(connection.RemoteEndPoint, "发起方连接的远端端点不应为空");
-                Assert.IsTrue(IPAddress.IsLoopback(connection.LocalEndPoint.Address), "发起方本地端点应落在回环地址上");
-                Assert.IsTrue(IPAddress.IsLoopback(connection.RemoteEndPoint.Address), "发起方远端端点应落在回环地址上");
-
-                Assert.AreEqual(PeerA, bConnection.PeerId, "应答方连接描述的对端标识不一致");
-                Assert.AreEqual(ChannelType.UdpDirect, bConnection.Channel, "应答方应选出 UDP 直连通道");
-                Assert.IsNotNull(bConnection.LocalEndPoint, "应答方连接的本地端点不应为空");
-                Assert.IsNotNull(bConnection.RemoteEndPoint, "应答方连接的远端端点不应为空");
-                Assert.IsTrue(IPAddress.IsLoopback(bConnection.LocalEndPoint.Address), "应答方本地端点应落在回环地址上");
-                Assert.IsTrue(IPAddress.IsLoopback(bConnection.RemoteEndPoint.Address), "应答方远端端点应落在回环地址上");
+                Assert.AreEqual(PeerA, pair.ConnectionB.PeerId, "应答方连接描述的对端标识不一致");
+                Assert.AreEqual(ChannelType.UdpDirect, pair.ConnectionB.Channel, "应答方应选出 UDP 直连通道");
+                Assert.IsNotNull(pair.ConnectionB.LocalEndPoint, "应答方连接的本地端点不应为空");
+                Assert.IsNotNull(pair.ConnectionB.RemoteEndPoint, "应答方连接的远端端点不应为空");
+                Assert.IsTrue(IPAddress.IsLoopback(pair.ConnectionB.LocalEndPoint.Address), "应答方本地端点应落在回环地址上");
+                Assert.IsTrue(IPAddress.IsLoopback(pair.ConnectionB.RemoteEndPoint.Address), "应答方远端端点应落在回环地址上");
 
                 // 必须在断开前挂上通知，否则可能错过会话关闭报文
                 var bDisconnected = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
-                clientB.OnPeerDisconnected += (peerId, reason) => bDisconnected.TrySetResult(peerId + "|" + reason);
+                pair.ClientB.OnPeerDisconnected += (peerId, reason) => bDisconnected.TrySetResult(peerId + "|" + reason);
 
-                await clientA.DisconnectPeerAsync(PeerB).ConfigureAwait(false);
+                await pair.ClientA.DisconnectPeerAsync(PeerB).ConfigureAwait(false);
                 var disconnected = await WaitAsync(bDisconnected.Task, EventTimeout).ConfigureAwait(false);
                 var separator = disconnected.IndexOf('|');
                 Assert.AreEqual(PeerA, disconnected.Substring(0, separator), "应答方收到的断开通知应对应发起方");
                 Assert.IsFalse(string.IsNullOrEmpty(disconnected.Substring(separator + 1)), "应答方收到的断开原因不应为空");
             }
-            finally
+        }
+
+        /// <summary>
+        /// 数据面双向收发：两端直连后互相发送业务帧，两端的 OnDataReceived 都应收到字节一致的完整载荷，
+        /// 且回调中的来源对端标识与发送方一致
+        /// </summary>
+        [TestMethod]
+        [Timeout(120000)]
+        public async Task Send_双方已连接_双向收到完整帧()
+        {
+            using (var pair = await ConnectPairAsync().ConfigureAwait(false))
             {
-                if (clientA != null)
+                var aReceived = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+                var bReceived = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+                var aSource = (string)null;
+                var bSource = (string)null;
+
+                // data 是只在回调期间有效的 Span，必须先复制再交给断言逻辑
+                pair.ClientA.OnDataReceived += (peerId, data) =>
                 {
-                    clientA.Dispose();
+                    aSource = peerId;
+                    aReceived.TrySetResult(data.ToArray());
+                };
+                pair.ClientB.OnDataReceived += (peerId, data) =>
+                {
+                    bSource = peerId;
+                    bReceived.TrySetResult(data.ToArray());
+                };
+
+                // 载荷长度跨越多个 UDP 分片边界值，用来暴露截断或越界拼接的问题
+                var outgoing = new byte[1024];
+                for (var i = 0; i < outgoing.Length; i++)
+                {
+                    outgoing[i] = (byte)(i % 251);
                 }
 
-                if (clientB != null)
-                {
-                    clientB.Dispose();
-                }
+                pair.ClientA.Send(PeerB, outgoing);
+                var receivedByB = await WaitAsync(bReceived.Task, EventTimeout).ConfigureAwait(false);
+                CollectionAssert.AreEqual(outgoing, receivedByB, "应答方收到的载荷应与发送方一致");
+                Assert.AreEqual(PeerA, bSource, "应答方看到的来源对端应为发起方");
 
-                if (server != null)
+                var reply = Encoding.UTF8.GetBytes("p2p-reply-反向业务帧");
+                pair.ClientB.Send(PeerA, reply);
+                var receivedByA = await WaitAsync(aReceived.Task, EventTimeout).ConfigureAwait(false);
+                CollectionAssert.AreEqual(reply, receivedByA, "发起方收到的应答应与应答方发送的一致");
+                Assert.AreEqual(PeerB, aSource, "发起方看到的来源对端应为应答方");
+            }
+        }
+
+        /// <summary>
+        /// 单包上限校验：载荷超过 UDP 数据报上限时应在本地封装阶段以 PayloadTooLarge 失败，
+        /// 不能截断后发出去让对端收到残缺帧
+        /// </summary>
+        [TestMethod]
+        [Timeout(120000)]
+        public async Task Send_超过单包上限_抛PayloadTooLarge()
+        {
+            using (var pair = await ConnectPairAsync().ConfigureAwait(false))
+            {
+                // 单包上限为 65506 字节（含数据面前缀），70000 字节必然超限
+                var oversized = new byte[70000];
+                try
                 {
-                    server.Stop();
+                    pair.ClientA.Send(PeerB, oversized);
+                    Assert.Fail("超过单包上限应抛异常");
+                }
+                catch (P2PException ex)
+                {
+                    Assert.AreEqual(ErrorCode.PayloadTooLarge, ex.ErrorCode, "超限载荷应报 EF01");
                 }
             }
         }
@@ -308,6 +331,106 @@ namespace SAEA.P2P.Tests.Core
                 throw new TimeoutException("等待任务超时：" + (long)timeout.TotalMilliseconds + " ms");
             }
             await task.ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// 在本机回环上搭起两个客户端的直连会话：起信令服务端、注册两端并等待双方都收到 OnPeerConnected
+        /// </summary>
+        /// <returns>已建立直连的夹具，调用方负责释放</returns>
+        private static async Task<PairFixture> ConnectPairAsync()
+        {
+            // 服务端与客户端都绑回环，避免依赖本机实际网卡与外网环境
+            var port = ReserveTcpPort();
+            var fixture = new PairFixture();
+
+            try
+            {
+                fixture.Server = new P2PServer(CreateServerOptions(port));
+                fixture.Server.Start();
+
+                fixture.ClientA = new P2PClient(CreateSignaling(PeerA, port), CreateIceOptions());
+                fixture.ClientB = new P2PClient(CreateSignaling(PeerB, port), CreateIceOptions());
+
+                // 两端都可能在发起方任务返回前就触发事件，用异步续延避免回调重入选路线程
+                var aConnected = new TaskCompletionSource<P2PConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
+                var bConnected = new TaskCompletionSource<P2PConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
+                fixture.ClientA.OnPeerConnected += connection => aConnected.TrySetResult(connection);
+                fixture.ClientB.OnPeerConnected += connection => bConnected.TrySetResult(connection);
+
+                await fixture.ClientA.RegisterAsync().ConfigureAwait(false);
+                await fixture.ClientB.RegisterAsync().ConfigureAwait(false);
+
+                var connectTask = fixture.ClientA.ConnectToPeerAsync(PeerB);
+                var completed = await Task.WhenAny(connectTask, Task.Delay(30000)).ConfigureAwait(false);
+                if (completed != connectTask)
+                {
+                    throw new TimeoutException("等待客户端连接超时");
+                }
+
+                fixture.ConnectionA = await connectTask.ConfigureAwait(false);
+                fixture.ConnectionB = await WaitAsync(bConnected.Task, EventTimeout).ConfigureAwait(false);
+                // 发起方的事件可能早于 ConnectToPeerAsync 返回，单独等一次事件以确认通知确实到达
+                await WaitAsync(aConnected.Task, EventTimeout).ConfigureAwait(false);
+                return fixture;
+            }
+            catch
+            {
+                // 搭建中途失败也要先收回已启动的服务端与客户端，否则端口与会话会泄漏到后续用例
+                fixture.Dispose();
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// 一对已直连的客户端及其会话描述，释放时按客户端、服务端顺序收尾
+        /// </summary>
+        private sealed class PairFixture : IDisposable
+        {
+            /// <summary>
+            /// 被测信令服务端
+            /// </summary>
+            public P2PServer Server;
+
+            /// <summary>
+            /// 发起方客户端
+            /// </summary>
+            public P2PClient ClientA;
+
+            /// <summary>
+            /// 应答方客户端
+            /// </summary>
+            public P2PClient ClientB;
+
+            /// <summary>
+            /// 发起方连接描述
+            /// </summary>
+            public P2PConnection ConnectionA;
+
+            /// <summary>
+            /// 应答方连接描述
+            /// </summary>
+            public P2PConnection ConnectionB;
+
+            /// <summary>
+            /// 释放客户端并停止服务端；各步异常互相隔离，避免收尾中断掩盖用例本身的失败
+            /// </summary>
+            public void Dispose()
+            {
+                if (ClientA != null)
+                {
+                    try { ClientA.Dispose(); } catch { }
+                }
+
+                if (ClientB != null)
+                {
+                    try { ClientB.Dispose(); } catch { }
+                }
+
+                if (Server != null)
+                {
+                    try { Server.Stop(); } catch { }
+                }
+            }
         }
     }
 }
