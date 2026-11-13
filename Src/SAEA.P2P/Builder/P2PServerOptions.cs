@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 18:25:03
+*修改时间：2026/11/13 13:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增信令鉴权与 TURN 凭据下发配置
+*描述：删除服务端自定义中继配置
 *
 *****************************************************************************/
 using System.Security.Authentication;
@@ -36,7 +36,7 @@ using SAEA.P2P.Common;
 namespace SAEA.P2P.Builder
 {
     /// <summary>
-    /// P2P 信令服务端总配置，聚合绑定地址、端口、容量、中继、TLS、超时与日志子配置
+    /// P2P 信令服务端总配置，聚合绑定地址、端口、容量、TLS、超时与日志子配置
     /// </summary>
     public class P2PServerOptions
     {
@@ -54,11 +54,6 @@ namespace SAEA.P2P.Builder
         /// 最大同时在线节点数，默认 10000，必须大于 0
         /// </summary>
         public int MaxNodes { get; set; } = 10000;
-        
-        /// <summary>
-        /// 服务端中继配置
-        /// </summary>
-        public ServerRelayOptions Relay { get; set; } = new ServerRelayOptions();
         
         /// <summary>
         /// 服务端 TLS 配置
@@ -120,7 +115,6 @@ namespace SAEA.P2P.Builder
                 throw new P2PException(ErrorCode.RegisterServerUnavailable, "MaxNodes must be greater than 0");
             }
             
-            Relay?.Validate();
             Tls?.Validate();
             Timeout?.Validate();
 
@@ -132,53 +126,6 @@ namespace SAEA.P2P.Builder
             if (!string.IsNullOrEmpty(SharedSecret) && string.IsNullOrWhiteSpace(Realm))
             {
                 throw new P2PException(ErrorCode.RegisterServerUnavailable, "Realm is required when SharedSecret is set");
-            }
-        }
-    }
-    
-    /// <summary>
-    /// 服务端中继参数，控制启用开关、会话上限、缓冲区、带宽与字节配额
-    /// </summary>
-    public class ServerRelayOptions
-    {
-        /// <summary>
-        /// 是否启用中继，默认启用
-        /// </summary>
-        public bool Enabled { get; set; } = true;
-        
-        /// <summary>
-        /// 并发中继会话上限，默认 1000，必须大于 0（服务端当前未读取该值）
-        /// </summary>
-        public int MaxRelaySessions { get; set; } = 1000;
-        
-        /// <summary>
-        /// 中继转发缓冲区字节数，默认 64 KB，必须大于 0（服务端当前未读取该值）
-        /// </summary>
-        public int RelayBufferSize { get; set; } = 64 * 1024;
-        
-        /// <summary>
-        /// 单会话中继带宽上限（字节/秒），默认 10 MB（服务端当前未读取该值）
-        /// </summary>
-        public int MaxRelayBandwidth { get; set; } = 10 * 1024 * 1024;
-        
-        /// <summary>
-        /// 单中继会话累计转发字节配额，默认 0 表示不限
-        /// </summary>
-        public long MaxQuota { get; set; } = 0;
-        
-        /// <summary>
-        /// 校验中继参数，并发会话上限与缓冲区大小必须大于 0
-        /// </summary>
-        public void Validate()
-        {
-            if (MaxRelaySessions <= 0)
-            {
-                throw new P2PException(ErrorCode.RelayFailed, "MaxRelaySessions must be greater than 0");
-            }
-            
-            if (RelayBufferSize <= 0)
-            {
-                throw new P2PException(ErrorCode.RelayFailed, "RelayBufferSize must be greater than 0");
             }
         }
     }
@@ -264,7 +211,7 @@ namespace SAEA.P2P.Builder
         public int HeartbeatTimeoutMs { get; set; } = 10000;
         
         /// <summary>
-        /// 会话超时，默认 120000，必须大于 0，作为中继管理器的会话过期依据
+        /// 会话超时，默认 120000，必须大于 0，作为信令会话的过期依据
         /// </summary>
         public int SessionTimeoutMs { get; set; } = 120000;
         

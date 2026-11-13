@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 18:32:49
+*修改时间：2026/11/13 13:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增新信令协议的注册、鉴权、会话转发与凭据下发
+*描述：删除自定义打洞、NAT 探测与中继转发，收窄为纯信令服务器
 *
 *****************************************************************************/
 using System;
@@ -43,9 +43,7 @@ using SAEA.Sockets.Model;
 using SAEA.P2P.Builder;
 using SAEA.P2P.Common;
 using SAEA.P2P.Model;
-using SAEA.P2P.NAT;
 using SAEA.P2P.Protocol;
-using SAEA.P2P.Relay;
 using SAEA.P2P.Security;
 using SAEA.P2P.Signaling;
 using SAEA.P2P.Turn;
@@ -53,8 +51,7 @@ using SAEA.P2P.Turn;
 namespace SAEA.P2P.Core
 {
     /// <summary>
-    /// P2P 信令服务器，负责节点注册、打洞地址交换、中继转发与节点列表广播。
-    /// 新信令协议下还负责鉴权、会话消息转发与 TURN 临时凭据下发；旧的中继转发职责仍在，待后续任务删除。
+    /// P2P 信令服务器，负责节点注册、会话消息转发、TURN 临时凭据下发与节点列表广播；不承载业务数据，也不做打洞地址交换或中继转发
     /// </summary>
     public class P2PServer
     {
@@ -63,7 +60,6 @@ namespace SAEA.P2P.Core
         private P2PCoder _coder = new P2PCoder();
         private readonly ConcurrentDictionary<string, P2PCoder> _sessionCoders = new ConcurrentDictionary<string, P2PCoder>();
         
-        private RelayManager _relayManager;
         private ConcurrentDictionary<string, NodeInfo> _nodes = new ConcurrentDictionary<string, NodeInfo>();
         private ConcurrentDictionary<string, string> _sessionToNode = new ConcurrentDictionary<string, string>();
         private ConcurrentDictionary<string, string> _nodeToSession = new ConcurrentDictionary<string, string>();
@@ -121,14 +117,6 @@ namespace SAEA.P2P.Core
         /// </summary>
         public event Action<string> OnNodeUnregistered;
         /// <summary>
-        /// 中继会话建立时触发，参数为源节点与目标节点标识
-        /// </summary>
-        public event Action<string, string> OnRelayStarted;
-        /// <summary>
-        /// 中继会话结束的通知事件，当前实现未触发
-        /// </summary>
-        public event Action<string> OnRelayEnded;
-        /// <summary>
         /// 发生错误时触发，参数为会话标识或节点标识与错误码
         /// </summary>
         public event Action<string, string> OnError;
@@ -139,15 +127,12 @@ namespace SAEA.P2P.Core
         public ConcurrentDictionary<string, NodeInfo> Nodes => _nodes;
         
         /// <summary>
-        /// 按配置创建服务器，启用中继时一并创建中继管理器
+        /// 按配置创建服务器
         /// </summary>
         /// <param name="options">服务器配置，不可为 null</param>
         public P2PServer(P2PServerOptions options)
         {
             _options = options ?? throw new ArgumentNullException(nameof(options));
-            
-            if (_options.Relay.Enabled)
-                _relayManager = new RelayManager(_options.Timeout.SessionTimeoutMs, _options.Relay.MaxQuota);
             
             P2PLogHelper.SetLevel(_options.Logging.Level);
 
@@ -253,21 +238,6 @@ namespace SAEA.P2P.Core
                     break;
                 case P2PMessageType.AuthResponse:
                     ProcessAuthResponse(sessionId, protocol.Content);
-                    break;
-                case P2PMessageType.NatProbe:
-                    ProcessNatProbe(sessionId);
-                    break;
-                case P2PMessageType.PunchRequest:
-                    ProcessPunchRequest(sessionId, protocol.Content);
-                    break;
-                case P2PMessageType.RelayRequest:
-                    ProcessRelayRequest(sessionId, protocol.Content);
-                    break;
-                case P2PMessageType.RelayData:
-                    ProcessRelayData(sessionId, protocol.Content);
-                    break;
-                case P2PMessageType.UserData:
-                    ProcessUserData(sessionId, protocol.Content);
                     break;
                 case P2PMessageType.ConnectRequest:
                     ProcessConnectRequest(sessionId, protocol.Content);
@@ -828,167 +798,6 @@ namespace SAEA.P2P.Core
             }
         }
         
-        private void ProcessNatProbe(string sessionId)
-        {
-            var userToken = _serverSocket.GetCurrentObj(sessionId) as IUserToken;
-            if (userToken != null && userToken.Socket != null)
-            {
-                var remoteEP = userToken.Socket.RemoteEndPoint as IPEndPoint;
-                if (remoteEP != null)
-                {
-                    // Remember the observed public endpoint so PunchReady can advertise it.
-                    var nodeId = _sessionToNode.TryGetValue(sessionId, out var nid) ? nid : null;
-                    if (nodeId != null && _nodes.TryGetValue(nodeId, out var node))
-                    {
-                        node.PublicAddress = remoteEP.Address.ToString();
-                        node.PublicPort = remoteEP.Port;
-                        node.LastActiveTime = DateTime.UtcNow;
-                    }
-                    
-                    var probeAckContent = Encoding.UTF8.GetBytes($"{remoteEP.Address}|{remoteEP.Port}|{(int)NATType.Unknown}");
-                    var probeAckPacket = _coder.EncodeP2P(P2PMessageType.NatProbeAck, probeAckContent);
-                    _serverSocket.SendAsync(sessionId, probeAckPacket);
-                    P2PLogHelper.Debug("P2PServer", $"Nat probe ack sent to {sessionId}: {remoteEP}");
-                }
-            }
-        }
-        
-        private void ProcessPunchRequest(string sessionId, ReadOnlyMemory<byte> content)
-        {
-            var targetId = P2PContent.GetString(content);
-            
-            var sourceId = _sessionToNode.TryGetValue(sessionId, out var s) ? s : null;
-            if (sourceId == null) return;
-            
-            if (_nodes.TryGetValue(targetId, out var targetNode))
-            {
-                var targetSessionId = _nodeToSession.TryGetValue(targetId, out var ts) ? ts : null;
-                if (targetSessionId != null)
-                {
-                    var sourceNode = _nodes[sourceId];
-                    
-                    var readyContent = Encoding.UTF8.GetBytes($"{targetId}|{targetNode.GetPublicEndPoint()}|{targetNode.GetLocalEndPoint()}");
-                    var readyPacket = _coder.EncodeP2P(P2PMessageType.PunchReady, readyContent);
-                    _serverSocket.SendAsync(sessionId, readyPacket);
-                    
-                    var notifyContent = Encoding.UTF8.GetBytes($"{sourceId}|{sourceNode.GetPublicEndPoint()}|{sourceNode.GetLocalEndPoint()}");
-                    var notifyPacket = _coder.EncodeP2P(P2PMessageType.PunchReady, notifyContent);
-                    _serverSocket.SendAsync(targetSessionId, notifyPacket);
-                    
-                    P2PLogHelper.Debug("P2PServer", $"Punch request: {sourceId} -> {targetId}");
-                }
-                else
-                {
-                    OnError?.Invoke(sessionId, ErrorCode.PunchNoRoute);
-                }
-            }
-            else
-            {
-                OnError?.Invoke(sessionId, ErrorCode.DiscoveryNoCandidates);
-            }
-        }
-        
-        private void ProcessRelayRequest(string sessionId, ReadOnlyMemory<byte> content)
-        {
-            if (_relayManager == null)
-            {
-                OnError?.Invoke(sessionId, ErrorCode.RelayFailed);
-                return;
-            }
-            
-            var targetId = P2PContent.GetString(content);
-            var sourceId = _sessionToNode.TryGetValue(sessionId, out var s) ? s : null;
-            
-            if (sourceId == null) return;
-            
-            var relaySession = _relayManager.CreateSession(sourceId, targetId);
-            
-            // RelayAck layout: {sessionId}|{peerId}. Each side learns who it is talking to.
-            var ackContent = Encoding.UTF8.GetBytes($"{relaySession.SessionId}|{targetId}");
-            var ackPacket = _coder.EncodeP2P(P2PMessageType.RelayAck, ackContent);
-            _serverSocket.SendAsync(sessionId, ackPacket);
-            
-            var targetSessionId = _nodeToSession.TryGetValue(targetId, out var ts) ? ts : null;
-            if (targetSessionId != null)
-            {
-                var targetAckContent = Encoding.UTF8.GetBytes($"{relaySession.SessionId}|{sourceId}");
-                var targetAckPacket = _coder.EncodeP2P(P2PMessageType.RelayAck, targetAckContent);
-                _serverSocket.SendAsync(targetSessionId, targetAckPacket);
-            }
-            
-            OnRelayStarted?.Invoke(sourceId, targetId);
-            P2PLogHelper.Info("P2PServer", $"Relay started: {sourceId} -> {targetId}");
-        }
-        
-        private void ProcessRelayData(string sessionId, ReadOnlyMemory<byte> content)
-        {
-            if (_relayManager == null) return;
-
-            var span = content.Span;
-            var first = span.IndexOf((byte)'|');
-            if (first < 0) return;
-            var second = P2PContent.IndexOf(span, (byte)'|', first + 1);
-            if (second < 0) return;
-            var third = P2PContent.IndexOf(span, (byte)'|', second + 1);
-            if (third < 0) return;
-
-            var relaySessionId = P2PContent.GetString(content, 0, first);
-            var targetId = P2PContent.GetString(content, second + 1, third - second - 1);
-            var payloadLength = content.Length - (third + 1);
-            
-            var relaySession = _relayManager.GetSession(relaySessionId);
-            if (relaySession != null)
-            {
-                relaySession.AddBytes(payloadLength);
-                
-                var targetSessionId = _nodeToSession.TryGetValue(targetId, out var ts) ? ts : null;
-                if (targetSessionId != null)
-                {
-                    var forwardPacket = _coder.EncodeP2P(P2PMessageType.RelayData, content.ToArray());
-                    _serverSocket.SendAsync(targetSessionId, forwardPacket);
-                    
-                    P2PLogHelper.Trace("P2PServer", $"Relay data forwarded: {relaySessionId}, {payloadLength} bytes");
-                }
-            }
-            else
-            {
-                OnError?.Invoke(sessionId, ErrorCode.RelaySessionNotFound);
-            }
-        }
-        
-        private void ProcessUserData(string sessionId, ReadOnlyMemory<byte> content)
-        {
-            // content layout from client: {sourceId}|{targetId}|{payload}
-            var span = content.Span;
-            var first = span.IndexOf((byte)'|');
-            if (first <= 0) return;
-            var second = P2PContent.IndexOf(span, (byte)'|', first + 1);
-            if (second < 0) return;
-            
-            var sourceId = P2PContent.GetString(content, 0, first);
-            var targetId = P2PContent.GetString(content, first + 1, second - first - 1);
-            
-            var targetSessionId = _nodeToSession.TryGetValue(targetId, out var ts) ? ts : null;
-            if (targetSessionId == null)
-            {
-                OnError?.Invoke(sessionId, ErrorCode.DiscoveryNoCandidates);
-                return;
-            }
-            
-            // Rebuild as {sourceId}|{payload} and forward raw payload bytes.
-            var payloadOffset = second + 1;
-            var payloadLength = content.Length - payloadOffset;
-            var forwardContent = new byte[first + 1 + payloadLength];
-            span.Slice(0, first + 1).CopyTo(forwardContent);
-            if (payloadLength > 0)
-                span.Slice(payloadOffset, payloadLength).CopyTo(forwardContent.AsSpan(first + 1));
-            
-            var forwardPacket = _coder.EncodeP2P(P2PMessageType.UserData, forwardContent);
-            _serverSocket.SendAsync(targetSessionId, forwardPacket);
-            
-            P2PLogHelper.Trace("P2PServer", $"User data forwarded: {sourceId} -> {targetId}");
-        }
-        
         private void OnDisconnected(string sessionId, Exception ex)
         {
             _sessionCoders.TryRemove(sessionId, out _);
@@ -1043,11 +852,6 @@ namespace SAEA.P2P.Core
             return _nodes.TryGetValue(nodeId, out var node) ? node : null;
         }
         
-        /// <summary>
-        /// 当前活跃的中继会话数，未启用中继时为 0
-        /// </summary>
-        public int ActiveRelaySessionCount => _relayManager?.ActiveSessionCount ?? 0;
-
         /// <summary>
         /// 一条信令会话的两端节点与最后活动时间
         /// </summary>

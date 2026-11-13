@@ -237,7 +237,6 @@ namespace SAEA.P2P.Tests.Core
                 SharedSecret = null,
                 RejectDuplicatePeer = false
             };
-            options.Relay.Enabled = false;
             options.Logging.Level = 4;
             return options;
         }

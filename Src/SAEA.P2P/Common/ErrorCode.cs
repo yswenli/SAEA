@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 12:10:00
+*修改时间：2026/11/13 13:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增不支持的 TCP 同时打开错误码
+*描述：删除打洞与自定义中继错误码
 *
 *****************************************************************************/
 namespace SAEA.P2P.Common
@@ -101,45 +101,6 @@ namespace SAEA.P2P.Common
         /// 发现失败
         /// </summary>
         public static readonly string DiscoveryFailed = "ED07";
-
-        /// <summary>
-        /// 打洞失败
-        /// </summary>
-        public static readonly string PunchFailed = "EO01";
-        /// <summary>
-        /// 打洞超时
-        /// </summary>
-        public static readonly string PunchTimeout = "EO02";
-        /// <summary>
-        /// 到对端没有可用路由
-        /// </summary>
-        public static readonly string PunchNoRoute = "EO03";
-
-        /// <summary>
-        /// UDP 打洞失败
-        /// </summary>
-        public static readonly string HolePunchFailed = "EH01";
-        /// <summary>
-        /// UDP 打洞超时
-        /// </summary>
-        public static readonly string HolePunchTimeout = "EH02";
-
-        /// <summary>
-        /// 中继连接失败
-        /// </summary>
-        public static readonly string RelayFailed = "ER01";
-        /// <summary>
-        /// 中继服务器不可用
-        /// </summary>
-        public static readonly string RelayServerUnavailable = "ER02";
-        /// <summary>
-        /// 中继会话不存在
-        /// </summary>
-        public static readonly string RelaySessionNotFound = "ER03";
-        /// <summary>
-        /// 中继配额超限
-        /// </summary>
-        public static readonly string RelayQuotaExceeded = "ER04";
 
         /// <summary>
         /// 鉴权失败
@@ -234,15 +195,6 @@ namespace SAEA.P2P.Common
                 { DiscoveryAddressInvalid, "Discovery address invalid" },
                 { DiscoveryPortBlocked, "Discovery port blocked" },
                 { DiscoveryFailed, "Discovery failed" },
-                { PunchFailed, "Hole punch failed" },
-                { PunchTimeout, "Hole punch timeout" },
-                { PunchNoRoute, "No route to peer" },
-                { HolePunchFailed, "Hole punch failed" },
-                { HolePunchTimeout, "Hole punch timeout" },
-                { RelayFailed, "Relay connection failed" },
-                { RelayServerUnavailable, "Relay server unavailable" },
-                { RelaySessionNotFound, "Relay session not found" },
-                { RelayQuotaExceeded, "Relay quota exceeded" },
                 { AuthFailed, "Authentication failed" },
                 { AuthTimeout, "Authentication timeout" },
                 { EncryptionFailed, "Encryption failed" },

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:20:16
+*修改时间：2026/11/13 13:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：删除 EnableRelay 入口
 *
 *****************************************************************************/
 using SAEA.P2P.Common;
@@ -34,7 +34,7 @@ using SAEA.P2P.Common;
 namespace SAEA.P2P.Builder
 {
     /// <summary>
-    /// P2P 信令服务端配置构建器，链式设置绑定地址、端口、容量、中继、TLS 与日志参数
+    /// P2P 信令服务端配置构建器，链式设置绑定地址、端口、容量、TLS 与日志参数
     /// </summary>
     public class P2PServerBuilder
     {
@@ -82,34 +82,6 @@ namespace SAEA.P2P.Builder
                 throw new P2PException(ErrorCode.RegisterServerUnavailable, "MaxNodes must be greater than 0");
             }
             _options.MaxNodes = maxNodes;
-            return this;
-        }
-
-        /// <summary>
-        /// 启用中继（默认已启用），沿用默认会话上限与不限量字节配额
-        /// </summary>
-        /// <returns>当前构建器，便于链式调用</returns>
-        public P2PServerBuilder EnableRelay()
-        {
-            _options.Relay.Enabled = true;
-            return this;
-        }
-
-        /// <summary>
-        /// 启用中继并指定会话上限与字节配额
-        /// </summary>
-        /// <param name="maxConnections">并发中继会话上限，必须大于 0</param>
-        /// <param name="maxQuota">单会话累计转发字节配额，小于等于 0 表示不限</param>
-        /// <returns>当前构建器，便于链式调用</returns>
-        public P2PServerBuilder EnableRelay(int maxConnections, long maxQuota)
-        {
-            if (maxConnections <= 0)
-            {
-                throw new P2PException(ErrorCode.RelayFailed, "MaxConnections must be greater than 0");
-            }
-            _options.Relay.Enabled = true;
-            _options.Relay.MaxRelaySessions = maxConnections;
-            _options.Relay.MaxQuota = maxQuota;
             return this;
         }
 

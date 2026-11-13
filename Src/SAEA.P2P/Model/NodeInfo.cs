@@ -23,22 +23,21 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:20:16
+*修改时间：2026/11/13 13:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：移除 NAT 类型字段
 *
 *****************************************************************************/
 using System;
 using System.Collections.Generic;
 using System.Text;
 using SAEA.P2P.Common;
-using SAEA.P2P.NAT;
 
 namespace SAEA.P2P.Model
 {
     /// <summary>
-    /// 对端节点信息，服务器登记并在节点列表与打洞通知中下发
+    /// 对端节点信息，服务器登记并在节点列表中下发
     /// </summary>
     public class NodeInfo
     {
@@ -53,7 +52,7 @@ namespace SAEA.P2P.Model
         public string NodeName { get; set; }
         
         /// <summary>
-        /// NAT 映射后的公网 IP 文本，由服务器按注册来源地址回填；未注册时为 null
+        /// NAT 映射后的公网 IP 文本，由上层按需赋值，当前信令流程不填写；未赋值时为 null
         /// </summary>
         public string PublicAddress { get; set; }
         
@@ -71,11 +70,6 @@ namespace SAEA.P2P.Model
         /// 节点内网监听端口
         /// </summary>
         public int LocalPort { get; set; }
-        
-        /// <summary>
-        /// 节点所在 NAT 类型，未探测时为 Unknown
-        /// </summary>
-        public NATType NatType { get; set; } = NATType.Unknown;
         
         /// <summary>
         /// 注册时间，UTC；默认取当前 UTC 时间
@@ -111,7 +105,7 @@ namespace SAEA.P2P.Model
         }
         
         /// <summary>
-        /// 生成「公网 IP:端口」文本，供打洞通知与日志使用
+        /// 生成「公网 IP:端口」文本，供日志与展示使用
         /// </summary>
         /// <returns>公网 endpoint 文本；公网 IP 为空时返回 null</returns>
         public string GetPublicEndPoint()
@@ -124,7 +118,7 @@ namespace SAEA.P2P.Model
         }
         
         /// <summary>
-        /// 生成「内网 IP:端口」文本，供同网段直连使用
+        /// 生成「内网 IP:端口」文本，供日志与展示使用
         /// </summary>
         /// <returns>内网 endpoint 文本；内网 IP 为空时返回 null</returns>
         public string GetLocalEndPoint()
@@ -137,7 +131,7 @@ namespace SAEA.P2P.Model
         }
         
         /// <summary>
-        /// 汇总节点标识、公网与内网地址、NAT 类型、状态及在线标记，用于日志输出
+        /// 汇总节点标识、公网与内网地址、状态及在线标记，用于日志输出
         /// </summary>
         /// <returns>单行节点摘要</returns>
         public override string ToString()
@@ -147,7 +141,6 @@ namespace SAEA.P2P.Model
             sb.Append($", NodeName={NodeName}");
             sb.Append($", Public={GetPublicEndPoint()}");
             sb.Append($", Local={GetLocalEndPoint()}");
-            sb.Append($", NAT={NatType}");
             sb.Append($", State={State}");
             sb.Append($", Online={IsOnline}");
             sb.Append("]");
@@ -155,7 +148,7 @@ namespace SAEA.P2P.Model
         }
         
         /// <summary>
-        /// 复制节点标识、地址、NAT 类型、时间与状态；Services 不复制，副本为空字典
+        /// 复制节点标识、地址、时间与状态；Services 不复制，副本为空字典
         /// </summary>
         /// <returns>新的节点信息副本，与源对象不共享任何引用</returns>
         public NodeInfo Clone()
@@ -168,7 +161,6 @@ namespace SAEA.P2P.Model
                 PublicPort = PublicPort,
                 LocalAddress = LocalAddress,
                 LocalPort = LocalPort,
-                NatType = NatType,
                 RegisteredTime = RegisteredTime,
                 LastActiveTime = LastActiveTime,
                 State = State
