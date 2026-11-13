@@ -133,6 +133,62 @@ try {
         $r = Invoke-Tool -Arguments @('pkcs7', '-in', $p7, '-outform', 'DER', '-out', $d)
         $r.ExitCode -eq 0 -and (Test-Path -LiteralPath $d) -and (Get-Item -LiteralPath $d).Length -gt 0
     }
+    Invoke-Case -Name '.NET 读回 PFX 含私钥' -Body {
+        $c = [System.Security.Cryptography.X509Certificates.X509CertificateLoader]::LoadPkcs12FromFile($pfx, 'test')
+        $c.HasPrivateKey -and $c.Subject -like '*CN=localhost*'
+    }
+    Invoke-Case -Name '.NET 读回 P7B 证书数不少于 1' -Body {
+        # 自己重建输入，避免依赖前面用例是否跑过。
+        $null = Invoke-Tool -Arguments @('crl2pkcs7', '-nocrl', '-certfile', $leaf, '-out', $p7)
+        # $p7 是 PEM 封装，SignedCms.Decode 只吃 DER，先去掉 armor 再喂。
+        $der = [Convert]::FromBase64String((((Get-Content -LiteralPath $p7 -Raw) -replace '-----[^-]+-----', '') -replace '\s', ''))
+        $cms = [System.Security.Cryptography.Pkcs.SignedCms]::new()
+        $cms.Decode($der)
+        $cms.Certificates.Count -ge 1 -and $cms.Certificates[0].Subject -like '*CN=localhost*'
+    }
+    Invoke-Case -Name '.NET 读回 DER 证书主题一致' -Body {
+        $pem = Join-Path $tmp 'c.pem'; $der = Join-Path $tmp 'c.der'
+        $a = Invoke-Tool -Arguments @('x509', '-in', $leaf, '-out', $pem)
+        $b = Invoke-Tool -Arguments @('x509', '-in', $pem, '-outform', 'DER', '-out', $der)
+        $c = [System.Security.Cryptography.X509Certificates.X509CertificateLoader]::LoadCertificateFromFile($der)
+        $a.ExitCode -eq 0 -and $b.ExitCode -eq 0 -and $c.Subject -like '*CN=localhost*'
+    }
+    Invoke-Case -Name 'pkcs12 -passin file: 读取无结尾换行的口令' -Body {
+        $pass = Join-Path $tmp 'pass.txt'; $o = Join-Path $tmp 'file.pem'
+        [System.IO.File]::WriteAllText($pass, 'test')
+        $r = Invoke-Tool -Arguments @('pkcs12', '-in', $pfx, '-passin', ('file:' + $pass), '-nocerts', '-nodes', '-out', $o)
+        $r.ExitCode -eq 0 -and (Get-Content -LiteralPath $o -Raw) -like '*BEGIN PRIVATE KEY*'
+    }
+    Invoke-Case -Name 'pkcs12 -passin stdin 从管道读口令' -Body {
+        $o = Join-Path $tmp 'stdin.pem'
+        $argv = @('pkcs12', '-in', $pfx, '-passin', 'stdin', '-nocerts', '-nodes', '-out', $o)
+        $previous = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            if ($ToolPath) { 'test' | & $ToolPath @argv *> $null }
+            else { 'test' | & dotnet run --project $project -c Release -- @argv *> $null }
+            $code = $LASTEXITCODE
+        }
+        finally { $ErrorActionPreference = $previous }
+        $code -eq 0 -and (Get-Content -LiteralPath $o -Raw) -like '*BEGIN PRIVATE KEY*'
+    }
+    Invoke-Case -Name 'req -key 与 -newkey 同给退出 1' -Body {
+        $r = Invoke-Tool -Arguments @('req', '-new', '-key', $key, '-newkey', 'rsa:2048', '-keyout', (Join-Path $tmp 'mx.key'), '-subj', '/CN=localhost')
+        $r.ExitCode -eq 1 -and $r.StdErr -like '*不能同时使用*'
+    }
+    Invoke-Case -Name 'pkey -traditional 与加密算法同给退出 1' -Body {
+        $r = Invoke-Tool -Arguments @('pkey', '-in', $key, '-traditional', '-aes-256-cbc')
+        $r.ExitCode -eq 1 -and $r.StdErr -like '*不能*同时使用*'
+    }
+    Invoke-Case -Name '遗留 --self-signed/--verify 仍退出 0' -Body {
+        $dir = Join-Path $tmp 'legacy'; $ver = Join-Path $tmp 'legacy-verify'
+        $a = Invoke-Tool -Arguments @('--self-signed', '--out', $dir)
+        $b = Invoke-Tool -Arguments @('--self-signed', '--verify', '--out', $ver)
+        $a.ExitCode -eq 0 -and
+            (Test-Path -LiteralPath (Join-Path $dir 'localhost.crt')) -and
+            (Test-Path -LiteralPath (Join-Path $dir 'localhost.key')) -and
+            $b.ExitCode -eq 0 -and $b.StdOut -like '*通过*'
+    }
 }
 finally { Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue }
 '{0} passed, {1} failed' -f $script:passed, $script:failed
