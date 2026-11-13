@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 13:29:37
+*修改时间：2026/11/13 15:19:56
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：接收/发送提交前登记在途操作，完成点配对结束；接入失败时关闭 socket 并收口令牌，接入路径会话标识并发置空时跳过登记
+*描述：回收时序收口：提交失败路径先断开再回滚在途计数，CompleteOperation 作为令牌最后一次访问，日志改用入池前的会话标识快照
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -701,15 +701,23 @@ namespace SAEA.Sockets.Core.Tcp
                             }
                             catch (InvalidOperationException ex)
                             {
+                                // 入池会清空 ID，日志用快照；CompleteOperation 之后不再触碰令牌
+                                var tokenId = userToken.ID;
                                 // 提交失败必须回滚在途计数，否则该令牌再也回不到 0、永远无法入池
                                 _sessionManager.CompleteOperation(userToken);
-                                LogHelper.Error($"An exception occurs when receiving:{userToken?.ID}", ex);
+                                LogHelper.Error($"An exception occurs when receiving:{tokenId}", ex);
                                 return;
                             }
-                            catch
+                            catch (Exception ex)
                             {
+                                // 提交失败必须回滚在途计数，否则该令牌再也回不到 0、永远无法入池；
+                                // 入池会清空 ID，日志与回调都用快照，CompleteOperation 之后不再触碰令牌。
+                                var tokenId = userToken.ID;
                                 _sessionManager.CompleteOperation(userToken);
-                                throw;
+                                var kex = new KernelException("An exception occurs when receiving:" + ex.Message, ex);
+                                LogHelper.Error($"An exception occurs when receiving:{tokenId}", kex);
+                                OnError?.Invoke(tokenId, kex);
+                                return;
                             }
 
                             if (!willRaiseEvent)
@@ -860,7 +868,8 @@ namespace SAEA.Sockets.Core.Tcp
             }
             catch (Exception ex)
             {
-                OnError?.Invoke("", ex);
+                // 同步完成回调中的异常不能冒泡回提交流程：那里会再次触碰可能已入池的令牌。
+                try { OnError?.Invoke("", ex); } catch { }
             }
             finally
             {
@@ -949,17 +958,26 @@ namespace SAEA.Sockets.Core.Tcp
                 }
                 catch (Exception ex)
                 {
+                    // 入池会清空 ID，日志用快照
+                    var tokenId = userToken.ID;
+
                     // SendAsync 抛异常表示本次发送未被内核排队，完成回调不会再来：
                     // 这里收回关联并释放写闸门，由本方法唯一完成操作。
-                    // 同时回滚在途计数，否则该令牌永远无法入池。
-                    _sessionManager.CompleteOperation(userToken);
-                    userToken.IsSending = false;
-                    if (associated) baseToken.TakePendingSend();
-                    associated = false;
-                    try { userToken.ReleaseWrite(); } catch { }
-                    acquired = false;
-                    operation.TryCompleteException(ex);
-                    OnError?.Invoke($"An exception occurs when a message is sending:{userToken.ID}", ex);
+                    try
+                    {
+                        userToken.IsSending = false;
+                        if (associated) baseToken.TakePendingSend();
+                        associated = false;
+                        try { userToken.ReleaseWrite(); } catch { }
+                        acquired = false;
+                        operation.TryCompleteException(ex);
+                        OnError?.Invoke($"An exception occurs when a message is sending:{tokenId}", ex);
+                    }
+                    finally
+                    {
+                        // 计数归零后令牌可能立即被复用，必须是本方法对令牌的最后一次访问
+                        _sessionManager.CompleteOperation(userToken);
+                    }
                     return operation.Task;
                 }
 
@@ -1259,10 +1277,19 @@ namespace SAEA.Sockets.Core.Tcp
                             }
                             catch (Exception ex)
                             {
-                                // 提交失败要回滚在途计数，否则令牌永远无法入池；
-                                // 不向上抛出，让后面的 Disconnect 照常收口。
-                                _sessionManager.CompleteOperation(userToken);
-                                OnError?.Invoke(userToken?.ID ?? "", ex);
+                                // 入池会清空 ID：日志用快照；先在令牌仍归属本连接时断开，
+                                // 再由 CompleteOperation 作为本方法对令牌的最后一次访问。
+                                var tokenId = userToken.ID;
+                                try
+                                {
+                                    OnError?.Invoke(tokenId ?? "", ex);
+                                }
+                                finally
+                                {
+                                    try { Disconnect(userToken); } catch { }
+                                    _sessionManager.CompleteOperation(userToken);
+                                }
+                                return;
                             }
                         }
                     }

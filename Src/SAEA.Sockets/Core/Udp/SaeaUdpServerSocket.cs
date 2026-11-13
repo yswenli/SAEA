@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 13:29:37
+*修改时间：2026/11/13 15:19:56
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：接收/发送提交前登记在途操作，完成点配对结束，配合令牌两阶段回收
+*描述：回收时序收口：接收提交失败先断开再回滚计数，发送提交失败由外层 catch 回滚，CompleteOperation 为最后一次令牌访问
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -267,9 +267,18 @@ namespace SAEA.Sockets.Core.Udp
             }
             catch (Exception ex)
             {
-                SessionManager.CompleteOperation(token);
-                OnError?.Invoke(token.ID, ex);
-                Disconnect(token, ex);
+                // 入池会清空 ID：日志用快照；先断开再回滚在途计数，
+                // CompleteOperation 必须是对令牌的最后一次访问。
+                var tokenId = token?.ID;
+                try
+                {
+                    OnError?.Invoke(tokenId ?? "", ex);
+                }
+                finally
+                {
+                    try { Disconnect(token, ex); } catch { }
+                    SessionManager.CompleteOperation(token);
+                }
             }
         }
 
@@ -336,11 +345,13 @@ namespace SAEA.Sockets.Core.Udp
             }
             catch (Exception ex)
             {
-                OnError?.Invoke($"An exception occurs when a message is sended:{userToken?.ID}", ex);
+                // 同步完成回调中的异常不能冒泡回提交流程：那里会再次触碰可能已入池的令牌。
+                try { OnError?.Invoke($"An exception occurs when a message is sended:{userToken?.ID}", ex); } catch { }
             }
             finally
             {
-                userToken.ReleaseWrite();
+                // 写闸门释放失败也必须归零计数，否则令牌永久退池
+                try { userToken.ReleaseWrite(); } catch { }
                 // 与 SendAsyncRaw 的 TryBeginOperation 配对
                 SessionManager.CompleteOperation(userToken);
             }
@@ -386,6 +397,7 @@ namespace SAEA.Sockets.Core.Udp
             }
             bool acquired = false;
             bool transferred = false;
+            bool submitFailed = false;
             try
             {
                 try { _sessionManager.Active(userToken.ID); } catch { }
@@ -408,18 +420,22 @@ namespace SAEA.Sockets.Core.Udp
                         return;
                     }
 
+                    bool asyncPending;
                     try
                     {
-                        if (!userToken.Socket.SendToAsync(writeArgs))
-                        {
-                            ProcessSended(writeArgs);
-                        }
+                        asyncPending = userToken.Socket.SendToAsync(writeArgs);
                     }
                     catch
                     {
-                        // 提交失败要回滚在途计数，否则令牌永远无法入池
-                        SessionManager.CompleteOperation(userToken);
+                        // 提交异常由外层 catch 统一回滚计数；同步完成路径交给 ProcessSended 的 finally
+                        submitFailed = true;
                         throw;
+                    }
+
+                    // 同步完成：计数由 ProcessSended 的 finally 结束，外层不得重复减
+                    if (!asyncPending)
+                    {
+                        ProcessSended(writeArgs);
                     }
                 }
                 else
@@ -429,6 +445,9 @@ namespace SAEA.Sockets.Core.Udp
             }
             catch (Exception ex)
             {
+                // 入池会清空 ID，日志用快照
+                var tokenId = userToken?.ID;
+
                 if (transferred)
                 {
                     try { userToken.TakeSendingOwner()?.Dispose(); } catch { }
@@ -438,11 +457,17 @@ namespace SAEA.Sockets.Core.Udp
                     owner?.Dispose();
                     transferred = true;
                 }
-                OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", ex);
                 if (acquired)
                 {
                     try { userToken.ReleaseWrite(); } catch { }
                 }
+
+                // 仅提交失败需要回滚本次登记的计数；同步完成由 ProcessSended 的 finally 减一次。
+                // 计数归零后令牌可能立即被复用，这必须是本方法对令牌的最后一次访问。
+                if (submitFailed)
+                    SessionManager.CompleteOperation(userToken);
+
+                OnError?.Invoke($"An exception occurs when a message is sending:{tokenId}", ex);
             }
             finally
             {

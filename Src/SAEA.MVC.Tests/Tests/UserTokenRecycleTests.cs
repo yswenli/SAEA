@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 13:39:39
+*修改时间：2026/11/13 15:19:56
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增，覆盖连接关闭与令牌复用交错时的 SetBuffer 冲突
+*描述：日志断言补入令牌复用与计数异常文案，改为日志静默一个泵周期即判定刷盘完成
 *
 *****************************************************************************/
 using System;
@@ -71,14 +71,24 @@ namespace SAEA.MVC.Tests.Tests
         private static int _transportRetries;
 
         /// <summary>等待日志后台泵把异常行刷到控制台的最长时间。</summary>
-        private static readonly TimeSpan LogFlushTimeout = TimeSpan.FromSeconds(3);
+        private static readonly TimeSpan LogFlushTimeout = TimeSpan.FromSeconds(10);
+
+        /// <summary>
+        /// 日志连续无增长多久视为已刷盘完成。LogHelper 的空闲轮询间隔为 500ms，取值需明显大于它。
+        /// </summary>
+        private static readonly TimeSpan LogQuietPeriod = TimeSpan.FromMilliseconds(1000);
 
         /// <summary>日志中出现即判定复用路径出错的标记。</summary>
         private static readonly string[] ReuseErrorMarkers =
         {
             "already in progress",
             "UserToken池中资源已耗尽",
-            "NullReferenceException"
+            "NullReferenceException",
+            "令牌复用状态非法",
+            "无可用缓冲区槽位",
+            "令牌暂不可用",
+            "令牌暂不可回收",
+            "在途操作计数已为 0"
         };
 
         /// <summary>
@@ -235,13 +245,15 @@ namespace SAEA.MVC.Tests.Tests
         }
 
         /// <summary>
-        /// 轮询等待日志出现错误标记；日志由后台线程写出，需要给刷盘留出时间。
+        /// 轮询等待日志刷盘：命中错误标记立即返回；日志长度连续一个泵周期不再增长即视为写完。
         /// </summary>
         /// <param name="capture">控制台捕获器</param>
         /// <returns>命中标记前后各一段日志；未命中返回 null</returns>
         private static async Task<string> WaitForErrorMarkerAsync(CaptureWriter capture)
         {
             var deadline = DateTime.UtcNow + LogFlushTimeout;
+            var lastLength = -1;
+            var quietSince = DateTime.UtcNow;
 
             while (true)
             {
@@ -260,10 +272,21 @@ namespace SAEA.MVC.Tests.Tests
                     }
                 }
 
+                if (text.Length != lastLength)
+                {
+                    lastLength = text.Length;
+                    quietSince = DateTime.UtcNow;
+                }
+                else if (DateTime.UtcNow - quietSince >= LogQuietPeriod)
+                {
+                    // 日志已静默超过一个后台泵周期，再等也不会出现新行
+                    return null;
+                }
+
                 if (DateTime.UtcNow >= deadline)
                     return null;
 
-                await Task.Delay(100).ConfigureAwait(false);
+                await Task.Delay(50).ConfigureAwait(false);
             }
         }
 
