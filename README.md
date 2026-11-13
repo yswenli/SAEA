@@ -70,6 +70,8 @@ server.Start();
 | 🔧 **SAEA.Common** | 通用工具类库 | [NuGet](https://www.nuget.org/packages/SAEA.Common) | [中文](Src/SAEA.Common/README.md) | [English](Src/SAEA.Common/README.en.md) | 序列化、缓存、加密 |
 | 🧱 **SAEA.Sockets.Pipeline** | 双向通道链 + 可插拔分帧与两级编解码 | [NuGet](https://www.nuget.org/packages/SAEA.Sockets.Pipeline) | [中文](Src/SAEA.Sockets.Pipeline/README.md) | [English](Src/SAEA.Sockets.Pipeline/README.en.md) | 需要 Handler 链、鉴权、超时与背压的协议服务端 |
 
+证书生成与格式转换：`Src/SAEA.Sockets.SslTlsTool`（支持 openssl 兼容子命令）。
+
 ### Web 应用组件
 
 | 组件 | 功能 | NuGet | 中文文档 | 英文文档 | 适用场景 |
@@ -334,7 +336,7 @@ dotnet add package SAEA.Sockets --version 26.9.21.1
 - `SAEA.RedisTest` - Redis 操作示例
 - `SAEA.RPCTest` - RPC 调用示例
 - `SAEA.P2PTest` - P2P NAT 穿透示例
-- `SAEA.Sockets.SslTlsTool` - 开发用 SSL/TLS 证书生成工具
+- `SAEA.Sockets.SslTlsTool` - 开发用 SSL/TLS 证书生成与格式转换工具（支持 openssl 兼容子命令）
 
 **单元测试工程**：`Src/*.Tests/` 下有 12 个 MSTest 工程，均不在 `Src/SAEA.Sockets.sln` 中，需按需单独运行，目标框架为 `net10.0`。示例命令：`dotnet test Src/SAEA.Common.Tests/SAEA.Common.Tests.csproj -c Release`
 

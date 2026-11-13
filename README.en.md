@@ -70,6 +70,8 @@ Select the appropriate component based on your requirements:
 | 🔧 **SAEA.Common** | Common utility library | [NuGet](https://www.nuget.org/packages/SAEA.Common) | [中文](Src/SAEA.Common/README.md) | [English](Src/SAEA.Common/README.en.md) | Serialization, caching, encryption |
 | 🧱 **SAEA.Sockets.Pipeline** | Bidirectional channel pipeline with pluggable framing and two-level codecs | [NuGet](https://www.nuget.org/packages/SAEA.Sockets.Pipeline) | [中文](Src/SAEA.Sockets.Pipeline/README.md) | [English](Src/SAEA.Sockets.Pipeline/README.en.md) | Protocol servers needing a handler chain, authentication, timeouts and backpressure |
 
+Certificate generation and format conversion: `Src/SAEA.Sockets.SslTlsTool` (includes openssl-compatible subcommands).
+
 ### Web Application Components
 
 | Component | Function | NuGet | 中文文档 | English Docs | Use Cases |
@@ -334,7 +336,7 @@ Each component has detailed usage examples and comments.
 - `SAEA.RedisTest` - Redis operation examples
 - `SAEA.RPCTest` - RPC call examples
 - `SAEA.P2PTest` - P2P NAT traversal examples
-- `SAEA.Sockets.SslTlsTool` - Development SSL/TLS certificate generator
+- `SAEA.Sockets.SslTlsTool` - Development SSL/TLS certificate generator and format converter (includes openssl-compatible subcommands)
 
 **Unit Test Projects**: `Src/*.Tests/` contains 12 MSTest projects, none of which are included in `Src/SAEA.Sockets.sln`, so run them individually as needed; they target `net10.0`. Example command: `dotnet test Src/SAEA.Common.Tests/SAEA.Common.Tests.csproj -c Release`
 

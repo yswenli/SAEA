@@ -374,6 +374,8 @@ dotnet run --project Src/SAEA.Sockets.SslTlsTool -c Release -- --ca
 
 Both commands accept `--verify` to self-check PFX/PEM read-back, the certificate chain, SAN/EKU and a local loopback handshake after generation. Use `--out` to change the output directory; the full parameter list and exit codes (`0` new files written, `1` invalid arguments, `2` generation or self-check failed, `3` every file already existed, nothing written) are in the tool's own `--help`.
 
+Certificate generation and format conversion both happen in `SAEA.Sockets.SslTlsTool`, which also ships openssl-compatible subcommands (`req`, `x509`, `pkcs12`, `pkcs8`, `pkey`, `crl2pkcs7`, `pkcs7`, `version`).
+
 Running with no arguments enters interactive mode: type the same arguments as on the command line (for example `--self-signed --verify`), use `help` for help and `exit` or `quit` to leave. Quote values containing spaces, for example `--cn "CN=localhost, O=SAEA"`.
 
 Generated files:

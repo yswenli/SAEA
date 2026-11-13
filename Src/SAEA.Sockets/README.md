@@ -373,6 +373,8 @@ dotnet run --project Src/SAEA.Sockets.SslTlsTool -c Release -- --ca
 
 两条命令都可追加 `--verify`，生成后自检 PFX/PEM 读回、证书链、SAN/EKU 与本机回环握手。输出目录用 `--out` 改；完整参数与退出码（`0` 有新产物、`1` 参数错误、`2` 生成或自检失败、`3` 文件全部已存在、本次未写入）见工具自身的 `--help`。
 
+证书生成与格式转换都在 `SAEA.Sockets.SslTlsTool` 侧完成，它还提供 openssl 兼容子命令（`req`、`x509`、`pkcs12`、`pkcs8`、`pkey`、`crl2pkcs7`、`pkcs7`、`version`）。
+
 不带任何参数运行会进入交互模式，逐行输入与命令行相同的参数（例如 `--self-signed --verify`），`help` 查看帮助，`exit` 或 `quit` 退出；取值含空格时用双引号包住，如 `--cn "CN=localhost, O=SAEA"`。
 
 产物清单：
