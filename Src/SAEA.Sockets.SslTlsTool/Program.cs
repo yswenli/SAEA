@@ -23,13 +23,14 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 14:42:12
+*修改时间：2026/11/13 13:40:21
 *修改人： yswenli
 *版本号： net10.0
-*描述：工程更名为 SslTlsTool；无参数进入交互模式并支持逐行执行同一套参数
+*描述：首 token 为子命令时交给 openssl 兼容层，命令行与交互模式同一套分派
 *
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.Sockets.SslTlsTool.OpenSsl;
 
 namespace SAEA.Sockets.SslTlsTool;
 
@@ -46,6 +47,10 @@ internal static class Program
     {
         try
         {
+            // 首 token 非选项时进入兼容分支；遗留 --self-signed/--ca/--verify 路径不受影响。
+            if (args != null && args.Length > 0 && OpenSslCommand.IsCompat(args[0]))
+                return OpenSslCommand.Run(args, interactive: false);
+
             return Run(args);
         }
         finally
@@ -141,6 +146,12 @@ internal static class Program
 
             if (tokens.Length == 0)
                 continue;
+
+            if (tokens.Length > 0 && OpenSslCommand.IsCompat(tokens[0]))
+            {
+                OpenSslCommand.Run(tokens, interactive: true);
+                continue;
+            }
 
             var exitCode = Execute(tokens, true);
             if (exitCode != 0)
