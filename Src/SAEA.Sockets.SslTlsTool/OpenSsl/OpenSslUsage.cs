@@ -24,10 +24,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 13:40:21
+*修改时间：2026/11/13 13:54:11
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增兼容层帮助文本
+*描述：补 x509 子命令的帮助文本
 *
 *****************************************************************************/
 namespace SAEA.Sockets.SslTlsTool.OpenSsl;
@@ -48,8 +48,15 @@ internal static class OpenSslUsage
         {
             case "version":
                 return "用法：SAEA.Sockets.SslTlsTool version\n\n输出本工具版本，并声明与 openssl version 不兼容。";
+            case "x509":
+                return "用法：SAEA.Sockets.SslTlsTool x509 [选项]\n"
+                    + "读取证书、打印所选信息并在 PEM 与 DER 之间转换；-in 缺省 stdin，-out 缺省 stdout。\n"
+                    + "读取/输出：-inform PEM|DER（默认 PEM）、-outform PEM|DER（默认 PEM）、-noout\n"
+                    + "打印：-subject、-issuer、-dates、-serial、-fingerprint（默认 SHA-1）、-sha256、-pubkey\n"
+                    + "签发：-req、-CA <文件>、-CAkey <文件>、-CAcreateserial、-days <正整数>、-extfile <文件>、-extensions <段名>、-copy_extensions copy|none\n"
+                    + "不支持：-text、-nameopt（姓名固定 oneline 风格）；打印项写 stdout 且位于证书数据之前。\n";
             default:
-                // 过渡实现：Task 2 起按子命令逐个替换为真实参数清单。
+                // 过渡实现：Task 3 起按子命令逐个替换为真实参数清单。
                 throw new OpenSslException($"usage: 未实现的子命令 {command}。");
         }
     }

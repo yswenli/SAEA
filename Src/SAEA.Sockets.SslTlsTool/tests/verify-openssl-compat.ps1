@@ -38,6 +38,30 @@ try {
     Invoke-Case -Name 'x509 -help 退出 0 且列出 -inform' -Body {
         $r = Invoke-Tool -Arguments @('x509', '-help'); $r.ExitCode -eq 0 -and $r.StdOut -like '*-inform*'
     }
+    $src = Join-Path $tmp 'src'; $pem = Join-Path $src 'localhost.crt'; $der = Join-Path $tmp 'cert.der'; $back = Join-Path $tmp 'cert.pem'
+    $null = Invoke-Tool -Arguments @('--self-signed', '--out', $src)
+    Invoke-Case -Name 'x509 PEM→DER→PEM 往返' -Body {
+        $a = Invoke-Tool -Arguments @('x509', '-in', $pem, '-outform', 'DER', '-out', $der)
+        $b = Invoke-Tool -Arguments @('x509', '-in', $der, '-inform', 'DER', '-out', $back)
+        $a.ExitCode -eq 0 -and $b.ExitCode -eq 0 -and
+            ([System.Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromPem([System.IO.File]::ReadAllText($pem)).Thumbprint -eq
+             [System.Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromPem([System.IO.File]::ReadAllText($back)).Thumbprint)
+    }
+    Invoke-Case -Name 'x509 -subject 输出 oneline 姓名' -Body {
+        $r = Invoke-Tool -Arguments @('x509', '-in', $pem, '-subject', '-noout'); $r.ExitCode -eq 0 -and $r.StdOut -like '*CN =*'
+    }
+    Invoke-Case -Name 'x509 -dates 输出 notBefore' -Body {
+        $r = Invoke-Tool -Arguments @('x509', '-in', $pem, '-dates', '-noout'); $r.ExitCode -eq 0 -and $r.StdOut -like '*notBefore=*'
+    }
+    Invoke-Case -Name 'x509 -serial 输出十进制转为大写十六进制' -Body {
+        $r = Invoke-Tool -Arguments @('x509', '-in', $pem, '-serial', '-noout'); $r.ExitCode -eq 0 -and $r.StdOut -like '*serial=*'
+    }
+    Invoke-Case -Name 'x509 -fingerprint -sha256 格式' -Body {
+        $r = Invoke-Tool -Arguments @('x509', '-in', $pem, '-fingerprint', '-sha256', '-noout'); $r.ExitCode -eq 0 -and $r.StdOut -match '(?m)^SHA256 Fingerprint=([0-9A-F]{2}:){31}[0-9A-F]{2}$'
+    }
+    Invoke-Case -Name 'x509 -text 报暂不支持' -Body {
+        $r = Invoke-Tool -Arguments @('x509', '-in', $pem, '-text'); $r.ExitCode -eq 1 -and $r.StdErr -like '*暂不支持*'
+    }
 }
 finally { Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue }
 '{0} passed, {1} failed' -f $script:passed, $script:failed

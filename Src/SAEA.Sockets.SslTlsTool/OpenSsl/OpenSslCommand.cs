@@ -24,12 +24,14 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 13:40:21
+*修改时间：2026/11/13 13:54:11
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增兼容层分派入口
+*描述：x509 接到 X509Command.Run
 *
 *****************************************************************************/
+using SAEA.Sockets.SslTlsTool.OpenSsl.Commands;
+
 namespace SAEA.Sockets.SslTlsTool.OpenSsl;
 
 /// <summary>openssl 兼容子命令的分派入口。</summary>
@@ -82,8 +84,14 @@ internal static class OpenSslCommand
                 Console.Out.WriteLine($"SAEA.Sockets.SslTlsTool {version}（openssl 兼容子集）");
                 return 0;
             }
-            // 过渡实现：Task 2 起逐个替换为 Commands.*Command.Run(tail, interactive)。
-            throw new OpenSslException($"error: {command} 尚未实现。");
+            // 过渡实现：Task 3 起逐个替换为 Commands.*Command.Run(tail, interactive)。
+            switch (command)
+            {
+                case "x509":
+                    return X509Command.Run(tail, interactive);
+                default:
+                    throw new OpenSslException($"error: {command} 尚未实现。");
+            }
         }
         catch (OpenSslException ex)
         {
