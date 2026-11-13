@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 12:00:19
+*修改时间：2026/11/13 21:40:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 TCP 同时打开开关
+*描述：新增跨地址族配对开关
 *
 *****************************************************************************/
 using System;
@@ -56,6 +56,11 @@ namespace SAEA.P2P.Ice
         /// 是否收集 IPv6 地址
         /// </summary>
         private bool _enableIpv6 = true;
+
+        /// <summary>
+        /// 是否允许跨地址族配对
+        /// </summary>
+        private bool _allowCrossFamilyPairs;
 
         /// <summary>
         /// 收集预算
@@ -111,6 +116,16 @@ namespace SAEA.P2P.Ice
         }
 
         /// <summary>
+        /// 是否允许 IPv4 与 IPv6 候选互相配对，默认 false。
+        /// 开启后跨族候选对仍需要两端网络可达，配对成功不等于连通成功。
+        /// </summary>
+        public bool AllowCrossFamilyPairs
+        {
+            get { return _allowCrossFamilyPairs; }
+            set { _allowCrossFamilyPairs = value; }
+        }
+
+        /// <summary>
         /// 收集预算；到时先返回已有候选，不再等待未完成的收集
         /// </summary>
         public TimeSpan GatheringTimeout
@@ -163,6 +178,7 @@ namespace SAEA.P2P.Ice
             clone._allowLoopbackCandidates = _allowLoopbackCandidates;
             clone._enableTcpSimultaneousOpen = _enableTcpSimultaneousOpen;
             clone._enableIpv6 = _enableIpv6;
+            clone._allowCrossFamilyPairs = _allowCrossFamilyPairs;
             clone._gatheringTimeout = _gatheringTimeout;
             clone._component = _component;
             clone._transportFactory = _transportFactory;

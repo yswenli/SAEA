@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 21:00:00
+*修改时间：2026/11/13 21:40:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：TCP 被动候选匹配归一化 v4-mapped
+*描述：检查表透传跨地址族配对开关
 *
 *****************************************************************************/
 using System;
@@ -511,7 +511,7 @@ namespace SAEA.P2P.Ice
         /// </summary>
         private void InitializeUdpCheckList()
         {
-            var checkList = new CheckList(_parameters.Role == IceRole.Controlling);
+            var checkList = new CheckList(_parameters.Role == IceRole.Controlling, _options.Ice.AllowCrossFamilyPairs);
 
             Candidate[] localSnapshot;
             lock (_syncRoot)
@@ -1626,7 +1626,7 @@ namespace SAEA.P2P.Ice
                 }
 
                 // 中继阶段单独建检查表：只放本地中继候选与对端 UDP 候选，避免混入直连阶段已失败的组合
-                var checkList = new CheckList(_parameters.Role == IceRole.Controlling);
+                var checkList = new CheckList(_parameters.Role == IceRole.Controlling, _options.Ice.AllowCrossFamilyPairs);
                 checkList.AddLocalCandidate(relayCandidate);
 
                 var remotes = _parameters.RemoteCandidates;

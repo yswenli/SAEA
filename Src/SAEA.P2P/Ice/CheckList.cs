@@ -23,16 +23,17 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 21:00:00
+*修改时间：2026/11/13 21:40:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：配对地址族比较归一化 v4-mapped
+*描述：新增跨地址族配对开关与跳过计数
 *
 *****************************************************************************/
 using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
 using SAEA.P2P.Common;
 
 namespace SAEA.P2P.Ice
@@ -50,18 +51,38 @@ namespace SAEA.P2P.Ice
         private bool _isNominationCompleted;
 
         /// <summary>
+        /// 因跨地址族且未开启 AllowCrossFamilyPairs 而被跳过的候选对计数
+        /// </summary>
+        private int _crossFamilyPairsSkipped;
+
+        /// <summary>
         /// 创建检查表
         /// </summary>
         /// <param name="isControlling">本地是否为控制方，决定候选对优先级里 G/D 的取值方向</param>
-        public CheckList(bool isControlling)
+        /// <param name="allowCrossFamilyPairs">是否允许 IPv4 与 IPv6 候选互相配对，默认 false</param>
+        public CheckList(bool isControlling, bool allowCrossFamilyPairs = false)
         {
             IsControlling = isControlling;
+            AllowCrossFamilyPairs = allowCrossFamilyPairs;
         }
 
         /// <summary>
         /// 本地是否为控制方，角色切换后由 <see cref="UpdateRole"/> 更新
         /// </summary>
         public bool IsControlling { get; private set; }
+
+        /// <summary>
+        /// 是否允许 IPv4 与 IPv6 候选互相配对
+        /// </summary>
+        public bool AllowCrossFamilyPairs { get; private set; }
+
+        /// <summary>
+        /// 因跨地址族且未开启 AllowCrossFamilyPairs 而被跳过的候选对数量
+        /// </summary>
+        public int CrossFamilyPairsSkipped
+        {
+            get { return Volatile.Read(ref _crossFamilyPairsSkipped); }
+        }
 
         /// <summary>
         /// 提名是否已完成，完成后不再接受新的远端候选
@@ -291,13 +312,8 @@ namespace SAEA.P2P.Ice
             }
         }
 
-        private static bool CanPair(Candidate local, Candidate remote)
+        private bool CanPair(Candidate local, Candidate remote)
         {
-            // 配对阶段同样归一化，避免对端候选携带 v4-mapped 时被误判为跨族
-            if (GetFamily(local.Address) != GetFamily(remote.Address))
-            {
-                return false;
-            }
             if (local.Component != remote.Component)
             {
                 return false;
@@ -317,7 +333,38 @@ namespace SAEA.P2P.Ice
             {
                 return false;
             }
+
+            var localFamily = GetFamily(local.Address);
+            var remoteFamily = GetFamily(remote.Address);
+            if (localFamily != remoteFamily)
+            {
+                // v4-mapped 与对应 IPv4 是同一地址，归一化后仍可能出现在外部构造的候选里，不允许参与跨族配对
+                if (IsMapped(local.Address) || IsMapped(remote.Address))
+                {
+                    return false;
+                }
+                if (!AllowCrossFamilyPairs)
+                {
+                    // 计数只统计仅因地址族被拒绝的组合，开关开启后不再累计
+                    Interlocked.Increment(ref _crossFamilyPairsSkipped);
+                    return false;
+                }
+            }
             return true;
+        }
+
+        /// <summary>
+        /// 判断地址是否为未归一化的 v4-mapped IPv6 地址
+        /// </summary>
+        /// <param name="address">候选地址，可为空</param>
+        /// <returns>是 v4-mapped IPv6 地址返回 true</returns>
+        private static bool IsMapped(IPAddress address)
+        {
+            if (address == null)
+            {
+                return false;
+            }
+            return address.AddressFamily == AddressFamily.InterNetworkV6 && address.IsIPv4MappedToIPv6;
         }
 
         /// <summary>
