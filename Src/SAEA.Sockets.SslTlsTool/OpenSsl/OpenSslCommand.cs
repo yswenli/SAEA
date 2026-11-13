@@ -24,10 +24,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 15:06:07
+*修改时间：2026/11/13 15:51:36
 *修改人： yswenli
 *版本号： net10.0
-*描述：crl2pkcs7 与 pkcs7 接到各自 Command.Run
+*描述：清理过期的过渡注释
 *
 *****************************************************************************/
 using SAEA.Sockets.SslTlsTool.OpenSsl.Commands;
@@ -82,7 +82,6 @@ internal static class OpenSslCommand
                 Console.Out.WriteLine($"SAEA.Sockets.SslTlsTool {version}（openssl 兼容子集）");
                 return 0;
             }
-            // 过渡实现：Task 3 起逐个替换为 Commands.*Command.Run(tail, interactive)。
             switch (command)
             {
                 case "x509":
