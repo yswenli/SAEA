@@ -45,9 +45,9 @@ namespace SAEA.MVCTest
 
             //mvcApplication.SetForbiddenAccessList(".jpg");
 
-            mvcApplication.Start();
-
             mvcApplication.SetCrossDomainHeaders("token", "auth", "Authorization");
+
+            mvcApplication.Start();
 
             ConsoleHelper.WriteLine($"SAEA.MVCApplication 已启动！\t\r\n访问请输入http://127.0.0.1:{mvcConfig.Port}/{{controller}}/{{action}}");
 
