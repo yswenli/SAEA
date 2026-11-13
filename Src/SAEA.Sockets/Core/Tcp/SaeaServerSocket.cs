@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 11:06:41
+*修改时间：2026/11/13 13:29:37
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：会话 ID 只读一次局部副本，避免并发置空后以 null 作字典键
+*描述：接收/发送提交前登记在途操作，完成点配对结束；接入失败时关闭 socket 并收口令牌，接入路径会话标识并发置空时跳过登记
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -41,6 +41,7 @@ using SAEA.Sockets.Ssl.Internal;
 using System;
 using System.Buffers;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Pipelines;
 using System.Net;
@@ -281,6 +282,8 @@ namespace SAEA.Sockets.Core.Tcp
 
         private void ProcessAccepted(SocketAsyncEventArgs acceptArgs)
         {
+            // 提到 try 外：接入失败时要按是否已绑定令牌决定收口方式
+            IUserToken userToken = null;
             try
             {
                 var socket = acceptArgs.AcceptSocket;
@@ -298,9 +301,21 @@ namespace SAEA.Sockets.Core.Tcp
 
                 socket.ReceiveTimeout = socket.SendTimeout = SocketOption.ActionTimeout;
 
-                var userToken = _sessionManager.BindUserToken(socket, SocketOption.ConnectTimeout);
+                userToken = _sessionManager.BindUserToken(socket, SocketOption.ConnectTimeout);
 
                 if (userToken == null)
+                {
+                    return;
+                }
+
+                // 令牌绑定成功即计入连接数：此后任何失败路径都经 Disconnect 收口，
+                // 由同一次 Free 负责减计数，避免失败路径出现无配对的减计数。
+                Interlocked.Increment(ref _clientCounts);
+
+                // 绑定后立刻取一次会话标识：并发断开（读错误、管线收口）会经 Free 把 ID 置空，
+                // 后续再读会拿到 null，字典键为 null 会抛 ArgumentNullException。
+                var sessionId = userToken.ID;
+                if (string.IsNullOrEmpty(sessionId))
                 {
                     return;
                 }
@@ -311,11 +326,11 @@ namespace SAEA.Sockets.Core.Tcp
 
                 if (_useStream || _tlsEnabled)
                 {
-                    connection = new SaeaConnection(userToken.ID, socket, SocketOption,
+                    connection = new SaeaConnection(sessionId, socket, SocketOption,
                         (segment, owner) => SendAsyncRaw(userToken, segment, owner),
                         () => ResumeReceive(userToken));
 
-                    _connections[userToken.ID] = connection;
+                    _connections[sessionId] = connection;
 
                     if (_useStream && userToken is StreamUserToken streamToken)
                     {
@@ -334,16 +349,14 @@ namespace SAEA.Sockets.Core.Tcp
                         catch (Exception ex)
                         {
                             SaeaConnection removed;
-                            _connections.TryRemove(userToken.ID, out removed);
+                            _connections.TryRemove(sessionId, out removed);
                             try { connection.Dispose(); } catch { }
-                            OnError?.Invoke(userToken.ID, ex);
+                            OnError?.Invoke(sessionId, ex);
                             Disconnect(userToken, ex);
                             return;
                         }
                     }
                 }
-
-                Interlocked.Increment(ref _clientCounts);
 
                 ProcessReceive(readArgs);
 
@@ -395,6 +408,17 @@ namespace SAEA.Sockets.Core.Tcp
             catch (Exception ex)
             {
                 OnError?.Invoke("SaeaServerSocket.ProcessAccepted", ex);
+
+                // 接入失败不能只记日志：已绑定令牌的走统一收口（计数、缓存、OnDisconnected 保持一致），
+                // 尚未绑定令牌的 socket 无人持有，必须在此关闭，否则句柄泄漏。
+                if (userToken != null)
+                {
+                    try { Disconnect(userToken, ex); } catch { }
+                }
+                else
+                {
+                    try { acceptArgs.AcceptSocket?.Close(); } catch { }
+                }
             }
             finally
             {
@@ -410,11 +434,18 @@ namespace SAEA.Sockets.Core.Tcp
         {
             var handler = OnAccepted;
 
+            // 接入与并发断开交错时 ID 可能已被 Free 置空：此时连接已收口，
+            // 再登记通道会用 null 键写入字典并抛异常。
+            var sessionId = userToken.ID;
+            if (string.IsNullOrEmpty(sessionId)) return;
+
             if (_useStream && connection != null)
             {
                 if (_connectionOpened == null && handler == null) return;
 
-                var channel = _channelManager.Set(userToken.ID, userToken.Socket, connection.Stream, connection.Tls);
+                var channel = _channelManager.Set(sessionId, userToken.Socket, connection.Stream, connection.Tls);
+                if (channel == null) return;
+
                 channel.UserToken = userToken;
 
                 _connectionOpened?.Invoke(channel);
@@ -445,7 +476,14 @@ namespace SAEA.Sockets.Core.Tcp
             // 防止应用侧再读时与链的接收泵争抢同一条入站字节流。
             connection.ClaimInput("输入处理器（UseInputHandler）");
 
-            var flow = new ReceiveFlowControl(connection, () => Disconnect(userToken));
+            var flow = new ReceiveFlowControl(connection, () =>
+            {
+                var current = GetConnection(userToken);
+                // 回调可能晚于令牌回收与复用：只处理令牌当前仍绑定本连接的情况，
+                // 否则会把同一令牌对象上已绑定的新会话误断（对端端口复用时会话标识也可能相同）。
+                if (ReferenceEquals(current, connection))
+                    Disconnect(userToken);
+            });
             var handler = _inputHandler;
 
             _ = Task.Run(async () =>
@@ -460,13 +498,14 @@ namespace SAEA.Sockets.Core.Tcp
                 }
                 finally
                 {
-                    CancellationTokenSource removed;
                     // 只有本次处理器仍是登记的接管者才收口：断开路径会先摘除登记，据此判定为幂等兜底，
                     // 既不会重复触发 OnDisconnected，也不会在令牌入池复用后误断新连接。
-                    var wasRegistered = _pipelineCts.TryRemove(sessionId, out removed);
+                    // 按「键 + 值」原子摘除，避免同一会话标识的新一代登记被本次收尾误删。
+                    var wasRegistered = ((ICollection<KeyValuePair<string, CancellationTokenSource>>)_pipelineCts)
+                        .Remove(new KeyValuePair<string, CancellationTokenSource>(sessionId, cts));
                     cts.Dispose();
 
-                    if (wasRegistered)
+                    if (wasRegistered && ReferenceEquals(GetConnection(userToken), connection))
                     {
                         try { Disconnect(userToken); } catch { }
                     }
@@ -646,14 +685,33 @@ namespace SAEA.Sockets.Core.Tcp
                         if (userToken.Socket != null && userToken.Socket.Connected)
                         {
                             bool willRaiseEvent;
+
+                            // 回收已请求时不得再提交：关闭 socket 不会撤销已投递的接收，
+                            // 复用时对同一 args 再次 SetBuffer/ReceiveAsync 会抛异常并丢掉令牌。
+                            var baseToken = userToken as BaseUserToken;
+                            if (baseToken != null && !baseToken.TryBeginOperation())
+                            {
+                                Disconnect(userToken, new KernelException("连接正在回收，停止接收。"));
+                                return;
+                            }
+
                             try
                             {
                                 willRaiseEvent = userToken.Socket.ReceiveAsync(readArgs);
                             }
-                            catch (InvalidOperationException)
+                            catch (InvalidOperationException ex)
                             {
+                                // 提交失败必须回滚在途计数，否则该令牌再也回不到 0、永远无法入池
+                                _sessionManager.CompleteOperation(userToken);
+                                LogHelper.Error($"An exception occurs when receiving:{userToken?.ID}", ex);
                                 return;
                             }
+                            catch
+                            {
+                                _sessionManager.CompleteOperation(userToken);
+                                throw;
+                            }
+
                             if (!willRaiseEvent)
                             {
                                 ThreadPool.QueueUserWorkItem((state) =>
@@ -746,12 +804,18 @@ namespace SAEA.Sockets.Core.Tcp
                         return;
                     }
 
-                    try { Disconnect(eofToken); } catch { }
+                    try { Disconnect(eofToken); } catch (Exception ex) { LogHelper.Error($"An exception occurs when disconnecting:{eofSessionId}", ex); }
                 }
             }
             catch (Exception ex)
             {
                 OnError?.Invoke("", ex);
+            }
+            finally
+            {
+                // 与 ProcessReceive 的 TryBeginOperation 配对：同步完成、异常、背压暂停都在这里减一次，
+                // 延迟回收的令牌会在计数归零时由这唯一入口入池。lock 已退出，避免在持锁时入池。
+                _sessionManager.CompleteOperation(readArgs?.UserToken as IUserToken);
             }
         }
 
@@ -797,6 +861,11 @@ namespace SAEA.Sockets.Core.Tcp
             catch (Exception ex)
             {
                 OnError?.Invoke("", ex);
+            }
+            finally
+            {
+                // 与 SendAsyncRaw/End 的 TryBeginOperation 配对；lock 已退出，入池不在持锁时进行
+                _sessionManager.CompleteOperation(e.UserToken as IUserToken);
             }
         }
 
@@ -857,6 +926,23 @@ namespace SAEA.Sockets.Core.Tcp
                 writeArgs.SetBuffer(seg.Array, seg.Offset, seg.Count);
 
                 bool asyncPending;
+
+                // 回收已请求时不得提交：writeArgs 可能与即将入池的令牌属于同一连接，
+                // 提交后下一次复用会在 SetBuffer 处失败并丢失令牌。
+                if (baseToken != null && !baseToken.TryBeginOperation())
+                {
+                    userToken.IsSending = false;
+                    if (associated) baseToken.TakePendingSend();
+                    associated = false;
+                    try { userToken.ReleaseWrite(); } catch { }
+                    acquired = false;
+                    var closedEx = new KernelException("连接正在回收，发送已取消。");
+                    operation.TryCompleteException(closedEx);
+                    OnError?.Invoke($"An exception occurs when a message is sending:{userToken.ID}", closedEx);
+                    try { Disconnect(userToken, closedEx); } catch { }
+                    return operation.Task;
+                }
+
                 try
                 {
                     asyncPending = userToken.Socket.SendAsync(writeArgs);
@@ -865,6 +951,8 @@ namespace SAEA.Sockets.Core.Tcp
                 {
                     // SendAsync 抛异常表示本次发送未被内核排队，完成回调不会再来：
                     // 这里收回关联并释放写闸门，由本方法唯一完成操作。
+                    // 同时回滚在途计数，否则该令牌永远无法入池。
+                    _sessionManager.CompleteOperation(userToken);
                     userToken.IsSending = false;
                     if (associated) baseToken.TakePendingSend();
                     associated = false;
@@ -1157,7 +1245,26 @@ namespace SAEA.Sockets.Core.Tcp
                     {
                         writeArgs.SetBuffer(copy, 0, copy.Length);
                         userToken.IsSending = true;
-                        if (!userToken.Socket.SendAsync(writeArgs)) ProcessSended(writeArgs);
+                        if (userToken is BaseUserToken endToken && !endToken.TryBeginOperation())
+                        {
+                            // 连接已在回收：不再提交，交给随后的 Disconnect 收口
+                            userToken.IsSending = false;
+                            userToken.ReleaseWrite();
+                        }
+                        else
+                        {
+                            try
+                            {
+                                if (!userToken.Socket.SendAsync(writeArgs)) ProcessSended(writeArgs);
+                            }
+                            catch (Exception ex)
+                            {
+                                // 提交失败要回滚在途计数，否则令牌永远无法入池；
+                                // 不向上抛出，让后面的 Disconnect 照常收口。
+                                _sessionManager.CompleteOperation(userToken);
+                                OnError?.Invoke(userToken?.ID ?? "", ex);
+                            }
+                        }
                     }
                 }
             }
@@ -1165,7 +1272,11 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 OnError?.Invoke(userToken?.ID ?? "", ex);
             }
-            Disconnect(userToken);
+
+            // 同步完成的发送可能已是该令牌最后一个在途操作，令牌随即入池并被新连接取走；
+            // 此时 userToken.ID 已是新连接的标识，无条件 Disconnect 会误断别人的连接。
+            if (string.Equals(userToken.ID, sessionID, StringComparison.Ordinal))
+                Disconnect(userToken);
         }
 
         /// <summary>

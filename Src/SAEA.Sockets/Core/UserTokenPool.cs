@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/9 10:30:00
+*修改时间：2026/11/13 13:29:37
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：回收令牌前结束在途发送，避免迟到完成回调误伤复用后的发送
+*描述：args 仍被占用时不丢令牌，转入待重试队列并在下次取用时重试
 *
 *****************************************************************************/
 using System;
@@ -64,6 +64,11 @@ namespace SAEA.Sockets.Core
         BufferManager _bufferManager;
         UserTokenFactory _userTokenFactory;
         ConcurrentQueue<IUserToken> _concurrentQueue;
+
+        /// <summary>
+        /// 待重试队列：args 仍被在途操作占用而无法重置/准备的令牌，重试成功前不交给连接
+        /// </summary>
+        readonly ConcurrentQueue<IUserToken> _retryQueue = new ConcurrentQueue<IUserToken>();
 
         int _createdCount;
         bool _disposed;
@@ -113,13 +118,61 @@ namespace SAEA.Sockets.Core
 
         IUserToken PrepareUserToken(IUserToken userToken)
         {
-            _bufferManager.SetBuffer(userToken.ReadArgs);
+            // 令牌即将用于新连接：只有「回收已请求且在途计数归零」或「从未使用」才允许复用，
+            // 非法状态直接拒绝，否则清零本身会把在途令牌放回连接，退回原缺陷。
+            var baseUserToken = userToken as BaseUserToken;
+            if (baseUserToken != null && !baseUserToken.TryResetForReuse())
+            {
+                LogHelper.Error($"UserTokenPool.PrepareUserToken 令牌状态非法:{userToken.ID}/{userToken.Guid}/state={baseUserToken.OperationState}", new KernelException("令牌复用状态非法。"));
+                _retryQueue.Enqueue(userToken);
+                return null;
+            }
+
+            try
+            {
+                if (!_bufferManager.SetBuffer(userToken.ReadArgs))
+                {
+                    LogHelper.Error($"UserTokenPool.PrepareUserToken 无可用缓冲区槽位:{userToken.ID}/{userToken.Guid}", new KernelException("缓冲区槽位已耗尽。"));
+                    _retryQueue.Enqueue(userToken);
+                    return null;
+                }
+            }
+            catch (InvalidOperationException ex)
+            {
+                // ReadArgs 仍有在途接收：此时交给连接会在收包时失败并让令牌永久丢失，
+                // 先放入待重试队列，重试成功前不交给任何连接。
+                LogHelper.Error($"UserTokenPool.PrepareUserToken 令牌暂不可用:{userToken.ID}/{userToken.Guid}", ex);
+                _retryQueue.Enqueue(userToken);
+                return null;
+            }
+
             // 重新设置 UserToken，因为 Enqueue 时被设为 null
             if (userToken.ReadArgs != null)
                 userToken.ReadArgs.UserToken = userToken;
             if (userToken.WriteArgs != null)
                 userToken.WriteArgs.UserToken = userToken;
             return userToken;
+        }
+
+        /// <summary>
+        /// 重置令牌以便复用；args 仍被在途操作占用时转入待重试队列
+        /// </summary>
+        /// <param name="userToken">待重置的令牌</param>
+        /// <returns>false 表示已转入待重试队列，稍后由取用方重试</returns>
+        bool TryResetToken(IUserToken userToken)
+        {
+            try
+            {
+                ResetToken(userToken);
+                return true;
+            }
+            catch (InvalidOperationException ex)
+            {
+                // WriteArgs 仍有在途发送：SetBuffer 无法清空缓冲区。令牌不能丢，留在待重试队列。
+                LogHelper.Error($"UserTokenPool.Enqueue 令牌暂不可回收:{userToken.ID}/{userToken.Guid}", ex);
+                _retryQueue.Enqueue(userToken);
+                return false;
+            }
         }
 
         /// <summary>
@@ -130,12 +183,29 @@ namespace SAEA.Sockets.Core
         public IUserToken Dequeue(int timeOut = 1000)
         {
             DateTime startTime = DateTime.Now;
+            // 待重试队列每次取用只重试一次，持续失败时不能在此空转
+            var retryAttempted = false;
             while (true)
             {
                 IUserToken userToken;
+
+                if (!retryAttempted && _retryQueue.TryDequeue(out userToken))
+                {
+                    retryAttempted = true;
+                    if (TryResetToken(userToken))
+                    {
+                        var retried = PrepareUserToken(userToken);
+                        if (retried != null) return retried;
+                    }
+                    // 重试失败后令牌已回到待重试队列，继续走正常取用流程
+                }
+
                 if (_concurrentQueue.TryDequeue(out userToken))
                 {
-                    return PrepareUserToken(userToken);
+                    var prepared = PrepareUserToken(userToken);
+                    if (prepared != null) return prepared;
+                    // 该令牌已转入待重试队列，换下一个
+                    continue;
                 }
 
                 lock (_syncRoot)
@@ -145,7 +215,9 @@ namespace SAEA.Sockets.Core
                     // 进入锁后再取一次，避免 Enqueue 与按需创建之间丢失唤醒
                     if (_concurrentQueue.TryDequeue(out userToken))
                     {
-                        return PrepareUserToken(userToken);
+                        var prepared = PrepareUserToken(userToken);
+                        if (prepared != null) return prepared;
+                        continue;
                     }
 
                     // 池中暂无空闲令牌但尚未达到上限时，按需创建
@@ -174,74 +246,83 @@ namespace SAEA.Sockets.Core
         /// 回收前会主动放弃在途发送缓冲的所有权且不释放：内核可能仍在读取该内存，
         /// 若将其归还池化数组并再次租用会造成 use-after-return，因此此处有意交由 GC 回收，
         /// 与 SaeaServerSocket.AbandonSendingOwner 的处理一致。
+        /// 返回值 true 表示池已接管该令牌；args 仍被占用时令牌进入待重试队列，同样算接管。
         /// </remarks>
         /// <param name="userToken">用户令牌</param>
         /// <returns>是否成功放回</returns>
         public bool Enqueue(IUserToken userToken)
         {
             if (_concurrentQueue.Count >= _maxCount) return false;
-            if (userToken != null)
-            {
-                var socket = userToken.Socket;
-                try
-                {
-                    if (socket != null)
-                    {
-                        if (socket.Connected)
-                            socket?.Close();
-                        userToken.Socket = null;
-                    }
-                }
-                catch { }
-                if (userToken.ReadArgs != null)
-                {
-                    _bufferManager.FreeBuffer(userToken.ReadArgs);
-                    userToken.ReadArgs.UserToken = null;
-                    // 重置ReadArgs的RemoteEndPoint（如果有）
-                    if (userToken.ReadArgs.RemoteEndPoint != null)
-                    {
-                        userToken.ReadArgs.RemoteEndPoint = null;
-                    }
-                }
-                if (userToken.WriteArgs != null)
-                {
-                    // 重置WriteArgs的缓冲区
-                    userToken.WriteArgs.SetBuffer(null, 0, 0);
-                    userToken.WriteArgs.UserToken = null;
-                    // 重置WriteArgs的RemoteEndPoint（如果有）
-                    if (userToken.WriteArgs.RemoteEndPoint != null)
-                    {
-                        userToken.WriteArgs.RemoteEndPoint = null;
-                    }
-                }
-                // 清理Coder对象
-                if (userToken.Coder != null)
-                {
-                    userToken.Coder.Clear();
-                    // 不要设置为null，因为需要重复使用
-                }
-                // 重置其他属性
-                userToken.ID = null;
-                userToken.Linked = DateTime.MinValue;
-                userToken.Actived = DateTime.MinValue;
-                // 令牌即将被复用：先结束旧的在途发送，避免迟到的完成回调误伤下一次发送。
-                var baseUserToken = userToken as BaseUserToken;
-                if (baseUserToken != null)
-                {
-                    try { baseUserToken.AbandonPendingSend(new KernelException("连接已断开，发送未完成。")); } catch { }
-                }
-                try { userToken.TakeSendingOwner(); } catch { }
-                userToken.ReleaseWrite();
-                _concurrentQueue.Enqueue(userToken);
+            if (userToken == null) return false;
 
-                // 唤醒等待空闲令牌的 Dequeue 调用
-                lock (_syncRoot)
-                {
-                    Monitor.Pulse(_syncRoot);
-                }
-                return true;
+            if (!TryResetToken(userToken)) return true;
+
+            _concurrentQueue.Enqueue(userToken);
+
+            // 唤醒等待空闲令牌的 Dequeue 调用
+            lock (_syncRoot)
+            {
+                Monitor.Pulse(_syncRoot);
             }
-            return false;
+            return true;
+        }
+
+        /// <summary>
+        /// 重置令牌的全部连接相关状态
+        /// </summary>
+        /// <param name="userToken">待重置的令牌</param>
+        void ResetToken(IUserToken userToken)
+        {
+            var socket = userToken.Socket;
+            try
+            {
+                if (socket != null)
+                {
+                    if (socket.Connected)
+                        socket?.Close();
+                    userToken.Socket = null;
+                }
+            }
+            catch { }
+            if (userToken.ReadArgs != null)
+            {
+                _bufferManager.FreeBuffer(userToken.ReadArgs);
+                userToken.ReadArgs.UserToken = null;
+                // 重置ReadArgs的RemoteEndPoint（如果有）
+                if (userToken.ReadArgs.RemoteEndPoint != null)
+                {
+                    userToken.ReadArgs.RemoteEndPoint = null;
+                }
+            }
+            if (userToken.WriteArgs != null)
+            {
+                // 重置WriteArgs的缓冲区；在途发送未收口时这里会抛 InvalidOperationException
+                userToken.WriteArgs.SetBuffer(null, 0, 0);
+                userToken.WriteArgs.UserToken = null;
+                // 重置WriteArgs的RemoteEndPoint（如果有）
+                if (userToken.WriteArgs.RemoteEndPoint != null)
+                {
+                    userToken.WriteArgs.RemoteEndPoint = null;
+                }
+            }
+            // 清理Coder对象
+            if (userToken.Coder != null)
+            {
+                userToken.Coder.Clear();
+                // 不要设置为null，因为需要重复使用
+            }
+            // 重置其他属性
+            userToken.ID = null;
+            userToken.Linked = DateTime.MinValue;
+            userToken.Actived = DateTime.MinValue;
+            // 令牌即将被复用：先结束旧的在途发送，避免迟到的完成回调误伤下一次发送。
+            var baseUserToken = userToken as BaseUserToken;
+            if (baseUserToken != null)
+            {
+                try { baseUserToken.AbandonPendingSend(new KernelException("连接已断开，发送未完成。")); } catch { }
+            }
+            try { userToken.TakeSendingOwner(); } catch { }
+            userToken.ReleaseWrite();
         }
 
         /// <summary>

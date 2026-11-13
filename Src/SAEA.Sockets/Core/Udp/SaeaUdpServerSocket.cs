@@ -23,13 +23,15 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 10:30:00
+*修改时间：2026/11/13 13:29:37
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：修正 UDP 服务端地址族选择与多播选项级别，支持双栈监听
+*描述：接收/发送提交前登记在途操作，完成点配对结束，配合令牌两阶段回收
 *
 *****************************************************************************/
+using SAEA.Common;
 using SAEA.Common.Caching;
+using SAEA.Sockets.Base;
 using SAEA.Sockets.Handler;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
@@ -240,6 +242,14 @@ namespace SAEA.Sockets.Core.Udp
 
             if (token == null) return;
 
+            // UDP 会话令牌同样来自池并会被复用：回收已请求时不得再提交，
+            // 否则下一次复用的 SetBuffer 会因 args 仍在使用而抛异常并丢掉令牌。
+            var baseToken = token as BaseUserToken;
+            if (baseToken != null && !baseToken.TryBeginOperation())
+            {
+                return;
+            }
+
             try
             {
                 if (!socket.ReceiveFromAsync(token.ReadArgs))
@@ -250,9 +260,14 @@ namespace SAEA.Sockets.Core.Udp
                     });
                 }
             }
-            catch (ObjectDisposedException) { }
+            catch (ObjectDisposedException)
+            {
+                // 提交未成功：回滚在途计数，否则该令牌永远回不到 0、无法入池
+                SessionManager.CompleteOperation(token);
+            }
             catch (Exception ex)
             {
+                SessionManager.CompleteOperation(token);
                 OnError?.Invoke(token.ID, ex);
                 Disconnect(token, ex);
             }
@@ -299,6 +314,11 @@ namespace SAEA.Sockets.Core.Udp
                 OnError?.Invoke(userToken.ID, kex);
                 Disconnect(userToken, kex);
             }
+            finally
+            {
+                // 与 ProcessReceive 的 TryBeginOperation 配对；延迟回收的令牌在计数归零时入池
+                SessionManager.CompleteOperation(userToken);
+            }
         }
 
         private void ProcessSended(SocketAsyncEventArgs e)
@@ -318,7 +338,12 @@ namespace SAEA.Sockets.Core.Udp
             {
                 OnError?.Invoke($"An exception occurs when a message is sended:{userToken?.ID}", ex);
             }
-            userToken.ReleaseWrite();
+            finally
+            {
+                userToken.ReleaseWrite();
+                // 与 SendAsyncRaw 的 TryBeginOperation 配对
+                SessionManager.CompleteOperation(userToken);
+            }
         }
 
         #region send method
@@ -372,9 +397,29 @@ namespace SAEA.Sockets.Core.Udp
                     var writeArgs = userToken.WriteArgs;
                     writeArgs.RemoteEndPoint = ipEndPoint ?? userToken.ReadArgs.RemoteEndPoint;
                     writeArgs.SetBuffer(seg.Array, seg.Offset, seg.Count);
-                    if (!userToken.Socket.SendToAsync(writeArgs))
+
+                    // 回收已请求时不得提交：否则复用时 writeArgs 仍在途，令牌无法入池
+                    var baseToken = userToken as BaseUserToken;
+                    if (baseToken != null && !baseToken.TryBeginOperation())
                     {
-                        ProcessSended(writeArgs);
+                        try { userToken.TakeSendingOwner()?.Dispose(); } catch { }
+                        try { userToken.ReleaseWrite(); } catch { }
+                        acquired = false;
+                        return;
+                    }
+
+                    try
+                    {
+                        if (!userToken.Socket.SendToAsync(writeArgs))
+                        {
+                            ProcessSended(writeArgs);
+                        }
+                    }
+                    catch
+                    {
+                        // 提交失败要回滚在途计数，否则令牌永远无法入池
+                        SessionManager.CompleteOperation(userToken);
+                        throw;
                     }
                 }
                 else

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 13:23:31
+*修改时间：2026/11/13 13:29:37
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补齐英文与乱码注释的中文说明
+*描述：SetBuffer 失败时归还槽位，避免缓冲区槽位泄漏
 *
 *****************************************************************************/
 using System;
@@ -118,8 +118,18 @@ namespace SAEA.Sockets.Core
                 EnsureSegment(segmentIndex);
 
                 var offset = (slot % _slotsPerSegment) * _bufferSize;
+                try
+                {
+                    args.SetBuffer(_segments[segmentIndex], offset, _bufferSize);
+                }
+                catch
+                {
+                    // args 仍被在途操作占用时 SetBuffer 会抛异常；槽位必须立即退回，
+                    // 否则每次失败都永久丢失一个缓冲区槽位，最终整池无可用缓冲区。
+                    _freeSlots.Push(slot);
+                    throw;
+                }
                 _slotInUse[slot] = true;
-                args.SetBuffer(_segments[segmentIndex], offset, _bufferSize);
                 return true;
             }
         }
