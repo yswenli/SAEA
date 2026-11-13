@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 10:56:15
+*修改时间：2026/11/13 14:55:12
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：信令候选与 ICE 候选互转
+*描述：主动方向的 TCP 候选允许省略端口，还原时不再按非法候选丢弃
 *
 *****************************************************************************/
 using System;
@@ -126,11 +126,6 @@ namespace SAEA.P2P.Core
                 return false;
             }
 
-            if (source.Port < 1 || source.Port > 65535)
-            {
-                return false;
-            }
-
             // 分量缺省按第一分量处理，超出候选类允许范围的一律丢弃
             int component = source.Component <= 0 ? 1 : source.Component;
             if (component > 256)
@@ -192,6 +187,15 @@ namespace SAEA.P2P.Core
                 tcpType = TcpCandidateType.SimultaneousOpen;
             }
             else
+            {
+                return false;
+            }
+
+            // 主动方向的 TCP 候选只描述出向连接的地址，本地端口由操作系统分配，信令里按 0 写出，
+            // 这类候选必须能还原；其余候选的端口仍要求在 1 到 65535 之间
+            var allowsAnonymousPort = transport == IceTransportType.Tcp
+                && (tcpType == TcpCandidateType.Active || tcpType == TcpCandidateType.SimultaneousOpen);
+            if (source.Port < (allowsAnonymousPort ? 0 : 1) || source.Port > 65535)
             {
                 return false;
             }
