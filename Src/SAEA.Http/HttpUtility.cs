@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:29
+*修改时间：2026/11/13 12:03:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：MapPath 规范解析 . 与 .. 段并校验结果位于站点根目录内，越界路径返回 null
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -35,7 +35,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
+using System.Security;
 
 namespace SAEA.Http
 {
@@ -45,6 +45,8 @@ namespace SAEA.Http
     public class HttpUtility
     {
         string _root = "";
+
+        string _rootPath = "";
 
         List<FileInfo> files = new List<FileInfo>();
 
@@ -70,6 +72,9 @@ namespace SAEA.Http
 
             var rootDir = PathHelper.GetCurrentPath(_root);
 
+            // 归一化后的站点根目录，后续用它做越界判定
+            _rootPath = Path.GetFullPath(rootDir);
+
             var dir = new DirectoryInfo(rootDir);
 
             dirs = PathHelper.GetAllDirectories(dir, out files);
@@ -80,28 +85,159 @@ namespace SAEA.Http
         /// 把 URL 路径映射为物理路径，结果按 URL 缓存
         /// </summary>
         /// <param name="uriPath">URL 路径</param>
-        /// <returns>命中已扫描文件时返回其完整路径，否则返回拼接出的物理路径</returns>
+        /// <returns>命中已扫描文件时返回其完整路径，未命中时返回拼接出的物理路径；路径越出站点根目录或含非法字符时返回 null</returns>
         public string MapPath(string uriPath)
         {
-            return _cache.GetOrAdd(uriPath, (k) =>
+            if (uriPath == null)
             {
-                var cpath = _root + "/" + uriPath;
+                return null;
+            }
 
-                var list = cpath.Split("/", StringSplitOptions.RemoveEmptyEntries).ToList();
+            if (_cache.TryGetValue(uriPath, out var cached))
+            {
+                return cached;
+            }
 
-                list.Insert(0, PathHelper.GetCurrentPath());
+            var physicalPath = ResolvePhysicalPath(uriPath);
 
-                var physicalPath = Path.Combine(list.ToArray());
+            // 越界或非法路径不写入缓存，避免把 null 放进 ConcurrentDictionary
+            if (physicalPath == null)
+            {
+                return null;
+            }
 
-                foreach (var item in files)
+            return _cache.GetOrAdd(uriPath, physicalPath);
+        }
+
+        /// <summary>
+        /// 解析 URL 路径并校验结果仍位于站点根目录之下
+        /// </summary>
+        /// <param name="uriPath">URL 路径</param>
+        /// <returns>站点内的物理路径，越界或非法时返回 null</returns>
+        string ResolvePhysicalPath(string uriPath)
+        {
+            string relativePath;
+
+            if (!TryNormalizeRelativePath(uriPath, out relativePath))
+            {
+                return null;
+            }
+
+            string physicalPath;
+
+            try
+            {
+                physicalPath = relativePath.Length == 0
+                    ? _rootPath
+                    : Path.GetFullPath(Path.Combine(_rootPath, relativePath));
+            }
+            catch (ArgumentException)
+            {
+                return null;
+            }
+            catch (NotSupportedException)
+            {
+                return null;
+            }
+            catch (PathTooLongException)
+            {
+                return null;
+            }
+            catch (SecurityException)
+            {
+                return null;
+            }
+
+            // 比较时带上目录分隔符，避免同前缀的兄弟目录被误判为站点内
+            var rootWithSeparator = _rootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+
+            var isInRoot = string.Equals(physicalPath, _rootPath, StringComparison.OrdinalIgnoreCase)
+                || physicalPath.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase);
+
+            if (!isInRoot)
+            {
+                return null;
+            }
+
+            foreach (var item in files)
+            {
+                if (string.Equals(item.FullName, physicalPath, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (item.FullName.ToLowerInvariant() == physicalPath.ToLowerInvariant())
-                    {
-                        return item.FullName;
-                    }
+                    return item.FullName;
                 }
-                return physicalPath;
-            });
+            }
+
+            return physicalPath;
+        }
+
+        /// <summary>
+        /// 把 URL 路径拆成规范的相对段：处理 . 与 ..，并把反斜杠视作分隔符
+        /// </summary>
+        /// <param name="uriPath">URL 路径</param>
+        /// <param name="relativePath">规范后的相对路径，无有效段时为空字符串</param>
+        /// <returns>可安全拼接时为 true；绝对路径、UNC 路径、越界或含非法字符时为 false</returns>
+        static bool TryNormalizeRelativePath(string uriPath, out string relativePath)
+        {
+            relativePath = null;
+
+            if (uriPath == null || uriPath.IndexOf('\0') >= 0)
+            {
+                return false;
+            }
+
+            // Windows 下反斜杠同样是目录分隔符，先统一再拆分
+            var path = uriPath.Replace('\\', '/');
+
+            // 拒绝 UNC 路径与盘符路径，它们会绕过相对路径约束
+            if (path.StartsWith("//", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (path.Length >= 2 && char.IsLetter(path[0]) && path[1] == ':')
+            {
+                return false;
+            }
+
+            if (path.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
+            {
+                return false;
+            }
+
+            var segments = path.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+
+            var stack = new List<string>(segments.Length);
+
+            foreach (var segment in segments)
+            {
+                if (segment == ".")
+                {
+                    continue;
+                }
+
+                if (segment == "..")
+                {
+                    // 没有可回退的段说明已越过站点根目录
+                    if (stack.Count == 0)
+                    {
+                        return false;
+                    }
+
+                    stack.RemoveAt(stack.Count - 1);
+                    continue;
+                }
+
+                if (segment.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+                {
+                    return false;
+                }
+
+                stack.Add(segment);
+            }
+
+            relativePath = string.Join(Path.DirectorySeparatorChar.ToString(), stack);
+
+            return true;
         }
         /// <summary>
         /// 对字符串做 URL 编码

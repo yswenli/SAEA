@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/10 11:00:00
+*修改时间：2026/11/13 12:03:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：删除异常与请求委托事件，改读 WebConfig 的请求与异常委托，处理入口按连接通道
+*描述：静态文件映射结果为 null 时直接返回 404，不再用越界路径访问文件
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -209,9 +209,9 @@ namespace SAEA.MVC
 
                     filePath = Server.MapPath(WebConfig.HomePage);
 
-                    if (string.IsNullOrWhiteSpace(filePath))
+                    if (filePath == null)
                     {
-                        new ContentResult($"o_o，找不到任何内容 url:{url} filePath:{filePath}", System.Net.HttpStatusCode.NotFound);
+                        return new ContentResult("o_o，找不到任何内容 url:" + url, System.Net.HttpStatusCode.NotFound);
                     }
 
                     if (StaticResourcesCache.Exists(filePath))
@@ -236,6 +236,12 @@ namespace SAEA.MVC
 
                 case 1:
                     filePath = Server.MapPath(url);
+
+                    if (filePath == null)
+                    {
+                        return new ContentResult("o_o，找不到任何内容 url:" + url, System.Net.HttpStatusCode.NotFound);
+                    }
+
                     if (StaticResourcesCache.Exists(filePath))
                     {
                         if (StaticResourcesCache.IsBigFile(filePath))
@@ -263,6 +269,11 @@ namespace SAEA.MVC
                     }
 
                     filePath = Server.MapPath(url);
+
+                    if (filePath == null)
+                    {
+                        return new ContentResult("o_o，找不到任何内容 url:" + url, System.Net.HttpStatusCode.NotFound);
+                    }
 
                     if (StaticResourcesCache.Exists(filePath))
                     {

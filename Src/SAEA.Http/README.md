@@ -576,12 +576,23 @@ server.WebConfig.RequestDelegate = ctx =>
 
 ### 返回文件
 
+`Server.MapPath` 对越出站点根目录或非法的路径返回 `null`，调用方必须判空后再当作文件路径使用。
+
 ```csharp
 using SAEA.Http.Model;
 
 server.WebConfig.RequestDelegate = ctx =>
 {
     var filePath = ctx.Server.MapPath("/files/document.pdf");
+
+    // null 表示路径越界或非法，按 404 处理
+    if (filePath == null)
+    {
+        ctx.Response.SetCached(new HttpContentResult("o_o，找不到任何内容", System.Net.HttpStatusCode.NotFound));
+        ctx.Response.End();
+        return;
+    }
+
     ctx.Response.SetCached(new HttpFileResult(filePath, true));
     ctx.Response.End();
 };
