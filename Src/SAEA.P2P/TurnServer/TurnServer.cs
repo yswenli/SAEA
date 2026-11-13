@@ -1088,8 +1088,15 @@ namespace SAEA.P2P.TurnServer
                 {
                     return;
                 }
-                catch (SocketException)
+                catch (SocketException ex)
                 {
+                    // Windows 会把「对端端口不可达」的 ICMP 回报成该次接收的 ConnectionReset，
+                    // 它只对应单个已发出的数据报；若据此结束循环，该分配从此收不到任何中继数据
+                    if (ex.SocketErrorCode == SocketError.ConnectionReset)
+                    {
+                        continue;
+                    }
+
                     return;
                 }
 
