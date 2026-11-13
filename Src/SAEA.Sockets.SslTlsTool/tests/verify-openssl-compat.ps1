@@ -62,6 +62,23 @@ try {
     Invoke-Case -Name 'x509 -text 报暂不支持' -Body {
         $r = Invoke-Tool -Arguments @('x509', '-in', $pem, '-text'); $r.ExitCode -eq 1 -and $r.StdErr -like '*暂不支持*'
     }
+    $key = Join-Path $src 'localhost.key'; $p8 = Join-Path $tmp 'key.p8'; $enc = Join-Path $tmp 'enc.p8'
+    Invoke-Case -Name 'pkcs8 -topk8 -nocrypt 输出 PRIVATE KEY' -Body {
+        $r = Invoke-Tool -Arguments @('pkcs8', '-topk8', '-nocrypt', '-in', $key, '-out', $p8)
+        $r.ExitCode -eq 0 -and (Get-Content $p8 -Raw) -like '*BEGIN PRIVATE KEY*'
+    }
+    Invoke-Case -Name 'pkcs8 错误口令退出 1 且报口令错误' -Body {
+        $a = Invoke-Tool -Arguments @('pkcs8', '-topk8', '-in', $key, '-passout', 'pass:x', '-out', $enc)
+        $b = Invoke-Tool -Arguments @('pkcs8', '-in', $enc, '-passin', 'pass:y', '-out', (Join-Path $tmp 'bad.p8'))
+        $a.ExitCode -eq 0 -and $b.ExitCode -eq 1 -and $b.StdErr -like '*口令错误*'
+    }
+    $p8test = Join-Path $tmp 'key-test.p8'; $plain = Join-Path $tmp 'plain.pem'
+    Invoke-Case -Name 'pkey -traditional 输出 RSA PRIVATE KEY' -Body { $o = Join-Path $tmp 'rsa.pem'; $r = Invoke-Tool -Arguments @('pkey', '-in', $key, '-traditional', '-out', $o); $r.ExitCode -eq 0 -and (Get-Content $o -Raw) -like '*BEGIN RSA PRIVATE KEY*' }
+    Invoke-Case -Name 'pkcs8 -topk8 -passout 输出 ENCRYPTED PRIVATE KEY' -Body { $r = Invoke-Tool -Arguments @('pkcs8', '-topk8', '-in', $key, '-passout', 'pass:test', '-out', $p8test); $r.ExitCode -eq 0 -and (Get-Content $p8test -Raw) -like '*BEGIN ENCRYPTED PRIVATE KEY*' }
+    Invoke-Case -Name 'pkey -passin 解密回明文 PRIVATE KEY' -Body { $r = Invoke-Tool -Arguments @('pkey', '-in', $p8test, '-passin', 'pass:test', '-out', $plain); $text = Get-Content $plain -Raw; $r.ExitCode -eq 0 -and $text -like '*BEGIN PRIVATE KEY*' -and $text -notlike '*ENCRYPTED*' }
+    Invoke-Case -Name 'pkey -passin env:SAEA_TEST_PWD 成功' -Body { $env:SAEA_TEST_PWD = 'test'; $o = Join-Path $tmp 'env.pem'; $r = Invoke-Tool -Arguments @('pkey', '-in', $p8test, '-passin', 'env:SAEA_TEST_PWD', '-out', $o); $r.ExitCode -eq 0 -and (Get-Content $o -Raw) -like '*BEGIN PRIVATE KEY*' }
+    Remove-Item Env:\SAEA_TEST_PWD -ErrorAction SilentlyContinue
+    Invoke-Case -Name 'pkcs8 -v1 与 -v2 同给退出 1' -Body { $r = Invoke-Tool -Arguments @('pkcs8', '-topk8', '-v1', 'PBE-SHA1-3DES', '-v2', 'aes-256-cbc', '-in', $key, '-passout', 'pass:test', '-out', $p8test); $r.ExitCode -eq 1 -and $r.StdErr -like '*不能同时使用*' }
 }
 finally { Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue }
 '{0} passed, {1} failed' -f $script:passed, $script:failed

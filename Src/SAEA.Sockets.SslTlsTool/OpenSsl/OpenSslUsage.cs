@@ -24,10 +24,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 13:54:11
+*修改时间：2026/11/13 14:04:10
 *修改人： yswenli
 *版本号： net10.0
-*描述：补 x509 子命令的帮助文本
+*描述：补 pkcs8 与 pkey 子命令的帮助文本
 *
 *****************************************************************************/
 namespace SAEA.Sockets.SslTlsTool.OpenSsl;
@@ -55,6 +55,12 @@ internal static class OpenSslUsage
                     + "打印：-subject、-issuer、-dates、-serial、-fingerprint（默认 SHA-1）、-sha256、-pubkey\n"
                     + "签发：-req、-CA <文件>、-CAkey <文件>、-CAcreateserial、-days <正整数>、-extfile <文件>、-extensions <段名>、-copy_extensions copy|none\n"
                     + "不支持：-text、-nameopt（姓名固定 oneline 风格）；打印项写 stdout 且位于证书数据之前。\n";
+            case "pkcs8":
+                return "用法：SAEA.Sockets.SslTlsTool pkcs8 [选项]\n在 PKCS#1 与 PKCS#8 之间转换私钥；-in 缺省 stdin，-out 缺省 stdout。\n"
+                    + "选项：-in、-out、-inform PEM|DER、-outform PEM|DER、-topk8、-nocrypt、-v1 PBE-SHA1-3DES、-v2 aes-128-cbc|aes-192-cbc|aes-256-cbc|des3（默认 aes-256-cbc）、-passin、-passout；-v1 与 -v2 互斥，非 -topk8 不支持 -passout。\n";
+            case "pkey":
+                return "用法：SAEA.Sockets.SslTlsTool pkey [选项]\n读取私钥并输出 PKCS#8（默认）、PKCS#1（-traditional）或公钥（-pubout）；-in 缺省 stdin，-out 缺省 stdout。\n"
+                    + "选项：-in、-out、-inform PEM|DER、-outform PEM|DER、-pubout、-traditional、-aes-128-cbc、-aes-192-cbc、-aes-256-cbc、-des3（与 -traditional 互斥）、-passin、-passout。\n";
             default:
                 // 过渡实现：Task 3 起按子命令逐个替换为真实参数清单。
                 throw new OpenSslException($"usage: 未实现的子命令 {command}。");

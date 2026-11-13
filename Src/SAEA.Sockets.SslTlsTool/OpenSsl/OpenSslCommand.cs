@@ -24,10 +24,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 13:54:11
+*修改时间：2026/11/13 14:04:10
 *修改人： yswenli
 *版本号： net10.0
-*描述：x509 接到 X509Command.Run
+*描述：pkcs8 与 pkey 接到各自 Command.Run
 *
 *****************************************************************************/
 using SAEA.Sockets.SslTlsTool.OpenSsl.Commands;
@@ -89,6 +89,10 @@ internal static class OpenSslCommand
             {
                 case "x509":
                     return X509Command.Run(tail, interactive);
+                case "pkcs8":
+                    return Pkcs8Command.Run(tail, interactive);
+                case "pkey":
+                    return PkeyCommand.Run(tail, interactive);
                 default:
                     throw new OpenSslException($"error: {command} 尚未实现。");
             }
