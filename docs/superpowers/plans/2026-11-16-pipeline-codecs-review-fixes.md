@@ -8,7 +8,7 @@
 
 - 修复前 12 条判据中 9 条满足、3 条部分不满足（原始字节出站口径、热路径冗余复制、服务端配置跨连接共享）；本次修复后为 10 条满足、2 条部分不满足（仅剩判据 1 的设计允许路径与判据 12 的必要复制），无阻断项。
 - 审查另出 1 项应修与 6 项建议；本次修掉 4 项（1 应修 + 3 建议），其余进第 7 节。
-- 9 个受影响库 Release 重构建 `errors=0`；10 个测试工程合计 518 通过 / 0 失败 / 0 跳过。
+- 9 个受影响库 Release 重构建 `errors=0`；10 个测试工程合计 518 通过 / 0 失败 / 0 跳过（按当时工程集合统计，`SAEA.Sockets.Pipeline.Tests` 此后已被移除）。
 - 提交序列见文末「提交」段；代码改动与注释修正在前，记录与勘误在后。未合入 master、未推送。
 
 ## 2. Pipeline / Codecs 采用现状
@@ -139,6 +139,8 @@ DNS、Socket5、RedisSocket、Audio.Net 四个目录下目前没有测试工程�
 | `SAEA.RPC.Tests` | 15 | 0 | 0 |
 | 合计 | 518 | 0 | 0 |
 
+上表按本分支基线 `41558446` 的工程集合统计；`SAEA.Sockets.Pipeline.Tests` 随后由 master 的 `56bada83` 整工程移除，其 281 个用例在仓库中已不存在。
+
 主会话独立复跑 WebSocket 14、FTP 52、MVC 23，与上表一致。
 
 ### 5.3 未运行
@@ -174,10 +176,12 @@ foreach ($p in 'SAEA.FTP','SAEA.FileSocket','SAEA.Http','SAEA.MVC','SAEA.WebSock
 }
 
 # 3. 逐个跑测试工程（测试工程都不在 sln 内，必须逐个指定工程路径）
-foreach ($t in 'SAEA.Common.Tests','SAEA.Sockets.Pipeline.Tests','SAEA.WebSocket.Tests','SAEA.FTP.Tests','SAEA.FileSocket.Tests','SAEA.Http.Tests','SAEA.MVC.Tests','SAEA.QueueSocket.Tests','SAEA.MessageSocket.Tests','SAEA.RPC.Tests') {
+foreach ($t in 'SAEA.Common.Tests','SAEA.WebSocket.Tests','SAEA.FTP.Tests','SAEA.FileSocket.Tests','SAEA.Http.Tests','SAEA.MVC.Tests','SAEA.QueueSocket.Tests','SAEA.MessageSocket.Tests','SAEA.RPC.Tests') {
     dotnet test "Src\$t\$t.csproj" -c Release
 }
 ```
+
+`SAEA.Sockets.Pipeline.Tests` 已不在仓库中；复核本分支的 pipeline 用例需在 `41558446` 上检出后再跑。
 
 提交：
 
