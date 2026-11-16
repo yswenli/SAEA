@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 11:20:00
+*修改时间：2026/11/16 10:20:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：装配回调改为启动前注入：Start/Connect 之后再赋值抛 InvalidOperationException，中英 README 同步说明
+*描述：通道链配置显式开启启动期链尾校验
 *
 *****************************************************************************/
 using System;
@@ -180,7 +180,8 @@ namespace SAEA.QueueSocket
                 MaxBufferedBytes = (long)maxFrameLength + FrameConstants.P_Head,
                 ReadBufferSize = readBufferSize,
                 // 订阅消息必须按到达顺序交付，同一连接串行执行。
-                MaxConcurrentMessages = 1
+                MaxConcurrentMessages = 1,
+                RequireTerminalHandler = true
             };
 
             var socketOption = new SocketOptionBuilder()

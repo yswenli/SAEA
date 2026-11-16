@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 11:20:00
+*修改时间：2026/11/16 10:20:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：装配回调改为启动前注入：Start/Connect 之后再赋值抛 InvalidOperationException，中英 README 同步说明
+*描述：通道链配置改为每连接新建，并显式开启启动期链尾校验
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -116,7 +116,28 @@ namespace SAEA.FileSocket
         private readonly ConcurrentDictionary<string, IChannelPipeline> _pipelines =
             new ConcurrentDictionary<string, IChannelPipeline>(StringComparer.Ordinal);
 
-        private readonly ChannelPipelineOptions _options;
+        // 单帧上限与读缓冲大小在构造时解析一次，之后每条连接按同一口径新建分帧器与配置。
+        private readonly int _maxFrameLength;
+
+        private readonly int _readBufferSize;
+
+        /// <summary>
+        /// 创建一条连接的通道链配置：配置与分帧器实例不跨连接复用，
+        /// 分帧器一旦引入连接级状态（如切换式分帧），共享实例会让多连接互相干扰
+        /// </summary>
+        /// <returns>尚未被任何链使用的独立配置实例</returns>
+        private ChannelPipelineOptions CreateOptions()
+        {
+            return new ChannelPipelineOptions
+            {
+                Splitter = FileFrameSplitter.Create(_maxFrameLength),
+                MaxBufferedBytes = (long)_maxFrameLength + FrameConstants.P_Head,
+                ReadBufferSize = _readBufferSize,
+                // 文件块按顺序落盘，同一连接必须串行执行，否则分块会乱序写入。
+                MaxConcurrentMessages = 1,
+                RequireTerminalHandler = true
+            };
+        }
 
         /// <summary>
         /// 创建底层服务端并注册收连接回调，监听需另调 Start
@@ -130,16 +151,9 @@ namespace SAEA.FileSocket
 
             // 单帧上限沿用 BaseCoder.MaxFrameLength 的可配置口径，输入残余上限按同一口径显式给出，
             // 避免自动推导在默认上限下超出 int 范围。
-            var maxFrameLength = FileFrameSplitter.ResolveMaxFrameLength();
+            _maxFrameLength = FileFrameSplitter.ResolveMaxFrameLength();
 
-            _options = new ChannelPipelineOptions
-            {
-                Splitter = FileFrameSplitter.Create(maxFrameLength),
-                MaxBufferedBytes = (long)maxFrameLength + FrameConstants.P_Head,
-                ReadBufferSize = readBufferSize,
-                // 文件块按顺序落盘，同一连接必须串行执行，否则分块会乱序写入。
-                MaxConcurrentMessages = 1
-            };
+            _readBufferSize = readBufferSize;
 
             var option = new SocketOptionBuilder()
                 .SetSocket()
@@ -194,7 +208,7 @@ namespace SAEA.FileSocket
                     channelId,
                     stream,
                     flow,
-                    _options,
+                    CreateOptions(),
                     token,
                     _host,
                     ConfigureConnection)

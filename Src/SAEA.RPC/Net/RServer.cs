@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 16:45:50
+*修改时间：2026/11/16 10:20:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：业务面由用户令牌收敛为连接视图 IChannel，并把客户端地址透传为通道属性
+*描述：通道链配置改为每连接新建，并显式开启启动期链尾校验
 *
 *****************************************************************************/
 using System;
@@ -61,7 +61,28 @@ namespace SAEA.RPC.Net
         private readonly ConcurrentDictionary<string, EndPoint> _remoteEndPoints =
             new ConcurrentDictionary<string, EndPoint>(StringComparer.Ordinal);
 
-        private readonly ChannelPipelineOptions _options;
+        // 单帧上限与读缓冲大小在构造时解析一次，之后每条连接按同一口径新建分帧器与配置。
+        private readonly int _maxFrameLength;
+
+        private readonly int _readBufferSize;
+
+        /// <summary>
+        /// 创建一条连接的通道链配置：配置与分帧器实例不跨连接复用，
+        /// 分帧器一旦引入连接级状态（如切换式分帧），共享实例会让多连接互相干扰
+        /// </summary>
+        /// <returns>尚未被任何链使用的独立配置实例</returns>
+        private ChannelPipelineOptions CreateOptions()
+        {
+            return new ChannelPipelineOptions
+            {
+                Splitter = RpcFrameSplitter.Create(_maxFrameLength),
+                MaxBufferedBytes = (long)_maxFrameLength + FrameConstants.P_Head,
+                ReadBufferSize = _readBufferSize,
+                // 请求与应答必须按到达顺序处理，同一连接串行执行。
+                MaxConcurrentMessages = 1,
+                RequireTerminalHandler = true
+            };
+        }
 
         /// <summary>
         /// 收到完整 RPC 消息时调用；返回的任务在本条消息处理完成后结束
@@ -128,16 +149,9 @@ namespace SAEA.RPC.Net
 
             // 单帧上限沿用 BaseCoder.MaxFrameLength 的可配置口径，输入残余上限按同一口径显式给出，
             // 避免自动推导在默认上限下超出 int 范围。
-            var maxFrameLength = RpcFrameSplitter.ResolveMaxFrameLength();
+            _maxFrameLength = RpcFrameSplitter.ResolveMaxFrameLength();
 
-            _options = new ChannelPipelineOptions
-            {
-                Splitter = RpcFrameSplitter.Create(maxFrameLength),
-                MaxBufferedBytes = (long)maxFrameLength + FrameConstants.P_Head,
-                ReadBufferSize = readBufferSize,
-                // 请求与应答必须按到达顺序处理，同一连接串行执行。
-                MaxConcurrentMessages = 1
-            };
+            _readBufferSize = readBufferSize;
 
             var option = new SocketOptionBuilder()
                 .SetSocket()
@@ -207,7 +221,7 @@ namespace SAEA.RPC.Net
                     channelId,
                     stream,
                     flow,
-                    _options,
+                    CreateOptions(),
                     token,
                     _host,
                     ConfigureConnection)

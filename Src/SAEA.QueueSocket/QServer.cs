@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 11:20:00
+*修改时间：2026/11/16 10:20:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：装配回调改为启动前注入：Start/Connect 之后再赋值抛 InvalidOperationException，中英 README 同步说明
+*描述：通道链配置改为每连接新建，并显式开启启动期链尾校验
 *
 *****************************************************************************/
 using System;
@@ -108,7 +108,28 @@ namespace SAEA.QueueSocket
         readonly ConcurrentDictionary<string, IChannelPipeline> _pipelines =
             new ConcurrentDictionary<string, IChannelPipeline>(StringComparer.Ordinal);
 
-        readonly ChannelPipelineOptions _options;
+        // 单帧上限与读缓冲大小在构造时解析一次，之后每条连接按同一口径新建分帧器与配置。
+        readonly int _maxFrameLength;
+
+        readonly int _readBufferSize;
+
+        /// <summary>
+        /// 创建一条连接的通道链配置：配置与分帧器实例不跨连接复用，
+        /// 分帧器一旦引入连接级状态（如切换式分帧），共享实例会让多连接互相干扰
+        /// </summary>
+        /// <returns>尚未被任何链使用的独立配置实例</returns>
+        private ChannelPipelineOptions CreateOptions()
+        {
+            return new ChannelPipelineOptions
+            {
+                Splitter = QueueFrameSplitter.Create(_maxFrameLength),
+                MaxBufferedBytes = (long)_maxFrameLength + FrameConstants.P_Head,
+                ReadBufferSize = _readBufferSize,
+                // 订阅与发布必须按到达顺序处理，同一连接串行执行。
+                MaxConcurrentMessages = 1,
+                RequireTerminalHandler = true
+            };
+        }
 
         /// <summary>
         /// 初始化QServer类的新实例
@@ -129,16 +150,9 @@ namespace SAEA.QueueSocket
             var readBufferSize = bufferSize > 0 ? bufferSize : 128 * 1024;
 
             // 单帧上限沿用 BaseCoder.MaxFrameLength 的可配置口径，输入残余上限按同一口径显式给出。
-            var maxFrameLength = QueueFrameSplitter.ResolveMaxFrameLength();
+            _maxFrameLength = QueueFrameSplitter.ResolveMaxFrameLength();
 
-            _options = new ChannelPipelineOptions
-            {
-                Splitter = QueueFrameSplitter.Create(maxFrameLength),
-                MaxBufferedBytes = (long)maxFrameLength + FrameConstants.P_Head,
-                ReadBufferSize = readBufferSize,
-                // 订阅与发布必须按到达顺序处理，同一连接串行执行。
-                MaxConcurrentMessages = 1
-            };
+            _readBufferSize = readBufferSize;
 
             var config = new SocketOptionBuilder()
                 .SetSocket(SAEASocketType.Tcp)
@@ -227,7 +241,7 @@ namespace SAEA.QueueSocket
                     channelId,
                     stream,
                     flow,
-                    _options,
+                    CreateOptions(),
                     token,
                     _host,
                     ConfigureConnection)

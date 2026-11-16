@@ -22,10 +22,10 @@
  *
  *=====================================================================
  *修改标记
- *修改时间：2026/11/12 17:58:57
+ *修改时间：2026/11/16 10:20:00
  *修改人： yswenli
  *版本号： v26.11.5.1
- *描述：构造函数新增 configureSsl 参数，在流模式配置之后统一接入 TLS
+ *描述：通道链配置显式开启启动期链尾校验
  *
  *****************************************************************************/
 using System;
@@ -166,7 +166,8 @@ namespace SAEA.Http.Base.Net
                 MaxBufferedBytes = 0,
                 ReadBufferSize = _bufferSize,
                 // HTTP 是单工请求/响应：同一连接必须串行处理，否则保活连接的响应会乱序。
-                MaxConcurrentMessages = 1
+                MaxConcurrentMessages = 1,
+                RequireTerminalHandler = true
             };
 
             var stream = new PipelineRawByteStream(channelId, reader, flow, _serverSokcet);

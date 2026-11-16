@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 11:30:13
+*修改时间：2026/11/16 10:20:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：超时后丢弃迟到应答，放宽 CWD/MKD/RNFR 码表，修正注释与成员顺序
+*描述：控制与数据通道配置显式开启启动期链尾校验
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -146,7 +146,7 @@ namespace SAEA.FTP.Net
 
         readonly ChannelPipelineOptions _dataOptions = new ChannelPipelineOptions
         {
-            // 服务端 FTPServer.cs 内 _dataOptions 是同一组参数的拷贝，只改一边会导致两端分帧与背压行为不一致。
+            // 服务端 FTPServer.cs 的 CreateDataOptions 是同一组参数的另一份拷贝，只改一边会导致两端分帧与背压行为不一致。
             // 数据通道无消息边界：一次读取就是一块数据，缓冲下限必须覆盖单次读取。
             Splitter = new TakeAvailableSplitter(64 * 1024),
             MaxBufferedBytes = 64 * 1024 + FrameConstants.P_Head,
@@ -156,7 +156,8 @@ namespace SAEA.FTP.Net
             MaxConcurrentMessages = 1,
             QueueCapacity = 8,
             // 泵读到 EOF 会丢弃队列帧，同步入队才能保住同批尾帧。
-            DispatchMode = ChannelDispatchMode.Inline
+            DispatchMode = ChannelDispatchMode.Inline,
+            RequireTerminalHandler = true
         };
 
         readonly PipelineHostRegistry _host = new PipelineHostRegistry();
@@ -370,7 +371,8 @@ namespace SAEA.FTP.Net
                 MaxBufferedBytes = 8 * 1024 + FrameConstants.P_Head,
                 ReadBufferSize = 64 * 1024,
                 // 控制通道严格一问一答，应答必须按到达顺序入队。
-                MaxConcurrentMessages = 1
+                MaxConcurrentMessages = 1,
+                RequireTerminalHandler = true
             };
         }
 
