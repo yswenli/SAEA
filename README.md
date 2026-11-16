@@ -338,9 +338,9 @@ dotnet add package SAEA.Sockets --version 26.9.21.1
 - `SAEA.P2PTest` - STUN/TURN 服务端宿主 + P2P 客户端自测程序
 - `SAEA.Sockets.SslTlsTool` - 开发用 SSL/TLS 证书生成与格式转换工具（支持 openssl 兼容子命令）
 
-**单元测试工程**：`Src/*.Tests/` 下有 12 个 MSTest 工程，均不在 `Src/SAEA.Sockets.sln` 中，需按需单独运行，目标框架为 `net10.0`。示例命令：`dotnet test Src/SAEA.Common.Tests/SAEA.Common.Tests.csproj -c Release`
+**单元测试工程**：`Src/*.Tests/` 下有 11 个 MSTest 工程，均不在 `Src/SAEA.Sockets.sln` 中，需按需单独运行，目标框架为 `net10.0`。示例命令：`dotnet test Src/SAEA.Common.Tests/SAEA.Common.Tests.csproj -c Release`
 
-工程列表：`SAEA.Common.Tests`、`SAEA.Sockets.Pipeline.Tests`、`SAEA.MQTT.Tests`、`SAEA.FTP.Tests`、`SAEA.Http.Tests`、`SAEA.WebSocket.Tests`、`SAEA.FileSocket.Tests`、`SAEA.RPC.Tests`、`SAEA.QueueSocket.Tests`、`SAEA.MessageSocket.Tests`、`SAEA.P2P.Tests`（需 .NET 8 runtime）、`SAEA.MVC.Tests`。
+工程列表：`SAEA.Common.Tests`、`SAEA.MQTT.Tests`、`SAEA.FTP.Tests`、`SAEA.Http.Tests`、`SAEA.WebSocket.Tests`、`SAEA.FileSocket.Tests`、`SAEA.RPC.Tests`、`SAEA.QueueSocket.Tests`、`SAEA.MessageSocket.Tests`、`SAEA.P2P.Tests`（需 .NET 8 runtime）、`SAEA.MVC.Tests`。
 
 ---
 

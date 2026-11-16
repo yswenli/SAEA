@@ -53,7 +53,7 @@
 | `Src/SAEA.Common.Tests` | 59 通过 / 0 跳过 | 0 |
 | `Src/SAEA.MQTT.Tests` | 153 通过 / 0 跳过 | 0 |
 | `Src/SAEA.FTP.Tests` | 52 通过 / 0 跳过 | 0 |
-| `Src/SAEA.Sockets.Pipeline.Tests` | 未运行：本工作区不存在该工程目录 | — |
+| `Src/SAEA.Sockets.Pipeline.Tests` | 已从仓库移除（157 条用例随工程删除），不再是回归目标 | — |
 
 ## 四、跳过项
 
@@ -75,7 +75,7 @@
 4. **NAT 代理模型的边界**：矩阵经进程内代理模型构造映射与过滤行为，只证明在给定 NAT 行为模型下的连通性与选路，不构成内核 NAT 或真实家用路由器行为的结论。
 5. **公网 TCP 打洞成功率未验证**：设计以「检查失败即回退」为硬约束，本轮只验证回退路径（`TcpMatrix_TCP失败_回退TURN_UDP`、`EndToEnd_UDP失败_回退RelayUdp`），不给出成功率数字。
 6. **`--server` 宿主进程级冒烟未执行**：`Src/SAEA.P2PTest` 只实测了 `--smoke`（232 通过 / 0 失败）与 `--help`（退出码 0，输出不含密钥）。与 NAT 组合的 STUN 验证是进程内集成用例 `Stun/StunNatIntegrationTests`（`StunNatIntegration_经NAT_映射地址为NAT外部端点`、`StunNatIntegration_CHANGE_REQUEST换端口_客户端收到响应`），不覆盖宿主进程的启动、配置文件加载与监听绑定路径。
-7. **计划中的 `Src/SAEA.Sockets.Pipeline.Tests` 回归命令未执行**：该工程目录在本工作区不存在，`dotnet test` 无目标可跑；回归证据仅来自 Common / MQTT / FTP 三个工程。
+7. **`Src/SAEA.Sockets.Pipeline.Tests` 已移除**：该 MSTest 工程及其 157 条用例已随本次提交从仓库删除，不再是回归目标；`SAEA.Sockets` 侧的改动改由全解决方案构建（`dotnet build Src/SAEA.Sockets.sln -c Debug`，0 错误）与 `Src/SAEA.P2P.Tests` 全量覆盖。如需恢复该回归覆盖，可从 git 历史取回工程后重新纳入回归集。
 
 ## 六、已知限制逐条核对
 
@@ -126,8 +126,7 @@ dotnet test Src/SAEA.P2P.Tests/SAEA.P2P.Tests.csproj -c Release --filter "FullyQ
 dotnet test Src/SAEA.Common.Tests/SAEA.Common.Tests.csproj -c Release                     # 实测 59 通过
 dotnet test Src/SAEA.MQTT.Tests/SAEA.MQTT.Tests.csproj -c Release                         # 实测 153 通过
 dotnet test Src/SAEA.FTP.Tests/SAEA.FTP.Tests.csproj -c Release                           # 实测 52 通过
-# 本工作区无 Src/SAEA.Sockets.Pipeline.Tests 工程目录，以下命令无可执行目标
-# dotnet test Src/SAEA.Sockets.Pipeline.Tests/SAEA.Sockets.Pipeline.Tests.csproj -c Release
+# SAEA.Sockets.Pipeline.Tests 已从仓库移除，不再是回归目标
 ```
 
 ```bash
@@ -152,5 +151,5 @@ git grep -n -E "RelayManager|RelaySession|RelayData" -- Src
 3. 管理员环境补 NAT66：预置 `fd00::/8` 地址后启用 `Ipv6BoundaryTests` 的 NAT66 用例。
 4. 按互通核对清单在具备公网的环境执行 13 条，并逐条回填实际结果；未执行前继续保持「未运行」。
 5. 补 `--server` 宿主进程级冒烟：启动宿主、按配置加载、监听绑定、一条 Binding 往返，覆盖当前只有进程内集成用例的空档。
-6. 根目录 `README.md` / `README.en.md` 的测试工程清单与实际不符：清单中的 `SAEA.Sockets.Pipeline.Tests` 在仓库里没有对应目录，且把 `SAEA.P2P.Tests` 标注为「需 .NET 8 runtime」，与其 `net10.0` 不符（`net8.0` 是 `Src/SAEA.P2PTest` 的目标框架）；`AGENTS.md` 的 SDK 版本（10.0.403）与 FTP 单测数量（13）也与本轮实测（11.0.100、52）不一致。
-7. `Src/SAEA.Sockets.Pipeline.Tests` 工程在工作区缺失，需确认是未纳入当前分支还是被移除，再决定回归命令如何落地。
+6. 根目录 `README.md` / `README.en.md` 的测试工程清单已同步：移除已从仓库删除的 `SAEA.Sockets.Pipeline.Tests`、工程数改为 11、`AGENTS.md` 中的回归工程改为 `SAEA.P2P.Tests`。仍待处理的是把 `SAEA.P2P.Tests` 的「需 .NET 8 runtime」标注改为 `net10.0`（`net8.0` 是 `Src/SAEA.P2PTest` 的目标框架），以及 `AGENTS.md` 的 SDK 版本（10.0.403）与 FTP 单测数量（13）与本轮实测（11.0.100、52）的差异。
+7. `Src/SAEA.Sockets.Pipeline.Tests` 已确认移除并同步文档；如需恢复回归覆盖，从 git 历史取回工程后重新纳入回归集。

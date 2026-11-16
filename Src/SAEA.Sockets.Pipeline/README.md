@@ -404,11 +404,7 @@ dotnet run --project Src/SAEA.Sockets.PipelineTest -c Release -- --tls     # 真
 dotnet run --project Src/SAEA.Sockets.PipelineTest -c Release -- --bench   # 与 BaseCoder 直连的吞吐/分配趋势
 ```
 
-不带参数只打印用法，自动化场景必须显式传参；`--bench` 是趋势观测，不作门禁。单元测试工程不在解决方案内，需单独执行：
-
-```bash
-dotnet test Src/SAEA.Sockets.Pipeline.Tests/SAEA.Sockets.Pipeline.Tests.csproj -c Debug
-```
+不带参数只打印用法，自动化场景必须显式传参；`--bench` 是趋势观测，不作门禁。该组件原先的 MSTest 工程已从仓库移除，回归以解决方案构建（0 errors）加上面的 `--all` / `--socket` / `--tls` 自测入口为准；如需恢复用例覆盖，从 git 历史取回该工程后重新纳入回归集。
 
 ---
 

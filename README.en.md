@@ -338,9 +338,9 @@ Each component has detailed usage examples and comments.
 - `SAEA.P2PTest` - STUN/TURN server host + P2P client self-test harness
 - `SAEA.Sockets.SslTlsTool` - Development SSL/TLS certificate generator and format converter (includes openssl-compatible subcommands)
 
-**Unit Test Projects**: `Src/*.Tests/` contains 12 MSTest projects, none of which are included in `Src/SAEA.Sockets.sln`, so run them individually as needed; they target `net10.0`. Example command: `dotnet test Src/SAEA.Common.Tests/SAEA.Common.Tests.csproj -c Release`
+**Unit Test Projects**: `Src/*.Tests/` contains 11 MSTest projects, none of which are included in `Src/SAEA.Sockets.sln`, so run them individually as needed; they target `net10.0`. Example command: `dotnet test Src/SAEA.Common.Tests/SAEA.Common.Tests.csproj -c Release`
 
-Projects: `SAEA.Common.Tests`, `SAEA.Sockets.Pipeline.Tests`, `SAEA.MQTT.Tests`, `SAEA.FTP.Tests`, `SAEA.Http.Tests`, `SAEA.WebSocket.Tests`, `SAEA.FileSocket.Tests`, `SAEA.RPC.Tests`, `SAEA.QueueSocket.Tests`, `SAEA.MessageSocket.Tests`, `SAEA.P2P.Tests` (requires the .NET 8 runtime), `SAEA.MVC.Tests`.
+Projects: `SAEA.Common.Tests`, `SAEA.MQTT.Tests`, `SAEA.FTP.Tests`, `SAEA.Http.Tests`, `SAEA.WebSocket.Tests`, `SAEA.FileSocket.Tests`, `SAEA.RPC.Tests`, `SAEA.QueueSocket.Tests`, `SAEA.MessageSocket.Tests`, `SAEA.P2P.Tests` (requires the .NET 8 runtime), `SAEA.MVC.Tests`.
 
 ---
 

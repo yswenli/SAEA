@@ -409,11 +409,7 @@ dotnet run --project Src/SAEA.Sockets.PipelineTest -c Release -- --tls     # rea
 dotnet run --project Src/SAEA.Sockets.PipelineTest -c Release -- --bench   # throughput/allocation trend vs. BaseCoder
 ```
 
-Without arguments it only prints usage, so automation must pass one explicitly; `--bench` is a trend observation, not a gate. The unit-test project is not in the solution and must be run on its own:
-
-```bash
-dotnet test Src/SAEA.Sockets.Pipeline.Tests/SAEA.Sockets.Pipeline.Tests.csproj -c Debug
-```
+Without arguments it only prints usage, so automation must pass one explicitly; `--bench` is a trend observation, not a gate. The component's former MSTest project has been removed from the repository; regression relies on building the solution (0 errors) plus the `--all` / `--socket` / `--tls` self-test entries above. To restore that coverage, recover the project from git history and add it back to the regression set.
 
 ---
 
