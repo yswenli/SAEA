@@ -114,7 +114,8 @@ namespace SAEA.QueueSocket
         readonly int _readBufferSize;
 
         /// <summary>
-        /// 创建一条连接的通道链配置：分帧器与配置都按连接新建，跨连接共享会让分帧状态互相干扰
+        /// 创建一条连接的通道链配置：配置与分帧器实例不跨连接复用，
+        /// 分帧器一旦引入连接级状态（如切换式分帧），共享实例会让多连接互相干扰
         /// </summary>
         /// <returns>尚未被任何链使用的独立配置实例</returns>
         private ChannelPipelineOptions CreateOptions()
