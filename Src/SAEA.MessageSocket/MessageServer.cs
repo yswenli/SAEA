@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 11:20:00
+*修改时间：2026/11/16 10:20:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：装配回调改为启动前注入：Start/Connect 之后再赋值抛 InvalidOperationException，中英 README 同步说明
+*描述：通道链配置改为每连接新建，并显式开启启动期链尾校验
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -65,7 +65,27 @@ namespace SAEA.MessageSocket
         readonly ConcurrentDictionary<string, IChannelPipeline> _pipelines =
             new ConcurrentDictionary<string, IChannelPipeline>(StringComparer.Ordinal);
 
-        readonly ChannelPipelineOptions _options;
+        // 单帧上限与读缓冲大小在构造时解析一次，之后每条连接按同一口径新建分帧器与配置。
+        readonly int _maxFrameLength;
+
+        readonly int _readBufferSize;
+
+        /// <summary>
+        /// 创建一条连接的通道链配置：分帧器与配置都按连接新建，跨连接共享会让分帧状态互相干扰
+        /// </summary>
+        /// <returns>尚未被任何链使用的独立配置实例</returns>
+        private ChannelPipelineOptions CreateOptions()
+        {
+            return new ChannelPipelineOptions
+            {
+                Splitter = MessageFrameSplitter.Create(_maxFrameLength),
+                MaxBufferedBytes = (long)_maxFrameLength + FrameConstants.P_Head,
+                ReadBufferSize = _readBufferSize,
+                // 同一会话的请求必须按到达顺序处理：登录、订阅与转发都依赖先后关系。
+                MaxConcurrentMessages = 1,
+                RequireTerminalHandler = true
+            };
+        }
 
         private readonly object _configurePipelineLock = new object();
 
@@ -133,16 +153,9 @@ namespace SAEA.MessageSocket
             var readBufferSize = bufferSize > 0 ? bufferSize : 102400;
 
             // 单帧上限沿用 BaseCoder.MaxFrameLength 的可配置口径，输入残余上限按同一口径显式给出。
-            var maxFrameLength = MessageFrameSplitter.ResolveMaxFrameLength();
+            _maxFrameLength = MessageFrameSplitter.ResolveMaxFrameLength();
 
-            _options = new ChannelPipelineOptions
-            {
-                Splitter = MessageFrameSplitter.Create(maxFrameLength),
-                MaxBufferedBytes = (long)maxFrameLength + FrameConstants.P_Head,
-                ReadBufferSize = readBufferSize,
-                // 同一会话的请求必须按到达顺序处理：登录、订阅与转发都依赖先后关系。
-                MaxConcurrentMessages = 1
-            };
+            _readBufferSize = readBufferSize;
 
             var option = new SocketOptionBuilder()
                 .SetSocket(SAEASocketType.Tcp)
@@ -197,7 +210,7 @@ namespace SAEA.MessageSocket
                     channelId,
                     stream,
                     flow,
-                    _options,
+                    CreateOptions(),
                     token,
                     _host,
                     ConfigureConnection)

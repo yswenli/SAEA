@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/10 11:45:30
+*修改时间：2026/11/16 10:20:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：改用流模式与处理器链，发送统一走管线，删除接收事件订阅；发送完成回调改为整份文件写出后触发
+*描述：通道链配置显式开启启动期链尾校验
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -118,7 +118,8 @@ namespace SAEA.FileSocket
                 MaxBufferedBytes = (long)maxFrameLength + FrameConstants.P_Head,
                 ReadBufferSize = _bufferSize,
                 // 请求与文件块必须按发送顺序处理，同一连接串行执行。
-                MaxConcurrentMessages = 1
+                MaxConcurrentMessages = 1,
+                RequireTerminalHandler = true
             };
 
             var option = new SocketOptionBuilder()

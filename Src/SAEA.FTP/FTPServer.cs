@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 17:57:00
+*修改时间：2026/11/16 10:20:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补数据通道参数一致性注释，指明客户端同一组参数的拷贝位置
+*描述：控制与数据通道配置改为每连接新建，并显式开启启动期链尾校验
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -63,30 +63,6 @@ namespace SAEA.FTP
         readonly ConcurrentDictionary<string, int> _userSessionCount = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
         readonly PipelineHostRegistry _host = new PipelineHostRegistry();
-
-        readonly ChannelPipelineOptions _options = new ChannelPipelineOptions
-        {
-            Splitter = new LineSplitter(8 * 1024),
-            MaxBufferedBytes = 8 * 1024 + FrameConstants.P_Head,
-            ReadBufferSize = 64 * 1024,
-            // 控制命令严格一问一答，同一会话必须按到达顺序处理。
-            MaxConcurrentMessages = 1
-        };
-
-        readonly ChannelPipelineOptions _dataOptions = new ChannelPipelineOptions
-        {
-            // 客户端 Net\FtpControlConnection.cs 内 _dataOptions 是同一组参数的拷贝，只改一边会导致两端分帧与背压行为不一致。
-            // 数据通道无消息边界：一次读取就是一块数据，缓冲下限必须覆盖单次读取。
-            Splitter = new TakeAvailableSplitter(64 * 1024),
-            MaxBufferedBytes = 64 * 1024 + FrameConstants.P_Head,
-            ReadBufferSize = 64 * 1024,
-            // 传输是长任务，不设单消息超时；队列满时由解码器阻塞形成背压。
-            MessageTimeout = TimeSpan.Zero,
-            MaxConcurrentMessages = 1,
-            QueueCapacity = 8,
-            // 泵读到 EOF 会丢弃队列帧，同步入队才能保住同批尾帧。
-            DispatchMode = ChannelDispatchMode.Inline
-        };
 
         IServerSocket _server;
 
@@ -260,6 +236,46 @@ namespace SAEA.FTP
         }
 
         /// <summary>
+        /// 创建一条控制连接的通道链配置：分帧器与配置都按连接新建，跨连接共享会让分帧状态互相干扰。
+        /// </summary>
+        /// <returns>尚未被任何链使用的独立配置实例</returns>
+        ChannelPipelineOptions CreateOptions()
+        {
+            return new ChannelPipelineOptions
+            {
+                Splitter = new LineSplitter(8 * 1024),
+                MaxBufferedBytes = 8 * 1024 + FrameConstants.P_Head,
+                ReadBufferSize = 64 * 1024,
+                // 控制命令严格一问一答，同一会话必须按到达顺序处理。
+                MaxConcurrentMessages = 1,
+                RequireTerminalHandler = true
+            };
+        }
+
+        /// <summary>
+        /// 创建一条数据连接的通道链配置：分帧器与配置都按连接新建，跨连接共享会让分帧状态互相干扰。
+        /// </summary>
+        /// <returns>尚未被任何链使用的独立配置实例</returns>
+        internal ChannelPipelineOptions CreateDataOptions()
+        {
+            return new ChannelPipelineOptions
+            {
+                // 客户端 Net\FtpControlConnection.cs 内 _dataOptions 是同一组参数的拷贝，只改一边会导致两端分帧与背压行为不一致。
+                // 数据通道无消息边界：一次读取就是一块数据，缓冲下限必须覆盖单次读取。
+                Splitter = new TakeAvailableSplitter(64 * 1024),
+                MaxBufferedBytes = 64 * 1024 + FrameConstants.P_Head,
+                ReadBufferSize = 64 * 1024,
+                // 传输是长任务，不设单消息超时；队列满时由解码器阻塞形成背压。
+                MessageTimeout = TimeSpan.Zero,
+                MaxConcurrentMessages = 1,
+                QueueCapacity = 8,
+                // 泵读到 EOF 会丢弃队列帧，同步入队才能保住同批尾帧。
+                DispatchMode = ChannelDispatchMode.Inline,
+                RequireTerminalHandler = true
+            };
+        }
+
+        /// <summary>
         /// 接管一条连接的读循环：装配处理器链并运行到收口
         /// </summary>
         /// <param name="userToken">连接令牌，用于取连接标识</param>
@@ -284,7 +300,7 @@ namespace SAEA.FTP
                 channelId,
                 stream,
                 flow,
-                _options,
+                CreateOptions(),
                 token,
                 _host,
                 ConfigureConnection)
@@ -389,14 +405,6 @@ namespace SAEA.FTP
         internal ServerConfig Config
         {
             get { return _serverConfig; }
-        }
-
-        /// <summary>
-        /// 数据通道链配置，由每个被动监听器共享；链创建时会拷贝，运行期修改不影响已建链
-        /// </summary>
-        internal ChannelPipelineOptions DataOptions
-        {
-            get { return _dataOptions; }
         }
 
         #endregion
@@ -1037,7 +1045,7 @@ namespace SAEA.FTP
             {
                 ClosePassive();
 
-                var listener = new FtpDataListener(_server, _server.DataOptions);
+                var listener = new FtpDataListener(_server, _server.CreateDataOptions());
 
                 if (listener.TryStart())
                 {
