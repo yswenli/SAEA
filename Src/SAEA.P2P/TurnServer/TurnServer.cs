@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 20:00:00
+*修改时间：2026/11/16 12:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：解析并忽略 ADDITIONAL-ADDRESS-FAMILY
+*描述：私有回调改名，避免与已删除的自定义中继类型混淆
 *
 *****************************************************************************/
 using System;
@@ -1117,7 +1117,7 @@ namespace SAEA.P2P.TurnServer
                     continue;
                 }
 
-                OnRelayDatagram(allocation, peer, new ReadOnlyMemory<byte>(buffer, 0, result.ReceivedBytes));
+                OnAllocationDatagram(allocation, peer, new ReadOnlyMemory<byte>(buffer, 0, result.ReceivedBytes));
             }
         }
 
@@ -1127,7 +1127,7 @@ namespace SAEA.P2P.TurnServer
         /// <param name="allocation">分配</param>
         /// <param name="peer">对端地址</param>
         /// <param name="payload">中继数据</param>
-        private void OnRelayDatagram(TurnAllocation allocation, IPEndPoint peer, ReadOnlyMemory<byte> payload)
+        private void OnAllocationDatagram(TurnAllocation allocation, IPEndPoint peer, ReadOnlyMemory<byte> payload)
         {
             try
             {
