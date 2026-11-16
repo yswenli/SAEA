@@ -294,16 +294,16 @@ UDP 上按首字节解复用：`0x00`–`0x3F` 交给 STUN，`0xC0` 视为业务
 ## 🧪 测试与验收
 
 ```bash
-# 全量：239 通过 / 3 跳过 / 0 失败，约 4 分 14 秒
+# 全量：243 通过 / 2 跳过 / 0 失败，约 4 分 17 秒
 dotnet test Src/SAEA.P2P.Tests/SAEA.P2P.Tests.csproj -c Release
 
-# 单元类：187 条（编解码、协议头、状态机与本地装配）
+# 单元类：190 条（编解码、协议头、状态机与本地装配）
 dotnet test Src/SAEA.P2P.Tests/SAEA.P2P.Tests.csproj -c Release --filter "TestCategory=Unit"
 
 # 传输矩阵：29 条（含 1 条跳过，耗时最长）
 dotnet test Src/SAEA.P2P.Tests/SAEA.P2P.Tests.csproj -c Release --filter "TestCategory=Matrix"
 
-# IPv6 + 局域网发现 + NAT 模拟：26 条（含 2 条跳过）
+# IPv6 + 局域网发现 + NAT 模拟：26 条（含 1 条跳过）
 dotnet test Src/SAEA.P2P.Tests/SAEA.P2P.Tests.csproj -c Release --filter "TestCategory=Ipv6|TestCategory=LocalNet|TestCategory=Nat"
 ```
 

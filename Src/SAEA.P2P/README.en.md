@@ -294,16 +294,16 @@ UDP multiplexes by first byte: `0x00`–`0x3F` goes to STUN, `0xC0` is treated a
 ## 🧪 Tests and Acceptance
 
 ```bash
-# Full run: 239 passed / 3 skipped / 0 failed, about 4 min 14 s
+# Full run: 243 passed / 2 skipped / 0 failed, about 4 min 17 s
 dotnet test Src/SAEA.P2P.Tests/SAEA.P2P.Tests.csproj -c Release
 
-# Unit group: 187 cases (codecs, protocol headers, state machines, local wiring)
+# Unit group: 190 cases (codecs, protocol headers, state machines, local wiring)
 dotnet test Src/SAEA.P2P.Tests/SAEA.P2P.Tests.csproj -c Release --filter "TestCategory=Unit"
 
 # Transport matrix: 29 cases (1 skipped, longest running)
 dotnet test Src/SAEA.P2P.Tests/SAEA.P2P.Tests.csproj -c Release --filter "TestCategory=Matrix"
 
-# IPv6 + LAN discovery + NAT simulation: 26 cases (2 skipped)
+# IPv6 + LAN discovery + NAT simulation: 26 cases (1 skipped)
 dotnet test Src/SAEA.P2P.Tests/SAEA.P2P.Tests.csproj -c Release --filter "TestCategory=Ipv6|TestCategory=LocalNet|TestCategory=Nat"
 ```
 
