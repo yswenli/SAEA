@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 05:30:00
+*修改时间：2026/11/16 11:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：连接被接管为数据连接后跳过 socket 关闭，仅从连接列表移除
+*描述：IPv6Any 监听启用双栈
 *
 *****************************************************************************/
 using System;
@@ -40,6 +40,7 @@ namespace SAEA.P2P.TurnServer
     /// <summary>
     /// TURN over TCP 控制连接监听器：只负责接受连接、按流式分帧器切出 STUN 报文与 ChannelData，
     /// 再交给同一个 <see cref="TurnServer"/> 处理；分帧与分派走 TCP 与 TLS 共用的会话循环。
+    /// 监听 IPv6 任意地址时开启 DualMode，同一套接字同时接受 IPv4 与 IPv6 连接。
     /// </summary>
     public sealed class TurnTcpListener : IDisposable
     {
@@ -138,7 +139,7 @@ namespace SAEA.P2P.TurnServer
         }
 
         /// <summary>
-        /// 绑定并开始接受连接；重复调用无副作用
+        /// 绑定并开始接受连接；监听 IPv6 任意地址时开启 DualMode，同一套接字同时接受 IPv4 与 IPv6 连接；重复调用无副作用
         /// </summary>
         /// <exception cref="ObjectDisposedException">已释放</exception>
         /// <exception cref="SocketException">绑定或监听失败</exception>
@@ -156,6 +157,12 @@ namespace SAEA.P2P.TurnServer
                 }
 
                 var listener = new Socket(_listenEndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+                // IPv6Any 上 IPv6 套接字默认只收 IPv6，必须显式打开 DualMode 才能同时收 IPv4
+                if (_listenEndPoint.AddressFamily == AddressFamily.InterNetworkV6
+                    && _listenEndPoint.Address.Equals(IPAddress.IPv6Any))
+                {
+                    listener.DualMode = true;
+                }
                 listener.Bind(_listenEndPoint);
                 listener.Listen(Backlog);
                 _listener = listener;

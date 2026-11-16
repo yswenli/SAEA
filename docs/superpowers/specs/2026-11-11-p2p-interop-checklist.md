@@ -56,7 +56,7 @@ dotnet run --project Src/SAEA.P2PTest -c Release -- --server --config <配置路
 | `Realm` | string | 空（必填） | 认证域，必须与签发临时凭据的一侧一致 |
 | `SharedSecret` | string | 空（必填） | 共享密钥，必须与签发临时凭据的一侧一致 |
 | `EnableIpv6` | bool | `false` | 是否改用 IPv6 监听 |
-| `EnableDualMode` | bool | `false` | 当前监听层没有 DualMode 开关，只记录提示并按地址族监听 |
+| `EnableDualMode` | bool | `false` | 是否启用双栈监听：UDP 监听在 IPv6 任意地址上用同一套接字收 IPv4/IPv6；TURN TCP/TLS 监听在 IPv6 任意地址上固定开启 |
 | `TlsCertificatePath` | string | `null` | PFX 路径；启用 TLS 时必填且文件必须存在 |
 | `TlsCertificatePassword` | string | `null` | PFX 口令，无口令时留空 |
 
@@ -269,7 +269,7 @@ coturn 一列取其公开配置项名称与常见默认值；本机未安装 cot
 ### 6.3 值得先核对的传输差异
 
 - 流式控制连接按 STUN 自身 20 字节头 + length 自定界（`Src/SAEA.P2P/Turn/TurnStreamFramer.cs`，明确「不加长度前缀」）；而 `StunClient` 的 TCP 模式发送时加了 2 字节长度前缀（`Src/SAEA.P2P/Stun/StunClient.cs` 的 `Send`，按 RFC 4571）。两者面向的场景不同（ICE 的 STUN over TCP 与 TURN 控制连接），但用本仓库 `StunClient` 直连本仓库 TURN 的 TCP 端口时需要先确认分帧口径，否则会读不出报文。
-- `EnableDualMode` 目前只记录提示：监听层（`SaeaUdpTransport`、`TurnTcpListener`）没有 DualMode 开关，双栈要按地址族分别监听。
+- `EnableDualMode` 已接入：`StunServerOptions.EnableDualMode` 传给 `SaeaUdpTransport`，UDP 监听在 IPv6 任意地址上以双栈套接字同时收 IPv4/IPv6；`TurnTcpListener` / `TurnTlsListener` 绑 `IPv6Any` 时直接设 `DualMode`（不调用 `SetIPEndPoint`，否则底层放弃双栈），因此 TURN TCP/TLS 的双栈无需额外开关。
 - RFC 5780 换端口：`ServerHost.BuildAlternateEndPoint` 强制备用端点与主端点同端口，而 `StunServerOptions.CanChangePort` 要求备用端点端口不同，所以 `--server` 宿主下「换端口」类 `CHANGE-REQUEST` 会回 420；换地址只有在配置了 `ChangeRequestAddressPair` 且地址不同时才成立。
 
 ## 7. F. 未运行清单汇总

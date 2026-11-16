@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 05:30:00
+*修改时间：2026/11/16 11:00:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：连接被接管为数据连接后跳过关闭 TLS 流，仅从连接集合移除
+*描述：IPv6Any 监听启用双栈
 *
 *****************************************************************************/
 using System;
@@ -46,6 +46,7 @@ namespace SAEA.P2P.TurnServer
     /// <summary>
     /// TURN over TLS 控制连接监听器：用 PFX 证书与口令完成 BouncyCastle TLS 握手，
     /// 握手成功后把这条流交给同一个 <see cref="TurnServer"/>；分帧与分派复用 TCP 的会话循环。
+    /// 监听 IPv6 任意地址时开启 DualMode，同一套接字同时接受 IPv4 与 IPv6 连接。
     /// </summary>
     public sealed class TurnTlsListener : IDisposable
     {
@@ -142,9 +143,20 @@ namespace SAEA.P2P.TurnServer
             }
 
             _turnServer = turnServer;
-            _socketOption = SocketOptionBuilder.Instance
-                .UseStream()
-                .SetIPEndPoint(listenEndPoint)
+            var socketOption = SocketOptionBuilder.Instance.UseStream();
+            // 根因同 TCP 监听：SetIPEndPoint 会把 "::" 写成具体 IP，底层只在 IP 为空时才打开 DualMode，
+            // 因此 IPv6Any 只设端口，交给 UseIPv6 + UseDualMode 绑定到双栈的 IPv6Any
+            if (listenEndPoint.AddressFamily == AddressFamily.InterNetworkV6
+                && listenEndPoint.Address.Equals(IPAddress.IPv6Any))
+            {
+                socketOption.SetPort(listenEndPoint.Port).UseIPv6().UseDualMode();
+            }
+            else
+            {
+                socketOption.SetIPEndPoint(listenEndPoint);
+            }
+
+            _socketOption = socketOption
                 .SetReadBufferSize(ReceiveBufferSize)
                 .SetFreeTime(ControlIdleTimeoutMilliseconds)
                 .WithSsl(protocols, certificatePath, certificatePassword)

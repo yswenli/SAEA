@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 10:30:00
+*修改时间：2026/11/16 11:00:00
 *修改人： yswenli
 *版本号： net8.0
-*描述：CreateTurnServer 增加 DefaultLifetimeSeconds，让默认生命周期随配置上限收敛
+*描述：把 EnableDualMode 接入 STUN/TURN UDP 监听并更新双栈日志
 *
 *****************************************************************************/
 using System;
@@ -78,7 +78,8 @@ namespace SAEA.P2PTest.Server
         public bool EnableIpv6 { get; set; }
 
         /// <summary>
-        /// 是否要求双栈监听；当前监听层没有 DualMode 开关，只按地址族监听并给出提示
+        /// 是否启用双栈监听：UDP 监听在 IPv6 任意地址上用同一套接字收 IPv4/IPv6；
+        /// TURN TCP/TLS 监听在 IPv6 任意地址上固定开启，不受该开关影响
         /// </summary>
         public bool EnableDualMode { get; set; }
 
@@ -448,9 +449,15 @@ namespace SAEA.P2PTest.Server
                 Log("监听地址：" + _listenAddress + "，地址族：" + _listenAddress.AddressFamily);
                 if (_config.EnableDualMode)
                 {
-                    // 监听层没有 DualMode 开关，这里不能声称已开双栈，只能按地址族监听
-                    Log("已配置 EnableDualMode，但 SaeaUdpTransport 与 TurnTcpListener 尚未暴露 DualMode 开关，"
-                        + "双栈监听需后续阶段支持；本次仅按地址族监听");
+                    if (_listenAddress.AddressFamily == AddressFamily.InterNetworkV6
+                        && _listenAddress.Equals(IPAddress.IPv6Any))
+                    {
+                        Log("已启用双栈监听：同一套接字同时接收 IPv4 与 IPv6");
+                    }
+                    else
+                    {
+                        Log("EnableDualMode 仅在监听 IPv6 任意地址时生效，当前监听地址为 " + _listenAddress + "，本次按单栈监听");
+                    }
                 }
 
                 if (_alternateAddress != null)
@@ -537,7 +544,10 @@ namespace SAEA.P2PTest.Server
 
             var options = new StunServerOptions(
                 new IPEndPoint(_listenAddress, _config.StunPort),
-                BuildAlternateEndPoint(_config.StunPort));
+                BuildAlternateEndPoint(_config.StunPort))
+            {
+                EnableDualMode = _config.EnableDualMode
+            };
             var server = new StunServer(options);
             try
             {
@@ -564,6 +574,7 @@ namespace SAEA.P2PTest.Server
                 new IPEndPoint(_listenAddress, _config.TurnPort),
                 BuildAlternateEndPoint(_config.TurnPort))
             {
+                EnableDualMode = _config.EnableDualMode,
                 RequestHandler = Server.HandleRequest,
                 DatagramHandler = Server.HandleDatagram
             };
