@@ -55,6 +55,7 @@ namespace SAEA.P2P.Tests.Turn
     /// 同一对端重复 Connect 返回 446、UDP 控制连接不能申请 TCP 中继、对端主动连入触发 ConnectionAttempt，
     /// 并在另开的数据连接上完成 ConnectionBind 后双向收发裸字节。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class Turn6062ClientTests
     {

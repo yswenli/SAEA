@@ -45,6 +45,7 @@ namespace SAEA.P2P.Tests.Stun
     /// <summary>
     /// STUN 客户端：正常应答解析映射地址、401 挑战后用长期凭据重试、无应答时按 RTO 判超时。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class StunClientTests
     {

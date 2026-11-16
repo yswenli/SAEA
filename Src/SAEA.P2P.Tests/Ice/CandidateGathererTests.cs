@@ -45,6 +45,7 @@ namespace SAEA.P2P.Tests.Ice
     /// <summary>
     /// ICE 候选收集用例。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class CandidateGathererTests
     {

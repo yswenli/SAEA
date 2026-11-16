@@ -53,6 +53,7 @@ namespace SAEA.P2P.Tests.TurnServer
     /// TURN over UDP：未带凭据返回 401、Allocate 给出中继地址、CreatePermission 与 Send 指示双向中继、
     /// ChannelBind 后的 ChannelData 双向中继、Refresh 生命周期为 0 立即删除分配。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class TurnServerRelayTests
     {

@@ -40,6 +40,7 @@ namespace SAEA.P2P.Tests.Ice
     /// <summary>
     /// ICE 候选与候选对优先级计算用例。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class IcePriorityTests
     {

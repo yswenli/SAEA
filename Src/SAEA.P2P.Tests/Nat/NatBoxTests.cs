@@ -42,6 +42,7 @@ namespace SAEA.P2P.Tests.Nat
     /// <summary>
     /// NAT 代理模拟器：只验证代理自身的行为判定，不涉及被测 ICE 实现。
     /// </summary>
+    [TestCategory(P2PTestSuite.Nat)]
     [TestClass]
     public class NatBoxTests
     {

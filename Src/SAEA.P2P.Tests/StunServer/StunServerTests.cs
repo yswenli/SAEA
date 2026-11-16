@@ -48,6 +48,7 @@ namespace SAEA.P2P.Tests.StunServer
     /// <summary>
     /// STUN 服务端：Binding 请求的映射地址与响应来源、CHANGE-REQUEST 换端口、未知必选属性 420、指示不响应。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class StunServerTests
     {

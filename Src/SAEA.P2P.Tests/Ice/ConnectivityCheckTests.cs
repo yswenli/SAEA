@@ -47,6 +47,7 @@ namespace SAEA.P2P.Tests.Ice
     /// <summary>
     /// 连通性检查的请求属性构造、优先级取值与中继权限先行用例。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class ConnectivityCheckTests
     {

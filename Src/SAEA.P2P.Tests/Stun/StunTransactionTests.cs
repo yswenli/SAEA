@@ -41,6 +41,7 @@ namespace SAEA.P2P.Tests.Stun
     /// <summary>
     /// STUN 事务层：重传时刻表、39.5s 判定、TCP 不重传、事务 ID 唯一与迟到应答。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class StunTransactionTests
     {

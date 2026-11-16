@@ -57,6 +57,7 @@ namespace SAEA.P2P.Tests.Integration
     /// 端到端用例：进程内起信令、STUN、TURN 服务，两个客户端分别位于双 NAT 之后，
     /// 走完整注册、候选交换、选路与双向业务帧收发，断言选出的通道类型与数据路径。
     /// </summary>
+    [TestCategory(P2PTestSuite.Matrix)]
     [TestClass]
     public class EndToEndTests
     {

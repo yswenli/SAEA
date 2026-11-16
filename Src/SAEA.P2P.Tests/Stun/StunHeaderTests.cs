@@ -40,6 +40,7 @@ namespace SAEA.P2P.Tests.Stun
     /// <summary>
     /// STUN 消息头：类型字段编码、解析前校验与失败原因。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class StunHeaderTests
     {

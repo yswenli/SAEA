@@ -42,6 +42,7 @@ namespace SAEA.P2P.Tests.Stun
     /// <summary>
     /// CRC-32 与 FINGERPRINT：标准向量、编码后自校验、篡改值与位置非法。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class StunFingerprintTests
     {

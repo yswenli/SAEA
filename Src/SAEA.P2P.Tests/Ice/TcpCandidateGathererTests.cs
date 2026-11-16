@@ -44,6 +44,7 @@ namespace SAEA.P2P.Tests.Ice
     /// <summary>
     /// TCP 候选收集与候选格式化用例。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class TcpCandidateGathererTests
     {

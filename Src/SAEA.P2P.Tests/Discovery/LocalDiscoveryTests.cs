@@ -51,6 +51,7 @@ namespace SAEA.P2P.Tests.Discovery
     /// 共享密钥不一致时应因 HMAC 校验失败而互不可见；
     /// 无信令客户端发现后互相发起连接应得到 Local 通道并完成收发。
     /// </summary>
+    [TestCategory(P2PTestSuite.LocalNet)]
     [TestClass]
     public class LocalDiscoveryTests
     {

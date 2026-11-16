@@ -54,6 +54,7 @@ namespace SAEA.P2P.Tests.Turn
     /// TURN over TLS：PFX 证书完成握手后，控制连接复用 TCP 的分帧与分派；
     /// 绑定通道后 ChannelData 双向中继内容一致，自签证书在默认校验策略下必须被拒绝。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class TurnTlsTests
     {

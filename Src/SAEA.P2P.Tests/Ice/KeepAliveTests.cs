@@ -45,6 +45,7 @@ namespace SAEA.P2P.Tests.Ice
     /// <summary>
     /// 保活间隔下限、consent 失效判定、抖动夹取与保活指示不带认证的用例。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class KeepAliveTests
     {

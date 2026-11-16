@@ -44,6 +44,7 @@ namespace SAEA.P2P.Tests.Stun
     /// <summary>
     /// RFC 5769 官方样例：解码回环、MESSAGE-INTEGRITY 与 FINGERPRINT 校验，以及用本实现重新编码后的逐字节比对。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class Rfc5769VectorTests
     {

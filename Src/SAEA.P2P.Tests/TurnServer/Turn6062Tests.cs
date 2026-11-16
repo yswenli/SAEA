@@ -56,6 +56,7 @@ namespace SAEA.P2P.Tests.TurnServer
     /// 同一对端重复 Connect 返回 446，等待 ConnectionBind 超时的中继连接由服务端关闭；
     /// 对端主动连入中继端口时控制连接收到 ConnectionAttempt，TLS 分配下的明文数据连接按加密层不一致回 403。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class Turn6062Tests
     {

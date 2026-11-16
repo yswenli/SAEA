@@ -47,6 +47,7 @@ namespace SAEA.P2P.Tests.Ice
     /// <summary>
     /// UDP 入向检查应答器：成功应答、提名标记与 USERNAME 不匹配时的静默丢弃。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class IceInboundResponderTests
     {

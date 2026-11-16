@@ -40,6 +40,7 @@ namespace SAEA.P2P.Tests.Ice
     /// <summary>
     /// ICE 角色冲突判定、487 收敛与 tiebreaker 换新用例。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class RoleConflictTests
     {

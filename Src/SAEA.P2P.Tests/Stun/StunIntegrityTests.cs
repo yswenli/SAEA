@@ -42,6 +42,7 @@ namespace SAEA.P2P.Tests.Stun
     /// <summary>
     /// MESSAGE-INTEGRITY：SHA-1 编码自校验、长度未回填的失败路径、尾随指纹与算法协商。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class StunIntegrityTests
     {

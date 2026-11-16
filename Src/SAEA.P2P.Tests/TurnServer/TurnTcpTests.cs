@@ -52,6 +52,7 @@ namespace SAEA.P2P.Tests.TurnServer
     /// TURN over TCP：控制连接上不带长度前缀，Allocate、CreatePermission、ChannelBind 走 STUN 自定界，
     /// 通道数据走 ChannelData 自定界；绑定后双向中继内容一致，连接断开后分配必须回收。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class TurnTcpTests
     {

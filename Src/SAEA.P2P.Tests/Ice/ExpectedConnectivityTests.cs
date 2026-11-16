@@ -36,6 +36,7 @@ namespace SAEA.P2P.Tests.Ice
     /// <summary>
     /// NAT 类型两两组合的期望连通性矩阵用例。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class ExpectedConnectivityTests
     {

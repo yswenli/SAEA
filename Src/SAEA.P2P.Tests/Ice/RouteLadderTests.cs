@@ -44,6 +44,7 @@ namespace SAEA.P2P.Tests.Ice
     /// <summary>
     /// 选路阶梯逐级执行与预算用例。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class RouteLadderTests
     {

@@ -44,6 +44,7 @@ namespace SAEA.P2P.Tests.Ice
     /// <summary>
     /// TCP 直连通道与连接检查用例。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class TcpDirectTests
     {

@@ -39,6 +39,7 @@ namespace SAEA.P2P.Tests.Transport
     /// <summary>
     /// RFC 4571 分帧：零长度帧、半包等待、粘包逐帧、超长拒绝与写入目标校验。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class Rfc4571FramerTests
     {

@@ -54,6 +54,7 @@ namespace SAEA.P2P.Tests.DualStack
     /// 双栈监听与 IPv6 中继：一个双栈套接字同时服务 IPv4 与 IPv6 的 Binding，
     /// TURN 中继按 RelayAddress 的地址族分配，请求其它地址族返回 440。
     /// </summary>
+    [TestCategory(P2PTestSuite.Ipv6)]
     [TestClass]
     public class DualStackTests
     {

@@ -45,6 +45,7 @@ namespace SAEA.P2P.Tests.Transport
     /// <summary>
     /// SAEA.Sockets 传输实现：绑定、双向收发、内存生命周期与端点能力。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class SaeaTransportTests
     {

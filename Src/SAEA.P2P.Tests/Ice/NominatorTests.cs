@@ -47,6 +47,7 @@ namespace SAEA.P2P.Tests.Ice
     /// <summary>
     /// 提名请求的事务 ID 与属性、peer-reflexive 候选两条创建路径、未选出候选对时的发送约束与被动侧行为。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class NominatorTests
     {

@@ -38,6 +38,7 @@ namespace SAEA.P2P.Tests.Nat
     /// <summary>
     /// 虚拟主机夹具：地址隔离与跨主机收发。
     /// </summary>
+    [TestCategory(P2PTestSuite.Nat)]
     [TestClass]
     public class VirtualHostTests
     {

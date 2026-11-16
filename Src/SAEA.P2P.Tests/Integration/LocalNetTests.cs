@@ -49,6 +49,7 @@ namespace SAEA.P2P.Tests.Integration
     /// 无信令局域网集成用例：两端只靠组播发现交换 ICE 参数，同机建立 Local 通道后双向收发；
     /// 节点停止补发后应在过期阈值外从发现列表移除并触发过期事件。
     /// </summary>
+    [TestCategory(P2PTestSuite.LocalNet)]
     [TestClass]
     public class LocalNetTests
     {

@@ -46,6 +46,7 @@ namespace SAEA.P2P.Tests.Stun
     /// NAT 行为探测：映射地址一致判 EIM、换端口与换地址都被拦判 APDF、无应答时返回 Unknown 且不抛异常。
     /// 服务端用用户态假实现，按目标端点返回固定映射地址，不依赖真实 NAT。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class NatBehaviorProbeTests
     {

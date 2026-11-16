@@ -43,6 +43,7 @@ namespace SAEA.P2P.Tests.TurnServer
     /// <summary>
     /// TURN 分配模型：权限按 IP 放行、三层计时互不影响、通道过期后的隔离期、分配表与端口分配器边界。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class TurnAllocationTests
     {

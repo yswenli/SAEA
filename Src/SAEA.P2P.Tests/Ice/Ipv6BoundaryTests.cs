@@ -39,6 +39,7 @@ namespace SAEA.P2P.Tests.Ice
     /// <summary>
     /// IPv6 验收边界用例：记录本轮不自动化的 NAT66 场景，并探测非管理员环境只能绑定回环地址的平台限制。
     /// </summary>
+    [TestCategory(P2PTestSuite.Ipv6)]
     [TestClass]
     public class Ipv6BoundaryTests
     {

@@ -57,6 +57,7 @@ namespace SAEA.P2P.Tests.Ice
     /// TCP 直连矩阵用例：验证内部主机经用户态 NAT 拨出、被动侧端口保持可被连接，
     /// 以及 TCP 直连失败后回退到 TURN over UDP 中继。
     /// </summary>
+    [TestCategory(P2PTestSuite.Matrix)]
     [TestClass]
     public class TcpMatrixTests
     {

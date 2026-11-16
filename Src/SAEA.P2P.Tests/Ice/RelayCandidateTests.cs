@@ -53,6 +53,7 @@ namespace SAEA.P2P.Tests.Ice
     /// <summary>
     /// TURN 中继候选：relay 候选优先级、检查前对 peer IP 建权限、每 peer 独立 allocation。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class RelayCandidateTests
     {

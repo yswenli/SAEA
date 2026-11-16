@@ -56,6 +56,7 @@ namespace SAEA.P2P.Tests.Turn
     /// TURN 客户端：401 挑战后同一凭据只重试一次、permission 在到期前按一次性定时器自动续期、
     /// 服务端断线后按指数退避重建传输并重新 Allocate。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class TurnClientTests
     {

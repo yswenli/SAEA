@@ -47,6 +47,7 @@ namespace SAEA.P2P.Tests.Ice
     /// IPv6 用例：绑定 ::1 时产出 IPv6 host 候选、v4-mapped 地址在候选层归一化为 IPv4，
     /// 以及两端都绑定 ::1 时 UDP 直连能选中候选对并双向转发业务帧。
     /// </summary>
+    [TestCategory(P2PTestSuite.Ipv6)]
     [TestClass]
     public class Ipv6CandidateTests
     {

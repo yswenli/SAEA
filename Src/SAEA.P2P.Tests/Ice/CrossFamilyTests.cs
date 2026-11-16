@@ -42,6 +42,7 @@ namespace SAEA.P2P.Tests.Ice
     /// <summary>
     /// 跨地址族配对开关用例：默认关闭时跨族候选静默跳过并计数，开启后 IPv4 与 IPv6 可以配对。
     /// </summary>
+    [TestCategory(P2PTestSuite.Ipv6)]
     [TestClass]
     public class CrossFamilyTests
     {

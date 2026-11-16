@@ -42,6 +42,7 @@ namespace SAEA.P2P.Tests.Turn
     /// 流式分帧器：半包不产出且保留状态、一次读取含多条报文时逐条产出、
     /// 非法首字节丢弃一个字节后继续扫描。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class TurnStreamFramerTests
     {

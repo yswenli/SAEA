@@ -51,6 +51,7 @@ namespace SAEA.P2P.Tests.Signaling
     /// 信令客户端：注册应答、断线重连后补发未完成候选、服务端下发的 TURN 临时凭据字段透传。
     /// 每个用例都在本机回环上起真实服务端，裸 TcpClient 只作为对端辅助，不依赖任何外部服务。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class SignalingClientTests
     {

@@ -43,6 +43,7 @@ namespace SAEA.P2P.Tests.Transport
     /// <summary>
     /// 数据面编码与 UDP 直连通道：前缀、解复用边界、超长拒绝与一次回调一条业务帧。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class DataPlaneCodecTests
     {

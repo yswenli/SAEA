@@ -41,6 +41,7 @@ namespace SAEA.P2P.Tests.Ice
     /// <summary>
     /// ICE 检查表的增量配对、解冻顺序、方向剪除与提名后忽略用例。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class CheckListTests
     {

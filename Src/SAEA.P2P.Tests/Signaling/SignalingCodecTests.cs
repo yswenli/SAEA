@@ -40,6 +40,7 @@ namespace SAEA.P2P.Tests.Signaling
     /// <summary>
     /// 信令报文 JSON 编解码：全消息集往返、应答方角色取值、未知字段忽略、版本与空负载的 Error 兜底。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class SignalingCodecTests
     {

@@ -50,6 +50,7 @@ namespace SAEA.P2P.Tests.Signaling
     /// 信令服务器：重复节点标识的顶替与拒绝、会话超时清理、目标离线错误码、旧格式裸负载鉴权放行。
     /// 每个用例都在本机回环上起真实服务端，通过裸 TcpClient 收发帧，不依赖任何外部服务。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class P2PServerTests
     {

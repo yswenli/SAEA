@@ -44,6 +44,7 @@ namespace SAEA.P2P.Tests.Turn
     /// TURN 编解码：ChannelData 在 TCP 上的补齐与非法通道号丢弃、EVEN-PORT 与 DONT-FRAGMENT 的不同处理、
     /// 错误码与常用属性逐字节回环。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class TurnCodecTests
     {

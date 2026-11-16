@@ -41,6 +41,7 @@ namespace SAEA.P2P.Tests.Stun
     /// <summary>
     /// STUN 属性：补齐规则、未知必选与可选属性处理、异或地址规范化、重复属性顺序。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class StunAttributeTests
     {

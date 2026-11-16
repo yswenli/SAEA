@@ -41,6 +41,7 @@ namespace SAEA.P2P.Tests.Discovery
     /// <summary>
     /// 无信令局域网发现报文：签名后的编码解码回环、HMAC 不匹配拒收与超长负载丢弃。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class DiscoveryPacketTests
     {

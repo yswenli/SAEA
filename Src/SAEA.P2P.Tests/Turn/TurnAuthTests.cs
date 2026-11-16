@@ -44,6 +44,7 @@ namespace SAEA.P2P.Tests.Turn
     /// <summary>
     /// TURN 鉴权：临时凭据派生、realm 与 nonce 校验、长期密钥与 Base64 密码误用的区分。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class TurnAuthTests
     {

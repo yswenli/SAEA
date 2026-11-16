@@ -62,6 +62,7 @@ namespace SAEA.P2P.Tests.Ice
     /// UDP 中继拿不到对端候选时在 TURN over TCP 级内改走 RFC 6062 TCP 中继。
     /// TLS 控制下同样在级内改走 RFC 6062，数据连接与控制连接同层加密。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class IceSessionTests
     {

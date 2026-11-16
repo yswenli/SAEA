@@ -43,6 +43,7 @@ namespace SAEA.P2P.Tests.Core
     /// <summary>
     /// 客户端构建器与快捷入口的配置校验用例：构建只装配配置、不连接服务端，因此不需要启动信令服务端。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class BuilderTests
     {

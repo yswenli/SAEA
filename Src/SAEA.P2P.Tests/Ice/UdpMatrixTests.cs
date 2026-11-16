@@ -53,6 +53,7 @@ namespace SAEA.P2P.Tests.Ice
     /// <summary>
     /// 在独立回环地址上搭建双 NAT、STUN、TURN 环境，逐格验证 NAT 预设组合的选中候选对与数据面往返。
     /// </summary>
+    [TestCategory(P2PTestSuite.Matrix)]
     [TestClass]
     public class UdpMatrixTests
     {

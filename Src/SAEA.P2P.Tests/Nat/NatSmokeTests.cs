@@ -42,6 +42,7 @@ namespace SAEA.P2P.Tests.Nat
     /// <summary>
     /// 阶段 0 冒烟：两台虚拟主机经同一 NAT 代理互发不同长度的报文，验证映射、hairpin 与地址头改写。
     /// </summary>
+    [TestCategory(P2PTestSuite.Nat)]
     [TestClass]
     public class NatSmokeTests
     {

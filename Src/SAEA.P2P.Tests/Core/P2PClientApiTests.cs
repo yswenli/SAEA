@@ -51,6 +51,7 @@ namespace SAEA.P2P.Tests.Core
     /// 断开时由对端收到会话关闭通知，以及直连后双向业务帧收发与超限载荷拦截的端到端用例。
     /// 需要服务端的用例都在本机回环上起真实信令服务端，不依赖任何外部服务。
     /// </summary>
+    [TestCategory(P2PTestSuite.Unit)]
     [TestClass]
     public class P2PClientApiTests
     {

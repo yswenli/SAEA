@@ -50,6 +50,7 @@ namespace SAEA.P2P.Tests.Stun
     /// 经 NAT 代理的 STUN 集成：客户端在 NAT 后、服务端在公网侧地址，
     /// 验证映射地址等于 NAT 外部端点，以及 CHANGE-REQUEST 换端口后仍能收到响应。
     /// </summary>
+    [TestCategory(P2PTestSuite.Nat)]
     [TestClass]
     public class StunNatIntegrationTests
     {

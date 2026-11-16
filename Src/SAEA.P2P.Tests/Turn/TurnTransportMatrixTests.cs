@@ -57,6 +57,7 @@ namespace SAEA.P2P.Tests.Turn
     /// 每格都完成 Allocate、CreatePermission、ChannelBind 与双向 ChannelData 字节校验；
     /// 另有一格验证 LIFETIME=0 释放后中继端口回到可用状态。
     /// </summary>
+    [TestCategory(P2PTestSuite.Matrix)]
     [TestClass]
     public class TurnTransportMatrixTests
     {
