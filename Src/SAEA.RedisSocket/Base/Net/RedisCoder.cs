@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:40:46
+*修改时间：2026/11/16 10:20:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*描述：明确本类型仅用于泛型约束，未支持的操作改抛 NotSupportedException 并给出原因
 *
 *****************************************************************************/
 using System;
@@ -37,22 +37,23 @@ using SAEA.Sockets.Interface;
 namespace SAEA.RedisSocket.Base.Net
 {
     /// <summary>
-    /// 通信数据接收解析器
+    /// 泛型占位用编解码器：Redis 的报文编解码由 Core\RedisCoder 负责，
+    /// 本类型只用于满足 BaseContext&lt;TCoder&gt; 的泛型约束，调用任何方法都会抛 NotSupportedException。
     /// </summary>
     public sealed class RedisCoder : ICoder
     {
         /// <summary>
-        /// 发送编码，当前未实现并直接抛出 NotImplementedException
+        /// 发送编码，当前不支持并直接抛出 NotSupportedException
         /// </summary>
         /// <param name="protocal">待编码的协议对象</param>
         /// <param name="writer">目标缓冲区写入器</param>
         public void Encode(ISocketProtocal protocal, System.Buffers.IBufferWriter<byte> writer)
         {
-            throw new NotImplementedException();
+            throw new NotSupportedException("Redis 响应解析由 Core.RedisCoder 负责，此类型仅用于泛型约束");
         }
 
         /// <summary>
-        /// 收包处理，当前未实现并直接抛出 NotImplementedException
+        /// 收包处理，当前不支持并直接抛出 NotSupportedException
         /// </summary>
         /// <param name="data">接收到的原始字节序列</param>
         /// <param name="onHeart">心跳回调，可为 null</param>
@@ -60,7 +61,7 @@ namespace SAEA.RedisSocket.Base.Net
         /// <returns>解码后的帧集合，当前实现不返回</returns>
         public SAEA.Sockets.Base.DecodedFrames Decode(System.Buffers.ReadOnlySequence<byte> data, Action<DateTime> onHeart = null, Action<ReadOnlyMemory<byte>> onFile = null)
         {
-            throw new NotImplementedException();
+            throw new NotSupportedException("Redis 响应解析由 Core.RedisCoder 负责，此类型仅用于泛型约束");
         }
 
         /// <summary>
