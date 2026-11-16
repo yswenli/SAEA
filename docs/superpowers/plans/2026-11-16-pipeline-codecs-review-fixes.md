@@ -6,10 +6,10 @@
 
 ## 1. 结论摘要
 
-- 12 条判据中 10 条满足、2 条部分不满足（判据 1 与判据 12），无阻断项。
+- 修复前 12 条判据中 9 条满足、3 条部分不满足（原始字节出站口径、热路径冗余复制、服务端配置跨连接共享）；本次修复后为 10 条满足、2 条部分不满足（仅剩判据 1 的设计允许路径与判据 12 的必要复制），无阻断项。
 - 审查另出 1 项应修与 6 项建议；本次修掉 4 项（1 应修 + 3 建议），其余进第 7 节。
 - 9 个受影响库 Release 重构建 `errors=0`；10 个测试工程合计 518 通过 / 0 失败 / 0 跳过。
-- 已提交 4 个提交，未合入 master、未推送。
+- 分支上 5 个提交（本次修复 4 个 + 本记录 1 个），未合入 master、未推送。
 
 ## 2. Pipeline / Codecs 采用现状
 
@@ -54,6 +54,8 @@ DNS、Socket5、RedisSocket、Audio.Net 四个目录下目前没有测试工程�
 
 ## 3. 12 条判据裁定
 
+下表是修复前的裁定。判据 7 由本次修复转为满足；判据 1 与判据 12 各留一处，前者是设计允许的原始字节路径，后者是必要的整帧复制。
+
 | # | 判据 | 裁定 | 证据 |
 |---|---|---|---|
 | 1 | 出站字节只经 `RawFrame` 出链，响应编码归编码器（§5.6） | 部分不满足 | `HttpResponse.WriteRaw` → `HttpConnectionSession.SendRaw` 直接 `new RawFrame(data, null)`，不经 `HttpResponseEncoder`。设计 §5.6 把这种写法列为允许的第二类原始字节路径，属口径偏差而非缺陷 |
@@ -62,11 +64,11 @@ DNS、Socket5、RedisSocket、Audio.Net 四个目录下目前没有测试工程�
 | 4 | 链尾兜底为 `ExceptionTerminalHandler` 且有启动期校验（§5.7） | 满足 | 15 条装配路径末尾都 `AddLast(new ExceptionTerminalHandler())`；`RequireTerminalHandler` 原为全包默认 `false`，本次在 13 个文件 15 处显式开启 |
 | 5 | 解码所有权：基类不释放输入帧，输出默认自带内存，跨回调持有需 `Retain`（§5.1） | 满足 | `ByteToMessageDecoder.ChannelReadAsync` 只做解码与派发，输入帧由执行器按队列条目释放 |
 | 6 | 半包留在泵里，解码器不自行累加（§5.1、§六） | 满足 | 各 `*Decoder` 只接 `PooledMessage` 完整帧，残缺字节留在执行器的每连接缓冲 |
-| 7 | 每连接一个可切换分帧器与切换屏障（§5.3） | 满足 | Http 的 `SwitchableSplitter`、WebSocket 的 `WsHandshakeSplitter` + `WsFrameSplitter` 都按连接新建；服务端共享的无状态配置另记应修，见 4.1 |
+| 7 | 每连接一个可切换分帧器与切换屏障（§5.3） | 部分不满足 | 可切换分帧器（Http 的 `SwitchableSplitter`、WebSocket 的 `WsHandshakeSplitter` + `WsFrameSplitter`）确为每连接新建，满足；5 个服务端的 `ChannelPipelineOptions` 与无状态分帧器实例跨连接共享，违反 §5.3，本次已修（见 4.1） |
 | 8 | 有状态分帧器在连接结束清空 | 满足 | `FrameSplitterHandler.Dispose` → `_splitter.Reset()` |
 | 9 | 协议错误上链而非就地吞掉（§八.F） | 满足 | 解码器抛 `FrameProtocolException`，由链尾 `ExceptionTerminalHandler` 收口 |
 | 10 | 原始字节出站与普通写共用关闭 / 写窗口状态机（§5.8） | 满足 | `SendRaw` 与普通响应写（`WriteBytes`）都汇到 `WriteBytesAsync` 的同一条 `ChannelPipeline.WriteAsync(new RawFrame(...))`，共用 `_pendingWrites` 计数与排空等待 |
-| 11 | 帧上限、读缓冲、最大缓存在每连接配置中显式给出（§4.6） | 满足 | 各 `CreateOptions()` 显式设置 `MaxFrameLength`、`MaxBufferedBytes`、`ReadBufferSize`，解码器再校验长度字段 |
+| 11 | 帧上限、读缓冲、最大缓存在每连接配置中显式给出（§4.6） | 满足 | 各 `CreateOptions()` 显式设置分帧器的 `MaxFrameLength` 与 `MaxBufferedBytes`、`ReadBufferSize`，解码器再校验长度字段 |
 | 12 | 热路径不做整帧冗余复制（§5.1 所有权） | 部分不满足 | `HttpRawFrameSinkHandler` 整帧 `ToArray()`（必要：帧要跨回调交给业务）；`WSCoder` 接收路径再整段复制一次（多余，本次已修） |
 
 ## 4. 本次修复
@@ -85,7 +87,7 @@ DNS、Socket5、RedisSocket、Audio.Net 四个目录下目前没有测试工程�
 - **问题：** MVC 的 `MVCWebSocketConnection.OnData` 拿到的是 `byte[]`，却要装进 `ReadOnlySequence<byte>` 调序列重载，序列重载再把整段追加进内部缓冲，每消息多一次整段复制。
 - **改法：** 新增 `Decode(byte[])`；公共解码循环抽成 `DecodeBuffered()`，异常清理语义不变。序列重载单段且底层是数组时走 `MemoryMarshal.TryGetArray` 直接追加 `ArraySegment`，多段才逐段追加。`OnData` 改调 `_coder.Decode(data)`。
 - **涉及文件：** `Src\SAEA.WebSocket\Model\WSCoder.cs`、`Src\SAEA.MVC\MVCWebSocketConnection.cs`、`Src\SAEA.WebSocket.Tests\Tests\WSCoderTests.cs`。
-- **验证：** 新增 `WSCoder_DecodeByteArray_MatchesSequenceInput`（同字节两种入口的解码结果、剩余字节、关闭状态一致）与 `WSCoder_SplitFrameAcrossCalls_EmitsAfterCompletion`（同一帧拆两次喂入，第一次不产出、第二次补齐后产出且内容正确）；`SAEA.WebSocket.Tests` 14 通过。
+- **验证：** 新增 `WSCoder_DecodeByteArray_MatchesSequenceInput`（断言两种入口解出的帧数一致、逐帧 `Type` 一致、`Content` 逐字节一致）与 `WSCoder_SplitFrameAcrossCalls_EmitsAfterCompletion`（断言半帧时不产出、补齐后产出 1 帧且 `Type` 与帧体正确）；`SAEA.WebSocket.Tests` 14 通过。
 
 ### 4.3 迁移包显式开启 `RequireTerminalHandler`
 
@@ -163,18 +165,18 @@ DNS、Socket5、RedisSocket、Audio.Net 四个目录下目前没有测试工程�
 ## 8. 复核步骤
 
 ```powershell
-# 1. 从 master 建 worktree（分支名按需替换）
-git worktree add C:\Users\yswen\AppData\Local\Temp\opencode\review-pipeline-fix -b review/pipeline-codecs master
+# 1. 基于修复分支建 worktree（路径按需替换；若该分支已被其它 worktree 占用，先移除旧 worktree 或改用 --detach）
+git worktree add <你的临时目录>\pipeline-codecs-verify fix/pipeline-codecs-review
 
 # 2. 逐项目重构建（不要构建整个 sln）
 foreach ($p in 'SAEA.FTP','SAEA.FileSocket','SAEA.Http','SAEA.MVC','SAEA.WebSocket','SAEA.QueueSocket','SAEA.MessageSocket','SAEA.RPC','SAEA.RedisSocket') {
     dotnet build "Src\$p\$p.csproj" -c Release -t:Rebuild
 }
 
-# 3. 逐个跑测试工程（四个 MSTest 不在 sln 内，必须单独指定）
+# 3. 逐个跑测试工程（测试工程都不在 sln 内，必须逐个指定工程路径）
 foreach ($t in 'SAEA.Common.Tests','SAEA.Sockets.Pipeline.Tests','SAEA.WebSocket.Tests','SAEA.FTP.Tests','SAEA.FileSocket.Tests','SAEA.Http.Tests','SAEA.MVC.Tests','SAEA.QueueSocket.Tests','SAEA.MessageSocket.Tests','SAEA.RPC.Tests') {
     dotnet test "Src\$t\$t.csproj" -c Release
 }
 ```
 
-提交：`41558446` 之后 4 个提交 —— `a1fb98c0`（每连接新建与链尾校验）、`cb72d03e`（`WSCoder` 重载与用例）、`8e2ae4b5`（删除 `FTPCoder`、`RedisCoder` 收口）、`ed42d354`（注释依据修正）。
+提交：`41558446` 之后分支上共 5 个提交（本次修复 4 个 + 本记录 1 个）—— `a1fb98c0`（每连接新建与链尾校验）、`cb72d03e`（`WSCoder` 重载与用例）、`8e2ae4b5`（删除 `FTPCoder`、`RedisCoder` 收口）、`ed42d354`（注释依据修正）、`6dc21c52`（本记录）。
