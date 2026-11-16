@@ -52,7 +52,7 @@ Select the appropriate component based on your requirements:
 |------------|----------------------|-----------------|
 | Web API Development | **SAEA.MVC** | `dotnet add package SAEA.MVC` |
 | WebSocket Real-time Communication | **SAEA.WebSocket** | `dotnet add package SAEA.WebSocket` |
-| P2P Direct Communication | **SAEA.P2P** | `dotnet add package SAEA.P2P` |
+| P2P Punching and Relay | **SAEA.P2P** | `dotnet add package SAEA.P2P` |
 | Redis Cache Operations | **SAEA.RedisSocket** | `dotnet add package SAEA.RedisSocket` |
 | Microservice RPC | **SAEA.RPC** | `dotnet add package SAEA.RPC` |
 | IoT Device Communication | **SAEA.MQTT** | `dotnet add package SAEA.MQTT` |
@@ -91,7 +91,7 @@ Certificate generation and format conversion: `Src/SAEA.Sockets.SslTlsTool` (inc
 
 | Component | Function | NuGet | 中文文档 | English Docs | Use Cases |
 |-----------|----------|-------|---------|--------------|-----------|
-| 🔗 **SAEA.P2P** | P2P direct communication | [NuGet](https://www.nuget.org/packages/SAEA.P2P) | [中文](Src/SAEA.P2P/README.md) | [English](Src/SAEA.P2P/README.en.md) | NAT traversal, LAN discovery, instant messaging, game battles |
+| 🔗 **SAEA.P2P** | ICE-style punching + built-in STUN/TURN relay component | [NuGet](https://www.nuget.org/packages/SAEA.P2P) | [中文](Src/SAEA.P2P/README.md) | [English](Src/SAEA.P2P/README.en.md) | Direct connection through NAT, TURN relay fallback, LAN discovery, instant messaging, game battles |
 
 ### Data & Storage Components
 
@@ -275,7 +275,7 @@ Under the same send/receive benchmark, the span-based receive path of `SAEA.Sock
 - 💬 Instant messaging (private chat, group chat, customer service systems)
 - 🔗 Microservice communication (RPC remote calls)
 - 📁 Large file transfer (resumable upload, high-speed transfer)
-- 🌐 P2P direct communication (NAT traversal, LAN discovery)
+- 🌐 P2P punching and relay (ICE-style punching, STUN/TURN relay, LAN discovery)
 
 ### Q2: How to choose the right component?
 
@@ -286,7 +286,7 @@ Your Needs                        Recommended Component
 ─────────────────────────────────────────────
 Web API Development         →  SAEA.MVC
 Real-time Chat/Push         →  SAEA.WebSocket
-P2P Direct Communication    →  SAEA.P2P
+P2P Punching and Relay      →  SAEA.P2P
 IoT Device Communication    →  SAEA.MQTT
 Redis Cache Operations      →  SAEA.RedisSocket
 Microservice RPC            →  SAEA.RPC
@@ -335,7 +335,7 @@ Each component has detailed usage examples and comments.
 - `SAEA.MVCTest` - MVC Web application examples
 - `SAEA.RedisTest` - Redis operation examples
 - `SAEA.RPCTest` - RPC call examples
-- `SAEA.P2PTest` - P2P NAT traversal examples
+- `SAEA.P2PTest` - STUN/TURN server host + P2P client self-test harness
 - `SAEA.Sockets.SslTlsTool` - Development SSL/TLS certificate generator and format converter (includes openssl-compatible subcommands)
 
 **Unit Test Projects**: `Src/*.Tests/` contains 12 MSTest projects, none of which are included in `Src/SAEA.Sockets.sln`, so run them individually as needed; they target `net10.0`. Example command: `dotnet test Src/SAEA.Common.Tests/SAEA.Common.Tests.csproj -c Release`

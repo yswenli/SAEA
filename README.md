@@ -52,7 +52,7 @@ server.Start();
 |----------|----------|----------|
 | Web API 开发 | **SAEA.MVC** | `dotnet add package SAEA.MVC` |
 | WebSocket 实时通信 | **SAEA.WebSocket** | `dotnet add package SAEA.WebSocket` |
-| P2P 直连通信 | **SAEA.P2P** | `dotnet add package SAEA.P2P` |
+| P2P 打洞与中继通信 | **SAEA.P2P** | `dotnet add package SAEA.P2P` |
 | Redis 缓存操作 | **SAEA.RedisSocket** | `dotnet add package SAEA.RedisSocket` |
 | 微服务 RPC | **SAEA.RPC** | `dotnet add package SAEA.RPC` |
 | IoT 设备通信 | **SAEA.MQTT** | `dotnet add package SAEA.MQTT` |
@@ -91,7 +91,7 @@ server.Start();
 
 | 组件 | 功能 | NuGet | 中文文档 | 英文文档 | 适用场景 |
 |------|------|-------|---------|---------|----------|
-| 🔗 **SAEA.P2P** | P2P 直连通信组件 | [NuGet](https://www.nuget.org/packages/SAEA.P2P) | [中文](Src/SAEA.P2P/README.md) | [English](Src/SAEA.P2P/README.en.md) | NAT 穿透、局域网发现、即时通讯、游戏对战 |
+| 🔗 **SAEA.P2P** | ICE 式打洞 + 自研 STUN/TURN 中继组件 | [NuGet](https://www.nuget.org/packages/SAEA.P2P) | [中文](Src/SAEA.P2P/README.md) | [English](Src/SAEA.P2P/README.en.md) | NAT 穿越直连、TURN 中继回退、局域网发现、即时通讯、游戏对战 |
 
 ### 数据与存储组件
 
@@ -275,7 +275,7 @@ server.Start();
 - 💬 即时通讯（私聊、群聊、客服系统）
 - 🔗 微服务通信（RPC 远程调用）
 - 📁 大文件传输（断点续传、高速传输）
-- 🌐 P2P 直连通信（NAT 穿透、局域网发现）
+- 🌐 P2P 打洞与中继通信（ICE 式打洞、STUN/TURN 中继、局域网发现）
 
 ### Q2: 如何选择合适的组件？
 
@@ -286,7 +286,7 @@ server.Start();
 ─────────────────────────────────────
 Web API 开发              →  SAEA.MVC
 实时聊天/推送             →  SAEA.WebSocket
-P2P 直连通信              →  SAEA.P2P
+P2P 打洞与中继通信        →  SAEA.P2P
 IoT 设备通信              →  SAEA.MQTT
 Redis 缓存操作            →  SAEA.RedisSocket
 微服务 RPC                →  SAEA.RPC
@@ -335,7 +335,7 @@ dotnet add package SAEA.Sockets --version 26.9.21.1
 - `SAEA.MVCTest` - MVC Web 应用示例
 - `SAEA.RedisTest` - Redis 操作示例
 - `SAEA.RPCTest` - RPC 调用示例
-- `SAEA.P2PTest` - P2P NAT 穿透示例
+- `SAEA.P2PTest` - STUN/TURN 服务端宿主 + P2P 客户端自测程序
 - `SAEA.Sockets.SslTlsTool` - 开发用 SSL/TLS 证书生成与格式转换工具（支持 openssl 兼容子命令）
 
 **单元测试工程**：`Src/*.Tests/` 下有 12 个 MSTest 工程，均不在 `Src/SAEA.Sockets.sln` 中，需按需单独运行，目标框架为 `net10.0`。示例命令：`dotnet test Src/SAEA.Common.Tests/SAEA.Common.Tests.csproj -c Release`
