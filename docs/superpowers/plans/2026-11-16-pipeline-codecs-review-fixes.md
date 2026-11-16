@@ -187,5 +187,6 @@ foreach ($t in 'SAEA.Common.Tests','SAEA.Sockets.Pipeline.Tests','SAEA.WebSocket
 - `ed42d354` 注释依据修正。
 - `6dc21c52` 审查与修复记录。
 - `40906c1b` 判据口径与复核命令勘误。
+- `5bc13769` 提交清单不再写数量并补齐 SHA。
 
-本次勘误提交（消除提交数硬编码）另计一个。
+以上为分支上的全部提交；此后如有追加，以 `git log --oneline 41558446..HEAD` 为准。
