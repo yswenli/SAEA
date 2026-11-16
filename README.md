@@ -36,7 +36,7 @@ dotnet add package SAEA.Sockets
 ```csharp
 // 创建 TCP 服务器（仅需5行代码）
 var server = SocketFactory.CreateServerSocket(
-    SocketOptionBuilder.Instance.SetSocket(SAEASocketType.Tcp).UseIocp().SetPort(39654).Build()
+    SocketOptionBuilder.Instance.SetSocket(SAEASocketType.Tcp).UsePacket().SetPort(39654).Build()
 );
 server.OnServerReceiveSpan += (userToken, data) => server.Send(userToken.ID, data);
 server.Start();
@@ -113,6 +113,7 @@ server.Start();
 | 组件 | 功能 | NuGet | 中文文档 | 英文文档 | 适用场景 |
 |------|------|-------|---------|---------|----------|
 | 🌍 **SAEA.DNS** | DNS 服务器/客户端 | [NuGet](https://www.nuget.org/packages/SAEA.DNS) | [中文](Src/SAEA.DNS/README.md) | [English](Src/SAEA.DNS/README.en.md) | DNS 代理、域名解析 |
+| 🔀 **SAEA.Socket5** | SOCKS5 代理服务器/客户端 | [NuGet](https://www.nuget.org/packages/SAEA.Socket5) | [中文](Src/SAEA.Socket5/README.md) | [English](Src/SAEA.Socket5/README.en.md) | 正向代理、内网穿透、UDP 转发 |
 
 ---
 
@@ -215,10 +216,10 @@ server.Start();
 
 | 实现 | 选择方式 | 适用场景 |
 |------|----------|----------|
-| `SocketAsyncEventArgs` 模式 | `.UseIocp()` | 高吞吐二进制协议、自定义帧、UDP（UDP 仅支持此模式） |
+| `SocketAsyncEventArgs` 模式 | `.UsePacket()` | 高吞吐二进制协议、自定义帧、UDP（UDP 仅支持此模式） |
 | Pipelines 流模式 | `.UseStream()` | 需要 SSL/TLS，或希望用 `GetStream()` 流式读写 |
 
-两种实现都跨平台，底层 IO 机制由 .NET 运行时选择（Windows IOCP / Linux epoll / macOS kqueue）。`UseIocp()` 是历史命名，不代表 Windows 限定。
+两种实现都跨平台，底层 IO 机制由 .NET 运行时选择（Windows IOCP / Linux epoll / macOS kqueue）。`UsePacket()` 是 `SocketAsyncEventArgs` 收发实现的入口，不表示 Windows 限定。
 
 ### 上层组件的处理器链
 
@@ -238,6 +239,13 @@ server.Start();
 处理器继承 `InboundHandlerAdapter`，在 `ChannelReadAsync` 里消费解码后的消息，在 `ChannelInactiveAsync` 里处理断开，在 `ChannelExceptionCaughtAsync` 里观察链上异常；不消费的消息会被链尾回收。传输层异常仍统一汇入 `ExceptionCollector`。
 
 装配回调必须在 `Start()` 或首次 `Connect()` 之前赋值，链启动后再赋值会抛 `InvalidOperationException`。RPC 消费者、`QueueSocket` 的 `Producer` 等构造期即建链的入口只能通过构造参数注入。
+
+### 链路装配契约与编解码
+
+- **启动期校验**：上层组件均开启链尾校验，`Start()` 时要求链上最后一个入站节点是 `ExceptionTerminalHandler`、出站前缀最右侧恰好有一个 `OutboundSerializingHandler`；不满足即启动失败并收口，不会带病运行。
+- **配置按连接新建**：每条连接独立创建通道配置与分帧器实例，不跨连接复用；分帧器一旦引入连接级状态（如协议切换），共享实例会让多连接互相干扰。
+- **原始字节出站**：需要绕过编码器直接写字节时走 `WriteAsync(new RawFrame(...))`，`SAEA.Http` 的 `SendRaw` 与 MVC 的 WebSocket 发送都走这条路径。
+- **编解码入口**：MVC 侧 WebSocket 接收使用 `WSCoder.Decode(byte[])` 重载，避免按消息整段复制；`ICoder.Decode(ReadOnlySequence<byte>)` 保留给其他调用方。`SAEA.FTP` 的 `FTPCoder` 占位实现已删除，`SAEA.RedisSocket` 的 `RedisCoder` 仅作泛型约束，`Encode`/`Decode` 调用即抛 `NotSupportedException`。
 
 ### SAEA.RPC vs HTTP RPC
 
@@ -261,6 +269,23 @@ server.Start();
 > 数据来自 `SAEA.P2PTest --bench-iocp`（4KB 帧，单机回环，数值随硬件波动）。
 
 > 本 README 不提供跨框架性能对比数字（与 TouchSocket、DotNetty 等的差异请以自己场景的压测为准）。
+
+### 整栈实测（HTTP / WebSocket）
+
+`SAEA.MVC` 装配在 `SAEA.Http` 与 `SAEA.Sockets` 之上的整栈压测，单机同进程、单次快照：
+
+| 场景 | 结果 |
+|---|---:|
+| HTTP 串行（5000 次，短连接） | 943 RPS |
+| HTTP 并发 16（10s） | 4140 RPS |
+| HTTP 并发 64（10s） | 3529 RPS |
+| HTTPS 串行（2000 次，短连接） | 220 RPS |
+| 静态 100KB 串行（命中内存缓存） | 529 RPS / 51.7 MiB/s |
+| WebSocket 单连接回显 | 7078 条/秒 |
+
+> 口径：客户端与服务端同机同进程、走 IPv4 回环；普通响应固定 `Connection: close`，每个请求都含 TCP 建连与断开，HTTPS 再叠加一次 TLS 握手，RPS 受建连成本主导；静态文件命中内存缓存，不代表首次磁盘读取与大文件路径。单次快照，同一探针跨轮波动 20%–35%（另一次复跑为 HTTP 串行 749 RPS、HTTPS 串行 183 RPS、静态串行 515 RPS、WebSocket 单连接 5782 条/秒），只能做同一轮内的相对比较。
+
+> 完整数据、失败率与资源占用见 [MVC / TLS 验收记录](docs/superpowers/plans/2026-11-13-mvc-tls-acceptance.md)；组件级口径见 [SAEA.Http](Src/SAEA.Http/README.md) 与 [SAEA.MVC](Src/SAEA.MVC/README.md) 的实测小节。`SAEA.Http` 作为独立服务器未单独采集基准。
 
 ---
 
@@ -302,7 +327,7 @@ Redis 缓存操作            →  SAEA.RedisSocket
 - ✅ Linux（底层 epoll）
 - ✅ macOS（底层 kqueue）
 
-底层机制由 .NET 运行时自动选择，代码无需条件编译或切换实现。`UseIocp()` 是 `SocketAsyncEventArgs` 收发实现的历史命名，不表示 Windows 限定。
+底层机制由 .NET 运行时自动选择，代码无需条件编译或切换实现。`UsePacket()` 是 `SocketAsyncEventArgs` 收发实现的入口，不表示 Windows 限定。
 
 ### Q4: NuGet 如何安装？
 
@@ -330,10 +355,10 @@ dotnet add package SAEA.Sockets --version 26.9.21.1
 ### Q6: 是否有示例项目？
 
 **A**: Src 中包含多个测试项目，展示实际使用场景：
-- `SAEA.SocketsTest` - Socket 使用示例
+- `SAEA.Sockets.TcpTest` / `SAEA.Sockets.UdpTest` / `SAEA.Sockets.PipelineTest` - 三种收发模式的 Socket 示例
 - `SAEA.WebSocketTest` - WebSocket 示例
 - `SAEA.MVCTest` - MVC Web 应用示例
-- `SAEA.RedisTest` - Redis 操作示例
+- `SAEA.RedisSocketTest` - Redis 操作示例
 - `SAEA.RPCTest` - RPC 调用示例
 - `SAEA.P2PTest` - STUN/TURN 服务端宿主 + P2P 客户端自测程序
 - `SAEA.Sockets.SslTlsTool` - 开发用 SSL/TLS 证书生成与格式转换工具（支持 openssl 兼容子命令）

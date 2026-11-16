@@ -36,7 +36,7 @@ dotnet add package SAEA.Sockets
 ```csharp
 // Create a TCP server (only 5 lines of code)
 var server = SocketFactory.CreateServerSocket(
-    SocketOptionBuilder.Instance.SetSocket(SAEASocketType.Tcp).UseIocp().SetPort(39654).Build()
+    SocketOptionBuilder.Instance.SetSocket(SAEASocketType.Tcp).UsePacket().SetPort(39654).Build()
 );
 server.OnServerReceiveSpan += (userToken, data) => server.Send(userToken.ID, data);
 server.Start();
@@ -113,6 +113,7 @@ Certificate generation and format conversion: `Src/SAEA.Sockets.SslTlsTool` (inc
 | Component | Function | NuGet | 中文文档 | English Docs | Use Cases |
 |-----------|----------|-------|---------|--------------|-----------|
 | 🌍 **SAEA.DNS** | DNS server/client | [NuGet](https://www.nuget.org/packages/SAEA.DNS) | [中文](Src/SAEA.DNS/README.md) | [English](Src/SAEA.DNS/README.en.md) | DNS proxy, domain resolution |
+| 🔀 **SAEA.Socket5** | SOCKS5 proxy server/client | [NuGet](https://www.nuget.org/packages/SAEA.Socket5) | [中文](Src/SAEA.Socket5/README.md) | [English](Src/SAEA.Socket5/README.en.md) | Forward proxy, intranet tunneling, UDP forwarding |
 
 ---
 
@@ -215,10 +216,10 @@ Client Request Flow:
 
 | Transport | How to select | Best for |
 |-----------|---------------|----------|
-| `SocketAsyncEventArgs` mode | `.UseIocp()` | High-throughput binary protocols, custom framing, UDP (UDP only works in this mode) |
+| `SocketAsyncEventArgs` mode | `.UsePacket()` | High-throughput binary protocols, custom framing, UDP (UDP only works in this mode) |
 | Pipelines stream mode | `.UseStream()` | SSL/TLS, or stream-style reads/writes through `GetStream()` |
 
-Both transports are cross-platform; the underlying IO mechanism is chosen by the .NET runtime (IOCP on Windows, epoll on Linux, kqueue on macOS). `UseIocp()` is a historical name and does not imply a Windows requirement.
+Both transports are cross-platform; the underlying IO mechanism is chosen by the .NET runtime (IOCP on Windows, epoll on Linux, kqueue on macOS). `UsePacket()` is the entry point for the `SocketAsyncEventArgs` transport and does not imply a Windows requirement.
 
 ### Handler Pipelines in the Upper-Layer Components
 
@@ -238,6 +239,13 @@ server.Start();
 Handlers derive from `InboundHandlerAdapter`: consume decoded messages in `ChannelReadAsync`, react to disconnects in `ChannelInactiveAsync`, and observe pipeline errors in `ChannelExceptionCaughtAsync`. Messages left unconsumed are recycled at the pipeline tail, while transport errors still flow into `ExceptionCollector`.
 
 Assign the callback before `Start()` or the first `Connect()`; assigning it after the chain starts throws `InvalidOperationException`. Entry points that connect in their constructors, such as the RPC consumer and `QueueSocket` `Producer`, only accept the callback through their constructor.
+
+### Pipeline assembly contract and codecs
+
+- **Startup validation**: upper-layer components enable terminal-handler validation; `Start()` requires the last inbound node to be an `ExceptionTerminalHandler` and exactly one `OutboundSerializingHandler` at the rightmost end of the outbound prefix. Otherwise startup fails and the channel shuts down instead of running in a broken state.
+- **Per-connection configuration**: every connection creates its own pipeline options and splitter instance, never shared across connections. Once a splitter holds connection-level state (for example protocol switching), a shared instance would make connections interfere with each other.
+- **Raw-byte outbound**: to bypass the encoder and write bytes directly, use `WriteAsync(new RawFrame(...))`; both `SendRaw` in `SAEA.Http` and WebSocket sends in MVC take this path.
+- **Codec entry points**: WebSocket receive on the MVC side uses the `WSCoder.Decode(byte[])` overload to avoid copying the whole message; `ICoder.Decode(ReadOnlySequence<byte>)` remains for other callers. The placeholder `FTPCoder` in `SAEA.FTP` has been removed; `RedisCoder` in `SAEA.RedisSocket` only serves as a generic constraint and throws `NotSupportedException` from `Encode`/`Decode`.
 
 ### SAEA.RPC vs HTTP RPC
 
@@ -261,6 +269,23 @@ Under the same send/receive benchmark, the span-based receive path of `SAEA.Sock
 > Data from `SAEA.P2PTest --bench-iocp` (4KB frames, single-machine loopback; numbers vary with hardware).
 
 > This README does not publish cross-framework performance numbers (for comparisons with TouchSocket, DotNetty, etc., benchmark your own workload).
+
+### End-to-end measurements (HTTP / WebSocket)
+
+Load test of `SAEA.MVC` assembled on top of `SAEA.Http` and `SAEA.Sockets`: single machine, same process, one snapshot.
+
+| Scenario | Result |
+|---|---:|
+| HTTP serial (5,000 requests, short connections) | 943 RPS |
+| HTTP 16 concurrent (10 s) | 4,140 RPS |
+| HTTP 64 concurrent (10 s) | 3,529 RPS |
+| HTTPS serial (2,000 requests, short connections) | 220 RPS |
+| Static 100 KB serial (memory cache hit) | 529 RPS / 51.7 MiB/s |
+| WebSocket single-connection echo | 7,078 msg/s |
+
+> Scope: client and server on the same machine in the same process over IPv4 loopback; ordinary responses are fixed to `Connection: close`, so every request pays a TCP connect and teardown and HTTPS adds a TLS handshake — RPS is dominated by connection setup; static files are served from the in-memory cache, so this is not the first-read or large-file path. Single-run snapshot: the same probe varies 20%–35% between runs (another run measured 749 RPS HTTP serial, 183 RPS HTTPS serial, 515 RPS static serial and 5,782 msg/s WebSocket single connection), so it is only valid for relative comparison within one run.
+
+> Full data, failure rates and resource usage: [MVC / TLS acceptance record](docs/superpowers/plans/2026-11-13-mvc-tls-acceptance.md); per-component scope: the measured sections in [SAEA.Http](Src/SAEA.Http/README.md) and [SAEA.MVC](Src/SAEA.MVC/README.md). `SAEA.Http` as a standalone server has not been benchmarked separately.
 
 ---
 
@@ -302,7 +327,7 @@ Custom Protocol             →  SAEA.Sockets
 - ✅ Linux (epoll underneath)
 - ✅ macOS (kqueue underneath)
 
-The mechanism is selected automatically by the .NET runtime; no conditional compilation or implementation switching is needed. `UseIocp()` is a historical name for the `SocketAsyncEventArgs` transport and does not imply a Windows requirement.
+The mechanism is selected automatically by the .NET runtime; no conditional compilation or implementation switching is needed. `UsePacket()` is the entry point for the `SocketAsyncEventArgs` transport and does not imply a Windows requirement.
 
 ### Q4: How to install via NuGet?
 
@@ -330,10 +355,10 @@ Each component has detailed usage examples and comments.
 ### Q6: Are there sample projects?
 
 **A**: The Src directory contains multiple test projects demonstrating real-world usage scenarios:
-- `SAEA.SocketsTest` - Socket usage examples
+- `SAEA.Sockets.TcpTest` / `SAEA.Sockets.UdpTest` / `SAEA.Sockets.PipelineTest` - Socket examples for the three transports
 - `SAEA.WebSocketTest` - WebSocket examples
 - `SAEA.MVCTest` - MVC Web application examples
-- `SAEA.RedisTest` - Redis operation examples
+- `SAEA.RedisSocketTest` - Redis operations example
 - `SAEA.RPCTest` - RPC call examples
 - `SAEA.P2PTest` - STUN/TURN server host + P2P client self-test harness
 - `SAEA.Sockets.SslTlsTool` - Development SSL/TLS certificate generator and format converter (includes openssl-compatible subcommands)
